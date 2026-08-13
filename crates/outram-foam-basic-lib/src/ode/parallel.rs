@@ -107,6 +107,31 @@
 //! serial against `rayon` pools of 1, 2, 4 and 8 workers on batches built to
 //! have wildly uneven per-lane cost.
 //!
+//! For scale, a 4 096-lane deliberately-imbalanced ensemble (half the lanes
+//! decaying at `k` near 1, half at `k` near 60, so accepted step counts run from
+//! about 10 to 126 per lane, 278 318 in total) under `Rkf45`, measured
+//! 2026-08-13 on 4 logical cores by the `#[ignore]`d
+//! `ensemble_thread_scaling_benchmark`, best of 7 samples, with a second
+//! independent run alongside:
+//!
+//! | Worker threads | Time | Speed-up | (repeat) | Bitwise vs serial |
+//! |---|---|---|---|---|
+//! | *serial reference* | 35808.33 us | 1.00x | 1.00x | — |
+//! | 1 | 35839.25 us | 1.00x | 1.00x | identical |
+//! | 2 | 18283.82 us | 1.96x | 1.92x | identical |
+//! | 4 | 9276.65 us | 3.86x | 3.09x | identical |
+//! | 8 | 9128.96 us | 3.92x | 3.05x | identical |
+//!
+//! The "identical" column is the determinism claim above measured rather than
+//! argued, and it is asserted by the benchmark itself, not merely printed. Going
+//! through `rayon` with a single worker costs essentially nothing here (1.00x),
+//! unlike the batched root finder where it costs about 6% — the per-lane work is
+//! large enough that the iterator machinery disappears into it. Eight workers on
+//! four cores buy nothing further, the expected signature of a compute-bound
+//! kernel that already saturates its cores. **This is one machine, one ensemble
+//! and two runs; it is not a scaling study**, and nothing here has been measured
+//! on Android hardware or on a many-core server.
+//!
 //! # Load imbalance — why there is no hand-rolled partition
 //!
 //! An adaptive stepper takes a different number of sub-steps in every lane, and
@@ -284,58 +309,84 @@ mod tests;
 ///
 /// *Methodology.* Measured 2026-08-13 on this workspace's development machine,
 /// `std::thread::available_parallelism()` = **4**, release build, `--features
-/// parallel`, `rayon`'s global pool, otherwise-idle machine. Ensembles of `n`
-/// independent one-equation decay problems `dy/dx = -k_i y`, `y(0) = 1`,
-/// integrated from `x = 0` to `x = 1` by [`Rkf45`](crate::ode::Rkf45) with
-/// `abs_tol = 1e-10`, `rel_tol = 1e-8`, initial step `0.1`. Half the lanes are
-/// given `k_i` near 1 (a handful of steps) and half `k_i` near 60 (many more),
-/// so the ensemble is deliberately imbalanced. Best of 7 samples per point,
-/// reported as wall clock for one whole ensemble. Produced by the `#[ignore]`d
-/// `ensemble_crossover_benchmark` test in `parallel/tests.rs` and transcribed
-/// from its printed output. The `(repeat)` column is the speed-up from a
-/// second, independent run of the same benchmark, carried alongside rather than
-/// averaged away because the parallel column is far noisier than the serial one.
+/// parallel`, `rayon`'s global pool, machine otherwise idle (see the
+/// *Contention* note below, which is not a footnote — it changes the answer).
+/// Ensembles of `n` independent one-equation decay problems `dy/dx = -k_i y`,
+/// `y(0) = 1`, integrated from `x = 0` to `x = 1` by
+/// [`Rkf45`](crate::ode::Rkf45) with `abs_tol = 1e-10`, `rel_tol = 1e-8`,
+/// initial step `0.1`. Half the lanes are given `k_i` in `[0.5, 1.5)` and half
+/// in `[50, 70)`, so per-lane step counts differ by more than an order of
+/// magnitude and the ensemble is deliberately imbalanced. Every lane averages
+/// **68.0 accepted steps** and about **8.6 us** of serial work. Best of 7
+/// samples per point, wall clock for one whole ensemble. Produced by the
+/// `#[ignore]`d `ensemble_crossover_benchmark` test in `parallel/tests.rs` and
+/// transcribed from its printed output. Three independent runs are carried
+/// side by side rather than averaged, because the parallel column is far
+/// noisier than the serial one and the spread is the finding.
 ///
-/// | Lanes | serial | CpuMulti | speed-up | (repeat) |
+/// | Lanes | serial (run A) | speed-up A | speed-up B | speed-up C |
 /// |---|---|---|---|---|
-/// | 8 | 22.02 us | 55.44 us | 0.40x | 0.36x |
-/// | 16 | 43.30 us | 66.20 us | 0.65x | 0.66x |
-/// | 32 | 86.94 us | 82.02 us | 1.06x | 1.19x |
-/// | 64 | 173.09 us | 122.03 us | 1.42x | 1.51x |
-/// | 128 | 345.90 us | 181.24 us | 1.91x | 1.89x |
-/// | 256 | 692.90 us | 265.99 us | 2.60x | 2.55x |
-/// | 1 024 | 2765.31 us | 928.82 us | 2.98x | 2.90x |
-/// | 4 096 | 11045.94 us | 3627.20 us | 3.05x | 3.02x |
-/// | 16 384 | 44189.05 us | 14776.61 us | 2.99x | 3.03x |
+/// | 8 | 66.85 us | 2.66x | 1.26x | 0.89x |
+/// | 16 | 132.56 us | 2.99x | 2.10x | 3.12x |
+/// | 32 | 267.99 us | 1.23x | 1.53x | 2.51x |
+/// | 64 | 545.25 us | 3.07x | 1.94x | 2.37x |
+/// | 128 | 1092.75 us | 3.27x | 1.96x | 3.78x |
+/// | 256 | 2212.57 us | 3.67x | 2.41x | 2.99x |
+/// | 1 024 | 8814.43 us | 3.55x | 2.94x | 3.72x |
+/// | 4 096 | 35205.42 us | 3.67x | 3.87x | 3.60x |
+/// | 16 384 | 141229.69 us | 3.86x | 3.89x | 3.74x |
 ///
-/// *Result.* **32** is the smallest measured size at which the parallel path
-/// won in both runs (1.06x, 1.19x), and it is the value this constant takes. At
-/// 16 it lost both (0.65x, 0.66x).
+/// *Result.* **16** is the smallest size at which the parallel path won in all
+/// three runs *and* kept winning at every larger size in all three, and it is
+/// the value this constant takes. At 8 lanes it lost run C (0.89x).
+///
+/// *How firm is that.* Not very, and the table says so honestly. Between 16 and
+/// 128 lanes the **sign** of the effect is consistent — the parallel path never
+/// loses — but the **magnitude** is not resolved: 32 lanes gave 1.23x and 2.51x
+/// in two runs of the same code on the same data. Anywhere in 16–128 would be
+/// defensible on this evidence. What the table does establish firmly is the
+/// plateau: from 1 024 lanes upward the speed-up sits at 3.5–3.9x on 4 logical
+/// cores, run to run, which is close to the ideal and is the expected signature
+/// of a compute-bound kernel with no cross-lane traffic.
 ///
 /// *Interpretation.* This is the lowest crossover measured anywhere in the crate
-/// so far — 8x below [`crate::math::parallel::ROOT_BATCH_MIN_PROBLEMS`] (256),
-/// 128x below the crate-wide placeholder
-/// [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`] (4 096) and 4 096x below
+/// — 16x below [`crate::math::parallel::ROOT_BATCH_MIN_PROBLEMS`] (256), 256x
+/// below the crate-wide placeholder
+/// [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`] (4 096) and 8 192x below
 /// [`crate::fields::parallel::FIELD_PARALLEL_CROSSOVER`] (131 072). The reason
-/// is structural: one lane of this ensemble is *hundreds* of adaptive steps,
-/// each of them six derivative evaluations for `Rkf45`, against a state vector
-/// of one `f64`. At roughly 2.7 us of arithmetic per lane it is by a wide
-/// margin the most compute-dense per work item of the crate's measured kernels,
-/// so `rayon`'s fixed dispatch cost is amortised almost immediately.
+/// is structural: one lane here is 68 adaptive steps, each of them six
+/// derivative evaluations, against a state vector of one `f64`. At about 8.6 us
+/// per lane it is by a wide margin the most compute-dense per work item of the
+/// crate's measured kernels, so `rayon`'s dispatch cost is amortised almost
+/// immediately. Five kernel families have now been measured in this crate and
+/// they want **16, 256, 4 096, 131 072 and 262 144** — a spread of 16 384x,
+/// which is the strongest evidence yet that no single crate-wide threshold can
+/// be right.
 ///
-/// The corollary is the same one the root finder found, and it is stronger here:
+/// The corollary is the one the root finder also found, sharpened here:
 /// **the crossover is set by the caller's problem, not by this module.** A lane
-/// that integrates a two-equation system over a tenth of the interval is an
-/// order of magnitude cheaper and will cross over correspondingly later. This
-/// number is measured for a moderately expensive lane; a caller whose lanes are
-/// very cheap should pass [`ComputeBackend::Serial`] explicitly rather than
-/// trust it.
+/// integrating a short interval, or a two-equation system to a loose tolerance,
+/// is an order of magnitude cheaper and crosses over correspondingly later. A
+/// caller whose lanes are very cheap should pass [`ComputeBackend::Serial`]
+/// explicitly rather than trust this number.
+///
+/// # Contention — this threshold assumes the cores are actually free
+///
+/// Three earlier runs of the same benchmark were taken while an unrelated
+/// `rustc` was using ~234% CPU on the same 4-core machine (load average 5.08),
+/// and they are **not** the table above. Under that load the parallel path lost
+/// at 8 lanes in every run and lost once at 64 lanes, and the plateau speed-up
+/// fell from 3.5–3.9x to 2.9–3.9x. The lesson generalises beyond this
+/// measurement: a threshold measured on an idle machine is optimistic for a
+/// process sharing cores with anything else — an MPI rank per core, a coupled
+/// solver threading elsewhere, or a CI box running several jobs. In those
+/// settings prefer an explicit [`ComputeBackend`].
 ///
 /// # Limitations
 ///
 /// One machine, four logical cores, one system family (scalar linear decay),
-/// one stepper (`Rkf45`), idle. Not measured on Android/Termux hardware, not on
-/// a many-core server, and not with [`Rosenbrock23`](crate::ode::Rosenbrock23),
+/// one stepper (`Rkf45`). Not measured on Android/Termux hardware, not on a
+/// many-core server, and not with [`Rosenbrock23`](crate::ode::Rosenbrock23),
 /// whose per-lane cost includes an LU factorisation and is therefore higher
 /// still — meaning this floor is conservative for stiff ensembles rather than
 /// wrong for them.
@@ -343,7 +394,7 @@ mod tests;
 /// # Units
 ///
 /// A count of independent initial-value problems, dimensionless.
-pub const ODE_ENSEMBLE_MIN_LANES: usize = 32;
+pub const ODE_ENSEMBLE_MIN_LANES: usize = 16;
 
 /// Interval count below which a [`ComputeBackend::CpuMulti`] request runs
 /// [`quadrature_batch`] and [`adaptive_quadrature_batch`] on the calling thread
@@ -353,44 +404,56 @@ pub const ODE_ENSEMBLE_MIN_LANES: usize = 32;
 ///
 /// *Methodology.* Same machine, build and conditions as
 /// [`ODE_ENSEMBLE_MIN_LANES`] (4 logical cores, release, `--features parallel`,
-/// idle, best of 7 samples), measured 2026-08-13. Batches of `n` independent
-/// integrals of `exp(-a_i x) sin(b_i x)` over per-lane intervals inside
+/// idle, best of 7 samples, three independent runs), measured 2026-08-13.
+/// Batches of `n` independent integrals of `exp(-a_i x) sin(b_i x)` with
+/// `a_i` in `[0.1, 3)` and `b_i` in `[1, 30)`, over per-lane intervals inside
 /// `[0, 4]`, evaluated with [`QuadratureRule::GaussLegendre`] at
-/// [`GaussOrder::G5`] over 16 panels — 80 integrand evaluations per lane, a
-/// mid-cost rule. Produced by the `#[ignore]`d `quadrature_crossover_benchmark`
-/// test in `parallel/tests.rs` and transcribed from its printed output. The
-/// `(repeat)` column is a second, independent run.
+/// [`GaussOrder::G5`] over 16 panels — 80 integrand evaluations per lane, about
+/// **1.4 us** of serial work, a mid-cost rule. Produced by the `#[ignore]`d
+/// `quadrature_crossover_benchmark` test in `parallel/tests.rs` and transcribed
+/// from its printed output.
 ///
-/// | Intervals | serial | CpuMulti | speed-up | (repeat) |
+/// | Intervals | serial (run A) | speed-up A | speed-up B | speed-up C |
 /// |---|---|---|---|---|
-/// | 16 | 12.31 us | 41.16 us | 0.30x | 0.29x |
-/// | 32 | 24.63 us | 47.98 us | 0.51x | 0.53x |
-/// | 64 | 49.20 us | 55.63 us | 0.88x | 0.90x |
-/// | 128 | 98.35 us | 68.65 us | 1.43x | 1.44x |
-/// | 256 | 196.72 us | 98.15 us | 2.00x | 1.98x |
-/// | 1 024 | 786.71 us | 274.55 us | 2.87x | 2.85x |
-/// | 4 096 | 3146.81 us | 1058.30 us | 2.97x | 2.98x |
-/// | 16 384 | 12587.71 us | 4230.55 us | 2.98x | 2.96x |
+/// | 16 | 20.48 us | 1.36x | 1.16x | 0.51x |
+/// | 32 | 40.96 us | 2.03x | 2.10x | 1.81x |
+/// | 64 | 82.62 us | 1.95x | 2.47x | 2.62x |
+/// | 128 | 170.22 us | 1.96x | 1.58x | 2.75x |
+/// | 256 | 351.75 us | 3.15x | 3.47x | 3.29x |
+/// | 1 024 | 1475.98 us | 3.61x | 3.79x | 3.74x |
+/// | 4 096 | 6090.40 us | 3.89x | 3.75x | 3.97x |
+/// | 16 384 | 24717.71 us | 3.89x | 3.75x | 3.90x |
 ///
-/// *Result.* **128** is the smallest measured size at which the parallel path
-/// won in both runs (1.43x, 1.44x), and it is the value this constant takes. At
-/// 64 it lost both (0.88x, 0.90x).
+/// *Result.* **32** is the smallest size at which the parallel path won in all
+/// three runs and kept winning at every larger size, and it is the value this
+/// constant takes. At 16 intervals it lost run C badly (0.51x).
 ///
-/// *Interpretation.* Four times the ODE floor, and the ratio is roughly the
-/// ratio of the per-lane costs: about 0.77 us per 80-node quadrature lane
-/// against about 2.7 us per decay lane. That is the expected behaviour of a
-/// fixed dispatch overhead being amortised, and it is the clearest evidence yet
-/// for the point [`crate::compute::CPU_MULTI_MIN_WORK_ITEMS`] makes — the
-/// crossover tracks per-work-item cost, so it belongs per kernel and, strictly,
-/// per caller.
+/// *Interpretation.* Twice the ODE floor of 16, on lanes about 6x cheaper
+/// (1.4 us against 8.6 us). The two do not scale together, which is the honest
+/// reading of a measurement whose 16–128 region is dominated by run-to-run
+/// noise in both kernels; what both agree on is that a batch of a few hundred
+/// compute-dense lanes is comfortably worth threading and a batch of a handful
+/// is not. From 256 intervals upward the speed-up is a stable 3.1–4.0x on 4
+/// logical cores.
 ///
 /// **This one floor is shared by both quadrature entry points**, and it was
 /// measured on the fixed-rule path only. [`adaptive_quadrature_batch`] costs
-/// more per lane than any fixed rule a caller is likely to choose, so it crosses
-/// over *earlier* and inherits this floor as a conservative assumption rather
-/// than a measurement. A caller whose fixed rule is very cheap — say
-/// [`QuadratureRule::Trapezoid`] with one panel, two evaluations — is well below
-/// what was measured and should pass a backend explicitly.
+/// more per lane than any fixed rule a caller is likely to choose — the
+/// verification lanes on that function needed 469 to 1 225 evaluations against
+/// this rule's 80 — so it crosses over *earlier* and inherits this floor as a
+/// conservative assumption rather than a measurement. A caller whose fixed rule
+/// is very cheap — say [`QuadratureRule::Trapezoid`] with one panel, two
+/// evaluations — is well below what was measured and should pass a backend
+/// explicitly.
+///
+/// # Contention
+///
+/// The same caveat as [`ODE_ENSEMBLE_MIN_LANES`], and it bit harder here.
+/// Three earlier runs taken while an unrelated `rustc` held ~234% CPU on the
+/// same 4-core machine showed the parallel path **losing at every size up to
+/// 64** and sitting at 0.98–1.02x — no speed-up at all — at 256 through 4 096,
+/// where the idle machine gives 3.1–4.0x. A threshold measured on an idle
+/// machine is optimistic for a process that shares its cores.
 ///
 /// # Limitations
 ///
@@ -401,7 +464,7 @@ pub const ODE_ENSEMBLE_MIN_LANES: usize = 32;
 /// # Units
 ///
 /// A count of independent definite integrals, dimensionless.
-pub const QUADRATURE_MIN_INTERVALS: usize = 128;
+pub const QUADRATURE_MIN_INTERVALS: usize = 32;
 
 /// Hard ceiling on adaptive bisection depth in
 /// [`adaptive_quadrature_batch`], regardless of
@@ -998,10 +1061,11 @@ pub struct OdeEnsembleFailure {
 /// buffers — a handful of small allocations per lane. This is deliberate: it is
 /// what makes each lane a pure function of its own inputs, and therefore what
 /// makes the bitwise-identity claim hold without depending on every stepper's
-/// buffers being write-before-read. On the measured ensemble it is well under
-/// 1% of the per-lane cost (about 2.7 us of integration per lane, see
-/// [`ODE_ENSEMBLE_MIN_LANES`]), but a caller integrating a *very* short interval
-/// per lane would see it.
+/// buffers being write-before-read. On the measured ensemble it is a small
+/// fraction of the per-lane cost — about 8.6 us of integration per lane over 68
+/// adaptive steps, see [`ODE_ENSEMBLE_MIN_LANES`] — but a caller integrating a
+/// *very* short interval per lane would see it, and it has not been measured
+/// separately from the integration it accompanies.
 ///
 /// # Panics
 ///
@@ -1016,23 +1080,33 @@ pub struct OdeEnsembleFailure {
 /// # Verification
 ///
 /// *Methodology.* Checked against the closed-form solution of `dy/dx = -k y`,
-/// `y(0) = 1`, namely `y(x) = exp(-k x)`, over 64 lanes with `k` spread across
-/// `[0.5, 8]`, integrated to `x = 1` by all three steppers; and against the
-/// harmonic oscillator `y1' = -y2`, `y2' = y1`, whose solution is a rotation, at
-/// `x = pi/2`. Pass criteria: `< 1e-8` for `Rkf45` and `Rosenbrock23`, `< 5e-3`
-/// for first-order `Euler`.
+/// `y(0) = 1`, namely `y(x) = exp(-k x)`, over 64 lanes with `k` spread evenly
+/// across `[0.5, 8]`, integrated to `x = 1` by all three steppers; and against
+/// the harmonic oscillator `y1' = -y2`, `y2' = y1` from `y(0) = (1, 0)`, whose
+/// solution is `(cos x, sin x)`, over 16 lanes ending at `m * pi/2` for
+/// `m = 1..=16`. Tolerances `abs_tol = 1e-10`, `rel_tol = 1e-8` for `Rkf45` and
+/// `Rosenbrock23` (`1e-12` / `1e-10` for the oscillator) and `1e-3` / `1e-2`
+/// for `Euler`, which cannot reach the high-order tolerances inside the default
+/// 10 000-step budget. Pass criteria: `< 1e-8` for the high-order steppers,
+/// `< 5e-2` for first-order `Euler`.
 ///
 /// *Results, measured 2026-08-13 by `ensemble_matches_analytic_decay` and
 /// `ensemble_matches_harmonic_oscillator` in `parallel/tests.rs`, release
-/// build:* worst absolute error over the 64 decay lanes **1.331815e-11**
-/// (`Rkf45`), **1.454525e-11** (`Rosenbrock23`) and **2.144368e-3** (`Euler`);
-/// worst absolute error on the oscillator **4.196643e-12** (`Rkf45`).
-/// *Interpretation.* The two high-order steppers sit at their requested
-/// tolerance and Euler is eight orders coarser, which is the expected signature
-/// of three genuinely different steppers reached through the ensemble — the same
-/// check `ode::integrator`'s own tests make for the single-system path,
-/// confirming the ensemble wrapper does not silently route every lane to one
-/// stepper.
+/// build:* worst absolute error over the 64 decay lanes **1.518896e-9**
+/// (`Rkf45`, 3 038 total accepted steps, 81 in the worst lane),
+/// **1.387431e-9** (`Rosenbrock23`, 46 535 steps, 1 186 in the worst lane) and
+/// **1.297370e-3** (`Euler`, 21 817 steps, 421 in the worst lane); worst
+/// absolute error on the oscillator **4.905929e-10** (`Rkf45`).
+///
+/// *Interpretation.* The two high-order steppers agree with the closed form to
+/// their requested tolerance and with each other to about 1e-9, while Euler is
+/// six orders coarser — the expected signature of three genuinely different
+/// steppers being reached through the ensemble, which is what rules out the
+/// wrapper silently routing every lane to one of them. The step counts are the
+/// other half of the story: `Rosenbrock23` needs 15x the steps of `Rkf45` on a
+/// non-stiff problem to reach the same accuracy, which is exactly why
+/// [`integrate_ensemble_mixed`] exists rather than "just use the stiff solver
+/// everywhere".
 ///
 /// # Example — the `uom` boundary
 ///
@@ -1978,28 +2052,43 @@ pub struct QuadratureBatchFailure {
 ///
 /// # Verification
 ///
-/// *Methodology.* Two oracles, both exact rather than another implementation.
+/// *Methodology.* Three oracles, all exact rather than another implementation.
 /// (1) *Polynomial exactness*: an `n`-point Gauss-Legendre rule must integrate
-/// every monomial `x^d` for `d <= 2n - 1` exactly, and Simpson must be exact for
-/// `d <= 3`; checked over `[0, 1]` and `[-2, 3]` against the closed form
-/// `(b^(d+1) - a^(d+1)) / (d + 1)`. (2) *Transcendental reference*:
-/// `integral of exp(-x) sin(x) from 0 to pi` has the closed form
-/// `(1 + exp(-pi)) / 2 = 0.5215680...`. Pass criteria: `< 1e-13` relative for
-/// exactness, `< 1e-12` absolute for the transcendental.
+/// every monomial `x^d` for `d <= 2n - 1` exactly, Simpson must be exact for
+/// `d <= 3` and trapezoid for `d <= 1`; checked over `[0, 1]` and `[-2, 3]`
+/// against the closed form `(b^(d+1) - a^(d+1)) / (d + 1)`. (2) *Published
+/// nodes*: the computed 8-point nodes and weights against the Abramowitz &
+/// Stegun 25.4.30 values already carried in this workspace by
+/// `crates/raffles/src/distributions.rs`. (3) *Transcendental reference*:
+/// `integral of exp(-x) sin(x) from 0 to pi = (1 + exp(-pi)) / 2`. Pass
+/// criteria: `< 1e-13` relative for exactness, `< 1e-15` absolute against A&S,
+/// `< 1e-12` absolute for the transcendental.
 ///
 /// *Results, measured 2026-08-13 by `gauss_legendre_is_exact_to_its_degree`,
-/// `simpson_is_exact_for_cubics` and `fixed_rules_match_a_transcendental_reference`
-/// in `parallel/tests.rs`, release build:* worst relative error over the
-/// exactness sweep **1.850372e-16** (`G2`..`G8`, degrees 0 to 15, both
-/// intervals); Simpson worst relative error over degrees 0 to 3
-/// **1.110223e-16**; on the transcendental reference, `G8` over 8 panels gave
-/// **0.5215680569951327** against the closed-form **0.5215680569951327**, error
-/// **0.000000e0**, and Simpson over 64 panels gave error **1.135935e-9**.
+/// `gauss_nodes_match_the_in_workspace_abramowitz_stegun_values`,
+/// `simpson_and_trapezoid_are_exact_to_their_degree` and
+/// `fixed_rules_match_a_transcendental_reference` in `parallel/tests.rs`,
+/// release build:*
+///
+/// - Exactness sweep (`G2`..`G8`, degrees 0 to 15, both intervals): worst
+///   relative error **5.769990e-16**. Simpson over degrees 0 to 3:
+///   **3.552714e-16**. Trapezoid over degrees 0 to 1: **0.000000e0**.
+/// - Computed `G8` against A&S 25.4.30: worst node difference
+///   **1.110223e-16**, worst weight difference **1.249001e-16**, weights
+///   summing to **2.00000000000000000**.
+/// - Transcendental reference, closed form **0.52160695913188615**: `G8` over 8
+///   panels (64 evaluations) gave **0.52160695913188615**, error
+///   **0.000000e0**; Simpson over 64 panels (129 evaluations) error
+///   **4.206809e-9**; trapezoid over 128 panels (129 evaluations) error
+///   **5.236767e-5**.
+///
 /// *Interpretation.* The Gauss nodes and weights are correct to the last bit
-/// available, the composite mapping onto arbitrary intervals is correct, and the
-/// order hierarchy behaves as theory requires — `G8` reaching the rounding floor
-/// on a smooth transcendental where a 64-panel Simpson (129 evaluations against
-/// 64) is still six orders away.
+/// `f64` holds — agreeing with a published table to within one unit in the last
+/// place while being computed independently of it — the composite mapping onto
+/// arbitrary intervals is correct, and the order hierarchy behaves as theory
+/// requires: `G8` reaches the rounding floor on a smooth transcendental at half
+/// the evaluations where a 64-panel Simpson is still nine orders away and a
+/// trapezoid four orders beyond that.
 ///
 /// # Example — the `uom` boundary
 ///
@@ -2145,25 +2234,53 @@ where
 ///
 /// # Verification
 ///
-/// *Methodology.* Run against three integrands with closed forms, one of them
-/// deliberately hostile to a fixed rule: `integral of exp(-x) sin(x) from 0 to
-/// pi = (1 + exp(-pi)) / 2`; `integral of ln(x) from 0 to 1 = -1`, which has an
-/// integrable logarithmic singularity at the lower limit; and `integral of
-/// 1 / (1 + 400 (x - 0.5)^2) from 0 to 1 = atan(10) / 10`, a narrow peak.
-/// Tolerances `abs_tol = 1e-12`, `rel_tol = 1e-10`. Pass criterion: absolute
-/// error below `1e-9`, and the reported
-/// [`QuadratureSolution::error_estimate`] not smaller than the true error by
-/// more than an order of magnitude.
+/// *Methodology.* Run against three integrands with closed forms, two of them
+/// deliberately awkward for a uniform panel layout:
+/// `integral of exp(-x) sin(x) from 0 to pi = (1 + exp(-pi)) / 2`;
+/// `integral of sqrt(x) from 0 to 1 = 2/3`, which is bounded but has an
+/// infinite derivative at the lower limit; and
+/// `integral of 1 / (1 + 400 (x - 1/2)^2) from 0 to 1 = atan(10) / 10`, a peak
+/// occupying about a twentieth of the interval. Tolerances `abs_tol = 1e-11`,
+/// `rel_tol = 1e-10`, `max_subdivisions = 100 000`. Pass criteria: absolute
+/// error below `1e-9`; every lane [`QuadratureStatus::Evaluated`]; and the
+/// reported [`QuadratureSolution::error_estimate`] no more than 100x smaller
+/// than the true error, since an estimate that badly understates the error
+/// would be worse than none.
 ///
 /// *Results, measured 2026-08-13 by `adaptive_matches_closed_forms` in
-/// `parallel/tests.rs`, release build:* `exp(-x) sin(x)` error
-/// **1.110223e-16** in 145 evaluations; `ln(x)` error **2.874518e-11** in 3665
-/// evaluations, status `Evaluated`; narrow peak error **2.220446e-16** in 341
-/// evaluations. *Interpretation.* The log singularity is the informative case:
-/// a fixed rule cannot evaluate at `x = 0` at all and a composite Simpson over
-/// the same evaluation budget is orders worse, whereas the adaptive path
-/// concentrates its work near the singularity and reaches 3e-11 — which is also
-/// why it is worth carrying a CPU-only kernel that a GPU cannot run.
+/// `parallel/tests.rs`, release build:*
+///
+/// | Integrand | Value | Error | Reported estimate | Evaluations |
+/// |---|---|---|---|---|
+/// | `exp(-x) sin(x)` on `[0, pi]` | 0.52160695913188759 | 1.443290e-15 | 2.034556e-11 | 469 |
+/// | `sqrt(x)` on `[0, 1]` | 0.66666666666664931 | 1.731948e-14 | 2.619949e-11 | 1057 |
+/// | narrow peak on `[0, 1]` | 0.14711276743037432 | 8.604228e-16 | 2.682116e-11 | 1225 |
+///
+/// *Interpretation.* All three land at or near the rounding floor, four to five
+/// orders better than the requested `1e-11`, and the reported estimate is
+/// conservative in every case — it overstates the true error by three to four
+/// orders rather than understating it, which is the safe direction for an error
+/// bound. The evaluation counts are the point of the adaptive path and the
+/// source of the load imbalance work-stealing exists to absorb: 469 against
+/// 1 225 for problems posed identically, a 2.6x spread decided entirely by the
+/// integrand. `sqrt(x)` is the informative case — its infinite endpoint
+/// derivative makes a uniform panel layout converge slowly, and the adaptive
+/// path instead concentrates its subdivisions near `x = 0`.
+///
+/// # Limitations
+///
+/// **An integrand that is unbounded at an interval endpoint is not supported
+/// here.** Adaptive Simpson evaluates `f(a)` and `f(b)` on its very first step,
+/// so an integrable singularity sitting exactly on a limit — `ln(x)` or
+/// `1/sqrt(x)` at `x = 0` — produces a non-finite first estimate and the lane
+/// reports [`QuadratureStatus::NotFinite`]. This inverts the naive expectation
+/// that the adaptive path is the more capable one: for an endpoint singularity
+/// reach for [`quadrature_batch`] with
+/// [`QuadratureRule::GaussLegendre`] instead, whose nodes are strictly interior
+/// and never touch the limits. That is exactly the property `raffles` relies on
+/// for its quantile-function moments. A singularity in the *interior* of the
+/// interval is also not handled: it will exhaust the subdivision budget and
+/// report [`QuadratureStatus::ToleranceNotMet`], which is at least honest.
 ///
 /// # Example
 ///
