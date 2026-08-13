@@ -1411,37 +1411,54 @@ fn end_to_end_solve_speedup_benchmark() {
 /// timings. `#[ignore]`d.
 ///
 /// **Results, measured 2026-08-13**, release, `--features parallel`, 4 logical
-/// cores, best of 3 complete solves, milliseconds per solve. **Both runs were
-/// taken on a heavily loaded machine** — load average `3.68 1.91 1.42` rising to
+/// cores, best of 3 complete solves, milliseconds per solve. **The first two runs
+/// were taken on a heavily loaded machine** — load average `3.68 1.91 1.42` rising to
 /// `3.87 1.98 1.45` for run 1, and `3.51 1.96 1.45` to `3.45 2.00 1.46` for run 2,
 /// on 4 logical cores, i.e. essentially saturated. These parallel columns are
 /// therefore **pessimistic**, and the BiCGStab table above (taken at load ~1.5)
 /// is not directly comparable in absolute terms. The *ordering* is what this
-/// measurement establishes, and it survives the contention.
+/// measurement establishes, and it survives the contention at 32 768 cells and
+/// above — but not at 4 096, as the third run below shows.
 ///
-/// | Cells | Iterations | Serial (ms) | Multi (ms) | Speed-up | (rpt) | BiCGStab+Jacobi speed-up at the same size |
-/// |---|---|---|---|---|---|---|
-/// | 4 096 | 72 | 8.376 | 11.176 | 0.75x | 0.62x | 0.81x |
-/// | 32 768 | 73 | 78.225 | 64.453 | 1.21x | 0.99x | 1.57x |
-/// | 110 592 | 73 | 273.820 | 217.140 | 1.26x | 1.30x | 1.84x |
-/// | 262 144 | 72 | 747.334 | 402.504 | 1.86x | 1.99x | 2.41x |
+/// A **third run** was added 2026-08-13 at a lower load average
+/// (`2.21 1.66 1.07` falling to `2.10 1.65 1.07`), and is reported in its own
+/// columns rather than averaged in:
 ///
-/// **Interpretation.** The prediction holds: **GMRES(30) gains less than
-/// BiCGStab from `CpuMulti` at every size tested**, and it gains it later —
-/// 1.21x/0.99x where BiCGStab reached 1.57x at 32 768 cells. That is the expected
-/// consequence of GMRES spending proportionally more of its time in vector
-/// operations, which have the 64x higher size floor, and proportionally less in
-/// the sparse product, which is the kernel that threads well. GMRES does catch up
-/// as the mesh grows (1.86x/1.99x at 262 144), which is also expected: at that
-/// size the vector operations finally clear
+/// | Cells | Iterations | Speed-up (run 1) | (run 2) | (run 3) | Run-3 serial ms | Run-3 multi ms | BiCGStab+Jacobi at the same size |
+/// |---|---|---|---|---|---|---|---|
+/// | 4 096 | 72 | 0.75x | 0.62x | **0.78x** | 16.432 | 20.982 | 0.67-0.81x |
+/// | 32 768 | 73 | 1.21x | 0.99x | **1.26x** | 148.067 | 117.330 | 1.57-1.82x |
+/// | 110 592 | 73 | 1.26x | 1.30x | **1.29x** | 613.807 | 475.913 | 1.75-1.89x |
+/// | 262 144 | 72 | 1.86x | 1.99x | **2.04x** | 1567.021 | 768.952 | 2.19-2.51x |
+///
+/// The iteration counts reproduced **exactly** — 72 / 73 / 73 / 72 — in all three
+/// runs, which is the part of this benchmark that is not subject to contention.
+///
+/// **Interpretation.** The prediction holds where it is measurable: **GMRES(30)
+/// gains less than BiCGStab from `CpuMulti` at 32 768 cells and above**, and it
+/// gains it later — 0.99-1.26x where BiCGStab reached 1.57-1.82x at 32 768 cells.
+/// That is the expected consequence of GMRES spending proportionally more of its
+/// time in vector operations, which have the 64x higher size floor, and
+/// proportionally less in the sparse product, which is the kernel that threads
+/// well. GMRES does catch up as the mesh grows (1.86-2.04x at 262 144), which is
+/// also expected: at that size the vector operations finally clear
 /// [`VECOP_MIN_ELEMENTS`](crate::ldu_matrix::parallel::VECOP_MIN_ELEMENTS) and
 /// begin threading too.
 ///
-/// **Limitation.** Taken under heavy contention, so the absolute speed-ups are
-/// lower bounds rather than the machine's best. Comparing the two runs against
-/// each other (0.75x vs 0.62x, 1.21x vs 0.99x) shows the scatter that contention
-/// introduces; the BiCGStab comparison column is quoted from a *less* loaded run
-/// and so, if anything, understates how much further ahead BiCGStab is.
+/// **The claim does *not* hold at 4 096 cells, and an earlier revision of this
+/// file overstated it as holding "at every size tested".** GMRES measured
+/// 0.62-0.78x there against BiCGStab's 0.67-0.81x — overlapping ranges, and in
+/// run 3 GMRES (0.78x) was actually *ahead* of the BiCGStab run taken at
+/// comparable load (0.67x). At that size both solvers simply lose, and the
+/// difference between two losses is within the scatter contention introduces. The
+/// ordering claim is therefore restricted to 32 768 cells and above, where the
+/// separation is several times the scatter.
+///
+/// **Limitation.** Runs 1 and 2 were taken under heavy contention (load ~3.5-3.9
+/// on 4 cores), so their absolute speed-ups are lower bounds rather than the
+/// machine's best; run 3 at load ~2.2 is correspondingly higher at three of the
+/// four sizes. Comparing the runs against each other (0.99x vs 1.21x vs 1.26x at
+/// 32 768) shows the scatter directly. Only the iteration counts are contention-free.
 #[test]
 #[ignore = "timing benchmark; run explicitly with --ignored"]
 fn gmres_end_to_end_speedup_benchmark() {
@@ -1535,6 +1552,12 @@ fn gmres_end_to_end_speedup_benchmark() {
 /// | 32 768 | 50 | 38.096 | 42.218 | 0.90x |
 /// | 110 592 | 51 | 120.475 | 109.818 | 1.10x |
 /// | 262 144 | 50 | 201.086 | 205.433 | 0.98x |
+///
+/// **Independently reproduced 2026-08-13** in a later session at load average
+/// `2.02 1.61 1.10`: 0.81x / 0.91x / 1.12x / 1.01x at the same four sizes, with
+/// identical iteration counts (47 / 50 / 51 / 50). Every ratio agrees with the
+/// first run to within 0.03x, so the negative result below is not an artefact of
+/// a single noisy run.
 ///
 /// **Interpretation — a negative result, reported as one.** The warm-pool
 /// hypothesis is **not** supported. Lowering the vector-operation floor to the
