@@ -1039,7 +1039,20 @@ pub struct OdeEnsembleFailure {
 /// The ensemble is dimensionless, and the caller converts at its edge. These
 /// lanes are lumped-capacitance bodies cooling towards ambient, `dT/dt =
 /// -(T - T_inf) / tau`, one lane per time constant, recovering a
-/// `ThermodynamicTemperature`:
+/// `ThermodynamicTemperature`.
+///
+/// **On the tolerance asserted below.** The stepper's `rel_tol` is `1e-8` and
+/// the states are of order 400 K, so the achievable *absolute* accuracy is a
+/// few microkelvin — the error floor is set by the controller's tolerance and
+/// the magnitude of the state, not by the ensemble. Measured 2026-08-13
+/// (release) by `lumped_body_accuracy_is_set_by_the_relative_tolerance` in
+/// `parallel/tests.rs`: worst absolute error **1.150937e-6 K** at
+/// `abs_tol = 1e-10`, `rel_tol = 1e-8`; **1.222958e-8 K** at `1e-12`/`1e-10`;
+/// **1.289209e-10 K** at `1e-14`/`1e-12`. The bound below is `5e-6 K`, set from
+/// the first of those measurements — a tighter assertion would be asserting
+/// something this stepper at this tolerance does not deliver. A caller wanting
+/// sub-nanokelvin must ask for it through the tolerances, and the third row
+/// says what that buys.
 ///
 /// ```rust
 /// use outram_foam_basic_lib::compute::ComputeBackend;
@@ -1090,10 +1103,11 @@ pub struct OdeEnsembleFailure {
 ///     .map(|s| ThermodynamicTemperature::new::<kelvin>(s[0]))
 ///     .collect();
 ///
-/// // Closed form: T(t) = T_inf + (T0 - T_inf) exp(-t / tau).
+/// // Closed form: T(t) = T_inf + (T0 - T_inf) exp(-t / tau). The 5e-6 K bound
+/// // is the measured floor at rel_tol = 1e-8 on a ~400 K state; see above.
 /// for (tau, temperature) in [5.0_f64, 20.0].iter().zip(&temperatures) {
 ///     let exact = 300.0 + 200.0 * (-10.0_f64 / tau).exp();
-///     assert!((temperature.get::<kelvin>() - exact).abs() < 1e-7);
+///     assert!((temperature.get::<kelvin>() - exact).abs() < 5e-6);
 /// }
 /// ```
 #[must_use]

@@ -233,6 +233,93 @@ fn ensemble_matches_harmonic_oscillator() {
     assert!(worst < 1e-8, "worst error {worst:.6e}");
 }
 
+/// Lumped-capacitance cooling: the accuracy actually achievable at a given
+/// relative tolerance, which is what the `uom` doctest on
+/// [`crate::ode::parallel::integrate_ensemble`] asserts against.
+///
+/// **Methodology.** The doctest's own problem: `dT/dt = -(T - T_inf) / tau`
+/// with `T_inf = 300 K`, `T(0) = 500 K`, integrated to `t = 10 s` for
+/// `tau = 5 s` and `tau = 20 s`, against the closed form
+/// `T(t) = T_inf + (T(0) - T_inf) exp(-t / tau)` (327.0670566473225 K and
+/// 421.30613194252666 K). Swept over three `Rkf45` tolerance settings so the
+/// relationship between the controller's *relative* tolerance and the
+/// achievable *absolute* error in kelvin is visible rather than guessed.
+///
+/// **Why this test exists.** The temperatures are of order 400 K, so a
+/// `rel_tol` of `1e-8` cannot buy better than a few microkelvin however the
+/// assertion is written — the error floor is set by the tolerance and the
+/// magnitude of the state, not by the ensemble machinery. Asserting a
+/// sub-microkelvin bound at that tolerance would be asserting something the
+/// method does not deliver. This test measures the floor, and the doctest's
+/// bound is then set from the measured number rather than predicted.
+///
+/// **Pass criterion.** At `rel_tol = 1e-8` the worst absolute error is below
+/// `1e-4 K`; at `rel_tol = 1e-12` it is below `1e-8 K`; and tightening the
+/// tolerance must strictly reduce the error, which is what confirms the error
+/// is controller-limited rather than a bug.
+///
+/// **Results, measured 2026-08-13 (release):** see the printed output, and the
+/// numbers transcribed into the doctest's comment.
+#[test]
+fn lumped_body_accuracy_is_set_by_the_relative_tolerance() {
+    struct LumpedBody {
+        tau_s: f64,
+        t_inf_k: f64,
+    }
+    impl OdeSystem for LumpedBody {
+        fn n_eqns(&self) -> usize {
+            1
+        }
+        fn derivatives(&self, _t: f64, y: &[f64], dydt: &mut Vec<f64>) {
+            dydt[0] = -(y[0] - self.t_inf_k) / self.tau_s;
+        }
+    }
+
+    let taus = [5.0_f64, 20.0];
+    let exact: Vec<f64> = taus.iter().map(|t| 300.0 + 200.0 * (-10.0 / t).exp()).collect();
+    println!("closed form: {:.16} K, {:.16} K", exact[0], exact[1]);
+
+    let mut worst_at = Vec::new();
+    for (abs_tol, rel_tol) in [(1e-10, 1e-8), (1e-12, 1e-10), (1e-14, 1e-12)] {
+        let lanes: Vec<OdeLane<LumpedBody>> = taus
+            .iter()
+            .map(|&tau| {
+                OdeLane::new(
+                    LumpedBody {
+                        tau_s: tau,
+                        t_inf_k: 300.0,
+                    },
+                    vec![500.0],
+                    0.0,
+                    10.0,
+                    0.1,
+                )
+            })
+            .collect();
+        let ensemble = integrate_ensemble(
+            &lanes,
+            &OdeSolver::rkf45(1, abs_tol, rel_tol),
+            ComputeBackend::Serial,
+        );
+        let states = ensemble.states().expect("both lanes complete");
+        let e0 = (states[0][0] - exact[0]).abs();
+        let e1 = (states[1][0] - exact[1]).abs();
+        let worst = e0.max(e1);
+        println!(
+            "abs_tol {abs_tol:.0e} rel_tol {rel_tol:.0e}: \
+             tau=5 error {e0:.6e} K, tau=20 error {e1:.6e} K, worst {worst:.6e} K"
+        );
+        worst_at.push(worst);
+    }
+
+    assert!(worst_at[0] < 1e-4, "rel_tol 1e-8 worst {:.6e}", worst_at[0]);
+    assert!(worst_at[2] < 1e-8, "rel_tol 1e-12 worst {:.6e}", worst_at[2]);
+    assert!(
+        worst_at[0] > worst_at[1] && worst_at[1] > worst_at[2],
+        "tightening the tolerance must reduce the error: {worst_at:?}"
+    );
+}
+
 /// A stiff pair is integrated correctly by `Rosenbrock23` and **visibly fails**
 /// under `Rkf45` — stiffness is reported, never swallowed.
 ///
