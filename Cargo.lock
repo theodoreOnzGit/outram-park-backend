@@ -4372,6 +4372,7 @@ dependencies = [
  "kovan-common",
  "kovan-discovery",
  "kovan-literature",
+ "kovan-metrics",
  "kovan-semantics",
  "lopdf",
  "serde_json",
@@ -4425,6 +4426,16 @@ dependencies = [
  "serde_json",
  "sha2",
  "toml",
+]
+
+[[package]]
+name = "kovan-metrics"
+version = "0.0.0"
+dependencies = [
+ "kovan-discovery",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

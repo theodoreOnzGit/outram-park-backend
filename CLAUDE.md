@@ -625,15 +625,25 @@ carry an API-token-usage trailer, and a per-commit token ledger is kept at
 the Claude/API tokens spent producing each commit. It is automated by two git
 hooks so it cannot be forgotten:
 
-- **`docs/historian/token_usage.py`** is the single source for token accounting —
-  it does **both** the write side and the query side. On the write side it reads
-  the Claude Code session transcripts (`~/.claude/projects/<slug>/*.jsonl` — the
-  same data `ccusage` reads) and attributes the **token delta since the previous
-  commit** to each new commit. On the query side,
-  `python3 docs/historian/token_usage.py query --from DDMMYY --to DDMMYY
+- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, is the
+  single source for token accounting — it does **both** the write side and the
+  query side. On the write side it reads the Claude Code session transcripts
+  (`~/.claude/projects/<slug>/*.jsonl` — the same data `ccusage` reads) and
+  attributes the **token delta since the previous commit** to each new commit.
+  On the query side, `kovan tokens query --from DDMMYY --to DDMMYY
   [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
   the git commit trailers** over any time period (reads the durable git record,
   not the live transcript).
+  - **This replaced `docs/historian/token_usage.py` on 2026-08-13** (epic
+    `op-yz7b`), so the toolchain needs no Python interpreter. The Python is
+    **retained, not deleted** — no byte-for-byte parity gate was run (the
+    maintainer waived it), so it stays available for comparison. Do not treat
+    the Rust output as verified against the original until someone runs one.
+  - **The hooks need a `kovan` binary to exist**, where a script merely had to
+    be present. `.githooks/kovan-bin.sh` resolves it: `kovan` on PATH, then
+    `target/release/kovan`, then `target/debug/kovan`. Finding none is a
+    **no-op, not an error** — but it means commits carry no trailer, so run
+    `./scripts/install-token-hooks.sh` (which builds it) on a fresh clone.
 - **`.githooks/prepare-commit-msg`** stamps the commit message with an
   `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
   `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
@@ -643,7 +653,7 @@ hooks so it cannot be forgotten:
 
 **Source of truth: the per-commit trailers, not the markdown.** The durable
 record is the `API-Usage-*` trailer in each commit message (queryable across any
-window with `python3 docs/historian/token_usage.py query --from DDMMYY --to
+window with `kovan tokens query --from DDMMYY --to
 DDMMYY`). `docs/token-usage.md` is a **regenerable local summary and is
 gitignored** — it is deliberately *not* tracked, because committing a generated
 file on many branches caused recurring merge conflicts. Never re-track it.
@@ -673,29 +683,36 @@ file on many branches caused recurring merge conflicts. Never re-track it.
   is a local, uncommitted config, so every fresh clone must run it once. The
   hooks and script are version-controlled, so they travel with the repo.
 - **`docs/token-usage.md` is a generated, gitignored local summary — never
-  hand-edit it and never `git add` it.** Rebuild any time with `python3
-  docs/historian/token_usage.py report`; query the tracked trailers directly with
-  the `query` subcommand. Because it is gitignored, `bn`/hook regens no longer
-  dirty the tree or conflict on merge.
+  hand-edit it and never `git add` it.** Rebuild any time with `kovan tokens
+  report`; query the tracked trailers directly with the `query` subcommand.
+  Because it is gitignored, `bn`/hook regens no longer dirty the tree or
+  conflict on merge.
 - **New repositories added to a session here inherit this rule** — copy
-  `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
-  in and run the installer as part of onboarding that repo.
+  `.githooks/` (including `kovan-bin.sh`) + `scripts/install-token-hooks.sh` in
+  and run the installer as part of onboarding that repo. The accounting itself
+  travels as the `kovan` binary, so nothing else needs copying.
 - This does **not** relax the never-auto-commit/push rule above: the hooks only
   act *when a commit the user asked for is being made*; they never initiate one.
 
 ## Historian report before every merge to `main` (mandatory)
 
 **Before merging `develop` into `main`, generate a "historian" report** — a
-python-generated markdown file accounting for the **API tokens spent** and the
+generated markdown file accounting for the **API tokens spent** and the
 **lines / KLOC written** across the window of `develop` history being released,
-listing the commits over a `DDMMYY..DDMMYY` date range. Both the generator and
-the reports live under **`docs/historian/`** at the workspace root.
+listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
+`crates/kovan-metrics` (via the `kovan` binary); the reports live under
+**`docs/historian/`** at the workspace root.
 
 - **Generate it:**
-  `python3 docs/historian/historian.py --from DDMMYY --to DDMMYY`
+  `kovan historian --from DDMMYY --to DDMMYY`
   (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
   "everything on `develop` not yet on `main`, up to today". Output is written to
   `docs/historian/historian_<from>_to_<to>.md`.
+  - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
+    `op-yz7b`). The Python is retained for comparison — no parity gate was run.
+  - `kovan historian` dates from **UTC**, where the Python used local time.
+    This only affects the default `--to` bound and the filename tag; pass
+    `--to` explicitly if a midnight boundary matters.
 - **What it contains:** total lines added/removed/net (all files + Rust-only),
   total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
   per-crate lines-added breakdown, and a per-commit ledger.
@@ -1079,6 +1096,7 @@ built, tested, and published from this single repository.
 | `kovan-literature` | KOVAN literature archive — PDF → Markdown (`pulldown-cmark`) → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored. | GPL-3.0 |
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
+| `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
 | `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
 | `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |

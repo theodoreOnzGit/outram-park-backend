@@ -17,12 +17,14 @@
 
 pub mod discover;
 pub mod gen;
+pub mod historian;
 pub mod lit;
 pub mod methods;
 pub mod scan;
 pub mod search;
 pub mod setup;
 pub mod symbols;
+pub mod tokens;
 
 use clap::ValueEnum;
 
