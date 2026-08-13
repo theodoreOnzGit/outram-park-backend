@@ -90,7 +90,12 @@ use crate::ldu_matrix::LduMatrix;
 
 /// Below this the Arnoldi vector norm is treated as a "happy breakdown" (the
 /// Krylov space is exhausted / the solution lies exactly in the current space).
-const HAPPY_TOL: f64 = 1.0e-300;
+///
+/// `pub(super)` so the flat-reduction reference implementation in
+/// [`crate::krylov::hybrid_tests`] shares this exact constant: that reference
+/// exists to isolate the *summation order*, so every other constant it uses must
+/// provably be the same one, not a copy that could drift.
+pub(super) const HAPPY_TOL: f64 = 1.0e-300;
 
 /// Solve `A x = b` with restarted right-preconditioned GMRES(m), serially, from
 /// a bare [`LduMatrix`].
@@ -376,7 +381,11 @@ pub(crate) fn gmres_impl(
 /// Returns `(c, s)` such that `[c s; -s c] · [a; b] = [r; 0]` with
 /// `r = sqrt(a² + b²)`. Uses a scaling-free direct form (inputs here are already
 /// well scaled). For `a = b = 0` returns `(1, 0)` (identity).
-fn givens(a: f64, b: f64) -> (f64, f64) {
+///
+/// `pub(super)` for the same reason as [`HAPPY_TOL`]: the flat-reduction GMRES
+/// reference in [`crate::krylov::hybrid_tests`] calls this very function, so the
+/// only difference between it and [`gmres_impl`] is how inner products are summed.
+pub(super) fn givens(a: f64, b: f64) -> (f64, f64) {
     if b == 0.0 {
         (1.0, 0.0)
     } else if a == 0.0 {
