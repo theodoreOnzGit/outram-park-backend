@@ -185,3 +185,15 @@ pub use crate::math::parallel::{
     root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch,
     RootBatchFailure, RootMethod, RootProblem, RootSettings, RootSolution, RootStatus,
 };
+
+// --- Batched 1-D golden-section extremum search (Layer 1) ---
+//
+// Generalised from `tampines-steam-tables`' choked-flow `golden_section_max_g`
+// rather than written afresh. `Sense` exists because the production caller
+// MAXIMISES, and negating internally would flip the sign of returned values
+// under the caller's feet.
+pub use crate::math::minimise::{
+    golden_section_batch, minimise_backend_for, MinBatch, MinBatchFailure, MinProblem,
+    MinSettings, MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS,
+    SQRT_EPSILON,
+};
