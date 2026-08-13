@@ -72,15 +72,34 @@
 //!   `2.334157e-6` at `k = 80`. Recomputing both probes — the original's form —
 //!   holds the deviation at `<= 6.7e-16` for every one of those `k`.
 //!
-//!   **This has no effect on the accuracy of the answer**, and it is worth being
-//!   precise about why rather than waving it away: at `k = 80` the bracket width
-//!   is `1.9e-16`, so a `2.3e-6` *relative* deviation is `4e-22` *absolute* —
-//!   far below the `sqrt(eps)`-scale accuracy the located extremum can have in
-//!   the first place, and 80 iterations is roughly twice what
-//!   [`MinSettings::default`] ever reaches. What it does mean is that the closed
-//!   form `W0 * gr^k` stops being an exact predictor of
-//!   [`MinSolution::bracket_width`] at large `k`. If you need the width to be
-//!   exact rather than the evaluation count to be halved, recompute both probes.
+//!   **CORRECTED 2026-08-13 — the original text here understated the effect on
+//!   the located abscissa by about eight orders of magnitude, and the error is
+//!   instructive.** It read: "at `k = 80` the bracket width is `1.9e-16`, so a
+//!   `2.3e-6` relative deviation is `4e-22` absolute". That arithmetic is right
+//!   about the *width* and wrong about the *answer*. The two are not the same
+//!   quantity: a last-bit difference in a probe can flip a comparison on a
+//!   near-flat objective, or change which iteration first trips the stopping
+//!   test, and the returned midpoint then shifts by up to roughly **one bracket
+//!   width at the stopping tolerance** — not by the width at `k = 80`.
+//!
+//!   Measured, not reasoned: `tampines-steam-tables` ran both forms side by side
+//!   over 158 real IAPWS-IF97 choked-flow searches and found a worst
+//!   `|Δp_crit|` of **5.990479e-1 Pa** against a 1 Pa stopping rule, and up to
+//!   **3 Pa** on a production case — about `1e8` times the `4e-22` the old text
+//!   implied. The worst relative deviation was `4.604111e-8`, and the objective
+//!   value barely moved at all: worst `|ΔG|/G = 3.429708e-13`.
+//!
+//!   **The conclusion survives; only the magnitude was wrong.** Those shifts sat
+//!   four orders inside the consuming test's `0.005` relative tolerance, the
+//!   Marviken and Moody gate outputs were byte-identical, and the objective is
+//!   what a caller actually uses. But "well inside tolerance, measured" is a
+//!   different claim from "`4e-22`, therefore ignorable", and a caller with a
+//!   tighter tolerance than 1 Pa deserves the honest figure. Tracked as
+//!   `op-8kww`.
+//!
+//!   Separately and still true: the closed form `W0 * gr^k` stops being an exact
+//!   predictor of [`MinSolution::bracket_width`] at large `k`. If you need the
+//!   width exact rather than the evaluation count halved, recompute both probes.
 //!
 //! # Golden section finds a minimum of a UNIMODAL function — read this first
 //!
