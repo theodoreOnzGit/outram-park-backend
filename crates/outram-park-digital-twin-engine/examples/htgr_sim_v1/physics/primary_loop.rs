@@ -169,8 +169,8 @@ use uom::si::volume::cubic_meter;
 
 use super::pebble_bed;
 use super::steam_generator::{
-    NodalisedCounterFlowSteamGenerator, SteamGeneratorConfig, SteamGeneratorGeometry,
-    SteamGeneratorState,
+    NodalisedCounterFlowSteamGenerator, PimpleCorrectors, SteamGeneratorConfig,
+    SteamGeneratorGeometry, SteamGeneratorState,
 };
 
 // ---------------------------------------------------------------------------
@@ -314,8 +314,8 @@ const CIRCULATOR_EFFICIENCY: f64 = 0.80;
 ///
 /// | | 1.0e5 W/K (carried over) | 4.26e4 W/K (re-calibrated) | Published |
 /// |---|---|---|---|
-/// | Core outlet | 880.53 K = **607.4 degC** | 993.89 K = 720.7 degC | 700 degC |
-/// | Core inlet | 432.51 K = **159.4 degC** | 546.05 K = 272.9 degC | 250 degC |
+/// | Core outlet | 880.53 K = **607.4 degC** | 993.78 K = 720.6 degC | 700 degC |
+/// | Core inlet | 432.51 K = **159.4 degC** | 545.94 K = 272.8 degC | 250 degC |
 /// | Steam outlet | 710.19 K = 437.0 degC | 700.81 K = 427.7 degC | 440 degC |
 /// | Hot-end driving difference | 135.84 K | 263.80 K | -- |
 ///
@@ -334,7 +334,7 @@ const CIRCULATOR_EFFICIENCY: f64 = 0.80;
 /// closed-form `UA` above is derived for a *continuous* counter-flow exchanger
 /// with terminal states; the model is an 8-node discretisation reading
 /// cell-centre temperatures, and it lands about 20 K high on both helium
-/// terminals (720.7 degC against 700, 272.9 degC against 250, at a fixed
+/// terminals (720.6 degC against 700, 272.8 degC against 250, at a fixed
 /// 3.19 kg/s feed). That residual is reported, not tuned out: a second round of
 /// fitting would only make the agreement less informative than it already is.
 /// See [`tests::steam_generator_has_no_node_by_node_temperature_cross`] for the
@@ -370,31 +370,55 @@ const STEAM_GENERATOR_HOT_SIDE_RESISTANCE_FRACTION: f64 = 0.75;
 /// used (`docs/reactor-scoping/htr10-plant-data.md` section 6). Read the axial
 /// profile as an arrangement, not a converged solution.
 ///
-/// The cost is real: three coupled array solves per 0.0125 s of *simulated*
-/// time, **measured ~21 ms of wall clock per 0.05 s of simulated time**
-/// (2026-08-12, release, 8 nodes). That is about 2.4x faster than real time, so
-/// the GUI keeps up -- and because the exchanger runs on its own clock, the cost
-/// does not rise when the plant is stepped at 1 ms instead of 50 ms. It does
-/// make any test that marches thousands of plant steps expensive, which is why
-/// the tests below march 150-400 s of simulated time rather than the 400-800 s
-/// their predecessors could afford.
+/// **The cost is real, and it is nearly the whole of this simulator's cost.**
+/// Three coupled array solves per 0.0125 s of *simulated* time, each running
+/// its equation of state over every cell once per outer corrector. Measured
+/// 2026-08-13 (release, 8 nodes, 2 outer correctors): the exchanger alone costs
+/// about **1.0 s of compute per second of simulated time**, against ~0.04 for
+/// everything else in the plant -- so it is **~96%** of `HtgrPlant::step`. Node
+/// count is a linear term in that, which is why 8 is not raised toward the 17
+/// the published INET model used.
+///
+/// Because the exchanger runs on its own clock, this cost does **not** fall
+/// when the plant timestep rises; that is why raising the plant timestep from
+/// 1 ms to 0.1 s bought only 4% (see [`super::PLANT_TIMESTEP_S`]). It also
+/// makes any test that marches hundreds of seconds of simulated time expensive,
+/// which is why the tests below march 150-400 s rather than the 400-800 s their
+/// predecessors could afford.
 const STEAM_GENERATOR_NODE_COUNT: usize = 8;
 
-/// The fixed timestep the steam-generator arrays are advanced with \[s\],
-/// 0.0125 s.
+/// The fixed timestep the steam-generator arrays are advanced with \[s\].
+///
+/// **Derived, not typed in**: it is
+/// [`super::PLANT_TIMESTEP_S`] / [`super::STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP`]
+/// = 0.1 / 8 = **0.0125 s**, which is exactly the value this exchanger was
+/// converged and stability-tested at on 2026-08-12. Changing the plant timestep
+/// therefore moves the exchanger's clock with it, in a fixed ratio, rather than
+/// leaving a second hand-maintained literal to drift out of step.
+/// [`tests::the_steam_generator_substep_divides_the_plant_timestep`] pins the
+/// division.
 ///
 /// The exchanger accumulates whatever `dt` this loop hands it and advances in
-/// whole steps of this size -- see [`super::steam_generator::SteamGeneratorConfig::substep`].
-/// That matters because the GUI steps this plant at **1 ms**, not at the 0.05 s
-/// the tests use, and 1 ms is *below* the arrays' stability window.
+/// whole steps of this size -- see
+/// [`super::steam_generator::SteamGeneratorConfig::substep`]. That indirection
+/// still matters even now the plant steps at 0.1 s: the exchanger is a
+/// **multi-rate** sub-model whose cost per second of plant time does not depend
+/// on the plant timestep at all, which is the property that made raising the
+/// plant timestep worth doing.
 ///
 /// # This is measured, from both ends
 ///
-/// **Above**, by stability. The helium array's cells are ~0.6 m long and the gas
-/// moves at ~10 m/s, so at the full 0.05 s plant timestep the advective Courant
-/// number is close to 1: measured 2026-08-12, the enthalpy field goes odd-even
-/// (checkerboard) within four plant steps and clamps against the array's
-/// enthalpy bounds. 0.025 s and 0.0125 s both run 4000 plant steps clean.
+/// **Above**, by stability -- a **Courant** limit. The helium array's cells are
+/// `5.0 m / 8 = 0.625 m` long and the gas moves at about 11 m/s, so at the full
+/// 0.05 s plant timestep the advective Courant number is close to 1: measured
+/// 2026-08-12, the enthalpy field goes odd-even (checkerboard) within four plant
+/// steps and clamps against the array's enthalpy bounds. 0.025 s and 0.0125 s
+/// both run 4000 plant steps clean. The measured Courant numbers are recorded in
+/// [`super::steam_generator::tests::the_courant_number_bounds_the_array_substep`]
+/// -- **and that test also shows that raising the arrays' PIMPLE outer-corrector
+/// count does not lift the limit**, because their enthalpy convection is an
+/// explicit source inside the corrector loop whose Picard contraction factor is
+/// the Courant number itself.
 ///
 /// **Below**, by a *different* instability -- this is a window, not a
 /// "smaller is safer" limit. At 0.001 s the water side begins resolving its own
@@ -418,7 +442,9 @@ const STEAM_GENERATOR_NODE_COUNT: usize = 8;
 /// So 0.0125 s is where both the duty and the closure have converged; halving it
 /// again buys nothing and doubles the cost. 0.025 s is visibly *not* converged
 /// -- its duty is 1.4% high -- which is why the cheaper option was rejected.
-const STEAM_GENERATOR_SUBSTEP_S: f64 = 0.0125;
+fn steam_generator_substep_s() -> f64 {
+    super::steam_generator_substep_seconds()
+}
 
 /// Thermal-inertia time constant of the lumped helium node in the core \[s\]
 /// (**invented**), giving the core-outlet temperature a visible first-order
@@ -478,17 +504,49 @@ fn steam_generator_config() -> SteamGeneratorConfig {
         hot_fluid: CoolPropFluid::Helium,
         hot_pressure: design().primary_pressure,
         cold_pressure: design().main_steam_pressure,
-        metal: SolidMaterial::SteelSS304L,
+        // Kim's ANL-75-55 304L, NOT the Zou/Zweibaum `SteelSS304L`. The latter
+        // is tabulated only to 1000 K (726.85 degC), which leaves about 27 K of
+        // headroom above this plant's published 700 degC core outlet -- any
+        // transient overshoot left the tabulated range and TUAS panicked rather
+        // than extrapolating. `SteelSS304LHighTemp` carries the same alloy over
+        // 300-1700 K, so the whole HTR-10 envelope (and phase 2's 900 degC) sits
+        // inside the data. See `SolidMaterial::SteelSS304LHighTemp`'s own docs
+        // for which part of that span is measured and which is Kim's
+        // extrapolation into the melting range.
+        metal: SolidMaterial::SteelSS304LHighTemp,
         hot_side_conductance: ThermalConductance::new::<watt_per_kelvin>(ua / f),
         cold_side_conductance: ThermalConductance::new::<watt_per_kelvin>(ua / (1.0 - f)),
         node_count: STEAM_GENERATOR_NODE_COUNT,
-        substep: Time::new::<second>(STEAM_GENERATOR_SUBSTEP_S),
+        substep: Time::new::<second>(steam_generator_substep_s()),
         initial_hot_end_temperature: ThermodynamicTemperature::new::<kelvin>(
             published_core_outlet_k(),
         ),
         initial_cold_end_temperature: ThermodynamicTemperature::new::<kelvin>(320.0),
         initial_cold_outlet_temperature: design().main_steam_temperature,
+        hot_correctors: PimpleCorrectors::hot_gas_default(),
+        cold_correctors: PimpleCorrectors::water_steam_default(),
     }
+}
+
+/// The lumped scalars [`HeliumPrimaryLoop`] integrates, snapshotted so a plant
+/// outer corrector can rewind them to the start of a timestep.
+///
+/// All fields are `uom`-typed: temperatures in kelvin, flow in kg/s, duties in
+/// watts. See [`HeliumPrimaryLoop::lumped_state`].
+#[derive(Clone, Copy, Debug)]
+pub struct PrimaryLumpedState {
+    /// Core-inlet helium temperature \[K\].
+    pub core_inlet_temperature: ThermodynamicTemperature,
+    /// Core-outlet helium temperature \[K\].
+    pub core_outlet_temperature: ThermodynamicTemperature,
+    /// Circulator mass flow \[kg/s\].
+    pub mass_flow: MassRate,
+    /// Heat rate leaving the helium in the steam generator \[W\].
+    pub ihx_duty: Power,
+    /// Heat rate entering the water/steam in the steam generator \[W\].
+    pub secondary_duty: Power,
+    /// Helium-side steam-generator outlet temperature \[K\].
+    pub ihx_outlet_temperature: ThermodynamicTemperature,
 }
 
 /// Lumped helium primary-loop state.
@@ -614,6 +672,7 @@ impl HeliumPrimaryLoop {
     /// did, so the duty was over-predicted and the steam ran far too hot. The
     /// nodalised exchanger evaluates the driving difference at local node
     /// temperatures instead. See that module's docs for the full account.
+    #[allow(dead_code)] // the composite API, exercised by the loop tests; `HtgrPlant` calls the three parts
     pub fn step(
         &mut self,
         dt: Time,
@@ -622,6 +681,26 @@ impl HeliumPrimaryLoop {
         feedwater_enthalpy: AvailableEnergy,
         secondary_mass_flow: MassRate,
     ) {
+        self.step_hot_leg(dt, core_heat_to_helium, flow_setpoint);
+        self.advance_steam_generator(dt, feedwater_enthalpy, secondary_mass_flow);
+        self.close_return_leg(dt);
+    }
+
+    /// **Part 1 of [`Self::step`]: the cheap hot leg.** Clamps the commanded
+    /// flow, re-evaluates the helium properties, and advances the core-outlet
+    /// temperature through its first-order gas thermal inertia.
+    ///
+    /// Split out of `step` so that [`super::HtgrPlant`]'s outer-corrector loop
+    /// can re-advance it several times per plant timestep against improving
+    /// estimates of the coupled quantities, **without** re-advancing
+    /// [`Self::advance_steam_generator`], which is 96% of the plant's compute
+    /// (measured 2026-08-13). Costs one CoolProp helium flash per call.
+    ///
+    /// Idempotent with respect to the caller's own bookkeeping only in the
+    /// sense that it reads `self.core_inlet_temperature` and
+    /// `self.core_outlet_temperature` and writes the latter: to call it twice
+    /// for the same timestep, restore [`Self::lumped_state`] in between.
+    pub fn step_hot_leg(&mut self, dt: Time, core_heat_to_helium: Power, flow_setpoint: MassRate) {
         // Clamp the commanded flow to the circulator's range so the energy
         // balance denominator and the residence time never blow up, and so a
         // setpoint scaled for a different plant cannot drive this one.
@@ -647,13 +726,30 @@ impl HeliumPrimaryLoop {
         let alpha_core = (dt_s / CORE_THERMAL_TIME_CONSTANT_S).clamp(0.0, 1.0);
         let t_out_next_k = t_out_k + alpha_core * (t_out_ss_k - t_out_k);
         self.core_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_out_next_k);
+    }
 
-        // 3. Steam generator: advance the resolved counter-flow exchanger. The
-        //    duty and the helium-side outlet both come OUT of it; neither is
-        //    computed here. The secondary flow is floored so the tube side never
-        //    stagnates -- at zero flow the water array has no advection and the
-        //    exchanger degenerates into a conduction problem the plant model has
-        //    no use for.
+    /// **Part 2 of [`Self::step`]: the expensive exchanger.** Advances the
+    /// resolved counter-flow steam generator by `dt` and stores both stream
+    /// duties and the helium-side outlet.
+    ///
+    /// The duty and the helium-side outlet both come **out** of the exchanger;
+    /// neither is computed here. The secondary flow is floored so the tube side
+    /// never stagnates -- at zero flow the water array has no advection and the
+    /// exchanger degenerates into a conduction problem the plant model has no
+    /// use for.
+    ///
+    /// This is the only irreversible part of a plant timestep: the exchanger's
+    /// three arrays hold their own history and cannot be rolled back cheaply.
+    /// [`super::HtgrPlant::step`] therefore calls it **exactly once per plant
+    /// timestep**, on the final outer corrector, so that the hot-inlet
+    /// temperature and the feedwater state it is handed are the converged
+    /// end-of-step values rather than the start-of-step ones.
+    pub fn advance_steam_generator(
+        &mut self,
+        dt: Time,
+        feedwater_enthalpy: AvailableEnergy,
+        secondary_mass_flow: MassRate,
+    ) {
         let sg = self
             .steam_generator
             .advance_timestep(
@@ -670,17 +766,61 @@ impl HeliumPrimaryLoop {
             .expect("the steam generator must advance");
         self.ihx_duty = sg.hot_side_duty;
         self.secondary_duty = sg.cold_side_duty;
-
-        // 4. The core inlet relaxes toward the steam generator's helium-side
-        //    outlet through the return transport lag.
-        let t_ihx_out_k = sg.hot_outlet_temperature.get::<kelvin>();
         self.ihx_outlet_temperature = sg.hot_outlet_temperature;
+    }
+
+    /// **Part 3 of [`Self::step`]: the cheap return leg.** Relaxes the core
+    /// inlet toward the steam generator's helium-side outlet through the return
+    /// transport lag, closing the circuit, then updates the loop pressure drop
+    /// and circulator power.
+    ///
+    /// Reads [`Self::ihx_outlet_temperature`], which
+    /// [`Self::advance_steam_generator`] wrote (or, on an outer corrector that
+    /// has not yet advanced the exchanger, whatever the previous plant timestep
+    /// left there).
+    pub fn close_return_leg(&mut self, dt: Time) {
+        let dt_s = dt.get::<second>();
+        let t_in_k = self.core_inlet_temperature.get::<kelvin>();
+        let t_ihx_out_k = self.ihx_outlet_temperature.get::<kelvin>();
         let alpha_return = (dt_s / RETURN_TRANSPORT_TIME_CONSTANT_S).clamp(0.0, 1.0);
         let t_in_next_k = t_in_k + alpha_return * (t_ihx_out_k - t_in_k);
         self.core_inlet_temperature = ThermodynamicTemperature::new::<kelvin>(t_in_next_k);
 
-        // 5. Loop pressure drop and circulator hydraulic power.
-        self.update_hydraulics(flow_kg_s);
+        self.update_hydraulics(self.mass_flow.get::<kilogram_per_second>());
+    }
+
+    /// Every **lumped scalar** this loop integrates, as one `Copy` value.
+    ///
+    /// This is the loop's whole rollback-able state: the two circuit
+    /// temperatures, the flow, and the three quantities the exchanger last
+    /// returned. It deliberately excludes the steam generator's three arrays,
+    /// which hold their own spatial history -- see
+    /// [`Self::advance_steam_generator`] for why that one part of a timestep is
+    /// not repeated.
+    ///
+    /// Used by [`super::HtgrPlant::step`]'s outer-corrector loop with
+    /// [`Self::restore_lumped_state`].
+    pub fn lumped_state(&self) -> PrimaryLumpedState {
+        PrimaryLumpedState {
+            core_inlet_temperature: self.core_inlet_temperature,
+            core_outlet_temperature: self.core_outlet_temperature,
+            mass_flow: self.mass_flow,
+            ihx_duty: self.ihx_duty,
+            secondary_duty: self.secondary_duty,
+            ihx_outlet_temperature: self.ihx_outlet_temperature,
+        }
+    }
+
+    /// Restore the lumped scalars saved by [`Self::lumped_state`], rewinding
+    /// this loop to the start of the current plant timestep. Does **not** touch
+    /// the steam generator.
+    pub fn restore_lumped_state(&mut self, s: PrimaryLumpedState) {
+        self.core_inlet_temperature = s.core_inlet_temperature;
+        self.core_outlet_temperature = s.core_outlet_temperature;
+        self.mass_flow = s.mass_flow;
+        self.ihx_duty = s.ihx_duty;
+        self.secondary_duty = s.secondary_duty;
+        self.ihx_outlet_temperature = s.ihx_outlet_temperature;
     }
 
     /// Loop pressure drop -- **KTA over the bed, published sum for the rest** --
@@ -807,6 +947,28 @@ impl HeliumPrimaryLoop {
     #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
     pub fn steam_generator_state(&self) -> &SteamGeneratorState {
         self.steam_generator.state()
+    }
+
+    /// How many times the steam generator's **hot** array has clamped its
+    /// enthalpy field against its own bounds since the plant was constructed.
+    ///
+    /// Zero is the expected value and is direct evidence that the exchanger's
+    /// array substep is inside its Courant window: a checkerboard breakdown
+    /// shows up here as a nonzero count before it shows up as a panic. See
+    /// [`super::steam_generator::NodalisedCounterFlowSteamGenerator::hot_enthalpy_clamp_events`].
+    /// Advective Courant numbers `(hot, cold)` in the steam generator at a
+    /// candidate array substep, measured from the arrays' own live velocity
+    /// fields. See
+    /// [`super::steam_generator::NodalisedCounterFlowSteamGenerator::max_courant_numbers`].
+    #[allow(dead_code)] // read by the V&V tests; diagnostic candidate for the app layer
+    pub fn steam_generator_courant_numbers(&self, substep_s: f64) -> (f64, f64) {
+        self.steam_generator
+            .max_courant_numbers(Time::new::<second>(substep_s))
+    }
+
+    #[allow(dead_code)] // read by the V&V tests; snapshot candidate for the app layer
+    pub fn steam_generator_enthalpy_clamp_events(&self) -> usize {
+        self.steam_generator.hot_enthalpy_clamp_events()
     }
 
     /// Tube-metal thermal time constant \[s\] at `temperature`, `C_metal/UA`.
@@ -989,24 +1151,32 @@ mod tests {
         MassRate::new::<kilogram_per_second>(3.19)
     }
 
+    /// The plant timestep these tests drive the loop at -- the same constant
+    /// the application and the whole-plant tests read.
+    fn dt() -> Time {
+        crate::physics::plant_timestep()
+    }
+
+    /// Number of plant timesteps in `plant_seconds` of simulated time. Test
+    /// windows are expressed in **simulated seconds** so that changing
+    /// [`crate::physics::PLANT_TIMESTEP_S`] does not silently rescale them.
+    fn steps_for(plant_seconds: f64) -> usize {
+        (plant_seconds / crate::physics::PLANT_TIMESTEP_S).round() as usize
+    }
+
     /// March the loop to a settled state at `power`, returning it.
     ///
-    /// 200 s of simulated time at 0.05 s. That is more than ten times the
+    /// 200 s of simulated time at the plant timestep. That is more than ten times the
     /// steam generator's ~38 s metal time constant and forty times the 5 s core
     /// gas lag, so nothing here is still moving materially. Deliberately shorter
-    /// than the 400 s the pre-2026-08-12 tests used, because each plant step now
-    /// advances three coupled fluid/solid arrays (~10.8 ms of wall clock per
-    /// step) rather than evaluating a closed-form effectiveness.
+    /// than the 400 s the pre-2026-08-12 tests used, because each second of
+    /// simulated time now advances three coupled fluid/solid arrays -- about
+    /// 1 s of wall clock per simulated second, measured 2026-08-13 -- rather
+    /// than evaluating a closed-form effectiveness.
     fn settled(power: Power) -> HeliumPrimaryLoop {
         let mut loop_ = nominal_loop();
-        for _ in 0..4000 {
-            loop_.step(
-                Time::new::<second>(0.05),
-                power,
-                nominal_flow(),
-                feedwater(),
-                secondary_flow(),
-            );
+        for _ in 0..steps_for(200.0) {
+            loop_.step(dt(), power, nominal_flow(), feedwater(), secondary_flow());
         }
         loop_
     }
@@ -1093,7 +1263,7 @@ mod tests {
     ///
     /// # Methodology
     ///
-    /// The loop is marched 4000 steps of 0.05 s (200 s of simulated time) at
+    /// The loop is marched over 200 s of simulated time at the plant timestep, at
     /// 10 MWth and the published 4.3 kg/s, with the tube side fed at the
     /// secondary's settled feedwater state (168.73 kJ/kg, 3.19 kg/s). At **every
     /// step** three things are asserted:
@@ -1110,9 +1280,12 @@ mod tests {
     /// stream ever overtook the hot stream the term would simply change sign.
     /// The test measures a property, it does not police one.
     ///
-    /// # Results (measured 2026-08-12)
+    /// # Results (measured 2026-08-12; **re-measured 2026-08-13** at the 0.1 s
+    /// plant timestep with the exchanger arrays at 2 outer correctors -- the
+    /// terminals moved by 0.11 K, which is the whole effect of both changes on
+    /// this design point)
     ///
-    /// Zero crosses at every one of the 4000 steps; the worst value of
+    /// Zero crosses at every step; the worst value of
     /// `worst_node_cross_kelvin` over the whole run was **0.000000 K**. The
     /// settled design point, at a *fixed* 3.19 kg/s feed (the plant's own
     /// controller-driven design point is in
@@ -1120,8 +1293,8 @@ mod tests {
     ///
     /// | Quantity | Measured | Published | Delta |
     /// |---|---|---|---|
-    /// | Core outlet (SG helium inlet) | 993.89 K = **720.7 degC** | 700 degC | **+20.7 K** |
-    /// | Core inlet (SG helium outlet) | 546.05 K = **272.9 degC** | 250 degC | **+22.9 K** |
+    /// | Core outlet (SG helium inlet) | 993.78 K = **720.6 degC** | 700 degC | **+20.6 K** |
+    /// | Core inlet (SG helium outlet) | 545.94 K = **272.8 degC** | 250 degC | **+22.8 K** |
     /// | SG duty, helium side | **9.9938 MW** | 10 MW | -0.06% |
     /// | SG duty, water side | **9.9223 MW** | 10 MW | -0.78% |
     /// | Steam outlet | 700.81 K = **427.7 degC** | 440 degC | **-12.3 K** |
@@ -1139,7 +1312,7 @@ mod tests {
     /// saturation plateau with an economiser below and a superheater above.
     ///
     /// The **hot-end driving difference is the number this change is about**.
-    /// The isothermal-sink model saw `T_helium - T_sat` = 993.89 - 523.5 =
+    /// The isothermal-sink model saw `T_helium - T_sat` = 993.78 - 523.5 =
     /// **470.4 K** there, and it never collapsed however hot the steam got. The
     /// resolved exchanger sees `T_helium - T_steam` = **263.80 K**, because the
     /// steam has superheated to 700.81 K by the time it reaches that end. The
@@ -1163,9 +1336,9 @@ mod tests {
         let mut worst_cross = 0.0_f64;
         let mut worst_hot_end_dt = f64::INFINITY;
 
-        for _ in 0..4000 {
+        for _ in 0..steps_for(200.0) {
             loop_.step(
-                Time::new::<second>(0.05),
+                dt(),
                 Power::new::<megawatt>(10.0),
                 nominal_flow(),
                 feedwater(),
@@ -1283,21 +1456,35 @@ mod tests {
     /// the protection system is not in the path, and the feedwater controller is
     /// bypassed. Reduce the heat removal and the loop simply heats without
     /// bound. Two ceilings then arrive before anything interesting does --
-    /// `SolidMaterial::SteelSS304L` is tabulated only to **1000 K** and TUAS
-    /// *panics* rather than extrapolating past it, and IF97 stops at 1073.15 K.
-    /// Measured 2026-08-12: throttling to 1.0 kg/s for 100 s drives the tube
-    /// metal through the steel limit and kills the run. 2.2 kg/s for 75 s shows
-    /// the same directional response with the metal well inside range, and the
-    /// test asserts that it stayed inside. See the module docs of
-    /// [`super::steam_generator`] for the operating margin against that ceiling
-    /// at the design point.
+    /// the tube metal leaves its property table and TUAS *panics* rather than
+    /// extrapolating, and IF97 stops at 1073.15 K. Measured 2026-08-12 against
+    /// the then-current `SolidMaterial::SteelSS304L` (tabulated to **1000 K**):
+    /// throttling to 1.0 kg/s for 100 s drove the tube metal through the steel
+    /// limit and killed the run. 2.2 kg/s for 75 s shows the same directional
+    /// response with the metal well inside range, and the test asserts that it
+    /// stayed inside.
+    ///
+    /// **The plant now builds this exchanger with
+    /// `SolidMaterial::SteelSS304LHighTemp`** (Kim, ANL-75-55, 300-1700 K), so
+    /// the ceiling asserted here is 1700 K rather than 1000 K. That change is
+    /// why the margin is comfortable. Re-measured 2026-08-13 over the intended
+    /// 75 s window at the 0.1 s plant timestep: core inlet 537.63 K at the
+    /// 3.19 kg/s feed against 580.20 K at the throttled 2.2 kg/s, with a peak
+    /// tube metal of **931.32 K** -- inside even the old 1000 K ceiling. A 150 s
+    /// window (which this test briefly had, when the plant timestep doubled
+    /// without the step count being halved) reaches **999.07 K**, i.e. it would
+    /// have grazed that ceiling; the window is expressed in simulated seconds
+    /// now so it cannot drift with the timestep again.
+    ///
+    /// See the module docs of [`super::steam_generator`] for the operating
+    /// margin against that ceiling at the design point.
     #[test]
     fn core_inlet_responds_to_secondary_heat_removal() {
         let mut strong = nominal_loop();
         let mut weak = nominal_loop();
         let mut worst_metal_k = 0.0_f64;
-        for _ in 0..1500 {
-            let dt = Time::new::<second>(0.05);
+        for _ in 0..steps_for(75.0) {
+            let dt = dt();
             let q = Power::new::<megawatt>(10.0);
             strong.step(dt, q, nominal_flow(), feedwater(), secondary_flow());
             weak.step(
@@ -1316,15 +1503,17 @@ mod tests {
         println!(
             "core inlet after 75 s: 3.19 kg/s feed -> {strong_k:.2} K, 2.2 kg/s feed -> \
              {weak_k:.2} K; peak tube-metal temperature on the throttled run \
-             {worst_metal_k:.2} K (SteelSS304L is tabulated to 1000 K)"
+             {worst_metal_k:.2} K (SteelSS304LHighTemp is tabulated to 1700 K; the \
+             SteelSS304L this replaced stopped at 1000 K)"
         );
         assert!(
             weak_k > strong_k,
             "throttling the feedwater must raise the core inlet ({weak_k} K vs {strong_k} K)"
         );
         assert!(
-            worst_metal_k < 1000.0,
-            "the tube metal reached {worst_metal_k} K, outside SteelSS304L's tabulated range"
+            worst_metal_k < 1700.0,
+            "the tube metal reached {worst_metal_k} K, outside SteelSS304LHighTemp's \
+             tabulated range"
         );
     }
 
@@ -1336,7 +1525,9 @@ mod tests {
     /// cannot touch: the rise is set by the power and the flow, whatever
     /// temperature level the exchanger settles the loop at.
     ///
-    /// Results (2026-08-12): the settled rise was **447.8439 K** against
+    /// Results (2026-08-12; re-measured 2026-08-13 at the 0.1 s plant timestep
+    /// with the exchanger arrays at 2 outer correctors): the settled rise was
+    /// **447.8358 K** (was 447.8439 K) against
     /// `10e6/(4.3 x c_p) = 447.9627 K` from the balance at the live `c_p` --
     /// **-0.027%**. The rise is unchanged in kind by the steam-generator rework,
     /// as it must be.
@@ -1567,7 +1758,7 @@ mod tests {
         let mut slow = nominal_loop();
         let mut fast = nominal_loop();
         for _ in 0..400 {
-            let dt = Time::new::<second>(0.05);
+            let dt = dt();
             let q = Power::new::<megawatt>(10.0);
             slow.step(
                 dt,
@@ -1617,7 +1808,7 @@ mod tests {
     fn commanded_flow_is_clamped_to_the_circulator_range() {
         let mut too_fast = nominal_loop();
         too_fast.step(
-            Time::new::<second>(0.05),
+            dt(),
             Power::new::<megawatt>(10.0),
             MassRate::new::<kilogram_per_second>(85.0),
             feedwater(),
@@ -1630,7 +1821,7 @@ mod tests {
 
         let mut stopped = nominal_loop();
         stopped.step(
-            Time::new::<second>(0.05),
+            dt(),
             Power::new::<megawatt>(10.0),
             MassRate::new::<kilogram_per_second>(0.0),
             feedwater(),

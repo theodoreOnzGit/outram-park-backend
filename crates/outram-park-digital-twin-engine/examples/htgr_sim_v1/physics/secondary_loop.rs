@@ -353,6 +353,26 @@ impl SteamSecondaryLoop {
         }
     }
 
+    /// The loop's **only integrated state**: the feedwater mass flow the
+    /// controller is relaxing toward its target.
+    ///
+    /// Everything else this struct holds -- the condensate, the feedwater
+    /// enthalpy, the steam-generator outlet, the turbine and condenser results
+    /// -- is recomputed from scratch inside [`Self::step`] from the duty it is
+    /// handed, so restoring this one scalar rewinds the loop exactly.
+    ///
+    /// Used by [`super::HtgrPlant::step`]'s outer-corrector loop with
+    /// [`Self::restore_integrated_state`].
+    pub fn integrated_state(&self) -> MassRate {
+        self.mass_flow
+    }
+
+    /// Restore the mass flow saved by [`Self::integrated_state`], rewinding
+    /// this loop to the start of the current plant timestep.
+    pub fn restore_integrated_state(&mut self, mass_flow: MassRate) {
+        self.mass_flow = mass_flow;
+    }
+
     /// Saturation temperature at the live steam pressure, from the real IF97
     /// saturation line.
     ///

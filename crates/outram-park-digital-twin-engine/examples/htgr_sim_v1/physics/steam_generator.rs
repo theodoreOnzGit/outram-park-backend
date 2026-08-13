@@ -144,13 +144,35 @@
 //! The plant's crash modal names the failing component, so either shows up as
 //! "steam generator + secondary steam loop" rather than an anonymous panic.
 //!
-//! ## Cost
+//! ## Cost -- this module *is* the simulator's cost
 //!
-//! Each `advance_timestep` runs three coupled array solves per sub-timestep.
-//! Measured 2026-08-12 (release, 8 nodes, 4 sub-timesteps per 0.05 s plant
-//! step): **~21 ms of wall clock per plant step**, i.e. about 2.4x faster than
-//! real time. Affordable for a GUI at 20 Hz; expensive for a test that marches
-//! thousands of steps.
+//! Each `advance_timestep` runs three coupled array solves per sub-timestep,
+//! and each solve's outer correctors each run the array's equation of state
+//! over every cell. Those EOS flashes -- a CoolProp Helmholtz solve on the hot
+//! side, an IAPWS-IF97 `(p, h)` flash on the cold -- are where essentially all
+//! of the wall clock goes.
+//!
+//! **Measured 2026-08-13** (release, 8 nodes, the shipped 0.0125 s substep,
+//! then 4 outer correctors): **1.9585 s of compute per second of simulated
+//! time** on its own, against **1.9469** for the whole plant around it. The
+//! exchanger is therefore about **96% of `htgr_sim_v1`'s compute**, and the
+//! remaining 4% is everything else in the plant put together.
+//!
+//! Two consequences, both important:
+//!
+//! - **Its cost does not depend on the plant timestep.** It is a multi-rate
+//!   sub-model on its own clock, so raising the plant step from 1 ms to 0.1 s
+//!   moved the whole-plant real-time ratio only from 0.492 to 0.514.
+//! - **Cost is very nearly exactly linear in `n_outer / substep`.** Measured
+//!   the same day: 0.51 at (1 corrector, 0.0125 s), 0.99 at (2, 0.0125 s), 1.96
+//!   at (4, 0.0125 s), 0.50 at (2, 0.025 s). Dropping the shipped corrector
+//!   count from 4 to 2 halved the cost and moved the settled duty by nothing
+//!   measurable -- see
+//!   [`tests::the_corrector_substep_trade_is_measured`].
+//!
+//! The substep cannot be raised further because of the hot side's **Courant**
+//! limit, and more correctors do not lift it -- see
+//! [`tests::the_courant_number_bounds_the_array_substep`].
 //!
 //! This is a demonstration model, **not a validated steam-generator model**.
 //!
@@ -169,12 +191,13 @@ use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::o
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::density::try_get_rho;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, SolidMaterial};
+use tuas_boussinesq_solver::fluid_mechanics_correlations::courant_number::get_fluid_courant_number_one_dimension;
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
     Area, AvailableEnergy, HeatCapacity, Length, Mass, MassRate, Power, Pressure,
-    ThermalConductance, ThermodynamicTemperature, Time, Volume,
+    ThermalConductance, ThermodynamicTemperature, Time, Velocity, Volume,
 };
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::length::meter;
@@ -187,6 +210,7 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
 
 /// Tube-bundle geometry of a once-through steam generator.
@@ -418,25 +442,39 @@ pub struct SteamGeneratorConfig {
     ///
     /// **The arrays are unstable both above and below a window**, so a caller's
     /// timestep cannot simply be subdivided or passed through. Measured
-    /// 2026-08-12 on the HTR-10 configuration:
+    /// 2026-08-12, with the duty column re-measured 2026-08-13 against a
+    /// 0.00625 s reference:
     ///
-    /// | Array timestep | Outcome |
-    /// |---|---|
-    /// | 0.05 s | helium enthalpy field goes odd-even within 4 steps and clamps |
-    /// | 0.025 s | stable, but the duty is 1.4% off converged |
-    /// | **0.0125 s** | **stable and converged** |
-    /// | 0.00625 s | stable and converged |
-    /// | 0.001 s | water side resolves its own acoustic transient; the IF97 `(p,h)` flash leaves Region 5 range and **panics** |
+    /// | Array timestep | `Co_hot` | Settled `Q_hot` | Outcome |
+    /// |---|---|---|---|
+    /// | 0.1 s | 1.776 | -- | **fails** (also at 8 and 32 outer correctors) |
+    /// | 0.05 s | 0.888 | -- | **fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps |
+    /// | 0.025 s | 0.444 | 9.8244 MW | stable, but **+1.44%** off converged |
+    /// | **0.0125 s** | **0.222** | **9.6854 MW** | **stable, +0.003% off converged** |
+    /// | 0.00625 s | 0.111 | 9.6851 MW | reference |
+    /// | 0.001 s | 0.018 | -- | water side resolves its own acoustic transient; the IF97 `(p,h)` flash leaves Region 5 range and **panics** |
     ///
-    /// The lower bound is the one that bites in practice, and it is easy to hit
-    /// by accident: `htgr_sim_v1`'s GUI steps its plant at **1 ms**, ten
-    /// sub-steps per 10 ms tick, to keep the animation smooth. Handed straight
-    /// to the arrays that is the panicking case -- and it is what the simulator
-    /// did on its first wiring, dying in the crash modal within 30 s of launch.
-    /// Accumulating to a fixed 0.0125 s makes the exchanger a **multi-rate**
+    /// The **upper** bound is a Courant limit on the hot gas side and is not
+    /// negotiable by raising the outer-corrector count -- see
+    /// [`PimpleCorrectors`] and
+    /// [`tests::the_courant_number_bounds_the_array_substep`].
+    ///
+    /// The **lower** bound used to be the one that bit in practice: until
+    /// 2026-08-13 `htgr_sim_v1`'s GUI stepped its plant at **1 ms**, and handed
+    /// straight to the arrays that is the panicking case -- which is what the
+    /// simulator did on its first wiring, dying in the crash modal within 30 s
+    /// of launch. The plant now steps at
+    /// [`crate::physics::PLANT_TIMESTEP_S`] = 0.1 s, which is above the window
+    /// rather than below it, so the accumulator is now protecting against the
+    /// *upper* bound; either way it is needed.
+    ///
+    /// Accumulating to a fixed substep makes the exchanger a **multi-rate**
     /// sub-model, which is also what its physics wants: nothing in it moves on a
     /// millisecond scale, the fastest thing being the shell transport at a few
-    /// hundred milliseconds and the slowest the 38 s tube metal.
+    /// hundred milliseconds and the slowest the 38 s tube metal. It is also what
+    /// makes the exchanger's cost independent of the plant timestep -- and,
+    /// since it is 96% of that cost, what made raising the plant timestep worth
+    /// so little on its own.
     pub substep: Time,
     /// Temperature the **hot-inlet end** of the exchanger is seeded at.
     ///
@@ -466,6 +504,124 @@ pub struct SteamGeneratorConfig {
     /// downstream second-law backstop to 99.6% utilisation on the very first
     /// plant step; seeding them apart drops it well clear.
     pub initial_cold_outlet_temperature: ThermodynamicTemperature,
+    /// PIMPLE corrector counts and under-relaxation for the **hot** fluid
+    /// array.
+    pub hot_correctors: PimpleCorrectors,
+    /// PIMPLE corrector counts and under-relaxation for the **cold**
+    /// (water/steam) array.
+    pub cold_correctors: PimpleCorrectors,
+}
+
+/// PIMPLE outer/inner corrector counts and under-relaxation factors for one
+/// fluid array.
+///
+/// These used to be hardcoded inside
+/// [`NodalisedCounterFlowSteamGenerator::new`]. They are configuration now
+/// because the **outer** corrector count is the knob that trades wall-clock
+/// cost against the largest usable [`SteamGeneratorConfig::substep`], and that
+/// trade is the whole of this exchanger's cost: it is ~96% of `htgr_sim_v1`'s
+/// plant compute (measured 2026-08-13, see
+/// [`super::PLANT_TIMESTEP_S`]).
+///
+/// # What each does
+///
+/// - `n_outer` -- outer (PIMPLE/SIMPLE-like) correctors per array timestep.
+///   Each one re-solves momentum, pressure and energy from the same old-time
+///   state with the latest iterate. Because both arrays carry their enthalpy
+///   convection as an **explicit** `fvc::div_limited` source inside this loop,
+///   the loop is a Picard iteration whose contraction factor is the cell
+///   Courant number `Co`: residual reduction over the step is roughly
+///   `Co^n_outer`. So raising `n_outer` **can** buy a larger substep while
+///   `Co < 1`, and cannot help at all once `Co >= 1`.
+/// - `n_inner` -- inner pressure correctors within each outer corrector (the
+///   PISO loop). These fix the pressure-velocity coupling, not the advection,
+///   and are not the Courant knob.
+/// - `pressure_relaxation` / `velocity_relaxation` -- outer-loop
+///   under-relaxation, in `(0, 1]`. Lower is more robust and slower to
+///   converge.
+///
+/// # Cost
+///
+/// Each outer corrector costs one full pass of the array's equation of state
+/// over every cell, and the EOS flashes (CoolProp Helmholtz on the hot side,
+/// IAPWS-IF97 on the cold) are what this model spends its time in. Cost is
+/// therefore very close to linear in `n_outer * substeps_per_second`, which is
+/// why `n_outer` and `substep` trade against each other almost exactly.
+/// [`tests::the_corrector_substep_trade_is_measured`] records the measured
+/// grid.
+#[derive(Clone, Copy, Debug)]
+pub struct PimpleCorrectors {
+    /// Outer correctors per array timestep. Clamped to at least 1 by the array.
+    pub n_outer: usize,
+    /// Inner (PISO) pressure correctors per outer corrector.
+    pub n_inner: usize,
+    /// Outer-loop pressure under-relaxation factor, `(0, 1]`.
+    pub pressure_relaxation: f64,
+    /// Outer-loop velocity under-relaxation factor, `(0, 1]`.
+    pub velocity_relaxation: f64,
+}
+
+impl PimpleCorrectors {
+    /// Hot-gas-array settings: **2** outer correctors, 2 inner, both
+    /// under-relaxations 0.5.
+    ///
+    /// # Why 2 and not the 4 this shipped with until 2026-08-13
+    ///
+    /// Measured that day (see
+    /// [`tests::the_corrector_substep_trade_is_measured`]): at the 0.0125 s
+    /// substep the settled duty is **9.6854 MW at 1, 2 and 4 outer
+    /// correctors** -- identical to five significant figures -- while wall
+    /// clock is very nearly exactly linear in the count. Four correctors were
+    /// costing 2x for no measurable change in the answer, and this exchanger is
+    /// ~96% of `htgr_sim_v1`'s compute, so that factor was the whole difference
+    /// between running at half real time and running at real time.
+    ///
+    /// Two rather than one because the correctors are not useless, they are
+    /// merely not *binding* at the design point: they are a Picard iteration on
+    /// an explicit convection source whose contraction factor is the cell
+    /// Courant number, and the operator can raise the circulator to its 8 kg/s
+    /// ceiling (1.86x nominal). Measured 2026-08-13 at that ceiling --
+    /// `super::super::tests::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow`
+    /// -- `Co_hot` rises from 0.222 to **0.3604**, still inside the explicit
+    /// limiter's window, with **zero** enthalpy clamp events over 100 s. One
+    /// corrector is a bare explicit advance with no correction at all; two
+    /// keeps a real one, and the worst flow the GUI can command was checked
+    /// rather than assumed.
+    ///
+    /// Raising the count further does **not** buy a larger substep -- a 0.05 s
+    /// substep panics at 4, 8 and 16 correctors alike.
+    pub fn hot_gas_default() -> Self {
+        Self {
+            n_outer: 2,
+            n_inner: 2,
+            pressure_relaxation: 0.5,
+            velocity_relaxation: 0.5,
+        }
+    }
+
+    /// Water/steam-array settings: **2** outer correctors, 2 inner, both
+    /// under-relaxations 0.3. See [`Self::hot_gas_default`] for the measurement
+    /// behind the corrector count.
+    ///
+    /// The heavier relaxation reflects the phase change: the `(p, h)` flash's
+    /// density swings by three orders of magnitude across the saturation dome.
+    /// The cold side is nowhere near its Courant limit (`Co = 0.045` at the
+    /// 0.0125 s substep against the hot side's 0.222), so it is the hot side
+    /// that sets the count and this side simply matches it.
+    pub fn water_steam_default() -> Self {
+        Self {
+            n_outer: 2,
+            n_inner: 2,
+            pressure_relaxation: 0.3,
+            velocity_relaxation: 0.3,
+        }
+    }
+
+    /// The same settings with a different outer-corrector count.
+    #[allow(dead_code)] // part of the promotable public API; exercised by the corrector-sweep test
+    pub fn with_outer(self, n_outer: usize) -> Self {
+        Self { n_outer, ..self }
+    }
 }
 
 /// Things that can go wrong building or driving the exchanger.
@@ -666,7 +822,8 @@ impl NodalisedCounterFlowSteamGenerator {
         for c in 0..n {
             hot_side_helium.p.internal[c] = config.hot_pressure.get::<pascal>();
         }
-        hot_side_helium.set_temperature_vector(hot_seed.clone())
+        hot_side_helium
+            .set_temperature_vector(hot_seed.clone())
             .map_err(|e| SteamGeneratorError::Array(format!("hot seed: {e:?}")))?;
         hot_side_helium.correct_transport();
         // A gas exchanger is deeply subsonic, so the enthalpy convection scheme
@@ -675,7 +832,12 @@ impl NodalisedCounterFlowSteamGenerator {
         hot_side_helium.set_he_convection_scheme(
             outram_park_fork_coolprop::openfoam_algorithms::rhoPimpleFoam::EnergyConvectionScheme::VanLeer,
         );
-        hot_side_helium.set_pimple_algorithm(4, 2, ratio_of(0.5), ratio_of(0.5));
+        hot_side_helium.set_pimple_algorithm(
+            config.hot_correctors.n_outer,
+            config.hot_correctors.n_inner,
+            ratio_of(config.hot_correctors.pressure_relaxation),
+            ratio_of(config.hot_correctors.velocity_relaxation),
+        );
         hot_side_helium.set_outlet_pressure(config.hot_pressure);
 
         // --- Tube metal. ---
@@ -718,9 +880,15 @@ impl NodalisedCounterFlowSteamGenerator {
         for c in 0..n {
             cold_side_feedwater_steam.p.internal[c] = config.cold_pressure.get::<pascal>();
         }
-        cold_side_feedwater_steam.set_temperature_vector(cold_seed.clone())
+        cold_side_feedwater_steam
+            .set_temperature_vector(cold_seed.clone())
             .map_err(|e| SteamGeneratorError::Array(format!("cold seed: {e:?}")))?;
-        cold_side_feedwater_steam.set_pimple_algorithm(4, 2, ratio_of(0.3), ratio_of(0.3));
+        cold_side_feedwater_steam.set_pimple_algorithm(
+            config.cold_correctors.n_outer,
+            config.cold_correctors.n_inner,
+            ratio_of(config.cold_correctors.pressure_relaxation),
+            ratio_of(config.cold_correctors.velocity_relaxation),
+        );
         cold_side_feedwater_steam.set_outlet_pressure(config.cold_pressure);
 
         let hot_node_conductance = config.hot_side_conductance / (n as f64);
@@ -798,6 +966,69 @@ impl NodalisedCounterFlowSteamGenerator {
     /// The most recently computed state, without stepping.
     pub fn state(&self) -> &SteamGeneratorState {
         &self.last_state
+    }
+
+    /// Advective Courant numbers `Co = |u| dt / dx` on the two fluid arrays at
+    /// a candidate array timestep, as `(hot_max, cold_max)`.
+    ///
+    /// **Measured, not assumed.** The velocities are read out of each array's
+    /// own live `u` field, so this reports the Courant number the solver is
+    /// actually running at, not one derived from a nominal density. `dx` is the
+    /// uniform cell length each array was constructed with
+    /// (`shell_flow_length / n` on the hot side, `tube_length / n` on the cold
+    /// side).
+    ///
+    /// # Why this matters here
+    ///
+    /// Both arrays carry the enthalpy convection term **explicitly** -- their
+    /// energy equation adds `fvc::div_limited(phi, he, limiter)` as a source
+    /// rather than an `fvm::div` matrix contribution -- inside the PIMPLE outer
+    /// corrector loop. That makes the outer loop a Picard iteration on an
+    /// explicit convection source, whose contraction factor is the cell Courant
+    /// number: it converges (and the scheme is then effectively implicit) while
+    /// `Co < 1`, and diverges above it however many outer correctors are used.
+    /// So the Courant number is the hard constraint on
+    /// [`SteamGeneratorConfig::substep`], and more correctors do not relax it.
+    /// [`tests::the_courant_number_bounds_the_array_substep`] records the
+    /// measured values.
+    ///
+    /// The value uses [`get_fluid_courant_number_one_dimension`] from TUAS
+    /// rather than re-deriving `u dt / dx`; that function returns `Err(value)`
+    /// above 1, and both branches carry the same number, so the maximum is
+    /// taken over either.
+    #[allow(dead_code)] // part of the promotable public API; exercised by the Courant V&V test
+    pub fn max_courant_numbers(&self, dt: Time) -> (f64, f64) {
+        let n = self.config.node_count as f64;
+        let hot_dx = self.config.geometry.shell_flow_length / n;
+        let cold_dx = self.config.geometry.tube_length / n;
+        let hot = max_courant_over_speeds(
+            self.hot.u.internal.as_slice().iter().map(|v| v.mag()),
+            dt,
+            hot_dx,
+        );
+        let cold = max_courant_over_speeds(
+            self.cold.u.internal.as_slice().iter().map(|v| v.mag()),
+            dt,
+            cold_dx,
+        );
+        (hot, cold)
+    }
+
+    /// Number of times either fluid array has clamped its enthalpy field
+    /// against its own `[h_min, h_max]` bounds since construction.
+    ///
+    /// A nonzero count is the fingerprint of the odd-even (checkerboard)
+    /// breakdown an over-large array timestep produces: the enthalpy field
+    /// leaves the range spanned by its own boundary and initial data and the
+    /// array limits it rather than handing the EOS an invalid state. Zero over
+    /// a long run is therefore direct evidence the substep is inside the
+    /// stability window, and is stronger than "it did not panic".
+    ///
+    /// Only the hot (CoolProp) array publishes a clamp counter; the cold
+    /// (IF97) array does not, so this reports the hot side alone.
+    #[allow(dead_code)] // part of the promotable public API; exercised by the V&V tests
+    pub fn hot_enthalpy_clamp_events(&self) -> usize {
+        self.hot.h_clamp_events
     }
 
     /// Advance the exchanger by `dt`.
@@ -984,6 +1215,31 @@ fn linear_station_profile(
         .collect()
 }
 
+/// Largest one-dimensional advective Courant number over a sequence of cell
+/// speeds \[m/s\], `max_c |u_c| dt / dx`.
+///
+/// Takes bare speeds rather than the arrays' vector cells because the two
+/// arrays' vector types come from two different crates
+/// (`outram-park-fork-coolprop` and `tampines-steam-tables`) whose primitive
+/// modules are private, so neither type can be named here; each caller maps its
+/// own cells through the inherent `mag()` first.
+///
+/// Delegates the arithmetic to TUAS's
+/// [`get_fluid_courant_number_one_dimension`], which returns `Err(value)` once
+/// the value exceeds 1; both branches carry the same number and the caller
+/// wants the measurement either way, so both are unwrapped to the value.
+fn max_courant_over_speeds(speeds: impl Iterator<Item = f64>, dt: Time, dx: Length) -> f64 {
+    speeds
+        .map(|u| {
+            let speed = Velocity::new::<meter_per_second>(u.abs());
+            match get_fluid_courant_number_one_dimension(speed, dt, dx) {
+                Ok(c) => c,
+                Err(c) => c,
+            }
+        })
+        .fold(0.0_f64, f64::max)
+}
+
 /// Reverse a node vector -- the counter-flow index map. Its own inverse.
 fn reverse<T: Copy>(v: &[T]) -> Vec<T> {
     v.iter().rev().copied().collect()
@@ -1024,10 +1280,24 @@ mod tests {
     use super::*;
     use uom::si::mass_density::kilogram_per_cubic_meter;
 
-    /// The HTR-10 exchanger as the primary loop builds it, for tests that do not
-    /// need to reach back into that module. Kept in step with
-    /// `super::super::primary_loop::steam_generator_config` by
-    /// [`the_test_configuration_matches_the_plant`].
+    /// The HTR-10 exchanger roughly as the primary loop builds it, for tests
+    /// that do not need to reach back into that module.
+    ///
+    /// **It is NOT identical to the plant's configuration, and nothing checks
+    /// that it is.** This helper's doc comment used to claim it was "kept in
+    /// step with `super::super::primary_loop::steam_generator_config` by
+    /// `the_test_configuration_matches_the_plant`" -- a test of that name has
+    /// never existed, and the two configurations have since diverged: the plant
+    /// uses `SolidMaterial::SteelSS304LHighTemp` (Kim, ANL-75-55, 300-1700 K)
+    /// while this still uses `SolidMaterial::SteelSS304L` (Zou et al.,
+    /// 250-1000 K). Measured 2026-08-13, that shifts the settled steam outlet
+    /// by about 11 K (647.7 K here against 658.4 K with the plant's material)
+    /// because the high-temperature correlation carries a
+    /// temperature-dependent density where the other is a flat 8030 kg/m^3.
+    ///
+    /// Every figure recorded in this module's tests is therefore a figure for
+    /// **this** configuration, not for the plant. Reconciling the two will move
+    /// those recorded numbers and is deliberately left as separate work.
     fn htr10() -> SteamGeneratorConfig {
         let ua = 4.26e4_f64;
         let hot_fraction = 0.75_f64;
@@ -1042,10 +1312,15 @@ mod tests {
                 ua / (1.0 - hot_fraction),
             ),
             node_count: 8,
-            substep: Time::new::<second>(0.0125),
+            // Derived from the global plant timestep, exactly as the plant's
+            // own configuration derives it -- see
+            // `super::super::steam_generator_substep_seconds`.
+            substep: Time::new::<second>(crate::physics::steam_generator_substep_seconds()),
             initial_hot_end_temperature: ThermodynamicTemperature::new::<kelvin>(973.15),
             initial_cold_end_temperature: ThermodynamicTemperature::new::<kelvin>(320.0),
             initial_cold_outlet_temperature: ThermodynamicTemperature::new::<kelvin>(713.15),
+            hot_correctors: PimpleCorrectors::hot_gas_default(),
+            cold_correctors: PimpleCorrectors::water_steam_default(),
         }
     }
 
@@ -1061,18 +1336,242 @@ mod tests {
     fn cold_flow() -> MassRate {
         MassRate::new::<kilogram_per_second>(3.19)
     }
+    /// The plant timestep the exchanger's callers drive it at.
     fn dt() -> Time {
-        Time::new::<second>(0.05)
+        crate::physics::plant_timestep()
     }
 
-    /// Drive the exchanger to a settled state at fixed boundary conditions.
-    fn settled(steps: usize) -> NodalisedCounterFlowSteamGenerator {
+    /// V&V: **the Courant number is what bounds the array substep, and outer
+    /// correctors do not lift that bound.**
+    ///
+    /// # Why this test exists
+    ///
+    /// The exchanger is ~96% of `htgr_sim_v1`'s compute (measured 2026-08-13),
+    /// and its cost is almost exactly linear in
+    /// `outer_correctors / substep`. So the only way to make this simulator
+    /// faster is a larger substep, and the standing question is whether more
+    /// PIMPLE outer correctors buy one -- which is what an outer corrector does
+    /// for an implicitly-discretised convection term. Here it does not, and the
+    /// reason is structural: both arrays add their enthalpy convection as an
+    /// **explicit** `fvc::div_limited` source *inside* the outer loop, so the
+    /// loop is a Picard iteration on that source whose contraction factor is
+    /// the cell Courant number. Below `Co = 1` correctors converge it (and the
+    /// scheme is effectively implicit); at and above `Co = 1` no count
+    /// converges. In practice the bound bites well below 1, because the
+    /// explicit TVD limiter itself needs roughly `Co <= 0.5`.
+    ///
+    /// # Methodology
+    ///
+    /// The exchanger is settled for 200 s of plant time at the design point
+    /// (helium 973.15 K at 4.3 kg/s, feedwater 168.73 kJ/kg at 3.19 kg/s), then
+    /// [`NodalisedCounterFlowSteamGenerator::max_courant_numbers`] is evaluated
+    /// from the arrays' own live velocity fields at a series of candidate
+    /// substeps. Separately, exchangers are built at 0.05 s and 0.1 s substeps
+    /// with 4, 8, 16 and 32 outer correctors and driven at the design point;
+    /// each is expected to fail rather than to be rescued by the correctors.
+    ///
+    /// # Results (measured 2026-08-13)
+    ///
+    /// Courant numbers at the settled design point, from the live `u` fields
+    /// (hot cells 0.625 m, cold cells 4.25 m):
+    ///
+    /// | Array substep | `Co_hot` | `Co_cold` | Outcome |
+    /// |---|---|---|---|
+    /// | 0.00625 s | 0.111 | 0.022 | stable |
+    /// | **0.0125 s (shipped)** | **0.222** | **0.045** | **stable, converged** |
+    /// | 0.025 s | 0.444 | 0.089 | stable, duty 1.4% high |
+    /// | 0.05 s | 0.888 | 0.178 | **fails** |
+    /// | 0.1 s | 1.776 | 0.357 | **fails** |
+    ///
+    /// Corrector sweep at the failing substeps -- every one failed:
+    ///
+    /// | Substep | outer correctors tried | Result |
+    /// |---|---|---|
+    /// | 0.05 s | 4, 8, 16 | panicked in all three |
+    /// | 0.1 s | 8, 32 | panicked in both |
+    ///
+    /// # Interpretation
+    ///
+    /// The hot helium side is the binding constraint -- it is 5x the cold
+    /// side's Courant number, because the shell is 5 m of 11 m/s gas against
+    /// 34 m of tube carrying water that is liquid for most of its length. The
+    /// substep therefore cannot be raised past ~0.025 s at this nodalisation,
+    /// **whatever the corrector count**, and the plant timestep cannot be
+    /// handed straight through to the arrays at all. Making the exchanger
+    /// cheaper needs a coarser mesh, a cheaper equation of state, or an
+    /// implicit convection operator -- not more correctors.
+    ///
+    /// This test asserts the *ordering and the bound*, not the exact figures,
+    /// since the velocities depend on the settled state.
+    #[test]
+    fn the_courant_number_bounds_the_array_substep() {
+        let sg = settled(200.0);
+        let mut previous = 0.0_f64;
+        for substep_s in [0.00625_f64, 0.0125, 0.025, 0.05, 0.1] {
+            let (hot, cold) = sg.max_courant_numbers(Time::new::<second>(substep_s));
+            println!(
+                "substep {substep_s:>8.5} s: Co_hot = {hot:.4}, Co_cold = {cold:.4}, \
+                 ratio hot/cold = {:.2}",
+                hot / cold
+            );
+            assert!(
+                hot > cold,
+                "the hot side must be the binding Courant constraint"
+            );
+            assert!(hot > previous, "Courant number must grow with the substep");
+            previous = hot;
+        }
+
+        // The shipped substep must sit inside the explicit-TVD-safe window.
+        let (shipped_hot, _) = sg.max_courant_numbers(Time::new::<second>(
+            super::super::steam_generator_substep_seconds(),
+        ));
+        assert!(
+            shipped_hot < 0.5,
+            "the shipped substep runs at Co_hot = {shipped_hot}, outside the explicit \
+             limiter's safe window"
+        );
+
+        // And the plant timestep must NOT be handed straight to the arrays.
+        let (plant_hot, _) = sg.max_courant_numbers(crate::physics::plant_timestep());
+        assert!(
+            plant_hot > 1.0,
+            "the plant timestep gives Co_hot = {plant_hot}; if this has dropped below 1 the \
+             exchanger may no longer need to be multi-rate, which is worth revisiting"
+        );
+        assert_eq!(sg.hot_enthalpy_clamp_events(), 0);
+    }
+
+    /// V&V: **the corrector count trades against wall clock, not against
+    /// accuracy** -- at this exchanger's Courant number.
+    ///
+    /// # Methodology
+    ///
+    /// Exchangers are built at the shipped 0.0125 s substep with 1, 2 and 4
+    /// outer correctors on both fluid arrays, settled for 120 s of plant time
+    /// at the design point, then run 20 s more. The settled hot-side duty, the
+    /// two-stream closure and the steam outlet are compared. Pass criterion:
+    /// the duty must agree across corrector counts to better than 0.1%, which
+    /// is the claim the shipped count rests on.
+    ///
+    /// # Results
+    ///
+    /// **This test, measured 2026-08-13** (release, `htr10()` configuration,
+    /// which uses `SolidMaterial::SteelSS304L`):
+    ///
+    /// | Substep | outer correctors | `Q_hot` | closure | steam |
+    /// |---|---|---|---|---|
+    /// | 0.0125 s | 1 | 9.6900 MW | +1.742% | 647.68 K |
+    /// | **0.0125 s** | **2 (shipped)** | **9.6903 MW** | **+1.743%** | **647.71 K** |
+    /// | 0.0125 s | 4 (previous default) | 9.6904 MW | +1.749% | 647.64 K |
+    ///
+    /// **A wider sweep measured the same day**, on the *plant's* configuration
+    /// (`SolidMaterial::SteelSS304LHighTemp`, which is what
+    /// `super::super::primary_loop::steam_generator_config` builds -- see the
+    /// note on `htr10()` about that divergence), settling 120 s and timing 20 s
+    /// more:
+    ///
+    /// | Substep | outer correctors | `Co_hot` | `Q_hot` | closure | steam | compute per second of plant time |
+    /// |---|---|---|---|---|---|---|
+    /// | 0.00625 s | 4 | 0.111 | 9.6851 MW (reference) | +0.817% | 658.75 K | 4.088 |
+    /// | 0.0125 s | 1 | 0.222 | 9.6854 MW | +0.815% | 658.80 K | 0.511 |
+    /// | **0.0125 s** | **2 (shipped)** | **0.222** | **9.6854 MW** | **+0.843%** | **658.44 K** | **0.987** |
+    /// | 0.0125 s | 3 | 0.222 | 9.6854 MW | +0.844% | 658.43 K | 1.478 |
+    /// | 0.025 s | 2 | 0.444 | 9.8244 MW | +2.239% | 658.52 K | 0.496 |
+    /// | 0.025 s | 4 | 0.444 | 9.8244 MW | +2.231% | 658.61 K | 0.983 |
+    /// | 0.025 s | 6 | 0.444 | 9.8244 MW | +2.230% | 658.63 K | 1.466 |
+    /// | 0.05 s | 4, 8, 16 | 0.888 | panicked | | | |
+    /// | 0.1 s | 8, 32 | 1.776 | panicked | | | |
+    ///
+    /// Against the 0.00625 s reference the shipped 0.0125 s substep is
+    /// **+0.003%** on duty and 0.025 s is **+1.44%**.
+    ///
+    /// # Interpretation
+    ///
+    /// Two things, and the second is the useful one:
+    ///
+    /// 1. **Cost is linear in `n_outer / substep`** -- 0.511 at (1, 0.0125),
+    ///    0.987 at (2, 0.0125), 1.478 at (3, 0.0125), 4.088 at (4, 0.00625),
+    ///    and 0.496 at (2, 0.025) where the ratio matches (1, 0.0125). Each
+    ///    outer corrector is one more
+    ///    equation-of-state pass over every cell, and the EOS flashes are where
+    ///    this model spends its time.
+    /// 2. **The duty does not move with the corrector count at all** -- 9.6854
+    ///    MW at 1, 2 and 3 correctors; 9.8244 MW at 2, 4 and 6 correctors on
+    ///    the 0.025 s substep. The 1.44% duty error at 0.025 s is therefore
+    ///    **not**
+    ///    something correctors fix, because it does not come from the arrays'
+    ///    internal PIMPLE loop: it comes from the **exchanger-level Lie split**,
+    ///    the lateral conductances being registered once per substep against
+    ///    the neighbours' previous-substep temperatures. Removing that would
+    ///    need a corrector loop *around* [`NodalisedCounterFlowSteamGenerator::advance_timestep`]'s
+    ///    link-and-advance sequence, with all three arrays rolled back each
+    ///    iteration -- which is not implemented here.
+    ///
+    /// So the shipped configuration takes the 2x that costs nothing (4 -> 2
+    /// correctors) and declines the further 2x that would cost 1.4% of duty
+    /// (0.0125 -> 0.025 s substep).
+    #[test]
+    fn the_corrector_substep_trade_is_measured() {
+        let mut duties = Vec::new();
+        for n_outer in [1_usize, 2, 4] {
+            let mut c = htr10();
+            c.hot_correctors = c.hot_correctors.with_outer(n_outer);
+            c.cold_correctors = c.cold_correctors.with_outer(n_outer);
+            let mut sg = NodalisedCounterFlowSteamGenerator::new(c).unwrap();
+            for _ in 0..steps_for(120.0) {
+                sg.advance_timestep(dt(), hot_inlet(), hot_flow(), feedwater(), cold_flow())
+                    .unwrap();
+            }
+            let st = sg.state();
+            let q = st.hot_side_duty.get::<watt>() / 1.0e6;
+            let q_cold = st.cold_side_duty.get::<watt>() / 1.0e6;
+            println!(
+                "{n_outer} outer corrector(s): Q_hot = {q:.4} MW, closure = {:+.3}%, \
+                 steam = {:.3} K, clamp events = {}",
+                100.0 * (q - q_cold) / q,
+                st.cold_outlet_temperature.get::<kelvin>(),
+                sg.hot_enthalpy_clamp_events(),
+            );
+            assert_eq!(
+                sg.hot_enthalpy_clamp_events(),
+                0,
+                "{n_outer} outer correctors left the enthalpy field clamping"
+            );
+            duties.push(q);
+        }
+        let q0 = duties[0];
+        for (i, q) in duties.iter().enumerate() {
+            assert!(
+                ((q - q0) / q0).abs() < 1.0e-3,
+                "duty moved {:+.4}% between 1 and {} outer correctors; the shipped count \
+                 assumes it does not",
+                100.0 * (q - q0) / q0,
+                [1, 2, 4][i]
+            );
+        }
+    }
+
+    /// Drive the exchanger to a settled state at fixed boundary conditions for
+    /// `plant_seconds` of **simulated time**.
+    ///
+    /// Takes simulated seconds rather than a step count so that changing
+    /// [`crate::physics::PLANT_TIMESTEP_S`] does not silently change how long
+    /// every test in this module settles for. It used to take a step count, and
+    /// when the plant timestep went from 0.05 s to 0.1 s on 2026-08-13 that
+    /// would have doubled every settling window at once.
+    fn settled(plant_seconds: f64) -> NodalisedCounterFlowSteamGenerator {
         let mut sg = NodalisedCounterFlowSteamGenerator::new(htr10()).unwrap();
-        for _ in 0..steps {
+        for _ in 0..steps_for(plant_seconds) {
             sg.advance_timestep(dt(), hot_inlet(), hot_flow(), feedwater(), cold_flow())
                 .unwrap();
         }
         sg
+    }
+
+    /// Number of plant timesteps in `plant_seconds` of simulated time.
+    fn steps_for(plant_seconds: f64) -> usize {
+        (plant_seconds / crate::physics::PLANT_TIMESTEP_S).round() as usize
     }
 
     /// The counter-flow index map must be an involution: applying it twice must
@@ -1266,7 +1765,7 @@ mod tests {
     /// is well-sized -- see [`SteamGeneratorConfig::hot_side_conductance`].
     #[test]
     fn energy_balance_closes_across_the_exchanger() {
-        let sg = settled(4000);
+        let sg = settled(200.0);
         let st = sg.state();
         let q_hot = st.hot_side_duty.get::<watt>();
         let q_cold = st.cold_side_duty.get::<watt>();
@@ -1305,12 +1804,12 @@ mod tests {
     ///
     /// The exchanger is settled at 973.15 K helium, then the hot inlet is
     /// **stepped down 100 K** to 873.15 K and held. The steam-outlet temperature
-    /// is recorded after the first 0.05 s step and after 200 s (long enough to
-    /// re-settle -- five metal time constants). The reported quantity is the fraction of the eventual
-    /// response achieved in the first step:
+    /// is recorded after the first plant timestep and after 200 s (long enough
+    /// to re-settle -- five metal time constants). The reported quantity is the
+    /// fraction of the eventual response achieved in the first step:
     ///
     /// ```text
-    /// f_1 = (T_steam(0.05 s) - T_steam(0)) / (T_steam(400 s) - T_steam(0))
+    /// f_1 = (T_steam(dt) - T_steam(0)) / (T_steam(200 s) - T_steam(0))
     /// ```
     ///
     /// For a first-order lag of time constant `tau` this is
@@ -1319,19 +1818,34 @@ mod tests {
     /// i.e. unambiguously not instantaneous -- and a nonzero eventual response,
     /// so the test cannot pass by the exchanger simply not responding at all.
     ///
-    /// # Results (measured 2026-08-12)
+    /// # Results (measured 2026-08-12 at a 0.05 s timestep; **re-measured
+    /// 2026-08-13** at the 0.1 s plant timestep with the arrays at 2 outer
+    /// correctors -- current figures are printed by the test)
     ///
-    /// | Quantity | Value |
-    /// |---|---|
-    /// | Steam outlet before the step | 663.000 K |
-    /// | after the first 0.05 s step | 662.999 K |
-    /// | after 200 s | 523.595 K |
-    /// | Total response | **-139.404 K** |
-    /// | **Fraction tracked in the first step** | **0.0005%** |
-    /// | `tau = C_metal/UA` at 600 K | **38.42 s** (1.6366e6 J/K / 4.26e4 W/K) |
-    /// | `1 - exp(-0.05/38.42)`, a pure first-order lag | 0.1301% |
+    /// | Quantity | 2026-08-12, dt = 0.05 s | **2026-08-13, dt = 0.1 s** |
+    /// |---|---|---|
+    /// | Steam outlet before the step | 663.000 K | **663.000 K** |
+    /// | after the first step | 662.999 K | **662.965 K** |
+    /// | after 200 s | 523.595 K | **523.595 K** |
+    /// | Total response | -139.404 K | **-139.404 K** |
+    /// | **Fraction tracked in the first step** | 0.0005% | **0.0248%** |
+    /// | `tau = C_metal/UA` at 600 K | 38.42 s | **38.42 s** (1.6366e6 J/K / 4.26e4 W/K) |
+    /// | `1 - exp(-dt/38.42)`, a pure first-order lag | 0.1301% | **0.2600%** |
     ///
-    /// The measured 0.0005% is **250x slower than even the metal lag alone**,
+    /// Doubling the timestep doubles the pure-first-order comparator, and the
+    /// measured fraction grew from 0.0005% to 0.0248% -- faster than
+    /// proportionally, because the first step now covers a larger slice of the
+    /// shell transport delay. The settled end state is **identical to three
+    /// decimal places** (523.595 K), which is the more important reading: the
+    /// timestep changed how the first step is resolved, not where the exchanger
+    /// ends up.
+    ///
+    /// The point of the test is the **ratio** between the measured fraction and
+    /// the pure-first-order comparator, which is a property of the transport
+    /// delay rather than of the timestep: 0.0038 at 0.05 s, 0.095 at 0.1 s.
+    ///
+    /// The 2026-08-12 measurement of 0.0005% is **250x slower than even the
+    /// metal lag alone**,
     /// and that is expected rather than suspicious: the metal is not the first
     /// thing in the path. A change at the helium inlet must first be advected
     /// down the shell array before the metal at the far end sees it at all, so
@@ -1342,7 +1856,8 @@ mod tests {
     ///
     /// For comparison, the model this replaces computed the steam outlet as
     /// `h_feed + Q/m_dot` with `Q` taken from the current step's duty: it would
-    /// have tracked **100%** of the step in the first 0.05 s.
+    /// have tracked **100%** of the step in the first timestep, at any
+    /// timestep.
     ///
     /// # Interpretation
     ///
@@ -1354,7 +1869,8 @@ mod tests {
     /// divided by are a calibration.
     #[test]
     fn a_duty_step_is_filtered_by_the_metal_time_constant() {
-        let mut sg = settled(4000);
+        let dt_s = crate::physics::PLANT_TIMESTEP_S;
+        let mut sg = settled(200.0);
         let before = sg.state().cold_outlet_temperature.get::<kelvin>();
 
         let stepped = ThermodynamicTemperature::new::<kelvin>(873.15);
@@ -1364,7 +1880,7 @@ mod tests {
             .cold_outlet_temperature
             .get::<kelvin>();
 
-        for _ in 0..4000 {
+        for _ in 0..steps_for(200.0) {
             sg.advance_timestep(dt(), stepped, hot_flow(), feedwater(), cold_flow())
                 .unwrap();
         }
@@ -1383,11 +1899,11 @@ mod tests {
 
         println!(
             "100 K hot-inlet step down: steam outlet {before:.3} K -> {after_one:.3} K after one \
-             0.05 s step -> {eventual:.3} K after 200 s.\n  \
+             {dt_s} s step -> {eventual:.3} K after 200 s.\n  \
              first step tracked {:.4}% of the {total:.3} K total response \
              (first-order lag of tau = {tau:.2} s would give {:.4}%)",
             100.0 * fraction,
-            100.0 * (1.0 - (-0.05 / tau).exp()),
+            100.0 * (1.0 - (-dt_s / tau).exp()),
         );
 
         assert!(
@@ -1397,7 +1913,7 @@ mod tests {
         );
         assert!(
             fraction < 0.05,
-            "the steam outlet tracked {:.2}% of a duty step in one 0.05 s timestep; \
+            "the steam outlet tracked {:.2}% of a duty step in one {dt_s} s timestep; \
              the metal is not providing a real lag",
             100.0 * fraction
         );
@@ -1439,7 +1955,7 @@ mod tests {
     /// assumption that made the superheater's collapsing pinch invisible.
     #[test]
     fn the_cold_stream_resolves_all_three_zones() {
-        let sg = settled(4000);
+        let sg = settled(200.0);
         let st = sg.state();
         let t_sat = 523.51_f64;
         let cold: Vec<f64> = st
@@ -1460,20 +1976,26 @@ mod tests {
         assert!(economising >= 1, "no economising node");
     }
 
-    /// V&V (regression): **the exchanger must survive being driven at the GUI's
-    /// 1 ms plant timestep**, and must reach the same state as when driven at
-    /// 50 ms for the same simulated time.
+    /// V&V (regression): **the accumulator is caller-rate-independent** -- the
+    /// exchanger must reach the same state whether its caller hands it the
+    /// plant timestep or 1 ms slices of it.
     ///
     /// # Why this test exists -- it caught a real crash
     ///
-    /// Every other test here drives the exchanger at 0.05 s, which is a
-    /// reasonable plant timestep and the one the loop tests use. **The GUI does
-    /// not.** `htgr_sim_v1`'s physics thread steps the plant at
+    /// Until 2026-08-13 `htgr_sim_v1`'s physics thread stepped the plant at
     /// `PHYSICS_DT_S = 1.0e-3 s`, ten sub-steps per 10 ms tick, to keep the
-    /// animation smooth (`app/mod.rs`). Handed straight through, 1 ms is *below*
-    /// the arrays' stability window: the water side begins resolving its own
-    /// acoustic transient and the IAPWS-IF97 `(p,h)` flash leaves its Region 5
-    /// range and panics.
+    /// animation smooth, while every test here drove the exchanger at 0.05 s.
+    /// Handed straight through, 1 ms is *below* the arrays' stability window:
+    /// the water side begins resolving its own acoustic transient and the
+    /// IAPWS-IF97 `(p,h)` flash leaves its Region 5 range and panics.
+    ///
+    /// **The plant now steps at
+    /// [`crate::physics::PLANT_TIMESTEP_S`] = 0.1 s, so the 1 ms case is no
+    /// longer the application's rate.** The test is kept, and kept at 1 ms,
+    /// because the property it checks is the accumulator's -- that simulated
+    /// time is neither lost nor double-counted however finely it is delivered
+    /// -- and 1 ms is the hardest case for it: 100 caller calls per array
+    /// substep, 99 of which must be pure zero-order holds.
     ///
     /// That is not hypothetical. Measured 2026-08-12, before
     /// [`SteamGeneratorConfig::substep`] was made a fixed accumulate-and-advance
@@ -1491,8 +2013,8 @@ mod tests {
     /// # Methodology
     ///
     /// Two exchangers with identical configuration and boundary conditions are
-    /// marched over the **same 100 s of simulated time**: one at 0.05 s (2000
-    /// calls), one at 1 ms (100 000 calls). Asserted:
+    /// marched over the **same 100 s of simulated time**: one at the plant
+    /// timestep (1000 calls at 0.1 s), one at 1 ms (100 000 calls). Asserted:
     ///
     /// 1. neither panics;
     /// 2. their steam-outlet temperatures agree to within 1 K, i.e. the
@@ -1500,23 +2022,36 @@ mod tests {
     /// 3. their duties agree to within 1%.
     ///
     /// The two are expected to agree closely rather than exactly: the 1 ms
-    /// caller supplies boundary conditions 50x more often, and the exchanger
+    /// caller supplies boundary conditions 100x more often, and the exchanger
     /// zero-order-holds whichever values were latest when a whole substep
     /// completed. Here the boundary conditions are constant, so that difference
     /// vanishes and what remains is the substep alignment.
     ///
-    /// # Results (measured 2026-08-12)
+    /// # Results (measured 2026-08-12; re-measured 2026-08-13 with the coarse
+    /// leg moved to the 0.1 s plant timestep and the arrays at 2 outer
+    /// correctors)
     ///
-    /// Printed by the test. Both runs complete; the 1 ms run advances the arrays
-    /// exactly 8000 times over 100 s, the same as the 0.05 s run, because both
-    /// accumulate to the same 0.0125 s clock.
+    /// **Measured 2026-08-13**, over 100 s of simulated time:
+    ///
+    /// | Caller rate | Calls | Steam outlet | `Q_hot` |
+    /// |---|---|---|---|
+    /// | 0.1 s (the plant timestep) | 1 000 | 671.619 K | 9.7194 MW |
+    /// | 0.001 s | 100 000 | 671.619 K | 9.7194 MW |
+    /// | **Difference** | | **0.0000 K** | **+0.0000%** |
+    ///
+    /// Both runs advance the arrays exactly 8000 times over 100 s, because both
+    /// accumulate to the same 0.0125 s clock -- and with the boundary
+    /// conditions constant the agreement is exact rather than merely close,
+    /// which is the strongest form of the property. (At the 0.05 s caller rate
+    /// used before 2026-08-13 the same comparison also agreed.)
     #[test]
     fn the_gui_millisecond_timestep_reaches_the_same_state() {
         // The GUI's plant timestep -- `crate::app::mod::PHYSICS_DT_S`.
         let gui_dt = Time::new::<second>(1.0e-3);
 
+        let coarse_calls = (100.0 / crate::physics::PLANT_TIMESTEP_S).round() as usize;
         let mut coarse = NodalisedCounterFlowSteamGenerator::new(htr10()).unwrap();
-        for _ in 0..2000 {
+        for _ in 0..coarse_calls {
             coarse
                 .advance_timestep(dt(), hot_inlet(), hot_flow(), feedwater(), cold_flow())
                 .unwrap();
@@ -1536,7 +2071,7 @@ mod tests {
         let q_f = f.hot_side_duty.get::<watt>();
         println!(
             "100 s of simulated time, two caller rates:\n  \
-             at 0.05 s (2000 calls):    steam {t_c:.3} K, Q_hot {:.4} MW\n  \
+             at the plant timestep ({coarse_calls} calls): steam {t_c:.3} K, Q_hot {:.4} MW\n  \
              at 0.001 s (100000 calls): steam {t_f:.3} K, Q_hot {:.4} MW\n  \
              difference: {:.4} K, {:+.4}%",
             q_c / 1.0e6,
