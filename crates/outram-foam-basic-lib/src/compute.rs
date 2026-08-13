@@ -62,6 +62,38 @@
 //! Enabling `gpu` on an Android target therefore yields a build with no GPU
 //! backend rather than a broken one.
 //!
+//! # Planned: hybrid CPU+GPU co-execution (NOT implemented)
+//!
+//! There is no `Hybrid` variant and no GPU kernel in this crate — see
+//! [`gpu_adapter_present`] for the extent of the `wgpu` use. One policy
+//! decision for it is nevertheless already settled, because it constrains how
+//! the kernels are written.
+//!
+//! For the **iterative** kernels the shape is *coarse-to-fine*, not a split
+//! batch: a GPU `f32` pass produces only the **initial guess**, and the CPU
+//! converges it to the final answer at `f64`. The result is therefore entirely
+//! `f64` and the `f32` accuracy floors govern the guess, not the answer. This
+//! suits batched root finding especially well — [`RootProblem::guess`] already
+//! guarantees that a bad guess is a performance problem and not a correctness
+//! one, and Newton's quadratic convergence turns an `f32`-accurate start into
+//! a `f64` answer in about two iterations.
+//!
+//! [`RootProblem::guess`]: crate::math::parallel::RootProblem::guess
+//!
+//! For the **elementwise** kernels, where a batch genuinely is split across the
+//! two devices, the CPU half runs `f32` to match the GPU, so that precision is
+//! uniform across one output array rather than varying with the split ratio.
+//! Those kernels are an `f32`-class throughput path sitting roughly `1e-7`
+//! relative from the [`ComputeBackend::Serial`] oracle.
+//!
+//! Numerical differentiation is excluded from both shapes: a finite difference
+//! has no fixed point to converge to, so there is no guess to seed and the
+//! `f32` floor would land directly on the answer.
+//!
+//! Full reasoning, the per-kernel floors at `f32`, the measured iteration
+//! savings, and the caveats none of this resolves are in
+//! `docs/hybrid-precision-policy.md`.
+//!
 //! # Units
 //!
 //! Nothing in this module carries a physical dimension. Sizes are counts of
