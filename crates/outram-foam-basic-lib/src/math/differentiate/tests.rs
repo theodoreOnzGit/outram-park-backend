@@ -36,10 +36,7 @@ fn quadratic_f(v: &[f64], out: &mut Vec<f64>) {
 }
 
 fn quadratic_jacobian(v: &[f64]) -> [[f64; 2]; 2] {
-    [
-        [2.0 * v[0], 1.0],
-        [v[1] * v[1], 2.0 * v[0] * v[1]],
-    ]
+    [[2.0 * v[0], 1.0], [v[1] * v[1], 2.0 * v[0] * v[1]]]
 }
 
 /// `f(x0, x1) = [sin(x0) * cos(x1), exp(x0) * x1]`.
@@ -229,7 +226,10 @@ fn a_denormal_point_still_gets_a_usable_step() {
     let out = derivative(1.0e-300, s, |x: f64| 3.0 * x);
     assert_eq!(out.status(), DiffStatus::Ok);
     let d = out.derivative().expect("representable step");
-    assert!((d - 3.0).abs() < 1e-9, "d/dx 3x at 1e-300 should be 3, got {d}");
+    assert!(
+        (d - 3.0).abs() < 1e-9,
+        "d/dx 3x at 1e-300 should be 3, got {d}"
+    );
 }
 
 #[test]
@@ -246,7 +246,11 @@ fn non_finite_evaluations_are_reported_not_swallowed() {
 
     // Overflow in the quotient is caught too.
     let overflow = derivative(1.0, DiffSettings::central(), |x: f64| {
-        if x > 1.0 { f64::MAX } else { -f64::MAX }
+        if x > 1.0 {
+            f64::MAX
+        } else {
+            -f64::MAX
+        }
     });
     assert_eq!(overflow.status(), DiffStatus::NotFinite);
 }
@@ -339,17 +343,40 @@ fn a_failing_column_names_the_variable_that_failed() {
 
 #[test]
 fn empty_and_malformed_batches_are_empty_not_panics() {
-    let empty = jacobian_batch(&[], 2, DiffSettings::central(), ComputeBackend::Serial, |_, _: &[f64], _: &mut Vec<f64>| {});
+    let empty = jacobian_batch(
+        &[],
+        2,
+        DiffSettings::central(),
+        ComputeBackend::Serial,
+        |_, _: &[f64], _: &mut Vec<f64>| {},
+    );
     assert!(empty.is_empty());
 
-    let zero_dim = jacobian_batch(&[1.0], 0, DiffSettings::central(), ComputeBackend::Serial, |_, _: &[f64], _: &mut Vec<f64>| {});
+    let zero_dim = jacobian_batch(
+        &[1.0],
+        0,
+        DiffSettings::central(),
+        ComputeBackend::Serial,
+        |_, _: &[f64], _: &mut Vec<f64>| {},
+    );
     assert!(zero_dim.is_empty());
 
     // 5 values with n = 2 is not a whole number of lanes.
-    let ragged = jacobian_batch(&[1.0; 5], 2, DiffSettings::central(), ComputeBackend::Serial, |_, _: &[f64], _: &mut Vec<f64>| {});
+    let ragged = jacobian_batch(
+        &[1.0; 5],
+        2,
+        DiffSettings::central(),
+        ComputeBackend::Serial,
+        |_, _: &[f64], _: &mut Vec<f64>| {},
+    );
     assert!(ragged.is_empty());
 
-    let no_points = derivative_batch(&[], DiffSettings::central(), ComputeBackend::Serial, |_, x: f64| x);
+    let no_points = derivative_batch(
+        &[],
+        DiffSettings::central(),
+        ComputeBackend::Serial,
+        |_, x: f64| x,
+    );
     assert!(no_points.is_empty());
     assert!(no_points.all_ok());
     assert_eq!(no_points.values().unwrap().len(), 0);
@@ -363,7 +390,10 @@ fn backend_reduction_never_reports_gpu_and_respects_the_size_floors() {
         jacobian_column_backend_for,
     ] {
         assert_eq!(f(ComputeBackend::CpuMulti, 1), ComputeBackend::Serial);
-        assert_eq!(f(ComputeBackend::Serial, usize::MAX), ComputeBackend::Serial);
+        assert_eq!(
+            f(ComputeBackend::Serial, usize::MAX),
+            ComputeBackend::Serial
+        );
         assert_ne!(f(ComputeBackend::Gpu, usize::MAX), ComputeBackend::Gpu);
         assert!(f(ComputeBackend::Gpu, usize::MAX).is_available());
     }
@@ -377,9 +407,9 @@ fn backend_reduction_never_reports_gpu_and_respects_the_size_floors() {
 fn evaluation_counts_match_the_documented_cost() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     for (scheme, want) in [
-        (DiffScheme::Forward, 4_usize),  // n + 1 with n = 3
+        (DiffScheme::Forward, 4_usize), // n + 1 with n = 3
         (DiffScheme::Backward, 4),
-        (DiffScheme::Central, 6),  // 2n
+        (DiffScheme::Central, 6),     // 2n
         (DiffScheme::Central4th, 12), // 4n
     ] {
         assert_eq!(scheme.evaluations_per_jacobian(3), want);
@@ -413,9 +443,12 @@ fn jacobian_worst_relative_error(
     f: fn(&[f64], &mut Vec<f64>),
     exact: [[f64; 2]; 2],
 ) -> f64 {
-    let s = jacobian(point, settings, ComputeBackend::Serial, |_, v: &[f64], out: &mut Vec<f64>| {
-        f(v, out)
-    });
+    let s = jacobian(
+        point,
+        settings,
+        ComputeBackend::Serial,
+        |_, v: &[f64], out: &mut Vec<f64>| f(v, out),
+    );
     let m = s.matrix().expect("smooth oracle system");
     let mut worst = 0.0_f64;
     for i in 0..2 {
@@ -525,7 +558,14 @@ fn ode_jacobian_reproduces_van_der_pols_hand_coded_one() {
 
     let mut dfdx = Vec::new();
     let mut dfdy = SquareMatrix::new(0);
-    let status = ode_system_jacobian(&system, x, &y, DiffSettings::central(), &mut dfdx, &mut dfdy);
+    let status = ode_system_jacobian(
+        &system,
+        x,
+        &y,
+        DiffSettings::central(),
+        &mut dfdx,
+        &mut dfdy,
+    );
     assert_eq!(status, DiffStatus::Ok);
     assert_eq!(dfdx.len(), 2);
     assert_eq!(dfdy.n(), 2);
@@ -575,7 +615,11 @@ fn ode_jacobian_captures_explicit_dependence_on_the_independent_variable() {
         &mut dfdy,
     );
     assert_eq!(status, DiffStatus::Ok);
-    assert!((dfdx[0] - x.cos() * y[1]).abs() < 1e-8, "dfdx[0] = {}", dfdx[0]);
+    assert!(
+        (dfdx[0] - x.cos() * y[1]).abs() < 1e-8,
+        "dfdx[0] = {}",
+        dfdx[0]
+    );
     assert!((dfdx[1] - 2.0 * x).abs() < 1e-8, "dfdx[1] = {}", dfdx[1]);
     assert!(dfdy.get(0, 0).abs() < 1e-8);
     assert!((dfdy.get(0, 1) - x.sin()).abs() < 1e-8);
@@ -612,7 +656,11 @@ fn rosenbrock23_integrates_a_stiff_system_that_has_no_hand_coded_jacobian() {
 
     let exact = (-10.0_f64).exp();
     let rel = (y[0] - exact).abs() / exact;
-    assert!(rel < 1e-4, "y = {}, exact = {exact}, rel err = {rel:.3e}", y[0]);
+    assert!(
+        rel < 1e-4,
+        "y = {}, exact = {exact}, rel err = {rel:.3e}",
+        y[0]
+    );
     assert_eq!(system.non_finite_jacobians(), 0);
 }
 
@@ -694,7 +742,10 @@ fn a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_na
     system.jacobian(0.0, &[1.0], &mut dfdx, &mut dfdy);
 
     assert_eq!(system.non_finite_jacobians(), 1);
-    assert!(dfdy.get(0, 0).is_nan(), "a failed entry must be NaN, not 0.0");
+    assert!(
+        dfdy.get(0, 0).is_nan(),
+        "a failed entry must be NaN, not 0.0"
+    );
     assert!(dfdx[0].is_nan());
 
     // What the SOLVER then does with it -- measured, not assumed. See the
@@ -759,7 +810,10 @@ fn observed_convergence_order_matches_theory() {
         );
     }
 
-    println!("{:>12} {:>14} {:>14} {:>14} {:>14}", "order", "", "", "", "");
+    println!(
+        "{:>12} {:>14} {:>14} {:>14} {:>14}",
+        "order", "", "", "", ""
+    );
     let want = [1.0_f64, 1.0, 2.0, 4.0];
     let mut orders = [0.0_f64; 4];
     for c in 0..4 {
@@ -948,9 +1002,8 @@ fn bitwise_same_jacobians(a: &JacobianBatch, b: &JacobianBatch) -> bool {
             let (pm, qm) = (p.raw_matrix(), q.raw_matrix());
             p.status() == q.status()
                 && pm.n() == qm.n()
-                && (0..pm.n()).all(|i| {
-                    (0..pm.n()).all(|j| pm.get(i, j).to_bits() == qm.get(i, j).to_bits())
-                })
+                && (0..pm.n())
+                    .all(|i| (0..pm.n()).all(|j| pm.get(i, j).to_bits() == qm.get(i, j).to_bits()))
         })
 }
 
@@ -1056,8 +1109,7 @@ fn bitwise_identical_across_thread_counts() {
         out.push(v[0].exp() * 1e-2 - v[2]);
         out.push(k * v[3] * v[1] * v[1]);
     };
-    let jac_reference =
-        jacobian_batch_min(&jac_points, n, settings, ComputeBackend::Serial, 0, jf);
+    let jac_reference = jacobian_batch_min(&jac_points, n, settings, ComputeBackend::Serial, 0, jf);
 
     for threads in [1_usize, 2, 4, 8] {
         let pool = rayon::ThreadPoolBuilder::new()
@@ -1085,13 +1137,10 @@ fn the_single_point_form_agrees_with_a_one_element_batch_bit_for_bit() {
     for scheme in SCHEMES {
         let settings = DiffSettings::with_scheme(scheme);
         let single = derivative(1.7, settings, |x: f64| x.sin() * x.exp());
-        let batched = derivative_batch_min(
-            &[1.7],
-            settings,
-            ComputeBackend::Serial,
-            0,
-            |_, x: f64| x.sin() * x.exp(),
-        );
+        let batched =
+            derivative_batch_min(&[1.7], settings, ComputeBackend::Serial, 0, |_, x: f64| {
+                x.sin() * x.exp()
+            });
         assert_eq!(
             single.raw_value().to_bits(),
             batched.get(0).unwrap().raw_value().to_bits(),
@@ -1152,7 +1201,13 @@ fn differentiate_crossover_benchmark() {
     println!("\n-- scalar derivative_batch, central, best of 7 --");
     println!(
         "{:>10} {:>14} {:>14} {:>9} {:>15} {:>15} {:>9}",
-        "points", "cheap ser[us]", "cheap mul[us]", "speedup", "costly ser[us]", "costly mul[us]", "speedup"
+        "points",
+        "cheap ser[us]",
+        "cheap mul[us]",
+        "speedup",
+        "costly ser[us]",
+        "costly mul[us]",
+        "speedup"
     );
     for n in [16_usize, 32, 64, 128, 256, 512, 1024, 4096, 16_384, 65_536] {
         let points = imbalanced_points(n);
@@ -1193,7 +1248,13 @@ fn differentiate_crossover_benchmark() {
     println!("\n-- jacobian_batch, n = 4, central (8 evals/lane), best of 7 --");
     println!(
         "{:>10} {:>14} {:>14} {:>9} {:>15} {:>15} {:>9}",
-        "lanes", "cheap ser[us]", "cheap mul[us]", "speedup", "costly ser[us]", "costly mul[us]", "speedup"
+        "lanes",
+        "cheap ser[us]",
+        "cheap mul[us]",
+        "speedup",
+        "costly ser[us]",
+        "costly mul[us]",
+        "speedup"
     );
     let n = 4_usize;
     for lanes in [4_usize, 8, 16, 32, 64, 128, 256, 1024, 4096, 16_384] {
@@ -1353,7 +1414,10 @@ fn differentiate_thread_scaling_benchmark() {
         "{:>8} {:>14} {:>9} {:>10}",
         "threads", "time [us]", "speedup", "bitwise"
     );
-    println!("{:>8} {serial_us:>14.2} {:>9.2} {:>10}", 0, 1.0, "reference");
+    println!(
+        "{:>8} {serial_us:>14.2} {:>9.2} {:>10}",
+        0, 1.0, "reference"
+    );
 
     for threads in [1_usize, 2, 4, 8] {
         let pool = rayon::ThreadPoolBuilder::new()
@@ -1396,7 +1460,10 @@ fn numerical_jacobian_overhead_benchmark() {
     use std::time::Instant;
 
     println!("Van der Pol mu = 5, y0 = [2, 0], x in [0, 10], tol 1e-8/1e-8");
-    println!("{:>16} {:>14} {:>14} {:>12}", "jacobian", "time [us]", "y0(10)", "vs analytic");
+    println!(
+        "{:>16} {:>14} {:>14} {:>12}",
+        "jacobian", "time [us]", "y0(10)", "vs analytic"
+    );
 
     let time_run = |label: &str, run: &dyn Fn() -> (f64, f64), baseline: f64| -> f64 {
         let mut best = f64::INFINITY;

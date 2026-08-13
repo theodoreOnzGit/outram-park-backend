@@ -42,7 +42,8 @@
 //! system, and `Rosenbrock23` integrates it with no hand-coded Jacobian at all.
 //! Measured cost of doing so, on Van der Pol (`mu = 5`, `x` in `[0, 10]`,
 //! tolerances `1e-8`) — see "Measured cost against a hand-coded Jacobian" below
-//! — is **1.9x** wall clock for the same answer to 8 decimals.
+//! — is **1.9x** wall clock for a forward difference and 2.0x for a central
+//! one, for the same answer to all eight printed decimals.
 //!
 //! # Provenance — a generalisation of two settled workspace conventions
 //!
@@ -162,8 +163,9 @@
 //! | `1.0000e-12` | 5.609880e-5 |
 //! | `1.0000e-14` | 7.666335e-3 |
 //!
-//! **A step ten thousand times smaller than the optimum is ten million times
-//! worse.** "Make `h` tiny for accuracy" is the intuition this table exists to
+//! **A step six million times smaller than the optimum is ten million times
+//! worse:** `1e-12` against `6.06e-6` moves the error from 5.373555e-12 to
+//! 5.609880e-5, a factor of 1.04e7. "Make `h` tiny for accuracy" is the intuition this table exists to
 //! destroy.
 //!
 //! # Forward against central: the cost/accuracy trade, measured
@@ -288,8 +290,8 @@
 //! arithmetic crosses lanes or columns**. A parallel *sum* would have to
 //! re-associate, and floating-point addition is not associative; a set of
 //! independent difference quotients has nothing to re-associate. Both backends
-//! call the same `#[inline]` kernels — [`derivative_one`] and
-//! [`jacobian_column`] — and only the identity of the calling thread differs.
+//! call the same `#[inline]` per-lane and per-column kernels, and only the
+//! identity of the calling thread differs.
 //!
 //! Verified by the `bitwise_*` tests in `differentiate/tests.rs` on 2 048
 //! derivative lanes, 512 four-dimensional Jacobian lanes and one 96-dimensional
@@ -1092,7 +1094,7 @@ impl DiffStatus {
 ///
 /// # Units
 ///
-/// [`value`](Self::value) carries the units of `f` divided by the units of `x`
+/// [`Self::raw_value`] carries the units of `f` divided by the units of `x`
 /// — a derivative changes dimension, which is exactly why this module does not
 /// try to `uom`-type the generic form. See the module-level "Units" section.
 /// [`realised_step`](Self::realised_step) carries the units of `x`.
@@ -1901,14 +1903,7 @@ pub fn jacobian_batch<F>(
 where
     F: Fn(usize, &[f64], &mut Vec<f64>) + Sync,
 {
-    jacobian_batch_min(
-        points,
-        n,
-        settings,
-        backend,
-        JACOBIAN_BATCH_MIN_PROBLEMS,
-        f,
-    )
+    jacobian_batch_min(points, n, settings, backend, JACOBIAN_BATCH_MIN_PROBLEMS, f)
 }
 
 /// [`jacobian_batch`] with the size floor supplied by the caller.
@@ -2375,11 +2370,11 @@ where
     // stencil, the step rule and the realised-step correction are literally the
     // same code as for `dfdy`.
     let point = [x];
-    let solution = jacobian_column_scalar_direction(&point, settings, n, &|t: f64,
-                                                                           out: &mut Vec<f64>| {
-        out.clear();
-        system.derivatives(t, y, out);
-    });
+    let solution =
+        jacobian_column_scalar_direction(&point, settings, n, &|t: f64, out: &mut Vec<f64>| {
+            out.clear();
+            system.derivatives(t, y, out);
+        });
     match solution {
         Ok(values) => {
             dfdx[..n].copy_from_slice(&values[..n]);
