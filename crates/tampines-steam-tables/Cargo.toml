@@ -1,6 +1,15 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.2.4"
+version = "0.2.5"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Ethan Yew Hoe, Wong",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 edition.workspace = true
 license.workspace = true
 description = "IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"
@@ -21,9 +30,10 @@ uom.workspace = true
 
 # All dev-dependencies below are used ONLY by the FHR-simulator / Rankine-cycle
 # examples (the library itself and its unit tests are TUAS-free and GUI-free).
-# They are Android-hostile: `tuas_boussinesq_solver` pulls in system BLAS via
-# `ndarray-linalg`, and the `egui`/`eframe` GUI stack pulls in `ring`, which
-# needs an Android C toolchain (`cc-rs`). Gate the whole block off Android so
+# They are Android-hostile: the `egui`/`eframe` GUI stack pulls in `ring`,
+# which needs an Android C toolchain (`cc-rs`). (`tuas_boussinesq_solver` no
+# longer pulls system BLAS -- its `ndarray-linalg` dependency was removed in
+# TUAS v0.1.2.) Gate the whole block off Android so
 # `cargo check --target aarch64-linux-android --tests --examples` stays clean.
 # The examples themselves carry `#![cfg(not(target_os = "android"))]` so they
 # compile to nothing on Android.

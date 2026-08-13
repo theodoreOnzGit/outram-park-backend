@@ -3,9 +3,19 @@
 Solver application layer for the OUTRAM PARK OpenFOAM-in-Rust stack.
 This crate provides:
 1. **Solver loops** — Rust ports of pimpleFoam, rhoPimpleFoam, sonicFoam,
-   rhoCentralFoam, and HRMFoam.
-2. **Case I/O** — polyMesh reader, controlDict/fvSchemes/fvSolution parsers,
-   and OpenFOAM / VTK output writers.
+   rhoCentralFoam, HRMFoam, reactingTwoPhaseEulerFoam, and a
+   pimpleFoam + `solidificationMelting` composition (`melt_foam`).
+2. **Case I/O** — polyMesh and field readers. **The
+   controlDict/fvSchemes/fvSolution parsers and every OpenFOAM/VTK writer are
+   `todo!()`** — cases are configured by constructing the structs in Rust and
+   results are read off the solver's public fields.
+3. **Turbulence selection** — `TurbulenceClosure`, the Layer-5 adapter over
+   `outram-foam-turbulence-lib`.
+4. **The GeN-Foam port** (`genfoam`) — deterministic reactor neutronics,
+   thermal-hydraulics, thermo-mechanics, and their multi-region coupling.
+
+> The `README.md` "Limitations" section is the authoritative per-module status
+> and is kept current; prefer it over any summary here.
 
 > Workspace member of the **OUTRAM PARK** backend. See the root `CLAUDE.md`
 > for the shared dependency policy.
@@ -122,14 +132,30 @@ live in **`docs/planned-modules.md`**.
 
 - Follow the workspace `CLAUDE.md` porting workflow: update `src/prelude.rs`
   and `README.md` for every new public item.
-- The `controlDict` time loop must honour `adjustTimeStep` — call
-  `adjust_delta_t(co_max, dt_max)` at the end of each step.
 - Boundary condition enforcement (fixedValue, zeroGradient, etc.) is handled
   inside `FvMesh` / `FvPatch` from `outram-foam-basic-lib`. This crate calls
   `.correct_boundary_conditions()` at the top of each time step, never
   re-implements BC logic.
-- `WriteControl::TimeStep` writes every N steps; `WriteControl::RunTime` writes
-  every N seconds (wall time). Both must be supported.
+
+### Time and write control — intended, not yet implemented
+
+These two are **design targets, not descriptions of the current code.** Both
+were previously written here as though already true; they are not, so do not
+cite them as existing behaviour:
+
+- **`adjustTimeStep` is not implemented.** Every solver's `run()` steps at the
+  fixed `control.delta_t`; `adjust_time_step`, `max_co` and `max_delta_t` are
+  carried on `ControlDict` but consulted nowhere, and there is no
+  `adjust_delta_t` method. Implementing it means adding an adaptive-Δt path to
+  each `run()` loop.
+- **No write control is implemented,** because no writer is: every function in
+  `io::output` is `todo!()`. `WriteControl::TimeStep` (every N steps) and
+  `WriteControl::RunTime` (every N seconds) both need to be supported once
+  field output exists.
+
+Only `ControlDict::{start, stop, delta_t}` currently affect a run, and only
+`StartControl::StartTime` / `StopControl::EndTime` do anything — the other
+variants cause `run()` to take zero steps.
 
 ## Build and test
 

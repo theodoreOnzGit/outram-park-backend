@@ -1,0 +1,5373 @@
+The High Temperature
+
+Gas-cooled Reactor
+
+Safety considerations of the
+
+(V)HTR-Modul Kugeler, K., Nabielek, H.,
+
+Buckthorpe, D.
+
+Editors: Scheuermann, W., Haneklaus, N., Fütterer, M.
+
+2017 EUR 28712 EN
+
+This publication is a Book with editorship by the Joint Research Centre (JRC), the European Commission’s science and knowledge service. It aims to provide evidence-based scientific support to the European policymaking process. The scientific output expressed does not imply a policy position of the European Commission. Neither the European Commission nor any person acting on behalf of the Commission is responsible for the use that might be made of this publication.
+
+Contact information Name: Fütterer, M. Address: European Commission, DG Joint Research Centre – JRC, Directorate G, Unit G.I.4 – Nuclear Reactor Safety & Emergency Preparedness; P.O. Box 2, NL-1755 ZG Petten, Netherlands Email: Michael.FUETTERER@ec.europa.eu Tel.: +31 22456-5158
+
+JRC Science Hub https://ec.europa.eu/jrc
+
+JRC107642
+
+EUR 28712 EN
+
+PDF ISBN 978-92-79-71311-8  ISSN 1831-9424  doi:10.2760/270321
+
+Luxembourg: Publications Office of the European Union, 2017
+
+© European Atomic Energy Community, 2017
+
+Reuse is authorised provided the source is acknowledged. The reuse policy of European Commission documents is regulated by Decision 2011/833/EU (OJ L 330, 14.12.2011, p. 39).
+
+For any use or reproduction of photos or other material that is not under the EU copyright, permission must be sought directly from the copyright holders.
+
+How to cite this report: Scheuermann, W., Haneklaus, N. and Fütterer, M., editor(s), Kugeler, K., Nabielek, H. and Buckthorpe, D., The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTRModul, EUR 28712 EN, Publications Office of the European Union, Luxembourg, 2017, ISBN 978-92-79-71311-8, doi:10.2760/270321, JRC107642.KJ-NA-28712-EN-C Print ISBN 978-92-79-71312-5 ISSN 1018-5593 doi:10.2760/970340
+
+3
+
+Acknowledgement
+
+European researchers and engineers gained considerable experience with the High Temperature Gascooled Reactor (HTR or HTGR). After the successful operation of experimental and commercial HTRs, the Three Mile Island accident in 1978 led to a reorientation of HTR designs towards reduced power (200-600 MWth)  and  inherent  decay-heat  removal  features  based  on  the  demonstrated  fissionproduct retention capability of coated-particle fuel up to about 1 600 °C.
+
+The concept of such a reactor was developed by Siemens/Interatom in the 1980s: the so-called HTR Module.  Based  on  a  reduced  thermal  power  of  200 MW  and  construction  details,  the  release  of radioactivity in accident conditions can be avoided. However, the Chernobyl accident in 1986 marked the  end  of  the  HTR  Module  development  in  Germany.  In  particular,  the  licensing  process  was stopped  due  to  political  decisions.  However,  after  a  decade  of  interruption,  the  European  and international effort on the development of an inherently safe nuclear reactor picked up speed again with the creation of the European High Temperature Reactor Technology Network (HTR-TN). HTR-TN has  proposed  and  executed  several  European  R & D  projects  and  launched  international collaboration initiatives. One of these, the Generation IV International Forum (GIF), founded in May 2001, selected this concept for the very high temperature reactor (VHTR). At that time, the VHTR was primarily seen as a candidate for a Generation IV reactor with the particular mission of electricity and large-scale  bulk  hydrogen  production  via  thermochemical  processes.  Today,  and  due  to  the  large market sector in industrial heat demand, more emphasis is given to the cogeneration of heat (mostly steam) and power with HTRs.
+
+In  Europe,  along  with  several  smaller  projects,  two  large  projects  specifically  related  to  HTR technology  were  put  in  place.  Raphael  (reactor  for  process  heat,  hydrogen  and  electricity generation), a 4-year project with 37 partners, started in 2005. Archer (advanced high-temperature reactors  for  cogeneration  of  heat  and  electricity  R & D),  again  a  4-year  project,  with  33  partners, started in 2010. Both projects successfully performed the R & D required with a view to confirming the high technology readiness level for the design, demonstration and deployment of such a reactor, in particular for their use as highly efficient plants for cogeneration of heat and power.
+
+The  Raphael  project  focused  on  (V)HTR  technology  developments  needed  for  industrial  reference designs  in  the  areas  of  reactor  physics,  safety,  fuel  and  fuel-cycle  back  end,  materials  and components.  Moreover  system  integration  with  the  reference  designs  was  carefully  checked  and documented.
+
+The Archer project then extended the current state of knowledge of the European (V)HTR technology basis  with  R & D  to  support  the  demonstration  of  nuclear  cogeneration  with  HTR.  One  of  the deliverables  of  Archer  was  to  document  the  current  state  of  knowledge  in  the  form  of  an  HTR handbook with a specific focus on safety. It was meant to provide the basis for future research and development. The present book is composed of chapters recalling the concept of the HTR Module, fuel  and  fuel  performance,  components,  materials  and  safety.  The  appendix  summarises  the  most important experiments concerning safety.
+
+As  editors  we  thank  the  authors  of  the  book,  Professor  emeritus  Dr  Kurt  Kugeler,  from  the  RWTH Aachen,  Germany,  who  contributed  to  chapters  of  the  HTR  concepts,  components  and  safety,  Dr Heinz Nabielek, from Forschungszentrum Jülich, Germany, who provided the chapter on fuel and fuel
+
+4
+
+performance,  and  Mr  Derek  Buckthorpe  from  AMEC  Foster  Wheeler,  who  wrote  the  chapter  on materials.
+
+We are grateful to the colleagues who did the hard job of digitising drawings and plots from printed paper  of  older  reports  to  be  included  in  this  book,  namely  Janis  Lapins,  Dustin  Sanchristobal  and Nicolai Kaufmann  from the  Institute of Nuclear Technology and Energy systems (IKE), University of Stuttgart, Germany.
+
+Last but not least our acknowledgements are addressed to the European Commission, especially to Dr Georges van Goethem for his encouragements to produce and publish this book.
+
+The editors
+
+Walter Scheuermann (University of Stuttgart, Germany)
+
+Nils Haneklaus (University of Berkeley, United States)
+
+Michael Fütterer (European Commission — Joint Research Centre, Petten, the Netherlands)
+
+5
+
+Contents
+
+List of figures .............................................................................................................. 1
+
+List of tables ............................................................................................................... 8
+
+1.  Introduction ........................................................................................................ 11
+
+2.  The concept of the HTR Module ........................................................................ 15
+
+2.1.  Concept of the plant .................................................................................... 16
+
+3.  Core layout parameter for the HTR Module ....................................................... 20
+
+3.1.  Overview ..................................................................................................... 20
+
+3.2.  Core power density ...................................................................................... 21
+
+3.3.  H/D ratio of the core .................................................................................... 23
+
+3.4.  Layout of the core of the HTR Module ......................................................... 25
+
+3.5.  Helium pressure .......................................................................................... 26
+
+3.6.  Helium temperatures in the primary circuit .................................................. 26
+
+3.7.  Heavy metal and burnup ............................................................................. 27
+
+3.8.  Feeding principles ....................................................................................... 28
+
+3.9.  Questions concerning the plant layout ......................................................... 28
+
+4.  Fuel and fuel performance ................................................................................. 30
+
+4.1.  Fuel manufacturing ...................................................................................... 32
+
+4.1.1.  UO2 fuel kernels .................................................................................... 32
+
+4.1.2.  TRISO coating ...................................................................................... 32
+
+4.1.3.  Spherical fuel element .......................................................................... 34
+
+4.1.4.  As-manufactured fuel quality ................................................................. 38
+
+4.2.  HTGR fuel performance under accident conditions ..................................... 40
+
+4.2.1.  Simulation testing of core heat-up depressurisation under dry conditions 40
+
+4.2.2.  Fission-product release from UO2 kernels at 1 600 °C ......................... 41
+
+4.2.3.  Comparison of fuel quality at 1 600 °C .................................................. 42
+
+4.2.4.  KÜFA tests in Jülich 1985-1995 and in Karlsruhe 2005-2010 ............... 43
+
+4.3.  Accident simulation testing under oxidising conditions ................................ 47
+
+4.3.1.  Simulation of water ingress accident ..................................................... 47
+
+4.3.2.  Simulation of air ingress accident ......................................................... 48
+
+4.4.  Fuel performance limits ............................................................................... 49
+
+4.5.  Summary ..................................................................................................... 51
+
+5.  Components ...................................................................................................... 52
+
+6
+
+5.1.  Primary system ............................................................................................ 52
+
+5.2.  Core structures ............................................................................................ 55
+
+5.3.  Shutdown systems ...................................................................................... 60
+
+5.4.  The fuel-handling system ............................................................................ 63
+
+5.5.  Primary enclosure ........................................................................................ 64
+
+5.6.  Surface cooler ............................................................................................. 67
+
+5.7.  Hot gas duct ................................................................................................ 67
+
+5.8.  Steam generator .......................................................................................... 69
+
+5.9.  The intermediate heat exchanger ................................................................ 72
+
+5.10.  Helium circulator ...................................................................................... 79
+
+5.11.  Helium purification plant ........................................................................... 83
+
+5.12.  Depressurisation systems ........................................................................ 84
+
+5.13.  Decay heat removal installations .............................................................. 86
+
+5.14.  Reactor protection system ........................................................................ 89
+
+5.15.  Steam turbine plant .................................................................................. 92
+
+5.16.  Cooling system ......................................................................................... 94
+
+5.17.  Handling of radioactivity ........................................................................... 95
+
+5.18.  Status of development of components and the concept of the HTR Module for cogeneration .................................................................................................... 98
+
+6.  Materials .......................................................................................................... 102
+
+6.1.  Primary system and primary enclosure ..................................................... 102
+
+6.2.  Reactor core .............................................................................................. 111
+
+6.3.  Shutdown system ...................................................................................... 115
+
+6.4.  Hot gas duct .............................................................................................. 116
+
+6.5.  Circulator ................................................................................................... 117
+
+6.6.  Steam generator ........................................................................................ 119
+
+6.7.  Intermediate heat exchanger ..................................................................... 121
+
+6.8.  Turbine for direct cycle and turbine plant ................................................... 124
+
+7.  Safety .............................................................................................................. 127
+
+7.1.  Relevant accident scenarios ...................................................................... 127
+
+7.1.1.  Accident case A: reactor under full pressure, loss of forced cooling ... 131
+
+7.1.2.  Accident case B: reactor at normal pressure, surface cooler working . 133
+
+7.1.3.  Accident case C: reactor under normal pressure, surface cooler fails  136
+
+7.1.4.  Water ingress into the primary circuit .................................................. 137
+
+7
+
+7.1.5.  Air ingress into the primary circuit ....................................................... 145
+
+#### 7.1.6.  Accident case D: concrete structures of the reactor system are
+
+destroyed; the reactor is covered with rubble .................................................. 152
+
+7.2.  Self-acting decay heat removal ................................................................. 154
+
+7.2.1.  Overview of the concept...................................................................... 154
+
+7.2.2.  Valuation of parameters influencing the decay heat removal concept  156
+
+7.2.3.  Inﬂuence of uncertainties relating to the different steps of the transport chain for decay heat removal on the maximum fuel temperature .................... 165
+
+8.  Appendix A ...................................................................................................... 171
+
+8.1.  Irradiation tests in MTRs and in AVR ......................................................... 171
+
+8.2.  Irradiation envelope ................................................................................... 172
+
+8.3.  MTR irradiation analysis ............................................................................ 176
+
+8.4.  HTR Module proof test analysis................................................................. 178
+
+8.5.  AVR real-time irradiation testing ................................................................ 180
+
+9.  Appendix B ...................................................................................................... 187
+
+### 9.1.  Experiments regarding self-acting decay heat removal in modular high-
+
+temperature gas-cooled reactors ........................................................................ 187
+
+9.1.1.  Overview ............................................................................................. 187
+
+9.2.  Heat transport in the reactor core 𝝀𝒆𝒇𝒇𝑻 ................................................... 191
+
+9.2.1.  Laboratory experiments ...................................................................... 191
+
+9.2.2.  SANA experiment ............................................................................... 193
+
+9.2.3.  LUNA experiments .............................................................................. 197
+
+9.3.  Heat transport through the shield of the core ............................................ 201
+
+#### 9.3.1.  Heat transport of the graphite reflector including the influence of
+
+irradiation (𝝀𝑮(𝑻, 𝑫)) ........................................................................................ 201
+
+9.4.  Heat transport in gaps between reactor internal structures by radiation and free convection — general experiences from laboratory experiments ................ 205
+
+9.4.1.  General experiences from laboratory experiments ............................. 205
+
+9.4.2.  PASCO experiment to measure 𝜶𝒄𝒐𝒏𝒗(𝑻) and 𝜶𝒓𝒂𝒅(𝑻) ................... 208
+
+9.5.  Heat transfer from the surface of the reactor pressure vessel by free convection and radiation ..................................................................................... 211
+
+9.5.1.  INWA experiment ................................................................................ 211
+
+9.5.2.  JAERI experiment (Japan) .................................................................. 216
+
+9.5.3.  Heat release from the surface of the CASTOR vessel ........................ 221
+
+9.6.  Heat transport in the outer structures around the reactor pressure vessel  223
+
+8
+
+9.6.1.  Overview of different design options ................................................... 223
+
+9.6.2.  Behaviour of the surface cooling system ............................................ 225
+
+9.6.3.  Heat storage and transport in the concrete structures of the inner reactor cell  226
+
+9.6.4.  Behaviour of large concrete structures at high temperatures .............. 228
+
+9.6.5.  Cooling of the surface of the reactor pressure vessel by interventions 232
+
+9.7.  Heat transport inside the reactor building — integral experiments ............ 233
+
+9.8.  Heat release from the reactor building to the environment ........................ 235
+
+9.9.  Integral experiments on the AVR reactor, demonstration of the concept of self-acting decay heat removal ........................................................................... 237
+
+9.9.1.  Loss of active cooling (reactor under full pressure) ............................. 237
+
+9.9.2.  Loss of active cooling (reactor under normal helium pressure of 1 bar) 240
+
+10.  References ................................................................................................... 246
+
+Page 1
+
+List of figures Figure 1: Goals and criteria (U.S. DOE Nuclear Energy Research Advisory Committee and the Gen. IV International Forum, 2002) ........................................... 12 Figure 2: Fuel element of a pebble-bed reactor ........................................................ 13 Figure 3: Fuel element of a block type reactor .......................................................... 14 Figure 4: Arrangement of the buildings of an HTR plant with two modular units ...... 17 Figure 5: Vertical cross section of the reactor building (How to obtain an inherently safe power reactor, 2007) ......................................................................................... 18 Figure 6: Horizontal cross section of the reactor building (How to obtain an inherently safe power reactor, 2007) ......................................................................................... 19 Figure 7: Principle of the secondary steam cycle of a cogeneration plant containing a heat source (module unit as nuclear heat source) .................................................... 20 Figure 8: Influences to be considered in view of core power density ........................ 21 Figure 9: Qualitative relationships for optimisation of core power density ................ 23 Figure 10: Scanning electron microscope photograph of a purposely cracked TRISOcoated particle showing the fuel kernel and the coating layers (source: Forschungszentrum Jülich) ....................................................................................... 30 Figure 11: High-magnification scanning electron microscope photomicrograph of the TRISO coating (Rooyen, 2010) (source: Nelson Mandela Metropolitan University) . 31 Figure 12: Schematic of high-temperature fluidised-bed CVD coating furnace (source: NUKEM Technologies) ............................................................................................. 34 Figure 13: Cross section of German reference 60 mm-diameter spherical fuel element showing TRISO particles randomly distributed in the 50 mm-diameter fuel zone (source: NUKEM Technologies) ...................................................................... 35 Figure 14: Process steps in manufacturing the German reference 60 mm-diameter HTGR spheres (source: NUKEM Technologies) ...................................................... 36 Figure 15: Number of UO2 TRISO particle defects in sphere manufacture as a function of the number of particles in the spherical fuel element .............................. 39 Figure 16: Temperature evolution during depressurisation and core heat-up in small modular HTGRs in comparison to the temperature profiles used in KÜFA tests ...... 41 Figure 17: Fission-product release from exposed UO2 kernels during 1 600 °C heating test ............................................................................................................... 42 Figure 18: Iodine-131 release from various fuel configurations during 1 600 °C heating tests ............................................................................................................. 43 Figure 19: Krypton-85 release during heating tests with irradiated LEU UO2 TRISO spherical fuel elements irradiated in MTRs (HFR, FRJ2) and in AVR ...................... 44 Figure 20: Caesium-137 release during heating tests with irradiated LEU UO2 TRISO spherical fuel elements irradiated in MTRs (HFR, FRJ2) and in AVR ...................... 45 Figure 21: Krypton-85 release at 1 600 °C from compacts with 11 % to 14 % FIMA burnup in comparison to spherical fuel elements (FE) with 4 % to 9 % FIMA........... 46 Figure 22: Enhanced 85Kr release from irradiated spherical fuel element AVR 89/30 under intermittent steam injections ........................................................................... 48
+
+Page 2
+
+Figure 23: Statistical evaluation of defective and failed LEU UO2 TRISO particle fractions in reference 60 mm-diameter spherical fuel elements ................................ 52 Figure 24: Primary system of an HTR Module (200 MWth) ...................................... 53 Figure 25: Bottom reflector of the THTR ................................................................... 55 Figure 26: Side reflector of the THTR (left: vertical cross section; right: horizontal cross section) ........................................................................................................... 56 Figure 27: Bottom reflector of the Chinese HTR-10 .................................................. 57 Figure 28: Some details of core structures: connection between ceramic structures and core barrel ......................................................................................................... 58 Figure 29: Concept of connection of the hot gas duct to the core internals in HTR .. 59 Figure 30: Ducting of the helium in the reactor internals .......................................... 60 Figure 31: Positions of the borings in the side reflector (six reflector rods, 18 KLAK positions) .................................................................................................................. 61 Figure 32: Principle of the second shutdown system (KLAK) of the HTR Module .... 62 Figure 33: Concept of fuel handling in pebble-bed HTR (MEDUL cycle for a twomodule plant) ............................................................................................................ 63 Figure 34: Arrangement of the primary enclosure .................................................... 65 Figure 35: Concept of the surface cooler of the HTR Module ................................... 67 Figure 36: Hot gas duct ............................................................................................ 68 Figure 37: Steam generator of the HTR Module — overview of the component ....... 70 Figure 38: Depressurisation system for the steam generator ................................... 71 Figure 39: Primary circuit of a modular HTR with IHX (left: principal flow diagram; right: T-Q diagram for use of nuclear heat ................................................................ 72 Figure 40: Arrangement of HTR Module (a) with helix IHX (b) or U tube IHX (c) (Nuclear Energy for Hydrogen Production) ............................................................... 74 Figure 41: Intermediate heat exchanger for nuclear applications (Technical and Safety Aspects of Processes of Hydrogen Production using Nuclear Energy, 2005) (left: helical tube bundle; right: details of hot gas collector tube and support structures) ................................................................................................................. 75 Figure 42: Flow sheet of 10 MW KVK facility for testing nuclear process-heat components .............................................................................................................. 76 Figure 43: 10MW KVK facility for testing nuclear process-heat components ........... 77 Figure 44: Two IHX components tested in KVK (left: Helical tube bundle by SteinmOIIer; right: U tube bundle by Balcke-Durr) ................................................... 77 Figure 45: Correlation between specific diameter and specific rotation speed for HTR blower ....................................................................................................................... 81 Figure 46: Helium circulator of the HTR Module ....................................................... 82 Figure 47: Concept of gas purification of the HTR Module consisting of three tracks 83 Figure 48: Flow sheets of THTR gas purification plant ............................................. 84 Figure 49: System for the depressurisation of the primary system ........................... 85 Figure 50: Decay heat removal in a modular HTR .................................................... 86 Figure 51: Concept of surface cooler ........................................................................ 87 Figure 52: Results for a ‘total loss of active cooling’ accident; failure of the surface cooler; storage and transport of heat in the concrete cell (HTR Module, 200 MWth) 89
+
+Page 3
+
+Figure 53: Connections in the reactor protection system of the HTR Module ........... 91 Figure 54: Steam turbine system for process-steam delivery from a power plant with two modular HTRs and two turbines ......................................................................... 93 Figure 55: Overview of cooling systems of the HTR Module .................................... 95 Figure 56: Flow of activity which is envisaged for the HTR Module .......................... 96 Figure 57: Vessel steels — comparison of allowable strengths .............................. 104 Figure 58: Phase diagram for Fe at 350 °C ............................................................ 106 Figure 59: PWR and WWER regulatory guides — shift in DBTT with dpa dose ..... 107 Figure 60: Effect of irradiation on dimensional change ........................................... 111 Figure 61: Schematic overview of the graphite irradiation experiments .................. 113 Figure 62: Change in E/Eo with irradiation dose for graphite.................................. 114 Figure 63: An arrangement for a carbon-fibre composite control rod ..................... 116 Figure 64: HTR cooler THTR 300 ........................................................................... 119 Figure 65: Plate heat exchanger (flow direction and mock-up) ............................... 123 Figure 66: Examples of welding involved in joining the plates ................................ 123 Figure 67: Overview of possible impacts and events in nuclear power plants: proposal for classification ....................................................................................... 128 Figure 68: Aspects of earthquakes: (a) estimated annular probability that an earthquakes (as large as the value on the X-axis) could occur (e.g. THTR 300, Germany (20)); (b) probability of damaging components depending on the acceleration ............................................................................................................ 129 Figure 69: Probability of damaging components depending on the acceleration .... 129 Figure 70: Forces of an aeroplane crashing into the containment (different DBA, BDBA and EAA events) .......................................................................................... 130 Figure 71: Temperatures (right) in the core in case of loss of forced convection in a modular HTR core, here HTR Module, 200 MWth (illustrated at left), at full helium pressure .................................................................................................................. 131 Figure 72: Results of calculations for the THTR 300 (750 MWth) in case of ‘loss of active cooling’ accident ........................................................................................... 132 Figure 73: Results for the total loss of coolant and active cooling; failure of the surface cooler; storage and transport of heat in the concrete cell accident (HTR Module 200 Mth) ..................................................................................................... 133 Figure 74: Neutron multiplication in the core of a modular HTR without active shutdown (examples: HTR Module, 200 MWth) ..................................................... 135 Figure 75: Results for the accident: total loss of active cooling; failure of the surface cooler; storage and transport of heat in the concrete cell (HTR Module, 200 MWth) ............................................................................................................................... 136 Figure 76: Pressure as function of time in the THTR primary circuit due to water penetration from a defective steam generator tube (operating pressure 40 bar) .... 140 Figure 77: Corrosion rate of A3 graphite in water vapour as a function of temperature ............................................................................................................................... 142 Figure 78: Corrosion rate of A3 graphite in water vapour as a function of total pressure p ............................................................................................................... 142 Figure 79: Corrosion rate of A3 graphite in water vapour as a function of burnup .. 143
+
+Page 4
+
+Figure 80: Decrease in the strength of the fuel due to corrosion in steam (6:42) ... 143 Figure 81: Integral corrosion rate in water vapour as a function of burnup for standard conditions. Reflector graphite ATR-2E and ASR 1RS and fuel element graphite A3-3 and A3-27 (6:37) ..................................................................................................... 144 Figure 82: Flammability of water-gas helium-air mixtures at different temperatures 145 Figure 83: equilibrium and ration of CO/CO2 .......................................................... 148 Figure 84: Measured reaction rates of corrosion of graphite pebble beds by air .... 148 Figure 85: Decrease of the maximum load before rupture of the fuel elements depending on the corrosion time at variable temperatures (corrosion in air) .......... 149 Figure 86: Flammability limits for the air/carbon monoxide/helium system ............. 149 Figure 87: Schematic diagram of the chimney effect during air ingress into the HTR core ........................................................................................................................ 150 Figure 88: Mass flow depending on the leakage cross section and on the temperature in the core (measured from the reactor module) ................................ 152 Figure 89: Accident case D — concrete structures are destroyed, reactor is covered with rubble: (a) model for calculations; (b) results of calculations for the time dependence of relevant temperatures .................................................................... 153 Figure 90: Stationary radial temperature profile in case of self-acting decay heat removal in a modular HTR (Tmax in the hottest part of the core) ........................... 154 Figure 91: Release fraction of fission products from pebble bed fuel elements containing TRISO-coated particles ......................................................................... 156 Figure 92: Schematic system for balancing decay heat production and dissipation from the core .......................................................................................................... 157 Figure 93: Qualitative picture of the above-derived solution ................................... 158 Figure 94: Qualitative dependence of a radial temperature profile in the core (at 𝒕 = 𝒕 ∗ with 𝒇𝑫𝒕 ∗) ................................................................................................... 160 Figure 95: Heat transport across gaps in the core .................................................. 161 Figure 96: Simplified model to evaluate the system in a very extreme accident ..... 163 Figure 97: Qualitative values of temperature of reactor pressure vessel and fuel dependent on time .................................................................................................. 164 Figure 98: Uncertainties relating to measured parameters for the heat transport in the reactor system in case of a ‘total loss of active cooling’ accident: .......................... 167 Figure 99: Spheres for temperature measurements in the core of the AVR (with meltwires — the X-ray below shows the molten wires) ................................................. 168 Figure 100: Aspects of temperature measurements in the AVR: (a) temperatures obtained from melt-wire experiments; (b) calculated maximum temperature in core ............................................................................................................................... 169 Figure 101: Irradiation envelope of fuel burnup versus mean operating temperature for LEU UO2 TRISO particles in accelerated irradiation tests in European MTRs and in AVR prior to 2000 ............................................................................................... 174 Figure 102: Measured 85mKr release rates during the irradiation of tests HFR-K5 and HFR-K6 ................................................................................................................... 178 Figure 103: Detailed comparison of measured and calculated 88Kr release rates for fuel elements HFR-K6/2 and 3 throughout the 634 full-power days of irradiation. Also
+
+Page 5
+
+shown are the measured temperatures at the spheres’ surface. Release source terms are from contamination ................................................................................. 180 Figure 104: Distribution of spherical fuel element types in the AVR core as a function of operating history (Verfondern, 2007) .................................................................. 181 Figure 105: Distribution of AVR inner core maximum fuel element surface temperatures and outer core maximum fuel element surface temperatures as obtained from the 1986 melt-wire tests ................................................................... 182 Figure 106: Release of 85Kr measured during accident simulation testing of GLE-3 spherical fuel elements irradiated to various burnups in the AVR. The first part of the two-digit number refers to the consecutive AVR sampling event, and the second is a sequential s ............................................................................................................ 183 Figure 107: Post-irradiation fission gas release fractions at 1 250 °C measured during heat-up prior to accident simulation tests with GLE-3 fuel elements containing LEU UO2 TRISO particles of various burnups. The horizontal lines show predicted krypton release fractions ..................................................................................................... 185 Figure 108: Stationary radial temperature profile in case of self-acting decay heat removal in a modular HTR (Tmax in the hottest part of the core) ........................... 187 Figure 109: Parameters which influence the chain of the self-acting transport of decay heat in a modular HTGR .............................................................................. 188 Figure 110: Overview of experiments to evaluate the concept of self-acting decay heat removal of a modular HTR .............................................................................. 191 Figure 111: Measurement of (𝝀𝒆𝒇𝒇(𝑻)) in a laboratory experiment with 6 cm graphite balls: (a) arrangement for measurement of (𝝀𝒆𝒇𝒇(𝑻) in a pebble bed; (b) result for the effective heat conductivity in a pebble bed (𝝀𝒆𝒇𝒇(𝑻)) ............................................. 192 Figure 112: Dependencies of 𝝀𝒆𝒇𝒇 from temperature and irradiation status .......... 193 Figure 113: SANA-test facility: (a) cross section; (b) picture................................... 193 Figure 114: Characteristic results of measurements of stationary temperature proﬁles in the SANA facility (heating power 50 KW; N2 as filling gas; no radial insulation) . 195 Figure 115: Comparison between measured and calculated values in the SANA facility (power 30 KW; helium as filling gas; without insulation) .............................. 196 Figure 116: Results of free-convection measurements: transport of heat by natural convection; difference between nitrogen and helium .............................................. 196 Figure 117: Experimental facility LUNA: (a) overview; (b) view into the pebble bed 198 Figure 118: Measurements and calculations — results of the LUNA facility: (a) mass ﬂow dependent on time; (b) temperature dependent on time (air at 36 bar); (c) temperature dependent on time (helium at 37 bar); (d) mass flow in circuit in case of different positions of the heat sink .......................................................................... 200 Figure 119: Aspects of heat transport in the side reflector of a modular HTR in case of self-acting decay heat removal ........................................................................... 201 Figure 120: Behaviour of irradiated graphite relevant for the description of ‘loss of active cooling’ accidents and action of self-acting decay heat removal: heat conductivity dependent on fast neutron dose and temperature (irradiation at 950 °C) ............................................................................................................................... 202
+
+Page 6
+
+Figure 121: Aspects of heat transport through the graphite reflector in case of ‘loss of cooling’ accidents: (a) radial dependence of neutron flux (e.g. AVR; 1.85 m under core upper surface); (b) axial dependence of neutron flux (e.g. AVR; on core axis); (c) positions of the reflector.......................................................................................... 204 Figure 122: Positions where natural convection plays a role .................................. 205 Figure 123: Heat transport mainly by free convection and radiation — three important situations in the chain of heat transport of a modular HTR: (a) between two surfaces in the reactor internals; (b) from hot surfaces to the atmosphere of the reactor containment building to concrete structures ........................................................... 206 Figure 124: Dependence of the function 𝜷𝑻𝑻𝟏, 𝑻𝟐, 𝜺𝟏 𝜺𝟏, 𝜺𝟐 = 𝟏 ........................... 207 Figure 125: PASCO test facility to measure the release of heat from hot surfaces by radiation and free convection and to determine flow velocities ............................... 209 Figure 126: Heat-transfer coefficients and possible heat fluxes ............................. 210 Figure 127: Internals of the INWA-test facility ......................................................... 212 Figure 128: Time dependence of heat flux on the liner surface of the INWA test facility (a power of 4 kW corresponds to a heat ﬂux of/4 kW/m2) ............................ 213 Figure 129: Radial dependence in the reactor pressure vessel and concrete cell structures (at the time when the highest temperature of the vessel occurs) ........... 214 Figure 130: Time dependence of the temperatures during experiments in the linersurface of the INWA-test facility (a power of 4 kW corresponds to a heat ﬂux of 4 kW/m2). .................................................................................................................. 214 Figure 131: Heat-transfer numbers by natural convection measured in INWA test facility dependent on the height for the cases of normal operation and of ‘loss of active cooling’ accidents ......................................................................................... 215 Figure 132: Some important results of tests carried out at the INWA test facility  (a) time dependence of temperatures of liner and concrete (heat flux: 4 KW/m 2); (b) heat flux dependent on the temperature of the outer wall (here: 50 °C) and the surface of the cast-iron vessel ................................................................................................. 216 Figure 133: Schematic diagram of the JAERI test facility for the measurement of heat ﬂuxes and temperature distributions ....................................................................... 217 Figure 134: Schematic ﬂow sheet of the JAERI-test facility .................................... 218 Figure 135: Case A: 94 KW; nitrogen; 1.1 MPa; cooling water in cooling system .. 219 Figure 136: Case B: 77.5 KW; helium; 0.47 MPa; cooling water in cooling system 219 Figure 137: Cooling panel operated with air (8 KW; helium; 1 MPa; air coolant ) ... 220 Figure 138:Principle of heat transport in storage vessels for spent fuel elements: (a) the principle of a storage vessel with surface cooling; (b) the radial temperature proﬁle; (c) the axial temperature proﬁle; (d) some data and relations for temperature differences .............................................................................................................. 222 Figure 139: Results of measurement of heat transfer by free convection on the surface of storage vessels ...................................................................................... 223 Figure 140: Possibilities to set up reactor vessel and outer cell systems with good heat-transfer and heat-storage capabilities ............................................................. 224 Figure 141: Heat transfer if the surface cooler fails ................................................ 226 Figure 142: Heating of the inner concrete cell after failure of the surface cooler .... 227
+
+Page 7
+
+Figure 143: Strength of concrete at higher temperatures ....................................... 228 Figure 144: Changes to important parameters of concrete at high temperatures: (a) heat conductivity; (b) modulus of elasticity ............................................................. 228 Figure 145: Time dependence of temperatures supporting concrete structures of modular HTRs (‘total loss of active cooling’ and ‘failure of surface cooler’ accidents) ............................................................................................................................... 229 Figure 146: Experimental facility to test large concrete blocks at high temperatures ............................................................................................................................... 230 Figure 147: Some results of tests on large concrete blocks ................................... 231 Figure 148: Results of experiments reflooding a liner cooling system .................... 232 Figure 149: Different situations of heat transfer by free convection in the containment building ................................................................................................................... 233 Figure 150: Concepts to remove the decay heat from the reactor containment building ................................................................................................................... 235 Figure 151: Alternative cooling concepts for reactor containment buildings ........... 236 Figure 152: Loss of active cooling + loss of all shutdown rods (blocked ................. 239 Figure 153: Calculated temperature distribution inside the AVR during loss of decay heat removal accident (calculations for the assumption ‘loss of control and loss of active decay heat removal’, reactor under full helium pressure) ............................. 240 Figure 154: Decay heat production in the AVR during total loss of active cooling with a depressurised core .............................................................................................. 241 Figure 155: Positions of thermocouples to measure temperatures in the internal structures of the AVR: (a) vertical section; (b) horizontal section ........................... 241 Figure 156: Results of a ‘loss of coolant and loss of pressure in primary system’ experiment in the AVR (46 MW; THe = 950 °C) ....................................................... 243 Figure 157: Temperature distribution inside the AVR reactor system in a ‘loss of coolant’ accident (calculations for the assumption: total loss of coolant and loss of active decay heal removal) ..................................................................................... 244 Figure 158: Time-dependent temperature distribution in the AVR during ‘total loss of active decay heat removal’ accident, depressurisation of primary circuit: temperature (maximum values at centre line) depending on time .............................................. 245
+
+Page 8
+
+List of tables Table 1: Overview of high temperature reactors ....................................................... 13 Table 2: Thermodynamic design aspects of pebble-bed reactors ............................ 20 Table 3: Some data on the core layout (AVR and THTR data for comparison) ........ 25 Table 4: German reference coated particle: LEU UO2 with an LTI TRISO coating ... 31 Table 5: Design functions of the ceramic coating layers of the TRISO-coated fuel particle ...................................................................................................................... 32 Table 6: Typical parameters for CVD processes employed to deposit ceramic coating layers on dense LEU UO2 fuel kernels to produce TRISO-coated particles (Huschka, 1977; Nothnagel, 2010) ............................................................................................ 34 Table 7: Production-scale manufacturing details for high-quality spherical elements containing LEU UO2 TRISO-coated fuel particles during period 1980 to 1988 ......... 37 Table 8: Failure statistics for LEU UO2 TRISO-coated fuels based on burn-leach results ....................................................................................................................... 40 Table 9: Heating tests in KORA with irradiated unbonded particles and irradiated fuel spheres in air (Schenk, 1995) ................................................................................... 49 Table 10: Final statistical evaluation of the performance data collected during manufacture, irradiation testing and accident testing of reference ............................ 50 Table 11: Some data on the primary system of the HTR Module (1 unit) ................. 54 Table 12: Data on the ceramic core structures of the THTR ..................................... 55 Table 13: Data on the core structure of the HTR Module (AVR and THTR data for comparison) .............................................................................................................. 59 Table 14: Data on the vessels of the primary enclosure ........................................... 65 Table 15: Data on the surface cooling system .......................................................... 67 Table 16: Data on the hot gas duct of the HTR Module (some data on the EVO plant are added for comparison) ........................................................................................ 68 Table 17: Steam generator data ............................................................................... 70 Table 18: Comparison of IHX data tested in a KVK facility with data on IHX for nuclear application .................................................................................................... 73 Table 19: Data on the helium circulator of the HTR Module (THTR circulator data for comparison) .............................................................................................................. 82 Table 20: Some data on the steam turbine plant for the production of process heat by cogeneration ............................................................................................................. 93 Table 21: Pre-calculated and measured values of THTR ......................................... 94 Table 22: Estimate of yearly releases of radioactive isotopes from an HTR Module plant .......................................................................................................................... 97 Table 23: Values of release of radioactivity during AVR operation: (a) release of radioactive substances into the atmosphere; (b) transfer of radioactive water from the AVR In the KFA ........................................................................................................ 98 Table 24: Safety concept of HTR Module compared to that of AVR ....................... 100 Table 25: Evaluation of components of the HTR Module ....................................... 101 Table 26: Qualification issues for HTR/VHTR reactor pressure vessel .................. 104 Table 27: Qualification issues for HTR/VHTR reactor pressure vessel .................. 109 Table 28: Codes and standards issues for HTR/VHTR reactor pressure vessel .... 110
+
+Page 9
+
+Table 29: Typical range of graphite grades in an irradiation experiment ................ 112 Table 30: Graphite core material issues and requirements .................................... 114 Table 31: Control rod material issues and requirements for the HTR and VHTR ... 116 Table 32: Hot gas duct material issues and requirements for the HTR and VHTR . 117 Table 33: Circulator material issues and requirements for the HTR and VHTR ...... 118 Table 34: Steam Generator material issues and requirements for the HTR and VHTR ............................................................................................................................... 120 Table 35: Main characteristics for direct and indirect from hydraulic and thermal consideration .......................................................................................................... 122 Table 36: IHX material issues and requirements for the HTR and VHTR ............... 124 Table 37: Chemical composition of IN 792 DS and CM 247 LC DS blade materials (weight %) ............................................................................................................... 126 Table 38: Turbine material issues and requirements for the HTR and VHTR ......... 126 Table 39: Regarded severe accidents and their probability (P) .............................. 128 Table 40: Comparison of some data on aeroplanes for DBA, BDBA and EAA events ............................................................................................................................... 130 Table 41: Accidents relevant for self-acting decay heat removal ............................ 130 Table 42: Heat transport mechanism and temperature limits: (a) heat transport mechanism in different structures; (b) limiting parameters for the concept (e.g. HTR Module, 200 MWth) ................................................................................................ 154 Table 43: Characteristics of the wires shown in Figure 99...................................... 168 Table 44: Estimates of the inﬂuence of uncertainties on the fuel temperature in case of a ‘total loss of cooling’ accident .......................................................................... 170 Table 45: Historical overview of German irradiation tests in the development of coated particles from 1972 to 2010 (IAEA 2012) .................................................... 171 Table 46: The nominal maximum HTGR design operating conditions, for which the MTR irradiation tests were patterned ...................................................................... 173 Table 47: In-reactor operating parameters for the MTR irradiation tests conducted on modern high-quality LEU UO2 TRISO fuel particles irradiated in the German fuel development programme ........................................................................................ 175 Table 48: LEU UO2 TRISO-coated particle fuel performance in accelerated MTR irradiation tests based on EOL Kr R/B values and the temperature-dependent fractional release values for an exposed oxide fuel kernel ..................................... 177 Table 49: 85Kr fractional release measurements made during the 1 250 °C+ hold temperature on AVR type GLE-3 fuel elements prior to accident simulation tests at higher temperatures ............................................................................................... 184 Table 50: Data on the experiment .......................................................................... 194 Table 51: Characteristic of fast neutron dose at different positions of reﬂector (e.g. HTR Module; after 30 years of operation)............................................................... 204 Table 52: Some relations for the natural convection of air ...................................... 208 Table 53: Important data on the test facility ............................................................ 218 Table 54: Values of emissivity of some different materials in the self-acting decay heat removal chain ................................................................................................. 221
+
+Page 10
+
+Table 55: Comparison of some data on the surface cooler of the modular HTR and the surface cooler of a coal-fired boiler ................................................................... 225 Table 56: Temperature dependence of factor C ..................................................... 234 Table 57: Temperature dependence of the factor 𝑪 ∗ in the equation for free convection around a body of diameter 𝒅𝒂 .............................................................. 235
+
+Page 11
+
+## 1.  Introduction
+
+Nuclear  energy  production  is  a  recent  technology.  The  first  nuclear  reactor  demonstrating  the feasibility of a sustained and controlled chain reaction was built in Chicago in 1942. In 1957 a nuclear reactor  produced  electricity  for  the  first  time.  In  the  60 years  since  then  significant  technological progress has been achieved.
+
+Three  generations  of  nuclear  reactors  have  been  successively  developed  and  a  fourth  is  currently being developed, demonstrating the constant progress and technical and industrial vitality of nuclear energy. The technology is mature, with approximately 450 nuclear reactors currently providing 17 % of the world’s electricity, without greenhouse gas emissions.
+
+It must also be stressed that the technological progress and innovations achieved or currently being developed are all based on the same fundamental physical principles of nuclear fission, the feasibility of which was demonstrated some 70 years ago.
+
+Heavy  nuclides,  like  uranium,  plutonium  and  thorium,  are  fissioned  by  neutrons  and  release  heat within  the  fuel  material  confining  the  radioactivity.  This  heat  is  extracted  while  simultaneously cooling the fuel by circulating a coolant (water in current European  light-water reactors). The heat recovered is used to run a turbine and a generator, which produces electricity.
+
+A lot of effort has been invested in international cooperation to define goals for the nuclear energy systems of the future, and also to select the key technologies for achieving them. The effort has been made  primarily  through  the  Generation  IV  International  Forum  (GIF),  which  the  American Department of Energy initiated in 2000.
+
+The technology roadmap developed by GIF is the starting point to identify and organise research and development of the new generation of reactors to be built around 2030 to 2040. To do so, four goals have  been defined. Each of the systems comprises a nuclear reactor, an energy conversion system and the necessary fuel cycle, fuel manufacturing, spent fuel and final waste-management equipment.
+
+The  four  major  goals  have  been  separated  out  into  15  criteria  and  24  performance  indicators  or metrics (Figure 1). These goals are:
+
+  sustainability   economics   safety and reliability   proliferation resistance and physical protection.
+
+Page 12
+
+Figure 1: Goals and criteria (U.S. DOE Nuclear Energy Research Advisory Committee and the Gen. IV International Forum, 2002)
+
+A  final  selection  criterion  was  the  degree  of  technological  innovation  in  the  candidate  systems  — which  provides  excellent  grounds  for  wide-reaching  international  cooperation  —  and  the  possible spin-offs for other nuclear systems or for the current or next generation of nuclear reactors.
+
+The  following  six  systems  deemed  the  most  promising  at  the  end  of  this  evaluation  exercise  were called on to rally forum cooperation on development work starting from 2004:
+
+  VHTR  —  very  high-temperature  reactor  system,  over  1 000 °C,  helium-cooled, dedicated to hydrogen production or hydrogen/electricity cogeneration;   GFR — gas-cooled fast reactor system — Helium-cooled fast reactor;   SFR — sodium-cooled fast reactor system;   SCWR — supercritical water-cooled reactor system;   LFR — lead-cooled fast reactor system — lead or Pb-Bi alloy-cooled fast reactor;   MSR — molten salt reactor.
+
+VHTR  scored  very  well  with  the  exception  of  sustainability  because  of  its  open  fuel  cycle,  which requires  reprocessing  to  increase  sustainability.  From  a  technological  point  of  view  the  VHTR  is  a further development of the high temperature reactor (HTR), which was developed in the years from 1960 to 2001 (Table 1).
+
+Page 13
+
+Table 1: Overview of high temperature reactors
+
+Dragon  Pech-Bottom  AVR  Fort StVrain  THTR300  HTTR  HTR10
+
+Site  Winfrith (United Kingdom ) Pennsylvani a (United States) Jülich (Germany ) Colorad o (United States) Schmehause n (Germany  Oarai (Japan)  HT10 (China)
+
+Criticality  1964  1966  1966  1974  1983  1998  2001 Shutdown  1975  1974  1988  1989  1989  -  MWth  20  115.5  46  842  750  30  10 MWel  -  40  15  330  300  -  He pressure (bar) 20  24.6  10  48  40  40  30
+
+Inlet temperatur e (℃) 335  343  175  406  262  395  250-300
+
+Outlet temperatur e (℃) 835  715  850  785  750  850-950  700-900
+
+Power density (MW/m3 ) 14  8.3  2.3  6.3  6  2.5  2
+
+Fuel elements  Prisms  Prisms  Pebbles  Prisms  Pebbles  Prisms  Pebbles
+
+Cycle  Varied  U/Th  U235/Th  U235/Th  U235/Th  Enriche d U  Enriche d U
+
+Two basic fuel element designs of the HTR have been developed and implemented, one in Germany and the other in the United States.
+
+The main  characteristic of  the  German  design  is  the  conditioning  of  compacted  microparticles  in a graphite matrix in the form of spheres with a diameter of 60 mm (Figure 2). They are continuously inserted in and extracted from the reactor at a rate of one pebble approximately every 20 seconds. When a pebble reaches its maximum depletion rate it is replaced with a new one.
+
+Figure 2: Fuel element of a pebble-bed reactor
+
+Page 14
+
+The first German HTR was the Arbeitsgemeinschaft Versuchsreaktor (AVR) built at the Jülich Research Centre.  This  centre  has  maintained  very  high  competence  in  this  technology.  The  AVR  set  new records (for HTRs) in terms of performance and operating duration. Its construction began in 1961. It was connected to the electric power network in 1966 (15 MWel) and shut down in 1988. It served as an experimental platform for fuel technology development within the scope of cooperation between the  Jülich  Research  Centre  and  NUKEM,  the  fuel  industrial  manufacturer  still  considered  to  be  a reference today. The core temperature of 850 °C at the start of operation was increased to 950 °C. The  steel  pressure  vessel  design  served  to  achieve  design  transients  (e.g.  core  cooling  loss)  that contributed to validating the safety concepts applied in this type of reactor.
+
+The  AVR  showed  the  viability  of  the  pebble  bed  concept  and  demonstrated  its  reliability  through physical tests for which the plant was not initially designed. A loss of coolant flow without scram was simulated in 1970, and a loss of coolant transient was also achieved prior to final shutdown.
+
+The fuel has undergone significant developments and improvements at the Jülich Research Centre, in partnership with NUKEM (manufacturer).
+
+The second HTR built in Germany was the THTR-300 (thorium high-temperature reactor), which went critical  in  1983.  This  was  a  300 MWel  commercial  reactor  with  a  concrete  vessel,  built  by  Brown Boveri. The operation of the THTR was marked by a number of technical problems that did not seem impossible to overcome. In particular, a planned inspection in 1988 revealed the rupture of a number of bolts securing hot duct insulation plates, which, combined with an unfavourable political context, led to the decision to permanently decommission the facility in 1989 after only 423 equivalent fullpower days
+
+The American family differs from the German family mainly in terms of core and fuel organisation. The core is composed of prismatic graphite blocks containing the fuel compacts (Figure 3).
+
+Figure 3: Fuel element of a block type reactor
+
+The first commercial implementation was Peach Bottom (40 MWel), which went critical in early 1966 and was shut down in 1974. After the discovery of an increasing number of fuel cladding ruptures, a second  core  was  fabricated  using  more  advanced  technology,  improving  the  quality  of  the  first porous  graphite  layer  and  the  characteristics  of  successive  layers.  93 %  availability  was  achieved during irradiation of this second core, and reactor coolant system activity remained extremely low,
+
+Page 15
+
+indicating  the  excellent  quality  of  the  new  fuel.  The  reactor  subsequently  operated  without  major problems and was shut down for economic reasons.
+
+The second implementation was Fort Saint-Vrain (330 MWel), construction of which began in 1968 and which went critical in 1974. Its operation was marked by technical problems (namely accidental water ingress in the reactor coolant system causing accelerated corrosion of steel components and poor availability) and it was finally decommissioned in 1989. Despite the negative functional aspects of  its  operation,  the  excellent  leak-tightness  of  the  fuel  elements  led  to  very  positive  radiological results for operation and maintenance activities, with the exception of tritium releases due to water leaks.
+
+On  the  whole,  the  operating  experience  from  German  and  American  prototypes  has  largely confirmed the technical expectations regarding HTRs, i.e.:
+
+  very  good  behaviour  of  the  particle  fuel  under  irradiation,  even  at  high  temperatures,  and low release of fission products in the coolant gas providing very clean reactors;   possibility of using high-temperature helium as coolant gas;   easy control, high thermal inertia and significant operating safety margins (demonstrated at real scale with the AVR).
+
+The impact of the Three Mile Island accident and the excellent safety characteristics of HTRs (thermal inertia, good apparent core conductivity, low power density) have led to research on configurations allowing completely passive residual power evacuation. Low-power HTRs are particularly well suited to  satisfying  this  new  passive  safety  requirement,  like  the  concept  of  the  German  HTR  Modular reactor which  has  been  developed  by  Siemens-Interatom.  This  80 MWel  reactor  uses  the  radiating capacity of a metal vessel to ensure passive cooling of the  fuel,  the temperature  of which  remains below 1 600 °C regardless of accident conditions. This reactor was never built, but a detailed design has been completed and some licensing issues have been solved.
+
+HTR  reactors  like  the  HTR  Module  with  an  electric  power  of  100  to  300 MWel  set  the  trend  for current  design,  while  in  current  European  research  projects  cogeneration  is  in  favour of  electricity generation.
+
+## 2.  The concept of the HTR Module
+
+The concept of the HTR Module has been developed by Interatom/Siemens as a nuclear heat source to  deliver  not  only  electricity  but  also  process  heat.  In  the  first  stage  the  process-heat  production should produce process steam with a wide area of applications. In the next stage the process heat should be used to supply high temperature processes with the necessary process energy.
+
+Through a specific core design it becomes possible that, on the one hand, only reflector elements are required to shut down the system and, on the other hand, and perhaps more importantly, the decay heat after a depressurisation accident and the outage of all active decay heat-removal systems can be  removed  from  the  core  through  natural  processes,  and  that  as  a  consequence  the  fuel temperature  does  not  exceed  a  temperature  at  which  fission  products  are  released  to  the environment.  Experiments  in  the  past  have  shown  that  the  critical  temperature  is  1 600 °C.  New research indicates that 1 800 °C could be possible.
+
+Page 16
+
+The particles containing the fission material are so called TRISO particles loaded with 7g of uranium per fuel sphere and an enrichment of 8.6 % of fissile material. The fuel elements are spheres with a diameter of 60 mm,  consisting of a spherical fuel zone  approximately 50 mm  in  diameter, in which the TRISO-coated particles are randomly distributed in graphitic matrix material (see Figure 2).
+
+The technology of the HTR Module and its components is based on the experiences of AVR, THTR and the general development of HTR in different countries in the world.
+
+### 2.1.  Concept of the plant
+
+The overall arrangement of the HTR Module power plant is shown in Figure 4. The central part is the reactor  building,  which  contains  the  two  modular  units.  In  this  central  building  some  auxiliary systems  are  also  installed  (fuel-handling  system,  gas  purifications,  helium  storage,  helium  supply systems).
+
+It consists of two HTR Module units, along with some auxiliary and supporting systems.
+
+The  HTR Module  units are separated from each other by a maintenance hall. An external concrete building is the enclosure for the inner building. The function of the concrete building is to protect the reactor  building  against  external  events  such  as  an  aeroplane  crash,  gas-cloud  explosion  or earthquake.
+
+The  reactor  auxiliary  building,  positioned  directly  beside  the  reactor  building,  contains  some important systems such as circuits for the start-up or shutdown of the reactor, intermediate cooling systems and the system  provided  to depressurise  the  primary circuit and to condensate the water after a strong water ingress accident.
+
+Between  the  two  modules  there  is  a  central  channel  to  separate  the  two  reactor  units  in  the common reactor building.
+
+The reactor building fulfils all  current  requirements  in the nuclear licensing process  (e.g.  Germany) regarding impacts from the outside:
+
+  aeroplane crash (phantom military machine),   gas-cloud explosion (∆pmax = 0.3 bar),   earthquake (acceleration: 0.3 g).
+
+A  very  important  building  is  used  for  the  intermediate  storage  of  spent  fuel  elements.  Here  the vessels  filled  with  spent  fuel  elements  are  set  up  and  cooled  by  radiation,  conduction  and  free convection. Eventually the operation time of this storage system could be much longer than that of the reactor itself.
+
+The question of how long the intermediate storage time will be is a topic of optimisation between the  aspects of  final  storage  and  intermediate  storage.  Currently,  time  schedules  of  more  than  five decades seem to be advantageous.
+
+The  control  room,  installations  for  control  and  regulation,  reactor  protection  system,  emergency electrical  supply  systems  and  further  components  (computers,  climate  and  air  conditioning  plants) are located in the switchgear building. Page 17
+
+The  energy  conversion  takes  place  in  the  turbine  building.  It  houses  the  turbine  and  the  electrical generator,  all  heat  exchangers,  pipes  and  pumps  of  the  water/steam  circuit  and  components  to decouple process steam for process-heat applications.
+
+A cooling installation, consisting of wet cooling towers operated by forced convection from blowers, is also part of the plant.
+
+Figure 4: Arrangement of the buildings of an HTR plant with two modular units
+
+The numbers denoted in Figure 4 describe the different parts of the plant:
+
+## 1.  annex to reactor building
+
+## 2.  reactor building
+
+## 3.  stack
+
+## 4.  reactor auxiliary building
+
+## 5.  central gas supply
+
+## 6.  intermediate storage for spent fuel elements
+
+## 7.  control/entrance building
+
+## 8.  offices
+
+## 9.  switchgear building
+
+## 10. cooling towers
+
+## 11. cooling towers
+
+## 12. switchgear building
+
+## 13. transformers
+
+## 14. deionised water storage
+
+## 15. turbine hall
+
+## 16. connection bridge
+
+17. channels for cables. Page 18
+
+Figure 5 and Figure 6 show the vertical and horizontal cross sections of the reactor building.
+
+Figure 5: Vertical cross section of the reactor building (How to obtain an inherently safe power reactor, 2007)
+
+Page 19
+
+Figure 6: Horizontal cross section of the reactor building (How to obtain an inherently safe power reactor, 2007)
+
+The turbine building basically contains the components of the water/steam cycle (Figure 7), with the steam turbine and electric power generator and the components for the process-steam system. The cooling tower structure (hybrid concept) is placed within a short distance of the turbine building.
+
+Further  auxiliary  buildings  contain  the  intermediate  fuel  elements  storage  facilities  ,  the  gas treatment station, the office and general purpose building and the security building.
+
+As far as protection against strong impacts from the outside is concerned, the following buildings in particular need special protection and require an adequate design:
+
+  the reactor containment building,   the intermediate storage building for spent fuel elements,   the auxiliary building containing radioactive materials.
+
+The question of impacts from outside and the measures to govern these undergo a dynamic process during the long-time schedule of a nuclear project. The changes of assumptions on aeroplane crashes are a characteristic example of these conditions.
+
+Page 20
+
+Figure 7: Principle of the secondary steam cycle of a cogeneration plant containing a heat source (module unit as nuclear heat source)
+
+## 3.  Core layout parameter for the HTR Module
+
+### 3.1.  Overview
+
+The layout of an HTR core is influenced by  a multitude  of data. Here  qualitative  arguments  will be specified for a few of them to enable assessment of layout data for plants. Important parameters are the  mean  power  density  of  the  core,  the  helium  inlet  temperature  (Tin),  the  helium  outlet temperature (Tout), the helium pressure (pHe), the H/D ratio of the core (height/diameter), the burnup of fuel,  the  heavy-metal content in the fuel elements, the particle concept  and the manner of fuel element handling — the so called OTTO and MEDUL cycle. OTTO is the abbreviation of ‘once through then out’ and MEDUL is the German abbreviation of Mehrfachdurchlauf where the fuel elements are reloaded in the core until defined burnup is reached. In Table 2 layout data for already operational and  planned  plants  are  represented.  In  the  following,  important  aspects  to  be  considered  in  the layout process will be discussed.
+
+Table 2: Thermodynamic design aspects of pebble-bed reactors
+
+Parameter  AVR  THTR  HTR  Module reactor  HTR100  HTR500
+
+Fuel element handling  MEDUL  MEDUL  MEDUL  MEDUL  OTTO
+
+Streaming direction cooling gas fuel elements Cocurrent  Cocurrent  Cocurrent  Counter current  Cocurrent
+
+Average core power density
+
+### 2.2 MW/m3  6 MW/m3  3 MW/m3  4.2 MW/m3  5.5 MW/m3
+
+Page 21
+
+Cooling gas heating  270 °C -> 950 °C  250 °C -> 750 °C  250 °C -> 700 °C  250 °C -> 730 °C  250 °C -> 730 °C
+
+### 3.2.  Core power density
+
+The  power  density  of  the  core  in  particular  is  one  of  the  most  important  layout  parameters, influencing many plant characteristics. As shown in Figure 8 the power density influences important reactor components as well as characteristic properties of HTR plants.
+
+Figure 8: Influences to be considered in view of core power density
+
+The appropriate choice of core power density should consider the following aspects:
+
+  The core power density should not be too high to prevent the fuel and surface temperatures of the elements from being too high and to keep the thermal stresses of these components within reasonable limits. The acceptable boundary for HTR fuel elements is relatively high — a mean power density of ~ 10 MW/m³ was shown to be reasonable in radiation tests.   The  core  dimensions  and  the  core  power  density  should  be  chosen  in  such  a  way  that  in extreme accidents (‘total loss of active cooling’) the decay heat could be removed from the core  to  the  outside  of  the  reactor  just  by  heat  radiation,  heat  conduction  and  natural convection of air or air/helium mixtures. During this process a maximum fuel temperature of 1 600 °C  should  not  be  exceeded.  In  this  case  just  a  very  small  amount  of  fission  products would be released.   The loads on fuel elements and reflectors due to irradiation increase with increasing power density and limit the mean value to  < 8 MW/m³ with a view to a plant lifetime of 30 years, which is normally taken as the basis of a general layout.   The  choice  of  high  power  density  in  the  core  and  therefore  of  high  pressure  losses  in  the cooling loop may eventually prevent the use of a single-stage radial blower. Due to this the technical costs would be increased. A boundary for the use of single-stage radial blowers is a pressure loss greater than 1.3 bar.   In  order  to  ensure  an  economical  plant  layout  the  ratio  of  the  blower  power  and  electric power (Nblower/Nel) should be bounded. Values of 3-5 % are believed to be acceptable.
+
+Page 22
+
+  The core  dimension,  and therefore  containment dimension,  increases with decreasing core power  density.  Through  this  the  costs  of  investment  are  increased.  Optimisation considerations in this context will be described below.   The requirements for the shutdown system increase with increasing core power density due to increased provision for reactivity reserve and xenon compensation.   The conversion rate is very advantageous in core constellations with low power densities due to comparable low parasitic absorptions of neutrons in protactinium.   The choice of core power density has a special meaning with regard to heat retention in the reactor core as a consequence of severe accidents characterised by the depressurisation of the cooling loop and the failure of all residual heat removal systems. In this case cores with low  power  density  behave  very  inertly  and  are  characterised  by  a  limitation  of  the temperatures during the accident to non-critical values below 1 600 °C.
+
+Considering the abovementioned aspects, mean core power densities between 3 and 6 MW/m³ are reasonable and can be the base for the design of further plans. The importance of the core power density  with  regard  to  the  economical  optimisation  of  an  HTR  plant  can  be  seen  in  the  following qualitative examination.
+
+The costs of investment for a complete plant in view of the influence of core power density can be approximated from:
+
+𝐾𝑖𝑛𝑣 = 𝐾𝑖𝑛𝑣 0 + 𝑎1 𝐿̅                   (1)
+
+The costs of operation, which are mainly due to the power consumption of the blower, are low:
+
+𝐾𝑜𝑝 = 𝐾𝑜𝑝 0 + 𝑁𝑏𝑙𝑜𝑤 ∙ 𝑥 ∙ 𝑇 = 𝐾𝑜𝑝 0 + 𝑎2𝐿̅2 ∙ 𝑥 ∙ 𝑇              (2)
+
+Here, T is the full load operating duration in hours and x is the electricity rate. The total annual cost for the plant will be:
+
+𝐾𝑡𝑜𝑡 = 𝐾𝑜𝑝 + 𝐾𝑖𝑛𝑣 ∙ 𝑎̅                    (3)
+
+with 𝑎̅ as a factor covering interest payments, taxes, insurance and maintenance. The dependency of the total annual cost from core power density is therefore:
+
+𝐾𝑡𝑜𝑡(𝐿̅) = 𝐶1 + 𝐶2 𝐿̅ + 𝐶3 ∙ 𝐿̅2                  (4)
+
+and  with  𝐶1 = 𝐾𝑖𝑛𝑣 0 ∙ 𝑎̅ + 𝐾𝑜𝑝 0 ,  𝐶2 = 𝑎1 ∙ 𝑎̅,  𝐶3 = 𝑎2 ∙ 𝑇 ∙ 𝑥.  The  conditions  to  minimise  the  total annual costs are:
+
+𝜕𝐾𝑡𝑜𝑡 𝜕𝐿̅ = 0, 𝜕2𝐾𝑡𝑜𝑡 𝜕𝐿̅2 > 0                    (5)
+
+From an economic view the optimum of core power density depending on the parameters discussed is:
+
+𝐿̅𝑜𝑝𝑡 ~ √ 𝑎1∙𝑎̅
+
+## 2 𝑎2 𝑇 𝑥
+
+3                    (6)
+
+Page 23
+
+One should choose a low power density if the value 𝑎̅ is low (essentially given at low rates of interest and  long  recovery  periods).  In  particular,  with  a  high  degree  of  capacity  utilisation  and  a  high electricity rate one should also prefer low power densities. Safety considerations especially advocate the  choice  of  low  power  densities.  The  relationship  with  regard  to  the  costs,  discussed  above,  is shown qualitatively in Figure 9.
+
+Figure 9: Qualitative relationships for optimisation of core power density
+
+### 3.3.  H/D ratio of the core
+
+The  choice  of  the  height  to  diameter  ratio  (H/D)  of  a  reactor  core  is  of  primarily  importance  in relation to neutron economics. Practically all reactors built so far aim for an H/D ratio near 1 to keep the critical mass and therefore the mass of fissile heavy metal as low as possible. Neutron losses due to  leakage  are minimised using  this  layout  principle.  In  future  HTR  plants  the  principle  of  inherent safety  through  the  removal  of  residual  heat  through  the  reactor vessel  surface  will  gain  additional importance, and from this a completely different ratio for H/D results. First of all, some remarks on optimisation on the base of neutron physics. Based on the criticality condition of a cylindrical core:
+
+𝐵2 = (𝜋 𝐻) 2 + ( 2.405 𝑅 ) 2                    (7)
+
+and the relation:
+
+𝑉 = 𝜋𝑅2 𝐻                      (8)
+
+in which:
+
+𝐵 = buckling
+
+𝑅 = core radius
+
+Page 24
+
+𝐻 = core height
+
+𝑉 = volume of the core
+
+the volume of the core can be formulated as:
+
+𝑉(𝐻) = 𝜋 ∙ (2.405)2 ∙ 𝐻
+
+𝐵2−(𝜋 𝐻 )2                  (9)
+
+The demand for a minimised core size and a minimised mass of fissile heavy metal leads to an optimisation condition of the kind:
+
+𝜕𝑉 𝜕𝐻 = 0, 𝜕2𝑉 𝜕𝐻2 > 0                    (10)
+
+In detail, the condition for a minimised core size leads to:
+
+𝐻 = √3∙𝜋 𝐵 , = √ 3 2 ∙ 2.405 𝐵 , 𝑉 = 148 𝐵2                 (11)
+
+which yields the ratio:
+
+𝑅 𝐻 = 2.405
+
+√2∙𝜋 = 0.55                    (12)
+
+From this consideration, the theoretical optimum for the H/D ratio is 0.9 with regard to the condition for minimised mass of fissionable fuel. To reach passive removal of heat via the surface of the reactor vessel,  the  heat  transport  lengths  inside  the  reactor  have  to  be  as  short  as  possible,  to  keep maximum  fuel  temperatures  for  a  given  core  power  density  under  a  certain  level  in  the  case  of  a hypothetical  severe  accident  with  depressurisation  and  loss  of  all  cooling  systems.  Detailed considerations concerning this issue yield a ratio for H/D  of  between 2.5  and 3 for  low-power  HTR plants. Furthermore, the core height should not be too large because, according to the relations:
+
+∆𝑝 ~ 𝐻3                      (13)
+
+𝑁𝑝 ~ 𝐻3                      (14)
+
+Pressure  loss  (∆𝑝)  and  pump  power  (𝑁𝑝)  increase  cubically  with  increasing  core  height.  For  these reasons, reactor core heights  of greater than 10 m are not efficient. A very important requirement for new reactor concepts in the future will be the possibility to construct simple shutdown systems for  the  operation  of  regulation  and  shutdown  processes  from  the  outer  lateral  sides  of  the  core. Considerations on neutron physics yield an upper limit for the core radius of cylindrical systems of about  1.5 m.  By  using  graphite  noses,  which  may  contain  shutdown  elements  and  extend  into  the core, the core radius could be enlarged to 1.75 m. Apart from that the transition to core geometries other than cylinders is possible so as to fulfil the requirement to influence reactivity from the sides. High  cores,  i.e.  large  H/D ratios,  have  a  positive  effect  in terms of a  uniform  sphere  flow.  If  vessel steel containers are used to incorporate the reactor core, the limitation of the containment diameter < 6 m and the need for a reflector thickness of 1 m lead to core diameters of around 3 m.
+
+Page 25
+
+### 3.4.  Layout of the core of the HTR Module
+
+Some major requirements had to be fulfilled during the laying out of the core of the HTR Module. In part they were very different from those, which until that time were usual in HTR technology. These new aspects were mainly introduced to improve the safety of the concept.
+
+  All control and shutdown procedures are carried out from the side reflector. The penetration of rods into the pebble bed is totally avoided. Interactions between shutdown elements and fuel elements are excluded.   The  strong  negative  temperature  coefficient  should  be  sufficient  to  shut  down  the  reactor (hot status); this includes the stopping of the helium circulator, as this has been used in the AVR as a normal procedure.   The  fuel  elements  pass  the  reactor  often  enough  (MEDUL  cycle)  to  provide  relatively  flat power  density  distribution  in  the  axial  direction.  In  the  HTR  Module  this  includes  15  runs through the core.   The uranium content of single fuel elements was limited to small values (7 g/fuel element) to provide a large moderation ratio in the core. In this case, during water ingress accidents the reactivity gain is relatively small and unimportant.   As  far  as  the  dimensions  of  the  core  of  the  HTR  Module  are  concerned,  the  possibility  to remove  the  self-acting  decay  heat  and  to  limit  the  maximum  temperature  to  a  value  of 1 600 °C and the requirement to shut down the system (1st and 2nd system) leads to a core diameter of 3 m and an average power density of 3 MW/m3. The fuel management causes a peak  factor  in  the  power density  of  1.7.  The  core  height  has  some  limitations  because the pressure  drop  in  the  core  depends  cubic  from  the  height  of  the  core.  The  technical requirement to use single stage helium circulators and therefore to limit the total pressure drop  in the primary helium circuit limits  the allowable pressure  drop in the core. Together with  the  planned  thermal  power  of  200 MW  for  one  unit,  these  conditions  result  in  an average core height of 9.4 m for the HTR Module.
+
+Some important data on the core of the HTR Module are given in Table 3. For comparison the data on the AVR core and the THTR core are included. This table demonstrates that the main data on the core layout of the HTR Module can be evaluated as being fully proven.
+
+Large  differences  result  from  changes  to  the  control  and  shutdown  system.  The  avoidance  of graphite  noses  allows  equalisation  of  the  flow  of  pebbles  in  the  core.  The  arrangement  of  all absorber elements in borings in the side reflector reduces the forces on fuel elements drastically.
+
+Table 3: Some data on the core layout (AVR and THTR data for comparison)
+
+Parameter  Dimension  HTR Module  AVR  THTR Thermal power  MW  200  46  750 Average core power density  MW/m3  3  2.2  6
+
+Fuel cycle    MEDUL  MEDUL  MEDUL Flow of helium    Downwards  Upwards  Downwards Helium pressure  bar  60  10  40 Helium inlet temperature  Celsius  250  220  220
+
+Page 26
+
+Average helium outlet temperature  Celsius  700  950  750
+
+Max. helium outlet temperature  Celsius  750  1 050  850
+
+Mass flow of helium  kg/s  85.5  15  280
+
+Core diameter   M  3  3  5.2 Core height (average)  M  9.43  3  5.2
+
+Shutdown elements    Inside reflector  In graphite noses  Inside reflector + pebble bed Max. temperature in LOCA  Celsius  < 1 600  < 1 300  < 2 400
+
+### 3.5.  Helium pressure
+
+Determining  the  helium  pressure  in  the  primary  system  (pHe),  the  following  aspect  has  to  be considered:  increasing  pressure  increases  the  efficiency  of  the  plant  due  to  decreasing  expenses relating to pumping power. The ratio of blower power to reactor power is:
+
+𝑁𝑏𝑙𝑜𝑤𝑒𝑟 𝑁𝑅 ≈ 1 𝑝𝐻𝑒                      (15)
+
+Or for the approximate total efficiency of the power plant:
+
+𝜂𝑡𝑜𝑡 ≈ 𝜂𝑐𝑝 − 𝑐𝑜𝑛𝑠𝑡 𝑝𝐻𝑒                     (16)
+
+where  𝜂𝑐𝑝  denotes  the  efficiency  of  the  thermodynamic  cycle  process.  Heat-transfer  processes  in heat exchangers are increased with increasing pressure, i.e. increase the heat flux through pipe walls and  by  this  decrease  the  heat  exchange  surface.  With  increasing  pressure,  flow  cross  sections  or pressure losses may be reduced in all parts of HTR plants. However, increasing the system pressure will increase the stresses in the primary system due to higher mechanical loads. This would make a proportional increase  in the  thickness of the vessel wall  necessary. An increase  in  system pressure would  also  lead  to  an  increase  in  helium  inventory.  The  reactor  building  has  to  be  designed  to withstand  depressurisation  due  to  an  accident.  Extensive  analyses  showed  pressures  in  the  range between 40 and 60 bar to be the best compromise for HTR plants in view of the use of vessel steel containers as well as containers from reinforced concrete.
+
+### 3.6.  Helium temperatures in the primary circuit
+
+The  choice  of  helium  inlet  temperature  (Tin)  into  the  reactor  core  influences  the  layout  of  an  HTR plant  in  the  following  way:  depending  on  the  flow  path,  the  inlet  temperature  determines  the temperature of the top and bottom reflectors respectively and should always be higher than 200 °C to avoid problems connected with the Wigner effect. Specific amounts of energy from irradiation are stored in the graphite  lattice;  these  amounts of energy can escape  the lattice continuously only  at temperatures  > 200 °C.  For  a  constant  helium  loop  layout  the  helium  mass  flux  increases  with increasing Tin. As a consequence, a blower with a higher level of power has to be installed. A simple estimate for the dependency reads as follows:
+
+Page 27
+
+𝑁𝑏𝑙𝑜𝑤𝑒𝑟 ~ 𝑚̇ 3                      (17)
+
+The layout of the primary circuit becomes more complicated with increasing inlet temperature of the cooling gas. The material properties of the steel in the reactor pressure vessel (RPV) get worse; in the case  of  a  reinforced  concrete  container  the  expenses  for  liner  insulation  would  increase.  With increasing helium inlet temperature the areas of the heater surfaces are reduced, particularly in the cooling  water  pre-heater.  In  particular,  the  effect  of  increasing  helium  mass  flux  with  increasing helium inlet temperature has a disadvantageous impact on all gas-conducting systems, especially on the  hot  gas  channels.  Either  the  dimensions  increase  or  increased  pressure  losses  have  to  be accepted.  A  certain  limit  for  the  construction  of  sensitive  reactor  structures  can  be  found approximately  at  Tin ~ 400 °C.  Considering  all  of  the  aspects  mentioned  above,  a  reactor  inlet temperature in a range between 220 and 300 °C is a good compromise for HTR systems.
+
+In determining the helium outlet temperature (Tout) of the reactor core, the following aspects have to be considered: with increasing Tout the mass flux decreases while all other parameters are fixed, and we  get  the  already-discussed  advantages  such  as  reductions  in  pressure  losses,  blower  power, increase in system effectiveness and advantages for the layout of gas-conducting structures. On the other  hand,  steam  generators  without  helium  heated  pre-heaters  in  particular  need  a  helium temperature < 750 °C to avoid problems for the layout of the superheater systems due to tube wall temperatures  being  too  high.  Specific  process-heat  applications  need  temperatures  as  high  as 1 000 °C in the helium loop.
+
+Especially,  in  case  core  rods  are  to  be  used,  the  helium  outlet  temperature  must  be  examined thoroughly. The strength values of highly heat-resistant construction materials considerably decrease at temperatures > 700 °C. Complete ceramic materials as fuel elements and structural graphite are in the first instance insensitive in view of the temperature choice, however impurities inside the helium loop  will  react  faster  with  graphite  surfaces  at  increased  temperatures.  Experiences  with  AVR showed that the level of fission-product release depended on the hot gas temperature during normal operation.  The  heating  surfaces  in  steam  generators  or  process-heat  exchangers  become  smaller with increasing Tout. Hot gas-conducting pipes can be made of metal; at higher temperatures ceramic materials should be used. For electrical power generating plants temperatures of between 700 and 750 °C  and  for  process-heat-generating  systems  temperatures  of  between  900  and  950 °C  are reasonable compromises.
+
+### 3.7.  Heavy metal and burnup
+
+The heavy-metal content per fuel element (FE) is in a wide range between 5 g/FE and 15 g/FE and has been used successfully for a long time in the AVR reactor. The following aspects are to be considered when  choosing  these  parameters:  the  cost  of  the  production  of  the  fuel  elements  decreases  with increasing heavy-metal load; the same aspect is valid for the cost of radioactive waste management, due to the proportionality of the cost to the volume of the fuel elements. The heavy-metal load has an important role, inversely proportional to the moderation ratio for neutron physics of an HTR core. Moderation ratios of between 300 and 500 lead to acceptable core layouts and fuel costs. For water ingress  incidents,  the  heavy-metal  load  plays  a  role  to  such  a  degree  that  the  moderator  ratio  is increased  by  the  penetrating  water  and  therefore  an  increase  in  reactivity  may  be  possible.  Fuel elements with low heavy-metal loads have a positive characteristic with regard to the latter aspect. It
+
+Page 28
+
+is  in  principal  possible  to  assemble  an  HTR  core  from  a  mixture  of  pure  graphite  spheres  (‘blind spheres’)  and  fuel  element  spheres  and,  by  so  doing,  to  lower  manufacturing  and  wastemanagement  costs.  Decades  of  experience  with  the  AVR  reactor  and  analyses  of  irradiation programmes  led  to  a  technologically  and  economically  reasonable  compromise  for  values  of approximately 100 000 MWd/t of heavy metal for the fuel burnup. Certain shifts result from different heavy-metal  loads  of  the  fuel  elements  or  from  different  fuel  cycles.  In  particular,  if  in  future  an increase in the conversion rate or even fuel breeding systems should be required, the tendency will go  in  the  direction  of  a  lower  burnup,  to  keep  the  influence  of  parasitic  neutron  capture  in protactinium-233 as low  as possible  while  using a thorium cycle. The available particle types today are  mainly  TRISO  particles.  From  an  operational  point  of  view,  the  initially  developed  BISO-coated particles  are  completely  sufficient  concerning  fission-product  release,  however  they  are outperformed by the behaviour of TRISO-coated particles in case of hypothetical accident conditions, for  example  with  core  heat-up  to  temperatures  > 1 500 °C.  Advantages  seen  in  nuclear  fuel processing  of  BISO  particles  should  not  play  a  role  in  the  next  several  decades.  There  are  no  big differences  in  the  production  costs  for  fuel  experiments  with  different  particle  types.  Today,  fuel elements with BISO and TRISO particles can be seen to be fully tested and commercially deployable due to the long-term tests in AVR reactors.
+
+### 3.8.  Feeding principles
+
+Today, two different feeding systems are available for pebble-bed reactors. The multi-cycle feeding process  (MEDUL)  tested  in  AVR  and  THTR  reactors,  where  the  fuel  elements  pass  multiple  times through the reactor core until they reach their final burnup stage, allows the partially burned-up fuel elements  to  be  controlled  and  measured  from  time  to  time.  As  a  consequence  of  this  operational mode, relatively uniform power generation is reached in the axial direction. The peak factors of the power  density  distribution  are  low.  On  the  other  hand,  considerable  effort  is  needed  for  burnup determination, distribution and re-feed of the fuel elements. One of the reasons for developing the OTTO mode  was to considerably  reduce the number of components in the fuel feeding system. At the  same  time  it  is  possible  with  the  OTTO  cycle  fuel  feeding  system  to  keep  the  temperature difference between the cooling gas and the fuel at the core outlet very low, therefore with regard to fuel element stresses, a cooling gas temperature > 1 000 °C can be realised technically. On the other hand, the OTTO mode increases the effective dose stresses of the top reflector and the upper lateral reflectors due to the large increase in fast neutron flux in the upper core region. If core rods are used in  reactors  with  an  OTTO fuel  cycle,  attention  has  to  be  paid  to  compacting effects  after  repeated core penetrations of the rods to greater depths, due to the missing possibility of loosening up of the pebble bed by recirculation of the spheres. The use of OTTO cycles is not favoured at core heights > 6 m  due  to  a  very  high  peak  factor  in  the  power  density,  with  negative  consequences  on,  for example, core heat-up in case of a hypothetical accident.
+
+### 3.9.  Questions concerning the plant layout
+
+In addition, it should be mentioned here  that, unlike in reactor lines  that have been established in the  long-term  such  as  pressurised  or  boiling-water  reactors,  for  the  technical  design  of  the  plant layout different ways have been realised. Here only some important aspects are mentioned. Details
+
+Page 29
+
+of individual components linked to design questions can be found in the ‘Components’ section . Out of the multitude of possibilities, only a few variants are briefly explained here.
+
+Vessel  concept:  Initially  applicable  here  are,  as  a  first  principle,  a  steel  RPV,  reinforced  concrete containment or prestressed containers latter made of spheroidal cast iron or cast steel may be used. In case of a reinforced concrete vessel, the components of the primary circuit may be incorporated in a big cavern, as was the case in the THTR. Or the so-called pod boiler principle may be used, in which the  reactor  core  in  a  central  cavity  and  the  heat  exchangers  in  the  container  wall  are  located  in different  cavities.  Layouts  for  the  primary  loop  oriented  at  concepts  used  for  pressurised  water reactors were developed for the HTR. At this point the layout principles of the modular reactor are referred  to,  in  which  the  reactor  and  heat  exchanger  are  located  in  separate  steel  containers, connected  via  a  coaxial  pipe.  Instead  of  vessel  steel  containers,  at  least  for  the  housing  of  the reactor, prestressed pressure vessels made of spheroidal cast iron, cast steel or even concrete may be used in the future.
+
+Hot gas pipes: These components can consist of coaxial pipes with inner insulation or simple pipes with  corresponding  inner  insulation.  Also,  the  flow  through  ceramic  structures  as  flow  conducting principle may be beneficially used. This principle was successfully used for two decades in the AVR and the concept was also used for the HTR-100 reactor.
+
+Residual heat removal: For the removal of residual heat, production loops or separate residual heat removal loops are under consideration. After a certain time, the liner cooling system can take over the  removal  of  residual  heat  in  reinforced concrete  vessels.  For  reactor  systems with  —  to  a  large extent  —  inherent  safety  features  concrete  cell  coolers  outside  the  RPV  are  envisaged,  or,  after failure of the concrete cell coolers, the concrete structures themselves will work as heat sinks.
+
+Number of loops:  Depending on the total power of the  plant,  and partly  also corresponding to the intended  use  of  the  nuclear  heat  source  loop,  between  1  and  8  loops  are  planned  or  were  put  in place, respectively.
+
+Arrangement of blowers: Every loop has its own primary loop blower. These blowers may be placed either  above  or  below  the  steam  generator  or,  as  in  the  case  of  the  THTR,  laterally  (inside  the reinforced concrete wall).
+
+Shutdown  elements:  In  some  designs,  the  use  of  core  rods  and  reflector  rods  are  provided. Particularly for plants in the mid-power range, this diverse implementation of the shutdown system was  carried  out  or  is  planned  for  new  plants,  respectively.  For  plants  in  the  low-power  range,  all shutdown and control processes should be carried out from the core boundary. To achieve this goal, reflector rods and absorber systems for small shutdown spheres falling into reflector rod  holes will be used.
+
+Reactor  safety  building:  Depending  on  the  layout  principle,  with  regard  to  severe  accidents  this building  can  be  equipped  with  or  without  inner  liners.  In  addition  it  is  possible  to  construct  the building above or below the surface, or partly below.
+
+The  above  listing  of  layout  principles  is  given  only  in  a  very  incomplete  manner.  These  principles allow different technical solutions for HTR plants  depending on the type of application, installation
+
+Page 30
+
+size  and  requirements  imposed.  Optimisation  is  always  possible  under  consideration  of  safety features and equipment, cost-effectiveness and current state of technology.
+
+## 4.  Fuel and fuel performance
+
+Originally developed to provide oxidation resistance for carbide fuel kernels, the coated particle has advanced  into  a  sophisticated  fission  product  containment  system  that  can  operate  at  the  high temperatures of a high-temperature gas-cooled reactor (HTGR). Each coated particle is a miniature fuel  element  with  a  ceramic  kernel  that  contains  fissile  or  fertile  fuel  material  protected  by  a sequence  of  ceramic  coating  layers  that  perform  specific  design  functions.  The  fuel  kernel  is commonly  an  oxide  or  carbide  compound  of  uranium  (with  various  enrichments),  thorium  or plutonium. The ceramic coatings in most general use are pyrolytic PyC and SiC, although a variety of other materials like ZrC continue  to be  developed. The  TRISO-coated fuel particle,  shown in  Figure 10, has a dense SiC layer sandwiched between two dense PyC layers. Figure 11 is generally accepted worldwide  as  the  reference  particle  concept  for  HTGRs.  Research  and  development  continues worldwide to further improve and extend the TRISO particles’ fuel performance envelope.
+
+Figure 10: Scanning electron microscope photograph of a purposely cracked TRISO-coated particle showing the fuel kernel and the coating layers (source: Forschungszentrum Jülich)
+
+Page 31
+
+Figure 11: High-magnification scanning electron microscope photomicrograph of the TRISO coating (Rooyen, 2010) (source: Nelson Mandela Metropolitan University)
+
+The low-enriched uranium (LEU) UO2 LTI TRISO particle is often referred to as ‘modern HTGR fuel’. Table 4 describes the general characteristics of the reference fuel particle design.
+
+Table 4: German reference coated particle: LEU UO2 with an LTI TRISO coating
+
+Component  Material  Dimensions (µm)  Density (Mg/m3) (as-fabricated) Fuel kernel  Uranium dioxide (UOx, x ≤ 2.015)  Diameter: 500  ≥ 10.4
+
+TRISO coating Buffer layer  Porous  Thickness: 95  ~ 1.0 Inner PyC layer  Dense PyC  Thickness: 40  1.85 Fission product barrier  Dense SiC  Thickness: 35  3.20 Outer PyC layer  Dense PyC  Thickness: 40  1.85
+
+Page 32
+
+### 4.1.  Fuel manufacturing
+
+Fuel  elements  contain  near  defect-free  UO2  TRISO-coated  particles,  homogeneously  distributed within  a  graphite  matrix  with  very  low  levels  of  uranium  contamination.  The  processes  used  to manufacture  this  fuel  are  now  being  used  worldwide  (China,  France,  Korea,  South  Africa,  United States) to reproduce the German high-quality fuel of the 1980s.
+
+#### 4.1.1.  UO2 fuel kernels
+
+The spherical fuel kernel consists of stoichiometric uranium dioxide (UO2) of near theoretical density. The kernel is the primary power source and generates almost all the fission products. The fuel kernel also  serves  as  a  significant  barrier  to  radionuclide  release  by  immobilising  many  of  the  fission products as stable oxide compounds and delaying the diffusive release of others, allowing them to decay into more stable isotopes. These  processes  substantially  reduce  fission-product  release  from particles employing oxide fuel compounds.
+
+Modern  fuel  kernels  are  produced  from  aqueous  heavy-metal  solutions.  The  LEU  UO2  fuel  kernels manufactured for the high-quality fuel particles in the German  fuel development  programme  were based on a modified sol-gel external gelation microsphere fabrication process, developed by NUKEM and  known  as  the  gel  precipitation  process.  Other  HTGR  fuel-kernel  manufacturing  processes  may utilise the internal gelation technique for microsphere fabrication (Vaidya, 2008) (Hunt, 2010).
+
+LEU UO2 fuel-kernel production was found to be relatively simple, with few process steps and small volumes of effluent and waste, and well suited to automated manufacturing (Kadner, 1977) (Venter, 2004). Similar kernel-fabrication processes are employed to make the LEU  UO2 fuel kernels used in spherical  elements  for  the  HTR-10  and  the  HTR-PM  in  China  (Fu  X.,  2004)  and  as  the  reference kernel-making process for the PBMR project in South Africa (Mueller, 2006).
+
+#### 4.1.2.  TRISO coating
+
+The TRISO coating is composed of four successive ceramic layers and fabricated over a dense heavy metal spherical fuel kernel. Each of the layers has one or more design functions as outlined in Table 5.
+
+Table 5: Design functions of the ceramic coating layers of the TRISO-coated fuel particle
+
+TRISO particle coating layer  Design function Buffer (50 % dense)  -  Provides  void  volume  for  gaseous  fission  products  and reaction products (CO, CO2) released from fuel kernel. -  Accommodates fuel-kernel swelling. -  Protects PyC and SiC layers from fission product recoil. Inner PyC (density ≥ 1.85 Mg/m3)  -  Diffusion barrier to fission products, retains gaseous fission products. -  Impermeable  layer  prevents  Cl2  from  reaching  kernel during  SiC  deposition  and  prevents  CO  from  interacting with SiC during irradiation. -  Provides mechanical substrate for deposition of SiC layer.
+
+Page 33
+
+-  Induces  compressive  stresses  in  SiC  due  to  irradiation induced shrinkage. SiC (density ≥ 3.20 Mg/m3)  -  Primary barrier to fission products, retains all gaseous and solid  fission  products  (except  Ag)  at  normal  operating temperatures < 1 250 °C and in accidents up to1 600 °C. -  Load bearing layer for particle. Outer PyC (density > 1.85 Mg/m3)  -  Creates  compressive  stress  on  SiC  due  to  irradiationinduced shrinkage. -  Retains gaseous fission products. -  Provides  bonding  layer  with  carbonaceous  fuel  element matrix.
+
+The  first  coating  is  a  low-density  porous  carbonaceous  layer  called  the  buffer  and  it  is  deposited directly  over  the  fuel  kernel.  The  buffer  layer  provides  the  necessary  void  volume  for  the accumulation of gaseous fission products released from the  fuel kernel, accommodates  fuel-kernel swelling and serves as a sacrificial layer for fission fragments.
+
+The second layer is a high-density, isotropic carbon layer, called the inner pyrocarbon (iPyC). Porosity in the iPyC is strictly controlled since the SiC layer deposited on its surface partially extends into the surface pores, tightly adhering to this layer. The iPyC is a gas-tight coating that protects the kernel from hot gaseous chlorine compounds during SiC deposition and provides a smooth substrate for SiC deposition. The iPyC retains the fission gases Xe and Kr and serves as a diffusion barrier to metallic fission  products.  During  irradiation,  this  layer  shrinks  and  the  contraction  helps  to  reduce  tensile stresses on the SiC.
+
+The third layer is a near theoretical density SiC layer. The SiC layer is sandwiched between two PyC layers and serves as the pressure-bearing component of the particle as well as the primary metallic fission product diffusion barrier.
+
+The fourth layer is another high-density, isotropic carbon layer, called the outer pyrocarbon (oPyC). This layer serves as a further diffusion barrier for gaseous and metallic fission products, and like the iPyC layer it  also contracts during irradiation,  helping to reduce  tensile  stress on the SiC. The oPyC also protects the SiC during particle handling and sphere/compact formation, and provides a bonding surface for the overcoating process.
+
+The  four  ceramic  coating  layers  in  the  TRISO  design  are  prepared  by  chemical  vapour  deposition (CVD)  processes  in  high-temperature  fluidised-bed  furnaces.  The  schematic  in  Figure  12  shows  the primary  components  of  a  high-temperature  fluidised-bed  furnace.  Deposition  conditions  such  as temperatures and rates are shown in Table 6 for each of the constituent layers, along with the carrier and  deposition  gases  employed  (Brähler,  2008)  (Brähler,  2010).  They  are  representative  for  the TRISO-coated  LEU  UO2  fuel  particles  produced  in  the  1980s  within  the  German  fuel  development programme and are similar in recent fuel programmes.
+
+Page 34
+
+Figure 12: Schematic of high-temperature fluidised-bed CVD coating furnace (source: NUKEM Technologies)
+
+Table 6: Typical parameters for CVD processes employed to deposit ceramic coating layers on dense LEU UO2 fuel kernels to produce TRISO-coated particles (Huschka, 1977; Nothnagel, 2010)
+
+Layer  Source gas/ carrier gas  Deposition temperature (°C)  Coating reactions  Deposition rate (μm/min) Buffer  C2H2/Ar  1 300–1 450  C2H2 → 2C + H2  15-25 IPyC  C3H6+C2H2/Ar  1 250–1 400  C3H6 → 3C + 3H2 C2H2 → 2C + H2  3-7
+
+SiC  CH3SiCl3/H2  1 500–1 600  CH3SiCl3+ H2 → SiC + 3HCl + 3H2  0.2
+
+OPyC  C3H6+C2H2/Ar  1 250–1 400  C3H6 → 3C + 3H2 C2H2 → 2C + H2  3-7
+
+#### 4.1.3.  Spherical fuel element
+
+The fuel element for a pebble-bed HTGR (Nabielek, 1984) (Nabielek, et al., 1990) (Tang C.H., 2002) (Vaidya,  2008)  is  a  sphere  with  a  diameter  of  60 mm  consisting  of  a  spherical  fuel  zone  with  a diameter  of  ~ 50 mm,  in  which  the  TRISO-coated  particles  are  randomly  distributed  in  graphitic matrix material. A fuel-free  shell of graphite matrix ~ 5 mm  thick  is then moulded to the fuel zone (Figure 13). The matrix material consists of a carbonised organic binder and nuclear-grade graphite
+
+Page 35
+
+material  that  acts  as  a  fission  neutron  moderator,  heat-transfer  medium  and  protection  against external forces. The graphitic matrix  material exhibits high density,  high thermal conductivity, high mechanical strength, low thermal expansion, low anisotropy, low Young’s modulus, good corrosion resistance,  good  dimensional  stability  under  neutron  irradiation  and  a  very  low  concentration  of impurities (Schulze, 1982).
+
+Figure 13: Cross section of German reference 60 mm-diameter spherical fuel element showing TRISO particles randomly distributed in the 50 mm-diameter fuel zone (source: NUKEM Technologies)
+
+Spherical fuel elements are used in the core of a pebble-bed reactor that is cylindrical or annular in shape and filled with several hundred thousand spherical elements. Fresh fuel elements and graphite elements are inserted from the top and slowly sink down through the core under the influence  of gravity. On-load refuelling during full-power operation is a matter of course. When the fuel elements reach the bottom of the core they are funnelled through a mechanical unloading system where the irradiated spheres can be withdrawn or recirculated. In recirculating systems like AVR, THTR and HTR Module each fuel sphere is tested for mechanical and chemical integrity and a burnup measurement is made. Those fuel elements identified for further operations are recirculated and reinserted at the top of the core. In once-through systems the fuel spheres are withdrawn completely.
+
+The fabrication process for spherical elements as developed by NUKEM in Germany, shown in Figure 14,  consists  of  the  following  steps:  (1)  resinated  graphitic  matrix  powder  preparation  (kneading, drying,  milling);  (2)  overcoating  of  particles;  (3)  pre-moulding  of  fuel  zone  and  high-pressure  cold isostatic pressing of the complete  fuel element; (4) machining; and (5) carbonisation at  800 °C  and final heat treatment at 1950 °C.
+
+Page 36
+
+Figure 14: Process steps in manufacturing the German reference 60 mm-diameter HTGR spheres (source: NUKEM Technologies)
+
+Following Germany’s selection of LEU UO2 with a TRISO coating as its reference HTGR particle system in  1980,  NUKEM  Technologies  manufactured  large  numbers  of  high-quality  spherical  elements  in production-scale facilities. In total, 59 400 spherical elements were produced and destined for realtime irradiation in the AVR and accelerated irradiation performance tests in European MTRs. Table 7 provides  the  fuel  manufacturing  and  characterisation  details  for  this  massive  effort  (Hrovat,  et  al., 1988) (Schulze, 1982) (IAEA, 1997).
+
+In 1981 NUKEM fabricated 24 600 spherical fuel elements for AVR Reload 19, with the designation GLE-3.  These  elements  were  fabricated  from  fuel  particle  production  sets  comprising  multiple  LEU UO2  kernel  production  runs  and  TRISO-coated  particle  batches.  The  enrichment  of  the  GLE-3 elements was 9.82 wt % 235U and each spherical element contained 16 400 coated particles. The GLE3  elements  were  all  fabricated  with  A3-27  matrix  material  with  a  measured  as-manufactured  free uranium fraction, as designated by the Ufree/Utotal value of < 50.7 × 10–6.
+
+Approximately  100  test  elements,  including  60  mm-diameter  spherical  elements  along  with  nonreference test elements (20 mm-diameter spheres and cylindrical compacts), were also produced for accelerated  irradiation  testing  in  1981  in  the  LEU  Phase  1  effort.  The  test  specimens  selected  for accelerated testing in the first series of MTR experiments (SL P1, HFR-K3, HFR-P4, FRJ2-K13 and FRJ2P27) contained fuel particles with an enrichment of 9.82 wt % 235U.
+
+Page 37
+
+Two additional large-scale fuel element production campaigns were manufactured in 1983 and 1985. They  were  AVR  Reload  21,  consisting  of  20 500  elements  designated  as  type  GLE-4/1,  and  AVR Reload 21-2, consisting of 14 000 elements designated as type GLE 4/2. Three GLE-4/1 fuel elements were included in accelerated MTR irradiation test FRJ2-K15. The GLE-4 elements were also fabricated from  particle  production  sets  comprising  multiple  LEU  UO2  fuel-kernel  production  runs  and  TRISOcoated  particle  batches.  The  enrichment  of  the  GLE-4  elements  was  16.76 wt %  235U  and  each spherical element contained 9 560 coated particles. The GLE-4/1 elements were fabricated with A3 27 matrix material with a measured as-manufactured free uranium fraction of < 43 × 10 6. The GLE4/2  elements  utilised  A3-3  matrix  material.  More  GLE-4/2  elements  were  fabricated  for  AVR  than actually  inserted  for  AVR  refuelling  purposes.  The  remaining  elements  were  made  available  to European  test  facilities  and  HTGR  research/development  in  other  countries  (China),  and  for  future irradiation  tests  (HFR-EUbis  (Fütterer  M.,  2008)  in  2004  and  HFR-EU1  (Laurie  M,  2010)  (Tang  C.H., 2010) in 2006) and out-of-reactor testing (HFR Petten and PBMR, South Africa).
+
+Table 7: Production-scale manufacturing details for high-quality spherical elements containing LEU UO2 TRISO-coated fuel particles during period 1980 to 1988
+
+Pre-1985 production  Post-1985 production Characteristic  GLE-3  Phase 1  GLE-4/1  GLE-4/2  Proof Test Kernel diameter (µm)  500  497  501  502.2  508 Kernel density (Mg/m3)  10.80  10.81  10.85  10.86  10.72 Coating layer thickness (µm) Buffer Inner PyC SiC Outer PyC
+
+93 38 35 40
+
+94 41 36 40
+
+92 38 33 41
+
+92.3 40.6 35.9 39.6
+
+102 39 36 38 Coating density (Mg/m3) Buffer Inner PyC SiC Outer PyC
+
+1.01 1.86 3.19 1.89
+
+1.00 ~ 1.9 3.20 1.88
+
+1.013 ~ 1.9 3.20 1.88
+
+1.012 1.87 3.2 1.87
+
+1.02 1.92 3.20 1.92 Fuel loading Heavy metal (g/FE) 235U (g/FE) Enrichm. (wt % 235U) No CP/FE
+
+10 1 9.82 16 400
+
+10 1 9.82 16 400
+
+6 1 16.76 9560
+
+6 1 16.76 9560
+
+9.4 1 10.6 14 600 Matrix material  A3-27  A3-27  A3-27  A3-3  A3-3 Free uranium fraction Ufree/Utotal (× 10–6)  50.7  35  43.2  7.8  13.5
+
+Kernel sets  5  1  2  5  1 Coating batches  65  1  54  29  8 Coating batch size (kg)  5  5  3  3  5 CP batch designation  HT232-245  EUO 2308  HT354-383  HT385-393 HT395-404 HT406-423 EUO 23582365
+
+FE production lots  14  -  11  8  FE produced  24 600  100  20 500  14 000  200 Page 38
+
+The  fuel  production  processes  employed  to  produce  the  AVR  Reload  21-2  resulted  in  the  highestquality fuel ever produced in the German fuel development programme. The as-manufactured free uranium fraction value for the GLE-4/2 spherical elements was < 8 × 10–6.
+
+A final fuel production campaign was conducted by NUKEM in 1988 to produce spherical elements for a proof test of the HTR Module concept. Approximately 200 reference spheres were fabricated from particle production sets comprising TRISO-coated particle batches. The proof test fuel particles had an enrichment of 10.6 wt %  235U. Each proof test  spherical element contained 14 600  particles and utilised A3-3 matrix material. A total of eight spherical elements were selected for irradiation in the HTR Module proof test rigs HFR-K5 and HFR-K6 (four elements in each test, HFR — Petten). The as-manufactured free uranium fraction value for the proof test spherical elements was < 13.5 × 10–6. After irradiation in Petten, these eight spheres were sent to the  Jülich Research Centre for PIE and later to ITU Karlsruhe for accident condition testing. Since then, fabrication processes based on those developed  by  NUKEM  have  been  used  to  manufacture  spherical  HTGR  fuel  elements  in  China (Huschka H., 1977) and in South Africa (Nabielek, et al., 2010).
+
+#### 4.1.4.  As-manufactured fuel quality
+
+In  HTGR  coated  fuel  particles,  the  SiC  layer  represents  the  most  important  barrier  to  retain  fission products. Its material properties and its mechanical and structural integrity are essential during fuel element manufacture, irradiation, throughout accidents and in long-term fuel storage at a disposal site. The burn-leach test has been established as the safest method to ascertain SiC integrity in oxide TRISO-coated particles.
+
+During the burn-leach test, the graphitic or carbonaceous components of the sample (oPyC in loose coated particles, complete spherical fuel elements, compact, coupons) are burnt in a muffle furnace at ~ 800 °C under air convection. The residue is treated with nitric acid and the amount of dissolved uranium  analysed.  Since  SiC  is  corrosion  resistant,  it will  withstand  the  attack. However,  a  particle with an imperfect or weak SiC coating layer will lead to a near quantitative kernel uranium inventory in  the  nitric  acid  solution.  In  addition,  the  uranium  content  of  incompletely  coated  particles  (PyC only) will be dissolved and measured in the solution.
+
+The burn-leach test results are presented as a ratio of the measured uranium (in acid solution) to the total uranium content of the original sample (Ufree/Utotal). The detection limit of burn-leach testing on unbonded particles and fuel elements is of the order 1 × 10–6 or 0.0001 wt %.
+
+The  quality  of  the  spherical  fuel  elements  manufactured  in  production-scale  facilities  by  NUKEM were characterised using the burn-leach technique. The results are provided in Table 7 and Table 8 and  shown  in  Figure  15.  Blue  circles  represent  measured  burn-leach  results  obtained  by  NUKEM demonstrating  the  post-1985  improvement  in  manufacturing  quality.  The  improvements  in  quality these data represent were due  to  the  improved and perfected tabling of kernels and particles and the  introduction  of  an  automated  process  for  overcoating  of  particles.  The  quality  level  of  the German  fuel  produced  in  the  1980s  set  a  worldwide  standard  that  was  later  followed  by  other countries active in HTGR fuel development.
+
+Page 39
+
+Figure 15: Number of UO2 TRISO particle defects in sphere manufacture as a function of the number of particles in the spherical fuel element
+
+However, for fuel quality, the limitations of failure statistics (Audebeau, 1971) must be considered. With the observation of n defects in a sample of N particles, the expected failure fraction x is given by the ratio n/N. The quality of this result is strongly dependent on the sample size, N. When the true failure  fraction  is
+
+ ,  then  the  probability  of  observing  n  failures  in  a  sample  of  N  particles  is
+
+proportional  to
+
+  nNn    1 and  this  represents  the  binomial  distribution  (Abramowitz,  et  al.,
+
+1965). Given that in a random sample of size N, there are n failures observed, the probability C that the true failure fraction will be in the range
+
+max 0 is given by the incomplete beta function
+
+(Abramowitz M., 1965b).
+
+ 
+
+   nN,nB d
+
+d C max
+
+max
+
+o nNn
+
+o nNn  
+
+      11 1
+
+1
+
+1 
+
+   (18)
+
+Therefore,  evaluating  the  one-sided  upper  95 %  limit  of  the  expected  failure  fraction  n/N  can  be accomplished by computing the inverse, viz.:
+
+ nN,nB .max   11 1 950 (19)
+
+Page 40
+
+The results for the LEU UO2 TRISO fuel burn-leach data are listed in Table 8. In terms of free uranium, these are better by an order of magnitude than the earlier BISO fuels (Kania M.J., 1980) for AVR and THTR with Ufree /Utotal between 3 and 9 × 10–4.
+
+Table 8: Failure statistics for LEU UO2 TRISO-coated fuels based on burn-leach results
+
+Pre-1985 production  Post-1985 production Fuel element type  AVR 19  AVR 21-1  AVR 21-2  Proof test fuel Year of production  1981  1983  1985  1988 Particles per sphere  16 400  9 560  9 560  14 600 Spheres tested  70  55  40  10 Particles tested (= N)  1 148 000  525 800  382 400  146 000 Defects found (= n)  56  24  3  3 Defect particle fraction expected (= n/N) upper 95 %
+
+49 × 10–6 61 × 10–6
+
+46 × 10–6 64 × 10–6
+
+8 × 10–6 20 × 10–6
+
+21 × 10–6 53 × 10–6
+
+### 4.2.  HTGR fuel performance under accident conditions
+
+Demonstrating  the  capability  of  spherical  fuel  elements  to  withstand  a  severe  depressurisation accident  with  no  measurable  loss  of  fission  product  was  a  primary  objective  of  the  German  fuel development  programme.  Since  the  1970s,  irradiated  fuel  elements  retrieved  from  AVR  and  from MTR  tests  have  been  investigated  in  accident  simulation  tests.  Prior  to  the  mid  1980s,  the temperature margins explored were up to 2500 °C where fission-product release was massive.
+
+In  response  to  the  reactor  designer’s  requirement  for  a  passively  safe  HTGR,  the  KÜFA  (Kühlfinger Apparatur,  i.e.  cold  finger  device)  furnace  was  designed  and  installed  in  the  hot  cells  of  the  Jülich Research  Centre  for  high  precision,  online  fission-product  release  measurements  under  simulated accident conditions (Gottaut H., 1990). This facility made it possible to demonstrate that modern LEU UO2 TRISO-coated fuel particles retain all safety-relevant fission products up to 1 600 °C at a level not exceeding release under normal operating conditions, which in itself is very low.
+
+4.2.1.  Simulation testing of core heat-up depressurisation under dry conditions The  maximum  expected  fuel  element  temperature  evolution  in  a  ‘depressurised  loss  of  forced coolant’ (DLOFC) accident in a small modular HTGR is shown in Figure 15 (Reutler, et al., 1984). The maximum  fuel  temperature  limit  is  set  at  1 600 °C  based  upon  the  estimated  maximum  core temperature  of  ~ 1 500 °C  plus  a  reasonable  estimate  of  the  effect  thermal  property  uncertainties have  on  this  maximum  temperature  estimate.  For  testing  purposes,  the  temperature  range  1 6001 700-1 800 °C  is  of  interest  for  the  core  heat-up  simulation  testing  programme  as  illustrated  in Figure 15. The most relevant fission and activation products include the long-lived strontium (90Sr), silver  (110mAg),  caesium  (134Cs,  137Cs)  and  krypton  (85Kr)  and  the  short-lived  iodine  (131I)  and  xenon (133Xe) fission products.
+
+Page 41
+
+Figure 16: Temperature evolution during depressurisation and core heat-up in small modular HTGRs in comparison to the temperature profiles used in KÜFA tests
+
+#### 4.2.2.  Fission-product release from UO2 kernels at 1 600 °C
+
+Little  fission  product  retention  can  be  expected  in  exposed  UO2  fuel  kernels  at  elevated temperatures. Figure 17 shows that the release of silver, xenon, iodine and caesium from an exposed UO2  fuel  kernel  quickly  approaches  100 %  during  a  1 600 °C  heating  test.  Early,  within  the  30-hour heat-up  phase  to  the  test  temperature,  significant  release  has  already  occurred  for  131I,  133Xe  and 137Cs.  After  50  to  100  h  at  1 600 °C,  nearly 100 %  of the  inventories  of  these  fission  products  have been  released.  Only  the  fission  product  90Sr  is  strongly  retained  in  the  oxide  kernels  at  this temperature, but this is not the case for carbide kernels. The primary barriers to the volatile fission products  like  iodine,  xenon  and  caesium  are  the  coating  layers  of  the  TRISO-coated  particle, especially the SiC layer.
+
+Page 42
+
+Figure 17: Fission-product release from exposed UO2 kernels during 1 600 °C heating test
+
+#### 4.2.3.  Comparison of fuel quality at 1 600 °C
+
+With  regard  to  the  measurement  of  131I  (half-life =  8.02 d)  release  from various  fuel  configurations during  heating  at  1 600 °C,  Figure  18  illustrates  three  different  release  behaviours  (Schenk,  et  al., 1991):
+
+  exposed UO2 fuel kernels, ~ 100 % 131I release;   irradiated fuel elements with TRISO-coated fuel particles (cross-contaminated in the AVR by older lower-performance BISO fuel from the 1960s and 1970s), 131I release behaviour at 10–5 level; and   irradiated  fuel  elements  with  modern  TRISO-coated  fuel  particles,  131I  release  behaviour  at the 10–9 to 10–8 level.
+
+Page 43
+
+The experimental results represent iodine release from a UO2 fuel kernel, from a contaminated HTGR fuel  element  and  from  modern  HTGR  fuel  elements  irradiated  in  a  clean  environment,  and  in between these are nine orders of magnitude in release.
+
+Figure 18: Iodine-131 release from various fuel configurations during 1 600 °C heating tests
+
+#### 4.2.4.  KÜFA tests in Jülich 1985-1995 and in Karlsruhe 2005-2010
+
+In  the  unrestricted  core  heat-up  simulation  tests  performed  on  irradiated  spherical  fuel  elements containing  LEU  UO2  TRISO  particles,  no  single  particle  failures,  nor  any  noticeable  caesium  or strontium releases, were observed during the first few hundred hours in any of the 1 600 °C heating tests.  The  number  of  particle  failures  and  the  fission-product  release  inventories  do  however increase as the accident simulation temperature rises to 1 700 °C and 1 800 °C. Figure 19 and Figure Page 44
+
+20  show  the  measured  time-dependent  krypton  and  caesium  release  profiles  during  isothermal heating tests conducted at 1 600 °C to 2 100 °C. The krypton and caesium releases are representative of a whole series of fission products. The heating tests demonstrate near 100 % retention at 1 600 °C for the accident-specific first hundred hours or more.
+
+Figure 19: Krypton-85 release during heating tests with irradiated LEU UO2 TRISO spherical fuel elements irradiated in MTRs (HFR, FRJ2) and in AVR
+
+Page 45
+
+Figure 20: Caesium-137 release during heating tests with irradiated LEU UO2 TRISO spherical fuel elements irradiated in MTRs (HFR, FRJ2) and in AVR
+
+In particular:
+
+  Caesium is retained at 1 600 °C in the fuel kernel, by the SiC and by the A3 matrix of the fuel element with SiC providing for the strongest retention. This retention, however, can only be guaranteed by modern high-quality TRISO coatings. At 1 800 °C there is no delay in caesium release  by  the  kernel  and  the  matrix,  and  SiC  also  becomes  permeable  to  most  fission products.   Krypton  is  always  released  later  than  caesium  due  to  the  additional  retention  provided  by the  dense,  intact  pyrocarbon  layers.  However,  if  the  PyC  layers  are  not  intact  krypton  is released as readily as caesium.
+
+Page 46
+
+  Strontium  is  retained  much  better  in  oxide  kernels  and  the  sphere  matrix  than  caesium. Therefore, strontium release generally occurs later than caesium.
+
+More  recently,  accident  simulation  testing  with  irradiated  LEU  UO2  TRISO  spherical  fuel  elements have been performed in Karlsruhe, Germany (Freis, 2010) (Seeger, 2012) in a recently installed KÜFA facility.  These  tests  are  still  under  evaluation,  but  results  show  clearly  that  there  was  not  a  single particle failure in all these additional heating tests.
+
+If the maximum burnup in the fuel element is kept strictly below 11 % FIMA, as is typical for current pebble-bed concept HTGR designs, the allowable fuel temperature limit may be higher than 1 600 °C. However, this remains to be established with new experiments. If the burnup of  UO2 TRISO-coated particle  fuel  is  pushed  to  ~ 15 %  FIMA,  fuel  temperature  must  be  rigorously  limited  to  ≤ 1 600 °C (Figure  21).  High  burnup  (14 %  FIMA)  LEU  UO2  TRISO  fuels  show  particle  failure  during  the  first 300 hours  at  1 600 °C.  No  particle  failure  was  observed  in  lower  burnup  compact  (11 %  FIMA)  at 1 600 °C.
+
+Figure 21: Krypton-85 release at 1 600 °C from compacts with 11 % to 14 % FIMA burnup in comparison to spherical fuel elements (FE) with 4 % to 9 % FIMA
+
+Page 47
+
+### 4.3.  Accident simulation testing under oxidising conditions
+
+To  assess  fuel  behaviour  and  fission-product  release  in  accidents  under  oxidising  conditions,  the KORA  furnace  facility  was  designed  and  installed  in  the  Jülich  hot  cells.  This  facility  enables  the simulation  of  (i)  steam  ingress,  typically  at  800 °C,  and  (ii)  air  ingress  effects  on  TRISO-coated particles in the range from 1 300 °C to 1 500 °C.
+
+Steam  ingress  can  lead  to  the  additional  release  of  fission  gases  and  iodine  from  defective (manufacture-induced)  and  failed  (irradiation-induced)  fuel  particles.  Data  are  available  from  inreactor and out-of-reactor testing programmes.
+
+During  unimpeded  air  ingress,  early  assumptions  predicted  complete  particle  failure  at  1 100 °C. However, the available experimental evidence shows that it takes several days at 1 100 °C to oxidise the  graphite  in  a  spherical  fuel  element  still  leaving  the  TRISO  particles  intact.  Only  prolonged  air ingress at 1 300 °C or at higher temperatures initiates failure of the TRISO-coated particles.
+
+#### 4.3.1.  Simulation of water ingress accident
+
+In  the  accident  simulation  tests  for  a  water  ingress  accident  with  heated  irradiated  fuel  spheres, water vapour is intermittently added to the helium purge gas. An enhanced release of fission gas was found  to  occur  in  the  presence  of  exposed  UO2  from  failed  fuel  particles  in  the  irradiated  sphere. Figure  22  illustrates this enhanced release  of  85Kr  from the irradiated fuel element AVR 89/30 that contained  two  fabrication-related  defective  particles;  57 %  of  the  stored  krypton  inventory  was released  during  the  steam  injection.  This  release  behaviour  is  similar  to  that  observed  after  an increase in temperature. Intact TRISO-coated particles are not affected by water vapour over a wide range of temperatures.
+
+Irradiated  UO2  fuel  kernels  obtained  by  cracking  particles  deconsolidated  from  spherical  fuel elements,  simulating  irradiation-induced  failures,  exhibited  a  strong  burnup  dependence  of  the enhanced fission gas release (85Kr) after repeated water vapour injections at 800 °C. Only ~ 2 % of the
+
+85Kr inventory was released from kernels with a burnup of 5 % FIMA due to water vapour. In contrast, more than 17 % was released from kernels with a burnup of 9 % FIMA.
+
+Page 48
+
+Figure 22: Enhanced 85Kr release from irradiated spherical fuel element AVR 89/30 under intermittent steam injections
+
+#### 4.3.2.  Simulation of air ingress accident
+
+The prerequisite for air ingress in an HTGR is a very large leak, such as a rupture of the connecting vessel between the  reactor core and  the  steam generator. Only then can excessively high graphite corrosion occur because of sufficient oxygen supply. Under extreme circumstances (open cell, open reactor building) it will still take 1 to 2 days for corrosion of the spherical fuel element fuel-free zone to progress to the point where the first fuel particles are exposed. At this point it is important how long the SiC coatings of the particles remain intact.
+
+Samples  of  10  irradiated  particles,  each  deconsolidated  from  an  irradiated  AVR  spherical  element, along  with  individual  AVR  fuel  spheres  were  heated  in  an  air  stream  of  30 litres  per  hour  to investigate the air oxidation of the ceramic particle coatings and fuel element materials. The results of these investigations in terms of 85Kr release and particle failure in KORA (Korrosionsapparatur, i.e. corrosion device) furnace simulation tests are shown in Table 9.
+
+Page 49
+
+Table 9: Heating tests in KORA with irradiated unbonded particles and irradiated fuel spheres in air (Schenk, 1995)
+
+Test conditions  85Kr release Fuel sample  No of particles  Burnup (% FIMA) Heatup (h) Max. temperature (°C) Time (h)  First failed particle after/at No of failed particles Fraction of failed particles
+
+AVR 92/29.12  10  9.2  14  1 400  400  397 h  1  0.1
+
+AVR  73/8, 11  10  4.7  15  1 500  25  8 h  10  1.0
+
+AVR 92/29.13  10  9.2  15  1 500  25  3 h  10  1.0
+
+AVR 92/29.11  10  9.2  28  1 620  1  1613 °C  10  1.0
+
+AVR 89/12  16 400  9.4  13  1 300  410  258 h  4  2.4 × 10–
+
+4 AVR 92/22  16 400  8.8  14  1 400  140  1 h  20  1.2 × 10–
+
+3 AVR 89/14  16 400  9.0  14  1 400  70  2 h  12  7.3 × 10–
+
+4
+
+In  air  ingress  simulation  tests  conducted  at  1 100 °C,  complete  oxidation  of  the  graphite  matrix  in spherical  elements  takes  70  to  100  hours.  However,  the  TRISO-coated  UO2  fuel  particle  remained intact  over  this  period.  During  subsequent  testing  at  elevated  temperatures,  the  first  SiC  layers  of particles were damaged at 1 300 °C, although only after more than 10 days of air ingress exposure. As  the  temperature  increases  during  air  ingress  the  time  to  SiC  failure  and  fission-product  release decreases. The first particle failures were observed after 1 or 2 hours at 1 400 °C and these may have been as-manufactured defective  particles. In the  10 TRISO particle samples  the first  particle failure was observed after ~ 400 hours of exposure to air ingress at 1 400 °C. After 3 to 8 hours of exposure to air ingress at 1 500 °C the first particle failures were observed. In exposure to air ingress conditions at  ~ 1 600 °C  the  first  particle  failures  occurred  at  the  end  of  the  heat-up  phase  of  the  test  when 1 600 °C was reached.
+
+### 4.4.  Fuel performance limits
+
+With modern HTGR fuels, the German LEU UO2 TRISO fuel performance is characterised by:
+
+  near  complete  retention  of  fission  products  in  intact  particles  during  normal  operating conditions at temperatures < 1 250 °C and in accident conditions at temperatures ≤ 1 600 °C;   very low levels of contamination present in the outer coating layer of the TRISO particle and in the graphitic matrix of the fuel element.
+
+In this manner, the source term is dominated by defects during manufacture and by failures during irradiation and in accidents. Many tests conducted between 1981 and 2010 demonstrated excellent behaviour and the final performance assessment is limited only by sampling statistics. Therefore, in a Page 50
+
+conservative  way,  the  performance  data  collected  during  manufacture,  irradiation  testing  and accident testing of reference 60 mm-diameter spherical fuel elements are presented in Table 10.
+
+Table 10: Final statistical evaluation of the performance data collected during manufacture, irradiation testing and accident testing of reference
+
+HTGR fuel spheres and fuel bodies with UO2 TRISO particles No of fuel bodies (60 mmdiameter spheres) No of coated particles N No of defective/failed coated particles n Expected failure fraction = n/N One-sided upper 95 % confidence limit
+
+Manufacture  pre-1985  125  1 673 800  80 post-1985  50  528 400  6 total  175  2 202 200  86  3.9 × 10–5  4.7 × 10–5
+
+Irradiation testing MTRs  19  276 680  0 AVR  24  393 600  0 total  43  670 280  0  0  4.5 × 10–6
+
+Accident testing 1 600 °C iso. FZJ  8  131 200  0
+
+1620 °C acc. FZJ  5  82 000  5
+
+1 600 °C iso. ITU  6  74 280  0
+
+total  19  287 480  5  1.7 × 10–5  3.7 × 10–5 iso. = isothermal constant temperature heating test. acc. = temperature transient heating tests following predicted accident scenario.
+
+The  manufacturing  data  in  Table  10  represent  two  production-scale  operation  periods  where reference 60 mm-diameter spherical elements with LEU UO2 TRISO fuel were produced by NUKEM in Germany:
+
+  pre-1985: 55 200 elements manufactured with 125 elements destructively examined;   post-1985: 14 200 elements manufactured with 50 elements destructively examined.
+
+The irradiation tests in Table 10 include:
+
+  HFR-K3, -K5, -K6, FRJ2-K13, -K15, with a total of 19 reference 60 mm-diameter spherical fuel elements with no detectable particle failures at EOL  —  special  tests with other geometries have been used for research studies, but are not included in this statistical evaluation;   evaluation of the EOL irradiation performance for 24 GLE-3 spheres from the AVR, which has shown zero in-reactor failures (Figure 13 and Figure 14).
+
+The accident simulation heating tests in Table 10 comprise the following:
+
+  eight  isothermal  1 600 °C  tests  with  LEU  UO2  TRISO  fuel  elements  conducted  at  the Forschungszentrum Jülich with the spheres AVR 71/22, 82/9, 82/20, 88/15, 88/33, HFR-K3/1, FRJ2-K13/2 and 4,  as reported previously  by Schenk (Schenk, et al., 1988)  (Nabielek,  et al., 2008);
+
+Page 51
+
+  five  accident  tests  simulating  HTR  Module  core  heat-up  to  1 620 °C  with  AVR  GLE-3  fuel elements AVR 85/18, 89/13, 90/2 (two failures), 90/5 and 90/20 (three failures) (Schenk, et al., 1991);   six isothermal 1 600 °C tests with LEU UO2 TRISO fuel elements conducted at the Institute of Transuranium,  Karlsruhe  with  the  spheres  AVR  74/18,  HFR-K6/2,3  and  HFR-EU1bis/1,3,4 (Freis 2010), all without any particle failure.
+
+Collectively, the statistical evaluation for manufacture, irradiation and accident simulation testing is shown in Figure 23. These results, based on the results obtained during manufacture, irradiation in MTRs  and  in  AVR  and  in  accident  simulation  testing,  demonstrate  the  essential  components  for  a passively  safe  system  insofar  as  the  additional  source  term  due  to  operation  does  not  exceed  the already low level of defects from manufacture. Furthermore, the maximum temperature (1 600 °C) that can be reached in an accident does not lead to a significant additional source term.
+
+### 4.5.  Summary
+
+Inherent safety features of modern small modular HTGRs are, in part, provided by the high level of fuel  quality  of  UO2  TRISO-coated  fuel  particles.  The  work  conducted  with  the  German  fuel development  programme  over  two  decades  from  1980  to  1995  constitutes  a  convincing demonstration  of  fuel  excellence  in  manufacture,  and  continuing  through  irradiation  and  accident simulation testing. The low levels of particle defects produced during manufacture were significantly altered  neither  by  extensive  accelerated  and  real-time  irradiation  testing,  nor  through  accident simulation testing in dry and wet environments.
+
+Page 52
+
+Figure 23: Statistical evaluation of defective and failed LEU UO2 TRISO particle fractions in reference
+
+## 60 mm-diameter spherical fuel elements
+
+## 5.  Components
+
+The technology of the HTR Module and its components is based on the experiences of AVR, THTR and the general development of HTR in different countries around the world. The technical details of the concept are explained in the following sections.
+
+### 5.1.  Primary system
+
+The primary system (Figure 24) of each module consists of the following components:
+
+  the  reactor  pressure  vessel  together  with  the  inner  metallic  and  graphite  structures,  the shutdown systems, the fuel-handling system and measurement installations;   the  steam  generator  vessel,  which  contains  the  steam  generator  bundle  and  the  helium circulator, including the drive;   the connecting vessel, which contains the hot gas duct;   the inner concrete cell, which contains the surface cooler.
+
+Page 53
+
+Figure 24: Primary system of an HTR Module (200 MWth)
+
+One  very  important  topic regarding  water  ingress  accidents  is the  side-by-side  arrangement  of  the reactor and the steam generator, which is positioned geodetically below the core. The  two vessels are connected by a third vessel, which contains a hot gas duct.
+
+Furthermore, after total failure of active decay heat removal no natural circulation from the hot core to  the  steam  generator  can  occur.  This  component  is  therefore  protected  against  excessive temperatures.  It  is  practically  insulated  during  this  condition  of  accident.  The  evaporation  in  the steam generator is upwards directed and therefore the stability of the process is very good.
+
+Access  to  the  tubes  of  the  steam  generator  is  also  possible  without  opening  the  primary  circuit. Clogging up defect tubes from the outside is possible.
+
+Due  to  the  chosen  arrangement  of  the  helium  circulator  on  top  of  the  steam  generator  vessel, maintenance work on this component is relatively easy and possible without opening of the primary circuit.
+
+The arrangement of the reactor pressure vessel in a concrete cell allows the surface cooler to be put in place  surrounding this component. This surface cooler is operated with water and is carried out redundantly.
+
+Decay  heat  removal  via  the  surface  cooler  after  a  ‘total  loss  of  active  core  cooling’  accident  is  an effective measure to limit the normal fuel temperature during the accident (1 600 °C in case of the HTR Module). The concrete, furthermore, can store the decay heat if even the surface cooler fails.
+
+1: Core 2: Core internals 3: Reactor pressure vessel 4: Steam generator 5: Blower 6: Coaxial duct 7: Surface cooling system 8: Shutdown gear
+
+Page 54
+
+The  concrete  wall  between  the  reactor  pressure  vessel  and  the  steam  generator  acts  as  effective shielding for the steam generator and limits the activation of this component.
+
+The outer reactor building for a plant  with two modules, which is designed  to withstand  the usual loads  (earthquake,  gas-cloud  explosion,  aeroplane  crash),  has  a  ratio  of  height  to  width  which  is favourable for stability against earthquakes.
+
+After  accidents  involving  small  leaks  in  the  primary  enclosure  the  helium  is  given  off  via  the  inner concrete  cell  and  a  high-efficiency  filter.  If  larger  leaks  occur  (diameter  of  65 mm)  the  release happens via the containment building, with a relatively lower filter efficiency. If larger leaks will be assumed in the future, improved solutions for the retention of radioactivity can be applied.
+
+Some  important  data  on  the  primary  system  are  given  in  Table  11.  Data  on  the  main  primary components are explained in later specific sections.
+
+Table 11: Some data on the primary system of the HTR Module (1 unit)
+
+Parameter  Dimension  Value  Remark Thermal power  MW  200  For electricity and processsteam production Average helium outlet temperature  Celsius  700  Hot streaks
+
+Helium inlet temperature  Celsius  250 Flow direction in the core    Downwards Flow of fuel elements    Downwards  MEDUL Loading    Continuously Number of loops    1 Steam temperature  Celsius  530 Steam pressure  bar  180 Mass flow of steam  kg/s  77 Arrangement of steam generator    Side by side
+
+Connection of reactor and steam generator    Coaxial duct
+
+Concept of primary enclosure    Basic safe
+
+Earthquake load  G  ~ 0.3 Lifetime of components  Full-power years  40
+
+Page 55
+
+### 5.2.  Core structures
+
+The internal core in high-temperature reactors consists of ceramic and metallic components.
+
+The  graphite  reflector  consists  of  top,  side  and  bottom  reflectors.  These  graphite  build-in components serve as containers for fuel elements. The metallic core barrel is installed to support the ceramic structures. This core barrel again consists of a cylindrical part and top and bottom structures. The metallic core barrel is supported in a position above the core connection located in a position at the height of the ceramic core bottom.
+
+Special conditions exist for these graphite components, resulting from the high temperatures of the cooling gas, in case of the THTR of 780 °C, through mechanical forces resulting from the weight and movement of the pebbles and from high radiation doses with fast neutrons. The most important data on the core structures for the THTR are summarised in Table 12. Details are shown in Figure 25 and Figure 26.
+
+Table 12: Data on the ceramic core structures of the THTR
+
+Parameter  Value Diameter of the core  5.6 m Height of the core  5.1 m Filling factor  0.61 Thickness of the radial reflector  1 m Thickness of the graphite bricks (radial)  0.5 m Thickness of the top reflector  2 m Thickness of the bottom reflector  ~ 2 m Weight of the graphite  ~ 540 t Weight of the graphite bricks  ~ 35 t
+
+Figure 25: Bottom reflector of the THTR 1: Bottom reflector bricks 2: Column of the hot gas chamber 3: Insulation of the bottom 4: Side reflector
+
+Page 56
+
+Figure 26: Side reflector of the THTR (left: vertical cross section; right: horizontal cross section)
+
+The  top  reflector  consists  of  graphite  bricks  which  are  connected  to  the  top  liner.  The  cooling  gas enters  the  pebble  bed  with  a  temperature  of  about  250 °C  through  borings  in  the  top  reflector, absorbing the heat in the reflector produced by gamma radiation.
+
+The cylindrical side reflector is also built from graphite bricks, which are connected to each other by anchor bolts and also connected to the surrounding thermal shield. In these bricks there are borings for the absorber rods.
+
+The hot helium gas at approximately 750 °C leaves the core through borings in the bottom reflector. The reflector itself has a conical form with a gradient of 30° to support the draining of the pebbles out of the core. Figure 27 shows the bottom reflector of the HTR-10 pebble-bed reactor.
+
+1: Thermal shield 2: Supporting bolts 3: Anti-twist protection 4: Outer side reflector 5: Anchor bolt in the outer side reflector 6: Inner side reflector 7: Wedge in the inner side reflector 8: Anchor bolts in the inner side reflector 9: Guide tube for the reflector rods 10: Shock absorber 11: Deflector plate 12: Hot gas passage in the inner side reflector 13: Hot gas passage in the outer side reflector 1: Bolting 2: Thermal shield 3: Reflector sealing 4: Inner side reflector 5: Anchor bolt 6: Fitting key 7: Outer side reflector
+
+Page 57
+
+Figure 27: Bottom reflector of the Chinese HTR-10
+
+Concerning  the  HTR  Module,  the  drives  for  the  control  rods  and  for  the  second  shutdown  system (the KLAK  system  (Kleine Absorber Kugel Systeme)) are mounted  at the surface  of the thermal top shield. The upper part of the core structure follows the principle, which was realised in the AVR, in which  24  segments  are  added,  consisting  of  carbon  stones  because  of  thermal  insulation  and shielding.
+
+There  are  penetrations  for  seven  loading  tubes  for  fuel  elements,  and  for  six  shutdown  rods  (first system) and 18 KLAK positions (second system). The side reflector consists of 24 graphite blocks in each layer and carbon stone blocks which are arranged between the graphite and the core barrel.
+
+The  connection  of  the  ceramic  blocks  to  the  core  barrel  is  based  on  technologies  which  are  well established in the field of HTR technology (Figure 28).
+
+In the lower part of the reactor there is a new component: the core connection for the hot gas duct (Figure  29).  This  component  is  insulated  at  the  position  of  the  penetration  through  the  reactor pressure vessel.
+
+Pipes  for  fuel  loading  and  further  pipes,  of  the  second  shutdown  system,  for  the  transport  of  the KLAK elements (B4C balls with a diameter of 1 cm) from the core bottom back to the storage vessels above the top thermal shield are positioned in the space between the ceramic structure and the core barrel.
+
+The bottom of the core is built of ceramic segmented blocks, which contain borings for the hot gas. The bottom has a declination of 30° to allow  the safe removal of fuel elements from the core. The fuel elements are removed from the core through the central discharge tube (800 mm in diameter) using a discharge system.
+
+The different layers of the ceramic core structures are designed and optimised to protect the reactor vessel against excessive neutron doses and embrittlement. Therefore, the fast neutron dose over the whole lifetime of the reactor pressure vessel is below 1018 n/cm2.
+
+Page 58
+
+Table  13  contains  some  data  on  the  core  structures  of  the  HTR  Module  and,  for  comparison,  the corresponding  information  for  the  AVR  and  THTR.  The  core  structures  of  both  reactors  have  been licensed, constructed and operated successfully.
+
+The core structure of the AVR has been inspected after more than 15 years of operation in the upper hot  part. No  changes  in  graphite  structures  have  been observed. After  the  unloading of the  whole core  some  damage  to  the  bottom  structure  has  been  detected.  This  indicates  that  an  improved design solution for this part of the graphite should be chosen.
+
+The  application  of  robotic  technologies  will  enable  many  inspection,  maintenance  and  repair procedures in the future.
+
+Furthermore, a broad experience of graphite structures is available from AGR plants. Design choices for bolting and removal can be taken from this field.
+
+Figure 28: Some details of core structures: connection between ceramic structures and core barrel
+
+Page 59
+
+Figure 29: Concept of connection of the hot gas duct to the core internals in HTR
+
+Table 13: Data on the core structure of the HTR Module (AVR and THTR data for comparison)
+
+Parameter  Dimension  HTR Module  AVR  THTR Core diameter  m  3  3  5.2 Core height  m  9.43  3  5.2 Thickness of the side reflector  m  ~ 1  ~ 1  ~ 1
+
+Number of discharge tubes    1  1  1
+
+Fast neutron dose in 20 years  n/cm2  < 1022  < 1022  < 1022
+
+Max. temperature during operation Celsius  800  110  850
+
+The  ducting  of  the  primary  helium  in  the  reactor  structures  is  as  follows  (Figure  30):  the  cold  gas, leaving the outer annulus of the coaxial duct, enters the reactor pressure vessel, cools the metallic structures at the bottom of the vessel and enters 72 borings in the side reflector.
+
+After arriving at a position above the whole ceramic structure the cold gas is led to an upper cold gas chamber between the top reflector and the top part of the thermal shield. The top reflector contains borings  through  which  the  cold  gas  flows  into  the  upper  space  above  the  core.  After  passing  the pebble bed and heating up to the hot gas temperature the gas flows through borings in the bottom
+
+1: Graphite structure 2: Core barrel 3: Compensator 4: Connecting vessel 5: Bearing tube 6: Graphite tube 7: Intermediate flange 8: Fibre insulation 9, 10, 11: Insulation material
+
+Page 60
+
+reflector  into  the  hot  gas  chamber  and  from  there  into  the  hot  gas  channel.  The  core  bottom structure is designed to mix the gas and to avoid hot streaks.
+
+Figure 30: Ducting of the helium in the reactor internals
+
+### 5.3.  Shutdown systems
+
+The shutdown of the HTR Module is carried out by two diverse systems. The first system has to be able to shut  down the  reactor in the hot  stage and in case of accidents,  for example  due to  water ingress. It consists of six rods arranged in the side reflector. The second system must be able to hold the reactor in the cold under-critical state, including the long-term decay of xenon and other relevant isotopes. The system consists of 18 columns of KLAK (small absorber balls) in the side reflector. If the system  has  to  be  used  the  small  absorber  pebbles  (10 mm  diameter,  graphite  with  10 %  B4C)  fall under gravity into the borings in the side reflector.
+
+The neutron losses of the core are in the order of 13 %, therefore the arrangement of both systems in the side reflector are possible, with values of around 1.4 % for the first system and of around 10 % for the second system.
+
+Page 61
+
+Figure 31 shows the arrangement of the borings in the side reflector and summarises the values of demand of reactivity and the worth of the systems.
+
+Figure 31: Positions of the borings in the side reflector (six reflector rods, 18 KLAK positions)
+
+The first system uses technologies which are well known from THTR and AGR plants. The rods consist of connected single parts which contain Boron carbide as an absorber.
+
+The drives of the reflector rods are mounted above the upper thermal shield plate. Because the room above  the  plate  is  separated  from  the  primary  helium,  this  room  is  accessible  for  inspection  and repair. The rods fall freely into the borings if the electrical energy supply is lost or if they are initiated by the reactor protection system. In this case the electrical supply is also stopped.
+
+The  second  shutdown  system  (KLAK)  (Figure  32)  represents  a  new  concept  which  still  requires qualification. The small balls are contained in storage vessels arranged above the top thermal shield. If necessary they fall into the borings in the side reflector. At the bottom there are closures for each position  which  can  be  opened  to  be  able  to  remove  the  balls  pneumatically  back  to  the  storage vessel. The components for transporting the balls are arranged outside the reactor pressure vessel under this component. The transport pipes are inside the reactor pressure vessel between the core barrel and the ceramic structure.
+
+The  KLAK  system  also  uses  the  fail-safe  principle:  in  case  of  loss  of  electrical  power  the  storage containers are opened and the balls fall into the borings.
+
+Position of the shutdown elements:
+
+reflector rod (first system) small absorber (second system).
+
+Demand and worth of the systems:
+
+first system: 1.4 %
+
+second system: 10 %.
+
+Page 62
+
+Figure 32: Principle of the second shutdown system (KLAK) of the HTR Module
+
+1: Gear 2: Storage tank 3: Detector for filling level 4: Inspection device 5: Shielding 6: Connection brig 7: Side reflector 8: Channel inside the reflector 9: Graphite 10: Guide tube (360 mm in diameter) 11: Connection brig 12: Ball transport pipe 13: Lower collection tank
+
+Page 63
+
+### 5.4.  The fuel-handling system
+
+The  fuel  elements  of  a  pebble-bed  reactor  are  loaded  and  discharged  continuously  during  normal and full-power operation (Figure 33). They are inserted at the top of the reactor by a special device containing a valve and distribution system. After passing the core the fuel elements are discharged through a sufficiently large discharge tube and a rotating disk with a hole with a diameter of 65 mm. After that they pass a singuliser and a scrap separator, and they are either put into a scrap can or are reused in case of the MEDUL cycle.
+
+Figure 33: Concept of fuel handling in pebble-bed HTR (MEDUL cycle for a two-module plant)
+
+The intact fuel elements then pass a burnup measurement installation and are either recycled into the core (pneumatically) or they are moved into a vessel for spent fuel elements, from which they are transported into an intermediate storage facility.
+
+All  transport  processes  occur  pneumatically  and  the  fuel-handling  system  allows  for  very  flexible operation of the plant, as demonstrated in the case of the AVR.
+
+Furthermore, there is the possibility, in case of extraordinary repair procedures or other events, to discharge  the  core  totally  and  to  store  the  fuel  elements  for  a  limited  time.  After  that  the  fuel elements could be transported back to the core again to continue operation. After the water ingress accident in the AVR this possibility has been demonstrated.
+
+In total the core of one module consists of 360 000 fuel elements. If, for example, the MEDUL cycle contains 15 runs through the  core,  around  120 000 fresh fuel elements have to be  added per year and  120 000  spent  fuel  elements  have  to  be  discharged  and  removed.  Around  5.4 million  fuel
+
+Page 64
+
+elements have to be handled per year. Following the experience of  the AVR, around 300 damaged fuel elements have to be removed to the scrap canisters.
+
+### 5.5.  Primary enclosure
+
+The primary enclosure of the HTR Module contains three vessels:
+
+  reactor pressure vessel,   steam generator vessel,   connecting vessel.
+
+Figure 34 shows the arrangement of the vessels and indicates the special side-by-side positioning of the steam-generator vessel.
+
+Page 65
+
+Figure 34: Arrangement of the primary enclosure
+
+Basic data on the three components are contained in Table 14.
+
+Table 14: Data on the vessels of the primary enclosure
+
+Parameter   Dimension  Reactor pressure vessel  Steam generator vessel  Connection vessel
+
+Design pressure  bar  70  70  70 Design temperature  Celsius  350  350  350
+
+Fast neutron dose  n/cm2  < 1018  < 1017  < 1017
+
+1: reactor pressure vessel 2: steam generator vessel 3: connecting vessel
+
+1 2
+
+3
+
+Page 66
+
+Material    20MnMoNi55  20MnMoNi55  20MnMoNi55 Height  m  25  20 Inner diameter  m  6  4  1.2 Wall thickness  m  0.1  0.08  0.07 Length  m      6
+
+For all components the material 20MnMoNi55, which is well known from  light-water reactor (LWR) technology,  was  chosen.  This  material  shows  good  welding  properties,  high  toughness  and  low embrittlement  under  irradiation  with  fast  neutrons.  The  material  is  applied  as  forged  steel,  and mainly rings are welded together. The principle design criterion is that the cold helium temperature is 250 °C and therefore all walls are cooled by the full mass flow of this cold helium.
+
+An extensive programme of quality assurance from the production of the material until the operation of the component, summarised overall as the ‘basic safety concept’, is applied for the whole primary system.  Therefore,  it  is  assumed  that  the  ‘leak-before-break  criterion’  is  valid  and  that  the  vessel system cannot suffer from bursting.
+
+The reactor pressure vessel has a large nozzle in the centre of the bottom head for the discharge of the fuel elements. The diameter is around 1 m to house the discharge tube.
+
+Another four small nozzles are in the bottom head for the supply of fuel elements (pebbles) and the conveyor gas supply for transportation of the small B4C pellets to the shutdown units.
+
+The thermal cover for the purposes of inspection and maintenance of the reactor pressure vessel is connected to the inner reactor vessel with prestressed bolts, screwed together and sealed with two metallic sealing rings. The removal of the closure of the vessel is not necessary for changing of fuel or for maintenance work.
+
+The reactor pressure vessel has  three supports to place  it on the structure of the reactor building. The supports are at the elevation of the connecting pressure vessel.
+
+The connecting pressure vessel serves together with the hot (700 °C) helium gas duct as the primary connection between the reactor pressure  vessel and the steam generator pressure  vessel. The hot gas  duct  contains  insulations  and  a  liner,  and  is  supported  by  special  bearing  systems  in  the connecting vessel.
+
+By  counterflow  of  the  cold  helium  (250 °C)  in  the  outer  annulus  of  the  duct,  the  walls  of  the connecting  vessel  are  protected  in  any  case  against  interaction  with  hot  helium.  The  pressure difference across the inner gas duct wall is in the order of 1 bar.
+
+The penetration through the cylindrical wall of the reactor pressure vessel forms a specific aspect of both components. Designs to reduce stresses have been chosen for this connection.
+
+Page 67
+
+### 5.6.  Surface cooler
+
+The surface cooler surrounds the reactor pressure vessel at a short distance from the wall (around 1.5 m) and is set tightly against the concrete wall of the inner reactor cell.
+
+The cooling system designed as a plate heat exchanger consists of a lot of tubes which are arranged vertically. The cold water enters at the bottom with a temperature of 35 °C and flows to the top and is sampled there. The system removes around 400 KW during normal operation as heat loss, and in case of a ‘total loss of active core cooling’ accident removes around 800 KW. In this case the steam generator/helium  loop  would  be  out  of  operation.  The  cooling  system  is  redundant  and  normally sends  the  heat  to  a  cooling  tower.  In  extreme  situations  the  system  can  be  connected  to  a  fire protection  installation.  Figure  35  shows  the  arrangement  (left)  and  the  flow  sheet  of  the  concept (right), while Table 15 contains some data on the cooling system, whereby a value of the mass flow is not specified.
+
+Figure 35: Concept of the surface cooler of the HTR Module
+
+Table 15: Data on the surface cooling system
+
+Parameter  Dimension  Value Surface  m2  300 Cooling inlet temperature  Celsius  40 Mass flow  kg/s Max. cooling temperature outlet  Celsius  50 Power (normal operation)  KW  400 Power (accident)  KW  800 Grace time  h  20
+
+### 5.7.  Hot gas duct
+
+The hot gas is transported from the hot gas chamber situated in the reactor pressure vessel to the steam  generator  via  a  central  channel  arranged  inside  the  connecting  vessel  between  the  two abovementioned components (Figure 34).
+
+The hot gas duct (Figure 36) consists of the bearing tube, insulation and an inner liner, which ducts the hot gas. The duct is supported inside the connecting vessel with the help of special supporting systems.
+
+Changes of length caused by temperature changes are governed by compensators. The hot gas duct is connected to the graphitic core structure by a special core connection, which allows only small leak
+
+Page 68
+
+rates for the helium. This new component has been tested under extreme conditions of temperature change and for an extreme number of cycles. The connecting vessel has the same quality of material and  design  as  the  reactor  pressure  vessel,  including  following  the  concept  of  ‘basic  safety’  and therefore  of  the  ‘leak-before-break’  criterion.  This  includes  that  bursting  of  the  component  is  not assumed in the licensing process.
+
+Figure 36: Hot gas duct
+
+Insofar  as  mechanical  loads  are  concerned  the  pressure  differences  between  the  hot  and  cold primary helium in the system are small (in the order of 1 bar during normal operation). Only in case of depressurisation accidents could larger pressure differences occur for a very short time.
+
+Vibrations  caused  by  excessive  velocities  must  be  prevented  by  suitable  component  design. Furthermore, loads from the action of earthquakes must be tolerated by the concept.
+
+Some data on the hot gas duct are contained in Table 16. For comparison, some data are added on the  EVO  (EnergieVersorgung  Oberhausen  AG)  plant,  in  which  the  hot  gas  ducting  system operated very well over many thousands of hours.
+
+Table 16: Data on the hot gas duct of the HTR Module (some data on the EVO plant are added for comparison)
+
+Parameter  Dimension  HTR Module  EVO plant Power  MW  200  150 Max. helium temperature  Celsius  750  750 Average hot gas temperature  Celsius  700  750 Cold gas temperature  Celsius  250  200 Helium pressure  bar  60  28 Helium mass flow  kg/s  85.5  86 Diameter of the hot gas channel  m  0.75  0.9
+
+Page 69
+
+Helium velocity (hot gas)  m/s  65  40 Liner    Incoloy 800H Insulation    Fibre  Fibre Length of the duct  m  ~ 8  ~ 20
+
+Several bendings were included in this design and showed excellent behaviour during operation.
+
+From  the  experiences  of  HTR  plants  and  AGR  plants  which  have  been  in  operation  until  now,  and additionally from the results of different large test facilities, it can be stated that the hot gas duct of the HTR Module can be designed for the whole life of the plant.
+
+### 5.8.  Steam generator
+
+The steam generator of the HTR Module is connected to the reactor by a coaxial duct and is arranged geodetically below the core, side by side.
+
+The component uses the principle of Benson-type steam generators and contains a helical-type tube bundle. There are 220 tubes arranged around the central tube (Figure 37). Each tube is coupled to the feed water and the life-steam samplers. Table 17 shows some data.
+
+The  hot  helium  enters  the  component  at  the  top  with  an  average  temperature  of  700 °C  and  is cooled  during  the  flow  downwards  to  250 °C.  The  cold  helium  is  deflected  at  the  bottom  of  the pressure  vessel  and  flows  upwards  between  the  wall  of  the  pressure  vessel  and  the  casing  of  the bundle. This choice of gas flow cools the wall of the pressure vessel and limits the temperature to a value of 250 °C. In some positions on the casing insulation is provided to limit the heat exchange. The cold helium arriving at the top of the component is sampled and ducted to the circulator.
+
+Page 70
+
+Figure 37: Steam generator of the HTR Module — overview of the component
+
+Table 17: Steam generator data
+
+Parameter  Dimension  Value Power  MW  200 Helium temperature  °C  700 …> 250 Helium pressure  bar  60 Feed-water condition  °C/bar  170/220 Steam conditions  °C/bar  580/180 Helium mass flow  kg/s  85.5 Steam mass flow  kg/s Reheat    No Average heat flux  KW/m2  80 Heat exchanger surface  m2  1 200 Number of tubes    200 Length of the tubes  m  ~ 100 Dimension of the tubes  mm  22 × 2.5
+
+1: Helium circulator 2: Cold gas ducting 3: Sampler for life steam 4: Bundle for compensation 5: Pressure vessel 6: Central tube 7: Helical bundle heat exchanger 8: Gas shroud 9: Pier for feed water 10: Casing for steam generator 11: Gap (pressure) 12: Flow distribution 13: Hot gas duct
+
+Page 71
+
+Material of the tubes    Incoloy 800H Average power density of the bundle  MW/m3  5
+
+After compression in the circulator (around 1.3 bar) the helium is pressed into the outer part of the hot  gas  duct  and  transported  back  to  the  reactor.  The  cold  gas  allows  the  effective  cooling  of  the connecting vessel and of the bearing tube of the hot gas duct.
+
+The  heat  exchanger  bundle  is  designed  with  a  relatively  high  heat-transfer  number  of  around 1 200 W/m2k and a high average heat flux of around 80 W/m2k. This results in a total surface for heat exchange of 1 200 m2 and an average power density of the heat exchanger bundle of around 5 W/m3.
+
+The feed water enters the component via the sampler with a temperature of 170 °C and a pressure of  220 bar.  Inside  the  component  the  feed  water  is  preheated,  evaporated  and  superheated  to 530 °C/180 bar. The hot life steam leaves the component via a compensation bundle and the sampler for life steam.
+
+The life-steam pipes transport the steam from the reactor through the walls of the inner cell and the containment  building  to  the  turbine.  The  penetrations  require  special  solutions  to  compensate  for the elongation of the hot steam pipes. The concept of helical heat exchangers is fully developed and successful applied in THTR, Fort St. Vrain and in various Magnox and AGR plants.
+
+Additionally, a steam generator depressurisation system is installed. In case of a severe water ingress accident this system allows removal of most of the water from the primary circuit in a short period of time. The steam/water mixture will be condensed in a mixed cooler and will later be released from the plant.  Figure  38 shows the flow  sheet  for this system and indicates  that  there  are two parallel lines provided for.
+
+Figure 38: Depressurisation system for the steam generator
+
+1: Steam generator
+
+## 2 Shut off valve
+
+3: Depressurisation valve 4: Vessel for pressure reduction 5: Vessel for depressurised medium 6: Sound absorber 7: Pump
+
+Page 72
+
+### 5.9.  The intermediate heat exchanger
+
+Any  combination  of  a  high-temperature  gas-cooled  reactor  with  chemical  processes  will  most probably  need  a  decoupling  between  the  primary  circuit  and  the  heat  utilisation  system  for  the following reasons:
+
+  separation on the nuclear part for safety reasons;   limitation/exclusion of radioactive contamination of the product (e.g. tritium);   exclusion of ingress of corrosive process media into the primary circuit;   near-conventional design of the heat utilisation system;   ease of maintenance and repair of the heat utilisation system;   exclusion of contamination of high industrial investment around the nuclear plant.
+
+The intermediate heat exchanger (IHX) is designed as a component to fulfil these requirements and provide  a  clear  separation  between  the  nuclear  plant  and  the  heat  application.  Under  normal operating  conditions  the  IHX  prevents  the  primary  coolant  from  accessing  the  process  plant  and prevents process gases from being routed through the reactor containment. This physical separation allows  the  heat  application  facility  to  be  conventional  designed  and  repair  work  to  be  conducted under non-nuclear conditions. The flow diagram of the combination of primary and secondary circuit together with the corresponding T-Q diagram is shown in Figure 39.
+
+Figure 39: Primary circuit of a modular HTR with IHX (left: principal flow diagram; right: T-Q diagram for use of nuclear heat
+
+The concept of a combination of the HTR Module with an IHX is shown in Figure 40 (Nuclear Energy for  Hydrogen  Production).  The  example  provided  represents  the  German  reference  design  of  a process-heat HTR Module in a side-by-side arrangement of nuclear reactor and IHX vessel for each modular unit. The thermal power of the nuclear reactor and of the IHX is 170 MW; the limitation of power is given by the requirement of self-acting decay heat removal in accidents with a total loss of active  cooling.  If  larger  thermal  powers  were  needed  an  annular  core  would  be  required.  The limitation in this case is caused by the dimensions and type of reactor pressure vessel. Details of the IHX with a helical tube bundle are shown in Figure 41. Characteristic design data are listed in Table 18.
+
+Page 73
+
+Table 18: Comparison of IHX data tested in a KVK facility with data on IHX for nuclear application
+
+IHX  KVK  170 MWth HTR Module (IA 1983)  500 MWth PNP (PNP 1981) Helical  U tube  Helical  U tube  Helical  U tube Material: Tube Nicrofer 5520
+
+Nicrofer 5520
+
+Inonel 617
+
+Inonel 617
+
+Size: Bundle outer diameter(m)
+
+Tube outer diameter (mm) Tube wall thickness (mm) Tube length (m) Number of tubes
+
+1.5
+
+22 2
+
+117
+
+2.0
+
+20 2
+
+180
+
+2.78
+
+22 2 38.2 1 612
+
+1.512
+
+20 2 30.0 2 470
+
+2.52
+
+22 2.2 40.7 1 444
+
+2.098 (hot) 2.815 (cold) 20 2 32.7 1 900 Primary helium Inlet temperature (°C) Outlet temperature (°C) Inlet pressure (MPa) Outlet pressure (MPa) Flow rate (kg/s)
+
+950 293 3.99 3.935 2.95
+
+950 300 3.99 3.94 3.0
+
+950 292 3.99 3.97 50.3
+
+950 292 4.05 3.99 50.3
+
+950 293 4.0
+
+36.9
+
+950 293 3.99
+
+36.9 Secondary helium Inlet temperature (°C) Outlet temperature (°C) Inlet pressure (MPa) Outlet pressure (MPa) Flow rate (t/h)
+
+220 900 4.19 4.025 2.85
+
+220 900 4.35 4.25 2.9
+
+200 900 4.38 4.19 47.3
+
+200 900 4.35 4.19 47.3
+
+220 900 4.2
+
+35.6
+
+220 900 4.35
+
+35.6
+
+Heat-transfer area (m2)    3 500  4 254  4 700  4 000  3 900 Life time (h)      140 000  140 000  140 000  140 000
+
+The  employment  of  an  IHX  was  also  suggested  within  the  PNP  project  with  regard  to  the  steam gasification  of  hard  coal,  for  which  the  main  characteristic  data  are  also  given  in  the  table  for comparison.
+
+Page 74
+
+Figure 40: Arrangement of HTR Module (a) with helix IHX (b) or U tube IHX (c) (Nuclear Energy for Hydrogen Production)
+
+The helical IHX (see Figure 41) consists of a bundle of helical tubes arranged around a central return gas duct for the hot secondary helium. The support system for the tubes consists of support cylinders with  star-shaped  welded-on  support  plates  serving  to  take  the  weight  of  the  bundle.  A  segmental design  of  the  support  structure  limits  the  axial  relative  expansion  caused  by  the  operation temperature.  In  the  upper  cold  area,  the  mechanical  loads  are  carried  by  the  vessel  cover.  This ensures access to the secondary system for in-service inspection and repairs without the necessity to open the primary circuit.
+
+Reactor 1: Pebble bed 2: Reactor pressure vessel 3: Fuel discharge 4: KLAK spheres shutdown system 5: Reflector rods 6: Fuel loading 7: Surface cooler 8: Insulation 9: Hot gas duct IHX 10: Secondary pipe connections 11: Central secondary hot gas return pipe 12: Tube bundle (helical or U tube) 13: Secondary hot gas header 14: Primary cold gas duct 15: Primary hot gas duct 16: Blower
+
+Page 75
+
+Figure 41: Intermediate heat exchanger for nuclear applications (Technical and Safety Aspects of Processes of Hydrogen Production using Nuclear Energy, 2005) (left: helical tube bundle; right: details of hot gas collector tube and support structures)
+
+A facility for large component testing (Komponenten-Versuchskreislauf — KVK) was constructed and successfully operated by Interatom within the PNP project (Harth, et al., 1990). In a heating system consisting of a heater with steam, a natural gas burner and an electrical heater with a total thermal power of 10 MW, helium was heated up to 950 °C at 4.0 MPa (Figure 42 and Figure 43). This plant also allowed the testing of hot gas ducts with a large diameter, of a steam generator, of valves for hot helium and of other components such as hot headers or auxiliary plants like gas purification.
+
+Page 76
+
+Figure 42: Flow sheet of 10 MW KVK facility for testing nuclear process-heat components
+
+Page 77
+
+Figure 43: 10MW KVK facility for testing nuclear process-heat components
+
+Figure 44: Two IHX components tested in KVK (left: Helical tube bundle by SteinmOIIer; right: U tube bundle by Balcke-Durr)
+
+Page 78
+
+Two IHX components were constructed and tested in the KVK loop, one with a helical tube bundle and another one with U tubes. Figure 44 shows schematics of both components.
+
+In  the  helical  IHX,  primary  hot  helium  (950 °C) entering  the  heat  exchanger  flows  via a  mixing  and deflecting  device  at  the  bottom  of  the  component  upwards  through  the  bundle  and  is  cooled  to 300 °C. The cooled primary helium flows back into the gap between the wall of the reactor pressure vessel and the gas shroud of the heat exchanger to the blower at the bottom of the component.
+
+The secondary helium is entering the component at the top. After entering into a ring conduit, the helium with a temperature of 200 °C is uniformly distributed over the tube bundle and heated up to 900 °C in counterflow. The cycle is closed by the hot header which is insulated on the inside. The hot helium leaves the IHX at the top of the component.
+
+The  maximum  wall  temperature  in  the  tubes  under  normal  operation  is  920 °C;  the  maximum pressure  difference  between  the  primary  and  secondary  sides  is  0.2 MPa  under  operational conditions. During depressurisation accidents they have to withstand the full pressure difference in a limited time period.
+
+The relevant data on the IHX test components are contained in Table 18 in comparison to the data on an IHX component to be connected to the two German concepts of a process-heat nuclear reactor. Each component had a thermal power of 10 MW. The most critical part in the design of a helical tube concept, the hot header for the secondary helium, was tested in the 10 MW component at 1:1 scale related to the  large  component. Both components were operated over several  thousands of hours without any difficulty.
+
+The table shows that the specific data on the test components were very similar to those which are planned for the nuclear application. The gas temperatures, pressures and material temperatures in the KVK facility were identical to those of the nuclear design.
+
+In particular, hot gas samplers, as the main sensitive large components of such an heat exchanger, have  been  tested  at  1:1  scale.  The  tube  systems  had  the  same  dimensions  in  test  and  for  nuclear application. The materials for the tubes, the headers, the supporting structures and the gas ducting on the primary side are the same as those planned for the nuclear application.
+
+On  the  basis  of a  broad experimental  programme  in  the  KVK  plant  and other related test  facilities (HHV  plant,  EVO  plant,  insulation  test  facilities,  specific  facilities  to  test,  for  example,  friction, fretting,  wear,  materials,  depressurisation),  the  following  statements  can  be  made  with  respect  to the feasibility of the IHX.
+
+  Two  helium-heated  IHXs  have  been  successfully  tested  at  the  10 MW  power  level  and  at maximum  helium  heating  temperatures  of  950 °C  (primary)  and  900 °C  (secondary), respectively. So far, the process parameters have  been tested under  the  real conditions of the  nuclear  application.  The  operation  time  of  the  helical  tube  bundle  was  more  than 5000 hours and that of the U tube bundle was more than 4000 hours.   Parallel to the integral tests of the components, additional testing in KVK was carried out for a hot gas header of the helical tube bundle, for hot gas ducts (including bends and expansion bellows), hot gas valves and a steam generator. Page 79
+
+  The  thermodynamic  data  on  the  heat  exchanger  designs  have  been  confirmed  by  the experiments. Average heat fluxes of approximately 40 kW/m2 can be realised at reasonable pressure drops.   The  components  were  tested  in  steady-state  operation  and  under  transient  conditions. Transients of ± 7 K/min were tolerated by the components without failure.   Tests  have  shown leak  tightness between the primary  and secondary  sides  of the IHX. The measured vibrations did not result in serious loads on the heat exchanger tubes.   The  bearing  forces  for  the  load  transfer  system  of  the  cold  header  and  the  bundle  were within the range of calculated values.   Ultrasonic  inspection  of  IHX  tubes  after  4700 hours  of  operation  did  not  reveal  any deviations.   Creep buckling tests on the hot gas header were carried out.   As many as 656 cycles from 950 °C to 710 °C and the reverse, with a transient of ± 40 K/min, did not cause any damage to the header.   Tests with a pressure difference of 4.3 MPa between the primary and secondary sides of the hot  gas  header  at  970 °C  were  carried  out  over  a  time  period  of  455 hours  to  simulate  a depressurisation accident. No damaging influences were identified.   Insulation and gas-ducting structures inside the tube bundles showed no damage. Overall it was  stated  that  an  IHX  following  one  of  the  two  designs  investigated  (helical  tubes  and  U tubes) can be  designed for a  power of 170 MW and can be  operated for 100 000 hours on the  basis  of  the  available  experience.  In  particular,  the  extensive  wall-material  testing  for high-temperature  alloys  at  a  temperature  of  950 °C  showed  that  this  component  can  be applied in connection with process-heat HTGRs.
+
+### 5.10.  Helium circulator
+
+The  helium  circulator  has  to  compensate  for  total  pressure  drops  in  the  helium  cycle  of  around 1.5 bar. The helium pressure is 60 bar.
+
+The  mechanical  power  to  compensate  for  the  pressure  drop  in  the  whole  primary  circuit  can  be calculated as follows:
+
+𝑁𝑚𝑒𝑐ℎ = 𝑚̇ 𝐻𝑒∗∆𝑝 𝜌1∗𝜂𝑖                   (20)
+
+with typical values for THTR:
+
+𝑚̇ 𝐻𝑒 = 298 𝐾𝐺/𝑠
+
+∆𝑝 = 1.12 𝑏𝑎𝑟
+
+𝜌1 = 4.03 𝑘𝑔 𝑚3 ⁄ (at 40 bar and 250 °C)
+
+𝜂𝑖 ≈ 0.75
+
+A  total  amount  of  mechanical  power  in  the  system  of  𝑁𝑚𝑒𝑐ℎ = 10.8𝑀𝑊  is  needed.  For  the  THTR with six blowers this results in a single blower power of 1.8 MW.
+
+Page 80
+
+The total power of the motor is:
+
+𝑁𝑚𝑜𝑡𝑜𝑟 = 𝑁𝑚𝑒𝑐ℎ 𝜂𝑚𝑒𝑐ℎ∗𝜂𝑚𝑜𝑡𝑜𝑟                    (21)
+
+with 𝜂 being the degree of efficiency mechanical and of the motor.
+
+To calculate the specific rotor diameter, the following equations can be used.
+
+For the helium throughput:
+
+𝑉̇ = 𝑚̇ 𝜌(𝑝, 𝑇)⁄                       (22)
+
+The specific work of the helium flow:
+
+𝑦 = ∆𝑝 𝑝 = 𝜂𝑖 ∗ 𝑐𝑝 ∗ 𝑇1 (( 𝑝2 𝑝1) 𝑅 𝜂𝑖∗𝑐𝑝 − 1)                (23)
+
+The specific rotation speed:
+
+𝜎𝛾𝑀 = 2.108 ∗ 𝑛 (𝑉̇ 0.5 𝑦0.75⁄ )                  (24)
+
+The equation for specific rotor diameter is:
+
+𝛿𝛾𝑀 = 1.054 ∗ 𝐷 ∗ (𝑦0.25 𝑉̇ 0.5⁄ )                (25)
+
+The  Cordier  diagram  (Figure  45)  shows  that  the  blowers  used  in  the  AVR,  the  THTR  and  the  HTR Module are optimally designed.
+
+Page 81
+
+Figure 45: Correlation between specific diameter and specific rotation speed for HTR blower
+
+For  the  HTR  Module  a-one  stage  radial  compressor  with  a  vertical  shaft  (Figure  46)  is  used.  The component  is  arranged  at  the  top  of  the  steam  generator  and  is  fully  integrated  into  the  primary circuit.  The  drive  is  an  asynchronous  electrical  motor  with  speed  regulation.  The  bearings  of  the drive-circulator unit use oil lubrication and helium gas sealing; the cooling is done by water.
+
+The-one stage compressor uses one bearing for the wheel in overhang arrangement. It has a flap on the suction side.
+
+The  primary  circuit  and  the  housing  of  the  motor  are  connected  via  an  intermediate  flange.  The motor can therefore be removed without opening the primary circuit.
+
+The  drive  for  the  flap  and  several  pipes  for  the  supply  of  auxiliary  systems  are  arranged  in  the housing of the motor . The motor housing has the same helium pressure than the helium cycle.
+
+Page 82
+
+Figure 46: Helium circulator of the HTR Module
+
+Some data on the component are contained in Table 19. For comparison, the data on a THTR helium circulator are included in this table.
+
+The development of the HTR  technology delivered broad experience on helium circulators and is a good  basis  for  future  applications.  The  many  years  of  successful  operation  of  CO2-cooled  reactors form another large pool of experience for this component.
+
+Table 19: Data on the helium circulator of the HTR Module (THTR circulator data for comparison)
+
+Parameter  Dimension  HTR Module circulator data  THTR circulator data
+
+Number of loops    1  6 Power  MW  2.5  2.3 Mass flow of helium  kg/s  85.5  46.25 Pressure drop  bar  1.5  1.1 Helium pressure  bar  40  60 Helium inlet temperature  °C  250  250
+
+Type of circulator    Radial, 1 stage  Radial, 1 stage Drive    Electric motor  Electric motor Bearing    Oil  oil Speed  Rotations/min  3 000  5 600 Arrangement    Vertical  Horizontal Support of wheel    Overhang  Overhang
+
+1: Suction 2: Flap 3: Inner diffuser 4: Outer diffuser 5: Wheel 6: Intermediate flange 7: Shaft 8: Oil bearing 9: Motor 10: Auxiliary wheel 11: Gas cooler 12: Drive of flap 13: Gas penetration 14: Flange 15: closure
+
+Page 83
+
+### 5.11.  Helium purification plant
+
+The  helium  purification  plant,  together  with  helium  auxiliary  systems,  has  to  fulfil  different requirements. The helium of the primary circuit must be cleaned to limit the values of H2, CO, CO2, N2,  O2,  H2O  and  CH4  to  permitted  specified  values.  This  is  necessary  to  limit  the  corrosion  of  fuel elements and graphite structures to permitted values. Furthermore, tritium has to be removed from the primary circuit. All components and circuits which contain helium have to be supplied with this gas  in  normal  operation,  thereby  the  pressure  of  the  system  is  controlled  too.  During  extended inspections and repair work the helium has to be removed from the system and storage.
+
+The helium purification of a two-module plant contains three tracks. The third system is mainly used as a reserve unit during inspection and repair and for the purpose of regeneration of one of the other tracks.
+
+Figure  47  shows  the  concept  of  the  system  containing  several  stages.  In  the  first  stage  a  filter removes  dust;  in  the  second  stage  H2  and  CO  are  converted  to  H2O  and  CO2  with  help  of  copper oxide; in the third stage a molecular sieve removes H2O and CO2.
+
+Figure 47: Concept of gas purification of the HTR Module consisting of three tracks
+
+In a further stage the helium is cooled to very low temperatures (~ 180 °C), and this allows CH4 and N2 to be removed.
+
+Additionally,  fission  gases  like  argon,  krypton  and  xenon  are  removed.  The  very  small  amounts  of them in the cooling gas are also reduced.
+
+The purified gas is recycled to the primary system with help of an additional helium circulator. The throughput of the gas purification plant was chosen in the HTR Module to be 5 % per hour related to the primary circuit inventory. This corresponds to a mass flow of helium of nearly 3 kg/s.
+
+Page 84
+
+The third track in the gas purification of the HTR Module has a special function in case of a ‘water ingress  into  the  primary  circuit’  accident.  Water  which  has  entered  the  primary  system  can  be removed using a water separator especially installed for such an accident. This procedure is helpful in reducing  corrosion  effects  in  fuel  elements  and  graphite  structures  and  limiting  the  formation  of water gas.
+
+Furthermore,  it  allows  the  rise  in  pressure  of  the  primary  circuit  to  be  limited.  The  blowing  off  of helium/steam mixtures into the reactor building is avoided in this case.
+
+The purification plant of the THTR -plant is a good example of the technology explained above (Figure 48)
+
+Figure 48: Flow sheets of THTR gas purification plant
+
+### 5.12.  Depressurisation systems
+
+The  primary  system  has  a  depressurisation  system.  It  protects  the  primary  enclosure  in  case  of excessive  pressure  (around 69 bar). A higher pressure  could be  caused,  for example,  by the loss of the main heat sink and the pressure regulation at the same time or in case of severe water ingress accidents.
+
+The system consists of two parallel tracks which contain valves, safety valves, pressure holding valves and burst discs.
+
+One track is designed for a flow section of 1 cm2 for small leaks and one of 30 cm2 corresponding to a break with diameter of 65 mm. In the first case very effective filtering of the effluent gas takes place; in the second case the gas is ducted directly into the channel for depressurisation and released via the  stack.  Corresponding  to  the  permitted  release  of  radioactivity  at  the  time  of  planning,  the radiological  consequences were  assumed  to  be  tolerable.  For  future  concepts  in  this  case,  filtering could  even  be  envisaged,  and  could  be  required  in  the  licensing  process.  Figure  49  shows  the arrangement of the components of the depressurisation system. 1: Dust filter 2: Recuperator 3: Cooler 4: Separator 5: Active coal filter 6: Copper oxide catalyst 7: Recuperator 8: Cooler 9: Separator 10: Molecular sieve 11: Recuperator 12: Cooler 13: Active coal filter 14: Helium compressor
+
+Page 85
+
+Figure 49: System for the depressurisation of the primary system
+
+Furthermore,  a  system  is  available  to  depressurise  the  steam  generator  if  large  amounts  of  water have penetrated into the primary circuit. The system will limit the amount of water which will stay in the  steam  generator  pressure  vessel,  and  it  is  designed  in  such  a  way  that  the  pressure  becomes smaller than the primary pressure, thereby a release via a leak in the steam generator is avoided. Gas purification  allows  the  total  removal  of  the  water  after  the  accident  has  happened.  Steam  will  be condensed and the helium will be pumped into the gas storage.
+
+Two  tracks  allow  a  redundant  design  of  the  systems  consisting  of  valves  and  vessels  which  are provided for steam condensation.
+
+Finally  the  concrete  cell  inside  the  reactor  building  is  equipped  with  a  depressurisation  system  to protect this room against excessive pressure in case of ‘loss of coolant’ accidents.
+
+All  rooms  with  pressurised  pipes  are  connected  via  a  central  pressure  exoneration  channel  to  the stack  and  the  environment,  and  during  accidents  this  measure  avoids  excessive  pressures  in  these rooms. All rooms have openings into this channel. These openings are normally closed by flaps which allow the rooms to operate in under-pressure conditions
+
+1: Pebble bed core 2: Graphite reflector 3: Core container 4: Pressure vessel 5: Steam generator 6: Reactor cell 7: Reactor building 8: Pressure-relief system of reactor cell 9: Steam generator dump line 10: Exhaust air system 11: Pressure-relief system 12: Surface cooler
+
+Page 86
+
+### 5.13.  Decay heat removal installations
+
+The normal situation of decay heat removal from the reactor is the operation of the production loop, consisting  of  the  gas  duct,  the  steam  generator  and the  helium  circulator.  This  system  has  several possibilities of feed-water supply and steam condensation or blow-off. Figure 50 shows this concept.
+
+Figure 50: Decay heat removal in a modular HTR
+
+There  are  several  possibilities  feeding  in  water  into  the  steam  generator.  Furthermore  there  are several diverse possibilities to condensate the steam or release it to the environment.
+
+Despite of all these efforts the non-availability of this chain of decay heat removal is relatively large, and  is  estimated  at  around  10–1  per  year.  Therefore,  in  some  concepts  of  modular  HTRs  separate additional  decay  heat  removal  systems  are  provided  for.  As  an  example,  in  the  GAC-600  design  a small auxiliary loop (layout for full pressure of the primary system) is planned to be  situated at the bottom of the reactor pressure  vessel. Naturally,  a similar solution of a small loop  located  side-byside with the reactor could also be used in the case of the HTR Module. The electricity supply of this loop  should  have  high  availability.  If  the  active  decay  heat  removal  has  failed,  the  surface  cooler, situated around the reactor pressure vessel, acts as heat sink. This cooler is built from three tracks and has simple supply systems for water and cooling towers outside the reactor building. Figure 51 shows a principal flow sheet for this installation.
+
+Tmax
+
+Page 87
+
+Figure 51: Concept of surface cooler 1: Reactor pressure vessel 2: Wall of reactor building 3: Surface cooler 4: Pump 5: Intermediate heat exchanger 6: Pump 7: Cooling tower 8: Auxiliary water supply
+
+Page 88
+
+If the surface cooling system were also to fail the decay heat would penetrate into the concrete of
+
+the inner cell (
+
+Figure 52). It would be stored there and finally released into the environment. In all cases the maximum temperature of 1 600 °C during these accidents would not be reached.
+
+Further  intervention  methods  to  cool  the  reactor  are  possible,  for  example  feeding  water  into  the surface cooler after long grace time, cooling the concrete cell or cooling the reactor pressure vessel using nitrogen.
+
+Page 89
+
+Without any measure of active cooling, however, the principle of self-acting decay heat (see chapter 7.2) would be suited to limit the maximum fuel temperature to values of 1 600 °C.
+
+Figure 52: Results for a ‘total loss of active cooling’ accident; failure of the surface cooler; storage and transport of heat in the concrete cell (HTR Module, 200 MWth)
+
+### 5.14.  Reactor protection system
+
+As usual in nuclear technology each modular unit possesses a reactor protection system. The systems for single modules are not coupled and work without interactions.
+
+In case of accident the afflicted unit will be shut down and protection system actions will be initiated in this reactor.
+
+Figure 53: Connections in the reactor protection system of the HTR Module
+
+Figure 53  shows  an  overview  of  the  connections  between  measured  data,  assumed  accidents  and actions initiated by the reactor protection system.
+
+Page 90
+
+The measurement of the following process parameters allows the detection of accidents due to both internal reasons and outer impacts:
+
+  neutron flux (reactor power),   helium inlet temperature to core,   helium outlet temperature from core,   humidity in primary helium,   pressure in primary helium circuit,   pressure in secondary circuit,   mass flow of primary helium,   mass flow of feed water. The concept of measurement of data and the logical connection of these data will be taken over from the established technologies for light-water reactors.
+
+The actions of safety systems, which are initiated by the reactor protection system, are (see Figure 53):
+
+  insertion (free fall) of the six reflector rods of the first shutdown system;   shutdown of the primary helium circulator;   closure of the secondary circuit (feed-water valves, life-steam valves);   depressurisation  of  the  steam  generator  until  it  reaches  the  same  pressure  as  the  primary system;   locking of primary circuit closures.
+
+The following accidents are governed by this concept of the reactor protection system in the case of the HTR Module:
+
+  uncontrolled removal of reflector rods during the start-up procedure;   uncontrolled insertion of reflector rods during normal power operation;   loss of pressure in the primary system;   break in steam generator tubes;   failure of the helium circulator;   malfunction of the helium circulator flap;   break in the feed-water line;   break in the life-steam line;   loss of electrical power. Normally, several process variables are used to detect the accident and they initiate different actions. For example, in case of a break in a steam generator tube the humidity in the primary system and the primary pressure initiate actions (1), (2), (3) and (4) via the reactor protection system.
+
+Page 91
+
+Uncontrolled move out of control rods during start-up Accidents •  •              Safety actions ①  ②  ③
+
+Uncontrolled move in of control rods during normal operation        •      •        •    ①  ②  ③
+
+Uncontrolled move out of control rods during normal operation •      •        •    ①  ②  ③
+
+Pressure loss in the primary circuit        •              •    ①  ②  ③
+
+Break in tubes in the steam generator                •  •  •      ①  ②  ③ ④ Blower failure/erratic behaviour of blower flaps        •  •          •  •    ①  ② ③  ④ ⑤ Break in feed-water line •    •                ①  ②  ③
+
+Break in life-steam line •    •              ①  ②  ③
+
+Emergency power •  •  •                    ①  ②  ③
+
+Logical matches 1 of 2 1 of 2 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 2 of 3 Threshold value Period to low 𝛷𝑡𝑜 ℎ𝑖𝑔ℎ  𝛷𝛷0>1.1⁄  𝑇𝐻≥𝑇𝐻𝑚𝑎𝑥  𝑇𝐾≥𝑇𝐾𝑚𝑎𝑥 𝐹≥𝐹𝑚𝑎𝑥 𝑃≥𝑃𝑚𝑎𝑥   ∆𝑃≤∆𝑃𝑚𝑎𝑥 Process variables Neutron flux in the middle area Neutron flux in the middle area Thermal corrected neutron flux Thermal corrected neutron flux Hot gas temperature Hot gas temperature Cold gas temperature Humidity in the primary system Pressure in the primary system Pressure in the primary system Primary gas/feed-water throughput Pressure diff. primary system/steam generator
+
+Figure 53: Connections in the reactor protection system of the HTR Module
+
+Page 92
+
+The number of the safety actions in Figure 53 can be described as follows:
+
+①  levelling of the six control rods through gravity (scram);
+
+②  switch off the blower in the primary circuit;
+
+③  blocking of the secondary circuit (feed-water and life-steam instruments);
+
+④  unloading  the  steam  generator  until  pressure  equilibrium  with  the  primary  system  is reached;
+
+⑤  blocking of the primary system closure.
+
+### 5.15.  Steam turbine plant
+
+For a power plant for cogeneration consisting of two modular reactors two turbines were envisaged (Figure 54). Alternatively, the application of one turbine is possible. This is a question of optimisation between investment costs and plant availability.
+
+The process steam will be produced using steam leaving the high-pressure part of the steam turbine system. The water consumed is substituted with deionised water from storage. Steam which is not required for the production of process steam is used in the medium- and low-pressure turbines for electricity production. The condensate leaving the low-pressure turbines is condensed and pumped back into both feed-water storage vessels.
+
+From  these  vessels  the  feed-water  pumps  carry  the  water  back  to  the  steam  generators.  Some important data on the steam cycle are included in Table 20. This process corresponds to well-known technologies, often applied in conventional energy technology.
+
+Page 93
+
+Figure 54: Steam turbine system for process-steam delivery from a power plant with two modular HTRs and two turbines
+
+The  detailed  layout  of  the  turbine  process  is  possible  on  the  basis  of  the  operation  of  prototype plants, for example THTR and Fort St. Vrain. Table 21 shows pre-calculated and measured values for the THTR and demonstrates the excellent agreement of the data.
+
+A special question for this process of steam production by cogeneration is the tritium content of the product.  Based  on  the  experience  of  HTR  plants  which  were  in  operation  and  on  many measurements  in  special  test  facilities  for  tritium  permeation,  it  can  be  stated  that  the  tritium content of the products is very low, and is smaller than licensed levels. The introduction of a steam transformer is a major precondition for the limitation of tritium.
+
+Table 20: Some data on the steam turbine plant for the production of process heat by cogeneration
+
+Parameter  Dimension  Value  Remark Thermal power  MW  2 × 200 Electric power  MW  95  Flexible Power of processsteam delivery  MW  130  Flexible
+
+Life-steam conditions  °C/bar  530/190 Process steamconditions  °C/bar  240/42, 200/11
+
+Mass flow of process steam  t/h
+
+Concept of the turbine    Extraction Separation of process heat    Steam transformer
+
+Page 94
+
+Cooling method    Wet cooling tower
+
+Table 21: Pre-calculated and measured values of THTR
+
+Parameter  Dimension  Measured value  Calculated value Thermal power of the core and internals  MW  756  755
+
+Circulator speed  min –1  5 407  5 380 Helium flow rate  kg/s  48.26  49.12 Feed-water flow rate  t/h  151.6  151.7 Mass flow through the reheater  t/h  144.7  144.1
+
+Hot gas temperature at the SG inlet  °C  750.3  750
+
+Hot gas temperature at the SG outlet    246.8  246.3
+
+Main steam temperature  °C  534.2  535
+
+Main steam pressure  MPa(abs)  18.69  18.67 Reheat steam temperature  °C  530.6  527
+
+Reheat steam pressure  MPa(abs)  4.85  4.84 Generator active power  MW  303.3  301.3
+
+Cooling water temperature  °C  27.6  26.5
+
+### 5.16.  Cooling system
+
+The cooling system of the plant contains the following parts.
+
+  A  main  cooling  system  for  the  steam  turbine  plant.  A  condenser  and  a  wet  cooling  tower release the waste heat into the environment. Some additional water is necessary to operate this cooling system.   Start-up  and  shutdown  systems  for  each  module  are  necessary  for  the  operation;  each system has its own cooling system.   Separate intermediate cooling systems; all heat losses occurring in different components of the plant are released via this system containing separate cooling towers.   A separate cooling system for the surface cooler, which is built in three tracks. Some effort is required to make this system as reliable as possible. Also, after a long grace time water can be injected into this system from different sources (e.g. by the fire brigade). Some more details on these cooling systems can be seen in Figure 55.
+
+Page 95
+
+Figure 55: Overview of cooling systems of the HTR Module
+
+### 5.17.  Handling of radioactivity
+
+There are several streams of material containing radioactive substances during operation of the HTR Module.
+
+  Spent fuel elements are highly radioactive waste — around 300 spherical fuel elements have to  be  brought  into  the  intermediate  storage  per  day  during  full-power  operation  of  one modular HTR.   Air  containing  radioactive,  polluted  helium  is  released  from  the  plant  via  filtering  and  the stack.   Releases of waste water occur and the water has to be cleaned up. Finally the cleaned water has to be released into the environment.   There  are  various  paths  to  treat  solid-waste  mainly  containing  low  radioactive  substances. They have to be conditioned and stored in special intermediate storage containers. An overview of the different paths to handle waste and the conditioning of these materials is given in Figure 56.
+
+Page 96
+
+Figure 56: Flow of activity which is envisaged for the HTR Module
+
+The concept of storing spent fuel is a very well-established concept in AVR and THTR, and rules for future  licensing  processes  can  be  adopted  from  LWR  technology  too.  The  intermediate  storage technology is extremely safe, even for cases of very strong impacts from the outside.
+
+Gaseous waste is produced in the gas purification plant. The gases removed in this plant are pumped into  special  storage  vessels,  and  later  they  are  released  in  a  controlled  manner  via  the  stack.  The regeneration of the stages of the gas purification causes the release of very small amounts of noble gases (85Kr, 133Xe), tritium and carbon (14C).
+
+A very small contribution to the radioactivity formed during operation comes from neutron-activated isotopes like argon (41Ar), mainly inside the reactor building. These impurities are released via the air ventilation system.
+
+Leakages of helium from the primary system can contain very small amounts of gaseous activity too. Following the experience of HTR plants and large facilities in which helium was handled, around 50 % to  100 %  of  the  helium  inventory  leaks  per  year.  Again  this  release  of  radioactivity  is  very  low. Releases during inspection, maintenance and repair require special attention.
+
+Overall the expectations for the HTR Module are as given in Table 22.
+
+Page 97
+
+Table 22: Estimate of yearly releases of radioactive isotopes from an HTR Module plant
+
+Released activity  Bq/yr  Ci/ye Noble gases  7.4 × 1013  2 000 -  Main gas argon (41Ar)  1.2 × 1013  320 Iodine (131I)  2.2 × 107  0.0006 Aerosol (long half-life)  3.7 × 107  0.001 Tritium (3H)  3.7 × 1012  100 -  Main release in turbine building  8.9 × 1011  24
+
+Carbon (14C)  8.9 × 1011  24
+
+Contaminated  water  is  collected  and  treated.  Treatment  processes  mainly  consist  of  evaporation. Water can originate from washing processes, laboratories or decontamination processes.
+
+The processed waste water is routed to three waste-water vessels, each having a storage capacity of 20 m3.The water content of a waste-water vessel is only allowed to be released into the environment according  to  applicable  guidelines.  The  limit  for  this  is  1.85 × 107  Bq/m3  (5 × 10–4 Ci/m3).  If  the radioactivity  is  higher  than  the  limit  the  water  must  undergo  an  additional  water-treatment  cycle. The  average  concentration  in  the  sewage  will,  in  general,  be  substantially  below  the  permitted release limits.
+
+In general, the following annual values should be applied in a future plant specific location for an HTR Module power station:
+
+  radioactivity in treated water  9.2x109 Bq/yr (0.25 Ci/yr)   Tritium H3,      3.7x1012 Bq/yr (100 Ci/yr) Condensate  that contains  tritium  which  is  separated  in  the  helium  cleaning  system,  and  in  case  of accidents when it is stored in separate storage vessels, is accumulated in the reactor building or in the reactor auxiliary systems building and is not released to the surroundings.
+
+Solid waste, beside spent fuel elements, which is produced during operation is treated and stored in the  power  plant  or  in  special  intermediate  storage  buildings  before  later  being  taken  for  final storage.
+
+The values estimated above correspond to experiences from the operation of AVRs and THTRs. Table 23 for example contains some values gained over 20 years of AVR operation.
+
+Page 98
+
+Table 23: Values of release of radioactivity during AVR operation: (a) release of radioactive substances into the atmosphere; (b) transfer of radioactive water from the AVR In the KFA
+
+Year  From the secondary circuit to the storage basin  From waste-water storage to the vaporiser unit  to storage basin Amount Alpha emitter Beta emitter without Tritium Tritium Amount Alpha emitter Beta emitter without Tritium Tritium Amount Alpha emitter Beta emitter without Tritium Tritium m3  Bq  Bq  Bq  m3  Bq  Bq  BQ  m3  Bq  Bq  Bq 1968  13 282    1.19E09  2.223e11          296.3    3.80E07  1.90E10 1975  18 022    1.03E10  3.40e12  5.6    2.68EE09  2.6E08  568.9    2.38E08  4.13E10 1986  9 426    4.50E08  1.35E11  244.2  1.44E08  9.73E10  4.26E10  268.2  1.57E04  3.73E06  3.07E08 1987  8 624    2.15E08  2.04E11  363.5  3.12E07  4.88E10  4.30E11  363.6  1.28E05  1.04E07  1.62E09 1988  10 030    7.58E07  1.23E11  261.6  1.34E06  1.34E10  1.61E10  284.6  7.93E03  3.5E06  8.65E08
+
+Year  Noble gas  Aerosol  90Sr  89Sr  3H  14C  131I  82Br  Outlet air Bq  Bq  Bq  Bq  Bq  Bq  Bq  Bq  m3 1968  5.81E11  < DT  NM  NM  NM  NM  NM  NM  1.75E08 1986  4.77E11  1.61E04  1.6E05  3.09E05  1.71E12  3.38E10  1.62e04  4.65E05  3.22E08 1987  2.20E11  8.33E03  4.75E04  8.55E03  1.66E12  3.83E10  2.03E03  7.60E05  2.97E08 1988  2.78E11  < DT  1.17E05  1.05E04  1.70E12  4.42E10  DT  8.79E05  2.89E08
+
+5.18.  Status of development of components and the concept of the HTR Module for cogeneration In practice, the components and concepts described in the previous chapters have already been used in LWR or HTR plants. As Table 25 indicates, broad experience is available for all components.
+
+The most important component, the spherical fuel element, has been tested extensively in the AVR, the THTR and many irradiation and heating experiments. The operational temperature, fast neutron dose and burnup values required in the HTR Module concept are significantly lower than those which have been used in development up to now.
+
+The core design of the reactor uses the experience of all HTR plants, especially that of the AVR, which has  the  same  core  diameter.  The  long-term  experience  from  the  graphitic  core  structures  of  AGR plants furthermore supports the use of the core structures of the HTR Module.
+
+The  first  shutdown  system  is  well known  from  the  THTR.  For  the  second  shutdown  system  (KLAK), experiences  from  Fort  St.  Vrain  can  be  adopted,  however  this  system  still  requires  additional qualification work.
+
+The loading and unloading system is fully developed and can be derived from the AVR and the THTR. Some further improvements are possible.
+
+The reactor pressure vessel and the steam generator vessel  can be adopted from LWR technology. Because of the use of helium as coolant, no inner protection layers against corrosion, as in the PWR,
+
+Page 99
+
+are necessary. The steam generator vessel follows similar principles of design to the reactor pressure vessel. The concept of designing and evaluating the connecting system with the hot gas duct and the cold annulus as a connecting vessel is new in nuclear technology.
+
+For the whole primary enclosure the principle of ‘basic safe design’ and following the requirement to use  the  ‘leak-before-break’  concept  must  be  fulfilled.  This  is  well-established  technology  for  LWRs today. The arrangement of the components of the primary system chosen for the HTR Module has a good example in the development of the AGR. The Windscale AGR (WAGR), as the prototype of AGR development, used the same concept of arrangement of the primary circuit and has worked for more than 10 years with good success. However, the arrangement is turned by 180° compared to the HTR Module.
+
+The  steam  generator  bundle,  compensation  and  support  systems  inside  this  component  can  be derived  from  technologies  applied  in  the  THTR,  Fort  St.  Vrain,  Dragon  and  several  CO2-cooled reactors.  Furthermore,  heat  exchangers  with  helical  farmed  surfaces  are  well  known  from  fast breeders and from many fields of conventional technology too.
+
+The  helium  circulator  corresponds  to  technical  solutions  used  in  all  HTR  plants  and  in  CO2-cooled reactors. The component applied in the HTR Module can be directly derived from that of the THTR.
+
+The  hot  gas  duct  has  been  tested  at  1:1-scale  (with  a  displacement  body)  in  the  Interatom component test facility KVK (KomponentenVersuchsKreislauf) and in the large ADI facility with good success.  Elements  of  these  components  (insulation,  liner,  support)  can  be  taken  from  other  HTR projects. An important component joined to the hot gas duct is the core connection. This component has also been tested extensively at 1:1-scale in the KVK facility, and it was shown that a connection with very small leak rate can be used.
+
+Auxiliary systems such as gas purification, helium circuits, helium technology in general and helium measurement methods can be carried over fully developed from HTR plants and many test facilities.
+
+The  control  systems,  the  reactor  protection  system  and  electrical  systems  are  fully  developed  and can be transferred from nuclear technologies developed up to now.
+
+The concept of the inner concrete cell, which houses the primary system, is also well established in nuclear technology. For example, the WAGR uses a similar arrangement of an inner cell and an outer reactor building. In the case of the HTR Module the inner concrete cell is dense and connected to a filter system. The outer reactor building is not dense but protects against impacts from outside. The filter systems are well known and introduced in nuclear technology.
+
+Containment structures, especially those designed against strong impacts from the outside, are now a  well-established  technology.  Conventional  systems  for  the  plant,  such  as  cooling  systems, steam/water circuits, turbine generator units, secondary electrical systems and further concepts, are well known worldwide and can be carried over to the HTR Module.
+
+The intermediate storage of spent fuel elements will be the waste management solution for several decades in many countries (e.g. Germany). The technologies developed for the AVR, the THTR and in the field of LWR can be carried over to the HTR Module. Dry storage vessels with self-acting decay heat removal offer an extremely high standard of safety.
+
+Page 100
+
+A very important topic for the components operating at high temperature, such as the hot gas duct, the  core  connection  and  the  steam  generator,  is  the  materials  used.  The  alloy  relevant  for  this application up to an average helium temperature of 700 °C is Incoloy 800H. For this material a broad qualification programme has been carried out and showed that these components can be designed for the whole lifetime with high safety factors.
+
+Table 24 contains some comparisons and valuations of safety aspects and safety relevant features of AVR  and  HTR  Module.  Further  improvements  in  case  of  modular  HTR  are  possible,  especially regarding air ingress accidents and very strong impacts from the outside.
+
+Table 24: Safety concept of HTR Module compared to that of AVR
+
+Main design data HTR Module  AVR Power, power density  200 MWth, 3 MWth/m3  46 MWth/m3 Pressure, temperature  60 bar, 250/700 °C  10.8 bar, 275/950 °C Core radius/height  1.5/9.4 m  1.5/2.4m Heavy metal  7 g/fuel element  6 g/fuel element Safety concept Reactivity control  inherent  inherent Temperature coefficient  –5 × 10–5/°C  –9 × 10–5/°C Excess activity  1.0 nile  1.2 nile Shutdown systems  6 reflector rods (hot)
+
+## 18 reflector KLAK systems (cold)  4 reflector rods (hot, cold)
+
+Decay heat removal  passive, operating system only (cavity cooler for component protection) passive, operating system only (seal gap cooler for component protection) Safety enclosure  fuel elements (Tmax < 1 600 °C) pressure vessel unit vented confinement fuel elements inner and outer pressure vessel gastight containment Water ingress control  volume limitation (leak insulation) vessel configuration: slight under-moderation volume limitation (leak insulation)
+
+Air ingress control  volume limitation (vessel excluding failure, small reactor building) volume limitation (multiple vessel excluding failure)
+
+Reactor protection system Criteria  Pressure, temperature, flow rate, flux (moisture)  Pressure, flow rate, flux, moisture Actions  Plant shutdown — hot standby (steam generator relief)  reactor shutdown — cold run (steam generator insulation, relief)
+
+The questions of licensing, application of existing rules of nuclear technology, development of new rules and design prescriptions always require new considerations corresponding to the development of  the  state  of  science  and  technology.  Furthermore,  changing  conditions  regarding  politics  and acceptance  have  brought  large  amounts  of  uncertainty  and  delays  in  many  nuclear  projects,
+
+Page 101
+
+especially in Germany. The licensing process of the AVR and the THTR was carried out completely and successfully;  the  licensing  process  of  the  HTR  Module  was  nearly  finished,  but  was  stopped  for political reasons. There was no doubt, however, that on the basis of the work of the companies, the advisers,  the  TÜV  and  the  German  Reactor  Safety  Commission  (RSK)  this  reactor  concept  was licensable.
+
+Table 25 contains some important components of modular HTRs. It is clear that there is a broad basis available to use these components and systems.
+
+Table 25: Evaluation of components of the HTR Module
+
+Fuel element  HTR reactor and test facilities Fuel-handling system  AVR,THTR Ceramic core internals  AVR,THTR, other HTR plants, AGR Metallic core internals  AVR,THTR, other HTR plants, AGR First shutdown system  THTR, AGR Second shutdown system  Fort St. Vrain Concept of primary enclosure  LWR (PWR, BWR), AVR, Dragon, Peach Bottom Arrangement of the primary system  WAGR Support of the vessels of the primary system  LWR (PWR, BWR) Core connection  KVK tests Hot gas duct  KVK tests, EVO,HHV,ADI, several plants Steam generator bundle  THTR, Fort St. Vrain, several AGRs Helium circulator  THTR, all other HTR plants, AGRs Helium purification  AVR, THTR, all other HTR plants, large test facilities Helium circuits, Helium technology  AVR, THTR, all other HTR plants, large test facilities Inner concrete cell  WAGR, LWR (PWR, BWR) Filter systems  LWR (PWR, BWR) Surface cooler in inner concrete cell  Conventional technology (boilers) Outer reactor containment building  All reactors Instrumentation of the primary circuit  AVR, THTR, KVK,PWR Reactor protection system  LWR (PWR, BWR), THTR Secondary cycle (stem/water cycle, turbine)  THTR, Fort St. Vrain, AGR, all conventional plants Intermediate storage for spent fuel elements  AVR, THTR, LWR (PWR, BWR)
+
+Page 102
+
+## 6.  Materials
+
+The  need  for  reliable material  property  data  is  an  important  requirement  for  the  HTR  and  (V)HTR. The  development of  advanced  HTR  concepts  requires  an  understanding  of material  behaviour  plus data  information  under  representative  reactor  operating  conditions  for  the main  HTR  components important  to  safety  and  feasibility.  The  following  sections  provide  the  position  on  materials development issues for the HTR, making use of information from previous projects (such as those in Germany, the United Kingdom and the United States) and more recently developed information from R & D projects managed within the European Commission’s fifth (Martin-Bermejo, et al., 2001), sixth (Raphael)  and  seventh  (Archer)  framework  programmes.  For  consistency  the  materials  issues  and available information are discussed under similar headings to those listed in the previous section on components.
+
+### 6.1.  Primary system and primary enclosure
+
+The primary system components are largely metallic (e.g. reactor pressure vessel — RPV), except for those of the reactor  core, which are constructed using graphite  and composite  materials (used for straps etc.). The components covered here are as follows:
+
+  the  reactor  pressure  vessel  together  with  the  inner  metallic  and  graphite  structures,  the shutdown systems, the fuel-handling system and measurement installations;   the  steam  generator  vessel,  which  contains  the  steam  generator  bundle  and  the  helium circulator, including the drive;   the connecting vessel, which contains the hot gas duct;   the inner concrete cell, which contains the surface cooler. The non-metallic materials for the core are discussed in the next section.
+
+Materials  issues  for  the  reactor  pressure  vessel,  the  steam  generator  vessel  and  the  connecting vessel which use  a similar material for the pressure boundary  (depending on the  temperature) are discussed  here.  For  the  HTR  the  LWR  materials  technology  provides  a  firm  basis.  For  the  VHTR  a stronger material capable of operating at higher temperatures is needed. Such a material (Mod 9Cr 1Mo  steel)  has  been  investigated  in  the  HTR-M  &  M1  (Buckthorpe,  2004)  and  Raphael  projects (Buckthorpe, et al., 2008).
+
+For  the  HTR  RPV the  design  pressures  and  internal  diameters  fall  within  a  relatively  narrow  range. This is because of the constraints imposed by requirements for passive heat removal under  ‘loss of circulation’ or ‘loss of coolant’ scenarios and the requirement to meet the allowable stress levels in various  design  codes.  As  a  result  two  types  of  material  are  used,  depending  on  whether  the temperature  of  the  pressure  boundary  under  normal  operation  or  design  conditions  exceeds  the limit for LWR/PWR pressure vessel operation. Different ferritic materials have been used for the RPV in  both  current  and  past  test  reactor  systems.  Comparisons  between  material  types  and  between grades of the same material suggest the following materials are possible:
+
+  various grades of 2-1/4 Cr-1Mo steel (ASME Grade 22 Class 1, the normalised or quenched and tempered grades of RCC-MR); •  Mn-Ni-Mo steel (PWR grades); •  ASME Grade 91 and RCC-MR mod 9Cr-1MoVNb.
+
+Page 103
+
+Comparisons of tensile and creep data for matching grades indicate that there are differences in the minimum stress to rupture (Sr) and the primary stress intensity (St) design values for these materials, particularly for modified 9Cr1Mo steel, which exhibits great strength at elevated temperatures (see Figure  57).  There  is  also  a  need  for  long-term  creep  data  at  moderate  creep  temperatures  (425500 °C) to confirm long-term values of Sr and St for both the 2-1/4  Cr-1Mo and modified 9Cr-1Mo types of steel, particularly if these are to be used for the pressure boundary.
+
+In  China,  silicon  killed  C-Mn  steel  to  ASME  SA  516-70  has  been  specified  for  both  the  HTR-10  test reactor  and  future  power  reactors.  This  material  is  similar  to  the  C-Mn  steels  used  in  the  United Kingdom for the construction of both steel and concrete pressure vessels in  CO2-cooled reactors of the Magnox and AGR types. Long-term operating and/or design temperatures are limited to 370 °C. Similar limits apply to the SA 508 forgings used widely in LWR pressure vessels and proposed for the pebble-bed modular reactor (PBMR) in South Africa. It should be noted that the SA 508 specification covers  a  number  of  grades,  some  of  which  are  not  suitable  for  pressure  vessels.  In  terms  of  the current designations in ASME specifications, ‘SA 508 type’ material is taken to mean SA 508 Grade 3 Class  1  or  the  equivalent  material  in  plate  form,  SA  533  Type  B  Class  1.  Equivalent  European designations are 20MnMoNi 5 5 (Germany) and 15MND 5 or 18MND 5 (France). Except for HTR-10 the above systems have core inlet gas temperatures close to 550 °C, so the integrity of the RPV also depends on the performance of  the  insulation, which might  be  in the form of fibre blanket and/or stagnant/flowing layers of helium.
+
+For the HTTR test reactor and larger power reactors of 450-600 MWth the RPV temperature is close to the core  inlet  temperature due  to the passage  of inlet  (or intermediate) temperature  helium to cool the inside surface of the vessel. Vessel temperatures are in the range 395-460 °C under normal operating conditions. The HTTR inlet temperature of 400 °C allows the use of 2-1/4 Cr-1Mo steel with a margin of about 25 % on allowable stress and about 40 °C on temperature. Modified 9Cr1Mo steel has  also  been  specified  for  both  large  and  small  reactors  with  the  beltline  region  of  the  vessel running  at  the core  inlet  temperature.  This material has  not  yet  been  qualified  for  pressure  vessel use  according  to  most  design  codes.  Work  has  however  been  carried  out  within  the  European framework  programme  Raphael  (Buckthorpe, et al., 2008)  to investigate  the  issues connected with material qualification for RPV application, including the effects of irradiation and environment with a specific thick section (150 mm) welded plate manufactured for testing.
+
+Page 104
+
+Figure 57: Vessel steels — comparison of allowable strengths
+
+For  an  RPV  application  the  fabrication  and  qualification  of  the  vessel  steel  material  has  to  be extremely thorough. Investigations have to be carried out in a very measured way. Issues that should be addressed include areas such as weld strength, manufacturing and adherence to design codes and procedures. These three areas are addressed briefly below.
+
+Weld strength
+
+The main concerns for the VHTR RPV are in the vicinity of the welds. The welds carry an additional requirement to satisfy the safety analysis methodology and safety studies (defect location and defect size), and have to be assessed from the point of view of non-destructive examination and potential for failure or leakage.
+
+The main damage mechanisms to be addressed are fracture, fatigue and creep-fatigue. These have to be evaluated from an initiation aspect and for crack growth of defects under fluctuating thermal and mechanical  loads.  The  potential  effects  of  the  environment  (temperature,  irradiation,  ageing)  all have to be taken into account. The important issues to address are toughness and creep behaviour under as-fabricated and simulated end-of-life conditions. This is to provide an understanding of the welding  processes,  weld  metals  and  post-weld  heat  treatment  required  for  thick  welds  and  weld factors to be applied on the base material properties. The strength issues for HTR and VHTR vessels are summarised in Table 26 below:
+
+Table 26: Qualification issues for HTR/VHTR reactor pressure vessel
+
+LWR vessel steel (HTR temperatures)  Mod 9Cr 1Mo steel (VHTR temperatures)
+
+LWR experience provides filler materials.
+
+Toughness properties well matched.
+
+Irradiation embrittlement less than 1dpa as for LWR- low P and Cu.
+
+Thermal ageing embrittlement — most No previous experience on thick section RPV welds.
+
+Short term strength — HAZ; long term strength by Type IV cracking.
+
+Irradiation embrittlement — increases with 0
+
+50
+
+100
+
+150
+
+200 0 100 200 300 400 500 600
+
+Temperature °CSmt (3x105 hours) MPa SA 516-70
+
+SA 508
+
+### 2.25 Cr-1Mo (RCC-
+
+MR)
+
+Mod 9Cr-1Mo (EFR)
+
+Page 105
+
+likely in the HAZ — only for transients at higher temperatures (10s to 100s of hours).
+
+Carburisation/corrosion — HTR gas chemistry. lower temperature — no data on welds.
+
+Thermal aging embrittlement — operation above 450 °C — no data on welds.
+
+Carburisation/corrosion — HTR gas chemistry.
+
+Other  sensitive  zones  that  are  important  are  areas  that  feature  thicker  sections  (potential  for reduced properties and strength), hotspots and regions important from a functionality point of view. This includes the flange area and belt line, which have to satisfy primary and secondary stress-limit requirements and progressive deformation mechanisms.
+
+The HTR  and VHTR  helium gas chemistry  is dominated by the impurities H2, H2O, CO, CO2  and CH4 that  exist  within  the  gas.  Low  concentrations  of  H2O  and  H2  are  produced  by  leakage  and/or desorption  from  both  metal  surfaces  and  graphite.  CO,  CO2  and  CH4  may  be  produced  by coolant/graphite reactions at high temperatures.
+
+Design codes usually instruct the designer to take into consideration the effects of corrosion without specifying in detail how this should be done. In practice two measures are usually adopted.
+
+  An allowance for metal losses over its lifetime is added to the minimum design thickness of a pressure vessel.   Fatigue and creep-fatigue damage calculations made with design data include allowances for data scatter, ‘mild’ (oxidising) environments and the characteristics of typical pressure vessel surfaces. Additional margins are necessary only where the environment has different and/or more  severe  effects  on  fatigue  and  creep  by  carburising  the  exposed  surfaces  or  by producing intergranular oxidation to a significant depth.
+
+The chemical attack from the impurities within the helium is temperature dependent, and its effects have  to  be  checked  at  all  operating  temperatures  where  the  material  is  expected  to  experience  a significant period of operating time. Depending on the partial pressure of the impurities the resulting atmosphere can either be oxidising, carburising or decarburising, with damage either at the surface or  diffusing  to  significant  depths  in  the  metallic  matrices  (internal  oxidation  or  carburisation  or decarburisation) which may result in a loss of mechanical properties. Phase diagrams (Figure 58) can be used to determine the neutrality of the chemical activity and to determine whether compatibility issues are likely to have a strong impact on material behaviour and performance.
+
+Page 106
+
+Figure 58: Phase diagram for Fe at 350 °C
+
+The RPV in the HTR will be irradiated with neutrons, which cause damage within the material and will result  in  a  change  in  mechanical  behaviour  of  the  material  and  in  the  welds.  Depending  on  the operating conditions of the HTR and (V)HTR, this irradiation can take place at temperatures between 120 °C and 450 °C, where 120 °C is considered representative of the lower temperature of the LWR material option and 375 °C the lower temperature of the Mod 9Cr 1Mo steel material option, with 450 °C the upper end of the Mod 9Cr 1Mo steel material temperature operating window.
+
+The effects of irradiation on the toughness of LWR steels have been studied extensively and reviews have been undertaken as part of the work programme of the CEC-supported AMES network (Ageing, Materials Evaluation and Studies), where CEC is the abbreviation of “Commission for Environmental Cooperation”.  Reports  from  this  group,  along  with  publications  in  the  open  literature,  are  highly relevant to the materials and operating conditions of LWR steel HTR vessels given that LWR vessels operate at 250-300 °C with similar end-of-life fluences to HTR vessels.
+
+The major effect in these materials is an increase in the ductile brittle transition temperature (DBTT) and  ΔDBTT  due  to  the  combined  effects  of  matrix  hardening  and  grain-boundary  weakening associated  mainly  with  the  residual  elements  P  and  Cu.  Various  empirical  relationships  between composition, fluence and ΔDBTT have been proposed on the basis of results from test reactors and LWR surveillance programmes (Western PWRs and Russian LWRs). Common features of the formulae are  the  importance  of  the  Cu  and  P  contents  as  well  as  synergistic  effects  of  the  Ni  content.  The range  of  behaviour  predicted  for  Mn-Ni-Mo,  2-3/4  Cr-Mo-V  and  2-1/4  Cr-Ni-Mo-V  pressure  vessel steels  is  shown  in  Figure  59.  The  upper  bounds  correspond  to  steels  used  in  the  1960s  and  1970s which  had  relatively  high  levels  of  either  Cu  (PWR  steels)  or  P  (WWER  steels).  Specifications  for
+
+Page 107
+
+modern pressure vessel steels and weld metal contain special limits on Cu and P for material to be used in the most highly irradiated (beltline) region of LWRs:
+
+  0.008 %P and 0.08 % Cu in RCC-M;   0.012 %P and 0.12 % Cu in the ASME Code;   0.010 % P and 0.08 % Cu in WWER rules.
+
+The above limits can be met comfortably using modern steelmaking techniques. They ensure that the predicted end of life ΔDBTT for a LWR vessel operating at 250-300 °C is small in relation to the data scatter.
+
+Figure 59: PWR and WWER regulatory guides — shift in DBTT with dpa dose
+
+Material  ageing  describes  a  continuous  time  or  operational  degradation  of  the  material  due  to operating  condition,  (excluding  ‘design’  and  ‘beyond  design  basis’  accidents).  As  a  result  of  ageing degradation the plant or component state could vary through the operating life.
+
+Material  ageing  or  thermal  ageing  embrittlement  (TAE),  sometimes  called  temper  embrittlement (TE), may involve hardening due to precipitation of carbides and intermetallic compounds, along with grain-boundary segregation of trace elements (P, Sn, As, Sb). The term ‘temper embrittlement’ came into use because slow cooling after tempering was sufficient to embrittle steels with relatively high levels  of  the  trace  elements.  More  severe  effects  could  be  induced  by  step  cooling  from  the tempering temperature followed by holding at approximately 450 °C and/or slow (furnace) cooling to room  temperature.  TE is not  usually a problem in modern steels with very  low levels of P and the other  trace  elements.  TAE  can  however  occur  after  long-term  service  at  temperatures  in  the  350550 °C range. The severity of the effect depends on a number of factors including:
+
+  the prior austenite grain size of the material;   the concentration and distribution of the trace elements (P, Sn, As, Sb);   the cooling cycle after tempering;   time at temperature(s) within the critical range;   the property considered.
+
+The base materials and weld metals for both the LWR steel and Mod 9Cr 1Mo steel vessel options normally have very fine grain sizes. The most likely embrittlement location is therefore the coarsegrained  heat-affected  zone.  Because  the  LWR-cooled  vessels  operate  at  temperatures  below  the embrittlement  range  of  the  material,  it  usually  can  only  occur  for  this  material  during  transients
+
+Page 108
+
+involving exposure to higher temperatures for tens or hundreds of hours. Warm (non-cooled) vessels (Mod  9Cr  1Mo  steel)  can  operate  at  higher  temperature  and  in  the  ageing  temperature  range throughout their lifetime, and so for the Mod. 9Cr 1Mo steel vessel ageing can be more important to integrity. The approximate duration after which ageing effects can be significant can be in the order of 20-30 years, and its predictability depends upon technical understanding of the conditions and the quality  of  the  operational  experience  data.  It  predictability  is  also  dependent  on  the  ability  to monitor  the  condition  of  the  component  and  to  model  it.  For  Mod  9  Cr  1  Mo  steel  investigations have been carried out in the HTR-M & M1 projects (Buckthorpe, 2006) and Raphael (Buckthorpe, et al., 2010) on both irradiation and ageing effects with specific experiments performed.
+
+Manufacturing
+
+The  technology  developed  for  building  LWR  vessels  from  heavy  section  ring  forgings  provides  a sound basis for manufacture covering:   procurement specifications for forgings;
+
+  welding procedures and filler metal selection;
+
+  manufacturing sequences including weld examinations and post-weld heat treatment.
+
+HTR vessel wall thicknesses are within the PWR range but the diameters of HTR vessels (6-8.5 m) are much  greater  than  for  PWR  (up  to  4.5 m).  There  is  therefore  a  need  to  establish  a  capability  to produce  forged  parts  of  the  required  dimensions  with  the  required  mechanical  properties.  If  this cannot be done it will be necessary to manufacture the vessel from formed plates. In this case there are implications for both design and manufacturing. The most important design consideration is the introduction  of  axial  welds  with  higher  cross-weld  stresses.  Manufacturing  requirements  include provision of procurement specifications, forming facilities and forming procedures for heavy plates. On-site welding and post-weld heat treatment (PWHT) of the reactor vessel–cross vessel–PCS vessel assembly can introduce a requirement that does not arise in LWR manufacture:
+
+  a validated local heat treatment procedures for Mn-Ni-Mo steel;
+
+  a site heat treatment facility that can accommodate the whole  reactor vessel–cross vessel– PCS vessel assembly.
+
+The  above  considerations  also  apply  to  vessels  using  2-1/4  Cr-1Mo  steel.  There  is  manufacturing experience  in  France  for  one  grade  and  it can  be  extended  to other  grades  of  2-1/4  Cr-1Mo  steel. Appropriate  filler  metals  exist  but  the  properties  of  welded  joints  require  evaluation.  Russian experience of WWER-1000 vessel manufacture in 2-1/4 Cr-Ni-Mo-V steel is also relevant. The PWHT temperature  for  2-1/4  Cr-1Mo  steel  is  630-660 °C  compared  with  620 °C  for  Mn-Ni-Mo  steel.  This difference may have a significant effect on cost, particularly in the case of a site PWHT facility.
+
+In  the  case  of modified  9Cr-1Mo  steel  the  above-noted  manufacturing  problems  introduce  greater difficulties, as detailed below.   A lower limit on the mass of single cast or ingot for high-Cr steel compared with 2¼Cr-1Mo steel.   Difficulties  in  selecting  filler  metals  to  achieve  the  required  levels  of  resistance  to  hot cracking, high toughness at 0 °C and creep strength.
+
+Page 109
+
+  A  much  higher  PWHT  temperature  (> 750 °C)  compared  with  2¼Cr-1Mo  steel  (630-660 °C). Local  heat  treatment  at  > 750 °C  of  welds  in  the  RPV/cross  vessel  assembly  would  be particularly difficult to validate.   The design temperature of the PCS vessel for GT-MHR is 150 °C compared with 440 °C for the RPV and cross vessel. It is possible therefore to specify C-Mn, Mn-Ni-Mo or 2¼Cr-1Mo steel for  the  PCS  vessel.  A  transition  joint  between  modified  9Cr-1Mo  steel  and  any  one  of  the other  candidate  material  types  would  involve  a  mismatch  of  100-150 °C  in  their  PWHT temperatures. It might be necessary in this case to validate the use of a filler metal such as Alloy 82 and a ‘buttering’ technique to permit separate PWHT at temperatures appropriate to each base material prior to completion of the closure weld.
+
+Manufacturing issues for HTR and VHTR vessels are summarised below in Table 27:
+
+Table 27: Qualification issues for HTR/VHTR reactor pressure vessel
+
+LWR vessel steel (HTR temperatures)  Mod 9Cr 1Mo steel (VHTR temperatures)
+
+Technology for LWR provides a sound basis:
+
+  procurement specifications,
+
+  welding procedures,
+
+  manufacturing sequences and examinations.
+
+Larger-diameter forgings than LWR.
+
+On-site welding produces additional requirements — on-site heat treatments. No previous similar experience in manufacture with this material.
+
+Selection of filler material.
+
+Higher PWHT temperatures (> 750 °C).
+
+Possibility of needing transition welds if cross vessel is of a different material.
+
+Potential for PWHT mismatch of 100150 °C.
+
+Codes and standards
+
+Pressure  vessel  design  and  construction  codes  provide  mandatory  rules  for  calculation  of  material thickness, allowable materials for construction, welding, NDE, testing and regulatory documentation. The pressure vessel code(s) applicable to the location of installation must be followed for mechanical design and construction. There are several commonly accepted design codes that can and have been used for the metallic materials of the primary circuit:
+
+  ASME BPVC — American Society of Mechanical Engineers, Boiler and Pressure Vessel Code;
+
+  (KTA3221, 2015) ‘Metallische HTR Komponenten’ Parts 1 to 3 (Draft);
+
+  (KTA3201, 2015) Light-Water Reactors;
+
+  (EN13445,  2012)  EN  13445  —  the  European  standard,  harmonised  with  the  pressure equipment directive (PED);
+
+  (AFCEN,  2012)  RCC-MRx  —  design  and  construction  rules  for  mechanical  components  of nuclear installations. Within such codes key damage mechanisms are addressed:
+
+  DM 1. Instantaneous excessive deformation;   DM 2. Delayed excessive deformation;
+
+Page 110
+
+  DM 3. Ratcheting;   DM 4. Fatigue;   DM 5. Creep-fatigue.
+
+DMs 1 and 2 are of major significance to the design of pressure vessels because they lead directly to the primary  stress limits Sm (instantaneous limit based on tensile  properties)  and St (delayed limit based on creep properties). The crossover temperature θco  above  which St applies  is an important parameter for RPV materials selection since it is necessary to show that time-dependent effects are negligible.  For the pressure  vessel structures  this means that normal operating temperatures must be  below  the  negligible  creep  limit  of  the  material.  The  areas  relevant  to  DMs  3-5  are  identified below.
+
+  Parts of the vessel where wall temperatures are highest may be subject to creep damage.   Nozzles  and  openings  including  the  cross-vessel  connection  and  penetrations  in  the hemispherical bottom and lid may be subject to fatigue.   The internal support attachments may be subject to fatigue and ratcheting.   The RPV and PCU support to foundation may be subject to fatigue with mean stress effects. The designs of the two supports need to be compatible.   Welds. Results from thick section welds at such temperatures are very scarce and such data are  very  important  not  only  for  understanding  weld  behaviour  but  also  for  confirming  a maximum  normal  operating  temperature  (and  hence,  for  non-cooled  designs,  the  gas  inlet temperature) for vessel operation.
+
+Section III, Division 1, Subsection NB of the ASME Code is fully applicable to the design of LWR-type HTR pressure vessels operating at up to 371 °C and the RCC-M Code provides a European set of rules for these vessels. Both ASME III NB and RCC-M incorporate extensive LWR experience and are easily available.  They  can  be  regarded  as  having  equivalent  status  from  the  standpoint  of  an  HTR  vessel design  and  validation  approach.  The  ASME  III  Division  1,  Subsection  NH  and  the  RCC-MR  rules provide limited coverage for HTR vessels made from 2 ¼ Cr-1Mo steel and Mod 9Cr 1Mo steel.
+
+Codes and standards issues for HTR and VHTR vessels are summarised below in Table 28.
+
+Table 28: Codes and standards issues for HTR/VHTR reactor pressure vessel
+
+LWR vessel steel (HTR temperatures)  Mod 9Cr 1Mo steel (VHTR temperatures)
+
+Data and experience of LWR provides sound basis.
+
+Property data plus fracture and fatigue crack growth information.
+
+ASME/RCC-M Code — exclude effect of environment — but procedures substantiated by years of successful operation in service. No previous service experience.
+
+Property data available — RCC-MR design rules — some gaps
+
+Long term data required at 425-500 °C.
+
+Experimental programmes required for irradiation and thermal ageing.
+
+P91 approved code material for ASME subsection NH.
+
+Page 111
+
+### 6.2.  Reactor core
+
+The  graphite  core  is  a  key  component  that  affects  the  safety  and  operability  of  the  reactor.  It provides  structural  support,  coolant  channels,  moderation  and  shielding  while  operating  in  a  hightemperature helium environment. Its performance is critically dependent on the graphite properties, which  are  irradiation  dependent.  The  final  choice  of  graphite  for  the  core  should  be  based  on  a number of factors, although the most important will be the effects of fast neutron irradiation on its properties up to the peak doses envisaged. Given the best graphite available, it is the task of the core designer  to  produce  a  design  that  will operate  safely  over  the  design  life of  the  reactor. The most important considerations are component integrity and changes in core geometry, both of which are affected by the dimensional change (see Figure 60).
+
+Figure 60: Effect of irradiation on dimensional change
+
+Many of the  graphites  used  in  previous  core  designs  are  no  longer  available and  there  has  been  a serious  decline  in  the  ability  to  manufacture  nuclear-grade  graphite  in  large  quantities  since  the 1980s.  The  main  questions  concern  the  long-term  availability  of  the  coke  and  manufacturing procedure.  Current  HTGR  projects  —  HTTR  (Japan)  and  HTR-10  (China)  —  use  a  Japanese  graphite called IG110, which, with its high strength, is suitable for exchangeable core components where low fast neutron fluences are applicable.
+
+Much  of  the  available  irradiated  materials  data  are  obtained  from  various  materials  test  reactors, and  often  it  is  not  possible  to  complete  an  irradiated  materials  property  database  for  a  particular graphite in advance of a reactor’s design and construction phases. In such cases design databases can be  used  to  arrive  at  the  required  information,  developed  from  previously  irradiated  graphites  of similar microstructure  and an understanding of irradiation damage  in the polycrystalline  graphites. R & D activities have been undertaken in a number of countries to investigate graphite properties.
+
+Two of the most significant experimental programmes in the past were for the European Dragon HTR programme  and  the  German  HTR  programme.  Unfortunately  most  of  the  data  obtained  by  other countries are confidential and so far have not been published in open literature. Work performed on the  review  and  collection  of  graphite  properties  considers  the  accessible  information  on  the  IAEA database,  internal  information  and  published  information  at  seminars  and  conferences.  The  IAEA database  was  established  to  help  the  development  of  International  programmes  on  graphite-
+
+-6
+
+-4
+
+-2
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+
+12 0 5 10 15 20 25 30Rel. linear dimensional changes (%) Neutron fluence / 1021 cm2 (EDN)
+
+480-570°C perp.
+
+475-570°C par.
+
+Page 112
+
+moderated reactors, assist safety authorities in assessment of safety aspects and serve as a source of scientific information for nuclear and non-nuclear technology.
+
+The  data  relevant  to  the  irradiation  temperature  and  neutron  fluence  domains  for  new  HTRs  will largely come from the new tests and be built up for each graphite grade and sample orientation, and contain the appropriate details of the graphite, i.e. grade, manufacturer, coke source, grain size and manufacturing  method.  These  data  are  being  collated  into  a  set  format  for  use  and  development representing  the  experimental  data  on  the  new  graphites  in  the  form  of  recommended  ‘design curves’ for each required material property.
+
+For  nuclear  applications,  the  graphite  has  to  be  as  free  as  possible  from  impurities.  Most  of  the impurities present will become activated during the operating life of the reactor, which will give rise to operational problems, as well as decommissioning and final disposal problems.  Most  impurities, however, are volatile and so disappear during graphitisation. To remove as much of the remainder as possible,  halogens  are  added  generally  during  graphitisation  to  aid  the  conversion  of  metal impurities,  and  boron  particularly,  to  their  more  volatile  halides.  (Extremely  low  boron  levels  are important from a reactor physics point of view, as it is a very strong neutron absorber.)
+
+Table 29: Typical range of graphite grades in an irradiation experiment
+
+The choice of graphite for the reactor core is limited to those that are currently recommended and available  from manufacturers  (see  Table  29).  Discussions  with  graphite  manufactures will  establish suitable  graphites  produced  using  a  range  of  methods  (extruded,  iso-moulded  and  viro-moulded graphites), which can be investigated using a graphite irradiation programme. Such a programme has been carried out in Europe (over the 2000-2015 period) within EU framework programmes (MartinBermejo, et al., 2001) (Raphael) (Archer) to provide results over a low, medium and high dose levels suitable  for  both  the  prismatic  and  pebble-bed  HTR  designs.  The  experiments  examine  material behaviour at two nominal temperatures (750 °C and 950 °C) relevant to the HTR and VHTR cores (see
+
+Figure  61). A further irradiation programme can be performed (under load) including the effects of creep (Ratton, 2005), but these types of experiment are significantly more expensive and should be considered to be a second step after general selection. Such irradiation programmes performed on selected  graphites  can  be  used  to  determine  the  variations  in  their  physical  and  mechanical properties over low/medium/high irradiation doses and used for design.
+
+Manufacturer  Grade  Coke  Grain size  Process  Classification
+
+GrafTech PCEA  Petroleum  Medium  Extrusion  Major PPEA  Pitch  Medium  Extrusion  Major PCIB-SFG  Petroleum  Super-fine  Iso-moulding  Minor LPEB/BAN  Petroleum  Medium  Extrusion  Minor
+
+SGL NBG-10  Pitch  Medium  Extrusion  Major NBG-25  Petroleum  Fine  Iso-moulding  Minor NBG-18  Pitch  Medium  Vibro-moulding  Major NBG-17  Pitch  Medium  Vibro-moulding  Minor
+
+Toyo Tanso  IG-110  Petroleum  Fine  Iso-moulding  Minor IG-430  Pitch  Fine  Iso-moulding  Minor
+
+Page 113
+
+Figure 61: Schematic overview of the graphite irradiation experiments
+
+For  the  experiments  above  the  focus  has  been  on  the  determination  of  engineering  design  curves which can be used for the core design process:   dimensional change (DC)   dynamic Young’s modulus (DYM)   coefficient of thermal expansion (CTE)   thermal conductivity/diffusivity (TC/TD) The effects of irradiation can change all these properties and it is important to have  representative curves for design. There can also be significant differences in the with-grain (WG) and against-grain (AG)  directions,  because  of  the  non-isotropic  nature  of  the  graphite  material.  A  typical  curve  for dynamic modulus  variation with irradiation dose  is shown in  Figure 62  below.  The DYM data show the expected increase at lower dose to a plateau, followed by a further increase at medium dose and finally  a  decrease  at  high  dose.  The  CTE  decreases  with  irradiation  dose  to  a  stable  plateau  at medium  dose  and  a  slight  increase  at  high  dose.  The  TD  and  TC  values  typically  fall  rapidly  at  low dose and reach a plateau at medium dose.
+
+Since  investigations  into  the  effects  of  neutron  irradiation  rely  heavily  on  testing  (such  as  that described above), and given that suitable facilities for such testing are both scarce and expensive to use  and  that  manufacturers  are  continually  developing  and  offering  new  graphites  for  such applications, in the longer term it is also important to develop an alternative modelling approach (in parallel  with  the  tests)  that  will  both  facilitate  the  longer-term  development  of  graphites  and minimise and reduce the extent and requirement for future irradiation testing. One such technique uses  X-ray  tomography  in  conjunction  with  model  simulations  to  predict  behaviour  which  can  be applied  to  both  non-irradiated  and  irradiated  samples  from  experiments  (Halli,  2004).  Such investigations can indicate that irradiation-induced microstructural (pore) changes  can be  detected and  can  give  confidence  that  they  can  be  used  to  gain  further  insight  into  the  microstructural changes within the graphite and their predictive models.
+
+Innograph-1A 750 °C, low/medium dose (FP5) Innograph-1B 750 °C, high dose (Raphael) Innograph-2A 950 °C, low/medium dose (Raphael) Innograph-2B 950 °C, high dose (Raphael) Innograph-1C 750 °C, low dose (Archer)
+
+Page 114
+
+Figure 62: Change in E/Eo with irradiation dose for graphite
+
+Oxidation of the graphite also takes place during normal operation of the HTR core due to impurities in the cooling gases. In such cases however the oxidation rate of the graphite is extremely low. Tests in  oxygen  and  air  at  temperatures  up  to  1 500 °C  (accident  and  normal  operation)  to  establish graphite  property  requirements  and  specifications  can  provide  useful  information  on  graphite behaviour,  with  the  rapid  oxidation  data  derived  (Kuhn,  et  al.,  2003)  providing  information  on reactivity  for  the  graphites  investigated.  Such  tests  can  identify  differences  between  grades  and between  the  inner  and  outer  parts  of  a  block  which  can  be  explained  by  density  and  impurity differences between centre and edge specimens in the block.
+
+Work has been carried out in Germany to develop SiC coatings for graphite materials to protect the graphite  against  oxidation  from  air  or  steam  ingress  under  severe  accidents.  Investigations  were done using the matrix German graphite A3-3 to measure the corrosion rate for temperatures up to 1 200 °C,  and  on  coated  pebbles  using  different  graphites.  Such  tests  involve  corrosion  tests, irradiation  tests  and  PIE  tests  to  assess  coating  integrity  and  different  coating  methods  (chemical vapour  deposition  (CVD),  paste  siliconisation  (PS)).  Although  the  original  objective,  to  develop  a coating for A3-3 graphite, was not achieved, these results gave a very positive indicator and provide a useful basis for further investigation.
+
+Other  issues  that  need  to be  addressed  are the  tribological  performance,  like on  like  for  the core; graphite on metal like on like (Core/Core); and graphite on metal for the core against internals. Such investigations need to be carried out at pressure and under load for accident and normal operating conditions.  Results  from  these  investigations  are  summarised  in  Buckthorpe  (Buckthorpe,  et  al., 2008).
+
+In  summary,  graphite  material  issues  and  requirements  for  the  HTR  and  VHTR  core  can  be summarised as follows.
+
+Table 30: Graphite core material issues and requirements
+
+Graphite core (HTR and VHTR temperatures) Graphite impurity levels and disposal. Changes in physical and mechanical properties with
+
+Page 115
+
+irradiation dose. Investigations under load to determine properties with irradiation creep. Increase and saturate the data range required for design. Oxidation under normal operation and accident conditions to establish corrosion resistance and protection. Tribology tests and simulations. Link between testing behaviour and design, establishing design curves representative of the physical property variation with irradiation dose and temperature. Graphite microstructural modelling and simulation.
+
+### 6.3.  Shutdown system
+
+For the control rod, which compensates for fuel burnup and power variation reactivity effects, used to control the reactor operation under fast normal operating  modes and to shut  down the reactor system,  available  metallic  materials  (such  as  Alloy  800H)  are  prime  candidates.  Material  property data at elevated temperature are available in codes such as ASME to enable a metallic arrangement to be designed and operated. Such a material can be employed in the HTR but is considered to be at its  operational  limit  for  the  VHTR.  For  the  VHTR,  new  carbon  fibre  reinforced  materials  can  be considered  as  alternatives.  Such  materials  are  expected  to  give  potential  for  improved  reactivity control  during  shutdown  and  to  allow  the  normal operating  temperatures of  future  reactors to  be increased.
+
+The characteristics of composites are usually governed by their individual base constituents. This is the main advantage of employing composites over conventional materials, having that ‘unique’ mix of different properties delivered by its fibres and matrix components. This provides the potential for composites to deal with severe nuclear environments. Most composites for industrial use are based on polymeric matrices, i.e. thermosets and thermoplastics. These are usually reinforced with aligned ceramic fibres, such as carbon. Aligned reinforced composites or 1D reinforced composites have two distinct  orientations:  parallel  to  the  fibre  reinforcements  (z-axis)  and  transverse  to  the  fibre reinforcements (x- and y-axes). The orientations parallel to the fibres possess superior properties.
+
+The use of  carbon-carbon composite and carbon  fibre  material composites for control rods (Figure 63)  is  not,  however,  a  proven  technology.  Consultation  with  manufacturers  on  possible  candidate materials is important and necessary. The material sits permanently in a neutron field accumulating fast fluences that change its structure and properties. The selection of the material is very important. Manufacture  involves  specialised  (and  expensive)  processing.  Certain  fabrication  parameters  (e.g. fibre  and  yarn  properties,  matrix  bonding  of  fibres,  porosity,  architecture,  graphitisation)  have  a strong  influence  on  mechanical  properties.  The  mechanical  properties  of  the  composites  are however  remarkably  stable  up  to  temperatures  of  2 000 °C.  As  with  other  carbon-based  materials (and graphite), significant changes in the physical and mechanical properties occur due to the effect of  irradiation  and  temperature,  and  material  investigations  as  discussed  for  the  graphite  core  are considered important for the validation of such materials for this application.
+
+Page 116
+
+Figure 63: An arrangement for a carbon-fibre composite control rod
+
+In summary, control rod material issues and requirements for the HTR and VHTR can be summarised as follows.
+
+Table 31: Control rod material issues and requirements for the HTR and VHTR
+
+Control rod (HTR and VHTR temperatures) Alloy 800H a candidate metallic material for HTR application. Material property data at elevated temperature are available in codes such as ASME. The use of carbon-carbon (C/C) composite and carbon fibre material composites is possible for VHTR conditions, but this is not a proven technology. Consultation with manufacturers on possible candidate C/C materials is needed. Fast fluences change its structure and properties as with graphite. Issues associated with graphite core will need to be investigated if a C/C or fibre-reinforced composite is to be used (e.g. impurity levels, oxidation and corrosion, property changes with irradiation, modelling).
+
+### 6.4.  Hot gas duct
+
+The hot gas duct is used to transfer the hot helium from the reactor core to the power conversion circuit components such as heat exchangers and turbines (in the case of the direct cycle). The duct is usually insulated to increase efficiency and limit thermal loads.
+
+The lifetime of the hot gas ducts is the same as that of the reactor with no repairs or maintenance required with the option to repair or replace the component reserved for unforeseen circumstances. Materials  that  could  be  considered  include  high-strength  alloys  such  as  Alloy  800H,  ODS  materials and  composites.  Some  investigations  have  been  carried  out  in  the  past  using  such  materials  and these need to be extended, taking full advantage of new and potential material developments.
+
+Page 117
+
+The hot gas duct can be of horizontal or vertical design, usually of coaxial flow (hot on inside, cold on the outside). Temperatures are in the 465-480 °C range on the outside and the 680-850 °C range on the inside. A design was recommended for the hot gas duct and the thermal insulation which could be  used  at  the  turbine  inlet  (straight  duct  configuration).  Thermomechanical  analysis  of  such  a concept has been performed as part of the past German experience and within the fifth framework programme project HTR-E (Buckthorpe, et al., 2008). For the design, fibre packed insulation is used between  the  inner  liner  and  the outer  support  pipe  in  the  region  of  the  thermo-sleeves.  Wrapped fibre insulation is used between the outer liner and the depressurisation gap liner.
+
+The metallic materials used are classed as materials for elevated temperatures with sufficient tensile strength and creep resistance in the < 550 °C temperature range. For the insulation, fibrous materials consisting of  at  least  Al2O3  can  be  used  at temperatures  above  600 °C,  with mixed-oxide  fibres  at lower temperatures and mineral insulation below 400 °C.
+
+The design rules  used are those important to safety,  with initial sizing based on  international rules and  regulations  (e.g.  in  Germany  AD  specifications,  technical  rules  for  steam  boilers).  Stress, deformation  and  fatigue  analyses  can  be  performed  in  accordance  with  the  ASME  Code  and  KTA Safety Standards using approaches consistent with the ASME Code.
+
+In summary, hot gas duct material issues and requirements for the HTR and VHTR can be summarised as follows.
+
+Table 32: Hot gas duct material issues and requirements for the HTR and VHTR
+
+Hot gas duct (HTR and VHTR temperatures) Alloy 800H a candidate metallic material for HTR application. Material property data at elevated temperature are available in codes such as ASME. Helium: impurities, potential for carburisation/decarburisation possible above 700 °C. Radiation issues (negligible); ageing issues (possible). The use of carbon-carbon (C/C) composite and carbon fibre material composites and ceramics is possible for VHTR conditions, but this is not a proven technology. Consultation with manufacturers on possible candidate C/C and insulation materials is needed.
+
+### 6.5.  Circulator
+
+Gas  circulation  in  HTR  and  VHTR  is  required  for  a  number  of  different  purposes  (e.g.  turbocompressors/turbo-generators for direct cycle helium gas turbine plants, start-up blower system for the turbo compressor, operational coolant gas circulation for heat transfer to the heat exchangers, coolant gas blowers in intermediate helium circuits, etc.). Turbo compressors and turbo generators generally attract most attention within  R & D programmes, however other applications for blowers and compressors are equally important for the functionality and availability of the complete reactor system.
+
+For the HTR with indirect cycles, the design of the gas circulator, the impeller, the electric motor and the bearings (e.g. electromagnetic bearings + catcher bearings and/or permanent magnetic bearings) is important under normal operation and also under external loads from the process transients. For Page 118
+
+the power rotor, benefit can be taken from the materials investigations on the turbine (see below). For the 600 MWth VHTR a blower power of 10 to 15 MW is required, which is much higher than in former HTRs (maximum 4 MW).
+
+A  study  of  former  designs  (Buckthorpe,  et  al.,  2008),  including  bearings,  lubrication,  control  and drive,  showed  in  many  cases  that  the  technology  is  based  on  the  broad  experience  with  CO2 circulators  from  the  Magnox  and  AGR  plants  in  the  United  Kingdom  and  in  France.  In  most  cases, one-stage radial circulators with an overhung wheel have been applied, and the overall experience is very good with high availability.
+
+With regard to the selection of materials, those used for the IHX (such as Alloy 800H for HTR) should provide necessary creep strength for the casing. The material IN 607 has been established for steam turbine  rotors,  and this should represent  a suitable  impeller material.  Other possible materials are Hastalloy,  IN  6I7,  IN  625  or  Haynes  230  for  the  casing  and  IN  638  or  IN  608  for  the  centrifugal impeller.  There  are  more  materials  options  for  smaller  discs.  Temperatures  in  the  vicinity  of  the circulator are expected to be < 700 °C, hence corrosion may not be a problem. The final materials are most likely to be influenced by the manufacturer’s choice.
+
+The design approach and information on materials behaviour is likely to be commercial and held by the  gas  turbine  manufacturers.  The  ASME  Code  case  for  Ni-based  alloys  is  in  progress  and  should provide an elevated temperature procedure for relevant materials. For a gas temperature of 465 °C, non-cooled options should be acceptable. Coatings are also possible for protection against activation (cobalt). For the disc, there may be a limit on the diameter because of forging capacity. For the large centrifugal  impeller  there  may  be  a  need  to  use  casting  or  a  more  advanced  sintering/hipping process.  The  use  of  casting/hipping  processes  for  the  impeller  as  an  alternative  to  casting  may require the development of specific standards.
+
+In summary, circulator material issues and requirements for the HTR and VHTR can be summarised as follows in Table 33.
+
+Table 33: Circulator material issues and requirements for the HTR and VHTR
+
+Circulator (HTR and VHTR temperatures) Materials used for IHX should provide necessary creep strength for the casing. Alloy 800H a candidate metallic material for HTR application. Also Hastalloy, IN 6I7, IN 625 or Haynes 230.
+
+Materials property data at elevated temperature for Alloy 800H are available in codes such as ASME. KTA has extensive property data for Alloy 617. IN 607 established for steam turbine rotors and impellers. Greater number of materials options for smaller discs. Temperatures < 700 °C hence corrosion may not be problem. High-velocity impingement of dust and particles (possible). Radiation issues (negligible). Ageing issues (possible). For the disc there may be limit on the diameter because of forging capacity. For large the centrifugal impeller there may be a need to use casting. The alternative is more advanced sintering/hipping processes. Materials most likely influenced by manufacturer’s choice. Page 119
+
+### 6.6.  Steam generator
+
+Steam  generator  concepts  are  currently  in  use  in  several  HTR  demonstrators  overseas.  All  seven constructed HTRs, including prototypes and the grid-connected THTR-300, deliver their heat to steam generators  operating  at  temperatures  significantly  lower  than  the  reactor’s  capabilities.  Steam generators are also in use in the UK AGRs, which operate with gas outlet temperatures ~ 640C.
+
+Possible options for the SGU include the straight-tube and helical-tube designs. The helical-coil-tubetype steam generator was used in the THTR-300 (see Figure 64), which consisted of a shell and three tube  bundles.  The  small  bundle  on  the  bottom  of  the  steam  generator  (SG)  provides  the  reheat section and, for  manufacturing  reasons, there  are  two high-pressure  bundles above  it that contain the superheater, evaporator and economiser. The thermal-expansion helical tubes are located on top of  the  steam  generator.  On  the  secondary  side,  water  enters  the  helical  tubes  on  top  of  the  HP bundle.  The  water  flow  is  downwards.  First  the  water  is  preheated  in  the  economiser,  then evaporated and at last superheated before leaving the steam generator.
+
+Figure 64: HTR cooler THTR 300
+
+The use of appropriate materials and their data is an important issue, and the materials used in the superheater  sections,  which  must  withstand  the  highest  temperatures  and  the  target  lifetimes  of 500 000 hours, are of primary importance. The need to avoid stress-corrosion cracking has influenced material  selection  at  lower  temperatures,  and  the  shell  material  is  similarly  required  to  withstand prolonged durations, while maintaining the pressure boundary due to its connection to the reactor vessel. For the THTR, Alloy 800H was selected for the helical coil material.
+
+Within  the  Archer  project  (Archer)  the  helical  design  was  selected  for  the  HTR  since  this  can accommodate thermal expansion more readily, and Alloy 800H was chosen as the tubing material. At VHTR  temperatures  an  improved  high-temperature-strength  material  would  be  needed,  and  Alloy 617  and  Haynes  230  are  considered  good  candidates  for  long  operating  periods  (< 850 °C)  and potential  transients.  Alloy  617  already  has  a  very  large  database  with  numerous  mechanical properties, and creep data measured in air and a helium atmosphere.
+
+Page 120
+
+For  the  design  the  ASME Code  is  applicable  and  contains  many  of  the material  design  information needs.  The  section  ASME  III-NH  provides  the  material  specification  together  with  all  requirements necessary for the material to be properly specified. This includes both ferrous (common steels) and non-ferrous materials, for example Alloy 800H tubes. Most of the temperature-dependent material properties (allowable stress, yield strength, modulus of elasticity, etc.) are listed. Of primary interest too  are  the  location  and  stressing  of  any  dissimilar  metal  welds  (DWMs)  which  may  arise  when connecting the higher-strength Alloy 800H with a lower-cost carbon material such as SA-335 Grade P11 used at lower temperatures.
+
+Over the past 40 years or so there has been much research on DMWs, examining such effects as
+
+  carbon migration across the weld interface;   diffusion of other metallic alloying elements;   effect of post-weld heat treatments;   effect of exposure at temperature;   effect of oxidation/corrosion;   consequent changes in mechanical properties at the microscopic scale and how this effects large-scale properties;   selection of filler metals with a view to reducing thermal expansion mismatch.
+
+Many problems have been overcome, but as temperatures have increased the associated mismatch in expansion possess an increased risk. In addition the manufacture will require many thousands of tube-to-tube  welds  and  necessitate  high-quality  advanced  manufacturing  methods  to  produce  and inspect welds on a routine basis by non-destructive testing.
+
+At present the materials data requirements for the steam generator seem no more complex than for other HTR components. Since there is current experience in using similar technology elsewhere there seem  to  be  no  fundamental  barriers  with  respect  to  materials  for  the  successful  development  of steam generators for HTR applications
+
+In  summary,  steam  generator  materials  issues  and  requirements  for  the  HTR  and  VHTR  can  be summarised as follows in Table 34.
+
+Table 34: Steam Generator material issues and requirements for the HTR and VHTR
+
+SGU (HTR and VHTR temperatures) For the tube and plate designs the thick section requires development. Consistency of properties (midsection) is important. Issues of tribology in an inert helium environment. Requirement for coatings for resistance to fretting, etc. (vibration). Materials candidates: Alloy 800H and Alloy 617 identified by vendors as primary candidates for HTR application. Materials selection: creep rupture — use of tertiary creep for development of allowable; creep-fatigue could be more developed. Weldability: Alloy 800H has good capabilities, as does Alloy 617. Automated processes are available for manufacture. Alloy 230 welding possible but difficult, especially in thicker section. All candidates need precautions to avoid hot cracking. Corrosion depends on exact He coolant composition and temperature: possible degradation due to carburisation, decarburisation and oxidation. Page 121
+
+Cold work can affect the creep properties of materials such as Alloy 617 and Haynes 230 leading to a reduction in strength. A suitable limit for manufacture should be defined.
+
+### 6.7.  Intermediate heat exchanger
+
+The heat exchanger component is vital in any nuclear power plant, and particularly in process-heat or cogeneration applications (Groot, et al., 2013). Its compactness and efficiency has been highlighted to be of particular importance in the VHTR.
+
+The  intermediate  heat  exchanger  (IHX)  is  perhaps  the  most  critical  part  of  the  VHTR  and  HTR.  Its development  relies  on  selecting  specific  materials  that  can  deal  with  high  operating  temperatures and pressure drops. The thermal, environmental and service life of the reactor makes selecting hightemperature  materials  a  significant  challenge,  especially  for  the  VHTR  conditions  (> 950 °C).  Alloy 800H  and  Alloy  617  already  have  a  very  large  database  with  numerous  mechanical  properties  and creep data measured in air and a helium atmosphere and are regarded as a possible material for HTR conditions.  For  VHTR  conditions  established  industrial  materials  (such  as  Alloy  617,  Haynes  230, Hastalloy X, Hastalloy XR and Alloy 800H) are at or near their limit and new range of materials (oxide dispersion  strength  (ODS)  alloys,  ceramics)  may  have  to  be  considered  for  development,  however these  require  significant  manufacturing  advances  before  they  are  suitable  for  this  application.  The need for materials capable of tolerating very high temperatures is especially true when used with the iodine-sulphur hydrogen generation process.
+
+The thermomechanical conditions of the IHX that affect material selection are as follows
+
+  the normal operating temperatures range from 350 °C to 1 000 °C (maximum);   the expected mechanical load is from the pressure, i.e. 1 to 10 MPa;   impurities  in  the  helium  are  a  major  concern  for  metals,  since  they  can  lead  to environmentally induced degradation;   ageing  effects  and  embrittlement  are  important  since  they  can  affect  performance, especially during thermal transients;   welding and fabrication issues in relation to design.
+
+Materials selection and optimisation for the once-through AGR boilers, for example, were uniquely influenced  by  corrosion  considerations  from  both  the  primary  and  secondary  water/steam environments,  where  a  250 000-hour  design  lifetime  was  required.  There  are  four  boilers  in  each reactor  and  each  boiler  comprises  three  once-through  HP  units  and  three  reheater  units,  and  in normal operation generates steam to drive the main turbine. These units have demonstrated proven control and reliability in service.
+
+Tube-and-shell arrangement
+
+The  conventional  form  of  IHX  component  is  the  tube-and-shell  design,  which  is  housed  within  a pressure vessel connected to the reactor vessel by a coaxial cross-duct. Its components are: the tube bundle; secondary-side headers; the primary gas circulator with its electric motor and cooler; and the primary-side  gas  baffles.  The  concept  of  a  heat  exchanger  with  an  integrated  circulator  offers  the
+
+Page 122
+
+greatest protection to the primary circuit components and provides for the whole pressure boundary to be cooled by the primary coolant.
+
+An important design principle of the IHX is that the tube bundle had to be free to expand within the shell  to  minimise  stresses  within  the  tubes  and  the  tube  plates.  A  further  design  principle  is  that neither  hot  primary  nor  hot  secondary  gas  should  come  into  contact  with  the  primary  pressure boundary. To comply with the first principle, the tube bundle and its headers can be designed to be fully floating with respect to the IHX shell. The second principle can be fulfilled by using a system of internal  baffles  and  engineered  leak  paths to  ensure  that  the  entire  internal surface  of the  shell  is cooled by primary coolant at the reactor inlet temperature.
+
+Compact arrangement
+
+The  effective  transfer  of  heat  is  an  important  requirement  for  the  HTR.  For  higher  temperature exchanges,  the  gas-to-gas  IHX  is  likely  to  offer  a  cheaper,  more  robust  and  compact  solution. Temperatures  are  close  to  the  core  outlet  temperature  for  most  of  its  lifetime,  which  requires considerable design development to achieve a solution capable of resisting to such temperatures for long periods of time.
+
+The plate stamped heat exchanger (PSHE) design offers the most promising solution. This design of a compact IHX is being investigated in the EU projects Raphael and Archer. Such a design uses a series of flat, thin plates assembled together in such a way that a counterflow of hot and cool gas can be achieved  to  transfer  heat.  Plate-type  heat  exchangers  (PHEs)  were  formerly  used  for  milk pasteurisation  and  gradually  became  the  standard  choice  for  heat  treatment  in  the  liquid  food industry. The facility to dismantle plate heat exchangers is one the main reasons for their wide use in the  food  industry.  Furthermore,  as  the  heat-transfer  coefficients  are  high,  the  fluid  path  length  is shorter and relatively well defined. With the developments of larger plates, their use began to grow quickly  in  the  chemical,  petrochemical,  district  heating  and  power  industries,  but  essentially  for single-phase duties.
+
+Adaption  of  this  type  of  technology  for  the  IHX  was  first  applied  to  the  recuperator  and  was investigated in  Raphael  (Buckthorpe, et al., 2008).  Table  35  below  provides  some  characteristics in terms of hydraulic and thermal considerations for the direct and indirect cycle HTR options.
+
+Table 35: Main characteristics for direct and indirect from hydraulic and thermal consideration
+
+Direct cycles  Indirect cycles Fluid  He/He  He/mixture: combined cycles He/He: Heat production Nominal working P (bar)  P HP ~ 72 P BP ~ 26   P primary side ~ 55 P secondary side ~ 50 Differential  of  pressure between circuits (bar)  ~ 50   ~ 5
+
+Maximum  nominal temperature (°C)  510  850 or 750
+
+Thermal duty (MW)  635  600 Thermal efficiency (%)  95  90
+
+Page 123
+
+The PSHE comprises a stack of corrugated plates generating mechanical contact points between the plates (see Figure 65). However, it is necessary to apply external pressure to ensure the rigidity of the system. Depending on the application, the plates are mechanically maintained by tied bars or by an external pressure higher than that of the fluids.
+
+Figure 65: Plate heat exchanger (flow direction and mock-up)
+
+Iterative sizing and CFD/FEM calculation were performed to minimise the thermomechanical stresses under steady and transient conditions so that the length and the height were chosen to give smooth thermal gradients. The technology task also involved exploring different types of welding processes (laser, plasma, diffusion bonding, etc.  —  see  Figure  66) and an important challenge  was  to set  the welding  parameters  and  complete  welding  tests  on  single  and  stacked  plates  to  validate  their application.
+
+Figure 66: Examples of welding involved in joining the plates
+
+Within Archer (Buckthorpe, 2014) a mock-up was made with Alloy 800H material of the same size as a  real  IHX  module with  fewer  plates  —  20  instead of  300.  Welding  and  machining  processes  were optimised to ensure the quality of the component.  The  compact  heat  exchanger  was  tested under transient high-temperature conditions to evaluate its integrity and potential.
+
+With regard to materials, Alloy 800H was chosen as this has a strong background in heat exchanger development at temperatures up to 750 °C and has an extensive range of design material properties available  for  the  development  of  such  a  technology.  The  ASME  Code  recently  produced  design property  data  that  extends  to  temperatures  above  this  and  includes  information  on  highertemperature alternatives such as Alloy 617.
+
+In  summary,  IHX  material  issues  and  requirements  for  the  HTR  and  VHTR  can  be  summarised  as shown in Table 36 below.
+
+Page 124
+
+Table 36: IHX material issues and requirements for the HTR and VHTR
+
+IHX (HTR and VHTR temperatures) For the tube and plate designs the thick section requires development. Consistency of properties (midsection) is important. Issues of tribology in an inert helium environment. Requirement for coatings for resistance to fretting etc. (vibration). Materials candidates: Alloy 800H and Alloy 617 identified by vendors as the primary candidate, with Alloy 230 or Alloy X, XR as alternatives. Materials selection: creep rupture — use of tertiary creep for development of allowable; creep-fatigue could be more developed. Weldability: Alloy 230 possible but difficult, especially in thicker section — other candidates are easier to weld but need precautions to avoid hot cracking. Corrosion depends on exact He coolant composition and temperature: possible degradation due to carburisation, decarburisation and oxidation. Cold work can affect the creep properties of materials such as Alloy 617 and Haynes 230 leading to a reduction in strength. A suitable limit for manufacture should be defined.
+
+### 6.8.  Turbine for direct cycle and turbine plant
+
+The  HTR  or  VHTR  can  be  developed  as  a  direct-cycle  or  an  indirect-cycle  system.  The  direct-cycle system based on the Brayton cycle utilises a gas turbine placed directly into the hot gas leaving the reactor  and  converts  it  into  rotational  energy  and  electricity  via  a  generator.  The  indirect-cycle system uses  a steam generator or  intermediate  heat exchanger introduced into the heat  transport circuit to transfer the heat energy into steam or hot gas for electricity via a process-heat application. The following sections consider the materials issues for the turbine for these two types of system.
+
+Turbine plant
+
+Turbine components are subjected to:
+
+  rotation velocities of  ~ 3 000 rpm (50 Hz), which  lead  to centrifugal forces in disks and blades;   aerodynamic forces;   thermal gradients;   contact forces between blades and their corresponding disk;   axial retention of blades in their disk socket.
+
+Materials issues concern the selection of materials for the turbine blades and lead turbine disc.
+
+For the turbine blades failure modes such as creep, high cycle fatigue and low cycle fatigue have to be taken into account. The gas radial temperature variation often peaks typically in the middle third of the blade, with steep temperature gradients across the blade section that vary according to the transient  and  steady-state  conditions.  All  regions  of  the  blade  profile  therefore  undergo  complex stress-strain cycling with reversed plasticity in some areas.
+
+For  turbine  discs  there  is  a  requirement  to  limit  the  permanent  growth  and  distortion  to  within typical design life targets. Critical regions for the disc are the hottest and highly stressed parts (high stress and moderate temperature at the hub, low stress and high temperature at the rim). For large Page 125
+
+diameter disks, IN706 can operate successfully at temperatures of 550-600 °C (steam turbines) and IN718 is a further possible material for higher temperature.
+
+Turbine for direct cycle
+
+High  temperatures  and  environmental  degradation  are  again  main  concerns  for  the  direct-cycle system utilising a turbine in the hot outlet gas leaving the reactor.
+
+For the turbine materials, resistance to high temperatures (above 750 °C) and long-term endurance (60 000 hours) are  key issues.  The main concerns  in areas such as the turbine blades  and discs  are creep plus the influence of the environment.
+
+Manufacturing considerations are also especially important for the rotor and blades. Candidate alloys for  the  disc  must  have  good  forging  properties  and  proven  thermal  stability.  For  the  blades  cast material is not sufficient, and so directionally solidified or single crystal alloys have to be considered. The need for cooling is also an important issue for both disc and blades. For current disc materials the temperature limits are in the region of 750 °C, suggesting that a cooled disc could be required for the VHTR design.
+
+The environment in an HTR is composed of helium with impurities as CH4, CO, H2O and H2 at  bar levels. The impurities can interact with the core graphite and metallic components and cause some degradation of their properties. Low concentrations of H2O and H2 are produced by leakage and/or desorption  from  both  metal  surfaces  and  graphite.  CO,  CO2  and  CH4  may  be  produced  by coolant/graphite reactions at high temperatures. Depending on the partial pressure of the impurities, the atmosphere can be either oxidising (high PO2, low ac) or carburising (low PO2, high ac) for the alloys selected.
+
+The  carburisation  can  be  limited  by  a  protective  Cr  oxide  layer,  provided  that  the  oxygen  partial pressure  is  sufficiently  high  for  a  stable  Cr  oxide  scale  to  be  formed  (see  Ellingham  diagram).  The experience gained in the past German projects has shown that the oxygen partial pressure may not in all cases be high enough for the formation of a stable Cr oxide scale. For this case, Al oxide formers should be considered in the selection of blade alloys because Al oxide forms even at extremely low oxygen partial pressures.
+
+Damage  can  either  be  at  the  surface  or  can  diffuse  to  significant  depths  in  the  metallic  matrices (internal oxidation or carburisation or decarburisation),  resulting in a loss of mechanical properties over a significant thickness of the material. As with the RPV, phase diagrams are used to determine the  neutrality  of  the  chemical  activity  and  to  determine  whether  compatibility  issues  are  likely  to have  a strong  impact  on materials  selection.  For  Ni-based  alloys  phase  diagrams were  constructed based  on  Cr  levels.  Typical  zones  for  carburisation  and  decarburisation  and  the  formation  of protective oxidation were identified at different temperatures and used to aid materials selection.
+
+Impurities  in  helium  atmospheres,  arising  from  decomposition  of  methane  under  extremely  low oxygen  partial  pressures,  are  heavily  carburising  and  can  cause  a  significant  shortening  of  the material creep life and accelerated creep crack growth rates. The presence of alloying elements such as cobalt (which is in most of the currently available turbine disc and blade materials) is also difficult to avoid. The main issues are the potential for plate-out and lift-off of particles and their activation and prevention of transport through the core.
+
+Page 126
+
+Table 37: Chemical composition of IN 792 DS and CM 247 LC DS blade materials (weight %)
+
+C  Si  Mn  Cr  Mo  Ni  Ta  Ti  W  Co  Fe  Al  Hf  V  Zr
+
+CM 247  0.074  < 0.03  < 0.03  8.16  0.43  Bal.  3.21  0.68  9.55  9.364  0.03  5.63  1.42  < 0.03  0.015
+
+Cu  B  P  S  Pb  Ag  Bi  Te  Tl  Sb  Sn  Zn  Cd
+
+< 0.03  0.0155  < 0.005  6 ppm  < 2 ppm  < 2 ppm  < 0.3 ppm  < 1 ppm  < 1 ppm  < 3 ppm  < 3 ppm  < 2 ppm  < 0.5 ppm
+
+C  Si  Mn  Cr  Mo  Ni  Nb  Ti  Ta  Al  Fe  Co  Cu  Hf  W
+
+IN 792  0.079  < 0.05  < 0.05  12.63  1.82  Bal.  < 0.1  3.91  4.18  3.52  0.02  9.08  0.03  1.34  4.25
+
+B  Zr  P  S  Ag  As  Bi  Mg  N  O  Pb  Se  Te  Tl
+
+0.017  0.02  < 0.002  < 20 ppm  < 0.1 ppm  < 5 ppm  < 0.1 ppm  < 6 ppm  < 11 ppm  < 12 ppm  < 0.3 ppm  < 2 ppm  < 1 ppm  < 0.2 ppm
+
+Suitable materials investigated in the EU HTR-M-M1 projects (Martin-Bermejo, et al., 2001) include Udimet 720 for the  disc material and CM 247 LC DS and IN 792 DS blade materials (see  Table  37). Investigations have been carried out to verify their strength properties (tensile, impact, fatigue and creep)  to  evaluate  their  performance  under  carburising  and  decarburising  atmospheres.  Such investigations are required to confirm the effects of the corrosion on material properties. Alternative approaches  include  the  use  of  large  test  loops  which  can  investigate  material  degradation  under representative reactor environments.
+
+With regard to codes and standards most information is commercial (gas turbine manufacturers). No nuclear coded design data are available for these materials. An ASME Code case for Ni-based alloys is being developed. Cooled discs could be used for a gas temperature of 850 °C, and non-cooled blades and coatings are possible for protection against corrosion/activation (cobalt).
+
+For the fabrication of the disc there is a limit on diameter with materials such as IN 706 because of their forging capacity. For the blades cast versions are considered insufficient for HTR — directionsolidified and single-crystal versions are possible.
+
+In summary, turbine material issues and requirements for the HTR and VHTR can be summarised as follows in Table 38.
+
+Table 38: Turbine material issues and requirements for the HTR and VHTR
+
+Turbine disc (HTR and VHTR)  Turbine blades (HTR and VHTR) Life assessment methodology (standards, design rules, 1D, 2D or 3D simulations?). List of possible critical defects (bore, hole, metallurgical defect). Critical mechanical criteria for design (creep or fatigue); cumulative damage laws. Minimum required ductility of alloys (non-aged Life assessment methodology (standards, design rules). Identification of critical defects (metallurgical defect, machining). Creep design rules and damage assessment. Minimum required ductility of alloys (non-
+
+Page 127
+
+and aged conditions). Vibration analysis (critical speeds, possible failure location due to vibration). Stress relaxation properties/Fatigue and creep design rules (1 % plastic deformation in creep?). High-velocity impingement of dust and particles (possible). Radiation issues (negligible). Thermal ageing (impurity level (for carburising or oxidising environment). Possible plate-out by fission products. Specific design criteria related to environment. Recommendations on alloy composition (Co) due to plate-out. aged and aged conditions). Vibration analysis. Impurity level (for carburising or oxidising environment). Possible plate-out by fission products (Cs, Ag, Te). Specific design criteria related to environment. Recommendations on alloy composition (Co) due to plate-out. High velocity impingement of dust and particles (possible). Radiation issues (negligible). Ageing issues (possible).
+
+## 7.  Safety
+
+### 7.1.  Relevant accident scenarios
+
+In  case  of  an  accident,  the  behaviour  of  the  reactor  during  severe  accidents  that  are  beyond  an emergency  shutdown  is  of  considerable  interest.  Many  possibilities  of  disturbance  of  the  heat balance of the reactor have to be considered, especially during the licensing process and beyond, in discussions about the acceptance of nuclear technology.
+
+Concerning  possible  accident  scenarios,  accidents  due  to  inner  or  outer  reasons  must  be distinguished. Furthermore, many events are foreseeable, while others are beyond expectations, for example terrorist attacks (Figure 67).
+
+Page 128
+
+Figure 67: Overview of possible impacts and events in nuclear power plants: proposal for classification
+
+From this list the accidents can be grouped as shown in Table 39.
+
+Table 39: Regarded severe accidents and their probability (P)
+
+Design-basis accident  DBA  P ≈ 10 –2 …10–3/1 year Beyond design-basis accident  BDBA  P ≈ 10 –3 …10–6/1 year Extreme assumed accident  EAA  P << 10–6/ year
+
+For the future it would be helpful to have a classification of accidents with regard to their severity.
+
+  DBA  events  (design-basis  accidents).  These  are  analysed  in  the  licensing  process  und  the plants  have  to  withstand  these  loads.  In  particular,  the  decay  heat  removal,  the  shutdown and the barriers to retain the radioactive substances must stay intact.   BDBA events (beyond design-basis accidents). Assuming these loads it should be possible to show that no catastrophic release of radioactivity from the plant can occur.   EAA events (extreme  assumed accidents).  There  are very extreme  assumptions behind this type  of  accident.  They  should  be  discussed  to  analyse  the  robustness  of  a  nuclear  system against extreme impacts from outside. There can be special solutions to ensure safety even against  these  very  extreme  accidents,  for  example  underground  siting  and  cores  that  can never melt, and EAA events are explained in Figure 68 and Figure 69. They are related to the severity  of  earthquakes.  For  many  years  the  layout  against  a  horizontal  acceleration  of approximately  0.2-0.3 g seemed to be  sufficient  for most  sites. This would correspond to a magnitude of 7 to 8 (the Richter scale). The probability for this event was estimated as 10–6 per  year.  One  could  interpret  this  scenario  as  a  DBA  accident.  Earthquakes  with  an acceleration of 0.3-0.4 g can be classified as a BDBA event with a smaller probability of 10–7 to  10–8  per year  (German conditions).  Stronger  earthquakes  cannot  be  excluded.  However, their occurrence is very unlikely so that they can be regarded as EAA events.
+
+Page 129
+
+Figure 68: Aspects of earthquakes: (a) estimated annular probability that an earthquakes (as large as the value on the X-axis) could occur (e.g. THTR 300, Germany (20)); (b) probability of damaging components depending on the acceleration
+
+Figure 69: Probability of damaging components depending on the acceleration
+
+The  question  of  an  aeroplane  crash  has  totally  changed.  At  the  beginning  of  the  development  of nuclear  technology  (~ 1960)  this  topic  was  not  important  and  was  not  considered.  During  the following decades the requirement rose to the assumption that a military aeroplane (e.g. McDonnel Douglas  F-4  Phantom)  could  damage  the  containment.  The  last  three  German  convoy  plants (1 300 MWel, PWR) were built fulfilling this requirement. The crash of a Phantom could correspond to  a  DBA  event,  but  today  very  few  nuclear  installations  have  similar  protection  (2 m-thick  wall  of concrete for the containment) (Dräger, 2001) (VDI, 2001).
+
+Since the terroristic attacks on buildings in the United States in 2001 (World Trade Center, Pentagon) the crash of large commercial aeroplanes into nuclear power plants has been discussed. This event could  be  classified  as  a  BDBA  event.  The  very  new  situation  is,  additionally,  that  no  probabilistic numbers can be identified for these events. Sometimes even stronger impacts on nuclear plants are discussed,  for  example  very  large  aeroplanes,  which  can  carry  a  large  load,  flying  into  the  nuclear power  plant.  A  characteristic  example  could  be  a  turbine  shaft  with  a  weight  of  many  tons.  Such events have to be classified as EAA events. Figure 70 shows the forces depending on time (DBA event
+
+1.E+00
+
+1.E+01
+
+1.E+02
+
+1.E+03
+
+1.E+04 0 1 2 3 4Probability of damage (1/event) Acceleration (g) (0.3 g = 0.3 m/s2)
+
+1.E-10
+
+1.E-08
+
+1.E-06
+
+1.E-04
+
+1.E-02 0 1Probability of acceleration larger than X (1/year) Ground acceleration (g)
+
+0.1 DBA BDBA
+
+EAA
+
+Model 2
+
+Model 3 Model 1
+
+MSK scale (intesity)
+
+proposed average probability distribution
+
+VI IV  V  VII  VIII  IX
+
+Page 130
+
+for a Phantom aeroplane crashing into the containment) and Table 40 the aeroplane characterisation for DBA, BDBA and EAA events.
+
+Figure 70: Forces of an aeroplane crashing into the containment (different DBA, BDBA and EAA events)
+
+Table 40: Comparison of some data on aeroplanes for DBA, BDBA and EAA events
+
+The limits of possible considerations on accidents at nuclear installation become clear looking at two examples:  special  weapons  (including  atomic  bombs)  or  meteorites  (of  sufficient  large  size)  could possibly damage plants.
+
+Accidents  relevant  for  self-acting  decay  heat  removal  in  HTRs  are  summarised in  Table  41  and  are discussed briefly below using the HTR Module as a representative modular HTGR design.
+
+Table 41: Accidents relevant for self-acting decay heat removal
+
+Event  Conditions of primary system  Assumption  Accident case  Characterisation
+
+Failure of the active decay heat removal Normal helium of primary system available Helium circulation fails A  DBA Steam generator fails Outer surface cooler works
+
+Depressurisation of the primary system Helium cycle fails  B  DBA Outer surface cooler works Helium cycle fails, outer surface cooler does not work; heat is stored in concrete inner cell C  BDBA
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+
+12 0 10 20 30 40 50 60 70Force (103 t) Time of thrust (ms)
+
+Parameter  DBA  BDBA  EAA Aeroplane  Phantom  B 747  Antonov Total mass (t)  20  400  500 Mass of turbine (t)  1  1  > 10* Mass of kerosene (t)  5  200  50
+
+Necessary wall thickness (m)  1.5-2  > 2  > 3
+
+Page 131
+
+Inner concrete cell is destroyed by extreme event; heat transport through rubble D  EAA
+
+7.1.1.  Accident case A: reactor under full pressure, loss of forced cooling If the reactor is under full pressure, but the helium circulator fails, the forced helium flow through the  core  stops  and  the  helium  flow  is  driven  by  natural  convection.  By  this mechanism the  heat  is distributed  inside  the  reactor  system.  Part  of  the  heat  is  already  removed  via  the  surface  of  the reactor pressure vessel (approximately 1 M W for the HTR Module — Figure 71).
+
+The  maximum  fuel  temperatures  will  stay  below  1 250 °C  in  this  accident.  A  value  of  1 250 °C corresponds to the specification of the coated particles under normal operation (TRISO particles with LEU  fuel).  Therefore,  the  fission-product  release  from  the  fuel  elements  will  stay  well  below  the desirable  limits.  The  amount  of  heat  removed  is  nearly  the  same  as  that  during  normal  operation (Melese, et al., 1984).
+
+Figure 71: Temperatures (right) in the core in case of loss of forced convection in a modular HTR core, here HTR Module, 200 MWth (illustrated at left), at full helium pressure
+
+The  natural  convection  of  the  helium  leads  to  heat  distribution  within  the  reactor  structures.  The temperatures of the upper part of the reactor internals will be higher  than they are during normal operation.  Figure  71  shows  the  temperatures  at  the  top  reflector  and  at  the  control  rod  drives  as they would rise from approximately 250 °C to approximately 400 °C. Due to the rising temperatures it must be ensured that, after a ‘loss of coolant flow’ accident, the pressure of the system does not stay too high over a long period of time.
+
+In  this  accident  case  the  supplying  of  electric  energy  is  totally  unnecessary.  The  operation  of  the surface  cooling  system  can  be  interrupted  for  a  long  period  of  time.  Even  after  a  very  long  ‘grace period’ (several hundred hours), it would be possible to feed the surface cooling system with water.
+
+The special behaviour of HTR — this long ‘grace period’ before feeding the surface cooling system — has already been accepted in the licensing process in Germany. In the THTR 300, for example, it was
+
+(1)
+
+(2)
+
+(3)
+
+(4)
+
+Page 132
+
+acknowledged  by  the  regulator  that  the  reactor  will  be  able  to  remain  without  active  cooling  for 5 hours (Figure 72) (Verfondern, et al., 1979) (Verfondern, 1983).
+
+Figure 72: Results of calculations for the THTR 300 (750 MWth) in case of ‘loss of active cooling’ accident
+
+The  top  left  figure  shows  the  positions  (1  to  5)  of  important  temperatures;  top  right  the  time dependence of some characteristic temperatures in the THTR core (assumption: failure of circulators, reactor  at  pressure  of  40 bar,  hot  water  operation  of  steam  generators);  bottom  left  the  time dependence  of  some  characteristic  temperatures  in  the  THTR  core  (assumption:  failure  of  helium circulators and of steam generators, reactor at 40 bar pressure); and bottom right the histogram of fuel temperatures in normal operation.
+
+Even in this reactor, with a much larger power density than the HTR Module, the fuel temperatures would have stayed below 1 250 °C and the temperatures of the top reflector structures would have stayed below 500 °C within the first 5 hours.
+
+This was the first time that the principle of self-acting decay heat removal played an important role in a licensing process  and was accepted by the official licensing body. It would have  permitted  repair works  to  be  carried out  to  re-establish  cooling  systems  after  failures.  Furthermore,  it offered  time spans for carrying out efficient interventions for specific cooling measures.
+
+Relatively cold gas (helium) 250 °C
+
+Hot gas (helium) 750 °C
+
+(1)
+
+(2)
+
+(3) (4) (5)
+
+Page 133
+
+#### 7.1.2.  Accident case B: reactor at normal pressure, surface cooler working
+
+In this case the heat is transported from the core through the internal structures of the reactor to the surface of the reactor pressure vessel. From the surface the heat is conducted to the surface cooler, which surrounds the reactor pressure vessel. This transport uses only heat conduction, heat radiation and  free  convection  of  air.  The  surface  cooling  system  can  either  work  with  small  pumps  that  are applied to circulate the water or by natural convection.
+
+The  temperature  distribution  within  in  the  core  of  the  modular  HTR  can  be  calculated  using  3D program systems (Rehm, et al., 1985) (Holzkamp, 1987).
+
+Figure 73: Results for the total loss of coolant and active cooling; failure of the surface cooler; storage and transport of heat in the concrete cell accident (HTR Module 200 Mth)
+
+The top figure shows the radial dependence of temperatures at different times (t = 0, t = 100 hours) and the bottom figures the time dependency of the temperatures, the maximum fuel temperature (left) and the temperature of the reactor pressure vessel (right).
+
+After  30 hours  the  maximum  fuel  temperature  reaches  1 500 °C.  After  reaching  the  maximum  the temperature  decreases.  During  the  accident  case  the  temperature  of  the  reactor  pressure  vessel stays below 400 °C. Therefore, this component stays intact.
+
+Page 134
+
+The time schedules for these heating and cooling processes are very long (approximately 800 hours as shown in Figure 73). Therefore, it is very likely that there would be enough time to cool the system using simple or tentative methods to cool the core (e.g. nitrogen injection). If cooling the reactor the possibility of subcriticality occurring has to be considered (see Figure 74).
+
+Due  to  xenon  decay  and  a  strong  negative  temperature  coefficient  in  the  core,  neutron-absorbing material has to be added to the core, otherwise a small amount of additional heat production due to fission will occur.
+
+The  analysis  showed  that  only  a  few  per  cent  of  the  fuel  elements  —  less  than  5 %  —  stay  at temperatures between 1 500 °C and an upper limit of ~ 1550 °C. The time span for which these fuel elements  stay  under  these  conditions  is  relatively  short  —  approximately  30 hours.  The  other  fuel elements reach lower, partly much lower, temperatures during this accident case.
+
+Page 135
+
+Figure 74: Neutron multiplication in the core of a modular HTR without active shutdown (examples: HTR Module, 200 MWth)
+
+Page 136
+
+The top figure shows the average fuel temperature, the figure in the middle  neutron absorption in xenon I35 and the lower figure the time dependence of criticality without active shutdown.
+
+#### 7.1.3.  Accident case C: reactor under normal pressure, surface cooler fails
+
+The  probability  of  this  accident  case  is  very  low  as  a  failure  of  the  surface  cooler  can  nearly  be avoided  using  a  redundant  design  of  the  surface  cooling  system.  Moreover,  the  possibility  of effective  countermeasures  is  provided  due  to  the  long  ‘grace  period’  of  the  reactor.  However,  as detailed  calculations  show,  even  under  these assumptions  the maximum  fuel temperature  is  quite similar  to  an  accident  case  with  a  working  surface  cooler  as  the  heat  is  given  to  the  concrete structure of the inner concrete cell. Figure 75 shows that the maximum temperature of the reactor pressure vessel would rise to approximately 600 °C and the concrete temperature would reach nearly 500 °C  (Siemens/Interatom,  1988).  The  histogram  of  the  fuel  temperatures  changes  insofar  as  the percentage of fuel elements with temperatures higher than 1 250 °C will be larger and the time these fuel elements have to withstand the heat will be longer. The important property of the fuel elements — to nearly retain all fission products — will not be changed drastically.
+
+Figure 75: Results for the accident: total loss of active cooling; failure of the surface cooler; storage and transport of heat in the concrete cell (HTR Module, 200 MWth)
+
+In  the  scheme  of  the  reactor  (top  left)  the  characteristic  points  (1,  2,  3)  are  denoted  where temperature  distributions  are  shown.  The  top  right  figure  shows  the  radial  dependence  of
+
+Page 137
+
+temperatures after 0 h and after 100 h. The figures below show the time dependence of the reactor pressure vessel and surface cooler after a short time (left) and after a long time (right).
+
+#### 7.1.4.  Water ingress into the primary circuit
+
+Even though the steam generator or possible separate water-powered decay heat removal systems of an HTR system are manufactured, monitored and operated with great care, it is still possible that leaks may occur or pipes may burst during operation. As a result of such incidents quantities of water may  enter  the  primary  circuit.  The  amount  of  water  entering  depends  on  the  design  of  the  heat exchanger as well as the size and location of the leak. The ingress of water into the helium circuit of an HTR basically has the following consequences. The penetrated water evaporates or enters in the form of vapour, which consequently leads to a pressure increase in the primary helium circuit. Either the existing reactor volume has to be sufficiently large so that the penetrated water can be saved as a  vapour  within  acceptable  pressure  limits  in  the  primary  circuit,  or  after  exceeding  an  allowable overpressure  redundant  existing  safety  valves  or  rupture  discs  need  to  open  so  that  the  primary circuit  can  be  depressurised.  The  steam  is  then  collected  in  a  ‘mixed  condenser’,  which  effects condensation of the vapour in a water trap or a suitably dimensioned heat store so that the vapour can be transferred into a liquid phase again. Steam in the primary system may lead to corrosion  of the hot graphite structures of the fuel or the core structures. As a result of this structural weaknesses may occur. The products of this water-gas reaction are hydrogen and carbon monoxide. These gases can mix with the helium in the primary circuit and the unreacted steam in the reactor building. The gas mixture may furthermore mix with the air present in the reactor building. This multicomponent system (air/helium/hydrogen/carbon monoxide) can be explosive in certain mixtures.
+
+In addition, water entering the primary circuit can result in increased reactivity of the core since the water acts as a moderator.
+
+Subsequent  damage  to  components  that  are  not  directly  related  to  reactor  safety  but  may  impact the availability of the overall system will be mentioned only briefly here. Considerable damage may be caused to the insulation, the blower and components of the shutdown and charging system.
+
+The  pressure  increase  in  the  primary  circuit  due  to  water  ingress  may  be  estimated  according  to equation 1.
+
+𝑑𝑚 𝑑𝑡 ~𝑓√2𝜕∆𝑝                      (26)
+
+𝑓 describes the area of the leak in a steam generator and 𝜕 is the density of the water in the steam generator close to the leak. ∆𝑝 may be the pressure difference between the primary and secondary circuits. The pressure differences changes over time (equation  2).
+
+∆𝑝~∆𝑝0(1 − 𝛼𝑡)                    (27)
+
+Page 138
+
+Using changing pressure differences may lead to equation 3.
+
+𝑑𝑚 𝑑𝑡 ~𝑓√2𝜕∆𝑝   ∙ (1 − 𝑎
+
+## 2 𝑡) = 𝑚̇ 0(1 − 𝑎
+
+## 2 𝑡)              (28)
+
+Equation 4 may be used to estimate the mass leaving the secondary circuit over time t.
+
+𝑀(𝑡) = ∫ 𝑑𝑚 𝑑𝑡′ 𝑑𝑡′ = 𝑡
+
+## 0  𝑚̇ 0(𝑡 − 𝑎
+
+## 2 𝑡2)                (29)
+
+The volume of the water entering the primary circuit can then be estimated as follows.
+
+𝑉𝐷(𝑡) = 𝑀(𝑡) 𝜕𝐷                       (30)
+
+with 𝜕𝐷 accounting for the steam density.
+
+Assuming that safety valves or other measures used to decrease the pressure in the primary circuit do  not  react  instantly  the  steam  concentration  in  the  primary  circuit  may  be  determined  using equation 6.
+
+𝑘𝑑(𝑡) = 𝑉𝐷(𝑡) 𝑉𝐶(𝑡)+𝑉𝐻𝑒 ≈ 𝑉𝐷 𝑉𝐻𝑒                  (31)
+
+At the beginning 𝑉𝐷 <   <  𝑉𝐻𝑒 is assumed. Hence the pressure increase in the primary circuit can be expressed as follows.
+
+𝑝(𝑡) = 𝑝0 1 1−𝑘𝑑(𝑡) ≈ 𝑝0(1 + 𝑘𝑑(𝑡))                (32)
+
+𝑝(𝑡) ~ 𝑝0 (1 + 𝑉𝐷(𝑡)
+
+𝑉𝐻𝑒 ) = 𝑝0(1 + 𝑀(𝑡) 𝜕(𝑡)∙ 𝑉𝐻𝑒)              (33)
+
+Time dependent:
+
+Page 139
+
+𝑝(𝑡) ≈ 𝑝0 (1 + 𝑚̇ 0 𝜕(𝑡)∙ 𝑉𝐻𝑒 ∙ (𝑡 − 𝑎
+
+## 4 𝑡2))                (34)
+
+A  leak with  f = 1 mm2,  an  initial  pressure  difference  of 150 bar  and  a  rupture  resulting  in 𝜕 = 𝜕𝑊 = 1 000 kg/m3 water loss may be used as an example here. The amount of water at the beginning of the incident flowing into the primary circuit is given as 𝑚̇ 0 ≈ 0.2 𝑘𝑔/𝑠. In this example it is assumed that moisture detectors in the primary system notice the water ingress after 10 seconds, resulting in activation  of  the  shutdown  valves  after  30 seconds.  The  amount  of  water  that  may  penetrate  the primary  circuit  this  way  can  be  estimated  taking  the  capacity  of  the  damaged  steam  generator sections  into  account.  Ideally,  the  steam  generator  allows  locking  of  different  sections  so  that  the amount of water entering the primary circuit can be reduced. For instance, 10 steam generator tubes result in a tube length of around 100 m with a total capacity of about 200 kg of water. Assuming a completely ruptured heat exchanger tube from the super heater, the amount of water entering the primary circuit may be as follows:
+
+f = 4 cm2, 𝜕𝐷 = 60 𝑘𝑔/m3, ∆𝑝 ≈ 150 bar resulting in 𝑚̇ 0 zu ≈ 17 kg/s. It is evident that in addition to the  content  of  the  tube  a  significant  contribution  of  water  occurs,  as  the  valves  are  not  closed immediately but after 30 seconds. This process can be estimated using the following equation.
+
+𝑡 ~ ( 𝑝 𝑝0 − 1) 𝜕(𝑡)∙ 𝑉𝐻𝑒 𝑚̇ 0                     (35)
+
+In reality condensation processes may occur prior to reaching the final pressure, therefore the total pressure may not be reached. Figure 76 displays the result of a more accurate quantitative analysis of the time-dependent pressure increase in the THTR primary circuit system in case of demolition of a steam generator tube.
+
+Page 140
+
+Figure 76: Pressure as function of time in the THTR primary circuit due to water penetration from a defective steam generator tube (operating pressure 40 bar)
+
+For  new  HTR  concepts  this  accident  scenario  may  occur  as  follows.  After  detecting  a  tube  rupture using  moisture  detectors,  pressure  increase,  neutron  flux  changes  or  blower  power  changes  the reactor  is  shut  down.  The  water  supply  is  stopped  and  the  leak  will  be  detected  using  moisturemeasurement techniques. In such an incident the pressure is usually around 20 % above the design pressure,  therefore  the  abovementioned  pressure-relief  devices  of  the  primary  circuit  may  be opened.  The  steam/helium  mixture  is  thereby  injected  into  condensers.  The  steam  condenses  and the helium flows into the reactor protection building. Depending on the design of the overpressure protection system of the primary circuit this event may result in 1 bar operating pressure or normal operating  pressure.  The  decay  heat  removal  system  is  put  into  operation  and  cools  the  reactor  to such  an  extent  that  corrosion  processes  occur  only  very  slowly.  This  means  that  the  surface temperature of the graphite in the core region is lowered to below 700 °C. In addition to the pressure increase, corrosion effects need to be investigated further. Based on the determined heterogeneous water-gas reaction:
+
+𝐶 + 𝐻2𝑂 → 𝐶𝑂 + 𝐻2, ∆𝐻=119 kJ/mol (endotherm)            (36)
+
+the following amount of material may react:
+
+1𝑘𝑔 𝐶 + 1.5 𝑘𝑔 𝐻2𝑂 → 1.87𝑚3𝐶𝑂 + 1.87𝑚3𝐻2            (37)
+
+The reaction speed is dependent on the pressures and the temperature of the components involved.
+
+Page 141
+
+𝑟′ = 𝑘1∙𝑝𝐻2𝑂 1+𝑘2∙𝑝𝐻2𝑂+𝑘3∙𝑝𝐶𝑂                    (38)
+
+With:
+
+𝑘𝑖 = 𝐶𝑖 ∙ 𝑒−𝐸𝑖 𝑘𝑇                      (39)
+
+Experiments with graphite suitable for reactor application determined the following relationship:
+
+𝑟 = 𝑟0√ 𝑝𝐻2𝑂 𝑝 ∙ 𝑒 𝐸 𝑅( 1 𝑇0−1 𝑇)                    (40)
+
+in which:
+
+𝑟 = reaction rate (mg/cm2h),
+
+𝑝𝐻2𝑂 = water pressure (bar),
+
+𝑝 = overall pressure (bar),
+
+𝐸 = activation energy (kJ/mol),
+
+𝑅 = gas constant (kJ/mol K),
+
+𝑇0 = nominal temperature (K),
+
+𝑇 = material temperature (K),
+
+𝑟0 = nominal reaction rate (mg/cm2h).
+
+The nominal reaction rate 𝑟0  is usually for 𝑇0 = 950 °C, p = 1 bar and a specified volume fraction of 3 %  steam  in  helium.  The  value  of  𝑟0  is  for  A3  graphite  at  1.3 mg/cm2h.  The  dependence  of  the reaction rate 𝑟 (mg/cm2h) to temperature, total pressure and water vapour partial pressure is shown in Figure 77 and Figure 78. Here a burnup of 2 % was used. The dependence of the reaction rate of the  burnup  has  also  being  taken  into  account  in  accurate  analyses.  It  is  shown  in  Figure  79.  The curves  indicate  that  data  higher  than  1 000 °C  was  extrapolated.  This  high  graphite  temperature occurs  only  in  extreme  incidents.  In  all  design-basis  accidents  the  core  is  rapidly  cooled  below 1 000 °C.  Moreover,  corrosion  rates  of  over  2 %  go  beyond  the  scope  of  design-basis  accidents.  A modification of the corrosion rates by catalytic effects of alkali metals is known, but the magnitude of this effect is below these values.
+
+Page 142
+
+Figure 77: Corrosion rate of A3 graphite in water vapour as a function of temperature
+
+Figure 78: Corrosion rate of A3 graphite in water vapour as a function of total pressure p
+
+Page 143
+
+Figure 79: Corrosion rate of A3 graphite in water vapour as a function of burnup
+
+To illustrate the effect of water vapour corrosion of fuel, the following example is considered. A fuel assembly  with  surface  A = 4πR2 = 113 cm2  will  be  exposed  for 1 hour  to water  vapour  attack  (1 bar partial  pressure  in  helium)  at  1 000  C  and  40 bar  total  pressure.  The  reaction  rate  under  these conditions  is  about  10 mg/cm2h.  Consequently,  in  this  period,  a  graphite  amount  of  about  1.1 g, corresponding to 0.6 wt % relative mass loss is plotted on the entire fuel assembly due to corrosion. The corresponding layer is 6 × 10–2 mm, therefore it is essentially not significant. Also, a substantial adverse  effect  on  the  stability  of  the  fuel  is  not  yet  connected  to  such  a  low  burnup,  as  shown  in Figure 80. Only if a longer-lasting corrosion attack is relevant does this become important.
+
+Figure 80: Decrease in the strength of the fuel due to corrosion in steam (6:42)
+
+Page 144
+
+The total area of the reflector hot graphite structures shall be subject to the flooding event. In steamgenerating systems the core area or the hot gas chamber is located in a temperature range from 700 to  750 °C.  These  temperatures  are  similar  to  fuel  element  graphite  at  950 °C.  During  process-heat applications, reflector graphite  structures are affected by water vapour corrosion.  Figure  81  shows measured corrosion rates for various reactor graphite materials with A3 graphite inclusions for fuel elements.  In  this  case  a  reaction  rate  r  (in %/h)  related  to  the  entire  surface  plotted  against  the increasing burnup is assumed. The rate is to be regarded as an integral rate.
+
+It can be noticed that in standard conditions, depending on the grade of graphite, around 0.1 % to 0.4 % of the amount of graphite would be transferred by water vapour corrosion if no cooling of the graphite structures were carried out before. Reflector structures which are operated normally during operation below temperatures of 800 °C are therefore not endangered by multiple flooding incidents during the system life cycle, as relatively small reaction rates are to be set for such events.
+
+A method for dealing with the effects of a flooding incident on the integral corrosion behaviour of an HTR  core’s  space-  and  time-dependent  temperature  fields  must  be  determined  for  all  graphite surfaces, overlaid with the temperature, burnup, and partial pressure dependent corrosion rates.
+
+Figure 81: Integral corrosion rate in water vapour as a function of burnup for standard conditions. Reflector graphite ATR-2E and ASR 1RS and fuel element graphite A3-3 and A3-27 (6:37)
+
+In  general,  it  can  be  assumed  that  the  corrosion  of  the  reactor  internals of  the  core  due  to  water vapour  can  be  limited  by  timely  cooling  of  the  core  by  the  decay  heat  removal  system  within tolerable  limits.  In  addition,  only  a  few  fuel  elements  in  the  HTR  core  see  temperatures  that  are relevant to water vapour corrosion (the surface temperature of the fuel element is about 700 C). As mentioned above,  reactions with 1.5 kg  of water vapour on 1 kg  of graphite  by the heterogeneous water-gas  reaction  results  in  a  total  of  3.74 m3  of  hydrogen  and  carbon  monoxide.  Thus  if,  as mentioned above, for example in a tube damage accident, around 400 kg of water enters the primary circuit  of  an  HTR,  then  about  1 500 m3  of  water  gas  is  formed  when  complete  conversion  of  the water  is  assumed.  These  gases  do  not  come  there  to  relieve  the  pressure  of  the  primary  circuit, therefore  they must  be  removed after shutting  down  the  reactor  through  the  gas  cleaning  system (see  ‘Components’  section).  If,  additionally,  the  relieving  of  the  pressure  of  the  primary  circuit  is assumed, a gas mixture consisting of helium/air/water gas forms in the reactor protection building. A portion of the incoming air from the containment is displaced by the incoming helium-water mixture.
+
+Page 145
+
+Under certain conditions the composition of such a mixture is explosive.  The diagrams below show potential explosion areas, to assess the usefulness of the relationships (Figure 82). Thus, the area of ignitable mixtures with increasing temperature shifts. As a security boundary, values for the fuel gas contents  of  an  inert  gas  fuel  gas-air  mixture  can  be  defined  where  for  any  dilution  with  air  no ignitable  mixtures  will  emerge.  For  ambient  temperatures,  therefore,  this  stands  at  17.85 %.  With precise analysis the effect of pressure and water vapour is taken into account. A further limitation of the  quantities  of  water  during  flooding  can  be  achieved  through  changes  to  the  steam  generator concept. When using gas turbine systems the question becomes less relevant.
+
+In  general  it  can  be  said  that  the  formation  of  gas  would  extend  after  flooding  over  a  period  of several hours and that cooling of the graphite usually already occurs during this period, therefore the amount of water gas remains very limited regarding reactivity changes which are to be expected in connection with water ingress in an HTR core.
+
+Figure 82: Flammability of water-gas helium-air mixtures at different temperatures
+
+#### 7.1.5.  Air ingress into the primary circuit
+
+Quantities of air that enter into the helium circuit of an HTR can trigger reactions depending on the size  and  location  of one  or  more  leaks  and  can  possibly  lead  to safety-related incidents  in  the  hot core.  Specifically,  fuel  and  graphite  internals  may  be  damaged  and  their  structural  behaviour adversely  affected  by  combustion  of  graphite.  If  too  much  erosion  occurs  fission  products  may  be released from the graphite matrix or from defective particles, in addition to incomplete oxidation of the  graphite  carbon  dioxide  and  carbon monoxide,  which  has  to  be  considered  in  connection  with
+
+Area of ignitable mixtures
+
+Page 146
+
+the formation of explosive gas mixtures in the reactor building protection. Exothermic reactions that may  lead  to  fires may  cause  further  heating  of  the  internal  structures.  The  amount  of  air  that  can penetrate into the core is determined by the expiration of convection processes, by the contraction or compression of the primary cycle gas content, by cooling and fluctuations in air pressure and by diffusion processes. Whilst for the THTR chosen design principle of the inclusion of the entire primary circuit system in a prestressed and mon bursting concrete container leaking cross sections of 65 mm in diameter can be assumed, other leaking cross sections and incident possibilities for different HTR concepts are conceivable. As part of these considerations, other fragment sizes incidents possibilities are conceivable. As part of these considerations chimney effects may  also  be assumed considering two leaks. These incidents are classified in the range of hypothetical accidents.
+
+First the reactions may be explained using simple stoichiometric considerations. The basic reactions are as follows.
+
+𝐶 + 𝑂2 → 𝐶𝑂2, ∆𝐻 = −393.9 𝑘𝐽 𝑚𝑜𝑙 (𝑒𝑥𝑜𝑡ℎ𝑒𝑟𝑚)              (41)
+
+𝐶 + 1
+
+## 2 𝑂2 → 𝐶𝑂, ∆𝐻 = −111.2 𝑘𝐽
+
+𝑚𝑜𝑙 (𝑒𝑥𝑜𝑡ℎ𝑒𝑟𝑚)              (42)
+
+𝐶 + 𝑂2 → 2𝐶𝑂, ∆𝐻 = +170.5 𝑘𝐽 𝑚𝑜𝑙 (𝑒𝑛𝑑𝑜ℎ𝑒𝑟𝑚)           (43)
+
+𝐶𝑂 + 1
+
+## 2 𝑂2 → 𝐶𝑂2, ∆𝐻 = −281.7 𝑘𝐽
+
+𝑚𝑜𝑙 (𝑒𝑥𝑜𝑡ℎ𝑒𝑟𝑚)            (44)
+
+The first two reactions mentioned lead to the following quantities of air reaction.
+
+1 𝑘𝑔 𝐶 + 2.667 𝑘𝑔 𝑂2 → 3.667 𝐶𝑂2              (45)
+
+1 𝑘𝑔 𝐶 + 8.92𝑚3 𝑎𝑖𝑟  → 1.87𝑚3 𝐶𝑂2 + 6.87𝑚3𝑁2          (46)
+
+or
+
+1 𝑘𝑔 𝐶 + 1.33 𝑘𝑔 𝑂2 → 2.33 𝑘𝑔 𝐶𝑂2              (47)
+
+1 𝑘𝑔 𝐶 + 4.96 𝑎𝑖𝑟  → 1.86𝑚3 𝐶𝑂 + 3.48𝑚3𝑁2            (48)
+
+The  distribution  of  the  reaction  processes  to  the  responses  of  CO2  or  CO  formation  is  based  on present experience such that below a reaction temperature of about 1 000 °C significant amounts of CO2 and increasing amounts of CO are formed. The equilibrium and the CO–CO2 ratio are shown as a function of temperature in Figure 83.
+
+Page 147
+
+The reaction rate of graphite with oxygen or air is known from a variety of measurements. Essential parameters for the conversion rate are: the temperature T, the oxygen partial pressure 𝜓𝑂2, the flow rate  of  air  𝑣𝐿  and  the  pre-burnup  of  the  graphite  ∆𝑚.  In  the  range  below  a  temperature  of  about 700 °C  in  the  graphite,  called  the  pore  diffusion  region,  the  corrosion  rate  increases  exponentially with  temperature,  and  the  dependence  on  the  oxygen  partial  pressure  is  linear.  In  this  area  the chemical reaction is dominant for the reaction rate and the flow rate of air has virtually no effect on the reaction rate R (mg/cm2h).
+
+𝑅~exp (− 𝐴 𝑇) ∙ 𝑇−0.125 ∙ 𝜓𝑂2 ∙ 𝑃 𝑃0 (1 − ∆𝑚 𝑚 ) 0.66              (49)
+
+The  relationship  above  is  in  close  agreement  with  past  measurements.  At  reaction  temperatures above  900 °C  in  the  boundary  layer  region  the  flow  speed  determines  all  of  the  oxygen  which  is introduced to the graphite surface because of the high temperature. In this area, the reaction rate can be expressed by:
+
+𝑅~𝑇0.53 ∙ 𝑣𝐿 0.437 ∙ 𝜓𝑂2 ∙ 𝑃 𝑃0 (1 − ∆𝑚 𝑚 ) 0.66                (50)
+
+In the transition region of 700 °C < 900 °C the following equation can be used:
+
+𝑅~𝜑(𝑇, 𝑣𝐿) ∙ 𝜓𝑂2 ∙ 𝑃 𝑃0 (1 − ∆𝑚 𝑚 ) 0.66                (51)
+
+Function  𝜑  takes  both  effects,  diffusion  and  reaction,  into  account.  Experimental  results  for  the reaction  rates  of  graphite  pebble  beds  are  shown  together  with  the  aforementioned  theoretical relationships in Figure 84, and show close agreement between theory and experiment.
+
+Page 148
+
+Figure 83: equilibrium and ration of CO/CO2
+
+The effect of air entering the primary circuit of an HTR to the fuel is here illustrated by the following simple estimation: at a temperature of 1 000 °C and a flow rate of 2.35 cm/s, a reaction rate of about 200 mg/cm2h in the corrosion of A3 graphite can be expected in air. When a fuel assembly remains for  1 hour  in  air  it  loses  about  23 g  of  its  graphite  matrix  by  burning.  The  corrosion  would  occur evenly distributed over the surface, so a graphite shell would be ablated with a thickness of about 13 mm. Consequently the fuel matrix is not affected.
+
+However, in case of direct exposure of the fuel elements to air the graphite is not attacked uniformly but  a  certain  ‘shaping’  of  the  fuel  elements  is  observed.  The  material  removal  is  not  evenly distributed  over  the  spherical  surface.  This  phenomenon  leads  to  more  detailed  considerations beyond the scope of the assumptions employed here. In case of material removal the properties of the fuel or the graphitic core structures are unfavourably altered. For example, the strength of the fuel is decreased by graphite corrosion (Figure 85) over time.
+
+Figure 84: Measured reaction rates of corrosion of graphite pebble beds by air
+
+Page 149
+
+Figure 85: Decrease of the maximum load before rupture of the fuel elements depending on the corrosion time at variable temperatures (corrosion in air)
+
+According to the stoichiometric considerations initially employed about 0.4 m3 of CO is produced per 1 m3 of air. In air, carbon monoxide is formed in a volume range of 14 % to 73 % ignitable mixtures. By including helium, which would be available in certain quantities during air ingress accidents in the reactor protection building, the flammability limits are moved (Figure 86). If the total helium share is above  40 %  ignitable mixtures are not  possible.  For more  accurate  analyses local gas compositions and the influence of water vapour and may be dust have to be taken into account.
+
+Figure 86: Flammability limits for the air/carbon monoxide/helium system
+
+A prerequisite for the occurrence of significant graphite burning in both fuel elements and graphite structures  is  that  sufficient  quantities  of  air  can  penetrate  into  the  reactor  core.  In  particular,  the chimney  effect  through  the  reactor  is  worth  mentioning  in  this  context.  A  hypothetical  accident situation is considered here (Figure 87).
+
+Page 150
+
+Figure 87: Schematic diagram of the chimney effect during air ingress into the HTR core
+
+An opening is available at both the upper and lower ends of the reactor pressure vessel, therefore a chimney can form through the reactor. The air mass flow, which is established in the primary circuit, can then be determined from the conservation equations. The conservation of mass, which was first seen in the chimney approximated without chemical reaction, yields the stationary case:
+
+𝑑 𝑑𝑥 (𝜕 ∙ 𝑢 ∙ 𝐴) = 0, 𝑚̇   =  𝜕 ∙ 𝑢 ∙ 𝐴 = 𝑐𝑜𝑛𝑠𝑡            (52)
+
+Application of the pulse conservation law leads to:
+
+𝜕 ∙ 𝑢 ∙ 𝑑𝑢 𝑑𝑥 = − 𝑑𝑝 𝑑𝑥 − 𝑔 ∙ 𝜕 − 𝐾𝛼(𝑇) ∙ 𝑚̇ 𝛼                (53)
+
+The energy law finally gives:
+
+𝜕 ∙ 𝑐𝑝 ∙ 𝑢 ∙ 𝑑𝑇 𝑑𝑥 = 𝑞(𝑥) 𝐴                     (54)
+
+q(x) may represent the heat in the core of the air stream here, and the size A is the free cross section. The  part  𝐾𝛼 ∙ 𝑚̇ 𝛼  accounts  for  the  frictional  pressure  loss.  Taking  into  account  the  temperature dependence of density and toughness this leads to:
+
+Page 151
+
+𝜕 = 𝜕0 ∙ 𝑇0 𝑇 , 𝜂~𝐶 ∙ 𝑇1 2⁄ , 𝑣 = 𝜂 𝜕 ~𝐶∗ ∙ 𝑇3 2⁄               (55)
+
+After appropriate transformation of the equations the correlation between mass air flow, the height of the system H, the heat input q(x) into the system and the free cross section A is given as:
+
+𝜑(𝑥) = 1 𝑚∙𝑐𝑃∙𝑇0̇ ∙ ∫ 𝑞(𝑥′)𝑑𝑥′𝑥 0                   (56)
+
+where:
+
+𝑚̇ 2
+
+𝜕0∙𝐴2 (1 2 + 𝜑(𝐻)) = 𝜕0 ∙ 𝑔 ∙ ∫ (1 − 1 𝜑(𝑥)) 𝑑𝑥 − 𝐾𝛼 ∙ 𝑚̇ 𝛼 ∙ ∫ (1 + 𝜑(𝑥)) (2−𝛼 2)⁄ 𝑑𝑥 𝐻 0 𝐻 0     (57)
+
+In the case of laminar flow (α = 1) is given as 𝐾𝛼 where:
+
+𝐾𝛼~𝐶1 ∙ 𝑇3 2⁄                       (58)
+
+while for turbulent flow (α = 2):
+
+𝐾𝛼~𝐶2 ∙ 𝑇                      (59)
+
+is given. In Figure 88 the results of calculations that include the dependence of the invading air mass flow rates of the most important parameters are listed for a module reactor. With one ingress and the  passage  of  10 m3/h  of  air  through  a  chimney  HTR  basis  (this  is  shown  in  Figure  88)  for  two openings (nominal diameter 60 mm) this leads to a burn rate of about 1.1 kg C/h. This could mean the destruction of up to 10 fuel assemblies per hour. However, this effect would occur only after the various layers of the bottom reflector are burned through (these are about 2 m thick). This leads to a period of at least 10 hours before fuel is affected. This delay allows the implementation of simple and effective countermeasures to prevent air intrusion.
+
+Page 152
+
+Figure 88: Mass flow depending on the leakage cross section and on the temperature in the core (measured from the reactor module)
+
+For  larger  leak  cross  sections,  which  are  discussed  for  hypothetical  accidents  here,  the abovementioned  shall  apply.  For  larger  leak  cross  sections,  which  are  discussed  for  hypothetical accidents here, the abovementioned shall apply. From such considerations it can be concluded that for an HTR system it must be  ensured by design and construction of the  primary  circuit enclosure, that air infiltration is very unlikely and if the amount remains very limited. In particular, prestressed reactor vessels meet these requirements in a particular way. For interventions, that is, interventions where air leak can be stopped, very long periods of time at all HTR concepts remain.  In particular, such  interventions  are  feasible  because  the  facilities  remain  under  all  possible  incidents  virtually contamination free and accessible for long periods of time.
+
+7.1.6.  Accident  case  D:  concrete  structures  of  the  reactor  system  are  destroyed; the reactor is covered with rubble Due to a terrorist attack or the crashing of a large aeroplane, or as a consequence of a very strong earthquake with a strength much larger than the design value, the concrete structure of a modular
+
+Page 153
+
+HTR could be totally destroyed. It must be assumed that the reactor pressure vessel is covered with rubble  and  that  therefore  the  conditions  for  the  self-acting  removal  of  decay  heat  are  changed. Figure 89 briefly illustrates this situation.
+
+Although  the  conditions  and  integrity  of  the  reactor  pressure  vessel  and  the  core  structures  are totally  unknown,  under  the  assumption  that  the  reactor  pressure  is  intact  calculations  of temperature  fields  deliver  the  dependencies  shown  in  Figure  89.  Even  in  this  extreme  case  the maximum  fuel  temperature  stays  below  1 600 °C.  The  temperature  of  the  reactor  pressure  vessel would (depending on the heat transport capabilities of the rubble structure) reach 600 °C to 1 000 °C (Rütten, 2007) (Hauck, 2003).
+
+Figure 89: Accident case D — concrete structures are destroyed, reactor is covered with rubble: (a) model for calculations; (b) results of calculations for the time dependence of relevant temperatures
+
+Generally  the  outer  parts  of  the  core  become  hotter  than  in  the  accident  cases  discussed  before. However, under the assumption of an intact reactor pressure vessel it can be stated that even this extreme  disturbance  of  the  decay  heat  removal  system  does  not  cause  the  reactor  to  heat  up towards  temperatures  that  would  destroy  the  fuel  elements.  Even  in  this  case  the  fission-product release would be limited.
+
+Another interesting point is linked to very strong seismic events is that a change in the density of the pebble bed core could happen. In the normal non-compacted state the packing fraction of the pebble bed is assumed to have an average value of 0.61. The results of seismic event simulations in a large test facility showed that, depending on the magnitude of horizontal acceleration and the acceleration period,  very  small  changes  in  the  packing  factor  occur.  For  an  acceleration  of  0.3 g,  for  example, characteristic  values  of  a  maximum  2 %  change  of  density  are  reasonable.  Hence,  this  is  of  no relevance for the reactivity balance and for the cooling conditions of a modular HTR.
+
+Page 154
+
+### 7.2.  Self-acting decay heat removal
+
+#### 7.2.1.  Overview of the concept
+
+Self-acting decay heat removal uses physical means, namely conduction, convection and radiation, to remove  decay  heat  without  using  active  or  passive  machinery.  Figure  90  explains  the  principle  of heat transport from the core to the environment. In case of severe accidents in the modular HTGR a total loss of coolant and a total loss of active decay heat removal is assumed. In this case the selfacting removal of decay heat takes place and a possible meltdown of the reactor core is avoided as the fuel temperatures do not reach concerning temperatures. In fact, theoretically no fission-product release  from the fuel elements occurs  (Mertens, et al., 1985)  (Schenk,  et al., 1986)  (Schenk,  et al., 1989). This inherent feature cannot fail because of accidents due to internal and external reasons.
+
+Figure 90: Stationary radial temperature profile in case of self-acting decay heat removal in a modular HTR (Tmax in the hottest part of the core)
+
+Some further explanations on the concept, as far as heat transport mechanism and limitations of temperatures in the components are considered, are contained in Table 42.
+
+Table 42: Heat transport mechanism and temperature limits: (a) heat transport mechanism in different structures; (b) limiting parameters for the concept (e.g. HTR Module, 200 MWth)
+
+Position  Conduction  Radiation  Free convection Core  ●  ●  ● Reflector  ● Reflector -> thermal shield    ●  ● Thermal shield  ●  ● Thermal shield -> reactor vessel    ●  ● Reactor vessel  ● Reactor vessel -> cooling system
+
+Reactor vessel -> concrete  ●  ●  ●
+
+Page 155
+
+Parameter  Condition  Characteristic value Fuel temperature  𝑇𝑓𝑢𝑒𝑙 < 𝑇𝑓𝑢𝑒𝑙(max. )  𝑇𝑓𝑢𝑒𝑙(max. ) < 1 600℃ Temperature of the reactor pressure vessel  𝑇𝑟𝑝𝑣 < 𝑇𝑟𝑝𝑣(max. )  𝑇𝑟𝑝𝑣(max. ) < 600℃
+
+Temperature of the concrete  𝑇𝑐𝑜𝑛𝑐 < 𝑇𝑐𝑜𝑛𝑐(max. )  𝑇𝑐𝑜𝑛𝑐(max. ) < 400℃ Heat removal  𝑄̇ > 𝑄̇ (𝑚𝑖𝑛. )  𝑄̇ (𝑚𝑖𝑛. ) ≈ 800𝐾
+
+The main requirement is that the heat is released from the core by these self-acting mechanisms in such conditions that the maximum fuel temperature stays below a value of Tmax. Currently Tmax has the  value  of  1 600 °C  for  coated  particle  fuel  (TRISO  particles).  In  these  conditions  the  fission products stay almost  completely  inside  the coated particle. If a reactor releases the decay heat by self-acting  processes  and  the  maximum  fuel  temperature  stays  below  this  permitted  level (< 1 600 °C) the reactor system is called thermally stable. Some results  from annealing experiments using irradiated pebble bed fuel elements with TRISO particles are explained in Figure 91.
+
+The  top  figure  shows  the  release  of  85Kr  as  a  function  of  the  temperature,  the  lower  figure  the release of 90Sr, 137Cs and 85Kr depending on the heating time at a temperature of 1 600 °C.
+
+Page 156
+
+Figure 91: Release fraction of fission products from pebble bed fuel elements containing TRISO-coated particles
+
+The release fractions of noble gases or of iodine dependent on temperature and time are indeed very low even after a long period of annelation of the solid fission products, such as for 137Cs and 90Sr.
+
+The principles of heat transport, characterised here,  can  never fail if the system is designed in the right way and if the parameters of the core and the core internals are chosen corresponding to the requirement of temperature limitation.
+
+#### 7.2.2.  Valuation of parameters influencing the decay heat removal concept
+
+As  already  indicated  in  Figure  92,  the  heat  removal  depends  on  several  parameters  that  are connected  to  the  core  design  and  the  layout  of  the  internal  structures  that  influence  the  fuel temperatures in normal operation, shutdown or emergency cases.
+
+Page 157
+
+Also  as  already  indicated,  heat  removal  depends  on  several  parameters  that  are  connected  to  the core design and the layout of the internal structures that influence the fuel temperatures in normal operation, shutdown or emergency cases.
+
+The influence of the main parameters characterising the working of this principle can be discussed on behalf of the qualitative estimations of self-acting decay heat removal shown in Figure 92.
+
+Figure 92: Schematic system for balancing decay heat production and dissipation from the core
+
+Energy balance of the core:
+
+𝑑𝐸 𝑑𝑡 = 𝑃𝐷(𝑡) − ∫ 𝑗̅𝑑𝑓̅ (𝑎𝑐)                     (60)
+
+Energy in the core:
+
+𝐸(𝑡)  =   ∫ 𝑝 ∙ 𝑐 ∙ 𝑇(𝑟,̅  𝑡) ∙ 𝑑𝑉 (𝑉𝐵)                 (61)
+
+Decay heat production:
+
+𝑃𝐷(𝑡) = ∫ 𝑞̇𝐷 ′′′̇ (𝑟̅ (𝑉𝐶) , 𝑡) ∙ 𝑑𝑉                  (62)
+
+Energy balance of the core:
+
+𝑑 𝑑𝑡 ∫ 𝜌 ∙ 𝑐𝑝 ∙ 𝑇(𝑟,̅  𝑡) ∙ 𝑑𝑉 (𝑉𝐶)   =   ∫ 𝑞̇𝐷 ′′′̇ (𝑟̅ (𝑉𝐶) , 𝑡) ∙ 𝑑𝑉 −   ∫ 𝑗̅ 𝑑𝑓̅ (𝐴𝐶)           (63)
+
+Average value of the core temperature:
+
+𝑇̅(𝑡)  =   ∫ 𝑇(𝑟,̅  𝑡) ∙𝑑𝑉 𝑉𝐶(𝑉𝑐)                     (64)
+
+Decay heat production:
+
+∫ 𝑞𝐷 ′′′̇ (𝑟̅ (𝑉𝐶) , 𝑡) ∙ 𝑑𝑉  =   𝑞̇𝐷 0′′′̅̅̅̅̅̅   ∙ 𝑓𝐷(𝑡) ∙ 𝑉𝑐  =   𝑞̇𝐷 0′′′̅̅̅̅̅̅ ∙   𝑉𝑐   ∙ 0.062  ∙ 𝑡−0.2        (65)
+
+Equation of the time dependence of temperature:
+
+𝜌̅   ∙ 𝑐𝑝̅   ∙ 𝑉𝐶   𝑑𝑇̅
+
+𝑑𝑡 = 𝑞̇𝐷 0′′′   ∙ 𝑉𝐶   ∙ 0.062 ∙   𝑡−0.2 − 𝑘  ∙   𝐴𝐶   ∙ (𝑇̅ − 𝑇𝑒𝑛𝑣)        (66)
+
+𝐴𝐶
+
+𝑑𝑓
+
+𝐼
+
+𝑇𝑒𝑛𝑣
+
+𝑉𝐶  Core
+
+𝑇̅(𝑡)
+
+𝑃𝐷(𝑡)
+
+Page 158
+
+This  differential  equation  provides  a  rough  estimate  of  the  time  dependence  of  the  average temperature  in  the  core  and  shows  the  influence  of  the  main  parameters: 𝜌̅   ∙ 𝑐𝑝̅ .  k,  𝐴𝐶,  𝑉𝐶.  The solution  of  the  dependence  of  the  average  temperature  in  the  core  can  be  derived  using  the following equations.
+
+From the approximation of the decay heat function by an exponential function:
+
+𝑡−0.2 ≈ 𝐴  ∙ exp (−𝑎 ∙ 𝑡)                 (67)
+
+the constants c1 and c2:
+
+𝑐1  =   𝑞̇0 ′′′̅̅̅̅   ∙   𝐴 𝜌 ∙ 𝑐𝑝̅̅̅̅̅̅̅⁄                     (68)
+
+𝑐2   = 𝐾 ∙   𝐴𝐶 𝑉𝐶⁄   ∙   1 𝜌∙𝑐𝑝̅̅̅̅̅̅                    (69)
+
+and the starting condition:
+
+𝑡 = 0: 𝑇̅(𝑡 = 0) = 𝑇̅                    (70)
+
+one gets the solution:
+
+𝑇(𝑡) = 𝑇𝑢 (1 − 𝑒−𝑐2 ∙ 𝑡) + (𝑇0̅̅̅ −   𝑐1 𝑐2− 𝛼) ∙ 𝑒−𝑐2 ∙𝑡 +   𝑐1 𝑐2− 𝛼   ∙ 𝑒−𝛼 ∙ 𝑡       (71)
+
+The qualitative solution of this is illustrated in Figure 93.
+
+Figure 93: Qualitative picture of the above-derived solution
+
+It can be assumed that during the first phase of the accident most of the decay heat is stored in the core  and  the  surrounding  graphite  structures.  The  transient  of  an  average  temperature,  adiabatic condition, can be expressed as follows:
+
+Page 159
+
+𝑑𝑇̅
+
+𝑑𝑡   =   𝑞̇𝑐 ′′′̅̅̅̅   ∙   𝑉𝐶 𝑉𝑡   ∙   1 𝜌 ∙𝑐𝑝   ∙ 0.062  ∙ 𝑡−0.2                (72)
+
+𝑇̅ (𝑡) = 𝑇0̅̅̅(𝑡)   ∙   𝑉𝐶 𝑉𝑡   ∙   1 𝜌𝑐𝑝   ∙ 0.062
+
+### 0.8 𝑡0.8                (73)
+
+With values of:
+
+𝑞̇𝑐 ′′′̅̅̅̅̅̅̅̅̅  =   3 𝑀𝑊 𝑚3,⁄  𝑉𝐶 𝑉𝑡⁄ ≈ 0.7, 𝑝 ∙ 𝑐𝑝   ≈ 2  𝐽 𝐾⁄             (74)
+
+the maximum temperature transient at the beginning of the accident is calculated to be in the order of:
+
+𝑑𝑇̅ 𝑑𝑡⁄   ≈ 100 °𝐶 ℎ⁄                     (75)
+
+After  𝑡 = 10 hours  an  average  value  of  𝑇̅ ≈ 1 000 °C  is  reached  if  the  initial  temperature  of  the system was 500 °C. Hence, the core of an HTGR is very robust against ‘loss of cooling’ accidents.
+
+A more detailed evaluation of the solution derived above delivers for the time 𝑡𝑚𝑎𝑥 a value for 𝑇̅ 𝑚𝑎𝑥., where:
+
+𝑃𝐷 𝑃𝑡ℎ  ≈  0.4 %⁄  (after around 30 hours for 𝑡𝑚𝑎𝑥),
+
+𝑞̇𝑐 ′′′̅̅̅̅̅̅̅̅̅   = 3  𝑀𝑊 𝑚3⁄ , 𝑘 = 10  𝑊 𝑚2𝐾⁄ , 𝐴𝐶 𝑉𝑐⁄ = 150 𝑚2  66 𝑚2 = 2.3 𝑚−1⁄
+
+a value of:
+
+𝑇̅ 𝑚𝑎𝑥 − 𝑇𝑒𝑛𝑣   ≈ 1 000 °𝐶
+
+Further important results of this simple estimate are:
+
+q̇ c ′′′̅̅̅̅   =   PD Pth ≈ 1.2  ∙ 10−2 MW m 3⁄                   (76)
+
+𝑘̅   ∙   𝐴𝑐 𝑉𝑐  (𝑇̅ 𝑚𝑎𝑥 − 𝑇𝑢) ≈ 2  ∙ 10−2 MW m 3⁄                 (77)
+
+Thus,  after  some  time  (t*),  the  heat  losses  from  the  surface  are  larger  than  the  decay  heat production.  In  the  time  span  before,  the  decay  heat  is  mainly  stored  in  the  ceramic  fuel  elements without any danger of them being destroyed. Additionally, there is a radial temperature profile inside the core and the structures of the reactor.
+
+To get an impression of  what  parameters influence  this radial heat transfer the following estimate may help considering the stationary heat transport inside the core. One can assume a specific point in  time,  for  example  the  time  at  which  the  maximum  fuel  temperature  occurs,  and  apply  the stationary heat transport equation:
+
+0  =   ∫ q̇ D ′′′ (VC) (r̅, t)   ∙ dV −   ∫ j̅  ∙   df̅ (Ac)                 (78)
+
+The application of Gauss’s law delivers:
+
+Page 160
+
+∫ 𝑗 ̅ (𝐴𝐵) ∙ df  =   ∫ 𝑑𝑖𝑣 𝑗̅ ∙  𝑑𝑉 (𝑉𝐵)                   (79)
+
+The radial dependence of temperature is a result of the differential equation:
+
+𝑞̇𝐶 0′′′ = 0.062  ∙ 𝑡∗−0.2 +   𝜆𝑒𝑓𝑓   ∙   ∆𝑇̃ = 0                (80)
+
+where  Δ  is  the  Laplace  operator  and  λ𝑒𝑓𝑓  an  effective  heat  conductivity  in  the  core,  in  which  all processes of conduction, radiation and free convection are included.
+
+The ordinary differential equation:
+
+𝑑2𝑇̃
+
+𝑑𝑟2 + 1 𝑟 ∗ 𝑑𝑇̃
+
+𝑑𝑟 + 𝑞̇̅ 𝐷′′′ ∗ 0.062∗𝑡∗−0.2
+
+𝜆𝑒𝑓𝑓 = 0                (81)
+
+has to be solved with the boundary conditions:
+
+𝑇̅(𝑟 = 𝑅) = 𝑇̅ 𝑟, 𝑇̅(𝑟 = 0) = 𝑇̅ 0                (82)
+
+As a result the radial temperature profile in the core can be determined as:
+
+𝑇̅ 0 − 𝑇̅ 𝑟 ≈ 𝑞̇̅ 𝑐′′′ ∗ 𝑓𝐷(𝑡∗) ∗ 𝛽 ∗ 𝑅2
+
+4𝜆̅𝑒𝑓𝑓                (83)
+
+where 𝛽 is the peak factor:
+
+𝑓𝐷(𝑡∗) ≈ 0.4 % for 𝑡∗ = 30ℎ
+
+𝜆̅𝑒𝑓𝑓 is suitable effective heat conductivity inside the pebble bed. Here an average value for 𝜆̅𝑒𝑓𝑓 is assumed.
+
+Figure  94  contains  a  qualitative  figure of  the  radial  temperature  profile  in  the reactor  at  a  specific time, for instanced at 𝑡 = 𝑡∗.
+
+Figure 94: Qualitative dependence of a radial temperature profile in the core (at 𝒕 = 𝒕∗ with 𝒇𝑫(𝒕∗))
+
+- r  - r
+
+𝑇̃(𝑟) 𝑇̃(𝑟 = 0) = 𝑇̃ 0
+
+−𝑇̃(𝑟 = 0) = 𝑇̃ 0
+
+Page 161
+
+As  a  result  the  differential  equation  to  estimate  the  radial  dependence  of  the  temperature  at  a special time 𝑡∗ can be calculated. This can be done applying some typical values of the HTR Module (Lohnert, 1990) such as:
+
+𝛽 = 1.6, 𝑞̇̅′′′ = 3 𝑀𝑊 𝑚3 , 𝑓𝐷(𝑡∗) = 4 ∗ 10−3, 𝑅 = 1.5 𝑚 𝑎𝑛𝑑 𝜆̅𝑒𝑓𝑓 = 15𝑊/𝑚𝐾
+
+The  computation  of  this  formula  results  in  a  temperature  difference  across  the  core  of approximately: ∆𝑇𝑚𝑎𝑥 = 720°𝐶
+
+This value has to be taken into consideration to get an impression of the peak temperature inside the reactor.  Taking  into  account  a  temperature  of  800 °C  on  the  reﬂector  boundary,  the  maximum temperature  is  around  1 500 °C  in  the  hotspot  region  of  the  HTR  Module  after  30 hours.  This temperature is well below the maximum temperature limit of the fuel elements of 1 600 °C. Detailed three-dimensional computer calculations deliver results similar to those explained before. The heat transport between the gaps inside the reactor structures can also be estimated with simple models. Figure 95 illustrates the heat removal in small gaps in the reactor structures.
+
+Figure 95: Heat transport across gaps in the core
+
+Here  the  heat  removal  is  mainly  driven  by  conduction  through  gas  and  heat  radiation.  In  case  of depressurisation the conduction through the primary coolant in the gaps is negligible, therefore, for example, only radiation and free convection have to be taken into account.
+
+The transport by radiation is described by the following equation:
+
+𝑄̇ 𝐴 ⁄ = 𝑞̇ ′′ = 𝜀 ∗ 𝐶𝑠 ∗ (( 𝑇1 100)
+
+4 − ( 𝑇2 100)
+
+4)
+
+with the values in the core structures of modular HTR (200 MWth) being:
+
+RPV
+
+Core barrel  RPV Core barrel
+
+T 1 T 2
+
+𝑞̇ ''
+
+Page 162
+
+𝜀 = 0.6, 𝐶𝑠 = 5.6 𝑊 𝑚2𝐾4 , 𝑞̇ ∗ ≈ 600𝐾𝑊 150𝑚2 = 4𝐾𝑊 𝑚2
+
+This brief calculation leads to a temperature 𝑇1 of approximately 433 °C for the pressure vessel if the outside of the core barrel is 𝑇2 = 600 K.
+
+A  gap  in  the  core  structures  between  relevant  structural  zones  (graphite  reflector/thermal  shield; thermal shield/reactor pressure vessel) delivers a temperature difference in the order of 100 °C each.
+
+Finally,  the  decay  heat  must  leave  the  surface  of  the  RPV  without  overheating  this  component.  A rough estimation of the heat balance for the time 𝑡∗ delivers:
+
+𝑃𝑡ℎ ∗ 𝑓𝐷(𝑡∗) = 2𝜋 ∗ 𝑅2 ∗ 𝐻𝑐 ∗ 𝛼̅ ∗ (𝑇𝑅𝑃𝑉 − 𝑇𝑒𝑛𝑣)            (84)
+
+in which 𝛼̅ is the heat-transfer number at the outer surface of the reactor pressure vessel.
+
+Applying characteristic values of an HTR Module (200 MWth):
+
+𝑅2 = 3𝑚, 𝛼̅ = 10 𝑊 𝑚2𝐾⁄ , 𝑇𝑅𝑃𝑉 − 𝑇𝑒𝑛𝑣 ≈ 300𝐾, 𝑓𝐷(𝑡∗) ≈ 0.4 %        (85)
+
+the following limiting value is derived:
+
+𝑃𝑡ℎ 𝐻𝑐 ⁄ ≈ 22 𝑀𝑊 𝑚⁄                     (86)
+
+as  a  permitted  linear  power  rating  for  self-acting  heat  transfer  from  the  surface  of the  RPV.  If  the
+
+limiting maximum fuel temperature of 𝑇𝑚𝑎𝑥 < 1 600oC is applied the core height of the HTR Module reactor  is  limited  to  9.4 m.  A  thermal  power  of  200 MW  fulfils  this  boundary  condition.  The temperature difference in the RPV wall itself is relatively small:
+
+∆𝑇𝑅𝑃𝑉 = 𝑞̇ ′′ ∗ 𝑠 𝜆                   (87)
+
+in which:
+
+𝑞̇ ′′=  the  heat  flux  through  the  wall; 𝑠  =  the  wall  thickness;  and 𝜆 = the heat conductivity of steel.
+
+With  a  heat  ﬂux  of  4.0  𝑘𝑊 𝑚2⁄   at  time  𝑡∗  𝑠 = 0.1𝑚, 𝜆 = 30 𝑊 𝑚𝑘⁄ ,  ∆𝑇𝑅𝑃𝑉  results  in  a  value  of 13 °C, which causes no intolerable additional stresses as secondary loads.
+
+From the considerations given above it can be stated that the following features of the reactor core are  essential  for  the  self-acting  decay  heat  removal  so  as  to  prevent  core  melting  and  the superheating of fuel elements above tolerable temperature limits:
+
+  low power density (𝑞̇̅′′′) in the core;   high effective heat conductivity (𝜆𝑒𝑓𝑓) in the core;
+
+  short distance (𝑅) for the transport of heat inside the core;   high heat-storage (𝜌𝑐𝑝̅̅̅̅̅) capability of the core;
+
+  high temperature stability of the core materials;   high heat-transfer numbers (𝛼̅) through the core structures;
+
+Page 163
+
+  high ratio of surface to volume (𝐴𝑅 𝑉𝑅⁄ ) for the core;   permanent outer heat sink outside the RPV.
+
+Additionally,  there  are  some  further  requirements  for  the  integrity  of  the  fuel  elements  in  case  of extreme accidents:
+
+  avoid  large  amounts  of  air  ingress  into the  primary  system  or  use  corrosion  protected  fuel elements — this first requirement can be fulfilled by a suitable design of the inner concrete cell together will a self-acting closure of the cell after depressurisation;   use  of  a  core  in  which  unwanted  rises  of  fuel  temperatures  because  of  strong  nuclear reactivity transients are impossible;   avoid  the  ingress  of  large  amounts  of  water  or  steam  into  the  core  after  accidents  in  the steam generator — this can be ensured by a suitable design of the steam generator system, for instance in such a way that the steam generator is placed below the core.
+
+If  the  very  extreme  accident  case  is  considered  in  which  the  total  outer  surface  of  the  reactor pressure vessel is insulated or covered by rubble, which could be the case after an extremely strong earthquake,  the  following  simplified  estimate  helps  to  identify  the  important  parameters  for  the transient behaviour of the system (Figure 96).
+
+Figure 96: Simplified model to evaluate the system in a very extreme accident
+
+The energy balance delivers the relation for this case in the following form:
+
+𝑑𝐸 𝑑𝑡 = 𝑑 𝑑𝑡 ∫ 𝜌 ∗ 𝑐𝑝 ∗ 𝑇 ∗ 𝑑𝑉 = 𝑃𝐷(𝑡) − 𝑄̇ 𝐿(𝑡) 𝑉𝑣               (88)
+
+An average temperature 𝑇̅ of the system with a volume 𝑉𝑅 of the reactor is defined by:
+
+𝑑 𝑑𝑡 ∫ 𝜌 ∗ 𝑐𝑝 ∗ 𝑇 ∗ 𝑑𝑉 ≈ ∑ 𝜌𝑖 ∗ 𝑐𝑝𝑖 ∗ 𝑉𝑖 ∗ 𝑑𝑇̅
+
+𝑑𝑡𝑖𝑉𝑅               (89)
+
+𝑇5
+
+𝐴
+
+Insulation or rubble
+
+𝑇̅
+
+𝑆𝑖𝑠
+
+𝜆𝑖𝑠
+
+𝑇𝑒𝑛𝑣
+
+𝛼𝑜𝑢𝑡𝑠𝑖𝑑𝑒
+
+Page 164
+
+𝑖 indicates the different parts of the reactor (core, internal structures, RPV), which may store heat. The decay heat is approximated in the form:
+
+𝑃𝐷(𝑡) = 𝑃0 ∗ 0.0622 ∗ (𝑡−0.2 − (𝑡0 + 𝑡) −0.2)              (90)
+
+The heat losses can be described by the simplified expression:
+
+𝑄̇ 𝐿 = 𝐴 ∗ (𝑇̅ 𝑠 − 𝑇𝑒𝑛𝑣) ∗ 𝛼̅                  (91)
+
+in  which  𝑇̅ 𝑠 is  the  surface  temperature  of  the  vessel  and  𝑇𝑒𝑛𝑣 is  the  temperature  outside  the  total configuration. The heat-transfer number 𝛼 mainly contains the heat conductivity 𝜆𝑖𝑠  and the mean thickness 𝛿𝑖𝑠 of the insulating material, as well as the heat-transfer coefficient or the outside of the total arrangement:
+
+1 𝛼̅ + 1 𝜆𝑖𝑠 𝛿𝑖𝑠⁄ + 1 𝛼𝑜𝑢𝑡𝑠                    (92)
+
+𝐴  is  the  surface  of  the  total  configuration  of  the  rubble,  𝛼𝑜𝑢𝑡𝑠 characterises  the  heat-transfer coefficient on the outside of this material zone, caused by radiation and free convection of air. In a first approximation 𝑇𝑠 might have the same value as 𝑇̅.
+
+Thus, the final differential equation results in the form:
+
+𝑑𝑇̅
+
+𝑑𝑡 = 𝑃𝑡ℎ ∑ 𝜌𝑖∗𝑐𝑝𝑖∗𝑉𝑖𝑖 ∗ 0.062 ∗ 𝑡−0.2 − 𝑘̅ ∗𝐴 ∑ 𝜌𝑖∗𝑐𝑝𝑖∗𝑉𝑖𝑖 ∗ (𝑇̅ − 𝑇𝑢)            (93)
+
+A solution to this differential equation delivers functions is shown in Figure 97.
+
+Figure 97: Qualitative values of temperature of reactor pressure vessel and fuel dependent on time
+
+The maximum increase in temperature in a first phase can be estimated by the following equation:
+
+𝑑𝑇̅
+
+𝑑𝑡 = 𝑃𝑡ℎ ∑ 𝜌𝑖∗𝑐𝑝𝑖∗𝑉𝑖𝑖 ∗ 0.062 ∗ 𝑡−0.2                  (94)
+
+Page 165
+
+Again some values for the structures of the HTR Module may be used for better illustration:
+
+𝑃𝑡ℎ = 200𝑀𝑊, ∑ 𝜌𝑖 ∗ 𝑐𝑝𝑖 ∗ 𝑉𝑖 = 4 ∗ 108 𝑊𝑠 𝐾⁄𝑖            (95)
+
+This  results  in  a  transient  of  approximately  5 K/h  after  30 hours.  After  that  time,  a  major  part  of decay heat enters the wall of the reactor pressure vessel, which acts as a main heat sink. Assuming a decay heat fraction of 0.3 % of the thermal power and a storage capacity of 50 MJ/K, a temperature transient of approximately 4.5 K/h results. Assuming an adiabatic system, the vessel would fail after 500 hours due to melting of the steel.
+
+From the beginning of the accident a part of the heat is passed to the rubble and released into the environment. Non-adiabatic limiting temperatures of the system can be derived from the following equation:
+
+𝑃𝐷 ≈ 𝑄̇ 𝑙𝑜𝑠𝑠𝑒𝑠 ≈ 𝑘̅ ∗ 𝐴(𝑇(∞) − 𝑇𝑒𝑛𝑣)                (96)
+
+If the decay heat is assumed to be 400 KW for a longer time (corresponding to 2 ‰ in case of an HTR Module,  200 MWth)  the  outer  surface  𝐴  to  be  approximately  1 000 m2  and  the  heat-transfer coefficient 𝑘̅ to be 0.5 W/m2K the adiabatic temperature 𝑇(∞) ≈ 800𝐾 is obtained.
+
+Calculations using more dimensional computer codes have already shown this. One of the important results is the fact that even in these extreme accident cases the maximum fuel temperature is very similar  to  the  accident  cases  discussed  before.  However,  the  outer  structures  and  their  heat conductivities are very important for the transient. If the surrounding infrastructure is not completely destroyed,  man-made  interventions  in  time  (e.g.  additional  cooling  using  nitrogen)  could  cool  the system earlier.
+
+These results show in a very convincing manner that the concept of self-acting decay heat removal works  even  in  case  of  extreme  accidents.  In  all  accident  scenarios  the  maximum  fuel  temperature stays below the tolerable 1 600 °C. Furthermore, there should be enough time to apply very simple emergency cooling procedures. Some examples for these measures are:
+
+  injection  of  nitrogen  into the  reactor  pressure  vessel,  if  this  is  possible,  by  direct  access  of machines;   injection of nitrogen into the rubble;   spraying with water.
+
+The ‘grace period’ would be in the order of some days, before damage (e.g. from air ingress) would have to be considered.
+
+7.2.3.  Inﬂuence  of  uncertainties  relating  to  the  different  steps  of  the  transport chain for decay heat removal on the maximum fuel temperature If a maximum fuel temperature of 1 600 °C is assumed as the tolerable temperature limit in a ‘total loss of active cooling’ accident a safety margin between this value and the calculated value needs to be  assumed.  Therefore,  uncertainties  of  calculation  for  the  maximum  temperature  have  to  be analysed and considered. By applying a simple approximation:
+
+Page 166
+
+𝑇𝑓𝑢𝑒𝑙(𝑚𝑎𝑥) = 𝑇𝑓𝑢𝑒𝑙(𝑛𝑜𝑚𝑖𝑛𝑎𝑙) + ∆𝑇𝑓𝑢𝑒𝑙              (97)
+
+a value of +∆𝑇𝑓𝑢𝑒𝑙 ≈ 100°C is considered to be a suitable additional safety margin. For the nominal value the temperature of the hottest fuel element can be derived as follows:
+
+𝑇𝑓𝑢𝑒𝑙(𝑛𝑜𝑚𝑖𝑛𝑎𝑙) = 𝑞̇ ∗̅̅̅ ∗ 𝛽 ∗ 𝑓𝐷(𝑡∗) ∗ 𝛷(𝑟𝑖, 𝜆𝑖, 𝛼𝑖, )            (98)
+
+in which:
+
+𝑞̇ ∗̅̅̅ = average power density in the core
+
+𝛽 = peak factor of power density
+
+𝑓𝐷(𝑡∗)  =  factor  of  the  decay  function,  of  approximately.  3 × 10–3  after  time  𝑡∗ ≈ 30ℎ  for  the  HTR Module of around 200 MWth
+
+𝛷(𝑟𝑖, 𝜆𝑖, 𝛼𝑖, )  function describing all steps of heat transfer in the core and internals
+
+𝛷 = 𝑟12
+
+4𝜆𝑒𝑓𝑓 + 𝑟1 2 ∗ (𝑟2−𝑟1)
+
+𝜆𝐺 + 𝑟1 2 ∗ 𝑟1 𝑟3 ∗ (𝑟2−𝑟1)
+
+𝜆𝑆 + 𝑟1 2 ∗ 𝑟1 𝑟4 ∗ 1 𝛼̅𝑠 + 𝑟1 2 ∗ 𝑟1 𝑟5 ∗ (𝑟5−𝑟4)
+
+𝜆𝑆 + 𝑟1 2 ∗ 𝑟1 𝑟5 ∗ 1 𝛼̅𝑎    (99)
+
+Uncertainties can be correlated to this function by expressions such as the one given below:
+
+∆𝑇𝑓𝑢𝑒𝑙 = ∑ 𝜕𝑇𝑓𝑢𝑒𝑙(𝑛𝑜𝑚𝑖𝑛𝑎𝑙) 𝜕𝜉𝑖 ∗ ∆𝜉𝑖𝑖                (100)
+
+Regarding the uncertainty of the fuel temperature in relation to the nominal value this would result in the following equations:
+
+∆𝑇𝑓𝑢𝑒𝑙 𝑇𝑓𝑢𝑒𝑙 ≈ ∆𝑞̇ ′′′̅̅̅̅̅
+
+𝑞̇ ′′′̅̅̅̅̅ + ∆𝛽 𝛽 + ∆𝑓𝐷(𝑡∗)
+
+𝑓𝐷(𝑡∗) + ∆𝛷 𝛷               (101)
+
+∆𝛷 𝛷 ≈ ∆𝜆𝑒𝑓𝑓 𝜆𝑒𝑓𝑓                     (102)
+
+∆𝛷 𝛷⁄  is approximated in simpliﬁed form if the uncertainties of the heat conductivity in the pebble bed are considered to be the main uncertainties for the function 𝛷.
+
+The  uncertainties  relating  to  the  various  other  factors  can  be  derived  in  detail  from the measured curves for the relevant parameters. These are mainly 𝜆𝑒𝑓𝑓(𝑇) in the core, 𝛼𝑒𝑓𝑓(𝑇) in gaps, ∝̅ 𝑎 (𝑇) or the heat release from the reactor pressure vessel and naturally the uncertainties connected with the decay heat production. In particular, the factor 𝛽 requires attention as it depends very much on the furnace cycle.
+
+Figure  98  shows  exemplary  measurements  of  the  effective  heat  conductivity  in  the  core. Furthermore, the heat conductivity of graphite and values of the emissivity are given. The differences between the ‘nominal’ values in the curve of 𝜆𝑒𝑓𝑓(𝑇) and the ‘lower’ values are in the order of 10 %. The uncertainty of the emissivity plays an important role for the heat transfer on the outer surface and in the gaps. Certain values measured are given in Figure 98.
+
+Page 167
+
+Figure 98: Uncertainties relating to measured parameters for the heat transport in the reactor system in case of a ‘total loss of active cooling’ accident:
+
+Figure  98  shows  the  heat  conductivity  in  the  pebble  bed  (top),  and  for  the  reflector  graphite (example AVR) the measured values of the ε.
+
+There are some uncertainties in the deﬁnition of the status of the core at the start of the accident, which have to be analysed in detail. In particular, the height of the peak factor 𝛽 depends on the type of the fuel cycle (e.g. the number of passes through the core clearly inﬂuences this parameter).
+
+Due to the described uncertainties in calculations temperature measurements in the reactor core are desirable. In light-water reactors the temperature in the core is approximated using time-dependent hot  channel  factors.  The  pebble-bed  reactor  uses  online  refuelling  so  that,  in  contrast  to  an  LWR, blind elements can be used to measure the temperature in the core.
+
+Page 168
+
+In  the  AVR,  for  instance,  blind  elements  have  been  fed  to  the  reactor  in  order  to  determine  the temperature in the core. These pebbles were equipped with melting wires.  Figure 99 shows one of these elements.
+
+Figure 99: Spheres for temperature measurements in the core of the AVR (with melt-wires — the X-ray below shows the molten wires)
+
+Table  43  provides  specific information on  the melting  temperatures  of  the  speciﬁc  wires  shown  in Figure  99. Each element contained 20 wires. After they had  passed the reactor and were  removed from the fuel-handling cycle, they were post examined and the molten wires allowed the maximum temperature that the element examined experienced while passing the reactor core to be estimated.
+
+Table 43: Characteristics of the wires shown in Figure 99
+
+Sample number  Metal alloy components  Composition  Melting temperature (°C)
+
+## 1  Al/Fe  99.2/0.8  655
+
+## 2  Ag/Cu/In  60/27/13  700
+
+## 3  Ag/Cu  72/28  780
+
+## 4  Ag/Cu/Pd  68.4/26.6/5  810
+
+## 5  Ag/Au/Cu  20/60/20  840
+
+## 6  Ag/Cu  47/53  878
+
+## 7  Ag/Cu/Pd  52/28/20  900
+
+## 8  Ag/Cu  35/65  920
+
+## 9  Ag/Cu/Pd  54/21/25  940
+
+## 10  Ag  100  960
+
+## 11  Au/Cu  46/54  982
+
+## 12  Ag/Pd  95/5  1 000
+
+Page 169
+
+## 13  Au/Cu  33.5/66.5  1 020
+
+## 14  Au/Cu  25/75  1 050
+
+## 15  Au/Cu  10.5/89.5  1 072
+
+## 16  Cu/Pd  82/18  1 088
+
+## 17  Cu/Ni  90/10  1 120
+
+## 18  Cu/Ni  84/16  1 150
+
+## 19  Ag/Pd/Mn  64/33/3  1 200
+
+## 20  Pd/Cu  70/30  1 280
+
+In  some  regions  of  the  reactor  (especially  in  the  outer  core)  higher  temperatures  than  previously calculated have been obtained (Figure 100). The difference between measurements and calculations were partly in the order of 150 °C. Explanations were given by considering, first, the inﬂuence of the graphite noses, second, of bypasses in the core structures or, third, by a large bypass on the cold side of the total gas ﬂow.
+
+Figure 100: Aspects of temperature measurements in the AVR: (a) temperatures obtained from melt-wire experiments; (b) calculated maximum temperature in core
+
+These elevated temperature values during normal operation were characteristic for the AVR, where fresh  fuel  elements  were  put  into  core  regions  with  the  highest  gas  temperatures  (counterﬂow  of
+
+Page 170
+
+fuel  elements  and  cooling  gas).  For  future  pebble-bed  HTR  concepts  the method  tested  here  is  an excellent concept to measure in core temperatures during operation.
+
+Table 44 gives a rough overview of the uncertainties in case of a ‘total loss of active cooling’ accident (e.g. HTR Module, 200 MWth). The nominal value of the maximum fuel temperature is calculated to be  as  high  as  1 450 °C.  The  maximum  value  is  determined  to  be  as  high  as  1 615 °C.  In  practice  a value of around 100 °C to 150 °C as an additional safety margin seems to be adequate for the design and the licensing process.
+
+Table 44: Estimates of the inﬂuence of uncertainties on the fuel temperature in case of a ‘total loss of cooling’ accident
+
+Parameter  Dimension  Characteristic value of design Uncertainties  Possible upper value  Remark
+
+Power density by decay heat production MW/m3 0.01  + 10 %  0.011  After around
+
+## 30 hours
+
+Temperature difference in the core (𝜆𝑒𝑓𝑓) °C  700  + 10 %  770  Including surface effects Temperature difference in the reflector °C  100  + 20 %  120  Irradiation in
+
+## 40 years
+
+Temperature difference gap 1 (𝛼𝑎) °C  120  + 20 %  144  Reflector/ thermal shield Temperature difference gap 2  °C  120  + 20 %  144  Thermal shield reactor vessel Temperature difference on outside RPV °C  350  + 10 %  385  Surface cooler works
+
+Total  °C  1 450  165  1 650  Including 𝑇𝑐𝑜𝑜𝑙𝑖𝑛𝑔 = 500C
+
+Page 171
+
+## 8.  Appendix A
+
+### 8.1.  Irradiation tests in MTRs and in AVR
+
+The irradiation testing of German HTGR fuels began in 1972 and has lasted for four decades. Table 45 provides  a  historical  overview  of  the  significant  irradiation  tests,  categorised  by  the  primary objectives of the individual tests.
+
+Two features present in each of the major R & D programmes are that irradiation testing occurred in both accelerated neutron environments and real-time HTGR environments. All the important particle variants  have  been  evaluated  in  this  manner  since  the  beginning  of  the  fuel  development  effort. Accelerated neutron environments were made available in European MTRs:
+
+  Dragon Reactor (DR) — England;   FRJ2 Reactor — Germany;   BR2 Reactor — Belgium;   R2 Reactor — Sweden;   High Flux Reactor (HFR) — Netherlands;   Siloë Reactor (SL) — France.
+
+The real-time environment is represented by the AVR in Jülich, Germany.
+
+Fuel  spheres  intended  for  AVR  irradiation  testing  were  manufactured  in  large  numbers  with  the purpose  of  bulk  testing  in  a  real-time  HTGR  environment.  Small  fuel-sphere  lots  were  specially manufactured for the German LEU Phase 1 irradiation test programme and for the proof test fuel for the HTR Module. Irradiation testing of Phase 1 fuel elements began in European MTRs in May 1982 and continued until November 1990 (Mehner, et al., 1990).
+
+Real-time testing in the AVR began with AVR 19 in July 1982, followed  by AVR 21 in February 1984 and AVR 21-2 in October 1987. Irradiation testing of the  HTR Module proof test fuel in HFR Petten began with HFR-K5 and K6 in June 1990 and continued until May 1994 (Nickel, et al., 2002).
+
+Table 45: Historical overview of German irradiation tests in the development of coated particles from 1972 to 2010 (IAEA 2012)
+
+R & D programme  Old LEUs  HEU programme for process-heat and gas turbine applications  LEU programme 1972-76  1977-1981  1982-2010 Variant 1  Variant 2  Variant 3 Coated particle  UO2 TRISO UO2 BISO  (Th, U) O2 BISO  (Th, U) O2 TRISO  UC2/UCO TRISO + ThO2 TRISO UO2 TRISO
+
+Test goal  Coated particle tests Particle performance  HFR-M5 DR-S6  BR2-P24  BR2-P25  BR2-P23  HFR-P4 SL-P1 Fission product transport in intact particles DR-S4  FRJ2-P22  FRJ2-P23  -  FRJ2-P27
+
+Release from kernel  -  FRJ2-P25  FRJ2-P25  FRJ2-P25  FRJ2-P28 Chemical effects  FRJ2-P16  -  -  HFR-P3  HFR-P5
+
+Page 172
+
+Fuel element tests Fuel element performance  DR-K5  HFR-K1  R2-K12 R2-K13  R2-K12  HFR-K3
+
+FE fission product transport  -  -  FRJ2-K11  FRJ2-K10  FRJ2-K13 FRJ2-K15 Large-scale demonstration  AVR 6  AVR 14 AVR 18  AVR 15 AVR 20  AVR 13  AVR 19 AVR 21 Proof tests          HFR-K5 HFR-K6 High burnup tests          FRJ2-K15 HFR-EU1 High temperature test          HFR-EU1bis
+
+After a 10-year pause, irradiation testing resumed in 2004 with the European Union-sponsored test HFR-EU1bis  (Fütterer, et al.,  2008)  (Fütterer  2008)  (September 2004 to October 2005) and in 2006 with HFR-EU1 (Laurie, et al., 2010) (September 2006 to February 2010). In both of these tests, fuel elements  from  the  AVR 21-2  production  (GLE-4/2  elements)  were  subjected  to  accelerated irradiation conditions in the HFR. Test HFR-EU1 also contained two Chinese spherical fuel elements from the HTR-10 production (Tang, et al., 2010).
+
+### 8.2.  Irradiation envelope
+
+All of the irradiation tests listed in Table 45 (with the exception of large-scale demonstration tests) were conducted in the accelerated neutron environments of MTRs as opposed to a real-time HTGR neutron  environment  like  the  AVR.  The  European  MTRs  utilised  for  the  accelerated  testing  of  the modern LEU UO2 TRISO fuel typically have higher thermal, epithermal and fast neutron fluxes than an actual HTGR. In such an environment, fissile fuel burnups and accumulated neutron fluences can be achieved in 1-2 years, as opposed to 4 years in an HTGR. Thus, ‘accelerated’ refers to an irradiation under  higher  thermal  and/or  fast  neutron  flux  environments  for  the  purpose  of  speeding  up  the normal rate of fuel burnup and fast fluence accumulation.
+
+Table  46  lists the nominal maximum operating conditions for the primary parameters  — operating temperature, fuel burnup and fast neutron fluence. These parameters are listed in the order of their importance in defining the irradiation environment a fuel specimen is subjected to in an irradiation test. Table 47 lists these irradiation test operating parameters for all the MTR accelerated irradiation tests conducted on modern LEU UO2 TRISO-coated particles. Table 47 also contains the BOL and EOL 85mKr release rates that are indicative of in-reactor fuel performance.
+
+Page 173
+
+Table 46: The nominal maximum HTGR design operating conditions, for which the MTR irradiation tests were patterned
+
+Operating parameter  General HTGR design (Phase 1)  HTR Module
+
+Spherical element central temperature (°C)  1 068  870 (cycled) Burnup (% FIMA)  10.1  8.9 Fast neutron fluence (1025 n/m2, E > 16 fJ)  2.7  2.1
+
+The  presence  of  active  temperature-monitoring  systems  in  all  of  the  MTR  accelerated  irradiation tests  made  it  possible to  record  temperatures  and  to measure  the  release  rates  of  gaseous  fission products from the fuel under irradiation. Sampling the helium and neon purge gas on the outlet side of  the  test  capsules,  followed  by  quantitative  gamma-spectrometry  of  the  gas  sample,  makes  it possible  to  identify  and  quantify  the  fission  gas  isotopes  of  Kr  and  Xe  present  as  a  function  of irradiation time.
+
+Using  this  technique,  and  knowing  the  sample  volume  and  purge  gas  flow  rate  at  the  time  of sampling, a measure of the release rate (Ri) for a specific gas isotope from the irradiated fuel can be determined. Comparing the measured release rate to the computed birth rate (Bi) for specific fission gas  isotopes  provides  a  measure  of  the  steady-state  release  behaviour  of  fuel  under  irradiation. Monitoring  the  fission  gas  R/Bs  is  the  standard  methodology  of  assessing  in-reactor  fuel performance.
+
+A comparison of the nominal range  of fuel burnup versus operating temperature limits for various HTGR designs with those achieved in MTR and AVR tests is shown in Figure 101, and these data are also presented in Table 47. The later HFR-EU1 and HFR-EU1bis tests are not shown here because data are still under review (Fütterer, et al., 2008) (Laurie, et al., 2010) (Tang, et al., 2010).
+
+Test  specimens  irradiated in  HFR-K3/3,  middle  positions  of  HFR-P4/legs 1,  2  and  3  and  FRJ2-K13/2 achieved burnups above the nominal maximum burnup limit at operating temperatures well above the  maximum  limit.  For  those  specimens  irradiated  in  SL-P1,  HFR-K3/2  and  FRJ2-K15/1  and  3,  the maximum  burnup  limits  were  exceeded  in  nearly  all  cases.  However,  the  operating  temperatures were not above the maximum limit in most instances. For the specimens irradiated in FRJ2-P27/1, 2 and 3, FRJ2-K13/1 and 2 and HFR-K3/1, the nominal burnup maximum was above 7 % FIMA, but did not exceed the nominal HTR Module maximum limit; however, they were accumulated at operating temperatures that exceeded the nominal maximum limit.
+
+Page 174
+
+Figure 101: Irradiation envelope of fuel burnup versus mean operating temperature for LEU UO2 TRISO particles in accelerated irradiation tests in European MTRs and in AVR prior to 2000
+
+The in-reactor operational test data are presented in Table 47. Test specimens irradiated in HFR-K3/1 and 4 and HFR-P4/legs 1 and 3 well exceeded the nominal maximum fluence and temperature limits. For those specimens in HFR-K3/2 and SL-P1/1, the nominal fast neutron fluence limit was exceeded, but the operating temperatures did not exceed limits. For specimens irradiated in FRJ2-K13/1 and 2, FRJ2-P27/1,  2  and  3  and  FRJ2-  K15/2,  the  fluence  limits  were  not  exceeded:  the  fluences  were  all accumulated at temperatures higher than the nominal maximum operating temperature limit. It was only for FRJ2-K15/1 and 3, where the nominal maximum limits for fast neutron fluence and operating temperature, although above 800 °C, were not exceeded.
+
+Figure  101  shows  that  HTGR  irradiation  requirements  are  fully  enveloped  by  experimental  results from the German fuel development programme database. However, the actual performance limits of the  LEU  UO2  TRISO-coated  particle  had  not  been  established  in  the  1980s.  The  recent  HFR-EU1bis and  HFR-EU1  irradiation  tests  were  designed  to  explore  irradiation  loads  that  might  reach  these limits, but these tests are still under evaluation.
+
+In  2004,  irradiation  testing  of  modern  German  HTGR  fuel  resumed  with  experiment  HFR  EU1bis (Fütterer 2008) in the HFR at Petten. Sponsored by the European Commission, the primary objective of  HFR-EU1bis  was  to  demonstrate  the  feasibility  of  LEU  UO2  fuel  particle  failure  under  normal operating conditions with extended operating temperatures up to and beyond 1 250 °C and peak fuel burnup to 16 % FIMA. The HFR-EU1bis experimental test rig contains five GLE-4/2 spherical elements in a single capsule.
+
+Page 175
+
+Table 47: In-reactor operating parameters for the MTR irradiation tests conducted on modern high-quality LEU UO2 TRISO fuel particles irradiated in the German fuel development programme
+
+Irradiation test element  Operating temperature range (°C) subscr. transient Burnup range (% FIMA)  Fluence (1025 n/m2, E > 16 fJ) 85mKr R/B BOL  EOL
+
+MTR irradiation tests, Phase 1, LEU UO2 TRISO fuels SL-P1***  740-790  8.6-11.3  5-6.8  5.8 × 10–7  1.2 × 10–6 HFR-P4/ leg 1 leg 3
+
+915-940 1 050-1 075
+
+11.1-14.7 9.9-14.7
+
+5.5-8 5.5-8
+
+3.5 × 10–9 3.6 × 10–9
+
+8 × 10–8 8 × 10–9 HFR-K3/ 1 2-3 4
+
+1 020-1 200 700-900 1 020-1 220
+
+7.5 10.1-10.2 9
+
+4.0 5.9 4.9
+
+1 × 10–9 9 × 10–10 2 × 10–9
+
+2 × 10–7 1 × 10–7 3 × 10–7 FRJ2-K13/ 1-2 3-4
+
+985-1 150 980-1 150
+
+7.5-8 7.6-7.9
+
+< 0.2 < 0.2
+
+2 × 10–9 8 × 10–10
+
+1.6 × 10–8 7 × 10–9 FRJ2-K15/ 1 2 3
+
+800-970 980-1 1501 280 800-9901 280
+
+14.1 15.3 14.8
+
+< 0.2 < 0.2 < 0.2
+
+2.0 × 10–10 2.5 × 10–10 2.0 × 10–10
+
+1.2 × 10–8 5 × 10–9 3 × 10–9 FRJ2-P27/ 1* 2 3
+
+880-1 080 1 220-1 320 1 080-1 130
+
+7.2-7.6 8.0 7.2-7.6
+
+1.4 1.7 1.3
+
+1.0 × 10–6 8.6 × 10–7 2.0 × 10–8
+
+1.6 × 10–6 1.0 × 10–5 1.2 × 10–7 HTR Module proof tests HFR-K5/ 1 2 3 4*
+
+800-9231 200 800-9091 250 800-9031 260 800-9211 200
+
+7.8 10.1 10.3 9.3
+
+4.0 5.8 5.9 4.9
+
+4.8 × 10–10 2.7 × 10–10 2.5 × 10–7
+
+1.7 × 10–7 3.0 × 10–7 3.6 × 10–7
+
+HFR-K6/ 1 2 3 4**
+
+800-1 0901 200 800-1 1301 250 800-1 1401 260 800-1 1301 240
+
+8.3 10.6 10.9 9.9
+
+3.2 4.6 4.8 4.5
+
+5.0 × 10–10 3.0 × 10–10 4.5 × 10–7
+
+2.0 × 10–7 3.0 × 10–7 9.0 × 10–7
+
+*  One  manufacturing  defect,  no  additional  failures  during  irradiation. **  Two  manufacturing  defects,  no  additional  failures  during  irradiation. ***  Five manufacturing defects, no additional failures during irradiation.
+
+The irradiation began in September 2004 and was terminated in October 2005 after 250 full-power days. Average operating temperatures were in the range of 900 °C to 1200 °C, and peak values well beyond 1 250 °C were achieved. The EOL noble fission gas R/B data were much higher than expected, ranging from 3 × 10–6 to 8 × 10–6 for the short-lived Kr and Xe isotopes. Post-irradiation examination testing began in 2006 followed by accident simulation testing in the years 2008 to 2012.
+
+In 2006 the irradiation experiment HFR-EU1 began irradiation in Petten. This experiment consists of two  independent  irradiation  test  capsules.  The  upper  capsule  contains  two  Chinese  spherical
+
+Page 176
+
+elements from recent HTR-10 production. The lower irradiation capsule contains three German GLE 4/2  spherical  elements,  the  same  as  HFR-EU1bis.  The  irradiation  of  HFR-EU1  began  in  September 2006  and  continued  into  February  2010.  The  results  were  reported  recently  (Laurie,  et  al.,  2010) (Tang, et al., 2010).
+
+### 8.3.  MTR irradiation analysis
+
+The  beginning-of-life  85mKr  R/B  values  for  the  MTR  irradiation  tests  that  contained  reference 60 mm-diameter spherical elements (HFR-K3, K5, K6, FRJ2-K13 and FRJ2 K15) ranged from 2 × 10–10 to 4 × 10–9 (Table 47). These R/B values are extremely low and characteristic of as-manufactured fuel specimens with no defective fuel particles and very low levels of uranium contamination in the fuel element matrix. The end-of-life 85mKr R/B values for these same irradiation test capsules were also very  low,  ranging  from  3 × 10  -9  to  3 × 10–7  (Table  47).  These  three  MTR  irradiation  tests  with reference spherical fuel elements contained an inventory of 159 880 LEU UO2 TRISO-coated particles. For  all  of  the  MTR  tests  on  Phase  1  LEU  UO2,  including  those  tests  with  non-reference-sized  fuel elements (SL-P1, HFR-P4, and FRJ2-P27), a total of 240 452 TRISO-coated particles were irradiated.
+
+By  comparing  the  measured  end-of-life  85mKr  R/B  values  with  the  prediction  of  a  failed  TRISOcoated fuel particle, the fraction of failed particles responsible for the release can be determined by:
+
+   fii EOLii B/R B/R  (103)
+
+where:
+
+ = fraction of failed particles;
+
+  EOLii BR = measured EOL R/B ratio for isotope i;
+
+ fii BR = predicted R/B ratio for isotope i in exposed fuel.
+
+The  fractional  release  from  a  failed  LEU  UO2  TRISO  particle  can  be  predicted  from  the  equivalent sphere    model  (Boothe,  1957)  (Nabielek,  et  al.,  1974)  (Krohn,  1982).  Thus,  the  number  of  failed particles present is just the product of the failure fraction and the particle population that the release measurement represents.
+
+The  85mKr  was  determined  at  EOL  fuel-kernel  temperatures  obtained  from  thermocouple measurements  and  thermodynamic  calculations  at  the  respective  burnup  and  fluence  levels. Knowledge  of  the  initial  thorium  and  uranium  contamination  values  and  the  number  of  initially defective particles was considered in the evaluation of the derived failure fraction.
+
+Page 177
+
+Table 48: LEU UO2 TRISO-coated particle fuel performance in accelerated MTR irradiation tests based on EOL Kr R/B values and the temperature-dependent fractional release values for an exposed oxide fuel kernel
+
+Irradiation test element BOL  EOL 85mKr
+
+Equivalent failed particles 85mKr
+
+Contribution due to contamination Equivalent in-reactor failed particles One-sided upper 95 % confidence limit of irradiation induced failure fraction SL-P1 with 19 572 particles in 12 mini spheres 1  5.8 × 10–7  ~ 5  1.2 × 10–6  ~ 60 %*  ~ 4  ≤ 4.7 × 10–4 HFR-P4 with 39 144 particles in 24 mini spheres 1 3  3.5 × 10–9 3.6 × 10–9  ~ 0  8 × 10–8 8 × 10–9  ~ 100 % ~ 100 %  ~ 0 ~ 0 ≤ 7.7 × 10–5 HFR-K3 with 65 600 particles in 4 spherical fuel elements 1 2,3 4 1 × 10–9 9 × 10–10 2 × 10–9 ~ 0 ~ 0 ~ 0 2 × 10–7 1 × 10–7 3 × 10–7 ~ 100 % ~ 100 % ~ 100 % ~ 0 ~ 0 ~ 0
+
+≤ 4.6 × 10–5 FRJ2-K13 with 65 600 particles in 4 spherical fuel elements 1,2 3,4  2 × 10–9 8 × 10–10  ~ 0 ~ 0  1.6 × 10–8 7 × 10–9  ~ 100 % ~ 100 %  ~ 0 ~ 0 ≤ 4.6 × 10–5 FRJ2-K15 with 28 680 particles in 3 spherical fuel elements 1 2 3 2.0 × 10–10 2.5 × 10–10 2.0 × 10–10 ~ 0 ~ 0 ~ 0 1.2 × 10–8 5 × 10–9 3 × 10–9 ~ 100 % ~ 100 % ~ 100 % ~ 0 ~ 0 ~ 0
+
+≤ 1.0 × 10–4 FRJ2-P27 with 21 856 in 9 annular compacts and 6 coupons 1 2 3 1.0 × 10–6 8.6 × 10–7 2.  × 10–8 ~ 1 ~ 0 ~ 0 1.6 × 10–6 1.0 × 10–5 1.2 × 10–7 ~ 65 %* ~ 10 %* ~ 100 % ~ 1 ~ 4 ~ 0
+
+≤ 4.8 × 10–4 Total for entire Phase 1 with LEU UO2 population (240 452)    ~ 9  ≤ 6.5 × 10–5 Total for LEU UO2 population in 60 mm-diameter fuel spheres (159 880)  ~ 0  ≤ 1.9 × 10–5 HFR-K5 with 58 400 particles in 4 spherical fuel elements 1 2 3 4 4.8 × 10–10 2.7 × 10–10 ‘ 2.5 × 10–7 ~ 0 ~ 0 ~ 0 ~ 1 1.7 × 10–7 3.0 × 10–7 ‘ 3.6 × 10–7 ~ 100 % ~ 100 % ~ 100 % ~ 100 % ~ 0 ~ 0 ~ 0 ~ 0**
+
+≤ 5.1 × 10–5 HFR-K6 with 58 400 particles in 4 spherical fuel elements 1 2 3 4 5 × 10–10 3 × 10–10 ‘ 4.5 × 10–7 ~ 0 ~ 0 ~ 0 ~ 2 2.0 × 10–7 3.0 × 10–7 ‘ 9.0 × 10–7 ~ 100 % ~ 100 % ~ 100 % ~ 100 % ~ 0 ~ 0 ~ 0 ~ 0** ≤ 5.1 × 10–5
+
+Total for proof test LEU UO2 population (116 800)  ~ 0  ≤ 2.6 × 10–5 *  A portion of EOL noble gas release is due to the breeding of fissile material into the initial uranium and thorium contamination in fuel matrix and capsule graphite materials. ** The  initial  evaluation  predicted  ~ 1  equivalent  particle  failure.  However,  the  fission  gas  release analysis conducted on HFR-K5/K6 strongly suggests that the increase in noble gas release at EOL is likely due to the breeding of fissile materials into the initial uranium and thorium contamination in fuel element matrix and irradiation capsule graphite materials.
+
+R B( ) BOL R B( ) EOL Page 178
+
+Employing this methodology, a total of nine in-reactor LEU UO2 TRISO particles were determined to have failed out of all the LEU UO2 TRISO particles irradiated (240 452) in the accelerated MTR tests of Phase 1 production material. All nine of these failed particles were from MTR irradiation tests SL-P1 and  FRJ2-P27  and  contained  in  special,  non-reference  fuel  elements  (20 mm-diameter  spheres, cylindrical compacts or coupons). No in-reactor failed particles were detected in the non-reference elements in HFR-P4.
+
+Based on the R/B data at EOL for the three  MTR  tests  (HFR-K3, FRJ2-K13 and  -K15) that contained only reference 60 mm-diameter fuel elements, no in-reactor particle failures were observed. These 11  reference  fuel  elements  contained  a  total  of  159 880  LEU  UO2  TRISO  particles  and,  with  zero failures, this represents a failure fraction of ≤ 1.9 × 10 –5 at the upper 95 % confidence limit according to Equation 2.
+
+### 8.4.  HTR Module proof test analysis
+
+A comparison of initial R/B values monitored in HFR-K5 and HFR-K6 shows a significant difference for fuel elements 1, 2  and  3 compared to element 4 in both tests  (Table  48  and Figure  102). The  BOL 85mKr  R/B  values  in  the  top  capsules  are  < 5 × 10–10  for  both  tests,  compared  to  2.5 × 10–7  and 4 × 10–7  in  HFR-K5/4  and  K6/4,  respectively.  These  differences  of  four  orders  of  magnitude  in  R/B values are a result of as-fabricated defective fuel particles present in element 4 for each irradiation capsule. Other releases of fission gases are from contamination in the A3 sphere matrix and in the graphite cups that surround the spheres.
+
+Figure 102: Measured 85mKr release rates during the irradiation of tests HFR-K5 and HFR-K6
+
+Page 179
+
+In both HFR-K5 and K6 the upper capsules 1, 2 and 3 with very low BOL R/B values are representative of  elements  with  no  defective  fuel  particles  and  very  low  levels  of  uranium  and  thorium contamination in the fuel matrix. The fuel element HFR-K5/4 with a 85mKr R/B value of 2.5 × 10–7 at the start is representative of one  equivalent defective  fuel particle  from manufacture. In HFR-K6/4 with a BOL 85mKr R/B value of 4.5 × 10–7 there are approximately two equivalent defective particles. This is within the limits of defective particles from manufacture (six elements with zero defects plus one  element  with  one  defect  plus  one  element  with  two  defects,  i.e.  three  defects  in  116 800 particles represent a 2.6 × 10–5 defect fraction and this is within acceptable limits).
+
+The effect heavy-metal contamination in fuel-sphere matrix material has on fission gas release rates was  also  investigated  (Röllig,  1977)  (Röllig,  1993)  (Merwe,  2004)  (Merwe,  2004b)  (Merwe,  et  al., 2007) to explain the higher-than-expected EOL R/B data observed in the proof tests. Natural uranium (~ 99.28 wt %  238U + 0.72 wt %  235U)  and  thorium (232Th)  are  present  as  natural  contamination.  The fertile isotopes (232Th and  238U) capture neutrons and breed fissile materials such as  233U,  239Pu and
+
+241Pu.  This  phenomenon  is  of  importance  in  the  accelerated  irradiation  environments  of  an  MTR where  flux  levels  in  the  epithermal  region  are  greatly  accelerated  compared  to  real-time  HTGR environments (~ 2 to 5 times higher).
+
+The analysis demonstrated that, for the HFR-K6 experiment, fuel elements increased their equivalent initial fissile contamination fraction of 7.2 × 10–8 by factors of 15 to 20 by the end of the 634 effective full-power  days  of  irradiation.  This  increase  is  attributed  to  the  production  of  233U,  239Pu  and  241Pu fissile materials in the fuel matrix and in the graphite crucibles that surround each fuel element and hold them in place during irradiation. Similar results were obtained for the elements in HFR-K5. The 88Kr  release  predicted  for  fuel  elements  2  and  3  in  HFR-K6  is  compared  to  the  online  88Kr  R/B measurements in Figure 9 with close agreement. Similar results were also established for the shortlived xenon gas isotopes (Merwe, 2004) (Merwe, 2004b) (Merwe, et al., 2007).
+
+Page 180
+
+Figure 103: Detailed comparison of measured and calculated 88Kr release rates for fuel elements HFRK6/2 and 3 throughout the 634 full-power days of irradiation. Also shown are the measured temperatures at the spheres’ surface. Release source terms are from contamination
+
+For  the  fuel  elements  HFR-K5/4  and  HFR-K6/4,  which  contained  as-manufactured  defective  fuel particles, the amount of free uranium not contained within a SiC barrier is much larger at the start of irradiation. The free 235U due to one defective fuel particle at BOL is ~ 1 000 times that due to matrix contamination.
+
+Zero in-reactor particle failures were observed in HTR Module proof tests HFR-K6 and HFR-K6 out of a  total  irradiation  population  of  116 800  LEU  UO2  TRISO-coated  particles.  This  represents  a  failure fraction of ≤ 2.6 × 10–5 at the upper 95 % confidence limit as shown in Table 48.
+
+### 8.5.  AVR real-time irradiation testing
+
+The  46 MW(th)  AVR  in  Jülich,  Germany  operated  from  1967  through  1988  and  generated 1.7 × 109 kWh  of  electric  power.  During  its  operation  the  AVR  provided  invaluable  information  on spherical  fuel  element  development,  fuel  particle  development  with many  particle  variants  (kernel material, enrichments, coating designs) and HTGR fuel cycles (Sauer, 1990). Nearly 290 000 spherical fuel  elements  of  five  different  types,  containing  more  than  6 × 109  coated  fuel  particles,  were inserted into its core over its operating lifetime from 1967 to 1988,  Figure 104. Spheres with highquality TRISO particles of type GO-2, GLE-3 and GLE-4 came late to the AVR with around 50 % at the end.
+
+Page 181
+
+Figure 104: Distribution of spherical fuel element types in the AVR core as a function of operating history (Verfondern, 2007)
+
+For  a  7-year  period  from  1982  to  1988,  these  fuel  element  types  were  inserted  into  the  AVR  and experienced real-time HTGR operating conditions. At periodic intervals over this period, a number of irradiated  elements  would  be  randomly  drawn  from  the  core  for  post-irradiation  evaluation  and accident  condition  testing.  In  7 years of  irradiation, a  total of  240  GLE-3  and  GLE-4 elements were withdrawn  and  evaluated  at  the  Jülich  Research  Centre.  Peak  burnups  of  the  withdrawn  elements were 9.8 % FIMA for the GLE-3 elements and 13 % FIMA for the GLE-4 elements. Peak accumulated fast fluences were ~ 2.9 × 1025 m-2, E > 16 fJ for the GLE-3 elements and ~ 2.3 × 1025 m-2, E > 16 fJ, for the  GLE-4  elements.  Post-irradiation  evaluations  include  fission  product  inventory  measurements (burnup), out-of-reactor gas release measurements and accident simulation testing.
+
+Assessing the operating temperatures experienced by the fuel elements as they traverse, on multiple passes,  through  the  AVR  pebble-bed  core  during  their  irradiation  lifetime  has  been  a  difficult situation.  Predictions  based  on  model  calculations  were  always  available,  but  no  experimental measurements  were  made  until  the  mid  1980s.  In  1986  a  ‘melt-wire  experiment’  was  conducted during the period relevant to when the GLE-3 and GLE-4 fuel elements were present in the AVR. This experiment  inserted  into  the  AVR  specially  designed  graphite  matrix  spheres which  incorporated  a set  of  20  quartz  capsules,  each  containing  a  single  melt-wire  (Figure  99).  The  melt-wires  were fabricated from specific alloy compositions that would melt if specific temperatures were exceeded. A  total  of  190  of  these  monitoring  spheres  were  added  into  the  AVR  core  through  standard  fuel loading procedures: 102 to the centre and 22 to each of the four outer feed lines.
+
+Upon  discharge,  140  of  the  monitoring  spheres  were  X-rayed  to  assess  the  momentary  maximum peak  temperatures  experienced  during  their  passage  through  the  AVR:  15 %  of  the  monitoring
+
+Page 182
+
+spheres  experienced  operating  temperatures  ≥ 1 244 °C,  at  which  all  the  melt-wires  in  the  quartz capsules had melted (Derz, et al., 1990) (Gottaut H., 1990) (Stoker, et al., 2010).
+
+Based on the melt-wire measurement results, the underlying temperature distribution was extracted by constructing a quantile–quantile (Devore 2004) plot based upon the probability properties of the histogram  distribution.  Two  Gaussian  distributions  with  peak  temperatures  of  1 100 ± 66 °C  and 1 220 ± 100 °C  were  found  that  define  the  variation  of  momentary  maximum  fuel  element  surface temperatures  in  the  AVR  between  the  inner  core  and  outer  core  locations.  Peak  central temperatures  were  calculated  to  be  37.3 °C  and  75.6 °C  higher  for  the  inner  and  outer  locations, respectively.  Both  are  significantly  higher  than  the  coolant  gas  exit  temperature  because  of substantial core bypass flows. The resulting temperature distributions are shown in Figure 105.
+
+Figure 105: Distribution of AVR inner core maximum fuel element surface temperatures and outer core maximum fuel element surface temperatures as obtained from the 1986 melt-wire tests
+
+To  assess  the  EOL  performance  of  GLE-3  and  GLE-4  AVR  fuel  elements,  a  methodology  was developed based upon fission gas release measurement during the temperature increase in the early phase  of  accident  condition  testing  (Schenk,  1977)  (Schenk,  1978)  (Schenk,  1983)  (Schenk,  et  al., 1988) (Schenk, et al., 1990) (Schenk, et al., 1993). The heat-up process begins at room temperature, progresses  over  a  series  of  heating  ramps  to  specific  temperatures  (300 °C,  1 050 °C  and  1 250 °C) and  hold  periods  until  the  desired  accident  simulation  temperature  is  reached.  Two  of  these  hold points,  1 050 °C  and  1 250 °C,  are  designed  to  equilibrate  the  irradiated  fuel  particles  in  the  fuel element  at  or  near  their  prior  irradiation  temperature.  This  allows  the  fuel  to  develop  a  stable Page 183
+
+internal environment  before being heating to an elevated temperature  not  previously  experienced by the fuel particles. The 1 050 °C hold point was considered the mean working temperature for fuel specimens from accelerated MTR  irradiation tests, and the  1 250 °C  hold point was  considered the typical working temperature for AVR fuel elements.
+
+During heating, the test facility is purged with a sweep gas and continuously monitored for release of the long-lived  85Kr noble fission gas, half-life 10.76 years. Detection of any significant activity in the sweep gas is an indicator of failed or defective fuel particles present in the irradiated fuel element (Figure 106).
+
+Figure 106: Release of 85Kr measured during accident simulation testing of GLE-3 spherical fuel elements irradiated to various burnups in the AVR. The first part of the two-digit number refers to the consecutive AVR sampling event, and the second is a sequential s
+
+Table 49 is a detailed list of 29 GLE-3 fuel elements that have been subjected to accident simulation testing.  Of  these,  24  were  used  to  analyse  AVR  EOL  irradiation  performance.  Five  were  excluded
+
+time (hours)
+
+level of one particle failure 85Kr fractional release temperature (°C)
+
+Level of one particle failure
+
+Page 184
+
+because of the lack of detailed  85Kr release data at testing temperatures near those expected in the AVR.
+
+Table 49: 85Kr fractional release measurements made during the 1 250 °C+ hold temperature on AVR type GLE-3 fuel elements prior to accident simulation tests at higher temperatures
+
+Fuel element (AVR sample No/specimen No) Burnup (% FIMA)  Measurement temperature (°C) of 85Kr release 85Kr release fraction  Peak temperature (°C) of accident simulation test Isothermal accident simulation tests AVR 70/33  1.6  1 250  3.8 × 10–6  1 800 AVR 73/21 (ITU)  2.5  NI  NDR < 1 600 °C  1 800 AVR 71/22  3.5  1 250  4.5 × 10–8  1 600 AVR 74/18 (ITU)  4.8  1 600  5.9 × 10–6  1 600 AVR 74/10  5.5  1 250  < 8.0 × 10–7  1 800 AVR 74/11  6.2  1 250  1.3 × 10–7  1 700 AVR 76/18  7.1  1 250  1.6 × 10–8  1 800 AVR 88/41  7.6  1 250  1.3 × 10–8  1 800 AVR 88/33  8.5  1 250  < 4.2 × 10–8  1 600/1 800 AVR 82/20  8.6  1 250  5.5 × 10–8  1 600 AVR 88/15  8.7  1 250  6.3 × 10–8  1 600/1 800 AVR 82/9  8.9  1 250  1.3 × 10–8  1 600 HTR Module ‘depressurised loss of forced cooling’ (DLOFC) event profile AVR 91/31  9.0  1 500  1.0 × 10–8  1 700 AVR 89/13  9.1  1 490  6.7 × 10–8  1 620 AVR 85/18  9.2  1 495  2.6 × 10–8  1 620 AVR 90/5  9.2  1 495  5.3 × 10–8  1 620 AVR 90/2  9.3  1 495  9.2 × 10–8  1 620 AVR 90/20  9.8  1 500  5.7 × 10–8  1 620 Ramp accident simulation tests AVR 71/7  1.8  1 250  3.1 × 10–7  2 000 AVR 70/19  2.2  1 200  1.9 × 10–6  2 400 AVR 74/8  2.9  1 250  1.4 × 10–7  2 500 AVR 73/12  3.1  1 250  < 1.4 × 10–7  1 900 AVR 74/6  5.6  1 250  1.3 × 10–7  2 100 AVR 76/28  6.9  1 250/NI  NDR < 1 750 °C  2 100 AVR 76/19  7.3  1 250  2.3 × 10–7  1 900 AVR 76/27  7.4  1 250  4.6 × 10–7  2 100 AVR 80/16  7.8  1 250/NI  NDR < 1 900 °C  2 000 AVR 80/14  8.4  1 250/NI  NDR < 1 900 °C  2 500 AVR 80/22  9.1  1 250/NI  NDR < 1 600 °C  1 900 Accident simulation tests on MTR and HTR Module proof test elements HFR-K3/1  7.7  1 250  < 5.6 × 10–8  1 600 HFR-K3/3  10.2  1 250  1.5 × 10–7  1 800 FRJ2-K13/2  8.1  1 250  5.3 × 10–7  1 600 FRJ2-K13/4  7.8  1 250  4.5 × 10–8  1 600/1 800 HFR-K6/2 (ITU)  9.7  1 050  1.0 × 10–8  1 600 HFR-K6/3 (ITU)  9.8  1 050  3.2 × 10–6  1 600
+
+Page 185
+
+Figure 107 presents the fractional release data for these elements whereby the heat-up 1 250 °C hold temperature reproduces EOL conditions. The release data represent AVR EOL irradiation conditions and  are  characteristic  of  fuel  element  performance.  Eleven  of  the  GLE-3  elements  were  ultimately subjected to isothermal tests from 1 600 °C or 1 800 °C, six elements were subjected to a simulated HTR  Module  design  basis  depressurised  event  temperature  profile  up  to  1 620 °C  or  1 700 °C  and seven elements were subjected to ramp tests ranging from 1900 °C to 2 500 °C.
+
+Included in the figure, for comparison purposes, are the  85Kr fractional release measurements made on six MTR and HTR Module proof test elements, also subjected to design basis accident simulation testing.  The  fractional  release  data  were  similarly  obtained  during  the  1 250 °C  hold  temperature during the heat-up phase of test simulation.
+
+Figure 107: Post-irradiation fission gas release fractions at 1 250 °C measured during heat-up prior to accident simulation tests with GLE-3 fuel elements containing LEU UO2 TRISO particles of various burnups. The horizontal lines show predicted krypton release fractions
+
+The  85Kr  fractional  release  data  in  Figure  105  and  Figure  106  are  indicative  of  the  EOL  fuel performance for the GLE-3 elements irradiated in the AVR. For the 11 GLE-3 elements subjected to isothermal  accident  tests  the  release  data  were  measured  at  the  1 250 °C  hold  period  during  the ramp-up  to  test  temperature  and  are  directly  representative  of  EOL  AVR  performance.  For  those elements subjected to a constant heating ramp to temperatures > 1 900 °C, only release data in the temperature  range  of  1 250 °C  to  ~ 1 400 °C  were  used  to  estimate  EOL  AVR  performance.  And finally,  for  those  elements  subjected  to  a  design  basis  HTR  Module  depressurisation  event temperature  profile,  only  the  release  data  along  the  temperature  curve  where  the  furnace
+
+Page 186
+
+temperature  was  between  1 490 °C  and  1 500 °C  were  used  as  representative  of  EOL  AVR performance.
+
+Based on the 85Kr fractional release data from 24 accident simulation tests, the EOL performance of the  GLE-3  fuel  elements  at  the  time  of  discharge  from  the  AVR  are  excellent.  Most  of  the  release fractions,  with  a  few  exceptions,  are  < 10–6  in  the  temperature  range  of  1 250 °C  to  well  beyond 1 400 °C.  The  85Kr  release  fraction  of  a  single  LEU  UO2  TRISO  particle  at  these  temperatures  is ~ 6 × 10–5 and the release fractions measured from the 24 separate GLE-3 elements are lower by one to three orders of magnitude. The AVR GLE-3 element fractional release data also compare well with 85Kr release data obtained from accident simulation testing of MTR irradiation and HTR Module proof test specimens.
+
+Collectively,  the  24  GLE-3  elements  represent  a  population  of  393 600  LEU  UO2  TRISO-coated particles  and  —  with  no  in-reactor  failures  —  their  EOL  performance  is  representative  of  a  failure fraction of ≤ 7.6 × 10–6 at the one-sided upper 95 % confidence limit. It should be noted that zero inAVR  particle  fuel  failure  has  not  always  been  the  case.  The  test  and  evaluation  method  described here had previously identified AVR GLE-1 fuel with near 50 % particle failure in the 1970s (Wimmers, 1977).
+
+Page 187
+
+## 9.  Appendix B
+
+### 9.1.  Experiments regarding self-acting decay heat removal in modular
+
+high-temperature gas-cooled reactors
+
+#### 9.1.1.  Overview
+
+After the total loss of active cooling in a modular HTR the decay heat is transported  solely through processes of conduction, radiation and free convection from the core to the environment. This chain of  heat  transport  includes  several  steps  in  the  reactor  and  depends  in  a  complex  way  on  various parameters of the reactor design. Figure 108 shows a simplified overview of the relevant structures and  the  chain,  as  well  as  of  parameters,  which  influence  the  heat  transport  and  the  temperature profile.
+
+Figure 108: Stationary radial temperature profile in case of self-acting decay heat removal in a modular HTR (Tmax in the hottest part of the core)
+
+The maximum temperature in the hottest fuel elements is given by a dependency of the type:
+
+𝑇𝑚𝑎𝑥 = 𝑇𝑐𝑜𝑙𝑑 + 𝑞̇̅ 𝑐′′′ ∗ 𝛽 ∗ 𝑓𝑛(𝑡∗) ∗ 𝛷(𝑟𝑖, 𝜆𝑖, 𝜀𝑖, 𝛼𝑖)          (104)
+
+where:
+
+𝑇𝑚𝑎𝑥 = maximum temperature in the hottest fuel elements; 𝛷 = function describing the heat transport through the whole reactor system; 𝑇𝑐𝑜𝑙𝑑 =  temperature of the environment (temperature in surface cooling system or in the air outside the inner concrete cell);
+
+𝑞̇̅ 𝑐′′′ = average power density in the core; 𝛽 = peak factor of power density;
+
+Page 188
+
+𝑓𝑛(𝑡∗) = factor of decay heat function (in a modular JTR of around 200 MWth) around 3.0E-03 after 30 hours.
+
+The  function  Φ  contains  a  description  of  the  total  chain  of  heat  transport  which,  oriented  on  the designation in Figure 109, denotes as follows:
+
+𝛷 = 𝑟12
+
+4𝜆𝑒𝑓𝑓 + 𝑟1 2 ∗ (𝑟2−𝑟1)
+
+𝜆𝐺 + 𝑟1 2 ∗ 𝑟1 𝑟3 ∗ (𝑟2−𝑟1)
+
+𝜆𝑆 + 𝑟1 2 ∗ 𝑟1 𝑟4 ∗ 1 𝛼𝑆̅̅̅̅ + 𝑟1 2 ∗ 𝑟1 𝑟5 ∗ (𝑟5−𝑟4)
+
+𝜆𝑆 + 𝑟1 2 ∗ 𝑟1 𝑟5 ∗ 1 𝛼𝛼̅̅̅̅  (105)
+
+The  relevant  parameters  of  the  heat  transport  chain  need  experimental  validation.  The  main  data influencing the temperature proﬁle is briefly introduced in Figure 109.
+
+Figure 109: Parameters which influence the chain of the self-acting transport of decay heat in a modular HTGR
+
+The  following  experiments  were  carried  out  to  validate  data  relevant  to  self-acting  decay  heat removal in modular HTGRs.
+
+  Measurements of 𝜆𝑒𝑓𝑓(𝑇) in the pebble bed after total loss of active cooling: this was done in a lot of relatively small laboratory tests and in a large integral test (SANA).   Transport  of  the  heat  through  the  thick-walled  graphite  reflector:  𝜆𝐺  depends  on temperatures  and  irradiation  doses.  Many  results  are  available  from  the  irradiation programmes.  Different  qualities  of  graphite  have  been  qualified  regarding  these characteristic loads.   The  natural  convection,  which  occurs  in  a  reactor  under  full  helium  pressure  after  loss  of forced convection, was measured in the LUNA experiment. The dependence of convection in internal gaps and in the core is known for different gases and conditions of temperature and pressure.   In the gaps between the graphite reflector and the thermal shield, and between the thermal shield  and  the  inner  side  of  the  reactor  pressure  vessel,  there  is  heat  transport  by conduction,  radiation  and  free  convection.  Measurements  in  the  large  PASCO  (passive cooling  of  containment)  test  facility  and  measurements  of  the  emission  coefficients  ε  for various materials are available.   The heat release from the surface of the reactor pressure vessel mainly by radiation and free convection  was  measured  in  various  large  facilities.  Results  from  the  INWA  facility,  for instance,  helped  gain  broad  experience  on  the  release  of  decay  heat  from  the  surface  of
+
+o o o o o o o
+
+o o o o o o o
+
+o o o o o o o
+
+Core  Graphite reflector  Thermal shield  Reactor pressure vessel  Surface cooler  Concrete of the inner cell  Wall of the outer reactor building
+
+𝜆𝑒𝑓𝑓(𝑇)  𝜆𝑔𝑟𝑎𝑝ℎ(𝑇, 𝐼)  ∝𝑐𝑜𝑛𝑣 ∝𝑟𝑎𝑑,  𝜀  𝜆𝑠𝑡𝑒𝑒𝑙  ∝𝑐𝑜𝑛𝑣 ∝𝑟𝑎𝑑,  𝛿  𝜆𝑐𝑜𝑛𝑐𝑟. 𝑞̇ 𝑐𝑜𝑛𝑐𝑟.  ∝𝑐𝑜𝑛𝑣 ∝𝑟𝑎𝑑  𝜆𝑐𝑜𝑛𝑐𝑟.  𝜆𝑜𝑢𝑡𝑠.
+
+Page 189
+
+reactor pressure vessels and on the function of the concrete (cast-iron) cell surrounding the reactor as an outer heat sink.   Many results for the release of heat from the surface of the reactor pressure vessel and the function  of  the  outer  surface  cooler  were  gained  from  experiments  conducted  by  the Japanese Atomic Energy Agency (JAERI).   Measurements  on  Castor  and  Mosaik  vessels  for  spent  fuel  elements  enlarged  the knowledge  of  decay  heat removal  by  natural  convection  and  radiation  from  the  surface  of the reactor pressure vessel.   In  case  of  storage  of  decay  heat  in  the  concrete  of  the  inner  cell,  knowledge  of  material behaviour  and  the  behaviour  of  large  concrete  blocks  with  load  by  heat  flux  is  necessary. Large experiments with different types of concrete were carried out.   In  very  extreme  cases  the  liner  or  surface  heat  exchanger  cooling  could  fail  too;  the reflooding  was  tested  in  connection  with  the  experiments  on  concrete  at  very  high temperatures.   Heat  transport  by  free  convection  inside  the  reactor  building  and  transport  to  the  outside (environment) were tested in the PACOS facility.   The  total  chain  of  heat  transport  was  tested  in  the  AVR  reactor  in  an  integral  experiment. This  was  carried  out  with  a  reactor  status  with  pressure  and  without  pressure.  Relevant temperatures in the reactor structures were measured.
+
+Figure 110 gives an overview of the experiments and their purposes, as discussed before. It is clear that  the  main  steps  of  the  chain  of  heat  transport  have  been  tested  corresponding  to  the experimental conditions and the specific situation in a modular HTGR. All these experiments provide proof for the validity of the concept of self-acting decay heat removal.
+
+Page 190
+
+Status
+
+Realised
+
+Experience Aspect Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Realised
+
+Not realised (licensed)
+
+Planned
+
+Planned
+
+Laboratory tests
+
+SANA exp.
+
+LUNA exp.
+
+Heat transport in core 𝜆𝑒𝑓𝑓(𝑇) AVR exp.
+
+add. single exp. (measurements)
+
+Heat transport through shield of the core INWA exp.
+
+JAPAN exp. (HTTR)
+
+CASTOR vessel (LWR)
+
+INWA exp.
+
+Concrete tests (high temp.)
+
+Convection experiments
+
+PASKO exp.
+
+Reactor with pressure
+
+Reactor without pressure
+
+Fast depressurisation
+
+TAIS exp.
+
+HTR-10 exp.
+
+Thermal output from RPV surface
+
+Heat absorption in the external concrete cell
+
+Structural stability of concrete at high temp
+
+Integral experiments in AVR
+
+Demonstration and validation of the overall transport chain
+
+Verification of concepts of the automatic residual heat removal
+
+Page 191
+
+Figure 110: Overview of experiments to evaluate the concept of self-acting decay heat removal of a modular HTR
+
+The experiments delivered enough data to calculate the temperature distribution and to deﬁne the temperatures in the fuel elements. Moreover, histograms to describe the time- and space-dependent distribution of temperature loads on all fuel elements can be derived with high accuracy. In addition to the abovementioned experimental evaluations, a value is added to take statistical effects on the maximum fuel temperature into account:
+
+𝑇𝑚𝑎𝑥 = 𝑇𝑚𝑎𝑥(𝑛𝑜𝑚𝑖𝑛𝑎𝑙) + ∆𝑇                (106)
+
+The value of ∆𝑇 in most analyses until now has been approximately 100 °C; some variations of this value are possible corresponding to the requirements of different licensing bodies.
+
+A maximum temperature 100 °C higher than the nominal value causes higher fission-product releases from  the  fuel.  These  differences  are  in  the  order  of  approximately  50 %  for  the  relevant  isotopes
+
+137Cs and 90Sr. If effective filtering of the helium, leaving the primary system in case of an accident, is possible, this does not change the release from the plant. This is fulfilled in the case of a non-bursting primary enclosure.
+
+It can also be fulfilled by burst protection or by a totally prestressed primary enclosure. The materials for this concept are concrete, cast iron or cast steel.
+
+### 9.2.  Heat transport in the reactor core 𝝀𝒆𝒇𝒇(𝑻)
+
+#### 9.2.1.  Laboratory experiments
+
+The temperature dependence of the heat conductivity in the pebble bed is important to calculate the temperature  distributions  in  the  core  in  case  of  the  accidents  discussed  here.  The  temperature difference between the centre and the surface of the core is estimated by the following equation:
+
+𝑇𝑚𝑎𝑥 − 𝑇𝑠𝑢𝑟𝑓~ 𝑞̇ 𝑐′′′∗𝛽∗𝑓𝑛(𝑡∗)∗𝑟12
+
+4∗𝜆𝑒𝑓𝑓̅̅̅̅̅̅̅                 (107)
+
+𝜆𝑒𝑓𝑓̅̅̅̅̅̅  is  a  suited  average  value  over  the  radial  temperature  proﬁle  here.  𝜆𝑒𝑓𝑓̅̅̅̅̅̅  values  at  lower temperatures  are  important  for  the  structure  of  the  histogram  of  the  fuel  temperature  too.  This aspect is important when estimating fission-product releases during the entire time of an accident.
+
+In the course of the development of HTGRs 𝜆𝑒𝑓𝑓̅̅̅̅̅̅ has been measured several times (Barthels, et al., 1984)  (Breitbach,  1978)  (Barthels,  et  al.,  1984)  (Robold,  1982)  in  laboratory  experiments.  A characteristic  example  is  shown  in  Figure  111.  A  heating  and  a  cooling  system  generates  a temperature  field,  which  allows  the  definition  and  measurements  of  heat  conductivities  in  small regions with temperature distributions.
+
+Page 192
+
+Figure 111: Measurement of (𝝀𝒆𝒇𝒇(𝑻)̅̅̅̅̅̅̅̅̅̅) in a laboratory experiment with 6 cm graphite balls: (a) arrangement for measurement of (𝝀𝒆𝒇𝒇(𝑻)̅̅̅̅̅̅̅̅̅̅ in a pebble bed; (b) result for the effective heat conductivity in a pebble bed (𝝀𝒆𝒇𝒇̅̅̅̅̅̅(𝑻))
+
+The  results  of  this  type  of  experiment  are  summarised  in  Figure  111.  There  are  some  deviations, which  are  explained  by  the  specific  conditions  of  different  experiments.  Furthermore,  theoretical models delivered results which ﬁt into the field of available experiments relatively well. An analytical expression of the temperature dependence, which describes the results relatively well, is denoted as:
+
+𝜆𝑒𝑓𝑓(𝑇) = 2.549 ∗ 10−4 ∗ 𝑇1.545 + 1.5     𝑓𝑜𝑟 𝑇 ≤ 1 300 °𝐶      (108)
+
+𝜆𝑒𝑓𝑓(𝑇) = 2 ∗ 10−3 ∗ (𝑇 − 135)1.29 + 0.003  𝑓𝑜𝑟 1 3000𝐶  ≤ 𝑇 ≤ 2500 °𝐶    (109)
+
+Here  the  following  dimensions  are  valid:  𝜆𝑒𝑓𝑓 [𝑊 𝑚𝐾⁄ ] and  𝑇[°𝐶].  The  uncertainty  of  these equations is estimated to be as high as ± 10 %, and there are indications that the actual value is even higher (Fricke, 1987).
+
+The value of 𝜆𝑒𝑓𝑓 is also influenced by natural convection processes in the pebble bed. The inﬂuence of  irradiation  is  also  included  in  the  equation  given  above.  Figure  112  shows  these  inﬂuences  in comparison to irradiated fuel element graphite.
+
+Page 193
+
+Figure 112: Dependencies of 𝝀𝒆𝒇𝒇 from temperature and irradiation status
+
+#### 9.2.2.  SANA experiment
+
+Since the heat conductivity and the temperatures in the core are so important for the concept of the self-acting  decay  heat  removal,  a  large-scale  experiment  was  carried  out  in  the  SANA-test  facility (SANA = Selbsttätige Abfuhr der Nachwärme (self-acting removal of decay heat)). 9 500 graphite balls 6 cm in diameter were heated using electrical heating to simulate the decay heat in a reactor core. Inserted ceramic heating elements in the pebble bed (see channels Figure 113 (left) made it possible to establish radial and axial temperature profiles (Lange, 1995) (Niessen, et al., 1994) (Niessen, et al., 1995) (Niessen, 2001) (Niessen, et al., 2001) (Stöcker, 1997).
+
+Figure 113: SANA-test facility: (a) cross section; (b) picture
+
+Page 194
+
+Table 50: Data on the experiment
+
+Parameter  Dimens ion  Value  Remark
+
+Maximum electric power  KW  50  Different heating elements Height of furnace  m  1 Diameter of furnace  m  1.5 Diameter of graphite balls  mm  60  Smaller balls have been tested too Number of graphite balls    9 500 Maximum bed temperature  °C  1 600  Normally max. 1 200 °C Gas filling    Helium  Nitrogen too
+
+The boundaries were cooled. More than 100 thermocouples in the arrangement of pebbles made it possible to measure the  time-  and space-dependent temperature proﬁles. It was possible to reach maximum temperatures of 1 200 °C inside the pebble bed.
+
+The main tasks of the experiments were:
+
+  measurement of time-dependent three-dimensional temperature distribution;   determination  of  effective  heat  conductivity  as  a  function  of  the  temperatures  in  the  core structures;   evaluation of permitted heat flux densities at different boundary conditions;   collecting data for programme validations (e.g. Thermix/Direkt, TINTE);   statements concerning natural convection phenomena.
+
+Many experiments were carried out varying the temperature, heating power and the filling gas in the facility. Helium, nitrogen and mixtures of both gases were used.
+
+Figure  114  shows  characteristic  stationary  temperature  proﬁles  in  a  specific  height  of  the arrangement.  On  the  basis  of  this  type  of  temperature  proﬁle  𝜆𝑒𝑓𝑓(𝑇)  was  derived  from  the experiments.
+
+Page 195
+
+Figure 114: Characteristic results of measurements of stationary temperature proﬁles in the SANA facility (heating power 50 KW; N2 as filling gas; no radial insulation)
+
+The temperatures close to the heating elements partly reached 1 400 °C in this experiment. From the measured proﬁles it was possible to get the dependence 𝜆𝑒𝑓𝑓(𝑇) to temperatures of approximately 1 000 °C.
+
+The comparison between measurements and calculations displays close agreement (Figure 115)
+
+Radial temperature profile
+
+Axial temperature profile
+
+Page 196
+
+Figure 115: Comparison between measured and calculated values in the SANA facility (power 30 KW; helium as filling gas; without insulation)
+
+An  important  aspect  was  the  influence  of  natural  convection.  There  was  a  remarkable  difference between helium and nitrogen. In case of nitrogen or air in the pebble bed the influence of the filling gas has to be taken into account, as Figure 116 may indicate.
+
+Figure 116: Results of free-convection measurements: transport of heat by natural convection; difference between nitrogen and helium Radial temperature profile
+
+Axial temperature profile
+
+Page 197
+
+The total effective heat conductivities in the pebble bed with gas filling are shown in Figure 116. The figure  shows  the  differences  for  helium  and  nitrogen.  Helium  delivers  somewhat  higher  values compared to nitrogen. The resulting measurements are systematically higher compared to the values obtained in the theoretical analysis (Zehner/Schlünder theory).
+
+In  summary  it  can  be  stated  that  in  the  experimental  data  that  are  available,  the  concept  of  heat transport  inside  the  pebble  bed  is  evaluated  and  the  possibility  of  calculating  the  temperature distribution  and  maximum  temperatures  in  accidents  is  given.  Additionally,  a  similar  large experiment for the self-acting transport of heat is carried out in the PBMW project. The first results are in accordance with the available data.
+
+#### 9.2.3.  LUNA experiments
+
+The  LUNA  (Loop  zum  Naturkonvektionsumlauf  im Primärkreis  des  HTR =  loop to  test circulation  by natural convection in the primary circuit of HTRs) experimental facility was built and operated with the following goals:
+
+  to gain experience in the ﬁeld of natural convection;   to get data for the validation of computer programs;   to get more information on special effects (inﬂuence of the position of the heat sink in the circuit  conditions  of  change  of  flow  through  the  hot  pebble  bed,  influences  of  the  type  of media in the circuit).
+
+The  experiment  contained  an  electrical  heated  pebble  bed  and  a  heat  exchanger,  which  could  be arranged at different heights relative to the heat source.
+
+The  heating  furnace  had  a  diameter  of  0.7 m  and  a  height  of  1.23 m.  It  was  ﬁlled  with  100 000 pebbles made of steel (diameter 19.5 mm). The porosity of the pebble bed was approximately 60.4 % corresponding to the conditions in the real core of a pebble-bed reactor.
+
+The  heater  could  reach  a  power  output  of  200 KW.  This  power  made  it  possible  to  reach temperatures of 300 °C at 40 bar. In the pebble bed 80 thermocouples allowed the radial and axial temperature proﬁle to be measured. In the different experiments with variations of the position of the heat sink and the type of gas (air, helium) the relevant temperatures and the mass flow in the circuit  were  measured.  The  data  then  enabled  the  application  of  computer  programs  and  the necessary validation of these instruments. Figure 117 provides an overview of the LUNA facility.
+
+Page 198
+
+Figure 117: Experimental facility LUNA: (a) overview; (b) view into the pebble bed
+
+Figure 118 shows results that could be obtained.
+
+(a)  It could be shown that the mass flow in the cycle is larger in case of air compared to helium. (b)  Measurements and calculations show close agreement. Cooling of the pebble bed by natural circulation was relatively fast, as indicated in Figure 118 (b) and (c).
+
+The  position  of  the  heat  sink  had  a  major  inﬂuence  on  the  height  of  the  mass  flow  and  on  the direction of the flow (Figure 118 (d)). The position of the heat exchanger below the geodetic height of the heat source  was  a change  of direction from the beginning of the cooling process. This is an important  aspect  for  the  design  of  modular  HTRs.  The  relevant  experiences  from  the  LUNA experiments can be summarised as follows:
+
+  mass  flow  and  direction  of  the  flow  depend  on  the  medium  and  the  positions  of  the  heat source and the heat exchanger;   under specific conditions stagnation and change of flow direction are possible;   a deep arrangement of the heat sink in any case causes an upward flow through the pebble bed;   the  results  enabled  the  validation  of  existing  programmes  and  the  overestimation  of measurements,  and  showed  that  the  pre-calculations  could  be  confirmed  by  the experiments.
+
+Page 199
+
+(a)
+
+(b)
+
+Page 200
+
+(c)
+
+(d)
+
+Figure 118: Measurements and calculations — results of the LUNA facility: (a) mass ﬂow dependent on time; (b) temperature dependent on time (air at 36 bar); (c) temperature dependent on time (helium at 37 bar); (d) mass flow in circuit in case of different positions of the heat sink
+
+Page 201
+
+### 9.3.  Heat transport through the shield of the core
+
+#### 9.3.1.  Heat transport of the graphite reflector including the influence of
+
+irradiation (𝝀𝑮(𝑻, 𝑫)) The decay heat conducted from the core will be transported through the graphite structures of the reflector surrounding the core (Delle, et al., 1983, 1984).
+
+In  the  graphite  reflector  a  heat  flux  corresponding  to  the  following  relationship  is  necessary  to remove the decay heat from the core:
+
+𝑞́ (𝑡)̅̅̅̅̅̅ ≈ 𝑃𝑡𝑛 ∗ 𝑓𝐷(𝑡) ∗ 2𝜋 ∗ 𝐷 ∗ 𝐻             (110)
+
+D = outer diameter of the core;
+
+H = height of the core.
+
+In case of self-acting decay heat removal, ∆𝑇 is the temperature difference in the graphite, ∆𝑆 is the thickness  of  reﬂector  and  𝜆𝐺  is  the  heat  conductivity  of  the  graphite,  which  is  dependent  on  the temperature  and  the  irradiation  dose.  For  a  conservative  analysis  one  has  to  assume  that  the graphite  has  been  irradiated  over  the  whole  time  at  full  operational  power  (e.g.  30 years,  Figure 119).
+
+Figure 119: Aspects of heat transport in the side reflector of a modular HTR in case of self-acting decay heat removal
+
+The  left  side  of  Figure  119  shows  the  average  heat  flux  depending  on  the  radial  position  in  the reflector; the right side shows the radial dependence of the fast heat flux in the graphite reflector.
+
+Corresponding  to  the  explanation  in  Figure  119  a  stepwise  analysis  of  the  different  layers  of  the reflector  and  the  relevant  graphite  data  is  required.  Many  irradiation  experiments  have  delivered these  values  and  are  available  in  form  of  data  libraries.  Figure  120  shows  data  for  a  characteristic material with rising neutron inﬂuence while the heat conductivity is reduced at high temperature by a  factor  of  2.  In  many  cases,  the  temperature  distribution  in  the  reactor  together  with  the dependence on the changes by radiation, 30 to 50 years of operation have to be taken into account to evaluate the temperature differences in the graphite reflector as part of the heat transport chain (Haag, et al., 1990). Generally these irradiation effects are important for a relatively thin layer of the
+
+3.5
+
+4
+
+4.5
+
+5
+
+5.5
+
+6
+
+6.5
+
+7𝑞 ̇(KW/m2) Ri  R0  r  1.00E+05
+
+1.00E+07
+
+1.00E+09
+
+1.00E+11
+
+1.00E+13
+
+1.00E+15 0 10∅𝑀/(𝑛/(𝑐𝑚^2 )∙𝑠) Ri  R0  𝑟
+
+Page 202
+
+thick-walled graphite reflector (approximately the first 1 m close to the core) and regions relevant to core structure.
+
+The  dependence  of  the  heat  conductivity  can  be  described  by  an  equation  of  the  following  type (Delle, et al., 1990).
+
+𝜆(𝑇) = 𝛼0 + 𝛼1 𝑇2⁄ + 𝛼2 ∗ 𝑒𝑥𝑝 ( −1 250 𝑇 ⁄ )            (111)
+
+An example of a suitable reflector graphite is ATR-2E.
+
+The  irradiation  causes  a  reduction  in  the  values  of  heat  conductivity  as  shown  in  Figure  120.  The effect  is relatively strong at  low temperatures,  while at high temperatures annealing effects  play a role.
+
+Figure 120: Behaviour of irradiated graphite relevant for the description of ‘loss of active cooling’ accidents and action of self-acting decay heat removal: heat conductivity dependent on fast neutron dose and temperature (irradiation at 950 °C)
+
+For the decrease in the fast neutron flux in the radial direction the dose is given by the equation:
+
+𝐷(𝑟) = 𝐷𝑚𝑎𝑥 ∗ 𝑒𝑥𝑝(−𝛴 ∗ 𝜏)                (112)
+
+𝛴 ≈ 0.011𝑐𝑚−1  can  be  applied  for  (hands-on)  estimates.  This  results  in  a  reduction  in  the  fast neutron flux by a factor of more than 104 at a reﬂector thickness of 1 m.
+
+Applied to the case of self-acting decay heat removal in a modular reactor, characteristic data for the heat flux entering into the graphite reﬂector and the temperature difference across this component
+
+Page 203
+
+can be obtained. With a decay power 𝑄̇ 𝐷 and core dimensions (radius R and average height H) the average and the maximum heat ﬂuxes are given by:
+
+𝑞̇ ′′̅̅̅̅ = 𝑄̇ 𝐷 (2𝜋 ∗ 𝑅 ∗ 𝐷) ⁄ ; 𝑞̇ ′′(𝑚𝑎𝑥) = 𝑞̇ ′′̅̅̅̅ ∗ 𝛽, 𝛽 ≈ 1.6        (113)
+
+This  delivers  a value  of  around  6 KW/m2  at a  time of  1 day  after  a  ‘loss  of  cooling’  accident  at the boundary  of  the  core  as  an  average  value  and  ~ 10KW/m2  as  the  maximum  load.  However,  these values would decrease during an accident as the decay heat decreases.
+
+With  a  value  of  100 W/(mK)  for  the  heat  conductivity  of  unirradiated  graphite  this  results  in  an average temperature difference of 50 °C across the graphite reﬂector in the radial direction.
+
+Changes in the heat conductivity after many years of operation and irradiation would make this value increase  in  case  of  accidents.  Again,  the  graphite  zone  near  the  core  especially  plays  a  major  role regarding changes of heat conductivities.
+
+Page 204
+
+Figure 121: Aspects of heat transport through the graphite reflector in case of ‘loss of cooling’ accidents: (a) radial dependence of neutron flux (e.g. AVR; 1.85 m under core upper surface); (b) axial dependence of neutron flux (e.g. AVR; on core axis); (c) positions of the reflector
+
+Table 51: Characteristic of fast neutron dose at different positions of reﬂector (e.g. HTR Module; after 30 years of operation)
+
+Point  Temperature (℃)  Fast flux 𝑛 𝑐𝑚2⁄   Fast dose 𝑛 𝑐𝑚2⁄ P1  250  7 × 10 13  2 × 10 22 P2  500  5 × 10 13  1.5 × 10 22 P3  700  1 × 10 13  3 × 10 21 P4  250  6 × 10 13  2 × 10 22 Page 205
+
+P5  300  1 × 10 10  1 × 10 19
+
+### 9.4.  Heat transport in gaps between reactor internal structures by
+
+radiation and free convection — general experiences from laboratory experiments
+
+#### 9.4.1.  General experiences from laboratory experiments
+
+Natural convection of air, helium or mixtures of helium and air play a major role during all processes of decay heat removal in modular HTGRs.
+
+In  the  chain  of  heat  transport  from  the  core  to  the  environment  there  are  several  steps  which contain  heat  transfer  mainly  by  radiation  and  free  convection.  This  is  the  case  at  the  following positions (Figure 122):
+
+  in the gap between the graphite reﬂector and the thermal shield;   in the gap between the thermal shield and the wall of the reactor pressure vessel;   in  the  space  between  the  reactor  pressure  vessel  and  the  cooling  panels  of  the  surface cooler;   on the outside of the inner concrete cell;   on the inside of the reactor containment building;   on the outside of the reactor containment building.
+
+Figure 122: Positions where natural convection plays a role
+
+The numbers used in Figure 122 denotes the different components and structures.
+
+(1)  Core. (2)  Graphite reflector. (3)  Thermal shield. (4)  Gap with structures between thermal shield and reactor pressure vessel. (5)  Reactor pressure vessel.
+
+1  2  3  4  5  6  7  8  9  10
+
+Page 206
+
+(6)  Cavity between reactor pressure vessel and surface cooler. (7)  Inner concrete cell with surface cooler. (8)  Room of the containment building with inner structures. (9)  Concrete wall of the containment building. (10) Environment.
+
+Corresponding  to  these  heat-transfer  requirements,  different  heat  transport  mechanisms  are relevant here (Figure 123):
+
+  heat transport between two surfaces with different temperatures (and different emissivities) of surfaces;   heat release from a hot surface to a surrounding medium, such as release to the atmosphere in the building;   heat penetrating into structures from a hotter atmosphere.
+
+Normally  the  heat  flux  in  these  gaps  can  be  described  by  equations  of  the  following  type  (Figure 123(a)). 𝑞̇ = (𝛼𝑐𝑜𝑛𝑣 + 𝛼𝑟𝑎𝑑) ∗ (𝑇1 − 𝑇2)
+
+The  temperature  difference  (𝑇1 − 𝑇2)  is  responsible  for  heat  transfer  by  radiation  and  by  internal free convection of helium or helium/air mixtures in case of accidents.
+
+Figure 123: Heat transport mainly by free convection and radiation — three important situations in the chain of heat transport of a modular HTR: (a) between two surfaces in the reactor internals; (b) from hot surfaces to the atmosphere of the reactor containment building to concrete structures
+
+For the heat transfer by radiation, the temperatures of the radiant and of the absorbing surface and the coefficients of environment are relevant (Schürenkremer, et al., 1983) (Schürenkremer, 1984).
+
+𝛼𝑟𝑎𝑑 ≈ 𝜑(𝑇1, 𝜀1) ≈ 𝐶12 ∗ 𝐶𝑠(𝜀1∗𝑇14−𝜀2∗𝑇24) = 𝐶12 ∗ 𝐶𝑆 ∗ 𝛽𝑇(𝑇1, 𝑇2, 𝜀1)      (114)
+
+The factor 𝐶12 covers the emissivity and is, for parallel flat surfaces, deﬁned as:
+
+Graphite reflector  Thermal shield  Surface of reactor pressure vessel Free convection and radiation
+
+Conduction Free convection radiation
+
+∝𝑐𝑜𝑛𝑣+∝𝑟𝑎𝑑  ∝𝑐𝑜𝑛𝑣+∝𝑟𝑎𝑑 Conduction Free convection
+
+(a)  (b)  (c)
+
+𝑇1 𝑇2 𝛿1 𝛿2 𝛿𝑆
+
+𝑇𝑆 Concrete
+
+𝑇𝑒𝑛𝑣.
+
+𝑇𝑆* 𝑞̇ 1´´
+
+Page 207
+
+𝐶12 = 𝐶𝑠 ( 1 𝜀1 + 1 𝜀2 − 1)⁄                (115)
+
+in which 𝐶𝑠 is the radiation constant with the value 5.77 W/(m2K4). The emissivity of graphite has a value of 0.9. For steel one can apply 0.6 to 0.85 for ε depending on the status of surfaces.
+
+The function 𝛽𝑇 is shown in Figure 124 depending on the temperatures of the surfaces:
+
+𝛽𝑇(𝑇1, 𝑇2, 𝜀1) = (𝜀1 ∗ 𝑇14 − 𝜀2 ∗ 𝑇24) (𝑇1 − 𝑇2)⁄           (116)
+
+A temperature difference of  100 °C  allows  in the region of 460 °C  a 𝛽𝑇  value  of 2,  and therefore a heat flux of around 5 KW/m2 in the core structures (graphite/thermal shield).
+
+For small differences between 𝑇1 and 𝑇2 at elevated temperatures the following approximation can be used:
+
+𝛽𝑇 ≈ 4 100 ∗ ( 𝑇𝑎𝑣 100) 4 , 𝑇𝑎𝑣 = 0.5 ∗ (𝑇1 + 𝑇2)            (117)
+
+Figure 124: Dependence of the function 𝜷𝑻(𝑻𝟏, 𝑻𝟐, 𝜺𝟏) (𝜺𝟏, 𝜺𝟐 = 𝟏)
+
+0.5
+
+5
+
+50 -200 0 200 400 600 800 1000Temperaturefactor βT Temperature t1=T1-273K
+
+Page 208
+
+For the heat transfer by free convection many empirical equations are available.
+
+The  convective  heat  transfer  in  the  gaps  depends  mainly  on  the  temperature  proﬁle,  on  the characteristic dimension 𝑠𝑖 and on the types of materials used. Additionally, the inﬂuence of pressure has to be considered:
+
+𝛼𝑐𝑜𝑛𝑣 = 𝑓(𝑇1, 𝐻, 𝑠1, 𝑝)
+
+Some  common equations for the convective  heat transfer are summarised in Table  52  (Hell, 1979) (Hottel, et al., 1964).
+
+Table 52: Some relations for the natural convection of air
+
+For vertical walls  𝛼 = 𝑐1 ∗ √(𝑇𝑤 − 𝑇𝑒𝑛𝑣) ∗ 𝐻 4 , 𝑐1 = 1.39 𝑎𝑡 00𝐶 𝑡𝑖𝑙𝑙 1.14 𝑎𝑡 3000𝐶 For horizontal plates  𝛼 = 𝜆 4⁄ ∗ 137 ∗ √𝐺𝑟 ∗ 𝑃𝑟 3 , 𝐺𝑟 = 𝑔 ∗ 𝑙3 ∗ 𝛽 ∗ ∆𝑇 𝑟2, 𝑃𝑟 = 𝑟 𝑎⁄⁄ For horizontal pipes  𝛼 = 𝜆 𝑑𝑎⁄ ∗ 0.372 ∗ √𝑔 ∗ 𝑑𝑎3 ∗ (𝑇𝑤 − 𝑇𝑒𝑛𝑣) 𝑟2⁄ ∗ 𝑇𝑒𝑛𝑣
+
+9.4.2.  PASCO experiment to measure 𝜶𝒄𝒐𝒏𝒗(𝑻) and 𝜶𝒓𝒂𝒅(𝑻) For  some  new  reactor  concepts  specific  cooling  systems  to  remove  the  decay  heat  from  the containment  have  been  proposed.  For  example,  in  the  PWR  AP1000  the  heat  will  be  released through  a  gap  between  the  steel  of  the  containment  and  the  outer  thick  concrete  wall.  This  heat transport needs effective free convection in the gap.
+
+To get enough information on this type of reactor containment cooling by free convection of air the large PASCO test facility has been in operation in Germany. The major reason to construct the facility was  the  innovative  containment  of  future  pressurised  water  reactors.  The  results,  however,  are relevant for the different steps of heat transfer in a modular HTGR insofar as gaps are considered.
+
+Figure 125 shows the PASCO experimental facility (Cheng, et al., 1996) (Cheng, et al., 1996) (Cheng, 1998) (Hennies, et al., 1990) (Kucerza, et al., 1993) (Neitzerl, 1992).
+
+Page 209
+
+Figure 125: PASCO test facility to measure the release of heat from hot surfaces by radiation and free convection and to determine flow velocities
+
+The  principle  for  cooling  the  containment,  which  is  part  of  the  AP1000  concept,  is  that  in  the  gap between a steel shell and a concrete wall a mass flow of air exists, and that this mass flow transports the  decay  heat,  which  is  transferred  through  the  wall  of  the  steel  shell  to  the  environment. Alternatively, water can be added on the top of the containment. In this way the cooling effect would be  enhanced.  A  filter  on  top  of  the  flow  path  removes  radioactive  substances,  which  could  be contained in the air flow due to leakages of the steel shell. The heat transport from the shell between the steel liner and the concrete wall outside was analysed using the large PASCO experiment.
+
+The  test  facility  was  operated  to  obtain  further  data  on  the  described  idea.  PASCO  consisted  of  a channel with a height of 8 m. The cross section of the channel was 1 m × 0.5 m.
+
+One side was heated by electrical resistance heating; the other side was insulated. The air inlet was at  the  bottom  of  the  facility  in  a  channel  with  a  90°  bend.  The  heat  flux  was  variable  in  the  axial direction. The temperature of the heated wall was between 100 °C and 175 °C corresponding to the conditions  in  containment.  The  temperature  distribution  in  the  wall,  the  flow  regions  and  the  air velocity were measured.
+
+From many experiments average heat-transfer numbers were derived. Based on the definition one gets a value of around 17 W/m2K for 𝛼̅, if a heat ﬂux of 1.5 KW/m2 is applied. In the value for 𝛼̅ given
+
+Page 210
+
+above (around) 15 W/m2K is caused by radiation. The value for 𝛼̅ by free convection fits in very well with results from other experiments. For vertical walls a good approximation, already mentioned as;
+
+𝛼𝑐𝑜𝑛𝑣 ≈ 1.28 ∗ √∆𝑇 𝐻⁄ 4                (118)
+
+could be derived. Here α is given in W/m2K, ∆𝑇 in °C and 𝐻 in m.
+
+For the example chosen here (H = 8 m, ∆T = 130 °C), 𝛼𝑐𝑜𝑛𝑣 =2.5W/m2K. This corresponds well to the values measured in the PASCO facility.
+
+In total, these types of experiments delivered results such as the one given in Figure 126 for the heattransfer coefficients and for possible heat ﬂuxes.
+
+Figure 126: Heat-transfer coefficients and possible heat fluxes
+
+Using  total  heat-transfer  coefficients  of  around  15 W/m2K  at  a  surface  temperature  of  the  reactor pressure  vessel  of  a  modular  HTR  of  350 °C,  one  gets  a  heat  flux  of  nearly  4.5  KW/m2  which sufficiently high to remove the decay heat totally after 30 hours following a ‘loss of coolant’ accident has happened (given for modular HTR, 200 MWth).
+
+The  overall  experiences  from  all  these  experiments  on  heat  transfer  by  natural  convection  and  by radiation delivers a clear picture for the application of modular HTRs. In the hot core structures gaps cause temperature differences in case of self-acting transport of decay heat.
+
+For example, between the thermal shield and the inside of the reactor pressure vessel a heat flux of approximately 5 KW/m2 has to be transferred after a time of 30 hours (after the start of a ‘total loss of cooling’ accident). With a heat-transfer coefficient of 30 W/m2K at this higher surface temperature this  results  in  a  temperature  difference  of  approximately  100 °C  between  the  hot  surfaces  of  the graphite reflector and the thermal shield as one important step.
+
+If the surface cooler fails too, the heat is released from the surface of the inner concrete cell of the environment in the reactor containment building by radiation and free convection.
+
+Assuming a value of around 1 000 m2 for the surface one gets an average heat flux from there to the containment  building  atmosphere  (after  a  long  time)  of  around  300 W/m2.  If  the  heat-transfer
+
+0
+
+1
+
+2
+
+3
+
+4 0 50 100 150 200 250 300 350 400Conv. (Wm2k) Tw (°C) 0
+
+5
+
+10
+
+15
+
+20
+
+25 0 100 200 300 400Conv. (Wm2k) Tw (°C)
+
+Page 211
+
+coefficient is in the order of 5 W/m2K the surface temperature of the concrete would in this case be around 80 °C.
+
+9.5.  Heat  transfer  from  the  surface  of  the  reactor  pressure  vessel  by  free convection and radiation
+
+#### 9.5.1.  INWA experiment
+
+A very important step in the chain of heat transport is the release of the decay heat from the surface of  the  reactor  pressure  vessel  to  the  surrounding  concrete  cell  (including  the  surface  cooler).  The ‘normal’  solution for modular HTRs  is the  use  of a forged-steel vessel for the reactor and a watercooling system for the outer surface cooler. Alternatively, prestressed vessels made either from cast iron with an inner liner or from cast steel without a liner are attractive solutions. Furthermore, the concrete structures of the inner cell can be modified in such a way that they contain cast-iron blocks with borings. These borings allow natural convection to remove the decay heat. Figure 49 shows this principle with a prestressed cast-iron vessel for a 200 MWth modular HTR. This vessel is prestressed by many axial and radial tendons and can therefore never burst. The ‘leak before break’ criterion is fulfilled by the design of this vessel, which consists of many cast-iron blocks and a liner for the gas tightness of the system. The surrounding system of cast-iron blocks with borings for air flow allows the removal of approximately 600 KW if the water cooling of an additional surface cooler has failed.
+
+It  was  necessary  to  get  more  information  on  some  important  questions  and  data  for  simulation calculations:
+
+  temperatures  dependent  on  time  in  different  structures  of  the  pressure  vessel  and  of  the outer cell (for different size of applied heat fluxes);   behaviour of structural elements under thermal loads   measurement of cooling capacity of outer structures;   measurement of more dimensional temperature fields to get data for computer programs;   integral demonstration of the concept of self-acting decay heat removal.
+
+The large INWA (Inaktives Wärmeabfuhrsystem (inactive system for decay heat removal)) test facility has  been  built  and  operated  to  get  information  on  the  influence  of  the  main  parameters  (Beine, 1991) (Geis, et al., 1993) (IAEA, 1994) (IAEA, 2001) (Kugeler, et al., 1991) (Kugeler, et al., 1994) (Wolf, et al., 1994).
+
+Corresponding to  Figure 127,  a segment of the  reactor pressure  vessel and of a concrete cell have been  tested.  For  the  reactor  pressure  vessel  an  inner  liner  was  applied.  The  concrete  cell  was modified in such a way that it contained cast-iron blocks and concrete. Additionally, free convection cooling of these blocks was planned.
+
+The figure shows a perspective view of the INWA test facility which corresponds to a 20°-section of a proposed  prestressed  cast-iron  reactor  pressure  vessel  for  the  200 MWth  Siemens/KWU  HTR modular  pebble-bed  reactor  design  (HTR  Module).  The  test  facility  was  constructed  with  all  the details  of  a  realistic  vessel  and  with  a  cast-iron/concrete  composite  structure  with  circumferential tendon reinforcement at real scale. The height of the section was chosen to be about 2 m (a fraction
+
+Page 212
+
+of the total axial systems extension). Therefore,  free-circulation conditions  in the embedded tubes had to be simulated accordingly by appropriate forced-convection conditions.
+
+Figure 127: Internals of the INWA-test facility
+
+The numbers shown in Figure 127 (dimensions in mm) with a cast-iron wall are explained below.
+
+(1)  Electric heater and core vessel. (2)  Liner with liner-support structure. (3)  Pressure vessel wall. (4)  Axial prestressing cable. (5)  Cover plate for hoop pressurising cable. (6)  Cover plate for hoop pressurising cable. (7)  Cast-iron block of the reactor cell. (8)  Cooling system. (9)  Reinforced concrete. (10) Box for sprinkler system. (11) Insulation. (12) Refractory support.
+
+In order to provide an ultimate heat sink in case of the failure of both redundant and free-circulation piping  systems,  a  ﬁlm  cooling  device  was  installed  in  order  to  descend  on  the  outside  reactor  cell composite  surface.  The  complete  INWA  facility  was  embedded  within  500 mm-thick  thermal insulation. Also, the supporting base structure was carefully designed for its insulating properties. All of these precautionary measures were necessary to keep the heat losses from the INWA facility as low  as  possible.  The  thermal  power  is  provided  by  an  electric  heater.  This  heater  consists  of  four independently  controlled  heating  circuits  to  ensure  a  surface  temperature  that  is  as  uniform  as possible.
+
+Page 213
+
+The decay heat was simulated by a flux through the liner. There was a  maximum electrical heating power of  10 kW,  which  allowed  heat  fluxes  up  to  10 kW/m2.  The  concept  included  a  special  outer concrete cell design with a high iron content. This design was chosen to allow effective conduction and  storage  of  heat  in  the  cell.  The  total  arrangement  was  surrounded  by  very  thick  insulation  to minimise  heat  losses.  During  the  experiments  heat  ﬂuxes  oriented  on  the  estimates  for  ‘loss  of cooling’ accidents were applied. Figure 128 shows the time dependence of the heat ﬂuxes in typical experiments. It  partly  simulates  extreme conditions of heat ﬂuxes.  A value of around 3-5 kW/m2  is characteristic after 30 hours in a modular HTR (200 MWth) Here the depressurisation of the primary system was assumed, and in the first phase of the accident a heat flux  value of 5 kW/m2 would be characteristic. After several hundred hours the value was reduced to 2 kW/m2.
+
+Figure 128: Time dependence of heat flux on the liner surface of the INWA test facility (a power of 4 kW corresponds to a heat ﬂux of/4 kW/m2)
+
+Figure 129 shows a measured radial temperature proﬁle at different points of the arrangement.
+
+0
+
+2000
+
+4000
+
+6000
+
+8000 0 100 200 300 400 500 600Heat flux [W/m2 Time [h]
+
+Steady-State Operation Depressurization Transient
+
+Page 214
+
+Figure 129: Radial dependence in the reactor pressure vessel and concrete cell structures (at the time when the highest temperature of the vessel occurs)
+
+This  was  the  basic  information  for  3D  calculations  of  temperature  distribution  and  flow. Measurements and calculations were  in  close  agreement. The  calculated  temperatures of the liner showed an even higher level of accuracy.
+
+Certain time dependencies of different temperatures in the structures which occurred in a test with a heat ﬂux corresponding to Figure 128 are shown in Figure 130 and Figure 131. The temperature of the liner never reached a temperature higher than 550 °C, even in case of very high heat ﬂuxes.
+
+Figure 130: Time dependence of the temperatures during experiments in the liner-surface of the INWAtest facility (a power of 4 kW corresponds to a heat ﬂux of 4 kW/m2).
+
+0
+
+100
+
+200
+
+300 0 1000 2000 3000 4000Temperature (°C) Radial coordinate from heat plate (mm)
+
+Cavity cell Cavity wall
+
+0
+
+200
+
+400
+
+600 0 200 400 600 800T (°C) Time (h)
+
+(1) Liner (2) Gap between liner/cast iron (3) Cast iron (inside) (4) Cast iron (inner part) (5) Cast iron (outside) (6) Cell of concrete/cast iron
+
+Page 215
+
+Figure 131: Heat-transfer numbers by natural convection measured in INWA test facility dependent on the height for the cases of normal operation and of ‘loss of active cooling’ accidents
+
+The  heat-transfer  coefficients  by  natural  convection  on  the  surface  of  the  cast-iron  block  which simulated the wall of the reactor pressure vessel are shown in Figure 131. The results were obtained at approximately 2 W/m2K for the case of depressurisation, i.e. a ‘loss of active cooling’ accident.
+
+Relevant experience gained from the experiments can be summarised as follows.
+
+The  maximum  temperature  on  the  inside  of  the  reactor  pressure  vessel  would  stay  below  500 °C, even if the water cooling of the concrete  cell is not available. On the outer side  of the wall of the vessel  the  temperatures  would  stay  below  350 °C.  The  liner  system  would  reach  a  temperature  of less than 500 °C (Figure 130).
+
+The  heat  transport  from  the  surface  of  the  reactor  pressure  vessel  to  the  concrete/cast-iron  cell consisted of (roughly) 90 % from radiation and 10 % from free convection. This was shown by direct special measurements.
+
+From these experiments an effective heat-transfer coefficient for the heat release from the surface of the reactor pressure vessel of 25 W/m2K was derived. This agrees very well with the available data from  other  experiments.  Heat  ﬂuxes  of  more  than  3 KW/m2  can  be  tolerated  (Figure  131).  The computer  programs  for  the  heat transport  are suitable  for  describing  the  processes with  sufﬁcient accuracy.
+
+In  total  the  experiment  has  shown  that  this  concept  of  a  reactor  pressure  vessel  and  of  the  outer concrete cell is very well suited to fulﬁlling the requirements of the principle of self-acting decay heat removal.  It  would  not  need  water  cooling  in  the  outside  concrete  structure.  Some  important conclusions are explained by Figure 132.
+
+This concept of an inner concrete cell with the possibility of cooling by free convection with air can be  applied  in  connection  with  a  forged-steel  reactor  pressure  vessel  or  a  prestressed  cast-steel vessel. Additionally, later cooling of the structure by nitrogen injection is possible.
+
+0.5
+
+1
+
+1.5
+
+2
+
+2.5 0 0.5 1 1.5 2αconv.(W/(m2∙K) Height (m) Normal operation (R=3,72 M) Normal operation (R=5,45 M) Accident (R=3,72 M) Accident (R=5,45 M)
+
+Page 216
+
+Figure 132: Some important results of tests carried out at the INWA test facility  (a) time dependence of temperatures of liner and concrete (heat flux: 4 KW/m2); (b) heat flux dependent on the temperature of the outer wall (here: 50 °C) and the surface of the cast-iron vessel
+
+#### 9.5.2.  JAERI experiment (Japan)
+
+In some modular HTR designs an outer-surface cooling system is provided to remove the decay heat which  has  been  removed  from  the  surface  of  the  reactor  pressure  vessel  by  radiation  and  free convection. The action and efﬁciency of such a surface cooling system was tested by an experiment carried out by JAERI in Japan. Here different conditions and different heat loads were tested. Figure 133 shows a cross section of the installation. An electrical heating system that generated a speciﬁc distribution  of  the  heat  ﬂux  in  the  axial  direction  was  installed  in  the  vessel.  The  temperature distribution which occurred at the surface of the vessel and in the gap between vessel and cooling system was measured (Hishida, et al., 1989) (IAEA, 2001) (Takeda, et al., 1994) (Takeda, et al., 1996).
+
+Furthermore,  the  flow  distributions  in  the  gap  and  the  heat  ﬂuxes  in  different  sections  of  the arrangement were measured dependent on time.
+
+0
+
+1
+
+2
+
+3 60 80 100 120 140 160 180 200𝑞 ̇”(kW/m2) T [°C]
+
+Tmin=50°C
+
+Page 217
+
+Figure 133: Schematic diagram of the JAERI test facility for the measurement of heat ﬂuxes and temperature distributions
+
+The flow sheet of the cooling system and the arrangement of cooling surfaces are indicated in Figure 134. It was possible to heat the vessel in different sections and to apply cooling in different positions of the surface.
+
+Page 218
+
+Figure 134: Schematic ﬂow sheet of the JAERI-test facility
+
+Table 53: Important data on the test facility
+
+Parameter  Dimension  Value Maximum heat input  KW  100 Height of the vessel  M  3 Diameter of the vessel  M  1 Working fluid    Helium, nitrogen Pressure  Pa  1.3 Maximum temperature of the heater  °C  600
+
+Surface cooling panels  m2  ~ 4 Maximum flow of water  m3/h  10
+
+Some characteristic results of many experiments are given in Figure 135, Figure 136 and Figure 137. They show the axial distribution of the heat ﬂux and the measured pressure vessel temperatures.
+
+Page 219
+
+Figure 135: Case A: 94 KW; nitrogen; 1.1 MPa; cooling water in cooling system
+
+Figure 136: Case B: 77.5 KW; helium; 0.47 MPa; cooling water in cooling system
+
+Page 220
+
+Figure 137: Cooling panel operated with air (8 KW; helium; 1 MPa; air coolant )
+
+The evaluation of the experimental results delivered the following.
+
+Between the surface of the reactor pressure vessel and the cooling panel a temperature difference of around 250 °C is present, corresponding to an effective heat-transfer coefficient α of 25 W/m2K. This value  includes  radiation  with  a  share  of  around  85 %  to  90 %  and  free  convection  with  a  share  of around 10 to 15 %.
+
+It was possible to derive an empirical equation for the free convection of air:
+
+∝𝑎𝑓𝑓 (𝑇𝑤𝑎𝑙𝑙) ≈ 𝑐1 +   𝑐2 ∙ 𝑇𝑊 ′′                (119)
+
+The Nusselt number for the cylindrical arrangement was found to be:
+
+𝑁𝑢 = 0.286  ∙ 𝑅𝑎0.258 ∙ 𝑃𝑟0.06 ∙ 𝐻−0.238 ∙ 𝐾0.442         (120)
+
+𝑅𝑎  is  the  Raleigh  number,  𝑃𝑟  is  the  Prandtl  number,  𝐻  is  the  height  and  𝐾  is  the  ratio  of  the diameter of the concentric cylinders.
+
+In the course of the  work at  JAERI a broad experimental  programme  to evaluate the heat transfer and  the  ﬂow  behaviour  in  the  gap  between  the  reactor  pressure  vessel  and  the  surface  cooling system was carried out.
+
+Simpliﬁed equations to describe the experimental results are:
+
+𝑁𝑢 = 0.1974 ∙ 𝑅𝑎0.25 𝑓𝑜𝑟 106 ≤ 𝑅𝑎 ≤ 108            (121)
+
+𝑁𝑢 = 0.312 ∙ 𝑅𝑎0.33 𝑓𝑜𝑟 1096 ≤ 𝑅𝑎 ≤ 5.5 ∙ 108          (122)
+
+The α number for free convection is then given by:
+
+∝𝑐𝑜𝑛𝑣= 𝑁𝑢 ∙ 𝜆/𝐷                  (123)
+
+Page 221
+
+D is a characteristic geometrical parameter; here it is the diameter of the vessel.
+
+A  value  of  from  3  to  4 W/m2K  can  be  derived  from  the  experiments  for  the  conditions  of  an  HTR Module. The share of heat transfer by radiation was estimated from the following equations:
+
+𝑄12 = 𝐴1 ∙ 𝜀 ∙ 𝐶𝑠 ∙ 𝐶12 ∙ (𝑇1 4 − 𝑇2 4)              (124)
+
+𝜀 = 1 1 𝜀1+𝐴1 𝐴2( 1 𝜀𝑧−1) (125)
+
+The factor 𝐶12 depends in a complex manner on the geometry of the system and on the emissivity ε of the surfaces.
+
+Index 1 characterises the inner and index 2 the outer surface of the cylindrical arrangement.
+
+The values of emissivity ε and the surface depend on the conditions of the components, as previously discussed. Table 54 provides an overview of some values measured and known information from the literature.
+
+Table 54: Values of emissivity of some different materials in the self-acting decay heat removal chain
+
+Material  Value of ε  Temperature (℃)  Remark Steel  0.88  425  Oxidised, polished Steel  0.92  800  Oxidised, polished CrNi steel  0.85  440  Oxidised (25 % Cr, 20 % Ni, 51 %Fe) CrNi steel  0.90  795  polished Graphite  0.80  630 Concrete  < 0.80  20 Concrete  > 0.80  100
+
+The results are, for example, suited to optimising the structure of the cooling panels. Hot parts can be identiﬁed and modiﬁcations of the cooling concept are possible.
+
+#### 9.5.3.  Heat release from the surface of the CASTOR vessel
+
+In  addition,  many  experiments  have  been  carried  out  on  heat  transfer  by  radiation  and  free convection from the surfaces of storage vessels loaded with spent fuel elements. In these cases the characteristic  surface  temperatures  of  the  cast-iron  or  cast-steel  vessels  were  below  100 °C.  In particular,  for  heat  release  from  concrete  structures  (with  a  relatively  high  steel  content)  these results  delivered  additional  helpful  information  (Deutsches  Atomforum  eV,  Kerntechnische Gesellschaft  eV,  2001)  (Hauck,  2003)  (KLE,  Kernkraftwerk  Lippe-Ems  GmbH,  1998)  (RSK,  2002) (Schartmann, 2000) (von Heesen, et al., 1983).
+
+Figure  138  shows  the  concept  of  those  storage  systems  and  indicates  the  relevant  temperature proﬁles in the radial and axial directions.
+
+Page 222
+
+Figure 138:Principle of heat transport in storage vessels for spent fuel elements: (a) the principle of a storage vessel with surface cooling; (b) the radial temperature proﬁle; (c) the axial temperature proﬁle; (d) some data and relations for temperature differences
+
+Some  results  of measurements  of  heat  transport  from  the  surface  are  shown  in  Figure  139.  These were carried out during the licensing process for storage vessels and showed as result that there is a dependency between the Nusselt and Rayleigh numbers:
+
+𝑁𝑢 = 𝐶 ∙ 𝑅𝑎′′′                    (126)
+
+The Rayleigh number is deﬁned by the product of the Prandtl and Grasshoff numbers:
+
+𝑅𝑎 = 𝑃𝑟 ∙ 𝐺𝑟                    (127)
+
+The Prandtl and Grasshoff numbers are deﬁned by the equations:
+
+Pr   =  𝜂 ∙ 𝐶𝑝/𝜆, 𝐺𝑟 = 𝑔 ∙  𝛽 ∙ ∆𝑇/𝐿 3/(𝑣2)            (128)
+
+The parameters are given as follows:
+
+𝑔 = gravitational constant (m/s2); 𝛽 = isobaric thermal expansion coefﬁcient (1/K); ∆𝑇 = characteristic temperature difference (K); 𝐿 = characteristic length (m); 𝑣 = kinematic viscosity (m2/s); 𝜂 = dynamic viscosity (kg/ms);
+
+Cast-iron vessel
+
+Fuel elements
+
+Air in free convection Air T<80°C wall  T<370°C
+
+Center
+
+T (°C)
+
+wall
+
+Air
+
+Taus TW0  TW1 Fuel elements R1
+
+R2 ∆T1
+
+∆T2
+
+∆T3
+
+Tmax 𝛼𝑜𝑢𝑡𝑠 = 𝜆𝑐𝑜𝑛𝑣 + 𝜆𝑟𝑎𝑑
+
+𝑇𝑚𝑎𝑥 ≤ 370℃
+
+𝑇𝑤0 < 90℃
+
+∆𝑇1 ≈ 𝑞̇ ′′′ ∗ 𝑅1 2 4 ∗ 𝜆𝑒𝑓𝑓⁄
+
+∆𝑇2 ≈ 𝑞̇ ′′ ∗ (𝑅2 − 𝑅1) ∗ 𝜆𝑒𝑓𝑓
+
+∆𝑇3 ≈ 𝑞̇ ′′ 𝛼𝑜𝑢𝑡𝑠⁄
+
+Page 223
+
+𝐶𝑝 = speciﬁc heat capacity (Ws/kg K); 𝜆 = heat conductivity (W/mK).
+
+Figure 139: Results of measurement of heat transfer by free convection on the surface of storage vessels
+
+As  a  practical  example,  for  a  surface  temperature of  90 °C  one  gets  a value  of  𝑐𝑐𝑜𝑛𝑣 ≈ 2 𝑊 𝑚2𝐾⁄ . The total heat-transfer coefficient including radiation will be in the order of 8 to 10 W/m2K. This will allow  a  heat  ﬂux  of  approximately  500 W/m2  from  the  surface  of  the  vessel.  A  storage  vessel  for spent LWR fuel elements, for example, can be designed for a total power of approximately 40 KW.
+
+These results are also consistent with further data obtained for heat transfer on the hot surfaces of storage vessels for the intermediate storage of glass coquilles.
+
+These practical experiences of heat transfer from hot surfaces can be used for heat release from the inner concrete cell and from the outer surface of the reactor containment building.
+
+### 9.6.  Heat transport in the outer structures around the reactor pressure
+
+vessel
+
+#### 9.6.1.  Overview of different design options
+
+The design of the outer heat sink  to remove  the decay heat requires some  attention. As shown in Figure 140 different possibilities dependent on the type of the reactor pressure vessel and the design of the surrounding inner concrete cell exist. Assuming that the surface cooler may fail the design of the outer cell becomes increasingly important to guarantee transport of the decay heat.
+
+Page 224
+
+Figure 140: Possibilities to set up reactor vessel and outer cell systems with good heat-transfer and heatstorage capabilities
+
+  Corresponding  to  the  present  concepts  of  modular  HTRs  the  heat  is  transported  from  the surface  of  the  RPV  (made  of  steel) to  a  surface  cooler  and  to the  concrete  cell  behind  the cooler (Figure 140(a)). If the surface cooler fails the concrete absorbs the heat directly and stores it. After a relatively long period of time the heat is transferred from the surface of the concrete to the air inside the building. Finally, the heat is transferred through the wall of the building to the environment.   Cast-iron  blocks  can  be  embedded  in  the concrete  cell  to  store  the  heat  if  the  cooler  fails. Additional holes inside  the cast-iron blocks allow  air to ﬂow  by free convection. Therefore, the temperature of the RPV stays below 400 °C even if the water cooler fails (Figure 140(b)).
+
+Concrete  Steel vessel, concept of a modular HTR with outer heat sink.  a)
+
+Cast iron
+
+Steel vessel, modified concept with outer heat sink (cast-iron blocks with boring holes). b)
+
+Cast iron Prestressed reactor vessel (cast steel or cast iron with steel liner), with modified outer heat sink (cast-iron blocks with boring holes). c)
+
+Concrete Prestressed concrete reactor vessel with liner and insulation (higher heat flux). d)
+
+Concrete
+
+Cast iron
+
+Modified prestressed concrete reactor vessel with cast-iron blocks (with inner boring holes). e)
+
+Page 225
+
+  The RPV (made of steel) can be substituted with a prestressed RPV made of cast-iron or caststeel  rings  and  blocks.  The  prestressing  is  done  by  a  lot  of  axial  and  radial  tension  cables. Therefore, this type of vessel cannot burst here. The outer heat sink can be set up as in the case discussed before (Figure 140(c)).   If  the  established  PCRV  (prestressed  concrete  reactor  vessel)  is  used,  the  self-acting  decay heat  removal  will  also  work  if  the  cold  helium  temperature  in  the  vessel  is  limited  (for example to 250 °C). The insulation of the concrete vessel under these conditions should be thin enough to allow the heat flux to become high enough to cool the core structures. The cooling  system  of  the  liner  usually  removes  the  heat.  If  this  system  also  fails  the  heat penetrates to the concrete structures. As a lot of large-scale experiments have shown, some special types of concrete can even be heated up to 1 000 °C without severe damage (Figure 140(d)).   If this heating of concrete is to be avoided it is possible to integrate cast-iron blocks into the cylindrical wall of the PCRV. Holes allow  air to cool these metallic structures  sufficiently  by free convection. In this way it is very unlikely that there will be any intolerable temperature rises in the concrete (Figure 140(e)).
+
+For the different design options experimental results are available. The results allow the evaluation of the safety aspects of these solutions in case of a ‘total loss of active cooling’ accident.
+
+#### 9.6.2.  Behaviour of the surface cooling system
+
+The surface cooling system consists of heat exchanger panels that are well known as they have been studied  in  conventional  boilers  over  long  periods  of  time.  Table  55  shows  the  concept,  applied  in some modular HTGRs and coal-ﬁred boilers.
+
+The  design  requirements  of  a  surface  cooler  are  much  easier  to  fulﬁl  than  that  in  large  steam generators for the production of hot steam. The capacity of the necessary system is given by
+
+𝑄𝐷 = 𝑃𝑡ℎ ∙ 𝑓𝐷(𝑡) = 𝑞̇ ′′  ∙ 𝐴 = 𝑘̅ ∙ (𝑇𝑅𝑃𝑉 − 𝑇𝑐𝑜𝑜𝑙) ∙ 𝐴 = 𝑚̇ 𝐻2𝑂 ∙ 𝐶 ∙ (𝑇𝑜𝑢𝑡 − 𝑇𝑖𝑛)    (129)
+
+For  example  𝑞̇ ′′ ≈ 3 𝐾𝑊 𝑚2, 𝐴 ≈ 300𝑚2, 𝑄 ≈ 900𝐾𝑊⁄   are  characteristic  values  for  the  surface cooling system of the HTR Module (200 MWth).
+
+Table  55  provides  some  data  that  allow  a  comparison  between  the  concepts.  It  shows  that  the surface  cooler  can  easily  be  set  up  as  proven  solutions  in  conventional  energy  technology  are available  (Spilker, 1989)  (Steag, 1988).  In these  installations  the  heat  fluxes  and  wall  temperatures are much higher than they are in the case of the HTGR surface cooler. Therefore, this component for modular HTGRs can be designed with a very high safety factor.
+
+Table 55: Comparison of some data on the surface cooler of the modular HTR and the surface cooler of a coal-fired boiler
+
+Parameter  Dimension  Surface cooler of HTR Module  Burning chamber of coal-fired boiler Maximum power  MW  < 1  500 Maximum temperature of the fluid °C  < 80  ~ 360
+
+Page 226
+
+Maximum pressure  bar  ~ 10  180 Average heat flux  KW/m2  5  100 Area of the cooler  m2  200  10 000 Maximum wall temperature  °C  < 100  370
+
+Lifetime   hours  3e + 5  3e + 5 Material    13CrMo44  13CrMo44
+
+9.6.3.  Heat storage and transport in the concrete structures of the inner reactor cell If the outer surface cooler fails as well, the decay heat is transported to the concrete structure of the inner cell and is stored there. As a consequence the temperature of the reactor pressure vessel, of the  internal  structures  and  the  outer  parts  of  the  core  would  increase.  However,  the  maximum temperature in the core and in the control part would undergo only negligible changes.  Figure 141 outlines  the  heat  transport  in  this  accident,  which  is  regarded  as  ‘beyond  design-basis  accidents’ (BDBA).
+
+Figure 141: Heat transfer if the surface cooler fails
+
+A major matter for concern is, if the stability of the concrete is given,  whether the temperature of the concrete increases, especially in supporting regions. Temperatures of more than 300 °C can occur (Lohnert,  1990)  (Siemens/  Interatom,  1988).  Figure  142  shows  the  time  dependence  of  the temperature of the concrete if the surface cooler has failed. A characteristic value for the heat-rate of the concrete in the ﬁrst phase of the accident would be:
+
+∆𝑇𝑐 ∆𝑡 ≈⁄ 80℃/𝑑𝑎𝑦
+
+Subsequently,  the  temperature  increase  of  the  concrete  becomes  smaller  as  the  decay  heat production  decreases  (Figure  142(e)).  Besides  using  concrete  for  the  inner  cell  surrounding  the reactor pressure vessel there are other possibilities for setting up this structure. The release of heat from  this  component  can  be  improved  by  using  structures  which  display  better  energy  storage behaviours. Moreover, the heat could be  released via natural convection of air (blocks of cast  iron integrated  into  the  concrete,  for  example,  would  fulfil  both  requirements).  This  would  limit  the system temperature of the outer heat sink to relatively small values.
+
+TRPV
+
+Reactor pressure vessel  Concrete  Environment
+
+𝑇𝐶1  𝑇𝐶2 Tenv ∝̅ 2
+
+𝑞̇ 2´´
+
+𝑞̇1´´
+
+∝̅1 𝑞̇1´´= ∝̅1∙ (𝑇𝑅𝑃𝑉 − 𝑇𝐶1)
+
+𝑞̇ 2´´= ∝̅ 2∙ (𝑇𝐶2 − 𝑇𝑒𝑛𝑣)
+
+Page 227
+
+Figure 142: Heating of the inner concrete cell after failure of the surface cooler
+
+The  top  left  figure  shows  the  reactor  pressure  vessel  in  the  relevant  position,  top  middle  the dependency  of  the  temperature  in  axial  direction  from  time,  top  right  the  dependency  of  the temperature  in  the  radial  direction  from  time,  bottom  left  the  rising  temperatures  in  the  first 30 hours and bottom right the rising temperatures over a long period of time.
+
+The behaviour of concrete in case  of high temperatures has been measured in many experiments, especially  on  large  test  specimens  in  connection  with  the  development  of  prestressed  concrete reactor  pressure  vessels  and  the  qualiﬁcation  of  the  liner  cooling  as  an  alternative  decay  heat removal system. The results that can be derived from these experiments are that special qualities of concrete stay intact at temperatures of approximately 600 °C. Even at these high temperatures the samples showed relatively good strength values (Figure 143) (ISF/KFA-Jülich, 1984) (Schneider, et al., 1981).
+
+Page 228
+
+Figure 143: Strength of concrete at higher temperatures
+
+The heat conductivity of concrete and the modulus of elasticity also stay at tolerable values at high temperatures  (Figure  144).  However, they  are  reduced  by  a  factor  of  2  if  the  temperature  rises  to around  300 °C.  The  values  at  elevated  temperatures  are  still  sufficient  to  design  a  structure  which can support the RPV.
+
+Figure 144: Changes to important parameters of concrete at high temperatures: (a) heat conductivity; (b) modulus of elasticity
+
+#### 9.6.4.  Behaviour of large concrete structures at high temperatures
+
+In case of accidents during which the surface cooler also fails, the heat penetrates into the concrete of the inner cell and is stored there for some time. Parts of these structures would gain temperatures of approximately 450 °C, for example in the area where the reactor pressure supports are situated. Figure 145 provides a brief overview of the situation.
+
+0
+
+0.5
+
+1
+
+1.5
+
+2 0 200 400 600 800 1000 1200λ (W/mK) T (°C) 0
+
+10
+
+20
+
+30
+
+40
+
+50
+
+60
+
+70
+
+80 0 100 200 300 400 500 600 700 800(𝐸(𝑇))/(𝐸(20%))(%) T (°C)
+
+Page 229
+
+Figure 145: Time dependence of temperatures supporting concrete structures of modular HTRs (‘total loss of active cooling’ and ‘failure of surface cooler’ accidents)
+
+In  this  case  the  questions  of  whether  the  concrete  stays  stable  and  the  reactor  pressure  vessel support stays intact are relevant for the safety of the reactor.
+
+Various experiments on the behaviour of concrete in the case of small bodies have been carried out and enable the evaluation of this question. Nevertheless, it was decided to run a large experiment to test the concrete behaviour at very high temperatures in an integral experiment (Altes, et al., 1983) (Altes, et al., 1987) (Altes, et al., 1989) (Altes, et al., 1989).
+
+Large  concrete  blocks  with  a  volume  of  roughly  1 m3  were  heated  to  1 200 °C  (Figure  146).  Heat ﬂuxes  of  around  5 KW/m 2  were  applied  to  reach  these  temperatures.  These  heat  ﬂuxes  are comparable to those which could occur in a modular HTR.
+
+The concrete blocks had a liner, together with liner cooling and insulation on the side where the heat flux  was  applied.  The  temperature  was  measured  in  many  positions  to  get  an  exact  temperature profile.
+
+Two concepts were tested in detail:
+
+  THTR concrete with basaltic material and metallic fossil insulation;   HTR 500 concrete with calcinitic material and fibre insulation.
+
+0
+
+100
+
+200
+
+300
+
+400
+
+500
+
+600
+
+700 0 200 400 600 800 1000 1200Temperature [°C] Time [h]
+
+Reactor pressure vessel
+
+Concrete at the supporting area for the vessel
+
+Page 230
+
+Figure 146: Experimental facility to test large concrete blocks at high temperatures
+
+The upper figure shows the vertical section through the test facility and the lower one the detail of the  concrete  block  (corresponds  to  THTR  concrete  with  liner,  liner  cooling  and  metallic  foil insulation).
+
+The  samples  were  heated  to  high  temperatures  for  more  than  1 000 hours.  During  this  time  the temperature distribution and the release of gases and steam were measured continuously. After the experiments were ﬁnished the material was analysed and information was delivered on the status of the concrete.
+
+Figure  147  shows  characteristic  time  dependencies  of  the  temperature of  cover  plates  of  released water.  After  approximately  400 hours  of  operation  time,  all  at  very  high  temperatures  (1 000 °C), nearly 100 kg of water (relating to m3 of concrete) was released.
+
+Page 231
+
+Figure 147: Some results of tests on large concrete blocks
+
+The upper figure shows the time dependence of the cover plates of a test specimen during a heating experiment and the lower one the totally released mass of water from the concrete during heating up; calculated and measured values.
+
+The release of water and gas was relatively small despite the operation at very high temperatures. The  state  of  the  concrete  block  after  a  long  heating  time  at  a  maximum  temperature  of  1 200 °C basically  did  not  change.  As  the  ﬁgure  indicates,  the  structural  stability  of  the  concrete  block  was preserved.
+
+The  ability  of  the  concrete  to  absorb  the  heat  and  to  store  it  for  a  long  time  was  demonstrated convincingly  by  these  experiments.  It  was  an  important  question  relevant  for  the  behaviour  of prestressed concrete reactor pressure vessels in case of an extreme ‘loss of cooling’ accident. These results  are  important  to  predict  the  behaviour  of  modular  HTRs  during  extreme  ‘loss  of  cooling’ accidents when parts of the inner concrete cell may reach a temperature of approximately 500 °C. A
+
+0
+
+200
+
+400
+
+600
+
+800
+
+1000
+
+1200 0 15 30 45 60 75 90Temperature (°C) Time (d)
+
+Operating conditions 250 °C Coverplate temperature
+
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140 0 100 200 300 400 500 600 700Totally released mass of water (kg) Time [h] Calculated
+
+Measured
+
+Furnace temperature T (°C)
+
+1 400
+
+1 000
+
+Page 232
+
+further question was whether it would be possible to feed water into the liner cooling system after a long delay time. It was shown that this would be possible even after 300 hours.
+
+The  re-ﬂooding  and  re-establishing  of  the  water  cooling  was  possible  without  any  damage  to  the cooling  tubes.  Temperature  decreases  in  the  cooling  process  of  approximately  10 °C/min  were carried out without problems. It would be possible to restart the water cooling of the surface cooler or of the liner cooling of a prestressed concrete reactor pressure vessel even after a long period of time if failures of these components occurred.
+
+9.6.5.  Cooling of the surface of the reactor pressure vessel by interventions As already discussed, the temperature of the reactor pressure vessel could rise up to a large extent in case of accidents with failure of a damaged surface cooler.
+
+The  experiments  on  the  liner  cooling  of  large  concrete  blocks  at  much  higher  temperatures  have demonstrated  this  possibility.  Figure  148  shows  the  temperatures  and  mass  flows  measured  for these experiments. (Kim, 1991) (Rehm, et al., 1984)
+
+Figure 148: Results of experiments reflooding a liner cooling system
+
+If the surface cooler were out of operation the maximum temperature of the cooling pipes would be around 300 °C  after 2 weeks. In this time  it  should be  possible to re-establish the  water  supply  for cooling. If necessary the reactor pressure vessel can be cooled directly with water or nitrogen. The amount of coolant can be estimated as:
+
+𝑄̇ 𝐷 ≈ 𝑚 ∗ 𝑟̇                     (130)
+
+Page 233
+
+where 𝑟 is the evaporation heat.
+
+In the case of water around 0.4 kg/s (~ 1.5 t/h) is needed to remove a decay heat of 600 KW (after 2 days). Using liquid nitrogen the demand is 5 kg/s (~ 20 t/h).
+
+### 9.7.  Heat transport inside the reactor building — integral experiments
+
+If the surface cooler has failed the inner concrete cell will be heated and free convection will be the major process of heat transport (some radiation from surfaces with higher temperatures may play a role  too).  The  heat  is  removed  from  the  hot  surfaces  of  the  inner  cell  to  the  atmosphere  of  the reactor  building  and  from  there  to  the  inner  side  of  the  walls.  Different  situations  in  which  free convection occurs have to be considered (Figure 149):
+
+  on vertical walls (a),   on horizontal walls (b),   on pipes and components with a cylindrical surface (c).
+
+Mainly  the  heating  of  pipes  and  channels,  which  contain  cables  for  control  and  instrumentation equipment requires attention and usually speciﬁc precautions for protection.
+
+Figure 149: Different situations of heat transfer by free convection in the containment building
+
+Figure  149  shows,  from  left  to  right,  free  convection  from  a  hot  vertical  wall  to  the  environment, from the environment to colder structures and from the environment to colder pipes or components.
+
+These situations of heat transfer can be described by empirical equations. In the case of vertical walls the following equation can be used:
+
+𝛼𝑐𝑜𝑛𝑣 = 𝐶 ∗ √ 𝑇𝑤−𝑇𝑒𝑛𝑣 𝐻
+
+4                   (131)
+
+TW Tenv
+
+(a)
+
+TW Tenv
+
+(b)
+
+Tenv
+
+TW
+
+T (c)
+
+Page 234
+
+𝐻  is the  height  of  the  wall  and  𝑇𝑤 − 𝑇𝑒𝑛𝑣  is  the  temperature  difference  between  the  wall  and  the environment of the reactor building. As shown in Table 56 the factor C shows little dependence on the applied temperatures in case of free convection.
+
+Table 56: Temperature dependence of factor C
+
+T (°C)  50  100  150  200  250  300 C  1.31  1.26  1.22  1.19  1.16  1.14
+
+For  the outside of  the concrete  cell  a value  of  𝛼 ≈ 2.2  𝑊 𝑚2𝐾⁄   is  characteristic  of  a  temperature difference of 150 °C and a height of 10 m.
+
+The  heat  ﬂux  for  release  of  decay  heat  to  the  atmosphere  of  the  reactor  building  would  then  be around  330 W/m2.  Together  with  a  surface  area  of  around  1 500 m2  for  the  outside  of  the  inner concrete cell, this corresponds to a heat release of 500 KW. This is the decay heat production after 1 week. Therefore, the storage capacity of the cell chosen must be large enough.
+
+The  heat  transfer  from  the  reactor  containment  building  atmosphere  to  the  inside  of  the  building wall delivers similar values. Since the surface is much larger than that of the inner concrete cell, the amount of heat which can be transferred is much larger than mentioned before.
+
+If horizontal surfaces are considered, α depends on the angle between vertical and inclined surface (angle φ) (Teuchert E., 1992):
+
+𝛼𝜑 𝛼⁄ = 𝑓(𝜑), 𝑓(𝜑) ≈ 1 … 0.83             (132)
+
+𝜑 = 90 𝑜 would for instance result in 𝑓(𝜑) ≈ 0.83.
+
+Cylindrical components or pipes are connected to heat transfer by free convection, corresponding to the following equation:
+
+𝑁𝑢 = 0.47 ∗ √𝐺𝑟 ∗ 𝑃𝑟 = 𝛼∗𝑑𝑎 𝜆
+
+4                 (133)
+
+in which:
+
+𝐺𝑟 = the Grasshoff-number
+
+𝑃𝑟 = the Prandtl number
+
+For air the following equation can be used:
+
+𝛼 = 𝐶∗ ∗ √𝑇𝑊−𝑇𝑒𝑛𝑣 𝑑𝑎
+
+4                   (134)
+
+The factor 𝐶∗ for horizontal piping is given in Table 57; the average temperature is defined as:
+
+(𝑇𝑊 + 𝑇𝑒𝑛𝑣) 2⁄ .                   (135)
+
+Page 235
+
+Table 57: Temperature dependence of the factor 𝑪∗ in the equation for free convection around a body of diameter 𝒅𝒂
+
+T (°C)  50  100  150  200  250  300 C  1.18  1.16  1.09  1.06  1.04  1.02
+
+A  cylindrical  structure  with  a  diameter  of  1 m,  for  example,  arranged  in  the  building,  gets  a  heattransfer number of around 3.5 W/m2K for a temperature difference of 150 °C.
+
+These values allow a relatively precise heat balance for the reactor building and all internal structures if the decay heat is transported in case of extreme accident (BDBA case). In any case, for a modular HTGR  with a power of 200 MWth the values of α are high enough to remove the total  decay heat after a few days. Moreover, further measures could be used to enlarge the heat-transfer area inside the containment building.
+
+### 9.8.  Heat release from the reactor building to the environment
+
+Usually, the transport of heat through the walls of the reactor building to the environment requires the use of cooling loops. As indicated in Figure 150 several possibilities are available:
+
+  cooling loops with pumps are installed at cooling towers outside (Figure 150(a));   cooling  loops  can  be  operated  only  by  natural  convection  without  a  pump  for  circulation (Figure 150(b));   cooling loops can be used with natural convection, which can be improved by water injection if necessary (Figure 150(c));   heat pipes can be used to transport the heat directly from the inside of the building to the outside (Figure 150(d)).
+
+Figure 150: Concepts to remove the decay heat from the reactor containment building
+
+Page 236
+
+From upper left to lower right the following concepts are shown:
+
+(a)  water cooling of the surface cooler using pumps and forced convection; (b)  water cooling of the surface cooler using natural circulation of media; (c)  water cooling of the inner side of the reactor containment building and natural circulation of media; (d)  heat pipes for the transport through the walls of the reactor containment building.
+
+Cooling of the concrete walls using water or nitrogen is another option which is well established in conventional  plants.  Boiling-water  reactors  for  instance  have  an  injection  system  to  ensure  fast insertion into the containment (Rehm, et al., 1984).
+
+In  addition,  cooling  by  intervention  after  a  long  time  period  is  possible.  Reflooding  of  the  surface cooler  would  be  an  example  of  this.  It  allows  fast  cooling  of  the  concrete  structures  and  of  the reactor pressure vessel.
+
+The  chain  of  heat  transport  from  the  RPV  to  the  inner  wall  of  the  containment  includes  heat conduction, thermal radiation and free  convection. In the end the wall of the reactor containment building  is  only  slightly  heated.  Figure  151  briefly  illustrates  the  heat  transfer  to  the  wall  of  the containment building.
+
+Figure 151: Alternative cooling concepts for reactor containment buildings
+
+From upper left to lower right the following concepts are shown:
+
+(a)  free convection of air in borings in the wall of the reactor containment building (with castiron blocks);
+
+Page 237
+
+(b)  free  convection  of  air  together  with  water  in  the  wall  of  the  reactor  containment  building (with cast-iron blocks); (c)  principle  of  heat  transfer  to  the  inner  surface  of  the  reactor  containment  building  and release to the environment; (d)  heat ﬂux through the wall of the containment building.
+
+The heat transferred from the inner atmosphere in the building to the inner side of the wall can be estimated as:
+
+𝑄̇ = 𝛼̅𝑖 ∗ 𝐴𝑐𝑜𝑛𝑡 ∗ (𝑇𝑐𝑜𝑛𝑡 − 𝑇𝑖)                (136)
+
+in which:
+
+𝑇𝑐𝑜𝑛𝑡 = corresponds to the temperature of the inner atmosphere;
+
+𝐴𝑐𝑜𝑛𝑡 = is the inner surface area;
+
+𝑇𝑖 = is the temperature on the inner side of the building.
+
+With  characteristic  values  of  𝐴𝑐𝑜𝑛𝑡 ≈ 800𝑚2,  𝛼̅𝑖 ≈ 2𝑊/𝑚2𝐾  and  𝑇𝑐𝑜𝑛𝑡 − 𝑇𝑖 ≈ 50℃  a  value  of approximately 800 KW is received. This is the decay heat of a 200 MWth HTR Module after several days. After that the decay heat is stored in the concrete and later released to the environment.
+
+### 9.9.  Integral experiments on the AVR reactor, demonstration of the concept
+
+of self-acting decay heat removal
+
+#### 9.9.1.  Loss of active cooling (reactor under full pressure)
+
+In the 1970s the AVR was also used to carry out important experiments regarding the concept of selfacting  decay  heat  removal  (ATW,  1968)  (Engelhard,  1972)  (Krüger,  et  al.,  1988)  (Schulten,  et  al., 1976) (VDI, 1990) (Ziermann, et al., 1997).
+
+Both helium blowers were switched off during normal operation of the reactor  at full power. With these  measures  the  active  core  cooling  was  totally  interrupted.  The  four  shutdown  rods  were blocked,  which  also  simulated  the  total  loss  of  the  active  shutdown  capability  of  the  reactor.  As  a result  of  these  two  independent  failures,  which  simulated  a  very  extreme  accident,  the  thermal power of the reactor decreased immediately (Figure 152) and led to a reactor shutdown by physical means.
+
+The  reason  was  the  strong  negative  temperature  coefficient  of  the  reactor  caused  by  the temperature-dependent change in the resonance absorption.
+
+The  changes  of  temperature  indicated  in  Figure  152  are  mainly  caused  by  internal  convection processes. There were some low-level oscillations in the power as the reactor became critical again after  23.5 hours  as  a  result  of  xenon  decay.  However,  the  power  then  was  just  1.8 MW.  It  was dissipated  without  any  difficulties  via  the  steam  generator.  This  was  possible  because  of  natural convection, which took place because of the speciﬁc arrangement of the AVR steam generator above the core.
+
+Page 238
+
+It was shown that the heat balance for the plant was fulﬁlled in the form:
+
+𝑃𝐷 = 𝑃𝑎 ∗ 𝑓𝐷(𝑡) = 𝑚̇ 𝑠𝑡 ∗ ∗ (ℎ𝑠𝑡 ∗ − ℎ𝐹𝑊) + 𝑄̇ 𝑙𝑜𝑠𝑠𝑒𝑠           (137)
+
+𝑚̇ 𝐻𝑒 = (ℎ𝑠𝑡 ∗ − ℎ𝐹𝑊) ≈ 𝑚̇ 𝐻𝑒 ∗ ∗ 𝐶𝐻𝑒 ∗ (𝑇𝐻𝑒𝑚 ∗ − 𝑇𝐻𝑒𝑚)          (138)
+
+𝑄̇ 𝑙𝑜𝑠𝑠𝑒𝑠 ≈ 𝐴 ∗ 𝐾̅ ∗ (𝑇̅ 𝐻𝑒 − 𝑇𝑒𝑛𝑣)                (139)
+
+The asterisk should indicate that this is the status after a time of 23.5 hours (if no shutdown process is  carried  out  and  the  reactor  is  ‘self-controlled’),  𝑚̇ 𝐻𝑒  is  the  mass  flow  by  natural  convection  and 𝑚̇ 𝑠𝑡 ∗  is the necessary flow of feed water. The temperature difference between steam and feed water (ℎ𝑠𝑡 ∗ − ℎ𝐹𝑊) can be assumed to correspond to the evaporation heat of steam.
+
+The  rises  in  temperature  in  the  reactor  structures  did  not  cause  any  problems.  For  example,  the thermal  shield  got  approximately  50 °C  hotter  compared  to  the  temperature  during  normal operation, the temperature of the bottom reﬂector rose by nearly 100 °C and the temperature in the graphite  noses  rose  by  approximately  200 °C  for  a  short  time  of  5 hours  compared  to  the temperatures during normal operation. After that time the graphite noses cooled down again.
+
+Based on the temperature distributions measured in the structures the temperature distributions in the  core  have  been  calculated.  Figure  152  shows  some  results  which  indicate  that  the  fuel temperatures never exceeded values  above  1 100 °C  in  the  case of AVR operation with an average helium outlet temperature of 850 °C.
+
+Generally a temperature span of approximately 100 °C has to be added to cover uncertainties in the data which are important for the heat transport in the core. However, the resulting maximum fuel temperature  still  stays under the speciﬁed maximum temperature  for operation. This was  1 250 °C for THTR BISO fuel.
+
+It was estimated that the additional ﬁssion-product release from the fuel would be negligible for this accidental situation compared to release during normal operation.
+
+Page 239
+
+Figure 152: Loss of active cooling + loss of all shutdown rods (blocked
+
+The left figure gives an overview of the reactor system, the top right shows the time dependence of the power and the lower right shows the time dependence of some important temperatures in the reactor structure.
+
+Page 240
+
+Figure 153: Calculated temperature distribution inside the AVR during loss of decay heat removal accident (calculations for the assumption ‘loss of control and loss of active decay heat removal’, reactor under full helium pressure)
+
+9.9.2.  Loss of active cooling (reactor under normal helium pressure of 1 bar) One of the most  severe  accidents in a  modular HTR is the total loss of active  cooling including the depressurisation of the primary circuit. In this case the explained concept of self-acting decay heat removal  acts  and  removes  the  decay  heat  solely  by  principal  physical  processes  such  as  heat conduction,  heat  radiation  and  free  convection of  air  or  an  air/helium mixture.  The maximum  fuel temperatures in this accident stay below 1 600 °C.
+
+An experiment was carried out in the AVR to demonstrate this system behaviour. It was shown that the core and the structures have the capability to store the decay heat, to transport the heat and to release  the  heat  via  the  surface  of  the  reactor  pressure  vessel.  In  1988  this  experiment  was performed in the following manner. In the ﬁrst phase the cooling gas was pumped out of the primary system, because a rapid depressurisation was not licensed at that time. The plant was then operated for some time with a thermal power of 4 MW. In this way a stationary status was reached in the core that  showed  a  temperature  proﬁle  at  full-power  operation  and  an  average  helium  outlet temperature of 950 °C.
+
+After that a reduced power level caused by ﬁssion was established to simulate decay heat. In total, accident conditions were set up which corresponded to those of a reactor operating at full power in which an accident would happen.
+
+In Figure 154 the decay heat curve is shown. After 1 hour at a power of approximately 500 kW, 1 % of the nominal power was available as decay heat. After 2 days most of the energy was transported to the steam generator.
+
+Page 241
+
+Figure 154: Decay heat production in the AVR during total loss of active cooling with a depressurised core
+
+In  the  reactor  structures  the  time  dependence  of  temperatures  has  been  measured.  Figure  155 shows  the  position  of  the  thermocouples.  They  were  arranged  near  the  core,  for  example  on  the graphite noses. Later some test graphite balls with melt-wires were put into the pebble bed together with the normal fuel elements.
+
+Figure 155: Positions of thermocouples to measure temperatures in the internal structures of the AVR: (a) vertical section; (b) horizontal section Page 242
+
+The vertical cross section is shown on the left of Figure 155 and the horizontal cross section on the right. The numbers denote the following.
+
+(1)  Pebble bed. (2)  Control rod borehole. (3)  Reflector nose. (4)  Carbon brick layer. (5)  Graphite reflector.
+
+In Figure 156 the results of the measurements are given. The curves show that the hottest parts of structure, the noses for the shutdown rods above the core, became colder. The temperature of the graphite  structure  in  the  noses  (situated  in  the  middle  of  the  core)  increased  by  approximately 300 °C. The temperature decreased after 100 hours.
+
+Temperature  increases  in  the  side  reﬂector  were  in  the  order  of  150 °C  (maximum)  and  occurred after approximately 25 hours. After that time this temperature also decreased.
+
+The  core  bottom,  which  was  relatively  cold  at  the  beginning  of  the  accident,  became  hotter  and reached a temperature of approximately 500 °C after 100 hours. In total the core bottom structure acted as an efﬁcient heat sink over a long time.
+
+The possible influences of free convection and heat transport to the steam generator were analysed as well. For this purpose the main ﬂaps on the blowers were closed and opened. The difference was negligible. In fact, based on this result it was stated that the contribution of the steam generator as a heat sink was very small in this experiment. The main mechanisms to remove the decay heat from the core were conduction, radiation and free convection in the core internal structures. The results measured were compared with 3D computer calculations and the overall estimate was very good.
+
+Page 243
+
+Figure 156: Results of a ‘loss of coolant and loss of pressure in primary system’ experiment in the AVR (46 MW; THe = 950 °C)
+
+On  the  basis  of  the  measured  temperature  distributions  in  the  structures  and  the  power  density temperature  ﬁelds  inside  the  pebble  bed  have  been  calculated.  Figure  157  shows  the  radial dependence of the time-dependent proﬁle. It corresponds to the axial position in the middle of the core. Following these calculations no fuel elements were hotter than 1 300 °C in this accident.
+
+Page 244
+
+Figure 157: Temperature distribution inside the AVR reactor system in a ‘loss of coolant’ accident (calculations for the assumption: total loss of coolant and loss of active decay heal removal)
+
+Analysis indicates that only 5 % of the fuel elements stayed at temperatures between  1 250 °C and 1 300 °C  for  less  than  50 hours.  All  other  fuel  elements  stayed  at  lower,  partly  much  lower, temperatures. The release of ﬁssion products from the fuel elements is therefore relatively small.
+
+The  concept  of  self-acting decay  heat  removal  was  demonstrated  convincingly  by  this  experiment. The  results  were  a  large  contribution  to  the  knowledge  concerning  the  accident  behaviour  of modular  HTRs.  To  successfully  transfer  this  knowledge  on  newly  build  HTR,  the  materials  and dimensions of the core structure should be designed similar. The results of these experiments have been used for the validation of different computer programs. Figure 158 shows that the results of the computer programs were in close agreement with the experiments.
+
+Page 245
+
+Figure 158: Time-dependent temperature distribution in the AVR during ‘total loss of active decay heat removal’ accident, depressurisation of primary circuit: temperature (maximum values at centre line) depending on time
+
+Page 246
+
+## 10. References
+
+Abramowitz M., Stegun I.A. 1965b. Handbook of mathematical functions, Eq. 6.6.1. Dover, New York : s.n., 1965b.
+
+Abramowitz, M und Stegun, I. A. 1965. Handbook of mathematical functions. Eq. 26.1.20. Dover, New York : s.n., 1965.
+
+AFCEN. 2012. AFCEN RCC-MRx Code - Design and Construction Rules for mechanical components of nuclear installations. [Online] 2012. http://www.afcen.com.
+
+Altes, J und et al. 1983. Zum Störfallverhalten des HTR-500. Eine Trendanalyse. Jülich : KFA Jülich, 1983. JÜL-Spez. 220.
+
+Altes, J, et al. 1989. Behaviour of the prestressed concrete pressure vessel of the HTR-500 at severe accident temperatures. Arnheim : SmiRT, 1989. Vol. H.
+
+Altes, J, et al. 1987. Experimental study of the behaviour of prestressed concrete pressure vessel of High Temperature Reactors at accident temperatures. Lausanne : Smirt, 1987. Trans 9.
+
+Altes, J, et al. 1989. Experimental study of the behaviour of the prestressed concrete pressure vessel of the THTR-300 at severe accident temperatures. Tokyo : SmiRT, 1989. Vol. H.
+
+Archer. Seventh framework Archer project: Archer website: www.archer-project.eu.
+
+ATW. 1968. Der AVR Reaktor. Atomwirtschaft. 1968, Sonderdruck.
+
+Audebeau, G. 1971. Statistical aspects of failed particle fraction and free uranium in HTR fuel bodies. Winfrith : DRAGON Project, 1971.
+
+Barthels, H und Schürenkremer, M. 1984. Die effektive Wärmeleitfähigkeit in Kugel-Schüttungen unter besonderer Berücksichtigung des Hochtemperaturreaktors. Jülich : s.n., 1984. JÜL-1893.
+
+Beine, B. 1991. Large scale test setup for the passive heat removal system and the prestressed cast iron pressure vessel of a 200 MWth modular high temperature reactor. New Delhi : 3rd Int. seminar on small and medium sized nuclear reactors, 1991.
+
+Boothe, A H. 1957. A method of calculating fission gas release from UO2 fuel and its implication to the X-2-f loop test. Chalk River : Atomic Energy of Canada Ltd., 1957. Report 496; CRDC-721.
+
+Brähler, G et al. 2008. The PBMR fuel plant: proven technology in an advanced safety environment. Washington : s.n., 2008.
+
+Brähler, G. et al. 2010. Developments and economical aspects in the fabrication of HTR fuel elements. Prague : HTR 2010, 2010.
+
+Breitbach, G. 1978. Wärmetransportvorgänge in Kugelschüttungen unter besonderer Berücksichtigung der Strahlung. Aachen : RWTH Aachen, 1978. Dissertation.
+
+Buckthorpe, D E. 2014. ARCHER Project: Progress on Material and component activities for the Advanced High Temperature Reactor. Weihai : HTR2014 Conference, 2014. paper 41258.
+
+Page 247
+
+Buckthorpe, D E und Genot, J S. 2010. RAPAHEL: Synthesis of Achievements on materials and components and future direction. Nuclear Engineering Design. 2010.
+
+—. 2008. RAPHAEL: Achievements within the VHTR Materials and Components Programme. Washington : HTR2008, 2008.
+
+Buckthorpe, D. 2006. Materials Development for the VHTR; Results from HTR-M and M1 Projects plus future RAPHAEL Programme. Johannesburg : HTR2006, 2006. paper E00000111.
+
+—. 2004. Results from EU 5th Framework HTR projects HTR-M & HTR-M1. Beijing : HTR2004 Conference, 2004. paper E12.
+
+Cheng, X. 1998. Entwicklung experimentell gestützter analytischer Verfahren zur Auslegung der Containmentkühlung mit Luft durch Naturkonvektion. Karlsruhe : FZ Karlsruhe, 1998. FZKA 6056.
+
+Cheng, X und Grötzbach, G. 1996. Stand der Entwicklung von FLUTAN für die Modellierung der Wärmeübertragung in LWR-Systemen. s.l. : Jahrestagung Kerntechnik, 1996.
+
+Cheng, X, Erbacher, F J und Neitzel, H J. 1996. Passive Containment Cooling for Next Generation Water Cooled Reactors. New Orleans : ICONE-4 Conf., 1996.
+
+Delle, W und Nickel, H. 1990. AVR Graphite Structures. AVR experimental high temperature reactor. VDI Verlag, 1990.
+
+Delle, W, Koizlick, K und Nickel, H. 1983, 1984. Grafitische Werkstoffe für den Einsatz in Kernreaktoren, Teile1, 2. s.l. : Thiemig Verlag, 1983, 1984.
+
+Derz, H, et al. 1990. Experiment HTA-8: The determination of the maximum coolant temperatures in the AVR core. Jülich : Research Center Jülich, 1990. Internal report HTA-IB-3/90.
+
+Deutsches Atomforum eV, Kerntechnische Gesellschaft eV. 2001. VDI Gesellschaft Bautechnik, VDI Gesellschaft Energietechnik. Bonn : Inforum Verlag, 2001.
+
+Dräger, P. 2001. Zur Widerstandsfähigkeit von Sicherheitsbehältern für Kernkraftwerke gegen Terrorattacken mit großen Verkehrsflugzeugen. München : s.n., 2001.
+
+EN13445. 2012. CEN Standard. “Unfired pressure vessels - Part 3: Design”. 2012.
+
+Engelhard, J. 1972. Abschlussbericht über die Errichtung und den Anfahrbetrieb des AVRAtomkraftwerks. 1972. K72-23.
+
+Freis, D. 2010. Störfallsimulationen und Nachbestrahlungsuntersuchungen an kugelförmigen Brennelementen für Hochtemperaturreaktoren. Aachen : Technical University RWTH Aachen, 2010.
+
+Fricke, U. 1987. Untersuchungen zur Leistungssteigerung von inhärent sicheren Hochtemperaturreaktoren durch Optimierung der Coreauslegung. Duisburg : Uni GH-Duisburg, 1987. Dissertation.
+
+Fu X., Liang T.X., Tang Y., Xu Z., Tang C.H. 2004. Preparation of UO2 kernel for HTR-10 fuel element. Journal of Nuclear Science and Technology 41. 2004, S. 943-948.
+
+Page 248
+
+Fütterer M., et al. 2008. Results of AVR fuel pebble irradiation at increased temperature and burn-up in the HFR Petten. Nuclear Engineering and Design. 2008, Bde. 238:2877-2885.
+
+Fütterer, M und et al. 2008. Results of AVR fuel pebble irradiation at increased temperature and burn-up in the HFR Petten. Nuclear Engineering and Design. 2008, Bde. 238:2877-2885.
+
+Geis, M und et al. 1993. Experimentelle und analytische Arbeiten zur Absicherung von Druckbehältereinheit und Primärzelle des HTR Modul. Frankfurt : Batelle Institut, 1993. INWA-Projekt, BEF 40045-0.
+
+Gottaut H., Krüger K. 1990. Results of experiments at the AVR reactor. Nuclear Engineering and Design. 1990, Bde. 121:143-153.
+
+Groot, Sander de, et al. 2013. Nuclear Cogeneration with High Temperature Reactors: Overview and Perspectives of European Projects. s.l. : FISA2013 Conference, 2013.
+
+Haag, G, et al. 1990. Development of reactor graphite. Journal Nuclear Materials. 1990, Bd. 171.
+
+Halli, G. 2004. Microstructural modelling of nuclear grade graphite. Manchester : University of Manchester, 2004.
+
+Harth, R. und et, al. 1990. Ecperience Gained from the EVA II and KVK Operation. Nuclear Engineering and Design. 1990, Bd. 121.
+
+Hauck, M. 2003. Auslegung und Beanspruchung von Lagerbehältern für radioaktive abfälle unter extremen Störfallbedingungen. Aachen : Dipl. Arb.: RWTH Aachen, 2003.
+
+Hell, F. 1979. Grundlagen der Wärmeübertragung. Düsseldorf : VDI-Verlag, 1979.
+
+Hennies, H H, Kessler, G und Eibel, J. 1990. Improved Containment Concept for Future Pressurized Water Reactors. Vienna : IAEA, 1990. TECDOC-550.
+
+Hishida, M, et al. 1989. Studies on the primary pipe ruptureaccident of a high temperature gas cooled reactor. s.l. : NURETH-4, 1989. Proc.4, Vol.1.
+
+Holzkamp, K. 1987. Thermohydraulische Untersuchungenzum Primärkreis des HTR's für die Nachwärmeabfuhrmit Naturumlauf am Beispiel des HTR 500. Aachen : Diss: RWTH Aachen, 1987.
+
+Hottel, H C und Sarofim, A F. 1964. Radiative Transfer. New York : MacGraw-Hill, 1964.
+
+How to obtain an inherently safe power reactor. Lohnert, Günter. 2007. Stuttgart : Uni Stuttgart, 2007.
+
+Hrovat, M, et al. 1988. Spherical Fuel Elements for Small and Medium Sized HTRs. Nuclear Engineering and Design. 1988, Bd. 109:253.
+
+Hunt, R.D., et al.,. 2010. The addition of silicon carbide to surrogate nuclear fuel kernels made by the internal gelation process. Journal of Nuclear Materials. 2010, S. 55-59.
+
+Huschka H., Vygen P. 1977. Coated fuel particles: requirements and status of fabrication technology. Nuclear Technology. 1977, Bde. 35:238-245.
+
+Page 249
+
+IAEA. 1994. Decay heat removal and heat transfer under normal and accident conditions in gas cooled reactors. Vienna : IAEA, 1994. TECDOC-757.
+
+—. 1997. Fuel performance and fission product behavior in gas cooled reactors. Vienna : International Atomic Energy Agency, 1997.
+
+—. 2001. Heat transport and after heat removal for gas cooled reactors under accident conditions. Vienna : IAEA, 2001. TECDOC-1163.
+
+ISF/KFA-Jülich. 1984. Spannbetonbehälter unter hypothetischen Störfallbelastungen. Jülich : s.n., 1984. Förd. Vorhaben RS 447, 3Bd..
+
+Kadner, M., Baier, J. 1977. Production of Fuel Kernels for High-Temperature Reactor Fuel Elements. Kerntechnik 18. 1977, S. 413-420.
+
+Kania M.J., Nickel H. 1980. Performance assessment of the (Th,U)O2 HTI-BISO coated particle under PNP/HHT irradiation conditions. Jülich : Research Center Jülich, 1980.
+
+Kim, D. 1991. Wiederinbetriebnahme der Linerkühlung eines mittelgroßen HTR-SpannBetondruckbehältersbei einem Kernaufheizstörfallmit Ausfall der Linerkühlung. Jülich : FZ Jülich, 1991. JÜL-2543.
+
+KLE, Kernkraftwerk Lippe-Ems GmbH. 1998. Kurzbeschreibung des Standortzwischenlagers Lingen am Kernkraftwerk Emsland. 1998.
+
+Krohn, H. 1982. Freisetzung von Spaltprodukten aus dem Core eines Kugelhaufenreaktors bei Störfällen mit Core-Aufheizung. Jülich : Research Center Jülich, 1982. Report Jül-1791.
+
+Krüger, K, Ivens, G und Kirch, N. 1988. Operation experiments and safety experiments with the AVR power station. Nuclear Engineering and Design. 1988, Bd. 109.
+
+KTA3201. 2015. “Komponenten des Primärkreises von Leichtwasserreaktoren” Parts 1 to 5. s.l. : Der Kerntechnische Ausschuss (KTA), 2015.
+
+KTA3221. 2015. “Metallische HTR Komponenten” Parts 1 to 3, Draft Standard. KTA Standards. s.l. : Der Kerntechnische Ausschuss (KTA), 2015.
+
+Kucerza, B, Erbacher, F J und Scholtyssek, W. 1993. Investigation on Ex-Vessel Core Melt Cooling in a future PWR-Containment. Villingen, Switzerland : IAEA, 1993.
+
+Kugeler, K, et al. 1994. Development of an inactive heat removal system for high temperature reactors. Vienna : IAEA, 1994. TECDOC-757.
+
+Kugeler, K, Sappock, M und Wolf, L. 1991. Development of an inactive heat removal system for high temperature reactors. s.l. : Jahrestagung Kerntechnik, 1991.
+
+Kuhn, K, Hinssen, H_K und Moormann, R. 2003. Behaviour of C-based materials in contact with oxidizing gases. Cordoba : Proceedings of ICAPP ’03, 2003. paper 3031.
+
+Lange, M. 1995. Experimente zur selbsttätigen Abfuhr der Nachwärme bei HochtemperaturreaktorenPlanung, Vorbereitung und Ergebnisse. Jülich : s.n., 1995. JÜL-3012.
+
+Page 250
+
+Laurie M, et al. 2010. Results of the HFR-EU1 fuel irradiation of INET and AVR pebbles in the HFR Petten. Prague : HTR 2010, 2010.
+
+Laurie, M und et al. 2010. Results of the HFR-EU1 fuel irradiation of INET and AVR pebbles in the HFR Petten. Prague : HTR2010, 2010.
+
+Lohnert, G. 1990. Technical Design Features and Essential Safety Related Properties of the HTRModule. Nuclear Engineering ans Design. 1990, Bd. 121.
+
+Martin-Bermejo, J, Hugon, M und van Goethem, G. 2001. Research activities on High Temperature Gas-cooled Reactors (HTRs) in the 5th EURATOM RTD. Washington : 16th SMiRT Conference, 2001.
+
+Mehner, A W, et al. 1990. Spherical fuel elements for HTR manufacture and qualification by irradiation testing. Journal of Nuclear Materials. 1990, Bde. 171:9-18.
+
+Melese, G und Katz, R. 1984. Thermal and flow design of helium cooled reactors. Illinois : American Nuclear Society, 1984.
+
+Mertens, J und et al. 1985. Sicherheitstechnische Untersuchungen zum Störfallverhalten des HTRModul. Jülich : s.n., 1985. LÜL-SPEZ.-335.
+
+Merwe, J J van der. 2004b. Development and validation of fission product release models and software at PBMR. Beijing : HTR2004, 2004b.
+
+Merwe, J J van der und Coetzee, P P. 2007. Development of a model to predict fission product behavior in spherical fuel elements during water ingress events. Nuclear Engineering and Design. 2007, Bde. 237:47-53.
+
+Merwe, J J van der. 2004. Verification and validation of the PBMR models and codes used to predict gaseous fission product releases from spherical fuel elements. Johannesburg : MSc Thesis, Rand Afrikaans University, 2004.
+
+Mueller, A. 2006. Establishment of the technology to manufacture uranium dioxide kernels for PBMR fuel. 2006.
+
+N.N. 1981. Häufigkeit schwerer Erdbeben, charakteristische Daten in: Sicherheitsstudie für HTRKonzepte unter deutschen Störfallbedingungen. Jülich : s.n., 1981.
+
+Nabielek, H et al. 1984. Fuel for pebble-bed HTRs. Nuclear Engineering and Design. 1984, Bde. 78: 155-166.
+
+Nabielek, H und et al. 1990. Development of advanced HTR fuel elements. Nuclear Engineering and Design. 1990, Bde. 121:199-210.
+
+Nabielek, H, et al. 1974. Performance limits of coated particle fuel. Part III: Fission product migration in HTR fuel. Winfrith : Dragon Project, 1974. Report 828/III.
+
+Nabielek, H, Tang, C H und Mueller, A. 2010. Recent advances in HTR fuel Manufacture. Prague : HTR 2010, 2010.
+
+Page 251
+
+Nabielek, H, Verfondern, K und Kania, M J. 2008. Fuel and fission products in the Jülich AVR pebblebed reactor. Washington, D.C. : HTR 2008, 2008.
+
+Neitzerl, H J. 1992. Abschätzung der Wärmeabfuhr durch Naturkonvektion bei einem alternativen Containmentkonzept. Karlsruhe : Kernforschungszentrum Karlsruhe, 1992. KfK-5005.
+
+Nickel, H, et al. 2002. Long time experience with the development of HTR fuel elements in Germany. Nuclear Engineering and Design. 2002, Bde. 217:141-151.
+
+Niessen, H F. 2001. The SANA 1-experiments for self-acting removal of the afterheat from a pebble bed. Vienna : IAEA, 2001. TEC-DOC-1163.
+
+Niessen, H F und Lange, M. 1994. SANA experiments related to self-operating removal of decay heat. Vienna : IAEA, 1994. TEC-DOC-757.
+
+Niessen, H F und Stöcker, B. 1995. SANA 1 Code-to-experiment summary description of benchmark,3rd IAEA Research Coordination Meeting on Heat Transport and Afterheat Removal for Gas-cooled Reactors under Accident Conditions. Vienna : IAEA, 1995.
+
+Niessen, H F, Gerwin, H und Scheuer, W. 2001. Numerical simulation of the SANA 1-experiments with the TINTE code in: Heat transport and afterheat removal for gas cooled reactors under accident conditions. Vienna : IAEA, 2001. TECDOC-1163.
+
+Nuclear Energy for Hydrogen Production. Verfondern, Karl. Jülich : Verfondern, Karl. 9783893364688.
+
+Pohl, P. 2009. Experimental evaluation of the AVR melt-wire test. Düsseldorf : Arbeitsgemeinschaft Versuchsreaktor GmbH, 2009.
+
+Raphael. ReActor for Process heat, Hydrogen And ELectricity generation sixth Framework Project: www.raphael-project.org.
+
+Ratton, Burchall T. R. 2005. Graphite Irradiation Creep Capsule AGC-1Experimental Plan. 2005.
+
+Rehm, W und et al. 1985. Sicherheitsanlage der Kernkühlungsstörfälle kleiner und mittlerer HTR. 1985. BWK Bd. 37.
+
+Rehm, W, Jahn, W und Verfondern, K. 1984. Zur passiven Nachwärmeabfuhr beim HTR mit dem Linerkühlsystem als Wärmesenke. Jülich : s.n., 1984. JÜL-1951.
+
+Reutler, H und Lohnert, G. 1984. Advantages of going modular in HTR. Nuclear Engineering and Design. 1984, Bde. 78:129-136.
+
+Robold, K. 1982. Wärmetransport im Inneren und in der Randzone von Kugelschüttungen. Jülich : s.n., 1982. JÜL-1796.
+
+Röllig, K. 1993. Anlagenspezifische Referenztests. Abschlussbericht zum Fördervorhaben Brennelemente unter Normal- und Störfallbedingungen. 1993, Bde. Report HTR-M-0210-BA-GHRA 006910.
+
+—. 1977. Release of rare fission gases from spherical elements with coated fuel particles. Nuclear Technology. 1977, Bde. 35:516-523.
+
+Page 252
+
+RSK. 2002. Längerfristige Zwischenlagerung von Abfällen. Jülich : FZ Jülich, 2002.
+
+Rütten, H. 2007. Temperaturentwicklungen im HTR-Modul bei extremer Störung der Nachwärmeabfuhr durch Überdeckung. Private Mitteilung. 2007.
+
+Schartmann, F. 2000. Wärmeabfuhr von Transport- und Zwischenlagerbehältern für hochradioaktive wärmeerzeugende Stoffe im Normalbetrieb und bei Störfällen. Aachen : RWTH Aachen, 2000. Dissertation.
+
+Schenk, W. 1977. Nachbestrahlungsausheizverfahren für Kugelbrennelemente und andere Brennstoffproben. Jülich : Research Center Jülich, 1977. Report Jül-1454.
+
+—. 1983. Störfallsimulation an bestrahlten Kugelbrennelementen bei Temperaturen von 1400 bis 2500°C. Jülich : Research Center Jülich, 1983. Report Jül-1883.
+
+Schenk, W und et al. 1993. Simulation der maximalen MODUL-Störfallaufheizkurve und deren Extrapolation auf 1700°C. Jülich : Research Center Jülich, 1993. Technical Note FZJ-IWE-TN-17/93.
+
+Schenk, W und Nabielek, H. 1989. Kugelbrennelemente mit TRISO-Partikeln bei Störfalltemperatur. Jülich : s.n., 1989. JÜL-SPEZ-487.
+
+Schenk, W. 1978. Untersuchungen zum Verhalten von beschichteten Brennstoffteilchen und Kugelbrennelementen bei Störfalltemperaturen. Jülich : Research Center Jülich, 1978. Report Jül1490.
+
+Schenk, W, et al. 1991. Jod- und Xenonfreisetzung aus kurz bestrahlten Brennelementen bei 1000° bis 1600°C (FRJ2-A2). Jülich : Research Center Jülich, 1991.
+
+Schenk, W, Pitzer, D und Nabielek, H. 1988. Fission product release profiles from spherical HTR fuel elements at accident temperatures. Jülich : Research Center Jülich, 1988. Report Jül-2234.
+
+—. 1986. Spaltproduktfreisetzungsverlauf von Kugelbrennelementen bei Störfalltemperaturen. Jülich : s.n., 1986. JÜL-2091.
+
+Schenk, W, Pott, G und Nabielek, H. 1990. Fuel accident performance testing for small HTRs. Journal of Nuclear Materials. 1990, Bde. 171:19-30.
+
+Schneider, U und Diederichs, U. 1981. Physikalische Eigenschaften von Beton von 20° Celsius bis zum Schmelzen Teil 1 und 2. Betonwerk + Fertigteil-Technik, Hefte 3 und 4 . 1981, Bd. 3 und 4.
+
+Schulten, R und Tranger, D. 1976. Gas Cooled Reactors. Trans Amer. Nucl. Society. 1976, Bd. 24.
+
+Schulze, R., Schulze H.A., Rind W. 1982. Graphitic matrix materials for spherical HTR fuel elements. Jülich : Research Center Jülich, 1982.
+
+Schürenkremer, M. 1984. Theoretische und experimentelle Untersuchungen der Naturkonvektion im Kern des Kugelhaufen-Hochtemperaturreaktors. Jülich : s.n., 1984. JÜL-1912.
+
+Schürenkremer, M und Barthels, H. 1983. Experimentelle Untersuchungen zur Thermohydraulik in Kugelschüttungen im Vergleich mit dem Rechenprogramm THERMIX-20. Die Untersuchung des dispersiven Wärmetransportes am Beispiel einer Kaltgassträhne. Jülich : s.n., 1983. JÜL-1839.
+
+Page 253
+
+Seeger. 2012. Simulated accident testing of a fuel element from the HFR-EU1bis irradiation campaign. Tokyo : HTR 2012, 2012. HTR2012-3-036.
+
+Siemens/ Interatom. 1988. Hochtemperaturreaktor-Modul-Kraftwerksanlage; Safety Report Vol. 1-3. Bensberg : Siemens, 1988.
+
+Siemens/Interatom. 1988. Safety Report: Hochtemperaturreaktor-Modul-Kraftwerksanlage. Bensberg : Siemens Interatom, 1988. Bd. 1-3.
+
+Stöcker, B. 1997. Untersuchungen zur Selbsttätigen Nachwärmeabfuhr bei Hochtemperaturreaktoren unter besonderer Berücksichtigung der Naturkonvektion. Aachen : RWTH Aachen, 1997. Dissertation.
+
+Stoker, C C, et al. 2010. PBMR radionuclide source term analysis validation based on AVR operating experience. Nuclear Engineering and Design. 2010, Bde. 240:2466-2484.
+
+Takeda, S und et al. 1996. Mockup experiment of vessel cooling system. Oarai : KFA-JAERI, 1996.
+
+Takeda, S und et, al. 1994. Test apparatus of cooling panel system for MGHR. Vienna : IAEA, 1994. TECDOC-757.
+
+Tang C.H., et al. 2002. Design and manufacture of the fuel element for the 10 MWth HTGR. Nuclear Engineering and Design. 2002, Bde. 216:91-102.
+
+Tang C.H., Fu X., Zhu J., Zhao H., Tang Y. 2010. Comparison of two irradiation testing results of HTR10 spheres. Prague : HTR 2010, 2010.
+
+Tang, C H, et al. 2010. Comparison of two irradiation testing results of HTR-10 spheres. Prague : HTR2010, 2010.
+
+Technical and Safety Aspects of Processes of Hydrogen Production using Nuclear Energy. Kugeler, K. 2005. Seoul : Int. Congress on Advances in Nulear Power PlantsICAPP 05, 2005. Paper 5729.
+
+U.S. DOE Nuclear Energy Research Advisory Committee and the Gen. IV International Forum. 2002. A Technological Roadmap for Generation IV Nuclear Energy Systems. s.l. : U.S. DOE Nuclear Energy Research Advisory Committee and the Gen. IV International Forum, 2002. 03-GA50034.
+
+Vaidya, V.N. 2008. Status of sol–gel process for nuclear fuels. Journal of Sol-Gel Science and Technology 46. 2008, S. 369-381.
+
+VDI. 1990. AVR-Experimental High-Temperature Reactor; 21 years of succesful operation for a future technology. s.l. : VDI-Verlag, 1990.
+
+—. 2001. Stellungnahme: Die sicherheitstechnische Auslegung von kerntechnischen Anlagen in Deutschland gegen Terrorismus. Düsseldorf : VDI, 2001.
+
+Venter, St. 2004. The PBMR Fuel Development Laboratories at NECSA. Current Status and Future Prospects of Gas Cooled Reactor Fuels. 2004.
+
+Verfondern, K. 1983. Numerische Untersuchung der 3-dimensionalen stationären Temperatur- und Strömungsverteilung im Core eines Hochtemperaturreaktors. Jülich : s.n., 1983. JÜL 1826.
+
+Page 254
+
+. 2007. Status of German spent HTGR fuel research. Beijing : Proc. IAEA Technical Meeting on Safety Aspects of Modular HTGRs, 2007.
+
+Verfondern, K und Petersen, K. 1979.  Untersuchung der Temperatur- und Strömungsfelderfür den Corebereich des THTRim 5-Stundenfall. s.l. : KFA, 1979. IRE/IB 29/79.
+
+von Heesen, W und et, al. 1983.  Heat transfer from transport cask storage facilities for spent fuel elements. Nuclear technology. 1983, Bd. 62.
+
+Wimmers, M. 1977.  Das Verhalten kugelförmiger Brennelemente bei der Massenerprobung im AVRReaktor. Düsseldorf : Arbeitsgemeinschaft Versuchsreaktor GmbH, 1977. PhD Thesis.
+
+Wolf, L, et al. 1994.  Passive heat removal experiments for an advanced HTR-Module reactor pressure vessel and cavity design. Vienna : IAEA, 1994. TECDOC-757.
+
+Ziermann, E und Ivens, G. 1997.  Abschlussbericht über den Leistungsbetrieb des AVRVersuchskernkraftwerks. Jülich : s.n., 1997. JÜL-3448.
+
+GETTING IN TOUCH WITH THE EU
+
+In person All over the European Union there are hundreds of Europe Direct information centres. You can find the address of the centre nearest you at: http://europea.eu/contact
+
+On the phone or by email Europe Direct is a service that answers your questions about the European Union. You can contact this service: - by freephone: 00 800 6 7 8 9 10 11 (certain operators may charge for these calls), - at the following standard number: +32 22999696, or - by electronic mail via: http://europa.eu/contact
+
+FINDING INFORMATION ABOUT THE EU
+
+Online Information about the European Union in all the official languages of the EU is available on the Europa website at: http://europa.eu
+
+EU publications You can download or order free and priced EU publications from EU Bookshop at: http://bookshop.europa.eu. Multiple copies of free publications may be obtained by contacting Europe Direct or your local information centre (see http://europa.eu/contact).
+
+Page 256  KJ-NA-28712-EN-N oi

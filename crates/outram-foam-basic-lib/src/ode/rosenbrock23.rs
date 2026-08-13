@@ -43,6 +43,7 @@ const D3: f64 = 2.185_138_002_766_405_851_2;
 ///
 /// Requires the user's `OdeSystem::jacobian` to be implemented.
 /// Maps to `Foam::Rosenbrock23`.
+#[derive(Debug, Clone)]
 pub struct Rosenbrock23 {
     /// Adaptive step-size controller settings (tolerances, scale limits).
     pub config: OdeSolverConfig,
@@ -87,9 +88,9 @@ impl Rosenbrock23 {
     }
 
     /// Single inner step (no retry). Returns the normalised error estimate.
-    fn inner_step(
+    fn inner_step<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x0: f64,
         y0: &[f64],
         dydx0: &[f64],
@@ -148,9 +149,9 @@ impl Rosenbrock23 {
     }
 
     /// One adaptive step (retries with smaller dx if error > 1).
-    pub fn solve_step(
+    pub fn solve_step<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x: &mut f64,
         y: &mut Vec<f64>,
         dx_try: &mut f64,
@@ -167,6 +168,16 @@ impl Rosenbrock23 {
 
         let err = loop {
             let err = self.inner_step(ode, *x, y, &dydx0_snapshot, dx, &mut y_temp);
+            // A non-finite error means the system (commonly its Jacobian)
+            // produced NaN or an infinity. Shrinking `dx` cannot recover from
+            // that, so fail immediately and name the real cause rather than
+            // grinding down to a misleading `StepSizeUnderflow`. This loop
+            // duplicates `adaptive_step`'s, so the same guard is needed in
+            // both. See `OdeError::NonFiniteState` and bead `op-ad6h`.
+            if !err.is_finite() {
+                self.y_temp = y_temp;
+                return Err(OdeError::NonFiniteState);
+            }
             if err <= 1.0 {
                 break err;
             }
@@ -196,9 +207,9 @@ impl Rosenbrock23 {
 
     /// Integrate from `x_start` to `x_end`, updating `y` in place and leaving
     /// the last accepted step size in `dx_est`.
-    pub fn integrate(
+    pub fn integrate<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x_start: f64,
         x_end: f64,
         y: &mut Vec<f64>,

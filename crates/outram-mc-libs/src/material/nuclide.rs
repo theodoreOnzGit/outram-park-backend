@@ -16,7 +16,6 @@
 /// This "CE particle, MG data above the ceiling" seam is described in
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
-
 use crate::material::thermal::ThermalScattering;
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
@@ -208,10 +207,12 @@ impl Nuclide {
     /// Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
     /// (builder style, consumes and returns `self`).
     ///
-    /// Use it on the moderator nuclide of a *thermal* problem — e.g. the H-1 in
-    /// light water gets the H-in-H₂O `tsl` table. Below the table's thermal cutoff
-    /// (~4 eV) the neutron then scatters off the bound-atom S(α,β) law instead of
-    /// the free-gas elastic kernel: the bound cross section is used in
+    /// Use it on the moderator nuclide of a *thermal* problem — the H-1 in light
+    /// water gets the H-in-H₂O `tsl` table; the C-12/C-13 of an HTR-10 pebble
+    /// gets `tsl-crystalline-graphite`. Below the table's thermal cutoff (~4 eV)
+    /// the neutron then scatters off the bound-atom law instead of the free-gas
+    /// elastic kernel: the bound cross section (inelastic **plus** the
+    /// scatterer's elastic channel, if it has one) is used in
     /// [`Nuclide::xs_at_energy`] and the secondary energy/angle are drawn by
     /// [`Nuclide::sample_thermal`], giving the up-scatter that thermalizes the
     /// spectrum. Above the cutoff nothing changes.
@@ -273,12 +274,22 @@ impl Nuclide {
         let tape = cache.download_tape(library, mat, z, a, sym)?;
 
         // 2. RECONR at 0 K.
-        let recon0 = reconr(&tape, &ReconrConfig { mat, tolerance, temperature: 0.0 })?;
+        let recon0 = reconr(
+            &tape,
+            &ReconrConfig {
+                mat,
+                tolerance,
+                temperature: 0.0,
+            },
+        )?;
         let awr = recon0.material.awr;
 
         // 3. BROADR to the material temperature (in place of the 0 K grid).
         let sections = doppler_broaden(&recon0.sections, awr, temp_k);
-        let recon = ReconrResult { material: recon0.material, sections };
+        let recon = ReconrResult {
+            material: recon0.material,
+            sections,
+        };
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).
@@ -306,7 +317,11 @@ impl Nuclide {
             awr,
             nu,
             chi,
-            xs: XsSource::Pointwise { recon, inel, elastic_angular },
+            xs: XsSource::Pointwise {
+                recon,
+                inel,
+                elastic_angular,
+            },
             thermal: None,
         })
     }
@@ -328,11 +343,19 @@ impl Nuclide {
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         let base = self.base_xs_at_energy(e, temp_k);
         // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
-        // free-gas elastic channel entirely (light water has no thermal elastic).
+        // free-gas elastic channel entirely. The replacement is the *sum* of
+        // both bound channels — σ_inel(E) + σ_el(E) — not σ_inel alone: for a
+        // crystalline moderator such as graphite the coherent-elastic (Bragg)
+        // channel is ~90 % of thermal scattering at 0.0253 eV, so substituting
+        // only the inelastic part would drop the dominant channel and leave the
+        // nuclide with less scattering than the free gas it replaced (bead
+        // `op-nhoa`). For light water σ_el ≡ 0 and this reduces exactly to the
+        // previous behaviour.
+        //
         // Keep absorption/fission/inelastic/(n,2n) from the base evaluation and
-        // swap the scattering cross section for σ_inel(E), then rebuild the total.
+        // swap the scattering cross section, then rebuild the total.
         if let Some(th) = &self.thermal {
-            let sab = th.inelastic_xs(e);
+            let sab = th.total_xs(e);
             if sab > 0.0 {
                 let mut x = base;
                 x.elastic = sab;
@@ -473,7 +496,9 @@ impl Nuclide {
     /// [`crate::physics::scatter::two_body_scatter_with_mu`].
     pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64> {
         let elastic_angular = match &self.xs {
-            XsSource::Pointwise { elastic_angular, .. } => elastic_angular,
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular,
             // LOW tier: forward-scatter off the group mean cosine above `e_max`.
             XsSource::Core { e_max, fast, .. } => {
                 if e <= *e_max {
@@ -505,7 +530,11 @@ impl Nuclide {
                 i += 1;
             }
             let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
-            let r = if e1 > e0 { (e_mev - e0) / (e1 - e0) } else { 0.0 };
+            let r = if e1 > e0 {
+                (e_mev - e0) / (e1 - e0)
+            } else {
+                0.0
+            };
             if r > prn(seed) {
                 &dists[i + 1]
             } else {
@@ -517,7 +546,12 @@ impl Nuclide {
         if chosen.cosines.is_empty() {
             return Some(2.0 * prn(seed) - 1.0);
         }
-        Some(sample_tabular_mu(&chosen.cosines, &chosen.pdf, &chosen.cdf, prn(seed)))
+        Some(sample_tabular_mu(
+            &chosen.cosines,
+            &chosen.pdf,
+            &chosen.cdf,
+            prn(seed),
+        ))
     }
 
     /// Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\],
@@ -532,6 +566,11 @@ impl Nuclide {
     /// whose cosine is in the CM frame. The outgoing energy may exceed the
     /// incident energy (thermal up-scatter), which is exactly what drives the
     /// spectrum to a Maxwellian.
+    ///
+    /// For a scatterer with a thermal **elastic** channel (graphite, ZrH) the
+    /// draw first chooses elastic vs inelastic in proportion to their cross
+    /// sections; an elastic scatter returns `e_out == e` and only redirects the
+    /// neutron. See [`ThermalScattering::sample`].
     pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
         self.thermal.as_ref().and_then(|th| th.sample(e, seed))
     }
@@ -708,14 +747,10 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
     match chi {
         FissionSpectrum::ContinuousTabular(t) => sample_continuous_tabular(t, e_in, seed),
         FissionSpectrum::Watt { a, b } => watt(seed, *a, *b),
-        FissionSpectrum::Tabulated { e_out, pdf } => {
-            sample_tabulated_energy(e_out, pdf, prn(seed))
-        }
+        FissionSpectrum::Tabulated { e_out, pdf } => sample_tabulated_energy(e_out, pdf, prn(seed)),
         FissionSpectrum::Maxwell { theta, u } => sample_maxwell_lf7(theta, *u, e_in, seed),
         FissionSpectrum::Evaporation { theta, u } => sample_evaporation_lf9(theta, *u, e_in, seed),
-        FissionSpectrum::WattEnergyDependent { a, b, u } => {
-            sample_watt_lf11(a, b, *u, e_in, seed)
-        }
+        FissionSpectrum::WattEnergyDependent { a, b, u } => sample_watt_lf11(a, b, *u, e_in, seed),
         FissionSpectrum::Mixture(parts) => {
             let weights: Vec<f64> = parts
                 .iter()
@@ -1079,9 +1114,17 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
         .filter_map(|s| {
             let n = s.mt.number();
             if (51..=90).contains(&n) {
-                Some(InelasticLevel { mt: s.mt, q: s.qi, continuum: false })
+                Some(InelasticLevel {
+                    mt: s.mt,
+                    q: s.qi,
+                    continuum: false,
+                })
             } else if n == 91 {
-                Some(InelasticLevel { mt: s.mt, q: s.qi, continuum: true })
+                Some(InelasticLevel {
+                    mt: s.mt,
+                    q: s.qi,
+                    continuum: true,
+                })
             } else {
                 None
             }
@@ -1092,7 +1135,11 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     // levels) — treat it as one continuum channel rather than dropping it.
     if levels.is_empty() {
         if let Some(s) = recon.sections.iter().find(|s| s.mt.number() == 4) {
-            levels.push(InelasticLevel { mt: s.mt, q: s.qi, continuum: true });
+            levels.push(InelasticLevel {
+                mt: s.mt,
+                q: s.qi,
+                continuum: true,
+            });
         }
     }
     levels
@@ -1109,7 +1156,10 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
 /// Values are total (prompt + delayed) ν̄ near threshold, from ENDF/B evaluations.
 fn nubar_for(name: &str, fissionable: bool) -> NuBar {
     if !fissionable {
-        return NuBar { energy: vec![1.0e-3, 2.0e7], nu_total: vec![0.0, 0.0] };
+        return NuBar {
+            energy: vec![1.0e-3, 2.0e7],
+            nu_total: vec![0.0, 0.0],
+        };
     }
     let nu = match name {
         "U233" => 2.49,
@@ -1120,7 +1170,10 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
         "Th232" => 2.45,
         _ => 2.50,
     };
-    NuBar { energy: vec![1.0e-3, 2.0e7], nu_total: vec![nu, nu] }
+    NuBar {
+        energy: vec![1.0e-3, 2.0e7],
+        nu_total: vec![nu, nu],
+    }
 }
 
 #[cfg(test)]
@@ -1185,7 +1238,10 @@ mod tests {
         for i in 0..n {
             let r1 = (i as f64 + 0.5) / n as f64;
             let e = sample_ct_table(&t, r1);
-            assert!((0.0..=2.0e6).contains(&e), "E' {e} outside tabulated support");
+            assert!(
+                (0.0..=2.0e6).contains(&e),
+                "E' {e} outside tabulated support"
+            );
             sum += e;
         }
         let mean = sum / n as f64;
@@ -1211,17 +1267,28 @@ mod tests {
             cdf: vec![0.0, 0.5, 1.0],
             linlin: false,
         };
-        let chi = ChiTabular { incident: vec![1.0e5, 2.0e7], tables: vec![low, high] };
+        let chi = ChiTabular {
+            incident: vec![1.0e5, 2.0e7],
+            tables: vec![low, high],
+        };
         let mean_at = |e_in: f64| -> f64 {
             let mut seed = 12345u64;
             let n = 200_000usize;
-            (0..n).map(|_| sample_continuous_tabular(&chi, e_in, &mut seed)).sum::<f64>()
+            (0..n)
+                .map(|_| sample_continuous_tabular(&chi, e_in, &mut seed))
+                .sum::<f64>()
                 / n as f64
         };
         let m_lo = mean_at(1.0e5);
         let m_hi = mean_at(2.0e7);
-        assert!((m_lo - 1.0e6).abs() < 2.0e4, "low-incident mean {m_lo} ≈ 1 MeV");
-        assert!((m_hi - 2.0e6).abs() < 2.0e4, "high-incident mean {m_hi} ≈ 2 MeV");
+        assert!(
+            (m_lo - 1.0e6).abs() < 2.0e4,
+            "low-incident mean {m_lo} ≈ 1 MeV"
+        );
+        assert!(
+            (m_hi - 2.0e6).abs() < 2.0e4,
+            "high-incident mean {m_hi} ≈ 2 MeV"
+        );
         assert!(m_hi > 1.5 * m_lo, "χ must harden: {m_lo} → {m_hi}");
     }
 
@@ -1231,7 +1298,14 @@ mod tests {
     /// a table's range, so the span must cover every incident energy queried.
     fn flat_tab1(y: f64) -> Tab1 {
         Tab1 {
-            head: njoy_outram_park_fork::endf::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: 2 },
+            head: njoy_outram_park_fork::endf::Cont {
+                c1: 0.0,
+                c2: 0.0,
+                l1: 0,
+                l2: 0,
+                n1: 1,
+                n2: 2,
+            },
             interp: vec![(2, 2)],
             pairs: vec![(1.0e-5, y), (1.0e9, y)],
         }
@@ -1250,11 +1324,18 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_maxwell_lf7(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
-        assert!((mean - 1.5e6).abs() < 3.0e4, "Maxwell mean {mean} ≈ 1.5θ = 1.5 MeV");
+        assert!(
+            (mean - 1.5e6).abs() < 3.0e4,
+            "Maxwell mean {mean} ≈ 1.5θ = 1.5 MeV"
+        );
     }
 
     /// **LF=9 (evaporation).** Unrestricted, the evaporation pdf `E'e^{-E'/θ}` is a
@@ -1269,11 +1350,18 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
-        assert!((mean - 2.0e6).abs() < 4.0e4, "evaporation mean {mean} ≈ 2θ = 2 MeV");
+        assert!(
+            (mean - 2.0e6).abs() < 4.0e4,
+            "evaporation mean {mean} ≈ 2θ = 2 MeV"
+        );
     }
 
     /// **LF=9, restricted.** With `u` chosen so `e_in − u` sits well inside the
@@ -1286,7 +1374,11 @@ mod tests {
         let mut seed = 99u64;
         for _ in 0..10_000 {
             let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u + 1.0, "E'={e} exceeds tight restriction {}", e_in - u);
+            assert!(
+                e <= e_in - u + 1.0,
+                "E'={e} exceeds tight restriction {}",
+                e_in - u
+            );
         }
     }
 
@@ -1305,12 +1397,19 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_watt_lf11(&a, &b, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
         let expected = 1.5e6 + 0.25 * 1.0e6 * 1.0e6 * 2.249e-6;
-        assert!((mean - expected).abs() < 5.0e4, "Watt mean {mean} ≈ {expected}");
+        assert!(
+            (mean - expected).abs() < 5.0e4,
+            "Watt mean {mean} ≈ {expected}"
+        );
     }
 
     /// **Mixture (NK>1).** Two Maxwell partitions with very different θ, mixed by
@@ -1327,8 +1426,14 @@ mod tests {
     fn mixture_dispatches_by_partition_weight() {
         let p1 = flat_tab1(0.8);
         let p2 = flat_tab1(0.2);
-        let law1 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e5), u: 0.0 };
-        let law2 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e7), u: 0.0 };
+        let law1 = FissionSpectrum::Maxwell {
+            theta: flat_tab1(1.0e5),
+            u: 0.0,
+        };
+        let law2 = FissionSpectrum::Maxwell {
+            theta: flat_tab1(1.0e7),
+            u: 0.0,
+        };
         let chi = FissionSpectrum::Mixture(vec![(p1, law1), (p2, law2)]);
 
         let mut seed = 55u64;
@@ -1337,7 +1442,10 @@ mod tests {
         let sum: f64 = (0..n).map(|_| sample_chi(&chi, e_in, &mut seed)).sum();
         let mean = sum / n as f64;
         let expected = 0.8 * 1.5e5 + 0.2 * 1.5e7;
-        assert!((mean - expected).abs() < 8.0e4, "mixture mean {mean} ≈ {expected}");
+        assert!(
+            (mean - expected).abs() < 8.0e4,
+            "mixture mean {mean} ≈ {expected}"
+        );
     }
 
     /// **V&V — native union-grid breakpoints.**
@@ -1366,14 +1474,30 @@ mod tests {
         let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
         let grid = nuc.native_energy_grid(e_min, e_max);
 
-        assert!(grid.len() >= 3, "expected window edges beyond the two endpoints, got {}", grid.len());
+        assert!(
+            grid.len() >= 3,
+            "expected window edges beyond the two endpoints, got {}",
+            grid.len()
+        );
         assert_eq!(grid[0], e_min, "grid must start exactly at e_min");
-        assert_eq!(grid[grid.len() - 1], e_max, "grid must end exactly at e_max");
+        assert_eq!(
+            grid[grid.len() - 1],
+            e_max,
+            "grid must end exactly at e_max"
+        );
         for w in grid.windows(2) {
-            assert!(w[1] > w[0], "grid must be strictly ascending: {} !> {}", w[1], w[0]);
+            assert!(
+                w[1] > w[0],
+                "grid must be strictly ascending: {} !> {}",
+                w[1],
+                w[0]
+            );
         }
         for &e in &grid {
-            assert!((e_min..=e_max).contains(&e), "node {e} outside [{e_min}, {e_max}]");
+            assert!(
+                (e_min..=e_max).contains(&e),
+                "node {e} outside [{e_min}, {e_max}]"
+            );
         }
     }
 

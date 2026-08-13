@@ -29,7 +29,7 @@
 //!
 //! ## Why multigrid
 //!
-//! A DIC-preconditioned CG ([`conjugate_gradient`](super::conjugate_gradient))
+//! A DIC-preconditioned CG ([`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()))
 //! needs O(√κ) ≈ O(Nₓ) iterations on the pressure Poisson equation — the count
 //! grows as the mesh is refined. Multigrid eliminates error at every length
 //! scale by recursing onto coarser grids, so it converges in a handful of
@@ -39,14 +39,14 @@
 //! ## The algorithm (recursive correction-scheme V-cycle)
 //!
 //! Each V-cycle is the textbook correction scheme with pre- and post-smoothing
-//! ([`GamgCycle::solve_level`]):
+//! (`GamgCycle::solve_level`):
 //!
 //! 1. **Pre-smooth** the current level with Gauss-Seidel (`N_PRE_SWEEPS`).
 //! 2. Form the residual `r = b − A·x` and **restrict** it to the next coarser
-//!    level (additive, [`restrict_field`]).
+//!    level (additive, `restrict_field`).
 //! 3. **Recurse** to compute the coarse correction; the coarsest level is
-//!    solved directly by dense LU ([`solve_coarsest`]).
-//! 4. **Prolong** the correction back (injection, [`prolong_field`]) and add it.
+//!    solved directly by dense LU (`solve_coarsest`).
+//! 4. **Prolong** the correction back (injection, `prolong_field`) and add it.
 //! 5. **Post-smooth** the current level (`N_POST_SWEEPS`).
 //!
 //! Pre- *and* post-smoothing makes this a symmetric V-cycle, which converges far
@@ -56,7 +56,7 @@
 //!
 //! The outer loop ([`gamg`]) repeats V-cycles until the relative residual
 //! `‖r‖₂ / ‖b‖₂` falls below `settings.tolerance` — the same convergence metric
-//! [`conjugate_gradient`](super::conjugate_gradient) uses, so the two solvers
+//! [`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()) uses, so the two solvers
 //! are interchangeable under one `SolverSettings`.
 //!
 //! ## Restrictions
@@ -187,7 +187,8 @@ impl GamgCycle {
 
 /// Solve a symmetric SPD LDU system with GAMG (algebraic multigrid).
 ///
-/// Drop-in counterpart of [`conjugate_gradient`](super::conjugate_gradient):
+/// Drop-in counterpart of
+/// [`conjugate_gradient`](crate::ldu_matrix::solvers::conjugate_gradient()):
 /// same signature, same `‖r‖₂ / ‖b‖₂` convergence metric, and the same warm
 /// start — pass `Some(previous_solution)` as `x0` to start from the last time
 /// step's field. The GAMG hierarchy is rebuilt each call (agglomeration is O(n)

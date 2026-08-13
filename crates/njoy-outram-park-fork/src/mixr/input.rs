@@ -149,7 +149,11 @@ impl MixrInput {
         let components = nin
             .iter()
             .zip(mat_weights.iter())
-            .map(|(&tape_index, &(mat, weight))| MixComponent { tape_index, mat, weight })
+            .map(|(&tape_index, &(mat, weight))| MixComponent {
+                tape_index,
+                mat,
+                weight,
+            })
             .collect();
         MixrInput {
             output_unit: nout,

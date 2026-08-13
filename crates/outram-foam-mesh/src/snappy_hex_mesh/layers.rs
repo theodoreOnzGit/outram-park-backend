@@ -222,10 +222,10 @@ pub struct LayerControls {
     /// Geometric expansion ratio `r` between successive layers (`> 0`, usually
     /// `> 1` so cells grow away from the wall). Dimensionless.
     pub expansion_ratio: f64,
-    /// Thickness of the layer nearest the wall [m]. Used directly unless
+    /// Thickness of the layer nearest the wall `[m]`. Used directly unless
     /// [`final_layer_thickness`](Self::final_layer_thickness) is `Some`.
     pub first_layer_thickness: f64,
-    /// Optional target thickness of the OUTERMOST layer [m]. When `Some`, the
+    /// Optional target thickness of the OUTERMOST layer `[m]`. When `Some`, the
     /// first-layer thickness is derived from it via the OpenFOAM
     /// `FIRST_AND_EXPANSION`/`FINAL_AND_EXPANSION` relation (see
     /// `layerParameters.C:927`): `first = final / rⁿ⁻¹` for `r ≠ 1`, so the
@@ -271,7 +271,7 @@ impl Default for LayerControls {
 }
 
 impl LayerControls {
-    /// Effective first-layer thickness [m] — the thickness of the wall-nearest
+    /// Effective first-layer thickness `[m]` — the thickness of the wall-nearest
     /// layer actually used for grading.
     ///
     /// Equals [`first_layer_thickness`](Self::first_layer_thickness) unless
@@ -295,7 +295,7 @@ impl LayerControls {
     }
 }
 
-/// Geometric layer thicknesses `[t, t·r, t·r², …]` [m] for `n` layers with
+/// Geometric layer thicknesses `[t, t·r, t·r², …]` `[m]` for `n` layers with
 /// effective first-layer thickness `t` ([`LayerControls::first_thickness`]) and
 /// expansion ratio `r`.
 ///
@@ -313,7 +313,7 @@ pub fn layer_thicknesses(controls: &LayerControls) -> Vec<f64> {
     out
 }
 
-/// Total boundary-layer thickness [m] — the sum of [`layer_thicknesses`].
+/// Total boundary-layer thickness `[m]` — the sum of [`layer_thicknesses`].
 pub fn total_layer_thickness(controls: &LayerControls) -> f64 {
     layer_thicknesses(controls).iter().sum()
 }
@@ -445,7 +445,7 @@ fn layered_topology_acceptable(topo: &PolyPatchMesh, controls: &LayerControls) -
     max_cell_closure(topo) <= 1e-9 * (max_face_area(topo) + 1e-300)
 }
 
-/// Largest face-area magnitude [m²] over all faces — the length scale the
+/// Largest face-area magnitude `[m²]` over all faces — the length scale the
 /// watertightness tolerance in [`layered_topology_acceptable`] is measured
 /// against.
 fn max_face_area(topo: &PolyPatchMesh) -> f64 {
@@ -678,7 +678,10 @@ fn build_layer_topology(
     for j in 0..nwf {
         let lc = &local_corners[j];
         for k in 1..n {
-            let face: Vec<usize> = lc.iter().map(|&l| ring_pt(np, n, &wall_pts, l, k)).collect();
+            let face: Vec<usize> = lc
+                .iter()
+                .map(|&l| ring_pt(np, n, &wall_pts, l, k))
+                .collect();
             faces.push(face);
             owner.push(prism_cell(nc, n, j, k));
             neighbour.push(prism_cell(nc, n, j, k + 1));
@@ -725,7 +728,10 @@ fn build_layer_topology(
     let wall_kind = topo.patches[wall_patch].kind;
     for j in 0..nwf {
         let lc = &local_corners[j];
-        let face: Vec<usize> = lc.iter().map(|&l| ring_pt(np, n, &wall_pts, l, n)).collect();
+        let face: Vec<usize> = lc
+            .iter()
+            .map(|&l| ring_pt(np, n, &wall_pts, l, n))
+            .collect();
         faces.push(face);
         owner.push(prism_cell(nc, n, j, n));
     }
@@ -750,7 +756,12 @@ fn build_layer_topology(
         }
     }
     if rim_count > 0 {
-        patches.push(BoundaryPatch::new("layerSide", start, rim_count, PatchKind::Wall));
+        patches.push(BoundaryPatch::new(
+            "layerSide",
+            start,
+            rim_count,
+            PatchKind::Wall,
+        ));
     }
 
     PolyPatchMesh {
@@ -769,7 +780,14 @@ fn build_layer_topology(
 /// (i.e. owner→neighbour for a shared edge). Corners: inner_la, inner_lb,
 /// outer_lb, outer_la.
 #[inline]
-fn side_quad(np: usize, n: usize, wall_pts: &[usize], la: usize, lb: usize, k: usize) -> Vec<usize> {
+fn side_quad(
+    np: usize,
+    n: usize,
+    wall_pts: &[usize],
+    la: usize,
+    lb: usize,
+    k: usize,
+) -> Vec<usize> {
     vec![
         ring_pt(np, n, wall_pts, la, k - 1),
         ring_pt(np, n, wall_pts, lb, k - 1),
@@ -887,7 +905,7 @@ mod tests {
         }
     }
 
-    /// Per-cell signed sum of face area vectors [m²]; every entry must be ~0 for
+    /// Per-cell signed sum of face area vectors `[m²]`; every entry must be ~0 for
     /// a watertight (closed) cell.
     fn cell_area_sums(topo: &PolyPatchMesh) -> Vec<Vector3> {
         let (areas, _c) = topo.face_geometry();
@@ -969,15 +987,25 @@ mod tests {
             .iter()
             .map(|p| p.z)
             .fold(f64::NEG_INFINITY, f64::max);
-        assert!(max_z <= 1.0 + 1e-12, "outer boundary moved outward: max z {max_z}");
-        assert!((max_z - 1.0).abs() < 1e-12, "wall no longer at z=1: {max_z}");
+        assert!(
+            max_z <= 1.0 + 1e-12,
+            "outer boundary moved outward: max z {max_z}"
+        );
+        assert!(
+            (max_z - 1.0).abs() < 1e-12,
+            "wall no longer at z=1: {max_z}"
+        );
 
         // Quality: no negative/degenerate cells, gate accepts.
         let q: MeshQuality = out.topology.quality();
         assert_eq!(q.n_negative_volume_cells, 0, "neg-vol cells");
         assert!(q.min_cell_volume > 0.0, "min vol {}", q.min_cell_volume);
         // Smallest prism = 1 m² base × thinnest (wall-adjacent) thickness 0.1 m.
-        assert!((q.min_cell_volume - 0.1).abs() < 1e-9, "min vol {}", q.min_cell_volume);
+        assert!(
+            (q.min_cell_volume - 0.1).abs() < 1e-9,
+            "min vol {}",
+            q.min_cell_volume
+        );
         assert!(
             QualityLimits::default().accepts(&q),
             "quality gate rejected: {q:?}"
@@ -994,7 +1022,11 @@ mod tests {
             .map(|p| p.z)
             .collect();
         col.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        assert_eq!(col.len(), 4, "owner top + 3 ring points in the column: {col:?}");
+        assert_eq!(
+            col.len(),
+            4,
+            "owner top + 3 ring points in the column: {col:?}"
+        );
 
         // Owner cell compressed to z ∈ [0, 0.525] (= 1 - total 0.475).
         assert!((col[0] - 0.525).abs() < 1e-12, "owner top {}", col[0]);
@@ -1007,10 +1039,21 @@ mod tests {
         let h_owner = col[1] - col[0]; // owner-adjacent layer
         assert!((h_wall - 0.1).abs() < 1e-12, "wall-adjacent h {h_wall}");
         assert!((h_mid - 0.15).abs() < 1e-12, "mid h {h_mid}");
-        assert!((h_owner - 0.225).abs() < 1e-12, "owner-adjacent h {h_owner}");
+        assert!(
+            (h_owner - 0.225).abs() < 1e-12,
+            "owner-adjacent h {h_owner}"
+        );
         // Expansion ratio 1.5 going away from the wall.
-        assert!((h_mid / h_wall - 1.5).abs() < 1e-12, "ratio {}", h_mid / h_wall);
-        assert!((h_owner / h_mid - 1.5).abs() < 1e-12, "ratio {}", h_owner / h_mid);
+        assert!(
+            (h_mid / h_wall - 1.5).abs() < 1e-12,
+            "ratio {}",
+            h_mid / h_wall
+        );
+        assert!(
+            (h_owner / h_mid - 1.5).abs() < 1e-12,
+            "ratio {}",
+            h_owner / h_mid
+        );
 
         // Watertightness: every cell's signed face-area-vector sum ~ 0. (The
         // side rim faces + shrunk owner side faces still tile the original
@@ -1056,7 +1099,11 @@ mod tests {
         let out = add_layers(&mesh, &controls).expect("layers inserted (capped)");
         let q = out.topology.quality();
         assert_eq!(q.n_negative_volume_cells, 0, "capped: neg-vol cells");
-        assert!(q.min_cell_volume > 0.0, "capped: min vol {}", q.min_cell_volume);
+        assert!(
+            q.min_cell_volume > 0.0,
+            "capped: min vol {}",
+            q.min_cell_volume
+        );
         // The shrink is capped, so the outer boundary still does not move out.
         let max_z = out
             .topology
@@ -1064,7 +1111,10 @@ mod tests {
             .iter()
             .map(|p| p.z)
             .fold(f64::NEG_INFINITY, f64::max);
-        assert!(max_z <= 1.0 + 1e-12, "capped: outer boundary moved: {max_z}");
+        assert!(
+            max_z <= 1.0 + 1e-12,
+            "capped: outer boundary moved: {max_z}"
+        );
         out.fv_mesh.validate().expect("capped mesh validates");
     }
 
@@ -1075,7 +1125,11 @@ mod tests {
         let point = |ia: f64, io: f64| -> Vector3 {
             let theta = std::f64::consts::PI * ia;
             let phi = 2.0 * std::f64::consts::PI * io;
-            Vector3::new(theta.sin() * phi.cos(), theta.sin() * phi.sin(), theta.cos())
+            Vector3::new(
+                theta.sin() * phi.cos(),
+                theta.sin() * phi.sin(),
+                theta.cos(),
+            )
         };
         let mut tris = Vec::new();
         for i in 0..n_lat {
@@ -1186,8 +1240,7 @@ mod tests {
     fn no_wall_patch_errors() {
         let mut mesh = two_cell_mesh();
         // Downgrade the wall patch to a plain patch.
-        mesh.topology.patches[1] =
-            BoundaryPatch::new("surface", 9, 2, PatchKind::Patch);
+        mesh.topology.patches[1] = BoundaryPatch::new("surface", 9, 2, PatchKind::Patch);
         let err = add_layers(&mesh, &LayerControls::default());
         assert!(matches!(err, Err(MeshError::Construction(_))));
     }

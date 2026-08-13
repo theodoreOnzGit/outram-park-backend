@@ -4,9 +4,10 @@
 behind its `BMesh` half-edge topology, its modifier stack, subdivision, and
 boolean/CSG operations — and re-expresses them as a small, pure-Rust,
 Android-buildable **mesh-authoring frontend** whose job is to produce clean
-meshes for the solvers in this workspace. It is **not** a code port of Blender,
-and it is **not** a renderer, media tool, color pipeline, physics engine, or GPU
-application. This document audits Blender's full third-party dependency stack and
+meshes for the solvers in this workspace. It is **not** a code port of Blender
+(the single exception is `src/boolean_predicates.rs`, a literal attributed port
+of Blender's robust-predicates file — see `NOTICE`), and it is **not** a
+renderer, media tool, color pipeline, physics engine, or GPU application. This document audits Blender's full third-party dependency stack and
 judges, library by library, what a Rust mesh-authoring frontend actually needs
 versus what is out of scope. The overwhelming majority of Blender's dependencies
 serve rendering, media, color, audio, GPU compute, and text layout — none of

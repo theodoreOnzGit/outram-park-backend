@@ -65,7 +65,11 @@ pub struct ThermalAceOptions {
 impl Default for ThermalAceOptions {
     fn default() -> Self {
         // NJOY-typical dimensions: 16 outgoing energies, 8 equiprobable cosines.
-        ThermalAceOptions { n_outgoing: 16, n_cosines: 8, natom: 1.0 }
+        ThermalAceOptions {
+            n_outgoing: 16,
+            n_cosines: 8,
+            natom: 1.0,
+        }
     }
 }
 
@@ -128,7 +132,10 @@ impl AceTable {
     ///
     /// # Errors
     /// [`NjoyError::NotPorted`] if the evaluation has no incoherent-inelastic
-    /// (MT=4) data (the required inelastic table).
+    /// (MT=4) data (the required inelastic table);
+    /// [`NjoyError::TemperatureOutOfRange`] if the evaluation has
+    /// coherent-elastic data but `temp_k` is outside its tabulated temperature
+    /// range (beyond the NJOY `T/1000 + 5` K tolerance).
     ///
     /// # Known gaps (not silently missing — tracked, not yet ported)
     /// - **IFENG is always 0** (equiprobable): the skewed (IFENG=1) and
@@ -148,9 +155,12 @@ impl AceTable {
         energy_grid: &[f64],
         opts: ThermalAceOptions,
     ) -> Result<Self, NjoyError> {
-        let ii = mf7.incoherent_inelastic.as_ref().ok_or(NjoyError::NotPorted(
-            "thermal ACE without incoherent-inelastic (MT=4) data",
-        ))?;
+        let ii = mf7
+            .incoherent_inelastic
+            .as_ref()
+            .ok_or(NjoyError::NotPorted(
+                "thermal ACE without incoherent-inelastic (MT=4) data",
+            ))?;
 
         let nei = energy_grid.len();
         let nieb = opts.n_outgoing;
@@ -164,7 +174,10 @@ impl AceTable {
         // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced —
         // `equiprobable_emission` below. The skewed (IFENG=1) and
         // continuous-tabular (IFENG=2) secondary-energy forms are not ported.
-        let xs: Vec<f64> = energy_grid.iter().map(|&e| ii.cross_section(e, temp_k, natom)).collect();
+        let xs: Vec<f64> = energy_grid
+            .iter()
+            .map(|&e| ii.cross_section(e, temp_k, natom))
+            .collect();
         let emission: Vec<_> = energy_grid
             .iter()
             .map(|&e| ii.equiprobable_emission(e, temp_k, natom, nieb, nang))
@@ -215,16 +228,20 @@ impl AceTable {
         let (mut idpnc, mut ncl, mut ncli) = (0i32, 0i32, 0i32);
 
         // Coherent-elastic ITCE/ITCX (Bragg): cumulative S·E, discrete cosines.
+        // The S(E) table is resolved at `temp_k` (tabulated / LI-interpolated /
+        // refused per the thermr::mf7 temperature policy), so a hot table gets
+        // the Debye-Waller-suppressed structure factors, not the base-T ones.
         if let Some(ce) = &mf7.coherent_elastic {
-            let nee = ce.s_of_e.len();
+            let s_of_e = ce.s_of_e_at(temp_k)?;
+            let nee = s_of_e.len();
             itce = xss.len() as i32 + 1;
             xss.push(nee as f64);
             is_int.push(true);
-            for &(e, _) in &ce.s_of_e {
+            for &(e, _) in &s_of_e {
                 real(e / EMEV, &mut xss, &mut is_int);
             }
             itcx = xss.len() as i32 + 1;
-            for &(_, s) in &ce.s_of_e {
+            for &(_, s) in &s_of_e {
                 real(s / EMEV / natom, &mut xss, &mut is_int); // cumulative S·E [MeV·b]
             }
             idpnc = 4; // coherent elastic
@@ -311,5 +328,7 @@ impl AceTable {
 
 /// Uniform equiprobable cosines at the bin midpoints (isotropic fallback).
 fn uniform_cosines(nang: usize) -> Vec<f64> {
-    (0..nang).map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64).collect()
+    (0..nang)
+        .map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64)
+        .collect()
 }

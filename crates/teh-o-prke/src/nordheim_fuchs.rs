@@ -32,9 +32,7 @@
 //!   design scaffold the project owner supplied 2026-07-14 (generated with
 //!   Microsoft Copilot).
 
-use uom::si::f64::{
-    HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time,
-};
+use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
@@ -223,7 +221,8 @@ impl NordheimFuchsExactTimestepper {
         let alpha_f = self.fuel_feedback_coefficient.get::<per_kelvin>();
         let delta_t_k =
             self.fuel_temperature.get::<kelvin>() - self.fuel_reference_temperature.get::<kelvin>();
-        let r = self.external_reactivity.get::<ratio>() - self.delayed_neutron_fraction.get::<ratio>()
+        let r = self.external_reactivity.get::<ratio>()
+            - self.delayed_neutron_fraction.get::<ratio>()
             + alpha_f * delta_t_k;
         Ratio::new::<ratio>(r)
     }
@@ -283,8 +282,8 @@ impl NordheimFuchsExactTimestepper {
         let beta = self.delayed_neutron_fraction.get::<ratio>();
         let rho_ext = self.external_reactivity.get::<ratio>();
 
-        let t_f_next_k = self.fuel_reference_temperature.get::<kelvin>()
-            + (r_next - rho_ext + beta) / alpha_f;
+        let t_f_next_k =
+            self.fuel_reference_temperature.get::<kelvin>() + (r_next - rho_ext + beta) / alpha_f;
         let p_next = c_f / (2.0 * lambda_s * alpha_f.abs()) * (gamma_sq - r_next * r_next);
 
         self.fuel_temperature = ThermodynamicTemperature::new::<kelvin>(t_f_next_k);

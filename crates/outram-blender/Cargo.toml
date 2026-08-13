@@ -1,6 +1,6 @@
 [package]
 name = "outram-blender"
-version = "0.0.0"
+version = "0.0.3"
 edition.workspace = true
 license.workspace = true
 # NAME / TRADEMARK NOTE — DECIDED 2026-07-17: keep the name `outram-blender` and
@@ -9,14 +9,20 @@ license.workspace = true
 # already marks it an OUTRAM PARK fork; `-blender` credits the upstream lineage).
 # This crate is a GPL-licensed FORK/DERIVATIVE of Blender's mesh/geometry
 # architecture, NOT affiliated with, endorsed by, or sanctioned by the Blender
-# Foundation, and bundles no Blender source. See README.md "Naming & trademark".
-description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics (scaffold). Not affiliated with the Blender Foundation."
+# Foundation. No Blender source tree is bundled; exactly one file,
+# src/boolean_predicates.rs, is a literal attributed port (GPL-2.0-or-later,
+# GPL-3.0-compatible). See README.md "Naming & trademark" and NOTICE.
+description = "A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics, with opt-in Monte Carlo (mc-export) and OpenFOAM volume-meshing (foam-mesh) solver bridges. Not affiliated with the Blender Foundation."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
 # docs/ (dependency map, AI-fleet review manifest) is repo-only, never shipped.
-exclude = ["docs"]
+# upstream_source/ holds the gitignored Blender clone (~427 MB) kept for
+# porting reference only — it must never be packaged or redistributed. The
+# committed upstream_source/README.md provenance record is small, so it is
+# re-included explicitly.
+exclude = ["docs", "upstream_source/*", "!upstream_source/README.md"]
 
 [features]
 # Optional export bridges to the real OUTRAM PARK solver crates. OFF by default
@@ -35,6 +41,15 @@ exclude = ["docs"]
 foam-export = ["dep:outram-foam-basic-lib"]
 mc-export = ["dep:outram-mc-libs"]
 
+# foam-mesh → volume meshing bridge to outram-park-fork-cfmesh: take a blender
+# surface `Mesh` (or a built-in primitive) → cfmesh's tet→dual→boundary-layers
+# `pipeline` → an OpenFOAM `polyMesh` on disk. cfmesh is pulled with its own
+# `foam-export` feature so the polyMesh writer is available. cfmesh's core and
+# its foam-export bridge (outram-foam-basic-lib) are both BLAS-free / Android-
+# safe, so this feature keeps the crate Android-buildable; it is OFF by default
+# so the base authoring frontend pulls nothing. Drives the `mesh_studio` example.
+foam-mesh = ["dep:outram-park-fork-cfmesh"]
+
 [dependencies]
 # Pure-Rust error type (Android-safe, in workspace deps). No BLAS, no C, no GUI.
 thiserror = { workspace = true }
@@ -44,6 +59,13 @@ thiserror = { workspace = true }
 # build depends on neither.
 outram-foam-basic-lib = { workspace = true, optional = true }
 outram-mc-libs = { workspace = true, optional = true }
+
+# Volume-meshing bridge (feature `foam-mesh`). cfmesh is pulled WITH its
+# `foam-export` feature so the polyMesh writer (`foam::write_polymesh`) is
+# available; both cfmesh's core and that bridge are BLAS-free / Android-safe, so
+# this stays out of the default build via `optional` and off Android via being
+# feature-gated, not target-gated.
+outram-park-fork-cfmesh = { workspace = true, optional = true, features = ["foam-export"] }
 
 # Pure-Rust dense+sparse linear algebra backend (Android-safe, no system BLAS).
 # For the large mesh solves the advanced operators need (Laplacian editing /
@@ -68,3 +90,30 @@ wgpu = { workspace = true }
 # Android-buildable. Any future viewport/GUI belongs in `examples/` behind a
 # `cfg(not(target_os = "android"))` gate, never in the library's unconditional
 # build (workspace Android-portability rule).
+
+# GUI example stack — the `mc_studio` egui app (author geometry + set up and run
+# a basic outram-mc Monte Carlo simulation). Dev-only and **target-gated OFF
+# Android** (the windowing exemption): eframe pulls in android-activity, and the
+# workspace rule keeps windowing GUI out of any Android build. The library stays
+# headless/Android-buildable; the app is an example, never a library dep.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+egui_plot = { workspace = true }
+env_logger = { workspace = true }
+
+# The Monte Carlo authoring GUI. Needs `mc-export` (the outram-mc-libs bridge +
+# the `sim` backend it drives), so it only builds with that feature:
+#   cargo run -p outram-blender --example mc_studio --features mc-export --release
+[[example]]
+name = "mc_studio"
+path = "examples/mc_studio/main.rs"
+required-features = ["mc-export"]
+
+# The volume-meshing GUI. Needs `foam-mesh` (the outram-park-fork-cfmesh bridge +
+# its polyMesh writer), so it only builds with that feature:
+#   cargo run -p outram-blender --example mesh_studio --features foam-mesh --release
+[[example]]
+name = "mesh_studio"
+path = "examples/mesh_studio/main.rs"
+required-features = ["foam-mesh"]

@@ -85,7 +85,10 @@ fn run(args: &CaseArgs) -> Result<(), CliError> {
         n_steps += 1;
         println!("Time = {}", fmt_time(time));
     }
-    println!("\nEnd (marched {n_steps} step(s) to Time = {})", fmt_time(time));
+    println!(
+        "\nEnd (marched {n_steps} step(s) to Time = {})",
+        fmt_time(time)
+    );
 
     let out_dir = case_dir.join(fmt_time(time));
     std::fs::create_dir_all(&out_dir).map_err(|e| CliError::Io(e.to_string()))?;

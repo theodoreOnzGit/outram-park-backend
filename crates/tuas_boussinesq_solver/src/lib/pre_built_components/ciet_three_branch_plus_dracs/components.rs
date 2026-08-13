@@ -1,16 +1,14 @@
-
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 
-
-// This library was developed for use in my PhD thesis under supervision 
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
-// v 3.0. This is partly due to the fact that some of the libraries 
+// v 3.0. This is partly due to the fact that some of the libraries
 // inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 // Public License v3.0.
 //
-// As such, the entire library is released under GNU GPL v3.0. It is a strong 
+// As such, the entire library is released under GNU GPL v3.0. It is a strong
 // copyleft license which means you cannot use it in proprietary software.
 //
 //
@@ -18,9 +16,9 @@ use uom::si::area::square_meter;
 //    This file is part of tuas_boussinesq_solver, a partial library of the
 //    thermal hydraulics library written in rust meant to help with the
 //    fluid mechanics aspects of the calculations
-//     
+//
 //    Copyright (C) 2022-2023  Theodore Kay Chen Ong, Singapore Nuclear
-//    Research and Safety Initiative, Per F. Peterson, University of 
+//    Research and Safety Initiative, Per F. Peterson, University of
 //    California, Berkeley Thermal Hydraulics Laboratory
 //
 //    tuas_boussinesq_solver is free software; you can redistribute it and/or modify it
@@ -61,35 +59,36 @@ use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
 
-/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters
 /// in Compact Integral Effects Test (CIET)
 ///
-/// this is inactive, so it behaves more like a pipe rather than a 
+/// this is inactive, so it behaves more like a pipe rather than a
 /// heat exchanger
 ///
 /// Vertical part of Coiled Tube Air Heater (CTAH)
 /// label component 7a
 /// in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 ///
 /// It is NOT insulated by the way
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 ///
 /// You'll need to supply your own heat transfer coefficient
 ///
-pub fn new_active_ctah_vertical(initial_temperature: ThermodynamicTemperature) -> 
-NonInsulatedFluidComponent {
+pub fn new_active_ctah_vertical(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -109,44 +108,43 @@ NonInsulatedFluidComponent {
     let pipe_shell_material = SolidMaterial::Copper;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 3 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 3-2; 
+    let user_specified_inner_nodes = 3 - 2;
 
     let non_insulated_component = NonInsulatedFluidComponent::new_bare_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        id, 
-        od, 
-        pipe_length, 
-        hydraulic_diameter, 
-        surface_roughness, 
-        pipe_shell_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        id,
+        od,
+        pipe_length,
+        hydraulic_diameter,
+        surface_roughness,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
 }
 
-
-
-/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters
 /// in Compact Integral Effects Test (CIET)
 ///
-/// this is inactive, so it behaves more like a pipe rather than a 
+/// this is inactive, so it behaves more like a pipe rather than a
 /// heat exchanger
 ///
 /// Horizontal part of Coiled Tube Air Heater (CTAH)
 /// label component 7b
 /// in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 /// coiled tube air heater
 /// has fldk = 400 + 52,000/Re
 ///
@@ -157,18 +155,20 @@ NonInsulatedFluidComponent {
 ///
 /// It is NOT insulated by the way
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 ///
-pub fn new_active_ctah_horizontal(initial_temperature: ThermodynamicTemperature) -> NonInsulatedFluidComponent {
+pub fn new_active_ctah_horizontal(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -189,30 +189,30 @@ pub fn new_active_ctah_horizontal(initial_temperature: ThermodynamicTemperature)
     let pipe_shell_material = SolidMaterial::Copper;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 11 nodes only, 
-    // now because there are two outer nodes, 
-    // we subtract 2 
-    let user_specified_inner_nodes = 11-2; 
+    // from SAM nodalisation, we have 11 nodes only,
+    // now because there are two outer nodes,
+    // we subtract 2
+    let user_specified_inner_nodes = 11 - 2;
 
-    let non_insulated_component = NonInsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let non_insulated_component = NonInsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
 }

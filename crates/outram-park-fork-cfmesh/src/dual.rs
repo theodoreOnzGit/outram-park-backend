@@ -1,6 +1,45 @@
-//! The **polyhedral dual** mesh — one polyhedral cell per primal *vertex*, the
-//! equivalent of OpenFOAM's `polyDualMesh` (voro++ is the reference for the
-//! Voronoi/median-dual idea).
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] OpenFOAM `polyDualMesh` — the "one cell per primal vertex" dual and its
+//       face topology (one dual face per primal edge).
+//       applications/utilities/mesh/manipulation/polyDualMesh
+//       Copyright (C) 2011-2016 OpenFOAM Foundation
+//       Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+//   [2] voro++ — https://github.com/chr1shr/voro — reference for the Voronoi /
+//       polyhedral-dual construction only; no code taken.
+//       Copyright (C) 2008-2015 The Regents of the University of California,
+//       through Lawrence Berkeley National Laboratory (Chris H. Rycroft).
+//       Licence: modified BSD (3-clause), which is GPL-3.0-compatible; see the
+//       crate NOTICE. This file contains no voro++ code.
+//
+//   [3] The median / Donald (vertex-centred) dual is standard finite-volume
+//       literature, e.g. T. J. Barth, "Aspects of Unstructured Grids and
+//       Finite-Volume Solvers", VKI Lecture Series 1994-05.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! The **polyhedral dual** mesh — one polyhedral cell per primal *vertex*. It
+//! fills the same *role* as OpenFOAM's `polyDualMesh` (voro++ is the reference
+//! for the Voronoi/median-dual idea), but it is **not the same construction** —
+//! see "What this dual is, and what it is not" below before transferring any
+//! result from a cell-centre dual to this one.
 //!
 //! A finite-volume solver is usually happier on a **polyhedral** mesh than on a
 //! hex/tet mesh of the same region: polyhedra pack more neighbours per cell
@@ -8,11 +47,51 @@
 //! to get one is to take the *dual* of a primal mesh — turn every primal
 //! **vertex** into a cell.
 //!
-//! # The median dual (works on any primal mesh)
+//! # What this dual is, and what it is not
 //!
-//! This is the **median** (a.k.a. Donald / vertex-centred) dual, not the
-//! circumcentre Voronoi dual, so it is well-defined for *any* primal mesh — the
-//! carved hex mesh this crate produces, not only a Delaunay tetrahedralisation.
+//! This is the **median** (a.k.a. Donald / vertex-centred) dual. Stated
+//! plainly, because the distinction is routinely lost:
+//!
+//! - **It is not the circumcentre Voronoi dual.** Its dual-cell corners are
+//!   edge *midpoints* and face/cell *centroids*, never circumcentres. The
+//!   payoff is that it is well-defined for *any* primal mesh — the carved hex
+//!   mesh this crate produces, not only a Delaunay tetrahedralisation. The
+//!   price is that it inherits **none** of the Voronoi dual's orthogonality
+//!   properties: a median-dual face is not in general perpendicular to the
+//!   primal edge it separates.
+//! - **It is not the same algorithm as `outram-foam-mesh`'s
+//!   `poly_dual_mesh`.** That one is the **cell-centre** dual (dual vertices
+//!   placed at primal *cell centroids*, one dual face per primal *edge*) — a
+//!   genuinely different construction, on a different primal→dual entity map.
+//!   Its measured V&V result — "dualisation does not create
+//!   non-orthogonality; the dual of a uniform hex block measures exactly 0 deg
+//!   and 0 skewness" — is a statement about *that* algorithm and **must not be
+//!   transferred to this one**. Nothing in this module has been measured
+//!   against it.
+//!
+//! # Honest V&V scope (what the tests in this module actually gate)
+//!
+//! The four tests below assert exactly four properties, and no more:
+//!
+//! 1. **closure** — `VolumeMesh::validate` passes (every cell is a closed
+//!    surface), plus the internal/boundary face split is consistent;
+//! 2. **volume conservation** — `Σ dual-cell volumes == primal domain volume`
+//!    to `1e-9`;
+//! 3. **boundary match** — the dual boundary area equals the primal surface
+//!    area to `1e-9`;
+//! 4. **face count / polyhedrality** — one cell per primal vertex, interior
+//!    cells have more than 6 faces, and the face-minimal variant has strictly
+//!    fewer faces than the quad-fan one.
+//!
+//! **There is no orthogonality or skewness test for this crate's dual.** No
+//! test in this module calls [`crate::checks::check_quality`], so the
+//! non-orthogonality and skewness of a median dual produced here are
+//! **unmeasured** at the module level. The only numbers this crate records for
+//! them are the whole-pipeline sphere table in [`crate::pipeline`]'s tests,
+//! which measures the *composed* pipeline (carve → snap → tet → dual → smooth)
+//! and therefore cannot attribute a figure to the dual step alone. Treat any
+//! claim about this dual's orthogonality as unverified until such a test
+//! exists.
 //!
 //! Each primal cell is split into one **corner sub-cell** per vertex: the part
 //! of the cell nearest that vertex, bounded by
@@ -261,7 +340,10 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
         let ring = &mesh.faces[f];
         let k = ring.len();
         for i in 0..k {
-            edge_faces.entry(key(ring[i], ring[(i + 1) % k])).or_default().push(f);
+            edge_faces
+                .entry(key(ring[i], ring[(i + 1) % k]))
+                .or_default()
+                .push(f);
         }
     }
 
@@ -311,7 +393,10 @@ pub fn polyhedral_dual_min_faces(mesh: &VolumeMesh) -> VolumeMesh {
 
     // Type-A dual faces: one polygon per primal edge, shared by its endpoints.
     for (&(a, b), faces_e) in &edge_faces {
-        let boundary_start = faces_e.iter().copied().find(|&f| mesh.neighbour[f].is_none());
+        let boundary_start = faces_e
+            .iter()
+            .copied()
+            .find(|&f| mesh.neighbour[f].is_none());
         let e = (a, b);
         let ring: Vec<usize> = if let Some(fstart) = boundary_start {
             // Boundary edge: open fan, closed through the edge midpoint.
@@ -407,7 +492,11 @@ mod tests {
         let hex = carve_box(&p, &t, 0.5); // 8 hexes, 27 vertices
         let dual = polyhedral_dual(&hex);
 
-        assert_eq!(dual.cell_count(), hex.point_count(), "one dual cell per primal vertex");
+        assert_eq!(
+            dual.cell_count(),
+            hex.point_count(),
+            "one dual cell per primal vertex"
+        );
         assert!(
             (dual.total_volume() - hex.total_volume()).abs() < 1e-9,
             "dual conserves the domain volume: {} vs {}",
@@ -420,13 +509,20 @@ mod tests {
         // i.e. every face is shared by exactly two cells or is a single boundary.
         for f in 0..dual.face_count() {
             let internal = f < dual.n_internal_faces();
-            assert_eq!(dual.neighbour[f].is_some(), internal, "face {f} internal/boundary split");
+            assert_eq!(
+                dual.neighbour[f].is_some(),
+                internal,
+                "face {f} internal/boundary split"
+            );
         }
 
         // Polyhedral: the cell around the interior vertex has > 6 faces (6 edges
         // × 4 surrounding hexes = 24 inner quads).
         let max_faces = cells_faces(&dual).iter().map(|c| c.len()).max().unwrap();
-        assert!(max_faces > 6, "polyhedral cells present (max faces/cell = {max_faces})");
+        assert!(
+            max_faces > 6,
+            "polyhedral cells present (max faces/cell = {max_faces})"
+        );
     }
 
     /// V&V — the dual boundary surface coincides with the primal boundary, so
@@ -446,7 +542,10 @@ mod tests {
                 area += dual.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "dual boundary area == cube surface area: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "dual boundary area == cube surface area: {area}"
+        );
         assert!((dual.total_volume() - 1.0).abs() < 1e-9);
         dual.validate().expect("closed");
     }
@@ -466,7 +565,11 @@ mod tests {
         let median = polyhedral_dual(&hex);
         let merged = polyhedral_dual_min_faces(&hex);
 
-        assert_eq!(merged.cell_count(), hex.point_count(), "one dual cell per primal vertex");
+        assert_eq!(
+            merged.cell_count(),
+            hex.point_count(),
+            "one dual cell per primal vertex"
+        );
         assert!(
             (merged.total_volume() - hex.total_volume()).abs() < 1e-9,
             "merged dual conserves volume: {} vs {}",
@@ -478,7 +581,11 @@ mod tests {
         // Internal/boundary split is consistent (every face shared by 2 cells or 1).
         for f in 0..merged.face_count() {
             let internal = f < merged.n_internal_faces();
-            assert_eq!(merged.neighbour[f].is_some(), internal, "face {f} internal/boundary split");
+            assert_eq!(
+                merged.neighbour[f].is_some(),
+                internal,
+                "face {f} internal/boundary split"
+            );
         }
 
         // Boundary coincides with the primal surface.
@@ -488,7 +595,10 @@ mod tests {
                 area += merged.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "merged dual boundary area == cube surface: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "merged dual boundary area == cube surface: {area}"
+        );
 
         // Leaner: one face per primal edge instead of one per (edge, cell).
         assert!(
@@ -508,9 +618,16 @@ mod tests {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
         let hex = carve_box(&p, &t, 1.0 / 3.0); // 27 hexes
         let merged = polyhedral_dual_min_faces(&hex);
-        assert!((merged.total_volume() - 1.0).abs() < 1e-9, "volume: {}", merged.total_volume());
+        assert!(
+            (merged.total_volume() - 1.0).abs() < 1e-9,
+            "volume: {}",
+            merged.total_volume()
+        );
         merged.validate().expect("closed");
         let max_faces = cells_faces(&merged).iter().map(|c| c.len()).max().unwrap();
-        assert!(max_faces > 6, "polyhedral cells present (max faces/cell = {max_faces})");
+        assert!(
+            max_faces > 6,
+            "polyhedral cells present (max faces/cell = {max_faces})"
+        );
     }
 }

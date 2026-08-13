@@ -1,3 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// PORTED CODE — the one file in this crate that carries upstream source.
+// Ported from Blender blenlib `BLI_math_boolean.hh` / `intern/math_boolean.cc`,
+// github.com/blender/blender @ 96294be75080bbf687fa7f108e344a1063713586.
+//     SPDX-FileCopyrightText: 2023 Blender Authors
+//     SPDX-License-Identifier: GPL-2.0-or-later
+// GPL-2.0-or-later is GPL-3.0-compatible, so the port ships as GPL-3.0-only here.
+// Underlying method: J. R. Shewchuk, "Adaptive Precision Floating-Point Arithmetic
+// and Fast Robust Geometric Predicates", Discrete & Computational Geometry 18(3),
+// 1997, pp. 305-363.
+// See the module documentation below for the full provenance statement — do not
+// remove or weaken it.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Robust geometric predicates — orientation and in-circle/in-sphere tests.
 //!
 //! Blender analogue / provenance: ported from `blender/blenlib`
@@ -54,7 +84,7 @@
 //! double-double arithmetic is *not* arbitrary precision. It resolves the
 //! sign correctly for the vast majority of practical near-degenerate
 //! configurations (anything not degenerate below roughly the 106th
-//! significant bit), and the [`tests`] module below demonstrates a concrete
+//! significant bit), and the `tests` module below demonstrates a concrete
 //! case where the `_fast` plain-`f64` path returns the wrong sign and the
 //! double-double-refined path returns the correct one. But it is not a
 //! mathematical guarantee of exactness for *arbitrarily* degenerate
@@ -223,7 +253,10 @@ impl Dd {
     /// Negation (exact).
     #[inline]
     fn neg(self) -> Dd {
-        Dd { hi: -self.hi, lo: -self.lo }
+        Dd {
+            hi: -self.hi,
+            lo: -self.lo,
+        }
     }
 
     /// Double-double sum, accurate to double-double precision (~106 bits).
@@ -563,10 +596,18 @@ pub fn incircle(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> i32 {
 /// if outside, `0` if (numerically) co-spherical.
 pub fn insphere_fast(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> i32 {
     sign_f64(insphere_det(
-        a.x - e.x, a.y - e.y, a.z - e.z,
-        b.x - e.x, b.y - e.y, b.z - e.z,
-        c.x - e.x, c.y - e.y, c.z - e.z,
-        d.x - e.x, d.y - e.y, d.z - e.z,
+        a.x - e.x,
+        a.y - e.y,
+        a.z - e.z,
+        b.x - e.x,
+        b.y - e.y,
+        b.z - e.z,
+        c.x - e.x,
+        c.y - e.y,
+        c.z - e.z,
+        d.x - e.x,
+        d.y - e.y,
+        d.z - e.z,
     ))
 }
 
@@ -577,10 +618,18 @@ pub fn insphere_fast(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> i32 {
 #[allow(clippy::too_many_arguments)]
 #[inline]
 fn insphere_det(
-    aex: f64, aey: f64, aez: f64,
-    bex: f64, bey: f64, bez: f64,
-    cex: f64, cey: f64, cez: f64,
-    dex: f64, dey: f64, dez: f64,
+    aex: f64,
+    aey: f64,
+    aez: f64,
+    bex: f64,
+    bey: f64,
+    bez: f64,
+    cex: f64,
+    cey: f64,
+    cez: f64,
+    dex: f64,
+    dey: f64,
+    dez: f64,
 ) -> f64 {
     let ab = aex * bey - bex * aey;
     let bc = bex * cey - cex * bey;
@@ -772,7 +821,11 @@ mod tests {
         let b = Vec3::new(0.0, 1.0, 0.0);
         let c = Vec3::new(0.0, 0.0, 1.0);
         let d = Vec3::new(-1.0, 0.0, 0.0);
-        assert_eq!(orient3d(a, b, c, d), 1, "test fixture must be positively oriented");
+        assert_eq!(
+            orient3d(a, b, c, d),
+            1,
+            "test fixture must be positively oriented"
+        );
 
         let inside = Vec3::new(0.0, 0.0, 0.0); // center
         let outside = Vec3::new(10.0, 10.0, 10.0);
@@ -835,7 +888,13 @@ mod tests {
         let (a, b, c) = near_collinear_points();
         let robust = orient2d(a, b, c);
         let fast = orient2d_fast(a, b, c);
-        assert_ne!(robust, fast, "robust path must disagree with the known-wrong fast path");
-        assert_eq!(robust, -1, "true sign, per the offline exact-rational computation");
+        assert_ne!(
+            robust, fast,
+            "robust path must disagree with the known-wrong fast path"
+        );
+        assert_eq!(
+            robust, -1,
+            "true sign, per the offline exact-rational computation"
+        );
     }
 }

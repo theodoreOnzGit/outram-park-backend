@@ -7,9 +7,7 @@
 //! backed by a template show the same [`kovan_codegen::CodegenError`] message
 //! the `kovan` CLI's `methods` subcommand reports.
 
-use kovan_codegen::{
-    generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder,
-};
+use kovan_codegen::{generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};

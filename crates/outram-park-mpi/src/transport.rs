@@ -168,9 +168,8 @@ impl Transport {
     ) -> Option<Envelope> {
         let mb = &self.mailboxes[me];
         let mut q = mb.queue.lock().expect("mailbox mutex poisoned");
-        Self::find_match(&q, comm_id, src, tag).map(|pos| {
-            q.remove(pos).expect("matched index is in range")
-        })
+        Self::find_match(&q, comm_id, src, tag)
+            .map(|pos| q.remove(pos).expect("matched index is in range"))
     }
 }
 

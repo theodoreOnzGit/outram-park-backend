@@ -1,0 +1,78 @@
+NOTICE — chem-eng-real-time-process-control-simulator
+=====================================================
+
+Relicense: Apache-2.0 -> GPL-3.0-only (2026-08-11)
+--------------------------------------------------
+
+This crate was originally licensed under the Apache License, Version 2.0.
+On 2026-08-11, at the explicit direction of the maintainer, it was
+relicensed to GPL-3.0-only, matching the OUTRAM PARK workspace default
+(`license.workspace = true` in `Cargo.toml` now resolves to `GPL-3.0-only`
+from the root `[workspace.package]`).
+
+Versions already published to crates.io remain Apache-2.0
+---------------------------------------------------------
+
+Relicensing changes future versions only. Every version of
+`chem-eng-real-time-process-control-simulator` published to crates.io
+before this relicense (0.0.1 through 0.1.1 — verified against the
+crates.io API on 2026-08-11, all listed `license = Apache-2.0`) was
+published under Apache-2.0 and
+remains available under Apache-2.0 forever. Anyone depending on such a
+published version keeps their Apache-2.0 grant; nothing in this relicense
+withdraws or narrows it. The first version distributed under GPL-3.0-only
+is 0.2.0 (unpublished at the time of the relicense).
+
+Authority to relicense
+----------------------
+
+Relicensing requires the consent of every copyright holder. This was
+verified on 2026-08-11 by inspecting the full git history of this crate's
+directory: `git log` shows exactly two commit identities,
+
+  teddy0@arch-desktop-aftershock <theodore_ong@berkeley.edu>
+  teddy0@snrsiDesktop <snrokct@nus.edu.sg>
+
+which are the same person (the maintainer, Theodore Kay Chen Ong) on two
+machines. As sole author and copyright holder of the code, the relicense
+is theirs to make, and they directed it.
+
+The pre-existing copyright attribution lines in the source headers (naming
+Theodore Kay Chen Ong, Professor Per F. Peterson, the University of
+California, Berkeley Thermal Hydraulics Lab, repository contributors, and
+the Singapore Nuclear Research and Safety Initiative/Institute (SNRSI) /
+NUS) are retained unchanged — the relicense changes the licence grant, not
+the attribution.
+
+Ported material from the GNU Octave control package
+---------------------------------------------------
+
+Parts of this crate's z-domain (discrete-time) functionality are ported
+from the GNU Octave "control" package:
+
+  Project:   gnu-octave/pkg-control (the Octave control package)
+  URL:       https://github.com/gnu-octave/pkg-control
+  Version:   control 4.2.2+ (DESCRIPTION), branch `main`,
+             commit f39e2625bffc56864c3af746b4410bb71ce6bbb1 (2026-07-27)
+  Author:    Lukas Reichlin
+  Maintainers: Doug Stewart, Torsten Lilge
+  Accessed:  2026-08-11 (local read-only clone)
+
+The upstream package is MIXED-LICENCE: "GPLv3-or-later, BSD 3-Clause
+License (SLICOT files)". The two must not be conflated:
+
+  * Files ported from the GPLv3-or-later side carry a GPL attribution
+    block naming the upstream file and its copyright holder. GPL-3.0-or-
+    later code may be distributed under GPL-3.0-only terms as part of
+    this crate.
+  * Any file ported from a SLICOT-derived / BSD 3-Clause upstream file
+    must retain that file's BSD 3-Clause copyright notice and disclaimer
+    verbatim in its header, in addition to the port attribution. BSD-3 is
+    GPL-compatible, but its notice-retention condition survives.
+
+Each ported Rust source file states in its own header which upstream file
+it derives from and under which of the two licences that file was
+published. As of 2026-08-11 the ported material (`c2d`/`d2c`
+discretisation methods and the discrete transfer-function surface they
+need) derives exclusively from GPLv3-or-later upstream files; no
+SLICOT/BSD-3 material has been ported.

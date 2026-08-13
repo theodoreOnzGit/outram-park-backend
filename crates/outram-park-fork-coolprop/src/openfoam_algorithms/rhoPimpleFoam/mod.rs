@@ -202,15 +202,17 @@
 //
 //
 //// ************************************************************************* //
-
 use std::sync::Arc;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Power, Pressure, Ratio, Time, ThermalConductance, ThermodynamicTemperature,
+    Angle, Area, AvailableEnergy, Length, MassDensity, MassRate, Power, Pressure, Ratio, Time,
+    ThermalConductance, ThermodynamicTemperature,
 };
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 use uom::si::length::meter;
 use uom::si::angle::radian;
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::pressure::pascal;
 use crate::openfoam_algorithms::openfoam_source::interface::one_dimensional_meshing::create_one_d_mesh;
@@ -256,6 +258,175 @@ pub enum SolverMode {
     HybridAllMach,
 }
 
+/// Face-interpolation scheme for the **energy equation's** convection term
+/// `∇·(φh)` (see [`OPCPFluidArray::he_convection_scheme`]).
+///
+/// This is enum dispatch (no trait objects, per the workspace design rules) over
+/// the flux limiter `λ(r)` applied to the upwind-biased face reconstruction —
+/// OpenFOAM's `div(phi,h)` scheme entry, in other words. `λ = 0` is first-order
+/// upwind, `λ = 1` is unlimited central differencing, and the TVD variants pick
+/// `λ(r)` from the local slope ratio so no new extremum is created.
+///
+/// **This is distinct from, and independent of, [`SolverMode::HybridAllMach`].**
+/// That switch adds a *Mach-weighted* KNP dissipation to continuity and momentum
+/// which is identically zero on a subsonic face (`β(Ma) = 0`) — precisely the
+/// regime a heat exchanger operates in, so it does nothing for scalar
+/// boundedness. Enthalpy boundedness is this setting's job, at any Mach number.
+///
+/// **It is also distinct from, and orthogonal to,
+/// [`EnergyBalanceMode`]**, which chooses whether that convection term is
+/// evaluated explicitly (source vector) or implicitly (matrix). *This* enum is
+/// the spatial scheme; that one is the time/matrix treatment, and the limiter
+/// selected here is honoured under either — in the implicit mode via a deferred
+/// correction. Reach for [`EnergyBalanceMode::Implicit`] when the cell Courant
+/// number approaches 1; the limiter choice does not change that limit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EnergyConvectionScheme {
+    /// **van Leer TVD limiter**, `λ(r) = (r + |r|)/(1 + |r|)` — the default.
+    /// Second-order where the enthalpy field is smooth, falling back toward
+    /// upwind at a front so the solution stays bounded by its own initial and
+    /// boundary data. OpenFOAM equivalent: `div(phi,h) Gauss vanLeer`.
+    #[default]
+    VanLeer,
+    /// **minmod TVD limiter**, `λ(r) = max(0, min(r, 1))` — the most diffusive
+    /// of the TVD limiters, and correspondingly the most robust. Use it if
+    /// [`Self::VanLeer`] still rings on a particularly sharp front.
+    Minmod,
+    /// **First-order upwind**, `λ ≡ 0`. Unconditionally bounded (at CFL ≤ 1) and
+    /// strongly numerically diffusive: a thermal front smears over several cells.
+    /// The safe fallback, not a good default.
+    Upwind,
+    /// **Unlimited central differencing**, `λ ≡ 1` — second-order and
+    /// **unbounded**.
+    ///
+    /// This restores the historical (pre-2026-08-12) *interior* scheme, and is
+    /// kept only so an existing study can be re-run against something close to
+    /// its original numbers. It is **not** bit-for-bit historical: the boundary
+    /// faces now use the direction-switched upwind advection terminal
+    /// (`fvc::div_limited`) under every variant, which the old code did not have
+    /// and which is a boundary-condition correctness fix, not a scheme choice.
+    /// It produces dispersive over- and undershoots at an
+    /// advected thermal front: measured 2026-08-12 on an 8-cell nitrogen pipe
+    /// with a 311.20 → 520.45 kJ/kg inlet step, the inlet cell overshot to
+    /// 556.52 kJ/kg (117 % of the imposed step) and, in the cooling direction, a
+    /// cell reached 274 K against a 300 K inlet and a 500 K seed. For a stream
+    /// near saturation such an undershoot can drive the `(p, h)` flash out of
+    /// range. **Do not select this for new work.**
+    Linear,
+}
+
+impl EnergyConvectionScheme {
+    /// The vendored FV-layer limiter this scheme maps onto. Private: the
+    /// `openfoam_source` tree is `pub(crate)` machinery, not public API.
+    fn limiter(self) -> fvc::Limiter {
+        match self {
+            Self::VanLeer => fvc::Limiter::VanLeer,
+            Self::Minmod => fvc::Limiter::Minmod,
+            Self::Upwind => fvc::Limiter::Upwind,
+            Self::Linear => fvc::Limiter::Linear,
+        }
+    }
+}
+
+/// Time/matrix treatment of the **energy equation's** convection term `∇·(φh)`
+/// (see [`OPCPFluidArray::he_balance_mode`]).
+///
+/// This is enum dispatch (no trait objects, per the workspace design rules) over
+/// *where the convection term is evaluated* — in the explicit source vector, or
+/// in the implicit matrix. It is **orthogonal to [`EnergyConvectionScheme`]**,
+/// which selects the flux limiter `λ(r)`: any limiter may be paired with either
+/// mode, and the pairing is the whole point of keeping the two knobs apart.
+///
+/// ## Why both modes exist
+///
+/// The explicit form (the historical, default path) is more accurate at a small
+/// timestep, because the flux limiter reaches the solution directly rather than
+/// through a deferred correction. It is also **conditionally stable**: the cell
+/// Courant number
+///
+/// ```text
+///   Co = |u| · Δt / Δx        (dimensionless)
+/// ```
+///
+/// must stay below 1, and **no number of PIMPLE outer correctors lifts that
+/// limit** — the corrector loop is a Picard iteration whose contraction factor
+/// *is* `Co`, so above `Co = 1` it diverges however many correctors are used.
+///
+/// The implicit form puts a first-order-upwind `∇·(φh)` into the matrix, which
+/// is diagonally dominant for any `Δt`, and recovers the limiter's accuracy with
+/// a **deferred correction** — the residual `(limited − upwind)` divergence
+/// carried as an explicit source. This buys stability at `Co > 1` and costs
+/// accuracy at `Co ≪ 1`.
+///
+/// ## Measured trade (2026-08-13, 8-cell / 1 m nitrogen pipe at 1 bar, 0.5 m/s,
+/// 300 K → 500 K inlet step; see the `*_courant_*` / `implicit_mode_*` tests in
+/// `lateral_coupling.rs` for the full methodology and inputs)
+///
+/// - At `Co = 8×10⁻⁴` (the `dt = 2×10⁻⁴ s` BC fixture, 3000 steps) the two modes
+///   agree to a largest per-cell difference of **0.068 kJ/kg = 0.033 % of the
+///   209.26 kJ/kg imposed step** heating, 0.135 kJ/kg = 0.064 % cooling. The
+///   deferred correction recovers essentially all of the limiter: dropping the
+///   limiter instead ([`EnergyConvectionScheme::Upwind`]) costs 18 kJ/kg
+///   (8.6 % of span) in the inlet cell, ~300× more.
+/// - As `Co` grows the implicit mode becomes **visibly the more diffusive of the
+///   two** — upwind numerical diffusion scales as `(u·Δx/2)·(1 − Co)` explicit
+///   against `(u·Δx/2)·(1 + Co)` implicit, so the explicit front *sharpens*
+///   toward `Co = 1` while the implicit one smears. Outlet-cell enthalpy after
+///   2 s (one pipe transit) against a 311.20 kJ/kg seed: `Co = 8×10⁻⁴` → 325.78
+///   (explicit) vs 325.85 (implicit) kJ/kg; `Co = 0.25` → 312.68 vs 330.03;
+///   `Co = 0.50` → 311.22 vs 337.27 kJ/kg.
+/// - At `Co = 1.00` both modes are still bounded (overshoot +0.00 % and +0.01 %
+///   of span). At `Co = 1.25` the explicit mode **fails** (+135 % of span) while
+///   the implicit one holds (+0.10 %); at `Co = 2.00` explicit reaches +47 539 %
+///   of span with four cells pinned on the `(p, h)` admissibility guard, against
+///   +1.19 % implicit.
+///
+/// So: **explicit is the more accurate mode below `Co ≈ 1` and the only usable
+/// one is implicit above it.** That is why both exist, and why
+/// [`Self::Explicit`] remains the default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum EnergyBalanceMode {
+    /// **Explicit convection** — `∇·(φh)` is evaluated from the current
+    /// enthalpy field with the selected [`EnergyConvectionScheme`] limiter and
+    /// enters the energy equation as a source term. The default, and the
+    /// historical path: bit-for-bit unchanged from before 2026-08-13.
+    ///
+    /// Second-order accurate wherever the limiter allows it, and the most
+    /// accurate choice at a small timestep. **Conditionally stable**: requires
+    /// cell Courant number `Co = |u|·Δt/Δx < 1`, a limit outer correctors
+    /// cannot lift.
+    #[default]
+    Explicit,
+    /// **Implicit upwind convection plus deferred correction** — the
+    /// first-order-upwind `∇·(φh)` is assembled into the matrix
+    /// (`fvm::div`, the same operator the momentum equation already uses), and
+    /// the difference between the limited and the upwind divergence,
+    /// `(limited − upwind)`, is carried as an explicit deferred-correction
+    /// source.
+    ///
+    /// The matrix part is unconditionally stable — upwind convection is
+    /// diagonally dominant at any `Δt` — so the mode runs at `Co > 1`. The
+    /// deferred part is still a Picard term, but it is an *antidiffusive
+    /// correction* bounded by the limiter rather than the whole convective
+    /// flux, so it is far better behaved than the fully explicit term.
+    ///
+    /// Costs accuracy: the front is more diffuse than under [`Self::Explicit`]
+    /// with the same limiter, negligibly so at `Co ≪ 1` and markedly so as `Co`
+    /// approaches 1 (numbers above). **Raising
+    /// [`OPCPFluidArray::n_outer_correctors`] does not recover it** — measured
+    /// at `Co = 0.5`, the outlet-cell enthalpy is 517.71 / 517.50 / 517.64 /
+    /// 517.65 kJ/kg at 1 / 2 / 4 / 8 outer correctors against 520.26 kJ/kg
+    /// explicit. The residual gap is the *temporal* implicitness, not the
+    /// deferred correction's Picard lag, so no number of correctors closes it.
+    ///
+    /// With [`EnergyConvectionScheme::Upwind`] the deferred correction is
+    /// **identically zero** (the limited and upwind divergences are the same
+    /// computation), giving pure implicit upwind — the most robust
+    /// configuration this array offers, and the one to fall back to if the
+    /// deferred correction itself misbehaves at a very large step.
+    Implicit,
+}
+
 /// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
 /// Both fields are the deferred-correction contribution `β·(knp − central)·|Sf|`
 /// summed appropriately; every entry is identically zero on a subsonic
@@ -275,25 +446,63 @@ struct HybridDissipation {
     mom_src: Vec<Vector3>,
 }
 
-/// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on the
-/// all-Mach hybrid KNP dissipation. **Below** this the KNP dissipation is scaled
-/// to **zero** (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the
-/// full transient). See [`OPCPFluidArray::assemble_hybrid_dissipation`].
+/// **Default** lower mixture-density threshold \[kg/m³\] of the rarefied-tail
+/// taper on the all-Mach hybrid KNP dissipation — the [`OPCPFluidArray::new`]
+/// value of the *configurable* field [`OPCPFluidArray::hybrid_rho_taper_lo`].
+/// **Below** the lower threshold the KNP dissipation is scaled to **zero**
+/// (rarefied emptying tail ⇒ pure PIMPLE, which is stable over the full
+/// transient). See [`OPCPFluidArray::assemble_hybrid_dissipation`] and
+/// [`OPCPFluidArray::set_rho_taper_window`].
 ///
-/// **Regime note (CoolProp):** these thresholds (50/100 kg/m³) are inherited
-/// verbatim from the `TampinesSteamArray` water transient, where the near-sonic
-/// ringing lives on a *dense* two-phase flashing front (ρ ≳ 100 kg/m³). For a
-/// **low-density single-phase gas** case (e.g. Nitrogen at ~1 bar, ρ ≈ 1 kg/m³)
-/// the whole flow sits below `LO`, so the taper would zero the hybrid entirely —
-/// tune these before relying on `HybridAllMach` for such a case.
-const HYBRID_RHO_TAPER_LO: f64 = 50.0;
+/// **Regime / provenance note (CoolProp):** these default thresholds
+/// (50/100 kg/m³) are inherited verbatim from the `TampinesSteamArray` water
+/// transient, where the near-sonic ringing lives on a *dense* two-phase
+/// flashing front (ρ ≳ 100 kg/m³). A bare density window is only meaningful
+/// **relative to the pressure it was calibrated at** — here a steam blowdown
+/// depressurising to ~1 bar (Edwards–O'Brien), where ρ ≈ 50–100 kg/m³ marks
+/// the dense flashing mixture. At other pressures, or for a **low-density
+/// single-phase gas** (e.g. Nitrogen at ~1 bar, ρ ≈ 1 kg/m³; Helium at HTR-10
+/// conditions, ρ ≈ 1–3 kg/m³), the same numbers mean something entirely
+/// different: the whole flow sits below the lower threshold, so the taper
+/// zeroes the hybrid and `HybridAllMach` degenerates to `Pimple` — the honest,
+/// intended outcome for a deeply subsonic gas circuit. Retune the window with
+/// [`OPCPFluidArray::set_rho_taper_window`] (fluid- and pressure-aware) before
+/// relying on `HybridAllMach` for such a case, and pair it with the `(p, h)`
+/// admissibility guard ([`OPCPFluidArray::set_enthalpy_bounds`] +
+/// [`OPCPFluidArray::set_pressure_bounds`]) so the energy equation cannot
+/// overdrain enthalpy to unphysical temperatures.
+const HYBRID_RHO_TAPER_LO_DEFAULT: f64 = 50.0;
 
-/// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper. **At or
-/// above** this the KNP dissipation is applied at full weight (the dense
-/// two-phase region where near-sonic ringing lives). Between `LO` and `HI` the
-/// blend ramps linearly. See [`OPCPFluidArray::assemble_hybrid_dissipation`] and
-/// the regime note on [`HYBRID_RHO_TAPER_LO`].
-const HYBRID_RHO_TAPER_HI: f64 = 100.0;
+/// **Default** upper mixture-density threshold \[kg/m³\] of the rarefied-tail
+/// taper — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::hybrid_rho_taper_hi`]. **At or above** the upper threshold
+/// the KNP dissipation is applied at full weight (the dense two-phase region
+/// where near-sonic ringing lives). Between the two thresholds the blend ramps
+/// linearly. See the regime/provenance note on [`HYBRID_RHO_TAPER_LO_DEFAULT`].
+const HYBRID_RHO_TAPER_HI_DEFAULT: f64 = 100.0;
+
+/// **Default** lower specific-enthalpy bound \[J/kg\] of the `(p, h)`
+/// admissibility guard — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::h_min`]. Deliberately **wide open** (−1×10⁷ J/kg): the
+/// default guard changes no physically plausible solution, it only stops a
+/// diverging energy solve from driving the `(p, h)` flash to nonsense
+/// temperatures. Tighten per fluid with
+/// [`OPCPFluidArray::set_enthalpy_bounds`].
+const H_MIN_DEFAULT: f64 = -1.0e7;
+
+/// **Default** upper specific-enthalpy bound \[J/kg\] of the `(p, h)`
+/// admissibility guard — the [`OPCPFluidArray::new`] value of
+/// [`OPCPFluidArray::h_max`]. Wide open (1×10⁸ J/kg); see [`H_MIN_DEFAULT`].
+const H_MAX_DEFAULT: f64 = 1.0e8;
+
+/// Mesh-patch index of the **inlet** (`"left"`, x = 0, outward normal −x) on
+/// the 1-D mesh built by [`create_one_d_mesh`]. See that function's `## Layout`
+/// section for the face/patch ordering.
+pub(super) const INLET_PATCH: usize = 1;
+
+/// Mesh-patch index of the **outlet** (`"right"`, x = length, outward normal
+/// +x) on the 1-D mesh built by [`create_one_d_mesh`].
+pub(super) const OUTLET_PATCH: usize = 0;
 
 // ── Boundary-condition helpers ──────────────────────────────────────────────────
 //
@@ -316,7 +525,9 @@ fn correct_bcs(field: &mut VolScalarField, bcs: &[BoundaryCondition<f64>]) {
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -326,7 +537,9 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
     for (pf, bc) in field.boundary.iter_mut().zip(bcs) {
         pf.bc = bc.clone();
         if let BoundaryCondition::FixedValue(v) = bc {
-            for x in pf.values.iter_mut() { *x = *v; }
+            for x in pf.values.iter_mut() {
+                *x = *v;
+            }
         }
     }
 }
@@ -366,7 +579,7 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   a cell's `μ`/`αh` are left at their previous value, never a wrong number.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct OPCPFluidArray {
     /// The working fluid whose CoolProp Helmholtz EOS closes the thermo update.
     pub fluid: Fluid,
@@ -401,6 +614,51 @@ pub struct OPCPFluidArray {
     /// Upper pressure bound \[Pa\] applied after every pressure solve.
     /// Defaults to a wide 1 GPa ceiling. See [`Self::p_min`].
     pub p_max: Pressure,
+    /// Lower specific-enthalpy bound \[J/kg\] of the **`(p, h)` admissibility
+    /// guard**, applied to every cell right after each energy-equation solve —
+    /// i.e. before [`Self::correct_thermo`] next consumes `he` — so the energy
+    /// equation cannot overdrain enthalpy past physically meaningful bounds and
+    /// hand the `(p, h)` flash a nonsense temperature. Together with
+    /// [`Self::p_min`]/[`Self::p_max`] (the pressure half of the window) this
+    /// keeps every flashed state inside a caller-chosen `(p, h)` envelope.
+    /// Defaults to a deliberately wide-open −1×10⁷ J/kg (no plausible solution
+    /// is touched); tighten per fluid with [`Self::set_enthalpy_bounds`] —
+    /// e.g. to the enthalpy range spanned by the fluid EOS's stated validity
+    /// (`t_triple`..`t_max`) at the working pressure. Every clamp is **counted**
+    /// in [`Self::h_clamp_events`], never silent.
+    pub h_min: AvailableEnergy,
+    /// Upper specific-enthalpy bound \[J/kg\] of the `(p, h)` admissibility
+    /// guard. Defaults to a wide-open 1×10⁸ J/kg. See [`Self::h_min`].
+    pub h_max: AvailableEnergy,
+    /// **Cumulative** count of cell-enthalpy clamp events (dimensionless): each
+    /// cell clamped to [`Self::h_min`]/[`Self::h_max`] after an energy-equation
+    /// solve adds 1, across all steps since construction (or since the caller
+    /// last reset it to 0 — it is plain `pub` state). `0` means the guard never
+    /// engaged. **Asymmetry note:** the pressure clamp ([`Self::p_min`]/
+    /// [`Self::p_max`], OpenFOAM `pressureControl::limit` semantics) is silent
+    /// (uncounted, matching upstream); the enthalpy clamp is deliberately
+    /// counted so an engaged guard is visible, not silent. A NaN enthalpy is
+    /// neither clamped nor counted — genuine divergence is not masked.
+    pub h_clamp_events: usize,
+
+    /// Face-interpolation scheme for the energy equation's convection term
+    /// `∇·(φh)` — see [`EnergyConvectionScheme`] and
+    /// [`Self::set_he_convection_scheme`].
+    ///
+    /// Defaults to [`EnergyConvectionScheme::VanLeer`] (bounded/TVD). Before
+    /// 2026-08-12 this term was hard-wired to unlimited central differencing,
+    /// which is now [`EnergyConvectionScheme::Linear`].
+    pub he_convection_scheme: EnergyConvectionScheme,
+
+    /// Time/matrix treatment of the energy equation's convection term `∇·(φh)`
+    /// — see [`EnergyBalanceMode`] and [`Self::set_he_balance_mode`].
+    ///
+    /// Defaults to [`EnergyBalanceMode::Explicit`], the historical path
+    /// (bit-for-bit unchanged). Switch to [`EnergyBalanceMode::Implicit`] to
+    /// run at cell Courant numbers above 1. **Orthogonal to**
+    /// [`Self::he_convection_scheme`]: the limiter is honoured in either mode,
+    /// via a deferred correction in the implicit one.
+    pub he_balance_mode: EnergyBalanceMode,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
@@ -415,6 +673,22 @@ pub struct OPCPFluidArray {
     /// dimensionless). At/above `hi` the KNP dissipation is applied at full
     /// weight. See [`Self::set_mach_blend_window`].
     pub ma_blend_hi: Ratio,
+    /// Lower mixture-density threshold \[kg/m³\] of the rarefied-tail taper on
+    /// the hybrid KNP dissipation: below it the dissipation is scaled to zero
+    /// (pure PIMPLE), with a linear ramp up to [`Self::hybrid_rho_taper_hi`].
+    /// Default 50 kg/m³ — a **steam-calibrated placeholder** inherited from the
+    /// `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase flashing
+    /// front depressurising to ~1 bar); a bare density window is only
+    /// meaningful relative to that calibration pressure, so retune it per
+    /// fluid/pressure with [`Self::set_rho_taper_window`]. Only read when
+    /// `mode == HybridAllMach`. See `HYBRID_RHO_TAPER_LO_DEFAULT` (this
+    /// module) for the full regime/provenance note.
+    pub hybrid_rho_taper_lo: MassDensity,
+    /// Upper mixture-density threshold \[kg/m³\] of the rarefied-tail taper:
+    /// at/above it the KNP dissipation is applied at full weight (default
+    /// 100 kg/m³, same steam-calibrated provenance as
+    /// [`Self::hybrid_rho_taper_lo`]). See [`Self::set_rho_taper_window`].
+    pub hybrid_rho_taper_hi: MassDensity,
 
     // ── Fields ──────────────────────────────────────────────────────────────
     /// Velocity field [m/s].
@@ -455,7 +729,38 @@ pub struct OPCPFluidArray {
     /// network layer. **Not** read by `step()`: this solver computes its own
     /// per-cell mass flux `phi` from the momentum/pressure equations, so this
     /// field never feeds back into the PIMPLE loop.
+    ///
+    /// **This is bookkeeping, not a boundary condition.** To actually *impose*
+    /// a mass flow at the inlet, use [`Self::set_inlet_mass_flowrate`], which
+    /// installs the self-maintaining flow-rate inlet described on
+    /// [`Self::inlet_mass_flowrate`]. To read back the flow the solver actually
+    /// produced, use [`Self::get_inlet_mass_flowrate_actual`] /
+    /// [`Self::get_outlet_mass_flowrate_actual`].
     pub mass_flowrate: MassRate,
+    /// **Prescribed** inlet mass flowrate \[kg/s\] — an actual boundary
+    /// condition on the `"left"` patch, unlike the bookkeeping-only
+    /// [`Self::mass_flowrate`]. `None` (the [`Self::new`] default) means no
+    /// mass-flow inlet is imposed and whatever velocity BC the caller set with
+    /// [`Self::set_inlet_velocity`] stands.
+    ///
+    /// When `Some(ṁ)`, [`Self::step`] re-derives the fixed inlet velocity
+    /// `u_in = ṁ / (ρ_inlet · A_inlet)` from the **current** inlet-face density
+    /// once per pressure corrector — OpenFOAM's `flowRateInletVelocity`
+    /// (`src/finiteVolume/fields/fvPatchFields/derived/flowRateInletVelocity/`)
+    /// semantics. Because it is re-derived from the live density rather than a
+    /// caller's one-off assumed density, the imposed inlet mass flux stays
+    /// equal to `ṁ` as the solution's density evolves, instead of drifting.
+    /// Positive is **into** the domain (+x); a negative value prescribes
+    /// outflow through the inlet patch, in which case
+    /// [`Self::set_inlet_enthalpy`]'s fixed inlet enthalpy is no longer a
+    /// physically meaningful BC (a fixed value on an outflow face) and the
+    /// caller should not rely on it.
+    ///
+    /// Set it with [`Self::set_inlet_mass_flowrate`] and clear it with
+    /// [`Self::clear_inlet_mass_flowrate`] (or by calling
+    /// [`Self::set_inlet_velocity`], which prescribes a velocity instead and so
+    /// clears this).
+    pub inlet_mass_flowrate: Option<MassRate>,
     /// Pressure loss \[Pa\] — plain storage, independent of `mass_flowrate`
     /// (no Reynolds/Bejan recomputation between the two; see
     /// [`Self::set_mass_flowrate`]).
@@ -526,19 +831,23 @@ impl OPCPFluidArray {
         // fallback if that point is not single-phase for this fluid.
         let (p0, t0) = (1.0e5_f64, 300.0_f64);
         let (rho0, he0, psi0) = match flash::state_pt(fluid, t0, p0) {
-            Ok(s) => (s.density, s.enthalpy, flash::drho_dp_t(fluid, t0, s.density)),
+            Ok(s) => (
+                s.density,
+                s.enthalpy,
+                flash::drho_dp_t(fluid, t0, s.density),
+            ),
             Err(_) => (1.0, 0.0, 1.0e-5),
         };
 
-        let u       = VolVectorField::zero("U", mesh.clone());
-        let p       = VolScalarField::uniform("p", mesh.clone(), p0);
-        let rho     = VolScalarField::uniform("rho", mesh.clone(), rho0);
-        let t       = VolScalarField::uniform("T", mesh.clone(), t0);
-        let he      = VolScalarField::uniform("he", mesh.clone(), he0);
-        let mu      = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
+        let u = VolVectorField::zero("U", mesh.clone());
+        let p = VolScalarField::uniform("p", mesh.clone(), p0);
+        let rho = VolScalarField::uniform("rho", mesh.clone(), rho0);
+        let t = VolScalarField::uniform("T", mesh.clone(), t0);
+        let he = VolScalarField::uniform("he", mesh.clone(), he0);
+        let mu = VolScalarField::uniform("mu", mesh.clone(), 1.8e-5);
         let alpha_h = VolScalarField::uniform("alphaEff", mesh.clone(), 2.5e-5);
-        let psi     = VolScalarField::uniform("psi", mesh.clone(), psi0);
-        let phi     = SurfaceScalarField::zeros("phi", mesh.clone());
+        let psi = VolScalarField::uniform("psi", mesh.clone(), psi0);
+        let phi = SurfaceScalarField::zeros("phi", mesh.clone());
 
         Ok(Self {
             fluid,
@@ -553,11 +862,31 @@ impl OPCPFluidArray {
             // `step` for the OpenFOAM `pressureControl` reference.
             p_min: Pressure::new::<pascal>(1.0),
             p_max: Pressure::new::<pascal>(1.0e9),
+            // Wide-open default (p, h) admissibility guard: no physically
+            // plausible solution is clamped; see `h_min`/`h_max`.
+            h_min: AvailableEnergy::new::<joule_per_kilogram>(H_MIN_DEFAULT),
+            h_max: AvailableEnergy::new::<joule_per_kilogram>(H_MAX_DEFAULT),
+            h_clamp_events: 0,
+            // Bounded (TVD) enthalpy convection by default -- see
+            // `EnergyConvectionScheme`.
+            he_convection_scheme: EnergyConvectionScheme::default(),
+            // Explicit energy convection by default -- the historical path, and
+            // the more accurate one at the deeply sub-CFL steps this array is
+            // normally driven at. See `EnergyBalanceMode`.
+            he_balance_mode: EnergyBalanceMode::default(),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
             mode: SolverMode::Pimple,
             ma_blend_lo: Ratio::new::<ratio>(0.3),
             ma_blend_hi: Ratio::new::<ratio>(1.0),
+            // Steam-calibrated placeholder taper window (Edwards–O'Brien
+            // provenance) — see `hybrid_rho_taper_lo` / `set_rho_taper_window`.
+            hybrid_rho_taper_lo: MassDensity::new::<kilogram_per_cubic_meter>(
+                HYBRID_RHO_TAPER_LO_DEFAULT,
+            ),
+            hybrid_rho_taper_hi: MassDensity::new::<kilogram_per_cubic_meter>(
+                HYBRID_RHO_TAPER_HI_DEFAULT,
+            ),
             u,
             p,
             rho,
@@ -571,6 +900,7 @@ impl OPCPFluidArray {
             wetted_perimeter: Length::new::<meter>(0.0),
             incline_angle: Angle::new::<radian>(0.0),
             mass_flowrate: MassRate::new::<kilogram_per_second>(0.0),
+            inlet_mass_flowrate: None,
             pressure_loss: Pressure::new::<pascal>(0.0),
             internal_pressure_source: Pressure::new::<pascal>(0.0),
             lateral_adjacent_array_temperature_vector: Vec::new(),
@@ -680,22 +1010,87 @@ impl OPCPFluidArray {
     /// (rhoEqn) → momentum predictor (UEqn) → PISO pressure-correction loop with
     /// the ψ·V/dt compressibility diagonal (pEqn) → energy equation (EEqn).
     /// Boundary conditions are re-applied after every field update.
+
+    /// Advance the solution by one timestep of length `timestep`.
+    ///
+    /// This is the interface to prefer, and it matches TUAS's
+    /// `FluidArray::advance_timestep`: the caller owns the clock and states
+    /// the step each time, so a driver stepping several different components
+    /// keeps them on one timeline.
+    ///
+    /// Contrast [`Self::step`], which advances by whatever `delta_t` the array
+    /// was built with. That is fine for a fixed-step study, but if the caller's
+    /// clock ever differs the two silently diverge — the array advances by its
+    /// own stored value while the caller believes it advanced by theirs.
+    ///
+    /// Sets [`Self::delta_t`] to `timestep` before solving, so the stored value
+    /// always reflects the step actually taken.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OPCPFluidArrayError::InvalidTimestep`] if `timestep` is not
+    /// positive and finite. It is not clamped or substituted: a bad timestep
+    /// means the caller's clock is wrong, and quietly advancing by something
+    /// else yields a plausible-looking result for a step that never ran.
+    ///
+    /// # Stability
+    ///
+    /// Choosing a stable step is the caller's responsibility; nothing here
+    /// checks a CFL condition.
+    ///
+    /// With the default [`EnergyBalanceMode::Explicit`] the energy equation's
+    /// convection term is explicit, so the step is limited to a cell Courant
+    /// number `Co = |u|·Δt/Δx` below 1 and too large a step will diverge.
+    /// Raising [`Self::set_n_outer_correctors`] does **not** lift that limit.
+    /// Switch to [`EnergyBalanceMode::Implicit`]
+    /// ([`Self::set_he_balance_mode`]) to run above `Co = 1`.
+    pub fn advance_timestep(&mut self, timestep: Time) -> Result<(), OPCPFluidArrayError> {
+        let seconds = timestep.get::<second>();
+        if !seconds.is_finite() || seconds <= 0.0 {
+            return Err(OPCPFluidArrayError::InvalidTimestep { seconds });
+        }
+        self.delta_t = timestep;
+        self.step();
+        Ok(())
+    }
+
+    /// Advance the solution by the array's stored [`Self::delta_t`].
+    ///
+    /// Prefer [`Self::advance_timestep`] unless the step is genuinely
+    /// fixed for the life of the array: this form cannot tell the caller
+    /// what step it took, so a driver with its own clock can drift from it
+    /// without either side noticing.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
-        let n    = mesh.n_cells;
-        let dt   = self.delta_t.get::<second>();
-        let settings   = SolverSettings::default();                            // U, energy (GS)
-        let p_settings = SolverSettings { tolerance: 1e-8, max_iter: 2_000 };  // pEqn (PCG)
+        let n = mesh.n_cells;
+        let dt = self.delta_t.get::<second>();
+        let settings = SolverSettings::default(); // U, energy (GS)
+        let p_settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 2_000,
+        }; // pEqn (PCG)
         let n_outer = self.n_outer_correctors.max(1);
         let n_inner = self.n_inner_correctors.max(1);
 
-        let u_old   = self.u.clone();
-        let p_old   = self.p.clone();
-        let he_old  = self.he.clone();
+        let u_old = self.u.clone();
+        let p_old = self.p.clone();
+        let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
-        let u_bcs = capture_bcs(&self.u.boundary);
+        let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
+        // `he`'s BC template must be captured and re-stamped exactly like `u`'s
+        // and `p`'s. `FvMatrix::solve` builds its output field with *zero-
+        // gradient* boundaries, so without this the field assigned back to
+        // `self.he` after the energy solve silently loses every prescribed
+        // enthalpy boundary — `set_inlet_enthalpy` would take effect on the
+        // first outer corrector only and never again, making it a one-shot the
+        // caller has to re-issue every step (measured 2026-08-12: without a
+        // per-step re-issue no cell moved more than 0.4 kJ/kg from its
+        // 311.20 kJ/kg seed after 10 000 steps against a 520.45 kJ/kg inlet BC,
+        // i.e. the BC was inert). See the module tests
+        // `inlet_enthalpy_bc_*_without_reapplying_each_step`.
+        let he_bcs = capture_bcs(&self.he.boundary);
 
         // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
         // outer corrector into the next outer corrector's UEqn source (a
@@ -780,25 +1175,51 @@ impl OPCPFluidArray {
                         .map(|c| h_sl[c] * (1.0 / a_sl[c].max(1e-30)))
                         .collect();
                     VolVectorField::new(
-                        "HbyA", mesh.clone(), Field::new(vals),
-                        mesh.patches.iter().map(|p| PatchField::zero_gradient_vec(p.size)).collect(),
+                        "HbyA",
+                        mesh.clone(),
+                        Field::new(vals),
+                        mesh.patches
+                            .iter()
+                            .map(|p| PatchField::zero_gradient_vec(p.size))
+                            .collect(),
                     )
                 };
 
-                let rho_f    = fvc::interpolate(&self.rho);    // ρ_f [kg/m³]
-                let rho_rauf = rho_f.clone() * rauf.clone();    // [s]
-                // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
+                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+
+                // ── Flow-rate inlet (OpenFOAM `flowRateInletVelocity`) ───────
+                // If a mass flowrate is prescribed on the inlet patch, re-derive
+                // the fixed inlet velocity `u_in = ṁ / (ρ_inlet·A_inlet)` from
+                // the density that is about to multiply it (`rho_f`'s inlet
+                // patch values, used a few lines below to build the boundary
+                // mass flux). Doing it here, from the live density and inside
+                // the corrector loop, is what makes the *imposed mass flux*
+                // exactly ṁ: the boundary flux assembled below is
+                // `ρ_f·(u_in·Sf) = −ṁ` (negative = inflow, the `"left"` patch's
+                // outward normal being −x) whatever the density does.
+                //
+                // The alternative a caller is forced into without this — pick
+                // an assumed density once, convert to a velocity, and call
+                // `set_inlet_velocity` — imposes `ṁ_actual = ρ_solved/ρ_assumed
+                // · ṁ_target`, which drifts as the solved density departs from
+                // the assumption. `self.u.boundary` *and* the captured `u_bcs`
+                // template are both updated, so the momentum predictor and the
+                // post-solve `correct_bcs_vec` re-stamps agree with it.
+                self.apply_flow_rate_inlet(&rho_f, &mut u_bcs);
+
+                let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
+                                                             // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
-                let psi_sl   = self.psi.internal.as_slice();
+                let psi_sl = self.psi.internal.as_slice();
                 let p_old_sl = p_old.internal.as_slice();
                 let source_p = {
                     let mut s = vec![0.0_f64; n];
                     {
                         let phi_int = phi_hbya.internal.as_slice();
                         for f in 0..mesh.n_internal_faces {
-                            s[mesh.owner[f]]     -= phi_int[f];
+                            s[mesh.owner[f]] -= phi_int[f];
                             s[mesh.neighbour[f]] += phi_int[f];
                         }
                     }
@@ -828,7 +1249,7 @@ impl OPCPFluidArray {
                                     // test and the workspace beads tracker).
                                     phi_hbya.boundary[pi].values[fi] = corrected_flux;
                                     corrected_flux
-                                },
+                                }
                                 // outlet / zero-gradient: keep the extrapolated flux
                                 _ => phi_hbya.boundary[pi].values[fi],
                             };
@@ -927,10 +1348,35 @@ impl OPCPFluidArray {
                 // Correct the mass flux: φ = φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|.
                 let sng = fvc::sn_grad(&self.p);
                 {
-                    let sng_sl      = sng.internal.as_slice();
+                    let sng_sl = sng.internal.as_slice();
                     let rho_rauf_sl = rho_rauf.internal.as_slice();
                     for f in 0..mesh.n_internal_faces {
                         phi_hbya.internal[f] -= rho_rauf_sl[f] * sng_sl[f] * mesh.face_areas[f];
+                    }
+
+                    // ── The SAME correction on boundary faces ────────────────
+                    // OpenFOAM's pEqn does `phi = phiHbyA - pEqn.flux()`, and
+                    // `fvMatrix::flux()` carries the boundary contribution too —
+                    // this loop is that boundary half, which was missing. It is
+                    // self-selecting: `fvc::sn_grad` returns 0 on a zero-gradient
+                    // pressure patch, so a prescribed-velocity (or mass-flow)
+                    // inlet — where `p` is zero-gradient and the flux was already
+                    // written back exactly from the BC above — is left untouched,
+                    // and only a fixed-pressure outlet is corrected.
+                    //
+                    // Without it the outlet carried the *predictor* flux φ_HbyA.
+                    // That is not a benign truncation: measured 2026-08-12, it
+                    // broke the transient global energy balance by ~5.9 % of the
+                    // source power and did NOT reduce under mesh refinement,
+                    // because it is an algorithmic (predictor/corrector) gap, not
+                    // a spatial one. Bead op-nnqi.
+                    for (pi, patch) in mesh.patches.iter().enumerate() {
+                        for fi in 0..patch.size {
+                            let gf = patch.start + fi;
+                            phi_hbya.boundary[pi].values[fi] -= rho_rauf.boundary[pi].values[fi]
+                                * sng.boundary[pi].values[fi]
+                                * mesh.face_areas[gf];
+                        }
                     }
                     self.phi = phi_hbya;
                 }
@@ -972,9 +1418,45 @@ impl OPCPFluidArray {
 
             // ── Energy equation ─────────────────────────────────────────────
             //   ∂(ρh)/∂t + ∇·(φh) + (−∇·(αh∇h)) = dp/dt   [+ laplacian sign]
-            let conv_he   = fvc::div(&self.phi, &self.he);   // explicit ∇·(φh)/V
+            //
+            // ∇·(φh)/V with an upwind-biased, flux-limited face value
+            // (`he_convection_scheme`, default van Leer TVD). A plain linear
+            // (central) face value here is second-order but UNBOUNDED, and the
+            // energy equation is advection-dominated (cell Péclet ≫ 1), so it
+            // rings at an advected thermal front: measured 2026-08-12, the
+            // enthalpy field left the range spanned by its own inlet BC and
+            // initial state by 10-15 % of the imposed step. An enthalpy
+            // undershoot is not cosmetic — it can hand `correct_thermo`'s
+            // `(p, h)` flash a state outside the EOS's valid range. Select
+            // `EnergyConvectionScheme::Linear` to recover the old behaviour
+            // bit-for-bit. Bead op-1fyp.
+            let conv_he =
+                fvc::div_limited(&self.phi, &self.he, self.he_convection_scheme.limiter());
+            // `EnergyBalanceMode::Implicit` only: the FIRST-ORDER-UPWIND part of
+            // that same divergence, which the matrix will carry implicitly
+            // (`fvm::div` below). Subtracting it from the limited divergence
+            // leaves the DEFERRED CORRECTION — the antidiffusive remainder the
+            // limiter adds on top of upwind — as the only explicit convective
+            // source. A nonlinear flux limiter cannot be written into a linear
+            // matrix, so this split is what lets the implicit mode keep the
+            // limiter (and therefore boundedness, bead op-1fyp) instead of
+            // silently degrading to plain upwind.
+            //
+            // `fvc::div_limited(.., Limiter::Upwind)` is the exact explicit twin
+            // of `fvm::div`: identical internal-face donor selection and
+            // identical sign-switched boundary terminals (verified by
+            // `fvm_div_matches_explicit_upwind_divergence`). So with
+            // `EnergyConvectionScheme::Upwind` the two divergences are the same
+            // computation and the deferred correction is IDENTICALLY zero —
+            // pure implicit upwind, unconditionally stable.
+            let conv_he_upwind = match self.he_balance_mode {
+                EnergyBalanceMode::Implicit => {
+                    Some(fvc::div_limited(&self.phi, &self.he, fvc::Limiter::Upwind))
+                }
+                EnergyBalanceMode::Explicit => None,
+            };
             let alpha_h_f = fvc::interpolate(&self.alpha_h);
-            let dp_dt     = (self.p.clone() - p_old.clone()) * (1.0 / dt);
+            let dp_dt = (self.p.clone() - p_old.clone()) * (1.0 / dt);
 
             // Conservative energy time derivative: ∂(ρh)/∂t discretised as
             // (ρ_cont·h − ρ_old·h_old)/dt (bead op-ek2, mirroring the
@@ -1008,18 +1490,41 @@ impl OPCPFluidArray {
             };
             let mut e_eqn = fvm::ddt_coeff_old(&rho_cont, &rho_old, &self.he, &he_old, dt)
                 + fvm::laplacian(&alpha_h_f, &self.he);
+            // Implicit mode: put first-order-upwind ∇·(φh) INTO the matrix, the
+            // same operator (and the same upwind donor rule) the momentum
+            // equation above already uses via `fvm::div_vec`. Upwind convection
+            // is diagonally dominant at any Δt, so this removes the explicit
+            // term's hard `Co = |u|·Δt/Δx < 1` limit — a limit no number of
+            // PIMPLE outer correctors lifts, because the corrector loop is a
+            // Picard iteration whose contraction factor IS the cell Courant
+            // number. `fvm::div` assembles Σ_f φ_f·h_f (volume-integrated), which
+            // is the same normalisation as the `v * conv_explicit` source term
+            // below. Sign: `e_eqn` is the LHS of `M·h = S` and the PDE carries
+            // `+∇·(φh)` on the left, so the matrix is ADDED. Bead op-j2oq.
+            if self.he_balance_mode == EnergyBalanceMode::Implicit {
+                e_eqn += fvm::div(&self.phi, &self.he);
+            }
             {
                 let conv_sl = conv_he.internal.as_slice();
                 let dpdt_sl = dp_dt.internal.as_slice();
                 for c in 0..n {
                     let v = mesh.cell_volumes[c];
-                    e_eqn.source[c] -= v * conv_sl[c]; // explicit convection
+                    // Explicit convective source. In `Explicit` mode this is the
+                    // whole limited divergence; in `Implicit` mode the upwind
+                    // part is already on the matrix, so only the deferred
+                    // correction `(limited − upwind)` is left here.
+                    let conv_explicit = match &conv_he_upwind {
+                        Some(up) => conv_sl[c] - up.internal[c],
+                        None => conv_sl[c],
+                    };
+                    e_eqn.source[c] -= v * conv_explicit;
                     e_eqn.source[c] += v * dpdt_sl[c]; // dp/dt source
 
                     // Lateral (radial) thermal coupling: Q = h·(T_neighbour − T_cell)
                     // per registered link, plus any registered volumetric heat source.
                     let t_c = self.t.internal[c];
-                    for (link, temps) in self.lateral_adjacent_array_conductance_vector
+                    for (link, temps) in self
+                        .lateral_adjacent_array_conductance_vector
                         .iter()
                         .zip(self.lateral_adjacent_array_temperature_vector.iter())
                     {
@@ -1027,15 +1532,97 @@ impl OPCPFluidArray {
                         let t_n = temps[c].get::<uom::si::thermodynamic_temperature::kelvin>();
                         e_eqn.source[c] += h * (t_n - t_c);
                     }
-                    e_eqn.source[c] += self
-                        .cell_heat_source_power(c)
-                        .get::<uom::si::power::watt>();
+                    e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
-            let (he_new, _) = e_eqn.solve("he", settings);
+            let (mut he_new, _) = e_eqn.solve("he", settings);
+            // Re-stamp the enthalpy BC template the solve just discarded — the
+            // `he` counterpart of the `correct_bcs`/`correct_bcs_vec` calls in
+            // the pressure/velocity loop above. See the `he_bcs` capture.
+            correct_bcs(&mut he_new, &he_bcs);
             self.he = he_new;
+
+            // ── (p, h) admissibility guard — enthalpy half ──────────────────
+            // Clamp each cell's just-solved enthalpy into [h_min, h_max] right
+            // here, before `correct_thermo` (next outer corrector, or the next
+            // step's inner loop) hands it to the (p, h) flash — so an
+            // overdraining energy solve cannot drive the flash to unphysical
+            // temperatures. The pressure half is the [p_min, p_max] clamp in
+            // the inner loop above. Unlike that (silent, OpenFOAM
+            // `pressureControl::limit`-style) pressure clamp, every enthalpy
+            // clamp is COUNTED in `h_clamp_events` so an engaged guard is
+            // visible. The comparisons are false for NaN, so a genuinely
+            // diverged (NaN) enthalpy is neither clamped nor counted — not
+            // masked, mirroring the pressure-clamp NaN note.
+            let h_min = self.h_min.get::<joule_per_kilogram>();
+            let h_max = self.h_max.get::<joule_per_kilogram>();
+            for hv in self.he.internal.iter_mut() {
+                if *hv < h_min {
+                    *hv = h_min;
+                    self.h_clamp_events += 1;
+                } else if *hv > h_max {
+                    *hv = h_max;
+                    self.h_clamp_events += 1;
+                }
+            }
         }
         self.clear_vectors();
+    }
+
+    /// Re-derive the fixed inlet velocity from the prescribed inlet mass
+    /// flowrate ([`Self::inlet_mass_flowrate`]) and the **current** inlet-face
+    /// density, i.e. OpenFOAM's `flowRateInletVelocity` boundary condition:
+    ///
+    /// ```text
+    ///   u_in = ṁ / (ρ_inlet · A_inlet)        [m/s, +x = into the domain]
+    /// ```
+    ///
+    /// `rho_f` must be the interpolated face density about to be used to build
+    /// the boundary mass flux, so that the flux the pressure equation sees,
+    /// `ρ_f·(u_in·Sf)`, is exactly `−ṁ` (negative = inflow through the `"left"`
+    /// patch, whose outward normal is −x). `u_bcs` is `step`'s captured
+    /// velocity-BC template, updated in lockstep so the post-solve
+    /// `correct_bcs_vec` re-stamps this velocity and not a stale one.
+    ///
+    /// A no-op when no mass flowrate is prescribed (`inlet_mass_flowrate ==
+    /// None`), when the inlet patch has no faces, or when the inlet area or
+    /// density is not usable (non-finite / non-positive) — never a wrong
+    /// number, mirroring [`Self::correct_thermo`]'s non-convergence handling.
+    fn apply_flow_rate_inlet(
+        &mut self,
+        rho_f: &SurfaceScalarField,
+        u_bcs: &mut [BoundaryCondition<Vector3>],
+    ) {
+        let Some(mdot) = self.inlet_mass_flowrate else {
+            return;
+        };
+        let mdot = mdot.get::<kilogram_per_second>();
+        let patch = &self.mesh.patches[INLET_PATCH];
+        if patch.size == 0 {
+            return;
+        }
+
+        // Area-weighted mean inlet-face density, and the total inlet area.
+        let mut area = 0.0_f64;
+        let mut rho_area = 0.0_f64;
+        for fi in 0..patch.size {
+            let a = self.mesh.face_areas[patch.start + fi];
+            area += a;
+            rho_area += a * rho_f.boundary[INLET_PATCH].values[fi];
+        }
+        // NaN fails `is_finite`, so a diverged density/area returns here rather
+        // than prescribing a NaN velocity.
+        if !area.is_finite() || area <= 0.0 {
+            return;
+        }
+        let rho_in = rho_area / area;
+        if !rho_in.is_finite() || rho_in <= 0.0 {
+            return;
+        }
+
+        let v = Vector3::new(mdot / (rho_in * area), 0.0, 0.0);
+        self.u.boundary[INLET_PATCH] = PatchField::fixed_value_vec(patch.size, v);
+        u_bcs[INLET_PATCH] = BoundaryCondition::FixedValue(v);
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
@@ -1161,6 +1748,72 @@ impl OPCPFluidArray {
         self.p_max = p_max;
     }
 
+    /// The face-interpolation scheme currently used for the energy equation's
+    /// convection term `∇·(φh)`. See [`Self::set_he_convection_scheme`].
+    pub fn get_he_convection_scheme(&self) -> EnergyConvectionScheme {
+        self.he_convection_scheme
+    }
+
+    /// Selects the face-interpolation scheme for the energy equation's
+    /// convection term `∇·(φh)`.
+    ///
+    /// The default, [`EnergyConvectionScheme::VanLeer`], is a bounded (TVD)
+    /// scheme: second-order where the enthalpy field is smooth, limited toward
+    /// upwind at a front so the solution cannot leave the range set by its own
+    /// initial and boundary data. Choose [`EnergyConvectionScheme::Minmod`] or
+    /// [`EnergyConvectionScheme::Upwind`] for progressively more numerical
+    /// diffusion and robustness, or [`EnergyConvectionScheme::Linear`] **only**
+    /// to reproduce this solver's pre-2026-08-12 (unbounded) numbers — see that
+    /// variant's doc comment for the measured over/undershoot it produces.
+    ///
+    /// This is independent of [`Self::set_solver_mode`], which governs a
+    /// *Mach-weighted* dissipation on continuity and momentum that vanishes in
+    /// subsonic flow and does nothing for scalar boundedness.
+    pub fn set_he_convection_scheme(&mut self, scheme: EnergyConvectionScheme) {
+        self.he_convection_scheme = scheme;
+    }
+
+    /// The time/matrix treatment currently used for the energy equation's
+    /// convection term `∇·(φh)`. See [`Self::set_he_balance_mode`].
+    pub fn get_he_balance_mode(&self) -> EnergyBalanceMode {
+        self.he_balance_mode
+    }
+
+    /// Selects whether the energy equation's convection term `∇·(φh)` is
+    /// treated **explicitly** (source vector) or **implicitly** (matrix, plus a
+    /// deferred correction for the limiter).
+    ///
+    /// The default, [`EnergyBalanceMode::Explicit`], is the historical path and
+    /// the more accurate one at the deeply sub-CFL steps this array is normally
+    /// driven at. Choose [`EnergyBalanceMode::Implicit`] when the cell Courant
+    /// number `Co = |u|·Δt/Δx` approaches or exceeds 1 — that limit is a hard
+    /// property of the explicit term, and raising
+    /// [`Self::set_n_outer_correctors`] does **not** lift it.
+    ///
+    /// This is independent of [`Self::set_he_convection_scheme`], which selects
+    /// the flux limiter. The limiter is honoured in both modes: implicitly the
+    /// matrix carries first-order upwind and the residual `(limited − upwind)`
+    /// divergence is added as a deferred-correction source, so at convergence
+    /// the two modes discretise the *same* limited flux — they differ only in
+    /// how much of it the matrix sees.
+    ///
+    /// It is also independent of [`Self::set_solver_mode`] (a Mach-weighted
+    /// dissipation on continuity and momentum, inactive in subsonic flow).
+    ///
+    /// # Measured behaviour
+    ///
+    /// [`EnergyBalanceMode`] carries the measured stability/accuracy trade
+    /// (2026-08-13). The cases behind those numbers are the
+    /// `implicit_energy_balance_survives_courant_above_one`,
+    /// `energy_balance_modes_agree_at_small_courant`,
+    /// `implicit_mode_preserves_boundedness_at_an_advected_front` and
+    /// `implicit_mode_closes_the_steady_energy_balance` tests in
+    /// `rhoPimpleFoam::lateral_coupling`, each documenting its own methodology,
+    /// inputs, pass criterion and results.
+    pub fn set_he_balance_mode(&mut self, mode: EnergyBalanceMode) {
+        self.he_balance_mode = mode;
+    }
+
     /// The current flux-discretisation mode (see [`SolverMode`]).
     pub fn get_solver_mode(&self) -> SolverMode {
         self.mode
@@ -1197,6 +1850,68 @@ impl OPCPFluidArray {
         self.ma_blend_hi = hi;
     }
 
+    /// The current rarefied-tail density-taper window `(lo, hi)` \[kg/m³\] of
+    /// the hybrid KNP dissipation. See [`Self::set_rho_taper_window`].
+    pub fn get_rho_taper_window(&self) -> (MassDensity, MassDensity) {
+        (self.hybrid_rho_taper_lo, self.hybrid_rho_taper_hi)
+    }
+
+    /// Sets the rarefied-tail density-taper window of the hybrid KNP
+    /// dissipation: below `lo` the dissipation is scaled to zero (pure PIMPLE),
+    /// at/above `hi` it is applied at full weight, with a linear ramp between
+    /// (both in kg/m³, gated on the lighter side of each face). Only affects
+    /// [`SolverMode::HybridAllMach`]. Panics if `hi <= lo`.
+    ///
+    /// The defaults (50/100 kg/m³) are a **steam-calibrated placeholder** from
+    /// the `TampinesSteamArray` Edwards–O'Brien blowdown (dense two-phase
+    /// flashing front depressurising to ~1 bar). A bare density window is only
+    /// meaningful relative to the pressure it was calibrated at, so set a
+    /// fluid- and pressure-appropriate window here before relying on
+    /// `HybridAllMach` away from that regime — e.g. for a low-density gas
+    /// (Helium at HTR-10 conditions, ρ ≈ 1–3 kg/m³) the default window zeroes
+    /// the hybrid everywhere, degenerating it to plain PIMPLE. See
+    /// `HYBRID_RHO_TAPER_LO_DEFAULT` (this module) for the full provenance note.
+    pub fn set_rho_taper_window(&mut self, lo: MassDensity, hi: MassDensity) {
+        assert!(
+            hi.get::<kilogram_per_cubic_meter>() > lo.get::<kilogram_per_cubic_meter>(),
+            "rho taper window requires hi > lo, got lo = {} kg/m^3, hi = {} kg/m^3",
+            lo.get::<kilogram_per_cubic_meter>(),
+            hi.get::<kilogram_per_cubic_meter>()
+        );
+        self.hybrid_rho_taper_lo = lo;
+        self.hybrid_rho_taper_hi = hi;
+    }
+
+    /// The current enthalpy bounds `(h_min, h_max)` \[J/kg\] of the `(p, h)`
+    /// admissibility guard, applied to every cell after each energy-equation
+    /// solve. See [`Self::set_enthalpy_bounds`] and [`Self::h_min`].
+    pub fn get_enthalpy_bounds(&self) -> (AvailableEnergy, AvailableEnergy) {
+        (self.h_min, self.h_max)
+    }
+
+    /// Sets the enthalpy bounds `[h_min, h_max]` \[J/kg\] of the `(p, h)`
+    /// admissibility guard: after every energy-equation solve each cell's
+    /// specific enthalpy is clamped into this range — with every clamp counted
+    /// in [`Self::h_clamp_events`], never silent — before
+    /// [`Self::correct_thermo`] hands `(p, h)` to the EOS flash. Together with
+    /// [`Self::set_pressure_bounds`] this bounds the whole `(p, h)` window the
+    /// flash can be asked to evaluate, preventing an overdraining energy solve
+    /// from producing unphysical temperatures. The defaults
+    /// (−1×10⁷ / 1×10⁸ J/kg) are deliberately wide open; tighten per fluid —
+    /// e.g. to the enthalpy range spanned by the fluid EOS's stated validity
+    /// (`t_triple`..`t_max`, helium's `t_max` is 2000 K) at the working
+    /// pressure. Panics if `h_min >= h_max`.
+    pub fn set_enthalpy_bounds(&mut self, h_min: AvailableEnergy, h_max: AvailableEnergy) {
+        assert!(
+            h_min.get::<joule_per_kilogram>() < h_max.get::<joule_per_kilogram>(),
+            "enthalpy bounds require h_min < h_max, got h_min = {} J/kg, h_max = {} J/kg",
+            h_min.get::<joule_per_kilogram>(),
+            h_max.get::<joule_per_kilogram>()
+        );
+        self.h_min = h_min;
+        self.h_max = h_max;
+    }
+
     /// Assemble the Mach-weighted KNP central-upwind dissipation from the
     /// **current** primitive state (`ρ, U, he, p` after the inner PISO loop's
     /// `correct_thermo`).
@@ -1221,6 +1936,8 @@ impl OPCPFluidArray {
         let nif = mesh.n_internal_faces;
         let lo = self.ma_blend_lo.get::<ratio>();
         let hi = self.ma_blend_hi.get::<ratio>();
+        let taper_lo = self.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
+        let taper_hi = self.hybrid_rho_taper_hi.get::<kilogram_per_cubic_meter>();
 
         // Per-cell sound speed, Mach number, and a validity-edge safety flag.
         //
@@ -1235,7 +1952,12 @@ impl OPCPFluidArray {
         let mut ma_cell = vec![0.0_f64; n];
         let mut safe = vec![false; n];
         for i in 0..n {
-            let c = hem_sound_speed_ph(self.fluid, self.p.internal[i], self.he.internal[i], C_MIN_MPS);
+            let c = hem_sound_speed_ph(
+                self.fluid,
+                self.p.internal[i],
+                self.he.internal[i],
+                C_MIN_MPS,
+            );
             c_cell[i] = c;
             ma_cell[i] = self.u.internal[i].mag() / c;
             let t_i = self.t.internal[i];
@@ -1295,15 +2017,15 @@ impl OPCPFluidArray {
             // Rarefied-tail (low-density) taper. The all-Mach KNP shock-capturing
             // targets a *dense* near-sonic region; as a cell rarefies toward
             // vacuum an explicit deferred-correction dissipation over-drives it.
-            // The taper scales β to zero below `HYBRID_RHO_TAPER_LO` and to full
-            // above `HYBRID_RHO_TAPER_HI`, using the lighter (at-risk) face side.
-            // See the regime note on `HYBRID_RHO_TAPER_LO` for the CoolProp
+            // The taper scales β to zero below `hybrid_rho_taper_lo` and to full
+            // above `hybrid_rho_taper_hi` (configurable via
+            // `set_rho_taper_window`; defaults are the steam-calibrated 50/100
+            // kg/m³ placeholders), using the lighter (at-risk) face side. See
+            // the regime note on `HYBRID_RHO_TAPER_LO_DEFAULT` for the CoolProp
             // low-density caveat.
             {
                 let rho_face_min = self.rho.internal[o].min(self.rho.internal[nb]);
-                let g = ((rho_face_min - HYBRID_RHO_TAPER_LO)
-                    / (HYBRID_RHO_TAPER_HI - HYBRID_RHO_TAPER_LO))
-                    .clamp(0.0, 1.0);
+                let g = ((rho_face_min - taper_lo) / (taper_hi - taper_lo)).clamp(0.0, 1.0);
                 beta *= g;
             }
 
@@ -1357,6 +2079,97 @@ mod tests {
     use uom::si::length::meter;
     use uom::si::time::second;
 
+    /// ## Methodology
+    /// The correctness premise of [`EnergyBalanceMode::Implicit`]'s deferred
+    /// correction: the implicit operator `fvm::div` and the explicit operator
+    /// `fvc::div_limited(.., Limiter::Upwind)` must discretise **the same**
+    /// first-order-upwind divergence `∇·(φh)`, on internal faces *and* at the
+    /// boundary terminals. If they did not, the deferred correction
+    /// `(limited − upwind)` would not cancel the matrix's upwind part and the
+    /// implicit mode would silently solve a different equation from the
+    /// explicit one.
+    ///
+    /// The check is exact, not statistical. For the matrix `M` and source `S`
+    /// that `fvm::div` assembles, the volume-integrated divergence in cell `c`
+    /// is `(M·h)[c] − S[c]`; the explicit operator returns the same quantity
+    /// per unit volume, so `V[c]·conv_upwind[c]` must match it. Inputs: the
+    /// 8-cell / 1 m / 10⁻⁴ m² nitrogen array, a deliberately non-uniform
+    /// enthalpy field (a sharp interior step, so the upwind donor choice
+    /// actually matters), a **sign-reversing** face-flux field (so both
+    /// upwind branches and both boundary terminals are exercised), a
+    /// `FixedValue` inlet-enthalpy BC and a zero-gradient outlet. Pass
+    /// criterion: agreement to 1×10⁻⁹ relative on the largest cell term.
+    ///
+    /// ## Results (2026-08-13)
+    /// Passes: the largest absolute discrepancy over the 8 cells is
+    /// **0 W exactly**, against a largest cell term of 575 W — the two
+    /// operators perform the identical sequence of
+    /// floating-point additions on this mesh, so the deferred correction is
+    /// *identically* zero under [`EnergyConvectionScheme::Upwind`], not merely
+    /// small. That is what makes `Implicit + Upwind` exact, unconditionally
+    /// stable implicit upwind.
+    #[test]
+    fn fvm_div_matches_explicit_upwind_divergence() {
+        use uom::si::available_energy::joule_per_kilogram;
+
+        let mut arr = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(1.0e-4),
+            8,
+            Time::new::<second>(1e-3),
+        )
+        .expect("valid 1-D geometry");
+
+        // Sharp interior enthalpy step: the upwind donor choice matters.
+        for c in 0..8 {
+            arr.he.internal[c] = if c < 4 { 3.0e5 } else { 5.0e5 };
+        }
+        // Fixed inlet enthalpy (a Dirichlet terminal), zero-gradient outlet.
+        arr.set_inlet_enthalpy(AvailableEnergy::new::<joule_per_kilogram>(2.5e5));
+
+        // Face flux that changes sign across the mesh, so both upwind branches
+        // and both boundary terminals (inflow / outflow) are exercised.
+        for f in 0..arr.mesh.n_internal_faces {
+            arr.phi.internal[f] = if f % 2 == 0 { 7.5e-4 } else { -4.0e-4 };
+        }
+        for pi in 0..arr.mesh.patches.len() {
+            for fi in 0..arr.mesh.patches[pi].size {
+                arr.phi.boundary[pi].values[fi] = if pi == INLET_PATCH { -6.0e-4 } else { 3.0e-4 };
+            }
+        }
+
+        let mat = fvm::div(&arr.phi, &arr.he);
+        let explicit = fvc::div_limited(&arr.phi, &arr.he, fvc::Limiter::Upwind);
+
+        // (M·h)[c] − S[c] : the volume-integrated upwind divergence [W].
+        let mesh = arr.mesh.clone();
+        let mut implicit_int = vec![0.0_f64; mesh.n_cells];
+        for c in 0..mesh.n_cells {
+            implicit_int[c] = mat.ldu.diag[c] * arr.he.internal[c] - mat.source[c];
+        }
+        for f in 0..mesh.n_internal_faces {
+            let o = mesh.owner[f];
+            let nb = mesh.neighbour[f];
+            implicit_int[o] += mat.ldu.upper[f] * arr.he.internal[nb];
+            implicit_int[nb] += mat.ldu.lower[f] * arr.he.internal[o];
+        }
+
+        let mut worst = 0.0_f64;
+        let mut scale = 0.0_f64;
+        for c in 0..mesh.n_cells {
+            let expected = mesh.cell_volumes[c] * explicit.internal[c];
+            worst = worst.max((implicit_int[c] - expected).abs());
+            scale = scale.max(expected.abs());
+        }
+        assert!(
+            worst <= 1e-9 * scale,
+            "fvm::div and fvc::div_limited(Upwind) must discretise the same \
+             upwind divergence: worst mismatch {worst:.6e} W against a largest \
+             cell term of {scale:.6e} W"
+        );
+    }
+
     /// The 1-D pipe array constructs and stays finite over a handful of steps
     /// with the CoolProp-EOS `correct_thermo`. Nitrogen at the (1 bar, 300 K)
     /// reference state is a clean single-phase gas, so the per-cell `(p, h)`
@@ -1382,18 +2195,36 @@ mod tests {
         let eos = flash::state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap();
         assert!((array.rho.internal[0] - eos.density).abs() / eos.density < 1e-9);
         assert!((array.he.internal[0] - eos.enthalpy).abs() / eos.enthalpy.abs() < 1e-9);
-        assert!((array.rho.internal[0] - 1.0).abs() > 0.05, "ρ must be EOS-derived, not the fallback 1.0");
+        assert!(
+            (array.rho.internal[0] - 1.0).abs() > 0.05,
+            "ρ must be EOS-derived, not the fallback 1.0"
+        );
 
         array.run(10);
 
         let all_finite = array.p.internal.as_slice().iter().all(|x| x.is_finite())
             && array.rho.internal.as_slice().iter().all(|x| x.is_finite())
             && array.t.internal.as_slice().iter().all(|x| x.is_finite())
-            && array.u.internal.as_slice().iter().all(|v| v.mag().is_finite());
+            && array
+                .u
+                .internal
+                .as_slice()
+                .iter()
+                .all(|v| v.mag().is_finite());
         assert!(all_finite, "fields must stay finite over 10 steps");
         // Density and temperature stay physically bounded (correct_thermo ran).
-        assert!(array.rho.internal.as_slice().iter().all(|&r| r > 0.0 && r < 1e3));
-        assert!(array.t.internal.as_slice().iter().all(|&tt| tt > 0.0 && tt < 5e3));
+        assert!(array
+            .rho
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&r| r > 0.0 && r < 1e3));
+        assert!(array
+            .t
+            .internal
+            .as_slice()
+            .iter()
+            .all(|&tt| tt > 0.0 && tt < 5e3));
     }
 
     #[test]
@@ -1411,17 +2242,33 @@ mod tests {
 
         let mu1 = array.mu.internal[0];
         let alpha_h1 = array.alpha_h.internal[0];
-        let expected_mu = crate::transport::viscosity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_lambda = crate::transport::conductivity(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).unwrap();
-        let expected_cp = crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0]).cp;
+        let expected_mu = crate::transport::viscosity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_lambda = crate::transport::conductivity(
+            Fluid::Nitrogen,
+            array.t.internal[0],
+            array.rho.internal[0],
+        )
+        .unwrap();
+        let expected_cp =
+            crate::props::state_trho(Fluid::Nitrogen, array.t.internal[0], array.rho.internal[0])
+                .cp;
 
         // Nitrogen's real viscosity at (300K, ~1atm) happens to sit close to
         // the constructor's air-like placeholder (both ~1.8e-5 Pa.s), so this
         // checks the exact EOS-derived value rather than "changed from
         // placeholder" (which would be a coincidental, fragile check here).
-        assert!((mu1 - expected_mu).abs() / expected_mu < 1e-9, "mu should now be the EOS transport value");
         assert!(
-            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp) < 1e-9,
+            (mu1 - expected_mu).abs() / expected_mu < 1e-9,
+            "mu should now be the EOS transport value"
+        );
+        assert!(
+            (alpha_h1 - expected_lambda / expected_cp).abs() / (expected_lambda / expected_cp)
+                < 1e-9,
             "alpha_h should now be lambda/cp from the EOS"
         );
     }
@@ -1435,7 +2282,10 @@ mod tests {
             0,
             Time::new::<second>(1e-4),
         );
-        assert!(matches!(err, Err(MeshError::NonPositiveCellCount { got: 0 })));
+        assert!(matches!(
+            err,
+            Err(MeshError::NonPositiveCellCount { got: 0 })
+        ));
     }
 
     /// The opt-in [`SolverMode::HybridAllMach`] is a **no-op on a subsonic, low-
@@ -1447,7 +2297,7 @@ mod tests {
     /// scan, the MUSCL reconstructions, the face loop and its guards) end-to-end
     /// without panicking, and pins the "hybrid is opt-in and does not perturb the
     /// subsonic default" contract. (To actually engage the KNP dissipation needs a
-    /// near-sonic face with `ρ ≳ HYBRID_RHO_TAPER_HI` — a high-pressure /
+    /// near-sonic face with `ρ ≳ hybrid_rho_taper_hi` (default 100 kg/m³) — a high-pressure /
     /// choked-flow case, not this smoke test.)
     #[test]
     fn hybrid_mode_is_noop_on_subsonic_gas_and_matches_pimple() {
@@ -1481,5 +2331,196 @@ mod tests {
             assert_eq!(hybrid.u.internal[c].x, pimple.u.internal[c].x);
             assert!(hybrid.p.internal[c].is_finite() && hybrid.rho.internal[c] > 0.0);
         }
+    }
+
+    /// The rho-taper window defaults to the steam-calibrated 50/100 kg/m³
+    /// placeholder and round-trips through
+    /// [`OPCPFluidArray::set_rho_taper_window`] /
+    /// [`OPCPFluidArray::get_rho_taper_window`].
+    #[test]
+    fn rho_taper_window_defaults_and_roundtrips() {
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            5,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+
+        let (lo, hi) = array.get_rho_taper_window();
+        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 50.0);
+        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 100.0);
+
+        array.set_rho_taper_window(
+            MassDensity::new::<kilogram_per_cubic_meter>(0.5),
+            MassDensity::new::<kilogram_per_cubic_meter>(2.0),
+        );
+        let (lo, hi) = array.get_rho_taper_window();
+        assert_eq!(lo.get::<kilogram_per_cubic_meter>(), 0.5);
+        assert_eq!(hi.get::<kilogram_per_cubic_meter>(), 2.0);
+    }
+
+    /// The `(p, h)` admissibility guard defaults wide open, and when tightened
+    /// it clamps the post-EEqn cell enthalpy **and counts every clamp** in
+    /// [`OPCPFluidArray::h_clamp_events`] (visible, never silent — unlike the
+    /// upstream-matching silent pressure clamp).
+    #[test]
+    fn enthalpy_guard_clamps_and_counts() {
+        let mut array = OPCPFluidArray::new(
+            Fluid::Nitrogen,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            20,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+
+        // Wide-open defaults; no clamping on an untouched quiescent run.
+        let (h_min, h_max) = array.get_enthalpy_bounds();
+        assert_eq!(h_min.get::<joule_per_kilogram>(), -1.0e7);
+        assert_eq!(h_max.get::<joule_per_kilogram>(), 1.0e8);
+        assert_eq!(array.h_clamp_events, 0);
+        array.run(2);
+        assert_eq!(
+            array.h_clamp_events, 0,
+            "wide-open default bounds must not clamp a quiescent subsonic run"
+        );
+
+        // Tighten h_max below the current uniform enthalpy: the next EEqn
+        // solve leaves h essentially unchanged (quiescent equilibrium), so
+        // every cell must clamp to h_max and be counted.
+        let h0 = array.he.internal[0];
+        let h_cap = h0 - 1.0e4; // 10 kJ/kg below the current state
+        array.set_enthalpy_bounds(
+            AvailableEnergy::new::<joule_per_kilogram>(h0 - 1.0e5),
+            AvailableEnergy::new::<joule_per_kilogram>(h_cap),
+        );
+        array.run(1);
+        assert_eq!(
+            array.h_clamp_events, array.mesh.n_cells,
+            "each of the {} cells should clamp exactly once in one step",
+            array.mesh.n_cells
+        );
+        for c in 0..array.mesh.n_cells {
+            assert!(
+                array.he.internal[c] <= h_cap,
+                "cell {c} enthalpy {} exceeds the h_max bound {}",
+                array.he.internal[c],
+                h_cap
+            );
+        }
+    }
+
+    /// V&V: the **default steam-calibrated density taper zeroes the hybrid KNP
+    /// dissipation for helium across the whole HTR-10 envelope** — i.e.
+    /// [`SolverMode::HybridAllMach`] with the default taper degenerates to
+    /// [`SolverMode::Pimple`] for helium, the honest, intended outcome for a
+    /// deeply subsonic gas circuit (see the regime note on
+    /// `HYBRID_RHO_TAPER_LO_DEFAULT`).
+    ///
+    /// **Methodology.** Helium mass density is computed from this crate's own
+    /// Ortiz-Vega-et-al. Helmholtz EOS via `flash::state_pt(Fluid::Helium, T, p)`
+    /// at four states spanning the HTR-10 operating envelope — core inlet
+    /// (523.15 K, 3.0 MPa), design core outlet (973.15 K, 3.0 MPa),
+    /// high-temperature test operation (1173.15 K, 3.0 MPa), and a cold
+    /// depressurised state (300 K, 1 bar). Pass criterion: each density is
+    /// strictly below the default lower taper threshold
+    /// `hybrid_rho_taper_lo` = 50 kg/m³ (read from a freshly constructed
+    /// helium array, so the assertion tracks the actual default), at which the
+    /// rarefied-tail taper scales the KNP dissipation weight to exactly zero.
+    ///
+    /// **Results (2026-08-11, this crate's EOS, outram-park-fork-coolprop
+    /// v0.1.1).** Computed densities:
+    /// - 523.15 K, 3.0 MPa: **2.739989 kg/m³**
+    /// - 973.15 K, 3.0 MPa: **1.478781 kg/m³**
+    /// - 1173.15 K, 3.0 MPa: **1.227576 kg/m³**
+    /// - 300 K, 1 bar: **0.160391 kg/m³**
+    ///
+    /// All are 1–2 orders of magnitude below the 50 kg/m³ default threshold,
+    /// so the taper weight `g = clamp((ρ − 50)/(100 − 50), 0, 1)` is 0 on every
+    /// face at every HTR-10 state: the hybrid is a guaranteed no-op for helium
+    /// unless the window is retuned with
+    /// [`OPCPFluidArray::set_rho_taper_window`].
+    #[test]
+    fn helium_htr10_default_taper_zeroes_hybrid() {
+        let array = OPCPFluidArray::new(
+            Fluid::Helium,
+            Length::new::<meter>(1.0),
+            Area::new::<square_meter>(0.01),
+            5,
+            Time::new::<second>(1e-4),
+        )
+        .expect("valid 1-D geometry");
+        let taper_lo = array.hybrid_rho_taper_lo.get::<kilogram_per_cubic_meter>();
+
+        for (t_k, p_pa, label) in [
+            (523.15, 3.0e6, "HTR-10 core inlet (523.15 K, 3.0 MPa)"),
+            (
+                973.15,
+                3.0e6,
+                "HTR-10 core outlet, design (973.15 K, 3.0 MPa)",
+            ),
+            (
+                1173.15,
+                3.0e6,
+                "HTR-10 high-temperature test (1173.15 K, 3.0 MPa)",
+            ),
+            (300.0, 1.0e5, "cold depressurised (300 K, 1 bar)"),
+        ] {
+            let rho = flash::state_pt(Fluid::Helium, t_k, p_pa)
+                .expect("single-phase helium state")
+                .density;
+            println!("MEASURE rho {label}: {rho:.6} kg/m^3");
+            assert!(
+                rho < taper_lo,
+                "{label}: rho = {rho} kg/m^3 must sit below the default taper lo = {taper_lo}"
+            );
+        }
+    }
+
+    /// V&V: **helium at the HTR-10 full-power operating point is deeply
+    /// subsonic** — so the Mach-blend gate (`β(Ma) = 0` below
+    /// `ma_blend_lo` = 0.3) *also* keeps the hybrid KNP dissipation off,
+    /// independently of the density taper.
+    ///
+    /// **Methodology.** Speed of sound and density are computed from this
+    /// crate's own Helmholtz EOS via `flash::state_pt(Fluid::Helium,
+    /// 748.15 K, 3.0 MPa)` (the core-average of the 523.15 K inlet / 973.15 K
+    /// outlet at the 3.0 MPa system pressure). The bulk superficial velocity
+    /// through the pebble-bed free-flow area is `u = ṁ/(ρ·A_free)` with the
+    /// primary mass flow ṁ = 4.3 kg/s, core diameter 1.8 m (frontal area
+    /// π/4·1.8² = 2.5447 m²), and bed porosity 0.39, giving
+    /// A_free = 0.39·π/4·1.8² computed in the test. The geometry and operating
+    /// figures (core diameter, porosity, mass flow, pressures, temperatures)
+    /// are from the IAEA HTR-10 benchmark description — openly published
+    /// (Open-tier) literature, per the maintainer directive of 2026-08-11.
+    /// Pass criterion: Ma = u/c < 0.01.
+    ///
+    /// **Results (2026-08-11, this crate's EOS, outram-park-fork-coolprop
+    /// v0.1.1).** ρ = **1.920936 kg/m³**, c = **1616.3754 m/s**,
+    /// A_free = **0.992429 m²**, u = **2.255569 m/s**, so
+    /// **Ma = 1.395×10⁻³** — two orders of magnitude below the 0.3 Mach-blend
+    /// threshold and well under the 0.01 pass criterion. Interpretation: an
+    /// HTR-10 helium circuit is a low-Mach flow for which `HybridAllMach`
+    /// (correctly) contributes nothing; plain PIMPLE is the appropriate
+    /// regime.
+    #[test]
+    fn helium_htr10_full_power_is_deeply_subsonic() {
+        let state =
+            flash::state_pt(Fluid::Helium, 748.15, 3.0e6).expect("single-phase helium state");
+        let rho = state.density;
+        let c = state.speed_of_sound;
+        let mdot = 4.3_f64; // kg/s
+        let d_core = 1.8_f64; // m
+        let porosity = 0.39_f64;
+        let a_free = core::f64::consts::PI / 4.0 * d_core * d_core * porosity; // m^2
+        let u = mdot / (rho * a_free); // m/s
+        let ma = u / c;
+        println!("MEASURE rho = {rho:.6} kg/m^3, c = {c:.4} m/s, A_free = {a_free:.6} m^2, u = {u:.6} m/s, Ma = {ma:.3e}");
+        assert!(
+            ma < 0.01,
+            "HTR-10 helium must be deeply subsonic, got Ma = {ma}"
+        );
     }
 }

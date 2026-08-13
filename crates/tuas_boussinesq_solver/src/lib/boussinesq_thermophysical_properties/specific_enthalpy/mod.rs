@@ -27,15 +27,15 @@ use super::SolidMaterial;
 pub mod enthalpy_data;
 use enthalpy_data::*;
 
-// contains functions to map enthalpy to a temperature 
+// contains functions to map enthalpy to a temperature
 mod temperature_from_specific_enthalpy;
 use temperature_from_specific_enthalpy::*;
 
-/// returns specific enthaply for a given material 
+/// returns specific enthaply for a given material
 /// specific_enthalpy is defined as 0 for 0 degree_celsius
 /// for any material, that is 273.15 K
 ///
-/// ```rust 
+/// ```rust
 /// use uom::si::f64::*;
 /// use uom::si::specific_heat_capacity::{joule_per_kilogram_kelvin,
 /// joule_per_gram_degree_celsius};
@@ -56,15 +56,15 @@ use temperature_from_specific_enthalpy::*;
 ///
 /// // enthalpy should be zero at 273.15 K
 ///
-/// let steel_enthalpy_273_15_kelvin = 
+/// let steel_enthalpy_273_15_kelvin =
 /// try_get_h(steel, steel_temp, pressure);
 ///
 /// approx::assert_relative_eq!(
 ///     0.0,
 ///     steel_enthalpy_273_15_kelvin.unwrap().value,
 ///     max_relative=0.045);
-/// 
-/// // we can also calculate enthalpy change of copper 
+///
+/// // we can also calculate enthalpy change of copper
 /// // from 375K to 425K
 /// let test_temperature_1 = ThermodynamicTemperature::new::
 /// <kelvin>(375.0);
@@ -73,31 +73,31 @@ use temperature_from_specific_enthalpy::*;
 ///
 /// let copper = Material::Solid(Copper);
 ///
-/// let copper_enthalpy_change = 
+/// let copper_enthalpy_change =
 /// try_get_h(copper, test_temperature_2, pressure).unwrap()
 /// - try_get_h(copper, test_temperature_1, pressure).unwrap();
 ///
 /// // http://hyperphysics.phy-astr.gsu.edu/hbase/Tables/sphtt.html
 /// // https://www.engineeringtoolbox.com/specific-heat-metals-d_152.html
-/// // copper at 20C has heat capacity of 
+/// // copper at 20C has heat capacity of
 /// // 0.386 J/(g K)
-/// // going to use this to estimate a ballpark figure to find enthalpy 
+/// // going to use this to estimate a ballpark figure to find enthalpy
 /// // h = cp(T2 - T1)
-/// 
-/// // we can't usually subtract thermodynamic temperatures from each 
-/// // other, we need a termpature interval
-/// // 
 ///
-/// let cp_copper_20_c = 
+/// // we can't usually subtract thermodynamic temperatures from each
+/// // other, we need a termpature interval
+/// //
+///
+/// let cp_copper_20_c =
 /// SpecificHeatCapacity::new::<joule_per_gram_degree_celsius>(0.386);
-/// 
-/// let temperature_difference = 
+///
+/// let temperature_difference =
 /// TemperatureInterval::new::<degree_celsius>(
 /// test_temperature_2.value - test_temperature_1.value);
 ///
-/// let specific_enthalpy_ballpark = 
+/// let specific_enthalpy_ballpark =
 /// cp_copper_20_c * temperature_difference;
-/// 
+///
 /// // the ballpark value is 19300 J/kg
 /// approx::assert_relative_eq!(
 ///     specific_enthalpy_ballpark.value,
@@ -112,30 +112,31 @@ use temperature_from_specific_enthalpy::*;
 ///     copper_enthalpy_change.value,
 ///     max_relative=0.04);
 ///
-/// ``` 
-pub fn try_get_h(material: Material, 
+/// ```
+pub fn try_get_h(
+    material: Material,
     temperature: ThermodynamicTemperature,
-    _pressure: Pressure) -> Result<AvailableEnergy, TuasLibError> {
-
+    _pressure: Pressure,
+) -> Result<AvailableEnergy, TuasLibError> {
     let specific_enthalpy: AvailableEnergy = match material {
         Material::Solid(_) => solid_specific_enthalpy(material, temperature),
-        Material::Liquid(_) => liquid_specific_enthalpy(material, temperature)
+        Material::Liquid(_) => liquid_specific_enthalpy(material, temperature),
     };
 
     return Ok(specific_enthalpy);
 }
 
-/// This function allows you to obtain ThermodynamicTemperature 
-/// from AvailableEnergy (a.k.a specific enthalpy) of a material 
+/// This function allows you to obtain ThermodynamicTemperature
+/// from AvailableEnergy (a.k.a specific enthalpy) of a material
 /// as long as we have the material in the database
 ///
-/// example: 
+/// example:
 /// ```rust
 /// use uom::si::f64::*;
 /// use uom::si::specific_heat_capacity::{joule_per_kilogram_kelvin,
 /// joule_per_gram_degree_celsius};
 /// use uom::si::thermodynamic_temperature::{kelvin,degree_celsius};
-/// use uom::si::temperature_interval::degree_celsius as 
+/// use uom::si::temperature_interval::degree_celsius as
 /// interval_degree_celsius;
 /// use tuas_boussinesq_solver::boussinesq_thermophysical_properties::
 /// SolidMaterial::{SteelSS304L,Copper};
@@ -159,9 +160,9 @@ pub fn try_get_h(material: Material,
 /// let enthalpy_spline_zweibaum = try_get_h(
 ///     steel,steel_temp,atmospheric_pressure).unwrap();
 ///
-/// // now this enthalpy value is about 
-/// // 9050 J/kg +/- 0.5 J/kg 
-/// // the epsilon here is just round off error 
+/// // now this enthalpy value is about
+/// // 9050 J/kg +/- 0.5 J/kg
+/// // the epsilon here is just round off error
 /// // NOT measurement uncertainty or anything else
 /// let round_off_error = 0.5;
 ///
@@ -172,32 +173,31 @@ pub fn try_get_h(material: Material,
 ///
 /// // let's use this enthalpy value to get a ThermodynamicTemperature
 ///
-/// let steel_temperature_test = 
+/// let steel_temperature_test =
 /// try_get_temperature_from_h(steel,
 /// enthalpy_spline_zweibaum,
 /// atmospheric_pressure).unwrap();
-/// 
-/// // this should get back 20 degrees C with 0.001 degree_celsius of 
+///
+/// // this should get back 20 degrees C with 0.001 degree_celsius of
 /// // error at most
 /// approx::assert_abs_diff_eq!(
 ///     steel_temperature_test.get::<degree_celsius>(),
 ///     20_f64,
 ///     epsilon=0.001);
 /// ```
-pub fn try_get_temperature_from_h(material: Material, 
+pub fn try_get_temperature_from_h(
+    material: Material,
     material_enthalpy: AvailableEnergy,
-    _pressure: Pressure) -> Result<ThermodynamicTemperature, TuasLibError> {
-
+    _pressure: Pressure,
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     let specific_enthalpy: ThermodynamicTemperature = match material {
-        Material::Solid(_) => 
-            get_solid_temperature_from_specific_enthalpy(
-                material, material_enthalpy),
-        Material::Liquid(_) => 
-            get_liquid_temperature_from_specific_enthalpy(
-                material, material_enthalpy)
+        Material::Solid(_) => {
+            get_solid_temperature_from_specific_enthalpy(material, material_enthalpy)
+        }
+        Material::Liquid(_) => {
+            get_liquid_temperature_from_specific_enthalpy(material, material_enthalpy)
+        }
     };
 
     return Ok(specific_enthalpy);
 }
-
-

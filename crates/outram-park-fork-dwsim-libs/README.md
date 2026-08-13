@@ -18,7 +18,8 @@ Pure-Rust port of DWSIM's chemical-process modelling kernels — thermal-
 hydraulics and thermodynamics (flash algorithms, property packages/EOS,
 equipment models).
 
-**Status: equipment-model correlations + a core thermodynamics kernel landed.**
+**Status: equipment-model correlations + a broad thermodynamics kernel
+(EOS, activity, flash, electrolyte, Gibbs) + reactions/reactors landed.**
 
 *Equipment / unit-operation models* (`uom`-typed public APIs): `pipe`
 (Darcy-Weisbach + Beggs & Brill + Lockhart-Martinelli two-phase pressure
@@ -27,29 +28,41 @@ drop), `valve` (IEC 60534 liquid/gas/two-phase Kv sizing), `heat_exchanger`
 `expander` and `compressor` (isentropic + Schultz polytropic-efficiency
 turbomachinery), `pump` (direct calculation modes + NPSH), `heater` / `cooler`
 (enthalpy-driven duty), `mixer` (adiabatic mass/energy balance), `splitter`
-(mass-balance stream tee), and `separator` (two-phase flash drum — the first
-equipment model that invokes the flash kernel directly).
+(mass-balance stream tee), `separator` (two-phase flash drum — the first
+equipment model that invokes the flash kernel directly), and the `reactors`
+tier (conversion / equilibrium / CSTR / PFR / Gibbs-minimisation) built on the
+`reactions` model (Arrhenius power-law, K_eq(T), Langmuir-Hinshelwood).
 
 *Thermodynamics kernel* (`thermo`, ported from `DWSIM.Thermodynamics`): the
-pure-compound `component` data model, Peng-Robinson / SRK `cubic_eos` with the
-PRSV + Peneloux `eos_variants` refinements, `activity` (NRTL / UNIQUAC / ideal)
-and `unifac` liquid-phase activity coefficients, `ideal_props` ideal-gas
-enthalpy/entropy, the isothermal-isobaric `flash` and `property_package` PT
-driver, the `energy_flash` (PH) driver, `saturation` (bubble/dew), `stability`
-(Michelsen tangent-plane), and `transport` (viscosity / conductivity / surface
-tension). Enum dispatch, no `dyn`; documented raw-`f64` SI in the inner
-EOS/flash loops per the crate `CLAUDE.md`.
+pure-compound `component` data model; the cubic EOS tier — Peng-Robinson / SRK
+`cubic_eos`, PRSV + Peneloux `eos_variants`, PR78 `pr1978`, full PRSV2
+`prsv2_full`, Lee-Kesler-Plöcker `lkp`, and the PR + Lee-Kesler caloric hybrid
+`pr_lee_kesler`; the activity tier — `activity` (NRTL / UNIQUAC / ideal),
+`unifac`, modified UNIFAC Dortmund `unifac_dortmund`, `unifac_lle`, and the
+`electrolyte` aqueous-ionic tier; `ideal_props` ideal-gas enthalpy/entropy and
+`transport` (viscosity / conductivity / surface tension). The flash family
+spans isothermal-isobaric VLE (`flash` nested-loops, `flash_insideout`
+Boston-Britt), three-phase VLLE (`flash_vlle`, `flash_insideout_3p`), LLE
+(`flash_lle`), solid equilibria (`flash_sle`, `flash_svlle`), the
+single-component shortcut (`flash_single_comp`), Gibbs-minimisation speciation
+(`gibbs`, `gibbs_multiphase`), electrolyte SVLE (`electrolyte_svle`,
+`sour_water`), the `energy_flash` (PH) driver, `saturation` (bubble/dew),
+`stability` (Michelsen tangent-plane), and the `property_package` PT driver.
+Enum dispatch, no `dyn`; documented raw-`f64` SI in the inner EOS/flash loops
+per the crate `CLAUDE.md`.
 
 Everything here is **verified, not benchmark-validated** — the tests check the
 ports against analytical identities and hand-computed / published
 pure-component reference points, not against experimental VLE/property
 datasets. `tampines` is the intended downstream consumer.
 
-See `docs/port-scope.md` for the full prioritised porting scope and
-`bd show op-qo2` for the current backlog status (deferred items include:
-Petalas-Aziz, full Tinker shell-and-tube rating, flash-coupled pressure update
-for the transient pipe network, the PRSV2/Mathias-Copeman/Twu α-variants and
-LKP, three-phase / electrolyte / solid equilibria, and DWSIM's reactor tier).
+See `docs/port-scope.md` and `docs/chemistry-model-survey.md` for the full
+porting scope and per-model status, and `bn show op-qo2` (kopi-beans; see root
+`CLAUDE.md` for the live format-version blocker on that store as of
+2026-08-07) for the current backlog. Remaining deferred items include: Petalas-Aziz, full Tinker
+shell-and-tube rating, the flash-coupled pressure update for the transient pipe
+network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
+(PC-SAFT / GERG-2008), and the LIQUAC full-package glue.
 
 ## Bookkeeping status
 
@@ -69,3 +82,10 @@ LKP, three-phase / electrolyte / solid equilibria, and DWSIM's reactor tier).
 GPL-3.0-only (see the workspace root `LICENSE`), matching DWSIM's own
 upstream license directly — no relicensing step is needed. See
 `TRADEMARKS.md` for the full non-affiliation notice.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

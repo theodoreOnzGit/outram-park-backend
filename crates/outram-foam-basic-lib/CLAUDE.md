@@ -49,9 +49,17 @@ only on the one below it:
 
 ```
 Layer 5  Solver logic       rhoPimpleFoam / sonicFoam / rhoCentralFoam loops
-Layer 4  Thermophysics      fluidThermo / psiThermo / rhoThermo
-Layer 3  FV operators       fvm:: / fvc:: + Kurganov-Tadmor central-upwind fluxes
-Layer 2  Fields + Mesh      volScalarField, fvMesh, fvMatrix
+Layer 4  Thermophysics ← THIS CRATE
+           • Fluid thermo     fluidThermo / psiThermo / rhoThermo (fluid_thermo)
+Layer 3  FV operators ← THIS CRATE
+           • fvm:: / fvc::    implicit + explicit operators (fv_operators)
+           • Source terms     fvOptions / fvModels (fv_options)
+           • Flux limiters    TVD limiters (limiters)
+Layer 2  Fields + Mesh ← THIS CRATE
+           • Fields           volScalarField, surfaceField (fields)
+           • Mesh             fvMesh, AMI, region interfaces (mesh)
+           • Matrices         lduMatrix, fvMatrix + solvers (ldu_matrix, krylov)
+           • Case I/O         polyMesh / dictionary / field files (io)
 Layer 1  Primitives ← THIS CRATE
            • Tensor algebra   Vector3, Tensor, SymmTensor, SphericalTensor
            • Dense matrices   scalarSquareMatrix, LU/QR/Cholesky/SVD
@@ -62,8 +70,9 @@ Layer 1  Primitives ← THIS CRATE
            • Thermophysics    specie-level EOS / thermo / transport kernels (1h)
 ```
 
-`outram-foam-basic-lib` covers **Layer 1** only. Layers 2–5 will live in
-separate crates that depend on this one.
+`outram-foam-basic-lib` covers **Layers 1–4**. Layer 5 (the solver loops) lives
+in separate crates that depend on this one — see "Layer 5 is intentionally
+excluded" above and the workspace `CLAUDE.md` for the planned crate list.
 
 ---
 

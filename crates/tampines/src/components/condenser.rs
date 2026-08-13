@@ -25,7 +25,10 @@ impl Condenser {
     /// Construct a new condenser at the given operating pressure and target
     /// outlet quality.
     pub fn new(pressure: Pressure, target_outlet_quality: f64) -> Self {
-        Self { pressure, target_outlet_quality }
+        Self {
+            pressure,
+            target_outlet_quality,
+        }
     }
 
     /// Condense the given inlet steam state to this condenser's target

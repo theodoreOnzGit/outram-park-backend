@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: M. Garland and P. S. Heckbert, "Surface Simplification Using Quadric
+// Error Metrics", SIGGRAPH '97, pp. 209-216.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Decimate modifier, Collapse mode.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **QEM mesh decimation** — Garland–Heckbert quadric-error-metric edge-collapse
 //! simplification.
 //!
@@ -76,7 +99,10 @@ pub fn decimate(mesh: &Mesh, target_faces: usize) -> Mesh {
 pub fn decimate_with_reason(mesh: &Mesh, target_faces: usize) -> DecimateResult {
     let mut d = Decimator::from_mesh(mesh);
     let reason = d.run(target_faces);
-    DecimateResult { mesh: d.rebuild(), stop_reason: reason }
+    DecimateResult {
+        mesh: d.rebuild(),
+        stop_reason: reason,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +111,18 @@ pub fn decimate_with_reason(mesh: &Mesh, target_faces: usize) -> DecimateResult 
 
 /// The fundamental quadric `p pᵀ` of the plane `(a, b, c, d)`.
 fn quadric_from_plane(a: f64, b: f64, c: f64, d: f64) -> Quadric {
-    [a * a, a * b, a * c, a * d, b * b, b * c, b * d, c * c, c * d, d * d]
+    [
+        a * a,
+        a * b,
+        a * c,
+        a * d,
+        b * b,
+        b * c,
+        b * d,
+        c * c,
+        c * d,
+        d * d,
+    ]
 }
 
 /// Element-wise sum of two quadrics.
@@ -338,8 +375,18 @@ impl Decimator {
             if is_shared {
                 continue; // this face is removed by the collapse
             }
-            let map = |v: usize| if v == i || v == j { target } else { self.positions[v] };
-            let before = tri_normal(self.positions[tri[0]], self.positions[tri[1]], self.positions[tri[2]]);
+            let map = |v: usize| {
+                if v == i || v == j {
+                    target
+                } else {
+                    self.positions[v]
+                }
+            };
+            let before = tri_normal(
+                self.positions[tri[0]],
+                self.positions[tri[1]],
+                self.positions[tri[2]],
+            );
             let after = tri_normal(map(tri[0]), map(tri[1]), map(tri[2]));
             if after == Vec3::ZERO || before.dot(after) < FLIP_COS {
                 return false;
@@ -454,7 +501,14 @@ impl Decimator {
         }
         let (target, cost) = self.optimal(u, w);
         let (i, j) = (u.min(w), u.max(w));
-        heap.push(Reverse(Entry { cost, i, j, vi: self.version[i], vj: self.version[j], target }));
+        heap.push(Reverse(Entry {
+            cost,
+            i,
+            j,
+            vi: self.version[i],
+            vj: self.version[j],
+            target,
+        }));
     }
 
     /// Rebuild a compacted [`Mesh`] from the surviving triangles (dropping dead
@@ -472,8 +526,11 @@ impl Decimator {
                 continue;
             }
             // Skip a zero-area (collinear) triangle so from_polygons never sees one.
-            if tri_normal(self.positions[tri[0]], self.positions[tri[1]], self.positions[tri[2]])
-                == Vec3::ZERO
+            if tri_normal(
+                self.positions[tri[0]],
+                self.positions[tri[1]],
+                self.positions[tri[2]],
+            ) == Vec3::ZERO
             {
                 continue;
             }
@@ -511,7 +568,9 @@ mod tests {
         for face in m.polygons() {
             let n = face.len();
             for i in 0..n {
-                *edge_use.entry(edge_key(face[i].0, face[(i + 1) % n].0)).or_insert(0) += 1;
+                *edge_use
+                    .entry(edge_key(face[i].0, face[(i + 1) % n].0))
+                    .or_insert(0) += 1;
             }
         }
         edge_use.values().all(|&c| c == 2)
@@ -533,18 +592,36 @@ mod tests {
         let target = f0 / 2;
         let out = decimate(&sphere, target);
 
-        assert_eq!(out.euler_characteristic(), 2, "decimated sphere must stay closed (chi=2)");
+        assert_eq!(
+            out.euler_characteristic(),
+            2,
+            "decimated sphere must stay closed (chi=2)"
+        );
         assert!(is_watertight(&out), "decimated sphere must stay watertight");
-        assert!(out.face_count() < f0, "face count must drop: {} -> {}", f0, out.face_count());
-        assert!(out.face_count() as f64 <= 0.55 * f0 as f64, "should approach the target");
+        assert!(
+            out.face_count() < f0,
+            "face count must drop: {} -> {}",
+            f0,
+            out.face_count()
+        );
+        assert!(
+            out.face_count() as f64 <= 0.55 * f0 as f64,
+            "should approach the target"
+        );
 
         // Fitted centre/radius of the original, then check survivors.
         let op = sphere.positions();
-        let c = op.iter().fold(Vec3::ZERO, |a, &p| a.add(p)).scale(1.0 / op.len() as f64);
+        let c = op
+            .iter()
+            .fold(Vec3::ZERO, |a, &p| a.add(p))
+            .scale(1.0 / op.len() as f64);
         let r = op.iter().map(|p| p.sub(c).length()).sum::<f64>() / op.len() as f64;
         for p in out.positions() {
             let dr = (p.sub(c).length() - r).abs();
-            assert!(dr <= 0.10 * r, "vertex drifted off the sphere: dr={dr}, r={r}");
+            assert!(
+                dr <= 0.10 * r,
+                "vertex drifted off the sphere: dr={dr}, r={r}"
+            );
         }
     }
 
@@ -562,12 +639,29 @@ mod tests {
         let f0 = grid.face_count();
         let out = decimate(&grid, 20);
 
-        assert!(out.face_count() < f0, "face count must drop: {} -> {}", f0, out.face_count());
-        assert_eq!(out.euler_characteristic(), 1, "flat grid stays a disc (chi=1)");
+        assert!(
+            out.face_count() < f0,
+            "face count must drop: {} -> {}",
+            f0,
+            out.face_count()
+        );
+        assert_eq!(
+            out.euler_characteristic(),
+            1,
+            "flat grid stays a disc (chi=1)"
+        );
         for p in out.positions() {
             assert!(p.z.abs() < 1e-9, "vertex left the z=0 plane: {}", p.z);
-            assert!(p.x >= -0.5 - 1e-9 && p.x <= 0.5 + 1e-9, "x out of footprint: {}", p.x);
-            assert!(p.y >= -0.5 - 1e-9 && p.y <= 0.5 + 1e-9, "y out of footprint: {}", p.y);
+            assert!(
+                p.x >= -0.5 - 1e-9 && p.x <= 0.5 + 1e-9,
+                "x out of footprint: {}",
+                p.x
+            );
+            assert!(
+                p.y >= -0.5 - 1e-9 && p.y <= 0.5 + 1e-9,
+                "y out of footprint: {}",
+                p.y
+            );
         }
     }
 
@@ -585,7 +679,11 @@ mod tests {
         let target = 40;
         let res = decimate_with_reason(&sphere, target);
         assert_eq!(res.stop_reason, StopReason::ReachedTarget);
-        assert!(res.mesh.face_count() <= target + 2, "face count {} near target {target}", res.mesh.face_count());
+        assert!(
+            res.mesh.face_count() <= target + 2,
+            "face count {} near target {target}",
+            res.mesh.face_count()
+        );
 
         let mut referenced = vec![false; res.mesh.vertex_count()];
         for face in res.mesh.polygons() {
@@ -593,7 +691,10 @@ mod tests {
                 referenced[v.0] = true;
             }
         }
-        assert!(referenced.iter().all(|&r| r), "no isolated vertices after compaction");
+        assert!(
+            referenced.iter().all(|&r| r),
+            "no isolated vertices after compaction"
+        );
     }
 
     /// Methodology: **coplanar collapse is zero-cost** — the sharpest check of
@@ -621,7 +722,13 @@ mod tests {
                 }
             }
         }
-        assert!(best <= 1e-9, "a coplanar collapse must be ~zero cost, got {best}");
-        assert!(best_target.z.abs() <= 1e-9, "optimal point must stay in-plane");
+        assert!(
+            best <= 1e-9,
+            "a coplanar collapse must be ~zero cost, got {best}"
+        );
+        assert!(
+            best_target.z.abs() <= 1e-9,
+            "optimal point must stay in-plane"
+        );
     }
 }

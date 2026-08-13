@@ -257,9 +257,9 @@ pub fn parse_fortran_float(token: &str) -> Result<f64, PflotranError> {
             other => other,
         })
         .collect();
-    normalized.parse::<f64>().map_err(|_| {
-        PflotranError::InvalidInput(format!("invalid Fortran float `{token}`"))
-    })
+    normalized
+        .parse::<f64>()
+        .map_err(|_| PflotranError::InvalidInput(format!("invalid Fortran float `{token}`")))
 }
 
 /// Convert a PFLOTRAN time value plus a unit suffix to seconds.
@@ -363,8 +363,12 @@ fn err_at(line: usize, msg: &str) -> PflotranError {
 /// Read the next token and parse it as a Fortran float, with line context.
 fn next_float(cur: &mut Cursor, ctx: &str) -> Result<f64, PflotranError> {
     let tok = cur.expect(ctx)?;
-    parse_fortran_float(&tok.text)
-        .map_err(|_| err_at(tok.line, &format!("expected a number for {ctx}, got `{}`", tok.text)))
+    parse_fortran_float(&tok.text).map_err(|_| {
+        err_at(
+            tok.line,
+            &format!("expected a number for {ctx}, got `{}`", tok.text),
+        )
+    })
 }
 
 /// Read the next token and parse it as a non-negative integer, with line
@@ -372,7 +376,10 @@ fn next_float(cur: &mut Cursor, ctx: &str) -> Result<f64, PflotranError> {
 fn next_usize(cur: &mut Cursor, ctx: &str) -> Result<usize, PflotranError> {
     let tok = cur.expect(ctx)?;
     tok.text.parse::<usize>().map_err(|_| {
-        err_at(tok.line, &format!("expected an integer for {ctx}, got `{}`", tok.text))
+        err_at(
+            tok.line,
+            &format!("expected an integer for {ctx}, got `{}`", tok.text),
+        )
     })
 }
 
@@ -402,9 +409,7 @@ fn parse_simulation(cur: &mut Cursor) -> Result<FlowMode, PflotranError> {
         // All other tokens (SIMULATION_TYPE, PROCESS_MODELS, SUBSURFACE_FLOW,
         // their values, and `/` terminators) are skipped for v1.
     }
-    mode.ok_or_else(|| {
-        PflotranError::InvalidInput("SIMULATION block has no MODE card".to_string())
-    })
+    mode.ok_or_else(|| PflotranError::InvalidInput("SIMULATION block has no MODE card".to_string()))
 }
 
 /// Map a `MODE` keyword to [`FlowMode`], preserving unknown values verbatim.
@@ -506,9 +511,7 @@ fn parse_material(cur: &mut Cursor) -> Result<MaterialProperty, PflotranError> {
                 // Sub-block closed by `/`; v1 supports only PERM_ISO.
                 loop {
                     let inner = cur.next().ok_or_else(|| {
-                        PflotranError::InvalidInput(
-                            "unclosed PERMEABILITY sub-block".to_string(),
-                        )
+                        PflotranError::InvalidInput("unclosed PERMEABILITY sub-block".to_string())
                     })?;
                     if is_terminator(&inner.text) {
                         break;
@@ -672,8 +675,7 @@ fn parse_time(cur: &mut Cursor) -> Result<TimeBlock, PflotranError> {
 fn read_time_card(cur: &mut Cursor, card: &str) -> Result<f64, PflotranError> {
     let value = next_float(cur, card)?;
     let unit = cur.expect(&format!("a unit suffix after {card}"))?;
-    time_to_seconds(value, &unit.text)
-        .map_err(|e| err_at(unit.line, &format!("{card}: {e}")))
+    time_to_seconds(value, &unit.text).map_err(|e| err_at(unit.line, &format!("{card}: {e}")))
 }
 
 #[cfg(test)]
@@ -803,8 +805,14 @@ END_SUBSURFACE
         let err = parse_pflotran_deck(deck).unwrap_err();
         match err {
             PflotranError::InvalidInput(msg) => {
-                assert!(msg.contains("WIDGET"), "message should name the keyword: {msg}");
-                assert!(msg.contains("line 1"), "message should carry line context: {msg}");
+                assert!(
+                    msg.contains("WIDGET"),
+                    "message should name the keyword: {msg}"
+                );
+                assert!(
+                    msg.contains("line 1"),
+                    "message should carry line context: {msg}"
+                );
             }
             other => panic!("expected InvalidInput, got {other:?}"),
         }
@@ -912,7 +920,10 @@ TIME
 END
 "#;
         let deck = parse_pflotran_deck(deck).expect("should parse with unknown mode");
-        assert_eq!(deck.simulation_mode, FlowMode::Unknown("WIPP_FLOW".to_string()));
+        assert_eq!(
+            deck.simulation_mode,
+            FlowMode::Unknown("WIPP_FLOW".to_string())
+        );
     }
 
     #[test]
@@ -930,7 +941,10 @@ END
         let err = parse_pflotran_deck(deck).unwrap_err();
         match err {
             PflotranError::InvalidInput(msg) => {
-                assert!(msg.contains("GRAVITY"), "should name the unsupported card: {msg}");
+                assert!(
+                    msg.contains("GRAVITY"),
+                    "should name the unsupported card: {msg}"
+                );
             }
             other => panic!("expected InvalidInput, got {other:?}"),
         }

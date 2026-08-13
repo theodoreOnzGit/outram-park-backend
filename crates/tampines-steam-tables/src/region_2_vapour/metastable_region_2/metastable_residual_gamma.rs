@@ -3,7 +3,6 @@ use crate::region_2_vapour::{pi_2, tau_2};
 
 use super::METASTABLE_REGION_2_COEFFS_RES;
 
-
 /// Returns the region-2 residual gamma
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa

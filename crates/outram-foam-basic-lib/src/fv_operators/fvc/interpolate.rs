@@ -25,7 +25,7 @@ use crate::fields::boundary::bc::{BoundaryCondition, PatchField};
 use crate::fields::field::Field;
 use crate::fields::surface_field::SurfaceField;
 use crate::fields::vol_field::VolField;
-use crate::mesh::fv_mesh::FvMesh;
+use crate::mesh::fv_mesh::{FvMesh, PatchKind};
 
 /// Linear interpolation weight for the **owner** cell at internal face `f`.
 ///
@@ -101,14 +101,72 @@ where
         .zip(vol.boundary.iter())
         .map(|(patch, bc_patch)| {
             let values = Field::from_fn(patch.size, |fi| {
-                let owner = mesh.owner[patch.start + fi];
-                match &bc_patch.bc {
-                    BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry => {
-                        vol.internal[owner].clone()
+                let gf = patch.start + fi;
+                let owner = mesh.owner[gf];
+                // Cyclic (periodic) seam: linearly interpolate across the seam to
+                // the paired cell, weight from the two half-face gaps. Reduces to
+                // 0.5/0.5 for an equally spaced seam.
+                if patch.kind == PatchKind::Cyclic {
+                    if let Some(pf) = mesh.cyclic_partner_face(gf) {
+                        let paired = mesh.owner[pf];
+                        let d_a = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let d_b = (mesh.face_centres[pf] - mesh.cell_centres[paired]).mag();
+                        let denom = d_a + d_b;
+                        let w = if denom < 1e-300 { 0.5 } else { d_b / denom };
+                        return vol.internal[owner].clone() * w
+                            + vol.internal[paired].clone() * (1.0 - w);
                     }
+                }
+                match &bc_patch.bc {
+                    // Zero-gradient family: face value = adjacent cell value.
+                    // `Slip`/`Wedge` fall here for the generic (scalar) path;
+                    // the vector-specific normal removal for `Slip`/`Symmetry`
+                    // is applied by the momentum corrector, not this Layer-1
+                    // interpolation. `InletOutlet`/`OutletInlet` have no flux in
+                    // this operator, so they degrade to zero-gradient here.
+                    // `Freestream`/`PressureInletOutletVelocity` carry no flux in
+                    // this operator, so like `InletOutlet` they degrade to
+                    // zero-gradient (face value = adjacent cell value) here.
+                    BoundaryCondition::ZeroGradient
+                    | BoundaryCondition::Symmetry
+                    | BoundaryCondition::Slip
+                    | BoundaryCondition::Wedge
+                    | BoundaryCondition::InletOutlet { .. }
+                    | BoundaryCondition::OutletInlet { .. }
+                    | BoundaryCondition::Freestream { .. }
+                    | BoundaryCondition::PressureInletOutletVelocity => vol.internal[owner].clone(),
                     BoundaryCondition::FixedValue(v) => v.clone(),
                     BoundaryCondition::FixedField(ff) => ff[fi].clone(),
                     BoundaryCondition::Calculated(ff) => ff[fi].clone(),
+                    // Solver-driven Dirichlet BCs: the face value is the
+                    // last-computed value the solver hook wrote into
+                    // `bc_patch.values` (`p0 − 0.5ρ|U|²` for totalPressure, the
+                    // flow-rate inlet velocity for flowRateInletVelocity).
+                    BoundaryCondition::TotalPressure { .. }
+                    | BoundaryCondition::FlowRateInletVelocity { .. } => {
+                        bc_patch.values[fi].clone()
+                    }
+                    // No-slip wall: fixedValue of zero.
+                    BoundaryCondition::NoSlip => T::default(),
+                    // Neumann with prescribed gradient g: φ_face = φ_cell + g·delta.
+                    // `FixedFluxPressure` is a fixedGradient whose gradient the
+                    // solver set (`snGrad(p)`), so it reconstructs the same way.
+                    BoundaryCondition::FixedGradient(g)
+                    | BoundaryCondition::FixedFluxPressure { gradient: g } => {
+                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        vol.internal[owner].clone() + g.clone() * delta
+                    }
+                    // Robin/mixed blend of the fixedValue and fixedGradient parts.
+                    BoundaryCondition::Mixed {
+                        value_fraction,
+                        ref_value,
+                        ref_grad,
+                    } => {
+                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let w = *value_fraction;
+                        ref_value.clone() * w
+                            + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
+                    }
                     BoundaryCondition::Empty => T::default(),
                 }
             });
@@ -120,7 +178,7 @@ where
         .collect();
 
     SurfaceField::new(
-        format!("interpolate({})", vol.name),
+        crate::fv_operators::naming::derived_name("interpolate", &vol.name),
         vol.mesh.clone(),
         internal,
         boundary,
@@ -183,5 +241,33 @@ mod tests {
         p.internal[1] = 1.0;
         let p_f = interpolate(&p);
         assert!((p_f.internal[0] - 0.5).abs() < 1e-12);
+    }
+
+    /// V&V (verification, 2026-08-04). Cyclic-patch interpolation crosses the
+    /// periodic seam. Methodology: on `periodic_1d(4, 1.0, 1.0)` set the field to
+    /// `[0,1,2,3]`. The left cyclic patch (owner cell 0) is paired with cell 3
+    /// across the seam; equal half-gaps give weight 0.5, so the seam face value
+    /// is `0.5·φ_0 + 0.5·φ_3 = 1.5`; the right patch (owner cell 3, paired cell
+    /// 0) gives the same 1.5. Pass criterion: |value − 1.5| < 1e-12.
+    /// Result: left = 1.500000, right = 1.500000. PASS.
+    #[test]
+    fn vv_cyclic_interpolates_across_seam() {
+        let m = Arc::new(crate::mesh::fv_mesh::FvMesh::periodic_1d(4, 1.0, 1.0));
+        let mut p = VolScalarField::zeros("p", m.clone());
+        p.internal[0] = 0.0;
+        p.internal[1] = 1.0;
+        p.internal[2] = 2.0;
+        p.internal[3] = 3.0;
+        let p_f = interpolate(&p);
+        assert!(
+            (p_f.boundary[0].values[0] - 1.5).abs() < 1e-12,
+            "left={}",
+            p_f.boundary[0].values[0]
+        );
+        assert!(
+            (p_f.boundary[1].values[0] - 1.5).abs() < 1e-12,
+            "right={}",
+            p_f.boundary[1].values[0]
+        );
     }
 }

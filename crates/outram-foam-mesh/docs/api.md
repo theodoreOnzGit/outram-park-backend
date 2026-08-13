@@ -22,12 +22,41 @@ top of [`outram_foam_basic_lib`]'s primitive + finite-volume layer (`FvMesh`,
 > translation; use at your own risk. Not for nuclear facility operation,
 > reactor control, safety-critical, or licensing decisions.
 
+## Start here
+
+If you have a geometry and want a mesh, call one function —
+[`mesh_from_surface`] — and grade the result with
+[`assess_quality`](mesh_quality::assess_quality):
+
+```no_run
+use outram_foam_mesh::{mesh_from_surface, MeshingControls, MeshingPhases};
+use outram_foam_mesh::snappy_hex_mesh::TriangleSoup;
+use outram_foam_basic_lib::primitives::Vector3;
+
+let surface = TriangleSoup::uv_sphere(Vector3::ZERO, 1.0, 24, 24);
+let controls = MeshingControls::external_flow([12, 12, 12], 2)
+    .with_phases(MeshingPhases::CastellateSnap);
+
+let result = mesh_from_surface(&surface, &controls).unwrap();
+println!("{}", result.quality.summary());
+result.write_case("my_case").unwrap();   // → my_case/constant/polyMesh
+```
+
+The worked example `examples/sphere_in_box.rs` runs exactly this end to end
+and is readable top to bottom.
+
 ## What belongs here
 
 Mesh **construction** and **format conversion** — producing / importing a
 `polyMesh` (points, faces, owner/neighbour, boundary patches) that the
-Layer-1–4 crate and the solver crates then operate on. The four tools:
+Layer-1–4 crate and the solver crates then operate on. The tools:
 
+- [`driver`] — **the high-level entry point**: surface + controls → a
+  [`PolyMesh`](outram_foam_basic_lib::io::PolyMesh), with the phases chosen
+  by enum.
+- [`mesh_quality`] — `checkMesh`: non-orthogonality, skewness, aspect ratio
+  and inverted-cell count for **any** `polyMesh`, including ones this crate
+  did not generate.
 - [`block_mesh`] — structured hexahedral block meshing from a `blockMeshDict`
   (the OpenFOAM `blockMesh` utility).
 - [`snappy_hex_mesh`] — automatic split-hex meshing around STL surfaces:
@@ -40,6 +69,20 @@ Layer-1–4 crate and the solver crates then operate on. The four tools:
 
 Solver loops, turbulence models, and thermophysics do **not** belong here —
 they live in the solver crates and `outram-foam-basic-lib`.
+
+## One mesh currency
+
+Each generator has its own working representation, but all of them convert
+to `outram-foam-basic-lib`'s
+[`PolyMesh`](outram_foam_basic_lib::io::PolyMesh) — the type that writes
+`constant/polyMesh` to disk and that [`mesh_quality`] grades:
+
+| Produced by | Convert with |
+|---|---|
+| [`block_mesh`] | [`block_mesh::PolyMesh::to_foam_poly_mesh`] |
+| [`snappy_hex_mesh`] | [`snappy_hex_mesh::PolyPatchMesh::to_foam_poly_mesh`] |
+| [`poly_dual_mesh`] | [`poly_dual_mesh::DualMesh::to_foam_poly_mesh`] |
+| [`driver`] | already a `PolyMesh` — [`GeneratedMesh::write_case`] |
 
 ## Modules
 
@@ -828,6 +871,11 @@ pub struct PolyMesh {
   Total mesh volume `[m^3]` — the sum of all cell volumes.
 
 - ```rust
+  pub fn to_foam_poly_mesh(self: &Self) -> outram_foam_basic_lib::io::PolyMesh { /* ... */ }
+  ```
+  Convert to the writable `outram-foam-basic-lib`
+
+- ```rust
   pub fn to_fv_mesh(self: &Self) -> Result<FvMesh, MeshError> { /* ... */ }
   ```
   Convert to the `outram-foam-basic-lib` [`FvMesh`], computing all
@@ -930,6 +978,736 @@ As [`block_mesh`], plus [`MeshError::DictParse`] wrapping any I/O error.
 
 ```rust
 pub fn block_mesh_from_file</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>) -> Result<PolyMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `driver`
+
+**Start here.** The one-call driver: a closed surface in, an OpenFOAM
+`polyMesh` out.
+
+Everything else in this crate is a component of this pipeline (or a
+different tool entirely — see [`crate::block_mesh`],
+[`crate::ideas_unv_to_foam`], [`crate::poly_dual_mesh`]). If you have a
+geometry and want a mesh, call [`mesh_from_surface`] and nothing else:
+
+```no_run
+use outram_foam_mesh::driver::{mesh_from_surface, MeshingControls, MeshingPhases};
+use outram_foam_mesh::snappy_hex_mesh::TriangleSoup;
+use outram_foam_basic_lib::primitives::Vector3;
+
+// A unit sphere, meshed as the obstacle in an external-flow domain.
+let surface = TriangleSoup::uv_sphere(Vector3::ZERO, 1.0, 24, 24);
+let controls = MeshingControls::external_flow([12, 12, 12], 2)
+    .with_phases(MeshingPhases::CastellateSnap);
+
+let result = mesh_from_surface(&surface, &controls).unwrap();
+println!("{}", result.quality.summary());
+result.write_case("my_case").unwrap();   // → my_case/constant/polyMesh
+```
+
+## What the pipeline does
+
+1. Wraps the surface in a uniform hexahedral **background mesh** — either
+   the [`MeshingControls::domain`] you give, or the surface's bounding box
+   grown by [`MeshingControls::domain_margin`].
+2. **Castellates** it (octree refinement toward the surface, then carving
+   away the side you did not keep) — see [`crate::snappy_hex_mesh::castellation`].
+3. **Snaps** the carved staircase onto the surface, if the phase enum asks
+   for it — see [`crate::snappy_hex_mesh::snapping`].
+4. **Adds boundary layers**, if the phase enum asks for it — see
+   [`crate::snappy_hex_mesh::layers`], and read the honest caveat below.
+5. Converts to [`PolyMesh`] and grades the result with
+   [`assess_quality`](crate::mesh_quality::assess_quality).
+
+## Honest caveat on layer addition
+
+The layer phase in this crate is **restricted**: it has two placements, and
+which one a given case gets is decided inside the layer phase by a
+watertightness gate, not by you.
+
+- [`LayerOutcome::InsertedInterior`] — the real `snappyLayerDriver`
+  behaviour: the near-wall mesh is shrunk *inward* and prisms fill the gap,
+  so the meshed volume is conserved exactly and the wall stays where the
+  geometry says it is.
+- [`LayerOutcome::ExtrudedOutward`] — the fallback for regions where
+  displacing a wall point would open an octree hanging-node gap. The prism
+  block grows *outward* along the wall normal, so the meshed domain gets
+  **bigger**: for an external-flow case the obstacle shrinks, which is not
+  the mesh you asked for. It is watertight and inversion-free, but it is
+  not a faithful boundary layer.
+
+The driver detects which happened by measuring the change in total meshed
+volume and reports it in [`GeneratedMesh::layers`] — check it, do not
+assume. Measured on the built-in sphere-in-box case (2026-08-07): a
+`12×12×12` background at refinement level 2 gets `InsertedInterior`
+(volume conserved to `< 1e-9` relative), while an `8×8×8` background at
+levels 1 and 2 falls back to `ExtrudedOutward` (volume grows by
+`0.3–0.9 m³`). Either way, **no layered mesh from this driver has been
+validated against OpenFOAM output**; treat the layer phase as the least
+trustworthy part of the pipeline.
+
+```rust
+pub mod driver { /* ... */ }
+```
+
+### Types
+
+#### Enum `MeshingPhases`
+
+Which phases of the `snappyHexMesh` pipeline to run.
+
+The phases are strictly cumulative — you cannot snap without castellating,
+or add layers without snapping — so a single enum expresses every valid
+combination. Mirrors the `castellatedMesh` / `snap` / `addLayers` switches
+of a `snappyHexMeshDict`.
+
+```rust
+pub enum MeshingPhases {
+    Castellate,
+    CastellateSnap,
+    CastellateSnapLayers,
+}
+```
+
+##### Variants
+
+###### `Castellate`
+
+Phase 1 only: an octree-refined staircase mesh. Fast, always valid, and
+the boundary is a "castle wall" — cell faces are axis-aligned, so the
+mesh is perfectly orthogonal but geometrically crude near the surface.
+
+###### `CastellateSnap`
+
+Phases 1–2: castellate, then morph the boundary onto the surface. This
+is the sensible default — body-fitted, and the phase pair with the
+strongest V&V in this crate.
+
+###### `CastellateSnapLayers`
+
+Phases 1–3: also add prismatic boundary layers. **Read the module-level
+caveat first** — the layer phase is restricted, and on some cases it
+falls back to an outward extrusion that grows the domain rather than
+inserting layers inside it. Always check
+[`GeneratedMesh::layers`] afterwards.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshingPhases { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshingPhases) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `KeepRegion`
+
+Which side of the closed input surface becomes the meshed fluid region.
+
+Corresponds to `locationInMesh` in a `snappyHexMeshDict`, but stated as
+intent rather than as a magic coordinate.
+
+```rust
+pub enum KeepRegion {
+    Outside,
+    Inside,
+    At(outram_foam_basic_lib::primitives::Vector3),
+}
+```
+
+##### Variants
+
+###### `Outside`
+
+Keep the region **outside** the surface: the surface becomes an
+obstacle inside the background box (external flow around a body). The
+driver seeds this from a corner of the domain and errors if that corner
+turns out to be inside the surface.
+
+###### `Inside`
+
+Keep the region **inside** the surface: the surface becomes the domain
+wall (internal flow through a duct or vessel). The driver seeds this
+from the surface's bounding-box centre and errors if that point is not
+actually inside — which happens for strongly non-convex geometry, in
+which case use [`KeepRegion::At`].
+
+###### `At`
+
+Keep the region containing this explicit point `[m]` — the literal
+`locationInMesh`. Use this whenever the two automatic choices cannot
+find a valid seed.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `outram_foam_basic_lib::primitives::Vector3` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> KeepRegion { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &KeepRegion) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MeshingControls`
+
+Everything the driver needs besides the geometry itself.
+
+Build one with [`MeshingControls::external_flow`] or
+[`MeshingControls::internal_flow`] and adjust with the `with_*` builders;
+the per-phase structs ([`SnapControls`], [`LayerControls`]) are exposed
+directly for fine control.
+
+```rust
+pub struct MeshingControls {
+    pub domain: Option<crate::snappy_hex_mesh::background::Bounds>,
+    pub domain_margin: f64,
+    pub background_divisions: [usize; 3],
+    pub refinement_level: usize,
+    pub keep: KeepRegion,
+    pub phases: MeshingPhases,
+    pub surface_patch_name: String,
+    pub snap: crate::snappy_hex_mesh::snapping::SnapControls,
+    pub layers: crate::snappy_hex_mesh::layers::LayerControls,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `domain` | `Option<crate::snappy_hex_mesh::background::Bounds>` | The background domain `[m]`. `None` (the default) derives it from the<br>surface's bounding box grown by [`domain_margin`](Self::domain_margin).<br>Give it explicitly for an external-flow case where the far field must<br>reach a specific extent. |
+| `domain_margin` | `f64` | When [`domain`](Self::domain) is `None`, the automatic domain is the<br>surface bounding box expanded on every side by this fraction of the<br>box's space diagonal (dimensionless, `>= 0`). Default `0.5`. |
+| `background_divisions` | `[usize; 3]` | Background hex-cell divisions `[nx, ny, nz]` over the domain. These set<br>the far-field cell size; each must be `>= 1`. |
+| `refinement_level` | `usize` | Octree refinement level applied near the surface. Level `n` cells are<br>`2ⁿ` times finer per axis than the background, so cost grows roughly as<br>`4ⁿ` (a surface shell is 2-D). Levels 0–3 are practical. |
+| `keep` | `KeepRegion` | Which side of the surface to keep. |
+| `phases` | `MeshingPhases` | Which phases to run. |
+| `surface_patch_name` | `String` | Name of the boundary patch created on the carved surface. |
+| `snap` | `crate::snappy_hex_mesh::snapping::SnapControls` | Snapping controls (ignored when [`phases`](Self::phases) is<br>[`MeshingPhases::Castellate`]). |
+| `layers` | `crate::snappy_hex_mesh::layers::LayerControls` | Layer controls (ignored unless [`phases`](Self::phases) is<br>[`MeshingPhases::CastellateSnapLayers`]). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn external_flow(background_divisions: [usize; 3], refinement_level: usize) -> Self { /* ... */ }
+  ```
+  Controls for **flow around** the surface: the surface is an obstacle and
+
+- ```rust
+  pub fn internal_flow(background_divisions: [usize; 3], refinement_level: usize) -> Self { /* ... */ }
+  ```
+  Controls for **flow inside** the surface: the surface is the domain wall
+
+- ```rust
+  pub fn with_phases(self: Self, phases: MeshingPhases) -> Self { /* ... */ }
+  ```
+  Set which phases run (builder style).
+
+- ```rust
+  pub fn with_domain(self: Self, domain: Bounds) -> Self { /* ... */ }
+  ```
+  Set an explicit background domain instead of the automatic one.
+
+- ```rust
+  pub fn with_snap(self: Self, snap: SnapControls) -> Self { /* ... */ }
+  ```
+  Replace the snapping controls (builder style).
+
+- ```rust
+  pub fn with_layers(self: Self, layers: LayerControls) -> Self { /* ... */ }
+  ```
+  Replace the layer controls (builder style). Note this does **not**
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshingControls { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    External flow, `10×10×10` background, refinement level 2, castellate +
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LayerOutcome`
+
+What the layer phase actually did — an honest report, because the layer
+phase has two placements and only one of them is the real thing.
+
+See the module-level "Honest caveat on layer addition".
+
+```rust
+pub enum LayerOutcome {
+    NotRequested,
+    NoneAdded,
+    InsertedInterior,
+    ExtrudedOutward,
+}
+```
+
+##### Variants
+
+###### `NotRequested`
+
+The layer phase was not run ([`MeshingPhases`] did not ask for it).
+
+###### `NoneAdded`
+
+The layer phase ran but added no cells — every candidate layer count
+failed the watertightness / quality gate, so the unlayered mesh was
+returned. This is a legitimate outcome, not an error.
+
+###### `InsertedInterior`
+
+Layers were inserted **inside** the domain: the near-wall mesh was
+shrunk and prisms filled the gap, leaving the outer boundary where it
+was. This is the correct `snappyLayerDriver` behaviour.
+
+###### `ExtrudedOutward`
+
+Layers were **extruded outward**: the prism block grew along the wall
+normal and the meshed domain got larger. The watertight fallback for
+hanging-node regions — correct as an extrusion, but not what an
+external-flow case wants. Do not treat such a mesh as validated.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LayerOutcome { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LayerOutcome) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GeneratedMesh`
+
+The driver's output: the mesh, its quality, and what actually happened.
+
+```rust
+pub struct GeneratedMesh {
+    pub mesh: outram_foam_basic_lib::io::PolyMesh,
+    pub quality: crate::mesh_quality::MeshQualityReport,
+    pub phases_run: MeshingPhases,
+    pub layers: LayerOutcome,
+    pub n_cells_castellated: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `outram_foam_basic_lib::io::PolyMesh` | The finished mesh in `constant/polyMesh` form. Write it with<br>[`write_case`](Self::write_case), or convert it to a solver-ready<br>[`FvMesh`](outram_foam_basic_lib::mesh::FvMesh) with<br>[`PolyMesh::to_fv_mesh`]. |
+| `quality` | `crate::mesh_quality::MeshQualityReport` | Quality metrics of [`mesh`](Self::mesh) — non-orthogonality, skewness,<br>aspect ratio, inverted-cell count, with a one-word verdict. |
+| `phases_run` | `MeshingPhases` | The phases that were requested and run. |
+| `layers` | `LayerOutcome` | What the layer phase did (see [`LayerOutcome`]). |
+| `n_cells_castellated` | `usize` | Cell count immediately after castellation, before snapping/layers — the<br>baseline the other counts are read against. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn write_case</* synthetic */ impl AsRef<std::path::Path>: AsRef<std::path::Path>>(self: &Self, case_dir: impl AsRef<std::path::Path>) -> Result<(), MeshError> { /* ... */ }
+  ```
+  Write an OpenFOAM case skeleton: `<case_dir>/constant/polyMesh/{points,
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GeneratedMesh { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `mesh_from_surface`
+
+**Generate a mesh from a closed surface.** The one function to call.
+
+Runs the phases named by [`MeshingControls::phases`] and returns the
+finished mesh together with its quality report.
+
+# Inputs
+- `surface` — a **closed**, outward-wound triangle soup in metres (read one
+  with [`read_stl`](crate::snappy_hex_mesh::read_stl), or use a built-in
+  like [`TriangleSoup::uv_sphere`]). Closedness matters: the region-removal
+  step decides which cells to keep with a ray-cast inside/outside test, and
+  an open surface makes that test meaningless.
+- `controls` — domain, resolution, which side to keep, which phases to run.
+
+# Returns
+A [`GeneratedMesh`]: the [`PolyMesh`], its [`MeshQualityReport`], and a
+[`LayerOutcome`] saying what the layer phase really did. The returned mesh
+has always passed `FvMesh::validate` internally, but "valid" is not
+"good" — check [`MeshQualityReport::verdict`].
+
+# Errors
+- [`MeshError::Construction`] if the surface is empty, if the automatic
+  `locationInMesh` seed for [`KeepRegion::Outside`] / [`KeepRegion::Inside`]
+  lands on the wrong side (use [`KeepRegion::At`] instead), if region
+  removal discards every cell, or if any phase produces a mesh that fails
+  validation.
+
+# Cost
+Dominated by castellation: roughly `n_background_cells + 8^level ·
+n_surface_cells` inside/outside tests, each a brute-force ray cast over the
+whole triangle soup (there is no spatial acceleration structure yet), so
+cost scales linearly in the facet count. Keep the tessellation modest.
+
+```rust
+pub fn mesh_from_surface(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &MeshingControls) -> Result<GeneratedMesh, crate::MeshError> { /* ... */ }
 ```
 
 ## Module `ideas_unv_to_foam`
@@ -1132,6 +1910,427 @@ Read a `.unv` file from disk and convert it into a `polyMesh` (scale `1.0`).
 
 ```rust
 pub fn convert_file</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>) -> Result<UnvPolyMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `mesh_quality`
+
+Mesh-quality assessment — "is this mesh usable by a finite-volume solver?"
+
+This is the `checkMesh` half of the crate: given any mesh in
+[`PolyMesh`] form (points + face vertex loops + owner/neighbour), it reports
+the four metrics that decide whether a solver can run on it at all, and
+grades them against OpenFOAM's own thresholds.
+
+```no_run
+use outram_foam_mesh::mesh_quality::assess_quality;
+use outram_foam_basic_lib::io::PolyMesh;
+
+let mesh = PolyMesh::read("case/constant/polyMesh").unwrap();
+let q = assess_quality(&mesh);
+println!("{}", q.summary());
+```
+
+Every mesh this crate produces converts into [`PolyMesh`] — see
+[`block_mesh::PolyMesh::to_foam_poly_mesh`](crate::block_mesh::PolyMesh::to_foam_poly_mesh),
+[`PolyPatchMesh::to_foam_poly_mesh`](crate::snappy_hex_mesh::PolyPatchMesh::to_foam_poly_mesh),
+[`DualMesh::to_foam_poly_mesh`](crate::poly_dual_mesh::DualMesh::to_foam_poly_mesh) —
+and a mesh written by any other tool can be read back with
+[`PolyMesh::read`], so this function grades foreign meshes too (e.g. a
+polyhedral dual coming out of a different mesher).
+
+## The four metrics
+
+All definitions mirror OpenFOAM's `primitiveMeshTools` /
+`primitiveMesh::checkClosedCells` so the numbers are directly comparable
+with what `checkMesh` prints.
+
+1. **Non-orthogonality** `[degrees]` — for internal face `f` between cells
+   `o` and `n`, the angle between the face-area vector `Sf` and the
+   centre-to-centre vector `d = C_n − C_o`. Zero for a perfectly orthogonal
+   (e.g. Cartesian) mesh. This is the metric that governs whether a
+   diffusion term needs explicit non-orthogonal correction, and how many
+   corrector sweeps it needs.
+2. **Skewness** (dimensionless) — how far the face centre `Cf` sits from
+   the point where the owner–neighbour line pierces the face, normalised by
+   the face's own extent in that direction. Non-orthogonality and skewness
+   are independent: a uniformly sheared mesh is non-orthogonal but not
+   skewed, and a mesh whose faces are offset sideways is skewed but
+   orthogonal (both cases are in this module's tests).
+3. **Aspect ratio** (dimensionless) — per cell,
+   `(1/6) · Σ_f (|Sf_x| + |Sf_y| + |Sf_z|) / V^(2/3)`, which is exactly `1`
+   for a cube. High values mean thin, stretched cells (a boundary layer is
+   deliberately high-aspect; the far field should not be).
+4. **Negative-volume cells** — cells whose pyramid-decomposition volume is
+   `<= 0`, i.e. inverted or degenerate. Any non-zero count is fatal: no
+   solver can run on such a mesh.
+
+## Thresholds and what they mean
+
+See [`NON_ORTHO_OK_DEG`], [`NON_ORTHO_SEVERE_DEG`], [`SKEWNESS_LIMIT`] and
+[`BOUNDARY_SKEWNESS_LIMIT`]. [`MeshQualityReport::verdict`] folds them into
+a single [`QualityVerdict`].
+
+> **Caveat for this workspace.** Passing this check means the mesh is not
+> pathological by OpenFOAM's standards. It does **not** mean the solver's
+> numerics are verified at that quality: `outram-foam-basic-lib`'s
+> non-orthogonal correction has its own, separate V&V range, and a mesh
+> whose non-orthogonality exceeds it will produce discretisation error the
+> correction has not been shown to control. Check that crate's V&V before
+> trusting a solve on a mesh near these limits.
+
+## Verification & validation
+
+**Methodology.** The metrics are checked on four hand-built meshes whose
+exact values are derived in closed form (see each test's doc comment):
+a Cartesian block, a uniformly sheared block (non-orthogonality
+`= atan(k)` exactly), a laterally offset-face pair (skewness `= s` exactly),
+and an elongated block (aspect ratio `= (ab+bc+ca) / (3·(abc)^(2/3))`).
+
+**Results (measured 2026-08-07, release, x86_64).** See the individual test
+doc comments in this module for the measured values; every case agrees with
+its closed form to `< 1e-12`.
+
+```rust
+pub mod mesh_quality { /* ... */ }
+```
+
+### Types
+
+#### Enum `QualityVerdict`
+
+One-word grade for a mesh, derived from a [`MeshQualityReport`].
+
+The grades are ordered `Good < Marginal < Unusable` in severity; see
+[`MeshQualityReport::verdict`] for the exact rule.
+
+```rust
+pub enum QualityVerdict {
+    Good,
+    Marginal,
+    Unusable,
+}
+```
+
+##### Variants
+
+###### `Good`
+
+No inverted cells, non-orthogonality `<=` [`NON_ORTHO_OK_DEG`],
+skewness within both limits. A solver should be able to run without
+special measures.
+
+###### `Marginal`
+
+No inverted cells, but non-orthogonality exceeds [`NON_ORTHO_OK_DEG`]
+(possibly exceeding [`NON_ORTHO_SEVERE_DEG`] too). Solvable, but
+non-orthogonal correction is mandatory and the discretisation error is
+no longer bounded by the correction's verified range.
+
+###### `Unusable`
+
+At least one inverted / zero-volume cell, or skewness beyond
+[`SKEWNESS_LIMIT`] / [`BOUNDARY_SKEWNESS_LIMIT`], or a
+non-orthogonality of `90°` or more (the face plane no longer separates
+the two cell centres). Do not solve on this mesh.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QualityVerdict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QualityVerdict) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MeshQualityReport`
+
+A full mesh-quality report — the output of [`assess_quality`].
+
+All angles are in degrees, volumes in `m³`, and skewness / aspect ratio are
+dimensionless. Fields are public so a caller can gate on any single metric;
+[`summary`](Self::summary) formats them the way `checkMesh` does.
+
+```rust
+pub struct MeshQualityReport {
+    pub n_cells: usize,
+    pub n_points: usize,
+    pub n_faces: usize,
+    pub n_internal_faces: usize,
+    pub n_boundary_faces: usize,
+    pub total_volume: f64,
+    pub min_cell_volume: f64,
+    pub max_cell_volume: f64,
+    pub n_negative_volume_cells: usize,
+    pub max_non_ortho_deg: f64,
+    pub mean_non_ortho_deg: f64,
+    pub n_severely_non_ortho_faces: usize,
+    pub max_skewness: f64,
+    pub max_boundary_skewness: f64,
+    pub max_aspect_ratio: f64,
+    pub mean_aspect_ratio: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_cells` | `usize` | Number of cells. |
+| `n_points` | `usize` | Number of mesh points (vertices). |
+| `n_faces` | `usize` | Total number of faces (internal + boundary). |
+| `n_internal_faces` | `usize` | Number of internal faces (those with a neighbour cell). |
+| `n_boundary_faces` | `usize` | Number of boundary faces. |
+| `total_volume` | `f64` | Sum of all cell volumes `[m³]`. |
+| `min_cell_volume` | `f64` | Smallest cell volume `[m³]`. Non-positive means an inverted cell. |
+| `max_cell_volume` | `f64` | Largest cell volume `[m³]`. |
+| `n_negative_volume_cells` | `usize` | Count of cells with volume `<= 0` (inverted / degenerate). Fatal if<br>non-zero. |
+| `max_non_ortho_deg` | `f64` | Worst internal-face non-orthogonality `[degrees]`. |
+| `mean_non_ortho_deg` | `f64` | Arithmetic mean of internal-face non-orthogonality `[degrees]`. `0` if<br>the mesh has no internal faces (a single-cell mesh). |
+| `n_severely_non_ortho_faces` | `usize` | Number of internal faces above [`NON_ORTHO_SEVERE_DEG`]. |
+| `max_skewness` | `f64` | Worst **internal**-face skewness (dimensionless); limit<br>[`SKEWNESS_LIMIT`]. |
+| `max_boundary_skewness` | `f64` | Worst **boundary**-face skewness (dimensionless), computed with<br>OpenFOAM's mirrored-neighbour treatment; limit<br>[`BOUNDARY_SKEWNESS_LIMIT`]. |
+| `max_aspect_ratio` | `f64` | Worst cell aspect ratio (dimensionless); exactly `1` for a cube. |
+| `mean_aspect_ratio` | `f64` | Mean cell aspect ratio (dimensionless). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn verdict(self: &Self) -> QualityVerdict { /* ... */ }
+  ```
+  Grade the mesh — see [`QualityVerdict`] for the rule.
+
+- ```rust
+  pub fn summary(self: &Self) -> String { /* ... */ }
+  ```
+  A multi-line human-readable summary, laid out like OpenFOAM's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MeshQualityReport { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MeshQualityReport) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `assess_quality`
+
+Assess the quality of any [`PolyMesh`] — the crate's `checkMesh`.
+
+# Inputs
+`mesh` — points in metres, faces as vertex loops wound so the right-hand
+normal points owner → neighbour (internal) or out of the domain (boundary),
+faces ordered internal-first then by patch. That is exactly the invariant
+[`PolyMesh`] documents, so any mesh read from a `constant/polyMesh` or
+produced by this crate satisfies it.
+
+# Returns
+A [`MeshQualityReport`]. This function never fails: it is meant to be run
+on *bad* meshes, so it reports inverted cells rather than refusing them. A
+mesh with fewer than 3 points in a face contributes a zero area vector and
+is simply counted through the volume metrics.
+
+# Cost
+`O(n_faces)` with two passes over the faces plus one over the cells; all
+geometry is recomputed from `points`, so the report always reflects the
+current point positions rather than any cached geometry.
+
+```rust
+pub fn assess_quality(mesh: &outram_foam_basic_lib::io::PolyMesh) -> MeshQualityReport { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `NON_ORTHO_OK_DEG`
+
+Non-orthogonality `[degrees]` at or below which a mesh is unremarkable —
+`snappyHexMesh`'s own default `maxNonOrtho` accept limit.
+
+```rust
+pub const NON_ORTHO_OK_DEG: f64 = 65.0;
+```
+
+#### Constant `NON_ORTHO_SEVERE_DEG`
+
+Non-orthogonality `[degrees]` above which OpenFOAM's `checkMesh` counts a
+face as **severely non-orthogonal** and prints a warning
+(`primitiveMesh::setNonOrthThreshold` default).
+
+```rust
+pub const NON_ORTHO_SEVERE_DEG: f64 = 70.0;
+```
+
+#### Constant `SKEWNESS_LIMIT`
+
+Internal-face skewness above which `checkMesh` reports a failure
+(OpenFOAM default `maxSkewness`).
+
+```rust
+pub const SKEWNESS_LIMIT: f64 = 4.0;
+```
+
+#### Constant `BOUNDARY_SKEWNESS_LIMIT`
+
+Boundary-face skewness above which `checkMesh` reports a failure. Boundary
+faces use a mirrored neighbour cell, so the limit is much looser.
+
+```rust
+pub const BOUNDARY_SKEWNESS_LIMIT: f64 = 20.0;
 ```
 
 ## Module `poly_dual_mesh`
@@ -1404,6 +2603,11 @@ pub struct DualMesh {
   Verify that every non-empty dual cell is a genus-0 closed polyhedron
 
 - ```rust
+  pub fn to_foam_poly_mesh(self: &Self, patch_names: &[String]) -> Result<outram_foam_basic_lib::io::PolyMesh, MeshError> { /* ... */ }
+  ```
+  Convert the dual to the writable `outram-foam-basic-lib`
+
+- ```rust
   pub fn to_fv_mesh(self: &Self, patch_names: &[String]) -> Result<FvMesh, MeshError> { /* ... */ }
   ```
   Convert the dual to a flat `outram-foam-basic-lib` [`FvMesh`]: faces are
@@ -1522,13 +2726,21 @@ of [`crate::block_mesh`]), `snappyHexMesh` runs three phases:
    boundary onto the STL via nearest-point projection, Laplacian patch
    smoothing, and a quality-gated relaxation, then rebuild the `FvMesh`.
    Feature-edge snapping is a restricted (tested) addition.
-3. **Layer addition** ([`layers`], **implemented, restricted**) — extrude
-   graded prismatic boundary layers off the wall patch with expansion-ratio
-   grading and quality-limited collapse. The full medial-axis interior-shrink
-   insertion is future work (see the [`layers`] module docs).
+3. **Layer addition** ([`layers`], **implemented, restricted**) — insert
+   graded prismatic boundary layers at the wall patch with expansion-ratio
+   grading and quality-limited collapse. Two placements exist and the driver
+   picks per case: the medial-axis **interior shrink-and-insert** (the real
+   `snappyLayerDriver` behaviour, volume-conserving) wherever it stays
+   watertight, and an **outward extrusion** fallback on octree hanging-node
+   regions, which grows the domain. Which one you got is not something to
+   assume — see the [`layers`] module docs, and prefer
+   [`crate::driver::mesh_from_surface`], which measures it and reports a
+   [`LayerOutcome`](crate::driver::LayerOutcome).
 
-Run all three together with [`generate`] (the top-level entry), or call the
-phase functions individually.
+Run all three together with [`generate`] (this module's top-level entry), or
+call the phase functions individually. For a one-call path that also picks
+the background mesh, converts to `PolyMesh` and grades the result, use
+[`crate::driver::mesh_from_surface`] instead.
 
 ## Status (bead op-ax7.2)
 
@@ -1537,7 +2749,7 @@ phase functions individually.
 | STL input | ✅ done | ASCII + binary reader, inside/outside, nearest point |
 | Castellation | ✅ done | octree refinement + region removal → valid `FvMesh` + topology |
 | Snapping | ✅ done | projection + smoothing + quality-gated morph + rebuild; feature-edge (restricted) |
-| Layer addition | 🟡 restricted | graded prism extrusion + collapse; medial-axis interior insertion is future work |
+| Layer addition | 🟡 restricted | graded prism insertion + collapse; medial-axis interior shrink-and-insert where watertight, outward-extrusion fallback elsewhere |
 
 ## Minimal example
 
@@ -1987,7 +3199,7 @@ pub struct CastellationControls {
 #### Struct `SurfaceFace`
 
 A boundary face lying on the carved surface, retained (with its corner
-points) so the Phase-2 snapping stub has explicit geometry to project.
+points) so the Phase-2 snapping pass has explicit geometry to project.
 
 ```rust
 pub struct SurfaceFace {
@@ -2682,6 +3894,11 @@ pub struct PolyPatchMesh {
   pub fn quality(self: &Self) -> MeshQuality { /* ... */ }
   ```
   Mesh-quality metrics (non-orthogonality, skewness, min volume) computed
+
+- ```rust
+  pub fn to_foam_poly_mesh(self: &Self) -> outram_foam_basic_lib::io::PolyMesh { /* ... */ }
+  ```
+  Convert to the writable `outram-foam-basic-lib`
 
 - ```rust
   pub fn patch_face_ids(self: &Self, patch_index: usize) -> std::ops::Range<usize> { /* ... */ }
@@ -3485,6 +4702,16 @@ pub struct TriangleSoup {
   Build a soup from an explicit list of triangles (used by tests that
 
 - ```rust
+  pub fn uv_sphere(centre: Vector3, r: f64, n_lat: usize, n_lon: usize) -> Self { /* ... */ }
+  ```
+  A closed UV sphere of radius `r` [m] centred at `centre` [m], as an
+
+- ```rust
+  pub fn cuboid(min: Vector3, max: Vector3) -> Self { /* ... */ }
+  ```
+  A closed axis-aligned box spanning `min`..`max` [m], as an
+
+- ```rust
   pub fn len(self: &Self) -> usize { /* ... */ }
   ```
   Number of facets.
@@ -3962,6 +5189,7 @@ pub enum MeshError {
     DictParse(String),
     NotImplemented(String),
     Construction(String),
+    Io(String),
 }
 ```
 
@@ -3979,7 +5207,10 @@ Fields:
 
 ##### `NotImplemented`
 
-The requested feature is scaffolded but not yet implemented.
+The input asks for a feature this crate does not support yet. Currently
+raised only by [`block_mesh`] for a non-`hex` block shape; deferred dict
+features that are safe to ignore (curved `edges`, `mergePatchPairs`) are
+skipped silently instead — see the [`block_mesh`] module docs.
 
 Fields:
 
@@ -3990,6 +5221,18 @@ Fields:
 ##### `Construction`
 
 A geometric / topological inconsistency was detected while building the mesh.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### `Io`
+
+A mesh could not be written to (or read from) disk — see
+[`GeneratedMesh::write_case`]. Carries the formatted underlying
+`outram_foam_basic_lib::io::IoError` plus the path involved.
 
 Fields:
 
@@ -4062,3 +5305,59 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Re-exports
+
+### Re-export `mesh_from_surface`
+
+```rust
+pub use driver::mesh_from_surface;
+```
+
+### Re-export `GeneratedMesh`
+
+```rust
+pub use driver::GeneratedMesh;
+```
+
+### Re-export `KeepRegion`
+
+```rust
+pub use driver::KeepRegion;
+```
+
+### Re-export `LayerOutcome`
+
+```rust
+pub use driver::LayerOutcome;
+```
+
+### Re-export `MeshingControls`
+
+```rust
+pub use driver::MeshingControls;
+```
+
+### Re-export `MeshingPhases`
+
+```rust
+pub use driver::MeshingPhases;
+```
+
+### Re-export `assess_quality`
+
+```rust
+pub use mesh_quality::assess_quality;
+```
+
+### Re-export `MeshQualityReport`
+
+```rust
+pub use mesh_quality::MeshQualityReport;
+```
+
+### Re-export `QualityVerdict`
+
+```rust
+pub use mesh_quality::QualityVerdict;
+```
+

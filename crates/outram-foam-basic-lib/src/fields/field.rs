@@ -168,7 +168,7 @@ impl Field<f64> {
         Field::from_fn(self.len(), |i| self.data[i] / rhs.data[i])
     }
 
-    /// Weighted sum: sum(w[i] * x[i]).
+    /// Weighted sum: `sum(w[i] * x[i])`.
     pub fn weighted_sum(&self, weights: &Field<f64>) -> f64 {
         assert_eq!(self.len(), weights.len());
         self.data

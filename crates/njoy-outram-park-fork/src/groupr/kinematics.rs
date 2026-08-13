@@ -211,7 +211,11 @@ impl Cm6Emission {
         let epmax = cp[cp.len() - 1].ep;
         // Skip a leading zero-energy point, exactly as NJOY's
         // `if (cnow(lnow).le.zero) lnow=lnow+ncnow`.
-        let idx = if cp[0].ep <= 0.0 && cp.len() > 1 { 1 } else { 0 };
+        let idx = if cp[0].ep <= 0.0 && cp.len() > 1 {
+            1
+        } else {
+            0
+        };
         let mut epnext = cp[idx].ep;
         let step = 0.05;
         if epnext > step * epmax {
@@ -683,7 +687,9 @@ impl Cm6Emission {
             prev = pt.ep;
         }
         if self.e_in <= 0.0 {
-            return Err(NjoyError::EndfParse("cm2lab: incident energy must be > 0".into()));
+            return Err(NjoyError::EndfParse(
+                "cm2lab: incident energy must be > 0".into(),
+            ));
         }
         Ok(())
     }
@@ -916,7 +922,9 @@ pub fn f6dis() -> Result<f64, NjoyError> {
 /// the lab frame) distribution into a lab Legendre-coefficient (LAW-1)
 /// representation. Returns [`NjoyError::NotPorted`].
 pub fn ll2lab() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("groupr::ll2lab (groupr.f90:8934-9061)"))
+    Err(NjoyError::NotPorted(
+        "groupr::ll2lab (groupr.f90:8934-9061)",
+    ))
 }
 
 /// Lab-frame File-6 LAW-1 double-differential evaluation — **not ported**
@@ -954,9 +962,18 @@ mod tests {
             za_target: 26056,
             za_emitted: 1,
             points: vec![
-                Cm6Point { ep: 0.0, coeffs: c0 },
-                Cm6Point { ep: 2.5e5, coeffs: c1 },
-                Cm6Point { ep: 5.0e5, coeffs: c2 },
+                Cm6Point {
+                    ep: 0.0,
+                    coeffs: c0,
+                },
+                Cm6Point {
+                    ep: 2.5e5,
+                    coeffs: c1,
+                },
+                Cm6Point {
+                    ep: 5.0e5,
+                    coeffs: c2,
+                },
             ],
         }
     }
@@ -1001,8 +1018,14 @@ mod tests {
         let bwd = lab_energy_from_cm(e, ep_cm, -1.0, xc);
         let fwd_ref = (ep_cm.sqrt() + (xc * e).sqrt()).powi(2);
         let bwd_ref = (ep_cm.sqrt() - (xc * e).sqrt()).powi(2);
-        assert!((fwd - fwd_ref).abs() < 1e-6 * fwd_ref, "fwd {fwd} vs {fwd_ref}");
-        assert!((bwd - bwd_ref).abs() < 1e-6 * bwd_ref, "bwd {bwd} vs {bwd_ref}");
+        assert!(
+            (fwd - fwd_ref).abs() < 1e-6 * fwd_ref,
+            "fwd {fwd} vs {fwd_ref}"
+        );
+        assert!(
+            (bwd - bwd_ref).abs() < 1e-6 * bwd_ref,
+            "bwd {bwd} vs {bwd_ref}"
+        );
     }
 
     /// `cm2lab` conserves normalization: the lab `P_0` distribution integrates

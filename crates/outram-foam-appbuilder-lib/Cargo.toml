@@ -1,6 +1,7 @@
 [package]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.0"
+version = "0.1.1"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "OpenFOAM solver applications, polyMesh I/O, and case file parsing translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
@@ -58,3 +59,8 @@ path = "tutorials/pimple_foam_cavity.rs"
 [[test]]
 name = "tutorial_rho_pimple_foam_aerofoil_naca0012"
 path = "tutorials/rho_pimple_foam_aerofoil_naca0012.rs"
+
+# ── V&V: OUTRAM PARK equivalents of upstream OpenFOAM / GeN-Foam coarse tutorials
+[[test]]
+name = "foam_vv_cases"
+path = "tests/foam_vv_cases/main.rs"

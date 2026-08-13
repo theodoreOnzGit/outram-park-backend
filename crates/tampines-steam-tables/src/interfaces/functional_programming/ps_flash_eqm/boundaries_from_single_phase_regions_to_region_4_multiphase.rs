@@ -1,9 +1,8 @@
-// boundary between region 1 (subcooled liq) and 4 (VLE) is 
+// boundary between region 1 (subcooled liq) and 4 (VLE) is
 // given by the saturated liq condition
 //
-// those are determined by the following sat temp and sat pressure 
+// those are determined by the following sat temp and sat pressure
 // equations:
-
 
 use crate::backward_eqn_ps_region_1_to_4::boundary_eqn_ps3::p_s3_s;
 use crate::region_1_subcooled_liquid::s_tp_1;
@@ -17,9 +16,10 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 /// see page 55
 pub(crate) fn is_ps_point_region_4_and_above_16_529_mpa(
-    p: Pressure, s: SpecificHeatCapacity) -> bool {
-
-    // before anything, check if entropy is within entropy validity range 
+    p: Pressure,
+    s: SpecificHeatCapacity,
+) -> bool {
+    // before anything, check if entropy is within entropy validity range
     let ref_temperature = ThermodynamicTemperature::new::<kelvin>(623.15);
     let ref_pressure = sat_pressure_4(ref_temperature);
 
@@ -37,34 +37,29 @@ pub(crate) fn is_ps_point_region_4_and_above_16_529_mpa(
     // in comparison to the saturation entropy
     let mut p_sat_line = p_s3_s(s);
 
-
-
-    // if the h is very close to the two phase region 
+    // if the h is very close to the two phase region
     // we need to correct this slightly
     //
     // This is in the section after table 2.30
-    if ((p - p_sat_line)/p).get::<ratio>() < 1e-4 {
+    if ((p - p_sat_line) / p).get::<ratio>() < 1e-4 {
         p_sat_line = p_sat_line * (1.0 - 4.3e-6);
     };
-    
 
-    // if pressure is greater than this pressure, then it is region 3 
-    // otherwise it's region 4 
+    // if pressure is greater than this pressure, then it is region 3
+    // otherwise it's region 4
 
     if p < p_sat_line {
-
         return true;
-
     };
 
     return false;
-
 }
 /// see page 55
 pub(crate) fn is_ps_point_region_3_and_from_16_529_mpa_to_crit_temp(
-    p: Pressure, s: SpecificHeatCapacity) -> bool {
-
-    // before anything, check if entropy is within entropy validity range 
+    p: Pressure,
+    s: SpecificHeatCapacity,
+) -> bool {
+    // before anything, check if entropy is within entropy validity range
     let t_high_bound = t_boundary_2_3(p);
     let t_low_bound = ThermodynamicTemperature::new::<kelvin>(623.15);
 
@@ -84,38 +79,34 @@ pub(crate) fn is_ps_point_region_3_and_from_16_529_mpa_to_crit_temp(
     // in comparison to the saturation entropy
     let mut p_sat_line = p_s3_s(s);
 
-    // if the h is very close to the two phase region 
+    // if the h is very close to the two phase region
     // we need to correct this slightly
     //
     // This is in the section after table 2.30
-    if ((p - p_sat_line)/p).get::<ratio>() < 1e-4 {
+    if ((p - p_sat_line) / p).get::<ratio>() < 1e-4 {
         p_sat_line = p_sat_line * (1.0 - 4.3e-6);
     };
-    
 
-    // if pressure is greater than this pressure, then it is region 3 
-    // otherwise it's region 4 
+    // if pressure is greater than this pressure, then it is region 3
+    // otherwise it's region 4
 
     if p >= p_sat_line {
-
         return true;
-
     };
 
     return false;
-
 }
 
-
 /// now, we are given (p,s) points,
-/// this entropy s can be greater or less than the saturated liquid 
+/// this entropy s can be greater or less than the saturated liquid
 /// entropy (region 1)
 ///
-/// and based on that, we can see if this is in region 1 
+/// and based on that, we can see if this is in region 1
 pub(crate) fn is_ps_point_subcooled_liquid_region1_and_below_16_529_mpa(
-    p: Pressure, s: SpecificHeatCapacity) -> bool {
-
-    // before anything, check if it is within pressure validity range 
+    p: Pressure,
+    s: SpecificHeatCapacity,
+) -> bool {
+    // before anything, check if it is within pressure validity range
     let max_pressure = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(623.15));
     let min_pressure = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15));
 
@@ -125,7 +116,6 @@ pub(crate) fn is_ps_point_subcooled_liquid_region1_and_below_16_529_mpa(
 
     // first let's get saturated liquid entropy
     let sat_temperature_ref = sat_temp_4(p);
-
 
     // now saturated liquid entropy given (p_sat,t_sat)
     let s_sat_liq = s_tp_1(sat_temperature_ref, p);
@@ -137,13 +127,13 @@ pub(crate) fn is_ps_point_subcooled_liquid_region1_and_below_16_529_mpa(
     };
 
     return false;
-
 }
 
 pub(crate) fn is_ps_point_superheat_vap_region2_and_below_16_529_mpa(
-    p: Pressure, s: SpecificHeatCapacity) -> bool {
-
-    // before anything, check if it is within pressure validity range 
+    p: Pressure,
+    s: SpecificHeatCapacity,
+) -> bool {
+    // before anything, check if it is within pressure validity range
     let max_pressure = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(623.15));
     let min_pressure = sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15));
 
@@ -164,9 +154,4 @@ pub(crate) fn is_ps_point_superheat_vap_region2_and_below_16_529_mpa(
     };
 
     return false;
-
 }
-
-
-
-

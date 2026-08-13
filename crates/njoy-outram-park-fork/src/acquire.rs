@@ -1,16 +1,30 @@
-//! HIGH-fidelity data acquisition — download raw ENDF tapes and reconstruct
-//! pointwise cross sections on device.
+//! Data acquisition, and the crate's **single on-disk artifact cache**.
 //!
-//! This is the **opt-in HIGH tier** of the two-tier data strategy
-//! (`docs/data-acquisition.md`). The default LOW tier ships embedded (WMP + fast
-//! MGXS, no network); this module reaches upstream for the *authoritative* ENDF
-//! evaluation, caches it, and runs the crate's own [`crate::reconr`] to get
-//! fully resonance-reconstructed continuous-energy σ(E) — the reference against
-//! which the LOW tier is judged.
+//! # Two halves, gated differently
 //!
-//! The whole module is behind the **`net-fetch`** Cargo feature, so a data
-//! consumer that only wants the offline LOW tier pulls no TLS/HTTP dependency.
-//! Enable with `--features net-fetch`.
+//! **[`EndfCache`] — always compiled.** One caching layer for every large
+//! derived artifact this crate produces or fetches. Its contract
+//! (`docs/data-acquisition.md`) is: check the cache, take a per-artifact
+//! advisory lock, re-check (a peer may have finished while we waited), write to
+//! a unique `.part` file, `fsync`, then **atomically rename** into place, and
+//! leave a SHA-256 sidecar. Readers only ever see complete files, and N
+//! processes racing for the same artifact do the work exactly once. Two
+//! producers plug into it:
+//!
+//! - [`EndfCache::get_or_produce`] — a *computed* artifact. Used by the offline
+//!   [`crate::leapr::generate`] path, which regenerates thermal-scattering
+//!   `S(alpha, beta)` from a 12 KB LEAPR deck instead of shipping a multi-MB
+//!   ENDF tape. **On by default; no network.**
+//! - [`EndfCache::fetch`] / [`EndfCache::fetch_tsl`] — a *downloaded* artifact
+//!   (below).
+//!
+//! **The download path — behind the `net-fetch` feature.** This is the opt-in
+//! HIGH tier of the data strategy: reach upstream for the *authoritative* ENDF
+//! evaluation, cache it, and run the crate's own [`crate::reconr`] to get fully
+//! resonance-reconstructed continuous-energy σ(E) — the reference against which
+//! the offline tiers are judged. It pulls the only TLS/HTTP/zip dependencies in
+//! the crate, so a consumer that stays offline pulls none of them. Enable with
+//! `--features net-fetch`.
 //!
 //! # The upstream is a hardcoded, pinned URL
 //!
@@ -48,15 +62,20 @@
 //! ```
 
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use fs2::FileExt;
 use sha2::{Digest, Sha256};
 
-use crate::endf::tape::Tape;
-use crate::reconr::{reconr, ReconrConfig, ReconrResult};
 use crate::NjoyError;
+
+#[cfg(feature = "net-fetch")]
+use std::io::Read;
+#[cfg(feature = "net-fetch")]
+use crate::endf::tape::Tape;
+#[cfg(feature = "net-fetch")]
+use crate::reconr::{reconr, ReconrConfig, ReconrResult};
 
 /// The pinned upstream host for every [`EndfLibrary`] — the IAEA Nuclear Data
 /// Services `download-endf` tree, which serves each evaluation's per-nuclide
@@ -143,8 +162,76 @@ impl EndfLibrary {
     /// `<base>/<library>/n/n_<MAT>_<Z>-<Sym>-<A>.zip`, the IAEA NDS naming
     /// convention (zero-padded 4-digit MAT).
     pub fn neutron_url(&self, mat: i32, z: u32, a: u32, symbol: &str) -> String {
-        format!("{IAEA_BASE_URL}/{}/n/{}", self.dir(), zip_filename(mat, z, a, symbol))
+        format!(
+            "{IAEA_BASE_URL}/{}/n/{}",
+            self.dir(),
+            zip_filename(mat, z, a, symbol)
+        )
     }
+
+    /// The full hardcoded download URL for a **thermal-scattering-law** (tsl) tape.
+    ///
+    /// Unlike the neutron sublibrary (MAT-numbered `n_<MAT>_...` files), the IAEA
+    /// NDS thermal sublibrary serves **named** files under `<library>/tsl/`, e.g.
+    /// `<base>/ENDF-B-VIII.0/tsl/tsl-crystalline-graphite.zip`. `tsl_base` is the
+    /// basename with no extension (see [`TslMaterial::base`] / [`well_known_tsl`]);
+    /// the download is `<base>.zip`, the extracted tape `<base>.endf`.
+    ///
+    /// The `<library>/tsl/<base>.zip` layout matches the IAEA NDS `download-endf`
+    /// tree the neutron path already uses; it has not been re-fetched from this
+    /// (offline) host, so a first network fetch is the point to confirm the exact
+    /// mirror-side spelling — centralised here so a rename is a one-line fix.
+    pub fn thermal_url(&self, tsl_base: &str) -> String {
+        format!("{IAEA_BASE_URL}/{}/tsl/{}.zip", self.dir(), tsl_base)
+    }
+}
+
+/// A thermal-scattering-law (tsl) material in the built-in registry: its IAEA NDS
+/// download basename and its ENDF thermal-sublibrary material number.
+///
+/// The tsl sublibrary treats a *bound-atom scatterer* (H in H₂O, C in graphite, …)
+/// as its own material — distinct from the free-atom neutron evaluation — so it is
+/// addressed by name, not by (Z, A). See [`well_known_tsl`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TslMaterial {
+    /// IAEA NDS `tsl/` sublibrary basename, no extension
+    /// (e.g. `"tsl-crystalline-graphite"`). Feeds [`EndfLibrary::thermal_url`].
+    pub base: &'static str,
+    /// ENDF thermal-sublibrary MAT (MF=7). Metadata for cross-checking the tape's
+    /// own MAT; **not** used to build the URL (tsl files are named, not
+    /// MAT-numbered).
+    pub mat: i32,
+}
+
+/// Look up a thermal-scattering-law material by a friendly key.
+///
+/// Covers the **HTR-10 graphite** moderator/reflector evaluations and the
+/// light-water H-in-H₂O law the thermal-pincell tests consume. Values are the
+/// public ENDF/B-VIII.0 thermal-sublibrary materials (open data, per
+/// `DATA_POLICY.md`); the graphite MATs (30/31/32) match the tapes the
+/// `thermal_graphite_coherent` V&V test was measured against. Unknown keys → `None`
+/// (pass an explicit `base` to [`EndfCache::fetch_tsl`] for anything else).
+pub fn well_known_tsl(name: &str) -> Option<TslMaterial> {
+    let m = match name {
+        "graphite" | "crystalline-graphite" | "tsl-crystalline-graphite" => TslMaterial {
+            base: "tsl-crystalline-graphite",
+            mat: 30,
+        },
+        "reactor-graphite-10P" | "tsl-reactor-graphite-10P" => TslMaterial {
+            base: "tsl-reactor-graphite-10P",
+            mat: 31,
+        },
+        "reactor-graphite-30P" | "tsl-reactor-graphite-30P" => TslMaterial {
+            base: "tsl-reactor-graphite-30P",
+            mat: 32,
+        },
+        "HinH2O" | "H2O" | "tsl-HinH2O" => TslMaterial {
+            base: "tsl-HinH2O",
+            mat: 1,
+        },
+        _ => return None,
+    };
+    Some(m)
 }
 
 /// The IAEA NDS neutron-sublibrary **zip** filename for a nuclide:
@@ -167,11 +254,37 @@ pub fn tape_filename(mat: i32, z: u32, a: u32, symbol: &str) -> String {
 /// varies — so rather than guess, this table holds only values **verified**
 /// against the IAEA NDS listing. For any other nuclide, pass the MAT explicitly
 /// (find it in the library's directory index or the ENDF-102 manual). The set
-/// here covers the shipped Godiva/LFTR examples: light H/O, structural Fe, and
-/// the Th/U/Pu actinides.
+/// here covers the shipped Godiva/LFTR examples (light H/O, structural Fe, and
+/// the Th/U/Pu actinides) plus **carbon** for the HTR-10 graphite
+/// moderator/reflector.
+///
+/// # Carbon / graphite conventions
+///
+/// The MAT returned here is what builds the IAEA NDS download filename
+/// (`n_{mat:04}_{z}-{symbol}-{a}.zip`, see [`tape_filename`]/[`zip_filename`]),
+/// so it must be the **published** MAT or the fetch 404s. Carbon's ENDF identity
+/// changed between library vintages, but these are the standard public values
+/// (verified against the IAEA `download-endf` listing):
+///
+/// - **C-nat** (`(6, 0)` → MAT 600) — natural carbon, the single lumped
+///   evaluation used through **ENDF/B-VII.1** and JEFF-3.1 (`n_0600_6-C-0.zip`).
+/// - **C-12** (`(6, 12)` → MAT 600) — split out as the reference isotope in
+///   **ENDF/B-VIII.0**, JEFF-3.3, JENDL-5 (`n_0600_6-C-12.zip`); it reuses MAT
+///   600 because it replaced C-nat as the element's principal evaluation.
+/// - **C-13** (`(6, 13)` → MAT 631) — the minor isotope (1.1 % abundance),
+///   also split out from VIII.0 onward (`n_0631_6-C-13.zip`).
+///
+/// Note carbon's MAT here is the **neutron** sublibrary evaluation. The graphite
+/// *thermal* S(alpha, beta) law is a separate ENDF thermal-sublibrary material
+/// (`tsl-crystalline-graphite` MAT = 30, `tsl-reactor-graphite-10P` MAT = 31,
+/// `-30P` MAT = 32) and is **not** reachable through this table or
+/// [`EndfLibrary::neutron_url`] — see [`crate::thermr`].
 pub fn well_known_mat(z: u32, a: u32) -> Option<i32> {
     let mat = match (z, a) {
         (1, 1) => 125,     // H-1
+        (6, 0) => 600,     // C-nat (ENDF/B-VII.1, JEFF-3.1 — lumped natural carbon)
+        (6, 12) => 600,    // C-12  (ENDF/B-VIII.0+, JEFF-3.3, JENDL-5 — HTR-10 graphite)
+        (6, 13) => 631,    // C-13  (ENDF/B-VIII.0+ — 1.1% natural-abundance minor isotope)
         (8, 16) => 825,    // O-16
         (26, 56) => 2631,  // Fe-56
         (90, 232) => 9040, // Th-232
@@ -232,7 +345,9 @@ pub fn parse_nuclide(name: &str) -> Result<(u32, u32, &'static str), NjoyError> 
         .ok_or_else(|| NjoyError::Download(format!("nuclide '{name}' has no mass number")))?;
     let (sym, a_str) = name.split_at(split);
     if sym.is_empty() {
-        return Err(NjoyError::Download(format!("nuclide '{name}' has no element symbol")));
+        return Err(NjoyError::Download(format!(
+            "nuclide '{name}' has no element symbol"
+        )));
     }
     let a: u32 = a_str
         .parse()
@@ -259,18 +374,27 @@ pub struct EndfCache {
 }
 
 impl EndfCache {
+    /// The directory [`EndfCache::new`] would use — the [`CACHE_DIR_ENV`]
+    /// override if set, else the platform cache directory (XDG on Linux,
+    /// `AppData` on Windows, `~/Library/Caches` on macOS).
+    ///
+    /// **Creates nothing.** Use this to *report* or *probe* a cache path;
+    /// [`EndfCache::new`] is what actually makes the directory. Returns `None`
+    /// on a platform with no discoverable cache directory and no override.
+    pub fn default_dir() -> Option<PathBuf> {
+        if let Some(over) = std::env::var_os(CACHE_DIR_ENV) {
+            return Some(PathBuf::from(over));
+        }
+        directories::ProjectDirs::from("org", "OUTRAM PARK", "outram-park")
+            .map(|p| p.cache_dir().join("endf"))
+    }
+
     /// Open the cache at the platform default location (or the
     /// [`CACHE_DIR_ENV`] override), creating the directory if needed.
     pub fn new() -> Result<Self, NjoyError> {
-        let dir = if let Some(over) = std::env::var_os(CACHE_DIR_ENV) {
-            PathBuf::from(over)
-        } else {
-            directories::ProjectDirs::from("org", "OUTRAM PARK", "outram-park")
-                .map(|p| p.cache_dir().join("endf"))
-                .ok_or_else(|| {
-                    NjoyError::Download("no platform cache dir; set OUTRAM_PARK_DATA_DIR".into())
-                })?
-        };
+        let dir = Self::default_dir().ok_or_else(|| {
+            NjoyError::Download("no platform cache dir; set OUTRAM_PARK_DATA_DIR".into())
+        })?;
         fs::create_dir_all(&dir)?;
         Ok(EndfCache { dir })
     }
@@ -298,7 +422,9 @@ impl EndfCache {
         a: u32,
         symbol: &str,
     ) -> PathBuf {
-        self.dir.join(library.dir()).join(tape_filename(mat, z, a, symbol))
+        self.dir
+            .join(library.dir())
+            .join(tape_filename(mat, z, a, symbol))
     }
 
     /// Fetch a nuclide's raw ENDF tape (downloading and unzipping if needed),
@@ -308,6 +434,7 @@ impl EndfCache {
     /// returns immediately; a miss takes an exclusive lock, downloads + extracts
     /// once, and publishes atomically. A SHA-256 sidecar (`<file>.sha256`) of the
     /// extracted tape is written for later integrity checks.
+    #[cfg(feature = "net-fetch")]
     pub fn fetch(
         &self,
         library: EndfLibrary,
@@ -317,7 +444,55 @@ impl EndfCache {
         symbol: &str,
     ) -> Result<PathBuf, NjoyError> {
         let final_path = self.path_for(library, mat, z, a, symbol);
-        let parent = final_path.parent().unwrap().to_path_buf();
+        let url = library.neutron_url(mat, z, a, symbol);
+        self.fetch_to_path(&url, final_path)
+    }
+
+    /// **The cache core.** Return `final_path` if it is already cached; otherwise
+    /// run `produce` exactly once (across processes) and publish its bytes there
+    /// atomically.
+    ///
+    /// This is the crate's only caching layer. Both producers go through it: the
+    /// `net-fetch` download path (see [`Self::fetch`]) and the offline
+    /// [`crate::leapr::generate`] regeneration path. Do not write a second one.
+    ///
+    /// # Contract
+    ///
+    /// 1. **Fast path** — an existing `final_path` is returned untouched, with no
+    ///    lock taken and `produce` never called.
+    /// 2. **Advisory lock** — a miss takes an exclusive `flock` on
+    ///    `<final_path>.lock`, so N racing processes do the work once rather than
+    ///    N times (this matters when `produce` costs seconds of CPU).
+    /// 3. **Double-checked acquire** — after the lock is granted, the cache is
+    ///    re-checked; a peer may have finished while we blocked.
+    /// 4. **Atomic publish** — bytes go to a unique `.part` file in the same
+    ///    directory, are `fsync`ed, then `rename`d into place. A reader therefore
+    ///    never observes a partial file, and a crash mid-write leaves a stray
+    ///    `.part` rather than a corrupt cache entry.
+    /// 5. **Integrity sidecar** — a lowercase-hex SHA-256 of the published bytes
+    ///    is written to `<final_path>.sha256`, best-effort.
+    ///
+    /// # Invalidation
+    ///
+    /// There is none, by design: the cache is **content-addressed by its path**.
+    /// A caller that can produce different bytes for the same logical artifact
+    /// must encode everything that affects those bytes into `final_path` (see
+    /// [`crate::leapr::generate`], which hashes the deck, the temperature, the
+    /// constant set and a generator revision into the filename). Nothing here
+    /// ever overwrites an existing entry, so a stale key is a caller bug, not a
+    /// cache bug.
+    ///
+    /// # Errors
+    /// Propagates any I/O error and anything `produce` returns. A failed
+    /// `produce` publishes nothing and leaves the cache unchanged.
+    pub fn get_or_produce<F>(&self, final_path: PathBuf, produce: F) -> Result<PathBuf, NjoyError>
+    where
+        F: FnOnce() -> Result<Vec<u8>, NjoyError>,
+    {
+        let parent = final_path
+            .parent()
+            .ok_or_else(|| NjoyError::Download(format!("{final_path:?} has no parent directory")))?
+            .to_path_buf();
         fs::create_dir_all(&parent)?;
 
         // 1. Fast path: already cached.
@@ -336,11 +511,8 @@ impl EndfCache {
                 return Ok(final_path.clone());
             }
 
-            // 4. Download the zip, extract the ENDF member in memory.
-            let url = library.neutron_url(mat, z, a, symbol);
-            let zip_bytes = http_get(&url)?;
-            let tape_bytes = unzip_single(&zip_bytes, &url)?;
-            validate_endf(&tape_bytes, &url)?;
+            // 4. Produce the bytes (download, or compute).
+            let bytes = produce()?;
 
             // 5. Write to a unique temp file in the same dir, fsync.
             let tmp = parent.join(format!(
@@ -351,7 +523,7 @@ impl EndfCache {
             ));
             {
                 let mut f = File::create(&tmp)?;
-                f.write_all(&tape_bytes)?;
+                f.write_all(&bytes)?;
                 f.sync_all()?; // durable before the rename
             }
 
@@ -359,18 +531,89 @@ impl EndfCache {
             fs::rename(&tmp, &final_path)?;
 
             // 7. Integrity sidecar for later re-checks (best-effort).
-            let digest = hex_sha256(&tape_bytes);
+            let digest = hex_sha256(&bytes);
             let _ = fs::write(final_path.with_extension("sha256"), &digest);
 
             Ok(final_path.clone())
         })();
 
         // 8. Always release the lock.
-        let _ = lock_file.unlock();
+        let _ = FileExt::unlock(&lock_file);
         result
     }
 
+    /// Download `url` (a single-member zip of one ENDF tape) into `final_path`,
+    /// returning the cached, extracted path.
+    ///
+    /// The download producer for [`Self::get_or_produce`], shared by
+    /// [`Self::fetch`] (neutron sublibrary) and [`Self::fetch_tsl`] (thermal
+    /// sublibrary). All the locking / atomicity / integrity discipline lives in
+    /// `get_or_produce`; this adds only "GET, unzip, sanity-check".
+    #[cfg(feature = "net-fetch")]
+    fn fetch_to_path(&self, url: &str, final_path: PathBuf) -> Result<PathBuf, NjoyError> {
+        self.get_or_produce(final_path, || {
+            let zip_bytes = http_get(url)?;
+            let tape_bytes = unzip_single(&zip_bytes, url)?;
+            validate_endf(&tape_bytes, url)?;
+            Ok(tape_bytes)
+        })
+    }
+
+    /// The final cached (extracted) tape path for a tsl material of `library`:
+    /// `<root>/<library>/<base>.endf` (e.g.
+    /// `<root>/ENDF-B-VIII.0/tsl-crystalline-graphite.endf`).
+    pub fn path_for_tsl(&self, library: EndfLibrary, tsl_base: &str) -> PathBuf {
+        self.dir
+            .join(library.dir())
+            .join(format!("{tsl_base}.endf"))
+    }
+
+    /// Fetch a **thermal-scattering-law** tape (downloading + unzipping if needed),
+    /// returning the path to the cached, extracted `.endf`. The tsl counterpart of
+    /// [`Self::fetch`]; same lock / atomic-publish / SHA-256 discipline via the
+    /// shared [`Self::fetch_to_path`] core, but addressed by tsl basename (see
+    /// [`EndfLibrary::thermal_url`] / [`well_known_tsl`]) since the thermal
+    /// sublibrary names its files rather than MAT-numbering them.
+    #[cfg(feature = "net-fetch")]
+    pub fn fetch_tsl(&self, library: EndfLibrary, tsl_base: &str) -> Result<PathBuf, NjoyError> {
+        let final_path = self.path_for_tsl(library, tsl_base);
+        let url = library.thermal_url(tsl_base);
+        self.fetch_to_path(&url, final_path)
+    }
+
+    /// Fetch a tsl tape by a friendly registry key (see [`well_known_tsl`]) — e.g.
+    /// `"graphite"`, `"reactor-graphite-10P"`, `"HinH2O"`. Errors if the key is not
+    /// in the built-in registry; pass an explicit basename to [`Self::fetch_tsl`]
+    /// for anything else.
+    #[cfg(feature = "net-fetch")]
+    pub fn fetch_tsl_by_name(
+        &self,
+        library: EndfLibrary,
+        name: &str,
+    ) -> Result<PathBuf, NjoyError> {
+        let m = well_known_tsl(name).ok_or_else(|| {
+            NjoyError::Download(format!(
+                "thermal-scattering material {name:?} not in the built-in tsl registry; \
+                 pass an explicit basename via fetch_tsl()"
+            ))
+        })?;
+        self.fetch_tsl(library, m.base)
+    }
+
+    /// Fetch (or reuse) a tsl tape and parse it into an ENDF [`Tape`] — the entry
+    /// point for the [`crate::thermr`] thermal-scattering path (MF=7 S(α,β)).
+    #[cfg(feature = "net-fetch")]
+    pub fn download_tsl_tape(
+        &self,
+        library: EndfLibrary,
+        tsl_base: &str,
+    ) -> Result<Tape, NjoyError> {
+        let path = self.fetch_tsl(library, tsl_base)?;
+        Tape::read(File::open(&path)?)
+    }
+
     /// Fetch (or reuse) the tape and parse it into an ENDF [`Tape`].
+    #[cfg(feature = "net-fetch")]
     pub fn download_tape(
         &self,
         library: EndfLibrary,
@@ -390,6 +633,7 @@ impl EndfCache {
     /// fractional `tolerance` (NJOY default `1.0e-3`), at 0 K. Doppler broadening
     /// to a target temperature is a separate BROADR step; the LOW tier's WMP form
     /// carries analytic Doppler instead.
+    #[cfg(feature = "net-fetch")]
     pub fn download_and_reconstruct(
         &self,
         library: EndfLibrary,
@@ -401,17 +645,21 @@ impl EndfCache {
     ) -> Result<ReconrResult, NjoyError> {
         let tape = self.download_tape(library, mat, z, a, symbol)?;
         let tape_mat = first_mat(&tape).unwrap_or(mat);
-        reconr(&tape, &ReconrConfig { mat: tape_mat, tolerance, temperature: 0.0 })
+        reconr(
+            &tape,
+            &ReconrConfig {
+                mat: tape_mat,
+                tolerance,
+                temperature: 0.0,
+            },
+        )
     }
 
     /// Fetch a nuclide addressed by GNDS name (e.g. `"U235"`), looking up its MAT
     /// from [`well_known_mat`]. Errors if the nuclide is not in the built-in MAT
     /// table — use [`EndfCache::fetch`] with an explicit MAT for others.
-    pub fn fetch_by_name(
-        &self,
-        library: EndfLibrary,
-        name: &str,
-    ) -> Result<PathBuf, NjoyError> {
+    #[cfg(feature = "net-fetch")]
+    pub fn fetch_by_name(&self, library: EndfLibrary, name: &str) -> Result<PathBuf, NjoyError> {
         let (z, a, sym) = parse_nuclide(name)?;
         let mat = well_known_mat(z, a).ok_or_else(|| {
             NjoyError::Download(format!(
@@ -423,6 +671,7 @@ impl EndfCache {
 
     /// Reconstruct pointwise cross sections for a nuclide addressed by GNDS name,
     /// looking up its MAT from [`well_known_mat`] (see [`Self::fetch_by_name`]).
+    #[cfg(feature = "net-fetch")]
     pub fn download_and_reconstruct_by_name(
         &self,
         library: EndfLibrary,
@@ -440,16 +689,15 @@ impl EndfCache {
 }
 
 /// The first (usually only) material number present on a single-nuclide tape.
+#[cfg(feature = "net-fetch")]
 fn first_mat(tape: &Tape) -> Option<i32> {
-    tape.sections()
-        .iter()
-        .map(|s| s.key.mat)
-        .find(|&m| m > 0)
+    tape.sections().iter().map(|s| s.key.mat).find(|&m| m > 0)
 }
 
 /// GET `url` into memory, mapping any HTTP/transport failure to
 /// [`NjoyError::Download`]. Pure-Rust TLS via rustls (ureq's default), so no
 /// system OpenSSL is required.
+#[cfg(feature = "net-fetch")]
 fn http_get(url: &str) -> Result<Vec<u8>, NjoyError> {
     let resp = ureq::get(url)
         .call()
@@ -465,6 +713,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, NjoyError> {
 ///
 /// IAEA `download-endf` neutron files are one ENDF tape per zip. Returns the first
 /// file entry's uncompressed bytes.
+#[cfg(feature = "net-fetch")]
 fn unzip_single(zip_bytes: &[u8], url: &str) -> Result<Vec<u8>, NjoyError> {
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes))
         .map_err(|e| NjoyError::Download(format!("{url}: not a valid zip: {e}")))?;
@@ -480,14 +729,16 @@ fn unzip_single(zip_bytes: &[u8], url: &str) -> Result<Vec<u8>, NjoyError> {
             return Ok(out);
         }
     }
-    Err(NjoyError::Download(format!("{url}: zip contained no file entry")))
+    Err(NjoyError::Download(format!(
+        "{url}: zip contained no file entry"
+    )))
 }
 
 /// Cheap sanity check that extracted bytes look like an ENDF ASCII tape before
 /// we cache them — a mirror serving an HTML error page or a truncated file must
 /// fail here, not deep in the parser. ENDF-6 tapes are line-based 80-column
 /// ASCII; we require a non-trivial size and that the first kilobyte is ASCII.
-fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
+pub(crate) fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
     if bytes.len() < 512 {
         return Err(NjoyError::Download(format!(
             "{url}: extracted tape too small ({} bytes) to be an ENDF file",
@@ -495,7 +746,10 @@ fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
         )));
     }
     let head = &bytes[..bytes.len().min(1024)];
-    if !head.iter().all(|&b| b == b'\n' || b == b'\r' || (b' '..=b'~').contains(&b)) {
+    if !head
+        .iter()
+        .all(|&b| b == b'\n' || b == b'\r' || (b' '..=b'~').contains(&b))
+    {
         return Err(NjoyError::Download(format!(
             "{url}: extracted tape is not ASCII text (not an ENDF file?)"
         )));
@@ -541,6 +795,44 @@ mod tests {
         assert_eq!(tape_filename(9228, 92, 235, "U"), "n_9228_92-U-235.endf");
     }
 
+    /// The thermal-scattering-law (tsl) acquire path builds the IAEA NDS
+    /// `<library>/tsl/<base>.zip` URL and the `<library>/<base>.endf` cache path
+    /// for the HTR-10 graphite moderators and light-water H-in-H₂O (bead op-6tz.28).
+    ///
+    /// # Methodology / results (2026-08-12)
+    /// Structural / addressing check (no network): the tsl sublibrary names its
+    /// files rather than MAT-numbering them, so a wrong basename 404s. Assert the
+    /// registry resolves each key to its published basename + ENDF/B-VIII.0 MAT,
+    /// that [`EndfLibrary::thermal_url`] builds the `tsl/` URL, and that
+    /// [`EndfCache::path_for_tsl`] lays the cache out under `<library>/`. All PASS.
+    #[test]
+    fn tsl_acquire_path_is_well_formed() {
+        // Registry resolves the HTR-10 graphite evaluations + H-in-H2O.
+        assert_eq!(
+            well_known_tsl("graphite"),
+            Some(TslMaterial {
+                base: "tsl-crystalline-graphite",
+                mat: 30
+            })
+        );
+        assert_eq!(well_known_tsl("crystalline-graphite").unwrap().mat, 30);
+        assert_eq!(well_known_tsl("reactor-graphite-10P").unwrap().mat, 31);
+        assert_eq!(well_known_tsl("reactor-graphite-30P").unwrap().mat, 32);
+        assert_eq!(well_known_tsl("HinH2O").unwrap().base, "tsl-HinH2O");
+        assert_eq!(well_known_tsl("not-a-scatterer"), None);
+
+        // thermal_url builds the tsl sublibrary URL (named file, not n_<MAT>).
+        assert_eq!(
+            EndfLibrary::EndfBVIII0.thermal_url("tsl-crystalline-graphite"),
+            "https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/tsl/tsl-crystalline-graphite.zip"
+        );
+
+        // Cache layout: <root>/<library>/<base>.endf.
+        let cache = EndfCache::with_dir(std::env::temp_dir().join("op6tz28_tsl_test")).unwrap();
+        let p = cache.path_for_tsl(EndfLibrary::EndfBVIII0, "tsl-crystalline-graphite");
+        assert!(p.ends_with("ENDF-B-VIII.0/tsl-crystalline-graphite.endf"));
+    }
+
     /// Each library variant points at a distinct hardcoded upstream directory.
     #[test]
     fn library_dirs_are_distinct() {
@@ -549,7 +841,9 @@ mod tests {
         uniq.sort_unstable();
         uniq.dedup();
         assert_eq!(dirs.len(), uniq.len(), "library dirs must be unique");
-        assert!(EndfLibrary::Jeff33.neutron_url(9437, 94, 239, "Pu").contains("JEFF-3.3"));
+        assert!(EndfLibrary::Jeff33
+            .neutron_url(9437, 94, 239, "Pu")
+            .contains("JEFF-3.3"));
     }
 
     /// The built-in MAT table matches values verified against the IAEA listing.
@@ -561,6 +855,32 @@ mod tests {
         assert_eq!(well_known_mat(1, 1), Some(125));
         assert_eq!(well_known_mat(8, 16), Some(825));
         assert_eq!(well_known_mat(50, 120), None); // not in the shipped set
+    }
+
+    /// Carbon is registered so a graphite material can be addressed by name for
+    /// HIGH-tier reconstruction (HTR-10 moderator/reflector, bead op-h23).
+    ///
+    /// # Methodology
+    /// Structural / addressing check, not a physics-reconstruction test. The MAT
+    /// this table returns is what [`zip_filename`]/[`tape_filename`] interpolate
+    /// into the IAEA NDS download name (`n_{mat:04}_{z}-{symbol}-{a}.zip`), so a
+    /// wrong MAT silently 404s the fetch. Assert each carbon entry resolves to
+    /// the MAT that produces the **published** IAEA filename.
+    ///
+    /// # Reference / results (2026-08-12)
+    /// Checked against the public IAEA NDS `download-endf` naming convention
+    /// (`DATA_POLICY.md`: open evaluated-data metadata only). C-nat and C-12
+    /// share MAT 600 (`n_0600_6-C-0.zip` / `n_0600_6-C-12.zip`); C-13 is MAT 631
+    /// (`n_0631_6-C-13.zip`). Corrects the earlier 625/628, which built
+    /// non-existent `n_0625_*` / `n_0628_*` names. All asserts PASS.
+    #[test]
+    fn carbon_is_registered_for_graphite() {
+        assert_eq!(well_known_mat(6, 0), Some(600), "C-nat (ENDF/B-VII.1)");
+        assert_eq!(well_known_mat(6, 12), Some(600), "C-12 (ENDF/B-VIII.0+)");
+        assert_eq!(well_known_mat(6, 13), Some(631), "C-13 (ENDF/B-VIII.0+)");
+        // The MAT must build the real IAEA download filename.
+        assert_eq!(zip_filename(600, 6, 12, "C"), "n_0600_6-C-12.zip");
+        assert_eq!(zip_filename(631, 6, 13, "C"), "n_0631_6-C-13.zip");
     }
 
     /// The element table round-trips symbol ↔ Z and rejects nonsense.

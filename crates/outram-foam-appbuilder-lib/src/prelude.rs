@@ -22,9 +22,7 @@
 pub use crate::error::AppBuilderError;
 
 // I/O
-pub use crate::io::control_dict::{
-    ControlDict, StartControl, StopControl, WriteControl, WriteFormat,
-};
+pub use crate::io::control_dict::{ControlDict, StartControl, StopControl, WriteControl, WriteFormat};
 pub use crate::io::fv_schemes::{
     DdtScheme, DivScheme, FvSchemes, GradScheme, LaplacianScheme, SnGradScheme,
 };
@@ -53,6 +51,7 @@ pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerMode
 
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
+pub use crate::solvers::melt_foam::MeltFoam;
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
 pub use crate::solvers::reacting_two_phase_euler_foam::{
     build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,
@@ -62,3 +61,6 @@ pub use crate::solvers::reacting_two_phase_euler_foam::{
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
 pub use crate::solvers::sonic_foam::SonicFoam;
+
+// Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
+pub use crate::turbulence::TurbulenceClosure;

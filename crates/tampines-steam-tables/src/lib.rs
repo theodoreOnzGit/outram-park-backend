@@ -37,26 +37,24 @@ pub mod prelude;
 /// constants for the steam table calculations
 pub mod constants;
 
-/// region 1 
+/// region 1
 ///
-/// Temperature from 273.15 to 623.15 K 
+/// Temperature from 273.15 to 623.15 K
 /// Pressure from 0 to 100 MPa
 ///
-/// Up to the saturation line. 
+/// Up to the saturation line.
 /// This I believe is subcooled liquid region
 pub mod region_1_subcooled_liquid;
 
-
-
-/// region 2 
+/// region 2
 ///
 /// vapour region
 pub mod region_2_vapour;
 
-/// region 3 
+/// region 3
 ///
-/// single phase liquid and vapour 
-/// region, also includes supercritical region 
+/// single phase liquid and vapour
+/// region, also includes supercritical region
 /// and critical point
 ///
 /// auxilliary equation for region 2 and 3 are also put here
@@ -70,12 +68,10 @@ pub mod region_3_single_phase_plus_supercritical_steam;
 /// where vapour liq equilibrium exists
 pub mod region_4_vap_liq_equilibrium;
 
-
-/// region 5 
+/// region 5
 ///
 /// superheated steam region (ultra high temp)
 pub mod region_5_steam_at_800_plus_degc;
-
 
 /// backward equations ph boundary equations
 /// overall equation
@@ -92,30 +88,28 @@ pub mod backward_eqn_hs_region_1_to_4;
 /// dynamic viscosity calcs
 pub mod dynamic_viscosity;
 
-/// thermal conductivity calcs 
+/// thermal conductivity calcs
 pub mod thermal_conductivity;
 
-
-/// public facing interfaces where the user 
-/// simply inputs pressure and temperature 
-/// or pressure and enthalpy etc 
+/// public facing interfaces where the user
+/// simply inputs pressure and temperature
+/// or pressure and enthalpy etc
 /// and gets all the required data automatically
 ///
-/// the logic for splitting between regions is 
-/// mostly here 
+/// the logic for splitting between regions is
+/// mostly here
 pub mod interfaces;
 
-/// surface tension 
+/// surface tension
 /// important for boiling
 pub mod surface_tension;
 
-/// dielectric constant 
+/// dielectric constant
 pub mod dielectric_constant;
 
-
-/// useful equations for steam turbines 
-/// These include nozzles, impulse turbines 
-/// and reaction turbines at some steady 
+/// useful equations for steam turbines
+/// These include nozzles, impulse turbines
+/// and reaction turbines at some steady
 /// state,
 /// as well as angular momentum balance
 pub mod steam_turbine_equations;
@@ -130,10 +124,8 @@ pub mod openfoam_algorithms;
 /// convenience. `TampinesSteamArray` backs each finite-volume cell with an
 /// IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
 pub use openfoam_algorithms::rhoPimpleFoam::{
-    SolverMode, TampinesSteamArray, TampinesSteamArrayError,
+    AdvectionTerminalState, SolverMode, TampinesSteamArray, TampinesSteamArrayError,
 };
-
-
 
 // pool boiling code for use within the fhr sim v1
 mod fhr_sim_debugging_tests;

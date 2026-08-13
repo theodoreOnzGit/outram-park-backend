@@ -33,7 +33,7 @@ pub struct PerfectGas {
 }
 
 impl PerfectGas {
-    /// Construct an ideal perfect-gas EOS from the species molar mass W [kg/mol].
+    /// Construct an ideal perfect-gas EOS from the species molar mass W `[kg/mol]`.
     pub fn new(mol_weight: MolarMass) -> Self {
         Self { mol_weight }
     }

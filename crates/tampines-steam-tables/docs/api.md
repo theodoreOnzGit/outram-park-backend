@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.2.2
+**Version:** 0.2.5
 
 **Format Version:** 60
 
@@ -55,6 +55,17 @@ pub mod prelude { /* ... */ }
 
 ```rust
 pub use crate::interfaces::functional_programming;
+```
+
+#### Re-export `checked`
+
+Bounds-checked, `Result`-returning facade over the panicking flash
+internals — see [`crate::interfaces::checked`]. Import as
+`tampines_steam_tables::prelude::checked::try_h_tp_eqm_single_phase`
+(etc.) when out-of-range input must not kill the calling thread.
+
+```rust
+pub use crate::interfaces::checked;
 ```
 
 #### Re-export `get_choked_flow_massrate_and_state_from_stagnation_properties_and_area`
@@ -3197,8 +3208,8 @@ pub mod interfaces { /* ... */ }
 
 ## Module `functional_programming`
 
-this set of interfaces allows the user 
-to interact using a more functional programming 
+this set of interfaces allows the user
+to interact using a more functional programming
 style (no objects)
 
 this keeps things simple.
@@ -3512,12 +3523,39 @@ pressure from triple pt pressure to 500 bar
 Determines which region of the pT chart
 a point belongs to.
 
-Returns an error if the point is outside the
-bounds of the IAPWS-IF97 correlations.
-
 Temperature is assumed to be in K
 Pressure is assumed to be in Pa
 
+# Validity envelope (and which edges are inclusive)
+
+IAPWS-IF97 is defined for `273.15 K <= T <= 1073.15 K` at
+`0 < p <= 100 MPa` (Regions 1-4), extended to
+`1073.15 K <= T <= 2273.15 K` at `0 < p <= 50 MPa` (Region 5). **Both
+pressure ceilings are inclusive** — `p = 100 MPa` exactly is a valid
+IF97 state at every temperature up to 1073.15 K, and `p = 50 MPa`
+exactly is valid in Region 5. Corroborated inside this crate by the
+IAPWS-published backward-equation verification points at exactly
+100 MPa in Region 3, i.e. at temperatures well above 623.15 K:
+`t_ph_3a(100 MPa, 2100 kJ/kg) = 733.6163014 K` and
+`v_ph_3a(100 MPa, 2100 kJ/kg) = 1.676229776e-3 m^3/kg`
+(see `region_3_.../tests/region_3_backward_t_ph.rs::t3a_ph_test3` and
+`.../region_3_backward_v_ph.rs::v3a_ph_test3`), and by
+`is_outside_pressure_range` in the `(p,h)` validity check, which
+rejects only `p > 100 MPa`.
+
+The match arms below therefore all close their 100 MPa edge with
+`..=100e6`. Before 2026-08-11 the Region-2 and Region-3 arms used a
+half-open `..100e6`, so exactly 100 MPa above 623.15 K matched no arm
+and fell through to the `panic!` (bead `op-cv1c`); that also made every
+`(p,h)` call at exactly 100 MPa panic, because
+`is_above_isotherm_t_1073_15` evaluates `h_tp_eqm_single_phase` on the
+1073.15 K isotherm at that pressure.
+
+# Panics
+
+Panics if the `(T,p)` point lies outside the envelope above. Callers
+that need a `Result` instead should use
+[`crate::interfaces::checked`].
 
 ```rust
 pub fn region_fwd_eqn_single_phase(t: ThermodynamicTemperature, p: Pressure) -> FwdEqnRegion { /* ... */ }
@@ -4380,6 +4418,1338 @@ vibe coded and edited
 
 ```rust
 pub fn find_pressure_from_hs_region_4(h_target: AvailableEnergy, s_target: SpecificHeatCapacity) -> Pressure { /* ... */ }
+```
+
+## Module `checked`
+
+Bounds-checked, `Result`-returning facade over the panicking flash
+internals: validates `(T,p)` / `(p,h)` input against the IAPWS-IF97
+validity envelope BEFORE calling the unchecked functions, returning
+[`checked::SteamTablesError`] instead of panicking on out-of-range or
+non-finite input (bead `op-t647`).
+Bounds-checked, `Result`-returning facade over the IAPWS-IF97 flash
+internals (bead `op-t647`).
+
+The unchecked entry points in
+[`super::functional_programming::pt_flash_eqm`] and
+[`super::functional_programming::ph_flash_eqm`] **panic** on
+out-of-range input (`region_fwd_eqn_single_phase` and
+`check_if_within_ph_validity_region` both end in `panic!`). In a
+transient simulation a single overshooting state kills the physics
+thread. This module wraps the commonly used `(T,p)` and `(p,h)` flash
+functions with an explicit validity-envelope check performed **before**
+any panicking internal is called, returning
+[`SteamTablesError`] instead of panicking.
+
+## The envelope enforced here
+
+The bounds below are **read from this crate's own region router**
+(`region_fwd_eqn_single_phase` in `pt_flash_eqm/mod.rs` and
+`check_if_within_ph_validity_region` + `validity_range.rs` in
+`ph_flash_eqm/`), verified against the source on 2026-08-11 — they are
+the set of inputs the internals actually accept, which matches the
+documented IAPWS-IF97 envelope with three sharp edges noted below.
+
+`(T,p)` single-phase flashes ([`try_h_tp_eqm_single_phase`] etc.):
+
+- `T` in `[273.15 K, 2273.15 K]` overall;
+- `p` in `(0, 100 MPa]` for `T` in `[273.15 K, 1073.15 K]` — the
+  100 MPa ceiling is **inclusive at every temperature in this band**.
+  (Between this module landing on 2026-08-11 and the `op-cv1c` fix
+  later the same day, the edge was exclusive above 623.15 K, because
+  the internal region router's Region-2 and Region-3 arms used
+  half-open ranges (`..100e6`) and exactly 100 MPa fell through to
+  their `panic!`. The router now closes those arms with `..=100e6`, so
+  the facade no longer has to carve the point out.)
+- `p` in `(0, 50 MPa]` for `T` in `(1073.15 K, 2273.15 K]` (Region 5);
+- a `(T, p)` pair lying **exactly** on the saturation line
+  (`p == p_sat(T)` bit-for-bit, `T < 647.096 K`) is rejected with
+  [`SteamTablesError::SaturatedTpUnderdetermined`]: the internals route
+  it to Region 4, where a single-phase `(T,p)` flash is physically
+  under-determined without a steam quality (see
+  `REGION_4_TP_UNDERDETERMINED` in `pt_flash_eqm`).
+
+`(p,h)` flashes ([`try_t_ph_eqm`] etc.):
+
+- `p` in `[p_sat(273.15 K) ≈ 611.213 Pa, 100 MPa]` — the upper edge is
+  **inclusive**, matching `is_outside_pressure_range`, which rejects
+  only `p > 100 MPa`. (It was exclusive here until `op-cv1c`: the
+  internal 1073.15 K-isotherm bound helper
+  `is_above_isotherm_t_1073_15` evaluates
+  `h_tp_eqm_single_phase(1073.15 K, p)`, so the router's half-open
+  100 MPa edge made *every* `(p,h)` call at exactly 100 MPa panic
+  regardless of `h`. With the router fixed that call succeeds.);
+- `h` in `[h(273.15 K, p), h(1073.15 K, p)]`, evaluated with the same
+  Region-1 forward equation (`h_tp_1`) and single-phase `(T,p)` flash
+  the internal validity check uses, so the accepted set is identical.
+  `(p,h)` flashes into Region 5 (`T > 1073.15 K`) are unsupported by
+  IAPWS-IF97 itself (no backward `(p,h)` correlation) and fall out of
+  the `h` upper bound here.
+
+Non-finite input (`NaN`, `±inf`) is rejected up front with
+[`SteamTablesError::NonFinite`] — the internals' range comparisons are
+silently `false` for `NaN`, which would otherwise let `NaN` states flow
+through undetected.
+
+## Other families covered by this facade
+
+Three more families were added by bead `op-dt3.26`; each lives in its
+own submodule with its own panic-site-to-gate table, and each is
+re-exported here so `interfaces::checked::*` remains the single import:
+
+- [`ps`] — the `(p,s)` flash family (11 functions plus the throat mass
+  flux) and [`check_ps_envelope`]. Note its pressure floor is
+  **exclusive** where the `(p,h)` one is inclusive: the `(p,s)` validity
+  check evaluates `s_tp_eqm_single_phase` on the 273.15 K isotherm and
+  so hits the Region-4 trap at exactly `p = p_sat(273.15 K)`.
+- [`two_phase`] — the quality-carrying `(T,p,x)` family (11 functions)
+  and [`check_tpx_envelope`]. This one **accepts** saturation-line
+  `(T,p)` pairs, which the single-phase gate above must reject, and it
+  rejects a steam quality outside `[0, 1]` that the internals would
+  silently clamp.
+- [`control_volume`] — additive `Result`-returning constructors for
+  [`crate::interfaces::object_oriented_programming::TampinesSteamTableCV`].
+
+Two `(T,p)` and two `(p,h)` properties that the original facade did not
+reach — the isobaric cubic expansion coefficient `alpha_v` and the
+isothermal compressibility `kappa_T` — are wrapped below against the
+existing validators.
+
+## Known gaps (deliberately not gated)
+
+Nothing here half-gates: a family with a panic this facade cannot
+exclude is left out entirely rather than given a check that would claim
+a safety it does not provide.
+
+- **The `(h,s)` flash family** (`t_hs_eqm`, `p_hs_eqm`, `v_hs_eqm`,
+  `x_hs_eqm`, `cp_hs_eqm`, `w_hs_eqm`, `kappa_hs_eqm`, `mu_hs_eqm`,
+  `lambda_hs_eqm`, `tpvx_hs_flash_eqm`, `hs_flash_region`,
+  `find_pressure_from_hs_region_4`) — 26 distinct `panic!`/`todo!`
+  sites spread over nine entropy-band sub-routers, whose enthalpy
+  bounds are themselves computed by `(p,s)` flashes, plus a bisection
+  that panics when its bracket fails. Gating it faithfully means
+  mirroring the whole band dispatch, not adding a bounds check.
+- **`TampinesSteamTableCV::new_from_hs`** and the setter methods, for
+  the same reason (see [`control_volume`]).
+- **The choked-flow solvers** in
+  [`crate::steam_turbine_equations::converging_diverging_nozzles`], and
+  `TampinesSteamTableCV::get_crit_pressure_and_massflux` which calls
+  them. Their panics — "unable to find bracket for critical mass flux
+  root finding", the Joule-Thomson "bounds are same sign!" and "failed
+  to converge" — are **iteration failures, not envelope violations**.
+  No check on the stagnation state can exclude them without running the
+  solver, so the honest fix is for those functions to return `Result`,
+  not for a facade to pretend it can screen the input. The one piece
+  that *is* an envelope check, the throat mass flux, is wrapped as
+  [`ps::try_mass_flux_ps_eqm_throat`].
+- **`pt_flash_metastable`** — its `mod.rs` is empty (zero lines); the
+  metastable Region-2 equations live in
+  `region_2_vapour::metastable_region_2` and are reached through
+  `TampinesSteamTableCV::get_metastable_steam_*`, which already return
+  `Option`. There is no panicking entry point in that module to gate.
+
+## No `catch_unwind`
+
+This facade uses **bounds-checking only** — no
+`std::panic::catch_unwind`. Every reachable `panic!` site in the
+wrapped call graph is an envelope violation (region-router fallthrough,
+`(p,h)` validity check, Region-4/Region-5 dispatch arms), and all of
+them are excluded by the checks above before the internals run.
+Closed-form IAPWS polynomial evaluation inside the envelope does not
+panic (it may lose accuracy near the critical point — see the crate
+`CLAUDE.md` "Known accuracy pitfalls" — but degraded accuracy is
+returned as a value, not a panic). This was confirmed by grep over
+every `region_*` and `backward_eqn_*` module on 2026-08-11: zero
+`panic!`, `todo!`, `unimplemented!`, `unwrap` or `expect` sites. The
+whole panic surface of this crate's property layer lives in the
+`interfaces/` routers.
+
+```rust
+pub mod checked { /* ... */ }
+```
+
+### Modules
+
+## Module `ps`
+
+The `(p,s)` flash family — see the module's own docs for its panic
+trace and its **exclusive** pressure floor.
+Bounds-checked `(p,s)` flash facade (bead `op-dt3.26`).
+
+The unchecked `(p,s)` entry points in
+[`crate::interfaces::functional_programming::ps_flash_eqm`] **panic** on
+out-of-range input. This module wraps them with an explicit
+validity-envelope check performed **before** any panicking internal is
+called, returning [`SteamTablesError`] instead.
+
+## Panic-trace: every reachable `panic!` and the gate that excludes it
+
+Traced against the source on 2026-08-11. Every `(p,s)` entry point
+starts by calling `ps_flash_region(p, s)`, which calls
+`check_if_within_ps_validity_region(p, s)`; the region equations
+themselves (`region_1_.../region_5_...`, `backward_eqn_ps_*`) contain no
+`panic!`/`todo!`/`unwrap` at all, so the entire panic surface lives in
+the router.
+
+| Panic site | Condition | Excluded by |
+|---|---|---|
+| `ps_flash_eqm/validity_range.rs:21` "p,s point is lower than acceptable pressure range" | `p < p_sat(273.15 K)` | pressure lower gate |
+| `ps_flash_eqm/validity_range.rs:26` "p,s point is higher than acceptable pressure range" | `p > 100 MPa` | pressure upper gate |
+| `ps_flash_eqm/validity_range.rs:40`, `:60` "outside pressure range" | re-check of the two above | same two gates |
+| `ps_flash_eqm/mod.rs:828` "p,s point is outside pressure range" | same predicate | same two gates |
+| `ps_flash_eqm/mod.rs:833` "p,s point below 273.15K" | `s < s(273.15 K, p)` | entropy lower gate |
+| `ps_flash_eqm/mod.rs:837` "p,s point above 1073.15K" | `s > s(1073.15 K, p)` | entropy upper gate |
+| `pt_flash_eqm/mod.rs:198` "entropy: two-phase (T,p) ... under-determined" | reached *inside* `is_below_isotherm_t_273_15`, which evaluates `s_tp_eqm_single_phase(273.15 K, p)`; the `(T,p)` router returns Region 4 when `p == p_sat(273.15 K)` **bit-for-bit** | **exclusive** pressure lower gate (`p > p_sat(273.15 K)`, not `>=`) |
+| `boundaries_between_single_phase_regions.rs:20,23,60,63,106` "p in (p,s) point is outside validity range" | `p` below 16.529 MPa / above 100 MPa inside the `p >= 16.529 MPa` branch | unreachable: that branch is only entered when `16.529 MPa <= p <= 100 MPa` already holds |
+| `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:30,33,75,78` "entropy of p,s point is outside validity range" | `s` outside the Region-3/4 boundary entropy band | unreachable inside the gate: the Region-1 and Region-2 tests immediately above them already returned for every `s` outside that band |
+| `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:123,151` "pressure of p,s point is outside validity range" | `p` outside `[p_sat(273.15 K), p_sat(623.15 K)]` in the `p < 16.529 MPa` branch | pressure gate plus the branch condition |
+| `ps_flash_eqm/mod.rs:64,154` `todo!("region 5 ps flash not implemented")` | `ps_flash_region` returning `Region5` | unreachable: `ps_flash_region` has no code path that returns `Region5` |
+
+The last four rows are "unreachable" arguments rather than direct gates,
+so they were checked empirically as well — see the V&V note in
+[`super::tests`]: a 273 609-point sweep of the accepted set found zero
+surviving panics across all ten wrapped functions.
+
+## The `p == p_sat(273.15 K)` trap (differs from the `(p,h)` facade)
+
+The `(p,h)` validity check dodges this trap deliberately by evaluating
+its lower enthalpy bound with the Region-1 forward equation `h_tp_1`
+instead of the `(T,p)` router (see the note in
+`ph_flash_eqm/validity_range.rs`). The `(p,s)` check does **not** — it
+calls `s_tp_eqm_single_phase(273.15 K, p)`, which routes to Region 4 and
+panics at exactly `p = p_sat(273.15 K)`. The `(p,s)` pressure floor here
+is therefore **exclusive** where the `(p,h)` one is inclusive. This is a
+defect in the internals, not in IF97 (the triple-point isobar is a
+perfectly good IF97 state); it is recorded as a follow-up rather than
+papered over.
+
+## No `catch_unwind`
+
+This facade is a bounds check, not an exception handler. Non-finite
+input (`NaN`, `+/-inf`) is rejected explicitly up front, because the
+internals' range comparisons are silently `false` for `NaN` and would
+otherwise let `NaN` states through undetected.
+
+```rust
+pub mod ps { /* ... */ }
+```
+
+### Functions
+
+#### Function `check_ps_envelope`
+
+Validates a `(p, s)` pair against the envelope the unchecked `(p,s)`
+internals actually accept, returning `Ok(())` when every wrapped
+`try_*_ps_*` function in this module is safe to call.
+
+# Physical quantities and valid ranges
+
+- `p` — absolute pressure, Pa. Valid in the **half-open** interval
+  `(p_sat(273.15 K), 100 MPa]`, i.e. strictly above the triple-point
+  saturation pressure (about 611.213 Pa) and up to and including
+  100 MPa. The lower edge is exclusive because of the Region-4 trap
+  documented at module level; the upper edge is inclusive, matching
+  `is_outside_pressure_range`, which rejects only `p > 100 MPa`.
+- `s` — specific entropy, J/(kg K). Valid between the 273.15 K and
+  1073.15 K isotherm entropies **at that pressure**, both edges
+  inclusive. Both bounds are evaluated with the same
+  `s_tp_eqm_single_phase` call the internal check uses, so the accepted
+  set is identical rather than merely similar.
+
+Non-finite input is rejected first with
+[`SteamTablesError::NonFinite`].
+
+```rust
+pub fn check_ps_envelope(p: Pressure, s: SpecificHeatCapacity) -> super::Result<()> { /* ... */ }
+```
+
+#### Function `try_t_ps_eqm`
+
+Checked temperature T (K) from a `(p,s)` flash (Regions 1-4; Region 5
+is not implemented for this flash path and lies outside the entropy
+window). Valid range: the `(p,s)` envelope in
+[`check_ps_envelope`]. Agrees exactly with [`t_ps_eqm`] for in-range
+input.
+
+```rust
+pub fn try_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<ThermodynamicTemperature> { /* ... */ }
+```
+
+#### Function `try_v_ps_eqm`
+
+Checked specific volume v (m^3/kg) from a `(p,s)` flash (two-phase
+states return the quality-weighted mixture volume). Valid range: the
+`(p,s)` envelope in [`check_ps_envelope`]. Agrees exactly with
+[`v_ps_eqm`] for in-range input.
+
+```rust
+pub fn try_v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<SpecificVolume> { /* ... */ }
+```
+
+#### Function `try_rho_ps_eqm`
+
+Checked mass density rho (kg/m^3) from a `(p,s)` flash — the reciprocal
+of [`try_v_ps_eqm`]. Valid range: the `(p,s)` envelope in
+[`check_ps_envelope`].
+
+```rust
+pub fn try_rho_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<MassDensity> { /* ... */ }
+```
+
+#### Function `try_h_ps_eqm`
+
+Checked specific enthalpy h (J/kg) from a `(p,s)` flash. Valid range:
+the `(p,s)` envelope in [`check_ps_envelope`]. Agrees exactly with
+[`h_ps_eqm`] for in-range input.
+
+```rust
+pub fn try_h_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_x_ps_flash`
+
+Checked steam quality x (dimensionless, bare `f64` to agree exactly with
+the unchecked [`x_ps_flash`]): 0 for subcooled liquid, 1 for superheated
+vapour, in `(0, 1)` inside the vapour-liquid dome. Valid range: the
+`(p,s)` envelope in [`check_ps_envelope`].
+
+```rust
+pub fn try_x_ps_flash(p: Pressure, s: SpecificHeatCapacity) -> super::Result<f64> { /* ... */ }
+```
+
+#### Function `try_cp_ps_eqm`
+
+Checked isobaric specific heat capacity cp (J/(kg K)) from a `(p,s)`
+flash (two-phase states return a quality-interpolated estimate — see
+[`cp_ps_eqm`]). Valid range: the `(p,s)` envelope in
+[`check_ps_envelope`].
+
+```rust
+pub fn try_cp_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cv_ps_eqm`
+
+Checked isochoric specific heat capacity cv (J/(kg K)) from a `(p,s)`
+flash (two-phase states return a quality-interpolated estimate — see
+[`cv_ps_eqm`]). Valid range: the `(p,s)` envelope in
+[`check_ps_envelope`].
+
+```rust
+pub fn try_cv_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_w_ps_wood_wallis`
+
+Checked speed of sound w (m/s) from a `(p,s)` flash; in the two-phase
+region this is the Wood/Wallis homogeneous-mixture sound speed. Valid
+range: the `(p,s)` envelope in [`check_ps_envelope`]. Agrees exactly
+with [`w_ps_wood_wallis`] for in-range input.
+
+```rust
+pub fn try_w_ps_wood_wallis(p: Pressure, s: SpecificHeatCapacity) -> super::Result<Velocity> { /* ... */ }
+```
+
+#### Function `try_kappa_ps_eqm`
+
+Checked isentropic exponent kappa (dimensionless `Ratio`) from a `(p,s)`
+flash. Valid range: the `(p,s)` envelope in [`check_ps_envelope`].
+Agrees exactly with [`kappa_ps_eqm`] for in-range input.
+
+```rust
+pub fn try_kappa_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<Ratio> { /* ... */ }
+```
+
+#### Function `try_alpha_v_ps_eqm`
+
+Checked isobaric cubic expansion coefficient alpha_v (1/K) from a
+`(p,s)` flash. Valid range: the `(p,s)` envelope in
+[`check_ps_envelope`]. Agrees exactly with [`alpha_v_ps_eqm`] for
+in-range input.
+
+```rust
+pub fn try_alpha_v_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<TemperatureCoefficient> { /* ... */ }
+```
+
+#### Function `try_kappa_t_ps_eqm`
+
+Checked isothermal compressibility kappa_T (1/Pa) from a `(p,s)` flash.
+Valid range: the `(p,s)` envelope in [`check_ps_envelope`]. Agrees
+exactly with [`kappa_t_ps_eqm`] for in-range input.
+
+```rust
+pub fn try_kappa_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> super::Result<crate::region_1_subcooled_liquid::InversePressure> { /* ... */ }
+```
+
+#### Function `try_mass_flux_ps_eqm_throat`
+
+Checked HEM critical mass flux G (kg/(m^2 s)) evaluated **at throat
+conditions** `(p, s)` — not stagnation conditions. Valid range: a
+**stricter** envelope than [`check_ps_envelope`], because the unchecked
+[`mass_flux_ps_eqm_throat`] differentiates `v(p,s)` by finite difference
+and therefore evaluates the `(p,s)` flash at *three* pressures.
+
+# Panic-trace
+
+Beyond the `(p,s)` panics listed at module level, the unchecked function
+reaches them again at the perturbed pressures:
+
+- `v_ps_eqm(p + p * 1e-5, s_adjusted)` — panics for `p` within
+  `1e-5` relative of 100 MPa (the step walks over the ceiling), and for
+  `s` within a step of the 1073.15 K isotherm (raising the pressure
+  lowers that isotherm's entropy). Excluded by re-running
+  [`check_ps_envelope`] at `p + dp`.
+- `v_ps_eqm(max(p - p * 1e-5, 611.823 Pa), s_adjusted)` — same, at the
+  lower edge. Excluded by re-running [`check_ps_envelope`] at that
+  clamped pressure.
+- `s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0 | 1.0)`, used to locate the
+  bubble point for the near-saturation entropy adjustment. Excluded by
+  [`check_tpx_envelope`] at `(sat_temp_4(p), p, 0)`; the `x = 1` call is
+  the same `(T,p)` point and both qualities are inside `[0, 1]`.
+
+The entropy actually passed to the perturbed flashes is the *adjusted*
+entropy the unchecked function computes (it snaps entropies just below
+the bubble point up to a quality of `1e-4`), reproduced here exactly so
+the checked bound is the one the internals will use.
+
+Units: `p` in Pa, `s` in J/(kg K), result in kg/(m^2 s).
+
+```rust
+pub fn try_mass_flux_ps_eqm_throat(p: Pressure, s: SpecificHeatCapacity) -> super::Result<MassFlux> { /* ... */ }
+```
+
+## Module `two_phase`
+
+The quality-carrying two-phase `(T,p,x)` flash family — see the
+module's own docs for its panic trace.
+Bounds-checked two-phase `(T, p, x)` flash facade (bead `op-dt3.26`).
+
+The `*_tp_eqm_two_phase` family in
+[`crate::interfaces::functional_programming::pt_flash_eqm::multiphase_flashing`]
+is the quality-carrying counterpart of the single-phase `(T,p)` flashes:
+it resolves saturation-line states that
+[`super::check_tp_single_phase_envelope`] has to reject as
+under-determined. These functions **panic** on out-of-envelope `(T,p)`,
+and silently *clamp* an out-of-range steam quality; this module rejects
+both before the internals run.
+
+## Panic-trace: every reachable `panic!` and the gate that excludes it
+
+Traced against the source on 2026-08-11. Each `*_tp_eqm_two_phase`
+function begins with `region_fwd_eqn_two_phase(t, p, x)` and then
+`match`es on the returned region. Unlike the single-phase family, the
+`Region4` arm is **implemented** in every one of these functions, so the
+`REGION_4_TP_UNDERDETERMINED` panics do not apply here.
+
+| Panic site | Condition | Excluded by |
+|---|---|---|
+| `pt_flash_eqm/mod.rs:157` "t,p flashing at eqm out of bounds!" | `region_fwd_eqn_two_phase` falls through to `region_fwd_eqn_single_phase` (i.e. `(T,p)` is off the saturation line, or above the critical temperature/pressure) with `(T,p)` outside the IF97 envelope | the `(T,p)` envelope gate below: `T` in `[273.15 K, 2273.15 K]`, `0 < p <= 100 MPa` for `T <= 1073.15 K`, `0 < p <= 50 MPa` above it |
+| `pt_flash_eqm/mod.rs:171,184,198,211,225,242,256,321,334,348` `REGION_4_TP_UNDERDETERMINED` | the single-phase `(T,p)` functions' Region-4 arms | **not reachable from this family** — these functions never call the single-phase property functions; they call `region_fwd_eqn_single_phase` (the router) only, and handle `Region4` themselves |
+
+The Region-3 arms call the near-saturation backward volume equations
+(`v_tp_3c`, `v_tp_3r`, `v_tp_3s`, `v_tp_3t`, `v_tp_3u`, `v_tp_3x`,
+`v_tp_3y`, `v_tp_3z`) and `h_rho_t_3`/`s_rho_t_3`/... at Region-3 points
+that may lie far from the saturation line. Those are closed-form
+polynomial evaluations containing no `panic!`, `todo!`, `unwrap` or
+`expect` (verified by grep over `region_1_..` through `region_5_..` and
+`backward_eqn_*`, which return zero hits), so they can lose accuracy but
+cannot panic — and the result is discarded unless the point really is
+near the saturation line.
+
+## Steam quality is rejected, not clamped
+
+`region_fwd_eqn_two_phase` and each Region-3/Region-4 arm silently clamp
+`x` into `[0, 1]`. That is a correctness hazard rather than a panic: a
+caller passing `x = 1.7` gets a saturated-vapour answer with no
+indication that the input was nonsense. The checked facade rejects
+`x < 0` and `x > 1` with [`SteamTablesError::QualityOutOfRange`], while
+**accepting `x = 0` and `x = 1` exactly** — those are the physically
+meaningful bubble- and dew-point states the internals route to
+Region 1/2 (below 623.15 K) or Region 3 (above it).
+
+`NaN` quality is worse: it survives every clamp (`NaN < 0.0` and
+`NaN > 1.0` are both `false`), fails the `x == 0.0` / `x == 1.0`
+bubble/dew tests, and propagates into the mixture weighting to return a
+silent `NaN`. It is rejected explicitly as
+[`SteamTablesError::NonFinite`].
+
+## Difference from the single-phase `(T,p)` gate
+
+[`check_tpx_envelope`] is deliberately **not**
+[`super::check_tp_single_phase_envelope`] plus a quality check: it omits
+that gate's `SaturatedTpUnderdetermined` rejection. A `(T, p_sat(T))`
+pair is exactly what this family exists to evaluate, and accepting it is
+the whole point.
+
+## No `catch_unwind`
+
+This facade is a bounds check, not an exception handler.
+
+```rust
+pub mod two_phase { /* ... */ }
+```
+
+### Functions
+
+#### Function `check_tpx_envelope`
+
+Validates a `(T, p, x)` triple against the envelope the unchecked
+two-phase `(T,p,x)` internals actually accept, returning `Ok(())` when
+every wrapped `try_*_tp_eqm_two_phase` function is safe to call.
+
+# Physical quantities and valid ranges
+
+- `t` — thermodynamic temperature, K. Valid in `[273.15, 2273.15]`.
+- `p` — absolute pressure, Pa. Valid in `(0, 100 MPa]` for `t` in
+  `[273.15 K, 1073.15 K]`, and in `(0, 50 MPa]` for `t` above
+  1073.15 K (IF97 Region 5). Both ceilings are **inclusive**; the floor
+  is exclusive at 0 (vacuum has no IF97 state).
+- `x` — steam quality, i.e. vapour mass fraction, dimensionless. Valid
+  in `[0, 1]`, **both edges inclusive**. It only affects the answer for
+  `(T,p)` pairs on (or within `5e-4` relative pressure of) the
+  saturation line; elsewhere the underlying single-phase equations
+  ignore it.
+
+Unlike [`super::check_tp_single_phase_envelope`] this check **accepts**
+saturation-line `(T,p)` pairs — resolving them is what the two-phase
+family is for.
+
+Non-finite input is rejected first with
+[`SteamTablesError::NonFinite`].
+
+```rust
+pub fn check_tpx_envelope(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<()> { /* ... */ }
+```
+
+#### Function `try_h_tp_eqm_two_phase`
+
+Checked specific enthalpy h (J/kg) from a two-phase-aware `(T,p,x)`
+flash. Valid range: the `(T,p,x)` envelope in [`check_tpx_envelope`]
+(saturation-line pairs accepted; `x` in `[0, 1]`). Agrees exactly with
+[`h_tp_eqm_two_phase`] for in-range input.
+
+```rust
+pub fn try_h_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_u_tp_eqm_two_phase`
+
+Checked specific internal energy u (J/kg) from a two-phase-aware
+`(T,p,x)` flash. Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with [`u_tp_eqm_two_phase`] for
+in-range input.
+
+```rust
+pub fn try_u_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_s_tp_eqm_two_phase`
+
+Checked specific entropy s (J/(kg K)) from a two-phase-aware `(T,p,x)`
+flash. Valid range: the `(T,p,x)` envelope in [`check_tpx_envelope`].
+Agrees exactly with [`s_tp_eqm_two_phase`] for in-range input.
+
+```rust
+pub fn try_s_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cp_tp_eqm_two_phase`
+
+Checked isobaric specific heat capacity cp (J/(kg K)) from a
+two-phase-aware `(T,p,x)` flash (two-phase states return a
+quality-weighted mixture value). Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with [`cp_tp_eqm_two_phase`] for
+in-range input.
+
+```rust
+pub fn try_cp_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cv_tp_eqm_two_phase`
+
+Checked isochoric specific heat capacity cv (J/(kg K)) from a
+two-phase-aware `(T,p,x)` flash. Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with [`cv_tp_eqm_two_phase`] for
+in-range input.
+
+```rust
+pub fn try_cv_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_v_tp_eqm_two_phase`
+
+Checked specific volume v (m^3/kg) from a two-phase-aware `(T,p,x)`
+flash (two-phase states return the quality-weighted mixture volume).
+Valid range: the `(T,p,x)` envelope in [`check_tpx_envelope`]. Agrees
+exactly with [`v_tp_eqm_two_phase`] for in-range input.
+
+```rust
+pub fn try_v_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<SpecificVolume> { /* ... */ }
+```
+
+#### Function `try_rho_tp_eqm_two_phase`
+
+Checked mass density rho (kg/m^3) from a two-phase-aware `(T,p,x)`
+flash — the reciprocal of [`try_v_tp_eqm_two_phase`]. Valid range: the
+`(T,p,x)` envelope in [`check_tpx_envelope`].
+
+```rust
+pub fn try_rho_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<MassDensity> { /* ... */ }
+```
+
+#### Function `try_w_tp_eqm_two_phase`
+
+Checked speed of sound w (m/s) from a two-phase-aware `(T,p,x)` flash.
+Valid range: the `(T,p,x)` envelope in [`check_tpx_envelope`]. Agrees
+exactly with [`w_tp_eqm_two_phase`] for in-range input.
+
+```rust
+pub fn try_w_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<Velocity> { /* ... */ }
+```
+
+#### Function `try_kappa_tp_eqm_two_phase`
+
+Checked isentropic exponent kappa (dimensionless `Ratio`) from a
+two-phase-aware `(T,p,x)` flash. Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with [`kappa_tp_eqm_two_phase`]
+for in-range input.
+
+```rust
+pub fn try_kappa_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<Ratio> { /* ... */ }
+```
+
+#### Function `try_alpha_v_tp_eqm_two_phase`
+
+Checked isobaric cubic expansion coefficient alpha_v (1/K) from a
+two-phase-aware `(T,p,x)` flash. Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with
+[`alpha_v_tp_eqm_two_phase`] for in-range input.
+
+```rust
+pub fn try_alpha_v_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<TemperatureCoefficient> { /* ... */ }
+```
+
+#### Function `try_kappa_t_tp_eqm_two_phase`
+
+Checked isothermal compressibility kappa_T (1/Pa) from a
+two-phase-aware `(T,p,x)` flash. Valid range: the `(T,p,x)` envelope in
+[`check_tpx_envelope`]. Agrees exactly with
+`multiphase_flashing::kappa_t_tp_eqm` for in-range input.
+
+```rust
+pub fn try_kappa_t_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> super::Result<crate::region_1_subcooled_liquid::InversePressure> { /* ... */ }
+```
+
+## Module `control_volume`
+
+Additive `Result`-returning constructors for the object-oriented
+`TampinesSteamTableCV` control volume.
+Bounds-checked constructors for the object-oriented
+[`TampinesSteamTableCV`] control volume (bead `op-dt3.26`).
+
+[`TampinesSteamTableCV`]'s `new_from_*` constructors are thin composers
+over the functional-programming flashes, so they inherit every panic
+those flashes have. The free functions here are **additive**: they gate
+the same inputs with the validators in this module's siblings and then
+call the existing constructor unchanged. No existing signature is
+touched, and the struct's fields stay private — these wrappers add a
+`Result` entry point, they do not re-implement the flash.
+
+## Panic-trace: constructor to gate
+
+Traced against `interfaces/object_oriented_programming/mod.rs` on
+2026-08-11. Each row names the internal calls the constructor makes and
+the validator that excludes their panics.
+
+| Constructor | Internal calls | Gate |
+|---|---|---|
+| `new_from_tp_quality(t, p, volume, x)` | `v_tp_eqm_two_phase`, `h_tp_eqm_two_phase`, `s_tp_eqm_two_phase` | [`check_tpx_envelope`] — see [`super::two_phase`] for that family's full panic trace |
+| `new_from_tp_quality_1(t, p, volume)` | same, with `x = 1` | [`check_tpx_envelope`] at `x = 1` |
+| `new_from_tp_quality_0(t, p, volume)` | same, with `x = 0` | [`check_tpx_envelope`] at `x = 0` |
+| `new_from_ph(p, h, volume)` | `t_ph_eqm`, `v_ph_eqm`, `s_ph_eqm` | [`super::check_ph_envelope`] |
+| `new_from_ps(p, s, volume)` | `t_ps_eqm`, `v_ps_eqm`, `h_ps_eqm` | [`check_ps_envelope`] — see [`super::ps`] |
+| `new_from_sat_pressure_quality(p, x, volume)` | `sat_temp_4(p)`, then `new_from_tp_quality` | [`check_tpx_envelope`] at `(sat_temp_4(p), p, x)`; `sat_temp_4` itself is a closed-form correlation with no panic site |
+| `new_from_sat_temp_quality(t, x, volume)` | `sat_pressure_4(t)`, then `new_from_tp_quality` | [`check_tpx_envelope`] at `(t, sat_pressure_4(t), x)`; `sat_pressure_4` is likewise panic-free |
+
+## Not covered here
+
+- **`new_from_hs`** — it resolves pressure with `hs_flash_eqm::p_hs_eqm`
+  first, so it inherits the `(h,s)` flash's panic surface, which this
+  module does not yet gate. It is deliberately left out rather than
+  given a gate that would miss those panics.
+- **The setter methods and the getters** (`set_tpx`, `set_ph`,
+  `set_ps`, `compress_isentropically`, `get_crit_pressure_and_massflux`,
+  ...) — the state-changing ones inherit the same flash panics, and
+  `get_crit_pressure_and_massflux` additionally reaches the choked-flow
+  root finder, whose panic is a *convergence* failure that no input
+  bounds check can exclude.
+
+## No `catch_unwind`
+
+This facade is a bounds check, not an exception handler.
+
+```rust
+pub mod control_volume { /* ... */ }
+```
+
+### Functions
+
+#### Function `try_new_from_tp_quality`
+
+Checked [`TampinesSteamTableCV::new_from_tp_quality`]: builds a control
+volume from a two-phase-aware `(T, p, x)` flash.
+
+Inputs: `temperature` in K (valid 273.15-2273.15), `pressure` in Pa
+(valid up to and including 100 MPa below 1073.15 K, 50 MPa above),
+`volume` the fixed control-volume size in m^3 (not validated — any
+finite volume is geometrically meaningful and no internal reads it
+during the flash), and `x` the steam quality (vapour mass fraction,
+valid in `[0, 1]` inclusive). Saturation-line `(T,p)` pairs are
+accepted: resolving them with an explicit quality is the point of this
+constructor.
+
+```rust
+pub fn try_new_from_tp_quality(temperature: ThermodynamicTemperature, pressure: Pressure, volume: Volume, x: f64) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_tp_quality_1`
+
+Checked [`TampinesSteamTableCV::new_from_tp_quality_1`]: builds a
+control volume from a `(T, p)` flash with steam quality fixed at 1
+(saturated vapour / dew point on the saturation line, ignored
+elsewhere). Same `(T,p)` envelope as [`try_new_from_tp_quality`].
+
+```rust
+pub fn try_new_from_tp_quality_1(temperature: ThermodynamicTemperature, pressure: Pressure, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_tp_quality_0`
+
+Checked [`TampinesSteamTableCV::new_from_tp_quality_0`]: builds a
+control volume from a `(T, p)` flash with steam quality fixed at 0
+(saturated liquid / bubble point on the saturation line, ignored
+elsewhere). Same `(T,p)` envelope as [`try_new_from_tp_quality`].
+
+```rust
+pub fn try_new_from_tp_quality_0(temperature: ThermodynamicTemperature, pressure: Pressure, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_ph`
+
+Checked [`TampinesSteamTableCV::new_from_ph`]: builds a control volume
+from a `(p, h)` flash.
+
+Inputs: `p` in Pa (valid `[p_sat(273.15 K), 100 MPa]`, both edges
+inclusive), `h` in J/kg (valid between the 273.15 K and 1073.15 K
+isotherm enthalpies at that pressure), `volume` in m^3. See
+[`super::check_ph_envelope`] for the exact bounds.
+
+```rust
+pub fn try_new_from_ph(p: Pressure, h: AvailableEnergy, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_ps`
+
+Checked [`TampinesSteamTableCV::new_from_ps`]: builds a control volume
+from a `(p, s)` flash.
+
+Inputs: `p` in Pa (valid `(p_sat(273.15 K), 100 MPa]` — note the
+**exclusive** lower edge, see [`super::ps`]), `s` in J/(kg K) (valid
+between the 273.15 K and 1073.15 K isotherm entropies at that
+pressure), `volume` in m^3.
+
+```rust
+pub fn try_new_from_ps(p: Pressure, s: SpecificHeatCapacity, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_sat_pressure_quality`
+
+Checked [`TampinesSteamTableCV::new_from_sat_pressure_quality`]: builds
+a saturation-line control volume from saturation pressure and quality.
+
+Inputs: `p` the saturation pressure in Pa, `x` the steam quality
+(dimensionless, valid `[0, 1]` inclusive), `volume` in m^3. The
+saturation temperature is looked up with `sat_temp_4(p)` and the
+resulting `(T, p, x)` triple is validated with
+[`check_tpx_envelope`] — so a pressure whose saturation temperature
+falls outside `[273.15 K, 2273.15 K]` is rejected here rather than
+panicking downstream.
+
+```rust
+pub fn try_new_from_sat_pressure_quality(p: Pressure, x: f64, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+#### Function `try_new_from_sat_temp_quality`
+
+Checked [`TampinesSteamTableCV::new_from_sat_temp_quality`]: builds a
+saturation-line control volume from saturation temperature and quality.
+
+Inputs: `t` the saturation temperature in K, `x` the steam quality
+(dimensionless, valid `[0, 1]` inclusive), `volume` in m^3. The
+saturation pressure is looked up with `sat_pressure_4(t)` and the
+resulting `(T, p, x)` triple is validated with
+[`check_tpx_envelope`].
+
+```rust
+pub fn try_new_from_sat_temp_quality(t: ThermodynamicTemperature, x: f64, volume: Volume) -> super::Result<crate::interfaces::object_oriented_programming::TampinesSteamTableCV> { /* ... */ }
+```
+
+### Types
+
+#### Enum `SteamTablesError`
+
+Error type for the bounds-checked IF97 facade.
+
+Every variant carries the offending raw SI value so a caller (or a log
+line) can see exactly which input broke which bound without re-deriving
+units: temperatures in kelvin, pressures in pascal, specific enthalpies
+in J/kg.
+
+```rust
+pub enum SteamTablesError {
+    NonFinite {
+        quantity: &'static str,
+        value: f64,
+        unit: &'static str,
+    },
+    OutOfRange {
+        quantity: &'static str,
+        value: f64,
+        min: f64,
+        max: f64,
+        unit: &'static str,
+    },
+    SaturatedTpUnderdetermined {
+        t_kelvin: f64,
+        p_pascal: f64,
+    },
+    QualityOutOfRange {
+        x: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `NonFinite`
+
+An input was `NaN` or infinite. The unchecked internals cannot
+detect this (range comparisons on `NaN` are silently `false`), so
+it is rejected here before anything else.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `quantity` | `&'static str` | Which input quantity was non-finite (e.g. `"temperature"`). |
+| `value` | `f64` | The offending raw value in the SI unit named by `unit`. |
+| `unit` | `&'static str` | SI unit of `value` as prose (e.g. `"K"`, `"Pa"`, `"J/kg"`). |
+
+###### `OutOfRange`
+
+An input lies outside the IAPWS-IF97 validity envelope enforced by
+this facade (see the module-level doc for the exact bounds,
+including which edges are exclusive).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `quantity` | `&'static str` | Which input quantity broke the bound (e.g. `"pressure"`). |
+| `value` | `f64` | The offending raw value in the SI unit named by `unit`. |
+| `min` | `f64` | Lower bound of the valid range, same unit. |
+| `max` | `f64` | Upper bound of the valid range, same unit. May be an exclusive<br>edge — see the module-level doc. |
+| `unit` | `&'static str` | SI unit of `value`/`min`/`max` as prose (e.g. `"K"`, `"Pa"`). |
+
+###### `SaturatedTpUnderdetermined`
+
+The `(T, p)` pair lies exactly on the saturation line
+(`p == p_sat(T)` bit-for-bit, `T < 647.096 K`). A single-phase
+`(T,p)` flash cannot resolve a two-phase state — the steam quality
+is a free variable there. Use a `(p,h)` flash (which carries the
+quality) instead.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_kelvin` | `f64` | Temperature of the rejected state, K. |
+| `p_pascal` | `f64` | Pressure of the rejected state (equal to `p_sat(T)`), Pa. |
+
+###### `QualityOutOfRange`
+
+The steam quality (vapour mass fraction) lies outside `[0, 1]`.
+
+This is not a panic the internals raise — the two-phase `(T,p,x)`
+functions silently **clamp** an out-of-range quality, so a caller
+passing `x = 1.7` gets a saturated-vapour answer with no signal that
+the input was nonsense. The checked facade rejects it instead.
+`x = 0` (bubble point) and `x = 1` (dew point) are valid and
+accepted.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `f64` | The offending quality, dimensionless (vapour mass fraction). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SteamTablesError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SteamTablesError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Type Alias `Result`
+
+Convenience alias: every checked facade function returns
+`Result<uom quantity, SteamTablesError>`.
+
+```rust
+pub type Result<T> = core::result::Result<T, SteamTablesError>;
+```
+
+### Functions
+
+#### Function `check_tp_single_phase_envelope`
+
+Validates a `(T, p)` pair against the IF97 single-phase envelope the
+unchecked `(T,p)` internals actually accept (module-level doc has the
+full bound list). Returns `Ok(())` when every wrapped
+`try_*_tp_eqm_single_phase` function is safe to call.
+
+Inputs: `t` is a thermodynamic temperature (valid 273.15-2273.15 K),
+`p` an absolute pressure (valid up to and including 100 MPa from
+273.15 K to 1073.15 K, up to and including 50 MPa above 1073.15 K).
+
+```rust
+pub fn check_tp_single_phase_envelope(t: ThermodynamicTemperature, p: Pressure) -> Result<()> { /* ... */ }
+```
+
+#### Function `check_ph_envelope`
+
+Validates a `(p, h)` pair against the envelope the unchecked `(p,h)`
+internals actually accept: `p` in `[p_sat(273.15 K), 100 MPa]` (both
+edges inclusive, matching `is_outside_pressure_range`) and `h` between
+the 273.15 K and 1073.15 K isotherm enthalpies at that pressure.
+Returns `Ok(())` when every wrapped `try_*_ph_*` function is safe to
+call.
+
+Inputs: `p` is an absolute pressure (Pa), `h` a specific enthalpy
+(J/kg); the valid `h` window is pressure-dependent and is reported in
+the error when violated.
+
+```rust
+pub fn check_ph_envelope(p: Pressure, h: AvailableEnergy) -> Result<()> { /* ... */ }
+```
+
+#### Function `try_h_tp_eqm_single_phase`
+
+Checked specific enthalpy h (J/kg) from a single-phase `(T,p)` flash.
+Valid range: the `(T,p)` envelope in the module doc (T 273.15-2273.15 K
+with the band-dependent pressure ceiling); exact saturation-line pairs
+are rejected. Agrees exactly with
+[`h_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_h_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_u_tp_eqm_single_phase`
+
+Checked specific internal energy u (J/kg) from a single-phase `(T,p)`
+flash. Valid range: the `(T,p)` envelope in the module doc. Agrees
+exactly with [`u_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_u_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_s_tp_eqm_single_phase`
+
+Checked specific entropy s (J/(kg K)) from a single-phase `(T,p)`
+flash. Valid range: the `(T,p)` envelope in the module doc. Agrees
+exactly with [`s_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_s_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cp_tp_eqm_single_phase`
+
+Checked isobaric specific heat capacity cp (J/(kg K)) from a
+single-phase `(T,p)` flash. Valid range: the `(T,p)` envelope in the
+module doc. Agrees exactly with [`cp_tp_eqm_single_phase`] for
+in-range input.
+
+```rust
+pub fn try_cp_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cv_tp_eqm_single_phase`
+
+Checked isochoric specific heat capacity cv (J/(kg K)) from a
+single-phase `(T,p)` flash. Valid range: the `(T,p)` envelope in the
+module doc. Agrees exactly with [`cv_tp_eqm_single_phase`] for
+in-range input.
+
+```rust
+pub fn try_cv_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_v_tp_eqm_single_phase`
+
+Checked specific volume v (m^3/kg) from a single-phase `(T,p)` flash.
+Valid range: the `(T,p)` envelope in the module doc. Agrees exactly
+with [`v_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_v_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<SpecificVolume> { /* ... */ }
+```
+
+#### Function `try_rho_tp_eqm_single_phase`
+
+Checked mass density rho (kg/m^3) from a single-phase `(T,p)` flash —
+the reciprocal of [`try_v_tp_eqm_single_phase`]. Valid range: the
+`(T,p)` envelope in the module doc.
+
+```rust
+pub fn try_rho_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<MassDensity> { /* ... */ }
+```
+
+#### Function `try_w_tp_eqm_single_phase`
+
+Checked speed of sound w (m/s) from a single-phase `(T,p)` flash.
+Valid range: the `(T,p)` envelope in the module doc. Agrees exactly
+with [`w_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_w_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<Velocity> { /* ... */ }
+```
+
+#### Function `try_kappa_tp_eqm_single_phase`
+
+Checked isentropic exponent kappa (dimensionless `Ratio`) from a
+single-phase `(T,p)` flash. Valid range: the `(T,p)` envelope in the
+module doc. Agrees exactly with [`kappa_tp_eqm_single_phase`] for
+in-range input.
+
+```rust
+pub fn try_kappa_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<Ratio> { /* ... */ }
+```
+
+#### Function `try_mu_tp_eqm_single_phase`
+
+Checked dynamic viscosity mu (Pa s, IAPWS R12-08 fast path without the
+critical enhancement) from a single-phase `(T,p)` flash. Valid range:
+the `(T,p)` envelope in the module doc. Agrees exactly with
+[`mu_tp_eqm_single_phase`] for in-range input.
+
+```rust
+pub fn try_mu_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<DynamicViscosity> { /* ... */ }
+```
+
+#### Function `try_lambda_tp_eqm_single_phase`
+
+Checked thermal conductivity lambda (W/(m K), IAPWS R15-11) from a
+single-phase `(T,p)` flash. Valid range: the `(T,p)` envelope in the
+module doc. Agrees exactly with [`lambda_tp_eqm_single_phase`] for
+in-range input.
+
+```rust
+pub fn try_lambda_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<ThermalConductivity> { /* ... */ }
+```
+
+#### Function `try_alpha_v_tp_eqm_single_phase`
+
+Checked isobaric cubic expansion coefficient alpha_v (1/K) from a
+single-phase `(T,p)` flash — the thermal expansivity
+`(1/v)(dv/dT)_p`. Valid range: the `(T,p)` envelope in the module doc.
+Agrees exactly with [`alpha_v_tp_eqm_single_phase`] for in-range input.
+
+Panic-trace: `alpha_v_tp_eqm_single_phase` calls
+`region_fwd_eqn_single_phase` (fallthrough `panic!` at
+`pt_flash_eqm/mod.rs:157`, excluded by the `(T,p)` envelope gate) and
+panics on its Region-4 arm (`pt_flash_eqm/mod.rs:334`, excluded by the
+exact-saturation-line rejection). The per-region kernels
+`alpha_v_tp_1/2/3/5` are panic-free.
+
+```rust
+pub fn try_alpha_v_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Result<TemperatureCoefficient> { /* ... */ }
+```
+
+#### Function `try_kappa_t_tp_eqm`
+
+Checked isothermal compressibility kappa_T (1/Pa) from a single-phase
+`(T,p)` flash — `-(1/v)(dv/dp)_T`. Valid range: the `(T,p)` envelope in
+the module doc. Agrees exactly with [`kappa_t_tp_eqm`] for in-range
+input.
+
+Panic-trace: identical to [`try_alpha_v_tp_eqm_single_phase`], with the
+Region-4 arm at `pt_flash_eqm/mod.rs:348`.
+
+```rust
+pub fn try_kappa_t_tp_eqm(t: ThermodynamicTemperature, p: Pressure) -> Result<crate::region_1_subcooled_liquid::InversePressure> { /* ... */ }
+```
+
+#### Function `try_t_ph_eqm`
+
+Checked temperature T (K) from a `(p,h)` flash (Regions 1-4; Region 5
+has no IAPWS-IF97 backward `(p,h)` correlation and lies outside the
+enthalpy window). Valid range: the `(p,h)` envelope in the module doc.
+Agrees exactly with [`t_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_t_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<ThermodynamicTemperature> { /* ... */ }
+```
+
+#### Function `try_v_ph_eqm`
+
+Checked specific volume v (m^3/kg) from a `(p,h)` flash (two-phase
+states return the quality-weighted mixture volume). Valid range: the
+`(p,h)` envelope in the module doc. Agrees exactly with [`v_ph_eqm`]
+for in-range input.
+
+```rust
+pub fn try_v_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<SpecificVolume> { /* ... */ }
+```
+
+#### Function `try_rho_ph_eqm`
+
+Checked mass density rho (kg/m^3) from a `(p,h)` flash — the
+reciprocal of [`try_v_ph_eqm`]. Valid range: the `(p,h)` envelope in
+the module doc.
+
+```rust
+pub fn try_rho_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<MassDensity> { /* ... */ }
+```
+
+#### Function `try_u_ph_eqm`
+
+Checked specific internal energy u (J/kg) from a `(p,h)` flash. Valid
+range: the `(p,h)` envelope in the module doc. Agrees exactly with
+[`u_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_u_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<AvailableEnergy> { /* ... */ }
+```
+
+#### Function `try_s_ph_eqm`
+
+Checked specific entropy s (J/(kg K)) from a `(p,h)` flash. Valid
+range: the `(p,h)` envelope in the module doc. Agrees exactly with
+[`s_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_s_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cp_ph_eqm`
+
+Checked isobaric specific heat capacity cp (J/(kg K)) from a `(p,h)`
+flash (two-phase states return a quality-interpolated estimate — see
+[`cp_ph_eqm`]). Valid range: the `(p,h)` envelope in the module doc.
+Agrees exactly with [`cp_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_cp_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_cv_ph_eqm`
+
+Checked isochoric specific heat capacity cv (J/(kg K)) from a `(p,h)`
+flash (two-phase states return a quality-interpolated estimate — see
+[`cv_ph_eqm`]). Valid range: the `(p,h)` envelope in the module doc.
+Agrees exactly with [`cv_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_cv_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<SpecificHeatCapacity> { /* ... */ }
+```
+
+#### Function `try_w_ph_wood_wallis`
+
+Checked speed of sound w (m/s) from a `(p,h)` flash; in the two-phase
+region this is the Wood/Wallis homogeneous-mixture sound speed. Valid
+range: the `(p,h)` envelope in the module doc. Agrees exactly with
+[`w_ph_wood_wallis`] for in-range input.
+
+```rust
+pub fn try_w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Result<Velocity> { /* ... */ }
+```
+
+#### Function `try_kappa_ph_eqm`
+
+Checked isentropic exponent kappa (dimensionless `Ratio`) from a
+`(p,h)` flash. Valid range: the `(p,h)` envelope in the module doc.
+Agrees exactly with [`kappa_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_kappa_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<Ratio> { /* ... */ }
+```
+
+#### Function `try_x_ph_flash`
+
+Checked steam quality x (dimensionless, bare `f64` to agree exactly
+with the unchecked [`x_ph_flash`]): 0 for subcooled liquid, 1 for
+superheated vapour, in `(0, 1)` inside the vapour-liquid dome. Valid
+range: the `(p,h)` envelope in the module doc.
+
+```rust
+pub fn try_x_ph_flash(p: Pressure, h: AvailableEnergy) -> Result<f64> { /* ... */ }
+```
+
+#### Function `try_mu_ph_eqm`
+
+Checked dynamic viscosity mu (Pa s, IAPWS R12-08 fast path) from a
+`(p,h)` flash (two-phase states use the HEM-mixture density). Valid
+range: the `(p,h)` envelope in the module doc. Agrees exactly with
+[`mu_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_mu_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<DynamicViscosity> { /* ... */ }
+```
+
+#### Function `try_lambda_ph_eqm`
+
+Checked thermal conductivity lambda (W/(m K), IAPWS R15-11) from a
+`(p,h)` flash. Valid range: the `(p,h)` envelope in the module doc.
+Agrees exactly with [`lambda_ph_eqm`] for in-range input.
+
+```rust
+pub fn try_lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<ThermalConductivity> { /* ... */ }
+```
+
+#### Function `try_alpha_v_ph_eqm`
+
+Checked isobaric cubic expansion coefficient alpha_v (1/K) from a
+`(p,h)` flash (two-phase states return a quality-interpolated
+estimate). Valid range: the `(p,h)` envelope in the module doc. Agrees
+exactly with [`alpha_v_ph_eqm`] for in-range input.
+
+Panic-trace: `alpha_v_ph_eqm` calls `t_ph_eqm` and `ph_flash_region`,
+whose panics (`ph_flash_eqm/mod.rs:833,837,846` and the Region-5 arm at
+`:51`) are all excluded by [`check_ph_envelope`]. Its Region-4 arm
+evaluates `alpha_v_tp_1`/`alpha_v_tp_2` directly at `(T_sat, p)`,
+bypassing the `(T,p)` router, so it adds no new panic site.
+
+```rust
+pub fn try_alpha_v_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<TemperatureCoefficient> { /* ... */ }
+```
+
+#### Function `try_kappa_t_ph_eqm`
+
+Checked isothermal compressibility kappa_T (1/Pa) from a `(p,h)` flash
+(two-phase states return a quality-interpolated estimate). Valid range:
+the `(p,h)` envelope in the module doc. Agrees exactly with
+[`kappa_t_ph_eqm`] for in-range input.
+
+Panic-trace: identical to [`try_alpha_v_ph_eqm`].
+
+```rust
+pub fn try_kappa_t_ph_eqm(p: Pressure, h: AvailableEnergy) -> Result<crate::region_1_subcooled_liquid::InversePressure> { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `ps::*`
+
+```rust
+pub use ps::*;
+```
+
+#### Re-export `two_phase::*`
+
+```rust
+pub use two_phase::*;
+```
+
+#### Re-export `control_volume::*`
+
+```rust
+pub use control_volume::*;
 ```
 
 ## Module `object_oriented_programming`
@@ -6165,6 +7535,340 @@ Rust port of OpenFOAM's `rhoPimpleFoam` (compressible PIMPLE) solver,
 specialised into `TampinesSteamArray` — a 1-D pipe solver over TAMPINES
 IAPWS-IF97 steam properties. This is the only public export of
 `openfoam_algorithms`.
+# A `rhoPimpleFoam` derivation from first principles — the HEM-closed 1-D pipe
+
+This module is the solver ([`TampinesSteamArray`]) that marches compressible,
+flashing steam/water down a 1-D pipe in time. It is a Rust re-implementation
+of OpenFOAM's `rhoPimpleFoam` (the reproduced C++ `main()` is kept verbatim
+below for provenance), **closed with the real IAPWS-IF97 steam tables as a
+homogeneous-equilibrium (HEM) two-phase equation of state** rather than the
+perfect-gas closure the stock solver ships with.
+
+The comment below is written for a reader who has *some* CFD background —
+you know what a finite-volume mesh, a divergence, and a linear solve are —
+but who has never really understood *why* `rhoPimpleFoam` is built the way it
+is. Everything is derived in order, each step leaning on the previous one.
+Navigate the code with rust-analyzer as you read: every field and method named
+here (`self.phi`, `self.psi`, [`TampinesSteamArray::correct_thermo`],
+[`TampinesSteamArray::step`], `assemble_hybrid_dissipation`, …) is real and
+cited exactly.
+
+---
+
+## 1. The governing equations (what we are actually solving)
+
+Treat the pipe as a 1-D continuum. Three conservation laws close the flow of a
+single (possibly two-phase, but locally *homogeneous*) fluid. In the units the
+code carries:
+
+**Continuity** (mass) — density `ρ` \[kg/m³\], velocity `U` \[m/s\]:
+
+> `∂ρ/∂t + ∇·(ρU) = 0`
+
+"The rate a cell's density rises equals minus the net mass flux leaving it."
+In the code the mass flux `ρU·Sf` is stored *directly* as the surface field
+`self.phi` \[kg/s\] (`Sf` = face-area vector \[m²\]), so continuity reads
+`∂ρ/∂t + ∇·φ = 0`, discretised explicitly as `ρ = ρ_old − dt·∇·φ` — the
+`rhoEqn` block at the top of [`TampinesSteamArray::step`].
+
+**Momentum** — pressure `p` \[Pa\], viscosity `μ` \[Pa·s\]:
+
+> `∂(ρU)/∂t + ∇·(ρUU) = −∇p + ∇·(μ∇U)`
+
+Newton's second law per unit volume: inertia (unsteady + advection of
+momentum `ρUU`) is driven by the pressure gradient plus viscous diffusion.
+In the code the advective term is `∇·(φU)` (reusing the same `self.phi`), so
+the discrete operator is `ddt_coeff_vec(ρ,U) + div_vec(φ,U) + laplacian_vec(μ,U)`
+— the `UEqn` block. The `−∇p` term is kept **explicit** (added to the source
+as `−V·∇p`), which is the whole point of the algorithm below.
+
+**Energy, enthalpy form** — static specific enthalpy `he` \[J/kg\]:
+
+> `∂(ρh)/∂t + ∇·(ρUh) = dp/dt`   (adiabatic, inviscid-work-neglected pipe)
+
+Why enthalpy `h` and not internal energy `e` or temperature `T`? Because for a
+flashing fluid `h` is the variable that stays *continuous and monotone* across
+the saturation dome (temperature plateaus at `T_sat` while the fluid boils, so
+`T` is a terrible primary variable there), and because the pressure-work term
+collapses to the clean source `dp/dt` (`enthalpy = internal energy + p·v`, and
+the `p·v` bookkeeping cancels the flow-work term, leaving only the local
+`∂p/∂t`). In the code this is `∇·(φh)` for the convection, `dp_dt =
+(p − p_old)/dt` for the source, plus a small conduction term `∇·(αh∇h)` with
+the OpenFOAM effective diffusivity `αh = κ/Cp` \[kg/(m·s)\] — the `EEqn` block.
+
+These three are not independent: `ρ`, `T`, `μ`, `αh`, and the compressibility
+`ψ` (below) are all functions of `(p, h)` supplied by the steam tables in
+[`TampinesSteamArray::correct_thermo`]. That EOS coupling is what makes the
+system compressible, and it is where all the difficulty lives.
+
+---
+
+## 2. Why *pressure-based* (`rhoPimpleFoam`), not density-based
+
+A density-based compressible solver (think `rhoCentralFoam`) treats
+`[ρ, ρU, ρE]` as the unknowns and marches them explicitly: compute fluxes,
+update the conserved variables, then back out `p` and `T` from the EOS. Simple
+and robust for *supersonic* shocks — but it is shackled by the **acoustic CFL
+limit**. An explicit scheme can only advance information one cell per step, so
+the timestep must resolve the fastest wave in the system: the *sound* wave,
+`dt ≲ Δx / (|U| + c)`. In subcooled liquid water `c ≈ 1400 m/s` while the bulk
+velocity might be `1 m/s` — so you pay for resolving acoustics you do not care
+about. This is the **low-Mach stiffness** problem: `Ma = |U|/c ≪ 1` means the
+acoustics are ~1000× faster than the flow, and an explicit density-based
+method crawls.
+
+The pressure-based cure: derive an **implicit equation for pressure** (below).
+An implicit solve couples the whole domain in one linear system, so acoustic
+information crosses many cells per step and the timestep is limited by the
+*convective* CFL `dt ≲ Δx/|U|`, not the acoustic one. You trade an explicit
+flux update for a linear solve (`solve_cg` on the pressure matrix) and buy back
+orders of magnitude in `dt` for low-Mach flow. That is exactly the regime an
+FHR secondary loop or an Edwards blowdown lives in for most of its length.
+
+---
+
+## 3. The PIMPLE algorithm — one timestep, walked through
+
+PIMPLE = **PISO** (Pressure-Implicit Split-Operator, the transient
+pressure–velocity corrector loop) nested inside **SIMPLE** (Semi-Implicit
+Method for Pressure-Linked Equations, which adds outer iterations and
+under-relaxation). The structure is two nested loops:
+
+- **outer correctors** (`n_outer_correctors`) — SIMPLE-style; re-linearise the
+  whole coupled system. `= 1` gives pure transient PISO
+  ([`TampinesSteamArray::set_piso_algorithm`]); `> 1` with under-relaxation
+  gives PIMPLE, letting `dt` exceed the strict PISO limit.
+- **inner correctors** (`n_inner_correctors`) — PISO; re-solve pressure and
+  re-project velocity *at fixed coefficients* to mop up the velocity–pressure
+  split error.
+
+### 3a. Momentum predictor
+
+Assemble the momentum matrix `u_eqn = ddt + div + laplacian` and split it into
+its diagonal `A` \[kg/s\] and off-diagonal-plus-source operator `H(U)`. The
+matrix row for cell *c* reads `A·U_c − H(U) = −V·∇p`. "Predict" a velocity by
+solving this with the *old* pressure gradient (`u_eqn.solve("U", …)`). This
+`u_pred` satisfies momentum but **not** continuity — it is divergence-dirty.
+The code caches `rAU = V/A` \[m³·s/kg\] (the inverse diagonal) for the
+projection that follows.
+
+### 3b. The pressure equation — where compressibility enters
+
+This is the heart of the method; derive it. Write the momentum row solved for
+velocity, splitting the pressure term back out:
+
+> `U = H(U)/A − (1/A)·∇p = HbyA − rAU·∇p`
+
+`HbyA = H(U)/A` \[m/s\] is the "velocity without its own pressure gradient".
+Take the mass flux of this and of the pressure-projection piece:
+
+> `φ = ρ_f·(HbyA·Sf) − ρ_f·rAU_f·∇p·Sf  =  φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|`
+
+(`_f` = face-interpolated; `snGrad` = surface-normal gradient.) Now demand that
+this `φ` satisfy **continuity**. For an *incompressible* flow you would demand
+`∇·φ = 0`, giving a pure Poisson equation `∇·(ρ_f·rAU_f·∇p) = ∇·φ_HbyA`. But
+this fluid is compressible: continuity is `∂ρ/∂t + ∇·φ = 0`, and `ρ` itself
+depends on `p`. Linearise that dependence with the **compressibility**
+
+> `ψ = ∂ρ/∂p`   \[s²/m² = kg/(m³·Pa)\]   →   `∂ρ/∂t ≈ ψ·∂p/∂t ≈ ψ·(p − p_old)/dt`.
+
+Substituting turns continuity into an implicit, well-posed pressure equation.
+In the code (`pEqn` block) the assembled system is
+
+> `[ laplacian(ρ_f·rAU_f) + ψ·V/dt ]·p = ψ·V/dt·p_old − (net φ_HbyA outflow)`
+
+The `ψ·V/dt` term added to `p_eqn.ldu.diag[c]` is the star of the show. It is
+the transient-compressible diagonal. Two things it buys:
+
+1. **Non-singularity.** A pure incompressible pressure-Poisson matrix is
+   singular (pressure defined only up to a constant; needs a reference cell).
+   The `ψ·V/dt` diagonal makes the matrix SPD with no null space — no reference
+   cell needed — so `solve_cg` (PCG) converges directly.
+2. **Physics.** It encodes "if you compress this cell, its density rises by
+   `ψ·Δp`, which continuity must account for." A stiff (nearly incompressible)
+   liquid has tiny `ψ` → the term vanishes → you recover the incompressible
+   limit. A compliant vapour or a *flashing* two-phase cell has large `ψ` →
+   the term dominates → pressure changes are absorbed by density change instead
+   of by acoustic velocity adjustment.
+
+### 3c. Correct, then repeat
+
+With the new `p`, correct the flux `φ ← φ_HbyA − ρ_f·rAU_f·snGrad(p)·|Sf|`
+(now divergence-consistent) and the velocity `U ← HbyA − rAU·∇p` (now
+continuity-satisfying). Re-close the EOS via
+[`TampinesSteamArray::correct_thermo`] and loop the inner corrector. After the
+inner loop, solve the energy equation, and (if outer correctors remain)
+re-linearise. Optional explicit under-relaxation `p ← p_prev + α_p·(p − p_prev)`
+(`p_under_relaxation`, `u_under_relaxation`) stabilises the SIMPLE outer
+iterations; at `α = 1` (the PISO default) it is a no-op.
+
+---
+
+## 4. The HEM closure — what makes this *HEM-closed* `rhoPimpleFoam`
+
+Stock `rhoPimpleFoam` closes the EOS with a perfect gas: `ρ = p/(RT)`,
+`ψ = ∂ρ/∂p = 1/(RT)`, a constant-ish scalar. Here the EOS is a **real
+IAPWS-IF97 `(p, h)` equilibrium flash** ([`TampinesSteamArray::correct_thermo`]),
+and the fluid can be subcooled liquid, superheated vapour, *or* a two-phase
+mixture. "Homogeneous equilibrium" (HEM) means the two phases share one
+velocity, one pressure, and one temperature, always at thermodynamic
+equilibrium — so a single `(p, h)` flash returns the mixture `ρ`, `T`, quality
+`x`, etc. That is the cheapest self-consistent two-phase closure, and it is the
+right first model for fast flashing (Edwards blowdown, choked break flow).
+
+**The subtle part is which compressibility `ψ` to use.** Recall step 3b froze
+everything except pressure when we wrote `∂ρ/∂t ≈ ψ·∂p/∂t`. In this segregated
+algorithm, during the pressure solve the enthalpy `he` is held fixed (it is
+only updated later, by the energy equation). So the density's response to
+pressure that the pressure equation actually sees is the **constant-enthalpy**
+derivative
+
+> `ψ = ∂ρ/∂p|_h`   — stored in `self.psi`, computed by a central finite
+> difference of the `(p,h)` flash in `correct_thermo` (`(rho_hi − rho_lo)/(p_hi − p_lo)`).
+
+Not the isothermal `∂ρ/∂p|_T = ρ·κ_T`. In single phase the two nearly agree
+(for an ideal gas `∂ρ/∂p|_h = ρ/p = ρ·κ_T` exactly; for liquid `∂ρ/∂h|_p` is
+tiny so `|_h ≈ |_T`), so subcooled/superheated behaviour is unchanged.
+**Inside the two-phase dome they differ by ~100×.** The isothermal value
+`κ_T = x·κ_vap + (1−x)·κ_liq` freezes the quality and misses the *flashing
+term* `(v_g − v_f)·dx/dp`: as pressure drops, the equilibrium quality `x`
+rises (liquid flashes to vapour), and that phase change is a huge volumetric
+response. Only `∂ρ/∂p|_h` captures it, because the `(p,h)` flash re-solves the
+equilibrium quality at each pressure. That flashing compliance is exactly what
+pins a boiling cell on the saturation line `p = p_sat(T)` as it depressurises —
+the **Edwards flashing plateau**. Use the frozen `κ_T` and the `ψ·V/dt`
+diagonal is ~100× too small, so the pressure sails straight through the plateau
+(see the long comment in `correct_thermo`).
+
+---
+
+## 5. The conservative energy time-derivative — the plateau, part two
+
+Getting `ψ` right is necessary but not sufficient. The energy equation's
+*time derivative* must be discretised conservatively or the enthalpy field
+drifts. Write the enthalpy convection as `∇·(φh)`. The unsteady term must be
+the **conservative** form `∂(ρh)/∂t`, discretised as
+`(ρ_cont·h − ρ_old·h_old)/dt`, and the density multiplying the *new* time level
+must be the **continuity density**
+
+> `ρ_cont = ρ_old − dt·∇·φ`
+
+recomputed from the *final* mass flux `self.phi` — **not** the EOS density
+`self.rho` that `correct_thermo` wrote. This is the whole reason
+[`fvm::ddt_coeff_old`] exists (it takes distinct new/old density fields). Here
+is why it matters. Discrete continuity gives `(ρ_cont − ρ_old)/dt = −∇·φ`
+*exactly*. Expand the conservative time term and add the convection:
+
+> `(ρ_cont·h − ρ_old·h_old)/dt + ∇·(φh)`
+
+The `h_old·(ρ_cont − ρ_old)/dt = −h_old·∇·φ` piece cancels the `h·∇·φ` part of
+`∇·(φh)` term-for-term, and the equation collapses to the **material
+derivative** `ρ Dh/Dt = dp/dt`, i.e. the reversible `dh ≈ dp/ρ`. That tiny
+reversible enthalpy change is what keeps the state *on the saturation dome* as
+`p` falls — the plateau.
+
+Break the cancellation and the plateau dies:
+
+- Reuse the *current* density for both time levels (the naive `ddt_coeff`) and
+  you are really solving `ρ·∂h/∂t + ∇·(φh) = dp/dt`, whose un-cancelled
+  `h·∇·φ` outflow **over-drains enthalpy** during the violent flash (`∇·φ ≫ 0`
+  at the break). The bulk liquid is driven subcooled and the pressure collapses
+  straight past `p_sat` — the pre-fix subcooling plateau bug (bead op-21g.14).
+- Use the *EOS* density for `ρ_cont` and, mid-flash, it drops faster than the
+  `ψ·dp/dt` the pressure equation feeds back into `φ`, leaving a residual that
+  spuriously **over-heats** cells (a `(p,h)` flash into Region 5).
+
+Only the continuity density closes the loop. See the fully commented `EEqn`
+block in [`TampinesSteamArray::step`].
+
+---
+
+## 6. The choked break boundary condition
+
+A pipe rupture discharges to a much lower back-pressure. Once the flow at the
+break reaches the local sound speed it **chokes**: the throat velocity is
+pinned at `u_throat = a_HEM` (the HEM critical speed) and further lowering the
+downstream pressure cannot raise the mass flux. So the outlet BC is not a
+fixed pressure — it is a *critical-flow* condition. The crate already solves
+HEM critical flow: [`get_critical_pressure_and_mass_flux_multiphase_ph`]
+(`crate::steam_turbine_equations::…::choked_flow`) takes the local stagnation
+`(p0, h0)` at the break cell and returns `(p_crit, G_crit)` — the choke
+pressure and critical HEM mass flux — dispatching by `(p0,h0)` region to the
+in-dome / subcooled / superheated-vapour solvers. The blowdown driver converts
+`G_crit` to an equivalent full-face velocity and imposes it via
+[`TampinesSteamArray::set_outlet_velocity`] each step (the same critical-flow
+machinery `TampinesSteamTableCV::get_crit_pressure_and_massflux` wraps).
+
+---
+
+## 7. The all-Mach hybrid ([`SolverMode::HybridAllMach`])
+
+A pressure-based solver is superb at low Mach but **rings** at a sharp,
+near-sonic front: its central (non-upwinded) flux has no numerical dissipation
+to damp the shortest wavelengths, so a steep flashing front develops
+Gibbs-like oscillations. A density-based KNP scheme (Kurganov–Noelle–Petrova
+central-upwind, the `rhoCentralFoam` flux) has exactly the right dissipation
+for a shock — its `a_L·a_R·(W_R − W_L)` jump term is an upwind viscosity keyed
+to the local wave speeds `a = U_n ± c`. The hybrid keeps the pressure-based
+solver everywhere and **borrows only the KNP jump term as a deferred-correction
+dissipation**, switched on continuously by a Mach-blend weight:
+
+> `β(Ma) = clamp((Ma − lo)/(hi − lo), 0, 1)`   ([`central_upwind::mach_blend`],
+> defaults `lo = 0.3`, `hi = 1.0`).
+
+Subsonic faces get `β = 0` and see **identically zero** added flux, so
+[`SolverMode::Pimple`] stays bit-for-bit the validated path; only near-sonic
+faces (the flashing front) receive the shock-capturing damping. The dissipation
+is `β·(knp − central)·|Sf|` — the pure KNP jump term — assembled per face in
+[`TampinesSteamArray::assemble_hybrid_dissipation`] and injected into
+continuity (folded into `self.phi`) and momentum (a deferred per-cell source);
+energy shock-capturing rides implicitly on the continuity flux through the
+EEqn's `∇·(φh)`, so no separate — destabilising — energy source is added (see
+`HybridDissipation`).
+
+Three details make it work on *this* fluid:
+
+- **The characteristic speed must be the HEM *equilibrium* sound speed**, not
+  the frozen Wood–Wallis two-phase speed. The wave speeds `U_n ± c` and the
+  Mach number both use [`central_upwind::hem_sound_speed_ph`], which in the
+  dome takes the Kieffer equilibrium speed
+  [`crate::region_4_vap_liq_equilibrium::w_ps_eqm_region4_kieffer`] (entropy
+  from the `(p,h)` flash into Kieffer eq. 28). The frozen speed would put the
+  characteristics in the wrong place because it ignores interphase mass
+  transfer — the very flashing this solver is about.
+- **Blend on `min(Ma_owner, Ma_neighbour)`, not `max`.** At a
+  liquid/two-phase interface the liquid side's `c ≈ 1400 m/s` makes the KNP
+  viscosity `~c_liq/2` enormous, but that liquid acoustic wave is genuinely
+  *low Mach* and must not be dissipated. `min(Ma)` sees the subsonic liquid
+  side and returns `β = 0`, activating dissipation only where *both* sides are
+  near-sonic — the fully-developed two-phase front where `c` is uniformly small
+  and the damping is physical.
+- **A rarefied-tail density taper** scales `β` to zero below a mixture-density
+  floor (`HYBRID_RHO_TAPER_LO`/`HYBRID_RHO_TAPER_HI`, 50–100 kg/m³). As the
+  pipe empties toward vacuum the HEM closure degrades and there is no shock to
+  capture; an explicit dissipation on a nearly-empty cell would tip it across
+  the `(p,h)` 273.15 K validity edge and panic. The taper is inert over the
+  physics window (the front sits at `ρ ≳ 106 kg/m³`), so the ~55 % ringing
+  reduction and the ≈ 388 psia plateau are unchanged (bug op-21g.15.7).
+
+See the `central_upwind` module for the KNP flux math and the `FaceState`
+reconstruction.
+
+---
+
+## Where to read next
+
+- [`TampinesSteamArray::step`] — the timestep loop; the block comments there
+  annotate every equation cited above.
+- [`TampinesSteamArray::correct_thermo`] — the `(p,h)` EOS closure and the
+  `ψ = ∂ρ/∂p|_h` finite difference.
+- `central_upwind` — the KNP central-upwind flux and HEM sound speed.
+- Stability failure modes (BC well-posedness, pressure-source clobbering,
+  water-hammer, pressure bounding) are walked through in the appbuilder crate's
+  `docs/stability_a_students_guide.md`, which applies here verbatim.
+
+C++ reference (reproduced verbatim below for provenance):
+`applications/solvers/compressible/rhoPimpleFoam/`.
 
 ```rust
 pub mod rhoPimpleFoam { /* ... */ }
@@ -6172,6 +7876,138 @@ pub mod rhoPimpleFoam { /* ... */ }
 
 ### Types
 
+#### Enum `SolverMode`
+
+Selects the flux discretisation used by [`TampinesSteamArray::step`].
+
+This is an **opt-in** switch (enum dispatch — no trait objects, per the
+workspace design rules). The default [`SolverMode::Pimple`] runs the
+pressure-based compressible PIMPLE algorithm exactly as before, bit-for-bit
+(the recent Edwards flashing-plateau fix and every existing test are
+preserved by construction). [`SolverMode::HybridAllMach`] additionally
+injects a **Mach-weighted KNP central-upwind dissipation** (see the
+`central_upwind` module) as a deferred-correction flux, active only on
+near-sonic faces (`β(Ma) > 0`), to damp the ringing at a near-sonic flashing
+front while leaving subsonic regions untouched.
+
+[`SolverMode::HybridAllMach`] damps the near-sonic ringing (~55 % less excess
+total variation over 0–0.15 s) while retaining the Edwards flashing plateau
+(≈ 388 psia). It is **stable over the full 600 ms transient**: the earlier
+late-time instability (an emptying-pipe near-sonic cell driven across the
+`(p,h)` 273.15 K validity edge past t ≈ 0.18 s, bug `op-21g.15.7`) is fixed by
+the rarefied-tail density taper on the KNP dissipation — see
+[`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
+[`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
+
+```rust
+pub enum SolverMode {
+    Pimple,
+    HybridAllMach,
+}
+```
+
+##### Variants
+
+###### `Pimple`
+
+Pressure-based compressible **HEM-closed PIMPLE** — the historical,
+validated, default path (recovers the Edwards flashing plateau; stable
+over the full 600 ms transient).
+
+###### `HybridAllMach`
+
+PIMPLE + Mach-blended KNP shock-capturing dissipation (all-Mach hybrid).
+Damps the near-sonic ringing at the flashing front (~55 %) while retaining
+the flashing plateau, and is stable over the full 600 ms Edwards transient
+(rarefied-tail density taper, bug `op-21g.15.7`). The default
+[`SolverMode::Pimple`] is the bit-identical historical path.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SolverMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> SolverMode { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SolverMode) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `TampinesSteamArray`
 
 One-dimensional compressible PIMPLE pipe array driven by the TAMPINES steam
@@ -6214,6 +8050,9 @@ pub struct TampinesSteamArray {
     pub u_under_relaxation: uom::si::f64::Ratio,
     pub p_min: uom::si::f64::Pressure,
     pub p_max: uom::si::f64::Pressure,
+    pub mode: SolverMode,
+    pub ma_blend_lo: uom::si::f64::Ratio,
+    pub ma_blend_hi: uom::si::f64::Ratio,
     pub u: VolField<crate::openfoam_algorithms::openfoam_source::Vector3>,
     pub p: VolField<f64>,
     pub rho: VolField<f64>,
@@ -6248,6 +8087,9 @@ pub struct TampinesSteamArray {
 | `u_under_relaxation` | `uom::si::f64::Ratio` | Explicit velocity under-relaxation factor α_u ∈ (0, 1] -- see<br>[`Self::p_under_relaxation`]. |
 | `p_min` | `uom::si::f64::Pressure` | Lower pressure bound \[Pa\] applied after every pressure solve (see<br>[`Self::step`]). Defaults to the IAPWS-IF97 lower validity limit<br>(triple-point pressure ≈ 611.657 Pa); raise it with<br>[`Self::set_pressure_bounds`] to clamp a violent transient (e.g. a<br>water-hammer rarefaction that would otherwise undershoot to negative<br>absolute pressure) instead of letting the `(p, h)` flash panic<br>out-of-range. This mirrors OpenFOAM's `pressureControl::limit`<br>`pMin`/`pMax` bounding — see [`Self::step`] for the reference. |
 | `p_max` | `uom::si::f64::Pressure` | Upper pressure bound \[Pa\] applied after every pressure solve.<br>Defaults to the IAPWS-IF97 upper validity limit (100 MPa). See<br>[`Self::p_min`]. |
+| `mode` | `SolverMode` | Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical<br>to the historical path). See [`Self::set_solver_mode`]. |
+| `ma_blend_lo` | `uom::si::f64::Ratio` | Lower Mach threshold `lo` of the hybrid blend window<br>`β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)` (default `0.3`, dimensionless).<br>Below `lo` the KNP dissipation is identically zero. Only read when<br>`mode == HybridAllMach`. See [`Self::set_mach_blend_window`]. |
+| `ma_blend_hi` | `uom::si::f64::Ratio` | Upper Mach threshold `hi` of the hybrid blend window (default `1.0`,<br>dimensionless). At/above `hi` the KNP dissipation is applied at full<br>weight. See [`Self::set_mach_blend_window`]. |
 | `u` | `VolField<crate::openfoam_algorithms::openfoam_source::Vector3>` | Velocity field \[m/s\]. |
 | `p` | `VolField<f64>` | Pressure field \[Pa\]. |
 | `rho` | `VolField<f64>` | Density field \[kg/m³\]. |
@@ -6255,7 +8097,7 @@ pub struct TampinesSteamArray {
 | `he` | `VolField<f64>` | Specific enthalpy \[J/kg\]. |
 | `mu` | `VolField<f64>` | Dynamic viscosity μ \[Pa·s\]. |
 | `alpha_h` | `VolField<f64>` | Effective thermal diffusivity αh = κ/Cp \[kg/(m·s)\]. |
-| `psi` | `VolField<f64>` | Compressibility ψ = ∂ρ/∂p|_T = ρ·κ_T \[s²/m²\] (κ_T from a real<br>IAPWS-IF97 flash — see [`Self::correct_thermo`]). |
+| `psi` | `VolField<f64>` | Compressibility ψ = ∂ρ/∂p|_h \[s²/m²\] — the density's response to<br>pressure at **fixed enthalpy**, the correct linearisation for this<br>segregated pressure equation (he is frozen during the pressure solve).<br>Computed by a central finite difference of the real IAPWS-IF97 `(p, h)`<br>flash — see [`Self::correct_thermo`]. In single phase this equals the<br>isothermal ρ·κ_T; in the two-phase dome it is much larger because it<br>carries the flashing term `(v_g − v_f)·dx/dp`. |
 | `phi` | `SurfaceField<f64>` | Mass flux φ = ρ U·Sf \[kg/s\]. |
 | `xs_area` | `uom::si::f64::Area` | Constant cross-sectional area \[m²\] (same value passed to [`Self::new`]). |
 | `wetted_perimeter` | `uom::si::f64::Length` | Wetted perimeter \[m\] (bookkeeping -- see [`Self::get_hydraulic_diameter`]). |
@@ -6368,6 +8210,11 @@ pub struct TampinesSteamArray {
   Prescribes a fixed inlet specific-enthalpy boundary condition on
 
 - ```rust
+  pub fn set_outlet_velocity(self: &mut Self, velocity: Velocity) { /* ... */ }
+  ```
+  Prescribes a fixed outlet velocity boundary condition on the
+
+- ```rust
   pub fn set_outlet_pressure(self: &mut Self, p: Pressure) { /* ... */ }
   ```
   Prescribes a fixed outlet pressure boundary condition on the
@@ -6398,9 +8245,14 @@ pub struct TampinesSteamArray {
   Update the thermodynamic and transport state from the current
 
 - ```rust
-  pub fn step(self: &mut Self) { /* ... */ }
+  pub fn advance_timestep(self: &mut Self, timestep: Time) -> Result<(), TampinesSteamArrayError> { /* ... */ }
   ```
   Advance one time step with the compressible PIMPLE algorithm.
+
+- ```rust
+  pub fn step(self: &mut Self) { /* ... */ }
+  ```
+  Advance the solution by the array's stored [`Self::delta_t`].
 
 - ```rust
   pub fn run(self: &mut Self, n_steps: usize) { /* ... */ }
@@ -6472,6 +8324,26 @@ pub struct TampinesSteamArray {
   ```
   Sets the pressure bounds `[p_min, p_max]` clamped after every pressure
 
+- ```rust
+  pub fn get_solver_mode(self: &Self) -> SolverMode { /* ... */ }
+  ```
+  The current flux-discretisation mode (see [`SolverMode`]).
+
+- ```rust
+  pub fn set_solver_mode(self: &mut Self, mode: SolverMode) { /* ... */ }
+  ```
+  Selects the flux-discretisation mode. [`SolverMode::Pimple`] (the
+
+- ```rust
+  pub fn get_mach_blend_window(self: &Self) -> (Ratio, Ratio) { /* ... */ }
+  ```
+  The current hybrid Mach-blend window `(lo, hi)` (dimensionless Mach
+
+- ```rust
+  pub fn set_mach_blend_window(self: &mut Self, lo: Ratio, hi: Ratio) { /* ... */ }
+  ```
+  Sets the hybrid Mach-blend window `β(Ma) = clamp((Ma−lo)/(hi−lo), 0, 1)`.
+
 ###### Trait Implementations
 
 - **Any**
@@ -6497,6 +8369,11 @@ pub struct TampinesSteamArray {
 - **CloneToUninit**
   - ```rust
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
 - **Freeze**
@@ -6547,6 +8424,18 @@ pub use lateral_coupling::TampinesSteamArrayError;
 ```
 
 ## Re-exports
+
+### Re-export `SolverMode`
+
+Re-export of the 1-D compressible PIMPLE pipe array solver
+(`TampinesSteamArray`) and its error type (`TampinesSteamArrayError`) from
+[`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for
+convenience. `TampinesSteamArray` backs each finite-volume cell with an
+IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
+
+```rust
+pub use openfoam_algorithms::rhoPimpleFoam::SolverMode;
+```
 
 ### Re-export `TampinesSteamArray`
 

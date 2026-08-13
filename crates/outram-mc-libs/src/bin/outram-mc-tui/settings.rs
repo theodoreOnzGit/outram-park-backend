@@ -95,13 +95,28 @@ impl RunSettings {
     }
 
     pub fn bump_particles(&mut self, delta: i64) {
-        self.n_particles = bump_usize(self.n_particles, delta * N_PARTICLES_STEP as i64, N_PARTICLES_MIN, N_PARTICLES_MAX);
+        self.n_particles = bump_usize(
+            self.n_particles,
+            delta * N_PARTICLES_STEP as i64,
+            N_PARTICLES_MIN,
+            N_PARTICLES_MAX,
+        );
     }
     pub fn bump_inactive(&mut self, delta: i64) {
-        self.n_inactive = bump_usize(self.n_inactive, delta * N_GEN_STEP as i64, N_GEN_MIN, N_GEN_MAX);
+        self.n_inactive = bump_usize(
+            self.n_inactive,
+            delta * N_GEN_STEP as i64,
+            N_GEN_MIN,
+            N_GEN_MAX,
+        );
     }
     pub fn bump_active(&mut self, delta: i64) {
-        self.n_active = bump_usize(self.n_active, delta * N_GEN_STEP as i64, N_GEN_MIN, N_GEN_MAX);
+        self.n_active = bump_usize(
+            self.n_active,
+            delta * N_GEN_STEP as i64,
+            N_GEN_MIN,
+            N_GEN_MAX,
+        );
     }
     pub fn bump_seed(&mut self, delta: i64) {
         let s = self.seed as i64 + delta;

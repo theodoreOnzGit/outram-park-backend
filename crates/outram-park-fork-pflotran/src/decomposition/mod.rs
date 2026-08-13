@@ -33,6 +33,7 @@
 pub mod cartesian2d;
 pub mod krylov;
 pub mod ldu;
+pub mod newton;
 pub mod operator;
 pub mod transport;
 
@@ -126,14 +127,22 @@ const TAG_TO_RIGHT: i32 = 102;
 /// Does not panic; an empty `local` slab is only valid when the rank has no
 /// neighbours (a degenerate single-rank-with-zero-cells case), handled by sending
 /// nothing.
-pub fn exchange_halo(comm: &Communicator, decomp: &Decomposition1D, local: &[f64]) -> MpiResult<Halo> {
+pub fn exchange_halo(
+    comm: &Communicator,
+    decomp: &Decomposition1D,
+    local: &[f64],
+) -> MpiResult<Halo> {
     // Post sends first (buffered), then receive from each neighbour.
     if let Some(l) = decomp.left {
-        let first = *local.first().expect("subdomain with a left neighbour is non-empty");
+        let first = *local
+            .first()
+            .expect("subdomain with a left neighbour is non-empty");
         comm.send(&[first], l, TAG_TO_LEFT)?;
     }
     if let Some(r) = decomp.right {
-        let last = *local.last().expect("subdomain with a right neighbour is non-empty");
+        let last = *local
+            .last()
+            .expect("subdomain with a right neighbour is non-empty");
         comm.send(&[last], r, TAG_TO_RIGHT)?;
     }
     // My left neighbour sent its rightmost cell to its right (me) with TAG_TO_RIGHT.
@@ -189,8 +198,16 @@ pub fn jacobi_smooth_distributed(
                 continue;
             }
             // Left neighbour value: interior cell, else the halo ghost.
-            let west = if i > 0 { u[i - 1] } else { halo.left.expect("interior edge has a left ghost") };
-            let east = if i + 1 < n { u[i + 1] } else { halo.right.expect("interior edge has a right ghost") };
+            let west = if i > 0 {
+                u[i - 1]
+            } else {
+                halo.left.expect("interior edge has a left ghost")
+            };
+            let east = if i + 1 < n {
+                u[i + 1]
+            } else {
+                halo.right.expect("interior edge has a right ghost")
+            };
             next[i] = 0.5 * (west + east);
         }
         u = next;
@@ -253,10 +270,34 @@ mod tests {
             exchange_halo(c, &d, &local).unwrap()
         })
         .unwrap();
-        assert_eq!(halos[0], Halo { left: None, right: Some(1.0) });
-        assert_eq!(halos[1], Halo { left: Some(0.0), right: Some(2.0) });
-        assert_eq!(halos[2], Halo { left: Some(1.0), right: Some(3.0) });
-        assert_eq!(halos[3], Halo { left: Some(2.0), right: None });
+        assert_eq!(
+            halos[0],
+            Halo {
+                left: None,
+                right: Some(1.0)
+            }
+        );
+        assert_eq!(
+            halos[1],
+            Halo {
+                left: Some(0.0),
+                right: Some(2.0)
+            }
+        );
+        assert_eq!(
+            halos[2],
+            Halo {
+                left: Some(1.0),
+                right: Some(3.0)
+            }
+        );
+        assert_eq!(
+            halos[3],
+            Halo {
+                left: Some(2.0),
+                right: None
+            }
+        );
     }
 
     #[test]

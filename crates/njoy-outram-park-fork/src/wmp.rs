@@ -93,7 +93,10 @@ impl Cf64 {
     }
     /// Complex multiplication.
     pub fn mul(self, o: Cf64) -> Cf64 {
-        Cf64::new(self.re * o.re - self.im * o.im, self.re * o.im + self.im * o.re)
+        Cf64::new(
+            self.re * o.re - self.im * o.im,
+            self.re * o.im + self.im * o.re,
+        )
     }
     /// Complex division `self / o`.
     pub fn div(self, o: Cf64) -> Cf64 {
@@ -290,7 +293,11 @@ impl WindowedMultipole {
             }
         }
 
-        WmpXs { scatter: sig_s, absorption: sig_a, fission: sig_f }
+        WmpXs {
+            scatter: sig_s,
+            absorption: sig_a,
+            fission: sig_f,
+        }
     }
 
     /// Load a nuclide from an MIT CRPG `WMP_Library` HDF5 file.
@@ -342,13 +349,17 @@ impl WindowedMultipole {
         let data_ds = file
             .dataset(&format!("/{name}/data"))
             .map_err(|e| err(format!("data: {e}")))?;
-        let shape = data_ds.shape().map_err(|e| err(format!("data shape: {e}")))?;
+        let shape = data_ds
+            .shape()
+            .map_err(|e| err(format!("data shape: {e}")))?;
         if shape.len() != 2 {
             return Err(err(format!("data rank {} != 2", shape.len())));
         }
         let (n_poles, n_cols) = (shape[0] as usize, shape[1] as usize);
         let fissionable = n_cols >= 4;
-        let raw = data_ds.read_raw().map_err(|e| err(format!("data raw: {e}")))?;
+        let raw = data_ds
+            .read_raw()
+            .map_err(|e| err(format!("data raw: {e}")))?;
         if raw.len() != n_poles * n_cols * 16 {
             return Err(err(format!(
                 "data bytes {} != {}",
@@ -369,7 +380,11 @@ impl WindowedMultipole {
             poles.push(cx(base));
             let scatter = cx(base + 1);
             let absorption = cx(base + 2);
-            let fission = if fissionable { cx(base + 3) } else { Cf64::new(0.0, 0.0) };
+            let fission = if fissionable {
+                cx(base + 3)
+            } else {
+                Cf64::new(0.0, 0.0)
+            };
             residues.push([scatter, absorption, fission]);
         }
 
@@ -379,7 +394,9 @@ impl WindowedMultipole {
             .map_err(|e| err(format!("curvefit: {e}")))?;
         // Last dim = number of channels: 2 (scatter, absorption) for a
         // non-fissionable nuclide, 3 (+ fission) for a fissionable one.
-        let cf_shape = cf_ds.shape().map_err(|e| err(format!("curvefit shape: {e}")))?;
+        let cf_shape = cf_ds
+            .shape()
+            .map_err(|e| err(format!("curvefit shape: {e}")))?;
         if cf_shape.len() != 3 || (cf_shape[2] != 2 && cf_shape[2] != 3) {
             return Err(err(format!("curvefit shape {cf_shape:?} unexpected")));
         }
@@ -387,7 +404,9 @@ impl WindowedMultipole {
         let n_coeff = cf_shape[1] as usize;
         let n_ch = cf_shape[2] as usize;
         let fit_order = n_coeff - 1;
-        let cf_flat = cf_ds.read_f64().map_err(|e| err(format!("curvefit read: {e}")))?;
+        let cf_flat = cf_ds
+            .read_f64()
+            .map_err(|e| err(format!("curvefit read: {e}")))?;
         let mut curvefit = Vec::with_capacity(n_windows);
         for w in 0..n_windows {
             let mut coeffs = Vec::with_capacity(n_coeff);
@@ -421,7 +440,11 @@ impl WindowedMultipole {
             } else {
                 ((s1 - 1) as usize, (e1 - 1) as usize)
             };
-            windows.push(WmpWindow { start, end, broaden_poly: broaden[w] != 0 });
+            windows.push(WmpWindow {
+                start,
+                end,
+                broaden_poly: broaden[w] != 0,
+            });
         }
 
         Ok(WindowedMultipole {
@@ -495,7 +518,11 @@ impl WindowedMultipole {
             Vec::with_capacity(WMPB_HEADER_LEN + name.len() + n_windows * 9 + compressed.len());
         out.extend_from_slice(&WMPB_MAGIC);
         out.push(WMPB_VERSION);
-        out.push(if self.fissionable { WMPB_FLAG_FISSIONABLE } else { 0 });
+        out.push(if self.fissionable {
+            WMPB_FLAG_FISSIONABLE
+        } else {
+            0
+        });
         out.extend_from_slice(&[0u8, 0u8]); // reserved
         out.extend_from_slice(&self.awr.to_le_bytes());
         out.extend_from_slice(&self.e_min.to_le_bytes());
@@ -563,7 +590,9 @@ impl WindowedMultipole {
             .to_string();
 
         // -- Window table: 9 bytes each (u32 start, u32 end, u8 broaden) ---------
-        let win_bytes = n_windows.checked_mul(9).ok_or_else(|| err("window overflow".into()))?;
+        let win_bytes = n_windows
+            .checked_mul(9)
+            .ok_or_else(|| err("window overflow".into()))?;
         let win_end = name_end
             .checked_add(win_bytes)
             .filter(|&e| e <= bytes.len())
@@ -573,23 +602,36 @@ impl WindowedMultipole {
             let o = name_end + w * 9;
             let start = u32::from_le_bytes(bytes[o..o + 4].try_into().unwrap()) as usize;
             let end = u32::from_le_bytes(bytes[o + 4..o + 8].try_into().unwrap()) as usize;
-            windows.push(WmpWindow { start, end, broaden_poly: bytes[o + 8] != 0 });
+            windows.push(WmpWindow {
+                start,
+                end,
+                broaden_poly: bytes[o + 8] != 0,
+            });
         }
 
         // -- Doubles: know the exact expected count → bound the inflate ----------
-        let n_coeff = fit_order.checked_add(1).ok_or_else(|| err("fit_order overflow".into()))?;
-        let n_cf = n_windows.checked_mul(n_coeff).ok_or_else(|| err("curvefit overflow".into()))?;
+        let n_coeff = fit_order
+            .checked_add(1)
+            .ok_or_else(|| err("fit_order overflow".into()))?;
+        let n_cf = n_windows
+            .checked_mul(n_coeff)
+            .ok_or_else(|| err("curvefit overflow".into()))?;
         let n_vals = n_poles
             .checked_mul(8)
             .and_then(|a| n_cf.checked_mul(3).and_then(|b| a.checked_add(b)))
             .ok_or_else(|| err("doubles count overflow".into()))?;
-        let expected = n_vals.checked_mul(8).ok_or_else(|| err("doubles size overflow".into()))?;
+        let expected = n_vals
+            .checked_mul(8)
+            .ok_or_else(|| err("doubles size overflow".into()))?;
 
         let planes =
             miniz_oxide::inflate::decompress_to_vec_with_limit(&bytes[win_end..], expected)
                 .map_err(|e| err(format!("deflate: {e:?}")))?;
         if planes.len() != expected {
-            return Err(err(format!("inflated {} bytes, expected {expected}", planes.len())));
+            return Err(err(format!(
+                "inflated {} bytes, expected {expected}",
+                planes.len()
+            )));
         }
         let vals = unshuffle_doubles(&planes);
 
@@ -605,7 +647,9 @@ impl WindowedMultipole {
         let res: Vec<Vec<f64>> = (0..6).map(|_| take(n_poles)).collect();
         let cf: Vec<Vec<f64>> = (0..3).map(|_| take(n_cf)).collect();
 
-        let poles = (0..n_poles).map(|i| Cf64::new(pole_re[i], pole_im[i])).collect();
+        let poles = (0..n_poles)
+            .map(|i| Cf64::new(pole_re[i], pole_im[i]))
+            .collect();
         let residues = (0..n_poles)
             .map(|i| {
                 [
@@ -819,7 +863,10 @@ impl WmpLibrary {
             offset = end;
         }
 
-        Ok(Self { bytes: bytes.to_vec(), index })
+        Ok(Self {
+            bytes: bytes.to_vec(),
+            index,
+        })
     }
 
     /// The embedded **CORE** nuclide set — 125 reactor-grade + LFTR nuclides
@@ -868,11 +915,10 @@ impl WmpLibrary {
     /// # Errors
     /// [`NjoyError::WmpData`] if `name` is absent or its blob fails to decode.
     pub fn get(&self, name: &str) -> Result<WindowedMultipole, NjoyError> {
-        let entry = self
-            .index
-            .iter()
-            .find(|e| e.name == name)
-            .ok_or_else(|| NjoyError::WmpData(format!("nuclide {name} not in WMPL container")))?;
+        let entry =
+            self.index.iter().find(|e| e.name == name).ok_or_else(|| {
+                NjoyError::WmpData(format!("nuclide {name} not in WMPL container"))
+            })?;
         WindowedMultipole::from_blob(&self.bytes[entry.offset..entry.offset + entry.len])
     }
 }
@@ -1042,7 +1088,10 @@ mod tests {
     fn faddeeva_matches_reference_values() {
         // w(0) = 1.
         let w0 = w_standard(Cf64::new(0.0, 0.0));
-        assert!((w0.re - 1.0).abs() < TOL && w0.im.abs() < TOL, "w(0) = {w0:?}");
+        assert!(
+            (w0.re - 1.0).abs() < TOL && w0.im.abs() < TOL,
+            "w(0) = {w0:?}"
+        );
 
         // For real x, Re w(x) = e^{−x²} exactly.
         for &x in &[0.5, 1.0, 2.0, 3.0] {
@@ -1057,8 +1106,16 @@ mod tests {
 
         // w(1+i) = 0.3047442052569126 + 0.2082189382028316 i  (scipy.wofz).
         let w = w_standard(Cf64::new(1.0, 1.0));
-        assert!((w.re - 0.304_744_205_256_912_6).abs() < TOL, "Re = {}", w.re);
-        assert!((w.im - 0.208_218_938_202_831_6).abs() < TOL, "Im = {}", w.im);
+        assert!(
+            (w.re - 0.304_744_205_256_912_6).abs() < TOL,
+            "Re = {}",
+            w.re
+        );
+        assert!(
+            (w.im - 0.208_218_938_202_831_6).abs() < TOL,
+            "Im = {}",
+            w.im
+        );
     }
 
     #[test]
@@ -1091,9 +1148,17 @@ mod tests {
             fissionable: false,
             poles: vec![Cf64::new(5.0, 0.05)],
             // scatter, absorption, fission residues.
-            residues: vec![[Cf64::new(0.3, 0.1), Cf64::new(0.2, 0.02), Cf64::new(0.0, 0.0)]],
+            residues: vec![[
+                Cf64::new(0.3, 0.1),
+                Cf64::new(0.2, 0.02),
+                Cf64::new(0.0, 0.0),
+            ]],
             curvefit: vec![vec![[0.0, 0.0, 0.0]]], // one window, order 0, all zero
-            windows: vec![WmpWindow { start: 0, end: 0, broaden_poly: false }],
+            windows: vec![WmpWindow {
+                start: 0,
+                end: 0,
+                broaden_poly: false,
+            }],
             inv_spacing: 1.0,
             fit_order: 0,
         }
@@ -1118,7 +1183,10 @@ mod tests {
         assert_eq!(a.curvefit, b.curvefit);
         assert_eq!(a.windows.len(), b.windows.len());
         for (x, y) in a.windows.iter().zip(&b.windows) {
-            assert_eq!((x.start, x.end, x.broaden_poly), (y.start, y.end, y.broaden_poly));
+            assert_eq!(
+                (x.start, x.end, x.broaden_poly),
+                (y.start, y.end, y.broaden_poly)
+            );
         }
     }
 
@@ -1144,9 +1212,21 @@ mod tests {
                 Cf64::new(30.1, 0.4),
             ],
             residues: vec![
-                [Cf64::new(0.1, 0.2), Cf64::new(0.3, -0.4), Cf64::new(0.5, 0.6)],
-                [Cf64::new(-1.1, 0.9), Cf64::new(2.2, -0.8), Cf64::new(3.3, 0.7)],
-                [Cf64::new(0.01, -0.02), Cf64::new(0.03, 0.04), Cf64::new(0.05, -0.06)],
+                [
+                    Cf64::new(0.1, 0.2),
+                    Cf64::new(0.3, -0.4),
+                    Cf64::new(0.5, 0.6),
+                ],
+                [
+                    Cf64::new(-1.1, 0.9),
+                    Cf64::new(2.2, -0.8),
+                    Cf64::new(3.3, 0.7),
+                ],
+                [
+                    Cf64::new(0.01, -0.02),
+                    Cf64::new(0.03, 0.04),
+                    Cf64::new(0.05, -0.06),
+                ],
             ],
             curvefit: vec![
                 vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
@@ -1154,9 +1234,21 @@ mod tests {
                 vec![[13.0, 14.0, 15.0], [16.0, 17.0, 18.0]],
             ],
             windows: vec![
-                WmpWindow { start: 0, end: 1, broaden_poly: true },
-                WmpWindow { start: 1, end: 0, broaden_poly: false }, // empty window
-                WmpWindow { start: 2, end: 2, broaden_poly: true },
+                WmpWindow {
+                    start: 0,
+                    end: 1,
+                    broaden_poly: true,
+                },
+                WmpWindow {
+                    start: 1,
+                    end: 0,
+                    broaden_poly: false,
+                }, // empty window
+                WmpWindow {
+                    start: 2,
+                    end: 2,
+                    broaden_poly: true,
+                },
             ],
             inv_spacing: 0.5,
             fit_order: 1,
@@ -1168,7 +1260,10 @@ mod tests {
         for &e in &[2.0, 150.0, 900.0] {
             let a = wmp.evaluate(e, 300.0);
             let b = back.evaluate(e, 300.0);
-            assert_eq!((a.scatter, a.absorption, a.fission), (b.scatter, b.absorption, b.fission));
+            assert_eq!(
+                (a.scatter, a.absorption, a.fission),
+                (b.scatter, b.absorption, b.fission)
+            );
         }
     }
 
@@ -1193,7 +1288,11 @@ mod tests {
         let mut b = single_pole_table();
         b.name = "TEST2".into();
         b.poles = vec![Cf64::new(7.0, -0.2)];
-        b.residues = vec![[Cf64::new(0.5, 0.0), Cf64::new(0.9, 0.1), Cf64::new(0.0, 0.0)]];
+        b.residues = vec![[
+            Cf64::new(0.5, 0.0),
+            Cf64::new(0.9, 0.1),
+            Cf64::new(0.0, 0.0),
+        ]];
 
         let image = WmpLibrary::pack(&[a.clone(), b.clone()]);
         let lib = WmpLibrary::from_blob(&image).unwrap();
@@ -1258,7 +1357,12 @@ mod tests {
         let expected_a = ra.re * psi_re - ra.im * psi_im;
 
         let xs = wmp.evaluate(e, 0.0);
-        assert!((xs.absorption - expected_a).abs() < 1e-12, "{} vs {}", xs.absorption, expected_a);
+        assert!(
+            (xs.absorption - expected_a).abs() < 1e-12,
+            "{} vs {}",
+            xs.absorption,
+            expected_a
+        );
         assert_eq!(xs.fission, 0.0);
     }
 
@@ -1270,7 +1374,11 @@ mod tests {
         // Physical poles sit in the lower half-plane (Im < 0) so absorption is
         // positive on resonance; narrow width → stronger Doppler effect.
         wmp.poles = vec![Cf64::new(5.0, -0.01)];
-        wmp.residues = vec![[Cf64::new(0.0, 0.0), Cf64::new(1.0, 0.0), Cf64::new(0.0, 0.0)]];
+        wmp.residues = vec![[
+            Cf64::new(0.0, 0.0),
+            Cf64::new(1.0, 0.0),
+            Cf64::new(0.0, 0.0),
+        ]];
 
         let e_peak = 25.0; // √E = 5, on resonance
         let e_wing = 30.0;
@@ -1280,8 +1388,14 @@ mod tests {
         let cold_wing = wmp.evaluate(e_wing, 300.0).absorption;
         let hot_wing = wmp.evaluate(e_wing, 2500.0).absorption;
 
-        assert!(hot_peak < cold_peak, "peak should drop: {hot_peak} !< {cold_peak}");
-        assert!(hot_wing > cold_wing, "wing should rise: {hot_wing} !> {cold_wing}");
+        assert!(
+            hot_peak < cold_peak,
+            "peak should drop: {hot_peak} !< {cold_peak}"
+        );
+        assert!(
+            hot_wing > cold_wing,
+            "wing should rise: {hot_wing} !> {cold_wing}"
+        );
         // All evaluations finite.
         for v in [cold_peak, hot_peak, cold_wing, hot_wing] {
             assert!(v.is_finite());

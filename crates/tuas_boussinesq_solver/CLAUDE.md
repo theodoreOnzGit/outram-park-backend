@@ -110,7 +110,8 @@ pub enum Material {
     Solid(SolidMaterial),
     Liquid(LiquidMaterial),
 }
-pub enum SolidMaterial { SteelSS304L, Copper, Fiberglass, PyrogelHPS, CustomSolid(...) }
+pub enum SolidMaterial { SteelSS304L, Copper, Fiberglass, PyrogelHPS,
+    NuclearGraphiteMatrixA3, NuclearGraphiteIG110, CustomSolid(...) }
 pub enum LiquidMaterial { TherminolVP1, DowthermA, HITEC, YD325, FLiBe, FLiNaK, CustomLiquid(...) }
 ```
 

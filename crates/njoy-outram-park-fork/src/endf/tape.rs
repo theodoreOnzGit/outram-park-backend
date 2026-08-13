@@ -83,19 +83,29 @@ impl Tape {
                 // Flush any open section
                 if let Some(key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(key).or_insert(idx);
                 }
                 continue;
             }
 
-            let key = EndfKey { mat: rl.mat, mf: rl.mf, mt: rl.mt };
+            let key = EndfKey {
+                mat: rl.mat,
+                mf: rl.mf,
+                mt: rl.mt,
+            };
 
             // Start a new section when the key changes
             if current_key != Some(key) {
                 if let Some(prev_key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key: prev_key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key: prev_key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(prev_key).or_insert(idx);
                 }
                 current_key = Some(key);
@@ -107,11 +117,18 @@ impl Tape {
         // Flush the last open section (if the tape lacked a TEND)
         if let Some(key) = current_key.take() {
             let idx = sections.len();
-            sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+            sections.push(Section {
+                key,
+                rows: std::mem::take(&mut current_rows),
+            });
             index.entry(key).or_insert(idx);
         }
 
-        Ok(Tape { tpid, sections, index })
+        Ok(Tape {
+            tpid,
+            sections,
+            index,
+        })
     }
 
     /// Look up a section by `(mat, mf, mt)`, returning `None` if absent.
@@ -143,7 +160,11 @@ impl Tape {
         for (i, sec) in sections.iter().enumerate() {
             index.entry(sec.key).or_insert(i);
         }
-        Tape { tpid, sections, index }
+        Tape {
+            tpid,
+            sections,
+            index,
+        }
     }
 
     /// Write this tape back out in ENDF ASCII (formatted) mode — the write
@@ -181,14 +202,22 @@ impl Tape {
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
             for row in &sec.rows {
-                writeln!(w, "{}", format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq))
-                    .map_err(NjoyError::Io)?;
+                writeln!(
+                    w,
+                    "{}",
+                    format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq)
+                )
+                .map_err(NjoyError::Io)?;
                 seq += 1;
             }
 
             // SEND — end of section (always follows a section's data rows).
-            writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq))
-                .map_err(NjoyError::Io)?;
+            writeln!(
+                w,
+                "{}",
+                format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq)
+            )
+            .map_err(NjoyError::Io)?;
             seq += 1;
 
             let next_key = iter.peek().map(|s| s.key);

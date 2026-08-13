@@ -23,6 +23,13 @@ kovan-codegen.workspace = true
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ratatui.workspace = true
 
+# Writes the canonical `KovanDocument` JSON from the Ingest tab (the same
+# artifact `kovan lit import --json-out` produces). serde_json is pure Rust and
+# Android-clean, but it is only reachable from the `tui` module tree — itself
+# behind the Android gate on `main.rs`'s `mod tui;` — so it is declared here
+# rather than unconditionally, keeping the Android stub build dependency-free.
+serde_json.workspace = true
+
 # Pure-Rust, Android-friendly (see kovan-discovery's identical use): only
 # referenced from `#[cfg(test)]` fixtures under `src/tui/`, which is itself
 # behind the crate's Android gate on `main.rs`'s `mod tui;` — never reaches

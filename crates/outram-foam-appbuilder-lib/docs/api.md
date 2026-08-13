@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.0
+**Version:** 0.1.1
 
 **Format Version:** 60
 
@@ -14,9 +14,74 @@ trademark of OpenCFD Limited. See `TRADEMARKS.md` (this crate's
 directory, mirrored from the workspace root) for the full attribution
 and non-affiliation notice.
 
+# `outram-foam-appbuilder-lib` — Layer 5: solver applications and case I/O
+
+This crate is the **application layer** of the OUTRAM PARK OpenFOAM-in-Rust
+stack. It sits on top of `outram-foam-basic-lib` (Layers 1–4: tensors,
+fields, mesh, `fvm`/`fvc` operators, linear solvers) and
+`outram-foam-turbulence-lib` (turbulence closures), and supplies the parts
+those crates deliberately do not: the **time-advancement loops**, the
+**case-file structures**, and the **multiphysics coupling drivers**.
+
+```text
+outram-foam-basic-lib        Layers 1–4  primitives, fields, mesh, FV operators
+outram-foam-turbulence-lib   Layer 4     RAS/LES closures
+           │
+           ▼
+outram-foam-appbuilder-lib   Layer 5     ← THIS CRATE
+```
+
+## Where to start
+
+- [`solvers`] — one submodule per ported OpenFOAM application. Each owns its
+  PISO/PIMPLE (or explicit) time loop. Construct one with `new(mesh, control,
+  schemes, solution)`, set the field state, then call `step()` or `run()`.
+- [`io`] — readers for `constant/polyMesh` and `0/<field>` files, plus typed
+  `controlDict` / `fvSchemes` / `fvSolution` structs.
+- [`turbulence`] — pick a closure for a solver run.
+- [`prelude`] — one `use` that pulls in the commonly needed public items.
+- `tutorials/` — runnable end-to-end cases; the intended entry point for a
+  reader new to the crate.
+
+## Maturity — read before depending on this
+
+This is an early (0.1.0), in-progress crate and its surface is uneven:
+some paths are validated against published benchmarks, others are
+unexercised, and several are `todo!()`. The **`README.md` "Limitations"
+section is the authoritative per-module status** and is deliberately
+detailed. Two consequences bite immediately:
+
+- **No OpenFOAM dictionary parsing.** [`io::control_dict::ControlDict::read`],
+  [`io::fv_schemes::FvSchemes::read`] and
+  [`io::fv_solution::FvSolution::read`] are `todo!()`. Configure a case by
+  constructing the structs in Rust (`Default::default()` plus field
+  assignment), not by reading `system/…` from disk.
+- **No field output.** Every writer in [`io::output`] is `todo!()`, so a
+  solver run leaves its results in memory only — read them off the solver's
+  public field members.
+
+Per the workspace `RESPONSIBLE_USE.md`, nothing here is for reactor
+operation, control, licensing, or any safety-critical or operational use.
+
 ## Modules
 
 ## Module `error`
+
+The crate's single error type, [`error::AppBuilderError`].
+# `error` — the crate's single error type
+
+Every fallible public function in `outram-foam-appbuilder-lib` returns
+[`AppBuilderError`], so a caller matches one enum across case-file parsing
+and the solver time loops rather than juggling a per-module error type.
+
+Variants that carry a file path or line number always refer to the OpenFOAM
+case file being read; variants carrying a residual or iteration count come
+from a solver loop.
+
+Note that the *unimplemented* parts of this crate (the `todo!()` dictionary
+readers and field writers — see the crate-root docs) **panic** rather than
+returning an error variant. `AppBuilderError` reports genuine runtime
+failures, not missing features.
 
 ```rust
 pub mod error { /* ... */ }
@@ -53,6 +118,11 @@ pub enum AppBuilderError {
     },
     TimeLimitReached {
         t: f64,
+    },
+    UnsupportedScheme {
+        family: &'static str,
+        scheme: String,
+        reason: &'static str,
     },
 }
 ```
@@ -119,6 +189,25 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `t` | `f64` |  |
+
+###### `UnsupportedScheme`
+
+An `fvSchemes` selection was parsed and understood, but the solver layer
+has no discretisation for it yet. `family` is the dictionary sub-entry
+(e.g. `"ddtSchemes"`), `scheme` the requested keyword, and `reason` says
+what is missing.
+
+This is deliberately an error rather than a silent fallback to a default
+scheme: a scheme selection that is quietly discarded reads as a promise
+the solver does not keep.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `family` | `&'static str` |  |
+| `scheme` | `String` |  |
+| `reason` | `&'static str` |  |
 
 ##### Implementations
 
@@ -237,10 +326,13 @@ Each submodule's own `//!` header states its precise status; in summary:
 - [`multi_region`] — the mesh-to-mesh mapping, coupling-field registry, and
   the tightly-coupled Picard outer iteration are implemented (with some
   scaffolded gaps noted in that module's header).
-- [`thermal_hydraulics`] — partially ported: the `uom` unit aliases and the
-  fluid-structure drag closure carry real physics; the phase/structure
-  state, solver drivers, and remaining closures are documented scaffolds.
-  See that module's header for the per-sub-module breakdown.
+- [`thermal_hydraulics`] — the phase/structure field state, the one-phase
+  porous solver driver, all six closure families, the TH boundary
+  conditions, the diagnostic function objects and the bespoke hydrogen
+  thermophysical package are implemented with unit tests. The two-phase
+  (MULES) solver, `onePhaseLegacy` and the `nusselt_baffle` boundary
+  condition remain unported. See that module's header for the per-sub-module
+  breakdown and the full gap list.
 
 The generic FV building blocks ([`common`]) round out the subtree.
 
@@ -2957,12 +3049,17 @@ workspace no-trait-object rule, the region models are a closed
 it. The [`RegionKernel`] trait is a *compile-time contract* each model
 satisfies (it is never used as `dyn`).
 
-## What is realised vs. scaffolded
+## What is realised vs. deferred
 
-The mesh-based neutronics-diffusion / SP3 / SN and the full thermal-hydraulics
-solvers are still being ported in the parallel fleet, so the loop cannot yet
-dispatch to them. What it *does* drive end-to-end, using only already-ported
-code, is a genuine **0-D neutronics ↔ lumped thermal-hydraulics** coupling:
+The loop dispatches to mesh-based **diffusion** neutronics
+([`RegionModel::MeshNeutronics`], wrapping the ported
+[`DiffusionNeutronics`](crate::genfoam::neutronics::DiffusionNeutronics)) and
+to a per-cell thermal region ([`RegionModel::MeshThermalHydraulics`]). SP3,
+S_N and the full porous thermal-hydraulics driver drop into the same
+dispatch seam but are not yet wired as region models.
+
+It also drives, using only 0-D code, a **point-kinetics ↔ lumped
+thermal-hydraulics** coupling:
 [`LumpedNeutronics`] wraps the ported
 [`point_kinetics`](crate::genfoam::neutronics::point_kinetics) and consumes a
 mapped fuel temperature as Doppler-feedback reactivity; [`LumpedThermal`]
@@ -4992,10 +5089,11 @@ a model forces every `match` site to handle it.
 - [`diffusion`] — multigroup neutron diffusion, k-eigenvalue + transient
   (implemented).
 - [`sp3`] — simplified-P3 transport, eigenvalue + transient (implemented).
-- [`sn`] — discrete-ordinates (S_N) transport, eigenvalue + transient
-  (implemented). Each model also exposes a lightweight state-only
-  constructor (`::new`) — described in its header as a "scaffold" — that
-  allocates flux state without cross sections.
+- [`sn`] — discrete-ordinates (S_N) transport, **eigenvalue only**
+  (implemented; the transient `step` is deferred, unlike `diffusion` and
+  `sp3`). Each model also exposes a lightweight state-only constructor
+  (`::new`) that allocates flux state without cross sections and therefore
+  cannot solve — build with `with_cross_sections` to obtain a working model.
 - [`state`] — the shared spatial flux / power / precursor / power-density
   state that the spatial models read and write.
 - [`xs`] — the multigroup cross-section (`XS`) data structures.
@@ -7605,9 +7703,12 @@ evaluation at a feedback point. GeN-Foam additionally *materialises* these
 onto an `fvMesh` (filling one `volScalarField` per group by looping over the
 cells of each `cellZone`), and handles control-rod driveline motion and
 discontinuity-factor flux adjustment — all of which need the mesh /
-multi-region layers. Those are **deferred** to the field-materialisation
-slice (tracked in beads under the `neutronics` epic) and are not implemented
-here. The evaluation methods below are exactly the per-cell `.get(...)` call
+multi-region layers and so are not implemented *in this module*. Mesh
+materialisation has since landed next door, in
+[`DiffusionXsFields`](crate::genfoam::neutronics::diffusion::DiffusionXsFields)
+and its SP3 counterpart. **Control-rod driveline motion and
+discontinuity-factor adjustment remain deferred** (tracked in beads under
+the `neutronics` epic). The evaluation methods below are exactly the per-cell `.get(...)` call
 GeN-Foam performs in `setNeutronicsVariables.H`, lifted out of the cell loop.
 
 ## Dependency on `genfoam::common`
@@ -9619,11 +9720,11 @@ Multigroup neutron diffusion.
 
 ###### `Sp3`
 
-Simplified P3 (SP3) transport — scaffold.
+Simplified P3 (SP3) transport (eigenvalue + transient).
 
 ###### `Sn`
 
-Discrete-ordinates (SN) transport — scaffold.
+Discrete-ordinates (SN) transport (eigenvalue only).
 
 ##### Implementations
 
@@ -9795,7 +9896,9 @@ Fields:
 
 ###### `ModelNotImplemented`
 
-The requested model variant is a scaffold that is not yet implemented.
+The model was built with the state-only `::new` constructor, so it holds
+flux state but no cross sections and cannot solve. Rebuild it with
+`with_cross_sections` to obtain a working model.
 
 Fields:
 
@@ -10059,7 +10162,7 @@ Fields:
 
 ###### `Sp3`
 
-Simplified P3 transport (scaffold).
+Simplified P3 transport (eigenvalue + transient).
 
 Fields:
 
@@ -10069,7 +10172,7 @@ Fields:
 
 ###### `Sn`
 
-Discrete-ordinates transport (scaffold).
+Discrete-ordinates transport (eigenvalue only).
 
 Fields:
 
@@ -10234,19 +10337,45 @@ the sub-module map, translation order, and per-sub-module beads
 
 ## Sub-module map
 
-- [`units`] — named `uom` aliases (`ReynoldsNumber`, `DarcyFrictionFactor`,
-  `HeatTransferCoefficient`, `HeatFlux`). **Implemented.**
-- [`closures`] — the `physicsModels/` correlation leaves. Of these,
-  [`closures::fs_drag`] (fluid-structure wall friction) is **implemented and
-  verified**; the rest are scaffolded.
-- [`phase`], [`structure`] — fluid-phase and solid-structure field state
-  (scaffold).
-- [`solver`] — the porous single-/two-phase solver drivers (scaffold).
-- [`boundary_conditions`], [`function_objects`], [`thermophysical`] — TH
-  boundary conditions, diagnostics, and bespoke fluid properties (scaffold).
+Every sub-module below is ported and carries unit tests against published
+correlation values or closed-form results. What remains unported is listed
+under "Known gaps".
 
-Only [`units`] and [`closures::fs_drag`] carry real physics so far; every
-other sub-module is a documented `// TODO(genfoam)` stub with a tracking bead.
+- [`units`] — named `uom` aliases (`ReynoldsNumber`, `DarcyFrictionFactor`,
+  `HeatTransferCoefficient`, `HeatFlux`). Implemented.
+- [`closures`] — the `physicsModels/` correlation leaves: `fs_drag`,
+  `ff_drag`, `heat_transfer`, `phase_change`, `interfacial` and
+  `turbulence`. All six families are implemented with their own `tests`
+  modules; [`closures::fs_drag`] additionally carries an analytic
+  verification (laminar `f·Re → 64`).
+- [`phase`] / [`structure`] — fluid-phase and solid-structure field state,
+  including the power/heat-exchanger/pump structure models. Implemented.
+- [`solver`] — the porous solver drivers. [`solver::one_phase`] (UEqn/pEqn/
+  EEqn) is implemented; see "Known gaps" for its property limitation.
+- [`boundary_conditions`] — `blackbody_radiation`, `velocity_rundown` and
+  `time_field_table` implemented.
+- [`function_objects`] — post-processing diagnostics (mass flow, pressure
+  drop, bulk temperature, field diffs). Implemented.
+- [`thermophysical`] — the bespoke dissociating-hydrogen (H/H₂) property
+  package: EOS, thermodynamics, viscosity, conductivity. Implemented.
+
+## Known gaps
+
+- **The two-phase (MULES) solver is not implemented**, nor is
+  `onePhaseLegacy`. Only [`solver::one_phase`] exists.
+- [`solver::one_phase`] runs on **constant fluid properties** (`he = Cp·T`,
+  fixed-surface-temperature structure coupling): [`thermophysical`] is
+  ported but not yet wired in as the driver's fluid package.
+- `boundary_conditions::nusselt_baffle` is a **stub** — every method is
+  `unimplemented!()` (cross-patch implicit coupling is not supported).
+- [`closures::turbulence`] ports the closure *algebra* only; the k/ε
+  transport equations and `correctNut` orchestration are deferred (the
+  generic single-phase machinery lives in `outram-foam-turbulence-lib`).
+- The correlation leaves are **unit-tested, not system-validated** — they
+  have not been exercised inside a converged multiphysics run.
+- The great majority of upstream `thermalHydraulics` (~65k LOC) is still
+  unported; what exists here is the closure/field/one-phase-driver
+  foundation.
 
 ```rust
 pub mod thermal_hydraulics { /* ... */ }
@@ -11453,10 +11582,26 @@ site to handle it.
 
 ## Sub-modules
 
+All six families are implemented, each with its own `tests` module checking
+the correlations against published values or closed-form limits. They are
+**unit-tested, not system-validated** — none has been exercised inside a
+converged multiphysics run.
+
 - [`fs_drag`] — fluid-structure (wall) Darcy friction-factor correlations.
-  **Implemented + verified.**
-- `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`, `turbulence` —
-  scaffolded (`// TODO(genfoam)`); see `docs/genfoam-port-plan.md`.
+  Implemented; additionally **verified** against the analytic laminar limit
+  `f·Re → 64`.
+- [`ff_drag`] — fluid-fluid (interfacial) drag correlations.
+- [`heat_transfer`] — fluid-structure and fluid-fluid heat-transfer
+  coefficients, plus critical heat flux.
+- [`phase_change`] — saturation properties and phase-change source terms.
+- [`interfacial`] — interfacial area, bubble/droplet diameter, virtual mass,
+  and the flow-regime map.
+- [`turbulence`] — the two-phase/porous turbulence **closure algebra**. The
+  k/ε transport equations and `correctNut` orchestration are deferred; see
+  that module's header for the precise deferral list.
+
+See `docs/genfoam-port-plan.md` for the translation order and per-family
+tracking beads.
 
 ```rust
 pub mod closures { /* ... */ }
@@ -11865,13 +12010,11 @@ quantities that module does not yet define — [`PrandtlNumber`] and
 [`LatentHeat`] below. There is also a *second*, sibling
 `thermal_hydraulics::thermophysical::units` module in this crate with
 overlapping candidates ([`MassDensity`](uom::si::f64::MassDensity),
-[`ThermalConductivity`](uom::si::f64::ThermalConductivity), …), but as of
-this port it is not yet wired into `thermophysical/mod.rs` (`pub mod
-units;` is absent — it is mid-flight scaffolding from a concurrently
-edited part of the fleet), so importing from it would not compile. Per the
-task brief, the two aliases below are defined **locally** instead; both are
-reasonable candidates to fold into `thermal_hydraulics::units` once that
-module stabilises (noted in the port report).
+[`ThermalConductivity`](uom::si::f64::ThermalConductivity), …). That
+sibling module is now wired in (`thermophysical::units` exists and exports
+its own `PrandtlNumber`), so the two aliases below are a genuine
+duplication rather than a workaround; folding them — and the sibling's —
+into `thermal_hydraulics::units` is an open follow-up.
 
 All other quantities used across this family (temperatures, pressures,
 lengths, densities, …) are `uom`'s own already-named `f64` quantity types
@@ -16256,7 +16399,9 @@ this crate does not have — `volScalarField`, `fvm::div`/`fvm::laplacian`,
   `mixU` on face-interpolated `surfaceScalarField`s, the final
   `kl = Cc2*km` / `kg = Ct2*kl` back-substitution) — all mesh/field state.
 
-Scaffold status: tracked by bead op-p6p.7.9; see `docs/genfoam-port-plan.md`.
+Port status: the closure algebra above is implemented and unit-tested under
+bead op-p6p.7.9; the solver-integration items listed immediately above
+remain deferred. See `docs/genfoam-port-plan.md`.
 
 ```rust
 pub mod turbulence { /* ... */ }
@@ -19312,10 +19457,12 @@ coupled to the solid structure:
 
 ## Honest scope
 
-The fluid **thermophysical package** (`he <-> T`, `rho(p,T)`) is still a
-scaffold in [`super::super::thermophysical`], so this driver runs with
-**constant fluid properties** supplied on the [`Fluid`] fields (`rho`, `mu`,
-`Cp`, `kappa`) and treats the enthalpy as `he = Cp * T` about `T = 0`. That
+This driver runs with **constant fluid properties** supplied on the
+[`Fluid`] fields (`rho`, `mu`, `Cp`, `kappa`) and treats the enthalpy as
+`he = Cp * T` about `T = 0`. The reason is wiring, not absence: the bespoke
+hydrogen thermophysical package in [`super::super::thermophysical`] *is*
+ported (EOS, thermodynamics, viscosity, conductivity), but this driver does
+not yet call it as its `he <-> T` / `rho(p,T)` package. That
 is sufficient for the incompressible porous momentum/energy physics that is
 the ported slice's purpose (friction pressure drop, structure heat coupling)
 and is what the V&V exercises. The structure side is wired as a
@@ -22166,8 +22313,8 @@ mesh — see the limitations note in [`mesh_solve`].
 ## Interface expected from `genfoam::common` (ported in parallel)
 
 This module currently needs nothing from `genfoam::common` at compile time.
-The deferred mesh solve and the multi-region coupling will need, from
-`common` / the wider port:
+The mesh solve ([`mesh_solve`]) and the multi-region coupling will need,
+from `common` / the wider port:
 
 - a material-zone map (cell → [`ElasticMaterial`]) built from the
   `thermoMechanicalProperties`/`materials` dictionary (upstream reads it via
@@ -23362,8 +23509,7 @@ single material zone: an [`ElasticMaterial`] plus its rheology idealisation.
 This bundles the constitutive law and feedback relations of [`stress`] and
 [`feedback`] against one material, so a caller supplies only kinematic /
 thermal state (strain, temperature rise, geometry) at each query. It is the
-per-zone constitutive kernel the deferred mesh solve will evaluate cell-by-
-cell.
+per-zone constitutive kernel that [`mesh_solve`] evaluates cell-by-cell.
 
 # Example
 
@@ -23779,7 +23925,8 @@ pub use stress::von_mises_stress;
 
 ## Module `io`
 
-input and output
+OpenFOAM case input/output — polyMesh and field readers, typed
+`controlDict`/`fvSchemes`/`fvSolution`, and (unimplemented) field writers.
 # `io` — OpenFOAM case input/output
 
 Purpose-built Rust parsers and writers for the OpenFOAM ASCII case files, so
@@ -23787,12 +23934,25 @@ a case can be read into typed structs (invalid keys become `Result` errors,
 not silent runtime fallbacks) and results written back out. No C++/FFI is
 used — see `poly_mesh`'s header for the rationale.
 
-- [`control_dict`] — `system/controlDict` (time control, write control).
-- [`fv_schemes`] — `system/fvSchemes` (ddt/grad/div/laplacian scheme choices).
-- [`fv_solution`] — `system/fvSolution` (linear-solver + PIMPLE controls).
-- [`poly_mesh`] — `constant/polyMesh` reader (points/faces/owner/neighbour).
-- [`field_reader`] — `0/<field>` internal-field readers (scalar and vector).
-- [`output`] — OpenFOAM-ASCII / VTK field writers (currently unimplemented).
+## What actually reads and writes today
+
+**Only the mesh and field readers work.** The three `system/` dictionary
+parsers and every writer are `todo!()` and panic if called, so a case is
+configured by constructing the structs in Rust and its results are read off
+the solver's public fields rather than from disk.
+
+| Module | Covers | Status |
+|---|---|---|
+| [`poly_mesh`] | `constant/polyMesh` (points/faces/owner/neighbour) | **Implemented** |
+| [`field_reader`] | `0/<field>` internal fields, scalar and vector | **Implemented** |
+| [`control_dict`] | `system/controlDict` time + write control | struct only; `read` is `todo!()` |
+| [`fv_schemes`] | `system/fvSchemes` ddt/grad/div/laplacian choices | struct only; `read` is `todo!()` |
+| [`fv_solution`] | `system/fvSolution` linear-solver + PIMPLE controls | struct only; `read` is `todo!()` |
+| [`output`] | OpenFOAM-ASCII and legacy-VTK field writers | **all `todo!()`** |
+
+The "struct only" rows are still useful: the dictionaries they model are
+typed enums, so a scheme or solver selection that OpenFOAM would accept
+silently and misinterpret is instead a compile error here.
 
 ```rust
 pub mod io { /* ... */ }
@@ -23802,10 +23962,20 @@ pub mod io { /* ... */ }
 
 ## Module `control_dict`
 
-Parser for OpenFOAM's `system/controlDict` — the time-loop and output
-control dictionary. Produces the typed [`ControlDict`] with enum-valued
-start/stop/write controls, so an invalid keyword is a `Result` error rather
-than a silent runtime default.
+Typed equivalent of OpenFOAM's `system/controlDict` — the time-loop and
+output control dictionary. [`ControlDict`] replaces the free-form text
+dictionary with a struct whose start/stop/write controls are enums, so an
+invalid selection cannot silently fall back to a default.
+
+**Status: the struct exists, the on-disk parser does not.**
+[`ControlDict::read`] is `todo!()`. Build a case with
+`ControlDict::default()` and field assignment.
+
+**Only three fields currently drive anything.** The solver loops in
+[`crate::solvers`] read [`ControlDict::start`], [`ControlDict::stop`] and
+[`ControlDict::delta_t`]. The write-control, `adjustTimeStep` and
+`runTimeModifiable` fields are carried faithfully for a future output layer
+but are **not consulted by any solver today** — each is flagged below.
 
 ```rust
 pub mod control_dict { /* ... */ }
@@ -23815,7 +23985,12 @@ pub mod control_dict { /* ... */ }
 
 #### Struct `ControlDict`
 
-Parsed contents of an OpenFOAM `system/controlDict` file.
+The contents of an OpenFOAM `system/controlDict`, as a typed struct.
+
+Construct with [`ControlDict::default`] and assign the fields you need;
+[`ControlDict::read`] (parsing the file from disk) is not implemented.
+
+See the module documentation for which fields the solvers actually honour.
 
 ```rust
 pub struct ControlDict {
@@ -23839,19 +24014,19 @@ pub struct ControlDict {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `application` | `String` |  |
-| `start` | `StartControl` |  |
-| `stop` | `StopControl` |  |
-| `delta_t` | `f64` |  |
-| `write_control` | `WriteControl` |  |
-| `write_interval` | `f64` |  |
-| `purge_write` | `usize` |  |
-| `write_format` | `WriteFormat` |  |
-| `write_precision` | `usize` |  |
-| `run_time_modifiable` | `bool` |  |
-| `adjust_time_step` | `bool` |  |
-| `max_co` | `f64` |  |
-| `max_delta_t` | `f64` |  |
+| `application` | `String` | Name of the OpenFOAM application the case was written for (e.g.<br>`"pimpleFoam"`). Informational only — this crate never dispatches on it. |
+| `start` | `StartControl` | Where the run starts. See [`StartControl`]. |
+| `stop` | `StopControl` | Where the run stops. See [`StopControl`]. |
+| `delta_t` | `f64` | Fixed time step Δt in seconds. Must be > 0. Because `adjust_time_step` is not<br>implemented (below), this is the step size for the whole run. |
+| `write_control` | `WriteControl` | How often results should be written. See [`WriteControl`].<br><br>**Not honoured** — [`crate::io::output`] has no working writers, so no<br>solver writes anything to disk regardless of this value. |
+| `write_interval` | `f64` | Interval used by `write_control` — steps for<br>[`WriteControl::TimeStep`], seconds otherwise. **Not honoured** (see<br>`write_control`). |
+| `purge_write` | `usize` | Number of old time directories to retain (`0` = keep all).<br>**Not honoured** (see `write_control`). |
+| `write_format` | `WriteFormat` | ASCII or binary field output. **Not honoured** (see `write_control`). |
+| `write_precision` | `usize` | Significant figures for ASCII output. **Not honoured** (see<br>`write_control`). |
+| `run_time_modifiable` | `bool` | Whether OpenFOAM would re-read the dictionary each step.<br>**Not honoured** — this crate holds the struct in memory and never<br>re-reads it. |
+| `adjust_time_step` | `bool` | Whether the time step should adapt to `max_co` / `max_delta_t`.<br><br>**Not implemented.** There is no adaptive-Δt path in this crate: the<br>solver loops step at the fixed [`ControlDict::delta_t`] whatever this is<br>set to. Setting it `true` changes nothing — pick a Δt that satisfies<br>your Courant limit yourself. |
+| `max_co` | `f64` | Target maximum Courant number for adaptive stepping [-].<br>**Not honoured** (see `adjust_time_step`). |
+| `max_delta_t` | `f64` | Ceiling on the adaptive time step, in seconds.<br>**Not honoured** (see `adjust_time_step`). |
 
 ##### Implementations
 
@@ -23940,6 +24115,13 @@ pub struct ControlDict {
 - **UnwindSafe**
 #### Enum `StartControl`
 
+Where a run begins — OpenFOAM's `startFrom`.
+
+Only [`StartControl::StartTime`] is acted on; the loops in
+[`crate::solvers`] treat the other two as `t = 0`, because selecting a time
+directory on disk needs field *reading per time step*, which this crate does
+not do.
+
 ```rust
 pub enum StartControl {
     StartTime(f64),
@@ -23952,6 +24134,8 @@ pub enum StartControl {
 
 ###### `StartTime`
 
+Begin at this time, in seconds (`startFrom startTime`).
+
 Fields:
 
 | Index | Type | Documentation |
@@ -23960,7 +24144,13 @@ Fields:
 
 ###### `LatestTime`
 
+Begin at the newest time directory present (`startFrom latestTime`).
+**Treated as `t = 0`.**
+
 ###### `FirstTime`
+
+Begin at the earliest time directory present (`startFrom firstTime`).
+**Treated as `t = 0`.**
 
 ##### Implementations
 
@@ -24043,6 +24233,12 @@ Fields:
 - **UnwindSafe**
 #### Enum `StopControl`
 
+Where a run ends — OpenFOAM's `stopAt`.
+
+Only [`StopControl::EndTime`] is acted on. The solver `run()` loops return
+immediately (`Ok(())`, zero steps taken) for every other variant, because
+each of them is defined in terms of a write that this crate cannot perform.
+
 ```rust
 pub enum StopControl {
     EndTime(f64),
@@ -24056,6 +24252,8 @@ pub enum StopControl {
 
 ###### `EndTime`
 
+Stop once the simulated time reaches this value, in seconds (`stopAt endTime`).
+
 Fields:
 
 | Index | Type | Documentation |
@@ -24064,9 +24262,15 @@ Fields:
 
 ###### `WriteNow`
 
+Stop and write immediately. **Runs zero steps** (see the enum docs).
+
 ###### `NoWriteNow`
 
+Stop immediately without writing. **Runs zero steps.**
+
 ###### `NextWrite`
+
+Stop at the next scheduled write. **Runs zero steps.**
 
 ##### Implementations
 
@@ -24149,6 +24353,13 @@ Fields:
 - **UnwindSafe**
 #### Enum `WriteControl`
 
+How often results are written — OpenFOAM's `writeControl`.
+
+**No variant is honoured**: [`crate::io::output`]'s writers are `todo!()`,
+so a solver run produces no files. The enum exists so a case description is
+complete and so the output layer, once written, has its selection already
+typed.
+
 ```rust
 pub enum WriteControl {
     TimeStep(usize),
@@ -24163,6 +24374,8 @@ pub enum WriteControl {
 
 ###### `TimeStep`
 
+Write every N time steps.
+
 Fields:
 
 | Index | Type | Documentation |
@@ -24170,6 +24383,8 @@ Fields:
 | 0 | `usize` |  |
 
 ###### `RunTime`
+
+Write every N seconds of *simulated* time.
 
 Fields:
 
@@ -24179,6 +24394,9 @@ Fields:
 
 ###### `AdjustableRunTime`
 
+Write every N seconds of simulated time, adjusting Δt to land exactly on
+the write instants.
+
 Fields:
 
 | Index | Type | Documentation |
@@ -24187,6 +24405,8 @@ Fields:
 
 ###### `CpuTime`
 
+Write every N seconds of CPU time.
+
 Fields:
 
 | Index | Type | Documentation |
@@ -24194,6 +24414,8 @@ Fields:
 | 0 | `f64` |  |
 
 ###### `ClockTime`
+
+Write every N seconds of wall-clock time.
 
 Fields:
 
@@ -24282,6 +24504,9 @@ Fields:
 - **UnwindSafe**
 #### Enum `WriteFormat`
 
+Field-file encoding — OpenFOAM's `writeFormat`. **Not honoured**; see
+[`WriteControl`].
+
 ```rust
 pub enum WriteFormat {
     Ascii,
@@ -24293,7 +24518,11 @@ pub enum WriteFormat {
 
 ###### `Ascii`
 
+Human-readable ASCII.
+
 ###### `Binary`
+
+Binary (smaller and faster, not diffable).
 
 ##### Implementations
 
@@ -24472,6 +24701,7 @@ pub struct FvSchemes {
 - ```rust
   pub fn read(path: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
   ```
+  Parse a `system/fvSchemes` file from disk.
 
 ###### Trait Implementations
 
@@ -24509,6 +24739,7 @@ pub struct FvSchemes {
   - ```rust
     fn default() -> Self { /* ... */ }
     ```
+    The defaults describe **what the solvers in this crate actually do** when
 
 - **Freeze**
 - **From**
@@ -25236,6 +25467,7 @@ pub struct FvSolution {
 - ```rust
   pub fn read(path: &Path) -> Result<Self, AppBuilderError> { /* ... */ }
   ```
+  Parse a `system/fvSolution` file from disk.
 
 ###### Trait Implementations
 
@@ -25765,7 +25997,8 @@ pub fn parse_boundary(text: &str, file: &str) -> Result<Vec<outram_foam_basic_li
 
 ## Module `prelude`
 
-for users to import
+Re-exports of the crate's commonly used public items, for
+`use outram_foam_appbuilder_lib::prelude::*;`.
 
 ```rust
 pub mod prelude { /* ... */ }
@@ -26001,6 +26234,12 @@ pub use crate::solvers::hrm_foam::HrmFoam;
 pub use crate::solvers::hrm_foam::HrmModelConfig;
 ```
 
+#### Re-export `MeltFoam`
+
+```rust
+pub use crate::solvers::melt_foam::MeltFoam;
+```
+
 #### Re-export `PimpleFoam`
 
 ```rust
@@ -26085,9 +26324,15 @@ pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
 pub use crate::solvers::sonic_foam::SonicFoam;
 ```
 
+#### Re-export `TurbulenceClosure`
+
+```rust
+pub use crate::turbulence::TurbulenceClosure;
+```
+
 ## Module `solvers`
 
-your solvers are here!
+The ported OpenFOAM solver applications and their time-advancement loops.
 # `solvers` — Layer-5 OpenFOAM solver-application ports
 
 Each submodule is a self-contained Rust port of one OpenFOAM solver
@@ -26099,6 +26344,7 @@ logic — see `bc_util`).
 | Submodule | Ports | Regime |
 |---|---|---|
 | [`pimple_foam`] | pimpleFoam | Incompressible transient PIMPLE |
+| [`melt_foam`] | pimpleFoam + `solidificationMelting` fvModel | Incompressible buoyant PIMPLE with phase change |
 | [`rho_pimple_foam`] | rhoPimpleFoam | Compressible transient PIMPLE |
 | [`sonic_foam`] | sonicFoam | Transonic/supersonic compressible |
 | [`rho_central_foam`] | rhoCentralFoam | Density-based central-upwind (Kurganov-Tadmor) |
@@ -26314,7 +26560,7 @@ pub struct HrmFoam {
 | `gas_diffusivity` | `VolScalarField` | Effective gas diffusivity D [kg/(m·s)] |
 | `p_sat` | `VolScalarField` | Saturation pressure p_sat [Pa] — updated by caller each time step |
 | `phi` | `SurfaceScalarField` | Mass flux φ = ρ U·Sf [kg/s] |
-| `model` | `HrmModelConfig` |  |
+| `model` | `HrmModelConfig` | The Downar-Zapolski relaxation-model constants this run uses.<br><br>Set through [`HrmFoam::with_model_config`]; [`HrmFoam::new`] installs<br>[`HrmModelConfig::default`]. |
 
 ##### Implementations
 
@@ -26323,10 +26569,12 @@ pub struct HrmFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
+  Build a Homogeneous Relaxation Model two-phase flashing-flow solver on
 
 - ```rust
   pub fn with_model_config(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution, model: HrmModelConfig) -> Self { /* ... */ }
   ```
+  Build an HRM solver with explicit relaxation-model constants.
 
 - ```rust
   pub fn relaxation_time(psi: f64, x: f64) -> f64 { /* ... */ }
@@ -26336,6 +26584,7 @@ pub struct HrmFoam {
 - ```rust
   pub fn relaxation_time_with_config(self: &Self, psi: f64, x: f64) -> f64 { /* ... */ }
   ```
+  The Downar-Zapolski (1996) relaxation time θ, in seconds, evaluated with
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -26345,6 +26594,7 @@ pub struct HrmFoam {
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
+  Advance the solver from the `controlDict` start time to its end time,
 
 ###### Trait Implementations
 
@@ -26419,6 +26669,242 @@ Quality exponent b
 pub const DZ_B: f64 = -0.05;
 ```
 
+## Module `melt_foam`
+
+# meltFoam — incompressible buoyant PIMPLE with phase change
+
+## What belongs here, and what does not
+
+This module holds the **Layer-5 solver loop** that melting needs and that
+[`pimple_foam`](super::pimple_foam) does not provide: a temperature
+transport equation, and the wiring that lets an
+[`FvModels`] collection contribute to *both* the momentum and the energy
+equation of the same timestep.
+
+The phase-change physics itself does **not** belong here — it lives in
+`outram_foam_basic_lib::fv_options::SolidificationMelting`, which owns the
+liquid fraction, the latent heat, the Darcy drag and the Boussinesq buoyancy.
+This module only assembles equations and calls that model at the right points
+in the timestep. Adding a mushy-zone correlation or a new drag law here would
+be a layering mistake.
+
+There is no upstream application called `meltFoam`, and this module does not
+claim to be a port of one. Upstream runs this physics by attaching the
+`solidificationMelting` **fvModel** to an existing buoyant solver through a
+runtime dictionary; because this crate's solvers are Rust structs rather than
+runtime-assembled dictionaries, the same composition has to be written out as
+a named solver. The individual equations are upstream's — the PISO loop from
+`applications/modules/incompressibleFluid/`, the energy equation from
+`applications/modules/fluid/thermophysicalPredictor.C` — but their assembly
+into one struct is this crate's, not a transcription of any single upstream
+file.
+
+## Governing equations
+
+With kinematic pressure `p = p/ρ` \[m²/s²\], exactly as pimpleFoam:
+
+`∂U/∂t + ∇·(UU) − ∇·(ν∇U) = −∇p + S_U`
+
+`∇·U = 0`
+
+`∂T/∂t + ∇·(φT) − ∇·(α_th ∇T) = S_T`
+
+`S_U` and `S_T` are supplied entirely by the attached [`FvModels`]. For a
+melting problem `S_U` is the Carman-Kozeny Darcy drag plus the Boussinesq
+buoyancy, and `S_T` is the latent heat of fusion.
+
+## The kinematic-units trap (upstream dimensional quirk — reproduced, not fixed)
+
+Upstream's `solidificationMelting::addSup` has two momentum overloads, and
+**the incompressible one simply calls the compressible one**:
+
+```text
+void addSup(const volVectorField& U, fvMatrix<vector>& eqn) const
+{
+    ...
+    const scalar S  = -Cu_*sqr(1.0 - alpha1c)/(pow3(alpha1c) + q_);
+    const vector Sb = rhoRef_*g*beta_*deltaT_[i];
+    Sp[celli] += Vc*S;
+    Su[celli] += Vc*Sb;
+}
+void addSup(const volScalarField& rho, const volVectorField& U,
+            fvMatrix<vector>& eqn) const
+{
+    addSup(U, eqn);          // <-- identical coefficients, density ignored
+}
+```
+
+Those coefficients are dimensionally consistent only with a **force-form**
+(density-weighted) momentum equation: `Vc*Sb` carries \[N\] and `Vc*S`
+carries \[kg/s\]. A kinematic momentum equation — the one pimpleFoam and this
+solver assemble — needs \[m⁴/s²\] and \[m³/s\] respectively, i.e. both terms
+divided by density.
+
+Upstream does not divide. It offers no separate kinematic form and no
+dimension check on this path, so a user attaching the model to an
+incompressible solver silently gets both terms scaled by ρ unless they
+compensate through the coefficients.
+
+**This port reproduces the upstream behaviour rather than correcting it**,
+per the workspace rule on upstream defects. The compensation is therefore the
+caller's, and it is mechanical:
+
+- set `reference_density = 1.0` (not the material density), and
+- give `darcy_coefficient` in **kinematic** units \[1/s\], i.e. the
+  literature `C_u` \[kg/(m³·s)\] divided by ρ.
+
+[`MeltFoam::boussinesq_coefficients`] performs exactly that conversion from
+physical inputs, so a caller never has to remember it. Reach for it rather
+than filling
+`SolidificationMeltingCoefficients` in by hand for this solver.
+
+## Why `rho` is a field of ones
+
+The temperature equation above is per unit volume with no ρ, matching
+upstream's `addSup(he, eqn)` overload, which passes `geometricOneField()`.
+This solver therefore hands [`FvModels::add_source_scalar`] a uniform field
+of 1.0 — not the material density. Passing the real density would multiply
+the latent-heat source by ρ (a factor of ~6000 for gallium) and freeze the
+melt front in place.
+
+```rust
+pub mod melt_foam { /* ... */ }
+```
+
+### Types
+
+#### Struct `MeltFoam`
+
+Incompressible transient buoyant PIMPLE solver with phase change.
+
+Solves the equations in the module documentation: a kinematic-pressure
+PISO/PIMPLE velocity-pressure coupling, plus a temperature transport
+equation, with an [`FvModels`] collection contributing to both.
+
+# Units
+
+Strict SI. `u` \[m/s\], `p` **kinematic** \[m²/s²\] (not Pa), `t` \[K\],
+`phi` \[m³/s\], `nu` \[m²/s\], `alpha_thermal` \[m²/s\].
+
+# Typical use
+
+Build with [`new`](Self::new), set the fields and their boundary conditions,
+attach a `SolidificationMelting` model built from
+[`boussinesq_coefficients`](Self::boussinesq_coefficients), then call
+[`step`](Self::step) in a loop or [`run`](Self::run) once.
+
+```rust
+pub struct MeltFoam {
+    pub mesh: std::sync::Arc<FvMesh>,
+    pub control: crate::io::control_dict::ControlDict,
+    pub schemes: crate::io::fv_schemes::FvSchemes,
+    pub solution: crate::io::fv_solution::FvSolution,
+    pub u: VolVectorField,
+    pub p: VolScalarField,
+    pub t: VolScalarField,
+    pub phi: SurfaceScalarField,
+    pub nu: VolScalarField,
+    pub alpha_thermal: VolScalarField,
+    pub fv_models: FvModels,
+    pub pressure_solver: crate::solvers::pimple_foam::PressureSolver,
+    pub temperature_solver: SolverSettings,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mesh` | `std::sync::Arc<FvMesh>` | The mesh, shared read-only. |
+| `control` | `crate::io::control_dict::ControlDict` | Time control — start, stop and timestep. |
+| `schemes` | `crate::io::fv_schemes::FvSchemes` | Discretisation schemes. |
+| `solution` | `crate::io::fv_solution::FvSolution` | Linear-solver and PIMPLE-loop settings. |
+| `u` | `VolVectorField` | Velocity \[m/s\]. |
+| `p` | `VolScalarField` | Kinematic pressure `p/ρ` \[m²/s²\]. |
+| `t` | `VolScalarField` | Temperature \[K\]. |
+| `phi` | `SurfaceScalarField` | Face volumetric flux `φ = U·Sf` \[m³/s\]. |
+| `nu` | `VolScalarField` | Kinematic viscosity `ν` \[m²/s\]. For gallium ~3.2e-7. |
+| `alpha_thermal` | `VolScalarField` | Thermal diffusivity `α_th = k/(ρ·Cp)` \[m²/s\]. For liquid gallium<br>~1.3e-5, i.e. roughly 40x the momentum diffusivity — the low Prandtl<br>number that makes this problem convection-dominated. |
+| `fv_models` | `FvModels` | Optional equation sources. A melting case attaches exactly one<br>`SolidificationMelting` model here. |
+| `pressure_solver` | `crate::solvers::pimple_foam::PressureSolver` | Linear solver for the pressure Poisson equation. |
+| `temperature_solver` | `SolverSettings` | Linear-solver settings for the **temperature** equation.<br><br># Why this is separate, and why the default is so tight<br><br>Defaults to `tolerance = 1e-12`, far tighter than<br>[`SolverSettings::default`]'s `1e-7`. That is not caution for its own<br>sake — it is a measured requirement.<br><br>The enthalpy-porosity scheme conserves energy *exactly* at the discrete<br>level: summing the temperature equation over all cells and all steps<br>telescopes to `Σ V·(Cp·ΔT + L·Δα) = Cp·Σ dt·(wall flux)`, with every<br>internal-face term cancelling. The only leak is the linear solve's own<br>residual, and a melting run is *long* — thousands to tens of thousands of<br>steps — so a per-step residual that is negligible in a short run<br>accumulates into a visible energy drift.<br><br>Measured on the 1-D Stefan case in this crate's `melting_vv_cases`<br>integration test (400 cells, dt = 0.01 s, 10 000 steps, 2026-08-05):<br><br>| T-solve tolerance | Δ(enthalpy) | ∫ wall heat | Imbalance |<br>|---|---|---|---|<br>| `1e-7` (the generic default) | 2111.019463 J/m² | 2130.665578 J/m² | -19.646 J/m², **-0.9221 %** |<br>| `1e-12` (this default) | 2128.217773 J/m² | 2128.218044 J/m² | -2.7108e-4 J/m², **-1.27e-5 %** |<br>| `1e-14` | — | 2128.218016 J/m² | -1.9647e-6 J/m², **-9.23e-8 %** |<br><br>A 0.9 % energy loss would be indistinguishable from a physics error while<br>being purely numerical, which is exactly the kind of drift that makes a<br>melting result untrustworthy. Loosen this only with a re-run of that<br>energy-balance check. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
+  ```
+  Build a solver with zeroed fields on `mesh`.
+
+- ```rust
+  pub fn boussinesq_coefficients(solidus: f64, liquidus: f64, latent_heat: f64, specific_heat: f64, density: f64, thermal_expansion: f64, darcy_coefficient_force: f64) -> SolidificationMeltingCoefficients { /* ... */ }
+  ```
+  Build phase-change coefficients already converted to the **kinematic**
+
+- ```rust
+  pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
+  ```
+  Advance the solution by one timestep.
+
+- ```rust
+  pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
+  ```
+  Run from the start time to the end time in `control`.
+
+- ```rust
+  pub fn liquid_fraction(self: &Self) -> Option<&[f64]> { /* ... */ }
+  ```
+  The liquid fraction \[-\] of the first attached
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `pimple_foam`
 
 # pimpleFoam / icoFoam — incompressible PISO/PIMPLE solver
@@ -26731,6 +27217,8 @@ pub struct PimpleFoam {
     pub phi: SurfaceScalarField,
     pub nu: VolScalarField,
     pub pressure_solver: PressureSolver,
+    pub u_old_old: Option<VolVectorField>,
+    pub turbulence: crate::turbulence::TurbulenceClosure,
 }
 ```
 
@@ -26747,6 +27235,8 @@ pub struct PimpleFoam {
 | `phi` | `SurfaceScalarField` | Face volumetric flux φ = U·Sf [m³/s] |
 | `nu` | `VolScalarField` | Kinematic viscosity ν [m²/s] |
 | `pressure_solver` | `PressureSolver` | Linear solver for the pressure Poisson equation (default: PCG). |
+| `u_old_old` | `Option<VolVectorField>` | Velocity at the time level *before* `u_old`, i.e. U^{n−2} [m/s].<br><br>Maintained automatically by [`PimpleFoam::step`] and needed only by the<br>second-order [`crate::io::fv_schemes::DdtScheme::Backward`] time scheme.<br>`None` before the first step has completed, where backward differencing<br>degenerates to Euler. |
+| `turbulence` | `crate::turbulence::TurbulenceClosure` | Turbulence closure (default [`TurbulenceClosure::Laminar`]).<br><br>Selecting a RAS/LES model replaces the molecular viscous term in the<br>momentum predictor with `divDevReff(U) = −∇·(ν_eff ∇U) − ∇·(ν_eff<br>dev2(∇Uᵀ))`, ν_eff = ν + ν_t, and advances the model's transport<br>equations once per time step after the pressure correctors — OpenFOAM's<br>`turbulence->correct()` position. Set it directly, e.g.<br><br>```ignore<br>solver.turbulence = TurbulenceClosure::k_omega_sst(mesh.clone());<br>solver.turbulence.set_k_omega_uniform(1.0e-2, 100.0); // k [m²/s²], ω [1/s]<br>```<br><br>**The default is laminar and stays laminar unless you change it**, so an<br>existing run is unaffected. See [`crate::turbulence`] for the honest<br>scope limits — in particular, the closures use zero-gradient (not<br>wall-function) near-wall boundary conditions. |
 
 ##### Implementations
 
@@ -26755,6 +27245,7 @@ pub struct PimpleFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
+  Build an incompressible PIMPLE solver on `mesh`, with every field
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -26764,6 +27255,7 @@ pub struct PimpleFoam {
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
+  Advance the solver from the `controlDict` start time to its end time,
 
 ###### Trait Implementations
 
@@ -27909,6 +28401,7 @@ pub struct RhoCentralFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
+  Build a density-based central-upwind (Kurganov-Noelle-Petrova) compressible
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -27918,6 +28411,7 @@ pub struct RhoCentralFoam {
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
+  Advance the solver from the `controlDict` start time to its end time,
 
 ###### Trait Implementations
 
@@ -28012,6 +28506,7 @@ pub struct RhoPimpleFoam {
     pub alpha_h: VolScalarField,
     pub psi: VolScalarField,
     pub phi: SurfaceScalarField,
+    pub turbulence: crate::turbulence::TurbulenceClosure,
 }
 ```
 
@@ -28032,6 +28527,7 @@ pub struct RhoPimpleFoam {
 | `alpha_h` | `VolScalarField` | Effective thermal diffusivity αh = κ/Cp [kg/(m·s)] |
 | `psi` | `VolScalarField` | Compressibility ψ = ∂ρ/∂p|_T = ρ/p [s²/m²] |
 | `phi` | `SurfaceScalarField` | Mass flux φ = ρ U·Sf [kg/s] |
+| `turbulence` | `crate::turbulence::TurbulenceClosure` | Turbulence closure (default [`TurbulenceClosure::Laminar`]).<br><br>Selecting a RAS/LES model makes the momentum viscous term use the<br>effective **dynamic** viscosity μ_eff = μ + ρ ν_t [Pa·s] and the energy<br>equation use α_eff = α + ρ ν_t / Pr_t [kg/(m·s)], and advances the<br>model's transport equations once per time step after the pressure<br>correctors.<br><br>The closures in `outram-foam-turbulence-lib` are formulated<br>**kinematically**, so this solver feeds them ν = μ/ρ and the<br>**volumetric** flux φ/ρ_f, and converts ν_t back with μ_t = ρ ν_t. That<br>mapping is the constant-density approximation to OpenFOAM's compressible<br>`fvm::div(alphaRhoPhi, k)` form — exact only where ρ is uniform. See<br>[`crate::turbulence`] for the full scope limits.<br><br>**The default is laminar**, so an existing run is unaffected. |
 
 ##### Implementations
 
@@ -28040,6 +28536,7 @@ pub struct RhoPimpleFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
+  Build a compressible PIMPLE solver on `mesh`, with every field allocated
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -28049,6 +28546,7 @@ pub struct RhoPimpleFoam {
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
+  Advance the solver from the `controlDict` start time to its end time,
 
 ###### Trait Implementations
 
@@ -28097,6 +28595,153 @@ pub struct RhoPimpleFoam {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `schemes`
+
+Applying `fvSchemes` selections (ddt / div) to an assembled equation.
+See [`schemes::ddt_vec_scheme`] and [`schemes::div_vec_scheme`].
+# Applying `fvSchemes` selections to the assembled equations
+
+[`crate::io::fv_schemes::FvSchemes`] parses OpenFOAM's scheme dictionary into
+typed enums. This module is what makes those enums *do* something: it turns a
+[`DdtScheme`] or [`DivScheme`] into the corresponding discretisation on a
+momentum equation.
+
+Before this module existed, every solver in this crate stored an `FvSchemes`
+and then ignored it — the time derivative was hardwired to Euler and
+convection to first-order upwind, whatever the dictionary said. A scheme
+selection that is silently discarded is worse than none, because it reads as
+a promise.
+
+## What is implemented, and what returns an error
+
+Unimplemented schemes return
+[`AppBuilderError::UnsupportedScheme`](crate::error::AppBuilderError::UnsupportedScheme)
+rather than falling back to a default. A silent fallback would reintroduce
+exactly the failure mode this module exists to remove.
+
+| Family | Implemented | Returns `UnsupportedScheme` |
+|---|---|---|
+| ddt | `Euler`, `Backward`, `SteadyState` | `CrankNicolson`, `LocalEuler` |
+| div | `GaussUpwind`, `GaussLinear` | `GaussLinearUpwind`, `GaussVanLeer`, `GaussMUSCL`, `GaussLimitedLinear` |
+
+The limited/TVD `div` schemes need a face limiter driven by a reconstructed
+upwind gradient; `outram-foam-basic-lib` provides the limiter functions
+(`limiters::FluxLimiter`) but not the face-`r` reconstruction for a vector
+field, so they are declared unsupported rather than approximated.
+
+```rust
+pub mod schemes { /* ... */ }
+```
+
+### Functions
+
+#### Function `ddt_vec_scheme`
+
+Assemble the transient term `∂U/∂t` of a vector transport equation according
+to `scheme`.
+
+The returned [`FvVectorMatrix`] is *volume-integrated*: its diagonal carries
+`V/Δt`-like coefficients [m³/s] and its source `V·U/Δt` [m⁴/s²], matching
+`fvm::ddt_vec` and the rest of this crate's assembly convention.
+
+# Arguments
+
+* `scheme`     — the `ddtSchemes` selection.
+* `u`          — the velocity field being solved for, U^n [m/s].
+* `u_old`      — U at the previous time level, U^{n−1} [m/s].
+* `u_old_old`  — U at the level before that, U^{n−2} [m/s]. Required by
+  [`DdtScheme::Backward`]; pass `None` on the first step of a run, where this
+  function falls back to Euler for that step (the standard second-order
+  backward start-up, since U^{n−2} does not exist yet).
+* `dt`         — time step Δt [s], must be > 0.
+* `mesh`       — the mesh.
+
+# Schemes
+
+* [`DdtScheme::Euler`] — first-order implicit Euler, `(U^n − U^{n−1})/Δt`.
+  Bounded and unconditionally stable; the default.
+* [`DdtScheme::Backward`] — second-order backward differencing,
+  `(3U^n − 4U^{n−1} + U^{n−2})/(2Δt)`. Diagonal coefficient `1.5 V/Δt`,
+  source `V(2U^{n−1} − 0.5U^{n−2})/Δt`. More accurate but less bounded; can
+  ring on a coarse mesh at high Courant number.
+
+  **Known limitation — `Backward` is wired, not verified as second order.**
+  [`crate::solvers::pimple_foam::PimpleFoam`]'s PISO loop adds a Rhie–Chow
+  flux correction `rAU_f · fvc::ddt_corr(U_old, φ_old, Δt)`, and
+  `outram-foam-basic-lib`'s `ddt_corr` implements only the **Euler** form.
+  Selecting `Backward` changes `rAU = V/A` (the diagonal becomes `1.5 V/Δt`
+  instead of `V/Δt`) without changing `ddt_corr`, so the two are
+  inconsistent by a ratio tending to 1.5 as Δt → 0. Measured consequence
+  (`tests/fv_scheme_selection.rs`, 2026-08-07): the Euler and Backward
+  lid-driven-cavity runs converge to steady states differing by 1.0e-2 to
+  2.9e-2 m/s (1–3 % of U_lid), and that difference *grows* as Δt is
+  refined — the signature of an inconsistency, not of truncation error.
+  Fixing it needs OpenFOAM's `backwardDdtScheme::fvcDdtPhiCorr`, which
+  belongs in `outram-foam-basic-lib`. Until then, treat `Backward` as
+  available and benchmark-neutral (it scores marginally better than Euler
+  against Ghia 1982 at every Δt tested), but not as a verified second-order
+  time integration.
+* [`DdtScheme::SteadyState`] — the term is dropped entirely (a zero matrix),
+  for steady solvers.
+
+# Errors
+
+[`AppBuilderError::UnsupportedScheme`] for `CrankNicolson` (needs the stored
+off-centred `ddt0` field OpenFOAM keeps between steps) and `LocalEuler`
+(needs a per-cell local time-step field).
+
+```rust
+pub fn ddt_vec_scheme(scheme: &crate::io::fv_schemes::DdtScheme, u: &VolVectorField, u_old: &VolVectorField, u_old_old: Option<&VolVectorField>, dt: f64, mesh: std::sync::Arc<FvMesh>) -> Result<FvVectorMatrix, crate::error::AppBuilderError> { /* ... */ }
+```
+
+#### Function `div_vec_scheme`
+
+Assemble the convection term `∇·(φ U)` of a vector transport equation
+according to `scheme`.
+
+# Arguments
+
+* `scheme` — the `divSchemes` selection for `div(phi,U)`.
+* `phi`    — face flux φ = U·S_f [m³/s] (volumetric) or ρU·S_f [kg/s]
+  (mass); the scheme is agnostic, the units follow `phi`.
+* `u`      — the transported velocity field [m/s].
+* `mesh`   — the mesh.
+
+# Schemes
+
+* [`DivScheme::GaussUpwind`] — first-order upwind, `fvm::div_vec` unmodified.
+  Unconditionally bounded, strongly diffusive on a coarse mesh.
+* [`DivScheme::GaussLinear`] — second-order central differencing, assembled
+  by **deferred correction**: the implicit matrix stays the (diagonally
+  dominant) upwind operator, and the difference between the linear and upwind
+  face values is added explicitly to the source,
+
+  ```text
+    D_f = φ_f (U_f^linear − U_f^upwind)
+    source[owner]     −= D_f
+    source[neighbour] += D_f
+  ```
+
+  This is the standard Khosla–Rubin treatment: it recovers second-order
+  accuracy at convergence while keeping the matrix M-like. It is **not**
+  bounded — central differencing on a convection-dominated coarse mesh can
+  produce over/undershoots.
+
+  Boundary faces are left to `fvm::div_vec`: on a zero-gradient patch the
+  linear and upwind face values coincide (both equal the owner value), and on
+  a fixed-value patch `fvm::div_vec` already uses the prescribed value, so
+  there is no correction to apply either way.
+
+# Errors
+
+[`AppBuilderError::UnsupportedScheme`] for the limited/TVD schemes
+(`linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear`) — see the module
+documentation.
+
+```rust
+pub fn div_vec_scheme(scheme: &crate::io::fv_schemes::DivScheme, phi: &SurfaceScalarField, u: &VolVectorField, mesh: std::sync::Arc<FvMesh>) -> Result<FvVectorMatrix, crate::error::AppBuilderError> { /* ... */ }
+```
+
 ## Module `sonic_foam`
 
 # `sonic_foam` — transonic/supersonic compressible solver (sonicFoam)
@@ -28166,6 +28811,7 @@ pub struct SonicFoam {
 - ```rust
   pub fn new(mesh: Arc<FvMesh>, control: ControlDict, schemes: FvSchemes, solution: FvSolution) -> Self { /* ... */ }
   ```
+  Build a transonic/supersonic ψ-based compressible solver on `mesh`, with
 
 - ```rust
   pub fn step(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
@@ -28175,6 +28821,7 @@ pub struct SonicFoam {
 - ```rust
   pub fn run(self: &mut Self) -> Result<(), AppBuilderError> { /* ... */ }
   ```
+  Advance the solver from the `controlDict` start time to its end time,
 
 ###### Trait Implementations
 
@@ -28191,6 +28838,314 @@ pub struct SonicFoam {
 - **BorrowMut**
   - ```rust
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `turbulence`
+
+Turbulence-closure selection for the solver loops — the Layer-5 adapter over
+`outram-foam-turbulence-lib`. See [`turbulence::TurbulenceClosure`].
+# Turbulence-closure selection for the solver loops (Layer 5 adapter)
+
+This module is the **bridge** between `outram-foam-turbulence-lib` (Layer 4 —
+the RAS/LES closures themselves) and the solver loops in
+[`crate::solvers`] (Layer 5 — PIMPLE/PISO time advancement).
+
+## What belongs here and what does not
+
+*Here:* selecting which closure a run uses, pushing the solver's live fields
+into the closure once per outer iteration, calling `correct()` at the right
+point in the PIMPLE loop, and converting between the closure's
+**kinematic** view (ν, ν_t in m²/s) and a compressible solver's **dynamic**
+view (μ, μ_t in Pa·s).
+
+*Not here:* the turbulence transport equations themselves. Those live in
+`outram-foam-turbulence-lib` and are not duplicated.
+
+## Dispatch is by enum, never `dyn`
+
+[`TurbulenceClosure`] is a plain enum, as the workspace design rules require.
+Adding a model is a compile-time forcing function: every `match` in this file
+must gain a new arm or the crate does not build. There is no `Box<dyn
+TurbulenceModel>` anywhere.
+
+## How a solver uses it
+
+```text
+for each outer (PIMPLE) iteration:
+    turbulence.sync_inputs(&U, &phi_volumetric, &nu, dt);   // push live state
+    UEqn = ddt + div + turbulence.div_dev_reff(&U, &nu);    // turbulent stress
+    ... momentum predictor, PISO pressure correctors ...
+end outer loop
+turbulence.sync_inputs(&U, &phi_volumetric, &nu, dt);       // corrected state
+turbulence.correct();                                       // advance k, ω/ε, ν_t
+```
+
+`correct()` is deliberately called **after** the pressure correctors, exactly
+as OpenFOAM's `turbulence->correct()` sits at the bottom of the PIMPLE loop.
+
+## Honest scope — read before trusting a turbulent result
+
+- The closures use **zero-gradient near-wall boundary conditions**, not wall
+  functions. `outram-foam-turbulence-lib` ships `wall_functions::{y_plus,
+  u_tau, nu_t_wall}` as standalone helpers that are **not** wired in as patch
+  boundary conditions, by that crate's own admission. A wall-bounded RAS run
+  therefore does **not** reproduce the log law and **must not** be compared
+  against a friction-factor correlation and called validated.
+- What *is* verified here (see the tests at the bottom of this file) is the
+  **coupling**: that the momentum equation actually picks up ν_t, and that a
+  closure advanced inside the PIMPLE loop reproduces the analytic solution of
+  its own transport equations for a case with no walls and no shear.
+- No model in this stack has been validated end-to-end against a published
+  turbulence benchmark. Do not describe one as validated.
+
+```rust
+pub mod turbulence { /* ... */ }
+```
+
+### Types
+
+#### Enum `TurbulenceClosure`
+
+Which turbulence closure a solver run uses.
+
+Enum dispatch, not a trait object — see the module documentation. Each
+non-laminar variant owns the concrete model struct from
+`outram-foam-turbulence-lib`, so its transport fields (k, ω, ε, ν̃, ν_t) are
+reachable for inspection after a run, e.g.
+`if let TurbulenceClosure::KOmegaSST(m) = &solver.turbulence { &m.k }`.
+
+# Units
+
+Every model in this enum is formulated **kinematically**: ν and ν_t are in
+m²/s, k in m²/s², ω in 1/s, ε in m²/s³. A compressible solver holding dynamic
+viscosity μ [Pa·s] must convert with [`TurbulenceClosure::mu_eff`], which
+applies μ_t = ρ ν_t.
+
+# Default
+
+[`TurbulenceClosure::Laminar`] — a run that does not opt in to a model keeps
+exactly the molecular viscous term the solver assembled before this module
+existed, so no pre-existing result changes.
+
+```rust
+pub enum TurbulenceClosure {
+    Laminar,
+    KOmegaSST(KOmegaSST),
+    KEpsilon(KEpsilon),
+    KOmega(KOmega),
+    SpalartAllmaras(SpalartAllmaras),
+    Smagorinsky(Smagorinsky),
+}
+```
+
+##### Variants
+
+###### `Laminar`
+
+No turbulence closure: ν_t ≡ 0 and ν_eff = ν.
+
+The momentum stress term reduces to the plain implicit molecular
+Laplacian `−∇·(ν ∇U)`. This variant deliberately **omits** the explicit
+transpose correction `−∇·(ν dev2(∇Uᵀ))` that
+`outram_foam_turbulence_lib::laminar::LaminarModel` adds: that term
+vanishes identically for a divergence-free constant-ν flow, and omitting
+it keeps this variant bit-for-bit identical to the viscous term the
+solvers used before turbulence was wired in.
+
+###### `KOmegaSST`
+
+Menter (1994) k-ω SST RAS model.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `KOmegaSST` |  |
+
+###### `KEpsilon`
+
+Jones & Launder (1972) standard k-ε RAS model.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `KEpsilon` |  |
+
+###### `KOmega`
+
+Wilcox k-ω RAS model.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `KOmega` |  |
+
+###### `SpalartAllmaras`
+
+Spalart-Allmaras (1992) one-equation RAS model.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SpalartAllmaras` |  |
+
+###### `Smagorinsky`
+
+Smagorinsky (1963) LES sub-grid-scale model.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Smagorinsky` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn k_omega_sst(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Menter k-ω SST over `mesh`, with the Menter (1994) coefficients.
+
+- ```rust
+  pub fn k_epsilon(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Standard k-ε over `mesh` (Jones & Launder 1972 coefficients).
+
+- ```rust
+  pub fn k_omega(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Wilcox k-ω over `mesh`.
+
+- ```rust
+  pub fn spalart_allmaras(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Spalart-Allmaras one-equation model over `mesh`.
+
+- ```rust
+  pub fn smagorinsky(mesh: Arc<FvMesh>) -> Self { /* ... */ }
+  ```
+  Smagorinsky LES over `mesh` (`Ck = 0.094`, `Ce = 1.048`, cubeRootVol Δ).
+
+- ```rust
+  pub fn name(self: &Self) -> &'static str { /* ... */ }
+  ```
+  Human-readable model name, matching the OpenFOAM `simulationType` /
+
+- ```rust
+  pub fn is_laminar(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` when no turbulence transport is solved (ν_t ≡ 0).
+
+- ```rust
+  pub fn sync_inputs(self: &mut Self, u: &VolVectorField, phi: &SurfaceScalarField, nu: &VolScalarField, dt: f64) { /* ... */ }
+  ```
+  Push the solver's live state into the closure.
+
+- ```rust
+  pub fn correct(self: &mut Self) { /* ... */ }
+  ```
+  Advance the turbulence transport equations by one time step.
+
+- ```rust
+  pub fn div_dev_reff(self: &Self, u: &VolVectorField, nu: &VolScalarField) -> FvVectorMatrix { /* ... */ }
+  ```
+  Assemble the momentum stress term for the velocity field `u`.
+
+- ```rust
+  pub fn nu_t(self: &Self) -> Option<&VolScalarField> { /* ... */ }
+  ```
+  Turbulent kinematic viscosity ν_t [m²/s], or `None` for a laminar run.
+
+- ```rust
+  pub fn nu_eff(self: &Self, nu: &VolScalarField) -> VolScalarField { /* ... */ }
+  ```
+  Effective kinematic viscosity ν_eff = ν + ν_t [m²/s], per cell.
+
+- ```rust
+  pub fn mu_eff(self: &Self, mu: &VolScalarField, rho: &VolScalarField) -> VolScalarField { /* ... */ }
+  ```
+  Effective **dynamic** viscosity μ_eff = μ + ρ ν_t [Pa·s], per cell.
+
+- ```rust
+  pub fn alpha_eff_compressible(self: &Self, alpha: &VolScalarField, rho: &VolScalarField) -> VolScalarField { /* ... */ }
+  ```
+  Effective thermal diffusivity α_eff = α + α_t [kg/(m·s)] for a
+
+- ```rust
+  pub fn turbulent_prandtl(self: &Self) -> f64 { /* ... */ }
+  ```
+  Turbulent Prandtl number Pr_t (dimensionless) of the active model;
+
+- ```rust
+  pub fn set_k_omega_uniform(self: &mut Self, k: f64, scale: f64) -> bool { /* ... */ }
+  ```
+  Set uniform turbulence transport fields on a two-equation model.
+
+- ```rust
+  pub fn volumetric_flux(mass_flux: &SurfaceScalarField, rho: &VolScalarField) -> SurfaceScalarField { /* ... */ }
+  ```
+  Convert a compressible solver's **mass** flux φ_m = ρ U·S_f [kg/s] into
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TurbulenceClosure { /* ... */ }
     ```
 
 - **Freeze**

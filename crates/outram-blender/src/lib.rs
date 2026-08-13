@@ -1,12 +1,49 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Crate root. This crate is INSPIRED BY Blender's architecture
+// (github.com/blender/blender, GPL-2.0-or-later) but is not a port of it: the only
+// file carrying upstream Blender code is boolean_predicates.rs, which retains its
+// own provenance block. Every other module is written from published algorithms
+// (cited in each module's header) or from first principles.
+// Not affiliated with or endorsed by the Blender Foundation.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! # outram-blender
 //!
 //! A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 //! multiphysics suite, inspired by the **architecture** of
 //! [Blender](https://github.com/blender/blender) (GPLv2-or-later, which is
-//! GPLv3-compatible). The eventual goal is to author and procedurally generate
-//! geometry that feeds the OUTRAM PARK solvers — an `outram-foam-mesh`
-//! `polyMesh` for CFD, or an `outram-mc-libs` CSG universe for Monte Carlo
-//! neutron transport.
+//! GPLv3-compatible). It authors and procedurally generates geometry, then
+//! bridges it into two OUTRAM PARK solver workflows:
+//!
+//! - **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+//!   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
+//!   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
+//!   (the `sim` module). This path is driven by the **MC Studio** egui app
+//!   (`examples/mc_studio`).
+//! - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
+//!   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
+//!   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
+//!   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
+//!
+//! The base authoring library (primitives, mesh operators, modifiers, procedural
+//! evaluator, geometry processing) pulls in neither solver — both bridges are
+//! opt-in cargo features, so the default build stays light and Android-buildable.
 //!
 //! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
 //! > this crate borrows its *concepts and data-structure architecture* (the
@@ -24,8 +61,8 @@
 //! > **Not affiliated with the Blender Foundation.** "Blender" names the
 //! > upstream project whose architecture inspired this work; nothing here is
 //! > endorsed by or sanctioned by the Blender Foundation. See the README's
-//! > "Naming & trademark" section — the crate name itself is a pending
-//! > maintainer decision.
+//! > "Naming & trademark" section — the maintainer decided on 2026-07-17 to
+//! > keep the name `outram-blender` and mark the fork status explicitly.
 //! >
 //! > **Untrusted AI-generated draft** until a human reviews it, per the
 //! > workspace `RESPONSIBLE_USE.md`. Not for nuclear facility operation,
@@ -37,6 +74,7 @@
 //! |---|---|---|
 //! | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
+//! | `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
@@ -62,8 +100,10 @@
 //! | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
 //! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
+//! | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+//! | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
 //!
@@ -106,6 +146,19 @@ pub mod convex_hull;
 pub mod decimate;
 pub mod edge_bevel;
 pub mod export;
+
+/// Monte Carlo simulation setup + run (feature `mc-export`) — build materials,
+/// bundle geometry + source + settings, run a k-eigenvalue criticality
+/// calculation. The backend the MC Studio GUI drives.
+#[cfg(feature = "mc-export")]
+pub mod sim;
+
+/// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
+/// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
+/// `pipeline`, get back a polyhedral `VolumeMesh` + quality report, and export an
+/// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
+#[cfg(feature = "foam-mesh")]
+pub mod foam_mesh;
 pub mod fill_holes;
 pub mod inset;
 pub mod laplacian;
@@ -117,6 +170,7 @@ pub mod modifiers;
 pub mod ops;
 pub mod primitives;
 pub mod procedural;
+pub mod reactor;
 pub mod recalc_normals;
 pub mod revolve;
 pub mod solidify;

@@ -64,22 +64,27 @@
 //! reference; the notebook's own reference (≈ 1926 ppm boron) is cited above for
 //! the *method*, which is what this test verifies.
 //!
-//! **Results (2026-07-23, this environment, seed 12345, LOW-tier CORE data).**
-//! The calibrated `k_eff(r)` crosses unity between r = 8.5 cm (k = 0.98480 ±
-//! 0.00471) and r = 8.741 cm (k = 1.01136 ± 0.00461). The driver's measured
-//! outputs (also printed via `eprintln!`; asserted, not hard-coded):
+//! **Results (measured 2026-08-06, this environment, seed 12345, LOW-tier CORE
+//! data).** The measured bisection trajectory brackets the k = 1 crossing between
+//! r = 8.4375 cm (k = 0.97748 ± 0.00562) and r = 8.75 cm (k = 1.01188 ± 0.00492).
+//! The driver's measured outputs (also printed via `eprintln!`; asserted, not
+//! hard-coded):
 //!
 //! - **Bisection** (`method = Bisect`, radius tol 0.2 cm, bracket [7.5, 10.0]):
-//!   converged **r_c = 8.5938 cm**, **k = 0.99564 ± 0.00603**, in **6
-//!   k-eigenvalue solves** (2 endpoints + 4 bisection steps). Trajectory:
-//!   7.5 → 10.0 → 8.75 → 8.125 → 8.4375 → 8.5938 cm.
+//!   converged **r_c = 8.5938 cm**, **k = 0.99281 ± 0.00523**, in **6
+//!   k-eigenvalue solves** (2 endpoints + 4 bisection steps). Trajectory
+//!   (r → k ± σ): 7.5 → 0.88787 ± 0.00458; 10.0 → 1.12716 ± 0.00547;
+//!   8.75 → 1.01188 ± 0.00492; 8.125 → 0.95381 ± 0.00609;
+//!   8.4375 → 0.97748 ± 0.00562; 8.5938 → 0.99281 ± 0.00523.
 //! - **False position** (`method = Secant`, radius tol 0.25 cm): converged
-//!   **r_c = 8.6112 cm**, **k = 0.99448 ± 0.00416**.
+//!   **r_c = 8.5600 cm**, **k = 0.99326 ± 0.00588**.
 //!
-//! Both land at **r_c ≈ 8.60 cm**, **≈ 0.14 cm (1.6 %) below** the ICSBEP
-//! reference of 8.741 cm. That offset is the **known LOW-tier fast-data bias**
-//! (this embedded WMP+MGXS data gives k(8.741) ≈ 1.01, marginally supercritical,
-//! so the k = 1 crossing sits slightly low), **not** a driver error — the driver
+//! Both land at **r_c ≈ 8.56–8.59 cm**, **≈ 0.15–0.18 cm (1.7–2.1 %) below** the
+//! ICSBEP reference of 8.741 cm. That offset is the **known LOW-tier fast-data
+//! bias** (this embedded WMP+MGXS data gives k at the ICSBEP radius ≈ 1.010 —
+//! `examples/godiva_keff` measured k = 1.01042 ± 0.00174 at r = 8.7407 cm on
+//! 2026-08-06, marginally supercritical, so the k = 1 crossing sits slightly
+//! low), **not** a driver error — the driver
 //! reproduces the analytic root of a clean synthetic monotone model to machine
 //! tolerance in its unit tests (`physics::search::tests`). Interpretation: the
 //! `search_for_keff` bisection/false-position criticality-search driver is
@@ -87,6 +92,23 @@
 //! a physical critical dimension consistent with a published benchmark within the
 //! data tier's known bias. The exact 1926-ppm boron notebook case remains
 //! data-gated offline (see the caveat above).
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-23).** The values above
+//! replace ones taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged — so the seed and
+//! the bisection's radius sequence are untouched — but every sampled uniform
+//! moved, and with it every k. Superseded:
+//! - Calibration points: **k(8.5 cm) = 0.98480 ± 0.00471** and
+//!   **k(8.741 cm) = 1.01136 ± 0.00461**. Neither radius was re-run on
+//!   2026-08-06 (no test evaluates them), so **both need a re-run**; the new
+//!   crossing bracket quoted above comes from the measured bisection trajectory
+//!   instead, and no replacement value is invented for these two radii.
+//! - **Bisection**: r_c = 8.5938 cm, k = 0.99564 ± 0.00603 (6 solves; same radius
+//!   trajectory).
+//! - **False position**: r_c = 8.6112 cm, k = 0.99448 ± 0.00416.
+//! - Summary offset: "both land at r_c ≈ 8.60 cm, ≈ 0.14 cm (1.6 %) below 8.741
+//!   cm", and "k(8.741) ≈ 1.01" from the pre-`op-jis` data.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -101,9 +123,18 @@ fn godiva_material() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -164,11 +195,17 @@ fn search_for_critical_radius_godiva_bisection() {
         result.parameter, result.keff, result.keff_std, result.converged, n_solves
     );
     for it in &result.iterations {
-        eprintln!("    r = {:>7.4} cm  ->  k = {:.5} ± {:.5}", it.parameter, it.keff, it.keff_std);
+        eprintln!(
+            "    r = {:>7.4} cm  ->  k = {:.5} ± {:.5}",
+            it.parameter, it.keff, it.keff_std
+        );
     }
 
     // The driver reached a convergence criterion (radius tolerance), not the cap.
-    assert!(result.converged, "criticality search did not converge within the iteration budget");
+    assert!(
+        result.converged,
+        "criticality search did not converge within the iteration budget"
+    );
 
     // Converged radius brackets the ICSBEP Godiva reference (8.741 cm). LOW-tier
     // CORE data lands slightly low (~8.6 cm), so a band around the reference.
@@ -184,11 +221,16 @@ fn search_for_critical_radius_godiva_bisection() {
     assert!(
         (result.keff - 1.0).abs() < tol_k,
         "k at converged radius = {} (± {}) not within 3σ of critical (1.0)",
-        result.keff, result.keff_std
+        result.keff,
+        result.keff_std
     );
 
     // The trajectory records both endpoints plus every midpoint (>= 3 points).
-    assert!(result.iterations.len() >= 3, "search trajectory too short: {:?}", result.iterations);
+    assert!(
+        result.iterations.len() >= 3,
+        "search trajectory too short: {:?}",
+        result.iterations
+    );
 }
 
 /// LIVE cross-check: the **bracket-preserving secant (false position)** method

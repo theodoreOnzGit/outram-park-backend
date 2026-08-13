@@ -43,10 +43,10 @@ pub fn parse_material_info(sec: &Section) -> Result<MaterialInfo, NjoyError> {
 
     // CONT 1: ZA, AWR, LRP, LFI, NLIB, NMOD
     let c1 = cur.read_cont()?;
-    let za   = c1.c1;
-    let awr  = c1.c2;
-    let lrp  = c1.l1;
-    let lfi  = c1.l2;
+    let za = c1.c1;
+    let awr = c1.c2;
+    let lrp = c1.l1;
+    let lfi = c1.l2;
     let nlib = c1.n1;
 
     // CONT 2: ELIS, STA, LIS, LISO, 0, NFOR
@@ -58,5 +58,14 @@ pub fn parse_material_info(sec: &Section) -> Result<MaterialInfo, NjoyError> {
     let c3 = cur.read_cont()?;
     let emax = c3.c2;
 
-    Ok(MaterialInfo { za, awr, lrp, lfi, nlib, elis, nfor, emax })
+    Ok(MaterialInfo {
+        za,
+        awr,
+        lrp,
+        lfi,
+        nlib,
+        elis,
+        nfor,
+        emax,
+    })
 }

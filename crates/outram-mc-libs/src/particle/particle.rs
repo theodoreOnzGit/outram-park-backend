@@ -8,7 +8,6 @@
 /// surface crossing history, RNG seeds, event log).
 ///
 /// Units: position in cm, energy in eV.
-
 use crate::geometry::position::{Direction, Position};
 
 /// Particle type.  Maps to `openmc::Particle::Type`.
@@ -72,7 +71,10 @@ impl Particle {
     /// Create a new particle at the given phase-space coordinates.
     pub fn new(r: Position, u: Direction, e: f64, wgt: f64, seed: u64) -> Self {
         Self {
-            r, u, e, wgt,
+            r,
+            u,
+            e,
+            wgt,
             cell: 0,
             material: usize::MAX,
             surface: usize::MAX,

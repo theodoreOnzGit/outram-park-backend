@@ -23,9 +23,9 @@ pub enum IntLaw {
     Histogram = 1,
     /// Linear–linear: y interpolated linearly in both x and y.
     LinLin = 2,
-    /// Linear–log: y = exp(lin interp of ln y).
+    /// Linear–log (ENDF INT=3): y linear in ln(x).
     LinLog = 3,
-    /// Log–linear: x treated logarithmically, y linearly.
+    /// Log–linear (ENDF INT=4): ln(y) linear in x.
     LogLin = 4,
     /// Log–log: both x and y treated logarithmically.
     LogLog = 5,
@@ -49,7 +49,15 @@ impl IntLaw {
 /// Interpolate y at x given two bounding points (x₁, y₁) and (x₂, y₂) under
 /// the given ENDF interpolation law.
 ///
-/// Mirrors `terp1(x1,y1,x2,y2,x,y,i)` in NJOY2016 `endf.f90`.
+/// Mirrors `terp1(x1,y1,x2,y2,x,y,i)` in NJOY2016 `endf.f90`, including its
+/// degenerate-interval handling (`x₂ = x₁` or `y₂ = y₁` returns `y₁`). The law
+/// semantics follow ENDF-102 §0.5.2 exactly: INT=3 is *y linear in ln x*
+/// ([`IntLaw::LinLog`]) and INT=4 is *ln y linear in x* ([`IntLaw::LogLin`]).
+///
+/// > **History.** Until 2026-08-11 this function had the formulas for laws 3
+/// > and 4 swapped (code 3 computed ln-y-linear-in-x and vice versa); the swap
+/// > was caught while wiring S(α,β) temperature interpolation, whose LI=4
+/// > records must interpolate ln S linearly in T.
 ///
 /// Returns `Err(NjoyError::EndfParse)` if a log argument is non-positive.
 ///
@@ -65,27 +73,32 @@ pub fn terp1(x1: f64, y1: f64, x2: f64, y2: f64, x: f64, law: IntLaw) -> Result<
     if (x2 - x1).abs() < f64::EPSILON {
         return Ok(y1); // degenerate interval
     }
-    let r = (x - x1) / (x2 - x1); // always linear in x for laws 1-2-3
+    if y1 == y2 {
+        return Ok(y1); // flat segment — every law reduces to y₁ (upstream parity)
+    }
+    let r = (x - x1) / (x2 - x1); // linear-in-x fraction (laws 2 and 4)
 
     match law {
         IntLaw::Histogram => Ok(y1),
         IntLaw::LinLin => Ok(y1 + r * (y2 - y1)),
         IntLaw::LinLog => {
-            if y1 <= 0.0 || y2 <= 0.0 {
-                return Err(NjoyError::EndfParse(
-                    "log interpolation with non-positive y".into(),
-                ));
-            }
-            Ok(y1 * (y2 / y1).powf(r))
-        }
-        IntLaw::LogLin => {
-            if x1 <= 0.0 || x2 <= 0.0 {
+            // ENDF INT=3: y linear in ln(x).
+            if x1 <= 0.0 || x2 <= 0.0 || x <= 0.0 {
                 return Err(NjoyError::EndfParse(
                     "log interpolation with non-positive x".into(),
                 ));
             }
             let r_log = (x / x1).ln() / (x2 / x1).ln();
             Ok(y1 + r_log * (y2 - y1))
+        }
+        IntLaw::LogLin => {
+            // ENDF INT=4: ln(y) linear in x.
+            if y1 <= 0.0 || y2 <= 0.0 {
+                return Err(NjoyError::EndfParse(
+                    "log interpolation with non-positive y".into(),
+                ));
+            }
+            Ok(y1 * (y2 / y1).powf(r))
         }
         IntLaw::LogLog => {
             if x1 <= 0.0 || x2 <= 0.0 || y1 <= 0.0 || y2 <= 0.0 {
@@ -157,5 +170,46 @@ mod tests {
         // y = x^2 from (1,1) to (10,100), interp at x=3 → y=9
         let y = terp1(1.0, 1.0, 10.0, 100.0, 3.0, IntLaw::LogLog).unwrap();
         assert!((y - 9.0).abs() < 1e-10, "got {}", y);
+    }
+
+    /// ENDF INT=3 (lin-log): y linear in ln(x). At the geometric mean of x the
+    /// result is the arithmetic mean of y — pins the law-3 semantics of
+    /// ENDF-102 §0.5.2 / NJOY `terp1` (`y = y1 + log(x/x1)·(y2−y1)/log(x2/x1)`),
+    /// guarding against the pre-2026-08-11 3↔4 formula swap.
+    #[test]
+    fn linlog_is_y_linear_in_ln_x() {
+        let y = terp1(1.0, 2.0, 100.0, 6.0, 10.0, IntLaw::LinLog).unwrap();
+        assert!((y - 4.0).abs() < 1e-12, "y linear in ln x: got {y}, want 4");
+    }
+
+    /// ENDF INT=4 (log-lin): ln(y) linear in x. At the arithmetic mean of x the
+    /// result is the geometric mean of y — pins the law-4 semantics of
+    /// ENDF-102 §0.5.2 / NJOY `terp1` (`y = y1·exp((x−x1)·log(y2/y1)/(x2−x1))`).
+    /// This is the law the ENDF/B-VIII.0 graphite S(α,β) LI=4 records use for
+    /// temperature interpolation.
+    #[test]
+    fn loglin_is_ln_y_linear_in_x() {
+        let y = terp1(0.0, 1.0, 2.0, 9.0, 1.0, IntLaw::LogLin).unwrap();
+        assert!((y - 3.0).abs() < 1e-12, "ln y linear in x: got {y}, want 3");
+    }
+
+    /// Flat segments short-circuit to y₁ under every law (upstream `terp1`
+    /// parity: `y2.eq.y1` returns y1), including log-in-y laws where y = 0
+    /// would otherwise be a domain error.
+    #[test]
+    fn flat_segment_returns_y1_for_all_laws() {
+        for law in [
+            IntLaw::Histogram,
+            IntLaw::LinLin,
+            IntLaw::LinLog,
+            IntLaw::LogLin,
+            IntLaw::LogLog,
+        ] {
+            let y = terp1(1.0, 0.0, 2.0, 0.0, 1.5, law).unwrap();
+            assert_eq!(
+                y, 0.0,
+                "flat zero segment must interpolate to zero ({law:?})"
+            );
+        }
     }
 }

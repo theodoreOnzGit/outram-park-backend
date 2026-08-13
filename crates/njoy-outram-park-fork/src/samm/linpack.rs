@@ -51,7 +51,10 @@ pub struct PackedComplexMatrix {
 impl PackedComplexMatrix {
     pub fn zeros(n: usize) -> Self {
         let len = n * (n + 1) / 2;
-        Self { re: vec![0.0; len], im: vec![0.0; len] }
+        Self {
+            re: vec![0.0; len],
+            im: vec![0.0; len],
+        }
     }
 }
 
@@ -350,7 +353,8 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
             }
             let aa = g(re, kk).powi(2) + g(im, kk).powi(2);
             let ab = (b_re[(k - 1) as usize] * g(re, kk) + b_im[(k - 1) as usize] * g(im, kk)) / aa;
-            let new_bi = (b_im[(k - 1) as usize] * g(re, kk) - b_re[(k - 1) as usize] * g(im, kk)) / aa;
+            let new_bi =
+                (b_im[(k - 1) as usize] * g(re, kk) - b_re[(k - 1) as usize] * g(im, kk)) / aa;
             b_im[(k - 1) as usize] = new_bi;
             b_re[(k - 1) as usize] = ab;
             k -= 1;
@@ -379,10 +383,14 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
             let km1km1 = ikm1 + k - 1;
             let akm1 = (g(re, km1km1) * g(re, km1k) + g(im, km1km1) * g(im, km1k)) / aa;
             let akm1i = (g(im, km1km1) * g(re, km1k) - g(re, km1km1) * g(im, km1k)) / aa;
-            let bk = (b_re[(k - 1) as usize] * g(re, km1k) + b_im[(k - 1) as usize] * g(im, km1k)) / aa;
-            let bki = (b_im[(k - 1) as usize] * g(re, km1k) - b_re[(k - 1) as usize] * g(im, km1k)) / aa;
-            let bkm1 = (b_re[(k - 2) as usize] * g(re, km1k) + b_im[(k - 2) as usize] * g(im, km1k)) / aa;
-            let bkm1i = (b_im[(k - 2) as usize] * g(re, km1k) - b_re[(k - 2) as usize] * g(im, km1k)) / aa;
+            let bk =
+                (b_re[(k - 1) as usize] * g(re, km1k) + b_im[(k - 1) as usize] * g(im, km1k)) / aa;
+            let bki =
+                (b_im[(k - 1) as usize] * g(re, km1k) - b_re[(k - 1) as usize] * g(im, km1k)) / aa;
+            let bkm1 =
+                (b_re[(k - 2) as usize] * g(re, km1k) + b_im[(k - 2) as usize] * g(im, km1k)) / aa;
+            let bkm1i =
+                (b_im[(k - 2) as usize] * g(re, km1k) - b_re[(k - 2) as usize] * g(im, km1k)) / aa;
             let denom = ak * akm1 - aki * akm1i - 1.0;
             let denomi = ak * akm1i + aki * akm1;
             let dd = denom * denom + denomi * denomi;
@@ -443,7 +451,16 @@ pub fn xspsl(a: &PackedComplexMatrix, n: i64, kpvt: &[i64], b_re: &mut [f64], b_
 /// packed storage (`re`/`im`) and `y` is the RHS vector `b` — a thin
 /// `xaxpy` variant for [`xspsl`], whose "vector `y`" argument is always
 /// `b(1,1)` (i.e. `y0=0`, unlike [`xspfa`]'s in-place `a`-to-`a` calls).
-fn xaxpy_b(n: i64, sa: f64, sai: f64, x_re: &[f64], x_im: &[f64], x0: i64, y_re: &mut [f64], y_im: &mut [f64]) {
+fn xaxpy_b(
+    n: i64,
+    sa: f64,
+    sai: f64,
+    x_re: &[f64],
+    x_im: &[f64],
+    x0: i64,
+    y_re: &mut [f64],
+    y_im: &mut [f64],
+) {
     if n <= 0 || (sa == 0.0 && sai == 0.0) {
         return;
     }

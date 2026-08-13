@@ -38,13 +38,28 @@
 //! evaporation law; elastic is forward-scattered by a maximum-entropy exponential
 //! angular law that reproduces μ̄ (valid even where μ̄ ≫ 1/3, unlike a P1 law).
 //!
-//! **Results (2026-07, ENDF/B-VIII.0 group data) — adding scatter physics to the
-//! embedded tier.**
+//! **Results (re-measured 2026-08-06, ENDF/B-VIII.0 group data) — adding scatter
+//! physics to the embedded tier.**
 //!
 //! | LOW-tier model | k_eff | Δk vs benchmark |
 //! |---|---|---|
-//! | elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 | +12 852 pcm |
-//! | + inelastic (evaporation) + **forward elastic (μ̄)** | **1.01022 ± 0.00177** | **+1 022 pcm** |
+//! | elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 † | +12 852 pcm † |
+//! | + inelastic (evaporation) + **forward elastic (μ̄)** | **1.01042 ± 0.00174** | **+1 042 pcm** |
+//!
+//! ICSBEP benchmark reference: 1.0000 ± 0.0010 (external, unchanged).
+//!
+//! **Supersedes** the 2026-07 figure **1.01022 ± 0.00177 (+1 022 pcm)** for the
+//! second row, measured with the pre-`op-jis` `prn` output function (raw top-52
+//! LCG state bits). Bead `op-jis` replaced that with OpenMC's PCG-RXS-M-XS
+//! output permutation on 2026-08-06, which changes every uniform the run draws.
+//! The central value moved by +0.00020, i.e. **0.11 of a single sigma** — a
+//! re-seeding-scale fluctuation, exactly what a statistically equivalent
+//! generator should produce, and not a physics change.
+//!
+//! † The elastic-only row is a *historical* configuration that this example no
+//! longer builds, so it could not be re-run on 2026-08-06. It is retained for
+//! the comparison it makes but is **superseded and pending a re-run**; do not
+//! cite its digits as current.
 //!
 //! **Interpretation.** The two scatter mechanisms remove ~11 800 pcm and bring the
 //! offline/embedded tier essentially to the benchmark — the same two levers that
@@ -73,9 +88,18 @@ fn main() {
         name: "Godiva HEU".into(),
         temperature: 293.6, // K
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
 

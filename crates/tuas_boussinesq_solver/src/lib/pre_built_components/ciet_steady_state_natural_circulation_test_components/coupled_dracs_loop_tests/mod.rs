@@ -1,5 +1,3 @@
-
-
 //! CIET coupled DRACS + primary-loop steady-state natural-circulation tests.
 //!
 //! This module groups everything needed to run and verify the CIET compact
@@ -31,39 +29,39 @@
 /// mostly without tchx calibration, that is to say,
 /// the vertical TCHX is not split into two parts as was done in SAM:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 pub mod dracs_loop_calc_functions_no_tchx_calibration;
 
-/// functions used for calculating the thermal hydraulics inside the DRACS 
+/// functions used for calculating the thermal hydraulics inside the DRACS
 /// loop
 ///
 /// mostly with tchx calibration, that is to say,
-/// the vertical TCHX is split into two parts (35b-1 and 35b-2) 
+/// the vertical TCHX is split into two parts (35b-1 and 35b-2)
 /// as was done in SAM:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 pub mod dracs_loop_calc_functions_sam_tchx_calibration;
 
-/// functions used for calculating the thermal hydraulics inside 
-/// the Heater and DHX branch 
+/// functions used for calculating the thermal hydraulics inside
+/// the Heater and DHX branch
 /// Note: heater v1.0 is used
 pub mod pri_loop_calc_functions;
 
-/// these are calibration 
+/// these are calibration
 
 /// We use:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 /// According to table 2,
@@ -73,28 +71,27 @@ pub mod pri_loop_calc_functions;
 /// Case C has 9 tests and TCHX out temperature of 40 C
 ///
 /// Table 4 provides the data we use here
-/// 
+///
 ///
 #[cfg(test)]
 pub mod dataset_a;
 
-
 /// In the original SAM publication
 ///
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 ///
 /// I found it hard to distinguish what TCHX temperatures case A,
 /// B and C were.
 ///
-/// But there was another publication which shows which is test group 
+/// But there was another publication which shows which is test group
 /// corresponds to which temperature:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 /// According to table 2,
@@ -103,28 +100,28 @@ pub mod dataset_a;
 /// Case B has 9 tests and TCHX out temperature of 35 C
 /// Case C has 9 tests and TCHX out temperature of 40 C
 ///
-/// Table 3 also provides the data 
-/// 
+/// Table 3 also provides the data
+///
 ///
 #[cfg(test)]
 pub mod dataset_b;
 
 /// In the original SAM publication
 ///
-/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code 
-/// validation using the compact integral effects test (CIET) experimental 
-/// data (No. ANL/NSE-19/11). Argonne National 
+/// Zou, L., Hu, R., & Charpentier, A. (2019). SAM code
+/// validation using the compact integral effects test (CIET) experimental
+/// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 ///
 /// I found it hard to distinguish what TCHX temperatures case A,
 /// B and C were.
 ///
-/// But there was another publication which shows which is test group 
+/// But there was another publication which shows which is test group
 /// corresponds to which temperature:
 ///
-/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of 
-/// SAM using natural-circulation experimental data from the compact 
-/// integral effects test (CIET) facility. 
+/// Zou, L., Hu, G., O'Grady, D., & Hu, R. (2021). Code validation of
+/// SAM using natural-circulation experimental data from the compact
+/// integral effects test (CIET) facility.
 /// Nuclear Engineering and Design, 377, 111144.
 ///
 /// According to table 2,
@@ -133,12 +130,11 @@ pub mod dataset_b;
 /// Case B has 9 tests and TCHX out temperature of 35 C
 /// Case C has 9 tests and TCHX out temperature of 40 C
 ///
-/// Table 3 also provides the data 
-/// 
+/// Table 3 also provides the data
+///
 ///
 #[cfg(test)]
 pub mod dataset_c;
-
 
 /// looks like the dracs loop from the original isolated loop is
 /// not well calibrated because there may be lower resistance compared
@@ -275,16 +271,13 @@ pub mod dataset_c;
 #[cfg(test)]
 pub mod isolated_dracs_loop_resistance_calibration;
 
-
-
-/// constructor for the dhx shell and tube heat exchanger 
+/// constructor for the dhx shell and tube heat exchanger
 /// based on Zou's specifications
 pub mod dhx_constructor;
 
 /// debugging tests for functions to make natural circulation
 /// testing easier
 pub mod debugging;
-
 
 /// Rust-generated SAM vs TUAS (K=17.8) vs CIET-experiment comparison summary.
 ///
@@ -294,7 +287,6 @@ pub mod debugging;
 /// (a committed file), so the summary regenerates on `cargo test`.
 #[cfg(test)]
 pub mod sam_vs_tuas_vs_experiment_summary;
-
 
 /// SAM-predicted coupled natural-circulation mass flow rates for the CIET
 /// A/B/C datasets, transcribed verbatim from **NED-2021 Table 4**:

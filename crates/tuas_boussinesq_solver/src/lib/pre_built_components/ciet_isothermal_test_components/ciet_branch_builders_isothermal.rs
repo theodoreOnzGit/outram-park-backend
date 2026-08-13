@@ -1,4 +1,3 @@
-
 use crate::array_control_vol_and_fluid_component_collections::
 fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::array_control_vol_and_fluid_component_collections::
@@ -8,9 +7,8 @@ use super::*;
 
 /// builds a dhx branch to simulate isothermal testing of ciet
 pub fn dhx_branch_builder_isothermal_test(
-    initial_temperature: ThermodynamicTemperature) -> FluidComponentCollection {
-
-
+    initial_temperature: ThermodynamicTemperature,
+) -> FluidComponentCollection {
     // from top to bottom, (no check valve)
 
     let pipe_26 = new_pipe_26(initial_temperature);
@@ -27,7 +25,6 @@ pub fn dhx_branch_builder_isothermal_test(
 
     let mut dhx_branch = FluidComponentCollection::new_series_component_collection();
 
-
     dhx_branch.clone_and_add_component(&pipe_26);
     dhx_branch.clone_and_add_component(&static_mixer_21_label_25);
     dhx_branch.clone_and_add_component(&static_mixer_pipe_25a);
@@ -40,20 +37,20 @@ pub fn dhx_branch_builder_isothermal_test(
     dhx_branch.clone_and_add_component(&pipe_20);
     dhx_branch.clone_and_add_component(&pipe_19);
 
-
     dhx_branch
 }
 
 /// builds a heater branch to simulate isothermal testing of ciet
 pub fn heater_branch_builder_isothermal_test(
-    initial_temperature: ThermodynamicTemperature) -> FluidComponentCollection {
-
+    initial_temperature: ThermodynamicTemperature,
+) -> FluidComponentCollection {
     let pipe_4 = new_pipe_4(initial_temperature);
     let pipe_3 = new_pipe_3_relap_model(initial_temperature);
     let static_mixer_2 = new_static_mixer_10_label_2(initial_temperature);
     let static_mixer_pipe_2a = new_pipe_2a(initial_temperature);
     let heater_top_head_1a = new_heater_top_head_1a(initial_temperature);
-    let heated_section_1 = new_heated_section_version_1_label_1_without_inner_annular_pipe(initial_temperature);
+    let heated_section_1 =
+        new_heated_section_version_1_label_1_without_inner_annular_pipe(initial_temperature);
     let heater_bottom_head_1b = new_heater_bottom_head_1b(initial_temperature);
     let pipe_18 = new_pipe_18(initial_temperature);
 
@@ -71,12 +68,12 @@ pub fn heater_branch_builder_isothermal_test(
     heater_branch
 }
 
-/// builds the ctah branch to simulate isothermal testing of ciet 
+/// builds the ctah branch to simulate isothermal testing of ciet
 /// allows user to supply a pump pressure or loop pressure drop
 pub fn ctah_branch_builder_isothermal_test(
     pump_pressure: Pressure,
-    initial_temperature: ThermodynamicTemperature) -> FluidComponentCollection {
-
+    initial_temperature: ThermodynamicTemperature,
+) -> FluidComponentCollection {
     let branch_5 = new_branch_5(initial_temperature);
     let static_mixer_41_label_6 = new_static_mixer_41_label_6(initial_temperature);
     let pipe_6a = new_pipe_6a(initial_temperature);
@@ -97,12 +94,11 @@ pub fn ctah_branch_builder_isothermal_test(
     let pipe_16 = new_pipe_16(initial_temperature);
     let branch_17 = new_branch_17(initial_temperature);
 
-
-    // now I want to add each of these to the fluid component 
+    // now I want to add each of these to the fluid component
     // collection without the constant hassle of having to convert types
 
     let mut ctah_branch = FluidComponentCollection::new_series_component_collection();
-    
+
     ctah_branch.clone_and_add_component(&branch_5);
     ctah_branch.clone_and_add_component(&static_mixer_41_label_6);
     ctah_branch.clone_and_add_component(&pipe_6a);
@@ -124,4 +120,3 @@ pub fn ctah_branch_builder_isothermal_test(
 
     ctah_branch
 }
-

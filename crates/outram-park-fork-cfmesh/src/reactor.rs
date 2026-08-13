@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Provenance: original OUTRAM PARK code. Not derived from any upstream project
+// — structured cubic sphere lattices and square pin lattices built directly on
+// this crate's own `shapes` generators. The *geometries* (pebble bed, LWR pin
+// bundle) are generic public reactor configurations from the open literature;
+// no proprietary, partner or facility-specific geometry data is used here (see
+// the workspace DATA_POLICY.md).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Reactor geometry generators — structured packings of the shapes a reactor
 //! model is built from, ready to hand to [`crate::carve::carve_around`].
 //!
@@ -20,7 +45,13 @@ use crate::shapes::{box_surface, cylinder_surface, sphere_surface, TriSoup};
 ///
 /// `n_lat`/`n_lon` set each sphere's UV tessellation. Returns one
 /// [`TriSoup`](crate::shapes::TriSoup) per pebble.
-pub fn sphere_packing(counts: [usize; 3], spacing: f64, radius: f64, n_lat: usize, n_lon: usize) -> Vec<TriSoup> {
+pub fn sphere_packing(
+    counts: [usize; 3],
+    spacing: f64,
+    radius: f64,
+    n_lat: usize,
+    n_lon: usize,
+) -> Vec<TriSoup> {
     let [nx, ny, nz] = counts;
     let mut out = Vec::with_capacity(nx * ny * nz);
     for i in 0..nx {
@@ -40,7 +71,13 @@ pub fn sphere_packing(counts: [usize; 3], spacing: f64, radius: f64, n_lat: usiz
 ///
 /// `n_seg` sets each cylinder's circumferential tessellation. Returns one
 /// [`TriSoup`](crate::shapes::TriSoup) per pin.
-pub fn pin_lattice(counts: [usize; 2], pitch: f64, radius: f64, height: f64, n_seg: usize) -> Vec<TriSoup> {
+pub fn pin_lattice(
+    counts: [usize; 2],
+    pitch: f64,
+    radius: f64,
+    height: f64,
+    n_seg: usize,
+) -> Vec<TriSoup> {
     let [nx, ny] = counts;
     let mut out = Vec::with_capacity(nx * ny);
     for i in 0..nx {
@@ -59,7 +96,12 @@ pub fn pin_lattice(counts: [usize; 2], pitch: f64, radius: f64, height: f64, n_s
 ///
 /// If `soups` is empty or contains an empty surface.
 pub fn bounding_domain(soups: &[TriSoup], margin: f64) -> TriSoup {
-    let first = soups.iter().flat_map(|(p, _)| p.iter()).next().copied().expect("non-empty soups");
+    let first = soups
+        .iter()
+        .flat_map(|(p, _)| p.iter())
+        .next()
+        .copied()
+        .expect("non-empty soups");
     let mut lo = first;
     let mut hi = first;
     for (pts, _) in soups {
@@ -90,9 +132,15 @@ mod tests {
         assert_eq!(pebbles.len(), 8);
         let one = surface_volume(&pebbles[0].0, &pebbles[0].1);
         let total: f64 = pebbles.iter().map(|(p, t)| surface_volume(p, t)).sum();
-        assert!((total - 8.0 * one).abs() < 1e-9, "8 identical pebbles sum exactly");
+        assert!(
+            (total - 8.0 * one).abs() < 1e-9,
+            "8 identical pebbles sum exactly"
+        );
         let analytic = 4.0 / 3.0 * PI * 0.8_f64.powi(3);
-        assert!((one - analytic).abs() / analytic < 0.05, "single pebble within 5% analytic (coarse UV)");
+        assert!(
+            (one - analytic).abs() / analytic < 0.05,
+            "single pebble within 5% analytic (coarse UV)"
+        );
     }
 
     /// V&V — pin_lattice count + total volume. A 3×3 bundle of r = 0.5, h = 4
@@ -103,7 +151,10 @@ mod tests {
         assert_eq!(pins.len(), 9);
         let total: f64 = pins.iter().map(|(p, t)| surface_volume(p, t)).sum();
         let one = PI * 0.5_f64.powi(2) * 4.0;
-        assert!((total - 9.0 * one).abs() / (9.0 * one) < 0.01, "9 pins' volume within 1%");
+        assert!(
+            (total - 9.0 * one).abs() / (9.0 * one) < 0.01,
+            "9 pins' volume within 1%"
+        );
     }
 
     /// V&V — bounding_domain wraps every packing point with the margin, and

@@ -1,4 +1,3 @@
-
 use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::single_control_vol::SingleCVNode;
@@ -6,27 +5,26 @@ use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::f64::*;
 
-
 /// Contains Types of Control Volumes (CVs)
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CVType {
-    /// This CV is the most basic,  it can be represented by a single 
+    /// This CV is the most basic,  it can be represented by a single
     /// point or node
     SingleCV(SingleCVNode),
-    /// Array CVs are collections of SingleCVs, 
-    /// or discretised arrays of control volumes with SingleCVNodes 
+    /// Array CVs are collections of SingleCVs,
+    /// or discretised arrays of control volumes with SingleCVNodes
     /// attached to either end
-    /// but do not require the 
+    /// but do not require the
     /// user to manually specify the connections between the SingleCVs
-    /// This is for fluid arrays, where there is advection through 
+    /// This is for fluid arrays, where there is advection through
     /// the array
     FluidArrayCV(FluidArray),
-    /// Array CVs are collections of SingleCVs, 
-    /// or discretised arrays of control volumes with SingleCVNodes 
+    /// Array CVs are collections of SingleCVs,
+    /// or discretised arrays of control volumes with SingleCVNodes
     /// attached to either end
-    /// but do not require the 
+    /// but do not require the
     /// user to manually specify the connections between the SingleCVs
-    /// This is for solid arrays, where there is no advection through 
+    /// This is for solid arrays, where there is no advection through
     /// the array
     SolidArrayCV(SolidColumn),
 }
@@ -48,7 +46,6 @@ impl From<SolidColumn> for CVType {
         Self::SolidArrayCV(solid_array)
     }
 }
-
 
 impl TryFrom<CVType> for SingleCVNode {
     type Error = TuasLibError;
@@ -76,7 +73,6 @@ impl TryFrom<CVType> for FluidArray {
     }
 }
 
-
 impl TryFrom<CVType> for SolidColumn {
     type Error = TuasLibError;
 
@@ -92,27 +88,26 @@ impl TryFrom<CVType> for SolidColumn {
 
 impl CVType {
     #[inline]
-    /// gets the material 
-    pub fn get_material(&mut self) -> Result<Material,TuasLibError>{
-
-
+    /// gets the material
+    pub fn get_material(&mut self) -> Result<Material, TuasLibError> {
         match self {
             CVType::SingleCV(single_cv_node) => {
                 return Ok(single_cv_node.material_control_volume);
-            },
+            }
             CVType::FluidArrayCV(fluid_array_cv) => {
                 return Ok(fluid_array_cv.front_single_cv.material_control_volume);
-            },
+            }
             CVType::SolidArrayCV(solid_array_cv) => {
                 return Ok(solid_array_cv.front_single_cv.material_control_volume);
-            },
+            }
         }
     }
 
     /// obtains the temperature vector for all CVTypes
     #[inline]
-    pub fn get_temperature_vector(&mut self) -> 
-    Result<Vec<ThermodynamicTemperature>,TuasLibError>{
+    pub fn get_temperature_vector(
+        &mut self,
+    ) -> Result<Vec<ThermodynamicTemperature>, TuasLibError> {
         match self {
             CVType::SingleCV(single_cv) => {
                 let temperature = single_cv.get_temperature_from_enthalpy_and_set()?;
@@ -122,15 +117,13 @@ impl CVType {
                 temp_vec.push(temperature);
 
                 return Ok(temp_vec);
-
-            },
+            }
             CVType::FluidArrayCV(fluid_array_cv) => {
                 return fluid_array_cv.get_temperature_vector();
-            },
+            }
             CVType::SolidArrayCV(solid_array_cv) => {
                 return solid_array_cv.get_temperature_vector();
-            },
-
+            }
         }
     }
 }

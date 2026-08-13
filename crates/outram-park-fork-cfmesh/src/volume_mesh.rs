@@ -1,3 +1,37 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Data-structure references (re-implemented in Rust, not transcribed):
+//
+//   [1] OpenFOAM `polyMesh` — the points / faces / owner / neighbour / boundary
+//       representation, the internal-faces-first ordering rule, and the
+//       owner->neighbour face-normal convention this file guarantees.
+//       src/OpenFOAM/meshes/polyMesh
+//       Copyright (C) 2011-2016 OpenFOAM Foundation
+//       Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+//   [2] cfMesh `polyMeshGen` — the generator-side mutable form of the same
+//       structure. meshLibrary/utilities/meshes/polyMeshGen
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+//   Newell's method for a polygon's area vector is standard computational
+//   geometry (G. Newell, 1972).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! The core **volume mesh** data structure — the Rust analogue of cfMesh's
 //! `polyMeshGen` and OpenFOAM's `polyMesh`.
 //!
@@ -151,7 +185,10 @@ impl VolumeMesh {
         let scale = self.total_volume().abs().cbrt().max(1.0);
         for (c, a) in cell_area.iter().enumerate() {
             if a.length() > 1e-9 * scale * scale {
-                return Err(format!("cell {c} is not closed (Σ face areas = {})", a.length()));
+                return Err(format!(
+                    "cell {c} is not closed (Σ face areas = {})",
+                    a.length()
+                ));
             }
         }
         Ok(())
@@ -239,8 +276,19 @@ pub fn from_cell_faces(points: Vec<Vec3>, cells: &[Vec<Vec<usize>>]) -> VolumeMe
         neighbour.push(None);
         bnd += 1;
     }
-    let patches = vec![BoundaryPatch { name: "walls".into(), start_face: n_internal, n_faces: bnd }];
-    VolumeMesh { points, faces, owner, neighbour, n_cells: cells.len(), patches }
+    let patches = vec![BoundaryPatch {
+        name: "walls".into(),
+        start_face: n_internal,
+        n_faces: bnd,
+    }];
+    VolumeMesh {
+        points,
+        faces,
+        owner,
+        neighbour,
+        n_cells: cells.len(),
+        patches,
+    }
 }
 
 /// Order a face `ring` so its area vector points **away from** `owner_center`

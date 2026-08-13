@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/bedok",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
@@ -17,6 +18,10 @@ members = [
     "crates/njoy-outram-park-fork",
     "crates/nee_soon",
     "crates/outram-park-fork-coolprop",
+    # outram-park-fork-offbeat -- pure-Rust OFFBEAT fork (nuclear fuel
+    # performance: mechanics, rheology, gap/contact, material correlations,
+    # burnup/FGR). SCAFFOLD (epic op-6sl); upstream GPL-3.0, not vendored.
+    "crates/outram-park-fork-offbeat",
     # outram-park-fork-pflotran — pure-Rust PFLOTRAN fork (subsurface flow &
     # reactive transport). SCAFFOLD: units/error/flow-mode shape only; RICHARDS
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
@@ -34,9 +39,14 @@ members = [
     "crates/kovan-literature",
     "crates/kovan-semantics",
     "crates/kovan-codegen",
+    # kovan-metrics — repository accounting (per-commit API-token trailers and
+    # the pre-merge historian report). Replaces docs/historian/*.py so the
+    # toolchain needs no Python interpreter (epic op-yz7b).
+    "crates/kovan-metrics",
     "crates/kovan-cli",
     "crates/kovan-tui",
-    # outram-blender — Blender-inspired mesh-authoring frontend (scaffold).
+    # outram-blender — Blender-inspired mesh-authoring frontend (MC Studio +
+    # tet-dual Mesh Studio; real mc-export / foam-mesh solver bridges).
     # NAME/TRADEMARK NOTE: workspace convention (op-ahi) is
     # `outram-park-fork-<project>`; the maintainer requested `outram-blender`.
     # Flagged in the crate README + manifest for a rename decision.
@@ -44,12 +54,30 @@ members = [
     # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
     # generation layer (tet / polyhedral + boundary layers) between
     # outram-blender (surface) and outram-foam (FvMesh). voro++ vendored as the
-    # Voronoi-dual reference. SCAFFOLD (epic op-hzs; op-hzs.32–.35).
+    # Voronoi-dual reference. Meshing kernel + tet-dual pipeline landed (epic
+    # op-hzs); no human V&V yet.
     "crates/outram-park-fork-cfmesh",
     # outram-park-fork-liggghts — independent Rust granular-DEM library (epic
     # op-t3l). NOT a code port of GPL-2.0 LIGGGHTS/LAMMPS (see crate NOTICE for
     # the GPL-2 vs GPL-3 licensing flag — maintainer decision pending).
     "crates/outram-park-fork-liggghts",
+    # MSRE digital-twin port targets (epic op-6w0). Independent pure-Rust
+    # forks/translations; upstream reference clones are gitignored dev-only.
+    # outram-park-fork-onix — depletion/burnup (ports MIT-licensed ONIX).
+    "crates/outram-park-fork-onix",
+    # outram-park-fork-thermochimica — molten-salt Gibbs thermochemistry
+    # (ports BSD-3 ORNL Thermochimica), FP speciation/redox/solubility.
+    "crates/outram-park-fork-thermochimica",
+    # outram-park-fork-moltres — MSR neutronics + TH on outram-foam finite
+    # volume (formulation from LGPL Moltres; NOT a MOOSE/PETSc port).
+    "crates/outram-park-fork-moltres",
+    # raffles — RAFFLES (Risk Analysis Framework For Learning & Ensemble
+    # Simulation): independent pure-Rust port of the UQ / risk-analysis core of
+    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> GPL-3.0 is
+    # ONE-WAY; see crates/raffles/NOTICE. Owned by Adolphus Lye. SCAFFOLD:
+    # module boundaries + provenance only, nothing implemented. Scoping doc:
+    # docs/raven-port-scoping.md.
+    "crates/raffles",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -57,6 +85,14 @@ members = [
 # whole OUTRAM PARK suite is released from this repository.
 [workspace.package]
 edition = "2021"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 license = "GPL-3.0-only"
 homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
@@ -71,6 +107,7 @@ approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stabl
 csv = "1.4.0"
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
+num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
 peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"
@@ -82,6 +119,34 @@ faer = "0.24"
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
 anyhow = "1.0.100"
+
+# OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
+# actively-maintained successor to the older `opcua` crate (locka99, last
+# released Jan 2024). Pick this one: the legacy crate's crypto layer is built on
+# **OpenSSL**, which is Android-hostile (C toolchain + system lib); `async-opcua`
+# uses a **pure-Rust** RustCrypto stack instead (`aes`, `cbc`, `hmac`, `rsa`,
+# `sha1`, `sha2`, `x509-cert`, `num-bigint-dig`) with no `*-sys` crates and no
+# `ring`.
+#
+# ANDROID: **verified building for `aarch64-linux-android` on 2026-07-28**, both
+# with default features and with `features = ["client", "server"]` — so it needs
+# no target gate and may be depended on unconditionally by non-GUI code. Re-check
+# on a major version bump: a future move to `ring`/`aws-lc-rs` would break this.
+#
+# INTENDED USE / SCOPE: OPC UA is an industrial plant protocol. Per
+# `RESPONSIBLE_USE.md`, what *this project* builds and ships with it stays to
+# **offline demonstrations** — simulated/loopback servers for education,
+# research, and V&V. Nothing here is validated, supported, or claimed fit for
+# reactor operation, control, licensing, or safety-critical use.
+#
+# That is a statement of scope, not a restriction on you: this is GPLv3 software
+# supplied **as-is with no warranty** (GPLv3 §15-16), so downstream use is at the
+# user's own risk and their own responsibility. The project simply does not
+# certify it for operational deployment and will not represent that it is.
+#
+# Note: declaring it here does not build it — a member crate must opt in with
+# `async-opcua.workspace = true`.
+async-opcua = { version = "0.19.0", default-features = false }
 
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
@@ -173,35 +238,66 @@ wgpu = "29.0.3"
 # pulled into the tree.
 naga = "29.0.3"
 
+# OPC-UA support crates. `async-opcua` itself is declared once, further up under
+# "OPC UA client/server" — do not add a second entry here; duplicate keys in
+# `[workspace.dependencies]` are invalid TOML, and because the two blocks sit far
+# apart in this file a parallel edit can add one without producing a git
+# conflict. (That is exactly what happened on 2026-07-28.)
+#
+# Cooperative service discovery (mDNS / DNS-SD) so a demonstrator can announce
+# itself on the local link and a client can *browse* for it. This is the
+# deliberate alternative to scanning a subnet for open ports: the server
+# volunteers its presence (exactly like a printer or a Chromecast), nothing is
+# probed. `_opcua-tcp._tcp` is the DNS-SD service type the OPC Foundation's own
+# LDS-ME uses. Pure Rust, no async runtime of its own, MIT/Apache-2.0.
+#
+# NEVER use this crate (or any other) to build a port scanner or host sweeper
+# in this workspace — unsolicited scanning of a network you do not administer
+# breaches institutional acceptable-use policy and is out of scope per
+# RESPONSIBLE_USE.md (no security-sensitive analysis).
+mdns-sd = "0.20.3"
+# Async runtime required by async-opcua's server/client. Pure Rust; the
+# `net`/`time`/`sync` features are all the OPC-UA server needs, plus
+# `rt-multi-thread` so the server thread owns its own runtime independent of
+# any GUI event loop.
+tokio = { version = "1.53", features = [
+    "rt-multi-thread",
+    "net",
+    "time",
+    "sync",
+    "macros",
+] }
+
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.1.0" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.2" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.4" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.4" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.0" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.0" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.0" }
-outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.0" }
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.0" }
+outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.3" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.5" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.5" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.1" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.1" }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.1" }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.1" }
 outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
 outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.1.0" }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.1.0" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.2" }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.2" }
 boon-lay            = { path = "crates/boon-lay",            version = "0.1.2" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
 njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.1" }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
-nee_soon            = { path = "crates/nee_soon",            version = "0.1.0" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.0" }
+nee_soon            = { path = "crates/nee_soon",            version = "0.0.1" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.1" }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
-tampines            = { path = "crates/tampines",            version = "0.1.0" }
+tampines            = { path = "crates/tampines",            version = "0.0.1" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.1.0" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.1" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 kovan-common     = { path = "crates/kovan-common",     version = "0.0.0" }
@@ -209,11 +305,22 @@ kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.0" }
 kovan-literature = { path = "crates/kovan-literature", version = "0.0.0" }
 kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.0" }
 kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 
-# outram-blender — Blender-inspired mesh-authoring frontend (scaffold, 0.0.0).
-# Pure-Rust, Android-safe, no internal deps yet (export bridges to
-# outram-foam-mesh / outram-mc-libs are documented stubs, wired later).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.0" }
+# outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
+# Android-safe by default. Two opt-in solver bridges are now real (not stubs):
+# `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
+# `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
+# the Mesh Studio GUI).
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.3" }
+
+# outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
+# generation layer (tet / polyhedral cells + boundary layers) that sits between
+# the outram-blender surface frontend and the outram-foam solvers. Pure-Rust /
+# Android-safe by default; its `foam-export` feature adds the (BLAS-free)
+# outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
+# `foam-mesh` bridge.
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.1" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.

@@ -174,8 +174,7 @@ pub fn thin_linear(rows: &[UnionRow], eps: f64) -> Vec<UnionRow> {
             for j in 0..ncol {
                 let y1 = stack[0].xs[j];
                 let y2 = stack[n - 1].xs[j];
-                let test = terp1(x1, y1, x2, y2, stack[i].energy, IntLaw::LinLin)
-                    .unwrap_or(y1);
+                let test = terp1(x1, y1, x2, y2, stack[i].energy, IntLaw::LinLin).unwrap_or(y1);
                 // resxsr.f90:377 — note eps multiplies the (signed) value; xs>=0.
                 if (test - stack[i].xs[j]).abs() > eps * stack[i].xs[j] {
                     broke = true;
@@ -333,10 +332,22 @@ mod tests {
 
         // Now force >=3 collinear rows to exercise the collapse branch.
         let dense = vec![
-            UnionRow { energy: 4.0, xs: vec![10.0] },
-            UnionRow { energy: 8.0, xs: vec![10.0] },
-            UnionRow { energy: 12.0, xs: vec![10.0] },
-            UnionRow { energy: 20.0, xs: vec![10.0] },
+            UnionRow {
+                energy: 4.0,
+                xs: vec![10.0],
+            },
+            UnionRow {
+                energy: 8.0,
+                xs: vec![10.0],
+            },
+            UnionRow {
+                energy: 12.0,
+                xs: vec![10.0],
+            },
+            UnionRow {
+                energy: 20.0,
+                xs: vec![10.0],
+            },
         ];
         let collapsed = thin_linear(&dense, 1.0e-3);
         assert_eq!(collapsed.len(), 1);

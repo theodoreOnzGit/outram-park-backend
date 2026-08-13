@@ -44,7 +44,11 @@ fn load_tape() -> Tape {
 }
 
 fn default_config() -> ReconrConfig {
-    ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 }
+    ReconrConfig {
+        mat: MAT,
+        tolerance: 0.001,
+        temperature: 0.0,
+    }
 }
 
 // ── MF=1 header ───────────────────────────────────────────────────────────────
@@ -93,7 +97,10 @@ fn mf2_resolved_range_is_reich_moore() {
     assert!((r.ap - 0.9602).abs() < 1e-3, "AP={}", r.ap);
     assert_eq!(r.naps, 1, "NAPS");
     // The SLBW l-state list must be empty for an LRF=3 range.
-    assert!(r.l_states.is_empty(), "LRF=3 range must have no SLBW l-states");
+    assert!(
+        r.l_states.is_empty(),
+        "LRF=3 range must have no SLBW l-states"
+    );
 }
 
 #[test]
@@ -117,8 +124,16 @@ fn mf2_reich_moore_resonance_inventory() {
     assert!((r0.gn - 4.0221e-4).abs() < 1e-7, "GN₀={}", r0.gn);
     assert!((r0.gg - 3.6104e-2).abs() < 1e-5, "GG₀={}", r0.gg);
     // Two distinct fission channels — the hallmark of LRF=3.
-    assert!(r0.gfa.abs() > 1e-3, "GFA₀ should be non-zero, got {}", r0.gfa);
-    assert!(r0.gfb.abs() > 1e-3, "GFB₀ should be non-zero, got {}", r0.gfb);
+    assert!(
+        r0.gfa.abs() > 1e-3,
+        "GFA₀ should be non-zero, got {}",
+        r0.gfa
+    );
+    assert!(
+        r0.gfb.abs() > 1e-3,
+        "GFB₀ should be non-zero, got {}",
+        r0.gfb
+    );
 }
 
 #[test]
@@ -128,11 +143,22 @@ fn mf2_lowest_positive_resonances() {
     let info = mf2::parse_resonance_info(sec).unwrap();
     let ls = &info.resolved_rm_ranges().next().unwrap().rm_l_states[0];
 
-    let mut pos: Vec<f64> = ls.resonances.iter().map(|r| r.er).filter(|&e| e > 0.0).collect();
+    let mut pos: Vec<f64> = ls
+        .resonances
+        .iter()
+        .map(|r| r.er)
+        .filter(|&e| e > 0.0)
+        .collect();
     pos.sort_by(|a, b| a.partial_cmp(b).unwrap());
     // The famous low-lying U-235 resonances: ~0.2684 eV and ~1.134 eV.
-    assert!(pos.iter().any(|&e| (e - 0.2684).abs() < 1e-3), "missing ~0.268 eV resonance");
-    assert!(pos.iter().any(|&e| (e - 1.1342).abs() < 1e-3), "missing ~1.134 eV resonance");
+    assert!(
+        pos.iter().any(|&e| (e - 0.2684).abs() < 1e-3),
+        "missing ~0.268 eV resonance"
+    );
+    assert!(
+        pos.iter().any(|&e| (e - 1.1342).abs() < 1e-3),
+        "missing ~1.134 eV resonance"
+    );
 }
 
 // ── Full RECONR run ─────────────────────────────────────────────────────────────
@@ -141,7 +167,11 @@ fn mf2_lowest_positive_resonances() {
 fn reconr_runs_without_error() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).expect("reconr failed for U-235");
-    assert!((result.material.za - 92235.0).abs() < 0.1, "ZA={}", result.material.za);
+    assert!(
+        (result.material.za - 92235.0).abs() < 0.1,
+        "ZA={}",
+        result.material.za
+    );
 }
 
 #[test]
@@ -156,17 +186,32 @@ fn reconr_thermal_cross_sections_match_accepted_values() {
 
     let fis = result.eval_mt(MtReaction::Mt18Fission, 0.0253);
     let cap = result.eval_mt(MtReaction::Mt102Capture, 0.0253);
-    let el  = result.eval_mt(MtReaction::Mt2Elastic, 0.0253);
+    let el = result.eval_mt(MtReaction::Mt2Elastic, 0.0253);
     let tot = result.eval_mt(MtReaction::Mt1Total, 0.0253);
 
-    assert!((fis - 585.0).abs() < 25.0, "σ_fission(0.0253 eV) = {fis:.1} b, expected ≈585");
-    assert!((cap - 99.0).abs()  < 10.0, "σ_capture(0.0253 eV) = {cap:.1} b, expected ≈99");
-    assert!((el - 15.0).abs()   < 3.0,  "σ_elastic(0.0253 eV) = {el:.1} b, expected ≈15");
-    assert!((tot - 699.0).abs() < 25.0, "σ_total(0.0253 eV) = {tot:.1} b, expected ≈699");
+    assert!(
+        (fis - 585.0).abs() < 25.0,
+        "σ_fission(0.0253 eV) = {fis:.1} b, expected ≈585"
+    );
+    assert!(
+        (cap - 99.0).abs() < 10.0,
+        "σ_capture(0.0253 eV) = {cap:.1} b, expected ≈99"
+    );
+    assert!(
+        (el - 15.0).abs() < 3.0,
+        "σ_elastic(0.0253 eV) = {el:.1} b, expected ≈15"
+    );
+    assert!(
+        (tot - 699.0).abs() < 25.0,
+        "σ_total(0.0253 eV) = {tot:.1} b, expected ≈699"
+    );
 
     // Internal consistency: total ≈ elastic + fission + capture (+ small others).
-    assert!(tot >= el + fis + cap - 1.0,
-        "total {tot:.1} < el+fis+cap = {:.1}", el + fis + cap);
+    assert!(
+        tot >= el + fis + cap - 1.0,
+        "total {tot:.1} < el+fis+cap = {:.1}",
+        el + fis + cap
+    );
 }
 
 #[test]
@@ -177,13 +222,25 @@ fn reconr_fission_is_substantial_and_finite() {
     let tape = load_tape();
     let result = reconr(&tape, &default_config()).unwrap();
 
-    let fsec = result.sections.iter().find(|s| s.mt == MtReaction::Mt18Fission)
+    let fsec = result
+        .sections
+        .iter()
+        .find(|s| s.mt == MtReaction::Mt18Fission)
         .expect("no fission section");
     let max_fis = fsec.pairs.iter().map(|&(_, s)| s).fold(0.0_f64, f64::max);
-    assert!(max_fis > 1.0e3,  "peak fission should exceed 1000 b, got {max_fis:.1}");
-    assert!(max_fis < 1.0e5,  "peak fission unphysically large ({max_fis:.1} b) — merge bug?");
+    assert!(
+        max_fis > 1.0e3,
+        "peak fission should exceed 1000 b, got {max_fis:.1}"
+    );
+    assert!(
+        max_fis < 1.0e5,
+        "peak fission unphysically large ({max_fis:.1} b) — merge bug?"
+    );
     for &(e, s) in &fsec.pairs {
-        assert!(s.is_finite() && s >= 0.0, "σ_fission={s} at E={e} is invalid");
+        assert!(
+            s.is_finite() && s >= 0.0,
+            "σ_fission={s} at E={e} is invalid"
+        );
     }
 }
 
@@ -193,8 +250,13 @@ fn reconr_all_xs_nonnegative_and_finite() {
     let result = reconr(&tape, &default_config()).unwrap();
     for sec in &result.sections {
         for &(e, sigma) in &sec.pairs {
-            assert!(sigma.is_finite() && sigma >= -0.01,
-                "MT={} σ={:.4} at E={:.4} eV is invalid", sec.mt, sigma, e);
+            assert!(
+                sigma.is_finite() && sigma >= -0.01,
+                "MT={} σ={:.4} at E={:.4} eV is invalid",
+                sec.mt,
+                sigma,
+                e
+            );
         }
     }
 }
@@ -206,10 +268,16 @@ fn reconr_resonance_peaks_above_thermal() {
     let result = reconr(&tape, &default_config()).unwrap();
 
     let thermal = result.eval_mt(MtReaction::Mt18Fission, 0.0253);
-    let fsec = result.sections.iter().find(|s| s.mt == MtReaction::Mt18Fission).unwrap();
+    let fsec = result
+        .sections
+        .iter()
+        .find(|s| s.mt == MtReaction::Mt18Fission)
+        .unwrap();
     let peak = fsec.pairs.iter().map(|&(_, s)| s).fold(0.0_f64, f64::max);
-    assert!(peak > 10.0 * thermal,
-        "peak fission {peak:.1} should dwarf thermal {thermal:.1}");
+    assert!(
+        peak > 10.0 * thermal,
+        "peak fission {peak:.1} should dwarf thermal {thermal:.1}"
+    );
 }
 
 // ── NuclearDataLibrary OOP API ──────────────────────────────────────────────────
@@ -222,10 +290,17 @@ fn library_reconstructs_and_reports_fissile_xs() {
         .expect("reconstruct failed");
 
     assert_eq!(lib.mat(), MAT);
-    assert!((lib.za().unwrap() - 92235.0).abs() < 0.1, "ZA={:?}", lib.za());
+    assert!(
+        (lib.za().unwrap() - 92235.0).abs() < 0.1,
+        "ZA={:?}",
+        lib.za()
+    );
 
     // Unlike Ar-37, U-235 fission must be large at thermal.
     let e = uom::si::f64::Energy::new::<electronvolt>(0.0253);
     let fis = lib.fission_xs(e).get::<barn>();
-    assert!(fis > 500.0 && fis < 650.0, "σ_fis(thermal) = {fis:.1} b, expected ≈585");
+    assert!(
+        fis > 500.0 && fis < 650.0,
+        "σ_fis(thermal) = {fis:.1} b, expected ≈585"
+    );
 }

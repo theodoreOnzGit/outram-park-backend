@@ -15,7 +15,7 @@
 /// deals with fluid nodes in the core region
 pub mod core_fluid_node;
 
-/// deals with fluid nodes as if they were in a shell region 
+/// deals with fluid nodes as if they were in a shell region
 /// that means they are exposed to an inner region and an outer region
 pub mod shell_fluid_node;
 
@@ -35,9 +35,8 @@ use crate::tuas_lib_error::TuasLibError;
 #[inline]
 pub fn solve_conductance_matrix_power_vector(
     thermal_conductance_matrix: Array2<ThermalConductance>,
-    power_vector: Array1<Power>)
--> Result<Array1<ThermodynamicTemperature>, TuasLibError>{
-
+    power_vector: Array1<Power>,
+) -> Result<Array1<ThermodynamicTemperature>, TuasLibError> {
     let n = power_vector.len();
 
     // Strip uom units → plain f64 and fill a SquareMatrix
@@ -53,11 +52,14 @@ pub fn solve_conductance_matrix_power_vector(
     let _unit_check: Power =
         power_vector[0] + thermal_conductance_matrix[[0, 0]] * ThermodynamicTemperature::ZERO;
 
-    let sol = mat.solve(&rhs)
+    let sol = mat
+        .solve(&rhs)
         .map_err(|e| TuasLibError::GenericStringError(format!("SquareMatrix LU solve: {e}")))?;
 
-    let temperature_vector: Array1<ThermodynamicTemperature> =
-        Array1::from_iter(sol.into_iter().map(|f| ThermodynamicTemperature::new::<kelvin>(f)));
+    let temperature_vector: Array1<ThermodynamicTemperature> = Array1::from_iter(
+        sol.into_iter()
+            .map(|f| ThermodynamicTemperature::new::<kelvin>(f)),
+    );
 
     Ok(temperature_vector)
 }

@@ -1,3 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Boundary-loop extraction plus centroid triangle-fan capping. No named published
+// algorithm — written from first principles; no upstream source was copied.
+// Blender analogue (architecture only): the bmo_holes_fill operator.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Fill holes — cap the open boundary loops of a surface so it becomes
 //! watertight.
 //!
@@ -91,8 +113,10 @@ pub fn fill_holes(mesh: &Mesh) -> Mesh {
 
     // Start from the original geometry and append caps.
     let mut new_positions = positions.clone();
-    let mut new_faces: Vec<Vec<usize>> =
-        polygons.iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let mut new_faces: Vec<Vec<usize>> = polygons
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
 
     // Trace each boundary loop exactly once.
     let mut visited: HashSet<usize> = HashSet::new();
@@ -183,13 +207,19 @@ mod tests {
     fn open_cube_face_is_capped_watertight() {
         let open = remove_face(&primitives::cube(2.0), 0);
         assert_eq!(open.face_count(), 5, "one face removed");
-        assert!(!is_watertight_consistent(&open), "open mesh is not watertight");
+        assert!(
+            !is_watertight_consistent(&open),
+            "open mesh is not watertight"
+        );
 
         let filled = fill_holes(&open);
         assert_eq!(filled.vertex_count(), 9, "8 corners + 1 hole centroid");
         assert_eq!(filled.face_count(), 9, "5 quads + 4 cap triangles");
         assert_eq!(filled.euler_characteristic(), 2, "closed genus-0 surface");
-        assert!(is_watertight_consistent(&filled), "cap winding is consistent");
+        assert!(
+            is_watertight_consistent(&filled),
+            "cap winding is consistent"
+        );
     }
 
     /// V&V — an already-closed mesh is a no-op. Filling a pristine cube changes

@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: I. E. Sutherland and G. W. Hodgman, "Reentrant polygon clipping",
+// Communications of the ACM 17(1), 1974, pp. 32-42 — applied per face against a
+// half-space. Written from the published formulation; no upstream source was
+// copied. Blender analogue (architecture only): the Bisect tool.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Bisect — cut a mesh by a plane and keep one half.
 //!
 //! This is the pure-Rust analogue of Blender's **Bisect**: a plane (a point and
@@ -93,9 +116,7 @@ pub fn bisect(mesh: &Mesh, point: Vec3, normal: Vec3) -> Mesh {
     let mut orig_remap: HashMap<usize, usize> = HashMap::new();
     let mut cross_remap: HashMap<(usize, usize), usize> = HashMap::new();
 
-    let mut resolve = |ov: &OutVertex,
-                       new_positions: &mut Vec<Vec3>|
-     -> usize {
+    let mut resolve = |ov: &OutVertex, new_positions: &mut Vec<Vec3>| -> usize {
         match *ov {
             OutVertex::Orig(v) => *orig_remap.entry(v).or_insert_with(|| {
                 new_positions.push(positions[v]);
@@ -167,15 +188,24 @@ mod tests {
         let cube = primitives::cube(2.0);
         let lower = bisect(&cube, Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0));
         // Every kept vertex is on or below the plane.
-        assert!(lower.positions().iter().all(|p| p.z <= 1e-12), "kept half is z <= 0");
+        assert!(
+            lower.positions().iter().all(|p| p.z <= 1e-12),
+            "kept half is z <= 0"
+        );
         // The cut is open until we cap it.
-        assert!(!is_watertight_consistent(&lower), "bisect leaves the cut open");
+        assert!(
+            !is_watertight_consistent(&lower),
+            "bisect leaves the cut open"
+        );
 
         let solid = fill_holes(&lower);
         assert!(is_watertight_consistent(&solid), "capped cut is watertight");
         assert_eq!(solid.euler_characteristic(), 2, "closed genus-0 solid");
         let v6 = signed_volume6(&solid);
-        assert!((v6 - 24.0).abs() < 1e-9, "6·V = 6·4 = 24 (half of the cube)");
+        assert!(
+            (v6 - 24.0).abs() < 1e-9,
+            "6·V = 6·4 = 24 (half of the cube)"
+        );
     }
 
     /// V&V — a plane fully outside the mesh keeps everything. With the whole
@@ -209,8 +239,12 @@ mod tests {
         let cube = primitives::cube(2.0);
         let n = Vec3::new(1.0, 0.0, 0.0);
         let direct = bisect(&cube, Vec3::ZERO, n);
-        let via_op =
-            MeshOp::Bisect { point: Vec3::ZERO, normal: n }.apply(cube).expect("bisect infallible");
+        let via_op = MeshOp::Bisect {
+            point: Vec3::ZERO,
+            normal: n,
+        }
+        .apply(cube)
+        .expect("bisect infallible");
         assert_eq!(via_op.vertex_count(), direct.vertex_count());
         assert_eq!(via_op.face_count(), direct.face_count());
     }

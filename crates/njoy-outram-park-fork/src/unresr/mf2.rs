@@ -226,7 +226,14 @@ impl<'a> Cursor<'a> {
     /// Read one CONT record (one row, interpreted as `C1,C2,L1,L2,N1,N2`).
     pub fn cont(&mut self) -> Result<Cont, NjoyError> {
         let r = self.next_row()?;
-        Ok(Cont { c1: r[0], c2: r[1], l1: r[2] as i32, l2: r[3] as i32, n1: r[4] as i32, n2: r[5] as i32 })
+        Ok(Cont {
+            c1: r[0],
+            c2: r[1],
+            l1: r[2] as i32,
+            l2: r[3] as i32,
+            n1: r[4] as i32,
+            n2: r[5] as i32,
+        })
     }
 
     /// Read one LIST record: the CONT header plus `N1` (`NPL`) body values
@@ -288,7 +295,8 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
         }
         if nro == 1 {
             return Err(NjoyError::EndfParse(
-                "unresr: NRO=1 (energy-dependent scattering radius) in LRU=2 range not yet ported".to_string(),
+                "unresr: NRO=1 (energy-dependent scattering radius) in LRU=2 range not yet ported"
+                    .to_string(),
             ));
         }
 
@@ -300,7 +308,15 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
             parse_case_a(&mut cur)?
         };
 
-        ranges.push(UnresolvedRange { el, eh, abn, naps, nro, lssf, case_ });
+        ranges.push(UnresolvedRange {
+            el,
+            eh,
+            abn,
+            naps,
+            nro,
+            lssf,
+            case_,
+        });
     }
 
     Ok(ranges)
@@ -368,12 +384,26 @@ fn parse_case_a(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
         for j in 0..njs {
             let base = j * 6;
             let get = |k: usize| body.get(base + k).copied().unwrap_or(0.0);
-            j_states.push(JStateA { d: get(0), aj: get(1), amun: get(2), gno: get(3), gg: get(4) });
+            j_states.push(JStateA {
+                d: get(0),
+                aj: get(1),
+                amun: get(2),
+                gno: get(3),
+                gg: get(4),
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseA { awri, ap, spi, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseA {
+            awri,
+            ap,
+            spi,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Case B (`LFW=1`, `LRF≠2`): `rdunf2:573-629`. Returns `(case, lssf)`.
@@ -387,7 +417,9 @@ fn parse_case_b(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
 
     // rdunf2:585-594 — the shared fission-width energy grid, 7-sigfig
     // rounded exactly as the range boundaries are.
-    let fission_energies: Vec<f64> = (0..ne).map(|i| sigfig7(body.get(i).copied().unwrap_or(0.0))).collect();
+    let fission_energies: Vec<f64> = (0..ne)
+        .map(|i| sigfig7(body.get(i).copied().unwrap_or(0.0)))
+        .collect();
 
     let mut awri = 0.0;
     let mut l_states = Vec::with_capacity(nls.max(0) as usize);
@@ -411,13 +443,32 @@ fn parse_case_b(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
             let amun = jbody.get(2).copied().unwrap_or(0.0);
             let gno = jbody.get(3).copied().unwrap_or(0.0);
             let gg = jbody.get(4).copied().unwrap_or(0.0);
-            let gf: Vec<f64> = (0..ne_j).map(|k| jbody.get(6 + k).copied().unwrap_or(0.0)).collect();
-            j_states.push(JStateB { amuf, d, aj, amun, gno, gg, gf });
+            let gf: Vec<f64> = (0..ne_j)
+                .map(|k| jbody.get(6 + k).copied().unwrap_or(0.0))
+                .collect();
+            j_states.push(JStateB {
+                amuf,
+                d,
+                aj,
+                amun,
+                gno,
+                gg,
+                gf,
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseB { awri, ap, spi, fission_energies, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseB {
+            awri,
+            ap,
+            spi,
+            fission_energies,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Case C (`LRF=2`): `rdunf2:632-690`. Returns `(case, lssf)`.
@@ -479,12 +530,26 @@ fn parse_case_c(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
                     gf: get(5),
                 });
             }
-            j_states.push(JStateC { aj, amux, amun, amuf, points });
+            j_states.push(JStateC {
+                aj,
+                amux,
+                amun,
+                amuf,
+                points,
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseC { awri, ap, spi, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseC {
+            awri,
+            ap,
+            spi,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Read File-3 background cross sections (`MT=1,2,18,102`; `MT=19` shares
@@ -515,7 +580,9 @@ pub fn background_cross_sections(
 
     let mut out = vec![[0.0f64; 4]; eunr.len()];
     for (kx, &mt) in mts.iter().enumerate() {
-        let Some((_, interp, xy)) = find(mt) else { continue };
+        let Some((_, interp, xy)) = find(mt) else {
+            continue;
+        };
         for (ie, &e_signed) in eunr.iter().enumerate() {
             let mut e = e_signed.abs();
             if ie == 0 {

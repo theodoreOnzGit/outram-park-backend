@@ -50,6 +50,12 @@ pub use crate::primitives::{GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, V
 // --- Primitive tensor types ---
 pub use crate::primitives::{SphericalTensor, SymmTensor, Tensor, Vector3};
 
+// --- Spectral decomposition (Layer 1a) ---
+pub use crate::primitives::{
+    eigen_values, eigen_values_checked, eigen_values_symm, eigen_vectors, eigen_vectors_symm,
+    eigen_vectors_symm_with, eigen_vectors_with,
+};
+
 // --- Polynomial algebra ---
 pub use crate::polynomial::{CubicEqn, LinearEqn, Polynomial, QuadraticEqn, RootType, Roots};
 
@@ -62,7 +68,10 @@ pub use crate::math::{
 pub use crate::matrix::{MatrixError, SquareMatrix};
 
 // --- ODE solvers (Layer 1e) ---
-pub use crate::ode::{Euler, OdeError, OdeSolverConfig, OdeSystem, Rkf45, Rosenbrock23};
+pub use crate::ode::{
+    DynSystemIntegrator, Euler, NoTypedSystem, OdeError, OdeIntegrator, OdeSolver, OdeSolverConfig,
+    OdeSystem, Rkf45, Rosenbrock23, SharedOdeSystem, TypedStateIntegrator,
+};
 
 // --- Interpolation (Layer 1f) ---
 pub use crate::interpolation::{interpolate_spline_xy, interpolate_xy};
@@ -82,16 +91,32 @@ pub use crate::fields::{
 
 // --- Mesh (Layer 2) ---
 pub use crate::mesh::{
-    BoundaryPatch, FvMesh, FvMeshBuilder, MeshError, PatchKind, RegionInterface,
+    AmiCoupling, AmiOverlap, AmiWeight, BoundaryPatch, CyclicCoupling, FvMesh, FvMeshBuilder,
+    MeshError, PatchKind, RegionInterface,
 };
 
+// --- AMI (arbitrary mesh interface) overlap weighting ---
+pub use crate::mesh::ami::overlap_weights_1d;
+
 // --- Sparse linear system (Layer 2) ---
-pub use crate::ldu_matrix::{
-    FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings,
-};
+pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings};
 
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
+
+// --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
+pub use crate::fv_operators::fvc::grad_least_squares;
+pub use crate::fv_operators::fvm::{
+    laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
+    solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
+};
+
+// --- Optional equation sources, OpenFOAM `fvOptions` / `fvModels` (Layer 3) ---
+pub use crate::fv_options::{
+    CellSelection, EquationField, FvModel, FvModels, MomentumEquationForm, SemiImplicitSource,
+    SolidificationMelting, SolidificationMeltingCoefficients, SolidificationPorosity,
+    SourceContribution, TemperatureTable, VofSolidificationMelting,
+};
 
 // --- Field-level tensor algebra (tr/symm/two_symm/dev/dev2 on vol fields) ---
 pub use crate::fields::vol_field_algebra;
@@ -102,10 +127,15 @@ pub use crate::fluid_thermo::{ConstSolidThermo, FluidThermo, PsiThermo, RhoTherm
 // --- LDU solvers ---
 pub use crate::ldu_matrix::{conjugate_gradient, gamg, gauss_seidel};
 
+// --- FvMatrix/FvVectorMatrix bridge onto the asymmetric Krylov solvers ---
+pub use crate::ldu_matrix::{
+    krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
+};
+
 // --- Asymmetric Krylov solvers + preconditioners ---
 pub use crate::krylov::{
-    bicgstab, gmres, Ilu0Preconditioner, JacobiPreconditioner, KrylovResult, KrylovSettings,
-    Preconditioner,
+    bicgstab, bicgstab_prepared, gmres, gmres_prepared, Ilu0Preconditioner, JacobiPreconditioner,
+    KrylovResult, KrylovSettings, Preconditioner,
 };
 
 // -- Interface ---
@@ -116,3 +146,83 @@ pub use crate::interface;
 
 // TVD flux limiters (translated from OpenFOAM limitedSchemes)
 pub use crate::limiters::FluxLimiter;
+
+// --- Hybrid execution backend (dispatch only, no kernels) ---
+//
+// `ComputeBackend::Serial` is always available and is the oracle every other
+// backend is verified against; `CpuMulti` needs the `parallel` feature and
+// `Gpu` the `gpu` feature plus an actual adapter. `select_backend` is the one
+// named policy function that decides between them.
+pub use crate::compute::{
+    gpu_adapter_present, select_backend, ComputeBackend, ThreadCount, CPU_MULTI_MIN_WORK_ITEMS,
+    GPU_MIN_WORK_ITEMS,
+};
+
+// --- Parallel field algebra: policy items ONLY ---
+//
+// The kernels themselves (`add`, `sub`, `sum`, `min`, `max`, `scale`, `dot`,
+// ...) are deliberately NOT re-exported here: those names would collide on
+// sight with `std` and with `ldu_matrix::parallel`. Call them path-qualified,
+// e.g. `fields::parallel::add(backend, &a, &b)`.
+pub use crate::fields::parallel::{
+    field_parallel_crossover, should_parallelise, FIELD_PARALLEL_CROSSOVER, REDUCTION_CHUNK,
+};
+
+// --- Hybrid LDU sparse matrix-vector product + Krylov vector operations ---
+//
+// `HybridLdu` carries the cell-gather topology that makes the parallel SpMV
+// bit-for-bit identical to the serial oracle. The free vecops are exported
+// under `ldu_` prefixes here because bare `dot`/`axpy` would read ambiguously
+// beside `fields::parallel`'s reductions; call them path-qualified if the
+// prefix is unwanted.
+pub use crate::ldu_matrix::parallel::{
+    axpy as ldu_axpy, dot as ldu_dot, norm_l1 as ldu_norm_l1, norm_l2 as ldu_norm_l2,
+    scale as ldu_scale,
+    spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK, REDUCTION_BLOCK,
+    SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
+};
+
+// --- Batched root finding on the hybrid backend (Layer 1) ---
+pub use crate::math::parallel::{
+    cubic_roots_batch, linear_roots_batch, poly_roots_backend_for, quadratic_roots_batch,
+    root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch,
+    RootBatchFailure, RootMethod, RootProblem, RootSettings, RootSolution, RootStatus,
+};
+
+// --- Batched 1-D golden-section extremum search (Layer 1) ---
+//
+// Generalised from `tampines-steam-tables`' choked-flow `golden_section_max_g`
+// rather than written afresh. `Sense` exists because the production caller
+// MAXIMISES, and negating internally would flip the sign of returned values
+// under the caller's feet.
+pub use crate::math::minimise::{
+    golden_section_batch, minimise_backend_for, MinBatch, MinBatchFailure, MinProblem,
+    MinSettings, MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS,
+    SQRT_EPSILON,
+};
+
+// --- Batched numerical integration on the hybrid backend (Layer 1) ---
+//
+// ODE ensembles (N independent IVPs) and batched quadrature (N independent
+// definite integrals). `MAX_ADAPTIVE_DEPTH` is deliberately not re-exported —
+// it is an internal safety ceiling, not a tuning knob.
+pub use crate::ode::parallel::{
+    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble,
+    integrate_ensemble_mixed, quadrature_backend_for, quadrature_batch, AdaptiveSettings,
+    GaussOrder, OdeEnsemble, OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus,
+    QuadratureBatch, QuadratureBatchFailure, QuadratureInterval, QuadratureRule,
+    QuadratureSolution, QuadratureStatus, ODE_ENSEMBLE_MIN_LANES, QUADRATURE_MIN_INTERVALS,
+};
+
+// --- Finite differences and batched Jacobians on the hybrid backend (Layer 1) ---
+//
+// `NumericalJacobian` supplies `OdeSystem::jacobian` numerically, so
+// `Rosenbrock23` runs on a system that has not hand-coded one — the default
+// impl of that method panics.
+pub use crate::math::differentiate::{
+    derivative, derivative_backend_for, derivative_batch, jacobian, jacobian_batch,
+    jacobian_batch_backend_for, jacobian_column_backend_for, ode_system_jacobian, DerivativeBatch,
+    DerivativeSolution, DiffBatchFailure, DiffScheme, DiffSettings, DiffStatus, JacobianBatch,
+    JacobianSolution, NumericalJacobian, CBRT_EPSILON, DERIVATIVE_BATCH_MIN_POINTS,
+    FIFTH_ROOT_EPSILON, JACOBIAN_BATCH_MIN_PROBLEMS, JACOBIAN_COLUMN_MIN_DIMENSION,
+};

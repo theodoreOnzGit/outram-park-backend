@@ -47,6 +47,22 @@
 //!
 //! **Results (2026-07-03, ENDF/B-VII.1) — the HIGH tier reaching the benchmark.**
 //!
+//! > **SUPERSEDED AND PENDING A RE-RUN (flagged 2026-08-06, bead `op-jis`).**
+//! > Every eigenvalue in this section was measured with the pre-`op-jis` `prn`
+//! > output function (the raw top-52 bits of the LCG state). `op-jis` replaced
+//! > it with OpenMC's PCG-RXS-M-XS output permutation, which changes every
+//! > uniform drawn and therefore every k_eff below, along with the pcm
+//! > differences and lever worths derived from them. This example **could not be
+//! > re-run** on 2026-08-06: it requires `--features net-fetch` to download the
+//! > ENDF/B-VII.1 tapes and no local cache was present. **No number below has
+//! > been replaced or estimated** — they are the genuine 2026-07-03 measurements
+//! > and are recorded here unmodified. Re-run with
+//! > `cargo run --release -p outram-mc-libs --features net-fetch --example godiva_keff_endf`
+//! > and replace the table before citing any of it as current. The *qualitative*
+//! > ranking of the levers (item 3 dominating by an order of magnitude) is a
+//! > many-thousand-pcm effect and is not plausibly overturned by a re-seeding;
+//! > the marginal items 4 and 5, at ~0.7σ and ~2.0σ, may well move.
+//!
 //! | Run | k_eff | Δk vs benchmark |
 //! |---|---|---|
 //! | LOW (`godiva_keff`) | 1.12852 ± 0.00174 | +12 852 pcm |
@@ -85,8 +101,10 @@
 //! approximations (no fast self-shielding; Weisskopf stand-in for the MF=6 (n,2n)
 //! emission law), so it should not be read as each sub-model being individually
 //! exact. The LOW (embedded) tier carries the same elastic + inelastic levers from
-//! *group* data (no (n,2n) column, no MF=5 χ yet) and lands at 1.01024
-//! (+1 024 pcm); see the `godiva_keff` (LOW) example for that V&V.
+//! *group* data (no (n,2n) column, no MF=5 χ yet) and lands at **1.01042
+//! (+1 042 pcm)** — that LOW-tier value **was** re-run on 2026-08-06 under the
+//! `op-jis` generator, superseding the 1.01024 (+1 024 pcm) recorded here
+//! previously; see the `godiva_keff` (LOW) example for that V&V.
 
 #[cfg(not(feature = "net-fetch"))]
 fn main() {
@@ -109,14 +127,20 @@ fn main() {
     let lib = EndfLibrary::EndfBVII1;
 
     // ── Nuclear data: reconstruct the three HEU isotopes from raw ENDF. ───────
-    println!("Reconstructing HEU isotopes from {} (RECONR + BROADR @ {temp_k} K)…", lib.label());
+    println!(
+        "Reconstructing HEU isotopes from {} (RECONR + BROADR @ {temp_k} K)…",
+        lib.label()
+    );
     let t0 = Instant::now();
     let mut nuclides: Vec<Nuclide> = Vec::with_capacity(3);
     for name in ["U234", "U235", "U238"] {
         let t = Instant::now();
         match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
             Ok(n) => {
-                println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
+                println!(
+                    "  {name}: reconstructed in {:.1} s",
+                    t.elapsed().as_secs_f64()
+                );
                 nuclides.push(n);
             }
             // Fail gracefully rather than panicking with a backtrace: the usual
@@ -138,7 +162,10 @@ fn main() {
             }
         }
     }
-    println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+    println!(
+        "Nuclear data ready in {:.1} s.\n",
+        t0.elapsed().as_secs_f64()
+    );
 
     // ── Material: Godiva atom densities [atoms/barn·cm] (HEU-MET-FAST-001). ────
     let material = Material {
@@ -146,9 +173,18 @@ fn main() {
         name: "Godiva HEU".into(),
         temperature: temp_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
 

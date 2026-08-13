@@ -196,6 +196,9 @@ mod tests {
             mode: CovrMode::Plot(PlotOptions::default()),
             cases: vec![],
         };
-        assert!(matches!(run_with_deck(&input), Err(NjoyError::EndfParse(_))));
+        assert!(matches!(
+            run_with_deck(&input),
+            Err(NjoyError::EndfParse(_))
+        ));
     }
 }

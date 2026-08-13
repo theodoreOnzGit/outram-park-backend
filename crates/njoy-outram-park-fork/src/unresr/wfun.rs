@@ -59,14 +59,36 @@ impl WRecurrence {
         const C1: f64 = 1.1283792;
         let rv = 2.0 * (r2 - ai2);
         let ak = 4.0 * rez * aimz;
-        (Self { a: 0.0, b: 0.0, g: 1.0, h: 0.0, c: -C1 * aimz, d: C1 * rez, am: rv - 1.0, el: ak }, ak, rv)
+        (
+            Self {
+                a: 0.0,
+                b: 0.0,
+                g: 1.0,
+                h: 0.0,
+                c: -C1 * aimz,
+                d: C1 * rez,
+                am: rv - 1.0,
+                el: ak,
+            },
+            ak,
+            rv,
+        )
     }
 
     /// Build the recurrence state for the Taylor-series branch's initial
     /// values (`unresr.f90:1586-1595`, label 420). See
     /// [`Self::init_asymptotic`] for why this is exposed `pub(crate)`.
     pub(crate) fn init_taylor() -> Self {
-        Self { a: 1.0, b: 0.0, g: 0.0, h: 0.0, c: 0.0, d: 0.0, am: 1.0, el: 0.0 }
+        Self {
+            a: 1.0,
+            b: 0.0,
+            g: 0.0,
+            h: 0.0,
+            c: 0.0,
+            d: 0.0,
+            am: 1.0,
+            el: 0.0,
+        }
     }
 
     /// One continued-fraction step (`unresr.f90:1625-1658`): given the
@@ -162,7 +184,16 @@ fn w_taylor(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
     let aj0 = -(r2 - ai2) / temp2;
     let ak = 2.0 * rez * aimz / temp2;
 
-    let mut state = WRecurrence { a: 1.0, b: 0.0, g: 0.0, h: 0.0, c: 0.0, d: 0.0, am: 1.0, el: 0.0 };
+    let mut state = WRecurrence {
+        a: 1.0,
+        b: 0.0,
+        g: 0.0,
+        h: 0.0,
+        c: 0.0,
+        d: 0.0,
+        am: 1.0,
+        el: 0.0,
+    };
 
     let expon = (temp2 * aj0).exp();
     let expc = expon * (temp2 * ak).cos();
@@ -372,7 +403,11 @@ impl WTable {
             let d1 = C3 / (a4 * a4 + a3);
             let d2 = C4 / (a5 * a5 + a3);
             let rew = d1 * (a2 * ax - a4 * y) + d2 * (a2 * ax - a5 * y);
-            let aimw = if ki { (d1 * (a4 * ax + a2 * y) + d2 * (a5 * ax + a2 * y)) * aki } else { 0.0 };
+            let aimw = if ki {
+                (d1 * (a4 * ax + a2 * y) + d2 * (a5 * ax + a2 * y)) * aki
+            } else {
+                0.0
+            };
             (rew, aimw)
         } else if test < BREAK3 {
             let a1 = (ax * ax - y * y) * 2.0;
@@ -380,7 +415,11 @@ impl WTable {
             let a4 = a1 - 1.0;
             let d1 = C5 / (a4 * a4 + a2 * a2);
             let rew = d1 * (a2 * ax - a4 * y);
-            let aimw = if ki { d1 * (a4 * ax + a2 * y) * aki } else { 0.0 };
+            let aimw = if ki {
+                d1 * (a4 * ax + a2 * y) * aki
+            } else {
+                0.0
+            };
             (rew, aimw)
         } else {
             let a1 = 1.0 / (rpi * test);
@@ -442,12 +481,28 @@ pub fn qw_weight(k: usize, mu: i32) -> f64 {
 
 /// Gauss-Legendre 8-point nodes on `[-1,1]` used by [`ajk`] (`xg`,
 /// `unresr.f90:1389-1391`).
-const GAUSS8_X: [f64; 8] =
-    [0.095_012_51, 0.281_603_55, 0.458_016_78, 0.617_876_24, 0.755_404_41, 0.865_631_2, 0.944_575_02, 0.989_400_93];
+const GAUSS8_X: [f64; 8] = [
+    0.095_012_51,
+    0.281_603_55,
+    0.458_016_78,
+    0.617_876_24,
+    0.755_404_41,
+    0.865_631_2,
+    0.944_575_02,
+    0.989_400_93,
+];
 /// Gauss-Legendre 8-point weights matching [`GAUSS8_X`] (`wg`,
 /// `unresr.f90:1392-1394`).
-const GAUSS8_W: [f64; 8] =
-    [0.189_450_61, 0.182_603_42, 0.169_156_52, 0.149_596_00, 0.124_628_97, 0.095_158_51, 0.062_253_52, 0.027_152_46];
+const GAUSS8_W: [f64; 8] = [
+    0.189_450_61,
+    0.182_603_42,
+    0.169_156_52,
+    0.149_596_00,
+    0.124_628_97,
+    0.095_158_51,
+    0.062_253_52,
+    0.027_152_46,
+];
 
 /// The `J` and `K` width-fluctuation integrals (Bondarenko/ETOX method),
 /// `J(β, θ) = (π/2)·∫₀^∞ (1/(1+β/χ_a(x)))·φ(x) dx` in the standard notation
@@ -468,7 +523,11 @@ pub fn ajk(table: &WTable, b: f64, st: f64) -> (f64, f64) {
     let sqpi = PI.sqrt();
 
     // unresr.f90:1400-1405 — small-θ / small-β early-out via the "ep" test.
-    let term = if -st / 2.0 < f64::MIN_POSITIVE.ln() { 0.0 } else { (-st / 2.0).exp() };
+    let term = if -st / 2.0 < f64::MIN_POSITIVE.ln() {
+        0.0
+    } else {
+        (-st / 2.0).exp()
+    };
     let ep = (1.0 - term) / EPS_AJK - b;
 
     if ep <= 0.0 {

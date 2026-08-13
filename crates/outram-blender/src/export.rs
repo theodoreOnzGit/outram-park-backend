@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Export bridges. The OpenFOAM `polyMesh` file layout (points / faces / owner /
+// neighbour / boundary) follows the public OpenFOAM file format documented at
+// www.openfoam.com; no OpenFOAM source is present. The faceted-solid inside test
+// is the generalized winding number (see boolean_classify.rs for references), the
+// same point-in-volume idea DAGMC uses.
+// Written from public format documentation and published formulations.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Export bridges from an authored [`Mesh`] to the OUTRAM PARK solvers.
 //!
 //! The **default** exporters are self-contained and dependency-free: the
@@ -89,20 +114,80 @@ use crate::mesh::{FaceId, Mesh};
 pub enum ExportError {
     /// A requested export path is documented but not implemented for this mesh.
     ///
-    /// Returned, for example, when [`to_csg_primitive`] is handed a mesh it
-    /// cannot recognise as one of the fitted [`crate::primitives`] shapes (the
-    /// general faceted/DAGMC route is not written yet). The payload is a
-    /// human-readable explanation of what was expected.
+    /// Returned when [`to_csg_primitive`] (or `to_mc_geometry`, which builds
+    /// on it) is handed a mesh that is not a half-space intersection — i.e. a
+    /// **non-convex** solid, which no combination of analytic surfaces
+    /// describes. That is not a gap in this module: use [`to_faceted_solid`]
+    /// for the DAGMC-style faceted boundary representation of such a solid.
+    /// The payload is a human-readable explanation of what was expected.
     #[error("export bridge not yet implemented: {0}")]
     NotImplemented(&'static str),
+
+    /// The surface is **not closed**: directed edge `a -> b` of triangle `tri`
+    /// has no opposing triangle, so the undirected edge `{a, b}` belongs to one
+    /// triangle instead of two.
+    ///
+    /// Returned by [`FacetedSolid::check_closed_manifold`]. Inside/outside on a
+    /// faceted solid is decided by the **generalized winding number**, which is
+    /// only well-defined on a closed surface — an open one makes
+    /// [`FacetedSolid::contains`] silently arbitrary.
+    #[error(
+        "surface is not closed: edge ({a} -> {b}) of triangle {tri} has no opposing \
+         triangle, so the generalized-winding-number inside test is undefined"
+    )]
+    NotClosedSurface {
+        /// Index of the offending triangle in [`FacetedSolid::triangles`].
+        tri: usize,
+        /// Start vertex of the unpaired directed edge.
+        a: u32,
+        /// End vertex of the unpaired directed edge.
+        b: u32,
+    },
+
+    /// Two triangles traverse the same directed edge — the surface is
+    /// non-manifold, inconsistently wound, or has a duplicated triangle.
+    ///
+    /// Returned by [`FacetedSolid::check_closed_manifold`].
+    #[error(
+        "surface is non-manifold or inconsistently wound: directed edge ({a} -> {b}) is \
+         traversed by both triangle {tri} and triangle {other_tri}; an orientable closed \
+         surface traverses each directed edge exactly once"
+    )]
+    NonManifoldSurface {
+        /// Index of the later offending triangle.
+        tri: usize,
+        /// Index of the triangle that already traversed this directed edge.
+        other_tri: usize,
+        /// Start vertex of the doubly-traversed directed edge.
+        a: u32,
+        /// End vertex of the doubly-traversed directed edge.
+        b: u32,
+    },
+
+    /// A triangle repeats a corner vertex, so it has no well-defined normal and
+    /// contributes a self-edge that can never be paired.
+    ///
+    /// Returned by [`FacetedSolid::check_closed_manifold`].
+    #[error("triangle {tri} = [{a}, {b}, {c}] repeats a corner vertex and is degenerate")]
+    DegenerateTriangle {
+        /// Index of the offending triangle.
+        tri: usize,
+        /// First corner vertex index.
+        a: u32,
+        /// Second corner vertex index.
+        b: u32,
+        /// Third corner vertex index.
+        c: u32,
+    },
 }
 
 /// A dependency-free, flattened triangle mesh: the common export denominator.
 ///
 /// Every polygon face of a [`Mesh`] is fan-triangulated into this indexed form
 /// (`positions` + triangle `indices` triplets). This is what an OBJ/STL writer,
-/// a polyMesh boundary patch, or a faceted-CSG surface would each build from —
-/// so it is implemented and tested even while the solver bridges are stubs.
+/// a polyMesh boundary patch, or a faceted-CSG surface each build from — it is
+/// the shared, dependency-free foundation under every exporter in this module,
+/// including the feature-gated real-type solver bridges.
 #[derive(Debug, Clone, Default)]
 pub struct IndexedTriangles {
     /// Vertex positions, indexed by the entries of [`IndexedTriangles::indices`].
@@ -278,7 +363,13 @@ pub fn to_polymesh_text(mesh: &Mesh) -> PolyMeshText {
     boundary.push_str("        startFace       0;\n");
     boundary.push_str("    }\n)\n");
 
-    PolyMeshText { points, faces, owner, neighbour, boundary }
+    PolyMeshText {
+        points,
+        faces,
+        owner,
+        neighbour,
+        boundary,
+    }
 }
 
 /// Write the five [`PolyMeshText`] files into `dir/`, creating `dir` if needed.
@@ -615,16 +706,34 @@ fn try_fit_box(mesh: &Mesh) -> Option<CsgDescription> {
         CsgSurface::ZPlane { z0: zmax }, // 5
     ];
     let region = vec![
-        RegionToken::Halfspace { surface: 0, sense: Sense::Positive },
-        RegionToken::Halfspace { surface: 1, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 0,
+            sense: Sense::Positive,
+        },
+        RegionToken::Halfspace {
+            surface: 1,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 2, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 2,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 3, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 3,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 4, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 4,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 5, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 5,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
     ];
     Some(CsgDescription { surfaces, region })
@@ -684,7 +793,10 @@ fn try_fit_sphere(mesh: &Mesh) -> Option<CsgDescription> {
         r,
     }];
     // Region = interior of the sphere (the Negative half-space).
-    let region = vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }];
+    let region = vec![RegionToken::Halfspace {
+        surface: 0,
+        sense: Sense::Negative,
+    }];
     Some(CsgDescription { surfaces, region })
 }
 
@@ -759,10 +871,19 @@ fn try_fit_cylinder(mesh: &Mesh) -> Option<CsgDescription> {
         CsgSurface::ZPlane { z0: zmax },     // 2
     ];
     let region = vec![
-        RegionToken::Halfspace { surface: 0, sense: Sense::Negative },
-        RegionToken::Halfspace { surface: 1, sense: Sense::Positive },
+        RegionToken::Halfspace {
+            surface: 0,
+            sense: Sense::Negative,
+        },
+        RegionToken::Halfspace {
+            surface: 1,
+            sense: Sense::Positive,
+        },
         RegionToken::Intersection,
-        RegionToken::Halfspace { surface: 2, sense: Sense::Negative },
+        RegionToken::Halfspace {
+            surface: 2,
+            sense: Sense::Negative,
+        },
         RegionToken::Intersection,
     ];
     Some(CsgDescription { surfaces, region })
@@ -812,11 +933,26 @@ fn try_fit_convex_faceted(mesh: &Mesh) -> Option<CsgDescription> {
             }
         }
         // De-duplicate coincident planes (same normal and offset within tol).
-        let plane = CsgSurface::Plane { a: n.x, b: n.y, c: n.z, d };
+        let plane = CsgSurface::Plane {
+            a: n.x,
+            b: n.y,
+            c: n.z,
+            d,
+        };
         let dup = surfaces.iter().any(|s| match (*s, plane) {
             (
-                CsgSurface::Plane { a: a1, b: b1, c: c1, d: d1 },
-                CsgSurface::Plane { a: a2, b: b2, c: c2, d: d2 },
+                CsgSurface::Plane {
+                    a: a1,
+                    b: b1,
+                    c: c1,
+                    d: d1,
+                },
+                CsgSurface::Plane {
+                    a: a2,
+                    b: b2,
+                    c: c2,
+                    d: d2,
+                },
             ) => {
                 (a1 - a2).abs() < 1e-9
                     && (b1 - b2).abs() < 1e-9
@@ -835,9 +971,15 @@ fn try_fit_convex_faceted(mesh: &Mesh) -> Option<CsgDescription> {
     }
 
     // Region = intersection of every inward (Negative) half-space.
-    let mut region = vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }];
+    let mut region = vec![RegionToken::Halfspace {
+        surface: 0,
+        sense: Sense::Negative,
+    }];
     for k in 1..surfaces.len() {
-        region.push(RegionToken::Halfspace { surface: k, sense: Sense::Negative });
+        region.push(RegionToken::Halfspace {
+            surface: k,
+            sense: Sense::Negative,
+        });
         region.push(RegionToken::Intersection);
     }
     Some(CsgDescription { surfaces, region })
@@ -877,6 +1019,88 @@ impl FacetedSolid {
         self.triangles.len()
     }
 
+    /// Verify that this boundary is a **closed, consistently-wound 2-manifold** —
+    /// the precondition [`FacetedSolid::contains`] needs to mean anything.
+    ///
+    /// Checks that no triangle repeats a corner and that every undirected edge is
+    /// shared by exactly two triangles traversed in opposite directions. Runs in
+    /// `O(3 * triangle_count())` time and memory, and reports the first failure
+    /// in triangle order (deterministic).
+    ///
+    /// # Why this is not optional
+    ///
+    /// [`FacetedSolid::contains`] sums the signed solid angle of every triangle
+    /// and asks whether the total exceeds half a full turn. On a **closed**
+    /// surface that total is exactly `±4*pi` inside and `0` outside, so the test
+    /// is sharp. On an **open** surface it varies continuously with position and
+    /// crosses the `0.5` threshold at a location with no geometric meaning — so
+    /// `contains` returns confident, arbitrary answers with no error. Anything
+    /// consuming this solid (a Monte Carlo point-in-volume query, a DAGMC-style
+    /// surface tracker) then silently transports particles through the wrong
+    /// material.
+    ///
+    /// # Errors
+    ///
+    /// [`ExportError::DegenerateTriangle`], [`ExportError::NonManifoldSurface`],
+    /// or [`ExportError::NotClosedSurface`], each naming the offending triangle
+    /// and edge.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use outram_blender::{primitives, export};
+    ///
+    /// // A closed primitive passes.
+    /// let solid = export::to_faceted_solid(&primitives::cube(2.0));
+    /// assert!(solid.check_closed_manifold().is_ok());
+    ///
+    /// // An open patch does not — even though `to_faceted_solid` built it happily.
+    /// let patch = export::to_faceted_solid(&primitives::grid(2, 2, 1.0));
+    /// assert!(patch.check_closed_manifold().is_err());
+    /// ```
+    pub fn check_closed_manifold(&self) -> Result<(), ExportError> {
+        use std::collections::HashMap;
+
+        for (ti, t) in self.triangles.iter().enumerate() {
+            if t[0] == t[1] || t[1] == t[2] || t[2] == t[0] {
+                return Err(ExportError::DegenerateTriangle {
+                    tri: ti,
+                    a: t[0],
+                    b: t[1],
+                    c: t[2],
+                });
+            }
+        }
+
+        // Each directed edge must be traversed exactly once...
+        let mut half: HashMap<(u32, u32), usize> = HashMap::with_capacity(3 * self.triangles.len());
+        for (ti, t) in self.triangles.iter().enumerate() {
+            for k in 0..3 {
+                let (a, b) = (t[k], t[(k + 1) % 3]);
+                if let Some(&other) = half.get(&(a, b)) {
+                    return Err(ExportError::NonManifoldSurface {
+                        tri: ti,
+                        other_tri: other,
+                        a,
+                        b,
+                    });
+                }
+                half.insert((a, b), ti);
+            }
+        }
+        // ...and its opposite must be present. Iterating `triangles` rather than
+        // the hash map keeps the reported failure deterministic.
+        for (ti, t) in self.triangles.iter().enumerate() {
+            for k in 0..3 {
+                let (a, b) = (t[k], t[(k + 1) % 3]);
+                if !half.contains_key(&(b, a)) {
+                    return Err(ExportError::NotClosedSurface { tri: ti, a, b });
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Test whether point `p` is inside the solid, by the **generalized winding
     /// number** of the boundary triangles at `p` (`|w| > 0.5` ⇒ inside).
     ///
@@ -899,8 +1123,7 @@ impl FacetedSolid {
                 continue;
             }
             let numerator = ra.dot(rb.cross(rc));
-            let denominator =
-                la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
+            let denominator = la * lb * lc + ra.dot(rb) * lc + rb.dot(rc) * la + rc.dot(ra) * lb;
             solid_angle += 2.0 * numerator.atan2(denominator);
         }
         (solid_angle / (4.0 * std::f64::consts::PI)).abs() > 0.5
@@ -914,6 +1137,23 @@ impl FacetedSolid {
 /// [`to_csg_primitive`] fitters do not cover. Outward orientation is enforced so
 /// that a downstream consumer using face normals (not just the sign-agnostic
 /// [`FacetedSolid::contains`]) sees them pointing out of the solid.
+///
+/// # This constructor does not validate the surface
+///
+/// It builds a [`FacetedSolid`] from whatever it is given, including an **open**
+/// mesh — for which [`FacetedSolid::contains`] returns confident but arbitrary
+/// answers (see [`FacetedSolid::check_closed_manifold`] for why). Prefer
+/// [`to_faceted_solid_checked`] unless the mesh is already known closed; or call
+/// [`FacetedSolid::check_closed_manifold`] on the result. Two further caveats
+/// this constructor cannot detect:
+///
+/// - **Non-convex faces.** Fan triangulation from a face's first corner is exact
+///   only for **convex** faces (as [`crate::primitives`] produces). A concave
+///   `n`-gon — which [`crate::bisect`] and [`crate::boolean_general`] can emit —
+///   fans into overlapping and outside-the-face triangles.
+/// - **Zero enclosed volume.** The outward-orientation flip below triggers on a
+///   strictly negative signed volume, so a surface enclosing exactly zero volume
+///   is left as-is rather than reported.
 pub fn to_faceted_solid(mesh: &Mesh) -> FacetedSolid {
     let tris = triangulate(mesh); // IndexedTriangles (fan-triangulated)
     let positions = tris.positions;
@@ -937,7 +1177,39 @@ pub fn to_faceted_solid(mesh: &Mesh) -> FacetedSolid {
         }
     }
 
-    FacetedSolid { positions, triangles }
+    FacetedSolid {
+        positions,
+        triangles,
+    }
+}
+
+/// [`to_faceted_solid`], but **rejects** a surface on which the solid's
+/// inside/outside test would be meaningless.
+///
+/// Builds the faceted boundary exactly as [`to_faceted_solid`] does, then runs
+/// [`FacetedSolid::check_closed_manifold`] on it. Use this whenever the mesh's
+/// closedness is not already guaranteed — an open or non-manifold boundary makes
+/// [`FacetedSolid::contains`] silently arbitrary, which downstream shows up as a
+/// transport particle in the wrong material rather than as an error.
+///
+/// # Errors
+///
+/// [`ExportError::DegenerateTriangle`], [`ExportError::NonManifoldSurface`], or
+/// [`ExportError::NotClosedSurface`], naming the offending triangle and edge.
+///
+/// # Examples
+///
+/// ```
+/// use outram_blender::{primitives, export};
+///
+/// assert!(export::to_faceted_solid_checked(&primitives::cube(2.0)).is_ok());
+/// // A flat patch encloses nothing; it is refused rather than silently accepted.
+/// assert!(export::to_faceted_solid_checked(&primitives::grid(2, 2, 1.0)).is_err());
+/// ```
+pub fn to_faceted_solid_checked(mesh: &Mesh) -> Result<FacetedSolid, ExportError> {
+    let solid = to_faceted_solid(mesh);
+    solid.check_closed_manifold()?;
+    Ok(solid)
 }
 
 // ===========================================================================
@@ -984,11 +1256,20 @@ pub fn to_poly_mesh(mesh: &Mesh) -> outram_foam_basic_lib::io::poly_mesh::PolyMe
     for f in 0..mesh.face_count() {
         let verts: Vec<usize> = mesh.face_vertices(FaceId(f)).iter().map(|v| v.0).collect();
         // Boundary face: owned by the dummy cell 0, no neighbour cell.
-        faces.push(MeshFace { verts, owner: 0, neighbour: None });
+        faces.push(MeshFace {
+            verts,
+            owner: 0,
+            neighbour: None,
+        });
     }
 
     let n_faces = faces.len();
-    let patches = vec![BoundaryPatch::new("authoredSurface", 0, n_faces, PatchKind::Patch)];
+    let patches = vec![BoundaryPatch::new(
+        "authoredSurface",
+        0,
+        n_faces,
+        PatchKind::Patch,
+    )];
 
     PolyMesh {
         points,
@@ -1062,18 +1343,21 @@ pub fn from_poly_mesh(poly: &outram_foam_basic_lib::io::poly_mesh::PolyMesh) -> 
 ///   the real material/fill and temperature; this bridge exports *geometry*
 ///   only.
 ///
+/// All fitted surfaces map exactly: box, sphere, and Z-cylinder primitives, plus
+/// the **convex-faceted** route — a general [`CsgSurface::Plane`] maps to
+/// `outram-mc-libs`' `Plane { a, b, c, d }` (`a·x + b·y + c·z = d`), so an
+/// arbitrary convex polyhedron exports as one half-space per face.
+///
 /// # Errors
 ///
-/// Returns [`ExportError::NotImplemented`] if `mesh` is not a fittable primitive
-/// (propagated from [`to_csg_primitive`]) **or** if the fitted CSG contains a
-/// general [`CsgSurface::Plane`] — `outram-mc-libs` has no general-plane surface
-/// (only `XPlane`/`YPlane`/`ZPlane`/`Sphere`/`ZCylinder`), so a convex-faceted
-/// CSG (from an arbitrary convex polyhedron) cannot be represented. Box, sphere,
-/// and Z-cylinder primitives export exactly.
+/// Returns [`ExportError::NotImplemented`] only if `mesh` is not a fittable
+/// primitive at all (propagated from [`to_csg_primitive`] — i.e. a non-convex
+/// mesh, which has no half-space-intersection CSG; use [`to_faceted_solid`] for
+/// that boundary representation).
 #[cfg(feature = "mc-export")]
 pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, ExportError> {
     use outram_mc_libs::geometry::position::Position;
-    use outram_mc_libs::geometry::surface::{Sphere, XPlane, YPlane, ZCylinder, ZPlane};
+    use outram_mc_libs::geometry::surface::{Plane, Sphere, XPlane, YPlane, ZCylinder, ZPlane};
     use outram_mc_libs::prelude::{
         BoundaryType, Cell, CellFill, Geometry, HalfSpaceSense, SurfaceKind, Universe,
     };
@@ -1094,13 +1378,10 @@ pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, 
             CsgSurface::ZCylinder { x0, y0, r } => {
                 SurfaceKind::ZCylinder(ZCylinder { x0, y0, r, bc })
             }
-            CsgSurface::Plane { .. } => {
-                return Err(ExportError::NotImplemented(
-                    "outram-mc-libs has no general Plane surface; a convex-faceted CSG (from \
-                     an arbitrary convex polyhedron) cannot be exported to Monte Carlo -- only \
-                     box / sphere / Z-cylinder primitives map exactly",
-                ));
-            }
+            // General plane `a·x + b·y + c·z = d` — the convex-faceted route (one
+            // plane per face of a convex polyhedron). outram-mc-libs `Plane`
+            // matches [`CsgSurface::Plane`] field-for-field, so this maps exactly.
+            CsgSurface::Plane { a, b, c, d } => SurfaceKind::Plane(Plane { a, b, c, d, bc }),
         };
         surfaces.push(kind);
     }
@@ -1133,7 +1414,10 @@ pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, 
     Ok(Geometry {
         surfaces,
         cells: vec![cell],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     })
@@ -1153,6 +1437,93 @@ mod tests {
             .expect("no stand-alone integer count line found")
     }
 
+    /// V&V — the faceted-solid manifold gate accepts closed primitives and
+    /// rejects an open patch.
+    ///
+    /// **Methodology:** build [`FacetedSolid`]s for `cube(2.0)`,
+    /// `uv_sphere(16, 8, 1.0)` and `cylinder(12, 1.0, 2.0)` (all closed) and for
+    /// `grid(2, 2, 1.0)` (an open flat patch), then run
+    /// [`FacetedSolid::check_closed_manifold`] and
+    /// [`to_faceted_solid_checked`] on each. **Pass criterion:** the three closed
+    /// solids pass; the grid fails with [`ExportError::NotClosedSurface`].
+    ///
+    /// **Result (measured 2026-08-07):** cube 12 triangles, uv_sphere 224,
+    /// cylinder 44 — all `Ok`. The 2x2 grid (8 triangles) returns
+    /// `NotClosedSurface`, because each of its 8 perimeter edges bounds one
+    /// triangle rather than two.
+    #[test]
+    fn faceted_solid_manifold_gate() {
+        for (name, mesh) in [
+            ("cube", primitives::cube(2.0)),
+            ("uv_sphere", primitives::uv_sphere(16, 8, 1.0)),
+            ("cylinder", primitives::cylinder(12, 1.0, 2.0)),
+        ] {
+            let solid = to_faceted_solid(&mesh);
+            solid
+                .check_closed_manifold()
+                .unwrap_or_else(|e| panic!("{name} is closed, got: {e}"));
+            assert!(to_faceted_solid_checked(&mesh).is_ok(), "{name}");
+        }
+
+        let grid = primitives::grid(2, 2, 1.0);
+        let err = to_faceted_solid_checked(&grid).expect_err("a flat patch is open");
+        assert!(
+            matches!(err, ExportError::NotClosedSurface { .. }),
+            "expected NotClosedSurface, got {err:?}"
+        );
+    }
+
+    /// V&V — the gate catches a hole punched in an otherwise closed solid, and a
+    /// duplicated triangle.
+    ///
+    /// **Methodology:** from the cube's 12-triangle solid, (a) drop one triangle
+    /// and (b) append a copy of triangle 0. **Pass criterion:** (a)
+    /// [`ExportError::NotClosedSurface`], (b)
+    /// [`ExportError::NonManifoldSurface`] naming triangles 0 and 12.
+    /// **Result (2026-08-07):** as expected.
+    #[test]
+    fn faceted_solid_gate_catches_hole_and_duplicate() {
+        let base = to_faceted_solid(&primitives::cube(2.0));
+
+        let mut leaky = base.clone();
+        leaky.triangles.pop();
+        assert!(
+            matches!(
+                leaky.check_closed_manifold(),
+                Err(ExportError::NotClosedSurface { .. })
+            ),
+            "11/12 triangles must read as not closed"
+        );
+
+        let mut doubled = base.clone();
+        doubled.triangles.push(doubled.triangles[0]);
+        match doubled.check_closed_manifold() {
+            Err(ExportError::NonManifoldSurface { tri, other_tri, .. }) => {
+                assert_eq!((other_tri, tri), (0, 12));
+            }
+            other => panic!("expected NonManifoldSurface, got {other:?}"),
+        }
+    }
+
+    /// V&V — `contains` is sharp on a closed solid, which is exactly what an open
+    /// solid cannot promise.
+    ///
+    /// **Methodology:** on the closed `cube(2.0)` faceted solid (spanning -1..1),
+    /// classify the origin (inside) and `(5, 5, 5)` (outside). **Pass
+    /// criterion:** `true` then `false`. **Result (2026-08-07):** as expected —
+    /// the generalized winding number is `±1` inside and `0` outside a closed
+    /// surface. On the open grid no such guarantee exists, which is why
+    /// [`FacetedSolid::check_closed_manifold`] gates it.
+    #[test]
+    fn faceted_contains_is_sharp_on_a_closed_solid() {
+        let solid = to_faceted_solid_checked(&primitives::cube(2.0)).expect("cube is closed");
+        assert!(solid.contains(Vec3::ZERO), "origin is inside the cube");
+        assert!(
+            !solid.contains(Vec3::new(5.0, 5.0, 5.0)),
+            "far point is outside"
+        );
+    }
+
     #[test]
     fn triangulate_cube_gives_12_triangles() {
         // A cube has 6 quads; fan-triangulating each quad yields 2 triangles.
@@ -1160,7 +1531,10 @@ mod tests {
         assert_eq!(tris.positions.len(), 8);
         assert_eq!(tris.triangle_count(), 12);
         // Every index is in range.
-        assert!(tris.indices.iter().all(|&i| (i as usize) < tris.positions.len()));
+        assert!(tris
+            .indices
+            .iter()
+            .all(|&i| (i as usize) < tris.positions.len()));
     }
 
     /// polyMesh export round-trip.
@@ -1259,8 +1633,7 @@ mod tests {
     /// is outside.
     #[test]
     fn csg_fit_sphere() {
-        let desc =
-            to_csg_primitive(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere must fit");
+        let desc = to_csg_primitive(&primitives::uv_sphere(16, 8, 3.0)).expect("sphere must fit");
 
         assert_eq!(desc.surfaces.len(), 1, "a sphere is one surface");
         match desc.surfaces[0] {
@@ -1272,7 +1645,10 @@ mod tests {
         }
         assert_eq!(
             desc.region,
-            vec![RegionToken::Halfspace { surface: 0, sense: Sense::Negative }]
+            vec![RegionToken::Halfspace {
+                surface: 0,
+                sense: Sense::Negative
+            }]
         );
 
         assert!(desc.contains(Vec3::ZERO), "centre is inside the sphere");
@@ -1313,12 +1689,20 @@ mod tests {
     /// `(1.5,0,0)` outside.
     #[test]
     fn csg_fit_cylinder() {
-        let desc = to_csg_primitive(&primitives::cylinder(16, 1.0, 2.0)).expect("cylinder must fit");
-        assert_eq!(desc.surfaces.len(), 3, "cylinder = 1 ZCylinder + 2 cap planes");
+        let desc =
+            to_csg_primitive(&primitives::cylinder(16, 1.0, 2.0)).expect("cylinder must fit");
+        assert_eq!(
+            desc.surfaces.len(),
+            3,
+            "cylinder = 1 ZCylinder + 2 cap planes"
+        );
 
         match desc.surfaces[0] {
             CsgSurface::ZCylinder { x0, y0, r } => {
-                assert!(x0.abs() < 1e-9 && y0.abs() < 1e-9, "axis off origin: ({x0},{y0})");
+                assert!(
+                    x0.abs() < 1e-9 && y0.abs() < 1e-9,
+                    "axis off origin: ({x0},{y0})"
+                );
                 assert!((r - 1.0).abs() < 1e-9, "fitted radius {r} != 1.0");
             }
             other => panic!("surface 0 must be a ZCylinder, got {other:?}"),
@@ -1326,9 +1710,18 @@ mod tests {
         assert!(matches!(desc.surfaces[1], CsgSurface::ZPlane { z0 } if (z0 + 1.0).abs() < 1e-9));
         assert!(matches!(desc.surfaces[2], CsgSurface::ZPlane { z0 } if (z0 - 1.0).abs() < 1e-9));
 
-        assert!(desc.contains(Vec3::ZERO), "axis centre is inside the cylinder");
-        assert!(!desc.contains(Vec3::new(0.0, 0.0, 1.5)), "point above the top cap is outside");
-        assert!(!desc.contains(Vec3::new(1.5, 0.0, 0.0)), "point beyond the radius is outside");
+        assert!(
+            desc.contains(Vec3::ZERO),
+            "axis centre is inside the cylinder"
+        );
+        assert!(
+            !desc.contains(Vec3::new(0.0, 0.0, 1.5)),
+            "point above the top cap is outside"
+        );
+        assert!(
+            !desc.contains(Vec3::new(1.5, 0.0, 0.0)),
+            "point beyond the radius is outside"
+        );
     }
 
     /// A **stretched** octahedron (six vertices at `+-1` on x/y but `+-2` on z,
@@ -1356,19 +1749,30 @@ mod tests {
         ];
         // Eight outward-wound triangular faces (top apex +Z, bottom apex -Z).
         let faces = vec![
-            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
-            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
         ];
         let octa = Mesh::from_polygons(&positions, &faces);
 
         let desc = to_csg_primitive(&octa).expect("convex octahedron must fit");
         assert_eq!(desc.surfaces.len(), 8, "octahedron = eight face planes");
         assert!(
-            desc.surfaces.iter().all(|s| matches!(s, CsgSurface::Plane { .. })),
+            desc.surfaces
+                .iter()
+                .all(|s| matches!(s, CsgSurface::Plane { .. })),
             "faceted convex fit must emit general planes"
         );
         assert!(desc.contains(Vec3::ZERO), "origin is inside the octahedron");
-        assert!(!desc.contains(Vec3::new(2.0, 2.0, 2.0)), "|x|+|y|+|z|/2 = 5 is outside");
+        assert!(
+            !desc.contains(Vec3::new(2.0, 2.0, 2.0)),
+            "|x|+|y|+|z|/2 = 5 is outside"
+        );
         assert!(desc.contains(Vec3::new(0.2, 0.2, 0.2)), "0.5 < 1 is inside");
     }
 
@@ -1389,7 +1793,14 @@ mod tests {
     #[test]
     fn faceted_solid_handles_nonconvex_l_prism() {
         // L cross-section (concave at the reentrant corner (1,1)).
-        let xy = [(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 1.0), (1.0, 2.0), (0.0, 2.0)];
+        let xy = [
+            (0.0, 0.0),
+            (2.0, 0.0),
+            (2.0, 1.0),
+            (1.0, 1.0),
+            (1.0, 2.0),
+            (0.0, 2.0),
+        ];
         let mut positions: Vec<Vec3> = Vec::new();
         for &(x, y) in &xy {
             positions.push(Vec3::new(x, y, 0.0));
@@ -1408,12 +1819,18 @@ mod tests {
         let l_prism = Mesh::from_polygons(&positions, &faces);
 
         // Not any fitted primitive, and not convex.
-        assert!(matches!(to_csg_primitive(&l_prism), Err(ExportError::NotImplemented(_))));
+        assert!(matches!(
+            to_csg_primitive(&l_prism),
+            Err(ExportError::NotImplemented(_))
+        ));
 
         let solid = to_faceted_solid(&l_prism);
         // Two hexagon caps fan to 4 triangles each + six quad sides to 2 each = 20.
         assert_eq!(solid.triangle_count(), 2 * (n - 2) + 2 * n);
-        assert!(solid.contains(Vec3::new(0.5, 0.5, 0.5)), "solid interior point must be inside");
+        assert!(
+            solid.contains(Vec3::new(0.5, 0.5, 0.5)),
+            "solid interior point must be inside"
+        );
         assert!(
             !solid.contains(Vec3::new(1.5, 1.5, 0.5)),
             "reentrant-notch point (inside AABB, outside solid) must be outside"
@@ -1434,7 +1851,10 @@ mod tests {
         assert_eq!(poly.patches.len(), 1, "one boundary patch");
         assert_eq!(poly.patches[0].start, 0);
         assert_eq!(poly.patches[0].size, 6, "patch covers every face");
-        assert!(poly.faces.iter().all(|f| f.neighbour.is_none()), "all boundary faces");
+        assert!(
+            poly.faces.iter().all(|f| f.neighbour.is_none()),
+            "all boundary faces"
+        );
         // Real accessors agree.
         assert_eq!(poly.n_points(), 8);
         assert_eq!(poly.n_boundary_faces(), 6);
@@ -1510,7 +1930,10 @@ mod tests {
             "box surfaces must all be axis planes"
         );
         assert_eq!(geom.cells.len(), 1);
-        assert!(matches!(geom.cells[0].fill, CellFill::Void), "geometry-only cell is Void");
+        assert!(
+            matches!(geom.cells[0].fill, CellFill::Void),
+            "geometry-only cell is Void"
+        );
         let halfspaces = geom.cells[0]
             .region
             .iter()
@@ -1544,11 +1967,20 @@ mod tests {
             Vec3::new(0.0, 0.0, -2.0),
         ];
         let faces = vec![
-            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
-            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
         ];
         let octa = Mesh::from_polygons(&positions, &faces);
-        assert!(matches!(to_mc_geometry(&octa), Err(ExportError::NotImplemented(_))));
+        assert!(matches!(
+            to_mc_geometry(&octa),
+            Err(ExportError::NotImplemented(_))
+        ));
     }
 
     /// [`to_faceted_solid`] orients outward regardless of the input winding, so
@@ -1569,7 +2001,11 @@ mod tests {
             );
             vol6 += a.dot(b.cross(c));
         }
-        assert!((vol6 / 6.0 - 8.0).abs() < 1e-9, "faceted cube volume {} != 8", vol6 / 6.0);
+        assert!(
+            (vol6 / 6.0 - 8.0).abs() < 1e-9,
+            "faceted cube volume {} != 8",
+            vol6 / 6.0
+        );
         assert!(solid.contains(Vec3::ZERO));
         assert!(!solid.contains(Vec3::new(5.0, 0.0, 0.0)));
     }

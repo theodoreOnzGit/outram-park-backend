@@ -736,7 +736,7 @@ closure and whether the mesh can move.
 | `U` | `volVectorField` | velocity |
 | `phi` | `surfaceScalarField` | mass flux `= ρ U·Sf` |
 | `he` (or `e`) | `volScalarField` | enthalpy / internal energy |
-| `K` | `volScalarField` | kinetic energy `= 0.5*|U|²` |
+| `K` | `volScalarField` | kinetic energy `= 0.5*\|U\|²` |
 | `dpdt` | `volScalarField` | `∂p/∂t` (for enthalpy form) |
 | `psi` | `volScalarField` | compressibility `ψ = ρ/p` |
 | `rhoMin`, `rhoMax` | `dimensionedScalar` | density bounds |

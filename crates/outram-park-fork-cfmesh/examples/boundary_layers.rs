@@ -55,18 +55,33 @@ fn main() {
         total += t;
         t *= expansion;
     }
-    println!("\nBoundary layers (n = {n_layers}, first = {first_thickness}, expansion = {expansion}):");
+    println!(
+        "\nBoundary layers (n = {n_layers}, first = {first_thickness}, expansion = {expansion}):"
+    );
     println!("  layer thicknesses  = {thicknesses:?}");
     println!("  total thickness    = {total:.4}");
-    println!("  cells              = {}  (+{} prisms)", layered.cell_count(), layered.cell_count() - base.cell_count());
-    println!("  volume             = {:.4}  (repartition — preserved)", layered.total_volume());
+    println!(
+        "  cells              = {}  (+{} prisms)",
+        layered.cell_count(),
+        layered.cell_count() - base.cell_count()
+    );
+    println!(
+        "  volume             = {:.4}  (repartition — preserved)",
+        layered.total_volume()
+    );
 
     // ---- Quality: is the layered mesh solvable? -----------------------------
     let q = check_quality(&layered);
     println!("\nQuality (checkMesh-style):");
-    println!("  max non-orthogonality = {:.2} deg", q.max_non_orthogonality_deg);
+    println!(
+        "  max non-orthogonality = {:.2} deg",
+        q.max_non_orthogonality_deg
+    );
     println!("  max skewness          = {:.3}", q.max_skewness);
-    println!("  max aspect ratio      = {:.3}  (tall thin prisms are expected)", q.max_aspect_ratio);
+    println!(
+        "  max aspect ratio      = {:.3}  (tall thin prisms are expected)",
+        q.max_aspect_ratio
+    );
     println!("  min cell volume       = {:.3e}", q.min_cell_volume);
     println!("  negative-volume cells = {}", q.n_negative_volume_cells);
 

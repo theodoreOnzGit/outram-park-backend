@@ -170,7 +170,7 @@ pub struct SnapControls {
     /// than this ratio, so it is advisory.
     pub tolerance: f64,
     /// Mesh-quality limits the relaxation must satisfy for a move to be
-    /// committed (non-orthogonality [deg], skewness, min cell volume [m³]).
+    /// committed (non-orthogonality `[deg]`, skewness, min cell volume `[m³]`).
     pub quality: QualityLimits,
     /// Enable feature snapping (port of `snappySnapDriverFeature.C` with the
     /// `pointConstraint` accumulator of `pointConstraintI.H`): patch points near
@@ -178,7 +178,7 @@ pub struct SnapControls {
     /// near a corner (≥2 non-collinear feature edges meeting) are fully fixed on
     /// the corner vertex. See the module docs (item 5 + *Honest scope*).
     pub feature_snap: bool,
-    /// Dihedral-angle threshold [degrees] above which a shared STL edge counts
+    /// Dihedral-angle threshold `[degrees]` above which a shared STL edge counts
     /// as a feature edge. Only used when `feature_snap` is set. A box has 90°
     /// creases, so any threshold below 90 detects its edges.
     pub feature_angle_deg: f64,
@@ -770,7 +770,7 @@ impl PointConstraint {
 /// unit direction of every incident feature edge (pointing away from the shared
 /// vertex) is accumulated with [`PointConstraint::apply_edge_dir`], and the
 /// vertex is a feature point iff the accumulation saturates to
-/// [`PointConstraint::Point`]. Returns the corner positions [m].
+/// [`PointConstraint::Point`]. Returns the corner positions `[m]`.
 fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
     let quant = 1e-6_f64;
     let key = |v: Vector3| -> (i64, i64, i64) {
@@ -812,7 +812,7 @@ fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
 }
 
 /// Classify a patch point against the feature set, returning its attraction
-/// target [m] and its `PointConstraint`.
+/// target `[m]` and its `PointConstraint`.
 ///
 /// Port of the intent of `snappySnapDriver::featureAttractionUsingReconstruction`
 /// (`snappySnapDriverFeature.C:997`) and its `binFeatureFace` helper (lines
@@ -829,8 +829,8 @@ fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
 /// - If no feature is within band, the point is [`PointConstraint::Free`] and
 ///   its target is the supplied `surf_target` (the nearest-surface projection).
 ///
-/// `p` is the current point position [m]; `surf_target` its nearest-surface
-/// projection [m]; `edge_band`/`corner_band` are capture radii [m].
+/// `p` is the current point position `[m]`; `surf_target` its nearest-surface
+/// projection `[m]`; `edge_band`/`corner_band` are capture radii `[m]`.
 fn classify_feature(
     p: Vector3,
     surf_target: Vector3,
@@ -878,7 +878,7 @@ fn classify_feature(
     }
 }
 
-/// Mean edge length of the wall-patch faces [m] — a local length scale used to
+/// Mean edge length of the wall-patch faces `[m]` — a local length scale used to
 /// size the feature-attraction band.
 fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     let mut total = 0.0f64;
@@ -900,7 +900,7 @@ fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     }
 }
 
-/// Nearest point on any feature edge to `p` [m], or `None` if there are no
+/// Nearest point on any feature edge to `p` `[m]`, or `None` if there are no
 /// feature edges. Retained as a standalone crease-distance primitive used by the
 /// V&V tests to measure how close snapped points land to the feature edges.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -998,7 +998,7 @@ mod tests {
         TriangleSoup::new("box", tris)
     }
 
-    /// Max distance [m] from every wall-patch point to the exact nearest
+    /// Max distance `[m]` from every wall-patch point to the exact nearest
     /// surface point, plus the mean.
     fn patch_surface_error(mesh: &CastellatedMesh, surface: &TriangleSoup) -> (f64, f64) {
         let wall = mesh
@@ -1024,7 +1024,7 @@ mod tests {
     }
 
     /// Max over all cells of the magnitude of the sum of signed (outward-oriented)
-    /// face-area vectors [m²]. Zero ⇒ every cell is a closed polyhedron.
+    /// face-area vectors `[m²]`. Zero ⇒ every cell is a closed polyhedron.
     fn max_cell_closure(mesh: &CastellatedMesh) -> f64 {
         let topo = &mesh.topology;
         let (areas, _c) = topo.face_geometry();
@@ -1045,10 +1045,7 @@ mod tests {
     #[test]
     fn snap_sphere_projects_onto_surface() {
         let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
         let cast = castellate(&surface, &controls).expect("castellation succeeds");
@@ -1075,7 +1072,10 @@ mod tests {
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells");
         assert!(q.min_cell_volume > 0.0, "positive min cell volume");
         let closure = max_cell_closure(&snapped);
-        println!("snap sphere: min_vol={:.3e} max_closure={closure:.3e}", q.min_cell_volume);
+        println!(
+            "snap sphere: min_vol={:.3e} max_closure={closure:.3e}",
+            q.min_cell_volume
+        );
         assert!(
             closure < 1e-9,
             "cells stay watertight (max |Σ Sf| = {closure:.3e})"
@@ -1108,14 +1108,8 @@ mod tests {
     /// corner-vs-edge classification is in `feature_snap_box_corners_and_edges`.)
     #[test]
     fn feature_snap_captures_box_edges() {
-        let surface = box_soup(
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new(1.0, 1.0, 1.0),
-        );
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let surface = box_soup(Vector3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0));
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
         let cast = castellate(&surface, &controls).expect("castellate box");
@@ -1133,7 +1127,10 @@ mod tests {
         sc.feature_angle_deg = 40.0;
         let snapped = snap(&cast, &surface, &sc).expect("snap box");
 
-        snapped.fv_mesh.validate().expect("rebuilt box mesh validates");
+        snapped
+            .fv_mesh
+            .validate()
+            .expect("rebuilt box mesh validates");
         let q = snapped.topology.quality();
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells: {q:?}");
         let closure = max_cell_closure(&snapped);
@@ -1207,10 +1204,7 @@ mod tests {
     fn snap_requires_wall_patch() {
         // Build a trivial castellation, then strip the wall patch kind.
         let surface = sphere_soup(Vector3::ZERO, 1.0, 12, 12);
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 1, Vector3::new(-1.9, -1.9, -1.9));
         let mut cast = castellate(&surface, &controls).unwrap();
@@ -1255,7 +1249,10 @@ mod tests {
         pc.apply_edge_dir(x * -5.0); // collinear ⇒ still an edge
         assert!(matches!(pc, PointConstraint::Edge { .. }));
         let proj = pc.constrain_displacement(Vector3::new(1.0, 2.0, 3.0));
-        assert!(proj.dist(Vector3::new(1.0, 0.0, 0.0)) < 1e-15, "along-x only");
+        assert!(
+            proj.dist(Vector3::new(1.0, 0.0, 0.0)) < 1e-15,
+            "along-x only"
+        );
 
         // A second, non-collinear direction ⇒ Point (fully fixed).
         pc.apply_edge_dir(y);
@@ -1279,14 +1276,16 @@ mod tests {
     /// box corner.
     #[test]
     fn detect_feature_points_finds_box_corners() {
-        let surface = box_soup(
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new(1.0, 1.0, 1.0),
-        );
+        let surface = box_soup(Vector3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0));
         let edges = detect_feature_edges(&surface, 40.0);
         assert_eq!(edges.len(), 12, "box has 12 feature edges");
         let pts = detect_feature_points(&edges);
-        assert_eq!(pts.len(), 8, "box has 8 feature points, detected {}", pts.len());
+        assert_eq!(
+            pts.len(),
+            8,
+            "box has 8 feature points, detected {}",
+            pts.len()
+        );
         let corners = [
             Vector3::new(-1.0, -1.0, -1.0),
             Vector3::new(1.0, -1.0, -1.0),
@@ -1343,10 +1342,7 @@ mod tests {
         let lo = Vector3::new(-1.0, -1.0, -1.0);
         let hi = Vector3::new(1.0, 1.0, 1.0);
         let surface = box_soup(lo, hi);
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
         let cast = castellate(&surface, &controls).expect("castellate box");
@@ -1362,7 +1358,10 @@ mod tests {
         let snapped = snap(&cast, &surface, &sc).expect("snap box");
 
         // Mesh integrity.
-        snapped.fv_mesh.validate().expect("rebuilt box mesh validates");
+        snapped
+            .fv_mesh
+            .validate()
+            .expect("rebuilt box mesh validates");
         let q = snapped.topology.quality();
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells: {q:?}");
         assert!(
@@ -1395,9 +1394,7 @@ mod tests {
             let p = snapped.topology.points[pid];
             // classify against the current position (surf_target only matters for Free)
             let surf_target = surface.nearest_point(p).unwrap_or(p);
-            let (_t, c) = classify_feature(
-                p, surf_target, &feats, &fpts, edge_band, corner_band,
-            );
+            let (_t, c) = classify_feature(p, surf_target, &feats, &fpts, edge_band, corner_band);
             match c {
                 PointConstraint::Point => {
                     n_corner += 1;
@@ -1446,6 +1443,9 @@ mod tests {
             max_edge_resid < 1e-6,
             "edge points land on edges (max resid {max_edge_resid:.3e} m)"
         );
-        assert_eq!(n_occupied, 8, "all 8 box corners occupied by a snapped point");
+        assert_eq!(
+            n_occupied, 8,
+            "all 8 box corners occupied by a snapped point"
+        );
     }
 }

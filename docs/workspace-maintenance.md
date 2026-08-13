@@ -53,8 +53,10 @@ bumping to the latest stable dependencies.
 **Structural:**
 - Each crate moved to `crates/<name>`; standalone `.git`, `target/`, and
   `Cargo.lock` were dropped (histories intentionally not preserved).
-- `chem-eng…` keeps its own **Apache-2.0** license (not the GPL-3.0 default),
-  and its crate-level `[profile.*]` sections were lifted to the workspace root
+- `chem-eng…` kept its own **Apache-2.0** license (not the GPL-3.0 default)
+  until **2026-08-11**, when the maintainer relicensed it to **GPL-3.0-only**
+  (sole copyright holder; published versions <= 0.1.1 remain Apache-2.0 — see the
+  crate's `NOTICE`). Its crate-level `[profile.*]` sections were lifted to the workspace root
   (Cargo only honors profiles at the root). Its `release` opt-level=2 override
   was dropped so the solvers get default `-O3`; `dev.package."*"` opt-level=2 is
   kept at the root so unoptimized deps don't make tests painfully slow.
@@ -91,38 +93,74 @@ migration notes.
 
 ## Publishing to crates.io
 
-Current versions (bumped for the dependency migration — breaking, since `uom`
-etc. appear in public APIs):
+**Do not hand-maintain the publish order.** Derive it from `cargo metadata`,
+which is the only source that cannot go stale:
 
-| Crate | Version | License |
-|---|---|---|
-| `chem-eng-real-time-process-control-simulator` | 0.1.0 | Apache-2.0 |
-| `tuas_boussinesq_solver` | 0.1.0 | GPL-3.0-only |
-| `teh-o-prke` | 0.1.0 | GPL-3.0-only |
-| `tampines-steam-tables` | 0.2.0 | GPL-3.0-only |
-| `outram-foam-basic-lib` | 0.1.2 | GPL-3.0-only |
+```bash
+cargo metadata --format-version 1 --no-deps
+```
+
+Take the internal (workspace-member) dependency edges — **including
+dev-dependencies**, because `cargo publish` resolves those against crates.io
+too — and topologically sort. A crate can only be published once everything it
+depends on, normal *or* dev, is already live. Until then `cargo publish
+--dry-run` / `cargo package` fails with "failed to select a version"; that is
+expected, not a packaging error (`cargo package --list` still shows clean
+contents).
 
 Internal deps are `{ path = …, version = … }` in `[workspace.dependencies]`, so
-the version pins above must be kept in sync with each crate's `version` (and a
-downstream crate's pin bumped whenever an upstream crate is bumped).
-
-**Publish order is mandatory** — `cargo publish` resolves *all* dependencies,
-including dev-dependencies, against crates.io, so each crate can only be packaged
-once everything it depends on (normal **or** dev) is already live:
-
-1. `chem-eng-real-time-process-control-simulator` (no internal deps)
-1. `outram-foam-basic-lib` (no internal deps — can publish in parallel with chem-eng)
-2. `tuas_boussinesq_solver` (dev-dep: chem-eng)
-3. `teh-o-prke` (dev-deps: tuas, chem-eng)
-4. `tampines-steam-tables` (dep: tuas; dev-deps: teh-o-prke, chem-eng)
-
-Because of this, `cargo publish --dry-run` / `cargo package` for crates 2–4 will
-fail with "failed to select a version" until their upstreams are published —
-that's expected, not a packaging error (`cargo package --list` still shows clean
-contents). chem-eng's dry-run passes standalone.
+each pin must be kept in sync with that crate's own `version`, and a downstream
+pin bumped whenever an upstream is bumped.
 
 Publish each with `cargo publish -p <crate>` from the workspace root (commit
 first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
+
+### Drift: the published version is not the local version
+
+A crate whose `version` is unchanged since it was published, but whose `src/`
+has moved on, is a trap. Downstream crates build locally against the *path*
+dependency but are published against the *registry* copy, so a downstream
+publish fails — or worse, silently resolves to stale code. Detect it before
+starting a run:
+
+```bash
+# commits touching a crate since the commit that introduced its current version
+bump=$(git log --format=%H -S'version = "0.1.0"' -1 -- crates/<crate>/Cargo.toml)
+git rev-list --count "$bump"..HEAD -- crates/<crate>/src
+```
+
+Anything above zero means the registry copy is stale and the crate needs a patch
+bump before the chain above it can be published.
+
+### Rate limits (measured 2026-08-03)
+
+crates.io throttles **new crate names** far harder than new versions of existing
+crates: a burst of about **5 new crates**, then roughly **one per 10 minutes**.
+Exceeding it returns `429 Too Many Requests` with an explicit `Please try again
+after <RFC-2822 date>` — wait for that timestamp rather than retrying blind. New
+*versions* of already-published crates were not throttled at all in that run.
+
+A separate `503` from the WAF has been seen when publishing many crates in quick
+succession; on a 503, wait ~30 minutes before retrying.
+
+### Every published crate must carry its licence text
+
+The tarball contains only the crate directory — a `LICENSE` at the workspace
+root does **not** ship. GPL-3 requires the licence be conveyed with the work, so
+every crate needs its own `LICENSE` copy. Crates that are ports of a permissive
+upstream additionally need that upstream's notice verbatim (MIT and BSD-3 both
+require the copyright + permission notice travel with substantial portions):
+`njoy-outram-park-fork` ships `LICENSE.njoy` + `NOTICE`, `outram-mc-libs` ships
+`LICENSE.openmc`. Verify with:
+
+```bash
+cargo package -p <crate> --list | grep -iE 'LICENSE|NOTICE|TRADEMARK'
+```
+
+Note that `include` patterns are **gitignore-style globs**: an unanchored
+`"LICENSE*"` matches at *any* depth and will drag vendored `upstream_source/`
+licence files into the package, which then fails as a dirty tree. Anchor them
+with a leading `/`.
 
 **Package hygiene already applied** via `exclude` in each manifest:
 - `tuas_boussinesq_solver`: `exclude = ["*.csv"]` — tests dump ~58 MB of CSVs into
@@ -149,6 +187,95 @@ If you ever need to run without Vulkan (e.g. in a VM), force XWayland instead:
 ```bash
 WINIT_UNIX_BACKEND=x11 cargo run --release --example fhr_sim_v2 -p tampines-steam-tables
 ```
+
+### GUI stutter on the maintainer's workstation is the GRAPHICS STACK, not the code
+
+**Diagnosed 2026-08-12. Read this before optimising any simulator's render path
+in response to a lag report.**
+
+The maintainer's workstation runs an **NVIDIA RTX A5000 (GA102, Ampere)** on the
+fully open-source stack, with no proprietary driver installed:
+
+| Layer | What is in use |
+|---|---|
+| Kernel | `nouveau` (proprietary `nvidia` **not** installed) |
+| Vulkan | **NVK** (Mesa) — this is what `wgpu`/`eframe` targets |
+| OpenGL | **zink** — OpenGL emulated on Vulkan, so the whole desktop pays a translation tax |
+| Session | X11 (`XDG_SESSION_TYPE=x11`; **not** Wayland, despite the section above) |
+
+**The evidence that it is system-wide, not ours.** `glxgears` — three spinning
+gears, about the lightest GPU workload that exists — visibly hitches and drops
+frames against its vsync lock:
+
+```
+300 frames in 5.0 seconds = 59.953 FPS      <- clean
+291 frames in 5.0 seconds = 58.152 FPS      <- 9 frames dropped
+297 frames in 5.0 seconds = 59.353 FPS      <- 3 dropped
+```
+
+Roughly 1-3% of frames dropped, unevenly spread. That is precisely what reads as
+stutter: not a lower framerate, but intermittent hitches against an otherwise
+smooth 60.
+
+**The counter-evidence that the simulators are fine.** `fhr_sim_v2` was measured
+in detail the same day (see `examples/fhr_sim_v2/app/frame_cost.rs`): **1.4% CPU
+duty and a sustained 60.0 FPS including under mouse-drag interaction**, two
+dropped frames in ~2760. Its whole main view is 313 shapes / 7952 vertices and
+0.119-0.129 ms to build and tessellate. **Deleting the entire render body would
+recover 0.23 ms of a hardware-capped 16.67 ms frame.**
+
+Note the asymmetry that makes this confusing: an app's own frame counter measures
+its `ui()` body, which is CPU-side and fast. What stutters is *presentation*,
+which is downstream of everything the app can see. So a simulator can honestly
+report a steady 60 FPS while looking choppy.
+
+**Likely cause**, not confirmed to the metal: `nouveau` does not properly reclock
+Turing/Ampere GPUs, so the A5000 is probably running near its lowest power state.
+Reading `/sys/kernel/debug/dri/*/pstate` needs root and was not done.
+
+**Headroom, measured 2026-08-12** with vsync disabled:
+
+```bash
+$ vblank_mode=0 glxgears
+26094 frames in 5.0 seconds = 5218.667 FPS
+24746 frames in 5.0 seconds = 4949.090 FPS
+```
+
+**Read this number with care.** `glxgears` is *not* a GPU benchmark — its
+geometry is trivial, so with vsync off it measures driver and submission
+overhead far more than GPU throughput, and it is single-threaded. So ~5 kFPS
+does **not** directly mean "the GPU is 10x slow".
+
+What it is fair to say: ~5 kFPS is low for this class of card, and it is
+*consistent with* the reclocking hypothesis and with the zink→NVK translation
+overhead. It is corroborating evidence, not proof. Anyone wanting a real answer
+should read `pstate` as root, or compare against the proprietary driver directly.
+
+The vsync-locked hitching above is the stronger evidence, because dropping frames
+against a 60 Hz lock while rendering three gears cannot be explained by
+throughput at all.
+
+**Status: ACCEPTED TRADEOFF** (maintainer, 2026-08-12). Fixing it means
+installing the proprietary `nvidia` driver (or `nvidia-lts` to match an `-lts`
+kernel) and rebooting. It affects presentation smoothness only — no physics, no
+measured result, and no correctness anywhere in the workspace is touched by it.
+
+**What this means for anyone acting on a "the GUI is laggy" report:**
+
+1. **Measure before optimising.** Both simulators can instrument themselves via
+   `app_scaffold::GuiFrameMetrics` (four readouts: `update()` CPU, peak CPU,
+   frame interval, FPS). `fhr_sim_v2` displays them; `htgr_sim_v1` does **not**
+   yet, which is a real gap.
+2. **Small CPU inside a ~16.7 ms interval means the render path is already
+   clear** and the cost is downstream. Do not bake, cache or micro-optimise
+   further — that work will measure as zero.
+3. **Ask what "laggy" means.** Picture stutter and a plant that responds
+   sluggishly to a control input are different problems: the second is a physics
+   timescale (the thermal-hydraulics loop advances a 0.1 s timestep in real
+   time), not a rendering one.
+
+This was very nearly mis-fixed twice in one day by optimising a render path that
+was already idle. The measurement is cheap; the wasted work is not.
 
 ## Model selection guide (for AI assistants)
 

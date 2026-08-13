@@ -44,7 +44,7 @@ pub struct SutherlandTransport<T: ThermoModel> {
 }
 
 impl<T: ThermoModel> SutherlandTransport<T> {
-    /// Construct directly from Sutherland coefficients As [kg/(m·s·K^0.5)] and Ts [K].
+    /// Construct directly from Sutherland coefficients As `[kg/(m·s·K^0.5)]` and Ts `[K]`.
     pub fn new(thermo: T, as_: f64, ts: f64) -> Self {
         Self { thermo, as_, ts }
     }

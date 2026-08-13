@@ -1,4 +1,4 @@
-/// Example 1: 
+/// Example 1:
 ///
 /// This example shows how to create a simple pipe
 /// using the FluidComponent and FluidPipeCalcPressureLoss,
@@ -12,8 +12,7 @@
 ///
 /// This does not take inclined angles into consideration yet
 #[test]
-pub fn simple_fluid_pipe_example_1 () {
-
+pub fn simple_fluid_pipe_example_1() {
     use std::f64::consts::PI;
 
     use uom::si::pressure::pascal;
@@ -28,7 +27,7 @@ pub fn simple_fluid_pipe_example_1 () {
 
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_pressure_loss;
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_mass_flowrate;
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     use uom::si::f64::*;
     // first we create an air pipe struct
     //
@@ -37,18 +36,17 @@ pub fn simple_fluid_pipe_example_1 () {
         pressure_loss: Pressure,
     }
 
-    // we implement get and set methods for each of the 
+    // we implement get and set methods for each of the
     // properties, you can set these properties in the constructor
-    // or you can simply return the appropriate values in the 
+    // or you can simply return the appropriate values in the
     // functions
-    // 
+    //
     // likewise, when you get the mass flowrate
     // or density, you can invoke calculation methods straightaway
-    // 
+    //
     // but for calculation methods, you can "inherit" the default
     // trait implementations for a generic fluid pipe
     impl FluidComponentTrait for AirPipe {
-
         /// gets the mass flowrate of the component
         fn get_mass_flowrate(&mut self) -> MassRate {
             // get pipe parameters and flow conditions
@@ -62,16 +60,17 @@ pub fn simple_fluid_pipe_example_1 () {
             let pipe_length = self.get_component_length();
             let pressure_loss = self.pressure_loss;
 
-            let mass_flowrate: MassRate = 
-                pipe_calc_mass_flowrate(
-                    pressure_loss, 
-                    cross_sectional_area, 
-                    hydraulic_diameter, 
-                    fluid_viscosity, 
-                    fluid_density, 
-                    pipe_length, 
-                    absolute_roughness, 
-                    form_loss_k).unwrap();
+            let mass_flowrate: MassRate = pipe_calc_mass_flowrate(
+                pressure_loss,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
+                pipe_length,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the mass flowrate straightaway
             // or set the struct variable first and then
@@ -86,7 +85,8 @@ pub fn simple_fluid_pipe_example_1 () {
         /// with immutable instance of self
         fn get_mass_flowrate_from_pressure_loss_immutable(
             &self,
-            pressure_loss: Pressure) -> MassRate {
+            pressure_loss: Pressure,
+        ) -> MassRate {
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k_immutable();
@@ -97,16 +97,17 @@ pub fn simple_fluid_pipe_example_1 () {
             let fluid_density = self.get_fluid_density_immutable_at_ref_temperature();
             let pipe_length = self.get_component_length_immutable();
 
-            let mass_flowrate = 
-                pipe_calc_mass_flowrate(
-                    pressure_loss, 
-                    cross_sectional_area, 
-                    hydraulic_diameter, 
-                    fluid_viscosity, 
-                    fluid_density, 
-                    pipe_length, 
-                    absolute_roughness, 
-                    form_loss_k).unwrap();
+            let mass_flowrate = pipe_calc_mass_flowrate(
+                pressure_loss,
+                cross_sectional_area,
+                hydraulic_diameter,
+                fluid_viscosity,
+                fluid_density,
+                pipe_length,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the mass flowrate straightaway
             // or set the struct variable first and then
@@ -116,36 +117,32 @@ pub fn simple_fluid_pipe_example_1 () {
         }
 
         /// sets the mass flowrate of the component
-        fn set_mass_flowrate(&mut self, mass_flowrate: MassRate){
+        fn set_mass_flowrate(&mut self, mass_flowrate: MassRate) {
             self.mass_flowrate = mass_flowrate;
         }
-
 
         /// pressure change is accounts for total pressure
         /// differential between start and end point of the pipe,
         /// including hydrostatic pressure and any sources
         /// which may contribute to the pressure, eg. pumps
-        /// 
+        ///
         /// pressure change = -pressure loss + hydrostatic pressure
         fn get_pressure_change(&mut self) -> Pressure {
-
             // for this, i have
             // pressure change = -pressure loss + hydrostatic pressure
             // + internal pressure
             return -self.get_pressure_loss();
         }
 
-
-        fn set_pressure_change(&mut self, pressure_change:Pressure) {
+        fn set_pressure_change(&mut self, pressure_change: Pressure) {
             self.set_pressure_loss(-pressure_change);
         }
 
         /// gets pressure loss
         /// i calculate pressure loss when i invoke this method
-        /// and the method comes from the 
-        /// FluidPipeCalcPressureLoss trait 
+        /// and the method comes from the
+        /// FluidPipeCalcPressureLoss trait
         fn get_pressure_loss(&mut self) -> Pressure {
-
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k();
@@ -157,19 +154,19 @@ pub fn simple_fluid_pipe_example_1 () {
             let density = self.get_fluid_density_at_ref_temperature();
             let pipe_legnth = self.get_component_length();
 
-
             // calculate the pressure loss
 
-            let pressure_loss = 
-                pipe_calc_pressure_loss(
-                    mass_flowrate,
-                    cross_sectional_area,
-                    hydraulic_diameter,
-                    viscosity,
-                    density,
-                    pipe_legnth,
-                    absolute_roughness,
-                    form_loss_k).unwrap();
+            let pressure_loss = pipe_calc_pressure_loss(
+                mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                viscosity,
+                density,
+                pipe_legnth,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the pressure loss straightaway
             // or set the struct variable first and then
@@ -180,9 +177,7 @@ pub fn simple_fluid_pipe_example_1 () {
             return self.pressure_loss;
         }
 
-        fn get_pressure_loss_immutable(
-            &self, mass_flowrate: MassRate) -> Pressure {
-
+        fn get_pressure_loss_immutable(&self, mass_flowrate: MassRate) -> Pressure {
             // get pipe parameters and flow conditions
             // from the get methods
             let form_loss_k = self.get_pipe_form_loss_k_immutable();
@@ -193,19 +188,19 @@ pub fn simple_fluid_pipe_example_1 () {
             let density = self.get_fluid_density_immutable_at_ref_temperature();
             let pipe_legnth = self.get_component_length_immutable();
 
-
             // calculate the pressure loss
 
-            let pressure_loss = 
-                pipe_calc_pressure_loss(
-                    mass_flowrate,
-                    cross_sectional_area,
-                    hydraulic_diameter,
-                    viscosity,
-                    density,
-                    pipe_legnth,
-                    absolute_roughness,
-                    form_loss_k).unwrap();
+            let pressure_loss = pipe_calc_pressure_loss(
+                mass_flowrate,
+                cross_sectional_area,
+                hydraulic_diameter,
+                viscosity,
+                density,
+                pipe_legnth,
+                absolute_roughness,
+                form_loss_k,
+            )
+            .unwrap();
 
             // you can return the pressure loss straightaway
             // or set the struct variable first and then
@@ -215,28 +210,26 @@ pub fn simple_fluid_pipe_example_1 () {
         }
 
         /// sets the pressure loss of the component
-        fn set_pressure_loss(&mut self, pressure_loss: Pressure){
+        fn set_pressure_loss(&mut self, pressure_loss: Pressure) {
             self.pressure_loss = pressure_loss;
         }
-
 
         /// gets cross sectional area
         /// the inner diameter is 2 in
         /// and the area is Pi*d^2/4
         fn get_cross_sectional_area(&mut self) -> Area {
-            return self.get_hydraulic_diameter()*
-                self.get_hydraulic_diameter()*
-                PI/4.0_f64;
+            return self.get_hydraulic_diameter() * self.get_hydraulic_diameter() * PI / 4.0_f64;
         }
 
         fn get_cross_sectional_area_immutable(&self) -> Area {
-            return self.get_hydraulic_diameter_immutable()*
-                self.get_hydraulic_diameter_immutable()*
-                PI/4.0_f64;
+            return self.get_hydraulic_diameter_immutable()
+                * self.get_hydraulic_diameter_immutable()
+                * PI
+                / 4.0_f64;
         }
 
         /// gets hydraulic diamter
-        /// im giving this pipe a two inch inner diameter 
+        /// im giving this pipe a two inch inner diameter
         fn get_hydraulic_diameter(&mut self) -> Length {
             return Length::new::<inch>(2.0);
         }
@@ -248,14 +241,13 @@ pub fn simple_fluid_pipe_example_1 () {
         /// gets fluid viscosity
         /// air has a dynamic viscosity of about 18.6 millipascal
         /// seconds
-        fn get_fluid_viscosity_at_ref_temperature(&mut self) -> DynamicViscosity{ 
+        fn get_fluid_viscosity_at_ref_temperature(&mut self) -> DynamicViscosity {
             return DynamicViscosity::new::<millipascal_second>(18.6);
         }
 
-        fn get_fluid_viscosity_immutable_at_ref_temperature(&self) -> DynamicViscosity{ 
+        fn get_fluid_viscosity_immutable_at_ref_temperature(&self) -> DynamicViscosity {
             return DynamicViscosity::new::<millipascal_second>(18.6);
         }
-
 
         /// gets fluid density
         /// air density is about 1kg/m3
@@ -297,10 +289,7 @@ pub fn simple_fluid_pipe_example_1 () {
             return Pressure::new::<pascal>(0.0);
         }
 
-        fn set_internal_pressure_source(
-            &mut self, 
-            _internal_pressure_source: Pressure
-            ){
+        fn set_internal_pressure_source(&mut self, _internal_pressure_source: Pressure) {
             // doesn't actually do anything,
             // i refuse to let it set anything
             //
@@ -308,13 +297,8 @@ pub fn simple_fluid_pipe_example_1 () {
             // called unimplemented
 
             unimplemented!();
-
         }
-
-
     }
-
-
 
     // finally you can implement a constructor
 
@@ -332,7 +316,7 @@ pub fn simple_fluid_pipe_example_1 () {
 
         /// return absolute roughness for pipe
         /// for a typical copper pipe
-        /// it is 0.002 mm 
+        /// it is 0.002 mm
         /// i did a web search
         ///
         fn get_pipe_absolute_roughness(&mut self) -> Length {
@@ -343,25 +327,21 @@ pub fn simple_fluid_pipe_example_1 () {
             return Length::new::<millimeter>(0.002);
         }
         pub fn new() -> AirPipe {
-            let default_mass_flowrate = 
-                MassRate::new::<kilogram_per_second>(0.0);
+            let default_mass_flowrate = MassRate::new::<kilogram_per_second>(0.0);
 
-            let default_pressure_loss = 
-                Pressure::new::<pascal>(0.0);
+            let default_pressure_loss = Pressure::new::<pascal>(0.0);
 
-            return Self { 
-                mass_flowrate: default_mass_flowrate, 
-                pressure_loss: default_pressure_loss
-            }
+            return Self {
+                mass_flowrate: default_mass_flowrate,
+                pressure_loss: default_pressure_loss,
+            };
         }
     }
-
 
     // with the AirPipe struct setup, you can caluclate
     // the pressure loss easily
 
-    let mut pipe_mass_flowrate = 
-        MassRate::new::<kilogram_per_second>(0.5);
+    let mut pipe_mass_flowrate = MassRate::new::<kilogram_per_second>(0.5);
 
     let mut air_pipe_1 = AirPipe::new();
 
@@ -372,10 +352,7 @@ pub fn simple_fluid_pipe_example_1 () {
     let mut pressure_loss = air_pipe_1.get_pressure_loss();
 
     // the value is around 209 kPa
-    approx::assert_relative_eq!(
-        209.0*1000.0,
-        pressure_loss.value,
-        max_relative=0.01);
+    approx::assert_relative_eq!(209.0 * 1000.0, pressure_loss.value, max_relative = 0.01);
 
     // we can of course use the 209 kPa value and set the
     // air pipe presusre to such
@@ -385,15 +362,10 @@ pub fn simple_fluid_pipe_example_1 () {
 
     air_pipe_1.set_pressure_loss(pressure_loss);
 
-    pipe_mass_flowrate = 
-        air_pipe_1.get_mass_flowrate();
-
+    pipe_mass_flowrate = air_pipe_1.get_mass_flowrate();
 
     // we should get back our 0.5 kg/s
-    approx::assert_relative_eq!(
-        0.5,
-        pipe_mass_flowrate.value,
-        max_relative=0.01);
+    approx::assert_relative_eq!(0.5, pipe_mass_flowrate.value, max_relative = 0.01);
 
     // last but not least, i want to check our immutable versions
     // of these functions and see if they work well
@@ -401,13 +373,13 @@ pub fn simple_fluid_pipe_example_1 () {
     // the immutable versions of the methods take in &self rather
     // than &mut self, this enables safety in terms of parallelism
     // and may help with the use of peroxide iteration libraries
-    // which are numerical root finders. These root finders 
+    // which are numerical root finders. These root finders
     // cannot use mutable functions
 
-
-    assert_eq!(pipe_mass_flowrate,
-               air_pipe_1.get_mass_flowrate_from_pressure_loss_immutable(pressure_loss));
+    assert_eq!(
+        pipe_mass_flowrate,
+        air_pipe_1.get_mass_flowrate_from_pressure_loss_immutable(pressure_loss)
+    );
 
     return;
-
 }

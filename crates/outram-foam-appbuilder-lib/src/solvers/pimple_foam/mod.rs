@@ -183,6 +183,7 @@ use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
 use crate::io::fv_solution::FvSolution;
+use crate::turbulence::TurbulenceClosure;
 use outram_foam_basic_lib::prelude::*;
 use std::sync::Arc;
 
@@ -261,9 +262,62 @@ pub struct PimpleFoam {
     pub nu: VolScalarField,
     /// Linear solver for the pressure Poisson equation (default: PCG).
     pub pressure_solver: PressureSolver,
+    /// Velocity at the time level *before* `u_old`, i.e. U^{n−2} [m/s].
+    ///
+    /// Maintained automatically by [`PimpleFoam::step`] and needed only by the
+    /// second-order [`crate::io::fv_schemes::DdtScheme::Backward`] time scheme.
+    /// `None` before the first step has completed, where backward differencing
+    /// degenerates to Euler.
+    pub u_old_old: Option<VolVectorField>,
+    /// Turbulence closure (default [`TurbulenceClosure::Laminar`]).
+    ///
+    /// Selecting a RAS/LES model replaces the molecular viscous term in the
+    /// momentum predictor with `divDevReff(U) = −∇·(ν_eff ∇U) − ∇·(ν_eff
+    /// dev2(∇Uᵀ))`, ν_eff = ν + ν_t, and advances the model's transport
+    /// equations once per time step after the pressure correctors — OpenFOAM's
+    /// `turbulence->correct()` position. Set it directly, e.g.
+    ///
+    /// ```ignore
+    /// solver.turbulence = TurbulenceClosure::k_omega_sst(mesh.clone());
+    /// solver.turbulence.set_k_omega_uniform(1.0e-2, 100.0); // k [m²/s²], ω [1/s]
+    /// ```
+    ///
+    /// **The default is laminar and stays laminar unless you change it**, so an
+    /// existing run is unaffected. See [`crate::turbulence`] for the honest
+    /// scope limits — in particular, the closures use zero-gradient (not
+    /// wall-function) near-wall boundary conditions.
+    pub turbulence: TurbulenceClosure,
 }
 
 impl PimpleFoam {
+    /// Build an incompressible PIMPLE solver on `mesh`, with every field
+    /// allocated at a placeholder initial state.
+    ///
+    /// The caller is expected to overwrite the public field members before
+    /// stepping — in particular `u`, `p` and the kinematic viscosity `nu`, and
+    /// to set the boundary conditions on the mesh patches. The defaults are:
+    ///
+    /// | Field | Initial value |
+    /// |---|---|
+    /// | `u` — velocity [m/s] | zero |
+    /// | `p` — kinematic pressure p/ρ [m²/s²] | zero |
+    /// | `phi` — volumetric face flux [m³/s] | zero |
+    /// | `nu` — kinematic viscosity [m²/s] | uniform 1e-5 |
+    /// | `pressure_solver` | [`PressureSolver::default`] |
+    /// | `turbulence` | [`TurbulenceClosure::Laminar`] |
+    ///
+    /// Note this solver is **kinematic**: `p` is pressure divided by density, in
+    /// m²/s², not Pa. That is OpenFOAM's incompressible convention.
+    ///
+    /// # Arguments
+    ///
+    /// * `mesh` — the finite-volume mesh, shared read-only.
+    /// * `control` — time-loop settings; see [`ControlDict`] for which of its
+    ///   fields are actually honoured.
+    /// * `schemes` — `ddt` and `div` selections, applied via
+    ///   [`crate::solvers::schemes`]. `grad`/`laplacian`/`snGrad` are stored but
+    ///   not consulted.
+    /// * `solution` — linear-solver tolerances and the PIMPLE corrector counts.
     pub fn new(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -284,6 +338,8 @@ impl PimpleFoam {
             phi,
             nu,
             pressure_solver: PressureSolver::default(),
+            u_old_old: None,
+            turbulence: TurbulenceClosure::default(),
         }
     }
 
@@ -327,14 +383,43 @@ impl PimpleFoam {
             self.p.boundary.iter().map(|pf| pf.bc.clone()).collect();
 
         for _ in 0..n_outer {
+            // Push the live velocity / flux / viscosity / dt into the turbulence
+            // closure so the stress term below is assembled from the current
+            // state. A no-op when the closure is laminar.
+            self.turbulence
+                .sync_inputs(&self.u, &self.phi, &self.nu, dt);
+
             // ── Assemble implicit momentum equation (no pressure source yet) ───
             // `fvm::laplacian_vec` is assembled positive-definite (diag += coeff),
             // i.e. it represents −∇·(ν∇U). The momentum viscous term is −∇·(ν∇U),
             // so it is ADDED here (not subtracted) — subtracting would drive the
             // matrix diagonal negative and blow the solve up.
-            let mut u_eqn = fvm::ddt_vec(&self.u, &u_old, dt, mesh.clone())
-                + fvm::div_vec(&self.phi, &self.u, mesh.clone())
-                + fvm::laplacian_vec(&self.nu, &self.u, mesh.clone());
+            //
+            // `div_dev_reff` returns exactly `fvm::laplacian_vec(nu, U)` for the
+            // default laminar closure, so a laminar run is unchanged; a RAS/LES
+            // closure returns the same operator with ν_eff = ν + ν_t plus the
+            // explicit transpose correction in the source.
+            //
+            // The ddt and div terms honour `self.schemes` (see
+            // `crate::solvers::schemes`): the defaults are Euler + first-order
+            // upwind, exactly what this solver assembled before scheme
+            // selection was wired in, and an unimplemented selection is a hard
+            // error rather than a silent fallback.
+            let ddt_term = crate::solvers::schemes::ddt_vec_scheme(
+                &self.schemes.ddt,
+                &self.u,
+                &u_old,
+                self.u_old_old.as_ref(),
+                dt,
+                mesh.clone(),
+            )?;
+            let div_term = crate::solvers::schemes::div_vec_scheme(
+                &self.schemes.default_div,
+                &self.phi,
+                &self.u,
+                mesh.clone(),
+            )?;
+            let mut u_eqn = ddt_term + div_term + self.turbulence.div_dev_reff(&self.u, &self.nu);
 
             // A = diagonal [m³/s];  rAU = V/A [s]
             let a = u_eqn.a_field();
@@ -493,9 +578,49 @@ impl PimpleFoam {
             }
         }
 
+        // ── Turbulence correction ────────────────────────────────────────────
+        // OpenFOAM's `turbulence->correct()` sits at the bottom of the PIMPLE
+        // loop, after the pressure correctors, so the k/ω/ε transport equations
+        // are advanced with the *corrected*, divergence-free velocity and flux.
+        // Re-sync first, because `self.u`/`self.phi` were rewritten by the last
+        // corrector. A no-op when the closure is laminar.
+        self.turbulence
+            .sync_inputs(&self.u, &self.phi, &self.nu, dt);
+        self.turbulence.correct();
+
+        // Roll the time levels forward so a second-order backward ddt scheme has
+        // U^{n−2} available on the next step.
+        self.u_old_old = Some(u_old);
+
         Ok(())
     }
 
+    /// Advance the solver from the `controlDict` start time to its end time,
+    /// calling [`Self::step`] repeatedly at the fixed step `control.delta_t`.
+    ///
+    /// This is a convenience wrapper over [`Self::step`]. Set the initial field
+    /// state on the public members *before* calling it, and read the results off
+    /// those same members afterwards — **`run` writes nothing to disk**, because
+    /// every writer in [`crate::io::output`] is still `todo!()`.
+    ///
+    /// # Time control
+    ///
+    /// * Starts at `t` for [`StartControl::StartTime(t)`](StartControl::StartTime);
+    ///   any other `startFrom` selection is treated as `t = 0`.
+    /// * Runs while `t < end` for
+    ///   [`StopControl::EndTime(end)`](StopControl::EndTime). **For every other
+    ///   `stopAt` selection this returns `Ok(())` immediately without taking a
+    ///   single step**, since those selections are defined in terms of a write
+    ///   this crate cannot perform.
+    /// * The step is fixed at `control.delta_t`. `adjustTimeStep`, `maxCo` and
+    ///   `maxDeltaT` are **not implemented** — choose a Δt that respects your own
+    ///   Courant limit.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first error from [`Self::step`] (typically
+    /// [`AppBuilderError::Diverged`]); the run stops at that point with the
+    /// fields left in their last state.
     pub fn run(&mut self) -> Result<(), AppBuilderError> {
         let start = match self.control.start {
             StartControl::StartTime(t) => t,

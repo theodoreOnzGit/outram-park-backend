@@ -34,14 +34,19 @@
 //! test checks the harness runs and returns physical probabilities; a representative
 //! measured comparison is recorded below.
 //!
-//! # Representative result (2026-07-21)
+//! # Representative result (2026-08-06)
 //!
 //! For `domain_half_width = 0.5 cm`, `particle_radius = 0.05 cm`, `packing_fraction =
-//! 0.2`, `scatter_mfp = 0.3 cm`, 4000 histories (seed 20260721), absorption
-//! probabilities were **RSA = 0.684, CLS = 0.697 (+0.013), SCLS = 0.745 (+0.061)**.
+//! 0.2`, `scatter_mfp = 0.3 cm`, `max_collisions = 200`, 4000 histories (seed
+//! 20260721), absorption probabilities were **RSA = 0.6947, CLS = 0.7073 (+0.0126),
+//! SCLS = 0.7165 (+0.0218)**. The binomial standard error `sqrt(p(1-p)/n)` is ~0.007
+//! on each arm at n = 4000, so the CLS gap is ~1.2 combined-se wide and the SCLS gap
+//! ~2.1 — but CLS/SCLS are deterministic functions of the packing statistics rather
+//! than unbiased estimators of the explicit geometry, so those gaps report *model*
+//! approximation error, not sampling noise.
 //!
 //! Two honest observations, not accuracy claims:
-//! - Both approximate models land within ~0.06 of the explicit reference, so the harness
+//! - Both approximate models land within ~0.022 of the explicit reference, so the harness
 //!   is clearly measuring the same physics on each arm.
 //! - In *this* regime **CLS is actually closer to RSA than SCLS**, and both overestimate
 //!   absorption. That is a real, regime-dependent finding — SCLS's retained inclusions
@@ -50,6 +55,18 @@
 //!   higher-packing regimes is exactly the parameter study this suite exists to run; it
 //!   is not asserted here. These numbers are reproducible from the seed but are a
 //!   generated result, not a committed reference (crate `CLAUDE.md` V&V-output rule).
+//!
+//! **Supersedes (2026-07-21): RSA = 0.684, CLS = 0.697 (+0.013), SCLS = 0.745
+//! (+0.061).** Those figures were measured with the pre-`op-jis` `prn` output
+//! function — the raw top-52 state bits, before [`crate::rng::lcg::prn`] gained
+//! OpenMC's PCG-RXS-M-XS output permutation. The LCG *state recurrence* is unchanged,
+//! so the RSA packing and the walk are structurally identical; only the uniform
+//! stream every arm consumes moved, and all three arms re-drew. The qualitative
+//! finding survives unchanged — both models still overestimate absorption, and CLS is
+//! still the closer of the two — but SCLS's overestimate shrank markedly, from +0.061
+//! to +0.0218. No tolerance was changed. (`max_collisions = 200`, matching this
+//! module's own unit test, is now stated explicitly above because the superseded
+//! 2026-07-21 record did not name it.)
 //!
 //! This module is **new work**, not an OpenMC port.
 
@@ -200,12 +217,20 @@ impl AbsorptionBenchmark {
         let packing =
             PackedSpheres::from_spheres(spheres, self.domain_half_width, self.particle_radius);
 
-        let cls_medium = ClsMedium::new(self.particle_radius, self.packing_fraction, INCLUSION, MATRIX);
+        let cls_medium = ClsMedium::new(
+            self.particle_radius,
+            self.packing_fraction,
+            INCLUSION,
+            MATRIX,
+        );
 
         let mut rsa = StochasticMedium::Rsa(RsaMedium::new(packing, INCLUSION, MATRIX));
         let mut cls = StochasticMedium::Cls(cls_medium.clone());
-        let mut scls =
-            StochasticMedium::Scls(SclsMedium::new(cls_medium, Position::ZERO, self.scatter_mfp));
+        let mut scls = StochasticMedium::Scls(SclsMedium::new(
+            cls_medium,
+            Position::ZERO,
+            self.scatter_mfp,
+        ));
 
         // Independent LCG streams per arm (derived from the master seed).
         let mut s_rsa = seed ^ 0x5151_5151_5151_5151;

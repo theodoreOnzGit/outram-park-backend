@@ -1,0 +1,56 @@
+[package]
+name = "raffles"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only: upstream RAVEN is Apache-2.0, which is ONE-WAY compatible with
+# GPLv3 (Apache -> GPLv3 is allowed; GPLv3 -> Apache is not). This crate is
+# therefore GPL-3.0-only like the rest of the suite, and its code CANNOT flow
+# back upstream to RAVEN. Full provenance, the verbatim upstream LICENSE.txt /
+# NOTICE.txt, and the required Battelle Energy Alliance / Idaho National
+# Laboratory attribution live in NOTICE, LICENSE-APACHE-RAVEN, NOTICE-RAVEN and
+# upstream_source/README.md.
+license.workspace = true
+# CRATE OWNER: Adolphus Lye (colleague of the workspace maintainer), who chose
+# the RAFFLES backronym. Direction, scope and priorities for this crate are
+# theirs. `authors` is inherited from [workspace.package]; whether to add an
+# explicit per-crate author entry is the maintainer's and owner's call, not an
+# assistant's — see README.md and CLAUDE.md.
+description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. SCAFFOLD ONLY: no distribution, sampler or estimator is implemented, and there is no human V&V. Not affiliated with the RAVEN project."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# The upstream reference clone is a repo-only provenance aid, never shipped in
+# the packaged crate. upstream_source/README.md (the provenance record) is
+# intentionally NOT excluded so it stays in the package, and neither are NOTICE,
+# LICENSE-APACHE-RAVEN or NOTICE-RAVEN — Apache-2.0 section 4 requires the
+# attribution to travel with every distribution.
+exclude = ["docs", "upstream_source/raven"]
+
+[dependencies]
+# ANDROID / TERMUX: keep this list pure-Rust. NOTHING here may pull system
+# BLAS/LAPACK, a C or Fortran toolchain, or windowing GUI — see the workspace
+# CLAUDE.md "Android / Termux portability" rule. In particular `ndarray-linalg`
+# is Android-hostile and must NOT be added unconditionally; if RAFFLES ever
+# needs dense linear algebra (surrogate fitting, correlated multivariate
+# sampling), reach first for the pure-Rust `faer` already in the root
+# [workspace.dependencies], and only otherwise add a BLAS-backed crate behind a
+# `[target.'cfg(not(target_os = "android"))'.dependencies]` table.
+#
+# Versions come from the root [workspace.dependencies] — never pin here.
+thiserror.workspace = true
+# RANDOM NUMBER GENERATOR (src/samplers.rs). RAFFLES does NOT ship its own
+# generator: it reuses `outram_mc_libs::rng::lcg` — the OpenMC 64-bit LCG port,
+# with the O(log n) `future_seed` jump-ahead that gives each sampled dimension a
+# provably non-overlapping stream. That is OpenMC's reproducible-parallel-MC
+# design, it is already tested, and duplicating a PRNG in one workspace is the
+# thing to avoid. The workspace has no `rand` crate; whether to add one is the
+# maintainer's call (docs/raven-port-scoping.md section 10, question 1).
+#
+# ANDROID: this dependency is Android-clean. outram-mc-libs target-gates its
+# wgpu/GPU paths (and its `naga` dev-dependency) off Android with
+# `[target.'cfg(not(target_os = "android"))'.dependencies]`, so
+# `cargo check -p raffles --all-targets --target aarch64-linux-android` passes.
+# RAFFLES follows the same gating convention if it ever needs something
+# Android-hostile — see this crate's CLAUDE.md.
+outram-mc-libs.workspace = true

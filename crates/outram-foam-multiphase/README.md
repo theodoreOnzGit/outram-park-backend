@@ -54,3 +54,10 @@ Definition of done for every solver: theory documentation + verification tests
 + reference-benchmark comparison + unit-safe (`uom`) implementation. Humans own
 physics, verification, validation, benchmarking, and engineering judgement; AI
 only accelerates translation.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

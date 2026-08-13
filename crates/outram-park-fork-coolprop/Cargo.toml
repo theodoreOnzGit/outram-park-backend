@@ -1,6 +1,7 @@
 [package]
 name = "outram-park-fork-coolprop"
-version = "0.1.0"
+version = "0.1.1"
+authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only: although CoolProp itself is MIT, this crate ships GPL-3.0-only
 # OpenFOAM-derived code (src/openfoam_algorithms/openfoam_source/*), which is

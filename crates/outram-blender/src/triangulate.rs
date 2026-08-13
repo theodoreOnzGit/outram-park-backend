@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Fan triangulation of each polygon from its first corner (an n-gon becomes n - 2
+// triangles), which preserves winding. Standard technique, exact for convex faces;
+// no upstream source was copied. Blender analogue (architecture only): the
+// bmo_triangulate operator in fan mode.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Triangulate — convert every polygon face into triangles, returning a
 //! triangle-only [`Mesh`].
 //!
@@ -109,7 +132,10 @@ mod tests {
         let before_faces = sphere.face_count();
         let tris = triangulate(&sphere);
         assert!(all_triangles(&tris));
-        assert!(tris.face_count() >= before_faces, "quads split, tris pass through");
+        assert!(
+            tris.face_count() >= before_faces,
+            "quads split, tris pass through"
+        );
         assert_eq!(tris.euler_characteristic(), 2);
         assert!(is_watertight_consistent(&tris));
     }
@@ -130,7 +156,9 @@ mod tests {
         use crate::ops::MeshOp;
         let cube = primitives::cube(2.0);
         let direct = triangulate(&cube);
-        let via_op = MeshOp::Triangulate.apply(cube).expect("triangulate infallible");
+        let via_op = MeshOp::Triangulate
+            .apply(cube)
+            .expect("triangulate infallible");
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());
     }

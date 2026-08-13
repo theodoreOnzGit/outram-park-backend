@@ -161,7 +161,16 @@ impl Mgxs {
         let chi_sum: f64 = chi.iter().sum();
         assert!(chi_sum > 0.0, "chi must be non-zero (fission spectrum)");
         let chi = chi.into_iter().map(|c| c / chi_sum).collect();
-        Self { name: name.into(), n_groups: g, total, absorption, fission, nu_fission, chi, scatter }
+        Self {
+            name: name.into(),
+            n_groups: g,
+            total,
+            absorption,
+            fission,
+            nu_fission,
+            chi,
+            scatter,
+        }
     }
 
     /// Scatter-out cross section of group `g` from the matrix: Σ_row = Σ_g' Σ_s,g→g'.
@@ -256,10 +265,16 @@ impl MgxsLibrary {
     /// Build a library from per-material [`Mgxs`] sets (order = material index).
     /// Panics if the sets do not all share the same group count.
     pub fn new(materials: Vec<Mgxs>) -> Self {
-        assert!(!materials.is_empty(), "MGXS library needs at least one material");
+        assert!(
+            !materials.is_empty(),
+            "MGXS library needs at least one material"
+        );
         let g = materials[0].n_groups;
         for m in &materials {
-            assert_eq!(m.n_groups, g, "all materials must share the same group count");
+            assert_eq!(
+                m.n_groups, g,
+                "all materials must share the same group count"
+            );
         }
         Self { materials }
     }
@@ -294,7 +309,12 @@ pub struct MgSettings {
 
 impl Default for MgSettings {
     fn default() -> Self {
-        Self { n_particles: 2000, n_inactive: 30, n_active: 70, seed: 1 }
+        Self {
+            n_particles: 2000,
+            n_inactive: 30,
+            n_active: 70,
+            seed: 1,
+        }
     }
 }
 
@@ -383,7 +403,11 @@ pub fn run_keff_mg(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Transport one MG source neutron to death (absorption or leakage) over the CSG
@@ -552,7 +576,8 @@ mod tests {
             /* nu_fission */ vec![0.008, 0.100],
             /* chi        */ vec![1.0, 0.0],
             // row-major 2×2: [0→0, 0→1, 1→0, 1→1]
-            /* scatter    */ vec![0.050, 0.020, 0.000, 0.100],
+            /* scatter    */
+            vec![0.050, 0.020, 0.000, 0.100],
         )
     }
 
@@ -563,32 +588,71 @@ mod tests {
     /// stand-in for an infinite homogeneous medium (zero leakage), so MC → k∞.
     fn infinite_medium_cube(a: f64) -> Geometry {
         let surfaces = vec![
-            SurfaceKind::XPlane(XPlane { x0: -a, bc: BoundaryType::Reflective }),
-            SurfaceKind::XPlane(XPlane { x0: a, bc: BoundaryType::Reflective }),
-            SurfaceKind::YPlane(YPlane { y0: -a, bc: BoundaryType::Reflective }),
-            SurfaceKind::YPlane(YPlane { y0: a, bc: BoundaryType::Reflective }),
-            SurfaceKind::ZPlane(ZPlane { z0: -a, bc: BoundaryType::Reflective }),
-            SurfaceKind::ZPlane(ZPlane { z0: a, bc: BoundaryType::Reflective }),
+            SurfaceKind::XPlane(XPlane {
+                x0: -a,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::XPlane(XPlane {
+                x0: a,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::YPlane(YPlane {
+                y0: -a,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::YPlane(YPlane {
+                y0: a,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::ZPlane(ZPlane {
+                z0: -a,
+                bc: BoundaryType::Reflective,
+            }),
+            SurfaceKind::ZPlane(ZPlane {
+                z0: a,
+                bc: BoundaryType::Reflective,
+            }),
         ];
         // Interior of the box: x>-a ∧ x<a ∧ y>-a ∧ y<a ∧ z>-a ∧ z<a.
         let region = vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Outside },
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Outside,
+            },
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 5,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ];
         let cell = Cell::material(1, region, 0, 293.6);
         Geometry {
             surfaces,
             cells: vec![cell],
-            universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }],
             lattices: vec![],
             root_universe: 0,
         }
@@ -600,8 +664,14 @@ mod tests {
         let m = two_group_set();
         assert_eq!(m.n_groups, 2);
         assert!(m.is_fissile());
-        assert!((m.chi.iter().sum::<f64>() - 1.0).abs() < 1e-12, "chi normalised");
-        assert!(m.consistency_residual() < 1e-12, "Σ_t must equal Σ_a + Σ_scatter-out");
+        assert!(
+            (m.chi.iter().sum::<f64>() - 1.0).abs() < 1e-12,
+            "chi normalised"
+        );
+        assert!(
+            m.consistency_residual() < 1e-12,
+            "Σ_t must equal Σ_a + Σ_scatter-out"
+        );
         assert!((m.nu_bar(0) - 2.5).abs() < 1e-9, "ν̄ fast = 2.5");
         assert!((m.nu_bar(1) - 2.5).abs() < 1e-9, "ν̄ thermal = 2.5");
     }
@@ -624,7 +694,12 @@ mod tests {
     fn mg_infinite_medium_matches_analytic_kinf() {
         let geom = infinite_medium_cube(10.0);
         let lib = MgxsLibrary::new(vec![two_group_set()]);
-        let settings = MgSettings { n_particles: 4000, n_inactive: 40, n_active: 120, seed: 1 };
+        let settings = MgSettings {
+            n_particles: 4000,
+            n_inactive: 40,
+            n_active: 120,
+            seed: 1,
+        };
         let src = SourceBox {
             lower: Position::new(-5.0, -5.0, -5.0),
             upper: Position::new(5.0, 5.0, 5.0),
@@ -633,8 +708,12 @@ mod tests {
 
         eprintln!(
             "[mg k∞] k = {:.5} ± {:.5}  (analytic {:.5}, {}p × [{}+{}] gen)",
-            result.k_mean, result.k_std, K_INF_ANALYTIC,
-            settings.n_particles, settings.n_inactive, settings.n_active
+            result.k_mean,
+            result.k_std,
+            K_INF_ANALYTIC,
+            settings.n_particles,
+            settings.n_inactive,
+            settings.n_active
         );
         assert_eq!(result.k_by_generation.len(), 160, "ran all generations");
         assert!(
@@ -642,7 +721,11 @@ mod tests {
             "MG k∞ {} deviates from analytic {K_INF_ANALYTIC} by more than 0.01",
             result.k_mean
         );
-        assert!(result.k_std < 0.005, "k noisy/unconverged: σ = {}", result.k_std);
+        assert!(
+            result.k_std < 0.005,
+            "k noisy/unconverged: σ = {}",
+            result.k_std
+        );
     }
 
     /// A pure absorber (no scatter, no fission) must give k = 0 and terminate —

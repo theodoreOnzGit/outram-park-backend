@@ -1,3 +1,34 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] "Smart" Laplacian smoothing — accept a vertex move only if it does not
+//       degrade (here: does not invert) any incident cell.
+//       Lori A. Freitag, "On combining Laplacian and optimization-based mesh
+//       smoothing techniques", AMD-Vol. 220, Trends in Unstructured Mesh
+//       Generation, ASME, 1997, pp. 37-43. Published method, no code reused.
+//
+//   [2] cfMesh — https://github.com/wyldckat/cfMesh
+//       meshLibrary/utilities/smoothers/geometry (`meshOptimizer`), the
+//       equivalent stage in the cfMesh workflow.
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh-quality **smoothing** — smart Laplacian relaxation of interior vertices.
 //!
 //! This is the first, robust increment of the tet-quality-refinement roadmap
@@ -135,7 +166,9 @@ pub fn laplacian_smooth(mesh: &VolumeMesh, passes: usize) -> VolumeMesh {
             // Accept only if every incident cell stays positive-volume.
             let old = pts[v];
             pts[v] = cand;
-            let ok = vert_cells[v].iter().all(|&cell| cell_volume(cell, &pts) > 1e-14);
+            let ok = vert_cells[v]
+                .iter()
+                .all(|&cell| cell_volume(cell, &pts) > 1e-14);
             if !ok {
                 pts[v] = old;
             }
@@ -170,7 +203,10 @@ mod tests {
                 }
             }
         }
-        pinned.iter().position(|&p| !p).expect("mesh has an interior vertex")
+        pinned
+            .iter()
+            .position(|&p| !p)
+            .expect("mesh has an interior vertex")
     }
 
     /// V&V — headline. Methodology: tetrahedralize a unit box, **perturb one
@@ -192,16 +228,38 @@ mod tests {
         let mut bad = tets.clone();
         bad.points[v] = bad.points[v].add(Vec3::new(0.09, 0.06, -0.05));
         let bad_q = check_quality(&bad);
-        assert_eq!(bad_q.n_negative_volume_cells, 0, "perturbation did not invert a cell");
-        assert!(bad_q.max_aspect_ratio > base_ar, "perturbation worsened shape: {} -> {}", base_ar, bad_q.max_aspect_ratio);
-        assert!((bad.total_volume() - 1.0).abs() < 1e-9, "interior move conserves volume");
+        assert_eq!(
+            bad_q.n_negative_volume_cells, 0,
+            "perturbation did not invert a cell"
+        );
+        assert!(
+            bad_q.max_aspect_ratio > base_ar,
+            "perturbation worsened shape: {} -> {}",
+            base_ar,
+            bad_q.max_aspect_ratio
+        );
+        assert!(
+            (bad.total_volume() - 1.0).abs() < 1e-9,
+            "interior move conserves volume"
+        );
 
         // Smooth it back.
         let good = laplacian_smooth(&bad, 20);
         let good_q = check_quality(&good);
-        assert!(good_q.max_aspect_ratio < bad_q.max_aspect_ratio, "smoothing improved worst aspect ratio: {} -> {}", bad_q.max_aspect_ratio, good_q.max_aspect_ratio);
-        assert_eq!(good_q.n_negative_volume_cells, 0, "smoothing inverted no cell");
-        assert!((good.total_volume() - 1.0).abs() < 1e-9, "smoothing conserves volume exactly");
+        assert!(
+            good_q.max_aspect_ratio < bad_q.max_aspect_ratio,
+            "smoothing improved worst aspect ratio: {} -> {}",
+            bad_q.max_aspect_ratio,
+            good_q.max_aspect_ratio
+        );
+        assert_eq!(
+            good_q.n_negative_volume_cells, 0,
+            "smoothing inverted no cell"
+        );
+        assert!(
+            (good.total_volume() - 1.0).abs() < 1e-9,
+            "smoothing conserves volume exactly"
+        );
         good.validate().expect("smoothed mesh is closed");
     }
 
@@ -220,7 +278,10 @@ mod tests {
             lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
             hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
         }
-        assert!(lo.length() < 1e-9 && hi.sub(Vec3::new(1.0, 1.0, 1.0)).length() < 1e-9, "boundary unchanged");
+        assert!(
+            lo.length() < 1e-9 && hi.sub(Vec3::new(1.0, 1.0, 1.0)).length() < 1e-9,
+            "boundary unchanged"
+        );
         assert_eq!(check_quality(&smoothed).n_negative_volume_cells, 0);
         assert!((smoothed.total_volume() - 1.0).abs() < 1e-9);
         smoothed.validate().expect("closed");

@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Non-destructive modifier stack. Follows the published architecture of Blender's
+// modifier system (modifiers/intern/MOD_*, GPL-2.0-or-later) — concepts only, no
+// upstream source was copied. The individual modifiers delegate to this crate's
+// own operators; see subdivision.rs for the Catmull-Clark reference.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Non-destructive **modifier stack** (Blender's `modifiers/intern/MOD_*`).
 //!
 //! The [`Modifier`] enum and the [`ModifierStack`] that evaluates an ordered
@@ -112,9 +135,7 @@ impl Modifier {
     /// stub variants can surface [`ModifierError::NotImplemented`].
     pub fn evaluate(&self, input: &Mesh) -> Result<Mesh, ModifierError> {
         match self {
-            Modifier::Subsurf { levels } => {
-                Ok(crate::subdivision::catmull_clark(input, *levels))
-            }
+            Modifier::Subsurf { levels } => Ok(crate::subdivision::catmull_clark(input, *levels)),
             Modifier::Mirror { axes } => Ok(mirror(input, *axes)),
             Modifier::Array { count, offset } => Ok(array(input, *count, *offset)),
         }
@@ -372,7 +393,11 @@ mod tests {
         assert_eq!(quad.vertex_count(), 4);
 
         let out = Modifier::Mirror {
-            axes: MirrorAxes { x: true, y: false, z: false },
+            axes: MirrorAxes {
+                x: true,
+                y: false,
+                z: false,
+            },
         }
         .evaluate(&quad)
         .unwrap();
@@ -400,9 +425,12 @@ mod tests {
     #[test]
     fn array_cube_relative_offset() {
         let c = primitives::cube(1.0);
-        let out = Modifier::Array { count: 3, offset: [1.0, 0.0, 0.0] }
-            .evaluate(&c)
-            .unwrap();
+        let out = Modifier::Array {
+            count: 3,
+            offset: [1.0, 0.0, 0.0],
+        }
+        .evaluate(&c)
+        .unwrap();
         assert_eq!(out.vertex_count(), 24, "3 x 8, copies not welded");
         assert_eq!(out.face_count(), 18, "3 x 6");
 
@@ -456,9 +484,16 @@ mod tests {
 
         let stack = ModifierStack::new()
             .push(Modifier::Mirror {
-                axes: MirrorAxes { x: true, y: false, z: false },
+                axes: MirrorAxes {
+                    x: true,
+                    y: false,
+                    z: false,
+                },
             })
-            .push(Modifier::Array { count: 2, offset: [1.0, 0.0, 0.0] });
+            .push(Modifier::Array {
+                count: 2,
+                offset: [1.0, 0.0, 0.0],
+            });
         let out = stack.evaluate(&quad).unwrap();
 
         assert_eq!(out.vertex_count(), 12, "mirror -> 6 verts, x2 array -> 12");

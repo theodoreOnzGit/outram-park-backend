@@ -1,7 +1,6 @@
 /// Spatial source distributions.
 ///
 /// C++ source: `src/distribution_spatial.cpp`, `include/openmc/distribution_spatial.h`.
-
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 
@@ -11,13 +10,20 @@ pub trait SpatialDist: Send + Sync {
 }
 
 /// Point source — all particles start at the same location.
-pub struct PointSource { pub r: Position }
+pub struct PointSource {
+    pub r: Position,
+}
 impl SpatialDist for PointSource {
-    fn sample(&self, _seed: &mut u64) -> Position { self.r }
+    fn sample(&self, _seed: &mut u64) -> Position {
+        self.r
+    }
 }
 
 /// Uniform box source.
-pub struct BoxSource { pub lower_left: Position, pub upper_right: Position }
+pub struct BoxSource {
+    pub lower_left: Position,
+    pub upper_right: Position,
+}
 impl SpatialDist for BoxSource {
     fn sample(&self, seed: &mut u64) -> Position {
         Position::new(

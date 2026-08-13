@@ -402,6 +402,39 @@ impl PolyMesh {
         (vol, ctr)
     }
 
+    /// Convert to the writable `outram-foam-basic-lib`
+    /// [`PolyMesh`](outram_foam_basic_lib::io::PolyMesh) — the on-disk
+    /// `constant/polyMesh` representation.
+    ///
+    /// A pure re-packing of the identical data (same face ordering, same
+    /// winding convention, same patch layout); no geometry is recomputed. Use
+    /// it to write a `blockMesh` result to an OpenFOAM case with
+    /// [`PolyMesh::write`](outram_foam_basic_lib::io::PolyMesh::write), or to
+    /// grade it with [`assess_quality`](crate::mesh_quality::assess_quality).
+    ///
+    /// ```no_run
+    /// let mesh = outram_foam_mesh::block_mesh::block_mesh_from_file("blockMeshDict").unwrap();
+    /// mesh.to_foam_poly_mesh().write("case/constant/polyMesh").unwrap();
+    /// ```
+    pub fn to_foam_poly_mesh(&self) -> outram_foam_basic_lib::io::PolyMesh {
+        let faces = self
+            .faces
+            .iter()
+            .map(|f| outram_foam_basic_lib::io::MeshFace {
+                verts: f.verts.clone(),
+                owner: f.owner,
+                neighbour: f.neighbour,
+            })
+            .collect();
+        outram_foam_basic_lib::io::PolyMesh {
+            points: self.points.clone(),
+            faces,
+            n_internal_faces: self.n_internal_faces,
+            n_cells: self.n_cells,
+            patches: self.patches.clone(),
+        }
+    }
+
     /// Convert to the `outram-foam-basic-lib` [`FvMesh`], computing all
     /// finite-volume geometry (cell volumes/centres, face-area vectors, face
     /// areas, face centres) from the point/face topology.
@@ -667,7 +700,13 @@ fn edge_lambdas(edge_grading: &[Grading; 12], cells: [usize; 3]) -> EdgeLambdas 
 /// direction agree this reduces *exactly* to trilinear interpolation, so it is
 /// a strict generalisation of [`trilinear`]. All positions are in metres `[m]`
 /// (the corners are already scaled by `convertToMeters`).
-fn edge_blended_node(corners: &[Vector3; 8], el: &EdgeLambdas, i: usize, j: usize, k: usize) -> Vector3 {
+fn edge_blended_node(
+    corners: &[Vector3; 8],
+    el: &EdgeLambdas,
+    i: usize,
+    j: usize,
+    k: usize,
+) -> Vector3 {
     // Corner aliases (blockCreate.C:52-60).
     let p000 = corners[0];
     let p100 = corners[1];
@@ -861,8 +900,7 @@ impl BlockMeshDict {
                                 let cx = i == nx;
                                 let cy = j == ny;
                                 let cz = k == nz;
-                                let is_corner =
-                                    (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
+                                let is_corner = (i == 0 || cx) && (j == 0 || cy) && (k == 0 || cz);
                                 let p = if is_corner {
                                     let base = if !cx && !cy {
                                         0
@@ -1705,9 +1743,21 @@ mod tests {
 
         // Segment-0 widths follow per-cell ratio 2.0 (end/start expansion 4).
         let w: Vec<f64> = (0..10).map(|i| s[i + 1] - s[i]).collect();
-        assert!((w[1] / w[0] - 2.0).abs() < 1e-9, "seg0 ratio1 = {}", w[1] / w[0]);
-        assert!((w[2] / w[1] - 2.0).abs() < 1e-9, "seg0 ratio2 = {}", w[2] / w[1]);
-        assert!((w[2] / w[0] - 4.0).abs() < 1e-9, "seg0 end/start = {}", w[2] / w[0]);
+        assert!(
+            (w[1] / w[0] - 2.0).abs() < 1e-9,
+            "seg0 ratio1 = {}",
+            w[1] / w[0]
+        );
+        assert!(
+            (w[2] / w[1] - 2.0).abs() < 1e-9,
+            "seg0 ratio2 = {}",
+            w[2] / w[1]
+        );
+        assert!(
+            (w[2] / w[0] - 4.0).abs() < 1e-9,
+            "seg0 end/start = {}",
+            w[2] / w[0]
+        );
 
         // Segment-2 is uniform (expansion 1): equal widths.
         assert!((w[8] - w[7]).abs() < 1e-9 && (w[9] - w[7]).abs() < 1e-9);
@@ -1752,7 +1802,12 @@ mod tests {
         let a = graded_positions_multi(8, &seg);
         let b = graded_positions(8, 5.0);
         for i in 0..a.len() {
-            assert!((a[i] - b[i]).abs() < 1e-12, "node {i}: {} vs {}", a[i], b[i]);
+            assert!(
+                (a[i] - b[i]).abs() < 1e-12,
+                "node {i}: {} vs {}",
+                a[i],
+                b[i]
+            );
         }
     }
 
@@ -1835,8 +1890,7 @@ mod tests {
     /// `1e-12`; total volume `1.0 m^3`; validate OK. Passed.
     #[test]
     fn edge_grading_equal_edges() {
-        let verts =
-            "vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );";
+        let verts = "vertices ( (0 0 0)(1 0 0)(1 1 0)(0 1 0)(0 0 1)(1 0 1)(1 1 1)(0 1 1) );";
         let edge_dict = format!(
             "convertToMeters 1;\n{verts}\n\
              blocks ( hex (0 1 2 3 4 5 6 7) (4 1 1) \
@@ -1903,7 +1957,11 @@ mod tests {
         }
         assert_eq!(
             block.grading,
-            [Grading::Uniform(1.0), Grading::Uniform(1.0), Grading::Uniform(1.0)]
+            [
+                Grading::Uniform(1.0),
+                Grading::Uniform(1.0),
+                Grading::Uniform(1.0)
+            ]
         );
     }
 
@@ -1959,8 +2017,14 @@ mod tests {
         // Each x-edge mid-node reflects its own grading's mid position.
         assert!(has_point(&mesh, Vector3::new(0.5, 0.0, 0.0)), "edge0 mid");
         assert!(has_point(&mesh, Vector3::new(0.25, 1.0, 0.0)), "edge1 mid");
-        assert!(has_point(&mesh, Vector3::new(1.0 / 3.0, 1.0, 1.0)), "edge2 mid");
-        assert!(has_point(&mesh, Vector3::new(1.0 / 6.0, 0.0, 1.0)), "edge3 mid");
+        assert!(
+            has_point(&mesh, Vector3::new(1.0 / 3.0, 1.0, 1.0)),
+            "edge2 mid"
+        );
+        assert!(
+            has_point(&mesh, Vector3::new(1.0 / 6.0, 0.0, 1.0)),
+            "edge3 mid"
+        );
 
         // Grading only moves nodes: the (warped-internal-face) mesh still fills
         // the unit cube exactly.
@@ -1993,8 +2057,9 @@ mod tests {
     /// shows why the equal-edges fast path stays bit-comparable. Passed.
     #[test]
     fn edge_blend_reduces_to_trilinear() {
-        let corners: [Vector3; 8] =
-            std::array::from_fn(|c| Vector3::new(HEX_CORNER[c][0], HEX_CORNER[c][1], HEX_CORNER[c][2]));
+        let corners: [Vector3; 8] = std::array::from_fn(|c| {
+            Vector3::new(HEX_CORNER[c][0], HEX_CORNER[c][1], HEX_CORNER[c][2])
+        });
 
         // All four x-edges share ratio 4; y and z uniform.
         let mut eg: [Grading; 12] = std::array::from_fn(|_| Grading::Uniform(1.0));

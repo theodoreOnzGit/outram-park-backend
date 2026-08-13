@@ -90,7 +90,7 @@
 //! table's interpretation footer and [`AbsorptionBenchmark`]'s own recorded result
 //! for a second, independently-generated data point.
 //!
-//! # Measured result (2026-07-21, seed 20260721, 3000 histories/method/arm)
+//! # Measured result (re-measured 2026-08-06, seed 20260721, 3000 histories/method/arm)
 //!
 //! `domain_half_width = 0.3 cm`, `particle_radius = 0.025 cm`,
 //! `scatter_mfp = 0.2 cm`, `max_collisions = 300`, `KERNEL_MAJORANT_MARGIN = 8`.
@@ -100,21 +100,35 @@
 //!
 //! | pf | Surface (ref) | Delta | Δ Delta (z) | CLS | Δ CLS | SCLS | Δ SCLS |
 //! |---|---|---|---|---|---|---|---|
-//! | 0.05 | 0.4157 (se 0.0090) | 0.4000 (se 0.0089) | -0.0157 (z=-1.23) | 0.3410 | -0.0747 | 0.3930 | -0.0227 |
-//! | 0.10 | 0.5923 (se 0.0090) | 0.5797 (se 0.0090) | -0.0127 (z=-1.00) | 0.5407 | -0.0517 | 0.5877 | -0.0047 |
-//! | 0.15 | 0.6840 (se 0.0085) | 0.6713 (se 0.0086) | -0.0127 (z=-1.05) | 0.6613 | -0.0227 | 0.7043 | +0.0203 |
-//! | 0.20 | 0.7460 (se 0.0079) | 0.7437 (se 0.0080) | -0.0023 (z=-0.21) | 0.7363 | -0.0097 | 0.7667 | +0.0207 |
-//! | 0.25 | 0.7897 (se 0.0074) | 0.7850 (se 0.0075) | -0.0047 (z=-0.44) | 0.7953 | +0.0057 | 0.8140 | +0.0243 |
+//! | 0.05 | 0.3993 (se 0.0089) | 0.4040 (se 0.0090) | +0.0047 (z=+0.37) | 0.3500 | -0.0493 | 0.3830 | -0.0163 |
+//! | 0.10 | 0.5703 (se 0.0090) | 0.5770 (se 0.0090) | +0.0067 (z=+0.52) | 0.5527 | -0.0177 | 0.5860 | +0.0157 |
+//! | 0.15 | 0.6687 (se 0.0086) | 0.6727 (se 0.0086) | +0.0040 (z=+0.33) | 0.6733 | +0.0047 | 0.6850 | +0.0163 |
+//! | 0.20 | 0.7430 (se 0.0080) | 0.7377 (se 0.0080) | -0.0053 (z=-0.47) | 0.7343 | -0.0087 | 0.7577 | +0.0147 |
+//! | 0.25 | 0.7867 (se 0.0075) | 0.7953 (se 0.0074) | +0.0087 (z=+0.83) | 0.7957 | +0.0090 | 0.8107 | +0.0240 |
 //!
 //! `se` is the binomial standard error `sqrt(p(1-p)/n)`, n = 3000; `z` is
 //! `ΔDelta / sqrt(se_surface² + se_delta²)`, printed by the program itself under
 //! each row (not recomputed by hand here).
 //!
+//! **Supersedes** the 2026-07-21 table, measured with the pre-`op-jis` `prn`
+//! output function (raw top-52 LCG state bits). Bead `op-jis` replaced that with
+//! OpenMC's PCG-RXS-M-XS output permutation on 2026-08-06; the seed is unchanged
+//! but every uniform drawn from it is different, so this is an independent
+//! realisation of the same experiment. Old rows, for the record:
+//! 0.05 — 0.4157 / 0.4000 (z=-1.23) / CLS 0.3410 (-0.0747) / SCLS 0.3930 (-0.0227);
+//! 0.10 — 0.5923 / 0.5797 (z=-1.00) / CLS 0.5407 (-0.0517) / SCLS 0.5877 (-0.0047);
+//! 0.15 — 0.6840 / 0.6713 (z=-1.05) / CLS 0.6613 (-0.0227) / SCLS 0.7043 (+0.0203);
+//! 0.20 — 0.7460 / 0.7437 (z=-0.21) / CLS 0.7363 (-0.0097) / SCLS 0.7667 (+0.0207);
+//! 0.25 — 0.7897 / 0.7850 (z=-0.44) / CLS 0.7953 (+0.0057) / SCLS 0.8140 (+0.0243).
+//! Every Surface reference value moved by well under 2 of its own standard
+//! errors, which is what an equivalent generator should do.
+//!
 //! **Interpretation.**
 //!
 //! - **Surface vs Delta (the consistency anchor): holds.** Every `z` above has
-//!   `|z| ≤ 1.23` — well inside normal Monte Carlo scatter for two independent
-//!   3000-history samples of the same underlying probability. Both arms track the
+//!   `|z| ≤ 0.83` — well inside normal Monte Carlo scatter for two independent
+//!   3000-history samples of the same underlying probability. (It held on the
+//!   superseded 2026-07-21 data too, at `|z| ≤ 1.23`.) Both arms track the
 //!   identical explicit packing; this is the evidence the delta-tracking majorant
 //!   (§ above) and bookkeeping are unbiased at this margin, not an assumption.
 //!   (An earlier draft of this walk *did* fail this check by ~5-6 σ at several
@@ -127,14 +141,21 @@
 //!   `walk_surface`'s doc comment. Recorded here because a passing consistency
 //!   check that silently started out failing is exactly the kind of thing this
 //!   module exists to catch and report honestly.)
-//! - **CLS and SCLS: no universal winner.** CLS underestimates absorption at
-//!   every packing fraction tested except the densest (from -0.0747 at pf = 0.05
-//!   to +0.0057 at pf = 0.25); SCLS starts by underestimating too (-0.0227 at
-//!   pf = 0.05) but crosses over to overestimate from pf = 0.15 upward (+0.0203 to
-//!   +0.0243). At pf = 0.05, SCLS (|Δ| = 0.0227) is much closer to the reference
-//!   than CLS (|Δ| = 0.0747); at pf = 0.25 the ranking **inverts** — CLS
-//!   (|Δ| = 0.0057) is closer than SCLS (|Δ| = 0.0243). Several of these gaps are
-//!   many standard errors wide (e.g. CLS at pf = 0.05 is ~8-9 σ from Surface),
+//! - **CLS and SCLS: no universal winner.** CLS's largest shortfall is at the
+//!   sparsest packing (-0.0493 at pf = 0.05) and it tightens as the packing
+//!   densifies, but **not monotonically** — it lands at -0.0177, +0.0047, -0.0087,
+//!   +0.0090 across pf = 0.10 to 0.25, i.e. it straddles zero at the denser end
+//!   rather than crossing it once. (The superseded 2026-07-21 realisation did
+//!   show a single clean crossover; that apparent monotonicity was not
+//!   reproducible and should not be cited.) SCLS starts by underestimating
+//!   (-0.0163 at pf = 0.05) and overestimates at every denser point tested
+//!   (+0.0157, +0.0163, +0.0147, +0.0240) — a single crossover that *did*
+//!   reproduce. At pf = 0.05, SCLS (|Δ| = 0.0163) is much closer to the reference
+//!   than CLS (|Δ| = 0.0493); at pf = 0.25 the ranking **inverts** — CLS
+//!   (|Δ| = 0.0090) is closer than SCLS (|Δ| = 0.0240). That inversion is the
+//!   finding that reproduced across both realisations. Several of these gaps are
+//!   many standard errors wide (e.g. CLS at pf = 0.05 is ~5-6 σ from Surface;
+//!   it was ~8-9 σ on the superseded data),
 //!   which is expected for a *systematic* model-approximation bias rather than
 //!   statistical noise — CLS and SCLS are deterministic functions of the packing
 //!   statistics, not unbiased estimators of the exact geometry, so a
@@ -274,7 +295,11 @@ impl FourMethodProblem {
                 return Outcome::Absorbed;
             }
             // Matrix scatter: advance exactly to the scatter point, resample direction.
-            pos = Position::new(pos.x + dir.u * d_scatter, pos.y + dir.v * d_scatter, pos.z + dir.w * d_scatter);
+            pos = Position::new(
+                pos.x + dir.u * d_scatter,
+                pos.y + dir.v * d_scatter,
+                pos.z + dir.w * d_scatter,
+            );
             let (nu, nv, nw) = isotropic_direction(seed);
             dir = Direction::new(nu, nv, nw);
         }
@@ -396,7 +421,13 @@ impl FourMethodProblem {
 /// `ray_sphere_entry` in [`outram_mc_libs::stochastic::scls`] (not imported —
 /// that one is a private module item), specialised here to always start outside
 /// a kernel (matrix-only walk between kernels).
-fn ray_sphere_entry(p: Position, u: Direction, center: Position, radius: f64, eps: f64) -> Option<f64> {
+fn ray_sphere_entry(
+    p: Position,
+    u: Direction,
+    center: Position,
+    radius: f64,
+    eps: f64,
+) -> Option<f64> {
     let oc = p - center;
     let b = u.dot_pos(oc);
     let c = oc.norm_sqr() - radius * radius;
@@ -414,7 +445,12 @@ fn ray_sphere_entry(p: Position, u: Direction, center: Position, radius: f64, ep
 
 /// Distance to the *nearest* kernel surface ahead of `pos` along `dir`, scanning
 /// every packed sphere — the O(N) operation delta tracking exists to avoid.
-fn nearest_kernel_entry(pos: Position, dir: Direction, spheres: &[Sphere], eps: f64) -> Option<f64> {
+fn nearest_kernel_entry(
+    pos: Position,
+    dir: Direction,
+    spheres: &[Sphere],
+    eps: f64,
+) -> Option<f64> {
     spheres
         .iter()
         .filter_map(|s| ray_sphere_entry(pos, dir, s.center, s.radius, eps))
@@ -430,7 +466,9 @@ fn binomial_se(p: f64, n: usize) -> f64 {
 
 fn main() {
     println!("TRISO absorbing-kernel transport — four methods, one packing per packing fraction");
-    println!("====================================================================================\n");
+    println!(
+        "====================================================================================\n"
+    );
 
     let base = FourMethodProblem {
         domain_half_width: 0.3, // 0.6 cm cube
@@ -462,7 +500,10 @@ fn main() {
     );
 
     for &pf in &[0.05_f64, 0.10, 0.15, 0.20, 0.25] {
-        let problem = FourMethodProblem { packing_fraction: pf, ..base };
+        let problem = FourMethodProblem {
+            packing_fraction: pf,
+            ..base
+        };
 
         let cfg = PackingConfig {
             particle_radius: problem.particle_radius,
@@ -480,7 +521,11 @@ fn main() {
             }
         };
         // The one RSA packing this packing-fraction point runs all four methods on.
-        let packing = PackedSpheres::from_spheres(spheres, problem.domain_half_width, problem.particle_radius);
+        let packing = PackedSpheres::from_spheres(
+            spheres,
+            problem.domain_half_width,
+            problem.particle_radius,
+        );
 
         // Independent LCG streams for the two hand-rolled arms (distinct from the
         // masks AbsorptionBenchmark::compare uses internally for its own RSA/CLS/SCLS
@@ -543,9 +588,7 @@ fn main() {
     println!(
         "so a gap there would mean a bug in the majorant/sampling, not different physics. ΔCLS"
     );
-    println!(
-        "and ΔSCLS are the stochastic-media models' approximation error against the same"
-    );
+    println!("and ΔSCLS are the stochastic-media models' approximation error against the same");
     println!("reference — neither is claimed superior; see this file's module docs for the");
     println!("measured interpretation (SCLS overestimates more than CLS in this regime).\n");
 

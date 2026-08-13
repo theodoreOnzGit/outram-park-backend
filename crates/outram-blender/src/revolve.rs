@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Sweep a profile polyline about an arbitrary axis using Rodrigues' rotation
+// formula (O. Rodrigues, 1840), stitching consecutive rings with quads. Written
+// from first principles; no upstream source was copied. Blender analogue
+// (architecture only): the Spin tool.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Revolve / spin — sweep a profile polyline around an axis into a surface of
 //! revolution.
 //!
@@ -145,7 +168,10 @@ mod tests {
                 directed.insert((poly[i].0, poly[(i + 1) % kk].0));
             }
         }
-        directed.iter().filter(|&&(a, b)| !directed.contains(&(b, a))).count()
+        directed
+            .iter()
+            .filter(|&&(a, b)| !directed.contains(&(b, a)))
+            .count()
     }
 
     /// V&V — headline. Methodology: revolve a vertical segment at radius 1
@@ -160,7 +186,11 @@ mod tests {
         assert_eq!(tube.vertex_count(), 32, "16 rings × 2 profile rows");
         assert_eq!(tube.face_count(), 16, "16 quad bands");
         assert_eq!(tube.euler_characteristic(), 0, "open cylinder: χ = 0");
-        assert_eq!(boundary_edge_count(&tube), 32, "16 top + 16 bottom rim edges");
+        assert_eq!(
+            boundary_edge_count(&tube),
+            32,
+            "16 top + 16 bottom rim edges"
+        );
     }
 
     /// V&V — capping the tube yields a closed prism of the expected volume.
@@ -173,7 +203,11 @@ mod tests {
         let profile = [Vec3::new(1.0, 0.0, -1.0), Vec3::new(1.0, 0.0, 1.0)];
         let tube = revolve(&profile, Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0), 16, TAU);
         let solid = fill_holes(&tube);
-        assert_eq!(solid.euler_characteristic(), 2, "capped tube is a closed solid");
+        assert_eq!(
+            solid.euler_characteristic(),
+            2,
+            "capped tube is a closed solid"
+        );
         let expected_vol = 0.5 * 16.0 * (TAU / 16.0).sin() * 2.0;
         let v6 = signed_volume6(&solid).abs();
         assert!(

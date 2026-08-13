@@ -48,16 +48,34 @@
 //!    flux tally; asserts stationary k and that both cells accumulate flux with
 //!    fissions confined to the fuel.
 //!
-//! **Results (2026-07-15, this harness; asserted at run time, not hard-coded).**
-//! Godiva bare-sphere k ≈ 1.01 ± 0.002 (consistent with `keff.rs`); the
-//! homogeneous reflective pin cell lands well above it in the fast-infinite-medium
-//! band (k_inf ≫ k_sphere), confirming the reflective BC removes leakage. The
-//! heterogeneous run is stationary with positive flux tallied in both cells. The
-//! **thermal UO₂ pin** (S(α,β) wired) gave **k_inf = 1.39802 ± 0.00652**
-//! (600 particles, 40 inactive + 60 active, seeded/deterministic) — squarely in
-//! the ~1.3–1.45 physical band for a 3% UO₂ light-water pin-cell. See
+//! **Results (measured 2026-08-06, this harness; asserted at run time, not
+//! hard-coded).** Godiva bare-sphere k ≈ 1.01 (the crate's other Godiva runs,
+//! re-measured the same day: **k = 1.01042 ± 0.00174** from
+//! `examples/godiva_keff`, **k = 1.01207 ± 0.00673** from the `keff.rs`
+//! backend-agreement run — this test itself asserts a band, it records no k of
+//! its own). The homogeneous reflective pin cell gives **k_inf = 2.20758 ±
+//! 0.00383** against the same-material finite bare sphere's **k = 0.11741 ±
+//! 0.00176** — k_inf ≫ k_sphere, confirming the reflective BC removes leakage.
+//! The heterogeneous run is stationary with positive flux tallied in both cells.
+//! The **thermal UO₂ pin** could **not** be re-measured here — see the
+//! Supersedes note. See
 //! `docs/ai-fleet-review/op-6tz-pincell-triso/REVIEW_MANIFEST.md` and
 //! `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-15).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before the PCG-RXS-M-XS output permutation of bead
+//! `op-jis`). The LCG *state* recurrence did not change, so integer-state facts,
+//! seeds and jump-ahead identities are untouched — but every sampled uniform did,
+//! so every statistic derived from them moved. Superseded values:
+//! - Godiva bare-sphere k ≈ 1.01 ± 0.002.
+//! - **Thermal UO₂ pin k_inf = 1.39802 ± 0.00652** (600 particles, 40 inactive +
+//!   60 active). **NOT RE-MEASURED — needs a re-run.** That case is data-gated on
+//!   the public ENDF/B-VIII.0 `tsl-HinH2O.endf` file, which is **absent on this
+//!   machine**, so `pincell_lwr_thermal_pin_benchmark` SKIPped on 2026-08-06 and
+//!   the run could not be repeated. No replacement value is quoted, because none
+//!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
+//!   S(α,β) data file is available and the test is re-run.
 
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -79,9 +97,18 @@ fn godiva_material() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -101,29 +128,64 @@ fn godiva_nuclides() -> Vec<Nuclide> {
 /// are the reflective box planes.
 fn pincell_geometry(r_fuel: f64, half: f64, fuel_mat: usize, mod_mat: usize) -> Geometry {
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: r_fuel,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
     ];
     let fuel = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         fuel_mat,
         293.6,
     );
     let moder = Cell::material(
         2,
         vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside }, // x > -half
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            }, // x > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside }, // x < +half
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            }, // x < +half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside }, // y > -half
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            }, // y > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside }, // y < +half
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            }, // y < +half
             RegionToken::Intersection,
         ],
         mod_mat,
@@ -132,7 +194,10 @@ fn pincell_geometry(r_fuel: f64, half: f64, fuel_mat: usize, mod_mat: usize) -> 
     Geometry {
         surfaces,
         cells: vec![fuel, moder],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -144,13 +209,29 @@ fn pincell_geometry(r_fuel: f64, half: f64, fuel_mat: usize, mod_mat: usize) -> 
 fn pincell_criticality_eigenvalue_via_godiva_bare_sphere() {
     let nuclides = godiva_nuclides();
     let material = godiva_material();
-    let settings = KeffSettings { n_particles: 1500, n_inactive: 20, n_active: 40, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 1500,
+        n_inactive: 20,
+        n_active: 40,
+        ..KeffSettings::default()
+    };
 
     let result = run_keff(8.7407, &material, &nuclides, &settings);
 
-    assert_eq!(result.k_by_generation.len(), settings.n_inactive + settings.n_active);
-    assert!(result.k_mean > 0.9 && result.k_mean < 1.4, "Godiva k_eff {} outside [0.9, 1.4]", result.k_mean);
-    assert!(result.k_std < 0.02, "k noisy/unconverged: sigma = {}", result.k_std);
+    assert_eq!(
+        result.k_by_generation.len(),
+        settings.n_inactive + settings.n_active
+    );
+    assert!(
+        result.k_mean > 0.9 && result.k_mean < 1.4,
+        "Godiva k_eff {} outside [0.9, 1.4]",
+        result.k_mean
+    );
+    assert!(
+        result.k_std < 0.02,
+        "k noisy/unconverged: sigma = {}",
+        result.k_std
+    );
 }
 
 /// LIVE sign check: a far-subcritical (leakage-dominated) sphere is less
@@ -162,13 +243,24 @@ fn pincell_leakage_reduces_reactivity() {
         id: 1,
         name: "U235".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 0,
+            atom_density: 4.8e-2,
+        }],
     };
-    let settings = KeffSettings { n_particles: 1000, n_inactive: 15, n_active: 25, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 1000,
+        n_inactive: 15,
+        n_active: 25,
+        ..KeffSettings::default()
+    };
 
     let k_big = run_keff(9.0, &material, &nuclides, &settings).k_mean;
     let k_small = run_keff(3.0, &material, &nuclides, &settings).k_mean;
-    assert!(k_small < k_big, "3 cm sphere (k={k_small}) should leak more than 9 cm (k={k_big})");
+    assert!(
+        k_small < k_big,
+        "3 cm sphere (k={k_small}) should leak more than 9 cm (k={k_big})"
+    );
 }
 
 /// LIVE (NEW CSG): a homogeneous-HEU **square reflective pin cell** is an
@@ -185,7 +277,12 @@ fn pincell_reflective_cell_suppresses_leakage() {
     let half = 1.0; // cm; pin-cell half-pitch
     let geom = pincell_geometry(0.5, half, 0, 0);
 
-    let settings = KeffSettings { n_particles: 1500, n_inactive: 20, n_active: 40, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 1500,
+        n_inactive: 20,
+        n_active: 40,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-half, -half, -1.0),
         upper: Position::new(half, half, 1.0),
@@ -200,12 +297,21 @@ fn pincell_reflective_cell_suppresses_leakage() {
         "[pincell reflective] k_inf = {:.5} ± {:.5}  vs  bare sphere k = {:.5} ± {:.5}",
         refl.k_mean, refl.k_std, sphere.k_mean, sphere.k_std
     );
-    assert_eq!(refl.k_by_generation.len(), settings.n_inactive + settings.n_active, "ran all generations");
-    assert!(refl.k_std < 0.05, "reflective k noisy/unconverged: sigma = {}", refl.k_std);
+    assert_eq!(
+        refl.k_by_generation.len(),
+        settings.n_inactive + settings.n_active,
+        "ran all generations"
+    );
+    assert!(
+        refl.k_std < 0.05,
+        "reflective k noisy/unconverged: sigma = {}",
+        refl.k_std
+    );
     assert!(
         refl.k_mean > sphere.k_mean + 0.1,
         "reflective infinite medium k_inf={} should exceed leaky bare sphere k={}",
-        refl.k_mean, sphere.k_mean
+        refl.k_mean,
+        sphere.k_mean
     );
     // Fast HEU infinite medium: k_inf is well above unity. Broad plausibility band.
     assert!(
@@ -232,7 +338,10 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
         id: 2,
         name: "H moderator".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 6.6e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -241,7 +350,9 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
     let geom = pincell_geometry(r_fuel, half, 0, 1);
 
     // Cell-flux tally: bin 0 = fuel cell (idx 0), bin 1 = moderator cell (idx 1).
-    let filter = CellFilter { cell_indices: vec![0, 1] };
+    let filter = CellFilter {
+        cell_indices: vec![0, 1],
+    };
     let mut tally = Tally {
         id: 1,
         name: "cell flux".into(),
@@ -253,15 +364,34 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
     // Kept modest: an infinite reflective H medium with no S(α,β) thermal cutoff
     // produces very long low-energy histories, so a small run suffices for the
     // wiring assertions below (positive flux in both cells, fission confined).
-    let settings = KeffSettings { n_particles: 400, n_inactive: 8, n_active: 12, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 400,
+        n_inactive: 8,
+        n_active: 12,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-r_fuel, -r_fuel, -1.0),
         upper: Position::new(r_fuel, r_fuel, 1.0),
     };
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut tally));
+    let result = run_keff_csg(
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        Some(&mut tally),
+    );
 
-    assert!(!result.k_by_generation.is_empty(), "power iteration produced no generations");
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k should be finite & positive, got {}", result.k_mean);
+    assert!(
+        !result.k_by_generation.is_empty(),
+        "power iteration produced no generations"
+    );
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k should be finite & positive, got {}",
+        result.k_mean
+    );
 
     // bins: [fuel-flux, fuel-nufission, mod-flux, mod-nufission]
     let fuel_flux = tally.bins[0].sum;
@@ -270,7 +400,10 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
     let mod_nufis = tally.bins[3].sum;
     assert!(fuel_flux > 0.0, "fuel cell accumulated no flux");
     assert!(mod_flux > 0.0, "moderator cell accumulated no flux");
-    assert!(fuel_nufis > 0.0, "no fission production tallied in the fuel");
+    assert!(
+        fuel_nufis > 0.0,
+        "no fission production tallied in the fuel"
+    );
     assert!(
         mod_nufis < fuel_nufis * 1.0e-6,
         "fission leaked into the non-fissile moderator: mod ν-fis {mod_nufis}, fuel ν-fis {fuel_nufis}"
@@ -296,10 +429,12 @@ fn locate_tsl_hinh2o() -> Option<String> {
             return Some(p);
         }
     }
-    const CANDIDATES: &[&str] = &[
-        "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf",
-    ];
-    CANDIDATES.iter().find(|p| std::path::Path::new(p).exists()).map(|s| s.to_string())
+    const CANDIDATES: &[&str] =
+        &["/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf"];
+    CANDIDATES
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .map(|s| s.to_string())
 }
 
 /// Natural-zirconium isotopes (name, atom fraction) for the Zircaloy-like clad —
@@ -342,9 +477,18 @@ fn pincell_materials() -> Vec<Material> {
         name: "UO2".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 0.03 * n_uo2 }, // U235
-            NuclideComponent { nuclide_idx: 1, atom_density: 0.97 * n_uo2 }, // U238
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.0 * n_uo2 },  // O16
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 0.03 * n_uo2,
+            }, // U235
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 0.97 * n_uo2,
+            }, // U238
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.0 * n_uo2,
+            }, // O16
         ],
     };
 
@@ -353,9 +497,17 @@ fn pincell_materials() -> Vec<Material> {
     let zr_components: Vec<NuclideComponent> = ZR_ISOTOPES
         .iter()
         .enumerate()
-        .map(|(i, (_, frac))| NuclideComponent { nuclide_idx: 3 + i, atom_density: frac * n_zr })
+        .map(|(i, (_, frac))| NuclideComponent {
+            nuclide_idx: 3 + i,
+            atom_density: frac * n_zr,
+        })
         .collect();
-    let zirc = Material { id: 2, name: "Zircaloy".into(), temperature: 293.6, components: zr_components };
+    let zirc = Material {
+        id: 2,
+        name: "Zircaloy".into(),
+        temperature: 293.6,
+        components: zr_components,
+    };
 
     // Light water, ρ = 1.0 g/cm³, M = 18.015. N_H2O = 1.0·6.02214e23/18.015 = 0.033427 /b·cm.
     let n_h2o = 0.033427;
@@ -364,8 +516,14 @@ fn pincell_materials() -> Vec<Material> {
         name: "water".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 8, atom_density: 2.0 * n_h2o }, // H1 (S(α,β))
-            NuclideComponent { nuclide_idx: 2, atom_density: n_h2o },       // O16
+            NuclideComponent {
+                nuclide_idx: 8,
+                atom_density: 2.0 * n_h2o,
+            }, // H1 (S(α,β))
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: n_h2o,
+            }, // O16
         ],
     };
 
@@ -380,18 +538,48 @@ fn uo2_pincell_geometry() -> Geometry {
     const T: f64 = 293.6;
     let half = 0.63; // half-pitch [cm]
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.39, bc: BoundaryType::Transmissive }), // 0 fuel_or
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.40, bc: BoundaryType::Transmissive }), // 1 gap_or
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 0.46, bc: BoundaryType::Transmissive }), // 2 clad_or
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),                          // 3
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),                           // 4
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),                          // 5
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),                           // 6
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.39,
+            bc: BoundaryType::Transmissive,
+        }), // 0 fuel_or
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.40,
+            bc: BoundaryType::Transmissive,
+        }), // 1 gap_or
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: 0.46,
+            bc: BoundaryType::Transmissive,
+        }), // 2 clad_or
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }), // 3
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }), // 4
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }), // 5
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }), // 6
     ];
 
     let fuel = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         0,
         T,
     );
@@ -399,8 +587,14 @@ fn uo2_pincell_geometry() -> Geometry {
     let gap = Cell {
         id: 2,
         region: vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         fill: CellFill::Void,
@@ -411,8 +605,14 @@ fn uo2_pincell_geometry() -> Geometry {
     let clad = Cell::material(
         3,
         vec![
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            },
             RegionToken::Intersection,
         ],
         1,
@@ -422,14 +622,29 @@ fn uo2_pincell_geometry() -> Geometry {
     let water = Cell::material(
         4,
         vec![
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside }, // x > -half
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            }, // x > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside }, // x < +half
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            }, // x < +half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside }, // y > -half
+            RegionToken::HalfSpace {
+                surface_idx: 5,
+                sense: HalfSpaceSense::Outside,
+            }, // y > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside }, // y < +half
+            RegionToken::HalfSpace {
+                surface_idx: 6,
+                sense: HalfSpaceSense::Inside,
+            }, // y < +half
             RegionToken::Intersection,
         ],
         2,
@@ -439,7 +654,10 @@ fn uo2_pincell_geometry() -> Geometry {
     Geometry {
         surfaces,
         cells: vec![fuel, gap, clad, water],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1, 2, 3] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1, 2, 3],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -469,12 +687,20 @@ fn uo2_pincell_geometry() -> Geometry {
 /// benchmark-accuracy assertion (the LOW-tier thermal data for U/O and the
 /// free-gas O treatment are approximations — see `REVIEW_MANIFEST.md`).
 ///
-/// **Results (2026-07-15, this harness).** Recorded at run time via `eprintln!`
-/// (`cargo test -- --nocapture`); the measured k_inf ± σ and the interpretation
-/// are written up in
-/// `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`. Data-gated:
-/// runs the physics only when the ENDF/B-VIII.0 `tsl-HinH2O.endf` file is present
-/// (see [`locate_tsl_hinh2o`]); otherwise prints SKIP and returns.
+/// **Results — SUPERSEDED, RE-RUN REQUIRED.** The recorded figure,
+/// **k_inf = 1.39802 ± 0.00652** (measured 2026-07-15, 600 particles, 40
+/// inactive + 60 active), was produced with the **pre-`op-jis`** `prn` output
+/// function (uniforms from the raw top-52 state bits). Bead `op-jis` added
+/// OpenMC's PCG-RXS-M-XS output permutation: the LCG state recurrence is
+/// unchanged, but every sampled uniform changed, so this eigenvalue has moved by
+/// an unknown amount. It **could not be re-measured on 2026-08-06** — the test is
+/// data-gated on the public ENDF/B-VIII.0 `tsl-HinH2O.endf` file, which is not
+/// present on this machine, so the run SKIPped. **No replacement value is quoted
+/// (none has been measured).** Once the S(α,β) file is available, re-run and
+/// record the new k_inf ± σ here and in
+/// `docs/ai-fleet-review/op-6tz-thermal-pincell/REVIEW_MANIFEST.md`. When it does
+/// run, the measured k_inf ± σ is printed at run time via `eprintln!`
+/// (`cargo test -- --nocapture`); otherwise the test prints SKIP and returns.
 #[test]
 fn pincell_lwr_thermal_pin_benchmark() {
     let Some(tsl_path) = locate_tsl_hinh2o() else {
@@ -491,7 +717,10 @@ fn pincell_lwr_thermal_pin_benchmark() {
     let nuclides = pincell_nuclides(&tsl_path).expect("build pincell nuclides + S(a,b) table");
     let materials = pincell_materials();
     let geom = uo2_pincell_geometry();
-    eprintln!("[thermal pincell] S(α,β) + nuclide build: {:.2?}", t_build.elapsed());
+    eprintln!(
+        "[thermal pincell] S(α,β) + nuclide build: {:.2?}",
+        t_build.elapsed()
+    );
 
     let settings = KeffSettings {
         n_particles: 600,
@@ -511,8 +740,12 @@ fn pincell_lwr_thermal_pin_benchmark() {
 
     eprintln!(
         "[thermal pincell] k_inf = {:.5} ± {:.5}  (npart={}, {}+{} gen, {:.1?})",
-        result.k_mean, result.k_std, settings.n_particles, settings.n_inactive,
-        settings.n_active, dt
+        result.k_mean,
+        result.k_std,
+        settings.n_particles,
+        settings.n_inactive,
+        settings.n_active,
+        dt
     );
 
     assert_eq!(
@@ -525,7 +758,11 @@ fn pincell_lwr_thermal_pin_benchmark() {
         "k_inf must be finite & positive, got {}",
         result.k_mean
     );
-    assert!(result.k_std < 0.02, "k_inf noisy/unconverged: sigma = {}", result.k_std);
+    assert!(
+        result.k_std < 0.02,
+        "k_inf noisy/unconverged: sigma = {}",
+        result.k_std
+    );
     assert!(
         result.k_mean > 0.9 && result.k_mean < 1.7,
         "thermal UO2 pin-cell k_inf {} outside the broad physical band [0.9, 1.7] \
@@ -550,13 +787,20 @@ fn pincell_lwr_thermal_pin_benchmark() {
 /// bit-match by design; the per-history stream structure differs from the single
 /// sequential stream).
 ///
-/// **Results (2026-07-23, this environment, seed 246813579; 1200 histories,
-/// 15 inactive + 30 active).** Thread-count runs agreed **to the bit**
-/// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.20765 ± 0.00353`,
-/// `k_par = 2.20474 ± 0.00507`, **0.47σ apart** (`σ_comb ≈ 0.0062`) — well inside
-/// the 4σ gate. (`k ≈ 2.2` is the homogeneous-HEU cell `k∞`, as in
-/// `pincell_reflective_cell_suppresses_leakage`.) Recorded per the workspace V&V
-/// rule.
+/// **Results (measured 2026-08-06, this environment, seed 246813579; 1200
+/// histories, 15 inactive + 30 active).** Thread-count runs agreed **to the bit**
+/// (`k_par(1) == k_par(4)`). Reference vs parallel: `k_seq = 2.19628 ± 0.00496`,
+/// `k_par = 2.21076 ± 0.00311`, **2.47σ apart** (`Δk = −1448 pcm`,
+/// `σ_comb ≈ 0.00585`) — inside the 4σ gate. (`k ≈ 2.2` is the homogeneous-HEU
+/// cell `k∞`, as in `pincell_reflective_cell_suppresses_leakage`.) Recorded per
+/// the workspace V&V rule.
+///
+/// **Supersedes (pre-`op-jis`, measured 2026-07-23):** `k_seq = 2.20765 ±
+/// 0.00353`, `k_par = 2.20474 ± 0.00507`, 0.47σ apart (`σ_comb ≈ 0.0062`). Those
+/// were taken with the old `prn` output function (raw top-52 state bits); bead
+/// `op-jis` added the PCG-RXS-M-XS output permutation, which left the LCG state
+/// recurrence — and hence the bit-exact thread-count invariance asserted here —
+/// unchanged, but moved every sampled uniform and so every eigenvalue estimate.
 #[test]
 fn csg_multithread_agrees_with_single_thread() {
     use outram_mc_libs::physics::compute::{ComputeType, ThreadCount};
@@ -569,19 +813,46 @@ fn csg_multithread_agrees_with_single_thread() {
         lower: Position::new(-half, -half, -1.0),
         upper: Position::new(half, half, 1.0),
     };
-    let base = KeffSettings { n_particles: 1200, n_inactive: 15, n_active: 30, seed: 246813579, ..KeffSettings::default() };
+    let base = KeffSettings {
+        n_particles: 1200,
+        n_inactive: 15,
+        n_active: 30,
+        seed: 246813579,
+        ..KeffSettings::default()
+    };
 
     let seq = run_keff_csg(
-        &geom, &materials, &nuclides, src,
-        &KeffSettings { compute: ComputeType::CpuSingleThread, ..base }, None,
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &KeffSettings {
+            compute: ComputeType::CpuSingleThread,
+            ..base
+        },
+        None,
     );
     let par1 = run_keff_csg(
-        &geom, &materials, &nuclides, src,
-        &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)), ..base }, None,
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &KeffSettings {
+            compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)),
+            ..base
+        },
+        None,
     );
     let par4 = run_keff_csg(
-        &geom, &materials, &nuclides, src,
-        &KeffSettings { compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)), ..base }, None,
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &KeffSettings {
+            compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
+            ..base
+        },
+        None,
     );
 
     assert_eq!(

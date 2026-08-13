@@ -129,7 +129,10 @@ impl App {
     /// regularly — see `main.rs`).
     pub fn on_tick(&mut self) {
         if let RunPhase::Done(outcome) = self.run_handle.snapshot() {
-            let total = outcome.as_ref().map(|o| o.k_by_generation.len()).unwrap_or(0);
+            let total = outcome
+                .as_ref()
+                .map(|o| o.k_by_generation.len())
+                .unwrap_or(0);
             if self.last_outcome.is_none() {
                 self.revealed = 0;
             }
@@ -188,7 +191,11 @@ impl App {
     /// Look up a screen coordinate against this frame's hit regions and
     /// dispatch the first match — the touch-tap path.
     pub fn tap(&mut self, column: u16, row: u16) {
-        let hit = self.hit_regions.iter().find(|(rect, _)| point_in_rect(column, row, *rect)).map(|(_, a)| *a);
+        let hit = self
+            .hit_regions
+            .iter()
+            .find(|(rect, _)| point_in_rect(column, row, *rect))
+            .map(|(_, a)| *a);
         if let Some(action) = hit {
             self.dispatch(action);
         }
@@ -198,7 +205,10 @@ impl App {
     /// registered scroll region (or anywhere, when no region was registered
     /// yet — a narrow phone screen where the whole viewport is the list).
     pub fn scroll(&mut self, column: u16, row: u16, delta: i32) {
-        let inside = self.scroll_region.map(|r| point_in_rect(column, row, r)).unwrap_or(true);
+        let inside = self
+            .scroll_region
+            .map(|r| point_in_rect(column, row, r))
+            .unwrap_or(true);
         if inside {
             self.scroll_active_list(delta);
         }
@@ -244,7 +254,9 @@ impl App {
                  the run uses the multi-threaded CPU path"
                     .to_string()
             }
-            (ComputeType::Gpu, false) => "No GPU adapter found - run uses the multi-threaded CPU path".to_string(),
+            (ComputeType::Gpu, false) => {
+                "No GPU adapter found - run uses the multi-threaded CPU path".to_string()
+            }
             (_, true) => "GPU adapter available (not selected)".to_string(),
             (_, false) => "No GPU adapter on this device".to_string(),
         }

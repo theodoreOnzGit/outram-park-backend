@@ -21,6 +21,12 @@
 
 mod adjust_phi;
 
+/// Bounded names for operator-derived fields.
+///
+/// See [`derived_name`] for why this exists; it is the shared guard against
+/// the unbounded-`name` failure documented in this crate's `CLAUDE.md`.
+pub mod naming;
+
 /// Explicit finite-volume operators — return a new field.
 ///
 /// Usage mirrors `Foam::fvc::` from `src/finiteVolume/finiteVolume/fvc/`.

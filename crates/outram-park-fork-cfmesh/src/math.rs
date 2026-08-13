@@ -1,3 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Provenance: original OUTRAM PARK code. Not derived from any upstream project
+// — a three-component f64 vector with the usual operations, written from
+// scratch so the volume-meshing core has no linear-algebra dependency. Shaped
+// after `outram-blender`'s `math::Vec3` (same workspace, GPL-3.0-only) for
+// consistency, not copied from it.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Minimal fixed-size 3-vector for mesh geometry.
 //!
 //! A small, dependency-free [`Vec3`] (three `f64`s) — positions, edge vectors,
@@ -19,7 +43,11 @@ pub struct Vec3 {
 
 impl Vec3 {
     /// The zero vector `(0, 0, 0)`.
-    pub const ZERO: Vec3 = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ZERO: Vec3 = Vec3 {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     /// Construct from components.
     pub const fn new(x: f64, y: f64, z: f64) -> Self {

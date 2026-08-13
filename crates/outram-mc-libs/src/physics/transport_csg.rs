@@ -81,12 +81,21 @@ pub struct SourceBox {
     pub upper: Position,
 }
 
-/// A fission-source neutron awaiting transport in the next generation.
+/// A fission-source neutron awaiting transport in the next generation. Also the
+/// unit of work for [`crate::physics::fixed_source`], which reuses
+/// [`transport_history`].
 #[derive(Clone, Copy)]
-struct Site {
-    r: Position,
-    u: Direction,
-    e: f64,
+pub(crate) struct Site {
+    pub(crate) r: Position,
+    pub(crate) u: Direction,
+    pub(crate) e: f64,
+}
+
+impl Site {
+    /// A source/fission neutron at position `r`, direction `u`, energy `e` \[eV\].
+    pub(crate) fn new(r: Position, u: Direction, e: f64) -> Site {
+        Site { r, u, e }
+    }
 }
 
 /// Per-history stride \[RNG draws\] reserved for each history's independent
@@ -242,8 +251,16 @@ pub fn run_keff_csg_seq(
             let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
             for site in &source {
                 production += transport_history(
-                    *site, geom, materials, nuclides, temp, k_running, &mut next_bank,
-                    &mut seed, tally_def, &mut batch,
+                    *site,
+                    geom,
+                    materials,
+                    nuclides,
+                    temp,
+                    k_running,
+                    &mut next_bank,
+                    &mut seed,
+                    tally_def,
+                    &mut batch,
                 );
             }
         }
@@ -269,7 +286,11 @@ pub fn run_keff_csg_seq(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Rayon-parallel CSG power iteration ([`ComputeType::CpuMultiThread`]).
@@ -382,8 +403,11 @@ pub fn run_keff_csg_par(
                         let mut seed =
                             future_seed((hist_idx as u64).wrapping_mul(HIST_STRIDE), gen_base_seed);
                         let mut local_bank: Vec<Site> = Vec::new();
-                        let mut local_batch: Vec<f64> =
-                            if tally_def.is_some() { vec![0.0; n_bins] } else { Vec::new() };
+                        let mut local_batch: Vec<f64> = if tally_def.is_some() {
+                            vec![0.0; n_bins]
+                        } else {
+                            Vec::new()
+                        };
                         let production = transport_history(
                             source[hist_idx],
                             geom,
@@ -405,8 +429,11 @@ pub fn run_keff_csg_par(
             // banks and sum per-history tally batches in history-index order.
             let mut production = 0.0_f64;
             let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
-            let mut batch: Vec<f64> =
-                if active && n_bins > 0 { vec![0.0; n_bins] } else { Vec::new() };
+            let mut batch: Vec<f64> = if active && n_bins > 0 {
+                vec![0.0; n_bins]
+            } else {
+                Vec::new()
+            };
             for (prod, bank, local_batch) in results {
                 production += prod;
                 next_bank.extend(bank);
@@ -440,7 +467,11 @@ pub fn run_keff_csg_par(
     });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries)
@@ -453,7 +484,7 @@ pub fn run_keff_csg_par(
 /// (the caller's per-generation accumulator); `batch` is flushed into the tally's
 /// persistent bins once per active generation.
 #[allow(clippy::too_many_arguments)]
-fn transport_history(
+pub(crate) fn transport_history(
     site: Site,
     geom: &Geometry,
     materials: &[Material],
@@ -499,7 +530,11 @@ fn transport_history(
             };
 
             let d_bound = geom.distance_to_boundary(&path);
-            let d_col = if sigma_t > 0.0 { -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_t } else { f64::INFINITY };
+            let d_col = if sigma_t > 0.0 {
+                -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_t
+            } else {
+                f64::INFINITY
+            };
 
             // ── Track-length tally scoring ─────────────────────────────────
             // The particle streams `seg = min(d_col, d_bound)` through the current
@@ -516,7 +551,18 @@ fn transport_history(
                 // `r + 0.5·seg·u` — the track-length-representative point of the
                 // free flight (constant energy, single cell over the segment).
                 let mid = stream(r, u, 0.5 * seg);
-                score_track_length(batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid, mxs.as_ref(), 1.0);
+                score_track_length(
+                    batch,
+                    t,
+                    cell_idx,
+                    mat_idx,
+                    leaf.universe,
+                    e,
+                    seg,
+                    mid,
+                    mxs.as_ref(),
+                    1.0,
+                );
             }
 
             if d_col < d_bound.distance {
@@ -532,12 +578,20 @@ fn transport_history(
                 let x = nuc.xs_at_energy(e, temp);
                 let xi = prn(seed) * x.total;
                 if xi < x.fission {
-                    let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                    let nu_bar = if x.fission > 0.0 {
+                        x.nu_fission / x.fission
+                    } else {
+                        0.0
+                    };
                     production += nu_bar;
                     let n = sample_num_neutrons(nu_bar, k_running, seed);
                     for _ in 0..n {
                         let (dx, dy, dz) = isotropic_direction(seed);
-                        next_bank.push(Site { r, u: Direction::new(dx, dy, dz), e: nuc.sample_fission_energy(e, seed) });
+                        next_bank.push(Site {
+                            r,
+                            u: Direction::new(dx, dy, dz),
+                            e: nuc.sample_fission_energy(e, seed),
+                        });
                     }
                     break 'history; // fission absorbs the incident neutron
                 } else if xi < x.absorption {
@@ -563,7 +617,9 @@ fn transport_history(
                         (e_out, rotate_direction(u, mu_lab, seed))
                     } else {
                         match nuc.sample_elastic_mu_cm(e, seed) {
-                            Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                            Some(mu_cm) => {
+                                two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed)
+                            }
                             None => elastic_scatter(e, u, nuc.awr, seed),
                         }
                     };

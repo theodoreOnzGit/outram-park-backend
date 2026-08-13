@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Closed-form generators for a cube, UV sphere, cylinder and grid, validated
+// against Euler's polyhedron formula V - E + F = chi (L. Euler, 1758). No named
+// published algorithm and no upstream source — written from first principles.
+// Blender analogue (architecture only): the editmesh_add "Add Mesh" operators.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Real** mesh primitive generators (Blender's "Add Mesh" primitives).
 //!
 //! This is the one module in the crate with fully implemented, unit-tested
@@ -78,7 +101,10 @@ pub fn cube(size: f64) -> Mesh {
 ///
 /// Panics if `segments < 3` or `rings < 2` — too few to close the surface.
 pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
-    assert!(segments >= 3, "uv_sphere needs segments >= 3, got {segments}");
+    assert!(
+        segments >= 3,
+        "uv_sphere needs segments >= 3, got {segments}"
+    );
     assert!(rings >= 2, "uv_sphere needs rings >= 2, got {rings}");
     let mut m = Mesh::new();
 
@@ -148,7 +174,10 @@ pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
 ///
 /// Panics if `segments < 3` — too few sides to enclose a volume.
 pub fn cylinder(segments: usize, radius: f64, height: f64) -> Mesh {
-    assert!(segments >= 3, "cylinder needs segments >= 3, got {segments}");
+    assert!(
+        segments >= 3,
+        "cylinder needs segments >= 3, got {segments}"
+    );
     let mut m = Mesh::new();
     let hz = height * 0.5;
 
@@ -190,7 +219,10 @@ pub fn cylinder(segments: usize, radius: f64, height: f64) -> Mesh {
 ///
 /// Panics if `nx < 1` or `ny < 1`.
 pub fn grid(nx: usize, ny: usize, size: f64) -> Mesh {
-    assert!(nx >= 1 && ny >= 1, "grid needs nx >= 1 and ny >= 1, got {nx}x{ny}");
+    assert!(
+        nx >= 1 && ny >= 1,
+        "grid needs nx >= 1 and ny >= 1, got {nx}x{ny}"
+    );
     let mut m = Mesh::new();
     let half = size * 0.5;
     let dx = size / nx as f64;
@@ -201,11 +233,7 @@ pub fn grid(nx: usize, ny: usize, size: f64) -> Mesh {
     let mut verts = Vec::with_capacity((nx + 1) * (ny + 1));
     for i in 0..=nx {
         for j in 0..=ny {
-            verts.push(m.add_vertex(Vec3::new(
-                -half + dx * i as f64,
-                -half + dy * j as f64,
-                0.0,
-            )));
+            verts.push(m.add_vertex(Vec3::new(-half + dx * i as f64, -half + dy * j as f64, 0.0)));
         }
     }
 
@@ -243,7 +271,11 @@ mod tests {
         assert_eq!(s.vertex_count(), 2 + (rings - 1) * segments);
         // segments + segments caps + (rings-2)*segments quads.
         assert_eq!(s.face_count(), 2 * segments + (rings - 2) * segments);
-        assert_eq!(s.euler_characteristic(), 2, "closed sphere must have chi = 2");
+        assert_eq!(
+            s.euler_characteristic(),
+            2,
+            "closed sphere must have chi = 2"
+        );
     }
 
     #[test]
@@ -260,7 +292,11 @@ mod tests {
         assert_eq!(cy.vertex_count(), 2 * segments);
         assert_eq!(cy.edge_count(), 3 * segments);
         assert_eq!(cy.face_count(), segments + 2);
-        assert_eq!(cy.euler_characteristic(), 2, "closed cylinder must have chi = 2");
+        assert_eq!(
+            cy.euler_characteristic(),
+            2,
+            "closed cylinder must have chi = 2"
+        );
     }
 
     /// Signed volume via the divergence theorem: `(1/6) sum v0 . (v1 x v2)`
@@ -292,17 +328,32 @@ mod tests {
     /// positive and within the faceted band of their analytic volumes.
     #[test]
     fn closed_primitives_are_outward_wound() {
-        assert!((signed_volume(&cube(2.0)) - 8.0).abs() < 1e-9, "cube volume must be exactly 8");
+        assert!(
+            (signed_volume(&cube(2.0)) - 8.0).abs() < 1e-9,
+            "cube volume must be exactly 8"
+        );
 
         let cyl = signed_volume(&cylinder(64, 1.0, 2.0));
         let cyl_analytic = 2.0 * PI; // pi * 1^2 * 2
-        assert!(cyl > 0.0, "cylinder must be outward-wound (positive volume), got {cyl}");
-        assert!(cyl < cyl_analytic && cyl > 0.98 * cyl_analytic, "cylinder volume {cyl} out of band");
+        assert!(
+            cyl > 0.0,
+            "cylinder must be outward-wound (positive volume), got {cyl}"
+        );
+        assert!(
+            cyl < cyl_analytic && cyl > 0.98 * cyl_analytic,
+            "cylinder volume {cyl} out of band"
+        );
 
         let sph = signed_volume(&uv_sphere(64, 32, 1.0));
         let sph_analytic = 4.0 / 3.0 * PI; // r = 1
-        assert!(sph > 0.0, "uv_sphere must be outward-wound (positive volume), got {sph}");
-        assert!(sph < sph_analytic && sph > 0.98 * sph_analytic, "sphere volume {sph} out of band");
+        assert!(
+            sph > 0.0,
+            "uv_sphere must be outward-wound (positive volume), got {sph}"
+        );
+        assert!(
+            sph < sph_analytic && sph > 0.98 * sph_analytic,
+            "sphere volume {sph} out of band"
+        );
     }
 
     #[test]
@@ -311,6 +362,10 @@ mod tests {
         let g = grid(nx, ny, 1.0);
         assert_eq!(g.vertex_count(), (nx + 1) * (ny + 1));
         assert_eq!(g.face_count(), nx * ny);
-        assert_eq!(g.euler_characteristic(), 1, "flat grid patch is a disc, chi = 1");
+        assert_eq!(
+            g.euler_characteristic(),
+            1,
+            "flat grid patch is a disc, chi = 1"
+        );
     }
 }

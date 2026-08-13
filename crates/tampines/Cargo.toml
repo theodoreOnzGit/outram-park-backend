@@ -1,6 +1,15 @@
 [package]
 name = "tampines"
-version = "0.1.0"
+version = "0.0.1"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Ethan Yew Hoe, Wong",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 edition.workspace = true
 license.workspace = true
 description = "TAMPINES -- Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System: the central OUTRAM PARK thermal-hydraulic framework (fluid flow, thermophysical properties, heat transfer, balance of plant, humid-air psychrometrics, multiphase TH)"
@@ -17,10 +26,21 @@ tuas_boussinesq_solver.workspace = true
 outram-park-fork-coolprop.workspace = true
 tampines-steam-tables.workspace = true
 outram-foam-basic-lib.workspace = true
+# The 3-D multiphase reference (epic op-2kk). `multiphase_1d` reduces its
+# closures to 1-D rather than inventing its own -- the hard constraint in beads
+# op-dt3.12 / op-dt3.13. Only the algebraic closures are consumed
+# (`SlipModel`, `DragModel`); the 3-D field equations are not.
+outram-foam-multiphase.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 # DWSIM-derived equipment-model correlations (pipe/valve/heat-exchanger/
 # expander/pump) for tampines::components (op-dt3.4) to build on.
 outram-park-fork-dwsim-libs.workspace = true
+# TRISO coated-particle geometry (four-layer CSG cell with uom-typed layer
+# radii) reused by tampines::pebble_bed::triso rather than duplicated.
+# Maintainer-approved edge (2026-08-11, op-jyyp.5): geometry and per-layer
+# property handling only -- boon-lay's fission-product RELEASE model is NOT
+# consumed here (its CRP-6 verification test is flagged defective, op-jyyp.10).
+boon-lay.workspace = true
 
 # Public API primitives -- dimensioned quantities and error types.
 uom.workspace = true

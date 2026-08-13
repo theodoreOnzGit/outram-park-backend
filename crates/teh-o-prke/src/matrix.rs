@@ -48,7 +48,9 @@ pub enum MatrixError {
 impl std::fmt::Display for MatrixError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MatrixError::Singular { col } => write!(f, "matrix is singular: zero pivot at column {col}"),
+            MatrixError::Singular { col } => {
+                write!(f, "matrix is singular: zero pivot at column {col}")
+            }
         }
     }
 }
@@ -68,11 +70,16 @@ pub struct SquareMatrix {
 impl SquareMatrix {
     /// Create an `n`x`n` matrix filled with zeros.
     pub fn new(n: usize) -> Self {
-        Self { n, data: vec![0.0; n * n] }
+        Self {
+            n,
+            data: vec![0.0; n * n],
+        }
     }
 
     /// Matrix order `n` (it is `n`x`n`).
-    pub fn n(&self) -> usize { self.n }
+    pub fn n(&self) -> usize {
+        self.n
+    }
 
     /// Element `(i, j)` (row-major, 0-indexed).
     #[inline]
@@ -112,7 +119,11 @@ impl SquareMatrix {
                     .iter()
                     .map(|x| x.abs())
                     .fold(0.0_f64, f64::max);
-                if mx > 0.0 { 1.0 / mx } else { 0.0 }
+                if mx > 0.0 {
+                    1.0 / mx
+                } else {
+                    0.0
+                }
             })
             .collect();
 
@@ -231,8 +242,10 @@ mod tests {
     fn lu_solve_2x2() {
         // 2x + y = 5,  x + 3y = 10  →  x = 1, y = 3
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 2.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 3.0);
+        m.set(0, 0, 2.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 3.0);
         let x = m.solve(&[5.0, 10.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
@@ -242,9 +255,15 @@ mod tests {
     fn lu_solve_3x3() {
         // A = [2 1 1; 1 3 1; 1 1 4], RHS chosen so solution = (1,2,3)
         let mut m = SquareMatrix::new(3);
-        m.set(0, 0, 2.0); m.set(0, 1, 1.0); m.set(0, 2, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 3.0); m.set(1, 2, 1.0);
-        m.set(2, 0, 1.0); m.set(2, 1, 1.0); m.set(2, 2, 4.0);
+        m.set(0, 0, 2.0);
+        m.set(0, 1, 1.0);
+        m.set(0, 2, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 3.0);
+        m.set(1, 2, 1.0);
+        m.set(2, 0, 1.0);
+        m.set(2, 1, 1.0);
+        m.set(2, 2, 4.0);
         let x = m.solve(&[7.0, 10.0, 15.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 2.0).abs() < 1e-12, "y={}", x[1]);
@@ -256,8 +275,10 @@ mod tests {
         // First row has a zero on the diagonal — requires pivoting
         // 0·x + 1·y = 3,  2·x + 0·y = 4  →  x=2, y=3
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 0.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 2.0); m.set(1, 1, 0.0);
+        m.set(0, 0, 0.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 2.0);
+        m.set(1, 1, 0.0);
         let x = m.solve(&[3.0, 4.0]).unwrap();
         assert!((x[0] - 2.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
@@ -267,19 +288,26 @@ mod tests {
     fn singular_matrix_returns_err() {
         // A = [[1, 1], [1, 1]] — rank 1
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 1.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 1.0);
+        m.set(0, 0, 1.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 1.0);
         let result = m.solve(&[2.0, 2.0]);
-        assert!(matches!(result, Err(MatrixError::Singular { .. })),
-            "expected Singular, got {:?}", result);
+        assert!(
+            matches!(result, Err(MatrixError::Singular { .. })),
+            "expected Singular, got {:?}",
+            result
+        );
     }
 
     #[test]
     fn scaled_pivoting_large_row_contrast() {
         // A = [[1e8, 1], [1, 1e8]], solution x = [1, 1]
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 1.0e8); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0);   m.set(1, 1, 1.0e8);
+        m.set(0, 0, 1.0e8);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 1.0e8);
         let rhs = [1.0e8 + 1.0, 1.0e8 + 1.0];
         let x = m.solve(&rhs).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-6, "x[0]={}", x[0]);

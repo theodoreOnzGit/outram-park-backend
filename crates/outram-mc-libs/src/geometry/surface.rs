@@ -10,7 +10,6 @@
 ///   - `distance(r, u, coincident)` — distance to surface intersection along ray
 ///
 /// Boundary conditions: Transmissive, Vacuum, Reflective, Periodic, White.
-
 use super::position::{Direction, Position};
 
 /// Surface boundary condition type.  Maps to `openmc::BoundaryType`.
@@ -40,9 +39,11 @@ pub trait Surface: Send + Sync {
     fn reflect(&self, r: Position, u: Direction) -> Direction {
         let n = self.normal(r);
         let dot = u.u * n.u + u.v * n.v + u.w * n.w;
-        Direction::new(u.u - 2.0 * dot * n.u,
-                       u.v - 2.0 * dot * n.v,
-                       u.w - 2.0 * dot * n.w)
+        Direction::new(
+            u.u - 2.0 * dot * n.u,
+            u.v - 2.0 * dot * n.v,
+            u.w - 2.0 * dot * n.w,
+        )
     }
 }
 
@@ -55,47 +56,85 @@ pub struct XPlane {
 }
 
 impl Surface for XPlane {
-    fn evaluate(&self, r: Position) -> f64 { r.x - self.x0 }
-    fn normal(&self, _r: Position) -> Direction { Direction::new(1.0, 0.0, 0.0) }
+    fn evaluate(&self, r: Position) -> f64 {
+        r.x - self.x0
+    }
+    fn normal(&self, _r: Position) -> Direction {
+        Direction::new(1.0, 0.0, 0.0)
+    }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.u.abs() < 1e-14 { return f64::INFINITY; }
+        if u.u.abs() < 1e-14 {
+            return f64::INFINITY;
+        }
         let d = (self.x0 - r.x) / u.u;
-        if d > dist_hint { d } else { f64::INFINITY }
+        if d > dist_hint {
+            d
+        } else {
+            f64::INFINITY
+        }
     }
 }
 
 /// Infinite plane perpendicular to the Y axis: y = y0.
-pub struct YPlane { pub y0: f64, pub bc: BoundaryType }
+pub struct YPlane {
+    pub y0: f64,
+    pub bc: BoundaryType,
+}
 
 impl Surface for YPlane {
-    fn evaluate(&self, r: Position) -> f64 { r.y - self.y0 }
-    fn normal(&self, _r: Position) -> Direction { Direction::new(0.0, 1.0, 0.0) }
+    fn evaluate(&self, r: Position) -> f64 {
+        r.y - self.y0
+    }
+    fn normal(&self, _r: Position) -> Direction {
+        Direction::new(0.0, 1.0, 0.0)
+    }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.v.abs() < 1e-14 { return f64::INFINITY; }
+        if u.v.abs() < 1e-14 {
+            return f64::INFINITY;
+        }
         let d = (self.y0 - r.y) / u.v;
-        if d > dist_hint { d } else { f64::INFINITY }
+        if d > dist_hint {
+            d
+        } else {
+            f64::INFINITY
+        }
     }
 }
 
 /// Infinite plane perpendicular to the Z axis: z = z0.
-pub struct ZPlane { pub z0: f64, pub bc: BoundaryType }
+pub struct ZPlane {
+    pub z0: f64,
+    pub bc: BoundaryType,
+}
 
 impl Surface for ZPlane {
-    fn evaluate(&self, r: Position) -> f64 { r.z - self.z0 }
-    fn normal(&self, _r: Position) -> Direction { Direction::new(0.0, 0.0, 1.0) }
+    fn evaluate(&self, r: Position) -> f64 {
+        r.z - self.z0
+    }
+    fn normal(&self, _r: Position) -> Direction {
+        Direction::new(0.0, 0.0, 1.0)
+    }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         let dist_hint = if coincident { 1e-14 } else { 0.0 };
-        if u.w.abs() < 1e-14 { return f64::INFINITY; }
+        if u.w.abs() < 1e-14 {
+            return f64::INFINITY;
+        }
         let d = (self.z0 - r.z) / u.w;
-        if d > dist_hint { d } else { f64::INFINITY }
+        if d > dist_hint {
+            d
+        } else {
+            f64::INFINITY
+        }
     }
 }
 
 /// Sphere: (x-x0)² + (y-y0)² + (z-z0)² = r²
 pub struct Sphere {
-    pub x0: f64, pub y0: f64, pub z0: f64,
+    pub x0: f64,
+    pub y0: f64,
+    pub z0: f64,
     pub r: f64,
     pub bc: BoundaryType,
 }
@@ -105,7 +144,7 @@ impl Surface for Sphere {
         let dx = r.x - self.x0;
         let dy = r.y - self.y0;
         let dz = r.z - self.z0;
-        dx*dx + dy*dy + dz*dz - self.r * self.r
+        dx * dx + dy * dy + dz * dz - self.r * self.r
     }
     fn normal(&self, r: Position) -> Direction {
         Direction::from_unnormalised(r.x - self.x0, r.y - self.y0, r.z - self.z0)
@@ -126,7 +165,11 @@ impl Surface for Sphere {
         let oy = r.y - self.y0;
         let oz = r.z - self.z0;
         let k = ox * u.u + oy * u.v + oz * u.w; // o·u
-        let c = if coincident { 0.0 } else { ox * ox + oy * oy + oz * oz - self.r * self.r };
+        let c = if coincident {
+            0.0
+        } else {
+            ox * ox + oy * oy + oz * oz - self.r * self.r
+        };
         let disc = k * k - c;
         if disc < 0.0 {
             return f64::INFINITY;
@@ -138,14 +181,19 @@ impl Surface for Sphere {
             d_near
         } else {
             let d_far = -k + sq;
-            if d_far > EPS { d_far } else { f64::INFINITY }
+            if d_far > EPS {
+                d_far
+            } else {
+                f64::INFINITY
+            }
         }
     }
 }
 
 /// Infinite cylinder along the Z axis: (x-x0)² + (y-y0)² = r²
 pub struct ZCylinder {
-    pub x0: f64, pub y0: f64,
+    pub x0: f64,
+    pub y0: f64,
     pub r: f64,
     pub bc: BoundaryType,
 }
@@ -154,7 +202,7 @@ impl Surface for ZCylinder {
     fn evaluate(&self, r: Position) -> f64 {
         let dx = r.x - self.x0;
         let dy = r.y - self.y0;
-        dx*dx + dy*dy - self.r * self.r
+        dx * dx + dy * dy - self.r * self.r
     }
     fn normal(&self, r: Position) -> Direction {
         Direction::from_unnormalised(r.x - self.x0, r.y - self.y0, 0.0)
@@ -183,14 +231,22 @@ impl Surface for ZCylinder {
         let sq = quad.sqrt();
         if coincident || c.abs() < FP_COINCIDENT {
             // On the surface: one root is ~0. Facing out (k≥0) ⇒ no forward hit.
-            if k >= 0.0 { f64::INFINITY } else { (-k + sq) / a }
+            if k >= 0.0 {
+                f64::INFINITY
+            } else {
+                (-k + sq) / a
+            }
         } else if c < 0.0 {
             // Inside: exactly one positive root, the +√ branch.
             (-k + sq) / a
         } else {
             // Outside: nearest forward root is the −√ branch, if positive.
             let d = (-k - sq) / a;
-            if d < 0.0 { f64::INFINITY } else { d }
+            if d < 0.0 {
+                f64::INFINITY
+            } else {
+                d
+            }
         }
     }
 }
@@ -255,7 +311,11 @@ impl Surface for Plane {
             return f64::INFINITY; // ray parallel to the plane
         }
         let d = -(self.a * r.x + self.b * r.y + self.c * r.z - self.d) / denom;
-        if d > dist_hint { d } else { f64::INFINITY }
+        if d > dist_hint {
+            d
+        } else {
+            f64::INFINITY
+        }
     }
 }
 
@@ -296,12 +356,20 @@ impl Surface for XCylinder {
         }
         let sq = quad.sqrt();
         if coincident || c.abs() < FP_COINCIDENT {
-            if k >= 0.0 { f64::INFINITY } else { (-k + sq) / a }
+            if k >= 0.0 {
+                f64::INFINITY
+            } else {
+                (-k + sq) / a
+            }
         } else if c < 0.0 {
             (-k + sq) / a
         } else {
             let d = (-k - sq) / a;
-            if d < 0.0 { f64::INFINITY } else { d }
+            if d < 0.0 {
+                f64::INFINITY
+            } else {
+                d
+            }
         }
     }
 }
@@ -342,12 +410,20 @@ impl Surface for YCylinder {
         }
         let sq = quad.sqrt();
         if coincident || c.abs() < FP_COINCIDENT {
-            if k >= 0.0 { f64::INFINITY } else { (-k + sq) / a }
+            if k >= 0.0 {
+                f64::INFINITY
+            } else {
+                (-k + sq) / a
+            }
         } else if c < 0.0 {
             (-k + sq) / a
         } else {
             let d = (-k - sq) / a;
-            if d < 0.0 { f64::INFINITY } else { d }
+            if d < 0.0 {
+                f64::INFINITY
+            } else {
+                d
+            }
         }
     }
 }
@@ -386,7 +462,11 @@ impl Surface for ZCone {
         let dz = r.z - self.z0;
         let a = u.u * u.u + u.v * u.v - self.r_sq * u.w * u.w;
         let k = dx * u.u + dy * u.v - self.r_sq * dz * u.w; // half the linear coeff
-        let c = if coincident { 0.0 } else { dx * dx + dy * dy - self.r_sq * dz * dz };
+        let c = if coincident {
+            0.0
+        } else {
+            dx * dx + dy * dy - self.r_sq * dz * dz
+        };
         smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
     }
 }
@@ -423,7 +503,11 @@ impl Surface for XCone {
         let dz = r.z - self.z0;
         let a = u.v * u.v + u.w * u.w - self.r_sq * u.u * u.u;
         let k = dy * u.v + dz * u.w - self.r_sq * dx * u.u;
-        let c = if coincident { 0.0 } else { dy * dy + dz * dz - self.r_sq * dx * dx };
+        let c = if coincident {
+            0.0
+        } else {
+            dy * dy + dz * dz - self.r_sq * dx * dx
+        };
         smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
     }
 }
@@ -460,7 +544,11 @@ impl Surface for YCone {
         let dz = r.z - self.z0;
         let a = u.u * u.u + u.w * u.w - self.r_sq * u.v * u.v;
         let k = dx * u.u + dz * u.w - self.r_sq * dy * u.v;
-        let c = if coincident { 0.0 } else { dx * dx + dz * dz - self.r_sq * dy * dy };
+        let c = if coincident {
+            0.0
+        } else {
+            dx * dx + dz * dz - self.r_sq * dy * dy
+        };
         smallest_positive_root(a, 2.0 * k, c, 1.0e-10)
     }
 }
@@ -765,7 +853,9 @@ fn quartic_real_roots(a: f64, b: f64, c: f64, d: f64, e: f64, out: &mut [f64]) -
 #[allow(dead_code)]
 fn smallest_positive_quartic_root(coeffs: [f64; 5], eps: f64) -> f64 {
     let mut roots = [0.0f64; 4];
-    let n = quartic_real_roots(coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], &mut roots);
+    let n = quartic_real_roots(
+        coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], &mut roots,
+    );
     let mut best = f64::INFINITY;
     for &r in &roots[..n] {
         if r > eps && r < best {
@@ -821,16 +911,24 @@ fn torus_gradient(r1: f64, r2: f64, ax: f64, a: f64, b: f64, c: f64) -> (f64, f6
 /// cleared surface equation. `f = 0` multiplied through by `b²` and rearranged
 /// isolates the square root:
 ///
-///     ρ²(t) + a² − b² + (b²/c²)·ax²(t)  =  2a·R⊥(t)          (call the LHS G(t))
+/// ```text
+/// ρ²(t) + a² − b² + (b²/c²)·ax²(t)  =  2a·R⊥(t)          (call the LHS G(t))
+/// ```
 ///
 /// where `ρ²(t) = r1² + r2²` is quadratic in `t`. Squaring to remove `R⊥`
 /// (`R⊥² = ρ²`) gives the quartic
 ///
-///     F(t) = G(t)² − 4a²·ρ²(t) = 0.
+/// ```text
+/// F(t) = G(t)² − 4a²·ρ²(t) = 0.
+/// ```
 ///
 /// With `ρ²(t) = α t² + 2β t + γ`, `ax²(t) = ax_α t² + 2 ax_β t + ax_γ`,
 /// `k = b²/c²`, and `G(t) = Ga t² + 2Gb t + Gc` where
-///     Ga = α + k·ax_α,  Gb = β + k·ax_β,  Gc = γ + a² − b² + k·ax_γ,
+///
+/// ```text
+/// Ga = α + k·ax_α,  Gb = β + k·ax_β,  Gc = γ + a² − b² + k·ax_γ,
+/// ```
+///
 /// expanding `G² − 4a²ρ²` yields the coefficients below.
 ///
 /// **Spurious roots.** Squaring also admits the branch `G(t) = −2a·R⊥(t) ≤ 0`,
@@ -912,18 +1010,38 @@ pub struct ZTorus {
 
 impl Surface for ZTorus {
     fn evaluate(&self, r: Position) -> f64 {
-        torus_evaluate(r.x - self.x0, r.y - self.y0, r.z - self.z0, self.a, self.b, self.c)
+        torus_evaluate(
+            r.x - self.x0,
+            r.y - self.y0,
+            r.z - self.z0,
+            self.a,
+            self.b,
+            self.c,
+        )
     }
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) =
-            torus_gradient(r.x - self.x0, r.y - self.y0, r.z - self.z0, self.a, self.b, self.c);
+        let (g1, g2, gax) = torus_gradient(
+            r.x - self.x0,
+            r.y - self.y0,
+            r.z - self.z0,
+            self.a,
+            self.b,
+            self.c,
+        );
         Direction::from_unnormalised(g1, g2, gax)
     }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         torus_distance(
-            r.x - self.x0, r.y - self.y0, r.z - self.z0,
-            u.u, u.v, u.w,
-            self.a, self.b, self.c, coincident,
+            r.x - self.x0,
+            r.y - self.y0,
+            r.z - self.z0,
+            u.u,
+            u.v,
+            u.w,
+            self.a,
+            self.b,
+            self.c,
+            coincident,
         )
     }
 }
@@ -946,19 +1064,39 @@ pub struct XTorus {
 impl Surface for XTorus {
     fn evaluate(&self, r: Position) -> f64 {
         // radial pair (y, z), axial x
-        torus_evaluate(r.y - self.y0, r.z - self.z0, r.x - self.x0, self.a, self.b, self.c)
+        torus_evaluate(
+            r.y - self.y0,
+            r.z - self.z0,
+            r.x - self.x0,
+            self.a,
+            self.b,
+            self.c,
+        )
     }
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) =
-            torus_gradient(r.y - self.y0, r.z - self.z0, r.x - self.x0, self.a, self.b, self.c);
+        let (g1, g2, gax) = torus_gradient(
+            r.y - self.y0,
+            r.z - self.z0,
+            r.x - self.x0,
+            self.a,
+            self.b,
+            self.c,
+        );
         // (g1, g2) are ∂f/∂y, ∂f/∂z; gax is ∂f/∂x → reorder to (x, y, z).
         Direction::from_unnormalised(gax, g1, g2)
     }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         torus_distance(
-            r.y - self.y0, r.z - self.z0, r.x - self.x0,
-            u.v, u.w, u.u,
-            self.a, self.b, self.c, coincident,
+            r.y - self.y0,
+            r.z - self.z0,
+            r.x - self.x0,
+            u.v,
+            u.w,
+            u.u,
+            self.a,
+            self.b,
+            self.c,
+            coincident,
         )
     }
 }
@@ -981,19 +1119,39 @@ pub struct YTorus {
 impl Surface for YTorus {
     fn evaluate(&self, r: Position) -> f64 {
         // radial pair (x, z), axial y
-        torus_evaluate(r.x - self.x0, r.z - self.z0, r.y - self.y0, self.a, self.b, self.c)
+        torus_evaluate(
+            r.x - self.x0,
+            r.z - self.z0,
+            r.y - self.y0,
+            self.a,
+            self.b,
+            self.c,
+        )
     }
     fn normal(&self, r: Position) -> Direction {
-        let (g1, g2, gax) =
-            torus_gradient(r.x - self.x0, r.z - self.z0, r.y - self.y0, self.a, self.b, self.c);
+        let (g1, g2, gax) = torus_gradient(
+            r.x - self.x0,
+            r.z - self.z0,
+            r.y - self.y0,
+            self.a,
+            self.b,
+            self.c,
+        );
         // (g1, g2) are ∂f/∂x, ∂f/∂z; gax is ∂f/∂y → reorder to (x, y, z).
         Direction::from_unnormalised(g1, gax, g2)
     }
     fn distance(&self, r: Position, u: Direction, coincident: bool) -> f64 {
         torus_distance(
-            r.x - self.x0, r.z - self.z0, r.y - self.y0,
-            u.u, u.w, u.v,
-            self.a, self.b, self.c, coincident,
+            r.x - self.x0,
+            r.z - self.z0,
+            r.y - self.y0,
+            u.u,
+            u.w,
+            u.v,
+            self.a,
+            self.b,
+            self.c,
+            coincident,
         )
     }
 }
@@ -1147,6 +1305,99 @@ impl SurfaceKind {
             Self::ZTorus(s) => s.bc,
         }
     }
+
+    /// Centre `[x0, y0, z0]` (cm) and radius (cm), for surfaces that have them.
+    ///
+    /// `Some` for [`Sphere`] only; `None` for every other variant. Mirrors
+    /// `Surface::get_center` / `Surface::get_radius` in the vendored
+    /// `liangjg/openmc` `virtual_lattice` fork
+    /// (`include/openmc/surface.h:88`, `src/surface.cpp:762`), where the base
+    /// class returns an empty vector and only `SurfaceSphere` overrides them.
+    ///
+    /// Used by [`crate::geometry::virtual_lattice`] to place TRISO kernels in
+    /// voxels and to test point containment.
+    #[inline]
+    pub fn sphere_centre_radius(&self) -> Option<([f64; 3], f64)> {
+        match self {
+            Self::Sphere(s) => Some(([s.x0, s.y0, s.z0], s.r)),
+            _ => None,
+        }
+    }
+
+    /// Does this surface overlap the axis-aligned voxel of half-extent
+    /// `pitch/2` centred at `centre` (both cm)?
+    ///
+    /// Ported from `Surface::triso_in_mesh` in the vendored `liangjg/openmc`
+    /// `virtual_lattice` fork (`src/surface.cpp`). Used by
+    /// [`crate::geometry::virtual_lattice::VirtualLattice::build`] to decide
+    /// bucket membership.
+    ///
+    /// # Only `Sphere` is implemented — and that matches upstream
+    ///
+    /// Upstream declares `triso_in_mesh` as a virtual on the base `Surface` and
+    /// overrides it on all 15 concrete types, but **14 of those 15 overrides
+    /// are five-line `return false;` stubs**. Only `SurfaceSphere`
+    /// (`src/surface.cpp:724`, 42 lines) carries real logic. The arms below are
+    /// written out one per variant rather than collapsed into a wildcard so the
+    /// correspondence with upstream stays one-to-one and diffable, and so
+    /// adding a variant forces a decision here.
+    ///
+    /// The practical consequence: a virtual lattice only ever accelerates
+    /// spheres. Handing it a cylinder or plane registers that surface in no
+    /// voxel, and a traversal will never report it — see
+    /// [`crate::geometry::virtual_lattice::BuildReport::unregistered`], which
+    /// makes the omission observable rather than silent.
+    ///
+    /// # Sphere test
+    ///
+    /// Standard sphere-versus-AABB check: accumulate the squared distance from
+    /// the centre to the box along each axis (zero on axes where the centre
+    /// lies within the slab), and compare against the radius.
+    ///
+    /// Upstream writes `sqrt(dis_x + dis_y + dis_z) < radius_`; this port
+    /// compares `d2 < r*r` instead. The two are identical for non-negative
+    /// operands, and the squared form avoids a `sqrt` in a build loop that runs
+    /// 27 times per TRISO particle. The comparison stays **strict**, as
+    /// upstream: a sphere exactly tangent to a voxel face is *not* registered
+    /// in it.
+    #[inline]
+    pub fn overlaps_voxel(&self, centre: [f64; 3], pitch: [f64; 3]) -> bool {
+        match self {
+            Self::Sphere(s) => {
+                let c = [s.x0, s.y0, s.z0];
+                let mut d2 = 0.0;
+                for d in 0..3 {
+                    let lo = centre[d] - pitch[d] / 2.0;
+                    let hi = centre[d] + pitch[d] / 2.0;
+                    let gap = if c[d] < lo {
+                        lo - c[d]
+                    } else if c[d] > hi {
+                        c[d] - hi
+                    } else {
+                        0.0
+                    };
+                    d2 += gap * gap;
+                }
+                d2 < s.r * s.r
+            }
+            // The 14 upstream stubs. Not "unimplemented here" — upstream
+            // returns false for all of these too (see the doc comment above).
+            Self::XPlane(_) => false,
+            Self::YPlane(_) => false,
+            Self::ZPlane(_) => false,
+            Self::Plane(_) => false,
+            Self::XCylinder(_) => false,
+            Self::YCylinder(_) => false,
+            Self::ZCylinder(_) => false,
+            Self::XCone(_) => false,
+            Self::YCone(_) => false,
+            Self::ZCone(_) => false,
+            Self::Quadric(_) => false,
+            Self::XTorus(_) => false,
+            Self::YTorus(_) => false,
+            Self::ZTorus(_) => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1154,28 +1405,50 @@ mod tests {
     use super::*;
 
     const TOL: f64 = 1.0e-9;
-    fn close(a: f64, b: f64) -> bool { (a - b).abs() < TOL }
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() < TOL
+    }
 
     // ── general Plane ──────────────────────────────────────────────────────────
     #[test]
     fn plane_sense_distance_normal() {
         // Plane x + y = 0 (a=1,b=1,c=0,d=0); normal (1,1,0)/√2.
-        let p = Plane { a: 1.0, b: 1.0, c: 0.0, d: 0.0, bc: BoundaryType::Transmissive };
+        let p = Plane {
+            a: 1.0,
+            b: 1.0,
+            c: 0.0,
+            d: 0.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(p.evaluate(Position::new(1.0, 0.0, 0.0)) > 0.0); // outside (+)
         assert!(p.evaluate(Position::new(-1.0, 0.0, 0.0)) < 0.0); // inside (−)
         let n = p.normal(Position::ZERO);
         assert!(close(n.u, 1.0 / 2f64.sqrt()) && close(n.v, 1.0 / 2f64.sqrt()) && close(n.w, 0.0));
         // From (1,0,0) heading −x, reach x+y=0 at x=0 → distance 1.
-        let d = p.distance(Position::new(1.0, 0.0, 0.0), Direction::new(-1.0, 0.0, 0.0), false);
+        let d = p.distance(
+            Position::new(1.0, 0.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 1.0), "plane distance {d}");
         // Parallel ray never hits.
-        let d2 = p.distance(Position::new(1.0, 0.0, 0.0), Direction::new(1.0, -1.0, 0.0), false);
+        let d2 = p.distance(
+            Position::new(1.0, 0.0, 0.0),
+            Direction::new(1.0, -1.0, 0.0),
+            false,
+        );
         assert_eq!(d2, f64::INFINITY);
     }
 
     #[test]
     fn plane_reflect() {
-        let p = Plane { a: 1.0, b: 0.0, c: 0.0, d: 0.0, bc: BoundaryType::Reflective }; // x=0
+        let p = Plane {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 0.0,
+            bc: BoundaryType::Reflective,
+        }; // x=0
         let refl = p.reflect(Position::ZERO, Direction::new(0.6, 0.8, 0.0));
         assert!(close(refl.u, -0.6) && close(refl.v, 0.8) && close(refl.w, 0.0));
     }
@@ -1183,22 +1456,44 @@ mod tests {
     // ── X / Y cylinders ────────────────────────────────────────────────────────
     #[test]
     fn xcylinder_distance_and_axis_miss() {
-        let cyl = XCylinder { y0: 0.0, z0: 0.0, r: 2.0, bc: BoundaryType::Transmissive };
+        let cyl = XCylinder {
+            y0: 0.0,
+            z0: 0.0,
+            r: 2.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(cyl.evaluate(Position::new(9.0, 0.0, 0.0)) < 0.0); // on axis → inside
         assert!(cyl.evaluate(Position::new(0.0, 5.0, 0.0)) > 0.0); // outside
-        // From (0,-5,0) heading +y: hit near wall at y=-2 → distance 3.
-        let d = cyl.distance(Position::new(0.0, -5.0, 0.0), Direction::new(0.0, 1.0, 0.0), false);
+                                                                   // From (0,-5,0) heading +y: hit near wall at y=-2 → distance 3.
+        let d = cyl.distance(
+            Position::new(0.0, -5.0, 0.0),
+            Direction::new(0.0, 1.0, 0.0),
+            false,
+        );
         assert!(close(d, 3.0), "xcyl distance {d}");
         // Axis-parallel ray never hits.
-        let d2 = cyl.distance(Position::new(0.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), false);
+        let d2 = cyl.distance(
+            Position::new(0.0, 0.0, 0.0),
+            Direction::new(1.0, 0.0, 0.0),
+            false,
+        );
         assert_eq!(d2, f64::INFINITY);
     }
 
     #[test]
     fn ycylinder_distance() {
-        let cyl = YCylinder { x0: 0.0, z0: 0.0, r: 2.0, bc: BoundaryType::Transmissive };
+        let cyl = YCylinder {
+            x0: 0.0,
+            z0: 0.0,
+            r: 2.0,
+            bc: BoundaryType::Transmissive,
+        };
         // From (-5,0,0) heading +x: hit near wall at x=-2 → distance 3.
-        let d = cyl.distance(Position::new(-5.0, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), false);
+        let d = cyl.distance(
+            Position::new(-5.0, 0.0, 0.0),
+            Direction::new(1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 3.0), "ycyl distance {d}");
         assert!(cyl.evaluate(Position::new(0.0, 9.0, 0.0)) < 0.0); // on axis → inside
     }
@@ -1206,34 +1501,74 @@ mod tests {
     // ── cones (45° double-napped, r_sq = 1) ──────────────────────────────────────
     #[test]
     fn zcone_sense_and_distance() {
-        let cone = ZCone { x0: 0.0, y0: 0.0, z0: 0.0, r_sq: 1.0, bc: BoundaryType::Transmissive };
+        let cone = ZCone {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r_sq: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(cone.evaluate(Position::new(0.0, 0.0, 1.0)) < 0.0); // inside the nap
         assert!(cone.evaluate(Position::new(2.0, 0.0, 1.0)) > 0.0); // outside
         assert!(close(cone.evaluate(Position::new(1.0, 0.0, 1.0)), 0.0)); // on surface
-        // From (2,0,1) heading −x: near nap at x=1 → distance 1 (far nap at x=−1 is 3).
-        let d = cone.distance(Position::new(2.0, 0.0, 1.0), Direction::new(-1.0, 0.0, 0.0), false);
+                                                                          // From (2,0,1) heading −x: near nap at x=1 → distance 1 (far nap at x=−1 is 3).
+        let d = cone.distance(
+            Position::new(2.0, 0.0, 1.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 1.0), "zcone distance {d}");
     }
 
     #[test]
     fn zcone_coincident_skips_zero_root() {
-        let cone = ZCone { x0: 0.0, y0: 0.0, z0: 0.0, r_sq: 1.0, bc: BoundaryType::Reflective };
+        let cone = ZCone {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r_sq: 1.0,
+            bc: BoundaryType::Reflective,
+        };
         // On the surface at (1,0,1), heading −x: skip d≈0, next crossing (far nap) at x=−1 → 2.
-        let d = cone.distance(Position::new(1.0, 0.0, 1.0), Direction::new(-1.0, 0.0, 0.0), true);
+        let d = cone.distance(
+            Position::new(1.0, 0.0, 1.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            true,
+        );
         assert!(close(d, 2.0), "coincident zcone distance {d}");
     }
 
     #[test]
     fn xcone_and_ycone_distance() {
-        let xc = XCone { x0: 0.0, y0: 0.0, z0: 0.0, r_sq: 1.0, bc: BoundaryType::Transmissive };
+        let xc = XCone {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r_sq: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         // From (1,2,0) heading −y: near nap at y=1 (x²=y²) → distance 1.
-        let d = xc.distance(Position::new(1.0, 2.0, 0.0), Direction::new(0.0, -1.0, 0.0), false);
+        let d = xc.distance(
+            Position::new(1.0, 2.0, 0.0),
+            Direction::new(0.0, -1.0, 0.0),
+            false,
+        );
         assert!(close(d, 1.0), "xcone distance {d}");
         assert!(xc.evaluate(Position::new(1.0, 0.0, 0.0)) < 0.0); // on axis → inside
 
-        let yc = YCone { x0: 0.0, y0: 0.0, z0: 0.0, r_sq: 1.0, bc: BoundaryType::Transmissive };
+        let yc = YCone {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r_sq: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         // From (2,1,0) heading −x: near nap at x=1 → distance 1.
-        let d2 = yc.distance(Position::new(2.0, 1.0, 0.0), Direction::new(-1.0, 0.0, 0.0), false);
+        let d2 = yc.distance(
+            Position::new(2.0, 1.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d2, 1.0), "ycone distance {d2}");
         assert!(yc.evaluate(Position::new(0.0, 1.0, 0.0)) < 0.0); // on axis → inside
     }
@@ -1243,12 +1578,35 @@ mod tests {
     fn quadric_matches_sphere() {
         // x² + y² + z² − 4 = 0  ⇔  Sphere(center 0, r=2).
         let q = Quadric {
-            a: 1.0, b: 1.0, c: 1.0, d: 0.0, e: 0.0, f: 0.0, g: 0.0, h: 0.0, j: 0.0, k: -4.0,
+            a: 1.0,
+            b: 1.0,
+            c: 1.0,
+            d: 0.0,
+            e: 0.0,
+            f: 0.0,
+            g: 0.0,
+            h: 0.0,
+            j: 0.0,
+            k: -4.0,
             bc: BoundaryType::Transmissive,
         };
-        let s = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 2.0, bc: BoundaryType::Transmissive };
-        for p in [Position::new(0.0, 0.0, 0.0), Position::new(3.0, 1.0, -2.0), Position::new(2.0, 0.0, 0.0)] {
-            assert!(close(q.evaluate(p), s.evaluate(p)), "quadric vs sphere eval at {:?}", (p.x, p.y, p.z));
+        let s = Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 2.0,
+            bc: BoundaryType::Transmissive,
+        };
+        for p in [
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(3.0, 1.0, -2.0),
+            Position::new(2.0, 0.0, 0.0),
+        ] {
+            assert!(
+                close(q.evaluate(p), s.evaluate(p)),
+                "quadric vs sphere eval at {:?}",
+                (p.x, p.y, p.z)
+            );
         }
         // Ray from (0,0,−5) heading +z: both give distance 3 (hit at z=−2).
         let r0 = Position::new(0.0, 0.0, -5.0);
@@ -1266,10 +1624,26 @@ mod tests {
     #[test]
     fn surfacekind_dispatch_new_variants() {
         let sk = SurfaceKind::Quadric(Quadric {
-            a: 1.0, b: 1.0, c: 1.0, d: 0.0, e: 0.0, f: 0.0, g: 0.0, h: 0.0, j: 0.0, k: -4.0,
+            a: 1.0,
+            b: 1.0,
+            c: 1.0,
+            d: 0.0,
+            e: 0.0,
+            f: 0.0,
+            g: 0.0,
+            h: 0.0,
+            j: 0.0,
+            k: -4.0,
             bc: BoundaryType::Vacuum,
         });
-        assert!(close(sk.distance(Position::new(0.0, 0.0, -5.0), Direction::new(0.0, 0.0, 1.0), false), 3.0));
+        assert!(close(
+            sk.distance(
+                Position::new(0.0, 0.0, -5.0),
+                Direction::new(0.0, 0.0, 1.0),
+                false
+            ),
+            3.0
+        ));
         assert!(sk.sense(Position::new(3.0, 0.0, 0.0))); // outside r=2 sphere
         assert_eq!(sk.bc(), BoundaryType::Vacuum);
     }
@@ -1361,7 +1735,15 @@ mod tests {
     /// Note: (3,0,0) is the tube *centre*, NOT on the surface — it evaluates to −1.
     #[test]
     fn ztorus_evaluate_analytic() {
-        let t = ZTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
+        let t = ZTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(close(t.evaluate(Position::new(4.0, 0.0, 0.0)), 0.0));
         assert!(close(t.evaluate(Position::new(2.0, 0.0, 0.0)), 0.0));
         assert!(close(t.evaluate(Position::new(3.0, 0.0, 1.0)), 0.0));
@@ -1387,8 +1769,20 @@ mod tests {
             assert!(close(r[i], want), "root {i} = {} want {want}", r[i]);
         }
         // The surface's distance method returns the nearest crossing.
-        let t = ZTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
-        let d = t.distance(Position::new(10.0, 0.0, 0.0), Direction::new(-1.0, 0.0, 0.0), false);
+        let t = ZTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
+        let d = t.distance(
+            Position::new(10.0, 0.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 6.0), "nearest distance {d}");
     }
 
@@ -1398,8 +1792,20 @@ mod tests {
     /// discarded. Result (analytic): nearest returned distance = 2.
     #[test]
     fn ztorus_coincident_skips_zero_root() {
-        let t = ZTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Reflective };
-        let d = t.distance(Position::new(4.0, 0.0, 0.0), Direction::new(-1.0, 0.0, 0.0), true);
+        let t = ZTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Reflective,
+        };
+        let d = t.distance(
+            Position::new(4.0, 0.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            true,
+        );
         assert!(close(d, 2.0), "coincident distance {d}");
     }
 
@@ -1409,13 +1815,33 @@ mod tests {
     /// top of the tube (3,0,1) it is +z.
     #[test]
     fn ztorus_normal_analytic() {
-        let t = ZTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
+        let t = ZTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         let n1 = t.normal(Position::new(4.0, 0.0, 0.0));
-        assert!(close(n1.u, 1.0) && close(n1.v, 0.0) && close(n1.w, 0.0), "outer eq {:?}", (n1.u, n1.v, n1.w));
+        assert!(
+            close(n1.u, 1.0) && close(n1.v, 0.0) && close(n1.w, 0.0),
+            "outer eq {:?}",
+            (n1.u, n1.v, n1.w)
+        );
         let n2 = t.normal(Position::new(2.0, 0.0, 0.0));
-        assert!(close(n2.u, -1.0) && close(n2.v, 0.0) && close(n2.w, 0.0), "inner eq {:?}", (n2.u, n2.v, n2.w));
+        assert!(
+            close(n2.u, -1.0) && close(n2.v, 0.0) && close(n2.w, 0.0),
+            "inner eq {:?}",
+            (n2.u, n2.v, n2.w)
+        );
         let n3 = t.normal(Position::new(3.0, 0.0, 1.0));
-        assert!(close(n3.u, 0.0) && close(n3.v, 0.0) && close(n3.w, 1.0), "top {:?}", (n3.u, n3.v, n3.w));
+        assert!(
+            close(n3.u, 0.0) && close(n3.v, 0.0) && close(n3.w, 1.0),
+            "top {:?}",
+            (n3.u, n3.v, n3.w)
+        );
     }
 
     /// X-torus (axis = x, major circle in the y-z plane), a=3,b=1,c=1.
@@ -1424,13 +1850,29 @@ mod tests {
     /// distance 6; the outer-equator normal at (0,4,0) is +y.
     #[test]
     fn xtorus_evaluate_distance_normal() {
-        let t = XTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
+        let t = XTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(close(t.evaluate(Position::new(0.0, 4.0, 0.0)), 0.0));
         assert!(close(t.evaluate(Position::new(0.0, 3.0, 0.0)), -1.0)); // tube centre
-        let d = t.distance(Position::new(0.0, 0.0, 10.0), Direction::new(0.0, 0.0, -1.0), false);
+        let d = t.distance(
+            Position::new(0.0, 0.0, 10.0),
+            Direction::new(0.0, 0.0, -1.0),
+            false,
+        );
         assert!(close(d, 6.0), "xtorus distance {d}");
         let n = t.normal(Position::new(0.0, 4.0, 0.0));
-        assert!(close(n.u, 0.0) && close(n.v, 1.0) && close(n.w, 0.0), "xtorus normal {:?}", (n.u, n.v, n.w));
+        assert!(
+            close(n.u, 0.0) && close(n.v, 1.0) && close(n.w, 0.0),
+            "xtorus normal {:?}",
+            (n.u, n.v, n.w)
+        );
     }
 
     /// Y-torus (axis = y, major circle in the x-z plane), a=3,b=1,c=1.
@@ -1439,13 +1881,29 @@ mod tests {
     /// distance 6; the outer-equator normal at (4,0,0) is +x.
     #[test]
     fn ytorus_evaluate_distance_normal() {
-        let t = YTorus { x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
+        let t = YTorus {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
         assert!(close(t.evaluate(Position::new(4.0, 0.0, 0.0)), 0.0));
         assert!(close(t.evaluate(Position::new(3.0, 0.0, 0.0)), -1.0)); // tube centre
-        let d = t.distance(Position::new(0.0, 0.0, 10.0), Direction::new(0.0, 0.0, -1.0), false);
+        let d = t.distance(
+            Position::new(0.0, 0.0, 10.0),
+            Direction::new(0.0, 0.0, -1.0),
+            false,
+        );
         assert!(close(d, 6.0), "ytorus distance {d}");
         let n = t.normal(Position::new(4.0, 0.0, 0.0));
-        assert!(close(n.u, 1.0) && close(n.v, 0.0) && close(n.w, 0.0), "ytorus normal {:?}", (n.u, n.v, n.w));
+        assert!(
+            close(n.u, 1.0) && close(n.v, 0.0) && close(n.w, 0.0),
+            "ytorus normal {:?}",
+            (n.u, n.v, n.w)
+        );
     }
 
     /// A translated (off-origin) Z-torus tracks the centre.
@@ -1453,8 +1911,20 @@ mod tests {
     /// translated start is X=10, so distances are again {6,8,12,14}; nearest 6.
     #[test]
     fn ztorus_translated_center() {
-        let t = ZTorus { x0: 5.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Transmissive };
-        let d = t.distance(Position::new(15.0, 0.0, 0.0), Direction::new(-1.0, 0.0, 0.0), false);
+        let t = ZTorus {
+            x0: 5.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Transmissive,
+        };
+        let d = t.distance(
+            Position::new(15.0, 0.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 6.0), "translated ztorus distance {d}");
     }
 
@@ -1465,9 +1935,19 @@ mod tests {
     #[test]
     fn surfacekind_torus_dispatch() {
         let sk = SurfaceKind::ZTorus(ZTorus {
-            x0: 0.0, y0: 0.0, z0: 0.0, a: 3.0, b: 1.0, c: 1.0, bc: BoundaryType::Vacuum,
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            a: 3.0,
+            b: 1.0,
+            c: 1.0,
+            bc: BoundaryType::Vacuum,
         });
-        let d = sk.distance(Position::new(10.0, 0.0, 0.0), Direction::new(-1.0, 0.0, 0.0), false);
+        let d = sk.distance(
+            Position::new(10.0, 0.0, 0.0),
+            Direction::new(-1.0, 0.0, 0.0),
+            false,
+        );
         assert!(close(d, 6.0), "dispatch distance {d}");
         assert!(sk.sense(Position::new(0.0, 0.0, 0.0))); // central hole is outside
         assert!(!sk.sense(Position::new(3.0, 0.0, 0.0))); // tube centre is inside

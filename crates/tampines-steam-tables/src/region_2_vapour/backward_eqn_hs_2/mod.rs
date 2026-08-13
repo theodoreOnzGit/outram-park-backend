@@ -10,9 +10,8 @@ use uom::si::available_energy::kilojoule_per_kilogram;
 /// boundaries.
 #[inline]
 pub fn p_hs_2(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
-
-    // assuming is region 2, 
-    // if s is less than s2bc, then it's region 2c 
+    // assuming is region 2,
+    // if s is less than s2bc, then it's region 2c
     // this is on page 91 of book
     // the points on this line belong to region 2b
     let s2b2c = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.85);
@@ -21,8 +20,8 @@ pub fn p_hs_2(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         return p_hs_2c(h, s);
     };
 
-    // next, we use the boundary for h, this is the isobar P = 4 MPa 
-    // if a point falls on this boundary line, then it belongs to 
+    // next, we use the boundary for h, this is the isobar P = 4 MPa
+    // if a point falls on this boundary line, then it belongs to
     // subregion 2a
     let h2a2b = h_2a2b(s);
 
@@ -31,7 +30,6 @@ pub fn p_hs_2(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
     } else {
         return p_hs_2a(h, s);
     };
-
 }
 
 /// boundary equations for 2a and 2b
@@ -39,14 +37,13 @@ pub mod boundary_eqns;
 pub use boundary_eqns::*;
 
 #[inline]
-pub(crate) fn p_hs_2a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
-
+pub(crate) fn p_hs_2a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(4200.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(12.0);
     let p_ref = Pressure::new::<megapascal>(4.0);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
 
@@ -56,21 +53,19 @@ pub(crate) fn p_hs_2a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
         let ni = coeffs[2];
 
         pi += ni * (eta - 0.5).powf(ii) * (sigma - 1.2).powf(ji);
-    };
+    }
 
     return pi.powi(4) * p_ref;
-
 }
 
 #[inline]
-pub(crate) fn p_hs_2b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
-
+pub(crate) fn p_hs_2b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(4100.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(7.9);
     let p_ref = Pressure::new::<megapascal>(100.0);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
 
@@ -80,21 +75,19 @@ pub(crate) fn p_hs_2b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
         let ni = coeffs[2];
 
         pi += ni * (eta - 0.6).powf(ii) * (sigma - 1.01).powf(ji);
-    };
+    }
 
     return pi.powi(4) * p_ref;
-
 }
 
 #[inline]
-pub(crate) fn p_hs_2c(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
-
+pub(crate) fn p_hs_2c(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(3500.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.9);
     let p_ref = Pressure::new::<megapascal>(100.0);
 
-    let eta: f64 = (h/h_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let eta: f64 = (h / h_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut pi: f64 = 0.0;
 
@@ -104,10 +97,9 @@ pub(crate) fn p_hs_2c(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure{
         let ni = coeffs[2];
 
         pi += ni * (eta - 0.7).powf(ii) * (sigma - 1.1).powf(ji);
-    };
+    }
 
     return pi.powi(4) * p_ref;
-
 }
 
 /// based on table 2.82
@@ -142,7 +134,6 @@ const SUBREGION_2A_BACK_COEFFS_HS: [[f64; 3]; 29] = [
     [6.0, 3.0, -0.558_919_224_465_760e1],
     [7.0, 1.0, 0.400_645_798_472_063e-1],
 ];
-
 
 /// based on table 2.83
 const SUBREGION_2B_BACK_COEFFS_HS: [[f64; 3]; 33] = [
@@ -180,7 +171,6 @@ const SUBREGION_2B_BACK_COEFFS_HS: [[f64; 3]; 33] = [
     [12.0, 10.0, 0.188_801_906_865_134e10],
     [14.0, 16.0, -0.123_651_009_018_773e15],
 ];
-
 
 /// based on table 2.84
 const SUBREGION_2C_BACK_COEFFS_HS: [[f64; 3]; 31] = [

@@ -36,11 +36,20 @@
 //! [`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
 pub mod acer;
-/// HIGH-fidelity data acquisition — download raw ENDF tapes from a pinned
-/// upstream and reconstruct pointwise cross sections on device. Behind the
-/// **`net-fetch`** feature (opt-in; the default build ships the offline LOW tier
-/// only). See [`acquire`] and `docs/data-acquisition.md`.
-#[cfg(feature = "net-fetch")]
+/// Data acquisition and the crate's **single on-disk artifact cache**.
+///
+/// Two halves, with different gating:
+///
+/// - **The cache substrate is always compiled.** [`acquire::EndfCache`] does
+///   platform cache-dir discovery, per-artifact advisory locking, a
+///   double-checked acquire, fsync + atomic rename, and a SHA-256 sidecar. It
+///   has two producers: the download path below, and the **offline LEAPR
+///   regeneration** path ([`leapr::generate`]), which is on by default.
+/// - **The download path is behind the `net-fetch` feature** (opt-in): fetching
+///   raw ENDF tapes from a pinned upstream and reconstructing pointwise cross
+///   sections on device. The default build carries no TLS/HTTP dependency.
+///
+/// See [`acquire`] and `docs/data-acquisition.md`.
 pub mod acquire;
 pub mod broadr;
 pub mod common;
@@ -54,7 +63,7 @@ pub mod gaspr;
 /// method and damage energy (MT=444) are deferred — see [`heatr`] module docs.
 pub mod heatr;
 /// User friendly interface to access njoy library (used to be called library,
-/// but I renamed as interface to avoid mixing with lib.rs) 
+/// but I renamed as interface to avoid mixing with lib.rs)
 ///
 ///
 pub mod interface;

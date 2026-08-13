@@ -184,7 +184,11 @@ fn interp_sigma_f32(grid: &[f32], sigma: &[f32], q: f32) -> f32 {
         lo
     };
     let d = grid[i_grid + 1] - grid[i_grid];
-    let f = if d == 0.0 { 0.0 } else { (q - grid[i_grid]) / d };
+    let f = if d == 0.0 {
+        0.0
+    } else {
+        (q - grid[i_grid]) / d
+    };
     (1.0 - f) * sigma[i_grid] + f * sigma[i_grid + 1]
 }
 
@@ -529,19 +533,33 @@ pub fn advance_flight_gpu(
         label: Some("batched_flight.bg"),
         layout: &bind_group_layout,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: xs_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: part_in_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: pos_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 4, resource: state_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: xs_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: part_in_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: pos_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: state_buf.as_entire_binding(),
+            },
         ],
     });
 
     // --- Dispatch ------------------------------------------------------------
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("batched_flight.encoder"),
-        });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("batched_flight.encoder"),
+    });
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("batched_flight.pass"),
@@ -558,8 +576,12 @@ pub fn advance_flight_gpu(
 
     // --- Read back -----------------------------------------------------------
     // Map both staging buffers, then poll once so every callback fires.
-    pos_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
-    state_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
+    pos_staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, |r| r.unwrap());
+    state_staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, |r| r.unwrap());
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
     let pos_view = pos_staging.slice(..).get_mapped_range();
@@ -658,7 +680,12 @@ mod tests {
             rng_hi,
             rng_lo,
         };
-        let sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 1.0 };
+        let sphere = FlightSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 1.0,
+        };
 
         let _ = advance_flight_gpu(&ctx, &grid, &sigma, &mut batch, sphere);
 
@@ -677,7 +704,10 @@ mod tests {
             }
         }
         assert_eq!(exact, n, "all {n} LCG states must be bit-exact");
-        eprintln!("gpu_lcg_state_matches_cpu: {exact}/{n} bit-exact on {}", ctx.info.name);
+        eprintln!(
+            "gpu_lcg_state_matches_cpu: {exact}/{n} bit-exact on {}",
+            ctx.info.name
+        );
     }
 
     /// V&V GATE (GPU flight vs same-f32-path CPU mirror on real hardware).
@@ -732,7 +762,12 @@ mod tests {
             .map(|&e| 100.0f32 / (e as f32).sqrt() + 2.0f32)
             .collect();
 
-        let sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 8.74 };
+        let sphere = FlightSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 8.74,
+        };
 
         // N particles with random state (deterministic hash).
         let n = 4096usize;
@@ -784,7 +819,13 @@ mod tests {
             rng_hi: rng_hi.clone(),
             rng_lo: rng_lo.clone(),
         };
-        let batch_cpu = FlightBatch { pos, dir, energy, rng_hi, rng_lo };
+        let batch_cpu = FlightBatch {
+            pos,
+            dir,
+            energy,
+            rng_hi,
+            rng_lo,
+        };
 
         let mut gpu_b = batch_gpu;
         let mut cpu_b = batch_cpu;
@@ -868,10 +909,19 @@ mod tests {
             rng_hi: vec![(seed >> 32) as u32],
             rng_lo: vec![seed as u32],
         };
-        let big_sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 100.0 };
+        let big_sphere = FlightSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 100.0,
+        };
         let out = advance_flight_cpu_mirror(&grid, &sigma_flat, &mut batch, big_sphere);
         assert_eq!(out[0], FlightOutcome::Collided);
-        assert!((batch.pos[0] - expected_x).abs() < 1e-5, "x = {}", batch.pos[0]);
+        assert!(
+            (batch.pos[0] - expected_x).abs() < 1e-5,
+            "x = {}",
+            batch.pos[0]
+        );
         assert_eq!(batch.pos[1], 0.0);
         assert_eq!(batch.pos[2], 0.0);
 
@@ -913,7 +963,12 @@ mod tests {
             rng_hi: vec![0x0123_4567],
             rng_lo: vec![0x89AB_CDEF],
         };
-        let sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r };
+        let sphere = FlightSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r,
+        };
         let out = advance_flight_cpu_mirror(&grid, &sigma, &mut batch, sphere);
         assert_eq!(out[0], FlightOutcome::Leaked);
         assert_eq!(batch.pos, vec![r - 1e-4, 0.0, 0.0]);

@@ -1,0 +1,26 @@
+[package]
+name = "bedok"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
+repository = "https://github.com/theodoreOnzGit/outram-park-backend"
+readme = "README.md"
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+faer.workspace = true
+csv.workspace = true
+# IAPWS-IF97 water/steam properties. This is the ONE substitution allowed
+# inside the reference translation: Yan Ren's MATLAB calls the third-party
+# `IAPWS_IF97.m` (Copyright (c) 2013 Mark Mifofski), which is not ported.
+# See docs/bedok-port-scoping.md §3 and src/reference/th/steam.rs.
+tampines-steam-tables.workspace = true
+# Needed only to unwrap tampines-steam-tables' dimensioned return values back
+# into the bare f64 the reference translation works in; the reference itself
+# deliberately does not carry uom types (see src/reference/grid.rs).
+uom.workspace = true
+
+[dev-dependencies]
+approx.workspace = true

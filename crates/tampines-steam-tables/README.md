@@ -58,15 +58,37 @@ things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
   `(p,h)`/`(p,s)`.
 - **Multiphase critical (choked) flow for steam-water mixtures.** TAMPINES'
   `steam_turbine_equations::converging_diverging_nozzles::choked_flow` module
-  is a validated Homogeneous Equilibrium Model (HEM) suite — a unified
+  is a Homogeneous Equilibrium Model (HEM) suite — a unified
   dispatcher routing a stagnation `(p₀, h₀)` to a dedicated in-dome,
   subcooled-liquid, or superheated-vapour solver by its position relative to
-  the p-h VLE dome, verified against Moody (1975), Zaloudek, and Marviken
-  reference data (see the Changelog below for the debugging history, e.g. the
-  near-bubble-point HEM artifact and the Moody-vs-Zaloudek subcooled-regime
-  reconciliation). The CoolProp fork has no choked-flow / critical-mass-flux
-  model at all — it is a property-lookup library, not a nozzle/turbine
-  equation set.
+  the p-h VLE dome. V&V status (re-read from the test source, 2026-08-11):
+  **verified against Moody (1975) Fig. 1** — 13 active isobar tests
+  (p₀/p_ref = 0.25–30.0) asserting an absolute log10 mass-flux bound of
+  0.06 (0.08 for deeply-subcooled Region-1 points), region-filtered so that
+  points neither in-dome (Region 4) nor deeply subcooled are skipped as a
+  documented HEM limitation — and **against Zaloudek graph-read HEM
+  curves** — 20+ active tests per file across the in-dome / subcooled /
+  superheated / generic-dispatcher / backward-throat files
+  (critical-pressure relative tolerance 0.005–0.05 by curve, mass-flux
+  log10 tolerance 0.05). **Marviken is now gated, with a split result**: the
+  NUREG/CR-2671 test-23/24 data in `marviken_tests.rs` runs as six active
+  tests (no `#[ignore]`, ~1.4 s). Against the 500 mm / `L/D` = 0.3 nozzle,
+  the HEM dispatcher **validates on test 23** (3 K subcooling: mean
+  deviation 12.6 %, worst 23.1 %, inside the justified $\pm 25\%$
+  experimental band) but **fails on test 24** (33 K subcooling: mean
+  $-48.5\%$, worst $-70.2\%$), so it is kept as an honest characterisation
+  and **the crate must not be called Marviken-validated for subcooled
+  stagnation states**. The bare HEM maximum-mass-flux criterion, evaluated
+  in the same file from the public `(p,s)` flashes, reproduces *both* tests
+  to a mean of 9–10 % — so the test-24 deficit is a branch-selection defect
+  in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`, **not** an
+  HEM physics limitation. Measured 2026-08-11; see the module doc of
+  `marviken_tests.rs` for methodology, error budget and the full lessons
+  note (bead `op-21g.16`). (See the Changelog below for the debugging
+  history, e.g. the near-bubble-point HEM artifact and the
+  Moody-vs-Zaloudek subcooled-regime reconciliation.) The CoolProp fork has
+  no choked-flow / critical-mass-flux model at all — it is a
+  property-lookup library, not a nozzle/turbine equation set.
 
 Everything else — steam-turbine equations, the OpenFOAM finite-volume
 algorithms, the FHR educational simulator — is TAMPINES-specific scope the
@@ -129,19 +151,57 @@ calculations for simplicity.
 cargo run --release -p tampines --example fhr_sim_v2
 ```
 
-Note that for windows PCs, sometimes there will be problems where 
-windows defender blocks the fhr_sim_v2 from being run. In those cases,
-it's better to use windows subsystem for linux (WSL). One needs to note 
-to use:
+### Running the test suite
+
+Always use `--release`. Split the fast library tests from the one very slow
+integration test:
 
 ```bash
-sudo apt install libopenblas-dev
+# Fast path — 938 library test functions, finishes in seconds
+cargo test --release -p tampines-steam-tables --lib
+
+# Slow path — the Edwards-O'Brien blowdown transient. Give it 10+ minutes.
+cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
-Before running:
+**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
+14 ignored**. List the ignored ones with
+`cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
+
+**A timeout is not a test failure.** `tests/edwards_blowdown.rs` integrates a
+600 ms two-phase pipe blowdown at `dt = 30 µs` — 20 000 PIMPLE steps, each doing
+real IAPWS-IF97 `(p, h)` flashes on every cell. Measured 2026-08-11:
+`edwards_obrien_pipe_blowdown_600ms` alone took **384.75 s**, and the full
+`edwards_blowdown` target (both tests, run in parallel by cargo) took
+**393.58 s**. A bare `cargo test` over the whole crate will therefore exceed a
+default command timeout. If that happens, report that the run was killed and how
+far it got — do not record it as a failing test, and never loosen a tolerance
+because a long test was inconvenient.
+
+Treat any written-down timing, including the two above, as indicative only:
+they are hardware- and load-dependent, and the wall-clock time of a `cargo test`
+command also covers compilation and any wait on the cargo build-directory lock
+when something else is building the workspace. The harness's own
+`finished in <N>s` line is the figure to quote.
+
+Note that for windows PCs, sometimes there will be problems where 
+windows defender blocks the fhr_sim_v2 from being run. In those cases,
+it's better to use windows subsystem for linux (WSL), then run:
+
 ```bash
 cargo run --release -p tampines --example fhr_sim_v2
 ```
+
+**No system BLAS is required** (corrected 2026-08-11). This section used to tell
+WSL users to `sudo apt install libopenblas-dev` first. That was needed when
+`tampines-steam-tables` and `tuas_boussinesq_solver` still declared
+`ndarray-linalg`; neither does any more (TUAS dropped it at v0.1.2 in favour of
+pure-Rust `peroxide`, and this crate's vestigial entries were deleted). Verify
+with `grep -n ndarray-linalg crates/tampines-steam-tables/Cargo.toml
+crates/tuas_boussinesq_solver/Cargo.toml` — no dependency declaration matches.
+Workspace-wide, the only remaining OpenBLAS consumer is
+`outram-foam-basic-lib`'s `matrix_bench` dev-dependency, which
+`fhr_sim_v2` never touches.
 
 I used rustup to install rust. So if versions of Rust are outdated 
 (error messages may tell you so), then use:
@@ -169,15 +229,20 @@ This crate has two intentions that pull in opposite directions:
 
 2. **TAMPINES should host an OpenFOAM-style array solver of its own.**
    `openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray` is a 1-D
-   compressible PIMPLE pipe solver built on `outram-foam-basic-lib`'s `FvMesh`,
-   fields, and FV operators (via `create_one_d_mesh`). That means
-   *`tampines-steam-tables` depends on an OpenFOAM crate*.
+   compressible PIMPLE pipe solver built on the OpenFOAM `FvMesh`,
+   fields, and FV operators (via `create_one_d_mesh`). Those primitives
+   could either come from a dependency on an OpenFOAM crate, or — as
+   actually built, see "Current choice" below — from a copy vendored
+   inside this crate.
 
 Both can be true **without a dependency cycle**, but only if the edges are
 drawn carefully. Cargo forbids cyclic `[dependencies]` between crates, so this
 is a hard constraint, not a style preference.
 
-### The current graph (a clean DAG)
+### The graph as designed (a clean DAG)
+
+The dependency-cycle analysis below was written assuming the edge
+`tampines-steam-tables → outram-foam-basic-lib`:
 
 ```
 outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
@@ -189,9 +254,15 @@ outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operato
    └────────────────────────────  tampines-steam-tables     (+ tuas)
 ```
 
-Every arrow points **down** to `outram-foam-basic-lib`. `tampines-steam-tables`
-already depends on `outram-foam-basic-lib` (for `TampinesSteamArray`); nothing
-depends on `tampines-steam-tables` yet.
+Every arrow points **down** to `outram-foam-basic-lib`. **Note (verified
+against `Cargo.toml`, 2026-08-11): that edge was never actually drawn.**
+The OpenFOAM primitives `TampinesSteamArray` needs were instead **vendored
+in-crate** under `src/openfoam_algorithms/openfoam_source/` as
+`pub(crate)` modules (see "Current choice" below), so this crate's
+`[dependencies]` are only `approx`, `ndarray`, `thiserror`, `uom` — no
+`outram-foam-basic-lib`, and nothing depends on `tampines-steam-tables`
+from the OpenFOAM stack yet. The cycle analysis below still documents the
+constraint any future real dependency edge must respect.
 
 ### The invariant
 
@@ -293,15 +364,31 @@ declared in appbuilder, or the solver holding the steam table directly where it
 currently evaluates `ρ = ψ·p`.
 
 There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
-1-D sibling of appbuilder's `RhoPimpleFoam`. The array is validated against
-Marviken in-crate; the full solver in appbuilder then consumes the *same* tables
-one layer up.
+1-D sibling of appbuilder's `RhoPimpleFoam`. The array is *intended* to be
+validated against Marviken in-crate. **That validation is still outstanding for
+`TampinesSteamArray` itself** — what landed on 2026-08-11 (bead `op-21g.16`) is
+the Marviken comparison for the *steady HEM critical-flow* dispatcher, not for
+the transient array solver. Its outcome is split and is written up in the module
+doc of `marviken_tests.rs`: HEM validates against test 23 (3 K subcooling, mean
+deviation 12.6 %) and **fails** against test 24 (33 K subcooling, mean
+$-48.5\%$), with the deficit traced to a solver branch choice rather than to the
+equilibrium assumption. The full solver in appbuilder then consumes the *same*
+tables one layer up.
 
-**Current choice:** Solution **A** realised at the `outram-foam-appbuilder-lib`
-level, with **B** for the thermo model and **D** available if the property-only
-compile surface ever needs trimming. `tampines-steam-tables` depends only on
-`outram-foam-basic-lib`; the forbidden `outram-foam-basic-lib → tampines` edge is
-never drawn.
+**Current choice (what was actually built, verified against `Cargo.toml`
+2026-08-11):** none of A–D exactly. Instead of depending on
+`outram-foam-basic-lib`, the needed Layers 1–4 primitives (fields, mesh, FV
+operators, LDU matrix, interpolation, thermophysics kernels, …) were
+**vendored into this crate** as a copy under
+`src/openfoam_algorithms/openfoam_source/`, kept `pub(crate)` so none of it
+leaks into the public API. This crate's `[dependencies]` are therefore only
+`approx`, `ndarray`, `thiserror`, `uom` — property-only consumers get a lean
+crate with no OpenFOAM dependency (the outcome Solution **D** aimed for),
+while `TampinesSteamArray` still builds on OpenFOAM-style primitives
+in-crate. The forbidden `outram-foam-basic-lib → tampines` edge is never
+drawn, and in fact no dependency edge exists between the two crates in
+either direction; Solutions **A**/**B** remain the plan for wiring the
+steam tables into `outram-foam-appbuilder-lib`-level solvers.
 
 
 # Changelog
@@ -986,3 +1073,12 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore,
+Ethan Yew Hoe, Wong,
+Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

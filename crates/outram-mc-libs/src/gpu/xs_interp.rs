@@ -326,10 +326,9 @@ pub fn interp_xs_gpu(
     });
 
     // --- Dispatch -------------------------------------------------------------
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("xs_interp.encoder"),
-        });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("xs_interp.encoder"),
+    });
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("xs_interp.pass"),
@@ -349,9 +348,7 @@ pub fn interp_xs_gpu(
         res.unwrap();
     });
     // Block until the GPU has finished and the map callback has fired.
-    device
-        .poll(wgpu::PollType::wait_indefinitely())
-        .unwrap();
+    device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
     let view = slice.get_mapped_range();
     let out = bytes_to_f32_vec(&view, n_query);
@@ -388,7 +385,7 @@ mod tests {
 
         let queries = [
             0.0, 1.0, 2.0, 3.0, 4.0, // grid points
-            0.5, 1.5, 2.5, 3.5, // midpoints
+            0.5, 1.5, 2.5, 3.5,  // midpoints
             -0.5, // out of range below -> extrapolate
             5.5,  // out of range above -> extrapolate
         ];
@@ -396,10 +393,7 @@ mod tests {
 
         for (&q, &got) in queries.iter().zip(out.iter()) {
             let want = f(q);
-            assert!(
-                (got - want).abs() < 1e-12,
-                "q={q}: got {got}, want {want}"
-            );
+            assert!((got - want).abs() < 1e-12, "q={q}: got {got}, want {want}");
         }
         // Spell out the two documented out-of-range clamps explicitly.
         assert!((out[9] - 0.0).abs() < 1e-12, "below-range extrapolation");

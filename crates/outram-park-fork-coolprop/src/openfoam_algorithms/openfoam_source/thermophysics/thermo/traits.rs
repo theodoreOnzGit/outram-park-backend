@@ -131,5 +131,8 @@ fn newton_t(
             return Ok(ThermodynamicTemperature::new::<kelvin>(t));
         }
     }
-    Err(ThermoError::NonConvergent { max_iter: MAX_ITER, last_t: t })
+    Err(ThermoError::NonConvergent {
+        max_iter: MAX_ITER,
+        last_t: t,
+    })
 }

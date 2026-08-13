@@ -51,7 +51,9 @@ use std::sync::Arc;
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::{VolScalarField, VolVectorField};
-use outram_foam_basic_lib::io::dict::{Dimensioned, FoamDict, FoamEntry, FoamFile, FoamHeader, FoamValue};
+use outram_foam_basic_lib::io::dict::{
+    Dimensioned, FoamDict, FoamEntry, FoamFile, FoamHeader, FoamValue,
+};
 use outram_foam_basic_lib::io::poly_mesh::{MeshFace, PolyMesh};
 use outram_foam_basic_lib::io::{
     read_vol_scalar_field, read_vol_vector_field, write_vol_scalar_field, write_vol_vector_field,
@@ -131,7 +133,10 @@ fn dict_roundtrip() {
 
     // Also confirm the header survives.
     assert_eq!(parsed.header.as_ref().unwrap().class(), Some("dictionary"));
-    assert_eq!(parsed.header.as_ref().unwrap().object(), Some("controlDict"));
+    assert_eq!(
+        parsed.header.as_ref().unwrap().object(),
+        Some("controlDict")
+    );
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -233,9 +238,10 @@ fn field_scalar_roundtrip() {
     let internal = Field::new(vec![1.5, 2.5]);
     let walls_vals: Vec<f64> = (0..8).map(|i| 0.1 * i as f64).collect();
     let boundary = vec![
-        PatchField::fixed_value(1, 5.0),  // left
-        PatchField::zero_gradient(1),     // right
-        PatchField {                      // walls: nonuniform fixedValue
+        PatchField::fixed_value(1, 5.0), // left
+        PatchField::zero_gradient(1),    // right
+        PatchField {
+            // walls: nonuniform fixedValue
             bc: BoundaryCondition::FixedField(Field::new(walls_vals.clone())),
             values: Field::new(walls_vals.clone()),
         },
@@ -259,7 +265,10 @@ fn field_scalar_roundtrip() {
         other => panic!("left patch: expected FixedValue, got {other:?}"),
     }
     // right: zeroGradient
-    assert!(matches!(read.boundary[1].bc, BoundaryCondition::ZeroGradient));
+    assert!(matches!(
+        read.boundary[1].bc,
+        BoundaryCondition::ZeroGradient
+    ));
     // walls: nonuniform fixedValue -> FixedField
     match &read.boundary[2].bc {
         BoundaryCondition::FixedField(f) => assert_eq!(f.as_slice(), walls_vals.as_slice()),
@@ -295,7 +304,10 @@ fn field_vector_roundtrip() {
         BoundaryCondition::FixedValue(v) => assert_eq!(*v, Vector3::new(0.0, 0.0, 0.0)),
         other => panic!("left patch: expected FixedValue, got {other:?}"),
     }
-    assert!(matches!(read.boundary[1].bc, BoundaryCondition::ZeroGradient));
+    assert!(matches!(
+        read.boundary[1].bc,
+        BoundaryCondition::ZeroGradient
+    ));
     match &read.boundary[2].bc {
         BoundaryCondition::FixedValue(v) => assert_eq!(*v, Vector3::new(2.0, 0.0, 0.0)),
         other => panic!("walls patch: expected FixedValue, got {other:?}"),

@@ -90,7 +90,13 @@ fn delayed_group_condensation() {
     // Notebook two-group structure: thermal [1e-5, 0.625] eV, fast [0.625, 20 MeV].
     let bounds = vec![1.0e-5, 0.625, 2.0e7];
     let dm = DelayedMgxs::collapse(
-        "U235", &energy, &fission, &nu_total, &delayed, &chi, &bounds,
+        "U235",
+        &energy,
+        &fission,
+        &nu_total,
+        &delayed,
+        &chi,
+        &bounds,
         &WeightingSpectrum::OneOverE,
     );
 
@@ -103,14 +109,20 @@ fn delayed_group_condensation() {
         assert!((got - want).abs() / want < 1e-3, "λ[{k}] = {got} vs {want}");
     }
     for k in 1..6 {
-        assert!(dm.decay_rate[k] > dm.decay_rate[k - 1], "λ not increasing at {k}");
+        assert!(
+            dm.decay_rate[k] > dm.decay_rate[k - 1],
+            "λ not increasing at {k}"
+        );
     }
 
     // Each precursor χ_delayed normalizes to 1 over the outgoing groups, ≥ 0.
     for k in 0..6 {
         let s: f64 = dm.chi_delayed[k].iter().sum();
         assert!((s - 1.0).abs() < 1e-9, "χ_delayed[{k}] Σ = {s}");
-        assert!(dm.chi_delayed[k].iter().all(|&v| v >= 0.0), "χ_delayed[{k}] < 0");
+        assert!(
+            dm.chi_delayed[k].iter().all(|&v| v >= 0.0),
+            "χ_delayed[{k}] < 0"
+        );
     }
 
     // Thermal-group total delayed fraction β ≈ 0.0065 (mdgxs-part-i point value
@@ -118,10 +130,16 @@ fn delayed_group_condensation() {
     // β·(total ν·σ_f).
     let beta_th = dm.total_beta(0);
     println!("U-235 thermal-group β = {beta_th:.6}");
-    assert!((0.006..=0.007).contains(&beta_th), "thermal β = {beta_th:.6} outside 0.006–0.007");
+    assert!(
+        (0.006..=0.007).contains(&beta_th),
+        "thermal β = {beta_th:.6} outside 0.006–0.007"
+    );
     for g in 0..2 {
         let sum_beta: f64 = dm.beta[g].iter().sum();
-        assert!((sum_beta - dm.total_beta(g)).abs() < 1e-12, "Σβ closure group {g}");
+        assert!(
+            (sum_beta - dm.total_beta(g)).abs() < 1e-12,
+            "Σβ closure group {g}"
+        );
         // delayed ν·σ_f closure: Σ_k (ν_{d,k}·σ_f) = β_g · (total ν·σ_f)_g.
         // With flat σ_f = 1, total ν·σ_f in group g is the flux-weighted ⟨ν⟩_g.
         let sum_dnf: f64 = dm.delayed_nu_fission[g].iter().sum();

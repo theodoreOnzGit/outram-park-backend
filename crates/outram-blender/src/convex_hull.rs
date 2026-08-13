@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Incremental 3-D convex hull (add points one at a time, delete the visible-face
+// horizon, re-cone) — K. L. Clarkson and P. W. Shor, "Applications of random
+// sampling in computational geometry, II", Discrete & Computational Geometry 4,
+// 1989, pp. 387-421; textbook treatment in M. de Berg et al., "Computational
+// Geometry: Algorithms and Applications", 3rd ed., Springer 2008, ch. 11.
+// Orientation tests come from boolean_predicates.rs (Shewchuk).
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the bmo_convex_hull operator.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **3D convex hull** of a point set — the incremental algorithm on the robust
 //! [`crate::boolean_predicates::orient3d`] orientation test.
 //!
@@ -156,7 +183,10 @@ fn initial_tetra(pts: &[Vec3]) -> Result<[usize; 4], HullError> {
     // i1: farthest from i0.
     let i1 = (0..pts.len())
         .max_by(|&a, &b| {
-            pts[a].sub(pts[i0]).length().total_cmp(&pts[b].sub(pts[i0]).length())
+            pts[a]
+                .sub(pts[i0])
+                .length()
+                .total_cmp(&pts[b].sub(pts[i0]).length())
         })
         .unwrap();
     if i1 == i0 {
@@ -178,7 +208,9 @@ fn initial_tetra(pts: &[Vec3]) -> Result<[usize; 4], HullError> {
     let n = e01.cross(pts[i2].sub(pts[i0]));
     let i3 = (0..pts.len())
         .max_by(|&a, &b| {
-            n.dot(pts[a].sub(pts[i0])).abs().total_cmp(&n.dot(pts[b].sub(pts[i0])).abs())
+            n.dot(pts[a].sub(pts[i0]))
+                .abs()
+                .total_cmp(&n.dot(pts[b].sub(pts[i0])).abs())
         })
         .unwrap();
     if orient3d(pts[i0], pts[i1], pts[i2], pts[i3]) == 0 {
@@ -268,7 +300,10 @@ mod tests {
         for &q in points {
             for face in m.polygons() {
                 let (a, b, c) = (ps[face[0].0], ps[face[1].0], ps[face[2].0]);
-                assert!(orient3d(a, b, c, q) != -1, "point {q:?} is outside a hull face");
+                assert!(
+                    orient3d(a, b, c, q) != -1,
+                    "point {q:?} is outside a hull face"
+                );
             }
         }
     }
@@ -280,7 +315,10 @@ mod tests {
         for face in m.polygons() {
             let (a, b, c) = (ps[face[0].0], ps[face[1].0], ps[face[2].0]);
             for &v in &ps {
-                assert!(orient3d(a, b, c, v) >= 0, "non-convex: a vertex is outside a face");
+                assert!(
+                    orient3d(a, b, c, v) >= 0,
+                    "non-convex: a vertex is outside a face"
+                );
             }
         }
     }
@@ -325,8 +363,15 @@ mod tests {
         assert_eq!(hull.face_count(), 12, "cube hull is 12 triangles");
         assert_eq!(hull.edge_count(), 18);
         assert_eq!(hull.euler_characteristic(), 2, "closed (chi=2)");
-        assert_eq!(hull.loop_count(), 36, "watertight: every edge borders two faces");
-        assert!((signed_volume(&hull) - 8.0).abs() < 1e-9, "volume = s^3 = 8");
+        assert_eq!(
+            hull.loop_count(),
+            36,
+            "watertight: every edge borders two faces"
+        );
+        assert!(
+            (signed_volume(&hull) - 8.0).abs() < 1e-9,
+            "volume = s^3 = 8"
+        );
         assert_contains_all(&hull, &corners);
         assert_convex(&hull);
     }
@@ -347,7 +392,10 @@ mod tests {
         assert_eq!(hull.vertex_count(), 6);
         assert_eq!(hull.face_count(), 8);
         assert_eq!(hull.euler_characteristic(), 2);
-        assert!((signed_volume(&hull) - 4.0 / 3.0).abs() < 1e-9, "octahedron volume 4/3");
+        assert!(
+            (signed_volume(&hull) - 4.0 / 3.0).abs() < 1e-9,
+            "octahedron volume 4/3"
+        );
         assert_convex(&hull);
     }
 
@@ -372,7 +420,10 @@ mod tests {
     fn degenerate_inputs_error() {
         // Fewer than 4 distinct points (duplicates collapse to 1).
         let dup = vec![Vec3::new(1.0, 2.0, 3.0); 5];
-        assert!(matches!(convex_hull(&dup), Err(HullError::NotEnoughPoints(1))));
+        assert!(matches!(
+            convex_hull(&dup),
+            Err(HullError::NotEnoughPoints(1))
+        ));
 
         // Collinear (all on the x-axis).
         let line: Vec<Vec3> = (0..6).map(|i| Vec3::new(i as f64, 0.0, 0.0)).collect();

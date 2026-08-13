@@ -55,15 +55,37 @@
 //! Data: `Nuclide::from_core` LOW-tier WMP/MGXS for every chain nuclide (all 9
 //! are in the CORE-125 set); `chain_simple.xml` decay/yield structure.
 //!
-//! **Results (2026-07-15, this harness; asserted at run time).** Recorded in
+//! **Results (measured 2026-08-06, this harness; asserted at run time).** All
+//! five trends hold. The one-group `k_inf` swings **1.91838 → 1.85661 over the
+//! 180-day cycle (−6177 pcm)**, the same sign as the notebook's MC reference
+//! swing. Also recorded in
 //! `docs/ai-fleet-review/op-6tz-depletion/REVIEW_MANIFEST.md` and the generated
 //! comparison CSV
 //! `verification_and_validation/openmc_notebook_comparisons/depletion.csv`
-//! (gitignored).
+//! (gitignored; its `date` column is a literal in the test body and still reads
+//! 2026-07-15 — the authoritative date is this block).
 //!
 //! A genuine Monte Carlo `k` on the evolved actinide inventory is exercised by
 //! [`depletion_mc_transport_coupling`] to show the transport path is wired
-//! (fast-spectrum bare sphere — absolute value not comparable to the notebook).
+//! (fast-spectrum bare sphere — absolute value not comparable to the notebook):
+//! measured 2026-08-06, **BOL k = 0.16531 ± 0.00607, EOL k = 0.16220 ± 0.00354**.
+//!
+//! **Supersedes / did-not-move (`op-jis`).** Bead `op-jis` gave `prn` OpenMC's
+//! PCG-RXS-M-XS output permutation: the LCG *state* recurrence is unchanged, but
+//! every sampled uniform moved.
+//! - **Moved:** the Monte Carlo bare-sphere `k` values above. This block
+//!   previously (2026-07-15) quoted no numbers for them, deferring to the
+//!   REVIEW_MANIFEST; whatever was recorded there was taken with the old `prn`
+//!   output function (raw top-52 state bits) and is superseded by the BOL/EOL
+//!   figures above.
+//! - **Did not move:** the one-group burnup trajectory (`deplete_predictor` +
+//!   CRAM) draws **no random numbers** — cross sections are evaluated at the
+//!   0.0253 eV thermal point and the transmutation step is a deterministic matrix
+//!   exponential — so the inventories and the `k_inf` swing are unaffected by the
+//!   RNG change.
+//! - **External, unchanged:** the notebook's own MC k reference
+//!   (1.46478 → 1.42368, −4110 pcm) and its σ values are OpenMC's published cell
+//!   outputs, not measurements of this crate.
 
 use outram_mc_libs::depletion::chain::DepletionChain;
 use outram_mc_libs::depletion::operator::{deplete_predictor, BurnupResult, BurnupSettings};
@@ -109,7 +131,12 @@ fn depletion_burnup() {
 
     // (1) U-235 depletes monotonically.
     for w in u235.windows(2) {
-        assert!(w[1] < w[0], "U-235 must decrease each step: {} -> {}", w[0], w[1]);
+        assert!(
+            w[1] < w[0],
+            "U-235 must decrease each step: {} -> {}",
+            w[0],
+            w[1]
+        );
     }
     assert!(u235[0] > 0.0);
 
@@ -178,6 +205,15 @@ fn depletion_burnup() {
 /// is far below the notebook's moderated pin cell and is *not* a benchmark —
 /// its purpose is to show the depletion→transport coupling path executes on a
 /// depleted inventory and returns a finite eigenvalue.
+///
+/// **Results (measured 2026-08-06):** BOL **k = 0.16531 ± 0.00607**, EOL
+/// **k = 0.16220 ± 0.00354** (500 particles, 10 inactive + 30 active, seeded).
+///
+/// **Supersedes (pre-`op-jis`):** the earlier BOL/EOL values (recorded 2026-07-15
+/// only in `docs/ai-fleet-review/op-6tz-depletion/REVIEW_MANIFEST.md`, never in
+/// this doc comment) were taken with the old `prn` output function — uniforms
+/// formed from the raw top-52 state bits, before the PCG-RXS-M-XS output
+/// permutation — and are superseded by the figures above.
 #[test]
 fn depletion_mc_transport_coupling() {
     use outram_mc_libs::depletion::operator::mc_keff_of_actinide_sphere;
@@ -185,19 +221,39 @@ fn depletion_mc_transport_coupling() {
 
     let result = run_notebook_case();
     // Modest, seeded (deterministic) MC run.
-    let settings =
-        KeffSettings { n_particles: 500, n_inactive: 10, n_active: 30, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 10,
+        n_active: 30,
+        ..KeffSettings::default()
+    };
 
-    let bol: Vec<(String, f64)> =
-        result.bol().densities.iter().filter(|(n, _)| n.starts_with('U')).cloned().collect();
-    let eol: Vec<(String, f64)> =
-        result.eol().densities.iter().filter(|(n, _)| n.starts_with('U')).cloned().collect();
+    let bol: Vec<(String, f64)> = result
+        .bol()
+        .densities
+        .iter()
+        .filter(|(n, _)| n.starts_with('U'))
+        .cloned()
+        .collect();
+    let eol: Vec<(String, f64)> = result
+        .eol()
+        .densities
+        .iter()
+        .filter(|(n, _)| n.starts_with('U'))
+        .cloned()
+        .collect();
 
     let k_bol = mc_keff_of_actinide_sphere(&bol, 12.0, &settings);
     let k_eol = mc_keff_of_actinide_sphere(&eol, 12.0, &settings);
 
-    assert!(k_bol.k_mean.is_finite() && k_bol.k_mean > 0.0, "BOL MC k must be finite/positive");
-    assert!(k_eol.k_mean.is_finite() && k_eol.k_mean > 0.0, "EOL MC k must be finite/positive");
+    assert!(
+        k_bol.k_mean.is_finite() && k_bol.k_mean > 0.0,
+        "BOL MC k must be finite/positive"
+    );
+    assert!(
+        k_eol.k_mean.is_finite() && k_eol.k_mean > 0.0,
+        "EOL MC k must be finite/positive"
+    );
     eprintln!(
         "MC bare-sphere k (fast, NOT notebook-comparable): BOL {:.5} ± {:.5}, EOL {:.5} ± {:.5}",
         k_bol.k_mean, k_bol.k_std, k_eol.k_mean, k_eol.k_std
@@ -216,11 +272,17 @@ fn write_comparison_csv(result: &BurnupResult) {
     );
     let _ = std::fs::create_dir_all(dir);
     let path = format!("{dir}/depletion.csv");
-    let Ok(mut f) = std::fs::File::create(&path) else { return };
+    let Ok(mut f) = std::fs::File::create(&path) else {
+        return;
+    };
 
     // Notebook MC k per report point (t = 0..180 d).
-    let ref_k = [1.46478, 1.43891, 1.43604, 1.42959, 1.42755, 1.42575, 1.42368];
-    let ref_sigma = [0.00392, 0.00466, 0.00493, 0.00429, 0.00464, 0.00483, 0.00460];
+    let ref_k = [
+        1.46478, 1.43891, 1.43604, 1.42959, 1.42755, 1.42575, 1.42368,
+    ];
+    let ref_sigma = [
+        0.00392, 0.00466, 0.00493, 0.00429, 0.00464, 0.00483, 0.00460,
+    ];
 
     let _ = writeln!(
         f,

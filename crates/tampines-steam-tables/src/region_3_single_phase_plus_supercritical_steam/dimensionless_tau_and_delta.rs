@@ -4,7 +4,6 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 use crate::constants;
 
-
 /// Returns the region-3 delta
 /// dimensionless specific density
 /// Specific mass is assumed to be in kg/m3
@@ -18,4 +17,3 @@ pub fn delta_3(rho: MassDensity) -> f64 {
 pub fn tau_3(t: ThermodynamicTemperature) -> f64 {
     constants::T_C_KELVIN / t.get::<kelvin>()
 }
-

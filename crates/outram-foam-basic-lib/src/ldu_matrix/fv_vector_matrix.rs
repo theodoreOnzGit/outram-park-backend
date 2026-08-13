@@ -25,6 +25,7 @@ use std::sync::Arc;
 use super::fv_matrix::{SolverPerformance, SolverSettings};
 use super::ldu_matrix::LduMatrix;
 use super::solvers::gauss_seidel::gauss_seidel as gs;
+use super::solvers::krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions};
 use crate::fields::boundary::bc::PatchField;
 use crate::fields::field::Field;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -52,10 +53,29 @@ pub struct FvVectorMatrix {
 impl FvVectorMatrix {
     /// Allocate a zero-initialised vector matrix for `mesh` (zero coefficients,
     /// zero source).
+    ///
+    /// As with [`FvMatrix::new`](crate::ldu_matrix::FvMatrix::new), the LDU face
+    /// addressing holds the internal faces, then one slot per
+    /// [`CyclicCoupling`](crate::mesh::CyclicCoupling), then one slot per
+    /// [`AmiWeight`](crate::mesh::AmiWeight) of each
+    /// [`AmiCoupling`](crate::mesh::AmiCoupling), so every vector matrix on a
+    /// given mesh shares one structure and the `+`/`−` operators line up.
     pub fn new(mesh: Arc<FvMesh>) -> Self {
         let n_cells = mesh.n_cells;
-        let owner = mesh.owner[..mesh.n_internal_faces].to_vec();
-        let neighbour = mesh.neighbour.clone();
+        let mut owner = mesh.owner[..mesh.n_internal_faces].to_vec();
+        let mut neighbour = mesh.neighbour.clone();
+        for cc in &mesh.cyclic_couplings {
+            owner.push(cc.owner);
+            neighbour.push(cc.neighbour);
+        }
+        // Non-conformal (AMI) seams: one LDU face per weighted (target, source)
+        // pair, appended after the cyclic couplings in `ami_couplings` order.
+        for cc in &mesh.ami_couplings {
+            for w in &cc.weights {
+                owner.push(cc.target_cell);
+                neighbour.push(w.source_cell);
+            }
+        }
         Self {
             ldu: LduMatrix::new(n_cells, owner, neighbour),
             source: Field::from_fn(n_cells, |_| Vector3::ZERO),
@@ -112,7 +132,9 @@ impl FvVectorMatrix {
         for c in 0..n {
             h[c] = self.source[c];
         }
-        for f in 0..mesh.n_internal_faces {
+        // Full LDU face count (internal + appended cyclic couplings) so
+        // periodic-seam off-diagonals contribute to H.
+        for f in 0..self.ldu.n_internal_faces {
             let o = self.ldu.owner[f];
             let nb = self.ldu.neighbour[f];
             h[o] = h[o] - u.internal[nb] * self.ldu.upper[f];
@@ -179,6 +201,114 @@ impl FvVectorMatrix {
             n_iterations: n_iters,
             final_residual: final_res,
             converged: final_res < settings.tolerance,
+        };
+        (u, perf)
+    }
+
+    // ── Asymmetric Krylov solves (the momentum matrix) ─────────────────────
+
+    /// Solve each velocity component with **preconditioned BiCGStab**,
+    /// cold-started from `U = 0`.
+    ///
+    /// The momentum matrix assembled by `fvm::div_vec(phi, U) −
+    /// fvm::laplacian_vec(nu, U)` is **asymmetric** — upwind convection puts the
+    /// face flux on the donor side only, so `lower[f] != upper[f]`. That rules
+    /// out PCG and GAMG, and before this method the only option was the
+    /// Gauss-Seidel [`solve`](Self::solve), whose sweep count grows like the
+    /// matrix condition number. With the default [`KrylovOptions`] this is
+    /// ILU(0)-preconditioned BiCGStab — the analogue of OpenFOAM's `PBiCGStab`
+    /// with `DILU` on the `U` equation.
+    ///
+    /// Because the LDU coefficients are scalar and identical for all three
+    /// components, this runs three independent scalar Krylov solves sharing one
+    /// preconditioner build per component. The returned
+    /// [`SolverPerformance`] reports the **worst** of the three: the largest
+    /// iteration count and the largest relative 2-norm residual
+    /// `||b − A·U||₂ / ||b||₂`, and `converged` only if all three converged.
+    ///
+    /// Units: `U` is a velocity `[m·s⁻¹]`; the matrix and source carry whatever
+    /// units the assembling operators produced. The solve itself is
+    /// dimensionless.
+    pub fn solve_bicgstab(
+        &self,
+        name: &str,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolVectorField, SolverPerformance) {
+        self.solve_krylov(name, None, KrylovMethod::BiCGStab, options, settings)
+    }
+
+    /// Solve each velocity component with **restarted GMRES(m)**, cold-started
+    /// from `U = 0`.
+    ///
+    /// See [`solve_bicgstab`](Self::solve_bicgstab) for why an asymmetric solver
+    /// is needed at all. GMRES cannot break down and its residual is monotone,
+    /// but it stores `options.restart` basis vectors per component; prefer it
+    /// when BiCGStab reports `converged = false`.
+    pub fn solve_gmres(
+        &self,
+        name: &str,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolVectorField, SolverPerformance) {
+        self.solve_krylov(name, None, KrylovMethod::Gmres, options, settings)
+    }
+
+    /// Solve each velocity component with the Krylov method named by `method`,
+    /// optionally warm-started from `initial` (typically the previous time
+    /// step's velocity field).
+    ///
+    /// The general form behind [`solve_bicgstab`](Self::solve_bicgstab) and
+    /// [`solve_gmres`](Self::solve_gmres). Each component `x`, `y`, `z` of
+    /// `initial` seeds the corresponding scalar solve; `None` starts from zero.
+    pub fn solve_krylov(
+        &self,
+        name: &str,
+        initial: Option<&VolVectorField>,
+        method: KrylovMethod,
+        options: KrylovOptions,
+        settings: SolverSettings,
+    ) -> (VolVectorField, SolverPerformance) {
+        let mesh = self.mesh.clone();
+        let n = mesh.n_cells;
+
+        let b: [Vec<f64>; 3] = [
+            (0..n).map(|c| self.source[c].x).collect(),
+            (0..n).map(|c| self.source[c].y).collect(),
+            (0..n).map(|c| self.source[c].z).collect(),
+        ];
+        let x0: Option<[Vec<f64>; 3]> = initial.map(|f| {
+            [
+                (0..n).map(|c| f.internal[c].x).collect(),
+                (0..n).map(|c| f.internal[c].y).collect(),
+                (0..n).map(|c| f.internal[c].z).collect(),
+            ]
+        });
+
+        let mut sol: [Vec<f64>; 3] = [vec![0.0; n], vec![0.0; n], vec![0.0; n]];
+        let mut n_iters = 0usize;
+        let mut final_res = 0.0_f64;
+        let mut converged = true;
+        for (k, item) in sol.iter_mut().enumerate() {
+            let guess = x0.as_ref().map(|g| g[k].as_slice());
+            let (x, perf) = krylov_solve(&self.ldu, &b[k], guess, method, options, &settings);
+            *item = x;
+            n_iters = n_iters.max(perf.n_iterations);
+            final_res = final_res.max(perf.final_residual);
+            converged &= perf.converged;
+        }
+
+        let internal = Field::from_fn(n, |c| Vector3::new(sol[0][c], sol[1][c], sol[2][c]));
+        let boundary = mesh
+            .patches
+            .iter()
+            .map(|p| PatchField::zero_gradient_vec(p.size))
+            .collect();
+        let u = VolVectorField::new(name, mesh, internal, boundary);
+        let perf = SolverPerformance {
+            n_iterations: n_iters,
+            final_residual: final_res,
+            converged,
         };
         (u, perf)
     }

@@ -2,8 +2,8 @@
 //!
 //! Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 //! neutron-transport kernels (RNG, geometry/CSG, particle tracking,
-//! k-eigenvalue, delta/Woodcock tracking). Data-free: cross sections are
-//! pulled from `njoy-outram-park-fork`'s `XsProvider` surface.
+//! k-eigenvalue and fixed-source drivers, delta/Woodcock tracking). Data-free:
+//! cross sections are pulled from `njoy-outram-park-fork`'s `XsProvider` surface.
 //!
 //! ## License & provenance — read this first
 //!

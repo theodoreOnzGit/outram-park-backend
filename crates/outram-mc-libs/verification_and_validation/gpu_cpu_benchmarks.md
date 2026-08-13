@@ -8,10 +8,22 @@
 > for nuclear facility operation, reactor control, safety-critical, or licensing
 > decisions.
 
-**Generated:** 2026-07-17 (Asia/Singapore)
+<!-- op-jis-supersede-banner -->
+> ⚠️ **Superseded in part — `op-jis` PCG output permutation (2026-08-06).**
+> `rng::lcg::prn` gained OpenMC's PCG-RXS-M-XS output permutation (bead
+> `op-jis`). The LCG **state recurrence is unchanged**, so every integer-state
+> fact in this record still holds, but every statistic derived from the sampled
+> **uniform values** has moved. Each results block below is individually
+> annotated: re-measured figures are dated **2026-08-06** and carry a
+> *Supersedes* note naming the old value; figures that could **not** be re-run on
+> this machine are left visible, clearly marked **PENDING A RE-RUN**, and must
+> not be cited as current.
+
+**Generated:** 2026-07-17 (Asia/Singapore); partially re-measured 2026-08-06 (see per-block notes)
 **Crate commit at generation:** branch `develop`, based on `8e5d1e5`
-**Machine:** NVIDIA GeForce RTX 3050 (6 GB, driver 610.43.02), Vulkan backend via `wgpu` 29.0.3; single-thread `f64` CPU reference.
-**Beads:** op-nx0 (Godiva benchmark), op-6tz.37 (second TRISO tutorial), op-u6s.4 (GPU-XS-into-transport wire-in — partial).
+**Machine (2026-07-17 original run):** NVIDIA GeForce RTX 3050 (6 GB, driver 610.43.02), Vulkan backend via `wgpu` 29.0.3; single-thread `f64` CPU reference.
+**Machine (2026-08-06 op-jis re-run):** NVIDIA RTX A5000 (NVK GA102) — a **different adapter** from the original run, so GPU-side figures re-measured on 2026-08-06 confound the `prn` change with the hardware change; this is flagged where it matters rather than explained away.
+**Beads:** op-nx0 (Godiva benchmark), op-6tz.37 (second TRISO tutorial), op-u6s.4 (GPU-XS-into-transport wire-in — partial), op-jis (PCG output permutation).
 
 ## What was measured, and what was NOT
 
@@ -54,7 +66,11 @@ into an event-based collision-site sweep, remain the open part of op-u6s.4.
 - **Data tier:** LOW / offline (`Nuclide::from_core`, embedded WMP + fast MGXS)
   so the CPU baseline is fully reproducible with no network. (The HIGH-fidelity
   continuous-energy ENDF variant is documented separately in the
-  `godiva_keff_endf` example, which reaches 1.00367 ± 0.00182.)
+  `godiva_keff_endf` example, which reached 1.00367 ± 0.00182 — **superseded by
+  `op-jis` and PENDING A RE-RUN**: that example needs `--features net-fetch` to
+  download ENDF tapes and there is no local cache on this machine, so no
+  post-`op-jis` replacement was measured. Do not cite 1.00367 ± 0.00182 as
+  current.)
 - **Power iteration:** 5000 histories/generation, 40 inactive + 120 active.
   Fixed RNG seed ⇒ bit-reproducible k.
 - **Reference:** ICSBEP HEU-MET-FAST-001, k_eff = 1.0000 ± 0.0010.
@@ -66,32 +82,62 @@ into an event-based collision-site sweep, remain the open part of op-u6s.4.
   (this is a LOW-tier run, so a data-fidelity bias is expected and reported, not
   hidden); GPU-vs-CPU agreement judged as f32 accumulation tolerance.
 
-### Results (2026-07-17, RTX 3050)
+### Results (CURRENT — re-measured 2026-08-06 under the `op-jis` PCG output permutation)
 
-**CPU k_eff baseline (trusted reference):**
+> **Supersedes** the 2026-07-17 figures **k_eff = 1.01024 ± 0.00171 / Δk =
+> +1024 pcm**, CSV final cumulative mean **1.010242**, and the XS-kernel
+> agreement columns **2.561e-6 / 7.031e-9**, **1.245e-5 / 7.197e-9**,
+> **1.854e-5 / 7.119e-9** (max \|Δ\| / mean \|Δ\|, cm⁻¹). Those were measured
+> with the **pre-`op-jis` output function** — the raw top-52 bits of the LCG
+> state — and no longer reflect the generator. The state recurrence did not
+> change, so the geometry, material, and iteration settings below are untouched.
 
-- **k_eff = 1.01024 ± 0.00171**, Δk = **+1024 pcm** vs ICSBEP 1.0000 ± 0.0010.
-- Wall-clock 1.224 s; throughput **653 725 source-histories/s** (800 000
-  histories). Deterministic — reproduced bit-for-bit across 3 runs.
-- Interpretation: the +1024 pcm is the known LOW-tier (group-data, no fast
+**CPU k_eff baseline (trusted reference), 2026-08-06:**
+
+- **k_eff = 1.01107 ± 0.00170**, Δk = **+1107 pcm** vs ICSBEP 1.0000 ± 0.0010.
+- Interpretation: the +1107 pcm is the known LOW-tier (group-data, no fast
   self-shielding, no (n,2n) column, no MF=5 χ) bias documented for this model;
-  it is a data-fidelity offset, not a transport error. The combined σ is
-  ~0.0020, so +1024 pcm is a resolved bias (~5σ), as expected for LOW tier.
+  it is a data-fidelity offset, not a transport error. The combined σ is 0.00197
+  (0.00170 ⊕ 0.0010), so +1107 pcm is a resolved bias (5.6σ), as expected for
+  LOW tier. The pre-`op-jis` run gave +1024 pcm at 5.2σ — the same physical
+  conclusion, shifted by one realisation of a different uniform stream.
+- **Wall-clock / throughput NOT re-measured on 2026-08-06.** The 2026-07-17
+  figures (1.224 s; **653 725 source-histories/s** over 800 000 histories, RTX
+  3050 host, reproduced bit-for-bit across 3 runs) are retained as the
+  2026-07-17 record only; the PCG permutation adds arithmetic per draw, so treat
+  them as **not current** for throughput purposes.
 
-**Isolated XS-kernel throughput (GPU acceleration vs CPU f64 reference):**
+**Isolated XS-kernel f32-vs-f64 agreement, 2026-08-06 (NVIDIA RTX A5000 / NVK GA102):**
 
-| batch | CPU Mq/s | GPU Mq/s | GPU speedup | max \|Δ\| (cm⁻¹) | mean \|Δ\| (cm⁻¹) |
-|---|---|---|---|---|---|
-| 65 536 (2^16) | 30.4 | 75.7 | 2.49× | 2.561e-6 | 7.031e-9 |
-| 262 144 (2^18) | 30.0 | 178.8 | 5.95× | 1.245e-5 | 7.197e-9 |
-| 1 048 576 (2^20) | 29.7 | 219.4 | 7.39× | 1.854e-5 | 7.119e-9 |
+The query energies are Watt-sampled, so these agreement figures depend directly
+on `prn` and moved with `op-jis`. Throughput was **not** re-recorded in this run.
 
-- GPU beats the single-thread f64 CPU reference at every batch size, and the
-  speedup **grows with batch size** (2.49× → 7.39×) — the signature of a kernel
-  bounded by fixed upload/launch/readback overhead that amortises as the batch
-  grows.
-- f32-vs-f64 agreement is single-precision-tight: max ≈ 1.85e-5 cm⁻¹ against
-  Σ_t of O(0.05–40 cm⁻¹) (≲ 1e-6 relative on the mean).
+| batch | max \|Δ\| (cm⁻¹) | mean \|Δ\| (cm⁻¹) |
+|---|---|---|
+| 65 536 (2^16) | 1.797990e-6 | 7.556093e-9 |
+| 262 144 (2^18) | 3.410e-6 | 7.507e-9 |
+| 1 048 576 (2^20) | 6.110e-5 | 7.626e-9 |
+
+- f32-vs-f64 agreement stays single-precision-tight on the mean (≈ 7.6e-9 cm⁻¹
+  against Σ_t of O(0.05–40 cm⁻¹), ≲ 1e-6 relative). The **max** \|Δ\| at 2^20
+  rose from 1.854e-5 to 6.110e-5 cm⁻¹; a max over a Watt-sampled batch is a
+  tail statistic of the drawn energies, so it is expected to be volatile between
+  streams. **Confound, stated plainly:** this re-run was on a *different
+  adapter* (RTX A5000 / NVK) from the 2026-07-17 RTX 3050 run, so the change
+  cannot be attributed to `op-jis` alone.
+
+**Throughput record (2026-07-17, RTX 3050 — NOT re-measured post-`op-jis`):**
+
+| batch | CPU Mq/s | GPU Mq/s | GPU speedup |
+|---|---|---|---|
+| 65 536 (2^16) | 30.4 | 75.7 | 2.49× |
+| 262 144 (2^18) | 30.0 | 178.8 | 5.95× |
+| 1 048 576 (2^20) | 29.7 | 219.4 | 7.39× |
+
+- On that hardware the GPU beat the single-thread f64 CPU reference at every
+  batch size, and the speedup **grew with batch size** (2.49× → 7.39×) — the
+  signature of a kernel bounded by fixed upload/launch/readback overhead that
+  amortises as the batch grows.
 - **Caveat on the speedup baseline:** the CPU side is a single-thread scalar f64
   loop. Against a vectorised / multithreaded CPU baseline the small-batch case
   could fall below 1×. The honest claim is: *"GPU wins for large batches on this
@@ -102,10 +148,12 @@ into an event-based collision-site sweep, remain the open part of op-u6s.4.
 - `gpu_benchmarks/godiva_keff_convergence.csv` — columns
   `generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase`
   (160 generations; inactive rows carry blank cumulative columns; the first
-  active generation has a blank σ). Final row cumulative mean = 1.010242,
-  matching the reported k_eff.
+  active generation has a blank σ). **Regenerated 2026-08-06**: final row is
+  generation 159, `k_cumulative_mean` = 1.011075, σ = 0.001695, matching the
+  reported k_eff. (Supersedes the pre-`op-jis` final cumulative mean 1.010242.)
 - `gpu_benchmarks/godiva_xs_throughput.csv` — one row per batch size, columns
   `batch_size,cpu_ms,gpu_ms,cpu_queries_per_s,gpu_queries_per_s,gpu_speedup,max_abs_err_cm^-1,mean_abs_err_cm^-1`.
+  **Regenerated 2026-08-06** by the same re-run.
 
 Reproduce: `cargo run -p outram-mc-libs --release --example godiva_gpu_benchmark`.
 
@@ -160,21 +208,42 @@ demonstrates the HIGH-fidelity net-fetch + GPU-XS path end to end, not a
 graphite-moderated TRISO physics benchmark. Adding carbon to `well_known_mat` is
 follow-up work (candidate bead).
 
-### Results (2026-07-17, RTX 3050)
+### Results (2026-07-17, RTX 3050) — SUPERSEDED BY `op-jis`, PENDING A RE-RUN
+
+> ⚠️ **Every sampled statistic in this Benchmark-B block is superseded by the
+> `op-jis` PCG output permutation (2026-08-06) and has NOT been replaced.**
+> `examples/triso_gpu_benchmark` requires `--features net-fetch` to download the
+> ENDF/B-VII.1 tapes it reconstructs from, and this machine has no local cache
+> for it, so the example **could not be re-run**. The numbers below were measured
+> with the **pre-`op-jis` output function** (raw top-52 state bits). They are left
+> visible as the historical record; **do not cite them as current**, and do not
+> substitute a guessed replacement. Re-run with
+> `cargo run -p outram-mc-libs --release --features net-fetch --example triso_gpu_benchmark`
+> on a networked machine to retire this note.
+>
+> The **two tracked CSVs** this benchmark writes —
+> `gpu_benchmarks/triso_keff_convergence.csv` and
+> `gpu_benchmarks/triso_xs_throughput.csv` — were likewise **not** regenerated
+> and still hold **pre-`op-jis`** numbers.
 
 **HIGH-fidelity reconstruction (on device):** U-234 0.4 s, U-235 12.4 s,
-U-238 28.4 s, H-1 0.9 s — total 42.1 s (U tapes warm in cache).
+U-238 28.4 s, H-1 0.9 s — total 42.1 s (U tapes warm in cache). *(Reconstruction
+is RNG-free deterministic data processing, so these timings are not a `prn`
+statistic; they are still 2026-07-17 / RTX-3050-host figures.)*
 
-**CPU k∞ baseline (trusted reference):**
+**CPU k∞ baseline (trusted reference) — SUPERSEDED, PENDING RE-RUN:**
 
 - **k∞ = 1.86062 ± 0.00268** over 100 generations (delta tracking).
+  *Pre-`op-jis` value; no post-`op-jis` measurement exists.*
 - Transport wall-clock 15.3 s; throughput **1.311e4 source-histories/s**.
-- Interpretation: a reflective fissile HEU infinite medium has no leakage, so
+- Interpretation (still the qualitative expectation, independent of the RNG
+  change): a reflective fissile HEU infinite medium has no leakage, so
   k∞ ≫ 1 is expected; the source converged and stayed stationary — evidence
   delta tracking transports correctly through the packed doubly-heterogeneous
   medium on HIGH-fidelity data.
 
-**Isolated XS-kernel throughput (GPU acceleration vs CPU f64 reference):**
+**Isolated XS-kernel throughput (GPU vs CPU f64 reference) — the agreement
+columns are Watt-sampled and therefore SUPERSEDED, PENDING RE-RUN:**
 
 | batch | CPU Mq/s | GPU Mq/s | GPU speedup | max \|Δ\| (cm⁻¹) | mean \|Δ\| (cm⁻¹) |
 |---|---|---|---|---|---|
@@ -187,11 +256,11 @@ U-238 28.4 s, H-1 0.9 s — total 42.1 s (U tapes warm in cache).
   agreement ~1e-8 cm⁻¹ mean (≲ 1e-6 relative) against Σ_t of O(0.1–40 cm⁻¹).
   The same single-thread-baseline caveat as Benchmark A applies.
 
-**Plottable CSVs** (committed):
+**Plottable CSVs** (committed) — **still pre-`op-jis`, not regenerated:**
 
 - `gpu_benchmarks/triso_keff_convergence.csv` — columns
   `generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase` (100
-  generations; final cumulative mean matches the reported k∞).
+  generations; final cumulative mean matches the reported pre-`op-jis` k∞).
 - `gpu_benchmarks/triso_xs_throughput.csv` — one row per batch size (same
   columns as the Godiva throughput CSV).
 
@@ -203,10 +272,22 @@ Reproduce (needs network on first run for the moderator tape; U tapes cache):
 ## Cross-cutting: GPU-vs-CPU agreement gate
 
 The `UnionTotalXs` GPU path is additionally gated by the unit test
-`gpu::union_grid::tests::gpu_matches_cpu_union_grid`, which on this RTX 3050
-compared 8195 queries against real Godiva macroscopic Σ_t and found
-**max \|Δ\| = 1.948e-4 cm⁻¹, mean \|Δ\| = 2.342e-6 cm⁻¹** within tolerance
-`|gpu − cpu| ≤ 3e-3·(1 + |cpu|)`. On CPU-only machines (no GPU adapter) that
+`gpu::union_grid::tests::gpu_matches_cpu_union_grid`, which compares 8195 queries
+against real Godiva macroscopic Σ_t within tolerance
+`|gpu − cpu| ≤ 3e-3·(1 + |cpu|)`.
+
+- **Re-measured 2026-08-06** (NVIDIA RTX A5000 / NVK GA102): **max \|Δ\| =
+  1.948e-4 cm⁻¹, mean \|Δ\| = 2.401e-6 cm⁻¹**. The native-union variant of the
+  same gate gave **max \|Δ\| = 3.866e-4 cm⁻¹, mean \|Δ\| = 3.521e-6 cm⁻¹**.
+- **This is NOT a `prn` effect and must not be reported as one.** The probe
+  energies for this gate are **log-spaced and RNG-free**, so `op-jis` cannot move
+  them. The max is **unchanged** at 1.948e-4 cm⁻¹. The mean drifted from the
+  2026-07-17 record of **2.342e-6 cm⁻¹** (measured on the RTX 3050) to 2.401e-6
+  cm⁻¹; the most likely cause is the different adapter/driver, but that is an
+  **unresolved discrepancy flagged here rather than explained away**. Both values
+  sit far inside the tolerance.
+
+On CPU-only machines (no GPU adapter) that
 test prints a SKIP and the analytical CPU-reference tests still cover the
 algorithm. All 78 `--lib` tests pass in release; the Android `--lib` check is
 clean (the GPU path is `cfg(not(target_os = "android"))`-gated out).

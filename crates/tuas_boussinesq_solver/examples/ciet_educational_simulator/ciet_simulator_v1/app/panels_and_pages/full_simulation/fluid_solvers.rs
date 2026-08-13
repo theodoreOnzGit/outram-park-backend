@@ -7,7 +7,7 @@ use std::thread;
 use tuas_boussinesq_solver::pre_built_components::ciet_three_branch_plus_dracs::solver_functions::get_mass_flowrate_two_branches;
 use tuas_boussinesq_solver::pre_built_components::ciet_three_branch_plus_dracs::solver_functions::get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches;
 use tuas_boussinesq_solver::prelude::beta_testing::InsulatedPorousMediaFluidComponent;
-// first, copy and paste the dracs loop functions over 
+// first, copy and paste the dracs loop functions over
 //
 use uom::si::f64::*;
 
@@ -16,7 +16,7 @@ use tuas_boussinesq_solver::
 array_control_vol_and_fluid_component_collections::
 fluid_component_collection::
 fluid_component_collection::FluidComponentCollection;
-// let's construct the branches with test pressures and obtain 
+// let's construct the branches with test pressures and obtain
 use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use uom::ConstZero;
 
@@ -25,11 +25,8 @@ array_control_vol_and_fluid_component_collections::
 fluid_component_collection::
 fluid_component_super_collection::FluidComponentSuperCollection;
 
-use tuas_boussinesq_solver::pre_built_components::
-insulated_pipes_and_fluid_components::InsulatedFluidComponent;
-use tuas_boussinesq_solver::pre_built_components::
-non_insulated_fluid_components::NonInsulatedFluidComponent;
-
+use tuas_boussinesq_solver::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
+use tuas_boussinesq_solver::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
 
 pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     pump_pressure: Pressure,
@@ -58,29 +55,25 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     pipe_17b: &InsulatedFluidComponent,
     // ctah branch
     pipe_5b: &InsulatedFluidComponent,
-    static_mixer_41_label_6 :&InsulatedFluidComponent,
-    pipe_6a :&InsulatedFluidComponent,
-    ctah_vertical_label_7a :&NonInsulatedFluidComponent,
-    ctah_horizontal_label_7b :&NonInsulatedFluidComponent,
-    pipe_8a :&InsulatedFluidComponent,
-    static_mixer_40_label_8 :&InsulatedFluidComponent,
-    pipe_9 :&InsulatedFluidComponent,
-    pipe_10 :&InsulatedFluidComponent,
-    pipe_11 :&InsulatedFluidComponent,
-    pipe_12 :&InsulatedFluidComponent,
-    ctah_pump :&NonInsulatedFluidComponent,
-    pipe_13 : &InsulatedFluidComponent,
-    pipe_14 : &InsulatedFluidComponent,
-    flowmeter_40_14a :&NonInsulatedFluidComponent,
-    pipe_15 :&InsulatedFluidComponent,
-    pipe_16 :&InsulatedFluidComponent,
-    pipe_17a :&InsulatedFluidComponent,
-    ) ->
-(MassRate, MassRate, MassRate) {
-
-
-    let mut heater_branch = 
-        FluidComponentCollection::new_series_component_collection();
+    static_mixer_41_label_6: &InsulatedFluidComponent,
+    pipe_6a: &InsulatedFluidComponent,
+    ctah_vertical_label_7a: &NonInsulatedFluidComponent,
+    ctah_horizontal_label_7b: &NonInsulatedFluidComponent,
+    pipe_8a: &InsulatedFluidComponent,
+    static_mixer_40_label_8: &InsulatedFluidComponent,
+    pipe_9: &InsulatedFluidComponent,
+    pipe_10: &InsulatedFluidComponent,
+    pipe_11: &InsulatedFluidComponent,
+    pipe_12: &InsulatedFluidComponent,
+    ctah_pump: &NonInsulatedFluidComponent,
+    pipe_13: &InsulatedFluidComponent,
+    pipe_14: &InsulatedFluidComponent,
+    flowmeter_40_14a: &NonInsulatedFluidComponent,
+    pipe_15: &InsulatedFluidComponent,
+    pipe_16: &InsulatedFluidComponent,
+    pipe_17a: &InsulatedFluidComponent,
+) -> (MassRate, MassRate, MassRate) {
+    let mut heater_branch = FluidComponentCollection::new_series_component_collection();
 
     heater_branch.clone_and_add_component(pipe_4);
     heater_branch.clone_and_add_component(pipe_3);
@@ -91,9 +84,7 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     heater_branch.clone_and_add_component(heater_bottom_head_1b);
     heater_branch.clone_and_add_component(pipe_18);
 
-
-    let mut dhx_branch = 
-        FluidComponentCollection::new_series_component_collection();
+    let mut dhx_branch = FluidComponentCollection::new_series_component_collection();
 
     dhx_branch.clone_and_add_component(pipe_5a);
     dhx_branch.clone_and_add_component(pipe_26);
@@ -110,7 +101,7 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     dhx_branch.clone_and_add_component(pipe_17b);
 
     let mut ctah_branch = FluidComponentCollection::new_series_component_collection();
-    
+
     ctah_branch.clone_and_add_component(pipe_5b);
     ctah_branch.clone_and_add_component(static_mixer_41_label_6);
     ctah_branch.clone_and_add_component(pipe_6a);
@@ -122,8 +113,7 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     ctah_branch.clone_and_add_component(pipe_10);
     ctah_branch.clone_and_add_component(pipe_11);
     ctah_branch.clone_and_add_component(pipe_12);
-    let mut ctah_pump_clone: NonInsulatedFluidComponent 
-        = ctah_pump.clone();
+    let mut ctah_pump_clone: NonInsulatedFluidComponent = ctah_pump.clone();
     ctah_pump_clone.set_internal_pressure_source(pump_pressure);
     ctah_branch.clone_and_add_component(&ctah_pump_clone);
     ctah_branch.clone_and_add_component(pipe_13);
@@ -133,85 +123,89 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
     ctah_branch.clone_and_add_component(pipe_16);
     ctah_branch.clone_and_add_component(pipe_17a);
 
-    let mut pri_loop_branches = 
-        FluidComponentSuperCollection::default();
+    let mut pri_loop_branches = FluidComponentSuperCollection::default();
 
     pri_loop_branches.set_orientation_to_parallel();
 
     if ctah_branch_blocked && !dhx_branch_blocked {
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(dhx_branch);
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(heater_branch);
 
-        pri_loop_branches.fluid_component_super_vector.push(dhx_branch);
-        pri_loop_branches.fluid_component_super_vector.push(heater_branch);
-
-        let (dhx_flow, heater_flow) = 
-            get_mass_flowrate_two_branches(
-                &pri_loop_branches);
+        let (dhx_flow, heater_flow) = get_mass_flowrate_two_branches(&pri_loop_branches);
 
         return (dhx_flow, heater_flow, MassRate::ZERO);
-
     } else if dhx_branch_blocked && !ctah_branch_blocked {
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(heater_branch);
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(ctah_branch);
 
-        pri_loop_branches.fluid_component_super_vector.push(heater_branch);
-        pri_loop_branches.fluid_component_super_vector.push(ctah_branch);
-
-        let (heater_flow, ctah_flow) = 
-            get_mass_flowrate_two_branches(
-                &pri_loop_branches);
+        let (heater_flow, ctah_flow) = get_mass_flowrate_two_branches(&pri_loop_branches);
         return (MassRate::ZERO, heater_flow, ctah_flow);
-
     } else if ctah_branch_blocked && dhx_branch_blocked {
         // all flows blocked, no nothing to see here
 
         return (MassRate::ZERO, MassRate::ZERO, MassRate::ZERO);
     } else {
-        
-        // two loops open scenario 
+        // two loops open scenario
 
-        let mut pri_loop_ctah_and_heater_br =
-            FluidComponentSuperCollection::default();
+        let mut pri_loop_ctah_and_heater_br = FluidComponentSuperCollection::default();
 
-        pri_loop_ctah_and_heater_br.fluid_component_super_vector.push(heater_branch.clone());
-        pri_loop_ctah_and_heater_br.fluid_component_super_vector.push(ctah_branch.clone());
+        pri_loop_ctah_and_heater_br
+            .fluid_component_super_vector
+            .push(heater_branch.clone());
+        pri_loop_ctah_and_heater_br
+            .fluid_component_super_vector
+            .push(ctah_branch.clone());
 
-        // create pointers for two branch flow 
+        // create pointers for two branch flow
 
-        let heater_br_flow_two_br_scenario = Arc::new(Mutex::new(
-                MassRate::ZERO));
-        let ctah_br_flow_two_br_scenario = Arc::new(Mutex::new(
-                MassRate::ZERO));
+        let heater_br_flow_two_br_scenario = Arc::new(Mutex::new(MassRate::ZERO));
+        let ctah_br_flow_two_br_scenario = Arc::new(Mutex::new(MassRate::ZERO));
 
         let heater_br_flow_two_br_scenario_clone = heater_br_flow_two_br_scenario.clone();
         let ctah_br_flow_two_br_scenario_clone = ctah_br_flow_two_br_scenario.clone();
 
-        // spawn a thread 
+        // spawn a thread
 
-        let two_branch_flow_scenario_join_handle = 
-            thread::spawn(move ||{
-                let (heater_flow_two_br, ctah_flow_two_br) = 
-                    get_mass_flowrate_two_branches(
-                        &pri_loop_ctah_and_heater_br);
+        let two_branch_flow_scenario_join_handle = thread::spawn(move || {
+            let (heater_flow_two_br, ctah_flow_two_br) =
+                get_mass_flowrate_two_branches(&pri_loop_ctah_and_heater_br);
 
-                // load this into the arc mutex ptr 
+            // load this into the arc mutex ptr
 
-                *heater_br_flow_two_br_scenario_clone.lock().unwrap().deref_mut()
-                    = heater_flow_two_br;
-                *ctah_br_flow_two_br_scenario_clone.lock().unwrap().deref_mut()
-                    = ctah_flow_two_br;
-            });
+            *heater_br_flow_two_br_scenario_clone
+                .lock()
+                .unwrap()
+                .deref_mut() = heater_flow_two_br;
+            *ctah_br_flow_two_br_scenario_clone
+                .lock()
+                .unwrap()
+                .deref_mut() = ctah_flow_two_br;
+        });
 
         // all loops opened scenario
-        pri_loop_branches.fluid_component_super_vector.push(dhx_branch);
-        pri_loop_branches.fluid_component_super_vector.push(heater_branch);
-        pri_loop_branches.fluid_component_super_vector.push(ctah_branch);
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(dhx_branch);
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(heater_branch);
+        pri_loop_branches
+            .fluid_component_super_vector
+            .push(ctah_branch);
 
-        let (dhx_flow, heater_flow, ctah_flow) = 
-            get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches(
-                &pri_loop_branches);
-
-
+        let (dhx_flow, heater_flow, ctah_flow) =
+            get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches(&pri_loop_branches);
 
         // if dhx flow is downwards, (positive flow, is ok)
-        // if negative flow, then block it 
+        // if negative flow, then block it
 
         let flow_diode_block_flow: bool = dhx_flow < MassRate::ZERO;
 
@@ -219,19 +213,12 @@ pub fn three_branch_pri_loop_flowrates_parallel_ver_4(
         two_branch_flow_scenario_join_handle.join().unwrap();
 
         if flow_diode_block_flow {
-
-
             let dhx_flow = MassRate::ZERO;
             let heater_flow: MassRate = *heater_br_flow_two_br_scenario.lock().unwrap().deref();
             let ctah_flow: MassRate = *ctah_br_flow_two_br_scenario.lock().unwrap().deref();
             return (dhx_flow, heater_flow, ctah_flow);
-
         } else {
-
             return (dhx_flow, heater_flow, ctah_flow);
         }
-
-
     }
-
 }

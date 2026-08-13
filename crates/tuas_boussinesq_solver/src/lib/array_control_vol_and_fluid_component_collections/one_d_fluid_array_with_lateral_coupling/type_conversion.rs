@@ -5,7 +5,6 @@ use super::FluidArray;
 
 impl Into<FluidComponent> for FluidArray {
     fn into(self) -> FluidComponent {
-
         FluidComponent::FluidArray(self)
     }
 }
@@ -15,15 +14,12 @@ impl TryFrom<FluidComponent> for FluidArray {
 
     fn try_from(value: FluidComponent) -> Result<Self, Self::Error> {
         match value {
-            FluidComponent::FluidArray(fluid_array) => {
-                Ok(fluid_array)
-            },
+            FluidComponent::FluidArray(fluid_array) => Ok(fluid_array),
             FluidComponent::ParallelUniformFluidArray(_, _) => {
-                
-                // probably want to change the error type to a generic 
+                // probably want to change the error type to a generic
                 // type conversion error
                 Err(TuasLibError::TypeConversionErrorHeatTransferEntity)
-            },
+            }
         }
     }
 }

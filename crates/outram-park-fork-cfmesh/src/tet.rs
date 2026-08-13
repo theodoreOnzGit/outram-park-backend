@@ -1,3 +1,32 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm reference (re-implemented in Rust, not transcribed):
+//   cfMesh — https://github.com/wyldckat/cfMesh
+//   meshLibrary/tetMesh, and the cell -> tet decomposition in
+//   meshLibrary/utilities/meshes/polyMeshGenModifier.
+//   Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//   The face-centroid + cell-centroid ("centroid subdivision") tiling is the
+//   same one OpenFOAM `polyMesh::tetBasePtIs` / `tetDecomposition` uses:
+//   Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only.
+//
+//   NOT derived from TetGen (AGPL) — deliberately, see the module docs.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Tetrahedralization** — split every cell of a volume mesh into tetrahedra
 //! (the all-tet foundation for the polyhedral-dual and boundary-layer paths).
 //!
@@ -37,6 +66,36 @@
 //! volume conservation, but it does not optimise tet shape or minimise count.
 //! Delaunay-quality refinement is future work (gmsh — GPLv2+, GPLv3-compatible —
 //! is a licence-clean reference for that). Pure Rust, Android-safe.
+//!
+//! # Honest V&V scope — the tet quality is UNMEASURED
+//!
+//! The two tests in this module assert exactly four things: the tet count
+//! (`Σ_cells Σ_faces edges`), **positive volume** (no inverted tets), the
+//! **boundary area** matching the input surface, and **exact volume
+//! conservation** — plus that every cell really is a 4-triangle tet. They call
+//! [`crate::checks::check_quality`] only for its `n_negative_volume_cells` /
+//! `min_cell_volume` fields.
+//!
+//! **No mesh-quality metric is gated here.** Neither non-orthogonality,
+//! skewness, nor aspect ratio of the produced tets is asserted anywhere, so the
+//! *shape* quality of this tet primal is unverified — "valid" here means
+//! "positively oriented and watertight", not "well-shaped".
+//!
+//! This matters because the tet primal is the **suspected dominant source of
+//! the non-orthogonality** reported downstream. Centroid subdivision emits, per
+//! face edge, a tet spanning a face edge, the face centroid and the cell
+//! centroid — a systematically sliver-prone shape.
+//! [`crate::delaunay`] already records the defect qualitatively: the centroid
+//! subdivision "produces a valid, space-filling tet mesh, but not a *Delaunay*
+//! one — some interior faces fail the empty-circumsphere (locally-Delaunay)
+//! test, which is what leaves slivers". The whole-pipeline sphere table in
+//! [`crate::pipeline`]'s tests measures max non-orthogonality in the 71-87 deg
+//! band, but nothing isolates how much of that the tet stage contributes.
+//!
+//! **This attribution is a hypothesis, not a measurement.** Confirming it needs
+//! a per-stage quality measurement (run [`crate::checks::check_quality`] on the
+//! mesh immediately after this stage and compare against the carve that fed it)
+//! — which does not exist yet. Do not cite the slivers as a proven cause.
 
 use crate::math::Vec3;
 use crate::volume_mesh::{from_cell_faces, VolumeMesh};
@@ -145,8 +204,15 @@ mod tests {
         assert_eq!(tets.cell_count(), 8 * 24, "Σ cells·faces·edges tetrahedra");
 
         let q = check_quality(&tets);
-        assert_eq!(q.n_negative_volume_cells, 0, "all tets have positive volume");
-        assert!(q.min_cell_volume > 0.0, "min tet volume positive: {}", q.min_cell_volume);
+        assert_eq!(
+            q.n_negative_volume_cells, 0,
+            "all tets have positive volume"
+        );
+        assert!(
+            q.min_cell_volume > 0.0,
+            "min tet volume positive: {}",
+            q.min_cell_volume
+        );
 
         let mut area = 0.0;
         for f in 0..tets.face_count() {
@@ -154,9 +220,15 @@ mod tests {
                 area += tets.face_area_vector(f).length();
             }
         }
-        assert!((area - 6.0).abs() < 1e-9, "boundary triangulates the cube surface: {area}");
+        assert!(
+            (area - 6.0).abs() < 1e-9,
+            "boundary triangulates the cube surface: {area}"
+        );
 
-        assert!((tets.total_volume() - 1.0).abs() < 1e-9, "Σ tet volumes == enclosed volume");
+        assert!(
+            (tets.total_volume() - 1.0).abs() < 1e-9,
+            "Σ tet volumes == enclosed volume"
+        );
         tets.validate().expect("every tet is closed");
     }
 

@@ -1,15 +1,28 @@
-
-use uom::{si::{f64::*, time::second, ratio::ratio}, ConstZero};
+use uom::{
+    si::{f64::*, time::second, ratio::ratio},
+    ConstZero,
+};
 
 use crate::alpha_nightly::errors::ChemEngProcessControlSimulatorError;
-/// Step Function struct, 
+/// Step Function struct,
 /// will help to caluclate
 /// u1(t - t1) * Kp * a_0
 /// where Kp is process gain,
 /// a_0 is the user input
 /// u(t-t1) is the heaviside function
 ///
-#[derive(Debug,PartialEq, PartialOrd, Clone, Copy)]
+/// # Role
+///
+/// Since version 0.2.0 this is an **analytic reference** only, used by the
+/// verification tests of
+/// [`super::first_order_transfer_fn_with_zeroes::FirstOrderStableTransferFnForZeroes`]
+/// to check its exact O(1) recurrence. Simulations no longer superpose one of
+/// these per input change; see bead `op-fm5`.
+///
+/// Units: `process_gain` and `user_input` are dimensionless (`uom` `Ratio`);
+/// `start_time` and `current_time` are in seconds.
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub struct StepFunction {
     process_gain: Ratio,
     start_time: Time,
@@ -19,28 +32,28 @@ pub struct StepFunction {
 
 impl Default for StepFunction {
     fn default() -> Self {
-        StepFunction { 
-            process_gain: Ratio::new::<ratio>(1.0), 
-            start_time: Time::new::<second>(0.0), 
-            user_input: Ratio::new::<ratio>(1.0), 
+        StepFunction {
+            process_gain: Ratio::new::<ratio>(1.0),
+            start_time: Time::new::<second>(0.0),
+            user_input: Ratio::new::<ratio>(1.0),
             current_time: Time::new::<second>(0.0),
         }
     }
 }
 
-
+#[allow(dead_code)]
 impl StepFunction {
-
-    /// constructor 
+    /// constructor
     pub fn new(
         process_gain: Ratio,
         start_time: Time,
         user_input: Ratio,
-        current_time: Time,) -> Result<Self, ChemEngProcessControlSimulatorError> {
-        Ok(StepFunction { 
-            process_gain, 
-            start_time, 
-            user_input, 
+        current_time: Time,
+    ) -> Result<Self, ChemEngProcessControlSimulatorError> {
+        Ok(StepFunction {
+            process_gain,
+            start_time,
+            user_input,
             current_time,
         })
     }
@@ -50,7 +63,6 @@ impl StepFunction {
     pub fn is_steady_state(&self) -> bool {
         let time_elapsed = self.current_time - self.start_time;
 
-
         if time_elapsed.value >= 0.0 {
             return true;
         }
@@ -58,12 +70,10 @@ impl StepFunction {
         return false;
     }
 
-
     /// calculates the response of the first order system
     /// at a given time
     /// u1(t - t1) * Kp * [1-exp(- [t-t1] / tau])
     pub fn calculate_response(&mut self, simulation_time: Time) -> Ratio {
-
         // get the current time (t - t0)
         self.current_time = simulation_time;
         let time_elapsed = self.current_time - self.start_time;
@@ -72,12 +82,11 @@ impl StepFunction {
 
         let heaviside_on: bool = time_elapsed.value >= 0.0;
 
-        // if the current time is before start time, no response 
+        // if the current time is before start time, no response
         // from this transfer function
         if !heaviside_on {
             return Ratio::ZERO;
         }
-
 
         // otherwise, calculate as per normal
 
@@ -87,12 +96,10 @@ impl StepFunction {
         return response;
     }
 
-    /// steady state value 
-    /// u1(t - t1) * Kp 
+    /// steady state value
+    /// u1(t - t1) * Kp
     pub fn steady_state_value(&self) -> Ratio {
         let response: Ratio = self.user_input * self.process_gain;
         response
     }
 }
-
-

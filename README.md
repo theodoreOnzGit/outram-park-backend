@@ -15,17 +15,18 @@ A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, st
 
 ## Crates
 
-The workspace has 22 member crates, grouped by domain below.
+The workspace has 31 member crates, grouped by domain below.
 
 **Thermal-hydraulics, fluid properties & process control**
 
 | Crate | Role | License |
 |---|---|---|
-| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | Apache-2.0 |
+| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | GPL-3.0 (published versions <= 0.1.1 on crates.io remain Apache-2.0) |
 | [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | GPL-3.0 |
 | [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
 | [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
 | [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
+| [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
 | [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
 
 **CFD (OpenFOAM translations)**
@@ -35,6 +36,16 @@ The workspace has 22 member crates, grouped by domain below.
 | [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial/ODE solvers, interpolation, FV operators (`fvm`/`fvc`, MUSCL), thermophysics kernels, fields, mesh (independent fork, not official OpenFOAM) | GPL-3.0 |
 | [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST implemented; others scaffolded) on top of `outram-foam-basic-lib` | GPL-3.0 |
 | [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress GeN-Foam deterministic-neutronics + TH port | GPL-3.0 |
+| [`outram-foam-cli`](crates/outram-foam-cli) | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-foam-multiphase`](crates/outram-foam-multiphase) | Phase-II multiphase CFD — drift-flux (Euler-Euler two-fluid, wall boiling, CHF, dryout planned); scaffold, no human V&V (independent fork, not official OpenFOAM) | GPL-3.0 |
+
+**Mesh generation & authoring**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-blender`](crates/outram-blender) | GPL fork of Blender's mesh-authoring architecture — headless surface-mesh frontend with opt-in Monte Carlo (`mc-export`) and OpenFOAM volume-meshing (`foam-mesh`) solver bridges (not affiliated with the Blender Foundation) | GPL-3.0 |
+| [`outram-park-fork-cfmesh`](crates/outram-park-fork-cfmesh) | Pure-Rust fork of cfMesh — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; consumes an `outram-blender` surface and emits an `outram-foam` polyMesh (independent fork, not official cfMesh) | GPL-3.0 |
+| [`outram-foam-mesh`](crates/outram-foam-mesh) | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh) (independent fork, not official OpenFOAM) | GPL-3.0 |
 
 **Neutronics & nuclear data**
 
@@ -45,6 +56,14 @@ The workspace has 22 member crates, grouped by domain below.
 | [`outram-mc-libs`](crates/outram-mc-libs) | Monte Carlo transport — CSG geometry, particle tracking, k-eigenvalue, Woodcock/delta tracking, depletion; data-free (pulls cross sections from `njoy-outram-park-fork`) | GPL-3.0 |
 | [`boon-lay`](crates/boon-lay) | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
 | [`nee_soon`](crates/nee_soon) | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE | GPL-3.0 |
+| [`outram-park-fork-liggghts`](crates/outram-park-fork-liggghts) | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular; GPL-2-or-later, see NOTICE); scaffold | GPL-3.0 |
+
+**Subsurface & infrastructure**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-park-fork-pflotran`](crates/outram-park-fork-pflotran) | Pure-Rust fork of PFLOTRAN — subsurface flow & reactive transport, no PETSc/MPI/FFI; scaffold, no human V&V (independent fork) | GPL-3.0 |
+| [`outram-park-mpi`](crates/outram-park-mpi) | Pure-Rust MPICH subset — the MPI-3 API surface over a shared-memory threads-as-ranks transport, Android-buildable, no C/FFI; scaffold (not affiliated with MPICH) | GPL-3.0 |
 
 **Digital twin**
 

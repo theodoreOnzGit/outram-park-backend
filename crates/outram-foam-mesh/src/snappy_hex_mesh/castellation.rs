@@ -74,7 +74,7 @@ pub struct CastellationControls {
     /// Target octree refinement level applied to cells near the surface.
     /// Level `n` cells are `2ⁿ` times finer than the background per axis.
     pub surface_level: usize,
-    /// Width of the refinement band around the surface [m]. A cell is refined
+    /// Width of the refinement band around the surface `[m]`. A cell is refined
     /// while its centre lies within this distance of the surface. `None`
     /// auto-selects a one-cell band (the cell's half space-diagonal at its
     /// current level), which refines the cells the surface actually passes
@@ -114,7 +114,7 @@ struct Leaf {
 }
 
 /// A boundary face lying on the carved surface, retained (with its corner
-/// points) so the Phase-2 snapping stub has explicit geometry to project.
+/// points) so the Phase-2 snapping pass has explicit geometry to project.
 #[derive(Debug, Clone)]
 pub struct SurfaceFace {
     /// Owning kept-cell index in the output [`FvMesh`].
@@ -130,7 +130,7 @@ pub struct SurfaceFace {
 pub struct CastellatedMesh {
     /// The refined, region-removed finite-volume mesh (validated).
     pub fv_mesh: FvMesh,
-    /// Deduplicated mesh points [m] (corners of the kept cells). `FvMesh` itself
+    /// Deduplicated mesh points `[m]` (corners of the kept cells). `FvMesh` itself
     /// stores only geometry, so these are carried separately for snapping.
     pub points: Vec<Vector3>,
     /// Full point + face-connectivity view of the same mesh, in OpenFOAM face
@@ -190,12 +190,7 @@ pub fn castellate(
     for i in 0..bg.nx {
         for j in 0..bg.ny {
             for k in 0..bg.nz {
-                leaves.push(Leaf {
-                    level: 0,
-                    i,
-                    j,
-                    k,
-                });
+                leaves.push(Leaf { level: 0, i, j, k });
             }
         }
     }
@@ -203,7 +198,8 @@ pub fn castellate(
     for _ in 0..max_level {
         let mut next: Vec<Leaf> = Vec::with_capacity(leaves.len());
         for leaf in &leaves {
-            if leaf.level < max_level && should_refine(leaf, origin, h, max_level, surface, controls)
+            if leaf.level < max_level
+                && should_refine(leaf, origin, h, max_level, surface, controls)
             {
                 // Split into 8 children at level+1.
                 let (l, i, j, k) = (leaf.level + 1, leaf.i * 2, leaf.j * 2, leaf.k * 2);
@@ -279,12 +275,28 @@ pub fn castellate(
             // Positive side: emit internal faces (kept neighbours) + boundary
             // faces (removed neighbours / domain edge).
             builder.emit_side(
-                axis, true, lo, hi, owner, &voxel_leaf, &idx, &kept, &cell_id,
+                axis,
+                true,
+                lo,
+                hi,
+                owner,
+                &voxel_leaf,
+                &idx,
+                &kept,
+                &cell_id,
             );
             // Negative side: emit boundary faces only; internal faces there are
             // owned by the neighbour's positive-side pass.
             builder.emit_side(
-                axis, false, lo, hi, owner, &voxel_leaf, &idx, &kept, &cell_id,
+                axis,
+                false,
+                lo,
+                hi,
+                owner,
+                &voxel_leaf,
+                &idx,
+                &kept,
+                &cell_id,
             );
         }
 
@@ -325,7 +337,7 @@ fn should_refine(
     surface.distance_to(centre) <= band
 }
 
-/// Physical centre [m] of a leaf cell.
+/// Physical centre `[m]` of a leaf cell.
 fn leaf_centre(leaf: &Leaf, origin: Vector3, h: [f64; 3], max_level: usize) -> Vector3 {
     let s = (1usize << (max_level - leaf.level)) as f64;
     let g = [
@@ -336,7 +348,7 @@ fn leaf_centre(leaf: &Leaf, origin: Vector3, h: [f64; 3], max_level: usize) -> V
     pos_of(origin, h, g)
 }
 
-/// Map finest-grid (fractional) voxel coordinates to a physical point [m].
+/// Map finest-grid (fractional) voxel coordinates to a physical point `[m]`.
 fn pos_of(origin: Vector3, h: [f64; 3], g: [f64; 3]) -> Vector3 {
     Vector3::new(
         origin.x + g[0] * h[0],
@@ -416,8 +428,11 @@ impl MeshAssembler {
             return id;
         }
         let id = self.points.len();
-        self.points
-            .push(pos_of(self.origin, self.h, [g[0] as f64, g[1] as f64, g[2] as f64]));
+        self.points.push(pos_of(
+            self.origin,
+            self.h,
+            [g[0] as f64, g[1] as f64, g[2] as f64],
+        ));
         self.point_ids.insert(g, id);
         id
     }
@@ -567,7 +582,7 @@ impl MeshAssembler {
         }
     }
 
-    /// Area vector [m²] (owner→neighbour / outward) and centre [m] of an
+    /// Area vector `[m²]` (owner→neighbour / outward) and centre `[m]` of an
     /// axis-aligned rectangular face on the `axis` plane at `plane_g`,
     /// spanning transverse voxel ranges `[a0,a1] × [b0,b1]`.
     #[allow(clippy::too_many_arguments)]
@@ -669,8 +684,7 @@ impl MeshAssembler {
 
         // Point-connectivity faces in the same order as `owner`/`sf`: internal
         // faces first, then boundary faces bucket by bucket.
-        let mut topo_faces: Vec<Vec<usize>> =
-            self.int_pts.iter().map(|c| c.to_vec()).collect();
+        let mut topo_faces: Vec<Vec<usize>> = self.int_pts.iter().map(|c| c.to_vec()).collect();
 
         let mut patches = Vec::new();
         let mut start = n_internal;

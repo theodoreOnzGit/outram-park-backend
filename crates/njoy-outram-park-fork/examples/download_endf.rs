@@ -75,7 +75,10 @@ fn main() {
 
     // Report a few reconstructed cross sections across the fast range.
     println!("\n{sym}-{a} reconstructed pointwise σ(E):");
-    println!("  {:>10}  {:>12}  {:>12}  {:>12}", "E [eV]", "σ_total", "σ_elastic", "σ_fission");
+    println!(
+        "  {:>10}  {:>12}  {:>12}  {:>12}",
+        "E [eV]", "σ_total", "σ_elastic", "σ_fission"
+    );
     for &e in &[1.0e-2, 1.0e0, 1.0e2, 1.0e4, 1.0e6, 2.0e6, 1.4e7] {
         let tot = result.eval_mt(MtReaction::Mt1Total, e);
         let ela = result.eval_mt(MtReaction::Mt2Elastic, e);
