@@ -210,3 +210,16 @@ pub use crate::ode::parallel::{
     QuadratureBatch, QuadratureBatchFailure, QuadratureInterval, QuadratureRule,
     QuadratureSolution, QuadratureStatus, ODE_ENSEMBLE_MIN_LANES, QUADRATURE_MIN_INTERVALS,
 };
+
+// --- Finite differences and batched Jacobians on the hybrid backend (Layer 1) ---
+//
+// `NumericalJacobian` supplies `OdeSystem::jacobian` numerically, so
+// `Rosenbrock23` runs on a system that has not hand-coded one — the default
+// impl of that method panics.
+pub use crate::math::differentiate::{
+    derivative, derivative_backend_for, derivative_batch, jacobian, jacobian_batch,
+    jacobian_batch_backend_for, jacobian_column_backend_for, ode_system_jacobian, DerivativeBatch,
+    DerivativeSolution, DiffBatchFailure, DiffScheme, DiffSettings, DiffStatus, JacobianBatch,
+    JacobianSolution, NumericalJacobian, CBRT_EPSILON, DERIVATIVE_BATCH_MIN_POINTS,
+    FIFTH_ROOT_EPSILON, JACOBIAN_BATCH_MIN_PROBLEMS, JACOBIAN_COLUMN_MIN_DIMENSION,
+};
