@@ -1,16 +1,30 @@
-//! HIGH-fidelity data acquisition — download raw ENDF tapes and reconstruct
-//! pointwise cross sections on device.
+//! Data acquisition, and the crate's **single on-disk artifact cache**.
 //!
-//! This is the **opt-in HIGH tier** of the two-tier data strategy
-//! (`docs/data-acquisition.md`). The default LOW tier ships embedded (WMP + fast
-//! MGXS, no network); this module reaches upstream for the *authoritative* ENDF
-//! evaluation, caches it, and runs the crate's own [`crate::reconr`] to get
-//! fully resonance-reconstructed continuous-energy σ(E) — the reference against
-//! which the LOW tier is judged.
+//! # Two halves, gated differently
 //!
-//! The whole module is behind the **`net-fetch`** Cargo feature, so a data
-//! consumer that only wants the offline LOW tier pulls no TLS/HTTP dependency.
-//! Enable with `--features net-fetch`.
+//! **[`EndfCache`] — always compiled.** One caching layer for every large
+//! derived artifact this crate produces or fetches. Its contract
+//! (`docs/data-acquisition.md`) is: check the cache, take a per-artifact
+//! advisory lock, re-check (a peer may have finished while we waited), write to
+//! a unique `.part` file, `fsync`, then **atomically rename** into place, and
+//! leave a SHA-256 sidecar. Readers only ever see complete files, and N
+//! processes racing for the same artifact do the work exactly once. Two
+//! producers plug into it:
+//!
+//! - [`EndfCache::get_or_produce`] — a *computed* artifact. Used by the offline
+//!   [`crate::leapr::generate`] path, which regenerates thermal-scattering
+//!   `S(alpha, beta)` from a 12 KB LEAPR deck instead of shipping a multi-MB
+//!   ENDF tape. **On by default; no network.**
+//! - [`EndfCache::fetch`] / [`EndfCache::fetch_tsl`] — a *downloaded* artifact
+//!   (below).
+//!
+//! **The download path — behind the `net-fetch` feature.** This is the opt-in
+//! HIGH tier of the data strategy: reach upstream for the *authoritative* ENDF
+//! evaluation, cache it, and run the crate's own [`crate::reconr`] to get fully
+//! resonance-reconstructed continuous-energy σ(E) — the reference against which
+//! the offline tiers are judged. It pulls the only TLS/HTTP/zip dependencies in
+//! the crate, so a consumer that stays offline pulls none of them. Enable with
+//! `--features net-fetch`.
 //!
 //! # The upstream is a hardcoded, pinned URL
 //!
@@ -48,15 +62,20 @@
 //! ```
 
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use fs2::FileExt;
 use sha2::{Digest, Sha256};
 
-use crate::endf::tape::Tape;
-use crate::reconr::{reconr, ReconrConfig, ReconrResult};
 use crate::NjoyError;
+
+#[cfg(feature = "net-fetch")]
+use std::io::Read;
+#[cfg(feature = "net-fetch")]
+use crate::endf::tape::Tape;
+#[cfg(feature = "net-fetch")]
+use crate::reconr::{reconr, ReconrConfig, ReconrResult};
 
 /// The pinned upstream host for every [`EndfLibrary`] — the IAEA Nuclear Data
 /// Services `download-endf` tree, which serves each evaluation's per-nuclide
@@ -355,18 +374,27 @@ pub struct EndfCache {
 }
 
 impl EndfCache {
+    /// The directory [`EndfCache::new`] would use — the [`CACHE_DIR_ENV`]
+    /// override if set, else the platform cache directory (XDG on Linux,
+    /// `AppData` on Windows, `~/Library/Caches` on macOS).
+    ///
+    /// **Creates nothing.** Use this to *report* or *probe* a cache path;
+    /// [`EndfCache::new`] is what actually makes the directory. Returns `None`
+    /// on a platform with no discoverable cache directory and no override.
+    pub fn default_dir() -> Option<PathBuf> {
+        if let Some(over) = std::env::var_os(CACHE_DIR_ENV) {
+            return Some(PathBuf::from(over));
+        }
+        directories::ProjectDirs::from("org", "OUTRAM PARK", "outram-park")
+            .map(|p| p.cache_dir().join("endf"))
+    }
+
     /// Open the cache at the platform default location (or the
     /// [`CACHE_DIR_ENV`] override), creating the directory if needed.
     pub fn new() -> Result<Self, NjoyError> {
-        let dir = if let Some(over) = std::env::var_os(CACHE_DIR_ENV) {
-            PathBuf::from(over)
-        } else {
-            directories::ProjectDirs::from("org", "OUTRAM PARK", "outram-park")
-                .map(|p| p.cache_dir().join("endf"))
-                .ok_or_else(|| {
-                    NjoyError::Download("no platform cache dir; set OUTRAM_PARK_DATA_DIR".into())
-                })?
-        };
+        let dir = Self::default_dir().ok_or_else(|| {
+            NjoyError::Download("no platform cache dir; set OUTRAM_PARK_DATA_DIR".into())
+        })?;
         fs::create_dir_all(&dir)?;
         Ok(EndfCache { dir })
     }
@@ -406,6 +434,7 @@ impl EndfCache {
     /// returns immediately; a miss takes an exclusive lock, downloads + extracts
     /// once, and publishes atomically. A SHA-256 sidecar (`<file>.sha256`) of the
     /// extracted tape is written for later integrity checks.
+    #[cfg(feature = "net-fetch")]
     pub fn fetch(
         &self,
         library: EndfLibrary,
@@ -419,14 +448,51 @@ impl EndfCache {
         self.fetch_to_path(&url, final_path)
     }
 
-    /// Download `url` (a single-member zip of one ENDF tape) into `final_path`,
-    /// returning the cached, extracted path. The concurrency-safe download core
-    /// shared by [`Self::fetch`] (neutron sublibrary) and [`Self::fetch_tsl`]
-    /// (thermal sublibrary): a cache hit returns immediately; a miss takes an
-    /// exclusive lock, downloads + unzips + validates once, publishes atomically
-    /// via a fsync'd temp-file rename, and writes a SHA-256 sidecar.
-    fn fetch_to_path(&self, url: &str, final_path: PathBuf) -> Result<PathBuf, NjoyError> {
-        let parent = final_path.parent().unwrap().to_path_buf();
+    /// **The cache core.** Return `final_path` if it is already cached; otherwise
+    /// run `produce` exactly once (across processes) and publish its bytes there
+    /// atomically.
+    ///
+    /// This is the crate's only caching layer. Both producers go through it: the
+    /// `net-fetch` download path (see [`Self::fetch`]) and the offline
+    /// [`crate::leapr::generate`] regeneration path. Do not write a second one.
+    ///
+    /// # Contract
+    ///
+    /// 1. **Fast path** — an existing `final_path` is returned untouched, with no
+    ///    lock taken and `produce` never called.
+    /// 2. **Advisory lock** — a miss takes an exclusive `flock` on
+    ///    `<final_path>.lock`, so N racing processes do the work once rather than
+    ///    N times (this matters when `produce` costs seconds of CPU).
+    /// 3. **Double-checked acquire** — after the lock is granted, the cache is
+    ///    re-checked; a peer may have finished while we blocked.
+    /// 4. **Atomic publish** — bytes go to a unique `.part` file in the same
+    ///    directory, are `fsync`ed, then `rename`d into place. A reader therefore
+    ///    never observes a partial file, and a crash mid-write leaves a stray
+    ///    `.part` rather than a corrupt cache entry.
+    /// 5. **Integrity sidecar** — a lowercase-hex SHA-256 of the published bytes
+    ///    is written to `<final_path>.sha256`, best-effort.
+    ///
+    /// # Invalidation
+    ///
+    /// There is none, by design: the cache is **content-addressed by its path**.
+    /// A caller that can produce different bytes for the same logical artifact
+    /// must encode everything that affects those bytes into `final_path` (see
+    /// [`crate::leapr::generate`], which hashes the deck, the temperature, the
+    /// constant set and a generator revision into the filename). Nothing here
+    /// ever overwrites an existing entry, so a stale key is a caller bug, not a
+    /// cache bug.
+    ///
+    /// # Errors
+    /// Propagates any I/O error and anything `produce` returns. A failed
+    /// `produce` publishes nothing and leaves the cache unchanged.
+    pub fn get_or_produce<F>(&self, final_path: PathBuf, produce: F) -> Result<PathBuf, NjoyError>
+    where
+        F: FnOnce() -> Result<Vec<u8>, NjoyError>,
+    {
+        let parent = final_path
+            .parent()
+            .ok_or_else(|| NjoyError::Download(format!("{final_path:?} has no parent directory")))?
+            .to_path_buf();
         fs::create_dir_all(&parent)?;
 
         // 1. Fast path: already cached.
@@ -445,10 +511,8 @@ impl EndfCache {
                 return Ok(final_path.clone());
             }
 
-            // 4. Download the zip, extract the ENDF member in memory.
-            let zip_bytes = http_get(url)?;
-            let tape_bytes = unzip_single(&zip_bytes, url)?;
-            validate_endf(&tape_bytes, url)?;
+            // 4. Produce the bytes (download, or compute).
+            let bytes = produce()?;
 
             // 5. Write to a unique temp file in the same dir, fsync.
             let tmp = parent.join(format!(
@@ -459,7 +523,7 @@ impl EndfCache {
             ));
             {
                 let mut f = File::create(&tmp)?;
-                f.write_all(&tape_bytes)?;
+                f.write_all(&bytes)?;
                 f.sync_all()?; // durable before the rename
             }
 
@@ -467,15 +531,32 @@ impl EndfCache {
             fs::rename(&tmp, &final_path)?;
 
             // 7. Integrity sidecar for later re-checks (best-effort).
-            let digest = hex_sha256(&tape_bytes);
+            let digest = hex_sha256(&bytes);
             let _ = fs::write(final_path.with_extension("sha256"), &digest);
 
             Ok(final_path.clone())
         })();
 
         // 8. Always release the lock.
-        let _ = lock_file.unlock();
+        let _ = FileExt::unlock(&lock_file);
         result
+    }
+
+    /// Download `url` (a single-member zip of one ENDF tape) into `final_path`,
+    /// returning the cached, extracted path.
+    ///
+    /// The download producer for [`Self::get_or_produce`], shared by
+    /// [`Self::fetch`] (neutron sublibrary) and [`Self::fetch_tsl`] (thermal
+    /// sublibrary). All the locking / atomicity / integrity discipline lives in
+    /// `get_or_produce`; this adds only "GET, unzip, sanity-check".
+    #[cfg(feature = "net-fetch")]
+    fn fetch_to_path(&self, url: &str, final_path: PathBuf) -> Result<PathBuf, NjoyError> {
+        self.get_or_produce(final_path, || {
+            let zip_bytes = http_get(url)?;
+            let tape_bytes = unzip_single(&zip_bytes, url)?;
+            validate_endf(&tape_bytes, url)?;
+            Ok(tape_bytes)
+        })
     }
 
     /// The final cached (extracted) tape path for a tsl material of `library`:
@@ -493,6 +574,7 @@ impl EndfCache {
     /// shared [`Self::fetch_to_path`] core, but addressed by tsl basename (see
     /// [`EndfLibrary::thermal_url`] / [`well_known_tsl`]) since the thermal
     /// sublibrary names its files rather than MAT-numbering them.
+    #[cfg(feature = "net-fetch")]
     pub fn fetch_tsl(&self, library: EndfLibrary, tsl_base: &str) -> Result<PathBuf, NjoyError> {
         let final_path = self.path_for_tsl(library, tsl_base);
         let url = library.thermal_url(tsl_base);
@@ -503,6 +585,7 @@ impl EndfCache {
     /// `"graphite"`, `"reactor-graphite-10P"`, `"HinH2O"`. Errors if the key is not
     /// in the built-in registry; pass an explicit basename to [`Self::fetch_tsl`]
     /// for anything else.
+    #[cfg(feature = "net-fetch")]
     pub fn fetch_tsl_by_name(
         &self,
         library: EndfLibrary,
@@ -519,6 +602,7 @@ impl EndfCache {
 
     /// Fetch (or reuse) a tsl tape and parse it into an ENDF [`Tape`] — the entry
     /// point for the [`crate::thermr`] thermal-scattering path (MF=7 S(α,β)).
+    #[cfg(feature = "net-fetch")]
     pub fn download_tsl_tape(
         &self,
         library: EndfLibrary,
@@ -529,6 +613,7 @@ impl EndfCache {
     }
 
     /// Fetch (or reuse) the tape and parse it into an ENDF [`Tape`].
+    #[cfg(feature = "net-fetch")]
     pub fn download_tape(
         &self,
         library: EndfLibrary,
@@ -548,6 +633,7 @@ impl EndfCache {
     /// fractional `tolerance` (NJOY default `1.0e-3`), at 0 K. Doppler broadening
     /// to a target temperature is a separate BROADR step; the LOW tier's WMP form
     /// carries analytic Doppler instead.
+    #[cfg(feature = "net-fetch")]
     pub fn download_and_reconstruct(
         &self,
         library: EndfLibrary,
@@ -572,6 +658,7 @@ impl EndfCache {
     /// Fetch a nuclide addressed by GNDS name (e.g. `"U235"`), looking up its MAT
     /// from [`well_known_mat`]. Errors if the nuclide is not in the built-in MAT
     /// table — use [`EndfCache::fetch`] with an explicit MAT for others.
+    #[cfg(feature = "net-fetch")]
     pub fn fetch_by_name(&self, library: EndfLibrary, name: &str) -> Result<PathBuf, NjoyError> {
         let (z, a, sym) = parse_nuclide(name)?;
         let mat = well_known_mat(z, a).ok_or_else(|| {
@@ -584,6 +671,7 @@ impl EndfCache {
 
     /// Reconstruct pointwise cross sections for a nuclide addressed by GNDS name,
     /// looking up its MAT from [`well_known_mat`] (see [`Self::fetch_by_name`]).
+    #[cfg(feature = "net-fetch")]
     pub fn download_and_reconstruct_by_name(
         &self,
         library: EndfLibrary,
@@ -601,6 +689,7 @@ impl EndfCache {
 }
 
 /// The first (usually only) material number present on a single-nuclide tape.
+#[cfg(feature = "net-fetch")]
 fn first_mat(tape: &Tape) -> Option<i32> {
     tape.sections().iter().map(|s| s.key.mat).find(|&m| m > 0)
 }
@@ -608,6 +697,7 @@ fn first_mat(tape: &Tape) -> Option<i32> {
 /// GET `url` into memory, mapping any HTTP/transport failure to
 /// [`NjoyError::Download`]. Pure-Rust TLS via rustls (ureq's default), so no
 /// system OpenSSL is required.
+#[cfg(feature = "net-fetch")]
 fn http_get(url: &str) -> Result<Vec<u8>, NjoyError> {
     let resp = ureq::get(url)
         .call()
@@ -623,6 +713,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, NjoyError> {
 ///
 /// IAEA `download-endf` neutron files are one ENDF tape per zip. Returns the first
 /// file entry's uncompressed bytes.
+#[cfg(feature = "net-fetch")]
 fn unzip_single(zip_bytes: &[u8], url: &str) -> Result<Vec<u8>, NjoyError> {
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes))
         .map_err(|e| NjoyError::Download(format!("{url}: not a valid zip: {e}")))?;
@@ -647,7 +738,7 @@ fn unzip_single(zip_bytes: &[u8], url: &str) -> Result<Vec<u8>, NjoyError> {
 /// we cache them — a mirror serving an HTML error page or a truncated file must
 /// fail here, not deep in the parser. ENDF-6 tapes are line-based 80-column
 /// ASCII; we require a non-trivial size and that the first kilobyte is ASCII.
-fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
+pub(crate) fn validate_endf(bytes: &[u8], url: &str) -> Result<(), NjoyError> {
     if bytes.len() < 512 {
         return Err(NjoyError::Download(format!(
             "{url}: extracted tape too small ({} bytes) to be an ENDF file",

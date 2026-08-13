@@ -340,6 +340,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let freq = FrequencyModel::start(&rho, delta_ev, input.tev(), 1.0);
         let sab = phonon_expansion(&input, &freq);

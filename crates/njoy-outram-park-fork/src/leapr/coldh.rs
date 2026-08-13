@@ -556,6 +556,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let nbeta = input.beta.len();
         let nalpha = input.alpha.len();
@@ -615,6 +616,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let mut ssm = SabMatrix::zeros(1, 1);
         let mut ssp = SabMatrix::zeros(1, 1);

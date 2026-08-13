@@ -18,6 +18,15 @@
 //! - [`deck`] — the **text** card-deck reader: `.leapr` job text -> [`LeaprDeck`]
 //!   -> one [`LeaprInput`] per temperature. This is what lets a 12 KB ENDF/B
 //!   `tsl-*.leapr` deck stand in for the multi-MB MF=7 tape it generated.
+//! - [`decks`] — the **registry** of decks this crate knows about, and where
+//!   their text is found (embedded / local directory / cache).
+//! - [`generate`] — the **consumer surface**: ask for a material at a
+//!   temperature, get an MF=7 law. Regeneration is the default source; a tape is
+//!   used only when a caller points at one. Composes the kernels below into
+//!   [`endout`] and caches the result.
+//! - [`vintage`] — the **physical-constant set**, selected by the evaluation's
+//!   own `EVAL-<MON><YY>` field. Reproducing a pre-2018 evaluation needs that
+//!   era's Boltzmann constant, not CODATA2018 (a ~100x difference).
 //! - [`frequency`] — `start`/`fsum`: phonon-spectrum integrals, Debye-Waller
 //!   lambda, effective temperature, and the first phonon term `T_1(beta)`.
 //! - [`continuous`] — `contin`/`terpt`/`convol`: the phonon-expansion sum
@@ -53,11 +62,14 @@
 //! - `copys` (2468-2487): the scratch-tape plumbing for the mixed-moderator
 //!   merge (not needed for the single-scatterer in-memory path).
 //! - `skold` (2816-2922): the Sköld pair-correlation correction.
-//! - the NJOY `run` driver — [`run`] still returns `NotPorted`. Its *card
-//!   reading* half **is** now ported ([`deck::LeaprDeck::parse`]); what is
-//!   missing is the unit/file plumbing and the orchestration that would compose
-//!   the kernels and call [`endout::endout`]. Read a deck with [`LeaprDeck`],
-//!   take a [`LeaprInput`] per temperature, and call the module functions.
+//! - the NJOY `run` driver — [`run`] still returns `NotPorted`, but only its
+//!   Fortran unit/file plumbing is now missing. Card reading is ported
+//!   ([`deck::LeaprDeck::parse`]) and so is the **orchestration**:
+//!   [`generate::generate_tape`] composes the kernels, performs the `dwpix` and
+//!   `tempf` conversions [`endout`] expects (`leapr.f90:717, 3035`), and emits
+//!   the MF=7 tape for one temperature. Use that rather than [`run`].
+//!   Single principal scatterer, continuous spectrum; incoherent-elastic
+//!   (`iel < 0`) output is refused rather than approximated.
 //!
 //! ## Validation status
 //!
@@ -69,6 +81,20 @@
 //! 1000 K), which is the tape's own 6-to-7-significant-figure storage
 //! precision. Methodology, the full result table and the Boltzmann-constant
 //! caveat are in `tests/leapr_graphite_deck_parity.rs`.
+//!
+//! End-to-end through [`generate`] the agreement is **exact for both channels**
+//! at 296 K: MF=7/MT=4 matches on **60,000 of 60,000** stored values and
+//! MF=7/MT=2 on **221 of 221** Bragg grid points (max relative deviation
+//! 0.000e0 on edge energies and `S(E)`), because [`endout`] applies the same
+//! `sigfig` rounding NJOY does. Across all ten tabulated temperatures the raw
+//! MT=2 kernel output agrees to **1.001e-13**
+//! (`tests/leapr_graphite_coherent_elastic_parity.rs`).
+//!
+//! Both rest on taking the physical constants from the deck's declared vintage,
+//! and the two channels need *different* constants from it — see [`vintage`].
+//! `docs/leapr-deck-provenance.md` holds the full V&V record and the licence
+//! finding; [`generate`] states what is **not** validated (the 10P/30P porous
+//! reactor grades, which have never been measured).
 //!
 //! **Everything else remains an untrusted AI draft** — that case exercises only
 //! `contin` with `twt = c = 0` and `nd = 0`, so the translational, diffusive,
@@ -83,18 +109,22 @@ pub mod coher;
 pub mod coldh;
 pub mod continuous;
 pub mod deck;
+pub mod decks;
 pub mod discrete;
 pub mod endout;
 pub mod frequency;
+pub mod generate;
 pub mod input;
 pub mod sct;
 pub mod translation;
+pub mod vintage;
 
 pub use coher::{coher, BraggEdges, CoherentLattice};
 pub use deck::{CardCursor, LeaprDeck, LeaprTemperature, PairCorrelation};
 pub use coldh::add_cold_hydrogen;
 pub use endout::{endout, ElasticOutput, LeaprOutput};
 pub use frequency::FrequencyModel;
+pub use vintage::{EvaluationDate, PhysicalConstants};
 pub use input::{
     ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput, TranslationKind,
 };

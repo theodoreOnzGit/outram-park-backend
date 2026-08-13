@@ -20,7 +20,6 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; oscillator energies in eV; temperatures K.
 
-use crate::common::phys::BK_EV_PER_K;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::SabMatrix;
 
@@ -318,6 +317,10 @@ pub fn add_discrete_oscillators(
     let tbeta = input.continuous.tbeta;
     let twt = input.continuous.twt;
     let tempr = input.temperature_k;
+    // Boltzmann constant from the job's own constant set, so that a run
+    // reproducing a pre-2018 evaluation uses that evaluation's value
+    // (see `crate::leapr::vintage`).
+    let bk = input.constants.bk_ev_per_k();
 
     // oscillator parameters
     let mut bdeln = vec![0.0_f64; nd];
@@ -335,7 +338,7 @@ pub fn add_discrete_oscillators(
         let cn = (eb + 1.0 / eb) / 2.0;
         ar[i] = adel / (sn * bdeln[i]);
         dist[i] = adel * bdel * cn / (2.0 * sn);
-        tsave += dist[i] / BK_EV_PER_K;
+        tsave += dist[i] / bk;
         dbw[i] = ar[i] * cn;
         if *dwpix > 0.0 {
             *dwpix += dbw[i];
@@ -431,7 +434,7 @@ pub fn add_discrete_oscillators(
             nn = n;
             ben[..nn].copy_from_slice(&bes[..nn]);
             wtn[..nn].copy_from_slice(&wts[..nn]);
-            tbart += dist[i] / BK_EV_PER_K / tempr;
+            tbart += dist[i] / bk / tempr;
         }
 
         // final line list is in ben/wtn with count nn
@@ -611,6 +614,7 @@ mod tests {
                 energy_ev: 0.2,
                 weight: 0.4,
             }],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let mut sab = SabMatrix::zeros(nbeta, alpha.len());
         for j in 0..alpha.len() {

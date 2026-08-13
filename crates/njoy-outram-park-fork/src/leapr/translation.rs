@@ -445,6 +445,7 @@ mod tests {
                 tbeta: 0.8,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let freq = FrequencyModel {
             deltab: 0.08,

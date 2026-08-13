@@ -28,7 +28,7 @@
 //! - `twt`, `tbeta`, `weight` — dimensionless mode weights (sum to 1).
 //! - `c` — dimensionless diffusion constant (0 => free gas).
 
-use crate::common::phys::BK_EV_PER_K;
+use crate::leapr::vintage::PhysicalConstants;
 
 /// Coherent-elastic (Bragg) lattice option (card 5 `iel`), selecting which
 /// lattice the reciprocal-lattice sum in [`crate::leapr::coher`] (the ported
@@ -76,6 +76,28 @@ impl ElasticOption {
             5 => Some(Self::Lead),
             6 => Some(Self::Iron),
             _ => None,
+        }
+    }
+
+    /// The Bragg lattice this option selects for
+    /// [`crate::leapr::coher::coher`], or `None` when the option asks for no
+    /// coherent-elastic calculation.
+    ///
+    /// [`Incoherent`](Self::Incoherent) and [`None`](Self::None) both return
+    /// `None` here, for different reasons: the first wants an MF=7/MT=2
+    /// `LTHR=2` Debye-Waller section instead of Bragg edges, the second wants no
+    /// MT=2 at all. A caller that needs to tell them apart should match on the
+    /// option itself.
+    pub const fn coherent_lattice(self) -> Option<crate::leapr::coher::CoherentLattice> {
+        use crate::leapr::coher::CoherentLattice as L;
+        match self {
+            Self::Incoherent | Self::None => Option::None,
+            Self::Graphite => Some(L::Graphite),
+            Self::Beryllium => Some(L::Beryllium),
+            Self::BerylliumOxide => Some(L::BerylliumOxide),
+            Self::Aluminium => Some(L::Aluminium),
+            Self::Lead => Some(L::Lead),
+            Self::Iron => Some(L::Iron),
         }
     }
 
@@ -217,12 +239,28 @@ pub struct LeaprInput {
     pub continuous: ContinuousDist,
     /// Discrete oscillators (may be empty).
     pub oscillators: Vec<DiscreteOscillator>,
+    /// The physical-constant set this job is run with — i.e. the value of `k_B`
+    /// that defines `tev = k_B T`, and through it the beta-grid spacing and the
+    /// `LAT = 1` scale factor.
+    ///
+    /// **Defaults to [`PhysicalConstants::Codata2018`]**, the crate constant, so
+    /// a job constructed by hand behaves exactly as it did before this field
+    /// existed. Set it to the evaluation's vintage when *reproducing* published
+    /// data: [`crate::leapr::deck::LeaprDeck::input_at`] does this for you from
+    /// the deck's own `EVAL-<MON><YY>` comment card. Getting it wrong is a
+    /// ~100x parity error, not a rounding difference — see
+    /// [`crate::leapr::vintage`].
+    pub constants: PhysicalConstants,
 }
 
 impl LeaprInput {
     /// Thermal energy `tev = k_B * T` \[eV\] for this job.
+    ///
+    /// `k_B` comes from [`LeaprInput::constants`], **not** from
+    /// [`crate::common::phys::BK_EV_PER_K`] directly, so a job reproducing an
+    /// older evaluation uses that evaluation's constant.
     pub fn tev(&self) -> f64 {
-        BK_EV_PER_K * self.temperature_k.abs()
+        self.constants.bk_ev_per_k() * self.temperature_k.abs()
     }
 
     /// Alpha/beta scale factor `sc` (`0.0253/tev` when `lat`, else `1`).
@@ -272,6 +310,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         assert_eq!(inp.scale(), 1.0);
         // tev at 296 K ~ 0.0255 eV

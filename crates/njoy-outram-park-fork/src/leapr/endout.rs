@@ -39,12 +39,11 @@ use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::leapr::coher::BraggEdges;
 use crate::leapr::SabMatrix;
+use crate::leapr::vintage::PhysicalConstants;
 use crate::mixr::mix::sigfig;
 
 /// 0.0253 eV thermal reference used as the `LAT=1` scaling energy (`therm`).
 const THERM: f64 = 0.0253;
-/// Boltzmann constant \[eV/K\] (`physics::bk`).
-const BK: f64 = crate::common::phys::BK_EV_PER_K;
 
 /// The elastic part to emit in MF=7/MT=2.
 #[derive(Debug, Clone)]
@@ -104,6 +103,15 @@ pub struct LeaprOutput {
     pub spr: f64,
     /// The elastic section to emit.
     pub elastic: ElasticOutput,
+    /// The physical-constant set the run used — specifically the `k_B` that
+    /// defines `tev = k_B T` in the `LAT = 1` detailed-balance factor
+    /// `0.0253 / (k_B T)` applied to every stored `S` (leapr.f90:3338-3346).
+    ///
+    /// **Must match the [`crate::leapr::input::LeaprInput::constants`] the
+    /// `ssm` arrays were generated with.** Defaults to
+    /// [`PhysicalConstants::Codata2018`], the crate constant, so an output
+    /// built by hand behaves exactly as it did before this field existed.
+    pub constants: PhysicalConstants,
 }
 
 // ── ENDF record row-packing helpers ─────────────────────────────────────────
@@ -384,7 +392,7 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
     for i in 0..nbt {
         for nt in 0..ntempr {
             let sc = if out.lat == 1 {
-                THERM / (BK * out.temperatures_k[nt])
+                THERM / (out.constants.bk_ev_per_k() * out.temperatures_k[nt])
             } else {
                 1.0
             };
@@ -499,6 +507,7 @@ mod tests {
             npr: 1,
             spr: 20.478,
             elastic,
+            constants: PhysicalConstants::default(),
         }
     }
 
