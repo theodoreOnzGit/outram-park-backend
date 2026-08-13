@@ -255,7 +255,7 @@ pub fn grad_least_squares(phi: &VolScalarField) -> VolVectorField {
         .iter()
         .map(|p| PatchField::zero_gradient_vec(p.size))
         .collect();
-    VolVectorField::new(format!("grad({})", phi.name), mesh, Field::new(g), boundary)
+    VolVectorField::new(crate::fv_operators::naming::derived_name("grad", &phi.name), mesh, Field::new(g), boundary)
 }
 
 #[cfg(test)]

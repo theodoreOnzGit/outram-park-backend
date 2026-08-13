@@ -131,7 +131,7 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
         .collect();
 
     SurfaceScalarField::new(
-        format!("snGrad({})", vol.name),
+        crate::fv_operators::naming::derived_name("snGrad", &vol.name),
         vol.mesh.clone(),
         internal,
         boundary,

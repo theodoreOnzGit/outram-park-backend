@@ -47,9 +47,13 @@
 //! is `[gamma]·[T]·m`); the solver only ever forms ratios, so no `uom` typing is
 //! applied here. Apply units at the field/equation layer.
 
-use crate::krylov::{bicgstab, gmres, KrylovSettings, Preconditioner};
+use std::sync::Arc;
+
+use crate::compute::ComputeBackend;
+use crate::krylov::{bicgstab_prepared, gmres_prepared, KrylovSettings, Preconditioner};
 use crate::ldu_matrix::fv_matrix::{SolverPerformance, SolverSettings};
 use crate::ldu_matrix::ldu_matrix::LduMatrix;
+use crate::ldu_matrix::parallel::HybridLdu;
 
 /// Which preconditioner `M^{-1} ~ A^{-1}` a Krylov solve should build from the
 /// matrix.
@@ -126,23 +130,62 @@ pub struct KrylovOptions {
     /// memory. Ignored by [`KrylovMethod::BiCGStab`]. `0` means "no restart"
     /// (`m = max_iter`). Default `30`.
     pub restart: usize,
+    /// Where the solver's kernels run — the sparse products, the inner products,
+    /// the vector updates and the Jacobi preconditioner application.
+    ///
+    /// This is the field through which the whole finite-volume layer reaches the
+    /// hybrid backend: [`FvMatrix::solve_bicgstab`](crate::ldu_matrix::FvMatrix::solve_bicgstab)
+    /// and its siblings take a `KrylovOptions`, so setting this is the only
+    /// change a caller needs to make.
+    ///
+    /// **Default [`ComputeBackend::Serial`]**, deliberately: `Serial` is this
+    /// workspace's documented oracle and the default must be the trusted path.
+    /// Because every kernel the solvers use is bitwise identical between
+    /// `Serial` and [`ComputeBackend::CpuMulti`], switching this changes wall
+    /// clock only — not the answer, not the residual history, not the iteration
+    /// count. A backend whose Cargo feature is off, or whose hardware is absent,
+    /// degrades instead of failing.
+    pub backend: ComputeBackend,
 }
 
 impl Default for KrylovOptions {
-    /// Defaults: ILU(0) preconditioning, GMRES restart `m = 30`.
+    /// Defaults: ILU(0) preconditioning, GMRES restart `m = 30`, and the
+    /// [`ComputeBackend::Serial`] oracle backend.
     fn default() -> Self {
         Self {
             preconditioner: PreconditionerKind::Ilu0,
             restart: 30,
+            backend: ComputeBackend::Serial,
         }
     }
 }
 
 impl KrylovOptions {
-    /// Options using the given preconditioner and the default restart (`30`).
+    /// Options using the given preconditioner and the default restart (`30`) and
+    /// backend ([`ComputeBackend::Serial`]).
     pub fn with_preconditioner(preconditioner: PreconditionerKind) -> Self {
         Self {
             preconditioner,
+            ..Self::default()
+        }
+    }
+
+    /// Options using the given execution backend, otherwise the defaults
+    /// (ILU(0), restart 30).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use outram_foam_basic_lib::compute::ComputeBackend;
+    /// use outram_foam_basic_lib::ldu_matrix::KrylovOptions;
+    ///
+    /// let opts = KrylovOptions::on_backend(ComputeBackend::CpuMulti);
+    /// assert_eq!(opts.backend, ComputeBackend::CpuMulti);
+    /// assert_eq!(opts.restart, 30);
+    /// ```
+    pub fn on_backend(backend: ComputeBackend) -> Self {
+        Self {
+            backend,
             ..Self::default()
         }
     }
@@ -216,14 +259,105 @@ pub fn krylov_solve(
     settings: &SolverSettings,
 ) -> (Vec<f64>, SolverPerformance) {
     let precond = options.preconditioner.build(a);
+    let ldu = HybridLdu::new(Arc::new(a.clone()));
+    krylov_solve_prepared(&ldu, b, x0, method, &precond, options, settings)
+}
+
+/// Solve `A·x = b` with an asymmetric Krylov method, reusing a caller-owned
+/// cell-gather index and a caller-owned preconditioner.
+///
+/// The form [`krylov_solve`] delegates to, and the one a solver loop should call.
+/// It differs only in **what the caller has already prepared**, not in where it
+/// runs — the backend is [`KrylovOptions::backend`] in both cases, so this is not
+/// a parallel sibling of a serial function.
+///
+/// # Why prepare anything
+///
+/// [`krylov_solve`] pays two costs on every call that a repeated solve should not:
+///
+/// - it clones `a` into an [`Arc`] and rebuilds the
+///   `O(n_cells + n_internal_faces)` cell-gather index
+///   ([`LduTopology`](crate::ldu_matrix::parallel::LduTopology)), and
+/// - it rebuilds the preconditioner, which for
+///   [`PreconditionerKind::Ilu0`] is a full incomplete factorisation.
+///
+/// A finite-volume solver reassembles coefficients every outer iteration while
+/// the **mesh addressing never changes**, so it should build the index once and
+/// refresh it with [`HybridLdu::with_matrix`], which is an addressing check
+/// rather than a rebuild. The preconditioner does have to be rebuilt whenever the
+/// coefficients change — ILU(0) factorises them — so it is passed in explicitly
+/// rather than silently reused, which would degrade convergence without any
+/// visible symptom.
+///
+/// # Arguments
+///
+/// - `ldu` — the prepared sparse system.
+/// - `b` — right-hand side, length `n_cells`.
+/// - `x0` — optional initial guess.
+/// - `method` — BiCGStab or GMRES(m).
+/// - `precond` — preconditioner built from **these** coefficients.
+/// - `options` — GMRES restart length and the execution backend.
+///   [`KrylovOptions::preconditioner`] is **ignored** here, because the
+///   preconditioner is supplied directly.
+/// - `settings` — `tolerance` and `max_iter`.
+///
+/// # Returns
+///
+/// As [`krylov_solve`].
+///
+/// # Example
+///
+/// ```rust
+/// use std::sync::Arc;
+/// use outram_foam_basic_lib::compute::ComputeBackend;
+/// use outram_foam_basic_lib::krylov::Preconditioner;
+/// use outram_foam_basic_lib::ldu_matrix::parallel::HybridLdu;
+/// use outram_foam_basic_lib::ldu_matrix::{
+///     krylov_solve_prepared, KrylovMethod, KrylovOptions, LduMatrix, SolverSettings,
+/// };
+///
+/// let mut a = LduMatrix::new(3, vec![0, 1], vec![1, 2]);
+/// a.diag = vec![4.0, 4.0, 4.0];
+/// a.lower = vec![-2.0, -2.0];
+/// a.upper = vec![-1.0, -1.0];
+/// let b = vec![1.0, 2.0, 3.0];
+///
+/// let precond = Preconditioner::ilu0(&a);
+/// let ldu = HybridLdu::new(Arc::new(a));
+///
+/// let (x, perf) = krylov_solve_prepared(
+///     &ldu,
+///     &b,
+///     None,
+///     KrylovMethod::BiCGStab,
+///     &precond,
+///     KrylovOptions::on_backend(ComputeBackend::CpuMulti),
+///     &SolverSettings::default(),
+/// );
+/// assert!(perf.converged);
+///
+/// let ax = ldu.spmv(&x, ComputeBackend::Serial);
+/// for i in 0..3 {
+///     assert!((ax[i] - b[i]).abs() < 1e-6);
+/// }
+/// ```
+pub fn krylov_solve_prepared(
+    ldu: &HybridLdu,
+    b: &[f64],
+    x0: Option<&[f64]>,
+    method: KrylovMethod,
+    precond: &Preconditioner,
+    options: KrylovOptions,
+    settings: &SolverSettings,
+) -> (Vec<f64>, SolverPerformance) {
     let ks = KrylovSettings {
         tolerance: settings.tolerance,
         max_iter: settings.max_iter,
         restart: options.restart,
     };
     let (x, result) = match method {
-        KrylovMethod::BiCGStab => bicgstab(a, b, x0, &precond, &ks),
-        KrylovMethod::Gmres => gmres(a, b, x0, &precond, &ks),
+        KrylovMethod::BiCGStab => bicgstab_prepared(ldu, b, x0, precond, &ks, options.backend),
+        KrylovMethod::Gmres => gmres_prepared(ldu, b, x0, precond, &ks, options.backend),
     };
     let perf = SolverPerformance {
         n_iterations: result.n_iterations,
@@ -276,6 +410,7 @@ mod tests {
                     KrylovOptions {
                         preconditioner: pk,
                         restart: 40,
+                        ..KrylovOptions::default()
                     },
                     &settings,
                 );
@@ -307,6 +442,7 @@ mod tests {
         let opts = |p| KrylovOptions {
             preconditioner: p,
             restart: 30,
+            ..KrylovOptions::default()
         };
         let (_, none) = krylov_solve(
             &a,

@@ -80,7 +80,7 @@ pub fn div_tensor(sigma: &VolTensorField) -> VolVectorField {
         .collect();
 
     VolVectorField::new(
-        format!("div({})", sigma.name),
+        crate::fv_operators::naming::derived_name("div", &sigma.name),
         sigma.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| d[c] * (1.0 / mesh.cell_volumes[c])),
         boundary,
@@ -124,7 +124,7 @@ pub fn div_symm_tensor(sigma: &VolSymmTensorField) -> VolVectorField {
         .collect();
 
     VolVectorField::new(
-        format!("div({})", sigma.name),
+        crate::fv_operators::naming::derived_name("div", &sigma.name),
         sigma.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| d[c] * (1.0 / mesh.cell_volumes[c])),
         boundary,

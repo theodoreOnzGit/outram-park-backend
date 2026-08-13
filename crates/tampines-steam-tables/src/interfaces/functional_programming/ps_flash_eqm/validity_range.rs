@@ -17,13 +17,17 @@ pub(crate) fn is_outside_pressure_range(p: Pressure) -> bool {
     let upper_pressure_limit: Pressure = Pressure::new::<megapascal>(100.0);
 
     if p < lower_pressure_limit {
-        dbg!(&(p, lower_pressure_limit));
-        panic!("p,s point is lower than acceptable pressure range");
+        panic!(
+            "p,s point is lower than acceptable pressure range: \
+             p = {p:?}, lower limit = {lower_pressure_limit:?}"
+        );
     };
 
     if p > upper_pressure_limit {
-        dbg!(&(p, upper_pressure_limit));
-        panic!("p,s point is higher than acceptable pressure range");
+        panic!(
+            "p,s point is higher than acceptable pressure range: \
+             p = {p:?}, upper limit = {upper_pressure_limit:?}"
+        );
     };
 
     return false;
@@ -77,7 +81,9 @@ pub(crate) fn is_above_isotherm_t_1073_15(p: Pressure, s: SpecificHeatCapacity) 
     let upper_bound_entropy = s_tp_eqm_single_phase(upper_temp_bound, p);
 
     if s > upper_bound_entropy {
-        dbg!(&(s, upper_bound_entropy));
+        // `dbg!` removed here (bead `op-2d5y`): this is an ordinary `true`
+        // return meaning "outside the range", not an error, and it wrote to
+        // stderr on every out-of-range query.
         return true;
     };
 

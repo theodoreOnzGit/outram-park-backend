@@ -36,7 +36,14 @@
 //! All quantities are dimensionless `f64`: the preconditioner acts on the raw
 //! algebraic residual, not on a `uom`-typed physical field.
 
+use crate::compute::ComputeBackend;
+use crate::ldu_matrix::parallel::vecop_backend_for;
 use crate::ldu_matrix::LduMatrix;
+
+#[cfg(feature = "parallel")]
+use crate::ldu_matrix::parallel::CELL_BLOCK;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Smallest pivot magnitude the ILU(0) factorisation will divide by.
 ///
@@ -77,14 +84,56 @@ impl JacobiPreconditioner {
         Self { inv_diag }
     }
 
-    /// Apply `z = M^{-1} r` — elementwise `z_i = r_i / diag_i`.
+    /// Apply `z = M^{-1} r` on the chosen [`ComputeBackend`].
     ///
-    /// `r` and `z` must both have length `n_cells`.
-    fn apply(&self, r: &[f64], z: &mut [f64]) {
+    /// # Why this one parallelises and ILU(0) does not
+    ///
+    /// Jacobi is the *only* preconditioner in this module that is embarrassingly
+    /// parallel: `z_i` depends on `r_i` and `inv_diag[i]` alone, so the loop has
+    /// no loop-carried dependence at all. Contrast
+    /// [`Ilu0Preconditioner::apply_on`], whose triangular solves are inherently
+    /// sequential.
+    ///
+    /// # Determinism
+    ///
+    /// Bitwise identical on every backend and at any thread count. Each output
+    /// element is one independent multiplication, so — as for
+    /// [`crate::ldu_matrix::parallel::axpy`] and
+    /// [`crate::ldu_matrix::parallel::scale`] — there is no reduction to
+    /// reassociate. It is also bitwise identical to the serial loop this replaced,
+    /// so switching backend cannot change a solver's iteration count or residual
+    /// history through this path.
+    ///
+    /// # Arguments
+    ///
+    /// - `r` — residual to precondition, length `n_cells`, dimensionless.
+    /// - `z` — output buffer, length `n_cells`. Fully overwritten.
+    /// - `backend` — requested execution backend. Below
+    ///   [`crate::ldu_matrix::parallel::VECOP_MIN_ELEMENTS`] elements a
+    ///   [`ComputeBackend::CpuMulti`] request runs serially, because this kernel
+    ///   is memory-bandwidth bound at one multiply per element and threading it
+    ///   on a small vector costs more than it saves — the same floor and the same
+    ///   reasoning as the vector operations it sits beside.
+    pub fn apply_on(&self, r: &[f64], z: &mut [f64], backend: ComputeBackend) {
         debug_assert_eq!(r.len(), self.inv_diag.len());
         debug_assert_eq!(z.len(), self.inv_diag.len());
-        for i in 0..z.len() {
-            z[i] = r[i] * self.inv_diag[i];
+        match vecop_backend_for(backend, z.len()) {
+            #[cfg(feature = "parallel")]
+            ComputeBackend::CpuMulti => {
+                z.par_chunks_mut(CELL_BLOCK)
+                    .zip(r.par_chunks(CELL_BLOCK))
+                    .zip(self.inv_diag.par_chunks(CELL_BLOCK))
+                    .for_each(|((zc, rc), dc)| {
+                        for ((zi, ri), di) in zc.iter_mut().zip(rc.iter()).zip(dc.iter()) {
+                            *zi = ri * di;
+                        }
+                    });
+            }
+            _ => {
+                for i in 0..z.len() {
+                    z[i] = r[i] * self.inv_diag[i];
+                }
+            }
         }
     }
 }
@@ -256,10 +305,64 @@ impl Ilu0Preconditioner {
         }
     }
 
+    /// Apply `z = M^{-1} r` — **always sequentially, on every backend**.
+    ///
+    /// # This kernel does not parallelise, and the code does not pretend it does
+    ///
+    /// ILU(0) is sequential by construction in both of its phases:
+    ///
+    /// - **The factorisation** ([`Self::factor`]) has a loop-carried dependence:
+    ///   eliminating row `i` reads the already-eliminated rows `k < i` through
+    ///   `self.lu[self.diag_ptr[k]]` and `find(k, j)`, so row `i` cannot start
+    ///   until every row it touches has finished.
+    /// - **The triangular solves** ([`Self::apply`]) have the same shape: the
+    ///   forward solve reads `z[j]` for `j < i` while computing `z[i]`, and the
+    ///   back solve reads `z[j]` for `j > i`.
+    ///
+    /// There are parallel variants in the literature — level-scheduling, which
+    /// exposes only as much parallelism as the sparsity graph's critical path
+    /// allows, and block-Jacobi-over-subdomains, which is *a different
+    /// preconditioner*: it drops the couplings between subdomains, so it changes
+    /// the iteration count and needs its own validation. Bead `op-yvj.4.4`
+    /// names that explicitly and says not to substitute one silently for the
+    /// other, so this implementation does neither. It keeps the exact standard
+    /// ILU(0) and runs it on one thread.
+    ///
+    /// The practical consequence is Amdahl's law: in a solve preconditioned with
+    /// ILU(0), the fraction of time spent here is a hard serial floor on the
+    /// achievable speed-up. That fraction is measured, not assumed: on an
+    /// asymmetric 7-point-stencil system, 4 logical cores, release,
+    /// `--features parallel`, 2026-08-13, these triangular solves were **29-46%
+    /// of the serial solve time** (rising with problem size), which caps an
+    /// ILU(0)-preconditioned speed-up at **1.7-2.1x on 4 cores** and 2.2-3.4x on
+    /// infinitely many. The measured end-to-end figure is ~1.5x. Full derivation,
+    /// all four repeat runs and the limitations are on the
+    /// `ilu0_serial_fraction_benchmark` in `crate::krylov::hybrid_tests`.
+    ///
+    /// The **factorisation** ([`Self::new`]) is a further sequential cost on top:
+    /// at 262 144 cells it measured 124-151 ms against a 522-664 ms serial solve,
+    /// i.e. roughly a quarter of one solve — 23.8% in the fourth run, the only one
+    /// whose factorisation and solve figures are quoted here as a matched pair —
+    /// paid once per coefficient update rather than once per iteration.
+    ///
+    /// # Arguments
+    ///
+    /// - `r` — residual to precondition, length `n`, dimensionless.
+    /// - `z` — output buffer, length `n`. Fully overwritten.
+    /// - `_backend` — accepted so this matches
+    ///   [`JacobiPreconditioner::apply_on`] and the enum can dispatch uniformly.
+    ///   **It is ignored**; the kernel runs serially whatever is requested. That
+    ///   also means the result is trivially bitwise identical across backends.
+    pub fn apply_on(&self, r: &[f64], z: &mut [f64], _backend: ComputeBackend) {
+        self.apply(r, z);
+    }
+
     /// Apply `z = M^{-1} r = U^{-1} L^{-1} r` via forward then back substitution.
     ///
     /// `L` is unit lower-triangular (implicit unit diagonal), `U` upper-triangular
     /// with the stored diagonal. `r` and `z` must both have length `n`.
+    ///
+    /// Sequential; see [`Self::apply_on`] for why it cannot be otherwise.
     fn apply(&self, r: &[f64], z: &mut [f64]) {
         debug_assert_eq!(r.len(), self.n);
         debug_assert_eq!(z.len(), self.n);
@@ -300,14 +403,26 @@ impl Ilu0Preconditioner {
 // the free helpers below to keep those variant-specific routines next to the
 // data they act on.
 
-/// Apply a [`JacobiPreconditioner`]: `z = r / diag`.
-pub(crate) fn jacobi_apply(p: &JacobiPreconditioner, r: &[f64], z: &mut [f64]) {
-    p.apply(r, z);
+/// Apply a [`JacobiPreconditioner`]: `z = r / diag`, on `backend`.
+pub(crate) fn jacobi_apply(
+    p: &JacobiPreconditioner,
+    r: &[f64],
+    z: &mut [f64],
+    backend: ComputeBackend,
+) {
+    p.apply_on(r, z, backend);
 }
 
-/// Apply an [`Ilu0Preconditioner`]: `z = (LU)^{-1} r`.
-pub(crate) fn ilu0_apply(p: &Ilu0Preconditioner, r: &[f64], z: &mut [f64]) {
-    p.apply(r, z);
+/// Apply an [`Ilu0Preconditioner`]: `z = (LU)^{-1} r`. Always serial; `backend`
+/// is accepted for uniform dispatch and ignored — see
+/// [`Ilu0Preconditioner::apply_on`].
+pub(crate) fn ilu0_apply(
+    p: &Ilu0Preconditioner,
+    r: &[f64],
+    z: &mut [f64],
+    backend: ComputeBackend,
+) {
+    p.apply_on(r, z, backend);
 }
 
 #[cfg(test)]
@@ -340,7 +455,7 @@ mod tests {
         let p = JacobiPreconditioner::new(&a);
         let r = [2.0, 4.0, 6.0, 8.0];
         let mut z = [0.0; 4];
-        p.apply(&r, &mut z);
+        p.apply_on(&r, &mut z, ComputeBackend::Serial);
         // z = r / 2
         assert_eq!(z, [1.0, 2.0, 3.0, 4.0]);
     }
@@ -352,7 +467,7 @@ mod tests {
         let p = JacobiPreconditioner::new(&a);
         let r = [5.0, 3.0];
         let mut z = [0.0; 2];
-        p.apply(&r, &mut z);
+        p.apply_on(&r, &mut z, ComputeBackend::Serial);
         assert_eq!(z[0], 5.0); // zero diag -> identity on that row
     }
 

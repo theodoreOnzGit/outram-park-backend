@@ -162,6 +162,16 @@ impl Rosenbrock23 {
 
         let err = loop {
             let err = self.inner_step(ode, *x, y, &dydx0_snapshot, dx, &mut y_temp);
+            // A non-finite error means the system (commonly its Jacobian)
+            // produced NaN or an infinity. Shrinking `dx` cannot recover from
+            // that, so fail immediately and name the real cause rather than
+            // grinding down to a misleading `StepSizeUnderflow`. This loop
+            // duplicates `adaptive_step`'s, so the same guard is needed in
+            // both. See `OdeError::NonFiniteState` and bead `op-zwk0`.
+            if !err.is_finite() {
+                self.y_temp = y_temp;
+                return Err(OdeError::NonFiniteState);
+            }
             if err <= 1.0 {
                 break err;
             }
