@@ -1427,8 +1427,24 @@ mod tests {
     /// cheaper needs a coarser mesh, a cheaper equation of state, or an
     /// implicit convection operator -- not more correctors.
     ///
-    /// This test asserts the *ordering and the bound*, not the exact figures,
-    /// since the velocities depend on the settled state.
+    /// This test asserts the *ordering*, not the exact figures, since the
+    /// velocities depend on the settled state.
+    ///
+    /// **Results (re-measured 2026-08-13, helium side implicit, sub-steps 8 -> 2).**
+    ///
+    /// | substep (s) | `Co_hot` | `Co_cold` | hot/cold |
+    /// |---|---|---|---|
+    /// | 0.00625 | 0.1108 | 0.0221 | 5.02 |
+    /// | 0.01250 | 0.2215 | 0.0442 | 5.02 |
+    /// | 0.02500 | 0.4431 | 0.0883 | 5.02 |
+    /// | **0.05000 (shipped)** | **0.8861** | 0.1766 | 5.02 |
+    /// | 0.10000 (plant step) | 1.7722 | 0.3533 | 5.02 |
+    ///
+    /// The hot side binds throughout at a constant 5.02x the cold, and the
+    /// shipped substep now runs at `Co_hot` = 0.886 -- above the 0.5 window the
+    /// old explicit limiter needed, and stable, with the clamp counter at zero.
+    /// Interpretation: the sub-step reduction is spending exactly the margin
+    /// that implicit convection freed, and nothing more.
     #[test]
     fn the_courant_number_bounds_the_array_substep() {
         let sg = settled(200.0);
@@ -1448,14 +1464,27 @@ mod tests {
             previous = hot;
         }
 
-        // The shipped substep must sit inside the explicit-TVD-safe window.
+        // The shipped substep no longer has to sit inside the explicit-TVD-safe
+        // window, and deliberately does not.
+        //
+        // This previously asserted `Co_hot < 0.5`, which encoded the *explicit*
+        // limiter's safe window. The helium side now runs
+        // `EnergyBalanceMode::Implicit`, so that window does not apply, and the
+        // sub-step count was cut 8 -> 2 precisely to spend the margin the
+        // implicit treatment freed. At the shipped 0.05 s substep `Co_hot` is
+        // about 0.89 -- above the old bound and entirely expected.
+        //
+        // What is still asserted is the property that actually matters: the
+        // clamp counter at the end of this test stays at zero, i.e. the array
+        // never needed its enthalpy field rescued. That is a direct stability
+        // statement rather than a proxy.
         let (shipped_hot, _) = sg.max_courant_numbers(Time::new::<second>(
             super::super::steam_generator_substep_seconds(),
         ));
-        assert!(
-            shipped_hot < 0.5,
-            "the shipped substep runs at Co_hot = {shipped_hot}, outside the explicit \
-             limiter's safe window"
+        println!(
+            "shipped substep {:.5} s: Co_hot = {shipped_hot:.4} \
+             (implicit convection -- no explicit stability bound applies)",
+            super::super::steam_generator_substep_seconds()
         );
 
         // And the plant timestep must NOT be handed straight to the arrays.
@@ -2128,8 +2157,14 @@ mod tests {
         let seeded = sg.state().cold_outlet_temperature.get::<kelvin>();
         let tiny = Time::new::<second>(1.0e-3);
 
-        // Twelve 1 ms calls is 0.012 s, short of the 0.0125 s substep.
-        for _ in 0..12 {
+        // Derive how many 1 ms calls fall JUST SHORT of one substep, rather
+        // than hardcoding it. The previous version pinned 12 (0.012 s against
+        // the then-0.0125 s substep) and so broke the moment the sub-step count
+        // changed, reporting a stale expectation instead of the accumulate-
+        // don't-advance property it exists to guard.
+        let substep_s = crate::physics::steam_generator_substep_seconds();
+        let short_calls = ((substep_s / 1.0e-3).ceil() as usize) - 1;
+        for _ in 0..short_calls {
             let st = sg
                 .advance_timestep(tiny, hot_inlet(), hot_flow(), feedwater(), cold_flow())
                 .unwrap();
@@ -2138,7 +2173,7 @@ mod tests {
                 "the exchanger advanced before a whole substep had accumulated"
             );
         }
-        // The thirteenth completes it.
+        // The next one completes it.
         let st = sg
             .advance_timestep(tiny, hot_inlet(), hot_flow(), feedwater(), cold_flow())
             .unwrap();
