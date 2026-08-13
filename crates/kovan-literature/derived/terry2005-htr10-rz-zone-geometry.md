@@ -271,6 +271,57 @@ evidence of a material change**. It also means the per-zone atom densities in
 TECDOC Table 4-3 may differ between these four despite the shared label — do
 not collapse them when meshing.
 
+### Second layer from the bottom — z 540 upward
+
+**Not a uniform row.** The axial spans differ across it, which is the first
+place the map departs from row structure.
+
+| Zone | r span | z span | Axial bands | Material |
+|--:|---|---|--:|---|
+| **7** | [0, 25.0] | **[495, 540]** | 2 | Dummy pebbles |
+| **17** | [25.0, 95.6] | [510, 540] | 1 | Boronated carbon bricks |
+| 46 | [95.6, 108.6] † | [510, 540] | 1 | Boronated carbon bricks |
+| 55 | [108.6, 140.6] † | [510, 540] | 1 | Boronated carbon bricks |
+| 64 | [140.6, 148.6] † | [510, 540] | 1 | Boronated carbon bricks |
+| 72 | [148.6, 167.793] † | [510, 540] | 1 | Boronated carbon bricks |
+| **78** | [167.793, 190.0] | **[495, 540]** | 2 | Boronated carbon bricks |
+
+† *Radial spans for 46, 55, 64 and 72 were **not stated explicitly**; they are
+inferred by analogy with the bottom row's one-band-each pattern, which the zone
+numbering independently supports (see below). Verify before use.*
+
+**Known gap.** Zones 7 and 78 span `z ∈ [495, 540]` while the five between them
+stop at 510. So the strip `z ∈ [495, 510]`, `r ∈ [25.0, 167.793]` is **not
+covered by any zone recorded so far** and must be filled by a further set.
+
+**Material contrast with the bottom row.** Here the entire annulus from
+r = 25.0 outward is *boronated* carbon bricks. In the bottom row only the
+outermost zone (79) was boronated and 18/47/56/65/73 were plain carbon bricks.
+So the boronation boundary is **axial**, not merely radial — worth carrying
+into the mesh, since it changes the absorber distribution with height.
+
+### Zone numbering — a usable regularity
+
+| Radial column | Bottom row | Second layer | Δ |
+|---|--:|--:|--:|
+| [25.0, 95.6] | 18 | 17 | −1 |
+| [95.6, 108.6] | 47 | 46 | −1 |
+| [108.6, 140.6] | 56 | 55 | −1 |
+| [140.6, 148.6] | 65 | 64 | −1 |
+| [148.6, 167.793] | 73 | 72 | −1 |
+| [167.793, 190.0] | 79 | 78 | −1 |
+| [0, 25.0] | 81 | **7** | — |
+
+The outer six columns decrement by exactly **1** per layer upward, i.e. zone
+numbers **increase downward within a radial column**. The innermost
+(discharge-tube) column does not follow it — 81 → 7 — which is consistent with
+that column having a different axial structure from the rest.
+
+**Use this as a check, not a generator.** It predicts the next layer's outer
+six as 16, 45, 54, 63, 71, 77 — but a merged band would break the sequence
+precisely where the geometry gets interesting, so a prediction that fails is
+information, not an error to correct away.
+
 ### Grid shape
 
 Ten radial bands × sixteen axial bands = 160 potential cells, against **81**
