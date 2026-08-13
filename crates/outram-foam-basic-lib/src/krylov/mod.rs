@@ -58,7 +58,7 @@
 //! in who owns the index, and the backend is a parameter of both.
 //!
 //! Whole-solve wall clock on 4 logical cores, release, `--features parallel`,
-//! 512 000 cells, measured 2026-08-13 over four independent runs: **2.4-2.7x**
+//! 512 000 cells, measured 2026-08-13 over five independent runs: **2.4-2.7x**
 //! with Jacobi preconditioning, **~1.5x** with ILU(0) — the gap being ILU(0)'s
 //! inherently sequential triangular solves, measured at 29-46% of the *serial*
 //! solve, which caps it at 1.7-2.1x on 4 cores. Below roughly 13 000 cells the
@@ -70,6 +70,20 @@
 //! produce identical iterates, identical residual histories and identical
 //! iteration counts at any thread count, because every kernel underneath carries
 //! that guarantee individually.
+//!
+//! What is *not* bitwise is the comparison against the solvers as they stood
+//! **before** they took the hybrid path, because
+//! [`crate::ldu_matrix::parallel::dot`] sums in blocks of 1 024 where
+//! [`crate::krylov::vecops::dot`] sums flat, and floating-point addition is not
+//! associative. Below 1 024 elements the two are identical; above it they differ
+//! in the last bits, which in principle can move an iteration count by one when a
+//! residual crosses the tolerance within those bits. Measured rather than assumed:
+//! over a 216-solve sweep of 3 mesh sizes x 3 diagonal dominances x 3 right-hand
+//! sides x 4 tolerances (1e-6 to 1e-12) x both solvers, the iteration count
+//! changed **zero times**, for GMRES — the more exposed of the two — as well as
+//! for BiCGStab. Converged residuals differ by up to 2.2e-4 *relative*, which at
+//! the tightest tolerance swept is an absolute difference of ~1.9e-16 on a
+//! residual of 8.6e-13. See `hybrid_tests` for the full grid and its limitations.
 //!
 //! # Convergence
 //!

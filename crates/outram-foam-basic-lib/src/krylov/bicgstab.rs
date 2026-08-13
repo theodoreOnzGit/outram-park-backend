@@ -144,13 +144,13 @@ pub fn bicgstab(
 /// Whole-solve wall clock, `Serial` against `CpuMulti`, on an asymmetric
 /// 7-point-stencil system, `available_parallelism()` = 4, release,
 /// `--features parallel`, 2026-08-13, best of 5 complete solves per figure.
-/// Ranges span **four independent runs** at load averages between 0.59 and 2.19
+/// Ranges span **five independent runs** at load averages between 0.59 and 2.19
 /// (`end_to_end_solve_speedup_benchmark`; this host never reaches idle, so the
 /// parallel columns are pessimistic):
 ///
 /// | Cells | Jacobi-preconditioned | ILU(0)-preconditioned |
 /// |---|---|---|
-/// | 4 096 | **0.62-0.81x** (a loss) | **0.67-0.81x** (a loss) |
+/// | 4 096 | **0.62-0.81x** (a loss) | **0.60-0.81x** (a loss) |
 /// | 32 768 | 1.57-1.82x | 1.25-1.32x |
 /// | 262 144 | 2.19-2.51x | 1.41-1.49x |
 /// | 512 000 | **2.40-2.66x** | **1.50-1.51x** |
