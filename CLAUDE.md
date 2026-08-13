@@ -2,13 +2,45 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
-## Working-hours guardrail (mandatory, human health & safety)
+## Working-hours guardrail (OPT-IN — ask at session start)
 
-**Before doing substantive work, check the real local time and day of week**
-with a system tool — do not infer it from conversation content, a cached
-date, or skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the
-Bash tool. Any equivalent works if `date` isn't available (`fastfetch`, a
-one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
+**This guardrail is OFF by default.** It is no longer a standing hard rule.
+It is enabled **per session, by the user**, in answer to a question you ask at
+the start of the session. Changed 2026-08-13 at the maintainer's request,
+relayed from a colleague; the history and rationale for the original rule are
+preserved under "Why it exists" below.
+
+### Asking (this part IS mandatory)
+
+**Ask once per session, before the first substantive work of that session.**
+Use the `AskUserQuestion` tool with one question — *"Enable the working-hours
+guardrail for this session?"* — offering **Off (default)** and **On**.
+
+- **Don't ask before purely conversational replies.** Ask at the point a turn
+  is about to become real work (writing code, running suites, agent fleets).
+- **Ask only once.** The session's answer holds until the session ends; a
+  compaction does not reset it. Do not re-prompt, and do not nag if the answer
+  was Off.
+- **If the question is skipped, dismissed, or unanswered, the answer is Off.**
+  Never treat silence as On.
+- The user may switch it on or off at any point by saying so in plain words —
+  honour that immediately, no confirmation question needed.
+
+### If the answer is Off (the default)
+
+No time check, no hour restriction, no rest-day rule. Work normally. Do not
+volunteer reminders about the maintainer's hours or health, and do not
+re-litigate the setting.
+
+### If the answer is On
+
+Everything below applies **for the rest of that session, as a hard rule**:
+
+**Check the real local time and day of week** with a system tool before
+substantive work — do not infer it from conversation content, a cached date, or
+skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the Bash tool. Any
+equivalent works if `date` isn't available (`fastfetch`, a one-line Python
+`datetime.now()` / Rust `chrono::Local::now()` script).
 
 **Active working hours** (local time to the repository owner, Asia/Singapore):
 
@@ -18,7 +50,7 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
 | Sunday | 12:00 – 19:00 |
 | Saturday | none — full rest day |
 
-**Outside these hours, this is a hard rule, not a default:**
+**Outside these hours, with the guardrail enabled:**
 
 - Do **not** answer substantive questions or add context, analysis, or
   explanation beyond the minimum needed to log something for later.
@@ -32,14 +64,24 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
   already-finished work to GitHub. Nothing beyond finishing and shipping
   work that already exists.
 
-**Why:** this protects the human maintainer's rest. Instituted 2026-07-11
-after a month of illness from overwork.
+**While enabled, the hour limits do not bend in the moment.** Opting in is a
+decision made at the start of a session; asking for a one-off exception at
+23:00 is not. If the user asks to work past the limit *within an enabled
+session*, say so plainly, log the request in beads for the next active window,
+and stop there — do not negotiate or justify. Turning the guardrail off
+outright is always the user's call and is honoured immediately (above); what
+this clause blocks is piecemeal erosion while it is on.
 
-**This rule does not bend in the moment.** If the user asks for an exception
-to it outside active hours, say so plainly, log the request in beads for the
-next active window, and stop there — do not negotiate, justify, or ask
-whether to make an exception. The rule exists specifically to hold when the
-person it protects is inclined to override it.
+### Why it exists
+
+It protects the human maintainer's rest. Instituted 2026-07-11 after a month of
+illness from overwork; the supporting analysis is in
+[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
+opt-in does not retract that finding — it moves the decision to the human each
+session rather than having the assistant enforce it unilaterally.
+
+**To restore it as an always-on rule**, change the default in this section back
+to On and drop the "Asking" subsection. That is a maintainer decision.
 
 ## Responsible use & data policy (mandatory, NUS compliance)
 
@@ -386,10 +428,27 @@ cargo build --release -p kovan-literature --features digitise-gui
   test --release`** before calling work done. Do not let kopitiam's default
   profile silently replace the release-mode requirement.
 
-**Known friction (installed version is now kopi-beans 0.1.3, confirmed by
-`cargo install --list` on 2026-08-12). Items below are dated with the version
-they were actually tested against — the 0.1.2 / 2026-08-07 ones have *not* been
-re-run on 0.1.3, so do not restate them as current-version findings:**
+> **Version note (2026-08-13): kopi-beans 0.1.6 is now installed** (`bn
+> --version`), upgraded from 0.1.3 mid-session. Two things changed and were
+> **verified on this host**, not merely announced:
+>
+> - **The daemon's runaway sync-retry loop is fixed.** On 0.1.3 it retried a
+>   failing `git push` roughly every 2.5 s forever (`consecutive_failures: 30`),
+>   spawning a console window per attempt on Windows and making the workspace
+>   unusable until the daemon was killed. On 0.1.6, a 20-second idle
+>   measurement with the daemon running showed **zero** process spawns and
+>   `consecutive_failures: 0`. Full evidence:
+>   `docs/kopitiam-issues/resolved/kopi-beans-daemon-retries-failing-push-forever.md`.
+> - **The `clock_skew` warning now explains itself** — that 'ahead' is usually
+>   not a clock fault, that an idle store reads the same way, that it
+>   self-clears on the next write, and what it actually affects. That was the
+>   substance of the "unactionable" complaint below.
+>
+> **The 0.1.2 / 0.1.3-dated items below have NOT been re-tested on 0.1.6.** Do
+> not restate any of them as current-version findings.
+
+**Known friction, each dated against the version it was actually tested on
+(0.1.2 / 0.1.3 — see the version note above; none re-run on 0.1.6):**
 
 - **RESOLVED — `bn` *can* now push the store ref to a non-local remote.**
   Verified 2026-08-12 against kopi-beans **0.1.3**: the daemon published
@@ -543,8 +602,9 @@ migration is complete**: kopi-beans 0.1.2 reads and has migrated the store
 no reason to reach for `bd` here, and no supported way to.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
-guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
-data-policy rules all still bind when using either tool.
+guardrail *when it has been enabled for the session*, never-auto-commit/push,
+the Android/Termux portability rule, and the data-policy rules all still bind
+when using either tool.
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -570,8 +630,9 @@ in-flight work.
 - **Keep it up until the fleet is fully done**, then post a final summary.
   Stop the heartbeat once there is nothing left running.
 - This does **not** relax any other rule — in particular the working-hours
-  guardrail above (do not run fleets outside active hours in the first place)
-  and the never-auto-commit/push rule.
+  guardrail above **when the session has opted into it** (with it on, do not
+  run fleets outside active hours in the first place) and the
+  never-auto-commit/push rule.
 
 ## Token accounting on every commit (mandatory, this workspace + all repos here)
 
@@ -581,15 +642,25 @@ carry an API-token-usage trailer, and a per-commit token ledger is kept at
 the Claude/API tokens spent producing each commit. It is automated by two git
 hooks so it cannot be forgotten:
 
-- **`docs/historian/token_usage.py`** is the single source for token accounting —
-  it does **both** the write side and the query side. On the write side it reads
-  the Claude Code session transcripts (`~/.claude/projects/<slug>/*.jsonl` — the
-  same data `ccusage` reads) and attributes the **token delta since the previous
-  commit** to each new commit. On the query side,
-  `python3 docs/historian/token_usage.py query --from DDMMYY --to DDMMYY
+- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, is the
+  single source for token accounting — it does **both** the write side and the
+  query side. On the write side it reads the Claude Code session transcripts
+  (`~/.claude/projects/<slug>/*.jsonl` — the same data `ccusage` reads) and
+  attributes the **token delta since the previous commit** to each new commit.
+  On the query side, `kovan tokens query --from DDMMYY --to DDMMYY
   [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
   the git commit trailers** over any time period (reads the durable git record,
   not the live transcript).
+  - **This replaced `docs/historian/token_usage.py` on 2026-08-13** (epic
+    `op-yz7b`), so the toolchain needs no Python interpreter. The Python is
+    **retained, not deleted** — no byte-for-byte parity gate was run (the
+    maintainer waived it), so it stays available for comparison. Do not treat
+    the Rust output as verified against the original until someone runs one.
+  - **The hooks need a `kovan` binary to exist**, where a script merely had to
+    be present. `.githooks/kovan-bin.sh` resolves it: `kovan` on PATH, then
+    `target/release/kovan`, then `target/debug/kovan`. Finding none is a
+    **no-op, not an error** — but it means commits carry no trailer, so run
+    `./scripts/install-token-hooks.sh` (which builds it) on a fresh clone.
 - **`.githooks/prepare-commit-msg`** stamps the commit message with an
   `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
   `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
@@ -599,7 +670,7 @@ hooks so it cannot be forgotten:
 
 **Source of truth: the per-commit trailers, not the markdown.** The durable
 record is the `API-Usage-*` trailer in each commit message (queryable across any
-window with `python3 docs/historian/token_usage.py query --from DDMMYY --to
+window with `kovan tokens query --from DDMMYY --to
 DDMMYY`). `docs/token-usage.md` is a **regenerable local summary and is
 gitignored** — it is deliberately *not* tracked, because committing a generated
 file on many branches caused recurring merge conflicts. Never re-track it.
@@ -629,29 +700,36 @@ file on many branches caused recurring merge conflicts. Never re-track it.
   is a local, uncommitted config, so every fresh clone must run it once. The
   hooks and script are version-controlled, so they travel with the repo.
 - **`docs/token-usage.md` is a generated, gitignored local summary — never
-  hand-edit it and never `git add` it.** Rebuild any time with `python3
-  docs/historian/token_usage.py report`; query the tracked trailers directly with
-  the `query` subcommand. Because it is gitignored, `bn`/hook regens no longer
-  dirty the tree or conflict on merge.
+  hand-edit it and never `git add` it.** Rebuild any time with `kovan tokens
+  report`; query the tracked trailers directly with the `query` subcommand.
+  Because it is gitignored, `bn`/hook regens no longer dirty the tree or
+  conflict on merge.
 - **New repositories added to a session here inherit this rule** — copy
-  `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
-  in and run the installer as part of onboarding that repo.
+  `.githooks/` (including `kovan-bin.sh`) + `scripts/install-token-hooks.sh` in
+  and run the installer as part of onboarding that repo. The accounting itself
+  travels as the `kovan` binary, so nothing else needs copying.
 - This does **not** relax the never-auto-commit/push rule above: the hooks only
   act *when a commit the user asked for is being made*; they never initiate one.
 
 ## Historian report before every merge to `main` (mandatory)
 
 **Before merging `develop` into `main`, generate a "historian" report** — a
-python-generated markdown file accounting for the **API tokens spent** and the
+generated markdown file accounting for the **API tokens spent** and the
 **lines / KLOC written** across the window of `develop` history being released,
-listing the commits over a `DDMMYY..DDMMYY` date range. Both the generator and
-the reports live under **`docs/historian/`** at the workspace root.
+listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
+`crates/kovan-metrics` (via the `kovan` binary); the reports live under
+**`docs/historian/`** at the workspace root.
 
 - **Generate it:**
-  `python3 docs/historian/historian.py --from DDMMYY --to DDMMYY`
+  `kovan historian --from DDMMYY --to DDMMYY`
   (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
   "everything on `develop` not yet on `main`, up to today". Output is written to
   `docs/historian/historian_<from>_to_<to>.md`.
+  - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
+    `op-yz7b`). The Python is retained for comparison — no parity gate was run.
+  - `kovan historian` dates from **UTC**, where the Python used local time.
+    This only affects the default `--to` bound and the filename tag; pass
+    `--to` explicitly if a midnight boundary matters.
 - **What it contains:** total lines added/removed/net (all files + Rust-only),
   total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
   per-crate lines-added breakdown, and a per-commit ledger.
@@ -1035,6 +1113,7 @@ built, tested, and published from this single repository.
 | `kovan-literature` | KOVAN literature archive — PDF → Markdown (`pulldown-cmark`) → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored. | GPL-3.0 |
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
+| `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
 | `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
 | `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
@@ -1266,9 +1345,9 @@ the **maintainer-curated corrections log** live in **[`SINGLISH_MODE.md`](./SING
 In short: when the user asks for "Singlish mode" (or "lah mode" etc.), reply in
 Singlish for the *conversational prose only*; **code, comments, commit messages,
 `README`/`docs`, V&V write-ups, and beads stay clear standard English**, and no
-mandatory rule (working-hours guardrail, responsible-use / data policy, V&V docs,
-Rust design rules, never-auto-commit/push) is relaxed — correctness and honesty
-come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
+mandatory rule (responsible-use / data policy, V&V docs, Rust design rules,
+never-auto-commit/push — and the working-hours guardrail whenever the session
+has opted into it) is relaxed — correctness and honesty come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
 corrections.** Default is standard English; opt-in only.
 
 

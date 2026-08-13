@@ -39,6 +39,10 @@ members = [
     "crates/kovan-literature",
     "crates/kovan-semantics",
     "crates/kovan-codegen",
+    # kovan-metrics — repository accounting (per-commit API-token trailers and
+    # the pre-merge historian report). Replaces docs/historian/*.py so the
+    # toolchain needs no Python interpreter (epic op-yz7b).
+    "crates/kovan-metrics",
     "crates/kovan-cli",
     "crates/kovan-tui",
     # outram-blender — Blender-inspired mesh-authoring frontend (MC Studio +
@@ -301,6 +305,7 @@ kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.0" }
 kovan-literature = { path = "crates/kovan-literature", version = "0.0.0" }
 kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.0" }
 kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
 # Android-safe by default. Two opt-in solver bridges are now real (not stubs):

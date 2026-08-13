@@ -15,6 +15,9 @@ kovan-discovery.workspace = true
 kovan-literature.workspace = true
 kovan-semantics.workspace = true
 kovan-codegen.workspace = true
+# `tokens` / `historian`: per-commit API-token accounting and the pre-merge
+# report. Replaces docs/historian/*.py so the toolchain needs no Python.
+kovan-metrics.workspace = true
 clap.workspace = true
 # `lit import`/`lit bibtex` round-trip a `KovanDocument` through JSON on disk
 # (kovan-common's canonical serde format).

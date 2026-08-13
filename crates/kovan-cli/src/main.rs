@@ -44,6 +44,7 @@ mod commands;
 
 use commands::gen::GenCommand;
 use commands::lit::LitCommand;
+use commands::tokens::TokensCommand;
 use commands::{KindArg, LangArg};
 
 /// KOVAN — deterministic knowledge tooling for the Outram Park ecosystem.
@@ -151,6 +152,31 @@ enum Command {
         #[arg(long)]
         force: bool,
     },
+    /// Per-commit API-token accounting (`kovan-metrics`). The write-side
+    /// subcommands are driven by the git hooks and never fail a commit.
+    #[command(subcommand)]
+    Tokens(TokensCommand),
+    /// Pre-merge-to-`main` accounting report: tokens spent and lines/KLOC
+    /// written across a window of history (`kovan-metrics`).
+    Historian {
+        /// Window start, `DDMMYY` (day-month-year, 2-digit year). Omit for
+        /// "everything on --branch not yet on --base".
+        #[arg(long = "from")]
+        from: Option<String>,
+        /// Window end, `DDMMYY` (default: today, when --from is given).
+        #[arg(long = "to")]
+        to: Option<String>,
+        /// Branch to report on.
+        #[arg(long, default_value = "develop")]
+        branch: String,
+        /// Base branch for the default "not yet in base" window.
+        #[arg(long, default_value = "main")]
+        base: String,
+        /// Explicit output path (default:
+        /// `docs/historian/historian_<from>_to_<to>.md`).
+        #[arg(long)]
+        outfile: Option<PathBuf>,
+    },
 }
 
 fn main() -> std::process::ExitCode {
@@ -198,6 +224,14 @@ fn run(command: Command) -> Result<(), String> {
         } => commands::symbols::run_summary(root, lang, id, name, out),
         Command::Gen(cmd) => commands::gen::run(cmd),
         Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
+        Command::Tokens(cmd) => commands::tokens::run(cmd),
+        Command::Historian {
+            from,
+            to,
+            branch,
+            base,
+            outfile,
+        } => commands::historian::run(from, to, branch, base, outfile),
     }
 }
 

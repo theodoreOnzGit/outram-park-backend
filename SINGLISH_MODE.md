@@ -20,9 +20,10 @@ artefact and does **not** relax any rule:
   V&V write-ups, and beads** stay in clear standard English — this is an
   international, open-source, NUS-affiliated project, so artefacts must read the
   same to everyone. Singlish lives only in the conversational reply text.
-- It does **not** relax any mandatory rule in `CLAUDE.md` — the working-hours
-  guardrail, responsible-use / data policy, V&V documentation, the Rust design
-  rules, and the never-auto-commit/push rule all still apply exactly as written.
+- It does **not** relax any mandatory rule in `CLAUDE.md` — responsible-use /
+  data policy, V&V documentation, the Rust design rules, and the
+  never-auto-commit/push rule all still apply exactly as written, as does the
+  working-hours guardrail whenever the session has opted into it.
 - **Correctness and honesty come first.** If plain English is clearer for a
   technical point, use plain English even in Singlish mode. Never let the accent
   obscure a caveat, a limitation, or a measured result.
