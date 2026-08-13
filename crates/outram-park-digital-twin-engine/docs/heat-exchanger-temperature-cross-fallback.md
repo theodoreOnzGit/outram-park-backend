@@ -52,7 +52,11 @@ nonsense.
 Three arrays, Lie-split coupling, as today. No cross detected, nothing
 happens. This must remain the overwhelmingly common path.
 
-### Tier 1 — direct array-to-array coupling
+### Tier 1 — direct array-to-array coupling — **REMOVED 2026-08-13**
+
+> **Maintainer decision: "eliminate metal is eliminated."** Implemented,
+> verified, and then removed. Kept here as the record of why, and because the
+> idea is still viable in a different form (see below).
 
 On detecting a cross, couple the hot and cold arrays **directly** through an
 appropriate series thermal resistance, bypassing the metal as a lagged
@@ -64,6 +68,31 @@ advection, so it is a per-node capacitance with two conductances and can be
 eliminated analytically. Eliminating it removes one full lag from the coupling
 loop, which in a counter-flow arrangement is where the cross originates.
 
+**What was built and what it measured.** The algebra
+`T_m* = (G_h·T_h + G_c·T_c)/(G_h + G_c)`, `1/G_series = 1/G_h + 1/G_c` was
+verified three ways: against a numerically integrated metal ODE to
+**5.684e-11 K**, both-sides equality to **1 ulp**, and the dropped axial
+conduction measured at `G_axial/(G_h+G_c)` = **1.704e-6** (safe at 8 nodes, not
+at a much finer mesh).
+
+**Why it was removed anyway, on two independent grounds:**
+
+1. **It could not clear a cross, structurally.** It rewrites only `T_m`, and is
+   invoked only on an already-crossed state, so it returned "did not converge"
+   every time. Eliminating the metal changes *how the next step is integrated*;
+   a post-hoc state repair cannot undo a lag already taken.
+2. **Its transient cost was the largest of the three.** Setting the metal rather
+   than integrating it collapses `tau_exchanger` from **39.78 s** to zero and
+   `tau_node` from **7.46 s** to zero, delivering **31.78 MJ** early on a 100 K
+   hot-inlet step. Not a different transient — a plant whose steam generator has
+   no tube mass, which is the isothermal-sink behaviour the nodalisation exists
+   to replace.
+
+**The idea is not dead, but it is not a remedy.** As an *integration-time*
+change — replacing the four metal links with one direct hot-to-cold link at
+`G_series`, in `steam_generator.rs` — it would remove a real lag from the
+coupling loop. That is separate work, tracked in `op-3lay`.
+
 ### Tier 2 — impose an LMTD profile
 
 If a cross is *still* observed after Tier 1, compute the steady-state outlet
@@ -74,6 +103,25 @@ temperature profiles in both arrays to that LMTD-consistent profile.
 
 Whatever the tier, the invariant to preserve is: **the state handed to the
 next timestep must not contain a temperature cross.**
+
+## Outcome (2026-08-13)
+
+Implemented as `physics/temperature_cross/`, with the selector
+`TemperatureCrossRemedy { None, Bedok, Lmtd }`. **Default `None`** — the shipped
+2 sub-steps produce no cross, so nothing engages in normal operation.
+
+**Order of preference, per maintainer decision:**
+
+1. **`Bedok`** — the corrector of choice. The only method verified against an
+   analytic reference (closed-form ε-NTU: hot outlet within 0.135 K / 0.086% of
+   span, duty within 0.086%), the only one that handles the boiling transition
+   without zoning, and the cheapest at **~425 µs** per repair — 3.4% of one
+   exchanger sub-step, which answers concern 6 below.
+2. **`Lmtd`** — last resort, and carrying a flagged defect: the steady state it
+   imposes is not the plant's operating point (**−73.8 K** on steam outlet).
+   See the variant docs and its own bead.
+
+`EliminateMetal` was removed — see Tier 1 above.
 
 ## Concerns to resolve before implementing
 
