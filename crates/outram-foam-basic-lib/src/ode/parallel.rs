@@ -108,8 +108,8 @@
 //! have wildly uneven per-lane cost.
 //!
 //! For scale, a 4 096-lane deliberately-imbalanced ensemble (half the lanes
-//! decaying at `k` near 1, half at `k` near 60, so accepted step counts run from
-//! about 10 to 126 per lane, 278 318 in total) under `Rkf45`, measured
+//! decaying at `k` near 1, half at `k` near 60, giving 278 318 accepted steps in
+//! total — a mean of 67.9 per lane against a maximum of 126) under `Rkf45`, measured
 //! 2026-08-13 on 4 logical cores by the `#[ignore]`d
 //! `ensemble_thread_scaling_benchmark`, best of 7 samples, with a second
 //! independent run alongside:
@@ -135,10 +135,14 @@
 //! # Load imbalance — why there is no hand-rolled partition
 //!
 //! An adaptive stepper takes a different number of sub-steps in every lane, and
-//! the spread is not small: a stiff lane under [`Rkf45`](crate::ode::Rkf45) can
-//! take thousands of steps while its neighbour takes twelve. Adaptive quadrature
-//! has exactly the same property, by construction. A static equal split across
-//! `P` threads therefore ends up waiting on whichever chunk drew the hard lanes.
+//! the spread is not small. On the benchmark ensemble below it is a mean of 67.9
+//! accepted steps against a maximum of 126; on the stiff pair in
+//! `parallel/tests.rs` a single lane under [`Rkf45`](crate::ode::Rkf45) burns
+//! all 10 000 of its allotted steps and still spans only a third of the
+//! interval, beside decay lanes finishing in 81. Adaptive quadrature has the
+//! same property by construction — 469 to 1 225 integrand evaluations across the
+//! three verification integrands. A static equal split across `P` threads
+//! therefore ends up waiting on whichever chunk drew the hard lanes.
 //!
 //! Every parallel path here uses `rayon`'s adaptive splitting with **no**
 //! `min_len` floor, so an idle worker can steal down to a single lane. That is
@@ -315,9 +319,9 @@ mod tests;
 /// `y(0) = 1`, integrated from `x = 0` to `x = 1` by
 /// [`Rkf45`](crate::ode::Rkf45) with `abs_tol = 1e-10`, `rel_tol = 1e-8`,
 /// initial step `0.1`. Half the lanes are given `k_i` in `[0.5, 1.5)` and half
-/// in `[50, 70)`, so per-lane step counts differ by more than an order of
-/// magnitude and the ensemble is deliberately imbalanced. Every lane averages
-/// **68.0 accepted steps** and about **8.6 us** of serial work. Best of 7
+/// in `[50, 70)`, so the ensemble is deliberately imbalanced: on the 4 096-lane
+/// case the accepted-step count averages **67.9** per lane against a
+/// **maximum of 126**. Each lane costs about **8.6 us** of serial work. Best of 7
 /// samples per point, wall clock for one whole ensemble. Produced by the
 /// `#[ignore]`d `ensemble_crossover_benchmark` test in `parallel/tests.rs` and
 /// transcribed from its printed output. Three independent runs are carried
@@ -1306,8 +1310,8 @@ where
         ComputeBackend::CpuMulti => lanes
             .par_iter()
             .enumerate()
-            // No `min_len` floor: adaptive step counts vary by orders of
-            // magnitude between lanes, so the splitter is left free to steal
+            // No `min_len` floor: adaptive step counts vary widely (measured mean 67.9,
+            // maximum 126, on the benchmark ensemble), so the splitter is left free to steal
             // down to a single lane.
             .map(|(i, lane)| integrate_one_lane(lane, &mut solver_of(i)))
             .collect(),
@@ -2338,8 +2342,10 @@ where
         ComputeBackend::CpuMulti => intervals
             .par_iter()
             .enumerate()
-            // No `min_len` floor: adaptive evaluation counts vary by orders of
-            // magnitude between lanes.
+            // No `min_len` floor: adaptive evaluation counts are decided by the
+            // integrand and vary between lanes (measured 469 to 1 225 on the
+            // three verification integrands), so the splitter is left free to
+            // steal down to a single lane.
             .map(|(i, iv)| adaptive_one(i, *iv, settings, &f))
             .collect(),
         _ => intervals

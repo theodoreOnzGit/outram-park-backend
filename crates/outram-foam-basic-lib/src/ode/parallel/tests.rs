@@ -227,7 +227,9 @@ fn ensemble_matches_harmonic_oscillator() {
 
     let mut worst = 0.0_f64;
     for (x, s) in ends.iter().zip(&states) {
-        worst = worst.max((s[0] - x.cos()).abs()).max((s[1] - x.sin()).abs());
+        worst = worst
+            .max((s[0] - x.cos()).abs())
+            .max((s[1] - x.sin()).abs());
     }
     println!("harmonic ensemble: worst |error| = {worst:.6e} over {n} lanes");
     assert!(worst < 1e-8, "worst error {worst:.6e}");
@@ -276,7 +278,10 @@ fn lumped_body_accuracy_is_set_by_the_relative_tolerance() {
     }
 
     let taus = [5.0_f64, 20.0];
-    let exact: Vec<f64> = taus.iter().map(|t| 300.0 + 200.0 * (-10.0 / t).exp()).collect();
+    let exact: Vec<f64> = taus
+        .iter()
+        .map(|t| 300.0 + 200.0 * (-10.0 / t).exp())
+        .collect();
     println!("closed form: {:.16} K, {:.16} K", exact[0], exact[1]);
 
     let mut worst_at = Vec::new();
@@ -313,7 +318,11 @@ fn lumped_body_accuracy_is_set_by_the_relative_tolerance() {
     }
 
     assert!(worst_at[0] < 1e-4, "rel_tol 1e-8 worst {:.6e}", worst_at[0]);
-    assert!(worst_at[2] < 1e-8, "rel_tol 1e-12 worst {:.6e}", worst_at[2]);
+    assert!(
+        worst_at[2] < 1e-8,
+        "rel_tol 1e-12 worst {:.6e}",
+        worst_at[2]
+    );
     assert!(
         worst_at[0] > worst_at[1] && worst_at[1] > worst_at[2],
         "tightening the tolerance must reduce the error: {worst_at:?}"
@@ -362,7 +371,9 @@ fn stiff_pair_completes_stiff_and_fails_visibly_explicit() {
         l.steps(),
         l.last_state()
     );
-    let state = stiff.states().expect("Rosenbrock23 spans the stiff interval");
+    let state = stiff
+        .states()
+        .expect("Rosenbrock23 spans the stiff interval");
     assert!(
         (state[0][0] - (-1.0_f64).exp()).abs() < 1e-7,
         "y1 = {}",
@@ -382,7 +393,10 @@ fn stiff_pair_completes_stiff_and_fails_visibly_explicit() {
         l.steps(),
         l.x_reached()
     );
-    assert!(!l.completed(), "Rkf45 must not claim to span a stiff interval");
+    assert!(
+        !l.completed(),
+        "Rkf45 must not claim to span a stiff interval"
+    );
     assert!(
         matches!(
             l.status(),
@@ -431,8 +445,7 @@ fn gauss_legendre_is_exact_to_its_degree() {
                     |_, x| x.powi(d as i32),
                 );
                 let got = batch.values().expect("evaluates")[0];
-                let exact =
-                    (b.powi(d as i32 + 1) - a.powi(d as i32 + 1)) / (d as f64 + 1.0);
+                let exact = (b.powi(d as i32 + 1) - a.powi(d as i32 + 1)) / (d as f64 + 1.0);
                 let rel = (got - exact).abs() / exact.abs().max(1.0);
                 worst = worst.max(rel);
                 assert!(
@@ -464,12 +477,19 @@ fn gauss_legendre_is_exact_to_its_degree() {
 #[test]
 fn gauss_nodes_match_the_in_workspace_abramowitz_stegun_values() {
     // A&S 25.4.30, as carried in crates/raffles/src/distributions.rs.
+    //
+    // Transcribed digit for digit from that file so the two can be compared by
+    // eye; `excessive_precision` fires on the trailing zeros of two of them,
+    // which are part of the printed table and are deliberately not trimmed.
+    // Trimming would not change any value.
+    #[allow(clippy::excessive_precision)]
     const AS_NODES: [f64; 4] = [
         0.183_434_642_495_649_8,
         0.525_532_409_916_329_0,
         0.796_666_477_413_626_7,
         0.960_289_856_497_536_3,
     ];
+    #[allow(clippy::excessive_precision)]
     const AS_WEIGHTS: [f64; 4] = [
         0.362_683_783_378_362_0,
         0.313_706_645_877_887_3,
@@ -639,17 +659,14 @@ fn adaptive_matches_closed_forms() {
         max_subdivisions: 100_000,
     };
 
-    let batch = adaptive_quadrature_batch_min(
-        &intervals,
-        settings,
-        ComputeBackend::Serial,
-        0,
-        |i, x| match i {
-            0 => (-x).exp() * x.sin(),
-            1 => x.sqrt(),
-            _ => 1.0 / (1.0 + 400.0 * (x - 0.5) * (x - 0.5)),
-        },
-    );
+    let batch =
+        adaptive_quadrature_batch_min(&intervals, settings, ComputeBackend::Serial, 0, |i, x| {
+            match i {
+                0 => (-x).exp() * x.sin(),
+                1 => x.sqrt(),
+                _ => 1.0 / (1.0 + 400.0 * (x - 0.5) * (x - 0.5)),
+            }
+        });
 
     let names = ["exp(-x) sin(x)", "sqrt(x)", "narrow peak"];
     for (i, s) in batch.solutions().iter().enumerate() {
@@ -756,8 +773,9 @@ fn assert_batches_bitwise_equal(a: &QuadratureBatch, b: &QuadratureBatch, what: 
 /// size floor forced to zero so the parallel path really runs.
 ///
 /// **Methodology.** 512 lanes of `dy/dx = -k y`, half with `k` near 1 and half
-/// with `k` near 60, so per-lane step counts differ by more than an order of
-/// magnitude. All three steppers are compared.
+/// with `k` near 60, so per-lane step counts differ substantially (measured on
+/// the 4 096-lane ensemble by `ensemble_thread_scaling_benchmark`: mean 67.9
+/// accepted steps per lane, maximum 126). All three steppers are compared.
 ///
 /// **Pass criterion.** Every observable field of every lane is bit-identical.
 ///
@@ -774,10 +792,8 @@ fn ensemble_bitwise_identical_across_backends() {
         OdeSolver::rosenbrock23(1, 1e-10, 1e-8),
     ] {
         let name = solver.name();
-        let serial =
-            integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
-        let multi =
-            integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::CpuMulti, 0);
+        let serial = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
+        let multi = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::CpuMulti, 0);
         assert_ensembles_bitwise_equal(&serial, &multi, name);
     }
 }
@@ -801,8 +817,7 @@ fn ensemble_bitwise_identical_across_thread_counts() {
         OdeSolver::rosenbrock23(1, 1e-10, 1e-8),
     ] {
         let name = solver.name();
-        let serial =
-            integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
+        let serial = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
         for threads in [1_usize, 2, 4, 8] {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -856,10 +871,8 @@ fn quadrature_bitwise_identical_across_backends_and_threads() {
         ..AdaptiveSettings::default()
     };
 
-    let fixed_serial =
-        quadrature_batch_min(&intervals, rule, ComputeBackend::Serial, 0, f);
-    let fixed_multi =
-        quadrature_batch_min(&intervals, rule, ComputeBackend::CpuMulti, 0, f);
+    let fixed_serial = quadrature_batch_min(&intervals, rule, ComputeBackend::Serial, 0, f);
+    let fixed_multi = quadrature_batch_min(&intervals, rule, ComputeBackend::CpuMulti, 0, f);
     assert_batches_bitwise_equal(&fixed_serial, &fixed_multi, "fixed backends");
 
     let adaptive_serial =
@@ -875,20 +888,14 @@ fn quadrature_bitwise_identical_across_backends_and_threads() {
             .build()
             .expect("thread pool");
         pool.install(|| {
-            let fixed =
-                quadrature_batch_min(&intervals, rule, ComputeBackend::CpuMulti, 0, f);
+            let fixed = quadrature_batch_min(&intervals, rule, ComputeBackend::CpuMulti, 0, f);
             assert_batches_bitwise_equal(
                 &fixed_serial,
                 &fixed,
                 &format!("fixed @ {threads} threads"),
             );
-            let adaptive = adaptive_quadrature_batch_min(
-                &intervals,
-                settings,
-                ComputeBackend::CpuMulti,
-                0,
-                f,
-            );
+            let adaptive =
+                adaptive_quadrature_batch_min(&intervals, settings, ComputeBackend::CpuMulti, 0, f);
             assert_batches_bitwise_equal(
                 &adaptive_serial,
                 &adaptive,
@@ -978,7 +985,8 @@ fn invalid_lanes_are_reported() {
     ];
 
     for (what, lane) in cases {
-        let ensemble = integrate_ensemble(std::slice::from_ref(&lane), &solver, ComputeBackend::Serial);
+        let ensemble =
+            integrate_ensemble(std::slice::from_ref(&lane), &solver, ComputeBackend::Serial);
         let l = &ensemble.lanes()[0];
         assert_eq!(l.status(), OdeLaneStatus::InvalidLane, "{what}");
         assert!(l.state().is_none(), "{what}");
@@ -1056,7 +1064,11 @@ fn partial_failure_in_a_large_ensemble_is_reported() {
     assert_eq!(ensemble.failure_count(), 3);
     assert_eq!(ensemble.first_failure().map(|(i, _)| i), Some(7));
     assert_eq!(
-        ensemble.failures().iter().map(|(i, _)| *i).collect::<Vec<_>>(),
+        ensemble
+            .failures()
+            .iter()
+            .map(|(i, _)| *i)
+            .collect::<Vec<_>>(),
         vec![7, 107, 207]
     );
     let err = ensemble.states().expect_err("must refuse");
@@ -1121,7 +1133,10 @@ fn mixed_stepper_selection_reaches_each_lane() {
     let e_rkf = (s[1][0] - exact).abs();
     let e_rb = (s[2][0] - exact).abs();
     println!("mixed selection: euler {e_euler:.6e}, rkf45 {e_rkf:.6e}, rosenbrock23 {e_rb:.6e}");
-    assert!(e_euler > 1e-5, "euler lane looks too accurate: {e_euler:.6e}");
+    assert!(
+        e_euler > 1e-5,
+        "euler lane looks too accurate: {e_euler:.6e}"
+    );
     assert!(e_rkf < 1e-8, "rkf45 lane: {e_rkf:.6e}");
     assert!(e_rb < 1e-8, "rosenbrock23 lane: {e_rb:.6e}");
 }
@@ -1171,7 +1186,10 @@ fn quadrature_not_finite_is_reported() {
     assert_eq!(s.status(), QuadratureStatus::NotFinite);
     assert!(s.value().is_none());
     assert!(s.last_value().is_nan());
-    assert!(s.evaluations() > 0, "the evaluations it did make are reported");
+    assert!(
+        s.evaluations() > 0,
+        "the evaluations it did make are reported"
+    );
 }
 
 /// An adaptive lane that exhausts its subdivision budget says so, and its best
@@ -1398,7 +1416,8 @@ fn ensemble_crossover_benchmark() {
             }
             best
         };
-        let reference = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
+        let reference =
+            integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
         let s = time(ComputeBackend::Serial);
         let m = time(ComputeBackend::CpuMulti);
         println!(
@@ -1492,8 +1511,7 @@ fn ensemble_thread_scaling_benchmark() {
     let n = 4096_usize;
     let lanes = imbalanced_lanes(n);
     let solver = OdeSolver::rkf45(1, 1e-10, 1e-8);
-    let reference =
-        integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
+    let reference = integrate_ensemble_min(&lanes, |_| solver.clone(), ComputeBackend::Serial, 0);
 
     let mut serial_us = f64::INFINITY;
     for _ in 0..7 {
@@ -1518,7 +1536,10 @@ fn ensemble_thread_scaling_benchmark() {
         "{:>8} {:>14} {:>9} {:>10}",
         "threads", "time [us]", "speedup", "bitwise"
     );
-    println!("{:>8} {serial_us:>14.2} {:>9.2} {:>10}", 0, 1.0, "reference");
+    println!(
+        "{:>8} {serial_us:>14.2} {:>9.2} {:>10}",
+        0, 1.0, "reference"
+    );
 
     for threads in [1_usize, 2, 4, 8] {
         let pool = rayon::ThreadPoolBuilder::new()

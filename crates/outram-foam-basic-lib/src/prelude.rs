@@ -197,3 +197,16 @@ pub use crate::math::minimise::{
     MinSettings, MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS,
     SQRT_EPSILON,
 };
+
+// --- Batched numerical integration on the hybrid backend (Layer 1) ---
+//
+// ODE ensembles (N independent IVPs) and batched quadrature (N independent
+// definite integrals). `MAX_ADAPTIVE_DEPTH` is deliberately not re-exported —
+// it is an internal safety ceiling, not a tuning knob.
+pub use crate::ode::parallel::{
+    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble,
+    integrate_ensemble_mixed, quadrature_backend_for, quadrature_batch, AdaptiveSettings,
+    GaussOrder, OdeEnsemble, OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus,
+    QuadratureBatch, QuadratureBatchFailure, QuadratureInterval, QuadratureRule,
+    QuadratureSolution, QuadratureStatus, ODE_ENSEMBLE_MIN_LANES, QUADRATURE_MIN_INTERVALS,
+};
