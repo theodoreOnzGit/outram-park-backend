@@ -85,6 +85,18 @@ pub struct CastellationControls {
     pub keep_point: Vector3,
     /// Name of the boundary patch created on the carved surface.
     pub surface_patch_name: String,
+    /// Which background-box axes are **periodic**: `cyclic_axes[a]` makes the
+    /// two outer patches normal to axis `a` (`0 = x → xMin/xMax`,
+    /// `1 = y → yMin/yMax`, `2 = z → zMin/zMax`) a
+    /// [`PatchKind::Cyclic`] pair instead of two independent
+    /// [`PatchKind::Patch`]es, with their `cyclic_partner` links resolved.
+    ///
+    /// Defaults to all `false` (the historical behaviour — six plain patches).
+    ///
+    /// Marking an axis cyclic only makes sense when the *geometry* is periodic
+    /// along it; the halves must end up conformal, which
+    /// [`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies.
+    pub cyclic_axes: [bool; 3],
 }
 
 impl CastellationControls {
@@ -97,7 +109,20 @@ impl CastellationControls {
             refinement_distance: None,
             keep_point,
             surface_patch_name: "surface".to_string(),
+            cyclic_axes: [false; 3],
         }
+    }
+
+    /// Mark background-box axis `axis` (`0 = x`, `1 = y`, `2 = z`) periodic, so
+    /// its two outer patches are emitted as a conformal cyclic pair.
+    ///
+    /// Chainable; `axis >= 3` is ignored.
+    #[must_use]
+    pub fn with_cyclic_axis(mut self, axis: usize) -> Self {
+        if axis < 3 {
+            self.cyclic_axes[axis] = true;
+        }
+        self
     }
 }
 
@@ -260,7 +285,13 @@ pub fn castellate(
     }
 
     // ── Assemble the FvMesh ───────────────────────────────────────────────────
-    let mut builder = MeshAssembler::new(gdim, h, origin, controls.surface_patch_name.clone());
+    let mut builder = MeshAssembler::new(
+        gdim,
+        h,
+        origin,
+        controls.surface_patch_name.clone(),
+        controls.cyclic_axes,
+    );
 
     for (lid, leaf) in leaves.iter().enumerate() {
         if !kept[lid] {
@@ -363,6 +394,8 @@ struct MeshAssembler {
     h: [f64; 3],
     origin: Vector3,
     surface_patch_name: String,
+    /// Which axes are periodic — see [`CastellationControls::cyclic_axes`].
+    cyclic_axes: [bool; 3],
 
     // Internal faces.
     int_owner: Vec<usize>,
@@ -394,12 +427,19 @@ const PATCH_NAMES: [&str; 6] = ["xMin", "xMax", "yMin", "yMax", "zMin", "zMax"];
 const SURFACE_BUCKET: usize = 6;
 
 impl MeshAssembler {
-    fn new(gdim: [usize; 3], h: [f64; 3], origin: Vector3, surface_patch_name: String) -> Self {
+    fn new(
+        gdim: [usize; 3],
+        h: [f64; 3],
+        origin: Vector3,
+        surface_patch_name: String,
+        cyclic_axes: [bool; 3],
+    ) -> Self {
         Self {
             gdim,
             h,
             origin,
             surface_patch_name,
+            cyclic_axes,
             int_owner: Vec::new(),
             int_neighbour: Vec::new(),
             int_sf: Vec::new(),
@@ -672,9 +712,58 @@ impl MeshAssembler {
     /// Concatenate internal + per-patch boundary faces into a validated
     /// [`FvMesh`], returning it with the points and surface-face records.
     fn finish(
-        self,
+        mut self,
         n_cells: usize,
     ) -> Result<(FvMesh, Vec<Vector3>, PolyPatchMesh, Vec<SurfaceFace>), MeshError> {
+        // A cyclic pair couples local face `i` to local face `i`
+        // (`FvMesh::cyclic_partner_face`), so before assembly the two halves of
+        // every periodic axis are put in a *corresponding* order. Sorting each
+        // half by its face centre's two transverse coordinates achieves that
+        // regardless of the order the sweep happened to emit them in (carving
+        // can remove cells from one side that it keeps on the other, so the
+        // natural sweep order is not reliable).
+        for axis in 0..3 {
+            if !self.cyclic_axes[axis] {
+                continue;
+            }
+            let (t0, t1) = match axis {
+                0 => (1usize, 2usize),
+                1 => (0, 2),
+                _ => (0, 1),
+            };
+            for bucket in [2 * axis, 2 * axis + 1] {
+                let n = self.bnd_owner[bucket].len();
+                let mut order: Vec<usize> = (0..n).collect();
+                let comp = |v: Vector3, i: usize| -> f64 {
+                    match i {
+                        0 => v.x,
+                        1 => v.y,
+                        _ => v.z,
+                    }
+                };
+                let cf = &self.bnd_cf[bucket];
+                order.sort_by(|&a, &b| {
+                    let (ka0, ka1) = (comp(cf[a], t0), comp(cf[a], t1));
+                    let (kb0, kb1) = (comp(cf[b], t0), comp(cf[b], t1));
+                    ka0.partial_cmp(&kb0)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(ka1.partial_cmp(&kb1).unwrap_or(std::cmp::Ordering::Equal))
+                });
+                let permute_owner: Vec<usize> =
+                    order.iter().map(|&i| self.bnd_owner[bucket][i]).collect();
+                let permute_sf: Vec<Vector3> =
+                    order.iter().map(|&i| self.bnd_sf[bucket][i]).collect();
+                let permute_cf: Vec<Vector3> =
+                    order.iter().map(|&i| self.bnd_cf[bucket][i]).collect();
+                let permute_pts: Vec<[usize; 4]> =
+                    order.iter().map(|&i| self.bnd_pts[bucket][i]).collect();
+                self.bnd_owner[bucket] = permute_owner;
+                self.bnd_sf[bucket] = permute_sf;
+                self.bnd_cf[bucket] = permute_cf;
+                self.bnd_pts[bucket] = permute_pts;
+            }
+        }
+
         let n_internal = self.int_owner.len();
 
         let mut owner = self.int_owner.clone();
@@ -688,6 +777,10 @@ impl MeshAssembler {
 
         let mut patches = Vec::new();
         let mut start = n_internal;
+        // bucket -> emitted patch index, so the cyclic partner links can be
+        // resolved after the loop (empty buckets are skipped, so bucket index
+        // and patch index differ).
+        let mut patch_of_bucket: [Option<usize>; 7] = [None; 7];
 
         // Outer patches (6), then the carved surface patch.
         #[allow(clippy::needless_range_loop)]
@@ -698,6 +791,8 @@ impl MeshAssembler {
             }
             let (name, kind) = if bucket == SURFACE_BUCKET {
                 (self.surface_patch_name.clone(), PatchKind::Wall)
+            } else if self.cyclic_axes[bucket / 2] {
+                (PATCH_NAMES[bucket].to_string(), PatchKind::Cyclic)
             } else {
                 (PATCH_NAMES[bucket].to_string(), PatchKind::Patch)
             };
@@ -705,8 +800,31 @@ impl MeshAssembler {
             sf.extend_from_slice(&self.bnd_sf[bucket]);
             cf.extend_from_slice(&self.bnd_cf[bucket]);
             topo_faces.extend(self.bnd_pts[bucket].iter().map(|c| c.to_vec()));
+            patch_of_bucket[bucket] = Some(patches.len());
             patches.push(BoundaryPatch::new(name, start, size, kind));
             start += size;
+        }
+
+        // Resolve the cyclic partner links. A periodic axis whose two halves did
+        // not both survive carving (or came out with unequal face counts) cannot
+        // form a valid pair, so it is demoted back to plain patches rather than
+        // emitting a mesh the solver would mis-couple.
+        for axis in 0..3 {
+            if !self.cyclic_axes[axis] {
+                continue;
+            }
+            match (patch_of_bucket[2 * axis], patch_of_bucket[2 * axis + 1]) {
+                (Some(a), Some(b)) if patches[a].size == patches[b].size => {
+                    patches[a].cyclic_partner = Some(b);
+                    patches[b].cyclic_partner = Some(a);
+                }
+                (a, b) => {
+                    for p in [a, b].into_iter().flatten() {
+                        patches[p].kind = PatchKind::Patch;
+                        patches[p].cyclic_partner = None;
+                    }
+                }
+            }
         }
 
         let fv_mesh = FvMeshBuilder::new()
