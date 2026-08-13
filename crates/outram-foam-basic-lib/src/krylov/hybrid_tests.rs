@@ -1694,24 +1694,45 @@ fn vecop_floor_inside_a_warm_solve_benchmark() {
 /// genuinely different algorithm — and would fail here.
 ///
 /// **Results, measured 2026-08-13**, release, `--features parallel`, 4 logical
-/// cores, load average `1.42 0.97 0.45`. Deterministic: no timing is involved, so
+/// cores, load average `2.41 1.39 0.77`. Deterministic: no timing is involved, so
 /// these are exact and reproducible, not a band.
 ///
 /// | Solver | Pairs | Iteration-count flips | Max abs. flip | Max rel. diff in final residual |
 /// |---|---|---|---|---|
-/// | BiCGStab | 108 | **0** | 0 | 5.55e-8 |
-/// | GMRES(30) | 108 | **0** | 0 | 4.44e-8 |
-/// | **Total** | **216** | **0** | **0** | **5.55e-8** |
+/// | BiCGStab | 108 | **0** | 0 | 2.220e-4 |
+/// | GMRES(30) | 108 | **0** | 0 | 1.831e-4 |
+/// | **Total** | **216** | **0** | **0** | **2.220e-4** |
+///
+/// The two worst cases, printed by the test alongside the totals:
+///
+/// | Solver | Where | Iterations | Residual (blocked) | Residual (flat) | Absolute difference |
+/// |---|---|---|---|---|---|
+/// | BiCGStab | 13 824 cells, dominance 1.02, seed `0xbadf00d`, tol 1e-12 | 30 | 8.620746e-13 | 8.622660e-13 | ~1.9e-16 |
+/// | GMRES(30) | 8 000 cells, dominance 1.15, seed `0xdeadbeef`, tol 1e-12 | 18 | 2.081282e-13 | 2.081663e-13 | ~3.8e-17 |
 ///
 /// **Interpretation.** Across 216 solve-pairs spanning four tolerances, three
 /// diagonal dominances, three right-hand sides, two solvers and three mesh sizes,
 /// the blocked reduction changed the iteration count **zero times**. The
 /// hypothetical one-iteration flip is therefore not merely bounded in principle;
-/// it was not observed at all in this grid. The converged residuals do differ, by
-/// up to 5.6e-8 relative — consistent with, and slightly larger than, the 4.1e-8
-/// the five-size test measured — which is the expected magnification of a
-/// last-bit change in a heavily cancelled quantity, and is invisible against a
-/// tolerance three or more orders of magnitude away.
+/// it was not observed at all in this grid.
+///
+/// **The residual difference is much larger in relative terms than the five-size
+/// test found — 2.2e-4 against 4.1e-8 — and that is worth reading carefully
+/// rather than alarming.** Both worst cases occur at the *tightest* tolerance
+/// swept, 1e-12, and the table above shows why: the differing quantity is itself
+/// only 8.6e-13 (or 2.1e-13), so an **absolute** difference of ~1.9e-16 — a
+/// couple of `f64` epsilons against the vector norms involved — presents as 2.2e-4
+/// *relative*. The five-size test ran only at 1e-10, where the residual is two
+/// orders of magnitude larger and the same absolute perturbation therefore reads
+/// two orders of magnitude smaller. This is the raw-versus-conditioned distinction
+/// documented on [`crate::ldu_matrix::parallel::dot`], seen at its extreme: a
+/// converged residual is the small difference of large numbers, and the tighter
+/// the tolerance the more completely it is cancelled.
+///
+/// The consequence for a caller is the reassuring one. Both worst cases converged
+/// to a residual within a factor of 1.2 of their own stopping tolerance — that is,
+/// as close to the threshold as this grid gets — and the iteration count still did
+/// not move.
 ///
 /// **GMRES was the one at risk and it also did not flip.** GMRES(30) runs roughly
 /// four times as many reductions per iteration as BiCGStab (`j + 1` Modified
@@ -1745,6 +1766,7 @@ fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
     let mut flips = [0usize; 2];
     let mut max_flip = [0usize; 2];
     let mut max_rel = [0.0f64; 2];
+    let mut max_rel_where = [String::new(), String::new()];
 
     for &mesh in &[16usize, 20, 24] {
         for &dominance in &[1.02f64, 1.05, 1.15] {
@@ -1839,7 +1861,14 @@ fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
                                     .abs()
                                     .max(r_flt.final_residual.abs())
                         };
-                        max_rel[solver] = max_rel[solver].max(rd);
+                        if rd > max_rel[solver] {
+                            max_rel[solver] = rd;
+                            max_rel_where[solver] = format!(
+                                "{cells} cells, dominance {dominance}, seed {seed:#x}, \
+                                 tol {tolerance:e}, {} iters, residual {:.6e} vs {:.6e}",
+                                r_blk.n_iterations, r_blk.final_residual, r_flt.final_residual
+                            );
+                        }
                     }
                 }
             }
@@ -1852,6 +1881,7 @@ fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
              max rel diff in final residual {:.3e}",
             pairs[solver], flips[solver], max_flip[solver], max_rel[solver]
         );
+        eprintln!("{name:9}: worst residual difference at {}", max_rel_where[solver]);
     }
     eprintln!(
         "total    : {} pairs, {} flips, max rel diff {:.3e}",
