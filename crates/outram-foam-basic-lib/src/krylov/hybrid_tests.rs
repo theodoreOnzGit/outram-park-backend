@@ -1802,10 +1802,14 @@ fn vecop_floor_inside_a_warm_solve_benchmark() {
 /// converged residual is the small difference of large numbers, and the tighter
 /// the tolerance the more completely it is cancelled.
 ///
-/// The consequence for a caller is the reassuring one. Both worst cases converged
-/// to a residual within a factor of 1.2 of their own stopping tolerance — that is,
-/// as close to the threshold as this grid gets — and the iteration count still did
-/// not move.
+/// The consequence for a caller is the reassuring one, and it is strongest in the
+/// BiCGStab case: that worst case stopped at a residual of 8.620746e-13 against a
+/// tolerance of 1e-12, i.e. at **0.86x its own stopping threshold** — about as
+/// close to the deciding boundary as this grid gets, precisely the situation in
+/// which a last-bit perturbation could flip an iteration — and the iteration count
+/// still did not move. The GMRES worst case sat further inside its tolerance
+/// (2.081282e-13 against 1e-12, or 0.21x), so it is the weaker of the two as
+/// evidence about behaviour near the threshold.
 ///
 /// **GMRES was the one at risk and it also did not flip.** GMRES(30) runs roughly
 /// four times as many reductions per iteration as BiCGStab (`j + 1` Modified

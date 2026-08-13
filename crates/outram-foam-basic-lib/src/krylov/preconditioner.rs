@@ -336,13 +336,14 @@ impl Ilu0Preconditioner {
     /// of the serial solve time** (rising with problem size), which caps an
     /// ILU(0)-preconditioned speed-up at **1.7-2.1x on 4 cores** and 2.2-3.4x on
     /// infinitely many. The measured end-to-end figure is ~1.5x. Full derivation,
-    /// both repeat runs and the limitations are on the
+    /// all four repeat runs and the limitations are on the
     /// `ilu0_serial_fraction_benchmark` in `crate::krylov::hybrid_tests`.
     ///
     /// The **factorisation** ([`Self::new`]) is a further sequential cost on top:
-    /// at 262 144 cells it measured 148-151 ms against a 557-664 ms serial solve,
-    /// i.e. roughly a quarter of one solve, paid once per coefficient update
-    /// rather than once per iteration.
+    /// at 262 144 cells it measured 124-151 ms against a 522-664 ms serial solve,
+    /// i.e. roughly a quarter of one solve — 23.8% in the fourth run, the only one
+    /// whose factorisation and solve figures are quoted here as a matched pair —
+    /// paid once per coefficient update rather than once per iteration.
     ///
     /// # Arguments
     ///
