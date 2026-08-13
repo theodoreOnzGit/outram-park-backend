@@ -101,6 +101,26 @@ pub enum OdeError {
     /// The integration hit its step-count budget (the carried value) before
     /// reaching the end of the interval.
     MaxStepsExceeded(usize),
+    /// The system produced a non-finite (NaN or infinite) error estimate, so
+    /// the state cannot be trusted and integration stopped.
+    ///
+    /// The usual cause is `OdeSystem::derivatives` or `OdeSystem::jacobian`
+    /// returning a non-finite value — for example a Helmholtz-EOS flash that
+    /// left the fluid's valid range, or a property correlation evaluated past
+    /// its bounds.
+    ///
+    /// # Why this variant exists
+    ///
+    /// Before bead `op-zwk0` this case did not error at all: it returned
+    /// `Ok(())` with a NaN state, because the per-equation error fold in
+    /// [`normalize_error`] used `f64::max`, which follows IEEE-754 `maxNum`
+    /// and discards a NaN operand. A wrong answer reported as success is the
+    /// worst failure mode available to a solver, so it is now a distinct error
+    /// rather than being folded into
+    /// [`StepSizeUnderflow`](Self::StepSizeUnderflow), which would have named
+    /// the wrong cause. Fixed upstream in `outram-foam-basic-lib` as bead
+    /// `op-ad6h`; this is the same fix in this vendored copy.
+    NonFiniteState,
 }
 
 impl std::fmt::Display for OdeError {
@@ -108,6 +128,10 @@ impl std::fmt::Display for OdeError {
         match self {
             Self::StepSizeUnderflow => write!(f, "ODE step size underflow"),
             Self::MaxStepsExceeded(n) => write!(f, "ODE exceeded {n} steps"),
+            Self::NonFiniteState => write!(
+                f,
+                "ODE produced a non-finite error estimate (NaN or infinite state)"
+            ),
         }
     }
 }
@@ -118,6 +142,9 @@ impl std::error::Error for OdeError {}
 
 /// Normalised scalar error — max over all equations.
 /// Maps to `Foam::ODESolver::normalizeError`.
+///
+/// Returns `f64::INFINITY` if any per-equation term is non-finite; see the
+/// comment on the fold below for why that, and not `NaN`, is the right answer.
 pub(crate) fn normalize_error(
     y0: &[f64],
     y: &[f64],
@@ -132,7 +159,29 @@ pub(crate) fn normalize_error(
             let tol = abs_tol + rel_tol * a.abs().max(b.abs());
             e.abs() / tol
         })
-        .fold(0.0_f64, f64::max)
+        // NB: `fold(0.0, f64::max)` here was a silent-wrong-answer bug
+        // (bead `op-zwk0`; fixed upstream in `outram-foam-basic-lib` as
+        // `op-ad6h`). Rust's `f64::max` follows IEEE-754 `maxNum` and DISCARDS
+        // a NaN operand, so `f64::max(0.0, NaN) == 0.0`: a NaN error read as
+        // *zero* error, the step was accepted as perfectly converged, and
+        // `integrate` returned `Ok(())` with a NaN state. Returning NaN
+        // instead would not fix it either, because the caller's accept test is
+        // `err <= 1.0` and every comparison against NaN is false — the step
+        // would be rejected, but `dx` would then shrink to underflow with no
+        // indication of why.
+        //
+        // So a non-finite error is reported as `INFINITY`, which is both true
+        // ("this step is unboundedly bad") and actionable: the caller rejects
+        // it and, per the checks in `adaptive_step` and
+        // `Rosenbrock23::solve_step`, returns `OdeError::NonFiniteState`
+        // rather than a misleading `StepSizeUnderflow`.
+        .fold(0.0_f64, |acc, e| {
+            if e.is_nan() || acc.is_nan() {
+                f64::INFINITY
+            } else {
+                acc.max(e)
+            }
+        })
 }
 
 /// Adaptive step-size loop shared by all explicit solvers.
@@ -155,6 +204,14 @@ pub(crate) fn adaptive_step(
 
     let err = loop {
         let err = inner_step(*x, y, dydx0, dx, y_temp);
+        // A non-finite error means the system produced NaN or an infinite
+        // value; shrinking `dx` cannot recover from that, so fail immediately
+        // and name the real cause instead of grinding down to a misleading
+        // `StepSizeUnderflow`. See `OdeError::NonFiniteState` and bead
+        // `op-zwk0`.
+        if !err.is_finite() {
+            return Err(OdeError::NonFiniteState);
+        }
         if err <= 1.0 {
             break err;
         }
@@ -205,4 +262,54 @@ pub(crate) fn integrate_interval(
 
     *dx_est = dx;
     Ok(())
+}
+
+#[cfg(test)]
+mod non_finite_probe {
+    use super::*;
+
+    /// A system whose `derivatives` are NaN (the Jacobian is deliberately
+    /// finite, so the NaN can only come in through `f`).
+    struct NanDerivatives;
+    impl OdeSystem for NanDerivatives {
+        fn n_eqns(&self) -> usize {
+            1
+        }
+        fn derivatives(&self, _x: f64, _y: &[f64], dydx: &mut Vec<f64>) {
+            dydx[0] = f64::NAN;
+        }
+        fn jacobian(&self, _x: f64, _y: &[f64], dfdx: &mut Vec<f64>, dfdy: &mut SquareMatrix) {
+            dfdx[0] = 0.0;
+            dfdy.set(0, 0, -1.0);
+        }
+    }
+
+    #[test]
+    fn probe_nan_is_reported_as_success() {
+        println!(
+            "normalize_error(y0=[1.0], y=[NaN], err=[NaN]) = {}",
+            normalize_error(&[1.0], &[f64::NAN], &[f64::NAN], 1e-6, 1e-4)
+        );
+        println!("f64::max(0.0, NaN) = {}", 0.0_f64.max(f64::NAN));
+
+        let ode = NanDerivatives;
+
+        let mut e = Euler::new(1, 1e-6, 1e-4);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        let r = e.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
+        println!("Euler        -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+
+        let mut r45 = Rkf45::new(1, 1e-6, 1e-4);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        let r = r45.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
+        println!("Rkf45        -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+
+        let mut rb = Rosenbrock23::new(1, 1e-6, 1e-4);
+        let mut y = vec![1.0_f64];
+        let mut dx = 0.1;
+        let r = rb.integrate(&ode, 0.0, 1.0, &mut y, &mut dx);
+        println!("Rosenbrock23 -> {:?}, y = {:?}, y[0].is_nan() = {}", r, y, y[0].is_nan());
+    }
 }
