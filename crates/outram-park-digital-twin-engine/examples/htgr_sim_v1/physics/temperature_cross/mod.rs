@@ -38,6 +38,45 @@
 //! The shipped simulator runs 2 sub-steps per plant step, where no cross
 //! occurs, so no remedy is engaged in normal operation. The remedies exist for
 //! coarser coupling than that.
+//!
+//! # Order of preference (maintainer decision, 2026-08-13)
+//!
+//! 1. [`TemperatureCrossRemedy::Bedok`] — **the corrector of choice.** It is the
+//!    only one of the methods with a verification against an analytic reference
+//!    (closed-form effectiveness-NTU: hot outlet within 0.135 K, 0.086% of span;
+//!    duty within 0.086%), the only one that passes through the boiling
+//!    transition without zoning, and the cheapest at ~425 µs per repair — about
+//!    3.4% of one exchanger sub-step.
+//! 2. [`TemperatureCrossRemedy::Lmtd`] — **last resort only**, and see the
+//!    correction it still needs, recorded on that variant.
+//!
+//! # `EliminateMetal` was removed, deliberately
+//!
+//! A third remedy eliminated the tube metal analytically (a Schur complement,
+//! `T_m* = (G_h·T_h + G_c·T_c)/(G_h + G_c)` with
+//! `1/G_series = 1/G_h + 1/G_c`). Its algebra was verified three ways — against
+//! a numerically integrated metal ODE to 5.684e-11 K, both-sides equality to
+//! 1 ulp, and the dropped axial conduction measured at 1.704e-6 of the coupling
+//! — and it was still **removed on 2026-08-13**, for two reasons:
+//!
+//! - **It could not do the job.** It rewrites only the metal temperature and is
+//!   invoked only on an already-crossed state, so it returned "did not
+//!   converge" every time. Eliminating the metal is a change to *how the next
+//!   step is integrated*, not a repair of a state already computed, and a state
+//!   repair cannot undo a lag already taken.
+//! - **Its transient cost was the largest of the three.** It sets the metal
+//!   rather than integrating it, collapsing the exchanger time constant from
+//!   39.78 s to zero and the node time constant from 7.46 s to zero, delivering
+//!   31.78 MJ early on a 100 K hot-inlet step. That is not a different
+//!   transient; it is a plant whose steam generator has no tube mass — the
+//!   isothermal-sink behaviour the nodalisation exists to replace.
+//!
+//! The idea is not necessarily dead: as an **integration-time** change —
+//! replacing the four metal links with one direct hot-to-cold link at
+//! `G_series` — it would remove a real lag from the coupling loop. That is a
+//! different piece of work in `steam_generator.rs`, not a remedy, and it is
+//! recorded in `docs/heat-exchanger-temperature-cross-fallback.md` and
+//! kopi-beans `op-3lay` rather than kept as unreachable code here.
 
 // DELETE THIS WHEN DISPATCH IS WIRED INTO `steam_generator.rs`.
 //
@@ -52,7 +91,6 @@
 use uom::si::f64::*;
 
 pub mod bedok_enthalpy_march;
-pub mod eliminate_metal;
 pub mod lmtd_profile;
 
 /// How the exchanger should respond when a temperature cross is detected.
@@ -120,24 +158,29 @@ pub enum TemperatureCrossRemedy {
     /// multipass correction `F = 1` regardless of flow arrangement. LMTD is not
     /// wrong in two-phase; it is wrong *across* the zone boundaries.
     ///
+    /// # LAST RESORT — and it needs a correction before it is trusted
+    ///
+    /// Prefer [`Self::Bedok`]. This variant is retained as a fallback for cases
+    /// the enthalpy march cannot bracket, not as an equal alternative.
+    ///
+    /// **Known defect, flagged for future correction (2026-08-13):** the steady
+    /// state it imposes is *not the plant's own operating point*, even when
+    /// given the plant's own boundary conditions and its calibrated
+    /// `STEAM_GENERATOR_UA_W_PER_K`. Measured: duty 9.36 MW against 10 MWth
+    /// (−6.4%), steam outlet 366.2 °C against the published 440 °C (−73.8 K),
+    /// helium return +30.9 K. So engaging this remedy **visibly moves the plant
+    /// by tens of kelvin**, which is an order of magnitude more than any other
+    /// approximation in this simulator.
+    ///
+    /// The cause is understood: the `UA` was calibrated against a *coupled
+    /// transient with feedwater feedback*, not against a fixed-boundary steady
+    /// solve, so a steady solve at that `UA` does not reproduce the operating
+    /// point. Fixing it means either calibrating a separate steady `UA` for
+    /// this path or reconciling the two calibrations. Until then, treat any
+    /// state produced by this remedy as indicative only. Tracked in `op-3lay`.
+    ///
     /// Implemented in [`lmtd_profile`].
     Lmtd,
-
-    /// **Eliminate the tube metal from the coupling loop.**
-    ///
-    /// The metal has no advection — it is a per-node capacitance with two
-    /// conductances — so it can be removed analytically (a Schur complement),
-    /// coupling hot and cold nodes directly through the series thermal
-    /// resistance. The metal temperature is then *set* to the value implied at
-    /// that steady state rather than integrated.
-    ///
-    /// This takes one full lag out of the inter-array coupling loop, which in a
-    /// counter-flow arrangement is where the cross originates. It is the least
-    /// invasive of the three repairs: it does not impose a steady profile on
-    /// the fluid streams, only on the metal.
-    ///
-    /// Implemented in [`eliminate_metal`].
-    EliminateMetal,
 }
 
 /// Everything a remedy needs to repair a crossed profile, and nothing else.
@@ -272,7 +315,6 @@ impl TemperatureCrossRemedy {
             Self::None => Ok(None),
             Self::Bedok => bedok_enthalpy_march::repair(inputs).map(Some),
             Self::Lmtd => lmtd_profile::repair(inputs).map(Some),
-            Self::EliminateMetal => eliminate_metal::repair(inputs).map(Some),
         }
     }
 
@@ -282,7 +324,6 @@ impl TemperatureCrossRemedy {
             Self::None => "none (observe only)",
             Self::Bedok => "BEDOK enthalpy march (Than Yan Ren)",
             Self::Lmtd => "LMTD steady profile",
-            Self::EliminateMetal => "eliminate tube metal",
         }
     }
 }
@@ -369,20 +410,6 @@ mod tests {
     /// | `None` | `Ok(None)` -- observes, repairs nothing |
     /// | `Bedok` | `Ok(Some(_))`, cross removed |
     /// | `Lmtd` | `Ok(Some(_))`, cross removed |
-    /// | `EliminateMetal` | `Err(DidNotConverge)` -- **always, by construction** |
-    ///
-    /// **`EliminateMetal` failing here is correct, not a defect.** It rewrites
-    /// only the metal temperature, and it is invoked only on an already-crossed
-    /// state, so it can never clear a cross *between the two fluid streams*.
-    /// The deeper reason is a limitation of this contract rather than of the
-    /// method: eliminating the metal is a change to **how the next step is
-    /// integrated** (replacing the four metal links with one direct hot-cold
-    /// link at the series conductance), whereas [`CrossRepairInputs`] and
-    /// [`CrossRepairOutcome`] express a **state repair after the fact**, and a
-    /// state repair cannot undo a lag already taken. Getting its real benefit
-    /// needs an integration-time hook in `steam_generator.rs`, not a bigger
-    /// repair. Recorded rather than hidden, and tracked in `op-3lay`.
-    ///
     /// Interpretation: the dispatch is honest -- a selected remedy either
     /// repairs the cross or says plainly that it did not.
     #[test]
@@ -418,14 +445,6 @@ mod tests {
                 remedy.label(),
                 repaired.worst_cross_kelvin()
             );
-        }
-
-        match TemperatureCrossRemedy::EliminateMetal.apply(&inputs) {
-            Err(CrossRepairError::DidNotConverge(_)) => {}
-            other => panic!(
-                "EliminateMetal returned {other:?}; it cannot clear a fluid-stream cross \
-                 through a post-hoc state repair and must say so"
-            ),
         }
     }
 
