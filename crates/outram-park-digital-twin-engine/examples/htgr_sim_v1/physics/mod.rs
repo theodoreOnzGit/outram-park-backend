@@ -765,7 +765,13 @@ impl HtgrPlant {
         // which is exactly what a single-corrector (plain Lie-split) step would
         // use throughout, so `PLANT_OUTER_CORRECTORS == 1` reproduces the
         // pre-2026-08-13 sequencing.
-        let mut helium_bulk = self.primary.helium_bulk_temperature();
+        // The bed's coupling variable is the core INLET temperature, not the
+        // bulk mean: the bed now closes its heat balance with an
+        // effectiveness-NTU relation against the stream's inlet (see
+        // `pebble_bed::PebbleBedCore::step`), because an arithmetic-mean
+        // driving temperature is only valid at low NTU and this exchanger runs
+        // at NTU ~ 6.6.
+        let mut core_inlet = self.primary.core_inlet_temperature();
         let mut feedwater_enthalpy = self.secondary.feedwater_enthalpy();
         let mut secondary_flow = self.secondary.mass_flow();
 
@@ -820,14 +826,17 @@ impl HtgrPlant {
             let reactor_power = self.kinetics.core_thermal_power();
             self.core_heat_to_helium =
                 self.core
-                    .step(dt, reactor_power, helium_bulk, self.primary.mass_flow());
+                    .step(dt, reactor_power, core_inlet, self.primary.mass_flow());
 
             // 3a. Primary hot leg: helium properties and the core-outlet
             //     temperature. Cheap (one CoolProp flash), so it is inside the
             //     loop.
             mark_component("helium primary loop (circulator + hot gas duct)");
-            self.primary
-                .step_hot_leg(dt, self.core_heat_to_helium, helium_flow_setpoint);
+            self.primary.step_hot_leg(
+                dt,
+                self.core.helium_outlet_temperature(),
+                helium_flow_setpoint,
+            );
 
             // 3b. The steam generator, ONCE, on the final corrector -- with the
             //     converged core-outlet temperature as its hot inlet and the
@@ -866,7 +875,7 @@ impl HtgrPlant {
             );
 
             // Hand the improved coupling values to the next corrector.
-            helium_bulk = self.primary.helium_bulk_temperature();
+            core_inlet = self.primary.core_inlet_temperature();
             feedwater_enthalpy = self.secondary.feedwater_enthalpy();
             secondary_flow = self.secondary.mass_flow();
         }
@@ -902,9 +911,9 @@ impl HtgrPlant {
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
         s.decay_heat_mw = power_in_megawatts(self.kinetics.decay_heat_power());
         s.core_thermal_power_mw = power_in_megawatts(self.kinetics.core_thermal_power());
-        let trim = self.secondary.feedwater_trim();
-        s.steam_temperature_error_k = trim.error();
-        s.feedwater_trim_integral_kg_per_s = trim.integral();
+        let controller = self.secondary.feedwater_controller();
+        s.steam_temperature_error_k = controller.error();
+        s.feedwater_controller_output = controller.last_output();
         s.delayed_neutron_fraction_pcm = self
             .kinetics
             .delayed_neutron_fraction()
@@ -2026,6 +2035,92 @@ mod tests {
         assert!(
             plant.sim_time.get::<second>() > 149.0,
             "the plant clock did not advance"
+        );
+    }
+
+    /// **Second law: the helium can never leave the core hotter than the
+    /// graphite heating it.**
+    ///
+    /// # Methodology
+    ///
+    /// The plant is run through the same flow-ramp transient as
+    /// [`tests::the_plant_outer_correctors_converge`] -- 4.3 kg/s held, ramped
+    /// to 3.0 kg/s, then held -- and `T_core_outlet <= T_bed` is asserted at
+    /// **every** step, not just at the end. A ramp is the case that matters:
+    /// the violation this guards against appears while the core is cooling
+    /// faster than the gas lag follows, so a steady-state check would miss it
+    /// entirely.
+    ///
+    /// # Why this test exists
+    ///
+    /// This was a real, shipped defect, and it had three independent causes
+    /// stacked on each other. Recorded here because each one is a trap that
+    /// could be reintroduced separately:
+    ///
+    /// 1. **An arithmetic-mean driving temperature.** The bed handed over
+    ///    `Q = UA (T_bed - T_mean)` with `T_mean = (T_in + T_out)/2`, closed
+    ///    downstream by `T_out = T_in + Q/(m c_p)`. Solving the pair gives
+    ///    `T_out = [T_in(1 - NTU/2) + NTU T_bed]/(1 + NTU/2)`, which exceeds
+    ///    `T_bed` for **NTU > 2**. This exchanger runs at NTU ~ 6.6, so the
+    ///    core outlet came out ~196 K above the bed. Fixed by using the exact
+    ///    effectiveness-NTU form for an isothermal wall.
+    /// 2. **Two modules deriving the same outlet with different `c_p`.** With
+    ///    the balance corrected, the bed evaluated `c_p` at the inlet and the
+    ///    loop at its bulk mean; a sub-percent disagreement put the outlet
+    ///    +2.6 K above the bed again. Fixed by having the bed *publish* the
+    ///    outlet its own balance computed, rather than the loop re-deriving it.
+    /// 3. **An invented 5 s gas thermal lag.** The helium holdup is about 3 kg
+    ///    against 5,280 kg of graphite, so the real lag is under a second. A
+    ///    5 s lag let the outlet trail above the bed on a cooldown by ~2.5 K.
+    ///    Fixed by deriving the lag from the gas holdup, with
+    ///    `bounded_core_outlet` as a hard guard on the remainder.
+    ///
+    /// # Results (2026-08-14)
+    ///
+    /// No violation at any step. At the 60 s read point the reference leg
+    /// gives `T_out = 905.147 K` against `T_bed = 905.560 K` -- the helium
+    /// approaches the graphite closely, as it should at NTU ~ 6.6, without
+    /// passing it.
+    #[test]
+    fn the_helium_never_leaves_the_core_hotter_than_the_bed() {
+        let mut plant = HtgrPlant::new();
+        let dt = plant_timestep();
+        let mut worst_excess_k = f64::NEG_INFINITY;
+        let mut worst_step = 0usize;
+
+        let steps = (60.0 / PLANT_TIMESTEP_S) as usize;
+        for step in 0..steps {
+            let t = step as f64 * PLANT_TIMESTEP_S;
+            // 4.3 kg/s to 10 s, ramp to 3.0 kg/s over 10-20 s, then hold.
+            let flow = if t < 10.0 {
+                4.3
+            } else if t < 20.0 {
+                4.3 + (3.0 - 4.3) * (t - 10.0) / 10.0
+            } else {
+                3.0
+            };
+            let mut commands = PlantCommands::default();
+            commands.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow);
+            plant.step(dt, commands);
+
+            let excess = plant.primary.core_outlet_temperature().get::<kelvin>()
+                - plant.pebble_temperature().get::<kelvin>();
+            if excess > worst_excess_k {
+                worst_excess_k = excess;
+                worst_step = step;
+            }
+        }
+
+        println!(
+            "worst core-outlet excess over the bed: {worst_excess_k:+.4} K at step {worst_step} \
+             ({:.1} s)",
+            worst_step as f64 * PLANT_TIMESTEP_S
+        );
+        assert!(
+            worst_excess_k <= 1.0e-9,
+            "the helium left the core {worst_excess_k:+.4} K HOTTER than the graphite heating \
+             it, at step {worst_step}. This is a second-law violation -- see this test's docs \
+             for the three separate causes that produced it before."
         );
     }
 }

@@ -439,6 +439,9 @@ pub struct PebbleBedCore {
     specific_enthalpy: AvailableEnergy,
     /// Heat rate handed to the helium on the most recent step.
     heat_to_coolant: Power,
+    /// Helium outlet temperature from the most recent effectiveness-NTU
+    /// balance -- see [`Self::helium_outlet_temperature`].
+    helium_outlet_temperature: ThermodynamicTemperature,
     /// Overall coefficient actually used on the most recent step (after the
     /// flow scaling).
     overall_htc: HeatTransfer,
@@ -455,6 +458,9 @@ impl PebbleBedCore {
                 SEED_BED_TEMPERATURE_K
             )),
             heat_to_coolant: Power::new::<watt>(0.0),
+            helium_outlet_temperature: ThermodynamicTemperature::new::<kelvin>(
+                SEED_BED_TEMPERATURE_K,
+            ),
             overall_htc: HeatTransfer::new::<watt_per_square_meter_kelvin>(
                 LEGACY_LUMPED_HTC_W_PER_M2_K,
             ),
@@ -469,15 +475,19 @@ impl PebbleBedCore {
     ///
     /// `C dT_pebble/dt = Q_fission - Q_removed`
     ///
-    /// with `C = m_graphite c_p` from the published geometry, `A` the total
-    /// pebble surface area, and `h` the illustrative overall coefficient scaled
-    /// by `(m_dot/m_dot_nominal)^0.6`.
+    /// with `C = m_graphite c_p` from the published geometry and `Q_removed`
+    /// from the effectiveness-NTU balance below.
     ///
-    /// `helium_bulk_temperature` is the bulk mean helium temperature the bed
-    /// sees, i.e. `(T_core_in + T_core_out)/2` from the primary loop. A
-    /// negative return value is physically meaningful -- it means the helium is
-    /// hotter than the graphite and is heating it, which is what happens on a
-    /// cold start.
+    /// `helium_inlet_temperature` is the **core inlet** temperature, not the
+    /// bulk mean. That distinction is the whole point of the epsilon-NTU form:
+    /// an inlet temperature is a boundary condition the stream arrives with,
+    /// whereas the bulk mean depends on the outlet this balance is computing,
+    /// and closing that circularity with an arithmetic mean is what produced a
+    /// second-law violation at high NTU. See the derivation in the body.
+    ///
+    /// A negative return value is physically meaningful -- it means the helium
+    /// is hotter than the graphite and is heating it, which is what happens on
+    /// a cold start.
     ///
     /// The explicit step is unconditionally stable for the timesteps this
     /// simulator uses: the bed time constant `C/(hA)` is about 184 s against a
@@ -486,24 +496,68 @@ impl PebbleBedCore {
         &mut self,
         dt: Time,
         fission_power: Power,
-        helium_bulk_temperature: ThermodynamicTemperature,
+        helium_inlet_temperature: ThermodynamicTemperature,
         helium_mass_flow: MassRate,
     ) -> Power {
-        // The coefficient is now evaluated at the CURRENT helium bulk
-        // temperature as well as the flow, because the Wakao film depends on
-        // the gas conductivity, viscosity and Prandtl number -- all of which
-        // move with temperature. The old lumped constant depended on flow
-        // alone.
-        let htc = overall_htc_at_flow(helium_mass_flow, helium_bulk_temperature);
+        // The coefficient is evaluated at the CURRENT helium temperature as
+        // well as the flow, because the Wakao film depends on the gas
+        // conductivity, viscosity and Prandtl number -- all of which move with
+        // temperature.
+        let htc = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
         self.overall_htc = htc;
 
         let conductance =
             htc.get::<watt_per_square_meter_kelvin>() * heat_transfer_area().get::<square_meter>();
         let t_pebble_k = self.temperature().get::<kelvin>();
-        let t_helium_k = helium_bulk_temperature.get::<kelvin>();
+        let t_in_k = helium_inlet_temperature.get::<kelvin>();
 
-        let removed_w = conductance * (t_pebble_k - t_helium_k);
+        // ── Effectiveness-NTU, NOT `UA * (T_bed - T_mean)` ─────────────────
+        //
+        // The helium is a stream flowing past what is, from its point of view,
+        // an ISOTHERMAL wall: the bed is one node at `t_pebble_k`. The exact
+        // result for that case is
+        //
+        //     T_out = T_bed - (T_bed - T_in) exp(-NTU)
+        //     Q     = m_dot c_p (T_bed - T_in) (1 - exp(-NTU))
+        //
+        // with `NTU = UA / (m_dot c_p)`. This is epsilon-NTU with `C_r = 0`,
+        // the same form the steam generator and the old IHX use.
+        //
+        // **Why this replaced an arithmetic-mean driving temperature
+        // (2026-08-14).** The bed used to hand over
+        // `Q = UA (T_bed - T_helium_mean)` with `T_mean = (T_in + T_out)/2`,
+        // and the primary loop closed it with `T_out = T_in + Q/(m_dot c_p)`.
+        // Solving those two together gives
+        //
+        //     T_out = [T_in (1 - NTU/2) + NTU T_bed] / (1 + NTU/2)
+        //
+        // which exceeds `T_bed` whenever **NTU > 2** -- the helium leaves the
+        // core hotter than the graphite heating it, which is a second-law
+        // violation, not a display artefact. It was not marginal: at the
+        // published rated point `UA = 148.4 kW/K` against `m_dot c_p =
+        // 22.3 kW/K`, so **NTU = 6.65** and the core outlet came out about
+        // 196 K above the bed. The old lumped coefficient was already in
+        // violation at NTU = 2.19; correcting the coefficient made an existing
+        // defect much more visible rather than causing it.
+        //
+        // An arithmetic-mean driving temperature is only valid for a
+        // low-NTU exchanger. This one is not, and epsilon-NTU is exact for it
+        // at no extra cost -- and is bounded by construction, since
+        // `exp(-NTU) > 0` forces `T_out < T_bed` for every finite NTU.
+        let helium_cp = helium_specific_heat(helium_inlet_temperature);
+        let capacity_rate = helium_mass_flow
+            .get::<kilogram_per_second>()
+            .abs()
+            .max(1.0e-6)
+            * helium_cp;
+        let ntu = conductance / capacity_rate;
+        let effectiveness = 1.0 - (-ntu).exp();
+
+        let removed_w = capacity_rate * effectiveness * (t_pebble_k - t_in_k);
         self.heat_to_coolant = Power::new::<watt>(removed_w);
+
+        // (the helium outlet is published after the enthalpy update below, so
+        // it is bounded by the END-of-step bed temperature -- see there)
 
         let net_w = fission_power.get::<watt>() - removed_w;
         let mass_kg = graphite_mass().get::<kilogram>();
@@ -512,7 +566,46 @@ impl PebbleBedCore {
             self.specific_enthalpy.get::<joule_per_kilogram>() + d_specific_enthalpy,
         );
 
+        // Publish the helium outlet implied by the SAME epsilon-NTU balance,
+        // so the primary loop can take it directly instead of re-deriving it
+        // from the duty with its own `c_p`.
+        //
+        // Two things about this are deliberate.
+        //
+        // **It is published, not re-derived.** Deriving `T_out = T_in +
+        // Q/(m c_p)` downstream re-opens the inversion through the back door:
+        // this module evaluates `c_p` at the inlet and the loop at its bulk
+        // mean, and a disagreement of even 0.5% puts the outlet about 2 K
+        // above the bed again.
+        //
+        // **It is taken from the END-of-step bed temperature**, i.e. after the
+        // enthalpy update just above, not from the start-of-step value the
+        // duty was computed with. That ordering is what actually bounds it:
+        // while the bed is cooling, the start-of-step temperature is the
+        // higher one, so an outlet referred to it sits above the bed
+        // temperature the same step then reports -- measured 2026-08-14 as a
+        // +2.5 K residue on the flow-ramp transient, which is a discretisation
+        // lag rather than an algebra error but reads exactly like a second-law
+        // violation to anyone looking at the numbers. Referring it to the
+        // updated temperature makes `T_out <= T_bed` hold step by step, for
+        // every finite NTU, because `exp(-NTU) > 0`.
+        let t_pebble_next_k = self.temperature().get::<kelvin>();
+        self.helium_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(
+            t_pebble_next_k - (t_pebble_next_k - t_in_k) * (-ntu).exp(),
+        );
+
         self.heat_to_coolant
+    }
+
+    /// Helium temperature leaving the bed, from the same effectiveness-NTU
+    /// balance that produced [`Self::heat_to_coolant`].
+    ///
+    /// `T_out = T_bed - (T_bed - T_in) exp(-NTU)`, so it is **bounded above by
+    /// the bed temperature for every finite NTU** -- the helium can approach
+    /// the graphite that heats it but never pass it. Use this rather than
+    /// re-deriving an outlet from the duty; see [`Self::step`].
+    pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
+        self.helium_outlet_temperature
     }
 
     /// Lumped pebble (graphite-matrix) temperature.
@@ -660,6 +753,54 @@ pub fn overall_htc_at_flow(
         return HeatTransfer::new::<watt_per_square_meter_kelvin>(0.0);
     }
     HeatTransfer::new::<watt_per_square_meter_kelvin>(1.0 / (1.0 / h_film + 1.0 / h_internal))
+}
+
+/// **Effective** bed-to-helium conductance \[W/K\]: `m_dot c_p (1 - exp(-NTU))`.
+///
+/// This, not `U A`, is the conductance the bed's heat balance actually
+/// presents, because the balance is effectiveness-NTU rather than
+/// `U A (T_bed - T_mean)` -- see [`PebbleBedCore::step`]. At high NTU the two
+/// differ enormously: `U A` is 148 kW/K at the rated point while the effective
+/// conductance saturates at the capacity rate, 22.3 kW/K, because a stream can
+/// never carry away more than `m_dot c_p (T_bed - T_in)` however good the
+/// surface is.
+///
+/// Use this for settled temperature differences (`dT = Q / G`) and for the bed
+/// time constant (`tau = C / G`).
+pub fn effective_conductance(
+    helium_mass_flow: MassRate,
+    helium_inlet_temperature: ThermodynamicTemperature,
+) -> f64 {
+    let htc = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
+    let conductance =
+        htc.get::<watt_per_square_meter_kelvin>() * heat_transfer_area().get::<square_meter>();
+    let capacity_rate = helium_mass_flow
+        .get::<kilogram_per_second>()
+        .abs()
+        .max(1.0e-6)
+        * helium_specific_heat(helium_inlet_temperature);
+    capacity_rate * (1.0 - (-(conductance / capacity_rate)).exp())
+}
+
+/// Helium isobaric specific heat \[J/(kg K)\] at `temperature` and the
+/// primary-loop pressure, from the real CoolProp-derived helium EOS.
+///
+/// Used to form the capacity rate `m_dot c_p` the effectiveness-NTU balance in
+/// [`PebbleBedCore::step`] needs. Falls back to the ideal-gas-limit helium
+/// value if the density solve declines, for the same reason
+/// [`helium_transport`] does.
+fn helium_specific_heat(temperature: ThermodynamicTemperature) -> f64 {
+    /// Ideal-gas-limit helium `c_p` \[J/(kg K)\].
+    const IDEAL_CP: f64 = 5193.0;
+    let t = temperature.get::<kelvin>();
+    if !(t.is_finite() && t > 1.0) {
+        return IDEAL_CP;
+    }
+    let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
+    match state_pt(Fluid::Helium, t, pressure_pa) {
+        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => state.cp,
+        _ => IDEAL_CP,
+    }
 }
 
 /// Helium thermal conductivity \[W/(m K)\], Prandtl number and dynamic
@@ -824,8 +965,9 @@ mod tests {
         // The coefficient is EVALUATED now (Wakao film in series with
         // intra-pebble conduction), so the expected difference is taken from
         // the same evaluation rather than from a constant.
-        let htc = overall_htc_at_flow(flow, helium).get::<watt_per_square_meter_kelvin>();
-        let expected_dt = 1.0e7 / (htc * heat_transfer_area().get::<square_meter>());
+        // Effectiveness-NTU: the settled difference is Q divided by the
+        // EFFECTIVE conductance `m_dot c_p (1 - e^-NTU)`, not by `U A`.
+        let expected_dt = 1.0e7 / effective_conductance(flow, helium);
         assert!(
             (measured_dt - expected_dt).abs() / expected_dt < 5.0e-3,
             "settled pebble-to-helium difference {measured_dt} K departs from Q/(hA) {expected_dt} K"
@@ -862,8 +1004,8 @@ mod tests {
         let mut core = PebbleBedCore::new();
         core.specific_enthalpy = specific_enthalpy_from_temperature(helium);
 
-        let htc = overall_htc_at_flow(flow, helium).get::<watt_per_square_meter_kelvin>();
-        let final_dt_k = 1.0e7 / (htc * heat_transfer_area().get::<square_meter>());
+        let conductance = effective_conductance(flow, helium);
+        let final_dt_k = 1.0e7 / conductance;
         let target = 0.632 * final_dt_k;
 
         let mut elapsed = 0.0;
@@ -878,8 +1020,7 @@ mod tests {
         }
 
         let measured_tau = measured_tau.expect("the bed must reach 63.2% of its step response");
-        let analytical_tau = bed_heat_capacity().get::<joule_per_kelvin>()
-            / (htc * heat_transfer_area().get::<square_meter>());
+        let analytical_tau = bed_heat_capacity().get::<joule_per_kelvin>() / conductance;
         assert!(
             (measured_tau - analytical_tau).abs() / analytical_tau < 0.02,
             "measured bed time constant {measured_tau} s departs from the analytical {analytical_tau} s"
@@ -1010,6 +1151,10 @@ mod tests {
 
         let u = overall_htc_at_flow(nominal_helium_flow(), helium)
             .get::<watt_per_square_meter_kelvin>();
+        // Compared on the SURFACE resistance alone (`Q/(U A)`), which is what
+        // the legacy constant also represented -- an apples-to-apples contrast
+        // of the coefficient itself, separate from the epsilon-NTU capacity
+        // limit that the full balance additionally imposes.
         let evaluated_dt = q / (u * area);
         let legacy_dt = q / (LEGACY_LUMPED_HTC_W_PER_M2_K * area);
 

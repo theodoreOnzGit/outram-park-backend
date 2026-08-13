@@ -631,8 +631,8 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             row(
                 ui,
-                "PI integral trim",
-                format!("{:+.4} kg/s", s.feedwater_trim_integral_kg_per_s),
+                "PI output",
+                format!("{:+.4}", s.feedwater_controller_output),
             );
 
             ui.label("Secondary steam loop");
