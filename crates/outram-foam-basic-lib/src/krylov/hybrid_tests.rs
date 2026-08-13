@@ -69,7 +69,8 @@
 //! | Thread-count parity (1/2/3/8 workers) | **bitwise** |
 //! | Correctness vs dense LU, worst of 12 combinations | 6.832e-10 relative |
 //! | Iteration-count change from the blocked reduction | **none**, at all five sizes tested |
-//! | Solve speed-up at 4 096 cells (= `SPMV_MIN_CELLS`) | **0.69-0.81x — a loss**, in all four runs |
+//! | Iteration-count flips over a 216-pair tolerance/dominance/seed sweep | **zero**, for BiCGStab *and* GMRES |
+//! | Solve speed-up at 4 096 cells (= `SPMV_MIN_CELLS`) | **0.60-0.81x — a loss**, in all five runs |
 //!
 //! **A correction recorded rather than quietly overwritten.** An earlier revision
 //! of this file reported the ILU(0) serial fraction as "51.6%, an Amdahl ceiling
@@ -796,7 +797,11 @@ fn gmres_flat(
     }
 
     let final_rel = vecops::nrm2(&ldu.residual(&x, b, be)) / bnorm;
-    let final_rel = if final_rel.is_finite() { final_rel } else { 1.0 };
+    let final_rel = if final_rel.is_finite() {
+        final_rel
+    } else {
+        1.0
+    };
     (
         x,
         KrylovResult {
@@ -998,17 +1003,36 @@ fn blocked_versus_flat_reduction_does_not_move_iteration_counts() {
 /// the same load*, so it is far more robust to contention than the absolute
 /// microseconds beside it.
 ///
-/// | Cells | `s` (run 1 / 2 / 3) | cap(4) | cap(inf) | measured speed-up |
+/// | Cells | `s` (run 1 / 2 / 3 / 4) | cap(4) | cap(inf) | measured speed-up |
 /// |---|---|---|---|---|
-/// | 4 096 | 31.1% / 32.4% / 29.0% | 2.03-2.14x | 3.08-3.44x | 0.68-0.93x (**a loss**) |
-/// | 32 768 | 35.1% / 37.2% / 35.9% | 1.89-1.95x | 2.69-2.85x | 1.18-1.26x |
-/// | 110 592 | 30.5% / 37.3% / 33.4% | 1.89-2.09x | 2.68-3.28x | 1.22-1.43x |
-/// | 262 144 | 46.0% / 41.0% / 41.5% | 1.68-1.79x | 2.17-2.44x | 1.31-1.41x |
+/// | 4 096 | 31.1% / 32.4% / 29.0% / 34.1% | 1.98-2.14x | 2.93-3.44x | 0.68-0.93x (**a loss**) |
+/// | 32 768 | 35.1% / 37.2% / 35.9% / 37.4% | 1.89-1.95x | 2.67-2.85x | 1.18-1.26x |
+/// | 110 592 | 30.5% / 37.3% / 33.4% / 37.3% | 1.89-2.09x | 2.68-3.28x | 1.22-1.43x |
+/// | 262 144 | 46.0% / 41.0% / 41.5% / 40.7% | 1.68-1.80x | 2.17-2.46x | 1.31-1.50x |
+///
+/// **Fourth run, 2026-08-13**, at a notably *lower* load average than the first
+/// three — `1.42 0.97 0.45` — which matters because this benchmark's `measured`
+/// column is the one most sensitive to contention:
+///
+/// | Cells | Iterations | Factorise us | Solve serial us | Solve parallel us | Applies us | `s` | cap(4) | cap(inf) | measured |
+/// |---|---|---|---|---|---|---|---|---|---|
+/// | 4 096 | 16 | 1 358.6 | 6 551.4 | 7 987.8 | 2 234.6 | 34.1% | 1.98x | 2.93x | 0.82x |
+/// | 32 768 | 16 | 14 340.9 | 53 096.8 | 44 202.4 | 19 852.0 | 37.4% | 1.89x | 2.67x | 1.20x |
+/// | 110 592 | 16 | 55 299.8 | 201 368.1 | 155 637.1 | 75 032.6 | 37.3% | 1.89x | 2.68x | 1.29x |
+/// | 262 144 | 16 | 124 294.3 | 522 049.9 | 348 176.2 | 212 558.2 | 40.7% | 1.80x | 2.46x | 1.50x |
+///
+/// Every `s` here (34.1-40.7%) sits inside the 29-46% band from the first three
+/// runs, and the caps (1.80-1.98x on 4 cores) inside 1.68-2.14x. The `measured`
+/// column is **higher** than the first three runs at every size — 1.50x against
+/// 1.31-1.41x at 262 144 cells — which is exactly the load sensitivity flagged
+/// below: at load 1.42 this benchmark reproduces the end-to-end benchmark's 1.50x
+/// figure, where at load 1.6-2.8 it had undershot it. That resolves the
+/// discrepancy noted in the next paragraph in favour of the end-to-end numbers.
 ///
 /// The one-off factorisation is a further cost *on top of* the solve — at
-/// 262 144 cells it measured 144 000-151 000 us against a 552 000-664 000 us
-/// serial solve, i.e. roughly a quarter of one solve, paid once per coefficient
-/// update rather than once per iteration.
+/// 262 144 cells it measured 124 000-151 000 us against a 522 000-664 000 us
+/// serial solve, i.e. roughly a quarter of one solve (23.8% in the fourth run),
+/// paid once per coefficient update rather than once per iteration.
 ///
 /// The `measured` column here is systematically **lower** than the 1.49-1.51x
 /// that `end_to_end_solve_speedup_benchmark` reports at the same sizes. That is a
@@ -1213,6 +1237,32 @@ fn ilu0_serial_fraction_benchmark() {
 /// | 262 144 | 2.51x | 2.19x | 1.49x | 1.41x |
 /// | 512 000 | **2.40x** | **2.47x** | **1.51x** | **1.51x** |
 ///
+/// **Fifth run, 2026-08-13**, a later session again, `available_parallelism()` = 4,
+/// load `1.53 0.85 0.37` at start rising to `1.67 1.00 0.45` at end. Run in full
+/// so the whole table is directly comparable:
+///
+/// | Cells | Jacobi serial ms | Jacobi multi ms | Speed-up | ILU(0) serial ms | ILU(0) multi ms | Speed-up |
+/// |---|---|---|---|---|---|---|
+/// | 4 096 | 12.675 | 18.785 | **0.67x** | 6.658 | 11.075 | **0.60x** |
+/// | 13 824 | 39.850 | 28.023 | 1.42x | 22.634 | 19.809 | 1.14x |
+/// | 32 768 | 104.810 | 61.699 | 1.70x | 54.984 | 42.558 | 1.29x |
+/// | 110 592 | 398.137 | 210.252 | 1.89x | 211.214 | 156.867 | 1.35x |
+/// | 262 144 | 946.737 | 403.401 | 2.35x | 531.488 | 371.896 | 1.43x |
+/// | 512 000 | 2024.812 | 815.677 | **2.48x** | 1013.883 | 676.072 | **1.50x** |
+///
+/// Every figure in this fifth run falls inside the bands established by the first
+/// four, with **one exception**: ILU(0) at 4 096 cells measured **0.60x**, below
+/// the 0.67-0.81x seen previously. The band for that cell is therefore widened to
+/// **0.60-0.81x**; the qualitative claim it supports — that the parallel solve
+/// *loses* at 4 096 cells — is unaffected and if anything strengthened. ILU(0) at
+/// 512 000 cells came out at 1.50x, inside the 1.50-1.51x band to the last digit
+/// printed, across now five independent runs.
+///
+/// Note also that this run's absolute serial times (2024.812 ms for Jacobi at
+/// 512 000 cells) match the *reproduction* set rather than the original 1106.876
+/// ms, which is further evidence for the host-variability note below rather than
+/// for any change in the code.
+///
 /// The reproduction confirms every qualitative claim and most quantitative ones:
 /// the loss at 4 096 cells, the crossover near 13 000, the ILU(0) plateau at
 /// **1.51x** (against 1.50x/1.51x originally — agreement to the last digit
@@ -1245,8 +1295,8 @@ fn ilu0_serial_fraction_benchmark() {
 ///   the rest is ordinary parallel-efficiency loss in the half that does thread.
 ///   The gap between the two preconditioner columns is a direct measurement of
 ///   what the sequential preconditioner costs.
-/// - **At 4 096 cells the parallel solve LOSES** — 0.81x and 0.62x for Jacobi,
-///   0.71x and 0.67x for ILU(0). That is exactly
+/// - **At 4 096 cells the parallel solve LOSES** — 0.62-0.81x for Jacobi and
+///   0.60-0.81x for ILU(0), in every one of five independent runs. That is exactly
 ///   [`SPMV_MIN_CELLS`](crate::ldu_matrix::parallel::SPMV_MIN_CELLS), the floor at
 ///   which the *isolated* product kernel was measured to break even. A whole
 ///   solve does not break even there, because it interleaves the product with
@@ -1856,10 +1906,7 @@ fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
                             0.0
                         } else {
                             (r_blk.final_residual - r_flt.final_residual).abs()
-                                / r_blk
-                                    .final_residual
-                                    .abs()
-                                    .max(r_flt.final_residual.abs())
+                                / r_blk.final_residual.abs().max(r_flt.final_residual.abs())
                         };
                         if rd > max_rel[solver] {
                             max_rel[solver] = rd;
@@ -1881,7 +1928,10 @@ fn reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep() {
              max rel diff in final residual {:.3e}",
             pairs[solver], flips[solver], max_flip[solver], max_rel[solver]
         );
-        eprintln!("{name:9}: worst residual difference at {}", max_rel_where[solver]);
+        eprintln!(
+            "{name:9}: worst residual difference at {}",
+            max_rel_where[solver]
+        );
     }
     eprintln!(
         "total    : {} pairs, {} flips, max rel diff {:.3e}",
