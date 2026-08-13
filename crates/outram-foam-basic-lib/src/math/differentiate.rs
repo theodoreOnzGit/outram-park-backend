@@ -32,11 +32,11 @@ mod tests;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-/// `f64::EPSILON.cbrt()` = `6.055454452393343e-6`.
-pub const CBRT_EPSILON: f64 = 6.055_454_452_393_343e-6;
+/// `f64::EPSILON.cbrt()` = `6.0554544523933395e-6`.
+pub const CBRT_EPSILON: f64 = 6.055_454_452_393_339_5e-6;
 
-/// `f64::EPSILON.powf(0.2)` = `7.400959797320057e-4`.
-pub const FIFTH_ROOT_EPSILON: f64 = 7.400_959_797_320_057e-4;
+/// `f64::EPSILON.powf(0.2)` = `7.40095979741405e-4`.
+pub const FIFTH_ROOT_EPSILON: f64 = 7.400_959_797_414_05e-4;
 
 /// Crossover placeholder — replaced by measurement.
 pub const DERIVATIVE_BATCH_MIN_POINTS: usize = 256;
@@ -226,8 +226,8 @@ impl DiffScheme {
     /// | Scheme | Order `p` | Optimal relative step |
     /// |---|---|---|
     /// | [`Forward`](Self::Forward), [`Backward`](Self::Backward) | 1 | [`crate::math::minimise::SQRT_EPSILON`] = `1.4901161193847656e-8` |
-    /// | [`Central`](Self::Central) | 2 | [`CBRT_EPSILON`] = `6.055454452393343e-6` |
-    /// | [`Central4th`](Self::Central4th) | 4 | [`FIFTH_ROOT_EPSILON`] = `7.400959797320057e-4` |
+    /// | [`Central`](Self::Central) | 2 | [`CBRT_EPSILON`] = `6.0554544523933395e-6` |
+    /// | [`Central4th`](Self::Central4th) | 4 | [`FIFTH_ROOT_EPSILON`] = `7.40095979741405e-4` |
     ///
     /// # Units
     ///
@@ -1567,18 +1567,22 @@ where
     F: Fn(usize, &[f64], &mut Vec<f64>),
 {
     let n = x.len();
-    let mut xp = x.to_vec();
-    let mut xm = x.to_vec();
-    xp[j] = x[j] + h;
-    xm[j] = x[j] - h;
-    let dh = xp[j] - xm[j];
+    // One probe buffer, reused for both stencil points -- the two evaluations
+    // differ in a single component, so a second copy of `x` buys nothing.
+    let mut probe = x.to_vec();
+    probe[j] = x[j] + h;
+    let plus = probe[j];
+    probe[j] = x[j] - h;
+    let minus = probe[j];
+    let dh = plus - minus;
     if dh == 0.0 || !dh.is_finite() {
         return Err(DiffStatus::DegenerateStep);
     }
-    let mut fp = Vec::with_capacity(n);
     let mut fm = Vec::with_capacity(n);
-    f(lane, &xp, &mut fp);
-    f(lane, &xm, &mut fm);
+    f(lane, &probe, &mut fm);
+    probe[j] = plus;
+    let mut fp = Vec::with_capacity(n);
+    f(lane, &probe, &mut fp);
     if fp.len() != n || fm.len() != n {
         return Err(DiffStatus::DimensionMismatch);
     }
