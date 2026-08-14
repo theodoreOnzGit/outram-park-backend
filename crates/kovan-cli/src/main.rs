@@ -115,7 +115,7 @@ enum Command {
         #[arg(long)]
         budget: Option<u64>,
         /// Generate `docs/api.md` for selected crates that lack one. Needs a
-        /// nightly toolchain, `rustdoc-md`, and python3; not offline and not
+        /// nightly toolchain and `rustdoc-md`; not offline and not
         /// deterministic, so it never runs unless asked for.
         #[arg(long)]
         regenerate_missing: bool,
@@ -123,6 +123,21 @@ enum Command {
         /// nothing. Run this first to choose a selection.
         #[arg(long)]
         list: bool,
+    },
+    /// Regenerate a crate's `docs/api.md` -- the committed markdown mirror of
+    /// its public API -- via nightly rustdoc JSON piped through `rustdoc-md`.
+    ///
+    /// Replaces the retired `scripts/gen_api_docs.py`. Needs a nightly
+    /// toolchain and `rustdoc-md` on PATH; both are mandatory workspace tooling.
+    ApiDocs {
+        /// Crate directory name under `crates/`, e.g. `outram-foam-basic-lib`.
+        krate: String,
+        /// Workspace root (the directory containing `crates/`).
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Include private items (`--document-private-items`).
+        #[arg(long)]
+        private: bool,
     },
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
@@ -272,6 +287,11 @@ fn run(command: Command) -> Result<(), String> {
             )
             .map_err(|error| error.to_string())
         }
+        Command::ApiDocs {
+            krate,
+            root,
+            private,
+        } => commands::api_docs::run(&root, &krate, private).map_err(|error| error.to_string()),
         Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
         Command::Tokens(cmd) => commands::tokens::run(cmd),
         Command::Historian {

@@ -990,7 +990,7 @@ and in sync with the code. It is a recurring command, not a one-off.
    doc comments changed, so `docs/api.md` stays in sync with the code:
 
    ```bash
-   python3 scripts/gen_api_docs.py <crate-dir-name>   # e.g. outram-foam-basic-lib
+   kovan api-docs <crate-dir-name>                    # e.g. outram-foam-basic-lib
    ```
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
@@ -1059,9 +1059,13 @@ cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
 
 Two things depend on them, and both are load-bearing:
 
-- **`scripts/gen_api_docs.py`** — regenerates `crates/<crate>/docs/api.md`, the
+- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/api.md`, the
   committed markdown mirror of a crate's public API and the third leg of the
-  per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it.
+  per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
+  replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
+  needs no Python interpreter — same reasoning as epic `op-yz7b`. Note
+  `scripts/` still holds `kloc_accounting.py` and
+  `gen_aster_behaviour_registry.py`; those are untouched.)
 - **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
   crate that has none, so it can be bundled for an external agent.
 

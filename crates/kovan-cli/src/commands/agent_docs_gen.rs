@@ -14,9 +14,9 @@
 //!
 //! # Regeneration is opt-in and is the one non-offline path
 //!
-//! `--regenerate-missing` runs `scripts/gen_api_docs.py`, which needs a nightly
-//! toolchain (rustdoc's JSON output is nightly-only), the `rustdoc-md` binary,
-//! and a Python interpreter, and compiles the crate. That is explicitly outside
+//! `--regenerate-missing` calls [`super::api_docs`], which needs a nightly
+//! toolchain (rustdoc's JSON output is nightly-only) and the `rustdoc-md`
+//! binary, and compiles the crate. That is explicitly outside
 //! KOVAN's offline/deterministic charter, so it is **off by default** and never
 //! runs on its own — the same treatment [`super::setup`] gives its online
 //! `cargo install` path. The default invocation reads files and writes files,
@@ -24,7 +24,6 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use kovan_semantics::agent_docs::{estimated_tokens, inventory, write_bundle, CrateEntry};
 
@@ -266,21 +265,14 @@ fn validate_documented(entries: &[CrateEntry], selected: &[String]) -> io::Resul
 /// regenerating all of them would add megabytes to a corpus already several
 /// times over budget, and nothing would use them.
 ///
-/// Fails loudly and names the missing prerequisite rather than falling back to
-/// a bundle that quietly lacks those crates.
+/// Calls [`super::api_docs::generate`] **in process**. It used to spawn
+/// `python3 scripts/gen_api_docs.py`; that script was ported to Rust and retired
+/// on 2026-08-14, so there is no longer an interpreter in the chain.
 fn regenerate(
     workspace_root: &Path,
     entries: &[CrateEntry],
     selected: &[String],
 ) -> io::Result<()> {
-    let script = workspace_root.join("scripts").join("gen_api_docs.py");
-    if !script.is_file() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("{} not found", script.display()),
-        ));
-    }
-
     for name in selected {
         let Some(entry) = entries.iter().find(|e| &e.directory == name) else {
             continue;
@@ -289,29 +281,8 @@ fn regenerate(
             continue;
         }
         println!("regenerating docs/api.md for {name} (nightly rustdoc + rustdoc-md)...");
-        let status = Command::new("python3")
-            .arg(&script)
-            .arg(name)
-            .current_dir(workspace_root)
-            .status()
-            .map_err(|error| {
-                io::Error::new(
-                    error.kind(),
-                    format!(
-                        "could not run python3 for {}: {error} -- \
-                         --regenerate-missing needs a Python interpreter, a \
-                         nightly toolchain (`rustup toolchain install nightly`) \
-                         and `cargo install rustdoc-md --locked`",
-                        script.display()
-                    ),
-                )
-            })?;
-        if !status.success() {
-            return Err(io::Error::other(format!(
-                "gen_api_docs.py failed for {name} (exit {status}) -- check that \
-                 a nightly toolchain and rustdoc-md are installed"
-            )));
-        }
+        let path = super::api_docs::generate(workspace_root, name, false)?;
+        println!("  wrote {}", path.display());
     }
     Ok(())
 }

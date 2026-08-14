@@ -43,7 +43,7 @@ Refreshed 2026-08-11 (the earlier version of this list named only `notes.md` and
 |---|---|
 | `notes.md` | Hand-maintained. Testing notes, choked-flow status/history, workspace migration log |
 | `derivation/` | A full, **not** bite-sized, `ucbthesis`-class LaTeX derivation predating this convention |
-| `api.md` | **Generated** rustdoc mirror (`python3 scripts/gen_api_docs.py tampines-steam-tables`). Never hand-edit it — regenerate. It currently reports `Version: 0.2.2` while `Cargo.toml` is at 0.2.5, so it is stale and due a regeneration |
+| `api.md` | **Generated** rustdoc mirror (`kovan api-docs tampines-steam-tables`). Never hand-edit it — regenerate. It currently reports `Version: 0.2.2` while `Cargo.toml` is at 0.2.5, so it is stale and due a regeneration |
 | `edwards_blowdown_solver_debugging.md` | Hand-maintained development-history / debugging write-up for the Edwards–O'Brien blowdown on `TampinesSteamArray` |
 | `validation-scope-turbine-and-pipe.md` | Hand-maintained V&V scoping document: what is validated today, and the candidate benchmark cases |
 

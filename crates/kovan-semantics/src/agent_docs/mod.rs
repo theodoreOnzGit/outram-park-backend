@@ -86,7 +86,7 @@ pub fn estimated_tokens(bytes: u64) -> u64 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CrateEntry {
     /// Directory name under `crates/`, e.g. `outram-foam-basic-lib`. This is
-    /// the identifier `scripts/gen_api_docs.py` takes, and the one used to name
+    /// the identifier `kovan api-docs` takes, and the one used to name
     /// the crate's file in the bundle.
     pub directory: String,
     /// The `[package] name` from the crate's `Cargo.toml`, e.g.

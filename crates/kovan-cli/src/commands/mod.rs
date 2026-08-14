@@ -16,6 +16,7 @@
 //! local twin plus a `From` conversion, matched exhaustively both ways.
 
 pub mod agent_docs_gen;
+pub mod api_docs;
 pub mod discover;
 pub mod gen;
 pub mod historian;
