@@ -28,6 +28,7 @@ pub mod search;
 pub mod setup;
 pub mod symbols;
 pub mod tokens;
+pub mod workspace;
 
 use clap::ValueEnum;
 

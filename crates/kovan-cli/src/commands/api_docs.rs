@@ -231,8 +231,124 @@ fn ensure_rustdoc_md() -> io::Result<()> {
     ))
 }
 
-/// Run `kovan api-docs <crate>`.
-pub fn run(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Result<()> {
+/// Which crates a run covers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scope {
+    /// Refresh only crates that already have a `docs/api.md`.
+    ///
+    /// The default for `--all`, and what "regenerate the suite" normally means:
+    /// bring the committed mirrors back in step with the code, without
+    /// deciding on anyone's behalf that 23 more crates should acquire one.
+    Existing,
+    /// Every crate under `crates/`, creating mirrors that do not yet exist.
+    All,
+}
+
+/// Crate directory names under `crates/`, sorted, optionally filtered to those
+/// that already carry a mirror.
+fn crates_in_scope(workspace_root: &Path, scope: Scope) -> io::Result<Vec<String>> {
+    let mut names: Vec<String> = Vec::new();
+    for entry in std::fs::read_dir(workspace_root.join("crates"))? {
+        let path = entry?.path();
+        if !path.join("Cargo.toml").is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if scope == Scope::Existing && !path.join("docs").join("api.md").is_file() {
+            continue;
+        }
+        names.push(name.to_string());
+    }
+    names.sort();
+    Ok(names)
+}
+
+/// Regenerate every mirror in `scope`.
+///
+/// # Why one crate's failure does not stop the rest
+///
+/// Each crate is a separate `cargo +nightly doc` invocation, and one that fails
+/// to compile says nothing about the other thirty-six. Aborting on the first
+/// error would leave the suite half-regenerated with no summary of what
+/// happened. Failures are collected, reported by name at the end, and turned
+/// into a non-zero exit so a script still notices.
+fn run_all(workspace_root: &Path, scope: Scope, private: bool) -> io::Result<()> {
+    let names = crates_in_scope(workspace_root, scope)?;
+    if names.is_empty() {
+        println!("no crates in scope");
+        return Ok(());
+    }
+
+    println!(
+        "regenerating {} crate{} ({})",
+        names.len(),
+        if names.len() == 1 { "" } else { "s" },
+        match scope {
+            Scope::Existing => "refreshing existing mirrors",
+            Scope::All => "every crate, creating missing mirrors",
+        }
+    );
+
+    let mut failed: Vec<(String, String)> = Vec::new();
+    for (index, name) in names.iter().enumerate() {
+        println!("[{}/{}] {name}", index + 1, names.len());
+        match generate(workspace_root, name, private) {
+            Ok(path) => println!("        wrote {}", path.display()),
+            Err(error) => {
+                eprintln!("        FAILED: {error}");
+                failed.push((name.clone(), error.to_string()));
+            }
+        }
+    }
+
+    println!();
+    println!(
+        "{} of {} regenerated",
+        names.len() - failed.len(),
+        names.len()
+    );
+    if failed.is_empty() {
+        return Ok(());
+    }
+    println!("{} failed:", failed.len());
+    for (name, error) in &failed {
+        println!("  {name}: {error}");
+    }
+    Err(io::Error::other(format!(
+        "{} of {} crates failed to regenerate",
+        failed.len(),
+        names.len()
+    )))
+}
+
+/// Run `kovan api-docs`.
+///
+/// `crate_dir` names a single crate; `all` regenerates the whole suite instead,
+/// and `include_missing` widens that to crates with no mirror yet. Exactly one
+/// of `crate_dir` and `all` is expected — the CLI enforces that.
+pub fn run(
+    workspace_root: &Path,
+    crate_dir: Option<&str>,
+    all: bool,
+    include_missing: bool,
+    private: bool,
+) -> io::Result<()> {
+    if all {
+        let scope = if include_missing {
+            Scope::All
+        } else {
+            Scope::Existing
+        };
+        return run_all(workspace_root, scope, private);
+    }
+    let Some(crate_dir) = crate_dir else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "name a crate, or pass --all to regenerate the whole suite",
+        ));
+    };
     let path = generate(workspace_root, crate_dir, private)?;
     println!("wrote {}", path.display());
     Ok(())

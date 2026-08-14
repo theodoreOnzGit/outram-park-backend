@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.0.0
+**Version:** 0.0.1
 
 **Format Version:** 60
 
@@ -2260,6 +2260,356 @@ This trait is implemented for the following types:
 
 - `PostDryoutModel`
 
+## Module `heat_transfer`
+
+Interfacial **heat-transfer** closures for the two-fluid model.
+
+# Why this module exists
+
+[`crate::two_fluid`] carries interfacial *momentum* transfer (the drag
+models) but had no interfacial *heat* transfer, so a six-equation model
+built on it had nothing to close its two energy equations with. This module
+ports that missing half from OpenFOAM's `multiphaseEuler`.
+
+It matters because interfacial heat transfer is what makes a six-equation
+model worth having at all. Drift flux and HEM both assume the two phases sit
+on the saturation line; only a two-fluid model can carry subcooled liquid
+beside superheated vapour, and the rate at which that difference decays
+*is* `K`.
+
+# The quantity
+
+Every variant returns the **volumetric heat-transfer coefficient** `K`
+\[W/(m³·K)\], defined so the interfacial heat flux to a phase is
+
+`Q_i = K (T_interface − T_phase)`  \[W/m³\].
+
+Upstream's `heatTransferModel::K(residualAlpha)` returns exactly this, and
+the port keeps that `residual_alpha` argument rather than hard-coding a
+floor — the caller's own residual-fraction convention has to win, or a phase
+that has legitimately vanished keeps exchanging heat.
+
+# One-resistance and two-resistance, and why the `κ` differs
+
+Read side by side, [`RanzMarshall`](InterfacialHeatTransfer::RanzMarshall)
+uses the **continuous**-phase conductivity while
+[`Spherical`](InterfacialHeatTransfer::Spherical) uses the **dispersed**-phase
+conductivity. That is not an inconsistency — it is the two-resistance
+framework (upstream `twoResistanceHeatTransfer`). Heat crossing the
+interface passes through two resistances in series: convection through the
+boundary layer *outside* the inclusion, and conduction *inside* it.
+Ranz-Marshall closes the outside, spherical conduction the inside. A
+one-resistance model keeps only the continuous-side term.
+
+Getting this backwards is a **silent** error — the code runs and the answer
+is wrong by whatever the conductivity ratio happens to be, roughly a factor
+of 10 for steam/water — so each variant's doc says which side it closes, and
+[`InterfacialHeatTransfer::resistance_side`] lets a caller assert it.
+
+# Units
+
+Public methods are `uom`-typed where a dimension exists.
+[`InterfacialHeatTransfer::volumetric_coefficient_si`] takes and returns raw
+`f64` in strict SI — `W/(m·K)` for conductivity, metre for diameter,
+dimensionless for the fractions and the Reynolds/Prandtl numbers,
+`W/(m³·K)` for the result — because a 1-D system-code march calls it once
+per cell per step.
+
+```rust
+pub mod heat_transfer { /* ... */ }
+```
+
+### Types
+
+#### Enum `InterfacialHeatTransfer`
+
+An interfacial heat-transfer closure.
+
+Enum dispatch rather than trait objects, per the workspace rule: the set of
+closures is closed and known at compile time, so a `match` is exhaustive and
+every variant is rust-analyzer-navigable.
+
+# Not ported
+
+Upstream also carries `Prandtl`, `constantNu`, `nonSphericalHeatTransfer`
+and `timeScaleFilteredHeatTransfer`. Left out deliberately rather than
+approximated: `timeScaleFiltered` wraps another model and needs the
+run-time model-selection machinery this port does not have, and
+`nonSpherical` needs a shape factor only the population-balance layer
+supplies.
+
+```rust
+pub enum InterfacialHeatTransfer {
+    RanzMarshall,
+    Spherical,
+    Gunn,
+}
+```
+
+##### Variants
+
+###### `RanzMarshall`
+
+**Ranz-Marshall** (Ranz & Marshall, 1952) — closes the
+**continuous-side** convective resistance.
+
+Upstream `RanzMarshall::K`:
+
+```text
+Nu = 2 + 0.6 sqrt(Re) cbrt(Pr)
+K  = 6 max(alpha_d, alpha_res) kappa_c Nu / d^2
+```
+
+The `Nu → 2` limit as `Re → 0` is the exact conduction solution for a
+sphere in a stagnant infinite medium, which is why this correlation
+degrades gracefully at low slip instead of going to zero.
+
+###### `Spherical`
+
+**Spherical conduction** — closes the **dispersed-side** internal
+resistance.
+
+Upstream `sphericalHeatTransfer::K`:
+
+```text
+K = 60 max(alpha_d, alpha_res) kappa_d / d^2
+```
+
+Note `kappa_d`, the **dispersed** phase's conductivity — this is heat
+conducting *within* the inclusion, so the continuous phase does not
+appear at all. The factor 60 is `6 × 10`, the 10 being the Nusselt
+number of the classic transient-conduction solution for a sphere with a
+uniform internal sink.
+
+###### `Gunn`
+
+**Gunn** (Gunn, 1978) — continuous-side, with a voidage correction for
+packed and dense fluidised beds.
+
+Upstream `Gunn::K`:
+
+```text
+alpha2 = max(alpha_c, alpha_c_res)
+Nu = (7 - 10 alpha2 + 5 alpha2^2)(1 + 0.7 Re^0.2 cbrt(Pr))
+   + (1.33 - 2.4 alpha2 + 1.2 alpha2^2) Re^0.7 cbrt(Pr)
+K  = 6 max(alpha_d, alpha_res) kappa_c Nu / d^2
+```
+
+At `alpha2 = 1` the leading bracket is `7 − 10 + 5 = 2`, recovering the
+same `Nu → 2` stagnant-sphere limit as Ranz-Marshall — but the two are
+not identical there, because Gunn's `Re` exponents differ.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn volumetric_coefficient_si(self: Self, alpha_dispersed: f64, alpha_continuous: f64, kappa_continuous: f64, kappa_dispersed: f64, diameter: f64, reynolds: f64, prandtl: f64, residual_alpha: f64) -> Result<f64, MultiphaseError> { /* ... */ }
+  ```
+  Volumetric heat-transfer coefficient `K` \[W/(m³·K)\] for one cell.
+
+- ```rust
+  pub fn nusselt(self: Self, alpha_continuous: f64, reynolds: f64, prandtl: f64, residual_alpha: f64) -> Result<f64, MultiphaseError> { /* ... */ }
+  ```
+  The Nusselt number `Nu` \[-\] this correlation predicts.
+
+- ```rust
+  pub fn resistance_side(self: Self) -> ResistanceSide { /* ... */ }
+  ```
+  Which phase's conductivity this variant reads.
+
+- ```rust
+  pub fn volumetric_coefficient(self: Self, alpha_dispersed: f64, alpha_continuous: f64, kappa_continuous: ThermalConductivity, kappa_dispersed: ThermalConductivity, diameter: Length, reynolds: f64, prandtl: f64, residual_alpha: f64) -> Result<f64, MultiphaseError> { /* ... */ }
+  ```
+  `uom`-typed wrapper over
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InterfacialHeatTransfer { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &InterfacialHeatTransfer) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ResistanceSide`
+
+Which side of the interface a heat-transfer closure resolves.
+
+See [`InterfacialHeatTransfer`]'s type-level documentation: a two-resistance
+pair needs one of each, and using two of the same side is a silent error
+worth a factor of the conductivity ratio.
+
+```rust
+pub enum ResistanceSide {
+    Continuous,
+    Dispersed,
+}
+```
+
+##### Variants
+
+###### `Continuous`
+
+The convective boundary layer outside the inclusion, closed with the
+continuous phase's conductivity.
+
+###### `Dispersed`
+
+Conduction within the inclusion, closed with the dispersed phase's
+conductivity.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ResistanceSide { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ResistanceSide) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `pimple`
 
 **Drift-flux mixture PISO/PIMPLE pressure-velocity coupling** — the

@@ -1796,7 +1796,7 @@ pub struct UnvPolyMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh points [m] — node coordinates, indexed by point id (0-based). |
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh points `[m]` — node coordinates, indexed by point id (0-based). |
 | `faces` | `Vec<Vec<usize>>` | Global face list: each face is an ordered loop of point indices.<br>Length equals `fv_mesh.n_faces`; internal faces first, then boundary<br>faces grouped by patch. Owner-oriented (normal points owner → neighbour<br>for internal faces, outward for boundary faces). |
 | `fv_mesh` | `outram_foam_basic_lib::mesh::FvMesh` | The assembled finite-volume mesh: owner/neighbour, patches, cell<br>volumes/centres, face area-vectors/centres. |
 | `n_skipped_elements` | `usize` | Number of 2412 elements that were recognised but deferred (parabolic,<br>beam, or otherwise unsupported types). |
@@ -1808,7 +1808,7 @@ pub struct UnvPolyMesh {
 - ```rust
   pub fn total_volume(self: &Self) -> f64 { /* ... */ }
   ```
-  Total mesh volume [m³] — the sum of all cell volumes. A convenience for
+  Total mesh volume `[m³]` — the sum of all cell volumes. A convenience for
 
 ###### Trait Implementations
 
@@ -2441,7 +2441,7 @@ pub struct PolyMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh points [m]. |
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh points `[m]`. |
 | `faces` | `Vec<Vec<usize>>` | Faces — each an ordered loop of point indices. |
 | `owner` | `Vec<usize>` | Owning cell of each face (length `faces.len()`). |
 | `neighbour` | `Vec<usize>` | Neighbour cell of each internal face (length `n_internal_faces`). |
@@ -2466,7 +2466,7 @@ pub struct PolyMesh {
 - ```rust
   pub fn total_volume(self: &Self) -> f64 { /* ... */ }
   ```
-  Total enclosed volume [m³] — sum of primal cell volumes.
+  Total enclosed volume `[m³]` — sum of primal cell volumes.
 
 - ```rust
   pub fn structured_hex_block(nx: usize, ny: usize, nz: usize, lx: f64, ly: f64, lz: f64) -> Self { /* ... */ }
@@ -2570,7 +2570,7 @@ pub struct DualMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Dual points [m]. |
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Dual points `[m]`. |
 | `faces` | `Vec<Vec<usize>>` | Dual faces (ordered vertex loops). |
 | `owner` | `Vec<usize>` | Owning dual cell of each face (== primal point index). |
 | `neighbour` | `Vec<Option<usize>>` | Neighbour dual cell of each face; `None` for boundary faces. |
@@ -2590,7 +2590,7 @@ pub struct DualMesh {
 - ```rust
   pub fn total_volume(self: &Self) -> f64 { /* ... */ }
   ```
-  Total enclosed volume [m³] — sum of dual cell volumes. Equals the primal
+  Total enclosed volume `[m³]` — sum of dual cell volumes. Equals the primal
 
 - ```rust
   pub fn max_closure_residual(self: &Self) -> f64 { /* ... */ }
@@ -2798,7 +2798,7 @@ pub mod background { /* ... */ }
 
 #### Struct `Bounds`
 
-Axis-aligned bounding box [m].
+Axis-aligned bounding box `[m]`.
 
 Stored as the two extreme corners `min` (lowest x, y, z) and `max`
 (highest). Used both for the background-mesh extent and for individual
@@ -2815,8 +2815,8 @@ pub struct Bounds {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `min` | `outram_foam_basic_lib::primitives::Vector3` | Lower corner (min x, y, z) [m]. |
-| `max` | `outram_foam_basic_lib::primitives::Vector3` | Upper corner (max x, y, z) [m]. |
+| `min` | `outram_foam_basic_lib::primitives::Vector3` | Lower corner (min x, y, z) `[m]`. |
+| `max` | `outram_foam_basic_lib::primitives::Vector3` | Upper corner (max x, y, z) `[m]`. |
 
 ##### Implementations
 
@@ -2830,27 +2830,27 @@ pub struct Bounds {
 - ```rust
   pub fn expanded(self: &Self, pad: f64) -> Self { /* ... */ }
   ```
-  Uniformly grow the box by `pad` [m] on every side (used to wrap a
+  Uniformly grow the box by `pad` `[m]` on every side (used to wrap a
 
 - ```rust
   pub fn centre(self: &Self) -> Vector3 { /* ... */ }
   ```
-  Box centre [m].
+  Box centre `[m]`.
 
 - ```rust
   pub fn span(self: &Self) -> Vector3 { /* ... */ }
   ```
-  Side lengths `(dx, dy, dz)` [m].
+  Side lengths `(dx, dy, dz)` `[m]`.
 
 - ```rust
   pub fn volume(self: &Self) -> f64 { /* ... */ }
   ```
-  Volume `dx·dy·dz` [m³].
+  Volume `dx·dy·dz` `[m³]`.
 
 - ```rust
   pub fn diagonal(self: &Self) -> f64 { /* ... */ }
   ```
-  Length of the space diagonal [m].
+  Length of the space diagonal `[m]`.
 
 ###### Trait Implementations
 
@@ -2952,7 +2952,7 @@ pub struct BackgroundMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `bounds` | `Bounds` | Overall domain extent [m]. |
+| `bounds` | `Bounds` | Overall domain extent `[m]`. |
 | `nx` | `usize` | Cell divisions along x, y, z. |
 | `ny` | `usize` | Cell divisions along y. |
 | `nz` | `usize` | Cell divisions along z. |
@@ -2974,7 +2974,7 @@ pub struct BackgroundMesh {
 - ```rust
   pub fn cell_size(self: &Self) -> Vector3 { /* ... */ }
   ```
-  Level-0 cell size `(dx, dy, dz)` [m].
+  Level-0 cell size `(dx, dy, dz)` `[m]`.
 
 ###### Trait Implementations
 
@@ -3103,6 +3103,7 @@ pub struct CastellationControls {
     pub refinement_distance: Option<f64>,
     pub keep_point: outram_foam_basic_lib::primitives::Vector3,
     pub surface_patch_name: String,
+    pub cyclic_axes: [bool; 3],
 }
 ```
 
@@ -3112,9 +3113,10 @@ pub struct CastellationControls {
 |------|------|---------------|
 | `background` | `crate::snappy_hex_mesh::background::BackgroundMesh` | The uniform background hex mesh to refine. |
 | `surface_level` | `usize` | Target octree refinement level applied to cells near the surface.<br>Level `n` cells are `2ⁿ` times finer than the background per axis. |
-| `refinement_distance` | `Option<f64>` | Width of the refinement band around the surface [m]. A cell is refined<br>while its centre lies within this distance of the surface. `None`<br>auto-selects a one-cell band (the cell's half space-diagonal at its<br>current level), which refines the cells the surface actually passes<br>through plus their immediate shell. |
+| `refinement_distance` | `Option<f64>` | Width of the refinement band around the surface `[m]`. A cell is refined<br>while its centre lies within this distance of the surface. `None`<br>auto-selects a one-cell band (the cell's half space-diagonal at its<br>current level), which refines the cells the surface actually passes<br>through plus their immediate shell. |
 | `keep_point` | `outram_foam_basic_lib::primitives::Vector3` | `locationInMesh` — a point in the region to KEEP. Cells on the same side<br>of the closed surface as this point survive region removal. |
 | `surface_patch_name` | `String` | Name of the boundary patch created on the carved surface. |
+| `cyclic_axes` | `[bool; 3]` | Which background-box axes are **periodic**: `cyclic_axes[a]` makes the<br>two outer patches normal to axis `a` (`0 = x → xMin/xMax`,<br>`1 = y → yMin/yMax`, `2 = z → zMin/zMax`) a<br>[`PatchKind::Cyclic`] pair instead of two independent<br>[`PatchKind::Patch`]es, with their `cyclic_partner` links resolved.<br><br>Defaults to all `false` (the historical behaviour — six plain patches).<br><br>Marking an axis cyclic only makes sense when the *geometry* is periodic<br>along it; the halves must end up conformal, which<br>[`check_conformity`](crate::snappy_hex_mesh::check_conformity) verifies. |
 
 ##### Implementations
 
@@ -3124,6 +3126,11 @@ pub struct CastellationControls {
   pub fn new(background: BackgroundMesh, surface_level: usize, keep_point: Vector3) -> Self { /* ... */ }
   ```
   Convenience constructor with the common defaults (auto band, surface
+
+- ```rust
+  pub fn with_cyclic_axis(self: Self, axis: usize) -> Self { /* ... */ }
+  ```
+  Mark background-box axis `axis` (`0 = x`, `1 = y`, `2 = z`) periodic, so
 
 ###### Trait Implementations
 
@@ -3309,7 +3316,7 @@ pub struct CastellatedMesh {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `fv_mesh` | `outram_foam_basic_lib::mesh::FvMesh` | The refined, region-removed finite-volume mesh (validated). |
-| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Deduplicated mesh points [m] (corners of the kept cells). `FvMesh` itself<br>stores only geometry, so these are carried separately for snapping. |
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Deduplicated mesh points `[m]` (corners of the kept cells). `FvMesh` itself<br>stores only geometry, so these are carried separately for snapping. |
 | `topology` | `crate::snappy_hex_mesh::poly_topology::PolyPatchMesh` | Full point + face-connectivity view of the same mesh, in OpenFOAM face<br>order (internal faces first, then boundary faces by patch). This is the<br>moving-mesh substrate the snapping and layer phases mutate and rebuild<br>via [`PolyPatchMesh::build_fvmesh`]. It shares [`points`](Self::points)'<br>indexing. |
 | `surface_faces` | `Vec<SurfaceFace>` | Boundary faces on the carved surface, with their corner points. |
 | `cells_by_level` | `Vec<usize>` | Number of kept cells at each refinement level (`cells_by_level[l]`). |
@@ -3407,6 +3414,548 @@ Run the castellation phase, producing a refined, region-removed [`FvMesh`].
 
 ```rust
 pub fn castellate(surface: &crate::snappy_hex_mesh::stl::TriangleSoup, controls: &CastellationControls) -> Result<CastellatedMesh, crate::MeshError> { /* ... */ }
+```
+
+## Module `cyclic`
+
+# Cyclic (periodic) patch support for `snappyHexMesh`
+
+A cyclic patch pair is *conformal*: local face `i` of half A couples to local
+face `i` of half B, and the two halves are related by a rigid **translation**
+— the separation vector `t`. `FvMeshBuilder` enforces the bookkeeping half of
+that contract (mutual partners, equal `size`; see
+[`BoundaryPatch::new_cyclic`]) but performs **no geometric check**, so a mesh
+whose halves have drifted out of alignment still builds. This module supplies
+the missing geometric half:
+
+- [`check_conformity`] — the **V&V gate**. Asserts that every local face pair
+  has the same vertex count and that its face centres differ by one common
+  separation vector, to a tolerance. This is what makes a cyclic BC valid.
+- [`CyclicPointConstraints`] — the machinery that lets the snapping phase
+  *move* points that lie on a cyclic plane without breaking the above.
+
+## Why snapping needs this
+
+`snappyHexMesh`'s snapping phase projects wall-patch points onto the STL.
+Before this module, any wall point that also lay on a non-wall boundary face
+was **frozen** ([`super::snapping`]'s `frozen_patch_points`), cyclic planes
+included. That is conservative and conformity-safe — a point that never moves
+cannot break the pairing — but it means the geometry is **never body-fitted
+where it crosses a periodic plane**. For a fuel-subchannel mesh, whose rods
+and spacer grid are cut by the periodic planes, the rod walls stay at their
+staircase (castellated) position exactly on the seams.
+
+The fix is the constraint OpenFOAM applies to coupled patches
+(`syncTools::syncPointList` + the patch's own `pointConstraint`): a point on a
+cyclic plane may move **within that plane**, and its displacement is
+**synchronised with its partner point** so both halves move identically.
+Because the separation vector is then unchanged, conformity is preserved
+exactly while the in-plane geometry is properly snapped.
+
+Formally, for a partner pair `(p, p + t)` with plane normal `n̂ = t̂`:
+
+1. **Project into the plane** — `d ← d − (d · n̂) n̂`, so the periodic plane
+   stays flat (it is a domain boundary).
+2. **Synchronise** — `d_A = d_B = ½(d_A + d_B)`, so `(p_B + d_B) − (p_A + d_A)`
+   remains exactly `t`.
+
+Step 2 alone is sufficient for conformity; step 1 additionally keeps the
+periodic planes planar, which is what a translationally-periodic domain wants.
+
+## Scope and limits
+
+**Translational cyclics only.** Rotational (`cyclicPolyPatch` with a rotation
+transform) and non-conformal `cyclicAMI` pairs are out of scope here and are
+rejected rather than silently mishandled — see [`CyclicError`]. Extending to
+rotational periodicity means replacing the constant `t` with a rotation about
+an axis in both the pairing and the sync step.
+
+All lengths are metres.
+
+```rust
+pub mod cyclic { /* ... */ }
+```
+
+### Types
+
+#### Enum `CyclicError`
+
+Why a cyclic pairing or conformity check failed.
+
+```rust
+pub enum CyclicError {
+    UnresolvedPartner {
+        patch: usize,
+        name: String,
+    },
+    AsymmetricPartner {
+        patch: usize,
+        partner: usize,
+    },
+    SizeMismatch {
+        patch: usize,
+        size: usize,
+        partner: usize,
+        partner_size: usize,
+    },
+    FaceShapeMismatch {
+        local: usize,
+        n_a: usize,
+        n_b: usize,
+    },
+    SeparationMismatch {
+        local: usize,
+        found: [f64; 3],
+        expected: [f64; 3],
+        error: f64,
+    },
+    NotTranslational {
+        patch: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `UnresolvedPartner`
+
+A patch marked [`PatchKind::Cyclic`] has no resolved partner.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `usize` | Index of the offending patch. |
+| `name` | `String` | Its name. |
+
+###### `AsymmetricPartner`
+
+The two halves disagree on who their partner is.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `usize` | Index of the patch whose partner does not name it back. |
+| `partner` | `usize` | The partner it names. |
+
+###### `SizeMismatch`
+
+The two halves have different face counts, so face `i` ↔ face `i` cannot
+hold.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `usize` | Index of the first half. |
+| `size` | `usize` | Its face count. |
+| `partner` | `usize` | Index of the partner half. |
+| `partner_size` | `usize` | The partner's face count. |
+
+###### `FaceShapeMismatch`
+
+A local face pair has differing vertex counts.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `local` | `usize` | Local face index within the patch. |
+| `n_a` | `usize` | Vertex count on the first half. |
+| `n_b` | `usize` | Vertex count on the partner half. |
+
+###### `SeparationMismatch`
+
+A local face pair's centres are not related by the pair's separation
+vector — the halves have drifted out of alignment.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `local` | `usize` | Local face index within the patch. |
+| `found` | `[f64; 3]` | The separation this pair exhibits `[m]`. |
+| `expected` | `[f64; 3]` | The separation the pair is supposed to have `[m]`. |
+| `error` | `f64` | Magnitude of the discrepancy `[m]`. |
+
+###### `NotTranslational`
+
+A rotational or otherwise non-translational cyclic was encountered.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `usize` | Index of the offending patch. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CyclicError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CyclicError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CyclicPair`
+
+One resolved, translational cyclic patch pair.
+
+```rust
+pub struct CyclicPair {
+    pub patch_a: usize,
+    pub patch_b: usize,
+    pub separation: outram_foam_basic_lib::primitives::Vector3,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch_a` | `usize` | Patch index of the first half. |
+| `patch_b` | `usize` | Patch index of the partner half. |
+| `separation` | `outram_foam_basic_lib::primitives::Vector3` | Separation `t` `[m]` such that `centre_b = centre_a + t` for every local<br>face pair. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn plane_normal(self: &Self) -> Vector3 { /* ... */ }
+  ```
+  Unit normal of the cyclic planes — the normalised separation direction.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CyclicPair { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CyclicPair) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CyclicPointConstraints`
+
+Per-point cyclic constraints for the snapping phase.
+
+Built once from the castellated topology; consumed every snapping iteration
+by [`Self::constrain_and_sync`].
+
+```rust
+pub struct CyclicPointConstraints {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn is_constrained(self: &Self, point: usize) -> bool { /* ... */ }
+  ```
+  Is this point constrained by any cyclic plane?
+
+- ```rust
+  pub fn n_pairings(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of partner point pairings resolved.
+
+- ```rust
+  pub fn build(topo: &PolyPatchMesh, tol: f64) -> Result<Self, CyclicError> { /* ... */ }
+  ```
+  Build the constraints from a topology's cyclic patches.
+
+- ```rust
+  pub fn constrain_and_sync(self: &Self, disp: &mut [Vector3], local_of: &HashMap<usize, usize>) { /* ... */ }
+  ```
+  Apply the cyclic constraint to a displacement field, in place.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CyclicPointConstraints { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> CyclicPointConstraints { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `resolve_pairs`
+
+Resolve every cyclic pair in `topo`, verifying the bookkeeping contract.
+
+Each pair is reported **once** (with `patch_a < patch_b`). The separation is
+taken from local face `0` and then required of every other local face by
+[`check_conformity`].
+
+# Errors
+
+[`CyclicError::UnresolvedPartner`], [`CyclicError::AsymmetricPartner`] or
+[`CyclicError::SizeMismatch`] if the patch bookkeeping is inconsistent.
+
+```rust
+pub fn resolve_pairs(topo: &super::poly_topology::PolyPatchMesh) -> Result<Vec<CyclicPair>, CyclicError> { /* ... */ }
+```
+
+#### Function `check_conformity`
+
+**The V&V gate.** Verify every cyclic pair is geometrically conformal.
+
+For each pair and each local face `i`, requires that half A's face `i` and
+half B's face `i` have the same vertex count and that their centres differ by
+the pair's separation vector to within `tol` metres.
+
+Passing this is what makes a `cyclic` boundary condition valid on the mesh:
+the solver couples face `i` to face `i` and assumes they are the same patch
+of geometry displaced by `t`.
+
+# Errors
+
+Any [`CyclicError`]; in particular [`CyclicError::SeparationMismatch`] naming
+the first local face that has drifted, and by how much.
+
+```rust
+pub fn check_conformity(topo: &super::poly_topology::PolyPatchMesh, tol: f64) -> Result<(), CyclicError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_CYCLIC_TOL`
+
+Default geometric tolerance `[m]` for matching cyclic faces and points.
+
+Chosen well below any realistic cell size so a genuine mismatch is caught,
+while absorbing the round-off of centroid arithmetic.
+
+```rust
+pub const DEFAULT_CYCLIC_TOL: f64 = 1e-9;
 ```
 
 ## Module `layers`
@@ -3621,8 +4170,8 @@ pub struct LayerControls {
 |------|------|---------------|
 | `n_surface_layers` | `usize` | Number of prism layers to add at the wall. |
 | `expansion_ratio` | `f64` | Geometric expansion ratio `r` between successive layers (`> 0`, usually<br>`> 1` so cells grow away from the wall). Dimensionless. |
-| `first_layer_thickness` | `f64` | Thickness of the layer nearest the wall [m]. Used directly unless<br>[`final_layer_thickness`](Self::final_layer_thickness) is `Some`. |
-| `final_layer_thickness` | `Option<f64>` | Optional target thickness of the OUTERMOST layer [m]. When `Some`, the<br>first-layer thickness is derived from it via the OpenFOAM<br>`FIRST_AND_EXPANSION`/`FINAL_AND_EXPANSION` relation (see<br>`layerParameters.C:927`): `first = final / rⁿ⁻¹` for `r ≠ 1`, so the<br>geometric series ends on the requested final thickness. |
+| `first_layer_thickness` | `f64` | Thickness of the layer nearest the wall `[m]`. Used directly unless<br>[`final_layer_thickness`](Self::final_layer_thickness) is `Some`. |
+| `final_layer_thickness` | `Option<f64>` | Optional target thickness of the OUTERMOST layer `[m]`. When `Some`, the<br>first-layer thickness is derived from it via the OpenFOAM<br>`FIRST_AND_EXPANSION`/`FINAL_AND_EXPANSION` relation (see<br>`layerParameters.C:927`): `first = final / rⁿ⁻¹` for `r ≠ 1`, so the<br>geometric series ends on the requested final thickness. |
 | `max_thickness_fraction` | `f64` | Cap on the total layer-block thickness at each wall point, as a fraction<br>of the local wall-face size `√(face area)` [dimensionless, `(0, 1]`].<br>If the graded total would exceed `max_thickness_fraction · √A` at a<br>point, that point's offsets are scaled down. This is the geometric guard<br>that keeps a prism from inverting where surface normals diverge; `0.5`<br>keeps the block below half the local cell size. |
 | `medial_axis_thickness_ratio` | `f64` | Cap on the inward shrink at each wall point, as a fraction of the local<br>**medial-axis distance** proxy `owner cell volume / wall-face area` (the<br>near-wall cell's depth normal to the wall) [dimensionless, `(0, 1)`].<br>The layer block is inserted by displacing the wall points inward by the<br>block thickness; limiting that displacement to `medial_axis_thickness_ratio<br>· owner-depth` keeps the shrink from collapsing/inverting the owner cell.<br>This is the analogue of OpenFOAM's `maxThicknessToMedialRatio`<br>(`medialAxisMeshMover.C:1646`), with the true medial-axis distance<br>replaced by the first-order owner-cell-depth proxy (see the module docs'<br>"Honest scope"). `0.5` keeps the owner cell at least half its original<br>depth. |
 | `quality_limits` | `crate::snappy_hex_mesh::QualityLimits` | Quality thresholds the layered mesh is gated on. A candidate that yields<br>any non-positive-volume cell (or a cell below `min_vol`) is retried with<br>fewer layers; see the module docs. |
@@ -3634,7 +4183,7 @@ pub struct LayerControls {
 - ```rust
   pub fn first_thickness(self: &Self) -> f64 { /* ... */ }
   ```
-  Effective first-layer thickness [m] — the thickness of the wall-nearest
+  Effective first-layer thickness `[m]` — the thickness of the wall-nearest
 
 ###### Trait Implementations
 
@@ -3716,7 +4265,7 @@ pub struct LayerControls {
 
 #### Function `layer_thicknesses`
 
-Geometric layer thicknesses `[t, t·r, t·r², …]` [m] for `n` layers with
+Geometric layer thicknesses `[t, t·r, t·r², …]` `[m]` for `n` layers with
 effective first-layer thickness `t` ([`LayerControls::first_thickness`]) and
 expansion ratio `r`.
 
@@ -3731,7 +4280,7 @@ pub fn layer_thicknesses(controls: &LayerControls) -> Vec<f64> { /* ... */ }
 
 #### Function `total_layer_thickness`
 
-Total boundary-layer thickness [m] — the sum of [`layer_thicknesses`].
+Total boundary-layer thickness `[m]` — the sum of [`layer_thicknesses`].
 
 ```rust
 pub fn total_layer_thickness(controls: &LayerControls) -> f64 { /* ... */ }
@@ -3853,7 +4402,7 @@ pub struct PolyPatchMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh point coordinates [m]. Moving snapping/layer motion edits this. |
+| `points` | `Vec<outram_foam_basic_lib::primitives::Vector3>` | Mesh point coordinates `[m]`. Moving snapping/layer motion edits this. |
 | `faces` | `Vec<Vec<usize>>` | Per-face ordered point indices into [`points`](Self::points). Internal<br>faces first (`[0, n_internal_faces)`), then boundary faces by patch. |
 | `owner` | `Vec<usize>` | `owner[f]` — owning cell of face `f` (all faces). |
 | `neighbour` | `Vec<usize>` | `neighbour[f]` — neighbour cell of internal face `f`<br>(length == `n_internal_faces`). |
@@ -3878,12 +4427,12 @@ pub struct PolyPatchMesh {
 - ```rust
   pub fn face_geometry(self: &Self) -> (Vec<Vector3>, Vec<Vector3>) { /* ... */ }
   ```
-  Face area vectors [m²] and centres [m] for every face, in face order.
+  Face area vectors `[m²]` and centres `[m]` for every face, in face order.
 
 - ```rust
   pub fn cell_geometry(self: &Self, face_areas: &[Vector3], face_centres: &[Vector3]) -> (Vec<Vector3>, Vec<f64>) { /* ... */ }
   ```
-  Cell centres [m] and volumes [m³] from the face geometry, by the
+  Cell centres `[m]` and volumes `[m³]` from the face geometry, by the
 
 - ```rust
   pub fn build_fvmesh(self: &Self) -> Result<FvMesh, MeshError> { /* ... */ }
@@ -4009,9 +4558,9 @@ pub struct MeshQuality {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `max_non_ortho_deg` | `f64` | Worst internal-face non-orthogonality [degrees] — the angle between the<br>face area vector and the owner→neighbour centre-to-centre vector. `0` is<br>perfectly orthogonal; OpenFOAM's default reject threshold is `65°`. |
+| `max_non_ortho_deg` | `f64` | Worst internal-face non-orthogonality `[degrees]` — the angle between the<br>face area vector and the owner→neighbour centre-to-centre vector. `0` is<br>perfectly orthogonal; OpenFOAM's default reject threshold is `65°`. |
 | `max_skewness` | `f64` | Worst face skewness (dimensionless) over all faces — the normalised<br>offset of the face centre from the owner–neighbour line. OpenFOAM's<br>default reject threshold is `4.0`. |
-| `min_cell_volume` | `f64` | Smallest cell volume [m³]. Non-positive means an inverted / degenerate<br>cell (fatal). |
+| `min_cell_volume` | `f64` | Smallest cell volume `[m³]`. Non-positive means an inverted / degenerate<br>cell (fatal). |
 | `n_negative_volume_cells` | `usize` | Number of cells whose volume is `<= 0` (negative-volume / inverted). |
 
 ##### Implementations
@@ -4113,9 +4662,9 @@ pub struct QualityLimits {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `max_non_ortho_deg` | `f64` | Maximum allowed non-orthogonality [degrees] (OpenFOAM default `65`). |
+| `max_non_ortho_deg` | `f64` | Maximum allowed non-orthogonality `[degrees]` (OpenFOAM default `65`). |
 | `max_skewness` | `f64` | Maximum allowed skewness (OpenFOAM default `4.0`). |
-| `min_vol` | `f64` | Minimum allowed cell volume [m³] (OpenFOAM default `1e-13`). |
+| `min_vol` | `f64` | Minimum allowed cell volume `[m³]` (OpenFOAM default `1e-13`). |
 
 ##### Implementations
 
@@ -4207,7 +4756,7 @@ pub struct QualityLimits {
 
 #### Function `face_area_and_centre`
 
-Area vector [m²] and centre [m] of one polygonal face, by fan triangulation
+Area vector `[m²]` and centre `[m]` of one polygonal face, by fan triangulation
 about the point average (OpenFOAM `makeFaceCentresAndAreas`).
 
 The returned area vector obeys the right-hand rule over the point order; a
@@ -4373,9 +4922,9 @@ pub struct SnapControls {
 | `n_solve_iter` | `usize` | Number of quality-gated point-displacement relaxation iterations<br>(`snapControls::nSolveIter`). Nearest-surface targets are recomputed at<br>the start of each, so points converge onto the surface progressively. |
 | `n_smooth_patch` | `usize` | Number of Laplacian patch-smoothing sweeps applied to the displacement<br>field each solve iteration (`snapControls::nSmoothPatch`). |
 | `tolerance` | `f64` | Relative distance (in cell sizes) a point may travel to the surface<br>(`snapControls::tolerance`). Retained for parity with the OpenFOAM<br>dictionary; the current serial morph gates motion on mesh quality rather<br>than this ratio, so it is advisory. |
-| `quality` | `crate::snappy_hex_mesh::poly_topology::QualityLimits` | Mesh-quality limits the relaxation must satisfy for a move to be<br>committed (non-orthogonality [deg], skewness, min cell volume [m³]). |
+| `quality` | `crate::snappy_hex_mesh::poly_topology::QualityLimits` | Mesh-quality limits the relaxation must satisfy for a move to be<br>committed (non-orthogonality `[deg]`, skewness, min cell volume `[m³]`). |
 | `feature_snap` | `bool` | Enable feature snapping (port of `snappySnapDriverFeature.C` with the<br>`pointConstraint` accumulator of `pointConstraintI.H`): patch points near<br>an STL crease are constrained to slide along the feature edge, and points<br>near a corner (≥2 non-collinear feature edges meeting) are fully fixed on<br>the corner vertex. See the module docs (item 5 + *Honest scope*). |
-| `feature_angle_deg` | `f64` | Dihedral-angle threshold [degrees] above which a shared STL edge counts<br>as a feature edge. Only used when `feature_snap` is set. A box has 90°<br>creases, so any threshold below 90 detects its edges. |
+| `feature_angle_deg` | `f64` | Dihedral-angle threshold `[degrees]` above which a shared STL edge counts<br>as a feature edge. Only used when `feature_snap` is set. A box has 90°<br>creases, so any threshold below 90 detects its edges. |
 
 ##### Implementations
 
@@ -4511,7 +5060,7 @@ pub fn snap(mesh: &crate::snappy_hex_mesh::castellation::CastellatedMesh, surfac
 Triangulated-surface (STL) input for `snappyHexMesh`.
 
 A stereolithography (STL) file is a "triangle soup": an unordered list of
-flat triangular facets, each with three corner points [m] and a (frequently
+flat triangular facets, each with three corner points `[m]` and a (frequently
 unreliable) stored normal. `snappyHexMesh` uses this surface for three
 purposes, all provided here:
 
@@ -4536,7 +5085,7 @@ pub mod stl { /* ... */ }
 
 #### Struct `Triangle`
 
-One triangular facet of a surface [m].
+One triangular facet of a surface `[m]`.
 
 The three corners `a`, `b`, `c` are stored in the file's winding order. The
 geometric normal is recomputed from the corners (via [`Triangle::normal`])
@@ -4555,9 +5104,9 @@ pub struct Triangle {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `a` | `outram_foam_basic_lib::primitives::Vector3` | First corner [m]. |
-| `b` | `outram_foam_basic_lib::primitives::Vector3` | Second corner [m]. |
-| `c` | `outram_foam_basic_lib::primitives::Vector3` | Third corner [m]. |
+| `a` | `outram_foam_basic_lib::primitives::Vector3` | First corner `[m]`. |
+| `b` | `outram_foam_basic_lib::primitives::Vector3` | Second corner `[m]`. |
+| `c` | `outram_foam_basic_lib::primitives::Vector3` | Third corner `[m]`. |
 
 ##### Implementations
 
@@ -4566,7 +5115,7 @@ pub struct Triangle {
 - ```rust
   pub fn new(a: Vector3, b: Vector3, c: Vector3) -> Self { /* ... */ }
   ```
-  Construct a triangle from its three corner points [m].
+  Construct a triangle from its three corner points `[m]`.
 
 - ```rust
   pub fn normal(self: &Self) -> Vector3 { /* ... */ }
@@ -4576,17 +5125,17 @@ pub struct Triangle {
 - ```rust
   pub fn area(self: &Self) -> f64 { /* ... */ }
   ```
-  Twice the triangle area (magnitude of the un-normalised cross product) [m²].
+  Twice the triangle area (magnitude of the un-normalised cross product) `[m²]`.
 
 - ```rust
   pub fn centroid(self: &Self) -> Vector3 { /* ... */ }
   ```
-  Centroid (arithmetic mean of the three corners) [m].
+  Centroid (arithmetic mean of the three corners) `[m]`.
 
 - ```rust
   pub fn closest_point(self: &Self, p: Vector3) -> Vector3 { /* ... */ }
   ```
-  Closest point on the (filled) triangle to `p` [m].
+  Closest point on the (filled) triangle to `p` `[m]`.
 
 - ```rust
   pub fn ray_intersection(self: &Self, origin: Vector3, dir: Vector3) -> Option<f64> { /* ... */ }
@@ -4689,7 +5238,7 @@ pub struct TriangleSoup {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `triangles` | `Vec<Triangle>` | The facets making up the surface [m]. |
+| `triangles` | `Vec<Triangle>` | The facets making up the surface `[m]`. |
 | `name` | `String` | Optional solid name from the STL `solid <name>` line. |
 
 ##### Implementations
@@ -4704,12 +5253,12 @@ pub struct TriangleSoup {
 - ```rust
   pub fn uv_sphere(centre: Vector3, r: f64, n_lat: usize, n_lon: usize) -> Self { /* ... */ }
   ```
-  A closed UV sphere of radius `r` [m] centred at `centre` [m], as an
+  A closed UV sphere of radius `r` `[m]` centred at `centre` `[m]`, as an
 
 - ```rust
   pub fn cuboid(min: Vector3, max: Vector3) -> Self { /* ... */ }
   ```
-  A closed axis-aligned box spanning `min`..`max` [m], as an
+  A closed axis-aligned box spanning `min`..`max` `[m]`, as an
 
 - ```rust
   pub fn len(self: &Self) -> usize { /* ... */ }
@@ -4724,17 +5273,17 @@ pub struct TriangleSoup {
 - ```rust
   pub fn bounding_box(self: &Self) -> Option<(Vector3, Vector3)> { /* ... */ }
   ```
-  Axis-aligned bounding box `(min, max)` of every vertex [m].
+  Axis-aligned bounding box `(min, max)` of every vertex `[m]`.
 
 - ```rust
   pub fn nearest_point(self: &Self, p: Vector3) -> Option<Vector3> { /* ... */ }
   ```
-  Closest point on the whole surface to `p` [m] (brute force over all
+  Closest point on the whole surface to `p` `[m]` (brute force over all
 
 - ```rust
   pub fn distance_to(self: &Self, p: Vector3) -> f64 { /* ... */ }
   ```
-  Euclidean distance from `p` to the nearest surface point [m].
+  Euclidean distance from `p` to the nearest surface point `[m]`.
 
 - ```rust
   pub fn contains_point(self: &Self, p: Vector3) -> bool { /* ... */ }
@@ -5074,6 +5623,42 @@ pub use castellation::CastellationControls;
 
 ```rust
 pub use castellation::SurfaceFace;
+```
+
+#### Re-export `check_conformity`
+
+```rust
+pub use cyclic::check_conformity;
+```
+
+#### Re-export `resolve_pairs`
+
+```rust
+pub use cyclic::resolve_pairs;
+```
+
+#### Re-export `CyclicError`
+
+```rust
+pub use cyclic::CyclicError;
+```
+
+#### Re-export `CyclicPair`
+
+```rust
+pub use cyclic::CyclicPair;
+```
+
+#### Re-export `CyclicPointConstraints`
+
+```rust
+pub use cyclic::CyclicPointConstraints;
+```
+
+#### Re-export `DEFAULT_CYCLIC_TOL`
+
+```rust
+pub use cyclic::DEFAULT_CYCLIC_TOL;
 ```
 
 #### Re-export `add_layers`

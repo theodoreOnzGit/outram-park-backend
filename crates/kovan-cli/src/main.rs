@@ -102,9 +102,11 @@ enum Command {
     /// the verbatim `api.md` of the crates named. Output is flat because upload
     /// dialogs take files but not folders.
     AgentDocsGen {
-        /// Workspace root (the directory containing `crates/`).
-        #[arg(long, default_value = ".")]
-        root: PathBuf,
+        /// Workspace root (the directory containing `crates/`). Discovered
+        /// automatically when omitted: the current directory or an ancestor,
+        /// then `~`, `~/Documents`, `~/Documents/research`.
+        #[arg(long)]
+        root: Option<PathBuf>,
         /// Crate directories whose full `api.md` to include, comma-separated.
         #[arg(long, value_delimiter = ',')]
         crates: Vec<String>,
@@ -131,10 +133,19 @@ enum Command {
     /// toolchain and `rustdoc-md` on PATH; both are mandatory workspace tooling.
     ApiDocs {
         /// Crate directory name under `crates/`, e.g. `outram-foam-basic-lib`.
-        krate: String,
-        /// Workspace root (the directory containing `crates/`).
-        #[arg(long, default_value = ".")]
-        root: PathBuf,
+        /// Omit when using `--all`.
+        krate: Option<String>,
+        /// Regenerate every crate that already has a `docs/api.md`, instead of
+        /// one named crate.
+        #[arg(long)]
+        all: bool,
+        /// With `--all`, also generate mirrors for crates that have none yet.
+        #[arg(long, requires = "all")]
+        include_missing: bool,
+        /// Workspace root (the directory containing `crates/`). Discovered
+        /// automatically when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
         /// Include private items (`--document-private-items`).
         #[arg(long)]
         private: bool,
@@ -146,8 +157,9 @@ enum Command {
     /// state at named refs, never a working directory.
     Kloc {
         /// Workspace root (used to site the default output directory).
-        #[arg(long, default_value = ".")]
-        root: PathBuf,
+        /// Discovered automatically when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
         /// Where to write the artifacts (default: `<root>/docs/kloc-accounting`).
         #[arg(long)]
         out: Option<PathBuf>,
@@ -305,7 +317,12 @@ fn run(command: Command) -> Result<(), String> {
             regenerate_missing,
             list,
         } => {
-            let out_dir = out.unwrap_or_else(|| commands::agent_docs_gen::default_out_dir(&root));
+            let (root, root_how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({root_how})", root.display());
+            let (out_dir, how) = commands::agent_docs_gen::resolve_out_dir(out.as_deref())
+                .map_err(|error| error.to_string())?;
+            println!("writing to {} ({how})", out_dir.display());
             commands::agent_docs_gen::run(
                 &root,
                 &out_dir,
@@ -318,9 +335,17 @@ fn run(command: Command) -> Result<(), String> {
         }
         Command::ApiDocs {
             krate,
+            all,
+            include_missing,
             root,
             private,
-        } => commands::api_docs::run(&root, &krate, private).map_err(|error| error.to_string()),
+        } => {
+            let (root, how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({how})", root.display());
+            commands::api_docs::run(&root, krate.as_deref(), all, include_missing, private)
+                .map_err(|error| error.to_string())
+        }
         Command::Kloc {
             root,
             out,
@@ -330,6 +355,9 @@ fn run(command: Command) -> Result<(), String> {
             check,
             no_figure,
         } => {
+            let (root, how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({how})", root.display());
             let out_dir = out.unwrap_or_else(|| commands::kloc::default_out_dir(&root));
             commands::kloc::run(out_dir, clone, from_github, fetch, check, no_figure)
                 .map_err(|error| error.to_string())

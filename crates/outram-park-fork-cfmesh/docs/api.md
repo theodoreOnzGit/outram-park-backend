@@ -416,6 +416,21 @@ finite-volume discretisation error grows with face **non-orthogonality** and
 **negative-volume** cell makes a case unsolvable. [`check_quality`] computes
 these over a [`VolumeMesh`] and returns a [`QualityReport`].
 
+Two of the metrics are specifically **sliver detectors**, because the angle
+metrics above are blind to slivers — a cell can be arbitrarily flat while
+every one of its owner→neighbour lines stays perfectly orthogonal to the
+face it crosses:
+
+- [`QualityReport::min_face_pyramid_volume`] catches a cell centre that has
+  fallen onto or through one of its own faces (local inversion / tangling);
+- [`QualityReport::min_cell_determinant`] catches flatness itself — the face
+  normals collapsing towards a plane or a line — before the cell volume ever
+  goes negative.
+
+This matters here because this crate's tet primal is a **centroid
+subdivision, not a Delaunay triangulation** (see [`crate::delaunay`]), so
+slivers are an expected failure mode of the mesher rather than a rare one.
+
 All geometry is the standard OpenFOAM pyramid decomposition — per-cell
 volumes and centroids from the faces — so the metrics match what the solver
 itself would compute. Pure Rust, no dependencies.
@@ -438,6 +453,9 @@ pub struct QualityReport {
     pub min_face_area: f64,
     pub min_cell_volume: f64,
     pub n_negative_volume_cells: usize,
+    pub min_face_pyramid_volume: f64,
+    pub n_negative_pyramid_faces: usize,
+    pub min_cell_determinant: f64,
 }
 ```
 
@@ -451,6 +469,9 @@ pub struct QualityReport {
 | `min_face_area` | `f64` | Smallest face area in the mesh. |
 | `min_cell_volume` | `f64` | Smallest (signed) cell volume in the mesh. |
 | `n_negative_volume_cells` | `usize` | Number of cells with non-positive volume (a broken mesh has `> 0`). |
+| `min_face_pyramid_volume` | `f64` | Smallest **face pyramid volume** in the mesh (a volume, so `m³` if the<br>points are in metres), minimised over every *(cell, face)* incidence —<br>an internal face is checked twice, once from each side.<br><br>For face `f` of cell `c`, the pyramid has the face as its base and the<br>**cell centre** as its apex, so its signed volume is<br>`V_pyr = (1/3) · (c_f − C_c) · S_f`, with `c_f` the face centroid and<br>`S_f` the face area vector taken **outward from `c`**.<br><br>Valid range: strictly `> 0` for every face of a well-formed cell — a<br>cube of side `h` gives `h³/6` on all six faces, and the pyramid volumes<br>of a cell sum exactly to its volume. A value `<= 0` means the cell<br>centre lies **on or outside the plane of one of its own faces**: the<br>cell is locally inverted or tangled, the face's flux stencil points the<br>wrong way, and OpenFOAM's `checkMesh` fails such a mesh outright.<br><br>This is not redundant with [`QualityReport::min_cell_volume`]: a<br>strongly concave cell can have a healthily positive *total* volume and<br>still have its centre outside one of its faces (verified in this<br>module's `concave_cell_has_negative_pyramid_but_positive_volume` test).<br>Conversely, a merely **flat** (sliver) cell keeps *positive* pyramid<br>volumes — they just become small — so flatness is<br>[`QualityReport::min_cell_determinant`]'s job, not this metric's.<br><br>`0.0` for a mesh with no faces. |
+| `n_negative_pyramid_faces` | `usize` | Number of *(cell, face)* incidences whose pyramid volume is `<= 0`<br>(see [`QualityReport::min_face_pyramid_volume`]). `0` for a valid mesh;<br>any non-zero count is a hard failure in OpenFOAM's `checkMesh`. An<br>internal face can contribute up to `2` (once per adjacent cell).<br><br>Deliberately **not** wired into [`QualityReport::is_solvable`], whose<br>thresholds are left unchanged; test it explicitly if you want<br>`checkMesh`'s stricter gate. |
+| `min_cell_determinant` | `f64` | Smallest **cell determinant** over the mesh (dimensionless) — the<br>sliver detector.<br><br># Definition implemented here<br><br>For cell `c` with faces `f`, area vectors `S_f` and unit normals<br>`n_f = S_f / |S_f|`, form the area-weighted normal-orientation tensor<br><br>```text<br>        Σ_f |S_f| (n_f ⊗ n_f)<br>  D_c = ─────────────────────<br>             Σ_f |S_f|<br>```<br><br>and report `27 · det(D_c)`, minimised over the cells. (Sign-free: `n_f`<br>enters only through an outer product, so the face winding is<br>irrelevant.)<br><br># Valid range and interpretation<br><br>`D_c` is symmetric positive semi-definite with `tr(D_c) = 1`, so by<br>AM–GM `det(D_c) <= (1/3)³` and the reported value lies in `[0, 1]`:<br><br>- `1.0` — the face normals are **isotropic** (`D_c = I/3`). An<br>  axis-aligned cube and a regular tetrahedron both give exactly `1`;<br>  both are verified in this module's tests.<br>- `→ 0` — the normals collapse towards a plane (flat sliver) or a line<br>  (needle), i.e. the cell is degenerate in at least one direction. The<br>  tensor loses rank *long before* the cell volume changes sign, which is<br>  what makes this the metric that sees slivers when non-orthogonality,<br>  skewness and `min_cell_volume` all read healthy.<br><br>A cell whose faces all have zero area contributes `0.0`; a mesh with no<br>cells reports `0.0`.<br><br># Parity caveat — read before quoting this against OpenFOAM<br><br>This is the same *form* and normalisation as the "cell determinant"<br>(`wellposedness`) figure OpenFOAM's `checkMesh` prints — a normalised<br>determinant of the summed face-normal outer products, scaled so a cube<br>reads `1` — but it was implemented from that description and from the<br>algebra above, **not** transcribed from OpenFOAM source, and it has<br>**not** been compared numerically against a `checkMesh` run on the same<br>mesh. Treat it as a documented equivalent with the properties proved and<br>tested here, **not** as verified `checkMesh` parity. No threshold from<br>`checkMesh` is reproduced here, and [`QualityReport::is_solvable`] does<br>not gate on it. |
 
 ##### Implementations
 

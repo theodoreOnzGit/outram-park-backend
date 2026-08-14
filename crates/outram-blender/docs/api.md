@@ -57,6 +57,7 @@ opt-in cargo features, so the default build stays light and Android-buildable.
 |---|---|---|
 | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
+| `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
 | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
@@ -140,7 +141,7 @@ the rest pose and `w_ij = (cot α + cot β)/2` are the cotangent weights.
 - **Local step** (fix `p'`, solve each `R_i`): form the `3×3` covariance
   `S_i = Σ_j w_ij (p'_i − p'_j)(p_i − p_j)ᵀ` (deformed ⊗ rest) and take the
   closest rotation `R_i = U Vᵀ` (the orthogonal Procrustes solution, with a
-  determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` ([`closest_rotation`]) —
+  determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` (`closest_rotation`) —
   the rotation that best maps the rest one-ring onto the deformed one.
 - **Global step** (fix `{R_i}`, solve `p'`): solve `L p' = b` with
   `b_i = Σ_j (w_ij/2)(R_i + R_j)(p_i − p_j)`, where `L` is the cotangent
@@ -650,7 +651,7 @@ and `apply_bool_op`). This module does **not** transcribe that code: it
 implements the standalone **generalized winding number** point-in-solid
 test (Jacobson, Kavan, Sorkine-Hornung 2013) from first principles, plus a
 textbook ray-casting parity check as an independent cross-check. The
-[`closest_point_on_triangle`] helper is the well-known point/triangle
+`closest_point_on_triangle` helper is the well-known point/triangle
 closest-point algorithm (Ericson, *Real-Time Collision Detection*,
 §5.1.5) — public-domain-style textbook algorithm, not Blender code.
 
@@ -674,7 +675,7 @@ closest-point algorithm (Ericson, *Real-Time Collision Detection*,
 ## [`classify_point`] tolerance choices
 
 All tolerances below are **relative to the mesh's bounding-box diagonal**
-(`mesh_scale`, the same pattern [`crate::boolean::intersect_convex`] uses
+(`mesh_scale`, the same pattern `boolean::intersect_convex` uses
 for `clip_eps`/`weld`) so they hold at any model scale, not just
 unit-sized test meshes:
 
@@ -703,7 +704,7 @@ unit-sized test meshes:
   `classify_point` can return a confident-looking `Inside`/`Outside` that
   is meaningless. This module does **not** check watertightness/manifoldness
   itself — callers must ensure the input is closed (e.g. everything
-  [`crate::primitives`] generates, or [`crate::boolean::intersect_convex`]'s
+  [`crate::primitives`] generates, or `boolean::intersect_convex`'s
   output).
 - **Fan triangulation of n-gons is inline and naive** (`(v0, v_i, v_{i+1})`
   for `i = 1..n-1`): correct for the convex faces every generator in this
@@ -769,7 +770,7 @@ surface).
 
 ###### `OnBoundary`
 
-The point lies on (within [`ON_BOUNDARY_REL_EPS`] * the mesh's
+The point lies on (within `ON_BOUNDARY_REL_EPS` * the mesh's
 bounding-box diagonal of) the mesh surface itself — neither cleanly
 inside nor outside. See the module docs' "Limitations" section for why
 this is an epsilon-based judgement call, not an exact predicate.
@@ -1013,7 +1014,7 @@ flipped to face outward from the removed cavity, survives inside A.)
    *and* B's triangle, so the two operands' cut curves are numerically
    identical — the output welds watertight along the seam.
 3. **Retriangulate** each cut triangle, constrained to its segments, via a
-   2D **constrained Delaunay triangulation** ([`triangulate_constrained`],
+   2D **constrained Delaunay triangulation** (`triangulate_constrained`,
    Bowyer–Watson + Anglada edge-insertion using the robust
    [`crate::boolean_predicates::orient2d`] / `incircle`). Uncut triangles
    pass through whole.
@@ -1141,7 +1142,7 @@ Shewchuk/Blender's full adaptive-precision expansion arithmetic:
 double-double arithmetic is *not* arbitrary precision. It resolves the
 sign correctly for the vast majority of practical near-degenerate
 configurations (anything not degenerate below roughly the 106th
-significant bit), and the [`tests`] module below demonstrates a concrete
+significant bit), and the `tests` module below demonstrates a concrete
 case where the `_fast` plain-`f64` path returns the wrong sign and the
 double-double-refined path returns the correct one. But it is not a
 mathematical guarantee of exactness for *arbitrarily* degenerate
@@ -8254,7 +8255,7 @@ centred at `V` of radius `~width`:
 - the ring of edge-points is **band 0** (shared with the truncated faces, so
   the result stays watertight);
 - `segments - 1` **intermediate rings** are inserted by spherical-linear
-  interpolation ([`slerp`]) of each edge-point's direction toward the cap
+  interpolation (`slerp`) of each edge-point's direction toward the cap
   **apex** `V + R * n`, where `n` is the outward vertex normal (sum of
   incident face normals) and `R` the mean edge-point distance; the radius is
   interpolated linearly so band 0 stays exactly on the (possibly
@@ -9356,6 +9357,446 @@ pub struct GeometryGraph {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `reactor`
+
+# Reactor geometry generators (frontend authoring)
+
+Domain generators that compose the crate's primitive / [`revolve`](crate::revolve)
+/ boolean operators into whole-reactor **surfaces**, ready to hand to the
+solver bridges: the volume-meshing bridge ([`crate::foam_mesh`], feature
+`foam-mesh`, for CFD / thermal-hydraulics) and the Monte-Carlo bridge
+([`crate::sim`], feature `mc-export`, for neutronics). Nothing here meshes or
+simulates — it only *authors* a closed, watertight, outward-wound
+[`Mesh`](crate::mesh::Mesh) that those bridges then consume.
+
+The first generator is the **HTR-10 pebble-bed core envelope**
+([`htr10_core_envelope`]): the surface of revolution of the core region,
+which becomes the single tet-dual polyMesh shared by neutronics and TH per
+`docs/reactor-scoping/htr10-neutronics.md` §8.
+
+## Units
+
+All lengths are **metres** (`f64`). This crate's [`Vec3`](crate::math::Vec3)
+is nominally dimensionless model space; the solver bridges treat one model
+unit as one metre ([`crate::foam_mesh`] "Units and conventions"), so this
+module works directly in metres to match.
+
+## Provenance and the honest limit of the open geometry
+
+The published, citable HTR-10 dimensions are transcribed from the **IAEA
+HTGR benchmark document (IAEA-TECDOC-1382, Chapter 4)** — the same Open-tier
+source behind
+`crates/outram-park-digital-twin-engine/src/htr10/design.rs`
+([`Htr10DesignPoint::iaea_benchmark`]): core diameter **180 cm**, average
+core height **197 cm**, stated core volume **5.0 m³**, side-reflector
+thickness **100 cm**.
+
+Those numbers pin down the pebble-bed cavity as a *volume-equivalent
+cylinder*: `π · (0.90 m)² · 1.97 m = 5.01 m³`, which closes against the cited
+5.0 m³. That cylinder is the honest default this module emits
+([`Htr10CoreDimensions::iaea_benchmark`]).
+
+**What the open text does NOT give** (see the scoping doc §7.3): the conus
+half-angle, the discharge-tube radius, the cavity-vs-conus axial split, and
+the exact zone-boundary coordinates are *not* recoverable from the published
+text and "must not be treated as authoritative". This module therefore keeps
+the conus/discharge-tube geometry **opt-in and explicitly flagged as
+illustrative** ([`Htr10CoreDimensions::illustrative_with_conus`]); it is a
+shape for exercising the meshing pipeline, not a validated HTR-10 core. The
+exact geometry awaits INL's evaluation of the initial critical configuration
+(Terry, 2005, `INL/CON-05-00852`) or the upstream VTB mesh — see the scoping
+doc's open question 3.
+
+> **Education / research only**, open-source data only (`DATA_POLICY.md`).
+> Not for reactor operation, licensing, or safety-critical use. Independent
+> OUTRAM PARK work; not affiliated with the HTR-10 designers.
+
+```rust
+pub mod reactor { /* ... */ }
+```
+
+### Types
+
+#### Struct `Htr10Conus`
+
+The conical bottom + discharge tube of the HTR-10 core, as an **illustrative
+(non-authoritative)** refinement of the pebble-bed cavity.
+
+The pebble bed physically funnels through a conus to a central discharge
+tube, but the conus half-angle and the discharge-tube radius are **not in
+the open HTR-10 text** (`docs/reactor-scoping/htr10-neutronics.md` §7.3), so
+every field here is a shape parameter for exercising the meshing pipeline,
+**not** a validated dimension. Supply your own once the exact geometry is
+obtained (Terry 2005 / the VTB mesh).
+
+All lengths are metres.
+
+```rust
+pub struct Htr10Conus {
+    pub discharge_tube_radius: f64,
+    pub discharge_tube_height: f64,
+    pub conus_height: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `discharge_tube_radius` | `f64` | Radius of the central fuel-discharge tube, metres. **Illustrative** —<br>not fixed by the open text. |
+| `discharge_tube_height` | `f64` | Straight height of the discharge tube below the conus, metres.<br>**Illustrative.** |
+| `conus_height` | `f64` | Axial rise of the conus frustum (from discharge-tube radius out to the<br>full cavity radius), metres. **Illustrative** — together with the two<br>radii this sets the conus half-angle. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10Conus { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Htr10Conus) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10CoreDimensions`
+
+HTR-10 pebble-bed core envelope dimensions (metres).
+
+Construct with [`Htr10CoreDimensions::iaea_benchmark`] for the honest,
+fully-cited volume-equivalent cylinder, or
+[`Htr10CoreDimensions::illustrative_with_conus`] to add the opt-in,
+explicitly-non-authoritative conus + discharge tube. Feed the result to
+[`htr10_core_envelope`].
+
+The `side_reflector_thickness` is carried for completeness (the cited 100 cm
+side reflector) but the default envelope is the **cavity only** — the pebble
+bed itself. Meshing the surrounding reflector and its boring pattern needs
+the exact zone geometry the open text lacks (§7.3), so it is deferred to a
+follow-up rather than fabricated here.
+
+```rust
+pub struct Htr10CoreDimensions {
+    pub cavity_radius: f64,
+    pub cavity_height: f64,
+    pub side_reflector_thickness: f64,
+    pub conus: Option<Htr10Conus>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cavity_radius` | `f64` | Pebble-bed cavity radius, metres. Cited: core diameter 180 cm ⇒ 0.90 m<br>(IAEA-TECDOC-1382 Ch. 4). |
+| `cavity_height` | `f64` | Straight cavity height, metres. For the cited cylinder this is the<br>average core height 197 cm ⇒ 1.97 m, chosen so<br>`π · cavity_radius² · cavity_height` reproduces the stated 5.0 m³ core<br>volume. With a conus, this is the height of the straight cylindrical<br>section *above* the conus. |
+| `side_reflector_thickness` | `f64` | Side-reflector thickness, metres. Cited: 100 cm ⇒ 1.0 m. Not used by the<br>cavity-only envelope; carried so a later reflector-inclusive generator<br>need not re-transcribe it. |
+| `conus` | `Option<Htr10Conus>` | Optional, **illustrative** conus + discharge tube (see [`Htr10Conus`]).<br>`None` yields the honest volume-equivalent cylinder. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn iaea_benchmark() -> Self { /* ... */ }
+  ```
+  The fully-cited HTR-10 core cavity as a **volume-equivalent cylinder**:
+
+- ```rust
+  pub fn illustrative_with_conus(conus: Htr10Conus) -> Self { /* ... */ }
+  ```
+  The cited cavity **plus an illustrative conus + discharge tube**.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10CoreDimensions { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Htr10CoreDimensions) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `htr10_core_envelope`
+
+Author the HTR-10 pebble-bed core envelope as a closed, watertight,
+outward-wound surface [`Mesh`](crate::mesh::Mesh).
+
+The envelope is a **surface of revolution** about the vertical (Z) axis with
+its base at `z = 0`:
+
+- **No conus** (`dims.conus == None`): a plain cylinder of radius
+  `cavity_radius` and height `cavity_height` — the cited volume-equivalent
+  cavity.
+- **With conus** (`dims.conus == Some(..)`): from the base up, a straight
+  discharge tube, then a conus frustum flaring out to `cavity_radius`, then
+  the straight cavity wall — an **illustrative** funnel-bottomed cavity.
+
+`segments` is the number of circumferential bands (`>= 3`); pass
+[`DEFAULT_SEGMENTS`] for a sensible default. The revolved side wall is capped
+top and bottom by [`fill_holes`](crate::fill_holes::fill_holes) and its
+winding is made outward by
+[`recalculate_normals`](crate::recalc_normals::recalculate_normals), so the
+result satisfies the closed-2-manifold precondition of
+[`crate::foam_mesh::mesh_to_tet_dual`].
+
+# Examples
+
+```
+use outram_blender::reactor::{htr10_core_envelope, Htr10CoreDimensions, DEFAULT_SEGMENTS};
+
+let dims = Htr10CoreDimensions::iaea_benchmark();
+let core = htr10_core_envelope(&dims, DEFAULT_SEGMENTS);
+// Closed solid of revolution: Euler characteristic 2, no boundary edges.
+assert_eq!(core.euler_characteristic(), 2);
+```
+
+```rust
+pub fn htr10_core_envelope(dims: &Htr10CoreDimensions, segments: usize) -> crate::mesh::Mesh { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DEFAULT_SEGMENTS`
+
+Default number of circumferential segments in a revolved envelope — a
+compromise between a smooth wall and a light triangle count. The faceted
+(inscribed `N`-gon) volume approaches the true cylinder volume as this rises;
+at `N = 48` the cavity volume is already within ~0.1 % of the analytic
+cylinder (see [`tests`]).
+
+```rust
+pub const DEFAULT_SEGMENTS: usize = 48;
+```
+
 ## Module `recalc_normals`
 
 Recalculate normals — make a mesh's face winding globally consistent and
@@ -10337,7 +10778,7 @@ pub fn weld(mesh: &crate::mesh::Mesh, distance: f64) -> crate::mesh::Mesh { /* .
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:211:11: 211:32 (#0) }, crates/outram-blender/src/lib.rs:211:10: 211:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-blender/src/lib.rs:213:11: 213:32 (#0) }, crates/outram-blender/src/lib.rs:213:10: 213:33 (#0))])]")`
 
 Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
 target** (no cargo feature to opt in) so the GPU path is used as far as
@@ -10360,7 +10801,7 @@ compute-only (WGSL compute shaders).
 
 This module now carries **one real, end-to-end kernel**: applying an
 [`crate::transform::Affine3`] to every vertex of a mesh in parallel via a
-WGSL compute shader ([`transform_vertices_gpu`]). The identical computation
+WGSL compute shader ([`crate::gpu::transform_vertices_gpu`]). The identical computation
 on the CPU is [`crate::transform::Affine3::transform_points`], which is the
 reference the GPU result is validated against (see the tests below). This
 kernel is deliberately the simplest embarrassingly-parallel mesh operation —
@@ -10379,14 +10820,14 @@ subdivision) follow the same buffer/pipeline pattern.
    CPU path runs.
 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
-   a submission may fail mid-flight. Callers MUST treat [`probe`] returning
-   `None`, and [`try_transform_vertices_gpu`] returning `Err`, as "run the
+   a submission may fail mid-flight. Callers MUST treat [`crate::gpu::probe`] returning
+   `None`, and [`crate::gpu::try_transform_vertices_gpu`] returning `Err`, as "run the
    CPU path", never as a hard error. [`crate::transform::Affine3::transform_points_best_effort`]
    wraps exactly this: try GPU, fall back to CPU, always return a result.
 3. **CPU is the trusted / reference path.** GPU float reduction order will
    not bit-match the CPU (`f64`, [`crate::transform`]) result, so anything
    that feeds V&V or a solver stays CPU-deterministic. GPU is *acceleration
-   only*, and [`transform_vertices_gpu`] returns `f32`-precision results.
+   only*, and [`crate::gpu::transform_vertices_gpu`] returns `f32`-precision results.
 
 ```rust
 pub mod gpu { /* ... */ }
@@ -10404,7 +10845,7 @@ complete, so fall back to the CPU reference path
 source of truth, so a `GpuError` is a routine "use the CPU" signal, not a
 fatal condition — [`Affine3::transform_points_best_effort`] does this
 automatically. This deliberately does **not** cover the "no adapter at all"
-case, which surfaces earlier as [`probe`] returning `None`.
+case, which surfaces earlier as [`crate::gpu::probe`] returning `None`.
 
 ```rust
 pub enum GpuError {
@@ -10681,7 +11122,7 @@ requests an adapter with **no surface** (headless compute — `power_preference
 = None`, no `compatible_surface`), then requests a device + queue with the
 downlevel default limits (the broadest-compatibility profile, so software
 adapters like Lavapipe/WARP also qualify). The blocking wait on wgpu's async
-requests is done with a tiny in-crate executor ([`block_on`]) so this crate
+requests is done with a tiny in-crate executor (`block_on`) so this crate
 pulls in no async-runtime dependency.
 
 Returns `Some(GpuContext)` when a headless compute device is available, or
@@ -10700,7 +11141,7 @@ Apply `affine` to every position in `positions` on the GPU, returning the
 transformed positions in the same order — the **fallible** entry point.
 
 This is the demonstrator GPU kernel. It uploads the positions as an `f32`
-storage buffer, dispatches [`AFFINE_TRANSFORM_WGSL`] one invocation per
+storage buffer, dispatches `AFFINE_TRANSFORM_WGSL` one invocation per
 vertex, and reads the result back. **Results are `f32` precision** — the
 caller must treat them as an acceleration of, and approximation to,
 [`Affine3::transform_points`] (the trusted `f64` CPU reference), not as a
@@ -10714,7 +11155,7 @@ Returns [`GpuError`] if the submitted work cannot be completed (device lost
 during the readback poll, or buffer-map failure). This is **recoverable**:
 the caller should fall back to [`Affine3::transform_points`] — which
 [`Affine3::transform_points_best_effort`] does automatically. The "no adapter
-at all" case is handled earlier by [`probe`] returning `None`, not here.
+at all" case is handled earlier by [`crate::gpu::probe`] returning `None`, not here.
 
 ```rust
 pub fn try_transform_vertices_gpu(ctx: &GpuContext, affine: crate::transform::Affine3, positions: &[crate::math::Vec3]) -> Result<Vec<crate::math::Vec3>, GpuError> { /* ... */ }

@@ -287,7 +287,12 @@ fn regenerate(
     Ok(())
 }
 
-/// Default output directory, relative to the workspace root.
-pub fn default_out_dir(workspace_root: &Path) -> PathBuf {
-    workspace_root.join("agent-docs")
+/// Where the bundle is written, in order of preference.
+///
+/// Delegates to [`super::workspace::output_dir`]: an explicit `--out` wins,
+/// then the workspace (`<workspace>/agent-docs`, which the repository's
+/// `.gitignore` already covers), then `~/Documents/agent-docs`, then
+/// `~/agent-docs`.
+pub fn resolve_out_dir(explicit: Option<&Path>) -> io::Result<(PathBuf, String)> {
+    super::workspace::output_dir(explicit, "agent-docs")
 }

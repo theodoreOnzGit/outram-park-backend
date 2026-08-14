@@ -5879,6 +5879,541 @@ pub struct Geometry {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `triso_particle`
+
+Full nested-shell TRISO fuel-particle geometry (kernel + 4 coatings).
+
+A real TRISO (TRi-structural ISOtropic) fuel particle is **five concentric
+regions**, not the single fuel sphere the `triso` notebook verification test
+collapses into the matrix. From the centre outward:
+
+1. **fuel kernel** — the fissile ceramic microsphere (UO2 for HTR-10),
+2. **buffer** — a low-density porous pyrolytic-carbon layer that gives fission
+   gases somewhere to go and absorbs fuel-kernel swelling / recoils,
+3. **IPyC** — inner (dense) pyrolytic carbon, the inner seal coat,
+4. **SiC** — silicon carbide, the primary pressure boundary / metallic-fission-
+   product barrier (the structural "miniature pressure vessel"),
+5. **OPyC** — outer pyrolytic carbon, the outer bonding / protective coat,
+
+all embedded in a graphite **matrix** (the compact / pebble binder) that fills
+the rest of the particle's universe.
+
+This module **assembles existing CSG primitives** — it is not an OpenMC port.
+It places five concentric [`Sphere`] surfaces at the cumulative outer radii of
+each region and builds one [`Cell`] per shell as the half-space region between
+consecutive spheres (`+sense` of the inner sphere ∧ `−sense` of the outer),
+with the kernel as the innermost `−sense` ball and the matrix as the outermost
+`+sense` exterior. The result is a [`Universe`] a lattice tile or a bounding
+cell can be filled with, exactly like the single-kernel universe the existing
+`triso` test builds — only now with the real coating stack resolved.
+
+# Reference dimensions (typical HTR-10 / reference TRISO — NOT an authoritative spec)
+
+The [`TrisoRadii::HTR10`] preset uses the widely cited HTR-10 pebble-bed TRISO
+geometry (UO2 kernel + the standard four coatings). These are **typical /
+reference** values drawn from open pebble-bed-HTGR literature, provided as a
+convenience default — they are not a controlled design specification and must
+not be treated as one:
+
+| Region | Layer size | Cumulative outer radius |
+|---|---|---|
+| UO2 kernel   | 250 µm radius   | 0.0250 cm |
+| buffer (PyC) | 95 µm thick     | 0.0345 cm |
+| IPyC         | 40 µm thick     | 0.0385 cm |
+| SiC          | 35 µm thick     | 0.0420 cm |
+| OPyC         | 40 µm thick     | 0.0460 cm |
+
+(1 µm = 1e-4 cm; the kernel figure is a *radius*, the four coatings are
+*thicknesses* accumulated onto it.) The builder itself is fully general — it
+takes whatever five cumulative radii the caller supplies; the preset only
+encodes the table above.
+
+# Scope / deferred work
+
+This is **geometry + material assignment only**. The carbon/graphite
+**S(α,β) thermal-scattering data** integration — binding the PyC/graphite
+coatings and matrix to a bound-atom thermal scattering law so epithermal
+down-scatter in the moderating carbon is treated correctly — is a **separate,
+deferred concern**: it needs thermal-scattering data not present on this host,
+and is tracked as follow-up work. Nothing here loads or asserts any thermal
+data; the material ids are opaque indices the caller maps to real materials.
+
+```rust
+pub mod triso_particle { /* ... */ }
+```
+
+### Types
+
+#### Struct `TrisoRadii`
+
+The five cumulative **outer radii** \[cm\] of a TRISO particle's regions.
+
+Each field is the radius of the *outer* boundary of that region (measured from
+the particle centre), so they must be **strictly increasing**:
+`kernel < buffer < ipyc < sic < opyc`. A region's radial thickness is the
+difference between its outer radius and the previous one (the kernel's
+"thickness" is just its radius).
+
+```rust
+pub struct TrisoRadii {
+    pub kernel: f64,
+    pub buffer: f64,
+    pub ipyc: f64,
+    pub sic: f64,
+    pub opyc: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `f64` | Fuel-kernel outer radius \[cm\]. |
+| `buffer` | `f64` | Buffer outer radius \[cm\] (kernel radius + buffer thickness). |
+| `ipyc` | `f64` | IPyC outer radius \[cm\]. |
+| `sic` | `f64` | SiC outer radius \[cm\]. |
+| `opyc` | `f64` | OPyC outer radius \[cm\] — the overall particle radius. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn as_array(self: Self) -> [f64; 5] { /* ... */ }
+  ```
+  The five outer radii as an array, kernel-first (outermost = index 4).
+
+- ```rust
+  pub fn is_strictly_increasing(self: Self) -> bool { /* ... */ }
+  ```
+  Whether the radii are strictly increasing and positive (a physically valid
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoRadii { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoRadii) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoMaterials`
+
+Material indices for the five shells plus the surrounding matrix.
+
+Each field is an opaque index into the caller's global material array (the
+same convention as [`CellFill::Material`](super::cell::CellFill::Material)).
+The shells are filled in nesting order; `matrix` fills the rest of the
+particle's universe outside the OPyC.
+
+```rust
+pub struct TrisoMaterials {
+    pub kernel: usize,
+    pub buffer: usize,
+    pub ipyc: usize,
+    pub sic: usize,
+    pub opyc: usize,
+    pub matrix: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel` | `usize` | Fuel-kernel material index. |
+| `buffer` | `usize` | Buffer (porous PyC) material index. |
+| `ipyc` | `usize` | IPyC (inner pyrolytic carbon) material index. |
+| `sic` | `usize` | SiC (silicon carbide) material index. |
+| `opyc` | `usize` | OPyC (outer pyrolytic carbon) material index. |
+| `matrix` | `usize` | Surrounding matrix (graphite compact / pebble binder) material index. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrisoMaterials { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrisoMaterials) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TrisoParticle`
+
+One assembled TRISO particle: the concentric surfaces, the per-shell cells,
+and the universe that searches them.
+
+The [`Universe::cell_indices`] point at `cells` offset by the `cell_base`
+passed to [`build_triso_particle`]; each cell's region tokens index `surfaces`
+offset by `surface_base`. With both bases `0` (the [`triso_particle`]
+convenience) the vectors are self-contained and can be dropped straight into a
+[`Geometry`] via [`TrisoParticle::into_geometry`].
+
+```rust
+pub struct TrisoParticle {
+    pub surfaces: Vec<super::surface::SurfaceKind>,
+    pub cells: Vec<super::cell::Cell>,
+    pub universe: super::universe::Universe,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surfaces` | `Vec<super::surface::SurfaceKind>` | The five concentric sphere surfaces, kernel-first. |
+| `cells` | `Vec<super::cell::Cell>` | The six cells: kernel, buffer, IPyC, SiC, OPyC, matrix (in that order). |
+| `universe` | `super::universe::Universe` | The universe searching the six cells in nesting order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn into_geometry(self: Self) -> Geometry { /* ... */ }
+  ```
+  Wrap this self-contained particle (built with `surface_base = cell_base =
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `build_triso_particle`
+
+Build a full nested-shell TRISO particle universe from five radii and six
+material ids.
+
+Places five concentric [`Sphere`] surfaces (all [`BoundaryType::Transmissive`]
+— these are internal material interfaces, not model boundaries) at `center`
+with the cumulative outer radii in `radii`, then one [`Cell`] per region:
+
+- **kernel** — `−sense` of sphere 0 (the innermost ball),
+- **buffer / IPyC / SiC / OPyC** — `+sense` of the previous sphere ∧ `−sense`
+  of this shell's sphere (the annular gap between consecutive spheres),
+- **matrix** — `+sense` of sphere 4 (everything outside the OPyC), filling the
+  rest of the universe.
+
+`surface_base` / `cell_base` are the global offsets at which these surfaces /
+cells will live in the enclosing [`Geometry`]'s flat arrays, so the region
+tokens and the universe's `cell_indices` refer to the right global slots when
+this universe is spliced into a larger model (a lattice of particles, a
+pebble, …). For a standalone particle pass `0` for both (see
+[`triso_particle`]). `temperature` \[K\] is stamped on every cell.
+
+# Panics (debug only)
+
+Debug-asserts that `radii` is strictly increasing; in release, non-increasing
+radii silently produce empty (unreachable) shells rather than aborting.
+
+```rust
+pub fn build_triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64, universe_id: i32, surface_base: usize, cell_base: usize) -> TrisoParticle { /* ... */ }
+```
+
+#### Function `triso_particle`
+
+Convenience: a self-contained TRISO particle centred at `center`
+(`surface_base = cell_base = 0`, universe id `1`).
+
+The returned [`TrisoParticle`]'s vectors are internally consistent and can be
+turned into a standalone [`Geometry`] with [`TrisoParticle::into_geometry`].
+
+```rust
+pub fn triso_particle(center: super::position::Position, radii: TrisoRadii, materials: TrisoMaterials, temperature: f64) -> TrisoParticle { /* ... */ }
+```
+
 ## Module `particle`
 
 ```rust
@@ -7691,17 +8226,34 @@ lives or dies on it.
 
 **Data-free, like the rest of `outram-mc-libs`.** This struct holds no ENDF
 parsing of its own: it is built from the njoy consumer surface
-[`njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering`],
-which reads the ENDF/B `tsl-*` thermal evaluation and answers the two
-transport questions — σ_inel(E) and the secondary energy/angle distribution.
-To keep the transport hot-loop cheap (that kernel integrates the S(α,β)
-double-differential per call), this type **pre-tabulates** both quantities on
-a fixed energy grid at construction, exactly as NJOY/ACE bakes the ITIE/ITXE
-blocks, and the run-time path only interpolates and samples.
+[`njoy_outram_park_fork::thermr::scattering`], which reads the ENDF/B `tsl-*`
+thermal evaluation and answers the transport questions — σ(E) per channel and
+the secondary energy/angle distributions. To keep the transport hot-loop cheap
+(the inelastic kernel integrates the S(α,β) double-differential per call),
+this type **pre-tabulates** the smooth quantities on a fixed energy grid at
+construction, exactly as NJOY/ACE bakes the ITIE/ITXE blocks, and the run-time
+path only interpolates and samples.
 
-**Scope.** Only the incoherent-*inelastic* channel — the one H-in-H₂O needs
-(light water has no thermal elastic). Coherent / incoherent-elastic bound
-scattering (graphite, ZrH) is deliberately not wired here yet.
+**Scope — all three ENDF MF=7 thermal channels.**
+
+| Channel | ENDF | Scatterers | Held as |
+|---|---|---|---|
+| Incoherent inelastic | MT=4 | every `tsl` evaluation | [`ThermalScattering`] (always) |
+| Coherent elastic (Bragg) | MT=2, LTHR=1/3 | graphite, Be, BeO, SiC, Al | [`ThermalElastic::Coherent`] |
+| Incoherent elastic | MT=2, LTHR=2/3 | H in ZrH, polyethylene | [`ThermalElastic::Incoherent`] |
+
+A given evaluation has **at most one** elastic law, so the two are an enum
+(workspace rule: enum dispatch, never trait objects). Light water has no
+thermal elastic at all and takes [`ThermalElastic::None`], which reproduces
+the pre-2026-08-11 inelastic-only behaviour exactly.
+
+**Why the elastic channel matters (HTR-10).** For crystalline graphite —
+the HTR-10 moderator — coherent elastic *dominates*: measured through this
+path against ENDF/B-VIII.0 `tsl-crystalline-graphite` (MAT 30) at 0.0253 eV
+and 296 K, σ_coh_el = 4.5514 b against σ_inel = 0.4864 b, so the elastic
+channel is 90.3 % of bound thermal scattering. Wiring only the inelastic
+channel would give a graphite pebble ~10 % of its true thermal cross section
+— worse than the free-gas treatment it replaces. See bead `op-nhoa`.
 
 ```rust
 pub mod thermal { /* ... */ }
@@ -7709,21 +8261,429 @@ pub mod thermal { /* ... */ }
 
 ### Types
 
+#### Enum `ThermalElastic`
+
+The bound-atom thermal **elastic** channel of one scatterer, if it has one.
+
+An ENDF `tsl` evaluation carries at most one MF=7/MT=2 elastic law, so this
+is an enum rather than a set (and enum dispatch is the workspace rule — no
+trait objects). Both elastic laws share the defining property that the
+neutron **keeps its energy** (`E_out = E_in`, ENDF-102 Eq. 7-1) and only its
+direction changes; they differ in how μ is distributed.
+
+C++ analogue: the `ThermalData::elastic_` slot in OpenMC's `src/thermal.cpp`,
+whose distribution is a `CoherentElasticAE` or an `IncoherentElasticAE`.
+
+```rust
+pub enum ThermalElastic {
+    None,
+    Coherent(CoherentElasticTable),
+    Incoherent(IncoherentElasticTable),
+}
+```
+
+##### Variants
+
+###### `None`
+
+No thermal elastic scattering — σ_el(E) ≡ 0 at every energy.
+
+Correct for light water (`tsl-HinH2O`): a liquid has no lattice to
+diffract from and H's bound incoherent-elastic law is not tabulated.
+
+###### `Coherent`
+
+**Coherent elastic** (Bragg diffraction) — crystalline solids: graphite,
+beryllium, BeO, SiC, aluminium. The HTR-10 moderator case.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CoherentElasticTable` |  |
+
+###### `Incoherent`
+
+**Incoherent elastic** — hydrogenous solids where the bound proton
+scatters incoherently off a rigid lattice: H in ZrH, polyethylene.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `IncoherentElasticTable` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cross_section(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Thermal-elastic cross section \[barn per principal atom\] at incident
+
+- ```rust
+  pub fn sample(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Sample an elastic scatter — `Some((e_out = e, mu))` — or `None` if this
+
+- ```rust
+  pub fn kind_name(self: &Self) -> &'static str { /* ... */ }
+  ```
+  A short human-readable channel name for provenance/logging:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CoherentElasticTable`
+
+Coherent-elastic (Bragg) scattering for one crystalline scatterer at one
+temperature, stored **exactly** as the Bragg-edge step table.
+
+σ_coh_el(E) is a `1/E` sawtooth that steps *discontinuously* upward at each
+Bragg edge, so — unlike the smooth channels — resampling it onto a log grid
+would smear every edge. Instead this holds the edge energies and the
+cumulative structure factor from
+[`CoherentElasticScattering::bragg_edge_table`](njoy_outram_park_fork::thermr::scattering::CoherentElasticScattering::bragg_edge_table),
+which reproduces both σ(E) and the sampling law with no interpolation error
+at all. ENDF/B-VIII.0 crystalline graphite tabulates 221 edges, so the table
+is ~3.5 kB — *cheaper* than the log resample it replaces, as well as exact
+(measured worst relative deviation from the njoy surface: 7.67e-16 over
+21 199 points spanning 1e-4 → 4 eV; see `tests/thermal_graphite_elastic.rs`).
+
+Units: edge energies \[eV\], cross sections \[barn\] **per principal atom**
+(per carbon for graphite — the caller multiplies by the principal-atom
+number density in atoms/barn·cm).
+
+```rust
+pub struct CoherentElasticTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cross_section(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Coherent-elastic cross section \[barn per principal atom\] at incident
+
+- ```rust
+  pub fn bragg_cutoff_ev(self: &Self) -> f64 { /* ... */ }
+  ```
+  The Bragg cutoff \[eV\] — the lowest energy at which coherent-elastic
+
+- ```rust
+  pub fn sample(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Sample a coherent-elastic scatter at incident energy `e` \[eV\]:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `IncoherentElasticTable`
+
+Incoherent-elastic scattering for one hydrogenous solid at one temperature,
+pre-tabulated on a log energy grid.
+
+σ_inc_el(E) = (σ_b/2N)·(1 − e^{−4EW'})/(2EW') is smooth in E — no edges — so
+unlike the coherent channel a 200-point log grid resolves it. Each grid point
+also carries the equally-probable cosines of the forward-peaked angular law
+p(μ) ∝ e^{−2EW'(1−μ)}, the ACE ITCA block's in-memory analogue.
+
+Units: energies \[eV\], cross sections \[barn per principal atom\], cosines
+dimensionless on \[−1, 1\].
+
+```rust
+pub struct IncoherentElasticTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn cross_section(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Incoherent-elastic cross section \[barn per principal atom\] at incident
+
+- ```rust
+  pub fn sample(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  Sample an incoherent-elastic scatter at incident energy `e` \[eV\]:
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ThermalScattering`
 
-Pre-tabulated incoherent-inelastic S(α,β) thermal scattering for one bound
-scatterer (H in H₂O) at one temperature — the transport-side data surface.
+Bound-atom thermal scattering for one scatterer at one temperature — the
+transport-side data surface, carrying **both** the incoherent-inelastic
+S(α,β) channel and the scatterer's elastic channel (if it has one).
 
 Built once per material+temperature with [`from_endf_file`](Self::from_endf_file),
 then queried in the transport loop by:
 - [`inelastic_xs`](Self::inelastic_xs) — σ_inel(E) **per principal atom**
   \[barn\] at incident energy `E` \[eV\] (multiply by the principal-atom number
   density to get the macroscopic contribution);
+- [`elastic_xs`](Self::elastic_xs) — σ_el(E) \[barn per principal atom\],
+  zero when the scatterer has no thermal elastic law;
+- [`total_xs`](Self::total_xs) — their sum, which is what replaces the
+  free-gas elastic channel below the cutoff;
 - [`sample`](Self::sample) — a laboratory-frame outgoing energy \[eV\] and
-  cosine for a thermal scatter.
+  cosine for a thermal scatter, choosing elastic vs inelastic in proportion
+  to their cross sections.
 
-Cross sections are **per principal atom** (per H for H-in-H₂O). The material
-composition (two H per H₂O) is the caller's number-density bookkeeping.
+Cross sections are **per principal atom** (per H for H-in-H₂O, per C for
+graphite). The material composition (two H per H₂O) is the caller's
+number-density bookkeeping.
 
 ```rust
 pub struct ThermalScattering {
@@ -7736,7 +8696,7 @@ pub struct ThermalScattering {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `name` | `String` | Human-readable scatterer name, e.g. `"H in H2O"`. |
+| `name` | `String` | Human-readable scatterer name, e.g. `"H in H2O"`, `"C in graphite"`. |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -7744,9 +8704,9 @@ pub struct ThermalScattering {
 ###### Methods
 
 - ```rust
-  pub fn from_endf_file(path: &str, mat: i32, temperature_k: f64, name: &str) -> Result<Self, njoy_outram_park_fork::NjoyError> { /* ... */ }
+  pub fn from_endf_file(path: &str, mat: i32, temperature_k: f64, name: &str) -> Result<Self, NjoyError> { /* ... */ }
   ```
-  Build the pre-tabulated H-in-H₂O S(α,β) treatment from an ENDF `tsl-*`
+  Build the pre-tabulated bound-atom thermal treatment — inelastic **and**
 
 - ```rust
   pub fn cutoff_ev(self: &Self) -> f64 { /* ... */ }
@@ -7756,7 +8716,22 @@ pub struct ThermalScattering {
 - ```rust
   pub fn selected_temperature_k(self: &Self) -> f64 { /* ... */ }
   ```
-  The tabulated temperature \[K\] actually used (nearest grid point to the
+  The temperature \[K\] the S(α,β) tables actually represent — a tabulated
+
+- ```rust
+  pub fn elastic(self: &Self) -> &ThermalElastic { /* ... */ }
+  ```
+  The scatterer's thermal **elastic** channel, detected from the
+
+- ```rust
+  pub fn elastic_xs(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Thermal-elastic cross section σ_el(E) **per principal atom** \[barn\] at
+
+- ```rust
+  pub fn total_xs(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Total bound-atom thermal cross section \[barn per principal atom\] at
 
 - ```rust
   pub fn inelastic_xs(self: &Self, e: f64) -> f64 { /* ... */ }
@@ -13119,7 +14094,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:551:11: 551:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:551:10: 551:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:580:11: 580:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:580:10: 580:33 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -13169,7 +14144,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:711:11: 711:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:711:10: 711:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:751:11: 751:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:751:10: 751:33 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -13245,7 +14220,7 @@ pub fn run_keff_event_cpu_mirror(radius_cm: f64, material: &crate::material::mat
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1003:11: 1003:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1003:10: 1003:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1085:11: 1085:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1085:10: 1085:33 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -14773,6 +15748,323 @@ pub mod pebble_beds { /* ... */ }
 ```
 
 ### Modules
+
+## Module `crp_packing`
+
+High-packing-fraction sphere packing — Jodrey–Tory Concurrent Rearrangement.
+
+**This is NEW work, not an OpenMC port.** OpenMC's `openmc.model.pack_spheres`
+only implements Random Sequential Addition (RSA), the algorithm ported in
+[`super::sphere_packing`]. RSA saturates near a packing fraction of ~0.38
+([`super::sphere_packing::MAX_PF_RSA`]) — far below the ~0.60–0.61 sphere
+fraction of a real HTR-10 pebble bed. This module adds a genuinely denser
+generator that upstream does not provide, so it is scaffolded fresh and marked
+as new work with literature citations rather than a `file:line` port reference.
+
+# Algorithm — Jodrey–Tory contraction (Concurrent Rearrangement Packing, CRP)
+
+Jodrey & Tory (1985) place `N` sphere *centres* at random and then evolve the
+configuration under two competing diameters:
+
+- an **outer (nominal) diameter** `d_out` — the diameter the spheres *pretend*
+  to have while repelling each other; it starts large (nominal packing fraction
+  1.0) and is **contracted** step by step, and
+- an **inner (true) diameter** `d_in` — the *actual* smallest centre-to-centre
+  distance in the current configuration; it **grows** as overlaps are pushed out.
+
+Each sweep, every pair of centres closer than `d_out` is pushed apart along its
+line of centres until that pair sits exactly at `d_out` (the "concurrent
+rearrangement": all overlapping pairs are displaced together, then applied), and
+the outer diameter is then contracted toward the requested target. The outer
+diameter falling and the inner diameter rising squeeze toward each other; when
+`d_in >= d_out` no two spheres overlap at the target diameter and the packing is
+done. Because the achievable random-close-packing limit for equal spheres is
+~0.64, this comfortably reaches the ~0.55–0.62 fractions RSA cannot.
+
+This crate packs equal spheres of a *given* radius `r` to a *given* target
+packing fraction, so the contraction here is driven to the concrete target
+diameter `d_target = 2 r` (rather than to Jodrey–Tory's free convergence limit):
+`N = floor(pf · V / V_sphere)` centres are relaxed until the minimum
+centre-to-centre distance reaches `2 r`, at which point every sphere of radius
+`r` is non-overlapping and the realized fraction is `N · V_sphere / V_cube`.
+
+Boundaries here are **hard walls** (not periodic): centres are confined to the
+shrunken box `[-half+r, half-r]³` so every finished sphere lies fully inside the
+domain, matching [`super::sphere_packing`]'s containment convention.
+
+# References (new-work provenance)
+
+- **W. S. Jodrey and E. M. Tory, "Computer simulation of close random packing of
+  equal spheres", Physical Review A 32(4), 2347–2351 (1985)**,
+  doi:10.1103/PhysRevA.32.2347 — the original contraction algorithm.
+- W. S. Jodrey and E. M. Tory, "Simulation of random packing of spheres",
+  Simulation 32(1), 1–12 (1979) — the precursor.
+- The RSA–DEM / ODR–DEM relaxation hybrids of Tan et al. (see
+  [`super::references::TAN2026_RSA_DEM`] and
+  [`super::references::TAN2026_ODR_DEM`]) are the same "push apart overlapping
+  pairs" idea driven by a discrete-element force law; the concurrent-rearrangement
+  scheme implemented here is the classical, deterministic special case.
+
+# Verification & Validation
+
+Methodology: pack `N` equal spheres of radius `r = 0.1 cm` into a cube of
+half-width `1.0 cm` at a requested target packing fraction of `0.58`, seeded and
+bit-reproducible. Pass criteria: (a) no overlaps — minimum centre-to-centre
+distance `>= 2 r` within a small tolerance; (b) every sphere fully inside the
+domain; (c) realized packing fraction clearly exceeds RSA's ~0.38 ceiling.
+
+Results (measured by the [`tests`] suite in `--release`, seed 42, on
+2026-08-12): realized packing fraction **0.5796** (`N = 1107` spheres),
+minimum centre-to-centre distance **0.200000 cm** = `2 r` (target `2 r =
+0.200000 cm`, met to within `1e-9 cm`), all spheres contained. This is
+**+20 percentage points** above the RSA ceiling (~0.38) and confirms the
+method reaches pebble-bed-realistic densities. The result is bit-reproducible
+across runs at a fixed seed.
+
+```rust
+pub mod crp_packing { /* ... */ }
+```
+
+### Types
+
+#### Enum `CrpError`
+
+Errors from the Jodrey–Tory concurrent-rearrangement packer.
+
+```rust
+pub enum CrpError {
+    DomainTooSmall {
+        half_width: f64,
+        radius: f64,
+    },
+    PackingTooDense {
+        requested: f64,
+        limit: f64,
+    },
+    DidNotConverge {
+        iterations: usize,
+        achieved: f64,
+        target: f64,
+        pf_reached: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `DomainTooSmall`
+
+The domain is too small to hold even one sphere (radius ≥ half-width).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `half_width` | `f64` | The domain half-width \[cm\]. |
+| `radius` | `f64` | The sphere radius \[cm\]. |
+
+###### `PackingTooDense`
+
+The requested target packing fraction is not physically packable by this
+method (must be in `(0, MAX_PF_CRP]`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `requested` | `f64` | The requested packing fraction. |
+| `limit` | `f64` | The CRP limit ([`MAX_PF_CRP`]). |
+
+###### `DidNotConverge`
+
+The contraction did not resolve all overlaps within the iteration budget —
+the minimum centre distance never reached the target diameter.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `iterations` | `usize` | Sweeps performed before giving up. |
+| `achieved` | `f64` | Minimum centre-to-centre distance reached \[cm\]. |
+| `target` | `f64` | Target centre-to-centre distance `2·radius` \[cm\]. |
+| `pf_reached` | `f64` | Realized packing fraction at the point of giving up. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrpError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrpError) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `pack_spheres_crp`
+
+Jodrey–Tory Concurrent Rearrangement Packing (CRP) of equal spheres in a cube.
+
+Places `N = floor(pf · V_cube / V_sphere)` equal-radius sphere centres at random
+and relaxes them by contraction (see the module docs) until the minimum
+centre-to-centre distance reaches the target diameter `2·radius`, so every
+sphere of radius `radius` is non-overlapping and fully inside the domain.
+
+Unlike [`super::sphere_packing::pack_spheres`] (RSA, ≤0.38), this reaches
+pebble-bed-realistic packing fractions (~0.55–0.62). **New work, not an OpenMC
+port** — Jodrey & Tory (1985), doi:10.1103/PhysRevA.32.2347.
+
+# Parameters
+- `radius` — sphere radius \[cm\]; all spheres equal-radius.
+- `half_width` — half-width \[cm\] of the axis-aligned cube (centred at origin).
+- `packing_fraction` — target volumetric fraction; must be in `(0, MAX_PF_CRP]`.
+- `seed` — RNG seed (crate LCG [`prn`]) for a bit-reproducible packing.
+
+# Errors
+- [`CrpError::DomainTooSmall`] if a sphere cannot fit in the cube.
+- [`CrpError::PackingTooDense`] if `packing_fraction > MAX_PF_CRP`.
+- [`CrpError::DidNotConverge`] if overlaps are not resolved within the sweep
+  budget (target fraction too aggressive for the geometry).
+
+# Determinism
+Only the initial centre placement consumes the RNG; every subsequent sweep is
+deterministic floating-point arithmetic evaluated in a fixed order, so the output
+is bit-reproducible for a fixed `seed`.
+
+```rust
+pub fn pack_spheres_crp(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Vec<super::sphere_packing::Sphere>, CrpError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_PF_CRP`
+
+Practical upper bound on the packing fraction the concurrent-rearrangement
+packer targets for equal spheres.
+
+The random-close-packing (RCP) limit for equal spheres is ~0.64; Jodrey–Tory
+contraction approaches but does not exceed it, and hard walls lower it slightly
+near the surface. `0.62` is a conservative, reliably-reachable ceiling; requests
+above it are rejected with [`CrpError::PackingTooDense`] rather than spun on
+forever. (RSA, by contrast, caps at ~0.38 — see
+[`super::sphere_packing::MAX_PF_RSA`].)
+
+```rust
+pub const MAX_PF_CRP: f64 = 0.62;
+```
 
 ## Module `delta_tracking`
 
@@ -24131,7 +25423,7 @@ pub fn advance_flight_cpu_mirror(grid: &[f32], sigma: &[f32], batch: &mut Flight
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_flight.rs:396:11: 396:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_flight.rs:396:10: 396:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_flight.rs:400:11: 400:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_flight.rs:400:10: 400:33 (#0))])]")`
 
 Advance every particle in `batch` through **one flight on the GPU**, via the
 WGSL compute shader `shaders/batched_flight.wgsl`. This is the `f32`
@@ -24861,7 +26153,7 @@ pub fn advance_generation_cpu_mirror(tables: &EventTablesF32, batch: &mut EventB
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_event.rs:649:11: 649:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_event.rs:649:10: 649:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/batched_event.rs:663:11: 663:32 (#0) }, crates/outram-mc-libs/src/gpu/batched_event.rs:663:10: 663:33 (#0))])]")`
 
 Advance a whole generation on the **GPU**, keeping the batch resident in GPU
 buffers across every event ([`crate::gpu`] `mod.rs` precision contract applies).
@@ -24897,7 +26189,7 @@ pub const FISS_NONE: u32 = 0xFFFF_FFFF;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:218:11: 218:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:218:10: 218:33 (#0))])]")`
 
 ```rust
 pub use context::block_on;
@@ -24907,7 +26199,7 @@ pub use context::block_on;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:218:11: 218:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:218:10: 218:33 (#0))])]")`
 
 ```rust
 pub use context::probe;
@@ -24917,7 +26209,7 @@ pub use context::probe;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:213:11: 213:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:213:10: 213:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/gpu/mod.rs:218:11: 218:32 (#0) }, crates/outram-mc-libs/src/gpu/mod.rs:218:10: 218:33 (#0))])]")`
 
 ```rust
 pub use context::GpuContext;
@@ -25621,6 +26913,36 @@ pub use crate::geometry::geometry::Geometry;
 pub use crate::geometry::geometry::GeometryPath;
 ```
 
+#### Re-export `build_triso_particle`
+
+```rust
+pub use crate::geometry::triso_particle::build_triso_particle;
+```
+
+#### Re-export `triso_particle`
+
+```rust
+pub use crate::geometry::triso_particle::triso_particle;
+```
+
+#### Re-export `TrisoMaterials`
+
+```rust
+pub use crate::geometry::triso_particle::TrisoMaterials;
+```
+
+#### Re-export `TrisoParticle`
+
+```rust
+pub use crate::geometry::triso_particle::TrisoParticle;
+```
+
+#### Re-export `TrisoRadii`
+
+```rust
+pub use crate::geometry::triso_particle::TrisoRadii;
+```
+
 #### Re-export `Particle`
 
 ```rust
@@ -25655,6 +26977,24 @@ pub use crate::material::nuclide::MicroXS;
 
 ```rust
 pub use crate::material::nuclide::Nuclide;
+```
+
+#### Re-export `CoherentElasticTable`
+
+```rust
+pub use crate::material::thermal::CoherentElasticTable;
+```
+
+#### Re-export `IncoherentElasticTable`
+
+```rust
+pub use crate::material::thermal::IncoherentElasticTable;
+```
+
+#### Re-export `ThermalElastic`
+
+```rust
+pub use crate::material::thermal::ThermalElastic;
 ```
 
 #### Re-export `ThermalScattering`
@@ -25903,6 +27243,24 @@ pub use crate::pebble_beds::sphere_packing::PackingConfig;
 pub use crate::pebble_beds::sphere_packing::PackingMethod;
 ```
 
+#### Re-export `pack_spheres_crp`
+
+```rust
+pub use crate::pebble_beds::crp_packing::pack_spheres_crp;
+```
+
+#### Re-export `CrpError`
+
+```rust
+pub use crate::pebble_beds::crp_packing::CrpError;
+```
+
+#### Re-export `MAX_PF_CRP`
+
+```rust
+pub use crate::pebble_beds::crp_packing::MAX_PF_CRP;
+```
+
 #### Re-export `MaterialId`
 
 ```rust
@@ -26039,7 +27397,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:58:11: 58:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:58:10: 58:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:67:11: 67:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:67:10: 67:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -26085,7 +27443,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:68:11: 68:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:68:10: 68:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:77:11: 77:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:77:10: 77:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -26119,7 +27477,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:76:11: 76:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:76:10: 76:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:85:11: 85:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:85:10: 85:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -26171,7 +27529,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:88:11: 88:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:88:10: 88:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:97:11: 97:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:97:10: 97:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;
