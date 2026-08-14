@@ -24,8 +24,8 @@ pub mod gui_frame_metrics;
 pub mod real_time_pacing;
 
 pub use crash::{
-    mark_component, show_crash_modal_if_crashed, spawn_monitored, spawn_physics_thread_monitored,
-    CrashReport, ThreadHealth,
+    mark_component, show_crash_modal_if_crashed, show_crash_modal_with_restart, spawn_monitored,
+    spawn_physics_thread_monitored, CrashModalOutcome, CrashReport, ThreadHealth,
 };
 pub use gui_frame_metrics::GuiFrameMetrics;
 pub use real_time_pacing::{pace_tick, RealTimePacer, TickPacing};
