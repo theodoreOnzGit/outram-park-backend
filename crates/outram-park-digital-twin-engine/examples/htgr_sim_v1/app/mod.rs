@@ -236,8 +236,10 @@ pub struct HtgrSimApp {
     /// [`panels::temperature_display`].
     ///
     /// [`LegendUnit`] is the engine's existing display-unit enum, reused rather
-    /// than duplicated; its default is kelvin, which is what this simulator
-    /// displayed before the toggle existed.
+    /// than duplicated. Its default is **degrees Celsius** (maintainer decision,
+    /// 2026-08-14) -- the plant-facing convention an operator reads, and the one
+    /// `fhr_sim_v2` already used. It opened in kelvin until then; the snapshot
+    /// itself is unaffected either way, being kelvin throughout.
     display_unit: LegendUnit,
     /// Plant clock reading at the previous repaint \[s\].
     ///

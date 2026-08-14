@@ -802,9 +802,12 @@ mod tests {
 
         assert_eq!(temperature_unit_symbol(LegendUnit::Kelvin), "K");
         assert_eq!(temperature_unit_symbol(LegendUnit::Celsius), "\u{b0}C");
-        // Kelvin is the default, i.e. the toggle does not silently change what
-        // this simulator displayed before it existed.
-        assert_eq!(LegendUnit::default(), LegendUnit::Kelvin);
+        // Celsius is the default, by maintainer decision on 2026-08-14 -- it is
+        // the plant-facing convention an operator reads, and the one
+        // `fhr_sim_v2` already used. This assertion is not about which unit is
+        // better; it pins that the default is a deliberate choice, so a change
+        // to it has to be made here rather than drifting in unnoticed.
+        assert_eq!(LegendUnit::default(), LegendUnit::Celsius);
     }
 
     /// V&V: the plot buffers are **converted for display, never mutated**.
