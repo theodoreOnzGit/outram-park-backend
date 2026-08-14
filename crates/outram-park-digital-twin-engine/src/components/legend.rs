@@ -17,11 +17,14 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 /// Which unit the tick labels are written in.
+///
+/// Theodore note: I am making degrees celsius default because it is 
+/// better to look at
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LegendUnit {
     /// Kelvin, matching the studio's numeric readouts.
-    #[default]
     Kelvin,
+    #[default]
     /// Degrees Celsius, matching the FHR simulator's plant-facing convention.
     Celsius,
 }

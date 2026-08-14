@@ -314,12 +314,12 @@ pub const R_M_J_PER_MOL_KELVIN: f64 = 8.31451;
 
 ## Module `region_1_subcooled_liquid`
 
-region 1 
+region 1
 
-Temperature from 273.15 to 623.15 K 
+Temperature from 273.15 to 623.15 K
 Pressure from 0 to 100 MPa
 
-Up to the saturation line. 
+Up to the saturation line.
 This I believe is subcooled liquid region
 IAPWS-IF97 Region 1 (subcooled liquid / compressed water): valid for
 273.15 K <= T <= 623.15 K at pressures up to 100 MPa, on the liquid side
@@ -743,7 +743,7 @@ pub use backward_eqn_hs_1::*;
 
 ## Module `region_2_vapour`
 
-region 2 
+region 2
 
 vapour region
 
@@ -1011,7 +1011,7 @@ pub fn kappa_t_tp_2(t: ThermodynamicTemperature, p: Pressure) -> super::InverseP
 
 ## Module `metastable_region_2`
 
-section 2.2.3.2 page 34 of 390 on pdf 
+section 2.2.3.2 page 34 of 390 on pdf
 page 20 according to internal numbering
 
 ```rust
@@ -1142,7 +1142,7 @@ pub fn gamma_metastable_pi_tau_2_res(t: ThermodynamicTemperature, p: Pressure) -
 
 ## Module `intensive_properties`
 
-intensive properties in metastable region 2 
+intensive properties in metastable region 2
 
 ```rust
 pub mod intensive_properties { /* ... */ }
@@ -1280,7 +1280,7 @@ pub use intensive_properties::*;
 
 ## Module `backward_eqn_ph_2`
 
-backward equations for pressure enthalpy flash 
+backward equations for pressure enthalpy flash
 
 ```rust
 pub mod backward_eqn_ph_2 { /* ... */ }
@@ -1372,7 +1372,7 @@ pub fn t_ph_2c(pi: f64, eta: f64) -> ThermodynamicTemperature { /* ... */ }
 
 ## Module `backward_eqn_ps_2`
 
-backward eqns for pressure entropy flash 
+backward eqns for pressure entropy flash
 
 ```rust
 pub mod backward_eqn_ps_2 { /* ... */ }
@@ -1422,7 +1422,7 @@ pub fn t_ps_2(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature 
 
 ## Module `backward_eqn_hs_2`
 
-backward eqns for pressure entropy flash 
+backward eqns for pressure entropy flash
 
 ```rust
 pub mod backward_eqn_hs_2 { /* ... */ }
@@ -1531,10 +1531,10 @@ pub use backward_eqn_hs_2::*;
 
 ## Module `region_3_single_phase_plus_supercritical_steam`
 
-region 3 
+region 3
 
-single phase liquid and vapour 
-region, also includes supercritical region 
+single phase liquid and vapour
+region, also includes supercritical region
 and critical point
 
 auxilliary equation for region 2 and 3 are also put here
@@ -1611,7 +1611,7 @@ pub mod phi_dimensionless_helmholtz_free_energy { /* ... */ }
 
 #### Function `phi_3`
 
-Returns the region-3 phi 
+Returns the region-3 phi
 remember, phi is dimensionless_helmholtz_free_energy
 Temperature is assumed to be in K
 Pressure is assumed to be in Pa
@@ -2493,8 +2493,8 @@ pub mod speed_of_sound_eqm { /* ... */ }
 
 #### Function `w_ps_eqm_region4_kieffer`
 
-this is a more complicated version that makes use of derivatives 
-directly based on thermodynamic calculus 
+this is a more complicated version that makes use of derivatives
+directly based on thermodynamic calculus
 
 AI generated...
 
@@ -2505,7 +2505,7 @@ pub fn w_ps_eqm_region4_kieffer(p: Pressure, s: SpecificHeatCapacity) -> Velocit
 
 #### Function `w_ps_eqm_region4_finite_diff_vol`
 
-this is a simpler version that makes use of derivatives 
+this is a simpler version that makes use of derivatives
 that makes use of derivatives
 AI generated
 
@@ -2561,7 +2561,7 @@ pub use speed_of_sound_eqm::*;
 
 ## Module `region_5_steam_at_800_plus_degc`
 
-region 5 
+region 5
 
 superheated steam region (ultra high temp)
 IAPWS-IF97 Region 5 (ultra-high-temperature steam): valid for
@@ -3154,7 +3154,7 @@ pub fn mu_ph_eqm(p: Pressure, h: AvailableEnergy) -> DynamicViscosity { /* ... *
 
 ## Module `thermal_conductivity`
 
-thermal conductivity calcs 
+thermal conductivity calcs
 IAPWS R15-11 thermal conductivity of water/steam, lambda, in watts per
 metre-kelvin (W/(m*K), uom `ThermalConductivity`), as a function of the
 state's density (`MassDensity`, kg/m^3) and temperature
@@ -3192,13 +3192,13 @@ pub fn lambda_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64)
 
 ## Module `interfaces`
 
-public facing interfaces where the user 
-simply inputs pressure and temperature 
-or pressure and enthalpy etc 
+public facing interfaces where the user
+simply inputs pressure and temperature
+or pressure and enthalpy etc
 and gets all the required data automatically
 
-the logic for splitting between regions is 
-mostly here 
+the logic for splitting between regions is
+mostly here
 
 ```rust
 pub mod interfaces { /* ... */ }
@@ -3222,9 +3222,9 @@ pub mod functional_programming { /* ... */ }
 
 ## Module `pt_flash_eqm`
 
-allows for pressure and temperature flash 
-for all other properties 
-(except steam quality, which cannot be 
+allows for pressure and temperature flash
+for all other properties
+(except steam quality, which cannot be
 determined via pt flashing)
 
 this uses the forward equations
@@ -3377,7 +3377,7 @@ pub use crate::thermal_conductivity::lambda_tp_eqm_two_phase;
 
 #### Enum `FwdEqnRegion`
 
-an enum to help represent the appropriate 
+an enum to help represent the appropriate
 regions in the forward equations
 
 ```rust
@@ -3394,31 +3394,31 @@ pub enum FwdEqnRegion {
 
 ###### `Region1`
 
-this is from T = 273.15 K to T=623.15K 
+this is from T = 273.15 K to T=623.15K
 liquid
 
 ###### `Region2`
 
-this is vapour then line p23/t23 
+this is vapour then line p23/t23
 all the way up to 1073.15 K (800 degC)
 
 
 ###### `Region3`
 
-this is supercritical region and 
-single phase liquid  / vapour near 
+this is supercritical region and
+single phase liquid  / vapour near
 supercritical region
 
 ###### `Region4`
 
-two phase vapour liq equilibrium 
+two phase vapour liq equilibrium
 region up to supercritical region
 (saturation line, but not including the line itself)
 
 ###### `Region5`
 
 ultra high temperature steam  (more than 800 degC)
-1073.15 K to 2273.15 K 
+1073.15 K to 2273.15 K
 pressure from triple pt pressure to 500 bar
 
 ##### Implementations
@@ -3620,11 +3620,11 @@ pub fn w_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Veloci
 
 #### Function `w_tpx_eqm`
 
-returns speed of sound at vle given (t,p and x) 
+returns speed of sound at vle given (t,p and x)
 x being quality
 
 
-note: there is some bug in the regioning algorithm here, 
+note: there is some bug in the regioning algorithm here,
 it is better to use p,s algorithm
 
 ```rust
@@ -3633,7 +3633,7 @@ pub fn w_tpx_eqm(t: ThermodynamicTemperature, p: Pressure, x: f64) -> Velocity {
 
 #### Function `kappa_tp_eqm_single_phase`
 
-returns the isentropic exponent 
+returns the isentropic exponent
 
 ```rust
 pub fn kappa_tp_eqm_single_phase(t: ThermodynamicTemperature, p: Pressure) -> Ratio { /* ... */ }
@@ -3659,7 +3659,7 @@ pub fn kappa_t_tp_eqm(t: ThermodynamicTemperature, p: Pressure) -> crate::region
 
 #### Re-export `alpha_p_rho_t_3`
 
-re-exports the relative pressure coeff function for 
+re-exports the relative pressure coeff function for
 region 3 relative pressure coeff (other regions don't have it)
 
 ```rust
@@ -3668,7 +3668,7 @@ pub use crate::region_3_single_phase_plus_supercritical_steam::alpha_p_rho_t_3;
 
 #### Re-export `beta_p_rho_t_3`
 
-re-exports the isothermal stress coeff function for 
+re-exports the isothermal stress coeff function for
 region 3 isothermal stress coeff (other regions don't have it)
 
 ```rust
@@ -3901,7 +3901,7 @@ pub mod pt_flash_metastable { /* ... */ }
 
 ## Module `ps_flash_eqm`
 
-allows for pressure entropy flash 
+allows for pressure entropy flash
 
 ```rust
 pub mod ps_flash_eqm { /* ... */ }
@@ -4062,7 +4062,7 @@ pub fn kappa_t_ps_eqm(p: Pressure, s: SpecificHeatCapacity) -> crate::region_1_s
 
 ## Module `hs_flash_eqm`
 
-allows for enthalpy entropy flash; 
+allows for enthalpy entropy flash;
 Note: this only works for part of the steam table
 
 ```rust
@@ -4074,7 +4074,7 @@ pub mod hs_flash_eqm { /* ... */ }
 ## Module `validity_range`
 
 note:
-(h,s) flashes along the isotherms 273.15K are not implemented 
+(h,s) flashes along the isotherms 273.15K are not implemented
 for simplicity to avoid iterations
 
 ```rust
@@ -4109,7 +4109,7 @@ pub fn hs_is_below_isobar_p_100_mpa_in_region1(h: AvailableEnergy, s: SpecificHe
 
 #### Enum `BackwdEqnSubRegion`
 
-an enum to help represent the appropriate 
+an enum to help represent the appropriate
 regions in the forward equations
 
 ```rust
@@ -4129,59 +4129,59 @@ pub enum BackwdEqnSubRegion {
 
 ###### `Region1`
 
-this is from T = 273.15 K to T=623.15K 
+this is from T = 273.15 K to T=623.15K
 liquid
 
 ###### `Region2a`
 
-this is vapour then line p23/t23 
+this is vapour then line p23/t23
 all the way up to 1073.15 K (800 degC)
 
- 
+
 higher entropy than 5.85 kJ/(kg K)
 but even higher than 2b
 includes the boundary line h2ab
 
 ###### `Region2b`
 
-this is vapour then line p23/t23 
+this is vapour then line p23/t23
 all the way up to 1073.15 K (800 degC)
- 
+
 higher or equal to entropy than 5.85 kJ/(kg K)
 includes boundary line 5.85 kJ/(kg K)
 
 ###### `Region2c`
 
-this is vapour then line p23/t23 
+this is vapour then line p23/t23
 all the way up to 1073.15 K (800 degC)
 
 lower entropy than 5.85 kJ/(kg K)
 
 ###### `Region3a`
 
-this is supercritical region and 
-single phase liquid  / vapour near 
+this is supercritical region and
+single phase liquid  / vapour near
 supercritical region
 
 below or equal to critical entropy
 
 ###### `Region3b`
 
-this is supercritical region and 
-single phase liquid  / vapour near 
+this is supercritical region and
+single phase liquid  / vapour near
 supercritical region
 above critical entropy
 
 ###### `Region4`
 
-two phase vapour liq equilibrium 
+two phase vapour liq equilibrium
 region up to supercritical region
 (saturation line, but not including the line itself)
 
 ###### `Region5`
 
 ultra high temperature steam  (more than 800 degC)
-1073.15 K to 2273.15 K 
+1073.15 K to 2273.15 K
 pressure from triple pt pressure to 500 bar
 
 ##### Implementations
@@ -4326,7 +4326,7 @@ pub fn x_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> Ratio { /* ... *
 
 #### Function `cp_hs_eqm`
 
-returns cp given 
+returns cp given
 enthalpy and entropy point
 uses ph flash
 
@@ -4336,7 +4336,7 @@ pub fn cp_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> SpecificHeatCap
 
 #### Function `w_hs_eqm`
 
-returns w (speed of sound) given 
+returns w (speed of sound) given
 enthalpy and entropy point
 uses ph flash
 
@@ -4346,7 +4346,7 @@ pub fn w_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> Velocity { /* ..
 
 #### Function `kappa_hs_eqm`
 
-returns kappa (isentropic exponent) given 
+returns kappa (isentropic exponent) given
 enthalpy and entropy point
 uses ph flash
 
@@ -4356,7 +4356,7 @@ pub fn kappa_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> Ratio { /* .
 
 #### Function `mu_hs_eqm`
 
-returns mu, or sometimes eta (dynamic viscosity) given 
+returns mu, or sometimes eta (dynamic viscosity) given
 enthalpy and entropy point
 uses ph flash
 
@@ -4366,7 +4366,7 @@ pub fn mu_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> DynamicViscosit
 
 #### Function `lambda_hs_eqm`
 
-returns lambda (thermal conductivity) given 
+returns lambda (thermal conductivity) given
 enthalpy and entropy point
 uses ph flash
 
@@ -4380,7 +4380,7 @@ pub fn lambda_hs_eqm(h: AvailableEnergy, s: SpecificHeatCapacity) -> ThermalCond
 
 - `Other("#[attr = Inline(Hint)]")`
 
-returns temperature, pressure, specific volume and quality given 
+returns temperature, pressure, specific volume and quality given
 enthalpy and entropy point
 
 I'm doing this combined function to prevent double calculation
@@ -4396,7 +4396,7 @@ allows the user to check which region one is in based on a ph flash
 
 note that ph flash does not work in region 5
 
-the way to do region separation is first by entropy according to 
+the way to do region separation is first by entropy according to
 fig 2.14
 
 once that is done, then we separate region by enthalpy.
@@ -4408,11 +4408,11 @@ pub fn hs_flash_region(h: AvailableEnergy, s: SpecificHeatCapacity) -> BackwdEqn
 #### Function `find_pressure_from_hs_region_4`
 
 Finds pressure given enthalpy and entropy using bisection method
- 
+
 Given: h and s (known state point)
 Find: p such that s(p, h) = s_target
 
-Uses bisection between minimum pressure 
+Uses bisection between minimum pressure
 (triple point) and critical pressure
 vibe coded and edited
 
@@ -4498,10 +4498,13 @@ own submodule with its own panic-site-to-gate table, and each is
 re-exported here so `interfaces::checked::*` remains the single import:
 
 - [`ps`] — the `(p,s)` flash family (11 functions plus the throat mass
-  flux) and [`check_ps_envelope`]. Note its pressure floor is
-  **exclusive** where the `(p,h)` one is inclusive: the `(p,s)` validity
-  check evaluates `s_tp_eqm_single_phase` on the 273.15 K isotherm and
-  so hits the Region-4 trap at exactly `p = p_sat(273.15 K)`.
+  flux) and [`check_ps_envelope`]. Its pressure floor is **inclusive**,
+  matching the `(p,h)` one: `p = p_sat(273.15 K)` exactly is accepted.
+  It was exclusive until bead `op-znjx` (2026-08-11) — the `(p,s)`
+  validity check used to evaluate `s_tp_eqm_single_phase` on the
+  273.15 K isotherm and so hit the Region-4 trap at exactly that
+  pressure; it now uses the Region-1 forward equation `s_tp_1`, as the
+  `(p,h)` check already did with `h_tp_1`.
 - [`two_phase`] — the quality-carrying `(T,p,x)` family (11 functions)
   and [`check_tpx_envelope`]. This one **accepts** saturation-line
   `(T,p)` pairs, which the single-phase gate above must reject, and it
@@ -4599,7 +4602,7 @@ the router.
 | `ps_flash_eqm/mod.rs:828` "p,s point is outside pressure range" | same predicate | same two gates |
 | `ps_flash_eqm/mod.rs:833` "p,s point below 273.15K" | `s < s(273.15 K, p)` | entropy lower gate |
 | `ps_flash_eqm/mod.rs:837` "p,s point above 1073.15K" | `s > s(1073.15 K, p)` | entropy upper gate |
-| `pt_flash_eqm/mod.rs:198` "entropy: two-phase (T,p) ... under-determined" | reached *inside* `is_below_isotherm_t_273_15`, which evaluates `s_tp_eqm_single_phase(273.15 K, p)`; the `(T,p)` router returns Region 4 when `p == p_sat(273.15 K)` **bit-for-bit** | **exclusive** pressure lower gate (`p > p_sat(273.15 K)`, not `>=`) |
+| `pt_flash_eqm/mod.rs:198` "entropy: two-phase (T,p) ... under-determined" | formerly reached *inside* `is_below_isotherm_t_273_15` when `p == p_sat(273.15 K)` **bit-for-bit** | **no longer reachable**: that check now evaluates its lower bound with the Region-1 forward equation `s_tp_1` (bead `op-znjx`), and this facade mirrors it |
 | `boundaries_between_single_phase_regions.rs:20,23,60,63,106` "p in (p,s) point is outside validity range" | `p` below 16.529 MPa / above 100 MPa inside the `p >= 16.529 MPa` branch | unreachable: that branch is only entered when `16.529 MPa <= p <= 100 MPa` already holds |
 | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:30,33,75,78` "entropy of p,s point is outside validity range" | `s` outside the Region-3/4 boundary entropy band | unreachable inside the gate: the Region-1 and Region-2 tests immediately above them already returned for every `s` outside that band |
 | `boundaries_from_single_phase_regions_to_region_4_multiphase.rs:123,151` "pressure of p,s point is outside validity range" | `p` outside `[p_sat(273.15 K), p_sat(623.15 K)]` in the `p < 16.529 MPa` branch | pressure gate plus the branch condition |
@@ -4610,18 +4613,24 @@ so they were checked empirically as well — see the V&V note in
 [`super::tests`]: a 273 609-point sweep of the accepted set found zero
 surviving panics across all ten wrapped functions.
 
-## The `p == p_sat(273.15 K)` trap (differs from the `(p,h)` facade)
+## The `p == p_sat(273.15 K)` trap — fixed 2026-08-11 (bead `op-znjx`)
 
-The `(p,h)` validity check dodges this trap deliberately by evaluating
-its lower enthalpy bound with the Region-1 forward equation `h_tp_1`
-instead of the `(T,p)` router (see the note in
-`ph_flash_eqm/validity_range.rs`). The `(p,s)` check does **not** — it
-calls `s_tp_eqm_single_phase(273.15 K, p)`, which routes to Region 4 and
-panics at exactly `p = p_sat(273.15 K)`. The `(p,s)` pressure floor here
-is therefore **exclusive** where the `(p,h)` one is inclusive. This is a
-defect in the internals, not in IF97 (the triple-point isobar is a
-perfectly good IF97 state); it is recorded as a follow-up rather than
-papered over.
+This used to be a real asymmetry with the `(p,h)` facade. The `(p,h)`
+validity check dodges the trap by evaluating its lower enthalpy bound
+with the Region-1 forward equation `h_tp_1` instead of the `(T,p)`
+router (see the note in `ph_flash_eqm/validity_range.rs`); the `(p,s)`
+check used to call `s_tp_eqm_single_phase(273.15 K, p)`, which routes to
+Region 4 and panics at exactly `p = p_sat(273.15 K)`, so this facade
+carried an **exclusive** pressure floor where the `(p,h)` one is
+inclusive.
+
+`ps_flash_eqm/validity_range.rs::is_below_isotherm_t_273_15` now uses
+`s_tp_1` for that bound, exactly as the `(p,h)` sibling uses `h_tp_1`.
+The floor here is therefore **inclusive** again, matching `(p,h)`, and
+[`check_ps_envelope`] mirrors the internal change by computing its own
+lower entropy bound with `s_tp_1` too. (Precedent for this kind of
+carve-out removal: bead `op-cv1c`, where fixing the region router's
+half-open 100 MPa edge let this facade drop its matching carve-out.)
 
 ## No `catch_unwind`
 
@@ -4644,17 +4653,19 @@ internals actually accept, returning `Ok(())` when every wrapped
 
 # Physical quantities and valid ranges
 
-- `p` — absolute pressure, Pa. Valid in the **half-open** interval
-  `(p_sat(273.15 K), 100 MPa]`, i.e. strictly above the triple-point
-  saturation pressure (about 611.213 Pa) and up to and including
-  100 MPa. The lower edge is exclusive because of the Region-4 trap
-  documented at module level; the upper edge is inclusive, matching
-  `is_outside_pressure_range`, which rejects only `p > 100 MPa`.
+- `p` — absolute pressure, Pa. Valid in the **closed** interval
+  `[p_sat(273.15 K), 100 MPa]`, i.e. from the triple-point saturation
+  pressure (about 611.213 Pa) up to and including 100 MPa. Both edges
+  are inclusive, matching `is_outside_pressure_range`, which rejects
+  only `p < p_sat(273.15 K)` and `p > 100 MPa`. The lower edge was
+  exclusive until bead `op-znjx` removed the Region-4 trap documented
+  at module level.
 - `s` — specific entropy, J/(kg K). Valid between the 273.15 K and
   1073.15 K isotherm entropies **at that pressure**, both edges
-  inclusive. Both bounds are evaluated with the same
-  `s_tp_eqm_single_phase` call the internal check uses, so the accepted
-  set is identical rather than merely similar.
+  inclusive. Each bound is evaluated with the same call the internal
+  check uses — `s_tp_1` on the 273.15 K isotherm (which lies wholly in
+  Region 1) and `s_tp_eqm_single_phase` on the 1073.15 K one — so the
+  accepted set is identical rather than merely similar.
 
 Non-finite input is rejected first with
 [`SteamTablesError::NonFinite`].
@@ -5755,7 +5766,7 @@ pub use control_volume::*;
 ## Module `object_oriented_programming`
 
 for OOP users who want to make a struct (class)
-and then use that for extracting data, 
+and then use that for extracting data,
 this is where the stuff is stored
 
 this is basically a simple control volume
@@ -6362,7 +6373,7 @@ pub use mass_and_energy_balance::CvMassEnthalpyChanges;
 
 ## Module `surface_tension`
 
-surface tension 
+surface tension
 important for boiling
 IAPWS surface tension sigma of water against its own vapour along the
 saturation line, in newtons per metre (N/m, equivalently J/m^2), as a
@@ -6398,7 +6409,7 @@ pub fn water_surf_tension(t: ThermodynamicTemperature) -> RadiantExposure { /* .
 
 ## Module `dielectric_constant`
 
-dielectric constant 
+dielectric constant
 IAPWS correlation for the static (relative) dielectric constant of water,
 epsilon — dimensionless — via the Harris-Alder g-bar factor, as a
 function of density (`MassDensity`, kg/m^3) and temperature
@@ -6422,9 +6433,9 @@ pub fn water_dielectric_const_rho_t(rho: MassDensity, t: ThermodynamicTemperatur
 
 ## Module `steam_turbine_equations`
 
-useful equations for steam turbines 
-These include nozzles, impulse turbines 
-and reaction turbines at some steady 
+useful equations for steam turbines
+These include nozzles, impulse turbines
+and reaction turbines at some steady
 state,
 as well as angular momentum balance
 Steam-turbine equations: converging-diverging nozzle / choked-flow
@@ -6622,7 +6633,7 @@ pub mod choked_flow { /* ... */ }
 
 these contain choked flow algorithms for single phase choked flow,
 
-whether be it finding critical pressure for ideal gas, or for those 
+whether be it finding critical pressure for ideal gas, or for those
 where the choked flow is in the pure vapour phase
 
 ```rust
@@ -6637,7 +6648,7 @@ pub mod single_phase_basic_choked_flow { /* ... */ }
 
 - `Other("#[attr = Inline(Hint)]")`
 
-This is an algorithm to obtain outlet thermodynamic state 
+This is an algorithm to obtain outlet thermodynamic state
 for a converging nozzle with subsonic flow
 Given inlet conditions (p1, h1, v1) and geometry (a1, a2), calculates
 the throat conditions assuming choked flow (M = 1 at exit).
@@ -6665,9 +6676,9 @@ pub fn get_choked_flow_state_for_nozzle_subsonic_to_sonic(p1: Pressure, h1: Avai
 
 #### Function `get_choked_flow_nozzle_area`
 
-based on steam pressure and enthalpy, 
+based on steam pressure and enthalpy,
 as well as mass flowrate, obtain the choked flow area
-you have to give the stagnation enthalpy and pressure as 
+you have to give the stagnation enthalpy and pressure as
 inputs
 
 ```rust
@@ -6676,9 +6687,9 @@ pub fn get_choked_flow_nozzle_area(p0: Pressure, h0: AvailableEnergy, mass_flowr
 
 #### Function `get_choked_flow_supersonic_nozzle_exit_area_and_state`
 
-based on steam pressure and enthalpy, 
+based on steam pressure and enthalpy,
 as well as mass flowrate, obtain the choked flow area
-you have to give the stagnation enthalpy and pressure as 
+you have to give the stagnation enthalpy and pressure as
 inputs
 
 isentropic nozzle assumed
@@ -6697,10 +6708,10 @@ pub fn get_choked_flow_supersonic_nozzle_exit_area_and_state(p_throat: Pressure,
 - `Other("#[attr = Inline(Hint)]")`
 
 estimates critical pressure ratio given ideal gas assumptions
-for ideal gases, critical ratio depends on k 
-but k is generally temperature dependent 
+for ideal gases, critical ratio depends on k
+but k is generally temperature dependent
 
-The evaluation here is to use throat properties to get the critical 
+The evaluation here is to use throat properties to get the critical
 pressure ratio
 
 
@@ -6717,7 +6728,7 @@ pub fn get_critical_pressure_ratio_ideal_gas_using_throat_ph(p: Pressure, h: Ava
 Finds the pressure where Mach number = 1 during isentropic expansion
 This only works for superheated vapour
 
-this takes in ph and optionally a stagnation entropy (if one wants to save 
+this takes in ph and optionally a stagnation entropy (if one wants to save
 on calculation speed)
 
 ```rust
@@ -7239,7 +7250,7 @@ pub mod joule_thomson { /* ... */ }
 
 #### Function `get_outlet_velocity_and_state_joule_thomson`
 
-we want to obtain the outlet thermodynamic state of a flow 
+we want to obtain the outlet thermodynamic state of a flow
 going through a joule thomson model
 stagnation enthalpy is constant, but enthalpy will differ
 
@@ -8008,6 +8019,157 @@ the flashing plateau, and is stable over the full 600 ms Edwards transient
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Enum `AdvectionTerminalState`
+
+The thermodynamic state available at one **advection terminal** (one end
+patch) of the pipe, used to pick the upwind state for the energy equation.
+
+## Why a terminal and not a patch
+
+[`TampinesSteamArray`] is a **1-D flow component in a network**, so its two
+ends are **junctions** to other components, not patches on a standalone CFD
+domain. The convention this enum serves is therefore TUAS's upwind advection
+terminal, not OpenFOAM's `zeroGradient` / `fixedValue` patch semantics — see
+`docs/boundary-conditions-convention.md` and
+[`TampinesSteamArray::correct_advection_terminals`].
+
+Ported from `tuas_boussinesq_solver`'s
+`single_control_vol/boundary_condition_interactions/advection_to_bcs.rs`,
+whose two pairs of methods map onto the two variants below one-for-one:
+
+| TUAS method pair | Variant here |
+|---|---|
+| `calculate_*_advection_non_set_temperature` (BC state = zero-gradient extrapolation of the control volume) | [`Self::ZeroGradientExtrapolated`] |
+| `calculate_*_advection_set_temperature` (BC state prescribed by the caller) | [`Self::Junction`] |
+
+In **both** TUAS pairs the enthalpy *and* the density actually used are
+selected by the sign of the mass flow, never defaulted — which is what makes
+the historical "zero-gradient at both ends" failure structurally impossible.
+
+```rust
+pub enum AdvectionTerminalState {
+    ZeroGradientExtrapolated,
+    Junction(uom::si::f64::AvailableEnergy),
+}
+```
+
+##### Variants
+
+###### `ZeroGradientExtrapolated`
+
+No junction state is prescribed at this terminal, so the only upstream
+information available on **inflow** is the adjacent cell itself: the
+upwind enthalpy degenerates to the zero-gradient extrapolation
+`h_face = h_cell`, and the upwind density to the cell density.
+
+This is TUAS's `*_non_set_temperature` path, and it is the default —
+an array nobody has connected to anything advects in its own state,
+which is the honest answer when there is no other.
+
+###### `Junction`
+
+A junction specific enthalpy \[J/kg\] supplied by whatever component is
+connected at this terminal (an upstream pipe, a plenum, a reservoir).
+
+Used as the upstream state **only while the flow at this terminal is
+into the domain**; on outflow the control-volume state is upwind and
+this value is ignored. TUAS's `*_set_temperature` path.
+
+Valid range is whatever the IAPWS-IF97 `(p, h)` flash accepts at the
+terminal's pressure; a junction enthalpy that flashes out of range is
+ignored for the density selection rather than propagating a NaN.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `uom::si::f64::AvailableEnergy` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AdvectionTerminalState { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> AdvectionTerminalState { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &AdvectionTerminalState) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `TampinesSteamArray`
 
 One-dimensional compressible PIMPLE pipe array driven by the TAMPINES steam
@@ -8066,6 +8228,9 @@ pub struct TampinesSteamArray {
     pub wetted_perimeter: uom::si::f64::Length,
     pub incline_angle: uom::si::f64::Angle,
     pub mass_flowrate: uom::si::f64::MassRate,
+    pub inlet_mass_flowrate: Option<uom::si::f64::MassRate>,
+    pub inlet_terminal: AdvectionTerminalState,
+    pub outlet_terminal: AdvectionTerminalState,
     pub pressure_loss: uom::si::f64::Pressure,
     pub internal_pressure_source: uom::si::f64::Pressure,
     pub lateral_adjacent_array_temperature_vector: Vec<Vec<uom::si::f64::ThermodynamicTemperature>>,
@@ -8102,7 +8267,10 @@ pub struct TampinesSteamArray {
 | `xs_area` | `uom::si::f64::Area` | Constant cross-sectional area \[m²\] (same value passed to [`Self::new`]). |
 | `wetted_perimeter` | `uom::si::f64::Length` | Wetted perimeter \[m\] (bookkeeping -- see [`Self::get_hydraulic_diameter`]). |
 | `incline_angle` | `uom::si::f64::Angle` | Incline angle from horizontal \[rad\] (bookkeeping only). |
-| `mass_flowrate` | `uom::si::f64::MassRate` | Bulk mass flowrate \[kg/s\] (plain storage -- `step()` does not read<br>this; it is bookkeeping for a caller, same as `OPCPFluidArray`'s field). |
+| `mass_flowrate` | `uom::si::f64::MassRate` | Bulk mass flowrate \[kg/s\] (plain storage -- `step()` does not read<br>this; it is bookkeeping for a caller, same as `OPCPFluidArray`'s field).<br><br>**This is NOT a boundary condition.** To actually drive the array at a<br>known mass flow, use [`Self::set_inlet_mass_flowrate`], which imposes it<br>on the inlet patch. |
+| `inlet_mass_flowrate` | `Option<uom::si::f64::MassRate>` | Prescribed **inlet mass flowrate** \[kg/s\], or `None` for no<br>mass-flow inlet.<br><br>When set, each pressure corrector re-derives the inlet velocity<br>`u_in = m_dot / (rho_in A_in)` from the *same* interpolated inlet-face<br>density that then multiplies it to form the boundary mass flux, so the<br>imposed flux is exactly `m_dot` by construction rather than by a<br>caller's density guess. This is OpenFOAM's `flowRateInletVelocity`.<br><br>Positive is **into** the domain (+x). Set with<br>[`Self::set_inlet_mass_flowrate`], clear with<br>[`Self::clear_inlet_mass_flowrate`] or by calling<br>[`Self::set_inlet_velocity`] (which prescribes a velocity instead and so<br>clears this). |
+| `inlet_terminal` | `AdvectionTerminalState` | Upwind advection state at the **inlet terminal** — the `"left"` patch<br>at x = 0 (`INLET_PATCH`).<br><br>Defaults to [`AdvectionTerminalState::ZeroGradientExtrapolated`]. Set a<br>junction enthalpy with [`Self::set_inlet_enthalpy`], clear it with<br>[`Self::clear_inlet_enthalpy`]. Used **only when the flow at this<br>terminal is into the domain**; on outflow the control-volume state is<br>upwind. See [`Self::correct_advection_terminals`]. |
+| `outlet_terminal` | `AdvectionTerminalState` | Upwind advection state at the **outlet terminal** — the `"right"` patch<br>at x = length.<br><br>The outlet needs this for exactly the same reason the inlet does: when<br>the flow reverses, the "outlet" is an inlet, and without a junction<br>state the domain advects its own enthalpy back in. Defaults to<br>[`AdvectionTerminalState::ZeroGradientExtrapolated`]; set with<br>[`Self::set_outlet_enthalpy`], clear with<br>[`Self::clear_outlet_enthalpy`]. |
 | `pressure_loss` | `uom::si::f64::Pressure` | Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`). |
 | `internal_pressure_source` | `uom::si::f64::Pressure` | Internal pressure source \[Pa\] (e.g. a simulated pump; plain storage). |
 | `lateral_adjacent_array_temperature_vector` | `Vec<Vec<uom::si::f64::ThermodynamicTemperature>>` | Per-registered-link neighbour temperature, one inner `Vec` per cell.<br>Registered via<br>[`Self::lateral_link_new_temperature_vector_avg_conductance`] and<br>cleared once per [`Self::step`] (see [`Self::clear_vectors`]). |
@@ -8157,7 +8325,7 @@ pub struct TampinesSteamArray {
 - ```rust
   pub fn get_mass_flowrate(self: &Self) -> MassRate { /* ... */ }
   ```
-  Bulk mass flowrate \[kg/s\] (plain storage — see the field's doc comment
+  Bulk mass flowrate \[kg/s\] -- inert bookkeeping, NOT a boundary
 
 - ```rust
   pub fn set_mass_flowrate(self: &mut Self, mass_flowrate: MassRate) { /* ... */ }
@@ -8205,9 +8373,34 @@ pub struct TampinesSteamArray {
   Prescribes a fixed inlet velocity boundary condition on the
 
 - ```rust
+  pub fn set_inlet_mass_flowrate(self: &mut Self, mass_flowrate: MassRate) { /* ... */ }
+  ```
+  Prescribe a fixed inlet **mass flowrate** \[kg/s\] on the `"left"` patch
+
+- ```rust
+  pub fn clear_inlet_mass_flowrate(self: &mut Self) { /* ... */ }
+  ```
+  Remove any prescribed inlet mass flowrate, leaving whatever velocity
+
+- ```rust
   pub fn set_inlet_enthalpy(self: &mut Self, h: AvailableEnergy) { /* ... */ }
   ```
-  Prescribes a fixed inlet specific-enthalpy boundary condition on
+  Prescribe the **junction specific enthalpy** \[J/kg\] at the inlet
+
+- ```rust
+  pub fn clear_inlet_enthalpy(self: &mut Self) { /* ... */ }
+  ```
+  Remove the inlet junction enthalpy, returning that terminal to
+
+- ```rust
+  pub fn set_outlet_enthalpy(self: &mut Self, h: AvailableEnergy) { /* ... */ }
+  ```
+  Prescribe the **junction specific enthalpy** \[J/kg\] at the outlet
+
+- ```rust
+  pub fn clear_outlet_enthalpy(self: &mut Self) { /* ... */ }
+  ```
+  Remove the outlet junction enthalpy, returning that terminal to
 
 - ```rust
   pub fn set_outlet_velocity(self: &mut Self, velocity: Velocity) { /* ... */ }
@@ -8243,6 +8436,16 @@ pub struct TampinesSteamArray {
   pub fn correct_thermo(self: &mut Self) { /* ... */ }
   ```
   Update the thermodynamic and transport state from the current
+
+- ```rust
+  pub fn axial_peclet_numbers(self: &Self) -> Vec<Ratio> { /* ... */ }
+  ```
+  Per-cell **axial Péclet number** `Pe = ρ|u|Δx / (λ/c_p)` \[dimensionless\]
+
+- ```rust
+  pub fn peak_axial_conduction_rate(self: &Self) -> Power { /* ... */ }
+  ```
+  Largest **axial conduction heat rate** across any internal face \[W\].
 
 - ```rust
   pub fn advance_timestep(self: &mut Self, timestep: Time) -> Result<(), TampinesSteamArrayError> { /* ... */ }
@@ -8424,6 +8627,18 @@ pub use lateral_coupling::TampinesSteamArrayError;
 ```
 
 ## Re-exports
+
+### Re-export `AdvectionTerminalState`
+
+Re-export of the 1-D compressible PIMPLE pipe array solver
+(`TampinesSteamArray`) and its error type (`TampinesSteamArrayError`) from
+[`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for
+convenience. `TampinesSteamArray` backs each finite-volume cell with an
+IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
+
+```rust
+pub use openfoam_algorithms::rhoPimpleFoam::AdvectionTerminalState;
+```
 
 ### Re-export `SolverMode`
 

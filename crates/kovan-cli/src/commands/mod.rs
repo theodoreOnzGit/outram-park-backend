@@ -15,9 +15,12 @@
 //! implemented on a foreign enum from this crate, so each library enum gets a
 //! local twin plus a `From` conversion, matched exhaustively both ways.
 
+pub mod agent_docs_gen;
+pub mod api_docs;
 pub mod discover;
 pub mod gen;
 pub mod historian;
+pub mod kloc;
 pub mod lit;
 pub mod methods;
 pub mod scan;
@@ -25,6 +28,7 @@ pub mod search;
 pub mod setup;
 pub mod symbols;
 pub mod tokens;
+pub mod workspace;
 
 use clap::ValueEnum;
 

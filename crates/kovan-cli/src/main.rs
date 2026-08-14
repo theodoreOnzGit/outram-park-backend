@@ -94,6 +94,92 @@ enum Command {
     },
     /// List the numerical-method codegen catalogue.
     Methods,
+    /// Bundle the workspace's API docs into a flat, upload-ready set of files
+    /// for an external chat agent with a fixed context budget.
+    ///
+    /// Always writes `AGENTS.md` (the workspace's coding rules) and `_INDEX.md`
+    /// (a condensed signature index of every documented crate); `--crates` adds
+    /// the verbatim `api.md` of the crates named. Output is flat because upload
+    /// dialogs take files but not folders.
+    AgentDocsGen {
+        /// Workspace root (the directory containing `crates/`). Discovered
+        /// automatically when omitted: the current directory or an ancestor,
+        /// then `~`, `~/Documents`, `~/Documents/research`.
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Crate directories whose full `api.md` to include, comma-separated.
+        #[arg(long, value_delimiter = ',')]
+        crates: Vec<String>,
+        /// Where to write the bundle (default: `<root>/agent-docs`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Context budget in ESTIMATED tokens (default 200000).
+        #[arg(long)]
+        budget: Option<u64>,
+        /// Generate `docs/api.md` for selected crates that lack one. Needs a
+        /// nightly toolchain and `rustdoc-md`; not offline and not
+        /// deterministic, so it never runs unless asked for.
+        #[arg(long)]
+        regenerate_missing: bool,
+        /// Print the crate inventory and per-crate token estimates, and write
+        /// nothing. Run this first to choose a selection.
+        #[arg(long)]
+        list: bool,
+    },
+    /// Regenerate a crate's `docs/api.md` -- the committed markdown mirror of
+    /// its public API -- via nightly rustdoc JSON piped through `rustdoc-md`.
+    ///
+    /// Replaces the retired `scripts/gen_api_docs.py`. Needs a nightly
+    /// toolchain and `rustdoc-md` on PATH; both are mandatory workspace tooling.
+    ApiDocs {
+        /// Crate directory name under `crates/`, e.g. `outram-foam-basic-lib`.
+        /// Omit when using `--all`.
+        krate: Option<String>,
+        /// Regenerate every crate that already has a `docs/api.md`, instead of
+        /// one named crate.
+        #[arg(long)]
+        all: bool,
+        /// With `--all`, also generate mirrors for crates that have none yet.
+        #[arg(long, requires = "all")]
+        include_missing: bool,
+        /// Workspace root (the directory containing `crates/`). Discovered
+        /// automatically when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Include private items (`--document-private-items`).
+        #[arg(long)]
+        private: bool,
+    },
+    /// Reproduce the paper's productivity accounting: pre-agentic baseline,
+    /// agentic output, CSVs, LaTeX tables and the SVG figure.
+    ///
+    /// Replaces the retired `scripts/kloc_accounting.py`. Measures committed
+    /// state at named refs, never a working directory.
+    Kloc {
+        /// Workspace root (used to site the default output directory).
+        /// Discovered automatically when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Where to write the artifacts (default: `<root>/docs/kloc-accounting`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Clone any repository not found locally into the vendor directory.
+        #[arg(long)]
+        clone: bool,
+        /// Ignore local checkouts and measure only the vendor clones. This is
+        /// the reproduction path: it needs nothing but git and network access.
+        #[arg(long)]
+        from_github: bool,
+        /// Fetch the vendor clones before measuring.
+        #[arg(long)]
+        fetch: bool,
+        /// Compare the measurements against the manuscript's published figures.
+        #[arg(long)]
+        check: bool,
+        /// Skip the SVG figure.
+        #[arg(long)]
+        no_figure: bool,
+    },
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
     #[command(subcommand)]
@@ -223,6 +309,59 @@ fn run(command: Command) -> Result<(), String> {
             out,
         } => commands::symbols::run_summary(root, lang, id, name, out),
         Command::Gen(cmd) => commands::gen::run(cmd),
+        Command::AgentDocsGen {
+            root,
+            crates,
+            out,
+            budget,
+            regenerate_missing,
+            list,
+        } => {
+            let (root, root_how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({root_how})", root.display());
+            let (out_dir, how) = commands::agent_docs_gen::resolve_out_dir(out.as_deref())
+                .map_err(|error| error.to_string())?;
+            println!("writing to {} ({how})", out_dir.display());
+            commands::agent_docs_gen::run(
+                &root,
+                &out_dir,
+                &crates,
+                budget,
+                regenerate_missing,
+                list,
+            )
+            .map_err(|error| error.to_string())
+        }
+        Command::ApiDocs {
+            krate,
+            all,
+            include_missing,
+            root,
+            private,
+        } => {
+            let (root, how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({how})", root.display());
+            commands::api_docs::run(&root, krate.as_deref(), all, include_missing, private)
+                .map_err(|error| error.to_string())
+        }
+        Command::Kloc {
+            root,
+            out,
+            clone,
+            from_github,
+            fetch,
+            check,
+            no_figure,
+        } => {
+            let (root, how) =
+                commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
+            println!("workspace {} ({how})", root.display());
+            let out_dir = out.unwrap_or_else(|| commands::kloc::default_out_dir(&root));
+            commands::kloc::run(out_dir, clone, from_github, fetch, check, no_figure)
+                .map_err(|error| error.to_string())
+        }
         Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
         Command::Tokens(cmd) => commands::tokens::run(cmd),
         Command::Historian {

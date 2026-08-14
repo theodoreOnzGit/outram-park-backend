@@ -47,9 +47,14 @@
 use std::path::Path;
 
 pub mod adapters;
+pub mod agent_docs;
 pub mod extract;
 mod outputs;
 
+pub use agent_docs::{
+    agents_markdown, condensed_index_markdown, estimated_tokens, inventory, write_bundle,
+    BundleReport, CrateEntry,
+};
 pub use extract::{catalogue_symbols_detailed, extract_from_text, ExtractedSymbol, SymbolKind};
 pub use outputs::{repository_summary_markdown, symbols_markdown};
 

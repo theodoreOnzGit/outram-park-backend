@@ -44,8 +44,19 @@ proceedings report INIS-VN-006.
 - *Provenance note:* venue and year are **not stated in the PDF**; they were
   resolved 2026-08-11 from the INIS record (which matches this exact file:
   11 pages, 584.3 kB). The extractor's earlier guess of 2024 was wrong.
-  No licence statement in the document — cite and use; do not assume
-  redistribution rights beyond the INIS public copy.
+  No licence statement in the document, and the INIS record asserts
+  "Copyright © 2026 International Atomic Energy Agency. All rights reserved."
+  ("open access" there means freely readable, not freely redistributable).
+- *Tier decision — MAINTAINER, 2026-08-14:* kept in the **open** tier, which is
+  committed and public. The workspace's default for a document with no licence
+  statement is proprietary; this is a deliberate exception, on the grounds that
+  the authors are the maintainer's own colleagues at SNRSI.
+  **No written grant is on file**, and the copyright asserted on the INIS record
+  is the IAEA's rather than the authors', so a permission from Anders and Sicong
+  would not by itself settle the redistribution right — VINANST-15 is
+  conference proceedings, whose copyright is commonly assigned to the organiser.
+  Upgrade this note if an explicit grant is ever obtained, naming who granted it
+  and when.
 - *Used by:* `outram-park-digital-twin-engine/src/htr10/neutronics.rs`
   (which still cites "(2024)" — fix tracked in `op-1lti`); HTR-10 slate
   `op-jyyp`.

@@ -375,6 +375,37 @@ of where it came from.
 - `kopitiam pdf2md` remains fine for a quick one-off conversion where no
   catalogue entry is wanted, but it is the fallback, not the default.
 
+**READ AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` — HARD RULE.** The
+previous rule covers *ingesting*. This one covers everything after: `kovan` is
+the interface to `crates/kovan-literature`, in **both** directions, for humans
+and agents alike. Reaching around it — `cat`-ing a PDF's converted markdown,
+`grep`-ing the archive, hand-editing `CATALOGUE.md`, writing a JSON sidecar by
+hand — is not a shortcut, it is how the catalogue and the documents drift apart.
+
+- **Reading.** Query the archive with `kovan lit` (`outline`, `bibtex`, and the
+  search/show subcommands `kovan lit --help` lists) rather than opening files
+  under `open/`, `proprietary/`, `generated/` or `derived/` directly. It is the
+  path that carries the access tier and the provenance with the text; a raw
+  `Read` of a markdown body gives you the words with neither, which is exactly
+  how a proprietary passage or a TDM-reserved full text gets quoted into a
+  commit by someone who did not know.
+- **Writing.** New documents arrive via `kovan lit import`. New *derived* data —
+  a digitised figure, a hand-read table, an extracted parameter set — goes into
+  `crates/kovan-literature/derived/` **beside the document it came from**, with
+  its provenance block, not into `docs/` and not into a crate's `src/`. Where a
+  scoping doc needs it, that doc holds a **pointer**, not a copy;
+  `docs/reactor-scoping/htr10-rz-zone-geometry.md` is the shape to follow.
+- **`CATALOGUE.md` is maintained through `kovan`, not by hand.** If a catalogue
+  entry is wrong, fix it at the source and regenerate. Hand-editing it is what
+  produced the duplicated, mutually-contradicting corroboration sections found
+  in the Terry 2005 geometry record on 2026-08-14.
+- **If `kovan` cannot do what you need, that is a bug in `kovan` — file it as a
+  bead and say so in your hand-off.** KOVAN is this workspace's own crate, so
+  the deliverable is an issue against it (like `op-szai` for the metadata
+  extractor), never a hand-rolled workaround that bypasses the library.
+- This does not relax the open/proprietary split, the TDM/AI-reservation rule,
+  or `DATA_POLICY.md` — it is the mechanism by which they are actually enforced.
+
 **Graph digitisation: dogfood `kovan-digitise` (HARD RULE).** Several
 validation targets this project depends on exist **only as figures** — the
 HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
@@ -959,15 +990,14 @@ and in sync with the code. It is a recurring command, not a one-off.
    doc comments changed, so `docs/api.md` stays in sync with the code:
 
    ```bash
-   python3 scripts/gen_api_docs.py <crate-dir-name>   # e.g. outram-foam-basic-lib
+   kovan api-docs <crate-dir-name>                    # e.g. outram-foam-basic-lib
    ```
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
-   binary → `crates/<crate>/docs/api.md`. It needs a nightly toolchain
-   (`rustup toolchain install nightly`) and `rustdoc-md`
-   (`cargo install rustdoc-md --locked`); if either is missing, install it or
-   note in the hand-off that the mirror wasn't regenerated. `docs/` is
-   `exclude`d from the packaged crate, so this mirror is repo-only and never
+   binary → `crates/<crate>/docs/api.md`. Both prerequisites are **mandatory —
+   install them, do not skip the mirror** (see "API-doc toolchain" below).
+   `docs/` is `exclude`d from the packaged crate, so this mirror is repo-only
+   and never
    ships to crates.io.
 
 2. **Completeness flags in the README.** Every crate's `README.md` carries a
@@ -1016,6 +1046,126 @@ staleness audit (it must skip the crates being actively edited to avoid read
 races). Commit any pending verified work first so the tree is clean, and
 **exclude from the pass any crate with a publish in flight** (an uncommitted
 doc edit trips `cargo publish`'s dirty-tree guard).
+
+## API-doc toolchain: install it, never route around it (HARD RULE)
+
+**`rustdoc-md` and a nightly Rust toolchain are required tooling in this
+workspace, not optional extras. If either is missing, INSTALL IT.**
+
+```bash
+rustup toolchain install nightly          # rustdoc's JSON output is nightly-only
+cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
+```
+
+Two things depend on them, and both are load-bearing:
+
+- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/api.md`, the
+  committed markdown mirror of a crate's public API and the third leg of the
+  per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
+  replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
+  needs no Python interpreter — same reasoning as epic `op-yz7b`.)
+- **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
+  crate that has none, so it can be bundled for an external agent.
+
+**Never report a mirror as un-regenerable because a tool is missing.** Installing
+`rustdoc-md` takes one command; skipping the mirror leaves `docs/api.md`
+silently contradicting the code, which is exactly the drift the bookkeeping pass
+exists to prevent. "The toolchain isn't installed" is a task, not a finding.
+
+### Check before you claim a tool is absent
+
+**Run the check. Do not infer it from a failure, and do not assume.**
+
+```bash
+which rustdoc-md && cargo install --list | grep rustdoc-md
+rustup toolchain list
+```
+
+This is a rule because it was broken on 2026-08-14. An agent reported
+`--regenerate-missing` as "implemented but not exercised — this host has no
+nightly toolchain or rustdoc-md installed", wrote that into the hand-off, the
+commit message, and a bead, and shipped it. Both were in fact installed
+(`rustdoc-md v0.2.0`, `nightly-x86_64-unknown-linux-gnu`), and running the
+command immediately exposed a real bug: the selection was validated for a
+missing `docs/api.md` *before* regeneration ran, so the flag rejected the crate
+for lacking exactly the file it existed to create. **The feature had never
+worked, and an unverified assumption about tooling is what hid it.**
+
+The general form: an untested code path plus an assumed-missing prerequisite
+produces a confident, false statement about both. Check the prerequisite, then
+run the path.
+
+## No Python for documentation or accounting — build it into `kovan` (HARD RULE)
+
+**Documentation generation and repository accounting are `kovan`'s job. Do not
+write, restore, or reach for a Python script to do either. If `kovan` cannot do
+it yet, extend `kovan`.**
+
+This is settled direction, not a preference, and it has been applied three times:
+
+| Retired | Replaced by | When |
+|---|---|---|
+| `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan-cli`) | 2026-08-14, `op-w44a.7` |
+| `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
+| `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
+
+**`scripts/` now holds no tracked Python** — only `.gitignore` and four shell
+scripts. (`find` reports hits under `scripts/vendor/`; that directory is
+gitignored and holds repository clones the retired `kloc_accounting.py` made.
+It is now orphaned: `kovan kloc` vendors into its own output directory instead,
+so `scripts/vendor/` can be deleted.)
+
+**Seven first-party Python files remain, and are NOT covered by this rule as
+written:** `crates/outram-park-fork-coolprop/dev/*.py` — `gen_fluid.py`,
+`gen_incompressible.py`, `gen_mixture.py`, their three `regen_*_all.py`
+drivers, and `gen_latex_doc.py`. Six are **code generation** (they read the
+gitignored upstream CoolProp JSON clone and emit Rust), which is neither
+documentation nor accounting; `gen_latex_doc.py` scaffolds a LaTeX doc series
+and arguably is. Whether to bring them in is a maintainer decision that has not
+been made — tracked as a bead. Do not delete them under this rule without
+asking.
+
+Everything else matching `*.py` is vendored upstream source under
+`upstream_source/` (NJOY2016, Blender, TRISO-ATOPS) or gitignored
+`collaboration/` scratch, both explicitly out of scope.
+
+**Why, concretely.** A script merely has to exist; an interpreter has to be
+installed, on `PATH`, and not shadowed. On Windows `python3` routinely resolves
+to a Microsoft Store alias stub that prints an advert and exits — which silently
+turned the token-accounting git hooks into no-ops and let commits ship with no
+`API-Usage` trailer at all. That is the failure mode this rule exists to
+prevent: not an error, a **silent** no-op in the thing that keeps the records
+honest. The reasoning is recorded in `.githooks/kovan-bin.sh`.
+
+**Scope.** Documentation generation, repository accounting, and the artifacts
+either produces. It does **not** reach into `collaboration/` (gitignored scratch
+owned by collaborators), `reference-data/` (vendored upstream trees), or a
+third-party tool that happens to be written in Python.
+
+**When porting, gate parity — do not waive it.** `op-yz7b` shipped without a
+byte-for-byte comparison against the Python it replaced, and that gap is
+recorded above as a known weakness. `op-w44a.7` did gate it: the Python-generated
+`api.md` was already committed, so regenerating through the Rust path and
+running `git diff --quiet` was a real check, and it passed. **Do that.** If the
+old output is not committed anywhere, generate it with the Python *before*
+deleting the script, commit it, then port.
+
+**A Python script that is a published reproducibility artifact is a different
+question — ask, do not delete.** Where a script exists so that a *journal
+reader* can re-derive a table or figure, replacing it with a Rust binary raises
+the reproduction bar from "run this script" to "build a 40-crate Rust
+workspace", and may break a byte-identical copy held in a manuscript
+repository. Raise it with the maintainer rather than applying this rule
+mechanically.
+
+`kloc_accounting.py` was exactly that case: it reproduces the Annals of Nuclear
+Energy submission's tables and figure. It was put to the maintainer on
+2026-08-14 with the consequence stated, and they chose the full port. **The
+manuscript's own copy and any text telling a reader to run the script are now
+stale and are the maintainer's to update** — that repository is not visible from
+here.
 
 ## Rust design rules (mandatory)
 

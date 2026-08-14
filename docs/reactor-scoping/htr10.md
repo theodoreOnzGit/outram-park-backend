@@ -63,7 +63,7 @@ secondary loop.
 >   now documents all three ENDF MF=7 channels including coherent elastic for
 >   graphite (commit `67ebcd6ca5`, 2026-08-11). The same retracted sentence
 >   survives in the generated mirror `crates/outram-mc-libs/docs/api.md:7704`,
->   which needs `python3 scripts/gen_api_docs.py outram-mc-libs`.
+>   which needs `kovan api-docs outram-mc-libs`.
 > - `htr10-neutronics.md:168` states `src/htr10/neutronics.rs` holds **45**
 >   published values; the table immediately below it (`:172-178`) has rows
 >   summing to **89** (31 + 7 + 14 + 7 + 16 + 6 + 6 + 2). One of the two numbers

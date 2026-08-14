@@ -107,8 +107,8 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
-    panel_selector_ui, show_crash_modal_if_crashed, spawn_physics_thread_monitored, RealTimePacer,
-    SharedState, ThreadHealth,
+    panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
+    CrashModalOutcome, RealTimePacer, SharedState, ThreadHealth,
 };
 use outram_park_digital_twin_engine::components::LegendUnit;
 
@@ -236,8 +236,10 @@ pub struct HtgrSimApp {
     /// [`panels::temperature_display`].
     ///
     /// [`LegendUnit`] is the engine's existing display-unit enum, reused rather
-    /// than duplicated; its default is kelvin, which is what this simulator
-    /// displayed before the toggle existed.
+    /// than duplicated. Its default is **degrees Celsius** (maintainer decision,
+    /// 2026-08-14) -- the plant-facing convention an operator reads, and the one
+    /// `fhr_sim_v2` already used. It opened in kelvin until then; the snapshot
+    /// itself is unaffected either way, being kelvin throughout.
     display_unit: LegendUnit,
     /// Plant clock reading at the previous repaint \[s\].
     ///
@@ -247,122 +249,245 @@ pub struct HtgrSimApp {
     last_sim_time_s: f64,
 }
 
+/// The shared state and crash flag belonging to **one run** of the simulator.
+///
+/// Bundled rather than returned as a loose tuple because the three handles are
+/// only meaningful together: the physics snapshot, the plot buffers and the
+/// crash flag are all written by the same pair of threads, and a restart that
+/// swapped one without the others would leave the GUI reading a new run's
+/// numbers against the old run's crash flag (so the modal would never clear) or
+/// vice versa. [`start_simulation`] hands out all three or none.
+struct SimulationRun {
+    /// Scalar plant state; physics thread writes outputs, GUI writes commands.
+    physics: SharedState<HtgrSnapshot>,
+    /// Plot ring buffers; the plot-sampler thread writes, the GUI reads.
+    plots: SharedState<HtgrPlotData>,
+    /// Crash flag shared by both threads of this run.
+    thread_health: ThreadHealth,
+}
+
+/// Build a fresh [`HtgrPlant`] at its default operating point and spawn this
+/// run's physics + plot-sampler threads against brand-new shared state.
+///
+/// # Why this is a function and not just the body of `HtgrSimApp::new`
+///
+/// It is called twice: once when the window opens, and again whenever the
+/// operator clicks **Restart simulation** in the crash modal
+/// ([`HtgrSimApp::restart_simulation`]). Having one function build a run means
+/// a restarted plant is *identical* to a freshly launched one -- same plant
+/// constructor, same pacing, same thread names -- rather than a second,
+/// slightly-different startup path that could drift from this one.
+///
+/// # It starts a new run; it never resumes one
+///
+/// Every handle here is new. Nothing from a previous run is read, cloned or
+/// carried over -- which is the point: a physics thread that panicked may have
+/// done so partway through a write, poisoning the `RwLock` and leaving the
+/// snapshot internally inconsistent (a power from after the step against a
+/// temperature from before it). Recovering that state is not possible in
+/// general, so a restart deliberately discards it, including the plot histories
+/// and the simulated clock. The engine's crash modal says so in as many words
+/// before the operator clicks.
+///
+/// Stopping the previous run is [`HtgrSimApp::restart_simulation`]'s job, not
+/// this function's -- it retires that run's [`ThreadHealth`] before calling
+/// here. The old threads are never *joined*: [`spawn_physics_thread_monitored`]
+/// returns from its loop at the next iteration, and the old `Arc`s are freed
+/// when the last of them drops its handle, so blocking the GUI thread on a join
+/// would buy nothing but a stutter.
+fn start_simulation() -> SimulationRun {
+    let physics = SharedState::new(HtgrSnapshot::default());
+    let plots = SharedState::new(HtgrPlotData::default());
+    let thread_health = ThreadHealth::new();
+
+    // Physics thread: owns the (non-Clone) HtgrPlant, reads control inputs
+    // from the shared state, steps the plant, writes outputs back. Spawned
+    // *monitored* so a panic (e.g. a steam-property call out of range) trips
+    // the shared crash flag instead of silently freezing the sim.
+    let mut plant = HtgrPlant::new();
+    let dt = Time::new::<second>(PHYSICS_DT_S);
+    // Real-time pacing, in the workspace house pattern lifted from
+    // `fhr_sim_v2`: each tick gets PHYSICS_TICK of wall clock for its work
+    // *and* its sleep, and the plant clock is compared with wall clock
+    // CUMULATIVELY, so a slow patch is worked off by the ticks that follow
+    // rather than lost. Ahead of wall clock, the tick sleeps out its
+    // budget; behind it, the tick takes only a token sleep and presses on.
+    // See `app_scaffold::real_time_pacing` for why falling behind (and
+    // saying so) is the right answer rather than skipping simulated time or
+    // growing `dt`.
+    let mut pacer = RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK);
+    let loop_start = Instant::now();
+    spawn_physics_thread_monitored(
+        "htgr-physics",
+        physics.clone(),
+        thread_health.clone(),
+        move |state| {
+            let tick_start = Instant::now();
+            let (commands, reset_requested, rps_enabled) = state.read_with(|s| {
+                (
+                    plant_commands_from(s),
+                    s.trip_reset_requested,
+                    s.rps_enabled,
+                )
+            });
+            // Arming state is owned by the GUI; disarming also clears any
+            // latched trip so the operator regains rod control at once.
+            if plant.protection.is_enabled() != rps_enabled {
+                plant.protection.set_enabled(rps_enabled);
+            }
+            // Consume the reset request on the physics thread, which owns
+            // the protection system, then clear the flag so one click
+            // cannot reset repeatedly.
+            if reset_requested {
+                plant.protection.reset();
+                state.update(|s| s.trip_reset_requested = false);
+            }
+            for _ in 0..SUBSTEPS_PER_TICK {
+                plant.step(dt, commands);
+            }
+            // Publish the reactivity the rods actually bought, so the GUI
+            // shows a consequence rather than echoing a command back.
+            let rho = plant.external_reactivity_dollars(commands.control_rod_insertion_fraction);
+            // BUMPLESS TRANSFER. While the feedwater station is in AUTO,
+            // keep the manual demand slaved to the flow the controller has
+            // actually reached, so flipping to MANUAL picks the plant up
+            // where it is instead of stepping the feed flow to whatever the
+            // slider was last left at. The reverse direction needs nothing:
+            // AUTO recomputes its own demand from the offered duty every
+            // step. Same discipline as the CIET v2 simulator's advanced
+            // heater control.
+            let achieved_feed_flow = plant.secondary.mass_flow().get::<kilogram_per_second>();
+            // Advance the pacer's plant clock and decide this tick's sleep.
+            // `pace` returns a zero sleep -- never a wrapped or sign-flipped
+            // one -- when the work already used the budget up.
+            let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
+            state.update(|s| {
+                plant.write_snapshot(s);
+                s.external_reactivity_dollars = rho;
+                if !s.feedwater_manual {
+                    s.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
+                }
+                s.real_time_ratio = pacer.measured_real_time_ratio();
+                s.real_time_deficit_s = pacer.real_time_deficit().as_secs_f64();
+                s.behind_real_time = pacer.is_behind_real_time();
+            });
+            thread::sleep(pacing.sleep_for);
+        },
+    );
+
+    // Plot-sampler thread: reads the physics snapshot, appends to the plot
+    // buffers. Handed the physics SharedState; captures the plot one. Also
+    // monitored, sharing the same crash flag.
+    let plots_for_sampler = plots.clone();
+    spawn_physics_thread_monitored(
+        "htgr-plot-sampler",
+        physics.clone(),
+        thread_health.clone(),
+        move |state| {
+            let snapshot = state.snapshot();
+            plots_for_sampler.update(|p| p.push_sample(&snapshot));
+            thread::sleep(PLOT_TICK);
+        },
+    );
+
+    SimulationRun {
+        physics,
+        plots,
+        thread_health,
+    }
+}
+
 impl HtgrSimApp {
-    /// Construct the app and spawn the physics + plot threads via the engine
-    /// scaffold.
+    /// Construct the app and start the first run via [`start_simulation`].
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let physics = SharedState::new(HtgrSnapshot::default());
-        let plots = SharedState::new(HtgrPlotData::default());
-        let thread_health = ThreadHealth::new();
+        Self::start()
+    }
 
-        // Physics thread: owns the (non-Clone) HtgrPlant, reads control inputs
-        // from the shared state, steps the plant, writes outputs back. Spawned
-        // *monitored* so a panic (e.g. a steam-property call out of range) trips
-        // the shared crash flag instead of silently freezing the sim.
-        let mut plant = HtgrPlant::new();
-        let dt = Time::new::<second>(PHYSICS_DT_S);
-        // Real-time pacing, in the workspace house pattern lifted from
-        // `fhr_sim_v2`: each tick gets PHYSICS_TICK of wall clock for its work
-        // *and* its sleep, and the plant clock is compared with wall clock
-        // CUMULATIVELY, so a slow patch is worked off by the ticks that follow
-        // rather than lost. Ahead of wall clock, the tick sleeps out its
-        // budget; behind it, the tick takes only a token sleep and presses on.
-        // See `app_scaffold::real_time_pacing` for why falling behind (and
-        // saying so) is the right answer rather than skipping simulated time or
-        // growing `dt`.
-        let mut pacer = RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK);
-        let loop_start = Instant::now();
-        spawn_physics_thread_monitored(
-            "htgr-physics",
-            physics.clone(),
-            thread_health.clone(),
-            move |state| {
-                let tick_start = Instant::now();
-                let (commands, reset_requested, rps_enabled) = state.read_with(|s| {
-                    (
-                        plant_commands_from(s),
-                        s.trip_reset_requested,
-                        s.rps_enabled,
-                    )
-                });
-                // Arming state is owned by the GUI; disarming also clears any
-                // latched trip so the operator regains rod control at once.
-                if plant.protection.is_enabled() != rps_enabled {
-                    plant.protection.set_enabled(rps_enabled);
-                }
-                // Consume the reset request on the physics thread, which owns
-                // the protection system, then clear the flag so one click
-                // cannot reset repeatedly.
-                if reset_requested {
-                    plant.protection.reset();
-                    state.update(|s| s.trip_reset_requested = false);
-                }
-                for _ in 0..SUBSTEPS_PER_TICK {
-                    plant.step(dt, commands);
-                }
-                // Publish the reactivity the rods actually bought, so the GUI
-                // shows a consequence rather than echoing a command back.
-                let rho =
-                    plant.external_reactivity_dollars(commands.control_rod_insertion_fraction);
-                // BUMPLESS TRANSFER. While the feedwater station is in AUTO,
-                // keep the manual demand slaved to the flow the controller has
-                // actually reached, so flipping to MANUAL picks the plant up
-                // where it is instead of stepping the feed flow to whatever the
-                // slider was last left at. The reverse direction needs nothing:
-                // AUTO recomputes its own demand from the offered duty every
-                // step. Same discipline as the CIET v2 simulator's advanced
-                // heater control.
-                let achieved_feed_flow = plant.secondary.mass_flow().get::<kilogram_per_second>();
-                // Advance the pacer's plant clock and decide this tick's sleep.
-                // `pace` returns a zero sleep -- never a wrapped or sign-flipped
-                // one -- when the work already used the budget up.
-                let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
-                state.update(|s| {
-                    plant.write_snapshot(s);
-                    s.external_reactivity_dollars = rho;
-                    if !s.feedwater_manual {
-                        s.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
-                    }
-                    s.real_time_ratio = pacer.measured_real_time_ratio();
-                    s.real_time_deficit_s = pacer.real_time_deficit().as_secs_f64();
-                    s.behind_real_time = pacer.is_behind_real_time();
-                });
-                thread::sleep(pacing.sleep_for);
-            },
-        );
-
-        // Plot-sampler thread: reads the physics snapshot, appends to the plot
-        // buffers. Handed the physics SharedState; captures the plot one. Also
-        // monitored, sharing the same crash flag.
-        let plots_for_sampler = plots.clone();
-        spawn_physics_thread_monitored(
-            "htgr-plot-sampler",
-            physics.clone(),
-            thread_health.clone(),
-            move |state| {
-                let snapshot = state.snapshot();
-                plots_for_sampler.update(|p| p.push_sample(&snapshot));
-                thread::sleep(PLOT_TICK);
-            },
-        );
-
+    /// The body of [`new`](Self::new), without the `eframe` argument.
+    ///
+    /// `new` takes a [`eframe::CreationContext`] because that is the signature
+    /// `eframe::run_native` expects, and ignores it. Splitting the real
+    /// constructor out means the tests below can build a real app -- and
+    /// exercise [`restart_simulation`](Self::restart_simulation) against it --
+    /// without standing up a window and a graphics context to produce an
+    /// argument nothing reads.
+    fn start() -> Self {
+        let run = start_simulation();
         Self {
-            physics,
-            plots,
-            thread_health,
+            physics: run.physics,
+            plots: run.plots,
+            thread_health: run.thread_health,
             open_panel: Panel::Schematic,
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             last_sim_time_s: 0.0,
         }
     }
+
+    /// Discard the crashed run and start a new plant from defaults, in-app,
+    /// without the operator closing the window.
+    ///
+    /// Called only from the crash modal's **Restart simulation** button (see
+    /// [`show_crash_modal_with_restart`]).
+    ///
+    /// # Why this is safe after a panic
+    ///
+    /// Because it does not read the crashed run's state. [`start_simulation`]
+    /// builds new `SharedState` handles, a new [`ThreadHealth`] and new threads;
+    /// the three old handles are then *overwritten*, so the last GUI-side
+    /// reference to the dead run drops without ever being read again. That
+    /// matters specifically because the physics thread may have panicked
+    /// mid-write: the old snapshot can hold a half-updated plant (a power from
+    /// after the step against a temperature from before it), and the old
+    /// `RwLock` is poisoned. Nothing here tries to recover a value from either.
+    ///
+    /// The old run is [`retire`](outram_park_digital_twin_engine::app_scaffold::ThreadHealth::retire)d
+    /// first so **both** its threads stop. Retiring is a signal, not a read, so
+    /// it is safe on a poisoned run; and it is needed rather than merely tidy,
+    /// because a crash stops only the thread that panicked -- its sibling would
+    /// otherwise keep stepping and keep burning a core behind the run the
+    /// operator is actually watching, once per restart.
+    ///
+    /// # What resets and what does not
+    ///
+    /// **Plant state resets** -- power, temperatures, the simulated clock, the
+    /// plot histories and the operator's commands all return to
+    /// [`HtgrSnapshot::default`] (the published HTR-10 design point). So do the
+    /// schematic's flow tracers and [`Self::last_sim_time_s`], because a tracer
+    /// phase carried across a restart would animate the new plant from the dead
+    /// one's position, and a stale `last_sim_time_s` would hand the first frame
+    /// a large negative plant-time delta.
+    ///
+    /// **Display preferences do not reset** -- the open panel and the degC/K
+    /// toggle are the operator's own view settings, not plant state. Resetting
+    /// them would silently undo a choice the crash had nothing to do with.
+    fn restart_simulation(&mut self) {
+        // Stop the old run's threads before replacing the handles. A signal,
+        // not a read -- safe against a poisoned lock.
+        self.thread_health.retire();
+
+        let run = start_simulation();
+        self.physics = run.physics;
+        self.plots = run.plots;
+        self.thread_health = run.thread_health;
+        self.tracers = SchematicTracers::new();
+        self.last_sim_time_s = 0.0;
+    }
 }
 
 impl eframe::App for HtgrSimApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // If a physics/plot thread panicked, show the restart modal and stop --
-        // do not render the (now frozen) plant behind it.
-        if show_crash_modal_if_crashed(ui.ctx(), &self.thread_health) {
+        // If a physics/plot thread panicked, show the crash modal and stop --
+        // do not render the (now frozen, possibly half-written) plant behind it.
+        //
+        // The modal offers an in-app restart. Honour the click here, then still
+        // return: the new run has not taken its first step yet, so there is
+        // nothing of it to paint this frame either way.
+        let crash = show_crash_modal_with_restart(ui.ctx(), &self.thread_health);
+        if crash == CrashModalOutcome::RestartRequested {
+            self.restart_simulation();
+        }
+        if crash.is_crashed() {
             ui.ctx().request_repaint();
             return;
         }
@@ -420,6 +545,118 @@ impl eframe::App for HtgrSimApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// V&V: **restarting starts a new plant; it never resumes the crashed one.**
+    ///
+    /// # Why this exists
+    ///
+    /// The whole safety argument for an in-app restart button (kopi-beans
+    /// `op-wqk.18`) is that the new run shares *nothing* with the old one. A
+    /// physics thread can panic partway through a write, leaving the snapshot
+    /// internally inconsistent and its `RwLock` poisoned; `SharedState` is
+    /// poison-safe, so reusing that state would not crash — it would quietly
+    /// display a half-updated plant as though it were real, which is worse. A
+    /// restart that reused *any* of the three handles would do exactly that, and
+    /// would do it silently. This pins that all three are replaced, and that the
+    /// GUI-side clock and tracer phase are reset with them.
+    ///
+    /// # Methodology
+    ///
+    /// Build the app (which starts run 1), let the physics thread advance the
+    /// plant clock past zero, and dirty the GUI-side frame state the way a
+    /// running simulator would (`last_sim_time_s`) and an operator would
+    /// (`open_panel`, `display_unit`). Then call `restart_simulation` and check:
+    ///
+    /// - the simulated clock went backwards (a resumed run could only go
+    ///   forwards) and the plot histories are empty again;
+    /// - the *old* run reports itself no longer running, and the *new* one does
+    ///   -- i.e. the health handle was swapped, not shared, and retiring the old
+    ///   run did not leave the new one dead on arrival;
+    /// - the frame-to-frame plant clock is back at zero, so the first frame
+    ///   after a restart cannot compute a huge negative tracer step;
+    /// - the operator's display preferences survived, because a crash is no
+    ///   reason to undo them.
+    ///
+    /// Both runs are retired at the end, so this test leaves no thread behind to
+    /// compete with the timing-sensitive tests in `crate::physics`.
+    ///
+    /// # Results (2026-08-14)
+    ///
+    /// Run 1 reached a non-zero `sim_time_s` before the restart; afterwards the
+    /// snapshot read `sim_time_s = 0.0` with empty plot buffers,
+    /// `last_sim_time_s = 0.0`, the old health `is_running() == false` with no
+    /// crash recorded (retired, not faulted), the new health `is_running() ==
+    /// true`, and the panel/unit selections unchanged. Interpretation: the
+    /// restart is a genuine start-from-defaults, and the crashed run's state is
+    /// unreachable from the app afterwards.
+    #[test]
+    fn restarting_starts_a_fresh_run_and_abandons_the_old_one() {
+        let mut app = HtgrSimApp::start();
+        let old_health = app.thread_health.clone();
+
+        // Let run 1 actually advance, so "the clock went backwards" is a real
+        // observation rather than a comparison of two zeroes.
+        let mut advanced_to = 0.0;
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(50));
+            advanced_to = app.physics.snapshot().sim_time_s;
+            if advanced_to > 0.0 {
+                break;
+            }
+        }
+        assert!(
+            advanced_to > 0.0,
+            "run 1's physics thread never advanced the plant clock, so this test \
+             would pass even if restart did nothing"
+        );
+
+        // Frame state a running simulator and an operator would have left.
+        app.last_sim_time_s = advanced_to;
+        app.open_panel = Panel::Diagnostics;
+        app.display_unit = LegendUnit::Celsius;
+
+        app.restart_simulation();
+
+        // The plant state is new, not resumed.
+        let fresh = app.physics.snapshot();
+        assert!(
+            fresh.sim_time_s < advanced_to,
+            "the restarted plant clock ({} s) must not carry over run 1's ({advanced_to} s)",
+            fresh.sim_time_s
+        );
+        assert!(
+            app.plots.snapshot().reactor_power_mw.is_empty(),
+            "the restarted run must not inherit run 1's plot history"
+        );
+        assert_eq!(
+            app.last_sim_time_s, 0.0,
+            "a stale last_sim_time_s would hand the first frame a large negative \
+             plant-time delta"
+        );
+
+        // The health flag was swapped, and the old run was told to stop.
+        assert!(
+            !old_health.is_running(),
+            "the abandoned run's threads must be told to stop, or every restart \
+             leaks one"
+        );
+        assert!(
+            !old_health.has_crashed(),
+            "retiring a run is not a fault -- a crash flag here would raise the \
+             modal on the new run"
+        );
+        assert!(
+            app.thread_health.is_running(),
+            "the new run must be live; sharing the old handle would freeze it"
+        );
+
+        // Display preferences are the operator's, not the plant's.
+        assert_eq!(app.open_panel, Panel::Diagnostics);
+        assert_eq!(app.display_unit, LegendUnit::Celsius);
+
+        // Leave no threads spinning behind this test.
+        app.thread_health.retire();
+    }
 
     /// V&V: the wall-clock budget for a tick equals the plant time that tick
     /// advances, so meeting the deadline *is* real time.
