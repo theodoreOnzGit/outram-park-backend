@@ -322,8 +322,8 @@ impl Default for HtgrSnapshot {
             // its design 7 kPa: the opening state is the plant's design
             // condition, and is exactly `physics::PlantCommands::default()`.
             // `the_gui_defaults_are_the_plant_command_defaults` pins that.
-            feedwater_manual: false,
-            feedwater_manual_flow_kg_per_s: 3.47,
+            feedwater_manual: true,
+            feedwater_manual_flow_kg_per_s: 10.0,
             feedwater_target_steam_temp_k: 713.15,
             condenser_pressure_setpoint_kpa: 7.0,
             rps_enabled: false,

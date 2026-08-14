@@ -205,7 +205,8 @@ pub fn draw_controls(
     let rho_changed = ui
         .add(
             egui::Slider::new(&mut rod_insertion, 0.0..=1.0)
-                .text("fraction (0 withdrawn, 1 inserted)"),
+            .drag_value_speed(0.0001)
+            .text("fraction (0 withdrawn, 1 inserted)"),
         )
         .changed();
 
