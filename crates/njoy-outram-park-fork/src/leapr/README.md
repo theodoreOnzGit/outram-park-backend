@@ -162,8 +162,10 @@ residual disappears, because `endout` applies the same `sigfig(x, 7, 0)` /
 
 So for the inelastic channel the 12 KB deck does not approximate the 8.7 MB
 tape — it reproduces the published section exactly. Reproduce with
-`examples/graphite_sab_generation.rs`; the full V&V record, including the
-licence finding that keeps the decks out of the crate, is
+`examples/graphite_sab_generation.rs`; the full V&V record, plus the
+2026-08-13 licence finding and the 2026-08-14 maintainer decision to embed
+the decks despite it (see the module doc comment on
+`leapr::decks::embedded_deck_text` for the short version), is
 `docs/leapr-deck-provenance.md`.
 
 ### Regeneration is now the default source

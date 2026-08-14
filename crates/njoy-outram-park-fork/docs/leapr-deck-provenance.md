@@ -4,31 +4,78 @@ Data-provenance record for the LEAPR card decks the crate's
 `leapr::generate` path regenerates thermal-scattering `S(alpha, beta)` from,
 per the workspace `DATA_POLICY.md` "Data Provenance" rule.
 
-**Status as of 2026-08-13: no deck is embedded in this crate.** The reason is
-the licence finding in §2. Everything else — the generator, the vintage-selected
-physical constants, the cache — is built and working against a *local* copy of
-the decks, which the user supplies.
+**Status as of 2026-08-14: all 33 registered decks are embedded in this
+crate** (`leapr::decks::embedded_deck_text` returns `Some` for every
+[`SabMaterial`](../src/leapr/decks.rs)). This is an explicit maintainer
+decision, recorded in §2 — it does **not** mean the licence question in the
+original 2026-08-13 finding was resolved; that finding is preserved below,
+unedited, because it is still true.
 
 ---
 
 ## 1. The data in question
 
+The set grew from 3 files (the three graphite evaluations) to 33 on
+2026-08-14, when the maintainer supplied the ENDF/B-VIII.0 thermal-scattering
+sublibrary's full `.leapr` deck set. The authoritative, executable list is
+[`SabMaterial::all()`](../src/leapr/decks.rs) — this table exists for the
+provenance narrative and the anomalies a human should check, not as a second
+copy of the registry to keep in sync by hand.
+
 | Field | Value |
 |---|---|
 | Dataset | ENDF/B-VIII.0 Thermal Neutron Scattering Sublibrary, `thermal_scatt/` |
-| Files of interest | `tsl-crystalline-graphite.leapr` (12,444 B), `tsl-reactor-graphite-10P.leapr` (14,146 B), `tsl-reactor-graphite-30P.leapr` (13,838 B) |
+| Files (2026-08-13) | `tsl-crystalline-graphite.leapr` (12,444 B), `tsl-reactor-graphite-10P.leapr` (14,146 B), `tsl-reactor-graphite-30P.leapr` (13,838 B) |
+| Files added (2026-08-14) | 30 more `.leapr` decks — every other thermal-scattering material in the sublibrary the maintainer had a local copy of: light/heavy water (H/D-in-H2O/D2O), hexagonal ice, ortho/para hydrogen and deuterium, beryllium metal and BeO (Be- and O-bound), SiC (C- and Si-bound), ZrH and YH2 (H-, Zr- and Y-bound), UN and UO2 (N-, U- and O-bound), alpha/beta quartz, liquid/solid methane, PMMA (H-bound) and polyethylene (H-bound), plus two structural metals (Al, Fe) whose filenames and MAT do not follow the sublibrary's usual convention — see the anomalies below. **Total: 648 KB for all 33 files** — the size claim behind embedding them. |
 | What they are | NJOY2016 LEAPR input card decks — the jobs that generated the corresponding `tsl-*.endf` MF=7 tapes. Each carries a grid specification, a tabulated phonon frequency spectrum `rho(E)`, a temperature list, and a block of descriptive comment cards. |
-| Companion tapes (**not** used by the default path) | `tsl-crystalline-graphite.endf` (8,730,804 B), `-10P` (8,724,040 B), `-30P` (8,722,444 B) |
+| Companion tapes (**not** embedded; 4 live in `tests/resources/` as dev-only fixtures, excluded from the packaged crate by `Cargo.toml`'s `include` allowlist) | `tsl-crystalline-graphite.endf` (8,730,804 B), `-10P` (8,724,040 B), `-30P` (8,722,444 B), `tsl-CinSiC.endf` |
 | Sublibrary author / distributor | D. A. Brown, National Nuclear Data Center (NNDC), Brookhaven National Laboratory. Sublibrary `README.txt` dated 2 Feb 2018. |
-| Evaluator of the graphite files | Low Energy Interaction Physics (LEIP) group, North Carolina State University — A. I. Hawari, Y. Zhu, J. L. Wormald. The decks' own card-20 comments say `EVAL-SEP17`, and the per-material `.readme` is signed "LEIP Laboratories (Oct 17 2017)". |
-| Method | Ab-initio lattice dynamics (AILD); coherent-elastic cross sections from the cubic approximation in LEAPR/NJOY, using the AILD lattice constant. |
+| Evaluator of the graphite files | Low Energy Interaction Physics (LEIP) group, North Carolina State University — A. I. Hawari, Y. Zhu, J. L. Wormald. The decks' own card-20 comments say `EVAL-SEP17`, and the per-material `.readme` is signed "LEIP Laboratories (Oct 17 2017)". Evaluator credit for the other 30 materials has **not** been individually verified — the sublibrary as a whole is credited to the ENDF/B-VIII.0 collaboration below. |
+| Method | Ab-initio lattice dynamics (AILD); coherent-elastic cross sections from the cubic approximation in LEAPR/NJOY, using the AILD lattice constant. Applies to the graphite evaluations specifically; not independently confirmed for the other 30. |
 | Generating code | NJOY2016.20, compiled with `ifort` from the intel-2017 composer suite (per the `.readme`). |
-| Publication (sublibrary) | D. Brown et al., "ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data", *Nuclear Data Sheets* **148**, 1 (2018). |
-| Publication (graphite method) | 1. A. I. Hawari, "Modern Techniques in Inelastic Thermal Neutron Scattering Analysis", *Nuclear Data Sheets* **118** (2014) 172. 2. J. L. Wormald, A. I. Hawari, "Thermal neutron scattering law calculations using ab initio molecular dynamics", *EPJ Web of Conferences* **146**, 13002 (2017). (Both cited in the decks' own comment cards.) |
-| Local copy consulted | `/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/`, file mtimes 9 Jan 2018 (decks) / 17 Jan 2018 (tapes). **Read-only; never modified.** |
-| Date accessed | 2026-08-13 |
-| Distribution points | NNDC (`https://www.nndc.bnl.gov/endf-b8.0/`), IAEA NDS (`https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/tsl/`) |
+| Publication (sublibrary) | D. A. Brown et al. (68 authors), "ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data", *Nuclear Data Sheets* **148**, 1-142 (2018), doi:10.1016/j.nds.2018.02.001. **Catalogued in KOVAN as of 2026-08-14** at `crates/kovan-literature/proprietary/papers/brown2018endfbviii0.pdf` (`bibtex` key `brown2018endfbviii0`) — **proprietary tier**, because the paper's own copyright line states CC BY-NC-ND 4.0 (NC/ND both fail this workspace's redistribution bar for a full-text/derivative copy), so only metadata and factual findings are catalogued, no full-text markdown body. **This is the PAPER's licence, a separate question from the DATA FILES' licence below** — do not conflate the two. |
+| Publication (graphite method) | 1. A. I. Hawari, "Modern Techniques in Inelastic Thermal Neutron Scattering Analysis", *Nuclear Data Sheets* **118** (2014) 172. 2. J. L. Wormald, A. I. Hawari, "Thermal neutron scattering law calculations using ab initio molecular dynamics", *EPJ Web of Conferences* **146**, 13002 (2017). (Both cited in the decks' own comment cards; still an outstanding KOVAN cataloguing follow-up, not done here.) |
+| Local copy consulted | `/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/`, file mtimes 9 Jan 2018 (decks) / 17 Jan 2018 (tapes), for the original 3-file graphite set. The 30-file addition on 2026-08-14 came from the maintainer directly (git commit `1ace0acd4d`, "added leapr files from endf, from here: https://www.nndc.bnl.gov/endf-b8.0/download.html"). |
+| Date accessed | 2026-08-13 (graphite), 2026-08-14 (the other 30) |
+| Distribution points | NNDC `https://www.nndc.bnl.gov/endf-b8.0/download.html` and `https://www.nndc.bnl.gov/endf-releases/?version=B-VIII.0` (both cited by the maintainer directly, 2026-08-14 — fetched and checked again on that date, see §2), IAEA NDS (`https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/tsl/`) |
 | Processing applied by this crate | **None to the deck.** It is read verbatim and parsed. The *derived* artifact (a regenerated MF=7 tape) is recorded by its own `.recipe` sidecar; see §4. |
+
+### Anomalies in the 2026-08-14 deck set — as-parsed, not corrected
+
+Found while registering the 30 new materials (`LeaprDeck::parse` run against
+every file to read `mat`/`za`/`iel` authoritatively, not transcribed by hand
+— see the git history of `src/leapr/decks.rs` and `src/acquire.rs` for the
+tool used). None of these block embedding; they are flagged for a human to
+check before trusting the affected materials' output.
+
+- **MAT collision, methane.** `tsl-l-CH4.leapr` (liquid, 100 K) and
+  `tsl-s-CH4.leapr` (solid, 22 K) both carry MAT 33. Official ENDF
+  thermal-sublibrary materials do not reuse a MAT across two distinct
+  scatterers, so at least one of these is a local/non-canonical MAT
+  assignment.
+- **MAT collision, structural metals.** `tsl-013_Al_027.leapr` (aluminium)
+  and `tsl-026_Fe_056.leapr` (iron) both carry MAT 101, and neither filename
+  follows the sublibrary's `tsl-<material-name>` convention the other 31
+  files use (`013_Al_027`, `026_Fe_056` look like Z-symbol-A identifiers from
+  a different naming scheme). These may not be official ENDF/B-VIII.0
+  thermal-sublibrary releases at all, as opposed to locally-prepared decks
+  for structural-material moderation studies (e.g. TRISO/HTGR structural
+  components) — **unconfirmed either way**.
+- **Physically surprising elastic-lattice selection, UinUN.** `tsl-UinUN.leapr`
+  card 5 reads `iel = 2`, which [`ElasticOption::from_code`](../src/leapr/input.rs)
+  parses to `ElasticOption::Beryllium` — i.e. this deck selects NJOY's
+  built-in *beryllium metal* coherent-elastic lattice for a uranium-nitride
+  scatterer. UN is rock-salt FCC; beryllium is hexagonal close-packed. This
+  is read faithfully (the deck really does say `iel = 2`), not overridden,
+  but it is not obviously correct physics and should be checked against the
+  deck's own comment cards or an independent source before the elastic
+  channel of this material is used for anything.
+
+None of the other 27 newly-registered materials showed a similar anomaly
+(checked: `mat`, `za`, `awr`, `spr`, `npr`, `iel`, `ncold` for all 33, cross-
+verified against `well_known_tsl`'s hand-entered `mat` — the
+`every_registered_material_has_an_embedded_deck` test in `src/leapr/decks.rs`
+pins the mat cross-check permanently).
 
 ---
 
@@ -62,28 +109,89 @@ The workspace `CLAUDE.md` rule is directional and applies exactly here:
 > means **proprietary**; that failure direction is recoverable and the other is
 > a licence violation in a public repository.
 
-So the decks are **not** embedded in this GPL-3.0 crate, which is published to
-crates.io. The cost of that choice is that a user must supply a local copy; the
-cost of the other choice would be a possible licence violation in a public
-repository. The first is a one-line change to undo, the second is not.
+So, **as of 2026-08-13**, the decks were not embedded in this GPL-3.0 crate,
+which is published to crates.io. The cost of that choice was that a user had
+to supply a local copy; the cost of the other choice would be a possible
+licence violation in a public repository. **This finding is unedited above —
+it is still true that no redistribution-terms statement has been located.**
+What changed is recorded in the next subsection.
 
-### How to close this out
+### 2026-08-14 — maintainer decision: embed anyway
 
-Someone with the standing to do so needs to establish terms — the practical
-routes are (a) a written statement from NNDC/CSEWG, (b) an explicit terms-of-use
-page on the IAEA NDS site (unreachable from here, so genuinely unchecked), or
-(c) a determination that the *deck* specifically is uncopyrightable fact rather
-than expression. Route (c) is a legal judgement, not an engineering one, and the
-decks' comment cards contain clearly expressive prose (a "Background" section
-and a reference list), so it is not obviously available.
+The project maintainer (who has the standing to make this call for their own
+repository — see "Route (c)" below, which explicitly reserves this kind of
+judgement to a human, not to an AI assistant) instructed directly, in this
+exact order, during a session on 2026-08-14:
 
-**When terms are established:** drop the deck files into
-`src/leapr/decks/`, change the relevant arm of
-`leapr::decks::embedded_deck_text` to
-`Some(include_str!("decks/tsl-crystalline-graphite.leapr"))`, update the
-tripwire test `no_deck_is_embedded_while_the_licence_question_is_open`, and
-record the established terms in this file. Nothing else changes —
-`locate_deck` already prefers the embedded copy over any on-disk one.
+1. Ship the LEAPR deck files with `cargo publish` and on GitHub, "as their
+   size is small" (measured: 648 KB for all 33 files).
+2. "Organise the leapr files with the leapr source so it is organised
+   neatly" — done by moving them into `src/leapr/decks/`, which is also what
+   the (then-hypothetical) "when terms are established" note below already
+   specified as the target location.
+3. When the assistant surfaced this exact §2 finding and asked for an
+   explicit decision (via a structured choice, not a leading question), the
+   maintainer chose: **"Yes, ship them"** — with the assistant's framing
+   stating plainly that the redistribution terms were still unestablished at
+   that point.
+4. Separately, the maintainer stated directly: "leapr files are from the
+   endf 8 libraries" and "please make notes that these are public", and
+   supplied a second NNDC citation,
+   `https://www.nndc.bnl.gov/endf-releases/?version=B-VIII.0`, as
+   provenance. That page was fetched and checked on 2026-08-14 with the same
+   question the 2026-08-13 table above asked of the other NNDC pages: it
+   carries **no copyright, licence, terms-of-use, or redistribution
+   statement either** — consistent with, not contradicting, the original
+   finding. It is recorded here as an additional distribution-point
+   citation, not as a licence grant.
+
+**What this is, stated plainly so it cannot be misread later:** this is the
+project maintainer's explicit, informed decision to accept the
+redistribution-terms risk described in §2 above for their own repository —
+made after being shown the specific finding, not before. **It is not a
+determination that redistribution terms were established**, and the original
+2026-08-13 investigation (the table above) is not retracted or superseded by
+it. The maintainer's own position, stated directly, is that this ENDF/B-VIII.0
+thermal-scattering data is public; that position is recorded here as the
+maintainer's stated view, alongside — not in place of — the fact that no
+formal licence/terms-of-use statement was located on any of the three
+distribution pages checked (NNDC download page, NNDC releases page, and the
+sublibrary's own README/CHANGELOG/`.readme` files).
+
+If this ever needs to be walked back — e.g. NNDC/CSEWG later states
+restrictive terms — revert every arm of `embedded_deck_text` to `None` and
+update this section; nothing else changes, `locate_deck` already falls
+through to a local copy when embedding is absent.
+
+**Supporting context supplied by the maintainer, same session:** a
+general-purpose AI search (Gemini) summarised that "The ENDF/B-VIII.0 nuclear
+data library — compiled by the Cross Section Evaluation Working Group and
+distributed via the National Nuclear Data Center at Brookhaven National
+Laboratory — is a public domain U.S. Government work... distributed freely
+with no licensing restrictions or fees for public use," while noting the
+*descriptive papers* (e.g. the Nuclear Data Sheets article in this table) sit
+under separate open-access licences such as CC BY-NC-ND. This is recorded as
+a secondary, AI-summarised data point supplied to inform the maintainer's
+decision above — it is consistent with 17 U.S.C. §105 (US federal government
+works are not copyrightable), which is real doctrine, but it has **not** been
+independently verified against a primary source in this investigation (the
+three pages actually checked in the table above and in §2 state no terms
+either way, which a public-domain determination would also be consistent
+with). Treat it as corroborating context for the maintainer's decision, not
+as an independent confirmation.
+
+### How this could still be closed out more formally
+
+The practical routes to an actual legal resolution, unaffected by the
+decision above, remain: (a) a written statement from NNDC/CSEWG, (b) an
+explicit terms-of-use page on the IAEA NDS site (unreachable from this
+environment both times it was tried, so genuinely unchecked, not checked and
+found empty), or (c) a determination that the *deck* specifically is
+uncopyrightable fact rather than expression. Route (c) is a legal judgement,
+not an engineering one, and the decks' comment cards contain clearly
+expressive prose (a "Background" section and a reference list), so it is not
+obviously available. None of these has been pursued — the 2026-08-14 decision
+above is a risk-acceptance, not a substitute for them.
 
 ### Why this is not in `crates/kovan-literature`
 
@@ -101,11 +209,15 @@ straightforward `open/` candidate.
 
 ---
 
-## 3. What the crate does instead
+## 3. Deck resolution order
 
 `leapr::decks::locate_deck` resolves a deck from, in order:
 
-1. `leapr::decks::embedded_deck_text` — **empty today**, per §2.
+1. `leapr::decks::embedded_deck_text` — **populated for all 33 registered
+   materials as of 2026-08-14**, per §2. In practice this is now the path
+   every registered material takes; the two paths below exist for a material
+   this crate does not (yet) register, or for pinning a byte-identical
+   upstream copy during a parity check.
 2. `$OUTRAM_PARK_TSL_DIR` (or the legacy `$GRAPHITE_TSL_DIR`), pointing at an
    unpacked distribution's `thermal_scatt/` directory.
 3. The crate's artifact cache, `<cache>/ENDF-B-VIII.0/<base>.leapr`.

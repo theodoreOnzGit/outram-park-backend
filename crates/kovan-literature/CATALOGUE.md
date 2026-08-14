@@ -248,6 +248,35 @@ Bibliographic facts below are fine to publish; the PDFs and extracted bodies
 stay on this machine. *Use* means cite and implement from with provenance;
 re-hosting is not permitted for any of these.
 
+**`brown2018endfbviii0`** — Brown, D.A., Chadwick, M.B., Capote, R. et al.
+(68 authors) (2018). *ENDF/B-VIII.0: The 8th Major Release of the Nuclear
+Reaction Data Library with CIELO-project Cross Sections, New Standards and
+Thermal Scattering Data.* Nuclear Data Sheets 148, 1-142.
+[doi:10.1016/j.nds.2018.02.001](https://doi.org/10.1016/j.nds.2018.02.001).
+- *Licence:* **CC BY-NC-ND 4.0**, verified from the copyright line on page 1:
+  "This is an open access article under the CC BY-NC-ND license
+  (http://creativecommons.org/licenses/by-nc-nd/4.0/)." Open-access to read,
+  but NC (non-commercial) and ND (no derivatives) both fail this workspace's
+  public-redistribution bar — a Markdown conversion of the body is itself a
+  derivative, which ND prohibits.
+- *Tier decision:* **proprietary**, metadata + factual findings only, no
+  full-text body — same handling this archive already gives its TDM/AI-clause
+  documents (see `huang2025waterIngress` above).
+- *Extraction note:* `kovan lit import`'s text extraction (pdf-extract 0.12.0)
+  panics on this specific PDF (a Type3-font glyph-width lookup failure);
+  caught by `kovan-literature`'s `catch_unwind` wrapper and converted to an
+  error rather than crashing the CLI, so `markdown_body` is empty and
+  abstract/DOI/journal/volume/pages/full author list were hand-transcribed
+  from the title page instead of machine-extracted. Filed as bead `op-5v5.10`.
+- *Good for:* the primary published description of the ENDF/B-VIII.0 evaluated
+  nuclear data library (sublibrary overview, CIELO-project cross sections,
+  new IAEA standards, thermal scattering data, integral validation summary) —
+  the citation this workspace already uses for its local ENDF/B-VIII.0 copy.
+- *Used by:* `crates/njoy-outram-park-fork/docs/leapr-deck-provenance.md` §1
+  (cited there as "D. Brown et al." before this catalogue entry existed).
+- *Provenance:* SHA-256 `d246547b3cfdf73a2019290da83497611b8ce7e67008b0a2a26a05b37b9eae23`,
+  142 pages, ingested via `kovan lit import` 2026-08-14.
+
 **`wu2002htr10`** — Wu, Z., Lin, D. and Zhong, D. (2002). *The design
 features of the HTR-10.* Nuclear Engineering and Design 218, 25–32.
 [doi:10.1016/S0029-5493(02)00182-6](https://doi.org/10.1016/S0029-5493(02)00182-6).

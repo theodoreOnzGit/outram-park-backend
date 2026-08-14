@@ -205,12 +205,20 @@ pub struct TslMaterial {
 
 /// Look up a thermal-scattering-law material by a friendly key.
 ///
-/// Covers the **HTR-10 graphite** moderator/reflector evaluations and the
-/// light-water H-in-H₂O law the thermal-pincell tests consume. Values are the
-/// public ENDF/B-VIII.0 thermal-sublibrary materials (open data, per
-/// `DATA_POLICY.md`); the graphite MATs (30/31/32) match the tapes the
-/// `thermal_graphite_coherent` V&V test was measured against. Unknown keys → `None`
-/// (pass an explicit `base` to [`EndfCache::fetch_tsl`] for anything else).
+/// Covers every material [`crate::leapr::decks::SabMaterial`] registers — the
+/// **HTR-10 graphite** moderator/reflector evaluations plus the rest of the
+/// ENDF/B-VIII.0 thermal-scattering deck set the maintainer supplied on
+/// 2026-08-14 (light and heavy water, ice, methane, ortho/para hydrogen and
+/// deuterium, YH2, ZrH, BeO, SiC, UN, UO2, quartz, and two structural metals).
+/// Values are read directly from each material's own LEAPR deck (card 4's
+/// `mat`/`za`) by `crates/njoy-outram-park-fork/examples` tooling used while
+/// registering them, not hand-transcribed from memory — see
+/// `docs/leapr-deck-provenance.md` §1 for the full table and two MAT-collision
+/// caveats (`l-CH4`/`s-CH4` both 33; the two structural-metal decks both 101).
+/// The graphite MATs (30/31/32) additionally match the tapes the
+/// `thermal_graphite_coherent` V&V test was measured against. Unknown keys →
+/// `None` (pass an explicit `base` to [`EndfCache::fetch_tsl`] for anything
+/// else).
 pub fn well_known_tsl(name: &str) -> Option<TslMaterial> {
     let m = match name {
         "graphite" | "crystalline-graphite" | "tsl-crystalline-graphite" => TslMaterial {
@@ -228,6 +236,129 @@ pub fn well_known_tsl(name: &str) -> Option<TslMaterial> {
         "HinH2O" | "H2O" | "tsl-HinH2O" => TslMaterial {
             base: "tsl-HinH2O",
             mat: 1,
+        },
+        "para-H" | "tsl-para-H" => TslMaterial {
+            base: "tsl-para-H",
+            mat: 2,
+        },
+        "ortho-H" | "tsl-ortho-H" => TslMaterial {
+            base: "tsl-ortho-H",
+            mat: 3,
+        },
+        "HinYH2" | "tsl-HinYH2" => TslMaterial {
+            base: "tsl-HinYH2",
+            mat: 5,
+        },
+        "HinZrH" | "tsl-HinZrH" => TslMaterial {
+            base: "tsl-HinZrH",
+            mat: 7,
+        },
+        "HinIceIh" | "tsl-HinIceIh" => TslMaterial {
+            base: "tsl-HinIceIh",
+            mat: 10,
+        },
+        "DinD2O" | "D2O" | "tsl-DinD2O" => TslMaterial {
+            base: "tsl-DinD2O",
+            mat: 11,
+        },
+        "para-D" | "tsl-para-D" => TslMaterial {
+            base: "tsl-para-D",
+            mat: 12,
+        },
+        "ortho-D" | "tsl-ortho-D" => TslMaterial {
+            base: "tsl-ortho-D",
+            mat: 13,
+        },
+        "Be-metal" | "tsl-Be-metal" => TslMaterial {
+            base: "tsl-Be-metal",
+            mat: 26,
+        },
+        "BeinBeO" | "tsl-BeinBeO" => TslMaterial {
+            base: "tsl-BeinBeO",
+            mat: 27,
+        },
+        // Both liquid and solid methane carry MAT 33 in the supplied deck
+        // set -- as-parsed, see docs/leapr-deck-provenance.md §1.
+        "l-CH4" | "tsl-l-CH4" => TslMaterial {
+            base: "tsl-l-CH4",
+            mat: 33,
+        },
+        "s-CH4" | "tsl-s-CH4" => TslMaterial {
+            base: "tsl-s-CH4",
+            mat: 33,
+        },
+        "SiinSiC" | "tsl-SiinSiC" => TslMaterial {
+            base: "tsl-SiinSiC",
+            mat: 43,
+        },
+        "CinSiC" | "tsl-CinSiC" => TslMaterial {
+            base: "tsl-CinSiC",
+            mat: 44,
+        },
+        "OinBeO" | "tsl-OinBeO" => TslMaterial {
+            base: "tsl-OinBeO",
+            mat: 46,
+        },
+        "SiO2-alpha" | "tsl-SiO2-alpha" => TslMaterial {
+            base: "tsl-SiO2-alpha",
+            mat: 47,
+        },
+        "UinUO2" | "tsl-UinUO2" => TslMaterial {
+            base: "tsl-UinUO2",
+            mat: 48,
+        },
+        "SiO2-beta" | "tsl-SiO2-beta" => TslMaterial {
+            base: "tsl-SiO2-beta",
+            mat: 49,
+        },
+        "OinIceIh" | "tsl-OinIceIh" => TslMaterial {
+            base: "tsl-OinIceIh",
+            mat: 50,
+        },
+        "OinD2O" | "tsl-OinD2O" => TslMaterial {
+            base: "tsl-OinD2O",
+            mat: 51,
+        },
+        "YinYH2" | "tsl-YinYH2" => TslMaterial {
+            base: "tsl-YinYH2",
+            mat: 55,
+        },
+        "ZrinZrH" | "tsl-ZrinZrH" => TslMaterial {
+            base: "tsl-ZrinZrH",
+            mat: 58,
+        },
+        "NinUN" | "tsl-NinUN" => TslMaterial {
+            base: "tsl-NinUN",
+            mat: 71,
+        },
+        // As-parsed oddity (iel selects the built-in beryllium lattice for a
+        // uranium-nitride scatterer) -- see docs/leapr-deck-provenance.md §1.
+        "UinUN" | "tsl-UinUN" => TslMaterial {
+            base: "tsl-UinUN",
+            mat: 72,
+        },
+        "OinUO2" | "tsl-OinUO2" => TslMaterial {
+            base: "tsl-OinUO2",
+            mat: 75,
+        },
+        "HinCH2" | "tsl-HinCH2" => TslMaterial {
+            base: "tsl-HinCH2",
+            mat: 37,
+        },
+        "HinC5O2H8" | "tsl-HinC5O2H8" => TslMaterial {
+            base: "tsl-HinC5O2H8",
+            mat: 39,
+        },
+        // Both structural-metal decks carry MAT 101 in the supplied set, and
+        // neither follows the sublibrary's `tsl-<name>` filename convention --
+        // as-supplied, see docs/leapr-deck-provenance.md §1.
+        "013_Al_027" | "aluminum" | "tsl-013_Al_027" => TslMaterial {
+            base: "tsl-013_Al_027",
+            mat: 101,
+        },
+        "026_Fe_056" | "iron" | "tsl-026_Fe_056" => TslMaterial {
+            base: "tsl-026_Fe_056",
+            mat: 101,
         },
         _ => return None,
     };
