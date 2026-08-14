@@ -1,7 +1,7 @@
 repository,ref,first_commit,last_commit,total_lines,code_lines,active_days,rust_files,ai_assistance
-thermal_hydraulics_rs,,,,,,,,MISSING
-chem-eng-real-time-process-control-simulator,,,,,,,,MISSING
-teh-o-prke,,,,,,,,MISSING
-tuas_boussinesq_solver,develop,2024-10-10,2026-06-22,171618,96507,69,353,none
+thermal_hydraulics_rs,4d534af51eca256f318462234c0c8592930f764b,2023-06-27,2024-10-14,111437,59808,144,260,none
+chem-eng-real-time-process-control-simulator,origin/develop,2023-10-26,2024-04-29,8848,4802,9,40,none
+teh-o-prke,origin/develop,2024-04-12,2025-06-26,10751,6579,32,37,none
+tuas_boussinesq_solver,develop,2024-10-10,2026-06-22,76672,44453,69,353,none
 tampines-steam-tables,develop,2025-01-21,2026-06-22,79990,56082,98,319,root-finding solvers only
 boon-lay,develop,2026-01-14,2026-05-12,15765,9574,30,83,code generation

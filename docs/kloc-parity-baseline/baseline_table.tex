@@ -12,7 +12,7 @@ reported net of the code it inherited from \texttt{thermal\_hydraulics\_rs} at
 spin-out --- specifically net of the tree TUAS imported wholesale at its second
 commit, \texttt{c451c8e}, rather than net of the predecessor's own full extent,
 so that what is removed is what actually came across. At its head TUAS stands at
-0 total and 0 code lines, the 96~KLOC
+171\,618 total and 96\,507 code lines, the 96~KLOC
 quoted in the text. All figures are measured on each repository's
 \texttt{develop} branch, which is where the development history lives ---
 these repositories squash-merge into \texttt{main}, so measuring \texttt{main}
@@ -35,11 +35,14 @@ Section~\ref{sec:reproducing_the_counts}}}
 \textbf{Active} \\
  & & \textbf{lines} & \textbf{lines} & \textbf{days} \\
 \midrule
-\texttt{tuas\_boussinesq\_solver} (net-new)$^{a}$ \cite{ong2024tuasgithubrepo} & Oct 2024 -- Jun 2026 & 171\,618 & 96\,507 & 69 \\
+\texttt{thermal\_hydraulics\_rs} (predecessor to TUAS)$^{a}$ \cite{ong2024thermalhydraulicsrs} & Jun 2023 -- Oct 2024 & 111\,437 & 59\,808 & 144 \\
+\texttt{chem-eng-\ldots-simulator}$^{a}$ \cite{ong2024chemengprocesscontrol} & Oct 2023 -- Apr 2024 & 8\,848 & 4\,802 & 9 \\
+\texttt{teh-o-prke}$^{a}$ \cite{ong2025tehoprke} & Apr 2024 -- Jun 2025 & 10\,751 & 6\,579 & 32 \\
+\texttt{tuas\_boussinesq\_solver} (net-new)$^{a}$ \cite{ong2024tuasgithubrepo} & Oct 2024 -- Jun 2026 & 76\,672 & 44\,453 & 69 \\
 \texttt{tampines-steam-tables}$^{b}$ \cite{ong2026tampinessteamtables} & Jan 2025 -- Jun 2026 & 79\,990 & 56\,082 & 98 \\
 \texttt{boon-lay}$^{c}$ \cite{ong2026boonlay} & Jan 2026 -- May 2026 & 15\,765 & 9\,574 & 30 \\
 \midrule
-\textbf{Baseline total} & \textbf{2024 -- 2026} & \textbf{267\,373} & \textbf{162\,163} & \textbf{191} \\
+\textbf{Baseline total} & \textbf{2023 -- 2026} & \textbf{303\,463} & \textbf{181\,298} & \textbf{367} \\
 \bottomrule
 \end{tabular}
 

@@ -27,8 +27,39 @@ on a regenerated copy is the check.
 | `rate_table.tex` | 1,435 | lines-per-active-day table |
 | `agentic_table.tex` | 3,553 | `tab:agentic_crates` |
 
-Headline numbers in that run: **187,378 agentic code lines**, **349,541 total
-Rust code lines in `crates/`**, **6,246 code lines per active day**.
+**Every figure in this capture reproduces the manuscript exactly.** Run with
+`--clone --check`, all eight drift-check deltas are `+0`:
+
+| Quantity | Manuscript | Measured | Delta |
+|---|---|---|---|
+| `baseline_total_lines` | 303,463 | 303,463 | +0 |
+| `baseline_code_lines` | 181,298 | 181,298 | +0 |
+| `baseline_active_days` | 367 | 367 | +0 |
+| `agentic_code_lines` | 175,997 | 175,997 | +0 |
+| `subtotal_translated` | 136,462 | 136,462 | +0 |
+| `subtotal_original` | 27,177 | 27,177 | +0 |
+| `subtotal_extension` | 12,358 | 12,358 | +0 |
+| `n_crates` | 26 | 26 | +0 |
+
+That makes this a gate on the published numbers, not merely on the script's
+self-consistency.
+
+### The first capture was thrown away, and why
+
+An earlier attempt ran without `--clone`, so `thermal_hydraulics_rs`,
+`chem-eng-real-time-process-control-simulator` and `teh-o-prke` were absent from
+the machine. It still produced a complete-looking set of files — and the numbers
+were wrong in a specific, instructive way. Because an extension crate subtracts
+its standalone pre-agentic original, a **missing baseline repository silently
+moves those lines into the agentic total**: the baseline read 162,163 code lines
+instead of 181,298, and the agentic total read 187,378 instead of 175,997,
+inflated by very nearly the amount the baseline lost. The script warns about
+exactly this, and refuses to validate its own drift check when a repo is
+missing.
+
+Worse for a parity fixture, that capture never exercised the TUAS
+net-of-predecessor subtraction at all, which is among the most intricate logic
+in the script. A fixture that skips the hard part is not a gate.
 
 ## What is NOT captured
 
