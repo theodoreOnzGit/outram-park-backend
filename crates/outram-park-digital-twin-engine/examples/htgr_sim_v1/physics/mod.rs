@@ -491,11 +491,29 @@ pub const STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP: usize = 2;
 /// - **The turbine shaft**, because it is a pure consumer -- it reads the
 ///   converged turbine power and feeds nothing back.
 ///
-/// # Why 2 -- measured, not chosen
+/// # Why 2 -- measured, then contradicted. Read this before quoting the table.
+///
+/// **The "converged at 2" claim below does not currently hold, and nothing
+/// gates it (`op-21rt`, P1).** Re-measured 2026-08-14 on the same 60 s
+/// transient, the third corrector moved the steam outlet by **+29.29 K** and
+/// the duty by **-0.271%** -- against the `-0.0007 K` in the table. The sweep
+/// that would have caught this is **printed, never asserted**: the test
+/// [`tests::the_plant_outer_correctors_converge`] runs and passes, because its
+/// two legs share this same corrector count and the error cancels between them.
+/// So there is **no running check on corrector convergence in this workspace** —
+/// not a weak one, none.
+///
+/// The 2 is therefore **the shipped value, not a verified one**. It is left at
+/// 2 deliberately: nothing shows 3 is converged either (the sweep stops there),
+/// and a 29 K jump from one extra Picard sweep while the duty barely moves
+/// looks more like divergence or bistability on the steam side than
+/// under-convergence. Raising it blindly would trade a known-unverified number
+/// for an unknown-unverified one.
 ///
 /// [`HtgrPlant::step_with_correctors`] exists so this can be swept; the sweep
 /// lives in [`tests::the_plant_outer_correctors_converge`]. Measured
-/// 2026-08-13, at the end of that test's 60 s flow-ramp transient:
+/// 2026-08-13 -- **historical, superseded by the above** -- at the end of that
+/// test's 60 s flow-ramp transient:
 ///
 /// | Correctors | Core outlet | Steam outlet | SG duty | Moved from the previous count by |
 /// |---|---|---|---|---|
@@ -503,6 +521,14 @@ pub const STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP: usize = 2;
 /// | **2 (shipped)** | **949.6679 K** | **575.5177 K** | **7.65733 MW** | dT_out +0.046 K, dT_steam -0.225 K, dQ -0.004% |
 /// | 3 | 949.6666 K | 575.5170 K | 7.65732 MW | dT_out **-0.0013 K**, dT_steam **-0.0007 K**, dQ -0.0002% |
 /// | *1 ms reference* | *949.669 K* | *574.696 K* | *7.65827 MW* | -- |
+///
+/// **The 1-corrector row is history, not a live reading.** That arm was removed
+/// from the sweep on 2026-08-14 (maintainer's instruction): convergence is
+/// established by the *last* step being small, so only 3-against-2 carries the
+/// claim, and the extra 60 s plant-time run was a fifth of a slow test for a
+/// number nothing asserted on. The row is kept because it is what shows the
+/// second corrector does real work; re-derive it with
+/// [`HtgrPlant::step_with_correctors`] if it is ever needed again.
 ///
 /// Two things to read off it. First, **the loop has converged at 2**: the third
 /// corrector moves the core outlet by 1.3 mK and the steam outlet by 0.7 mK --
@@ -1190,6 +1216,21 @@ mod tests {
     /// **Run it under load and you will not see 1.037.** The same test measured
     /// 0.562 with the rest of this suite running on the other eleven cores.
     ///
+    /// **2026-08-14, on a different machine**: 2.175 s wall for the same 20 s of
+    /// plant time -- **0.1087 compute per plant second, ratio 9.196**, about
+    /// nine times the figure recorded the day before.
+    ///
+    /// **Do not read that as a speedup.** These numbers are machine
+    /// measurements, and this workspace is worked from several hosts (the
+    /// commits above come from at least three). Nothing here identifies which
+    /// host produced which reading, so a ratio measured on one cannot be
+    /// differenced against a ratio measured on another to attribute a code
+    /// change -- and no attempt is made to. The honest statement is that this
+    /// model runs anywhere between **0.5x and 9.2x real time** depending on the
+    /// host and its load, and that **only same-host, same-load pairs may be
+    /// compared**. If a future change wants to claim a speedup, it must re-run
+    /// the before and after on one machine and say which.
+    ///
     /// # Interpretation
     ///
     /// The wall-clock figure printed here is a **measurement of the maintainer's
@@ -1249,7 +1290,7 @@ mod tests {
     }
 
     /// V&V: **the plant outer-corrector loop has converged at
-    /// [`PLANT_OUTER_CORRECTORS`]**, and one corrector is not enough at 0.1 s.
+    /// [`PLANT_OUTER_CORRECTORS`]**.
     ///
     /// # Methodology
     ///
@@ -1263,11 +1304,18 @@ mod tests {
     /// kinetics split.
     ///
     /// 1. **Has the corrector loop converged?** The plant is run at
-    ///    [`plant_timestep`] with 1, 2 and 3 correctors via
-    ///    [`HtgrPlant::step_with_correctors`], and each result is compared with
-    ///    the one before it. (This is why that entry point exists:
+    ///    [`plant_timestep`] with 2 and 3 correctors via
+    ///    [`HtgrPlant::step_with_correctors`], and the third is compared against
+    ///    the second. (This is why that entry point exists:
     ///    [`PLANT_OUTER_CORRECTORS`] is a compile-time constant, so a claim
     ///    that it is converged is unfalsifiable without it.)
+    ///
+    ///    **The single-corrector arm was dropped on 2026-08-14** at the
+    ///    maintainer's instruction. Convergence is established by the *last*
+    ///    step of the sweep being small — 3 against 2 — and a one-corrector
+    ///    reading says nothing about that. It was a 60 s plant-time run costing
+    ///    roughly a fifth of this test for a number nothing asserted on. The
+    ///    historical figure is kept in [`PLANT_OUTER_CORRECTORS`]' table.
     /// 2. **How much accuracy does the 0.1 s step cost?** The shipped
     ///    configuration is compared against a **reference integration at
     ///    1 ms**, 100x finer.
@@ -1337,6 +1385,29 @@ mod tests {
     ///
     /// This test is **slow** -- the 1 ms reference leg alone is 60 s of plant
     /// time at ~2 s of compute per plant second.
+    /// # This test does not currently support its own name (`op-21rt`)
+    ///
+    /// It **runs**, and everything it asserts on **passes** — the 0.1 s and 1 ms
+    /// legs agree to 0.27 K on steam. That is the problem, not the reassurance
+    /// it looks like: **both legs run at `PLANT_OUTER_CORRECTORS = 2`**, so a
+    /// corrector-count error is common-mode between them and cancels exactly. A
+    /// timestep-refinement study structurally cannot detect an unconverged
+    /// corrector loop.
+    ///
+    /// The sweep that *would* detect it is **printed and never asserted on**,
+    /// which is why a `+29.29 K` move in the steam outlet between 2 and 3
+    /// correctors (measured 2026-08-14) passes green.
+    ///
+    /// It was briefly `#[ignore]`d on 2026-08-14 and then put back the same day:
+    /// skipping it did not measurably shorten the suite, so the run-time
+    /// argument for hiding it did not survive measurement, and a test that
+    /// prints the contradicting number every run is worth more than one that
+    /// does not run at all.
+    ///
+    /// **Until `op-21rt` is resolved, do not cite this test — or
+    /// [`PLANT_OUTER_CORRECTORS`]' "converged at 2" table — as evidence of
+    /// corrector convergence.** Green here means the timestep is fine, and
+    /// nothing more.
     #[test]
     fn the_plant_outer_correctors_converge() {
         let reference = flow_ramp_transient(Time::new::<second>(1.0e-3), PLANT_OUTER_CORRECTORS);
@@ -1347,7 +1418,9 @@ mod tests {
         // converged rather than merely chosen.
         println!("PLANT OUTER-CORRECTOR SWEEP at dt = {PLANT_TIMESTEP_S} s (read at 60 s)");
         let mut previous: Option<TransientEndState> = None;
-        for n in 1..=3_usize {
+        // Starts at 2, not 1: see the doc comment. Convergence is the SIZE OF
+        // THE LAST STEP, so only 3-against-2 carries the claim.
+        for n in 2..=3_usize {
             let r = flow_ramp_transient(plant_timestep(), n);
             match &previous {
                 None => println!(

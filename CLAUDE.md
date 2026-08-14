@@ -375,6 +375,37 @@ of where it came from.
 - `kopitiam pdf2md` remains fine for a quick one-off conversion where no
   catalogue entry is wanted, but it is the fallback, not the default.
 
+**READ AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` — HARD RULE.** The
+previous rule covers *ingesting*. This one covers everything after: `kovan` is
+the interface to `crates/kovan-literature`, in **both** directions, for humans
+and agents alike. Reaching around it — `cat`-ing a PDF's converted markdown,
+`grep`-ing the archive, hand-editing `CATALOGUE.md`, writing a JSON sidecar by
+hand — is not a shortcut, it is how the catalogue and the documents drift apart.
+
+- **Reading.** Query the archive with `kovan lit` (`outline`, `bibtex`, and the
+  search/show subcommands `kovan lit --help` lists) rather than opening files
+  under `open/`, `proprietary/`, `generated/` or `derived/` directly. It is the
+  path that carries the access tier and the provenance with the text; a raw
+  `Read` of a markdown body gives you the words with neither, which is exactly
+  how a proprietary passage or a TDM-reserved full text gets quoted into a
+  commit by someone who did not know.
+- **Writing.** New documents arrive via `kovan lit import`. New *derived* data —
+  a digitised figure, a hand-read table, an extracted parameter set — goes into
+  `crates/kovan-literature/derived/` **beside the document it came from**, with
+  its provenance block, not into `docs/` and not into a crate's `src/`. Where a
+  scoping doc needs it, that doc holds a **pointer**, not a copy;
+  `docs/reactor-scoping/htr10-rz-zone-geometry.md` is the shape to follow.
+- **`CATALOGUE.md` is maintained through `kovan`, not by hand.** If a catalogue
+  entry is wrong, fix it at the source and regenerate. Hand-editing it is what
+  produced the duplicated, mutually-contradicting corroboration sections found
+  in the Terry 2005 geometry record on 2026-08-14.
+- **If `kovan` cannot do what you need, that is a bug in `kovan` — file it as a
+  bead and say so in your hand-off.** KOVAN is this workspace's own crate, so
+  the deliverable is an issue against it (like `op-szai` for the metadata
+  extractor), never a hand-rolled workaround that bypasses the library.
+- This does not relax the open/proprietary split, the TDM/AI-reservation rule,
+  or `DATA_POLICY.md` — it is the mechanism by which they are actually enforced.
+
 **Graph digitisation: dogfood `kovan-digitise` (HARD RULE).** Several
 validation targets this project depends on exist **only as figures** — the
 HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
