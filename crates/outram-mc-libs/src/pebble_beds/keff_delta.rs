@@ -58,7 +58,8 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
+    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
+    two_body_scatter_with_mu,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
@@ -637,9 +638,24 @@ where
                 e = e2;
                 u = u2;
             } else {
-                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                    None => elastic_scatter(e, u, nuc.awr, seed),
+                // Scattering. Below its cutoff a moderator nuclide carrying an
+                // S(alpha, beta) table thermalizes via the bound-atom law
+                // (lab-frame outgoing energy + cosine, up-scatter allowed);
+                // otherwise the free-gas / anisotropic-elastic kernel applies.
+                // Mirrors `crate::physics::transport_csg` (which in turn mirrors
+                // OpenMC `src/physics.cpp` `sample_secondary` / `src/thermal.cpp`
+                // `ThermalData::sample`). Without this branch the bound cross
+                // section from `xs_at_energy` sets the collision RATE while the
+                // secondary energy is still drawn free-gas — internally
+                // inconsistent, and it suppresses the up-scatter that lets a
+                // graphite-moderated spectrum equilibrate.
+                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (e_out, rotate_direction(u, mu_lab, seed))
+                } else {
+                    match nuc.sample_elastic_mu_cm(e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    }
                 };
                 e = e2;
                 u = u2;

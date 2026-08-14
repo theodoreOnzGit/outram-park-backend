@@ -180,6 +180,36 @@ either way, which a public-domain determination would also be consistent
 with). Treat it as corroborating context for the maintainer's decision, not
 as an independent confirmation.
 
+**Primary source supplied by the maintainer, 2026-08-14:**
+<https://www.usa.gov/government-copyright>. This is an official U.S.
+Government page, so it is a materially better citation than the AI summary
+above and is recorded as such: it states the general rule that U.S. Government
+works are not protected by copyright and are in the public domain, which is
+the published-source form of 17 U.S.C. §105 the paragraph above could only
+assert. To the extent the ENDF/B decks are U.S. Government works, this
+supports the maintainer's position that the data is public.
+
+**The one thing it does not settle, stated plainly so nobody later reads this
+section as a clean resolution.** 17 U.S.C. §105 attaches to works prepared by
+an *officer or employee of the U.S. Government as part of their official
+duties*. Brookhaven National Laboratory is a **contractor-operated** facility
+(Brookhaven Science Associates, LLC, under DOE contract), and works produced by
+government *contractors* are not automatically public domain under §105 —
+copyright can be, and often is, retained by the contractor or assigned to the
+Government. The usa.gov page makes the same distinction in general terms. So
+the citation strengthens the case considerably but does not by itself convert
+"unestablished" into "established"; the authorship status of these specific
+files under the DOE/BSA contract has not been checked, and neither has any
+CSEWG contributor agreement (ENDF evaluations also carry contributions from
+non-US institutions).
+
+**Net effect on this document:** the §2 finding — that no redistribution-terms
+statement has been located on the pages actually checked — is unchanged and
+still stands as written. What changes is the strength of the supporting
+context behind the maintainer's risk-acceptance in §3, which is now backed by
+an official government source rather than an AI summary. The decision itself
+was already made and is not being re-opened here.
+
 ### How this could still be closed out more formally
 
 The practical routes to an actual legal resolution, unaffected by the
