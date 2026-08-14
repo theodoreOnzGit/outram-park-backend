@@ -518,8 +518,15 @@ impl Default for FeedwaterCommand {
     /// AUTO at the **published** 440 degC steam-generator outlet temperature,
     /// which is exactly the behaviour this loop had before the mode existed.
     fn default() -> Self {
-        Self::Auto {
-            target_steam_temperature: design_target_steam_temperature(),
+        let auto_control = false;
+        if auto_control {
+            return Self::Auto {
+                target_steam_temperature: design_target_steam_temperature(),
+            };
+        }{
+            return Self::Manual { 
+                mass_flow_demand: MassRate::new::<kilogram_per_second>(10.0)
+            };         
         }
     }
 }
