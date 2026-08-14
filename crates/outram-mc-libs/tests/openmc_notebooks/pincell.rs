@@ -430,30 +430,31 @@ const TSL_TEMPERATURE_K: f64 = 293.6;
 ///    `njoy-outram-park-fork`** (`SabMaterial::HInH2O`, MAT 1), writing the
 ///    tape to a temp file and returning that path.
 ///
-/// Step 3 targets kopi-beans `op-6tz.28.1` — stop the LIVE thermal tests
+/// Step 3 closes kopi-beans `op-6tz.28.1` — stop the LIVE thermal tests
 /// soft-skipping on a hardcoded absolute path. Regenerating from an embedded
 /// deck is strictly better than that bead's proposed `EndfCache::fetch_tsl`
 /// download: no network, no cache, no IAEA availability question (that host is
 /// policy-blocked 403 from this environment), and it works offline and in CI.
 ///
-/// **Measured 2026-08-14: step 3 does not yet succeed for this particular
-/// law, and the reason is a known unported LEAPR feature, not a bug here.**
-/// `tsl-HinH2O.leapr` sets `nss = 1` — it carries a *secondary scatterer*
-/// (the oxygen in the water molecule), so producing its law needs the
-/// mixed-moderator merge, which this workspace's LEAPR port does not implement.
-/// `generate_tape` therefore returns
-/// `NotPorted("LEAPR deck uses features this port does not implement")`, and
-/// `LeaprDeck::unsupported_features()` names it exactly:
-/// `"nss = 1 (secondary-scatterer mixed-moderator merge is not ported)"`.
-/// That work is tracked as `op-b2k`.
+/// **This test is no longer data-gated.** Verified 2026-08-14: with no local
+/// tape and no `OUTRAM_TSL_HINH2O` set, step 3 succeeds and the benchmark runs
+/// (`k_inf = 1.41053 +/- 0.00689`, 600 particles, 40+60 generations).
 ///
-/// The fallback is kept wired anyway, deliberately: it costs nothing when it
-/// fails, and **the day `op-b2k` lands this test un-gates itself** with no edit
-/// here. Contrast graphite, whose deck needs no secondary scatterer and does
-/// regenerate today — see `tests/htr10_graphite_thermal_scattering_pebble_bed.rs`.
+/// It un-gated itself, which is worth recording because it was designed to.
+/// When this fallback was first wired, step 3 could not succeed:
+/// `tsl-HinH2O.leapr` sets `nss = 1` — it carries a *secondary scatterer* (the
+/// oxygen in the water molecule) — and the LEAPR port refused every `nss != 0`
+/// deck with `NotPorted`. The fallback was committed anyway on the reasoning
+/// that it costs nothing while failing and would start working the day the
+/// secondary-scatterer support landed, with no edit here. That is exactly what
+/// happened: the port gained `nss > 0` support the same day, and this path went
+/// live on its own.
 ///
-/// So this test remains data-gated for now. Returns `None` when neither a local
-/// tape nor regeneration is available, and the caller prints a SKIP.
+/// One class of deck is still refused rather than approximated — the `b7 <= 0`
+/// short-collision-time merge (`op-bax5`). No registered deck needs it today.
+///
+/// Returns `None` only if neither a local tape nor regeneration is available,
+/// in which case the caller prints a SKIP.
 fn locate_tsl_hinh2o() -> Option<String> {
     if let Ok(p) = std::env::var("OUTRAM_TSL_HINH2O") {
         if std::path::Path::new(&p).exists() {
