@@ -432,6 +432,7 @@ fn regenerate_mt2(deck: &LeaprDeck, edges: &BraggEdges, dwpix: &[f64]) -> Cohere
         npr: deck.npr,
         spr: deck.spr,
         elastic: ElasticOutput::Coherent(edges.clone()),
+        secondary: deck.secondary_scatterer(),
         constants: deck.constants(),
     };
 

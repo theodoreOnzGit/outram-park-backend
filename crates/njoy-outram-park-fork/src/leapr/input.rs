@@ -161,6 +161,76 @@ impl ColdOption {
     }
 }
 
+/// How a **secondary** scatterer is treated (card 6 `b7`).
+///
+/// A `tsl` evaluation for a compound moderator may describe a second atomic
+/// species alongside the principal one — the oxygen in `tsl-HinH2O`, where H is
+/// principal and O is secondary. `b7` says how that second species is handled,
+/// and the choice matters because it decides whether the secondary contributes
+/// to the tabulated `S(alpha, beta)` at all:
+///
+/// - [`ShortCollisionTime`](Self::ShortCollisionTime) (`b7 = 0`) is the only
+///   kind whose scattering is **merged into the tabulated law**. NJOY runs its
+///   whole temperature loop a second time for the secondary scatterer and adds
+///   the result in (`leapr.f90:398`, `3018-3030`).
+/// - [`FreeGas`](Self::FreeGas) (`b7 = 1`) and
+///   [`Diffusion`](Self::Diffusion) (`b7 = 2`) are described **analytically**
+///   by the `B(7)..B(12)` constants of MF=7/MT=4 instead. The tabulated
+///   `S(alpha, beta)` stays purely the principal scatterer's, and a downstream
+///   code reconstructs the secondary's contribution from those constants. This
+///   is why light water's `S(alpha, beta)` is an H-only law.
+///
+/// The `b7` field is a *real* in the Fortran deck, so the codes are compared as
+/// floats; see [`from_code`](Self::from_code).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecondaryScattererKind {
+    /// `b7 = 0` — short-collision-time only. The secondary scatterer's law is
+    /// computed on its own and **merged** into the principal `S(alpha, beta)`.
+    ShortCollisionTime,
+    /// `b7 = 1` — free gas, carried analytically in `B(7)..B(12)`.
+    FreeGas,
+    /// `b7 = 2` — diffusion, carried analytically in `B(7)..B(12)`.
+    Diffusion,
+}
+
+impl SecondaryScattererKind {
+    /// Map the card-6 `b7` value onto the kind, or `None` if it is outside the
+    /// `0..=2` set NJOY accepts.
+    ///
+    /// `b7` is read as a real, so this rounds to the nearest integer and rejects
+    /// anything more than `1e-6` away from it rather than silently truncating a
+    /// malformed `1.5`.
+    pub fn from_code(b7: f64) -> Option<Self> {
+        if !b7.is_finite() || (b7 - b7.round()).abs() > 1e-6 {
+            return None;
+        }
+        match b7.round() as i32 {
+            0 => Some(Self::ShortCollisionTime),
+            1 => Some(Self::FreeGas),
+            2 => Some(Self::Diffusion),
+            _ => None,
+        }
+    }
+
+    /// The card-6 `b7` value for this kind, as written into `B(7)` of MF=7/MT=4.
+    pub fn code(self) -> f64 {
+        match self {
+            Self::ShortCollisionTime => 0.0,
+            Self::FreeGas => 1.0,
+            Self::Diffusion => 2.0,
+        }
+    }
+
+    /// Whether this kind's scattering is merged into the tabulated
+    /// `S(alpha, beta)` rather than carried analytically in `B(7)..B(12)`.
+    ///
+    /// True only for [`ShortCollisionTime`](Self::ShortCollisionTime) — the
+    /// `b7 <= 0` branch of `leapr.f90:3018`.
+    pub fn merges_into_sab(self) -> bool {
+        matches!(self, Self::ShortCollisionTime)
+    }
+}
+
 /// Kind of translational term convolved into the continuous law (card 6 `b7`
 /// combined with card 13 `c`). Chosen from a closed set, so an enum.
 #[derive(Debug, Clone, Copy, PartialEq)]

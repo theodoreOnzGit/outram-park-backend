@@ -52,7 +52,11 @@
 //!   [`LeaprDeck::temperatures`] is self-contained.
 //! - `delta_ev`, `energy_ev` — eV; `dka` — inverse angstroms.
 
-use crate::leapr::input::{ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput};
+use crate::leapr::endout::SecondaryScatterer;
+use crate::leapr::input::{
+    ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput,
+    SecondaryScattererKind,
+};
 use crate::leapr::vintage::{EvaluationDate, PhysicalConstants};
 use crate::NjoyError;
 
@@ -444,6 +448,30 @@ impl LeaprDeck {
         Ok(input)
     }
 
+    /// The deck's secondary scatterer (card 6), or `None` when `nss == 0` or
+    /// the card-6 fields do not describe a usable one.
+    ///
+    /// This is the form [`crate::leapr::endout`] wants: the `b7` real resolved
+    /// to a [`SecondaryScattererKind`], with `aws`/`sps`/`mss` alongside. For
+    /// `tsl-HinH2O` it is
+    /// `{ FreeGas, aws: 15.85751, sps: 3.7939, mss: 1 }` — the oxygen of H₂O.
+    ///
+    /// Returns `None` (rather than a partial value) when `b7` is not one of the
+    /// `0..=2` codes, so a malformed card cannot become plausible-looking
+    /// `B(7)..B(12)` constants; [`unsupported_features`](Self::unsupported_features)
+    /// reports that case as its own entry.
+    pub fn secondary_scatterer(&self) -> Option<SecondaryScatterer> {
+        if self.nss == 0 {
+            return None;
+        }
+        Some(SecondaryScatterer {
+            kind: SecondaryScattererKind::from_code(self.b7)?,
+            aws: self.aws,
+            sps: self.sps,
+            mss: self.mss,
+        })
+    }
+
     /// Deck features that parse cleanly but that the ported physics does **not**
     /// implement, as human-readable strings; empty when the deck is fully
     /// supported.
@@ -465,9 +493,28 @@ impl LeaprDeck {
                 self.nsk
             ));
         }
-        if self.nss != 0 {
+        // A secondary scatterer is only a blocker when its law has to be merged
+        // into S(alpha, beta) (b7 = 0). The analytic kinds (free gas, diffusion)
+        // are carried entirely by the B(7)..B(12) constants the writer emits, so
+        // they need no second LEAPR pass and are fully supported.
+        match self.secondary_scatterer() {
+            None => {}
+            Some(s) if !s.kind.merges_into_sab() => {}
+            Some(_) => out.push(format!(
+                "nss = {} with b7 = {} (short-collision-time secondary: the \
+                 mixed-moderator S(alpha,beta) merge is not ported)",
+                self.nss, self.b7
+            )),
+        }
+        if self.nss != 0 && SecondaryScattererKind::from_code(self.b7).is_none() {
             out.push(format!(
-                "nss = {} (secondary-scatterer mixed-moderator merge is not ported)",
+                "b7 = {} is not a valid secondary-scatterer type (0 sct, 1 free, 2 diffusion)",
+                self.b7
+            ));
+        }
+        if self.nss.abs() > 1 {
+            out.push(format!(
+                "nss = {} (NJOY allows at most one secondary scatterer)",
                 self.nss
             ));
         }

@@ -27,8 +27,16 @@
 //!   no `S(alpha,beta)` physics and the crate's `[f64; 6]` row model cannot store
 //!   Hollerith text (same limitation MIXR documents). MF=7 is complete; MF=1 is
 //!   omitted.
-//! - **Mixed-moderator merge** (`nss != 0`, 3017–3030 and the secondary `ssp`
-//!   plumbing) is **not** ported — single principal scatterer only.
+//! - **Secondary scatterers are written, but only the analytic kinds are
+//!   complete.** [`SecondaryScatterer`] emits `NS` and the `B(7)..B(12)`
+//!   constants (3307–3321), which is the *entire* secondary treatment for
+//!   `b7 = 1` (free gas) and `b7 = 2` (diffusion) — the light-water case.
+//!   The `b7 = 0` **mixed-moderator merge** (3018–3030: a second LEAPR pass
+//!   over the secondary scatterer with `alpha` scaled by `aws/awr`, merged as
+//!   `S = S_principal + (sbs/sb) * S_secondary`) is **not** ported, nor is the
+//!   secondary effective-temperature table that accompanies it (3578–3597).
+//!   [`crate::leapr::generate::generate_tape`] refuses that case rather than
+//!   emit a law with its secondary silently missing.
 //! - The `sigfig`-rounding and `smin` flooring of every `S` value **are** ported
 //!   (they match the Fortran bit-for-bit through [`crate::mixr::mix::sigfig`]).
 //!
@@ -38,6 +46,7 @@
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
 use crate::leapr::coher::BraggEdges;
+use crate::leapr::input::SecondaryScattererKind;
 use crate::leapr::SabMatrix;
 use crate::leapr::vintage::PhysicalConstants;
 use crate::mixr::mix::sigfig;
@@ -56,6 +65,38 @@ pub enum ElasticOutput {
     /// (the `SB` C1 field); the `W'(T)` table comes from the temperatures +
     /// Debye-Waller integrals in [`LeaprOutput`].
     Incoherent { sb_npr: f64 },
+}
+
+/// A **secondary** scatterer, described analytically in `B(7)..B(12)` of
+/// MF=7/MT=4 (card 6 `b7`, `aws`, `sps`, `mss`; `leapr.f90:3315-3321`).
+///
+/// The compound-moderator case: `tsl-HinH2O` is an H law that also names oxygen
+/// as a secondary scatterer, so a downstream code knows to add a free-gas O
+/// contribution rather than expecting to find it inside `S(alpha, beta)`.
+///
+/// **The tabulated law is unaffected by this struct.** For
+/// [`SecondaryScattererKind::FreeGas`] and
+/// [`SecondaryScattererKind::Diffusion`] the secondary is carried entirely by
+/// these constants, which is exactly why they can be written without the
+/// second LEAPR pass. Writing a
+/// [`ShortCollisionTime`](SecondaryScattererKind::ShortCollisionTime) secondary
+/// here emits well-formed constants but does **not** perform the
+/// `S(alpha, beta)` merge that kind requires — see the module-level "Scope /
+/// honest gaps", and note that [`crate::leapr::generate::generate_tape`]
+/// refuses that case rather than emitting a law missing its secondary.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SecondaryScatterer {
+    /// How the secondary scatterer is treated — `B(7)`.
+    pub kind: SecondaryScattererKind,
+    /// Mass ratio of the secondary scatterer to the neutron (`aws`) — `B(9)`.
+    /// `15.85751` for O in H₂O.
+    pub aws: f64,
+    /// Free-atom cross section of **one** secondary atom (`sps`) \[barn\].
+    /// `3.7939` b for O in H₂O. `B(8)` is this times [`mss`](Self::mss).
+    pub sps: f64,
+    /// Number of secondary atoms in the compound (`mss`) — `B(12)`. `1` for the
+    /// single O of H₂O.
+    pub mss: i32,
 }
 
 /// Everything `endout` needs from a completed LEAPR run for a single principal
@@ -103,6 +144,13 @@ pub struct LeaprOutput {
     pub spr: f64,
     /// The elastic section to emit.
     pub elastic: ElasticOutput,
+    /// The **secondary** scatterer (card 6), if the evaluation describes one.
+    ///
+    /// `None` — the single-scatterer case — writes `NS = 0` and the six
+    /// `B(1)..B(6)` constants, exactly as before this field existed. `Some`
+    /// writes `NS = 1` and extends the `B` array to twelve
+    /// (`leapr.f90:3307-3321`). See [`SecondaryScatterer`].
+    pub secondary: Option<SecondaryScatterer>,
     /// The physical-constant set the run used — specifically the `k_B` that
     /// defines `tev = k_B T` in the `LAT = 1` detailed-balance factor
     /// `0.0253 / (k_B T)` applied to every stored `S` (leapr.f90:3338-3346).
@@ -368,8 +416,9 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
     // HEAD: ZA, AWR, 0, LAT, LASYM=isym, 0
     push_cont(&mut rows, out.za, out.awr, 0, out.lat, out.isym, 0);
 
-    // B-constants LIST (3301–3323). NI=6 for a single scatterer; NS=0.
-    let b = [
+    // B-constants LIST (3301–3323). NI=6 and NS=0 for a single scatterer; a
+    // secondary scatterer appends B(7)..B(12) (NI=6*(nss+1)=12) and sets NS=1.
+    let mut b = vec![
         (out.npr as f64) * out.spr, // B(1) bound-ish xsec factor > 0
         out.beta[nbeta - 1],        // B(2)
         out.awr,                    // B(3) = A
@@ -377,8 +426,23 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
         0.0,                        // B(5)
         out.npr as f64,             // B(6)
     ];
+    // `nss` is 0 or 1 — NJOY allows at most one secondary scatterer (card 6).
+    let nss = match &out.secondary {
+        None => 0,
+        Some(s) => {
+            b.extend_from_slice(&[
+                s.kind.code(),          // B(7)  secondary type
+                (s.mss as f64) * s.sps, // B(8)  free xsec x number of atoms
+                s.aws,                  // B(9)  secondary mass ratio
+                0.0,                    // B(10)
+                0.0,                    // B(11)
+                s.mss as f64,           // B(12) number of secondary atoms
+            ]);
+            1
+        }
+    };
     let l1 = if out.ilog { 1 } else { 0 };
-    push_list(&mut rows, 0.0, 0.0, l1, 0, 0, &b);
+    push_list(&mut rows, 0.0, 0.0, l1, 0, nss, &b);
 
     // TAB2 over beta (3324–3334). nbt doubles for odd isym (+/- beta).
     let nbt = if out.isym == 1 || out.isym == 3 {
@@ -507,6 +571,7 @@ mod tests {
             npr: 1,
             spr: 20.478,
             elastic,
+            secondary: None,
             constants: PhysicalConstants::default(),
         }
     }

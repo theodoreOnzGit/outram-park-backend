@@ -1,9 +1,10 @@
 //! **Thermal-scattering `S(alpha, beta)` by regeneration** — the default source.
 //!
-//! This is the consumer surface for graphite (and, later, other) thermal
-//! scattering laws. Ask for a material at a temperature and you get an ENDF
-//! MF=7 [`Mf7`], regenerated from that evaluation's own ~12 KB LEAPR card deck
-//! rather than read from its multi-megabyte tape.
+//! This is the consumer surface for thermal scattering laws. Ask for a material
+//! at a temperature and you get an ENDF MF=7 [`Mf7`] (or, with
+//! [`thermal_scattering_tape`], the whole tape), regenerated from that
+//! evaluation's own ~12 KB LEAPR card deck rather than read from its
+//! multi-megabyte tape.
 //!
 //! ```no_run
 //! use njoy_outram_park_fork::leapr::generate::{SabRequest, thermal_scattering_law};
@@ -63,6 +64,7 @@
 //! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
 //! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
 //! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
+//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated** — but *checked*. Regeneration at 293.6 K agrees with the published evaluation to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff` (1195.35 K vs 1194.3 K). That is an agreement band against this repository's own recorded measurements, not a tape diff, so [`SabRequest::validation`] still reports it unvalidated. See `tests/leapr_h2o_secondary_scatterer.rs`. |
 //!
 //! MT=2 matters out of proportion to its size: it is roughly 90 % of graphite's
 //! thermal cross section (4.55 b coherent-elastic against 0.49 b inelastic at
@@ -137,6 +139,8 @@ use crate::acquire::EndfCache;
 use crate::endf::tape::Tape;
 use crate::leapr::coher::coher_with_constants;
 use crate::leapr::continuous::phonon_expansion;
+use crate::leapr::discrete::add_discrete_oscillators;
+use crate::leapr::translation::add_translation;
 use crate::leapr::deck::LeaprDeck;
 use crate::leapr::decks::{locate_deck, DeckSource, SabMaterial};
 use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
@@ -155,7 +159,14 @@ use crate::NjoyError;
 /// the deck and the parameters; it cannot see the code, so this constant stands
 /// in for the code's identity. Leaving it stale after a physics change means
 /// serving yesterday's numbers from cache — the one way this cache can lie.
-pub const GENERATOR_REVISION: u32 = 1;
+/// **Revision 2 (2026-08-14)** — [`generate_tape`] now runs the translational
+/// and discrete-oscillator stages (`trans`, `discre`) after the phonon
+/// expansion, where it previously emitted the continuum-only law; and
+/// [`crate::leapr::endout`] now writes the secondary-scatterer `B(7)..B(12)`
+/// constants. The first changes `S(alpha, beta)`, `T_eff` and the Debye-Waller
+/// integral for every deck with `twt > 0` or discrete oscillators (light water,
+/// the hydrides, the methanes); graphite is unaffected, having neither term.
+pub const GENERATOR_REVISION: u32 = 2;
 
 /// Upper energy \[eV\] of the coherent-elastic Bragg sum handed to
 /// [`crate::leapr::coher::coher`].
@@ -476,13 +487,41 @@ pub fn generate_tape(
         input.tev(),
         input.continuous.tbeta,
     );
-    let ssm = phonon_expansion(&input, &freq);
+    // The scattering law is built in the same three stages, in the same order,
+    // as the Fortran temperature loop (leapr.f90:376-384):
+    //
+    //     call contin  ->  call trans (if twt > 0)  ->  call discre (if nd > 0)
+    //
+    // Each stage convolves its term into `ssm` AND advances the Debye-Waller
+    // integral / effective temperature. Running only `contin` is correct for a
+    // pure solid-type moderator (graphite: twt = 0, nd = 0) and badly wrong for
+    // a molecular liquid — light water carries both a translational term and two
+    // discrete oscillators (the H2O bend and stretch), which between them supply
+    // most of its bound-atom zero-point motion. Omitting them left T_eff at
+    // 482 K against the evaluation's 1194 K, and sigma_inel at +73 % (1 eV) to
+    // +48 % (8 eV) above the published values, rising rather than relaxing onto
+    // the free-atom limit. Bead op-ziux.
+    let mut ssm = phonon_expansion(&input, &freq);
+
+    // `dwpix`/`tempf` start as `contin` leaves them (leapr.f90:715-716) and are
+    // then advanced in place by the later stages, exactly as the Fortran globals
+    // are. `dwpix` is kept in raw LEAPR units until after the last stage.
+    let mut dwpix = freq.f0;
+    let mut tempf = freq.tbar * temperature_k;
+
+    // `trans` (leapr.f90:844-1007, guard at 379). Updates `tempf` only.
+    if input.continuous.twt > 0.0 {
+        add_translation(&mut ssm, &input, &freq, &mut tempf);
+    }
+
+    // `discre` (leapr.f90:1320-1661, guard at 382). Updates both `dwpix` and
+    // `tempf`; a no-op when the deck declares no oscillators.
+    add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
 
     // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
     // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
     let bk = input.constants.bk_ev_per_k();
-    let dwpix = freq.f0 / (deck.awr * temperature_k * bk);
-    let tempf = freq.tbar * temperature_k;
+    let dwpix = dwpix / (deck.awr * temperature_k * bk);
 
     let elastic_output = match (elastic, deck.iel) {
         (ElasticChannel::Omit, _) | (_, ElasticOption::None) => ElasticOutput::None,
@@ -530,6 +569,7 @@ pub fn generate_tape(
         npr: deck.npr,
         spr: deck.spr,
         elastic: elastic_output,
+        secondary: deck.secondary_scatterer(),
         constants: input.constants,
     };
 
@@ -573,9 +613,38 @@ pub fn thermal_scattering_law(request: &SabRequest) -> Result<Arc<Mf7>, NjoyErro
     }
 }
 
-/// The regeneration path of [`thermal_scattering_law`]: memo, then disk cache,
-/// then generate.
-fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
+/// The whole ENDF **tape** for a request, where
+/// [`thermal_scattering_law`] gives just the parsed MF=7.
+///
+/// Same sources, caching, errors and validation standing as
+/// [`thermal_scattering_law`] — this is the identical artifact, handed over one
+/// step earlier. Use it when a consumer wants to drive several `from_tape`
+/// constructors off one tape (the inelastic channel plus whichever elastic law
+/// the evaluation carries) instead of re-reading the file per channel; that is
+/// exactly what `outram-mc-libs`' `ThermalScattering::from_leapr` does.
+///
+/// # Errors
+///
+/// - [`NjoyError::Download`] if the deck cannot be located.
+/// - [`NjoyError::NotPorted`] if the deck needs an unported LEAPR feature.
+/// - [`NjoyError::Io`] / [`NjoyError::EndfParse`] from reading or parsing.
+pub fn thermal_scattering_tape(request: &SabRequest) -> Result<Tape, NjoyError> {
+    match &request.source {
+        SabSource::EndfTape(path) => Ok(Tape::read(std::fs::File::open(path)?)?),
+        SabSource::RegenerateFromDeck => {
+            let (path, _key) = cached_tape_path(request)?;
+            Ok(Tape::read(std::fs::File::open(&path)?)?)
+        }
+    }
+}
+
+/// Produce (or reuse) the on-disk cached tape for a regeneration request, and
+/// return its path together with the recipe key the memo is stored under.
+///
+/// Split out of [`regenerate_cached`] so [`thermal_scattering_tape`] can share
+/// the identical deck-location, recipe and cache logic — the two entry points
+/// must never disagree about what artifact a request names.
+fn cached_tape_path(request: &SabRequest) -> Result<(std::path::PathBuf, String), NjoyError> {
     let located = locate_deck(request.material)?;
     let deck = LeaprDeck::parse(&located.text)?;
 
@@ -593,14 +662,7 @@ fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
     };
     let key = recipe.key();
 
-    // 1. In-process memo.
-    if let Ok(guard) = memo().read() {
-        if let Some(hit) = guard.get(&key) {
-            return Ok(Arc::clone(hit));
-        }
-    }
-
-    // 2. On-disk cache, through the crate's one caching layer.
+    // On-disk cache, through the crate's one caching layer.
     let cache = EndfCache::new()?;
     let path = cache
         .dir()
@@ -621,6 +683,24 @@ fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
         let _ = std::fs::write(&sidecar, recipe.canonical_text());
     }
 
+    Ok((path, key))
+}
+
+/// The regeneration path of [`thermal_scattering_law`]: memo, then disk cache,
+/// then generate.
+fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
+    // 1. In-process memo, keyed by the same recipe the disk cache uses. Keyed
+    //    lookup needs the recipe, which `cached_tape_path` builds — but building
+    //    it is cheap next to a parse, and doing it there keeps the two caches
+    //    from ever disagreeing about a request's identity.
+    let (path, key) = cached_tape_path(request)?;
+    if let Ok(guard) = memo().read() {
+        if let Some(hit) = guard.get(&key) {
+            return Ok(Arc::clone(hit));
+        }
+    }
+
+    // 2. Parse the cached tape.
     let tape = Tape::read(std::fs::File::open(&path)?)?;
     let law = Arc::new(parse_mf7(&tape, request.material.mat())?);
 
@@ -834,6 +914,6 @@ mod tests {
             text.contains("8.617385000e-5"),
             "the bk actually used: {text}"
         );
-        assert!(text.contains("generator_revision = 1"));
+        assert!(text.contains(&format!("generator_revision = {GENERATOR_REVISION}")));
     }
 }
