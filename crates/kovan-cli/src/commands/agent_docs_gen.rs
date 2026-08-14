@@ -64,7 +64,8 @@ pub fn run(
         return Ok(());
     }
 
-    validate_selection(&entries, selected)?;
+    // Existence first, so a typo is caught before anything expensive runs.
+    validate_exists(&entries, selected)?;
 
     if regenerate_missing {
         regenerate(workspace_root, &entries, selected)?;
@@ -72,6 +73,10 @@ pub fn run(
         // reporting stale figures.
         entries = inventory(workspace_root)?;
     }
+
+    // The mirror check runs AFTER regeneration has had its chance -- doing it
+    // before is what made `--regenerate-missing` unusable.
+    validate_documented(&entries, selected)?;
 
     let report = write_bundle(workspace_root, out_dir, &entries, selected)?;
 
@@ -199,34 +204,56 @@ fn print_inventory(entries: &[CrateEntry]) {
     );
 }
 
-/// Reject a selection naming a crate that does not exist, or one with no mirror.
+/// Reject a selection naming a crate that does not exist under `crates/`.
 ///
 /// Failing here rather than silently skipping matters: a typo in `--crates`
 /// would otherwise produce a bundle quietly missing the very crate the user
 /// wanted, and they would not find out until the agent started guessing.
-fn validate_selection(entries: &[CrateEntry], selected: &[String]) -> io::Result<()> {
+///
+/// **Existence only** — this deliberately does not check for a mirror, because
+/// it runs before `--regenerate-missing` has had its chance to create one. See
+/// [`validate_documented`], which is the half that runs afterwards.
+fn validate_exists(entries: &[CrateEntry], selected: &[String]) -> io::Result<()> {
     for name in selected {
-        match entries.iter().find(|e| &e.directory == name) {
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!(
-                        "no crate directory `{name}` under crates/ -- run \
-                         `kovan agent-docs-gen --list` to see the available names"
-                    ),
-                ));
-            }
-            Some(entry) if !entry.has_api_docs() => {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!(
-                        "crate `{name}` has no docs/api.md -- generate it with \
-                         `--regenerate-missing` (needs a nightly toolchain and \
-                         rustdoc-md), or drop it from --crates"
-                    ),
-                ));
-            }
-            Some(_) => {}
+        if !entries.iter().any(|e| &e.directory == name) {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "no crate directory `{name}` under crates/ -- run \
+                     `kovan agent-docs-gen --list` to see the available names"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Reject a selection naming a crate that still has no `docs/api.md`.
+///
+/// # Why this is separate from [`validate_exists`]
+///
+/// The two checks were originally one function running before regeneration,
+/// which made `--regenerate-missing` **impossible to use**: it rejected the
+/// crate for lacking exactly the file the flag exists to create, and returned
+/// before `regenerate` was ever reached. The flag was dead on arrival and
+/// shipped that way on 2026-08-14, because it was described as untestable on
+/// this host when in fact nightly, `rustdoc-md` and python3 were all installed.
+/// Splitting the check around regeneration is the fix; running the command is
+/// what found it.
+fn validate_documented(entries: &[CrateEntry], selected: &[String]) -> io::Result<()> {
+    for name in selected {
+        let missing = entries
+            .iter()
+            .any(|e| &e.directory == name && !e.has_api_docs());
+        if missing {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "crate `{name}` has no docs/api.md -- generate it with \
+                     `--regenerate-missing` (needs a nightly toolchain and \
+                     rustdoc-md), or drop it from --crates"
+                ),
+            ));
         }
     }
     Ok(())

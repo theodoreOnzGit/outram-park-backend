@@ -994,11 +994,10 @@ and in sync with the code. It is a recurring command, not a one-off.
    ```
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
-   binary → `crates/<crate>/docs/api.md`. It needs a nightly toolchain
-   (`rustup toolchain install nightly`) and `rustdoc-md`
-   (`cargo install rustdoc-md --locked`); if either is missing, install it or
-   note in the hand-off that the mirror wasn't regenerated. `docs/` is
-   `exclude`d from the packaged crate, so this mirror is repo-only and never
+   binary → `crates/<crate>/docs/api.md`. Both prerequisites are **mandatory —
+   install them, do not skip the mirror** (see "API-doc toolchain" below).
+   `docs/` is `exclude`d from the packaged crate, so this mirror is repo-only
+   and never
    ships to crates.io.
 
 2. **Completeness flags in the README.** Every crate's `README.md` carries a
@@ -1047,6 +1046,52 @@ staleness audit (it must skip the crates being actively edited to avoid read
 races). Commit any pending verified work first so the tree is clean, and
 **exclude from the pass any crate with a publish in flight** (an uncommitted
 doc edit trips `cargo publish`'s dirty-tree guard).
+
+## API-doc toolchain: install it, never route around it (HARD RULE)
+
+**`rustdoc-md` and a nightly Rust toolchain are required tooling in this
+workspace, not optional extras. If either is missing, INSTALL IT.**
+
+```bash
+rustup toolchain install nightly          # rustdoc's JSON output is nightly-only
+cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
+```
+
+Two things depend on them, and both are load-bearing:
+
+- **`scripts/gen_api_docs.py`** — regenerates `crates/<crate>/docs/api.md`, the
+  committed markdown mirror of a crate's public API and the third leg of the
+  per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it.
+- **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
+  crate that has none, so it can be bundled for an external agent.
+
+**Never report a mirror as un-regenerable because a tool is missing.** Installing
+`rustdoc-md` takes one command; skipping the mirror leaves `docs/api.md`
+silently contradicting the code, which is exactly the drift the bookkeeping pass
+exists to prevent. "The toolchain isn't installed" is a task, not a finding.
+
+### Check before you claim a tool is absent
+
+**Run the check. Do not infer it from a failure, and do not assume.**
+
+```bash
+which rustdoc-md && cargo install --list | grep rustdoc-md
+rustup toolchain list
+```
+
+This is a rule because it was broken on 2026-08-14. An agent reported
+`--regenerate-missing` as "implemented but not exercised — this host has no
+nightly toolchain or rustdoc-md installed", wrote that into the hand-off, the
+commit message, and a bead, and shipped it. Both were in fact installed
+(`rustdoc-md v0.2.0`, `nightly-x86_64-unknown-linux-gnu`), and running the
+command immediately exposed a real bug: the selection was validated for a
+missing `docs/api.md` *before* regeneration ran, so the flag rejected the crate
+for lacking exactly the file it existed to create. **The feature had never
+worked, and an unverified assumption about tooling is what hid it.**
+
+The general form: an untested code path plus an assumed-missing prerequisite
+produces a confident, false statement about both. Check the prerequisite, then
+run the path.
 
 ## Rust design rules (mandatory)
 
