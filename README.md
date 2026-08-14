@@ -85,7 +85,7 @@ The workspace has 31 member crates, grouped by domain below.
 
 ## Build
 
-Requires a system BLAS (OpenBLAS on Linux):
+Requires a system BLAS (OpenBLAS on Linux), but only for test:
 
 ```bash
 # Arch / EndeavourOS
@@ -168,6 +168,8 @@ cargo run --release -p kovan-cli --bin kovan agent-docs-gen --out ~/Desktop/agen
 
 As seen here, u are able to put this on the desktop.
 
+
+
 ### Running from anywhere
 
 None of these need to be run from the workspace root. When `--root` is omitted
@@ -188,6 +190,57 @@ Generated output follows the same preference: `--out` if given, otherwise
 `<workspace>/agent-docs` (which `.gitignore` already covers), otherwise
 `~/Documents/agent-docs` or `~/agent-docs`. Every run prints the workspace and
 the output directory it chose, with the reason.
+
+### Ingesting literature (`kovan lit`)
+
+Any document that **informs the code** — a correlation taken from it, a
+benchmark value cited, a number in a doc comment — belongs in
+`crates/kovan-literature`, catalogued with its provenance. Not in `~/Downloads`,
+not loose in `reference-data/`. "Used" is the trigger, not "ingested".
+
+**Decide the access tier before importing, from the document's own copyright
+page.** This is the step that matters and the one that is easy to get wrong:
+
+- **Where you downloaded it grants you nothing.** INIS, gen-4.org, OSTI and a
+  lab's website all host documents they do not license you to redistribute.
+  "Open access" on a record page means freely *readable*, not freely
+  *redistributable*.
+- **No licence statement means proprietary**, not open. Unsure is the same as
+  no. That failure direction is recoverable; the other is a licence violation in
+  a public repository, because `open/` is committed and this repository is
+  public.
+- Check the copyright line for a **text-and-data-mining / AI-training
+  reservation**. Where present, catalogue metadata and factual findings only and
+  do not extract the full text.
+
+```bash
+# 1. Stage the PDF. kovan_import/ is gitignored scratch.
+mkdir -p kovan_import && mv ~/Downloads/paper.pdf kovan_import/
+
+# 2. Read the copyright page and decide the tier BEFORE importing.
+#    open/  -> committed and published.   proprietary/ -> gitignored.
+
+# 3. Import into the tier you decided on.
+kovan lit import kovan_import/paper.pdf \
+  --json-out    crates/kovan-literature/open/papers/author2026topic.json \
+  --markdown-out crates/kovan-literature/generated/markdown/open/author2026topic.md
+
+# 4. Acceptance check: the metadata must round-trip.
+kovan lit bibtex crates/kovan-literature/open/papers/author2026topic.json
+
+# 5. Add an entry to crates/kovan-literature/CATALOGUE.md, then delete the
+#    staged copy.
+rm kovan_import/paper.pdf
+```
+
+`kovan lit outline <pdf>` prints the heading structure without importing, which
+is the cheapest way to see what a document actually contains.
+
+**Check the extracted metadata; it is frequently wrong.** Observed failures
+include the article-type label, a journal running header, the PII string and the
+Word source filename all taken as titles, editors taken as authors, and a scan
+date taken as the publication year. `kovan lit bibtex` round-tripping cleanly is
+the acceptance check — if the BibTeX is wrong, fix the JSON before cataloguing.
 
 ### Other `kovan` commands
 
