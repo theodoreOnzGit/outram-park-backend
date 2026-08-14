@@ -523,7 +523,7 @@ impl Default for FeedwaterCommand {
             return Self::Auto {
                 target_steam_temperature: design_target_steam_temperature(),
             };
-        }{
+        } else {
             return Self::Manual { 
                 mass_flow_demand: MassRate::new::<kilogram_per_second>(10.0)
             };         
