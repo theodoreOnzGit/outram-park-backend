@@ -62,6 +62,7 @@ pub mod baseline;
 pub mod date;
 pub mod git;
 pub mod historian;
+pub mod kloc;
 pub mod tokens;
 pub mod trailer;
 pub mod transcript;

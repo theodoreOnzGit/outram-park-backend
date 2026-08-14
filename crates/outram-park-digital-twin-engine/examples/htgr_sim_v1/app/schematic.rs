@@ -107,7 +107,16 @@
 //! reflector** borings, where the real rods are -- not in the pebble bed.
 //!
 //! The drawn depth is **slewed** toward the slider's setpoint rather than
-//! snapping to it, so a drag produces visible rod travel. Two honesty notes:
+//! snapping to it, so a drag produces visible rod travel.
+//!
+//! On a **scram** the drawn depth is floored at `scram_insertion_fraction`, the
+//! protection system's own demand, matching the physics -- which uses the deeper
+//! of operator command and scram demand. That floor bypasses the display slew
+//! because the scram ramp is already rate-limited to a 2 s bank drop by
+//! [`crate::physics::protection`], and slewing it again would draw the rods
+//! still falling long after the reactivity had gone in.
+//!
+//! Two honesty notes on the drive:
 //!
 //! - The **drive speed is ILLUSTRATIVE**, not a plant figure. No published
 //!   HTR-10 rod drive speed was found in this project's scoping notes or
@@ -1004,6 +1013,22 @@ pub fn draw_schematic(
         commanded_rod_insertion,
         ControlRodDrive::htr10(commanded_rod_insertion),
     );
+    // A SCRAM must be visible. The physics uses
+    // `ReactorProtectionSystem::effective_rod_insertion`, i.e. the DEEPER of the
+    // operator's command and the scram demand, so drawing the operator's command
+    // alone left the rods sitting withdrawn on screen while the model had
+    // already driven them in -- the plant shutting down with no rod motion to
+    // explain it.
+    //
+    // The floor is taken AFTER the slew, and deliberately not fed through it:
+    // `scram_insertion_fraction` is already a rate-limited travel, the
+    // protection system's 2 s gravity-assisted bank drop
+    // (`protection::SCRAM_INSERTION_TIME_S`). Passing it through the 20 s
+    // motor-drive slew as well would rate-limit it twice and draw the bank still
+    // travelling ten times longer than the reactivity it inserted took to
+    // arrive. The operator's own command keeps the motor slew, because that
+    // slider IS a step input.
+    let drawn_rod_insertion = drawn_rod_insertion.max(snapshot.scram_insertion_fraction as f32);
     vessel.set_control_rod_frac(drawn_rod_insertion);
     ui.put(
         at_rect(Rect::from_center_size(REACTOR_CENTRE, REACTOR_BOX)),

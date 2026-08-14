@@ -1108,6 +1108,28 @@ This is settled direction, not a preference, and it has been applied three times
 | `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
 | `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
 | `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan-cli`) | 2026-08-14, `op-w44a.7` |
+| `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
+| `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
+
+**`scripts/` now holds no tracked Python** — only `.gitignore` and four shell
+scripts. (`find` reports hits under `scripts/vendor/`; that directory is
+gitignored and holds repository clones the retired `kloc_accounting.py` made.
+It is now orphaned: `kovan kloc` vendors into its own output directory instead,
+so `scripts/vendor/` can be deleted.)
+
+**Seven first-party Python files remain, and are NOT covered by this rule as
+written:** `crates/outram-park-fork-coolprop/dev/*.py` — `gen_fluid.py`,
+`gen_incompressible.py`, `gen_mixture.py`, their three `regen_*_all.py`
+drivers, and `gen_latex_doc.py`. Six are **code generation** (they read the
+gitignored upstream CoolProp JSON clone and emit Rust), which is neither
+documentation nor accounting; `gen_latex_doc.py` scaffolds a LaTeX doc series
+and arguably is. Whether to bring them in is a maintainer decision that has not
+been made — tracked as a bead. Do not delete them under this rule without
+asking.
+
+Everything else matching `*.py` is vendored upstream source under
+`upstream_source/` (NJOY2016, Blender, TRISO-ATOPS) or gitignored
+`collaboration/` scratch, both explicitly out of scope.
 
 **Why, concretely.** A script merely has to exist; an interpreter has to be
 installed, on `PATH`, and not shadowed. On Windows `python3` routinely resolves
@@ -1136,7 +1158,14 @@ reader* can re-derive a table or figure, replacing it with a Rust binary raises
 the reproduction bar from "run this script" to "build a 40-crate Rust
 workspace", and may break a byte-identical copy held in a manuscript
 repository. Raise it with the maintainer rather than applying this rule
-mechanically. See `docs/python-retirement.md` for the live list.
+mechanically.
+
+`kloc_accounting.py` was exactly that case: it reproduces the Annals of Nuclear
+Energy submission's tables and figure. It was put to the maintainer on
+2026-08-14 with the consequence stated, and they chose the full port. **The
+manuscript's own copy and any text telling a reader to run the script are now
+stale and are the maintainer's to update** — that repository is not visible from
+here.
 
 ## Rust design rules (mandatory)
 

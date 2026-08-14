@@ -139,6 +139,35 @@ enum Command {
         #[arg(long)]
         private: bool,
     },
+    /// Reproduce the paper's productivity accounting: pre-agentic baseline,
+    /// agentic output, CSVs, LaTeX tables and the SVG figure.
+    ///
+    /// Replaces the retired `scripts/kloc_accounting.py`. Measures committed
+    /// state at named refs, never a working directory.
+    Kloc {
+        /// Workspace root (used to site the default output directory).
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Where to write the artifacts (default: `<root>/docs/kloc-accounting`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Clone any repository not found locally into the vendor directory.
+        #[arg(long)]
+        clone: bool,
+        /// Ignore local checkouts and measure only the vendor clones. This is
+        /// the reproduction path: it needs nothing but git and network access.
+        #[arg(long)]
+        from_github: bool,
+        /// Fetch the vendor clones before measuring.
+        #[arg(long)]
+        fetch: bool,
+        /// Compare the measurements against the manuscript's published figures.
+        #[arg(long)]
+        check: bool,
+        /// Skip the SVG figure.
+        #[arg(long)]
+        no_figure: bool,
+    },
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
     #[command(subcommand)]
@@ -292,6 +321,19 @@ fn run(command: Command) -> Result<(), String> {
             root,
             private,
         } => commands::api_docs::run(&root, &krate, private).map_err(|error| error.to_string()),
+        Command::Kloc {
+            root,
+            out,
+            clone,
+            from_github,
+            fetch,
+            check,
+            no_figure,
+        } => {
+            let out_dir = out.unwrap_or_else(|| commands::kloc::default_out_dir(&root));
+            commands::kloc::run(out_dir, clone, from_github, fetch, check, no_figure)
+                .map_err(|error| error.to_string())
+        }
         Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
         Command::Tokens(cmd) => commands::tokens::run(cmd),
         Command::Historian {

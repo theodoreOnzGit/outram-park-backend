@@ -20,6 +20,7 @@ pub mod api_docs;
 pub mod discover;
 pub mod gen;
 pub mod historian;
+pub mod kloc;
 pub mod lit;
 pub mod methods;
 pub mod scan;
