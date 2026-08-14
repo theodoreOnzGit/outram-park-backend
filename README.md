@@ -135,6 +135,13 @@ kovan api-docs outram-mc-libs --private  # include private items
 one crate that fails to document says nothing about the other thirty-six. It
 lists what failed at the end and exits non-zero.
 
+Notes, if kovan is not yet on cargo and you are running in this github 
+repo:
+
+```bash
+cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
+```
+
 ### Bundling docs for an external agent
 
 `kovan agent-docs-gen` packs the API docs into a flat, upload-ready set of files
