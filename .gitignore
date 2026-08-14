@@ -91,3 +91,11 @@ xin wang thesis.pdf
 # recurring merge conflicts as a generated file committed on many branches).
 docs/token-usage.md
 .aider*
+
+# Generated upload bundle for an EXTERNAL chat agent (`kovan agent-docs-gen`).
+# Flat per-crate copies of the committed crates/<crate>/docs/api.md mirrors plus
+# a generated AGENTS.md and roster — entirely derived, several MB, and rebuilt in
+# seconds. Regenerate with:
+#   kovan agent-docs-gen --list
+#   kovan agent-docs-gen --crates <crate>,<crate>
+/agent-docs/

@@ -34,3 +34,8 @@ default = []
 # code behind it is additionally source-gated to `cfg(not(target_os =
 # "android"))`. The default build stays ripgrep-only and Android-clean.
 language-servers = []
+
+[dev-dependencies]
+# `agent_docs` tests build a synthetic crate tree rather than depending on the
+# real `crates/` contents, which change and whose api.md files are megabytes.
+tempfile.workspace = true

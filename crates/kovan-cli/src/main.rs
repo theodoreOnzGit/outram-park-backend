@@ -94,6 +94,36 @@ enum Command {
     },
     /// List the numerical-method codegen catalogue.
     Methods,
+    /// Bundle the workspace's API docs into a flat, upload-ready set of files
+    /// for an external chat agent with a fixed context budget.
+    ///
+    /// Always writes `AGENTS.md` (the workspace's coding rules) and `_INDEX.md`
+    /// (a condensed signature index of every documented crate); `--crates` adds
+    /// the verbatim `api.md` of the crates named. Output is flat because upload
+    /// dialogs take files but not folders.
+    AgentDocsGen {
+        /// Workspace root (the directory containing `crates/`).
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Crate directories whose full `api.md` to include, comma-separated.
+        #[arg(long, value_delimiter = ',')]
+        crates: Vec<String>,
+        /// Where to write the bundle (default: `<root>/agent-docs`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Context budget in ESTIMATED tokens (default 200000).
+        #[arg(long)]
+        budget: Option<u64>,
+        /// Generate `docs/api.md` for selected crates that lack one. Needs a
+        /// nightly toolchain, `rustdoc-md`, and python3; not offline and not
+        /// deterministic, so it never runs unless asked for.
+        #[arg(long)]
+        regenerate_missing: bool,
+        /// Print the crate inventory and per-crate token estimates, and write
+        /// nothing. Run this first to choose a selection.
+        #[arg(long)]
+        list: bool,
+    },
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
     #[command(subcommand)]
@@ -223,6 +253,25 @@ fn run(command: Command) -> Result<(), String> {
             out,
         } => commands::symbols::run_summary(root, lang, id, name, out),
         Command::Gen(cmd) => commands::gen::run(cmd),
+        Command::AgentDocsGen {
+            root,
+            crates,
+            out,
+            budget,
+            regenerate_missing,
+            list,
+        } => {
+            let out_dir = out.unwrap_or_else(|| commands::agent_docs_gen::default_out_dir(&root));
+            commands::agent_docs_gen::run(
+                &root,
+                &out_dir,
+                &crates,
+                budget,
+                regenerate_missing,
+                list,
+            )
+            .map_err(|error| error.to_string())
+        }
         Command::Setup { dry_run, force } => commands::setup::run(dry_run, force),
         Command::Tokens(cmd) => commands::tokens::run(cmd),
         Command::Historian {

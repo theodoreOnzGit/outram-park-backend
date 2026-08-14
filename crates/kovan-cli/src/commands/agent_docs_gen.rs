@@ -1,0 +1,295 @@
+//! `kovan agent-docs-gen` — bundle the workspace's API documentation into a
+//! flat set of files for an external chat agent with a fixed context budget.
+//!
+//! The bundling logic lives in
+//! [`kovan_semantics::agent_docs`](kovan_semantics::agent_docs); this module is
+//! the `clap` surface, the console report, and the one opt-in path that shells
+//! out to regenerate missing mirrors.
+//!
+//! # Why the output is flat
+//!
+//! The bundle exists to be uploaded to a web chat window, and those upload
+//! dialogs take **files but not folders**. One file per crate, no
+//! subdirectories, ever.
+//!
+//! # Regeneration is opt-in and is the one non-offline path
+//!
+//! `--regenerate-missing` runs `scripts/gen_api_docs.py`, which needs a nightly
+//! toolchain (rustdoc's JSON output is nightly-only), the `rustdoc-md` binary,
+//! and a Python interpreter, and compiles the crate. That is explicitly outside
+//! KOVAN's offline/deterministic charter, so it is **off by default** and never
+//! runs on its own — the same treatment [`super::setup`] gives its online
+//! `cargo install` path. The default invocation reads files and writes files,
+//! nothing more.
+
+use std::io;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use kovan_semantics::agent_docs::{estimated_tokens, inventory, write_bundle, CrateEntry};
+
+/// Default context budget, in estimated tokens.
+///
+/// 200,000 — the window the maintainer works against through NUS AI Know. It is
+/// a *default*, overridable with `--budget`, and it is compared against an
+/// **estimate** (four bytes per token), so treat a bundle that fits on paper as
+/// "probably fits" rather than "fits".
+const DEFAULT_BUDGET_TOKENS: u64 = 200_000;
+
+/// Run `kovan agent-docs-gen`.
+///
+/// `workspace_root` is the directory containing `crates/`; `out_dir` is where
+/// the flat bundle is written (cleared of `*.md` first). `selected` names the
+/// crate directories whose `api.md` is copied in full — every crate with a
+/// mirror still appears in the condensed `_INDEX.md` regardless.
+///
+/// Prints a per-file table with byte sizes and estimated tokens, a running
+/// total against `budget_tokens`, and the crates that were omitted. Returns an
+/// error only for genuine IO failures; being over budget is reported loudly but
+/// is not an error, because the estimate is not precise enough to justify
+/// refusing to write.
+pub fn run(
+    workspace_root: &Path,
+    out_dir: &Path,
+    selected: &[String],
+    budget_tokens: Option<u64>,
+    regenerate_missing: bool,
+    list_only: bool,
+) -> io::Result<()> {
+    let budget = budget_tokens.unwrap_or(DEFAULT_BUDGET_TOKENS);
+    let mut entries = inventory(workspace_root)?;
+
+    if list_only {
+        print_inventory(&entries);
+        return Ok(());
+    }
+
+    validate_selection(&entries, selected)?;
+
+    if regenerate_missing {
+        regenerate(workspace_root, &entries, selected)?;
+        // Sizes and presence changed underneath us, so re-read rather than
+        // reporting stale figures.
+        entries = inventory(workspace_root)?;
+    }
+
+    let report = write_bundle(workspace_root, out_dir, &entries, selected)?;
+
+    println!("wrote {} ({} files)", out_dir.display(), report.files.len());
+    println!();
+    println!("CORE UPLOAD SET -- upload these every time:");
+    println!("  {:<44} {:>12} {:>14}", "FILE", "BYTES", "EST. TOKENS");
+    for (name, bytes) in &report.files {
+        if name.ends_with(".index.md") {
+            continue;
+        }
+        println!(
+            "  {:<44} {:>12} {:>14}",
+            name,
+            bytes,
+            estimated_tokens(*bytes)
+        );
+    }
+    println!("  {}", "-".repeat(72));
+    let core = report.core_estimated_tokens();
+    println!(
+        "  {:<44} {:>12} {:>14}",
+        "core total",
+        report.core_bytes(),
+        core
+    );
+    println!();
+
+    if report.exceeds_budget(budget) {
+        println!(
+            "OVER BUDGET: the core set alone is ~{core} estimated tokens against \
+             a {budget} budget (over by ~{}).",
+            core - budget
+        );
+        println!("  Drop a crate from --crates, or raise --budget if you know it fits.");
+    } else {
+        let headroom = budget - core;
+        println!("Core set fits: ~{core} of {budget} estimated tokens, ~{headroom} headroom.");
+
+        let optional = report.optional_files();
+        if !optional.is_empty() {
+            println!();
+            println!(
+                "OPTIONAL -- condensed indexes for the {} crates whose full docs are NOT",
+                optional.len()
+            );
+            println!("in the core set. Add as many as the headroom allows, smallest first:");
+            println!("  {:<44} {:>12} {:>14}", "FILE", "BYTES", "EST. TOKENS");
+            let mut spent = 0_u64;
+            let mut fit = 0_usize;
+            for (name, bytes) in &optional {
+                let cost = estimated_tokens(*bytes);
+                let marker = if spent + cost <= headroom {
+                    spent += cost;
+                    fit += 1;
+                    "  fits"
+                } else {
+                    "  over"
+                };
+                println!("  {name:<44} {bytes:>12} {cost:>14}{marker}");
+            }
+            println!("  {}", "-".repeat(72));
+            println!(
+                "  {fit} of {} optional files fit in the headroom (~{spent} tokens).",
+                optional.len()
+            );
+        }
+    }
+    println!();
+    println!(
+        "  These are ESTIMATES at {} bytes/token, not measurements, and generated",
+        kovan_semantics::agent_docs::BYTES_PER_ESTIMATED_TOKEN
+    );
+    println!("  API markdown tokenizes worse than prose -- expect the true figure to be higher.");
+
+    if !report.missing_api_docs.is_empty() {
+        println!();
+        println!(
+            "{} crates have no docs/api.md and appear nowhere in the bundle:",
+            report.missing_api_docs.len()
+        );
+        for name in &report.missing_api_docs {
+            println!("  {name}");
+        }
+        println!("  AGENTS.md names them, so the agent is told not to invent their APIs.");
+        println!("  Run with --regenerate-missing to generate them (needs nightly + rustdoc-md).");
+    }
+
+    Ok(())
+}
+
+/// Print the crate inventory without writing anything (`--list`).
+///
+/// This is the command to run first: it shows which crates have a mirror and
+/// what each would cost, so a selection can be made against the budget before
+/// any file is written.
+fn print_inventory(entries: &[CrateEntry]) {
+    println!(
+        "  {:<44} {:>12} {:>14}",
+        "CRATE", "API BYTES", "EST. TOKENS"
+    );
+    let mut documented = 0_usize;
+    let mut total = 0_u64;
+    for entry in entries {
+        if entry.has_api_docs() {
+            documented += 1;
+            total += entry.api_bytes;
+            println!(
+                "  {:<44} {:>12} {:>14}",
+                entry.directory,
+                entry.api_bytes,
+                estimated_tokens(entry.api_bytes)
+            );
+        } else {
+            println!("  {:<44} {:>12} {:>14}", entry.directory, "-", "-");
+        }
+    }
+    println!("  {}", "-".repeat(72));
+    println!(
+        "  {} crates, {} with API docs, {} bytes, ~{} estimated tokens if bundled whole",
+        entries.len(),
+        documented,
+        total,
+        estimated_tokens(total)
+    );
+}
+
+/// Reject a selection naming a crate that does not exist, or one with no mirror.
+///
+/// Failing here rather than silently skipping matters: a typo in `--crates`
+/// would otherwise produce a bundle quietly missing the very crate the user
+/// wanted, and they would not find out until the agent started guessing.
+fn validate_selection(entries: &[CrateEntry], selected: &[String]) -> io::Result<()> {
+    for name in selected {
+        match entries.iter().find(|e| &e.directory == name) {
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!(
+                        "no crate directory `{name}` under crates/ -- run \
+                         `kovan agent-docs-gen --list` to see the available names"
+                    ),
+                ));
+            }
+            Some(entry) if !entry.has_api_docs() => {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!(
+                        "crate `{name}` has no docs/api.md -- generate it with \
+                         `--regenerate-missing` (needs a nightly toolchain and \
+                         rustdoc-md), or drop it from --crates"
+                    ),
+                ));
+            }
+            Some(_) => {}
+        }
+    }
+    Ok(())
+}
+
+/// Generate `docs/api.md` for selected crates that lack one.
+///
+/// **Not offline and not deterministic** — see this module's header. Restricted
+/// to the crates named in `selected`, not every crate missing a mirror:
+/// regenerating all of them would add megabytes to a corpus already several
+/// times over budget, and nothing would use them.
+///
+/// Fails loudly and names the missing prerequisite rather than falling back to
+/// a bundle that quietly lacks those crates.
+fn regenerate(
+    workspace_root: &Path,
+    entries: &[CrateEntry],
+    selected: &[String],
+) -> io::Result<()> {
+    let script = workspace_root.join("scripts").join("gen_api_docs.py");
+    if !script.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("{} not found", script.display()),
+        ));
+    }
+
+    for name in selected {
+        let Some(entry) = entries.iter().find(|e| &e.directory == name) else {
+            continue;
+        };
+        if entry.has_api_docs() {
+            continue;
+        }
+        println!("regenerating docs/api.md for {name} (nightly rustdoc + rustdoc-md)...");
+        let status = Command::new("python3")
+            .arg(&script)
+            .arg(name)
+            .current_dir(workspace_root)
+            .status()
+            .map_err(|error| {
+                io::Error::new(
+                    error.kind(),
+                    format!(
+                        "could not run python3 for {}: {error} -- \
+                         --regenerate-missing needs a Python interpreter, a \
+                         nightly toolchain (`rustup toolchain install nightly`) \
+                         and `cargo install rustdoc-md --locked`",
+                        script.display()
+                    ),
+                )
+            })?;
+        if !status.success() {
+            return Err(io::Error::other(format!(
+                "gen_api_docs.py failed for {name} (exit {status}) -- check that \
+                 a nightly toolchain and rustdoc-md are installed"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Default output directory, relative to the workspace root.
+pub fn default_out_dir(workspace_root: &Path) -> PathBuf {
+    workspace_root.join("agent-docs")
+}

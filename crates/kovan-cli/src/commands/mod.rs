@@ -15,6 +15,7 @@
 //! implemented on a foreign enum from this crate, so each library enum gets a
 //! local twin plus a `From` conversion, matched exhaustively both ways.
 
+pub mod agent_docs_gen;
 pub mod discover;
 pub mod gen;
 pub mod historian;
