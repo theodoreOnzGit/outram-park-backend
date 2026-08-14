@@ -159,6 +159,15 @@ roster of every crate), `<crate>.index.md` (condensed signatures), and
 rules. The command reports a per-file token estimate against a budget and says
 how many optional files fit in the headroom.
 
+Again, if kovan is not on cargo and you are running on github:
+
+```bash
+cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
+cargo run --release -p kovan-cli --bin kovan agent-docs-gen --out ~/Desktop/agent-docs.
+```
+
+As seen here, u are able to put this on the desktop.
+
 ### Running from anywhere
 
 None of these need to be run from the workspace root. When `--root` is omitted
