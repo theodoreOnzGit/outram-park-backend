@@ -1063,9 +1063,7 @@ Two things depend on them, and both are load-bearing:
   committed markdown mirror of a crate's public API and the third leg of the
   per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
   replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
-  needs no Python interpreter — same reasoning as epic `op-yz7b`. Note
-  `scripts/` still holds `kloc_accounting.py` and
-  `gen_aster_behaviour_registry.py`; those are untouched.)
+  needs no Python interpreter — same reasoning as epic `op-yz7b`.)
 - **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
   crate that has none, so it can be bundled for an external agent.
 
@@ -1096,6 +1094,49 @@ worked, and an unverified assumption about tooling is what hid it.**
 The general form: an untested code path plus an assumed-missing prerequisite
 produces a confident, false statement about both. Check the prerequisite, then
 run the path.
+
+## No Python for documentation or accounting — build it into `kovan` (HARD RULE)
+
+**Documentation generation and repository accounting are `kovan`'s job. Do not
+write, restore, or reach for a Python script to do either. If `kovan` cannot do
+it yet, extend `kovan`.**
+
+This is settled direction, not a preference, and it has been applied three times:
+
+| Retired | Replaced by | When |
+|---|---|---|
+| `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan-cli`) | 2026-08-14, `op-w44a.7` |
+
+**Why, concretely.** A script merely has to exist; an interpreter has to be
+installed, on `PATH`, and not shadowed. On Windows `python3` routinely resolves
+to a Microsoft Store alias stub that prints an advert and exits — which silently
+turned the token-accounting git hooks into no-ops and let commits ship with no
+`API-Usage` trailer at all. That is the failure mode this rule exists to
+prevent: not an error, a **silent** no-op in the thing that keeps the records
+honest. The reasoning is recorded in `.githooks/kovan-bin.sh`.
+
+**Scope.** Documentation generation, repository accounting, and the artifacts
+either produces. It does **not** reach into `collaboration/` (gitignored scratch
+owned by collaborators), `reference-data/` (vendored upstream trees), or a
+third-party tool that happens to be written in Python.
+
+**When porting, gate parity — do not waive it.** `op-yz7b` shipped without a
+byte-for-byte comparison against the Python it replaced, and that gap is
+recorded above as a known weakness. `op-w44a.7` did gate it: the Python-generated
+`api.md` was already committed, so regenerating through the Rust path and
+running `git diff --quiet` was a real check, and it passed. **Do that.** If the
+old output is not committed anywhere, generate it with the Python *before*
+deleting the script, commit it, then port.
+
+**A Python script that is a published reproducibility artifact is a different
+question — ask, do not delete.** Where a script exists so that a *journal
+reader* can re-derive a table or figure, replacing it with a Rust binary raises
+the reproduction bar from "run this script" to "build a 40-crate Rust
+workspace", and may break a byte-identical copy held in a manuscript
+repository. Raise it with the maintainer rather than applying this rule
+mechanically. See `docs/python-retirement.md` for the live list.
 
 ## Rust design rules (mandatory)
 
