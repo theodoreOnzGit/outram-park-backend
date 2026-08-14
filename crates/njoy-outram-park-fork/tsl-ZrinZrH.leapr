@@ -1,0 +1,132 @@
+ leapr
+ 20
+ 'zr in zrh '/
+ 8 1/
+ 58 1058./
+ 90.436 6.20 1/
+ 0/
+ 40 118 1/
+ 5.569960-3 1.113970-2 1.670960-2 2.227940-2 2.785030-2 3.342020-2
+ 3.899000-2 4.455990-2 5.012970-2 5.569960-2 6.197720-2 6.905200-2
+ 7.702430-2 8.601070-2 9.613620-2 1.075460-1 1.204100-1 1.349060-1
+ 1.512480-1 1.696460-1 1.904030-1 2.137820-1 2.401440-1 2.698430-1
+ 3.033230-1 3.410470-1 3.835590-1 4.314750-1 4.854800-1 5.463400-1
+ 6.149230-1 6.922150-1 7.793270-1 8.775070-1 9.881590-1 1.112860+0
+ 1.253390+0 1.411770+0 1.590210+0 1.791430+0
+ 0.00000e+0 9.88350e-2 1.97672e-1 2.96508e-1 3.95344e-1 4.34872e-1
+ 4.74411e-1 5.13939e-1 5.53478e-1 5.93016e-1 6.32545e-1 6.72083e-1
+ 7.11611e-1 7.51150e-1 7.90678e-1 8.30217e-1 8.69755e-1 9.09284e-1
+ 9.48822e-1 9.88350e-1 1.02788e+0 1.06740e+0 1.10691e+0 1.14653e+0
+ 1.18605e+0 1.22557e+0 1.26509e+0 1.34412e+0 1.42326e+0 1.50230e+0
+ 1.58134e+0 1.66047e+0 1.73951e+0 1.81855e+0 1.89768e+0 1.97672e+0
+ 2.05576e+0 2.13479e+0 2.21393e+0 2.29297e+0 2.37200e+0 2.45114e+0
+ 2.53018e+0 2.60921e+0 2.76739e+0 2.92556e+0 3.08364e+0 3.24181e+0
+ 3.39988e+0 3.55805e+0 3.71623e+0 3.87430e+0 3.95344e+0 4.34872e+0
+ 4.74411e+0 5.13939e+0 5.53478e+0 5.93016e+0 6.32545e+0 6.72083e+0
+ 7.11611e+0 7.51150e+0 7.90678e+0 8.30217e+0 8.69755e+0 9.09283e+0
+ 9.48822e+0 9.88350e+0 1.02788e+1 1.06740e+1 1.10691e+1 1.14653e+1
+ 1.18605e+1 1.22557e+1 1.26509e+1 1.30461e+1 1.34412e+1 1.38364e+1
+ 1.42326e+1 1.46278e+1 1.50230e+1 1.54182e+1 1.58134e+1 1.62085e+1
+ 1.66047e+1 1.69999e+1 1.73951e+1 1.77903e+1 1.81855e+1 1.85806e+1
+ 1.89768e+1 1.93720e+1 1.97672e+1 2.05576e+1 2.13479e+1 2.21393e+1
+ 2.29297e+1 2.37200e+1 2.45114e+1 2.53018e+1 2.60921e+1 2.68835e+1
+ 2.76739e+1 2.84642e+1 2.92556e+1 3.00460e+1 3.08363e+1 3.16277e+1
+ 3.24181e+1 3.32085e+1 3.39988e+1 3.47902e+1 3.55806e+1 3.63709e+1
+ 3.71623e+1 3.79527e+1 3.87430e+1 3.95344e+1
+ 293.6/
+ .001 161/
+  0. .08 .32 .70 1.40 2.15 3.10
+  4.50 6.30 8.40 11.0 14.2 16.4
+  21.3 27.97 39.79 57.36 63.10 67.14
+  69.42 76.32 73.70 43.53 42.53 41.67
+  37.72 29.24 66.07 94.47 58.62 19.57
+  1.031
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0.
+ .00218 .0828 .1340
+  .1650 .1860 .2050 .2150 .2170 .2360
+  .2340 .239 .242 .235 .223 .221
+  .214 .198 .189 .170 .206 .207
+  .202 .193 .197 .200 .212 .225
+  .243 .253 .253 .262 .228 .195
+  .194 .204 .263 .390 .170 .108
+  .0775 .0592 .0406 .0235 .0112 .00424
+  .000266 0./
+ 0. 0. 1. 0./
+ 0/
+ -400./ 
+ -500./
+ -600./
+ -700./
+ -800./
+ -1000./
+ -1200./
+ ' zr(zrh)   lanl       eval-may05 macfarlane'/
+ ' ref. 3               dist-'/
+ ' ---- endf/b-6        material 58'/
+ ' ----- thermal neutron scattering data'/
+ ' ------ endf-6'/
+ ' '/
+ ' temperatures = 293.6 400 500 600 700 800 1000 1200 deg k.'/
+ ' '/
+ ' history'/
+ ' -------'/
+ ' '/
+ ' changed temperatures may05'/
+ ' '/
+ ' this evaluation was produced at los alamos in 1993 using'/
+ ' the same model as the ga evaluation of 1968 (ref 1).  the'/
+ ' leapr module of njoy was used for the calculation, and'/
+ ' the alpha and beta grids were extended slightly.  constants'/
+ ' that match the endf/b-vi values were used.'/
+ ' '/
+ ' theory'/
+ ' ------'/
+ ' the lattice dynamics of zrh were computed from a central'/
+ ' force model.  the slightly tetragonal lattice of zrh_2 was'/
+ ' approximated by a face-centered-cubic lattice.  four force'/
+ ' constants (mu, gamma, nu, and delta) were introduced describing'/
+ ' respectively the interaction of a zirconium atoms with its'/
+ ' nearest neighbors ( 8 h atoms) and its next nearest neighbors'/
+ ' (12 zr atoms), and the interaction of a hydrogen atom with'/
+ ' its next nearest neighbors (6 h atoms) and its third nearest'/
+ ' atoms (12 h atoms).  eigenvalues and eigenvectors of the'/
+ ' dynamical matrix were calculated, and a phonon frequency'/
+ ' spectrum was obtained by means of a root sampling technique.'/
+ ' weighted frequency spectra for hydrogen in zrh were then'/
+ ' obtained by appropriate use of the dynamical matrix'/
+ ' eigenvectors (ref. 2).'/
+ ' '/
+ ' the final values of the four force constants were obtained'/
+ ' by fitting both specific heat and neutron data.  the'/
+ ' position of an optical peak observed by neutron scattering'/
+ ' techniques to be centered roughly around 0.14 ev determines'/
+ ' the constant mu, while the overall width and shape of this'/
+ ' peak determine nu and delta respectively.  existing neutron'/
+ ' data are not sufficiently precise to confirm the structure'/
+ ' predicted in the optical peak by the central force model.'/
+ ' specific heat data were used to determine the force'/
+ ' constant gamma, which primarily determines the upper'/
+ ' limit on the phonon energies associated with acoustic modes.'/
+ ' '/
+ ' references'/
+ ' ----------'/
+ ' 1. j.u.koppel and d.h.houston, reference manual for endf thermal'/
+ '    neutron scattering data, general atomic report ga-8774'/
+ '    revised and reissued as endf-269 by the national nuclear'/
+ '    data center, july 1978.'/
+ ' 2. e.l.slaggie, "central force lattice dynamical model for'/
+ '    zirconium hydride", ga-8132 (1967).'/
+ ' 3. r.e.macfarlane, new thermal neutron scattering files for '/
+ '    endf/b-vi release 2, los alamos national laboratory report '/
+ '    la-12639-ms (march 1994). '/
+ ' '/
+ /
+ stop
