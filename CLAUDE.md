@@ -299,6 +299,14 @@ Using them here is deliberate: this workspace is their proving ground, so
 **reach for them first** where they cover the task, and **report every rough
 edge you hit** (see "Raising issues" below).
 
+**For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer
+direction, 2026-08-15).** `kovan` (`kovan-semantics`, `kovan-literature`, etc.)
+is this workspace's *own* deterministic knowledge layer — reach for it first
+for repo understanding, symbol/code queries, and literature scoped to this
+codebase. `kopitiam` remains the right tool for what `kovan` doesn't cover:
+token-frugal generic file skimming (`outline`/`slice`) and `rename`/
+`code-actions`, which `kovan` has no equivalent for.
+
 > **Licence note.** `kopi-beans` is AGPL-3.0-only. That is fine here because it
 > is **consumed as a standalone binary**, never linked or vendored — see the
 > hard boundary below. Do not add it as a dependency of any workspace crate.
@@ -446,121 +454,26 @@ cargo build --release -p kovan-literature --features digitise-gui
   maintainer supplies the hand-digitised Tobias oracle (`op-amfh`). Do not
   describe digitised data as validated before then.
 
-**Known friction (as of kopitiam 0.2.5, verified 2026-08-07):**
+**Known friction and resolution history — read `docs/kopitiam-issues/`, don't
+trust a version number written here.** Both tools have moved fast enough
+(kopi-beans alone: 0.1.3 -> 0.1.4 -> 0.1.6 -> 0.1.7 in a single day, once) that
+any dated claim in this file goes stale almost immediately. The current open
+queue, the upstream issue-number table, and full closing evidence for every
+resolved issue live in **`docs/kopitiam-issues/README.md`** (open + upstream
+state table) and **`docs/kopitiam-issues/resolved/`** (closed, each with the
+re-run reproduction and new output). Check there, or run `bn --version` /
+`cargo install --list`, before citing either tool's behaviour as current.
 
-- `kopitiam check` / `kopitiam test` expose **no `--release` or profile flag**
-  and run the `dev` profile, which conflicts with this workspace's mandatory
-  release-mode rule. Confirmed still present in 0.2.5 — `kopitiam check
-  --help` / `kopitiam test --help` list only `--root`, `-p/--package`,
-  `--compact`, `--json`. Filed upstream as
-  [kopitiam#1](https://github.com/theodoreOnzGit/kopitiam/issues/1) (open).
-  Until that is fixed, use `kopitiam check --compact` for fast iteration but
-  **still run the mandated `cargo check --workspace --lib --tests` / `cargo
-  test --release`** before calling work done. Do not let kopitiam's default
-  profile silently replace the release-mode requirement.
+Two facts that stay true regardless of version churn:
 
-> **Version note (2026-08-13): kopi-beans 0.1.6 is now installed** (`bn
-> --version`), upgraded from 0.1.3 mid-session. Two things changed and were
-> **verified on this host**, not merely announced:
->
-> - **The daemon's runaway sync-retry loop is fixed.** On 0.1.3 it retried a
->   failing `git push` roughly every 2.5 s forever (`consecutive_failures: 30`),
->   spawning a console window per attempt on Windows and making the workspace
->   unusable until the daemon was killed. On 0.1.6, a 20-second idle
->   measurement with the daemon running showed **zero** process spawns and
->   `consecutive_failures: 0`. Full evidence:
->   `docs/kopitiam-issues/resolved/kopi-beans-daemon-retries-failing-push-forever.md`.
-> - **The `clock_skew` warning now explains itself** — that 'ahead' is usually
->   not a clock fault, that an idle store reads the same way, that it
->   self-clears on the next write, and what it actually affects. That was the
->   substance of the "unactionable" complaint below.
->
-> **The 0.1.2 / 0.1.3-dated items below have NOT been re-tested on 0.1.6.** Do
-> not restate any of them as current-version findings.
-
-**Known friction, each dated against the version it was actually tested on
-(0.1.2 / 0.1.3 — see the version note above; none re-run on 0.1.6):**
->
-> **Superseded again the same day: kopi-beans 0.1.7 is what is installed now**
-> (`bn --version` and `cargo install --list`, checked 2026-08-13 on the Arch
-> host). The 0.1.6 findings above were verified on another machine and are kept
-> because they are real closing evidence — but **nothing in this section has
-> been re-tested on 0.1.7.** Treat every version-dated claim here as history,
-> and re-run before citing one as current.
->
-> The version has moved 0.1.3 -> 0.1.4 -> 0.1.6 -> 0.1.7 within a single day, so
-> a version number written into this file is stale almost immediately. Prefer
-> `bn --version` over trusting this paragraph.
-
-
-- **RESOLVED — `bn` *can* now push the store ref to a non-local remote.**
-  Verified 2026-08-12 against kopi-beans **0.1.3**: the daemon published
-  `refs/heads/beads/store` to GitHub on its own, with the manual push
-  deliberately withheld. Closing evidence (commands and output) is in
-  **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**.
-  `last_sync: never` is **no longer** the expected steady state. The upstream
-  issue [kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is
-  **CLOSED upstream** (2026-08-13), re-verified on kopi-beans 0.1.4: after a
-  fetch of that specific ref, local and origin match exactly and a manual push
-  reports `Everything up-to-date`. The manual push remains valid and idempotent as a fallback when the
-  daemon is not running:
-
-  ```bash
-  git push origin refs/heads/beads/store:refs/heads/beads/store
-  ```
-
-- **`clock_skew` warning is unactionable.** On 2026-08-12 (kopi-beans 0.1.3)
-  `bn status` printed `clock_skew: 3657601 ms ahead` under `warnings:` without
-  saying **which two clocks** it compared, and ~20 minutes later the warning had
-  self-cleared with no corrective action taken. Filed as
-  [kopitiam#21](https://github.com/theodoreOnzGit/kopitiam/issues/21) (open).
-  **This is not a confirmed `bn` defect:** this host's clock is not
-  NTP-disciplined (`timedatectl` reports `System clock synchronized: no`,
-  `NTP service: inactive`, re-confirmed 2026-08-12), so the skew may be a
-  genuine host clock problem. The issue is about the *warning* being
-  unactionable, not about the skew figure being wrong.
-- **`--features test-harness` does not compile** (0.1.2, 2026-08-07; not
-  re-run on 0.1.3). Only relevant if someone
-  builds kopi-beans from source; this workspace consumes the released binary,
-  so it does not bite here. Filed as
-  [kopitiam#17](https://github.com/theodoreOnzGit/kopitiam/issues/17) (open).
-- **Two `#[should_panic]` tests can never pass under `--release`** (they rely
-  on debug-only assertions; 0.1.2, 2026-08-07, not re-run on 0.1.3). Same scope
-  caveat as #17. Filed as
-  [kopitiam#18](https://github.com/theodoreOnzGit/kopitiam/issues/18) (open).
-- **`bn setup claude --project` is safe on 0.1.3 — the blanket "never run it"
-  rule is retired.** The old rule was justified by an unverified 0.1.1 branding
-  bug. On 2026-08-12 `bn setup claude --project` was run against **0.1.3** and
-  behaved correctly: it wrote `SessionStart` + `PreCompact` `bn prime` hooks
-  into **`.claude/settings.local.json`**, which is **gitignored** (matched by
-  `~/.config/git/ignore`), so the change is personal, not shared. The committed
-  **`.claude/settings.json` was left byte-identical** (`git diff HEAD` empty,
-  re-confirmed 2026-08-12) with its `SessionStart` `bn prime --mcp` and `Stop`
-  `./scripts/push-beads-store.sh` hooks intact.
-  - **Only the `--project` form was tested.** The unflagged / global form was
-    **not** run and is **not** cleared — do not use it without testing it
-    first, and do not assume it writes to the same file.
-  - `.claude/settings.json` is still hand-maintained: `bn setup claude` is not
-    the way to change it, and nothing should be allowed to overwrite it.
-  - Note `--hook-json` (the flag beads-rs used) is not a valid `bn prime` flag;
-    `bn prime --mcp` is the working equivalent.
-
-**Resolved since 0.1.1 (verified against kopi-beans 0.1.2 on 2026-08-07):**
-the `unsupported meta format_version 1` store blocker
-([kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)), the
-`bd` branding in `bn`'s own help/`bn upgrade`
-([#14](https://github.com/theodoreOnzGit/kopitiam/issues/14)), and the stray
-unprefixed `tailnet_*` binary on install
-([#15](https://github.com/theodoreOnzGit/kopitiam/issues/15)).
-
-**Resolved in 0.1.3 (verified 2026-08-12):** the store ref could not be pushed
-to a non-local remote
-([#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)).
-
-Closing evidence for all four is recorded in `docs/kopitiam-issues/resolved/`.
-**Upstream state re-checked 2026-08-13: #14, #15, #16 and #19 are all now
-CLOSED on GitHub.** #14 and #15 were closed by the maintainer; #19 was closed
-after re-verifying it on 0.1.4. Nothing in this resolved list is outstanding.
+- **`kopitiam check`/`kopitiam test` have no `--release` flag** and run the
+  `dev` profile. Use them for fast iteration, but still run the mandated
+  `cargo check --workspace --lib --tests` / `cargo test --release` before
+  calling work done — do not let kopitiam's default profile substitute for it.
+- **`bn setup claude --project` is verified safe** — it writes only the
+  gitignored `.claude/settings.local.json` and leaves the hand-maintained
+  `.claude/settings.json` untouched. The **unflagged/global form was never
+  tested** — do not run it without testing first.
 
 **CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
 WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
@@ -796,59 +709,33 @@ data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
 `refs/beads/backup/*`. `.beads/issues.jsonl` is a local compat-export
 **symlink**, not the source of truth.
 
-> **Migrated 2026-08-07** from **beads-rs** (`bd`) to **kopi-beans** (`bn`) —
-> both forks of the same lineage, per explicit maintainer instruction. **The
-> migration is complete and the store is live.** kopi-beans 0.1.2 fixed the
-> `unsupported meta format_version 1` incompatibility
-> ([kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)) and
-> migrated `refs/heads/beads/store` to format_version 2; `bn status` worked and
-> reported **626 issues** *at migration time* (it reports 850 as of
-> 2026-08-12 — that count moves, do not treat it as a fixed fact).
-> `bd` is uninstalled and its daemon stopped. A
-> pre-migration snapshot of the v1 store is preserved at
-> **`refs/beads/premigration-v1-20260807`** — **do not delete it.** A prior
-> migration, 2026-07-20, moved this workspace off a Go/Dolt implementation
-> onto beads-rs; that history is superseded by this entry.
+> **Migrated 2026-08-07** from beads-rs (`bd`) to kopi-beans (`bn`), per
+> explicit maintainer instruction. **The migration is complete and the store
+> is live**; `bd` is uninstalled. A pre-migration snapshot is preserved at
+> **`refs/beads/premigration-v1-20260807`** — **do not delete it.** Full
+> migration evidence (the format_version fix, issue counts at the time) is in
+> `docs/kopitiam-issues/resolved/kopi-beans-store-format-version-1.md`; run
+> `bn status` for the current issue count rather than trusting a number
+> written here.
 
 - **KOPI-BEANS ONLY.** Do **not** install or use `beads-rs` (binary `bd`) in
   this workspace — `bn` is the mandated tool and `bd` is gone.
-- **Install:** `cargo install kopi-beans` (binary `bn`; **0.1.3** installed as
-  of 2026-08-12). The store in this repo is already initialised — do **not** run
-  `bn init` here. `.claude/settings.json` carries a hand-written, verified hook
-  (`bn prime --mcp`) and is maintained **by hand** — never let a generator
-  rewrite it. `bn setup claude --project` has been checked on 0.1.3 and does
-  not touch it (it writes the gitignored `.claude/settings.local.json`); see
-  the "Known friction" list above for exactly what was and was not tested.
+- **Install:** `cargo install kopi-beans` (binary `bn`; check the current
+  version with `bn --version` rather than a number written here). The store in
+  this repo is already initialised — do **not** run `bn init` here.
+  `.claude/settings.json` carries a hand-written, verified hook (`bn prime
+  --mcp`) and is maintained **by hand** — never let a generator rewrite it.
+  `bn setup claude --project` is verified safe (see "Dogfood KOPITIAM and
+  KOPI-BEANS" above); the unflagged/global form is not.
 - **Standing rule: you MUST use `bn`** for all task/roadmap tracking and
   progress bookkeeping — in preference to TodoWrite / TaskCreate / ad-hoc
   markdown TODO lists. Create/close/update issues as work happens; file one for
   any follow-up you discover.
-- **Syncing is automated — a `Stop` hook publishes the store ref.**
-  `.claude/settings.json` runs `./scripts/push-beads-store.sh` at the end of
-  each turn, which pushes `refs/heads/beads/store` to `origin` (and only that
-  ref). This is the one standing exception to the never-auto-push rule; see
-  "Workflow rules" above for its exact scope. The equivalent by hand, still
-  valid and idempotent:
-
-  ```bash
-  git push origin refs/heads/beads/store:refs/heads/beads/store
-  ```
-
-  **The underlying bug is RESOLVED, and the hook is therefore redundant but
-  retained.** This workspace used to record that kopi-beans could not publish
-  the store ref at all
-  ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)), making
-  `last_sync: never` the expected steady state. That no longer holds: on
-  2026-08-12, against kopi-beans **0.1.3**, the daemon advanced
-  `refs/heads/beads/store` on GitHub with the manual push deliberately withheld.
-  Full closing evidence — the commands run and their actual output — is in
-  **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**; read
-  that rather than re-deriving it.
-  - **#19 is CLOSED upstream** as of 2026-08-13, re-verified on 0.1.4.
-  - The `Stop` hook is consequently **no longer load-bearing**, but it is kept
-    (see "Workflow rules" above). Whether to retire it, and with it the
-    never-auto-push carve-out it justified, is an **open maintainer decision** —
-    not something an agent may act on.
+- **Syncing is automated.** See "Workflow rules" above (the `Stop`-hook
+  carve-out) for the mechanics and exact scope — not repeated here. The daemon
+  publishes `refs/heads/beads/store` on its own; the manual push
+  (`git push origin refs/heads/beads/store:refs/heads/beads/store`) remains a
+  valid, idempotent fallback for when the daemon isn't running.
 - **If `bn` is genuinely unavailable** — an OS/environment with no `bn` build
   (a locked-down sandbox, or Android before a Termux build is confirmed) — fall
   back to the harness task tools (TaskCreate / TodoWrite) and note in your
@@ -1081,19 +968,13 @@ which rustdoc-md && cargo install --list | grep rustdoc-md
 rustup toolchain list
 ```
 
-This is a rule because it was broken on 2026-08-14. An agent reported
-`--regenerate-missing` as "implemented but not exercised — this host has no
-nightly toolchain or rustdoc-md installed", wrote that into the hand-off, the
-commit message, and a bead, and shipped it. Both were in fact installed
-(`rustdoc-md v0.2.0`, `nightly-x86_64-unknown-linux-gnu`), and running the
-command immediately exposed a real bug: the selection was validated for a
-missing `docs/api.md` *before* regeneration ran, so the flag rejected the crate
-for lacking exactly the file it existed to create. **The feature had never
-worked, and an unverified assumption about tooling is what hid it.**
-
-The general form: an untested code path plus an assumed-missing prerequisite
-produces a confident, false statement about both. Check the prerequisite, then
-run the path.
+This is a rule because an agent once shipped a bead/commit/hand-off claiming
+`rustdoc-md`/nightly were missing on a host where both were installed —
+running the check instead immediately exposed a real bug in
+`--regenerate-missing` that the false "tool missing" assumption had been
+hiding. The general form: an untested code path plus an assumed-missing
+prerequisite produces a confident, false statement about both. Check the
+prerequisite, then run the path.
 
 ## No Python for documentation or accounting — build it into `kovan` (HARD RULE)
 
@@ -1537,12 +1418,12 @@ bn close <id>         # Complete work
 
 - Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists. The only exception is an environment with no working `bn` build at all, which must be stated in the hand-off.
 - Run `bn prime` for workflow context.
-- **Sync is automated.** A `Stop` hook runs `./scripts/push-beads-store.sh`, which publishes `refs/heads/beads/store` (and only that ref) to `origin` at the end of each turn. This is the single standing exception to the never-auto-push rule and it never extends to branches, tags, or `main`. As of kopi-beans 0.1.3 the daemon publishes that ref by itself ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is **resolved** — verified 2026-08-12, evidence in `docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`; closed upstream 2026-08-13 after re-verification on 0.1.4), so the hook is redundant. **It is kept regardless, and so is the carve-out** — retiring either is the maintainer's decision, not an agent's.
+- **Sync is automated.** See "Workflow rules" above for the `Stop`-hook mechanics and scope (not repeated here).
 - Persistent durable facts / user preferences: keep using the per-project
   `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
   above — this workspace keeps MEMORY.md; it is **not** dropped).
 
-**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`, plus a preserved pre-migration snapshot at `refs/beads/premigration-v1-20260807` that must not be deleted. The daemon debounces local writes and, as of kopi-beans 0.1.3, **does** publish them to the git remote by itself (kopitiam#19 resolved, verified 2026-08-12); the manual push is now a fallback for when the daemon is not running, not a required step. `.beads/issues.jsonl` is a local compat-export symlink. Migrated off beads-rs on 2026-08-07 (itself migrated off Go beads on 2026-07-20).
+**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`, plus a preserved pre-migration snapshot at `refs/beads/premigration-v1-20260807` that must not be deleted. The daemon debounces local writes and publishes them to the git remote itself; the manual push is a fallback for when the daemon is not running. `.beads/issues.jsonl` is a local compat-export symlink.
 
 ## Agent Context Profiles
 
