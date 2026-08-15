@@ -145,6 +145,10 @@ path = "examples/fhr_sim_v2/main.rs"
 name = "htgr_sim_v1"
 path = "examples/htgr_sim_v1/main.rs"
 
+[[example]]
+name = "distillation_sim_v1"
+path = "examples/distillation_sim_v1/main.rs"
+
 # CIET Educational Simulator v2 -- the simulator itself (physics + egui GUI +
 # embedded OPC-UA server). A [[bin]], not an example, so `cargo install` /
 # `cargo run --bin` reach it directly. Its physics model lives in the binary's

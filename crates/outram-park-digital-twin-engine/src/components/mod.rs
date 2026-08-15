@@ -13,6 +13,7 @@ pub mod bend;
 pub mod condenser;
 pub mod control_rod_drive;
 pub mod cooling_tower;
+pub mod distillation_column;
 pub mod excursion;
 pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
@@ -37,6 +38,7 @@ pub use condenser::{
 };
 pub use control_rod_drive::slewed_control_rod_insertion;
 pub use cooling_tower::CoolingTowerVisual;
+pub use distillation_column::DistillationColumnVisual;
 pub use excursion::{ExcursionOverlay, ExcursionStage, ExcursionTrigger};
 pub use fhr_reactor_vessel::FhrReactorVesselVisual;
 pub use heat_exchanger::{
