@@ -911,7 +911,7 @@ dependencies = [
 
 [[package]]
 name = "boon-lay"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "approx",
@@ -1132,7 +1132,7 @@ dependencies = [
 
 [[package]]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "approx",
  "csv",
@@ -5009,7 +5009,7 @@ dependencies = [
 
 [[package]]
 name = "nee_soon"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "njoy-outram-park-fork",
  "outram-foam-appbuilder-lib",
@@ -5056,7 +5056,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "njoy-outram-park-fork"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "directories",
  "fs2",
@@ -5725,7 +5725,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-appbuilder-lib"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "approx",
  "ndarray",
@@ -5739,7 +5739,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-basic-lib"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "approx",
  "ndarray",
@@ -5775,7 +5775,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-multiphase"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "approx",
  "outram-foam-basic-lib",
@@ -5785,7 +5785,7 @@ dependencies = [
 
 [[package]]
 name = "outram-foam-turbulence-lib"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "approx",
  "ndarray",
@@ -5796,7 +5796,7 @@ dependencies = [
 
 [[package]]
 name = "outram-mc-libs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "approx",
  "fission-yields-data",
@@ -5815,7 +5815,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-digital-twin-engine"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "async-opcua",
  "chem-eng-real-time-process-control-simulator",
@@ -5855,7 +5855,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-coolprop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "approx",
  "uom 0.38.0",
@@ -5863,7 +5863,7 @@ dependencies = [
 
 [[package]]
 name = "outram-park-fork-dwsim-libs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "approx",
  "ndarray",
@@ -7646,7 +7646,7 @@ dependencies = [
 
 [[package]]
 name = "tampines"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "boon-lay",
  "chem-eng-real-time-process-control-simulator",
@@ -7673,7 +7673,7 @@ dependencies = [
 
 [[package]]
 name = "tampines-steam-tables"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",
@@ -7705,7 +7705,7 @@ dependencies = [
 
 [[package]]
 name = "teh-o-prke"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",
@@ -8112,7 +8112,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tuas_boussinesq_solver"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",

@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-coolprop"
-version = "0.1.1"
+version = "0.1.2"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only: although CoolProp itself is MIT, this crate ships GPL-3.0-only

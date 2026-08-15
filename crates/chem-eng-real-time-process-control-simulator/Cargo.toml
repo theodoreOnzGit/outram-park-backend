@@ -1,6 +1,6 @@
 [package]
 name = "chem-eng-real-time-process-control-simulator"
-version = "0.2.0"
+version = "0.2.1"
 authors.workspace = true
 edition.workspace = true
 # NOTE: relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by maintainer

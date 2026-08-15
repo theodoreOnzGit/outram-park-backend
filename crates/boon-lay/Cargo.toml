@@ -1,6 +1,6 @@
 [package]
 name = "boon-lay"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
