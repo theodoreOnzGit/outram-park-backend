@@ -176,15 +176,25 @@
 
 pub mod control_rods;
 pub mod kinetics;
-pub mod pebble_bed;
 pub mod primary_loop;
 pub mod protection;
+pub mod reactor_model;
 pub mod secondary_loop;
 pub mod steam_generator;
 /// Remedies for a steam-generator temperature cross -- see the module docs for
 /// why they exist and why the default does nothing.
 pub mod temperature_cross;
 pub mod turbine_generator;
+
+/// The former `physics::pebble_bed` module, migrated 2026-08-16 into
+/// [`reactor_model::one_node`] as the `ReactorModelKind::OneNode` fidelity
+/// tier. Re-exported under its historical name because `kinetics`,
+/// `primary_loop` and `secondary_loop` all read bed geometry and correlations
+/// from it (`design()`, `bed_heat_capacity()`, `superficial_area()`, ...)
+/// independent of which [`reactor_model::ReactorModelKind`] the plant's core
+/// is currently running -- see [`reactor_model`]'s module doc comment for why
+/// that geometry stays put rather than being duplicated per tier.
+pub use reactor_model::one_node as pebble_bed;
 
 use outram_park_digital_twin_engine::animation::residence_time_from_flow;
 use outram_park_digital_twin_engine::app_scaffold::mark_component;
@@ -198,9 +208,9 @@ use uom::si::time::second;
 
 use crate::app::state::HtgrSnapshot;
 use kinetics::{power_in_megawatts, HtgrKinetics};
-use pebble_bed::PebbleBedCore;
 use primary_loop::HeliumPrimaryLoop;
 use protection::ReactorProtectionSystem;
+use reactor_model::{ReactorModel, ReactorModelKind};
 use secondary_loop::{SecondaryCommands, SteamSecondaryLoop};
 use turbine_generator::TurbineGeneratorShaft;
 
@@ -464,7 +474,7 @@ pub const STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP: usize = 2;
 ///
 /// # How the loop works, and why the exchanger is outside it
 ///
-/// Each corrector rewinds the cheap lumped states -- [`PebbleBedCore`],
+/// Each corrector rewinds the cheap lumped states -- [`ReactorModel`],
 /// [`primary_loop::PrimaryLumpedState`] and the secondary's feed flow -- to the
 /// start of the timestep and re-advances them against the latest iterate of the
 /// coupled quantities. The **steam generator is advanced exactly once**, on the
@@ -632,9 +642,11 @@ pub fn nominal_helium_flow() -> MassRate {
 pub struct HtgrPlant {
     /// Reactor kinetics slot (prompt excursion + delayed-neutron bank).
     pub kinetics: HtgrKinetics,
-    /// Lumped pebble-bed core -- the graphite thermal inertia between the
-    /// fission power and the helium.
-    pub core: PebbleBedCore,
+    /// Pebble-bed core -- the graphite thermal inertia between the fission
+    /// power and the helium, at whichever fidelity tier is currently
+    /// selected. See [`reactor_model`] for the tiers and
+    /// [`Self::set_reactor_model_kind`] to switch between them.
+    pub core: ReactorModel,
     /// Helium primary loop.
     pub primary: HeliumPrimaryLoop,
     /// Steam secondary loop.
@@ -663,7 +675,7 @@ impl HtgrPlant {
         let nominal_power = nominal_thermal_power();
         Self {
             kinetics: HtgrKinetics::new_illustrative(nominal_power),
-            core: PebbleBedCore::new(),
+            core: ReactorModel::new(ReactorModelKind::OneNode),
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
             shaft: TurbineGeneratorShaft::new(),
@@ -686,6 +698,26 @@ impl HtgrPlant {
     #[allow(dead_code)] // snapshot candidate -- not yet wired into the app layer
     pub fn pebble_temperature(&self) -> ThermodynamicTemperature {
         self.core.temperature()
+    }
+
+    /// The pebble-bed fidelity tier currently selected. See
+    /// [`Self::set_reactor_model_kind`] to change it.
+    #[allow(dead_code)] // read by a future control-panel dropdown; see reactor_model module docs
+    pub fn reactor_model_kind(&self) -> ReactorModelKind {
+        self.core.kind()
+    }
+
+    /// Switch the pebble-bed fidelity tier, rebuilding [`Self::core`] fresh at
+    /// `kind`'s own cold-start seed (see [`reactor_model`]'s module doc
+    /// comment for why a switch rebuilds rather than converts state in
+    /// place). A no-op if `kind` is already selected, so a GUI `ComboBox`
+    /// following the `HeaterType` write-on-change-only pattern can call this
+    /// unconditionally without resetting the bed on every repaint.
+    #[allow(dead_code)] // write side of a future control-panel dropdown; see reactor_model module docs
+    pub fn set_reactor_model_kind(&mut self, kind: ReactorModelKind) {
+        if self.core.kind() != kind {
+            self.core = ReactorModel::new(kind);
+        }
     }
 
     /// External reactivity in dollars currently commanded by the control-rod

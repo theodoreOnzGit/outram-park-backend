@@ -1,4 +1,6 @@
-//! Pebble-bed core -- a **lumped placeholder**, HTR-10-shaped.
+//! One-node pebble-bed core -- the **`ReactorModelKind::OneNode`** fidelity
+//! tier, HTR-10-shaped. See [`super`] for the fidelity-selection enum this
+//! model is one variant of.
 //!
 //! Replaces this simulator's former prismatic-block core with a single lumped
 //! **graphite-matrix pebble** control volume sitting in an HTR-10-sized bed:
@@ -10,7 +12,14 @@
 //! property relation replaced by a graphite-matrix one, because an HTR-10
 //! pebble is 97% graphite by mass.
 //!
-//! [`PebbleBedThermalHydraulics`]: ../../fhr_sim_v2/app/prke_backend/pebble_bed_thermal_hydraulics.rs
+//! [`PebbleBedThermalHydraulics`]: ../../../fhr_sim_v2/app/prke_backend/pebble_bed_thermal_hydraulics.rs
+//!
+//! Also the geometry/correlation home for the other two fidelity tiers: the
+//! HTR-10 core geometry, the Wakao film correlation and the pebble properties
+//! defined here are properties of the *bed*, not of the one-node solve, so
+//! [`super::axial_seven_node`] and [`super::coarse_mesh_genfoam`] reuse the
+//! free functions in this module rather than duplicating them. Only the
+//! *thermal solve* -- [`PebbleBedCore::step`] -- is one-node-specific.
 //!
 //! ## Nodalisation -- read this first
 //!
@@ -86,7 +95,7 @@
 //! - **The bed friction is now real, but it lives next door and it is not a
 //!   resolved bed.** The KTA packed-bed correlation
 //!   ([`outram_park_digital_twin_engine::htr10::kta`]) is evaluated by
-//!   [`super::primary_loop::bed_pressure_drop`] on this module's geometry, and
+//!   [`super::super::primary_loop::bed_pressure_drop`] on this module's geometry, and
 //!   it reproduces the published Virtual Test Bed worked example exactly. What
 //!   it does *not* buy is a nodalised bed: the correlation is applied once at
 //!   the bulk mean, not integrated down an axial profile, and the pressure drop
@@ -432,7 +441,7 @@ pub fn conduction_only_axial_heat_rate(
 /// Hold this next to the helium loop and step it *before* the loop, handing the
 /// returned heat rate to the loop in place of the raw fission power -- that is
 /// what gives the primary loop the graphite's thermal inertia (see
-/// [`super::HtgrPlant::step`]).
+/// [`super::super::HtgrPlant::step`]).
 #[derive(Clone, Copy, Debug)]
 pub struct PebbleBedCore {
     /// Specific enthalpy of the lumped graphite pebble, zero at 298.15 K.
@@ -809,7 +818,7 @@ fn helium_specific_heat(temperature: ThermodynamicTemperature) -> f64 {
 ///
 /// Falls back to representative helium values if a transport model or the
 /// density solve declines (the same defensive shape
-/// [`super::primary_loop`] uses): a GUI frame must not panic on a transient
+/// [`super::super::primary_loop`] uses): a GUI frame must not panic on a transient
 /// excursion, and helium at these conditions is close enough to ideal that the
 /// fallback is a sane bound rather than a fabricated number.
 fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
