@@ -1,6 +1,6 @@
 //! Thermal S(α,β) ACE table for **H in ZrH** — the incoherent-*elastic* path.
 //!
-//! Fixture: `tests/resources/tsl-HinZrH-ENDF8.0.endf` (MAT=7). Unlike Al-27
+//! Fixture: `reference-data/endf/tsl-HinZrH-ENDF8.0.endf` (MAT=7). Unlike Al-27
 //! (coherent Bragg elastic), H(ZrH) is a hydrogenous solid whose bound protons
 //! scatter *incoherently* elastically: MF=7/MT=2 with `LTHR=2` (a bound cross
 //! section `σ_b` + the Debye-Waller integral `W'(T)`), plus MF=7/MT=4 incoherent
@@ -28,8 +28,8 @@ const HZRH_MAT: i32 = 7;
 const NANG: usize = 8; // equally-probable cosines (elastic NEA and inelastic nang)
 
 fn hzrh_mf7() -> Mf7 {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/tsl-HinZrH-ENDF8.0.endf");
+    let p =
+        njoy_outram_park_fork::reference_data::reference_endf_dir().join("tsl-HinZrH-ENDF8.0.endf");
     let tape = Tape::read(File::open(p).unwrap()).unwrap();
     parse_mf7(&tape, HZRH_MAT).unwrap()
 }

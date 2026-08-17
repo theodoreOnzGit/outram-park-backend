@@ -874,14 +874,14 @@ and in sync with the code. It is a recurring command, not a one-off.
    ranges/assumptions, units even when `uom`-typed). Never strip `uom`.
 
    **Then regenerate the rustdoc → markdown API mirror** for each crate whose
-   doc comments changed, so `docs/api.md` stays in sync with the code:
+   doc comments changed, so `docs/<crate>-api.md` stays in sync with the code:
 
    ```bash
    kovan api-docs <crate-dir-name>                    # e.g. outram-foam-basic-lib
    ```
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
-   binary → `crates/<crate>/docs/api.md`. Both prerequisites are **mandatory —
+   binary → `crates/<crate>/docs/<crate>-api.md`. Both prerequisites are **mandatory —
    install them, do not skip the mirror** (see "API-doc toolchain" below).
    `docs/` is `exclude`d from the packaged crate, so this mirror is repo-only
    and never
@@ -946,7 +946,7 @@ cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
 
 Two things depend on them, and both are load-bearing:
 
-- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/api.md`, the
+- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/<crate>-api.md`, the
   committed markdown mirror of a crate's public API and the third leg of the
   per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
   replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
@@ -955,7 +955,7 @@ Two things depend on them, and both are load-bearing:
   crate that has none, so it can be bundled for an external agent.
 
 **Never report a mirror as un-regenerable because a tool is missing.** Installing
-`rustdoc-md` takes one command; skipping the mirror leaves `docs/api.md`
+`rustdoc-md` takes one command; skipping the mirror leaves `docs/<crate>-api.md`
 silently contradicting the code, which is exactly the drift the bookkeeping pass
 exists to prevent. "The toolchain isn't installed" is a task, not a finding.
 

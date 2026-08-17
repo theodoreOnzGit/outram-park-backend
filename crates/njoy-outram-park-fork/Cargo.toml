@@ -15,8 +15,11 @@ description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing 
 keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 
 # LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
-# Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
-# tarball — they are development-only and crates.io does not run them.
+# Integration tests are excluded from the tarball — development-only, and
+# crates.io does not run them. Raw ENDF tapes are not merely excluded here: as
+# of 2026-08-17 they do not live under this crate at all, but at the repo root
+# in reference-data/endf/ (~89 MB, U-235 alone 35 MB, against a 10 MB crates.io
+# cap). See src/reference_data.rs; tests/no_endf_inside_crates.rs enforces it.
 # Patterns are gitignore-style globs: an unanchored "LICENSE*" would also match
 # the vendored upstream_source/NJOY2016/ licence files (gitignored, so cargo
 # then refuses to package a "dirty" tree). Leading "/" anchors to the crate root.

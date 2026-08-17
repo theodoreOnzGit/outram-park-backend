@@ -99,7 +99,7 @@ enum Command {
     ///
     /// Always writes `AGENTS.md` (the workspace's coding rules) and `_INDEX.md`
     /// (a condensed signature index of every documented crate); `--crates` adds
-    /// the verbatim `api.md` of the crates named. Output is flat because upload
+    /// the verbatim `<crate>-api.md` of the crates named. Output is flat because upload
     /// dialogs take files but not folders.
     AgentDocsGen {
         /// Workspace root (the directory containing `crates/`). Discovered
@@ -107,7 +107,7 @@ enum Command {
         /// then `~`, `~/Documents`, `~/Documents/research`.
         #[arg(long)]
         root: Option<PathBuf>,
-        /// Crate directories whose full `api.md` to include, comma-separated.
+        /// Crate directories whose full `<crate>-api.md` to include, comma-separated.
         #[arg(long, value_delimiter = ',')]
         crates: Vec<String>,
         /// Where to write the bundle (default: `<root>/agent-docs`).
@@ -116,7 +116,7 @@ enum Command {
         /// Context budget in ESTIMATED tokens (default 200000).
         #[arg(long)]
         budget: Option<u64>,
-        /// Generate `docs/api.md` for selected crates that lack one. Needs a
+        /// Generate `docs/<crate>-api.md` for selected crates that lack one. Needs a
         /// nightly toolchain and `rustdoc-md`; not offline and not
         /// deterministic, so it never runs unless asked for.
         #[arg(long)]
@@ -126,7 +126,7 @@ enum Command {
         #[arg(long)]
         list: bool,
     },
-    /// Regenerate a crate's `docs/api.md` -- the committed markdown mirror of
+    /// Regenerate a crate's `docs/<crate>-api.md` -- the committed markdown mirror of
     /// its public API -- via nightly rustdoc JSON piped through `rustdoc-md`.
     ///
     /// Replaces the retired `scripts/gen_api_docs.py`. Needs a nightly
@@ -135,7 +135,7 @@ enum Command {
         /// Crate directory name under `crates/`, e.g. `outram-foam-basic-lib`.
         /// Omit when using `--all`.
         krate: Option<String>,
-        /// Regenerate every crate that already has a `docs/api.md`, instead of
+        /// Regenerate every crate that already has a `docs/<crate>-api.md`, instead of
         /// one named crate.
         #[arg(long)]
         all: bool,

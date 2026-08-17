@@ -20,7 +20,7 @@ notebooks; the transport/geometry/tally/depletion notebooks belong to
 - **License:** the openmc-notebooks are MIT-licensed (OpenMC project,
   open-source) — compatible with quoting/deriving verification cases here.
 - **Data used in the live tests:** open-source ENDF/B-VIII.0 tapes shipped under
-  `tests/resources/` and the embedded CORE WMP / MGXS blobs (ENDF/B-VII.1 / VIII.0,
+  the repo-root `reference-data/endf/` and the embedded CORE WMP / MGXS blobs (ENDF/B-VII.1 / VIII.0,
   public). No restricted or proprietary data (per `DATA_POLICY.md`).
 
 ## This crate's notebook subset

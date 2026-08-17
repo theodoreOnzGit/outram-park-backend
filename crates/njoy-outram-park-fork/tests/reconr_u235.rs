@@ -1,6 +1,6 @@
 //! RECONR Phase 2c integration tests: U-235 (ENDF/B-VIII.0 evaluation).
 //!
-//! Fixture: `tests/resources/n-092_U_235-ENDF8.0.endf`
+//! Fixture: `reference-data/endf/n-092_U_235-ENDF8.0.endf`
 //! Source:  NJOY2016 test suite (ENDF/B-VIII.0, MAT=9228)
 //!
 //! U-235 is the canonical Phase 2c (Reich-Moore, LRF=3) test nuclide:
@@ -33,8 +33,8 @@ use uom::si::{energy::electronvolt, area::barn};
 const MAT: i32 = 9228; // U-235
 
 fn u235_path() -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     p
 }
 

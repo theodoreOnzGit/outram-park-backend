@@ -75,6 +75,10 @@ pub mod nuclear_data;
 pub mod photon;
 pub mod prelude;
 pub mod reconr;
+/// Locating the repository's reference ENDF tapes for V&V. The tapes live at
+/// the repo root (`reference-data/endf/`), never inside a crate — they are far
+/// too large for a crates.io package.
+pub mod reference_data;
 /// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
 /// and, in future, compute bound-atom thermal cross sections. Distinct from
 /// [`acer::thermal`], which *writes* the thermal ACE table.

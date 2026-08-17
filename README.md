@@ -121,8 +121,8 @@ cargo install rustdoc-md --locked
 
 ### Regenerating the API mirrors
 
-Each crate carries `crates/<crate>/docs/api.md`, a single-file Markdown mirror
-of its public API generated from the doc comments. To regenerate:
+Each crate carries `crates/<crate>/docs/<crate>-api.md`, a single-file Markdown
+mirror of its public API generated from the doc comments. To regenerate:
 
 ```bash
 kovan api-docs --all                     # refresh every crate that has a mirror
