@@ -24,11 +24,20 @@
 //! corroboration against the paper's Table 2 in
 //! `crates/kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md` --
 //! that earlier note only reached two of the sixteen axial rows before the
-//! script above completed the rest, so **the two documents currently
-//! disagree in one place**: the earlier note's axial boundary list includes
-//! `114.7` where this script's `z_ticks` does not. That is not resolved here;
-//! it is a hand-reading question for the maintainer/Yan Ren to settle against
-//! the figure, not something this module should silently pick a side on.
+//! script above completed the rest.
+//!
+//! **Correction (maintainer, 2026-08-17), resolving a discrepancy this doc
+//! comment used to flag:** the script's single volume 4 over z = [105, 130]
+//! was missing a split at `z = 114.7` -- volume 82 sits above it
+//! (105-114.7), volume 30 below (114.7-130). This is the reason the derived
+//! doc's axial list already had `114.7` where the unmodified script's
+//! `z_ticks` did not: the derived doc was right and the script had the gap.
+//! `htr10_rz_zones()` below carries the correction; `generate_htr10_geometry.py`
+//! itself (the GitHub attachment, not part of this repo's tree) still does
+//! not, so a diff against it will show this one place, deliberately. The
+//! material assigned to both 82 and 30 (`Graphite`) is *assumed*, inherited
+//! from the pre-split volume 4 -- not independently confirmed, since only
+//! the z-split itself was given.
 //!
 //! Citation caution carries over unchanged: the preprint "should not be cited
 //! or reproduced without permission of the author" -- for publication, cite
@@ -201,7 +210,16 @@ pub fn htr10_rz_zones() -> Vec<Htr10RzZone> {
     // Central upper stack.
     zones.push(rectangle(2, 0.0, 90.0, 40.0, 95.0, Graphite));
     zones.push(rectangle(3, 0.0, 90.0, 95.0, 105.0, ColdChamber));
-    zones.push(rectangle(4, 0.0, 90.0, 105.0, 130.0, Graphite));
+    // CORRECTION (maintainer, 2026-08-17): the script's single volume 4 over
+    // z = [105, 130] was missing a split at z = 114.7 -- volume 82 sits
+    // above it (105-114.7), volume 30 below (114.7-130). This is the fix for
+    // the z_ticks discrepancy the module doc comment used to flag against
+    // crates/kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md's
+    // axial list, which already had 114.7. Material assumed Graphite for
+    // both, matching volume 4's original assignment -- not independently
+    // confirmed by the maintainer, since only the z-split was given.
+    zones.push(rectangle(82, 0.0, 90.0, 105.0, 114.7, Graphite));
+    zones.push(rectangle(30, 0.0, 90.0, 114.7, 130.0, Graphite));
     zones.push(rectangle(5, 0.0, 90.0, 130.0, 228.758, Cavity));
     zones.push(rectangle(99, 0.0, 90.0, 228.758, 351.818, Mixed));
 
@@ -391,20 +409,25 @@ mod tests {
     /// Methodology: this transcription's own internal self-consistency check
     /// -- the set of distinct radial and axial boundaries implied by every
     /// rectangle zone's corners must equal `r_ticks`/`z_ticks` as literally
-    /// written in `generate_htr10_geometry.py` (reproduced below). This
-    /// catches a mistyped boundary value in the port; it does **not**
-    /// validate the transcription against the source figure itself, which is
-    /// a human's job (see the module doc comment's NOT-VALIDATED status).
+    /// written in `generate_htr10_geometry.py`, **except** for the single
+    /// `114.7` axial value introduced by the maintainer's 2026-08-17
+    /// volume-82/30 correction (see the module doc comment) -- the
+    /// unmodified script does not have it. This catches a mistyped boundary
+    /// value in the port; it does **not** validate the transcription against
+    /// the source figure itself, which is a human's job (see the module doc
+    /// comment's NOT-VALIDATED status).
     ///
-    /// Result (2026-08-17): both sets match exactly.
+    /// Result (2026-08-17): both sets match, `114.7` included as expected.
     #[test]
     fn rectangle_boundaries_match_the_source_scripts_axis_ticks() {
         let expected_r_ticks = [
             0.0, 25.0, 41.75, 70.75, 90.0, 95.6, 108.6, 140.6, 148.6, 167.793, 190.0,
         ];
+        // z_ticks per generate_htr10_geometry.py, plus 114.7 -- see the
+        // "except" note in this test's doc comment above.
         let expected_z_ticks = [
-            0.0, 40.0, 95.0, 105.0, 130.0, 228.758, 351.818, 388.764, 402.0, 430.0, 450.0, 465.0,
-            495.0, 510.0, 540.0, 610.0,
+            0.0, 40.0, 95.0, 105.0, 114.7, 130.0, 228.758, 351.818, 388.764, 402.0, 430.0, 450.0,
+            465.0, 495.0, 510.0, 540.0, 610.0,
         ];
 
         let mut r_values: Vec<f64> = Vec::new();
