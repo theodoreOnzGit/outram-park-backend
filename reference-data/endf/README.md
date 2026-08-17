@@ -31,6 +31,8 @@ Sizes are as committed; ~89 MB total.
 | `tsl-013_Al_027-ENDF8.0.endf` | Al-27 (S(α,β)) | ENDF/B-VIII.0 (thermal) | 53 | 2.0 MB | NNDC/IAEA | 2026-07-20 |
 | `tsl-HinZrH-ENDF8.0.endf` | H in ZrH | ENDF/B-VIII.0 (thermal) | 7 | 1.2 MB | NNDC/IAEA | 2026-07-20 |
 | `tsl-CinSiC.endf` | C in 3C-SiC | ENDF/B-VIII.0 (thermal) | 44 | 6.9 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
+| `tsl-SiinSiC.endf` | Si in 3C-SiC | ENDF/B-VIII.0 (thermal) | 43 | 6.9 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-17 |
+| `tsl-SiinSiC.readme` | — (evaluator's generation notes for MAT 43) | ENDF/B-VIII.0 (thermal) | 43 | 2 KB | shipped with the tape | 2026-08-17 |
 | `tsl-crystalline-graphite.endf` | C in graphite | ENDF/B-VIII.0 (thermal) | 30 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
 | `tsl-reactor-graphite-10P.endf` | C in graphite, 10 % porosity | ENDF/B-VIII.0 (thermal) | 31 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
 | `tsl-reactor-graphite-30P.endf` | C in graphite, 30 % porosity | ENDF/B-VIII.0 (thermal) | 32 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
@@ -41,7 +43,36 @@ Sizes are as committed; ~89 MB total.
 |---|---|---|---|---|---|
 | `n-009_F_019-ENDF8.0.endf` | F-19 | ENDF/B-VIII.0 (neutron) | 925 | _(fill in: IAEA NDS / NNDC)_ | _(fill in)_ |
 | `n-008_O_016-ENDF8.0.endf` | O-16 | ENDF/B-VIII.0 (neutron) | 825 | _(fill in)_ | _(fill in)_ |
-| `tsl-SiinSiC.endf` | Si in 3C-SiC | ENDF/B-VIII.0 (thermal) | 43 | _(fill in)_ | _(fill in)_ |
+| `tsl-HinH2O.endf` | H in H₂O | ENDF/B-VIII.0 (thermal) | 1 | _(fill in)_ | _(fill in)_ |
+
+## The two SiC tapes share one coherent-elastic section — do not double-count
+
+`tsl-CinSiC.endf` (MAT 44) and `tsl-SiinSiC.endf` (MAT 43) carry **byte-identical
+MF=7/MT=2 sections**: 1044 records apiece, differing only in the header line's
+`ZA`/`AWR`. Verified 2026-08-17 by extracting MT=2 from both tapes and diffing
+columns 1–66 (the data columns, excluding the MAT number) — 1043 of 1044 lines
+match exactly.
+
+That is correct evaluation practice, not an error. Coherent elastic (Bragg)
+scattering is a property of the **3C-SiC lattice as a whole**, not of one
+sublattice, so the evaluators computed one structure factor and delivered it in
+both materials. Measured at 0.0253 eV / 296 K, barn per principal atom:
+
+| Material | elastic | inelastic | total | free-gas | change |
+|---|---|---|---|---|---|
+| C in SiC (MAT 44) | 2.94078 | 0.13880 | 3.07957 | 4.9382 (C) | −37.6 % |
+| Si in SiC (MAT 43) | 2.94078 | 0.06615 | 3.00693 | 1.9914 (Si-28) | +51.0 % |
+
+**The trap:** a transport code that builds a SiC region from both S(α,β)
+materials and sums their elastic channels counts the same Bragg scattering
+twice. Attribute MT=2 to the compound once — assign it to one sublattice, or
+split it — rather than letting both nuclides carry it. This is live for the
+TRISO SiC layer (bead `op-t33q`).
+
+The evaluator's own `tsl-SiinSiC.readme` records that MT=2 "was generated using
+an 'in-house' routine", citing Zhu & Hawari's generalized coherent-elastic
+formulation (ICNC 2015) — i.e. **not** stock LEAPR, which is why regenerating
+either deck through the NJOY port yields no elastic channel at all.
 
 ## Why not inside a crate
 
