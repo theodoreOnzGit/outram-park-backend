@@ -718,25 +718,27 @@ mod tests {
     ///
     /// The default snapshot is pushed through [`plant_commands_from`] -- the
     /// same function the physics thread calls every tick, not a re-derivation --
-    /// and compared with [`PlantCommands::default`]. Then the MANUAL branch is
-    /// exercised, because the AUTO comparison alone would pass even if the
-    /// boolean were ignored entirely.
+    /// and compared with [`PlantCommands::default`]. Then the AUTO branch is
+    /// exercised by flipping `feedwater_manual` to `false`, because the MANUAL
+    /// comparison alone would pass even if the boolean were ignored entirely
+    /// (the default is already MANUAL -- see below).
     ///
-    /// Pass criteria: the AUTO case matches `PlantCommands::default()` exactly
-    /// (`PartialEq` on the whole struct, so a new field cannot be forgotten);
-    /// setting `feedwater_manual` produces
-    /// [`FeedwaterCommand::Manual`] carrying the manual slider's value, in kg/s;
-    /// and the condenser and steam-temperature scalars survive their unit
-    /// conversions to 1e-9.
+    /// Pass criteria: the MANUAL case matches `PlantCommands::default()`
+    /// exactly (`PartialEq` on the whole struct, so a new field cannot be
+    /// forgotten); clearing `feedwater_manual` produces
+    /// [`FeedwaterCommand::Auto`] carrying the target-temperature slider's
+    /// value, in kelvin; and the condenser and steam-temperature scalars
+    /// survive their unit conversions to 1e-9.
     ///
-    /// # Results (measured 2026-08-13)
+    /// # Results (measured 2026-08-17, feedwater default changed from AUTO to
+    /// MANUAL)
     ///
     /// The default snapshot maps to exactly `PlantCommands::default()`: rods
-    /// 0.6035, helium 4.3 kg/s, feedwater AUTO at 713.15 K (440 degC), condenser
-    /// 7.000 kPa. Flipping `feedwater_manual` yields
-    /// `Manual { mass_flow_demand: 3.47 kg/s }`. Interpretation: the opening
-    /// frame commands the published operating point, and the mode boolean is
-    /// read in the right direction.
+    /// 0.6035, helium 4.3 kg/s, feedwater **MANUAL at 10.0 kg/s**, condenser
+    /// 7.000 kPa. Flipping `feedwater_manual` to `false` yields
+    /// `Auto { target_steam_temperature: 713.15 K }`. Interpretation: the
+    /// opening frame commands the plant's current default, and the mode
+    /// boolean is read in the right direction.
     #[test]
     fn the_gui_defaults_are_the_plant_command_defaults() {
         let snapshot = HtgrSnapshot::default();
@@ -755,14 +757,13 @@ mod tests {
                 < 1e-9
         );
         match commands.secondary.feedwater {
-            FeedwaterCommand::Auto {
-                target_steam_temperature,
-            } => assert!(
-                (target_steam_temperature.get::<kelvin>() - snapshot.feedwater_target_steam_temp_k)
+            FeedwaterCommand::Manual { mass_flow_demand } => assert!(
+                (mass_flow_demand.get::<kilogram_per_second>()
+                    - snapshot.feedwater_manual_flow_kg_per_s)
                     .abs()
                     < 1e-9
             ),
-            FeedwaterCommand::Manual { .. } => panic!("the GUI must open in AUTO"),
+            FeedwaterCommand::Auto { .. } => panic!("the GUI must open in MANUAL"),
         }
         assert!(
             (commands.secondary.condenser_pressure.get::<kilopascal>()
@@ -771,20 +772,24 @@ mod tests {
                 < 1e-9
         );
 
-        // The MANUAL branch, so the boolean is shown to be read at all.
-        let manual_snapshot = HtgrSnapshot {
-            feedwater_manual: true,
+        // The AUTO branch, so the boolean is shown to be read at all (the
+        // default is already MANUAL, so exercising MANUAL again here would
+        // not distinguish a working boolean from an ignored one).
+        let auto_snapshot = HtgrSnapshot {
+            feedwater_manual: false,
             ..HtgrSnapshot::default()
         };
-        match plant_commands_from(&manual_snapshot).secondary.feedwater {
-            FeedwaterCommand::Manual { mass_flow_demand } => assert!(
-                (mass_flow_demand.get::<kilogram_per_second>()
-                    - manual_snapshot.feedwater_manual_flow_kg_per_s)
+        match plant_commands_from(&auto_snapshot).secondary.feedwater {
+            FeedwaterCommand::Auto {
+                target_steam_temperature,
+            } => assert!(
+                (target_steam_temperature.get::<kelvin>()
+                    - auto_snapshot.feedwater_target_steam_temp_k)
                     .abs()
                     < 1e-9
             ),
-            FeedwaterCommand::Auto { .. } => {
-                panic!("feedwater_manual = true must produce a MANUAL command")
+            FeedwaterCommand::Manual { .. } => {
+                panic!("feedwater_manual = false must produce an AUTO command")
             }
         }
     }

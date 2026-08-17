@@ -790,17 +790,24 @@ mod tests {
         let hot_side = ThermodynamicTemperature::new::<kelvin>(973.15);
         let duty = Power::new::<megawatt>(10.0);
 
+        // AUTO forced explicitly: `SecondaryCommands::default()` became
+        // MANUAL at 10.0 kg/s on 2026-08-17 (maintainer change), and this
+        // test specifically needs the AUTO feedwater controller running to
+        // reproduce the design-point shaft speed it checks against.
+        let auto_commands = crate::physics::secondary_loop::SecondaryCommands {
+            feedwater: crate::physics::secondary_loop::FeedwaterCommand::Auto {
+                target_steam_temperature:
+                    crate::physics::secondary_loop::design_target_steam_temperature(),
+            },
+            ..crate::physics::secondary_loop::SecondaryCommands::default()
+        };
+
         let mut cycle = SteamSecondaryLoop::new();
         let mut shaft = TurbineGeneratorShaft::new();
         let mut t = Time::new::<second>(0.0);
         for _ in 0..4_000 {
             t += step_dt;
-            cycle.step(
-                step_dt,
-                crate::physics::secondary_loop::SecondaryCommands::default(),
-                duty,
-                hot_side,
-            );
+            cycle.step(step_dt, auto_commands, duty, hot_side);
             shaft.step(step_dt, cycle.turbine_power(), t);
         }
 

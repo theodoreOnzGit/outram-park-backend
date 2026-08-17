@@ -515,8 +515,10 @@ pub enum FeedwaterCommand {
 }
 
 impl Default for FeedwaterCommand {
-    /// AUTO at the **published** 440 degC steam-generator outlet temperature,
-    /// which is exactly the behaviour this loop had before the mode existed.
+    /// MANUAL at 10.0 kg/s (maintainer change, 2026-08-17). Was AUTO at the
+    /// published 440 degC steam-generator outlet temperature before that --
+    /// see [`design_commands`] and the tests that explicitly rebuild AUTO
+    /// (e.g. `auto_design_commands`) for callers that still want that mode.
     fn default() -> Self {
         let auto_control = false;
         if auto_control {
@@ -524,9 +526,9 @@ impl Default for FeedwaterCommand {
                 target_steam_temperature: design_target_steam_temperature(),
             };
         } else {
-            return Self::Manual { 
+            return Self::Manual {
                 mass_flow_demand: MassRate::new::<kilogram_per_second>(10.0)
-            };         
+            };
         }
     }
 }
@@ -1337,14 +1339,34 @@ mod tests {
         Time::new::<second>(0.05)
     }
 
-    /// The plant's design commands: AUTO feedwater at the published 440 degC
-    /// and the design 7 kPa condenser back-pressure.
+    /// The plant's design commands: the design 7 kPa condenser back-pressure,
+    /// and whatever feedwater mode [`SecondaryCommands::default`] currently
+    /// carries -- **MANUAL at 10.0 kg/s as of 2026-08-17**, not AUTO. Tests
+    /// that specifically need the AUTO controller running should use
+    /// [`auto_design_commands`] instead of this function.
     ///
     /// Every pre-existing test in this module used to run implicitly at these
     /// conditions, because the loop had no operator input at all. Naming them
-    /// keeps those tests measuring what they always measured.
+    /// keeps those tests measuring what they always measured, for whichever
+    /// mode the default currently is.
     fn design_commands() -> SecondaryCommands {
         SecondaryCommands::default()
+    }
+
+    /// [`design_commands`], with feedwater forced to **AUTO** at the
+    /// published 440 degC setpoint, regardless of what
+    /// [`SecondaryCommands::default`] currently defaults to. Use this in any
+    /// test that specifically exercises the AUTO feedwater controller's
+    /// behaviour -- the default became MANUAL at 10.0 kg/s on 2026-08-17
+    /// (maintainer change), so `design_commands()` alone no longer implies
+    /// AUTO.
+    fn auto_design_commands() -> SecondaryCommands {
+        SecondaryCommands {
+            feedwater: FeedwaterCommand::Auto {
+                target_steam_temperature: design_target_steam_temperature(),
+            },
+            ..design_commands()
+        }
     }
 
     /// Hot-side (core outlet) temperature the steam generator sees in tests:
@@ -1427,17 +1449,15 @@ mod tests {
         let p = d.condenser_pressure.get::<kilopascal>();
         assert!((ranges::CONDENSER_PRESSURE_KPA.0..=ranges::CONDENSER_PRESSURE_KPA.1).contains(&p));
         match d.feedwater {
-            FeedwaterCommand::Auto {
-                target_steam_temperature,
-            } => {
-                let c = target_steam_temperature.get::<degree_celsius>();
+            FeedwaterCommand::Manual { mass_flow_demand } => {
+                let f = mass_flow_demand.get::<kilogram_per_second>();
                 assert!(
-                    (ranges::TARGET_STEAM_TEMPERATURE_C.0..=ranges::TARGET_STEAM_TEMPERATURE_C.1)
-                        .contains(&c),
-                    "the published 440 degC setpoint must be dialable, got {c}"
+                    (ranges::FEEDWATER_FLOW_KG_PER_S.0..=ranges::FEEDWATER_FLOW_KG_PER_S.1)
+                        .contains(&f),
+                    "the default 10.0 kg/s manual demand must be dialable, got {f}"
                 );
             }
-            FeedwaterCommand::Manual { .. } => panic!("the default feedwater mode must be AUTO"),
+            FeedwaterCommand::Auto { .. } => panic!("the default feedwater mode must be MANUAL"),
         }
     }
 
@@ -1570,8 +1590,8 @@ mod tests {
             loop_.mass_flow().get::<kilogram_per_second>()
         };
 
-        let auto_low = settle(design_commands(), 3.0);
-        let auto_high = settle(design_commands(), 12.0);
+        let auto_low = settle(auto_design_commands(), 3.0);
+        let auto_high = settle(auto_design_commands(), 12.0);
         let manual_low = settle(manual, 3.0);
         let manual_high = settle(manual, 12.0);
         println!(
@@ -2145,13 +2165,13 @@ mod tests {
         for _ in 0..4000 {
             low.step(
                 dt(),
-                design_commands(),
+                auto_design_commands(),
                 Power::new::<megawatt>(3.0),
                 nominal_hot_side(),
             );
             high.step(
                 dt(),
-                design_commands(),
+                auto_design_commands(),
                 Power::new::<megawatt>(12.0),
                 nominal_hot_side(),
             );
@@ -2645,7 +2665,7 @@ mod tests {
         for _ in 0..2000 {
             loop_.step(
                 dt(),
-                design_commands(),
+                auto_design_commands(),
                 Power::new::<megawatt>(4.0),
                 nominal_hot_side(),
             );
