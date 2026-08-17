@@ -31,6 +31,18 @@ Even there, pull real property data from the workspace libraries
 (`outram-park-fork-coolprop`, `tampines-steam-tables`) rather than hardcoding
 constants.
 
+**Planned future exception (maintainer direction, 2026-08-17, not yet in
+force — see `op-76hu`).** Once a given example's reactor model or widget is
+implemented, tested, AND verified working and physically accurate by a
+**human** (not just passing its own AI-written tests — see "Human review
+caught what the tests did not" below), it is meant to be promoted from
+`examples/*/physics/` (or wherever it lives) into `src/` as real library code,
+the same standard for every example model and widget in this crate, not only
+HTGR. **This rule stays "no new physics in the library" until that promotion
+trigger fires for a specific model** — do not move any example physics into
+`src/` on your own initiative; the human-V&V half of the trigger cannot be
+satisfied by an AI assistant.
+
 ## Module layout
 
 | Module | Contains |
@@ -67,6 +79,62 @@ infrastructure, or restricted infrastructure. When editing example docs, do not
 soften the "demonstration model, not a validated model" framing, and do not
 describe illustrative plant data (loop geometry, `UA` values, efficiencies,
 inventories, controller constants) as though it came from a specific design.
+
+## Human review caught what the tests did not (recorded 2026-08-14)
+
+**This section is evidence, not exhortation.** `RESPONSIBLE_USE.md` says
+AI-assisted output is untrusted draft material until a human reviews it. On
+2026-08-14 that rule earned its keep twice in one session, on work that
+compiled, passed its own tests, and carried V&V doc comments with measured
+numbers in them. Both catches came from the maintainer reading the *design*,
+not from anything automated.
+
+**1. A second-law violation that no test was looking for.** The helium was
+leaving the core hotter than the graphite heating it. It had been visible in
+the recorded results of `the_plant_outer_correctors_converge` for some time --
+`T_out = 949.7 K` against `T_bed = 896.6 K` -- sitting in a table, in a passing
+test, in a doc comment. The assistant had even *reported* the inversion and
+moved on, treating "pre-existing" as though it meant "not mine". The maintainer
+said it was unacceptable, and it turned out to have three stacked causes: an
+arithmetic-mean driving temperature that inverts above NTU = 2, two modules
+deriving the same outlet with different `c_p`, and an invented 5 s gas lag.
+None of the three would have been found by making the existing tests stricter,
+because none of them was testing the invariant at all.
+
+*Lesson:* a passing suite is evidence about the properties someone thought to
+assert. Physical invariants -- second law, mass conservation, bounded
+temperatures -- must be asserted **explicitly**, and noticing a violation is
+not the same as fixing it. `the_helium_never_leaves_the_core_hotter_than_the_bed`
+now asserts it at every step.
+
+**2. A control architecture chosen for the wrong reason.** The assistant built
+feedforward-plus-PI because that is the common industrial arrangement and reads
+as the sophisticated answer. The maintainer asked for **feedback only**. That
+is the better choice here and the assistant should have seen why: the
+feedforward was an open-loop inverse model of the very exchanger whose duty
+depends on the flow it was setting, so it was confidently wrong and the trim
+spent its authority undoing it. Removing it improved the settled error from
+-0.024 K to +0.000 K.
+
+*Lesson:* "what a real plant usually does" is not the same as "what this model
+should do". Prefer the architecture whose assumptions this model can actually
+support.
+
+**3. A related instance, same session: `c_p` where an enthalpy inverse
+belonged.** The maintainer also pointed out that deriving an outlet temperature
+as `T + Q/(m c_p)` is a first-order approximation, exact only for a vanishing
+temperature change, and that the energy balance should instead add enthalpy and
+invert the EOS for temperature. Measured afterwards: over an HTGR-sized
+2 MJ/kg core rise the `c_p` shortcut is **0.733 K** off the exact inverse. That
+is small, and it is precisely the class of small inconsistency that produced
+cause (2) of the inversion above. `outram_park_fork_coolprop::flash::temperature_hrho`
+now provides the exact backward `T(rho, h)`.
+
+**What to do differently.** Before reporting work as done: list the physical
+invariants the change could violate and assert them; when an anomaly is
+noticed, chase it or say plainly that it is unfixed and why, rather than
+filing it as an observation; and when a design has a conventional answer and a
+simpler one, say which assumptions each needs and let the human choose.
 
 ## V&V documentation
 

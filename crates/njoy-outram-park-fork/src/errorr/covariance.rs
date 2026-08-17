@@ -41,7 +41,7 @@
 //! # Validated against the real tape
 //!
 //! The field mapping below was cross-checked line-for-line against
-//! `crates/njoy-outram-park-fork/tests/resources/n-092_U_235-ENDF8.0.endf`
+//! `reference-data/endf/n-092_U_235-ENDF8.0.endf`
 //! (MAT=9228): MF=33/MT=1 (7 lines: HEAD + one NC-type subsection with
 //! `LTY=0`, a 9-pair "this reaction is the sum of its components" list) and
 //! MF=33/MT=2 (HEAD declares `NL=9`; first subsection is `NI`-type with
@@ -421,14 +421,13 @@ mod tests {
     }
 
     /// Structural smoke test against the real U-235 ENDF8.0 tape
-    /// (`tests/resources/n-092_U_235-ENDF8.0.endf`, MAT=9228): parse the
+    /// (`reference-data/endf/n-092_U_235-ENDF8.0.endf`, MAT=9228): parse the
     /// MF=33/MT=1 (total) and MF=33/MT=2 (elastic) sections and assert the
     /// invariants hand-verified against the raw file (see module docs).
     /// Structural only — no covariance values are computed or asserted.
     #[test]
     fn real_tape_mf33_mt1_and_mt2_structural_invariants() {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(std::fs::File::open(p).unwrap()).unwrap();
 
         assert_eq!(

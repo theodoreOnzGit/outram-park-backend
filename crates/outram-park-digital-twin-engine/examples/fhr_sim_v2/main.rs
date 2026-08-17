@@ -29,7 +29,7 @@ use uom::si::{f64::*, power::kilowatt};
 use outram_park_digital_twin_engine::app_scaffold::{spawn_monitored, ThreadHealth};
 
 #[cfg(not(target_os = "android"))]
-use crate::app::gui_frame_metrics::GuiFrameMetrics;
+use outram_park_digital_twin_engine::app_scaffold::GuiFrameMetrics;
 use crate::app::thermal_hydraulics_backend::salt_freeze_guard::SaltFreezeMonitor;
 
 #[cfg(not(target_os = "android"))]
@@ -145,7 +145,9 @@ pub struct FHRSimulatorApp {
     /// would mean taking the physics mutex every frame purely to record a
     /// diagnostic. Not persisted -- a frame time from a previous run of the
     /// application says nothing about this one. See
-    /// [`app::gui_frame_metrics`].
+    /// [`outram_park_digital_twin_engine::app_scaffold::gui_frame_metrics`],
+    /// the shared implementation this simulator uses (it once carried a local
+    /// copy; that duplicate was removed on 2026-08-12).
     pub gui_frame_metrics: GuiFrameMetrics,
 }
 

@@ -541,11 +541,14 @@ use crate::openfoam_algorithms::openfoam_source::*;
 //// ************************************************************************* //
 use std::sync::Arc;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
+    Angle, Area, AvailableEnergy, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
     ThermodynamicTemperature, Time,
 };
 use uom::si::ratio::ratio;
 use uom::si::time::second;
+
+/// Mesh patch index of the inlet ("left", x = 0) -- see `create_one_d_mesh`.
+pub(super) const INLET_PATCH: usize = 1;
 
 mod lateral_coupling;
 pub use lateral_coupling::TampinesSteamArrayError;
@@ -589,6 +592,55 @@ pub enum SolverMode {
     /// (rarefied-tail density taper, bug `op-21g.15.7`). The default
     /// [`SolverMode::Pimple`] is the bit-identical historical path.
     HybridAllMach,
+}
+
+/// The thermodynamic state available at one **advection terminal** (one end
+/// patch) of the pipe, used to pick the upwind state for the energy equation.
+///
+/// ## Why a terminal and not a patch
+///
+/// [`TampinesSteamArray`] is a **1-D flow component in a network**, so its two
+/// ends are **junctions** to other components, not patches on a standalone CFD
+/// domain. The convention this enum serves is therefore TUAS's upwind advection
+/// terminal, not OpenFOAM's `zeroGradient` / `fixedValue` patch semantics — see
+/// `docs/boundary-conditions-convention.md` and
+/// [`TampinesSteamArray::correct_advection_terminals`].
+///
+/// Ported from `tuas_boussinesq_solver`'s
+/// `single_control_vol/boundary_condition_interactions/advection_to_bcs.rs`,
+/// whose two pairs of methods map onto the two variants below one-for-one:
+///
+/// | TUAS method pair | Variant here |
+/// |---|---|
+/// | `calculate_*_advection_non_set_temperature` (BC state = zero-gradient extrapolation of the control volume) | [`Self::ZeroGradientExtrapolated`] |
+/// | `calculate_*_advection_set_temperature` (BC state prescribed by the caller) | [`Self::Junction`] |
+///
+/// In **both** TUAS pairs the enthalpy *and* the density actually used are
+/// selected by the sign of the mass flow, never defaulted — which is what makes
+/// the historical "zero-gradient at both ends" failure structurally impossible.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum AdvectionTerminalState {
+    /// No junction state is prescribed at this terminal, so the only upstream
+    /// information available on **inflow** is the adjacent cell itself: the
+    /// upwind enthalpy degenerates to the zero-gradient extrapolation
+    /// `h_face = h_cell`, and the upwind density to the cell density.
+    ///
+    /// This is TUAS's `*_non_set_temperature` path, and it is the default —
+    /// an array nobody has connected to anything advects in its own state,
+    /// which is the honest answer when there is no other.
+    #[default]
+    ZeroGradientExtrapolated,
+    /// A junction specific enthalpy \[J/kg\] supplied by whatever component is
+    /// connected at this terminal (an upstream pipe, a plenum, a reservoir).
+    ///
+    /// Used as the upstream state **only while the flow at this terminal is
+    /// into the domain**; on outflow the control-volume state is upwind and
+    /// this value is ignored. TUAS's `*_set_temperature` path.
+    ///
+    /// Valid range is whatever the IAPWS-IF97 `(p, h)` flash accepts at the
+    /// terminal's pressure; a junction enthalpy that flashes out of range is
+    /// ignored for the density selection rather than propagating a NaN.
+    Junction(AvailableEnergy),
 }
 
 /// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
@@ -795,7 +847,45 @@ pub struct TampinesSteamArray {
     pub incline_angle: Angle,
     /// Bulk mass flowrate \[kg/s\] (plain storage -- `step()` does not read
     /// this; it is bookkeeping for a caller, same as `OPCPFluidArray`'s field).
+    ///
+    /// **This is NOT a boundary condition.** To actually drive the array at a
+    /// known mass flow, use [`Self::set_inlet_mass_flowrate`], which imposes it
+    /// on the inlet patch.
     pub mass_flowrate: MassRate,
+    /// Prescribed **inlet mass flowrate** \[kg/s\], or `None` for no
+    /// mass-flow inlet.
+    ///
+    /// When set, each pressure corrector re-derives the inlet velocity
+    /// `u_in = m_dot / (rho_in A_in)` from the *same* interpolated inlet-face
+    /// density that then multiplies it to form the boundary mass flux, so the
+    /// imposed flux is exactly `m_dot` by construction rather than by a
+    /// caller's density guess. This is OpenFOAM's `flowRateInletVelocity`.
+    ///
+    /// Positive is **into** the domain (+x). Set with
+    /// [`Self::set_inlet_mass_flowrate`], clear with
+    /// [`Self::clear_inlet_mass_flowrate`] or by calling
+    /// [`Self::set_inlet_velocity`] (which prescribes a velocity instead and so
+    /// clears this).
+    pub inlet_mass_flowrate: Option<MassRate>,
+    /// Upwind advection state at the **inlet terminal** — the `"left"` patch
+    /// at x = 0 (`INLET_PATCH`).
+    ///
+    /// Defaults to [`AdvectionTerminalState::ZeroGradientExtrapolated`]. Set a
+    /// junction enthalpy with [`Self::set_inlet_enthalpy`], clear it with
+    /// [`Self::clear_inlet_enthalpy`]. Used **only when the flow at this
+    /// terminal is into the domain**; on outflow the control-volume state is
+    /// upwind. See [`Self::correct_advection_terminals`].
+    pub inlet_terminal: AdvectionTerminalState,
+    /// Upwind advection state at the **outlet terminal** — the `"right"` patch
+    /// at x = length.
+    ///
+    /// The outlet needs this for exactly the same reason the inlet does: when
+    /// the flow reverses, the "outlet" is an inlet, and without a junction
+    /// state the domain advects its own enthalpy back in. Defaults to
+    /// [`AdvectionTerminalState::ZeroGradientExtrapolated`]; set with
+    /// [`Self::set_outlet_enthalpy`], clear with
+    /// [`Self::clear_outlet_enthalpy`].
+    pub outlet_terminal: AdvectionTerminalState,
     /// Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`).
     pub pressure_loss: Pressure,
     /// Internal pressure source \[Pa\] (e.g. a simulated pump; plain storage).
@@ -922,6 +1012,13 @@ impl TampinesSteamArray {
             wetted_perimeter: Length::new::<uom::si::length::meter>(0.0),
             incline_angle: Angle::new::<uom::si::angle::radian>(0.0),
             mass_flowrate: MassRate::new::<uom::si::mass_rate::kilogram_per_second>(0.0),
+            inlet_mass_flowrate: None,
+            // Both terminals start with no junction state: an array nobody has
+            // connected to anything advects in its own state on inflow. This is
+            // what keeps the Edwards blowdown benchmark (which prescribes no
+            // enthalpy at either end) bit-for-bit on the historical path.
+            inlet_terminal: AdvectionTerminalState::ZeroGradientExtrapolated,
+            outlet_terminal: AdvectionTerminalState::ZeroGradientExtrapolated,
             pressure_loss: Pressure::new::<uom::si::pressure::pascal>(0.0),
             internal_pressure_source: Pressure::new::<uom::si::pressure::pascal>(0.0),
             lateral_adjacent_array_temperature_vector: Vec::new(),
@@ -1029,6 +1126,100 @@ impl TampinesSteamArray {
         }
     }
 
+    /// Per-cell **axial Péclet number** `Pe = ρ|u|Δx / (λ/c_p)` \[dimensionless\]
+    /// — the ratio of axial enthalpy *convection* to axial enthalpy *conduction*
+    /// on this mesh.
+    ///
+    /// ## What it is for
+    ///
+    /// The energy equation carries a genuine axial conduction term
+    /// `−∇·(α_h ∇h)` with `α_h = λ/c_p` \[kg/(m·s)\] read from the real
+    /// IAPWS-IF97 conductivity and specific heat every
+    /// [`Self::correct_thermo`] — never a constant, never a switch. This number
+    /// is what tells a reader **when that term matters**, instead of the
+    /// modelling boundary being silent:
+    ///
+    /// - `Pe ≫ 1` — forced flow. Convection dominates and the conduction term is
+    ///   a rounding error on the energy balance. **Measured 2026-08-12** at the
+    ///   crate's single-phase design point (4 MPa water, 400 K, 3.2 kg/s through
+    ///   0.02 m², Δx = 0.5 m, u = 0.17169 m/s): **Pe = 4.96e5 to 4.99e5** across
+    ///   the eight cells, with `α_h = λ/c_p = 1.6062e-4 kg/(m·s)`. The peak axial
+    ///   conduction rate there is **60.0 mW against a 200 kW duty — 3.00e-7 of
+    ///   it**, three and a half orders of magnitude below the maintainer's
+    ///   HTR-10 pebble-bed comparison of 11.74 kW against 10 MW (0.117 %).
+    /// - `Pe ≈ 1` — the crossover. **Measured** at that geometry when the
+    ///   velocity falls to **3.447e-7 m/s**, a mass flow of **6.425e-6 kg/s** —
+    ///   two millionths (2.008e-6) of the design flow.
+    /// - `Pe → 0` — stagnation, loss of forced cooling, natural-circulation
+    ///   onset. Convection vanishes and conduction becomes the **entire** heat
+    ///   path. This is precisely the regime a "conduction is negligible"
+    ///   assumption inverts in, which is why the term is present and small
+    ///   rather than absent.
+    ///
+    /// ## Definition
+    ///
+    /// `Δx` is taken as `cell_volume / xs_area`, exact for the uniform 1-D mesh
+    /// [`create_one_d_mesh`] builds. `|u|` is the magnitude of the cell velocity.
+    /// A cell whose `α_h` is not positive and finite yields `Pe = 0`, so a
+    /// diverged property flash reports "conduction-dominated" rather than a NaN.
+    ///
+    /// **Measured 2026-08-12** — see
+    /// `lateral_coupling::tests::axial_conduction_is_negligible_at_power_and_total_at_stagnation`
+    /// for the methodology and the full result table.
+    pub fn axial_peclet_numbers(&self) -> Vec<Ratio> {
+        let a = self.xs_area.get::<uom::si::area::square_meter>();
+        (0..self.mesh.n_cells)
+            .map(|c| {
+                let dx = if a > 0.0 {
+                    self.mesh.cell_volumes[c] / a
+                } else {
+                    0.0
+                };
+                let gamma = self.alpha_h.internal[c];
+                let pe = if gamma.is_finite() && gamma > 0.0 {
+                    self.rho.internal[c] * self.u.internal[c].mag() * dx / gamma
+                } else {
+                    0.0
+                };
+                Ratio::new::<ratio>(pe)
+            })
+            .collect()
+    }
+
+    /// Largest **axial conduction heat rate** across any internal face \[W\].
+    ///
+    /// `max_f |α_h,f · |S_f| · (h_N − h_P) / d|` with `α_h = λ/c_p`, i.e. the
+    /// same face flux the energy equation's `fvm::laplacian(α_h, he)` term
+    /// assembles. Because `α_h ∇h = (λ/c_p)·c_p ∇T = λ ∇T` for a single-phase
+    /// fluid, this is Fourier conduction in the axial direction, in watts.
+    ///
+    /// Report it against the component's duty to justify the term's size — the
+    /// workspace's HTR-10 pebble-bed figure of 11.74 kW against a 10 MW duty
+    /// (0.117 %, Zehner-Bauer-Schluender, 2026-08-12) is the same comparison
+    /// made for a different component.
+    ///
+    /// Returns zero power for a single-cell array (no internal faces).
+    pub fn peak_axial_conduction_rate(&self) -> Power {
+        let alpha_h_f = fvc::interpolate(&self.alpha_h);
+        let mut peak = 0.0_f64;
+        for f in 0..self.mesh.n_internal_faces {
+            let o = self.mesh.owner[f];
+            let n = self.mesh.neighbour[f];
+            let d = (self.mesh.cell_centres[n] - self.mesh.cell_centres[o]).mag();
+            if d < 1e-300 {
+                continue;
+            }
+            let q = alpha_h_f.internal[f]
+                * self.mesh.face_areas[f]
+                * (self.he.internal[n] - self.he.internal[o])
+                / d;
+            if q.is_finite() {
+                peak = peak.max(q.abs());
+            }
+        }
+        Power::new::<uom::si::power::watt>(peak)
+    }
+
     /// Advance one time step with the compressible PIMPLE algorithm.
     ///
     /// This is the concrete realisation of the derivation in the
@@ -1058,6 +1249,15 @@ impl TampinesSteamArray {
     /// arithmetic and linear solves rebuild fields with zero-gradient boundaries,
     /// so the prescribed inlet-velocity / outlet-pressure BC types must be
     /// re-stamped — see [`correct_bcs`] / [`correct_bcs_vec`]).
+    ///
+    /// **The enthalpy is the exception, and deliberately so.** Its two ends are
+    /// **advection terminals**, not patches: which of the two candidate upstream
+    /// states is upwind depends on the sign of the boundary mass flux, so `he`'s
+    /// boundary is *derived* from `phi` by [`Self::correct_advection_terminals`]
+    /// rather than replayed from a captured template, and the matching upwind
+    /// density is applied by [`Self::apply_junction_densities`] inside the
+    /// pressure loop. See [`AdvectionTerminalState`] and
+    /// `docs/boundary-conditions-convention.md`.
 
     /// Advance the solution by one timestep of length `timestep`.
     ///
@@ -1119,8 +1319,16 @@ impl TampinesSteamArray {
         let he_old = self.he.clone();
         let rho_old = self.rho.clone();
 
-        let u_bcs = capture_bcs(&self.u.boundary);
+        let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
+        // NOTE: `he` deliberately has NO captured BC template. Velocity and
+        // pressure are *patch* quantities whose prescribed type is fixed for
+        // the step, so a static snapshot is the right thing to re-stamp. The
+        // enthalpy terminal is not: which of the two candidate upstream states
+        // is upwind depends on the sign of the boundary mass flux, which is
+        // only known once `self.phi` is final. So `he`'s boundary is rebuilt
+        // from the flux by `correct_advection_terminals` after the EEqn solve,
+        // rather than replayed from a template. See that method.
 
         // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
         // outer corrector into the next outer corrector's UEqn source (a
@@ -1215,7 +1423,26 @@ impl TampinesSteamArray {
                     )
                 };
 
-                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+                let mut rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+
+                // Upwind DENSITY at the two advection terminals, the density
+                // half of the TUAS convention (`advection_to_bcs.rs` selects
+                // `density_bc` vs `density_cv` on `mass_flow > MassRate::zero()`).
+                // Must run BEFORE `apply_flow_rate_inlet`, which reads this very
+                // field to derive the inlet velocity. No-op at a terminal with
+                // no junction state, which is what keeps Edwards untouched.
+                self.apply_junction_densities(&mut rho_f);
+
+                // Prescribed mass-flow inlet (OpenFOAM `flowRateInletVelocity`).
+                // Re-derived HERE, inside the corrector, from the very same
+                // `rho_f` that multiplies it below to build the boundary mass
+                // flux -- so the imposed flux is exactly `m_dot`, not
+                // `rho_solved/rho_assumed * m_dot`. Both `self.u.boundary` and
+                // the captured `u_bcs` template are updated, so the momentum
+                // predictor and the post-solve `correct_bcs_vec` re-stamp agree
+                // with it.
+                self.apply_flow_rate_inlet(&rho_f, &mut u_bcs);
+
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
@@ -1478,8 +1705,274 @@ impl TampinesSteamArray {
             }
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
+            // Rebuild the enthalpy terminals by the UPWIND ADVECTION convention
+            // (TUAS), from the mass flux that this corrector just settled on.
+            //
+            // This is where `u`/`p` get their `correct_bcs` re-stamp, and it is
+            // deliberately the same place: `FvMatrix::solve` returns a field
+            // with all boundaries reset to zero-gradient, so every field needs
+            // its boundary put back here. The difference is that `he`'s
+            // boundary is *derived* rather than replayed -- see
+            // [`Self::correct_advection_terminals`] for why a pipe's ends are
+            // junctions and not patches.
+            //
+            // HISTORY (this line's ancestor, fixed 2026-08-12, bead `op-289n`).
+            // `FvMatrix::solve` rebuilds its output field with **all boundaries
+            // reset to zero-gradient** -- the module's own "Boundary-condition
+            // helpers" block says so. `u` and `p` were both put back with
+            // `correct_bcs`/`correct_bcs_vec` after their solves; `he` was
+            // simply omitted. So a `FixedValue` inlet enthalpy set by
+            // [`Self::set_inlet_enthalpy`] survived only the FIRST outer
+            // corrector of a step and was destroyed for every corrector after
+            // it. Since the LAST corrector wins, and it ran with the boundary
+            // erased, the prescribed inlet enthalpy had **no effect on the
+            // solution at all**: an array started from a uniform field never
+            // moved toward its inlet BC, in either direction, at any timestep.
+            //
+            // Measured before the fix: 8 cells, uniform 523.15 K (he =
+            // 1085.7 kJ/kg), inlet BC 168.7 kJ/kg, 30 000 steps -- `he` was
+            // bit-identical at every cell. Same with the BC set ABOVE the field
+            // (3000.0 kJ/kg). Swept dt from 1e-4 to 1.25e-2 s: identical no-op.
+            //
+            // That fix restored the prescribed *value*, but left the
+            // *formulation* wrong: an unconditional Dirichlet inlet is still a
+            // patch condition, and it clamps the face even when the flow is
+            // leaving through it. The upwind selection below is the formulation
+            // fix; the value fix is subsumed by it.
+            //
+            // Regression tests:
+            // `lateral_coupling::tests::inlet_enthalpy_bc_actually_drives_the_field`
+            // (value) and
+            // `lateral_coupling::tests::flow_reversal_keeps_enthalpy_bounded_between_terminals`
+            // (formulation -- a forward-flow-only test passes identically with a
+            // wrong outlet terminal, so only the reversal proves this).
+            self.correct_advection_terminals();
         }
         self.clear_vectors();
+    }
+
+    /// Rebuild both enthalpy **advection terminals** by the upwind convention,
+    /// from the boundary mass flux the just-finished corrector settled on.
+    ///
+    /// This is the energy equation's boundary treatment, and it is TUAS's, not
+    /// OpenFOAM's. See `docs/boundary-conditions-convention.md` for the
+    /// maintainer's decision and [`AdvectionTerminalState`] for the mapping
+    /// onto `tuas_boussinesq_solver`'s
+    /// `single_control_vol/boundary_condition_interactions/advection_to_bcs.rs`.
+    ///
+    /// ## The rule
+    ///
+    /// At each terminal, hold **both** candidate upstream states — the junction
+    /// state and the control-volume state — and select on the **sign of the mass
+    /// flow** there. The mesh's boundary face-area vectors point *out* of the
+    /// domain, so the stored `phi.boundary` is outward-positive and
+    ///
+    /// - `phi_b < 0` — flow **into** the domain. The junction is upstream:
+    ///   face enthalpy = the prescribed [`AdvectionTerminalState::Junction`]
+    ///   value if there is one, else (nothing else being known) the adjacent
+    ///   cell's own enthalpy.
+    /// - `phi_b > 0` — flow **out of** the domain. The control volume is
+    ///   upstream: face enthalpy = the adjacent cell's enthalpy, i.e.
+    ///   zero-gradient, which is right here because the downstream state is
+    ///   genuinely unknown.
+    ///
+    /// Because the upstream value is *chosen by direction* rather than
+    /// defaulted, the historical "zero-gradient at both ends" failure — in which
+    /// the domain advects in its own enthalpy and no boundary exists through
+    /// which energy can enter or leave — is structurally impossible.
+    ///
+    /// ## One deliberate deviation from TUAS, and why
+    ///
+    /// TUAS breaks the tie at exactly zero mass flow toward the control volume
+    /// (`if mass_flow_from_bc_to_cv > MassRate::zero()`). This method breaks it
+    /// toward the **junction** (`phi_b <= 0.0`). At zero flux the advective
+    /// term is identically zero either way, so the choice cannot change the
+    /// advected energy; what it does change is that a prescribed junction state
+    /// stays effective at start-up (when `phi` is still zero everywhere) and
+    /// under **stagnation**, where it becomes the Dirichlet end condition of the
+    /// axial conduction term — which at stagnation is the entire heat path (see
+    /// [`Self::axial_peclet_numbers`]). Breaking the tie the other way would
+    /// switch the pipe's only remaining heat path off exactly when it matters.
+    ///
+    /// ## Timing
+    ///
+    /// Called after the energy solve, once per outer corrector, so the selection
+    /// uses the flux of the timestep just computed and the stamped terminal is
+    /// read by the *next* corrector's `fvc::div(phi, he)` and
+    /// `fvm::laplacian(alpha_h, he)`. That is the "from the previous timestep's
+    /// thermodynamic state" the convention calls for.
+    ///
+    /// ## Mesh assumption
+    ///
+    /// [`create_one_d_mesh`] gives each end patch exactly one face, so the
+    /// selection is made once per patch from the patch's net flux. A patch with
+    /// several faces would need the choice per face, which the single-BC-per-
+    /// patch field layout cannot express; that case does not arise for a 1-D
+    /// pipe and is not silently approximated — it simply cannot be constructed
+    /// here.
+    fn correct_advection_terminals(&mut self) {
+        let mesh = self.mesh.clone();
+        for pi in 0..mesh.patches.len() {
+            let patch = &mesh.patches[pi];
+            if patch.size == 0 || matches!(self.he.boundary[pi].bc, BoundaryCondition::Empty) {
+                continue;
+            }
+            // Outward-positive net mass flux through this terminal [kg/s].
+            let phi_b: f64 = (0..patch.size)
+                .map(|fi| self.phi.boundary[pi].values[fi])
+                .sum();
+            // A NaN flux fails `<= 0.0`, so a diverged solution falls through to
+            // the zero-gradient branch rather than pinning a junction Dirichlet
+            // onto a field that is already broken.
+            let inflowing = phi_b <= 0.0;
+
+            match self.terminal_state(pi) {
+                AdvectionTerminalState::Junction(h_j) if inflowing => {
+                    // Junction is upstream: it carries its own enthalpy in.
+                    let h = h_j.get::<uom::si::available_energy::joule_per_kilogram>();
+                    self.he.boundary[pi] = PatchField::fixed_value(patch.size, h);
+                }
+                _ => {
+                    // Control volume is upstream (or nothing else is known):
+                    // zero-gradient. `interpolate`/`laplacian` read the cell
+                    // value directly for this BC, so `values` is bookkeeping —
+                    // filled anyway so a reader of `he.boundary` sees the face
+                    // state actually in force.
+                    let mut pf = PatchField::zero_gradient(patch.size);
+                    for fi in 0..patch.size {
+                        pf.values[fi] = self.he.internal[mesh.owner[patch.start + fi]];
+                    }
+                    self.he.boundary[pi] = pf;
+                }
+            }
+        }
+    }
+
+    /// The [`AdvectionTerminalState`] belonging to mesh patch `pi`.
+    ///
+    /// Patch 1 is the inlet (`"left"`, x = 0, [`INLET_PATCH`]); every other
+    /// patch of a 1-D pipe is the outlet (`"right"`, x = length).
+    fn terminal_state(&self, pi: usize) -> AdvectionTerminalState {
+        if pi == INLET_PATCH {
+            self.inlet_terminal
+        } else {
+            self.outlet_terminal
+        }
+    }
+
+    /// Overwrite the interpolated face densities at any **inflowing** terminal
+    /// that has a junction state, with the density of that junction state.
+    ///
+    /// The density half of the same upwind rule
+    /// ([`Self::correct_advection_terminals`] is the enthalpy half). TUAS's
+    /// `advection_to_bcs.rs` selects `density_bc` on inflow and `density_cv` on
+    /// outflow; `fvc::interpolate` cannot do that, because `rho`'s own boundary
+    /// is zero-gradient and so always yields the control-volume density.
+    ///
+    /// It matters physically: with a velocity-prescribed inlet the entering mass
+    /// flux is `rho_junction * u * A`, and using the cell's density instead
+    /// imports fluid at the wrong rate whenever the junction is at a different
+    /// state from the first cell — which is the entire point of connecting two
+    /// components. With [`Self::set_inlet_mass_flowrate`] it is exactly
+    /// neutral, because [`Self::apply_flow_rate_inlet`] divides by the very same
+    /// face density it then multiplies by.
+    ///
+    /// The junction density is `1/v(p_cell, h_junction)` from the real
+    /// IAPWS-IF97 `(p, h)` flash, taking the pressure from the adjacent cell —
+    /// a junction is at the pipe's pressure, and this mirrors TUAS's use of
+    /// `control_vol_pressure` for the BC-side property call.
+    ///
+    /// A no-op at a terminal with no junction state, at an outflowing terminal,
+    /// and whenever the flash returns something unusable (non-finite or
+    /// non-positive) — never a wrong number.
+    fn apply_junction_densities(&self, rho_f: &mut SurfaceScalarField) {
+        use crate::interfaces::functional_programming::ph_flash_eqm::v_ph_eqm;
+        use uom::si::specific_volume::cubic_meter_per_kilogram;
+
+        for pi in 0..self.mesh.patches.len() {
+            let AdvectionTerminalState::Junction(h_j) = self.terminal_state(pi) else {
+                continue;
+            };
+            let patch = &self.mesh.patches[pi];
+            if patch.size == 0 {
+                continue;
+            }
+            let phi_b: f64 = (0..patch.size)
+                .map(|fi| self.phi.boundary[pi].values[fi])
+                .sum();
+            // Same tie-break as `correct_advection_terminals`, and the same NaN
+            // behaviour: a diverged flux is not `<= 0.0`, so it falls through to
+            // the control-volume density rather than flashing a junction state
+            // onto a broken solution.
+            let inflowing = phi_b <= 0.0;
+            if !inflowing {
+                continue; // the control volume is upstream
+            }
+            for fi in 0..patch.size {
+                let owner = self.mesh.owner[patch.start + fi];
+                let p_b = Pressure::new::<uom::si::pressure::pascal>(self.p.internal[owner]);
+                let rho_j = 1.0 / v_ph_eqm(p_b, h_j).get::<cubic_meter_per_kilogram>();
+                if rho_j.is_finite() && rho_j > 0.0 {
+                    rho_f.boundary[pi].values[fi] = rho_j;
+                }
+            }
+        }
+    }
+
+    /// Impose the prescribed inlet mass flowrate as a velocity boundary
+    /// condition, OpenFOAM's `flowRateInletVelocity`.
+    ///
+    /// `u_in = m_dot / (rho_in A_in)`, with `rho_in` the **area-weighted mean
+    /// inlet-face density taken from `rho_f`** -- the same interpolated field
+    /// that multiplies this velocity a few lines later to build the boundary
+    /// mass flux. Deriving it from that field rather than from a caller's
+    /// assumed density is the whole point: the imposed flux is then exactly
+    /// `m_dot` by construction, instead of
+    /// `rho_solved/rho_assumed * m_dot`, which drifts as the solution moves.
+    ///
+    /// Updates both `self.u.boundary[INLET_PATCH]` and the caller's captured
+    /// velocity-BC template `u_bcs`, in lockstep, so the post-solve
+    /// `correct_bcs_vec` re-stamps this velocity and not a stale one.
+    ///
+    /// A no-op when no mass flowrate is prescribed, when the inlet patch has no
+    /// faces, or when the inlet area or density is not usable (non-finite or
+    /// non-positive) -- never a wrong number, mirroring [`Self::correct_thermo`]'s
+    /// non-convergence handling.
+    fn apply_flow_rate_inlet(
+        &mut self,
+        rho_f: &SurfaceScalarField,
+        u_bcs: &mut [BoundaryCondition<Vector3>],
+    ) {
+        let Some(mdot) = self.inlet_mass_flowrate else {
+            return;
+        };
+        let mdot = mdot.get::<uom::si::mass_rate::kilogram_per_second>();
+        let patch = &self.mesh.patches[INLET_PATCH];
+        if patch.size == 0 {
+            return;
+        }
+
+        // Area-weighted mean inlet-face density, and the total inlet area.
+        let mut area = 0.0_f64;
+        let mut rho_area = 0.0_f64;
+        for fi in 0..patch.size {
+            let a = self.mesh.face_areas[patch.start + fi];
+            area += a;
+            rho_area += a * rho_f.boundary[INLET_PATCH].values[fi];
+        }
+        // NaN fails `is_finite`, so a diverged density/area returns here rather
+        // than prescribing a NaN velocity.
+        if !area.is_finite() || area <= 0.0 {
+            return;
+        }
+        let rho_in = rho_area / area;
+        if !rho_in.is_finite() || rho_in <= 0.0 {
+            return;
+        }
+
+        let v = Vector3::new(mdot / (rho_in * area), 0.0, 0.0);
+        self.u.boundary[INLET_PATCH] = PatchField::fixed_value_vec(patch.size, v);
+        u_bcs[INLET_PATCH] = BoundaryCondition::FixedValue(v);
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.

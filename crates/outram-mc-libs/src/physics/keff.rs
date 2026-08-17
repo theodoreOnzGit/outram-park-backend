@@ -101,7 +101,8 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
+    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
+    two_body_scatter_with_mu,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
@@ -1300,9 +1301,15 @@ fn collide_batched(
             },
         )
     } else {
-        let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-            Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-            None => elastic_scatter(e, u, nuc.awr, seed),
+        // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
+        // see the equivalent branch in [`transport_history`].
+        let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+            (e_out, rotate_direction(u, mu_lab, seed))
+        } else {
+            match nuc.sample_elastic_mu_cm(e, seed) {
+                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                None => elastic_scatter(e, u, nuc.awr, seed),
+            }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     }
@@ -1415,12 +1422,21 @@ fn transport_history(
                 e = e2;
                 u = u2;
             } else {
-                // Elastic. Use the ENDF MF=4 angular distribution when the nuclide
-                // carries one (HIGH tier) — fast neutrons scatter forward off heavy
-                // nuclei, which raises bare-sphere leakage — else isotropic-CM.
-                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                    None => elastic_scatter(e, u, nuc.awr, seed),
+                // Scattering. A moderator nuclide carrying an S(alpha, beta)
+                // table thermalizes via the bound-atom law below its cutoff
+                // (lab-frame outgoing energy + cosine, up-scatter allowed);
+                // mirrors `crate::physics::transport_csg` and OpenMC
+                // `src/thermal.cpp` `ThermalData::sample`. Otherwise: use the
+                // ENDF MF=4 angular distribution when the nuclide carries one
+                // (HIGH tier) — fast neutrons scatter forward off heavy nuclei,
+                // which raises bare-sphere leakage — else isotropic-CM.
+                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (e_out, rotate_direction(u, mu_lab, seed))
+                } else {
+                    match nuc.sample_elastic_mu_cm(e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    }
                 };
                 e = e2;
                 u = u2;
@@ -1531,9 +1547,16 @@ fn transport_history_tabulated(
                 e = e2;
                 u = u2;
             } else {
-                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                    None => elastic_scatter(e, u, nuc.awr, seed),
+                // Kept in lockstep with [`transport_history`] — the two differ
+                // only in where Sigma_t comes from, so the bound-atom
+                // S(alpha, beta) branch must be present here too.
+                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (e_out, rotate_direction(u, mu_lab, seed))
+                } else {
+                    match nuc.sample_elastic_mu_cm(e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    }
                 };
                 e = e2;
                 u = u2;

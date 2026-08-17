@@ -35,6 +35,38 @@ pub struct HtgrSnapshot {
     pub control_rod_insertion_fraction: f64,
     /// User-commanded helium pump mass-flow setpoint \[kg/s\].
     pub helium_flow_setpoint_kg_per_s: f64,
+    /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
+    /// (`false`).
+    ///
+    /// Assembled into a [`crate::physics::secondary_loop::FeedwaterCommand`] by
+    /// the physics thread; this snapshot deliberately stays plain scalars so it
+    /// is cheap to clone every frame. Defaults to AUTO, which is the behaviour
+    /// this simulator had before the mode existed.
+    pub feedwater_manual: bool,
+    /// User-commanded feedwater mass flow \[kg/s\], used only in **MANUAL**.
+    ///
+    /// While the station is in AUTO the physics thread keeps writing the
+    /// *achieved* flow back into this field, so switching to MANUAL picks the
+    /// plant up where it is instead of stepping it -- a bumpless transfer. The
+    /// physics clamps it to the feed pump's 0.3 to 12.0 kg/s capacity.
+    pub feedwater_manual_flow_kg_per_s: f64,
+    /// User-commanded **AUTO** steam-generator outlet temperature setpoint
+    /// \[K\].
+    ///
+    /// Held in kelvin because that is the snapshot's convention for every
+    /// temperature; the GUI dials it in degrees Celsius, which is what an
+    /// operator would use, and converts through `uom` at the widget. The
+    /// physics clamps it to 260-540 degC.
+    pub feedwater_target_steam_temp_k: f64,
+    /// User-commanded condenser back-pressure \[kPa\].
+    ///
+    /// The **setpoint**, distinct from
+    /// [`Self::condenser_pressure_kpa`], which is what the plant is actually
+    /// running at after the physics clamps it to 4-30 kPa. Same
+    /// command-and-consequence pairing as
+    /// [`Self::helium_flow_setpoint_kg_per_s`] against
+    /// [`Self::helium_mass_flow_kg_per_s`].
+    pub condenser_pressure_setpoint_kpa: f64,
 
     // --- Kinetics outputs ---
     /// Total reactor thermal power (prompt + delayed) \[MW\].
@@ -150,7 +182,18 @@ pub struct HtgrSnapshot {
     pub secondary_mass_flow_kg_per_s: f64,
     /// Secondary loop residence time \[s\] (`m/m_dot`), driving the steam-line
     /// flow tracers in the schematic.
+    ///
+    /// Built from the secondary **piping** inventory, not a plant water
+    /// inventory -- see
+    /// [`crate::physics::secondary_loop::SteamSecondaryLoop::piping_inventory`]
+    /// for why the distinction is what makes these tracers move at all.
     pub secondary_residence_time_s: f64,
+    /// Water/steam mass held in the secondary piping \[kg\] -- the numerator of
+    /// [`Self::secondary_residence_time_s`].
+    ///
+    /// Surfaced so the diagnostics panel can show *why* the tracer speed is
+    /// what it is, rather than leaving a residence time with no visible cause.
+    pub secondary_piping_inventory_kg: f64,
     /// Feedwater specific enthalpy \[J/kg\] -- condensate plus real feed-pump
     /// work, not a fixed constant.
     pub feedwater_enthalpy_j_per_kg: f64,
@@ -166,14 +209,93 @@ pub struct HtgrSnapshot {
     /// Cooling-water outlet temperature from the condenser \[K\].
     pub cooling_water_outlet_temp_k: f64,
 
+    // --- Turbine-generator shaft outputs ---
+    /// Turbine-generator shaft angular velocity \[rad/s\].
+    ///
+    /// **Computed by a torque balance**, not an animation constant: it is the
+    /// state of [`crate::physics::turbine_generator::TurbineGeneratorShaft`],
+    /// driven by the secondary loop's enthalpy-drop power against the
+    /// generator's electrical reaction torque. The schematic rebuilds the
+    /// generator model from this scalar and hands it to `TurbineVisual`, whose
+    /// rotor phase is `theta = omega * t`.
+    ///
+    /// **Read the module docs before quoting it.** The machine is *islanded*
+    /// (fixed resistive load, no governor, no AVR), so its speed follows the
+    /// square root of load; a grid-connected machine would instead be pinned at
+    /// synchronous speed. And the load was sized at the machine's rated point,
+    /// which is why the speed lands near synchronous at full load -- the model
+    /// does not independently predict 3000 rpm.
+    pub shaft_speed_rad_per_s: f64,
+    /// The same shaft speed in rpm, for display.
+    pub shaft_speed_rpm: f64,
+    /// Three-phase electrical power delivered into the generator's resistive
+    /// load \[MW\].
+    ///
+    /// Distinct from [`Self::turbine_power_mw`], which is the *mechanical*
+    /// enthalpy-drop power at the coupling. At steady state this is the
+    /// generator efficiency times that; during a transient the difference is
+    /// what accelerates or decelerates the rotor.
+    pub generator_electrical_power_mw: f64,
+    /// Turbine-generator rating \[MW\] -- the design-point shaft power the
+    /// electrical load and rotor inertia were sized against. An **illustrative
+    /// balance-of-plant figure**, not an HTR-10 turbine-generator rating.
+    pub generator_rating_mw: f64,
+
     // --- Diagnostics ---
+    /// Steam-temperature control error \[K\] (`T_setpoint - T_steam`) seen by
+    /// the feedwater PI trim. Near zero means the controller is holding
+    /// setpoint; a persistent non-zero value means it is on a pump stop.
+    pub steam_temperature_error_k: f64,
+    /// Feedwater PI controller output (dimensionless). A large magnitude
+    /// while the pump sits on a stop is the visible symptom of integrator
+    /// windup -- the chem-eng controller has no anti-windup.
+    pub feedwater_controller_output: f64,
+
+    /// Fission-product decay-heat power \[MW\]. Non-zero after a trip -- this
+    /// is what keeps heating the graphite once the chain reaction stops.
+    pub decay_heat_mw: f64,
+    /// Core THERMAL power \[MW\]: the promptly-released fission power plus
+    /// decay heat. This, not the fission power, is what the pebble bed
+    /// absorbs.
+    pub core_thermal_power_mw: f64,
+
     /// Accumulated simulation time \[s\].
     pub sim_time_s: f64,
+    /// Simulated seconds the physics thread has achieved per wall-clock second
+    /// since it started.
+    ///
+    /// `1.0` is real time. `None` before the first tick -- reporting a ratio
+    /// before one has been measured is the silent misinformation this field
+    /// exists to replace. Published by the physics thread from
+    /// [`RealTimePacer`](outram_park_digital_twin_engine::app_scaffold::RealTimePacer);
+    /// writing to it does nothing.
+    ///
+    /// It is a **sim-clock rate**, not a frame rate: a low value means the
+    /// plant model is not keeping up with wall clock, and says nothing about
+    /// how smoothly the window is painting. Being cumulative it is steady but
+    /// slow to react, so [`Self::real_time_deficit_s`] is the better read on a
+    /// slowdown that has just started.
+    pub real_time_ratio: Option<f64>,
+    /// How far the plant clock is behind wall clock \[s\].
+    ///
+    /// Zero when the simulator is keeping up. The pacer works a deficit off by
+    /// not sleeping, so a transient stall shows here and then decays; a
+    /// deficit that keeps growing means the plant model is persistently more
+    /// expensive than its tick budget.
+    pub real_time_deficit_s: f64,
+    /// Whether the physics thread is measurably behind real time.
+    ///
+    /// Set when [`Self::real_time_deficit_s`] exceeds the pacer's tolerance.
+    /// The schematic shows the shortfall when this is true, because a simulator
+    /// that has quietly dropped to half speed while still reading "seconds" on
+    /// its clock is misleading.
+    pub behind_real_time: bool,
 }
 
 impl Default for HtgrSnapshot {
     /// The **first frame only**: the physics thread overwrites every output
-    /// field on its first tick, roughly 10 ms after the window opens.
+    /// field on its first tick, roughly one `PHYSICS_TICK` (100 ms) after the
+    /// window opens.
     ///
     /// These are set at the plant's nominal operating point rather than at
     /// zero so the opening frame is not misleading -- a schematic that flashes
@@ -181,7 +303,11 @@ impl Default for HtgrSnapshot {
     /// fault. The values are the published HTR-10 phase-one operating
     /// conditions (IAEA-TECDOC-1382): 10 MWth, 4.3 kg/s of helium at
     /// 250 degC in / 700 degC out, main steam 4.0 MPa at 440 degC and
-    /// 12.5 t/hr, feedwater 104 degC. They are **initial display values, not
+    /// 12.5 t/hr, feedwater 104 degC. The operator commands open at the same
+    /// design condition -- feedwater station in AUTO on the published 440 degC
+    /// steam temperature, condenser at its design 7 kPa -- which is exactly
+    /// [`crate::physics::PlantCommands::default`]; `app::tests::the_gui_defaults_are_the_plant_command_defaults`
+    /// pins that. They are **initial display values, not
     /// a claim about this model's converged state**, and the derived
     /// quantities (duties, powers, residence times) start at zero because
     /// nothing has been computed yet.
@@ -191,7 +317,15 @@ impl Default for HtgrSnapshot {
             // bank worth and cold clean excess (~0.60 inserted; see
             // `crate::physics::control_rods`), so the simulator opens close to
             // steady state rather than on a prompt excursion.
-            control_rod_insertion_fraction: 0.6035,
+            control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
+            // Feedwater in AUTO at the published 440 degC, and the condenser at
+            // its design 7 kPa: the opening state is the plant's design
+            // condition, and is exactly `physics::PlantCommands::default()`.
+            // `the_gui_defaults_are_the_plant_command_defaults` pins that.
+            feedwater_manual: true,
+            feedwater_manual_flow_kg_per_s: 10.0,
+            feedwater_target_steam_temp_k: 713.15,
+            condenser_pressure_setpoint_kpa: 7.0,
             rps_enabled: false,
             trip_reset_requested: false,
             trip_reason: None,
@@ -226,6 +360,7 @@ impl Default for HtgrSnapshot {
             // 12.5 t/hr of main steam.
             secondary_mass_flow_kg_per_s: 3.47,
             secondary_residence_time_s: 0.0,
+            secondary_piping_inventory_kg: 0.0,
             // Saturated liquid at 104 degC, the published feedwater state.
             feedwater_enthalpy_j_per_kg: 4.36e5,
             condensate_enthalpy_j_per_kg: 1.63e5,
@@ -233,7 +368,23 @@ impl Default for HtgrSnapshot {
             net_cycle_power_mw: 0.0,
             condenser_duty_mw: 0.0,
             cooling_water_outlet_temp_k: 298.15,
+            // The shaft is the one output field that is a genuine STATE rather
+            // than a derived quantity, so it opens at its real initial
+            // condition -- synchronous speed, matching
+            // `TurbineGeneratorShaft::new`. Everything derived from it starts
+            // at zero like the other derived fields.
+            shaft_speed_rad_per_s: std::f64::consts::TAU * 50.0,
+            shaft_speed_rpm: 3000.0,
+            generator_electrical_power_mw: 0.0,
+            generator_rating_mw: 0.0,
+            steam_temperature_error_k: 0.0,
+            feedwater_controller_output: 0.0,
+            decay_heat_mw: 0.0,
+            core_thermal_power_mw: 10.0,
             sim_time_s: 0.0,
+            real_time_ratio: None,
+            real_time_deficit_s: 0.0,
+            behind_real_time: false,
         }
     }
 }

@@ -47,7 +47,6 @@
 //! tractable elastic (MT=2) slice is LIVE.
 
 use std::fs::File;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use njoy_outram_park_fork::{
@@ -75,8 +74,8 @@ const NOTEBOOK_FINE_BOUNDS: [f64; 9] = [
 ];
 
 fn u235_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     Tape::read(File::open(p).expect("open U-235")).expect("parse U-235 tape")
 }
 

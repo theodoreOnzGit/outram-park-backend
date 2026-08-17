@@ -25,7 +25,7 @@ OpenMC's own ENDF/B-VIII.0 pointwise capture data.
 
 | Input | File | Role |
 |-------|------|------|
-| ENDF/B-VIII.0 U-238 tape (MAT 9237) | `tests/resources/n-092_U_238.endf` | Rust RECONR+BROADR input |
+| ENDF/B-VIII.0 U-238 tape (MAT 9237) | `reference-data/endf/n-092_U_238.endf` | Rust RECONR+BROADR input |
 | OpenMC ENDF/B-VIII.0 reference | `reference/openmc_capture_{900,1200}K.csv` | comparison target |
 
 The OpenMC reference originates from `U238.h5` (OpenMC's HDF5 nuclear-data

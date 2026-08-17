@@ -1111,35 +1111,49 @@ fn edwards_drift_flux_slip_and_tau_sensitivity() {
     }
 }
 
-/// **Methodology.** [`TwoFluid1d`] is a documented no-physics scaffold
-/// (bead `op-dt3.13`): its `step()` must refuse rather than return a plausible
-/// number. Pin that contract so a partial implementation that starts marching
-/// without its interfacial closures is caught by a failing test rather than
-/// discovered in a plot.
+/// **Methodology.** This test used to pin the contract that
+/// [`TwoFluid1d`]'s `step()` *refused* — it was a documented no-physics
+/// scaffold. **That is no longer true as of 2026-08-12**: the six-equation
+/// solver is implemented (bead `op-62vf`), so the old assertion has been
+/// replaced rather than left asserting a contract the code no longer has.
 ///
-/// This test is also the **placeholder for the future Edwards–O'Brien
-/// two-fluid (six-equation) case**. When the solver exists, the case to write
-/// here is the one [`edwards_drift_flux_gs1_pressure_history`] runs — same
-/// B-T-3271 geometry, same Hendrie profile, same choked break, same digitised
-/// GS-1 reference — via a [`run_edwards`]-shaped harness, with the extra
-/// deliverable that a six-equation model can report a non-zero
+/// What is pinned now is only the narrow thing this file can honestly claim
+/// while the Edwards two-fluid case itself is still unwritten: that the
+/// six-equation solver **constructs** on the B-T-3271 Edwards geometry with the
+/// conventional bubbly closure set and starts with its clock at zero. It runs
+/// no steps and asserts nothing about the physics.
+///
+/// This test remains the **placeholder for the future Edwards–O'Brien
+/// two-fluid (six-equation) case**. The case to write here is the one
+/// [`edwards_drift_flux_gs1_pressure_history`] runs — same B-T-3271 geometry,
+/// same Hendrie profile, same choked break, same digitised GS-1 reference —
+/// via a [`run_edwards`]-shaped harness, with the extra deliverable that a
+/// six-equation model can report a non-zero
 /// [`TwoFluidReport::max_thermal_nonequilibrium`](super::two_fluid::TwoFluidReport::max_thermal_nonequilibrium),
 /// which neither HEM nor drift flux can represent. Note what this crate's
 /// drift-flux result already says about that case: the slip sweep in
 /// [`edwards_drift_flux_slip_and_tau_sensitivity`] shows *mechanical*
 /// non-equilibrium changes GS-1 pressure by `<= 1.9` psia here, so a
 /// six-equation Edwards case should be judged on whether *thermal*
-/// non-equilibrium changes anything, not on the pressure RMSE alone.
+/// non-equilibrium changes anything, not on the pressure RMSE alone. Two things
+/// that case must also report, per
+/// `crates/tampines/docs/six-equation-regularisation.md` §9.5: a
+/// grid-refinement study, and a sensitivity of the headline number to `C_vm`
+/// over `[0, 0.5]`.
 ///
-/// Pass criterion: `step()` returns `TampinesError::NotYetImplemented` naming
-/// the component, and `time()` stays at zero.
+/// Pass criterion: construction succeeds and `time() = 0 s`.
 ///
-/// **Results (measured 2026-08-11, release).** Passes, in `0.00 s`:
-/// `Err(NotYetImplemented { component: "multiphase_1d::two_fluid::TwoFluid1d::step" })`
-/// and `time() = 0 s`. The six-equation solver is still a scaffold — do not
-/// read any two-fluid Edwards result into this crate.
+/// **Results (measured 2026-08-12, release).** Passes: the solver constructs on
+/// the 4.096 m / 0.073 m Edwards pipe at 7 MPa, 502 K with 24 cells, and
+/// `time() = 0 s`. **No two-fluid Edwards result exists in this crate** — do
+/// not read one into this test.
 #[test]
-fn two_fluid_step_still_refuses_to_pretend() {
+fn two_fluid_constructs_on_the_edwards_geometry() {
+    use uom::si::f64::{Pressure, ThermodynamicTemperature, Time};
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+    use uom::si::time::second as second_unit;
+
     let pipe = Pipe1d::circular(
         Length::new::<meter>(PIPE_LENGTH_M),
         Length::new::<meter>(PIPE_ID_M),
@@ -1147,16 +1161,17 @@ fn two_fluid_step_still_refuses_to_pretend() {
         24,
     )
     .expect("the Edwards pipe is well posed");
-    let mut solver = TwoFluid1d::new(pipe);
-    let outcome = solver.step();
-    println!("TwoFluid1d::step() -> {outcome:?}");
-    assert!(
-        matches!(
-            outcome,
-            Err(crate::TampinesError::NotYetImplemented { component })
-                if component == "multiphase_1d::two_fluid::TwoFluid1d::step"
-        ),
-        "the six-equation scaffold must refuse, got {outcome:?}"
+    let solver = TwoFluid1d::bubbly(
+        pipe,
+        Pressure::new::<pascal>(7.0e6),
+        ThermodynamicTemperature::new::<kelvin>(502.0),
+        Time::new::<second_unit>(1.0e-5),
+    )
+    .expect("the six-equation solver builds on the Edwards geometry");
+    println!(
+        "TwoFluid1d on Edwards: alpha_g[0] = {:.6e}, t = {} s",
+        solver.void_fraction()[0],
+        solver.time().get::<second>()
     );
     assert_eq!(
         solver.time().get::<second>(),

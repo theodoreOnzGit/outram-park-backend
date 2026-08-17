@@ -33,7 +33,8 @@
 //! (monotone edges, non-negative structure factors, plausible first-edge energy)
 //! but **not** validated against a reference LEAPR run.
 
-use crate::common::phys::{AMASSN_AMU, AMU_G, EV_ERG, HBAR_ERG_S, PI};
+use crate::common::phys::PI;
+use crate::leapr::vintage::PhysicalConstants;
 
 /// The crystalline moderator whose Bragg edges are being computed.
 ///
@@ -238,6 +239,39 @@ fn insert_hex_edge(edges: &mut Vec<(f64, f64)>, tsq: f64, f: f64, tsqx: f64) {
 /// edge list; `emax_ev = 5` keeps this to a few thousand edges for the built-in
 /// moderators (matching NJOY's `maxb = 60000` word budget).
 pub fn coher(lat: CoherentLattice, natom: usize, emax_ev: f64) -> BraggEdges {
+    coher_with_constants(lat, natom, emax_ev, PhysicalConstants::default())
+}
+
+/// [`coher`], but with the **physical-constant set given explicitly** — the form
+/// to use when reproducing a published evaluation.
+///
+/// Every Bragg edge energy is `E = tau^2 / econ`, and
+/// [`PhysicalConstants::econ`] is built from `ev`, `amu`, `hbar` and `amassn`.
+/// A constant set from the wrong era therefore scales the **whole** edge grid by
+/// a single factor. Measured for ENDF/B-VIII.0 crystalline graphite
+/// (`EVAL-SEP17`) on 2026-08-13:
+///
+/// | Constants used | max rel. dev. vs the tape, Bragg energies | `S(E, T)`, all 10 temperatures |
+/// |---|---|---|
+/// | [`PhysicalConstants::Codata2018`] (crate default) | 9.937e-7 | 9.986e-7 |
+/// | [`PhysicalConstants::Njoy2016Legacy`] (the evaluation's own vintage) | **1.001e-13** | **1.001e-13** |
+///
+/// 1.001e-13 is float round-trip noise on a 7-significant-figure ENDF field:
+/// every edge energy and all 2,200 structure-factor values match the published
+/// tape to the last printed digit. The 9.937e-7 residual was shown to be a
+/// *uniform* multiplicative offset (+5.115e-7, scatter 2.088e-7 about that one
+/// factor), which is the signature of a constant rather than of the
+/// hand-transcribed lattice constants — a slip in `a` or `c` would move `(00l)`
+/// and `(hk0)` families by different amounts.
+///
+/// [`crate::leapr::generate`] calls this with the deck's own declared vintage,
+/// so the default path is the bit-exact one.
+pub fn coher_with_constants(
+    lat: CoherentLattice,
+    natom: usize,
+    emax_ev: f64,
+    constants: PhysicalConstants,
+) -> BraggEdges {
     const TWOTHD: f64 = 0.666_666_666_667;
     const SQRT3: f64 = 1.732_050_808;
     const TOLER: f64 = 1.0e-6;
@@ -249,10 +283,11 @@ pub fn coher(lat: CoherentLattice, natom: usize, emax_ev: f64) -> BraggEdges {
         scoh,
     } = lat.constants(natom as f64);
 
-    // energy <-> tau^2 conversion factors (2541–2545).
+    // energy <-> tau^2 conversion factors (2541–2545). `econ` comes from the
+    // caller's constant set, not from `common::phys`, so that reproducing a
+    // pre-2018 evaluation uses that era's `ev`/`amu`/`hbar`/`amassn`.
     let twopis = (2.0 * PI).powi(2);
-    let amne = AMASSN_AMU * AMU_G;
-    let econ = EV_ERG * 8.0 * (amne / HBAR_ERG_S) / HBAR_ERG_S;
+    let econ = constants.econ();
     let recon = 1.0 / econ;
     let tsqx = econ / 20.0;
 

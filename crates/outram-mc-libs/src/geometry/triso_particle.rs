@@ -45,15 +45,28 @@
 //! takes whatever five cumulative radii the caller supplies; the preset only
 //! encodes the table above.
 //!
-//! # Scope / deferred work
+//! # Scope: geometry + material assignment only
 //!
-//! This is **geometry + material assignment only**. The carbon/graphite
-//! **S(α,β) thermal-scattering data** integration — binding the PyC/graphite
-//! coatings and matrix to a bound-atom thermal scattering law so epithermal
-//! down-scatter in the moderating carbon is treated correctly — is a **separate,
-//! deferred concern**: it needs thermal-scattering data not present on this host,
-//! and is tracked as follow-up work. Nothing here loads or asserts any thermal
-//! data; the material ids are opaque indices the caller maps to real materials.
+//! Nothing here loads or asserts any thermal data; the material ids are opaque
+//! indices the caller maps to real materials. That is deliberate and stays that
+//! way — deck loading in a CSG module would break the crate's data/transport
+//! boundary (`outram-mc-libs` parses no ENDF; it consumes the njoy surface).
+//!
+//! **S(α,β) thermal scattering is therefore attached caller-side**, to the
+//! [`Nuclide`](crate::material::nuclide::Nuclide)s that make up the materials
+//! passed in here, via `Nuclide::with_thermal_scattering`. It is no longer
+//! blocked on data availability: as of 2026-08-14 the ENDF/B-VIII.0 LEAPR decks
+//! are embedded in `njoy-outram-park-fork` and regenerate offline. See
+//! `tests/triso_shell_thermal_scattering.rs` for the worked, checked
+//! composition, and note its finding:
+//!
+//! - **PyC coatings and matrix (carbon in graphite) — available and verified.**
+//! - **SiC layer — NOT available.** Stock LEAPR cannot generate SiC's
+//!   coherent-elastic channel (card 4 `iel = 0`; the evaluation's elastic came
+//!   from modified LEAPR source), so the only obtainable SiC law carries ~2.7%
+//!   of the layer's true thermal scattering. Do **not** substitute the graphite
+//!   law for the SiC layer — it would yield a plausible wrong answer rather
+//!   than an error. Tracked separately in kopi-beans.
 
 use super::cell::{Cell, HalfSpaceSense, RegionToken};
 use super::geometry::Geometry;

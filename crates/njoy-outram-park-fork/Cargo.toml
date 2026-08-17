@@ -1,6 +1,6 @@
 [package]
 name = "njoy-outram-park-fork"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
@@ -15,8 +15,11 @@ description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing 
 keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 
 # LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
-# Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
-# tarball — they are development-only and crates.io does not run them.
+# Integration tests are excluded from the tarball — development-only, and
+# crates.io does not run them. Raw ENDF tapes are not merely excluded here: as
+# of 2026-08-17 they do not live under this crate at all, but at the repo root
+# in reference-data/endf/ (~89 MB, U-235 alone 35 MB, against a 10 MB crates.io
+# cap). See src/reference_data.rs; tests/no_endf_inside_crates.rs enforces it.
 # Patterns are gitignore-style globs: an unanchored "LICENSE*" would also match
 # the vendored upstream_source/NJOY2016/ licence files (gitignored, so cargo
 # then refuses to package a "dirty" tree). Leading "/" anchors to the crate root.
@@ -52,14 +55,23 @@ miniz_oxide.workspace = true
 # burden). Used by `WindowedMultipole::load_h5` (WMP blob-baking) and the OpenMC
 # ENDF/B-8.0 code-to-code Doppler verification test. See docs/architecture.md.
 hdf5-pure.workspace = true
-# HIGH-fidelity ENDF download tier — all optional, behind the `net-fetch` feature
-# (docs/data-acquisition.md). The default lean build pulls none of these, so a
-# data consumer that only wants the embedded LOW tier stays free of a TLS/HTTP
-# dependency tree. Pure-Rust + cross-platform (rustls, not OpenSSL).
+# ── On-disk artifact cache (always compiled) ─────────────────────────────────
+# `acquire::EndfCache` is the crate's single caching layer: platform cache-dir
+# discovery, a per-artifact advisory lock, double-checked acquire, fsync + atomic
+# rename, and a SHA-256 sidecar. It has two producers — the `net-fetch` download
+# path, and the **offline LEAPR regeneration** path
+# (`leapr::generate`), which is on by default and needs no network. So these
+# three must be unconditional. All are small, pure-Rust and Android-clean:
+# `directories` reads env vars, `fs2` uses `flock` (present on Android/bionic),
+# `sha2` is pure Rust.
+sha2 = { workspace = true }
+directories = { workspace = true }
+fs2 = { workspace = true }
+# HIGH-fidelity ENDF download tier — optional, behind the `net-fetch` feature
+# (docs/data-acquisition.md). The default build pulls neither, so a data consumer
+# that only wants the offline tiers stays free of a TLS/HTTP dependency tree.
+# Pure-Rust + cross-platform (rustls, not OpenSSL).
 ureq = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
-directories = { workspace = true, optional = true }
-fs2 = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 # Terminal-UI stack for the `njoy-tui` binary (see [[bin]] below). An
 # unconditional (non-gated, non-target-gated) dependency: a terminal UI is
@@ -96,7 +108,11 @@ wgpu = { workspace = true }
 # reconstruct pointwise cross sections on device. Off by default — the embedded
 # LOW tier (WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`.
-net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
+#
+# Only the HTTP/TLS and zip halves are gated; the on-disk cache substrate
+# (`acquire::EndfCache`) is always compiled, because the offline LEAPR
+# regeneration path (`leapr::generate`, on by default) caches through it.
+net-fetch = ["dep:ureq", "dep:zip"]
 
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
 # Own folder + README under tests/u238_doppler_verification/. Uses the always-on

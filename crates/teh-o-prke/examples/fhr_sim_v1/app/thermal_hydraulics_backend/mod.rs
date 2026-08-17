@@ -12,8 +12,7 @@ use tuas_boussinesq_solver::prelude::beta_testing::{
 };
 use uom::si::energy::kilojoule;
 use uom::si::mass_rate::kilogram_per_second;
-use uom::si::power::megawatt;
-use uom::si::pressure::{kilopascal, megapascal};
+use uom::si::pressure::kilopascal;
 use uom::si::thermal_conductance::watt_per_kelvin;
 //use teh_o_prke::decay_heat::DecayHeat;
 //use teh_o_prke::feedback_mechanisms::fission_product_poisons::Xenon135Poisoning;
@@ -894,12 +893,12 @@ impl FHRSimulatorApp {
 
         // start with some initial flow rates
         let (
-            mut reactor_branch_flow,
-            mut downcomer_branch_1_flow,
-            mut downcomer_branch_2_flow,
-            mut intermediate_heat_exchanger_branch_flow,
-            mut intrmd_loop_ihx_br_flow,
-            mut intrmd_loop_steam_gen_br_flow,
+            reactor_branch_flow,
+            downcomer_branch_1_flow,
+            downcomer_branch_2_flow,
+            intermediate_heat_exchanger_branch_flow,
+            intrmd_loop_ihx_br_flow,
+            intrmd_loop_steam_gen_br_flow,
         ) = four_branch_pri_and_intermediate_loop_fluid_mechanics_only(
             pri_loop_pump_pressure,
             intrmd_loop_pump_pressure,

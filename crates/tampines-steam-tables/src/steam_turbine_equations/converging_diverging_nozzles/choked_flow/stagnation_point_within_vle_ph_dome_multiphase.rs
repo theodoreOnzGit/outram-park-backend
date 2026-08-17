@@ -7,13 +7,13 @@
 
 use uom::ConstZero;
 use uom::si::f64::*;
-use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::pressure::megapascal;
 use uom::si::pressure::pascal;
 
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::h_ps_eqm;
 use crate::prelude::functional_programming::ps_flash_eqm::v_ps_eqm;
+use super::stagnation_point_outside_vle_ph_dome_multiphase::golden_section_max_g;
 
 /// Critical pressure & mass flux for a stagnation state that sits
 /// INSIDE the p-h VLE dome (two-phase, at or below the critical point).
@@ -64,43 +64,16 @@ pub fn get_critical_pressure_and_mass_flux_ph_vle_dome(
         rho * (2.0 * ke).sqrt() // = rho * u
     };
 
-    // Maximise G over [p_min, p0] by golden-section search. G is unimodal
-    // (zero at p0, single interior peak at the choke, falling toward p_min),
-    // so this is robust and needs no derivative of the noisy sound speed.
+    // Maximise G over [p_min, p0] with the crate's shared golden-section search,
+    // [`golden_section_max_g`]. G is unimodal here (zero at p0, single interior
+    // peak at the choke, falling toward p_min), so this is robust and needs no
+    // derivative of the noisy sound speed.
     //
-    // gr = (sqrt(5) - 1)/2 ~= 0.618 is the golden ratio: it places the two
-    // interior probes so that one probe is reused after each bracket
-    // reduction, costing one G-evaluation per iteration.
-    //
-    // Reference:
-    //   Price, C. J., & Robertson, B. L. (2012). Golden Section Search.
-    //   In Encyclopedia of Engineering Optimization and Heuristics
-    //   (pp. 1-4). Singapore: Springer Nature Singapore.
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0; // 0.618...
-    let mut a = p_min.get::<pascal>();
-    let mut b = p0.get::<pascal>();
-    let mut c = b - gr * (b - a);
-    let mut d = a + gr * (b - a);
-
-    let max_iter = 100;
-    let tol_pa = 1.0; // 1 Pa bracket width is plenty
-    for _ in 0..max_iter {
-        if (b - a).abs() < tol_pa {
-            break;
-        }
-        let gc = g_of_p(c).get::<kilogram_per_square_meter_second>();
-        let gd = g_of_p(d).get::<kilogram_per_square_meter_second>();
-        if gc > gd {
-            b = d; // peak is in [a, d]
-        } else {
-            a = c; // peak is in [c, b]
-        }
-        c = b - gr * (b - a);
-        d = a + gr * (b - a);
-    }
-
-    let p_crit = Pressure::new::<pascal>(0.5 * (a + b));
-    let g_crit = g_of_p(p_crit.get::<pascal>());
-
-    (p_crit, g_crit)
+    // This used to be an inline copy of that loop (bead `op-uyi3`). The copy's
+    // own comment claimed the golden ratio's defining property — "one probe is
+    // reused after each bracket reduction, costing one G-evaluation per
+    // iteration" — while the code below it evaluated both probes every
+    // iteration. The shared function actually implements the reuse, so the
+    // claim is now true rather than aspirational.
+    golden_section_max_g(g_of_p, p_min.get::<pascal>(), p0.get::<pascal>())
 }

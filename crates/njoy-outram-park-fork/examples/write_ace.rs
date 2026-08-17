@@ -32,8 +32,8 @@ fn main() {
     // U-235 exercises the full path: resonances, elastic angular, discrete
     // inelastic levels (Law 3), and continuum / (n,xn) emission (Law 4).
     const MAT: i32 = 9228;
-    let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let path = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
 
     let tape = Tape::read(File::open(&path).expect("open ENDF fixture")).expect("parse ENDF");
     let cfg = ReconrConfig {

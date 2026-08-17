@@ -15,6 +15,7 @@ use super::solid_database::nuclear_graphite::nuclear_graphite_matrix_a3_density;
 use super::solid_database::fiberglass::fiberglass_density;
 use super::solid_database::pyrogel_hps::pyrogel_hps_density;
 use super::solid_database::ss_304_l::steel_ss_304_l_density;
+use super::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_density_kim;
 use super::LiquidMaterial;
 use super::Material;
 use super::SolidMaterial;
@@ -86,6 +87,7 @@ fn solid_density(
 
     let solid_material: SolidMaterial = match material {
         Material::Solid(SteelSS304L) => SteelSS304L,
+        Material::Solid(SteelSS304LHighTemp) => SteelSS304LHighTemp,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
@@ -103,6 +105,9 @@ fn solid_density(
     let density: MassDensity = match solid_material {
         Fiberglass => fiberglass_density()?,
         SteelSS304L => steel_ss_304_l_density()?,
+        // unlike SteelSS304L (a constant 8030 kg/m^3), the Kim ANL-75-55
+        // correlation is temperature-dependent, so it takes solid_temp
+        SteelSS304LHighTemp => steel_304_l_high_temp_density_kim(solid_temp)?,
         PyrogelHPS => pyrogel_hps_density()?,
         Copper => copper_density()?,
         NuclearGraphiteMatrixA3 => nuclear_graphite_matrix_a3_density()?,

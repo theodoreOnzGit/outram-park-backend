@@ -38,3 +38,11 @@ pub mod moody_critical_mass_flux_homogeneous_eqm;
 pub mod zaloudek_critical_mass_flux_homogeneous_eqm;
 
 pub mod bubble_point_saturation_validation;
+
+/// Verification of the crate's single golden-section maximiser
+/// (`choked_flow::golden_section_max_g`) and a full-precision regression probe
+/// of the choke pressures produced by the four HEM solver paths that use it.
+///
+/// Added for bead `op-uyi3`, which found four copies of the same loop in this
+/// crate, all evaluating the objective twice per iteration.
+pub mod golden_section_shared_search;

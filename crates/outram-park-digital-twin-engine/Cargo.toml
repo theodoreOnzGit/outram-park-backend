@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -38,6 +38,18 @@ tuas_boussinesq_solver.workspace = true
 
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
+
+# REAL (non-dev) dependency: `components::HeatExchangerVisual` draws the flow
+# arrangement that `tampines::components::HeatExchanger` actually stores, and
+# that field's type (`heat_exchanger::lmtd::FlowArrangement`) lives in this
+# crate -- tampines does not re-export it. The widget must be able to name the
+# type to map it onto `HeatExchangerKind`; without it the physics-backed path
+# could only guess an arrangement, which is exactly the kind of fabrication
+# this library forbids. Pure Rust (thiserror/ndarray/uom/roots/zip with only
+# `deflate`), so promoting it does not endanger the Android build. The
+# examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
+# it through this entry, so it is no longer declared as a dev-dependency.
+outram-park-fork-dwsim-libs.workspace = true
 
 # OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
 # Pure Rust (RustCrypto, not openssl-sys), so this stays Android/Termux-clean
@@ -102,11 +114,13 @@ outram-foam-basic-lib.workspace = true
 serde.workspace = true
 # env_logger is now a REAL dependency above (the CIET v2 [[bin]] needs it and
 # bins cannot see dev-deps); it stays usable from the examples either way.
-# htgr_sim_v1 schematic constructs tampines equipment wrappers (HeatExchanger,
+# outram-park-fork-dwsim-libs is now a REAL dependency above (the library's
+# HeatExchangerVisual names FlowArrangement, and libraries cannot see
+# dev-deps); it stays usable from the examples either way. htgr_sim_v1's
+# schematic still constructs tampines equipment wrappers (HeatExchanger,
 # SteamGenerator, Pump, Valve) whose constructor argument enums
 # (FlowArrangement / PumpSpecification / OpeningCharacteristic /
-# ValveFlowCoefficient) live in this crate; tampines does not re-export them.
-outram-park-fork-dwsim-libs.workspace = true
+# ValveFlowCoefficient) live in that crate; tampines does not re-export them.
 # htgr_sim_v1's helium primary loop evaluates real, temperature-dependent
 # helium properties (c_p, density) via `state_pt`. tampines re-exports the
 # `Fluid` selector (`tampines::fluids::TampinesFluid`) but not the property
@@ -114,6 +128,19 @@ outram-park-fork-dwsim-libs.workspace = true
 # precedent as outram-park-fork-dwsim-libs above. Promoting a property
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
+
+# htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
+# this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
+# as its intended real integration target, stepped by
+# `teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper` instead of
+# GeN-Foam's own point-kinetics coupling. Wired in here as a dev-dependency so
+# that tier can start importing real `genfoam` types -- the coupling itself
+# remains unimplemented (that placeholder still falls back to `one_node`'s
+# math); see that module's doc comment. `genfoam` (and the wider
+# `outram-foam-appbuilder-lib`) is itself flagged an AI-assisted draft with no
+# human V&V, so composing it here still needs the same scrutiny this crate's
+# own CLAUDE.md records for its other physics.
+outram-foam-appbuilder-lib.workspace = true
 
 # Widget Studio -- the gallery app for developing and quality-controlling the
 # visual component library one widget at a time (bead op-wqk.14). Not a
@@ -130,6 +157,10 @@ path = "examples/fhr_sim_v2/main.rs"
 [[example]]
 name = "htgr_sim_v1"
 path = "examples/htgr_sim_v1/main.rs"
+
+[[example]]
+name = "distillation_sim_v1"
+path = "examples/distillation_sim_v1/main.rs"
 
 # CIET Educational Simulator v2 -- the simulator itself (physics + egui GUI +
 # embedded OPC-UA server). A [[bin]], not an example, so `cargo install` /

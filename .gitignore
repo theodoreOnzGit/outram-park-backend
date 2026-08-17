@@ -25,6 +25,14 @@ crates/kovan-literature/proprietary/
 crates/kovan-literature/generated/bibtex/proprietary/
 crates/kovan-literature/generated/markdown/proprietary/
 crates/kovan-literature/generated/assets/proprietary/
+# `kovan lit import --json-out` writes a KovanDocument, and that JSON EMBEDS the
+# full extracted body — so a proprietary source's JSON carries its entire
+# copyrighted text. This rule was missing until 2026-08-13, when the first
+# proprietary imports were catalogued; without it the JSON side would have been
+# committed while the markdown side was correctly ignored.
+crates/kovan-literature/generated/json/proprietary/
+# Belt and braces: any path under the generated tree that names `proprietary`.
+crates/kovan-literature/generated/**/proprietary/
 
 # Generated outram-mc ↔ OpenMC-notebook comparison CSVs — reproducible from the
 # verification tests + the .ipynb reference values; kept local, not committed.
@@ -78,8 +86,16 @@ xin wang thesis.pdf
 .kopitiam/
 
 # Generated token-usage summary — the source of truth is the per-commit
-# API-Usage trailers in the git log (query via docs/historian/token_usage.py).
+# API-Usage trailers in the git log (query via `kovan tokens query`).
 # This markdown is a regenerable local summary, not tracked (was causing
 # recurring merge conflicts as a generated file committed on many branches).
 docs/token-usage.md
 .aider*
+
+# Generated upload bundle for an EXTERNAL chat agent (`kovan agent-docs-gen`).
+# Flat per-crate copies of the committed crates/<crate>/docs/api.md mirrors plus
+# a generated AGENTS.md and roster — entirely derived, several MB, and rebuilt in
+# seconds. Regenerate with:
+#   kovan agent-docs-gen --list
+#   kovan agent-docs-gen --crates <crate>,<crate>
+/agent-docs/

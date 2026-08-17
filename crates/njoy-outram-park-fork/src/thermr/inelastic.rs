@@ -434,8 +434,7 @@ mod tests {
     use std::fs::File;
 
     fn al27() -> IncoherentInelastic {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/tsl-013_Al_027-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, 53).unwrap().incoherent_inelastic.unwrap()
     }

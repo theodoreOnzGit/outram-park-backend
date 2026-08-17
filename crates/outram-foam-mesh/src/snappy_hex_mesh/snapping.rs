@@ -144,6 +144,7 @@
 use std::collections::HashMap;
 
 use outram_foam_basic_lib::mesh::PatchKind;
+use super::cyclic::{CyclicPointConstraints, DEFAULT_CYCLIC_TOL};
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::snappy_hex_mesh::castellation::CastellatedMesh;
@@ -299,6 +300,16 @@ pub fn snap(
         }
     }
 
+    // Cyclic (periodic) constraints. Points on a cyclic plane are not frozen
+    // (see `frozen_patch_points`); instead their displacement is projected into
+    // the plane and synchronised with their partner across the seam, so the
+    // halves stay conformal — the invariant `check_conformity` gates on — while
+    // the geometry on the seam still gets snapped. Bookkeeping errors here are
+    // a malformed mesh, so they surface as a construction error rather than
+    // being silently ignored.
+    let cyclic = CyclicPointConstraints::build(&mesh.topology, DEFAULT_CYCLIC_TOL)
+        .map_err(|e| MeshError::Construction(format!("snap: {e}")))?;
+
     // Optional: precompute STL feature edges and feature points once.
     let feature_edges = if controls.feature_snap {
         detect_feature_edges(surface, controls.feature_angle_deg)
@@ -413,6 +424,13 @@ pub fn snap(
             }
         }
 
+        // 3b. Cyclic constraint — MUST be the last edit of `disp`, so nothing
+        //     downstream can reintroduce a seam-breaking component. Projects
+        //     each periodic-plane point's motion into its plane, then averages
+        //     partner displacements so both halves move identically and the
+        //     separation vector (hence conformity) is preserved exactly.
+        cyclic.constrain_and_sync(&mut disp, &local_of);
+
         // 4. Quality-gated relaxation: apply lambda*disp, re-impose the hanging
         //    constraints, halving lambda on quality failure.
         let saved = work.points.clone();
@@ -511,9 +529,30 @@ fn frozen_patch_points(
     let mut frozen = vec![false; local_of.len()];
     let wall_range = mesh.topology.patch_face_ids(wall_idx);
     let n_int = mesh.topology.n_internal_faces;
+
+    // Faces belonging to a cyclic patch do NOT freeze their points. A periodic
+    // plane is not a fixed wall: its points may slide *within* the plane as long
+    // as both halves move identically, which
+    // [`CyclicPointConstraints`](crate::snappy_hex_mesh::CyclicPointConstraints)
+    // enforces. Freezing them instead — the behaviour before cyclic support —
+    // left the geometry un-snapped (staircased) exactly where it crosses a
+    // periodic plane. A point that *also* lies on some other boundary patch is
+    // still frozen by that patch's faces below.
+    let cyclic_ranges: Vec<std::ops::Range<usize>> = mesh
+        .topology
+        .patches
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.kind == PatchKind::Cyclic)
+        .map(|(i, _)| mesh.topology.patch_face_ids(i))
+        .collect();
+
     for (fi, poly) in mesh.topology.faces.iter().enumerate() {
         // Only boundary faces outside the wall patch can freeze a point.
         if fi < n_int || wall_range.contains(&fi) {
+            continue;
+        }
+        if cyclic_ranges.iter().any(|r| r.contains(&fi)) {
             continue;
         }
         for &p in poly {

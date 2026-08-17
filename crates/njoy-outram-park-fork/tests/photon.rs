@@ -14,10 +14,7 @@ use njoy_outram_park_fork::{
 };
 
 fn fixture(name: &str) -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources");
-    p.push(name);
-    p
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join(name)
 }
 
 /// **H6 fission-photon V&V.**

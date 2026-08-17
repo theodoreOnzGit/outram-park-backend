@@ -2,7 +2,7 @@
 //!
 //! This is the canonical Phase-1 fixture — 109 lines, one material (MAT 228),
 //! three sections (MF=1/MT=451, MF=3/MT=2, MF=6/MT=2). Verified against the
-//! file distributed with NJOY2016 at `tests/resources/a-002_He_004-ENDF8.0.endf`.
+//! file distributed with NJOY2016 at `reference-data/endf/a-002_He_004-ENDF8.0.endf`.
 //!
 //! Run with:
 //! ```bash
@@ -16,8 +16,8 @@ use njoy_outram_park_fork::endf::interp::eval_tab1;
 
 fn he4_path() -> std::path::PathBuf {
     // The fixture lives in the crate's tests/resources/ directory.
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/a-002_He_004-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("a-002_He_004-ENDF8.0.endf");
     p
 }
 

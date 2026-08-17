@@ -41,6 +41,11 @@
 //!   [`scattering::IncoherentElasticScattering`] (ZrH: σ + equiprobable
 //!   cosines), each `uom`-typed, per principal atom, and temperature-resolved
 //!   at construction.
+//! - [`temperature_thinning`] — **study tool, not a production path**: measures
+//!   what a *thinned* tabulated-temperature grid costs in accuracy, by
+//!   withholding tabulated temperatures, interpolating to them from the ones
+//!   kept, and comparing against the evaluation's own values. Also does
+//!   leave-one-out characterisation of the existing production interpolation.
 //! - The `aceth.f90` writer ([`crate::acer::thermal`]) is **done** for the
 //!   standard IFENG=0 (equiprobable) case, both coherent- and
 //!   incoherent-elastic, with the coherent `S(E)` resolved at the requested
@@ -54,6 +59,7 @@ pub mod incoherent_elastic;
 pub mod inelastic;
 pub mod mf7;
 pub mod scattering;
+pub mod temperature_thinning;
 
 pub use scattering::{
     CoherentElasticScattering, IncoherentElasticScattering, IncoherentInelasticScattering,

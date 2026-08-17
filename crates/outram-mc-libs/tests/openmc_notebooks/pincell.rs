@@ -414,15 +414,47 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
 // Thermal LWR pin-cell (op-6tz.12) — now wired with H-in-H₂O S(α,β).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Candidate absolute paths / env override for the ENDF/B-VIII.0
-/// `tsl-HinH2O.endf` thermal-scattering-law file this LIVE test consumes.
+/// Temperature \[K\] the H-in-H2O S(alpha,beta) law is built at — the
+/// ENDF/B-VIII.0 tabulated room-temperature point, and the pin-cell material
+/// temperature used throughout this file. Shared by the regeneration path and
+/// `ThermalScattering::from_endf_file` so the two cannot drift apart.
+const TSL_TEMPERATURE_K: f64 = 293.6;
+
+/// Locate — or, failing that, **regenerate** — the ENDF/B-VIII.0 `tsl-HinH2O`
+/// thermal-scattering law this LIVE test consumes.
 ///
-/// The `tsl` file is a large public ENDF/B-VIII.0 data file that does **not**
-/// ship in the repo (see `DATA_POLICY.md` — public data, referenced by path, not
-/// vendored). The test locates it via the `OUTRAM_TSL_HINH2O` environment
-/// variable first, then a known local path. If it is not found the test prints a
-/// clear SKIP and returns without asserting the physics — it is **data-gated**,
-/// not a silent pass (documented in `REVIEW_MANIFEST.md`).
+/// Resolution order:
+/// 1. `OUTRAM_TSL_HINH2O`, if set and the file exists.
+/// 2. A known local path to an unpacked ENDF/B-VIII.0 `thermal_scatt` tree.
+/// 3. **Regenerate it from the LEAPR deck embedded in
+///    `njoy-outram-park-fork`** (`SabMaterial::HInH2O`, MAT 1), writing the
+///    tape to a temp file and returning that path.
+///
+/// Step 3 closes kopi-beans `op-6tz.28.1` — stop the LIVE thermal tests
+/// soft-skipping on a hardcoded absolute path. Regenerating from an embedded
+/// deck is strictly better than that bead's proposed `EndfCache::fetch_tsl`
+/// download: no network, no cache, no IAEA availability question (that host is
+/// policy-blocked 403 from this environment), and it works offline and in CI.
+///
+/// **This test is no longer data-gated.** Verified 2026-08-14: with no local
+/// tape and no `OUTRAM_TSL_HINH2O` set, step 3 succeeds and the benchmark runs
+/// (`k_inf = 1.41053 +/- 0.00689`, 600 particles, 40+60 generations).
+///
+/// It un-gated itself, which is worth recording because it was designed to.
+/// When this fallback was first wired, step 3 could not succeed:
+/// `tsl-HinH2O.leapr` sets `nss = 1` — it carries a *secondary scatterer* (the
+/// oxygen in the water molecule) — and the LEAPR port refused every `nss != 0`
+/// deck with `NotPorted`. The fallback was committed anyway on the reasoning
+/// that it costs nothing while failing and would start working the day the
+/// secondary-scatterer support landed, with no edit here. That is exactly what
+/// happened: the port gained `nss > 0` support the same day, and this path went
+/// live on its own.
+///
+/// One class of deck is still refused rather than approximated — the `b7 <= 0`
+/// short-collision-time merge (`op-bax5`). No registered deck needs it today.
+///
+/// Returns `None` only if neither a local tape nor regeneration is available,
+/// in which case the caller prints a SKIP.
 fn locate_tsl_hinh2o() -> Option<String> {
     if let Ok(p) = std::env::var("OUTRAM_TSL_HINH2O") {
         if std::path::Path::new(&p).exists() {
@@ -431,10 +463,44 @@ fn locate_tsl_hinh2o() -> Option<String> {
     }
     const CANDIDATES: &[&str] =
         &["/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf"];
-    CANDIDATES
+    if let Some(p) = CANDIDATES
         .iter()
         .find(|p| std::path::Path::new(p).exists())
         .map(|s| s.to_string())
+    {
+        return Some(p);
+    }
+    regenerate_tsl_hinh2o()
+}
+
+/// Regenerate the `tsl-HinH2O` MF=7 law from the embedded LEAPR deck at the
+/// pin-cell temperature, returning the path of the written tape.
+///
+/// The temp file is deliberately **not** deleted: the caller passes its path to
+/// `ThermalScattering::from_endf_file`, so it must outlive this function. It
+/// lands in the system temp directory and is named per-process.
+fn regenerate_tsl_hinh2o() -> Option<String> {
+    use njoy_outram_park_fork::leapr::deck::LeaprDeck;
+    use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
+    use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
+    use njoy_outram_park_fork::units::Temperature;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    let material = SabMaterial::HInH2O;
+    let located = locate_deck(material).ok()?;
+    let deck = LeaprDeck::parse(&located.text).ok()?;
+    let tape = generate_tape(
+        &deck,
+        Temperature::new::<kelvin>(TSL_TEMPERATURE_K),
+        ElasticChannel::Generate,
+    )
+    .ok()?;
+
+    let tmp =
+        std::env::temp_dir().join(format!("op_pincell_tsl_HinH2O_{}.endf", std::process::id()));
+    let file = std::fs::File::create(&tmp).ok()?;
+    tape.write(file).ok()?;
+    tmp.to_str().map(|s| s.to_string())
 }
 
 /// Natural-zirconium isotopes (name, atom fraction) for the Zircaloy-like clad —
@@ -451,7 +517,7 @@ const ZR_ISOTOPES: &[(&str, f64)] = &[
 /// `0 U235, 1 U238, 2 O16, 3..=7 Zr{90,91,92,94,96}, 8 H1 (S(α,β) attached)`.
 /// The H-1 nuclide carries the H-in-H₂O bound-atom thermal-scattering table.
 fn pincell_nuclides(tsl_path: &str) -> Result<Vec<Nuclide>, njoy_outram_park_fork::NjoyError> {
-    let thermal = ThermalScattering::from_endf_file(tsl_path, 1, 293.6, "H in H2O")?;
+    let thermal = ThermalScattering::from_endf_file(tsl_path, 1, TSL_TEMPERATURE_K, "H in H2O")?;
     let mut nuclides = vec![
         Nuclide::from_core("U235")?,
         Nuclide::from_core("U238")?,

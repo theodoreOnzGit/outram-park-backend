@@ -91,8 +91,14 @@ use njoy_outram_park_fork::thermr::scattering::{
 use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
 use njoy_outram_park_fork::NjoyError;
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
+use std::path::PathBuf;
 
-const DEFAULT_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
+fn manifest() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+fn endf_path() -> PathBuf {
+    manifest().join("tests/resources/")
+}
 
 /// (file, MAT) for the three graphite evaluations.
 const GRAPHITES: [(&str, i32); 3] = [
@@ -106,13 +112,14 @@ const E_THERMAL: f64 = 0.0253;
 
 /// Resolve the tape path (env override → default), or `None` + a skip note.
 fn tape_path(file: &str) -> Option<std::path::PathBuf> {
-    let dir = std::env::var("GRAPHITE_TSL_DIR").unwrap_or_else(|_| DEFAULT_DIR.to_string());
+    let dir = endf_path();
     let p = std::path::Path::new(&dir).join(file);
+    let dir_display = dir.display();
     if p.exists() {
         Some(p)
     } else {
         eprintln!(
-            "SKIP thermal_graphite_coherent: {file} not found under {dir} (set GRAPHITE_TSL_DIR)"
+            "SKIP thermal_graphite_coherent: {file} not found under {dir_display} (set GRAPHITE_TSL_DIR)"
         );
         None
     }

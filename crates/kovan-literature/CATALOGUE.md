@@ -44,8 +44,19 @@ proceedings report INIS-VN-006.
 - *Provenance note:* venue and year are **not stated in the PDF**; they were
   resolved 2026-08-11 from the INIS record (which matches this exact file:
   11 pages, 584.3 kB). The extractor's earlier guess of 2024 was wrong.
-  No licence statement in the document — cite and use; do not assume
-  redistribution rights beyond the INIS public copy.
+  No licence statement in the document, and the INIS record asserts
+  "Copyright © 2026 International Atomic Energy Agency. All rights reserved."
+  ("open access" there means freely readable, not freely redistributable).
+- *Tier decision — MAINTAINER, 2026-08-14:* kept in the **open** tier, which is
+  committed and public. The workspace's default for a document with no licence
+  statement is proprietary; this is a deliberate exception, on the grounds that
+  the authors are the maintainer's own colleagues at SNRSI.
+  **No written grant is on file**, and the copyright asserted on the INIS record
+  is the IAEA's rather than the authors', so a permission from Anders and Sicong
+  would not by itself settle the redistribution right — VINANST-15 is
+  conference proceedings, whose copyright is commonly assigned to the organiser.
+  Upgrade this note if an explicit grant is ever obtained, naming who granted it
+  and when.
 - *Used by:* `outram-park-digital-twin-engine/src/htr10/neutronics.rs`
   (which still cites "(2024)" — fix tracked in `op-1lti`); HTR-10 slate
   `op-jyyp`.
@@ -145,6 +156,63 @@ Outram Park Fits.* Condensed working review, 24 July 2026.
 - *Used by:* `outram-park-digital-twin-engine` framing; refinery epic
   `op-1z3o` context.
 
+**`kim1975thermophysical`** — Kim, C. S. (1975). *Thermophysical Properties of
+Stainless Steels.* ANL-75-55, Argonne National Laboratory, Chemical Engineering
+Division, September 1975. Distribution category LMFBR Fuels and Materials
+(UC-79b). [OSTI 4152287](https://www.osti.gov/servlets/purl/4152287).
+- Files: `kim1975-thermophysical-properties-stainless-steels.{json,md,pdf}`.
+- *Licence:* **US Government work — public domain.** Prepared under contract
+  W-31-109-Eng-38 for the U.S. Energy Research and Development Administration;
+  the title page carries "DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED". PDF
+  committed.
+- *Good for:* recommended thermodynamic and transport properties of **Type 304L
+  and Type 316L** stainless steel over **300–3000 K**, solid *and* liquid, as
+  fitted equations: enthalpy, entropy, specific heat, vapour pressure, density,
+  thermal expansion coefficient, thermal conductivity, thermal diffusivity and
+  viscosity. Melting range 1670–1730 K, `T_m` = 1700 K, heat of fusion
+  64.0 cal/g.
+- *Provenance / accuracy notes:* the underlying experimental data run to
+  ~1620 K (enthalpy) and ~1600 K (conductivity, density); Kim smoothed by least
+  squares and **extrapolated** to the melting range. So 300–1600 K is
+  measured-data-backed and 1600–1700 K is the author's extrapolation — the
+  distinction is carried through into the code. The scan is OCR-damaged in
+  places: the Type 304L *liquid* conductivity slope reads `3.248e-3` but must be
+  `3.248e-5` (Kim's own rule that liquid `k` is half solid `k` at `T_m` closes
+  only with `-5`, and the parallel 316L equation is `3.279e-5`). Extractor
+  metadata was wrong on ingest (title taken as "DISCLAIMER", year as 2013, no
+  authors, tier as proprietary) and was corrected by hand; `lit bibtex`
+  round-trips cleanly.
+- *Used by:* `tuas_boussinesq_solver`'s
+  `SolidMaterial::SteelSS304LHighTemp` (`solid_database/ss_304_l_high_temp.rs`),
+  which implements the solid-region `c_p`, density and conductivity equations
+  over 300–1700 K; consumed by `htgr_sim_v1`'s steam-generator tube metal.
+  Beads `op-x0v1`, `op-v9u5`, `op-szmi.17`.
+
+**`pichler2019measurements`** — Pichler, P., Simonds, B. J., Sowards, J. W. and
+Pottlacher, G. *Measurements of thermophysical properties of solid and liquid
+NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
+[doi:10.1007/s10853-019-04261-6](https://doi.org/10.1007/s10853-019-04261-6).
+- Files: `pichler2020-316l-thermophysical-properties.{json,md,pdf}`.
+- *Licence:* **CC BY 4.0**, verified from the copyright statement in the
+  document, *and* declared an "Official contribution of the National Institute
+  of Standards and Technology; not subject to copyright in the United States".
+  Redistribution with attribution permitted; PDF committed.
+- *Good for:* high-accuracy ohmic pulse-heating measurements of **316L** —
+  electrical resistivity, enthalpy, density and thermal expansion from room
+  temperature to vaporisation, plus DSC specific heat to ~1400 K. Covers the
+  **solid, the melt and the liquid**. All data carry GUM uncertainties, which
+  makes it the better of the two steel sources for anything needing stated
+  uncertainty rather than a recommended curve.
+- *Provenance note:* the PDF is the online-first version and carries **no
+  volume or page numbers**; the copyright line reads "© The Author(s) 2019"
+  while the journal issue is 2020. The record errs toward what the document
+  itself states: year recorded as printed (2019), volume and pages left null
+  rather than invented. Resolve from the DOI if a full citation is needed.
+- *Used by:* **nothing yet.** Ingested 2026-08-13 alongside `kim1975…` as a
+  candidate source for 316L properties; no correlation in the workspace derives
+  from it. Its melt and liquid-region data have no consumer because no
+  liquid-metal material exists (see `op-k74g`).
+
 ### Theses (`open/theses/`)
 
 Three open-access UC Berkeley dissertations from eScholarship, each with
@@ -179,6 +247,35 @@ Implementation Criteria.* PhD dissertation, UC Berkeley.
 Bibliographic facts below are fine to publish; the PDFs and extracted bodies
 stay on this machine. *Use* means cite and implement from with provenance;
 re-hosting is not permitted for any of these.
+
+**`brown2018endfbviii0`** — Brown, D.A., Chadwick, M.B., Capote, R. et al.
+(68 authors) (2018). *ENDF/B-VIII.0: The 8th Major Release of the Nuclear
+Reaction Data Library with CIELO-project Cross Sections, New Standards and
+Thermal Scattering Data.* Nuclear Data Sheets 148, 1-142.
+[doi:10.1016/j.nds.2018.02.001](https://doi.org/10.1016/j.nds.2018.02.001).
+- *Licence:* **CC BY-NC-ND 4.0**, verified from the copyright line on page 1:
+  "This is an open access article under the CC BY-NC-ND license
+  (http://creativecommons.org/licenses/by-nc-nd/4.0/)." Open-access to read,
+  but NC (non-commercial) and ND (no derivatives) both fail this workspace's
+  public-redistribution bar — a Markdown conversion of the body is itself a
+  derivative, which ND prohibits.
+- *Tier decision:* **proprietary**, metadata + factual findings only, no
+  full-text body — same handling this archive already gives its TDM/AI-clause
+  documents (see `huang2025waterIngress` above).
+- *Extraction note:* `kovan lit import`'s text extraction (pdf-extract 0.12.0)
+  panics on this specific PDF (a Type3-font glyph-width lookup failure);
+  caught by `kovan-literature`'s `catch_unwind` wrapper and converted to an
+  error rather than crashing the CLI, so `markdown_body` is empty and
+  abstract/DOI/journal/volume/pages/full author list were hand-transcribed
+  from the title page instead of machine-extracted. Filed as bead `op-5v5.10`.
+- *Good for:* the primary published description of the ENDF/B-VIII.0 evaluated
+  nuclear data library (sublibrary overview, CIELO-project cross sections,
+  new IAEA standards, thermal scattering data, integral validation summary) —
+  the citation this workspace already uses for its local ENDF/B-VIII.0 copy.
+- *Used by:* `crates/njoy-outram-park-fork/docs/leapr-deck-provenance.md` §1
+  (cited there as "D. Brown et al." before this catalogue entry existed).
+- *Provenance:* SHA-256 `d246547b3cfdf73a2019290da83497611b8ce7e67008b0a2a26a05b37b9eae23`,
+  142 pages, ingested via `kovan lit import` 2026-08-14.
 
 **`wu2002htr10`** — Wu, Z., Lin, D. and Zhong, D. (2002). *The design
 features of the HTR-10.* Nuclear Engineering and Design 218, 25–32.
@@ -263,6 +360,62 @@ Energy 5, 1–93.
   committed with provenance even though the scans stay local.
 - *Used by:* `op-jyyp.8` (fix the suspect decay-heat model), digitiser V&V.
 - *Note:* 1980 scan OCR'd in 2003 — text quality imperfect in places.
+
+## Proprietary tier — reports (`proprietary/reports/`)
+
+**`terry2005evaluation`** — Terry, W. K., Kim, S. S., Montierth, L. M.,
+Cogliati, J. J. and Ougouag, A. M. (2005). *Evaluation of the HTR-10 Reactor as
+a Benchmark for Physics Code QA.* INL/CON-05-00852 **(PREPRINT)**, Idaho
+National Laboratory; International Reactor Physics Experiment Program Working
+Group Meeting, November 2005. Obtained from
+<https://www.osti.gov/servlets/purl/911178> (accessed 2026-08-13).
+- *Tier rationale:* the preprint's own first page states it "should not be
+  cited or reproduced without permission of the author". OSTI hosting grants no
+  redistribution rights — tier follows the copyright page, not the host.
+- *Good for:* the IRPhEP benchmark-model dimensions of the HTR-10 initial
+  criticality experiment. Its Table 2 supplies the axial build that
+  IAEA-TECDOC-1382 part 2 does not carry as text — core cavity height
+  221.818 cm, conus height 36.946 cm — plus packing fraction 0.61 and the
+  19.5° upper-surface cone angle (the latter DEM-calculated, not measured).
+- *Does NOT contain:* the 83-zone R-Z boundaries of TECDOC Table 4-3. It is a
+  summary and directs the reader to the IRPhEP evaluation report itself.
+- *Citation caution:* for publication cite the IRPhEP evaluation report or the
+  IAEA TECDOCs, not this preprint, unless permission is obtained.
+- *Derived dataset:* **`derived/terry2005-htr10-rz-zone-geometry.md`** — the
+  axisymmetric r-z zone partition read from **Fig. 2** by the maintainer, with
+  its provenance and the cross-check against Table 2. Committed (facts, open
+  provenance path) though the PDF it came from is not.
+- *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, Table 2
+  values transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
+
+## Proprietary tier — theses (`proprietary/theses/`)
+
+All three are UC Berkeley Electronic Theses and Dissertations, publicly readable
+via eScholarship but carrying a bare `Copyright <year>` with no reuse licence —
+author retains all rights, so: proprietary.
+
+**`wang2018coupled`** — Wang, Xin (2018). *Coupled neutronics and
+thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled,
+High-Temperature Reactor (FHR).* PhD thesis, UC Berkeley.
+<https://escholarship.org/uc/item/40q3985m>. © 2018 the author.
+- *Good for:* coupled neutronics/TH methodology for a pebble-bed FHR;
+  COMSOL-based neutron-diffusion + heat-transfer coupling. Relevant to the
+  Mk1 FHR line and to pebble-bed coupling strategy generally.
+
+**`poresky2019model`** — Poresky, Christopher Morris (2019). *Model Network
+Methodology for Experimental Development of Industrial Monitoring Systems.*
+PhD thesis, UC Berkeley. <https://escholarship.org/uc/item/9bz6h8d2>.
+© 2019 Christopher Poresky.
+- *Good for:* monitoring-system and digital-twin methodology; operator-facing
+  fault interfaces. Relevant to `outram-park-digital-twin-engine`.
+
+**`alivisatos2023evaluating`** — Alivisatos, Clara (2023). *Evaluating Remote
+Operations for Advanced Nuclear Reactor Control: Feasibility, Benefits, and
+Implementation Criteria.* PhD thesis, UC Berkeley.
+<https://escholarship.org/uc/item/1wt929p1>. © 2023 the author.
+- *Good for:* remote-operations feasibility and control-room criteria for
+  advanced reactors. Context for the digital-twin engine's intended-use
+  boundary — note RESPONSIBLE_USE.md forbids operational deployment.
 
 ## Librarian history
 

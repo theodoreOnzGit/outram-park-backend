@@ -72,7 +72,7 @@ impl Widget for ReactorVesselVisual {
         painter.rect_stroke(
             rect,
             2.0,
-            egui::Stroke::new(2.0, Color32::DARK_GRAY),
+            egui::Stroke::new(2.0_f32, Color32::DARK_GRAY),
             egui::StrokeKind::Middle,
         );
         response

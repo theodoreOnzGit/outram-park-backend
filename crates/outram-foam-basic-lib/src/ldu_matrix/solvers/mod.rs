@@ -47,4 +47,6 @@ pub mod krylov_solve;
 pub use conjugate_gradient::conjugate_gradient;
 pub use gamg::gamg;
 pub use gauss_seidel::gauss_seidel;
-pub use krylov_solve::{krylov_solve, KrylovMethod, KrylovOptions, PreconditionerKind};
+pub use krylov_solve::{
+    krylov_solve, krylov_solve_prepared, KrylovMethod, KrylovOptions, PreconditionerKind,
+};

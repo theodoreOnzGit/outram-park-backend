@@ -71,7 +71,7 @@ impl Widget for SinglePipeColourBlueRedTempSensitive {
 
         let pipe_colour = hot_to_cold_colour_mark_1(pipe_hotness);
         // let colour =
-        let width = 20.0;
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 
@@ -159,7 +159,7 @@ impl Widget for SinglePipeColourBlackRedTempSensitive {
 
         let pipe_colour = hot_to_cold_colour_mark_2(pipe_hotness);
         // let colour =
-        let width = 20.0;
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 
@@ -228,7 +228,7 @@ impl Widget for SinglePipeColourBlueWhiteQualitySensitive {
 
         let pipe_colour = steam_quality_colour_mark_1(pipe_quality as f32);
         // let colour =
-        let width = 20.0;
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 

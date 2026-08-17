@@ -570,55 +570,22 @@ pub(crate) mod tests {
 
     use super::*;
 
-    /// Benzene constants. Poling, Prausnitz & O'Connell, *The Properties of
-    /// Gases and Liquids*, 5th ed. (2001), Appendix A — public literature.
-    /// `Cp0/R = a0 + a1 T + a2 T² + a3 T³ + a4 T⁴` coefficients converted to
-    /// J/(mol·K) by multiplying through by `R = 8.314462618`.
+    /// Benzene constants. Promoted to a public preset at
+    /// [`crate::thermo::component::reference::benzene`] (2026-08-15) so
+    /// callers outside this crate — e.g. an example simulator — can build the
+    /// same validated binary this module's tests use; re-exported here under
+    /// its original name so the tests below need no changes.
     #[must_use]
     pub(crate) fn benzene() -> Component {
-        const R: f64 = 8.314_462_618;
-        Component::new(
-            "Benzene",
-            0.078_114,
-            562.05,
-            48.95e5,
-            256.0e-6,
-            0.210,
-            353.24,
-            [
-                3.551 * R,
-                -6.184e-3 * R,
-                1.4365e-4 * R,
-                -1.9807e-7 * R,
-                8.234e-11 * R,
-            ],
-            f64::NAN,
-        )
-        .expect("benzene reference constants are valid")
+        crate::thermo::component::reference::benzene()
     }
 
-    /// Toluene constants. Same source and conversion as [`benzene`].
+    /// Toluene constants. Promoted to a public preset at
+    /// [`crate::thermo::component::reference::toluene`] (2026-08-15); see
+    /// [`benzene`].
     #[must_use]
     pub(crate) fn toluene() -> Component {
-        const R: f64 = 8.314_462_618;
-        Component::new(
-            "Toluene",
-            0.092_141,
-            591.75,
-            41.08e5,
-            316.0e-6,
-            0.264,
-            383.79,
-            [
-                3.866 * R,
-                3.558e-3 * R,
-                1.3356e-4 * R,
-                -1.9463e-7 * R,
-                8.363e-11 * R,
-            ],
-            f64::NAN,
-        )
-        .expect("toluene reference constants are valid")
+        crate::thermo::component::reference::toluene()
     }
 
     /// **Methodology.** Vetere `ΔH_vb` + Watson extrapolation for benzene,

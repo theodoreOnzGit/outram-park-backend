@@ -423,26 +423,20 @@ fn dome_crossing_interior_choke(p0: Pressure, h0: AvailableEnergy) -> Option<(Pr
     }
     let p_star_pa = samples[i_peak?].0;
 
-    // refine the interior peak by golden section over ±one coarse step
-    let gr = (5.0_f64.sqrt() - 1.0) / 2.0;
-    let mut a = p_star_pa - dp;
-    let mut b = p_star_pa + dp;
-    let mut c = b - gr * (b - a);
-    let mut d = a + gr * (b - a);
-    for _ in 0..100 {
-        if (b - a).abs() < 1.0 {
-            break;
-        }
-        if g_of_p(c) > g_of_p(d) {
-            b = d;
-        } else {
-            a = c;
-        }
-        c = b - gr * (b - a);
-        d = a + gr * (b - a);
-    }
-    let p_crit = Pressure::new::<pascal>(0.5 * (a + b));
-    let g_crit = MassFlux::new::<kilogram_per_square_meter_second>(g_of_p(p_crit.get::<pascal>()));
+    // Refine the interior peak by golden section over +/- one coarse step, using
+    // the crate's shared search [`golden_section_max_g`]. This used to be an
+    // inline copy of that loop (bead `op-uyi3`).
+    //
+    // The coarse scan above is what makes golden section legitimate here: G is
+    // NOT unimodal over the whole two-phase stretch (that is the entire point of
+    // this function — there is a spurious kink-peak at the phase boundary as
+    // well as the genuine interior one), so the search is only ever handed a
+    // +/- dp bracket already known to contain the basin we want.
+    let (p_crit, g_crit) = golden_section_max_g(
+        |p_pa| MassFlux::new::<kilogram_per_square_meter_second>(g_of_p(p_pa)),
+        p_star_pa - dp,
+        p_star_pa + dp,
+    );
     Some((p_crit, g_crit))
 }
 

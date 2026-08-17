@@ -1,0 +1,29 @@
+crate,class,upstream,total_lines,code_lines_in_backend,preagentic_baseline_code_lines,agentic_code_lines,cargo_toml_description
+boon-lay,extension,boon-lay,19879,13254,9574,3680,"BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
+chem-eng-real-time-process-control-simulator,extension,chem-eng-real-time-process-control-simulator,8850,4802,4802,0,Process Control Library (Chemical Engineering) with real time transfer function simulators
+kovan-cli,original,,1831,1354,0,1354,KOVAN command-line interface — agent-facing (Claude Code and other coding agents).
+kovan-codegen,original,,2028,1267,0,1267,KOVAN deterministic engineering-code generation for known numerical methods.
+kovan-common,original,,1012,617,0,617,"KOVAN shared canonical types (KovanDocument, KovanSymbol, …)."
+kovan-discovery,original,,1603,934,0,934,KOVAN file discovery + deterministic text search using the fd (ignore) and ripgrep (grep) engines.
+kovan-literature,original,,1567,1114,0,1114,KOVAN nuclear-engineering knowledge archive: PDF → Markdown → KovanDocument → BibTeX.
+kovan-semantics,original,,1772,1222,0,1222,"KOVAN repository-understanding engine — ripgrep-first, escalating to language-native tooling."
+kovan-tui,original,,2096,1716,0,1716,KOVAN terminal user interface — human-facing (literature / repository / knowledge browser).
+nee_soon,original,,1005,490,0,490,"Neutron Energy-dependent Simulation using Open-source Object-Oriented Numerics — the coupling layer that composes njoy-outram-park-fork (nuclear data), outram-mc-libs (Monte Carlo transport) and teh-o-prke (point reactor kinetics) behind one object-oriented API"
+njoy-tui (bin in njoy-outram-park-fork),original,,1833,1304,0,1304,feature-gated binary inside njoy-outram-park-fork
+njoy-outram-park-fork,translated,NJOY2016,55553,32481,0,32481,"Pure-Rust port (in progress) of NJOY2016 nuclear-data processing — derivative work, not the LANL version. See NOTICE."
+outram-blender,translated,Blender,8701,4769,0,4769,A GPL-licensed fork of Blender's mesh-authoring architecture — headless mesh frontend for OUTRAM PARK multiphysics (scaffold). Not affiliated with the Blender Foundation.
+outram-foam-appbuilder-lib,translated,OpenFOAM,38444,20495,0,20495,"OpenFOAM solver applications, polyMesh I/O, and case file parsing translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+outram-foam-basic-lib,translated,OpenFOAM,23669,15691,0,15691,"OpenFOAM primitive functions translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+outram-foam-cli,translated,OpenFOAM,1506,960,0,960,"OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, ...) as terminal binaries -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+outram-foam-mesh,translated,OpenFOAM,9872,6218,0,6218,"OpenFOAM mesh generation & conversion utilities translated to Rust (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh) -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+outram-foam-turbulence-lib,translated,OpenFOAM,3178,1717,0,1717,"OpenFOAM turbulence models translated to Rust (RAS, LES, DES and everything in between) -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+outram-mc-tui (bin in outram-mc-libs),original,,1870,1202,0,1202,feature-gated binary inside outram-mc-libs
+outram-mc-libs,translated,OpenMC,27198,15406,0,15406,"Pure-Rust port of OpenMC Monte Carlo neutron transport kernels -- an independent OUTRAM PARK fork, not the official OpenMC software"
+outram-park-digital-twin-engine,original,,14043,8651,0,8651,Reusable visualization framework for OUTRAM PARK digital twins -- visual process objects whose rendering derives directly from physics state
+outram-park-fork-coolprop,translated,CoolProp,42448,28707,0,28707,"Pure-Rust fork/translation of CoolProp (Helmholtz-EOS thermophysical properties), enum-dispatched with hardcoded fluid data — no runtime JSON. An independent OUTRAM PARK fork, not the official CoolProp software. GPL-3.0 (ships OpenFOAM-derived code); no human V&V yet — use at your own risk."
+outram-park-fork-dwsim-libs,translated,DWSIM,3077,2079,0,2079,"Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels -- an independent OUTRAM PARK fork, not the official DWSIM software"
+outram-park-fork-pflotran,translated,PFLOTRAN,12686,7939,0,7939,"Independent pure-Rust fork/translation of PFLOTRAN (subsurface flow & reactive transport) — enum-dispatched, uom-typed, no PETSc/FFI, no MPI. SCAFFOLD ONLY: no flow mode solves yet, no human V&V — not affiliated with the PFLOTRAN project. Use at your own risk."
+tampines,original,,11998,7306,0,7306,"TAMPINES -- Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System: the central OUTRAM PARK thermal-hydraulic framework (fluid flow, thermophysical properties, heat transfer, balance of plant, humid-air psychrometrics, multiphase TH)"
+tampines-steam-tables,extension,tampines-steam-tables,92580,63232,56082,7150,"IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"
+teh-o-prke,extension,teh-o-prke,12191,7271,6579,692,Point Reactor Kinetics Package (PRKE) for the Transport and Eigenvalue Hybrid Open source solver (Teh-O)
+tuas_boussinesq_solver,extension,tuas_boussinesq_solver,174782,97343,96507,836,Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)

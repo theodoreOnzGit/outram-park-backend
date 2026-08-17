@@ -17,6 +17,7 @@ use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fib
 use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_spline_temp_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum;
+use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_temp_from_specific_enthalpy_kim;
 
 // for spline method
 
@@ -42,6 +43,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn get_solid_temperature_fro
 
     let solid_material: SolidMaterial = match material {
         Material::Solid(SteelSS304L) => SteelSS304L,
+        Material::Solid(SteelSS304LHighTemp) => SteelSS304LHighTemp,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
@@ -59,6 +61,8 @@ pub(in crate::boussinesq_thermophysical_properties) fn get_solid_temperature_fro
         SteelSS304L => {
             steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(h_material)
         }
+        // exact quadratic-formula inverse, no root finding and no panic path
+        SteelSS304LHighTemp => steel_304_l_high_temp_temp_from_specific_enthalpy_kim(h_material),
         Copper => copper_spline_temp_attempt_2_from_specific_enthalpy(h_material),
         // both graphite grades share one cp table and hence one
         // enthalpy curve; see the nuclear_graphite module docs

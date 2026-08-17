@@ -2,13 +2,103 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
-## Working-hours guardrail (mandatory, human health & safety)
+## Scope boundary: this file governs `outram-park-backend` ONLY — never a parent folder (HARD RULE)
 
-**Before doing substantive work, check the real local time and day of week**
-with a system tool — do not infer it from conversation content, a cached
-date, or skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the
-Bash tool. Any equivalent works if `date` isn't available (`fastfetch`, a
-one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
+**This file, and every crate-level `CLAUDE.md` under `crates/*/`, apply
+exclusively to the `outram-park-backend` repository tree** — this directory
+and everything under it, nothing else. This repo is sometimes checked out
+*inside* another person's project — as a git submodule, a subtree, or a plain
+nested clone. When that is the case, **none** of these rules — the
+never-auto-commit/push policy and its carve-outs, release-mode-only
+builds/tests, `bn`/kopi-beans as the mandated tracker, `kovan` dogfooding, the
+working-hours guardrail, the token-accounting policy, the Rust design rules
+(no trait objects/`Box`/lifetimes), the Android/Termux hard rule, the
+responsible-use/data-policy/AI-usage framing, the README math-syntax rule, the
+"no Python for docs/accounting" rule — apply to the **parent** project, its
+other submodules, or its top-level files. Ever. This binds regardless of
+which directory the session's working directory happens to be in.
+
+**How to tell whether a given file or command is in scope.** Resolve its
+repository root and compare it against *this* repo's own root:
+
+```bash
+git -C <path-in-question> rev-parse --show-toplevel
+```
+
+If that root is `outram-park-backend` itself (or, for a submodule mount, the
+path where this repo is checked out), the rules in this file apply. If it
+resolves to a **different** root — a parent project's own `.git`, or another
+sibling repository entirely — **this file has no authority there**, full
+stop, no matter how the session got there or what was discussed earlier in
+the conversation.
+
+**Concretely, when a parent project merely contains this repo as a
+submodule/subrepo:**
+
+- Only apply this file's rules to work that is actually inside this repo's
+  own working tree. A commit, build, dependency change, or doc edit anywhere
+  else in the parent project is governed by *that* project's own conventions
+  (its own `CLAUDE.md` if it has one, or none at all) — not by anything
+  written here.
+- Do not assume the parent project uses `bn`/kopi-beans, `kovan`, this repo's
+  git hooks, or any other tool mandated here. Do not install or run them
+  against the parent's own tree on the strength of this file.
+- If a task spans both the parent and this submodule (a cross-repo refactor, a
+  parent-level commit that bumps this submodule's pinned revision), this file
+  governs only the parts that touch this repo's own tree. If it's unclear
+  which rule set a given change falls under, ask rather than guessing outward.
+- This applies even mid-session: if the working directory moves from inside
+  this repo out into the parent project (or a sibling), re-check scope before
+  continuing to apply anything from this file. Nothing here "sticks" once
+  you've left this repo's tree.
+
+**Why this exists.** `CLAUDE.md` guidance is easy to over-apply once it's been
+read into a session — the failure mode is carrying a rule outward onto
+unrelated code that merely happens to live in the same checkout, or in a
+project that embeds this one. This section exists so that never happens: the
+boundary is this repository's own root, determined by its own `.git`, not the
+process's current working directory and not how far back the rule was stated
+in the conversation.
+
+## Working-hours guardrail (OPT-IN — ask at session start)
+
+**This guardrail is OFF by default.** It is no longer a standing hard rule.
+It is enabled **per session, by the user**, in answer to a question you ask at
+the start of the session. Changed 2026-08-13 at the maintainer's request,
+relayed from a colleague; the history and rationale for the original rule are
+preserved under "Why it exists" below.
+
+### Asking (this part IS mandatory)
+
+**Ask once per session, before the first substantive work of that session.**
+Use the `AskUserQuestion` tool with one question — *"Enable the working-hours
+guardrail for this session?"* — offering **Off (default)** and **On**.
+
+- **Don't ask before purely conversational replies.** Ask at the point a turn
+  is about to become real work (writing code, running suites, agent fleets).
+- **Ask only once.** The session's answer holds until the session ends; a
+  compaction does not reset it. Do not re-prompt, and do not nag if the answer
+  was Off.
+- **If the question is skipped, dismissed, or unanswered, the answer is Off.**
+  Never treat silence as On.
+- The user may switch it on or off at any point by saying so in plain words —
+  honour that immediately, no confirmation question needed.
+
+### If the answer is Off (the default)
+
+No time check, no hour restriction, no rest-day rule. Work normally. Do not
+volunteer reminders about the maintainer's hours or health, and do not
+re-litigate the setting.
+
+### If the answer is On
+
+Everything below applies **for the rest of that session, as a hard rule**:
+
+**Check the real local time and day of week** with a system tool before
+substantive work — do not infer it from conversation content, a cached date, or
+skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the Bash tool. Any
+equivalent works if `date` isn't available (`fastfetch`, a one-line Python
+`datetime.now()` / Rust `chrono::Local::now()` script).
 
 **Active working hours** (local time to the repository owner, Asia/Singapore):
 
@@ -18,7 +108,7 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
 | Sunday | 12:00 – 19:00 |
 | Saturday | none — full rest day |
 
-**Outside these hours, this is a hard rule, not a default:**
+**Outside these hours, with the guardrail enabled:**
 
 - Do **not** answer substantive questions or add context, analysis, or
   explanation beyond the minimum needed to log something for later.
@@ -32,14 +122,24 @@ one-line Python `datetime.now()` / Rust `chrono::Local::now()` script).
   already-finished work to GitHub. Nothing beyond finishing and shipping
   work that already exists.
 
-**Why:** this protects the human maintainer's rest. Instituted 2026-07-11
-after a month of illness from overwork.
+**While enabled, the hour limits do not bend in the moment.** Opting in is a
+decision made at the start of a session; asking for a one-off exception at
+23:00 is not. If the user asks to work past the limit *within an enabled
+session*, say so plainly, log the request in beads for the next active window,
+and stop there — do not negotiate or justify. Turning the guardrail off
+outright is always the user's call and is honoured immediately (above); what
+this clause blocks is piecemeal erosion while it is on.
 
-**This rule does not bend in the moment.** If the user asks for an exception
-to it outside active hours, say so plainly, log the request in beads for the
-next active window, and stop there — do not negotiate, justify, or ask
-whether to make an exception. The rule exists specifically to hold when the
-person it protects is inclined to override it.
+### Why it exists
+
+It protects the human maintainer's rest. Instituted 2026-07-11 after a month of
+illness from overwork; the supporting analysis is in
+[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
+opt-in does not retract that finding — it moves the decision to the human each
+session rather than having the assistant enforce it unilaterally.
+
+**To restore it as an always-on rule**, change the default in this section back
+to On and drop the "Asking" subsection. That is a maintainer decision.
 
 ## Responsible use & data policy (mandatory, NUS compliance)
 
@@ -171,6 +271,66 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Search the workspace before building anything (HARD RULE)
+
+**Before attempting a solution — and before briefing an agent on one — scan this
+workspace for existing code that solves the problem, or comes close to solving
+it. Always reuse.** Writing something this workspace already contains wastes
+time and tokens, and worse, creates a second implementation that silently drifts
+from the first.
+
+This is a **hard rule, not a preference**, and it applies to *specifying* work as
+much as to writing it. A brief that names an approach without first checking what
+exists is the same defect one level up: the agent follows it competently and
+produces a duplicate.
+
+**Why it needs to be a rule.** This workspace is 40+ crates, many of them ports
+of mature codes. The prior is **"this probably exists already"**, not "this needs
+writing". On 2026-08-12 alone, five separate pieces of work were specified before
+checking, and every one turned out to be already present:
+
+| Specified | Already existed |
+|---|---|
+| Packed-bed friction + effective conductivity as "over-scoped" | `src/htr10/kta.rs`, `src/htr10/zbs.rs` — tested |
+| A hand-rolled implicit heat-exchanger matrix solver | `TampinesSteamArray` / `OPCPFluidArray` on `Arc<FvMesh>` with PIMPLE correctors |
+| "Build it directly on `outram-foam-basic-lib`'s `fvm::` operators" | Those arrays already wrap exactly that |
+| An `inletOutlet` boundary condition, written from scratch | `tuas_boussinesq_solver`'s `advection_to_bcs.rs` upwind terminal |
+| A limiter for bounded scalar convection | `fvc::Limiter` (Upwind/Linear/VanLeer/Minmod), vendored and tested |
+
+A whole subsystem — `crates/tampines/src/pebble_bed/`, 5,656 lines with 34
+passing tests — was found only by a documentation audit, having had no consumer
+and gone unnoticed while related work was being written elsewhere.
+
+**How to comply, concretely.** Before writing or briefing:
+
+1. **Grep for the domain noun, not your intended API name.** `grep -rn "pub
+   struct .*Array" crates/`, `grep -rni "laplacian\|upwind\|limiter" crates/
+   --include=*.rs`. You are looking for someone else's vocabulary, not your own.
+2. **Read the relevant crate's `CLAUDE.md` and `docs/`.** Several crates document
+   capabilities that are not obvious from their names, and several document
+   *deliberate* omissions you would otherwise "fix" wrongly.
+3. **Check `src/` of the crate you are editing, not only the `examples/` you are
+   working in.** The KTA/ZBS duplication happened exactly this way.
+4. **Search sibling crates for the same lineage.** Ports often exist in pairs
+   (`tampines-steam-tables` ⟷ `outram-park-fork-coolprop`); a defect or a feature
+   in one usually has a counterpart in the other.
+5. **State in the brief what you checked**, so the agent can correct you. "I
+   searched X and Y and found nothing" is a claim someone can falsify; silence is
+   not.
+
+**Reuse in preference to porting, and porting in preference to writing.** If
+direct reuse does not compose — different lineage, incompatible interface — port
+the *logic* and **cite the reference implementation in the doc comment** so the
+two cannot drift unnoticed. Only write something new when both fail, and say
+plainly in your report why.
+
+**A checked-and-rejected is a good answer.** "I looked at `tampines/src/gas_phase/`
+and it does not cover this because …" is valuable and should be reported. What is
+not acceptable is not looking.
+
+Related: the recurring-failure-mode list in
+[`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
+
 ## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
 **KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
@@ -196,6 +356,14 @@ Source for both: https://github.com/theodoreOnzGit/kopitiam.
 Using them here is deliberate: this workspace is their proving ground, so
 **reach for them first** where they cover the task, and **report every rough
 edge you hit** (see "Raising issues" below).
+
+**For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer
+direction, 2026-08-15).** `kovan` (`kovan-semantics`, `kovan-literature`, etc.)
+is this workspace's *own* deterministic knowledge layer — reach for it first
+for repo understanding, symbol/code queries, and literature scoped to this
+codebase. `kopitiam` remains the right tool for what `kovan` doesn't cover:
+token-frugal generic file skimming (`outline`/`slice`) and `rename`/
+`code-actions`, which `kovan` has no equivalent for.
 
 > **Licence note.** `kopi-beans` is AGPL-3.0-only. That is fine here because it
 > is **consumed as a standalone binary**, never linked or vendored — see the
@@ -273,6 +441,37 @@ of where it came from.
 - `kopitiam pdf2md` remains fine for a quick one-off conversion where no
   catalogue entry is wanted, but it is the fallback, not the default.
 
+**READ AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` — HARD RULE.** The
+previous rule covers *ingesting*. This one covers everything after: `kovan` is
+the interface to `crates/kovan-literature`, in **both** directions, for humans
+and agents alike. Reaching around it — `cat`-ing a PDF's converted markdown,
+`grep`-ing the archive, hand-editing `CATALOGUE.md`, writing a JSON sidecar by
+hand — is not a shortcut, it is how the catalogue and the documents drift apart.
+
+- **Reading.** Query the archive with `kovan lit` (`outline`, `bibtex`, and the
+  search/show subcommands `kovan lit --help` lists) rather than opening files
+  under `open/`, `proprietary/`, `generated/` or `derived/` directly. It is the
+  path that carries the access tier and the provenance with the text; a raw
+  `Read` of a markdown body gives you the words with neither, which is exactly
+  how a proprietary passage or a TDM-reserved full text gets quoted into a
+  commit by someone who did not know.
+- **Writing.** New documents arrive via `kovan lit import`. New *derived* data —
+  a digitised figure, a hand-read table, an extracted parameter set — goes into
+  `crates/kovan-literature/derived/` **beside the document it came from**, with
+  its provenance block, not into `docs/` and not into a crate's `src/`. Where a
+  scoping doc needs it, that doc holds a **pointer**, not a copy;
+  `docs/reactor-scoping/htr10-rz-zone-geometry.md` is the shape to follow.
+- **`CATALOGUE.md` is maintained through `kovan`, not by hand.** If a catalogue
+  entry is wrong, fix it at the source and regenerate. Hand-editing it is what
+  produced the duplicated, mutually-contradicting corroboration sections found
+  in the Terry 2005 geometry record on 2026-08-14.
+- **If `kovan` cannot do what you need, that is a bug in `kovan` — file it as a
+  bead and say so in your hand-off.** KOVAN is this workspace's own crate, so
+  the deliverable is an issue against it (like `op-szai` for the metadata
+  extractor), never a hand-rolled workaround that bypasses the library.
+- This does not relax the open/proprietary split, the TDM/AI-reservation rule,
+  or `DATA_POLICY.md` — it is the mechanism by which they are actually enforced.
+
 **Graph digitisation: dogfood `kovan-digitise` (HARD RULE).** Several
 validation targets this project depends on exist **only as figures** — the
 HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
@@ -313,91 +512,26 @@ cargo build --release -p kovan-literature --features digitise-gui
   maintainer supplies the hand-digitised Tobias oracle (`op-amfh`). Do not
   describe digitised data as validated before then.
 
-**Known friction (as of kopitiam 0.2.5, verified 2026-08-07):**
+**Known friction and resolution history — read `docs/kopitiam-issues/`, don't
+trust a version number written here.** Both tools have moved fast enough
+(kopi-beans alone: 0.1.3 -> 0.1.4 -> 0.1.6 -> 0.1.7 in a single day, once) that
+any dated claim in this file goes stale almost immediately. The current open
+queue, the upstream issue-number table, and full closing evidence for every
+resolved issue live in **`docs/kopitiam-issues/README.md`** (open + upstream
+state table) and **`docs/kopitiam-issues/resolved/`** (closed, each with the
+re-run reproduction and new output). Check there, or run `bn --version` /
+`cargo install --list`, before citing either tool's behaviour as current.
 
-- `kopitiam check` / `kopitiam test` expose **no `--release` or profile flag**
-  and run the `dev` profile, which conflicts with this workspace's mandatory
-  release-mode rule. Confirmed still present in 0.2.5 — `kopitiam check
-  --help` / `kopitiam test --help` list only `--root`, `-p/--package`,
-  `--compact`, `--json`. Filed upstream as
-  [kopitiam#1](https://github.com/theodoreOnzGit/kopitiam/issues/1) (open).
-  Until that is fixed, use `kopitiam check --compact` for fast iteration but
-  **still run the mandated `cargo check --workspace --lib --tests` / `cargo
-  test --release`** before calling work done. Do not let kopitiam's default
-  profile silently replace the release-mode requirement.
+Two facts that stay true regardless of version churn:
 
-**Known friction (installed version is now kopi-beans 0.1.3, confirmed by
-`cargo install --list` on 2026-08-12). Items below are dated with the version
-they were actually tested against — the 0.1.2 / 2026-08-07 ones have *not* been
-re-run on 0.1.3, so do not restate them as current-version findings:**
-
-- **RESOLVED — `bn` *can* now push the store ref to a non-local remote.**
-  Verified 2026-08-12 against kopi-beans **0.1.3**: the daemon published
-  `refs/heads/beads/store` to GitHub on its own, with the manual push
-  deliberately withheld. Closing evidence (commands and output) is in
-  **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**.
-  `last_sync: never` is **no longer** the expected steady state. The upstream
-  issue [kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is
-  **still OPEN on GitHub** — a verification comment was posted and closing it
-  was deliberately left to the maintainer, so do not describe it as closed
-  upstream. The manual push remains valid and idempotent as a fallback when the
-  daemon is not running:
-
-  ```bash
-  git push origin refs/heads/beads/store:refs/heads/beads/store
-  ```
-
-- **`clock_skew` warning is unactionable.** On 2026-08-12 (kopi-beans 0.1.3)
-  `bn status` printed `clock_skew: 3657601 ms ahead` under `warnings:` without
-  saying **which two clocks** it compared, and ~20 minutes later the warning had
-  self-cleared with no corrective action taken. Filed as
-  [kopitiam#21](https://github.com/theodoreOnzGit/kopitiam/issues/21) (open).
-  **This is not a confirmed `bn` defect:** this host's clock is not
-  NTP-disciplined (`timedatectl` reports `System clock synchronized: no`,
-  `NTP service: inactive`, re-confirmed 2026-08-12), so the skew may be a
-  genuine host clock problem. The issue is about the *warning* being
-  unactionable, not about the skew figure being wrong.
-- **`--features test-harness` does not compile** (0.1.2, 2026-08-07; not
-  re-run on 0.1.3). Only relevant if someone
-  builds kopi-beans from source; this workspace consumes the released binary,
-  so it does not bite here. Filed as
-  [kopitiam#17](https://github.com/theodoreOnzGit/kopitiam/issues/17) (open).
-- **Two `#[should_panic]` tests can never pass under `--release`** (they rely
-  on debug-only assertions; 0.1.2, 2026-08-07, not re-run on 0.1.3). Same scope
-  caveat as #17. Filed as
-  [kopitiam#18](https://github.com/theodoreOnzGit/kopitiam/issues/18) (open).
-- **`bn setup claude --project` is safe on 0.1.3 — the blanket "never run it"
-  rule is retired.** The old rule was justified by an unverified 0.1.1 branding
-  bug. On 2026-08-12 `bn setup claude --project` was run against **0.1.3** and
-  behaved correctly: it wrote `SessionStart` + `PreCompact` `bn prime` hooks
-  into **`.claude/settings.local.json`**, which is **gitignored** (matched by
-  `~/.config/git/ignore`), so the change is personal, not shared. The committed
-  **`.claude/settings.json` was left byte-identical** (`git diff HEAD` empty,
-  re-confirmed 2026-08-12) with its `SessionStart` `bn prime --mcp` and `Stop`
-  `./scripts/push-beads-store.sh` hooks intact.
-  - **Only the `--project` form was tested.** The unflagged / global form was
-    **not** run and is **not** cleared — do not use it without testing it
-    first, and do not assume it writes to the same file.
-  - `.claude/settings.json` is still hand-maintained: `bn setup claude` is not
-    the way to change it, and nothing should be allowed to overwrite it.
-  - Note `--hook-json` (the flag beads-rs used) is not a valid `bn prime` flag;
-    `bn prime --mcp` is the working equivalent.
-
-**Resolved since 0.1.1 (verified against kopi-beans 0.1.2 on 2026-08-07):**
-the `unsupported meta format_version 1` store blocker
-([kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)), the
-`bd` branding in `bn`'s own help/`bn upgrade`
-([#14](https://github.com/theodoreOnzGit/kopitiam/issues/14)), and the stray
-unprefixed `tailnet_*` binary on install
-([#15](https://github.com/theodoreOnzGit/kopitiam/issues/15)).
-
-**Resolved in 0.1.3 (verified 2026-08-12):** the store ref could not be pushed
-to a non-local remote
-([#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)).
-
-Closing evidence for all four is recorded in `docs/kopitiam-issues/resolved/`.
-**Upstream state checked 2026-08-12: #16 has since been closed on GitHub; #14,
-#15 and #19 are still marked OPEN** and need the maintainer to close them.
+- **`kopitiam check`/`kopitiam test` have no `--release` flag** and run the
+  `dev` profile. Use them for fast iteration, but still run the mandated
+  `cargo check --workspace --lib --tests` / `cargo test --release` before
+  calling work done — do not let kopitiam's default profile substitute for it.
+- **`bn setup claude --project` is verified safe** — it writes only the
+  gitignored `.claude/settings.local.json` and leaves the hand-maintained
+  `.claude/settings.json` untouched. The **unflagged/global form was never
+  tested** — do not run it without testing first.
 
 **CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
 WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
@@ -483,8 +617,9 @@ migration is complete**: kopi-beans 0.1.2 reads and has migrated the store
 no reason to reach for `bd` here, and no supported way to.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
-guardrail, never-auto-commit/push, the Android/Termux portability rule, and the
-data-policy rules all still bind when using either tool.
+guardrail *when it has been enabled for the session*, never-auto-commit/push,
+the Android/Termux portability rule, and the data-policy rules all still bind
+when using either tool.
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -510,88 +645,96 @@ in-flight work.
 - **Keep it up until the fleet is fully done**, then post a final summary.
   Stop the heartbeat once there is nothing left running.
 - This does **not** relax any other rule — in particular the working-hours
-  guardrail above (do not run fleets outside active hours in the first place)
-  and the never-auto-commit/push rule.
+  guardrail above **when the session has opted into it** (with it on, do not
+  run fleets outside active hours in the first place) and the
+  never-auto-commit/push rule.
 
-## Token accounting on every commit (mandatory, this workspace + all repos here)
+## Token accounting on every commit (opt-in, HARD RULE as stated below)
 
-**Every commit in this workspace — and in every repository worked on here — must
-carry an API-token-usage trailer, and a per-commit token ledger is kept at
-`docs/token-usage.md`.** This gives the maintainer a clear, honest accounting of
-the Claude/API tokens spent producing each commit. It is automated by two git
-hooks so it cannot be forgotten:
+**Changed 2026-08-17 at the maintainer's request: token accounting is now
+opt-in, not mandatory.** The previous rule — "every commit must carry an
+API-token-usage trailer" — is retired. It is replaced by the policy below,
+which *is* the hard rule from now on: do not enforce or chase the old
+mandate, and do not treat a missing trailer as something to fix.
 
-- **`docs/historian/token_usage.py`** is the single source for token accounting —
-  it does **both** the write side and the query side. On the write side it reads
-  the Claude Code session transcripts (`~/.claude/projects/<slug>/*.jsonl` — the
-  same data `ccusage` reads) and attributes the **token delta since the previous
-  commit** to each new commit. On the query side,
-  `python3 docs/historian/token_usage.py query --from DDMMYY --to DDMMYY
-  [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
-  the git commit trailers** over any time period (reads the durable git record,
-  not the live transcript).
-- **`.githooks/prepare-commit-msg`** stamps the commit message with an
-  `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
-  `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
-  idempotent (amend/rebase safe).
-- **`.githooks/post-commit`** advances the baseline and regenerates the local
-  `docs/token-usage.md` summary from the commit-message trailers.
+- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, remains
+  the single source for token accounting **when a maintainer has chosen to set
+  it up** on a given clone — it does both the write side (git hooks stamping
+  commit trailers) and the query side (`kovan tokens query --from DDMMYY --to
+  DDMMYY [--branch develop] [--per-commit] [--json]`, summing whatever
+  trailers exist). Nothing about its internals changed; what changed is
+  whether using it is required.
+- **`.githooks/prepare-commit-msg`** and **`.githooks/post-commit`**, where
+  installed, still stamp the `API-Usage-Since-Last-Commit:` /
+  `API-Usage-Session-Cumulative:` trailer and regenerate the local
+  `docs/token-usage.md` summary exactly as before (idempotent, amend/rebase
+  safe). Let them run undisturbed on a clone that has opted in.
 
-**Source of truth: the per-commit trailers, not the markdown.** The durable
-record is the `API-Usage-*` trailer in each commit message (queryable across any
-window with `python3 docs/historian/token_usage.py query --from DDMMYY --to
-DDMMYY`). `docs/token-usage.md` is a **regenerable local summary and is
-gitignored** — it is deliberately *not* tracked, because committing a generated
-file on many branches caused recurring merge conflicts. Never re-track it.
+**If a clone has not opted in (no `kovan` binary, hooks not installed):**
 
-**Rules:**
+- **Do not prompt the user to install anything.** No suggesting
+  `./scripts/install-token-hooks.sh`, no "want me to set up token accounting"
+  — opting in is a maintainer decision made once, not a gap to flag on every
+  commit.
+- **Do not hand-write a trailer or invent numbers.** If the hooks aren't
+  present, the commit has no `API-Usage-*` trailer, full stop.
+- **Note the absence in the commit message body instead**, one short line
+  (e.g. `No token accounting on this clone.`) rather than saying nothing.
+  That line is the entire obligation — it carries no numbers and is not a
+  substitute trailer.
 
-- **Token usage MUST always be documented as a summary under the commit
-  message.** Every commit carries its usage summary in the message body — the
-  `API-Usage-Since-Last-Commit:` trailer (with `total`, `in`, `out`,
-  `cache_read`, `cache_write`, `source`) plus the
-  `API-Usage-Session-Cumulative:` line, appended below the prose. This is not
-  optional and not conditional on the kind of change. The `prepare-commit-msg`
-  hook writes it automatically, so in practice the rule is: **let the hook run,
-  and never remove or edit what it appended.** If you find a commit being made
-  without it, the hooks are not installed for that clone — run
-  `./scripts/install-token-hooks.sh` before committing rather than
-  hand-writing a summary.
-- **Do not strip or fake the trailer.** The numbers come straight from the
-  transcripts; nothing is estimated or invented. A commit made outside a Claude
-  session legitimately shows `total=0 source=none` — that is correct, not a bug,
-  so never hand-write a nonzero number.
-- **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read (prompt-
-  cache re-reads of the growing context) usually dominates and is shown
-  separately — do not collapse it into a single figure that hides the split.
-- **Install per clone:** `./scripts/install-token-hooks.sh` (sets the local
-  `core.hooksPath` to `.githooks` and initialises the baseline). `core.hooksPath`
-  is a local, uncommitted config, so every fresh clone must run it once. The
-  hooks and script are version-controlled, so they travel with the repo.
-- **`docs/token-usage.md` is a generated, gitignored local summary — never
-  hand-edit it and never `git add` it.** Rebuild any time with `python3
-  docs/historian/token_usage.py report`; query the tracked trailers directly with
-  the `query` subcommand. Because it is gitignored, `bn`/hook regens no longer
-  dirty the tree or conflict on merge.
-- **New repositories added to a session here inherit this rule** — copy
-  `docs/historian/token_usage.py` + `.githooks/` + `scripts/install-token-hooks.sh`
-  in and run the installer as part of onboarding that repo.
-- This does **not** relax the never-auto-commit/push rule above: the hooks only
-  act *when a commit the user asked for is being made*; they never initiate one.
+**If a clone has opted in, the mechanics are unchanged:**
+
+- **Source of truth: the per-commit trailers, not the markdown.** The durable
+  record is the `API-Usage-*` trailer in each commit message (queryable across
+  any window with `kovan tokens query --from DDMMYY --to DDMMYY`).
+  `docs/token-usage.md` is a regenerable, gitignored local summary — never
+  hand-edit it, never `git add` it, never re-track it.
+- **Do not strip or fake a trailer the hooks wrote.** The numbers come
+  straight from the transcripts; nothing is estimated or invented. A commit
+  made outside a Claude session legitimately shows `total=0 source=none` —
+  that is correct, not a bug.
+- **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read
+  (prompt-cache re-reads of the growing context) usually dominates and is
+  shown separately — do not collapse it into a single figure that hides the
+  split.
+- **Opting in:** `./scripts/install-token-hooks.sh` (sets the local
+  `core.hooksPath` to `.githooks` and initialises the baseline) is still there
+  for whoever wants it, unchanged — it is simply no longer something to push
+  on someone who hasn't asked for it.
+- **New repositories worked on here do not inherit this as a requirement.**
+  Copying `.githooks/` (incl. `kovan-bin.sh`) + the installer over is optional,
+  at that repository's maintainer's discretion — same opt-in stance as here.
+- This does not relax the never-auto-commit/push rule above: the hooks, where
+  present, only act *when a commit the user asked for is being made*; they
+  never initiate one.
+
+**This section documents the reasoning history** — `docs/historian/*` and the
+"No Python for documentation or accounting" section below still describe real
+past incidents (e.g. the Windows `python3` alias silently zeroing out
+trailers) accurately; they are history, not evidence that accounting is
+mandatory today.
 
 ## Historian report before every merge to `main` (mandatory)
 
 **Before merging `develop` into `main`, generate a "historian" report** — a
-python-generated markdown file accounting for the **API tokens spent** and the
+generated markdown file accounting for the **API tokens spent** and the
 **lines / KLOC written** across the window of `develop` history being released,
-listing the commits over a `DDMMYY..DDMMYY` date range. Both the generator and
-the reports live under **`docs/historian/`** at the workspace root.
+listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
+`crates/kovan-metrics` (via the `kovan` binary); the reports live under
+**`docs/historian/`** at the workspace root.
 
 - **Generate it:**
-  `python3 docs/historian/historian.py --from DDMMYY --to DDMMYY`
+  `kovan historian --from DDMMYY --to DDMMYY`
   (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
   "everything on `develop` not yet on `main`, up to today". Output is written to
   `docs/historian/historian_<from>_to_<to>.md`.
+  - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
+    `op-yz7b`), and the Python was deleted the same day. No parity gate was run
+    against it; see the token-accounting section above.
+  - `kovan historian` dates from **UTC**, where the Python used local time.
+    This only affects the default `--to` bound and the filename tag; pass
+    `--to` explicitly if a midnight boundary matters.
 - **What it contains:** total lines added/removed/net (all files + Rust-only),
   total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
   per-crate lines-added breakdown, and a per-commit ledger.
@@ -611,61 +754,33 @@ data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
 `refs/beads/backup/*`. `.beads/issues.jsonl` is a local compat-export
 **symlink**, not the source of truth.
 
-> **Migrated 2026-08-07** from **beads-rs** (`bd`) to **kopi-beans** (`bn`) —
-> both forks of the same lineage, per explicit maintainer instruction. **The
-> migration is complete and the store is live.** kopi-beans 0.1.2 fixed the
-> `unsupported meta format_version 1` incompatibility
-> ([kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)) and
-> migrated `refs/heads/beads/store` to format_version 2; `bn status` worked and
-> reported **626 issues** *at migration time* (it reports 850 as of
-> 2026-08-12 — that count moves, do not treat it as a fixed fact).
-> `bd` is uninstalled and its daemon stopped. A
-> pre-migration snapshot of the v1 store is preserved at
-> **`refs/beads/premigration-v1-20260807`** — **do not delete it.** A prior
-> migration, 2026-07-20, moved this workspace off a Go/Dolt implementation
-> onto beads-rs; that history is superseded by this entry.
+> **Migrated 2026-08-07** from beads-rs (`bd`) to kopi-beans (`bn`), per
+> explicit maintainer instruction. **The migration is complete and the store
+> is live**; `bd` is uninstalled. A pre-migration snapshot is preserved at
+> **`refs/beads/premigration-v1-20260807`** — **do not delete it.** Full
+> migration evidence (the format_version fix, issue counts at the time) is in
+> `docs/kopitiam-issues/resolved/kopi-beans-store-format-version-1.md`; run
+> `bn status` for the current issue count rather than trusting a number
+> written here.
 
 - **KOPI-BEANS ONLY.** Do **not** install or use `beads-rs` (binary `bd`) in
   this workspace — `bn` is the mandated tool and `bd` is gone.
-- **Install:** `cargo install kopi-beans` (binary `bn`; **0.1.3** installed as
-  of 2026-08-12). The store in this repo is already initialised — do **not** run
-  `bn init` here. `.claude/settings.json` carries a hand-written, verified hook
-  (`bn prime --mcp`) and is maintained **by hand** — never let a generator
-  rewrite it. `bn setup claude --project` has been checked on 0.1.3 and does
-  not touch it (it writes the gitignored `.claude/settings.local.json`); see
-  the "Known friction" list above for exactly what was and was not tested.
+- **Install:** `cargo install kopi-beans` (binary `bn`; check the current
+  version with `bn --version` rather than a number written here). The store in
+  this repo is already initialised — do **not** run `bn init` here.
+  `.claude/settings.json` carries a hand-written, verified hook (`bn prime
+  --mcp`) and is maintained **by hand** — never let a generator rewrite it.
+  `bn setup claude --project` is verified safe (see "Dogfood KOPITIAM and
+  KOPI-BEANS" above); the unflagged/global form is not.
 - **Standing rule: you MUST use `bn`** for all task/roadmap tracking and
   progress bookkeeping — in preference to TodoWrite / TaskCreate / ad-hoc
   markdown TODO lists. Create/close/update issues as work happens; file one for
   any follow-up you discover.
-- **Syncing is automated — a `Stop` hook publishes the store ref.**
-  `.claude/settings.json` runs `./scripts/push-beads-store.sh` at the end of
-  each turn, which pushes `refs/heads/beads/store` to `origin` (and only that
-  ref). This is the one standing exception to the never-auto-push rule; see
-  "Workflow rules" above for its exact scope. The equivalent by hand, still
-  valid and idempotent:
-
-  ```bash
-  git push origin refs/heads/beads/store:refs/heads/beads/store
-  ```
-
-  **The underlying bug is RESOLVED, and the hook is therefore redundant but
-  retained.** This workspace used to record that kopi-beans could not publish
-  the store ref at all
-  ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19)), making
-  `last_sync: never` the expected steady state. That no longer holds: on
-  2026-08-12, against kopi-beans **0.1.3**, the daemon advanced
-  `refs/heads/beads/store` on GitHub with the manual push deliberately withheld.
-  Full closing evidence — the commands run and their actual output — is in
-  **`docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`**; read
-  that rather than re-deriving it.
-  - **#19 is still OPEN on GitHub.** A verification comment carrying the
-    evidence was posted, and closing it was left to the maintainer. Do not
-    describe it as closed upstream.
-  - The `Stop` hook is consequently **no longer load-bearing**, but it is kept
-    (see "Workflow rules" above). Whether to retire it, and with it the
-    never-auto-push carve-out it justified, is an **open maintainer decision** —
-    not something an agent may act on.
+- **Syncing is automated.** See "Workflow rules" above (the `Stop`-hook
+  carve-out) for the mechanics and exact scope — not repeated here. The daemon
+  publishes `refs/heads/beads/store` on its own; the manual push
+  (`git push origin refs/heads/beads/store:refs/heads/beads/store`) remains a
+  valid, idempotent fallback for when the daemon isn't running.
 - **If `bn` is genuinely unavailable** — an OS/environment with no `bn` build
   (a locked-down sandbox, or Android before a Termux build is confirmed) — fall
   back to the harness task tools (TaskCreate / TodoWrite) and note in your
@@ -804,18 +919,17 @@ and in sync with the code. It is a recurring command, not a one-off.
    ranges/assumptions, units even when `uom`-typed). Never strip `uom`.
 
    **Then regenerate the rustdoc → markdown API mirror** for each crate whose
-   doc comments changed, so `docs/api.md` stays in sync with the code:
+   doc comments changed, so `docs/<crate>-api.md` stays in sync with the code:
 
    ```bash
-   python3 scripts/gen_api_docs.py <crate-dir-name>   # e.g. outram-foam-basic-lib
+   kovan api-docs <crate-dir-name>                    # e.g. outram-foam-basic-lib
    ```
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
-   binary → `crates/<crate>/docs/api.md`. It needs a nightly toolchain
-   (`rustup toolchain install nightly`) and `rustdoc-md`
-   (`cargo install rustdoc-md --locked`); if either is missing, install it or
-   note in the hand-off that the mirror wasn't regenerated. `docs/` is
-   `exclude`d from the packaged crate, so this mirror is repo-only and never
+   binary → `crates/<crate>/docs/<crate>-api.md`. Both prerequisites are **mandatory —
+   install them, do not skip the mirror** (see "API-doc toolchain" below).
+   `docs/` is `exclude`d from the packaged crate, so this mirror is repo-only
+   and never
    ships to crates.io.
 
 2. **Completeness flags in the README.** Every crate's `README.md` carries a
@@ -864,6 +978,120 @@ staleness audit (it must skip the crates being actively edited to avoid read
 races). Commit any pending verified work first so the tree is clean, and
 **exclude from the pass any crate with a publish in flight** (an uncommitted
 doc edit trips `cargo publish`'s dirty-tree guard).
+
+## API-doc toolchain: install it, never route around it (HARD RULE)
+
+**`rustdoc-md` and a nightly Rust toolchain are required tooling in this
+workspace, not optional extras. If either is missing, INSTALL IT.**
+
+```bash
+rustup toolchain install nightly          # rustdoc's JSON output is nightly-only
+cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
+```
+
+Two things depend on them, and both are load-bearing:
+
+- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/<crate>-api.md`, the
+  committed markdown mirror of a crate's public API and the third leg of the
+  per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
+  replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
+  needs no Python interpreter — same reasoning as epic `op-yz7b`.)
+- **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
+  crate that has none, so it can be bundled for an external agent.
+
+**Never report a mirror as un-regenerable because a tool is missing.** Installing
+`rustdoc-md` takes one command; skipping the mirror leaves `docs/<crate>-api.md`
+silently contradicting the code, which is exactly the drift the bookkeeping pass
+exists to prevent. "The toolchain isn't installed" is a task, not a finding.
+
+### Check before you claim a tool is absent
+
+**Run the check. Do not infer it from a failure, and do not assume.**
+
+```bash
+which rustdoc-md && cargo install --list | grep rustdoc-md
+rustup toolchain list
+```
+
+This is a rule because an agent once shipped a bead/commit/hand-off claiming
+`rustdoc-md`/nightly were missing on a host where both were installed —
+running the check instead immediately exposed a real bug in
+`--regenerate-missing` that the false "tool missing" assumption had been
+hiding. The general form: an untested code path plus an assumed-missing
+prerequisite produces a confident, false statement about both. Check the
+prerequisite, then run the path.
+
+## No Python for documentation or accounting — build it into `kovan` (HARD RULE)
+
+**Documentation generation and repository accounting are `kovan`'s job. Do not
+write, restore, or reach for a Python script to do either. If `kovan` cannot do
+it yet, extend `kovan`.**
+
+This is settled direction, not a preference, and it has been applied three times:
+
+| Retired | Replaced by | When |
+|---|---|---|
+| `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan-cli`) | 2026-08-14, `op-w44a.7` |
+| `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
+| `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
+
+**`scripts/` now holds no tracked Python** — only `.gitignore` and four shell
+scripts. (`find` reports hits under `scripts/vendor/`; that directory is
+gitignored and holds repository clones the retired `kloc_accounting.py` made.
+It is now orphaned: `kovan kloc` vendors into its own output directory instead,
+so `scripts/vendor/` can be deleted.)
+
+**Seven first-party Python files remain, and are NOT covered by this rule as
+written:** `crates/outram-park-fork-coolprop/dev/*.py` — `gen_fluid.py`,
+`gen_incompressible.py`, `gen_mixture.py`, their three `regen_*_all.py`
+drivers, and `gen_latex_doc.py`. Six are **code generation** (they read the
+gitignored upstream CoolProp JSON clone and emit Rust), which is neither
+documentation nor accounting; `gen_latex_doc.py` scaffolds a LaTeX doc series
+and arguably is. Whether to bring them in is a maintainer decision that has not
+been made — tracked as a bead. Do not delete them under this rule without
+asking.
+
+Everything else matching `*.py` is vendored upstream source under
+`upstream_source/` (NJOY2016, Blender, TRISO-ATOPS) or gitignored
+`collaboration/` scratch, both explicitly out of scope.
+
+**Why, concretely.** A script merely has to exist; an interpreter has to be
+installed, on `PATH`, and not shadowed. On Windows `python3` routinely resolves
+to a Microsoft Store alias stub that prints an advert and exits — which silently
+turned the token-accounting git hooks into no-ops and let commits ship with no
+`API-Usage` trailer at all. That is the failure mode this rule exists to
+prevent: not an error, a **silent** no-op in the thing that keeps the records
+honest. The reasoning is recorded in `.githooks/kovan-bin.sh`.
+
+**Scope.** Documentation generation, repository accounting, and the artifacts
+either produces. It does **not** reach into `collaboration/` (gitignored scratch
+owned by collaborators), `reference-data/` (vendored upstream trees), or a
+third-party tool that happens to be written in Python.
+
+**When porting, gate parity — do not waive it.** `op-yz7b` shipped without a
+byte-for-byte comparison against the Python it replaced, and that gap is
+recorded above as a known weakness. `op-w44a.7` did gate it: the Python-generated
+`api.md` was already committed, so regenerating through the Rust path and
+running `git diff --quiet` was a real check, and it passed. **Do that.** If the
+old output is not committed anywhere, generate it with the Python *before*
+deleting the script, commit it, then port.
+
+**A Python script that is a published reproducibility artifact is a different
+question — ask, do not delete.** Where a script exists so that a *journal
+reader* can re-derive a table or figure, replacing it with a Rust binary raises
+the reproduction bar from "run this script" to "build a 40-crate Rust
+workspace", and may break a byte-identical copy held in a manuscript
+repository. Raise it with the maintainer rather than applying this rule
+mechanically.
+
+`kloc_accounting.py` was exactly that case: it reproduces the Annals of Nuclear
+Energy submission's tables and figure. It was put to the maintainer on
+2026-08-14 with the consequence stated, and they chose the full port. **The
+manuscript's own copy and any text telling a reader to run the script are now
+stale and are the maintainer's to update** — that repository is not visible from
+here.
 
 ## Rust design rules (mandatory)
 
@@ -975,6 +1203,7 @@ built, tested, and published from this single repository.
 | `kovan-literature` | KOVAN literature archive — PDF → Markdown (`pulldown-cmark`) → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored. | GPL-3.0 |
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
+| `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
 | `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
 | `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
@@ -1206,9 +1435,9 @@ the **maintainer-curated corrections log** live in **[`SINGLISH_MODE.md`](./SING
 In short: when the user asks for "Singlish mode" (or "lah mode" etc.), reply in
 Singlish for the *conversational prose only*; **code, comments, commit messages,
 `README`/`docs`, V&V write-ups, and beads stay clear standard English**, and no
-mandatory rule (working-hours guardrail, responsible-use / data policy, V&V docs,
-Rust design rules, never-auto-commit/push) is relaxed — correctness and honesty
-come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
+mandatory rule (responsible-use / data policy, V&V docs, Rust design rules,
+never-auto-commit/push — and the working-hours guardrail whenever the session
+has opted into it) is relaxed — correctness and honesty come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
 corrections.** Default is standard English; opt-in only.
 
 
@@ -1234,12 +1463,12 @@ bn close <id>         # Complete work
 
 - Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists. The only exception is an environment with no working `bn` build at all, which must be stated in the hand-off.
 - Run `bn prime` for workflow context.
-- **Sync is automated.** A `Stop` hook runs `./scripts/push-beads-store.sh`, which publishes `refs/heads/beads/store` (and only that ref) to `origin` at the end of each turn. This is the single standing exception to the never-auto-push rule and it never extends to branches, tags, or `main`. As of kopi-beans 0.1.3 the daemon publishes that ref by itself ([kopitiam#19](https://github.com/theodoreOnzGit/kopitiam/issues/19) is **resolved** — verified 2026-08-12, evidence in `docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`; still OPEN on GitHub), so the hook is redundant. **It is kept regardless, and so is the carve-out** — retiring either is the maintainer's decision, not an agent's.
+- **Sync is automated.** See "Workflow rules" above for the `Stop`-hook mechanics and scope (not repeated here).
 - Persistent durable facts / user preferences: keep using the per-project
   `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
   above — this workspace keeps MEMORY.md; it is **not** dropped).
 
-**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`, plus a preserved pre-migration snapshot at `refs/beads/premigration-v1-20260807` that must not be deleted. The daemon debounces local writes and, as of kopi-beans 0.1.3, **does** publish them to the git remote by itself (kopitiam#19 resolved, verified 2026-08-12); the manual push is now a fallback for when the daemon is not running, not a required step. `.beads/issues.jsonl` is a local compat-export symlink. Migrated off beads-rs on 2026-08-07 (itself migrated off Go beads on 2026-07-20).
+**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`, plus a preserved pre-migration snapshot at `refs/beads/premigration-v1-20260807` that must not be deleted. The daemon debounces local writes and publishes them to the git remote itself; the manual push is a fallback for when the daemon is not running. `.beads/issues.jsonl` is a local compat-export symlink.
 
 ## Agent Context Profiles
 

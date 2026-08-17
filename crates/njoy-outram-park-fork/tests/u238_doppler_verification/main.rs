@@ -4,7 +4,7 @@
 //!
 //! **What this verifies.** The Rust NJOY port reconstructs the U-238 radiative
 //! capture cross section (MT=102) *directly from the ENDF/B-VIII.0 tape*
-//! (`tests/resources/n-092_U_238.endf`) with RECONR (Reich-Moore, LRF=3), then
+//! (`reference-data/endf/n-092_U_238.endf`) with RECONR (Reich-Moore, LRF=3), then
 //! Doppler-broadens it to 900 K and 1200 K with BROADR (SIGMA1 free-gas kernel).
 //! The result is compared **point-for-point** against OpenMC's own ENDF/B-VIII.0
 //! pointwise capture cross section, pre-extracted into the committed reference
@@ -79,7 +79,7 @@ fn manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 fn endf_path() -> PathBuf {
-    manifest().join("tests/resources/n-092_U_238.endf")
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join("n-092_U_238.endf")
 }
 fn reference_csv(temp_k: u32) -> PathBuf {
     manifest().join(format!(

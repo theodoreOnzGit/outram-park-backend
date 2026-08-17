@@ -1,6 +1,6 @@
 //! RECONR Phase 2b integration tests: Ar-37 (TENDL-2023 evaluation).
 //!
-//! Fixture: `tests/resources/n-018_Ar_37-tendl2023.endf`
+//! Fixture: `reference-data/endf/n-018_Ar_37-tendl2023.endf`
 //! Source:  NJOY2016 test suite (TENDL-2023, MAT=1828)
 //! Size:    47 257 lines.
 //!
@@ -32,8 +32,8 @@ use uom::si::area::barn;
 const MAT: i32 = 1828; // Ar-37
 
 fn ar37_path() -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-018_Ar_37-tendl2023.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-018_Ar_37-tendl2023.endf");
     p
 }
 

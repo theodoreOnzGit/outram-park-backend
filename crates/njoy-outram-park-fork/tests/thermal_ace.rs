@@ -1,7 +1,7 @@
 //! Thermal S(α,β) ACE table (Phase 4f): build a `…t` table from MF=7 and check
 //! its structure round-trips through the Type-1 writer.
 //!
-//! Fixture: `tests/resources/tsl-013_Al_027-ENDF8.0.endf` (MAT=53) — Al-27, which
+//! Fixture: `reference-data/endf/tsl-013_Al_027-ENDF8.0.endf` (MAT=53) — Al-27, which
 //! has both coherent-elastic (Bragg) and incoherent-inelastic S(α,β) data.
 //!
 //! Run with:
@@ -23,8 +23,8 @@ use njoy_outram_park_fork::{
 const AL_MAT: i32 = 53;
 
 fn al27_thermal() -> AceTable {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/tsl-013_Al_027-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("tsl-013_Al_027-ENDF8.0.endf");
     let tape = Tape::read(File::open(p).unwrap()).unwrap();
     let mf7 = parse_mf7(&tape, AL_MAT).unwrap();
 

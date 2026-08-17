@@ -1,6 +1,6 @@
 //! Integration tests: parse the U-235 ENDF/B-VIII.0 evaluation.
 //!
-//! Fixture: `tests/resources/n-092_U_235-ENDF8.0.endf`
+//! Fixture: `reference-data/endf/n-092_U_235-ENDF8.0.endf`
 //! Source:  NJOY2016 test suite (ENDF/B-VIII.0, MAT=9228)
 //! Size:    485,315 lines, 423 sections — the real-world stress test for
 //!          the tape parser: resonance data (MF=2), dozens of cross-section
@@ -25,8 +25,8 @@ use njoy_outram_park_fork::endf::interp::eval_tab1;
 const MAT: i32 = 9228; // U-235
 
 fn u235_path() -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     p
 }
 

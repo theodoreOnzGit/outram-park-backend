@@ -173,8 +173,14 @@ pub fn h_tp_eqm_two_phase(t: ThermodynamicTemperature, p: Pressure, x: f64) -> A
             // if we are ON the saturated line, we must be mindful
             //dbg!(&(h_liq,h_vap,h_saturated,steam_quality));
 
-            dbg!(&near_critical_point);
-            dbg!(&(near_saturation_line, h_liq, h_vap, h_saturated));
+            // NB: two unconditional `dbg!` calls stood here (bead `op-2d5y`).
+            // They were on the NORMAL path, not an error path, so every
+            // two-phase flash wrote two lines to stderr and paid the formatting
+            // cost — in a routine a solver calls once per cell per timestep.
+            // A library has no business writing to stderr when nothing is
+            // wrong. Removed rather than feature-gated: the values are all
+            // recomputed cheaply from `t` and `p`, so anyone debugging this
+            // branch can re-add a probe locally.
             if near_critical_point && near_saturation_line {
                 // this was intended to get the enthalpy of vapourisation
                 // to zero near critical point

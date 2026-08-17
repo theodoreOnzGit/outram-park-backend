@@ -1,6 +1,6 @@
 [package]
 name = "outram-foam-basic-lib"
-version = "0.1.1"
+version = "0.1.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,25 +17,34 @@ categories.workspace = true
 # `upstream_source/README.md` provenance record stays in the package).
 exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoam"]
 
+# Hybrid execution backend (bead op-yvj.4.1). BOTH features are OFF by default
+# so the default build stays Android-clean and dependency-light: a plain
+# `cargo build` pulls neither rayon nor wgpu, and `ComputeBackend::Serial` --
+# the reference implementation and the oracle every other path is checked
+# against -- is always present regardless of features.
+#
+# `parallel` adds the rayon multi-CPU path. rayon is pure Rust with no system
+# component, so it is Android/Termux clean and is NOT target-gated; it is
+# feature-gated only to keep the default dependency surface small.
+#
+# `gpu` adds the wgpu path. wgpu is additionally target-gated off Android
+# below, since Android has no system Vulkan/Metal loader and the workspace
+# Android rule forbids GPU dependencies in a library build. Enabling `gpu` on
+# an Android target therefore yields a build with no GPU backend rather than a
+# broken one, and dispatch falls back to CpuMulti or Serial.
+[features]
+default = []
+parallel = ["dep:rayon"]
+gpu = ["dep:wgpu"]
+
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true
 ndarray.workspace = true
-# Data parallelism for the hot finite-volume kernels — the LDU sparse
-# matrix-vector product, the Krylov vector operations, and the element-wise
-# field algebra. Pure Rust with no system dependency, so it is Android/Termux
-# clean and is therefore an unconditional dependency.
-rayon.workspace = true
+rayon = { workspace = true, optional = true }
 
-# Optional GPU acceleration for the same kernels (`src/gpu.rs`) — target-gated
-# OFF Android, which has no system Vulkan/Metal loader and where the workspace
-# Android rule forbids GPU dependencies in a library build, so the crate still
-# builds headless for aarch64-linux-android. On desktop it is built
-# unconditionally with a mandatory runtime CPU fallback: GPU is acceleration
-# only, and the CPU path is the trusted one. This mirrors the arrangement
-# already used by `outram-park-fork-pflotran` and `njoy-outram-park-fork`.
 [target.'cfg(not(target_os = "android"))'.dependencies]
-wgpu.workspace = true
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true

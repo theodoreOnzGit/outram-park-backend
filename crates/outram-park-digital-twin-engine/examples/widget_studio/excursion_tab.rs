@@ -1,5 +1,5 @@
-//! Excursion-overlay tab: drive the destructive annotation directly, without
-//! having to wreck a reactor to see it.
+//! Excursion-overlay tab: drive the fuel-excursion annotation directly, rather
+//! than having to run a reactor out of its envelope to see it.
 //!
 //! [`ExcursionOverlay`] annotates a reactor whose fuel has gone past the
 //! temperature it is allowed to reach. In a simulator the only way to reach
@@ -14,8 +14,19 @@
 //!   temperature at all.
 //!
 //! A **stage ladder** along the bottom shows all three stages at once —
-//! quiescent, limit-exceeded, destructive — so the escalation can be compared
-//! side by side rather than remembered between slider drags.
+//! quiescent, limit-exceeded, fission-product release — so the escalation can
+//! be compared side by side rather than remembered between slider drags.
+//!
+//! ## The middle band is where the fuel is still doing its job
+//!
+//! Dragging the fuel temperature from 1230 degC towards 1600 degC deepens the
+//! **warning border** and nothing else, because that is what the evidence
+//! supports: HTR-10 coating integrity was experimentally proven to 1250 degC
+//! (Gao & Shi 2002) and the German heating tests found no particle failures and
+//! no noticeable caesium or strontium release in the first few hundred hours of
+//! any 1600 degC test (Kugeler et al. 2017, EUR 28712 EN, section 4.2.1). The
+//! release annotation appears only at the far landmark. Checking that by hand
+//! is one of the things this tab is for.
 //!
 //! ## It composes; it does not own the vessel
 //!
@@ -35,15 +46,18 @@
 //! as `PumpTab` and the turbine's `simulation_time`. "↺ replay" rewinds it to
 //! zero so the expansion can be watched again without touching the trigger.
 //!
-//! **Offline demonstration art.** The annotation is a warning label, not a
-//! blast model, not an accident analysis and not a source term; no temperature
-//! at which a core is destroyed is published or invented. Per
-//! `RESPONSIBLE_USE.md` this is for education, research and V&V only.
+//! **Offline demonstration art.** The annotation is a warning label. It is not
+//! a release model, not an accident analysis and not a source term, and it
+//! depicts no explosion — a helium-cooled graphite core has no blast mechanism
+//! available at these conditions, and the failure mode that does apply is
+//! progressive and passive. No temperature at which a core is destroyed is
+//! published or invented. Per `RESPONSIBLE_USE.md` this is for education,
+//! research and V&V only.
 
 use egui::{Color32, RichText, Vec2};
-use outram_park_digital_twin_engine::components::explosion::{
-    banner_pulse, shock_front_radius, shock_phase, ExcursionOverlay, ExcursionStage,
-    ExcursionTrigger, DESTRUCTIVE_INTENSITY, SHOCK_EXPANSION_SECONDS,
+use outram_park_digital_twin_engine::components::excursion::{
+    banner_pulse, release_phase, release_reach, ExcursionOverlay, ExcursionStage, ExcursionTrigger,
+    RELEASE_INTENSITY, RELEASE_RAMP_SECONDS,
 };
 use outram_park_digital_twin_engine::components::{ReactorArchetype, ReactorArchetypeVisual};
 use uom::si::f64::{ThermodynamicTemperature, Time};
@@ -86,13 +100,25 @@ impl ExcursionSource {
 /// reads it from the design module, not from here.
 const HTR10_LIMIT_DEGC: f64 = 1230.0;
 
-/// The **generic** modular-HTR coated-particle retention figure, degrees
-/// Celsius — **not** an HTR-10 limit.
+/// The **generic** modular-HTR fuel temperature limit, degrees Celsius —
+/// **not** an HTR-10 limit.
 ///
-/// The overlay reaches full intensity here. Conflating this with
-/// [`HTR10_LIMIT_DEGC`] misstates the HTR-10 margin by 370 K, which is why both
-/// are labelled wherever they appear.
+/// The overlay reaches full intensity and escalates to the release annotation
+/// here, and not before: the heating tests report near-100 % retention at this
+/// temperature for the first hundred hours or more (Kugeler et al. 2017,
+/// section 4.2.1). Conflating this with [`HTR10_LIMIT_DEGC`] misstates the
+/// HTR-10 margin by 370 K, which is why both are labelled wherever they appear.
 const GENERIC_RETENTION_DEGC: f64 = 1600.0;
+
+/// The temperature at which the same heating tests report SiC becoming
+/// permeable to most fission products, with no delay in caesium release,
+/// degrees Celsius.
+///
+/// Kugeler et al. (2017) section 4.2.1. Used only to place a slider button, so
+/// the reader can reach a temperature at which the release annotation is
+/// unambiguously the right thing to draw. It is **not** a landmark of the
+/// intensity ramp — that stays 1230 to 1600 degC.
+const SIC_PERMEABLE_DEGC: f64 = 1800.0;
 
 /// Studio state for the excursion overlay.
 pub struct ExcursionTab {
@@ -136,16 +162,17 @@ pub struct ExcursionTab {
 }
 
 impl Default for ExcursionTab {
-    /// Defaults put the fuel at 1450 degC — past the HTR-10's own 1230 degC
-    /// limit and well into the destructive stage, but short of the generic
-    /// 1600 degC retention figure, so the annotation is visible at less than
-    /// full intensity and both landmarks are still reachable by dragging in
-    /// either direction. The vessel scale runs 250-1700 degC so a runaway core
-    /// reddens without pinning at the top of the map.
+    /// Defaults put the fuel at 1650 degC — just past the generic 1600 degC
+    /// figure — so the tab opens on the release annotation, which is the part
+    /// that most needs looking at. Dragging down through 1600 degC drops
+    /// straight back to the warning border, which is the check that matters:
+    /// nothing may be drawn over the fuel between 1230 and 1600 degC. The
+    /// vessel scale runs 250-1700 degC so a runaway core reddens without
+    /// pinning at the top of the map.
     fn default() -> Self {
         Self {
             source: ExcursionSource::FuelTemperature,
-            fuel_degc: 1450.0,
+            fuel_degc: 1650.0,
             intensity: 0.6,
             running: true,
             simulation_time: Time::ZERO,
@@ -233,11 +260,11 @@ impl ExcursionTab {
 
 /// The three intensities the stage ladder is drawn at, one per stage.
 ///
-/// Chosen to sit clearly inside each band rather than on a boundary: `0.0` is
-/// quiescent by definition, `0.18` is roughly half way to
-/// [`DESTRUCTIVE_INTENSITY`], and `0.80` is well into the destructive stage
-/// without being pinned at full.
-const LADDER_INTENSITIES: [f32; 3] = [0.0, 0.18, 0.80];
+/// `0.0` is quiescent by definition; `0.5` sits in the middle of the band
+/// between the two landmarks, where the fuel is above its specification but
+/// still retaining; `1.0` is [`RELEASE_INTENSITY`], the far landmark, which is
+/// the only place the release annotation is drawn.
+const LADDER_INTENSITIES: [f32; 3] = [0.0, 0.5, RELEASE_INTENSITY];
 
 /// Vertical space reserved under each card for its caption, in points.
 const CAPTION_H: f32 = 64.0;
@@ -259,8 +286,10 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
     ui.label(
         RichText::new(
             "The annotation a reactor gets when its fuel goes past the \
-             temperature it is allowed to reach. A warning label — not a blast \
-             model, not an accident analysis, and not a source term.",
+             temperature it is specified for. A warning label — not a release \
+             model, not an accident analysis, and not a source term. Nothing \
+             here depicts an explosion: an HTGR has no blast mechanism at these \
+             conditions, and the real failure mode is progressive.",
         )
         .small()
         .weak(),
@@ -289,20 +318,39 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
                 if ui.button("1231 — just over").clicked() {
                     state.fuel_degc = HTR10_LIMIT_DEGC + 1.0;
                 }
-                if ui.button("1360 — destructive").clicked() {
-                    state.fuel_degc = HTR10_LIMIT_DEGC + DESTRUCTIVE_INTENSITY as f64 * 370.0 + 0.5;
+                if ui.button("1250 — coating proven to").clicked() {
+                    state.fuel_degc = 1250.0;
                 }
-                if ui.button("1600 — generic figure").clicked() {
+                if ui.button("1599 — still retaining").clicked() {
+                    state.fuel_degc = GENERIC_RETENTION_DEGC - 1.0;
+                }
+                if ui.button("1600 — release annotation").clicked() {
                     state.fuel_degc = GENERIC_RETENTION_DEGC;
+                }
+                if ui.button("1800 — SiC permeable").clicked() {
+                    state.fuel_degc = SIC_PERMEABLE_DEGC;
                 }
             });
             ui.label(
                 RichText::new(
                     "1230 °C is the HTR-10's OWN specified maximum fuel \
-                     temperature (Gao & Shi 2002). 1600 °C is the GENERIC \
-                     modular-HTR coated-particle retention figure and is NOT an \
-                     HTR-10 limit — the two are 370 K apart, and any margin \
-                     statement uses 1230.",
+                     temperature (Gao & Shi 2002), itself set from the \
+                     experimental demonstration that the coating retains to \
+                     1250 °C. 1600 °C is the GENERIC modular-HTR fuel \
+                     temperature limit and is NOT an HTR-10 limit — the two are \
+                     370 K apart, and any margin statement uses 1230.",
+                )
+                .small()
+                .weak(),
+            );
+            ui.label(
+                RichText::new(
+                    "Between them the border deepens and NOTHING is drawn over \
+                     the fuel: the heating tests found no particle failures and \
+                     no noticeable caesium or strontium release in the first few \
+                     hundred hours at 1600 °C (Kugeler et al. 2017, EUR 28712 \
+                     EN, §4.2.1). Failures and release increase at 1700-1800 °C, \
+                     where SiC becomes permeable to most fission products.",
                 )
                 .small()
                 .weak(),
@@ -318,14 +366,11 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
                 if ui.button("0.00 — quiescent").clicked() {
                     state.intensity = 0.0;
                 }
-                if ui.button("0.20 — limit exceeded").clicked() {
-                    state.intensity = 0.20;
+                if ui.button("0.50 — above the limit").clicked() {
+                    state.intensity = 0.50;
                 }
-                if ui.button("0.35 — destructive").clicked() {
-                    state.intensity = DESTRUCTIVE_INTENSITY;
-                }
-                if ui.button("1.00 — full").clicked() {
-                    state.intensity = 1.0;
+                if ui.button("1.00 — release").clicked() {
+                    state.intensity = RELEASE_INTENSITY;
                 }
             });
             ui.label(
@@ -359,9 +404,11 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
     });
     ui.label(
         RichText::new(format!(
-            "The expansion reaches full extent after {SHOCK_EXPANSION_SECONDS:.1} s of \
-             SIMULATION time and stays there — the fuel does not become undestroyed. \
-             Pausing freezes it; replay rewinds it without touching the trigger.",
+            "The release annotation reaches its full drawn extent after \
+             {RELEASE_RAMP_SECONDS:.1} s of SIMULATION time and stays there — released \
+             products do not go back into the fuel. Pausing freezes it; replay rewinds it \
+             without touching the trigger. That ramp is a PRESENTATION constant and implies \
+             no timescale: the measured releases are quoted in hundreds of hours.",
         ))
         .small()
         .weak(),
@@ -422,7 +469,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
             let colour = match stage {
                 ExcursionStage::Quiescent => Color32::from_rgb(140, 190, 140),
                 ExcursionStage::LimitExceeded => Color32::from_rgb(240, 158, 34),
-                ExcursionStage::Destructive => Color32::from_rgb(220, 80, 60),
+                ExcursionStage::FissionProductRelease => Color32::from_rgb(220, 80, 60),
             };
             ui.label(RichText::new(format!("{stage:?}")).color(colour).strong());
             ui.end_row();
@@ -450,14 +497,33 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ExcursionTab) {
             ));
             ui.end_row();
 
-            ui.label("expansion phase");
+            ui.label("release phase");
             ui.label(format!("{:.3}", overlay.phase()));
             ui.end_row();
 
-            ui.label("front radius (100 pt box)");
+            ui.label("species named");
+            let named = overlay.named_species();
+            if named.is_empty() {
+                ui.label(
+                    RichText::new("none — nothing released at this stage")
+                        .italics()
+                        .weak(),
+                );
+            } else {
+                ui.label(
+                    named
+                        .iter()
+                        .map(|s| s.nuclide)
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+            }
+            ui.end_row();
+
+            ui.label("mark drift (100 pt box)");
             ui.label(format!(
                 "{:.1} pt",
-                shock_front_radius(shock_phase(state.simulation_time), 100.0)
+                release_reach(release_phase(state.simulation_time), 100.0)
             ));
             ui.end_row();
 
@@ -505,6 +571,7 @@ pub fn draw(ui: &mut egui::Ui, state: &ExcursionTab) {
                 ui.allocate_ui(Vec2::new(card_w, CAPTION_H), |ui| {
                     let stage = state.stage();
                     ui.label(RichText::new(format!("{stage:?}")).strong());
+                    ui.label(RichText::new(stage.mechanism()).small().weak());
                     ui.label(RichText::new(stage.caption()).small().weak());
                 });
             });
@@ -516,8 +583,10 @@ pub fn draw(ui: &mut egui::Ui, state: &ExcursionTab) {
                 RichText::new(
                     "Fixed intensities, on the same clock as the card above, so \
                      the escalation can be compared rather than remembered. \
-                     Quiescent draws NOTHING: a reactor inside its limit is not \
-                     annotated at all.",
+                     Quiescent draws NOTHING: a reactor inside its specification \
+                     is not annotated at all. The middle card is above the limit \
+                     with the fuel still retaining — a border, and nothing over \
+                     the fuel. Only the last card draws release.",
                 )
                 .small()
                 .weak(),
@@ -591,18 +660,20 @@ mod tests {
     /// **Methodology.** The tab exists so the stages can be reached
     /// deliberately, so sweep [`ExcursionTab::fuel_degc`] across the slider's
     /// whole 900-2100 degC range in 1 degC steps, record every stage
-    /// transition, and require: exactly two transitions; the first at the
-    /// HTR-10's own 1230 degC limit; the second where the intensity first
-    /// reaches [`DESTRUCTIVE_INTENSITY`], i.e. 1230 + 0.35 x 370 = 1359.5 degC;
-    /// and all three stages to be reachable from the slider.
+    /// transition, and require: exactly two transitions; the first just above
+    /// the HTR-10's own 1230 degC limit; the second **at the generic 1600 degC
+    /// figure and not before**, since the heating tests show retention across
+    /// the whole band between them; and all three stages to be reachable from
+    /// the slider.
     ///
     /// **Result (2026-08-12):** 1 201 sampled temperatures, exactly two
     /// transitions — into `LimitExceeded` at 1231 degC (the first sample
-    /// strictly above the 1230 degC limit) and into `Destructive` at 1360 degC
-    /// (the first sample at or above 1359.5 degC) — with all three stages
-    /// reached. Interpretation: every stage is reachable by dragging one
-    /// slider, and the escalation points are the widget's own landmarks rather
-    /// than anything the studio invented.
+    /// strictly above the 1230 degC limit) and into `FissionProductRelease` at
+    /// 1600 degC — with all three stages reached, and every temperature between
+    /// the landmarks staying `LimitExceeded`. Interpretation: every stage is
+    /// reachable by dragging one slider, the escalation points are the widget's
+    /// own landmarks rather than anything the studio invented, and no release
+    /// is drawn where the fuel is still demonstrated to retain.
     #[test]
     fn the_fuel_slider_steps_through_all_three_stages() {
         let mut tab = ExcursionTab::default();
@@ -634,14 +705,24 @@ mod tests {
             (transitions[0].0 - (HTR10_LIMIT_DEGC + 1.0)).abs() < 1e-6,
             "the overlay must start just above the HTR-10's own limit"
         );
-        assert_eq!(transitions[1].1, ExcursionStage::Destructive);
-        let expected = HTR10_LIMIT_DEGC + DESTRUCTIVE_INTENSITY as f64 * 370.0;
+        assert_eq!(transitions[1].1, ExcursionStage::FissionProductRelease);
         assert!(
-            (transitions[1].0 - expected).abs() <= 1.0,
-            "destructive escalation at {} degC, expected near {expected}",
+            (transitions[1].0 - GENERIC_RETENTION_DEGC).abs() <= 1.0,
+            "release escalation at {} degC, expected the generic figure at {GENERIC_RETENTION_DEGC}",
             transitions[1].0
         );
         assert_eq!(seen.len(), 3, "all three stages must be reachable");
+
+        // Nothing between the landmarks may be drawn as release.
+        for step in 1..370 {
+            tab.fuel_degc = HTR10_LIMIT_DEGC + step as f64;
+            assert_eq!(
+                tab.stage(),
+                ExcursionStage::LimitExceeded,
+                "{} degC must not be drawn as release",
+                tab.fuel_degc
+            );
+        }
     }
 
     /// Below the HTR-10's own limit the tab must annotate nothing at all, so
@@ -663,14 +744,17 @@ mod tests {
     /// limit, so the overlay prints the overshoot; a raw intensity carries
     /// neither and must print nothing. Set the tab to 1450 degC and require an
     /// overshoot of +220 K past the 1230 degC limit; switch to the intensity
-    /// source at the same slider positions and require the overshoot to be
-    /// `None` while the stage still escalates from the intensity alone.
+    /// source at the same slider position and require the overshoot to be
+    /// `None` while the stage still follows the intensity alone.
     ///
     /// **Result (2026-08-12):** the fuel source reported +220.0 K with
-    /// intensity 0.595 (220/370) and stage `Destructive`; the intensity source
-    /// at 0.6 reported no overshoot and the same stage. Interpretation: neither
-    /// source borrows the other's numbers, so a bare intensity cannot grow a
-    /// fuel temperature to display.
+    /// intensity 0.595 (220/370) and stage `LimitExceeded` — 1450 degC is above
+    /// the HTR-10's own limit but well below the generic figure, so it is a
+    /// warning and not release; the intensity source at 0.6 reported no
+    /// overshoot and the same stage, and at 1.0 gave `FissionProductRelease`
+    /// with still no numbers. Interpretation: neither source borrows the
+    /// other's numbers, so a bare intensity cannot grow a fuel temperature to
+    /// display.
     #[test]
     fn the_trigger_source_changes_what_can_be_reported() {
         let mut tab = ExcursionTab::default();
@@ -686,34 +770,44 @@ mod tests {
         );
         assert!((overshoot - 220.0).abs() < 1e-6);
         assert!((fuel_overlay.intensity() - 220.0 / 370.0).abs() < 1e-3);
-        assert_eq!(fuel_overlay.stage(), ExcursionStage::Destructive);
+        assert_eq!(
+            fuel_overlay.stage(),
+            ExcursionStage::LimitExceeded,
+            "1450 degC is above the limit but still retaining"
+        );
+        assert!(fuel_overlay.named_species().is_empty());
 
         tab.source = ExcursionSource::Intensity;
         tab.intensity = 0.6;
         let bare = tab.overlay(egui::Pos2::ZERO, Vec2::splat(100.0));
         assert_eq!(bare.overshoot_kelvin(), None);
         assert_eq!(bare.intensity(), 0.6);
-        assert_eq!(bare.stage(), ExcursionStage::Destructive);
+        assert_eq!(bare.stage(), ExcursionStage::LimitExceeded);
+
+        tab.intensity = RELEASE_INTENSITY;
+        let full = tab.overlay(egui::Pos2::ZERO, Vec2::splat(100.0));
+        assert_eq!(full.stage(), ExcursionStage::FissionProductRelease);
+        assert_eq!(full.overshoot_kelvin(), None);
     }
 
-    /// The clock must be owned by the tab, so the annotation expands across
+    /// The clock must be owned by the tab, so the annotation progresses across
     /// repaints, freezes when paused, and can be replayed.
     ///
     /// **Methodology.** Widgets are rebuilt every frame, so a widget-owned
-    /// clock would reset the expansion to zero each repaint. Advance
+    /// clock would reset the annotation to zero each repaint. Advance
     /// [`ExcursionTab::step`] in 0.1 s increments and require the overlay's
-    /// phase to follow [`shock_phase`]; pause and require it to hold; replay
+    /// phase to follow [`release_phase`]; pause and require it to hold; replay
     /// and require it to return to the trigger instant.
     ///
     /// **Result (2026-08-12):** after 7 steps of 0.1 s the elapsed time was
-    /// 0.700 s and the phase 0.500, matching `shock_phase` exactly; 5 further
+    /// 0.700 s and the phase 0.500, matching `release_phase` exactly; 5 further
     /// steps while paused left both unchanged; replay gave 0.000 s and phase
     /// 0.000; running on to 2.0 s pinned the phase at 1.000 and it stayed there.
-    /// Interpretation: the expansion is a pure function of the studio's own
+    /// Interpretation: the annotation is a pure function of the studio's own
     /// clock, so it survives being rebuilt every frame and does not fade back
     /// to nothing.
     #[test]
-    fn the_tab_owns_the_clock_that_expands_the_annotation() {
+    fn the_tab_owns_the_clock_that_advances_the_annotation() {
         let mut tab = ExcursionTab::default();
         let phase = |t: &ExcursionTab| t.overlay(egui::Pos2::ZERO, Vec2::splat(100.0)).phase();
 
@@ -722,7 +816,7 @@ mod tests {
         }
         assert!((tab.simulation_time.get::<second>() - 0.7).abs() < 1e-9);
         assert!((phase(&tab) - 0.5).abs() < 1e-6);
-        assert_eq!(phase(&tab), shock_phase(tab.simulation_time));
+        assert_eq!(phase(&tab), release_phase(tab.simulation_time));
 
         tab.running = false;
         for _ in 0..5 {
@@ -755,10 +849,52 @@ mod tests {
             vec![
                 ExcursionStage::Quiescent,
                 ExcursionStage::LimitExceeded,
-                ExcursionStage::Destructive
+                ExcursionStage::FissionProductRelease
             ]
         );
         assert_eq!(stages.len(), ExcursionStage::ALL.len());
+    }
+
+    /// Nothing the tab puts on screen may describe an explosion.
+    ///
+    /// **Methodology.** The widget's own text is pinned by
+    /// `excursion::no_stage_describes_an_explosion`; this pins the studio's
+    /// side of it, because the tab writes captions of its own. Require every
+    /// stage caption and mechanism the tab prints, and the tab's own trigger
+    /// labels, to contain none of "explos", "blast", "debris", "detonat" or
+    /// "shock" — except inside an explicit denial ("not a blast", "not
+    /// explosive"), since saying what this is not is part of the correction.
+    ///
+    /// **Result (2026-08-12):** 11 strings checked across three stages and two
+    /// trigger sources; the only matches were the two permitted denials, in the
+    /// release stage's mechanism and caption. Interpretation: the studio cannot
+    /// reintroduce the language the artwork was corrected to remove.
+    #[test]
+    fn the_tab_never_describes_an_explosion() {
+        let forbidden = ["explos", "blast", "debris", "detonat", "shock"];
+        let permitted_denials = ["not a blast", "not explosive"];
+        let mut checked = 0usize;
+        let mut strings: Vec<String> = Vec::new();
+        for stage in ExcursionStage::ALL {
+            strings.push(stage.label().to_string());
+            strings.push(stage.caption().to_string());
+            strings.push(stage.mechanism().to_string());
+        }
+        for source in ExcursionSource::ALL {
+            strings.push(source.label().to_string());
+        }
+        for text in &strings {
+            let lowered = text.to_lowercase();
+            for term in forbidden {
+                if !lowered.contains(term) {
+                    continue;
+                }
+                let denied = permitted_denials.iter().any(|d| lowered.contains(d));
+                assert!(denied, "studio text mentions '{term}': {text:?}");
+            }
+            checked += 1;
+        }
+        println!("{checked} studio strings checked for explosion language");
     }
 
     /// An empty subject must leave the headline alone rather than printing a

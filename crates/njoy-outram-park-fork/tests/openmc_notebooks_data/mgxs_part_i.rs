@@ -51,7 +51,6 @@
 //!   outputs (op-ini) — these are self-consistency (property) checks today.
 
 use std::fs::File;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use njoy_outram_park_fork::{
@@ -73,14 +72,13 @@ const U235_MAT: i32 = 9228;
 const U238_MAT: i32 = 9237;
 
 fn u235_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     Tape::read(File::open(p).expect("open U-235")).expect("parse U-235 tape")
 }
 
 fn u238_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_238.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir().join("n-092_U_238.endf");
     Tape::read(File::open(p).expect("open U-238")).expect("parse U-238 tape")
 }
 

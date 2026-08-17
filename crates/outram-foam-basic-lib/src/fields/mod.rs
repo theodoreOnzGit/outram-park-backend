@@ -35,6 +35,11 @@
 //!   value per internal face plus one `PatchField` per boundary patch.
 //! - [`vol_field_algebra`](crate::fields::vol_field_algebra) — pure per-element tensor algebra (`tr`, `symm`,
 //!   `dev`, …) lifted to whole volume fields.
+//! - [`parallel`](crate::fields::parallel) — the same element-wise algebra and
+//!   the field reductions, dispatched on
+//!   [`ComputeBackend`](crate::compute::ComputeBackend) so a large mesh can use
+//!   every CPU core. One entry point per operation; multi-threading is behind the
+//!   crate's `parallel` feature and the serial path is the trusted reference.
 //!
 //! Physical units are not tracked at this layer; a field simply carries `f64`,
 //! `Vector3`, `Tensor`, or `SymmTensor` values in whatever SI units the caller
@@ -42,11 +47,17 @@
 
 pub mod boundary;
 pub mod field;
+pub mod parallel;
 pub mod surface_field;
 pub mod vol_field;
 pub mod vol_field_algebra;
 
 pub use boundary::*;
 pub use field::Field;
+// Only the two uniquely-named policy items are re-exported. The kernels
+// themselves (`add`, `sum`, `scale`, …) are deliberately NOT glob-re-exported:
+// their names are generic verbs that would collide on sight, so they stay
+// path-qualified as `fields::parallel::add(backend, &a, &b)`.
+pub use parallel::{field_parallel_crossover, should_parallelise};
 pub use surface_field::*;
 pub use vol_field::*;

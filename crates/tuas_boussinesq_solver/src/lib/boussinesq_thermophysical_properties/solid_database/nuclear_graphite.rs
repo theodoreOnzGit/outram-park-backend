@@ -196,15 +196,21 @@ pub fn nuclear_graphite_specific_heat_capacity_butland_maddison_spline(
 pub fn nuclear_graphite_fluence_damage_factor(fluence: Ratio) -> Result<Ratio, TuasLibError> {
     let gam: f64 = fluence.get::<ratio>();
 
+    // This is a FLUENCE bound, not a temperature bound. It previously returned
+    // `ThermophysicalPropertyTemperatureRangeError`, which told a caller a
+    // temperature had left its range when no temperature is involved here.
+    // `CorrelationRangeError` reports the quantity that actually failed, so the
+    // `println!` is no longer needed to carry the detail.
     if !(0.0..=15.0).contains(&gam) {
-        println!(
-            "nuclear graphite fluence damage factor: \n\
-            fluence parameter gam = {:?} is outside the accepted \n\
-            range [0, 15] (in units of 10^25 n/m^2, E > 0.1 MeV); \n\
-            beyond gam ~ 19 the correlation goes negative (unphysical)",
-            gam
-        );
-        return Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError);
+        return Err(TuasLibError::CorrelationRangeError {
+            parameter: "nuclear graphite fluence damage factor: fluence gam".to_string(),
+            value: gam,
+            lower_bound: 0.0,
+            upper_bound: 15.0,
+            units: "10^25 n/m^2, E > 0.1 MeV (beyond gam ~ 19 the correlation goes negative, \
+                    which is unphysical)"
+                .to_string(),
+        });
     }
 
     let damage_factor: f64 = 1.0 - 0.336 * (1.0 - f64::exp(-1.005 * gam)) - 3.50e-2 * gam;

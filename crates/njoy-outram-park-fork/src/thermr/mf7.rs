@@ -127,6 +127,15 @@ pub struct IncoherentInelastic {
     /// All temperatures \[K\] tabulated in the evaluation (base `T₀` first,
     /// then the `LT` extras), whether or not they were selected.
     pub tabulated_temperatures_k: Vec<f64>,
+    /// ENDF `LI` temperature-interpolation codes: `temp_interp[j]` is the law
+    /// for interpolating `S` between `tabulated_temperatures_k[j]` and
+    /// `[j+1]` (length `tabulated_temperatures_k.len() − 1`; `4` = log-lin,
+    /// `ln S` linear in `T`, for the ENDF/B-VIII.0 graphite evaluations).
+    ///
+    /// Mirrors [`CoherentElastic::temp_interp`]. Retained so a consumer can
+    /// see which law the evaluation states without re-reading the tape — the
+    /// temperature-thinning study in [`super::temperature_thinning`] needs it.
+    pub temp_interp: Vec<u32>,
     /// Principal-scatterer effective-temperature table `(T \[K\], T_eff \[K\])`
     /// used by the short-collision-time (SCT) branch — the trailing TAB1 of
     /// MF=7/MT=4. `T_eff(T)` (Egelstaff–Schofield) is larger than the physical
@@ -492,6 +501,7 @@ fn parse_inelastic(
     // bracketing tabulated tables — to every β (see the module docs).
     let mut selection = TemperatureSelection::Tabulated(0);
     let mut all_temps: Vec<f64> = Vec::new();
+    let mut all_li: Vec<u32> = Vec::new();
     let mut beta = Vec::with_capacity(nb as usize);
     let mut s_tables = Vec::with_capacity(nb as usize);
 
@@ -524,6 +534,7 @@ fn parse_inelastic(
 
         if j == 0 {
             all_temps = cand_temps.clone();
+            all_li = interval_li.clone();
             selection = match target_k {
                 None => TemperatureSelection::Tabulated(0),
                 Some(t) => select_temperature(&cand_temps, &interval_li, t)?,
@@ -570,6 +581,7 @@ fn parse_inelastic(
         beta,
         s_tables,
         tabulated_temperatures_k,
+        temp_interp: all_li,
         teff_table,
     })
 }
@@ -583,8 +595,7 @@ mod tests {
     const AL_MAT: i32 = 53;
 
     fn al27() -> Mf7 {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/tsl-013_Al_027-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, AL_MAT).unwrap()
     }

@@ -85,7 +85,7 @@ The workspace has 31 member crates, grouped by domain below.
 
 ## Build
 
-Requires a system BLAS (OpenBLAS on Linux):
+Requires a system BLAS (OpenBLAS on Linux), but only for test:
 
 ```bash
 # Arch / EndeavourOS
@@ -97,6 +97,158 @@ sudo apt install libopenblas-dev
 ```bash
 cargo build --workspace
 cargo test  --workspace --lib --tests
+```
+
+## Generated documentation (`kovan`)
+
+Documentation generation and repository accounting run through this workspace's
+own `kovan` binary. There is no Python in either toolchain.
+
+```bash
+cargo build --release -p kovan-cli     # builds target/release/kovan
+```
+
+**Prerequisites, both mandatory** — a nightly toolchain and `rustdoc-md`.
+`rustdoc-md` itself is an ordinary stable binary; the nightly requirement
+belongs to rustdoc's `--output-format json`, which is still unstable. It is
+build tooling only: nothing shipped needs nightly, and the workspace builds,
+tests and publishes on stable.
+
+```bash
+rustup toolchain install nightly
+cargo install rustdoc-md --locked
+```
+
+### Regenerating the API mirrors
+
+Each crate carries `crates/<crate>/docs/<crate>-api.md`, a single-file Markdown
+mirror of its public API generated from the doc comments. To regenerate:
+
+```bash
+kovan api-docs --all                     # refresh every crate that has a mirror
+kovan api-docs --all --include-missing   # also create mirrors for crates with none
+kovan api-docs outram-foam-basic-lib     # just one crate
+kovan api-docs outram-mc-libs --private  # include private items
+```
+
+`--all` reports progress per crate and **does not stop at the first failure** —
+one crate that fails to document says nothing about the other thirty-six. It
+lists what failed at the end and exits non-zero.
+
+Notes, if kovan is not yet on cargo and you are running in this github 
+repo:
+
+```bash
+cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
+```
+
+### Bundling docs for an external agent
+
+`kovan agent-docs-gen` packs the API docs into a flat, upload-ready set of files
+for a chat agent with a fixed context window (the upload dialogs take files but
+not folders, so nothing is nested).
+
+```bash
+kovan agent-docs-gen --list                       # what exists, and what each costs
+kovan agent-docs-gen --crates tampines-steam-tables,outram-park-fork-coolprop
+```
+
+It writes three tiers, so you upload only what you need: `_INDEX.md` (a ~3 KB
+roster of every crate), `<crate>.index.md` (condensed signatures), and
+`<crate>.api.md` (the full rustdoc). `AGENTS.md` carries the workspace's coding
+rules. The command reports a per-file token estimate against a budget and says
+how many optional files fit in the headroom.
+
+Again, if kovan is not on cargo and you are running on github:
+
+```bash
+cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
+cargo run --release -p kovan-cli --bin kovan agent-docs-gen --out ~/Desktop/agent-docs.
+```
+
+As seen here, u are able to put this on the desktop.
+
+
+
+### Running from anywhere
+
+None of these need to be run from the workspace root. When `--root` is omitted
+the workspace is discovered, in this order:
+
+1. the current directory or any ancestor of it;
+2. `~/outram-park-backend`;
+3. `~/Documents/outram-park-backend`;
+4. `~/Documents/research/outram-park-backend`;
+5. otherwise, pass `--root <path>` — the error names every path it tried.
+
+A directory qualifies only if it holds `crates/` **and** a `Cargo.toml`
+declaring `[workspace]`, so a directory that merely shares the name is not
+mistaken for it. An explicit `--root` always wins, and a wrong one is an error
+rather than being quietly replaced by a search.
+
+Generated output follows the same preference: `--out` if given, otherwise
+`<workspace>/agent-docs` (which `.gitignore` already covers), otherwise
+`~/Documents/agent-docs` or `~/agent-docs`. Every run prints the workspace and
+the output directory it chose, with the reason.
+
+### Ingesting literature (`kovan lit`)
+
+Any document that **informs the code** — a correlation taken from it, a
+benchmark value cited, a number in a doc comment — belongs in
+`crates/kovan-literature`, catalogued with its provenance. Not in `~/Downloads`,
+not loose in `reference-data/`. "Used" is the trigger, not "ingested".
+
+**Decide the access tier before importing, from the document's own copyright
+page.** This is the step that matters and the one that is easy to get wrong:
+
+- **Where you downloaded it grants you nothing.** INIS, gen-4.org, OSTI and a
+  lab's website all host documents they do not license you to redistribute.
+  "Open access" on a record page means freely *readable*, not freely
+  *redistributable*.
+- **No licence statement means proprietary**, not open. Unsure is the same as
+  no. That failure direction is recoverable; the other is a licence violation in
+  a public repository, because `open/` is committed and this repository is
+  public.
+- Check the copyright line for a **text-and-data-mining / AI-training
+  reservation**. Where present, catalogue metadata and factual findings only and
+  do not extract the full text.
+
+```bash
+# 1. Stage the PDF. kovan_import/ is gitignored scratch.
+mkdir -p kovan_import && mv ~/Downloads/paper.pdf kovan_import/
+
+# 2. Read the copyright page and decide the tier BEFORE importing.
+#    open/  -> committed and published.   proprietary/ -> gitignored.
+
+# 3. Import into the tier you decided on.
+kovan lit import kovan_import/paper.pdf \
+  --json-out    crates/kovan-literature/open/papers/author2026topic.json \
+  --markdown-out crates/kovan-literature/generated/markdown/open/author2026topic.md
+
+# 4. Acceptance check: the metadata must round-trip.
+kovan lit bibtex crates/kovan-literature/open/papers/author2026topic.json
+
+# 5. Add an entry to crates/kovan-literature/CATALOGUE.md, then delete the
+#    staged copy.
+rm kovan_import/paper.pdf
+```
+
+`kovan lit outline <pdf>` prints the heading structure without importing, which
+is the cheapest way to see what a document actually contains.
+
+**Check the extracted metadata; it is frequently wrong.** Observed failures
+include the article-type label, a journal running header, the PII string and the
+Word source filename all taken as titles, editors taken as authors, and a scan
+date taken as the publication year. `kovan lit bibtex` round-tripping cleanly is
+the acceptance check — if the BibTeX is wrong, fix the JSON before cataloguing.
+
+### Other `kovan` commands
+
+```bash
+kovan tokens report      # regenerate the local token-usage summary
+kovan tokens query --from 010826 --to 140826
+kovan historian --from 010826 --to 140826   # pre-merge accounting report
+kovan kloc --check       # the paper's productivity accounting
 ```
 
 ## Publishing (mandatory crate order)
