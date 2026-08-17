@@ -157,10 +157,7 @@ use outram_park_digital_twin_engine::htr10::design::Htr10DesignPoint;
 use outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity;
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{
-    Area, AvailableEnergy, HeatCapacity, HeatTransfer, Length, Mass, MassDensity, MassRate, Power,
-    Ratio, ThermodynamicTemperature, Time, Volume,
-};
+use uom::si::{f64::*, temperature_interval};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::length::meter;
@@ -172,6 +169,7 @@ use outram_park_digital_twin_engine::htr10::kta;
 use outram_park_fork_coolprop::{conductivity, state_pt, viscosity, Fluid};
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
+use uom::si::specific_heat_capacity::{kilojoule_per_kilogram_kelvin,joule_per_kilogram_kelvin};
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -515,8 +513,7 @@ impl PebbleBedCore {
         let htc = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
         self.overall_htc = htc;
 
-        let conductance =
-            htc.get::<watt_per_square_meter_kelvin>() * heat_transfer_area().get::<square_meter>();
+        let conductance: ThermalConductance = htc * heat_transfer_area();
         let t_pebble_k = self.temperature().get::<kelvin>();
         let t_in_k = helium_inlet_temperature.get::<kelvin>();
 
@@ -555,25 +552,22 @@ impl PebbleBedCore {
         // `exp(-NTU) > 0` forces `T_out < T_bed` for every finite NTU.
         let helium_cp = helium_specific_heat(helium_inlet_temperature);
         let capacity_rate = helium_mass_flow
-            .get::<kilogram_per_second>()
             .abs()
-            .max(1.0e-6)
+            .max(MassRate::new::<kilogram_per_second>(1.0e-6))
             * helium_cp;
         let ntu = conductance / capacity_rate;
-        let effectiveness = 1.0 - (-ntu).exp();
+        let effectiveness = Ratio::new::<ratio>(1.0) - (-ntu).exp();
 
-        let removed_w = capacity_rate * effectiveness * (t_pebble_k - t_in_k);
-        self.heat_to_coolant = Power::new::<watt>(removed_w);
+        let removed_w: Power = capacity_rate * effectiveness * 
+            TemperatureInterval::new::<temperature_interval::kelvin>(t_pebble_k - t_in_k);
+        self.heat_to_coolant = removed_w;
 
         // (the helium outlet is published after the enthalpy update below, so
         // it is bounded by the END-of-step bed temperature -- see there)
 
-        let net_w = fission_power.get::<watt>() - removed_w;
-        let mass_kg = graphite_mass().get::<kilogram>();
-        let d_specific_enthalpy = net_w * dt.get::<second>() / mass_kg;
-        self.specific_enthalpy = AvailableEnergy::new::<joule_per_kilogram>(
-            self.specific_enthalpy.get::<joule_per_kilogram>() + d_specific_enthalpy,
-        );
+        let net_w = fission_power - removed_w;
+        let d_specific_enthalpy = net_w * dt/ graphite_mass();
+        self.specific_enthalpy = self.specific_enthalpy + d_specific_enthalpy;
 
         // Publish the helium outlet implied by the SAME epsilon-NTU balance,
         // so the primary loop can take it directly instead of re-deriving it
@@ -600,7 +594,7 @@ impl PebbleBedCore {
         // every finite NTU, because `exp(-NTU) > 0`.
         let t_pebble_next_k = self.temperature().get::<kelvin>();
         self.helium_outlet_temperature = ThermodynamicTemperature::new::<kelvin>(
-            t_pebble_next_k - (t_pebble_next_k - t_in_k) * (-ntu).exp(),
+            t_pebble_next_k - (t_pebble_next_k - t_in_k) * (-ntu.get::<ratio>()).exp(),
         );
 
         self.heat_to_coolant
@@ -779,16 +773,14 @@ pub fn overall_htc_at_flow(
 pub fn effective_conductance(
     helium_mass_flow: MassRate,
     helium_inlet_temperature: ThermodynamicTemperature,
-) -> f64 {
-    let htc = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
-    let conductance =
-        htc.get::<watt_per_square_meter_kelvin>() * heat_transfer_area().get::<square_meter>();
+) -> ThermalConductance {
+    let htc: HeatTransfer = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
+    let conductance: ThermalConductance = htc * heat_transfer_area();
     let capacity_rate = helium_mass_flow
-        .get::<kilogram_per_second>()
         .abs()
-        .max(1.0e-6)
+        .max(MassRate::new::<kilogram_per_second>(1.0e-6))
         * helium_specific_heat(helium_inlet_temperature);
-    capacity_rate * (1.0 - (-(conductance / capacity_rate)).exp())
+    capacity_rate * (1.0 - (-(conductance / capacity_rate).get::<ratio>()).exp())
 }
 
 /// Helium isobaric specific heat \[J/(kg K)\] at `temperature` and the
@@ -798,17 +790,17 @@ pub fn effective_conductance(
 /// [`PebbleBedCore::step`] needs. Falls back to the ideal-gas-limit helium
 /// value if the density solve declines, for the same reason
 /// [`helium_transport`] does.
-fn helium_specific_heat(temperature: ThermodynamicTemperature) -> f64 {
+pub fn helium_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHeatCapacity {
     /// Ideal-gas-limit helium `c_p` \[J/(kg K)\].
     const IDEAL_CP: f64 = 5193.0;
     let t = temperature.get::<kelvin>();
     if !(t.is_finite() && t > 1.0) {
-        return IDEAL_CP;
+        return SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(IDEAL_CP);
     }
     let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
     match state_pt(Fluid::Helium, t, pressure_pa) {
-        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => state.cp,
-        _ => IDEAL_CP,
+        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(state.cp),
+        _ => SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(IDEAL_CP),
     }
 }
 
