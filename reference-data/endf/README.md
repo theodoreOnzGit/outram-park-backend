@@ -15,10 +15,42 @@ evaluated data (NNDC/IAEA); that is allowed. For every tape added, record its
 provenance in the table below: nuclide, library + version, MAT, source URL, date
 accessed.
 
+### Present in the repository
+
+Moved here from `crates/njoy-outram-park-fork/tests/resources/` on 2026-08-17 so
+that no tape sits inside a crate directory (see "Why not inside a crate" below).
+Sizes are as committed; ~89 MB total.
+
+| File | Nuclide / material | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `a-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 (neutron) | 228 | 8 KB | NNDC/IAEA | 2026-07-20 |
+| `n-001_H_002-ENDF8.0.endf` | H-2 (deuterium) | ENDF/B-VIII.0 (neutron) | 128 | 127 KB | NNDC/IAEA | 2026-07-20 |
+| `n-018_Ar_37-tendl2023.endf` | Ar-37 | TENDL-2023 (neutron) | 1828 | 3.7 MB | TENDL | 2026-07-20 |
+| `n-092_U_235-ENDF8.0.endf` | U-235 | ENDF/B-VIII.0 (neutron) | 9228 | 35 MB | NNDC/IAEA | 2026-07-20 |
+| `n-092_U_238.endf` | U-238 | ENDF/B-VIII.0 (neutron) | 9237 | 14 MB | NNDC/IAEA | 2026-07-20 |
+| `tsl-013_Al_027-ENDF8.0.endf` | Al-27 (S(α,β)) | ENDF/B-VIII.0 (thermal) | 53 | 2.0 MB | NNDC/IAEA | 2026-07-20 |
+| `tsl-HinZrH-ENDF8.0.endf` | H in ZrH | ENDF/B-VIII.0 (thermal) | 7 | 1.2 MB | NNDC/IAEA | 2026-07-20 |
+| `tsl-CinSiC.endf` | C in 3C-SiC | ENDF/B-VIII.0 (thermal) | 44 | 6.9 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
+| `tsl-crystalline-graphite.endf` | C in graphite | ENDF/B-VIII.0 (thermal) | 30 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
+| `tsl-reactor-graphite-10P.endf` | C in graphite, 10 % porosity | ENDF/B-VIII.0 (thermal) | 31 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
+| `tsl-reactor-graphite-30P.endf` | C in graphite, 30 % porosity | ENDF/B-VIII.0 (thermal) | 32 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
+
+### Still wanted
+
 | File | Nuclide | Library | MAT | Source | Date accessed |
 |---|---|---|---|---|---|
 | `n-009_F_019-ENDF8.0.endf` | F-19 | ENDF/B-VIII.0 (neutron) | 925 | _(fill in: IAEA NDS / NNDC)_ | _(fill in)_ |
 | `n-008_O_016-ENDF8.0.endf` | O-16 | ENDF/B-VIII.0 (neutron) | 825 | _(fill in)_ | _(fill in)_ |
+| `tsl-SiinSiC.endf` | Si in 3C-SiC | ENDF/B-VIII.0 (thermal) | 43 | _(fill in)_ | _(fill in)_ |
+
+## Why not inside a crate
+
+`cargo package` builds a tarball by walking the crate root, so **any** file under
+a crate directory is a candidate for publication, and crates.io caps a package at
+10 MB. Keeping tapes here — outside `crates/` — means the layout enforces the
+limit rather than an `include`/`exclude` allowlist that has to stay correct.
+`crates/njoy-outram-park-fork/tests/no_endf_inside_crates.rs` asserts the
+invariant, failing if any `.endf` reappears under `crates/`.
 
 ## What is needed and why
 
@@ -40,10 +72,15 @@ text file), named exactly as in the table so the tests find it.
 
 ## How the tests use it
 
-Crate V&V tests read tapes from here via a path relative to the crate, e.g.
-`env!("CARGO_MANIFEST_DIR")/../../reference-data/endf/<file>`, and **skip
-gracefully** (with a printed note) when a tape is absent — so the crate still
-builds and tests without this folder populated. The matching NJOY golden output
+Crate V&V tests resolve tapes through
+[`njoy_outram_park_fork::reference_data`] — `reference_endf("<file>")` returns
+`Option<PathBuf>`, and `reference_endf_or_skip("<file>", "<label>")` prints a
+skip note when absent. It honours the `OUTRAM_PARK_ENDF_DIR` environment
+override and otherwise reads this folder via
+`env!("CARGO_MANIFEST_DIR")/../../reference-data/endf/`. Tests **skip
+gracefully** when a tape is absent — so the crate still builds and tests without
+this folder populated, including for a crates.io consumer with no repository
+around it. The matching NJOY golden output
 is generated on demand from the locally-built `vendor/njoy2016` oracle (which is
 gitignored), never committed as a large tape; only extracted reference values
 (CSV) are committed, per the existing `u238_doppler` pattern.

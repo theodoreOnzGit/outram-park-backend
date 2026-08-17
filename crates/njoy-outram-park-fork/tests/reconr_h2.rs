@@ -1,6 +1,6 @@
 //! RECONR Phase 2a integration tests: H-2 (deuterium) evaluation.
 //!
-//! Fixture: `tests/resources/n-001_H_002-ENDF8.0.endf`
+//! Fixture: `reference-data/endf/n-001_H_002-ENDF8.0.endf`
 //! Source:  NJOY2016 test suite (ENDF/B-VIII.0, MAT=128)
 //! Size:    1715 lines, 17 sections.
 //!
@@ -24,8 +24,8 @@ use njoy_outram_park_fork::{
 const MAT: i32 = 128; // H-2 (deuterium)
 
 fn h2_path() -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-001_H_002-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-001_H_002-ENDF8.0.endf");
     p
 }
 

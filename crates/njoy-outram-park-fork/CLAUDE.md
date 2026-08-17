@@ -79,6 +79,30 @@ offline WMP + MGXS path needs no network. One honest qualification since
   `wgpu` in the tree). This does **not** re-introduce a BLAS/Fortran build
   burden, and it does **not** change the Android or default-path leanness.
 
+## HARD RULE — no raw ENDF tape inside any crate directory
+
+**`.endf` tapes live at the repo root in `reference-data/endf/`, never under
+`crates/`.** `cargo package` builds its tarball by walking the crate root, so a
+tape placed anywhere under a crate is a candidate for publication, and crates.io
+caps a package at 10 MB. This workspace's eleven reference tapes total ~89 MB —
+U-235 alone is 35 MB.
+
+- **Read them through [`reference_data`](src/reference_data.rs)**:
+  `reference_endf("<file>")` → `Option<PathBuf>`, or
+  `reference_endf_or_skip("<file>", "<label>")` to print a skip note. Both
+  honour the `OUTRAM_PARK_ENDF_DIR` override. Do **not** hand-roll
+  `CARGO_MANIFEST_DIR`-relative paths at each call site.
+- **Data-gated tests must skip, not fail**, when a tape is absent — a crates.io
+  consumer has no repository around the crate.
+- **`tests/no_endf_inside_crates.rs` enforces this** and fails with the offending
+  paths if any `.endf` reappears under `crates/`.
+- Record every new tape's provenance in `reference-data/endf/README.md`
+  (library, MAT, size, source URL, date accessed), per `DATA_POLICY.md`.
+- Until 2026-08-17 the tapes sat in `tests/resources/` and were kept out of the
+  tarball only by `Cargo.toml`'s `include` allowlist. That worked, but one
+  careless `"tests/**"` entry would have attempted an 89 MB publish. The layout
+  now enforces it instead of a rule.
+
 ## Build and test
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.

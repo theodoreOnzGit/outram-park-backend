@@ -27,9 +27,14 @@
 //!   (`ThermalData::sample_dist`, the σ_el/σ_total channel split) and
 //!   `src/secondary_thermal.cpp:34-54` (`CoherentElasticAE::sample`, the
 //!   cumulative-structure-factor Bragg-edge draw).
-//! - The tapes are **not** checked in. Tests read them from `TSL_DIR` (env
-//!   override) or the default directory below, and **skip** — print a note,
-//!   pass — when absent, so CI stays green.
+//! - The tapes **are** checked in, at the repo root in `reference-data/endf/`
+//!   (outside `crates/`, so `cargo package` cannot sweep ~89 MB of tape into a
+//!   tarball). Tests resolve them through
+//!   [`njoy_outram_park_fork::reference_data`], which honours the
+//!   `OUTRAM_PARK_ENDF_DIR` override and falls back to `$TSL_DIR` for a machine
+//!   holding its own copy of the ENDF/B-VIII.0 `thermal_scatt/` directory. They
+//!   **skip** — print a note, pass — when a tape is absent, so a crates.io
+//!   consumer without the repository stays green.
 //!
 //! # Methodology and measured results (2026-08-11, ENDF/B-VIII.0, release mode)
 //!
@@ -165,26 +170,30 @@
 use outram_mc_libs::material::thermal::{ThermalElastic, ThermalScattering};
 use outram_mc_libs::prelude::Nuclide;
 
-/// Default location of the ENDF/B-VIII.0 thermal-scattering sublibrary on this
-/// machine; override with the `TSL_DIR` environment variable.
-const DEFAULT_TSL_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
-
-/// Absolute path of a `tsl-*` tape, honouring the `TSL_DIR` override.
-fn tsl(file: &str) -> String {
-    let dir = std::env::var("TSL_DIR").unwrap_or_else(|_| DEFAULT_TSL_DIR.to_string());
-    format!("{dir}/{file}")
-}
-
 /// `Some(path)` when the tape is present, else `None` after printing a skip note
-/// (data-gated tests pass rather than fail when the public tapes are absent).
+/// (data-gated tests pass rather than fail when the tapes are absent).
+///
+/// Resolution order: the in-repo `reference-data/endf/` (via
+/// [`njoy_outram_park_fork::reference_data::reference_endf`], which itself
+/// honours `OUTRAM_PARK_ENDF_DIR`), then `$TSL_DIR` for a machine that keeps
+/// its own unpacked ENDF/B-VIII.0 `thermal_scatt/` directory.
 fn tape_or_skip(file: &str, label: &str) -> Option<String> {
-    let p = tsl(file);
-    if std::path::Path::new(&p).exists() {
-        Some(p)
-    } else {
-        println!("[{label}] SKIP: {p} not found (set TSL_DIR to the ENDF/B-VIII.0 thermal_scatt directory)");
-        None
+    use njoy_outram_park_fork::reference_data::reference_endf;
+
+    if let Some(p) = reference_endf(file) {
+        return Some(p.display().to_string());
     }
+    if let Ok(dir) = std::env::var("TSL_DIR") {
+        let p = format!("{dir}/{file}");
+        if std::path::Path::new(&p).exists() {
+            return Some(p);
+        }
+    }
+    println!(
+        "[{label}] SKIP: {file} not found in reference-data/endf/ \
+         (set OUTRAM_PARK_ENDF_DIR, or TSL_DIR to an ENDF/B-VIII.0 thermal_scatt directory)"
+    );
+    None
 }
 
 /// Item 1 + 2 + 3: channel detection, exactness of the stored sawtooth, and the

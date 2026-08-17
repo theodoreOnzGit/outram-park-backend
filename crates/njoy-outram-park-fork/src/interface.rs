@@ -169,7 +169,7 @@ impl NuclearDataLibrary {
     /// # use njoy_outram_park_fork::{interface::NuclearDataLibrary, MtReaction};
     /// # use uom::si::energy::electronvolt;
     /// # let lib = NuclearDataLibrary::from_file(
-    /// #     "tests/resources/n-018_Ar_37-tendl2023.endf", 1828
+    /// #     "../../reference-data/endf/n-018_Ar_37-tendl2023.endf", 1828
     /// # ).unwrap().reconstruct(0.001).unwrap();
     /// let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
     /// let xs = lib.xs_for_reaction(MtReaction::Mt2Elastic, e);

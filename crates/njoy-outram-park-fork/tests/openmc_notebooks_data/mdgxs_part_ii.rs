@@ -36,7 +36,6 @@
 //!   remaining `#[ignore]` below.
 
 use std::fs::File;
-use std::path::PathBuf;
 
 use njoy_outram_park_fork::nuclear_data::delayed::{DelayedChi, DelayedNuBar};
 use njoy_outram_park_fork::nuclear_data::delayed_mgxs::DelayedMgxs;
@@ -47,8 +46,8 @@ use njoy_outram_park_fork::endf::tape::Tape;
 const U235_MAT: i32 = 9228;
 
 fn u235_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     Tape::read(File::open(&p).expect("open U-235 ENDF tape")).expect("parse U-235 tape")
 }
 

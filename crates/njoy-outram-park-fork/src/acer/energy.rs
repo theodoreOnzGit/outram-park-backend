@@ -573,8 +573,7 @@ mod tests {
     use std::fs::File;
 
     fn u235_fission_chi() -> Law4 {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         let sec = tape.section(9228, 5, 18).expect("U-235 MF=5/MT=18");
         parse_mf5_law4(sec).unwrap()
@@ -609,8 +608,7 @@ mod tests {
     }
 
     fn u235_mf6(mt: i32) -> Mf6Neutron {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         let sec = tape.section(9228, 6, mt).expect("U-235 MF=6");
         parse_mf6_law1_neutron(sec).unwrap()

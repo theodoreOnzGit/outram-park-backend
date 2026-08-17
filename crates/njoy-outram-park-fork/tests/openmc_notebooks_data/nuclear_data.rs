@@ -44,10 +44,7 @@ use uom::si::{area::barn, energy::electronvolt, f64::Energy};
 const U235_MAT: i32 = 9228;
 
 fn resource(name: &str) -> PathBuf {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources");
-    p.push(name);
-    p
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join(name)
 }
 
 fn u235_path() -> PathBuf {

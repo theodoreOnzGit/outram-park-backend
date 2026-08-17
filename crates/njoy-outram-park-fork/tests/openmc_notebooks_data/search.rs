@@ -27,8 +27,8 @@ use uom::si::{area::barn, energy::electronvolt, f64::Energy};
 const U235_MAT: i32 = 9228;
 
 fn u235_path() -> PathBuf {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     p
 }
 
