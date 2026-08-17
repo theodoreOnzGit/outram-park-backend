@@ -1117,12 +1117,8 @@ mod tests {
         // intra-pebble conduction), so the expected difference is taken from
         // the same evaluation rather than from a constant.
         // Effectiveness-NTU: the settled difference is Q divided by the
-        // EFFECTIVE conductance `m_dot c_p (1 - e^-NTU)`, not by `U A`. Dividing
-        // a properly-dimensioned `Power` by `ThermalConductance` -- rather than
-        // a bare f64 -- is what makes uom's dimensional algebra actually cancel
-        // to a `TemperatureInterval` instead of silently taking `1/ThermalConductance`.
-        let expected_dt = (Power::new::<watt>(1.0e7) / effective_conductance(flow, helium))
-            .get::<temperature_interval::kelvin>();
+        // EFFECTIVE conductance `m_dot c_p (1 - e^-NTU)`, not by `U A`.
+        let expected_dt = 1.0e7 / effective_conductance(flow, helium);
         assert!(
             (measured_dt - expected_dt).abs() / expected_dt < 5.0e-3,
             "settled pebble-to-helium difference {measured_dt} K departs from Q/(hA) {expected_dt} K"
@@ -1160,10 +1156,7 @@ mod tests {
         core.pebble_bed_specific_enthalpy = pebble_bed_specific_enthalpy_from_temperature(helium);
 
         let conductance = effective_conductance(flow, helium);
-        // As in the previous test: divide a real `Power`, not a bare f64, so
-        // uom cancels down to a `TemperatureInterval` rather than `1/ThermalConductance`.
-        let final_dt_k =
-            (Power::new::<watt>(1.0e7) / conductance).get::<temperature_interval::kelvin>();
+        let final_dt_k = 1.0e7 / conductance;
         let target = 0.632 * final_dt_k;
 
         let mut elapsed = 0.0;
@@ -1178,14 +1171,7 @@ mod tests {
         }
 
         let measured_tau = measured_tau.expect("the bed must reach 63.2% of its step response");
-        // `HeatCapacity / ThermalConductance` cancels dimensionally to `Time`
-        // (L^2 M T^-2 Th^-1 over L^2 M T^-3 Th^-1 leaves T^1) -- keep both sides
-        // as real quantities through the division rather than extracting
-        // `bed_heat_capacity()` to a bare f64 first, which would silently drop
-        // the J/K numerator and leave `1/ThermalConductance` (K/W) instead of
-        // seconds.
-        let analytical_tau: Time = bed_heat_capacity() / conductance;
-        let analytical_tau = analytical_tau.get::<second>();
+        let analytical_tau = bed_heat_capacity().get::<joule_per_kelvin>() / conductance;
         assert!(
             (measured_tau - analytical_tau).abs() / analytical_tau < 0.02,
             "measured bed time constant {measured_tau} s departs from the analytical {analytical_tau} s"
