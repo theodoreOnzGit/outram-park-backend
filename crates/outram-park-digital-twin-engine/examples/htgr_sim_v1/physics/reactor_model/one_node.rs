@@ -770,6 +770,135 @@ pub fn overall_htc_at_flow(
 ///
 /// Use this for settled temperature differences (`dT = Q / G`) and for the bed
 /// time constant (`tau = C / G`).
+///
+/// /// # Effectiveness-NTU Derivation
+///
+/// Assume:
+///
+/// - Uniform pebble-bed temperature `T_bed`
+/// - Helium enters at `T_in`
+/// - Local helium temperature is `T`
+/// - Heat transfer coefficient `h`
+/// - Differential surface area `dA`
+///
+/// Heat transferred from the bed to the helium:
+///
+/// ```text
+/// dQ = h (T_bed - T) dA
+/// ```
+///
+/// Helium enthalpy rise:
+///
+/// ```text
+/// dQ = m_dot c_p dT
+/// ```
+///
+/// Equating the two:
+///
+/// ```text
+/// m_dot c_p dT = h (T_bed - T) dA
+/// ```
+///
+/// Rearranging:
+///
+/// ```text
+/// dT / (T_bed - T)
+///     = (h / (m_dot c_p)) dA
+/// ```
+///
+/// Integrating from inlet to outlet:
+///
+/// ```text
+/// ∫(dT/(T_bed-T))
+///     = ∫(h/(m_dot c_p)) dA
+/// ```
+///
+/// gives:
+///
+/// ```text
+/// ln[(T_bed - T_in)/(T_bed - T_out)]
+///     = UA/(m_dot c_p)
+/// ```
+///
+/// Define the Number of Transfer Units (NTU):
+///
+/// ```text
+/// NTU = UA/(m_dot c_p)
+/// ```
+///
+/// Therefore:
+///
+/// ```text
+/// (T_bed - T_out)
+///     = (T_bed - T_in) exp(-NTU)
+/// ```
+///
+/// and
+///
+/// ```text
+/// T_out
+///     = T_bed - (T_bed - T_in) exp(-NTU)
+/// ```
+///
+/// The heat removed by the helium stream is:
+///
+/// ```text
+/// Q = m_dot c_p (T_out - T_in)
+/// ```
+///
+/// Substituting for `T_out`:
+///
+/// ```text
+/// Q
+///     = m_dot c_p (1 - exp(-NTU))
+///       (T_bed - T_in)
+/// ```
+///
+/// Define an effective thermal conductance:
+///
+/// ```text
+/// G_eff
+///     = m_dot c_p (1 - exp(-NTU))
+/// ```
+///
+/// so that:
+///
+/// ```text
+/// Q = G_eff (T_bed - T_in)
+/// ```
+///
+/// ## Limits
+///
+/// Small NTU:
+///
+/// ```text
+/// NTU << 1
+///
+/// 1 - exp(-NTU) ≈ NTU
+///
+/// G_eff ≈ UA
+/// ```
+///
+/// Large NTU:
+///
+/// ```text
+/// NTU → ∞
+///
+/// G_eff → m_dot c_p
+/// ```
+///
+/// Thus the heat removal rate is naturally capped by the coolant
+/// heat-capacity flow rate. The outlet temperature approaches the bed
+/// temperature asymptotically but never exceeds it:
+///
+/// ```text
+/// T_out < T_bed
+/// ```
+///
+/// for any finite NTU.
+///
+/// This property prevents nonphysical temperature crossing while retaining
+/// the correct asymptotic behaviour at both low and high heat-transfer rates.
 pub fn effective_conductance(
     helium_mass_flow: MassRate,
     helium_inlet_temperature: ThermodynamicTemperature,
