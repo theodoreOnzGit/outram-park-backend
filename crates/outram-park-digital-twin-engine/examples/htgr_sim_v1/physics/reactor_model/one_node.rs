@@ -166,7 +166,7 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
 use outram_park_digital_twin_engine::htr10::kta;
-use outram_park_fork_coolprop::{conductivity, state_pt, viscosity, Fluid};
+use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
 use uom::si::specific_heat_capacity::{kilojoule_per_kilogram_kelvin,joule_per_kilogram_kelvin};
@@ -323,6 +323,11 @@ const REFERENCE_TEMPERATURE_K: f64 = 298.15;
 /// 5.3 t of graphite up from cold.
 const SEED_BED_TEMPERATURE_K: f64 = 950.0;
 
+/// Bed temperature seeded as 3 MPA (or 3e6 Pa)
+///
+/// shown in literature to be operating pressure of helium
+const SEED_BED_PRESSURE_PA: f64 = 3e6_f64;
+
 // ---------------------------------------------------------------------------
 // Derived geometry -- computed from the published figures above
 // ---------------------------------------------------------------------------
@@ -443,7 +448,9 @@ pub fn conduction_only_axial_heat_rate(
 #[derive(Clone, Copy, Debug)]
 pub struct PebbleBedCore {
     /// Specific enthalpy of the lumped graphite pebble, zero at 298.15 K.
-    specific_enthalpy: AvailableEnergy,
+    pebble_bed_specific_enthalpy: AvailableEnergy,
+    /// Thermodynamic state of helium in the core
+    helium_state: FluidState,
     /// Heat rate handed to the helium on the most recent step.
     heat_to_coolant: Power,
     /// Helium outlet temperature from the most recent effectiveness-NTU
@@ -458,12 +465,18 @@ impl PebbleBedCore {
     /// Construct the bed seeded at its nominal full-power average temperature
     /// (~677 degC), so the simulator opens near the operating point.
     pub fn new() -> Self {
+        let helium_state: FluidState =  
+            match state_pt(Fluid::Helium, SEED_BED_TEMPERATURE_K, SEED_BED_PRESSURE_PA){
+                Ok(helium_state) => helium_state,
+                Err(error) => todo!("graceful failing not implemented"),
+            };
         Self {
-            specific_enthalpy: specific_enthalpy_from_temperature(ThermodynamicTemperature::new::<
+            pebble_bed_specific_enthalpy: pebble_bed_specific_enthalpy_from_temperature(ThermodynamicTemperature::new::<
                 kelvin,
             >(
                 SEED_BED_TEMPERATURE_K
             )),
+            helium_state,
             heat_to_coolant: Power::new::<watt>(0.0),
             helium_outlet_temperature: ThermodynamicTemperature::new::<kelvin>(
                 SEED_BED_TEMPERATURE_K,
@@ -507,7 +520,7 @@ impl PebbleBedCore {
         helium_mass_flow: MassRate,
     ) -> Power {
         // The coefficient is evaluated at the CURRENT helium temperature as
-        // well as the flow, because the Wakao film depends on the gas
+        // well as the flow, because the Wakao film depends on the gajjs
         // conductivity, viscosity and Prandtl number -- all of which move with
         // temperature.
         let htc = overall_htc_at_flow(helium_mass_flow, helium_inlet_temperature);
@@ -567,7 +580,7 @@ impl PebbleBedCore {
 
         let net_w = fission_power - removed_w;
         let d_specific_enthalpy = net_w * dt/ graphite_mass();
-        self.specific_enthalpy = self.specific_enthalpy + d_specific_enthalpy;
+        self.pebble_bed_specific_enthalpy = self.pebble_bed_specific_enthalpy + d_specific_enthalpy;
 
         // Publish the helium outlet implied by the SAME epsilon-NTU balance,
         // so the primary loop can take it directly instead of re-deriving it
@@ -617,12 +630,12 @@ impl PebbleBedCore {
     /// not a fuel-kernel temperature: with no radial pebble conduction, the
     /// kernel, the matrix and the ball surface are all this one value.
     pub fn temperature(&self) -> ThermodynamicTemperature {
-        temperature_from_specific_enthalpy(self.specific_enthalpy)
+        temperature_from_specific_enthalpy(self.pebble_bed_specific_enthalpy)
     }
 
     /// Specific enthalpy of the lumped pebble, zero at 298.15 K.
     pub fn specific_enthalpy(&self) -> AvailableEnergy {
-        self.specific_enthalpy
+        self.pebble_bed_specific_enthalpy
     }
 
     /// Heat rate handed to the helium on the most recent step (negative if the
@@ -639,7 +652,7 @@ impl PebbleBedCore {
     /// Stored sensible heat in the bed above the 298.15 K reference \[J\],
     /// `m c_p (T - T_ref)`.
     pub fn stored_heat_joules(&self) -> f64 {
-        self.specific_enthalpy.get::<joule_per_kilogram>() * graphite_mass().get::<kilogram>()
+        self.pebble_bed_specific_enthalpy.get::<joule_per_kilogram>() * graphite_mass().get::<kilogram>()
     }
 }
 
@@ -924,12 +937,12 @@ pub fn helium_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHe
     const IDEAL_CP: f64 = 5193.0;
     let t = temperature.get::<kelvin>();
     if !(t.is_finite() && t > 1.0) {
-        return SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(IDEAL_CP);
+        return SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(IDEAL_CP);
     }
     let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
     match state_pt(Fluid::Helium, t, pressure_pa) {
-        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(state.cp),
-        _ => SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(IDEAL_CP),
+        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(state.cp),
+        _ => SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(IDEAL_CP),
     }
 }
 
@@ -976,8 +989,16 @@ fn helium_transport(temperature: ThermodynamicTemperature) -> (f64, f64, f64) {
 
 /// Graphite specific enthalpy at `temperature`, `c_p (T - 298.15 K)` with the
 /// constant [`GRAPHITE_CP_J_PER_KG_K`].
-pub fn specific_enthalpy_from_temperature(
+pub fn pebble_bed_specific_enthalpy_from_temperature(
     temperature: ThermodynamicTemperature,
+) -> AvailableEnergy {
+    AvailableEnergy::new::<joule_per_kilogram>(
+        GRAPHITE_CP_J_PER_KG_K * (temperature.get::<kelvin>() - REFERENCE_TEMPERATURE_K),
+    )
+}
+pub fn helium_specific_enthalpy_from_temperature(
+    temperature: ThermodynamicTemperature,
+    pressure: Pressure,
 ) -> AvailableEnergy {
     AvailableEnergy::new::<joule_per_kilogram>(
         GRAPHITE_CP_J_PER_KG_K * (temperature.get::<kelvin>() - REFERENCE_TEMPERATURE_K),
@@ -1132,7 +1153,7 @@ mod tests {
 
         // Start in equilibrium with the helium so the step response is clean.
         let mut core = PebbleBedCore::new();
-        core.specific_enthalpy = specific_enthalpy_from_temperature(helium);
+        core.pebble_bed_specific_enthalpy = pebble_bed_specific_enthalpy_from_temperature(helium);
 
         let conductance = effective_conductance(flow, helium);
         let final_dt_k = 1.0e7 / conductance;
@@ -1332,7 +1353,7 @@ mod tests {
         for t_k in [400.0, 750.0, 1200.0] {
             let t = ThermodynamicTemperature::new::<kelvin>(t_k);
             let round_tripped =
-                temperature_from_specific_enthalpy(specific_enthalpy_from_temperature(t))
+                temperature_from_specific_enthalpy(pebble_bed_specific_enthalpy_from_temperature(t))
                     .get::<kelvin>();
             assert!((round_tripped - t_k).abs() < 1e-9);
         }
