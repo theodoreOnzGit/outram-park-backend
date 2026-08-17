@@ -31,6 +31,18 @@ Even there, pull real property data from the workspace libraries
 (`outram-park-fork-coolprop`, `tampines-steam-tables`) rather than hardcoding
 constants.
 
+**Planned future exception (maintainer direction, 2026-08-17, not yet in
+force — see `op-76hu`).** Once a given example's reactor model or widget is
+implemented, tested, AND verified working and physically accurate by a
+**human** (not just passing its own AI-written tests — see "Human review
+caught what the tests did not" below), it is meant to be promoted from
+`examples/*/physics/` (or wherever it lives) into `src/` as real library code,
+the same standard for every example model and widget in this crate, not only
+HTGR. **This rule stays "no new physics in the library" until that promotion
+trigger fires for a specific model** — do not move any example physics into
+`src/` on your own initiative; the human-V&V half of the trigger cannot be
+satisfied by an AI assistant.
+
 ## Module layout
 
 | Module | Contains |

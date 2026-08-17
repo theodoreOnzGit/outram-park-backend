@@ -5829,6 +5829,7 @@ dependencies = [
  "mdns-sd",
  "ndarray",
  "nee_soon",
+ "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",

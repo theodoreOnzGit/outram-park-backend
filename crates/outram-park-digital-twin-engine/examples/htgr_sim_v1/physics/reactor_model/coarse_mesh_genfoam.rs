@@ -45,27 +45,34 @@
 //!
 //! ## Why this is a placeholder today, and a dependency note
 //!
-//! **`outram-foam-appbuilder-lib` is not yet a dependency of
-//! `outram-park-digital-twin-engine`** (checked 2026-08-16: no such line in
-//! this crate's `Cargo.toml`). Adding it, and everything that implies for
-//! build time and the Android/Termux portability rule (`genfoam` has not been
-//! audited against that rule from this crate's side), is a separate decision
-//! from wiring the *selection* of this tier into the plant, which is what
-//! this change delivers. The imports above are therefore cited in prose only
-//! -- not as real `use` statements -- until that dependency is deliberately
-//! added.
+//! **`outram-foam-appbuilder-lib` is now a dev-dependency of
+//! `outram-park-digital-twin-engine`** (wired in 2026-08-17, scoped to
+//! examples via `[dev-dependencies]` -- the crate's own CLAUDE.md keeps new
+//! physics out of `src/`, and this tier belongs to `htgr_sim_v1` specifically,
+//! same as every other example-only physics dependency in that Cargo.toml
+//! section). That makes real `genfoam` types importable from this file; it
+//! does **not** by itself make the coupling below real. This module still
+//! only *cites* `genfoam::{neutronics, thermal_hydraulics, multi_region}` and
+//! `NordheimFuchsExactTimestepper` in prose, and [`CoarseMeshGenFoamCore`]
+//! still falls back to [`super::one_node`]'s math unmodified -- adding the
+//! dependency was scoped separately from implementing the coupling, which
+//! remains a distinct, sizeable piece of work.
 //!
-//! Wiring in real GeN-Foam physics ahead of that groundwork would also
-//! contradict the workspace's own "search before building" rule the other
-//! direction: `genfoam` is itself flagged as an untested draft, so composing
-//! it into this simulator needs the same V&V scrutiny `outram-park-digital-twin-engine`'s
-//! own `CLAUDE.md` records for this plant's other physics, not a quiet import.
+//! Wiring in real GeN-Foam physics ahead of that work would also contradict
+//! the workspace's own "search before building" rule the other direction:
+//! `genfoam` is itself flagged as an untested draft, so composing it into
+//! this simulator needs the same V&V scrutiny `outram-park-digital-twin-engine`'s
+//! own `CLAUDE.md` records for this plant's other physics, not a quiet
+//! coupling. The Android/Termux portability rule is also not yet addressed
+//! here: `outram-foam-appbuilder-lib` has not been audited against that rule
+//! from this crate's side, so a real implementation of this tier should check
+//! it before this dev-dependency becomes load-bearing rather than merely
+//! available.
 //!
 //! Falling back to [`super::one_node`] keeps
 //! [`ReactorModelKind::CoarseMeshGenFoam`](super::ReactorModelKind::CoarseMeshGenFoam)
-//! selectable and exercised by the enum's own tests now, without pulling in
-//! an unaudited dependency or an unvalidated coupling ahead of either being
-//! ready.
+//! selectable and exercised by the enum's own tests now, without shipping an
+//! unvalidated coupling ahead of it being real.
 
 use super::one_node::PebbleBedCore;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};

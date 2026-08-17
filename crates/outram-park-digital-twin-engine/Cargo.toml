@@ -129,6 +129,19 @@ serde.workspace = true
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
 
+# htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
+# this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
+# as its intended real integration target, stepped by
+# `teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper` instead of
+# GeN-Foam's own point-kinetics coupling. Wired in here as a dev-dependency so
+# that tier can start importing real `genfoam` types -- the coupling itself
+# remains unimplemented (that placeholder still falls back to `one_node`'s
+# math); see that module's doc comment. `genfoam` (and the wider
+# `outram-foam-appbuilder-lib`) is itself flagged an AI-assisted draft with no
+# human V&V, so composing it here still needs the same scrutiny this crate's
+# own CLAUDE.md records for its other physics.
+outram-foam-appbuilder-lib.workspace = true
+
 # Widget Studio -- the gallery app for developing and quality-controlling the
 # visual component library one widget at a time (bead op-wqk.14). Not a
 # simulator: it drives a single widget across its full state range with live
