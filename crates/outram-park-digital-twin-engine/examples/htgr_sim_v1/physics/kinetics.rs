@@ -155,7 +155,7 @@ impl HtgrKinetics {
     /// - `alpha_f = -4e-5 K^-1` (negative fuel-temperature feedback) --
     ///   illustrative,
     /// - reference/initial fuel temperature = **the pebble bed's own
-    ///   design-point temperature**, [`super::pebble_bed::PebbleBedCore::new`]
+    ///   design-point temperature**, [`super::pebble_bed::PebbleBedPorousMediaNode::new`]
     ///   (about 950 K), *not* a separately chosen 900 K. This matters now that
     ///   the fuel node has a coolant sink and therefore tracks the bed: the
     ///   feedback is `alpha_f (T_f - T_ref)`, so if `T_ref` sits below the
@@ -182,7 +182,8 @@ impl HtgrKinetics {
         // temperature feedback neither holds the reactor down nor pushes it up
         // at rated conditions. Same principle as `C_f` above: derive it from
         // the bed rather than choosing a second number that can disagree.
-        let design_point_temperature = super::pebble_bed::PebbleBedCore::new().temperature();
+        let design_point_temperature =
+            super::pebble_bed::PebbleBedPorousMediaNode::new().pebble_temperature();
 
         let prompt = NordheimFuchsExactTimestepper::new(
             prompt_generation_time,

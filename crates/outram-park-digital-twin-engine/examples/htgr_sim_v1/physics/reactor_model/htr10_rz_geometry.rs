@@ -73,8 +73,8 @@
 //! ## Consumers
 //!
 //! [`pebble_bed_helium_volume`] has a real consumer:
-//! [`super::one_node::PebbleBedCore::pebble_bed_helium_volume`] carries it as
-//! a field, set once at construction. Everything else here -- the zone list
+//! [`super::one_node::PebbleBedPorousMediaNode`] carries it as a field, set
+//! once at construction. Everything else here -- the zone list
 //! itself, [`top_cavity_helium_volume`] and the four
 //! `dummy_pebble_helium_volume_*` functions -- has no consumer yet; it lands
 //! ahead of a schematic cross-section or mesh-generation use, not after one.

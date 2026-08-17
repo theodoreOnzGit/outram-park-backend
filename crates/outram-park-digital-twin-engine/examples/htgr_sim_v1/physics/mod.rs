@@ -187,8 +187,10 @@ pub mod temperature_cross;
 pub mod turbine_generator;
 
 /// The former `physics::pebble_bed` module, migrated 2026-08-16 into
-/// [`reactor_model::one_node`] as the `ReactorModelKind::OneNode` fidelity
-/// tier. Re-exported under its historical name because `kinetics`,
+/// [`reactor_model::one_node`] -- now the geometry/correlation home for
+/// every [`reactor_model::ReactorModelKind`] fidelity tier, and the site of
+/// the real [`reactor_model::one_node::PebbleBedPorousMediaNode`] thermal
+/// solve. Re-exported under its historical name because `kinetics`,
 /// `primary_loop` and `secondary_loop` all read bed geometry and correlations
 /// from it (`design()`, `bed_heat_capacity()`, `superficial_area()`, ...)
 /// independent of which [`reactor_model::ReactorModelKind`] the plant's core
@@ -675,7 +677,7 @@ impl HtgrPlant {
         let nominal_power = nominal_thermal_power();
         Self {
             kinetics: HtgrKinetics::new_illustrative(nominal_power),
-            core: ReactorModel::new(ReactorModelKind::OneNode),
+            core: ReactorModel::default(), // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
             shaft: TurbineGeneratorShaft::new(),
@@ -824,11 +826,14 @@ impl HtgrPlant {
         // use throughout, so `PLANT_OUTER_CORRECTORS == 1` reproduces the
         // pre-2026-08-13 sequencing.
         // The bed's coupling variable is the core INLET temperature, not the
-        // bulk mean: the bed now closes its heat balance with an
-        // effectiveness-NTU relation against the stream's inlet (see
-        // `pebble_bed::PebbleBedCore::step`), because an arithmetic-mean
-        // driving temperature is only valid at low NTU and this exchanger runs
-        // at NTU ~ 6.6.
+        // bulk mean: an arithmetic-mean driving temperature closed against a
+        // downstream `T_in + Q/(m c_p)` is what produced a second-law
+        // violation above NTU ~ 2 in this plant's very first pebble-bed
+        // closure (see `reactor_model::one_node`'s "History" note) -- the
+        // current default (`reactor_model::ReactorModelKind::OneNodePorousMedia`,
+        // `pebble_bed::PebbleBedPorousMediaNode::step`) instead gives the
+        // helium its own implicit thermal node against this same inlet
+        // boundary condition, never an arithmetic mean.
         let mut core_inlet = self.primary.core_inlet_temperature();
         let mut feedwater_enthalpy = self.secondary.feedwater_enthalpy();
         let mut secondary_flow = self.secondary.mass_flow();

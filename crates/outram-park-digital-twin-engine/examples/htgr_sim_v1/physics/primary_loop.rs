@@ -94,9 +94,10 @@
 //!   pressure and the current bulk mean helium temperature and re-evaluated
 //!   every step -- not frozen constants.
 //! - **The core heat input now comes from the graphite**, not straight from the
-//!   fission power: [`super::pebble_bed::PebbleBedCore`] holds the bed's 9 MJ/K
-//!   of thermal inertia and hands this loop the heat rate that actually crosses
-//!   the pebble surface.
+//!   fission power: [`super::pebble_bed::PebbleBedPorousMediaNode`] holds the
+//!   bed's 9 MJ/K of solid-phase thermal inertia (plus its own fluid-node
+//!   capacitance) and hands this loop the heat rate that actually crosses the
+//!   pebble surface.
 //! - **The loop is closed.** The core inlet temperature is *computed* as the
 //!   steam-generator helium-side outlet, relaxed through the return transport
 //!   lag; it is not pinned to a fixed number.
@@ -450,7 +451,7 @@ fn steam_generator_substep_s() -> f64 {
 /// **derived** from the gas holdup rather than invented.
 ///
 /// This is the *gas* inertia; the graphite's much larger inertia lives in
-/// [`super::pebble_bed::PebbleBedCore`]. It is the helium's residence time in
+/// [`super::pebble_bed::PebbleBedPorousMediaNode`]. It is the helium's residence time in
 /// the bed void, `tau = m_gas / m_dot`, with `m_gas = rho * V_void` from the
 /// published bed volume and porosity and the real helium density.
 ///
@@ -480,11 +481,15 @@ fn core_thermal_time_constant_s(mass_flow: MassRate, density: f64) -> f64 {
 /// **A hard second-law guard, not a cosmetic clamp.** The helium is heated by
 /// the graphite: it can approach the bed temperature asymptotically but can
 /// never pass it, and when the bed is the colder body the helium cannot stay
-/// hotter than it either. The epsilon-NTU balance in
-/// [`super::pebble_bed::PebbleBedCore::step`] already respects that; what can
-/// still break it here is the first-order gas lag, which during a fast
-/// cooldown relaxes *down* toward the bed from a hotter past value and is
-/// therefore momentarily above it.
+/// hotter than it either. This module's own bed closure is expected to
+/// respect that already (it did, exactly, for the now-removed effectiveness-NTU
+/// `PebbleBedCore` closure -- see `reactor_model::one_node`'s "History" note --
+/// and the diagonally-dominant coupled solve
+/// [`super::pebble_bed::PebbleBedPorousMediaNode::step`] uses now is not
+/// proven bounded the same way by construction); what can still break it here
+/// is the first-order gas lag, which during a fast cooldown relaxes *down*
+/// toward the bed from a hotter past value and is therefore momentarily
+/// above it.
 ///
 /// Clamping is the right treatment rather than a smaller timestep, because the
 /// bound is a physical statement about the model's own state, not a numerical
@@ -674,7 +679,7 @@ impl HeliumPrimaryLoop {
     ///
     /// `core_heat_to_helium` is the heat rate crossing the **pebble surface**
     /// into the helium, as returned by
-    /// [`super::pebble_bed::PebbleBedCore::step`] -- not the raw fission power.
+    /// [`super::pebble_bed::PebbleBedPorousMediaNode::step`] -- not the raw fission power.
     /// Routing the fission power through the graphite first is what gives the
     /// loop the bed's thermal inertia.
     ///
@@ -774,14 +779,16 @@ impl HeliumPrimaryLoop {
 
         // 2. Core energy balance with first-order gas thermal inertia.
         //
-        // The steady-state outlet is taken from the BED's own
-        // effectiveness-NTU balance rather than re-derived here as
-        // `T_in + Q/(m c_p)`. Both routes are the same balance, but this
-        // module evaluates `c_p` at the bulk mean while the bed evaluates it
-        // at the inlet, and re-deriving let that small disagreement put the
-        // core outlet above the bed temperature -- a second-law violation.
-        // Reading the outlet the bed published makes `T_out <= T_bed`
-        // structural. See `pebble_bed::PebbleBedCore::step`.
+        // The steady-state outlet is taken from the BED's own balance rather
+        // than re-derived here as `T_in + Q/(m c_p)`. Both routes are the
+        // same balance in principle, but this module evaluates `c_p` at the
+        // bulk mean while the bed evaluates its own properties internally,
+        // and re-deriving let a small disagreement between them put the core
+        // outlet above the bed temperature on the now-removed effectiveness-NTU
+        // `PebbleBedCore` closure -- a second-law violation (see
+        // `reactor_model::one_node`'s "History" note). Reading the outlet the
+        // bed published keeps that structural rather than re-opening it. See
+        // `pebble_bed::PebbleBedPorousMediaNode::step`.
         let t_out_ss_k = core_outlet_from_bed.get::<kelvin>();
         let _ = capacity_rate;
         let tau_gas = core_thermal_time_constant_s(self.mass_flow, self.density);
@@ -1196,9 +1203,9 @@ mod tests {
     /// These tests drive the loop **by duty**, which is a legitimate specified
     /// boundary condition for an isolated component test. It is deliberately
     /// NOT what the production path does: there the outlet comes from the
-    /// bed's own effectiveness-NTU balance, precisely so the outlet cannot be
-    /// derived from a duty with a `c_p` that disagrees with the bed's and end
-    /// up above the bed temperature. See `PebbleBedCore::step`.
+    /// bed's own balance, precisely so the outlet cannot be derived from a
+    /// duty with a `c_p` that disagrees with the bed's and end up above the
+    /// bed temperature. See `pebble_bed::PebbleBedPorousMediaNode::step`.
     fn bed_outlet_for(
         duty: Power,
         inlet: ThermodynamicTemperature,

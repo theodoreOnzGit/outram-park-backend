@@ -17,39 +17,44 @@
 //! `HeaterType`-shaped marker; [`ReactorModel`] is the data-carrying enum the
 //! marker selects between.
 //!
-//! ## The four tiers
+//! ## The three tiers
 //!
 //! | Variant | Nodes | Status | Lives in |
 //! |---|---|---|---|
-//! | [`ReactorModelKind::OneNode`] | 1 (whole bed) | **Real** -- the model this simulator has run since 2026-08-12 | [`one_node`] |
-//! | [`ReactorModelKind::OneNodePorousMedia`] | 1 (whole bed), two temperatures | **Real, independent** -- implicit 2x2 backward-Euler LTNE solid/fluid balance, added 2026-08-17 | [`one_node`] |
-//! | [`ReactorModelKind::AxialSevenNode`] | 7, stacked along flow | Placeholder, falls back to [`one_node`]'s `OneNode` math | [`axial_seven_node`] |
-//! | [`ReactorModelKind::CoarseMeshGenFoam`] | GeN-Foam coarse mesh | Placeholder, falls back to [`one_node`]'s `OneNode` math | [`coarse_mesh_genfoam`] |
+//! | [`ReactorModelKind::OneNodePorousMedia`] | 1 (whole bed), two temperatures | **Real** -- implicit 2x2 backward-Euler LTNE solid/fluid balance, and the tier `htgr_sim_v1` opens on | [`one_node`] |
+//! | [`ReactorModelKind::AxialSevenNode`] | 7, stacked along flow | Placeholder, falls back to [`one_node`]'s `OneNodePorousMedia` math | [`axial_seven_node`] |
+//! | [`ReactorModelKind::CoarseMeshGenFoam`] | GeN-Foam coarse mesh | Placeholder, falls back to [`one_node`]'s `OneNodePorousMedia` math | [`coarse_mesh_genfoam`] |
 //!
-//! **`OneNode` is not a placeholder.** It is the effectiveness-NTU lumped bed
-//! this plant has always modelled -- what the maintainer also calls "the NTU
-//! method" -- migrated here unmodified from the former `physics::pebble_bed`
-//! module. See [`one_node`] for its full nodalisation discussion, what is real
-//! in it, and what is still illustrative.
+//! **History: there used to be a fourth, simpler tier, `OneNode`.** It was an
+//! effectiveness-NTU closed form that treated the helium as external (zero
+//! fluid capacitance) -- migrated 2026-08-16 from the former
+//! `physics::pebble_bed` module, and what the maintainer called "the NTU
+//! method". It was removed on 2026-08-17 once `OneNodePorousMedia` -- a more
+//! physically complete two-temperature (solid + fluid) implicit balance --
+//! became the default: the maintainer asked for the old one-node code to be
+//! deleted rather than kept alongside its replacement. Its derivation (why an
+//! effectiveness-NTU exponential form is exact and bounded for a single
+//! isothermal-wall node, and why an earlier arithmetic-mean version of it
+//! produced a second-law violation above `NTU = 2`) is preserved in git
+//! history, in `one_node.rs`'s own "History" note, and in the workspace root
+//! `CLAUDE.md`'s "Human review caught what the tests did not" section --
+//! nothing here still depends on it.
 //!
-//! **`OneNodePorousMedia` is also not a placeholder, and it is NOT the same
-//! model as `OneNode`.** Both are one spatial control volume over the whole
-//! bed, but `OneNode` treats the helium as external (an effectiveness-NTU
-//! closed form, zero fluid capacitance) while `OneNodePorousMedia` gives the
-//! helium its own thermal node and solves the coupled solid/fluid balance
-//! implicitly each step -- see
-//! [`one_node::PebbleBedPorousMediaNode`] for the full derivation. Selecting
-//! it changes the numbers this plant produces (see
-//! [`tests::porous_media_tier_diverges_from_one_node`]); it is untested
-//! against a reference beyond its own energy-conservation checks, so
-//! [`ReactorModelKind::is_implemented`] reports it as implemented (real,
-//! independent physics) without any claim that it is validated.
+//! **`OneNodePorousMedia` is not a placeholder.** It is one spatial control
+//! volume over the whole bed, like the removed `OneNode` was, but the helium
+//! gets its own thermal node and the coupled solid/fluid balance is solved
+//! implicitly each step -- see [`one_node::PebbleBedPorousMediaNode`] for the
+//! full derivation. It is untested against a reference beyond its own
+//! energy-conservation checks, so [`ReactorModelKind::is_implemented`]
+//! reports it as implemented (real, independent physics) without any claim
+//! that it is validated.
 //!
 //! **`AxialSevenNode` and `CoarseMeshGenFoam` are placeholders that fall back
-//! to `OneNode`'s own math.** Selecting either changes nothing about the
-//! numbers this plant produces yet; only the module each would eventually own,
-//! and the design each is scaffolded for, differ. See each module's own doc
-//! comment for what a real implementation would need to become non-trivial.
+//! to `OneNodePorousMedia`'s own math.** Selecting either changes nothing
+//! about the numbers this plant produces yet; only the module each would
+//! eventually own, and the design each is scaffolded for, differ. See each
+//! module's own doc comment for what a real implementation would need to
+//! become non-trivial.
 //!
 //! ## Why the geometry stays in `one_node`
 //!
@@ -58,18 +63,18 @@
 //! solve -- `primary_loop`, `secondary_loop` and `kinetics` all read them
 //! (`design()`, `bed_heat_capacity()`, `superficial_area()`, ...) regardless
 //! of which [`ReactorModelKind`] is selected. Only the *thermal solve* --
-//! [`one_node::PebbleBedCore::step`] and its eventual `AxialSevenNode` /
-//! `CoarseMeshGenFoam` counterparts -- is fidelity-specific. So this module
-//! re-exports `one_node`'s geometry surface under the historical `pebble_bed`
-//! name at [`super`] (`pub use reactor_model::one_node as pebble_bed;`) rather
-//! than duplicating it per tier.
+//! [`one_node::PebbleBedPorousMediaNode::step`] and its eventual
+//! `AxialSevenNode` / `CoarseMeshGenFoam` counterparts -- is fidelity-specific.
+//! So this module re-exports `one_node`'s geometry surface under the
+//! historical `pebble_bed` name at [`super`]
+//! (`pub use reactor_model::one_node as pebble_bed;`) rather than duplicating
+//! it per tier.
 //!
 //! ## Switching fidelity at runtime
 //!
 //! [`ReactorModel::new`] builds a fresh model for a given [`ReactorModelKind`].
 //! There is no in-place fidelity conversion (e.g. seeding a 7-node profile
-//! from a 1-node average, or seeding `OneNodePorousMedia`'s fluid node from
-//! `OneNode`'s bulk mean) -- switching rebuilds from each variant's own
+//! from a 1-node average) -- switching rebuilds from each variant's own
 //! `new()`, the same cold-start seed every fresh plant uses. That is the
 //! right default while the two placeholder tiers carry no independent state
 //! to preserve; it is a design question worth revisiting once
@@ -83,7 +88,7 @@ pub mod one_node;
 
 use axial_seven_node::AxialSevenNodeCore;
 use coarse_mesh_genfoam::CoarseMeshGenFoamCore;
-use one_node::{PebbleBedCore, PebbleBedPorousMediaNode};
+use one_node::PebbleBedPorousMediaNode;
 use std::fmt;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
 use uom::si::power::watt;
@@ -97,28 +102,26 @@ use uom::si::power::watt;
 /// data actually lives in the [`ReactorModel`] variant it selects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ReactorModelKind {
-    /// The lumped, effectiveness-NTU whole-bed model -- one control volume,
-    /// no axial or radial profile. See [`one_node`]. Default: this is the
-    /// only tier with a real implementation.
+    /// One control volume over the whole bed, with the helium given its own
+    /// thermal node (a two-temperature LTNE porous-media balance) rather
+    /// than being treated as external. **Real** physics -- not a
+    /// placeholder. See [`one_node::PebbleBedPorousMediaNode`]. **Default**:
+    /// it is the more physically complete of this simulator's real tiers to
+    /// date (solid AND fluid thermal inertia, rather than the fluid side
+    /// treated as massless), so `htgr_sim_v1` opens on this tier.
     #[default]
-    OneNode,
-    /// One control volume over the whole bed, like `OneNode`, but the helium
-    /// gets its own thermal node (a two-temperature LTNE porous-media
-    /// balance) instead of being treated as external. **Real, independent**
-    /// physics -- not a placeholder and not the same numbers as `OneNode`.
-    /// See [`one_node::PebbleBedPorousMediaNode`].
     OneNodePorousMedia,
     /// Seven control volumes stacked along the flow direction, so the
     /// inlet-to-outlet gradient becomes a computed result instead of a
-    /// whole-bed lump. **Placeholder** -- falls back to `OneNode`'s math. See
-    /// [`axial_seven_node`] for the scaffolded design.
+    /// whole-bed lump. **Placeholder** -- falls back to `OneNodePorousMedia`'s
+    /// math. See [`axial_seven_node`] for the scaffolded design.
     AxialSevenNode,
     /// A GeN-Foam coarse mesh (`outram_foam_appbuilder_lib::genfoam`) coupled
     /// multi-region neutronics + thermal-hydraulics solve, stepped with the
     /// [`teh_o_prke::nordheim_fuchs::NordheimFuchsExactTimestepper`] rather
     /// than GeN-Foam's own point-kinetics coupling. **Placeholder** -- falls
-    /// back to `OneNode`'s math. See [`coarse_mesh_genfoam`] for the
-    /// scaffolded design and why it is not wired in yet.
+    /// back to `OneNodePorousMedia`'s math. See [`coarse_mesh_genfoam`] for
+    /// the scaffolded design and why it is not wired in yet.
     CoarseMeshGenFoam,
 }
 
@@ -135,7 +138,6 @@ impl ReactorModelKind {
     #[allow(dead_code)] // read by a future control-panel dropdown; see the module doc comment
     pub fn menu_label(&self) -> &'static str {
         match self {
-            Self::OneNode => "One Node (NTU method)",
             Self::OneNodePorousMedia => "One Node (implicit porous-media, 2 temperatures)",
             Self::AxialSevenNode => "Axial, 7 Nodes (placeholder -> one node)",
             Self::CoarseMeshGenFoam => "Coarse Mesh, GeN-Foam (placeholder -> one node)",
@@ -143,18 +145,14 @@ impl ReactorModelKind {
     }
 
     /// Whether this tier has a real, independent thermal solve as of this
-    /// writing. The two placeholder tiers currently reproduce [`OneNode`]'s
-    /// numbers exactly, so a caller that wants to know "is this a different
-    /// model" rather than "which enum variant is selected" should check this
-    /// rather than matching on the kind directly. `OneNodePorousMedia` is
-    /// real and independent -- it produces DIFFERENT numbers from `OneNode`
-    /// -- but that is not the same claim as validated; see the module doc
-    /// comment.
-    ///
-    /// [`OneNode`]: Self::OneNode
+    /// writing. The two placeholder tiers currently reproduce
+    /// `OneNodePorousMedia`'s numbers exactly, so a caller that wants to
+    /// know "is this a different model" rather than "which enum variant is
+    /// selected" should check this rather than matching on the kind
+    /// directly.
     #[allow(dead_code)] // read by a future control-panel dropdown; see the module doc comment
     pub fn is_implemented(&self) -> bool {
-        matches!(self, Self::OneNode | Self::OneNodePorousMedia)
+        matches!(self, Self::OneNodePorousMedia)
     }
 }
 
@@ -165,16 +163,14 @@ impl ReactorModelKind {
 /// fourth fidelity tier is a compile error at every call site until it is
 /// handled, not a silent runtime gap.
 ///
-/// `Clone + Copy`, like the [`one_node::PebbleBedCore`] it currently always
-/// wraps or falls back to -- `HtgrPlant::step_with_correctors`'s outer
-/// corrector loop snapshots and restores the whole plant by value each
+/// `Clone + Copy`, like the [`one_node::PebbleBedPorousMediaNode`] it
+/// currently always wraps or falls back to -- `HtgrPlant::step_with_correctors`'s
+/// outer corrector loop snapshots and restores the whole plant by value each
 /// corrector (`let core_at_step_start = self.core;` / `self.core =
 /// core_at_step_start;`), so every variant's state must stay cheap,
 /// `Copy` data.
 #[derive(Clone, Copy, Debug)]
 pub enum ReactorModel {
-    /// The real, lumped effectiveness-NTU bed. See [`one_node::PebbleBedCore`].
-    OneNode(PebbleBedCore),
     /// The real, two-temperature implicit porous-media bed. See
     /// [`one_node::PebbleBedPorousMediaNode`].
     OneNodePorousMedia(PebbleBedPorousMediaNode),
@@ -190,7 +186,6 @@ impl ReactorModel {
     /// converts in place.
     pub fn new(kind: ReactorModelKind) -> Self {
         match kind {
-            ReactorModelKind::OneNode => Self::OneNode(PebbleBedCore::new()),
             ReactorModelKind::OneNodePorousMedia => {
                 Self::OneNodePorousMedia(PebbleBedPorousMediaNode::new())
             }
@@ -204,7 +199,6 @@ impl ReactorModel {
     /// The fidelity tier currently selected.
     pub fn kind(&self) -> ReactorModelKind {
         match self {
-            Self::OneNode(_) => ReactorModelKind::OneNode,
             Self::OneNodePorousMedia(_) => ReactorModelKind::OneNodePorousMedia,
             Self::AxialSevenNode(_) => ReactorModelKind::AxialSevenNode,
             Self::CoarseMeshGenFoam(_) => ReactorModelKind::CoarseMeshGenFoam,
@@ -212,8 +206,7 @@ impl ReactorModel {
     }
 
     /// Advance the selected model by `dt` and return the heat rate handed to
-    /// the helium. Signature matches [`one_node::PebbleBedCore::step`]
-    /// exactly, since every tier -- real or placeholder -- answers the same
+    /// the helium. Every tier -- real or placeholder -- answers the same
     /// question the primary loop asks: how much heat crossed the pebble
     /// surface this step, given the fission power and the core inlet state.
     ///
@@ -221,12 +214,13 @@ impl ReactorModel {
     /// reactor thermal power (fission plus fission-product decay heat) --
     /// see `mod.rs`'s "Pebble bed absorbs the core's THERMAL power" comment
     /// at the `HtgrPlant::step_with_correctors` call site, which passes
-    /// `kinetics::Kinetics::core_thermal_power()`. `OneNodePorousMedia`
-    /// wraps [`one_node::PebbleBedPorousMediaNode::step`], whose signature
-    /// takes fission power and decay heat as SEPARATE arguments (see its
-    /// doc comment); this method folds the already-summed value in as
-    /// `fission_power` with a zero `decay_heat_power`, since there is no
-    /// separate decay-heat quantity available at this layer to pass instead.
+    /// `kinetics::Kinetics::core_thermal_power()`. Every variant wraps
+    /// [`one_node::PebbleBedPorousMediaNode::step`] (directly, or via a
+    /// placeholder's fallback), whose signature takes fission power and
+    /// decay heat as SEPARATE arguments (see its doc comment); this method
+    /// folds the already-summed value in as `fission_power` with a zero
+    /// `decay_heat_power`, since there is no separate decay-heat quantity
+    /// available at this layer to pass instead.
     /// [`one_node::tests::fission_power_and_decay_heat_power_sum_into_the_same_source_term`]
     /// establishes that the split does not change the result -- only the
     /// sum enters `PebbleBedPorousMediaNode`'s balance -- so this is exact,
@@ -239,9 +233,6 @@ impl ReactorModel {
         helium_mass_flow: MassRate,
     ) -> Power {
         match self {
-            Self::OneNode(core) => {
-                core.step(dt, fission_power, helium_inlet_temperature, helium_mass_flow)
-            }
             Self::OneNodePorousMedia(core) => core.step(
                 dt,
                 fission_power,
@@ -258,21 +249,17 @@ impl ReactorModel {
         }
     }
 
-    /// Lumped/bed-average pebble temperature. See
-    /// [`one_node::PebbleBedCore::temperature`] for what this does and does
-    /// not represent -- a bed average, never a peak fuel temperature, in every
-    /// tier implemented so far.
+    /// Lumped/bed-average pebble temperature -- a bed average, never a peak
+    /// fuel temperature, in every tier implemented so far.
     pub fn temperature(&self) -> ThermodynamicTemperature {
         match self {
-            Self::OneNode(core) => core.temperature(),
             Self::OneNodePorousMedia(core) => core.pebble_temperature(),
             Self::AxialSevenNode(core) => core.temperature(),
             Self::CoarseMeshGenFoam(core) => core.temperature(),
         }
     }
 
-    /// Helium temperature leaving the bed. See
-    /// [`one_node::PebbleBedCore::helium_outlet_temperature`].
+    /// Helium temperature leaving the bed.
     ///
     /// For `OneNodePorousMedia` this is
     /// [`one_node::PebbleBedPorousMediaNode::helium_temperature`] -- the
@@ -282,7 +269,6 @@ impl ReactorModel {
     /// tier has no separate outlet state to report.
     pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            Self::OneNode(core) => core.helium_outlet_temperature(),
             Self::OneNodePorousMedia(core) => core.helium_temperature(),
             Self::AxialSevenNode(core) => core.helium_outlet_temperature(),
             Self::CoarseMeshGenFoam(core) => core.helium_outlet_temperature(),
@@ -306,23 +292,23 @@ mod tests {
 
     /// Every [`ReactorModelKind`] must be constructible and steppable through
     /// the enum, and the two placeholder tiers must currently reproduce
-    /// `OneNode`'s numbers exactly (they fall back to the same
-    /// [`one_node::PebbleBedCore`] math) -- so a fidelity switch today changes
-    /// nothing about the plant's behaviour, only which module owns the
-    /// eventual real implementation.
+    /// `OneNodePorousMedia`'s numbers exactly (they fall back to the same
+    /// [`one_node::PebbleBedPorousMediaNode`] math) -- so a fidelity switch
+    /// today changes nothing about the plant's behaviour, only which module
+    /// owns the eventual real implementation.
     ///
     /// Methodology: step a fresh instance of each kind once, with identical
     /// inputs, and compare the returned heat rate and both temperatures
     /// bit-for-bit (`f64` equality is fine here -- the placeholders wrap the
-    /// exact same `PebbleBedCore` value, not a re-derivation).
+    /// exact same `PebbleBedPorousMediaNode` value, not a re-derivation).
     #[test]
-    fn placeholder_tiers_reproduce_one_node_exactly() {
+    fn placeholder_tiers_reproduce_one_node_porous_media_exactly() {
         let dt = Time::new::<second>(0.1);
         let fission_power = Power::new::<watt>(1.0e7);
         let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
         let flow = MassRate::new::<kilogram_per_second>(4.3);
 
-        let mut one_node = ReactorModel::new(ReactorModelKind::OneNode);
+        let mut one_node = ReactorModel::new(ReactorModelKind::OneNodePorousMedia);
         let mut axial = ReactorModel::new(ReactorModelKind::AxialSevenNode);
         let mut genfoam = ReactorModel::new(ReactorModelKind::CoarseMeshGenFoam);
 
@@ -330,8 +316,14 @@ mod tests {
         let q_axial = axial.step(dt, fission_power, inlet, flow).get::<watt>();
         let q_genfoam = genfoam.step(dt, fission_power, inlet, flow).get::<watt>();
 
-        assert_eq!(q_one, q_axial, "AxialSevenNode placeholder diverged from OneNode");
-        assert_eq!(q_one, q_genfoam, "CoarseMeshGenFoam placeholder diverged from OneNode");
+        assert_eq!(
+            q_one, q_axial,
+            "AxialSevenNode placeholder diverged from OneNodePorousMedia"
+        );
+        assert_eq!(
+            q_one, q_genfoam,
+            "CoarseMeshGenFoam placeholder diverged from OneNodePorousMedia"
+        );
         assert_eq!(one_node.temperature(), axial.temperature());
         assert_eq!(one_node.temperature(), genfoam.temperature());
         assert_eq!(
@@ -347,47 +339,11 @@ mod tests {
     #[test]
     fn kind_round_trips_through_new_and_kind() {
         for kind in [
-            ReactorModelKind::OneNode,
             ReactorModelKind::OneNodePorousMedia,
             ReactorModelKind::AxialSevenNode,
             ReactorModelKind::CoarseMeshGenFoam,
         ] {
             assert_eq!(ReactorModel::new(kind).kind(), kind);
         }
-    }
-
-    /// Unlike the two placeholder tiers, `OneNodePorousMedia` is REAL,
-    /// INDEPENDENT physics -- it must NOT reproduce `OneNode`'s numbers.
-    ///
-    /// Methodology: step a fresh instance of each kind through the enum with
-    /// identical inputs (same as
-    /// [`placeholder_tiers_reproduce_one_node_exactly`]) and check the
-    /// returned heat rate and both temperatures differ from `OneNode`'s.
-    /// This is a divergence check, not a correctness check -- see the module
-    /// doc comment's note that `OneNodePorousMedia` is untested against a
-    /// reference beyond its own energy-conservation tests in
-    /// [`one_node::tests`].
-    #[test]
-    fn porous_media_tier_diverges_from_one_node() {
-        let dt = Time::new::<second>(0.1);
-        let fission_power = Power::new::<watt>(1.0e7);
-        let inlet = ThermodynamicTemperature::new::<kelvin>(523.15);
-        let flow = MassRate::new::<kilogram_per_second>(4.3);
-
-        let mut one_node = ReactorModel::new(ReactorModelKind::OneNode);
-        let mut porous_media = ReactorModel::new(ReactorModelKind::OneNodePorousMedia);
-
-        let q_one = one_node.step(dt, fission_power, inlet, flow).get::<watt>();
-        let q_porous = porous_media.step(dt, fission_power, inlet, flow).get::<watt>();
-
-        assert_ne!(
-            q_one, q_porous,
-            "OneNodePorousMedia must not reproduce OneNode's heat rate -- it is a different model"
-        );
-        assert_ne!(one_node.temperature(), porous_media.temperature());
-        assert_ne!(
-            one_node.helium_outlet_temperature(),
-            porous_media.helium_outlet_temperature()
-        );
     }
 }

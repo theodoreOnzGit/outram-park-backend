@@ -69,39 +69,48 @@
 //! it before this dev-dependency becomes load-bearing rather than merely
 //! available.
 //!
-//! Falling back to [`super::one_node`] keeps
+//! Falling back to [`super::one_node`]'s [`PebbleBedPorousMediaNode`] (the
+//! more physically complete of the two real tiers, and the plant's own
+//! default since 2026-08-17) keeps
 //! [`ReactorModelKind::CoarseMeshGenFoam`](super::ReactorModelKind::CoarseMeshGenFoam)
 //! selectable and exercised by the enum's own tests now, without shipping an
 //! unvalidated coupling ahead of it being real.
 
-use super::one_node::PebbleBedCore;
+use super::one_node::PebbleBedPorousMediaNode;
 use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
+use uom::si::power::watt;
 
 /// Placeholder coarse-mesh GeN-Foam core. Currently a thin wrapper around
-/// [`PebbleBedCore`] -- every method below delegates to it unmodified, so
-/// selecting this tier changes nothing about the plant's numbers yet. See the
-/// module doc comment for the design a real implementation would replace this
-/// with.
+/// [`PebbleBedPorousMediaNode`] -- every method below delegates to it
+/// unmodified, so selecting this tier changes nothing about the plant's
+/// numbers yet. See the module doc comment for the design a real
+/// implementation would replace this with.
 #[derive(Clone, Copy, Debug)]
 pub struct CoarseMeshGenFoamCore {
     /// The one-node fallback this placeholder currently *is*. Not a GeN-Foam
     /// mesh region set coupled to a `NordheimFuchsExactTimestepper` -- that is
     /// exactly what implementing this tier for real would replace this field
     /// with.
-    fallback: PebbleBedCore,
+    fallback: PebbleBedPorousMediaNode,
 }
 
 impl CoarseMeshGenFoamCore {
-    /// Construct at the same cold-start seed [`PebbleBedCore::new`] uses.
+    /// Construct at the same cold-start seed [`PebbleBedPorousMediaNode::new`] uses.
     pub fn new() -> Self {
         Self {
-            fallback: PebbleBedCore::new(),
+            fallback: PebbleBedPorousMediaNode::new(),
         }
     }
 
-    /// Delegates to [`PebbleBedCore::step`] -- see the module doc comment for
-    /// the GeN-Foam + Nordheim-Fuchs coupling a real implementation would do
-    /// instead.
+    /// Delegates to [`PebbleBedPorousMediaNode::step`] -- see the module doc
+    /// comment for the GeN-Foam + Nordheim-Fuchs coupling a real
+    /// implementation would do instead.
+    ///
+    /// `fission_power` here is the caller-summed reactor thermal power (see
+    /// [`super::ReactorModel::step`]'s doc comment); it is passed through as
+    /// [`PebbleBedPorousMediaNode::step`]'s `fission_power` argument with a
+    /// zero `decay_heat_power`, the same fold-in [`super::ReactorModel::step`]
+    /// performs for its own `OneNodePorousMedia` arm.
     pub fn step(
         &mut self,
         dt: Time,
@@ -109,23 +118,28 @@ impl CoarseMeshGenFoamCore {
         helium_inlet_temperature: ThermodynamicTemperature,
         helium_mass_flow: MassRate,
     ) -> Power {
-        self.fallback
-            .step(dt, fission_power, helium_inlet_temperature, helium_mass_flow)
+        self.fallback.step(
+            dt,
+            fission_power,
+            Power::new::<watt>(0.0),
+            helium_inlet_temperature,
+            helium_mass_flow,
+        )
     }
 
-    /// Delegates to [`PebbleBedCore::temperature`]. A real implementation
-    /// would need to decide what single number this reports from a
-    /// multi-region mesh -- most likely a volume-weighted average, to stay
-    /// comparable with the other tiers' bed-average convention.
+    /// Delegates to [`PebbleBedPorousMediaNode::pebble_temperature`]. A real
+    /// implementation would need to decide what single number this reports
+    /// from a multi-region mesh -- most likely a volume-weighted average, to
+    /// stay comparable with the other tiers' bed-average convention.
     pub fn temperature(&self) -> ThermodynamicTemperature {
-        self.fallback.temperature()
+        self.fallback.pebble_temperature()
     }
 
-    /// Delegates to [`PebbleBedCore::helium_outlet_temperature`] -- in a real
-    /// implementation this becomes the mesh's outlet-boundary helium
+    /// Delegates to [`PebbleBedPorousMediaNode::helium_temperature`] -- in a
+    /// real implementation this becomes the mesh's outlet-boundary helium
     /// temperature.
     pub fn helium_outlet_temperature(&self) -> ThermodynamicTemperature {
-        self.fallback.helium_outlet_temperature()
+        self.fallback.helium_temperature()
     }
 }
 
