@@ -1,56 +1,73 @@
-//! Error type for BEDOK.
+//! Error type for the translation.
+//!
+//! # Why this module exists
+//!
+//! No `.m` counterpart. The reference signals failure with `error(...)`, which
+//! aborts the whole run; the closest faithful Rust is a `Result` carrying the
+//! same condition and message. Where the reference *prints* rather than errors
+//! (`convertsparsekey3d.m`'s debug block, for instance), the translation logs
+//! and continues — the behaviour, not the mechanism, is what is preserved.
 
 use thiserror::Error;
 
-/// Result alias used throughout the crate.
-pub type Result<T> = std::result::Result<T, BedokError>;
-
-/// Everything that can go wrong in a BEDOK solve or fixture load.
+/// Failure conditions raised by the translated reference.
+///
+/// Each variant names the `.m` file whose `error(...)` call it stands in for,
+/// so a failure can be traced back to the MATLAB line that produced it.
 #[derive(Debug, Error)]
 pub enum BedokError {
-    /// A grid dimension was zero.
-    #[error("grid has a zero dimension: {nx}x{ny}x{nz}, {ngroups} groups")]
-    EmptyGrid {
-        /// Nodes in x.
-        nx: usize,
-        /// Nodes in y.
-        ny: usize,
-        /// Nodes in z.
-        nz: usize,
-        /// Energy groups.
-        ngroups: usize,
-    },
+    /// `pauseonnan.m` — `error('NaN occured')`.
+    ///
+    /// The reference's spelling of the message is preserved deliberately; it is
+    /// what a user grepping the MATLAB will search for.
+    #[error("NaN occured")]
+    NanEncountered,
 
-    /// A flat state-vector index was outside the grid.
-    #[error("state index {idx} out of range (length {len})")]
-    IndexOutOfRange {
-        /// The offending index.
-        idx: usize,
-        /// Valid length.
-        len: usize,
-    },
+    /// `pauseonnan.m` — `error('Unexpected  complex number')`.
+    ///
+    /// The doubled space is in the reference and is kept. This variant is
+    /// currently unreachable: the translation works in `f64` throughout, so
+    /// there is no complex value for `~isreal` to detect. It exists to record
+    /// that the reference performs the check.
+    #[error("Unexpected  complex number")]
+    UnexpectedComplex,
 
-    /// A reference fixture could not be read or did not have the expected shape.
-    #[error("fixture {path}: {reason}")]
-    Fixture {
-        /// Fixture path.
-        path: String,
-        /// What was wrong with it.
-        reason: String,
-    },
+    /// A coordinate branch in `handle2dcoords.m` / `handle3dcoords.m` matched
+    /// no populated field set, leaving the reference's outputs unassigned.
+    #[error("no coordinate branch matched: none of (maxir, maxitheta, maxiz), (maxix, maxiy, maxiz) or (maxi1, maxi2, maxi3) is fully populated")]
+    NoCoordinateBranch,
 
-    /// An iterative solve failed to converge.
-    #[error("{what} did not converge in {iterations} iterations (residual {residual:e})")]
-    NotConverged {
-        /// Which solve.
-        what: &'static str,
-        /// Iterations taken.
-        iterations: usize,
-        /// Residual reached.
-        residual: f64,
+    /// The flux solvers' preconditioned-GMRES branch, which is **not
+    /// translated**.
+    ///
+    /// This is the one place the translation declines to reproduce the
+    /// reference rather than reproducing it faithfully, so it is worth being
+    /// precise about the scope.
+    ///
+    /// `diffusion_solverxyz.m` and `sanodaldiffusion_solverxyz.m` both switch
+    /// from a direct factorisation to `gmres(LHS, RHS, 100, tol, 20, L, U, x0)`
+    /// with an `ilu` preconditioner once `philenf >= 50_000_000`. Reaching that
+    /// needs 50 million unknowns — for two energy groups, a mesh of 25 million
+    /// nodes — whose sparse operators alone would not fit in the memory of any
+    /// machine this code runs on. The branch is unreachable for every case in
+    /// the snapshot and for anything a user could plausibly build.
+    ///
+    /// Translating it would mean writing an ILU factorisation and a restarted
+    /// GMRES that could never be exercised, and therefore never verified,
+    /// against the reference. An explicit error is the honest alternative: it
+    /// is visible, it names the threshold, and it cannot be mistaken for the
+    /// direct path having run.
+    #[error(
+        "the gmres/ilu branch of the flux solvers is not translated; \
+         philenf = {philenf} is at or above the reference's sizethresh of {threshold}"
+    )]
+    IterativeSolveNotTranslated {
+        /// The problem size that selected the branch.
+        philenf: usize,
+        /// The reference's `sizethresh`.
+        threshold: usize,
     },
-
-    /// Underlying I/O failure.
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
 }
+
+/// Result alias for the translated reference.
+pub type Result<T> = std::result::Result<T, BedokError>;

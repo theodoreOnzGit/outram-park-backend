@@ -807,12 +807,8 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 name = "bedok"
 version = "0.0.0"
 dependencies = [
- "approx",
- "csv",
  "faer",
- "tampines-steam-tables",
  "thiserror 2.0.18",
- "uom 0.38.0",
 ]
 
 [[package]]
