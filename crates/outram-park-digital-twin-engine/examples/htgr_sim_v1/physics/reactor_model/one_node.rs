@@ -166,6 +166,7 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
 use outram_park_digital_twin_engine::htr10::kta;
+use outram_foam_basic_lib::prelude::SquareMatrix;
 use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
@@ -1030,6 +1031,274 @@ pub fn temperature_from_specific_enthalpy(
     ThermodynamicTemperature::new::<kelvin>(
         REFERENCE_TEMPERATURE_K
             + specific_enthalpy.get::<joule_per_kilogram>() / GRAPHITE_CP_J_PER_KG_K,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Implicit two-temperature porous-media node -- SCAFFOLD, comments +
+// signatures only (2026-08-17). Every body below is `todo!()`; the doc
+// comments carry the physics and the derivation, not the implementation.
+//
+// **What this adds over `PebbleBedCore`.** The nodalisation table at the top
+// of this file's module doc comment lists the helium row as
+// `0 (external)`: the bulk mean is a boundary condition the caller supplies,
+// and [`PebbleBedCore::step`] closes the bed-to-helium exchange with a
+// CLOSED-FORM effectiveness-NTU balance rather than integrating the
+// helium's own energy equation. That is valid exactly because the helium
+// carries no independent thermal inertia in that formulation.
+//
+// This struct gives the helium a real node instead: **one control volume,
+// two temperatures** -- the pebble (solid phase) and the helium filling the
+// bed's void space (fluid phase). This is the standard two-equation Local
+// Thermal Non-Equilibrium (LTNE) porous-media energy formulation (see e.g.
+// Kaviany, *Principles of Heat Transfer in Porous Media*, 2nd ed., the
+// two-equation model section; Nield & Bejan, *Convection in Porous Media*).
+// It is still ONE spatial node -- no axial or radial split, the same
+// limitation the module doc comment already states -- but within that one
+// node the solid and the fluid are no longer forced into the same
+// instantaneous balance: each phase carries its own capacitance and its own
+// backward-Euler update, coupled through the interfacial conductance `h A`.
+//
+// **Why implicit, and why a 2x2 matrix.** The two phases are solved
+// SIMULTANEOUSLY at the new time level `n+1`, not one after the other:
+// advancing the solid first with the OLD fluid temperature (or vice versa)
+// is a fractional-step scheme, and this file has already had to root out
+// exactly that kind of sequencing error once -- see "Why this replaced an
+// arithmetic-mean driving temperature" in [`PebbleBedCore::step`]. Backward
+// Euler on both phases at once is unconditionally stable for any `dt`,
+// which matters here because the fluid node's own time constant
+// (`C_f / (h A + m_dot c_p)`, seconds) is expected to run orders of
+// magnitude faster than the bed's (~184 s, see
+// [`tests::graphite_inertia_sets_the_bed_time_constant`]) -- an explicit
+// scheme sized for the slow phase would be unstable on the fast one. With
+// exactly two unknowns the implicit system is a 2x2 linear SOLVE, not an
+// iteration.
+// ---------------------------------------------------------------------------
+
+/// Implicit two-temperature (solid + fluid) porous-media node.
+///
+/// **SCAFFOLD (2026-08-17): every method body is `todo!()`.** See the
+/// module comment immediately above for what this adds over
+/// [`PebbleBedCore`] and why the system is implicit; see [`Self::step`]'s
+/// doc comment for the full 2x2 backward-Euler derivation this struct's
+/// solve is meant to carry out.
+///
+/// ## Derivation -- the 2x2 backward-Euler system
+///
+/// **Governing equations (continuous, LTNE two-equation form).**
+///
+/// Solid (pebble) phase -- no throughflow, the same accumulation term
+/// [`PebbleBedCore::step`] already integrates:
+///
+/// ```text
+/// C_s dT_s/dt = Q_fission - h A (T_s - T_f)
+/// ```
+///
+/// Fluid (helium) phase -- WITH throughflow, the term [`PebbleBedCore`]
+/// does not carry because it treats the helium as external:
+///
+/// ```text
+/// C_f dT_f/dt = h A (T_s - T_f) - m_dot c_p (T_f - T_in)
+/// ```
+///
+/// `C_s` is [`bed_heat_capacity`] (unchanged). `C_f` is the thermal mass of
+/// the helium actually held in the bed's void space at the current density,
+/// `rho_He(T_f, p) * V_void * c_p(T_f)`, with `V_void` the same void volume
+/// [`PebbleBedCore::pebble_bed_helium_volume`] carries -- see
+/// [`fluid_node_heat_capacity`] for what filling this in still needs.
+///
+/// The fluid term treats the node as well-mixed (a CSTR, not a plug-flow
+/// slice): the outlet leaving the node is taken AT the node temperature
+/// `T_f`. That is the accuracy [`PebbleBedCore::step`]'s epsilon-NTU form
+/// avoids by construction (its outlet is bounded strictly below `T_bed` for
+/// every finite NTU); giving the fluid a real capacitance here trades that
+/// bound away. Whether that trade is acceptable is a question for whoever
+/// implements and validates this struct, not decided by this scaffold.
+///
+/// **Backward Euler.** Evaluate the right-hand side of both equations at
+/// `T_s^{n+1}`, `T_f^{n+1}` instead of at the known `T_s^n`, `T_f^n`:
+///
+/// ```text
+/// C_s (T_s^{n+1} - T_s^n) / dt = Q_fission - h A (T_s^{n+1} - T_f^{n+1})
+/// C_f (T_f^{n+1} - T_f^n) / dt = h A (T_s^{n+1} - T_f^{n+1}) - m_dot c_p (T_f^{n+1} - T_in)
+/// ```
+///
+/// **Collect into `A x = b`** with `x = [T_s^{n+1}, T_f^{n+1}]^T`:
+///
+/// ```text
+/// (C_s/dt + hA) T_s^{n+1}  -  hA T_f^{n+1}                        = C_s/dt T_s^n + Q_fission
+///     -hA T_s^{n+1}        +  (C_f/dt + hA + m_dot c_p) T_f^{n+1} = C_f/dt T_f^n + m_dot c_p T_in
+/// ```
+///
+/// so the four matrix entries and two right-hand-side entries are
+///
+/// | | col 0: `T_s^{n+1}` | col 1: `T_f^{n+1}` | `b` |
+/// |---|---|---|---|
+/// | row 0 (solid balance) | `C_s/dt + hA` | `-hA` | `C_s/dt * T_s^n + Q_fission` |
+/// | row 1 (fluid balance) | `-hA` | `C_f/dt + hA + m_dot c_p` | `C_f/dt * T_f^n + m_dot c_p * T_in` |
+///
+/// The matrix would be symmetric on `h A` alone -- the conduction-only
+/// exchange between the two phases is self-adjoint -- and the throughflow
+/// `m_dot c_p` term breaks that symmetry by adding to row 1 (the fluid
+/// balance) only, never to row 0 or off-diagonal.
+///
+/// **Solve with the workspace's own dense LU, not a hand-rolled 2x2
+/// inverse.** [`outram_foam_basic_lib::matrix::square_matrix::SquareMatrix`]
+/// already does exactly this in the crate -- `fhr_sim_v2`'s
+/// `secondary_loop/vibe_code_mass_balance.rs` builds and solves a small
+/// dense system the same way for its own mass balance. Reuse it:
+/// `SquareMatrix::new(2)`, four `.set(row, col, value)` calls, then
+/// `.solve(&[b0, b1])`.
+#[derive(Clone, Copy, Debug)]
+pub struct PebbleBedPorousMediaNode {
+    /// Pebble (solid-phase) temperature -- the same physical quantity as
+    /// [`PebbleBedCore::temperature`], carried directly rather than through
+    /// a specific-enthalpy state, since this node's `c_p` is already
+    /// constant ([`GRAPHITE_CP_J_PER_KG_K`]).
+    pebble_temperature: ThermodynamicTemperature,
+    /// Helium (fluid-phase) bulk temperature actually held IN this node --
+    /// the quantity [`PebbleBedCore`] never states, because it treats the
+    /// helium as external. Carrying this as real state is what makes the
+    /// model two-temperature rather than one.
+    helium_temperature: ThermodynamicTemperature,
+    /// Heat rate exchanged between the two phases across `h A` on the most
+    /// recent [`Self::step`] (positive: solid phase heating the fluid).
+    /// Distinct from the heat the fluid then carries OUT of the node by
+    /// throughflow, which the fluid balance's `m_dot c_p` term accounts for
+    /// separately -- see the struct doc comment's derivation.
+    heat_to_helium: Power,
+    /// Overall pebble-to-helium coefficient used on the most recent step --
+    /// same evaluated source as [`PebbleBedCore::overall_heat_transfer_coefficient`],
+    /// [`overall_htc_at_flow`].
+    overall_htc: HeatTransfer,
+}
+
+impl PebbleBedPorousMediaNode {
+    /// Construct the node seeded at thermal equilibrium, both phases at
+    /// [`SEED_BED_TEMPERATURE_K`] -- matching [`PebbleBedCore::new`]'s
+    /// starting point, so a caller can swap one struct for the other
+    /// without the simulator opening at a different operating point.
+    pub fn new() -> Self {
+        todo!(
+            "seed pebble_temperature and helium_temperature at \
+             SEED_BED_TEMPERATURE_K (both phases start in equilibrium); \
+             heat_to_helium at zero; overall_htc at a starting estimate, \
+             matching PebbleBedCore::new's shape"
+        )
+    }
+
+    /// Advance both phases by `dt` with one implicit step and return the
+    /// heat rate exchanged between them. See the struct doc comment for the
+    /// full derivation of the 2x2 backward-Euler system this method is
+    /// meant to assemble and solve.
+    ///
+    /// Unlike [`PebbleBedCore::step`], `helium_mass_flow` here drives a
+    /// THROUGHFLOW term on the fluid phase's own balance
+    /// (`m_dot c_p (T_f - T_in)`), not a capacity-rate cap on an
+    /// externally-closed exchange -- see the derivation above for why the
+    /// flow enters a different equation in this formulation.
+    ///
+    /// Intended assembly, once implemented:
+    ///
+    /// 1. Evaluate `h = overall_htc_at_flow(helium_mass_flow,
+    ///    self.helium_temperature)` and `A = heat_transfer_area()` -- same
+    ///    evaluated Wakao-plus-intra-pebble coefficient [`PebbleBedCore`]
+    ///    uses, just evaluated at this node's own fluid temperature instead
+    ///    of a caller-supplied one.
+    /// 2. Form `C_s = bed_heat_capacity()` and
+    ///    `C_f = fluid_node_heat_capacity(self.helium_temperature)`.
+    /// 3. Form `m_dot c_p = helium_mass_flow.abs() *
+    ///    helium_specific_heat(self.helium_temperature)`, floored the same
+    ///    way [`PebbleBedCore::step`] floors its capacity rate so a
+    ///    stopped circulator does not divide by zero.
+    /// 4. Assemble the 2x2 [`SquareMatrix`] and right-hand side per the
+    ///    table in the struct doc comment.
+    /// 5. `matrix.solve(&rhs)` and store the two solved temperatures.
+    /// 6. `heat_to_helium = h A (T_s^{n+1} - T_f^{n+1})`; store `overall_htc
+    ///    = h`; return `heat_to_helium`.
+    pub fn step(
+        &mut self,
+        dt: Time,
+        fission_power: Power,
+        helium_inlet_temperature: ThermodynamicTemperature,
+        helium_mass_flow: MassRate,
+    ) -> Power {
+        let _ = (dt, fission_power, helium_inlet_temperature, helium_mass_flow);
+        todo!("assemble and solve the 2x2 backward-Euler system -- see the struct doc comment")
+    }
+
+    /// Pebble (solid-phase) temperature. See the field doc comment on
+    /// [`Self`] for how this differs from a specific-enthalpy state.
+    pub fn pebble_temperature(&self) -> ThermodynamicTemperature {
+        self.pebble_temperature
+    }
+
+    /// Helium (fluid-phase) temperature held in this node -- the quantity
+    /// [`PebbleBedCore`] does not have, since it treats the helium as
+    /// external rather than as its own node.
+    pub fn helium_temperature(&self) -> ThermodynamicTemperature {
+        self.helium_temperature
+    }
+
+    /// Heat rate exchanged between the phases across `h A` on the most
+    /// recent step.
+    pub fn heat_to_helium(&self) -> Power {
+        self.heat_to_helium
+    }
+}
+
+impl Default for PebbleBedPorousMediaNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Thermal capacitance of the helium actually held in the bed's void space
+/// at `helium_temperature` \[J/K\]: `rho_He(T, p) * V_void * c_p(T)`, with
+/// `V_void` the same void volume [`PebbleBedCore::pebble_bed_helium_volume`]
+/// carries and `c_p` from [`helium_specific_heat`]. This is `C_f` in the
+/// [`PebbleBedPorousMediaNode`] derivation.
+///
+/// **Not yet implemented.** Needs a helium DENSITY accessor at
+/// `(temperature, primary-loop pressure)` alongside the existing
+/// [`helium_specific_heat`]/[`helium_transport`] pair -- `state_pt`'s
+/// `FluidState::density` already carries this value internally (see
+/// [`helium_transport`]'s body, which reads `state.density` without
+/// exposing it), it is just not exposed as its own function yet.
+fn fluid_node_heat_capacity(_helium_temperature: ThermodynamicTemperature) -> HeatCapacity {
+    todo!(
+        "rho_He(helium_temperature, design().primary_pressure) * bed_void_volume() \
+         * helium_specific_heat(helium_temperature); needs a new helium-density \
+         accessor, see the doc comment above"
+    )
+}
+
+/// Assemble the 2x2 backward-Euler coefficient matrix and right-hand side
+/// for one [`PebbleBedPorousMediaNode::step`]. See the struct doc comment
+/// for the derivation these four matrix entries and two right-hand-side
+/// entries come from.
+///
+/// Row/column order is `[T_pebble^{n+1}, T_helium^{n+1}]` for both the
+/// matrix and the returned right-hand side, matching how
+/// [`SquareMatrix::solve`]'s returned vector is meant to be read back.
+///
+/// **Not yet implemented.**
+fn assemble_backward_euler_system(
+    _dt: Time,
+    _fission_power: Power,
+    _helium_inlet_temperature: ThermodynamicTemperature,
+    _pebble_temperature: ThermodynamicTemperature,
+    _helium_temperature: ThermodynamicTemperature,
+    _conductance: ThermalConductance,
+    _solid_capacity: HeatCapacity,
+    _fluid_capacity: HeatCapacity,
+    _capacity_rate: ThermalConductance,
+) -> (SquareMatrix, [f64; 2]) {
+    todo!(
+        "SquareMatrix::new(2) with \
+         (0,0) = C_s/dt + hA, (0,1) = -hA, \
+         (1,0) = -hA,         (1,1) = C_f/dt + hA + m_dot*c_p; \
+         rhs = [C_s/dt * T_s_n + Q_fission, C_f/dt * T_f_n + m_dot*c_p * T_in]"
     )
 }
 
