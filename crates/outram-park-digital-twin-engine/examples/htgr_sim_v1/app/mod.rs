@@ -192,6 +192,18 @@ const SUBSTEPS_PER_TICK: usize = 1;
 /// unaffected because they are advanced from the plant clock at the repaint
 /// rate, not at this one.
 const PHYSICS_TICK: Duration = Duration::from_millis(100);
+/// Defensive cap on how many `plant.step` calls one fast-forward burst may
+/// make in a single [`PHYSICS_TICK`] window.
+///
+/// The burst loop's real stopping condition is the wall-clock check
+/// (`tick_start.elapsed() < PHYSICS_TICK`); this cap exists only so a clock
+/// anomaly (e.g. a suspended/resumed machine reporting a near-zero elapsed
+/// duration) cannot turn it into an unbounded loop. It should never bind in
+/// practice: hitting it would require averaging under 5 microseconds of
+/// compute per plant step, two to three orders of magnitude cheaper than
+/// this plant's measured per-step cost (see this module's "Where the compute
+/// actually goes" doc comment above).
+const FAST_FORWARD_MAX_STEPS_PER_TICK: usize = 20_000;
 /// Wall-clock sleep between plot samples.
 ///
 /// Matched to [`PHYSICS_TICK`]: sampling faster than the physics thread
@@ -323,11 +335,12 @@ fn start_simulation() -> SimulationRun {
         thread_health.clone(),
         move |state| {
             let tick_start = Instant::now();
-            let (commands, reset_requested, rps_enabled) = state.read_with(|s| {
+            let (commands, reset_requested, rps_enabled, fast_forward) = state.read_with(|s| {
                 (
                     plant_commands_from(s),
                     s.trip_reset_requested,
                     s.rps_enabled,
+                    s.fast_forward_enabled,
                 )
             });
             // Arming state is owned by the GUI; disarming also clears any
@@ -342,9 +355,32 @@ fn start_simulation() -> SimulationRun {
                 plant.protection.reset();
                 state.update(|s| s.trip_reset_requested = false);
             }
-            for _ in 0..SUBSTEPS_PER_TICK {
-                plant.step(dt, commands);
-            }
+            // Fast-forward: keep calling `plant.step` back to back, with no
+            // sleep between calls, until this tick's wall-clock budget is
+            // spent (or the defensive step cap below is hit) -- see
+            // `FAST_FORWARD_MAX_STEPS_PER_TICK`'s doc comment for why the cap
+            // can basically never bind in practice. Every step is the SAME
+            // `PHYSICS_DT_S` the plant always steps at -- fast-forward never
+            // grows `dt` or skips a step, it only removes the artificial
+            // sleep between real steps, so the model is exactly as accurate
+            // at any speed. `commands` stay fixed for the whole burst, same
+            // as they already do across `SUBSTEPS_PER_TICK` in the
+            // non-fast-forward branch -- a control change is picked up at
+            // the next tick either way, at most one `PHYSICS_TICK` later.
+            let steps_this_tick = if fast_forward {
+                let mut steps = 0usize;
+                while tick_start.elapsed() < PHYSICS_TICK && steps < FAST_FORWARD_MAX_STEPS_PER_TICK
+                {
+                    plant.step(dt, commands);
+                    steps += 1;
+                }
+                steps.max(1)
+            } else {
+                for _ in 0..SUBSTEPS_PER_TICK {
+                    plant.step(dt, commands);
+                }
+                SUBSTEPS_PER_TICK
+            };
             // Publish the reactivity the rods actually bought, so the GUI
             // shows a consequence rather than echoing a command back.
             let rho = plant.external_reactivity_dollars(commands.control_rod_insertion_fraction);
@@ -358,8 +394,19 @@ fn start_simulation() -> SimulationRun {
             // heater control.
             let achieved_feed_flow = plant.secondary.mass_flow().get::<kilogram_per_second>();
             // Advance the pacer's plant clock and decide this tick's sleep.
+            // `set_simulated_per_tick` tells the pacer how much simulated
+            // time THIS tick actually advanced -- `SUBSTEPS_PER_TICK`
+            // normally, or however many steps the fast-forward burst above
+            // fit into its wall-clock budget -- so `real_time_ratio` /
+            // `real_time_deficit_s` stay exact (and correctly read far above
+            // 1.0 during a burst) instead of assuming the fixed
+            // non-fast-forward tick size. See
+            // `RealTimePacer::set_simulated_per_tick`'s doc comment.
             // `pace` returns a zero sleep -- never a wrapped or sign-flipped
             // one -- when the work already used the budget up.
+            pacer.set_simulated_per_tick(Time::new::<second>(
+                steps_this_tick as f64 * PHYSICS_DT_S,
+            ));
             let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
             state.update(|s| {
                 plant.write_snapshot(s);

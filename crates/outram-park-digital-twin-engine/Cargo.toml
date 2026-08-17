@@ -39,6 +39,16 @@ tuas_boussinesq_solver.workspace = true
 # Public API primitives -- dimensioned quantities.
 uom.workspace = true
 
+# app_scaffold::csv_logging's CsvLogger writes real CSV files (bead
+# op-wqk.22.2) -- pulling in the `csv` crate instead of hand comma-joining
+# strings the way the existing "fake CSV" display panels in
+# ciet_educational_simulator_v2/fhr_sim_v2 do, so a value containing a comma
+# or a quote round-trips correctly. Already a workspace dependency (root
+# Cargo.toml, consumed today by tuas_boussinesq_solver) -- no new version
+# introduced. Pure Rust, so this does not endanger the Android/Termux build
+# posture of the modules that are gated to build there.
+csv.workspace = true
+
 # REAL (non-dev) dependency: `components::HeatExchangerVisual` draws the flow
 # arrangement that `tampines::components::HeatExchanger` actually stores, and
 # that field's type (`heat_exchanger::lmtd::FlowArrangement`) lives in this

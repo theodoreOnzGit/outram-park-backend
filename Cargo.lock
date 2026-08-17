@@ -5815,6 +5815,7 @@ version = "0.0.2"
 dependencies = [
  "async-opcua",
  "chem-eng-real-time-process-control-simulator",
+ "csv",
  "directories",
  "eframe",
  "egui",

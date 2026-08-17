@@ -340,8 +340,51 @@ impl HtgrKinetics {
         let sub = Time::new::<second>(dt_s / pieces);
         for _ in 0..(pieces as usize) {
             self.advance_one(sub, external_reactivity_dollars);
+            self.apply_decay_heat(sub);
             self.apply_coolant_heat_removal(coolant_heat_removal, sub);
         }
+    }
+
+    /// Heat this node by the fission-product decay heat generated over `dt`.
+    ///
+    /// # Why this exists (GitHub issue #22)
+    ///
+    /// [`Self::apply_coolant_heat_removal`] charges this node the SAME
+    /// coolant sink rate the real pebble bed sees, and that rate is sized
+    /// against the bed's FULL thermal source -- fission power plus decay
+    /// heat (see [`Self::core_thermal_power`]). Until this method existed,
+    /// this node's own heating came only from [`Self::advance_one`]'s
+    /// prompt-plus-delayed fission power, with no decay-heat term: it was
+    /// being charged for a removal rate sized for heat it never received.
+    ///
+    /// This is NOT the same concern [`Self::advance_one`]'s decay-bank
+    /// comment raises -- that one is about the decay bank's own DRIVING
+    /// INPUT needing to stay fission-power-only so it does not double-count
+    /// itself internally, and is unaffected here: [`Self::decay_heat_power`]
+    /// is read as an OUTPUT after [`DecayHeat::advance_timestep`] has
+    /// already run for this substep, not fed back into it.
+    ///
+    /// Without this term, the node drifted increasingly colder than the
+    /// bed after any trip -- prompt fission collapses toward zero on scram
+    /// while the coolant sink does not, since the bed (and hence the sink)
+    /// still has decay heat. Measured **-10.2 K by 300 s post-scram** before
+    /// this fix, **+0.04 K after it**, in
+    /// `super::tests::kinetics_fuel_node_tracks_the_bed_node_after_a_scram`,
+    /// and reported as GitHub issue #22's "totally wrong energy balance"
+    /// (the schematic compared this node against a helium temperature).
+    ///
+    /// Call every substep, right after [`Self::advance_one`] has refreshed
+    /// [`Self::decay_heat_power`] -- same resolution
+    /// [`Self::apply_coolant_heat_removal`] needs and for the same reason
+    /// (a term applied only once per plant step lags the reactivity feedback
+    /// by a whole 0.1 s on the heating side too).
+    fn apply_decay_heat(&mut self, dt: Time) {
+        let c_f = self.prompt.fuel_heat_capacity;
+        if c_f.get::<joule_per_kelvin>() <= 0.0 {
+            return;
+        }
+        let rise = self.decay_heat_power() * dt / c_f;
+        self.prompt.fuel_temperature += rise;
     }
 
     /// One Lie-split kinetics substep. See [`Self::step`], which is the entry

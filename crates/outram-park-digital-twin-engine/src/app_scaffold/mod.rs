@@ -15,19 +15,43 @@
 //! mandatory Rust design rules -- `RwLock` allows concurrent reads from
 //! multiple threads, where `Mutex` serialises even read-only access and so
 //! defeats parallelism during a timestep's compute phase.
+//!
+//! ## Beyond threading: the rest of the "app builder" pattern
+//!
+//! [`SharedState`], [`spawn_physics_thread_monitored`] and [`RealTimePacer`]
+//! cover the physics-thread and real-time-pacing half of the reusable
+//! real-time-simulator pattern (bead `op-wqk.22`). Two more pieces of that
+//! same pattern live here as of this module's latest pass, both additive --
+//! neither is wired into an existing simulator yet, each simulator opts in
+//! on its own:
+//!
+//! - [`plot_history`] -- a generic bounded ring buffer ([`PlotHistory`]) for
+//!   the "keep the last `N` samples for a trend graph" loop every simulator
+//!   ends up hand-rolling.
+//! - [`csv_logging`] -- a real CSV file writer ([`CsvLogger`]) with interval
+//!   throttling, replacing the on-screen "CSV" text-label affordance that
+//!   exists today but never actually writes a file.
+//!
+//! A fourth piece, OPC-UA, is **not** here -- it already has its own reusable
+//! home in [`crate::opcua_core`] (see that module's docs and bead
+//! `op-szmi.1`), so it is not duplicated in this module.
 
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::{self, JoinHandle};
 
 pub mod crash;
+pub mod csv_logging;
 pub mod gui_frame_metrics;
+pub mod plot_history;
 pub mod real_time_pacing;
 
 pub use crash::{
     mark_component, show_crash_modal_if_crashed, show_crash_modal_with_restart, spawn_monitored,
     spawn_physics_thread_monitored, CrashModalOutcome, CrashReport, ThreadHealth,
 };
+pub use csv_logging::{CsvLogger, CsvLoggerError};
 pub use gui_frame_metrics::GuiFrameMetrics;
+pub use plot_history::{PlotHistory, XySample};
 pub use real_time_pacing::{pace_tick, RealTimePacer, TickPacing};
 
 /// A physics/simulation state shared between a rendering thread (the GUI)

@@ -2233,4 +2233,221 @@ mod tests {
              for the three separate causes that produced it before."
         );
     }
+
+    /// **V&V for GitHub issue #22 ("htgr sim v1 non-physical data"): the
+    /// PebbleBedPorousMediaNode's own 2x2 implicit solve stays correctly
+    /// ordered (helium never leaves hotter than the bed) through a full
+    /// scram and extended cooldown, not just the short flow-ramp
+    /// [`the_helium_never_leaves_the_core_hotter_than_the_bed`] already
+    /// covers.**
+    ///
+    /// # Methodology
+    ///
+    /// Full scram (`control_rod_insertion_fraction = 1.0`) held from `t=0`,
+    /// circulator held at nominal flow (the issue's own repro steps: "scram
+    /// reactor and run cooling"), everything else at
+    /// [`PlantCommands::default`]. Run 30 simulated minutes and track
+    /// `T_f(bed fluid) - T_s(bed solid)` at every step -- this is the
+    /// invariant [`PebbleBedPorousMediaNode::step`]'s own doc comment flags
+    /// as "not proven bounded by construction" for the two-phase implicit
+    /// solve (as opposed to the removed effectiveness-NTU `PebbleBedCore`,
+    /// which was exactly bounded). Pass criterion: the worst excess stays
+    /// at or below zero, same tolerance as the existing NTU test.
+    ///
+    /// `#[ignore]`d: ~400 s real time at this crate's measured near-1:1
+    /// compute-per-plant-second (see `app` module doc comment) -- run
+    /// explicitly, not as part of the default suite, same convention as
+    /// TUAS's long natural-circulation tests.
+    ///
+    /// # Results (2026-08-17)
+    ///
+    /// No inversion at any of the 18,000 steps. Worst (least negative)
+    /// `T_f - T_s` excess was **-5.4252 K at t=1799.9 s** -- the fluid node
+    /// stayed measurably below the bed throughout, including through the
+    /// steepest part of the transient (t=0 to ~600 s, where `T_s` fell from
+    /// 949.9 K to 562.3 K and `T_in` fell even faster, 521.2 K to 370.5 K,
+    /// because the default feedwater is MANUAL at a fixed 10.0 kg/s -- see
+    /// [`SecondaryCommands`]'s default -- which does not scale down with the
+    /// collapsing primary duty and so pulls the loop toward the feedwater
+    /// temperature rather than holding the published 250 degC cold leg).
+    ///
+    /// # Interpretation
+    ///
+    /// The coupled two-phase balance itself is NOT the source of issue #22's
+    /// "totally wrong energy balance, helium out hotter than fuel" report.
+    /// That symptom traced instead to a GUI wiring bug: the schematic's
+    /// "T_fuel" tag and the reactor-vessel colour were reading
+    /// [`HtgrSnapshot::fuel_temperature_k`] (the kinetics reactivity-feedback
+    /// node) instead of [`HtgrSnapshot::bed_temperature_k`] (this test's
+    /// `T_s`) -- see
+    /// [`kinetics_fuel_node_tracks_the_bed_node_after_a_scram`] for
+    /// why those two diverge, and `app::schematic`/`app::panels` for the fix.
+    /// The very low absolute temperatures this test also shows (well below
+    /// the published 250 degC cold leg) are a separate, real observation --
+    /// the fixed 10.0 kg/s MANUAL feedwater default overcooling a scrammed
+    /// core -- but are not by themselves a second-law violation.
+    #[test]
+    #[ignore]
+    fn reproduce_issue_22_scram_cooldown_energy_balance() {
+        let mut plant = HtgrPlant::new();
+        let dt = plant_timestep();
+
+        let mut commands = PlantCommands::default();
+        commands.control_rod_insertion_fraction = 1.0; // full scram, held
+        // Keep the circulator at nominal flow -- the issue's own repro steps
+        // say "scram reactor and run cooling", i.e. forced cooling stays on.
+
+        let sim_minutes = 30.0;
+        let steps = (sim_minutes * 60.0 / PLANT_TIMESTEP_S) as usize;
+        let mut worst_inversion_k = f64::NEG_INFINITY;
+        let mut worst_inversion_t = 0.0;
+
+        for step in 0..steps {
+            plant.step(dt, commands);
+
+            let t_s = plant.pebble_temperature().get::<kelvin>();
+            let t_f = plant.core.helium_outlet_temperature().get::<kelvin>();
+            let t_out = plant.primary.core_outlet_temperature().get::<kelvin>();
+            let t_in = plant.primary.core_inlet_temperature().get::<kelvin>();
+            let inversion = t_f - t_s;
+            if inversion > worst_inversion_k {
+                worst_inversion_k = inversion;
+                worst_inversion_t = step as f64 * PLANT_TIMESTEP_S;
+            }
+
+            if step % (600 * 10) == 0 {
+                // every 600 s = 10 sim-minutes
+                println!(
+                    "t={:>7.1} s  T_s(bed)={:>8.3} K  T_f(bed fluid)={:>8.3} K  \
+                     T_in(core inlet)={:>8.3} K  T_out(loop, lagged)={:>8.3} K  \
+                     decay_heat={:>10.1} W  flow={:>6.3} kg/s",
+                    step as f64 * PLANT_TIMESTEP_S,
+                    t_s,
+                    t_f,
+                    t_in,
+                    t_out,
+                    plant.kinetics.decay_heat_power().get::<uom::si::power::watt>(),
+                    plant.primary.mass_flow().get::<kilogram_per_second>(),
+                );
+            }
+        }
+
+        println!(
+            "worst T_f - T_s inversion over {sim_minutes} sim-minutes: {worst_inversion_k:+.4} K \
+             at t={worst_inversion_t:.1} s"
+        );
+        assert!(
+            worst_inversion_k <= 1.0e-9,
+            "the bed fluid node left the core {worst_inversion_k:+.4} K HOTTER than the bed \
+             solid node at t={worst_inversion_t:.1} s during a scram+cooldown -- a second-law \
+             violation in PebbleBedPorousMediaNode's own 2x2 solve. See this test's docs."
+        );
+    }
+
+    /// **V&V for GitHub issue #22: [`HtgrKinetics::fuel_temperature`] (the
+    /// Nordheim-Fuchs reactivity-feedback node) tracks
+    /// [`HtgrPlant::pebble_temperature`] (the bed's own solid-phase node)
+    /// within a fraction of a kelvin through a scram, instead of drifting
+    /// apart without bound.**
+    ///
+    /// # Methodology
+    ///
+    /// Full scram held from `t=0`, nominal flow, otherwise
+    /// [`PlantCommands::default`]. Every 30 s over 5 simulated minutes,
+    /// compare [`HtgrKinetics::fuel_temperature`] against
+    /// [`HtgrPlant::pebble_temperature`]. The two are separate state: this
+    /// node's own thermal balance is driven by
+    /// [`HtgrKinetics::apply_decay_heat`] (source) and
+    /// [`HtgrKinetics::apply_coolant_heat_removal`] (sink, `core_heat_to_helium`
+    /// -- the same rate the real bed sees). Before [`HtgrKinetics::apply_decay_heat`]
+    /// existed, this node received only the sink and NOT the matching
+    /// decay-heat source, so after a scram (prompt fission collapsing toward
+    /// zero while the sink, driven by the bed's decay heat, did not) it
+    /// drifted increasingly colder than the bed -- this test is what caught
+    /// that. Pass criterion: the gap stays within a small band around zero
+    /// (residual second-order effects only -- see Interpretation), not the
+    /// growing-without-bound behaviour the fix removed.
+    ///
+    /// # Results
+    ///
+    /// **Before the fix (2026-08-17, pre-`apply_decay_heat`):**
+    ///
+    /// | t (s) | kinetics.fuel_temperature (K) | bed.pebble_temperature (K) | diff (K) |
+    /// |---|---|---|---|
+    /// | 0 | 950.000 | 950.000 | 0.000 |
+    /// | 30 | 922.004 | 923.527 | -1.523 |
+    /// | 120 | 838.863 | 843.731 | -4.868 |
+    /// | 300 | 701.454 | 711.695 | -10.241 |
+    ///
+    /// **After the fix (2026-08-17, with `apply_decay_heat`):**
+    ///
+    /// | t (s) | kinetics.fuel_temperature (K) | bed.pebble_temperature (K) | diff (K) |
+    /// |---|---|---|---|
+    /// | 0 | 950.000 | 950.000 | 0.000 |
+    /// | 30 | 923.554 | 923.527 | +0.027 |
+    /// | 120 | 843.765 | 843.731 | +0.034 |
+    /// | 300 | 711.734 | 711.695 | +0.039 |
+    ///
+    /// # Interpretation
+    ///
+    /// The fix (adding the missing decay-heat source term, symmetric with
+    /// the existing coolant-removal sink) reduced the 5-minute-post-scram
+    /// gap from -10.241 K to +0.039 K -- a ~99.6% reduction, and it stays
+    /// small and roughly flat rather than continuing to grow. This is what
+    /// made a scrammed core look like it was violating the second law on
+    /// screen before this fix: the schematic's "T_fuel" tag and reactor-vessel
+    /// colour read this node (see `app::schematic`, `app::panels`, now
+    /// pointed at `bed_temperature_k` instead as a second, independent fix),
+    /// so a growing negative gap against a helium temperature read as an
+    /// impossible ordering. The remaining +0.03-0.04 K residual is expected,
+    /// not a defect: this node integrates explicitly at
+    /// [`super::KINETICS_SUBSTEP_S`] resolution against a one-step-stale
+    /// coolant sink, while the bed's own [`super::pebble_bed::PebbleBedPorousMediaNode`]
+    /// integrates implicitly at the plant timestep -- small, bounded
+    /// discretisation differences, not an energy-accounting gap.
+    #[test]
+    #[ignore]
+    fn kinetics_fuel_node_tracks_the_bed_node_after_a_scram() {
+        let mut plant = HtgrPlant::new();
+        let dt = plant_timestep();
+
+        let mut commands = PlantCommands::default();
+        commands.control_rod_insertion_fraction = 1.0; // full scram, held
+
+        let sim_minutes = 5.0;
+        let steps = (sim_minutes * 60.0 / PLANT_TIMESTEP_S) as usize;
+        let mut final_diff_k = 0.0;
+
+        for step in 0..=steps {
+            if step > 0 {
+                plant.step(dt, commands);
+            }
+            let diff_k = plant.kinetics.fuel_temperature().get::<kelvin>()
+                - plant.pebble_temperature().get::<kelvin>();
+            final_diff_k = diff_k;
+            if step % 300 == 0 {
+                // every 30 s
+                println!(
+                    "t={:>6.1} s  kinetics.fuel_temperature={:>8.3} K  \
+                     bed.pebble_temperature={:>8.3} K  diff={:>8.3} K  \
+                     core_heat_to_helium={:>10.1} W  decay_heat={:>10.1} W",
+                    step as f64 * PLANT_TIMESTEP_S,
+                    plant.kinetics.fuel_temperature().get::<kelvin>(),
+                    plant.pebble_temperature().get::<kelvin>(),
+                    diff_k,
+                    plant.core_heat_to_helium.get::<uom::si::power::watt>(),
+                    plant.kinetics.decay_heat_power().get::<uom::si::power::watt>(),
+                );
+            }
+        }
+
+        assert!(
+            (-5.0..=5.0).contains(&final_diff_k),
+            "kinetics.fuel_temperature diverged from bed.pebble_temperature by \
+             {final_diff_k:+.3} K after {sim_minutes} sim-minutes post-scram, outside the \
+             [-5, 5] K band the apply_decay_heat fix holds it in (measured +0.039 K on \
+             2026-08-17) -- something has reopened GitHub issue #22's energy-accounting gap. \
+             See this test's docs."
+        );
+    }
 }

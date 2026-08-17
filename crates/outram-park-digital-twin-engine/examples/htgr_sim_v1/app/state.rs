@@ -75,7 +75,33 @@ pub struct HtgrSnapshot {
     pub prompt_power_mw: f64,
     /// Delayed-neutron power increment `S*dt` added this step \[MW\].
     pub delayed_power_mw: f64,
-    /// Lumped fuel temperature \[K\].
+    /// Lumped fuel temperature \[K\] -- the kinetics model's own
+    /// reactivity-feedback node
+    /// ([`crate::physics::kinetics::HtgrKinetics::fuel_temperature`]), kept
+    /// separate from [`Self::bed_temperature_k`] by design (see that
+    /// method's doc comment on why the closed-form Nordheim-Fuchs node is not
+    /// overwritten by the bed's own temperature each step).
+    ///
+    /// **Prefer [`Self::bed_temperature_k`] for anything compared against a
+    /// helium temperature, or for colouring a "how hot is the core"
+    /// display.** This node is charged the same coolant heat-removal sink as
+    /// the bed; until 2026-08-17 it had no matching decay-heat source (see
+    /// [`crate::physics::kinetics::HtgrKinetics::apply_decay_heat`]), so
+    /// after a trip it drifted measurably below the bed's real temperature
+    /// (**-10.2 K by 300 s post-scram**, measured 2026-08-17). That
+    /// divergence, displayed by the schematic's "T_fuel" tag and
+    /// reactor-vessel colour instead of [`Self::bed_temperature_k`], was
+    /// GitHub issue #22's "totally wrong energy balance" symptom -- not a
+    /// violation in the underlying two-phase balance, which stayed correctly
+    /// ordered throughout (see
+    /// `physics::tests::reproduce_issue_22_scram_cooldown_energy_balance`).
+    /// Both the missing source term and the display wiring are now fixed:
+    /// this node tracks the bed within about +0.04 K through the same scram
+    /// (see `physics::tests::kinetics_fuel_node_tracks_the_bed_node_after_a_scram`),
+    /// but [`Self::bed_temperature_k`] remains the field to read for a
+    /// helium-temperature comparison -- this one is for inspecting the
+    /// reactivity-feedback path itself.
+    /// Use this field only to inspect the reactivity-feedback path itself.
     pub fuel_temperature_k: f64,
     /// Bed-average GRAPHITE temperature of the pebble bed \[K\].
     ///
@@ -290,6 +316,28 @@ pub struct HtgrSnapshot {
     /// that has quietly dropped to half speed while still reading "seconds" on
     /// its clock is misleading.
     pub behind_real_time: bool,
+
+    /// Operator request to run the plant clock faster than real time --
+    /// written by the GUI, read by the physics thread each tick.
+    ///
+    /// **What this does and does not change.** It never touches the plant
+    /// timestep ([`crate::physics::PLANT_TIMESTEP_S`], the one step size
+    /// every test and sub-model in this simulator is derived from -- see
+    /// that constant's doc comment on why a second, independent step size is
+    /// exactly the class of bug this workspace has been bitten by before).
+    /// What it changes is how many [`crate::physics::HtgrPlant::step`] calls
+    /// the physics thread makes, and how long it sleeps, between one publish
+    /// of [`HtgrSnapshot`] and the next -- see
+    /// `app::start_simulation`'s physics-thread closure. Same pattern as
+    /// `ciet_educational_simulator_v2`'s fast-forward checkbox
+    /// (`fast_forward_settings_turned_on`): a bool the GUI writes, the
+    /// physics thread reads once per tick, and a short floor sleep even
+    /// while set so the checkbox stays responsive to being switched off and
+    /// the physics thread never spins at 100% CPU uncontrolled.
+    ///
+    /// Defaults to `false` -- the simulator opens paced to real time, as it
+    /// always has.
+    pub fast_forward_enabled: bool,
 }
 
 impl Default for HtgrSnapshot {
@@ -385,6 +433,7 @@ impl Default for HtgrSnapshot {
             real_time_ratio: None,
             real_time_deficit_s: 0.0,
             behind_real_time: false,
+            fast_forward_enabled: false,
         }
     }
 }
@@ -399,8 +448,18 @@ pub struct HtgrPlotData {
     pub prompt_power_mw: Vec<[f64; 2]>,
     /// Delayed-layer power \[MW\] vs time \[s\].
     pub delayed_power_mw: Vec<[f64; 2]>,
-    /// Fuel temperature \[K\] vs time \[s\].
+    /// Fuel temperature \[K\] vs time \[s\] -- the kinetics reactivity-feedback
+    /// node ([`HtgrSnapshot::fuel_temperature_k`]), not the bed average. See
+    /// that field's doc comment: it can run well below
+    /// [`Self::bed_temperature_k`] after a trip, since it has no decay-heat
+    /// source. Kept for diagnosing the kinetics/reactivity-feedback path, not
+    /// for comparing against a helium temperature -- use
+    /// [`Self::bed_temperature_k`] for that.
     pub fuel_temperature_k: Vec<[f64; 2]>,
+    /// Bed-average pebble (graphite) temperature \[K\] vs time \[s\] -- the
+    /// quantity the helium temperatures must never exceed. See
+    /// [`HtgrSnapshot::bed_temperature_k`].
+    pub bed_temperature_k: Vec<[f64; 2]>,
     /// Core outlet helium temperature \[K\] vs time \[s\].
     pub core_outlet_temp_k: Vec<[f64; 2]>,
     /// Turbine power \[MW\] vs time \[s\].
@@ -418,6 +477,10 @@ impl HtgrPlotData {
         push_capped(
             &mut self.fuel_temperature_k,
             [t, snapshot.fuel_temperature_k],
+        );
+        push_capped(
+            &mut self.bed_temperature_k,
+            [t, snapshot.bed_temperature_k],
         );
         push_capped(
             &mut self.core_outlet_temp_k,

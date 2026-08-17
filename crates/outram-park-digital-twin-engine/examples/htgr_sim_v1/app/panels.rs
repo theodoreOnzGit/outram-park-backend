@@ -192,6 +192,37 @@ pub fn draw_controls(
     }
     ui.separator();
 
+    // Fast forward. Same UX pattern as `ciet_educational_simulator_v2`'s
+    // fast-forward checkbox (`fast_forward_settings_turned_on`): a bool the
+    // GUI writes, the physics thread reads once per tick -- see
+    // `HtgrSnapshot::fast_forward_enabled`'s doc comment for what the
+    // physics thread actually does with it and why it cannot freeze this
+    // panel (the physics thread is already separate from the GUI thread; a
+    // full plant timestep is still 0.1 s of simulated time regardless of
+    // speed, so accuracy is unaffected). The bed's own ~184 s thermal time
+    // constant is what makes a cooldown feel slow at 1:1 -- this is for
+    // skipping through that, not for changing what gets computed.
+    let mut fast_forward = snapshot.fast_forward_enabled;
+    if ui
+        .checkbox(&mut fast_forward, "Fast forward")
+        .on_hover_text(
+            "Runs the plant clock as fast as this core can compute it, instead of pacing to \
+             real time. Useful for skipping through an extended cooldown. Uses one full CPU \
+             core while on; does not skip or coarsen any physics step.",
+        )
+        .changed()
+    {
+        physics.update(|s| s.fast_forward_enabled = fast_forward);
+    }
+    if fast_forward {
+        let ratio_text = match snapshot.real_time_ratio {
+            Some(ratio) => format!("achieved {ratio:.2}x real time"),
+            None => "measuring...".to_string(),
+        };
+        ui.colored_label(egui::Color32::from_rgb(80, 160, 220), ratio_text);
+    }
+    ui.separator();
+
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
     let mut helium_flow = snapshot.helium_flow_setpoint_kg_per_s;
 
@@ -495,12 +526,16 @@ pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendU
         .height(240.0)
         .show(ui, |plot_ui| {
             plot_ui.line(Line::new(
-                format!("Fuel temp [{symbol}]"),
-                PlotPoints::from(in_display_unit(&plots.fuel_temperature_k, display_unit)),
+                format!("Bed (pebble) temp [{symbol}]"),
+                PlotPoints::from(in_display_unit(&plots.bed_temperature_k, display_unit)),
             ));
             plot_ui.line(Line::new(
                 format!("Core outlet He [{symbol}]"),
                 PlotPoints::from(in_display_unit(&plots.core_outlet_temp_k, display_unit)),
+            ));
+            plot_ui.line(Line::new(
+                format!("Fuel temp, reactivity node [{symbol}]"),
+                PlotPoints::from(in_display_unit(&plots.fuel_temperature_k, display_unit)),
             ));
         });
 }
@@ -566,7 +601,11 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
                 "Delayed increment (S*dt)",
                 format!("{:.3} MWth/step", s.delayed_power_mw),
             );
-            temperature_row(ui, "Fuel temperature", s.fuel_temperature_k);
+            temperature_row(
+                ui,
+                "Fuel temp (reactivity-feedback node)",
+                s.fuel_temperature_k,
+            );
             row(
                 ui,
                 "Reactivity margin",
@@ -587,6 +626,7 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             ui.label("Primary helium loop");
             ui.label("");
             ui.end_row();
+            temperature_row(ui, "Bed (pebble) temp", s.bed_temperature_k);
             temperature_row(ui, "Core inlet temp", s.core_inlet_temp_k);
             temperature_row(ui, "Core outlet temp", s.core_outlet_temp_k);
             row(

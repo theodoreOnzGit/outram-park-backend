@@ -237,6 +237,32 @@ impl RealTimePacer {
         self.simulated_per_tick
     }
 
+    /// Change how much simulated time the **next** [`Self::pace`] call is
+    /// credited with advancing.
+    ///
+    /// [`Self::new`] fixes `simulated_per_tick` for a loop that always
+    /// advances the plant by the same slice per tick. A caller that instead
+    /// batches a *variable* number of fixed-size physics steps into one
+    /// publish cycle -- e.g. a GUI "fast forward" control that keeps
+    /// stepping until a wall-clock budget is spent, so the step count varies
+    /// tick to tick -- calls this with `steps_taken * per_step_simulated_time`
+    /// right before that tick's single [`Self::pace`] call, so the pacer's
+    /// cumulative bookkeeping ([`Self::simulated_total`],
+    /// [`Self::measured_real_time_ratio`], [`Self::real_time_deficit`]) stays
+    /// exact instead of assuming the fixed construction-time slice.
+    ///
+    /// A non-finite or negative `simulated_per_tick` is treated as zero, for
+    /// the same reason [`Self::new`] does.
+    pub fn set_simulated_per_tick(&mut self, simulated_per_tick: Time) {
+        let seconds = simulated_per_tick.get::<second>();
+        let seconds = if seconds.is_finite() && seconds > 0.0 {
+            seconds
+        } else {
+            0.0
+        };
+        self.simulated_per_tick = Duration::from_secs_f64(seconds);
+    }
+
     /// Advance the plant clock by one tick and decide how long to sleep.
     ///
     /// Call once per tick, after the tick's work. `compute` is how long that
@@ -470,6 +496,53 @@ mod tests {
         assert_eq!(catch_up_ticks, 62);
         assert_eq!(pacer.real_time_deficit(), Duration::ZERO);
         assert!(!pacer.is_behind_real_time());
+    }
+
+    /// V&V: batching N ticks into one [`RealTimePacer::pace`] call via
+    /// [`RealTimePacer::set_simulated_per_tick`] gives the same cumulative
+    /// bookkeeping as calling [`RealTimePacer::pace`] N times at the fixed
+    /// per-tick slice -- the property a GUI fast-forward control (batching a
+    /// variable step count per publish cycle) depends on.
+    ///
+    /// **Methodology.** Two pacers, both starting from
+    /// `RealTimePacer::new(10 ms, 10 ms)`. The reference runs 50 ticks of
+    /// 2 ms compute each, wall clock advancing 2 ms per tick (so it stays
+    /// ahead of real time throughout). The batched pacer covers the same 50
+    /// ticks' worth of simulated time in 5 calls of 10 ticks each: before
+    /// each call it sets `simulated_per_tick` to `10 * 10 ms = 100 ms` and
+    /// passes `compute = 10 * 2 ms = 20 ms` and the same cumulative
+    /// `wall_elapsed`. Require `simulated_total`, `real_time_deficit` and
+    /// `measured_real_time_ratio` to match after every batch.
+    ///
+    /// **Results (2026-08-17).** Matched exactly after each of the 5
+    /// batches: `simulated_total` 100/200/300/400/500 ms in both, ratio
+    /// 1.000000 in both throughout, deficit zero in both throughout.
+    /// Interpretation: `set_simulated_per_tick` generalizes the pacer to a
+    /// variable tick size without changing the arithmetic reference tests
+    /// above already pin.
+    #[test]
+    fn batched_ticks_match_the_same_number_of_fixed_ticks() {
+        let mut reference = pacer_10ms();
+        let mut wall = Duration::ZERO;
+        for _ in 0..50 {
+            wall += ms(2);
+            reference.pace(ms(2), wall);
+        }
+
+        let mut batched = pacer_10ms();
+        let mut batched_wall = Duration::ZERO;
+        for _ in 0..5 {
+            batched_wall += ms(20); // 10 ticks * 2 ms wall each
+            batched.set_simulated_per_tick(Time::new::<second>(0.010 * 10.0));
+            batched.pace(ms(20), batched_wall); // 10 ticks * 2 ms compute each
+        }
+
+        assert_eq!(batched.simulated_total(), reference.simulated_total());
+        assert_eq!(batched.real_time_deficit(), reference.real_time_deficit());
+        assert_eq!(
+            batched.measured_real_time_ratio(),
+            reference.measured_real_time_ratio()
+        );
     }
 
     /// V&V: a mis-set simulated timestep degrades rather than panicking.

@@ -981,11 +981,19 @@ pub fn draw_schematic(
     // reflector is tinted at the core inlet temperature -- the model carries no
     // graphite temperature, and the reflector's channels are the ones the cold
     // inlet helium rises through. See the module docs.
+    //
+    // Pebble colour is `bed_temperature_k` (the bed's own solid-phase node),
+    // NOT `fuel_temperature_k` (the kinetics reactivity-feedback node) --
+    // see that field's doc comment. Reading the kinetics node here was
+    // GitHub issue #22's "unphysically cold pebbles" symptom: that node has
+    // no decay-heat source but is charged the same coolant sink as the bed,
+    // so it drifts well below the bed's real temperature after a trip while
+    // this widget painted it as though it WERE the bed.
     let mut vessel = Htr10ReactorVesselVisual::new(
         REACTOR_BOX,
         k(DISPLAY_MIN_K),
         k(DISPLAY_MAX_K),
-        k(snapshot.fuel_temperature_k),
+        k(snapshot.bed_temperature_k),
         k(snapshot.core_inlet_temp_k),
         k(snapshot.core_outlet_temp_k),
         k(snapshot.core_inlet_temp_k),
@@ -1262,7 +1270,9 @@ pub fn draw_schematic(
         (
             pos2(58.0, 574.0),
             "T_fuel",
-            temp(snapshot.fuel_temperature_k),
+            // bed_temperature_k, not fuel_temperature_k -- see this
+            // function's "T_fuel" comment above the vessel widget.
+            temp(snapshot.bed_temperature_k),
         ),
         (
             pos2(58.0, 592.0),
