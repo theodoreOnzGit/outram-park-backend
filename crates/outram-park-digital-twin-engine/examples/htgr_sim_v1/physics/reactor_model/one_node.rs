@@ -459,6 +459,14 @@ pub struct PebbleBedCore {
     /// Overall coefficient actually used on the most recent step (after the
     /// flow scaling).
     overall_htc: HeatTransfer,
+    /// Helium gas volume in the void space between packed pebbles, from the
+    /// R-Z benchmark geometry's zone 99 (critical-loading pebble bed,
+    /// 123.06 cm tall) times the published bed porosity -- see
+    /// [`super::htr10_rz_geometry::pebble_bed_helium_volume`] for the
+    /// derivation and its NOT-VALIDATED caveat. Fixed at construction: this
+    /// is a geometric property of the benchmark core, not plant state, so it
+    /// does not change across [`Self::step`].
+    pebble_bed_helium_volume: Volume,
 }
 
 impl PebbleBedCore {
@@ -484,7 +492,16 @@ impl PebbleBedCore {
             overall_htc: HeatTransfer::new::<watt_per_square_meter_kelvin>(
                 LEGACY_LUMPED_HTC_W_PER_M2_K,
             ),
+            pebble_bed_helium_volume: super::htr10_rz_geometry::pebble_bed_helium_volume(),
         }
+    }
+
+    /// Helium gas volume in the void space between packed pebbles. See the
+    /// field doc comment for the geometric basis and
+    /// [`super::htr10_rz_geometry`]'s module doc comment for the
+    /// NOT-VALIDATED caveat this number inherits.
+    pub fn pebble_bed_helium_volume(&self) -> Volume {
+        self.pebble_bed_helium_volume
     }
 
     /// Advance the bed by `dt` and return the heat rate handed to the helium.

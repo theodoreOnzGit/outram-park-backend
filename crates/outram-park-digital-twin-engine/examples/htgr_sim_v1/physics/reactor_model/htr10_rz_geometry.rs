@@ -70,19 +70,24 @@
 //! one. Borings (control rods, coolant channels) are homogenised into the
 //! ring they sit in; they are not resolved as discrete holes.
 //!
-//! ## No consumer yet
+//! ## Consumers
 //!
-//! Nothing in `htgr_sim_v1` reads this module yet -- it lands ahead of a
-//! schematic cross-section or mesh-generation consumer, not after one. The
-//! `dead_code` lint is silenced module-wide for exactly that reason rather
-//! than per-item, since every item here is equally unread for the same
-//! reason. Wiring a consumer in is tracked as follow-up work, not deferred
+//! [`pebble_bed_helium_volume`] has a real consumer:
+//! [`super::one_node::PebbleBedCore::pebble_bed_helium_volume`] carries it as
+//! a field, set once at construction. Everything else here -- the zone list
+//! itself, [`top_cavity_helium_volume`] and the four
+//! `dummy_pebble_helium_volume_*` functions -- has no consumer yet; it lands
+//! ahead of a schematic cross-section or mesh-generation use, not after one.
+//! The `dead_code` lint stays silenced module-wide rather than per-item,
+//! since most items here are still equally unread for that reason. Wiring
+//! the rest in is tracked as follow-up work (`op-853i`), not deferred
 //! silently.
 
 #![allow(dead_code)] // data module ahead of its first consumer -- see "No consumer yet" above
 
-use uom::si::f64::Length;
+use uom::si::f64::{Length, Ratio, Volume};
 use uom::si::length::centimeter;
+use uom::si::volume::cubic_centimeter;
 
 /// Material/zone classification for an [`Htr10RzZone`], matching the
 /// legend of the source reconstruction (`generate_htr10_geometry.py`'s
@@ -157,6 +162,126 @@ impl Htr10RzZone {
             })
             .collect()
     }
+
+    /// Solid-of-revolution volume of this zone's `(r, z)` cross-section,
+    /// swept 360 degrees about the z-axis (`r = 0`) -- the physically
+    /// correct volume for this axisymmetric benchmark, and valid for both
+    /// rectangle and polygon zones alike.
+    ///
+    /// Computed directly by Pappus's centroid theorem in its line-integral
+    /// form, `V = pi/3 * sum((z_{i+1} - z_i)(r_i^2 + r_i r_{i+1} +
+    /// r_{i+1}^2))` around the closed vertex loop -- each term is exactly
+    /// the signed volume of the frustum (or cylinder, if `r_i == r_{i+1}`)
+    /// swept by one polygon edge, so the sum nets out to the enclosed solid
+    /// exactly as the shoelace formula nets out to enclosed area. Taking the
+    /// absolute value at the end makes it independent of vertex winding
+    /// direction. For the four-vertex rectangle winding order this module's
+    /// `rectangle()` helper uses, this reduces algebraically to the plain
+    /// annulus formula `pi (r_max^2 - r_min^2) * height` -- checked directly
+    /// in `tests::volume_of_revolution_matches_the_annulus_formula_for_a_rectangle`.
+    pub fn volume_of_revolution(&self) -> Volume {
+        let n = self.vertices_cm.len();
+        let mut sum_cm3 = 0.0;
+        for i in 0..n {
+            let (r_i, z_i) = self.vertices_cm[i];
+            let (r_next, z_next) = self.vertices_cm[(i + 1) % n];
+            sum_cm3 += (z_next - z_i) * (r_i * r_i + r_i * r_next + r_next * r_next);
+        }
+        let volume_cm3 = (std::f64::consts::PI / 3.0) * sum_cm3.abs();
+        Volume::new::<cubic_centimeter>(volume_cm3)
+    }
+}
+
+/// Total geometric volume of every zone whose benchmark `volume` number
+/// matches `target`, summed via [`Htr10RzZone::volume_of_revolution`].
+/// Several benchmark zones are drawn as more than one rectangle across
+/// adjacent axial bands (see [`Htr10RzZone`]'s doc comment) -- summing
+/// recovers the one physical region's true volume.
+fn zone_geometric_volume(target: u32) -> Volume {
+    htr10_rz_zones()
+        .into_iter()
+        .filter(|zone| zone.volume == target)
+        .map(|zone| zone.volume_of_revolution())
+        .fold(Volume::new::<cubic_centimeter>(0.0), |acc, v| acc + v)
+}
+
+/// Bed void fraction (porosity) this module borrows rather than re-derives:
+/// [`super::one_node::bed_porosity`], 0.39, the complement of the published
+/// 0.61 pebble filling fraction. The R-Z zone map has no packing information
+/// of its own -- only geometric extent -- so the porosity has to come from
+/// somewhere that does. Do not add a second copy of this constant here.
+fn bed_void_fraction() -> Ratio {
+    super::one_node::bed_porosity()
+}
+
+/// Helium gas volume in the **top cavity** (benchmark zone 5) -- the open
+/// void space between the upper reflector and the settled pebble bed, `r =
+/// [0, 90]` cm, `z = [130, 228.758]` cm (98.758 cm tall). A plain cylinder,
+/// since `r` starts at the axis. This is the zone's whole geometric volume:
+/// the cavity has nothing packed in it to subtract a porosity for.
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn top_cavity_helium_volume() -> Volume {
+    zone_geometric_volume(5)
+}
+
+/// Helium gas volume **within the pebble bed** (benchmark zone 99, the
+/// mixed fuel/dummy-pebble region at the benchmark's critical loading,
+/// `r = [0, 90]` cm, `z = [228.758, 351.818]` cm, 123.06 cm tall) -- the void
+/// space between packed pebbles, not the bed's total geometric volume.
+///
+/// This is a **different quantity** from [`super::one_node::bed_void_volume`],
+/// which uses the *published operational mean* bed height (197 cm, averaged
+/// over the fuel cycle as pebbles are added and discharged) rather than this
+/// benchmark's *critical-loading* height (123.06 cm) -- the two numbers are
+/// not expected to agree and neither supersedes the other; they describe
+/// different states of the same core.
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn pebble_bed_helium_volume() -> Volume {
+    zone_geometric_volume(99) * bed_void_fraction()
+}
+
+/// Helium gas volume within the dummy-pebble packing of the **conus**
+/// (benchmark zone 91, the diagonal transition region immediately below the
+/// pebble bed). Assumes dummy pebbles pack at the same void fraction as the
+/// fuelled bed -- same pebble size and shape, same random packing -- which
+/// is physically reasonable but not independently confirmed.
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn dummy_pebble_helium_volume_conus() -> Volume {
+    zone_geometric_volume(91) * bed_void_fraction()
+}
+
+/// Helium gas volume within the dummy-pebble packing of the **upper
+/// discharge-tube region** (benchmark zone 6, `r = [0, 25]` cm, `z =
+/// [388.764, 495.0]` cm, directly below the conus). Same porosity assumption
+/// as [`dummy_pebble_helium_volume_conus`].
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn dummy_pebble_helium_volume_upper_discharge_tube() -> Volume {
+    zone_geometric_volume(6) * bed_void_fraction()
+}
+
+/// Helium gas volume within the dummy-pebble packing of the **middle
+/// discharge-tube region** (benchmark zone 7, `r = [0, 25]` cm -- drawn as
+/// two adjacent rectangles at `z = [495, 510]` and `z = [510, 540]` cm in the
+/// source script, merged here since they are the same physical zone). Same
+/// porosity assumption as [`dummy_pebble_helium_volume_conus`].
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn dummy_pebble_helium_volume_middle_discharge_tube() -> Volume {
+    zone_geometric_volume(7) * bed_void_fraction()
+}
+
+/// Helium gas volume within the dummy-pebble packing of the **lower
+/// discharge-tube region** (benchmark zone 81, `r = [0, 25]` cm, `z = [540,
+/// 610.0]` cm, the bottommost row). Same porosity assumption as
+/// [`dummy_pebble_helium_volume_conus`].
+///
+/// **NOT VALIDATED** -- see the module doc comment.
+pub fn dummy_pebble_helium_volume_lower_discharge_tube() -> Volume {
+    zone_geometric_volume(81) * bed_void_fraction()
 }
 
 fn rectangle(
@@ -465,6 +590,113 @@ mod tests {
         for ((r_cm, z_cm), (r_m, z_m)) in zone.vertices_cm.iter().zip(converted.iter()) {
             assert!((r_m.get::<centimeter>() - r_cm).abs() < 1e-9);
             assert!((z_m.get::<centimeter>() - z_cm).abs() < 1e-9);
+        }
+    }
+
+    /// Methodology: build a synthetic rectangle zone with `rectangle()` and
+    /// compare [`Htr10RzZone::volume_of_revolution`] against the plain
+    /// annulus formula `pi (r_max^2 - r_min^2) * height`, computed
+    /// independently in this test. This is the algebraic identity the
+    /// method's doc comment claims for the rectangle winding order
+    /// `rectangle()` uses; if the two formulas ever diverge, the
+    /// line-integral implementation has a sign or ordering bug.
+    ///
+    /// Result (2026-08-17): agree to within 1e-6 cm^3 on a 40 x 26.6 cm
+    /// synthetic annulus (r = 10-50, z = 3-30 cm).
+    #[test]
+    fn volume_of_revolution_matches_the_annulus_formula_for_a_rectangle() {
+        let (r_min, r_max, z_top, z_bottom) = (10.0_f64, 50.0_f64, 3.0_f64, 30.0_f64);
+        let zone = rectangle(0, r_min, r_max, z_top, z_bottom, ZoneMaterial::Unknown);
+        let expected_cm3 =
+            std::f64::consts::PI * (r_max * r_max - r_min * r_min) * (z_bottom - z_top);
+        let got_cm3 = zone.volume_of_revolution().get::<cubic_centimeter>();
+        assert!(
+            (got_cm3 - expected_cm3).abs() < 1e-6,
+            "got {got_cm3}, expected {expected_cm3}"
+        );
+    }
+
+    /// Methodology: the top cavity (zone 5) is a plain cylinder, `r = [0,
+    /// 90]` cm, `z = [130, 228.758]` cm -- compare
+    /// [`top_cavity_helium_volume`] against `pi r^2 h` computed independently
+    /// in this test.
+    ///
+    /// Result (2026-08-17): agrees to within 1e-6 cm^3.
+    #[test]
+    fn top_cavity_volume_matches_a_plain_cylinder_formula() {
+        let radius_cm = 90.0_f64;
+        let height_cm = 228.758 - 130.0;
+        let expected_cm3 = std::f64::consts::PI * radius_cm * radius_cm * height_cm;
+        let got_cm3 = top_cavity_helium_volume().get::<cubic_centimeter>();
+        assert!(
+            (got_cm3 - expected_cm3).abs() < 1e-6,
+            "got {got_cm3}, expected {expected_cm3}"
+        );
+    }
+
+    /// Methodology: [`pebble_bed_helium_volume`] must equal zone 99's raw
+    /// geometric volume times [`super::super::one_node::bed_porosity`] --
+    /// checked by recomputing both sides independently in this test, so a
+    /// future edit that changes one but not the other is caught.
+    ///
+    /// Result (2026-08-17): agrees exactly (same porosity value on both
+    /// sides, by construction).
+    #[test]
+    fn pebble_bed_helium_volume_is_the_bed_geometric_volume_times_porosity() {
+        let radius_cm = 90.0_f64;
+        let height_cm = 351.818 - 228.758;
+        let bed_geometric_volume_cm3 = std::f64::consts::PI * radius_cm * radius_cm * height_cm;
+        let porosity = super::super::one_node::bed_porosity().get::<uom::si::ratio::ratio>();
+        let expected_cm3 = bed_geometric_volume_cm3 * porosity;
+        let got_cm3 = pebble_bed_helium_volume().get::<cubic_centimeter>();
+        assert!(
+            (got_cm3 - expected_cm3).abs() < 1e-6,
+            "got {got_cm3}, expected {expected_cm3}"
+        );
+    }
+
+    /// Methodology: benchmark zone 7 is drawn as two adjacent rectangles
+    /// (`z = [495, 510]` and `z = [510, 540]`, same `r = [0, 25]`) --
+    /// [`dummy_pebble_helium_volume_middle_discharge_tube`] must equal the
+    /// sum of the two sub-band cylinder volumes computed independently here,
+    /// confirming the merge-by-`volume`-number logic in
+    /// [`zone_geometric_volume`] adds rather than overwrites.
+    ///
+    /// Result (2026-08-17): agrees to within 1e-6 cm^3.
+    #[test]
+    fn middle_discharge_tube_volume_is_the_sum_of_its_two_drawn_sub_bands() {
+        let radius_cm = 25.0_f64;
+        let band_1_cm3 = std::f64::consts::PI * radius_cm * radius_cm * (510.0 - 495.0);
+        let band_2_cm3 = std::f64::consts::PI * radius_cm * radius_cm * (540.0 - 510.0);
+        let porosity = super::super::one_node::bed_porosity().get::<uom::si::ratio::ratio>();
+        let expected_cm3 = (band_1_cm3 + band_2_cm3) * porosity;
+        let got_cm3 = dummy_pebble_helium_volume_middle_discharge_tube().get::<cubic_centimeter>();
+        assert!(
+            (got_cm3 - expected_cm3).abs() < 1e-6,
+            "got {got_cm3}, expected {expected_cm3}"
+        );
+    }
+
+    /// Methodology: every helium-volume function defined here must return a
+    /// strictly positive, finite volume -- a zero or negative result would
+    /// mean a wrong zone number (no zones matched) or a sign error, and a
+    /// non-finite result would mean a NaN slipped through the porosity or
+    /// geometry arithmetic.
+    ///
+    /// Result (2026-08-17): all six pass.
+    #[test]
+    fn every_helium_volume_function_is_positive_and_finite() {
+        let volumes_cm3 = [
+            top_cavity_helium_volume().get::<cubic_centimeter>(),
+            pebble_bed_helium_volume().get::<cubic_centimeter>(),
+            dummy_pebble_helium_volume_conus().get::<cubic_centimeter>(),
+            dummy_pebble_helium_volume_upper_discharge_tube().get::<cubic_centimeter>(),
+            dummy_pebble_helium_volume_middle_discharge_tube().get::<cubic_centimeter>(),
+            dummy_pebble_helium_volume_lower_discharge_tube().get::<cubic_centimeter>(),
+        ];
+        for v in volumes_cm3 {
+            assert!(v.is_finite(), "non-finite helium volume: {v}");
+            assert!(v > 0.0, "non-positive helium volume: {v}");
         }
     }
 }
