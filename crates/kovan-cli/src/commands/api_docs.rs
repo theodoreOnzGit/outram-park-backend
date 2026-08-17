@@ -1,4 +1,4 @@
-//! `kovan api-docs` — regenerate a crate's `docs/api.md`, the committed
+//! `kovan api-docs` — regenerate a crate's `docs/<crate>-api.md`, the committed
 //! markdown mirror of its public API.
 //!
 //! A Rust port of `scripts/gen_api_docs.py`, which it **replaces** (retired
@@ -6,8 +6,21 @@
 //!
 //! ```text
 //! cargo +nightly doc --output-format json  ->  target/doc/<crate>.json
-//!                        rustdoc-md        ->  crates/<crate>/docs/api.md
+//!                        rustdoc-md        ->  crates/<crate>/docs/<crate>-api.md
 //! ```
+//!
+//! # Filename: `<crate>-api.md`, not `api.md`
+//!
+//! Named after its own crate directory (2026-08-17 onward) rather than the bare
+//! `api.md` every crate used to write. Two problems that name had: a reader with
+//! several of these files open in an editor or a bundle sees N identically-named
+//! tabs, and nothing stopped a crate from acquiring a *second*, differently-named
+//! mirror by accident — `njoy-outram-park-fork` had carried both `docs/api.md`
+//! and `docs/njoy-api.md`, byte-identical, since 2026-08-14, doubling that
+//! crate's published package for no reason anyone meant. `<crate>-api.md` is
+//! self-describing out of context and only one name is ever right for a given
+//! crate directory, so a second copy cannot arise without the mismatch being
+//! visible in the filename itself.
 //!
 //! # Why the Python went
 //!
@@ -49,7 +62,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Regenerate `crates/<crate_dir>/docs/api.md`.
+/// Regenerate `crates/<crate_dir>/docs/<crate_dir>-api.md`.
 ///
 /// `workspace_root` is the directory containing `crates/`. `crate_dir` is the
 /// **directory name** under `crates/` (e.g. `outram-foam-basic-lib`), which may
@@ -128,7 +141,7 @@ pub fn generate(workspace_root: &Path, crate_dir: &str, private: bool) -> io::Re
 
     let out_dir = crate_path.join("docs");
     std::fs::create_dir_all(&out_dir)?;
-    let out_path = out_dir.join("api.md");
+    let out_path = out_dir.join(format!("{crate_dir}-api.md"));
 
     let status = Command::new("rustdoc-md")
         .arg("--path")
@@ -234,7 +247,7 @@ fn ensure_rustdoc_md() -> io::Result<()> {
 /// Which crates a run covers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
-    /// Refresh only crates that already have a `docs/api.md`.
+    /// Refresh only crates that already have a `docs/<crate>-api.md`.
     ///
     /// The default for `--all`, and what "regenerate the suite" normally means:
     /// bring the committed mirrors back in step with the code, without
@@ -256,7 +269,7 @@ fn crates_in_scope(workspace_root: &Path, scope: Scope) -> io::Result<Vec<String
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
-        if scope == Scope::Existing && !path.join("docs").join("api.md").is_file() {
+        if scope == Scope::Existing && !path.join("docs").join(format!("{name}-api.md")).is_file() {
             continue;
         }
         names.push(name.to_string());
@@ -388,5 +401,44 @@ mod tests {
         // Already-correct text is untouched, so re-running is safe.
         let correct = "fn f(x: &'a str)";
         assert_eq!(correct.replace("&''", "&'"), correct);
+    }
+
+    /// `crates_in_scope(Existing)` must look for `<name>-api.md`, not the old
+    /// bare `api.md` -- a crate carrying only the pre-2026-08-17 filename should
+    /// no longer register as "already documented" (it needs a fresh
+    /// regeneration to pick up the new name once).
+    #[test]
+    fn scope_existing_looks_for_the_crate_named_mirror() {
+        let tmp = tempfile::tempdir().unwrap();
+        let crates_dir = tmp.path().join("crates");
+
+        // `zed-crate` has the new-convention mirror.
+        let zed_docs = crates_dir.join("zed-crate").join("docs");
+        std::fs::create_dir_all(&zed_docs).unwrap();
+        std::fs::write(
+            crates_dir.join("zed-crate").join("Cargo.toml"),
+            "[package]\nname = \"zed-crate\"\n",
+        )
+        .unwrap();
+        std::fs::write(zed_docs.join("zed-crate-api.md"), "# stub\n").unwrap();
+
+        // `alpha-crate` has only the old bare filename -- must not count.
+        let alpha_docs = crates_dir.join("alpha-crate").join("docs");
+        std::fs::create_dir_all(&alpha_docs).unwrap();
+        std::fs::write(
+            crates_dir.join("alpha-crate").join("Cargo.toml"),
+            "[package]\nname = \"alpha-crate\"\n",
+        )
+        .unwrap();
+        std::fs::write(alpha_docs.join("api.md"), "# stub\n").unwrap();
+
+        let existing = crates_in_scope(tmp.path(), Scope::Existing).unwrap();
+        assert_eq!(existing, vec!["zed-crate".to_string()]);
+
+        let all = crates_in_scope(tmp.path(), Scope::All).unwrap();
+        assert_eq!(
+            all,
+            vec!["alpha-crate".to_string(), "zed-crate".to_string()]
+        );
     }
 }

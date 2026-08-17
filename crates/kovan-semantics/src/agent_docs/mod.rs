@@ -13,10 +13,10 @@
 //!    one file per crate, no subdirectories. [`write_bundle`] will not create
 //!    one.
 //! 2. **The corpus is far larger than the budget.** The thirteen
-//!    `crates/<crate>/docs/api.md` mirrors totalled 5,154,447 bytes when this
-//!    module was written — roughly 1.29 M estimated tokens against a typical
-//!    200 k window, and the largest single crate exceeds that window on its
-//!    own. Copying everything is not a design that can work.
+//!    `crates/<crate>/docs/<crate>-api.md` mirrors totalled 5,154,447 bytes when
+//!    this module was written — roughly 1.29 M estimated tokens against a
+//!    typical 200 k window, and the largest single crate exceeds that window on
+//!    its own. Copying everything is not a design that can work.
 //!
 //! # The shape of the answer
 //!
@@ -29,9 +29,10 @@
 //!   has a mirror, so the agent has a map of the whole workspace even when it
 //!   has been given the full text of only a few crates (see [`condense`]).
 //!
-//! and then the **verbatim** `api.md` of each crate the caller selected. The
-//! index is what stops the agent inventing APIs for crates it was not given;
-//! the verbatim files are what let it write correct code for the ones it was.
+//! and then the **verbatim** `<crate>-api.md` of each crate the caller selected.
+//! The index is what stops the agent inventing APIs for crates it was not
+//! given; the verbatim files are what let it write correct code for the ones
+//! it was.
 //!
 //! # Determinism
 //!
@@ -92,9 +93,10 @@ pub struct CrateEntry {
     /// The `[package] name` from the crate's `Cargo.toml`, e.g.
     /// `outram_foam_basic_lib` may differ from the directory name.
     pub package: String,
-    /// Path to `docs/api.md`, relative to the workspace root, if it exists.
+    /// Path to `docs/<directory>-api.md`, relative to the workspace root, if it
+    /// exists.
     pub api_md: Option<PathBuf>,
-    /// Size of `docs/api.md` in bytes, or `0` when absent.
+    /// Size of `docs/<directory>-api.md` in bytes, or `0` when absent.
     pub api_bytes: u64,
 }
 
@@ -151,7 +153,8 @@ pub fn inventory(workspace_root: &Path) -> io::Result<Vec<CrateEntry>> {
         let package =
             package_name(&fs::read_to_string(&manifest)?).unwrap_or_else(|| directory.to_string());
 
-        let api_path = path.join("docs").join("api.md");
+        let mirror_filename = format!("{directory}-api.md");
+        let api_path = path.join("docs").join(&mirror_filename);
         let (api_md, api_bytes) = if api_path.is_file() {
             let bytes = fs::metadata(&api_path)?.len();
             (
@@ -159,7 +162,7 @@ pub fn inventory(workspace_root: &Path) -> io::Result<Vec<CrateEntry>> {
                     PathBuf::from("crates")
                         .join(directory)
                         .join("docs")
-                        .join("api.md"),
+                        .join(&mirror_filename),
                 ),
                 bytes,
             )
@@ -216,12 +219,12 @@ fn package_name(manifest: &str) -> Option<String> {
 pub struct BundleReport {
     /// Bundle filename → size in bytes, ordered by filename.
     pub files: BTreeMap<String, u64>,
-    /// Crates whose full `api.md` was copied, by directory name.
+    /// Crates whose full `<crate>-api.md` was copied, by directory name.
     pub included: Vec<String>,
     /// Crates that got a condensed `<crate>.index.md`, by directory name.
     pub indexed: Vec<String>,
-    /// Crates that have **no** `docs/api.md` and so appear nowhere in the
-    /// bundle, by directory name. Named in `AGENTS.md` so the agent is told
+    /// Crates that have **no** `docs/<crate>-api.md` and so appear nowhere in
+    /// the bundle, by directory name. Named in `AGENTS.md` so the agent is told
     /// what it has not been shown.
     pub missing_api_docs: Vec<String>,
 }
@@ -237,7 +240,7 @@ impl BundleReport {
     }
 
     /// Bytes of the **core upload set** — `AGENTS.md`, `_INDEX.md`, and the full
-    /// `api.md` of every selected crate.
+    /// `<crate>-api.md` of every selected crate.
     ///
     /// This is what the budget is checked against, because it is what a reader
     /// uploads every time. The optional `<crate>.index.md` files are then added
@@ -286,7 +289,7 @@ impl BundleReport {
 
 /// Write the flat bundle into `out_dir`, replacing anything already there.
 ///
-/// `selected` names the crate directories whose `api.md` is copied verbatim;
+/// `selected` names the crate directories whose `<crate>-api.md` is copied verbatim;
 /// crates outside it still appear in `_INDEX.md`. A name in `selected` that
 /// matches no crate, or matches one with no mirror, is simply not copied — the
 /// caller is expected to have validated the selection and to report on it.
@@ -329,7 +332,7 @@ pub fn write_bundle(
     // for every crate that has a mirror -- they are separate files, so the
     // reader chooses at upload time which to spend budget on.
     for entry in entries {
-        // A crate whose FULL api.md is in the bundle does not also need a
+        // A crate whose FULL <crate>-api.md is in the bundle does not also need a
         // condensed index of itself -- that would be paying twice for the same
         // crate out of one budget.
         if selected.iter().any(|s| s == &entry.directory) {
@@ -377,7 +380,7 @@ mod tests {
     use super::*;
 
     /// A synthetic two-crate workspace, so the tests do not depend on the real
-    /// `crates/` tree (which changes, and whose api.md files are megabytes).
+    /// `crates/` tree (which changes, and whose <crate>-api.md files are megabytes).
     fn fixture(root: &Path) {
         let with_docs = root.join("crates").join("zed-crate").join("docs");
         fs::create_dir_all(&with_docs).unwrap();
@@ -387,7 +390,7 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            with_docs.join("api.md"),
+            with_docs.join("zed-crate-api.md"),
             "# Module `alpha`\n\nDoes the alpha thing.\n\n```rust\npub fn alpha() -> f64 { /* ... */ }\n```\n",
         )
         .unwrap();

@@ -39,7 +39,7 @@ const DEFAULT_BUDGET_TOKENS: u64 = 200_000;
 ///
 /// `workspace_root` is the directory containing `crates/`; `out_dir` is where
 /// the flat bundle is written (cleared of `*.md` first). `selected` names the
-/// crate directories whose `api.md` is copied in full — every crate with a
+/// crate directories whose `<crate>-api.md` is copied in full — every crate with a
 /// mirror still appears in the condensed `_INDEX.md` regardless.
 ///
 /// Prints a per-file table with byte sizes and estimated tokens, a running
@@ -154,7 +154,7 @@ pub fn run(
     if !report.missing_api_docs.is_empty() {
         println!();
         println!(
-            "{} crates have no docs/api.md and appear nowhere in the bundle:",
+            "{} crates have no docs/<crate>-api.md and appear nowhere in the bundle:",
             report.missing_api_docs.len()
         );
         for name in &report.missing_api_docs {
@@ -227,7 +227,7 @@ fn validate_exists(entries: &[CrateEntry], selected: &[String]) -> io::Result<()
     Ok(())
 }
 
-/// Reject a selection naming a crate that still has no `docs/api.md`.
+/// Reject a selection naming a crate that still has no `docs/<crate>-api.md`.
 ///
 /// # Why this is separate from [`validate_exists`]
 ///
@@ -248,7 +248,7 @@ fn validate_documented(entries: &[CrateEntry], selected: &[String]) -> io::Resul
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!(
-                    "crate `{name}` has no docs/api.md -- generate it with \
+                    "crate `{name}` has no docs/<crate>-api.md -- generate it with \
                      `--regenerate-missing` (needs a nightly toolchain and \
                      rustdoc-md), or drop it from --crates"
                 ),
@@ -258,7 +258,7 @@ fn validate_documented(entries: &[CrateEntry], selected: &[String]) -> io::Resul
     Ok(())
 }
 
-/// Generate `docs/api.md` for selected crates that lack one.
+/// Generate `docs/<crate>-api.md` for selected crates that lack one.
 ///
 /// **Not offline and not deterministic** — see this module's header. Restricted
 /// to the crates named in `selected`, not every crate missing a mirror:
@@ -280,7 +280,7 @@ fn regenerate(
         if entry.has_api_docs() {
             continue;
         }
-        println!("regenerating docs/api.md for {name} (nightly rustdoc + rustdoc-md)...");
+        println!("regenerating docs/{name}-api.md for {name} (nightly rustdoc + rustdoc-md)...");
         let path = super::api_docs::generate(workspace_root, name, false)?;
         println!("  wrote {}", path.display());
     }

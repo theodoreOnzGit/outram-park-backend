@@ -61,9 +61,12 @@ secondary loop.
 >   as saying graphite coherent/incoherent-elastic scattering "is deliberately
 >   not wired here yet". **That text is no longer at those lines**; the module
 >   now documents all three ENDF MF=7 channels including coherent elastic for
->   graphite (commit `67ebcd6ca5`, 2026-08-11). The same retracted sentence
->   survives in the generated mirror `crates/outram-mc-libs/docs/api.md:7704`,
->   which needs `kovan api-docs outram-mc-libs`.
+>   graphite (commit `67ebcd6ca5`, 2026-08-11). The retracted sentence had
+>   also survived in the generated mirror,
+>   `crates/outram-mc-libs/docs/api.md:7704` (that file has since been renamed
+>   `outram-mc-libs-api.md`) — **resolved 2026-08-17**, incidentally, by an
+>   unrelated `kovan api-docs --all` regeneration for the `<crate>-api.md`
+>   naming convention (op-w5ry). Verified absent from the current mirror.
 > - `htr10-neutronics.md:168` states `src/htr10/neutronics.rs` holds **45**
 >   published values; the table immediately below it (`:172-178`) has rows
 >   summing to **89** (31 + 7 + 14 + 7 + 16 + 6 + 6 + 2). One of the two numbers

@@ -510,7 +510,7 @@ crates/outram-park-fork-raven/
       simulated_annealing.rs
       genetic.rs
   examples/                 //  one runnable example per tranche
-  docs/api.md               //  rustdoc mirror, per the bookkeeping rule
+  docs/outram-park-fork-raven-api.md  //  rustdoc mirror, per the bookkeeping rule
   README.md                 //  with the Bookkeeping status block, both axes ❌
 ```
 

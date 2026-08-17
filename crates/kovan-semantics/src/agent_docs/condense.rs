@@ -1,4 +1,4 @@
-//! Condense a crate's `docs/api.md` down to a signature index.
+//! Condense a crate's `docs/<crate>-api.md` down to a signature index.
 //!
 //! # What this is for
 //!
@@ -19,7 +19,7 @@
 //!
 //! This is **lossy in a way the reader cannot see from the output**, which is
 //! why [`condensed_index_markdown`] writes a banner at the top of the file
-//! saying so and pointing at the full `api.md`. An index that looks like
+//! saying so and pointing at the full `<crate>-api.md`. An index that looks like
 //! complete documentation is worse than no index.
 //!
 //! # A structural limit, inherited from rustdoc-md
@@ -130,7 +130,7 @@ pub fn condensed_index_markdown(entries: &[CrateEntry]) -> String {
 
 /// Render one crate's `<crate>.index.md` — the middle rung of the ladder.
 ///
-/// Reads that crate's `docs/api.md` and condenses it with
+/// Reads that crate's `docs/<crate>-api.md` and condenses it with
 /// [`condense_api_markdown`]. Returns `Ok(None)` when the crate has no mirror.
 pub fn crate_index_markdown(
     workspace_root: &Path,
@@ -154,7 +154,7 @@ pub fn crate_index_markdown(
     Ok(Some(out))
 }
 
-/// Reduce one `api.md` body to headings, module paths, public signatures, and a
+/// Reduce one `<crate>-api.md` body to headings, module paths, public signatures, and a
 /// single line of description per item.
 ///
 /// The transform is a line-oriented state machine rather than a Markdown parse:
@@ -218,7 +218,7 @@ fn is_public_signature(line: &str) -> bool {
     line.starts_with("pub ") || line.starts_with("pub(") || line.starts_with("impl ")
 }
 
-/// Map an `api.md` heading onto its condensed form, or `None` to drop it.
+/// Map a `<crate>-api.md` heading onto its condensed form, or `None` to drop it.
 ///
 /// rustdoc-md's boilerplate headings (`# Crate Documentation`, `# Overview`,
 /// `## Modules`) carry no information once the bodies are gone, so they are
