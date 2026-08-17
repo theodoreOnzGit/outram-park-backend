@@ -2,6 +2,64 @@
 
 Guidance for Claude Code (and other AI assistants) working in this repository.
 
+## Scope boundary: this file governs `outram-park-backend` ONLY — never a parent folder (HARD RULE)
+
+**This file, and every crate-level `CLAUDE.md` under `crates/*/`, apply
+exclusively to the `outram-park-backend` repository tree** — this directory
+and everything under it, nothing else. This repo is sometimes checked out
+*inside* another person's project — as a git submodule, a subtree, or a plain
+nested clone. When that is the case, **none** of these rules — the
+never-auto-commit/push policy and its carve-outs, release-mode-only
+builds/tests, `bn`/kopi-beans as the mandated tracker, `kovan` dogfooding, the
+working-hours guardrail, the token-accounting policy, the Rust design rules
+(no trait objects/`Box`/lifetimes), the Android/Termux hard rule, the
+responsible-use/data-policy/AI-usage framing, the README math-syntax rule, the
+"no Python for docs/accounting" rule — apply to the **parent** project, its
+other submodules, or its top-level files. Ever. This binds regardless of
+which directory the session's working directory happens to be in.
+
+**How to tell whether a given file or command is in scope.** Resolve its
+repository root and compare it against *this* repo's own root:
+
+```bash
+git -C <path-in-question> rev-parse --show-toplevel
+```
+
+If that root is `outram-park-backend` itself (or, for a submodule mount, the
+path where this repo is checked out), the rules in this file apply. If it
+resolves to a **different** root — a parent project's own `.git`, or another
+sibling repository entirely — **this file has no authority there**, full
+stop, no matter how the session got there or what was discussed earlier in
+the conversation.
+
+**Concretely, when a parent project merely contains this repo as a
+submodule/subrepo:**
+
+- Only apply this file's rules to work that is actually inside this repo's
+  own working tree. A commit, build, dependency change, or doc edit anywhere
+  else in the parent project is governed by *that* project's own conventions
+  (its own `CLAUDE.md` if it has one, or none at all) — not by anything
+  written here.
+- Do not assume the parent project uses `bn`/kopi-beans, `kovan`, this repo's
+  git hooks, or any other tool mandated here. Do not install or run them
+  against the parent's own tree on the strength of this file.
+- If a task spans both the parent and this submodule (a cross-repo refactor, a
+  parent-level commit that bumps this submodule's pinned revision), this file
+  governs only the parts that touch this repo's own tree. If it's unclear
+  which rule set a given change falls under, ask rather than guessing outward.
+- This applies even mid-session: if the working directory moves from inside
+  this repo out into the parent project (or a sibling), re-check scope before
+  continuing to apply anything from this file. Nothing here "sticks" once
+  you've left this repo's tree.
+
+**Why this exists.** `CLAUDE.md` guidance is easy to over-apply once it's been
+read into a session — the failure mode is carrying a rule outward onto
+unrelated code that merely happens to live in the same checkout, or in a
+project that embeds this one. This section exists so that never happens: the
+boundary is this repository's own root, determined by its own `.git`, not the
+process's current working directory and not how far back the rule was stated
+in the conversation.
+
 ## Working-hours guardrail (OPT-IN — ask at session start)
 
 **This guardrail is OFF by default.** It is no longer a standing hard rule.
@@ -591,84 +649,71 @@ in-flight work.
   run fleets outside active hours in the first place) and the
   never-auto-commit/push rule.
 
-## Token accounting on every commit (mandatory, this workspace + all repos here)
+## Token accounting on every commit (opt-in, HARD RULE as stated below)
 
-**Every commit in this workspace — and in every repository worked on here — must
-carry an API-token-usage trailer, and a per-commit token ledger is kept at
-`docs/token-usage.md`.** This gives the maintainer a clear, honest accounting of
-the Claude/API tokens spent producing each commit. It is automated by two git
-hooks so it cannot be forgotten:
+**Changed 2026-08-17 at the maintainer's request: token accounting is now
+opt-in, not mandatory.** The previous rule — "every commit must carry an
+API-token-usage trailer" — is retired. It is replaced by the policy below,
+which *is* the hard rule from now on: do not enforce or chase the old
+mandate, and do not treat a missing trailer as something to fix.
 
-- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, is the
-  single source for token accounting — it does **both** the write side and the
-  query side. On the write side it reads the Claude Code session transcripts
-  (`~/.claude/projects/<slug>/*.jsonl` — the same data `ccusage` reads) and
-  attributes the **token delta since the previous commit** to each new commit.
-  On the query side, `kovan tokens query --from DDMMYY --to DDMMYY
-  [--branch develop] [--per-commit] [--json]` sums the token usage **recorded in
-  the git commit trailers** over any time period (reads the durable git record,
-  not the live transcript).
-  - **This replaced `docs/historian/token_usage.py` on 2026-08-13** (epic
-    `op-yz7b`), so the toolchain needs no Python interpreter. **The Python was
-    deleted the same day** at the maintainer's instruction — no byte-for-byte
-    parity gate was ever run against it (also waived). The Rust is covered by
-    its own tests and by hand-verification against real history, not by
-    equivalence to the original; the scripts are recoverable from git history
-    (last present at `c12624a41e`) if a comparison is ever wanted.
-  - **The hooks need a `kovan` binary to exist**, where a script merely had to
-    be present. `.githooks/kovan-bin.sh` resolves it: `kovan` on PATH, then
-    `target/release/kovan`, then `target/debug/kovan`. Finding none is a
-    **no-op, not an error** — but it means commits carry no trailer, so run
-    `./scripts/install-token-hooks.sh` (which builds it) on a fresh clone.
-- **`.githooks/prepare-commit-msg`** stamps the commit message with an
-  `API-Usage-Since-Last-Commit:` trailer (`total`, `in`, `out`, `cache_read`,
-  `cache_write`, `source`) plus an `API-Usage-Session-Cumulative:` line. It is
-  idempotent (amend/rebase safe).
-- **`.githooks/post-commit`** advances the baseline and regenerates the local
-  `docs/token-usage.md` summary from the commit-message trailers.
+- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, remains
+  the single source for token accounting **when a maintainer has chosen to set
+  it up** on a given clone — it does both the write side (git hooks stamping
+  commit trailers) and the query side (`kovan tokens query --from DDMMYY --to
+  DDMMYY [--branch develop] [--per-commit] [--json]`, summing whatever
+  trailers exist). Nothing about its internals changed; what changed is
+  whether using it is required.
+- **`.githooks/prepare-commit-msg`** and **`.githooks/post-commit`**, where
+  installed, still stamp the `API-Usage-Since-Last-Commit:` /
+  `API-Usage-Session-Cumulative:` trailer and regenerate the local
+  `docs/token-usage.md` summary exactly as before (idempotent, amend/rebase
+  safe). Let them run undisturbed on a clone that has opted in.
 
-**Source of truth: the per-commit trailers, not the markdown.** The durable
-record is the `API-Usage-*` trailer in each commit message (queryable across any
-window with `kovan tokens query --from DDMMYY --to
-DDMMYY`). `docs/token-usage.md` is a **regenerable local summary and is
-gitignored** — it is deliberately *not* tracked, because committing a generated
-file on many branches caused recurring merge conflicts. Never re-track it.
+**If a clone has not opted in (no `kovan` binary, hooks not installed):**
 
-**Rules:**
+- **Do not prompt the user to install anything.** No suggesting
+  `./scripts/install-token-hooks.sh`, no "want me to set up token accounting"
+  — opting in is a maintainer decision made once, not a gap to flag on every
+  commit.
+- **Do not hand-write a trailer or invent numbers.** If the hooks aren't
+  present, the commit has no `API-Usage-*` trailer, full stop.
+- **Note the absence in the commit message body instead**, one short line
+  (e.g. `No token accounting on this clone.`) rather than saying nothing.
+  That line is the entire obligation — it carries no numbers and is not a
+  substitute trailer.
 
-- **Token usage MUST always be documented as a summary under the commit
-  message.** Every commit carries its usage summary in the message body — the
-  `API-Usage-Since-Last-Commit:` trailer (with `total`, `in`, `out`,
-  `cache_read`, `cache_write`, `source`) plus the
-  `API-Usage-Session-Cumulative:` line, appended below the prose. This is not
-  optional and not conditional on the kind of change. The `prepare-commit-msg`
-  hook writes it automatically, so in practice the rule is: **let the hook run,
-  and never remove or edit what it appended.** If you find a commit being made
-  without it, the hooks are not installed for that clone — run
-  `./scripts/install-token-hooks.sh` before committing rather than
-  hand-writing a summary.
-- **Do not strip or fake the trailer.** The numbers come straight from the
-  transcripts; nothing is estimated or invented. A commit made outside a Claude
-  session legitimately shows `total=0 source=none` — that is correct, not a bug,
-  so never hand-write a nonzero number.
-- **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read (prompt-
-  cache re-reads of the growing context) usually dominates and is shown
-  separately — do not collapse it into a single figure that hides the split.
-- **Install per clone:** `./scripts/install-token-hooks.sh` (sets the local
-  `core.hooksPath` to `.githooks` and initialises the baseline). `core.hooksPath`
-  is a local, uncommitted config, so every fresh clone must run it once. The
-  hooks and script are version-controlled, so they travel with the repo.
-- **`docs/token-usage.md` is a generated, gitignored local summary — never
-  hand-edit it and never `git add` it.** Rebuild any time with `kovan tokens
-  report`; query the tracked trailers directly with the `query` subcommand.
-  Because it is gitignored, `bn`/hook regens no longer dirty the tree or
-  conflict on merge.
-- **New repositories added to a session here inherit this rule** — copy
-  `.githooks/` (including `kovan-bin.sh`) + `scripts/install-token-hooks.sh` in
-  and run the installer as part of onboarding that repo. The accounting itself
-  travels as the `kovan` binary, so nothing else needs copying.
-- This does **not** relax the never-auto-commit/push rule above: the hooks only
-  act *when a commit the user asked for is being made*; they never initiate one.
+**If a clone has opted in, the mechanics are unchanged:**
+
+- **Source of truth: the per-commit trailers, not the markdown.** The durable
+  record is the `API-Usage-*` trailer in each commit message (queryable across
+  any window with `kovan tokens query --from DDMMYY --to DDMMYY`).
+  `docs/token-usage.md` is a regenerable, gitignored local summary — never
+  hand-edit it, never `git add` it, never re-track it.
+- **Do not strip or fake a trailer the hooks wrote.** The numbers come
+  straight from the transcripts; nothing is estimated or invented. A commit
+  made outside a Claude session legitimately shows `total=0 source=none` —
+  that is correct, not a bug.
+- **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read
+  (prompt-cache re-reads of the growing context) usually dominates and is
+  shown separately — do not collapse it into a single figure that hides the
+  split.
+- **Opting in:** `./scripts/install-token-hooks.sh` (sets the local
+  `core.hooksPath` to `.githooks` and initialises the baseline) is still there
+  for whoever wants it, unchanged — it is simply no longer something to push
+  on someone who hasn't asked for it.
+- **New repositories worked on here do not inherit this as a requirement.**
+  Copying `.githooks/` (incl. `kovan-bin.sh`) + the installer over is optional,
+  at that repository's maintainer's discretion — same opt-in stance as here.
+- This does not relax the never-auto-commit/push rule above: the hooks, where
+  present, only act *when a commit the user asked for is being made*; they
+  never initiate one.
+
+**This section documents the reasoning history** — `docs/historian/*` and the
+"No Python for documentation or accounting" section below still describe real
+past incidents (e.g. the Windows `python3` alias silently zeroing out
+trailers) accurately; they are history, not evidence that accounting is
+mandatory today.
 
 ## Historian report before every merge to `main` (mandatory)
 
