@@ -63,6 +63,7 @@
 
 pub mod axial_seven_node;
 pub mod coarse_mesh_genfoam;
+pub mod htr10_rz_geometry;
 pub mod one_node;
 
 use axial_seven_node::AxialSevenNodeCore;
