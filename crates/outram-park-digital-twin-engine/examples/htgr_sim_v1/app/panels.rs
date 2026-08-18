@@ -15,7 +15,7 @@ use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, SharedState};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
-use crate::app::geometry_tab::draw_geometry;
+use crate::app::geometry_tab::{draw_geometry, ZoomLevel};
 use crate::app::schematic::{draw_schematic, SchematicTracers};
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
 use crate::physics::secondary_loop::ranges;
@@ -507,13 +507,17 @@ pub fn draw_schematic_panel(
         "HTGR (helium-cooled, graphite-moderated pebble bed) -- demonstration model, \
          HTR-10-style two-vessel arrangement",
     );
+    // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
+    // default on) -- not schematic-specific, but this heading is the first
+    // thing a reader sees, so it is the natural place to mention it.
+    ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
     draw_schematic(ui, snapshot, tracers, display_unit);
 }
 
 /// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].
-pub fn draw_geometry_panel(ui: &mut Ui) {
-    draw_geometry(ui);
+pub fn draw_geometry_panel(ui: &mut Ui, zoom: &mut ZoomLevel) {
+    draw_geometry(ui, zoom);
 }
 
 /// Time-history plots panel body.

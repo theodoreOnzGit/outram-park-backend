@@ -245,6 +245,10 @@ pub struct HtgrSimApp {
     /// Owned here, not rebuilt per frame, so "Update CSV Data" clicks and the
     /// interval slider persist across repaints.
     plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
+    /// The HTR-10 Geometry tab's zoom level -- see
+    /// [`geometry_tab::ZoomLevel`]. Owned here so a zoom-button click
+    /// persists across repaints instead of resetting every frame.
+    geometry_zoom: geometry_tab::ZoomLevel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
     /// frame from the real loop residence times -- see
@@ -480,6 +484,7 @@ impl HtgrSimApp {
             open_panel: Panel::Schematic,
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
+            geometry_zoom: geometry_tab::ZoomLevel::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             last_sim_time_s: 0.0,
@@ -624,7 +629,7 @@ impl eframe::App for HtgrSimApp {
                 }
                 Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                Panel::Geometry => draw_geometry_panel(ui),
+                Panel::Geometry => draw_geometry_panel(ui, &mut self.geometry_zoom),
             });
         });
 

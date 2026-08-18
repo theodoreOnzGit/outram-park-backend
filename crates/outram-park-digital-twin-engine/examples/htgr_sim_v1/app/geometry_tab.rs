@@ -204,33 +204,81 @@ fn draw_pebble_lattice(
     }
 }
 
-/// Pixels per centimetre the cross-section is drawn at.
+/// Starting pixels-per-centimetre the cross-section is drawn at, before a
+/// reader has touched the zoom buttons -- see [`ZoomLevel`].
 ///
-/// **Fixed, not fit-to-viewport.** An earlier version scaled the canvas to
-/// whatever space happened to be visible (capped at 900 px tall), which for
-/// this model's 190 x 610 cm extent forced a scale far too small to make out
-/// its narrower columns -- volumes 21 (5.6 cm wide) and 57 (8 cm wide) were
-/// reported unreadable at that scale. This constant instead sizes the canvas
-/// to its true extent regardless of viewport size, and the surrounding
-/// `ScrollArea` in [`draw_geometry`] is what lets a reader pan around a
-/// canvas larger than the screen -- exactly what a `ScrollArea` is for. 5.0
-/// px/cm puts even the narrowest column (21, 57) at 28-40 px wide, well
-/// clear of the width the label-skip threshold below needs.
-const PIXELS_PER_CM: f32 = 5.0;
+/// **Sized to the model's true extent, not fit-to-viewport, by design.** An
+/// earlier version scaled the canvas to whatever space happened to be
+/// visible (capped at 900 px tall), which for this model's 190 x 610 cm
+/// extent forced a scale far too small to make out its narrower columns --
+/// volumes 21 (5.6 cm wide) and 57 (8 cm wide) were reported unreadable at
+/// that scale. Sizing to the true extent instead, with the surrounding
+/// `ScrollArea` in [`draw_geometry`] free to pan around a canvas larger than
+/// the screen, is what a `ScrollArea` is for. 5.0 px/cm puts even the
+/// narrowest column (21, 57) at 28-40 px wide, well clear of the width the
+/// label-skip threshold below needs.
+pub const DEFAULT_PIXELS_PER_CM: f32 = 5.0;
+
+/// Zoom bounds -- see [`ZoomLevel::zoom_in`]/[`ZoomLevel::zoom_out`]. The
+/// floor keeps the narrowest columns (21, 57) from shrinking back below the
+/// unreadable scale [`DEFAULT_PIXELS_PER_CM`]'s doc comment describes; the
+/// ceiling is just large enough that one pebble-lattice circle (roughly
+/// [`crate::physics::reactor_model::one_node::pebble_diameter`] wide) still
+/// reads as a circle rather than the canvas becoming unusably huge.
+pub const MIN_PIXELS_PER_CM: f32 = 1.5;
+pub const MAX_PIXELS_PER_CM: f32 = 20.0;
+
+/// The Geometry tab's zoom state -- how many screen pixels one centimetre of
+/// the R-Z model draws at. Owned by the caller (see
+/// [`crate::app::HtgrSimApp::geometry_zoom`]) and persisted across frames, so
+/// a zoom-button click and the resulting scroll position both survive to the
+/// next repaint -- unlike [`draw_geometry`]'s data, this is genuinely GUI
+/// state, not something rebuilt from the physics snapshot each frame.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ZoomLevel(f32);
+
+impl Default for ZoomLevel {
+    fn default() -> Self {
+        Self(DEFAULT_PIXELS_PER_CM)
+    }
+}
+
+impl ZoomLevel {
+    /// Current pixels-per-centimetre.
+    pub fn pixels_per_cm(&self) -> f32 {
+        self.0
+    }
+
+    /// Step in by 25%, clamped to [`MAX_PIXELS_PER_CM`].
+    pub fn zoom_in(&mut self) {
+        self.0 = (self.0 * 1.25).min(MAX_PIXELS_PER_CM);
+    }
+
+    /// Step out by 20% (the inverse of [`Self::zoom_in`]'s 25% step, so the
+    /// two are exact round trips), clamped to [`MIN_PIXELS_PER_CM`].
+    pub fn zoom_out(&mut self) {
+        self.0 = (self.0 / 1.25).max(MIN_PIXELS_PER_CM);
+    }
+
+    /// Back to [`DEFAULT_PIXELS_PER_CM`].
+    pub fn reset(&mut self) {
+        self.0 = DEFAULT_PIXELS_PER_CM;
+    }
+}
 
 /// Draw the R-Z cross-section, data coordinates `r` (0-190 cm) horizontal and
 /// `z` (0-610 cm) vertical -- z increasing downward needs no flip, since
 /// screen `y` already increases downward, matching the benchmark's own
-/// convention. Sized per [`PIXELS_PER_CM`], not fit to the visible area --
-/// see that constant's doc comment -- so the caller must wrap this in a
-/// scrolling container; [`draw_geometry`] does.
-fn draw_cross_section(ui: &mut Ui) {
+/// convention. Sized per `zoom`, not fit to the visible area -- see
+/// [`ZoomLevel`]'s doc comment -- so the caller must wrap this in a scrolling
+/// container; [`draw_geometry`] does.
+fn draw_cross_section(ui: &mut Ui, zoom: ZoomLevel) {
     let zones = htr10_rz_zones();
     let r_max = radial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
     let z_max = axial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
 
     let margin = 24.0_f32;
-    let scale = PIXELS_PER_CM;
+    let scale = zoom.pixels_per_cm();
     let canvas_size = Vec2::new(
         r_max as f32 * scale + 2.0 * margin,
         z_max as f32 * scale + 2.0 * margin,
@@ -428,8 +476,10 @@ fn draw_helium_volumes(ui: &mut Ui) {
     );
 }
 
-/// Top-level body for the "HTR-10 Geometry" panel.
-pub fn draw_geometry(ui: &mut Ui) {
+/// Top-level body for the "HTR-10 Geometry" panel. `zoom` is the caller's
+/// persisted [`ZoomLevel`] (see [`crate::app::HtgrSimApp::geometry_zoom`]);
+/// the zoom in/out/reset buttons here mutate it in place.
+pub fn draw_geometry(ui: &mut Ui, zoom: &mut ZoomLevel) {
     ui.heading("HTR-10 simplified benchmark model -- R-Z zone geometry");
     ui.label(
         "Reconstructed from Terry et al. (2005) Fig. 2, via GitHub issue #23's \
@@ -437,6 +487,26 @@ pub fn draw_geometry(ui: &mut Ui) {
          -- see crates/outram-park-digital-twin-engine's htr10_rz_geometry \
          module doc comment.",
     );
+    ui.horizontal(|ui| {
+        if ui
+            .button("\u{1F50D}\u{2212} Zoom Out")
+            .on_hover_text("Also: Ctrl - to zoom the whole window")
+            .clicked()
+        {
+            zoom.zoom_out();
+        }
+        if ui.button("Reset").clicked() {
+            zoom.reset();
+        }
+        if ui
+            .button("\u{1F50D}+ Zoom In")
+            .on_hover_text("Also: Ctrl + to zoom the whole window")
+            .clicked()
+        {
+            zoom.zoom_in();
+        }
+        ui.label(format!("{:.1} px/cm", zoom.pixels_per_cm()));
+    });
     ui.separator();
     draw_legend(ui);
     ui.separator();
@@ -444,9 +514,91 @@ pub fn draw_geometry(ui: &mut Ui) {
     egui::ScrollArea::both()
         .id_salt("htr10_geometry_canvas_scroll")
         .show(ui, |ui| {
-            draw_cross_section(ui);
+            draw_cross_section(ui, *zoom);
         });
 
     ui.separator();
     draw_helium_volumes(ui);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Methodology: a fresh [`ZoomLevel`] must report exactly
+    /// [`DEFAULT_PIXELS_PER_CM`], and [`ZoomLevel::reset`] after zooming away
+    /// from it must return to exactly the same value -- not an
+    /// accumulated-rounding-error approximation of it.
+    ///
+    /// Result (2026-08-18): both checks pass exactly (`==`, not a tolerance).
+    #[test]
+    fn default_and_reset_land_on_default_pixels_per_cm_exactly() {
+        let zoom = ZoomLevel::default();
+        assert_eq!(zoom.pixels_per_cm(), DEFAULT_PIXELS_PER_CM);
+
+        let mut zoom = ZoomLevel::default();
+        zoom.zoom_in();
+        zoom.zoom_in();
+        zoom.reset();
+        assert_eq!(zoom.pixels_per_cm(), DEFAULT_PIXELS_PER_CM);
+    }
+
+    /// Methodology: repeated [`ZoomLevel::zoom_in`] must never exceed
+    /// [`MAX_PIXELS_PER_CM`], and repeated [`ZoomLevel::zoom_out`] must never
+    /// fall below [`MIN_PIXELS_PER_CM`] -- checked by driving each 100 steps
+    /// past where the bound would already have been hit, so this is a
+    /// clamping check, not merely "the bound is reachable".
+    ///
+    /// Result (2026-08-18): both bounds hold after 100 steps each.
+    #[test]
+    fn zoom_in_and_out_clamp_at_their_bounds() {
+        let mut zoom = ZoomLevel::default();
+        for _ in 0..100 {
+            zoom.zoom_in();
+        }
+        assert_eq!(zoom.pixels_per_cm(), MAX_PIXELS_PER_CM);
+
+        let mut zoom = ZoomLevel::default();
+        for _ in 0..100 {
+            zoom.zoom_out();
+        }
+        assert_eq!(zoom.pixels_per_cm(), MIN_PIXELS_PER_CM);
+    }
+
+    /// Methodology: one [`ZoomLevel::zoom_in`] immediately undone by one
+    /// [`ZoomLevel::zoom_out`] (both comfortably inside the bounds, so
+    /// neither step clamps) must return to the starting value, since
+    /// `zoom_in` multiplies by 1.25 and `zoom_out` divides by the same
+    /// 1.25 -- exact inverses algebraically (`x * 1.25 / 1.25 == x`).
+    ///
+    /// Result (2026-08-18): round-trips to within `1e-6` of the start (exact
+    /// equality is not claimed, since `f32` multiply-then-divide is not
+    /// bit-exact in general).
+    #[test]
+    fn zoom_in_then_zoom_out_round_trips_within_a_small_tolerance() {
+        let mut zoom = ZoomLevel::default();
+        let start = zoom.pixels_per_cm();
+        zoom.zoom_in();
+        zoom.zoom_out();
+        assert!(
+            (zoom.pixels_per_cm() - start).abs() < 1e-6,
+            "expected {start}, got {}",
+            zoom.pixels_per_cm()
+        );
+    }
+
+    /// Methodology: run [`draw_geometry`] inside a real (headless) `egui`
+    /// pass -- the same harness [`super::super::panels`]'s and
+    /// `app_scaffold::crash`'s own tests use -- and confirm it does not
+    /// panic, including the new zoom button row.
+    ///
+    /// Result (2026-08-18): completes without panicking.
+    #[test]
+    fn draw_geometry_does_not_panic_across_a_headless_egui_pass() {
+        let mut zoom = ZoomLevel::default();
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_geometry(ui, &mut zoom);
+        });
+    }
 }
