@@ -133,8 +133,11 @@ pub enum ZoneMaterial {
     Mixed,
     /// Dummy-pebble-only region (conus and discharge tube).
     Dummy,
-    /// Material not yet assigned by the hand-reading (Z = 510-540 cm row);
-    /// do not treat as a real material, only as "known unknown".
+    /// Placeholder for a zone whose material has not yet been confirmed by
+    /// the hand-reading -- not a real material, "known unknown" only. No
+    /// zone in [`htr10_rz_zones`] currently carries this (the last holdout,
+    /// the Z = 510-540 cm row's 17/46/55/64/72, was confirmed `Boronated`
+    /// 2026-08-18); kept for whichever zone is the next one still open.
     Unknown,
 }
 
@@ -512,7 +515,12 @@ pub fn htr10_rz_zones() -> Vec<Htr10RzZone> {
         zones.push(rectangle(volume, r_min, r_max, 495.0, 510.0, material));
     }
 
-    // Z = 510 to 540 cm. Detailed material assignments remain pending.
+    // Z = 510 to 540 cm. Volumes 17/46/55/64/72 confirmed Boronated
+    // (maintainer, 2026-08-18) -- matches
+    // crates/kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md's
+    // "Second layer from the bottom" table exactly (maintainer-confirmed
+    // there 2026-08-13: "46, 55, 64 and 72 all have one band only"), which
+    // the script this module otherwise ports had left as Unknown.
     zones.push(rectangle(7, 0.0, 25.0, 510.0, 540.0, Dummy));
     for (volume, r_min, r_max) in [
         (17, 25.0, 95.6),
@@ -521,7 +529,7 @@ pub fn htr10_rz_zones() -> Vec<Htr10RzZone> {
         (64, 140.6, 148.6),
         (72, 148.6, 167.793),
     ] {
-        zones.push(rectangle(volume, r_min, r_max, 510.0, 540.0, Unknown));
+        zones.push(rectangle(volume, r_min, r_max, 510.0, 540.0, Boronated));
     }
     zones.push(rectangle(78, 167.793, 190.0, 510.0, 540.0, Boronated));
 
