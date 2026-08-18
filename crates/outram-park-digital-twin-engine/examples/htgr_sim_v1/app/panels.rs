@@ -15,6 +15,7 @@ use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 use outram_park_digital_twin_engine::app_scaffold::{PanelSet, SharedState};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
+use crate::app::geometry_tab::draw_geometry;
 use crate::app::schematic::{draw_schematic, SchematicTracers};
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
 use crate::physics::secondary_loop::ranges;
@@ -113,16 +114,24 @@ pub enum Panel {
     Plots,
     /// Numeric diagnostics table.
     Diagnostics,
+    /// Static HTR-10 R-Z benchmark geometry viewer (issue #23).
+    Geometry,
 }
 
 impl PanelSet for Panel {
-    const ALL: &'static [Self] = &[Self::Schematic, Self::Plots, Self::Diagnostics];
+    const ALL: &'static [Self] = &[
+        Self::Schematic,
+        Self::Plots,
+        Self::Diagnostics,
+        Self::Geometry,
+    ];
 
     fn label(&self) -> &'static str {
         match self {
             Self::Schematic => "Plant Schematic",
             Self::Plots => "Time-History Plots",
             Self::Diagnostics => "Diagnostics",
+            Self::Geometry => "HTR-10 Geometry",
         }
     }
 }
@@ -236,8 +245,8 @@ pub fn draw_controls(
     let rho_changed = ui
         .add(
             egui::Slider::new(&mut rod_insertion, 0.0..=1.0)
-            .drag_value_speed(0.0001)
-            .text("fraction (0 withdrawn, 1 inserted)"),
+                .drag_value_speed(0.0001)
+                .text("fraction (0 withdrawn, 1 inserted)"),
         )
         .changed();
 
@@ -485,6 +494,11 @@ pub fn draw_schematic_panel(
     );
     ui.separator();
     draw_schematic(ui, snapshot, tracers, display_unit);
+}
+
+/// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].
+pub fn draw_geometry_panel(ui: &mut Ui) {
+    draw_geometry(ui);
 }
 
 /// Time-history plots panel body.

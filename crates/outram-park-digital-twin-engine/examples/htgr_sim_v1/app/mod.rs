@@ -93,6 +93,7 @@
 //! arrays' enthalpy convection is an explicit source inside the corrector loop,
 //! so the loop's Picard contraction factor *is* the Courant number.
 
+pub mod geometry_tab;
 pub mod panels;
 pub mod schematic;
 pub mod state;
@@ -114,7 +115,10 @@ use outram_park_digital_twin_engine::components::LegendUnit;
 
 use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
 use crate::physics::{HtgrPlant, PlantCommands};
-use panels::{draw_controls, draw_diagnostics_panel, draw_plots_panel, draw_schematic_panel, Panel};
+use panels::{
+    draw_controls, draw_diagnostics_panel, draw_geometry_panel, draw_plots_panel,
+    draw_schematic_panel, Panel,
+};
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
 
@@ -404,9 +408,8 @@ fn start_simulation() -> SimulationRun {
             // `RealTimePacer::set_simulated_per_tick`'s doc comment.
             // `pace` returns a zero sleep -- never a wrapped or sign-flipped
             // one -- when the work already used the budget up.
-            pacer.set_simulated_per_tick(Time::new::<second>(
-                steps_this_tick as f64 * PHYSICS_DT_S,
-            ));
+            pacer
+                .set_simulated_per_tick(Time::new::<second>(steps_this_tick as f64 * PHYSICS_DT_S));
             let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
             state.update(|s| {
                 plant.write_snapshot(s);
@@ -581,6 +584,7 @@ impl eframe::App for HtgrSimApp {
                     draw_plots_panel(ui, &plots, display_unit);
                 }
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
+                Panel::Geometry => draw_geometry_panel(ui),
             });
         });
 

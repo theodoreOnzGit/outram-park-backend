@@ -312,6 +312,30 @@ fn polygon(volume: u32, vertices: &[(f64, f64)], material: ZoneMaterial) -> Htr1
     }
 }
 
+/// The eleven radial band boundaries, ascending, centimetres -- exactly
+/// `generate_htr10_geometry.py`'s `r_ticks`. Exposed so a caller (a plot's
+/// axis ticks, a mesh's radial grid) reads the same numbers
+/// [`tests::rectangle_boundaries_match_the_source_scripts_axis_ticks`]
+/// checks the zone list against, rather than a second hardcoded copy that
+/// could drift from it.
+pub fn radial_ticks_cm() -> &'static [f64] {
+    &[
+        0.0, 25.0, 41.75, 70.75, 90.0, 95.6, 108.6, 140.6, 148.6, 167.793, 190.0,
+    ]
+}
+
+/// The seventeen axial band boundaries, descending (z increases downward --
+/// see the module doc comment), centimetres -- `generate_htr10_geometry.py`'s
+/// `z_ticks` plus the maintainer's `114.7` correction (see
+/// [`htr10_rz_zones`]'s volume 82/30 comment). Exposed for the same reason as
+/// [`radial_ticks_cm`].
+pub fn axial_ticks_cm() -> &'static [f64] {
+    &[
+        0.0, 40.0, 95.0, 105.0, 114.7, 130.0, 228.758, 351.818, 388.764, 402.0, 430.0, 450.0,
+        465.0, 495.0, 510.0, 540.0, 610.0,
+    ]
+}
+
 /// The full HTR-10 R-Z benchmark zone list, port-for-port from
 /// `generate_htr10_geometry.py`'s `regions` construction (same blocks, same
 /// order, same loops) so it can be diffed against the source script
@@ -545,15 +569,8 @@ mod tests {
     /// Result (2026-08-17): both sets match, `114.7` included as expected.
     #[test]
     fn rectangle_boundaries_match_the_source_scripts_axis_ticks() {
-        let expected_r_ticks = [
-            0.0, 25.0, 41.75, 70.75, 90.0, 95.6, 108.6, 140.6, 148.6, 167.793, 190.0,
-        ];
-        // z_ticks per generate_htr10_geometry.py, plus 114.7 -- see the
-        // "except" note in this test's doc comment above.
-        let expected_z_ticks = [
-            0.0, 40.0, 95.0, 105.0, 114.7, 130.0, 228.758, 351.818, 388.764, 402.0, 430.0, 450.0,
-            465.0, 495.0, 510.0, 540.0, 610.0,
-        ];
+        let expected_r_ticks = radial_ticks_cm().to_vec();
+        let expected_z_ticks = axial_ticks_cm().to_vec();
 
         let mut r_values: Vec<f64> = Vec::new();
         let mut z_values: Vec<f64> = Vec::new();
@@ -574,8 +591,14 @@ mod tests {
         z_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
         z_values.dedup();
 
-        assert_eq!(r_values, expected_r_ticks, "radial boundary set diverged from the source script's r_ticks");
-        assert_eq!(z_values, expected_z_ticks, "axial boundary set diverged from the source script's z_ticks");
+        assert_eq!(
+            r_values, expected_r_ticks,
+            "radial boundary set diverged from the source script's r_ticks"
+        );
+        assert_eq!(
+            z_values, expected_z_ticks,
+            "axial boundary set diverged from the source script's z_ticks"
+        );
     }
 
     /// Methodology: `vertices_m` must be `vertices_cm` converted 1:1, no more
