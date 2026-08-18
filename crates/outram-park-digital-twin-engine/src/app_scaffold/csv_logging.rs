@@ -159,10 +159,12 @@ impl CsvLogger {
                 path: self.path.clone(),
                 source,
             })?;
-        self.writer.flush().map_err(|source| CsvLoggerError::Flush {
-            path: self.path.clone(),
-            source,
-        })?;
+        self.writer
+            .flush()
+            .map_err(|source| CsvLoggerError::Flush {
+                path: self.path.clone(),
+                source,
+            })?;
         self.last_write = Some(now);
         Ok(true)
     }
@@ -194,8 +196,7 @@ mod tests {
     #[test]
     fn create_writes_the_header_immediately() {
         let path = temp_csv_path("header");
-        let _logger =
-            CsvLogger::create(&path, &["t_seconds", "power_mw"], Duration::ZERO).unwrap();
+        let _logger = CsvLogger::create(&path, &["t_seconds", "power_mw"], Duration::ZERO).unwrap();
         let contents = std::fs::read_to_string(&path).unwrap();
         assert_eq!(contents.trim(), "t_seconds,power_mw");
         std::fs::remove_file(&path).ok();
@@ -204,12 +205,8 @@ mod tests {
     #[test]
     fn first_row_is_always_written_regardless_of_interval() {
         let path = temp_csv_path("first_row");
-        let mut logger = CsvLogger::create(
-            &path,
-            &["t_seconds", "power_mw"],
-            Duration::from_secs(60),
-        )
-        .unwrap();
+        let mut logger =
+            CsvLogger::create(&path, &["t_seconds", "power_mw"], Duration::from_secs(60)).unwrap();
         let wrote = logger
             .maybe_write_row(Instant::now(), &["0.0".to_string(), "10.0".to_string()])
             .unwrap();
@@ -220,12 +217,8 @@ mod tests {
     #[test]
     fn row_within_interval_is_throttled() {
         let path = temp_csv_path("throttled");
-        let mut logger = CsvLogger::create(
-            &path,
-            &["t_seconds", "power_mw"],
-            Duration::from_secs(60),
-        )
-        .unwrap();
+        let mut logger =
+            CsvLogger::create(&path, &["t_seconds", "power_mw"], Duration::from_secs(60)).unwrap();
         let t0 = Instant::now();
         assert!(logger
             .maybe_write_row(t0, &["0.0".to_string(), "10.0".to_string()])
