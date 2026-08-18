@@ -204,24 +204,39 @@ fn draw_pebble_lattice(
     }
 }
 
-/// Draw the R-Z cross-section into the space `ui` currently has available,
-/// data coordinates `r` (0-190 cm) horizontal and `z` (0-610 cm) vertical --
-/// z increasing downward needs no flip, since screen `y` already increases
-/// downward, matching the benchmark's own convention.
+/// Pixels per centimetre the cross-section is drawn at.
+///
+/// **Fixed, not fit-to-viewport.** An earlier version scaled the canvas to
+/// whatever space happened to be visible (capped at 900 px tall), which for
+/// this model's 190 x 610 cm extent forced a scale far too small to make out
+/// its narrower columns -- volumes 21 (5.6 cm wide) and 57 (8 cm wide) were
+/// reported unreadable at that scale. This constant instead sizes the canvas
+/// to its true extent regardless of viewport size, and the surrounding
+/// `ScrollArea` in [`draw_geometry`] is what lets a reader pan around a
+/// canvas larger than the screen -- exactly what a `ScrollArea` is for. 5.0
+/// px/cm puts even the narrowest column (21, 57) at 28-40 px wide, well
+/// clear of the width the label-skip threshold below needs.
+const PIXELS_PER_CM: f32 = 5.0;
+
+/// Draw the R-Z cross-section, data coordinates `r` (0-190 cm) horizontal and
+/// `z` (0-610 cm) vertical -- z increasing downward needs no flip, since
+/// screen `y` already increases downward, matching the benchmark's own
+/// convention. Sized per [`PIXELS_PER_CM`], not fit to the visible area --
+/// see that constant's doc comment -- so the caller must wrap this in a
+/// scrolling container; [`draw_geometry`] does.
 fn draw_cross_section(ui: &mut Ui) {
     let zones = htr10_rz_zones();
     let r_max = radial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
     let z_max = axial_ticks_cm().iter().cloned().fold(0.0_f64, f64::max);
 
-    let available = ui.available_size();
-    let canvas_size = Vec2::new(available.x.max(200.0), (available.y.max(300.0)).min(900.0));
+    let margin = 24.0_f32;
+    let scale = PIXELS_PER_CM;
+    let canvas_size = Vec2::new(
+        r_max as f32 * scale + 2.0 * margin,
+        z_max as f32 * scale + 2.0 * margin,
+    );
     let (response, painter) = ui.allocate_painter(canvas_size, egui::Sense::hover());
     let rect = response.rect;
-
-    let margin = 24.0_f32;
-    let usable_w = (rect.width() - 2.0 * margin).max(1.0);
-    let usable_h = (rect.height() - 2.0 * margin).max(1.0);
-    let scale = (usable_w / r_max as f32).min(usable_h / z_max as f32);
 
     let to_screen = |r_cm: f64, z_cm: f64| -> Pos2 {
         Pos2::new(
@@ -246,13 +261,22 @@ fn draw_cross_section(ui: &mut Ui) {
         }
         draw_pebble_lattice(&painter, zone, &to_screen, scale);
 
-        // Label at the vertex centroid -- a plain average, which is exactly
-        // right for every zone here except 48 (handled by its two labelled
-        // sub-rectangles carrying the same number twice, which is harmless).
-        let centroid_r =
-            zone.vertices_cm.iter().map(|(r, _)| r).sum::<f64>() / zone.vertices_cm.len() as f64;
-        let centroid_z =
-            zone.vertices_cm.iter().map(|(_, z)| z).sum::<f64>() / zone.vertices_cm.len() as f64;
+        // Label position. A plain vertex average is exactly right for every
+        // zone here except 48: its L-shape makes that average land outside
+        // the polygon (in the notch), a problem `generate_htr10_geometry.py`
+        // already found and fixed with an explicit override
+        // (`MANUAL_LABEL_POSITIONS = {48: (158.1965, 246.882)}`) -- ported
+        // here unchanged rather than re-deriving it.
+        let (centroid_r, centroid_z) = if zone.volume == 48 {
+            (158.1965, 246.882)
+        } else {
+            (
+                zone.vertices_cm.iter().map(|(r, _)| r).sum::<f64>()
+                    / zone.vertices_cm.len() as f64,
+                zone.vertices_cm.iter().map(|(_, z)| z).sum::<f64>()
+                    / zone.vertices_cm.len() as f64,
+            )
+        };
         let bbox_w_px = (zone
             .vertices_cm
             .iter()
