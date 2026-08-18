@@ -239,6 +239,12 @@ pub struct HtgrSimApp {
     /// open -- see [`panels::PlotsSidePanel`]. Every other tab always shows
     /// reactor controls regardless of this field.
     plots_side_panel: panels::PlotsSidePanel,
+    /// The Time-History Plots tab's CSV snapshot state (frozen text, display
+    /// interval) -- see
+    /// [`outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel`].
+    /// Owned here, not rebuilt per frame, so "Update CSV Data" clicks and the
+    /// interval slider persist across repaints.
+    plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
     /// frame from the real loop residence times -- see
@@ -473,6 +479,7 @@ impl HtgrSimApp {
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
             plots_side_panel: panels::PlotsSidePanel::default(),
+            plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             last_sim_time_s: 0.0,
@@ -598,7 +605,9 @@ impl eframe::App for HtgrSimApp {
                     panels::PlotsSidePanel::ReactorControls => {
                         draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
                     }
-                    panels::PlotsSidePanel::Csv => draw_plots_csv_panel(ui, &plots),
+                    panels::PlotsSidePanel::Csv => {
+                        draw_plots_csv_panel(ui, &mut self.plots_csv_panel, &plots);
+                    }
                 }
             } else {
                 draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);

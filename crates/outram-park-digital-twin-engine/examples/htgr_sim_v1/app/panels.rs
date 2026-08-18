@@ -12,7 +12,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
-use outram_park_digital_twin_engine::app_scaffold::{draw_csv_panel, PanelSet, SharedState};
+use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, SharedState};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
 use crate::app::geometry_tab::draw_geometry;
@@ -525,14 +525,18 @@ pub fn draw_geometry_panel(ui: &mut Ui) {
 /// draw time, so the stored data is never mutated into a display unit.
 /// The "Time-History Plots" tab's CSV side panel -- see [`PlotsSidePanel`].
 /// Thin wrapper over the engine's generic
-/// [`draw_csv_panel`](outram_park_digital_twin_engine::app_scaffold::draw_csv_panel);
-/// the CSV text itself comes from [`HtgrPlotData::to_csv_string`].
-pub fn draw_plots_csv_panel(ui: &mut Ui, plots: &HtgrPlotData) {
-    draw_csv_panel(
+/// [`CsvSnapshotPanel`](outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel):
+/// only refreshes on an "Update CSV Data" click, subsamples by the operator's
+/// chosen time interval, and caps its row count -- see that type's doc
+/// comment. `plots.to_rows()` is only actually called when the click happens
+/// this frame, not every repaint.
+pub fn draw_plots_csv_panel(ui: &mut Ui, panel: &mut CsvSnapshotPanel, plots: &HtgrPlotData) {
+    panel.draw(
         ui,
         "htgr_plots_csv",
         "Time-History CSV",
-        &plots.to_csv_string(),
+        &HtgrPlotData::CSV_HEADER,
+        || plots.to_rows(),
     );
 }
 

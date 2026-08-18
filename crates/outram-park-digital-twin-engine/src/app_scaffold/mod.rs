@@ -54,7 +54,10 @@ pub use crash::{
     mark_component, show_crash_modal_if_crashed, show_crash_modal_with_restart, spawn_monitored,
     spawn_physics_thread_monitored, CrashModalOutcome, CrashReport, ThreadHealth,
 };
-pub use csv_display::{draw_csv_panel, rows_to_csv_string};
+pub use csv_display::{
+    cap_row_count, draw_csv_panel, filter_rows_by_time_interval, rows_to_csv_string,
+    CsvSnapshotPanel, DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS, MAX_CSV_ROWS,
+};
 pub use csv_logging::{CsvLogger, CsvLoggerError};
 pub use gui_frame_metrics::GuiFrameMetrics;
 pub use plot_history::{PlotHistory, XySample};
