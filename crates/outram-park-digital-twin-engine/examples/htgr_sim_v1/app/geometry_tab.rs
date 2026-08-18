@@ -151,56 +151,84 @@ fn point_in_convex_polygon(point: (f64, f64), vertices: &[(f64, f64)]) -> bool {
     true
 }
 
-/// Draw a schematic pebble packing inside `zone`'s footprint -- a **body-
-/// centred-cubic-projected lattice** (rows spaced by `pebble_diameter *
-/// sqrt(3)/2`, each row offset by half a pitch from its neighbours, the
-/// standard 2-D depiction of a BCC/close-packed cross-section), not a real
-/// DEM packing. Only [`ZoneMaterial::Mixed`] (the settled bed, zone 99) and
-/// [`ZoneMaterial::Dummy`] (dummy-pebble-only regions) actually hold discrete
-/// pebbles; every other zone is a homogenised reflector or structure, so this
-/// is a no-op for them.
+/// Draw a schematic pebble packing inside a **volume group**'s combined
+/// footprint -- a **body-centred-cubic-projected lattice** (rows spaced by
+/// `pebble_diameter * sqrt(3)/2`, each row offset by half a pitch from its
+/// neighbours, the standard 2-D depiction of a BCC/close-packed
+/// cross-section), not a real DEM packing. Only [`ZoneMaterial::Mixed`] (the
+/// settled bed, zone 99) and [`ZoneMaterial::Dummy`] (dummy-pebble-only
+/// regions) actually hold discrete pebbles; every other zone is a
+/// homogenised reflector or structure, so this is a no-op for them.
 ///
-/// Candidate centres are generated over each render polygon's own bounding
-/// box and kept only if [`point_in_convex_polygon`] accepts them, so the
-/// lattice stays inside the zone's true footprint rather than its bounding
-/// box (matters for zone 91, the one non-rectangular pebble-bearing shape).
-/// Circles are drawn as thin outlines, not filled, so the material colour
-/// underneath still reads.
+/// `group` is every [`Htr10RzZone`] entry sharing one benchmark volume
+/// number (see [`Htr10RzZone`]'s doc comment on why more than one entry can
+/// share a number) -- the row phase is anchored to the **group's** combined
+/// z-extent, not each entry's own, so a zone drawn across several z-sub-bands
+/// (7, 12, 78) gets one continuous lattice with no seam at the internal
+/// band boundaries. Candidate centres are generated over the group's combined
+/// bounding box and kept only if [`point_in_convex_polygon`] accepts them
+/// against *any* of the group's render sub-polygons, so the lattice stays
+/// inside the true footprint rather than the bounding box (matters for zone
+/// 91, the one non-rectangular pebble-bearing shape). Circles are drawn as
+/// thin outlines, not filled, so the material colour underneath still reads.
 fn draw_pebble_lattice(
     painter: &egui::Painter,
-    zone: &Htr10RzZone,
+    group: &[&Htr10RzZone],
     to_screen: &impl Fn(f64, f64) -> Pos2,
     scale: f32,
 ) {
-    if !matches!(zone.material, ZoneMaterial::Mixed | ZoneMaterial::Dummy) {
+    let material = group[0].material;
+    if !matches!(material, ZoneMaterial::Mixed | ZoneMaterial::Dummy) {
         return;
     }
+
+    let all_polygons: Vec<Vec<(f64, f64)>> = group
+        .iter()
+        .flat_map(|zone| zone_render_polygons(zone))
+        .collect();
 
     let pitch_cm = pebble_diameter().get::<centimeter>();
     let row_pitch_cm = pitch_cm * 3.0_f64.sqrt() / 2.0;
     let stroke = Stroke::new(0.6, Color32::from_black_alpha(130));
     let circle_radius_px = (pitch_cm * 0.42) as f32 * scale;
 
-    for polygon in zone_render_polygons(zone) {
-        let r_min = polygon.iter().map(|(r, _)| *r).fold(f64::MAX, f64::min);
-        let r_max = polygon.iter().map(|(r, _)| *r).fold(f64::MIN, f64::max);
-        let z_min = polygon.iter().map(|(_, z)| *z).fold(f64::MAX, f64::min);
-        let z_max = polygon.iter().map(|(_, z)| *z).fold(f64::MIN, f64::max);
+    let r_min = all_polygons
+        .iter()
+        .flatten()
+        .map(|(r, _)| *r)
+        .fold(f64::MAX, f64::min);
+    let r_max = all_polygons
+        .iter()
+        .flatten()
+        .map(|(r, _)| *r)
+        .fold(f64::MIN, f64::max);
+    let z_min = all_polygons
+        .iter()
+        .flatten()
+        .map(|(_, z)| *z)
+        .fold(f64::MAX, f64::min);
+    let z_max = all_polygons
+        .iter()
+        .flatten()
+        .map(|(_, z)| *z)
+        .fold(f64::MIN, f64::max);
 
-        let mut row = 0u32;
-        let mut z = z_min + pitch_cm / 2.0;
-        while z < z_max {
-            let offset_cm = if row % 2 == 0 { 0.0 } else { pitch_cm / 2.0 };
-            let mut r = r_min + pitch_cm / 2.0 + offset_cm;
-            while r < r_max {
-                if point_in_convex_polygon((r, z), &polygon) {
-                    painter.circle_stroke(to_screen(r, z), circle_radius_px, stroke);
-                }
-                r += pitch_cm;
+    let mut row = 0u32;
+    let mut z = z_min + pitch_cm / 2.0;
+    while z < z_max {
+        let offset_cm = if row % 2 == 0 { 0.0 } else { pitch_cm / 2.0 };
+        let mut r = r_min + pitch_cm / 2.0 + offset_cm;
+        while r < r_max {
+            if all_polygons
+                .iter()
+                .any(|polygon| point_in_convex_polygon((r, z), polygon))
+            {
+                painter.circle_stroke(to_screen(r, z), circle_radius_px, stroke);
             }
-            z += row_pitch_cm;
-            row += 1;
+            r += pitch_cm;
         }
+        z += row_pitch_cm;
+        row += 1;
     }
 }
 
@@ -297,56 +325,105 @@ fn draw_cross_section(ui: &mut Ui, zoom: ZoomLevel) {
     // something.
     painter.rect_filled(rect, 0.0, Color32::from_gray(30));
 
+    // Group entries by benchmark volume number, preserving first-seen order
+    // (a `Vec` alongside the map, not relying on hash-map iteration order,
+    // so paint order is deterministic frame to frame). Volumes 7, 12 and 78
+    // are each drawn across more than one z-sub-band in the source script
+    // (see `Htr10RzZone`'s doc comment) -- grouping them here is what makes
+    // the fill, outline, pebble lattice and label all read as ONE continuous
+    // zone instead of visibly separate pieces with a seam at each internal
+    // band boundary (2026-08-18 fix).
+    let mut group_order: Vec<u32> = Vec::new();
+    let mut groups: std::collections::HashMap<u32, Vec<&Htr10RzZone>> =
+        std::collections::HashMap::new();
     for zone in &zones {
-        let (fill, edge) = zone_colors(zone.material);
-        for polygon in zone_render_polygons(zone) {
-            let points: Vec<Pos2> = polygon.iter().map(|&(r, z)| to_screen(r, z)).collect();
-            painter.add(egui::Shape::convex_polygon(
-                points.clone(),
-                fill,
+        groups
+            .entry(zone.volume)
+            .or_insert_with(Vec::new)
+            .push(zone);
+        if groups[&zone.volume].len() == 1 {
+            group_order.push(zone.volume);
+        }
+    }
+
+    for volume in group_order {
+        let group = &groups[&volume];
+        let material = group[0].material;
+        let (fill, edge) = zone_colors(material);
+
+        // FILL: every entry's render sub-polygons, no stroke -- an outline
+        // drawn per sub-polygon is exactly what would put a visible seam at
+        // an internal band boundary that isn't really there physically.
+        for zone in group.iter() {
+            for polygon in zone_render_polygons(zone) {
+                let points: Vec<Pos2> = polygon.iter().map(|&(r, z)| to_screen(r, z)).collect();
+                painter.add(egui::Shape::convex_polygon(points, fill, Stroke::NONE));
+            }
+        }
+
+        // OUTLINE: one continuous perimeter for the whole group, not one per
+        // drawn sub-band/sub-polygon.
+        let (r_min, r_max, z_min, z_max) = {
+            let mut r_min = f64::MAX;
+            let mut r_max = f64::MIN;
+            let mut z_min = f64::MAX;
+            let mut z_max = f64::MIN;
+            for zone in group.iter() {
+                for &(r, z) in &zone.vertices_cm {
+                    r_min = r_min.min(r);
+                    r_max = r_max.max(r);
+                    z_min = z_min.min(z);
+                    z_max = z_max.max(z);
+                }
+            }
+            (r_min, r_max, z_min, z_max)
+        };
+        if group.len() == 1 {
+            // Single entry -- its own vertices_cm is already the true outer
+            // boundary, whether a plain rectangle or (volume 48) the
+            // L-shape; stroking it directly (not its fill-split render
+            // sub-polygons) avoids a seam at the L-shape's own internal
+            // fill-split line.
+            let points: Vec<Pos2> = group[0]
+                .vertices_cm
+                .iter()
+                .map(|&(r, z)| to_screen(r, z))
+                .collect();
+            painter.add(egui::Shape::closed_line(points, Stroke::new(1.0, edge)));
+        } else {
+            // Multiple entries -- confirmed 2026-08-18 to always be
+            // same-r-range rectangles stacked in z (volumes 7, 12, 78), so
+            // their combined bounding box is exactly the true outer
+            // boundary, not an approximation of it.
+            let corners = [
+                to_screen(r_min, z_min),
+                to_screen(r_max, z_min),
+                to_screen(r_max, z_max),
+                to_screen(r_min, z_max),
+            ];
+            painter.add(egui::Shape::closed_line(
+                corners.to_vec(),
                 Stroke::new(1.0, edge),
             ));
         }
-        draw_pebble_lattice(&painter, zone, &to_screen, scale);
 
-        // Label position. A plain vertex average is exactly right for every
-        // zone here except 48: its L-shape makes that average land outside
-        // the polygon (in the notch), a problem `generate_htr10_geometry.py`
-        // already found and fixed with an explicit override
-        // (`MANUAL_LABEL_POSITIONS = {48: (158.1965, 246.882)}`) -- ported
-        // here unchanged rather than re-deriving it.
-        let (centroid_r, centroid_z) = if zone.volume == 48 {
+        draw_pebble_lattice(&painter, group, &to_screen, scale);
+
+        // Label position: the group's combined bounding-box centre, which
+        // for a plain rectangle (or a stacked-rectangle group) is exactly
+        // the vertex average, so this changes nothing for those zones --
+        // except volume 48, whose L-shape makes a bounding-box centre (and
+        // a naive vertex average alike) land outside the polygon, in the
+        // notch. `generate_htr10_geometry.py` already found and fixed this
+        // with an explicit override (`MANUAL_LABEL_POSITIONS = {48:
+        // (158.1965, 246.882)}`), ported here unchanged.
+        let (centroid_r, centroid_z) = if volume == 48 {
             (158.1965, 246.882)
         } else {
-            (
-                zone.vertices_cm.iter().map(|(r, _)| r).sum::<f64>()
-                    / zone.vertices_cm.len() as f64,
-                zone.vertices_cm.iter().map(|(_, z)| z).sum::<f64>()
-                    / zone.vertices_cm.len() as f64,
-            )
+            ((r_min + r_max) / 2.0, (z_min + z_max) / 2.0)
         };
-        let bbox_w_px = (zone
-            .vertices_cm
-            .iter()
-            .map(|(r, _)| *r)
-            .fold(f64::MIN, f64::max)
-            - zone
-                .vertices_cm
-                .iter()
-                .map(|(r, _)| *r)
-                .fold(f64::MAX, f64::min)) as f32
-            * scale;
-        let bbox_h_px = (zone
-            .vertices_cm
-            .iter()
-            .map(|(_, z)| *z)
-            .fold(f64::MIN, f64::max)
-            - zone
-                .vertices_cm
-                .iter()
-                .map(|(_, z)| *z)
-                .fold(f64::MAX, f64::min)) as f32
-            * scale;
+        let bbox_w_px = (r_max - r_min) as f32 * scale;
+        let bbox_h_px = (z_max - z_min) as f32 * scale;
         // Skip labels too small to read rather than drawing illegible text.
         if bbox_w_px > 12.0 && bbox_h_px > 10.0 {
             let font_size = if bbox_w_px < 22.0 || bbox_h_px < 18.0 {
@@ -354,7 +431,7 @@ fn draw_cross_section(ui: &mut Ui, zoom: ZoomLevel) {
             } else {
                 11.0
             };
-            let text_color = match zone.material {
+            let text_color = match material {
                 ZoneMaterial::Bottom | ZoneMaterial::Hot | ZoneMaterial::TopReflector => {
                     Color32::WHITE
                 }
@@ -363,7 +440,7 @@ fn draw_cross_section(ui: &mut Ui, zoom: ZoomLevel) {
             painter.text(
                 to_screen(centroid_r, centroid_z),
                 Align2::CENTER_CENTER,
-                zone.volume.to_string(),
+                volume.to_string(),
                 FontId::proportional(font_size),
                 text_color,
             );
