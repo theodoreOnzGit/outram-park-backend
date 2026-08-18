@@ -37,6 +37,67 @@ pub enum BedokError {
     #[error("no coordinate branch matched: none of (maxir, maxitheta, maxiz), (maxix, maxiy, maxiz) or (maxi1, maxi2, maxi3) is fully populated")]
     NoCoordinateBranch,
 
+    /// A `.m` file the snapshot references but does not contain.
+    ///
+    /// The handover is incomplete — `docs/bedok-reference-defects.md` lists
+    /// five referenced-but-absent files. Where a translated module's control
+    /// flow reaches one of them, this reports which file and from where, rather
+    /// than silently producing a default.
+    ///
+    /// Note the reference itself often *catches* the resulting MATLAB
+    /// "undefined function" error and continues on a fallback path; where it
+    /// does, the translation reproduces that fallback and surfaces this as a
+    /// per-item outcome rather than failing the whole call. See
+    /// [`crate::driftflux6_solverstatic3d`].
+    #[error("{file} is referenced from {referenced_from} but is absent from the snapshot")]
+    ReferenceFileMissing {
+        /// The absent `.m` file.
+        file: &'static str,
+        /// The file that calls it.
+        referenced_from: &'static str,
+    },
+
+    /// `sigmavalupd3d_handler.m` — defect C1, on a lattice position with no
+    /// previous value to inherit.
+    ///
+    /// The rod-level search leaves `rodlvl` unassigned when a bank's tip sits
+    /// at or above the top of its column. Later positions silently reuse the
+    /// previous one's value; the **first** has none, and MATLAB raises
+    /// `Undefined function or variable 'rodlvl'`. There is no defensible
+    /// substitute, so this reports the position rather than inventing one.
+    ///
+    /// See [`crate::sigmavalupd3d_handler`] for why this case is not exotic:
+    /// it is a fully withdrawn bank.
+    #[error(
+        "control-rod level is undefined at lattice position ({ix}, {iy}) (bank {bank}):          the bank tip is at or above the top of its column and no previous column          has set a level (sigmavalupd3d_handler.m, defect C1)"
+    )]
+    UninitialisedRodLevel {
+        /// The 0-based `x` index of the lattice position.
+        ix: usize,
+        /// The 0-based `y` index.
+        iy: usize,
+        /// The control-rod bank number.
+        bank: usize,
+    },
+
+    /// The critical-boron search produced an eigenvalue outside a sane range.
+    ///
+    /// `criticalboron_xyz.m` raises `criticalboron_xyz:badeig` whenever a
+    /// search eigensolve returns a `k_eff` outside `[0.8, 1.2]`, and
+    /// `criticalboron_xyz:badboot` for `[0.5, 1.5]` during the Phase-0
+    /// bootstrap. Both abort rather than feeding a garbage value into the
+    /// secant — the reference's comment records boron diverging past 1e5 ppm
+    /// when an earlier version did not check.
+    #[error("critical-boron {phase} returned k_eff = {k_eff} at {boron} ppm, outside the sane range")]
+    BoronSearchDiverged {
+        /// The offending eigenvalue.
+        k_eff: f64,
+        /// The boron concentration it was computed at, ppm.
+        boron: f64,
+        /// Which phase raised it: `"eigensolve"` or `"bootstrap"`.
+        phase: &'static str,
+    },
+
     /// The flux solvers' preconditioned-GMRES branch, which is **not
     /// translated**.
     ///

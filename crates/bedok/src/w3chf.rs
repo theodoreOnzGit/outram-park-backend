@@ -7,7 +7,7 @@
 //!   Institute (SNRSI).
 //! - **Source file:** `w3chf.m`, `main_exec_diff3d_standalone` snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 //!
 //! # Method reference
@@ -222,6 +222,7 @@ mod tests {
                 ..Default::default()
             },
             heatflux: vec![heatflux; n],
+            ..Default::default()
         };
         (fuel, th)
     }
@@ -364,6 +365,7 @@ mod tests {
                 ..Default::default()
             },
             heatflux: vec![100.0; n],
+            ..Default::default()
         };
 
         let out = w3chf(&fuel, &th);

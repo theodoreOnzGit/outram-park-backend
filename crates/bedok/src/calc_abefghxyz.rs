@@ -8,7 +8,7 @@
 //!   snapshot. The Rust module is `calc_abefghxyz` because Rust warns on
 //!   non-snake-case module names.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::handle3dcoords::handle3dcoords;
@@ -95,7 +95,7 @@ pub struct Coeffs {
 /// coefficient, a small removal cross section, or a fine mesh. The reference
 /// does not switch to a series expansion there, and neither does this
 /// translation. Recorded rather than repaired, per
-/// `docs/bedok-port-scoping.md` §1.0.
+/// the crate README, "Translation policy".
 ///
 /// At `a == 0` exactly the result is all `NaN`, from `0/0`. That case is
 /// unreachable through [`calc_abefghxyz`], which filters to nodes with a

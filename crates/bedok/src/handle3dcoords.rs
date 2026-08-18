@@ -8,7 +8,7 @@
 //! - **Source file:** `handle3dcoords.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::types::{CoordinateMode, Params};
@@ -35,7 +35,7 @@ use crate::types::{CoordinateMode, Params};
 ///
 /// where every indication is that `params.maxi3` was intended. It is
 /// translated as written, per the no-silent-repairs rule in
-/// `docs/bedok-port-scoping.md` §1.0.
+/// the crate README, "Translation policy".
 ///
 /// The consequence is sharper in Rust than in MATLAB, so it is worth stating.
 /// The generic branch is only reached when the Cartesian branch did *not*

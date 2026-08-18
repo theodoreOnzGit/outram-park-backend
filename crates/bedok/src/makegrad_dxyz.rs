@@ -8,7 +8,7 @@
 //!   The Rust module is `makegrad_dxyz` because Rust warns on non-snake-case
 //!   module names.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::convertindexc2d::IndexMode;
@@ -551,5 +551,154 @@ mod tests {
         assert_eq!(outward(BoundaryCondition::Reflective), 0.0);
         assert_eq!(outward(BoundaryCondition::ZeroFlux), 1.0);
         assert!((outward(BoundaryCondition::Vacuum) - 1.0 / 3.0).abs() < 1e-15);
+    }
+
+    /// **Defect G1: the face coupling is only consistent on a UNIFORM mesh.**
+    ///
+    /// # Methodology
+    ///
+    /// The reference builds each face coefficient as
+    ///
+    /// ```text
+    /// Dt_plus = 0.5*(h + hp) * (D*Dp) / (h*D + hp*Dp) / L
+    /// ```
+    ///
+    /// with half-widths `h = L/2`, and puts `Dt_plus/hp` into the operator.
+    /// Take `D = Dp = D` and the algebra collapses to
+    ///
+    /// ```text
+    /// Dt_plus/hp = D / (L * Lp)
+    /// ```
+    ///
+    /// whereas the conservative finite-volume coupling across a face between
+    /// cells of width `L` and `Lp` is
+    ///
+    /// ```text
+    /// D / (L * (L + Lp)/2)
+    /// ```
+    ///
+    /// The two agree **only** when `L == Lp`, and otherwise differ by the
+    /// factor `(L + Lp) / (2*Lp)`. A second, independent error sits in the
+    /// harmonic mean: the series resistance `h/D + hp/Dp` gives a face
+    /// conductance `D*Dp/(h*Dp + hp*D)`, but the code writes
+    /// `D*Dp/(h*D + hp*Dp)` — the two diffusion coefficients are paired with
+    /// the wrong half-widths. That one also vanishes when `h == hp`.
+    ///
+    /// This test measures both on a deliberately graded `z` mesh rather than
+    /// asserting the algebra: two 1-group columns, one uniform at `L = 2` and
+    /// one graded `2, 4, 8`, and it compares the off-diagonal the code produces
+    /// against the conservative value computed independently here.
+    ///
+    /// **The defect is pinned, not repaired** — per the no-silent-repairs
+    /// policy. Repairing it would change every NEACRP result, since those cases
+    /// use non-uniform axial meshes.
+    ///
+    /// # Why it matters, and why it has not obviously bitten
+    ///
+    /// [`crate::neacrpa2`] and the other NEACRP PWR cases use a strongly graded
+    /// axial mesh (`30, 7.7, 11, 15, 30, ...`), so they run straight through
+    /// this. They are solved with [`crate::sanodaldiffusion_solverxyz`], whose
+    /// nodal correction is refitted against the same operator and appears to
+    /// absorb much of the inconsistency; a bare finite-difference solve on a
+    /// graded mesh has no such compensation.
+    ///
+    /// # Results — measured 2026-08-18
+    ///
+    /// | mesh | code | conservative | ratio |
+    /// |---|---|---|---|
+    /// | uniform `L = 2, Lp = 2` | 0.2500000000 | 0.2500000000 | 1 (rel. err 0) |
+    /// | graded `L = 2, Lp = 4` | 0.1250000000 | 0.1666666667 | **0.75** |
+    ///
+    /// The graded ratio is exactly `(L + Lp)/(2*Lp) = 6/8 = 0.75`, matching the
+    /// prediction to 1e-12.
+    ///
+    /// **Interpretation.** On a uniform mesh the discretisation is exactly
+    /// right — which is why this has gone unnoticed. On a 2:1 cell-size jump
+    /// the operator **understates** the face coupling by 25%, i.e. it
+    /// under-predicts leakage across a refinement boundary and so
+    /// over-concentrates flux in the finer region. The error is first-order in
+    /// the grading ratio and does not vanish under mesh refinement unless the
+    /// mesh is also made uniform.
+    ///
+    /// The NEACRP PWR cases grade their axial mesh from 30 cm down to 7.7 cm —
+    /// a ratio near 4 at the worst joint — so they are firmly in this regime.
+    #[test]
+    fn the_face_coupling_is_inconsistent_on_a_non_uniform_mesh() {
+        // 2x2x3, 1 group. The transverse extents are 2 because the stencil
+        // indexes `ix+1`/`iy+1` and a single-node direction panics; the `z`
+        // grading is what this test is about. Wide, uniform x and y keep their
+        // contributions out of the `z` off-diagonal being measured.
+        let build = |widths: [f64; 3]| {
+            let params = Params {
+                maxix: Some(2),
+                maxiy: Some(2),
+                maxiz: Some(3),
+                g: 1,
+                ..Default::default()
+            };
+            let n = 2 * 2 * 3;
+            let lz: Vec<f64> = (0..n).map(|idx| widths[idx % 3]).collect();
+            let geometry = Geometry {
+                lx: vec![10.0; n],
+                ly: vec![10.0; n],
+                lz,
+                ..Default::default()
+            };
+            let mut diffd = Array4::<f64>::zeros(2, 2, 3, 1);
+            let mut whichsigma = Array3::<usize>::zeros(2, 2, 3);
+            for ix in 0..2 {
+                for iy in 0..2 {
+                    for iz in 0..3 {
+                        diffd.set(ix, iy, iz, 0, 1.0); // D = 1 everywhere
+                        whichsigma.set(ix, iy, iz, 1);
+                    }
+                }
+            }
+            let mut g = makegrad_dxyz(&geometry, &params, &diffd, &whichsigma, None).unwrap();
+            // The (0 -> 1) off-diagonal: node 0's coupling to node 1 along z.
+            let found = g.operator.find();
+            -found
+                .iter()
+                .find(|t| t.i == 0 && t.j == 1)
+                .expect("nodes 0 and 1 must couple along z")
+                .v
+        };
+
+        // The conservative finite-volume face coupling, computed independently.
+        let conservative = |l: f64, lp: f64| 1.0 / (l * (l + lp) / 2.0);
+
+        // --- uniform mesh: the code and the conservative value must agree ---
+        let uniform = build([2.0, 2.0, 2.0]);
+        let uniform_ref = conservative(2.0, 2.0);
+        let uniform_err = (uniform - uniform_ref).abs() / uniform_ref;
+        eprintln!("uniform  L=2, Lp=2:");
+        eprintln!("  code         = {uniform:.10}");
+        eprintln!("  conservative = {uniform_ref:.10}");
+        eprintln!("  relative err = {uniform_err:.3e}");
+        assert!(
+            uniform_err < 1e-14,
+            "the coupling must be consistent on a uniform mesh, got {uniform_err:e}"
+        );
+
+        // --- graded mesh: they must disagree by exactly (L + Lp)/(2 Lp) ---
+        let graded = build([2.0, 4.0, 8.0]);
+        let graded_ref = conservative(2.0, 4.0);
+        let ratio = graded / graded_ref;
+        let predicted = (2.0 + 4.0) / (2.0 * 4.0);
+        eprintln!("graded   L=2, Lp=4:");
+        eprintln!("  code         = {graded:.10}");
+        eprintln!("  conservative = {graded_ref:.10}");
+        eprintln!("  ratio        = {ratio:.10}");
+        eprintln!("  predicted    = (L+Lp)/(2 Lp) = {predicted:.10}");
+        eprintln!("  misstates the coupling by {:+.1}%", (ratio - 1.0) * 100.0);
+        assert!(
+            (ratio - predicted).abs() < 1e-12,
+            "the discrepancy should be exactly (L+Lp)/(2 Lp); got {ratio} vs {predicted}"
+        );
+        // The defect is real: this is NOT a consistent discretisation.
+        assert!(
+            (ratio - 1.0).abs() > 0.1,
+            "a 2:1 cell-size jump should misstate the coupling by ~25%"
+        );
     }
 }

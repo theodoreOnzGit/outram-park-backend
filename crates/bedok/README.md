@@ -6,12 +6,26 @@ band **above 1-D neutronics and below CFD**.
 A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported from
 the `main_exec_diff3d_standalone` snapshot with the author's permission.
 
-> **Status: rewrite in progress.** 27 of 48 MATLAB files are translated. The
-> nodal-diffusion layer is complete and runs end to end; the thermal-hydraulics
-> layer has started. The crate builds clean under clippy and rustdoc and its 135
-> unit tests pass. **No benchmark comparison has been made** — the case files
-> that would supply one are not translated yet. See
-> [Porting status](#porting-status).
+> **Status: translation complete.** All 50 MATLAB files are accounted for —
+> every solver, both coupling drivers, the critical-boron search, and all six
+> benchmark cases. The IAEA-3D
+> eigenvalue matches the published value to **-1.1 pcm**; the coupled
+> neutronics/thermal-hydraulics loop reaches a joint fixed point on NEACRP case
+> D; and the case-D cold-water transient marches with six delayed-neutron
+> families.
+>
+> **No transient result has been compared to a published curve** — the NEACRP
+> specification is not in the literature archive, and there is one **open
+> disagreement with the reference**: the critical-boron search lands ~1100 pcm
+> away from the MATLAB's own answer, cause not established (see
+> `docs/bedok-reference-defects.md`, "Open discrepancies"). The two top-level
+> scripts land as `examples/` rather than modules, and `plotreactor3dcolour`'s
+> figure emission is deliberately not reproduced. See [Porting status](#porting-status).
+>
+> **Note for the PWR cases:** they use a graded axial mesh, and the diffusion
+> operator is only a consistent discretisation on a uniform one — defect G1,
+> misstating the face coupling by up to **+144.8%** at `neacrpa2`'s worst axial
+> joint. Pinned by test, not repaired.
 
 ## What this crate is
 
@@ -78,9 +92,29 @@ The MATLAB is unfinished and the snapshot is terminal. Defects are translated
 and pinned by a test that asserts the wrong behaviour — so a later fix is a
 visible, deliberate change rather than a drift.
 
-The reasoning is in `docs/bedok-port-scoping.md` §1.0: a translation carrying
-well-meant fixes cannot be debugged against a benchmark, because a disagreement
-can no longer be attributed to either the translation or the original.
+The reasoning: a translation carrying well-meant fixes cannot be debugged
+against a benchmark, because a disagreement can no longer be attributed to
+either the translation or the original. Keeping the two apart is the only thing
+that makes the first disagreement diagnosable.
+
+Two facts about the reference set this policy, and they pull in different
+directions. **The snapshot is terminal** — Yan Ren has stopped working on the
+code and handed BEDOK to this project, so there is no re-sync task and the
+snapshot named in each module header *is* the upstream, finally. But **the
+snapshot is not complete**, and whatever he had not finished, nobody upstream
+will. Completing it is now this project's job.
+
+So: translate the gaps *as they are*, including the unfinished parts, and record
+each one in the doc comment where it occurs and in
+`docs/bedok-reference-defects.md`. Do not complete, repair or improve anything
+during translation, even where the fix looks obvious.
+
+**Corrections are a separate stage**, and they are *not* substitutions and
+cannot share their gate: a substitution must reproduce the faithful translation
+within tolerance, whereas a correction **deliberately changes the answer**, so
+parity cannot validate it. Each correction needs before/after numbers and a
+justification that does not appeal to the reference — benchmark agreement, or a
+physical argument. One at a time, never in the same change as a substitution.
 
 Defects found so far:
 
@@ -109,10 +143,23 @@ Defects found so far:
 |---|---|---|
 | Utilities and indexing | 12 | 12 |
 | Nodal diffusion (SANM) | 14 | **14 — complete.** `makegradDxyz`, `calc_sanodalxyz`, `sigmavalupd3d`, `calc_ABEFGHxyz`, `calc_bucklingxyz`, `makesigmadfxyz`, `fiss_src_extrapolatexyz`, the full leakage trio `calc_transleakagexyz` / `calc_1sttransleakagexyz` / `calc_2ndtransleakagexyz`, `calc_a1_expansionxyz` and its driver `calc_a1234_expansionxyz`, and the two flux solvers `diffusion_solverxyz` and `sanodaldiffusion_solverxyz` |
-| Thermal hydraulics | 9 | 1 — `w3chf` (W-3 critical heat flux) |
-| Coupling and cross-section feedback | 5 | 0 |
-| Benchmark cases and drivers | 7 | 0 |
-| `IAPWS_IF97.m` (3361 lines, 107 subfunctions) | 1 | regions 1, 2 and 4, plus the enthalpy entry points `h1_pT` / `h2_pT` / `hL_p` / `hV_p` |
+| Thermal hydraulics | 9 | **9 — complete.** `w3chf`, `w3chfhottest`, `fuelrodheat_1dcylnd`, `fuelrodheattime_1dcylnd`, `singleflow1devap`, `singleflow1devaptime`, `makeheatlaplacian_1dcylnd` (dead in the reference), and the `th_solverxyz` / `th_solvertimexyz` drivers |
+| Coupling and cross-section feedback | 6 | **6 — complete.** Plus `criticalboron_xyz` (the critical-boron search). `sigmavalupd3d`, `sigmavalupd3d_handler`, `driftflux6_solverstatic3d`, and both drivers: `thdiffusion_solverxyz` (steady) and `thdiffusion_solvertimexyz` (transient) |
+| Benchmark cases and drivers | 10 | **10 — complete.** Six cases (`iaea3ds`, `neacrpd1`, `neacrpd1t`, `neacrpa2`, `neacrpa2t`, `neacrpa1t`), the legacy 2-D `geom2dxycase1` (no solver can run it), `plotreactor3dcolour`'s data half, and the two scripts as `examples/` |
+| `IAPWS_IF97.m` (3361 lines, 107 subfunctions) | 1 | regions 1, 2 and 4 with the backward `T(p,h)` and transport entry points. **Region 3 is not translated**, which caps everything at 16.5292 MPa |
+
+### One file the snapshot does not contain
+
+`driftflux6_solverstatic1d.m` — the 1-D kernel the default two-fluid
+thermal-hydraulic path calls — is **absent from the snapshot**. The reference
+wraps the call in `try`/`catch`, so MATLAB's "Undefined function" is swallowed
+and every powered channel silently fails and keeps its previous state. That
+behaviour is reproduced faithfully and surfaced as
+`ChannelOutcome::SolverMissing` rather than hidden.
+
+Its practical effect is visible in the NEACRP results above: on the default
+path the coolant never leaves its inlet temperature. The `hem` model, which
+routes to `singleflow1devap` instead, is the working path.
 
 ### The two flux solvers
 
@@ -150,8 +197,41 @@ the nodal correction lowers the eigenvalue in the same direction and of the same
 order as the "-103 pcm" the defect register records for a 3-cube.
 
 **This is a self-consistency check on a hand-made problem, not a benchmark.** No
-published `k_eff` is involved, because the case files are not translated yet.
-Nothing in this crate should be described as validated.
+published `k_eff` is involved. The benchmark comparison is the next section.
+
+#### What was measured — validation, IAEA-3D
+
+The first published-benchmark comparison in this crate. `crate::iaea3ds` builds
+the IAEA 3-D PWR benchmark — 17x17x19 quarter core, two groups, five materials,
+10 cm radial / 20 cm axial mesh, reflective on the low `x` and `y` faces — and
+hands it to the SANM nodal solver with no thermal-hydraulic feedback and no
+coupling. Measured 2026-08-18 in release mode:
+
+| | `k_eff` | difference |
+|---|---|---|
+| **this port, SANM nodal** | **1.029084** | — |
+| PARCS | 1.029096 | **-1.1 pcm** |
+| ADPRES | 1.029082 | **+0.2 pcm** |
+
+Converged in 256 source iterations over 42 nodal rebuilds; fission-source
+residual 9.611e-7, `k_eff` residual 9.272e-10. The converged flux has zero
+negative entries in 10 982 and peaks at node `(2, 3, 8)` — inside the fuelled
+region, below mid-height, which is the direction the rods in levels 15-18 push
+it.
+
+The agreement is closer than the two reference codes are to each other (they
+differ by 1.4 pcm). Read `src/data/PROVENANCE.md` before citing it: both
+reference values are quoted from `iaea3ds.m`'s own header, not from a primary
+publication checked in this repository.
+
+**What this establishes, and what it does not.** It validates the
+nodal-diffusion stack — cross-section expansion, diffusion coefficients, the
+gradient operator, the SANM correction, transverse leakage, and the eigenvalue
+iteration — against a published reactor. It says nothing about the
+thermal-hydraulics, the coupling, or the transient path, none of which this case
+exercises, and it does not compare the benchmark's published assembly powers.
+The coupled driver in particular is **not** shown to converge; see
+`crate::thdiffusion_solverxyz`'s "Verification status".
 
 #### Two deliberate departures from the reference
 
@@ -239,13 +319,29 @@ Per the workspace rule, release mode:
 cargo test --release -p bedok --lib
 ```
 
-**Status: builds clean under clippy, 100 of 100 unit tests pass** — rustc 1.97.1,
-release profile, measured 2026-08-13.
+**Status: builds clean under clippy and rustdoc; 247 unit tests pass, 4
+ignored** — release profile, measured 2026-08-18. The ignored tests are
+`thdiffusion_solverxyz`'s three, which depend on a synthetic fixture that is not
+a well-posed coupled problem (see that module's "Verification status"), and
+`criticalboron_xyz`'s case-A1 search, which is a ten-minute diagnostic for the
+open X1 discrepancy rather than a gate.
 
-On Windows the host toolchain must be `stable-x86_64-pc-windows-gnu` unless
-Visual Studio Build Tools with the C++ workload are installed; the MSVC target
-fails at link time with `linker 'link.exe' not found`. Prefix with
-`+stable-x86_64-pc-windows-gnu` or set it as the default.
+The suite takes about 21 minutes. Most of that is three benchmark cases that
+each run a full coupled solve, so prefer a filter while iterating.
+
+On Windows use the **MSVC** toolchain:
+
+```bash
+rustup default stable-x86_64-pc-windows-msvc
+```
+
+It needs Visual Studio Build Tools with **both** the C++ workload *and* the
+Windows SDK — the SDK is a separate component, and its absence shows up
+misleadingly as `linker 'link.exe' not found`, which reads like a missing
+compiler rather than a missing SDK.
+
+The GNU toolchain (`stable-x86_64-pc-windows-gnu`) is **not** a workaround: it
+cannot build `faer`, which needs `dlltool` from MinGW binutils.
 
 **What passing tests do and do not mean.** They cover the translated utility
 layer and pin the known reference defects; the IAPWS region-1 functions agree
@@ -257,13 +353,33 @@ against a reactor benchmark, because the solvers are not translated yet. Per
 
 | | |
 |---|---|
-| Original author | Than Yan Ren, Singapore Nuclear Research and Safety Institute (SNRSI) |
-| Source | `main_exec_diff3d_standalone` snapshot |
-| Permission | given by the author for open-source release under OUTRAM PARK |
-| Institutional approval | given by the project lead, for the open-source repository |
-| Licence | GPL-3.0-only |
+### Permission and attribution
 
-Recorded in full in `docs/bedok-port-scoping.md` §6.
+**Permission to translate has been given.** Recorded here because
+`RESEARCH_INTEGRITY_AND_PROVENANCE.md` requires the provenance of ported work to
+be documented rather than assumed. This section is the canonical record; every
+ported module's doc comment points at it.
+
+| | |
+|---|---|
+| **Author** | Than Yan Ren, fellow researcher, SNRSI |
+| **How it arose** | Yan Ren approached the maintainer; the translation is something he wanted |
+| **Permission to translate** | given by Yan Ren directly, by email |
+| **Scope of that permission** | **explicitly open-source, under OUTRAM PARK** — stated up front, not inferred |
+| **Institutional approval** | given by SiCong (project lead), explicitly for sharing in the open-source repository |
+| **Source** | the `main_exec_diff3d_standalone` snapshot |
+| **Licence** | GPL-3.0-only |
+| **Recorded** | 2026-08-05 |
+
+The scope question that matters for a copyleft repository — translation for
+internal use versus publication as open source — was settled before the fact:
+the open-source destination was stated explicitly when permission was sought,
+and approved at both the author and project-lead level. **No further clearance
+is outstanding.** Retain the email as the record.
+
+**Attribution.** Every ported file carries a header naming **Than Yan Ren
+(SNRSI)** as the original author, the original `.m` filename, and the snapshot
+the translation was taken from.
 
 ## Bookkeeping status
 

@@ -7,10 +7,10 @@
 //! - **Source file:** `fixnegativematrix.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
-use crate::matlab::SparseMatrix;
+use crate::matlab::{Array2, SparseMatrix};
 
 /// `mat = fixnegativematrix(mat)`.
 ///
@@ -33,8 +33,32 @@ use crate::matlab::SparseMatrix;
 /// The reference re-indexes the sparse matrix once per negative entry, which is
 /// quadratic in the worst case. The translation keeps that structure rather
 /// than filtering in one pass, since the no-optimisation rule in
-/// `docs/bedok-port-scoping.md` §1 covers exactly this kind of rewrite. It is a
+/// the crate README's "Translation policy" covers exactly this kind of rewrite. It is a
 /// candidate for a stage-2 change, not a translation-time one.
+/// The same clamp for a **dense** matrix — negatives to zero, everywhere.
+///
+/// # Why this exists separately
+///
+/// The reference has one `fixnegativematrix.m`, applied to both sparse
+/// operators and the dense per-material cross-section tables that
+/// [`crate::sigmavalupd3d_handler`] passes it. Its `find(mat)` walk visits only
+/// stored non-zeros, which is defect C12 — a real trap for a sparse argument,
+/// where a structural zero standing in for a negative would be missed.
+///
+/// **For a dense argument the two are equivalent**, because every entry is
+/// stored and the ones `find` skips are exactly the zeros, which need no
+/// clamping. So this is the same function, not a repair: it clamps every
+/// negative entry to zero and leaves the rest alone.
+pub fn fixnegativematrix_dense(mat: &mut Array2<f64>) {
+    for i in 0..mat.rows() {
+        for j in 0..mat.cols() {
+            if mat.get(i, j) < 0.0 {
+                mat.set(i, j, 0.0);
+            }
+        }
+    }
+}
+
 pub fn fixnegativematrix(mat: &mut SparseMatrix) {
     let found = mat.find();
 

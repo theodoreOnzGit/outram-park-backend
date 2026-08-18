@@ -87,6 +87,18 @@ pub struct Params {
     /// `isfield(params, 'fsexp')` in `sanodaldiffusion_solverxyz.m`, guarded
     /// the same `~= 0` way as [`Params::nodalupd`].
     pub fsexp: usize,
+    /// `params.evap_C0` — the Zuber-Findlay distribution parameter in the
+    /// void-quality closure, dimensionless.
+    ///
+    /// `None` selects the reference's default of **1.2**, quoted there as the
+    /// round-tube value. Read only by [`crate::singleflow1devap`].
+    pub evap_c0: Option<f64>,
+    /// `params.evap_homog` — force the homogeneous limit.
+    ///
+    /// When set, the closure uses `C0 = 1` and `Vgj = 0`, so the phases move
+    /// together and the void fraction follows the quality directly. The
+    /// reference tests `params.evap_homog == 1`.
+    pub evap_homog: bool,
     /// Inexact inner convergence tolerance for the flux solve, dimensionless.
     ///
     /// Set by an outer coupling loop (`thdiffusion_solverxyz.m`) to avoid
@@ -96,6 +108,67 @@ pub struct Params {
     /// [`crate::sanodaldiffusion_solverxyz`]; [`crate::diffusion_solverxyz`]
     /// has no such switch and is always tight.
     pub innertol: Option<f64>,
+    /// `params.fuel` — the fuel-rod radial mesh sizes.
+    pub fuel: FuelParams,
+    /// `params.th_model` — which channel model the steady T-H driver uses.
+    pub th_model: ThModel,
+    /// `params.tmaxfuel` — ceiling for the fuel-temperature clamp, **K**.
+    ///
+    /// `None` selects the reference's default of **3100 K**, the UO2 melting
+    /// point. The clamp guards an ill-conditioned rod-conduction solve from
+    /// injecting non-physical temperatures into the Doppler feedback.
+    pub tmaxfuel: Option<f64>,
+    /// `params.cooltempavg` — core-average coolant temperature, **K**.
+    ///
+    /// Used only as the last-resort substitute when a node's own coolant
+    /// temperature is itself non-finite and the rod solve returned `NaN`.
+    pub cooltempavg: f64,
+    /// `params.boron` — soluble boron concentration, ppm.
+    ///
+    /// The feedback variable for the boron cross-section table; a scalar over
+    /// the whole core. Read by [`crate::sigmavalupd3d_handler`], and the
+    /// quantity the critical-boron search (`criticalboron_xyz.m`, not yet
+    /// translated) varies.
+    pub boron: f64,
+    // --- coupled-loop controls (thdiffusion_solverxyz.m) -------------------
+    /// `params.fueltempavg` — the fuel temperature the coupled loop starts
+    /// from, **K**, applied uniformly across the core.
+    pub fueltempavg: f64,
+    /// `params.cooldenavg` — the coolant density the coupled loop starts from,
+    /// **g/cm³**, applied uniformly.
+    pub cooldenavg: f64,
+    /// `params.fueltemptol` — outer convergence tolerance on the fuel
+    /// temperature, **K**, as a max-norm over the core.
+    ///
+    /// `None` selects the reference's **0.5 K**. Its comment records that this
+    /// was relaxed from 0.01 K because "a max-norm fuel temperature criterion
+    /// that tight is unrealistic for a coupled BWR steady state — the hot nodes
+    /// limit-cycle ~1 K".
+    pub fueltemptol: Option<f64>,
+    /// `params.fluxtol` — outer convergence tolerance on the fission-source and
+    /// `k_eff` residuals, dimensionless.
+    ///
+    /// `None` selects the reference's **1e-4**, relaxed from 1e-5 because "even
+    /// exact inner solves floor the outer fission-source residual near ~1e-4".
+    pub fluxtol: Option<f64>,
+    /// `params.thmaxiter` — cap on coupled outer iterations. `None` selects 50.
+    pub thmaxiter: Option<usize>,
+    /// `params.threlax` — Picard under-relaxation weight on the feedback
+    /// fields, dimensionless on `(0, 1]`.
+    ///
+    /// `None` selects the reference's **0.5**. A weight of 1 is no damping;
+    /// the reference notes the neutronics/T-H feedback "otherwise oscillates
+    /// undamped between cold/dense and boiling/void states".
+    pub threlax: Option<f64>,
+    /// `params.inexactinner` — whether to scale the inner flux tolerance by the
+    /// outer residual. The reference tests `~= 0`, so `None` means enabled.
+    pub inexactinner: Option<bool>,
+    /// `params.inexacteta` — the forcing factor in that schedule.
+    ///
+    /// `None` selects the reference's **0.001**. See
+    /// [`crate::thdiffusion_solverxyz`] for why it is that small.
+    pub inexacteta: Option<f64>,
+
     /// Force stop after this many cycles; `0` disables.
     pub stop: usize,
     /// Verbosity.
@@ -117,6 +190,39 @@ pub struct Params {
     pub timepicard: Option<usize>,
     /// SA-nodal correction update interval in steps; `0` freezes it.
     pub nodalupdtime: Option<usize>,
+
+    // --- critical-boron search (criticalboron_xyz) --------------------------
+    /// `params.crittol` — tolerance on `|k_eff - 1|` for the critical state.
+    ///
+    /// Read only by [`crate::criticalboron_xyz`]; defaults to 1e-5.
+    pub crittol: Option<f64>,
+    /// `params.velocities` — prompt neutron group velocities, cm/s.
+    ///
+    /// One per energy group. The transient driver uses the reciprocals as the
+    /// inverse-velocity vector multiplying the flux time derivative; an empty
+    /// vector means no kinetics data and the transient cannot run.
+    pub velocities: Vec<f64>,
+    /// `params.beta_dnp` — delayed neutron fractions, dimensionless.
+    ///
+    /// Six families in every case in the snapshot, summing to `betatot`.
+    pub beta_dnp: Vec<f64>,
+    /// `params.lambda_dnp` — delayed neutron precursor decay constants, 1/s.
+    ///
+    /// Same length and ordering as [`Params::beta_dnp`].
+    pub lambda_dnp: Vec<f64>,
+    /// `params.ejectduration` — control-assembly ejection time, seconds.
+    ///
+    /// The bank moves linearly from its steady position to
+    /// [`Geometry::crodejectto`] over this interval, then stays put.
+    pub ejectduration: Option<f64>,
+    /// `params.timescheme` — which kinetics discretisation to march.
+    pub timescheme: TimeScheme,
+    /// `params.freqiter` — flux solves per step under
+    /// [`TimeScheme::ExponentialTransform`]: one predictor plus
+    /// `freqiter - 1` frequency correctors. Clamped to at least 1.
+    pub freqiter: Option<usize>,
+    /// `params.freqmode` — how the exponential-transform frequencies are taken.
+    pub freqmode: FreqMode,
 
     // --- inert prototype switches ------------------------------------------
     /// JFNK preconditioner flag.
@@ -205,6 +311,39 @@ pub struct Geometry {
     pub ly: Vec<f64>,
     /// `geometry.Lz` — node height in `z`. As [`Geometry::lx`].
     pub lz: Vec<f64>,
+
+    /// `geometry.crodbanks(ix, iy)` — which control-rod bank sits over each
+    /// lattice position; `0` for none.
+    ///
+    /// Bank numbers are 1-based and index [`Geometry::crod`].
+    pub crodbanks: Option<crate::matlab::Array2<usize>>,
+    /// `geometry.crod(bank)` — each bank's withdrawal, in **steps**.
+    pub crod: Vec<f64>,
+    /// `geometry.crodstep` — the height of one control-rod step, cm.
+    pub crodstep: f64,
+    /// `geometry.crodbtm` — the axial position of a fully inserted rod tip, cm,
+    /// measured from the bottom of the core.
+    ///
+    /// A bank's tip sits at `crodbtm + crod(bank) * crodstep`; nodes **above**
+    /// that are rodded.
+    pub crodbtm: f64,
+
+    /// `geometry.crodeject` — which bank is ejected, 1-based; `None` (or the
+    /// reference's `0`) means the case has no rod motion.
+    pub crodeject: Option<usize>,
+    /// `geometry.crodejectto` — the ejected bank's final position, in steps.
+    pub crodejectto: f64,
+    /// `geometry.zscale` — mesh layers per axial *block* of the benchmark model.
+    ///
+    /// `maxiz / <the case's block count>`. Only the transient driver's radial
+    /// power maps read it, to turn an active-core block number into the mesh
+    /// layers it spans.
+    pub zscale: usize,
+
+    /// `geometry.fuel` — the fuel-rod radial mesh and materials.
+    ///
+    /// One rod description shared by the whole core; see [`FuelGeometry`].
+    pub fuel: FuelGeometry,
 
     /// `geometry.Vi` — node volume, one entry per node.
     ///
@@ -304,6 +443,59 @@ impl Conductivity {
     }
 }
 
+/// A temperature-dependent **volumetric** heat capacity, J/(cm³·K).
+///
+/// `geometry.fuel.rhocp` in the reference, a `cell(2,1)` of function handles
+/// built by `neacrpa1t.m` — the transient driver, and the only file that sets
+/// it. As [`Conductivity`], the closed set becomes an enum.
+///
+/// # This is `rho * cp`, already multiplied out
+///
+/// Both correlations are written as `density * specific_heat / 1000`: the
+/// density in g/cm³, the specific heat in J/(kg·K), and the `/1000` converting
+/// the product to J/(cm³·K). Nothing downstream ever needs the two factors
+/// separately.
+///
+/// # It is indexed differently from `tcon`
+///
+/// [`FuelGeometry::tcon`] has `max(whichk) + 1` entries, the last being the gap
+/// conductance. `rhocp` has exactly `max(whichk)` — **the gap carries no heat
+/// capacity**, and the transient stencil skips it rather than looking one up.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum VolumetricHeatCapacity {
+    /// UO2 fuel at 98.752% of theoretical density:
+    /// `10.412 * (1 - 0.01248) * (162.3 + 0.3038 T - 2.391e-4 T^2
+    /// + 6.404e-8 T^3) / 1000`, J/(cm³·K), `T` in K.
+    ///
+    /// From `neacrpa1t.m`. The leading `10.412` is the UO2 density in g/cm³ and
+    /// the `(1 - 0.01248)` its porosity correction.
+    Uo2Fuel,
+    /// Zircaloy cladding: `6.6 * (252.54 + 0.11474 T) / 1000`, J/(cm³·K).
+    ///
+    /// From `neacrpa1t.m`; `6.6` g/cm³ is the Zircaloy density.
+    ZircaloyClad,
+    /// A temperature-independent volumetric heat capacity, J/(cm³·K).
+    ///
+    /// Not used by any case file in the snapshot; provided so a caller can
+    /// supply a constant-property material.
+    Constant(f64),
+}
+
+impl VolumetricHeatCapacity {
+    /// Evaluate at temperature `t` in **K**, returning J/(cm³·K).
+    pub fn at(&self, t: f64) -> f64 {
+        match self {
+            Self::Uo2Fuel => {
+                10.412 * (1.0 - 0.01248)
+                    * (162.3 + 0.3038 * t - 2.391e-4 * t * t + 6.404e-8 * t * t * t)
+                    / 1000.0
+            }
+            Self::ZircaloyClad => 6.6 * (252.54 + 0.11474 * t) / 1000.0,
+            Self::Constant(c) => *c,
+        }
+    }
+}
+
 /// `params.fuel` — the fuel-rod radial mesh sizes.
 ///
 /// The reference passes this sub-struct where a function's signature says
@@ -353,6 +545,14 @@ pub struct FuelGeometry {
     ///
     /// See [`Conductivity`] for why this is not the reference's cell array.
     pub tcon: Vec<Conductivity>,
+    /// `geometry.fuel.rhocp` — volumetric heat capacity per material,
+    /// J/(cm³·K), indexed by `whichk - 1`.
+    ///
+    /// Read only by [`crate::fuelrodheattime_1dcylnd`]; the steady conduction
+    /// solver has no time term and never touches it. **Exactly
+    /// `max(whichk)` entries** — unlike [`FuelGeometry::tcon`], there is no
+    /// trailing gap element, because the gap carries no heat capacity.
+    pub rhocp: Vec<VolumetricHeatCapacity>,
     /// The fuel-cladding **gap conductance**, W/(cm²·K) — `tcon{end}`.
     ///
     /// `0.35` in `neacrpd1.m`, attributed there to the NEACRP benchmark. Note
@@ -452,12 +652,26 @@ pub struct Coolant {
     pub inlettemp: f64,
     /// `th.coolant.inletpress` — inlet pressure, **MPa**. Scalar.
     pub inletpress: f64,
+    /// `th.coolant.inletvoid` — inlet void fraction, dimensionless. Scalar.
+    ///
+    /// Read by [`crate::driftflux6_solverstatic3d`] to set the inlet mixture
+    /// density; zero for a subcooled inlet.
+    pub inletvoid: f64,
     /// `th.coolant.press` — pressure per node, **MPa**.
     pub press: Vec<f64>,
     /// `th.coolant.temps` — bulk temperature per node, **K**.
     pub temps: Vec<f64>,
     /// `th.coolant.enth` — bulk specific enthalpy per node, **kJ/kg**.
+    ///
+    /// Cell-**centred**: in the transient scheme it is the mean of the node's
+    /// two face values.
     pub enth: Vec<f64>,
+    /// `th.coolant.enthface` — cell-**face** specific enthalpy, **kJ/kg**.
+    ///
+    /// Written only by [`crate::singleflow1devaptime`], which solves for the
+    /// faces and derives the centres from them. The steady solver leaves it
+    /// empty.
+    pub enthface: Vec<f64>,
     /// `th.coolant.quality` — thermodynamic equilibrium quality, mass
     /// fraction. Negative in subcooled liquid, which the W-3 correlation
     /// relies on.
@@ -481,6 +695,99 @@ pub struct Coolant {
     /// Distinct from [`FuelGeometry::tcon`], which is a set of correlations for
     /// solid materials; this is an already-evaluated per-node value.
     pub tcon: Vec<f64>,
+
+    // --- two-fluid fields (driftflux6_solverstatic3d.m) --------------------
+    /// `th.coolant.vliq` — **liquid** phase velocity, cm/s.
+    ///
+    /// The six-equation two-fluid model tracks the phases separately, so this
+    /// and [`Coolant::vgas`] replace the single [`Coolant::vm`] that the
+    /// homogeneous model uses. `vm` is still filled, as their mass-weighted
+    /// mean.
+    pub vliq: Vec<f64>,
+    /// `th.coolant.vgas` — **vapour** phase velocity, cm/s.
+    pub vgas: Vec<f64>,
+    /// `th.coolant.tempsliq` — **liquid** phase temperature, K.
+    ///
+    /// The two-fluid model allows the phases to be at different temperatures,
+    /// so neither is `Tsat` in general. `temps` is set equal to this one for
+    /// compatibility with the downstream code, which expects a single
+    /// temperature.
+    pub tempsliq: Vec<f64>,
+    /// `th.coolant.tempsgas` — **vapour** phase temperature, K.
+    pub tempsgas: Vec<f64>,
+}
+
+/// Which channel model `th_solverxyz.m` uses for the coolant.
+///
+/// The reference selects on the string `params.th_model`, testing
+/// `strcmpi(params.th_model, 'hem')` and defaulting to the two-fluid path.
+///
+/// # Only one of these can actually run
+///
+/// [`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic3d`], whose
+/// per-channel solver is **absent from the snapshot** — so it retains the
+/// previous state rather than solving. [`ThModel::Hem`] routes to
+/// [`crate::singleflow1devap`], which works. The NEACRP D1 BWR case sets
+/// `'hem'`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ThModel {
+    /// `'twofluid'` — the staggered six-equation per-channel wrapper. The
+    /// reference's default, and the branch taken by any unrecognised string.
+    #[default]
+    TwoFluid,
+    /// `'hem'` — the homogeneous-equilibrium enthalpy march.
+    ///
+    /// The reference's comment explains why this exists: the transient driver
+    /// marches the HEM model, so a transient needs its `t = 0` steady state
+    /// from the **same** model. A two-fluid steady state has less void than
+    /// HEM at the same conditions, and handing that to the transient would be a
+    /// density mismatch — a spurious reactivity step at `t = 0`.
+    Hem,
+}
+
+/// Which way the coolant flows along `z`.
+///
+/// The reference carries this as `th.flowdir`, an integer tested `== -1`. Any
+/// other value means upward, so the two-variant enum loses nothing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FlowDirection {
+    /// Increasing `z` — the inlet is at `zlow`. Every value except `-1`.
+    #[default]
+    Up,
+    /// Decreasing `z` — the inlet is at `zhi`. The reference's `flowdir == -1`.
+    Down,
+}
+
+/// `th.flowrate` — coolant mass flux, **g/(s·cm²)**.
+///
+/// The reference accepts either a scalar or a per-node vector and expands the
+/// scalar with `if isscalar(flowrate)`. An enum keeps that choice visible
+/// rather than making every caller pre-expand.
+#[derive(Clone, Debug)]
+pub enum MassFlux {
+    /// One value for the whole core.
+    Uniform(f64),
+    /// One value per node, in the usual flattened order.
+    PerNode(Vec<f64>),
+}
+
+impl Default for MassFlux {
+    fn default() -> Self {
+        Self::Uniform(0.0)
+    }
+}
+
+impl MassFlux {
+    /// The mass flux at node `i`, **g/(s·cm²)**.
+    ///
+    /// # Panics
+    /// If a per-node vector is shorter than `i + 1`.
+    pub fn at(&self, i: usize) -> f64 {
+        match self {
+            Self::Uniform(g) => *g,
+            Self::PerNode(v) => v[i],
+        }
+    }
 }
 
 /// The `th` struct — the thermal-hydraulic state passed through the coupling.
@@ -494,6 +801,168 @@ pub struct Th {
     pub coolant: Coolant,
     /// `th.heatflux` — wall heat flux per node, **W/cm²**.
     pub heatflux: Vec<f64>,
+
+    // --- power and flow scaling (singleflow1devap.m, th_solverxyz.m) --------
+    /// `th.maxpow` — total core thermal power, **W**.
+    ///
+    /// Multiplies the normalised power density to give absolute power.
+    pub maxpow: f64,
+    /// `th.powratio` — fraction of rated power the case runs at,
+    /// dimensionless.
+    pub powratio: f64,
+    /// `th.nfuelpin` — fuel pins per node.
+    ///
+    /// The reference wraps this in `double(...)`, so a case file may supply it
+    /// as an integer type.
+    pub nfuelpin: f64,
+    /// `th.coolheatfrac` — fraction of fission power deposited **directly in
+    /// the coolant** rather than in the fuel, dimensionless.
+    ///
+    /// The complement, `1 - coolheatfrac`, is what heats the pins.
+    pub coolheatfrac: f64,
+    /// `th.flowrate` — coolant mass flux, g/(s·cm²).
+    pub flowrate: MassFlux,
+    /// `th.flowdir` — which way the coolant flows along `z`.
+    pub flowdir: FlowDirection,
+
+    // --- staggered six-equation warm-start store (driftflux6_solverstatic3d) --
+    /// `th.stag6_Ustag` — the per-channel state vector the staggered solver
+    /// reuses as a warm start, `6*maxiz` rows by `maxix*maxiy` channels.
+    ///
+    /// Threaded through the coupled Picard loop in `th` rather than returned
+    /// separately, because the coupling layer under-relaxes only a few named
+    /// fields and this survives intact between cycles.
+    pub stag6_ustag: crate::matlab::Array2<f64>,
+    /// `th.stag6_qref` — the wall heat flux each stored warm start was computed
+    /// at, `maxiz` by channels. A seed is only reused while the flux has not
+    /// moved much.
+    pub stag6_qref: crate::matlab::Array2<f64>,
+    /// `th.stag6_relerr` — the relative residual each channel's last solve
+    /// reached, one per channel. `NaN` where a channel has never been solved.
+    pub stag6_relerr: Vec<f64>,
+
+    // --- fuel state (th_solverxyz.m) ---------------------------------------
+    /// `th.fueltemp` — the radial temperature profile at each core node, **K**.
+    ///
+    /// `maxix*maxiy*maxiz` rows by `maxid` columns, where `maxid` is the
+    /// fuel-rod unknown count [`crate::fuelrodheat_1dcylnd`] describes. Row
+    /// `idx` is one rod's profile from centre to cladding surface.
+    pub fueltemp: crate::matlab::Array2<f64>,
+    /// `th.fueltempavg` — the fuel temperature fed to the cross-section
+    /// feedback, **K**, one per node.
+    ///
+    /// Despite the name this is **not** a volume average: `th_solverxyz.m`
+    /// assigns it equal to [`Th::fueltempdoppler`], with the volume-averaging
+    /// line commented out. See that module.
+    pub fueltempavg: Vec<f64>,
+    /// `th.fueltempdoppler` — the Doppler-weighted fuel temperature, **K**.
+    ///
+    /// `(1 - alpha) * T_centre + alpha * T_pellet_surface`, with `alpha` from
+    /// [`FuelGeometry::doppleralpha`].
+    pub fueltempdoppler: Vec<f64>,
+    /// `th.linpwrdens` — linear power density, **W/cm** per node.
+    pub linpwrdens: Vec<f64>,
+    /// `th.modtemp` — moderator temperature, **K**, one per node.
+    ///
+    /// Distinct from `coolant.temps` in a design where the moderator and the
+    /// coolant are different fluids. For the LWR cases in the snapshot they
+    /// coincide, but the cross-section tables address them separately.
+    pub modtemp: Vec<f64>,
+
+    /// `th.inlettemp_t` — a prescribed time-dependent inlet temperature.
+    ///
+    /// The reference stores a MATLAB function handle here and the transient
+    /// driver evaluates it at the start of every step, overwriting
+    /// `coolant.inlettemp`. Function handles cannot cross into Rust and this
+    /// workspace forbids trait objects, so the forcing is an **enum** of the
+    /// shapes the snapshot actually uses; see [`InletForcing`].
+    pub inlettemp_t: InletForcing,
+}
+
+/// A prescribed time-dependent coolant inlet condition.
+///
+/// Replaces the reference's `th.inlettemp_t` function handle. Adding a new
+/// forcing law means adding a variant, which the compiler then forces every
+/// match site to handle — the reason this workspace prefers enums to trait
+/// objects.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum InletForcing {
+    /// No forcing: the inlet stays at `coolant.inlettemp` throughout.
+    #[default]
+    Steady,
+    /// NEACRP case D1's cold-water injection, benchmark Fig. 6.1.
+    ///
+    /// The inlet enthalpy sits `dh(t)` below the saturated-liquid value at
+    /// `pressure`, with the subcooling growing from `dh0` to `2*dh0`:
+    ///
+    /// ```text
+    /// dh(t) = dh0 * (2 - exp(-rate * t))     kJ/kg
+    /// ```
+    ///
+    /// At `t = 0` this is exactly `dh0`, so it is continuous with the steady
+    /// inlet the case file sets. The temperature is recovered through the
+    /// IF97 backward equation at the (constant) core pressure.
+    ExponentialSubcooling {
+        /// Core pressure, MPa.
+        pressure: f64,
+        /// The steady-state subcooling, kJ/kg.
+        dh0: f64,
+        /// The approach rate, 1/s.
+        rate: f64,
+    },
+}
+
+impl InletForcing {
+    /// The inlet temperature at time `t` in **K**, or `None` when the case
+    /// prescribes no forcing and the steady value should stand.
+    pub fn at(&self, t: f64) -> Option<f64> {
+        match self {
+            Self::Steady => None,
+            Self::ExponentialSubcooling { pressure, dh0, rate } => {
+                let tsat = crate::iapws_if97::region4::tsat_p(*pressure);
+                let hsat = crate::iapws_if97::basic::h1_pt(*pressure, tsat);
+                let dh = dh0 * (2.0 - (-rate * t).exp());
+                Some(crate::iapws_if97::backward::t_ph(*pressure, hsat - dh))
+            }
+        }
+    }
+}
+
+/// Which kinetics discretisation the transient driver marches.
+///
+/// The reference selects with the integer `params.timescheme`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TimeScheme {
+    /// `1`, the reference's default — exponential-transform implicit Euler for
+    /// the flux with analytic precursor integration over a linearly varying
+    /// transformed fission source.
+    ///
+    /// The scheme of the nodal program Ants (A. Rintala, U. Lauranto, *Ann.
+    /// Nucl. Energy* **190** (2023) 109868, Eqs. (3)-(13)).
+    #[default]
+    ExponentialTransform,
+    /// `0` — plain implicit Euler for both flux and precursors. First order,
+    /// and described in the reference as the legacy scheme.
+    ImplicitEuler,
+}
+
+/// How the exponential-transform frequencies are taken.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FreqMode {
+    /// `'global'`, the reference's default — one amplitude frequency per
+    /// energy group, uniform in space, from the volume-integrated group flux.
+    ///
+    /// Robust: it captures the stiff point-kinetics-like exponential rise
+    /// exactly, which is what a super-prompt rod ejection needs.
+    #[default]
+    Global,
+    /// `'node'` — per-node, per-group frequencies as written in the Ants paper.
+    ///
+    /// Slightly more accurate for shape transients, and **unstable in
+    /// super-prompt rod ejections**: the reference's own comment records that
+    /// node-wise frequency noise near the ejected channel feeds back through
+    /// the nearly singular prompt operator.
+    Node,
 }
 
 /// The `sigmavalues` struct — per-**material** cross-section data, as read

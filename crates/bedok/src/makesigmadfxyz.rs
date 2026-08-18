@@ -7,7 +7,7 @@
 //! - **Source file:** `makesigmadfxyz.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::handle3dcoords::handle3dcoords;
@@ -85,7 +85,7 @@ pub enum SigmaIndexMode {
 ///
 /// This is latent: every call site in the snapshot passes `1` explicitly, so
 /// mode 2 is never exercised. Translated as written per the no-silent-repairs
-/// rule in `docs/bedok-port-scoping.md` §1.0, and pinned by a test below.
+/// rule in the crate README, "Translation policy", and pinned by a test below.
 ///
 /// # Reference wart — `nu` is indexed two different ways
 ///

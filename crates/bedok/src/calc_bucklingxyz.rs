@@ -7,7 +7,7 @@
 //! - **Source file:** `calc_bucklingxyz.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use std::collections::HashMap;
@@ -44,7 +44,7 @@ pub struct Buckling {
 /// This is translated as written. It is a real risk rather than a theoretical
 /// one for a T-H feedback loop, where the cross sections change by small
 /// amounts every pass and a cancelling pair is not far-fetched. Recorded here
-/// rather than strengthened, per `docs/bedok-port-scoping.md` §1.0.
+/// rather than strengthened, per the crate README, "Translation policy".
 #[derive(Clone, Debug, PartialEq)]
 struct BucklingKey {
     philen: usize,

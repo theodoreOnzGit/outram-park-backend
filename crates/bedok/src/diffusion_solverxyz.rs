@@ -7,7 +7,7 @@
 //! - **Source file:** `diffusion_solverxyz.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 //!
 //! # What this is, and what it is not
@@ -491,6 +491,8 @@ mod tests {
             zmin: BoundaryCondition::Vacuum,
             zmax: BoundaryCondition::Vacuum,
             adf: None,
+            fuel: Default::default(),
+            ..Default::default()
         };
 
         (geometry, params, sigmavalues, whichsigma)

@@ -449,6 +449,45 @@ impl SparseMatrix {
         out
     }
 
+    /// `spdiags(v, 0, n, n)` — a square matrix carrying `v` on its diagonal.
+    ///
+    /// Exact zeros are dropped, as MATLAB's sparse constructor does, so a
+    /// diagonal entry that happens to vanish leaves no stored element.
+    pub fn from_diagonal(v: &[f64]) -> Self {
+        let n = v.len();
+        let mut out = Self::zeros(n, n);
+        for (i, x) in v.iter().enumerate() {
+            if *x != 0.0 {
+                out.entries.push(Triplet { i, j: i, v: *x });
+            }
+        }
+        out
+    }
+
+    /// `mat * spdiags(d, 0, n, n)` — scale **column** `j` by `d[j]`.
+    ///
+    /// This is the right-multiplication the transient driver applies to the
+    /// fission operator, where the per-node delayed-production weight belongs
+    /// to the column (the flux being multiplied), not the row.
+    ///
+    /// # Panics
+    /// If `d` is not `cols()` long.
+    pub fn scale_columns(&self, d: &[f64]) -> Self {
+        assert_eq!(
+            d.len(),
+            self.cols,
+            "scale vector length {} does not match matrix columns {}",
+            d.len(),
+            self.cols
+        );
+        let mut out = Self::zeros(self.rows, self.cols);
+        for t in &self.entries {
+            out.entries.push(Triplet { i: t.i, j: t.j, v: t.v * d[t.j] });
+        }
+        out.compress();
+        out
+    }
+
     /// `mat * x` — sparse matrix times dense vector.
     ///
     /// # Panics

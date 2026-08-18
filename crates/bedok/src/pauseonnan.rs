@@ -6,7 +6,7 @@
 //!   Institute (SNRSI).
 //! - **Source file:** `pauseonnan.m`, `main_exec_diff3d_standalone` snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::error::{BedokError, Result};

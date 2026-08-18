@@ -4,7 +4,7 @@
 2026-08-05; the flux-solver entries D1-D7 added 2026-08-13 when
 `diffusion_solverxyz.m` and `sanodaldiffusion_solverxyz.m` were translated).
 **Nothing here is fixed in stage 1, by design.**
-**Parent:** `docs/bedok-port-scoping.md` §1.0.
+**Parent:** the crate README, "Translation policy".
 
 Defects found in Than Yan Ren's MATLAB while translating it. The snapshot was
 handed over unfinished, so some of these are work in progress rather than
@@ -179,6 +179,107 @@ A third difference is an addition rather than an omission: both solvers return a
 `Termination` value saying why the iteration stopped, which the reference has no
 equivalent of (D6). Nothing is subtracted to make room for it.
 
+### From `makegradDxyz.m` — the non-uniform-mesh defect (reported 2026-08-18)
+
+Found while porting `neacrpa2.m`, which is the first case in the snapshot with
+a **graded axial mesh**. Recorded separately from the other `makegradDxyz`
+entry above because it is a different failure with a much wider blast radius.
+
+| # | Where | Defect | Severity |
+|---|---|---|---|
+| G1 | `makegradDxyz.m:114-116` and the matching `x`/`y` blocks | **The face-diffusion coupling is only a consistent discretisation on a UNIFORM mesh.** With half-widths `h = L/2`, the code forms `Dt_plus = 0.5*(h+hp)*(D*Dp)/(h*D + hp*Dp)/L` and inserts `Dt_plus/hp`. For `D = Dp` that reduces to `D/(L*Lp)`, where the conservative finite-volume coupling is `D/(L*(L+Lp)/2)`. The two agree only when `L == Lp` and otherwise differ by exactly `(L+Lp)/(2*Lp)` — **measured: a 2:1 cell-size jump understates the coupling by 25%**, confirmed by test to 1e-12 against the predicted factor. On `neacrpa2.m`'s own mesh the worst joint is 30 cm against 7.7 cm, where the coupling is misstated by **+144.8%** — and it sits at the bottom of the core, where the axial power shape is set. | **High on any graded mesh**; nil on a uniform one |
+| G2 | same lines | **The harmonic mean pairs each diffusion coefficient with the wrong half-width.** Series resistance `h/D + hp/Dp` gives a face conductance `D*Dp/(h*Dp + hp*D)`; the code writes `D*Dp/(h*D + hp*Dp)`. Independent of G1, and like G1 it vanishes when `h == hp`. Not separately quantified — G1's test holds `D` uniform to isolate the width error. | Medium, same regime |
+
+**Why this matters here.** `neacrpa2.m`, `neacrpa2t.m` and `neacrpa1t.m` all use
+the benchmark's graded axial mesh (`30, 7.7, 11, 15, 30, ... 12.8, 12.8, 8, 30`
+cm), so every NEACRP PWR result passes through G1 at several axial joints, the
+worst of them close to a 4:1 ratio.
+
+**Why it has not obviously bitten.** Those cases are solved with
+`sanodaldiffusion_solverxyz`, whose SA-nodal correction is refitted against the
+same operator and appears to absorb much of the inconsistency. A bare
+finite-difference solve on a graded mesh has no such compensation, which is how
+this was originally surfaced — on a fine-mesh CC3 model, where the thesis's
+graded axial grid corrupted the axial power shape (bottom-node power 0.488
+against a converged 0.70) while uniform meshes tracked the reference.
+
+**Not repaired**, per the no-silent-repairs policy, and this one is emphatically
+a case where that matters: correcting it would move every NEACRP number. It is a
+**correction**, not a substitution, so it cannot be gated on parity with the
+reference — it would need its own before/after study against a benchmark. See
+the crate README, "Translation policy".
+
+---
+
+### From the benchmark cases (reported 2026-08-18)
+
+Found while translating `iaea3ds.m` and `neacrpd1.m`, the first two case files.
+
+| # | Where | Defect | Severity |
+|---|---|---|---|
+| B1 | `neacrpd1.m:209-215`, and identically in `neacrpa2.m:223-228` and `neacrpa1t.m:238-243` | **The fuel-rod node volumes are computed from thicknesses, not radii.** The annular-shell loop sets `rminus = sum(Lr(i-1))` and `rplus = sum(Lr(i))`, but for a scalar index `sum` is the identity, so those are node *thicknesses*. Every fuel node has the same thickness, so `Vi(2:20)` comes out **exactly zero**: the array sums to 0.0209 cm3/cm where the pellet and cladding occupy 1.6061, understating the rod cross section by a factor of 77. Confirmed by test. | Low **today**, High if ever consumed — the field is dead (see below) |
+| B2 | `neacrpd1.m:295-307` and the equivalent block in every case file | `sigmavalues.fueltemp.upd` and `sigmavalues.coolden.upd` are built with a per-node loop marking every fissile node, and **nothing in the snapshot reads either**. A search for `.upd` finds writes in the case files and no consumers. Not translated. | Low — dead data |
+
+**Why B1 is contained.** `geometry.fuel.Vi` is read into `Vif` by
+`th_solverxyz.m:32` and `th_solvertimexyz.m:41`, and then used only on two
+**commented-out** lines — one of them the volume-averaging line that the Doppler
+average replaced. So the wrong values reach nothing. They are reproduced as
+written, per the no-silent-repairs policy, and pinned by a test that will fail
+the moment someone re-enables a consumer without fixing the formula.
+
+**A non-defect worth recording**, because it looks like one: both case files set
+`constants.nu = ones(...)`, so `sigmavalues.f` already carries the `nu*Sigma_f`
+product rather than a bare fission cross section. That is the benchmarks' own
+convention, not an omission, and every downstream multiplication by `nu` is
+consistent with it.
+
+---
+
+## Open discrepancies against the reference (not defects in the reference)
+
+These are places where **this translation disagrees with the MATLAB**, cause
+unknown. They are listed separately from the defect register above, which
+records faults *in the reference*. An entry here is a question, not a finding.
+
+| # | Where | Discrepancy | Status |
+|---|---|---|---|
+| X1 | `criticalboron_xyz` on `neacrpa2` | **Critical boron: this port 1253.29 ppm, the reference 1139.01 ppm** — a gap of +114 ppm, about **1100 pcm** at the measured -9.62 pcm/ppm boron worth. This port computes a materially more reactive core. Measured 2026-08-18. | **OPEN — narrowed to the Phase-0 bootstrap** |
+
+**Narrowed 2026-08-18 by running the same search on case A1**, via
+`criticalboron_xyz`'s `the_search_on_case_a1_...` diagnostic.
+
+| case | this port | reference | difference | bootstrapped |
+|---|---|---|---|---|
+| A1 (HZP) | 551.14 ppm | 551.31 ppm | **-0.17 ppm (-0.03%)** | **no** |
+| A2 (full power) | 1253.29 ppm | 1139.01 ppm | **+114.28 ppm (+10.03%)** | **yes** |
+
+**What this rules out.** A1 and A2 share the cross-section tables, the material
+map, the whole feedback chain (including the boron channel), the eigensolver,
+the thermal-hydraulics and this entire search. A mistranslation in any of them
+could not leave A1 within 2 pcm of the reference. The earlier "translation error
+in the feedback chain" hypothesis is therefore effectively eliminated, as is
+defect G1 — both cases carry G1 identically, and A1 even reproduces the
+reference's *own* -16 ppm disagreement with the published benchmark.
+
+**What remains, now two specific questions:**
+
+1. **Does the Phase-0 bootstrap converge a different coupled state?** It freezes
+   the nodal correction and under-relaxes at fixed boron, so it may settle
+   somewhere the standard solver would not — and Phases 1 and 2 then search
+   around that state.
+2. **Why did `thdiffusion_solverxyz` fail on A2 in the first place?** The
+   reference presumably reached 1139.01 without a fallback. If the coupled
+   driver fails on A2 here where the MATLAB succeeds, *that* is the defect and
+   the bootstrap is only exposing it.
+
+**What would settle it.** Cheapest first: instrument the A2 Phase-0 solve to see
+what `k_eff` it returns and why it leaves `[0.8, 1.2]`; then feed the bootstrap's
+converged state back into the standard solver and see whether it stays put.
+Obtaining `test_critboron3.m` would confirm whether the reference took the same
+path.
+
+---
+
 ---
 
 ## Missing files
@@ -193,12 +294,13 @@ referenced by code in the snapshot and were not shipped.
 | `driftflux_eqnstatic1d5.m` | comments in `main_exec_diff3d.m` | Metastable-liquid prototype |
 | `enthmix_forward.m`, `enthmix_invert.m` | comments in `main_exec_diff3d.m` | Enthalpy energy-variable option |
 | `bwrchfhottest.m` | `coupling` | BWR hottest-channel CHF |
+| `test_critboron3.m` | a comment in `neacrpa2t.m` | The critical-boron search that produced case A2's 1139.01 ppm. Without it that number cannot be reproduced or checked — only taken on trust from the comment that records it |
 
 **Consequence worth stating plainly:** because `driftflux_solverstatic1d.m` is
 absent, **no JFNK solver exists in the snapshot**. The `params.jfnkprecon` /
 `jfnkrel` / `jfnkverb` switches are set by the drivers and read by nothing. The
 transient solver as shipped is linear implicit-Euler with exponential
-transform. See `docs/bedok-port-scoping.md` §2.
+transform. See the "Missing files" section of `docs/bedok-reference-defects.md`.
 
 The single-phase HEM path (`singleflow1devap`) is complete, and it is the path
 the benchmark cases actually use.
