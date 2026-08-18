@@ -31,6 +31,10 @@
 //! - [`csv_logging`] -- a real CSV file writer ([`CsvLogger`]) with interval
 //!   throttling, replacing the on-screen "CSV" text-label affordance that
 //!   exists today but never actually writes a file.
+//! - [`csv_display`] -- the on-screen half `csv_logging` doesn't cover: one
+//!   copyable text box ([`draw_csv_panel`]) with a one-click "Copy CSV"
+//!   button, replacing the per-row `ui.label(...)` pattern that requires
+//!   dragging a selection across however many rows are on screen.
 //!
 //! A fourth piece, OPC-UA, is **not** here -- it already has its own reusable
 //! home in [`crate::opcua_core`] (see that module's docs and bead
@@ -40,6 +44,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::{self, JoinHandle};
 
 pub mod crash;
+pub mod csv_display;
 pub mod csv_logging;
 pub mod gui_frame_metrics;
 pub mod plot_history;
@@ -49,6 +54,7 @@ pub use crash::{
     mark_component, show_crash_modal_if_crashed, show_crash_modal_with_restart, spawn_monitored,
     spawn_physics_thread_monitored, CrashModalOutcome, CrashReport, ThreadHealth,
 };
+pub use csv_display::{draw_csv_panel, rows_to_csv_string};
 pub use csv_logging::{CsvLogger, CsvLoggerError};
 pub use gui_frame_metrics::GuiFrameMetrics;
 pub use plot_history::{PlotHistory, XySample};
