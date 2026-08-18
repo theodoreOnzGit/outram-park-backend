@@ -1360,6 +1360,39 @@ target rather than letting them break the build.
   verified from a `--lib`-only run. Workspace-wide Android/Termux build tracking
   lives in beads (the **`op-zfr` "Android support" epic**).
 
+## File path length: 170-character hard cap (HARD RULE, added 2026-08-18)
+
+**No new file in this workspace may have a repo-relative path longer than 170
+characters.** Windows' classic `MAX_PATH` is 260 characters and includes the
+drive letter and every parent directory down to the repo root, not just the
+part shown by `git ls-files` — a clone under a realistic path like
+`C:\Users\<name>\Documents\GitHub\outram-park-backend\` already spends
+45-70+ characters before the repo-relative part even starts. Long-path
+support (`git config --global core.longpaths true` plus Windows'
+`LongPathsEnabled`) fixes this for a user who knows to enable it, but this
+workspace targets contributors who may not, so the rule is to not need it.
+
+- **Check before adding a deeply nested file or directory**:
+  `git ls-files | awk '{print length, $0}' | sort -rn | head` from the repo
+  root, or scope it to one path with `git ls-files -- '<prefix>/**' | awk
+  '{print length}' | sort -rn | head`.
+- **170, not 260**, deliberately leaves headroom for a real clone-path prefix
+  on top of the repo-relative path, and for the file to still have room to
+  grow (a rename, an added test suffix) without immediately re-crossing the
+  line.
+- **This governs new files going forward.** It does not retroactively demand
+  renaming everything already over the limit — see the exception below.
+- **Existing violations are grandfathered, not silently ignored.** As of
+  2026-08-18, 53 files across the whole workspace exceed 170 characters (none
+  exceed 260), concentrated in `tuas_boussinesq_solver`
+  (`pre_built_components/ciet_steady_state_natural_circulation_test_components/...`,
+  whose own directory nesting alone accounts for most of the length) and two
+  files in `tampines-steam-tables`. Do not rename these preemptively as a
+  drive-by cleanup — a rename touching this many files' `mod`/`use` paths
+  needs its own reviewed change, not a side effect of an unrelated commit.
+  Fix opportunistically when a listed file is being substantially edited
+  anyway, or when the crate maintainer asks for a dedicated pass.
+
 ## Build & test
 
 A system BLAS is **only** needed to run `outram-foam-basic-lib`'s
