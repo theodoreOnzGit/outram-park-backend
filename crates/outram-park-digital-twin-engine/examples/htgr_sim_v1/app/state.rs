@@ -595,6 +595,64 @@ mod tests {
         }
     }
 
+    /// Methodology: fill the buffer to
+    /// [`outram_park_digital_twin_engine::app_scaffold::MAX_CSV_ROWS`] (4000,
+    /// matching [`MAX_PLOT_SAMPLES`]) with slowly-varying (not identical,
+    /// not degenerate) values on every column, so `f64::to_string()`'s
+    /// variable-length output is representative of a real run rather than a
+    /// constant that happens to print short. Build the CSV and measure its
+    /// actual byte length -- the number the maintainer asked for when
+    /// raising [`outram_park_digital_twin_engine::app_scaffold::MAX_CSV_ROWS`]
+    /// from 1000 to 4000, 2026-08-18.
+    ///
+    /// # Results (measured 2026-08-18)
+    ///
+    /// **551,276 bytes -- 0.551 MB (decimal) / 0.526 MiB (binary)** for 4000
+    /// rows x 8 columns of this simulator's actual field set, via `cargo
+    /// test ... to_rows_at_max_csv_rows_measures_a_realistic_byte_size --
+    /// --nocapture`. Roughly 138 bytes/row, 17 bytes/field -- consistent
+    /// with `f64::to_string()`'s typical output width for values in the
+    /// tens-to-thousands range with a handful of significant decimal
+    /// digits, plus separators. The assertion is a loose sanity ceiling
+    /// (2 MB), not a tight pin on this exact figure, since the byte count
+    /// depends on `f64::to_string()`'s shortest-round-tripping-
+    /// representation output, which is not deterministic-by-contract across
+    /// floating-point library versions -- only the order of magnitude is.
+    #[test]
+    fn to_rows_at_max_csv_rows_measures_a_realistic_byte_size() {
+        use outram_park_digital_twin_engine::app_scaffold::{rows_to_csv_string, MAX_CSV_ROWS};
+
+        let mut plots = HtgrPlotData::default();
+        for i in 0..MAX_CSV_ROWS {
+            let t = i as f64 * 0.1;
+            plots.push_sample(&HtgrSnapshot {
+                sim_time_s: t,
+                reactor_power_mw: 10.0 + (t * 0.001351).sin() * 2.0,
+                prompt_power_mw: 9.0 + (t * 0.002213).sin() * 1.5,
+                delayed_power_mw: 1.0 + (t * 0.000871).sin() * 0.3,
+                fuel_temperature_k: 950.0 + (t * 0.000513).sin() * 40.0,
+                bed_temperature_k: 900.0 + (t * 0.000377).sin() * 30.0,
+                core_outlet_temp_k: 973.15 + (t * 0.000291).sin() * 15.0,
+                turbine_power_mw: 3.1 + (t * 0.000662).sin() * 0.5,
+                ..HtgrSnapshot::default()
+            });
+        }
+
+        let rows = plots.to_rows();
+        assert_eq!(rows.len(), MAX_CSV_ROWS);
+        let csv_text = rows_to_csv_string(&HtgrPlotData::CSV_HEADER, &rows);
+        let bytes = csv_text.len();
+        println!(
+            "4000-row HtgrPlotData CSV: {bytes} bytes ({:.4} MB, decimal; {:.4} MiB, binary)",
+            bytes as f64 / 1_000_000.0,
+            bytes as f64 / (1024.0 * 1024.0)
+        );
+        assert!(
+            bytes < 2_000_000,
+            "4000-row CSV grew to {bytes} bytes -- unexpectedly large, check for a runaway column"
+        );
+    }
+
     /// Methodology: an empty [`HtgrPlotData`] (opening frame, before any
     /// sample has been pushed) must produce zero rows, not panic on an
     /// empty buffer.

@@ -128,7 +128,13 @@ pub fn draw_csv_panel(ui: &mut Ui, id_salt: &str, title: &str, csv_text: &str) {
 /// a CSV, applied after [`filter_rows_by_time_interval`] -- see the module
 /// doc comment's "row cap" point. The most **recent** rows are kept, since a
 /// time series is normally read for its latest behaviour.
-pub const MAX_CSV_ROWS: usize = 1000;
+///
+/// 4000 (maintainer choice, 2026-08-18) matches the ring-buffer size
+/// `htgr_sim_v1`/`fhr_sim_v2`'s plot histories already cap themselves at
+/// (`HtgrPlotData`'s `MAX_PLOT_SAMPLES`, `PagePlotData`'s
+/// `NUM_DATA_PTS_IN_PLOTS`) -- so a caller feeding this from one of those
+/// buffers never has the cap bind before the source data itself runs out.
+pub const MAX_CSV_ROWS: usize = 4000;
 
 /// [`CsvSnapshotPanel`]'s starting "CSV Display Interval (Seconds)", before
 /// an operator has touched the slider -- matches
@@ -377,19 +383,19 @@ mod tests {
         assert_eq!(filter_rows_by_time_interval(&rows, -5.0).len(), 3);
     }
 
-    /// Methodology: 1500 rows capped at [`MAX_CSV_ROWS`] (1000) must keep
-    /// exactly the most **recent** 1000 -- checked by verifying the first
-    /// kept row is index 500 (the 1500th row minus 1000), not just that the
+    /// Methodology: 5000 rows capped at [`MAX_CSV_ROWS`] (4000) must keep
+    /// exactly the most **recent** 4000 -- checked by verifying the first
+    /// kept row is index 1000 (the 5000th row minus 4000), not just that the
     /// length is right.
     ///
-    /// Result (2026-08-18): 1000 rows kept, first one is row 500.
+    /// Result (2026-08-18): 4000 rows kept, first one is row 1000.
     #[test]
     fn cap_row_count_keeps_the_most_recent_rows() {
-        let rows: Vec<Vec<String>> = (0..1500).map(|i| vec![i.to_string()]).collect();
+        let rows: Vec<Vec<String>> = (0..5000).map(|i| vec![i.to_string()]).collect();
         let capped = cap_row_count(&rows, MAX_CSV_ROWS);
         assert_eq!(capped.len(), MAX_CSV_ROWS);
-        assert_eq!(capped[0][0], "500");
-        assert_eq!(capped[999][0], "1499");
+        assert_eq!(capped[0][0], "1000");
+        assert_eq!(capped[3999][0], "4999");
     }
 
     /// Methodology: fewer rows than the cap must pass through unchanged --
