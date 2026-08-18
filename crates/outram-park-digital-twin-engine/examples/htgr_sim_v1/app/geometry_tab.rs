@@ -12,6 +12,7 @@
 //! NOT-VALIDATED caveat that carries over to everything drawn here.
 
 use egui::{Align2, Color32, FontId, Pos2, Stroke, Ui, Vec2};
+use uom::si::length::centimeter;
 
 use crate::physics::reactor_model::htr10_rz_geometry::{
     axial_ticks_cm, dummy_pebble_helium_volume_conus,
@@ -20,6 +21,7 @@ use crate::physics::reactor_model::htr10_rz_geometry::{
     dummy_pebble_helium_volume_upper_discharge_tube, htr10_rz_zones, pebble_bed_helium_volume,
     radial_ticks_cm, top_cavity_helium_volume, Htr10RzZone, ZoneMaterial,
 };
+use crate::physics::reactor_model::one_node::pebble_diameter;
 
 /// Face and edge colour for a zone's material, matching
 /// `generate_htr10_geometry.py`'s `STYLES` legend as closely as a flat
@@ -39,6 +41,13 @@ fn zone_colors(material: ZoneMaterial) -> (Color32, Color32) {
         ZoneMaterial::Graphite => (
             Color32::from_rgb(201, 167, 125),
             Color32::from_rgb(92, 70, 49),
+        ),
+        // Between Bottom's (52,52,52) and Mixed's (217,217,217) in lightness,
+        // per the maintainer's request -- see ZoneMaterial::TopReflector's
+        // doc comment.
+        ZoneMaterial::TopReflector => (
+            Color32::from_rgb(130, 113, 95),
+            Color32::from_rgb(58, 48, 38),
         ),
         ZoneMaterial::Bottom => (Color32::from_rgb(52, 52, 52), Color32::from_rgb(17, 17, 17)),
         ZoneMaterial::Control => (
@@ -72,7 +81,7 @@ fn zone_colors(material: ZoneMaterial) -> (Color32, Color32) {
 
 /// One line of the material legend: label text paired with the same colours
 /// [`zone_colors`] paints that material with.
-fn legend_entries() -> [(&'static str, ZoneMaterial); 12] {
+fn legend_entries() -> [(&'static str, ZoneMaterial); 13] {
     [
         ("Dummy pebbles", ZoneMaterial::Dummy),
         ("Mixed fuel/dummy pebbles", ZoneMaterial::Mixed),
@@ -81,6 +90,7 @@ fn legend_entries() -> [(&'static str, ZoneMaterial); 12] {
         ("Boronated carbon bricks", ZoneMaterial::Boronated),
         ("Carbon bricks", ZoneMaterial::Carbon),
         ("Graphite reflector", ZoneMaterial::Graphite),
+        ("Top reflector graphite", ZoneMaterial::TopReflector),
         ("Control-rod reflector", ZoneMaterial::Control),
         ("Hot-coolant reflector", ZoneMaterial::Hot),
         ("Cold-coolant chamber", ZoneMaterial::ColdChamber),
@@ -116,6 +126,81 @@ fn zone_render_polygons(zone: &Htr10RzZone) -> Vec<Vec<(f64, f64)>> {
         ]
     } else {
         vec![zone.vertices_cm.clone()]
+    }
+}
+
+/// Whether `point` lies inside the convex polygon `vertices` (or on its
+/// boundary), tested by checking every edge's cross product has a consistent
+/// sign -- valid for any convex polygon, which every entry
+/// [`zone_render_polygons`] returns is (see that function's doc comment).
+fn point_in_convex_polygon(point: (f64, f64), vertices: &[(f64, f64)]) -> bool {
+    let n = vertices.len();
+    let mut sign = 0.0_f64;
+    for i in 0..n {
+        let (x1, y1) = vertices[i];
+        let (x2, y2) = vertices[(i + 1) % n];
+        let cross = (x2 - x1) * (point.1 - y1) - (y2 - y1) * (point.0 - x1);
+        if cross != 0.0 {
+            if sign == 0.0 {
+                sign = cross.signum();
+            } else if cross.signum() != sign {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Draw a schematic pebble packing inside `zone`'s footprint -- a **body-
+/// centred-cubic-projected lattice** (rows spaced by `pebble_diameter *
+/// sqrt(3)/2`, each row offset by half a pitch from its neighbours, the
+/// standard 2-D depiction of a BCC/close-packed cross-section), not a real
+/// DEM packing. Only [`ZoneMaterial::Mixed`] (the settled bed, zone 99) and
+/// [`ZoneMaterial::Dummy`] (dummy-pebble-only regions) actually hold discrete
+/// pebbles; every other zone is a homogenised reflector or structure, so this
+/// is a no-op for them.
+///
+/// Candidate centres are generated over each render polygon's own bounding
+/// box and kept only if [`point_in_convex_polygon`] accepts them, so the
+/// lattice stays inside the zone's true footprint rather than its bounding
+/// box (matters for zone 91, the one non-rectangular pebble-bearing shape).
+/// Circles are drawn as thin outlines, not filled, so the material colour
+/// underneath still reads.
+fn draw_pebble_lattice(
+    painter: &egui::Painter,
+    zone: &Htr10RzZone,
+    to_screen: &impl Fn(f64, f64) -> Pos2,
+    scale: f32,
+) {
+    if !matches!(zone.material, ZoneMaterial::Mixed | ZoneMaterial::Dummy) {
+        return;
+    }
+
+    let pitch_cm = pebble_diameter().get::<centimeter>();
+    let row_pitch_cm = pitch_cm * 3.0_f64.sqrt() / 2.0;
+    let stroke = Stroke::new(0.6, Color32::from_black_alpha(130));
+    let circle_radius_px = (pitch_cm * 0.42) as f32 * scale;
+
+    for polygon in zone_render_polygons(zone) {
+        let r_min = polygon.iter().map(|(r, _)| *r).fold(f64::MAX, f64::min);
+        let r_max = polygon.iter().map(|(r, _)| *r).fold(f64::MIN, f64::max);
+        let z_min = polygon.iter().map(|(_, z)| *z).fold(f64::MAX, f64::min);
+        let z_max = polygon.iter().map(|(_, z)| *z).fold(f64::MIN, f64::max);
+
+        let mut row = 0u32;
+        let mut z = z_min + pitch_cm / 2.0;
+        while z < z_max {
+            let offset_cm = if row % 2 == 0 { 0.0 } else { pitch_cm / 2.0 };
+            let mut r = r_min + pitch_cm / 2.0 + offset_cm;
+            while r < r_max {
+                if point_in_convex_polygon((r, z), &polygon) {
+                    painter.circle_stroke(to_screen(r, z), circle_radius_px, stroke);
+                }
+                r += pitch_cm;
+            }
+            z += row_pitch_cm;
+            row += 1;
+        }
     }
 }
 
@@ -159,6 +244,7 @@ fn draw_cross_section(ui: &mut Ui) {
                 Stroke::new(1.0, edge),
             ));
         }
+        draw_pebble_lattice(&painter, zone, &to_screen, scale);
 
         // Label at the vertex centroid -- a plain average, which is exactly
         // right for every zone here except 48 (handled by its two labelled
@@ -197,7 +283,9 @@ fn draw_cross_section(ui: &mut Ui) {
                 11.0
             };
             let text_color = match zone.material {
-                ZoneMaterial::Bottom | ZoneMaterial::Hot => Color32::WHITE,
+                ZoneMaterial::Bottom | ZoneMaterial::Hot | ZoneMaterial::TopReflector => {
+                    Color32::WHITE
+                }
                 _ => Color32::BLACK,
             };
             painter.text(

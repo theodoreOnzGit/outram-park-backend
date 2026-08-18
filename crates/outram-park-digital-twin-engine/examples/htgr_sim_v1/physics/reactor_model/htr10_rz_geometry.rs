@@ -31,7 +31,9 @@
 //! and 30) to match the derived doc's axial list, at volume 4's own
 //! `r = [0, 90]` column. The maintainer corrected the *location* the next
 //! day: **volume 4 is restored whole**, `r = [0, 90]`, `z = [105, 130]`,
-//! Graphite -- the original, unmodified-script shape. Volumes 82 and 30
+//! `TopReflector` -- the original, unmodified-script shape (material split
+//! out from `Graphite` the same day as the rest of this correction; see
+//! [`ZoneMaterial::TopReflector`]). Volumes 82 and 30
 //! instead belong in the `r = [95.6, 108.6]` column, **directly under volume
 //! 29**: 82 spans `z = [105, 114.7]`, 30 spans `z = [114.7, 130]` -- the same
 //! z-split as first proposed, just moved one column outward. Volume 29
@@ -106,6 +108,14 @@ pub enum ZoneMaterial {
     Carbon,
     /// Graphite reflector.
     Graphite,
+    /// Volumes 2 and 4 -- the top axial reflector stack, directly above the
+    /// core cavity. Split out from the generic [`Self::Graphite`]
+    /// classification at the maintainer's request (2026-08-18) so it can be
+    /// drawn as its own colour; this is a display/labelling choice, not a
+    /// material distinction sourced from Terry 2005 or the TECDOCs -- the
+    /// benchmark literature does not separate a "top reflector" composition
+    /// from the rest of the graphite reflector.
+    TopReflector,
     /// Bottom reflector block (below the core cavity, around the conus).
     Bottom,
     /// Volume 31 -- control-rod-channel reflector column.
@@ -362,14 +372,14 @@ pub fn htr10_rz_zones() -> Vec<Htr10RzZone> {
     }
 
     // Central upper stack.
-    zones.push(rectangle(2, 0.0, 90.0, 40.0, 95.0, Graphite));
+    zones.push(rectangle(2, 0.0, 90.0, 40.0, 95.0, TopReflector));
     zones.push(rectangle(3, 0.0, 90.0, 95.0, 105.0, ColdChamber));
     // Volume 4, whole -- restored 2026-08-18. A 2026-08-17 attempt split
     // this into volumes 82/30 at z = 114.7; the maintainer moved 82/30
     // elsewhere the same day and restored this zone to its original,
     // unmodified-script shape. See the module doc comment's "Correction"
     // note for where 82 and 30 actually are now.
-    zones.push(rectangle(4, 0.0, 90.0, 105.0, 130.0, Graphite));
+    zones.push(rectangle(4, 0.0, 90.0, 105.0, 130.0, TopReflector));
     zones.push(rectangle(5, 0.0, 90.0, 130.0, 228.758, Cavity));
     zones.push(rectangle(99, 0.0, 90.0, 228.758, 351.818, Mixed));
 
