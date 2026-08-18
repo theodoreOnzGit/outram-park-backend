@@ -1,4 +1,5 @@
 {"id":"op-9s8.1","deleted_at":[1784868305198,1],"deleted_by":"root@vm"}
+{"id":"op-pxsw","deleted_at":[1787096289832,1],"deleted_by":"root@vm","reason":"maintainer decided to just do it now: shortened public names go workspace-wide, no separate naming-convention-decision step needed"}
 {"id":"op-u6f","deleted_at":[1785817105316,1],"deleted_by":"teddy0@snrsi-arch-desktop","reason":"probe bead, not real work"}
 {"id":"op-upo","deleted_at":[1784517945379,1],"deleted_by":"teddy0@snrsi-arch-desktop"}
 {"id":"outram-park-backend-4lf","deleted_at":[1784516692649,1],"deleted_by":"teddy0@snrsi-arch-desktop"}
