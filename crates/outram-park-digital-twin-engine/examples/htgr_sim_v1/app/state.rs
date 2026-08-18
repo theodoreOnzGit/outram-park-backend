@@ -478,15 +478,51 @@ impl HtgrPlotData {
             &mut self.fuel_temperature_k,
             [t, snapshot.fuel_temperature_k],
         );
-        push_capped(
-            &mut self.bed_temperature_k,
-            [t, snapshot.bed_temperature_k],
-        );
+        push_capped(&mut self.bed_temperature_k, [t, snapshot.bed_temperature_k]);
         push_capped(
             &mut self.core_outlet_temp_k,
             [t, snapshot.core_outlet_temp_k],
         );
         push_capped(&mut self.turbine_power_mw, [t, snapshot.turbine_power_mw]);
+    }
+
+    /// Render every buffer as one CSV string, one row per sample index --
+    /// see [`crate::app::panels::draw_plots_csv_panel`] for where this feeds
+    /// the "Time-History Plots" tab's CSV side panel.
+    ///
+    /// All seven buffers are pushed together, in lockstep, by
+    /// [`Self::push_sample`], so they share one length and one time value per
+    /// index -- this reads `time_s` from `reactor_power_mw`'s own `[t, _]`
+    /// pairs rather than assuming a separate time vector exists. Indexing
+    /// directly (not defensively) is deliberate: if that lockstep invariant
+    /// were ever broken, a panic here is the honest outcome, not a silently
+    /// misaligned CSV row.
+    pub fn to_csv_string(&self) -> String {
+        let header = [
+            "time_s",
+            "reactor_power_mw",
+            "prompt_power_mw",
+            "delayed_power_mw",
+            "fuel_temperature_k",
+            "bed_temperature_k",
+            "core_outlet_temp_k",
+            "turbine_power_mw",
+        ];
+        let rows: Vec<Vec<String>> = (0..self.reactor_power_mw.len())
+            .map(|i| {
+                vec![
+                    self.reactor_power_mw[i][0].to_string(),
+                    self.reactor_power_mw[i][1].to_string(),
+                    self.prompt_power_mw[i][1].to_string(),
+                    self.delayed_power_mw[i][1].to_string(),
+                    self.fuel_temperature_k[i][1].to_string(),
+                    self.bed_temperature_k[i][1].to_string(),
+                    self.core_outlet_temp_k[i][1].to_string(),
+                    self.turbine_power_mw[i][1].to_string(),
+                ]
+            })
+            .collect();
+        outram_park_digital_twin_engine::app_scaffold::rows_to_csv_string(&header, &rows)
     }
 }
 
@@ -496,4 +532,82 @@ fn push_capped(buf: &mut Vec<[f64; 2]>, sample: [f64; 2]) {
         buf.remove(0);
     }
     buf.push(sample);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_snapshot(sim_time_s: f64) -> HtgrSnapshot {
+        HtgrSnapshot {
+            sim_time_s,
+            reactor_power_mw: 10.0,
+            prompt_power_mw: 9.0,
+            delayed_power_mw: 1.0,
+            fuel_temperature_k: 950.0,
+            bed_temperature_k: 900.0,
+            core_outlet_temp_k: 973.15,
+            turbine_power_mw: 3.1,
+            ..HtgrSnapshot::default()
+        }
+    }
+
+    /// Methodology: push three samples through [`HtgrPlotData::push_sample`],
+    /// then parse [`HtgrPlotData::to_csv_string`]'s output with an
+    /// independent [`csv::Reader`] and check the header and every field of
+    /// every row -- not just that a string came out.
+    ///
+    /// Result (2026-08-18): header matches exactly; all three rows carry the
+    /// right time and the right value in every column.
+    #[test]
+    fn to_csv_string_round_trips_every_pushed_sample() {
+        let mut plots = HtgrPlotData::default();
+        for t in [0.0, 0.1, 0.2] {
+            plots.push_sample(&sample_snapshot(t));
+        }
+        let csv_text = plots.to_csv_string();
+
+        let mut reader = csv::ReaderBuilder::new().from_reader(csv_text.as_bytes());
+        assert_eq!(
+            reader.headers().unwrap().iter().collect::<Vec<_>>(),
+            vec![
+                "time_s",
+                "reactor_power_mw",
+                "prompt_power_mw",
+                "delayed_power_mw",
+                "fuel_temperature_k",
+                "bed_temperature_k",
+                "core_outlet_temp_k",
+                "turbine_power_mw",
+            ]
+        );
+        let records: Vec<csv::StringRecord> = reader.records().map(|r| r.unwrap()).collect();
+        assert_eq!(records.len(), 3);
+        for (i, expected_t) in [0.0, 0.1, 0.2].iter().enumerate() {
+            assert_eq!(records[i][0].parse::<f64>().unwrap(), *expected_t);
+            assert_eq!(records[i][1].parse::<f64>().unwrap(), 10.0);
+            assert_eq!(records[i][2].parse::<f64>().unwrap(), 9.0);
+            assert_eq!(records[i][3].parse::<f64>().unwrap(), 1.0);
+            assert_eq!(records[i][4].parse::<f64>().unwrap(), 950.0);
+            assert_eq!(records[i][5].parse::<f64>().unwrap(), 900.0);
+            assert_eq!(records[i][6].parse::<f64>().unwrap(), 973.15);
+            assert_eq!(records[i][7].parse::<f64>().unwrap(), 3.1);
+        }
+    }
+
+    /// Methodology: an empty [`HtgrPlotData`] (opening frame, before any
+    /// sample has been pushed) must still produce just the header line, not
+    /// panic on an empty buffer.
+    ///
+    /// Result (2026-08-18): passes.
+    #[test]
+    fn to_csv_string_on_an_empty_plot_data_is_just_the_header() {
+        let plots = HtgrPlotData::default();
+        let csv_text = plots.to_csv_string();
+        assert_eq!(
+            csv_text.trim(),
+            "time_s,reactor_power_mw,prompt_power_mw,delayed_power_mw,\
+             fuel_temperature_k,bed_temperature_k,core_outlet_temp_k,turbine_power_mw"
+        );
+    }
 }

@@ -12,7 +12,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
-use outram_park_digital_twin_engine::app_scaffold::{PanelSet, SharedState};
+use outram_park_digital_twin_engine::app_scaffold::{draw_csv_panel, PanelSet, SharedState};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
 use crate::app::geometry_tab::draw_geometry;
@@ -134,6 +134,21 @@ impl PanelSet for Panel {
             Self::Geometry => "HTR-10 Geometry",
         }
     }
+}
+
+/// Which content the right-hand side panel shows while [`Panel::Plots`] is
+/// the open tab. Every other tab always shows reactor controls -- this
+/// toggle only exists because a reader looking at trends wants the CSV
+/// beside them without losing the ability to still drive the plant from the
+/// same screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlotsSidePanel {
+    /// The normal operator control panel -- see [`draw_controls`].
+    #[default]
+    ReactorControls,
+    /// The plot history as one copyable CSV block -- see
+    /// [`draw_plots_csv_panel`].
+    Csv,
 }
 
 /// Control side-panel: every operator input, written straight back into the
@@ -508,6 +523,19 @@ pub fn draw_geometry_panel(ui: &mut Ui) {
 /// snapshot's convention; each sample is rewrapped as a `uom`
 /// [`ThermodynamicTemperature`] and read back through the chosen accessor at
 /// draw time, so the stored data is never mutated into a display unit.
+/// The "Time-History Plots" tab's CSV side panel -- see [`PlotsSidePanel`].
+/// Thin wrapper over the engine's generic
+/// [`draw_csv_panel`](outram_park_digital_twin_engine::app_scaffold::draw_csv_panel);
+/// the CSV text itself comes from [`HtgrPlotData::to_csv_string`].
+pub fn draw_plots_csv_panel(ui: &mut Ui, plots: &HtgrPlotData) {
+    draw_csv_panel(
+        ui,
+        "htgr_plots_csv",
+        "Time-History CSV",
+        &plots.to_csv_string(),
+    );
+}
+
 pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendUnit) {
     ui.heading("Reactor power vs time");
     Plot::new("htgr_power_plot")

@@ -116,8 +116,8 @@ use outram_park_digital_twin_engine::components::LegendUnit;
 use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
 use crate::physics::{HtgrPlant, PlantCommands};
 use panels::{
-    draw_controls, draw_diagnostics_panel, draw_geometry_panel, draw_plots_panel,
-    draw_schematic_panel, Panel,
+    draw_controls, draw_diagnostics_panel, draw_geometry_panel, draw_plots_csv_panel,
+    draw_plots_panel, draw_schematic_panel, Panel,
 };
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
@@ -235,6 +235,10 @@ pub struct HtgrSimApp {
     thread_health: ThreadHealth,
     /// Currently open panel.
     open_panel: Panel,
+    /// Which content the right side panel shows while [`Panel::Plots`] is
+    /// open -- see [`panels::PlotsSidePanel`]. Every other tab always shows
+    /// reactor controls regardless of this field.
+    plots_side_panel: panels::PlotsSidePanel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
     /// frame from the real loop residence times -- see
@@ -468,6 +472,7 @@ impl HtgrSimApp {
             plots: run.plots,
             thread_health: run.thread_health,
             open_panel: Panel::Schematic,
+            plots_side_panel: panels::PlotsSidePanel::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             last_sim_time_s: 0.0,
@@ -567,8 +572,37 @@ impl eframe::App for HtgrSimApp {
             ui.separator();
         });
 
+        // Snapshotted once, up front, and shared by both the right panel
+        // (when Panel::Plots + PlotsSidePanel::Csv) and the central panel
+        // (when Panel::Plots) below -- avoids cloning the plot buffers twice
+        // in the same frame for the one tab that can show them in two
+        // places at once.
+        let plots = self.plots.snapshot();
+
         egui::Panel::right("htgr_controls").show_inside(ui, |ui| {
-            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+            if self.open_panel == Panel::Plots {
+                ui.horizontal(|ui| {
+                    ui.selectable_value(
+                        &mut self.plots_side_panel,
+                        panels::PlotsSidePanel::ReactorControls,
+                        "Controls",
+                    );
+                    ui.selectable_value(
+                        &mut self.plots_side_panel,
+                        panels::PlotsSidePanel::Csv,
+                        "CSV",
+                    );
+                });
+                ui.separator();
+                match self.plots_side_panel {
+                    panels::PlotsSidePanel::ReactorControls => {
+                        draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+                    }
+                    panels::PlotsSidePanel::Csv => draw_plots_csv_panel(ui, &plots),
+                }
+            } else {
+                draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+            }
         });
 
         // Copied out before the closures below borrow `self` -- the unit is a
@@ -579,10 +613,7 @@ impl eframe::App for HtgrSimApp {
                 Panel::Schematic => {
                     draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit)
                 }
-                Panel::Plots => {
-                    let plots = self.plots.snapshot();
-                    draw_plots_panel(ui, &plots, display_unit);
-                }
+                Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
                 Panel::Geometry => draw_geometry_panel(ui),
             });
