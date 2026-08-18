@@ -26,23 +26,22 @@
 //! that earlier note only reached two of the sixteen axial rows before the
 //! script above completed the rest.
 //!
-//! **Correction (maintainer, 2026-08-17), superseded the same day.** The
-//! script's volume 4 was first thought to need a split at `z = 114.7` (into
-//! volumes 82 and 30) to match the derived doc's axial list. The maintainer
-//! corrected this again, 2026-08-18: **volume 4 is restored whole**,
-//! `r = [0, 90]`, `z = [105, 130]`, Graphite -- the original,
-//! unmodified-script shape. Volumes 82 and 30 instead belong in the
-//! `r = [95.6, 108.6]` column, **directly under volume 29** (which ends at
-//! `z = 130`): 82 spans `z = [130, 139.7]`, 30 spans `z = [139.7, 155.0]`
-//! (the same two widths, 9.7 and 15.3 cm, carried over from the discarded
-//! first attempt), and volume 31 (Control) below them shrinks to start at
-//! `z = 155.0` instead of `z = 130.0` to make room. Material for 82 and 30 at
-//! this new location is **Graphite**, carried over from the discarded first
-//! attempt rather than matched to neighbouring 31's Control -- maintainer
-//! call, not independently confirmed. As before, none of this is in
-//! `generate_htr10_geometry.py` itself (the GitHub attachment, not part of
-//! this repo's tree), so a diff against it will show these zones in a
-//! different place, deliberately.
+//! **Correction (maintainer, 2026-08-17), refined 2026-08-18.** The script's
+//! volume 4 was first thought to need a split at `z = 114.7` (into volumes 82
+//! and 30) to match the derived doc's axial list, at volume 4's own
+//! `r = [0, 90]` column. The maintainer corrected the *location* the next
+//! day: **volume 4 is restored whole**, `r = [0, 90]`, `z = [105, 130]`,
+//! Graphite -- the original, unmodified-script shape. Volumes 82 and 30
+//! instead belong in the `r = [95.6, 108.6]` column, **directly under volume
+//! 29**: 82 spans `z = [105, 114.7]`, 30 spans `z = [114.7, 130]` -- the same
+//! z-split as first proposed, just moved one column outward. Volume 29
+//! shrinks to make room, from `z = [95, 130]` to `z = [95, 105]`; volume 31
+//! (Control) below 82/30 is untouched, still starting at `z = 130`. Material
+//! for 82 and 30 is **Graphite**, carried over unchanged from the first
+//! attempt -- maintainer call, not independently confirmed. As before, none
+//! of this is in `generate_htr10_geometry.py` itself (the GitHub attachment,
+//! not part of this repo's tree), so a diff against it will show these zones
+//! in a different place, deliberately.
 //!
 //! Citation caution carries over unchanged: the preprint "should not be cited
 //! or reproduced without permission of the author" -- for publication, cite
@@ -329,15 +328,16 @@ pub fn radial_ticks_cm() -> &'static [f64] {
     ]
 }
 
-/// The eighteen axial band boundaries, descending (z increases downward --
+/// The seventeen axial band boundaries, descending (z increases downward --
 /// see the module doc comment), centimetres -- `generate_htr10_geometry.py`'s
-/// sixteen `z_ticks` plus `139.7` and `155.0`, the two boundaries introduced
-/// by moving volumes 82 and 30 under volume 29 (see [`htr10_rz_zones`]'s
-/// "Correction" comment). Exposed for the same reason as [`radial_ticks_cm`].
+/// sixteen `z_ticks` plus `114.7`, the boundary volumes 82 and 30 carry
+/// (unchanged) to their z = [95.6, 108.6] home under volume 29 (see
+/// [`htr10_rz_zones`]'s "Correction" comment). Exposed for the same reason as
+/// [`radial_ticks_cm`].
 pub fn axial_ticks_cm() -> &'static [f64] {
     &[
-        0.0, 40.0, 95.0, 105.0, 130.0, 139.7, 155.0, 228.758, 351.818, 388.764, 402.0, 430.0,
-        450.0, 465.0, 495.0, 510.0, 540.0, 610.0,
+        0.0, 40.0, 95.0, 105.0, 114.7, 130.0, 228.758, 351.818, 388.764, 402.0, 430.0, 450.0,
+        465.0, 495.0, 510.0, 540.0, 610.0,
     ]
 }
 
@@ -380,16 +380,17 @@ pub fn htr10_rz_zones() -> Vec<Htr10RzZone> {
 
     // R = 95.6 to 108.6 cm column.
     zones.push(rectangle(28, 95.6, 108.6, 40.0, 95.0, Graphite));
-    zones.push(rectangle(29, 95.6, 108.6, 95.0, 130.0, Graphite));
+    // Volume 29 shrinks to make room for 82/30 directly below it: was
+    // z = [95.0, 130.0], now ends at 105.0.
+    zones.push(rectangle(29, 95.6, 108.6, 95.0, 105.0, Graphite));
     // Volumes 82 and 30, directly under 29 -- moved here 2026-08-18 (see the
-    // module doc comment's "Correction" note). Same two widths (9.7 and
-    // 15.3 cm) as the discarded first attempt, Graphite carried over
-    // unchanged from that attempt too.
-    zones.push(rectangle(82, 95.6, 108.6, 130.0, 139.7, Graphite));
-    zones.push(rectangle(30, 95.6, 108.6, 139.7, 155.0, Graphite));
-    // Volume 31 shrinks to make room for 82/30 above it: was z = [130.0,
-    // 388.764], now starts at 155.0.
-    zones.push(rectangle(31, 95.6, 108.6, 155.0, 388.764, Control));
+    // module doc comment's "Correction" note), keeping their original
+    // z = [105.0, 114.7] / [114.7, 130.0] split, just at this column instead
+    // of r = [0, 90]. Graphite carried over unchanged. Volume 31 below them
+    // is untouched (still starts at z = 130.0, as it always did).
+    zones.push(rectangle(82, 95.6, 108.6, 105.0, 114.7, Graphite));
+    zones.push(rectangle(30, 95.6, 108.6, 114.7, 130.0, Graphite));
+    zones.push(rectangle(31, 95.6, 108.6, 130.0, 388.764, Control));
 
     // Upper reflector and coolant-channel regions.
     zones.push(rectangle(66, 108.6, 140.6, 95.0, 105.0, Graphite));
@@ -567,16 +568,15 @@ mod tests {
     /// Methodology: this transcription's own internal self-consistency check
     /// -- the set of distinct radial and axial boundaries implied by every
     /// rectangle zone's corners must equal `r_ticks`/`z_ticks` as literally
-    /// written in `generate_htr10_geometry.py`, **except** for `139.7` and
-    /// `155.0`, the two axial values introduced by the maintainer's
-    /// 2026-08-18 correction moving volumes 82/30 under volume 29 (see the
-    /// module doc comment) -- the unmodified script does not have them. This
-    /// catches a mistyped boundary value in the port; it does **not**
-    /// validate the transcription against the source figure itself, which is
-    /// a human's job (see the module doc comment's NOT-VALIDATED status).
+    /// written in `generate_htr10_geometry.py`, **except** for `114.7`, the
+    /// axial value volumes 82/30 carry into their `r = [95.6, 108.6]` home
+    /// under volume 29 (see the module doc comment's "Correction" note) --
+    /// the unmodified script does not have it. This catches a mistyped
+    /// boundary value in the port; it does **not** validate the
+    /// transcription against the source figure itself, which is a human's
+    /// job (see the module doc comment's NOT-VALIDATED status).
     ///
-    /// Result (2026-08-18): both sets match, `139.7` and `155.0` included as
-    /// expected.
+    /// Result (2026-08-18): both sets match, `114.7` included as expected.
     #[test]
     fn rectangle_boundaries_match_the_source_scripts_axis_ticks() {
         let expected_r_ticks = radial_ticks_cm().to_vec();
