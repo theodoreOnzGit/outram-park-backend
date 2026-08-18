@@ -27,7 +27,7 @@ pub fn simple_fluid_pipe_example_1() {
 
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_pressure_loss;
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_mass_flowrate;
-        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     use uom::si::f64::*;
     // first we create an air pipe struct
     //

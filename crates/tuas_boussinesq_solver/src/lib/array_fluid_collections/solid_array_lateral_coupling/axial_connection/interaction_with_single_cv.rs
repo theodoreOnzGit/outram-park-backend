@@ -1,6 +1,6 @@
 use crate::single_control_vol::SingleCVNode;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::f64::*;
 

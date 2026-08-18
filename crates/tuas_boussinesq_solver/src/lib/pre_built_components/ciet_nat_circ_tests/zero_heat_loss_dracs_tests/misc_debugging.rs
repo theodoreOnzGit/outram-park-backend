@@ -9,7 +9,7 @@
 #[test]
 pub fn steel_properties_debugging() {
     use crate::pre_built_components::
-    ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+    ciet_nat_circ_tests::dracs_loop_components::*;
     // let's construct the branches with test pressures and obtain
     use uom::si::f64::*;
     use uom::ConstZero;

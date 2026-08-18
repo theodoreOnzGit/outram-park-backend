@@ -1,6 +1,6 @@
-use crate::array_control_vol_and_fluid_component_collections::{
+use crate::array_fluid_collections::{
     fluid_component_collection::fluid_component::FluidComponent,
-    one_d_fluid_array_with_lateral_coupling::FluidArray,
+    fluid_array_lateral_coupling::FluidArray,
 };
 
 use super::NonInsulatedFluidComponent;

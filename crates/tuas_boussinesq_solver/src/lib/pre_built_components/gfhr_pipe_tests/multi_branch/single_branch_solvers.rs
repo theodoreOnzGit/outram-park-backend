@@ -1,6 +1,6 @@
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+use crate::array_fluid_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 use roots::find_root_brent;
 use roots::SimpleConvergency;
 use uom::si::mass_rate::kilogram_per_second;

@@ -45,21 +45,21 @@ pub fn case_b_tchx_out_308_kelvin_35_celsius() {
     use uom::si::thermodynamic_temperature::kelvin;
 
     use crate::pre_built_components::
-    ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+    ciet_nat_circ_tests::dracs_loop_components::*;
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollection;
     // let's construct the branches with test pressures and obtain
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use uom::ConstZero;
 
     use uom::si::thermodynamic_temperature::degree_celsius;
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_super_collection::FluidComponentSuperCollection;
 

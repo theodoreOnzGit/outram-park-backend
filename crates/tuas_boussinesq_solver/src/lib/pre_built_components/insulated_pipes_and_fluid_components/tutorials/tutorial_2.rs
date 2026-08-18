@@ -9,7 +9,7 @@ use uom::si::pressure::{atmosphere, pascal};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
 use crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 

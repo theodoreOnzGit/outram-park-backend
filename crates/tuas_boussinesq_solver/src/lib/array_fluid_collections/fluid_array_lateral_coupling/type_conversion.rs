@@ -1,4 +1,4 @@
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 use crate::tuas_lib_error::TuasLibError;
 
 use super::FluidArray;

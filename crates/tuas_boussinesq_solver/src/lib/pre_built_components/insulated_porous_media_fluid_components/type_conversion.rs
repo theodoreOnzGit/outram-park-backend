@@ -2,8 +2,8 @@
 //!
 //! Converts the component into a `FluidComponent` (via its inner fluid array)
 //! so it can be stored in fluid-component collections and hydraulic networks.
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 
 use super::InsulatedPorousMediaFluidComponent;
 impl Into<FluidComponent> for InsulatedPorousMediaFluidComponent {

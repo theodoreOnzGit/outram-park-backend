@@ -6,7 +6,7 @@ pub fn heater_branch_pressure_change_regression_test() {
     // let's construct the branches with test pressures and obtain
     // mass flowrates
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use crate::pre_built_components::ciet_isothermal_test_components::ciet_branch_builders_isothermal::heater_branch_builder_isothermal_test;
@@ -53,7 +53,7 @@ pub fn ctah_branch_pressure_change_regression_test() {
     // let's construct the branches with test pressures and obtain
     // mass flowrates
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use crate::pre_built_components::ciet_isothermal_test_components::ciet_branch_builders_isothermal::ctah_branch_builder_isothermal_test;
@@ -103,9 +103,9 @@ pub fn partial_ctah_branch_test() {
         new_static_mixer_40_label_8, new_static_mixer_41_label_6,
     };
     use uom::si::f64::*;
-        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
     use uom::si::mass_rate::kilogram_per_second;
-        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
+        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 
     use uom::si::pressure::pascal;
     // first let's construct the ctah branch
@@ -204,7 +204,7 @@ pub fn partial_ctah_branch_test() {
 pub fn ctah_pump_should_give_zero_resistance() {
     use uom::si::f64::*;
     use uom::si::mass_rate::kilogram_per_second;
-        use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     let test_temperature =
         ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::degree_celsius>(21.7);
     let ctah_pump = crate::pre_built_components::ciet_isothermal_test_components::new_ctah_pump(
@@ -236,11 +236,11 @@ pub fn isothermal_ctah_and_heater_branch_parallel_associated_functions_regressio
     use uom::si::thermodynamic_temperature::degree_celsius;
 
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_super_collection::FluidComponentSuperCollection;
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
 

@@ -711,13 +711,13 @@ pub use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 #### Re-export `FluidArray`
 
 ```rust
-pub use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+pub use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 ```
 
 #### Re-export `SolidColumn`
 
 ```rust
-pub use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+pub use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 ```
 
 #### Re-export `Material`
@@ -10226,7 +10226,7 @@ the node forward one explicit Euler step.
 
 By design this module deliberately does NOT hold logic for interacting
 with array control volumes; that lives in
-`array_control_vol_and_fluid_component_collections` to keep this code
+`array_fluid_collections` to keep this code
 readable. Submodules: `calculation` (advancing one timestep),
 `preprocessing` (conduction / Courant / temperature-change timestep
 limits), `interaction_between_two_cvs` and
@@ -10703,7 +10703,7 @@ pub struct SingleCVNode {
     fn vzip(self: Self) -> V { /* ... */ }
     ```
 
-## Module `array_control_vol_and_fluid_component_collections`
+## Module `array_fluid_collections`
 
 **Attributes:**
 
@@ -10742,8 +10742,8 @@ resolved (1D) thermal-hydraulic components and networks of them:
   1D conductor given inner-node and outer-boundary conditions.
 - Fully abstracted 1D array control volumes for solids and fluids
   (`one_dimension_cartesian_conducting_medium`,
-  `one_d_solid_array_with_lateral_coupling`,
-  `one_d_fluid_array_with_lateral_coupling`) that hide the matrix
+  `solid_array_lateral_coupling`,
+  `fluid_array_lateral_coupling`) that hide the matrix
   bookkeeping and can be coupled laterally (radially) to form 2D/3D
   lattices.
 - Fluid-component collections (`fluid_component_collection`) for solving
@@ -10751,7 +10751,7 @@ resolved (1D) thermal-hydraulic components and networks of them:
   series or parallel.
 
 ```rust
-pub mod array_control_vol_and_fluid_component_collections { /* ... */ }
+pub mod array_fluid_collections { /* ... */ }
 ```
 
 ### Modules
@@ -11227,7 +11227,7 @@ pub struct CartesianConduction1DArray {
     fn vzip(self: Self) -> V { /* ... */ }
     ```
 
-## Module `one_d_solid_array_with_lateral_coupling`
+## Module `solid_array_lateral_coupling`
 
 contains a full struct which abstracts away calculation details
 1 dimensional solid arrays
@@ -11257,7 +11257,7 @@ The submodules split the type's behaviour by concern:
 - `postprocessing` — read back the resulting temperature profile.
 
 ```rust
-pub mod one_d_solid_array_with_lateral_coupling { /* ... */ }
+pub mod solid_array_lateral_coupling { /* ... */ }
 ```
 
 ### Modules
@@ -11690,7 +11690,7 @@ pub struct SolidColumn {
     fn vzip(self: Self) -> V { /* ... */ }
     ```
 
-## Module `one_d_fluid_array_with_lateral_coupling`
+## Module `fluid_array_lateral_coupling`
 
 contains a full struct which abstracts away calculation details
 1 dimensional fluid arrays
@@ -11719,7 +11719,7 @@ back, `fluid_component_calculation` holds the friction-loss correlations, and
 `type_conversion` converts to/from `FluidComponent`.
 
 ```rust
-pub mod one_d_fluid_array_with_lateral_coupling { /* ... */ }
+pub mod fluid_array_lateral_coupling { /* ... */ }
 ```
 
 ### Modules
@@ -12611,8 +12611,8 @@ such that you can calculate mass flowrate and pressure drop from them
 
 ```rust
 pub enum FluidComponent {
-    FluidArray(crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray),
-    ParallelUniformFluidArray(crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray, u32),
+    FluidArray(crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray),
+    ParallelUniformFluidArray(crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray, u32),
 }
 ```
 
@@ -12626,7 +12626,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray` |  |
+| 0 | `crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray` |  |
 
 ###### `ParallelUniformFluidArray`
 
@@ -12644,7 +12644,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray` |  |
+| 0 | `crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray` |  |
 | 1 | `u32` |  |
 
 ##### Implementations
@@ -14100,7 +14100,7 @@ Module map:
   [`non_insul_porous_media_fluid`] — pipes packed with an
   internal solid (packed bed / annular insert / static mixer / CIET heater).
 - [`ciet_isothermal_test_components`],
-  [`ciet_steady_state_natural_circulation_test_components`],
+  [`ciet_nat_circ_tests`],
   [`ciet_three_branch_plus_dracs`] — pre-assembled CIET loop components for
   the isothermal, natural-circulation and full three-branch + DRACS tests.
 - [`uw_madison_flibe_loop_components`] — components for the UW Madison FLiBe
@@ -14177,8 +14177,8 @@ Contains Types of Control Volumes (CVs)
 ```rust
 pub enum CVType {
     SingleCV(crate::single_control_vol::SingleCVNode),
-    FluidArrayCV(crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray),
-    SolidArrayCV(crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn),
+    FluidArrayCV(crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray),
+    SolidArrayCV(crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn),
 }
 ```
 
@@ -14209,7 +14209,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray` |  |
+| 0 | `crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray` |  |
 
 ###### `SolidArrayCV`
 
@@ -14225,7 +14225,7 @@ Fields:
 
 | Index | Type | Documentation |
 |-------|------|---------------|
-| 0 | `crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn` |  |
+| 0 | `crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn` |  |
 
 ##### Implementations
 
@@ -15005,7 +15005,7 @@ pub struct NonInsulatedFluidComponent {
     pub od: Length,
     pub id: Length,
     pub flow_area: Area,
-    pub custom_component_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub custom_component_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     // Some fields omitted
 }
 ```
@@ -15021,7 +15021,7 @@ pub struct NonInsulatedFluidComponent {
 | `od` | `Length` | pipe  outer diameter |
 | `id` | `Length` | pipe inner diameter |
 | `flow_area` | `Area` | flow area |
-| `custom_component_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation |
+| `custom_component_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -15397,7 +15397,7 @@ pub struct InsulatedFluidComponent {
     pub heat_transfer_to_ambient: HeatTransfer,
     pub tube_od: Length,
     pub tube_id: Length,
-    pub darcy_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub darcy_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     // Some fields omitted
 }
 ```
@@ -15413,7 +15413,7 @@ pub struct InsulatedFluidComponent {
 | `heat_transfer_to_ambient` | `HeatTransfer` | pipe heat transfer coefficient to ambient |
 | `tube_od` | `Length` | pipe outer diameter (tube) |
 | `tube_id` | `Length` | pipe inner diameter (tube) |
-| `darcy_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations |
+| `darcy_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations |
 | *private fields* | ... | *Some fields have been omitted* |
 
 ##### Implementations
@@ -15810,7 +15810,7 @@ pub struct NonInsulatedParallelFluidComponent {
     pub single_tube_od: Length,
     pub single_tube_id: Length,
     pub single_tube_flow_area: Area,
-    pub custom_component_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub custom_component_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     pub number_of_tubes: u32,
     // Some fields omitted
 }
@@ -15827,7 +15827,7 @@ pub struct NonInsulatedParallelFluidComponent {
 | `single_tube_od` | `Length` | pipe outer diameter on a per tube bases |
 | `single_tube_id` | `Length` | pipe inner diameter one a per tube basis |
 | `single_tube_flow_area` | `Area` | flow area on a per tube basis |
-| `custom_component_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation on a per tube basis |
+| `custom_component_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation on a per tube basis |
 | `number_of_tubes` | `u32` | number of tubes in parallel<br>each pipe fluid array represents one tube only |
 | *private fields* | ... | *Some fields have been omitted* |
 
@@ -16351,8 +16351,8 @@ pub struct SimpleShellAndTubeHeatExchanger {
     pub tube_side_od: Length,
     pub tube_side_id: Length,
     pub tube_side_flow_area: Area,
-    pub tube_side_custom_component_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
-    pub shell_side_custom_component_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub tube_side_custom_component_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub shell_side_custom_component_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     pub number_of_tubes: u32,
     pub shell_side_id: Length,
     pub shell_side_od: Length,
@@ -16380,8 +16380,8 @@ pub struct SimpleShellAndTubeHeatExchanger {
 | `tube_side_od` | `Length` | representative<br>tube outer diameter on a per tube bases |
 | `tube_side_id` | `Length` | representative<br>tube inner diameter one a per tube basis |
 | `tube_side_flow_area` | `Area` | representative tube flow area on a per tube basis |
-| `tube_side_custom_component_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation on a per tube basis |
-| `shell_side_custom_component_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation for shell side |
+| `tube_side_custom_component_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation on a per tube basis |
+| `shell_side_custom_component_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlation for shell side |
 | `number_of_tubes` | `u32` | number of tubes in parallel<br>each pipe fluid array represents one tube only |
 | `shell_side_id` | `Length` | assuming the outer shell is circular, provide the internal diameter |
 | `shell_side_od` | `Length` | assuming the outer shell is circular, provide the outer diameter |
@@ -17753,7 +17753,7 @@ pub struct InsulatedPorousMediaFluidComponent {
     pub pipe_fluid_array: super::heat_transfer_entities::HeatTransferEntity,
     pub ambient_temperature: ThermodynamicTemperature,
     pub heat_transfer_to_ambient: HeatTransfer,
-    pub darcy_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub darcy_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     pub thermal_conductance_lengthscale_pipe_shell_to_insulation_pipe_interface: Length,
     pub thermal_conductance_lengthscale_pipe_shell_to_fluid: Length,
     pub thermal_conductance_lengthscale_fluid_to_porous_media_internal: Length,
@@ -17780,7 +17780,7 @@ pub struct InsulatedPorousMediaFluidComponent {
 | `pipe_fluid_array` | `super::heat_transfer_entities::HeatTransferEntity` | heat transfer entity representing control volumes<br>for the therminol fluid in MX-10 |
 | `ambient_temperature` | `ThermodynamicTemperature` | ambient temperature of air used to calculate heat loss |
 | `heat_transfer_to_ambient` | `HeatTransfer` | heat transfer coefficient used to calculate heat loss<br>to air |
-| `darcy_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations<br>for pipe losses |
+| `darcy_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations<br>for pipe losses |
 | `thermal_conductance_lengthscale_pipe_shell_to_insulation_pipe_interface` | `Length` | thermal conductance lengthscale to ambient<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
 | `thermal_conductance_lengthscale_pipe_shell_to_fluid` | `Length` | thermal conductance lengthscale from pipe to fluid<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
 | `thermal_conductance_lengthscale_fluid_to_porous_media_internal` | `Length` | thermal conductance lengthscale from fluid to<br>porous media internal<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
@@ -18362,7 +18362,7 @@ pub struct NonInsulatedPorousMediaFluidComponent {
     pub pipe_fluid_array: super::heat_transfer_entities::HeatTransferEntity,
     pub ambient_temperature: ThermodynamicTemperature,
     pub heat_transfer_to_ambient: HeatTransfer,
-    pub darcy_loss_correlation: crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
+    pub darcy_loss_correlation: crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations,
     pub solid_side_thermal_conductance_lengthscale_pipe_to_ambient: Length,
     pub solid_side_thermal_conductance_lengthscale_pipe_to_fluid: Length,
     pub solid_side_thermal_conductance_lengthscale_fluid_to_porous_media_internal: Length,
@@ -18386,7 +18386,7 @@ pub struct NonInsulatedPorousMediaFluidComponent {
 | `pipe_fluid_array` | `super::heat_transfer_entities::HeatTransferEntity` | this HeatTransferEntity represents the pipe fluid<br>which is coupled to the pipe shell via a Nusselt Number based<br>thermal resistance (usually Gnielinski correlation)<br>But it is up to you to specify<br><br>heat transfer entity representing control volumes<br>for the therminol fluid in the heated section of CIET's Heater |
 | `ambient_temperature` | `ThermodynamicTemperature` | <br>pipe heat transfer coefficient to ambient<br>eg.<br>ambient temperature of air used to calculate heat loss |
 | `heat_transfer_to_ambient` | `HeatTransfer` | heat transfer coefficient used to calculate heat loss<br>to ambient, such as air air |
-| `darcy_loss_correlation` | `crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations |
+| `darcy_loss_correlation` | `crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations` | loss correlations |
 | `solid_side_thermal_conductance_lengthscale_pipe_to_ambient` | `Length` | thermal conductance lengthscale to ambient<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
 | `solid_side_thermal_conductance_lengthscale_pipe_to_fluid` | `Length` | thermal conductance lengthscale from pipe to fluid<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
 | `solid_side_thermal_conductance_lengthscale_fluid_to_porous_media_internal` | `Length` | thermal conductance lengthscale from fluid to<br>porous media internal<br><br>for calculating thermal resistance, we need a length<br>scale<br><br>thermal conductance = (kA)/L<br><br>assuming 1D cartesian coordinates, you need to specify<br>a lengthscale for an appropraite thermal resistance.<br><br>This is not L, but rather A/L<br><br>to get thermal conductance just A/L * k<br>basically... |
@@ -18734,7 +18734,7 @@ pub mod ciet_branch_builders_isothermal { /* ... */ }
 builds a dhx branch to simulate isothermal testing of ciet
 
 ```rust
-pub fn dhx_branch_builder_isothermal_test(initial_temperature: ThermodynamicTemperature) -> crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
+pub fn dhx_branch_builder_isothermal_test(initial_temperature: ThermodynamicTemperature) -> crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
 ```
 
 #### Function `heater_branch_builder_isothermal_test`
@@ -18742,7 +18742,7 @@ pub fn dhx_branch_builder_isothermal_test(initial_temperature: ThermodynamicTemp
 builds a heater branch to simulate isothermal testing of ciet
 
 ```rust
-pub fn heater_branch_builder_isothermal_test(initial_temperature: ThermodynamicTemperature) -> crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
+pub fn heater_branch_builder_isothermal_test(initial_temperature: ThermodynamicTemperature) -> crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
 ```
 
 #### Function `ctah_branch_builder_isothermal_test`
@@ -18751,7 +18751,7 @@ builds the ctah branch to simulate isothermal testing of ciet
 allows user to supply a pump pressure or loop pressure drop
 
 ```rust
-pub fn ctah_branch_builder_isothermal_test(pump_pressure: Pressure, initial_temperature: ThermodynamicTemperature) -> crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
+pub fn ctah_branch_builder_isothermal_test(pump_pressure: Pressure, initial_temperature: ThermodynamicTemperature) -> crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
 ```
 
 ### Functions
@@ -19952,7 +19952,7 @@ Argonne, IL (United States), 2019.
 pub fn new_pipe_19(initial_temperature: ThermodynamicTemperature) -> super::insulated_pipes_and_fluid_components::InsulatedFluidComponent { /* ... */ }
 ```
 
-## Module `ciet_steady_state_natural_circulation_test_components`
+## Module `ciet_nat_circ_tests`
 
 ciet components for pipes and valves for use in the natural circulation
 test. I attempt to reproduce some results in the following
@@ -19979,7 +19979,7 @@ C (40 degC), for both the isolated DRACS loop and the DRACS loop coupled to
 the DHX and heater branches.
 
 ```rust
-pub mod ciet_steady_state_natural_circulation_test_components { /* ... */ }
+pub mod ciet_nat_circ_tests { /* ... */ }
 ```
 
 ### Modules
@@ -20172,7 +20172,7 @@ this is pipe 30a all the way to 34
 but I build the components from top down
 
 ```rust
-pub fn dracs_hot_branch_builder(initial_temperature: ThermodynamicTemperature) -> crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
+pub fn dracs_hot_branch_builder(initial_temperature: ThermodynamicTemperature) -> crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
 ```
 
 #### Function `dracs_cold_branch_builder`
@@ -20181,7 +20181,7 @@ builds the cold branch of the DRACS loop (somewhat like the cold leg,
 but with some other stuff)
 
 ```rust
-pub fn dracs_cold_branch_builder(initial_temperature: ThermodynamicTemperature) -> crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
+pub fn dracs_cold_branch_builder(initial_temperature: ThermodynamicTemperature) -> crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection { /* ... */ }
 ```
 
 ## Module `debugging_pid_controller`
@@ -20993,7 +20993,7 @@ DHX + Heater branch (both branches form one loop)
 but its use is primarily for the DRACS branch
 
 ```rust
-pub fn get_abs_mass_flowrate_across_two_branches(dracs_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
+pub fn get_abs_mass_flowrate_across_two_branches(dracs_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration`
@@ -21004,7 +21004,7 @@ obtains mass flowrate across the DRACS loop
 gets the absolute flowrate across the hot branch
 
 ```rust
-pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
+pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_loop_link_up_components_no_tchx_calibration`
@@ -21106,7 +21106,7 @@ DHX + Heater branch (both branches form one loop)
 but its use is primarily for the DRACS branch
 
 ```rust
-pub fn get_abs_mass_flowrate_across_two_branches(dracs_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
+pub fn get_abs_mass_flowrate_across_two_branches(dracs_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration`
@@ -21117,7 +21117,7 @@ obtains mass flowrate across the DRACS loop
 gets the absolute flowrate across the hot branch
 
 ```rust
-pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_1: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_2: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
+pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_1: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_2: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_loop_link_up_components_sam_tchx_calibration`
@@ -21194,7 +21194,7 @@ can be used for
 DHX + Heater branch (both branches form one loop)
 
 ```rust
-pub fn get_abs_mass_flowrate_across_two_branches(dhx_and_heater_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
+pub fn get_abs_mass_flowrate_across_two_branches(dhx_and_heater_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate`
@@ -21213,7 +21213,7 @@ of the dhx shell side is going from top to bottom
 
 
 ```rust
-pub fn coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate(pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_version1_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
+pub fn coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate(pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_version1_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_pri_loop_dhx_heater_link_up_components`
@@ -22146,7 +22146,7 @@ but its use is primarily for the DRACS branches in the DRACS
 loop
 
 ```rust
-pub fn get_abs_mass_flowrate_across_dracs_branches(dracs_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
+pub fn get_abs_mass_flowrate_across_dracs_branches(dracs_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> MassRate { /* ... */ }
 ```
 
 #### Function `get_mass_flowrate_two_branches`
@@ -22157,7 +22157,7 @@ basically, mass flowrate
 
 
 ```rust
-pub fn get_mass_flowrate_two_branches(dracs_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> (MassRate, MassRate) { /* ... */ }
+pub fn get_mass_flowrate_two_branches(dracs_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> (MassRate, MassRate) { /* ... */ }
 ```
 
 #### Function `get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches`
@@ -22171,7 +22171,7 @@ but its use is primarily for the DHX, Heater and CTAH branches
 
 
 ```rust
-pub fn get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches(pri_loop_branches: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> (MassRate, MassRate, MassRate) { /* ... */ }
+pub fn get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches(pri_loop_branches: &crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection) -> (MassRate, MassRate, MassRate) { /* ... */ }
 ```
 
 #### Function `three_branch_pri_loop_flowrates`
@@ -22186,7 +22186,7 @@ user must also specify a pump absolute pressure
 
 
 ```rust
-pub fn three_branch_pri_loop_flowrates(pump_pressure: Pressure, ctah_branch_blocked: bool, dhx_branch_blocked: bool, pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_ver_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_41_label_6: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_6a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_vertical_label_7a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, ctah_horizontal_label_7b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_8a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_40_label_8: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_9: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_10: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_11: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_12: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_pump: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_13: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_14: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_40_14a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_15: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_16: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> (MassRate, MassRate, MassRate) { /* ... */ }
+pub fn three_branch_pri_loop_flowrates(pump_pressure: Pressure, ctah_branch_blocked: bool, dhx_branch_blocked: bool, pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_ver_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_41_label_6: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_6a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_vertical_label_7a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, ctah_horizontal_label_7b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_8a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_40_label_8: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_9: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_10: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_11: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_12: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_pump: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_13: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_14: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_40_14a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_15: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_16: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> (MassRate, MassRate, MassRate) { /* ... */ }
 ```
 
 #### Function `three_branch_pri_loop_flowrates_parallel`
@@ -22207,7 +22207,7 @@ is also instantly available
 
 
 ```rust
-pub fn three_branch_pri_loop_flowrates_parallel(pump_pressure: Pressure, ctah_branch_blocked: bool, dhx_branch_blocked: bool, pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_ver_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_41_label_6: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_6a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_vertical_label_7a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, ctah_horizontal_label_7b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_8a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_40_label_8: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_9: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_10: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_11: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_12: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_pump: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_13: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_14: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_40_14a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_15: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_16: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> (MassRate, MassRate, MassRate) { /* ... */ }
+pub fn three_branch_pri_loop_flowrates_parallel(pump_pressure: Pressure, ctah_branch_blocked: bool, dhx_branch_blocked: bool, pipe_4: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_3: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_2a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_10_label_2: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_top_head_1a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_ver_1: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, heater_bottom_head_1b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_18: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_26: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_25a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_21_label_25: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_shell_side_pipe_24: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, static_mixer_20_label_23: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_23a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_22: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_20_21a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_21: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_20: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_19: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_5b: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_41_label_6: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_6a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_vertical_label_7a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, ctah_horizontal_label_7b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_8a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_40_label_8: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_9: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_10: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_11: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_12: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, ctah_pump: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_13: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_14: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_40_14a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_15: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_16: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_17a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> (MassRate, MassRate, MassRate) { /* ... */ }
 ```
 
 #### Function `coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration`
@@ -22218,7 +22218,7 @@ obtains mass flowrate across the DRACS loop
 gets the absolute flowrate across the hot branch
 
 ```rust
-pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_1: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_2: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
+pub fn coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(pipe_34: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_33: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_32: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_31a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, static_mixer_61_label_31: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, dhx_tube_side_30b: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, dhx_tube_side_heat_exchanger_30: &crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent, dhx_tube_side_30a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_1: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, tchx_35b_2: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, static_mixer_60_label_36: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_36a: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_37: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, flowmeter_60_37a: &crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent, pipe_38: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent, pipe_39: &crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent) -> MassRate { /* ... */ }
 ```
 
 #### Function `coupled_dracs_loop_link_up_components_sam_tchx_calibration`

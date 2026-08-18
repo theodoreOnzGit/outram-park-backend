@@ -105,7 +105,7 @@ round-trip.
   to colour by.
 - The low-Peclet axial-conduction correction that sodium actually depends on is
   self-flagged as buggy at
-  `crates/tuas_boussinesq_solver/.../one_d_fluid_array_with_lateral_coupling/calculation.rs:636`.
+  `crates/tuas_boussinesq_solver/.../fluid_array_lateral_coupling/calculation.rs:636`.
 
 ### MISSING — ranked
 

@@ -69,7 +69,7 @@ Audited 2026-08-06 against the workspace at commit `ebbde1b`.
 | Secondary Rankine cycle through IF97 | `.../secondary_loop/mod.rs` | Condenser, pump, steam generator, turbine. SG tube is a persistent fifteen-cell compressible array |
 | **Regression tests for the kinetics fix** | `.../prke_backend/mod.rs:779,831` | Recorded result: prompt-only oscillation of 194.2 MW peak-to-peak on a 31.8 MW mean reduced to 0.0086 MW on a 35.8 MW mean once the delayed layer was added |
 | **FLiBe, FLiNaK, HITEC, Dowtherm and oil properties** | `crates/tuas_boussinesq_solver/.../liquid_database/` | Traceable sourcing; the heat-capacity doc comment even adjudicates between two published values and their stated uncertainties |
-| **CIET — validated against experiment** | `crates/tuas_boussinesq_solver/.../ciet_steady_state_natural_circulation_test_components/` | Roughly 39,800 lines, 164 tests. Validated against CIET experimental data and an independent code |
+| **CIET — validated against experiment** | `crates/tuas_boussinesq_solver/.../ciet_nat_circ_tests/` | Roughly 39,800 lines, 164 tests. Validated against CIET experimental data and an independent code |
 | Recorded V&V results | `crates/tuas_boussinesq_solver/verification_and_validation/` | See below |
 | DRACS natural-circulation loops (CIET geometry) | `.../dracs_loop_components.rs` and calibration ladder | Includes a real mesh-refinement study at 2x, 5x, 10x and 20x |
 | **TRISO fission-product release, partly validated** | `crates/boon-lay` | Roughly 15,150 lines, 175 tests. Walk-on-spheres first passage plus a port of an external release code, with a V&V document comparing against an analytical series solution |

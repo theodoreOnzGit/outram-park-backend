@@ -16,7 +16,7 @@
 //!
 //! - [`preprocessing`] — conductance calculations (convective and radiative)
 //!   and lateral connections between the layers.
-//! - [`fluid_component`] — [`FluidComponentTrait`](crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait)
+//! - [`fluid_component`] — [`FluidComponentTrait`](crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait)
 //!   impl and helpers for tube-side / annular mass flowrate (kg/s) and geometry.
 //! - [`calculation`] — timestep advancing (single-threaded and thread-spawn).
 //! - [`postprocessing`] — layer temperatures (K) and radiant heat rates (W).
@@ -26,7 +26,7 @@
 //! This sub-component is UNDER CONSTRUCTION: calibration and validation
 //! against the 1.7 kW heaters of the reference loop are not yet complete.
 
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 //use std::f64::consts::PI;
 //
@@ -42,8 +42,8 @@ use crate::heat_transfer_correlations::nusselt_number_correlations::enums::Nusse
 
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 
-//use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-//use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+//use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+//use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 //use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
 
 use uom::si::f64::*;

@@ -16,14 +16,14 @@ use uom::si::pressure::atmosphere;
 use ndarray::*;
 
 use uom::si::f64::*;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::GnielinskiData;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 
 impl InsulatedPorousMediaFluidComponent {
     /// used to connect the arrays laterally

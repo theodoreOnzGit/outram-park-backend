@@ -166,7 +166,7 @@ pub fn dhx_calibration_regression_unit_test_shell_to_tube_only(
     use uom::si::{f64::*, mass_rate::kilogram_per_second};
 
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
-        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::*;
+        use crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dhx_constructor::*;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;
     use crate::prelude::beta_testing::{
         FluidArray, HeatTransferEntity, HeatTransferInteractionType, LiquidMaterial,
@@ -696,7 +696,7 @@ pub fn dhx_calibration_regression_unit_test_parasitic_heat_loss_only(
     use uom::si::{f64::*, mass_rate::kilogram_per_second};
 
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
-        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
+        use crate::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
     use crate::prelude::beta_testing::{
         FluidArray, HeatTransferEntity, HeatTransferInteractionType, LiquidMaterial,
     };

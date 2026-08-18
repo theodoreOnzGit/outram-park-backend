@@ -1,7 +1,7 @@
 use uom::si::f64::*;
 
-use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+use crate::pre_built_components::ciet_nat_circ_tests::dracs_loop_components::*;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 
 /// builds the hot branch of the DRACS loop (somewhat like the hot leg,
 /// but with some other stuff)
@@ -71,7 +71,7 @@ pub fn dracs_cold_branch_builder(
 pub fn dracs_branch_pressure_change_test() {
     // let's construct the branches with test pressures and obtain
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
@@ -138,7 +138,7 @@ pub fn dracs_branch_pressure_change_test() {
 pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
     // let's construct the branches with test pressures and obtain
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
@@ -146,7 +146,7 @@ pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
 
     use uom::si::thermodynamic_temperature::degree_celsius;
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_super_collection::FluidComponentSuperCollection;
 
@@ -683,7 +683,7 @@ pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
 pub fn dracs_natural_circ_thermal_hydraulics_test_prototype_1() {
     // let's construct the branches with test pressures and obtain
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
@@ -692,7 +692,7 @@ pub fn dracs_natural_circ_thermal_hydraulics_test_prototype_1() {
 
     use uom::si::thermodynamic_temperature::degree_celsius;
     use crate::
-        array_control_vol_and_fluid_component_collections::
+        array_fluid_collections::
         fluid_component_collection::
     fluid_component_super_collection::FluidComponentSuperCollection;
 

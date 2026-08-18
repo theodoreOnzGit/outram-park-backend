@@ -193,19 +193,19 @@ use uom::si::mass_rate::kilogram_per_second;
 use crate::tuas_lib_error::TuasLibError;
 
 use crate::
-array_control_vol_and_fluid_component_collections::
+array_fluid_collections::
 fluid_component_collection::
 fluid_component_collection::FluidComponentCollection;
 // let's construct the branches with test pressures and obtain
 use crate::
-array_control_vol_and_fluid_component_collections::
+array_fluid_collections::
 fluid_component_collection::
 fluid_component_collection::FluidComponentCollectionMethods;
 use uom::ConstZero;
 
 use uom::si::thermodynamic_temperature::degree_celsius;
 use crate::
-array_control_vol_and_fluid_component_collections::
+array_fluid_collections::
 fluid_component_collection::
 fluid_component_super_collection::FluidComponentSuperCollection;
 
@@ -217,7 +217,7 @@ use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
 use uom::si::power::watt;
 use uom::si::time::second;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 
 use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wrapper_and_enums::TransferFnTraits;
 use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::ProportionalController;

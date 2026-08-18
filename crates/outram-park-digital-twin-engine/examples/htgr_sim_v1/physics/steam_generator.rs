@@ -187,7 +187,7 @@
 
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines_steam_tables::TampinesSteamArray;
-use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use tuas_boussinesq_solver::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::density::try_get_rho;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_heat_capacity::try_get_cp;
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, SolidMaterial};

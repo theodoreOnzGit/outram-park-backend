@@ -19,7 +19,7 @@ backend feature is chosen per-target by each member
 **not** use `ndarray-linalg` — its `SquareMatrix` module implements LU
 factorisation in pure Rust. All `ndarray-linalg` usage in TUAS bottoms out in
 one call: `M.solve(&S)` in
-`array_control_vol_and_fluid_component_collections/standalone_fluid_nodes/mod.rs`
+`array_fluid_collections/standalone_fluid_nodes/mod.rs`
 (`solve_conductance_matrix_power_vector`), which performs a dense LU solve on
 the per-timestep conductance matrix (typically 10–50 × 10–50, not tridiagonal
 because lateral coupling fills off-band entries). Replacing it with

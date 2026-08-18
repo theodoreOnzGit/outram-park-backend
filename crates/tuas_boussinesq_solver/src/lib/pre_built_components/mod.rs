@@ -31,7 +31,7 @@
 //!   [`non_insul_porous_media_fluid`] — pipes packed with an
 //!   internal solid (packed bed / annular insert / static mixer / CIET heater).
 //! - [`ciet_isothermal_test_components`],
-//!   [`ciet_steady_state_natural_circulation_test_components`],
+//!   [`ciet_nat_circ_tests`],
 //!   [`ciet_three_branch_plus_dracs`] — pre-assembled CIET loop components for
 //!   the isothermal, natural-circulation and full three-branch + DRACS tests.
 //! - [`uw_madison_flibe_loop_components`] — components for the UW Madison FLiBe
@@ -149,13 +149,6 @@ pub mod ciet_isothermal_test_components;
 /// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
 pub mod ciet_nat_circ_tests;
-/// Compatibility re-export: this module was physically renamed to
-/// [`ciet_nat_circ_tests`] on 2026-08-19 (workspace file-path-length hard
-/// rule, root `CLAUDE.md`) because its old directory name pushed several
-/// nested test files past the new 170-character cap on Windows. The old
-/// public path is kept working so downstream crates (in this workspace and
-/// on crates.io) do not need to update their `use` paths.
-pub use ciet_nat_circ_tests as ciet_steady_state_natural_circulation_test_components;
 
 /// From UW Madison FLiBe loop:
 ///

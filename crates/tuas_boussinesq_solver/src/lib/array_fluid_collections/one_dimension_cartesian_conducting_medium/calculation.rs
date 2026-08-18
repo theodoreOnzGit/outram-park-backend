@@ -4,7 +4,7 @@ use uom::si::area::square_meter;
 use ndarray::*;
 use uom::si::power::watt;
 
-use crate::array_control_vol_and_fluid_component_collections::conductance_array_functions::advance_timestep_for_specified_conductance_array_cv;
+use crate::array_fluid_collections::conductance_array_functions::advance_timestep_for_specified_conductance_array_cv;
 use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;
 use crate::tuas_lib_error::TuasLibError;
 use crate::control_volume_dimensions::UNIT_AREA_SQ_METER_FOR_ONE_DIMENSIONAL_CALCS;

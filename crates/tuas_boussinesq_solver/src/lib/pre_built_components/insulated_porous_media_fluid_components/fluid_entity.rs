@@ -5,8 +5,8 @@
 //! (kg/s), hydraulic diameter (m), cross-sectional area (m^2) and fluid
 //! properties — to the component's inner `pipe_fluid_array`, so the component
 //! can be dropped into fluid-component collections and pressure-drop solvers.
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 
 use super::InsulatedPorousMediaFluidComponent;
 use uom::si::f64::*;

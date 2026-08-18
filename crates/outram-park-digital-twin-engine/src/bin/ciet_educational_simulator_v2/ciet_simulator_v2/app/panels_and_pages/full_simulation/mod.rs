@@ -124,12 +124,12 @@ pub fn educational_ciet_loop_version_4(
 
     use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use tuas_boussinesq_solver::pre_built_components::ciet_isothermal_test_components::*;
-        use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
-        use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
-        use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
-        use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::pri_loop_calc_functions::pri_loop_dhx_shell_temperature_diagnostics;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::pri_loop_calc_functions::pri_loop_dhx_shell_temperature_diagnostics;
     use tuas_boussinesq_solver::pre_built_components::
-    ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+    ciet_nat_circ_tests::dracs_loop_components::*;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;
     use uom::si::time::second;

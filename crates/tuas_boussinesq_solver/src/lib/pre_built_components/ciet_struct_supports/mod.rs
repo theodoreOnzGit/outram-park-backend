@@ -20,7 +20,7 @@
 
 use std::f64::consts::PI;
 
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 
 use super::heat_transfer_entities::HeatTransferEntity;

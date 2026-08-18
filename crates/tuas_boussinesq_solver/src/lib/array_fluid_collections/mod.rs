@@ -11,8 +11,8 @@
 //!   1D conductor given inner-node and outer-boundary conditions.
 //! - Fully abstracted 1D array control volumes for solids and fluids
 //!   (`one_dimension_cartesian_conducting_medium`,
-//!   `one_d_solid_array_with_lateral_coupling`,
-//!   `one_d_fluid_array_with_lateral_coupling`) that hide the matrix
+//!   `solid_array_lateral_coupling`,
+//!   `fluid_array_lateral_coupling`) that hide the matrix
 //!   bookkeeping and can be coupled laterally (radially) to form 2D/3D
 //!   lattices.
 //! - Fluid-component collections (`fluid_component_collection`) for solving
@@ -55,12 +55,6 @@ pub mod one_dimension_cartesian_conducting_medium;
 /// except that you can couple these arrays laterally to form a 2D or
 /// 3D lattice
 pub mod solid_array_lateral_coupling;
-/// Compatibility re-export: physically renamed from
-/// `one_d_solid_array_with_lateral_coupling` to
-/// [`solid_array_lateral_coupling`] on 2026-08-19 (workspace
-/// file-path-length hard rule) -- see `crate::lib::array_fluid_collections`'s
-/// own compatibility note in `lib.rs` for why. Old `use` paths still work.
-pub use solid_array_lateral_coupling as one_d_solid_array_with_lateral_coupling;
 
 /// contains a full struct which abstracts away calculation details
 /// 1 dimensional fluid arrays
@@ -69,12 +63,6 @@ pub use solid_array_lateral_coupling as one_d_solid_array_with_lateral_coupling;
 /// except that you can couple these arrays laterally to form a 2D or
 /// 3D lattice
 pub mod fluid_array_lateral_coupling;
-/// Compatibility re-export: physically renamed from
-/// `one_d_fluid_array_with_lateral_coupling` to
-/// [`fluid_array_lateral_coupling`] on 2026-08-19 (workspace
-/// file-path-length hard rule) -- see `crate::lib::array_fluid_collections`'s
-/// own compatibility note in `lib.rs` for why. Old `use` paths still work.
-pub use fluid_array_lateral_coupling as one_d_fluid_array_with_lateral_coupling;
 
 /// contains code for calculating pressure drop and mass flowrates over
 /// pipes in series or parallel

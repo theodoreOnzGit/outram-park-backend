@@ -1,7 +1,7 @@
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::Material;
 use crate::single_control_vol::SingleCVNode;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::tuas_lib_error::TuasLibError;
 use uom::si::f64::*;
 

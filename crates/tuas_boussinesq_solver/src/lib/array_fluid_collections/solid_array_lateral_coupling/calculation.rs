@@ -1,4 +1,4 @@
-use crate::array_control_vol_and_fluid_component_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
+use crate::array_fluid_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
 use crate::boussinesq_thermophysical_properties::thermal_conductivity::try_get_kappa_thermal_conductivity;
 
 use crate::boussinesq_thermophysical_properties::volumetric_heat_capacity::try_get_rho_cp;

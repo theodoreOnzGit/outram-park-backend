@@ -4,7 +4,7 @@ use uom::si::f64::*;
 
 use crate::tuas_lib_error::TuasLibError;
 
-use crate::array_control_vol_and_fluid_component_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
+use crate::array_fluid_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
 
 /// for most pipe flows, we can consider radial conduction without
 /// considering axial conduction
@@ -222,7 +222,7 @@ fn fluid_solid_node_calculation_initial_test() {
     use crate::boussinesq_thermophysical_properties::volumetric_heat_capacity::try_get_rho_cp;
     use crate::control_volume_dimensions::*;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::*;
-    use crate::array_control_vol_and_fluid_component_collections::standalone_fluid_nodes::
+    use crate::array_fluid_collections::standalone_fluid_nodes::
     core_fluid_node::advance_timestep_fluid_node_array_pipe_high_peclet_number;
 
     use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;

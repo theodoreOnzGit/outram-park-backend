@@ -13,14 +13,14 @@
 use std::thread::JoinHandle;
 use std::thread;
 
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boundary_conditions::BCType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::tuas_lib_error::TuasLibError;
 
 use super::NonInsulatedPorousMediaFluidComponent;

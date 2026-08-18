@@ -3,7 +3,7 @@ use uom::num_traits::Zero;
 use uom::si::f64::*;
 use uom::si::power::watt;
 
-use crate::array_control_vol_and_fluid_component_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
+use crate::array_fluid_collections::standalone_fluid_nodes::solve_conductance_matrix_power_vector;
 use crate::boussinesq_thermophysical_properties::prandtl::try_get_prandtl;
 use crate::boussinesq_thermophysical_properties::specific_enthalpy::try_get_h;
 use crate::boussinesq_thermophysical_properties::thermal_conductivity::try_get_kappa_thermal_conductivity;

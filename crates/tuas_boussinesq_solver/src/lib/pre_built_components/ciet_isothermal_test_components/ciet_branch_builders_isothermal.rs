@@ -1,6 +1,6 @@
-use crate::array_control_vol_and_fluid_component_collections::
+use crate::array_fluid_collections::
 fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-use crate::array_control_vol_and_fluid_component_collections::
+use crate::array_fluid_collections::
 fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 
 use super::*;

@@ -5,7 +5,7 @@
 //! and flow bookkeeping for [`super::OPCPFluidArray`].
 //!
 //! Mirrors a subset of `tuas_boussinesq_solver`'s `FluidArray` interface (see
-//! `one_d_fluid_array_with_lateral_coupling/lateral_connection.rs`) so a
+//! `fluid_array_lateral_coupling/lateral_connection.rs`) so a
 //! caller (e.g. a future TAMPINES `Pipe` component) can drive either backend
 //! through a comparable API. Simplified relative to TUAS: the caller supplies
 //! a thermal conductance / pressure loss directly — there is no

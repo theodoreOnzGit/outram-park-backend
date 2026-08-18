@@ -70,11 +70,11 @@ Layer 2 — Single control volume
   single_control_vol          SingleCVNode struct + constructors + timestep advance
 
 Layer 3 — Array control volumes & networks
-  array_control_vol_and_fluid_component_collections
+  array_fluid_collections
     ├── standalone_fluid_nodes / standalone_solid_nodes   (raw matrix solvers)
     ├── one_dimension_cartesian_conducting_medium          (1D Cartesian, no lateral coupling)
-    ├── one_d_solid_array_with_lateral_coupling            SolidColumn struct
-    ├── one_d_fluid_array_with_lateral_coupling            FluidArray struct
+    ├── solid_array_lateral_coupling            SolidColumn struct
+    ├── fluid_array_lateral_coupling            FluidArray struct
     ├── conductance_array_functions
     └── fluid_component_collection                         (series/parallel pipe networks)
 
@@ -90,7 +90,7 @@ Layer 4 — Pre-built components
     ├── insulated_porous_media_fluid_components
     ├── non_insul_porous_media_fluid
     ├── ciet_isothermal_test_components
-    ├── ciet_steady_state_natural_circulation_test_components
+    ├── ciet_nat_circ_tests
     ├── uw_madison_flibe_loop_components
     └── ciet_three_branch_plus_dracs
 
@@ -153,13 +153,13 @@ The fundamental building block — one lumped control volume node.
 3. Read back temperature via `get_temperature_from_enthalpy_and_set`.
 
 ### Array CVs: `FluidArray` and `SolidColumn`
-`src/lib/array_control_vol_and_fluid_component_collections/one_d_fluid_array_with_lateral_coupling/`
-`src/lib/array_control_vol_and_fluid_component_collections/one_d_solid_array_with_lateral_coupling/`
+`src/lib/array_fluid_collections/fluid_array_lateral_coupling/`
+`src/lib/array_fluid_collections/solid_array_lateral_coupling/`
 
 1D pipe/structure discretised into N nodes. Both have a `front_single_cv` and `back_single_cv` bounding the array. `FluidArray` also carries `fluid_component_loss_properties: DimensionlessDarcyLossCorrelations` and `nusselt_correlation: NusseltCorrelation`. Both use ndarray-linalg (OpenBLAS/MKL) matrix solvers for the implicit energy equation.
 
 ### `FluidComponentCollection`
-`src/lib/array_control_vol_and_fluid_component_collections/fluid_component_collection/`
+`src/lib/array_fluid_collections/fluid_component_collection/`
 
 Handles pipe networks: computes mass flowrate given a pressure difference for components wired in series or parallel. The key trait is `FluidComponentTrait`; the solver implements regula falsi for convergence robustness (needed at high flowrates ~1000+ kg/s as in gFHR).
 

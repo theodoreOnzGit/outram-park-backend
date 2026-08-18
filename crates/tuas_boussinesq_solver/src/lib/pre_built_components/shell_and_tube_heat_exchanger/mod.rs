@@ -136,7 +136,7 @@
 // There are a few steps to complete to try and replicate the experiment
 //
 
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use std::f64::consts::PI;
 
@@ -152,8 +152,8 @@ use crate::heat_transfer_correlations::nusselt_number_correlations::input_struct
 
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
 
 use uom::si::f64::*;

@@ -62,7 +62,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 
     use crate::pre_built_components::
-    ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+    ciet_nat_circ_tests::dracs_loop_components::*;
     use uom::ConstZero;
 
     use uom::si::mass_rate::kilogram_per_second;
@@ -75,7 +75,7 @@ pub fn parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius() {
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;
     use uom::si::time::second;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 
     use chem_eng_real_time_process_control_simulator::alpha_nightly::transfer_fn_wrapper_and_enums::TransferFnTraits;
     use chem_eng_real_time_process_control_simulator::alpha_nightly::controllers::ProportionalController;

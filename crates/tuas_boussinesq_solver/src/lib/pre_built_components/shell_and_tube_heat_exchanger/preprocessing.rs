@@ -6,7 +6,7 @@ use uom::si::pressure::atmosphere;
 use uom::si::f64::*;
 use ndarray::*;
 use super::SimpleShellAndTubeHeatExchanger;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;
 use crate::{
@@ -18,9 +18,9 @@ use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boundary_conditions::BCType;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 
 use crate::tuas_lib_error::TuasLibError;
 

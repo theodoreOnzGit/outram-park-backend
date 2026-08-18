@@ -322,7 +322,7 @@ consistent with the 27% duty cycle measured in §3.1.
 by a measurement rather than an argument.
 
 **One structural inefficiency worth naming.**
-`crates/tuas_boussinesq_solver/src/lib/array_control_vol_and_fluid_component_collections/standalone_fluid_nodes/mod.rs:36`
+`crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/standalone_fluid_nodes/mod.rs:36`
 (`solve_conductance_matrix_power_vector`) copies the conductance matrix into a
 **dense** `SquareMatrix` and runs full pivoted LU **every timestep, per node
 array** — even though the assembled matrix is **tridiagonal**
@@ -647,7 +647,7 @@ second.
 so it is not re-litigated:
 
 - TUAS conduction is implicit —
-  `crates/tuas_boussinesq_solver/src/lib/array_control_vol_and_fluid_component_collections/conductance_array_functions.rs:228`,
+  `crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/conductance_array_functions.rs:228`,
   with the doc at `:298-306` noting larger Fourier numbers are allowed but that
   lagged conductances keep `Fo` at 0.25–1.0 in practice.
 - `TampinesSteamArray` is pressure-implicit (PIMPLE/PISO/SIMPLE) explicitly to

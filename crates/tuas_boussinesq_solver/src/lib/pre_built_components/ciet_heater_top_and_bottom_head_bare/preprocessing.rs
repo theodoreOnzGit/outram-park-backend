@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 use std::thread::{self};
 use std::thread::JoinHandle;
 
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use crate::heat_transfer_correlations::thermal_resistance::try_get_thermal_conductance_annular_cylinder;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::NusseltPrandtlReynoldsData;
@@ -11,8 +11,8 @@ use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boundary_conditions::BCType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use super::HeaterTopBottomHead;
 use uom::si::f64::*;
 use uom::si::length::{inch, meter};

@@ -10,7 +10,7 @@ use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 use crate::boundary_conditions::BCType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 
 impl StructuralSupport {
     /// connects the support's solid array laterally to the ambient air.

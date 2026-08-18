@@ -13,7 +13,7 @@ use std::f64::consts::PI;
 #[cfg(test)]
 #[test]
 pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -284,7 +284,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_1m() {
 #[cfg(test)]
 #[test]
 pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -555,7 +555,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_3m() {
 #[cfg(test)]
 #[test]
 pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -826,7 +826,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_5m() {
 #[cfg(test)]
 #[test]
 pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -1097,7 +1097,7 @@ pub fn parasitic_heat_loss_integration_test_with_hte_7m() {
 #[cfg(test)]
 #[test]
 pub fn parasitic_heat_loss_integration_test_with_hte_9m() {
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;

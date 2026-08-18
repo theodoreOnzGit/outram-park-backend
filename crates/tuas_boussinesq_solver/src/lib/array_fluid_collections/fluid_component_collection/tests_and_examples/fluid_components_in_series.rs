@@ -13,8 +13,8 @@ pub fn simple_fluid_collection_example_1 () {
     // this tests the calc pressure loss for fluid component 
     use uom::si::f64::*;
     use uom::ConstZero;
-    use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
     use std::f64::consts::PI;
     use uom::si::ratio::ratio;
@@ -27,8 +27,8 @@ pub fn simple_fluid_collection_example_1 () {
     use uom::si::length::millimeter;
     use uom::si::dynamic_viscosity::millipascal_second;
 
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-    use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureChange;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureChange;
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_mass_flowrate;
     use crate::fluid_mechanics_correlations::pipe_calculations::pipe_calc_pressure_loss;
 

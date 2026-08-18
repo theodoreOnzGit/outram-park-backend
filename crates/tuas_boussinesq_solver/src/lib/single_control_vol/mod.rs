@@ -13,7 +13,7 @@
 //!
 //! By design this module deliberately does NOT hold logic for interacting
 //! with array control volumes; that lives in
-//! `array_control_vol_and_fluid_component_collections` to keep this code
+//! `array_fluid_collections` to keep this code
 //! readable. Submodules: `calculation` (advancing one timestep),
 //! `preprocessing` (conduction / Courant / temperature-change timestep
 //! limits), `interaction_between_two_cvs` and

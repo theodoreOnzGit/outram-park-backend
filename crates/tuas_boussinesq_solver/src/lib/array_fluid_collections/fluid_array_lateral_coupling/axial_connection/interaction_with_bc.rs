@@ -1,5 +1,5 @@
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
+use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::single_control_vol::boundary_condition_interactions::constant_heat_addition_to_bcs::calculate_single_cv_front_constant_heat_addition_back;
 use crate::single_control_vol::boundary_condition_interactions::constant_heat_addition_to_bcs::calculate_constant_heat_addition_front_single_cv_back;
 use crate::single_control_vol::SingleCVNode;

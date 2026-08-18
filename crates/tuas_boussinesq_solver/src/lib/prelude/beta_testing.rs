@@ -14,8 +14,8 @@ pub use crate::tuas_lib_error::TuasLibError;
 /// heat transfer entities
 /// Fluid arrays and solid arrays
 pub use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
-pub use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-pub use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+pub use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+pub use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 
 pub use crate::boussinesq_thermophysical_properties::Material;
 pub use crate::boussinesq_thermophysical_properties::LiquidMaterial;

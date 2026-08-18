@@ -18,9 +18,9 @@ pub fn overall_htc_postprocessing_basic_test_shell_and_tube_heat_exchanger() {
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::ConstZero;
 
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;
@@ -217,9 +217,9 @@ pub fn shell_side_tube_bundle_area_basic_test_shell_and_tube_heat_exchanger() {
     use uom::ConstZero;
 
     use uom::si::area::square_meter;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray;
-        use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+        use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;

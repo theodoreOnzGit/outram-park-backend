@@ -169,14 +169,6 @@ pub mod single_control_vol;
 /// control volumes. This is to prevent overbloated hard to read code
 #[warn(missing_docs)]
 pub mod array_fluid_collections;
-/// Compatibility re-export: this module was physically renamed to
-/// [`array_fluid_collections`] on 2026-08-19 (workspace file-path-length hard
-/// rule, root `CLAUDE.md`) because its old directory name, stacked with its
-/// own child module names, pushed several nested files past the new
-/// 170-character cap on Windows. The old public path is kept working so
-/// downstream crates (in this workspace and on crates.io) do not need to
-/// update their `use` paths.
-pub use array_fluid_collections as array_control_vol_and_fluid_component_collections;
 
 /// Module for pre-built-components
 /// suitable for tuas_boussinesq_solver (single phase, negligble density changes

@@ -361,7 +361,7 @@ conductance body at `conductance.rs:403-450`, correctly linearising
 `sigma*(T_h^4 - T_c^4)`) — where the "area" is a **user-supplied effective
 area** into which emissivity and view factor must be folded by hand. It is
 **not wired into the solid-array axial boundary path**:
-`.../one_d_solid_array_with_lateral_coupling/axial_connection/interaction_with_bc.rs:114,252`
+`.../solid_array_lateral_coupling/axial_connection/interaction_with_bc.rs:114,252`
 match `SimpleRadiation(_)` and reject it. View factors exist for exactly one
 geometry, as analytical concentric cylinders
 (`.../heat_transfer_correlations/view_factors/cocentric_cylinders.rs:18,89,174`,

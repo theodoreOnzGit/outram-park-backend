@@ -173,7 +173,7 @@ they pass was not re-run** — see the status note at the top.
 
 - **Ergun is still unimplemented *in TUAS*.** The packed-bed variant is declared
   with its citation, and marked "not done yet", at
-  `crates/tuas_boussinesq_solver/src/lib/array_control_vol_and_fluid_component_collections/one_d_fluid_array_with_lateral_coupling/fluid_component_calculation/mod.rs:48-54`,
+  `crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_array_lateral_coupling/fluid_component_calculation/mod.rs:48-54`,
   with the match arm at `:149`. The gFHR pebble-bed components carry the comment
   "not putting in ergun equation yet" **eighteen times**, using pipe friction on
   a pebble-derived hydraulic diameter instead.

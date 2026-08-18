@@ -1403,20 +1403,30 @@ been proven out here, not a novel or risky undertaking. Concretely, that pass:
 - **Checked every renamed identifier for public-API exposure first** (a
   workspace-wide grep for real `use`/`pub use` references, not just a
   directory listing) before touching anything — four `tuas_boussinesq_solver`
-  identifiers turned out to be genuinely public, cross-crate API
-  (`ciet_steady_state_natural_circulation_test_components`,
+  identifiers turned out to be genuinely public, cross-crate API: old names
+  `ciet_steady_state_natural_circulation_test_components`,
   `array_control_vol_and_fluid_component_collections`,
   `one_d_fluid_array_with_lateral_coupling`,
-  `one_d_solid_array_with_lateral_coupling`). Those four were physically
-  renamed to their shorter forms but kept **fully backward compatible** via a
-  `pub use new_name as old_name;` compatibility re-export at the original
-  declaration site, so no downstream crate's `use` path needed to change and
-  no semver-breaking release was forced. Everything else (identifiers with
-  zero external references, confirmed by the same grep) was renamed outright
-  with no alias needed.
-- Verified with `cargo check --workspace --lib --tests` after the smaller
-  crate and `cargo test --workspace --no-run --release` (all test binaries,
-  not just `--lib`) after the larger one, both clean.
+  `one_d_solid_array_with_lateral_coupling`, renamed to
+  `ciet_nat_circ_tests`, `array_fluid_collections`,
+  `fluid_array_lateral_coupling`, `solid_array_lateral_coupling`.
+- **First landed with a `pub use new_name as old_name;` compatibility
+  re-export** at each original declaration site, so the first push broke
+  nothing downstream without touching any consumer. **Immediately followed,
+  same day, by migrating every downstream reference** (`tampines`,
+  `tampines-steam-tables`, `teh-o-prke`, and
+  `outram-park-digital-twin-engine`'s CIET v2 binary/examples — 178 files
+  workspace-wide) to the new short names directly, then deleting the four
+  aliases once a workspace-wide grep for each old identifier came back empty.
+  The alias was a same-session bridge, not a standing policy — the maintainer
+  wanted the short names used everywhere, not kept behind a compatibility
+  shim. If a future pass repeats this on a crate with real crates.io
+  consumers outside this workspace, keeping the alias for at least one
+  published version is worth raising with the maintainer explicitly, since
+  those consumers cannot be grepped for and fixed in the same session.
+- Verified with `cargo check --workspace --lib --tests` and
+  `cargo test --workspace --no-run --release` (all test binaries, not just
+  `--lib`) after each stage, all clean.
 - **kopitiam's `rename` command could not be used** (a real bug: rust-analyzer
   rejected every rename request with "Client does not support rename
   capability", LSP error -32803 — filed as
@@ -1426,11 +1436,6 @@ been proven out here, not a novel or risky undertaking. Concretely, that pass:
   a text search, apply the rename by hand, and let the compiler (`cargo
   check`) be the reference-checker that catches anything missed — carried the
   whole refactor without incident.
-- **The specific abbreviated names chosen in that pass were NOT wanted** by
-  the maintainer (`op-pxsw`) — the mechanism (find long paths, classify
-  public vs. private, alias the public ones, verify with the compiler) is the
-  reusable part; the exact shortened spelling of any given identifier is a
-  judgment call for whoever asks for the next pass, not a template to copy.
 
 ## Build & test
 
@@ -1458,7 +1463,7 @@ Note: a bare `cargo test --workspace` also compiles the **examples**. Use
 
 **HARD RULE.** The CIET coupled-DRACS natural-circulation regression tests and
 simulations in `crates/tuas_boussinesq_solver` (under
-`pre_built_components/ciet_steady_state_natural_circulation_test_components/`,
+`pre_built_components/ciet_nat_circ_tests/`,
 including `coupled_dracs_loop_tests/` and the
 `para_heat_loss_regr_tests/`) take a **very** long time. They
 integrate a coupled loop at a 0.1 s timestep for 2000–2500 s of simulated time
