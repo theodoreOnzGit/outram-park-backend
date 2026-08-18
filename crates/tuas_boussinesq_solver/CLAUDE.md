@@ -88,7 +88,7 @@ Layer 4 — Pre-built components
     ├── one_d_solid_structure
     ├── ciet_struct_supports / ciet_heater_top_and_bottom_head_bare
     ├── insulated_porous_media_fluid_components
-    ├── non_insulated_porous_media_fluid_components
+    ├── non_insul_porous_media_fluid
     ├── ciet_isothermal_test_components
     ├── ciet_steady_state_natural_circulation_test_components
     ├── uw_madison_flibe_loop_components
@@ -224,7 +224,7 @@ use tuas_boussinesq_solver::prelude::beta_testing::*;
 ## Testing Notes
 
 - Tests output CSV files to the repo root — normal behaviour, not a build artifact to commit.
-- Regression tests are co-located with the components they validate (in `tests_and_examples/` and `parasitic_heat_loss_regression_tests/` subdirectories).
+- Regression tests are co-located with the components they validate (in `tests_and_examples/` and `para_heat_loss_regr_tests/` subdirectories).
 - CIET steady-state natural circulation and isothermal tests validate against published Zweibaum (2015) and Zou et al. (2019) SAM data; agreement is within ~6%.
 - `gfhr_pipe_tests` is `#[cfg(test)]` only — it exercises FLiBe and HITEC pipes at ~1173 kg/s flowrates.
 - The coupled DRACS loop tests require timestep of 0.1 s and simulation time ≥ 2000–2500 s to reach steady state; at 0.5 s timestep with an analog PID controller, oscillatory instability can prevent convergence.

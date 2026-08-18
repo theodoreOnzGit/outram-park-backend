@@ -58,12 +58,12 @@
 ///
 /// SAM max error threshold is about 1%
 /// that is (m_SAM - m_analytical)/m_analytical
-pub mod zero_parasitic_heat_loss_isolated_dracs_loop_tests;
+pub mod zero_heat_loss_dracs_tests;
 
 /// tests for parasitic heat loss regression and calibration tests
 /// this is meant to callibrate CIET's model and also to test if
 /// the wall correction is working properly
-pub mod parasitic_heat_loss_regression_tests;
+pub mod para_heat_loss_regr_tests;
 
 /// For validation, real tests were done for the dracs loop coupled
 /// with the DHX and Heater branches in CIET

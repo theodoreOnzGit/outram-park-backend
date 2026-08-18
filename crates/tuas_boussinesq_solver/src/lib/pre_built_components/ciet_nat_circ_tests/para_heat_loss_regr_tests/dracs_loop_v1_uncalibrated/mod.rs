@@ -13,12 +13,12 @@
 #[cfg(test)]
 #[test]
 pub fn quick_test_uncalibrated_dracs_loop() {
-    use validate_coupled_dracs_loop_version_1::*;
+    use validate_dracs_loop_v1::*;
     let max_simulation_time_seconds: f64 = 400.0;
     let pri_loop_relative_tolerance = 0.03;
     let dracs_loop_relative_tolerance = 0.4;
 
-    validate_coupled_dracs_loop_version_1(
+    validate_dracs_loop_v1(
         2764.53,
         max_simulation_time_seconds,
         40.0,
@@ -36,14 +36,14 @@ pub fn quick_test_uncalibrated_dracs_loop() {
 #[cfg(test)]
 #[test]
 pub fn long_test_uncalibrated_dracs_loop() {
-    use validate_coupled_dracs_loop_version_1::*;
+    use validate_dracs_loop_v1::*;
     let max_simulation_time_seconds: f64 = 4000.0;
     // expect overprediction of mass flowrates in both loops
     // to about 10%
     let pri_loop_relative_tolerance = 0.15;
     let dracs_loop_relative_tolerance = 0.15;
 
-    validate_coupled_dracs_loop_version_1(
+    validate_dracs_loop_v1(
         2764.53,
         max_simulation_time_seconds,
         40.0,
@@ -76,7 +76,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
 
     use std::thread;
 
-    use regression_coupled_dracs_loop_version_1::*;
+    use regression_dracs_loop_v1::*;
 
     let set_c1 = thread::Builder::new()
         .name("set_c1".to_string())
@@ -104,7 +104,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -145,7 +145,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -185,7 +185,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -226,7 +226,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -267,7 +267,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -308,7 +308,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -349,7 +349,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -390,7 +390,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -431,7 +431,7 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
                 dracs_loop_relative_tolerance
             );
 
-            regression_coupled_dracs_loop_version_1(
+            regression_dracs_loop_v1(
                 heater_power_watts,
                 max_simulation_time_seconds,
                 tchx_outlet_temp_degc,
@@ -464,11 +464,11 @@ pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
 ///
 /// the DHX here uses uncalibrated Gnielinski correlations
 /// to estimate heat transfer coefficients
-pub mod regression_coupled_dracs_loop_version_1;
+pub mod regression_dracs_loop_v1;
 
 /// function to validate coupled DRACS loop to experimental data
 /// within a given tolerance
 /// version 1,
 /// the DHX here uses uncalibrated Gnielinski correlations
 /// to estimate heat transfer coefficients
-pub mod validate_coupled_dracs_loop_version_1;
+pub mod validate_dracs_loop_v1;

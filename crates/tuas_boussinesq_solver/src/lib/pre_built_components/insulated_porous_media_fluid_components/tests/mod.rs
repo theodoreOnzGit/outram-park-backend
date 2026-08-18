@@ -432,7 +432,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-    use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+    use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
     use std::time::SystemTime;
 
@@ -616,7 +616,7 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-    use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+    use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
     use std::time::SystemTime;
 

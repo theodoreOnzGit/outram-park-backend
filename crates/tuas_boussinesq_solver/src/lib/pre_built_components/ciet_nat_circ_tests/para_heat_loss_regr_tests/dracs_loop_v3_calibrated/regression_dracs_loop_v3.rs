@@ -28,7 +28,7 @@
 ///
 /// I programmed this though, to have these parameters not hard coded
 #[cfg(test)]
-pub fn regression_coupled_dracs_loop_version_2(
+pub fn regression_dracs_loop_v3(
     input_power_watts: f64,
     max_time_seconds: f64,
     tchx_outlet_temperature_set_point_degc: f64,
@@ -55,7 +55,8 @@ pub fn regression_coupled_dracs_loop_version_2(
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::ciet_isothermal_test_components::*;
         use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
-        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration, coupled_dracs_loop_link_up_components_no_tchx_calibration, dracs_loop_advance_timestep_except_dhx_no_tchx_calibration, dracs_loop_dhx_tube_temperature_diagnostics};
+        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
+        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
         use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::pri_loop_calc_functions::{coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate, coupled_dracs_pri_loop_dhx_heater_link_up_components, pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx, pri_loop_dhx_shell_temperature_diagnostics, pri_loop_heater_temperature_diagnostics};
     use crate::pre_built_components::
     ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
@@ -134,7 +135,8 @@ pub fn regression_coupled_dracs_loop_version_2(
 
     // DRACS cold branch or (mostly) cold leg
     let mut tchx_35a = new_ndhx_tchx_horizontal_35a(initial_temperature);
-    let mut tchx_35b = new_ndhx_tchx_vertical_35b(initial_temperature);
+    let mut tchx_35b_1 = new_ndhx_tchx_vertical_35b_1(initial_temperature);
+    let mut tchx_35b_2 = new_ndhx_tchx_vertical_35b_2(initial_temperature);
     let mut static_mixer_60_label_36 = new_static_mixer_60_label_36(initial_temperature);
     let mut pipe_36a = new_pipe_36a(initial_temperature);
     let mut pipe_37 = new_pipe_37(initial_temperature);
@@ -291,23 +293,25 @@ pub fn regression_coupled_dracs_loop_version_2(
         let tchx_outlet_temperature: ThermodynamicTemperature = {
             // the front of the tchx is connected to static mixer
             // 60 label 36
-            let tchx35b_pipe_fluid_array_clone: FluidArray =
-                tchx_35b.pipe_fluid_array.clone().try_into().unwrap();
+            let tchx_35_b2_pipe_fluid_array_clone: FluidArray =
+                tchx_35b_2.pipe_fluid_array.clone().try_into().unwrap();
 
             // take the front single cv temperature
             //
             // front single cv temperature is defunct
             // probably need to debug this
 
-            let tchx_35b_front_single_cv_temperature: ThermodynamicTemperature =
-                tchx35b_pipe_fluid_array_clone.front_single_cv.temperature;
+            let tchx_35_b2_front_single_cv_temperature: ThermodynamicTemperature =
+                tchx_35_b2_pipe_fluid_array_clone
+                    .front_single_cv
+                    .temperature;
 
-            let _tchx_35b_array_temperature: Vec<ThermodynamicTemperature> =
-                tchx_35b.pipe_fluid_array_temperature().unwrap();
+            let _tchx_35b_2_array_temperature: Vec<ThermodynamicTemperature> =
+                tchx_35b_2.pipe_fluid_array_temperature().unwrap();
 
             //dbg!(&tchx_35b_array_temperature);
 
-            tchx_35b_front_single_cv_temperature
+            tchx_35_b2_front_single_cv_temperature
         };
         // we will need to change the tchx heat transfer coefficient
         // using the PID controller
@@ -370,7 +374,7 @@ pub fn regression_coupled_dracs_loop_version_2(
         let dhx_shell_side_pipe_24 = dhx_sthe.get_clone_of_shell_side_fluid_component();
 
         let absolute_mass_flowrate_dracs =
-            coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration(
+            coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(
                 &pipe_34,
                 &pipe_33,
                 &pipe_32,
@@ -380,7 +384,8 @@ pub fn regression_coupled_dracs_loop_version_2(
                 &dhx_tube_side_heat_exchanger_30,
                 &dhx_tube_side_30a,
                 &tchx_35a,
-                &tchx_35b,
+                &tchx_35b_1,
+                &tchx_35b_2,
                 &static_mixer_60_label_36,
                 &pipe_36a,
                 &pipe_37,
@@ -424,7 +429,7 @@ pub fn regression_coupled_dracs_loop_version_2(
         //
         // note, the ambient heat transfer coefficient is not set for
         // the DHX sthe
-        coupled_dracs_loop_link_up_components_no_tchx_calibration(
+        coupled_dracs_loop_link_up_components_sam_tchx_calibration(
             counter_clockwise_dracs_flowrate,
             tchx_heat_transfer_coeff,
             average_temperature_for_density_calcs,
@@ -438,7 +443,8 @@ pub fn regression_coupled_dracs_loop_version_2(
             &mut dhx_sthe,
             &mut dhx_tube_side_30a,
             &mut tchx_35a,
-            &mut tchx_35b,
+            &mut tchx_35b_1,
+            &mut tchx_35b_2,
             &mut static_mixer_60_label_36,
             &mut pipe_36a,
             &mut pipe_37,
@@ -483,7 +489,7 @@ pub fn regression_coupled_dracs_loop_version_2(
         );
 
         // advance timestep
-        dracs_loop_advance_timestep_except_dhx_no_tchx_calibration(
+        dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration(
             timestep,
             &mut pipe_34,
             &mut pipe_33,
@@ -493,7 +499,8 @@ pub fn regression_coupled_dracs_loop_version_2(
             &mut dhx_tube_side_30b,
             &mut dhx_tube_side_30a,
             &mut tchx_35a,
-            &mut tchx_35b,
+            &mut tchx_35b_1,
+            &mut tchx_35b_2,
             &mut static_mixer_60_label_36,
             &mut pipe_36a,
             &mut pipe_37,

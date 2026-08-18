@@ -1,6 +1,6 @@
 # Zaloudek Subcooled (Outside-Dome) Stagnation — Debug Reference
 
-Test file: `src/steam_turbine_equations/converging_diverging_nozzles/tests/zaloudek_critical_mass_flux_homogeneous_eqm/outside_dome_stagnation_subcooled.rs`
+Test file: `src/steam_turbine_equations/converging_diverging_nozzles/tests/zaloudek_mass_flux_hom_eqm/outside_dome_stagnation_subcooled.rs`
 
 Solver file: `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/stagnation_point_outside_vle_ph_dome_multiphase.rs`
 

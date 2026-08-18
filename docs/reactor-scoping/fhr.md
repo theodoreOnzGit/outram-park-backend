@@ -74,7 +74,7 @@ Audited 2026-08-06 against the workspace at commit `ebbde1b`.
 | DRACS natural-circulation loops (CIET geometry) | `.../dracs_loop_components.rs` and calibration ladder | Includes a real mesh-refinement study at 2x, 5x, 10x and 20x |
 | **TRISO fission-product release, partly validated** | `crates/boon-lay` | Roughly 15,150 lines, 175 tests. Walk-on-spheres first passage plus a port of an external release code, with a V&V document comparing against an analytical series solution |
 | Wakao packed-bed Nusselt correlation | `crates/tuas_boussinesq_solver/.../nusselt_number_correlations/enums.rs:141` | Exists and is wired — though in practice used for a heater insert, not a pebble bed |
-| Validated molten-salt heat exchanger dataset | `.../shell_and_tube_heat_exchanger/tests/hitec_molten_salt_to_yd325_du_heat_exchanger/` | Roughly 4,070 lines against a published prototype salt heat-exchanger study |
+| Validated molten-salt heat exchanger dataset | `.../shell_and_tube_heat_exchanger/tests/hitec_to_yd325_du_hx/` | Roughly 4,070 lines against a published prototype salt heat-exchanger study |
 | CIET simulator v2 with OPC-UA telemetry | `crates/outram-park-digital-twin-engine/src/bin/ciet_educational_simulator_v2/`, `src/ciet_opcua/` | Roughly 11,550 and 4,200 lines |
 
 #### The recorded validation results

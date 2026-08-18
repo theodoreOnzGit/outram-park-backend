@@ -40,4 +40,4 @@ mod heated_section_with_top_bottom_heads_and_mx10;
 
 /// this does not have csv writer, was used for early test and development
 #[cfg(test)]
-mod heated_section_with_top_bottom_heads_and_mx10_and_struct_supports;
+mod heated_section_top_bottom_mx10_struct_supports;

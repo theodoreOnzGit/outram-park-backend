@@ -28,7 +28,7 @@
 //! - [`ciet_struct_supports`], [`ciet_heater_top_and_bottom_head_bare`] — CIET
 //!   structural-support and heater end-piece heat structures.
 //! - [`insulated_porous_media_fluid_components`],
-//!   [`non_insulated_porous_media_fluid_components`] — pipes packed with an
+//!   [`non_insul_porous_media_fluid`] — pipes packed with an
 //!   internal solid (packed bed / annular insert / static mixer / CIET heater).
 //! - [`ciet_isothermal_test_components`],
 //!   [`ciet_steady_state_natural_circulation_test_components`],
@@ -122,7 +122,7 @@ pub mod insulated_porous_media_fluid_components;
 /// Ong, T. K. C. (2024). Digital Twins as
 /// Testbeds for Iterative Simulated Neutronics Feedback
 /// Controller Development (Doctoral dissertation, UC Berkeley).
-pub mod non_insulated_porous_media_fluid_components;
+pub mod non_insul_porous_media_fluid;
 
 /// ciet components for pipes and valves for use in the isothermal test
 ///
@@ -148,7 +148,14 @@ pub mod ciet_isothermal_test_components;
 /// validation using the compact integral effects test (CIET) experimental
 /// data (No. ANL/NSE-19/11). Argonne National
 /// Lab.(ANL), Argonne, IL (United States).
-pub mod ciet_steady_state_natural_circulation_test_components;
+pub mod ciet_nat_circ_tests;
+/// Compatibility re-export: this module was physically renamed to
+/// [`ciet_nat_circ_tests`] on 2026-08-19 (workspace file-path-length hard
+/// rule, root `CLAUDE.md`) because its old directory name pushed several
+/// nested test files past the new 170-character cap on Windows. The old
+/// public path is kept working so downstream crates (in this workspace and
+/// on crates.io) do not need to update their `use` paths.
+pub use ciet_nat_circ_tests as ciet_steady_state_natural_circulation_test_components;
 
 /// From UW Madison FLiBe loop:
 ///

@@ -19,7 +19,7 @@ pub mod heat_transfer_verification;
 /// (2018). Investigation on heat transfer characteristics of
 /// molten salt in a shell-and-tube heat exchanger. International
 /// Communications in Heat and Mass Transfer, 96, 61-68.
-pub mod hitec_molten_salt_to_yd325_du_heat_exchanger;
+pub mod hitec_to_yd325_du_hx;
 
 /// constructor tests
 pub mod constructor_tests;

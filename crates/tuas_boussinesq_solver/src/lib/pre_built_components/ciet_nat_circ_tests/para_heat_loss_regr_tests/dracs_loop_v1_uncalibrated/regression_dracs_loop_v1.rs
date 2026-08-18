@@ -8,7 +8,7 @@
 ///
 /// note that regression takes very long, might want to flamegraph this
 #[cfg(test)]
-pub fn regression_coupled_dracs_loop_version_1(
+pub fn regression_dracs_loop_v1(
     input_power_watts: f64,
     max_time_seconds: f64,
     tchx_outlet_temperature_set_point_degc: f64,

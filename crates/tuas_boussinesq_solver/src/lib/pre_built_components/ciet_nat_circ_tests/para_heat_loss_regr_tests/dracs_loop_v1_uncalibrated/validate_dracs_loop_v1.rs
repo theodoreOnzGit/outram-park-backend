@@ -1,62 +1,25 @@
-/// function to test calibrated
-/// coupled dracs loop and compare with experimental data
-/// this is more of a regression function, so I want to check the
-/// output of the calibrated loop
-///
+#[cfg(test)]
+/// function to validate coupled DRACS loop to experimental data
+/// within a given tolerance
+/// version 1,
 /// the DHX here uses uncalibrated Gnielinski correlations
 /// to estimate heat transfer coefficients
-///
-/// note that regression takes very long, might want to flamegraph this
-///
-/// based on initial calibration with set c,
-/// a best effort was made
-///
-/// for the pri loop
-/// cold leg insulation thickness is 0.15 cm
-/// hot leg insulation thickness is 0.24 cm
-///
-/// for the dracs loop
-/// cold leg insulation thickness is 3cm
-/// hot leg insulation thickness is 0.75 cm
-///
-/// for the DHX STHE,
-///
-/// shell side to tubes nusselt correction factor is 4.08
-/// insulation thickness is 0.161 cm
-/// shell side to ambient correction factor is 10.3
-/// heat loss to ambient is 33.9 W/(m^2 K)
-///
-/// I programmed this though, to have these parameters not hard coded
-#[cfg(test)]
-pub fn regression_coupled_dracs_loop_version_3(
+pub fn validate_dracs_loop_v1(
     input_power_watts: f64,
     max_time_seconds: f64,
     tchx_outlet_temperature_set_point_degc: f64,
     experimental_dracs_mass_flowrate_kg_per_s: f64,
     experimental_primary_mass_flowrate_kg_per_s: f64,
-    simulated_expected_dracs_mass_flowrate_kg_per_s: f64,
-    simulated_expected_primary_mass_flowrate_kg_per_s: f64,
-    pri_loop_simulated_flowrate: f64,
+    pri_loop_relative_tolerance: f64,
     dracs_loop_relative_tolerance: f64,
-    shell_side_to_tubes_nusselt_number_correction_factor: f64,
-    dhx_insulation_thickness_regression_cm: f64,
-    shell_side_to_ambient_nusselt_correction_factor: f64,
-    dhx_heat_loss_to_ambient_watts_per_m2_kelvin: f64,
-    pri_loop_cold_leg_insulation_thickness_cm: f64,
-    pri_loop_hot_leg_insulation_thickness_cm: f64,
-    dracs_loop_cold_leg_insulation_thickness_cm: f64,
-    dracs_loop_hot_leg_insulation_thickness_cm: f64,
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
-    use uom::si::length::centimeter;
     use uom::si::{f64::*, mass_rate::kilogram_per_second, power::watt};
 
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};
 
-    use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::ciet_isothermal_test_components::*;
         use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
-        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
-        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
+        use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration, coupled_dracs_loop_link_up_components_no_tchx_calibration, dracs_loop_advance_timestep_except_dhx_no_tchx_calibration, dracs_loop_dhx_tube_temperature_diagnostics};
         use crate::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::pri_loop_calc_functions::{coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate, coupled_dracs_pri_loop_dhx_heater_link_up_components, pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx, pri_loop_dhx_shell_temperature_diagnostics, pri_loop_heater_temperature_diagnostics};
     use crate::pre_built_components::
     ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
@@ -86,11 +49,8 @@ pub fn regression_coupled_dracs_loop_version_3(
     let mut tchx_heat_transfer_coeff: HeatTransfer;
 
     let reference_tchx_htc = HeatTransfer::new::<watt_per_square_meter_kelvin>(40.0);
-    let average_temperature_for_density_calcs =
+    let average_temperature_for_advection_mass_flowrate_calcs =
         ThermodynamicTemperature::new::<degree_celsius>(80.0);
-    // let's calculate 400 seconds of simulated time
-    // it takes about that long for the temperature to settle down
-    // this is compared to value at 4000s
 
     let mut current_simulation_time = Time::ZERO;
     let max_simulation_time = Time::new::<second>(max_time_seconds);
@@ -135,8 +95,7 @@ pub fn regression_coupled_dracs_loop_version_3(
 
     // DRACS cold branch or (mostly) cold leg
     let mut tchx_35a = new_ndhx_tchx_horizontal_35a(initial_temperature);
-    let mut tchx_35b_1 = new_ndhx_tchx_vertical_35b_1(initial_temperature);
-    let mut tchx_35b_2 = new_ndhx_tchx_vertical_35b_2(initial_temperature);
+    let mut tchx_35b = new_ndhx_tchx_vertical_35b(initial_temperature);
     let mut static_mixer_60_label_36 = new_static_mixer_60_label_36(initial_temperature);
     let mut pipe_36a = new_pipe_36a(initial_temperature);
     let mut pipe_37 = new_pipe_37(initial_temperature);
@@ -171,117 +130,6 @@ pub fn regression_coupled_dracs_loop_version_3(
     let mut heater_bottom_head_1b = new_heater_bottom_head_1b(initial_temperature);
     let mut pipe_18 = new_pipe_18(initial_temperature);
 
-    // calibration steps **************
-    // calibrate DHX STHE
-    // calibrated thickness settings
-
-    let dhx_calibrated_insulation_thickness =
-        Length::new::<centimeter>(dhx_insulation_thickness_regression_cm);
-
-    let pri_loop_cold_leg_insulation_thickness =
-        Length::new::<centimeter>(pri_loop_cold_leg_insulation_thickness_cm);
-    let pri_loop_hot_leg_insulation_thickness =
-        Length::new::<centimeter>(pri_loop_hot_leg_insulation_thickness_cm);
-    let dracs_loop_cold_leg_insulation_thickness =
-        Length::new::<centimeter>(dracs_loop_cold_leg_insulation_thickness_cm);
-    let dracs_loop_hot_leg_insulation_thickness =
-        Length::new::<centimeter>(dracs_loop_hot_leg_insulation_thickness_cm);
-
-    // calibrated nusselt correlation settings (using Gnielinksi correlation)
-
-    let calibrated_nusselt_factor =
-        Ratio::new::<ratio>(shell_side_to_tubes_nusselt_number_correction_factor);
-
-    let calibrated_parasitic_heat_loss_nusselt_factor =
-        Ratio::new::<ratio>(shell_side_to_ambient_nusselt_correction_factor);
-    // calibrate heat trf coeff to environment
-    // (will need to be redone in the loop
-    dhx_sthe.heat_transfer_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(
-        dhx_heat_loss_to_ambient_watts_per_m2_kelvin,
-    );
-    // calibrate shell side fluid array to tubes nusselt number correlation
-
-    fn calibrate_nusselt_correlation_of_heat_transfer_entity(
-        nusselt_correlation: &mut NusseltCorrelation,
-        calibration_ratio: Ratio,
-    ) {
-        // it's a little bit troublesome, but we have to open
-        // up the enums and change the nusselt correlation like
-        // so
-
-        let calibrated_nusselt_correlation = match nusselt_correlation {
-            NusseltCorrelation::PipeGnielinskiGeneric(gnielinski_data) => {
-                NusseltCorrelation::PipeGnielinskiCalibrated(
-                    gnielinski_data.clone(),
-                    calibration_ratio,
-                )
-            }
-            NusseltCorrelation::PipeGnielinskiCalibrated(gnielinski_data, _) => {
-                NusseltCorrelation::PipeGnielinskiCalibrated(
-                    gnielinski_data.clone(),
-                    calibration_ratio,
-                )
-            }
-            _ => todo!(),
-        };
-        *nusselt_correlation = calibrated_nusselt_correlation;
-    }
-
-    calibrate_nusselt_correlation_of_heat_transfer_entity(
-        &mut dhx_sthe.shell_side_nusselt_correlation_to_tubes,
-        calibrated_nusselt_factor,
-    );
-
-    calibrate_nusselt_correlation_of_heat_transfer_entity(
-        &mut dhx_sthe.shell_side_nusselt_correlation_parasitic,
-        calibrated_parasitic_heat_loss_nusselt_factor,
-    );
-
-    // now calibrate the insulation thickness for all
-
-    dhx_sthe.calibrate_insulation_thickness(dhx_calibrated_insulation_thickness);
-    // pri loop cold leg
-    static_mixer_20_label_23.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_23a.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_22.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_21.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    // note that flowmeter is considered not insulated
-    pipe_20.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_19.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_17b.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    pipe_18.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-    heater_bottom_head_1b.calibrate_insulation_thickness(pri_loop_cold_leg_insulation_thickness);
-
-    // pri loop hot leg
-    //
-    heater_top_head_1a.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    static_mixer_10_label_2.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_2a.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_3.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_4.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_5a.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_26.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    pipe_25a.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-    static_mixer_21_label_25.calibrate_insulation_thickness(pri_loop_hot_leg_insulation_thickness);
-
-    // dracs loop cold leg
-
-    static_mixer_60_label_36
-        .calibrate_insulation_thickness(dracs_loop_cold_leg_insulation_thickness);
-    pipe_36a.calibrate_insulation_thickness(dracs_loop_cold_leg_insulation_thickness);
-    pipe_37.calibrate_insulation_thickness(dracs_loop_cold_leg_insulation_thickness);
-    pipe_38.calibrate_insulation_thickness(dracs_loop_cold_leg_insulation_thickness);
-    pipe_39.calibrate_insulation_thickness(dracs_loop_cold_leg_insulation_thickness);
-
-    // dracs loop hot leg
-
-    pipe_31a.calibrate_insulation_thickness(dracs_loop_hot_leg_insulation_thickness);
-    static_mixer_61_label_31
-        .calibrate_insulation_thickness(dracs_loop_hot_leg_insulation_thickness);
-    pipe_32.calibrate_insulation_thickness(dracs_loop_hot_leg_insulation_thickness);
-    pipe_33.calibrate_insulation_thickness(dracs_loop_hot_leg_insulation_thickness);
-    pipe_34.calibrate_insulation_thickness(dracs_loop_hot_leg_insulation_thickness);
-
     let mut final_mass_flowrate_pri_loop: MassRate = MassRate::ZERO;
     let mut final_mass_flowrate_dracs_loop: MassRate = MassRate::ZERO;
     let mut _final_tchx_outlet_temperature: ThermodynamicTemperature =
@@ -293,25 +141,20 @@ pub fn regression_coupled_dracs_loop_version_3(
         let tchx_outlet_temperature: ThermodynamicTemperature = {
             // the front of the tchx is connected to static mixer
             // 60 label 36
-            let tchx_35_b2_pipe_fluid_array_clone: FluidArray =
-                tchx_35b_2.pipe_fluid_array.clone().try_into().unwrap();
+            let tchx35b_pipe_fluid_array_clone: FluidArray =
+                tchx_35b.pipe_fluid_array.clone().try_into().unwrap();
 
             // take the front single cv temperature
-            //
-            // front single cv temperature is defunct
-            // probably need to debug this
 
-            let tchx_35_b2_front_single_cv_temperature: ThermodynamicTemperature =
-                tchx_35_b2_pipe_fluid_array_clone
-                    .front_single_cv
-                    .temperature;
+            let tchx_35b_front_single_cv_temperature: ThermodynamicTemperature =
+                tchx35b_pipe_fluid_array_clone.front_single_cv.temperature;
 
-            let _tchx_35b_2_array_temperature: Vec<ThermodynamicTemperature> =
-                tchx_35b_2.pipe_fluid_array_temperature().unwrap();
+            let _tchx_35b_array_temperature: Vec<ThermodynamicTemperature> =
+                tchx_35b.pipe_fluid_array_temperature().unwrap();
 
             //dbg!(&tchx_35b_array_temperature);
 
-            tchx_35_b2_front_single_cv_temperature
+            tchx_35b_front_single_cv_temperature
         };
         // we will need to change the tchx heat transfer coefficient
         // using the PID controller
@@ -329,7 +172,11 @@ pub fn regression_coupled_dracs_loop_version_3(
 
             let reference_temperature_interval_deg_celsius = 80.0;
 
-            // error = y_sp - y_measured
+            // error = y_measured - y_sp
+            // anyway, that's how I programmed it,
+            // if it works, it works
+            // in literature and textbooks, we usually use
+            // y_sp - y_measured
             let set_point_abs_error_deg_celsius = -tchx_outlet_temperature_set_point
                 .get::<kelvin>()
                 + tchx_outlet_temperature.get::<kelvin>();
@@ -374,7 +221,7 @@ pub fn regression_coupled_dracs_loop_version_3(
         let dhx_shell_side_pipe_24 = dhx_sthe.get_clone_of_shell_side_fluid_component();
 
         let absolute_mass_flowrate_dracs =
-            coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration(
+            coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration(
                 &pipe_34,
                 &pipe_33,
                 &pipe_32,
@@ -384,8 +231,7 @@ pub fn regression_coupled_dracs_loop_version_3(
                 &dhx_tube_side_heat_exchanger_30,
                 &dhx_tube_side_30a,
                 &tchx_35a,
-                &tchx_35b_1,
-                &tchx_35b_2,
+                &tchx_35b,
                 &static_mixer_60_label_36,
                 &pipe_36a,
                 &pipe_37,
@@ -426,13 +272,10 @@ pub fn regression_coupled_dracs_loop_version_3(
 
         // next, link up the heat transfer entities
         // all lateral linking is done except for DHX
-        //
-        // note, the ambient heat transfer coefficient is not set for
-        // the DHX sthe
-        coupled_dracs_loop_link_up_components_sam_tchx_calibration(
+        coupled_dracs_loop_link_up_components_no_tchx_calibration(
             counter_clockwise_dracs_flowrate,
             tchx_heat_transfer_coeff,
-            average_temperature_for_density_calcs,
+            average_temperature_for_advection_mass_flowrate_calcs,
             ambient_htc,
             &mut pipe_34,
             &mut pipe_33,
@@ -443,8 +286,7 @@ pub fn regression_coupled_dracs_loop_version_3(
             &mut dhx_sthe,
             &mut dhx_tube_side_30a,
             &mut tchx_35a,
-            &mut tchx_35b_1,
-            &mut tchx_35b_2,
+            &mut tchx_35b,
             &mut static_mixer_60_label_36,
             &mut pipe_36a,
             &mut pipe_37,
@@ -456,7 +298,7 @@ pub fn regression_coupled_dracs_loop_version_3(
         coupled_dracs_pri_loop_dhx_heater_link_up_components(
             counter_clockwise_pri_loop_flowrate,
             heat_rate_through_heater,
-            average_temperature_for_density_calcs,
+            average_temperature_for_advection_mass_flowrate_calcs,
             ambient_htc,
             &mut pipe_4,
             &mut pipe_3,
@@ -481,15 +323,8 @@ pub fn regression_coupled_dracs_loop_version_3(
             &mut pipe_17b,
         );
 
-        // need to calibrate dhx sthe ambient htc
-        // because the coupled_dracs_pri_loop_dhx_heater_link_up_components
-        // function sets the heat transfer to ambient
-        dhx_sthe.heat_transfer_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(
-            dhx_heat_loss_to_ambient_watts_per_m2_kelvin,
-        );
-
         // advance timestep
-        dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration(
+        dracs_loop_advance_timestep_except_dhx_no_tchx_calibration(
             timestep,
             &mut pipe_34,
             &mut pipe_33,
@@ -499,8 +334,7 @@ pub fn regression_coupled_dracs_loop_version_3(
             &mut dhx_tube_side_30b,
             &mut dhx_tube_side_30a,
             &mut tchx_35a,
-            &mut tchx_35b_1,
-            &mut tchx_35b_2,
+            &mut tchx_35b,
             &mut static_mixer_60_label_36,
             &mut pipe_36a,
             &mut pipe_37,
@@ -610,31 +444,16 @@ pub fn regression_coupled_dracs_loop_version_3(
         display_temperatures,
     );
 
-    // this asserts the final mass flowrate against experimental flowrate
     approx::assert_relative_eq!(
         experimental_primary_mass_flowrate.get::<kilogram_per_second>(),
         final_mass_flowrate_pri_loop.get::<kilogram_per_second>(),
-        max_relative = pri_loop_simulated_flowrate
+        max_relative = pri_loop_relative_tolerance
     );
 
     approx::assert_relative_eq!(
         experimental_dracs_mass_flowrate.get::<kilogram_per_second>(),
         final_mass_flowrate_dracs_loop.get::<kilogram_per_second>(),
         max_relative = dracs_loop_relative_tolerance
-    );
-
-    // this asserts the final mass flowrate against experimental flowrate
-    // for regression to within 0.1%
-    approx::assert_relative_eq!(
-        simulated_expected_primary_mass_flowrate_kg_per_s,
-        final_mass_flowrate_pri_loop.get::<kilogram_per_second>(),
-        max_relative = 0.001
-    );
-
-    approx::assert_relative_eq!(
-        simulated_expected_dracs_mass_flowrate_kg_per_s,
-        final_mass_flowrate_dracs_loop.get::<kilogram_per_second>(),
-        max_relative = 0.001
     );
 
     Ok(())

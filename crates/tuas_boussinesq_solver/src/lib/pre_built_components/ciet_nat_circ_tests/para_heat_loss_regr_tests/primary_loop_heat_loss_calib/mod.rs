@@ -44,7 +44,7 @@
 /// C-7,0.03562,110.34289,106.43149,73.21226,70.6215,
 /// C-8,0.03593,115.52364,111.37615,76.13202,73.63344,
 /// C-9,0.03547,119.96879,116.05003,79.02407,76.54479,
-pub mod insulation_thickness_calibration;
+pub mod insul_calib;
 
 /// This module's test attempted to tweak the heat trasnfer coeffcient (htc)
 /// to ambient in order to obtain the correct dhx inlet temperature
@@ -77,7 +77,7 @@ pub mod insulation_thickness_calibration;
 /// C-7,0.03562,110.34289,106.43149,73.21226,70.6215,
 /// C-8,0.03593,115.52364,111.37615,76.13202,73.63344,
 /// C-9,0.03547,119.96879,116.05003,79.02407,76.54479,
-pub mod heat_transfer_to_ambient_calibration;
+pub mod heat_transfer_ambient_calib;
 
 /// this module's test attempted to tweak the pipe nusselt number
 /// in order to calibrate the parasitic heat losses

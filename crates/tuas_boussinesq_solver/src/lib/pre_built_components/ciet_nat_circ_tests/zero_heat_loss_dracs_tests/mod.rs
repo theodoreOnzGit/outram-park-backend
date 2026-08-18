@@ -116,7 +116,7 @@ pub mod misc_debugging;
 ///
 /// I'm going to do some rudimentary mesh refinement
 #[cfg(test)]
-mod isolated_dracs_mesh_refinement_study;
+mod dracs_mesh_refinement;
 
 /// This next set of tests shows explicitly what we need to do in
 /// the fluid component collection in order to get natural circulation

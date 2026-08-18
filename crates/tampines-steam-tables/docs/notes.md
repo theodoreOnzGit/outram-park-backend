@@ -199,7 +199,7 @@ That is wrong on both counts and is corrected here.
   ```text
   $ cargo test --release -p tampines-steam-tables quality_bubble_point_subcooled
   test steam_turbine_equations::converging_diverging_nozzles::tests::\
-  zaloudek_critical_mass_flux_homogeneous_eqm::outside_dome_stagnation_subcooled::\
+  zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::\
   quality_bubble_point_subcooled ... ok
 
   test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 937 filtered out

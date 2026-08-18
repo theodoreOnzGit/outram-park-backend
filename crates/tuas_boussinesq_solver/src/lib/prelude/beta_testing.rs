@@ -30,7 +30,7 @@ pub use crate::single_control_vol::SingleCVNode;
 pub use crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::HeaterTopBottomHead;
 pub use crate::pre_built_components::ciet_struct_supports::StructuralSupport;
 pub use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-pub use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+pub use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
 pub use crate::pre_built_components::heat_transfer_entities::preprocessing::link_heat_transfer_entity;
 
 // thermophysical properties

@@ -5,7 +5,7 @@ use crate::array_control_vol_and_fluid_component_collections::one_d_fluid_array_
 use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 /// regression test: runs the generalised porous-media component alongside the
 /// original CIET-heater-v2 code path with identical inputs and asserts their

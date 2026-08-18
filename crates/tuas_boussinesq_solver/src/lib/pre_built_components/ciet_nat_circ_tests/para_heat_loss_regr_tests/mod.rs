@@ -6,14 +6,14 @@
 //! The submodules progress through calibration stages:
 //! - `wall_correction_isolated_dracs_loop_regression` - Gnielinski wall-correction
 //!   factor `(Pr_f/Pr_wall)^0.11` on the isolated DRACS loop.
-//! - `coupled_dracs_loop_ver_1_uncalibrated` - baseline coupled loop, no calibration.
-//! - `coupled_dracs_loop_ver_2_calibrated` / `..._ver_3_calibrated` /
+//! - `dracs_loop_v1_uncalibrated` - baseline coupled loop, no calibration.
+//! - `dracs_loop_v2_calibrated` / `..._ver_3_calibrated` /
 //!   `..._ver_6_calibrated` - successively calibrated STHE, insulation and
 //!   heater-Nusselt settings.
 //! - `dhx_sthe_calibration` - standalone DHX shell-and-tube heat exchanger (STHE)
 //!   heat-transfer / insulation calibration.
-//! - `primary_loop_parasitic_heat_loss_calibration` /
-//!   `dracs_loop_parasitic_heat_loss_calibration` - per-leg insulation calibration.
+//! - `primary_loop_heat_loss_calib` /
+//!   `dracs_loop_heat_loss_calib` - per-leg insulation calibration.
 //!
 //! Test quantities are natural-circulation mass flow rates (kg/s) in the DRACS
 //! and primary loops, component temperatures (degC), and heater surface
@@ -40,14 +40,14 @@ pub mod wall_correction_isolated_dracs_loop_regression;
 /// There is parasitic heat loss through the heater when there should be
 /// none. (See Zou's publication on nuclear engineering and design in 2021)
 /// this serves as a baseline as to what kind of heat losses to expect
-pub mod coupled_dracs_loop_ver_1_uncalibrated;
+pub mod dracs_loop_v1_uncalibrated;
 
 /// version 2 of coupled DRACS loop
 ///
 /// for version 2, simple calibration is done
 /// that is, STHE calibration and parasitic heat loss calibration over the loop
 /// the vertical TCHX is not split into equal halves
-pub mod coupled_dracs_loop_ver_2_calibrated;
+pub mod dracs_loop_v2_calibrated;
 
 /// version 3 of coupled DRACS loop
 ///
@@ -55,7 +55,7 @@ pub mod coupled_dracs_loop_ver_2_calibrated;
 /// but the vertical TCHX is split into two equal halves as was done in SAM,
 /// only the bottom half will have the calibrated heat transfer coefficient.
 /// The rest of the TCHX, the horizontal TCHX and 35b1, will be insulated.
-pub mod coupled_dracs_loop_ver_3_calibrated;
+pub mod dracs_loop_v3_calibrated;
 
 /// Version 4 increases the K of pipe 22 to 45.95
 /// Version 5 increases nusselt number of heater 5 times (deprecated now tho)
@@ -100,7 +100,7 @@ pub mod coupled_dracs_loop_ver_3_calibrated;
 /// Nusselt number from this set because it is already a correction to
 /// a non-existent or relatively low heater surface temperature from SAM.
 ///
-pub mod coupled_dracs_loop_ver_6_calibrated;
+pub mod dracs_loop_v6_calibrated;
 
 /// for the coupled dracs loop, we need to calibrate heat loss
 /// through the primary loop
@@ -127,7 +127,7 @@ pub mod coupled_dracs_loop_ver_6_calibrated;
 ///
 /// repeat the same for the cold leg.
 ///
-pub mod primary_loop_parasitic_heat_loss_calibration;
+pub mod primary_loop_heat_loss_calib;
 
 /// Zweibaum's unpublished data:
 /// dataset number,dracs loop mass flowrate (kg/s),DHX tube top (outlet) (DegC),TCHX inlet (DegC),TCHX outlet(DegC),DHX tube bottom (DegC),
@@ -140,7 +140,7 @@ pub mod primary_loop_parasitic_heat_loss_calibration;
 /// C-7,0.04312,64.45658,63.45641,40.24987,39.8924,
 /// C-8,0.04509,66.11271,65.13191,40.14256,39.91183,
 /// C-9,0.04699,67.40722,66.51369,39.87633,39.64593,
-pub mod dracs_loop_parasitic_heat_loss_calibration;
+pub mod dracs_loop_heat_loss_calib;
 
 /// in this module, I want to calibrate dhx shell and tube heat exchanger (STHE)
 /// heat transfer and calibration.

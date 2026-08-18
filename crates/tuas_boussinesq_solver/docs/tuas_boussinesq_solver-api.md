@@ -771,7 +771,7 @@ pub use crate::pre_built_components::insulated_porous_media_fluid_components::In
 #### Re-export `NonInsulatedPorousMediaFluidComponent`
 
 ```rust
-pub use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+pub use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
 ```
 
 #### Re-export `link_heat_transfer_entity`
@@ -11854,21 +11854,21 @@ pub mod fluid_component_calculation { /* ... */ }
 
 ### Modules
 
-## Module `unit_test_dimensionless_darcy_loss_correlations`
+## Module `unit_test_darcy_loss_correlations`
 
 unit tests for DimensionlessDarcyLossCorrelations
 
 ```rust
-pub mod unit_test_dimensionless_darcy_loss_correlations { /* ... */ }
+pub mod unit_test_darcy_loss_correlations { /* ... */ }
 ```
 
-## Module `unit_test_mass_flowrate_and_pressure_change_dimensionless_darcy_loss`
+## Module `unit_test_dimensionless_darcy_loss`
 
 unit tests for DimensionlessDarcyLossCorrelations get and set
 mass flowrate and pressure change
 
 ```rust
-pub mod unit_test_mass_flowrate_and_pressure_change_dimensionless_darcy_loss { /* ... */ }
+pub mod unit_test_dimensionless_darcy_loss { /* ... */ }
 ```
 
 ### Types
@@ -14097,7 +14097,7 @@ Module map:
 - [`ciet_struct_supports`], [`ciet_heater_top_and_bottom_head_bare`] — CIET
   structural-support and heater end-piece heat structures.
 - [`insulated_porous_media_fluid_components`],
-  [`non_insulated_porous_media_fluid_components`] — pipes packed with an
+  [`non_insul_porous_media_fluid`] — pipes packed with an
   internal solid (packed bed / annular insert / static mixer / CIET heater).
 - [`ciet_isothermal_test_components`],
   [`ciet_steady_state_natural_circulation_test_components`],
@@ -16204,7 +16204,7 @@ exchanger works correctly
 pub mod heat_transfer_verification { /* ... */ }
 ```
 
-## Module `hitec_molten_salt_to_yd325_du_heat_exchanger`
+## Module `hitec_to_yd325_du_hx`
 
 heat exchanger verification and validation
 using Du's paper
@@ -16227,7 +16227,7 @@ debugging cross-checks on dimensions, thermophysical properties and the
 heat-transfer correlations.
 
 ```rust
-pub mod hitec_molten_salt_to_yd325_du_heat_exchanger { /* ... */ }
+pub mod hitec_to_yd325_du_hx { /* ... */ }
 ```
 
 ### Modules
@@ -18132,7 +18132,7 @@ pub struct InsulatedPorousMediaFluidComponent {
     fn vzip(self: Self) -> V { /* ... */ }
     ```
 
-## Module `non_insulated_porous_media_fluid_components`
+## Module `non_insul_porous_media_fluid`
 
 non insulated porous media pipes are basically non insulated pipes with
 some things lodged inside. It could be a packed bed, or an annular inner pipe
@@ -18170,7 +18170,7 @@ Module map:
 - [`tests`] — verification against De Wet's CIET heater-v2 data.
 
 ```rust
-pub mod non_insulated_porous_media_fluid_components { /* ... */ }
+pub mod non_insul_porous_media_fluid { /* ... */ }
 ```
 
 ### Modules
@@ -19984,7 +19984,7 @@ pub mod ciet_steady_state_natural_circulation_test_components { /* ... */ }
 
 ### Modules
 
-## Module `zero_parasitic_heat_loss_isolated_dracs_loop_tests`
+## Module `zero_heat_loss_dracs_tests`
 
 For CIET natural circulation tests,
 
@@ -20046,7 +20046,7 @@ thermal-hydraulics, PID-controller and miscellaneous debugging tests, and
 the mesh-refinement convergence study.
 
 ```rust
-pub mod zero_parasitic_heat_loss_isolated_dracs_loop_tests { /* ... */ }
+pub mod zero_heat_loss_dracs_tests { /* ... */ }
 ```
 
 ### Modules
@@ -20203,7 +20203,7 @@ for other bugs I happened to find
 pub mod misc_debugging { /* ... */ }
 ```
 
-## Module `parasitic_heat_loss_regression_tests`
+## Module `para_heat_loss_regr_tests`
 
 tests for parasitic heat loss regression and calibration tests
 this is meant to callibrate CIET's model and also to test if
@@ -20216,21 +20216,21 @@ CIET data (set C, heater powers ~841-2765 W).
 The submodules progress through calibration stages:
 - `wall_correction_isolated_dracs_loop_regression` - Gnielinski wall-correction
   factor `(Pr_f/Pr_wall)^0.11` on the isolated DRACS loop.
-- `coupled_dracs_loop_ver_1_uncalibrated` - baseline coupled loop, no calibration.
-- `coupled_dracs_loop_ver_2_calibrated` / `..._ver_3_calibrated` /
+- `dracs_loop_v1_uncalibrated` - baseline coupled loop, no calibration.
+- `dracs_loop_v2_calibrated` / `..._ver_3_calibrated` /
   `..._ver_6_calibrated` - successively calibrated STHE, insulation and
   heater-Nusselt settings.
 - `dhx_sthe_calibration` - standalone DHX shell-and-tube heat exchanger (STHE)
   heat-transfer / insulation calibration.
-- `primary_loop_parasitic_heat_loss_calibration` /
-  `dracs_loop_parasitic_heat_loss_calibration` - per-leg insulation calibration.
+- `primary_loop_heat_loss_calib` /
+  `dracs_loop_heat_loss_calib` - per-leg insulation calibration.
 
 Test quantities are natural-circulation mass flow rates (kg/s) in the DRACS
 and primary loops, component temperatures (degC), and heater surface
 temperatures (degC) at the given heater power (W).
 
 ```rust
-pub mod parasitic_heat_loss_regression_tests { /* ... */ }
+pub mod para_heat_loss_regr_tests { /* ... */ }
 ```
 
 ### Modules
@@ -20253,7 +20253,7 @@ heat loss
 pub mod wall_correction_isolated_dracs_loop_regression { /* ... */ }
 ```
 
-## Module `coupled_dracs_loop_ver_1_uncalibrated`
+## Module `dracs_loop_v1_uncalibrated`
 
 version 1 of coupled DRACS loop
 for version 1 of coupled DRACS loop
@@ -20272,12 +20272,12 @@ the baseline over-prediction of the natural-circulation mass flow rates
 ~841-2765 W with the TCHX outlet held at 40 degC.
 
 ```rust
-pub mod coupled_dracs_loop_ver_1_uncalibrated { /* ... */ }
+pub mod dracs_loop_v1_uncalibrated { /* ... */ }
 ```
 
 ### Modules
 
-## Module `regression_coupled_dracs_loop_version_1`
+## Module `regression_dracs_loop_v1`
 
 function to test uncalibrated
 coupled dracs loop and compare with experimental data
@@ -20288,10 +20288,10 @@ the DHX here uses uncalibrated Gnielinski correlations
 to estimate heat transfer coefficients
 
 ```rust
-pub mod regression_coupled_dracs_loop_version_1 { /* ... */ }
+pub mod regression_dracs_loop_v1 { /* ... */ }
 ```
 
-## Module `validate_coupled_dracs_loop_version_1`
+## Module `validate_dracs_loop_v1`
 
 function to validate coupled DRACS loop to experimental data
 within a given tolerance
@@ -20300,10 +20300,10 @@ the DHX here uses uncalibrated Gnielinski correlations
 to estimate heat transfer coefficients
 
 ```rust
-pub mod validate_coupled_dracs_loop_version_1 { /* ... */ }
+pub mod validate_dracs_loop_v1 { /* ... */ }
 ```
 
-## Module `coupled_dracs_loop_ver_2_calibrated`
+## Module `dracs_loop_v2_calibrated`
 
 version 2 of coupled DRACS loop
 
@@ -20320,12 +20320,12 @@ is checked for DRACS/primary natural-circulation mass flow rate (kg/s)
 against experimental data, expecting ~8.5% over-prediction.
 
 ```rust
-pub mod coupled_dracs_loop_ver_2_calibrated { /* ... */ }
+pub mod dracs_loop_v2_calibrated { /* ... */ }
 ```
 
 ### Modules
 
-## Module `regression_coupled_dracs_loop_version_2`
+## Module `regression_dracs_loop_v2`
 
 function to test version 2 calibrated
 coupled dracs loop and compare with experimental data
@@ -20354,10 +20354,10 @@ heat loss to ambient is 33.9 W/(m^2 K)
 no changes made to tchx yet, I want to calibrate slowly
 
 ```rust
-pub mod regression_coupled_dracs_loop_version_2 { /* ... */ }
+pub mod regression_dracs_loop_v2 { /* ... */ }
 ```
 
-## Module `coupled_dracs_loop_ver_3_calibrated`
+## Module `dracs_loop_v3_calibrated`
 
 version 3 of coupled DRACS loop
 
@@ -20376,12 +20376,12 @@ debugging runs that check DRACS/primary natural-circulation mass flow rates
 data, expecting ~8.5% over-prediction.
 
 ```rust
-pub mod coupled_dracs_loop_ver_3_calibrated { /* ... */ }
+pub mod dracs_loop_v3_calibrated { /* ... */ }
 ```
 
 ### Modules
 
-## Module `regression_coupled_dracs_loop_version_3`
+## Module `regression_dracs_loop_v3`
 
 function to test version 3 calibrated
 coupled dracs loop and compare with experimental data
@@ -20410,10 +20410,10 @@ heat loss to ambient is 33.9 W/(m^2 K)
 no changes made to tchx yet, I want to calibrate slowly
 
 ```rust
-pub mod regression_coupled_dracs_loop_version_3 { /* ... */ }
+pub mod regression_dracs_loop_v3 { /* ... */ }
 ```
 
-## Module `coupled_dracs_loop_ver_6_calibrated`
+## Module `dracs_loop_v6_calibrated`
 
 Version 4 increases the K of pipe 22 to 45.95
 Version 5 increases nusselt number of heater 5 times (deprecated now tho)
@@ -20470,10 +20470,10 @@ circulation mass flow rates (kg/s) and the heater surface temperature (degC).
 Tests are `#[ignore]`d legacy debugging runs.
 
 ```rust
-pub mod coupled_dracs_loop_ver_6_calibrated { /* ... */ }
+pub mod dracs_loop_v6_calibrated { /* ... */ }
 ```
 
-## Module `primary_loop_parasitic_heat_loss_calibration`
+## Module `primary_loop_heat_loss_calib`
 
 for the coupled dracs loop, we need to calibrate heat loss
 through the primary loop
@@ -20513,12 +20513,12 @@ ambient-htc and Nusselt-number routes are retained as documented failed
 attempts (the thermal resistance is dominated by the insulation).
 
 ```rust
-pub mod primary_loop_parasitic_heat_loss_calibration { /* ... */ }
+pub mod primary_loop_heat_loss_calib { /* ... */ }
 ```
 
 ### Modules
 
-## Module `insulation_thickness_calibration`
+## Module `insul_calib`
 
 
 This module's test attempted to tweak the insulation thickness
@@ -20564,7 +20564,7 @@ temperatures in degC). A calibrated thickness of about 0.24 cm was found
 suitable across the hot-leg datasets.
 
 ```rust
-pub mod insulation_thickness_calibration { /* ... */ }
+pub mod insul_calib { /* ... */ }
 ```
 
 ### Modules
@@ -20617,7 +20617,7 @@ C-9,0.03547,79.02407,76.54479,
 pub mod cold_leg_validation { /* ... */ }
 ```
 
-## Module `heat_transfer_to_ambient_calibration`
+## Module `heat_transfer_ambient_calib`
 
 This module's test attempted to tweak the heat trasnfer coeffcient (htc)
 to ambient in order to obtain the correct dhx inlet temperature
@@ -20652,7 +20652,7 @@ C-8,0.03593,115.52364,111.37615,76.13202,73.63344,
 C-9,0.03547,119.96879,116.05003,79.02407,76.54479,
 
 ```rust
-pub mod heat_transfer_to_ambient_calibration { /* ... */ }
+pub mod heat_transfer_ambient_calib { /* ... */ }
 ```
 
 ## Module `pipe_nusselt_number_calibration`
@@ -20677,7 +20677,7 @@ the fluid in the tube
 pub mod pipe_nusselt_number_calibration { /* ... */ }
 ```
 
-## Module `dracs_loop_parasitic_heat_loss_calibration`
+## Module `dracs_loop_heat_loss_calib`
 
 Zweibaum's unpublished data:
 dataset number,dracs loop mass flowrate (kg/s),DHX tube top (outlet) (DegC),TCHX inlet (DegC),TCHX outlet(DegC),DHX tube bottom (DegC),
@@ -20701,7 +20701,7 @@ two submodules split the loop by leg: the hot leg (DHX tube top outlet ->
 TCHX inlet) and the cold leg (TCHX outlet -> DHX tube bottom inlet).
 
 ```rust
-pub mod dracs_loop_parasitic_heat_loss_calibration { /* ... */ }
+pub mod dracs_loop_heat_loss_calib { /* ... */ }
 ```
 
 ### Modules

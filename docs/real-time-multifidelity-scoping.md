@@ -307,7 +307,7 @@ machine-checked assertions:
 
 | Where | Claim | Implied factor |
 |---|---|---|
-| `crates/tuas_boussinesq_solver/.../parasitic_heat_loss_regression_tests/coupled_dracs_loop_ver_1_uncalibrated/mod.rs:61,76` | 3000 s simulated in **118–210 s** wall (i5-13500H / i7-10875H) | **14x–25x** |
+| `crates/tuas_boussinesq_solver/.../para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs:61,76` | 3000 s simulated in **118–210 s** wall (i5-13500H / i7-10875H) | **14x–25x** |
 | `.../ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs:154` | 400 s simulated in ~30 s at dt = 0.2 s | ~13x ("about 10 times") |
 | `version_3/mod.rs:267-276` | 5x single-thread, ~9x multithreaded; ~2x at dt = 0.04 s | 5x–9x |
 

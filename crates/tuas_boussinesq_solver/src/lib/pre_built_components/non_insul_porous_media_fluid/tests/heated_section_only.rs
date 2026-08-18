@@ -3,7 +3,7 @@ use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_
 use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
-use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 
 /// smoke/example test: runs the CIET heater-v2 heated section for 10 s at

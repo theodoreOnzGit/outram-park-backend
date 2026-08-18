@@ -51,7 +51,7 @@ use crate::boundary_conditions::BCType;
 use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
 use crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::HeaterTopBottomHead;
-use crate::pre_built_components::non_insulated_porous_media_fluid_components::NonInsulatedPorousMediaFluidComponent;
+use crate::pre_built_components::non_insul_porous_media_fluid::NonInsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
 use crate::pre_built_components::ciet_struct_supports::StructuralSupport;
 use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
