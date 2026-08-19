@@ -215,11 +215,13 @@ NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
 
 ### Theses (`open/theses/`)
 
-Three open-access UC Berkeley dissertations from eScholarship, each with
-committed PDF, generated markdown and BibTeX. Full provenance, access-terms
-discussion and processing steps: **`open/theses/References.md`** (the
-authoritative record for these three; they predate the JSON workflow — JSON
-backfill is optional, tracked in `op-1lti`).
+Four open-access theses, each with committed PDF, generated markdown and
+BibTeX. The first three are UC Berkeley dissertations from eScholarship; full
+provenance, access-terms discussion and processing steps for those three:
+**`open/theses/References.md`** (the authoritative record for them — they
+predate the JSON workflow, so JSON backfill for those three specifically is
+optional, tracked in `op-1lti`). `zhu2014thermal` (an NC State MS thesis) was
+ingested directly through the JSON workflow and needs no backfill.
 
 **`wang2018coupled`** — Wang, X. (2018). *Coupled neutronics and
 thermal-hydraulics modeling for pebble-bed Fluoride-Salt-Cooled,
@@ -241,6 +243,31 @@ Implementation Criteria.* PhD dissertation, UC Berkeley.
 [escholarship.org/uc/item/1wt929p1](https://escholarship.org/uc/item/1wt929p1).
 - *Good for:* remote-operations framing for the (offline, demonstration-only)
   digital-twin work.
+
+**`zhu2014thermal`** — Zhu, Y. (2014). *Thermal Neutron Scattering Cross
+Sections for Silicon Carbide.* MS thesis, North Carolina State University,
+under the direction of Ayman I. Hawari. NCSU Repository handle
+[1840.16/9396](https://repository.lib.ncsu.edu/handle/1840.16/9396).
+- Files: `zhu2014thermal.{json,pdf}`; markdown at
+  `generated/markdown/open/zhu2014thermal.md`; BibTeX round-trips cleanly
+  (checked 2026-08-19).
+- *Tier decision:* Open. Copyright page reads "© Copyright 2014 Yuwei Zhu, All
+  Rights Reserved" with no explicit redistribution licence stated, but the
+  thesis is deposited and freely downloadable via NCSU's institutional
+  repository (confirmed by the maintainer as the source), matching the same
+  "public university-repository deposit, no stated licence" basis already used
+  for the three eScholarship theses above.
+- *Ingest note:* the extractor's auto-detected title/slug/visibility were
+  wrong (`"ABSTRACT"` / `zhu2014abstract` / `Proprietary`) — a known
+  metadata-extraction failure mode (see root `CLAUDE.md`, "Check the extracted
+  metadata; it is frequently wrong"). Corrected by hand to the true title,
+  `Thesis` document type, `Open` visibility and the awarding institution before
+  cataloguing; `kovan lit bibtex` re-verified against the corrected JSON.
+- *Good for:* this is the primary source describing the generalized
+  coherent-elastic scattering formulation (implemented in the author's
+  modified LEAPR/FLASSH) later used to produce the official ENDF/B-VIII.0
+  `tsl-CinSiC`/`tsl-SiinSiC` evaluations — see GitHub issue #24 and the
+  `njoy-outram-park-fork` LEAPR coherent-elastic work it motivates.
 
 ## Proprietary tier (`proprietary/papers/` — local only, never committed)
 
