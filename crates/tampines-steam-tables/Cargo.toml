@@ -19,7 +19,10 @@ readme = "README.md"
 categories.workspace = true
 # `docs/` holds LaTeX sources and build artifacts (.aux/.bbl/.bcf/...) that are
 # not crate content.
-exclude = ["docs", "verification_and_validation/*.csv"]
+# `figures/` holds regenerable output from the `steam_table_plotter` example
+# (`--export-all` rewrites all 20 files in seconds). It is tens of megabytes and
+# is not crate content.
+exclude = ["docs", "verification_and_validation/*.csv", "figures"]
 
 [dependencies]
 approx.workspace = true
@@ -50,6 +53,13 @@ roots.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
 serde.workspace = true
+# PNG encoding for the `steam_table_plotter` example's raster export backend
+# (GitHub issue #26). Already a root [workspace.dependencies] entry, so this
+# adds no new third-party dependency to the workspace -- it only opts this
+# crate's dev build in. The PDF and SVG backends need no crate at all: with
+# every glyph reduced to a polyline by the example's own stroke font, a page is
+# a plain path stream (see examples/steam_table_plotter/figure/pdf.rs).
+image.workspace = true
 
 
 
@@ -69,3 +79,13 @@ path = "examples/depressurisation/main.rs"
 name = "rankine_cycle"
 path = "examples/transient_rankine_cycle/main.rs"
 
+
+# Interactive T-p / p-h / T-s / h-s steam-table plotter and figure generator
+# (GitHub issue #26). `test = true` so `cargo test --example
+# steam_table_plotter` runs its self-checks -- including the saturation-curve
+# V&V gate against the published Wagner table, and the byte-reproducibility
+# gates on the SVG, PDF and CSV exports.
+[[example]]
+name = "steam_table_plotter"
+path = "examples/steam_table_plotter/main.rs"
+test = true

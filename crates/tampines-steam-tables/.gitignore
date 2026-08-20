@@ -19,3 +19,14 @@ Cargo.lock
 # V&V raw data -- the .md write-ups in verification_and_validation/ are
 # committed; standalone .csv data files they reference are not.
 /verification_and_validation/*.csv
+
+# Generated output of the `steam_table_plotter` example (GitHub issue #26).
+# Regenerate the whole directory in a few seconds with:
+#
+#   cargo run --release -p tampines-steam-tables --example steam_table_plotter -- --export-all
+#
+# It is ignored by default because the four PNG/PDF/SVG figure sets plus their
+# curve and reference-point CSVs run to tens of megabytes, and every byte of it
+# is reproducible from the command above. If a particular figure is wanted as a
+# committed publication artifact, add that one file with `git add -f`.
+/figures/

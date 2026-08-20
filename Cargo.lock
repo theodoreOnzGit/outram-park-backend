@@ -7680,6 +7680,7 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "image",
  "local-ip-address",
  "ndarray",
  "roots",
