@@ -1,4 +1,13 @@
 {"id":"op-9s8.1","deleted_at":[1784868305198,1],"deleted_by":"root@vm"}
+{"id":"op-eebe.11","deleted_at":[1787218937267,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.12","deleted_at":[1787218937273,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.13","deleted_at":[1787218937285,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.14","deleted_at":[1787218937288,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.15","deleted_at":[1787218937291,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.16","deleted_at":[1787218937294,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.17","deleted_at":[1787218937298,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.18","deleted_at":[1787218937301,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
+{"id":"op-eebe.19","deleted_at":[1787218937304,0],"deleted_by":"teddy0@arch-aftershock-rapid-glass-S267454","reason":"accidental duplicate of op-eebe.2..op-eebe.10 (a broken --json parse loop created these twice)"}
 {"id":"op-pxsw","deleted_at":[1787096289832,1],"deleted_by":"root@vm","reason":"maintainer decided to just do it now: shortened public names go workspace-wide, no separate naming-convention-decision step needed"}
 {"id":"op-u6f","deleted_at":[1785817105316,1],"deleted_by":"teddy0@snrsi-arch-desktop","reason":"probe bead, not real work"}
 {"id":"op-upo","deleted_at":[1784517945379,1],"deleted_by":"teddy0@snrsi-arch-desktop"}
