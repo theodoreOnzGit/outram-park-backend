@@ -1703,6 +1703,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "directories"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16f5094c54661b38d03bd7e50df373292118db60b585c08a411c6d840017fe7d"
+dependencies = [
+ "dirs-sys 0.5.0",
+]
+
+[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1888,6 +1897,19 @@ dependencies = [
  "serde",
  "smallvec",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "egui-file-dialog"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b530b58f428bcffb58281ad1c3a59ee559ffd2354aa54d5bf1a2ef418fdcebb3"
+dependencies = [
+ "directories 6.0.0",
+ "dunce",
+ "egui",
+ "serde",
+ "sysinfo",
 ]
 
 [[package]]
@@ -5054,7 +5076,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 name = "njoy-outram-park-fork"
 version = "0.0.2"
 dependencies = [
- "directories",
+ "directories 5.0.1",
  "fs2",
  "hdf5-pure",
  "log",
@@ -5422,6 +5444,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-io-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33fafba39597d6dc1fb709123dfa8289d39406734be322956a69f0931c73bb15"
+dependencies = [
+ "libc",
+ "objc2-core-foundation",
+]
+
+[[package]]
 name = "objc2-io-surface"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5585,7 +5617,7 @@ dependencies = [
  "base16ct",
  "base64",
  "chrono",
- "directories",
+ "directories 5.0.1",
  "flate2",
  "lazy_static",
  "log",
@@ -5816,7 +5848,7 @@ dependencies = [
  "async-opcua",
  "chem-eng-real-time-process-control-simulator",
  "csv",
- "directories",
+ "directories 5.0.1",
  "eframe",
  "egui",
  "egui_extras",
@@ -7643,6 +7675,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sysinfo"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92ab6a2f8bfe508deb3c6406578252e491d299cbbf3bc0529ecc3313aee4a52f"
+dependencies = [
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows",
+]
+
+[[package]]
 name = "tampines"
 version = "0.0.2"
 dependencies = [
@@ -7677,6 +7721,7 @@ dependencies = [
  "chem-eng-real-time-process-control-simulator",
  "eframe",
  "egui",
+ "egui-file-dialog",
  "egui_extras",
  "egui_plot",
  "env_logger",

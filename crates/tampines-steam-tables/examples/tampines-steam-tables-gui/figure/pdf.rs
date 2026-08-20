@@ -31,11 +31,11 @@
 //! top-left with y downward. This is the only backend that flips.
 
 use super::layout::{DrawOp, PageSize};
-use super::Scene;
+use super::{FigurePalette, Scene};
 
-/// Renders a scene to a complete PDF file.
-pub fn render(scene: &Scene, page: PageSize) -> Vec<u8> {
-    let ops = super::layout::to_draw_ops(scene, page);
+/// Renders a scene to a complete PDF file, in `palette`'s colours.
+pub fn render(scene: &Scene, page: PageSize, palette: FigurePalette) -> Vec<u8> {
+    let ops = super::layout::to_draw_ops(scene, page, palette);
     render_ops(&ops, page)
 }
 
@@ -196,8 +196,8 @@ fn pdf_xref_offsets_are_correct_and_output_is_reproducible() {
         points: vec![[0.1, 0.1], [0.5, 0.8], [0.9, 0.2]],
         show_in_legend: true,
     });
-    let a = render(&scene, PageSize::DEFAULT);
-    let b = render(&scene, PageSize::DEFAULT);
+    let a = render(&scene, PageSize::DEFAULT, FigurePalette::LIGHT_PUBLICATION);
+    let b = render(&scene, PageSize::DEFAULT, FigurePalette::LIGHT_PUBLICATION);
     assert_eq!(a, b, "PDF export must be byte-reproducible");
     assert!(a.starts_with(b"%PDF-1.4"));
     assert!(a.ends_with(b"%%EOF\n"));

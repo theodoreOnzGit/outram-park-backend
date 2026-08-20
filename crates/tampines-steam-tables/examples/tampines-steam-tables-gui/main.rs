@@ -1,4 +1,4 @@
-//! # Steam-table plotter — interactive T-p, p-h, T-s and h-s diagrams
+//! # TAMPINES Steam Tables GUI — interactive T-p, p-h, T-s and h-s diagrams
 //!
 //! An `eframe`/`egui` tool for **figure generation and interactive inspection**
 //! of the IAPWS-IF97 surface implemented by `tampines-steam-tables`. It is not a
@@ -6,19 +6,21 @@
 //!
 //! Implements [GitHub issue #26](https://github.com/theodoreOnzGit/outram-park-backend/issues/26),
 //! plus the maintainer's extension to **four** tabs (the issue required p-h and
-//! h-s and listed T-s as optional; T-p was added on top).
+//! h-s and listed T-s as optional; T-p was added on top). Renamed from
+//! `steam_table_plotter` to `tampines-steam-tables-gui` per the issue's
+//! branding request.
 //!
 //! ## Running it
 //!
 //! ```bash
 //! # interactive, needs a display
-//! cargo run --release -p tampines-steam-tables --example steam_table_plotter
+//! cargo run --release -p tampines-steam-tables --example tampines-steam-tables-gui
 //!
 //! # headless: write every figure and CSV for all four diagrams and exit
-//! cargo run --release -p tampines-steam-tables --example steam_table_plotter -- --export-all
+//! cargo run --release -p tampines-steam-tables --example tampines-steam-tables-gui -- --export-all
 //!
 //! # its self-checks, including the saturation-curve V&V gate
-//! cargo test --release -p tampines-steam-tables --example steam_table_plotter
+//! cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui
 //! ```
 //!
 //! `--export-all` exists because the export path is a pure function of the
@@ -46,7 +48,7 @@
 //! ## Verification and validation
 //!
 //! The tool carries its own gates, run by `cargo test --example
-//! steam_table_plotter`. The load-bearing one is
+//! tampines-steam-tables-gui`. The load-bearing one is
 //! `curves::saturation_curve_matches_the_wagner_steam_table`, which compares
 //! the plotted dome against all 220 rows of Kretzschmar & Wagner's published
 //! saturation table: **passes to 0.5 % on `p_sat` and to max(0.5 %, 1 kJ/kg) on
@@ -75,6 +77,8 @@ mod app;
 #[cfg(not(target_os = "android"))]
 mod curves;
 #[cfg(not(target_os = "android"))]
+mod custom_lines;
+#[cfg(not(target_os = "android"))]
 mod data;
 #[cfg(not(target_os = "android"))]
 mod diagram;
@@ -86,6 +90,8 @@ mod figure;
 mod layers;
 #[cfg(not(target_os = "android"))]
 mod reference_data;
+#[cfg(not(target_os = "android"))]
+mod theme;
 
 #[cfg(not(target_os = "android"))]
 fn main() {
@@ -127,11 +133,11 @@ fn main() {
 #[cfg(not(target_os = "android"))]
 fn usage() -> String {
     format!(
-        "steam_table_plotter -- IAPWS-IF97 T-p / p-h / T-s / h-s diagrams from \
+        "tampines-steam-tables-gui -- IAPWS-IF97 T-p / p-h / T-s / h-s diagrams from \
 tampines-steam-tables
 
 USAGE:
-    steam_table_plotter [OPTIONS]
+    tampines-steam-tables-gui [OPTIONS]
 
 OPTIONS:
     --export-all        write PNG, PDF, SVG and CSV for all four diagrams, then
@@ -182,6 +188,7 @@ fn export_all(out_dir: &std::path::Path, samples: usize) -> Result<usize, String
             &export::ExportFormat::ALL,
             PageSize::DEFAULT,
             DEFAULT_PIXELS_PER_POINT,
+            figure::FigurePalette::LIGHT_PUBLICATION,
         )?;
         for path in &written {
             println!("  {}", path.display());
@@ -214,7 +221,7 @@ fn headless_export_writes_valid_files_for_all_four_diagrams() {
     use diagram::DiagramKind;
 
     let dir = std::env::temp_dir().join(format!(
-        "steam_table_plotter_export_gate_{}",
+        "tampines_steam_tables_gui_export_gate_{}",
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&dir);

@@ -37,9 +37,18 @@ use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
 /// The column header, shared by both files.
+///
+/// `x_axis_quantity`/`y_axis_quantity` and the three `custom_line_*` columns
+/// are issue #26's custom-line metadata request ("include metadata such as:
+/// line_type, line_value, x_axis_quantity, y_axis_quantity, unit"). The axis
+/// columns are filled on every row (they are diagram-level, not specific to a
+/// custom line); the three `custom_line_*` columns are empty except on rows
+/// from a user-added custom thermodynamic line.
 pub const HEADER: &str = "series,kind,diagram,segment,point_index,x_plot,y_plot,\
+x_axis_quantity,y_axis_quantity,\
 pressure_bar,temperature_degC,specific_enthalpy_kJ_per_kg,specific_entropy_kJ_per_kg_K,\
-quality,reference_mass_flux_kg_per_m2_s,provenance";
+quality,reference_mass_flux_kg_per_m2_s,\
+custom_line_type,custom_line_value,custom_line_unit,provenance";
 
 /// Renders the layers of one kind to CSV text.
 pub fn render(layers: &[PlotLayer], diagram: DiagramKind, kind: LayerKind) -> String {
@@ -59,9 +68,15 @@ pub fn render(layers: &[PlotLayer], diagram: DiagramKind, kind: LayerKind) -> St
                 out.push_str(&segment_index.to_string());
                 out.push(',');
                 out.push_str(&point_index.to_string());
+                out.push(',');
+                out.push_str(&number(x));
+                out.push(',');
+                out.push_str(&number(y));
+                out.push(',');
+                out.push_str(&quote(diagram.x_label()));
+                out.push(',');
+                out.push_str(&quote(diagram.y_label()));
                 for value in [
-                    x,
-                    y,
                     point.pressure.get::<bar>(),
                     point.temperature.get::<degree_celsius>(),
                     point.specific_enthalpy.get::<kilojoule_per_kilogram>(),
@@ -80,6 +95,16 @@ pub fn render(layers: &[PlotLayer], diagram: DiagramKind, kind: LayerKind) -> St
                 out.push(',');
                 if let Some(g) = point.reference_mass_flux {
                     out.push_str(&number(g.get::<kilogram_per_square_meter_second>()));
+                }
+                out.push(',');
+                if let Some(custom) = layer.custom_line {
+                    out.push_str(custom.line_type);
+                    out.push(',');
+                    out.push_str(&number(custom.value));
+                    out.push(',');
+                    out.push_str(custom.unit);
+                } else {
+                    out.push_str(",,");
                 }
                 out.push(',');
                 out.push_str(&quote(&layer.provenance));
@@ -172,7 +197,8 @@ fn csv_export_is_byte_reproducible() {
     assert!(
         points.lines().skip(1).all(|line| {
             let fields: Vec<&str> = split_row(line);
-            !fields[12].is_empty()
+            // Column 14: reference_mass_flux_kg_per_m2_s (see HEADER).
+            !fields[14].is_empty()
         }),
         "every Moody row should carry its reference mass flux"
     );

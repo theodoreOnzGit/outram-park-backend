@@ -31,7 +31,7 @@
 //!    in each submodule),
 //! 3. [`row_counts_match_fixtures`] pins every row count, so if a fixture grows
 //!    or shrinks the mismatch is caught by `cargo test --example
-//!    steam_table_plotter` rather than silently drifting.
+//!    tampines-steam-tables-gui` rather than silently drifting.
 //!
 //! What that test **cannot** catch is a fixture value being *edited in place*.
 //! If you change a reference number in a fixture, re-run the extraction.

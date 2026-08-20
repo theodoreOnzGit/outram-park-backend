@@ -163,6 +163,32 @@ pub struct PlotLayer {
     /// Whether it gets its own legend entry (a fan of sibling curves shares
     /// one).
     pub show_in_legend: bool,
+    /// The coarser legend bucket this layer belongs to, e.g. `"Isotherms"` or
+    /// `"Validation / reference data"`, used by the live canvas's Compact
+    /// legend mode to collapse a whole family of curves (nine isotherms,
+    /// five quality lines, seven reference datasets, …) into one legend row
+    /// instead of one per curve.
+    pub legend_group: &'static str,
+    /// Present only for a user-added custom thermodynamic line (issue #26's
+    /// custom-line control). The CSV export writes these as extra columns —
+    /// `line_type`, `line_value`, `unit` — so the value that defined the line
+    /// survives being copied out of the GUI. `None` for every built-in layer.
+    pub custom_line: Option<CustomLineMetadata>,
+}
+
+/// The defining value of a user-added custom thermodynamic line, carried
+/// through to the CSV export (issue #26: "For custom lines, include metadata
+/// such as: line_type, line_value, x_axis_quantity, y_axis_quantity, unit" —
+/// the axis-quantity pair is diagram-level information the CSV already
+/// carries per row, so only the line's own type/value/unit are stored here).
+#[derive(Clone, Copy, Debug)]
+pub struct CustomLineMetadata {
+    /// `"isobar"`, `"isotherm"`, `"isentrope"`, `"isenthalp"` or `"isochore"`.
+    pub line_type: &'static str,
+    /// The value that defines the line, in `unit`.
+    pub value: f64,
+    /// The unit `value` is in, e.g. `"bar"`, `"kJ/kg"`.
+    pub unit: &'static str,
 }
 
 impl PlotLayer {

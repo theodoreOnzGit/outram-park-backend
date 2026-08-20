@@ -24,8 +24,7 @@
 //! genuinely discontinuous curve is drawn without inventing a joining segment.
 
 use super::font;
-use super::{AxisScale, MarkerShape, Rgb, Scene, Series, SeriesStyle};
-use super::{GRID, INK, PAPER};
+use super::{AxisScale, FigurePalette, MarkerShape, Rgb, Scene, Series, SeriesStyle};
 
 /// Page dimensions in PostScript points (1/72 inch).
 #[derive(Clone, Copy, Debug)]
@@ -135,12 +134,19 @@ const TEXT_STROKE: f64 = 0.7;
 /// Length, in points, of a major tick mark.
 const TICK_LEN: f64 = 5.0;
 
-/// Renders `scene` onto a page of the given size.
-pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
+/// Renders `scene` onto a page of the given size, in `palette`'s colours.
+///
+/// Every plotted series keeps its own colour regardless of `palette` — only
+/// the page background, axes, frame, text and grid follow it. Pass
+/// [`FigurePalette::LIGHT_PUBLICATION`] for this tool's original, unchanged
+/// figure output.
+pub fn to_draw_ops(scene: &Scene, page: PageSize, palette: FigurePalette) -> Vec<DrawOp> {
     let mut ops = Vec::new();
 
-    // Paper. Every backend gets an explicit white ground rather than relying on
-    // a viewer's default, so a figure dropped on a dark slide is still legible.
+    // Page background. Every backend gets an explicit ground rather than
+    // relying on a viewer's default, so a figure dropped on a mismatched
+    // background (a dark slide behind a light-publication PNG, or vice versa)
+    // is still legible.
     ops.push(DrawOp::Polygon {
         points: vec![
             [0.0, 0.0],
@@ -148,7 +154,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
             [page.width_pt, page.height_pt],
             [0.0, page.height_pt],
         ],
-        colour: PAPER,
+        colour: palette.background,
     });
 
     // The bottom of the page is shared, in this order, by the x-axis label, the
@@ -179,7 +185,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
             ops.push(DrawOp::Polyline {
                 points: vec![[px, plot.y0], [px, plot.y1]],
                 width: if tick.major { 0.5 } else { 0.3 },
-                colour: GRID,
+                colour: palette.grid,
                 dash: None,
             });
         }
@@ -189,7 +195,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
             ops.push(DrawOp::Polyline {
                 points: vec![[plot.x0, py], [plot.x1, py]],
                 width: if tick.major { 0.5 } else { 0.3 },
-                colour: GRID,
+                colour: palette.grid,
                 dash: None,
             });
         }
@@ -210,7 +216,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
             [plot.x0, plot.y0],
         ],
         width: 1.0,
-        colour: INK,
+        colour: palette.ink,
         dash: None,
     });
 
@@ -223,7 +229,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
         ops.push(DrawOp::Polyline {
             points: vec![[px, plot.y1], [px, plot.y1 - len]],
             width: 0.8,
-            colour: INK,
+            colour: palette.ink,
             dash: None,
         });
         if tick.major {
@@ -235,7 +241,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
                 HAnchor::Middle,
                 VAnchor::Top,
                 0.0,
-                INK,
+                palette.ink,
             );
         }
     }
@@ -247,7 +253,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
         ops.push(DrawOp::Polyline {
             points: vec![[plot.x0, py], [plot.x0 + len, py]],
             width: 0.8,
-            colour: INK,
+            colour: palette.ink,
             dash: None,
         });
         if tick.major {
@@ -259,7 +265,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
                 HAnchor::End,
                 VAnchor::Middle,
                 0.0,
-                INK,
+                palette.ink,
             );
         }
     }
@@ -278,7 +284,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
         HAnchor::Middle,
         VAnchor::Top,
         0.0,
-        INK,
+        palette.ink,
     );
     push_text(
         &mut ops,
@@ -288,7 +294,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
         HAnchor::Middle,
         VAnchor::Top,
         0.0,
-        INK,
+        palette.ink,
     );
     // The y-axis title runs bottom-to-top, so the space it has to fit in is the
     // plot's *height*, not its width — sizing it against the width lets it
@@ -301,10 +307,10 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
         HAnchor::Middle,
         VAnchor::Middle,
         -90.0,
-        INK,
+        palette.ink,
     );
 
-    legend.draw(&mut ops, scene, plot.x0, plot.y1 + 34.0);
+    legend.draw(&mut ops, scene, plot.x0, plot.y1 + 34.0, palette.ink);
 
     // Footnotes, under the legend.
     let mut note_y = plot.y1 + 34.0 + legend.height + 4.0;
@@ -317,7 +323,7 @@ pub fn to_draw_ops(scene: &Scene, page: PageSize) -> Vec<DrawOp> {
             HAnchor::Start,
             VAnchor::Top,
             0.0,
-            INK,
+            palette.ink,
         );
         note_y += SMALL_SIZE * 1.45;
     }
@@ -426,7 +432,7 @@ impl LegendLayout {
     ///
     /// Only series with `show_in_legend` appear, which is how a fan of 21
     /// Zaloudek quality curves contributes one entry rather than twenty-one.
-    fn draw(&self, ops: &mut Vec<DrawOp>, scene: &Scene, x: f64, y: f64) {
+    fn draw(&self, ops: &mut Vec<DrawOp>, scene: &Scene, x: f64, y: f64, ink: Rgb) {
         if self.entries == 0 {
             return;
         }
@@ -468,7 +474,7 @@ impl LegendLayout {
                 HAnchor::Start,
                 VAnchor::Middle,
                 0.0,
-                INK,
+                ink,
             );
         }
     }
@@ -974,7 +980,7 @@ fn a_nan_breaks_the_curve_instead_of_joining_it() {
         ],
         show_in_legend: false,
     });
-    let ops = to_draw_ops(&scene, PageSize::DEFAULT);
+    let ops = to_draw_ops(&scene, PageSize::DEFAULT, FigurePalette::LIGHT_PUBLICATION);
     let runs = ops
         .iter()
         .filter(|op| matches!(op, DrawOp::Polyline { colour: c, .. } if *c == colour))

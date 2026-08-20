@@ -221,6 +221,10 @@ eframe = { version = "0.34.3", default-features = false, features = [
 ] }
 egui_plot = "0.35.0"  # 0.35 pairs with egui 0.34 (0.34.x pairs with egui 0.33)
 egui_extras = { version = "0.34.3", features = ["all_loaders"] }
+# In-app file/directory picker widget (pure egui, no GTK/native-dialog
+# backend). 0.13.0 is the only published version pinned to `egui ^0.34.0`,
+# matching the pin above -- 0.14+ requires egui 0.35+.
+egui-file-dialog = "0.13.0"
 env_logger = "0.11.10"
 image = { version = "0.25.10", features = ["jpeg", "png"] }
 local-ip-address = "0.6.13"

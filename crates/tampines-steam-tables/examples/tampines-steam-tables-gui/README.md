@@ -1,4 +1,4 @@
-# `steam_table_plotter` — T-p, p-h, T-s and h-s diagrams
+# TAMPINES Steam Tables GUI — T-p, p-h, T-s and h-s diagrams
 
 An `eframe`/`egui` tool for **figure generation and interactive inspection** of
 the IAPWS-IF97 surface implemented by `tampines-steam-tables`. It is not a
@@ -6,23 +6,91 @@ simulator and contains no solver.
 
 Implements [issue #26](https://github.com/theodoreOnzGit/outram-park-backend/issues/26),
 plus the maintainer's extension from three tabs to **four** — the issue required
-p-h and h-s and listed T-s as optional; T-p was added on top.
+p-h and h-s and listed T-s as optional; T-p was added on top. Renamed from
+`steam_table_plotter` to `tampines-steam-tables-gui` per the issue's branding
+request.
 
 ## Running it
 
 ```bash
 # interactive window
-cargo run --release -p tampines-steam-tables --example steam_table_plotter
+cargo run --release -p tampines-steam-tables --example tampines-steam-tables-gui
 
 # headless: write every figure and CSV for all four diagrams, then exit
-cargo run --release -p tampines-steam-tables --example steam_table_plotter -- --export-all
+cargo run --release -p tampines-steam-tables --example tampines-steam-tables-gui -- --export-all
 
 # self-checks, including the saturation-curve V&V gate
-cargo test --release -p tampines-steam-tables --example steam_table_plotter
+cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui
 ```
 
 `--export-all` needs no display. Options: `--out-dir <DIR>`, `--samples <N>`
 (default 400 samples per computed curve), `--help`.
+
+## GUI controls
+
+The sidebar is sectioned as: **Diagram**, **Theme**, **Legend**, **Computed
+curves**, **Custom lines**, **Reference / validation data**, **Axes and
+resolution**, **Export**, **Status**. Longer explanations sit on a hover
+tooltip over the section heading rather than in the sidebar body.
+
+* **Theme** — Light, Dark, System, Gruvbox Dark, Gruvbox Light. Light/Dark/
+  System go through `egui`'s own theme preference (`System` follows the OS);
+  both Gruvbox variants build custom `egui::Visuals` from the palette below.
+  Applies immediately, live canvas included. The **exported figure** is a
+  separate concern — see Export style below.
+* **Legend** — Off / Compact (default) / Full. Compact merges a whole family
+  of curves (all isotherms, all quality lines, every reference dataset, …)
+  into one legend row; Full gives every curve its own row.
+* **Hover coordinates** — hovering anywhere over the plot area shows a
+  corner-anchored `(x, y)` readout with units (e.g. `h = 2432.10 kJ/kg` /
+  `p = 12.3456 bar`), and the near-curve tooltip carries the same units. On a
+  log-pressure axis the readout is always in bar, never the raw `log10` value
+  the canvas plots internally.
+* **Custom lines** — add an isobar, isotherm, isentrope, isenthalp or
+  isochore at any value (not just the fixed defaults under Computed curves),
+  via a slider plus a numeric input for precise entry. Each is computed live
+  through this crate's own flashes (see *Custom-line physics* below) and
+  included in CSV export with `custom_line_type` / `custom_line_value` /
+  `custom_line_unit` columns. **Clear custom lines**, **Clear reference
+  overlays**, **Clear all overlays** and **Reset plot** sit alongside the
+  list.
+* **Export style** — Light publication (default; white/black/grey — issue
+  #26's own fallback choice), Current theme (mirrors whichever GUI theme is
+  active, Gruvbox included), Dark, Gruvbox. Only the page background/ink/grid
+  change; every plotted curve keeps its own colour in every style.
+* **File-browser export** — PNG/PDF/SVG each open a save-file dialog
+  pre-filled with `<diagram>.<ext>`; CSV and "all formats" open a directory
+  picker (CSV always writes two files, so it has no single-file form). Built
+  on [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) 0.13.0 —
+  pure `egui`, no GTK or other native-dialog backend, and the only version
+  pinned to `egui ^0.34.0`, matching this workspace's pin exactly.
+* **Status bar** — updates on diagram switch, every layer toggle, custom-line
+  add/remove/clear, reset-plot, an export finishing (or failing), and a
+  warning if a custom line has no evaluable point anywhere in its sweep
+  (dropped, never fabricated — same "never invent a value" rule the rest of
+  this tool follows).
+
+### Gruvbox provenance and licence
+
+The Gruvbox colour palette is based on
+[morhetz/gruvbox](https://github.com/morhetz/gruvbox), licensed under the MIT
+License. Only the published hex colour values are reproduced (in
+`examples/tampines-steam-tables-gui/theme.rs`); no source code from that
+project is used.
+
+### Custom-line physics
+
+Isobar and isotherm reuse the same generators the fixed default set under
+*Computed curves* uses. Isentrope and isenthalp sweep pressure through this
+crate's own already-verified `(p,s)`/`(p,h)` flashes, so they cannot disagree
+with a `(p,s)`/`(p,h)` lookup anywhere else in the crate. Isochore has no such
+flash to reuse, so it bisects pressure at each temperature against the
+forward single-phase volume dispatcher, then **verifies** the converged point
+actually reproduces the requested volume to within 0.1 % before accepting it
+— the two-phase dome makes a naive bracket-and-bisect unsound there (see the
+doc comment on `curves::isochore` and its bisection helper for the failure
+mode a test caught during development). A value with no achievable single-
+phase solution anywhere in range is dropped, not approximated.
 
 ## Output
 
@@ -57,7 +125,7 @@ This distinction is the point of the tool.
 
 | | Source | Examples |
 |---|---|---|
-| **Curves** | computed **live** from this crate's IAPWS-IF97 routines on every rebuild | saturation dome, saturated liquid/vapour lines, quality lines, isobars, isotherms, region boundaries, critical and triple points |
+| **Curves** | computed **live** from this crate's IAPWS-IF97 routines on every rebuild | saturation dome, saturated liquid/vapour lines, quality lines, isobars, isotherms, region boundaries, critical and triple points, and any custom isobar/isotherm/isentrope/isenthalp/isochore added via the Custom lines section |
 | **Scattered points** | **cited reference data**, verbatim from this crate's own test fixtures | Wagner/IAPWS tables, Moody, Zaloudek, Marviken, Edwards–O'Brien |
 
 Nothing plotted is invented, and a layer that cannot be honestly drawn is
@@ -86,8 +154,8 @@ that in a footnote printed on the figure itself.
 
 ## Verification and validation
 
-Run by `cargo test --release -p tampines-steam-tables --example steam_table_plotter`.
-**25 tests, all passing as of 2026-08-20.**
+Run by `cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui`.
+**32 tests, all passing as of 2026-08-20.**
 
 The load-bearing one is `curves::saturation_curve_matches_the_wagner_steam_table`.
 
@@ -110,7 +178,13 @@ point against the crate's published `S_C_KJ_PER_KG_K` constant (0.1 %), the
 triple point against the table's 0.01 °C row, the availability table, isobar and
 isotherm segmentation, axis transforms, Liang–Barsky clipping, the pen-up
 convention, tick generation, glyph bounds, PDF cross-reference offsets, PNG
-decoding, and byte-reproducibility of the SVG, PDF and CSV exports.
+decoding, byte-reproducibility of the SVG, PDF and CSV exports, the Compact-
+legend family groupings, the hover-formatter unit/log-axis round trip, that a
+non-default export palette actually reaches the rendered PNG, that every
+custom-line type builds a correctly-tagged layer, that isenthalp/isentrope
+sweep cleanly through every region and report quality across the dome, and
+that the isochore bisection's converged point reproduces the requested
+specific volume to within 0.1 %.
 
 ## Two library defects this work surfaced
 
@@ -138,8 +212,16 @@ is fixed in the library here.
   out into two primitives — a stroked polyline and a filled polygon — and
   serialised three ways. All three formats are therefore the same figure, and a
   PNG preview is an exact preview of the PDF.
-* **No new workspace dependency.** PNG encoding uses `image`, already a root
-  `[workspace.dependencies]` entry. PDF and SVG need no crate at all: with every
+* **One new workspace dependency: `egui-file-dialog`.** PNG encoding uses
+  `image`, already a root `[workspace.dependencies]` entry, and PDF/SVG need no
+  crate at all — see below. The file-browser export controls (issue #26) are
+  the one place this example genuinely needed something new: an in-app
+  save-file/directory picker. `rfd` was tried first and rejected — it needs a
+  GTK 3 backend on Linux, which is not something this workspace wants to
+  require. `egui-file-dialog` 0.13.0 is pure `egui`, adds no native-toolkit
+  dependency, and is the only published version pinned to `egui ^0.34.0`,
+  matching this workspace's pin.
+* **PDF and SVG still need no crate at all.** With every
   glyph reduced to a polyline by the example's own stroke font, a PDF page is a
   plain path stream with no font dictionary, so it is written directly (~80
   lines) and is byte-reproducible. `lopdf` was considered — it is already a

@@ -269,6 +269,32 @@ impl LayerId {
         }
     }
 
+    /// The coarser legend bucket this layer belongs to on the live canvas's
+    /// Compact legend mode (issue #26: "Group auxiliary curves where
+    /// possible: Isotherms / Quality lines / Saturation dome / Validation
+    /// points"). The three saturation-envelope layers, which already share a
+    /// colour (`INK`), collapse together; every reference-data layer
+    /// collapses into one "Validation / reference data" bucket.
+    pub fn legend_group(self) -> &'static str {
+        match self {
+            Self::SaturationDome | Self::SaturatedLiquidLine | Self::SaturatedVapourLine => {
+                "Saturation dome"
+            }
+            Self::QualityLines => "Quality lines",
+            Self::Isobars => "Isobars",
+            Self::Isotherms => "Isotherms",
+            Self::CriticalPoint | Self::TriplePoint => "Critical & triple point",
+            Self::RegionBoundaries => "Region boundaries",
+            Self::WagnerSaturationPoints
+            | Self::WagnerSinglePhasePoints
+            | Self::MoodyStates
+            | Self::ZaloudekStates
+            | Self::MarvikenStates
+            | Self::EdwardsInitialStates
+            | Self::EdwardsGs1PressureTrace => "Validation / reference data",
+        }
+    }
+
     /// Colour used for this layer.
     pub fn colour(self) -> Rgb {
         match self {
@@ -288,10 +314,18 @@ impl LayerId {
     }
 
     /// How this layer is drawn.
+    ///
+    /// The width tiering follows issue #26's styling table: the saturation
+    /// dome is the boldest line on any diagram, deliberately wider than
+    /// anything else so it stays dominant against the isotherm/isobar clutter
+    /// in both light and dark themes; the saturated-liquid/vapour lines are a
+    /// clear middle tier; quality lines, isobars and isotherms are thin
+    /// auxiliary curves (further separated from each other by colour and, for
+    /// quality lines, a dash).
     pub fn style(self) -> SeriesStyle {
         match self {
             Self::SaturationDome => SeriesStyle::Line {
-                width: 1.8,
+                width: 2.4,
                 dash: None,
             },
             Self::SaturatedLiquidLine | Self::SaturatedVapourLine => SeriesStyle::Line {
@@ -299,11 +333,11 @@ impl LayerId {
                 dash: None,
             },
             Self::QualityLines => SeriesStyle::Line {
-                width: 0.7,
+                width: 0.6,
                 dash: Some((3.0, 2.5)),
             },
             Self::Isobars | Self::Isotherms => SeriesStyle::Line {
-                width: 0.8,
+                width: 0.7,
                 dash: None,
             },
             Self::RegionBoundaries => SeriesStyle::Line {
@@ -360,14 +394,20 @@ impl LayerId {
         if !self.availability_on(diagram).is_available() {
             return Vec::new();
         }
-        let base = |label: String, segments: Vec<Vec<ThermoPoint>>, legend: bool| PlotLayer {
-            label,
-            kind: self.kind(),
-            provenance: self.provenance().to_string(),
-            segments,
-            style: self.style(),
-            colour: self.colour(),
-            show_in_legend: legend,
+        let base_coloured =
+            |label: String, segments: Vec<Vec<ThermoPoint>>, legend: bool, colour: Rgb| PlotLayer {
+                label,
+                kind: self.kind(),
+                provenance: self.provenance().to_string(),
+                segments,
+                style: self.style(),
+                colour,
+                show_in_legend: legend,
+                legend_group: self.legend_group(),
+                custom_line: None,
+            };
+        let base = |label: String, segments: Vec<Vec<ThermoPoint>>, legend: bool| {
+            base_coloured(label, segments, legend, self.colour())
         };
 
         match self {
@@ -418,17 +458,22 @@ impl LayerId {
                     )
                 })
                 .collect(),
+            // Coloured by temperature (issue #26 "Option A: colour gradient"),
+            // not the flat `self.colour()` every other layer uses — otherwise
+            // every isotherm looks identical and the set is unreadable once
+            // more than two or three are switched on.
             Self::Isotherms => curves::DEFAULT_ISOTHERMS_DEGC
                 .iter()
                 .enumerate()
                 .map(|(i, t_degc)| {
-                    base(
+                    base_coloured(
                         format!("Isotherm T = {t_degc} \u{00B0}C"),
                         curves::isotherm(
                             ThermodynamicTemperature::new::<degree_celsius>(*t_degc),
                             curve_samples,
                         ),
                         i == 0,
+                        crate::figure::isotherm_colour(*t_degc),
                     )
                 })
                 .collect(),
@@ -840,5 +885,57 @@ fn every_reference_layer_yields_points() {
         let built = layer.build(diagram, 60);
         let total: usize = built.iter().map(PlotLayer::point_count).sum();
         assert!(total > 0, "{layer:?} produced no points on {diagram:?}");
+    }
+}
+
+/// Checks the Compact-legend grouping ([`LayerId::legend_group`]) collapses
+/// families the way issue #26's own example does ("Group auxiliary curves
+/// where possible: Isotherms / Quality lines / Saturation dome / Validation
+/// points") and that every built [`PlotLayer`] actually carries its `LayerId`'s
+/// group, not some other string.
+///
+/// # Methodology
+///
+/// Asserts the three saturation-envelope layers share one group and every
+/// reference-data `LayerId` shares one "Validation / reference data" group
+/// (both issue-specified collapses); then builds one layer per family and
+/// checks `PlotLayer::legend_group` matches `LayerId::legend_group` exactly,
+/// so a future refactor of `base_coloured` cannot silently drop the field.
+///
+/// # Result (measured 2026-08-20)
+///
+/// Passes.
+#[cfg(test)]
+#[test]
+fn legend_groups_collapse_the_families_issue_26_names() {
+    assert_eq!(
+        LayerId::SaturationDome.legend_group(),
+        LayerId::SaturatedLiquidLine.legend_group()
+    );
+    assert_eq!(
+        LayerId::SaturationDome.legend_group(),
+        LayerId::SaturatedVapourLine.legend_group()
+    );
+
+    let reference_group = LayerId::WagnerSaturationPoints.legend_group();
+    for layer in LayerId::ALL {
+        if layer.kind() == LayerKind::ReferencePoints {
+            assert_eq!(
+                layer.legend_group(),
+                reference_group,
+                "{layer:?} should share the one reference-data legend group"
+            );
+        }
+    }
+
+    for layer in LayerId::ALL {
+        let built = layer.build(DiagramKind::EnthalpyEntropy, 10);
+        for plot_layer in built {
+            assert_eq!(
+                plot_layer.legend_group,
+                layer.legend_group(),
+                "{layer:?}'s built PlotLayer.legend_group must match LayerId::legend_group"
+            );
+        }
     }
 }

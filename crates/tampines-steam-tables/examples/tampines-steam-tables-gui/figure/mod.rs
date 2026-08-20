@@ -77,6 +77,46 @@ pub const GRID: Rgb = Rgb::new(200, 200, 200);
 /// Paper white.
 pub const PAPER: Rgb = Rgb::new(255, 255, 255);
 
+/// The three background/foreground colours an exported figure is drawn with:
+/// page background, axis/frame/text ink, and grid lines.
+///
+/// Every plotted *series* keeps its own colour ([`crate::layers::LayerId::colour`]
+/// / [`isotherm_colour`]) regardless of export style — only the page itself
+/// changes. That keeps a figure legible without needing a second colour
+/// system for every curve: the same blues, reds and greens read fine on both
+/// a white and a near-black page, which is why photographs and most
+/// publication figures use exactly this trick rather than restyling every
+/// data colour per theme.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FigurePalette {
+    /// Page background.
+    pub background: Rgb,
+    /// Axis/frame/text/legend colour.
+    pub ink: Rgb,
+    /// Grid-line colour.
+    pub grid: Rgb,
+}
+
+impl FigurePalette {
+    /// The default export palette (issue #26: "If only one export style is
+    /// implemented first, choose Light publication") — white background,
+    /// black ink, light grey grid. Unchanged from this tool's original,
+    /// pre-theming figure output.
+    pub const LIGHT_PUBLICATION: FigurePalette = FigurePalette {
+        background: PAPER,
+        ink: INK,
+        grid: GRID,
+    };
+
+    /// A generic dark export palette, independent of whichever GUI theme
+    /// happens to be active.
+    pub const DARK: FigurePalette = FigurePalette {
+        background: Rgb::new(24, 24, 26),
+        ink: Rgb::new(235, 235, 235),
+        grid: Rgb::new(75, 75, 78),
+    };
+}
+
 /// Whether an axis is linear or base-10 logarithmic.
 ///
 /// Issue #26 asks for a log pressure axis on the p-h diagram, which spans the
@@ -310,6 +350,44 @@ pub const PALETTE: [Rgb; 10] = [
     Rgb::new(0x4a, 0x4a, 0x4a), // dark grey
     Rgb::new(0x5b, 0x8c, 0x00), // olive
 ];
+
+/// Linearly interpolates between two colours, `mix = 0.0` giving `a` and
+/// `mix = 1.0` giving `b`. `mix` is clamped to `[0, 1]` first.
+fn lerp_rgb(a: Rgb, b: Rgb, mix: f64) -> Rgb {
+    let mix = mix.clamp(0.0, 1.0);
+    let lerp = |x: u8, y: u8| (f64::from(x) + (f64::from(y) - f64::from(x)) * mix).round() as u8;
+    Rgb::new(lerp(a.r, b.r), lerp(a.g, b.g), lerp(a.b, b.b))
+}
+
+/// The lowest temperature the isotherm colour gradient below is calibrated
+/// for (the triple point, rounded down).
+pub const ISOTHERM_GRADIENT_MIN_DEGC: f64 = 0.0;
+/// The highest temperature the isotherm colour gradient is calibrated for
+/// (close to `curves::T_MAX_KELVIN`, 1073.15 K).
+pub const ISOTHERM_GRADIENT_MAX_DEGC: f64 = 800.0;
+
+/// Colours an isotherm by its temperature, issue #26's "Option A: colour
+/// gradient" (`"low temperature: blue/purple, medium temperature: orange,
+/// high temperature: red"`).
+///
+/// A three-stop gradient over
+/// `[`[`ISOTHERM_GRADIENT_MIN_DEGC`]`, `[`ISOTHERM_GRADIENT_MAX_DEGC`]`]` °C:
+/// deep blue-purple at the cold end, amber-orange at the midpoint, and a hot
+/// red at the top. A value outside the range clamps to the nearest end
+/// colour rather than extrapolating into an unrelated hue.
+pub fn isotherm_colour(t_degc: f64) -> Rgb {
+    const COLD: Rgb = Rgb::new(0x3b, 0x4c, 0xc0); // blue-purple
+    const MID: Rgb = Rgb::new(0xe0, 0x8e, 0x10); // amber-orange
+    const HOT: Rgb = Rgb::new(0xb8, 0x1c, 0x1c); // hot red
+
+    let span = ISOTHERM_GRADIENT_MAX_DEGC - ISOTHERM_GRADIENT_MIN_DEGC;
+    let fraction = ((t_degc - ISOTHERM_GRADIENT_MIN_DEGC) / span).clamp(0.0, 1.0);
+    if fraction <= 0.5 {
+        lerp_rgb(COLD, MID, fraction / 0.5)
+    } else {
+        lerp_rgb(MID, HOT, (fraction - 0.5) / 0.5)
+    }
+}
 
 /// Checks that the axis transforms round-trip and reject what they should.
 ///

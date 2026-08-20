@@ -22,34 +22,42 @@
 //! rasteriser does, and at these stroke widths the difference is invisible.
 
 use super::layout::{DrawOp, PageSize};
-use super::{Rgb, Scene, PAPER};
+use super::{FigurePalette, Rgb, Scene};
 
 /// Default output resolution, in pixels per PostScript point. 2.0 gives 144 dpi
 /// — a 720 x 540 pt figure becomes 1440 x 1080 px, which is a sensible default
 /// for a slide or a screen preview. Raise it for a print figure.
 pub const DEFAULT_PIXELS_PER_POINT: f64 = 2.0;
 
-/// Renders a scene to PNG bytes.
+/// Renders a scene to PNG bytes, in `palette`'s colours.
 ///
 /// `pixels_per_point` scales the page: 1.0 is 72 dpi, 2.0 is 144 dpi, and so
 /// on. It is clamped to a sane band so a stray value cannot ask for a
 /// multi-gigabyte allocation.
-pub fn render(scene: &Scene, page: PageSize, pixels_per_point: f64) -> Result<Vec<u8>, String> {
-    let ops = super::layout::to_draw_ops(scene, page);
-    render_ops(&ops, page, pixels_per_point)
+pub fn render(
+    scene: &Scene,
+    page: PageSize,
+    pixels_per_point: f64,
+    palette: FigurePalette,
+) -> Result<Vec<u8>, String> {
+    let ops = super::layout::to_draw_ops(scene, page, palette);
+    render_ops(&ops, page, pixels_per_point, palette.background)
 }
 
-/// Rasterises an already-laid-out draw list.
+/// Rasterises an already-laid-out draw list. `background` seeds the canvas
+/// before any op is drawn, so a partially-covered pixel at an anti-aliased
+/// page edge blends toward the right colour instead of toward white.
 pub fn render_ops(
     ops: &[DrawOp],
     page: PageSize,
     pixels_per_point: f64,
+    background: Rgb,
 ) -> Result<Vec<u8>, String> {
     let scale = pixels_per_point.clamp(0.5, 8.0);
     let width = (page.width_pt * scale).round().max(1.0) as usize;
     let height = (page.height_pt * scale).round().max(1.0) as usize;
 
-    let mut canvas = Canvas::new(width, height, PAPER);
+    let mut canvas = Canvas::new(width, height, background);
     for op in ops {
         match op {
             DrawOp::Polygon { points, colour } => {
@@ -312,7 +320,13 @@ fn raster_output_decodes_and_contains_ink() {
         points: vec![[0.05, 0.05], [0.95, 0.95]],
         show_in_legend: false,
     });
-    let bytes = render(&scene, PageSize::DEFAULT, 1.0).expect("render succeeds");
+    let bytes = render(
+        &scene,
+        PageSize::DEFAULT,
+        1.0,
+        FigurePalette::LIGHT_PUBLICATION,
+    )
+    .expect("render succeeds");
     let decoded = image::load_from_memory(&bytes)
         .expect("PNG decodes")
         .to_rgb8();

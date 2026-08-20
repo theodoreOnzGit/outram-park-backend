@@ -6,7 +6,7 @@
 //! from `CARGO_MANIFEST_DIR` at compile time rather than from the working
 //! directory. That is the directory issue #26 suggests, and resolving it from
 //! the manifest follows the convention `tests/edwards_blowdown.rs` already uses
-//! for its own CSV output — so `cargo run --example steam_table_plotter` writes
+//! for its own CSV output — so `cargo run --example tampines-steam-tables-gui` writes
 //! to the same place whether it is launched from the workspace root or from the
 //! crate directory. `--out-dir` overrides it.
 //!
@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use crate::data::{LayerKind, PlotLayer};
 use crate::diagram::DiagramKind;
 use crate::figure::layout::PageSize;
-use crate::figure::{csv_export, pdf, png, svg, AxisScale, Scene, Series};
+use crate::figure::{csv_export, pdf, png, svg, AxisScale, FigurePalette, Scene, Series};
 use crate::layers::LayerId;
 
 /// Default output directory, inside the crate, as issue #26 suggests.
@@ -170,7 +170,8 @@ pub fn footnotes(diagram: DiagramKind, active: &[LayerId]) -> Vec<String> {
     notes
 }
 
-/// Writes every requested format for one diagram, returning the paths written.
+/// Writes every requested format for one diagram, in `palette`'s colours,
+/// returning the paths written.
 pub fn write_files(
     out_dir: &Path,
     diagram: DiagramKind,
@@ -179,6 +180,7 @@ pub fn write_files(
     formats: &[ExportFormat],
     page: PageSize,
     pixels_per_point: f64,
+    palette: FigurePalette,
 ) -> Result<Vec<PathBuf>, String> {
     std::fs::create_dir_all(out_dir)
         .map_err(|e| format!("could not create {}: {e}", out_dir.display()))?;
@@ -189,17 +191,17 @@ pub fn write_files(
         match format {
             ExportFormat::Svg => {
                 let path = out_dir.join(format!("{stem}.svg"));
-                write(&path, svg::render(scene, page).as_bytes())?;
+                write(&path, svg::render(scene, page, palette).as_bytes())?;
                 written.push(path);
             }
             ExportFormat::Pdf => {
                 let path = out_dir.join(format!("{stem}.pdf"));
-                write(&path, &pdf::render(scene, page))?;
+                write(&path, &pdf::render(scene, page, palette))?;
                 written.push(path);
             }
             ExportFormat::Png => {
                 let path = out_dir.join(format!("{stem}.png"));
-                let bytes = png::render(scene, page, pixels_per_point)?;
+                let bytes = png::render(scene, page, pixels_per_point, palette)?;
                 write(&path, &bytes)?;
                 written.push(path);
             }
@@ -223,6 +225,50 @@ pub fn write_files(
         }
     }
     Ok(written)
+}
+
+/// Writes exactly one figure to the exact path a save dialog returned,
+/// rather than deriving a filename from [`DiagramKind::file_stem`] under some
+/// output directory the way [`write_files`] does.
+///
+/// This is the file-browser export path (issue #26): "clicking Export PNG
+/// opens a save dialog" names one destination file, not a directory, so the
+/// GUI needs a writer that respects whatever name the user actually chose in
+/// the dialog. `format` must be [`ExportFormat::Png`], [`ExportFormat::Pdf`]
+/// or [`ExportFormat::Svg`] — CSV export always writes two files (curves and
+/// points) and has no single-file form, so it is not accepted here; the GUI
+/// routes CSV (and "all formats") through a directory picker and
+/// [`write_files`] instead.
+///
+/// # Errors
+///
+/// Returns `Err` if `format` is [`ExportFormat::Csv`], or if the write itself
+/// fails.
+pub fn write_single_file(
+    path: &Path,
+    scene: &Scene,
+    format: ExportFormat,
+    page: PageSize,
+    pixels_per_point: f64,
+    palette: FigurePalette,
+) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("could not create {}: {e}", parent.display()))?;
+    }
+    match format {
+        ExportFormat::Svg => write(path, svg::render(scene, page, palette).as_bytes()),
+        ExportFormat::Pdf => write(path, &pdf::render(scene, page, palette)),
+        ExportFormat::Png => {
+            let bytes = png::render(scene, page, pixels_per_point, palette)?;
+            write(path, &bytes)
+        }
+        ExportFormat::Csv => Err(
+            "CSV export writes two files (curves and points) and has no single-file \
+                 form -- use write_files with a destination directory instead"
+                .to_string(),
+        ),
+    }
 }
 
 /// Writes bytes, turning an I/O failure into a message the GUI can show.
@@ -296,4 +342,185 @@ fn scenes_assemble_with_finite_ranges_and_the_required_caveats() {
             "quality caveat presence must track whether quality lines are drawn on {diagram:?}"
         );
     }
+}
+
+/// Checks [`write_single_file`] — the file-browser save-dialog path (issue
+/// #26) — writes exactly the requested format to exactly the path given, and
+/// rejects [`ExportFormat::Csv`] since CSV has no single-file form.
+///
+/// # Methodology
+///
+/// Builds one small scene, writes it as PNG, PDF and SVG to three arbitrary
+/// (non-`file_stem`-shaped) filenames in a temp directory including a nested
+/// path that does not yet exist, and asserts each file exists with the right
+/// magic bytes. Separately asserts a `Csv` request returns `Err` rather than
+/// silently writing something.
+///
+/// # Result (measured 2026-08-20)
+///
+/// Passes.
+#[cfg(test)]
+#[test]
+fn write_single_file_writes_the_exact_path_and_rejects_csv() {
+    let active: Vec<LayerId> = LayerId::ALL.to_vec();
+    let layers = build_layers(DiagramKind::PressureEnthalpy, &active, 30);
+    let scene = build_scene(
+        DiagramKind::PressureEnthalpy,
+        &layers,
+        AxisScale::Linear,
+        AxisScale::Log10,
+        &active,
+    );
+
+    let dir = std::env::temp_dir().join(format!(
+        "tampines_steam_tables_gui_single_file_gate_{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let palette = FigurePalette::LIGHT_PUBLICATION;
+    let png_path = dir.join("nested").join("my_custom_name.png");
+    write_single_file(
+        &png_path,
+        &scene,
+        ExportFormat::Png,
+        PageSize::DEFAULT,
+        1.0,
+        palette,
+    )
+    .expect("PNG write succeeds, including creating the nested parent directory");
+    let png_bytes = std::fs::read(&png_path).expect("PNG file exists at the exact chosen path");
+    assert!(png_bytes.starts_with(b"\x89PNG"), "not a PNG file");
+
+    let pdf_path = dir.join("whatever.pdf");
+    write_single_file(
+        &pdf_path,
+        &scene,
+        ExportFormat::Pdf,
+        PageSize::DEFAULT,
+        1.0,
+        palette,
+    )
+    .expect("PDF write succeeds");
+    let pdf_bytes = std::fs::read(&pdf_path).expect("PDF file exists at the exact chosen path");
+    assert!(pdf_bytes.starts_with(b"%PDF-"), "not a PDF file");
+
+    let svg_path = dir.join("figure.svg");
+    write_single_file(
+        &svg_path,
+        &scene,
+        ExportFormat::Svg,
+        PageSize::DEFAULT,
+        1.0,
+        palette,
+    )
+    .expect("SVG write succeeds");
+    let svg_text = std::fs::read_to_string(&svg_path).expect("SVG file exists at the chosen path");
+    assert!(svg_text.starts_with("<svg"), "not an SVG file");
+
+    let csv_path = dir.join("should_not_be_written.csv");
+    let result = write_single_file(
+        &csv_path,
+        &scene,
+        ExportFormat::Csv,
+        PageSize::DEFAULT,
+        1.0,
+        palette,
+    );
+    assert!(
+        result.is_err(),
+        "CSV has no single-file form and must be rejected"
+    );
+    assert!(
+        !csv_path.exists(),
+        "a rejected CSV request must not write anything"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Checks that a non-default [`FigurePalette`] actually reaches the raster
+/// output, end to end through [`write_single_file`] — the publication export
+/// style selector (issue #26: "Export style: Current theme / Light
+/// publication / Dark / Gruvbox") would be a silent no-op if any of the three
+/// backends had kept a hardcoded background.
+///
+/// # Methodology
+///
+/// Writes the same scene to PNG twice, once with
+/// [`FigurePalette::LIGHT_PUBLICATION`] and once with [`FigurePalette::DARK`],
+/// and decodes the top-left corner pixel of each — a point far from any
+/// plotted curve, so it reads pure page background. Asserts the two corner
+/// pixels differ, and that each matches its requested palette's `background`
+/// to within `+-2` (the PNG encoder is 8-bit sRGB; some paths round rather
+/// than truncate).
+///
+/// # Result (measured 2026-08-20)
+///
+/// Passes: light-publication corner `(255,255,255)`, dark corner `(24,24,26)`.
+#[cfg(test)]
+#[test]
+fn export_style_palette_reaches_the_rendered_png() {
+    let active: Vec<LayerId> = LayerId::ALL.to_vec();
+    let layers = build_layers(DiagramKind::PressureEnthalpy, &active, 30);
+    let scene = build_scene(
+        DiagramKind::PressureEnthalpy,
+        &layers,
+        AxisScale::Linear,
+        AxisScale::Log10,
+        &active,
+    );
+
+    let dir = std::env::temp_dir().join(format!(
+        "tampines_steam_tables_gui_export_style_gate_{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let corner_pixel = |path: &std::path::Path, palette: FigurePalette| -> [u8; 3] {
+        write_single_file(
+            path,
+            &scene,
+            ExportFormat::Png,
+            PageSize::DEFAULT,
+            1.0,
+            palette,
+        )
+        .expect("PNG write succeeds");
+        let bytes = std::fs::read(path).expect("PNG file exists");
+        let decoded = image::load_from_memory(&bytes)
+            .expect("PNG decodes")
+            .to_rgb8();
+        let p = decoded.get_pixel(0, 0);
+        [p.0[0], p.0[1], p.0[2]]
+    };
+
+    let close = |a: u8, b: u8| (i16::from(a) - i16::from(b)).abs() <= 2;
+
+    let light_path = dir.join("light.png");
+    let light_corner = corner_pixel(&light_path, FigurePalette::LIGHT_PUBLICATION);
+    let light_bg = FigurePalette::LIGHT_PUBLICATION.background;
+    assert!(
+        close(light_corner[0], light_bg.r)
+            && close(light_corner[1], light_bg.g)
+            && close(light_corner[2], light_bg.b),
+        "light-publication corner {light_corner:?} does not match its background {light_bg:?}"
+    );
+
+    let dark_path = dir.join("dark.png");
+    let dark_corner = corner_pixel(&dark_path, FigurePalette::DARK);
+    let dark_bg = FigurePalette::DARK.background;
+    assert!(
+        close(dark_corner[0], dark_bg.r)
+            && close(dark_corner[1], dark_bg.g)
+            && close(dark_corner[2], dark_bg.b),
+        "dark corner {dark_corner:?} does not match its background {dark_bg:?}"
+    );
+
+    assert_ne!(
+        light_corner, dark_corner,
+        "the two export styles must actually produce different backgrounds"
+    );
+
+    let _ = std::fs::remove_dir_all(&dir);
 }

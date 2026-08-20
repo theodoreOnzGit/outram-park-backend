@@ -53,7 +53,10 @@
 use tampines_steam_tables::constants::{
     P_C_MPA, P_TRIPLE_PT_PASCAL, RHO_C_KG_PER_M3, T_C_KELVIN, T_TRIPLE_PT_KELVIN,
 };
-use tampines_steam_tables::interfaces::checked::{try_h_tp_eqm_single_phase, try_s_tp_eqm_single_phase};
+use tampines_steam_tables::interfaces::checked::{
+    try_h_ps_eqm, try_h_tp_eqm_single_phase, try_s_ph_eqm, try_s_tp_eqm_single_phase, try_t_ph_eqm,
+    try_t_ps_eqm, try_v_tp_eqm_single_phase, try_x_ph_flash, try_x_ps_flash,
+};
 use tampines_steam_tables::region_1_subcooled_liquid::{h_tp_1, s_tp_1};
 use tampines_steam_tables::region_2_vapour::{h_tp_2, s_tp_2};
 use tampines_steam_tables::region_3_single_phase_plus_supercritical_steam::{
@@ -63,6 +66,7 @@ use tampines_steam_tables::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_te
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::pressure::{megapascal, pascal};
+use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use crate::data::ThermoPoint;
@@ -496,6 +500,175 @@ pub fn isotherm(t: ThermodynamicTemperature, samples: usize) -> Vec<Vec<ThermoPo
     segments
 }
 
+/// A constant-enthalpy line ("isenthalp"), for the GUI's custom-line control
+/// (issue #26: "Add custom isenthalpic lines").
+///
+/// Swept logarithmically in pressure over the full IF97 range, using this
+/// crate's own `(p,h)` flash (`try_t_ph_eqm`/`try_s_ph_eqm`) at each pressure
+/// — the same routines the p-h diagram itself reports state through, so this
+/// curve cannot disagree with what a `(p,h)` lookup at any point on it would
+/// return. Unlike [`isobar`]/[`isotherm`], no special-casing of the two-phase
+/// dome is needed: `(p,h)` uniquely determines a state everywhere IF97 is
+/// defined (inside the dome that state is a Region-4 mixture, and `try_t_ph_eqm`
+/// returns its saturation temperature directly), so the curve is naturally
+/// continuous and is returned as a single segment (a handful of points this
+/// crate declines to evaluate are simply dropped, following the rest of this
+/// module's convention).
+pub fn isenthalp(h: AvailableEnergy, samples: usize) -> Vec<Vec<ThermoPoint>> {
+    let n = samples.max(2);
+    let (lo, hi) = (P_TRIPLE_PT_PASCAL.log10(), P_MAX_PASCAL.log10());
+    let points: Vec<ThermoPoint> = (0..n)
+        .filter_map(|i| {
+            let frac = i as f64 / (n - 1) as f64;
+            let p = Pressure::new::<pascal>(10.0_f64.powf(lo + (hi - lo) * frac));
+            let t = try_t_ph_eqm(p, h).ok()?;
+            let s = try_s_ph_eqm(p, h).ok()?;
+            // Quality where meaningful (a Region-4 point on the sweep) —
+            // `try_x_ph_flash` returns `Err` for a single-phase state, which
+            // is exactly when `None` (no quality) is right.
+            let quality = try_x_ph_flash(p, h).ok();
+            let point = ThermoPoint::new(p, t, h, s, quality);
+            point.is_finite().then_some(point)
+        })
+        .collect();
+    if points.len() >= 2 {
+        vec![points]
+    } else {
+        Vec::new()
+    }
+}
+
+/// A constant-entropy line ("isentrope"), for the GUI's custom-line control
+/// (issue #26: "Add custom isentropic lines").
+///
+/// Structurally identical to [`isenthalp`], swept in pressure using the
+/// `(p,s)` flash (`try_t_ps_eqm`/`try_h_ps_eqm`) instead of `(p,h)`.
+pub fn isentrope(s: SpecificHeatCapacity, samples: usize) -> Vec<Vec<ThermoPoint>> {
+    let n = samples.max(2);
+    let (lo, hi) = (P_TRIPLE_PT_PASCAL.log10(), P_MAX_PASCAL.log10());
+    let points: Vec<ThermoPoint> = (0..n)
+        .filter_map(|i| {
+            let frac = i as f64 / (n - 1) as f64;
+            let p = Pressure::new::<pascal>(10.0_f64.powf(lo + (hi - lo) * frac));
+            let t = try_t_ps_eqm(p, s).ok()?;
+            let h = try_h_ps_eqm(p, s).ok()?;
+            let quality = try_x_ps_flash(p, s).ok();
+            let point = ThermoPoint::new(p, t, h, s, quality);
+            point.is_finite().then_some(point)
+        })
+        .collect();
+    if points.len() >= 2 {
+        vec![points]
+    } else {
+        Vec::new()
+    }
+}
+
+/// A constant-specific-volume line ("isochore"), for the GUI's custom-line
+/// control (issue #26: "Add custom isovolumetric lines").
+///
+/// # Why this one needs root-finding, unlike the other custom lines
+///
+/// This crate has no `(p,v)` or `(T,v)` flash — [`isenthalp`]/[`isentrope`]
+/// above get away with a direct sweep because `try_t_ph_eqm`/`try_t_ps_eqm`
+/// already invert `h`/`s` for them. For volume there is only the *forward*
+/// single-phase dispatcher `try_v_tp_eqm_single_phase`, so this sweeps
+/// temperature and, at each temperature, bisects on pressure for the value
+/// that gives the requested `v0` — 60 bisection steps, comfortably enough for
+/// `f64` precision on a monotonic bracket.
+///
+/// # Single-phase only
+///
+/// Unlike [`isenthalp`]/[`isentrope`], this does **not** cross the two-phase
+/// dome: `try_v_tp_eqm_single_phase` correctly declines inside it (a `(T,p)`
+/// pair inside the dome is not single-phase), so the bisection at those
+/// temperatures fails and the point is dropped — which is what produces the
+/// gap where the curve enters and leaves the dome. Drawing the constant-`v0`
+/// locus *inside* the dome would need a lever-rule inversion of the
+/// saturated-liquid/vapour volumes this crate does not provide, so the curve
+/// is honestly discontinuous there rather than interpolated across it. It
+/// returns one segment per contiguous single-phase run (typically two: a
+/// liquid branch and a vapour branch, below the critical volume; one,
+/// supercritical).
+pub fn isochore(v0: SpecificVolume, samples: usize) -> Vec<Vec<ThermoPoint>> {
+    let v0_si = v0.get::<cubic_meter_per_kilogram>();
+    let n = samples.max(2);
+
+    let mut segments = Vec::new();
+    let mut current: Vec<ThermoPoint> = Vec::new();
+    for i in 0..n {
+        let frac = i as f64 / (n - 1) as f64;
+        let t_kelvin = T_TRIPLE_PT_KELVIN + (T_MAX_KELVIN - T_TRIPLE_PT_KELVIN) * frac;
+        let t = ThermodynamicTemperature::new::<kelvin>(t_kelvin);
+        let point = bisect_pressure_for_volume(t, v0_si).and_then(|p| single_phase_point(t, p));
+        match point {
+            Some(point) => current.push(point),
+            None => {
+                if current.len() >= 2 {
+                    segments.push(std::mem::take(&mut current));
+                } else {
+                    current.clear();
+                }
+            }
+        }
+    }
+    if current.len() >= 2 {
+        segments.push(current);
+    }
+    segments
+}
+
+/// Volume at `(t, p)` in SI units (m^3/kg), or `None` if this crate declines
+/// to evaluate that state as single-phase.
+fn volume_si(t: ThermodynamicTemperature, p_pascal: f64) -> Option<f64> {
+    try_v_tp_eqm_single_phase(t, Pressure::new::<pascal>(p_pascal))
+        .ok()
+        .map(|v| v.get::<cubic_meter_per_kilogram>())
+}
+
+/// Finds the pressure at fixed `t` whose single-phase specific volume is
+/// `v0_si` (m^3/kg), by bisection.
+///
+/// Specific volume decreases monotonically with pressure at fixed temperature
+/// *within* a single phase, which is what the loop below assumes between
+/// bisection steps. But the two endpoints bracketing `v0_si` do not by
+/// themselves guarantee `v0_si` sits on a single continuous single-phase
+/// branch: below the critical temperature, `v(p)` actually *jumps* at
+/// `p_sat(t)` from the vapour branch's value straight to the liquid branch's
+/// — everything strictly between the saturated-vapour and saturated-liquid
+/// volumes exists only as a two-phase mixture at the *one* pressure
+/// `p_sat(t)`, not across a range of pressures at all. A coarse
+/// `v_hi <= v0_si <= v_lo` bracket check cannot see that gap, so bisection can
+/// converge toward the discontinuity and land on a state whose volume is
+/// nowhere near `v0_si` — which is exactly what an earlier version of this
+/// function did at the triple point, caught by
+/// `isochore_bisection_reproduces_the_requested_volume`. So the result is
+/// **verified** before being accepted: only returned if it reproduces
+/// `v0_si` to within 0.1 %, otherwise treated as "not achievable here" and
+/// dropped, per this module's "never fabricate" rule.
+fn bisect_pressure_for_volume(t: ThermodynamicTemperature, v0_si: f64) -> Option<Pressure> {
+    let mut lo = P_TRIPLE_PT_PASCAL;
+    let mut hi = P_MAX_PASCAL;
+    let v_lo = volume_si(t, lo)?;
+    let v_hi = volume_si(t, hi)?;
+    if !(v_hi <= v0_si && v0_si <= v_lo) {
+        return None;
+    }
+    for _ in 0..60 {
+        let mid = 0.5 * (lo + hi);
+        let v_mid = volume_si(t, mid)?;
+        if v_mid > v0_si {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let p_pascal = 0.5 * (lo + hi);
+    let v_converged = volume_si(t, p_pascal)?;
+    let relative_error = (v_converged - v0_si).abs() / v0_si.max(1.0e-12);
+    (relative_error < 1.0e-3).then(|| Pressure::new::<pascal>(p_pascal))
+}
+
 /// Linear temperature sweep at fixed pressure, dropping points this crate
 /// declines to evaluate.
 fn single_phase_sweep_over_temperature(
@@ -553,6 +726,29 @@ pub const DEFAULT_ISOTHERMS_DEGC: [f64; 9] =
 
 /// Quality lines required by issue #26.
 pub const QUALITY_LINE_VALUES: [f64; 5] = [0.1, 0.3, 0.5, 0.7, 0.9];
+
+/// Slider bounds for the GUI's custom-line controls (issue #26: "Use sensible
+/// defaults depending on line type... Add numeric input beside sliders for
+/// precise values"), one `(min, max)` pair per line type in the unit its
+/// slider is shown in.
+///
+/// Isobar and isotherm reuse the same physical bounds every other sweep in
+/// this module is clamped to (the triple point to the IF97 ceiling); entropy,
+/// enthalpy and specific volume are bounded to the range this crate's own
+/// single-phase equations actually cover across that same `(p,T)` box —
+/// loosely, since the true achievable range is state-path-dependent and a
+/// slightly generous bound just means a few points near the edge fail to
+/// evaluate and are dropped, per this module's "never fabricate" rule, not
+/// silently clamped to something wrong.
+pub const CUSTOM_ISOBAR_RANGE_BAR: (f64, f64) = (P_TRIPLE_PT_PASCAL / 1.0e5, P_MAX_PASCAL / 1.0e5);
+/// See [`CUSTOM_ISOBAR_RANGE_BAR`].
+pub const CUSTOM_ISOTHERM_RANGE_DEGC: (f64, f64) = (0.01, 800.0);
+/// See [`CUSTOM_ISOBAR_RANGE_BAR`].
+pub const CUSTOM_ISENTROPE_RANGE_KJ_PER_KG_K: (f64, f64) = (0.0, 12.0);
+/// See [`CUSTOM_ISOBAR_RANGE_BAR`].
+pub const CUSTOM_ISENTHALP_RANGE_KJ_PER_KG: (f64, f64) = (0.0, 4500.0);
+/// See [`CUSTOM_ISOBAR_RANGE_BAR`].
+pub const CUSTOM_ISOCHORE_RANGE_M3_PER_KG: (f64, f64) = (0.001, 50.0);
 
 /// Verifies the computed saturation curve against the published Wagner
 /// saturation table.
@@ -803,6 +999,139 @@ fn default_isobars_and_isotherms_produce_finite_ordered_segments() {
                 assert!(
                     point.is_finite(),
                     "non-finite isotherm point at {t_degc} degC"
+                );
+            }
+        }
+    }
+}
+
+/// Checks the two new custom-line curves that reuse an existing flash
+/// ([`isenthalp`], [`isentrope`]) produce finite, correctly-labelled points
+/// spanning subcooled liquid, the two-phase dome and superheated vapour.
+///
+/// # Methodology
+///
+/// `h`/`s` values are chosen to be representative of each region at moderate
+/// pressure (subcooled liquid near the triple point's `h_f`, a mid-dome value,
+/// superheated near 500 degC at 10 bar). For each: asserts the curve is
+/// non-empty and every point finite, and that pressure is monotonic along the
+/// single returned segment (both flashes sweep pressure directly, so a
+/// non-monotonic result would mean the sweep itself is broken, not a physics
+/// issue). For the two-phase value, additionally asserts at least one point
+/// on the curve reports `quality.is_some()` — i.e. the dome-crossing wiring
+/// via `try_x_ph_flash`/`try_x_ps_flash` actually fires rather than staying
+/// `None` everywhere.
+///
+/// # Result (measured 2026-08-20)
+///
+/// Passes for all three representative values on both curve types.
+#[cfg(test)]
+#[test]
+fn isenthalp_and_isentrope_sweep_cleanly_through_every_region() {
+    use uom::si::available_energy::kilojoule_per_kilogram;
+    use uom::si::pressure::pascal as pascal_unit;
+    use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
+
+    let check_monotonic_pressure = |segments: &[Vec<ThermoPoint>], label: &str| {
+        assert!(!segments.is_empty(), "{label}: produced no segments");
+        for segment in segments {
+            for point in segment {
+                assert!(point.is_finite(), "{label}: non-finite point");
+            }
+            for pair in segment.windows(2) {
+                assert!(
+                    pair[1].pressure.get::<pascal_unit>() > pair[0].pressure.get::<pascal_unit>(),
+                    "{label}: pressure sweep is not monotonically increasing"
+                );
+            }
+        }
+    };
+
+    // Subcooled liquid, two-phase, superheated -- kJ/kg values chosen to land
+    // in each region at pressures within the sweep's own range.
+    for h_kj in [200.0, 1500.0, 3400.0] {
+        let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
+        let segments = isenthalp(h, 200);
+        check_monotonic_pressure(&segments, &format!("isenthalp h={h_kj} kJ/kg"));
+    }
+    let two_phase_h = AvailableEnergy::new::<kilojoule_per_kilogram>(1500.0);
+    let two_phase_segments = isenthalp(two_phase_h, 200);
+    assert!(
+        two_phase_segments
+            .iter()
+            .flatten()
+            .any(|p| p.quality.is_some()),
+        "isenthalp h=1500 kJ/kg should cross the dome and report quality somewhere"
+    );
+
+    for s_kj in [1.0, 5.0, 7.5] {
+        let s = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(s_kj);
+        let segments = isentrope(s, 200);
+        check_monotonic_pressure(&segments, &format!("isentrope s={s_kj} kJ/(kg K)"));
+    }
+    let two_phase_s = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.0);
+    let two_phase_segments = isentrope(two_phase_s, 200);
+    assert!(
+        two_phase_segments
+            .iter()
+            .flatten()
+            .any(|p| p.quality.is_some()),
+        "isentrope s=5.0 kJ/(kg K) should cross the dome and report quality somewhere"
+    );
+}
+
+/// Checks [`isochore`]'s bisection actually converges: at every point on the
+/// curve, independently recomputing specific volume at that point's `(T,p)`
+/// via `try_v_tp_eqm_single_phase` reproduces the requested `v0` to within a
+/// tight relative tolerance.
+///
+/// # Methodology
+///
+/// This is the one new curve generator in this module that is genuinely new
+/// numerics (a bisection root-find) rather than a direct call into an
+/// existing, separately-verified flash — see the module doc on
+/// [`isochore`] for why. So unlike [`isenthalp`]/[`isentrope`] above, the load
+/// -bearing check here is a **round trip**: for two representative specific
+/// volumes (a liquid-like value and a vapour-like value, both comfortably
+/// inside the achievable range at the pressures this module sweeps), builds
+/// the isochore, and for every point on it, calls
+/// `try_v_tp_eqm_single_phase(point.temperature, point.pressure)` and asserts
+/// the recomputed volume matches `v0` to within 0.1 %.
+///
+/// # Result (measured 2026-08-20)
+///
+/// Passes at both `v0` values, over every point on every returned segment.
+#[cfg(test)]
+#[test]
+fn isochore_bisection_reproduces_the_requested_volume() {
+    use uom::si::specific_volume::cubic_meter_per_kilogram;
+
+    for v0_si in [0.005, 0.5] {
+        let v0 = SpecificVolume::new::<cubic_meter_per_kilogram>(v0_si);
+        let segments = isochore(v0, 150);
+        assert!(
+            !segments.is_empty(),
+            "isochore v0={v0_si} m3/kg produced no segments"
+        );
+        for segment in &segments {
+            for point in segment {
+                assert!(point.is_finite(), "isochore v0={v0_si}: non-finite point");
+                let recomputed = try_v_tp_eqm_single_phase(point.temperature, point.pressure)
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "isochore v0={v0_si}: point ({:?}, {:?}) does not itself \
+                             re-evaluate as single-phase: {e:?}",
+                            point.temperature, point.pressure
+                        )
+                    })
+                    .get::<cubic_meter_per_kilogram>();
+                let relative_error = (recomputed - v0_si).abs() / v0_si;
+                assert!(
+                    relative_error < 1.0e-3,
+                    "isochore v0={v0_si}: recomputed v={recomputed} at ({:?}, {:?}), \
+                     relative error {relative_error} exceeds 0.1%",
+                    point.temperature,
+                    point.pressure
                 );
             }
         }

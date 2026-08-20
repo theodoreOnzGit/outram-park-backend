@@ -138,6 +138,36 @@ impl DiagramKind {
         }
     }
 
+    /// Formats a hover-readout x-coordinate with its unit, e.g. `"h = 2432.10
+    /// kJ/kg"`, using the same symbol/unit convention as [`DiagramKind::x_label`].
+    pub fn x_hover(self, x: f64) -> String {
+        match self {
+            Self::TemperaturePressure => format!("T = {x:.2} \u{00B0}C"),
+            Self::PressureEnthalpy => format!("h = {x:.2} kJ/kg"),
+            Self::TemperatureEntropy | Self::EnthalpyEntropy => {
+                format!("s = {x:.4} kJ/(kg\u{00B7}K)")
+            }
+        }
+    }
+
+    /// Formats a hover-readout y-coordinate with its unit, e.g. `"p = 12.345
+    /// bar"`, using the same symbol/unit convention as [`DiagramKind::y_label`].
+    ///
+    /// `y` is in the *canvas's own space*: when `log` is true (the live
+    /// canvas's log-pressure toggle), `y` is `log10(p / bar)` rather than `p`
+    /// itself, and this converts it back to bar before formatting — the
+    /// reader should never see a bare log10 value in a hover readout.
+    pub fn y_hover(self, y: f64, log: bool) -> String {
+        match self {
+            Self::TemperaturePressure | Self::PressureEnthalpy => {
+                let p_bar = if log { 10.0_f64.powf(y) } else { y };
+                format!("p = {p_bar:.4} bar")
+            }
+            Self::TemperatureEntropy => format!("T = {y:.2} \u{00B0}C"),
+            Self::EnthalpyEntropy => format!("h = {y:.2} kJ/kg"),
+        }
+    }
+
     /// Projects a state onto this diagram's axes, in the plot units named by
     /// [`DiagramKind::x_label`] and [`DiagramKind::y_label`].
     pub fn project(self, point: &ThermoPoint) -> [f64; 2] {
@@ -194,4 +224,62 @@ fn each_diagram_projects_the_axes_it_advertises() {
     let hs = DiagramKind::EnthalpyEntropy.project(&point);
     close(hs[0], 6.0);
     close(hs[1], 2000.0);
+}
+
+/// Checks that the hover-readout formatters name the right symbol/unit and,
+/// on a pressure axis, correctly invert the live canvas's log10 transform
+/// back to bar before printing it.
+///
+/// # Methodology
+///
+/// For each diagram, formats a distinct x and y value (chosen so a
+/// mismatched axis pairing would be visible) and asserts the formatted
+/// string starts with the expected symbol and ends with the expected unit.
+/// For a pressure axis, additionally checks the non-log and `log=true` paths
+/// agree on the same underlying pressure — `y_hover(1.0, true)` (i.e.
+/// `log10(p/bar) = 1.0`) must report the same `10.0 bar` as
+/// `y_hover(10.0, false)`.
+///
+/// # Result
+///
+/// Passes as of 2026-08-20 on all four diagrams.
+#[cfg(test)]
+#[test]
+fn hover_formatters_name_the_right_symbol_and_invert_the_log_axis() {
+    let tp_x = DiagramKind::TemperaturePressure.x_hover(123.4);
+    assert!(
+        tp_x.starts_with("T = ") && tp_x.ends_with("\u{00B0}C"),
+        "{tp_x}"
+    );
+    let tp_y = DiagramKind::TemperaturePressure.y_hover(10.0, false);
+    assert!(tp_y.starts_with("p = ") && tp_y.ends_with("bar"), "{tp_y}");
+
+    let ph_x = DiagramKind::PressureEnthalpy.x_hover(2500.0);
+    assert!(
+        ph_x.starts_with("h = ") && ph_x.ends_with("kJ/kg"),
+        "{ph_x}"
+    );
+
+    let ts_x = DiagramKind::TemperatureEntropy.x_hover(6.5);
+    assert!(
+        ts_x.starts_with("s = ") && ts_x.ends_with("kJ/(kg\u{00B7}K)"),
+        "{ts_x}"
+    );
+    let ts_y = DiagramKind::TemperatureEntropy.y_hover(300.0, false);
+    assert!(
+        ts_y.starts_with("T = ") && ts_y.ends_with("\u{00B0}C"),
+        "{ts_y}"
+    );
+
+    let hs_y = DiagramKind::EnthalpyEntropy.y_hover(2800.0, false);
+    assert!(
+        hs_y.starts_with("h = ") && hs_y.ends_with("kJ/kg"),
+        "{hs_y}"
+    );
+
+    // Log-axis inversion: log10(10.0) = 1.0, so y_hover(1.0, true) must read
+    // back the same 10 bar as y_hover(10.0, false).
+    let logged = DiagramKind::PressureEnthalpy.y_hover(1.0, true);
+    let linear = DiagramKind::PressureEnthalpy.y_hover(10.0, false);
+    assert_eq!(logged, linear, "log10(p/bar)=1.0 must read back as 10 bar");
 }
