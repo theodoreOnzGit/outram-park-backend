@@ -61,12 +61,20 @@
 //! composition, and note its finding:
 //!
 //! - **PyC coatings and matrix (carbon in graphite) — available and verified.**
-//! - **SiC layer — NOT available.** Stock LEAPR cannot generate SiC's
-//!   coherent-elastic channel (card 4 `iel = 0`; the evaluation's elastic came
-//!   from modified LEAPR source), so the only obtainable SiC law carries ~2.7%
-//!   of the layer's true thermal scattering. Do **not** substitute the graphite
-//!   law for the SiC layer — it would yield a plausible wrong answer rather
-//!   than an error. Tracked separately in kopi-beans.
+//! - **SiC layer — available as of 2026-08-19, not yet fully verified.** Stock
+//!   LEAPR could not generate SiC's coherent-elastic channel (card 4
+//!   `iel = 0`); a generalized coherent-elastic implementation (bead
+//!   `op-jw4a`, mirrors GitHub issue #24) now produces a real MF=7/MT=2
+//!   channel for both `tsl-CinSiC` and `tsl-SiinSiC`, measured within ~3% of
+//!   the official ENDF/B-VIII.0 tape oracle at 0.0253 eV
+//!   (`crates/njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs`).
+//!   **Still do not substitute the graphite law for the SiC layer** — it
+//!   remains a different lattice. **Still do not sum both SiC materials'
+//!   elastic channels for one region** — coherent elastic is a property of
+//!   the 3C-SiC compound as a whole and both materials carry the identical
+//!   value; a caller must attribute MT=2 to the compound once. Remaining
+//!   follow-up (tracked in `op-jw4a`, not yet done): a tighter-tolerance
+//!   edge-by-edge validation, and root-causing the residual ~3% gap.
 
 use super::cell::{Cell, HalfSpaceSense, RegionToken};
 use super::geometry::Geometry;

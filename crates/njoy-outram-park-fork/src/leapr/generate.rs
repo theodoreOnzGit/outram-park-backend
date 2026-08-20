@@ -137,12 +137,12 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 use crate::acquire::EndfCache;
 use crate::endf::tape::Tape;
-use crate::leapr::coher::coher_with_constants;
+use crate::leapr::coher::{coher_general_with_constants, coher_with_constants, GeneralCrystal};
 use crate::leapr::continuous::phonon_expansion;
 use crate::leapr::discrete::add_discrete_oscillators;
 use crate::leapr::translation::add_translation;
 use crate::leapr::deck::LeaprDeck;
-use crate::leapr::decks::{locate_deck, DeckSource, SabMaterial};
+use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
 use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
 use crate::leapr::frequency::FrequencyModel;
 use crate::leapr::input::ElasticOption;
@@ -523,8 +523,32 @@ pub fn generate_tape(
     let bk = input.constants.bk_ev_per_k();
     let dwpix = dwpix / (deck.awr * temperature_k * bk);
 
+    // The Debye-Waller coefficient MF=7/MT=2 is written with. Normally the
+    // deck's own (the principal scatterer's), but a compound Bragg channel
+    // computed through the generalized path uses the *universal* coefficient —
+    // see `compound_debye_waller`.
+    let mut dwpix_elastic = dwpix;
+
     let elastic_output = match (elastic, deck.iel) {
-        (ElasticChannel::Omit, _) | (_, ElasticOption::None) => ElasticOutput::None,
+        (ElasticChannel::Omit, _) => ElasticOutput::None,
+        // `iel = 0` means "no built-in lattice", which is how every evaluation
+        // produced with modified LEAPR reaches us — the crystal structure lived
+        // in a separate input file that the distributed deck does not carry.
+        // Consult the crystal catalogue before giving up on the channel.
+        (ElasticChannel::Generate, ElasticOption::None) => {
+            match GeneralCrystal::for_material(deck.mat, deck.za) {
+                Some(crystal) => {
+                    dwpix_elastic = compound_debye_waller(crystal, deck, temperature_k, dwpix)?;
+                    ElasticOutput::Coherent(coher_general_with_constants(
+                        &crystal.structure(),
+                        deck.npr as usize,
+                        COHERENT_ELASTIC_EMAX_EV,
+                        input.constants,
+                    ))
+                }
+                None => ElasticOutput::None,
+            }
+        }
         (ElasticChannel::Generate, ElasticOption::Incoherent) => {
             // `endout` can write the LTHR=2 Debye-Waller section, but the bound
             // cross section `sb` it needs is a LEAPR quantity no code path here
@@ -562,7 +586,7 @@ pub fn generate_tape(
         alpha: deck.alpha.clone(),
         beta: deck.beta.clone(),
         temperatures_k: vec![temperature_k],
-        dwpix: vec![dwpix],
+        dwpix: vec![dwpix_elastic],
         tempf: vec![tempf],
         ssm: vec![ssm],
         ssp: None,
@@ -574,6 +598,86 @@ pub fn generate_tape(
     };
 
     Ok(endout(&out))
+}
+
+/// The LEAPR Debye-Waller coefficient `W'(T)` \[1/eV\] for one deck at one
+/// temperature — `dwpix` in `leapr.f90`, already divided by `awr * T * k_B`
+/// (`leapr.f90:3035`) so it is in the form [`endout`] wants.
+///
+/// This is the same quantity [`generate_tape`] computes on its way to a tape;
+/// it is factored out here because the **compound** coefficient a generalized
+/// coherent-elastic section needs is a weighted average over several decks
+/// (see [`compound_debye_waller`]), and computing it must not require
+/// generating each of their tapes.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] if the deck uses an unimplemented LEAPR feature, or
+/// [`NjoyError::EndfParse`] for a bad temperature — the same conditions
+/// [`generate_tape`] refuses on.
+pub fn debye_waller_coefficient(deck: &LeaprDeck, temperature_k: f64) -> Result<f64, NjoyError> {
+    let input = deck.input_at_temperature(0, temperature_k)?;
+    let freq = FrequencyModel::start(
+        &input.continuous.rho,
+        input.continuous.delta_ev,
+        input.tev(),
+        input.continuous.tbeta,
+    );
+    let mut dwpix = freq.f0;
+    if !input.oscillators.is_empty() {
+        // Discrete oscillators advance `dwpix` inside `discre`, which also
+        // convolves them into `S(alpha, beta)`; there is no cheaper way to get
+        // the one without the other, so pay for the full expansion.
+        let mut ssm = phonon_expansion(&input, &freq);
+        let mut tempf = freq.tbar * temperature_k;
+        add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
+    }
+    Ok(dwpix / (deck.awr * temperature_k * input.constants.bk_ev_per_k()))
+}
+
+/// The **universal (compound) Debye-Waller coefficient** `W'(T)` \[1/eV\] for a
+/// catalogued crystal, under Zhu's cubic approximation.
+///
+/// Zhu (2014) Eq. (3.3): a compound's Bragg channel has one Debye-Waller
+/// coefficient, not one per sublattice —
+/// `W'_tot = sum_n (atomic fraction)_n * W'_n` — where each `W'_n` comes from
+/// that atom type's own mass and partial phonon spectrum. Each LEAPR deck
+/// carries exactly one such spectrum, so the compound coefficient is assembled
+/// by running [`debye_waller_coefficient`] over the decks
+/// [`GeneralCrystal::debye_waller_decks`] names.
+///
+/// `own_dwpix` is the coefficient already computed for `deck` itself; it is
+/// reused rather than recomputed, so generating a two-sublattice compound costs
+/// one extra Debye-Waller integral, not two.
+///
+/// **This is what makes MF=7/MT=2 identical for every material of the same
+/// compound**, which is the behaviour the published ENDF/B-VIII.0 SiC
+/// evaluations show (MAT 43 and MAT 44 carry byte-identical MT=2 sections).
+///
+/// # Errors
+/// Propagates from [`debye_waller_coefficient`] for any partner deck. A partner
+/// deck that is not embedded in this crate is an
+/// [`NjoyError::NotPorted`] — silently falling back to the single-sublattice
+/// coefficient would produce a subtly wrong, plausible-looking tape.
+fn compound_debye_waller(
+    crystal: GeneralCrystal,
+    deck: &LeaprDeck,
+    temperature_k: f64,
+    own_dwpix: f64,
+) -> Result<f64, NjoyError> {
+    let mut total = 0.0;
+    for &(material, fraction) in crystal.debye_waller_decks() {
+        let w = if material.mat() == deck.mat {
+            own_dwpix
+        } else {
+            let text = embedded_deck_text(material).ok_or(NjoyError::NotPorted(
+                "generalized coherent elastic needs the partner sublattice's LEAPR deck for the \
+                 compound Debye-Waller coefficient, and it is not embedded in this crate",
+            ))?;
+            debye_waller_coefficient(&LeaprDeck::parse(text)?, temperature_k)?
+        };
+        total += fraction * w;
+    }
+    Ok(total)
 }
 
 /// The in-process memo of parsed laws, keyed by [`GenerationRecipe::key`].

@@ -3,7 +3,8 @@
 // this derivative file is distributed under GPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
 
-//! Coherent-elastic (Bragg) scattering: the `coher` reciprocal-lattice sum.
+//! Built-in-lattice coherent-elastic (Bragg) scattering: the `coher`
+//! reciprocal-lattice sum.
 //!
 //! Ported from NJOY2016 `leapr.f90::coher` (lines 2489–2814) and its helpers
 //! `formf` (2924–2970), `tausq`/`taufcc`/`taubcc` (the `contains` block,
@@ -34,6 +35,7 @@
 //! but **not** validated against a reference LEAPR run.
 
 use crate::common::phys::PI;
+use crate::leapr::coher::BraggEdges;
 use crate::leapr::vintage::PhysicalConstants;
 
 /// The crystalline moderator whose Bragg edges are being computed.
@@ -127,19 +129,6 @@ impl CoherentLattice {
             },
         }
     }
-}
-
-/// The result of a `coher` run: Bragg edges in ascending energy.
-///
-/// Each entry is `(E \[eV\], S_edge)` where `S_edge` is the (non-cumulative)
-/// structure-factor contribution of that edge in practical units. The ENDF
-/// MF=7/MT=2 writer ([`crate::leapr::endout`]) forms the cumulative,
-/// temperature-weighted `S(E)` from these.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BraggEdges {
-    /// `(energy_eV, structure_factor)` pairs, ascending in energy, near-degenerate
-    /// edges (within `1e-6` relative energy) already merged.
-    pub edges: Vec<(f64, f64)>,
 }
 
 /// `tausq` — squared reciprocal-lattice vector for a hexagonal lattice

@@ -220,17 +220,25 @@ fn triso_carbon_coatings_bind_graphite_sab() {
     );
 }
 
-/// GAP ASSERTION: carbon in **silicon carbide** has **no elastic channel**
-/// obtainable from the embedded deck, so the SiC layer cannot be modelled yet.
+/// GAP ASSERTION (STALE — see below): carbon in **silicon carbide** used to
+/// have **no elastic channel** obtainable from the embedded deck.
 ///
 /// See the module doc for the full root cause: card 4's `iel = 0` in
 /// `tsl-CinSiC.leapr`, and the deck's own note that its coherent elastic came
 /// from modified LEAPR source (Zhu and Hawari's generalized coherent-elastic
-/// formulation), which stock LEAPR — and therefore this port — does not carry.
+/// formulation), which stock LEAPR — and therefore this port — did not carry.
 ///
-/// **This test asserts the gap on purpose.** When the capability lands it will
-/// fail, which is the intended signal to update this file and the bead rather
-/// than let an inelastic-only SiC law quietly stay in use.
+/// **The gap has closed.** A generalized coherent-elastic implementation
+/// landed in `leapr::coher` (2026-08-19, bead `op-jw4a`, mirrors GitHub issue
+/// #24 / bead `op-t33q`); regenerating the deck now measures elastic
+/// 2.85382 b + inelastic 0.13291 b at 0.0253 eV, vs the official ENDF/B-VIII.0
+/// tape oracle (`reference-data/endf/tsl-CinSiC.endf`) of elastic 2.94078 b —
+/// about 2.96% low, not yet validated to a tight tolerance. This assertion is
+/// therefore stale and **ignored** rather than rewritten to a real pass
+/// criterion in this pass; see the follow-up bead filed for that work
+/// (`op-jw4a` remains open, tracking the tighter-tolerance rewrite and the
+/// double-counting-across-materials question this test does not yet cover).
+#[ignore = "gap closed 2026-08-19 (op-jw4a): elastic is now ~2.854 b vs oracle 2.941 b, ~3% low; assertion needs rewriting to a real tolerance-based pass criterion, tracked in the same bead rather than done in this checkpoint"]
 #[test]
 fn sic_carbon_elastic_channel_is_missing_from_the_embedded_deck() {
     let law = regenerated_law(SabMaterial::CInSiC, "C-in-SiC");
@@ -260,8 +268,15 @@ fn sic_carbon_elastic_channel_is_missing_from_the_embedded_deck() {
     );
 }
 
-/// GAP ASSERTION: silicon in **silicon carbide**, same root cause as the carbon
-/// side. See [`sic_carbon_elastic_channel_is_missing_from_the_embedded_deck`].
+/// GAP ASSERTION (STALE — see below): silicon in **silicon carbide**, same
+/// root cause and same closure as the carbon side. See
+/// [`sic_carbon_elastic_channel_is_missing_from_the_embedded_deck`].
+///
+/// Measured 2026-08-19: elastic 2.85382 b + inelastic 0.06367 b at 0.0253 eV
+/// (elastic is byte-for-byte the same value as the carbon side, correctly
+/// reflecting that coherent elastic is a lattice property of the 3C-SiC
+/// compound, not a per-sublattice one — see `reference-data/endf/README.md`).
+#[ignore = "gap closed 2026-08-19 (op-jw4a), same as the carbon-side test"]
 #[test]
 fn sic_silicon_elastic_channel_is_missing_from_the_embedded_deck() {
     let law = regenerated_law(SabMaterial::SiInSiC, "Si-in-SiC");
