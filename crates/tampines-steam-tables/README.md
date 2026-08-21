@@ -137,6 +137,48 @@ reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
 (10 ms timestep) instead of the numerical six-group PRKE solver this crate
 used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
 
+## Compiling `tampines-steam-tables-gui` for Windows (cross-compile from Linux)
+
+`tampines-steam-tables-gui` (`examples/tampines-steam-tables-gui/`) is an
+`egui`/`eframe` app. It can be cross-compiled into a native Windows `.exe`
+directly from Linux with [`cargo-xwin`](https://github.com/rust-cross/cargo-xwin),
+which downloads the MSVC CRT/Windows SDK headers needed to link the
+`x86_64-pc-windows-msvc` target — no Wine and no real Windows/MSVC install
+required.
+
+One-time setup:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo install cargo-xwin
+# clang + lld provide the cross linker/compiler driver cargo-xwin shells out to
+sudo pacman -S clang lld       # Arch / EndeavourOS
+# sudo apt install clang lld   # Debian / Ubuntu / Mint
+```
+
+Then, from the workspace root (`outram-park-backend/`):
+
+```bash
+cargo xwin build --release -p tampines-steam-tables \
+  --example tampines-steam-tables-gui \
+  --target x86_64-pc-windows-msvc
+```
+
+The executable lands at
+`target/x86_64-pc-windows-msvc/release/examples/tampines-steam-tables-gui.exe`.
+
+**Verified 2026-08-21** (cargo-xwin 0.23.0, clang 22.1.8, rustc 1.96.0): a
+clean `--release` cross-build of the GUI example — including its full
+`egui`/`eframe`/`wgpu`/`egui-file-dialog` dependency stack — completes and
+produces a valid `PE32+ executable for MS Windows ... x86-64`. This is the
+same binary shape as the `fhr_sim_v2.exe` release-tag downloads referenced
+below, just cross-compiled locally instead of pulled from a GitHub release.
+
+`x86_64-pc-windows-gnu` (mingw) is also a valid target in principle, but is
+**not** verified on this machine — no `x86_64-w64-mingw32-gcc` is installed
+here, only the `msvc` path above via `cargo-xwin` has actually been built and
+checked.
+
 ## To Run on Windows
 
 For installation, you can just download the fhr_sim_v2.exe from the 
