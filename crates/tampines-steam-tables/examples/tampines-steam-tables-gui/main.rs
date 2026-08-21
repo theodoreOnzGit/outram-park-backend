@@ -75,6 +75,8 @@ fn main() {}
 #[cfg(not(target_os = "android"))]
 mod app;
 #[cfg(not(target_os = "android"))]
+mod citations;
+#[cfg(not(target_os = "android"))]
 mod curves;
 #[cfg(not(target_os = "android"))]
 mod custom_lines;
@@ -82,6 +84,8 @@ mod custom_lines;
 mod data;
 #[cfg(not(target_os = "android"))]
 mod diagram;
+#[cfg(not(target_os = "android"))]
+mod evaluation;
 #[cfg(not(target_os = "android"))]
 mod export;
 #[cfg(not(target_os = "android"))]

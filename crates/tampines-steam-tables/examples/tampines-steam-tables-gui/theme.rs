@@ -1,9 +1,12 @@
-//! GUI theme controls: Light, Dark, System, and Gruvbox (Dark/Light).
+//! GUI theme controls: Gruvbox Dark and Gruvbox Light.
 //!
-//! Issue #26 asks for "Light | Dark | System | Gruvbox", "better if feasible:
-//! ... Gruvbox Light | Gruvbox Dark". Both Gruvbox variants are implemented,
-//! since the extra work over one is small — the palette below already carries
-//! matched light and dark rows.
+//! Issue #26 originally asked for "Light | Dark | System | Gruvbox", "better
+//! if feasible: ... Gruvbox Light | Gruvbox Dark", and all five were
+//! implemented. Per the maintainer's 2026-08-21 follow-up ("For theming
+//! buttons, only gruvbox light and dark work. The light and dark are buggy.
+//! Just use the gruvbox light and dark buttons, everything else is
+//! redundant"), the plain `egui::ThemePreference`-backed `Light`/`Dark`/
+//! `System` variants were dropped and only the two Gruvbox variants remain.
 //!
 //! # Gruvbox provenance and licence
 //!
@@ -31,12 +34,6 @@ use eframe::egui;
 /// design rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GuiTheme {
-    /// Forces `egui`'s built-in light visuals.
-    Light,
-    /// Forces `egui`'s built-in dark visuals.
-    Dark,
-    /// Follows the OS theme preference (via `egui::ThemePreference::System`).
-    System,
     /// Gruvbox dark background, e.g. `#282828`.
     GruvboxDark,
     /// Gruvbox light background, e.g. `#fbf1c7`.
@@ -45,75 +42,44 @@ pub enum GuiTheme {
 
 impl GuiTheme {
     /// Every theme, in the order the selector shows them.
-    pub const ALL: [GuiTheme; 5] = [
-        GuiTheme::Light,
-        GuiTheme::Dark,
-        GuiTheme::System,
-        GuiTheme::GruvboxDark,
-        GuiTheme::GruvboxLight,
-    ];
+    pub const ALL: [GuiTheme; 2] = [GuiTheme::GruvboxDark, GuiTheme::GruvboxLight];
 
     /// Selector label.
     pub fn label(self) -> &'static str {
         match self {
-            Self::Light => "Light",
-            Self::Dark => "Dark",
-            Self::System => "System",
             Self::GruvboxDark => "Gruvbox Dark",
             Self::GruvboxLight => "Gruvbox Light",
         }
     }
 
-    /// Applies this theme to the `egui` context immediately.
-    ///
-    /// `Light`/`Dark`/`System` go through `egui`'s own
-    /// [`egui::ThemePreference`] (so `System` gets `egui`'s OS-theme-following
-    /// behaviour for free); the two Gruvbox variants set custom [`egui::Visuals`]
-    /// built from the palette below.
+    /// Applies this theme to the `egui` context immediately, via custom
+    /// [`egui::Visuals`] built from the palette below.
     pub fn apply(self, ctx: &egui::Context) {
         match self {
-            Self::Light => ctx.set_theme(egui::ThemePreference::Light),
-            Self::Dark => ctx.set_theme(egui::ThemePreference::Dark),
-            Self::System => ctx.set_theme(egui::ThemePreference::System),
             Self::GruvboxDark => ctx.set_visuals(gruvbox_visuals(true)),
             Self::GruvboxLight => ctx.set_visuals(gruvbox_visuals(false)),
         }
     }
 
     /// The exported-figure palette this theme would use for the "Current
-    /// theme" export style. `system_is_dark` resolves `GuiTheme::System`
-    /// (read from `ui.visuals().dark_mode` at the point of export, the same
-    /// source [`live_ink_colour`] uses for the live canvas).
+    /// theme" export style.
     ///
     /// Reuses the same Gruvbox hex constants as [`gruvbox_visuals`] rather
     /// than duplicating them, so the exported figure and the live `egui`
     /// chrome can never drift onto two different "Gruvbox".
-    pub fn figure_palette(self, system_is_dark: bool) -> crate::figure::FigurePalette {
+    pub fn figure_palette(self) -> crate::figure::FigurePalette {
         use crate::figure::FigurePalette;
 
-        let dark = match self {
-            Self::Light => false,
-            Self::Dark => true,
-            Self::System => system_is_dark,
-            Self::GruvboxDark => true,
-            Self::GruvboxLight => false,
-        };
-
-        if matches!(self, Self::GruvboxDark | Self::GruvboxLight) {
-            let (background, ink, grid) = if dark {
-                (GRUVBOX_DARK0_HARD, GRUVBOX_LIGHT1, GRUVBOX_DARK2)
-            } else {
-                (GRUVBOX_LIGHT0_HARD, GRUVBOX_LIGHT_FG, GRUVBOX_LIGHT2)
-            };
-            FigurePalette {
-                background: color32_to_rgb(background),
-                ink: color32_to_rgb(ink),
-                grid: color32_to_rgb(grid),
-            }
-        } else if dark {
-            FigurePalette::DARK
+        let dark = matches!(self, Self::GruvboxDark);
+        let (background, ink, grid) = if dark {
+            (GRUVBOX_DARK0_HARD, GRUVBOX_LIGHT1, GRUVBOX_DARK2)
         } else {
-            FigurePalette::LIGHT_PUBLICATION
+            (GRUVBOX_LIGHT0_HARD, GRUVBOX_LIGHT_FG, GRUVBOX_LIGHT2)
+        };
+        FigurePalette {
+            background: color32_to_rgb(background),
+            ink: color32_to_rgb(ink),
+            grid: color32_to_rgb(grid),
         }
     }
 }
@@ -237,9 +203,8 @@ fn gruvbox_visuals(dark: bool) -> egui::Visuals {
 /// not be faint").
 ///
 /// Reads `dark_mode` off the live `egui::Visuals` rather than off
-/// [`GuiTheme`] directly, so it is correct for `GuiTheme::System` (which
-/// resolves to a concrete dark/light state inside `egui` itself, not
-/// something this module tracks) as well as for the two Gruvbox variants.
+/// [`GuiTheme`] directly, so it stays correct regardless of which of the two
+/// Gruvbox variants is active.
 pub fn live_ink_colour(dark_mode: bool) -> egui::Color32 {
     if dark_mode {
         egui::Color32::from_rgb(235, 235, 235)

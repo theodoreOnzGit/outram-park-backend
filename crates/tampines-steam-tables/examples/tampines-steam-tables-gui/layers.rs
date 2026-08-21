@@ -124,12 +124,19 @@ pub enum LayerId {
 /// off. [`Default`] draws every default value, matching the tool's prior
 /// (only) behaviour, so existing callers that don't care about the selection
 /// keep working unchanged.
+///
+/// Extended 2026-08-21 with `qualities`, the same all-or-nothing-to-selectable
+/// fix applied to [`LayerId::QualityLines`] (the fixed `x = 0.1 ... 0.9` set):
+/// an empty list means "none of that family," matching `isobars_bar` /
+/// `isotherms_degc`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayerSelection {
     /// Isobars to draw, in bar. Order does not matter.
     pub isobars_bar: Vec<f64>,
     /// Isotherms to draw, in degrees Celsius. Order does not matter.
     pub isotherms_degc: Vec<f64>,
+    /// Quality lines to draw, dimensionless (0-1). Order does not matter.
+    pub qualities: Vec<f64>,
 }
 
 impl Default for LayerSelection {
@@ -137,6 +144,7 @@ impl Default for LayerSelection {
         Self {
             isobars_bar: curves::DEFAULT_ISOBARS_BAR.to_vec(),
             isotherms_degc: curves::DEFAULT_ISOTHERMS_DEGC.to_vec(),
+            qualities: curves::QUALITY_LINE_VALUES.to_vec(),
         }
     }
 }
@@ -174,8 +182,8 @@ impl LayerId {
             Self::CriticalPoint => "Critical point",
             Self::TriplePoint => "Triple point",
             Self::RegionBoundaries => "Region boundaries",
-            Self::WagnerSaturationPoints => "Wagner/IAPWS saturation table",
-            Self::WagnerSinglePhasePoints => "Wagner/IAPWS single-phase tables",
+            Self::WagnerSaturationPoints => "Tabulated data: IAPWS saturation table",
+            Self::WagnerSinglePhasePoints => "Tabulated data: IAPWS single-phase table",
             Self::MoodyStates => "Moody (1975) critical-flow states",
             Self::ZaloudekStates => "Zaloudek critical-flow throat states",
             Self::MarvikenStates => "Marviken blowdown stagnation states",
@@ -239,8 +247,7 @@ impl LayerId {
                 "computed live from tampines-steam-tables (IAPWS-IF97); not stored data"
             }
             Self::WagnerSaturationPoints | Self::WagnerSinglePhasePoints => {
-                "Kretzschmar & Wagner, International Steam Tables (3rd ed., 2019), \
-                 via src/interfaces/tests_and_examples/ph_flash_steam_table/"
+                WAGNER_KRETZSCHMAR_CITATION
             }
             Self::MoodyStates => {
                 "Moody, F. J. (1975), NEDO-21052, Fig. 1 (graph-read); via \
@@ -472,7 +479,8 @@ impl LayerId {
                     true,
                 )]
             }
-            Self::QualityLines => curves::QUALITY_LINE_VALUES
+            Self::QualityLines => selection
+                .qualities
                 .iter()
                 .enumerate()
                 .map(|(i, x)| {
@@ -502,7 +510,7 @@ impl LayerId {
                         i == 0,
                     );
                     let crosses = tabulated_cross_layer(
-                        format!("Isobar p = {p_bar} bar (Wagner)"),
+                        format!("Isobar p = {p_bar} bar (tabulated)"),
                         TabulatedData.isobar_default_tolerance(p),
                         self.colour(),
                         i == 0,
@@ -531,7 +539,7 @@ impl LayerId {
                         colour,
                     );
                     let crosses = tabulated_cross_layer(
-                        format!("Isotherm T = {t_degc} \u{00B0}C (Wagner)"),
+                        format!("Isotherm T = {t_degc} \u{00B0}C (tabulated)"),
                         TabulatedData.isotherm_default_tolerance(t),
                         colour,
                         i == 0,
@@ -559,20 +567,26 @@ impl LayerId {
                 let (liquid, vapour) = wagner_saturation_states();
                 vec![
                     base(
-                        "Wagner saturated liquid (table)".to_string(),
+                        "Tabulated saturated liquid (table)".to_string(),
                         vec![liquid],
                         true,
                     ),
                     base(
-                        "Wagner saturated vapour (table)".to_string(),
+                        "Tabulated saturated vapour (table)".to_string(),
                         vec![vapour],
                         false,
                     ),
                 ]
             }
+            // Filtered by the same isobar/isotherm multi-select the
+            // computed Isobars/Isotherms layers use (issue #26, 2026-08-21
+            // follow-up: "the same selectable isotherms and isobars
+            // selection for the single phase tables, same as the computed
+            // values") -- previously this always dumped the full 2 334-row
+            // table regardless of what was selected elsewhere.
             Self::WagnerSinglePhasePoints => vec![base(
-                "Wagner single-phase table points".to_string(),
-                vec![wagner_single_phase_states()],
+                "Tabulated single-phase table points".to_string(),
+                vec![wagner_single_phase_states_for_selection(selection)],
                 true,
             )],
             Self::MoodyStates => vec![base(
@@ -699,10 +713,10 @@ fn tabulated_cross_layer(
     Some(PlotLayer {
         label,
         kind: LayerKind::ReferencePoints,
-        provenance: "Kretzschmar & Wagner (2019), International Steam Tables (3rd ed.), Springer \
-                     -- published tabulated value(s) matching this line, not this crate's own \
-                     computation"
-            .to_string(),
+        provenance: format!(
+            "{WAGNER_KRETZSCHMAR_CITATION} -- published tabulated value(s) matching this line, \
+             not this crate's own computation"
+        ),
         segments: vec![points],
         style: SeriesStyle::Markers {
             shape: MarkerShape::Cross,
@@ -715,16 +729,58 @@ fn tabulated_cross_layer(
     })
 }
 
-/// Wagner single-phase table rows as plotted states, straight from the table.
-fn wagner_single_phase_states() -> Vec<ThermoPoint> {
-    wagner::WAGNER_SINGLE_PHASE_TABLE
-        .iter()
-        .map(|row| {
+/// The citation for the tabulated single-phase and saturation-table data
+/// (issue #26, 2026-08-21: "ensure to include the citation within the gui
+/// app"), as the maintainer supplied it verbatim. Used everywhere this GUI
+/// cites that table, so the reference cannot drift between call sites --
+/// see [`crate::citations`] for where it is surfaced to the user.
+pub(crate) const WAGNER_KRETZSCHMAR_CITATION: &str =
+    "Wagner, W., & Kretzschmar, H. J. (2008). International steam tables: Properties of water \
+     and steam based on the industrial formulation IAPWS-IF97. Berlin, Heidelberg: Springer \
+     Berlin Heidelberg.";
+
+/// Wagner single-phase table rows as plotted states, restricted to
+/// `selection`'s isobars and isotherms (issue #26, 2026-08-21 follow-up).
+///
+/// Queries [`TabulatedData::isobar_default_tolerance`] for every selected
+/// isobar and [`TabulatedData::isotherm_default_tolerance`] for every
+/// selected isotherm and merges the results, deduplicating rows matched by
+/// both a selected isobar and a selected isotherm at once (a genuine overlap,
+/// not an error). An empty selection on both axes yields no points -- the
+/// honest "nothing selected" outcome, not a fallback to the full table.
+fn wagner_single_phase_states_for_selection(selection: &LayerSelection) -> Vec<ThermoPoint> {
+    let mut states: Vec<TabulatedState> = Vec::new();
+    for p_bar in &selection.isobars_bar {
+        states.extend(TabulatedData.isobar_default_tolerance(Pressure::new::<bar>(*p_bar)));
+    }
+    for t_degc in &selection.isotherms_degc {
+        states.extend(
+            TabulatedData.isotherm_default_tolerance(
+                ThermodynamicTemperature::new::<degree_celsius>(*t_degc),
+            ),
+        );
+    }
+    states.sort_by(|a, b| {
+        a.pressure
+            .get::<pascal>()
+            .partial_cmp(&b.pressure.get::<pascal>())
+            .unwrap()
+            .then(
+                a.temperature
+                    .get::<kelvin>()
+                    .partial_cmp(&b.temperature.get::<kelvin>())
+                    .unwrap(),
+            )
+    });
+    states.dedup();
+    states
+        .into_iter()
+        .map(|s| {
             ThermoPoint::new(
-                Pressure::new::<bar>(row[0]),
-                ThermodynamicTemperature::new::<degree_celsius>(row[1]),
-                AvailableEnergy::new::<kilojoule_per_kilogram>(row[2]),
-                SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(row[3]),
+                s.pressure,
+                s.temperature,
+                s.specific_enthalpy,
+                s.specific_entropy,
                 None,
             )
         })
@@ -998,6 +1054,87 @@ fn every_reference_layer_yields_points() {
     }
 }
 
+/// Checks [`LayerId::WagnerSinglePhasePoints`] respects the isobar/isotherm
+/// multi-select rather than always dumping the full 2 334-row table (issue
+/// #26, 2026-08-21: *"I want the same selectable isotherms and isobars
+/// selection for the single phase tables, same as the computed values"*).
+///
+/// # Methodology
+///
+/// Builds the layer three ways: the default selection (every default isobar
+/// and isotherm), a selection naming only the 100 bar isobar (a value known
+/// to be a tabulated Wagner isobar), and an empty selection. Checks the
+/// default selection's point count matches
+/// [`wagner_single_phase_states_for_selection`] called directly (so the two
+/// cannot silently drift), the 100-bar-only selection yields strictly fewer
+/// points than the default and every one of them is at 100 bar, and the
+/// empty selection yields zero points -- not a fallback to the full table.
+///
+/// # Result (measured 2026-08-21)
+///
+/// Holds: default selection matches the direct call exactly; 100-bar-only
+/// yields a proper non-empty subset, all at 100 bar; empty yields nothing.
+#[cfg(test)]
+#[test]
+fn wagner_single_phase_points_respect_the_isobar_isotherm_selection() {
+    let diagram = DiagramKind::EnthalpyEntropy;
+
+    let default_selection = LayerSelection::default();
+    let default_built = LayerId::WagnerSinglePhasePoints.build(diagram, 20, &default_selection);
+    let default_count: usize = default_built.iter().map(PlotLayer::point_count).sum();
+    let direct_count = wagner_single_phase_states_for_selection(&default_selection).len();
+    assert_eq!(
+        default_count, direct_count,
+        "the built layer's point count must match wagner_single_phase_states_for_selection \
+         exactly, or the two have drifted apart"
+    );
+
+    let hundred_bar_only = LayerSelection {
+        isobars_bar: vec![100.0],
+        isotherms_degc: Vec::new(),
+        qualities: Vec::new(),
+    };
+    let states = TabulatedData.isobar_default_tolerance(Pressure::new::<bar>(100.0));
+    assert!(
+        !states.is_empty(),
+        "100 bar must be a tabulated Wagner isobar for this test to mean anything"
+    );
+    let built = LayerId::WagnerSinglePhasePoints.build(diagram, 20, &hundred_bar_only);
+    let count: usize = built.iter().map(PlotLayer::point_count).sum();
+    assert_eq!(
+        count,
+        states.len(),
+        "selecting only the 100 bar isobar must draw exactly its own rows"
+    );
+    assert!(
+        count < default_count,
+        "a single-isobar selection must yield strictly fewer points than the default selection"
+    );
+    for layer in &built {
+        for segment in &layer.segments {
+            for point in segment {
+                let p_bar = point.pressure.get::<bar>();
+                assert!(
+                    (p_bar - 100.0).abs() < 1.0e-6,
+                    "expected every point at 100 bar, got {p_bar} bar"
+                );
+            }
+        }
+    }
+
+    let empty = LayerSelection {
+        isobars_bar: Vec::new(),
+        isotherms_degc: Vec::new(),
+        qualities: Vec::new(),
+    };
+    let built_empty = LayerId::WagnerSinglePhasePoints.build(diagram, 20, &empty);
+    let empty_count: usize = built_empty.iter().map(PlotLayer::point_count).sum();
+    assert_eq!(
+        empty_count, 0,
+        "an empty isobar/isotherm selection must draw no tabulated single-phase points"
+    );
+}
+
 /// The isobar and isotherm layers pair their computed line with the
 /// published Wagner rows at the same value, when Wagner tabulated any near it
 /// — issue #26: "plot the tabulated data as crosses and iapws97 data as
@@ -1031,7 +1168,7 @@ fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
             .any(|l| l.label.contains(needle) && l.kind == LayerKind::ComputedCurve);
         let has_crosses = isobars.iter().any(|l| {
             l.label.contains(needle)
-                && l.label.contains("Wagner")
+                && l.label.contains("tabulated")
                 && l.kind == LayerKind::ReferencePoints
         });
         (has_line, has_crosses)
@@ -1057,7 +1194,7 @@ fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
         .any(|l| l.label.contains("300") && l.kind == LayerKind::ComputedCurve);
     let has_crosses_300 = isotherms.iter().any(|l| {
         l.label.contains("300")
-            && l.label.contains("Wagner")
+            && l.label.contains("tabulated")
             && l.kind == LayerKind::ReferencePoints
     });
     assert!(
@@ -1071,24 +1208,26 @@ fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
     );
 }
 
-/// Checks [`LayerSelection`] actually restricts which isobars/isotherms
-/// [`LayerId::Isobars`] / [`LayerId::Isotherms`] draw (issue #26's follow-up:
-/// *"the isotherm checkbox switches all of the isotherms on... give me a
-/// drop-down menu to select which isotherms I want to add and plot"*).
+/// Checks [`LayerSelection`] actually restricts which isobars/isotherms/
+/// quality lines [`LayerId::Isobars`] / [`LayerId::Isotherms`] /
+/// [`LayerId::QualityLines`] draw (issue #26's follow-up: *"the isotherm
+/// checkbox switches all of the isotherms on... give me a drop-down menu to
+/// select which isotherms I want to add and plot"*, later extended to
+/// *"I want the same thing done for the quality lines as well"*).
 ///
 /// # Methodology
 ///
-/// Builds both layers three ways: [`LayerSelection::default`] (every default
-/// value, the tool's original all-or-nothing behaviour), a selection naming
-/// only one value from each family, and a selection with an empty list for
-/// each family. Checks the full selection produces every default value's
+/// Builds all three layers three ways: [`LayerSelection::default`] (every
+/// default value, the tool's original all-or-nothing behaviour), a selection
+/// naming only one value from each family, and a selection with an empty list
+/// for each family. Checks the full selection produces every default value's
 /// line, the one-value selection produces exactly that value's line and none
 /// of the others, and the empty selection produces no layers at all for that
 /// family (not even an empty-labelled one).
 ///
 /// # Result (measured 2026-08-21)
 ///
-/// Holds for both isobars and isotherms.
+/// Holds for isobars, isotherms and quality lines alike.
 #[cfg(test)]
 #[test]
 fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
@@ -1103,10 +1242,20 @@ fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
             "default selection must still draw every default isobar, missing {p_bar} bar"
         );
     }
+    let full_quality = LayerId::QualityLines.build(diagram, 20, &LayerSelection::default());
+    for x in curves::QUALITY_LINE_VALUES {
+        assert!(
+            full_quality
+                .iter()
+                .any(|l| l.label.contains(&format!("x = {x}"))),
+            "default selection must still draw every default quality line, missing x = {x}"
+        );
+    }
 
     let one = LayerSelection {
         isobars_bar: vec![100.0],
         isotherms_degc: vec![300.0],
+        qualities: vec![0.5],
     };
     let one_isobar = LayerId::Isobars.build(diagram, 20, &one);
     assert!(
@@ -1145,9 +1294,29 @@ fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
         );
     }
 
+    let one_quality = LayerId::QualityLines.build(diagram, 20, &one);
+    assert!(
+        one_quality
+            .iter()
+            .any(|l| l.label.contains("x = 0.5") && l.kind == LayerKind::ComputedCurve),
+        "selecting only x = 0.5 must still draw its line"
+    );
+    for x in curves::QUALITY_LINE_VALUES {
+        if x == 0.5 {
+            continue;
+        }
+        assert!(
+            !one_quality
+                .iter()
+                .any(|l| l.label.contains(&format!("x = {x}"))),
+            "selecting only x = 0.5 must not draw x = {x}"
+        );
+    }
+
     let empty = LayerSelection {
         isobars_bar: Vec::new(),
         isotherms_degc: Vec::new(),
+        qualities: Vec::new(),
     };
     assert!(
         LayerId::Isobars.build(diagram, 20, &empty).is_empty(),
@@ -1156,6 +1325,10 @@ fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
     assert!(
         LayerId::Isotherms.build(diagram, 20, &empty).is_empty(),
         "an empty isotherm selection must draw nothing"
+    );
+    assert!(
+        LayerId::QualityLines.build(diagram, 20, &empty).is_empty(),
+        "an empty quality selection must draw nothing"
     );
 }
 

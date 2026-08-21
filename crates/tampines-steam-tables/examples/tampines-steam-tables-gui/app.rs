@@ -39,9 +39,56 @@ use crate::export::{self, ExportFormat};
 use crate::figure::layout::PageSize;
 use crate::figure::png::DEFAULT_PIXELS_PER_POINT;
 use crate::figure::{AxisScale, MarkerShape, Rgb, SeriesStyle};
+use crate::citations;
 use crate::custom_lines::{self, CustomLine, CustomLineType};
+use crate::evaluation::{self, EvaluatedState};
 use crate::layers::{LayerId, LayerSelection};
 use crate::theme::GuiTheme;
+
+/// The top-level tab: the original plotting UI, the point-evaluation
+/// workbench, or the literature/attribution citations (issue #26,
+/// 2026-08-21: *"I want a different tab, the current tab is the graph
+/// tab... the next horizontal top tab is an evaluation tab"*, and
+/// *"display it under separate a citations tab"*). Mirrors the top
+/// horizontal tab-bar pattern `htgr_sim_v1` uses
+/// (`outram_park_digital_twin_engine::app_scaffold::PanelSet` +
+/// `panel_selector_ui`) locally, rather than pulling that crate in as a
+/// dependency for one small helper -- this crate stays lean by design (see
+/// its own `CLAUDE.md`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppTab {
+    /// The original interactive plotter: sidebar, diagram tabs, layers, export.
+    Graph,
+    /// Double-click to add a state point and read off its full properties.
+    Evaluation,
+    /// Every literature/attribution source this GUI relies on.
+    Citations,
+}
+
+impl AppTab {
+    /// All three, in the order the top bar shows them.
+    pub const ALL: [AppTab; 3] = [AppTab::Graph, AppTab::Evaluation, AppTab::Citations];
+
+    /// Tab-bar label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Graph => "Graph",
+            Self::Evaluation => "Evaluation",
+            Self::Citations => "Citations",
+        }
+    }
+}
+
+/// One user-added point on the Evaluation tab: the diagram it was clicked
+/// on (points only render while that diagram is showing, since their raw
+/// coordinates are meaningful only in that diagram's axes) and its resolved
+/// state.
+struct EvaluationPoint {
+    diagram: DiagramKind,
+    x: f64,
+    y: f64,
+    state: EvaluatedState,
+}
 
 /// How the live canvas's legend is shown (issue #26: "Legend mode dropdown:
 /// Off / Compact / Full. Default should be Compact.").
@@ -111,13 +158,13 @@ impl ExportStyle {
     }
 
     /// Resolves this style to a concrete [`crate::figure::FigurePalette`].
-    /// `app_theme` and `dark_mode` are only consulted for `CurrentTheme`.
-    pub fn palette(self, app_theme: GuiTheme, dark_mode: bool) -> crate::figure::FigurePalette {
+    /// `app_theme` is only consulted for `CurrentTheme`.
+    pub fn palette(self, app_theme: GuiTheme) -> crate::figure::FigurePalette {
         match self {
             Self::LightPublication => crate::figure::FigurePalette::LIGHT_PUBLICATION,
-            Self::CurrentTheme => app_theme.figure_palette(dark_mode),
+            Self::CurrentTheme => app_theme.figure_palette(),
             Self::Dark => crate::figure::FigurePalette::DARK,
-            Self::Gruvbox => GuiTheme::GruvboxDark.figure_palette(false),
+            Self::Gruvbox => GuiTheme::GruvboxDark.figure_palette(),
         }
     }
 }
@@ -177,6 +224,11 @@ pub struct PlotterApp {
     /// Same as [`PlotterApp::isobar_selected`], for
     /// [`crate::curves::DEFAULT_ISOTHERMS_DEGC`] / [`LayerId::Isotherms`].
     isotherm_selected: Vec<bool>,
+    /// Same as [`PlotterApp::isobar_selected`], for
+    /// [`crate::curves::QUALITY_LINE_VALUES`] / [`LayerId::QualityLines`]
+    /// (issue #26, 2026-08-21: "I want the same thing done for the quality
+    /// lines as well").
+    quality_selected: Vec<bool>,
     /// Samples per computed curve.
     curve_samples: usize,
     /// Whether a pressure axis is logarithmic.
@@ -215,6 +267,14 @@ pub struct PlotterApp {
     /// Set by the "Reset plot" button; consumed (and cleared) by the next
     /// frame's plot panel.
     reset_view_requested: bool,
+    /// Which top-level tab is showing: Graph, Evaluation, or Citations.
+    active_app_tab: AppTab,
+    /// Which diagram the Evaluation tab's plot shows -- independent of
+    /// [`PlotterApp::active_tab`], so switching diagrams on one tab does not
+    /// surprise the other.
+    evaluation_diagram: DiagramKind,
+    /// User-added points on the Evaluation tab.
+    evaluation_points: Vec<EvaluationPoint>,
 }
 
 impl PlotterApp {
@@ -228,13 +288,14 @@ impl PlotterApp {
                 .collect(),
             isobar_selected: vec![true; crate::curves::DEFAULT_ISOBARS_BAR.len()],
             isotherm_selected: vec![true; crate::curves::DEFAULT_ISOTHERMS_DEGC.len()],
+            quality_selected: vec![true; crate::curves::QUALITY_LINE_VALUES.len()],
             curve_samples: curve_samples.clamp(40, 2000),
             log_pressure: true,
             out_dir,
             export_pixels_per_point: DEFAULT_PIXELS_PER_POINT,
             cache: HashMap::new(),
             status: "ready".to_string(),
-            theme: GuiTheme::System,
+            theme: GuiTheme::GruvboxDark,
             applied_theme: None,
             legend_mode: LegendMode::Compact,
             file_dialog: egui_file_dialog::FileDialog::new(),
@@ -244,6 +305,9 @@ impl PlotterApp {
             custom_line_type: CustomLineType::Isobar,
             custom_line_value: CustomLineType::Isobar.default_value(),
             reset_view_requested: false,
+            active_app_tab: AppTab::Graph,
+            evaluation_diagram: DiagramKind::PressureEnthalpy,
+            evaluation_points: Vec::new(),
         }
     }
 
@@ -269,6 +333,11 @@ impl PlotterApp {
             isotherms_degc: crate::curves::DEFAULT_ISOTHERMS_DEGC
                 .iter()
                 .zip(&self.isotherm_selected)
+                .filter_map(|(value, on)| on.then_some(*value))
+                .collect(),
+            qualities: crate::curves::QUALITY_LINE_VALUES
+                .iter()
+                .zip(&self.quality_selected)
                 .filter_map(|(value, on)| on.then_some(*value))
                 .collect(),
         }
@@ -434,9 +503,11 @@ impl PlotterApp {
     }
 
     /// Draws a multi-select dropdown next to [`LayerId::Isobars`] /
-    /// [`LayerId::Isotherms`]'s checkbox row (issue #26's follow-up: *"the
-    /// isotherm checkbox switches all of the isotherms on... give me a
-    /// drop-down menu to select which isotherms I want to add and plot"*).
+    /// [`LayerId::Isotherms`] / [`LayerId::QualityLines`]'s checkbox row
+    /// (issue #26's follow-up: *"the isotherm checkbox switches all of the
+    /// isotherms on... give me a drop-down menu to select which isotherms I
+    /// want to add and plot"*, later extended to quality lines: *"I want the
+    /// same thing done for the quality lines as well"*).
     /// The dropdown popup stays open across clicks, so multiple boxes can be
     /// (un)checked in one interaction rather than reopening it each time.
     /// Returns whether the selection changed, so the caller knows to
@@ -530,6 +601,17 @@ impl PlotterApp {
                 continue;
             }
             match id {
+                LayerId::QualityLines => {
+                    if Self::multi_select_row(
+                        ui,
+                        "quality_multiselect",
+                        &crate::curves::QUALITY_LINE_VALUES,
+                        "(x)",
+                        &mut self.quality_selected,
+                    ) {
+                        changed = true;
+                    }
+                }
                 LayerId::Isobars => {
                     if Self::multi_select_row(
                         ui,
@@ -710,9 +792,7 @@ impl PlotterApp {
                 .weak(),
         );
         let tab = self.active_tab;
-        let palette = self
-            .export_style
-            .palette(self.theme, ui.visuals().dark_mode);
+        let palette = self.export_style.palette(self.theme);
         ui.horizontal_wrapped(|ui| {
             for format in ExportFormat::ALL {
                 if ui.button(format.label()).clicked() {
@@ -813,15 +893,20 @@ impl PlotterApp {
         plot.x_axis_label(tab.x_label())
             .y_axis_label(y_label)
             .allow_scroll(false)
-            // Hover coordinates with units, on every diagram (issue #26):
+            // Hover coordinates with the full property set, on every diagram
+            // (issue #26: hover coordinates with units; extended 2026-08-21
+            // to "all the classic properties" and to work in every legend
+            // mode, not only Full -- see `evaluation::hover_text`).
             // `label_formatter` customises the tooltip egui_plot already
             // shows when the pointer is near a plotted line/point;
             // `coordinates_formatter` adds a corner-anchored readout that
             // tracks the pointer everywhere in the plot area, not just near
             // data, since the request was "hover my cursor over the graph",
-            // not "hover over a curve".
+            // not "hover over a curve". Both call the same
+            // `evaluation::hover_text` the Evaluation tab uses, so the two
+            // tabs can never disagree about what a coordinate means.
             .label_formatter(move |name, value| {
-                let coords = format!("{}\n{}", tab.x_hover(value.x), tab.y_hover(value.y, log));
+                let coords = evaluation::hover_text(tab, log, value.x, value.y);
                 if name.is_empty() {
                     coords
                 } else {
@@ -831,76 +916,244 @@ impl PlotterApp {
             .coordinates_formatter(
                 egui_plot::Corner::LeftTop,
                 egui_plot::CoordinatesFormatter::new(move |point, _bounds| {
-                    format!("{}\n{}", tab.x_hover(point.x), tab.y_hover(point.y, log))
+                    evaluation::hover_text(tab, log, point.x, point.y)
                 }),
             )
             .show(ui, |plot_ui| {
-                for layer in &layers {
-                    // Compact groups a whole family of curves (isotherms,
-                    // quality lines, the seven reference datasets, …) under
-                    // one legend row by giving every member of the family the
-                    // same egui_plot series name (LegendGrouping::ByName, the
-                    // default, then merges them); Off and Full both keep each
-                    // layer's own distinct name.
-                    let series_name = if legend_mode == LegendMode::Compact {
-                        layer.legend_group.to_string()
-                    } else {
-                        layer.label.clone()
-                    };
-                    let colour = if layer.colour == crate::figure::INK {
-                        live_ink
-                    } else {
-                        to_color32(layer.colour)
-                    };
-                    for segment in &layer.segments {
-                        let points: Vec<[f64; 2]> = segment
-                            .iter()
-                            .filter_map(|point| {
-                                let [x, y] = tab.project(point);
-                                let y = if log {
-                                    if y > 0.0 {
-                                        y.log10()
-                                    } else {
-                                        return None;
-                                    }
-                                } else {
-                                    y
-                                };
-                                (x.is_finite() && y.is_finite()).then_some([x, y])
-                            })
-                            .collect();
-                        if points.is_empty() {
-                            continue;
-                        }
-                        match layer.style {
-                            SeriesStyle::Line { width, dash } => {
-                                let mut line = Line::new(series_name.clone(), points)
-                                    .color(colour)
-                                    .width(width as f32);
-                                if let Some((on, _off)) = dash {
-                                    line = line.style(LineStyle::dashed_dense());
-                                    let _ = on;
-                                }
-                                plot_ui.line(line);
-                            }
-                            SeriesStyle::Markers { shape, size } => {
-                                plot_ui.points(
-                                    Points::new(series_name.clone(), points)
-                                        .color(colour)
-                                        .radius((size * 0.5) as f32)
-                                        .filled(!matches!(
-                                            shape,
-                                            MarkerShape::OpenCircle
-                                                | MarkerShape::Cross
-                                                | MarkerShape::Plus
-                                        ))
-                                        .shape(to_plot_marker(shape)),
-                                );
-                            }
-                        }
+                draw_plot_layers(plot_ui, &layers, tab, legend_mode, log, live_ink);
+            });
+    }
+
+    /// The Evaluation tab's control sidebar: diagram selector, the list of
+    /// added points with their full property readout, and clear/copy
+    /// controls (issue #26, 2026-08-21).
+    fn evaluation_sidebar(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Diagram");
+        for kind in DiagramKind::ALL {
+            if ui
+                .selectable_label(self.evaluation_diagram == kind, kind.tab_label())
+                .clicked()
+            {
+                self.evaluation_diagram = kind;
+                self.status = format!("evaluation diagram: {}", kind.tab_label());
+            }
+        }
+
+        ui.separator();
+        ui.heading("Added points").on_hover_text(
+            "Double-click the plot to add a point. Its full thermodynamic \
+             state is computed live from the same checked flashes the Graph \
+             tab uses.",
+        );
+        ui.horizontal_wrapped(|ui| {
+            if ui.button("Clear points").clicked() {
+                self.evaluation_points.clear();
+                self.status = "cleared evaluation points".to_string();
+            }
+            if ui.button("Copy all points as CSV").clicked() {
+                let csv = self.evaluation_points_csv();
+                ui.ctx().copy_text(csv);
+                self.status = format!(
+                    "copied {} evaluation point(s) as CSV",
+                    self.evaluation_points.len()
+                );
+            }
+        });
+
+        let diagram = self.evaluation_diagram;
+        let mut remove_index = None;
+        for (index, point) in self.evaluation_points.iter().enumerate() {
+            if point.diagram != diagram {
+                continue;
+            }
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(format!("#{}", index + 1)).strong());
+                    if ui.small_button("remove").clicked() {
+                        remove_index = Some(index);
                     }
+                });
+                for line in point.state.property_lines() {
+                    ui.label(line);
                 }
             });
+        }
+        if let Some(index) = remove_index {
+            self.evaluation_points.remove(index);
+            self.status = "removed evaluation point".to_string();
+        }
+    }
+
+    /// Every added point, across every diagram, as one CSV block (issue #26:
+    /// "copyable as csv data").
+    fn evaluation_points_csv(&self) -> String {
+        let mut csv = String::from("diagram,index,property,value,unit\n");
+        for (index, point) in self.evaluation_points.iter().enumerate() {
+            for (name, value, unit) in point.state.property_rows() {
+                csv.push_str(&format!(
+                    "{},{},{name},{value},{unit}\n",
+                    point.diagram.tab_label(),
+                    index + 1
+                ));
+            }
+        }
+        csv
+    }
+
+    /// The Evaluation tab's plot: the saturation dome for context, every
+    /// added point on the current diagram as a marker, and a double-click
+    /// handler that resolves the click into a full state and adds it (issue
+    /// #26, 2026-08-21: "double click the graph and add custom pH, TS, etc
+    /// points... all the thermodynamic properties plotted out for me").
+    fn evaluation_plot_panel(&mut self, ui: &mut egui::Ui) {
+        let diagram = self.evaluation_diagram;
+        let log = diagram.y_is_pressure() && self.log_pressure;
+        let y_label = if log {
+            "log10(Pressure p / bar)".to_string()
+        } else {
+            diagram.y_label().to_string()
+        };
+        let dome =
+            LayerId::SaturationDome.build(diagram, self.curve_samples, &LayerSelection::default());
+        let live_ink = crate::theme::live_ink_colour(ui.visuals().dark_mode);
+        let points: Vec<[f64; 2]> = self
+            .evaluation_points
+            .iter()
+            .filter(|point| point.diagram == diagram)
+            .map(|point| [point.x, point.y])
+            .collect();
+
+        let mut clicked_point: Option<[f64; 2]> = None;
+        Plot::new(format!("evaluation_{}", diagram.tab_label()))
+            .x_axis_label(diagram.x_label())
+            .y_axis_label(y_label)
+            .allow_scroll(false)
+            .legend(Legend::default())
+            .label_formatter(move |name, value| {
+                let coords = evaluation::hover_text(diagram, log, value.x, value.y);
+                if name.is_empty() {
+                    coords
+                } else {
+                    format!("{name}\n{coords}")
+                }
+            })
+            .coordinates_formatter(
+                egui_plot::Corner::LeftTop,
+                egui_plot::CoordinatesFormatter::new(move |point, _bounds| {
+                    evaluation::hover_text(diagram, log, point.x, point.y)
+                }),
+            )
+            .show(ui, |plot_ui| {
+                draw_plot_layers(plot_ui, &dome, diagram, LegendMode::Compact, log, live_ink);
+                if !points.is_empty() {
+                    plot_ui.points(
+                        Points::new("Added points", points)
+                            .color(egui::Color32::from_rgb(224, 88, 64))
+                            .radius(5.0)
+                            .filled(true)
+                            .shape(egui_plot::MarkerShape::Diamond),
+                    );
+                }
+                if plot_ui.response().double_clicked() {
+                    clicked_point = plot_ui.pointer_coordinate().map(|p| [p.x, p.y]);
+                }
+            });
+
+        if let Some([x, y]) = clicked_point {
+            match evaluation::evaluate_diagram_point(diagram, x, y, log) {
+                Ok(state) => {
+                    self.status = format!(
+                        "added evaluation point at {}",
+                        state.property_lines().first().cloned().unwrap_or_default()
+                    );
+                    self.evaluation_points.push(EvaluationPoint {
+                        diagram,
+                        x,
+                        y,
+                        state,
+                    });
+                }
+                Err(message) => {
+                    self.status = format!("evaluation point skipped: {message}");
+                }
+            }
+        }
+    }
+}
+
+/// Draws every layer's segments onto `plot_ui`, in `diagram`'s projection.
+/// Shared by the Graph tab's [`PlotterApp::plot_panel`] and the Evaluation
+/// tab's [`PlotterApp::evaluation_plot_panel`], so the two always render a
+/// layer identically.
+fn draw_plot_layers(
+    plot_ui: &mut egui_plot::PlotUi,
+    layers: &[PlotLayer],
+    diagram: DiagramKind,
+    legend_mode: LegendMode,
+    log: bool,
+    live_ink: egui::Color32,
+) {
+    for layer in layers {
+        // Compact groups a whole family of curves (isotherms, quality lines,
+        // the seven reference datasets, …) under one legend row by giving
+        // every member of the family the same egui_plot series name
+        // (LegendGrouping::ByName, the default, then merges them); Off and
+        // Full both keep each layer's own distinct name.
+        let series_name = if legend_mode == LegendMode::Compact {
+            layer.legend_group.to_string()
+        } else {
+            layer.label.clone()
+        };
+        let colour = if layer.colour == crate::figure::INK {
+            live_ink
+        } else {
+            to_color32(layer.colour)
+        };
+        for segment in &layer.segments {
+            let points: Vec<[f64; 2]> = segment
+                .iter()
+                .filter_map(|point| {
+                    let [x, y] = diagram.project(point);
+                    let y = if log {
+                        if y > 0.0 {
+                            y.log10()
+                        } else {
+                            return None;
+                        }
+                    } else {
+                        y
+                    };
+                    (x.is_finite() && y.is_finite()).then_some([x, y])
+                })
+                .collect();
+            if points.is_empty() {
+                continue;
+            }
+            match layer.style {
+                SeriesStyle::Line { width, dash } => {
+                    let mut line = Line::new(series_name.clone(), points)
+                        .color(colour)
+                        .width(width as f32);
+                    if let Some((on, _off)) = dash {
+                        line = line.style(LineStyle::dashed_dense());
+                        let _ = on;
+                    }
+                    plot_ui.line(line);
+                }
+                SeriesStyle::Markers { shape, size } => {
+                    plot_ui.points(
+                        Points::new(series_name.clone(), points)
+                            .color(colour)
+                            .radius((size * 0.5) as f32)
+                            .filled(!matches!(
+                                shape,
+                                MarkerShape::OpenCircle | MarkerShape::Cross | MarkerShape::Plus
+                            ))
+                            .shape(to_plot_marker(shape)),
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -932,21 +1185,56 @@ impl eframe::App for PlotterApp {
             }
         }
 
-        egui::Panel::left("controls")
-            .resizable(true)
-            .default_size(360.0)
-            .show_inside(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| self.sidebar(ui));
+        // Top-level tab bar: Graph / Evaluation / Citations (issue #26,
+        // 2026-08-21: "Tab selection should be on the top, similar to how
+        // htgr sim v1 does it").
+        egui::Panel::top("app_top").show_inside(ui, |ui| {
+            ui.horizontal(|ui| {
+                for tab in AppTab::ALL {
+                    if ui
+                        .selectable_label(self.active_app_tab == tab, tab.label())
+                        .clicked()
+                    {
+                        self.active_app_tab = tab;
+                    }
+                }
             });
-
-        egui::Panel::bottom("caveats").show_inside(ui, |ui| {
-            let active = self.active_layers();
-            for note in export::footnotes(self.active_tab, &active) {
-                ui.label(egui::RichText::new(note).small());
-            }
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| self.plot_panel(ui));
+        match self.active_app_tab {
+            AppTab::Graph => {
+                egui::Panel::left("controls")
+                    .resizable(true)
+                    .default_size(360.0)
+                    .show_inside(ui, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| self.sidebar(ui));
+                    });
+
+                egui::Panel::bottom("caveats").show_inside(ui, |ui| {
+                    let active = self.active_layers();
+                    for note in export::footnotes(self.active_tab, &active) {
+                        ui.label(egui::RichText::new(note).small());
+                    }
+                });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| self.plot_panel(ui));
+            }
+            AppTab::Evaluation => {
+                egui::Panel::left("evaluation_controls")
+                    .resizable(true)
+                    .default_size(360.0)
+                    .show_inside(ui, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| self.evaluation_sidebar(ui));
+                    });
+
+                egui::CentralPanel::default().show_inside(ui, |ui| self.evaluation_plot_panel(ui));
+            }
+            AppTab::Citations => {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::ScrollArea::vertical().show(ui, citations::ui);
+                });
+            }
+        }
     }
 }
 

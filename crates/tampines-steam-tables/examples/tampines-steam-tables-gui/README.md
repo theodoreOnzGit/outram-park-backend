@@ -26,34 +26,65 @@ cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gu
 `--export-all` needs no display. Options: `--out-dir <DIR>`, `--samples <N>`
 (default 400 samples per computed curve), `--help`.
 
-## GUI controls
+## Top-level tabs
+
+Three tabs across the top of the window (issue #26, 2026-08-21: *"Tab
+selection should be on the top, similar to how htgr sim v1 does it"*):
+
+* **Graph** — the original interactive plotter described below.
+* **Evaluation** — double-click the plot to drop a state point on the
+  current diagram; its full property set (density, specific volume,
+  temperature, pressure, enthalpy, entropy, quality, Gibbs and Helmholtz
+  free energy) is computed live and listed in the sidebar, copyable as one
+  CSV block. Points persist per diagram, so switching diagrams does not lose
+  them. A click that cannot be resolved to a valid IAPWS-IF97 state (out of
+  range, or a T-p click landing in the degenerate two-phase collapse) is
+  skipped with a status-bar warning, never fabricated.
+* **Citations** — every literature/attribution source this GUI relies on
+  (the tabulated steam-table data, Moody, Zaloudek, Marviken, Edwards-O'Brien,
+  and the Gruvbox palette), in one place, read straight from the same
+  provenance strings the sidebar tooltips and CSV export use — so it cannot
+  drift from them.
+
+## GUI controls (Graph tab)
 
 The sidebar is sectioned as: **Diagram**, **Theme**, **Legend**, **Computed
 curves**, **Custom lines**, **Reference / validation data**, **Axes and
 resolution**, **Export**, **Status**. Longer explanations sit on a hover
 tooltip over the section heading rather than in the sidebar body.
 
-* **Theme** — Light, Dark, System, Gruvbox Dark, Gruvbox Light. Light/Dark/
-  System go through `egui`'s own theme preference (`System` follows the OS);
-  both Gruvbox variants build custom `egui::Visuals` from the palette below.
-  Applies immediately, live canvas included. The **exported figure** is a
-  separate concern — see Export style below.
+* **Theme** — Gruvbox Dark, Gruvbox Light. (The plain `egui`
+  Light/Dark/System options were removed 2026-08-21 at the maintainer's
+  request — they were buggy and redundant once Gruvbox covers both a light
+  and a dark chrome.) Both variants build custom `egui::Visuals` from the
+  palette below and apply immediately, live canvas included. The **exported
+  figure** is a separate concern — see Export style below.
 * **Legend** — Off / Compact (default) / Full. Compact merges a whole family
   of curves (all isotherms, all quality lines, every reference dataset, …)
-  into one legend row; Full gives every curve its own row.
+  into one legend row; Full gives every curve its own row. The corner hover
+  readout (below) shows the full property set regardless of which legend
+  mode is active.
+* **Isobars / Isotherms / Quality lines** — each has a multi-select dropdown
+  (`N/… shown`, plus `all`/`none` shortcuts) restricting the checkbox to a
+  chosen subset of the fixed default values, rather than always drawing every
+  one at once. The tabulated-data crosses paired with a selected isobar or
+  isotherm, and the separate "Tabulated data: IAPWS single-phase table" points
+  layer, follow the same selection — enabling only the 100 bar isobar shows
+  only its own tabulated rows, not the full 2 334-row table.
 * **Hover coordinates** — hovering anywhere over the plot area shows a
-  corner-anchored `(x, y)` readout with units (e.g. `h = 2432.10 kJ/kg` /
-  `p = 12.3456 bar`), and the near-curve tooltip carries the same units. On a
-  log-pressure axis the readout is always in bar, never the raw `log10` value
-  the canvas plots internally.
-* **Custom lines** — add an isobar, isotherm, isentrope, isenthalp or
-  isochore at any value (not just the fixed defaults under Computed curves),
-  via a slider plus a numeric input for precise entry. Each is computed live
-  through this crate's own flashes (see *Custom-line physics* below) and
-  included in CSV export with `custom_line_type` / `custom_line_value` /
-  `custom_line_unit` columns. **Clear custom lines**, **Clear reference
-  overlays**, **Clear all overlays** and **Reset plot** sit alongside the
-  list.
+  corner-anchored readout with the point's full thermodynamic state: `p`,
+  `T`, `h`, `s`, density, specific volume, quality, Gibbs and Helmholtz free
+  energy — not just the two axis coordinates. On a log-pressure axis the
+  readout is always in bar, never the raw `log10` value the canvas plots
+  internally. The Evaluation tab's plot shows the same readout.
+* **Custom lines** — add an isobar, isotherm, isentrope, isenthalp, isochore
+  or quality line at any value (not just the fixed defaults under Computed
+  curves), via a slider plus a numeric input for precise entry. Each is
+  computed live through this crate's own flashes (see *Custom-line physics*
+  below) and included in CSV export with `custom_line_type` /
+  `custom_line_value` / `custom_line_unit` columns. **Clear custom lines**,
+  **Clear reference overlays**, **Clear all overlays** and **Reset plot** sit
+  alongside the list.
 * **Export style** — Light publication (default; white/black/grey — issue
   #26's own fallback choice), Current theme (mirrors whichever GUI theme is
   active, Gruvbox included), Dark, Gruvbox. Only the page background/ink/grid
@@ -126,7 +157,18 @@ This distinction is the point of the tool.
 | | Source | Examples |
 |---|---|---|
 | **Curves** | computed **live** from this crate's IAPWS-IF97 routines on every rebuild | saturation dome, saturated liquid/vapour lines, quality lines, isobars, isotherms, region boundaries, critical and triple points, and any custom isobar/isotherm/isentrope/isenthalp/isochore added via the Custom lines section |
-| **Scattered points** | **cited reference data**, verbatim from this crate's own test fixtures | Wagner/IAPWS tables, Moody, Zaloudek, Marviken, Edwards–O'Brien |
+| **Scattered points** | **cited reference data**, verbatim from this crate's own test fixtures | tabulated single-phase/saturation tables, Moody, Zaloudek, Marviken, Edwards–O'Brien |
+
+Full citations for every one of those datasets are on the **Citations** tab.
+The tabulated single-phase and saturation tables are cited as:
+
+> Wagner, W., & Kretzschmar, H. J. (2008). International steam tables:
+> Properties of water and steam based on the industrial formulation
+> IAPWS-IF97. Berlin, Heidelberg: Springer Berlin Heidelberg.
+
+(labelled "Tabulated data" in the sidebar and legend, not "Wagner" — the
+tabulated steam-table data itself predates that textbook, per the
+maintainer's 2026-08-21 correction.)
 
 Nothing plotted is invented, and a layer that cannot be honestly drawn is
 **disabled with a stated reason** rather than filled in. Ten of the sixty-four
@@ -155,7 +197,7 @@ that in a footnote printed on the figure itself.
 ## Verification and validation
 
 Run by `cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui`.
-**32 tests, all passing as of 2026-08-20.**
+**38 tests, all passing as of 2026-08-21.**
 
 The load-bearing one is `curves::saturation_curve_matches_the_wagner_steam_table`.
 
