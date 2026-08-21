@@ -9,9 +9,11 @@
 //! Does not belong here: any interactivity (the TUI binary owns that) or the
 //! pipeline itself ([`super::auto`]).
 //!
-//! Compiled only when a front end that needs it is enabled
-//! (`digitise-cli` or `digitise-tui` features), so the plain library build
-//! carries no `clap` dependency.
+//! Compiled unconditionally, no feature gate — `clap` is already a hard
+//! dependency of this crate's own `kovan` CLI, unlike when this module lived
+//! in `kovan-literature` (moved 2026-08-21, see this crate's `NOTICE`), where
+//! `clap` was optional and this module was gated behind `digitise-cli` /
+//! `digitise-tui`.
 
 use clap::Parser;
 

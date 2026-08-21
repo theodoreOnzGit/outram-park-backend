@@ -477,11 +477,15 @@ validation targets this project depends on exist **only as figures** — the
 HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
 are both recorded in `docs/reactor-scoping/` as arriving that way. When data
 must come off a plot, use this workspace's own digitiser, in
-`crates/kovan-literature/src/digitiser/` with three binaries in that crate:
+`crates/kovan/src/digitiser/` (**moved here from `crates/kovan-literature/`
+on 2026-08-21** — see `crates/kovan/NOTICE`: only the digitiser needs
+`kopitiam-pdf`, which is why `kovan` alone is AGPL-3.0-only) with three
+binaries in that crate:
 
 ```bash
-cargo build --release -p kovan-literature                      # CLI + TUI
-cargo build --release -p kovan-literature --features digitise-gui
+cargo build --release -p kovan --bin kovan-digitise             # CLI
+cargo build --release -p kovan --bin kovan-digitise-tui         # TUI
+cargo build --release -p kovan --bin kovan-gui --features gui   # GUI
 ```
 
 - **`kovan-digitise` (CLI) is the agent path** — fully automatic, scriptable,
@@ -490,11 +494,13 @@ cargo build --release -p kovan-literature --features digitise-gui
   trail, and is exactly the kind of silent processing step `DATA_POLICY.md`
   forbids. Same reasoning as the 138-number Tobias Table 16 transcription:
   prefer the machine-readable path and validate it, over eyeballing.
-- **`kovan-digitise-tui` and `kovan-digitise-gui` are the human path** —
-  automatic pass first, then the maintainer verifies. The CLI can only ever
-  emit `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
+- **`kovan-digitise-tui` and `kovan-gui` are the human path** — automatic
+  pass first, then the maintainer verifies. The CLI can only ever emit
+  `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
   point afterwards resets it to unreviewed. Do not attempt to mark anything
-  reviewed from an agent session.
+  reviewed from an agent session. (`kovan-gui` was `kovan-digitise-gui`
+  before the move — same binary, renamed to match this crate's other two
+  front ends; there is no longer a separate `kovan-digitise-gui`.)
 - **Provenance is structurally mandatory and must stay that way.** A
   `DigitisedDataset` cannot be constructed without a `FigureSource` and a
   `PlotCalibration`. Never add a path that exports points without them.

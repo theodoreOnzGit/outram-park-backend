@@ -7,7 +7,7 @@
 //! you can also try the CLI on it:
 //!
 //! ```text
-//! cargo run --release -p kovan-literature --example digitiser_synthetic_demo
+//! cargo run --release -p kovan --example digitiser_synthetic_demo
 //! kovan-digitise --image digitiser_demo_loglog.png \
 //!     --x-scale log --x-range 1,1e6 --y-scale log --y-range 0.1,10 \
 //!     --figure "synthetic demo" --json demo.json --csv demo.csv
@@ -17,14 +17,12 @@
 //! this crate itself drew) — see the `digitiser` module docs for the honest
 //! limits versus real scanned figures.
 
-use kovan_literature::digitiser::auto::{
-    auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec,
-};
-use kovan_literature::digitiser::calibration::AxisScale;
-use kovan_literature::digitiser::dataset::FigureSource;
-use kovan_literature::digitiser::detect::{DetectConfig, PixelRect};
-use kovan_literature::digitiser::synthetic::{render_synthetic_plot, SyntheticPlotSpec};
-use kovan_literature::digitiser::trace::TraceConfig;
+use kovan::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
+use kovan::digitiser::calibration::AxisScale;
+use kovan::digitiser::dataset::FigureSource;
+use kovan::digitiser::detect::{DetectConfig, PixelRect};
+use kovan::digitiser::synthetic::{render_synthetic_plot, SyntheticPlotSpec};
+use kovan::digitiser::trace::TraceConfig;
 
 /// The known curve: a decay-heat-like power law.
 fn power_law(x: f64) -> f64 {
@@ -77,13 +75,13 @@ fn main() {
         trace: TraceConfig::default(),
     };
     let dataset = auto_digitise(
-        &kovan_literature::digitiser::raster::PlotRaster::from_bytes(&png).expect("decodes"),
+        &kovan::digitiser::raster::PlotRaster::from_bytes(&png).expect("decodes"),
         &config,
         FigureSource::new("synthetic demo (log-log power law)").expect("figure label"),
         "x (arbitrary, log)",
         "y (arbitrary, log)",
         "digitiser_synthetic_demo example",
-        kovan_literature::digitiser::dataset::utc_now_iso8601(),
+        kovan::digitiser::dataset::utc_now_iso8601(),
     )
     .expect("pipeline runs");
 

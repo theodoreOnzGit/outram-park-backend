@@ -174,7 +174,7 @@ pub struct DigitisedPoint {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraceRecord {
     /// Engine identifier and version, e.g.
-    /// `"kovan-literature graph digitiser 0.0.0"`.
+    /// `"kovan graph digitiser 0.0.0"`.
     pub engine: String,
     /// The full trace configuration used.
     pub config: TraceConfig,

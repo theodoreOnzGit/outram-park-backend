@@ -50,21 +50,21 @@
 //! - [`extract_assets`] — extracts embedded raster images whose codec is already
 //!   a standalone file format (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`).
 //!   Images stored under other filters are reported-skipped, not re-encoded.
-//! - [`digitiser`] — graph digitiser: recover `(x, y)` data points from plot
-//!   images, with mandatory calibration/provenance records. Verified against
-//!   synthetic fixtures only (see its module doc for the honest limits).
-//!   Ships three binaries over the one engine: `kovan-digitise` (automatic
-//!   CLI), `kovan-digitise-tui` (hybrid terminal review), and
-//!   `kovan-digitise-gui` (hybrid egui review; desktop-only, non-default
-//!   `digitise-gui` feature).
+//!
+//! **The graph digitiser moved to the `kovan` crate on 2026-08-21** (was
+//! `[crate::digitiser]`, now `kovan::digitiser`; binaries `kovan-digitise`,
+//! `kovan-digitise-tui`, `kovan-gui`) — see that crate's `NOTICE`. It moved
+//! so it can depend on `kopitiam-pdf` (AGPL-3.0-only, GitHub issue #30's
+//! PDF-native digitising) without pulling this crate — used well beyond the
+//! GUI — into that relicense. This crate stays GPL-3.0-only and carries no
+//! digitiser code, no `image`/`eframe`/`egui`/`ratatui` dependency, and no
+//! `digitise-*` feature.
 
 #![forbid(unsafe_code)]
 
 use std::path::{Path, PathBuf};
 
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
-
-pub mod digitiser;
 
 mod bibtex;
 mod markdown;

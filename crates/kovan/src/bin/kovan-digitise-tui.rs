@@ -3,7 +3,7 @@
 //! **Automatic pass first, then human verification — and the verification is
 //! recorded, never assumed.** `auto` mode runs exactly the same pipeline as
 //! the `kovan-digitise` CLI (same flags, via
-//! [`kovan_literature::digitiser::frontend::AutoArgs`]), then drops into a
+//! [`kovan::digitiser::frontend::AutoArgs`]), then drops into a
 //! terminal review screen; `review` mode reopens a previously saved dataset
 //! JSON. In the review screen the operator steps through the traced points
 //! overlaid on a half-block rendering of the plot image, nudges or deletes
@@ -26,12 +26,12 @@
 //! stack) — a terminal app is in scope for the workspace Android rule.
 
 use clap::Parser;
-use kovan_literature::digitiser::dataset::{
+use kovan::digitiser::dataset::{
     uncertainty_interval, utc_now_iso8601, DigitisedDataset, PointOrigin, ReviewInterface,
     ReviewStatus,
 };
-use kovan_literature::digitiser::frontend::AutoArgs;
-use kovan_literature::digitiser::raster::PlotRaster;
+use kovan::digitiser::frontend::AutoArgs;
+use kovan::digitiser::raster::PlotRaster;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Style};

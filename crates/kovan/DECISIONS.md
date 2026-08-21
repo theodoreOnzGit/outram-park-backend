@@ -17,14 +17,28 @@ all three of KOVAN's front ends:
   behind `#[cfg(not(target_os = "android"))] pub mod tui;`.
 - `kovan-gui` (binary, **new**) — added to satisfy the ask that this crate
   carry a GUI interface too, without building a second GUI implementation.
-  It reuses `kovan_literature::digitiser::gui::run` (extracted from what was
+  It reused `kovan_literature::digitiser::gui::run` (extracted from what was
   previously private code inside `kovan-literature`'s own
   `kovan-digitise-gui` binary) — the digitiser window is KOVAN's one
-  established GUI surface, and this binary is a thin wrapper around the same
-  library function `kovan-digitise-gui` now calls too. Gated behind this
-  crate's non-default `gui` feature, which turns on `kovan-literature`'s
+  established GUI surface, and this binary was a thin wrapper around the same
+  library function `kovan-digitise-gui` also called. Gated behind this
+  crate's non-default `gui` feature, which turned on `kovan-literature`'s
   `digitise-gui` feature in turn, so the default `kovan`/`kovan-tui` builds
-  never pull egui/eframe.
+  never pulled egui/eframe.
+
+  **Superseded later the same day.** Once this crate was relicensed to
+  AGPL-3.0-only to take `kopitiam-pdf` as a dependency (GitHub issue #30's
+  PDF-native digitiser work — see this crate's `NOTICE`), the digitiser
+  itself — not just `kovan-gui`'s wrapper around it — moved into this crate
+  from `kovan-literature`: `src/digitiser/` and all three binaries
+  (`kovan-gui`, `kovan-digitise`, `kovan-digitise-tui`). `kovan-literature`
+  must stay GPL-3.0-only (it's used well beyond the GUI), so the digitiser
+  could only become PDF-native from somewhere allowed to depend on
+  `kopitiam-pdf` — which is `kovan` alone. `kovan-literature`'s own
+  `kovan-digitise-gui` binary (which did exactly what `kovan-gui` already
+  did) was retired rather than carried forward as a second name for the same
+  thing. This paragraph documents that as an append, not a rewrite — the
+  bullet above is accurate history for the state it describes.
 
 Nothing in the workspace depended on `kovan-cli` or `kovan-tui` as libraries
 (`grep` for `kovan-cli`/`kovan-tui` in `[workspace.dependencies]` returned

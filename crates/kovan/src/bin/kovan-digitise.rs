@@ -2,7 +2,7 @@
 //!
 //! Loads a plot image, detects the axis frame, calibrates from
 //! caller-supplied axis values (linear or log per axis), traces the curve,
-//! and writes a [`kovan_literature::digitiser::dataset::DigitisedDataset`]
+//! and writes a [`kovan::digitiser::dataset::DigitisedDataset`]
 //! with the complete provenance record. No human in the loop, no prompts;
 //! the same image and flags always produce the same points, and the output
 //! is byte-identical when `--timestamp` is pinned.
@@ -21,7 +21,7 @@
 //! ```
 
 use clap::Parser;
-use kovan_literature::digitiser::frontend::AutoArgs;
+use kovan::digitiser::frontend::AutoArgs;
 
 /// Fully automatic plot digitiser: image in, provenance-carrying data points
 /// out. Axis numeric values come from the flags (read them off the printed

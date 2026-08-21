@@ -18,12 +18,30 @@ license = "AGPL-3.0-only"
 # `kovan-tui` need no extra feature (matching the two original crates, whose
 # clap/ratatui deps were unconditional — nothing else depends on this crate as
 # a library, so there is no "keep the base lean" concern the way there is for
-# kovan-literature). `kovan-gui` reuses kovan-literature's digitiser GUI
-# window rather than implementing a second one, so it only needs that crate's
-# `digitise-gui` feature turned on, behind this crate's own non-default `gui`
-# feature so the plain CLI/TUI builds never pull egui/eframe.
+# kovan-literature).
+#
+# The graph digitiser (`src/digitiser/`, three more binaries below) moved in
+# from `kovan-literature` the same day — see NOTICE for why (in one line:
+# only the digitiser needs `kopitiam-pdf`, which is why this crate alone is
+# AGPL-3.0-only, and kovan-literature must not be dragged into that). Its
+# `frontend`/CLI surface needs no feature gate any more — `clap` is already
+# unconditional here, unlike in kovan-literature, where it was optional. Only
+# the egui GUI stays behind a feature, now named plainly `gui` (was
+# kovan-literature's `digitise-gui`) since this crate owns it outright.
+#
+# `gui` is a DEFAULT feature — desktop builds get `kovan-gui` with a plain
+# `cargo build -p kovan`, no `--features gui` needed — but stays Android-free
+# with no `--no-default-features` needed either: `eframe`/`egui` are declared
+# only under the `[target.'cfg(not(target_os = "android"))'.dependencies]`
+# table below, so on an Android build those deps simply do not exist in that
+# target's dependency graph at all, and `gui`'s `dep:eframe`/`dep:egui`
+# requirement resolves to nothing there rather than erroring. Confirmed
+# 2026-08-21: `cargo tree -p kovan --target aarch64-linux-android -e
+# features` shows zero `eframe`/`egui` — the standard Cargo pattern for a
+# platform-specific default feature, the same shape crates like `winit` use.
 [features]
-gui = ["kovan-literature/digitise-gui"]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui"]
 
 [[bin]]
 name = "kovan"
@@ -37,6 +55,14 @@ path = "src/bin/kovan-tui.rs"
 name = "kovan-gui"
 path = "src/bin/kovan-gui.rs"
 required-features = ["gui"]
+
+[[bin]]
+name = "kovan-digitise"
+path = "src/bin/kovan-digitise.rs"
+
+[[bin]]
+name = "kovan-digitise-tui"
+path = "src/bin/kovan-digitise-tui.rs"
 
 [dependencies]
 kovan-common.workspace = true
@@ -68,12 +94,33 @@ which.workspace = true
 # dependency is the whole of this change, wiring it up is the separate,
 # larger beads above.
 kopitiam-pdf = "0.2.5"
-
-# TUI is desktop scope. ratatui (and its bundled crossterm) are pulled ONLY off
-# Android so the crate honours the workspace Android rule; on Android the
-# `kovan-tui` binary compiles to a stub that points users at the `kovan` CLI.
-[target.'cfg(not(target_os = "android"))'.dependencies]
+# Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
+# decoding (no C toolchain, builds on Termux/Android) and the codec
+# `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature
+# 2026-08-21 with the rest of the digitiser — see NOTICE.
+image.workspace = true
+# `DigitisedDataset` and friends derive `Serialize`/`Deserialize`
+# (`src/digitiser/dataset.rs`), and `raster.rs` SHA-256-hashes the source
+# image for provenance (`DATA_POLICY.md`) — both moved in with the digitiser.
+serde.workspace = true
+sha2.workspace = true
+# ratatui is unconditional (not target-gated off Android), unlike in most of
+# this crate's own history: `kovan-digitise-tui` (moved in from
+# kovan-literature 2026-08-21, see NOTICE) was Android-functional there
+# (kovan-literature declared ratatui unconditionally too), and keeping that
+# working matters more than the Android build-size saving `kovan-tui` alone
+# would get from gating it off. `kovan-tui`'s own binary is unaffected either
+# way — its `main()` still stubs to a CLI-redirect message on Android (see
+# `src/bin/kovan-tui.rs`), so ratatui compiles on Android now but is not
+# actually driven by that binary there.
 ratatui.workspace = true
+
+# The `gui` feature's egui/eframe stack, desktop-only: target-gated off
+# Android on top of being behind the feature, so an Android build of this
+# crate never pulls it even if some future caller enabled `gui` by mistake.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = { workspace = true, optional = true }
+egui = { workspace = true, optional = true }
 
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests

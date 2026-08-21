@@ -121,10 +121,7 @@ pub fn auto_digitise(
     }
 
     let record = TraceRecord {
-        engine: format!(
-            "kovan-literature graph digitiser {}",
-            env!("CARGO_PKG_VERSION")
-        ),
+        engine: format!("kovan graph digitiser {}", env!("CARGO_PKG_VERSION")),
         config: config.trace,
         frame,
         frame_auto_detected,

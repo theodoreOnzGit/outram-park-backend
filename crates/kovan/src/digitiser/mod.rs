@@ -26,12 +26,13 @@
 //! - [`synthetic`] — deterministic rendering of known curves to images, used
 //!   as self-consistency test fixtures (and later to cross-check the
 //!   maintainer-supplied golden oracle, bead `op-amfh`).
-//! - [`frontend`] *(feature-gated)* — the shared `clap` argument surface used
-//!   by the `kovan-digitise` CLI and `kovan-digitise-tui` binaries.
-//! - [`gui`] *(feature-gated)* — the egui app powering `kovan-digitise-gui`,
-//!   exposed as a library function (`gui::run`) so other binaries can reuse
-//!   the same window — the consolidated `kovan` crate's `kovan-gui` does
-//!   exactly this rather than duplicating the app.
+//! - [`frontend`] — the shared `clap` argument surface used by the
+//!   `kovan-digitise` CLI and `kovan-digitise-tui` binaries. Compiled
+//!   unconditionally: `clap` is already a hard dependency of this crate's own
+//!   `kovan` CLI, so — unlike when this module lived in `kovan-literature`,
+//!   where `clap` was optional — there is nothing left to gate.
+//! - [`gui`] *(behind this crate's `gui` feature)* — the egui app powering
+//!   `kovan-gui`, exposed as a library function (`gui::run`).
 //!
 //! ## What does not belong here
 //!
@@ -40,8 +41,14 @@
 //!   are stated in the figure's caption/axes and are facts, not guesses); the
 //!   pixel geometry is what gets automated.
 //! - Network access of any kind.
-//! - PDF page rendering. Extract the figure to PNG/JPEG first (e.g. with
-//!   [`crate::extract_assets`] when the PDF stores it as an embedded raster).
+//! - PDF *parsing* — this module never reads a `.pdf` file directly, only a
+//!   raster image. Producing that raster from a PDF page is a separate
+//!   concern (this crate's `kopitiam-pdf` dependency,
+//!   `kopitiam_pdf::mupdf::rasterize_page`, landed 2026-08-21 for exactly
+//!   this; GitHub issue #30), or extracting an embedded image with
+//!   `kovan_literature::extract_assets`. Either produces the same in-memory
+//!   raster this module already consumes — wiring either path in as a source
+//!   is separate follow-up work, not done as part of this module's move.
 //!
 //! ## Units and `uom`
 //!
@@ -70,9 +77,8 @@ pub mod auto;
 pub mod calibration;
 pub mod dataset;
 pub mod detect;
-#[cfg(any(feature = "digitise-cli", feature = "digitise-tui"))]
 pub mod frontend;
-#[cfg(feature = "digitise-gui")]
+#[cfg(feature = "gui")]
 pub mod gui;
 pub mod raster;
 pub mod synthetic;

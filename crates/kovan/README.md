@@ -1,14 +1,16 @@
 # kovan
 
-The three front ends to KOVAN, in one crate: `kovan` (agent-facing CLI),
-`kovan-tui` (human-facing terminal UI), and `kovan-gui` (a GUI entry point
-that reuses `kovan-literature`'s digitiser window). All three wrap the same
-deterministic, offline sibling `kovan-*` crates — `kovan-discovery`,
-`kovan-literature`, `kovan-semantics`, `kovan-codegen`, `kovan-metrics`.
+Five binaries in one crate: `kovan` (agent-facing CLI), `kovan-tui`
+(human-facing terminal UI), and the graph digitiser's three front ends —
+`kovan-gui`, `kovan-digitise`, `kovan-digitise-tui`. `kovan`/`kovan-tui` wrap
+the same deterministic, offline sibling `kovan-*` crates —
+`kovan-discovery`, `kovan-literature`, `kovan-semantics`, `kovan-codegen`,
+`kovan-metrics`; the digitiser is this crate's own code (`src/digitiser/`).
 
 Consolidated 2026-08-21 from the former separate `kovan-cli` and `kovan-tui`
 crates — see `DECISIONS.md` for the merge rationale and each front end's
-original design history.
+original design history. The graph digitiser joined the same day, moved
+here from `kovan-literature` — see the License section below and `NOTICE`.
 
 See [`docs/kovan.md`](../../docs/kovan.md) for KOVAN's overall design
 principles (deterministic-first, local-first, Android-first) and mission.
@@ -266,48 +268,75 @@ Screen-specific:
   the focused field, `Left`/`Right` cycle the document type (that row only),
   `s` save, `x` discard, `PageUp`/`PageDown` scroll the record pane.
 
-## `kovan-gui` — GUI
+## Graph digitiser — `kovan-gui` / `kovan-digitise` / `kovan-digitise-tui`
 
-Reuses [`kovan_literature::digitiser::gui::run`] — the same window the
-`kovan-digitise-gui` binary in `kovan-literature` opens — rather than
-building a second, general-purpose GUI. The digitiser (see the workspace
-`CLAUDE.md` "Graph digitisation: dogfood kovan-digitise") is KOVAN's one
-established GUI surface: load a plot image, calibrate the axes, auto-trace or
-hand-place points, review/correct, and export a `DigitisedDataset` with full
-provenance. `kovan-gui` exists so that surface is reachable from this
-consolidated crate too, without a second implementation to keep in sync.
+**Moved into this crate from `kovan-literature` on 2026-08-21** (engine at
+`src/digitiser/`, three binaries below) — see `NOTICE` for why: only the
+digitiser needs `kopitiam-pdf` (GitHub issue #30's PDF-native work), which
+is why this crate alone is relicensed AGPL-3.0-only, and `kovan-literature`
+— used well beyond the GUI — must not be dragged into that. See the
+workspace `CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
+mandated-tool context; that section's `-p kovan-literature` invocations now
+read `-p kovan`.
 
-```bash
-cargo run --release -p kovan --bin kovan-gui --features gui [image-path]
-```
+Extract `(x, y)` data points from a plot image with a full calibration +
+provenance record (`DigitisedDataset`): load an image, calibrate the axes
+(linear or log, independently per axis), auto-trace or hand-place points,
+review/correct, export. Three front ends over one engine:
 
-Requires the non-default `gui` feature (see "Android" below for why it is
-not on by default). See `kovan-literature`'s own docs for the interaction
-model, calibration/provenance guarantees, and known limits (no tick-label
-OCR — axis reference values must be supplied).
+- **`kovan-digitise`** — fully automatic, scriptable CLI (the agent path).
+  Always built; no feature needed (`clap` is already a hard dependency of
+  the `kovan` CLI, unlike when this engine lived in `kovan-literature`).
+- **`kovan-digitise-tui`** — automatic pass, then a `ratatui` terminal
+  review screen.
+- **`kovan-gui`** — automatic pass, then an egui review window
+  (graphreader-style: drag/add/delete points by mouse). Built by default on
+  desktop (its `gui` feature is a default feature) but never on Android (see
+  "Android" below for why):
+
+  ```bash
+  cargo run --release -p kovan --bin kovan-gui [image-path]
+  ```
+
+  Used to have a same-behaviour twin, `kovan-digitise-gui`, back when
+  `kovan-literature` owned this engine — retired in the move rather than
+  carried forward as a second name for the same binary.
+
+See [`kovan::digitiser`] module docs for the interaction model,
+calibration/provenance guarantees, and known limits (no tick-label OCR —
+axis reference values must be supplied by the caller).
 
 ## Android
 
-`kovan` and `kovan-tui` are non-GUI and Android-buildable (`kovan-tui`
-compiles to a desktop-only stub on Android):
+`kovan`, `kovan-tui`, `kovan-digitise` and `kovan-digitise-tui` are non-GUI
+and Android-buildable (`kovan-tui` compiles to a desktop-only stub on
+Android; `kovan-digitise-tui` does not — it was already Android-functional
+in `kovan-literature` before the 2026-08-21 move, and stayed that way):
 
 ```bash
 cargo check -p kovan --bin kovan --target aarch64-linux-android
 cargo check -p kovan --bin kovan-tui --target aarch64-linux-android
+cargo check -p kovan --bin kovan-digitise --target aarch64-linux-android
+cargo check -p kovan --bin kovan-digitise-tui --target aarch64-linux-android
 ```
 
-`ratatui` (and its bundled `crossterm`) are pulled only under
-`cfg(not(target_os = "android"))`, and the whole `tui` module tree in
-`src/lib.rs` lives behind that same gate, so no submodule needs to repeat it.
+`ratatui` (and its bundled `crossterm`) is an **unconditional** dependency of
+this crate — not target-gated off Android, unlike `kovan-tui`'s own module
+tree in `src/lib.rs` (`#[cfg(not(target_os = "android"))] pub mod tui;`,
+still gated). That asymmetry is deliberate: `kovan-digitise-tui` needs
+`ratatui` to work on Android, and moving `ratatui` out of the target gate to
+get that costs `kovan-tui` nothing beyond ratatui compiling on Android for a
+binary that stubs itself there anyway.
 
 `kovan-gui` is desktop-only by design (egui/eframe are Android-hostile) and
-sits behind the non-default `gui` feature specifically so that building this
-crate with its **default** feature set — what a plain `cargo build -p kovan`
-or an Android/Termux build does — never pulls egui/eframe into the dependency
-graph. It is therefore excluded from the Android check above; `kovan-gui`
-itself has no Android build (the redirect message it *would* print lives
-inside `kovan_literature::digitiser::gui::run`, since that function is used
-on Android by nothing — no binary in this crate calls it there).
+sits behind the non-default `gui` feature, itself additionally target-gated
+off Android in `Cargo.toml`, so building this crate with its **default**
+feature set — what a plain `cargo build -p kovan` or an Android/Termux build
+does — never pulls egui/eframe into the dependency graph. It is therefore
+excluded from the Android checks above; `kovan-gui` itself has no Android
+build (the redirect message it *would* print lives inside
+[`kovan::digitiser::gui::run`], since that function is used on Android by
+nothing — no binary in this crate calls it there).
 
 ## Testing
 

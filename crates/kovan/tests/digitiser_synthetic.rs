@@ -3,7 +3,7 @@
 //! ## Methodology (V&V rule: methodology + measured results, both required)
 //!
 //! Known analytic curves are rendered to in-memory plot images at known pixel
-//! positions by [`kovan_literature::digitiser::synthetic`] (white background,
+//! positions by [`kovan::digitiser::synthetic`] (white background,
 //! 1-px frame, 3-px-thick curve — typical of published figures), then pushed
 //! through the **full automatic pipeline** ([`auto_digitise`]: frame
 //! detection → calibration from frame-edge values → column-scan trace →
@@ -27,7 +27,12 @@
 //! --test digitiser_synthetic -- --nocapture` (kovan-literature graph
 //! digitiser 0.0.0, synthetic fixtures 500×400 px, frame 461×361 px, 3-px
 //! curve, default `TraceConfig`); numbers below are copied from that run's
-//! output, not predicted:
+//! output, not predicted. **The digitiser relocated from `kovan-literature`
+//! to `kovan` on 2026-08-21** (this file moved with it — same test, same
+//! numbers, now run as `cargo test -p kovan --release --test
+//! digitiser_synthetic -- --nocapture`); the command above is the historical
+//! record of how these particular numbers were produced, not a live
+//! instruction.
 //!
 //! - linear-linear (`y = 0.2 x² + 1`, x ∈ [0, 10], y-span 25): 455 points,
 //!   max |Δy| = 0.034604 y-units = **0.138 %** of the y span (limit 0.5 %).
@@ -52,15 +57,13 @@
 //! golden oracle (bead `op-amfh`); `oracle_comparison_shape` below shows the
 //! intended comparison path so wiring it up is mechanical when it lands.
 
-use kovan_literature::digitiser::auto::{
-    auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec,
-};
-use kovan_literature::digitiser::calibration::AxisScale;
-use kovan_literature::digitiser::dataset::{DigitisedDataset, FigureSource, ReviewStatus};
-use kovan_literature::digitiser::detect::{DetectConfig, PixelRect};
-use kovan_literature::digitiser::raster::PlotRaster;
-use kovan_literature::digitiser::synthetic::{render_synthetic_plot, SyntheticPlotSpec};
-use kovan_literature::digitiser::trace::TraceConfig;
+use kovan::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
+use kovan::digitiser::calibration::AxisScale;
+use kovan::digitiser::dataset::{DigitisedDataset, FigureSource, ReviewStatus};
+use kovan::digitiser::detect::{DetectConfig, PixelRect};
+use kovan::digitiser::raster::PlotRaster;
+use kovan::digitiser::synthetic::{render_synthetic_plot, SyntheticPlotSpec};
+use kovan::digitiser::trace::TraceConfig;
 
 /// Standard fixture geometry: 500×400 image, frame inset 20 px.
 const FRAME: PixelRect = PixelRect {
