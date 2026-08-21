@@ -68,9 +68,17 @@ tooltip over the section heading rather than in the sidebar body.
   (`N/… shown`, plus `all`/`none` shortcuts) restricting the checkbox to a
   chosen subset of the fixed default values, rather than always drawing every
   one at once. The tabulated-data crosses paired with a selected isobar or
-  isotherm, and the separate "Tabulated data: IAPWS single-phase table" points
-  layer, follow the same selection — enabling only the 100 bar isobar shows
-  only its own tabulated rows, not the full 2 334-row table.
+  isotherm follow the same selection.
+* **Tabulated data: IAPWS single-phase table** — filtered by exactly one
+  axis, never the union of both, and *which* axis is diagram-dependent: p-h
+  always filters by the Isotherms selection above (an isobar is a horizontal
+  line there — see Isobars/Isotherms below), T-s always filters by the
+  Isobars selection (an isotherm is a horizontal line there), and T-p / h-s
+  — the two diagrams where neither axis is degenerate — show an explicit
+  **Isobar / Isotherm** toggle next to the checkbox so the choice is
+  explicit. Enabling only the 100 bar isobar on the toggle, or only the
+  300 °C isotherm, shows just that value's own tabulated rows, never the
+  full 2 334-row table.
 * **Hover coordinates** — hovering anywhere over the plot area shows a
   corner-anchored readout with the point's full thermodynamic state: `p`,
   `T`, `h`, `s`, density, specific volume, quality, Gibbs and Helmholtz free
@@ -197,7 +205,7 @@ that in a footnote printed on the figure itself.
 ## Verification and validation
 
 Run by `cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui`.
-**38 tests, all passing as of 2026-08-21.**
+**39 tests, all passing as of 2026-08-21.**
 
 The load-bearing one is `curves::saturation_curve_matches_the_wagner_steam_table`.
 

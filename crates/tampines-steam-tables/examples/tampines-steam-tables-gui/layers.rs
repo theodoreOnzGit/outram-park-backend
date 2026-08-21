@@ -129,6 +129,12 @@ pub enum LayerId {
 /// fix applied to [`LayerId::QualityLines`] (the fixed `x = 0.1 ... 0.9` set):
 /// an empty list means "none of that family," matching `isobars_bar` /
 /// `isotherms_degc`.
+///
+/// Extended again 2026-08-21 with `tabulated_single_phase_axis`, per the
+/// maintainer's follow-up correction: [`LayerId::WagnerSinglePhasePoints`]
+/// (the tabulated single-phase table checkbox) must filter by **one** axis
+/// at a time, and *which* axis is meaningful is diagram-dependent, not a
+/// simple union of both selections -- see [`wagner_single_phase_states_for_selection`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct LayerSelection {
     /// Isobars to draw, in bar. Order does not matter.
@@ -137,6 +143,28 @@ pub struct LayerSelection {
     pub isotherms_degc: Vec<f64>,
     /// Quality lines to draw, dimensionless (0-1). Order does not matter.
     pub qualities: Vec<f64>,
+    /// Which axis filters the tabulated single-phase points layer on a
+    /// diagram where either axis would be meaningful (T-p, h-s). Has no
+    /// effect on p-h (always isotherm-filtered) or T-s (always
+    /// isobar-filtered) -- see [`wagner_single_phase_states_for_selection`].
+    pub tabulated_single_phase_axis: TabulatedFilterAxis,
+}
+
+/// Which axis quantity filters [`LayerId::WagnerSinglePhasePoints`] on a
+/// diagram where the choice is real (T-p, h-s).
+///
+/// On p-h only isotherms are structurally meaningful there (see
+/// [`LayerId::availability_on`]: an isobar is a horizontal line on p-h), and
+/// on T-s only isobars are (an isotherm is a horizontal line on T-s), so
+/// those two diagrams ignore this field entirely and always use the one
+/// axis that applies. T-p and h-s have no such degenerate axis, so the user
+/// picks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TabulatedFilterAxis {
+    /// Filter by the isobar multi-select ([`LayerSelection::isobars_bar`]).
+    Isobar,
+    /// Filter by the isotherm multi-select ([`LayerSelection::isotherms_degc`]).
+    Isotherm,
 }
 
 impl Default for LayerSelection {
@@ -145,6 +173,7 @@ impl Default for LayerSelection {
             isobars_bar: curves::DEFAULT_ISOBARS_BAR.to_vec(),
             isotherms_degc: curves::DEFAULT_ISOTHERMS_DEGC.to_vec(),
             qualities: curves::QUALITY_LINE_VALUES.to_vec(),
+            tabulated_single_phase_axis: TabulatedFilterAxis::Isotherm,
         }
     }
 }
@@ -586,7 +615,7 @@ impl LayerId {
             // table regardless of what was selected elsewhere.
             Self::WagnerSinglePhasePoints => vec![base(
                 "Tabulated single-phase table points".to_string(),
-                vec![wagner_single_phase_states_for_selection(selection)],
+                vec![wagner_single_phase_states_for_selection(diagram, selection)],
                 true,
             )],
             Self::MoodyStates => vec![base(
@@ -739,26 +768,52 @@ pub(crate) const WAGNER_KRETZSCHMAR_CITATION: &str =
      and steam based on the industrial formulation IAPWS-IF97. Berlin, Heidelberg: Springer \
      Berlin Heidelberg.";
 
-/// Wagner single-phase table rows as plotted states, restricted to
-/// `selection`'s isobars and isotherms (issue #26, 2026-08-21 follow-up).
+/// Wagner single-phase table rows as plotted states, restricted to **one**
+/// axis of `selection` -- whichever axis is actually meaningful on
+/// `diagram` (maintainer correction, 2026-08-21: *"for (p,h) diagrams,
+/// filter by isotherm, for (T,s) diagram, filter by isobar. the tp diagram
+/// and [h-s] diagram, can filter by either t or p (but not both)"*).
 ///
-/// Queries [`TabulatedData::isobar_default_tolerance`] for every selected
-/// isobar and [`TabulatedData::isotherm_default_tolerance`] for every
-/// selected isotherm and merges the results, deduplicating rows matched by
-/// both a selected isobar and a selected isotherm at once (a genuine overlap,
-/// not an error). An empty selection on both axes yields no points -- the
+/// | Diagram | Axis used | Why |
+/// |---|---|---|
+/// | p-h | isotherms only | an isobar is a horizontal line on p-h -- see [`LayerId::availability_on`] |
+/// | T-s | isobars only | an isotherm is a horizontal line on T-s -- same reason |
+/// | T-p, h-s | `selection.tabulated_single_phase_axis` | neither axis is degenerate here, so the user picks |
+///
+/// This is a real behaviour change from the first cut of this filter, which
+/// unioned both selections on every diagram regardless of whether the other
+/// axis meant anything there.
+///
+/// Queries [`TabulatedData::isobar_default_tolerance`] or
+/// [`TabulatedData::isotherm_default_tolerance`] for every selected value on
+/// the chosen axis. An empty selection on that axis yields no points -- the
 /// honest "nothing selected" outcome, not a fallback to the full table.
-fn wagner_single_phase_states_for_selection(selection: &LayerSelection) -> Vec<ThermoPoint> {
+fn wagner_single_phase_states_for_selection(
+    diagram: DiagramKind,
+    selection: &LayerSelection,
+) -> Vec<ThermoPoint> {
+    let axis = match diagram {
+        DiagramKind::PressureEnthalpy => TabulatedFilterAxis::Isotherm,
+        DiagramKind::TemperatureEntropy => TabulatedFilterAxis::Isobar,
+        DiagramKind::TemperaturePressure | DiagramKind::EnthalpyEntropy => {
+            selection.tabulated_single_phase_axis
+        }
+    };
+
     let mut states: Vec<TabulatedState> = Vec::new();
-    for p_bar in &selection.isobars_bar {
-        states.extend(TabulatedData.isobar_default_tolerance(Pressure::new::<bar>(*p_bar)));
-    }
-    for t_degc in &selection.isotherms_degc {
-        states.extend(
-            TabulatedData.isotherm_default_tolerance(
-                ThermodynamicTemperature::new::<degree_celsius>(*t_degc),
-            ),
-        );
+    match axis {
+        TabulatedFilterAxis::Isobar => {
+            for p_bar in &selection.isobars_bar {
+                states.extend(TabulatedData.isobar_default_tolerance(Pressure::new::<bar>(*p_bar)));
+            }
+        }
+        TabulatedFilterAxis::Isotherm => {
+            for t_degc in &selection.isotherms_degc {
+                states.extend(TabulatedData.isotherm_default_tolerance(
+                    ThermodynamicTemperature::new::<degree_celsius>(*t_degc),
+                ));
+            }
+        }
     }
     states.sort_by(|a, b| {
         a.pressure
@@ -1082,7 +1137,7 @@ fn wagner_single_phase_points_respect_the_isobar_isotherm_selection() {
     let default_selection = LayerSelection::default();
     let default_built = LayerId::WagnerSinglePhasePoints.build(diagram, 20, &default_selection);
     let default_count: usize = default_built.iter().map(PlotLayer::point_count).sum();
-    let direct_count = wagner_single_phase_states_for_selection(&default_selection).len();
+    let direct_count = wagner_single_phase_states_for_selection(diagram, &default_selection).len();
     assert_eq!(
         default_count, direct_count,
         "the built layer's point count must match wagner_single_phase_states_for_selection \
@@ -1093,6 +1148,9 @@ fn wagner_single_phase_points_respect_the_isobar_isotherm_selection() {
         isobars_bar: vec![100.0],
         isotherms_degc: Vec::new(),
         qualities: Vec::new(),
+        // h-s is one of the two diagrams where the user picks the axis
+        // (see wagner_single_phase_states_for_selection's doc table).
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isobar,
     };
     let states = TabulatedData.isobar_default_tolerance(Pressure::new::<bar>(100.0));
     assert!(
@@ -1126,12 +1184,105 @@ fn wagner_single_phase_points_respect_the_isobar_isotherm_selection() {
         isobars_bar: Vec::new(),
         isotherms_degc: Vec::new(),
         qualities: Vec::new(),
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isobar,
     };
     let built_empty = LayerId::WagnerSinglePhasePoints.build(diagram, 20, &empty);
     let empty_count: usize = built_empty.iter().map(PlotLayer::point_count).sum();
     assert_eq!(
         empty_count, 0,
         "an empty isobar/isotherm selection must draw no tabulated single-phase points"
+    );
+}
+
+/// Checks the tabulated single-phase points layer uses the *right* axis per
+/// diagram, not a union of both (maintainer correction, 2026-08-21: *"for
+/// (p,h) diagrams, filter by isotherm, for (T,s) diagram, filter by isobar.
+/// the tp diagram and [h-s] diagram, can filter by either t or p (but not
+/// both)"*).
+///
+/// # Methodology
+///
+/// Builds a selection naming a real isobar (100 bar) and a real isotherm
+/// (300 degC) at once, plus a variant that additionally sets
+/// [`TabulatedFilterAxis::Isobar`]. On p-h, asserts the point count equals
+/// isotherm-only rows (isobar entirely ignored, axis field ignored too). On
+/// T-s, asserts the point count equals isobar-only rows (isotherm entirely
+/// ignored). On T-p, asserts the point count switches between the two
+/// single-axis counts as [`LayerSelection::tabulated_single_phase_axis`]
+/// toggles between [`TabulatedFilterAxis::Isobar`] and
+/// [`TabulatedFilterAxis::Isotherm`].
+///
+/// # Result (measured 2026-08-21)
+///
+/// Holds on all three diagrams tested.
+#[cfg(test)]
+#[test]
+fn tabulated_single_phase_points_use_the_diagram_appropriate_axis() {
+    let p_bar = 100.0;
+    let t_degc = 300.0;
+    let isobar_only_count = TabulatedData
+        .isobar_default_tolerance(Pressure::new::<bar>(p_bar))
+        .len();
+    let isotherm_only_count = TabulatedData
+        .isotherm_default_tolerance(ThermodynamicTemperature::new::<degree_celsius>(t_degc))
+        .len();
+    assert!(isobar_only_count > 0 && isotherm_only_count > 0);
+    assert_ne!(
+        isobar_only_count, isotherm_only_count,
+        "the two counts must differ or this test cannot tell which axis was actually used"
+    );
+
+    let both_named = LayerSelection {
+        isobars_bar: vec![p_bar],
+        isotherms_degc: vec![t_degc],
+        qualities: Vec::new(),
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isobar,
+    };
+
+    // p-h: isotherm-only, regardless of the axis field or the isobar list.
+    let ph_count: usize = LayerId::WagnerSinglePhasePoints
+        .build(DiagramKind::PressureEnthalpy, 20, &both_named)
+        .iter()
+        .map(PlotLayer::point_count)
+        .sum();
+    assert_eq!(
+        ph_count, isotherm_only_count,
+        "p-h must filter by isotherm only, ignoring the isobar selection"
+    );
+
+    // T-s: isobar-only, regardless of the axis field or the isotherm list.
+    let ts_count: usize = LayerId::WagnerSinglePhasePoints
+        .build(DiagramKind::TemperatureEntropy, 20, &both_named)
+        .iter()
+        .map(PlotLayer::point_count)
+        .sum();
+    assert_eq!(
+        ts_count, isobar_only_count,
+        "T-s must filter by isobar only, ignoring the isotherm selection"
+    );
+
+    // T-p: follows the axis field.
+    let tp_isobar_count: usize = LayerId::WagnerSinglePhasePoints
+        .build(DiagramKind::TemperaturePressure, 20, &both_named)
+        .iter()
+        .map(PlotLayer::point_count)
+        .sum();
+    assert_eq!(
+        tp_isobar_count, isobar_only_count,
+        "T-p with the axis field set to Isobar must filter by isobar"
+    );
+    let tp_isotherm = LayerSelection {
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isotherm,
+        ..both_named.clone()
+    };
+    let tp_isotherm_count: usize = LayerId::WagnerSinglePhasePoints
+        .build(DiagramKind::TemperaturePressure, 20, &tp_isotherm)
+        .iter()
+        .map(PlotLayer::point_count)
+        .sum();
+    assert_eq!(
+        tp_isotherm_count, isotherm_only_count,
+        "T-p with the axis field set to Isotherm must filter by isotherm"
     );
 }
 
@@ -1256,6 +1407,7 @@ fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
         isobars_bar: vec![100.0],
         isotherms_degc: vec![300.0],
         qualities: vec![0.5],
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isotherm,
     };
     let one_isobar = LayerId::Isobars.build(diagram, 20, &one);
     assert!(
@@ -1317,6 +1469,7 @@ fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
         isobars_bar: Vec::new(),
         isotherms_degc: Vec::new(),
         qualities: Vec::new(),
+        tabulated_single_phase_axis: TabulatedFilterAxis::Isotherm,
     };
     assert!(
         LayerId::Isobars.build(diagram, 20, &empty).is_empty(),
