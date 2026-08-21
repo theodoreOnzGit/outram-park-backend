@@ -213,7 +213,7 @@ complete documentation is worse than no index.
 
 rustdoc-md emits **flat headings** — a submodule gets the same heading level
 as its parent — so the module tree cannot be recovered from heading depth.
-This is recorded in `kovan-cli`'s `commands::api_docs` module as a knowingly
+This is recorded in `kovan`'s `commands::api_docs` module as a knowingly
 accepted trade-off. The condenser therefore carries the module path from the
 `# Module \`x\`` heading text and never infers nesting from `#` count.
 

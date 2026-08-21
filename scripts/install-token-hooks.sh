@@ -24,8 +24,8 @@ chmod +x .githooks/* 2>/dev/null || true
 # shellcheck source=/dev/null
 . "$ROOT/.githooks/kovan-bin.sh" 2>/dev/null || true
 if [ -z "${KOVAN_BIN:-}" ]; then
-    echo "No 'kovan' binary found — building it (cargo build --release -p kovan-cli)…"
-    cargo build --release -p kovan-cli
+    echo "No 'kovan' binary found — building it (cargo build --release -p kovan --bin kovan)…"
+    cargo build --release -p kovan --bin kovan
     # shellcheck source=/dev/null
     . "$ROOT/.githooks/kovan-bin.sh"
 fi
@@ -33,8 +33,8 @@ fi
 if [ -z "${KOVAN_BIN:-}" ]; then
     echo "WARNING: still no 'kovan' binary. The hooks are installed but will be" >&2
     echo "         a no-op until one exists — commits will carry NO API-Usage" >&2
-    echo "         trailer. Build it with 'cargo build --release -p kovan-cli'," >&2
-    echo "         or install it with 'cargo install --path crates/kovan-cli'." >&2
+    echo "         trailer. Build it with 'cargo build --release -p kovan --bin kovan'," >&2
+    echo "         or install it with 'cargo install --path crates/kovan'." >&2
     exit 0
 fi
 

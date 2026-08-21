@@ -51,7 +51,7 @@
 //! variants" widget meant for browsers. The JSON is the same structured AST
 //! rustdoc renders from, so item lists come out complete and correctly typed.
 //!
-//! # Why this lives in `kovan-cli` and not `kovan-semantics`
+//! # Why this lives in `kovan` (the CLI) and not `kovan-semantics`
 //!
 //! It spawns `cargo`, so it is desktop-scope and neither offline nor
 //! deterministic. `kovan-semantics` must stay Android-clean and offline by

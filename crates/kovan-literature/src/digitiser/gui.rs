@@ -54,12 +54,8 @@ mod desktop {
         self, Color32, ComboBox, Key, PointerButton, Pos2, Rect, Sense, Stroke, TextureHandle,
         TextureOptions, Vec2,
     };
-    use crate::digitiser::auto::{
-        auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec,
-    };
-    use crate::digitiser::calibration::{
-        AxisCalibration, AxisRef, AxisScale, PlotCalibration,
-    };
+    use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
+    use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale, PlotCalibration};
     use crate::digitiser::dataset::{
         uncertainty_interval, utc_now_iso8601, DigitisedDataset, DigitisedPoint, FigureSource,
         PointOrigin, ReviewInterface, ReviewStatus, DATASET_SCHEMA_VERSION,

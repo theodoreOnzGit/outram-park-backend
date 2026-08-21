@@ -21,8 +21,8 @@
 # Finding nothing is not an error. The caller degrades to a missing trailer,
 # which is recoverable; a blocked commit is not.
 
-# 1. An installed `kovan` on PATH (`cargo install --path crates/kovan-cli`).
-# 2. A release build in this workspace (`cargo build --release -p kovan-cli`).
+# 1. An installed `kovan` on PATH (`cargo install --path crates/kovan`).
+# 2. A release build in this workspace (`cargo build --release -p kovan --bin kovan`).
 # 3. A debug build, as a last resort — correct, just slower to have been built.
 _kovan_find() {
     if command -v kovan >/dev/null 2>&1; then

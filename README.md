@@ -80,8 +80,7 @@ The workspace has 31 member crates, grouped by domain below.
 | [`kovan-literature`](crates/kovan-literature) | Literature archive — PDF → Markdown → `KovanDocument` → BibTeX | GPL-3.0 |
 | [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | GPL-3.0 |
 | [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | GPL-3.0 |
-| [`kovan-cli`](crates/kovan-cli) | Agent-facing CLI (`kovan`) — line-oriented output for coding agents | GPL-3.0 |
-| [`kovan-tui`](crates/kovan-tui) | Human-facing TUI (`ratatui`); CLI-redirect stub on Android | GPL-3.0 |
+| [`kovan`](crates/kovan) | CLI (agent-facing, binary `kovan`), TUI (`ratatui`, binary `kovan-tui`, CLI-redirect stub on Android) and GUI (binary `kovan-gui`, reuses `kovan-literature`'s digitiser window) — three front ends over the KOVAN knowledge layer | GPL-3.0 |
 
 ## Build
 
@@ -105,7 +104,7 @@ Documentation generation and repository accounting run through this workspace's
 own `kovan` binary. There is no Python in either toolchain.
 
 ```bash
-cargo build --release -p kovan-cli     # builds target/release/kovan
+cargo build --release -p kovan --bin kovan     # builds target/release/kovan
 ```
 
 **Prerequisites, both mandatory** — a nightly toolchain and `rustdoc-md`.
@@ -139,7 +138,7 @@ Notes, if kovan is not yet on cargo and you are running in this github
 repo:
 
 ```bash
-cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
+cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
 ```
 
 ### Bundling docs for an external agent
@@ -162,8 +161,8 @@ how many optional files fit in the headroom.
 Again, if kovan is not on cargo and you are running on github:
 
 ```bash
-cargo run --release -p kovan-cli --bin kovan api-docs --all --include-missing
-cargo run --release -p kovan-cli --bin kovan agent-docs-gen --out ~/Desktop/agent-docs.
+cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
+cargo run --release -p kovan --bin kovan -- agent-docs-gen --out ~/Desktop/agent-docs.
 ```
 
 As seen here, u are able to put this on the desktop.

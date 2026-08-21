@@ -10,7 +10,7 @@ Python interpreter**: on Windows, `python3` routinely resolves to a Microsoft
 Store alias stub that prints an advert and exits, which silently turned the git
 hooks into no-ops and let commits ship carrying no `API-Usage` trailer at all.
 
-Driven through the `kovan` CLI (`crates/kovan-cli`):
+Driven through the `kovan` CLI (`crates/kovan`):
 
 ```bash
 kovan tokens trailer <msgfile>   # prepare-commit-msg: stamp the trailers

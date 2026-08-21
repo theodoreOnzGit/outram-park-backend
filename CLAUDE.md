@@ -422,7 +422,7 @@ in `~/Downloads`, not loose in `reference-data/`, not read once and forgotten.
 
 **Document management: `kovan` is preferred over `kopitiam` (HARD RULE).**
 For ingesting, cataloguing and citing literature, use this workspace's own
-`kovan` CLI (`crates/kovan-cli`, binary `kovan`) rather than kopitiam's
+`kovan` CLI (`crates/kovan`, binary `kovan`) rather than kopitiam's
 PDF tooling. `kovan lit import <pdf> --json-out <…> --markdown-out <…>` produces
 a `KovanDocument` — the canonical on-disk form — alongside the Markdown body,
 and `kovan lit bibtex` / `kovan lit outline` work from it. That keeps every
@@ -430,7 +430,7 @@ ingested document inside the project's own knowledge layer with its metadata
 and provenance intact, instead of leaving a loose Markdown file with no record
 of where it came from.
 
-- Build it from the workspace (`cargo build --release -p kovan-cli`) — it is a
+- Build it from the workspace (`cargo build --release -p kovan --bin kovan`) — it is a
   member crate, not something to `cargo install` from crates.io.
 - **Respect the open/proprietary split.** Public, openly published literature
   goes under `crates/kovan-literature/open/` and is committable; anything
@@ -1033,7 +1033,7 @@ This is settled direction, not a preference, and it has been applied three times
 |---|---|---|
 | `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
 | `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
-| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan-cli`) | 2026-08-14, `op-w44a.7` |
+| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan`) | 2026-08-14, `op-w44a.7` |
 | `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
 | `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
 
@@ -1204,8 +1204,7 @@ built, tested, and published from this single repository.
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
 | `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
-| `kovan-cli` (bin `kovan`) | KOVAN **agent-facing** CLI (`clap`) — line-oriented output for Claude Code and other coding agents. | GPL-3.0 |
-| `kovan-tui` (bin) | KOVAN **human-facing** TUI (`ratatui`). Desktop scope: on Android it compiles to a CLI-redirect stub. | GPL-3.0 |
+| `kovan` (bins `kovan`, `kovan-tui`, `kovan-gui`) | KOVAN's three front ends over the knowledge layer: `kovan` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents); `kovan-tui` is the **human-facing** TUI (`ratatui`; desktop scope, CLI-redirect stub on Android); `kovan-gui` reuses `kovan-literature`'s digitiser GUI window rather than duplicating it. Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates. | GPL-3.0 |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
 | `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
@@ -1221,7 +1220,8 @@ built, tested, and published from this single repository.
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
 > codegen), interfaced two ways: the `kovan` **CLI** for agents and the
-> `kovan-tui` **TUI** for humans. Offline / Android-first, no cloud, no
+> `kovan-tui` **TUI** for humans (both binaries of the single `kovan` crate,
+> which also carries `kovan-gui`). Offline / Android-first, no cloud, no
 > Tree-sitter/SQLite/vector-store. Full design spec: **`docs/kovan.md`**
 > (+ `docs/kovan-architecture.md`). Non-GUI kovan crates build for Android;
 > `ratatui` is pulled only under `cfg(not(target_os = "android"))`.
@@ -1341,9 +1341,12 @@ target rather than letting them break the build.
   Android** like any other non-GUI crate — do not exempt it. What is out of
   scope is **`egui`/`eframe`/`wgpu`-surface/windowing** GUI: keep that behind
   examples/optional bins/target gates, never in a library's unconditional
-  build, so the lib still builds headless for Android. Concretely: `kovan-cli`
-  (CLI) and `kovan-tui` (`ratatui` TUI — target-gated to a CLI-redirect stub on
-  Android) are **in scope and verified building** for `aarch64-linux-android`;
+  build, so the lib still builds headless for Android. Concretely: the `kovan`
+  crate's `kovan` (CLI) and `kovan-tui` (`ratatui` TUI — target-gated to a
+  CLI-redirect stub on Android) binaries are **in scope and verified building**
+  for `aarch64-linux-android` (its `kovan-gui` binary is the crate's own GUI
+  exemption, gated behind a non-default feature so it never affects the other
+  two's default build);
   only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
   GUI exemption.
 - **New code follows this by default.** If you add a dep or a test that can't

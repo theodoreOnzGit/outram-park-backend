@@ -22,7 +22,7 @@ kovan api-docs outram-foam-appbuilder-lib
 rustdoc's JSON output is nightly-only; the script installs `rustdoc-md`
 itself if it isn't already on `PATH`.) It fully overwrites `api.md`, so hand
 edits there don't survive a regeneration. See
-`outram-park-fork-coolprop/docs/README.md` and `kovan-cli`'s `commands::api_docs`
+`outram-park-fork-coolprop/docs/README.md` and `kovan`'s `commands::api_docs`
 own docstring for why this uses the JSON pipeline instead of scraping
 `cargo doc`'s HTML output.
 
