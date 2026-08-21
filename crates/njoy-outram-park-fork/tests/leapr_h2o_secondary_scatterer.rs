@@ -37,16 +37,27 @@
 //!   previously measured*, which is why its tolerances are stated as agreement
 //!   bands rather than a bit-parity claim.
 //!
-//! # Methodology and measured results (2026-08-14, generated at 293.6 K)
+//! # Methodology and measured results (2026-08-21, generated at 293.6 K)
 //!
 //! | Quantity | Published evaluation | Regenerated | Deviation |
 //! |---|---|---|---|
-//! | `T_eff` | 1194.3 K | **1195.35 K** | **+0.09 %** |
+//! | `T_eff` | 1194.3 K | **1194.33 K** | **+0.0028 %** |
 //! | σ_free | 20.436 b/H | **20.43608 b/H** | exact (a `B` constant) |
-//! | σ_inel(0.0253 eV) | 52.10 b/H | **52.408 b/H** | **+0.59 %** |
-//! | σ_inel(1 eV) | 21.713 b/H | **21.847 b/H** | **+0.62 %** |
-//! | σ_inel(4 eV) | 20.951 b/H | **21.073 b/H** | **+0.58 %** |
-//! | σ_inel(8 eV) | 20.707 b/H | **20.835 b/H** | **+0.62 %** |
+//! | σ_inel(0.0253 eV) | 52.10 b/H | **52.105 b/H** | **+0.01 %** |
+//! | σ_inel(1 eV) | 21.713 b/H | **21.713 b/H** | **+0.00 %** |
+//! | σ_inel(4 eV) | 20.951 b/H | **20.951 b/H** | **+0.00 %** |
+//! | σ_inel(8 eV) | 20.707 b/H | **20.707 b/H** | **+0.00 %** |
+//!
+//! **These numbers replace the 2026-08-14 measurements** (`T_eff` 1195.35 K,
+//! +0.09 %; the four σ_inel entries +0.58 % to +0.62 %). That residual ~0.6 %
+//! bias was not a generation-versus-evaluation difference, as the earlier note
+//! assumed — it was [`generate_tape`] taking the deck's **block 0** (283.6 K)
+//! spectrum for a 293.6 K request. H-in-H₂O re-specifies its frequency
+//! distribution at all 18 of its temperatures, and 293.6 K is one of them;
+//! selecting the block that actually belongs to the request removes the bias
+//! entirely and every σ_inel now reproduces the published value to the printed
+//! precision. See `temperature_block_index` in
+//! `src/leapr/generate.rs`.
 //!
 //! For contrast, the same generation path *without* the `trans` / `discre`
 //! stages gave `T_eff = 482.49 K` (−60 %) and `σ_inel(8 eV) = 30.58 b` (+48 %).
@@ -217,7 +228,9 @@ fn generated_b_constants_carry_the_secondary_scatterer() {
 /// **Pass criterion:** `T_eff` within 2 % of the evaluation's 1194.3 K, and
 /// comfortably above the continuum-only 482.49 K that the pre-fix path gave.
 ///
-/// **Result (2026-08-14):** `T_eff = 1195.35 K`, +0.09 % against 1194.3 K.
+/// **Result (2026-08-21):** `T_eff = 1194.33 K`, +0.0028 % against 1194.3 K.
+/// (Was 1195.35 K / +0.09 % until the temperature-block-selection fix; see the
+/// module docs.)
 #[test]
 fn effective_temperature_includes_translation_and_oscillators() {
     let sab = regenerate();

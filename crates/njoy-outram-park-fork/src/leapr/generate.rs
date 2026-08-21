@@ -436,6 +436,72 @@ fn sha256_hex(bytes: &[u8]) -> String {
     s
 }
 
+/// Which of the deck's temperature blocks (cards 10-19) supplies the spectrum
+/// for a run at `temperature_k`.
+///
+/// A LEAPR deck may re-specify the frequency distribution, translational weight
+/// and oscillators **per temperature**: card 10 carries a positive temperature
+/// when cards 11-19 follow, and a negative one when they are inherited from the
+/// preceding block ([`LeaprTemperature::inherited`]). NJOY's own driver walks
+/// the blocks in order and computes each declared temperature with *its own*
+/// cards; this port generates one temperature per call, so it has to pick the
+/// block itself.
+///
+/// The rule:
+///
+/// 1. If a declared temperature matches `temperature_k` within NJOY's
+///    `T/1000 + 5` K tolerance ([`temperature_match_tolerance_k`], the same one
+///    `thermr` uses to match a tabulated temperature), use **that** block — the
+///    nearest such block if several are inside the tolerance.
+/// 2. Otherwise, block 0 is only safe when every later block inherits it, i.e.
+///    the deck carries a single spectrum used at all its temperatures. Then any
+///    `temperature_k` is legitimate: the spectrum is temperature-independent and
+///    only `tev` changes. This is the case for every crystalline deck here
+///    (graphite, Be, BeO, SiC, ZrH, UO2, ...), and is what makes
+///    off-grid requests such as HTR-10's 523 K meaningful.
+/// 3. Otherwise the deck has genuinely different spectra per temperature and the
+///    request is off-grid, so there is no defensible block to use — refuse
+///    rather than silently substituting one.
+///
+/// **Why this is not just cosmetic** (found 2026-08-21 while validating the
+/// Si-in-SiC kernel). Before this function existed, `generate_tape` used block 0
+/// unconditionally. For the three liquid decks that re-specify their spectrum —
+/// `HInH2O` (18 blocks), `DInD2O` and `OInD2O` (17 each) — that silently
+/// substituted the coldest block at every temperature. Measured on `HInH2O`,
+/// block 0 (283.6 K) against the block that actually belongs to the request:
+/// the mean phonon energy is 0.56 % high at 293.6 K and **28 % high at 650 K**,
+/// and the translational weight `twt` is 0.0069 against 0.0079 (293.6 K) and
+/// 0.0262 (650 K) — a factor of 3.8 at the top. Water is the most-used moderator
+/// in the library, and 293.6 K (the temperature this crate's own H-in-H₂O tests
+/// request, and a temperature the deck *does* declare) was hitting the wrong
+/// block. Nothing errored; the numbers were just wrong.
+fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
+    let declared = deck.temperatures_k();
+    let tol = crate::thermr::mf7::temperature_match_tolerance_k(temperature_k);
+
+    let nearest = declared
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (i, (t - temperature_k).abs()))
+        .filter(|(_, d)| *d <= tol)
+        .min_by(|a, b| a.1.total_cmp(&b.1));
+    if let Some((i, _)) = nearest {
+        return Ok(i);
+    }
+
+    // No declared temperature matches. Safe only if there is one spectrum.
+    if deck.temperatures.iter().skip(1).all(|b| b.inherited) {
+        return Ok(0);
+    }
+
+    Err(NjoyError::NotPorted(
+        "LEAPR deck re-specifies its frequency spectrum per temperature (card 10 positive \
+         for more than one block), and the requested temperature matches none of them. \
+         Generating from another temperature's spectrum would silently produce a wrong \
+         S(alpha,beta); request one of the deck's own temperatures instead.",
+    ))
+}
+
 /// Build the LEAPR output for one temperature and write it as an ENDF MF=7
 /// tape, with no caching.
 ///
@@ -479,7 +545,8 @@ pub fn generate_tape(
     }
 
     let temperature_k = temperature.get::<kelvin>();
-    let input = deck.input_at_temperature(0, temperature_k)?;
+    let block = temperature_block_index(deck, temperature_k)?;
+    let input = deck.input_at_temperature(block, temperature_k)?;
 
     let freq = FrequencyModel::start(
         &input.continuous.rho,
