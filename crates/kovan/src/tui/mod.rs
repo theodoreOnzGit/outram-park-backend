@@ -6,13 +6,15 @@
 //!
 //! # Navigation
 //!
-//! Six tabs ([`Tab`]), switched with `1`-`6` or `Tab`/`Shift+Tab` whenever no
-//! text field is being edited. Each tab that reads the filesystem (Browser,
-//! Symbols, Literature, Ingest) owns a small text field for its root path,
-//! entered with `e` and confirmed with `Enter`/cancelled with `Esc` — see
-//! [`App::editing`]. `q`/`Esc` quits from any tab, except while editing (where
-//! `Esc` only cancels the edit) and except when the Ingest tab has work in
-//! flight (see [`App::handle_key`]).
+//! Seven tabs ([`Tab`]), switched with `1`-`7` or `Tab`/`Shift+Tab` whenever
+//! no text field is being edited. Each tab that reads the filesystem
+//! (Browser, Symbols, Literature, Ingest) owns a small text field for its
+//! root path, entered with `e` and confirmed with `Enter`/cancelled with
+//! `Esc` — see [`App::editing`]; the Digitiser tab's Setup form uses the same
+//! `e`/`Enter`/`Esc` convention across several fields. `q`/`Esc` quits from
+//! any tab, except while editing (where `Esc` only cancels the edit) and
+//! except when the Ingest or Digitiser tab has work in flight (see
+//! [`App::handle_key`]).
 //!
 //! # State ownership
 //!
@@ -32,6 +34,7 @@
 //! flight; otherwise it is long, so an idle TUI stays effectively asleep.
 
 mod browser;
+mod digitiser;
 mod ingest;
 mod literature;
 mod methods;
@@ -48,7 +51,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, Tabs};
 use ratatui::{DefaultTerminal, Frame};
 
-/// The six human-facing screens.
+/// The seven human-facing screens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Tab {
     #[default]
@@ -57,17 +60,22 @@ pub enum Tab {
     Symbols,
     Methods,
     Literature,
-    /// Interactive literature ingestion — the only screen that writes files.
+    /// Interactive literature ingestion — writes Markdown/JSON/BibTeX.
     Ingest,
+    /// Interactive graph digitiser — writes the digitised dataset JSON/CSV.
+    /// Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21
+    /// (GitHub issue #30's 3-binary consolidation; see [`digitiser`]).
+    Digitiser,
 }
 
-const TABS: [Tab; 6] = [
+const TABS: [Tab; 7] = [
     Tab::Overview,
     Tab::Browser,
     Tab::Symbols,
     Tab::Methods,
     Tab::Literature,
     Tab::Ingest,
+    Tab::Digitiser,
 ];
 
 impl Tab {
@@ -79,6 +87,7 @@ impl Tab {
             Tab::Methods => "Methods",
             Tab::Literature => "Literature",
             Tab::Ingest => "Ingest",
+            Tab::Digitiser => "Digitiser",
         }
     }
 
@@ -100,6 +109,7 @@ impl Tab {
             '4' => Some(Tab::Methods),
             '5' => Some(Tab::Literature),
             '6' => Some(Tab::Ingest),
+            '7' => Some(Tab::Digitiser),
             _ => None,
         }
     }
@@ -120,6 +130,7 @@ pub struct App {
     methods: methods::MethodsState,
     literature: literature::LiteratureState,
     ingest: ingest::IngestState,
+    digitiser: digitiser::DigitiserState,
 }
 
 impl App {
@@ -139,6 +150,10 @@ impl App {
                 event::KeyCode::Char('q') | event::KeyCode::Esc => {
                     if self.tab == Tab::Ingest && self.ingest.blocks_quit() {
                         self.ingest.note_blocked_quit();
+                        return;
+                    }
+                    if self.tab == Tab::Digitiser && self.digitiser.blocks_quit() {
+                        self.digitiser.note_blocked_quit();
                         return;
                     }
                     self.should_quit = true;
@@ -178,23 +193,27 @@ impl App {
                 }
             }
             Tab::Ingest => self.ingest.handle_key(key, &mut self.editing),
+            Tab::Digitiser => self.digitiser.handle_key(key, &mut self.editing),
         }
     }
 
     /// Advance any background work by one draw-loop iteration.
     ///
-    /// Currently only the Ingest tab has any: it polls its worker thread and
-    /// advances the progress spinner. Returns `true` when the screen must be
-    /// fully repainted (a phase change; see `IngestState::tick`).
+    /// The Ingest tab polls its extraction worker thread; the Digitiser tab
+    /// polls its automatic-pass worker thread. Both advance a progress
+    /// spinner. Returns `true` when either screen must be fully repainted (a
+    /// phase change; see `IngestState::tick` / `DigitiserState::tick`).
     pub fn tick(&mut self) -> bool {
-        self.ingest.tick()
+        let ingest_changed = self.ingest.tick();
+        let digitiser_changed = self.digitiser.tick();
+        ingest_changed || digitiser_changed
     }
 
     /// How long the draw loop should wait for a key before looping again —
     /// short while background work is in flight so progress stays live, long
     /// when idle so the process is effectively asleep.
     fn poll_interval(&self) -> Duration {
-        if self.ingest.is_busy() {
+        if self.ingest.is_busy() || self.digitiser.is_busy() {
             Duration::from_millis(100)
         } else {
             Duration::from_millis(1000)
@@ -265,18 +284,20 @@ fn draw(frame: &mut Frame, app: &mut App) {
         Tab::Methods => methods::draw(frame, chunks[1], &mut app.methods),
         Tab::Literature => literature::draw(frame, chunks[1], &mut app.literature, app.editing),
         Tab::Ingest => ingest::draw(frame, chunks[1], &mut app.ingest, app.editing),
+        Tab::Digitiser => digitiser::draw(frame, chunks[1], &mut app.digitiser, app.editing),
     }
 
     let help = if app.editing {
         "editing — type, Enter to confirm, Esc to cancel"
     } else {
         match app.tab {
-            Tab::Overview => "1-6 / Tab: switch tabs   q / Esc: quit",
-            Tab::Browser => "e: edit root  Enter: rescan  Left/Right: filter  Up/Down: select  1-6: tabs  q: quit",
-            Tab::Symbols => "e: edit root  Enter: rescan  Left/Right: language  m: markdown view  1-6: tabs  q: quit",
+            Tab::Overview => "1-7 / Tab: switch tabs   q / Esc: quit",
+            Tab::Browser => "e: edit root  Enter: rescan  Left/Right: filter  Up/Down: select  1-7: tabs  q: quit",
+            Tab::Symbols => "e: edit root  Enter: rescan  Left/Right: language  m: markdown view  1-7: tabs  q: quit",
             Tab::Methods => "Left/Right: family  Up/Down: method  Enter: generate  PgUp/PgDn: scroll  q: quit",
             Tab::Literature => "e: edit root  Enter: preview  i: import selected PDF  r: rescan  Left/Right: filter  q: quit",
             Tab::Ingest => app.ingest.help_line(),
+            Tab::Digitiser => app.digitiser.help_line(),
         }
     };
     frame.render_widget(Paragraph::new(help), chunks[2]);
@@ -332,7 +353,7 @@ mod tests {
     fn back_tab_cycles_backward_and_wraps_from_overview() {
         let mut app = App::default();
         app.handle_key(key(KeyCode::BackTab));
-        assert_eq!(app.tab, Tab::Ingest, "Ingest is the last tab");
+        assert_eq!(app.tab, Tab::Digitiser, "Digitiser is the last tab");
     }
 
     #[test]
@@ -375,6 +396,13 @@ mod tests {
         let mut app = App::default();
         app.handle_key(key(KeyCode::Char('6')));
         assert_eq!(app.tab, Tab::Ingest);
+    }
+
+    #[test]
+    fn digit_seven_reaches_the_digitiser_tab() {
+        let mut app = App::default();
+        app.handle_key(key(KeyCode::Char('7')));
+        assert_eq!(app.tab, Tab::Digitiser);
     }
 
     #[test]

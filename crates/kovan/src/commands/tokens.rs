@@ -1,4 +1,4 @@
-//! `kovan tokens` — per-commit API-token accounting.
+//! `kovan-cli tokens` — per-commit API-token accounting.
 //!
 //! A thin frontend over [`kovan_metrics::tokens`]. The write-side subcommands
 //! are invoked by the git hooks (`.githooks/prepare-commit-msg` and
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use clap::Subcommand;
 use kovan_metrics::{date::Date, tokens};
 
-/// Subcommands of `kovan tokens`.
+/// Subcommands of `kovan-cli tokens`.
 #[derive(Subcommand)]
 pub enum TokensCommand {
     /// Append the `API-Usage-*` trailers to a commit message file
@@ -51,7 +51,7 @@ pub enum TokensCommand {
     },
 }
 
-/// Dispatch a `kovan tokens` subcommand.
+/// Dispatch a `kovan-cli tokens` subcommand.
 ///
 /// Only `query` can return an error (a malformed `DDMMYY`), because it is the
 /// interactive path. The hook-facing subcommands always succeed.

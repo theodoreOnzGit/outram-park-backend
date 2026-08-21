@@ -26,13 +26,15 @@
 //! - [`synthetic`] — deterministic rendering of known curves to images, used
 //!   as self-consistency test fixtures (and later to cross-check the
 //!   maintainer-supplied golden oracle, bead `op-amfh`).
-//! - [`frontend`] — the shared `clap` argument surface used by the
-//!   `kovan-digitise` CLI and `kovan-digitise-tui` binaries. Compiled
-//!   unconditionally: `clap` is already a hard dependency of this crate's own
-//!   `kovan` CLI, so — unlike when this module lived in `kovan-literature`,
-//!   where `clap` was optional — there is nothing left to gate.
-//! - [`gui`] *(behind this crate's `gui` feature)* — the egui app powering
-//!   `kovan-gui`, exposed as a library function (`gui::run`).
+//! - [`frontend`] — the shared `clap` argument surface used by `kovan-cli
+//!   digitise` (the automatic-only path) and `kovan-tui`'s Digitiser tab
+//!   (automatic pass, then interactive review). Compiled unconditionally:
+//!   `clap` is already a hard dependency of this crate's own `kovan-cli`, so
+//!   — unlike when this module lived in `kovan-literature`, where `clap` was
+//!   optional — there is nothing left to gate.
+//! - [`gui`] *(behind this crate's `gui` feature, default except on
+//!   Android)* — the egui app powering the `kovan` binary, exposed as a
+//!   library function (`gui::run`).
 //!
 //! ## What does not belong here
 //!

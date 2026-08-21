@@ -8,7 +8,7 @@
 //!
 //! ```text
 //! cargo run --release -p kovan --example digitiser_synthetic_demo
-//! kovan-digitise --image digitiser_demo_loglog.png \
+//! kovan-cli digitise --image digitiser_demo_loglog.png \
 //!     --x-scale log --x-range 1,1e6 --y-scale log --y-range 0.1,10 \
 //!     --figure "synthetic demo" --json demo.json --csv demo.csv
 //! ```

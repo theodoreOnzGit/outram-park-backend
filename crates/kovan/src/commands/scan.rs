@@ -1,4 +1,4 @@
-//! `kovan scan` — a ripgrep-first scan of a repository for probable
+//! `kovan-cli scan` — a ripgrep-first scan of a repository for probable
 //! definition lines of a given language (see
 //! [`kovan_semantics::rough_definition_scan`]). This is the cheap heuristic
 //! pre-filter; [`super::symbols`] is the real named-symbol catalogue.

@@ -1,6 +1,6 @@
-//! `kovan gen` — deterministic numerical-method code generation
+//! `kovan-cli gen` — deterministic numerical-method code generation
 //! (`kovan-codegen`). One nested subcommand per method family, mirroring
-//! `kovan methods`'s catalogue grouping.
+//! `kovan-cli methods`'s catalogue grouping.
 //!
 //! `clap::ValueEnum` is a foreign trait, so it cannot be derived directly on
 //! `kovan-codegen`'s own catalogue enums from this crate; each family gets a
@@ -13,7 +13,7 @@ use clap::{Subcommand, ValueEnum};
 
 use kovan_codegen::{generate, LinearSolver, Method, NonlinearSolver, OdeSolver, PdeScheme, RootFinder};
 
-/// `kovan gen <family> <method> [--out <path>]`.
+/// `kovan-cli gen <family> <method> [--out <path>]`.
 #[derive(Subcommand)]
 pub enum GenCommand {
     /// Generate a scalar root finder.

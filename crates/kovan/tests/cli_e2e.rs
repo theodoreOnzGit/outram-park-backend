@@ -1,22 +1,26 @@
-//! End-to-end tests: spawn the compiled `kovan` binary against synthetic,
+//! End-to-end tests: spawn the compiled `kovan-cli` binary against synthetic,
 //! throwaway fixtures (a tempdir repository tree, a synthetic PDF built with
 //! `lopdf`) and assert on its stdout/stderr/exit code. This is deliberately a
 //! black-box test of the CLI surface — argument parsing is covered by the
-//! unit tests in `src/main.rs`; this file checks the subcommands actually
-//! drive the underlying `kovan-*` libraries and print the documented,
-//! line-oriented output.
+//! unit tests in `src/bin/kovan-cli.rs`; this file checks the subcommands
+//! actually drive the underlying `kovan-*` libraries and print the
+//! documented, line-oriented output.
+//!
+//! Targets `kovan-cli` specifically, not plain `kovan` — since 2026-08-21
+//! (GitHub issue #30's final 3-binary spec) `kovan` is the GUI binary, which
+//! needs a display and cannot run headlessly in CI/agent sessions.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-/// Run the compiled `kovan` binary with `args`, returning its output.
-/// `CARGO_BIN_EXE_kovan` is set by Cargo for integration tests in this same
-/// (binary) crate.
+/// Run the compiled `kovan-cli` binary with `args`, returning its output.
+/// `CARGO_BIN_EXE_kovan-cli` is set by Cargo for integration tests in this
+/// same (binary) crate.
 fn kovan(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_kovan"))
+    Command::new(env!("CARGO_BIN_EXE_kovan-cli"))
         .args(args)
         .output()
-        .expect("spawn kovan")
+        .expect("spawn kovan-cli")
 }
 
 fn stdout(out: &Output) -> String {
@@ -370,7 +374,7 @@ fn setup_dry_run_reports_without_installing() {
     let out = kovan(&["setup", "--dry-run"]);
     assert!(out.status.success(), "{}", stderr(&out));
     let text = stdout(&out);
-    assert!(text.contains("kovan setup"), "{text}");
+    assert!(text.contains("kovan-cli setup"), "{text}");
     assert!(text.contains("dry run"), "{text}");
     // One reported line per curated tool (either "already on PATH" or "would
     // run `cargo install ...`"); `rg` (ripgrep) is in the curated list.

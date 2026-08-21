@@ -1,4 +1,4 @@
-//! `kovan discover` — enumerate files under a root, honouring `.gitignore`
+//! `kovan-cli discover` — enumerate files under a root, honouring `.gitignore`
 //! (via [`kovan_discovery::discover`] / [`kovan_discovery::discover_kind`]).
 
 use std::path::PathBuf;

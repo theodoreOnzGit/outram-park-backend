@@ -1,4 +1,4 @@
-//! `kovan symbols` and `kovan summary` — repository symbol cataloguing via
+//! `kovan-cli symbols` and `kovan-cli summary` — repository symbol cataloguing via
 //! `kovan-semantics`'s ripgrep-first extractor
 //! ([`kovan_semantics::catalogue_symbols_detailed`]), rendered either as
 //! agent-facing line-oriented text or as the documented Markdown artifacts
@@ -14,7 +14,7 @@ use kovan_semantics::{
 
 use super::LangArg;
 
-/// `kovan symbols <root> --lang <lang> [--markdown] [--out <path>] [--name <name>]`.
+/// `kovan-cli symbols <root> --lang <lang> [--markdown] [--out <path>] [--name <name>]`.
 ///
 /// Default output is line-oriented: `path:line: kind qualified_name`, one
 /// symbol per line (sorted by discovery order — see
@@ -42,7 +42,7 @@ pub fn run_symbols(
     Ok(())
 }
 
-/// `kovan summary <root> --lang <lang> [--id <id>] [--name <name>] [--out <path>]`
+/// `kovan-cli summary <root> --lang <lang> [--id <id>] [--name <name>] [--out <path>]`
 /// — renders `repository-summary.md`. There is no persisted `KovanRepository`
 /// catalogue yet, so the repository record is synthesised from `root`'s
 /// directory name (or `--id`/`--name`) and `lang`.

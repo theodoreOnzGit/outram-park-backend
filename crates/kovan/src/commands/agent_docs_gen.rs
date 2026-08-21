@@ -1,4 +1,4 @@
-//! `kovan agent-docs-gen` — bundle the workspace's API documentation into a
+//! `kovan-cli agent-docs-gen` — bundle the workspace's API documentation into a
 //! flat set of files for an external chat agent with a fixed context budget.
 //!
 //! The bundling logic lives in
@@ -35,7 +35,7 @@ use kovan_semantics::agent_docs::{estimated_tokens, inventory, write_bundle, Cra
 /// "probably fits" rather than "fits".
 const DEFAULT_BUDGET_TOKENS: u64 = 200_000;
 
-/// Run `kovan agent-docs-gen`.
+/// Run `kovan-cli agent-docs-gen`.
 ///
 /// `workspace_root` is the directory containing `crates/`; `out_dir` is where
 /// the flat bundle is written (cleared of `*.md` first). `selected` names the
@@ -219,7 +219,7 @@ fn validate_exists(entries: &[CrateEntry], selected: &[String]) -> io::Result<()
                 io::ErrorKind::NotFound,
                 format!(
                     "no crate directory `{name}` under crates/ -- run \
-                     `kovan agent-docs-gen --list` to see the available names"
+                     `kovan-cli agent-docs-gen --list` to see the available names"
                 ),
             ));
         }

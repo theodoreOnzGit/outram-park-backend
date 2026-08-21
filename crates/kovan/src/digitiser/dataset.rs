@@ -108,9 +108,9 @@ pub enum PointOrigin {
 /// Which front end a human review happened in. Closed set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReviewInterface {
-    /// `kovan-digitise-tui` (ratatui).
+    /// `kovan-tui`'s Digitiser tab (ratatui).
     Tui,
-    /// `kovan-digitise-gui` (egui).
+    /// `kovan`, the GUI (egui).
     Gui,
     /// Reviewed outside the shipped front ends (e.g. plotted and inspected by
     /// hand); the reviewer takes responsibility for the method.
@@ -207,7 +207,7 @@ pub struct DigitisedDataset {
     /// y-axis label as printed on the figure, units included.
     pub y_label: String,
     /// Who ran the digitisation (a person, or e.g.
-    /// `"kovan-digitise (automatic)"` for the unattended CLI).
+    /// `"kovan-cli digitise (automatic)"` for the unattended CLI).
     pub digitised_by: String,
     /// UTC timestamp of the digitisation, ISO 8601.
     pub digitised_at: String,
@@ -332,7 +332,7 @@ impl DigitisedDataset {
         let mut s = String::new();
         let _ = writeln!(
             s,
-            "# kovan-digitise dataset (schema v{})",
+            "# kovan digitiser dataset (schema v{})",
             self.schema_version
         );
         let _ = writeln!(s, "# figure: {}", self.source.figure);

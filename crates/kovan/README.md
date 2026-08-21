@@ -1,16 +1,25 @@
 # kovan
 
-Five binaries in one crate: `kovan` (agent-facing CLI), `kovan-tui`
-(human-facing terminal UI), and the graph digitiser's three front ends —
-`kovan-gui`, `kovan-digitise`, `kovan-digitise-tui`. `kovan`/`kovan-tui` wrap
-the same deterministic, offline sibling `kovan-*` crates —
-`kovan-discovery`, `kovan-literature`, `kovan-semantics`, `kovan-codegen`,
-`kovan-metrics`; the digitiser is this crate's own code (`src/digitiser/`).
+Exactly three binaries in one crate, per the final interface spec on GitHub
+issue #30 (2026-08-21): `kovan` (human-facing GUI — the graph digitiser
+window), `kovan-cli` (agent-facing CLI), `kovan-tui` (human-facing terminal
+UI). `kovan-cli`/`kovan-tui` wrap the same deterministic, offline sibling
+`kovan-*` crates — `kovan-discovery`, `kovan-literature`, `kovan-semantics`,
+`kovan-codegen`, `kovan-metrics`; the graph digitiser is this crate's own
+code (`src/digitiser/`), reachable from all three binaries: `kovan` (GUI
+review), `kovan-cli digitise` (fully automatic), and `kovan-tui`'s Digitiser
+tab (automatic pass + terminal review).
 
 Consolidated 2026-08-21 from the former separate `kovan-cli` and `kovan-tui`
 crates — see `DECISIONS.md` for the merge rationale and each front end's
 original design history. The graph digitiser joined the same day, moved
 here from `kovan-literature` — see the License section below and `NOTICE`.
+The binaries were briefly five (`kovan`, `kovan-tui`, `kovan-gui`,
+`kovan-digitise`, `kovan-digitise-tui`) before collapsing to the three above
+later the same day, per issue #30's final spec: `kovan-gui` was renamed to
+plain `kovan`, the old `kovan` (CLI) was renamed to `kovan-cli` and gained a
+`digitise` subcommand absorbing `kovan-digitise`, and `kovan-tui` gained a
+Digitiser tab absorbing `kovan-digitise-tui`'s interactive review screen.
 
 See [`docs/kovan.md`](../../docs/kovan.md) for KOVAN's overall design
 principles (deterministic-first, local-first, Android-first) and mission.
@@ -35,50 +44,52 @@ workspace-boundary rule it sets: no other crate in this repository may take
 
 ```bash
 # CLI (agent-facing)
-cargo install --path crates/kovan
-kovan --help
+cargo install --path crates/kovan --bin kovan-cli
+kovan-cli --help
 
 # or without installing to ~/.cargo/bin:
-cargo build --release -p kovan
-./target/release/kovan --help
+cargo build --release -p kovan --bin kovan-cli
+./target/release/kovan-cli --help
 
 # TUI (human-facing)
 cargo build --release -p kovan --bin kovan-tui
 ./target/release/kovan-tui
 
-# GUI (reuses kovan-literature's digitiser window — see "GUI" below)
-cargo build --release -p kovan --bin kovan-gui --features gui
-./target/release/kovan-gui
+# GUI (the graph digitiser window — see "Graph digitiser" below)
+cargo build --release -p kovan --bin kovan --features gui
+./target/release/kovan
 ```
 
 Optionally, bring your shell up to a useful baseline for working in this
 repository:
 
 ```bash
-kovan setup             # installs any of a curated tool list (rg, fd, bat, ...) missing from PATH
-kovan setup --dry-run   # report what would be installed, without installing anything
+kovan-cli setup             # installs any of a curated tool list (rg, fd, bat, ...) missing from PATH
+kovan-cli setup --dry-run   # report what would be installed, without installing anything
 ```
 
-`kovan setup` is an explicit, online, desktop-scope convenience — see
+`kovan-cli setup` is an explicit, online, desktop-scope convenience — see
 "`setup`" below. It never runs automatically and has no bearing on the rest
 of this crate's offline/Android-clean operation (see "Android").
 
-## `kovan` — CLI commands
+## `kovan-cli` — CLI commands
 
 ```text
-kovan discover --root . --kind source
-kovan search   --path src/lib.rs --pattern "fn \w+"
-kovan search   --root . --kind source --pattern "fn \w+"
-kovan scan     --root . --lang rust
-kovan methods
-kovan symbols  . --lang rust
-kovan symbols  . --lang rust --markdown
-kovan summary  . --lang rust
-kovan gen root newton-raphson
-kovan lit import paper.pdf --json-out doc.json
-kovan lit bibtex doc.json
-kovan lit outline paper.pdf
-kovan setup --dry-run
+kovan-cli discover --root . --kind source
+kovan-cli search   --path src/lib.rs --pattern "fn \w+"
+kovan-cli search   --root . --kind source --pattern "fn \w+"
+kovan-cli scan     --root . --lang rust
+kovan-cli methods
+kovan-cli symbols  . --lang rust
+kovan-cli symbols  . --lang rust --markdown
+kovan-cli summary  . --lang rust
+kovan-cli gen root newton-raphson
+kovan-cli lit import paper.pdf --json-out doc.json
+kovan-cli lit bibtex doc.json
+kovan-cli lit outline paper.pdf
+kovan-cli setup --dry-run
+kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
+    --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -120,18 +131,18 @@ brace/keyword tracking, no macro expansion).
 ### `gen` — `kovan-codegen`
 
 `gen <family> <method> [--out <path>]`, one nested subcommand per method
-family (mirrors `kovan methods`'s grouping):
+family (mirrors `kovan-cli methods`'s grouping):
 
 ```text
-kovan gen root       <bisection|regula-falsi|illinois|pegasus|secant|newton-raphson|brent>
-kovan gen linear     <jacobi|gauss-seidel|sor|conjugate-gradient|bi-cg-stab|gmres|lu|qr|cholesky>
-kovan gen nonlinear  <newton|quasi-newton|broyden|trust-region>
-kovan gen ode        <euler|rk2|rk4|dormand-prince|backward-euler|crank-nicolson>
-kovan gen pde        <poisson1d-finite-difference|diffusion1d-finite-volume|boundary-condition-scaffold>
+kovan-cli gen root       <bisection|regula-falsi|illinois|pegasus|secant|newton-raphson|brent>
+kovan-cli gen linear     <jacobi|gauss-seidel|sor|conjugate-gradient|bi-cg-stab|gmres|lu|qr|cholesky>
+kovan-cli gen nonlinear  <newton|quasi-newton|broyden|trust-region>
+kovan-cli gen ode        <euler|rk2|rk4|dormand-prince|backward-euler|crank-nicolson>
+kovan-cli gen pde        <poisson1d-finite-difference|diffusion1d-finite-volume|boundary-condition-scaffold>
 ```
 
 Prints the generated Rust source to stdout, or writes it to `--out <path>`.
-Catalogue entries not yet backed by a template (see `kovan methods` for which
+Catalogue entries not yet backed by a template (see `kovan-cli methods` for which
 ones) fail with a `CodegenError::Unimplemented` message on stderr and a
 non-zero exit code — this is expected, not a bug in the CLI.
 
@@ -188,7 +199,7 @@ whose binary is already on `PATH`:
   than panicking; one failing tool never stops the rest. The command exits
   non-zero only if at least one requested install genuinely failed.
 
-**`setup` is explicit, online, and desktop-scope** — no other `kovan`
+**`setup` is explicit, online, and desktop-scope** — no other `kovan-cli`
 subcommand calls it, it is never run automatically, and it does not affect
 the rest of this crate's offline/Android-clean core operation (below). On
 Android it detects PATH presence normally but no-ops the actual install
@@ -196,7 +207,7 @@ Android it detects PATH presence normally but no-ops the actual install
 
 ### Determinism & offline guarantees
 
-Every `kovan` subcommand **except `setup`** is deterministic and fully
+Every `kovan-cli` subcommand **except `setup`** is deterministic and fully
 offline, inheriting the guarantees of the library crate it wraps (see each
 `kovan-*` crate's own `README.md`/crate docs for the specifics:
 `kovan-discovery`'s sorted-output contract, `kovan-literature`'s
@@ -208,9 +219,11 @@ reads the live `PATH` and, unless `--dry-run`, reaches the network via
 
 ## `kovan-tui` — screens
 
-Six tabs, switched with `1`-`6` or `Tab`/`Shift+Tab`. `q`/`Esc` quits from any
-tab (except while a text field is being edited, where `Esc` only cancels the
-edit, and except while the Ingest tab has an import in flight — see below).
+Seven tabs, switched with `1`-`7` or `Tab`/`Shift+Tab`. `q`/`Esc` quits from
+any tab (except while a text field is being edited, where `Esc` only cancels
+the edit, and except while the Ingest or Digitiser tab has work in flight —
+see below). **Genuinely Android/Termux-usable, not just buildable** — see
+"Android" below.
 
 | # | Tab | Backing crate | What it does |
 |---|-----|----------------|---------------|
@@ -220,25 +233,29 @@ edit, and except while the Ingest tab has an import in flight — see below).
 | 4 | **Methods** | `kovan-codegen` | Browse the numerical-method catalogue by family (root finders / linear / nonlinear / ODE / PDE) and preview a method's generated Rust source. |
 | 5 | **Literature** | `kovan-literature` | List PDFs / Markdown / BibTeX under a literature root and preview each: metadata extraction for PDFs, heading outline for Markdown, raw text for BibTeX. |
 | 6 | **Ingest** | `kovan-literature` | Import a PDF interactively: pick it from a directory listing, watch extraction run on a worker thread, **review and correct the extracted metadata**, then save the Markdown / `KovanDocument` JSON / BibTeX. |
+| 7 | **Digitiser** | this crate's own `digitiser` | Digitise a plot image interactively: fill in a Setup form (image path, axis scales/ranges, figure/labels), watch the automatic trace run on a worker thread, **review/correct the traced points**, then save the dataset JSON/CSV. Absorbed the standalone `kovan-digitise-tui` binary on 2026-08-21. |
 
 Tabs 1-5 are **read-only viewers** — they read the filesystem through the
 sibling crates and render their deterministic output; they never write to the
 repositories or literature trees they browse (KOVAN's "not a repository
-modification agent" non-goal, `docs/kovan.md` § "Non-Goals"). The **Ingest
-tab is the one screen that writes**, and only on an explicit `s` (save) to
-output paths the user can see and edit; it never modifies the source PDF and
-never touches a repository being browsed. See the former `kovan-tui`
-`README.md` content preserved via `DECISIONS.md`'s pre-merge history for the
-full Ingest workflow write-up (pick → wait → review/correct → save) and the
-real-report example (`ANL-7416 Supplement 2`) motivating the review step.
+modification agent" non-goal, `docs/kovan.md` § "Non-Goals"). **Ingest and
+Digitiser are the two screens that write**, and only on an explicit save key
+(`s` for Ingest, `S`/`s` for Digitiser) to output paths the user can see and
+edit; neither modifies its source (PDF / plot image) or touches a repository
+being browsed. See the former `kovan-tui` `README.md` content preserved via
+`DECISIONS.md`'s pre-merge history for the full Ingest workflow write-up
+(pick → wait → review/correct → save) and the real-report example
+(`ANL-7416 Supplement 2`) motivating the review step; see "Graph digitiser"
+below for the Digitiser tab's engine and the same pattern applied there.
 
 ### Key bindings
 
 Global (when no field is being edited):
 
-- `1`-`6` / `Tab` / `Shift+Tab` — switch tabs.
-- `q` / `Esc` — quit. On the Ingest tab this is refused while an extraction is
-  running or an unsaved review is on screen; press `x` to discard first.
+- `1`-`7` / `Tab` / `Shift+Tab` — switch tabs.
+- `q` / `Esc` — quit. On the Ingest or Digitiser tab this is refused while
+  work is running or an unsaved review is on screen; press `x` to discard
+  first.
 
 Browser / Symbols / Literature (each owns one root-path text field):
 
@@ -267,35 +284,49 @@ Screen-specific:
 - **Ingest**, reviewing: `Up`/`Down` move between fields, `e` (or `Enter`) edit
   the focused field, `Left`/`Right` cycle the document type (that row only),
   `s` save, `x` discard, `PageUp`/`PageDown` scroll the record pane.
+- **Digitiser**, Setup: `Up`/`Down`/`Tab`/`Shift+Tab` move between fields, `e`
+  edit the focused field, `Enter` starts the automatic pass (needs at least
+  image path, figure, x/y range filled in).
+- **Digitiser**, running: `x` abandon.
+- **Digitiser**, reviewing: `Tab`/`Left`/`Right` select a point, `Up`/`Down`
+  nudge it in y, `h`/`l` nudge in x (hold `Shift` for a 5px step), `d`
+  delete, `a` duplicate the selected point as hand-placed, `v` mark
+  reviewed, `e` edit the JSON save path, `S`/`s` save, `x` discard.
 
-## Graph digitiser — `kovan-gui` / `kovan-digitise` / `kovan-digitise-tui`
+## Graph digitiser — `kovan` / `kovan-cli digitise` / `kovan-tui`'s Digitiser tab
 
 **Moved into this crate from `kovan-literature` on 2026-08-21** (engine at
-`src/digitiser/`, three binaries below) — see `NOTICE` for why: only the
-digitiser needs `kopitiam-pdf` (GitHub issue #30's PDF-native work), which
-is why this crate alone is relicensed AGPL-3.0-only, and `kovan-literature`
-— used well beyond the GUI — must not be dragged into that. See the
-workspace `CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
+`src/digitiser/`) — see `NOTICE` for why: only the digitiser needs
+`kopitiam-pdf` (GitHub issue #30's PDF-native work), which is why this
+crate alone is relicensed AGPL-3.0-only, and `kovan-literature` — used well
+beyond the GUI — must not be dragged into that. See the workspace
+`CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
 mandated-tool context; that section's `-p kovan-literature` invocations now
 read `-p kovan`.
 
 Extract `(x, y)` data points from a plot image with a full calibration +
 provenance record (`DigitisedDataset`): load an image, calibrate the axes
 (linear or log, independently per axis), auto-trace or hand-place points,
-review/correct, export. Three front ends over one engine:
+review/correct, export. Three front ends over one engine, all in this same
+crate — collapsed from five standalone binaries to three later the same day
+(2026-08-21), per GitHub issue #30's final interface spec:
 
-- **`kovan-digitise`** — fully automatic, scriptable CLI (the agent path).
-  Always built; no feature needed (`clap` is already a hard dependency of
-  the `kovan` CLI, unlike when this engine lived in `kovan-literature`).
-- **`kovan-digitise-tui`** — automatic pass, then a `ratatui` terminal
-  review screen.
-- **`kovan-gui`** — automatic pass, then an egui review window
-  (graphreader-style: drag/add/delete points by mouse). Built by default on
-  desktop (its `gui` feature is a default feature) but never on Android (see
-  "Android" below for why):
+- **`kovan-cli digitise`** — fully automatic, scriptable subcommand (the
+  agent path). Absorbed the former standalone `kovan-digitise` binary; no
+  feature needed (`clap` is already a hard dependency of `kovan-cli`).
+- **`kovan-tui`'s Digitiser tab** — automatic pass, then a `ratatui`
+  terminal review screen (`src/tui/digitiser.rs`). Absorbed the former
+  standalone `kovan-digitise-tui` binary's review mechanics unchanged
+  (nudge/delete/duplicate/mark-reviewed/save); only the phase machine and
+  key/draw dispatch were adapted to fit alongside `kovan-tui`'s other tabs.
+- **`kovan`** — automatic pass, then an egui review window
+  (graphreader-style: drag/add/delete points by mouse). This is the
+  renamed-from-`kovan-gui` binary itself — built by default on desktop (its
+  `gui` feature is a default feature) but never on Android (see "Android"
+  below for why):
 
   ```bash
-  cargo run --release -p kovan --bin kovan-gui [image-path]
+  cargo run --release -p kovan --bin kovan --features gui [image-path]
   ```
 
   Used to have a same-behaviour twin, `kovan-digitise-gui`, back when
@@ -308,33 +339,41 @@ axis reference values must be supplied by the caller).
 
 ## Android
 
-`kovan`, `kovan-tui`, `kovan-digitise` and `kovan-digitise-tui` are non-GUI
-and Android-buildable (`kovan-tui` compiles to a desktop-only stub on
-Android; `kovan-digitise-tui` does not — it was already Android-functional
-in `kovan-literature` before the 2026-08-21 move, and stayed that way):
+**`kovan-cli` and `kovan-tui` are both non-GUI and genuinely
+Android/Termux-usable, not just buildable** — every screen and subcommand,
+including the Digitiser tab, actually runs there:
 
 ```bash
-cargo check -p kovan --bin kovan --target aarch64-linux-android
+cargo check -p kovan --bin kovan-cli --target aarch64-linux-android
 cargo check -p kovan --bin kovan-tui --target aarch64-linux-android
-cargo check -p kovan --bin kovan-digitise --target aarch64-linux-android
-cargo check -p kovan --bin kovan-digitise-tui --target aarch64-linux-android
+cargo check -p kovan --all-targets --target aarch64-linux-android
 ```
 
 `ratatui` (and its bundled `crossterm`) is an **unconditional** dependency of
-this crate — not target-gated off Android, unlike `kovan-tui`'s own module
-tree in `src/lib.rs` (`#[cfg(not(target_os = "android"))] pub mod tui;`,
-still gated). That asymmetry is deliberate: `kovan-digitise-tui` needs
-`ratatui` to work on Android, and moving `ratatui` out of the target gate to
-get that costs `kovan-tui` nothing beyond ratatui compiling on Android for a
-binary that stubs itself there anyway.
+this crate — not target-gated off Android. Until 2026-08-21 it *was*
+Android-gated, and `#[cfg(not(target_os = "android"))] pub mod tui;` in
+`src/lib.rs` was a hard technical necessity as a result (the `tui` module
+couldn't reference `ratatui` types on a target that didn't have `ratatui`
+as a dependency at all) — `kovan-tui`'s binary compiled to a desktop-only
+redirect stub on Android. `ratatui` was made unconditional the same day so
+the former `kovan-digitise-tui` binary's Android-functional review screen
+would keep working once it moved into `kovan-tui` as the Digitiser tab —
+and that same change removed the *technical* reason for gating `pub mod
+tui;` at all. The gate was dropped in the same change: `kovan-tui` is now a
+single, ungated `main()` with no Android stub, and the whole seven-tab TUI
+— not just the digitiser — is Android-buildable and Android-runnable.
+Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+aarch64-linux-android` is clean. This directly serves GitHub issue #30's
+stated reason for wanting exactly `kovan`/`kovan-cli`/`kovan-tui`: Android
+usability.
 
-`kovan-gui` is desktop-only by design (egui/eframe are Android-hostile) and
-sits behind the non-default `gui` feature, itself additionally target-gated
-off Android in `Cargo.toml`, so building this crate with its **default**
-feature set — what a plain `cargo build -p kovan` or an Android/Termux build
-does — never pulls egui/eframe into the dependency graph. It is therefore
-excluded from the Android checks above; `kovan-gui` itself has no Android
-build (the redirect message it *would* print lives inside
+`kovan` (the GUI) is desktop-only by design (egui/eframe are Android-hostile)
+and sits behind the `gui` feature — a **default** feature everywhere except
+Android, where its `eframe`/`egui` dependencies are additionally
+target-gated off, so building this crate with its default feature set —
+what a plain `cargo build -p kovan` or an Android/Termux build does — never
+pulls egui/eframe into the dependency graph there. `kovan` itself has no
+Android build (the redirect message it *would* print lives inside
 [`kovan::digitiser::gui::run`], since that function is used on Android by
 nothing — no binary in this crate calls it there).
 
@@ -344,15 +383,16 @@ nothing — no binary in this crate calls it there).
 cargo test --release -p kovan
 ```
 
-- `src/bin/kovan.rs` unit tests — `clap` argument-parsing coverage for every
-  subcommand (via `Cli::try_parse_from`), plus small pure-function tests in
-  each `commands::*` module.
+- `src/bin/kovan-cli.rs` unit tests — `clap` argument-parsing coverage for
+  every subcommand (via `Cli::try_parse_from`), plus small pure-function
+  tests in each `commands::*` module.
 - `tests/cli_e2e.rs` — black-box end-to-end tests that spawn the compiled
-  `kovan` binary against synthetic, throwaway fixtures (a tempdir Rust
+  `kovan-cli` binary against synthetic, throwaway fixtures (a tempdir Rust
   "repository", and a minimal synthetic PDF built with `lopdf` — mirroring
   `kovan-literature`'s own private test-PDF helper so no real, possibly
   proprietary PDF ever ships as a fixture) and assert on stdout/stderr/exit
-  code.
+  code. Targets `kovan-cli` specifically — `kovan` is the GUI binary and
+  needs a display, so it cannot run headlessly here.
 - `src/tui/**` unit tests — state-update ("reducer") tests that construct a
   tab's state struct and call its `handle_key(key, ..)` directly, plus
   `ratatui::backend::TestBackend` render tests, plus fixture-backed tests
@@ -363,17 +403,28 @@ cargo test --release -p kovan
 ```text
 src/
 ├── lib.rs                library re-exports shared by the three binaries
-├── commands/             kovan (CLI) command implementations
+├── commands/             kovan-cli command implementations
 │   ├── mod.rs              shared clap-facing enums (KindArg, LangArg)
-│   ├── discover.rs         `kovan discover`
-│   ├── search.rs           `kovan search` (single-file + repository modes)
-│   ├── scan.rs             `kovan scan`
-│   ├── methods.rs          `kovan methods`
-│   ├── symbols.rs          `kovan symbols` / `kovan summary`
-│   ├── gen.rs              `kovan gen <family> <method>`
-│   ├── lit.rs              `kovan lit import|bibtex|outline`
-│   └── setup.rs            `kovan setup` (curated external-tool installer)
-├── tui/                  kovan-tui screens (desktop-only, Android-gated in lib.rs)
+│   ├── discover.rs         `kovan-cli discover`
+│   ├── search.rs           `kovan-cli search` (single-file + repository modes)
+│   ├── scan.rs             `kovan-cli scan`
+│   ├── methods.rs          `kovan-cli methods`
+│   ├── symbols.rs          `kovan-cli symbols` / `kovan-cli summary`
+│   ├── gen.rs              `kovan-cli gen <family> <method>`
+│   ├── lit.rs              `kovan-cli lit import|bibtex|outline`
+│   └── setup.rs            `kovan-cli setup` (curated external-tool installer)
+├── digitiser/             graph digitiser engine, shared by all three binaries
+│   ├── mod.rs              `DigitiserError`, module map
+│   ├── raster.rs           image loading (`PlotRaster`)
+│   ├── calibration.rs      pixel <-> data coordinate mapping (linear/log per axis)
+│   ├── detect.rs           automatic plot-frame detection
+│   ├── trace.rs            automatic curve tracing (strategies, colour selectors)
+│   ├── dataset.rs          `DigitisedDataset` and its provenance types
+│   ├── auto.rs             the one-shot automatic pipeline
+│   ├── frontend.rs         shared `AutoArgs` clap surface (`kovan-cli digitise`, `kovan-tui`'s Digitiser tab)
+│   ├── synthetic.rs        deterministic test-fixture rendering
+│   └── gui.rs              *(behind the `gui` feature)* the `kovan` binary's egui app
+├── tui/                  kovan-tui screens (Android/Termux-usable, see "Android")
 │   ├── mod.rs              App state, key-event dispatch, terminal setup/teardown
 │   ├── text_input.rs       tiny shared single-line text buffer (root-path fields)
 │   ├── overview.rs         Overview tab
@@ -381,14 +432,15 @@ src/
 │   ├── symbols.rs          Symbols tab (kovan-semantics)
 │   ├── methods.rs          Methods tab (kovan-codegen)
 │   ├── literature.rs       Literature tab (kovan-literature)
-│   └── ingest/             Ingest tab (kovan-literature)
-│       ├── mod.rs            phase state machine, PDF picker, worker thread
-│       ├── review.rs         metadata review form, slug/id regeneration, saving
-│       └── draw.rs           rendering for each phase
+│   ├── ingest/             Ingest tab (kovan-literature)
+│   │   ├── mod.rs            phase state machine, PDF picker, worker thread
+│   │   ├── review.rs         metadata review form, slug/id regeneration, saving
+│   │   └── draw.rs           rendering for each phase
+│   └── digitiser.rs        Digitiser tab: Setup form, worker thread, review screen (over `../digitiser/`)
 └── bin/
-    ├── kovan.rs            CLI: clap surface + dispatcher
-    ├── kovan-tui.rs        TUI: Android/desktop entry-point split
-    └── kovan-gui.rs        GUI: thin wrapper over kovan-literature's digitiser window
+    ├── kovan.rs            GUI: thin wrapper over `digitiser::gui::run`
+    ├── kovan-cli.rs        CLI: clap surface + dispatcher (incl. `digitise`)
+    └── kovan-tui.rs        TUI: entry point (`kovan::tui::run()`)
 ```
 
 One module per command/screen, so each binary stays a thin dispatcher — the

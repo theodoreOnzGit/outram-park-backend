@@ -1,16 +1,18 @@
-//! Shared command-line surface for the digitiser binaries.
+//! Shared command-line surface for the digitiser front ends.
 //!
 //! Belongs here: [`AutoArgs`] — the `clap` argument set that fully describes
 //! one automatic digitisation run — and [`AutoArgs::run`], which executes it.
-//! Both the fully automatic `kovan-digitise` CLI and the hybrid
-//! `kovan-digitise-tui` parse exactly these arguments, so a TUI session can
-//! be re-run headlessly by pasting the same flags onto the CLI.
+//! `kovan-cli digitise` (`src/bin/kovan-cli.rs`) parses these flags directly
+//! via `#[command(flatten)]`; `kovan-tui`'s Digitiser tab
+//! (`src/tui/digitiser.rs`) builds the same struct programmatically from its
+//! Setup form, so a TUI session's automatic pass can always be re-run
+//! headlessly by pasting the equivalent flags onto `kovan-cli digitise`.
 //!
-//! Does not belong here: any interactivity (the TUI binary owns that) or the
+//! Does not belong here: any interactivity (the TUI tab owns that) or the
 //! pipeline itself ([`super::auto`]).
 //!
 //! Compiled unconditionally, no feature gate — `clap` is already a hard
-//! dependency of this crate's own `kovan` CLI, unlike when this module lived
+//! dependency of this crate's own `kovan-cli`, unlike when this module lived
 //! in `kovan-literature` (moved 2026-08-21, see this crate's `NOTICE`), where
 //! `clap` was optional and this module was gated behind `digitise-cli` /
 //! `digitise-tui`.
@@ -83,7 +85,7 @@ pub struct AutoArgs {
     #[arg(long, default_value = "y")]
     pub y_label: String,
     /// Operator recorded as `digitised_by`.
-    #[arg(long, default_value = "kovan-digitise (automatic)")]
+    #[arg(long, default_value = "kovan-cli digitise (automatic)")]
     pub operator: String,
     /// Override the `digitised_at` timestamp (ISO 8601) for byte-reproducible
     /// output; defaults to the current UTC time.

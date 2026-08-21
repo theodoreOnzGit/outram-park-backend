@@ -472,35 +472,43 @@ hand — is not a shortcut, it is how the catalogue and the documents drift apar
 - This does not relax the open/proprietary split, the TDM/AI-reservation rule,
   or `DATA_POLICY.md` — it is the mechanism by which they are actually enforced.
 
-**Graph digitisation: dogfood `kovan-digitise` (HARD RULE).** Several
+**Graph digitisation: dogfood `kovan-cli digitise` (HARD RULE).** Several
 validation targets this project depends on exist **only as figures** — the
 HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
 are both recorded in `docs/reactor-scoping/` as arriving that way. When data
 must come off a plot, use this workspace's own digitiser, in
 `crates/kovan/src/digitiser/` (**moved here from `crates/kovan-literature/`
 on 2026-08-21** — see `crates/kovan/NOTICE`: only the digitiser needs
-`kopitiam-pdf`, which is why `kovan` alone is AGPL-3.0-only) with three
-binaries in that crate:
+`kopitiam-pdf`, which is why `kovan` alone is AGPL-3.0-only), reachable from
+all three of that crate's binaries — **collapsed from five standalone
+digitiser/TUI/CLI binaries to exactly three later the same day**, per
+GitHub issue #30's final interface spec:
 
 ```bash
-cargo build --release -p kovan --bin kovan-digitise             # CLI
-cargo build --release -p kovan --bin kovan-digitise-tui         # TUI
-cargo build --release -p kovan --bin kovan-gui --features gui   # GUI
+cargo build --release -p kovan --bin kovan-cli                # CLI: `kovan-cli digitise`
+cargo build --release -p kovan --bin kovan-tui                # TUI: Digitiser tab
+cargo build --release -p kovan --bin kovan --features gui     # GUI
 ```
 
-- **`kovan-digitise` (CLI) is the agent path** — fully automatic, scriptable,
+- **`kovan-cli digitise` is the agent path** — fully automatic, scriptable,
   deterministic. **Use it rather than reading points off a figure by eye.** A
   hand-read point has no calibration record, no uncertainty and no audit
   trail, and is exactly the kind of silent processing step `DATA_POLICY.md`
   forbids. Same reasoning as the 138-number Tobias Table 16 transcription:
   prefer the machine-readable path and validate it, over eyeballing.
-- **`kovan-digitise-tui` and `kovan-gui` are the human path** — automatic
-  pass first, then the maintainer verifies. The CLI can only ever emit
-  `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
+- **`kovan-tui`'s Digitiser tab and the `kovan` GUI are the human path** —
+  automatic pass first, then the maintainer verifies. The CLI can only ever
+  emit `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
   point afterwards resets it to unreviewed. Do not attempt to mark anything
-  reviewed from an agent session. (`kovan-gui` was `kovan-digitise-gui`
-  before the move — same binary, renamed to match this crate's other two
-  front ends; there is no longer a separate `kovan-digitise-gui`.)
+  reviewed from an agent session. (This engine has had three different
+  binary layouts in one day, 2026-08-21: first as `kovan-literature`'s
+  `kovan-digitise`/`kovan-digitise-tui`/`kovan-digitise-gui`; then moved into
+  `kovan` unrenamed except `kovan-digitise-gui` → `kovan-gui`; then
+  `kovan-gui` → plain `kovan`, the old `kovan` CLI → `kovan-cli` with a
+  `digitise` subcommand replacing standalone `kovan-digitise`, and
+  `kovan-digitise-tui`'s review screen absorbed into `kovan-tui` as a
+  Digitiser tab. There is no longer any `kovan-digitise`, `kovan-gui`, or
+  `kovan-digitise-tui`/`-gui` binary — see `crates/kovan/DECISIONS.md`.)
 - **Provenance is structurally mandatory and must stay that way.** A
   `DigitisedDataset` cannot be constructed without a `FigureSource` and a
   `PlotCalibration`. Never add a path that exports points without them.
@@ -1210,7 +1218,7 @@ built, tested, and published from this single repository.
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
 | `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
-| `kovan` (bins `kovan`, `kovan-tui`, `kovan-gui`) | KOVAN's three front ends over the knowledge layer: `kovan` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents); `kovan-tui` is the **human-facing** TUI (`ratatui`; desktop scope, CLI-redirect stub on Android); `kovan-gui` reuses `kovan-literature`'s digitiser GUI window rather than duplicating it. Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates. **Relicensed to AGPL-3.0-only 2026-08-21** — the one crate in this workspace that differs from the default, so it can depend on `kopitiam-pdf` (also AGPL-3.0-only, GitHub issue #30's PDF-reader work). See `crates/kovan/NOTICE`. | **AGPL-3.0** (workspace exception — see NOTICE) |
+| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`) | KOVAN's three front ends over the knowledge layer, per GitHub issue #30's final interface spec (2026-08-21): `kovan` is the **human-facing GUI** (egui, the graph digitiser window); `kovan-cli` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents, incl. `digitise`); `kovan-tui` is the **human-facing** TUI (`ratatui`; genuinely Android/Termux-usable, not just buildable — its Android module gate was lifted the same day). Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates, then restructured from five binaries down to these three later the same day. **Relicensed to AGPL-3.0-only 2026-08-21** — the one crate in this workspace that differs from the default, so it can depend on `kopitiam-pdf` (also AGPL-3.0-only, GitHub issue #30's PDF-reader work). See `crates/kovan/NOTICE` and `crates/kovan/DECISIONS.md`. | **AGPL-3.0** (workspace exception — see NOTICE) |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
 | `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
@@ -1225,12 +1233,17 @@ built, tested, and published from this single repository.
 | `raffles` | **RAFFLES** (Risk Analysis Framework For Learning & Ensemble Simulation) — independent pure-Rust port of the UQ / risk-analysis core of **RAVEN** (Apache-2.0, Idaho National Laboratory): distributions, samplers, Sobol/correlation sensitivity, surrogates. **Owned by Adolphus Lye.** Apache-2.0 into GPL-3.0 is **one-way** — code cannot flow back to RAVEN (see the crate `NOTICE`). Scaffold only, nothing implemented, no human V&V. Independent fork, not affiliated with RAVEN/INL. Scoping: `docs/raven-port-scoping.md`. | GPL-3.0 |
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
-> codegen), interfaced two ways: the `kovan` **CLI** for agents and the
-> `kovan-tui` **TUI** for humans (both binaries of the single `kovan` crate,
-> which also carries `kovan-gui`). Offline / Android-first, no cloud, no
-> Tree-sitter/SQLite/vector-store. Full design spec: **`docs/kovan.md`**
-> (+ `docs/kovan-architecture.md`). Non-GUI kovan crates build for Android;
-> `ratatui` is pulled only under `cfg(not(target_os = "android"))`.
+> codegen), interfaced three ways, all binaries of the single `kovan` crate:
+> the `kovan-cli` **CLI** for agents, the `kovan-tui` **TUI** for humans, and
+> the `kovan` **GUI** (the graph digitiser window) for humans. Offline /
+> Android-first, no cloud, no Tree-sitter/SQLite/vector-store. Full design
+> spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI kovan
+> crates build for Android; `kovan-cli` and `kovan-tui` (including its
+> Digitiser tab) are genuinely Android/Termux-usable — `ratatui` is an
+> unconditional dependency, not target-gated off Android (see
+> `crates/kovan/README.md` "Android"); only the `kovan` GUI's egui/eframe
+> stack is Android-hostile and stays behind the `gui` feature, target-gated
+> off Android on top of that.
 
 > **MSRE digital-twin group:** `outram-park-fork-moltres` (circulating-fuel
 > neutronics), `outram-park-fork-onix` (depletion) and
@@ -1355,12 +1368,14 @@ target rather than letting them break the build.
   scope is **`egui`/`eframe`/`wgpu`-surface/windowing** GUI: keep that behind
   examples/optional bins/target gates, never in a library's unconditional
   build, so the lib still builds headless for Android. Concretely: the `kovan`
-  crate's `kovan` (CLI) and `kovan-tui` (`ratatui` TUI — target-gated to a
-  CLI-redirect stub on Android) binaries are **in scope and verified building**
-  for `aarch64-linux-android` (its `kovan-gui` binary is the crate's own GUI
-  exemption, gated behind a non-default feature so it never affects the other
-  two's default build);
-  only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
+  crate's `kovan-cli` (CLI) and `kovan-tui` (`ratatui` TUI — genuinely
+  Android/Termux-*usable*, not merely buildable; no Android stub as of
+  2026-08-21, see `crates/kovan/README.md` "Android") binaries are **in
+  scope and verified building and running** for `aarch64-linux-android` (its
+  `kovan` binary — the GUI, renamed from `kovan-gui` the same day — is the
+  crate's own GUI exemption, gated behind a `gui` feature that defaults on
+  everywhere except Android, so it never affects the other two's Android
+  build); only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
   GUI exemption.
 - **New code follows this by default.** If you add a dep or a test that can't
   build on Android, target-gate it in the same change and note it.

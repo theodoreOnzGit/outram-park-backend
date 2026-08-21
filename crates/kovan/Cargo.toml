@@ -29,8 +29,8 @@ license = "AGPL-3.0-only"
 # the egui GUI stays behind a feature, now named plainly `gui` (was
 # kovan-literature's `digitise-gui`) since this crate owns it outright.
 #
-# `gui` is a DEFAULT feature — desktop builds get `kovan-gui` with a plain
-# `cargo build -p kovan`, no `--features gui` needed — but stays Android-free
+# `gui` is a DEFAULT feature — desktop builds get the `kovan` GUI binary with
+# a plain `cargo build -p kovan`, no `--features gui` needed — but stays Android-free
 # with no `--no-default-features` needed either: `eframe`/`egui` are declared
 # only under the `[target.'cfg(not(target_os = "android"))'.dependencies]`
 # table below, so on an Android build those deps simply do not exist in that
@@ -43,26 +43,24 @@ license = "AGPL-3.0-only"
 default = ["gui"]
 gui = ["dep:eframe", "dep:egui"]
 
+# Exactly three binaries, per the final interface spec on GitHub issue #30
+# (2026-08-21): `kovan` (GUI), `kovan-cli` (agent CLI), `kovan-tui` (terminal
+# UI). Collapsed from the prior five (`kovan`, `kovan-tui`, `kovan-gui`,
+# `kovan-digitise`, `kovan-digitise-tui`) — `kovan-digitise` folded into
+# `kovan-cli digitise`, `kovan-digitise-tui`'s review screen became
+# `kovan-tui`'s Digitiser tab. See NOTICE and `src/tui/digitiser.rs`.
 [[bin]]
 name = "kovan"
 path = "src/bin/kovan.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "kovan-cli"
+path = "src/bin/kovan-cli.rs"
 
 [[bin]]
 name = "kovan-tui"
 path = "src/bin/kovan-tui.rs"
-
-[[bin]]
-name = "kovan-gui"
-path = "src/bin/kovan-gui.rs"
-required-features = ["gui"]
-
-[[bin]]
-name = "kovan-digitise"
-path = "src/bin/kovan-digitise.rs"
-
-[[bin]]
-name = "kovan-digitise-tui"
-path = "src/bin/kovan-digitise-tui.rs"
 
 [dependencies]
 kovan-common.workspace = true
@@ -108,11 +106,17 @@ sha2.workspace = true
 # this crate's own history: `kovan-digitise-tui` (moved in from
 # kovan-literature 2026-08-21, see NOTICE) was Android-functional there
 # (kovan-literature declared ratatui unconditionally too), and keeping that
-# working matters more than the Android build-size saving `kovan-tui` alone
-# would get from gating it off. `kovan-tui`'s own binary is unaffected either
-# way — its `main()` still stubs to a CLI-redirect message on Android (see
-# `src/bin/kovan-tui.rs`), so ratatui compiles on Android now but is not
-# actually driven by that binary there.
+# working mattered more than the Android build-size saving `kovan-tui` alone
+# would get from gating it off. Once ratatui was unconditional, the
+# `#[cfg(not(target_os = "android"))]` gate on `pub mod tui;` in `src/lib.rs`
+# had no technical reason left either (it existed only because ratatui used
+# to be Android-gated) — it was dropped the same day, so `kovan-tui` is now
+# genuinely Android/Termux-usable end to end, not just Android-buildable.
+# Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+# aarch64-linux-android` is clean with the full `tui` module (all seven
+# tabs, including the digitiser) compiled in. This matters directly for
+# GitHub issue #30's final interface spec, whose stated reason for wanting
+# exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
 ratatui.workspace = true
 
 # The `gui` feature's egui/eframe stack, desktop-only: target-gated off

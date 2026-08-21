@@ -1,4 +1,4 @@
-//! `kovan lit` — the literature pipeline (`kovan-literature`): PDF import,
+//! `kovan-cli lit` — the literature pipeline (`kovan-literature`): PDF import,
 //! BibTeX generation, and Markdown heading outlines.
 //!
 //! Implements the canonical workflow from `docs/kovan.md`, "Literature
@@ -12,7 +12,7 @@ use clap::Subcommand;
 
 use kovan_common::KovanDocument;
 
-/// `kovan lit <subcommand>`.
+/// `kovan-cli lit <subcommand>`.
 #[derive(Subcommand)]
 pub enum LitCommand {
     /// Import a PDF: extract metadata + generate the Markdown body into a

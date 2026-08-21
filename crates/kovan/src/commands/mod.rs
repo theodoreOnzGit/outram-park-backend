@@ -77,7 +77,7 @@ impl From<LangArg> for LanguageAdapter {
 
 impl LangArg {
     /// Human-readable language name, for a synthesised `KovanRepository.language`
-    /// (`kovan symbols`/`kovan summary` build a repository record on the fly —
+    /// (`kovan-cli symbols`/`kovan-cli summary` build a repository record on the fly —
     /// there is no persisted `KovanRepository` catalogue yet).
     pub fn display_name(self) -> &'static str {
         match self {

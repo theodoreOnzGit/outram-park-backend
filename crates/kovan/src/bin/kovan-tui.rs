@@ -2,18 +2,28 @@
 //!
 //! The **human-facing** entry point to KOVAN: a terminal UI for browsing
 //! literature, repositories, and generated knowledge. Agents should use the
-//! `kovan` CLI instead (see `src/bin/kovan.rs`).
+//! `kovan-cli` CLI instead; the GUI is `kovan` (desktop-only).
 //!
-//! Built on [`ratatui`]. TUI is desktop scope — on Android the binary compiles
-//! to a stub that redirects to the CLI, keeping the workspace Android-buildable
-//! (see the root `CLAUDE.md` "Android portability" rule). The entire
-//! [`kovan::tui`] module tree lives behind `cfg(not(target_os = "android"))`
-//! on its `pub mod tui;` declaration in `src/lib.rs`, so none of its
-//! submodules need to repeat the gate.
+//! Built on [`ratatui`]. **Genuinely Android/Termux-usable, not just
+//! buildable** — this binary has no Android stub. Until 2026-08-21 the whole
+//! [`kovan::tui`] module tree lived behind `cfg(not(target_os =
+//! "android"))`, because at the time `ratatui` was itself an Android-gated
+//! dependency of this crate. That gate was lifted the same day the digitiser
+//! moved in (`ratatui` became an unconditional dependency to keep the former
+//! `kovan-digitise-tui` binary's Android behaviour — see this crate's
+//! `NOTICE`/`Cargo.toml`), which also made the *whole* TUI, not just the
+//! digitiser, buildable and runnable on Android. Confirmed 2026-08-21:
+//! `cargo check -p kovan --all-targets --target aarch64-linux-android` is
+//! clean with `pub mod tui;` unconditional in `src/lib.rs`. This matters
+//! directly for GitHub issue #30's final interface spec, which asked for
+//! exactly these three binaries specifically so `kovan` stays usable on
+//! Android — a stubbed `kovan-tui` would have quietly broken that on the
+//! Digitiser tab (the former standalone `kovan-digitise-tui` binary it
+//! absorbed *was* Android-functional).
 //!
 //! ## Screens
 //!
-//! Five tabs, switched with `1`-`5` or `Tab`/`Shift+Tab`:
+//! Seven tabs, switched with `1`-`7` or `Tab`/`Shift+Tab`:
 //!
 //! 1. **Overview** — static module map (the original placeholder screen).
 //! 2. **Browser** (`kovan_discovery`) — walk a repository root, filter by
@@ -26,19 +36,21 @@
 //! 5. **Literature** (`kovan_literature`) — list PDFs / Markdown / BibTeX under
 //!    a literature root and preview each one (metadata extraction, heading
 //!    outline, or raw text).
+//! 6. **Ingest** (`kovan_literature`) — interactive PDF import: extract,
+//!    review the metadata, and write Markdown/JSON/BibTeX.
+//! 7. **Digitiser** (`kovan::digitiser`) — interactive graph digitisation:
+//!    an automatic trace pass, then a terminal review screen (nudge/delete/
+//!    duplicate points, mark reviewed, save). Absorbed the standalone
+//!    `kovan-digitise-tui` binary on 2026-08-21 (GitHub issue #30's
+//!    3-binary consolidation).
 //!
-//! Every screen is a **viewer only** — it reads the filesystem and renders
-//! deterministic output from the sibling `kovan-*` crates; it never writes to
-//! the repositories it browses (KOVAN's "not a repository modification agent"
-//! non-goal, `docs/kovan.md` § "Non-Goals").
+//! Every screen but Ingest and Digitiser is a **viewer only** — it reads the
+//! filesystem and renders deterministic output from the sibling `kovan-*`
+//! crates; it never writes to the repositories it browses (KOVAN's "not a
+//! repository modification agent" non-goal, `docs/kovan.md` § "Non-Goals").
+//! Ingest and Digitiser are the two screens that write files, and only when
+//! the user explicitly presses their save key.
 
-#[cfg(not(target_os = "android"))]
 fn main() -> std::io::Result<()> {
     kovan::tui::run()
-}
-
-/// On Android there is no TUI; point the user at the agent-facing CLI.
-#[cfg(target_os = "android")]
-fn main() {
-    eprintln!("kovan-tui is desktop-only. Use the `kovan` CLI on Android/Termux.");
 }

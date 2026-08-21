@@ -12,14 +12,17 @@
 //! calibration + provenance record.
 //!
 //! Desktop-only by policy: this module only compiles under this crate's
-//! non-default `gui` feature, and its egui/eframe dependencies are
-//! target-gated off Android; [`run`] itself branches internally so its one
-//! caller — the `kovan-gui` binary — gets Android-safe behaviour for free.
+//! default `gui` feature (default everywhere except Android — see this
+//! crate's `Cargo.toml`), and its egui/eframe dependencies are target-gated
+//! off Android; [`run`] itself branches internally so its one caller — the
+//! `kovan` binary — gets Android-safe behaviour for free.
 //!
 //! (Was `digitise-gui`, called from a now-retired `kovan-digitise-gui`
 //! binary, before the digitiser moved from `kovan-literature` into this
-//! crate 2026-08-21 — see this crate's `NOTICE`. `kovan-gui` used to be a
-//! second binary that did the exact same thing; it is now the only one.)
+//! crate 2026-08-21 — see this crate's `NOTICE`. The wrapper binary was named
+//! `kovan-gui` at that point too, then renamed to plain `kovan` the same day
+//! per GitHub issue #30's final 3-binary spec — `kovan` (GUI), `kovan-cli`
+//! (agent CLI), `kovan-tui` (terminal UI).)
 
 /// Open the digitiser window, optionally pre-loading `image_arg` as the plot
 /// image. Blocks until the window is closed. On Android, prints a redirect
@@ -27,8 +30,8 @@
 #[cfg(target_os = "android")]
 pub fn run(_image_arg: Option<String>) -> Result<(), String> {
     eprintln!(
-        "kovan-gui is desktop-only; on Android/Termux use \
-         kovan-digitise (automatic) or kovan-digitise-tui (review)."
+        "kovan is desktop-only; on Android/Termux use \
+         kovan-cli digitise (automatic) or kovan-tui (interactive review)."
     );
     Ok(())
 }
@@ -39,7 +42,7 @@ pub fn run(_image_arg: Option<String>) -> Result<(), String> {
 pub fn run(image_arg: Option<String>) -> Result<(), String> {
     let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "kovan-gui",
+        "kovan",
         options,
         Box::new(move |_cc| {
             let mut app = desktop::DigitiseApp::default();
@@ -290,7 +293,7 @@ mod desktop {
                 source,
                 self.x_label.clone(),
                 self.y_label.clone(),
-                format!("{} via kovan-gui", self.operator_name()),
+                format!("{} via kovan (gui)", self.operator_name()),
                 utc_now_iso8601(),
             ) {
                 Ok(d) => {
@@ -333,7 +336,7 @@ mod desktop {
                 calibration: cal,
                 x_label: self.x_label.clone(),
                 y_label: self.y_label.clone(),
-                digitised_by: format!("{} via kovan-gui (hand-placed)", self.operator_name()),
+                digitised_by: format!("{} via kovan (gui, hand-placed)", self.operator_name()),
                 digitised_at: utc_now_iso8601(),
                 trace: None,
                 review: ReviewStatus::Unreviewed,
@@ -463,7 +466,7 @@ mod desktop {
         }
 
         fn side_panel(&mut self, ui: &mut egui::Ui) {
-            ui.heading("kovan-digitise");
+            ui.heading("kovan — graph digitiser");
             ui.horizontal(|ui| {
                 ui.label("image:");
                 ui.text_edit_singleline(&mut self.image_path);

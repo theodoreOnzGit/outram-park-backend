@@ -1,4 +1,4 @@
-//! `kovan methods` — list the `kovan-codegen` numerical-method catalogue and
+//! `kovan-cli methods` — list the `kovan-codegen` numerical-method catalogue and
 //! report, per entry, whether it is backed by a generated template yet
 //! (`ready`) or only catalogued (`not-implemented`).
 

@@ -40,6 +40,64 @@ all three of KOVAN's front ends:
   thing. This paragraph documents that as an append, not a rewrite — the
   bullet above is accurate history for the state it describes.
 
+  **Superseded again, still the same day: five binaries collapsed to
+  three.** After the digitiser-move paragraph above landed, the maintainer
+  posted the final interface spec on GitHub issue #30: "have 3 binaries —
+  kovan / kovan-cli / kovan-tui", explicitly because they wanted `kovan`
+  usable on Android. The five binaries at that point (`kovan`, `kovan-tui`,
+  `kovan-gui`, `kovan-digitise`, `kovan-digitise-tui`) became exactly three:
+
+  - `kovan-gui.rs` renamed to `kovan.rs`, taking over the plain `kovan`
+    binary name — `cargo run -p kovan --bin kovan --features gui` now opens
+    the GUI, where it used to run the CLI.
+  - The old `kovan.rs` (CLI) renamed to `kovan-cli.rs`. It gained a
+    `digitise` subcommand that flattens `AutoArgs` exactly as the retired
+    `kovan-digitise.rs` binary's `Cli` struct did; `kovan-digitise.rs` was
+    deleted, its `main` becoming `kovan-cli.rs`'s `run_digitise` helper.
+  - `kovan-digitise-tui.rs` was deleted and its `App` (fields: `raster`,
+    `dataset`, `operator`, `json_path`, `csv_path`, `selected`, `dirty`,
+    `message`; methods: `select`/`nudge`/`delete_selected`/
+    `duplicate_selected`/`save`) became `src/tui/digitiser.rs`'s
+    `ReviewState`, unchanged in mechanics. The new file adds a `Setup`
+    phase (a small text-field form building `AutoArgs` by hand rather than
+    via `clap`) ahead of it, and a `Running` phase (worker thread + `mpsc`
+    channel, mirroring the [`tui::ingest`] tab's pattern exactly — see that
+    module's own docs for why a thread is the right tool for a
+    potentially-slow library call). `Tab` gained a seventh variant,
+    `Digitiser`, bound to digit `7`.
+  - **This forced a second, unplanned consequence: `kovan-tui`'s Android
+    gate came off entirely.** `ratatui` had already been made an
+    unconditional (non-Android-gated) dependency earlier the same day
+    specifically to keep the standalone `kovan-digitise-tui` binary's
+    Android-functional review screen working (see the `Cargo.toml` comment
+    on the `ratatui` line). Once the Digitiser tab moved *inside*
+    `kovan::tui` — and `pub mod tui;` in `src/lib.rs` was still
+    `#[cfg(not(target_os = "android"))]` at that point — the tab's Android
+    functionality would have been silently lost again: `kovan-tui`'s
+    `main()` still stubbed to a CLI-redirect message on Android, so the
+    whole seven-tab TUI, digitiser tab included, would never run there.
+    Checking why the module was gated at all turned up that the gate had
+    become vestigial: it existed only because `ratatui` used to be
+    Android-gated too, and that was no longer true. Removed
+    `#[cfg(not(target_os = "android"))]` from `pub mod tui;` and the
+    matching `#[cfg(target_os = "android")]` stub `main()` in
+    `src/bin/kovan-tui.rs`, leaving one ungated `fn main() { kovan::tui::run() }`.
+    Verified clean with `cargo check -p kovan --all-targets --target
+    aarch64-linux-android` before and after (both 0 errors) — the module
+    tree itself needed no other change to compile there; nothing inside
+    Browser/Symbols/Methods/Literature/Ingest turned out to be
+    Android-hostile either. `kovan-tui` is now genuinely
+    Android/Termux-*usable*, not merely Android-*buildable* — which is
+    exactly what the maintainer's stated reason for this restructuring
+    ("I want kovan usable on android") asked for, even though the request
+    only named the binary count, not the TUI's own Android gate.
+  - `tests/cli_e2e.rs` was updated to spawn `CARGO_BIN_EXE_kovan-cli`
+    instead of `CARGO_BIN_EXE_kovan` (Cargo's bin-name env vars keep the
+    hyphen verbatim — confirmed by the tests passing unmodified otherwise),
+    since plain `kovan` is now the GUI and cannot run headlessly.
+  - Filed as kopi-beans `op-ygmc` (child of the GUI epic `op-9c2e`) before
+    starting, and claimed for the duration of the work.
+
 Nothing in the workspace depended on `kovan-cli` or `kovan-tui` as libraries
 (`grep` for `kovan-cli`/`kovan-tui` in `[workspace.dependencies]` returned
 nothing before the merge), so this was a pure rename/reorganisation with no

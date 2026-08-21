@@ -1,4 +1,4 @@
-//! `kovan historian` — the pre-merge-to-`main` accounting report.
+//! `kovan-cli historian` — the pre-merge-to-`main` accounting report.
 //!
 //! A thin frontend over [`kovan_metrics::historian`]. Generates the markdown
 //! report that accompanies a `develop` → `main` merge: tokens spent and

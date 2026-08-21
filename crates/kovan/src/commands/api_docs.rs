@@ -1,4 +1,4 @@
-//! `kovan api-docs` — regenerate a crate's `docs/<crate>-api.md`, the committed
+//! `kovan-cli api-docs` — regenerate a crate's `docs/<crate>-api.md`, the committed
 //! markdown mirror of its public API.
 //!
 //! A Rust port of `scripts/gen_api_docs.py`, which it **replaces** (retired
@@ -336,7 +336,7 @@ fn run_all(workspace_root: &Path, scope: Scope, private: bool) -> io::Result<()>
     )))
 }
 
-/// Run `kovan api-docs`.
+/// Run `kovan-cli api-docs`.
 ///
 /// `crate_dir` names a single crate; `all` regenerates the whole suite instead,
 /// and `include_missing` widens that to crates with no mirror yet. Exactly one

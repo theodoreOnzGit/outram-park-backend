@@ -1,4 +1,4 @@
-//! `kovan setup` — install a curated set of useful external CLI tools via
+//! `kovan-cli setup` — install a curated set of useful external CLI tools via
 //! `cargo install`, skipping any whose binary is already on `PATH`.
 //!
 //! This is an **explicit, online, desktop-scope convenience**: it is never
@@ -26,7 +26,7 @@ pub struct ToolSpec {
     pub description: &'static str,
 }
 
-/// The curated, hard-coded list of external Rust CLI tools `kovan setup`
+/// The curated, hard-coded list of external Rust CLI tools `kovan-cli setup`
 /// knows how to install. Add an entry here to extend the list — everything
 /// else (`--dry-run` reporting, PATH detection, install loop) is generic
 /// over this array.
@@ -66,7 +66,7 @@ pub const TOOLS: &[ToolSpec] = &[
     },
 ];
 
-/// What `kovan setup` should do with one tool, given whether its binary is
+/// What `kovan-cli setup` should do with one tool, given whether its binary is
 /// already on `PATH`. Pure decision, no I/O — see [`decide`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -101,7 +101,7 @@ enum Outcome {
     Failed(String),
 }
 
-/// `kovan setup [--dry-run] [--force]` — the CLI entry point. Walks
+/// `kovan-cli setup [--dry-run] [--force]` — the CLI entry point. Walks
 /// [`TOOLS`], skipping tools already on `PATH` (unless `--force`),
 /// installing the rest via `cargo install <crate>` (unless `--dry-run`, which
 /// only reports what would happen). `cargo`/network/install failures are
@@ -110,7 +110,7 @@ enum Outcome {
 /// (never for tools that were skipped or dry-run reported).
 pub fn run(dry_run: bool, force: bool) -> Result<(), String> {
     println!(
-        "kovan setup — {} curated external CLI tool(s){}",
+        "kovan-cli setup — {} curated external CLI tool(s){}",
         TOOLS.len(),
         if dry_run {
             " (dry run: installing nothing)"
@@ -196,7 +196,7 @@ fn cargo_install(crate_name: &str) -> Result<(), String> {
 /// this gate is about runtime intent, not compilation.
 #[cfg(target_os = "android")]
 fn cargo_install(_crate_name: &str) -> Result<(), String> {
-    Err("kovan setup does not install dev tools on Android (no cargo-install host)".to_string())
+    Err("kovan-cli setup does not install dev tools on Android (no cargo-install host)".to_string())
 }
 
 #[cfg(test)]

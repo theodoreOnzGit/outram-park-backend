@@ -1,4 +1,4 @@
-//! `kovan search` — regex search over a single file or a whole repository.
+//! `kovan-cli search` — regex search over a single file or a whole repository.
 //!
 //! Two modes, chosen by which arguments are given:
 //!

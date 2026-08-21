@@ -1,4 +1,4 @@
-//! `kovan kloc` — the paper's productivity accounting.
+//! `kovan-cli kloc` — the paper's productivity accounting.
 //!
 //! The measurement lives in
 //! [`kovan_metrics::kloc`](kovan_metrics::kloc); this module is the `clap`
@@ -17,7 +17,7 @@ use std::process::Command;
 
 use kovan_metrics::kloc::{self, Options};
 
-/// Run `kovan kloc`.
+/// Run `kovan-cli kloc`.
 pub fn run(
     out_dir: PathBuf,
     clone: bool,
@@ -92,7 +92,7 @@ fn ensure_clones(options: &Options, fetch: bool) -> io::Result<()> {
     if !gitignore.exists() {
         std::fs::write(
             &gitignore,
-            "# Source repositories cloned by `kovan kloc`.\n\
+            "# Source repositories cloned by `kovan-cli kloc`.\n\
              # Measurement inputs, not project content, and large. Do not commit them.\n\
              *\n",
         )?;
