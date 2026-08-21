@@ -60,7 +60,9 @@ pub const B_COH_SILICON_FM: f64 = 4.1491;
 /// `reference-data/endf/tsl-CinSiC.endf` (MF=7/MT=2) is a simple-cubic
 /// reciprocal lattice whose fundamental edge sits at 1.066463e-3 eV; inverting
 /// `E = h^2 / (8 m_n a^2)` gives `a = 4.37898` Å, i.e. the thesis value to five
-/// figures.
+/// figures. The lattice constant is therefore **not** the source of the
+/// coherent-elastic residual against that tape — see `docs/leapr-sic-coherent-elastic-vv.md`,
+/// which traces it to the evaluation's own atomic basis instead.
 pub const SIC_3C_LATTICE_CM: f64 = 4.379e-8;
 
 /// A crystal this crate can build a generalized coherent-elastic section for.
@@ -124,7 +126,12 @@ impl GeneralCrystal {
         match self {
             Self::SiliconCarbide3C => {
                 let a = SIC_3C_LATTICE_CM;
-                let fcc = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]];
+                let fcc = [
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.5, 0.5],
+                    [0.5, 0.0, 0.5],
+                    [0.5, 0.5, 0.0],
+                ];
                 let mut basis = Vec::with_capacity(8);
                 for site in fcc {
                     basis.push(BasisAtom {
@@ -241,9 +248,15 @@ mod tests {
     /// **Results (measured 2026-08-19, this environment, release mode).**
     /// First allowed edge 3.19939e-3 eV — the same number, to six figures, as
     /// the `n = 3` entry of the published `tsl-CinSiC.endf` Bragg grid
-    /// (3.199390e-3 eV). The published tape additionally carries *lower* edges
-    /// at 1.066463e-3 eV `(100)` and 2.132926e-3 eV `(110)`, which zinc-blende
-    /// forbids; see the crate `docs/leapr-sic-coherent-elastic-vv.md`.
+    /// (3.199390e-3 eV). The published tape's grid additionally runs *below*
+    /// that, and its 1.066463e-3 eV `(100)` entry carries a **live** jump in
+    /// `S(E)` — a reflection zinc-blende extinguishes exactly. (Its
+    /// 2.132926e-3 eV `(110)` entry is on the grid but extinguished, as it is
+    /// here.) That mismatch is the root of the coherent-elastic residual
+    /// against the tape and is traced in
+    /// `docs/leapr-sic-coherent-elastic-vv.md`: the evaluation's MF=7/MT=2
+    /// matches a basis that is not a valid crystallographic centring, so this
+    /// crate keeps zinc-blende and deliberately does not reproduce it.
     #[test]
     fn sic_first_allowed_bragg_edge_is_the_111_reflection() {
         let s = GeneralCrystal::SiliconCarbide3C.structure();

@@ -58,8 +58,7 @@ use njoy_outram_park_fork::NjoyError;
 use uom::si::thermodynamic_temperature::kelvin;
 
 fn deck(material: SabMaterial) -> LeaprDeck {
-    LeaprDeck::parse(&locate_deck(material).expect("deck is embedded").text)
-        .expect("deck parses")
+    LeaprDeck::parse(&locate_deck(material).expect("deck is embedded").text).expect("deck parses")
 }
 
 /// The crystalline decks declare one spectrum and inherit it; the three liquid
@@ -69,7 +68,9 @@ fn deck(material: SabMaterial) -> LeaprDeck {
 fn only_the_liquid_decks_respecify_their_spectrum_per_temperature() {
     let mut respecify = Vec::new();
     for m in SabMaterial::all() {
-        let Ok(located) = locate_deck(m) else { continue };
+        let Ok(located) = locate_deck(m) else {
+            continue;
+        };
         let Ok(d) = LeaprDeck::parse(&located.text) else {
             continue;
         };
@@ -80,7 +81,11 @@ fn only_the_liquid_decks_respecify_their_spectrum_per_temperature() {
     respecify.sort();
     assert_eq!(
         respecify,
-        vec!["DInD2O".to_string(), "HInH2O".to_string(), "OInD2O".to_string()],
+        vec![
+            "DInD2O".to_string(),
+            "HInH2O".to_string(),
+            "OInD2O".to_string()
+        ],
         "exactly the three liquid decks re-specify their spectrum per temperature"
     );
 }
@@ -123,12 +128,8 @@ fn off_grid_temperature_is_allowed_when_every_block_inherits() {
 #[test]
 fn off_grid_temperature_is_refused_when_the_spectrum_is_per_temperature() {
     let d = deck(SabMaterial::HInH2O);
-    let err = generate_tape(
-        &d,
-        Temperature::new::<kelvin>(337.0),
-        ElasticChannel::Omit,
-    )
-    .expect_err("337 K is off-grid for a per-temperature-spectrum deck and must be refused");
+    let err = generate_tape(&d, Temperature::new::<kelvin>(337.0), ElasticChannel::Omit)
+        .expect_err("337 K is off-grid for a per-temperature-spectrum deck and must be refused");
     assert!(
         matches!(err, NjoyError::NotPorted(_)),
         "expected NotPorted explaining the refusal, got {err:?}"
@@ -149,12 +150,8 @@ fn a_declared_temperature_uses_its_own_block() {
         d.temperatures_k().iter().any(|t| (t - 293.6).abs() < 1e-6),
         "H-in-H2O declares 293.6 K"
     );
-    let tape = generate_tape(
-        &d,
-        Temperature::new::<kelvin>(293.6),
-        ElasticChannel::Omit,
-    )
-    .expect("H-in-H2O regenerates at a declared temperature");
+    let tape = generate_tape(&d, Temperature::new::<kelvin>(293.6), ElasticChannel::Omit)
+        .expect("H-in-H2O regenerates at a declared temperature");
     let ii = parse_mf7_at_temperature(&tape, SabMaterial::HInH2O.mat(), Some(293.6))
         .expect("parse MF=7")
         .incoherent_inelastic
@@ -200,8 +197,12 @@ fn si_in_sic_kernel_reproduces_the_published_evaluation_at_every_temperature() {
             .incoherent_inelastic
             .expect("MAT 43 has MT=4");
         let regenerated = {
-            let t = generate_tape(&d, Temperature::new::<kelvin>(t_k), ElasticChannel::Generate)
-                .unwrap_or_else(|e| panic!("Si-in-SiC regenerates at {t_k} K: {e:?}"));
+            let t = generate_tape(
+                &d,
+                Temperature::new::<kelvin>(t_k),
+                ElasticChannel::Generate,
+            )
+            .unwrap_or_else(|e| panic!("Si-in-SiC regenerates at {t_k} K: {e:?}"));
             parse_mf7_at_temperature(&t, mat, Some(t_k))
                 .expect("parse the regenerated tape")
                 .incoherent_inelastic

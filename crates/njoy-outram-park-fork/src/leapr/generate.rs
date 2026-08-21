@@ -904,7 +904,11 @@ pub fn thermal_scattering_tape(request: &SabRequest) -> Result<Tape, NjoyError> 
 /// Split out so [`regenerate_cached`] and [`disk_cache_path`] build the
 /// identical recipe from the identical inputs; the two entry points must
 /// never disagree about what artifact a request names.
-fn build_recipe(request: &SabRequest, located: &crate::leapr::decks::LocatedDeck, deck: &LeaprDeck) -> GenerationRecipe {
+fn build_recipe(
+    request: &SabRequest,
+    located: &crate::leapr::decks::LocatedDeck,
+    deck: &LeaprDeck,
+) -> GenerationRecipe {
     GenerationRecipe {
         material: request.material,
         deck_source: located.source.clone(),
@@ -1132,8 +1136,8 @@ mod tests {
         let request = SabRequest::new(SabMaterial::CrystallineGraphite, t(400.0))
             .with_cache(CachePolicy::UseCacheIfAvailable);
 
-        let _ =
-            thermal_scattering_law(&request).expect("a cache MISS must fall back to generating fresh, not error");
+        let _ = thermal_scattering_law(&request)
+            .expect("a cache MISS must fall back to generating fresh, not error");
 
         let located = locate_deck(request.material).unwrap();
         let deck = LeaprDeck::parse(&located.text).unwrap();

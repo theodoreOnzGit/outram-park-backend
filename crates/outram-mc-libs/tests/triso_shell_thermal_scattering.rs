@@ -7,11 +7,24 @@
 //! - **The PyC coatings and the graphite matrix are DONE.** The carbon law
 //!   regenerates from the embedded deck, binds to the nuclide, and is
 //!   elastic-dominated as it must be. Ready to use.
-//! - **The SiC layer is NOT.** Its coherent-elastic channel cannot be produced
-//!   from the embedded decks at all, so the only SiC law obtainable here has
-//!   ~2.7% of the layer's true thermal scattering. This is a **data-generation
-//!   gap**, established below and filed as its own bead — not something to work
-//!   around by using the graphite law for SiC.
+//! - **The SiC layer is USABLE, with a stated bias.** Its coherent-elastic
+//!   channel used to be unobtainable from the embedded decks — the law had
+//!   ~2.7 % of the layer's true thermal scattering, a data-generation gap.
+//!   That gap **closed on 2026-08-19** when the generalized coherent-elastic
+//!   formulation landed in `njoy-outram-park-fork::leapr::coher::general`
+//!   (bead `op-jw4a`, GitHub issue #24). Both SiC laws now carry a real
+//!   MF=7/MT=2, measuring −2.96 % against the ENDF/B-VIII.0 oracle tape at
+//!   293.6 K.
+//!   **That residual is characterised, not validated.** GitHub issue #28
+//!   traces it to the published evaluation rather than to this port: the
+//!   tape's MF=7/MT=2 matches, edge by edge, an atomic basis that is not a
+//!   valid crystallographic centring, while this port uses the true
+//!   zinc-blende structure of 3C-SiC. See
+//!   `njoy-outram-park-fork/docs/leapr-sic-coherent-elastic-vv.md`. Whether a
+//!   ~3 % elastic bias is acceptable for a shell-resolved TRISO transport case
+//!   is a judgement call for whoever picks that up — but it can now be an
+//!   informed one. Do **not** describe the SiC layer as validated, and do not
+//!   substitute the graphite law for it.
 //!
 //! # How the bead's premise changed
 //!
@@ -28,8 +41,13 @@
 //! | TRISO region | Scatterer | Deck | MAT | Usable? |
 //! |---|---|---|---|---|
 //! | Buffer / IPyC / OPyC / matrix | C in graphite | `tsl-crystalline-graphite` | 30 | **Yes** |
-//! | SiC layer | C in SiC | `tsl-CinSiC` | 44 | **No — see below** |
-//! | SiC layer | Si in SiC | `tsl-SiinSiC` | 43 | **No — see below** |
+//! | SiC layer | C in SiC | `tsl-CinSiC` | 44 | **Yes, −2.96 % elastic bias** |
+//! | SiC layer | Si in SiC | `tsl-SiinSiC` | 43 | **Yes, −2.96 % elastic bias** |
+//!
+//! Both SiC materials share **one** MT=2 section — coherent elastic is a Bragg
+//! property of the 3C-SiC compound lattice, not of either sublattice. A caller
+//! that puts both laws in one SiC region must count MT=2 **once** or it
+//! double-counts Bragg scattering.
 //!
 //! # What "wiring it in" means here (design note)
 //!
@@ -130,6 +148,25 @@ const TEMPERATURE_K: f64 = 293.6;
 /// The conventional thermal reference energy \[eV\].
 const E_THERMAL: f64 = 0.0253;
 
+/// Coherent-elastic cross section of 3C-SiC at [`E_THERMAL`] \[barn per
+/// principal atom\] read from the ENDF/B-VIII.0 oracle tapes
+/// `reference-data/endf/tsl-SiinSiC.endf` and `tsl-CinSiC.endf`, whose
+/// MF=7/MT=2 sections are byte-identical apart from the header.
+const SIC_ELASTIC_ORACLE_BARN: f64 = 2.94078;
+
+/// Pass band for the SiC elastic channel against
+/// [`SIC_ELASTIC_ORACLE_BARN`].
+///
+/// **This brackets a known, characterised bias, not a validation.** The
+/// measured residual is −3.03 %, and GitHub issue #28 traces it to the
+/// published evaluation rather than to this port: edge-by-edge, the tape's
+/// MF=7/MT=2 matches an atomic basis that is not a valid crystallographic
+/// centring, while this port uses the true zinc-blende structure of 3C-SiC
+/// (see `njoy-outram-park-fork/docs/leapr-sic-coherent-elastic-vv.md`). The
+/// residual is therefore not expected to close, and tightening this band would
+/// amount to reproducing the evaluation's own error.
+const SIC_ELASTIC_BAND: f64 = 0.05;
+
 /// Regenerate one embedded LEAPR deck's MF=7 law and build the `outram-mc-libs`
 /// consumer from it.
 ///
@@ -220,80 +257,157 @@ fn triso_carbon_coatings_bind_graphite_sab() {
     );
 }
 
-/// GAP ASSERTION (STALE — see below): carbon in **silicon carbide** used to
-/// have **no elastic channel** obtainable from the embedded deck.
+/// LIVE: carbon in **silicon carbide** binds a usable S(alpha,beta) law with a
+/// real coherent-elastic channel.
 ///
-/// See the module doc for the full root cause: card 4's `iel = 0` in
-/// `tsl-CinSiC.leapr`, and the deck's own note that its coherent elastic came
-/// from modified LEAPR source (Zhu and Hawari's generalized coherent-elastic
-/// formulation), which stock LEAPR — and therefore this port — did not carry.
+/// # History
 ///
-/// **The gap has closed.** A generalized coherent-elastic implementation
-/// landed in `leapr::coher` (2026-08-19, bead `op-jw4a`, mirrors GitHub issue
-/// #24 / bead `op-t33q`); regenerating the deck now measures elastic
-/// 2.85382 b + inelastic 0.13291 b at 0.0253 eV, vs the official ENDF/B-VIII.0
-/// tape oracle (`reference-data/endf/tsl-CinSiC.endf`) of elastic 2.94078 b —
-/// about 2.96% low, not yet validated to a tight tolerance. This assertion is
-/// therefore stale and **ignored** rather than rewritten to a real pass
-/// criterion in this pass; see the follow-up bead filed for that work
-/// (`op-jw4a` remains open, tracking the tighter-tolerance rewrite and the
-/// double-counting-across-materials question this test does not yet cover).
-#[ignore = "gap closed 2026-08-19 (op-jw4a): elastic is now ~2.854 b vs oracle 2.941 b, ~3% low; assertion needs rewriting to a real tolerance-based pass criterion, tracked in the same bead rather than done in this checkpoint"]
+/// This used to be a GAP assertion — `iel = 0` on card 4 of `tsl-CinSiC.leapr`
+/// meant stock LEAPR, and therefore this port, produced no MF=7/MT=2 at all,
+/// so the SiC layer was unusable. The deck's own README says its
+/// coherent-elastic section came from an in-house routine implementing Zhu and
+/// Hawari's generalized coherent-elastic formulation. That formulation landed
+/// in `leapr::coher::general` on 2026-08-19 (bead `op-jw4a`, GitHub issue
+/// #24), which closed the gap.
+///
+/// # Methodology
+///
+/// Regenerate the embedded deck, take the elastic and inelastic cross sections
+/// at 0.0253 eV, and compare the elastic channel against the ENDF/B-VIII.0
+/// oracle tape (`reference-data/endf/tsl-CinSiC.endf`, elastic 2.94078 b).
+/// The pass band is **±5 %**, which is the tolerance the root-cause analysis
+/// in GitHub issue #28 justifies rather than a round number: the residual is
+/// −3.03 %, it is *not* an error in this port, and it is not expected to
+/// close. `njoy-outram-park-fork`'s
+/// `tests/leapr_sic_coherent_elastic_oracle.rs` shows edge-by-edge that the
+/// published tape's MF=7/MT=2 matches an atomic basis which is not a valid
+/// crystallographic centring, while this port uses the true zinc-blende
+/// structure of 3C-SiC; see `docs/leapr-sic-coherent-elastic-vv.md` in that
+/// crate. So the band brackets a **known, characterised bias against the
+/// evaluation**, and tightening it would amount to reproducing the
+/// evaluation's own error.
+///
+/// # Results (measured 2026-08-21, release mode)
+///
+/// At this file's 293.6 K: elastic 2.85382 b (−2.96 % vs the 2.94078 b
+/// oracle), inelastic 0.13291 b, bound total 2.9867 b against 4.9382 b of
+/// free-gas carbon (ratio 0.605; the oracle implies 0.622). The elastic value
+/// is identical to the silicon side to within 1e-9, as it must be — coherent
+/// elastic is a property of the 3C-SiC compound lattice, not of either
+/// sublattice.
+///
+/// (The −3.03 % quoted in issue #28 and in
+/// `njoy-outram-park-fork/tests/leapr_sic_coherent_elastic_oracle.rs` is the
+/// same comparison at 296 K, where the elastic is 2.85169 b. The oracle tape's
+/// own base temperature is 300 K.)
+///
+/// **Not validated**: the ±5 % band is a characterisation of a known bias, not
+/// a validation of the SiC elastic channel. Do not describe the SiC layer as
+/// validated for a shell-resolved TRISO transport case on the strength of this
+/// test.
 #[test]
-fn sic_carbon_elastic_channel_is_missing_from_the_embedded_deck() {
+fn sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band() {
     let law = regenerated_law(SabMaterial::CInSiC, "C-in-SiC");
     let (el, inel) = (law.elastic_xs(E_THERMAL), law.inelastic_xs(E_THERMAL));
     let (free, bound) = free_and_bound(law, "C0");
 
     eprintln!(
-        "[op-6tz.35.1 GAP] SiC layer, C in SiC @ {E_THERMAL} eV: elastic {el:.5} b + inelastic \
-         {inel:.5} b; free-gas {free:.4} b -> bound {bound:.4} b ({:+.2} %) -- NOT usable",
+        "[op-6tz.35.1] SiC layer, C in SiC @ {E_THERMAL} eV: elastic {el:.5} b + inelastic \
+         {inel:.5} b ({:+.2} % vs oracle {SIC_ELASTIC_ORACLE_BARN} b); free-gas {free:.4} b -> \
+         bound {bound:.4} b ({:+.2} %)",
+        100.0 * (el - SIC_ELASTIC_ORACLE_BARN) / SIC_ELASTIC_ORACLE_BARN,
         100.0 * (bound - free) / free
     );
 
     assert!(
         inel > 0.0,
-        "the inelastic channel should still be generated (got {inel})"
-    );
-    assert_eq!(
-        el, 0.0,
-        "EXPECTED GAP: stock LEAPR cannot generate SiC coherent elastic (iel = 0). If this now \
-         returns a nonzero elastic cross section the gap has been closed -- update this test, \
-         the module documentation, and the kopi-beans bead instead of relaxing the assertion."
+        "the inelastic channel must be generated (got {inel})"
     );
     assert!(
-        bound < 0.1 * free,
-        "with the elastic channel absent the bound law is a small fraction of the free gas; this \
-         is the quantitative statement of why it must not be used ({bound:.4} b vs {free:.4} b)"
+        el > 0.0,
+        "the coherent-elastic channel must now be generated -- if this is 0 the generalized \
+         coherent-elastic path has regressed, see njoy-outram-park-fork::leapr::coher::general"
+    );
+    let rel = (el - SIC_ELASTIC_ORACLE_BARN).abs() / SIC_ELASTIC_ORACLE_BARN;
+    assert!(
+        rel < SIC_ELASTIC_BAND,
+        "C-in-SiC elastic {el:.5} b vs ENDF/B-VIII.0 oracle {SIC_ELASTIC_ORACLE_BARN} b is \
+         {:.2} % off, outside the characterised {:.0} % band. The known residual is -3.03 % and \
+         is traced to the evaluation, not to this port (GitHub issue #28); a move outside the \
+         band means something else changed -- investigate rather than widening it.",
+        100.0 * rel,
+        100.0 * SIC_ELASTIC_BAND
+    );
+    // Unlike graphite, SiC's bound law stays BELOW the free gas at 0.0253 eV,
+    // and the oracle tape says the same: 2.94078 + 0.13291 = 3.0737 b against
+    // the same 4.9382 b free-gas carbon, a ratio of 0.622 to this port's 0.605.
+    // The compound Bragg channel is shared between two sublattices and is
+    // Debye-Waller suppressed at the thermal point, so it does not make up the
+    // full free-atom value the way graphite's does. What matters for usability
+    // is that the channel is present and dominant -- before it existed the
+    // bound law was under a tenth of the free gas.
+    assert!(
+        el > inel,
+        "coherent elastic must dominate the SiC law at {E_THERMAL} eV, got elastic {el} vs \
+         inelastic {inel}"
+    );
+    assert!(
+        bound > 0.5 * free,
+        "with the elastic channel present the bound SiC law must be a substantial fraction of \
+         the free gas it replaces (oracle implies 0.62); got {bound:.4} b vs free {free:.4} b, \
+         ratio {:.3}. Below 0.5 suggests the elastic channel has gone missing again.",
+        bound / free
     );
 }
 
-/// GAP ASSERTION (STALE — see below): silicon in **silicon carbide**, same
-/// root cause and same closure as the carbon side. See
-/// [`sic_carbon_elastic_channel_is_missing_from_the_embedded_deck`].
+/// LIVE: silicon in **silicon carbide**, the same closure as the carbon side.
+/// See [`sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band`]
+/// for the methodology, the provenance of the ±5 % band, and why the −3.03 %
+/// residual is a property of the published evaluation rather than of this port.
 ///
-/// Measured 2026-08-19: elastic 2.85382 b + inelastic 0.06367 b at 0.0253 eV
-/// (elastic is byte-for-byte the same value as the carbon side, correctly
-/// reflecting that coherent elastic is a lattice property of the 3C-SiC
-/// compound, not a per-sublattice one — see `reference-data/endf/README.md`).
-#[ignore = "gap closed 2026-08-19 (op-jw4a), same as the carbon-side test"]
+/// # Results (measured 2026-08-21, release mode)
+///
+/// At this file's 293.6 K: elastic 2.85382 b (−2.96 % vs the 2.94078 b
+/// oracle), inelastic 0.06367 b.
+/// The elastic value is identical to the carbon side, which this test asserts
+/// directly: coherent elastic is a Bragg property of the 3C-SiC compound
+/// lattice, so a caller that puts **both** SiC laws in one region must count
+/// MT=2 **once** or it double-counts Bragg scattering. That is exactly the
+/// trap this pair of tests exists to keep visible; see
+/// `reference-data/endf/README.md`.
 #[test]
-fn sic_silicon_elastic_channel_is_missing_from_the_embedded_deck() {
+fn sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side() {
     let law = regenerated_law(SabMaterial::SiInSiC, "Si-in-SiC");
     let (el, inel) = (law.elastic_xs(E_THERMAL), law.inelastic_xs(E_THERMAL));
     let (free, bound) = free_and_bound(law, "Si28");
 
     eprintln!(
-        "[op-6tz.35.1 GAP] SiC layer, Si in SiC @ {E_THERMAL} eV: elastic {el:.5} b + inelastic \
-         {inel:.5} b; free-gas {free:.4} b -> bound {bound:.4} b ({:+.2} %) -- NOT usable",
+        "[op-6tz.35.1] SiC layer, Si in SiC @ {E_THERMAL} eV: elastic {el:.5} b + inelastic \
+         {inel:.5} b ({:+.2} % vs oracle {SIC_ELASTIC_ORACLE_BARN} b); free-gas {free:.4} b -> \
+         bound {bound:.4} b ({:+.2} %)",
+        100.0 * (el - SIC_ELASTIC_ORACLE_BARN) / SIC_ELASTIC_ORACLE_BARN,
         100.0 * (bound - free) / free
     );
 
-    assert!(inel > 0.0, "inelastic channel still generated (got {inel})");
-    assert_eq!(
-        el, 0.0,
-        "EXPECTED GAP: stock LEAPR cannot generate SiC coherent elastic (iel = 0). See the \
-         carbon-side test for what to do if this changes."
+    assert!(
+        inel > 0.0,
+        "the inelastic channel must be generated (got {inel})"
+    );
+    let rel = (el - SIC_ELASTIC_ORACLE_BARN).abs() / SIC_ELASTIC_ORACLE_BARN;
+    assert!(
+        rel < SIC_ELASTIC_BAND,
+        "Si-in-SiC elastic {el:.5} b vs ENDF/B-VIII.0 oracle {SIC_ELASTIC_ORACLE_BARN} b is \
+         {:.2} % off, outside the characterised {:.0} % band -- see the carbon-side test.",
+        100.0 * rel,
+        100.0 * SIC_ELASTIC_BAND
+    );
+
+    let carbon_el = regenerated_law(SabMaterial::CInSiC, "C-in-SiC").elastic_xs(E_THERMAL);
+    assert!(
+        (el - carbon_el).abs() < 1.0e-9,
+        "coherent elastic is a property of the 3C-SiC compound lattice and must be identical for \
+         both materials, got Si-in-SiC {el:.9} b vs C-in-SiC {carbon_el:.9} b -- a caller summing \
+         both materials' elastic channels for one SiC region double-counts Bragg scattering"
     );
 }
 
