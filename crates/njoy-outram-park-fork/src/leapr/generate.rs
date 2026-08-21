@@ -98,27 +98,30 @@
 //!
 //! # Caching
 //!
-//! Two layers, both keyed by a hash of the full generation recipe:
+//! Two layers:
 //!
-//! - **On disk**, through [`crate::acquire::EndfCache`] — the crate's single
-//!   caching layer, with its lock / double-check / fsync / atomic-rename /
-//!   SHA-256 discipline. The cached artifact is an ordinary ENDF tape, so it is
-//!   byte-for-byte the same *kind* of thing a download produces.
 //! - **In process**, a memo of parsed [`Mf7`] values behind an `RwLock`, so a
 //!   transport code asking for the same law per-material rather than once does
-//!   not re-read and re-parse a ~1 MB tape.
+//!   not re-read and re-parse a ~1 MB tape. Active under **either**
+//!   [`CachePolicy`] — a repeated call within one process is always this
+//!   process's own freshly computed answer, so remembering it costs nothing.
+//! - **On disk**, through [`crate::acquire::EndfCache`] — the crate's single
+//!   caching layer, with its lock / double-check / fsync / atomic-rename /
+//!   SHA-256 discipline. **Opt-in only**, via
+//!   [`SabRequest::with_cache`]`(`[`CachePolicy::UseCacheIfAvailable`]`)`; the
+//!   default [`CachePolicy::AlwaysRegenerate`] never reads or writes it. See
+//!   [`CachePolicy`] for why the disk cache is opt-in rather than the default:
+//!   in short, its key cannot see a code change unless
+//!   [`GENERATOR_REVISION`] is remembered to be bumped for it, and that
+//!   discipline has already failed once for real (revision 3's own history).
 //!
-//! **Invalidation rule: none — the key is the recipe.** The cache file name
-//! embeds a SHA-256 over the deck's *content* hash, the material, the
-//! temperature, the physical-constant set (both `bk` and `econ`), the
-//! elastic-channel choice, the Bragg cut-off, and [`GENERATOR_REVISION`].
-//! Change any of them and you get a different file; nothing is ever overwritten
-//! in place, so there is no expiry to get wrong. The deck's *path* is
-//! deliberately **not** in the key — the same deck in two directories shares one
-//! entry — but it is recorded in the `.recipe` sidecar written beside each
-//! artifact. **If you change the LEAPR kernels or `endout` in a way that alters
-//! output, bump [`GENERATOR_REVISION`]** — that is the one thing the hash cannot
-//! see for itself.
+//! **The disk cache's key** embeds a SHA-256 over the deck's *content* hash,
+//! the material, the temperature, the physical-constant set (both `bk` and
+//! `econ`), the elastic-channel choice, the Bragg cut-off, and
+//! [`GENERATOR_REVISION`]. Change any of them and you get a different file;
+//! nothing is ever overwritten in place. The deck's *path* is deliberately
+//! **not** in the key — the same deck in two directories shares one entry —
+//! but it is recorded in the `.recipe` sidecar written beside each artifact.
 //!
 //! # Android
 //!
@@ -166,7 +169,69 @@ use crate::NjoyError;
 /// constants. The first changes `S(alpha, beta)`, `T_eff` and the Debye-Waller
 /// integral for every deck with `twt > 0` or discrete oscillators (light water,
 /// the hydrides, the methanes); graphite is unaffected, having neither term.
-pub const GENERATOR_REVISION: u32 = 2;
+///
+/// **Revision 3 (2026-08-21)** — [`generate_tape`] now picks the deck
+/// temperature block that matches the request
+/// ([`temperature_block_index`]), instead of always using block 0. Every deck
+/// whose spectrum is re-specified per temperature (`HInH2O`, `DInD2O`,
+/// `OInD2O`) changes output for any request other than the deck's first
+/// declared temperature. **This bump is itself a case study in why
+/// [`CachePolicy`] exists**: the fix that made revision 3 necessary
+/// (commit `1a904fc5`) landed without bumping this constant, so a
+/// disk-cached H-in-H₂O tape from before the fix kept being served afterward
+/// — found only by re-measuring against the published evaluation, not by
+/// anything erroring. See issue
+/// <https://github.com/theodoreOnzGit/outram-park-backend/issues/27>.
+pub const GENERATOR_REVISION: u32 = 3;
+
+/// Whether a regeneration request may reuse a previously generated tape from
+/// the on-disk cache, or must compute fresh.
+///
+/// [`GENERATOR_REVISION`] is meant to invalidate the cache automatically when
+/// the generator's own code changes — but it depends on someone remembering
+/// to bump it, and revision 3 above is a real instance of that discipline
+/// failing: a physics-changing commit landed without the bump, and a stale
+/// cached tape kept being served until the cache was cleared by hand (issue
+/// [#27](https://github.com/theodoreOnzGit/outram-park-backend/issues/27)).
+///
+/// Rather than rely solely on that discipline, the choice is made explicit at
+/// the call site instead. **Default is [`AlwaysRegenerate`](Self::AlwaysRegenerate)** —
+/// compute fresh every time, accepting the ~1.8 s/temperature cost documented
+/// in the [module docs](self), rather than risk a stale answer silently. A
+/// caller who wants the disk-cache speed opts in with
+/// [`UseCacheIfAvailable`](Self::UseCacheIfAvailable), and the accuracy/speed
+/// tradeoff that choice makes is spelled out in its own doc comment and
+/// logged on every cache hit — never silent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CachePolicy {
+    /// **Default.** Always regenerate from the deck; never read from the
+    /// on-disk cache. Slower (pays the full generation cost on every call,
+    /// modulo the in-process memo — see the [module docs](self)) but the
+    /// result is always the current generator's own output, with no
+    /// dependence on whether [`GENERATOR_REVISION`] was remembered to be
+    /// bumped after some other change.
+    ///
+    /// This policy never writes to the disk cache either: the cache is
+    /// populated lazily by whoever first opts into
+    /// [`UseCacheIfAvailable`](Self::UseCacheIfAvailable) for a given recipe,
+    /// not by every default-policy caller as a side effect.
+    #[default]
+    AlwaysRegenerate,
+    /// Reuse a cached artifact for this exact recipe if one exists on disk;
+    /// generate fresh (and populate the cache) if none does. A missing or
+    /// unreadable cache entry is never an error — it falls back to
+    /// generating, silently, the same as [`AlwaysRegenerate`] would.
+    ///
+    /// **The tradeoff, explicit:** a cache hit is fast (~0.009 s vs
+    /// ~1.8 s/temperature — see the [module docs](self)) but the artifact was
+    /// written by *some* past version of this crate's LEAPR generator. If
+    /// that generator has changed since without [`GENERATOR_REVISION`] being
+    /// bumped for the change, the cached tape is stale and this policy will
+    /// hand it back without any way to notice from the request alone. Every
+    /// cache hit therefore logs a `log::warn!` naming this risk, so cache
+    /// usage is never silent even when it is correct.
+    UseCacheIfAvailable,
+}
 
 /// Upper energy \[eV\] of the coherent-elastic Bragg sum handed to
 /// [`crate::leapr::coher::coher`].
@@ -264,23 +329,37 @@ pub struct SabRequest {
     pub elastic: ElasticChannel,
     /// Where the law comes from. Defaults to [`SabSource::RegenerateFromDeck`].
     pub source: SabSource,
+    /// Whether a [`SabSource::RegenerateFromDeck`] request may reuse a cached
+    /// tape. Defaults to [`CachePolicy::AlwaysRegenerate`]; ignored for
+    /// [`SabSource::EndfTape`], which never touches the regeneration cache.
+    pub cache: CachePolicy,
 }
 
 impl SabRequest {
     /// A request for `material` at `temperature`, regenerated from its deck
-    /// with both channels — the defaults.
+    /// with both channels, always fresh — the defaults.
     pub fn new(material: SabMaterial, temperature: Temperature) -> Self {
         SabRequest {
             material,
             temperature,
             elastic: ElasticChannel::default(),
             source: SabSource::default(),
+            cache: CachePolicy::default(),
         }
     }
 
     /// Choose which channels to emit.
     pub fn with_elastic(mut self, elastic: ElasticChannel) -> Self {
         self.elastic = elastic;
+        self
+    }
+
+    /// Opt into (or explicitly re-affirm) a disk-cache policy. See
+    /// [`CachePolicy`] for the tradeoff — the default is already
+    /// [`CachePolicy::AlwaysRegenerate`], so this method exists for the
+    /// minority of callers choosing [`CachePolicy::UseCacheIfAvailable`].
+    pub fn with_cache(mut self, cache: CachePolicy) -> Self {
+        self.cache = cache;
         self
     }
 
@@ -803,23 +882,30 @@ pub fn thermal_scattering_tape(request: &SabRequest) -> Result<Tape, NjoyError> 
     match &request.source {
         SabSource::EndfTape(path) => Ok(Tape::read(std::fs::File::open(path)?)?),
         SabSource::RegenerateFromDeck => {
-            let (path, _key) = cached_tape_path(request)?;
-            Ok(Tape::read(std::fs::File::open(&path)?)?)
+            let located = locate_deck(request.material)?;
+            let deck = LeaprDeck::parse(&located.text)?;
+            match request.cache {
+                CachePolicy::AlwaysRegenerate => {
+                    generate_tape(&deck, request.temperature, request.elastic)
+                }
+                CachePolicy::UseCacheIfAvailable => {
+                    let recipe = build_recipe(request, &located, &deck);
+                    let (path, _key) = disk_cache_path(request, &recipe, &deck)?;
+                    Ok(Tape::read(std::fs::File::open(&path)?)?)
+                }
+            }
         }
     }
 }
 
-/// Produce (or reuse) the on-disk cached tape for a regeneration request, and
-/// return its path together with the recipe key the memo is stored under.
+/// The [`GenerationRecipe`] a request resolves to — everything that
+/// determines the output bytes, independent of [`CachePolicy`].
 ///
-/// Split out of [`regenerate_cached`] so [`thermal_scattering_tape`] can share
-/// the identical deck-location, recipe and cache logic — the two entry points
-/// must never disagree about what artifact a request names.
-fn cached_tape_path(request: &SabRequest) -> Result<(std::path::PathBuf, String), NjoyError> {
-    let located = locate_deck(request.material)?;
-    let deck = LeaprDeck::parse(&located.text)?;
-
-    let recipe = GenerationRecipe {
+/// Split out so [`regenerate_cached`] and [`disk_cache_path`] build the
+/// identical recipe from the identical inputs; the two entry points must
+/// never disagree about what artifact a request names.
+fn build_recipe(request: &SabRequest, located: &crate::leapr::decks::LocatedDeck, deck: &LeaprDeck) -> GenerationRecipe {
+    GenerationRecipe {
         material: request.material,
         deck_source: located.source.clone(),
         deck_sha256: sha256_hex(located.text.as_bytes()),
@@ -830,17 +916,46 @@ fn cached_tape_path(request: &SabRequest) -> Result<(std::path::PathBuf, String)
         constants: deck.constants(),
         temperature_k: request.temperature_k(),
         elastic: request.elastic,
-    };
+    }
+}
+
+/// Resolve the on-disk cached tape for a [`CachePolicy::UseCacheIfAvailable`]
+/// request: reuse it if present (logging the accuracy/speed tradeoff — see
+/// [`CachePolicy`]), otherwise generate fresh and populate the cache for next
+/// time. A cache miss is never an error; it falls back to
+/// [`CachePolicy::AlwaysRegenerate`]'s own behaviour, silently.
+///
+/// Only ever called under [`CachePolicy::UseCacheIfAvailable`] — the default
+/// policy never reads or writes this cache, by design (see [`CachePolicy`]).
+fn disk_cache_path(
+    request: &SabRequest,
+    recipe: &GenerationRecipe,
+    deck: &LeaprDeck,
+) -> Result<(std::path::PathBuf, String), NjoyError> {
     let key = recipe.key();
 
-    // On-disk cache, through the crate's one caching layer.
     let cache = EndfCache::new()?;
     let path = cache
         .dir()
         .join("leapr-generated")
         .join(recipe.cache_file_name());
+
+    if path.exists() {
+        log::warn!(
+            "LEAPR regeneration cache HIT for {} at {:.4} K ({}): reusing a tape from disk \
+             instead of regenerating. CachePolicy::UseCacheIfAvailable trades accuracy for \
+             speed -- this artifact was produced by whatever version of this crate's LEAPR \
+             generator wrote it, which may be older than the code running now (see \
+             https://github.com/theodoreOnzGit/outram-park-backend/issues/27). Use \
+             CachePolicy::AlwaysRegenerate (the default) for a guaranteed-current answer.",
+            request.material.label(),
+            request.temperature_k(),
+            recipe.cache_file_name(),
+        );
+    }
+
     let path = cache.get_or_produce(path, || {
-        let tape = generate_tape(&deck, request.temperature, request.elastic)?;
+        let tape = generate_tape(deck, request.temperature, request.elastic)?;
         let mut bytes: Vec<u8> = Vec::new();
         tape.write(&mut bytes)?;
         crate::acquire::validate_endf(&bytes, "generated LEAPR MF=7 tape")?;
@@ -860,19 +975,32 @@ fn cached_tape_path(request: &SabRequest) -> Result<(std::path::PathBuf, String)
 /// The regeneration path of [`thermal_scattering_law`]: memo, then disk cache,
 /// then generate.
 fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
-    // 1. In-process memo, keyed by the same recipe the disk cache uses. Keyed
-    //    lookup needs the recipe, which `cached_tape_path` builds — but building
-    //    it is cheap next to a parse, and doing it there keeps the two caches
-    //    from ever disagreeing about a request's identity.
-    let (path, key) = cached_tape_path(request)?;
+    let located = locate_deck(request.material)?;
+    let deck = LeaprDeck::parse(&located.text)?;
+    let recipe = build_recipe(request, &located, &deck);
+    let key = recipe.key();
+
+    // 1. In-process memo, keyed by the recipe. Building the recipe is cheap
+    //    next to a parse or a generation and touches no disk, so a memo hit
+    //    is reached under either CachePolicy without ever consulting the disk
+    //    cache — a repeated in-process call is always this process's own
+    //    freshly computed answer, regardless of policy.
     if let Ok(guard) = memo().read() {
         if let Some(hit) = guard.get(&key) {
             return Ok(Arc::clone(hit));
         }
     }
 
-    // 2. Parse the cached tape.
-    let tape = Tape::read(std::fs::File::open(&path)?)?;
+    // 2. Produce the tape, per policy (see `CachePolicy`), and parse it.
+    let tape = match request.cache {
+        CachePolicy::AlwaysRegenerate => {
+            generate_tape(&deck, request.temperature, request.elastic)?
+        }
+        CachePolicy::UseCacheIfAvailable => {
+            let (path, _key) = disk_cache_path(request, &recipe, &deck)?;
+            Tape::read(std::fs::File::open(&path)?)?
+        }
+    };
     let law = Arc::new(parse_mf7(&tape, request.material.mat())?);
 
     if let Ok(mut guard) = memo().write() {
@@ -904,10 +1032,123 @@ mod tests {
         let r = SabRequest::new(SabMaterial::CrystallineGraphite, t(523.0));
         assert_eq!(r.source, SabSource::RegenerateFromDeck);
         assert_eq!(r.elastic, ElasticChannel::Generate);
+        assert_eq!(r.cache, CachePolicy::AlwaysRegenerate);
         assert_eq!(r.temperature_k(), 523.0);
 
         let tape_req = r.clone().with_tape("/tmp/does-not-exist.endf");
         assert!(matches!(tape_req.source, SabSource::EndfTape(_)));
+
+        let cached_req = r.with_cache(CachePolicy::UseCacheIfAvailable);
+        assert_eq!(cached_req.cache, CachePolicy::UseCacheIfAvailable);
+    }
+
+    /// Serializes the two tests below, which both mutate the process-wide
+    /// `OUTRAM_PARK_DATA_DIR` env var to point the disk cache at an isolated
+    /// temp directory. `cargo test` runs tests in threads of one process, so
+    /// without this lock they could stomp on each other's env var.
+    static CACHE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// `CachePolicy::AlwaysRegenerate` (the default) never returns a stale
+    /// disk-cached tape — it does not even look at the disk cache.
+    ///
+    /// **Methodology.** This is the exact bug this policy exists to prevent
+    /// (issue #27 / bead `op-ergh`): plant an on-disk cache entry for a
+    /// request whose bytes are wrong on purpose (empty `.endf` written by
+    /// hand under the recipe's real cache key, not something `generate_tape`
+    /// could ever produce), then make the identical request under
+    /// `AlwaysRegenerate` and confirm it succeeds with real generated bytes
+    /// rather than reading — or erroring on — the planted file.
+    ///
+    /// **Pass criterion:** the request succeeds (proving it never opened the
+    /// planted file, which is not valid ENDF and would fail to parse if read)
+    /// and returns a real, non-empty coherent-elastic-bearing law.
+    #[test]
+    fn always_regenerate_ignores_a_stale_disk_cache_entry() {
+        let _guard = CACHE_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!(
+            "op_leapr_cache_test_always_regen_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: serialized by CACHE_ENV_LOCK against the sibling test below;
+        // no other test in this crate reads or writes OUTRAM_PARK_DATA_DIR.
+        unsafe {
+            std::env::set_var(crate::acquire::CACHE_DIR_ENV, &tmp);
+        }
+
+        let request = SabRequest::new(SabMaterial::CrystallineGraphite, t(296.0));
+        let located = locate_deck(request.material).unwrap();
+        let deck = LeaprDeck::parse(&located.text).unwrap();
+        let recipe = build_recipe(&request, &located, &deck);
+
+        let cache_dir = tmp.join("leapr-generated");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let planted = cache_dir.join(recipe.cache_file_name());
+        std::fs::write(&planted, b"this is not a valid ENDF tape").unwrap();
+
+        let law = thermal_scattering_law(&request)
+            .expect("AlwaysRegenerate must succeed by generating fresh, not by reading the planted (invalid) cached file");
+        assert!(
+            law.coherent_elastic.is_some(),
+            "the freshly generated law must carry graphite's coherent-elastic channel"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var(crate::acquire::CACHE_DIR_ENV);
+        }
+    }
+
+    /// `CachePolicy::UseCacheIfAvailable` reuses a hit and falls back
+    /// gracefully — never an error — on a miss.
+    ///
+    /// **Methodology.** Point the disk cache at an isolated empty temp
+    /// directory (a guaranteed miss) and confirm the request still succeeds
+    /// by generating fresh, exactly as `AlwaysRegenerate` would. Then request
+    /// the identical recipe again and confirm the disk cache is now
+    /// populated (the artifact the first call must have written), so a truly
+    /// third call would be a hit.
+    ///
+    /// **Pass criterion:** both calls succeed; the cache file exists after
+    /// the first call.
+    #[test]
+    fn use_cache_if_available_falls_back_gracefully_on_a_miss_and_then_populates_it() {
+        let _guard = CACHE_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!(
+            "op_leapr_cache_test_use_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: serialized by CACHE_ENV_LOCK against the sibling test above.
+        unsafe {
+            std::env::set_var(crate::acquire::CACHE_DIR_ENV, &tmp);
+        }
+
+        // A temperature distinct from the sibling test's 296 K: the in-process
+        // memo is shared across CachePolicy values (by design -- see
+        // `regenerate_cached`), so reusing 296 K here could hit that test's
+        // memo entry and never touch the disk cache this test is checking.
+        let request = SabRequest::new(SabMaterial::CrystallineGraphite, t(400.0))
+            .with_cache(CachePolicy::UseCacheIfAvailable);
+
+        let _ =
+            thermal_scattering_law(&request).expect("a cache MISS must fall back to generating fresh, not error");
+
+        let located = locate_deck(request.material).unwrap();
+        let deck = LeaprDeck::parse(&located.text).unwrap();
+        let recipe = build_recipe(&request, &located, &deck);
+        let cache_dir = tmp.join("leapr-generated");
+        assert!(
+            cache_dir.join(recipe.cache_file_name()).exists(),
+            "the miss-then-generate path must have populated the disk cache for next time"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var(crate::acquire::CACHE_DIR_ENV);
+        }
     }
 
     /// The per-channel validation status is reported honestly, and differs
