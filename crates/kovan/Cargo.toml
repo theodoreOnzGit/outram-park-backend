@@ -1,0 +1,61 @@
+[package]
+name = "kovan"
+description = "KOVAN — CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+# Consolidated 2026-08-21 from the former separate `kovan-cli` and
+# `kovan-tui` crates so one crate carries all three interfaces. `kovan` and
+# `kovan-tui` need no extra feature (matching the two original crates, whose
+# clap/ratatui deps were unconditional — nothing else depends on this crate as
+# a library, so there is no "keep the base lean" concern the way there is for
+# kovan-literature). `kovan-gui` reuses kovan-literature's digitiser GUI
+# window rather than implementing a second one, so it only needs that crate's
+# `digitise-gui` feature turned on, behind this crate's own non-default `gui`
+# feature so the plain CLI/TUI builds never pull egui/eframe.
+[features]
+gui = ["kovan-literature/digitise-gui"]
+
+[[bin]]
+name = "kovan"
+path = "src/bin/kovan.rs"
+
+[[bin]]
+name = "kovan-tui"
+path = "src/bin/kovan-tui.rs"
+
+[[bin]]
+name = "kovan-gui"
+path = "src/bin/kovan-gui.rs"
+required-features = ["gui"]
+
+[dependencies]
+kovan-common.workspace = true
+kovan-discovery.workspace = true
+kovan-literature.workspace = true
+kovan-semantics.workspace = true
+kovan-codegen.workspace = true
+# `tokens` / `historian`: per-commit API-token accounting and the pre-merge
+# report. Replaces docs/historian/*.py so the toolchain needs no Python.
+kovan-metrics.workspace = true
+clap.workspace = true
+# `lit import`/`lit bibtex` round-trip a `KovanDocument` through JSON on disk
+# (kovan-common's canonical serde format). Also used by the TUI Ingest tab.
+serde_json.workspace = true
+# `kovan setup`: PATH-presence check for the curated external-tool list
+# (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
+# and only runs when a user explicitly invokes `setup`).
+which.workspace = true
+
+# TUI is desktop scope. ratatui (and its bundled crossterm) are pulled ONLY off
+# Android so the crate honours the workspace Android rule; on Android the
+# `kovan-tui` binary compiles to a stub that points users at the `kovan` CLI.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+ratatui.workspace = true
+
+[dev-dependencies]
+# `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests
+# (mirrors kovan-literature's private `test_pdf` helper, which isn't exported).
+lopdf.workspace = true
+tempfile.workspace = true

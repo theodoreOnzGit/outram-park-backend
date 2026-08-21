@@ -43,8 +43,10 @@ members = [
     # the pre-merge historian report). Replaces docs/historian/*.py so the
     # toolchain needs no Python interpreter (epic op-yz7b).
     "crates/kovan-metrics",
-    "crates/kovan-cli",
-    "crates/kovan-tui",
+    # kovan — CLI (agent-facing), TUI and GUI (human-facing) front ends.
+    # Consolidated 2026-08-21 from the former separate kovan-cli/kovan-tui
+    # crates into binaries `kovan`/`kovan-tui`/`kovan-gui` in one crate.
+    "crates/kovan",
     # outram-blender — Blender-inspired mesh-authoring frontend (MC Studio +
     # tet-dual Mesh Studio; real mc-export / foam-mesh solver bridges).
     # NAME/TRADEMARK NOTE: workspace convention (op-ahi) is
@@ -176,10 +178,10 @@ petgraph = "0.6"             # optional graph layer (module/dependency/literatur
 # and raw image-asset extraction. See docs/kovan.md "PDF Processing".
 pdf-extract = "0.12"         # deterministic pure-Rust PDF text extraction
 lopdf = "0.42"               # low-level PDF object model (metadata + assets)
-clap = { version = "4.5", features = ["derive"] }  # kovan-cli (agent-facing)
-which = "8.0"          # kovan-cli's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
+clap = { version = "4.5", features = ["derive"] }  # kovan (agent-facing CLI binary)
+which = "8.0"          # kovan's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
 tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
-# TUI stack for kovan-tui (human-facing). Pulled ONLY by kovan-tui under a
+# TUI stack for the kovan-tui binary (human-facing). Pulled ONLY under a
 # `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android
 # rule; the libraries stay headless/Android-buildable. ratatui re-exports its
 # own matched crossterm as `ratatui::crossterm`, so no separate crossterm pin.

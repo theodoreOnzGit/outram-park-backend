@@ -28,6 +28,10 @@
 //!   maintainer-supplied golden oracle, bead `op-amfh`).
 //! - [`frontend`] *(feature-gated)* — the shared `clap` argument surface used
 //!   by the `kovan-digitise` CLI and `kovan-digitise-tui` binaries.
+//! - [`gui`] *(feature-gated)* — the egui app powering `kovan-digitise-gui`,
+//!   exposed as a library function (`gui::run`) so other binaries can reuse
+//!   the same window — the consolidated `kovan` crate's `kovan-gui` does
+//!   exactly this rather than duplicating the app.
 //!
 //! ## What does not belong here
 //!
@@ -68,6 +72,8 @@ pub mod dataset;
 pub mod detect;
 #[cfg(any(feature = "digitise-cli", feature = "digitise-tui"))]
 pub mod frontend;
+#[cfg(feature = "digitise-gui")]
+pub mod gui;
 pub mod raster;
 pub mod synthetic;
 pub mod trace;

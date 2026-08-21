@@ -4382,7 +4382,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "kovan-cli"
+name = "kovan"
 version = "0.0.0"
 dependencies = [
  "clap",
@@ -4393,6 +4393,7 @@ dependencies = [
  "kovan-metrics",
  "kovan-semantics",
  "lopdf",
+ "ratatui",
  "serde_json",
  "tempfile",
  "which",
@@ -4463,20 +4464,6 @@ dependencies = [
  "kovan-common",
  "kovan-discovery",
  "regex",
- "tempfile",
-]
-
-[[package]]
-name = "kovan-tui"
-version = "0.0.0"
-dependencies = [
- "kovan-codegen",
- "kovan-common",
- "kovan-discovery",
- "kovan-literature",
- "kovan-semantics",
- "ratatui",
- "serde_json",
  "tempfile",
 ]
 
