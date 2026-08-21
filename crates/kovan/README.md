@@ -337,6 +337,37 @@ See [`kovan::digitiser`] module docs for the interaction model,
 calibration/provenance guarantees, and known limits (no tick-label OCR —
 axis reference values must be supplied by the caller).
 
+### `kovan`'s GUI, beyond the digitiser window
+
+The `kovan` binary is one window with a top-bar view switch, growing beyond
+the plot digitiser per GitHub issue #30's wider "PDF-native literature
+workbench" ask (epic `op-9c2e`) — the pieces landed so far:
+
+- **File picker** (`Browse…` next to the digitiser's image path field, and
+  `Open PDF…` in the PDF reader) — a shared
+  [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) instance
+  with Image (`png`/`jpg`/`jpeg`) and PDF filters, reused rather than
+  hand-rolled (op-689u). Desktop-only, target-gated off Android alongside
+  `eframe`/`egui`.
+- **PDF reader** (top bar → "PDF Reader") — open a PDF, page through it,
+  zoom (op-95x6). Renders through `kopitiam_pdf::mupdf::rasterize_page`
+  (op-6ez3's page-rendering-engine decision — see this crate's `Cargo.toml`
+  for the record), one page rasterized and cached at a time so opening a
+  large document stays cheap. Display-only for now — it does not (yet) feed
+  a cropped page region into the digitiser as a plot-image source; that
+  draw-box-then-digitise interaction is separate, not-yet-implemented work
+  (op-p17q for plots, op-hnhp for OCR'd tables — the latter blocked on an
+  OCR-tooling decision, op-9bvi, not yet made).
+- **Gruvbox theming** (top bar → theme dropdown) — Gruvbox Dark / Gruvbox
+  Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
+  that crate's own attribution for the palette's MIT provenance
+  ([morhetz/gruvbox](https://github.com/morhetz/gruvbox)).
+
+Still open on the `op-9c2e` epic and not implemented: the bibliography
+management window, the "kovan folder" project format (`kovan.toml`), and
+structured markdown section editing — each needs a design/decision pass
+before implementation (see `bn show op-9c2e` for the full child-issue graph).
+
 ## Android
 
 **`kovan-cli` and `kovan-tui` are both non-GUI and genuinely
@@ -423,7 +454,12 @@ src/
 │   ├── auto.rs             the one-shot automatic pipeline
 │   ├── frontend.rs         shared `AutoArgs` clap surface (`kovan-cli digitise`, `kovan-tui`'s Digitiser tab)
 │   ├── synthetic.rs        deterministic test-fixture rendering
-│   └── gui.rs              *(behind the `gui` feature)* the `kovan` binary's egui app
+│   └── gui/                *(behind the `gui` feature)* the `kovan` binary's egui app
+│       ├── mod.rs            `run()`: Android redirect stub / desktop `eframe::run_native`
+│       └── desktop/          desktop-only (Android-gated at the `mod desktop;` declaration)
+│           ├── mod.rs          `DigitiseApp`: view switch, side panel, image panel
+│           ├── theme.rs        Gruvbox Dark/Light `egui::Visuals` (op-t5sq)
+│           └── pdf_reader.rs   integrated PDF reader panel, over `kopitiam_pdf::mupdf` (op-95x6)
 ├── tui/                  kovan-tui screens (Android/Termux-usable, see "Android")
 │   ├── mod.rs              App state, key-event dispatch, terminal setup/teardown
 │   ├── text_input.rs       tiny shared single-line text buffer (root-path fields)

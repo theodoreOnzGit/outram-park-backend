@@ -769,3 +769,138 @@ like a report number) — advisories only, never auto-correction, because silent
    but a `--archive-root` flag or a persisted setting would be better.
 4. **No beads filed** — this agent's brief was kovan-tui only and beads are the
    maintainer's to open/close; the three items above are the candidates.
+
+## GitHub issue #30 workbench, first slice: PDF engine decision, file picker, theming, PDF reader (2026-08-21)
+
+Started implementing the `op-9c2e` epic ("kovan GUI: PDF-native literature
+workbench"). Of its 13 child issues, four had no unmet dependency and were
+picked up in this pass: `op-6ez3` (DECISION: PDF page rendering engine),
+`op-t5sq` (Gruvbox theming), `op-689u` (file picker), and `op-95x6`
+(integrated PDF reader view, unblocked once `op-6ez3` was resolved).
+Deliberately **not** touched this pass: `op-63u0` (DESIGN: the "kovan
+folder" project format) and `op-9bvi` (DECISION: OCR tooling/policy for
+table digitisation) — both are genuinely maintainer-scope decisions (the
+OCR one explicitly conflicts with this crate's documented "no ML" digitiser
+rule and needs an exception granted, not assumed), so everything chained
+off them (`op-hnhp`, `op-b1y5`, `op-9vml`, `op-wr08`, `op-x3wl`, `op-5sdc`,
+`op-p17q`) stays unimplemented. See `bn show op-9c2e` for the full graph.
+
+**`op-6ez3` — PDF page rendering engine: decided as `kopitiam_pdf::mupdf`.**
+This was largely already decided by the `kopitiam-pdf` dependency landing
+earlier the same day (see this crate's `NOTICE` and the `Cargo.toml`
+comment on that dependency) — that dependency's whole stated purpose was
+this decision. What this pass did was the missing half: actually call it.
+`kopitiam_pdf::mupdf::PdfDocument::open(bytes)` parses a PDF's xref/page
+tree; `.page_count()` reports pages; `kopitiam_pdf::mupdf::rasterize_page(&doc,
+page_index, dpi)` returns a `Pixmap { w, h, n, alpha, stride, samples }` —
+confirmed via `rasterize_page`'s own doc comment ("a fresh white DeviceRGB
+Pixmap") that `n == 3`, no alpha, so the reader converts with
+`ColorImage::from_rgb` (an `alpha` branch to `from_rgba_unmultiplied` is
+kept for robustness but is not expected to trigger against this version).
+No alternative engine was seriously evaluated — `kopitiam-pdf` is this
+crate's maintainer's own pure-Rust MuPDF port, already a dependency for
+exactly this purpose, Android-Termux-clean, and reusing it needs no new
+licence/FFI/build-toolchain surface. Rejecting it in favour of, say, an
+`-sys` binding to real MuPDF or `pdfium` would have reopened questions
+(C toolchain, Android story, licence) this dependency already closed.
+
+**`op-t5sq` — Gruvbox theming: ported, not re-derived.** New file
+`src/digitiser/gui/desktop/theme.rs`, copied from
+`tampines-steam-tables-gui/theme.rs`'s `GuiTheme` enum + `gruvbox_visuals`
++ the `GRUVBOX_*` hex constants, field-for-field identical. The original
+file's other half — `figure_palette`/`live_ink_colour`, which style that
+crate's *exported* PNG/PDF/SVG figures — was **not** ported: `kovan` has no
+equivalent exported-figure concept, so porting it would have been dead code
+kept "in case," which the workspace's anti-scaffolding rule forbids. A
+top-bar dropdown (`ComboBox::from_id_salt("gui-theme")`) selects between
+the two variants; `DigitiseApp::theme.apply(ctx)` runs once per frame in
+`eframe::App::ui` — cheap enough not to gate behind a change-detection
+check.
+
+**`op-689u` — file picker: reused `egui-file-dialog`, already a workspace
+dependency.** `tampines-steam-tables-gui` already depends on
+`egui-file-dialog 0.13` (`[workspace.dependencies]`) and uses exactly the
+`FileDialog::new() → .pick_file()/.pick_directory() → .update(ctx) →
+.take_picked()` flow this pass needed — grepped for it
+(`docs`/`CLAUDE.md`'s "search before building" hard rule) before writing
+anything, per that crate's own `app.rs`. One `FileDialog` instance lives on
+`DigitiseApp`, shared by both "open a file" actions (the digitiser's
+`Browse…` button and the PDF reader's `Open PDF…` button) via a small
+`FileDialogTarget { Image, Pdf }` enum recording which action asked for the
+pick, read back in `handle_picked_file` once `take_picked()` resolves. Two
+named extension filters (`Images`: png/jpg/jpeg, `PDF`: pdf) are registered
+up front rather than swapped per-action, since `egui-file-dialog`'s filter
+methods are builder-style (consume `self`, meant for construction) and a
+user picking the "wrong" file type through an unfiltered-by-default picker
+is a minor inconvenience, not a correctness issue. Declared as a new
+`[target.'cfg(not(target_os = "android"))'.dependencies]` entry alongside
+`eframe`/`egui`, gated into the `gui` feature the same way
+(`dep:egui-file-dialog`).
+
+**`op-95x6` — PDF reader: new `desktop::pdf_reader` submodule.** One page
+is rasterized and cached at a time (`PdfReaderState::texture_page` tracks
+which page the cached texture belongs to) rather than pre-rendering the
+whole document, so opening a large PDF stays cheap and only visited pages
+cost render time — matching how the digitiser's own image loading is
+already lazy (texture uploaded on first draw after `load_image`). Fixed
+`RENDER_DPI = 150.0` for the rasterization; the zoom slider scales the
+*displayed* texture size rather than triggering a re-rasterize per zoom
+level, so zooming in past 100% shows raster blur — flagged as a known limit
+in the module doc rather than solved, since re-rasterizing per zoom step
+was not asked for and adds real complexity (when to re-rasterize, at what
+granularity) for a workbench feature nothing downstream depends on yet.
+
+**File-size-cap-driven restructuring: `gui.rs` became `gui/mod.rs` +
+`gui/desktop/{mod.rs,theme.rs,pdf_reader.rs}`.** The single `gui.rs` file
+(745 lines before this pass) would have crossed this crate's own
+"well under the 1000-line cap" convention (see this crate's `README.md`
+"Layout") once the new panels landed inline. Split via `git mv gui.rs
+gui/mod.rs`, then mechanically extracted the private `mod desktop { ... }`
+block's body into `gui/desktop/mod.rs` (dedented, no content changes) with
+`#[cfg(not(target_os = "android"))] mod desktop;` replacing the inline
+block in `gui/mod.rs` — same Android-gating semantics, just file-based
+instead of inline. `theme.rs` and `pdf_reader.rs` are private submodules of
+`desktop`, so they inherit its Android gate for free without repeating
+`#[cfg(not(target_os = "android"))]` on each file.
+
+**Verification.** `cargo check -p kovan --all-targets` and `--target
+aarch64-linux-android` both clean throughout (checked after the file split,
+after each new module, and after the final wiring); `cargo tree -p kovan
+--target aarch64-linux-android -e features` confirms zero
+`eframe`/`egui`/`egui-file-dialog` on that target, matching the existing
+`gui` default-feature pattern. `cargo test --release -p kovan --lib --tests`
+green (unaffected — no test coverage was added for the new GUI code itself,
+see "Known gaps" below). Manual smoke test: built `kovan` in release,
+launched under `xvfb-run` (`libxkbcommon-x11-0` installed to get past an
+initial missing-library panic) — got as far as opening a native window and
+initialising `winit`'s event loop before failing at
+`WGPU error: Failed to create surface for any enabled backend`, which is
+this sandbox having no GPU/DRI surface for `wgpu` to bind to, not a defect
+in the code reachable from a static check. **No interactive click-through
+of the new panels was possible in this environment** — the maintainer
+should smoke-test file-picking, PDF paging/zoom, and theme switching on a
+real desktop before trusting this beyond "compiles and the logic reads
+correctly."
+
+**Known gaps, left for the maintainer or a follow-up pass:**
+
+1. **No automated tests for the new GUI code.** `DigitiseApp`'s existing
+   logic (calibration, auto-trace, point editing) was already untested at
+   the unit level — this pass did not change that policy, just didn't
+   improve it either. `PdfReaderState`'s page-open/rasterize path and the
+   file-dialog routing are equally untested. A `PdfDocument`/`Pixmap`-level
+   test (open a small synthetic PDF fixture, rasterize page 0, assert
+   dimensions) would be the cheapest first slice, mirroring
+   `tests/cli_e2e.rs`'s synthetic-PDF-via-`lopdf` fixture pattern.
+2. **No re-rasterization on zoom** (see the `op-95x6` paragraph above) —
+   raster blur above 100% zoom is accepted, not fixed.
+3. **The PDF reader is display-only** — it does not yet feed a page (or a
+   cropped region of one) into the digitiser as a plot-image source. That
+   wiring is `op-p17q`, unimplemented, and is what would make this reader
+   actually replace "screenshot then digitise" per the issue's original
+   ask; today a user must still export/screenshot a page to digitise it.
+4. **File filters are registered but not verified against
+   `egui-file-dialog`'s actual runtime behaviour** (no interactive test was
+   possible — see "Verification" above) — if the picker's default filter
+   doesn't behave as the API docs describe, that would only surface on a
+   real desktop run.

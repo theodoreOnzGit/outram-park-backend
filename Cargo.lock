@@ -4401,6 +4401,7 @@ dependencies = [
  "clap",
  "eframe",
  "egui",
+ "egui-file-dialog",
  "image",
  "kopitiam-pdf",
  "kovan-codegen",

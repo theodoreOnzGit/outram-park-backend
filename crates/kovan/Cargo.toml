@@ -41,7 +41,7 @@ license = "AGPL-3.0-only"
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
 default = ["gui"]
-gui = ["dep:eframe", "dep:egui"]
+gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog"]
 
 # Exactly three binaries, per the final interface spec on GitHub issue #30
 # (2026-08-21): `kovan` (GUI), `kovan-cli` (agent CLI), `kovan-tui` (terminal
@@ -81,16 +81,17 @@ serde_json.workspace = true
 which.workspace = true
 # Pure-Rust PDF page rasterizer (a from-source port of MuPDF's `fitz` draw
 # device — real vector fills/strokes/images, real TrueType/CFF glyph outlines,
-# not a screenshot pipeline), the missing piece for GitHub issue #30's
-# integrated PDF reader (kopi-beans `op-6ez3`/`op-95x6`). AGPL-3.0-only —
-# see the `license` field above and NOTICE for why this crate, alone in the
-# workspace, is licensed to match. Declared directly here, NOT in the root
-# `[workspace.dependencies]`, so it stays scoped to this one crate. Confirmed
-# pure-Rust / Android-Termux-clean (no `-sys`/C-toolchain crate anywhere in
-# its dependency tree) via `cargo tree -p kovan`, 2026-08-21 — no target
-# gate needed. Not yet called from any code path in this crate; landing the
-# dependency is the whole of this change, wiring it up is the separate,
-# larger beads above.
+# not a screenshot pipeline). **This is op-6ez3's PDF-page-rendering-engine
+# DECISION, made and acted on**: `kopitiam_pdf::mupdf::{PdfDocument,
+# rasterize_page, Pixmap}` is what `digitiser::gui::desktop::pdf_reader`
+# (op-95x6, the `kovan` GUI's PDF reader panel) renders pages through.
+# AGPL-3.0-only — see the `license` field above and NOTICE for why this
+# crate, alone in the workspace, is licensed to match. Declared directly
+# here, NOT in the root `[workspace.dependencies]`, so it stays scoped to
+# this one crate. Confirmed pure-Rust / Android-Termux-clean (no `-sys`/
+# C-toolchain crate anywhere in its dependency tree) via `cargo tree -p
+# kovan`, 2026-08-21 — no target gate needed; only its one caller
+# (`pdf_reader`) is desktop/`gui`-feature-scoped.
 kopitiam-pdf = "0.2.5"
 # Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
 # decoding (no C toolchain, builds on Termux/Android) and the codec
@@ -122,9 +123,13 @@ ratatui.workspace = true
 # The `gui` feature's egui/eframe stack, desktop-only: target-gated off
 # Android on top of being behind the feature, so an Android build of this
 # crate never pulls it even if some future caller enabled `gui` by mistake.
+# `egui-file-dialog` is the native file/directory picker (already dogfooded by
+# `tampines-steam-tables-gui`) — GitHub issue #30's file-picker ask (op-689u),
+# reused rather than hand-rolling a picker.
 [target.'cfg(not(target_os = "android"))'.dependencies]
 eframe = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
+egui-file-dialog = { workspace = true, optional = true }
 
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests

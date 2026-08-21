@@ -34,23 +34,31 @@
 //!   optional — there is nothing left to gate.
 //! - [`gui`] *(behind this crate's `gui` feature, default except on
 //!   Android)* — the egui app powering the `kovan` binary, exposed as a
-//!   library function (`gui::run`).
+//!   library function (`gui::run`). Its `desktop` submodule also carries
+//!   GitHub issue #30's file picker (`egui-file-dialog`, op-689u), Gruvbox
+//!   theming (op-t5sq), and integrated PDF reader panel (op-95x6, over
+//!   `kopitiam_pdf::mupdf` — see the next bullet).
 //!
 //! ## What does not belong here
 //!
 //! - OCR / reading printed tick labels. KOVAN is deterministic and offline
 //!   (no ML), so **numeric axis values must be supplied by the caller** (they
 //!   are stated in the figure's caption/axes and are facts, not guesses); the
-//!   pixel geometry is what gets automated.
+//!   pixel geometry is what gets automated. (GitHub issue #30 has since asked
+//!   for OCR specifically for *table* digitisation, which is new ground for
+//!   this crate and needs an explicit decision — tracked as bead `op-9bvi`,
+//!   not yet made.)
 //! - Network access of any kind.
-//! - PDF *parsing* — this module never reads a `.pdf` file directly, only a
-//!   raster image. Producing that raster from a PDF page is a separate
-//!   concern (this crate's `kopitiam-pdf` dependency,
-//!   `kopitiam_pdf::mupdf::rasterize_page`, landed 2026-08-21 for exactly
-//!   this; GitHub issue #30), or extracting an embedded image with
-//!   `kovan_literature::extract_assets`. Either produces the same in-memory
-//!   raster this module already consumes — wiring either path in as a source
-//!   is separate follow-up work, not done as part of this module's move.
+//! - PDF *parsing* (text/metadata extraction) — that stays
+//!   `kovan_literature::extract_metadata`'s job. This module's own PDF
+//!   involvement is display-only: `gui`'s private `desktop::pdf_reader`
+//!   submodule opens a PDF with `kopitiam_pdf::mupdf::PdfDocument` and
+//!   rasterizes the current page
+//!   with `kopitiam_pdf::mupdf::rasterize_page` (op-6ez3's rendering-engine
+//!   decision) so it can be shown as a `kovan` GUI panel. It does not (yet)
+//!   feed a rasterized page into the digitiser as a plot-image source —
+//!   that's the draw-box-then-digitise interaction, a separate bead
+//!   (op-p17q) this panel is built to support but does not itself implement.
 //!
 //! ## Units and `uom`
 //!
