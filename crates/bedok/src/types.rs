@@ -196,6 +196,48 @@ pub struct Params {
     ///
     /// Read only by [`crate::criticalboron_xyz`]; defaults to 1e-5.
     pub crittol: Option<f64>,
+
+    // --- stage-2 corrections (OFF by default) -------------------------------
+    /// Use the **conservative** finite-volume face coupling in
+    /// [`crate::makegrad_dxyz`] instead of the reference's.
+    ///
+    /// **This is a correction, not a translation, and it is `false` by
+    /// default.** The reference's coupling is only a consistent discretisation
+    /// on a uniform mesh — defect G1/G2 in
+    /// `docs/bedok-reference-defects.md`. Setting this replaces it with
+    /// `D*Dp / (L * (h*Dp + hp*D))`, which is the conservative form and fixes
+    /// both the width pairing and the swapped harmonic mean.
+    ///
+    /// **On a uniform mesh it changes nothing at all** — the two expressions
+    /// are algebraically identical when `h == hp`, which is why enabling it
+    /// leaves [`crate::iaea3ds`] and [`crate::neacrpd1`] bit-for-bit unchanged.
+    /// It only bites where a case grades its mesh, which among the snapshot's
+    /// cases means the NEACRP PWR set.
+    ///
+    /// Per the crate README's "Translation policy", a correction deliberately
+    /// changes the answer and so **cannot be gated on parity with the
+    /// reference**. Enabling it means taking responsibility for a different
+    /// number; see the measurements in [`crate::makegrad_dxyz`]'s tests.
+    ///
+    /// # PENDING MAINTAINER DECISION — flipping this default to `true`
+    ///
+    /// The default is `false` **only** because the port is still being checked
+    /// against the MATLAB. While differences between the two remain open —
+    /// X1 above all — a faithful default is what makes a disagreement
+    /// attributable: with the correction on, there is no way to tell a
+    /// translation error from the correction changing the answer.
+    ///
+    /// **Once every difference between the reference and this port is
+    /// resolved, ask the maintainer whether to make this `true` by default.**
+    /// The argument for doing so is that the reference's form is not a
+    /// consistent discretisation on the graded meshes its own PWR cases use,
+    /// so faithful-by-default ships a known-wrong operator. The argument
+    /// against is that it silently diverges from the MATLAB the crate is a
+    /// translation of. That is a maintainer call, not an agent's.
+    ///
+    /// Recorded 2026-08-18 at the maintainer's request. Tracked in
+    /// `docs/bedok-reference-defects.md` under "Pending maintainer decisions".
+    pub gradd_conservative: bool,
     /// `params.velocities` — prompt neutron group velocities, cm/s.
     ///
     /// One per energy group. The transient driver uses the reciprocals as the

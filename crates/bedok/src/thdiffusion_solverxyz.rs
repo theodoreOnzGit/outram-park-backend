@@ -127,6 +127,32 @@ pub enum Termination {
     IterationCap,
 }
 
+/// One outer pass's thermal-hydraulic state, for diagnosing a coupled solve.
+///
+/// Not in the reference's `output`. The reference prints a fuel-temperature
+/// residual per pass and nothing else, which is enough to see *that* a loop is
+/// misbehaving but not *how*: a loop whose coolant has stopped responding and
+/// one whose fuel is oscillating produce similar residual traces. These three
+/// numbers separate them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ThSnapshot {
+    /// Total wall heat flux over the core, W/cm².
+    ///
+    /// Collapsing toward zero means no heat is reaching the coolant.
+    pub heatflux_sum: f64,
+    /// Total of the `pwrdens` vector handed to the T-H this pass.
+    ///
+    /// This is the *input* to the thermal-hydraulics, so it separates "the
+    /// T-H stopped working" from "the T-H was given no power".
+    pub pwrdens_sum: f64,
+    /// The hottest node's fuel temperature, K.
+    pub fueltemp_max: f64,
+    /// The hottest node's coolant temperature, K.
+    ///
+    /// Equal to the inlet temperature means the coolant never heated.
+    pub coolant_max: f64,
+}
+
 /// `output` — what the reference returns, plus what it computes and discards.
 #[derive(Clone, Debug)]
 pub struct CoupledOutput {
@@ -140,6 +166,9 @@ pub struct CoupledOutput {
     pub fueltemp_residual: f64,
     /// `output.fueltemp_residual_history` — one entry per outer iteration.
     pub fueltemp_residual_history: Vec<f64>,
+    /// One [`ThSnapshot`] per outer iteration. **Diagnostic, not in the
+    /// reference** — see that type for why it exists.
+    pub th_history: Vec<ThSnapshot>,
     /// `output.k_eff_history` — one entry per outer iteration.
     pub k_eff_history: Vec<f64>,
     /// `output.scalar_flux` — the converged flux history, renormalised.
@@ -307,6 +336,7 @@ pub fn thdiffusion_solverxyz(
     let init_norm: f64 = fission_source.iter().sum();
 
     let mut fueltempavg = th.fueltempavg.clone();
+    let mut th_history: Vec<ThSnapshot> = Vec::new();
     let mut fueltemperror = f64::INFINITY;
     let mut fission_source_new = fission_source.clone();
 
@@ -396,6 +426,22 @@ pub fn thdiffusion_solverxyz(
         relax(&th_old.heatflux, &mut th_new.heatflux);
         th = th_new;
 
+        th_history.push(ThSnapshot {
+            heatflux_sum: th.heatflux.iter().sum(),
+            pwrdens_sum: diffresults.pwrdens.iter().sum(),
+            fueltemp_max: th
+                .fueltempavg
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max),
+            coolant_max: th
+                .coolant
+                .temps
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max),
+        });
+
         let fueltempavgnew = th.fueltempavg.clone();
         fueltemperror = (0..es)
             .map(|i| (fueltempavgnew[i] - fueltempavg[i]).abs())
@@ -445,6 +491,7 @@ pub fn thdiffusion_solverxyz(
         k_eff_residual: k_eff_residual[iteration],
         fueltemp_residual: ftres,
         fueltemp_residual_history: fueltemp_residual,
+        th_history,
         k_eff_history: k_eff,
         scalar_flux,
         fission_source,

@@ -133,9 +133,9 @@
 //!   [`error::BedokError::IterativeSolveNotTranslated`] instead, which names
 //!   the threshold.
 //!
-//! # Status — INCOMPLETE, but building and tested
+//! # Status — translation complete; verification partial
 //!
-//! This is a rewrite in progress. **all 50 `.m` files are translated**: the
+//! **All 50 `.m` files are translated**: the
 //! utility and indexing layer, all fourteen SANM nodal files, both flux
 //! solvers, the whole thermal-hydraulics layer, **both** coupling drivers
 //! (steady and transient), and five benchmark cases ([`iaea3ds`],
@@ -158,11 +158,25 @@
 //! case, and every solver in the snapshot is 3-D. Its own call site in
 //! `main_exec_diff3d.m` is commented out.
 //!
-//! # An open disagreement with the reference
+//! # Verified against the running MATLAB
 //!
-//! [`criticalboron_xyz`] finds case A2 critical at **1253.29 ppm** where the
-//! MATLAB finds 1139.01 — about **1100 pcm** apart, cause **not established**.
-//! See that module and `docs/bedok-reference-defects.md`, "Open discrepancies".
+//! Both steady NEACRP cases reproduce the reference **exactly** — A2 at
+//! `k_eff = 1.0139476080` and D1 at `0.9752848326`, with fuel temperature,
+//! coolant temperature, heat flux and power identical to every printed digit.
+//! Getting to that found two defects: **Z1**, a silently rounded axial mesh,
+//! and **N1**, an unstable default nodal-update interval that makes A2's
+//! coupled loop chaotic.
+//!
+//! **The transient path reproduces it too**, on all three cases — including the
+//! super-prompt HZP ejection (2.1e-7 through a 67-fold excursion) and D1t over
+//! its **full 20 s window** (261 steps, 2.9e-11). [`iaea3ds`] matches the
+//! MATLAB as well as its published values, and [`criticalboron_xyz`] **fails
+//! where the reference fails**, aborting at the same boron concentration.
+//!
+//! What remains outside the comparison: the T-H modules individually (they are
+//! covered only transitively), `w3chf` (whose output the reference discards),
+//! the ejection transients beyond 0.15 s, and IAPWS region 3, which is not
+//! translated. See `docs/bedok-reference-defects.md`.
 //!
 //! # A defect worth knowing before running the PWR cases
 //!

@@ -191,6 +191,7 @@ pub fn makegrad_dxyz(
 
     // One direction's contribution.
     #[allow(clippy::too_many_arguments)]
+    let conservative = params.gradd_conservative;
     let direction = |lines: &[(usize, usize)],
                          stride: usize,
                          col_minus: usize,
@@ -212,6 +213,23 @@ pub fn makegrad_dxyz(
             }
         };
 
+        // The face coupling. `conservative` selects the stage-2 correction for
+        // defects G1/G2; see `crate::types::Params::gradd_conservative`.
+        //
+        // Reference:    0.5*(h + hp) * (D*Dp) / (h*D + hp*Dp) / L
+        // Conservative: hp * (D*Dp) / (L * (h*Dp + hp*D))
+        //
+        // The two are identical when `h == hp`, so this is a no-op on a
+        // uniform mesh — for the operator *and* for `terms`, which the
+        // SA-nodal correction consumes.
+        let face = |h: f64, hp: f64, d0: f64, dp: f64, width: f64| -> f64 {
+            if conservative {
+                hp * (d0 * dp) / (width * (h * dp + hp * d0))
+            } else {
+                0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / width
+            }
+        };
+
         for &(low, high) in lines {
             // --- interior nodes -------------------------------------------
             let mut node = low + stride;
@@ -228,10 +246,8 @@ pub fn makegrad_dxyz(
                         let dp = diff(np, g);
                         let dm = diff(nm, g);
 
-                        let dt_plus =
-                            0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / widths[node];
-                        let dt_minus =
-                            0.5 * (h + hm) * (d0 * dm) / (h * d0 + hm * dm) / widths[node];
+                        let dt_plus = face(h, hp, d0, dp, widths[node]);
+                        let dt_minus = face(h, hm, d0, dm, widths[node]);
 
                         write_diag(idx, dt_plus / hp + dt_minus / hm, diag);
 
@@ -261,7 +277,7 @@ pub fn makegrad_dxyz(
                     let idx = g * es + low;
                     let d0 = diff(low, g);
                     let dp = diff(np, g);
-                    let dt_plus = 0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / widths[low];
+                    let dt_plus = face(h, hp, d0, dp, widths[low]);
                     let dt_minus = match bc_min {
                         BoundaryCondition::Vacuum => {
                             0.5 * d0 / (2.0 * d0 + 0.5 * widths[low])
@@ -291,7 +307,7 @@ pub fn makegrad_dxyz(
                     let idx = g * es + high;
                     let d0 = diff(high, g);
                     let dm = diff(nm, g);
-                    let dt_minus = 0.5 * (h + hm) * (d0 * dm) / (h * d0 + hm * dm) / widths[high];
+                    let dt_minus = face(h, hm, d0, dm, widths[high]);
                     let dt_plus = match bc_max {
                         BoundaryCondition::Vacuum => {
                             0.5 * d0 / (2.0 * d0 + 0.5 * widths[high])
@@ -699,6 +715,187 @@ mod tests {
         assert!(
             (ratio - 1.0).abs() > 0.1,
             "a 2:1 cell-size jump should misstate the coupling by ~25%"
+        );
+    }
+
+    /// **The G1 correction is exact where the reference already was, and fixes
+    /// it where it was not.**
+    ///
+    /// # Methodology
+    ///
+    /// The stage-2 correction
+    /// ([`crate::types::Params::gradd_conservative`]) replaces the face
+    /// coupling with the conservative finite-volume form. Two things must hold
+    /// for it to be the right fix, and both are checked here on the same graded
+    /// and uniform columns the defect test uses:
+    ///
+    /// 1. **On a uniform mesh it must change nothing**, bit for bit. The two
+    ///    expressions are algebraically identical at `h == hp`, so anything
+    ///    other than an exact match means the correction has side effects it
+    ///    should not have.
+    /// 2. **On a graded mesh it must reproduce the conservative value exactly**,
+    ///    where the reference is off by `(L + Lp)/(2*Lp)`.
+    ///
+    /// # Results — measured 2026-08-18
+    ///
+    /// PENDING — filled in from the run.
+    #[test]
+    fn the_conservative_correction_is_exact_on_uniform_and_fixes_graded() {
+        let build = |widths: [f64; 3], conservative: bool| {
+            let params = Params {
+                maxix: Some(2),
+                maxiy: Some(2),
+                maxiz: Some(3),
+                g: 1,
+                gradd_conservative: conservative,
+                ..Default::default()
+            };
+            let n = 2 * 2 * 3;
+            let lz: Vec<f64> = (0..n).map(|idx| widths[idx % 3]).collect();
+            let geometry = Geometry {
+                lx: vec![10.0; n],
+                ly: vec![10.0; n],
+                lz,
+                ..Default::default()
+            };
+            let mut diffd = Array4::<f64>::zeros(2, 2, 3, 1);
+            let mut whichsigma = Array3::<usize>::zeros(2, 2, 3);
+            for ix in 0..2 {
+                for iy in 0..2 {
+                    for iz in 0..3 {
+                        diffd.set(ix, iy, iz, 0, 1.0);
+                        whichsigma.set(ix, iy, iz, 1);
+                    }
+                }
+            }
+            let mut g = makegrad_dxyz(&geometry, &params, &diffd, &whichsigma, None).unwrap();
+            let found = g.operator.find();
+            let off = -found.iter().find(|t| t.i == 0 && t.j == 1).unwrap().v;
+            // The whole operator, so a side effect anywhere shows up.
+            let mut all: Vec<(usize, usize, f64)> =
+                found.iter().map(|t| (t.i, t.j, t.v)).collect();
+            all.sort_by_key(|(i, j, _)| (*i, *j));
+            (off, all)
+        };
+
+        let conservative_value = |l: f64, lp: f64| 1.0 / (l * (l + lp) / 2.0);
+
+        // --- 1. uniform: bit-for-bit identical ---
+        let (u_ref, ops_ref) = build([2.0, 2.0, 2.0], false);
+        let (u_fix, ops_fix) = build([2.0, 2.0, 2.0], true);
+        eprintln!("uniform L=2:");
+        eprintln!("  reference    = {u_ref:.17}");
+        eprintln!("  conservative = {u_fix:.17}");
+        assert_eq!(
+            u_ref, u_fix,
+            "the correction must be a bit-exact no-op on a uniform mesh"
+        );
+        assert_eq!(
+            ops_ref.len(),
+            ops_fix.len(),
+            "the operator must have the same sparsity"
+        );
+        let differing = ops_ref
+            .iter()
+            .zip(&ops_fix)
+            .filter(|(a, b)| a.2 != b.2)
+            .count();
+        eprintln!("  operator entries differing: {differing} of {}", ops_ref.len());
+        assert_eq!(differing, 0, "no entry anywhere may change on a uniform mesh");
+
+        // --- 2. graded: the reference is wrong, the correction is right ---
+        let (g_ref, _) = build([2.0, 4.0, 8.0], false);
+        let (g_fix, _) = build([2.0, 4.0, 8.0], true);
+        let want = conservative_value(2.0, 4.0);
+        eprintln!("graded L=2, Lp=4:");
+        eprintln!("  reference    = {g_ref:.10} (ratio {:.4})", g_ref / want);
+        eprintln!("  conservative = {g_fix:.10} (ratio {:.4})", g_fix / want);
+        eprintln!("  target       = {want:.10}");
+        assert!(
+            (g_fix - want).abs() < 1e-15,
+            "the correction must hit the conservative value exactly"
+        );
+        assert!(
+            (g_ref - want).abs() > 1e-3,
+            "and the reference must not — otherwise there is nothing to fix"
+        );
+    }
+
+    /// The correction also repairs G2, the swapped harmonic mean.
+    ///
+    /// # Methodology
+    ///
+    /// G1's test holds `D` uniform to isolate the width error. This does the
+    /// opposite: a **uniform mesh** with two *different* diffusion
+    /// coefficients, where the widths cannot contribute. The correct face
+    /// conductance from the series resistance `h/D + hp/Dp` is
+    /// `D*Dp/(h*Dp + hp*D)`; the reference writes `D*Dp/(h*D + hp*Dp)`.
+    ///
+    /// At `h == hp` those two are **also** identical — which is the point: G2,
+    /// like G1, is invisible on a uniform mesh. So this checks the graded case
+    /// with unequal `D`, where both errors are live at once, against the value
+    /// computed independently from the series resistance.
+    ///
+    /// # Results — measured 2026-08-18
+    ///
+    /// PENDING — filled in from the run.
+    #[test]
+    fn the_correction_repairs_the_swapped_harmonic_mean_too() {
+        // Node 0 is 2 cm with D = 1; node 1 is 4 cm with D = 5.
+        let build = |conservative: bool| {
+            let params = Params {
+                maxix: Some(2),
+                maxiy: Some(2),
+                maxiz: Some(3),
+                g: 1,
+                gradd_conservative: conservative,
+                ..Default::default()
+            };
+            let widths = [2.0f64, 4.0, 8.0];
+            let diffs = [1.0f64, 5.0, 5.0];
+            let n = 2 * 2 * 3;
+            let lz: Vec<f64> = (0..n).map(|idx| widths[idx % 3]).collect();
+            let geometry = Geometry {
+                lx: vec![10.0; n],
+                ly: vec![10.0; n],
+                lz,
+                ..Default::default()
+            };
+            let mut diffd = Array4::<f64>::zeros(2, 2, 3, 1);
+            let mut whichsigma = Array3::<usize>::zeros(2, 2, 3);
+            for ix in 0..2 {
+                for iy in 0..2 {
+                    for (iz, d) in diffs.iter().enumerate() {
+                        diffd.set(ix, iy, iz, 0, *d);
+                        whichsigma.set(ix, iy, iz, 1);
+                    }
+                }
+            }
+            let mut g = makegrad_dxyz(&geometry, &params, &diffd, &whichsigma, None).unwrap();
+            let found = g.operator.find();
+            -found.iter().find(|t| t.i == 0 && t.j == 1).unwrap().v
+        };
+
+        // Independently: series resistance across the two half-cells.
+        let (l, lp) = (2.0f64, 4.0f64);
+        let (d0, dp) = (1.0f64, 5.0f64);
+        let (h, hp) = (l / 2.0, lp / 2.0);
+        let want = 1.0 / (l * (h / d0 + hp / dp));
+
+        let got_ref = build(false);
+        let got_fix = build(true);
+        eprintln!("graded AND unequal D (L=2 D=1 | Lp=4 Dp=5):");
+        eprintln!("  reference    = {got_ref:.10} ({:+.1}%)", (got_ref / want - 1.0) * 100.0);
+        eprintln!("  conservative = {got_fix:.10} ({:+.1}%)", (got_fix / want - 1.0) * 100.0);
+        eprintln!("  series-resistance target = {want:.10}");
+
+        assert!(
+            (got_fix - want).abs() < 1e-15,
+            "the correction must match the series-resistance value"
+        );
+        assert!(
+            (got_ref - want).abs() > 1e-3,
+            "the reference must not"
         );
     }
 }

@@ -187,7 +187,7 @@ entry above because it is a different failure with a much wider blast radius.
 
 | # | Where | Defect | Severity |
 |---|---|---|---|
-| G1 | `makegradDxyz.m:114-116` and the matching `x`/`y` blocks | **The face-diffusion coupling is only a consistent discretisation on a UNIFORM mesh.** With half-widths `h = L/2`, the code forms `Dt_plus = 0.5*(h+hp)*(D*Dp)/(h*D + hp*Dp)/L` and inserts `Dt_plus/hp`. For `D = Dp` that reduces to `D/(L*Lp)`, where the conservative finite-volume coupling is `D/(L*(L+Lp)/2)`. The two agree only when `L == Lp` and otherwise differ by exactly `(L+Lp)/(2*Lp)` — **measured: a 2:1 cell-size jump understates the coupling by 25%**, confirmed by test to 1e-12 against the predicted factor. On `neacrpa2.m`'s own mesh the worst joint is 30 cm against 7.7 cm, where the coupling is misstated by **+144.8%** — and it sits at the bottom of the core, where the axial power shape is set. | **High on any graded mesh**; nil on a uniform one |
+| G1 | `makegradDxyz.m:114-116` and the matching `x`/`y` blocks | **The face-diffusion coupling is only a consistent discretisation on a UNIFORM mesh.** With half-widths `h = L/2`, the code forms `Dt_plus = 0.5*(h+hp)*(D*Dp)/(h*D + hp*Dp)/L` and inserts `Dt_plus/hp`. For `D = Dp` that reduces to `D/(L*Lp)`, where the conservative finite-volume coupling is `D/(L*(L+Lp)/2)`. The two agree only when `L == Lp` and otherwise differ by exactly `(L+Lp)/(2*Lp)` — **measured: a 2:1 cell-size jump understates the coupling by 25%**, confirmed by test to 1e-12 against the predicted factor. On `neacrpa2.m`'s **actual** mesh — after defect Z1's rounding — the worst joint is 30 cm against 8 cm, where the coupling is misstated by **+137.5%**, and it sits at the bottom of the core where the axial power shape is set. | **High on any graded mesh**; nil on a uniform one |
 | G2 | same lines | **The harmonic mean pairs each diffusion coefficient with the wrong half-width.** Series resistance `h/D + hp/Dp` gives a face conductance `D*Dp/(h*Dp + hp*D)`; the code writes `D*Dp/(h*D + hp*Dp)`. Independent of G1, and like G1 it vanishes when `h == hp`. Not separately quantified — G1's test holds `D` uniform to isolate the width error. | Medium, same regime |
 
 **Why this matters here.** `neacrpa2.m`, `neacrpa2t.m` and `neacrpa1t.m` all use
@@ -208,6 +208,49 @@ a case where that matters: correcting it would move every NEACRP number. It is a
 **correction**, not a substitution, so it cannot be gated on parity with the
 reference — it would need its own before/after study against a benchmark. See
 the crate README, "Translation policy".
+
+---
+
+### From the case files — the axial mesh is silently rounded (reported 2026-08-18)
+
+Found by running the MATLAB while chasing X1. **This is the most consequential
+reference defect found so far**, and it is invisible from reading the source.
+
+| # | Where | Defect | Severity |
+|---|---|---|---|
+| Z1 | `neacrpa2.m`, `neacrpd1.m`, and the same block in `neacrpa2t.m`, `neacrpa1t.m`, `neacrpd1t.m` | **The axial mesh is silently rounded to integers by MATLAB integer-type contagion.** The cases build `geometry.Lz(...) = Zlengths(...)/zscale` where `zscale = int64(maxiz/N)`. In MATLAB `double / int64` returns an **`int64`**, rounding to nearest. So `7.7/int64(1)` is **8**, `12.8/int64(1)` is **13**, `30.48/int64(1)` is **30**. The mesh the solver integrates is not the one the case file writes. | **High** |
+
+**Verified by running MATLAB R2026a, 2026-08-18:**
+
+```text
+class(7.7/int64(1))    ->  int64,  value 8
+class(12.8/int64(1))   ->  int64,  value 13
+class(30.48/int64(1))  ->  int64,  value 30
+
+neacrpa2  geometry.Lz(1:18) = 30 8 11 15 30 30 30 30 30 30 30 30 30 30 13 13 8 30
+          (the file writes    30 7.7 11 15 ... 12.8 12.8 8 30)
+neacrpd1  geometry.Lz(1:3)  = 30 30 30      (the file writes 30.48)
+```
+
+**Each case is left internally inconsistent**, because `geometry.Ztot` is
+computed from the *un-rounded* `Zlengths`:
+
+| case | `Ztot` says | the mesh actually sums to |
+|---|---|---|
+| `neacrpa2` | 427.3 cm | **428 cm** |
+| `neacrpd1` | 426.72 cm | **420 cm** — a core 1.6% shorter |
+
+**Why it went unnoticed.** `iaea3ds`'s layer heights are already integers (10 cm
+radial, 20 cm axial), so the rounding is a no-op there — which is precisely why
+that case reproduces the published `k_eff` to -1.1 pcm while the NEACRP cases
+did not.
+
+**Reproduced, not repaired.** This port originally implemented the *written*
+values — what the source says, but not what it does. It now reproduces the
+rounded mesh, keeping the written values alongside as `Z_LENGTHS_AS_WRITTEN`.
+
+**What fixing it bought:** see X1 below. It turned a divergence into a converged
+solve and brought the feedback chain into round-off agreement with the MATLAB.
 
 ---
 
@@ -235,6 +278,107 @@ consistent with it.
 
 ---
 
+## Verified against the running MATLAB
+
+What has been compared against MATLAB R2026a directly, and to what tolerance.
+This is the strongest evidence the crate has: not agreement with a published
+number, but agreement with the code being translated.
+
+| what | case | agreement |
+|---|---|---|
+| `sigmavalupd3d_handler` — all five feedback channels, rod tip search, material renumbering | A2 | **3.3e-13** |
+| rod-fraction map | A2 | **1.1e-15** |
+| `sanodaldiffusion_solverxyz`, static, at `nodalupd` frozen/200/100/50/20 | A2 | **exact**, 10 s.f. |
+| `sanodaldiffusion_solverxyz`, static, at `nodalupd` frozen/100/50/20/5 | D1 | **exact**, 0.000 pcm |
+| `thdiffusion_solverxyz` coupled on `hem` | A2 | **exact** — `k_eff` 1.0139476080 both |
+| `thdiffusion_solverxyz` coupled on `hem` | D1 | **exact** — `k_eff` 0.9752848326 both, same 27 passes, and fuel T, coolant T, heat flux and power identical to every printed digit |
+| `thdiffusion_solvertimexyz` transient, 0-0.5 s, cold-water injection | D1t | **exact** — C1 power 1.6e-11, temperatures identical, precursors 2.8e-11, C1 history worst 4.3e-9 |
+| `thdiffusion_solvertimexyz` transient, 0-0.15 s, **rod ejection** | A2t | **exact** — C1 power 2.6e-11, rod position 0.000 steps at every step, C1 history worst 3.7e-9 |
+| `thdiffusion_solvertimexyz` transient, 0-0.15 s, **super-prompt HZP ejection** | A1t | **2.1e-7** through a 67-fold power excursion over 151 steps — round-off compounded by exponential growth |
+| `thdiffusion_solvertimexyz`, the **full specified 20 s window**, 261 steps | D1t | **exact** — C1 power 2.9e-11, the non-monotonic peak at the same time step, and the `tmaxfuel` clamp reached identically at 3100 K |
+| `sanodaldiffusion_solverxyz`, pure neutronics, no feedback | IAEA-3D | **exact** — `k_eff` 1.0290842762 both, -0.0000 pcm |
+| `criticalboron_xyz` end to end | A2 | **both abort at the same boron** — MATLAB at 1139.19 ppm, this port at 1139.1939954, each tripping its own sanity guard on a destabilised eigensolve (defect N1) |
+
+**Why two cases matter more than one.** A2 is a PWR at 15.5 MPa with a graded
+axial mesh, five feedback channels and 11 materials. D1 is a BWR at 6.7 MPa
+whose coolant boils, on a uniform mesh, with two feedback channels and 19
+materials, a different rod geometry and a different pin. They exercise nearly
+disjoint paths through the thermal-hydraulics — D1's coolant reaches
+`Tsat(6.7 MPa) = 556.03 K` and enters the two-phase branch of
+`singleflow1devap` that A2 never touches.
+
+**The transient path is now covered too**, on all three cases: a cold-water
+injection with no rod motion, a full-power rod ejection, and the super-prompt
+HZP ejection. Between them they exercise the exponential-transform kinetics,
+analytic precursor integration over six delayed families, the prescribed inlet
+forcing, a moving control assembly, and the transient thermal-hydraulics.
+
+**Every case in the snapshot that can be run has now been compared**, steady and
+transient, short window and full window, pure neutronics and fully coupled.
+
+**What remains outside the comparison**, and should not be described as verified:
+
+- **The individual T-H modules** are verified *transitively* — the coupled and
+  transient comparisons drive `th_solverxyz`, `th_solvertimexyz`,
+  `singleflow1devap`, `singleflow1devaptime` and `fuelrodheat_1dcylnd` on every
+  step — but none has been called directly with a MATLAB-supplied input and its
+  output diffed. A defect that cancels within the coupled loop would not show.
+- **`w3chf` and `w3chfhottest`** run inside the coupled driver but their output
+  is **discarded by the reference** (defect C3), so nothing compares it. The
+  22.8% CHF error (T1) is measured against the published correlation, not the
+  MATLAB.
+- **The A2/A1 transients beyond 0.15 s.** D1t is verified over its full 20 s;
+  the two ejection cases specify 5 s and were compared over 0.15 s, enough to
+  cover the ejection itself but not the later decay.
+- **`geom2dxycase1`** — no solver in the snapshot can run it, in either code.
+- **IAPWS region 3** — not translated at all, which caps everything at
+  16.5292 MPa. A2 at 15.5 MPa is under it, but not by much.
+
+---
+
+## Pending maintainer decisions
+
+Things an agent must **not** decide unilaterally, recorded so they are not lost.
+
+### Should `gradd_conservative` default to `true`?
+
+**Raised 2026-08-18 at the maintainer's request. Do not action without asking.**
+
+`crate::types::Params::gradd_conservative` enables the stage-2 correction for
+defects G1/G2 — the conservative finite-volume face coupling. It is currently
+**off by default**, so the crate ships the reference's behaviour.
+
+**The precondition for asking: every difference between the MATLAB and this
+port is resolved.** As of 2026-08-18 that means X1 (below) at minimum. Until
+then a faithful default is what keeps disagreements attributable — with the
+correction on, a mismatch could be either a translation error or the correction
+itself, and the two cannot be separated.
+
+**The case for flipping it.** The reference's coupling is not a consistent
+discretisation on a non-uniform mesh, and all three NEACRP PWR cases grade
+their axial mesh — up to +144.8% at A2's worst joint, and -52.3% measured where
+unequal widths and unequal diffusion coefficients compound. Defaulting to
+faithful means defaulting to a known-wrong operator on those cases.
+
+**The case against.** The crate is a *translation*. Silently diverging from the
+code it translates is exactly what the no-silent-repairs policy exists to
+prevent, and a correction cannot be validated by parity — it would need its own
+benchmark justification.
+
+**New evidence against, 2026-08-18.** On the one case where the correction
+changes anything — NEACRP A2 — it **degrades** coupled convergence. The Phase-0
+solve reaches a `k_eff = 1.0355` plateau with the reference operator and never
+plateaus at all with the corrected one. Being more nearly right pointwise did
+not make the coupled iteration better behaved, so "the correction is more
+accurate" is not on its own sufficient grounds to default it on.
+
+**What makes the flip safe to consider at all:** the correction is a
+**bit-exact no-op on a uniform mesh** — measured, zero of 52 operator entries
+change, `gradterms` included. So flipping the default cannot disturb
+`iaea3ds` or `neacrpd1`; it moves only the graded-mesh cases.
+
+---
+
 ## Open discrepancies against the reference (not defects in the reference)
 
 These are places where **this translation disagrees with the MATLAB**, cause
@@ -243,7 +387,7 @@ records faults *in the reference*. An entry here is a question, not a finding.
 
 | # | Where | Discrepancy | Status |
 |---|---|---|---|
-| X1 | `criticalboron_xyz` on `neacrpa2` | **Critical boron: this port 1253.29 ppm, the reference 1139.01 ppm** — a gap of +114 ppm, about **1100 pcm** at the measured -9.62 pcm/ppm boron worth. This port computes a materially more reactive core. Measured 2026-08-18. | **OPEN — narrowed to the Phase-0 bootstrap** |
+| X1 | `thdiffusion_solverxyz` / `criticalboron_xyz` on `neacrpa2` | **Root cause found and fixed: defect Z1**, the silently rounded axial mesh. This port had implemented the mesh the case file *writes*; the MATLAB integrates a rounded one. With Z1 reproduced, the feedback handler matches the MATLAB to **3.3e-13**, the rod-fraction map to **1.1e-15**, and the A2 coupled solve **converges in 27 passes** against the MATLAB's 23 — where it previously hit the iteration cap at 51 with `k_eff ~ 43`. **A residual `k_eff` gap of +2144 pcm remains** (1.035684 against 1.013943), now on a *converged* solve. | **RESOLVED.** Two causes, both now understood: (1) defect **Z1**, the silently rounded axial mesh, which this port had not reproduced; and (2) defect **N1**, the unstable default nodal-update interval, which makes the coupled trajectory chaotic so two codes land on different attractors. With Z1 reproduced and `nodalupd = 20`, the two codes agree **exactly** — `k_eff` 1.0139476080 in both, and the fuel temperature, coolant temperature, heat flux and power identical to every printed digit. **Not a translation error.** |
 
 **Narrowed 2026-08-18 by running the same search on case A1**, via
 `criticalboron_xyz`'s `the_search_on_case_a1_...` diagnostic.
@@ -272,11 +416,264 @@ reference's *own* -16 ppm disagreement with the published benchmark.
    driver fails on A2 here where the MATLAB succeeds, *that* is the defect and
    the bootstrap is only exposing it.
 
-**What would settle it.** Cheapest first: instrument the A2 Phase-0 solve to see
-what `k_eff` it returns and why it leaves `[0.8, 1.2]`; then feed the bootstrap's
-converged state back into the standard solver and see whether it stays put.
-Obtaining `test_critboron3.m` would confirm whether the reference took the same
-path.
+**Investigated further 2026-08-18. Two results, one of them negative.**
+
+**(a) The A2 Phase-0 solve was instrumented.** It does not simply fail. It
+recovers from the cold start by pass 7, holds `k_eff = 1.0355` for nine
+consecutive passes with the fuel-temperature residual halving exactly each pass
+(640, 320, 160, 80, 40, 20 K — the `wrelax = 0.5` under-relaxation approaching a
+*stationary* target), and then diverges at pass 16 and never recovers. A1 on the
+same core converges monotonically in 7 passes. So this is an **already-converging
+iteration being destabilised**, not a bad initial guess.
+
+**(b) The hypothesis that G1 causes X1 was tested and REFUTED.** Enabling the
+G1/G2 correction (`gradd_conservative`) and re-running A2's Phase-0 solve gives
+a *worse* result: where the reference operator at least reaches the 1.0355
+plateau, the corrected operator never plateaus at all, diverging from pass 2.
+The control passed — IAEA-3D, on a uniform mesh, is unchanged at 1.029084.
+
+That is more useful than a null result: a **better-conditioned** discretisation
+made the symptom **worse**, so whatever destabilises this loop is not operator
+accuracy.
+
+**(c) The MATLAB was RUN, and it fails the same way.** 2026-08-18, MATLAB
+R2026a, `neacrpa2` through `thdiffusion_solverxyz.m` with `main_exec_diff3d.m`'s
+own set-up:
+
+| | MATLAB | this port |
+|---|---|---|
+| termination | 51 iterations, `[NOT converged]` | `IterationCap` at 51 |
+| `k_eff` | 8594.168746 | 45.781941 |
+| **fuel-temp residual** | **1.270425e+03 K** | **1270.4035 K** |
+| usable by Phase 0 | no | no |
+
+**The translation is faithful — this is not a port bug.** The fuel-temperature
+residual agrees to five significant figures, i.e. both codes come to rest in the
+same physical state. `k_eff` differs wildly because after divergence it is
+chaotic garbage; the *physical* variable is what matters and it matches.
+
+**And the MATLAB run explains why.** Its output carries **21 warnings** reading
+
+```text
+channel solve failed: Undefined function 'driftflux6_solverstatic1d' ...
+  - keeping previous state.
+```
+
+`neacrpa2.m` sets no `th_model`, so both codes take the **two-fluid** default,
+whose 1-D kernel is **missing from the snapshot** (see "Missing files"). Every
+powered channel fails and keeps its inlet state, so **the coolant cannot heat**.
+The coupled loop is then being asked to find a fixed point in which power rises
+without the coolant ever responding — and no such state exists. The fuel
+temperature climbs until it saturates, which is the 1270 K residual both codes
+report.
+
+**So the answer to "why does `thdiffusion_solverxyz` fail on A2 at all?" is:
+because the thermal-hydraulic path it defaults to is non-functional in this
+snapshot, in the MATLAB just as much as here.** It is not an instability in the
+driver, not the feedback, and not defect G1.
+
+**Where that leaves X1.** Not in the translation. The reference's 1139.01 ppm
+cannot have come from a converged default-path Phase-0 solve, because that does
+not converge in the MATLAB either. It must have come from the bootstrap, from
+`th_model = 'hem'`, or from some other setting in `test_critboron3.m` — which is
+not in the snapshot. **X1 is now most likely a difference in how the two searches
+were configured, not in what they compute.**
+
+**(d) The feedback channels were bisected, and one is responsible.** Running
+A2's Phase-0 with the channels enabled one at a time:
+
+| channels | diverged at | `k_eff` | passes |
+|---|---|---|---|
+| none | - | 1.0012 | 10 |
+| boron only | - | 1.0214 | 10 |
+| fueltemp only | - | 1.0014 | 10 |
+| cooltemp only | - | 1.0018 | 10 |
+| coolden only | - | 1.0094 | 10 |
+| **crod only** | **7** | **394.72** | 26 |
+| ALL five | 15 | 15.18 | 26 |
+
+**The control-rod channel destabilises the loop**, and this **corrects (c)
+above**: the inference that a frozen coolant leaves no fixed point was too
+strong. The `none` row has the same frozen coolant and converges fine. A frozen
+coolant is not fatal by itself — the rod feedback on top of it is.
+
+It is also consistent with the MATLAB converging on `hem` with all five channels
+live: the rod channel is not broken in isolation, it is **sensitive to the
+coolant state**.
+
+**Two candidate mechanisms, neither confirmed:**
+
+1. The rod channel most enlarges the material table (11 base materials become
+   3978 rows on this case), and `calc_bucklingxyz`'s cache is fingerprinted on
+   three sums and three non-zero counts — which cannot separate every distinct
+   cross-section set. A collision silently reuses the wrong cached
+   coefficients. That defect is already in the register; this would be the
+   first evidence of it actually firing.
+2. The rod slope's `reference` is forced to zero on use, so a fully rodded node
+   takes the *entire* slope rather than a departure from a reference state — a
+   far larger perturbation than the other four channels apply.
+
+**What would settle it.** Run the same bisect in the MATLAB. A faithful
+translation should destabilise there too; if the MATLAB is stable with
+`crod`-only, the rod channel is where the translation diverges and X1 finally
+has an address. Separately, instrument `calc_bucklingxyz`'s cache to count
+fingerprint collisions on this case — that is cheap and would confirm or kill
+candidate 1 outright.
+
+---
+
+**(e) The MATLAB was run on the WORKING thermal-hydraulic path.** `neacrpa2.m`
+sets no `th_model`, so both codes default to two-fluid — whose 1-D kernel is
+missing (21 `Undefined function` warnings in the MATLAB run), leaving the
+coolant frozen. Forcing `th_model = 'hem'`, the only functional path:
+
+| A2 Phase-0, `hem` | MATLAB | this port (before Z1) |
+|---|---|---|
+| termination | **converged, 23 iterations** | `IterationCap` at 51 |
+| `k_eff` | **1.013943** | ~43.2 |
+| fuel-temp residual | **0.4942 K** | 1270.05 K |
+
+This **withdrew the conclusion drawn in (c)**. That the two codes fail
+identically on a path broken in *both* said nothing about faithfulness; on the
+path that works they did not agree at all. X1 was a port defect.
+
+**(f) The feedback handler was diffed against the MATLAB, and it found the root
+cause.** Per-node cross sections after `sigmavalupd3d_handler` agreed to only
+2e-6 - 2e-5 — far above round-off. The rod-fraction map localised it exactly:
+both codes gave 270 rodded nodes, 221 full and 49 partial, but **every partial
+fraction differed by precisely 0.01**. Working backwards, this port's cumulative
+axial height at each rod tip was **0.3 cm short** — which is **defect Z1**.
+
+**After reproducing Z1:**
+
+| | before | after |
+|---|---|---|
+| rod-fraction map vs MATLAB | 2.1e-3 | **1.1e-15** |
+| feedback handler, worst of six sums | 1.9e-5 | **3.3e-13** |
+| A2 coupled solve | cap at 51, `k_eff ~ 43` | **converges in 27** (MATLAB: 23) |
+| A2 `k_eff` | ~43.2 | **1.035684** (MATLAB 1.013943) |
+
+**What remains: +2144 pcm on a converged solve** — a far better-posed problem
+than the divergence was, and the feedback chain is now cleared as its source.
+
+**(g) The neutronics was bisected against the MATLAB, and it is exact.**
+
+With the SA-nodal correction **frozen** (`nodalupd` huge, so it is built once
+from a flat flux), the two codes agree to ten significant figures:
+`k_eff = 1.0230689628` in both, residual `9.507775e-7` in both, flux sum
+agreeing to 2.9e-11. Sweeping the update interval:
+
+| `nodalupd` | this port | MATLAB |
+|---|---|---|
+| frozen | 1.0230689628 | 1.0230689628 |
+| 200 | 1.0244511444 | 1.0244511444 |
+| 100 | 1.0245061195 | 1.0245061195 |
+| 50 | 1.0245084306 | 1.0245084306 |
+| 20 | 1.0245087144 | 1.0245087144 |
+| **6** (default) | **3661.34** | **837.30** |
+
+**Identical at every interval where the solve is stable.** The static
+neutronics — operator, boundary conditions, cross sections, nodal build, nodal
+refresh and eigenvalue iteration — is faithful in full. At the default interval
+of 6 both codes diverge, to different garbage, which is defect N1 on a real case
+and the reference's own documented behaviour here.
+
+This also **clears `calc_bucklingxyz`'s cache** as a candidate: it is consulted
+on every nodal refresh, and the refreshed results match exactly.
+
+**(h) The remaining gap is entirely in the thermal-hydraulics.** Comparing the
+converged A2 `hem` state:
+
+| | this port | MATLAB |
+|---|---|---|
+| `k_eff` | 1.0356836577 | 1.0139434818 |
+| fuel T min/max | 558.10 / **891.19** | 575.29 / **1180.16** |
+| coolant T min/max | 558.10 / **559.15** | 559.15 / **605.65** |
+| **heat flux sum** | **2.21** | **1.2246e5** |
+| power density sum | 9.0194e5 | 8.7949e5 |
+
+The power agrees to 2.6%, but **the heat flux derived from it is five orders of
+magnitude too small**, so no heat reaches the coolant. This port's coolant
+maximum is *exactly* the inlet temperature and its fuel maximum is *exactly*
+`params.fueltempavg` — the initial value unfuelled nodes retain — meaning the
+fuelled nodes collapsed to coolant temperature instead of heating.
+
+**(i) The thermal-hydraulics is correct in isolation; the coupled loop breaks
+it.** Feeding one `th_solverxyz` pass the power from a frozen-nodal eigensolve
+(verified exact against the MATLAB):
+
+| | A2, one pass | MATLAB converged |
+|---|---|---|
+| heat flux sum | **1.195e5** | 1.2246e5 |
+| heat flux max | 158.18 | 142.33 |
+| fuel T max | 1124.77 | 1180.16 |
+| coolant T max | 560.31 (rising off inlet) | 605.65 |
+
+Nothing is orders of magnitude wrong. **The earlier conclusion in (h) — that
+the heat flux is five orders too small — described the converged state
+correctly but attributed it wrongly.** The T-H does not compute a bad heat
+flux; the coupled loop destroys a good one.
+
+**(j) The per-pass trace shows the fission source going NEGATIVE.** From pass
+10 the `pwrdens` handed to the T-H is negative (settling near -3.05e5). The
+consequence chain is exact: negative `pinpowdens` makes the rod solve return a
+profile below the coolant temperature, `th_solverxyz` clamps it up to the
+coolant, and the wall heat flux `hcoeff*(T_surface - T_coolant)` becomes
+**exactly zero**. From pass 14 the recorded heat flux halves precisely each pass
+— `(1-0.5)*old + 0.5*0` — the fuel pins at `params.fueltempavg` and the coolant
+decays to its inlet. The loop then "converges" because nothing is moving.
+
+This **supersedes the under-relaxation hypothesis in (i)**: the relaxation is
+faithfully reproduced and is merely the decay envelope, not the cause.
+
+**Per-pass against the MATLAB** (A2, `hem`, full history captured):
+
+```text
+MATLAB : 452.9, 3278.6, 127.3, 855.6, 74.4, 35742.1, 329.8,
+         1.033735, 1.028019, 1.022682, ... 1.013943   (23 passes)
+port   : 87.2, 243.9, 659.9, 1572.9, 30.7, 134.3, 63.9, 453.6,
+         110.7, 60.9, 404.9, 618.9, 94.5,
+         1.030652, 1.032362, 1.033708, ... 1.035684   (27 passes)
+```
+
+**Both codes go through a wild cold-start phase** — the MATLAB reaches 35742 —
+so that is not the defect. What differs is the recovery: the MATLAB leaves it at
+pass 8 and then **decreases monotonically** to 1.0139 as feedback takes hold,
+while this port leaves it at pass 14 and **creeps upward** to 1.0357 and stalls,
+its feedback already dead. The MATLAB's first settled value (1.033735) is almost
+exactly this port's pass-16 value (1.033708) — both reach the same
+neighbourhood, only one keeps going.
+
+Neither code guards negative flux: `fixnegative` is **commented out** at
+`sanodaldiffusion_solverxyz.m:204`, and this port matches that.
+
+**(k) RESOLVED — it was chaos, not a mistranslation.** Both the inner tolerance
+schedule and the warm start were checked and are faithful (this port stores and
+forwards the solver's full five-generation history, as the reference does). The
+trajectories nevertheless differ from pass 1 — because at the default
+`nodalupd = 6` the inner eigensolve is **unstable on this case**, and a cold
+static solve diverges in *both* codes (3661 here, 837 in the MATLAB). Two
+implementations integrating an unstable iteration separate at round-off.
+
+Re-running the coupled solve at a **stable** interval settles it:
+
+| A2, `hem`, `nodalupd = 20` | MATLAB | this port |
+|---|---|---|
+| `k_eff` | 1.0139476080 | **1.0139476080** |
+| fuel T max | 1180.1501 | **1180.1501** |
+| coolant T max | 605.6450 | **605.6450** |
+| heat flux sum | 1.224531e5 | **1.224531e5** |
+| pwrdens sum | 8.794949e5 | **8.794949e5** |
+
+Identical to every digit printed, converging monotonically in 16 passes with the
+power positive throughout.
+
+**Practical consequence, and it binds the reference equally: NEACRP case A2 must
+not be run at the default nodal-update interval.** The default for this mesh is
+`ceil((17+17+18)/10) = 6`, and at 6 the coupled answer is meaningless in either
+code. The MATLAB's 1.013943 at the default is close to the right answer by luck,
+not by construction — its own trajectory passes through `k_eff = 35742` on the
+way. See defect **N1**.
 
 ---
 
@@ -289,7 +686,7 @@ referenced by code in the snapshot and were not shipped.
 
 | File | Referenced from | Consequence |
 |---|---|---|
-| `driftflux6_solverstatic1d.m` | `driftflux6_solverstatic3d.m:157` | The 3-D drift-flux path cannot run as shipped |
+| `driftflux6_solverstatic1d.m` | `driftflux6_solverstatic3d.m:157` | The 3-D drift-flux path cannot run as shipped. **This is the default `th_model`**, so every case that does not explicitly select `'hem'` runs with a coolant that cannot heat. Confirmed by running the MATLAB on 2026-08-18: 21 `Undefined function` warnings and a non-converging coupled solve on NEACRP A2. The `try`/`catch` turns a missing solver into a silently frozen coolant |
 | `driftflux_solverstatic1d.m` | comments in `main_exec_diff3d.m`, `th_solverxyz.m` | Owner of every `params.jfnk*` and `params.ptc*` switch — see below |
 | `driftflux_eqnstatic1d5.m` | comments in `main_exec_diff3d.m` | Metastable-liquid prototype |
 | `enthmix_forward.m`, `enthmix_invert.m` | comments in `main_exec_diff3d.m` | Enthalpy energy-variable option |

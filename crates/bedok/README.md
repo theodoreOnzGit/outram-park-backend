@@ -8,24 +8,48 @@ the `main_exec_diff3d_standalone` snapshot with the author's permission.
 
 > **Status: translation complete.** All 50 MATLAB files are accounted for —
 > every solver, both coupling drivers, the critical-boron search, and all six
-> benchmark cases. The IAEA-3D
-> eigenvalue matches the published value to **-1.1 pcm**; the coupled
-> neutronics/thermal-hydraulics loop reaches a joint fixed point on NEACRP case
-> D; and the case-D cold-water transient marches with six delayed-neutron
-> families.
+> benchmark cases. The IAEA-3D eigenvalue matches the published value to
+> **-1.1 pcm**.
 >
-> **No transient result has been compared to a published curve** — the NEACRP
-> specification is not in the literature archive, and there is one **open
-> disagreement with the reference**: the critical-boron search lands ~1100 pcm
-> away from the MATLAB's own answer, cause not established (see
-> `docs/bedok-reference-defects.md`, "Open discrepancies"). The two top-level
+> **Both steady NEACRP cases now reproduce the MATLAB exactly.** Running the
+> reference under MATLAB R2026a and comparing: A2 (PWR, 15.5 MPa, graded mesh,
+> five feedback channels) gives `k_eff = 1.0139476080` in both codes, and D1
+> (BWR, 6.7 MPa, boiling coolant, uniform mesh) gives `0.9752848326` in both —
+> with fuel temperature, coolant temperature, heat flux and power identical to
+> every printed digit.
+>
+> **The transient path now reproduces the MATLAB too**, on all three cases: the
+> D1 cold-water injection (C1 power to 1.6e-11), the A2 rod ejection (rod
+> position exact at every step), and the A1 super-prompt HZP ejection — the last
+> agreeing to **2.1e-7 through a 67-fold power excursion**. D1t is also verified
+> over its **full specified 20 s window** (261 steps, 2.9e-11), including the
+> non-monotonic power peak and the fuel melting clamp.
+>
+> **IAEA-3D matches the MATLAB too** (`k_eff = 1.0290842762`, -0.0000 pcm), and
+> the critical-boron search **fails where the reference fails** — both abort at
+> the same boron concentration on a destabilised eigensolve.
+>
+> No transient has been compared to a *published* curve; the NEACRP
+> specification is not in the literature archive. See
+> `docs/bedok-reference-defects.md`, "Verified against the running MATLAB", for
+> the full table and for what remains uncompared.
+>
+> The two top-level
 > scripts land as `examples/` rather than modules, and `plotreactor3dcolour`'s
 > figure emission is deliberately not reproduced. See [Porting status](#porting-status).
 >
-> **Note for the PWR cases:** they use a graded axial mesh, and the diffusion
-> operator is only a consistent discretisation on a uniform one — defect G1,
-> misstating the face coupling by up to **+144.8%** at `neacrpa2`'s worst axial
-> joint. Pinned by test, not repaired.
+> **Two things to know before running a NEACRP case.**
+>
+> 1. **Case A2 must not be run at the default nodal-update interval.** The
+>    default for its mesh is `ceil((17+17+18)/10) = 6`, and at 6 the inner
+>    eigensolve is unstable — a cold solve diverges in **both** codes (3661 here,
+>    837 in the MATLAB), so the coupled answer is meaningless. Use
+>    `nodalupd >= 20`. Case D1 is stable at its own default. This is defect N1
+>    with a real-case consequence.
+> 2. **The PWR cases use a graded axial mesh**, and the diffusion operator is
+>    only a consistent discretisation on a uniform one — defect G1, misstating
+>    the face coupling by up to **+137.5%** at A2's worst axial joint. Pinned by
+>    test, not repaired; both codes carry it identically.
 
 ## What this crate is
 

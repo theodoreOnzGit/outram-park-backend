@@ -37,8 +37,12 @@
 //! The axial layer heights are
 //!
 //! ```text
-//! 30, 7.7, 11, 15, 30 x10, 12.8, 12.8, 8, 30   cm
+//! written:  30, 7.7, 11, 15, 30 x10, 12.8, 12.8, 8, 30   cm
+//! ACTUAL:   30, 8,   11, 15, 30 x10, 13,   13,   8, 30   cm
 //! ```
+//!
+//! — the reference silently rounds the mesh to integers (**defect Z1**; see
+//! [`Z_LENGTHS`]), so `7.7` becomes `8` and `12.8` becomes `13`.
 //!
 //! and [`crate::makegrad_dxyz`]'s face coupling is **only a consistent
 //! discretisation on a uniform mesh** — defect **G1** in
@@ -91,9 +95,44 @@ const MAP_CRODBANKS: &str = include_str!("data/NEACRPA2_CRODBANKS.csv");
 /// The number of materials in the case's cross-section set.
 pub const MATERIALS: usize = 11;
 
-/// The axial layer heights, cm — **non-uniform**; see the module warning.
-pub const Z_LENGTHS: [f64; 18] = [
+/// The axial layer heights **as the case file writes them**, cm.
+///
+/// **These are not the heights the reference actually meshes with** — see
+/// [`Z_LENGTHS`] and defect Z1. Kept because they are what the benchmark
+/// specifies and what a reader of `neacrpa2.m` sees.
+pub const Z_LENGTHS_AS_WRITTEN: [f64; 18] = [
     30.0, 7.7, 11.0, 15.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 12.8, 12.8,
+    8.0, 30.0,
+];
+
+/// The axial layer heights the reference **actually uses**, cm — integers.
+///
+/// # Defect Z1: the mesh is silently rounded to integers
+///
+/// `neacrpa2.m` builds the mesh as
+///
+/// ```text
+/// zscale = int64(maxiz/18);
+/// geometry.Lz(...) = Zlengths(ceil(iz/zscale)) / zscale;
+/// ```
+///
+/// `zscale` is an **`int64`**, and in MATLAB `double / int64` returns an
+/// `int64` — rounding to the nearest integer. So `7.7 / int64(1)` is **8**, and
+/// `12.8 / int64(1)` is **13**. Verified by running MATLAB R2026a on
+/// 2026-08-18: `geometry.Lz(1:18)` comes back
+/// `30 8 11 15 30 30 30 30 30 30 30 30 30 30 13 13 8 30`.
+///
+/// The case is left **internally inconsistent**: `geometry.Ztot` is computed
+/// from the un-rounded `Zlengths` and is 427.3 cm, while the mesh the solver
+/// actually integrates over sums to 428 cm.
+///
+/// This is reproduced rather than repaired, per the no-silent-repairs policy.
+/// It matters more than it looks: it changes the axial mesh, the node volumes,
+/// and the control-rod tip fractions, and it was the root cause of a 10%
+/// disagreement in the critical-boron search (X1). See
+/// `docs/bedok-reference-defects.md`.
+pub const Z_LENGTHS: [f64; 18] = [
+    30.0, 8.0, 11.0, 15.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 13.0, 13.0,
     8.0, 30.0,
 ];
 
@@ -869,13 +908,14 @@ mod tests {
     /// # Results — measured 2026-08-18
     ///
     /// **7 of the 17 axial joints are graded.** The worst is the very first,
-    /// layer 1 to layer 2, going 30 cm to 7.7 cm:
+    /// layer 1 to layer 2, going 30 cm to **8 cm** — the rounded height per
+    /// defect Z1, not the 7.7 cm the case file writes:
     ///
     /// ```text
-    /// (L + Lp) / (2 Lp) = (30 + 7.7) / (2 * 7.7) = 2.4481
+    /// (L + Lp) / (2 Lp) = (30 + 8) / (2 * 8) = 2.3750
     /// ```
     ///
-    /// — the face coupling there is misstated by **+144.8%**.
+    /// — the face coupling there is misstated by **+137.5%**.
     ///
     /// **Interpretation, and it is not a small one.** The 25% figure
     /// measured in [`crate::makegrad_dxyz`]'s test came from a 2:1 jump; this

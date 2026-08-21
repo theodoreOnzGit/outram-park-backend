@@ -22,10 +22,14 @@
 //!
 //! # The problem
 //!
-//! A 17 x 17 x 14 quarter core on a 30.48/2 cm radial by 30.48 cm axial mesh —
-//! 259.08 x 259.08 x 426.72 cm. Reflective on the low `x` and `y` faces (the
-//! quarter-core symmetry planes), zero flux on the other four. Two energy
-//! groups, **19 materials**, fission into the fast group only.
+//! A 17 x 17 x 14 quarter core on a 30.48/2 cm radial mesh. Reflective on the
+//! low `x` and `y` faces (the quarter-core symmetry planes), zero flux on the
+//! other four. Two energy groups, **19 materials**, fission into the fast group
+//! only.
+//!
+//! **The axial mesh is 30 cm, not the 30.48 cm the case file writes** — see
+//! defect Z1 in the mesh section below. The core the solver integrates is
+//! therefore 420 cm tall, where `geometry.Ztot` claims 426.72.
 //!
 //! The material map is built from two files rather than one per level: a 17x17
 //! *column* map naming which of 10 radial column types each lattice position
@@ -197,9 +201,21 @@ pub fn neacrpd1(
     // `30.48/2*17` radially — half a 12-inch assembly pitch, quarter core.
     let xtot = 30.48 / 2.0 * 17.0;
     let ytot = xtot;
-    // Axial layers are a full 30.48 cm each; `geometry.Ztot` in the reference is
-    // just their sum and nothing reads it, so [`Geometry`] does not carry it.
-    let z_layer = 30.48;
+    // **Defect Z1: the axial layer height is silently rounded to 30 cm.**
+    //
+    // The case file writes `Zlengths = 30.48` and then
+    // `geometry.Lz(...) = Zlengths / zscale` where `zscale = int64(maxiz/14)`.
+    // In MATLAB `double / int64` yields an `int64`, so `30.48 / int64(1)` is
+    // **30**, not 30.48. Verified by running MATLAB R2026a on 2026-08-18:
+    // `geometry.Lz(1:3)` comes back `30 30 30`, and the case is left
+    // internally inconsistent — `Ztot` reads 426.72 while `sum(Lz)` is 420,
+    // a core 1.6% shorter than the one the header describes.
+    //
+    // Reproduced, not repaired. See `docs/bedok-reference-defects.md`, Z1.
+    let z_layer = 30.0;
+    /// The layer height the case file *writes*, before the rounding.
+    const Z_LAYER_AS_WRITTEN: f64 = 30.48;
+    let _ = Z_LAYER_AS_WRITTEN;
     let (sx, sy) = (xtot / NX as f64, ytot / NY as f64);
 
     let uniform = |rows: usize, cols: usize| Array2::<usize>::zeros(rows, cols);
