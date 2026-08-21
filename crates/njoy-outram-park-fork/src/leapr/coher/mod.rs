@@ -34,7 +34,10 @@ pub mod general;
 
 pub use builtin::{coher, coher_with_constants, CoherentLattice};
 pub use crystals::GeneralCrystal;
-pub use general::{coher_general, coher_general_with_constants, BasisAtom, CrystalStructure};
+pub use general::{
+    coher_general, coher_general_with_constants, coher_general_with_per_atom_debye_waller,
+    BasisAtom, CrystalStructure,
+};
 
 /// The result of a coherent-elastic run: Bragg edges in ascending energy.
 ///

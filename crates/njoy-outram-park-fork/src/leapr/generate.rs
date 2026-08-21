@@ -140,7 +140,10 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 use crate::acquire::EndfCache;
 use crate::endf::tape::Tape;
-use crate::leapr::coher::{coher_general_with_constants, coher_with_constants, GeneralCrystal};
+use crate::leapr::coher::{
+    coher_general_with_constants, coher_general_with_per_atom_debye_waller, coher_with_constants,
+    GeneralCrystal,
+};
 use crate::leapr::continuous::phonon_expansion;
 use crate::leapr::discrete::add_discrete_oscillators;
 use crate::leapr::translation::add_translation;
@@ -258,6 +261,24 @@ pub enum ElasticChannel {
     /// cross section, which is the worse error by a wide margin.
     #[default]
     Generate,
+    /// As [`Self::Generate`], but for a **compound** crystal handled through
+    /// the generalized path, build MF=7/MT=2 with a **per-atom-type**
+    /// Debye-Waller factor inside the structure factor — Zhu's *exact*
+    /// option — instead of the single compound coefficient of his *cubic
+    /// approximation*.
+    ///
+    /// This changes nothing for a material whose elastic channel comes from one
+    /// of stock LEAPR's six built-in lattices (they are monatomic, so the two
+    /// treatments coincide) and nothing for [`Self::Omit`]. It changes the
+    /// **difference** reflections of a compound with unlike scattering lengths,
+    /// where the sublattices subtract and the result is exquisitely sensitive
+    /// to the two coefficients differing; the sum reflections barely move.
+    ///
+    /// **Not the default, and not validated.** It is offered because the
+    /// ENDF/B-VIII.0 SiC evaluation appears to use it, and because measuring
+    /// the difference is the only way to test that reading — see
+    /// `docs/leapr-sic-coherent-elastic-vv.md`. Choose it deliberately.
+    GenerateExactDebyeWaller,
     /// Emit MT=4 only — the validated channel — because the elastic channel is
     /// being sourced elsewhere. The resulting [`Mf7`] has
     /// `coherent_elastic == None`, and a transport code that does not notice
@@ -271,6 +292,7 @@ impl ElasticChannel {
     pub const fn label(self) -> &'static str {
         match self {
             ElasticChannel::Generate => "mt2+mt4",
+            ElasticChannel::GenerateExactDebyeWaller => "mt2exactdw+mt4",
             ElasticChannel::Omit => "mt4",
         }
     }
@@ -403,6 +425,15 @@ impl SabRequest {
         let elastic = match self.elastic {
             ElasticChannel::Omit => ChannelValidation::NotEmitted,
             ElasticChannel::Generate => status,
+            // Never validated, for any material. For a built-in monatomic
+            // lattice this channel shares an arm with `Generate` and emits the
+            // identical bytes, so graphite's validation would carry over on the
+            // merits -- but the exact-Debye-Waller option has not itself been
+            // compared against any reference tape, and inferring a validation
+            // status is exactly the overclaim this reporter exists to prevent.
+            ElasticChannel::GenerateExactDebyeWaller => {
+                ChannelValidation::NotValidatedAgainstReferenceTape
+            }
         };
         (status, elastic)
     }
@@ -695,7 +726,32 @@ pub fn generate_tape(
                 None => ElasticOutput::None,
             }
         }
-        (ElasticChannel::Generate, ElasticOption::Incoherent) => {
+        (ElasticChannel::GenerateExactDebyeWaller, ElasticOption::None) => {
+            match GeneralCrystal::for_material(deck.mat, deck.za) {
+                Some(crystal) => {
+                    // `dwpix_elastic` stays the compound coefficient even though
+                    // `endout` will not apply it to MT=2: it is still the
+                    // honest answer to "what is this material's Debye-Waller
+                    // coefficient", and the LTHR=2 path would write it.
+                    dwpix_elastic = compound_debye_waller(crystal, deck, temperature_k, dwpix)?;
+                    let structure = crystal.structure();
+                    let per_atom =
+                        per_atom_debye_waller(crystal, &structure, deck, temperature_k, dwpix)?;
+                    ElasticOutput::CoherentPreWeighted(coher_general_with_per_atom_debye_waller(
+                        &structure,
+                        deck.npr as usize,
+                        COHERENT_ELASTIC_EMAX_EV,
+                        input.constants,
+                        &per_atom,
+                    ))
+                }
+                None => ElasticOutput::None,
+            }
+        }
+        (
+            ElasticChannel::Generate | ElasticChannel::GenerateExactDebyeWaller,
+            ElasticOption::Incoherent,
+        ) => {
             // `endout` can write the LTHR=2 Debye-Waller section, but the bound
             // cross section `sb` it needs is a LEAPR quantity no code path here
             // computes. Refusing beats inventing a plausible number.
@@ -705,7 +761,10 @@ pub fn generate_tape(
                  or supply the elastic channel from a tape",
             ));
         }
-        (ElasticChannel::Generate, iel) => {
+        // Every built-in lattice is monatomic, so the exact and compound
+        // Debye-Waller treatments coincide there and the two channels share
+        // this arm.
+        (ElasticChannel::Generate | ElasticChannel::GenerateExactDebyeWaller, iel) => {
             let lattice = iel
                 .coherent_lattice()
                 .expect("every remaining ElasticOption variant maps to a coherent lattice");
@@ -824,6 +883,58 @@ fn compound_debye_waller(
         total += fraction * w;
     }
     Ok(total)
+}
+
+/// One Debye-Waller coefficient `W'(T)` \[1/eV\] **per basis atom** of
+/// `structure`, in basis order — the input
+/// [`coher_general_with_per_atom_debye_waller`] needs for Zhu's exact option.
+///
+/// Each atom's coefficient comes from the LEAPR deck of *its own* species
+/// ([`GeneralCrystal::debye_waller_deck_for_species`]), so a two-sublattice
+/// compound costs at most one Debye-Waller integral per species, not per atom:
+/// the per-species results are computed once and broadcast over the basis.
+/// `own_dwpix` is the coefficient already computed for `deck` itself and is
+/// reused rather than recomputed, exactly as in [`compound_debye_waller`].
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] if a species has no deck mapping, or if a partner
+/// deck is not embedded in this crate. Falling back to the compound
+/// coefficient would silently turn the exact option back into the
+/// approximation it was chosen over.
+fn per_atom_debye_waller(
+    crystal: GeneralCrystal,
+    structure: &crate::leapr::coher::CrystalStructure,
+    deck: &LeaprDeck,
+    temperature_k: f64,
+    own_dwpix: f64,
+) -> Result<Vec<f64>, NjoyError> {
+    let mut by_species: Vec<(&'static str, f64)> = Vec::new();
+    let mut out = Vec::with_capacity(structure.basis.len());
+    for atom in &structure.basis {
+        if let Some(&(_, w)) = by_species.iter().find(|&&(l, _)| l == atom.label) {
+            out.push(w);
+            continue;
+        }
+        let material =
+            crystal
+                .debye_waller_deck_for_species(atom.label)
+                .ok_or(NjoyError::NotPorted(
+                    "the exact Debye-Waller option needs a LEAPR deck for every species in the \
+                 crystal, and one of them has no mapping in the crystal catalogue",
+                ))?;
+        let w = if material.mat() == deck.mat {
+            own_dwpix
+        } else {
+            let text = embedded_deck_text(material).ok_or(NjoyError::NotPorted(
+                "the exact Debye-Waller option needs the partner sublattice's LEAPR deck, and it \
+                 is not embedded in this crate",
+            ))?;
+            debye_waller_coefficient(&LeaprDeck::parse(text)?, temperature_k)?
+        };
+        by_species.push((atom.label, w));
+        out.push(w);
+    }
+    Ok(out)
 }
 
 /// The in-process memo of parsed laws, keyed by [`GenerationRecipe::key`].

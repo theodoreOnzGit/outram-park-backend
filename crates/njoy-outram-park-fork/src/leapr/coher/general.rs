@@ -220,6 +220,73 @@ pub fn coher_general_with_constants(
     emax_ev: f64,
     constants: PhysicalConstants,
 ) -> BraggEdges {
+    coher_general_inner(structure, npr, emax_ev, constants, &[])
+}
+
+/// Generalized coherent-elastic sum with a **per-atom-type Debye-Waller
+/// factor** folded into the structure factor — Zhu's *exact* Debye-Waller
+/// option, as against the *cubic approximation* that
+/// [`coher_general_with_constants`] implements.
+///
+/// # Why this exists
+///
+/// Under the cubic approximation the whole crystal shares one compound
+/// Debye-Waller coefficient, so the factor `exp(-4 W' E)` multiplies the
+/// finished structure factor and [`crate::leapr::endout`] applies it. Zhu
+/// (2014) §3.1 also allows the exact treatment, in which each atom carries its
+/// own coefficient *inside* the sum:
+///
+/// ```text
+/// F(tau) = sum_j b_j exp(-2 W'_j E_tau) exp(i tau . r_j),   E_tau = tau^2 / econ
+/// ```
+///
+/// The amplitude factor is `exp(-2 W' E)` because LEAPR's intensity factor is
+/// `exp(-4 W' E)`; squaring recovers it. When every `W'_j` is equal the two
+/// paths agree identically — pinned by
+/// [`tests::equal_per_atom_coefficients_reproduce_the_compound_path`].
+///
+/// The two differ only where the sum `sum_j b_j exp(i tau . r_j)` involves
+/// **cancellation**. For a compound with unlike scattering lengths the
+/// *difference* reflections (where the sublattices subtract) are exquisitely
+/// sensitive to it and the *sum* reflections are barely affected — which is
+/// exactly the pattern measured against the ENDF/B-VIII.0 SiC evaluation; see
+/// `docs/leapr-sic-coherent-elastic-vv.md`.
+///
+/// # Returned convention differs from the other entry points
+///
+/// The structure factors returned here **already carry the Debye-Waller
+/// factor**. `endout` must therefore *not* apply it again — that is what
+/// [`crate::leapr::endout::ElasticOutput::CoherentPreWeighted`] signals.
+///
+/// # Parameters
+///
+/// - `w_prime_per_atom` — one Debye-Waller coefficient `W'_j` \[1/eV\] per
+///   entry of `structure.basis`, **in the same order**. A length mismatch
+///   makes this fall back to the compound path (no factor at all) rather than
+///   silently misassign coefficients to atoms.
+pub fn coher_general_with_per_atom_debye_waller(
+    structure: &CrystalStructure,
+    npr: usize,
+    emax_ev: f64,
+    constants: PhysicalConstants,
+    w_prime_per_atom: &[f64],
+) -> BraggEdges {
+    if w_prime_per_atom.len() != structure.basis.len() {
+        return coher_general_with_constants(structure, npr, emax_ev, constants);
+    }
+    coher_general_inner(structure, npr, emax_ev, constants, w_prime_per_atom)
+}
+
+/// The shared reciprocal-lattice sum. `w_prime_per_atom` is either empty (no
+/// Debye-Waller factor in the amplitude — the caller's `endout` applies the
+/// compound one) or exactly one coefficient per basis atom.
+fn coher_general_inner(
+    structure: &CrystalStructure,
+    npr: usize,
+    emax_ev: f64,
+    constants: PhysicalConstants,
+    w_prime_per_atom: &[f64],
+) -> BraggEdges {
     const TOLER: f64 = 1.0e-6;
 
     let econ = constants.econ();
@@ -265,18 +332,24 @@ pub fn coher_general_with_constants(
                 if tsq <= 0.0 || tsq > ulim {
                     continue;
                 }
-                // |F(tau)|^2 = |sum_j b_j exp(2 pi i (h x_j + k y_j + l z_j))|^2
+                // |F(tau)|^2 = |sum_j b_j w_j exp(2 pi i (h x_j + k y_j + l z_j))|^2,
+                // with w_j = exp(-2 W'_j E_tau) when a per-atom Debye-Waller
+                // factor was supplied and w_j = 1 otherwise.
                 let mut re = 0.0_f64;
                 let mut im = 0.0_f64;
-                for atom in &structure.basis {
+                for (j, atom) in structure.basis.iter().enumerate() {
                     let phase = 2.0
                         * PI
                         * (hf * atom.fractional[0]
                             + kf * atom.fractional[1]
                             + lf * atom.fractional[2]);
                     let (s, c) = phase.sin_cos();
-                    re += atom.b_coh_fm * c;
-                    im += atom.b_coh_fm * s;
+                    let b = match w_prime_per_atom.get(j) {
+                        Some(w) => atom.b_coh_fm * (-2.0 * w * tsq * recon).exp(),
+                        None => atom.b_coh_fm,
+                    };
+                    re += b * c;
+                    im += b * s;
                 }
                 let f2 = re * re + im * im;
                 edges.push((tsq, f2 / tsq.sqrt()));
@@ -551,6 +624,225 @@ mod tests {
                 .iter()
                 .any(|&(e, s)| e < first_allowed && s.abs() < 1.0e-12),
             "forbidden reflections below (111) are retained with S = 0"
+        );
+    }
+
+    /// **V&V — the exact Debye-Waller path must degenerate to the compound one.**
+    ///
+    /// # Methodology
+    ///
+    /// Zhu's exact option folds `exp(-2 W'_j E_tau)` into each atom's amplitude,
+    /// so when every `W'_j` is the same `W` the whole sum scales by
+    /// `exp(-2 W E)` and the intensity by `exp(-4 W E)` — precisely the factor
+    /// `endout` applies on top of the compound path. The two must therefore
+    /// agree edge for edge once that factor is applied by hand to the compound
+    /// result. Run on aluminium (monatomic, so the equal-coefficient case is
+    /// also the physical one) and on a two-species cell with deliberately
+    /// unequal scattering lengths, at `W' = 0.05 /eV`, over every edge to
+    /// 0.5 eV. Pass criterion: relative deviation < 1e-12 per edge.
+    ///
+    /// Also checks the guard: a `w_prime_per_atom` whose length does not match
+    /// the basis falls back to the compound path rather than misassigning
+    /// coefficients to atoms.
+    ///
+    /// **The synthetic final edge is excluded from the comparison, on
+    /// purpose.** That edge is not a reflection — it is a copy of the last real
+    /// edge's weight, planted at `E_max` so the ENDF histogram extends there
+    /// (`leapr.f90:2763-2765`). The exact path weights it by the Debye-Waller
+    /// factor of the reflection it copies, while the compound path lets
+    /// `endout` weight it at `E_max`; the two therefore differ by
+    /// `exp(-4 W (E_max - E_last))`. **Measured 2026-08-21: 3.0e-4 relative**
+    /// at `W' = 0.05 /eV` on the two-species cell. Neither is more correct than
+    /// the other for a duplicated edge, so this is documented rather than
+    /// papered over with an invented factor.
+    ///
+    /// **Results (measured 2026-08-21, release mode).** Over every real edge:
+    /// worst relative deviation 4.5e-15 over 334 aluminium edges and 7.9e-15
+    /// over 327 edges of the two-species cell — float round-off. The
+    /// length-mismatch guard returns the compound edges bit-for-bit.
+    #[test]
+    fn equal_per_atom_coefficients_reproduce_the_compound_path() {
+        const W: f64 = 0.05;
+        let two_species = CrystalStructure {
+            cell_cm: [[4.0e-8, 0.0, 0.0], [0.0, 4.0e-8, 0.0], [0.0, 0.0, 4.0e-8]],
+            basis: vec![
+                BasisAtom {
+                    fractional: [0.0, 0.0, 0.0],
+                    b_coh_fm: 4.1491,
+                    label: "A",
+                },
+                BasisAtom {
+                    fractional: [0.25, 0.25, 0.25],
+                    b_coh_fm: 6.6460,
+                    label: "B",
+                },
+            ],
+            name: "two unlike species, for the cancellation case",
+        };
+
+        for structure in [aluminium_fcc(), two_species] {
+            let n = structure.basis.len();
+            let compound = coher_general(&structure, 1, 0.5);
+            let exact = coher_general_with_per_atom_debye_waller(
+                &structure,
+                1,
+                0.5,
+                PhysicalConstants::default(),
+                &vec![W; n],
+            );
+            assert_eq!(
+                compound.edges.len(),
+                exact.edges.len(),
+                "{}: the two paths must produce the same edge grid",
+                structure.name
+            );
+            let mut worst = 0.0_f64;
+            // `.rev().skip(1)` drops the synthetic final edge; see the doc above.
+            let real = compound.edges.len() - 1;
+            for (&(ec, fc), &(ee, fe)) in compound.edges[..real].iter().zip(&exact.edges[..real]) {
+                assert!(
+                    (ec - ee).abs() <= 1e-18 * ec.max(1e-30),
+                    "{}: edge energies must match ({ec:e} vs {ee:e})",
+                    structure.name
+                );
+                let expected = fc * (-4.0 * W * ec).exp();
+                if expected > 1e-30 {
+                    worst = worst.max((fe - expected).abs() / expected);
+                }
+            }
+            assert!(
+                worst < 1e-12,
+                "{}: equal per-atom coefficients must reproduce the compound path times \
+                 exp(-4 W E); worst relative deviation {worst:e}",
+                structure.name
+            );
+
+            // Length-mismatch guard: fall back, do not misassign.
+            let mismatched = coher_general_with_per_atom_debye_waller(
+                &structure,
+                1,
+                0.5,
+                PhysicalConstants::default(),
+                &vec![W; n + 1],
+            );
+            assert_eq!(
+                mismatched.edges, compound.edges,
+                "{}: a wrong-length coefficient slice must fall back to the compound path",
+                structure.name
+            );
+        }
+    }
+
+    /// **V&V — the exact option must only move reflections that involve
+    /// cancellation.**
+    ///
+    /// # Methodology
+    ///
+    /// In a zinc-blende-like cell the *sum* reflections add the two
+    /// sublattices' amplitudes and the *difference* reflections subtract them.
+    /// A per-atom Debye-Waller factor changes the ratio of the two amplitudes
+    /// with `tau^2`, so it should barely move a sum reflection and strongly
+    /// move a difference reflection. Compares, at unequal coefficients
+    /// (`W'_A = 1.0`, `W'_B = 1.7 /eV` — the scale actually measured for SiC,
+    /// where the fitted compound value is ~1.35 /eV) against their
+    /// atomic-fraction mean applied to the compound path.
+    ///
+    /// The two reflections are chosen **adjacent in energy** so the comparison
+    /// is not confounded by the `tau^2` growth of the factor itself: `n = 48`
+    /// is `(444)`, a sum reflection (`h+k+l = 0 mod 4`), and `n = 52` is
+    /// `(640)`, a difference reflection (`h+k+l = 2 mod 4`), at 0.0512 eV and
+    /// 0.0555 eV respectively.
+    ///
+    /// **Results (measured 2026-08-21):** the sum reflection moves by −1.52 %
+    /// and the difference reflection by −30.63 % — a factor of 20 at
+    /// essentially the same energy, which is the whole reason the option
+    /// exists. Both move *down*, as they must: carbon carries the larger
+    /// coefficient and the larger scattering length, so weighting it
+    /// separately removes more amplitude than the mean does.
+    #[test]
+    fn unequal_coefficients_move_difference_reflections_far_more_than_sum_reflections() {
+        let a = 4.379e-8;
+        let fcc = [
+            [0.0, 0.0, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5],
+            [0.5, 0.5, 0.0],
+        ];
+        let mut basis = Vec::new();
+        for s in fcc {
+            basis.push(BasisAtom {
+                fractional: s,
+                b_coh_fm: 4.1491,
+                label: "A",
+            });
+        }
+        for s in fcc {
+            basis.push(BasisAtom {
+                fractional: [s[0] + 0.25, s[1] + 0.25, s[2] + 0.25],
+                b_coh_fm: 6.6460,
+                label: "B",
+            });
+        }
+        let structure = CrystalStructure {
+            cell_cm: [[a, 0.0, 0.0], [0.0, a, 0.0], [0.0, 0.0, a]],
+            basis,
+            name: "zinc-blende-like, two unlike species",
+        };
+        let (wa, wb) = (1.0_f64, 1.7_f64);
+        let mean = 0.5 * (wa + wb);
+        let per_atom: Vec<f64> = structure
+            .basis
+            .iter()
+            .map(|at| if at.label == "A" { wa } else { wb })
+            .collect();
+
+        let compound = coher_general(&structure, 1, 0.1);
+        let exact = coher_general_with_per_atom_debye_waller(
+            &structure,
+            1,
+            0.1,
+            PhysicalConstants::default(),
+            &per_atom,
+        );
+        assert!(
+            compound.edges.len() > 60,
+            "need edges out to n = 52 for this comparison"
+        );
+        let e1 = compound.edges[0].0;
+        // n = 48 is (444), a sum reflection; n = 52 is (640), a difference one.
+        let pick = |edges: &[(f64, f64)], n: f64| -> f64 {
+            edges
+                .iter()
+                .find(|&&(e, _)| (e / e1 - n).abs() < 1e-3)
+                .map(|&(_, f)| f)
+                .unwrap_or(0.0)
+        };
+        let ratio = |n: f64| {
+            let c = pick(&compound.edges, n) * (-4.0 * mean * n * e1).exp();
+            let x = pick(&exact.edges, n);
+            (x - c).abs() / c
+        };
+        let sum_move = ratio(48.0);
+        let diff_move = ratio(52.0);
+        assert!(
+            sum_move < 0.05,
+            "a sum reflection should move only slightly under a per-atom factor, moved {:.2} %",
+            100.0 * sum_move
+        );
+        assert!(
+            diff_move > 0.2,
+            "a difference reflection should move a lot under a per-atom factor, moved only \
+             {:.2} %",
+            100.0 * diff_move
+        );
+        // Measured ratio is 20.1; asserted at 10 so ordinary drift in either
+        // reflection cannot flip the test without changing the conclusion.
+        assert!(
+            diff_move > 10.0 * sum_move,
+            "the difference reflection must move far more than the sum reflection at essentially \
+             the same energy; got {:.2} % vs {:.2} %",
+            100.0 * diff_move,
+            100.0 * sum_move
         );
     }
 

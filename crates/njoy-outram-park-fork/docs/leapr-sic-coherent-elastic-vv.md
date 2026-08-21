@@ -120,19 +120,53 @@ monotonically to +23.5 % at `n = 100`.
 
 Growth with `tau^2`, confined to the difference reflections, is the signature
 of a **per-atom-type** Debye-Waller factor in the evaluation —
-`F = sum_j b_j exp(-W_j tau^2) exp(i tau . r_j)`, Zhu's "exact Debye-Waller"
-option — against the single **compound** coefficient this crate uses (Zhu's
+`F = sum_j b_j exp(-2 W'_j E_tau) exp(i tau . r_j)`, Zhu's "exact Debye-Waller"
+option — against the single **compound** coefficient this crate used (Zhu's
 "cubic approximation", `crystals::debye_waller_decks`). A difference
 reflection is exquisitely sensitive to that, since it subtracts two nearly
 equal terms; the sum reflections are not, and they agree.
 
-Separately, the Debye-Waller coefficients themselves differ: fitting a shared
-slope to each side's own Bragg pattern gives `4W' = 5.977 /eV` for the tape at
-300 K against 5.382 /eV for this crate at 296 K — about 10 % apart after
-temperature scaling. Not yet root-caused.
+### Confirmed, 2026-08-21 — the exact option was implemented and measured
 
-Neither effect is large at the thermal point, because the difference
-reflections are weak.
+`ElasticChannel::GenerateExactDebyeWaller` now builds MF=7/MT=2 with each
+atom's own coefficient inside the structure factor, taken from that species'
+own LEAPR deck (`crystals::debye_waller_deck_for_species`). Residual against
+the published tape, per difference reflection:
+
+| `n` | compound (cubic approx.) | per-atom (exact) |
+|---|---|---|
+| 4 | +2.8 % | +2.0 % |
+| 12 | +4.8 % | +2.0 % |
+| 20 | +6.9 % | +1.9 % |
+| 36 | +11.1 % | +1.9 % |
+| 44 | +13.4 % | +1.9 % |
+| 52 | +15.7 % | +1.9 % |
+
+The compound residual grows by a factor of 5.6 across the range. **The
+per-atom residual is flat to within 0.1 percentage point.** That is the
+prediction the shape argument made, and it holds: whatever is left on these
+reflections is a scale offset, not a `tau`-dependent modelling error. Pinned
+by `per_atom_debye_waller_flattens_the_difference_reflection_residual`.
+
+The exact option is **not the default** and is **not validated**. It is
+offered so the reading above can be tested, and because it is the treatment
+the evaluation appears to use.
+
+**It does not improve the thermal-point total, and was not expected to.**
+`sigma(0.0253 eV)` moves from 2.85303 b (compound, −2.98 %) to 2.84387 b
+(per-atom, −3.30 %) against the tape's 2.94078 b. The difference reflections
+are weak, so they barely enter the total, which is dominated by the sum
+reflections and by the basis question of Result 2. Fixing the shape of a small
+term is not the same as closing the gap.
+
+### Still unexplained: the coefficients themselves
+
+Fitting a shared slope to each side's own Bragg pattern gives `4W' = 5.977 /eV`
+for the tape at 300 K against 5.382 /eV for this crate at 296 K — about 10 %
+apart after temperature scaling. That is consistent in size and sign with the
+flat ~2 % offset left above, and it is not root-caused. It is the obvious next
+thing to look at, and unlike Result 2 it is a question about *this port*, not
+about the evaluation.
 
 ## What is still open
 
@@ -141,6 +175,9 @@ reflections are weak.
   has been located, and it is **not** in `crates/kovan-literature`. The 2014
   MS thesis (the primary source actually used) is:
   `crates/kovan-literature/open/theses/zhu2014thermal.{json,pdf}`.
-- Implementing the per-atom-type Debye-Waller option, which would let this
-  crate reproduce Result 3's difference reflections.
+- Root-causing the ~10 % difference in the fitted `W'` itself (see the end of
+  Result 3). This one is about this port, not the evaluation, and is the most
+  likely place a real defect on our side is still hiding.
+- (Done 2026-08-21: the per-atom-type Debye-Waller option itself — see
+  Result 3.)
 - Human review of everything above.

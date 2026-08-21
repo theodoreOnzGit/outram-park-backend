@@ -60,7 +60,23 @@ pub enum ElasticOutput {
     /// No elastic section.
     None,
     /// Coherent (Bragg) elastic, `LTHR=1`: the edges from [`crate::leapr::coher`].
+    ///
+    /// The structure factors are Debye-Waller-**free**; this module applies
+    /// `exp(-4 W' E)` with the single compound coefficient in
+    /// [`LeaprOutput::dwpix`], which is stock LEAPR's behaviour and Zhu's
+    /// "cubic approximation".
     Coherent(BraggEdges),
+    /// Coherent (Bragg) elastic, `LTHR=1`, whose structure factors **already
+    /// carry the Debye-Waller factor** — the output of
+    /// [`crate::leapr::coher::coher_general_with_per_atom_debye_waller`],
+    /// i.e. Zhu's *exact* per-atom-type treatment.
+    ///
+    /// The ENDF section written from this variant is the same shape; the only
+    /// difference is that this module must **not** re-apply `exp(-4 W' E)`,
+    /// because doing so would square the suppression. Kept as a separate
+    /// variant rather than a flag so that adding it forced this decision to be
+    /// made at every `match` site.
+    CoherentPreWeighted(BraggEdges),
     /// Incoherent elastic, `LTHR=2`: a bound cross section `sb * npr` \[barn\]
     /// (the `SB` C1 field); the `W'(T)` table comes from the temperatures +
     /// Debye-Waller integrals in [`LeaprOutput`].
@@ -245,7 +261,7 @@ fn push_tab2(
 /// `S(E) = sum_{edges<=E} exp(-4 W' E_edge) f_edge` at the base temperature, with
 /// the high-energy 1/E thinning (`jmax`) NJOY applies, and one LIST per extra
 /// temperature.
-fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)]) -> Vec<[f64; 6]> {
+fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) -> Vec<[f64; 6]> {
     const TOL: f64 = 0.9e-7;
     let nedge = edges.len();
     let ntempr = out.temperatures_k.len();
@@ -254,8 +270,11 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)]) -> Vec<[f64; 
     // HEAD: ZA, AWR, LTHR=1, 0, 0, 0
     push_cont(&mut rows, out.za, out.awr, 1, 0, 0, 0);
 
-    // thin out the 1/E tail using the first temperature's W' (3204–3216).
-    let w0 = out.dwpix[0];
+    // thin out the 1/E tail using the base temperature's W' (3204–3216).
+    // `w_base` is `dwpix[0]` for the usual Debye-Waller-free structure factors
+    // and 0 when the caller already folded the factor in — see
+    // [`ElasticOutput::CoherentPreWeighted`].
+    let w0 = w_base;
     let mut sum = 0.0;
     let mut suml = 0.0;
     let mut jmax = 0usize;
@@ -271,7 +290,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)]) -> Vec<[f64; 
     }
 
     // temperature 0: TAB1 with the (E, cumulative S) pairs (3219–3255).
-    let w = out.dwpix[0];
+    let w = w_base;
     let mut pairs = vec![(0.0_f64, 0.0_f64); jmax];
     let mut sum = 0.0;
     for (j, &(e, f)) in edges.iter().enumerate() {
@@ -507,7 +526,12 @@ pub fn endout(out: &LeaprOutput) -> Tape {
 
     let elastic_rows = match &out.elastic {
         ElasticOutput::None => None,
-        ElasticOutput::Coherent(br) => Some(build_coherent_elastic(out, &br.edges)),
+        ElasticOutput::Coherent(br) => Some(build_coherent_elastic(out, &br.edges, out.dwpix[0])),
+        // Debye-Waller already inside the structure factors: pass W' = 0 so the
+        // `exp(-4 W' E)` weighting below is the identity, rather than squaring
+        // the suppression that `coher_general_with_per_atom_debye_waller`
+        // already applied.
+        ElasticOutput::CoherentPreWeighted(br) => Some(build_coherent_elastic(out, &br.edges, 0.0)),
         ElasticOutput::Incoherent { sb_npr } => Some(build_incoherent_elastic(out, *sb_npr)),
     };
     if let Some(rows) = elastic_rows {

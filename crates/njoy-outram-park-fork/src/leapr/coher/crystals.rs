@@ -180,6 +180,28 @@ impl GeneralCrystal {
         }
     }
 
+    /// The LEAPR deck whose phonon spectrum supplies the Debye-Waller
+    /// coefficient of one **species** of this crystal, keyed on the
+    /// [`BasisAtom::label`] used in [`Self::structure`].
+    ///
+    /// [`Self::debye_waller_decks`] gives the *compound* average (Zhu's cubic
+    /// approximation); this gives the per-species decomposition that Zhu's
+    /// *exact* Debye-Waller option needs, where each atom carries its own
+    /// coefficient inside the structure factor. The two must name the same set
+    /// of decks — pinned by
+    /// [`tests::every_species_maps_to_one_of_the_compound_decks`].
+    ///
+    /// Returns `None` for a label this crystal does not contain, which a caller
+    /// must treat as "cannot build the exact factor" rather than substituting
+    /// the compound one silently.
+    pub fn debye_waller_deck_for_species(self, label: &str) -> Option<SabMaterial> {
+        match (self, label) {
+            (Self::SiliconCarbide3C, "Si") => Some(SabMaterial::SiInSiC),
+            (Self::SiliconCarbide3C, "C") => Some(SabMaterial::CInSiC),
+            _ => None,
+        }
+    }
+
     /// A short, stable label for provenance records and cache keys.
     pub const fn label(self) -> &'static str {
         match self {
@@ -225,6 +247,54 @@ mod tests {
         let c = 4.0 * std::f64::consts::PI * B_COH_CARBON_FM.powi(2) / 100.0;
         assert!((si - 2.163).abs() < 5e-3, "sigma_coh(Si) = {si}");
         assert!((c - 5.551).abs() < 5e-3, "sigma_coh(C) = {c}");
+    }
+
+    /// Every species named in [`GeneralCrystal::structure`] must map, through
+    /// [`GeneralCrystal::debye_waller_deck_for_species`], to one of the decks
+    /// [`GeneralCrystal::debye_waller_decks`] already lists — otherwise the
+    /// exact and compound Debye-Waller paths would be built from different
+    /// data and could disagree for a reason no one would think to look for.
+    ///
+    /// **Result (measured 2026-08-21):** holds for every catalogued crystal.
+    #[test]
+    fn every_species_maps_to_one_of_the_compound_decks() {
+        for crystal in GeneralCrystal::all() {
+            let compound: Vec<_> = crystal
+                .debye_waller_decks()
+                .iter()
+                .map(|&(m, _)| m)
+                .collect();
+            let structure = crystal.structure();
+            for atom in &structure.basis {
+                let deck = crystal
+                    .debye_waller_deck_for_species(atom.label)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "{}: species {:?} has no Debye-Waller deck",
+                            crystal.label(),
+                            atom.label
+                        )
+                    });
+                assert!(
+                    compound.contains(&deck),
+                    "{}: species {:?} maps to {deck:?}, which is not one of the compound decks \
+                     {compound:?}",
+                    crystal.label(),
+                    atom.label
+                );
+            }
+            // ...and every compound deck is actually used by some species.
+            for m in &compound {
+                assert!(
+                    structure
+                        .basis
+                        .iter()
+                        .any(|a| crystal.debye_waller_deck_for_species(a.label) == Some(*m)),
+                    "{}: compound deck {m:?} is named but no basis atom maps to it",
+                    crystal.label()
+                );
+            }
+        }
     }
 
     #[test]

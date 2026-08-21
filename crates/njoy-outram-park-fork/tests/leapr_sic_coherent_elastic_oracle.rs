@@ -452,6 +452,161 @@ fn swapping_in_the_tapes_implied_basis_recovers_most_of_the_thermal_point_gap() 
     );
 }
 
+/// **V&V — the per-atom-type Debye-Waller option removes the `tau^2`-growing
+/// error in the difference reflections** (GitHub issue #28, bead `op-gzws`).
+///
+/// # Methodology
+///
+/// Section "Result 3" of `docs/leapr-sic-coherent-elastic-vv.md` argued from
+/// the *shape* of the residual — confined to the weak `|b_Si - b_C|^2`
+/// difference reflections and growing monotonically with `tau^2` — that the
+/// published evaluation uses Zhu's **exact** per-atom-type Debye-Waller factor
+/// while this crate used his **cubic approximation** (one compound
+/// coefficient). This test is that argument's experiment.
+///
+/// Regenerates the Si-in-SiC tape twice at 296 K, once with
+/// [`ElasticChannel::Generate`] (compound) and once with
+/// [`ElasticChannel::GenerateExactDebyeWaller`] (per-atom), bins both and the
+/// published tape by `n = h^2+k^2+l^2`, normalises each on the strong `(220)`
+/// reflection, and reads the residual against the tape across the difference
+/// reflections (all-even `hkl` with `h+k+l = 2 mod 4`).
+///
+/// The pass criterion is about **shape, not size**: the compound residual must
+/// grow strongly with `n` and the per-atom residual must be flat. A flat
+/// residual means whatever is left is a scale offset, not a `tau`-dependent
+/// modelling error — which is the whole claim.
+///
+/// # Results (measured 2026-08-21, release mode)
+///
+/// Residual against the published tape, per difference reflection:
+///
+/// | `n` | compound (cubic approx.) | per-atom (exact) |
+/// |---|---|---|
+/// | 4 | +2.8 % | +2.0 % |
+/// | 12 | +4.8 % | +2.0 % |
+/// | 20 | +6.9 % | +1.9 % |
+/// | 36 | +11.1 % | +1.9 % |
+/// | 44 | +13.4 % | +1.9 % |
+/// | 52 | +15.7 % | +1.9 % |
+///
+/// The compound residual grows by a factor of 5.6 across the range; the
+/// per-atom residual is **flat to within 0.1 percentage point**. This is a
+/// clean confirmation that the published evaluation applies the Debye-Waller
+/// factor per atom type, and that the remaining ~2 % on these reflections is a
+/// scale offset — consistent with the ~10 % difference in the fitted `W'`
+/// itself, which is separately unexplained.
+///
+/// **The thermal-point total does not improve, and is not expected to.**
+/// `sigma(0.0253 eV)` goes from 2.85303 b (compound, −2.98 %) to 2.84387 b
+/// (per-atom, −3.30 %) against the tape's 2.94078 b. The difference
+/// reflections are weak, so they barely enter the total; that total is
+/// dominated by the sum reflections and by the separate basis question, which
+/// this option does not touch. Fixing the shape of a small term is not the
+/// same as closing the gap, and neither result is a validation.
+#[test]
+fn per_atom_debye_waller_flattens_the_difference_reflection_residual() {
+    let Some(path) = reference_endf_or_skip("tsl-SiinSiC.endf", "SiC exact Debye-Waller") else {
+        return;
+    };
+    let tape = njoy_outram_park_fork::endf::Tape::read(
+        std::fs::File::open(&path).expect("open the reference tape"),
+    )
+    .expect("reference tape parses");
+    let published = parse_mf7(&tape, 43)
+        .expect("parse the reference tape")
+        .coherent_elastic
+        .expect("the published SiC tape carries MF=7/MT=2");
+    let (_, oracle) =
+        oracle_weights_by_n(&published.bragg_energies_ev, &published.s_tables[0], N_MAX);
+
+    /// All-even `hkl` with `h+k+l = 2 mod 4` and a single `(hkl)` family, i.e.
+    /// the difference reflections this option is expected to move.
+    const DIFFERENCE_N: [i64; 6] = [4, 12, 20, 36, 44, 52];
+
+    let deck = LeaprDeck::parse(embedded_deck_text(SabMaterial::SiInSiC).unwrap()).unwrap();
+    let mut residuals = Vec::new();
+    let mut sigmas = Vec::new();
+    for channel in [
+        ElasticChannel::Generate,
+        ElasticChannel::GenerateExactDebyeWaller,
+    ] {
+        let generated = generate_tape(&deck, Temperature::new::<kelvin>(296.0), channel).unwrap();
+        let ce = parse_mf7(&generated, deck.mat)
+            .unwrap()
+            .coherent_elastic
+            .expect("both channels must still emit MF=7/MT=2");
+        let (_, mine) = oracle_weights_by_n(&ce.bragg_energies_ev, &ce.s_tables[0], N_MAX);
+
+        let (o_ref, m_ref) = (oracle[&8], mine[&8]);
+        let per_n: Vec<f64> = DIFFERENCE_N
+            .iter()
+            .map(|n| {
+                let o = oracle[n] / o_ref;
+                let m = mine[n] / m_ref;
+                (m - o) / o
+            })
+            .collect();
+
+        let mut sigma = 0.0;
+        for (i, &e) in ce.bragg_energies_ev.iter().enumerate() {
+            if e <= E_THERMAL {
+                sigma = ce.s_tables[0][i];
+            }
+        }
+        sigma /= E_THERMAL;
+
+        eprintln!(
+            "[issue #28] {:<26} difference-reflection residual {} | sigma(0.0253 eV) {sigma:.5} b \
+             ({:+.2} %)",
+            channel.label(),
+            per_n
+                .iter()
+                .zip(DIFFERENCE_N)
+                .map(|(r, n)| format!("n={n}: {:+.1}%", 100.0 * r))
+                .collect::<Vec<_>>()
+                .join("  "),
+            100.0 * (sigma - ORACLE_ELASTIC_BARN) / ORACLE_ELASTIC_BARN
+        );
+        residuals.push(per_n);
+        sigmas.push(sigma);
+    }
+
+    let spread = |v: &[f64]| {
+        let (lo, hi) = v
+            .iter()
+            .fold((f64::MAX, f64::MIN), |(a, b), &x| (a.min(x), b.max(x)));
+        hi - lo
+    };
+    let compound_spread = spread(&residuals[0]);
+    let exact_spread = spread(&residuals[1]);
+
+    assert!(
+        compound_spread > 0.08,
+        "the compound path's difference-reflection residual is expected to grow strongly with \
+         tau^2 (measured +2.8 % to +15.7 %, a spread of 0.129); got a spread of \
+         {compound_spread:.4}. If this has collapsed, the premise of this test has changed."
+    );
+    assert!(
+        exact_spread < 0.01,
+        "the per-atom path's residual must be FLAT -- that is the claim being tested. Measured \
+         spread 0.001 (+2.0 % to +1.9 %); got {exact_spread:.4}."
+    );
+    assert!(
+        exact_spread < compound_spread / 5.0,
+        "the per-atom option must flatten the residual by a wide margin; spreads were \
+         {exact_spread:.4} (exact) vs {compound_spread:.4} (compound)"
+    );
+
+    // Honest counterpart: the headline number does not improve.
+    assert!(
+        sigmas[1] < sigmas[0],
+        "recorded behaviour: the exact option lowers the thermal-point total slightly \
+         (2.84387 b vs 2.85303 b), it does not close the gap to the tape. Got {:.5} vs {:.5}.",
+        sigmas[1],
+        sigmas[0]
+    );
+}
+
 /// Pins the crystallographic argument that makes
 /// [`published_sic_bragg_pattern_matches_an_invalid_centring_not_zinc_blende`]
 /// a statement about the *evaluation* rather than a curve fit.
