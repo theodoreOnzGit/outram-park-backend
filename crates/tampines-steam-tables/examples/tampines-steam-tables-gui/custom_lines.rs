@@ -14,6 +14,13 @@
 //! has no such flash to reuse, so [`curves::isochore`] bisects pressure at
 //! each temperature against the forward single-phase volume dispatcher — see
 //! that function's doc comment for why.
+//!
+//! [`CustomLineType::Quality`] (issue #26, requested after the first custom
+//! line types shipped) is the odd one out: it is not a single-phase sweep at
+//! all, but the Region-4 lever-rule line [`curves::quality_line`] already
+//! computes for the fixed `x = 0.1, 0.3, 0.5, 0.7, 0.9` default set. Adding it
+//! here just exposes an arbitrary `x` through the same "type + value" control
+//! the other five use, rather than a second, parallel UI.
 
 use eframe::egui;
 use uom::si::available_energy::kilojoule_per_kilogram;
@@ -44,16 +51,19 @@ pub enum CustomLineType {
     Isenthalp,
     /// Constant specific volume.
     Isochore,
+    /// Constant vapour quality `x` (Region-4 lever rule).
+    Quality,
 }
 
 impl CustomLineType {
-    /// All five, in the order the type selector shows them.
-    pub const ALL: [CustomLineType; 5] = [
+    /// All six, in the order the type selector shows them.
+    pub const ALL: [CustomLineType; 6] = [
         CustomLineType::Isobar,
         CustomLineType::Isotherm,
         CustomLineType::Isentrope,
         CustomLineType::Isenthalp,
         CustomLineType::Isochore,
+        CustomLineType::Quality,
     ];
 
     /// Selector label.
@@ -64,6 +74,7 @@ impl CustomLineType {
             Self::Isentrope => "Isentrope",
             Self::Isenthalp => "Isenthalp",
             Self::Isochore => "Isochore",
+            Self::Quality => "Quality",
         }
     }
 
@@ -75,6 +86,7 @@ impl CustomLineType {
             Self::Isentrope => "kJ/(kg\u{00B7}K)",
             Self::Isenthalp => "kJ/kg",
             Self::Isochore => "m\u{00B3}/kg",
+            Self::Quality => "x (\u{2013})",
         }
     }
 
@@ -87,6 +99,7 @@ impl CustomLineType {
             Self::Isentrope => "kJ/(kg K)",
             Self::Isenthalp => "kJ/kg",
             Self::Isochore => "m3/kg",
+            Self::Quality => "dimensionless",
         }
     }
 
@@ -98,6 +111,7 @@ impl CustomLineType {
             Self::Isentrope => "isentrope",
             Self::Isenthalp => "isenthalp",
             Self::Isochore => "isochore",
+            Self::Quality => "quality",
         }
     }
 
@@ -113,6 +127,7 @@ impl CustomLineType {
             Self::Isentrope => curves::CUSTOM_ISENTROPE_RANGE_KJ_PER_KG_K,
             Self::Isenthalp => curves::CUSTOM_ISENTHALP_RANGE_KJ_PER_KG,
             Self::Isochore => curves::CUSTOM_ISOCHORE_RANGE_M3_PER_KG,
+            Self::Quality => curves::CUSTOM_QUALITY_RANGE,
         }
     }
 
@@ -167,6 +182,7 @@ impl CustomLine {
                 SpecificVolume::new::<cubic_meter_per_kilogram>(self.value),
                 samples,
             ),
+            CustomLineType::Quality => vec![curves::quality_line(self.value, samples)],
         };
         if segments.iter().map(Vec::len).sum::<usize>() < 2 {
             return None;

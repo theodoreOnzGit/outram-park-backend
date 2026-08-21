@@ -118,6 +118,11 @@ pub mod steam_turbine_equations;
 /// tables for solving simple two phase flow problems
 pub mod openfoam_algorithms;
 
+/// published (Wagner/Kretzschmar) steam-table reference data, queryable by
+/// isobar/isotherm cross-section or the full saturation curve — see
+/// [`tabulated_data::TabulatedData`]
+pub mod tabulated_data;
+
 /// Re-export of the 1-D compressible PIMPLE pipe array solver
 /// (`TampinesSteamArray`) and its error type (`TampinesSteamArrayError`) from
 /// [`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for

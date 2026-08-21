@@ -14,6 +14,14 @@
 //! thermodynamic state, and [`marviken`], whose test 24 is explicitly not
 //! validated).
 //!
+//! **[`wagner`] is the exception, since 2026-08-21 (issue #26).** It no
+//! longer holds its own copy of the tables — it re-exports
+//! `tampines_steam_tables::tabulated_data`, where the data now lives as a
+//! first-class, queryable part of the library. The rest of this section
+//! explains why [`moody`], [`zaloudek`], [`marviken`] and [`edwards`] still
+//! duplicate their source data locally; that reasoning no longer applies to
+//! Wagner.
+//!
 //! # Why the data is duplicated here rather than imported
 //!
 //! The fixtures store their reference values as `let` bindings **inside**

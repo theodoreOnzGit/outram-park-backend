@@ -749,6 +749,10 @@ pub const CUSTOM_ISENTROPE_RANGE_KJ_PER_KG_K: (f64, f64) = (0.0, 12.0);
 pub const CUSTOM_ISENTHALP_RANGE_KJ_PER_KG: (f64, f64) = (0.0, 4500.0);
 /// See [`CUSTOM_ISOBAR_RANGE_BAR`].
 pub const CUSTOM_ISOCHORE_RANGE_M3_PER_KG: (f64, f64) = (0.001, 50.0);
+/// Vapour quality `x` is dimensionless by definition, `0.0` (saturated
+/// liquid) to `1.0` (saturated vapour) — the full physical range, not a
+/// truncated slider like the other custom-line types need.
+pub const CUSTOM_QUALITY_RANGE: (f64, f64) = (0.0, 1.0);
 
 /// Verifies the computed saturation curve against the published Wagner
 /// saturation table.

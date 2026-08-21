@@ -36,6 +36,8 @@ use uom::si::pressure::{bar, kilopascal, pascal, pound_force_per_square_inch};
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::thermodynamic_temperature::{degree_celsius, degree_fahrenheit, kelvin};
 
+use tampines_steam_tables::tabulated_data::{TabulatedData, TabulatedState};
+
 use crate::curves;
 use crate::data::{LayerKind, PlotLayer, ThermoPoint};
 use crate::diagram::DiagramKind;
@@ -447,34 +449,59 @@ impl LayerId {
                     )
                 })
                 .collect(),
+            // Each isobar's computed line is paired with the published Wagner
+            // rows at (close to) that same pressure, if any exist — issue #26:
+            // "plot the tabulated data as crosses and iapws97 data as lines...
+            // so that a csv plot and graphical plot can be obtained". A default
+            // isobar Wagner never tabulated (see `TabulatedData::isobar`'s
+            // doc) contributes no cross layer, which is itself the honest
+            // answer: this crate has no published check at that pressure.
             Self::Isobars => curves::DEFAULT_ISOBARS_BAR
                 .iter()
                 .enumerate()
-                .map(|(i, p_bar)| {
-                    base(
+                .flat_map(|(i, p_bar)| {
+                    let p = Pressure::new::<bar>(*p_bar);
+                    let line = base(
                         format!("Isobar p = {p_bar} bar"),
-                        curves::isobar(Pressure::new::<bar>(*p_bar), curve_samples),
+                        curves::isobar(p, curve_samples),
                         i == 0,
-                    )
+                    );
+                    let crosses = tabulated_cross_layer(
+                        format!("Isobar p = {p_bar} bar (Wagner)"),
+                        TabulatedData.isobar_default_tolerance(p),
+                        self.colour(),
+                        i == 0,
+                        self.legend_group(),
+                    );
+                    std::iter::once(line).chain(crosses)
                 })
                 .collect(),
             // Coloured by temperature (issue #26 "Option A: colour gradient"),
             // not the flat `self.colour()` every other layer uses — otherwise
             // every isotherm looks identical and the set is unreadable once
-            // more than two or three are switched on.
+            // more than two or three are switched on. Wagner crosses follow
+            // suit so a cross and its own line share a colour; see `Isobars`
+            // above for why a match may be empty.
             Self::Isotherms => curves::DEFAULT_ISOTHERMS_DEGC
                 .iter()
                 .enumerate()
-                .map(|(i, t_degc)| {
-                    base_coloured(
+                .flat_map(|(i, t_degc)| {
+                    let t = ThermodynamicTemperature::new::<degree_celsius>(*t_degc);
+                    let colour = crate::figure::isotherm_colour(*t_degc);
+                    let line = base_coloured(
                         format!("Isotherm T = {t_degc} \u{00B0}C"),
-                        curves::isotherm(
-                            ThermodynamicTemperature::new::<degree_celsius>(*t_degc),
-                            curve_samples,
-                        ),
+                        curves::isotherm(t, curve_samples),
                         i == 0,
-                        crate::figure::isotherm_colour(*t_degc),
-                    )
+                        colour,
+                    );
+                    let crosses = tabulated_cross_layer(
+                        format!("Isotherm T = {t_degc} \u{00B0}C (Wagner)"),
+                        TabulatedData.isotherm_default_tolerance(t),
+                        colour,
+                        i == 0,
+                        self.legend_group(),
+                    );
+                    std::iter::once(line).chain(crosses)
                 })
                 .collect(),
             Self::CriticalPoint => vec![base(
@@ -603,6 +630,53 @@ fn wagner_saturation_states() -> (Vec<ThermoPoint>, Vec<ThermoPoint>) {
         ));
     }
     (liquid, vapour)
+}
+
+/// Builds the "Wagner crosses" companion layer for one isobar/isotherm line
+/// (issue #26: "plot the tabulated data as crosses and iapws97 data as
+/// lines"), via [`TabulatedData`]. `None` when the query matched no published
+/// row — the caller's default isobar/isotherm sweep is a *visual coverage*
+/// set, not a claim that Wagner tabulated every value in it, so an empty
+/// match is the correct, honest outcome, not an error.
+fn tabulated_cross_layer(
+    label: String,
+    states: Vec<TabulatedState>,
+    colour: Rgb,
+    show_in_legend: bool,
+    legend_group: &'static str,
+) -> Option<PlotLayer> {
+    if states.is_empty() {
+        return None;
+    }
+    let points: Vec<ThermoPoint> = states
+        .into_iter()
+        .map(|s| {
+            ThermoPoint::new(
+                s.pressure,
+                s.temperature,
+                s.specific_enthalpy,
+                s.specific_entropy,
+                None,
+            )
+        })
+        .collect();
+    Some(PlotLayer {
+        label,
+        kind: LayerKind::ReferencePoints,
+        provenance: "Kretzschmar & Wagner (2019), International Steam Tables (3rd ed.), Springer \
+                     -- published tabulated value(s) matching this line, not this crate's own \
+                     computation"
+            .to_string(),
+        segments: vec![points],
+        style: SeriesStyle::Markers {
+            shape: MarkerShape::Cross,
+            size: 3.5,
+        },
+        colour,
+        show_in_legend,
+        legend_group,
+        custom_line: None,
+    })
 }
 
 /// Wagner single-phase table rows as plotted states, straight from the table.
@@ -886,6 +960,70 @@ fn every_reference_layer_yields_points() {
         let total: usize = built.iter().map(PlotLayer::point_count).sum();
         assert!(total > 0, "{layer:?} produced no points on {diagram:?}");
     }
+}
+
+/// The isobar and isotherm layers pair their computed line with the
+/// published Wagner rows at the same value, when Wagner tabulated any near it
+/// — issue #26: "plot the tabulated data as crosses and iapws97 data as
+/// lines... so that a csv plot and graphical plot can be obtained".
+///
+/// # Methodology
+///
+/// Builds [`LayerId::Isobars`] and [`LayerId::Isotherms`] and checks, for each
+/// of this crate's own `DEFAULT_ISOBARS_BAR` / `DEFAULT_ISOTHERMS_DEGC`
+/// values known to coincide with a published Wagner isobar/isotherm (100 bar;
+/// 300 °C — both chosen because [`tampines_steam_tables::tabulated_data`]'s
+/// own tests already establish they match real rows), that the built layers
+/// contain **both** a `ComputedCurve` line and a `ReferencePoints` cross
+/// layer whose label names the same value. Also checks that at least one
+/// isobar/isotherm value produces *no* companion crosses (5 bar — not a
+/// tabulated Wagner isobar), proving empty-on-no-match is real behaviour, not
+/// untested.
+///
+/// # Result (measured 2026-08-21)
+///
+/// Holds: 100 bar and 300 °C each produce a matching `(line, crosses)` pair;
+/// 5 bar produces only its line.
+#[cfg(test)]
+#[test]
+fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
+    let isobars = LayerId::Isobars.build(DiagramKind::EnthalpyEntropy, 60);
+    let has_line_and_crosses = |needle: &str| {
+        let has_line = isobars
+            .iter()
+            .any(|l| l.label.contains(needle) && l.kind == LayerKind::ComputedCurve);
+        let has_crosses = isobars.iter().any(|l| {
+            l.label.contains(needle) && l.label.contains("Wagner") && l.kind == LayerKind::ReferencePoints
+        });
+        (has_line, has_crosses)
+    };
+    let (line_100, crosses_100) = has_line_and_crosses("100 bar");
+    assert!(line_100, "expected a computed isobar line at 100 bar");
+    assert!(
+        crosses_100,
+        "expected published Wagner crosses at 100 bar (a tabulated isobar)"
+    );
+    let (line_5, crosses_5) = has_line_and_crosses("5 bar");
+    assert!(line_5, "5 bar's computed line must still be present");
+    assert!(
+        !crosses_5,
+        "5 bar is not a tabulated Wagner isobar -- there must be no crosses layer for it, \
+         proving an empty match is real, not fabricated"
+    );
+
+    let isotherms = LayerId::Isotherms.build(DiagramKind::EnthalpyEntropy, 60);
+    let has_line_300 = isotherms
+        .iter()
+        .any(|l| l.label.contains("300") && l.kind == LayerKind::ComputedCurve);
+    let has_crosses_300 = isotherms.iter().any(|l| {
+        l.label.contains("300") && l.label.contains("Wagner") && l.kind == LayerKind::ReferencePoints
+    });
+    assert!(has_line_300, "expected a computed isotherm line at 300 degC");
+    assert!(
+        has_crosses_300,
+        "expected published Wagner crosses at 300 degC (matches rows across many tabulated \
+         isobars per tabulated_data's own tests)"
+    );
 }
 
 /// Checks the Compact-legend grouping ([`LayerId::legend_group`]) collapses
