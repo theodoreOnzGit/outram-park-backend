@@ -1,0 +1,98 @@
+NOTICE — kovan
+==============
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-08-21)
+------------------------------------------------------
+
+This crate was, until 2026-08-21, licensed under GPL-3.0-only via
+`license.workspace = true` (the OUTRAM PARK workspace default). On
+2026-08-21, at the explicit direction of the maintainer, it was relicensed
+to AGPL-3.0-only so it can depend on `kopitiam-pdf`, which is itself
+AGPL-3.0-only.
+
+`kovan` was unpublished at version 0.0.0 at the time of this relicense, so
+there is no prior published version to grandfather (contrast
+`chem-eng-real-time-process-control-simulator`'s NOTICE, where published
+Apache-2.0 versions had to be preserved). Every version of `kovan` released
+from this point on is AGPL-3.0-only.
+
+Authority to relicense: the maintainer is the sole copyright holder of this
+crate's own code (consolidated 2026-08-21 from the former `kovan-cli` and
+`kovan-tui` crates, both also solely maintainer-authored).
+
+Why AGPL-3.0-only specifically
+-------------------------------
+
+GPLv3 and AGPLv3 are combinable (GPLv3 §13 / AGPLv3 §13 each grant
+permission), but a combined GPLv3+AGPLv3 binary carries AGPL's
+network-interaction obligation for that combination. Rather than rely on
+that combination clause, `kovan` itself is licensed AGPL-3.0-only outright:
+same license as `kopitiam-pdf`, so there is no cross-license combination
+question to reason about at all.
+
+Dependency: kopitiam-pdf
+-------------------------
+
+  Crate:       kopitiam-pdf
+  Version:     0.2.5 (as of this relicense — see Cargo.toml for the
+               resolved version in use)
+  License:     AGPL-3.0-only
+  Repository:  https://github.com/theodoreOnzGit/kopitiam
+  Author:      Theodore Kay Chen Ong
+  Description: "Pure-Rust PDF text extraction for KOPITIAM's Document
+               Engine." — also carries a from-source port of MuPDF's `fitz`
+               rasterizer (module `kopitiam_pdf::mupdf`), including a real
+               page-to-`Pixmap` rasterizer (`mupdf::rasterize_page`) with
+               working TrueType/CFF glyph-outline rendering, not merely text
+               extraction. See GitHub issue #30 and kopi-beans `op-6ez3` for
+               the survey that found this.
+
+Declared as a normal crates.io dependency (`kopitiam-pdf = "0.2.5"` in this
+crate's own `[dependencies]`), not vendored, not path/git, and not added to
+the workspace root's `[workspace.dependencies]` — see "Workspace boundary"
+below for why that last point matters.
+
+MuPDF provenance (one level further upstream)
+-----------------------------------------------
+
+`kopitiam-pdf`'s `mupdf` module is itself a close translation of MuPDF
+(AGPL-3.0, (c) Artifex Software, Inc.), per that module's own doc comments
+and `docs/ai-decisions/AID-0051-mupdf-port-conventions.md` /
+`AID-0052-mupdf-c-delegation-substitutions.md` in the `kopitiam` repository.
+This crate does not vendor or re-translate any of that — it consumes
+`kopitiam-pdf`'s published, already-translated Rust as an ordinary
+dependency.
+
+Workspace boundary (read before adding a dependency on `kovan`)
+-------------------------------------------------------------------
+
+`kovan` is, as of this relicense, the ONLY AGPL-3.0-only crate in the
+`outram-park-backend` workspace. Every other member crate remains
+GPL-3.0-only (or whatever license it already carried) and is UNAFFECTED by
+this change: Cargo dependencies are scoped per-crate, not workspace-wide,
+and `kopitiam-pdf` is declared only in this crate's own `Cargo.toml` — no
+other crate in this workspace depends on it, directly or transitively.
+
+This holds only as long as `kovan` stays a dependency LEAF: if any other
+crate in this workspace adds `kovan` as a dependency (as a library, not as
+an installed CLI binary), that crate's own compiled output becomes a
+combined work incorporating AGPL-3.0-only code and inherits the same
+question this NOTICE exists to document. Before adding `kovan` as a
+dependency of another crate, re-read this NOTICE and re-confirm the
+licensing consequence with the maintainer — do not assume it is free of
+cost just because it worked for this crate.
+
+Android / Termux
+-----------------
+
+`kopitiam-pdf` was checked (`cargo tree -p kovan`, 2026-08-21) to carry no
+`-sys` / C-toolchain dependency anywhere in its tree — it and its
+transitive dependencies (`pdf-extract`, `lopdf`, `image`, and their own
+codec dependencies) are all pure Rust. It is not target-gated off Android in
+this crate's `Cargo.toml`, unlike `ratatui` (desktop-scope) — this
+dependency does not need to be.
+
+This document is written by an AI coding assistant at the maintainer's
+explicit direction; per this workspace's `RESPONSIBLE_USE.md`, it is
+untrusted output until the maintainer reviews it, same as the rest of this
+change.

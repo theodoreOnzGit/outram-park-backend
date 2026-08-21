@@ -3,7 +3,15 @@ name = "kovan"
 description = "KOVAN — CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
 version = "0.0.0"
 edition.workspace = true
-license.workspace = true
+# AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
+# maintainer-directed divergence from the workspace default (2026-08-21) to
+# depend on `kopitiam-pdf` (also AGPL-3.0-only). See NOTICE in this directory
+# for the full relicense record and the workspace-boundary rule it sets: this
+# is the ONLY AGPL-3.0-only crate in OUTRAM PARK, `kopitiam-pdf` is declared
+# here (not in the root `[workspace.dependencies]`) so no other crate can
+# pick it up by accident, and nothing else in the workspace may depend on
+# `kovan` without re-examining that boundary.
+license = "AGPL-3.0-only"
 
 # Consolidated 2026-08-21 from the former separate `kovan-cli` and
 # `kovan-tui` crates so one crate carries all three interfaces. `kovan` and
@@ -47,6 +55,19 @@ serde_json.workspace = true
 # (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
 # and only runs when a user explicitly invokes `setup`).
 which.workspace = true
+# Pure-Rust PDF page rasterizer (a from-source port of MuPDF's `fitz` draw
+# device — real vector fills/strokes/images, real TrueType/CFF glyph outlines,
+# not a screenshot pipeline), the missing piece for GitHub issue #30's
+# integrated PDF reader (kopi-beans `op-6ez3`/`op-95x6`). AGPL-3.0-only —
+# see the `license` field above and NOTICE for why this crate, alone in the
+# workspace, is licensed to match. Declared directly here, NOT in the root
+# `[workspace.dependencies]`, so it stays scoped to this one crate. Confirmed
+# pure-Rust / Android-Termux-clean (no `-sys`/C-toolchain crate anywhere in
+# its dependency tree) via `cargo tree -p kovan`, 2026-08-21 — no target
+# gate needed. Not yet called from any code path in this crate; landing the
+# dependency is the whole of this change, wiring it up is the separate,
+# larger beads above.
+kopitiam-pdf = "0.2.5"
 
 # TUI is desktop scope. ratatui (and its bundled crossterm) are pulled ONLY off
 # Android so the crate honours the workspace Android rule; on Android the

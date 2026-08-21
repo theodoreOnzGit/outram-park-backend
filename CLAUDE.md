@@ -1204,7 +1204,7 @@ built, tested, and published from this single repository.
 | `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
 | `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
-| `kovan` (bins `kovan`, `kovan-tui`, `kovan-gui`) | KOVAN's three front ends over the knowledge layer: `kovan` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents); `kovan-tui` is the **human-facing** TUI (`ratatui`; desktop scope, CLI-redirect stub on Android); `kovan-gui` reuses `kovan-literature`'s digitiser GUI window rather than duplicating it. Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates. | GPL-3.0 |
+| `kovan` (bins `kovan`, `kovan-tui`, `kovan-gui`) | KOVAN's three front ends over the knowledge layer: `kovan` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents); `kovan-tui` is the **human-facing** TUI (`ratatui`; desktop scope, CLI-redirect stub on Android); `kovan-gui` reuses `kovan-literature`'s digitiser GUI window rather than duplicating it. Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates. **Relicensed to AGPL-3.0-only 2026-08-21** — the one crate in this workspace that differs from the default, so it can depend on `kopitiam-pdf` (also AGPL-3.0-only, GitHub issue #30's PDF-reader work). See `crates/kovan/NOTICE`. | **AGPL-3.0** (workspace exception — see NOTICE) |
 | `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
 | `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
@@ -1283,6 +1283,13 @@ exception is `ndarray-linalg`, whose BLAS backend feature is chosen per-target
 2026-08-07 exactly one member still declares it, `outram-foam-basic-lib`, and
 only as a target-gated **dev-dependency** for `tests/matrix_bench.rs`. TUAS's
 `ndarray-linalg` removal is **done** (TUAS v0.1.2/0.1.3), not planned.
+
+A second exception: **`kopitiam-pdf`** (AGPL-3.0-only, GitHub issue #30's
+PDF-reader work) is declared only in `crates/kovan/Cargo.toml`'s own
+`[dependencies]`, never in the workspace table — `kovan` is the sole
+AGPL-3.0-only crate in this workspace, and keeping the dependency
+crate-local is what stops another crate from picking it up (and the
+AGPL question that comes with it) by accident. See `crates/kovan/NOTICE`.
 
 See `docs/workspace-maintenance.md` for the rationale and history.
 

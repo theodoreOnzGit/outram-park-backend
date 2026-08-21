@@ -18,6 +18,17 @@ principles (deterministic-first, local-first, Android-first) and mission.
 > library functionality and covered by unit + end-to-end tests, but not yet
 > exercised against a real literature/repository corpus by a human reviewer.
 
+## License — AGPL-3.0-only (differs from the workspace default)
+
+`kovan` is licensed **AGPL-3.0-only**, not the workspace's usual
+GPL-3.0-only — the one deliberate exception in this repository. It depends
+on [`kopitiam-pdf`](https://github.com/theodoreOnzGit/kopitiam) (also
+AGPL-3.0-only), the pure-Rust PDF page rasterizer this crate's PDF-reader
+work (GitHub issue #30) is built on. See [`NOTICE`](./NOTICE) for the full
+relicense record, `kopitiam-pdf`'s provenance, and — importantly — the
+workspace-boundary rule it sets: no other crate in this repository may take
+`kovan` as a dependency without re-examining that boundary first.
+
 ## Install / run
 
 ```bash
