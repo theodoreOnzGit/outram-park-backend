@@ -229,12 +229,28 @@ pub struct PlotterApp {
     /// (issue #26, 2026-08-21: "I want the same thing done for the quality
     /// lines as well").
     quality_selected: Vec<bool>,
-    /// Which axis filters the tabulated single-phase points layer on T-p and
-    /// h-s, the two diagrams where either axis is meaningful (maintainer
-    /// correction, 2026-08-21: p-h always filters by isotherm and T-s always
-    /// by isobar; only T-p and h-s let the user choose). Set via a toggle
-    /// next to that layer's checkbox on those two diagrams.
+    /// Which axis filters the tabulated single-phase points layer. Set via a
+    /// toggle next to that layer's checkbox, available on every diagram
+    /// (maintainer direction, 2026-08-21: "make the isotherm isobar toggle
+    /// available for all diagrams[,] for tabulated data").
     tabulated_single_phase_axis: TabulatedFilterAxis,
+    /// Every isobar (bar) the tabulated single-phase table actually covers
+    /// (29 values as of 2026-08-21) -- computed once at startup via
+    /// [`crate::layers::tabulated_isobar_values`], not the 10-value
+    /// computed-curve default set. Issue #26: "I want all the temperatures
+    /// available from the steam table to choose from in a separate filter
+    /// under the tabulated data checkbox. do the same for isobars".
+    tabulated_isobar_values: Vec<f64>,
+    /// Which entries of [`PlotterApp::tabulated_isobar_values`] are selected,
+    /// one flag per entry in the same order.
+    tabulated_isobar_selected: Vec<bool>,
+    /// Every isotherm (degrees Celsius) the tabulated single-phase table
+    /// covers (98 values as of 2026-08-21) -- computed once at startup via
+    /// [`crate::layers::tabulated_isotherm_values`].
+    tabulated_isotherm_values: Vec<f64>,
+    /// Which entries of [`PlotterApp::tabulated_isotherm_values`] are
+    /// selected, one flag per entry in the same order.
+    tabulated_isotherm_selected: Vec<bool>,
     /// Samples per computed curve.
     curve_samples: usize,
     /// Whether a pressure axis is logarithmic.
@@ -286,6 +302,8 @@ pub struct PlotterApp {
 impl PlotterApp {
     /// Builds the app with every layer at its default visibility.
     pub fn new(out_dir: PathBuf, curve_samples: usize) -> Self {
+        let tabulated_isobar_values = crate::layers::tabulated_isobar_values();
+        let tabulated_isotherm_values = crate::layers::tabulated_isotherm_values();
         Self {
             active_tab: DiagramKind::PressureEnthalpy,
             visible: LayerId::ALL
@@ -296,6 +314,10 @@ impl PlotterApp {
             isotherm_selected: vec![true; crate::curves::DEFAULT_ISOTHERMS_DEGC.len()],
             quality_selected: vec![true; crate::curves::QUALITY_LINE_VALUES.len()],
             tabulated_single_phase_axis: TabulatedFilterAxis::Isotherm,
+            tabulated_isobar_selected: vec![true; tabulated_isobar_values.len()],
+            tabulated_isobar_values,
+            tabulated_isotherm_selected: vec![true; tabulated_isotherm_values.len()],
+            tabulated_isotherm_values,
             curve_samples: curve_samples.clamp(40, 2000),
             log_pressure: true,
             out_dir,
@@ -348,6 +370,18 @@ impl PlotterApp {
                 .filter_map(|(value, on)| on.then_some(*value))
                 .collect(),
             tabulated_single_phase_axis: self.tabulated_single_phase_axis,
+            tabulated_isobars_bar: self
+                .tabulated_isobar_values
+                .iter()
+                .zip(&self.tabulated_isobar_selected)
+                .filter_map(|(value, on)| on.then_some(*value))
+                .collect(),
+            tabulated_isotherms_degc: self
+                .tabulated_isotherm_values
+                .iter()
+                .zip(&self.tabulated_isotherm_selected)
+                .filter_map(|(value, on)| on.then_some(*value))
+                .collect(),
         }
     }
 
@@ -554,61 +588,67 @@ impl PlotterApp {
     }
 
     /// Draws the axis-filter row under [`LayerId::WagnerSinglePhasePoints`]'s
-    /// checkbox: which axis (isobar/isotherm selection) restricts the
-    /// tabulated single-phase points, per the maintainer's 2026-08-21
-    /// correction (*"for (p,h) diagrams, filter by isotherm, for (T,s)
-    /// diagram, filter by isobar. the tp diagram and [h-s] diagram, can
-    /// filter by either t or p (but not both)"*).
-    ///
-    /// p-h and T-s show an informational (non-interactive) line, since the
-    /// axis there is forced by which curve family is even drawable on that
-    /// diagram (see [`crate::layers::wagner_single_phase_states_for_selection`]).
-    /// T-p and h-s show an actual toggle. Returns whether the choice
-    /// changed, so the caller knows to invalidate the layer cache.
-    fn tabulated_single_phase_filter_row(&mut self, ui: &mut egui::Ui, tab: DiagramKind) -> bool {
+    /// checkbox: an Isobar/Isotherm toggle, available on every diagram
+    /// (maintainer direction, 2026-08-21: *"make the isotherm isobar toggle
+    /// available for all diagrams[,] for tabulated data"*), plus a
+    /// multi-select dropdown over the **full** set of isobars/isotherms the
+    /// tabulated table actually covers for whichever axis is currently
+    /// selected (*"I want all the temperatures available from the steam
+    /// table to choose from in a separate filter under the tabulated data
+    /// checkbox. do the same for isobars"*) -- a separate, larger pool than
+    /// [`PlotterApp::isobar_selected`]/[`PlotterApp::isotherm_selected`]'s
+    /// 10/9-value computed-curve defaults. Returns whether anything changed,
+    /// so the caller knows to invalidate the layer cache.
+    fn tabulated_single_phase_filter_row(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
         ui.horizontal(|ui| {
             ui.add_space(18.0);
-            match tab {
-                DiagramKind::PressureEnthalpy => {
-                    ui.label(
-                        egui::RichText::new("filtered by the Isotherms selection above")
-                            .small()
-                            .weak(),
-                    );
-                }
-                DiagramKind::TemperatureEntropy => {
-                    ui.label(
-                        egui::RichText::new("filtered by the Isobars selection above")
-                            .small()
-                            .weak(),
-                    );
-                }
-                DiagramKind::TemperaturePressure | DiagramKind::EnthalpyEntropy => {
-                    ui.label("filter by:");
-                    if ui
-                        .selectable_value(
-                            &mut self.tabulated_single_phase_axis,
-                            TabulatedFilterAxis::Isobar,
-                            "Isobar",
-                        )
-                        .changed()
-                    {
-                        changed = true;
-                    }
-                    if ui
-                        .selectable_value(
-                            &mut self.tabulated_single_phase_axis,
-                            TabulatedFilterAxis::Isotherm,
-                            "Isotherm",
-                        )
-                        .changed()
-                    {
-                        changed = true;
-                    }
-                }
+            ui.label("filter by:");
+            if ui
+                .selectable_value(
+                    &mut self.tabulated_single_phase_axis,
+                    TabulatedFilterAxis::Isobar,
+                    "Isobar",
+                )
+                .changed()
+            {
+                changed = true;
+            }
+            if ui
+                .selectable_value(
+                    &mut self.tabulated_single_phase_axis,
+                    TabulatedFilterAxis::Isotherm,
+                    "Isotherm",
+                )
+                .changed()
+            {
+                changed = true;
             }
         });
+        match self.tabulated_single_phase_axis {
+            TabulatedFilterAxis::Isobar => {
+                if Self::multi_select_row(
+                    ui,
+                    "tabulated_isobar_multiselect",
+                    &self.tabulated_isobar_values,
+                    "bar",
+                    &mut self.tabulated_isobar_selected,
+                ) {
+                    changed = true;
+                }
+            }
+            TabulatedFilterAxis::Isotherm => {
+                if Self::multi_select_row(
+                    ui,
+                    "tabulated_isotherm_multiselect",
+                    &self.tabulated_isotherm_values,
+                    "\u{00B0}C",
+                    &mut self.tabulated_isotherm_selected,
+                ) {
+                    changed = true;
+                }
+            }
+        }
         changed
     }
 
@@ -801,7 +841,7 @@ impl PlotterApp {
                 changed = true;
             }
             if id == LayerId::WagnerSinglePhasePoints {
-                if self.tabulated_single_phase_filter_row(ui, tab) {
+                if self.tabulated_single_phase_filter_row(ui) {
                     changed = true;
                 }
             }

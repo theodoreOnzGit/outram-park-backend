@@ -70,15 +70,19 @@ tooltip over the section heading rather than in the sidebar body.
   one at once. The tabulated-data crosses paired with a selected isobar or
   isotherm follow the same selection.
 * **Tabulated data: IAPWS single-phase table** — filtered by exactly one
-  axis, never the union of both, and *which* axis is diagram-dependent: p-h
-  always filters by the Isotherms selection above (an isobar is a horizontal
-  line there — see Isobars/Isotherms below), T-s always filters by the
-  Isobars selection (an isotherm is a horizontal line there), and T-p / h-s
-  — the two diagrams where neither axis is degenerate — show an explicit
-  **Isobar / Isotherm** toggle next to the checkbox so the choice is
-  explicit. Enabling only the 100 bar isobar on the toggle, or only the
-  300 °C isotherm, shows just that value's own tabulated rows, never the
-  full 2 334-row table.
+  axis (never the union of both), chosen with an **Isobar / Isotherm** toggle
+  next to the checkbox that is the same on every diagram. Underneath the
+  toggle sits a multi-select dropdown over the tabulated table's own **full**
+  set of values for that axis — 29 isobars, 98 isotherms as of 2026-08-21 —
+  a separate, much larger pool than the 10/9-value defaults the Isobars /
+  Isotherms computed-curve dropdowns above offer. Enabling only the 100 bar
+  isobar shows just its own tabulated rows, never the full 2 334-row table.
+  Wherever the selected axis is not degenerate on the current diagram (an
+  isobar *is* degenerate on p-h, an isotherm on T-s — see Isobars/Isotherms
+  above), the matching computed IAPWS-IF97 curve is drawn alongside the
+  tabulated points automatically, so turning the checkbox on gives both the
+  real data and the smooth curve it should sit on, not points with no
+  context.
 * **Hover coordinates** — hovering anywhere over the plot area shows a
   corner-anchored readout with the point's full thermodynamic state: `p`,
   `T`, `h`, `s`, density, specific volume, quality, Gibbs and Helmholtz free
@@ -205,7 +209,7 @@ that in a footnote printed on the figure itself.
 ## Verification and validation
 
 Run by `cargo test --release -p tampines-steam-tables --example tampines-steam-tables-gui`.
-**39 tests, all passing as of 2026-08-21.**
+**40 tests, all passing as of 2026-08-21.**
 
 The load-bearing one is `curves::saturation_curve_matches_the_wagner_steam_table`.
 
