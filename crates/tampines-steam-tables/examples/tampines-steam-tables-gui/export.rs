@@ -31,7 +31,7 @@ use crate::data::{LayerKind, PlotLayer};
 use crate::diagram::DiagramKind;
 use crate::figure::layout::PageSize;
 use crate::figure::{csv_export, pdf, png, svg, AxisScale, FigurePalette, Scene, Series};
-use crate::layers::LayerId;
+use crate::layers::{LayerId, LayerSelection};
 
 /// Default output directory, inside the crate, as issue #26 suggests.
 pub const DEFAULT_OUT_DIR: &str =
@@ -277,15 +277,20 @@ fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 /// Builds every visible layer for one diagram.
+///
+/// `selection` picks which isobars/isotherms [`LayerId::Isobars`] and
+/// [`LayerId::Isotherms`] actually draw (issue #26's "select which isotherms I
+/// want to add and plot" follow-up); every other layer ignores it.
 pub fn build_layers(
     diagram: DiagramKind,
     active: &[LayerId],
     curve_samples: usize,
+    selection: &LayerSelection,
 ) -> Vec<PlotLayer> {
     active
         .iter()
         .filter(|id| id.availability_on(diagram).is_available())
-        .flat_map(|id| id.build(diagram, curve_samples))
+        .flat_map(|id| id.build(diagram, curve_samples, selection))
         .filter(|layer| layer.point_count() > 0)
         .collect()
 }
@@ -311,7 +316,7 @@ pub fn build_layers(
 fn scenes_assemble_with_finite_ranges_and_the_required_caveats() {
     let active: Vec<LayerId> = LayerId::ALL.to_vec();
     for diagram in DiagramKind::ALL {
-        let layers = build_layers(diagram, &active, 60);
+        let layers = build_layers(diagram, &active, 60, &LayerSelection::default());
         let scene = build_scene(
             diagram,
             &layers,
@@ -363,7 +368,12 @@ fn scenes_assemble_with_finite_ranges_and_the_required_caveats() {
 #[test]
 fn write_single_file_writes_the_exact_path_and_rejects_csv() {
     let active: Vec<LayerId> = LayerId::ALL.to_vec();
-    let layers = build_layers(DiagramKind::PressureEnthalpy, &active, 30);
+    let layers = build_layers(
+        DiagramKind::PressureEnthalpy,
+        &active,
+        30,
+        &LayerSelection::default(),
+    );
     let scene = build_scene(
         DiagramKind::PressureEnthalpy,
         &layers,
@@ -462,7 +472,12 @@ fn write_single_file_writes_the_exact_path_and_rejects_csv() {
 #[test]
 fn export_style_palette_reaches_the_rendered_png() {
     let active: Vec<LayerId> = LayerId::ALL.to_vec();
-    let layers = build_layers(DiagramKind::PressureEnthalpy, &active, 30);
+    let layers = build_layers(
+        DiagramKind::PressureEnthalpy,
+        &active,
+        30,
+        &LayerSelection::default(),
+    );
     let scene = build_scene(
         DiagramKind::PressureEnthalpy,
         &layers,

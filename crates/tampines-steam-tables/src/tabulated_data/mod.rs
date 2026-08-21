@@ -138,7 +138,11 @@ impl TabulatedData {
     /// using a bare `f64` here (1 K delta == 1 °C delta, so no unit ambiguity
     /// exists to encode) avoids the trap entirely rather than trading it for a
     /// different `uom` type to get right.
-    pub fn isotherm(&self, t: ThermodynamicTemperature, tolerance_kelvin: f64) -> Vec<TabulatedState> {
+    pub fn isotherm(
+        &self,
+        t: ThermodynamicTemperature,
+        tolerance_kelvin: f64,
+    ) -> Vec<TabulatedState> {
         let target_degc = t.get::<degree_celsius>();
         WAGNER_SINGLE_PHASE_TABLE
             .iter()
@@ -166,16 +170,10 @@ impl TabulatedData {
         WAGNER_SATURATION_TABLE
             .iter()
             .map(|row| TabulatedSaturationState {
-                temperature: ThermodynamicTemperature::new::<degree_celsius>(
-                    row[SAT_COL_T_DEGC],
-                ),
+                temperature: ThermodynamicTemperature::new::<degree_celsius>(row[SAT_COL_T_DEGC]),
                 pressure: Pressure::new::<bar>(row[SAT_COL_P_BAR]),
-                liquid_enthalpy: AvailableEnergy::new::<kilojoule_per_kilogram>(
-                    row[SAT_COL_H_LIQ],
-                ),
-                vapour_enthalpy: AvailableEnergy::new::<kilojoule_per_kilogram>(
-                    row[SAT_COL_H_VAP],
-                ),
+                liquid_enthalpy: AvailableEnergy::new::<kilojoule_per_kilogram>(row[SAT_COL_H_LIQ]),
+                vapour_enthalpy: AvailableEnergy::new::<kilojoule_per_kilogram>(row[SAT_COL_H_VAP]),
                 liquid_entropy: SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(
                     row[SAT_COL_S_LIQ],
                 ),
@@ -260,9 +258,8 @@ mod tests {
     #[test]
     fn isotherm_finds_rows_across_multiple_tabulated_isobars() {
         let data = TabulatedData;
-        let rows = data.isotherm_default_tolerance(ThermodynamicTemperature::new::<degree_celsius>(
-            300.0,
-        ));
+        let rows =
+            data.isotherm_default_tolerance(ThermodynamicTemperature::new::<degree_celsius>(300.0));
         assert!(
             rows.len() >= 15,
             "expected 300 degC to match rows from most of the 29 tabulated isobars, got {}",
@@ -270,7 +267,10 @@ mod tests {
         );
         for state in &rows {
             let dt = (state.temperature.get::<degree_celsius>() - 300.0).abs();
-            assert!(dt <= DEFAULT_ISOTHERM_TOLERANCE_KELVIN, "row matched {dt} K off target");
+            assert!(
+                dt <= DEFAULT_ISOTHERM_TOLERANCE_KELVIN,
+                "row matched {dt} K off target"
+            );
         }
     }
 
@@ -294,8 +294,14 @@ mod tests {
         for state in &curve {
             assert!(state.temperature.get::<kelvin>().is_finite());
             assert!(state.pressure.get::<bar>().is_finite());
-            assert!(state.liquid_enthalpy.get::<kilojoule_per_kilogram>().is_finite());
-            assert!(state.vapour_enthalpy.get::<kilojoule_per_kilogram>().is_finite());
+            assert!(state
+                .liquid_enthalpy
+                .get::<kilojoule_per_kilogram>()
+                .is_finite());
+            assert!(state
+                .vapour_enthalpy
+                .get::<kilojoule_per_kilogram>()
+                .is_finite());
         }
     }
 }

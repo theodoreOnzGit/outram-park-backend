@@ -112,6 +112,35 @@ pub enum LayerId {
     EdwardsGs1PressureTrace,
 }
 
+/// Which specific isobars/isotherms [`LayerId::Isobars`] and
+/// [`LayerId::Isotherms`] draw, out of [`curves::DEFAULT_ISOBARS_BAR`] /
+/// [`curves::DEFAULT_ISOTHERMS_DEGC`].
+///
+/// Issue #26 (2026-08-21 follow-up): the isotherm/isobar checkbox used to be
+/// all-or-nothing — switching it on drew every default value at once, with no
+/// way to pick individual ones. This struct is the subset each layer actually
+/// draws; the sidebar's multi-select dropdown edits it, and an empty list for
+/// either field means "none of that family," equivalent to the layer being
+/// off. [`Default`] draws every default value, matching the tool's prior
+/// (only) behaviour, so existing callers that don't care about the selection
+/// keep working unchanged.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LayerSelection {
+    /// Isobars to draw, in bar. Order does not matter.
+    pub isobars_bar: Vec<f64>,
+    /// Isotherms to draw, in degrees Celsius. Order does not matter.
+    pub isotherms_degc: Vec<f64>,
+}
+
+impl Default for LayerSelection {
+    fn default() -> Self {
+        Self {
+            isobars_bar: curves::DEFAULT_ISOBARS_BAR.to_vec(),
+            isotherms_degc: curves::DEFAULT_ISOTHERMS_DEGC.to_vec(),
+        }
+    }
+}
+
 impl LayerId {
     /// Every layer, in the order they appear in the sidebar.
     pub const ALL: [LayerId; 16] = [
@@ -392,7 +421,12 @@ impl LayerId {
     ///
     /// `curve_samples` controls how finely the computed curves are sampled; it
     /// is the GUI's resolution slider.
-    pub fn build(self, diagram: DiagramKind, curve_samples: usize) -> Vec<PlotLayer> {
+    pub fn build(
+        self,
+        diagram: DiagramKind,
+        curve_samples: usize,
+        selection: &LayerSelection,
+    ) -> Vec<PlotLayer> {
         if !self.availability_on(diagram).is_available() {
             return Vec::new();
         }
@@ -456,7 +490,8 @@ impl LayerId {
             // isobar Wagner never tabulated (see `TabulatedData::isobar`'s
             // doc) contributes no cross layer, which is itself the honest
             // answer: this crate has no published check at that pressure.
-            Self::Isobars => curves::DEFAULT_ISOBARS_BAR
+            Self::Isobars => selection
+                .isobars_bar
                 .iter()
                 .enumerate()
                 .flat_map(|(i, p_bar)| {
@@ -482,7 +517,8 @@ impl LayerId {
             // more than two or three are switched on. Wagner crosses follow
             // suit so a cross and its own line share a colour; see `Isobars`
             // above for why a match may be empty.
-            Self::Isotherms => curves::DEFAULT_ISOTHERMS_DEGC
+            Self::Isotherms => selection
+                .isotherms_degc
                 .iter()
                 .enumerate()
                 .flat_map(|(i, t_degc)| {
@@ -956,7 +992,7 @@ fn every_reference_layer_yields_points() {
         } else {
             DiagramKind::EnthalpyEntropy
         };
-        let built = layer.build(diagram, 60);
+        let built = layer.build(diagram, 60, &LayerSelection::default());
         let total: usize = built.iter().map(PlotLayer::point_count).sum();
         assert!(total > 0, "{layer:?} produced no points on {diagram:?}");
     }
@@ -987,13 +1023,16 @@ fn every_reference_layer_yields_points() {
 #[cfg(test)]
 #[test]
 fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
-    let isobars = LayerId::Isobars.build(DiagramKind::EnthalpyEntropy, 60);
+    let isobars =
+        LayerId::Isobars.build(DiagramKind::EnthalpyEntropy, 60, &LayerSelection::default());
     let has_line_and_crosses = |needle: &str| {
         let has_line = isobars
             .iter()
             .any(|l| l.label.contains(needle) && l.kind == LayerKind::ComputedCurve);
         let has_crosses = isobars.iter().any(|l| {
-            l.label.contains(needle) && l.label.contains("Wagner") && l.kind == LayerKind::ReferencePoints
+            l.label.contains(needle)
+                && l.label.contains("Wagner")
+                && l.kind == LayerKind::ReferencePoints
         });
         (has_line, has_crosses)
     };
@@ -1011,18 +1050,112 @@ fn isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses() {
          proving an empty match is real, not fabricated"
     );
 
-    let isotherms = LayerId::Isotherms.build(DiagramKind::EnthalpyEntropy, 60);
+    let isotherms =
+        LayerId::Isotherms.build(DiagramKind::EnthalpyEntropy, 60, &LayerSelection::default());
     let has_line_300 = isotherms
         .iter()
         .any(|l| l.label.contains("300") && l.kind == LayerKind::ComputedCurve);
     let has_crosses_300 = isotherms.iter().any(|l| {
-        l.label.contains("300") && l.label.contains("Wagner") && l.kind == LayerKind::ReferencePoints
+        l.label.contains("300")
+            && l.label.contains("Wagner")
+            && l.kind == LayerKind::ReferencePoints
     });
-    assert!(has_line_300, "expected a computed isotherm line at 300 degC");
+    assert!(
+        has_line_300,
+        "expected a computed isotherm line at 300 degC"
+    );
     assert!(
         has_crosses_300,
         "expected published Wagner crosses at 300 degC (matches rows across many tabulated \
          isobars per tabulated_data's own tests)"
+    );
+}
+
+/// Checks [`LayerSelection`] actually restricts which isobars/isotherms
+/// [`LayerId::Isobars`] / [`LayerId::Isotherms`] draw (issue #26's follow-up:
+/// *"the isotherm checkbox switches all of the isotherms on... give me a
+/// drop-down menu to select which isotherms I want to add and plot"*).
+///
+/// # Methodology
+///
+/// Builds both layers three ways: [`LayerSelection::default`] (every default
+/// value, the tool's original all-or-nothing behaviour), a selection naming
+/// only one value from each family, and a selection with an empty list for
+/// each family. Checks the full selection produces every default value's
+/// line, the one-value selection produces exactly that value's line and none
+/// of the others, and the empty selection produces no layers at all for that
+/// family (not even an empty-labelled one).
+///
+/// # Result (measured 2026-08-21)
+///
+/// Holds for both isobars and isotherms.
+#[cfg(test)]
+#[test]
+fn layer_selection_restricts_which_isobars_and_isotherms_are_drawn() {
+    let diagram = DiagramKind::EnthalpyEntropy;
+
+    let full = LayerId::Isobars.build(diagram, 20, &LayerSelection::default());
+    for p_bar in curves::DEFAULT_ISOBARS_BAR {
+        assert!(
+            full.iter()
+                .any(|l| l.label.contains(&format!("{p_bar} bar"))
+                    && l.kind == LayerKind::ComputedCurve),
+            "default selection must still draw every default isobar, missing {p_bar} bar"
+        );
+    }
+
+    let one = LayerSelection {
+        isobars_bar: vec![100.0],
+        isotherms_degc: vec![300.0],
+    };
+    let one_isobar = LayerId::Isobars.build(diagram, 20, &one);
+    assert!(
+        one_isobar
+            .iter()
+            .any(|l| l.label.contains("100 bar") && l.kind == LayerKind::ComputedCurve),
+        "selecting only 100 bar must still draw its line"
+    );
+    for p_bar in curves::DEFAULT_ISOBARS_BAR {
+        if p_bar == 100.0 {
+            continue;
+        }
+        assert!(
+            !one_isobar
+                .iter()
+                .any(|l| l.label.contains(&format!("{p_bar} bar"))),
+            "selecting only 100 bar must not draw {p_bar} bar"
+        );
+    }
+    let one_isotherm = LayerId::Isotherms.build(diagram, 20, &one);
+    assert!(
+        one_isotherm
+            .iter()
+            .any(|l| l.label.contains("300") && l.kind == LayerKind::ComputedCurve),
+        "selecting only 300 degC must still draw its line"
+    );
+    for t_degc in curves::DEFAULT_ISOTHERMS_DEGC {
+        if t_degc == 300.0 {
+            continue;
+        }
+        assert!(
+            !one_isotherm
+                .iter()
+                .any(|l| l.label.contains(&format!("{t_degc} \u{00B0}C"))),
+            "selecting only 300 degC must not draw {t_degc} degC"
+        );
+    }
+
+    let empty = LayerSelection {
+        isobars_bar: Vec::new(),
+        isotherms_degc: Vec::new(),
+    };
+    assert!(
+        LayerId::Isobars.build(diagram, 20, &empty).is_empty(),
+        "an empty isobar selection must draw nothing"
+    );
+    assert!(
+        LayerId::Isotherms.build(diagram, 20, &empty).is_empty(),
+        "an empty isotherm selection must draw nothing"
     );
 }
 
@@ -1067,7 +1200,7 @@ fn legend_groups_collapse_the_families_issue_26_names() {
     }
 
     for layer in LayerId::ALL {
-        let built = layer.build(DiagramKind::EnthalpyEntropy, 10);
+        let built = layer.build(DiagramKind::EnthalpyEntropy, 10, &LayerSelection::default());
         for plot_layer in built {
             assert_eq!(
                 plot_layer.legend_group,

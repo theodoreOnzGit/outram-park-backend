@@ -167,12 +167,13 @@ fn export_all(out_dir: &std::path::Path, samples: usize) -> Result<usize, String
     use diagram::DiagramKind;
     use figure::layout::PageSize;
     use figure::png::DEFAULT_PIXELS_PER_POINT;
-    use layers::LayerId;
+    use layers::{LayerId, LayerSelection};
 
     let active: Vec<LayerId> = LayerId::ALL.to_vec();
+    let selection = LayerSelection::default();
     let mut total = 0usize;
     for kind in DiagramKind::ALL {
-        let built = export::build_layers(kind, &active, samples);
+        let built = export::build_layers(kind, &active, samples, &selection);
         let scene = export::build_scene(
             kind,
             &built,

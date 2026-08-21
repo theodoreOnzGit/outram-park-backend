@@ -16,7 +16,8 @@
 //! this re-export exists only so the rest of this example's existing
 //! `wagner::WAGNER_SATURATION_TABLE` / `wagner::SAT_COL_*` call sites did not
 //! all need touching in the same change.
-#[allow(unused_imports)] // row-type aliases: not named at any call site in this example, kept for parity with the library's own public surface
+#[allow(unused_imports)]
+// row-type aliases: not named at any call site in this example, kept for parity with the library's own public surface
 pub use tampines_steam_tables::tabulated_data::{
     WagnerSaturationRow, WagnerSinglePhaseRow, SAT_COL_H_LIQ, SAT_COL_H_VAP, SAT_COL_P_BAR,
     SAT_COL_S_LIQ, SAT_COL_S_VAP, SAT_COL_T_DEGC, WAGNER_SATURATION_TABLE,

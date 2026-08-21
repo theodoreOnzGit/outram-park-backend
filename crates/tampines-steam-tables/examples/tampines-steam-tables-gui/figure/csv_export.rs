@@ -159,11 +159,12 @@ fn quote(field: &str) -> String {
 #[cfg(test)]
 #[test]
 fn csv_export_is_byte_reproducible() {
-    use crate::layers::LayerId;
+    use crate::layers::{LayerId, LayerSelection};
 
     let diagram = DiagramKind::PressureEnthalpy;
-    let mut layers = LayerId::SaturationDome.build(diagram, 40);
-    layers.extend(LayerId::MoodyStates.build(diagram, 40));
+    let selection = LayerSelection::default();
+    let mut layers = LayerId::SaturationDome.build(diagram, 40, &selection);
+    layers.extend(LayerId::MoodyStates.build(diagram, 40, &selection));
 
     let curves_a = render(&layers, diagram, LayerKind::ComputedCurve);
     let curves_b = render(&layers, diagram, LayerKind::ComputedCurve);

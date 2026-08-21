@@ -40,7 +40,7 @@ use crate::figure::layout::PageSize;
 use crate::figure::png::DEFAULT_PIXELS_PER_POINT;
 use crate::figure::{AxisScale, MarkerShape, Rgb, SeriesStyle};
 use crate::custom_lines::{self, CustomLine, CustomLineType};
-use crate::layers::LayerId;
+use crate::layers::{LayerId, LayerSelection};
 use crate::theme::GuiTheme;
 
 /// How the live canvas's legend is shown (issue #26: "Legend mode dropdown:
@@ -168,6 +168,15 @@ pub struct PlotterApp {
     active_tab: DiagramKind,
     /// Layer visibility, one flag per [`LayerId`].
     visible: Vec<(LayerId, bool)>,
+    /// Which of [`crate::curves::DEFAULT_ISOBARS_BAR`] the
+    /// [`LayerId::Isobars`] checkbox actually draws when it is on, one flag
+    /// per entry in the same order. Issue #26's follow-up: the checkbox used
+    /// to be all-or-nothing; this is what the sidebar's multi-select dropdown
+    /// edits instead of it drawing every default value.
+    isobar_selected: Vec<bool>,
+    /// Same as [`PlotterApp::isobar_selected`], for
+    /// [`crate::curves::DEFAULT_ISOTHERMS_DEGC`] / [`LayerId::Isotherms`].
+    isotherm_selected: Vec<bool>,
     /// Samples per computed curve.
     curve_samples: usize,
     /// Whether a pressure axis is logarithmic.
@@ -217,6 +226,8 @@ impl PlotterApp {
                 .iter()
                 .map(|id| (*id, id.default_visible()))
                 .collect(),
+            isobar_selected: vec![true; crate::curves::DEFAULT_ISOBARS_BAR.len()],
+            isotherm_selected: vec![true; crate::curves::DEFAULT_ISOTHERMS_DEGC.len()],
             curve_samples: curve_samples.clamp(40, 2000),
             log_pressure: true,
             out_dir,
@@ -245,6 +256,24 @@ impl PlotterApp {
             .collect()
     }
 
+    /// Which isobars/isotherms [`LayerId::Isobars`] and [`LayerId::Isotherms`]
+    /// draw right now, per [`PlotterApp::isobar_selected`] /
+    /// [`PlotterApp::isotherm_selected`].
+    fn layer_selection(&self) -> LayerSelection {
+        LayerSelection {
+            isobars_bar: crate::curves::DEFAULT_ISOBARS_BAR
+                .iter()
+                .zip(&self.isobar_selected)
+                .filter_map(|(value, on)| on.then_some(*value))
+                .collect(),
+            isotherms_degc: crate::curves::DEFAULT_ISOTHERMS_DEGC
+                .iter()
+                .zip(&self.isotherm_selected)
+                .filter_map(|(value, on)| on.then_some(*value))
+                .collect(),
+        }
+    }
+
     /// Drops every cached tab, forcing a recompute.
     fn invalidate(&mut self) {
         self.cache.clear();
@@ -255,7 +284,8 @@ impl PlotterApp {
         let tab = self.active_tab;
         if !self.cache.contains_key(&tab) {
             let active = self.active_layers();
-            let built = export::build_layers(tab, &active, self.curve_samples);
+            let built =
+                export::build_layers(tab, &active, self.curve_samples, &self.layer_selection());
             self.cache.insert(tab, built);
         }
         self.cache.get(&tab).map(Vec::as_slice).unwrap_or(&[])
@@ -304,7 +334,7 @@ impl PlotterApp {
         let pixels = self.export_pixels_per_point;
         let y_scale = self.y_scale();
 
-        let mut built = export::build_layers(tab, &active, samples);
+        let mut built = export::build_layers(tab, &active, samples, &self.layer_selection());
         built.extend(self.custom_layers());
         let scene = export::build_scene(tab, &built, AxisScale::Linear, y_scale, &active);
         self.status = match export::write_files(
@@ -340,7 +370,7 @@ impl PlotterApp {
         let pixels = self.export_pixels_per_point;
         let y_scale = self.y_scale();
 
-        let mut built = export::build_layers(tab, &active, samples);
+        let mut built = export::build_layers(tab, &active, samples, &self.layer_selection());
         built.extend(self.custom_layers());
         let scene = export::build_scene(tab, &built, AxisScale::Linear, y_scale, &active);
         self.status = match export::write_single_file(
@@ -403,6 +433,47 @@ impl PlotterApp {
         }
     }
 
+    /// Draws a multi-select dropdown next to [`LayerId::Isobars`] /
+    /// [`LayerId::Isotherms`]'s checkbox row (issue #26's follow-up: *"the
+    /// isotherm checkbox switches all of the isotherms on... give me a
+    /// drop-down menu to select which isotherms I want to add and plot"*).
+    /// The dropdown popup stays open across clicks, so multiple boxes can be
+    /// (un)checked in one interaction rather than reopening it each time.
+    /// Returns whether the selection changed, so the caller knows to
+    /// invalidate the layer cache.
+    fn multi_select_row(
+        ui: &mut egui::Ui,
+        id_salt: &str,
+        values: &[f64],
+        unit: &str,
+        selected: &mut [bool],
+    ) -> bool {
+        let mut changed = false;
+        let n_selected = selected.iter().filter(|on| **on).count();
+        ui.horizontal(|ui| {
+            ui.add_space(18.0);
+            ui.label("select:");
+            egui::ComboBox::from_id_salt(id_salt)
+                .selected_text(format!("{n_selected}/{} shown", values.len()))
+                .show_ui(ui, |ui| {
+                    for (value, on) in values.iter().zip(selected.iter_mut()) {
+                        if ui.checkbox(on, format!("{value} {unit}")).changed() {
+                            changed = true;
+                        }
+                    }
+                });
+            if ui.small_button("all").clicked() {
+                selected.iter_mut().for_each(|on| *on = true);
+                changed = true;
+            }
+            if ui.small_button("none").clicked() {
+                selected.iter_mut().for_each(|on| *on = false);
+                changed = true;
+            }
+        });
+        changed
+    }
+
     /// The control sidebar.
     ///
     /// Sectioned per issue #26's suggested order: Diagram, Theme, Legend,
@@ -454,6 +525,34 @@ impl PlotterApp {
             }
             if self.layer_row(ui, id, tab, index, &mut on) {
                 changed = true;
+            }
+            if !id.availability_on(tab).is_available() {
+                continue;
+            }
+            match id {
+                LayerId::Isobars => {
+                    if Self::multi_select_row(
+                        ui,
+                        "isobar_multiselect",
+                        &crate::curves::DEFAULT_ISOBARS_BAR,
+                        "bar",
+                        &mut self.isobar_selected,
+                    ) {
+                        changed = true;
+                    }
+                }
+                LayerId::Isotherms => {
+                    if Self::multi_select_row(
+                        ui,
+                        "isotherm_multiselect",
+                        &crate::curves::DEFAULT_ISOTHERMS_DEGC,
+                        "\u{00B0}C",
+                        &mut self.isotherm_selected,
+                    ) {
+                        changed = true;
+                    }
+                }
+                _ => {}
             }
         }
 
