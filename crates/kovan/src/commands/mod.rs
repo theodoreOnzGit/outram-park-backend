@@ -23,6 +23,7 @@ pub mod gen;
 pub mod historian;
 pub mod kloc;
 pub mod lit;
+pub mod lsp_daemon;
 pub mod methods;
 pub mod outline;
 pub mod scan;

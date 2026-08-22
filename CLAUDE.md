@@ -370,8 +370,16 @@ see `crates/kovan/src/commands/cost.rs`), `kovan-cli outline <file>`
 `def <symbol> --file <file>` / `sig <symbol> --file <file>` / `refs <symbol>
 --file <file>`** (wired directly to `kopitiam-semantic`'s
 `RustAnalyzerSession` — needs `rust-analyzer` on PATH, `rustup component add
-rust-analyzer`; the first query in a workspace pays a real indexing wait, up
-to `KOVAN_RA_TIMEOUT_SECS` (default 180s)). **Prefer all six of these over
+rust-analyzer`; the *first* query for a workspace root pays a real indexing
+wait, up to `KOVAN_RA_TIMEOUT_SECS` (default 180s), but that root then stays
+warm in a background `lsp-daemon` (op-fdph) so every later `def`/`sig`/`refs`
+call — from any `kovan-cli` invocation — answers in well under a second,
+until explicitly stopped with `kovan-cli lsp-daemon-stop --root <root>`; there
+is deliberately **no** idle timeout (maintainer direction, 2026-08-22) — once
+warm, it stays warm rather than risking a cold restart mid-work. **Never run
+`kovan-cli lsp-daemon-serve` directly** — it's the daemon's own foreground
+process (spawned detached automatically) and will hang a non-interactive
+session exactly like `kovan`/`kovan-tui` would). **Prefer all six of these over
 `kopitiam tokens`/`outline`/`slice`/`def`/`sig`/`refs` when the file in
 question is inside this workspace** — same reasoning as the rest of this
 section, kovan is scoped to this codebase and kopitiam is not. `kopitiam`

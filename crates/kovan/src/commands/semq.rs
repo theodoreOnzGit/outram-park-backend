@@ -8,13 +8,19 @@
 //! needs `rust-analyzer` on `PATH` at runtime (`rustup component add
 //! rust-analyzer`) to answer anything.
 //!
-//! Every query here is **name-based**: a symbol's `document_symbol` tree in
-//! `--file` is searched for a declaration matching `symbol`
-//! ([`find_symbol`]), and that identifier's position is the query anchor —
-//! the same design kopitiam's own `semq.rs` uses, and largely ported from it
-//! (the pure helpers below — [`find_symbol`], [`sym_pos`],
-//! [`extract_signature`] — are close ports, cited per-function; the session
-//! plumbing is new).
+//! Every query here is **name-based**: [`locate_declaration`] finds `symbol`'s
+//! declaration line in `--file` by text (not `document_symbols` — see its own
+//! doc comment for why), and that identifier's position is the query anchor.
+//! [`extract_signature`]/[`looks_like_signature`] are close ports of
+//! kopitiam's own `semq.rs` functions of the same name.
+//!
+//! **Keeping rust-analyzer warm across invocations** (op-fdph): each of
+//! `run_def`/`run_sig`/`run_refs` tries [`super::lsp_daemon::query`] first —
+//! a background daemon holding one long-lived, already-indexed session — and
+//! only falls back to [`connect`]'s spawn-index-shutdown-per-call path if no
+//! daemon is reachable (including on non-Unix targets, where the daemon
+//! doesn't exist at all). See `commands::lsp_daemon`'s module doc for the
+//! daemon design.
 //!
 //! **Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
 //! (call-hierarchy composition over `references` + `document_symbols`) and
@@ -26,16 +32,18 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use kopitiam_semantic::{ProgressKind, RustAnalyzerSession};
-use serde_json::Value;
+
+use super::lsp_daemon;
 
 /// Default rust-analyzer indexing timeout — matches kopitiam's own default
 /// (`DEFAULT_RA_TIMEOUT_SECS` in its `apps/cli/src/syntactic.rs`); a large
-/// workspace's first index can genuinely take a couple of minutes.
-const DEFAULT_RA_TIMEOUT_SECS: u64 = 180;
+/// workspace's first index can genuinely take a couple of minutes. Also used
+/// by the daemon (`commands::lsp_daemon`) as its ready-wait timeout.
+pub(super) const DEFAULT_RA_TIMEOUT_SECS: u64 = 180;
 
 /// Reads `KOVAN_RA_TIMEOUT_SECS` (a positive integer number of seconds),
 /// falling back to [`DEFAULT_RA_TIMEOUT_SECS`].
-fn ra_timeout() -> Duration {
+pub(super) fn ra_timeout() -> Duration {
     let secs = std::env::var("KOVAN_RA_TIMEOUT_SECS")
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
@@ -46,13 +54,14 @@ fn ra_timeout() -> Duration {
 
 /// Spawn rust-analyzer for `root`, announcing indexing progress on stderr so
 /// a `--json` stdout stays clean and a slow index doesn't look like a hang.
+/// The fallback path when no daemon (`commands::lsp_daemon`) is reachable.
 fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
     let root = std::fs::canonicalize(root)
         .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
     let timeout = ra_timeout();
     eprintln!(
-        "kovan-cli: starting rust-analyzer and waiting for it to index {} \
-         (timeout {}s; set KOVAN_RA_TIMEOUT_SECS to change)...",
+        "kovan-cli: no warm lsp-daemon found — starting rust-analyzer and waiting for it to \
+         index {} (timeout {}s; set KOVAN_RA_TIMEOUT_SECS to change)...",
         root.display(),
         timeout.as_secs(),
     );
@@ -71,103 +80,44 @@ fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
     })
 }
 
-/// The identifier position of a resolved symbol — line/character only
-/// (0-based, matching every `kopitiam_semantic` query). Kopitiam's own
-/// `SymPos` also carries `kind`/`range_start_line`/`range_end_line` for its
-/// `callers`/`callees`/`impls` composition; this module doesn't implement
-/// those (see the module doc comment), so it carries only what `def`/`refs`/
-/// `sig` actually use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SymPos {
-    line: u32,
-    character: u32,
+/// The identifier position of a resolved symbol (0-based, matching every
+/// `kopitiam_semantic` query).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(super) struct SymPos {
+    pub(super) line: u32,
+    pub(super) character: u32,
 }
 
-/// Builds a [`SymPos`] from one `DocumentSymbol` JSON object — `selectionRange`
-/// gives the identifier position (falling back to `range`, then a flat
-/// `SymbolInformation`'s `location.range`, for servers that speak the legacy
-/// shape). Ported from kopitiam's `semq.rs::sym_pos`, minus the fields this
-/// module doesn't need.
-fn sym_pos(symbol: &Value) -> SymPos {
-    let sel = symbol
-        .pointer("/selectionRange/start")
-        .or_else(|| symbol.pointer("/range/start"))
-        .or_else(|| symbol.pointer("/location/range/start"));
-    let line = sel
-        .and_then(|s| s.get("line"))
-        .and_then(Value::as_u64)
-        .unwrap_or(0) as u32;
-    let character = sel
-        .and_then(|s| s.get("character"))
-        .and_then(Value::as_u64)
-        .unwrap_or(0) as u32;
-    SymPos { line, character }
-}
-
-/// Depth-first search of a `document_symbols` tree for a declaration named
-/// `name` — matched either exactly or by its last `::`-separated segment (so
-/// `outram_park::foo` and plain `foo` both find the same declaration).
-/// Ported from kopitiam's `semq.rs::find_symbol`.
-fn find_symbol(symbols: &[Value], name: &str) -> Option<SymPos> {
-    let target = name.rsplit("::").next().unwrap_or(name);
-    for symbol in symbols {
-        let this = symbol
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if this == name || this == target {
-            return Some(sym_pos(symbol));
-        }
-        if let Some(children) = symbol.get("children").and_then(Value::as_array) {
-            if let Some(found) = find_symbol(children, name) {
-                return Some(found);
-            }
-        }
-    }
-    None
-}
-
-/// Resolves `name` to its identifier position in `file` via `document_symbols`.
-fn resolve(session: &mut RustAnalyzerSession, file: &Path, name: &str) -> Result<SymPos, String> {
-    let symbols = session
-        .document_symbols(file)
-        .map_err(|e| e.to_string())?;
-    let pos = find_symbol(&symbols, name).ok_or_else(|| {
-        format!(
-            "no symbol named `{name}` found in {} (its documentSymbol tree lists no matching declaration)",
-            file.display()
-        )
-    })?;
-    Ok(refine_position(file, pos, name).unwrap_or(pos))
-}
-
-/// Repairs [`sym_pos`]'s position against the file's actual text.
+/// Finds `name`'s declaration in `file` by scanning its text for a language
+/// keyword (`fn`/`struct`/`enum`/`trait`/`const`/`static`/`type`/`mod`)
+/// immediately followed by `name` at a word boundary, and returns that
+/// identifier's position.
 ///
-/// **Why this is needed**: this rust-analyzer build answers
+/// **Why a text scan, not `document_symbols`**: two independent reasons.
+/// (1) [`kopitiam_semantic::RustAnalyzerSession::document_symbols`] has no
+/// counterpart on [`kopitiam_semantic::AsyncRustAnalyzerSession`] — the
+/// keep-warm daemon (`commands::lsp_daemon`) can't call it at all. (2) Even
+/// on the synchronous session, this workspace's rust-analyzer answers
 /// `textDocument/documentSymbol` with the legacy flat `SymbolInformation`
-/// shape (confirmed by hand, 2026-08-22 — no `selectionRange` field at all),
-/// whose `location.range` is the item's *whole* span, starting at its
-/// leading doc comment/attributes — not the identifier. Hovering or asking
-/// for references at that position lands on a comment, which correctly
-/// returns nothing. Rather than patching `kopitiam-semantic` (out of bounds —
-/// this workspace consumes it as a dependency, not a fork; likely the same
-/// client-capability-negotiation class of issue as
-/// <https://github.com/theodoreOnzGit/kopitiam/issues/30>, worth reporting
-/// upstream separately), this scans forward from the reported line for the
-/// first line that actually declares `name` (a language keyword immediately
-/// followed by the identifier, at a word boundary) and returns *that*
-/// position instead. Harmless when the shape was already correct: the first
-/// matching line is the declaration line itself, at line-offset 0.
-fn refine_position(file: &Path, pos: SymPos, name: &str) -> Option<SymPos> {
+/// shape (confirmed by hand, 2026-08-22 — no `selectionRange` field), whose
+/// `location.range` starts at the item's leading doc comment/attributes, not
+/// its identifier — hovering there returns nothing. A plain text scan sidesteps
+/// both problems at once and needs no LSP round-trip to resolve a position,
+/// which is also why it's used unconditionally rather than as an LSP-first,
+/// text-scan-as-repair combination the way an earlier version of this module
+/// did.
+///
+/// # Errors
+///
+/// A message if `file` cannot be read, or if no line in it declares `name`.
+pub(super) fn locate_declaration(file: &Path, name: &str) -> Result<SymPos, String> {
     const KEYWORDS: [&str; 8] = [
         "fn ", "struct ", "enum ", "trait ", "const ", "static ", "type ", "mod ",
     ];
-    const WINDOW: u32 = 50;
     let target = name.rsplit("::").next().unwrap_or(name);
-    let text = std::fs::read_to_string(file).ok()?;
-    let lines: Vec<&str> = text.lines().collect();
-    let end = (pos.line as usize + WINDOW as usize).min(lines.len());
-    for (offset, line) in lines[pos.line as usize..end].iter().enumerate() {
+    let text = std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+    for (line_no, line) in text.lines().enumerate() {
         for kw in KEYWORDS {
             let Some(kw_idx) = line.find(kw) else {
                 continue;
@@ -184,14 +134,17 @@ fn refine_position(file: &Path, pos: SymPos, name: &str) -> Option<SymPos> {
                 .is_none_or(|c| !c.is_alphanumeric() && c != '_');
             if boundary_ok {
                 let character = line[..name_start].chars().count() as u32;
-                return Some(SymPos {
-                    line: pos.line + offset as u32,
+                return Ok(SymPos {
+                    line: line_no as u32,
                     character,
                 });
             }
         }
     }
-    None
+    Err(format!(
+        "no declaration of `{name}` found in {} (looked for fn/struct/enum/trait/const/static/type/mod {target})",
+        file.display()
+    ))
 }
 
 /// True for a hover line that reads as a declaration rather than a bare
@@ -213,7 +166,7 @@ fn looks_like_signature(line: &str) -> bool {
 /// do. Ported verbatim from kopitiam's `semq.rs::extract_signature` (its own
 /// doc: hover text for a function typically has the module path as its first
 /// code block and the actual signature as its second — this skips the path).
-fn extract_signature(hover: &str) -> String {
+pub(super) fn extract_signature(hover: &str) -> String {
     let mut first_content: Option<&str> = None;
     for raw in hover.lines() {
         let line = raw.trim();
@@ -234,8 +187,14 @@ fn extract_signature(hover: &str) -> String {
 /// signature (from `hover` at the same identifier — the declaration `--file`
 /// matched *is* the definition site).
 pub fn run_def(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
+    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Def {
+        file: file.clone(),
+        symbol: symbol.clone(),
+    }) {
+        return print_daemon_response(resp);
+    }
+    let pos = locate_declaration(&file, &symbol)?;
     let mut session = connect(&root)?;
-    let pos = resolve(&mut session, &file, &symbol)?;
     let hover = session.hover(&file, pos.line, pos.character).ok().flatten();
     let _ = session.shutdown();
 
@@ -248,8 +207,14 @@ pub fn run_def(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Strin
 
 /// `kovan-cli sig <symbol> --file <file>` — the signature alone.
 pub fn run_sig(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
+    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Sig {
+        file: file.clone(),
+        symbol: symbol.clone(),
+    }) {
+        return print_daemon_response(resp);
+    }
+    let pos = locate_declaration(&file, &symbol)?;
     let mut session = connect(&root)?;
-    let pos = resolve(&mut session, &file, &symbol)?;
     let hover = session.hover(&file, pos.line, pos.character).ok().flatten();
     let _ = session.shutdown();
 
@@ -265,8 +230,14 @@ pub fn run_sig(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Strin
 /// `kopitiam_semantic` query — no +1 display conversion, same convention
 /// kopitiam's own `refs` uses).
 pub fn run_refs(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
+    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Refs {
+        file: file.clone(),
+        symbol: symbol.clone(),
+    }) {
+        return print_daemon_response(resp);
+    }
+    let pos = locate_declaration(&file, &symbol)?;
     let mut session = connect(&root)?;
-    let pos = resolve(&mut session, &file, &symbol)?;
     let locations = session
         .references(&file, pos.line, pos.character, false)
         .map_err(|e| e.to_string())?;
@@ -293,39 +264,64 @@ pub fn run_refs(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Stri
     Ok(())
 }
 
+/// Prints a [`lsp_daemon::Response`] the same way the fallback path prints
+/// its own result, and turns a daemon-reported failure into this module's
+/// `Result<(), String>` error convention.
+fn print_daemon_response(resp: lsp_daemon::Response) -> Result<(), String> {
+    if !resp.ok {
+        return Err(resp.error.unwrap_or_else(|| "daemon request failed".to_string()));
+    }
+    if let Some(sig) = &resp.signature {
+        println!("{sig}");
+    }
+    if let Some(def) = &resp.definition {
+        println!("defined at {}:{}:{}", def.file, def.line, def.character);
+    }
+    if let Some(refs) = &resp.refs {
+        if refs.is_empty() {
+            println!("no references found");
+        }
+        for r in refs {
+            println!("{}:{}:{}", r.file, r.line, r.character);
+        }
+    }
+    if resp.signature.is_none() && resp.definition.is_none() && resp.refs.is_none() {
+        println!("no signature found");
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
-    /// Methodology: a nested `document_symbols`-shaped tree (a `struct` with
-    /// an `impl`-block-style child `fn`), searched both by its bare name and
-    /// by a `::`-qualified form. Mirrors kopitiam's own coverage for this
-    /// exact function.
+    /// Methodology: a small synthetic Rust source (a top-level `fn` preceded
+    /// by a doc comment that also mentions the function's own name as a
+    /// distractor — the exact shape that broke the earlier
+    /// `document_symbols`-based resolver, see the module doc comment).
+    /// Resolved both by bare name and by a `::`-qualified form.
     ///
-    /// Result (2026-08-22): both forms find the nested `fn`.
+    /// Result (2026-08-22): both forms land on the `fn` line, not the doc
+    /// comment.
     #[test]
-    fn find_symbol_matches_bare_and_qualified_names_recursively() {
-        let tree = vec![json!({
-            "name": "Foo",
-            "kind": 23,
-            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 1}},
-            "selectionRange": {"start": {"line": 0, "character": 7}, "end": {"line": 0, "character": 10}},
-            "children": [{
-                "name": "bar",
-                "kind": 6,
-                "range": {"start": {"line": 1, "character": 4}, "end": {"line": 3, "character": 5}},
-                "selectionRange": {"start": {"line": 1, "character": 11}, "end": {"line": 1, "character": 14}},
-            }]
-        })];
+    fn locate_declaration_finds_the_fn_line_not_a_doc_comment_mention() {
+        let dir = std::env::temp_dir();
+        let file = dir.join(format!("kovan_semq_test_{}.rs", std::process::id()));
+        std::fs::write(
+            &file,
+            "/// See `bar` below -- a distractor mention of the same name.\nfn bar(x: u32) -> u32 {\n    x\n}\n",
+        )
+        .unwrap();
 
-        let by_bare = find_symbol(&tree, "bar").expect("bare name should resolve");
-        assert_eq!(by_bare, SymPos { line: 1, character: 11 });
+        let by_bare = locate_declaration(&file, "bar").expect("bare name should resolve");
+        assert_eq!(by_bare, SymPos { line: 1, character: 3 });
 
-        let by_qualified = find_symbol(&tree, "Foo::bar").expect("qualified name should resolve");
+        let by_qualified =
+            locate_declaration(&file, "crate::bar").expect("qualified name should resolve");
         assert_eq!(by_qualified, by_bare);
 
-        assert!(find_symbol(&tree, "nonexistent").is_none());
+        assert!(locate_declaration(&file, "nonexistent").is_err());
+        std::fs::remove_file(&file).ok();
     }
 
     /// Methodology: a hover string shaped like rust-analyzer's real output —

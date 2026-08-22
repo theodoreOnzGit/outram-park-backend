@@ -24,6 +24,11 @@ deterministic — plain flags in, line-oriented (or `--json`) output out.
   has a script-friendly mode. If a task looks like it needs the digitiser or
   PDF reader, use `kovan-cli digitise` (fully automatic) instead of reaching
   for the GUI.
+- **Never run `kovan-cli lsp-daemon-serve` directly.** It is the keep-warm
+  daemon's own foreground process — it blocks until stopped and will HANG a
+  non-interactive session exactly like the GUI/TUI would. `def`/`sig`/`refs`
+  spawn and detach it for you automatically; the only daemon subcommand meant
+  to be run by hand is `lsp-daemon-stop`.
 - **Prefer the `cost -> outline -> slice` loop over reading a whole file
   blind.** Check what a file would cost first, read only its declarations if
   that's enough, and slice out just the lines you actually need otherwise.
@@ -52,14 +57,17 @@ Read only a line range once the outline says where the part you need is:
 kovan-cli slice src/big_module.rs 120 180
 ```
 
-Rust-analyzer-backed semantic queries (need `rust-analyzer` on PATH; slower
-than the three above, since they spawn and index a real language server —
-expect the first call in a workspace to take up to a couple of minutes):
+Rust-analyzer-backed semantic queries (need `rust-analyzer` on PATH). The
+**first** call for a given workspace root indexes it and can take up to a
+couple of minutes; a background daemon then keeps that index warm, so every
+later call (from any `kovan-cli` invocation) answers in well under a second
+until you stop it:
 
 ```bash
 kovan-cli def foo --file src/lib.rs      # where it's defined, plus its signature
 kovan-cli sig foo --file src/lib.rs      # just the signature
 kovan-cli refs foo --file src/lib.rs     # every reference site, as coordinates
+kovan-cli lsp-daemon-stop --root .       # stop the warm daemon for this root
 ```
 
 Discover files under a root, honouring `.gitignore`:
@@ -115,7 +123,8 @@ The emitted dataset is always `UNREVIEWED` — a human marks it reviewed in
 | `cost` | yes | Token-cost estimate (`kopitiam-tokenizer`-backed) |
 | `outline` | yes | Declarations-only skeleton, ripgrep-first |
 | `slice` | yes | Print one line range |
-| `def` / `sig` / `refs` | yes, but needs `rust-analyzer` | Semantic queries (definition/signature/references) |
+| `def` / `sig` / `refs` | yes, but needs `rust-analyzer` | Semantic queries (definition/signature/references); kept warm by a background daemon until `lsp-daemon-stop` |
+| `lsp-daemon-stop` | yes | Stops the warm rust-analyzer daemon for a root |
 | `discover` / `search` / `scan` | yes | Repository discovery/search |
 | `symbols` / `summary` | yes | Symbol catalogue / Markdown artifact |
 | `lit` | yes | PDF import / BibTeX / literature outline |

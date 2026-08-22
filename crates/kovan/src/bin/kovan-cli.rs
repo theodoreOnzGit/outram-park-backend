@@ -35,6 +35,7 @@
 //! kovan-cli def foo --file src/lib.rs
 //! kovan-cli sig foo --file src/lib.rs
 //! kovan-cli refs foo --file src/lib.rs
+//! kovan-cli lsp-daemon-stop --root .
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -367,6 +368,26 @@ enum Command {
         #[command(flatten)]
         locator: Locator,
     },
+    /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
+    /// for one workspace root (op-fdph). Spawned automatically and detached
+    /// by `def`/`sig`/`refs`'s client-side logic the first time one of them
+    /// is asked about a given root — not meant to be invoked directly by a
+    /// human or agent. Unix-only (Linux/macOS/Android); a no-op error on
+    /// other platforms, which always use the spawn-per-call path instead.
+    /// Runs until stopped with `kovan-cli lsp-daemon-stop` — no idle timeout.
+    #[command(hide = true)]
+    LspDaemonServe {
+        #[arg(long)]
+        root: PathBuf,
+    },
+    /// Stops the keep-warm rust-analyzer daemon (op-fdph) for one workspace
+    /// root, if one is running. Not an error if none is — that's the
+    /// already-stopped state.
+    LspDaemonStop {
+        /// Directory containing the workspace `Cargo.toml`.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
 }
 
 /// Shared arguments for the name-based semantic queries (`def`/`sig`/`refs`)
@@ -503,6 +524,8 @@ fn run(command: Command) -> Result<(), String> {
         Command::Def { locator } => commands::semq::run_def(locator.symbol, locator.file, locator.root),
         Command::Sig { locator } => commands::semq::run_sig(locator.symbol, locator.file, locator.root),
         Command::Refs { locator } => commands::semq::run_refs(locator.symbol, locator.file, locator.root),
+        Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
+        Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
     }
 }
 
