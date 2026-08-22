@@ -807,12 +807,24 @@ mod tests {
     /// pinned here. Heat transfer to the coolant is asserted on the HEM path in
     /// [`the_hem_path_heats_the_coolant_along_each_channel`] instead.
     ///
-    /// # Results — measured 2026-08-18
+    /// # Results — measured 2026-08-22 (superseding a 2026-08-18 run)
     ///
-    /// **Converged after 12 outer passes.** `k_eff = 1.043614`, fission-source
-    /// residual `2.645e-5`, `k_eff` residual `8.270e-6`, fuel-temperature
-    /// residual `0.4744 K` with `fueltemp_converged == true`. Peak fuel
-    /// temperature `2155.05 K`; coolant flat at `547.15 K`, the inlet value.
+    /// **Converged after 13 outer passes.** `k_eff = 1.042950`, `k_eff`
+    /// residual `4.170e-6`, fuel-temperature residual `0.3501 K` with
+    /// `fueltemp_converged == true`. Peak fuel temperature `2900.21 K`;
+    /// coolant flat at `547.15 K`, the inlet value.
+    ///
+    /// **Two corrections separate these from the 2026-08-18 figures**
+    /// (12 passes, `k_eff = 1.043614`, peak `2155.05 K`), and they act on
+    /// different quantities:
+    ///
+    /// - **Z1**, the silently rounded axial mesh, changed the case's geometry
+    ///   — D1 meshes 420 cm where the file writes 426.72 — which is what moved
+    ///   `k_eff` and the pass count.
+    /// - **T9/T13** changed what "peak fuel temperature" *means* here: it is
+    ///   now a pellet volume average rather than the Doppler weight, which is
+    ///   most of the jump from 2155 K to 2900 K. It is a change of definition,
+    ///   not of the rod's thermal state.
     ///
     /// **Interpretation — this settles the open question.** The coupled
     /// driver *does* reach a joint fixed point, meeting all three criteria
@@ -822,11 +834,11 @@ mod tests {
     /// suspect is exonerated — it is exercised on every one of these 12
     /// passes.
     ///
-    /// The `2155 K` peak is a consequence of the inert coolant, not a
-    /// separate finding: with the channel stuck at the inlet temperature
-    /// the rod sees no coolant heat-up, so it runs hotter than it would on
-    /// a working two-fluid path. The HEM comparison below gives `1458.73 K`
-    /// under the same power.
+    /// The high peak is a consequence of the inert coolant, not a separate
+    /// finding: with the channel stuck at the inlet temperature the rod sees
+    /// no coolant heat-up, so it runs hotter than it would on a working
+    /// two-fluid path. The HEM comparison below gives `1714.53 K` under the
+    /// same power, on the same volume-average definition.
     #[test]
     fn the_coupled_loop_runs_on_the_benchmark_case() {
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
@@ -894,12 +906,20 @@ mod tests {
     /// hotter than it enters, and the fuel is hotter than the coolant
     /// everywhere.
     ///
-    /// # Results — measured 2026-08-18
+    /// # Results — measured 2026-08-22 (superseding a 2026-08-18 run)
     ///
-    /// **Converged after 29 outer passes.** `k_eff = 0.975869`,
-    /// fuel-temperature residual `0.0476 K`. Peak fuel temperature
-    /// `1458.73 K`. Coolant `547.14 K` to `556.03 K` — the outlet is
+    /// **Converged after 28 outer passes.** `k_eff = 0.975285`,
+    /// fuel-temperature residual `0.0221 K`. Peak fuel temperature
+    /// `1714.53 K`. Coolant `547.14 K` to `556.03 K` — the outlet is
     /// `Tsat(6.7 MPa) = 556.03 K` to the digit shown.
+    ///
+    /// The 2026-08-18 figures (29 passes, `k_eff = 0.975869`, peak
+    /// `1458.73 K`) predate two corrections: **Z1**'s axial-mesh fix, which
+    /// moved the eigenvalue and the pass count and brought this case into
+    /// exact agreement with the MATLAB (0.9752848326 at `nodalupd = 20`); and
+    /// **T9/T13**, which redefined the peak from a Doppler weight to a pellet
+    /// volume average. `k_eff` here is unaffected by T9 — measured identical
+    /// at both this default interval and `nodalupd = 20`.
     ///
     /// **Interpretation.** The channel heats from subcooled inlet to
     /// saturation and then stops rising, which is exactly what an
@@ -908,7 +928,7 @@ mod tests {
     /// that is the expected outcome, and it is a check on the phase logic
     /// in [`crate::singleflow1devap`] that no single-phase test can make.
     ///
-    /// **The two paths differ by ~6800 pcm** (`1.043614` vs `0.975869`) and
+    /// **The two paths differ by ~6900 pcm** (`1.042950` vs `0.975285`) and
     /// the sign is right: the two-fluid path leaves the coolant cold and
     /// dense, so it over-moderates and over-predicts `k_eff`, while the HEM
     /// path boils it and loses the moderator. That is the coolant-density
@@ -952,5 +972,124 @@ mod tests {
         assert!(out.k_eff.is_finite() && out.k_eff > 0.0, "k_eff = {}", out.k_eff);
         assert!(cmax > cmin, "the coolant must heat up along the core");
         assert!(tmax > cmax, "the fuel must be hotter than the coolant");
+    }
+
+    /// **K9 is not a defect — D1's feedback channels are exactly what the
+    /// benchmark specifies.**
+    ///
+    /// # Methodology
+    ///
+    /// The defect register carried K9 as **High** for this case: "no
+    /// coolant-temperature feedback, and the control-rod section is a header
+    /// with an empty body — a feedback path the case needs is simply absent".
+    /// That was written from reading the MATLAB alone, without the benchmark
+    /// it implements.
+    ///
+    /// Checked 2026-08-22 against the specification itself, **NEACRP-L-335
+    /// (Revision 1), Finnemann and Galati, OECD/NEA, October 1991 (January
+    /// 1992)** — the source of the D1 case. Section 5.3, "Macroscopic Cross
+    /// Sections and Derivatives", defines every BWR cross section as
+    ///
+    /// ```text
+    /// Sigma = Sigma_0 + Sigma_rho * (rho - rho_0) + Sigma_T * (sqrt(T) - sqrt(T_0))
+    /// ```
+    ///
+    /// with `rho` the water density and `T` the Doppler temperature. **Two
+    /// derivative terms, and neither is coolant temperature.** Section 5.8,
+    /// "Neutronics-Thermohydraulics Coupling", says the same thing in prose:
+    /// the thermohydraulics affects the neutronics through the water density
+    /// and the Doppler temperature in each neutronic mesh.
+    ///
+    /// The control-rod half resolves the same way. Section 5.3 states the
+    /// composition data "take into account all the materials that are present
+    /// in the core (fuel, coolant, structures, **control** and burnable
+    /// absorbers)" — so a BWR absorber is *inside* the composition, not an
+    /// overlay. That is the structural difference from the PWR half of the
+    /// same benchmark, which does carry a separate control-assembly increment
+    /// (Tables 2.5.1 and 2.5.2, `DeltaSigma_CA`). A BWR case has no rod
+    /// overlay to populate.
+    ///
+    /// This test pins the channel set against that specification, so a later
+    /// change that "helpfully" adds a coolant-temperature or control-rod table
+    /// to D1 fails here rather than silently departing from the benchmark.
+    ///
+    /// # Results — measured 2026-08-22
+    ///
+    /// | channel | D1 | NEACRP-L-335 section 5.3 |
+    /// |---|---|---|
+    /// | `fueltemp` (sqrt Doppler) | **present** | `Sigma_T` — required |
+    /// | `coolden` (water density) | **present** | `Sigma_rho` — required |
+    /// | `cooltemp` | absent | **not in the formula** |
+    /// | `modtemp` | absent | **not in the formula** |
+    /// | `boron` | absent | **not in the formula** |
+    /// | `crod` | absent | absorbers are inside the compositions |
+    ///
+    /// Control-rod banks: `[]`, and 19 compositions — matching the
+    /// specification's Tables 5.4 through 5.22, which are 19 tables.
+    ///
+    /// **Interpretation.** `neacrpd1.m` implements the BWR specification
+    /// correctly. **K9 is withdrawn**, and it is the fourth register entry
+    /// whose severity did not survive being checked — after K1, C1 and C4.
+    /// The lesson here is different from theirs, though: K1, C1 and C4 were
+    /// refuted by measuring the code, and this one could only be refuted by
+    /// reading the **source document**. A translation cannot tell a missing
+    /// feature from a faithfully absent one; only the specification can.
+    ///
+    /// It also disposes of **K8** ("`params.boron = 1000` with no boron table
+    /// to interpret it"). There is no boron channel in the BWR formula either,
+    /// so no table is missing. What remains of K8 is a vestigial assignment
+    /// that no BWR path reads — a tidiness matter, not a Medium defect.
+    #[test]
+    fn k9_the_feedback_channels_match_the_benchmark_specification() {
+        let (_params, geometry, _th, whichsigma, _sigmavalues, feedback) =
+            neacrpd1(&Params::default());
+
+        let channels = [
+            ("fueltemp", feedback.fueltemp.is_some(), true),
+            ("coolden", feedback.coolden.is_some(), true),
+            ("cooltemp", feedback.cooltemp.is_some(), false),
+            ("modtemp", feedback.modtemp.is_some(), false),
+            ("boron", feedback.boron.is_some(), false),
+            ("crod", feedback.crod.is_some(), false),
+        ];
+
+        eprintln!("NEACRP D1 feedback channels vs NEACRP-L-335 section 5.3:");
+        for (name, present, required) in channels {
+            eprintln!(
+                "  {name:<10} {:<8} spec: {}",
+                if present { "present" } else { "absent" },
+                if required { "required" } else { "not in the formula" }
+            );
+        }
+        eprintln!("  control-rod banks: {:?}", geometry.crod);
+
+        for (name, present, required) in channels {
+            assert_eq!(
+                present, required,
+                "{name}: the benchmark's BWR cross-section formula has exactly two                  derivative terms, water density and sqrt(Doppler temperature)"
+            );
+        }
+
+        // Absorbers live inside the compositions, so there is no rod overlay.
+        assert!(
+            geometry.crod.is_empty(),
+            "a BWR case in this benchmark has no control-assembly increment"
+        );
+
+        // 19 compositions, matching the specification's Tables 5.4 to 5.22.
+        let highest = {
+            let (nx, ny, nz) = (whichsigma.rows(), whichsigma.cols(), whichsigma.pages());
+            let mut m = 0usize;
+            for ix in 0..nx {
+                for iy in 0..ny {
+                    for iz in 0..nz {
+                        m = m.max(whichsigma.get(ix, iy, iz));
+                    }
+                }
+            }
+            m
+        };
+        eprintln!("  highest composition index: {highest} (spec: Tables 5.4-5.22 = 19)");
+        assert_eq!(highest, 19, "the specification defines 19 BWR compositions");
     }
 }

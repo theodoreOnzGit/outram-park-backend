@@ -429,25 +429,32 @@ mod tests {
     /// is not in `crates/kovan-literature`, so there is no curve to judge
     /// against; see `src/data/PROVENANCE.md`.
     ///
-    /// # Results — measured 2026-08-18
+    /// # Results — measured 2026-08-22 (superseding a 2026-08-18 run)
     ///
     /// **Completed** — the divergence guard never tripped. 51 steps.
     ///
     /// | | |
     /// |---|---|
-    /// | steady `k_eff` | 0.975869 |
-    /// | re-equilibrated `k_eff` | 0.975860, after 1582 power iterations |
+    /// | steady `k_eff` | 0.975285 |
+    /// | re-equilibrated `k_eff` | 0.975277, after 1451 power iterations |
     /// | `P/P0` at `t = 0` | 1.000000 |
-    /// | `P/P0` at `t = 0.5 s` | 1.013424 |
-    /// | core-average fuel T | 783.54 -> 783.54 K |
-    /// | maximum fuel T | 2440.23 -> 2440.22 K |
+    /// | `P/P0` at `t = 0.5 s` | 1.015203 |
+    /// | core-average fuel T | 787.16 -> 787.17 K |
+    /// | maximum fuel T | 2476.31 -> 2476.35 K |
     /// | coolant outlet T | 553.06 -> 552.64 K |
     /// | negative precursors | 0 |
+    ///
+    /// The 2026-08-18 figures (steady `k_eff` 0.975869, `P/P0` 1.013424, max
+    /// fuel T 2440.23 K) predate defect **Z1**'s axial-mesh fix, which is what
+    /// moved the steady state this transient starts from. The T9/T13
+    /// correction does **not** appear here: `max fuel T` is the pellet
+    /// *centreline* from the transient driver's own radial profile, not
+    /// `th.fueltempavg`, so it was never the aliased quantity.
     ///
     /// **Interpretation.** The physics runs the right way. Cold water
     /// entering the core makes the moderator **denser**, which in an
     /// under-moderated LWR lattice adds reactivity — and the power rises,
-    /// by 1.34% in half a second, while the coolant outlet falls 0.42 K as
+    /// by 1.52% in half a second, while the coolant outlet falls 0.42 K as
     /// the colder water works along the channel. Those two signs agreeing is
     /// the check that the coolant-density feedback is wired the right way
     /// round through the transient path, not just the steady one.
@@ -456,17 +463,21 @@ mod tests {
     /// short against the fuel-rod time constant, and a 1.3% power change
     /// would not shift a pellet centreline much even given longer.
     ///
-    /// Phase 2 re-equilibration moved `k_eff` by 9.2e-6 relative, about
-    /// **0.9 pcm** — small, as it should be, since it only removes the
+    /// Phase 2 re-equilibration moved `k_eff` by 8.2e-6 relative, about
+    /// **0.8 pcm** — small, as it should be, since it only removes the
     /// inconsistency between the operator the steady loop converged and the
-    /// one the time stepping uses. It took 1582 of its 5000 allowed power
+    /// one the time stepping uses. It took 1451 of its 5000 allowed power
     /// iterations, so the cap was not reached.
     ///
     /// **On the 2440 K peak:** this is the hottest *pellet centreline* over
-    /// the whole core, which is a different quantity from the 1458.73 K
+    /// the whole core, which is a different quantity from the `1714.53 K`
     /// reported by [`crate::neacrpd1`]'s HEM test — that one is the peak
-    /// **Doppler-weighted** node average. Centreline runs hotter than the
-    /// weighted mean, so the two do not conflict.
+    /// **pellet volume average**. A centreline runs hotter than any average
+    /// over the pellet, so the two do not conflict.
+    ///
+    /// (Before the T9/T13 correction the comparison figure was `1458.73 K`,
+    /// the peak **Doppler weight**; the centreline was hotter than that too,
+    /// for the same reason and by more.)
     #[test]
     fn the_transient_marches_without_diverging() {
         let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =

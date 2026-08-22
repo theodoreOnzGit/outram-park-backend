@@ -197,47 +197,32 @@ pub struct Params {
     /// Read only by [`crate::criticalboron_xyz`]; defaults to 1e-5.
     pub crittol: Option<f64>,
 
-    // --- stage-2 corrections (OFF by default) -------------------------------
-    /// Use the **conservative** finite-volume face coupling in
-    /// [`crate::makegrad_dxyz`] instead of the reference's.
+    // --- corrections to reference defects -----------------------------------
+    /// Which face-coupling form [`crate::makegrad_dxyz`] builds the diffusion
+    /// operator with.
     ///
-    /// **This is a correction, not a translation, and it is `false` by
-    /// default.** The reference's coupling is only a consistent discretisation
-    /// on a uniform mesh — defect G1/G2 in
-    /// `docs/bedok-reference-defects.md`. Setting this replaces it with
-    /// `D*Dp / (L * (h*Dp + hp*D))`, which is the conservative form and fixes
-    /// both the width pairing and the swapped harmonic mean.
+    /// Defaults to [`GradDForm::Conservative`] — **this crate corrects defect
+    /// G1 rather than reproducing it.** See that type for what the two forms
+    /// are and what choosing between them costs.
+    pub gradd_form: GradDForm,
+    /// Which subcooling enthalpy the W-3 critical-heat-flux correlation's
+    /// `K4` factor uses.
     ///
-    /// **On a uniform mesh it changes nothing at all** — the two expressions
-    /// are algebraically identical when `h == hp`, which is why enabling it
-    /// leaves [`crate::iaea3ds`] and [`crate::neacrpd1`] bit-for-bit unchanged.
-    /// It only bites where a case grades its mesh, which among the snapshot's
-    /// cases means the NEACRP PWR set.
+    /// Defaults to [`W3Form::Published`] — **this crate corrects defects
+    /// T5/T6 rather than reproducing them.** See that type.
+    pub w3_form: W3Form,
+    /// How the hottest coolant channel is located for the CHF evaluation.
     ///
-    /// Per the crate README's "Translation policy", a correction deliberately
-    /// changes the answer and so **cannot be gated on parity with the
-    /// reference**. Enabling it means taking responsibility for a different
-    /// number; see the measurements in [`crate::makegrad_dxyz`]'s tests.
+    /// Defaults to [`HotChannelSearch::Correct`] — **this crate corrects
+    /// defect C2/T4 rather than reproducing it.** See that type.
+    pub hot_channel_search: HotChannelSearch,
+    /// How `th.fueltempavg` is formed from the solved rod temperature profile.
     ///
-    /// # PENDING MAINTAINER DECISION — flipping this default to `true`
-    ///
-    /// The default is `false` **only** because the port is still being checked
-    /// against the MATLAB. While differences between the two remain open —
-    /// X1 above all — a faithful default is what makes a disagreement
-    /// attributable: with the correction on, there is no way to tell a
-    /// translation error from the correction changing the answer.
-    ///
-    /// **Once every difference between the reference and this port is
-    /// resolved, ask the maintainer whether to make this `true` by default.**
-    /// The argument for doing so is that the reference's form is not a
-    /// consistent discretisation on the graded meshes its own PWR cases use,
-    /// so faithful-by-default ships a known-wrong operator. The argument
-    /// against is that it silently diverges from the MATLAB the crate is a
-    /// translation of. That is a maintainer call, not an agent's.
-    ///
-    /// Recorded 2026-08-18 at the maintainer's request. Tracked in
-    /// `docs/bedok-reference-defects.md` under "Pending maintainer decisions".
-    pub gradd_conservative: bool,
+    /// Defaults to [`FuelTempAverage::VolumeWeighted`] — **this crate corrects
+    /// defect T9/T13 rather than reproducing it.** See that type, and note in
+    /// particular that this does **not** change which temperature drives the
+    /// cross-section feedback.
+    pub fueltemp_average: FuelTempAverage,
     /// `params.velocities` — prompt neutron group velocities, cm/s.
     ///
     /// One per energy group. The transient driver uses the reciprocals as the
@@ -280,6 +265,199 @@ pub struct Params {
     pub jfnkverb: i32,
 }
 
+/// Which face-coupling form the diffusion operator is built with.
+///
+/// This is the switch for **defect G1/G2**, recorded in
+/// `docs/bedok-reference-defects.md`: the MATLAB reference couples two nodes
+/// across a face with a form that is only a consistent discretisation when the
+/// two are the same width. Its own NEACRP PWR cases grade their axial mesh
+/// from 8 cm to 30 cm, where it misstates the coupling by up to +144.8%.
+///
+/// # The default is the correction, not the reference
+///
+/// [`GradDForm::Conservative`] is the default, which means **this crate does
+/// not reproduce the MATLAB's eigenvalues on a graded mesh** unless asked to.
+/// That was a deliberate maintainer decision, taken once the port had been
+/// verified against the running MATLAB case by case and no unexplained
+/// difference remained: with parity established, a faithful default had done
+/// its job, and shipping a known-inconsistent operator by default had nothing
+/// left to recommend it.
+///
+/// # On a uniform mesh the two are identical
+///
+/// Not approximately — algebraically. The expressions coincide when
+/// neighbouring widths are equal, so [`crate::iaea3ds`] and
+/// [`crate::neacrpd1`] are bit-for-bit unchanged by this setting. Only the
+/// NEACRP PWR cases (A1, A2 and their transients) grade their mesh, and only
+/// they move.
+///
+/// # Reproducing the reference
+///
+/// Use [`Params::reference_faithful`], which sets this to
+/// [`GradDForm::Reference`] along with every other correction switched off.
+/// Setting this field alone also works and is what the parity tests do.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GradDForm {
+    /// The conservative finite-volume coupling, `D*Dp / (L * (h*Dp + hp*D))`.
+    ///
+    /// The series resistance of the two half-nodes, which is the standard
+    /// finite-volume face coefficient and is exact for a linear flux profile
+    /// across the face whatever the widths. **The default.**
+    #[default]
+    Conservative,
+    /// The MATLAB reference's coupling — defect G1/G2, reproduced as written.
+    ///
+    /// Pairs each half-width with the wrong node's diffusion coefficient and
+    /// takes the harmonic mean the other way round. Correct only where
+    /// neighbouring widths are equal. Select this to compare against the
+    /// reference; do not select it for new work.
+    Reference,
+}
+
+/// Which subcooling enthalpy the W-3 correlation's `K4` factor uses.
+///
+/// This is the switch for **defects T5 and T6**. The W-3 critical-heat-flux
+/// correlation (Tong, 1967) forms its subcooling factor from the **inlet**
+/// enthalpy:
+///
+/// ```text
+/// K4 = 0.8258 + 0.0003413 * (h_Lsat - h_in)
+/// ```
+///
+/// The reference instead builds a per-node upwind average and uses that in
+/// place of `h_in`, with two faults in it:
+///
+/// - **T5 — it is halved.** `(0.5*h(i) + 0.5*h(i-1))/2` is a two-point average
+///   with a stray extra `/2`. Nothing in W-3 motivates a factor of a half.
+///   Halving the enthalpy raises `h_Lsat - h`, raising `K4`, so it
+///   **overpredicts** the critical heat flux — measured **+22.8%** at PWR
+///   conditions (15.5 MPa, 560 K inlet, quality -0.05), growing with
+///   subcooling.
+/// - **T6 — the `i-1` walk runs over the flat index, not along a channel.**
+///   Since `iz` varies fastest, the first node of every channel mixes in the
+///   **top** node of the previous channel.
+///
+/// # Why the default corrects them
+///
+/// A critical heat flux exists to bound a safety margin, and both faults push
+/// it the **non-conservative** way — they report more margin than there is.
+/// The justification for the correction does not appeal to the reference: it
+/// is the published correlation.
+///
+/// # This reads the author's intent, and says so
+///
+/// The reference's own first node is `enthshift(1) = enthin` — the *full*
+/// inlet enthalpy, unhalved — which contradicts the loop that follows it. The
+/// reading taken here is that the inlet enthalpy was intended throughout and
+/// the loop is unfinished. That is a **reading**, not something the snapshot
+/// states; it was handed over incomplete. [`W3Form::Reference`] preserves the
+/// alternative.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum W3Form {
+    /// `K4` from the constant inlet enthalpy, as published. **The default.**
+    #[default]
+    Published,
+    /// The snapshot's halved per-node upwind average — defects T5 and T6,
+    /// reproduced as written. Overpredicts the critical heat flux.
+    Reference,
+}
+
+/// How `w3chfhottest` locates the hottest coolant channel.
+///
+/// This is the switch for **defect C2/T4**. The search tracks the running
+/// maximum channel power and records where it occurred, but writes
+///
+/// ```text
+/// highx = ix;
+/// highy = ix;      % <- iy is meant
+/// ```
+///
+/// so the column it goes on to analyse is always `(ix, ix)` — **somewhere on
+/// the lattice diagonal**, whatever the power distribution actually looks
+/// like. The critical heat flux and DNBR are then computed correctly, for the
+/// wrong channel.
+///
+/// # This is live, not theoretical
+///
+/// On NEACRP A2's converged steady state the search reports `analysed = (2, 2)`
+/// while the true peak is at `(2, 5)`. Measured 2026-08-21; see
+/// `crate::w3chf`'s `t5_what_correcting_the_k4_enthalpy_does_to_a_real_case`.
+///
+/// # Why the default corrects it
+///
+/// There is no reading under which `highy = ix` is intended: the loop's own
+/// `highx = ix` on the line above establishes that the pair `(ix, iy)` is what
+/// is being recorded, and `iy` is in scope and unused. It is a typo, and the
+/// quantity it corrupts is a safety margin.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HotChannelSearch {
+    /// Analyse the channel the search actually found. **The default.**
+    #[default]
+    Correct,
+    /// The snapshot's `highy = ix` — defect C2/T4, reproduced as written.
+    /// Can only ever return a channel on the lattice diagonal.
+    Reference,
+}
+
+/// How `th.fueltempavg` is formed from the solved rod temperature profile.
+///
+/// This is the switch for **defects T9 and T13**. `th_solverxyz.m` computes
+/// the Doppler temperature as a two-point weight,
+///
+/// ```text
+/// fueltempdoppler = (1 - alpha) * T(centre) + alpha * T(pellet surface)
+/// ```
+///
+/// and then, on the next line, writes `fueltempavg = fueltempdoppler`. The
+/// line that would have formed a genuine volume-weighted average sits
+/// commented out directly above it, and the transient twin
+/// (`th_solvertimexyz.m`) carries the same aliasing. So a reader asking for
+/// the average fuel temperature is handed a two-point weight instead.
+///
+/// # What this does NOT change: the feedback
+///
+/// **The Doppler temperature remains what drives the cross sections**, under
+/// either setting. That is the benchmark's own definition — NEACRP-L-335
+/// section 2.5 (PWR) and 5.5 (BWR) give
+/// `T = (1 - alpha) * T_F,C + alpha * T_F,S` with `alpha = 0.7`, and
+/// `sigmavalupd3d_handler` takes its fuel-temperature channel from
+/// `th.fueltempdoppler`. Correcting `fueltempavg` must not, and does not,
+/// touch that path — a volume-averaged Doppler temperature would be a
+/// *departure* from the benchmark, not a correction to it.
+///
+/// # What it does change
+///
+/// `fueltempavg` is not inert. The coupled driver under-relaxes it with the
+/// other feedback fields and takes its **outer convergence criterion** from
+/// the max-norm change in it between passes. So this alters the path to the
+/// fixed point and the pass count, while leaving the converged physics to be
+/// decided by the Doppler temperature as before.
+///
+/// # The average is over the PELLET only, and derives its own weights
+///
+/// Two traps make the obvious implementation wrong:
+///
+/// - **The gap node is pinned at 1 K** (defect T7). Averaging the whole
+///   returned profile drags the mean down by a physically meaningless value,
+///   which is what `fuelrodheat_1dcylnd`'s own note warns a volume-averaging
+///   caller would hit. The average therefore runs over the fuel nodes
+///   `0 .. fueln` only — which is also what "fuel temperature" means.
+/// - **`geometry.fuel.Vi` is wrong** (defect K1/B1): it is built from the node
+///   *thicknesses* where cumulative radii are meant, so with a uniform pellet
+///   mesh every annulus comes out identically zero. The weights here are
+///   therefore derived from `geometry.fuel.Lr` instead, by accumulating radii
+///   — `pi` cancels in the normalisation. This correction consequently does
+///   **not** depend on K1 being fixed first.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FuelTempAverage {
+    /// A volume-weighted mean over the pellet nodes. **The default.**
+    #[default]
+    VolumeWeighted,
+    /// The snapshot's `fueltempavg = fueltempdoppler` aliasing — defects
+    /// T9/T13, reproduced as written.
+    DopplerAlias,
+}
+
 impl Params {
     /// `[maxi1, maxi2] = handle2dcoords(params)` — which coordinate branch the
     /// populated fields select.
@@ -318,6 +496,38 @@ impl Params {
     /// reference reads `params.Nc` directly.
     pub fn nc_or_zero(&self) -> usize {
         self.nc.unwrap_or(0)
+    }
+
+    /// [`Params`] with **every correction to a reference defect switched off** —
+    /// the numerics the MATLAB snapshot implements, defect for defect.
+    ///
+    /// This is what the MATLAB-parity tests build from. Once a correction is
+    /// on by default, a test that compares against the reference cannot use
+    /// [`Default`] and stay meaningful: it would be measuring the correction,
+    /// not the translation. Reaching for this instead states the intent in one
+    /// place, and means a *new* correction landing does not silently
+    /// invalidate every existing parity test.
+    ///
+    /// **When you add a correction flag, set it to its reference value here.**
+    /// That is the whole maintenance burden of this function, and skipping it
+    /// is how a parity test quietly stops testing parity.
+    ///
+    /// Currently switched off:
+    ///
+    /// - [`Params::gradd_form`] — defects G1/G2/G3, the face coupling and
+    ///   `gradterms`.
+    /// - [`Params::w3_form`] — defects T5/T6, the W-3 `K4` enthalpy.
+    /// - [`Params::hot_channel_search`] — defect C2/T4, `highy = ix`.
+    /// - [`Params::fueltemp_average`] — defects T9/T13, `fueltempavg`
+    ///   aliased to the Doppler temperature.
+    pub fn reference_faithful() -> Self {
+        Self {
+            gradd_form: GradDForm::Reference,
+            w3_form: W3Form::Reference,
+            hot_channel_search: HotChannelSearch::Reference,
+            fueltemp_average: FuelTempAverage::DopplerAlias,
+            ..Self::default()
+        }
     }
 }
 
@@ -889,6 +1099,19 @@ pub struct Th {
     /// `maxix*maxiy*maxiz` rows by `maxid` columns, where `maxid` is the
     /// fuel-rod unknown count [`crate::fuelrodheat_1dcylnd`] describes. Row
     /// `idx` is one rod's profile from centre to cladding surface.
+    ///
+    /// # One entry is not a temperature
+    ///
+    /// A rod with a fuel-cladding gap carries a **dummy row that solves to
+    /// exactly 1 K** — defect T1/T7. The gap is an unresolved void modelled
+    /// as a conductance, conduction bridges around it, and its matrix row is
+    /// never written. The profile either side is correct.
+    ///
+    /// **Do not average, minimise or plot this row directly.** Use
+    /// [`crate::fuelrodheat_1dcylnd::without_gap_dummies`], or
+    /// [`crate::fuelrodheat_1dcylnd::gap_dummy_unknowns`] to locate it.
+    /// Measured on the NEACRP rod: including it drags the radial mean down
+    /// by **84 K, 10%**.
     pub fueltemp: crate::matlab::Array2<f64>,
     /// `th.fueltempavg` — the fuel temperature fed to the cross-section
     /// feedback, **K**, one per node.

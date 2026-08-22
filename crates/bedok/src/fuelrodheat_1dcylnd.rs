@@ -72,6 +72,115 @@ pub enum Solve {
     /// operator. The reference dumps diagnostics to the console here.
     NotFinite,
 }
+/// Which unknowns in a solved rod profile are **gap dummies** — defect T1/T7.
+///
+/// # The problem this exists to make un-fall-into-able
+///
+/// [`fuelrodheat_1dcylnd`] returns `maxid` temperatures, and one of them is not
+/// a temperature. A radial node with `whichk == 0` is a **gap**: an unresolved
+/// void represented by a conductance, not a region. Conduction bridges around
+/// it — the pellet surface couples straight to the clad inner surface — so its
+/// matrix row is never written, keeps the preallocated diagonal of `1`, and is
+/// given `bvec = 1`. It therefore solves to **exactly 1 kelvin**, regardless of
+/// power, coolant temperature or gap conductance.
+///
+/// That value is physically meaningless but it **is** in the returned vector.
+/// The profile either side of it is correct, and the live path survives it
+/// because `th_solverxyz` clamps everything up to the local coolant temperature
+/// on the next line and takes its Doppler weight from the centre and
+/// pellet-surface nodes. **A caller that averages or scans the raw profile
+/// gets a wrong answer**, which is exactly what the volume-average line
+/// commented out in `th_solverxyz.m` would have done.
+///
+/// # Why the 1 K is left in place
+///
+/// Every plausible replacement is an invention. There is no "gap temperature"
+/// in this model to compute, so interpolating between the two surfaces would
+/// manufacture a physically reasonable-looking number the solve never
+/// produced — worse than an obviously absurd one, because it would not be
+/// noticed. Dropping the row would change the vector's length and break every
+/// caller's `maxid` arithmetic. So the raw profile keeps the reference's value,
+/// and this function plus [`without_gap_dummies`] make the trap avoidable
+/// rather than merely documented.
+///
+/// # How it is computed
+///
+/// By replaying [`fuelrodheat_1dcylnd`]'s own `ir`/`id` walk, including the
+/// `surf` flag that makes one `ir` emit two unknowns. It is derived from the
+/// same logic rather than hard-coded, so it cannot drift from the solver.
+///
+/// # Arguments
+///
+/// - `whichk` — `geometry.fuel.whichk`, the material per radial node, `0` for
+///   the gap.
+///
+/// # Returns
+///
+/// The **0-based** unknown indices that are dummies, ascending. Empty for a rod
+/// with no gap. For the NEACRP rod (`[1,1,1,1,1,0,2,2]`) this is `[6]`.
+pub fn gap_dummy_unknowns(whichk: &[usize]) -> Vec<usize> {
+    let maxir = whichk.len();
+    let mut out = Vec::new();
+    if maxir == 0 {
+        return out;
+    }
+    let mut surf = false;
+    let mut ir = 1usize;
+    let mut id = 1usize;
+    while ir < maxir {
+        if whichk[ir] == 0 {
+            out.push(id);
+            ir += 1;
+            id += 1;
+            continue;
+        }
+        // The same advance the solver uses.
+        if ir == maxir - 1 || whichk[ir] == whichk[ir + 1] || surf {
+            ir += 1;
+            surf = false;
+        } else {
+            surf = true;
+        }
+        id += 1;
+    }
+    out
+}
+
+/// A solved rod profile with the gap dummies removed — defect T1/T7.
+///
+/// Use this in preference to the raw profile for **anything that reduces over
+/// the radius**: an average, a minimum, a plot. See [`gap_dummy_unknowns`] for
+/// why the raw vector contains a 1 K entry and why it is left there.
+///
+/// The surviving entries keep their order, so the result reads centre-outward
+/// exactly as the input does; only the physically meaningless rows are gone.
+///
+/// # Arguments
+///
+/// - `whichk` — `geometry.fuel.whichk`.
+/// - `profile` — a `maxid`-long solved profile from [`fuelrodheat_1dcylnd`],
+///   or one row of `th.fueltemp`.
+///
+/// # Panics
+///
+/// If `profile` is shorter than the largest dummy index it would have to skip.
+pub fn without_gap_dummies(whichk: &[usize], profile: &[f64]) -> Vec<f64> {
+    let dummies = gap_dummy_unknowns(whichk);
+    if let Some(&last) = dummies.last() {
+        assert!(
+            profile.len() > last,
+            "profile is {} long but the gap dummy sits at index {last}",
+            profile.len()
+        );
+    }
+    profile
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !dummies.contains(i))
+        .map(|(_, t)| *t)
+        .collect()
+}
+
 
 /// `results = fuelrodheat_1dcylnd(params, geometry, temps, pwr, bc, modtemp)`.
 ///
@@ -589,5 +698,106 @@ mod tests {
         let (fuel, maxir) = neacrp_rod();
         let temps = vec![800.0; 8]; // maxir, not maxid
         let _ = fuelrodheat_1dcylnd(&fuel, maxir, &temps, 300.0, 1.5, 580.0);
+    }
+
+    /// **T1/T7 — the gap dummy is locatable, and skipping it fixes the mean.**
+    ///
+    /// # Methodology
+    ///
+    /// The 1 K gap row is left in the raw profile deliberately (see
+    /// [`gap_dummy_unknowns`] for why every replacement would be an
+    /// invention). What is corrected is that the trap was only documented, not
+    /// avoidable. Three things are checked:
+    ///
+    /// 1. **The accessor agrees with the solver.** Every index
+    ///    `gap_dummy_unknowns` reports must actually hold `1.0` in a real
+    ///    solved profile, and every index it does not report must not. This is
+    ///    the check that matters, because the accessor replays the solver's
+    ///    `ir`/`id` walk rather than sharing code with it — if that replay ever
+    ///    drifts, this fails.
+    /// 2. **It is derived, not hard-coded.** A rod with no gap must report no
+    ///    dummies; a rod with two gaps must report both.
+    /// 3. **It changes the answer it is meant to change.** The mean over the
+    ///    raw profile against the mean with the dummy skipped.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// On the NEACRP rod (`whichk = [1,1,1,1,1,0,2,2]`, `maxid = 10`) at
+    /// 300 W/cm3 and 580 K coolant:
+    ///
+    /// | | |
+    /// |---|---|
+    /// | dummy indices | **`[6]`**, matching the module's own layout table |
+    /// | profile at index 6 | **1.0000 K** |
+    /// | mean over the raw profile | **754.66 K** |
+    /// | mean with the dummy skipped | **838.40 K** |
+    /// | error the trap causes | **-83.74 K, -10.0%** |
+    ///
+    /// A gapless rod reports `[]`; a rod with two gaps reports both.
+    ///
+    /// **Interpretation.** The 84 K error is the concrete size of the trap: a
+    /// caller averaging the raw profile — which is exactly what the
+    /// commented-out volume-average line in `th_solverxyz.m` would have done —
+    /// is pulled down 10% by one node that is not a temperature. That is why
+    /// the T9 correction averages the pellet nodes only, and why this accessor
+    /// exists for anyone who reaches for the full profile instead.
+    #[test]
+    fn t1_the_gap_dummy_is_locatable_and_skippable() {
+        let (fuel, maxir) = neacrp_rod();
+        let whichk = &fuel.whichk;
+        eprintln!("whichk = {whichk:?}, maxir = {maxir}");
+
+        let dummies = gap_dummy_unknowns(whichk);
+        eprintln!("gap dummy unknowns: {dummies:?}");
+        assert_eq!(dummies, vec![6], "the NEACRP rod's gap sits at unknown 6");
+
+        let temps = vec![900.0; 10];
+        let (profile, _) = fuelrodheat_1dcylnd(&fuel, maxir, &temps, 300.0, 1.5, 580.0);
+
+        // 1. Every reported index really is the 1 K dummy, and no other is.
+        for (i, t) in profile.iter().enumerate() {
+            let is_dummy = dummies.contains(&i);
+            if is_dummy {
+                assert!(
+                    (t - 1.0).abs() < 1e-12,
+                    "index {i} was reported as a dummy but holds {t}"
+                );
+            } else {
+                assert!(
+                    (t - 1.0).abs() > 1e-9,
+                    "index {i} holds 1 K but was not reported as a dummy"
+                );
+            }
+        }
+
+        // 2. Derived, not hard-coded.
+        assert_eq!(
+            gap_dummy_unknowns(&[1, 1, 1, 2, 2]),
+            Vec::<usize>::new(),
+            "a rod with no gap has no dummies"
+        );
+        assert_eq!(
+            gap_dummy_unknowns(&[1, 1, 0, 2, 2, 0, 3, 3]).len(),
+            2,
+            "a rod with two gaps has two dummies"
+        );
+
+        // 3. The size of the trap.
+        let raw: f64 = profile.iter().sum::<f64>() / profile.len() as f64;
+        let clean_profile = without_gap_dummies(whichk, &profile);
+        let clean: f64 = clean_profile.iter().sum::<f64>() / clean_profile.len() as f64;
+        eprintln!("mean over the raw profile   = {raw:.2} K");
+        eprintln!("mean with the dummy skipped = {clean:.2} K");
+        eprintln!("the trap costs {:.2} K ({:+.1}%)", raw - clean, (raw / clean - 1.0) * 100.0);
+
+        assert_eq!(clean_profile.len(), profile.len() - 1);
+        assert!(
+            clean > raw,
+            "skipping a 1 K entry must raise the mean: {clean} vs {raw}"
+        );
+        assert!(
+            !clean_profile.iter().any(|t| (t - 1.0).abs() < 1e-9),
+            "no 1 K entry may survive"
+        );
     }
 }

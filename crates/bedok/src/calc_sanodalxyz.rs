@@ -26,6 +26,22 @@ pub struct SaNodal {
     /// `nodalterms` — `philen` by 6, `(minus, plus)` per axis: columns `0, 1`
     /// for `x`, `2, 3` for `y`, `4, 5` for `z`.
     pub terms: Array2<f64>,
+    /// **How many faces the near-zero-flux guard suppressed** — defect N11.
+    ///
+    /// Not in the reference, and the point of the entry. The reference skips
+    /// a face whose flux (or whose two-node sum) is below
+    /// `1e-8 * max(abs(phivec))`, leaving that face's nodal correction at
+    /// zero — which is a **silent fall back to plain finite difference for
+    /// that face, mid-solve**. Nothing records that it happened, so a solve
+    /// can be part nodal and part finite-difference with no indication.
+    ///
+    /// **The suppression itself is reproduced exactly**; this only counts it.
+    ///
+    /// A non-zero value does not by itself mean a wrong answer — the fallback
+    /// is deliberate and the reference's own comment explains why the
+    /// expansion is ill-conditioned there. It means the method in use is not
+    /// uniformly the one being reported.
+    pub guard_suppressions: usize,
 }
 
 /// `[nodal, nodalterms] = calc_sanodalxyz(params, geometry, phivec, sigma, diffvalues, gradterms, nodaltermsold, keff)`.
@@ -234,6 +250,8 @@ pub fn calc_sanodalxyz(
 
     // ---- face terms ------------------------------------------------------
     let mut terms = Array2::<f64>::zeros(philen, 6);
+    // Defect N11 — see `SaNodal::guard_suppressions`.
+    let guard_suppressions = std::cell::Cell::new(0usize);
 
     let face_terms = |lines: &[(usize, usize)],
                           stride: usize,
@@ -249,6 +267,9 @@ pub fn calc_sanodalxyz(
                     let idx = g * es + low;
                     if phivec[idx].abs() > phi_eps {
                         terms.set(idx, cm, dfirst[idx] / phivec[idx] - gradterms.get(idx, cm));
+                    } else {
+                        // Silent finite-difference fallback — defect N11.
+                        guard_suppressions.set(guard_suppressions.get() + 1);
                     }
                 }
             }
@@ -267,6 +288,9 @@ pub fn calc_sanodalxyz(
                                 (gradterms.get(idx, cp) * (phivec[idx] - phivec[ip]) + dplus[idx])
                                     / denom,
                             );
+                        } else {
+                            // Silent finite-difference fallback — defect N11.
+                            guard_suppressions.set(guard_suppressions.get() + 1);
                         }
                         // Outside the guard in the reference.
                         terms.set(ip, cm, terms.get(idx, cp));
@@ -401,6 +425,7 @@ pub fn calc_sanodalxyz(
     assert!(row.len() <= philen * 10, "Error in calc_sanodal");
 
     SaNodal {
+        guard_suppressions: guard_suppressions.get(),
         operator: SparseMatrix::assemble(&row, &col, &ele, philen, philen),
         terms,
     }

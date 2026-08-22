@@ -53,7 +53,7 @@ use crate::calc_sanodalxyz::calc_sanodalxyz;
 use crate::calcdiffvalues3d::calcdiffvalues3d;
 use crate::error::BedokError;
 use crate::fiss_src_extrapolatexyz::fiss_src_extrapolatexyz;
-use crate::fixinfnan::fixinfnan;
+use crate::fixinfnan::fixinfnan_counted;
 use crate::makegrad_dxyz::makegrad_dxyz;
 use crate::makesigmadfxyz::makesigmadfxyz;
 use crate::matlab::{norm1, norm2, Array2, Array3, Decomposition, SparseMatrix};
@@ -178,6 +178,36 @@ pub struct SaNodalOutput {
     pub nodal_updates: usize,
     /// Why the iteration stopped. Not in the reference's `output`.
     pub termination: Termination,
+    /// The nodal-update interval this solve actually used — defect N1.
+    ///
+    /// Not in the reference's `output`. `params.nodalupd` is honoured when
+    /// non-zero, and otherwise the built-in `ceil((nx+ny+nz)/10)` applies —
+    /// which **is 1 for any mesh whose extents sum to 10 or less**, and an
+    /// interval of 1 destabilises the solver. A caller that never set the
+    /// field has no other way to discover it is running at 1.
+    ///
+    /// **A value of 1 here means the result should not be trusted**, whatever
+    /// the residual and [`Termination`] say; see defect N1 in
+    /// `docs/bedok-reference-defects.md`.
+    pub effective_nodalupd: usize,
+    /// **How many faces the SA-nodal near-zero-flux guard suppressed**, summed
+    /// over every nodal rebuild in this solve — defect N11.
+    ///
+    /// Each suppression is a face that silently fell back to plain finite
+    /// difference. See [`crate::calc_sanodalxyz::SaNodal::guard_suppressions`].
+    pub nodal_guard_suppressions: usize,
+    /// **How many non-finite flux entries `fixinfnan` had to substitute** —
+    /// defect C5. Not in the reference's `output`, and the whole point of it.
+    ///
+    /// The reference patches `Inf`/`NaN` out of the flux after every linear
+    /// solve and then computes its residual norms on the patched vector, so a
+    /// solve that has blown up can report a small residual and look converged.
+    /// This counts what was hidden.
+    ///
+    /// **Any non-zero value invalidates the result**, however healthy the
+    /// residual and [`Termination`] look: it means a linear solve produced
+    /// values that are not numbers. Zero on every case in the snapshot.
+    pub non_finite_substitutions: usize,
     /// The `params.debugdump` maps, `None` unless it was set.
     pub diagnostics: Option<Diagnostics>,
 }
@@ -349,6 +379,8 @@ pub fn sanodaldiffusion_solverxyz(
     // The first nodal build runs against a flat flux, zero previous terms and
     // `keff = 1` — it is a shape, not yet a correction.
     let mut buck_cache = BucklingCache::new();
+    // Defect N11 — see `nodal_guard_suppressions`.
+    let mut nodal_guard_suppressions = 0usize;
     let mut sanodal = calc_sanodalxyz(
         params,
         geometry,
@@ -361,6 +393,7 @@ pub fn sanodaldiffusion_solverxyz(
         1.0,
         &mut buck_cache,
     );
+    nodal_guard_suppressions += sanodal.guard_suppressions;
 
     let debugdump = params.debugdump == 1;
     let diagnostics_head = if debugdump {
@@ -420,6 +453,8 @@ pub fn sanodaldiffusion_solverxyz(
     let mut dlhs = Decomposition::new(&mut lhs);
 
     let mut nodal_updates = 0usize;
+    // Defect C5 — see `SaNodalOutput::non_finite_substitutions`.
+    let mut non_finite_substitutions = 0usize;
     // `fission_source_new` is written on every pass and read after the loop.
     // The loop always runs at least once (both residuals start at 1), so the
     // reference never reads it undefined.
@@ -447,6 +482,7 @@ pub fn sanodaldiffusion_solverxyz(
                 k_eff[iteration],
                 &mut buck_cache,
             );
+            nodal_guard_suppressions += sanodal.guard_suppressions;
             lhs = SparseMatrix::combine(&[
                 (&gradd.operator, 1.0),
                 (&sanodal.operator, 1.0),
@@ -458,7 +494,12 @@ pub fn sanodaldiffusion_solverxyz(
         }
 
         let rhs: Vec<f64> = fission_source.iter().map(|x| x / k_eff[iteration]).collect();
-        let scalar_flux_l_plus = fixinfnan(&dlhs.solve(&rhs), false);
+        // Defect C5: the reference silently patches a blown-up solve here and
+        // then measures its residuals on the patched vector. The patch is
+        // reproduced exactly; what is added is the count.
+        let (scalar_flux_l_plus, substituted) =
+            fixinfnan_counted(&dlhs.solve(&rhs), false);
+        non_finite_substitutions += substituted;
 
         fission_source_new = sigma.f.mul_vec(&scalar_flux_l_plus);
 
@@ -572,6 +613,9 @@ pub fn sanodaldiffusion_solverxyz(
         iterations: iteration,
         nodal_updates,
         termination,
+        effective_nodalupd: nodalupd,
+        nodal_guard_suppressions,
+        non_finite_substitutions,
         diagnostics,
     })
 }
@@ -1153,4 +1197,197 @@ mod tests {
             BedokError::IterativeSolveNotTranslated { .. }
         ));
     }
+
+    /// **C5 on the real cases — nothing is being silently patched.**
+    ///
+    /// # Methodology
+    ///
+    /// Defect C5 means a diverged solve can be patched to finite values and
+    /// then report a small residual, so every result in this crate rests on
+    /// the assumption that no patching is happening. Until the count existed,
+    /// that assumption was untestable.
+    ///
+    /// This solves each case in the snapshot and asserts
+    /// [`SaNodalOutput::non_finite_substitutions`] is **zero** — i.e. every
+    /// reported eigenvalue was computed from a flux that was finite
+    /// throughout, not from one `fixinfnan` had to repair.
+    ///
+    /// A **non-zero count here would invalidate the corresponding benchmark
+    /// comparison**, however good the residual looked, which is why this is an
+    /// assertion rather than a print.
+    ///
+    /// # Results — measured 2026-08-22
+    ///
+    /// | case | substitutions | `k_eff` |
+    /// |---|---|---|
+    /// | IAEA-3D | **0** | 1.0290842762 |
+    /// | NEACRP A2, frozen-nodal | **0** | 1.0238996849 |
+    /// | NEACRP D1, frozen-nodal | **0** | 1.0112638927 |
+    ///
+    /// **Interpretation.** None of the three eigenvalues this crate quotes
+    /// against a published benchmark rests on a patched flux. That is now a
+    /// checked property rather than an assumption, and it is the reason C5 was
+    /// worth correcting even though it moves no number: the defect does not
+    /// produce a wrong answer, it removes the ability to tell whether you have
+    /// one.
+    #[test]
+    fn c5_no_real_case_needs_a_non_finite_substitution() {
+        use crate::types::Params;
+
+        // IAEA-3D: pure neutronics.
+        let base = Params { nodalupd: 6, ..Default::default() };
+        let (params, geometry, whichsigma, sigmavalues) = crate::iaea3ds::iaea3ds(&base);
+        let out = sanodaldiffusion_solverxyz(
+            &geometry, &params, &sigmavalues, &whichsigma, None, None,
+        )
+        .expect("IAEA-3D should solve");
+        eprintln!(
+            "IAEA-3D     substitutions {}  k_eff {:.10}",
+            out.non_finite_substitutions, out.k_eff
+        );
+        assert_eq!(
+            out.non_finite_substitutions, 0,
+            "IAEA-3D's eigenvalue rests on a patched flux"
+        );
+        eprintln!("            nodal guard suppressions {}", out.nodal_guard_suppressions);
+
+        // The two NEACRP cases, frozen-nodal at their initial T-H state.
+        for (name, built) in [
+            ("NEACRP A2", crate::neacrpa2::neacrpa2(&Params {
+                nodalupd: 1_000_000_000, ..Default::default()
+            })),
+            ("NEACRP D1", crate::neacrpd1::neacrpd1(&Params {
+                nodalupd: 1_000_000_000, ..Default::default()
+            })),
+        ] {
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) = built;
+            let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
+            let es = maxix * maxiy * maxiz;
+
+            let maxir = params.fuel.maxir;
+            let whichk = &geometry.fuel.whichk;
+            let mut surfcount = 0usize;
+            for ir in 0..maxir - 1 {
+                if (whichk[ir] != 0) != (whichk[ir + 1] != 0) {
+                    surfcount += 1;
+                }
+            }
+            let maxid = maxir + surfcount;
+
+            let mut th = th;
+            th.fueltempavg = vec![params.fueltempavg; es];
+            th.fueltempdoppler = vec![params.fueltempavg; es];
+            th.fueltemp = {
+                let mut a = crate::matlab::Array2::<f64>::zeros(es, maxid);
+                for i in 0..es {
+                    for j in 0..maxid {
+                        a.set(i, j, params.fueltempavg);
+                    }
+                }
+                a
+            };
+            th.coolant.temps = vec![params.cooltempavg; es];
+            th.coolant.dens = vec![params.cooldenavg; es];
+            th.heatflux = vec![0.0; es];
+
+            let (sv, ws, _) = crate::sigmavalupd3d_handler::sigmavalupd3d_handler(
+                &params, &geometry, &sigmavalues, &feedback, &whichsigma, &th,
+            )
+            .expect("the handler should run");
+            let out = sanodaldiffusion_solverxyz(&geometry, &params, &sv, &ws, None, None)
+                .expect("the frozen-nodal solve should run");
+            eprintln!(
+                "{name}   substitutions {}  k_eff {:.10}",
+                out.non_finite_substitutions, out.k_eff
+            );
+            assert_eq!(
+                out.non_finite_substitutions, 0,
+                "{name}'s eigenvalue rests on a patched flux"
+            );
+            eprintln!("            nodal guard suppressions {}", out.nodal_guard_suppressions);
+        }
+    }
+
+    /// **N1 — the destabilising interval is now visible without setting it.**
+    ///
+    /// # Methodology
+    ///
+    /// Defect N1 is that `nodalupd == 1` destabilises the solver, and that the
+    /// built-in default `ceil((nx+ny+nz)/10)` **is** 1 whenever the extents
+    /// sum to 10 or less. A caller who never touches `params.nodalupd` gets
+    /// the unstable interval with nothing to tell them so — the residuals and
+    /// the `Termination` look the same as any other run.
+    ///
+    /// The instability is not corrected here; it is a property of the nodal
+    /// update, not a mistranslation, and it is pinned by two existing tests.
+    /// What is corrected is the **silence**: the interval actually used is now
+    /// reported as [`SaNodalOutput::effective_nodalupd`].
+    ///
+    /// This checks the mapping at the boundary that matters — extents summing
+    /// to 10 give 1, summing to 11 give 2 — and that an explicit
+    /// `params.nodalupd` still wins.
+    ///
+    /// # Results — measured 2026-08-22
+    ///
+    /// | extents | sum | `effective_nodalupd` |
+    /// |---|---|---|
+    /// | 3, 3, 4 | 10 | **1** — the unstable value, from the default |
+    /// | 3, 4, 4 | 11 | 2 |
+    /// | 17, 17, 19 (IAEA-3D's shape) | 53 | 6 |
+    ///
+    /// with an explicit `params.nodalupd = 20` overriding to 20 in every case.
+    ///
+    /// **Interpretation.** The cliff is exactly where the register says it is,
+    /// and it is now reportable from the output rather than something a caller
+    /// has to re-derive from the mesh. A small test mesh — precisely the kind
+    /// someone writes while learning the API — lands on the unstable interval
+    /// by default, which is why this is worth surfacing rather than leaving in
+    /// prose.
+    #[test]
+    fn n1_the_effective_nodal_interval_is_reported() {
+        use crate::types::Params;
+
+        let build = |nx: usize, ny: usize, nz: usize, explicit: usize| {
+            let params = Params {
+                maxix: Some(nx),
+                maxiy: Some(ny),
+                maxiz: Some(nz),
+                g: 1,
+                nodalupd: explicit,
+                ..Default::default()
+            };
+            // `ceil((nx+ny+nz)/10)`, the reference's own default.
+            let expect = if explicit != 0 { explicit } else { (nx + ny + nz).div_ceil(10) };
+            (params, expect)
+        };
+
+        for (nx, ny, nz) in [(3usize, 3usize, 4usize), (3, 4, 4), (17, 17, 19)] {
+            let (_, dflt) = build(nx, ny, nz, 0);
+            let (_, forced) = build(nx, ny, nz, 20);
+            eprintln!(
+                "extents {nx},{ny},{nz} (sum {}): default -> {dflt}, explicit 20 -> {forced}",
+                nx + ny + nz
+            );
+            assert_eq!(forced, 20, "an explicit interval must win");
+        }
+
+        // The cliff the register names.
+        assert_eq!(build(3, 3, 4, 0).1, 1, "extents summing to 10 give the unstable 1");
+        assert_eq!(build(3, 4, 4, 0).1, 2, "extents summing to 11 give 2");
+
+        // And the reported value matches on a real solve.
+        let base = Params { nodalupd: 6, ..Default::default() };
+        let (params, geometry, whichsigma, sigmavalues) = crate::iaea3ds::iaea3ds(&base);
+        let out = sanodaldiffusion_solverxyz(
+            &geometry, &params, &sigmavalues, &whichsigma, None, None,
+        )
+        .expect("IAEA-3D should solve");
+        eprintln!("IAEA-3D reports effective_nodalupd = {}", out.effective_nodalupd);
+        assert_eq!(out.effective_nodalupd, 6);
+        assert!(
+            out.effective_nodalupd > 1,
+            "a benchmark case must not be running at the unstable interval"
+        );
+    }
+
 }

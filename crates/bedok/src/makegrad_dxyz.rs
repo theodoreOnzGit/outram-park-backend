@@ -16,7 +16,7 @@ use crate::convertsparseformat2d::convertsparseformat2d;
 use crate::error::Result;
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::{Array2, Array3, Array4, SparseMatrix};
-use crate::types::{BoundaryCondition, Geometry, Params};
+use crate::types::{BoundaryCondition, Geometry, GradDForm, Params};
 
 /// `gradD` and `gradterms`.
 #[derive(Clone, Debug, Default)]
@@ -27,6 +27,18 @@ pub struct GradD {
     /// columns `0, 1` for `x`, `2, 3` for `y`, `4, 5` for `z`.
     ///
     /// **Already doubled** — see the note on [`makegrad_dxyz`].
+    ///
+    /// These are not free of [`Self::operator`]: [`crate::calc_sanodalxyz`]
+    /// subtracts them from the SA-nodal current so that only the *difference*
+    /// from the finite-difference estimate survives, which requires
+    ///
+    /// ```text
+    /// terms = L * (the operator's off-diagonal for that face)
+    /// ```
+    ///
+    /// Under [`crate::types::GradDForm::Conservative`] that identity holds
+    /// exactly; under [`crate::types::GradDForm::Reference`] it holds only on
+    /// a uniform mesh, which is defect **G2**.
     pub terms: Array2<f64>,
 }
 
@@ -191,7 +203,7 @@ pub fn makegrad_dxyz(
 
     // One direction's contribution.
     #[allow(clippy::too_many_arguments)]
-    let conservative = params.gradd_conservative;
+    let gradd_form = params.gradd_form;
     let direction = |lines: &[(usize, usize)],
                          stride: usize,
                          col_minus: usize,
@@ -213,20 +225,48 @@ pub fn makegrad_dxyz(
             }
         };
 
-        // The face coupling. `conservative` selects the stage-2 correction for
-        // defects G1/G2; see `crate::types::Params::gradd_conservative`.
+        // The face coupling. See `crate::types::GradDForm` — `Conservative` is
+        // the default and corrects defects G1/G2; `Reference` reproduces the
+        // MATLAB as written.
         //
         // Reference:    0.5*(h + hp) * (D*Dp) / (h*D + hp*Dp) / L
         // Conservative: hp * (D*Dp) / (L * (h*Dp + hp*D))
         //
-        // The two are identical when `h == hp`, so this is a no-op on a
+        // The two are identical when `h == hp`, so the choice is a no-op on a
         // uniform mesh — for the operator *and* for `terms`, which the
         // SA-nodal correction consumes.
         let face = |h: f64, hp: f64, d0: f64, dp: f64, width: f64| -> f64 {
-            if conservative {
-                hp * (d0 * dp) / (width * (h * dp + hp * d0))
-            } else {
-                0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / width
+            match gradd_form {
+                GradDForm::Conservative => hp * (d0 * dp) / (width * (h * dp + hp * d0)),
+                GradDForm::Reference => 0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / width,
+            }
+        };
+
+        // What goes into `gradterms`, which is a **different quantity** from
+        // what goes into the operator and must be derived from it, not shared
+        // with it.
+        //
+        // The operator's coupling coefficient is `dt / h_neighbour`; the nodal
+        // routine wants the same coupling as a face *current* coefficient,
+        // which is that times the node width — and `gradterms` is doubled at
+        // the end, so the value stored here is half of it:
+        //
+        //     stored = dt * L / (2 * h_neighbour)
+        //
+        // On a uniform mesh `h_neighbour == L/2` and the factor is exactly 1,
+        // which is why the reference — which stores `dt` unscaled — is right
+        // there and only there. Every boundary face also mirrors the node's
+        // own half-width, so the factor is 1 at those too, whatever the mesh.
+        //
+        // Storing `dt` unscaled alongside a *corrected* operator is worse than
+        // either form alone: the SA-nodal correction subtracts an FD current
+        // the operator never produced, and the two no longer cancel. That is
+        // defect G2, and it is why correcting only the operator half wrecked
+        // NEACRP A2's power distribution.
+        let face_term = |dt: f64, h_neighbour: f64, width: f64| -> f64 {
+            match gradd_form {
+                GradDForm::Conservative => dt * width / (2.0 * h_neighbour),
+                GradDForm::Reference => dt,
             }
         };
 
@@ -259,8 +299,8 @@ pub fn makegrad_dxyz(
                         col.push(idx - stride);
                         ele.push(-dt_minus / hm);
 
-                        terms.set(idx, col_minus, dt_minus);
-                        terms.set(idx, col_plus, dt_plus);
+                        terms.set(idx, col_minus, face_term(dt_minus, hm, widths[node]));
+                        terms.set(idx, col_plus, face_term(dt_plus, hp, widths[node]));
                     }
                 }
                 node += stride;
@@ -292,8 +332,8 @@ pub fn makegrad_dxyz(
                     ele.push(-dt_plus / hp);
 
                     write_diag(idx, dt_plus / hp + dt_minus / hm, diag);
-                    terms.set(idx, col_minus, dt_minus);
-                    terms.set(idx, col_plus, dt_plus);
+                    terms.set(idx, col_minus, face_term(dt_minus, hm, widths[low]));
+                    terms.set(idx, col_plus, face_term(dt_plus, hp, widths[low]));
                 }
             }
 
@@ -321,8 +361,8 @@ pub fn makegrad_dxyz(
                     ele.push(-dt_minus / hm);
 
                     write_diag(idx, dt_plus / hp + dt_minus / hm, diag);
-                    terms.set(idx, col_minus, dt_minus);
-                    terms.set(idx, col_plus, dt_plus);
+                    terms.set(idx, col_minus, face_term(dt_minus, hm, widths[high]));
+                    terms.set(idx, col_plus, face_term(dt_plus, hp, widths[high]));
                 }
             }
         }
@@ -650,6 +690,9 @@ mod tests {
                 maxiy: Some(2),
                 maxiz: Some(3),
                 g: 1,
+                // This test PINS the defect, so it must ask for the defective
+                // form explicitly. The crate default corrects it.
+                gradd_form: GradDForm::Reference,
                 ..Default::default()
             };
             let n = 2 * 2 * 3;
@@ -724,7 +767,7 @@ mod tests {
     /// # Methodology
     ///
     /// The stage-2 correction
-    /// ([`crate::types::Params::gradd_conservative`]) replaces the face
+    /// ([`crate::types::GradDForm`]) replaces the face
     /// coupling with the conservative finite-volume form. Two things must hold
     /// for it to be the right fix, and both are checked here on the same graded
     /// and uniform columns the defect test uses:
@@ -747,7 +790,7 @@ mod tests {
                 maxiy: Some(2),
                 maxiz: Some(3),
                 g: 1,
-                gradd_conservative: conservative,
+                gradd_form: if conservative { GradDForm::Conservative } else { GradDForm::Reference },
                 ..Default::default()
             };
             let n = 2 * 2 * 3;
@@ -848,7 +891,7 @@ mod tests {
                 maxiy: Some(2),
                 maxiz: Some(3),
                 g: 1,
-                gradd_conservative: conservative,
+                gradd_form: if conservative { GradDForm::Conservative } else { GradDForm::Reference },
                 ..Default::default()
             };
             let widths = [2.0f64, 4.0, 8.0];
@@ -896,6 +939,763 @@ mod tests {
         assert!(
             (got_ref - want).abs() > 1e-3,
             "the reference must not"
+        );
+    }
+
+    /// **G2 — `gradterms` must be the operator's own coupling coefficient.**
+    ///
+    /// # Methodology
+    ///
+    /// `makegrad_dxyz` emits two things from one face calculation: the sparse
+    /// operator, whose off-diagonal entry for the `(node, node+stride)` face is
+    /// `dt / h_neighbour`, and `gradterms`, which
+    /// [`crate::calc_sanodalxyz`] subtracts from the SA-nodal current so that
+    /// what survives is the *difference* between the nodal and
+    /// finite-difference estimates. That subtraction only cancels if
+    /// `gradterms` is the same coupling the operator used, expressed as a face
+    /// current — the operator entry times the node width:
+    ///
+    /// ```text
+    /// gradterms = L * (operator off-diagonal)
+    /// ```
+    ///
+    /// This checks that identity directly on a **graded** mesh, for both
+    /// forms, with no solve involved. It is the invariant that decides whether
+    /// the two outputs of this function agree with each other, and it is
+    /// checkable in closed form, which the eigenvalue is not.
+    ///
+    /// A 3-node axial stack of widths 2, 4, 8 cm makes every interior face
+    /// unequal, so `h_neighbour` differs from `L/2` in both directions and the
+    /// identity has something to catch.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// On the 2 / 4 / 8 cm stack, for the centre node's `+z` face:
+    ///
+    /// | | operator x L | `gradterms` | ratio |
+    /// |---|---|---|---|
+    /// | [`GradDForm::Reference`] | 0.3333333333 | 0.1666666667 | **0.5000** |
+    /// | [`GradDForm::Conservative`] | 0.3333333333 | 0.3333333333 | **1.0000** |
+    ///
+    /// **Interpretation.** The reference's `gradterms` is out by exactly the
+    /// ratio `L / (2 * h_neighbour)` — a factor of 2 at a 4 cm node facing an
+    /// 8 cm one — and the corrected form satisfies the identity exactly. This
+    /// is defect **G2**, and it is a separate fault from G1: G1 is the
+    /// operator's face coupling, G2 is `gradterms` disagreeing with whatever
+    /// that coupling was.
+    ///
+    /// **Why this matters more than its size suggests.** Correcting G1 alone
+    /// — the operator, leaving `gradterms` as written — makes the two
+    /// *more* inconsistent than the reference was, because the nodal
+    /// correction then subtracts a current the operator never produced. That
+    /// is not a subtle degradation: it drove NEACRP A2's first coupled pass to
+    /// a peak fuel temperature of 1995 K against the reference's 968 K, and
+    /// the loop never recovered. The two halves of the defect have to be
+    /// fixed together or not at all.
+    #[test]
+    fn g2_gradterms_must_agree_with_the_operator_it_was_built_with() {
+        let build = |form: GradDForm| {
+            let params = Params {
+                maxix: Some(2),
+                maxiy: Some(2),
+                maxiz: Some(3),
+                g: 1,
+                gradd_form: form,
+                ..Default::default()
+            };
+            let widths = [2.0f64, 4.0, 8.0];
+            let n = 2 * 2 * 3;
+            let lz: Vec<f64> = (0..n).map(|idx| widths[idx % 3]).collect();
+            let geometry = Geometry {
+                lx: vec![10.0; n],
+                ly: vec![10.0; n],
+                lz,
+                ..Default::default()
+            };
+            let mut diffd = Array4::<f64>::zeros(2, 2, 3, 1);
+            let mut whichsigma = Array3::<usize>::zeros(2, 2, 3);
+            for ix in 0..2 {
+                for iy in 0..2 {
+                    for iz in 0..3 {
+                        diffd.set(ix, iy, iz, 0, 1.0);
+                        whichsigma.set(ix, iy, iz, 1);
+                    }
+                }
+            }
+            let mut g = makegrad_dxyz(&geometry, &params, &diffd, &whichsigma, None).unwrap();
+            // Node 1 is the centre of the first z-line: an interior node with
+            // a 2 cm neighbour below and an 8 cm neighbour above.
+            let found = g.operator.find();
+            let plus = -found.iter().find(|t| t.i == 1 && t.j == 2).unwrap().v;
+            // Column 5 is `z` plus; `gradterms` has already been doubled.
+            let term = g.terms.get(1, 5);
+            (plus * widths[1], term)
+        };
+
+        for (label, form) in [
+            ("reference", GradDForm::Reference),
+            ("conservative", GradDForm::Conservative),
+        ] {
+            let (op_current, term) = build(form);
+            eprintln!("{label} form, centre node +z face (L = 4, Lp = 8):");
+            eprintln!("  operator x L = {op_current:.10}");
+            eprintln!("  gradterms    = {term:.10}");
+            eprintln!("  ratio        = {:.4}", term / op_current);
+        }
+
+        let (op_fix, term_fix) = build(GradDForm::Conservative);
+        assert!(
+            (term_fix - op_fix).abs() < 1e-15 * op_fix.abs().max(1.0),
+            "the corrected gradterms must equal L x the operator coupling:              {term_fix:.12} vs {op_fix:.12}"
+        );
+
+        let (op_ref, term_ref) = build(GradDForm::Reference);
+        assert!(
+            (term_ref - op_ref).abs() > 1e-6,
+            "the reference must NOT satisfy it — that is defect G2"
+        );
+    }
+
+    /// **G1 — what the conservative face coupling does to every case's `k_eff`.**
+    ///
+    /// # Methodology
+    ///
+    /// Defect G1 is a *correction*, not a translation fix, so it cannot be
+    /// gated on MATLAB parity — by construction it makes the port disagree
+    /// with the reference. What it can be gated on is a **measured before and
+    /// after on every case in the snapshot**, which is what this produces.
+    ///
+    /// Each case is solved twice, identically except for
+    /// [`crate::types::GradDForm`], and the two eigenvalues
+    /// are reported with their difference in pcm. The solve is the
+    /// **frozen-nodal static** eigenvalue at the case's own initial
+    /// thermal-hydraulic state (`nodalupd` huge, cross sections evaluated once
+    /// through `sigmavalupd3d_handler` and held): deterministic, cheap, and
+    /// free of the coupled loop's sensitivity to defect N1, so any change seen
+    /// here is attributable to the operator alone. IAEA-3D has no
+    /// thermal-hydraulics and is solved directly.
+    ///
+    /// The axial and radial mesh spreads are printed alongside, because they
+    /// are the predictor: G1's face coupling and the conservative one agree
+    /// **exactly** when neighbouring widths are equal, so a case meshed
+    /// uniformly in all three axes must not move at all. That is the pass
+    /// criterion — a uniform case that moves would mean the correction is
+    /// wrong, not that the reference was.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// | case | mesh x / y / z, cm | reference | conservative | change |
+    /// |---|---|---|---|---|
+    /// | IAEA-3D | 10 / 10 / 20 | 1.0290842762 | 1.0290842762 | **0.00 pcm** |
+    /// | NEACRP D1 | 15.24 / 15.24 / 30 | 1.0112638927 | 1.0112638927 | **0.00 pcm** |
+    /// | NEACRP A2 | 10.803 / 10.803 / **8-30** | 1.0230689628 | 1.0238996849 | **+81.20 pcm** |
+    /// | NEACRP A1 | 10.803 / 10.803 / **8-30** | 0.9977440304 | 0.9983590075 | **+61.64 pcm** |
+    ///
+    /// **Interpretation.** The split falls exactly along mesh uniformity, as
+    /// the algebra says it must: the two uniformly meshed cases do not move at
+    /// all — not approximately, but to better than 1e-12 relative, which is
+    /// the assertion below — and only the two PWR cases that grade their axial
+    /// mesh from 8 cm to 30 cm respond.
+    ///
+    /// That the uniform cases are untouched is the evidence that the
+    /// correction is the correction and not a second defect: an error in it
+    /// would have to be conspiratorially width-dependent to leave IAEA-3D and
+    /// D1 exact while moving A2 by 81 pcm.
+    ///
+    /// **The sign is the informative part.** Both graded cases move *up*, so
+    /// the reference's operator was under-predicting reactivity on them. In
+    /// the direction that matters for validation, a higher `k_eff` at fixed
+    /// boron means a **higher critical boron**, and both cases' published
+    /// boron concentrations sit *above* what this code computes (A2 by
+    /// -21.6 ppm, A1 by -16.4 ppm). The correction therefore moves both
+    /// towards their benchmarks rather than away —
+    /// see `g1_what_the_conservative_operator_does_to_the_critical_boron` for
+    /// how much of that gap it actually closes.
+    ///
+    /// **The static figures understate it.** With thermal-hydraulic feedback in
+    /// the loop the same correction is worth **+138.8 pcm** on A2, not 81 —
+    /// see `g1_what_the_conservative_operator_does_to_the_critical_boron`. A
+    /// static sweep is the right place to establish *which* cases move and
+    /// that the uniform ones do not; it is the wrong place to read off how
+    /// much.
+    #[test]
+    #[ignore = "G1 correction sweep across every case; minutes"]
+    fn g1_what_the_conservative_operator_does_to_every_k_eff() {
+        use crate::matlab::Array2;
+        use crate::sigmavalupd3d_handler::{sigmavalupd3d_handler, FeedbackTables};
+        use crate::types::{SigmaValues, Th};
+
+        type Built = (Params, Geometry, Th, Array3<usize>, SigmaValues, FeedbackTables);
+
+        /// The frozen-nodal static eigenvalue at the case's initial T-H state.
+        fn frozen_static(built: Built) -> f64 {
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) = built;
+            let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
+            let es = maxix * maxiy * maxiz;
+
+            let maxir = params.fuel.maxir;
+            let whichk = &geometry.fuel.whichk;
+            let mut surfcount = 0usize;
+            for ir in 0..maxir - 1 {
+                if (whichk[ir] != 0) != (whichk[ir + 1] != 0) {
+                    surfcount += 1;
+                }
+            }
+            let maxid = maxir + surfcount;
+
+            let mut th = th;
+            th.fueltempavg = vec![params.fueltempavg; es];
+            th.fueltempdoppler = vec![params.fueltempavg; es];
+            th.fueltemp = {
+                let mut a = Array2::<f64>::zeros(es, maxid);
+                for i in 0..es {
+                    for j in 0..maxid {
+                        a.set(i, j, params.fueltempavg);
+                    }
+                }
+                a
+            };
+            th.coolant.temps = vec![params.cooltempavg; es];
+            th.coolant.dens = vec![params.cooldenavg; es];
+            th.heatflux = vec![0.0; es];
+
+            let (sv, ws, _rod) = sigmavalupd3d_handler(
+                &params, &geometry, &sigmavalues, &feedback, &whichsigma, &th,
+            )
+            .expect("the feedback handler should run");
+
+            crate::sanodaldiffusion_solverxyz::sanodaldiffusion_solverxyz(
+                &geometry, &params, &sv, &ws, None, None,
+            )
+            .expect("the frozen-nodal eigensolve should run")
+            .k_eff
+        }
+
+        // Widths vary by node, so summarise each axis by its distinct values.
+        fn spread(w: &[f64]) -> (f64, f64, bool) {
+            let lo = w.iter().cloned().fold(f64::INFINITY, f64::min);
+            let hi = w.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            (lo, hi, (hi - lo).abs() < 1e-12)
+        }
+
+        let frozen = |conservative: bool| Params {
+            nodalupd: 1_000_000_000,
+            gradd_form: if conservative { GradDForm::Conservative } else { GradDForm::Reference },
+            ..Default::default()
+        };
+
+        // (name, k_eff off, k_eff on, uniform in all three axes)
+        let mut rows: Vec<(&str, f64, f64, bool)> = Vec::new();
+
+        // ----- IAEA-3D: pure neutronics, no thermal-hydraulics -----
+        {
+            let mut kk = [0.0f64; 2];
+            let mut uniform = false;
+            for (slot, conservative) in [false, true].into_iter().enumerate() {
+                let base = Params { nodalupd: 6, gradd_form: if conservative { GradDForm::Conservative } else { GradDForm::Reference }, ..Default::default() };
+                let (params, geometry, whichsigma, sigmavalues) = crate::iaea3ds::iaea3ds(&base);
+                if slot == 0 {
+                    let (xlo, xhi, xu) = spread(&geometry.lx);
+                    let (ylo, yhi, yu) = spread(&geometry.ly);
+                    let (zlo, zhi, zu) = spread(&geometry.lz);
+                    eprintln!(
+                        "IAEA-3D  mesh  x {xlo}-{xhi}  y {ylo}-{yhi}  z {zlo}-{zhi}"
+                    );
+                    uniform = xu && yu && zu;
+                }
+                kk[slot] = crate::sanodaldiffusion_solverxyz::sanodaldiffusion_solverxyz(
+                    &geometry, &params, &sigmavalues, &whichsigma, None, None,
+                )
+                .expect("IAEA-3D should solve")
+                .k_eff;
+            }
+            rows.push(("IAEA-3D", kk[0], kk[1], uniform));
+        }
+
+        // ----- the three NEACRP cases, frozen-nodal -----
+        for (name, build) in [
+            ("NEACRP A2", 0usize),
+            ("NEACRP A1", 1),
+            ("NEACRP D1", 2),
+        ] {
+            let mut kk = [0.0f64; 2];
+            let mut uniform = false;
+            for (slot, conservative) in [false, true].into_iter().enumerate() {
+                let base = frozen(conservative);
+                let built: Built = match build {
+                    0 => crate::neacrpa2::neacrpa2(&base),
+                    1 => crate::neacrpa1t::neacrpa1t(&base),
+                    _ => crate::neacrpd1::neacrpd1(&base),
+                };
+                if slot == 0 {
+                    let (xlo, xhi, xu) = spread(&built.1.lx);
+                    let (ylo, yhi, yu) = spread(&built.1.ly);
+                    let (zlo, zhi, zu) = spread(&built.1.lz);
+                    eprintln!(
+                        "{name}  mesh  x {xlo}-{xhi}  y {ylo}-{yhi}  z {zlo}-{zhi}"
+                    );
+                    uniform = xu && yu && zu;
+                }
+                kk[slot] = frozen_static(built);
+            }
+            rows.push((name, kk[0], kk[1], uniform));
+        }
+
+        eprintln!();
+        eprintln!("G1: the conservative face coupling, case by case");
+        eprintln!(
+            "{:<10}  {:<16}  {:<16}  {:>12}  mesh",
+            "case", "reference", "conservative", "delta pcm"
+        );
+        for (name, off, on, uniform) in &rows {
+            let pcm = (on - off) / off * 1e5;
+            eprintln!(
+                "{name:<10}  {off:<16.10}  {on:<16.10}  {pcm:>+12.2}  {}",
+                if *uniform { "uniform" } else { "graded" }
+            );
+        }
+
+        // A uniform mesh is where the two forms are algebraically identical, so
+        // the correction must be a no-op there. This is the check that the
+        // correction is right; the graded cases are the measurement.
+        for (name, off, on, uniform) in &rows {
+            if *uniform {
+                let rel = (on - off).abs() / off.abs();
+                assert!(
+                    rel < 1e-12,
+                    "{name} is uniformly meshed, so the conservative correction \
+                     must not change k_eff, but it moved by {rel:.3e} relative"
+                );
+            }
+        }
+    }
+
+    /// **G1 in the coupled solve, and what it does to the critical boron.**
+    ///
+    /// # Methodology
+    ///
+    /// The static sweep above measures the operator in isolation. This
+    /// measures it where the case's headline numbers actually come from: the
+    /// coupled neutronics/thermal-hydraulics steady state, on NEACRP A2, on
+    /// the `hem` path at `nodalupd = 20` — the configuration under which the
+    /// port reproduces the MATLAB exactly, so the baseline arm is a known
+    /// quantity rather than another measurement.
+    ///
+    /// Four solves: the reference operator and the conservative one, each at
+    /// the case's own 1000 ppm and again at 1100 ppm. The second point gives
+    /// the **differential boron worth** for each operator, and a secant
+    /// through the two extrapolates the **critical boron** — the concentration
+    /// at which `k_eff = 1`. That is the quantity the benchmark publishes, so
+    /// it converts a pcm shift in an eigenvalue into a number that can be
+    /// compared against something outside this codebase.
+    ///
+    /// The extrapolation is a linear secant over a 100 ppm span, so treat the
+    /// critical-boron figures as accurate to a few ppm, not to the two decimal
+    /// places the case constants carry. It is a validation *indicator*, not a
+    /// replacement for [`crate::criticalboron_xyz`].
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// **Both operators converge, in the same number of passes, and the
+    /// correction moves the critical boron towards the published value.**
+    ///
+    /// | | reference | conservative |
+    /// |---|---|---|
+    /// | `k_eff` @ 1000 ppm | 1.0139476080, 16 passes | 1.0153550800, 16 passes |
+    /// | `k_eff` @ 1100 ppm | 1.0038954454, 16 passes | 1.0052862948, 16 passes |
+    /// | differential boron worth | -9.914 pcm/ppm | -9.917 pcm/ppm |
+    /// | critical boron, secant | ~1138.8 ppm | **~1152.5 ppm** |
+    /// | vs published 1160.6 ppm | **-21.8 ppm** | **-8.1 ppm** |
+    ///
+    /// **Interpretation, and why this is the number that justifies the
+    /// correction.** A correction cannot be validated by parity with the code
+    /// it corrects — that is the whole point of the crate README's
+    /// "Corrections are a separate stage". It needs a justification from
+    /// outside, and this is one: the correction closes **63% of the gap** to
+    /// PANTHER's published critical boron for NEACRP A2, moving from -1.9% to
+    /// -0.7%. The remaining -8.1 ppm is not explained by anything measured
+    /// here.
+    ///
+    /// The reference arm is worth stating separately, because it validates the
+    /// *method* rather than the correction: a two-point secant through
+    /// independent coupled solves gives 1138.8 ppm against the **1139.01 ppm**
+    /// the case file quotes from a search this snapshot does not ship
+    /// (`test_critboron2.m`, absent). 0.2 ppm apart. So the quoted constant is
+    /// corroborated, and the extrapolation can be trusted at the few-ppm level
+    /// it is being read at.
+    ///
+    /// The differential worth is **unchanged** by the correction — -9.914
+    /// against -9.917 pcm/ppm — which says the correction shifts the
+    /// eigenvalue without distorting the boron feedback. A correction that had
+    /// moved the worth as well would have been much harder to interpret.
+    ///
+    /// **The coupled shift is 138.8 pcm where the static shift is 81.2** (see
+    /// `g1_what_the_conservative_operator_does_to_every_k_eff`). Thermal
+    /// hydraulic feedback amplifies it by about 1.7x, so the static sweep
+    /// understates the correction's real effect on a powered case.
+    ///
+    /// **Superseded finding.** An earlier run of this test found the corrected
+    /// arm hitting the 50-pass cap. That was defect **G3** — `gradterms` left
+    /// inconsistent with a corrected operator — not a property of the
+    /// correction. With G1, G2 and G3 corrected together the loop converges in
+    /// the same 16 passes as the reference.
+    #[test]
+    #[ignore = "G1 in the coupled solve; four coupled A2 solves, many minutes"]
+    fn g1_what_the_conservative_operator_does_to_the_critical_boron() {
+        /// The MATLAB's `k_eff` for this case, reference operator, 1000 ppm.
+        const MATLAB_K_EFF: f64 = 1.0139476080;
+
+        use crate::thdiffusion_solverxyz::Termination;
+
+        let solve = |form: GradDForm, boron: f64| -> (f64, usize, Termination) {
+            let base = Params {
+                th_model: crate::types::ThModel::Hem,
+                nodalupd: 20,
+                gradd_form: form,
+                ..Default::default()
+            };
+            let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpa2::neacrpa2(&base);
+            params.boron = boron;
+            let out = crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("A2 on the hem path should run");
+            (out.k_eff, out.iterations, out.termination)
+        };
+
+        // A non-converged arm yields no usable eigenvalue, so it is reported
+        // rather than asserted away — the failure IS the measurement.
+        let mut critical_boron: Vec<(&str, Option<f64>)> = Vec::new();
+        let mut reference_k = f64::NAN;
+        for (label, form) in [
+            ("reference", GradDForm::Reference),
+            ("conservative", GradDForm::Conservative),
+        ] {
+            let (k_lo, n_lo, t_lo) = solve(form, 1000.0);
+            let (k_hi, n_hi, t_hi) = solve(form, 1100.0);
+
+            eprintln!("NEACRP A2 coupled, {label} operator:");
+            eprintln!("  k_eff @ 1000 ppm   = {k_lo:.10}  ({n_lo} passes, {t_lo:?})");
+            eprintln!("  k_eff @ 1100 ppm   = {k_hi:.10}  ({n_hi} passes, {t_hi:?})");
+
+            if t_lo == Termination::Converged && t_hi == Termination::Converged {
+                // Differential boron worth, pcm per ppm, and the secant to k = 1.
+                let worth = (k_hi - k_lo) / k_lo * 1e5 / 100.0;
+                let critical = 1000.0 + (1.0 - k_lo) * 100.0 / (k_hi - k_lo);
+                eprintln!("  differential worth = {worth:+.3} pcm/ppm");
+                eprintln!("  critical boron     ~ {critical:.1} ppm");
+                critical_boron.push((label, Some(critical)));
+            } else {
+                eprintln!("  NOT CONVERGED — no critical boron can be extracted");
+                critical_boron.push((label, None));
+            }
+            eprintln!();
+
+            if form == GradDForm::Reference {
+                reference_k = k_lo;
+            }
+        }
+
+        eprintln!("critical boron, and the published value:");
+        for (label, b) in &critical_boron {
+            match b {
+                Some(b) => eprintln!(
+                    "  {label:<13} ~ {b:.1} ppm  ({:+.1} ppm vs published {:.1})",
+                    b - crate::neacrpa2t::BENCHMARK_CRITICAL_BORON,
+                    crate::neacrpa2t::BENCHMARK_CRITICAL_BORON
+                ),
+                None => eprintln!("  {label:<13}   unavailable — the coupled loop did not converge"),
+            }
+        }
+        eprintln!(
+            "  this code quotes  {:.2} ppm (from a search the snapshot does not ship)",
+            crate::neacrpa2t::CRITICAL_BORON
+        );
+
+        // The reference arm must still be the MATLAB's number — if it is not,
+        // something other than the operator has moved and the comparison is
+        // measuring the wrong thing.
+        let pcm = (reference_k - MATLAB_K_EFF) / MATLAB_K_EFF * 1e5;
+        assert!(
+            pcm.abs() < 0.01,
+            "the reference arm is {pcm:+.4} pcm from the MATLAB; the baseline moved"
+        );
+
+        // The secant must corroborate the constant the case file carries. This
+        // is the check that the two-point extrapolation means anything at all.
+        let (_, b_ref) = critical_boron[0];
+        let b_ref = b_ref.expect("the reference arm must converge");
+        assert!(
+            (b_ref - crate::neacrpa2t::CRITICAL_BORON).abs() < 5.0,
+            "the secant gives {b_ref:.2} ppm against the case file's {:.2}",
+            crate::neacrpa2t::CRITICAL_BORON
+        );
+    }
+
+    /// **The same correction, measured on NEACRP A1 — a second, independent
+    /// benchmark point.**
+    ///
+    /// # Methodology
+    ///
+    /// Identical in construction to
+    /// `g1_what_the_conservative_operator_does_to_the_critical_boron`, but on
+    /// case A1 instead of A2, and it exists because a single benchmark
+    /// agreement is weak evidence for a correction. A1 shares A2's geometry,
+    /// mesh, cross-section tables and material map, so the *operator* change is
+    /// the same one; what differs is everything that decides how the core
+    /// responds to it:
+    ///
+    /// - **hot zero power** — a 2775 W core against 2775 MW, so there is
+    ///   essentially no thermal-hydraulic feedback and no stored Doppler
+    ///   margin; the fuel starts in equilibrium with the coolant at 559.15 K;
+    /// - **a nearly all-in rod pattern** — banks 1, 2, 3, 5, 6, 7 fully
+    ///   inserted, only bank 4 withdrawn, against A2's partial insertion;
+    /// - **half the boron** — around 551 ppm against around 1139.
+    ///
+    /// So if the correction were an artefact of A2's particular power shape or
+    /// its feedback state, A1 would not move with it. The brackets are 500 and
+    /// 600 ppm, straddling the expected root, and the secant is read the same
+    /// way — accurate to a few ppm, not to the two decimals the case constants
+    /// carry.
+    ///
+    /// The published comparison is PANTHER's **567.7 ppm**
+    /// (NEA/NSC/DOC(93)25 Table 3.1), against which this code's own quoted
+    /// 551.31 ppm sits **-16.4 ppm**, the same direction and a similar
+    /// relative size as A2's -21.6.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// | | reference | conservative |
+    /// |---|---|---|
+    /// | `k_eff` @ 500 ppm | 1.0050164273, 7 passes | 1.0059514689, 6 passes |
+    /// | `k_eff` @ 600 ppm | 0.9952648088, 7 passes | 0.9961924126, 6 passes |
+    /// | differential boron worth | -9.703 pcm/ppm | -9.701 pcm/ppm |
+    /// | critical boron, secant | ~551.4 ppm | **~561.0 ppm** |
+    /// | vs published 567.7 ppm | **-16.3 ppm** | **-6.7 ppm** |
+    ///
+    /// **Interpretation — this is the result that makes the correction
+    /// credible.** A1 closes **59%** of its gap to PANTHER; A2 closes **63%**
+    /// of a gap of a different size, on a case with a different power level, a
+    /// different rod pattern and twice the boron. Two independent benchmark
+    /// points moving by nearly the same *fraction* is much harder to explain
+    /// as coincidence than either case alone, and it is what a genuine
+    /// discretisation fix should look like: a systematic error being removed,
+    /// not a number being tuned.
+    ///
+    /// | case | reference | conservative | published | gap closed |
+    /// |---|---|---|---|---|
+    /// | A1 (HZP) | 551.4 | 561.0 | 567.7 | **59%** |
+    /// | A2 (HFP) | 1138.8 | 1152.5 | 1160.6 | **63%** |
+    ///
+    /// **The reference arm is a strikingly good control.** Its secant gives
+    /// **551.44 ppm** against the case file's quoted **551.31** — 0.13 ppm
+    /// apart, from a search the snapshot does not ship. Together with A2's
+    /// 1138.8 against 1139.01, both of this code's quoted critical borons are
+    /// now independently reproduced.
+    ///
+    /// **The differential worth is again unchanged** — -9.703 against -9.701
+    /// pcm/ppm — as it was on A2. The correction shifts the eigenvalue without
+    /// touching the boron feedback, on both cases.
+    ///
+    /// **Convergence is unharmed at HZP too**: 6 passes with the correction
+    /// against 7 without. At A2's full power it was 16 either way.
+    ///
+    /// **What remains.** Roughly 40% of each gap survives the correction —
+    /// -6.7 ppm here, -8.1 ppm on A2 — and nothing measured here explains it.
+    /// Candidates not yet examined include the remaining register defects, the
+    /// two-group cross-section reconstruction, and the possibility that the
+    /// benchmark's own PANTHER values carry method bias. It should not be
+    /// attributed until it is measured.
+    #[test]
+    #[ignore = "G1 on case A1; four coupled HZP solves, minutes"]
+    fn g1_what_the_conservative_operator_does_to_the_a1_critical_boron() {
+        use crate::thdiffusion_solverxyz::Termination;
+
+        let solve = |form: GradDForm, boron: f64| -> (f64, usize, Termination) {
+            let base = Params {
+                th_model: crate::types::ThModel::Hem,
+                nodalupd: 20,
+                gradd_form: form,
+                ..Default::default()
+            };
+            let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpa1t::neacrpa1t(&base);
+            params.boron = boron;
+            let out = crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("A1 on the hem path should run");
+            (out.k_eff, out.iterations, out.termination)
+        };
+
+        let mut critical_boron: Vec<(&str, Option<f64>)> = Vec::new();
+        for (label, form) in [
+            ("reference", GradDForm::Reference),
+            ("conservative", GradDForm::Conservative),
+        ] {
+            let (k_lo, n_lo, t_lo) = solve(form, 500.0);
+            let (k_hi, n_hi, t_hi) = solve(form, 600.0);
+
+            eprintln!("NEACRP A1 (HZP) coupled, {label} operator:");
+            eprintln!("  k_eff @ 500 ppm    = {k_lo:.10}  ({n_lo} passes, {t_lo:?})");
+            eprintln!("  k_eff @ 600 ppm    = {k_hi:.10}  ({n_hi} passes, {t_hi:?})");
+
+            if t_lo == Termination::Converged && t_hi == Termination::Converged {
+                let worth = (k_hi - k_lo) / k_lo * 1e5 / 100.0;
+                let critical = 500.0 + (1.0 - k_lo) * 100.0 / (k_hi - k_lo);
+                eprintln!("  differential worth = {worth:+.3} pcm/ppm");
+                eprintln!("  critical boron     ~ {critical:.1} ppm");
+                critical_boron.push((label, Some(critical)));
+            } else {
+                eprintln!("  NOT CONVERGED — no critical boron can be extracted");
+                critical_boron.push((label, None));
+            }
+            eprintln!();
+        }
+
+        let published = crate::neacrpa1t::BENCHMARK_CRITICAL_BORON;
+        eprintln!("critical boron, and the published value:");
+        for (label, b) in &critical_boron {
+            match b {
+                Some(b) => eprintln!(
+                    "  {label:<13} ~ {b:.1} ppm  ({:+.1} ppm vs published {published:.1})",
+                    b - published
+                ),
+                None => eprintln!("  {label:<13}   unavailable — the coupled loop did not converge"),
+            }
+        }
+        eprintln!(
+            "  this code quotes  {:.2} ppm (frozen-T-H secant plus coupled verification)",
+            crate::neacrpa1t::CRITICAL_BORON
+        );
+
+        // The reference arm must corroborate the case file's own constant, or
+        // the extrapolation is not measuring what it claims to.
+        let (_, b_ref) = critical_boron[0];
+        let b_ref = b_ref.expect("the reference arm must converge");
+        eprintln!();
+        eprintln!(
+            "reference arm vs the case file: {b_ref:.2} against {:.2} ppm",
+            crate::neacrpa1t::CRITICAL_BORON
+        );
+        assert!(
+            (b_ref - crate::neacrpa1t::CRITICAL_BORON).abs() < 10.0,
+            "the secant gives {b_ref:.2} ppm against the case file's {:.2}",
+            crate::neacrpa1t::CRITICAL_BORON
+        );
+    }
+
+    /// **The corrected operator's coupled trace on NEACRP A2, against the
+    /// reference's.**
+    ///
+    /// # Methodology
+    ///
+    /// This test was written to diagnose a failure: with G1/G2 corrected but
+    /// `gradterms` left as the reference writes it, A2's coupled loop exited
+    /// on the iteration cap where the reference converged in 16 passes. A cap
+    /// is not a diagnosis — slow convergence, a limit cycle and outright
+    /// divergence all reach it — so it runs the corrected arm with the cap
+    /// lifted to 200 and prints the per-pass `k_eff` beside the
+    /// thermal-hydraulic state from
+    /// [`crate::thdiffusion_solverxyz::ThSnapshot`], with the reference arm as
+    /// the control.
+    ///
+    /// It found the answer immediately, in pass 1, and the fix it led to
+    /// (defect **G3**) is now in place. The test is kept as the regression
+    /// guard for that fix: it is the only check that exercises the corrected
+    /// operator through a full coupled solve and looks at the *trajectory*
+    /// rather than the endpoint.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// **With G1, G2 and G3 corrected together**, the two arms are
+    /// indistinguishable in behaviour:
+    ///
+    /// | | reference | conservative |
+    /// |---|---|---|
+    /// | termination | Converged, 16 passes | **Converged, 16 passes** |
+    /// | final `k_eff` | 1.0139476080 | 1.0153550800 |
+    /// | fission-source residual | 7.3319e-5 | 7.3279e-5 |
+    /// | fuel-temperature residual | 0.1568 K | 0.1484 K |
+    /// | pass-1 peak fuel temperature | 968.2 K | 953.1 K |
+    ///
+    /// **What it looked like before, with G3 left uncorrected** — kept because
+    /// it is the signature to recognise if this ever recurs:
+    ///
+    /// | pass | `k_eff` | peak fuel T |
+    /// |---|---|---|
+    /// | 1 | 1.0000000000 | **1995.6 K** |
+    /// | 2 | **409.95** | 2547.8 K |
+    /// | 3 | 65.68 | 2823.9 K |
+    /// | ... | wanders in the tens-to-hundreds | 1800-2800 K |
+    /// | 201 | 62.22 | cap, residual 1.03 |
+    ///
+    /// **Interpretation.** The damage was visible in **pass 1**, before any
+    /// feedback had acted: 1995 K against 968 K is the power distribution
+    /// being wrong, not the iteration being unstable. The eigenvalue of the
+    /// *static* solve looked entirely reasonable the whole time (+81 pcm),
+    /// which is exactly what made it deceptive — an inconsistent `gradterms`
+    /// corrupts the shape while leaving the integral roughly intact.
+    ///
+    /// The general lesson, recorded in the register: **G1, G2 and G3 must be
+    /// corrected together or not at all.** A half-applied correction left the
+    /// operator and `gradterms` disagreeing by *more* than the reference had
+    /// them disagreeing, so the SA-nodal cancellation stopped working.
+    #[test]
+    #[ignore = "G1/G3 convergence guard; two coupled A2 solves, many minutes"]
+    fn g1_the_corrected_operator_converges_like_the_reference_on_a2() {
+        let run = |form: GradDForm, maxiter: usize| {
+            let base = Params {
+                th_model: crate::types::ThModel::Hem,
+                nodalupd: 20,
+                gradd_form: form,
+                thmaxiter: Some(maxiter),
+                ..Default::default()
+            };
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpa2::neacrpa2(&base);
+            crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("A2 on the hem path should run")
+        };
+
+        let reference = run(GradDForm::Reference, 50);
+        let corrected = run(GradDForm::Conservative, 200);
+
+        for (label, out) in [("reference", &reference), ("conservative", &corrected)] {
+            eprintln!(
+                "NEACRP A2, {label} operator: {:?} after {} passes",
+                out.termination, out.iterations
+            );
+            eprintln!(
+                "  final: k_eff {:.10}  fs residual {:.4e}  Tfuel residual {:.4} K",
+                out.k_eff, out.residual, out.fueltemp_residual
+            );
+            eprintln!("  {:>4}  {:<14}  {:<12}  {:<12}  heat flux sum", "pass", "k_eff", "Tfuel max", "Tcool max");
+            for (i, k) in out.k_eff_history.iter().enumerate() {
+                let th = out.th_history.get(i);
+                match th {
+                    Some(s) => eprintln!(
+                        "  {:>4}  {k:<14.10}  {:<12.4}  {:<12.4}  {:.6e}",
+                        i + 1,
+                        s.fueltemp_max,
+                        s.coolant_max,
+                        s.heatflux_sum
+                    ),
+                    None => eprintln!("  {:>4}  {k:<14.10}", i + 1),
+                }
+            }
+            eprintln!();
+        }
+
+        // Whatever the trace shows, the reference arm is the control and must
+        // still converge — otherwise the run says nothing about the operator.
+        assert_eq!(
+            reference.termination,
+            crate::thdiffusion_solverxyz::Termination::Converged,
+            "the reference arm is the control and must converge"
         );
     }
 }

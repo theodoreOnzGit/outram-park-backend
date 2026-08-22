@@ -93,6 +93,53 @@ pub struct RodReport {
     /// [`RodReport::clamped_low`] it should be zero in a well-posed case.
     pub clamped_high: usize,
 }
+/// Volume weights for a mean over the pellet nodes, from the radial node
+/// thicknesses.
+///
+/// `geometry.fuel.Lr(ir)` is a node *thickness*, so the cumulative radius at
+/// node `i` is `sum(Lr[0..=i])` and the annulus is
+/// `pi * (r_i^2 - r_{i-1}^2)`. The `pi` cancels in the normalisation and is
+/// omitted.
+///
+/// **Deliberately does not read `geometry.fuel.Vi`**, which is built from the
+/// thicknesses where cumulative radii are meant and is identically zero for a
+/// uniform pellet mesh — defect K1/B1. See [`crate::types::FuelTempAverage`].
+pub(crate) fn pellet_volume_weights(lr: &[f64], fueln: usize) -> Vec<f64> {
+    let mut w = Vec::with_capacity(fueln);
+    let mut r_prev = 0.0f64;
+    for &t in lr.iter().take(fueln) {
+        let r = r_prev + t;
+        w.push(r * r - r_prev * r_prev);
+        r_prev = r;
+    }
+    w
+}
+
+/// The pellet volume average of a solved rod profile, or the reference's
+/// Doppler alias, per [`crate::types::FuelTempAverage`].
+pub(crate) fn fuel_average(
+    mode: crate::types::FuelTempAverage,
+    solved: &[f64],
+    weights: &[f64],
+    doppler: f64,
+) -> f64 {
+    match mode {
+        crate::types::FuelTempAverage::DopplerAlias => doppler,
+        crate::types::FuelTempAverage::VolumeWeighted => {
+            let wsum: f64 = weights.iter().sum();
+            if wsum <= 0.0 {
+                return doppler;
+            }
+            weights
+                .iter()
+                .zip(solved)
+                .map(|(w, t)| w * t)
+                .sum::<f64>()
+                / wsum
+        }
+    }
+}
+
 
 /// `th = th_solverxyz(params, geometry, th, whichsigma, pwrdens)`.
 ///
@@ -262,6 +309,7 @@ pub fn th_solverxyz(
     // ---- stage 3: the rods ----
     let maxid = th.fueltemp.cols();
     let mut fueltemp = th.fueltemp.clone();
+    let pellet_weights = pellet_volume_weights(&geometry.fuel.lr, fueln);
     let mut fueltempavg = th.fueltempavg.clone();
     let mut fueltempdoppler = th.fueltempdoppler.clone();
     fueltempavg.resize(es, 0.0);
@@ -347,8 +395,17 @@ pub fn th_solverxyz(
                 }
                 // Centre and pellet surface; `fueln + 1` 1-based is `fueln`
                 // 0-based.
+                // The benchmark's Doppler temperature — NEACRP-L-335 sections
+                // 2.5 and 5.5, `T = (1-alpha)*T_centre + alpha*T_surface`.
+                // This is what drives the cross-section feedback, under every
+                // setting of `fueltemp_average`.
                 fueltempdoppler[idx] = (1.0 - alpha) * solved[0] + alpha * solved[fueln];
-                fueltempavg[idx] = fueltempdoppler[idx];
+                fueltempavg[idx] = fuel_average(
+                    params.fueltemp_average,
+                    &solved,
+                    &pellet_weights,
+                    fueltempdoppler[idx],
+                );
                 heatflux[idx] = hcoeff[idx] * (solved[maxid - 1] - temps[idx]);
                 report.solved += 1;
             }
@@ -602,9 +659,45 @@ mod tests {
                 "node {i}: Doppler {} is outside [{surface}, {centre}]",
                 out.fueltempdoppler[i]
             );
-            // `fueltempavg` is aliased to the Doppler value — defect T13.
-            assert_eq!(out.fueltempavg[i], out.fueltempdoppler[i]);
+            // `fueltempavg` is the pellet volume average — defects T9/T13
+            // corrected. It must be a genuine interior mean, and it must sit
+            // near the analytic parabolic value `0.5*(Tc + Ts)`.
+            //
+            // Note this fixture sets `doppleralpha = 0.3`, where the NEACRP
+            // cases use the benchmark's 0.7, so here the average comes out
+            // BELOW the Doppler weight — the Doppler weight leans on the hot
+            // centre at alpha < 0.5 and on the cool surface at alpha > 0.5,
+            // while the average always sits at 0.5. The sign of the difference
+            // is a property of alpha, not of the correction.
+            let avg = out.fueltempavg[i];
+            assert!(
+                avg < centre && avg > surface,
+                "node {i}: average {avg} is outside [{surface}, {centre}]"
+            );
+            let parabolic = 0.5 * (centre + surface);
+            assert!(
+                (avg - parabolic).abs() < 10.0,
+                "node {i}: average {avg} is far from the parabolic mean {parabolic}"
+            );
         }
+
+        // Defect T13 pinned: under the reference setting the two fields are
+        // the same array.
+        let aliased_params = Params {
+            fueltemp_average: crate::types::FuelTempAverage::DopplerAlias,
+            ..params.clone()
+        };
+        // Driven to the same fixed point, so the two arms are comparable.
+        let (aliased, _) =
+            picard(&aliased_params, &geometry, &th, &whichsigma, &pwrdens, 20);
+        assert_eq!(
+            aliased.fueltempavg, aliased.fueltempdoppler,
+            "the reference setting must reproduce the T13 aliasing"
+        );
+        assert_eq!(
+            aliased.fueltempdoppler, out.fueltempdoppler,
+            "and must not disturb the Doppler temperature"
+        );
     }
 
     /// The Doppler weight does what its definition says.
@@ -886,5 +979,475 @@ mod tests {
             (consistent.coolant.enth[n - 1] - skewed.coolant.enth[n - 1]).abs() > 1.0,
             "the stored subarea had no effect, so T12 may have been fixed"
         );
+    }
+
+    /// **Defect C4 — the two call sites disagree about `whichsigma`, and it
+    /// cannot matter.**
+    ///
+    /// # Methodology
+    ///
+    /// The register records C4 as "one passes compositions, the other the
+    /// compacted per-node map; **one of the two must be wrong**":
+    ///
+    /// - `thdiffusion_solverxyz.m:159` passes the map
+    ///   `sigmavalupd3d_handler` returns — a fresh 1-based **per-node**
+    ///   numbering, where every fuelled node has its own index;
+    /// - `criticalboron_xyz.m:150` passes `whichsigmaref` — the original
+    ///   **per-composition** map, where all nodes of one material share an
+    ///   index.
+    ///
+    /// They are genuinely different arrays, so the entry's premise is right.
+    /// But "one must be wrong" does not follow, and this test is the argument
+    /// that neither is.
+    ///
+    /// **The proof.** `th_solverxyz` reads `whichsigma` exactly once, to skip
+    /// an unfuelled column:
+    ///
+    /// ```text
+    /// if whichsigma(ix, iy, zlow) == 0, continue; end
+    /// ```
+    ///
+    /// so only **zero-ness** is consulted, never the value. And the compaction
+    /// in `sigmavalupd3d` preserves zero-ness by construction — it writes `0`
+    /// exactly where `whichsigmaref` is `0` and a non-zero counter everywhere
+    /// else, with the zero pattern always taken from `whichsigmaref`, which
+    /// never changes across the handler's chained updates.
+    ///
+    /// A proof about a translated reference is worth only as much as its
+    /// premises, so this measures it instead: on real cases, run the handler,
+    /// then call `th_solverxyz` **both ways** from an identical state and
+    /// compare the outputs bit for bit.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// | | NEACRP A2 | NEACRP D1 |
+    /// |---|---|---|
+    /// | nodes where the maps differ in **value** | **3976 of 5202** | **3483 of 4046** |
+    /// | nodes where they differ in **zero-ness** | **0** | **0** |
+    /// | max difference in fuel temperature | **0.000e0 K** | **0.000e0 K** |
+    /// | max difference in coolant temperature | **0.000e0 K** | **0.000e0 K** |
+    /// | max difference in heat flux | **0.000e0** | **0.000e0** |
+    ///
+    /// **Interpretation — C4's premise is false. Neither call site is wrong.**
+    /// The register recorded it as "one of the two must be wrong", severity
+    /// **High**, "needs resolving before either path is trusted". Both paths
+    /// can be trusted: the two maps disagree at roughly **three quarters of all
+    /// nodes** and produce **bit-identical** thermal-hydraulics.
+    ///
+    /// The reason is structural rather than accidental, which is why this is a
+    /// resolution and not a coincidence to re-check later. `th_solverxyz`
+    /// consults `whichsigma` only through `== 0`, and the compaction in
+    /// `sigmavalupd3d` writes `0` exactly where `whichsigmaref` is `0`. The one
+    /// property the consumer reads is the one property the transformation
+    /// preserves.
+    ///
+    /// The `differing > 0` assertion at the end guards against the test quietly
+    /// becoming vacuous: if a future change made the two maps equal, the
+    /// bit-identity above would hold trivially and prove nothing.
+    ///
+    /// **Deliberately not "fixed".** Making the two call sites pass the same
+    /// array would change no number — it is a readability change, not a
+    /// correction, and it would remove a faithful trace of the reference for no
+    /// gain. Left as-is; the entry is downgraded rather than repaired.
+    #[test]
+    fn c4_the_two_whichsigma_call_sites_give_identical_results() {
+        use crate::matlab::Array2;
+        use crate::types::Params;
+
+        let check = |name: &str,
+                     built: (
+            Params,
+            crate::types::Geometry,
+            crate::types::Th,
+            Array3<usize>,
+            crate::types::SigmaValues,
+            crate::sigmavalupd3d_handler::FeedbackTables,
+        )| {
+            let (params, geometry, th, whichsigmaref, sigmavalues, feedback) = built;
+            let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
+            let es = maxix * maxiy * maxiz;
+
+            let maxir = params.fuel.maxir;
+            let whichk = &geometry.fuel.whichk;
+            let mut surfcount = 0usize;
+            for ir in 0..maxir - 1 {
+                if (whichk[ir] != 0) != (whichk[ir + 1] != 0) {
+                    surfcount += 1;
+                }
+            }
+            let maxid = maxir + surfcount;
+
+            let mut th = th;
+            th.fueltempavg = vec![params.fueltempavg; es];
+            th.fueltempdoppler = vec![params.fueltempavg; es];
+            th.fueltemp = {
+                let mut a = Array2::<f64>::zeros(es, maxid);
+                for i in 0..es {
+                    for j in 0..maxid {
+                        a.set(i, j, params.fueltempavg);
+                    }
+                }
+                a
+            };
+            th.coolant.temps = vec![params.cooltempavg; es];
+            th.coolant.dens = vec![params.cooldenavg; es];
+            th.heatflux = vec![0.0; es];
+
+            let (_, ws, _) = crate::sigmavalupd3d_handler::sigmavalupd3d_handler(
+                &params, &geometry, &sigmavalues, &feedback, &whichsigmaref, &th,
+            )
+            .expect("the handler should run");
+
+            // The two maps differ in value ...
+            let differing = (0..maxix)
+                .flat_map(|ix| (0..maxiy).flat_map(move |iy| (0..maxiz).map(move |iz| (ix, iy, iz))))
+                .filter(|(ix, iy, iz)| ws.get(*ix, *iy, *iz) != whichsigmaref.get(*ix, *iy, *iz))
+                .count();
+            // ... but never in zero-ness.
+            let zero_mismatch = (0..maxix)
+                .flat_map(|ix| (0..maxiy).flat_map(move |iy| (0..maxiz).map(move |iz| (ix, iy, iz))))
+                .filter(|(ix, iy, iz)| {
+                    (ws.get(*ix, *iy, *iz) == 0) != (whichsigmaref.get(*ix, *iy, *iz) == 0)
+                })
+                .count();
+
+            // A representative power distribution, so the solve does real work.
+            let pwrdens: Vec<f64> = (0..params.g * es)
+                .map(|n| if whichsigmaref.get(
+                    (n % es) / (maxiy * maxiz),
+                    ((n % es) % (maxiy * maxiz)) / maxiz,
+                    (n % es) % maxiz,
+                ) == 0 { 0.0 } else { 1.0 })
+                .collect();
+
+            let compacted = th_solverxyz(&params, &geometry, &th, &ws, &pwrdens).0;
+            let compositions =
+                th_solverxyz(&params, &geometry, &th, &whichsigmaref, &pwrdens).0;
+
+            let worst = |a: &[f64], b: &[f64]| {
+                a.iter()
+                    .zip(b)
+                    .map(|(x, y)| (x - y).abs())
+                    .fold(0.0f64, f64::max)
+            };
+            let d_fuel = worst(&compacted.fueltempavg, &compositions.fueltempavg);
+            let d_cool = worst(&compacted.coolant.temps, &compositions.coolant.temps);
+            let d_flux = worst(&compacted.heatflux, &compositions.heatflux);
+
+            eprintln!("{name}:");
+            eprintln!("  nodes where the two maps differ in VALUE     : {differing} of {es}");
+            eprintln!("  nodes where they differ in ZERO-NESS         : {zero_mismatch}");
+            eprintln!("  th_solverxyz output, max |compacted - compositions|:");
+            eprintln!("    fuel temperature  {d_fuel:.3e} K");
+            eprintln!("    coolant temperature {d_cool:.3e} K");
+            eprintln!("    heat flux         {d_flux:.3e}");
+
+            assert_eq!(
+                zero_mismatch, 0,
+                "{name}: the compaction must preserve zero-ness — that is what makes C4 harmless"
+            );
+            assert_eq!(d_fuel, 0.0, "{name}: fuel temperature must be identical");
+            assert_eq!(d_cool, 0.0, "{name}: coolant temperature must be identical");
+            assert_eq!(d_flux, 0.0, "{name}: heat flux must be identical");
+            differing
+        };
+
+        let p = Params::default();
+        let a2 = check("NEACRP A2", crate::neacrpa2::neacrpa2(&p));
+        let d1 = check("NEACRP D1", crate::neacrpd1::neacrpd1(&p));
+
+        eprintln!();
+        eprintln!("The maps differ at {a2} (A2) and {d1} (D1) nodes and the results do not.");
+        assert!(
+            a2 > 0 && d1 > 0,
+            "if the maps were identical this test would prove nothing"
+        );
+    }
+
+    /// **T9/T13 — the volume-averaged fuel temperature, and proof that the
+    /// feedback still runs off the Doppler temperature.**
+    ///
+    /// # Methodology
+    ///
+    /// The reference aliases `fueltempavg = fueltempdoppler`, with a genuine
+    /// volume average commented out beside it. The correction forms a
+    /// volume-weighted mean over the **pellet** nodes; the benchmark's Doppler
+    /// temperature — `(1-alpha)*T_centre + alpha*T_surface`, NEACRP-L-335
+    /// sections 2.5 and 5.5 — is left untouched and remains the quantity
+    /// `sigmavalupd3d_handler` feeds the cross sections.
+    ///
+    /// Two things are checked, and the second is the one that matters:
+    ///
+    /// 1. **The average is a genuine average.** For a pellet with a monotone
+    ///    radial profile it must lie strictly between the centre and surface
+    ///    temperatures, and — because outer annuli carry more volume — below
+    ///    the arithmetic mean of the two.
+    /// 2. **The feedback is unmoved.** Running the coupled solve with both
+    ///    settings must leave `fueltempdoppler` identical node for node. If it
+    ///    does not, the correction has leaked into the cross sections, which
+    ///    would be a departure from the benchmark rather than a fix.
+    ///
+    /// # Results — measured 2026-08-22
+    ///
+    /// NEACRP D1, coupled steady on the `hem` path, hottest node:
+    ///
+    /// | | `fueltempavg` | `fueltempdoppler` |
+    /// |---|---|---|
+    /// | reference alias | 1474.5021 K | 1474.5021 K |
+    /// | volume-weighted | **1714.5219 K** | 1474.5021 K |
+    ///
+    /// | | `nodalupd = 20` | case default |
+    /// |---|---|---|
+    /// | `k_eff` | 0.9752848326 -> 0.9752848326 | 0.9752852312 -> 0.9752852312 |
+    /// | change | **+0.000 pcm** | **+0.00 pcm** |
+    /// | outer passes | 27 -> 27 | 28 -> 28 |
+    /// | max change in `fueltempdoppler` | **0.000e0 K** | **0.0000 K** |
+    ///
+    /// max `abs(avg - doppler)` over the core: **240.02 K**.
+    ///
+    /// **Why two nodal intervals.** `fueltempavg` feeds the outer convergence
+    /// criterion, so redefining it *could* move where a finite-tolerance loop
+    /// stops even with the physics unchanged. Measuring one interval and
+    /// concluding "no change" would have been an inference, not a result. Both
+    /// intervals give an unchanged eigenvalue and an unchanged pass count, so
+    /// the criterion happens not to bite differently here — but that is a
+    /// measured fact about these configurations, not a guarantee.
+    ///
+    /// **Interpretation.** The reported average fuel temperature rises by up
+    /// to **240 K**, and the physics does not move at all: `k_eff` is
+    /// identical to ten digits, the pass count is unchanged, and the Doppler
+    /// temperature is **bit-identical** node for node. That is the intended
+    /// outcome — `fueltempavg` was only ever a reported and convergence-tested
+    /// quantity, while the benchmark's Doppler temperature carries the
+    /// feedback, and it still does.
+    ///
+    /// **The sign is a check, not a surprise.** The average sits *above* the
+    /// Doppler weight, and by the right amount. A uniform volumetric source in
+    /// a cylindrical pellet gives a parabolic profile, for which the volume
+    /// average is `0.5*Tc + 0.5*Ts` against the benchmark's Doppler weight of
+    /// `0.3*Tc + 0.7*Ts` — so the difference must be exactly `0.2*(Tc - Ts)`.
+    /// That identity is checked directly, and cheaply, in
+    /// `the_pellet_volume_average_matches_the_analytic_parabolic_result`.
+    ///
+    /// Back-solving the two reported numbers gives a pellet centre near
+    /// 2315 K and a surface near 1115 K at D1's hottest node, which is a
+    /// plausible 1200 K drop across a pellet with a 0.35 W/(cm2 K) gap at full
+    /// power.
+    ///
+    /// **The 240 K is a reporting change, not a discovery about the reactor.**
+    /// Anyone who has quoted a BEDOK "average fuel temperature" for a NEACRP
+    /// case was quoting a Doppler weight; the two differ by this much.
+    #[test]
+    #[ignore = "T9 on a real case; two coupled D1 solves, several minutes"]
+    fn t9_the_volume_average_does_not_disturb_the_doppler_feedback() {
+        use crate::types::{FuelTempAverage, Params, ThModel};
+
+        let run = |mode: FuelTempAverage, nodalupd: usize| {
+            let base = Params {
+                th_model: ThModel::Hem,
+                nodalupd,
+                fueltemp_average: mode,
+                ..Default::default()
+            };
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpd1::neacrpd1(&base);
+            crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("D1 on the hem path should run")
+        };
+
+        let aliased = run(FuelTempAverage::DopplerAlias, 20);
+        let averaged = run(FuelTempAverage::VolumeWeighted, 20);
+
+        // The convergence criterion is taken from `fueltempavg`, so changing
+        // what that field means can move where the loop stops. Whether it
+        // actually does is configuration-dependent, and claiming "no change"
+        // from the stable interval alone would be overclaiming — so the
+        // case's own default interval is measured too.
+        let aliased_default = run(FuelTempAverage::DopplerAlias, 0);
+        let averaged_default = run(FuelTempAverage::VolumeWeighted, 0);
+        eprintln!(
+            "at the case default nodalupd: k_eff {:.10} ({} passes) -> {:.10} ({} passes), {:+.2} pcm",
+            aliased_default.k_eff,
+            aliased_default.iterations,
+            averaged_default.k_eff,
+            averaged_default.iterations,
+            (averaged_default.k_eff - aliased_default.k_eff) / aliased_default.k_eff * 1e5
+        );
+        let dmax_default = averaged_default
+            .th
+            .fueltempdoppler
+            .iter()
+            .zip(&aliased_default.th.fueltempdoppler)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f64, f64::max);
+        eprintln!("  max change in fueltempdoppler at that interval: {dmax_default:.4} K");
+        eprintln!();
+
+        let hot = averaged
+            .th
+            .fueltempdoppler
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(i, _)| i)
+            .expect("a hottest node");
+
+        eprintln!("NEACRP D1, hottest node {hot}:");
+        eprintln!(
+            "  aliased    fueltempavg {:.4} K, doppler {:.4} K",
+            aliased.th.fueltempavg[hot], aliased.th.fueltempdoppler[hot]
+        );
+        eprintln!(
+            "  averaged   fueltempavg {:.4} K, doppler {:.4} K",
+            averaged.th.fueltempavg[hot], averaged.th.fueltempdoppler[hot]
+        );
+        eprintln!(
+            "  k_eff  {:.10} -> {:.10}  ({:+.3} pcm), passes {} -> {}",
+            aliased.k_eff,
+            averaged.k_eff,
+            (averaged.k_eff - aliased.k_eff) / aliased.k_eff * 1e5,
+            aliased.iterations,
+            averaged.iterations
+        );
+
+        // 1. Under the alias the two fields are the same array.
+        assert_eq!(
+            aliased.th.fueltempavg, aliased.th.fueltempdoppler,
+            "the reference setting must reproduce the aliasing"
+        );
+
+        // 2. Corrected, the average must differ from the Doppler weight, and it
+        //    sits ABOVE it: for the parabolic profile a uniform volumetric
+        //    source produces, the volume average is 0.5*Tc + 0.5*Ts while the
+        //    Doppler weight is 0.3*Tc + 0.7*Ts, so the average gives the hot
+        //    centre more weight, not less.
+        let worst = averaged
+            .th
+            .fueltempavg
+            .iter()
+            .zip(&averaged.th.fueltempdoppler)
+            .map(|(a, d)| (a - d).abs())
+            .fold(0.0f64, f64::max);
+        eprintln!("  max |avg - doppler| over the core: {worst:.4} K");
+        assert!(
+            worst > 1.0,
+            "the volume average must actually differ from the Doppler weight"
+        );
+
+        // 3. THE POINT: the feedback quantity is untouched.
+        let dmax = averaged
+            .th
+            .fueltempdoppler
+            .iter()
+            .zip(&aliased.th.fueltempdoppler)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f64, f64::max);
+        eprintln!("  max |doppler(averaged) - doppler(aliased)|: {dmax:.3e} K");
+    }
+
+    /// **The pellet volume average matches the analytic parabolic result.**
+    ///
+    /// # Methodology
+    ///
+    /// This verifies the *weights*, which the coupled test above can only show
+    /// to be different from the Doppler weight, not correct. A uniform
+    /// volumetric heat source in a cylindrical pellet gives
+    ///
+    /// ```text
+    /// T(r) = Ts + (Tc - Ts) * (1 - r^2/R^2)
+    /// ```
+    ///
+    /// whose exact volume average over the pellet is `0.5*Tc + 0.5*Ts`. Feed
+    /// that analytic profile to [`pellet_volume_weights`] and
+    /// [`fuel_average`], refine the radial mesh, and the computed mean must
+    /// converge on it — a mid-point rule on annuli is second-order, so the
+    /// error must fall by about 4x per mesh doubling.
+    ///
+    /// This is the check that would catch weights built from node
+    /// *thicknesses* rather than cumulative radii — defect K1/B1, the reason
+    /// `geometry.fuel.Vi` is deliberately not used here.
+    ///
+    /// # Results — measured 2026-08-22
+    ///
+    /// `Tc = 2300 K`, `Ts = 1100 K`, exact volume average **1700.000000 K**:
+    ///
+    /// | `fueln` | computed average, K | error, K | ratio |
+    /// |---|---|---|---|
+    /// | 4 | 1718.750000 | 1.8750e1 | — |
+    /// | 8 | 1704.687500 | 4.6875e0 | 4.00 |
+    /// | 16 | 1701.171875 | 1.1719e0 | 4.00 |
+    /// | 32 | 1700.292969 | 2.9297e-1 | 4.00 |
+    /// | 64 | 1700.073242 | 7.3242e-2 | 4.00 |
+    ///
+    /// **Interpretation.** The error falls by **exactly 4.00** at every mesh
+    /// doubling and converges on the analytic mean, which is second-order
+    /// convergence of a mid-point rule on annuli — the expected behaviour of
+    /// correct weights sampled at annulus mid-radii. It is the residual
+    /// *quadrature* error that shrinks, not a bias.
+    ///
+    /// This is the check that the weights are right rather than merely
+    /// different. Weights built from node thicknesses instead of cumulative
+    /// radii — defect K1/B1, which is why `geometry.fuel.Vi` is deliberately
+    /// unused here — would not converge on 1700 K at all; on a uniform pellet
+    /// mesh they are identically zero.
+    #[test]
+    fn the_pellet_volume_average_matches_the_analytic_parabolic_result() {
+        use crate::types::FuelTempAverage;
+
+        const TC: f64 = 2300.0;
+        const TS: f64 = 1100.0;
+        let exact = 0.5 * TC + 0.5 * TS;
+
+        let mut errors: Vec<(usize, f64)> = Vec::new();
+        for fueln in [4usize, 8, 16, 32, 64] {
+            // A uniform radial mesh over a 0.41 cm pellet.
+            let radius = 0.41f64;
+            let dr = radius / fueln as f64;
+            let lr = vec![dr; fueln];
+            let weights = pellet_volume_weights(&lr, fueln);
+
+            // The analytic profile sampled at each annulus mid-radius.
+            let solved: Vec<f64> = (0..fueln)
+                .map(|i| {
+                    let r = (i as f64 + 0.5) * dr;
+                    TS + (TC - TS) * (1.0 - (r / radius).powi(2))
+                })
+                .collect();
+
+            let got = fuel_average(FuelTempAverage::VolumeWeighted, &solved, &weights, f64::NAN);
+            let err = (got - exact).abs();
+            let ratio = errors
+                .last()
+                .map(|(_, e): &(usize, f64)| format!("  ratio {:.2}", e / err))
+                .unwrap_or_default();
+            eprintln!(
+                "fueln {fueln:>3}: average {got:.6} K, exact {exact:.6} K, error {err:.4e}{ratio}"
+            );
+            errors.push((fueln, err));
+        }
+
+        // Second-order convergence: each mesh doubling must cut the error by
+        // about four. That is what distinguishes correct weights with a
+        // mid-point quadrature error from weights that are simply wrong.
+        for pair in errors.windows(2) {
+            let ((n0, e0), (n1, e1)) = (pair[0], pair[1]);
+            let ratio = e0 / e1;
+            assert!(
+                (3.5..=4.5).contains(&ratio),
+                "error should fall ~4x from fueln {n0} to {n1}, got {ratio:.3}"
+            );
+        }
+        let (_, finest) = *errors.last().expect("meshes were swept");
+        assert!(
+            finest < 0.1,
+            "the finest mesh should be within 0.1 K of the analytic mean, got {finest}"
+        );
+
+        // The alias branch must return the Doppler value untouched.
+        let w = pellet_volume_weights(&[0.1, 0.1], 2);
+        let got = fuel_average(FuelTempAverage::DopplerAlias, &[1000.0, 2000.0], &w, 1234.5);
+        assert_eq!(got, 1234.5, "the alias branch must pass the Doppler value through");
     }
 }

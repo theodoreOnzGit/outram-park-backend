@@ -174,17 +174,40 @@
 //! where the reference fails**, aborting at the same boron concentration.
 //!
 //! What remains outside the comparison: the T-H modules individually (they are
-//! covered only transitively), `w3chf` (whose output the reference discards),
-//! the ejection transients beyond 0.15 s, and IAPWS region 3, which is not
-//! translated. See `docs/bedok-reference-defects.md`.
+//! covered only transitively), `w3chf` (whose output the reference discards,
+//! so there is nothing to compare), the ejection transients beyond 0.15 s, and
+//! IAPWS region 3, which is not translated. See
+//! `docs/bedok-reference-defects.md`.
 //!
-//! # A defect worth knowing before running the PWR cases
+//! # Corrections are on by default — this crate is no longer bit-faithful
 //!
-//! [`makegrad_dxyz`]'s face coupling is **only consistent on a uniform mesh**
-//! (defect G1). The NEACRP PWR cases grade their axial mesh, and on
-//! [`neacrpa2`]'s worst joint — 30 cm against 7.7 cm, at the bottom of the
-//! core — the coupling is misstated by **+144.8%**. It is pinned by test and
-//! deliberately not repaired. See `docs/bedok-reference-defects.md`.
+//! With every runnable case verified against the MATLAB, **stage 2 opened on
+//! 2026-08-21** and three groups of reference defects are now **corrected by
+//! default**. On the cases they touch, this crate deliberately no longer
+//! reproduces the MATLAB's numbers.
+//!
+//! | Defects | What | Switch |
+//! |---|---|---|
+//! | G1, G2, G3 | The diffusion face coupling and `gradterms` | [`types::Params::gradd_form`] |
+//! | T5, T6 | The W-3 `K4` subcooling enthalpy | [`types::Params::w3_form`] |
+//! | C2, T4 | `highy = ix` in the hottest-channel search | [`types::Params::hot_channel_search`] |
+//! | T9, T13 | `fueltempavg` aliased to the Doppler temperature | [`types::Params::fueltemp_average`] |
+//!
+//! **To reproduce the reference, build from
+//! [`types::Params::reference_faithful`]**, which turns every correction off.
+//! That is what the MATLAB-parity tests do.
+//!
+//! What each is worth, measured: the operator correction moves NEACRP A2's
+//! critical boron from 1138.8 to **1152.5 ppm** against a published 1160.6, and
+//! A1's from 551.4 to **561.0** against 567.7 — closing 63% and 59% of the two
+//! gaps. The CHF corrections cut A2's reported thermal margin by **18.2%**
+//! (DNBR 2.55 to 2.08), both defects having overstated it. The fuel-average
+//! correction moves only a reported number — D1's average fuel temperature
+//! rises up to 240 K — while the Doppler temperature that drives the feedback
+//! is bit-identical and `k_eff` does not move.
+//!
+//! Everything else in `docs/bedok-reference-defects.md` is still translated
+//! as-is and pinned by a test asserting the wrong behaviour.
 //!
 //! **Both the steady and the transient paths now run end to end on real
 //! benchmark cases.** [`iaea3ds`] matches a published `k_eff` to -1.1 pcm;

@@ -104,8 +104,13 @@ pub fn w3chfhottest(params: &Params, fuel: &FuelGeometry, th: &Th) -> (Chf, Hott
             if q > qhi {
                 qhi = q;
                 highx = ix;
-                // C2: `iy` is meant.
-                highy = ix;
+                // See `crate::types::HotChannelSearch`. `Reference` writes
+                // `ix` here, which is defect C2/T4 — the analysed column is
+                // then always on the lattice diagonal.
+                highy = match params.hot_channel_search {
+                    crate::types::HotChannelSearch::Correct => iy,
+                    crate::types::HotChannelSearch::Reference => ix,
+                };
             }
             if q > qpeak {
                 qpeak = q;
@@ -137,7 +142,7 @@ pub fn w3chfhottest(params: &Params, fuel: &FuelGeometry, th: &Th) -> (Chf, Hott
     };
 
     (
-        w3chf(fuel, &subth),
+        w3chf(params, fuel, &subth),
         HottestChannel {
             analysed: (highx, highy),
             true_peak: (peakx, peaky),
@@ -148,6 +153,7 @@ pub fn w3chfhottest(params: &Params, fuel: &FuelGeometry, th: &Th) -> (Chf, Hott
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::HotChannelSearch;
     use crate::types::{Coolant, FuelGeometry};
 
     /// A `n`-by-`n` core of `nz`-node channels, uniform except for the wall
@@ -248,12 +254,28 @@ mod tests {
     #[test]
     fn an_off_diagonal_hot_channel_is_misidentified() {
         let (params, fuel, th) = core(3, 5, (2, 0), 50.0);
+        // This test PINS defect C2/T4, so it selects the defective search;
+        // the crate default corrects it.
+        let params = Params { hot_channel_search: HotChannelSearch::Reference, ..params };
         let (chf, ch) = w3chfhottest(&params, &fuel, &th);
 
         eprintln!("analysed {:?}, true peak {:?}", ch.analysed, ch.true_peak);
         assert_eq!(ch.analysed, (2, 2), "C2 forces the diagonal");
         assert_eq!(ch.true_peak, (2, 0));
         assert!(ch.misidentified());
+
+        // And the corrected search, on the same input, finds the real one.
+        let corrected = Params {
+            hot_channel_search: HotChannelSearch::Correct,
+            ..params.clone()
+        };
+        let (_, fixed) = w3chfhottest(&corrected, &fuel, &th);
+        eprintln!("corrected search: analysed {:?}", fixed.analysed);
+        assert_eq!(
+            fixed.analysed, fixed.true_peak,
+            "the corrected search must analyse the channel it found"
+        );
+        assert!(!fixed.misidentified());
 
         // What the limiting channel would actually have given.
         let mut hot_th = th.clone();
@@ -265,7 +287,7 @@ mod tests {
         hot_th.coolant.vm = vec![500.0; 5];
         hot_th.coolant.ldens = vec![0.70; 5];
         hot_th.coolant.gdens = vec![0.10; 5];
-        let truth = w3chf(&fuel, &hot_th);
+        let truth = w3chf(&params, &fuel, &hot_th);
 
         eprintln!(
             "reported DNBR = {:.3}, limiting channel's DNBR = {:.3}",

@@ -56,7 +56,7 @@
 
 use crate::fixinfnan::fixinfnan;
 use crate::iapws_if97::basic::{h1_pt, hl_p};
-use crate::types::{FuelGeometry, Th};
+use crate::types::{FuelGeometry, Params, Th, W3Form};
 
 /// `chf` — the critical heat flux and the margin to it.
 #[derive(Clone, Debug, Default)]
@@ -73,7 +73,7 @@ pub struct Chf {
     pub dnbr: Vec<f64>,
 }
 
-/// `chf = w3chf(geometry, th)` — critical heat flux at each node by the W-3
+/// `chf = w3chf(params, geometry, th)` — critical heat flux at each node by the W-3
 /// correlation, and the DNBR against the actual wall heat flux.
 ///
 /// # Arguments
@@ -138,7 +138,7 @@ pub struct Chf {
 /// # Panics
 ///
 /// If the per-node vectors in `th` are not all the same length.
-pub fn w3chf(fuel: &FuelGeometry, th: &Th) -> Chf {
+pub fn w3chf(params: &Params, fuel: &FuelGeometry, th: &Th) -> Chf {
     let n = th.heatflux.len();
     let c = &th.coolant;
     for (name, len) in [
@@ -157,13 +157,16 @@ pub fn w3chf(fuel: &FuelGeometry, th: &Th) -> Chf {
     // taken as compressed liquid.
     let enthin = h1_pt(c.inletpress, c.inlettemp);
 
-    // The upwind-shifted enthalpy, carrying the reference's stray `/2`.
-    let mut enthshift = vec![0.0; n];
-    if n > 0 {
-        enthshift[0] = enthin;
-    }
-    for (i, e) in enthshift.iter_mut().enumerate().skip(1) {
-        *e = (0.5 * c.enth[i] + 0.5 * c.enth[i - 1]) / 2.0;
+    // The subcooling enthalpy for `K4`. See `crate::types::W3Form`:
+    // `Published` uses the constant inlet enthalpy the correlation is written
+    // with; `Reference` reproduces the snapshot's halved per-node upwind
+    // average, defects T5 and T6.
+    let mut enthshift = vec![enthin; n];
+    if params.w3_form == W3Form::Reference {
+        for i in 1..n {
+            *enthshift.get_mut(i).expect("in range") =
+                (0.5 * c.enth[i] + 0.5 * c.enth[i - 1]) / 2.0;
+        }
     }
 
     let mut chf = vec![0.0; n];
@@ -265,7 +268,7 @@ mod tests {
     #[test]
     fn the_critical_heat_flux_is_physically_plausible_for_a_pwr() {
         let (fuel, th) = pwr_channel(5, 100.0);
-        let out = w3chf(&fuel, &th);
+        let out = w3chf(&Params::default(), &fuel, &th);
 
         for (i, q) in out.chf.iter().enumerate() {
             eprintln!("node {i}: chf = {q} W/cm2, dnbr = {}", out.dnbr[i]);
@@ -283,8 +286,8 @@ mod tests {
         let (fuel, low) = pwr_channel(1, 50.0);
         let (_, high) = pwr_channel(1, 200.0);
 
-        let a = w3chf(&fuel, &low);
-        let b = w3chf(&fuel, &high);
+        let a = w3chf(&Params::default(), &fuel, &low);
+        let b = w3chf(&Params::default(), &fuel, &high);
 
         assert!((a.dnbr[0] - a.chf[0] / 50.0).abs() < 1e-12);
         assert!(a.dnbr[0] > b.dnbr[0], "{} vs {}", a.dnbr[0], b.dnbr[0]);
@@ -300,7 +303,7 @@ mod tests {
     #[test]
     fn a_zero_heat_flux_reports_zero_margin_not_infinite_margin() {
         let (fuel, th) = pwr_channel(1, 0.0);
-        let out = w3chf(&fuel, &th);
+        let out = w3chf(&Params::default(), &fuel, &th);
 
         assert!(out.chf[0] > 0.0, "the correlation still yields a CHF");
         assert_eq!(
@@ -368,7 +371,9 @@ mod tests {
             ..Default::default()
         };
 
-        let out = w3chf(&fuel, &th);
+        let out = // This test PINS defect T5, so it must select the defective form;
+        // the crate default corrects it.
+        w3chf(&Params::reference_faithful(), &fuel, &th);
         eprintln!(
             "enthin = {enthin} kJ/kg; chf node0 = {}, node1 = {}",
             out.chf[0], out.chf[1]
@@ -399,8 +404,266 @@ mod tests {
     #[test]
     fn the_interior_nodes_are_self_consistent() {
         let (fuel, th) = pwr_channel(4, 100.0);
-        let out = w3chf(&fuel, &th);
+        let out = w3chf(&Params::default(), &fuel, &th);
         assert!((out.chf[1] - out.chf[2]).abs() < 1e-12);
         assert!((out.chf[2] - out.chf[3]).abs() < 1e-12);
+    }
+
+    /// **T5/T6 — what correcting the `K4` enthalpy does to a real case's
+    /// reported critical heat flux and DNBR.**
+    ///
+    /// # Methodology
+    ///
+    /// The pinning tests above measure the defect on a synthetic node. This
+    /// measures it where the number actually leaves the crate: NEACRP A2's
+    /// coupled steady state, whose `CoupledOutput` carries `chf` and `dnbr`
+    /// for the hottest channel.
+    ///
+    /// The same converged solve is post-processed both ways —
+    /// [`W3Form::Reference`] and [`W3Form::Published`] — so the thermal
+    /// hydraulic state is identical and the only difference is the `K4`
+    /// enthalpy. That isolates the correction from every other effect,
+    /// including the G1/G2/G3 correction, which is held at its default in both
+    /// arms.
+    ///
+    /// The pass criterion is directional and follows from the algebra rather
+    /// than from a reference: `K4 = 0.8258 + 0.0003413*(h_Lsat - h)` decreases
+    /// with `h`, so restoring the full inlet enthalpy in place of a halved one
+    /// must **lower** the predicted critical heat flux and lower the DNBR.
+    /// A safety margin that gets smaller when a non-conservative error is
+    /// removed is the expected direction; the reverse would mean the sign of
+    /// the defect had been misread.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// NEACRP A2, coupled steady, `k_eff = 1.0153550800` in **both** arms — so
+    /// the W-3 form does not feed back into the solve and the two are being
+    /// post-processed from an identical state.
+    ///
+    /// | | reference (T5/T6) | published W-3 |
+    /// |---|---|---|
+    /// | peak CHF, W/cm2 | 337.8054 | **275.3966** |
+    /// | limiting DNBR | 2.5462 | **2.1034** |
+    /// | CHF overprediction | **+22.66%** | — |
+    ///
+    /// **Interpretation.** The overprediction on a real converged case,
+    /// **+22.66%**, matches the +22.8% measured on the synthetic node above —
+    /// two independent routes to the same figure, which is what a systematic
+    /// factor should give.
+    ///
+    /// The consequence is stated in the units that matter for a safety margin:
+    /// the reported limiting **DNBR falls from 2.55 to 2.10**, a 17% cut in
+    /// apparent margin. The reference was not merely imprecise, it was
+    /// **non-conservative by about a fifth** in the one quantity whose purpose
+    /// is to say how far the fuel is from departing nucleate boiling. Nothing
+    /// downstream in this snapshot consumes it — defect C3 discards it, and
+    /// this crate returns it instead — so the error has never had a chance to
+    /// be noticed.
+    ///
+    /// **This run also exposes defect C2/T4 live.** The reported hottest
+    /// channel is `analysed: (2, 2)` while the true peak is at `(2, 5)`:
+    /// `w3chfhottest` searches with `highy = ix` where `iy` is meant, so it can
+    /// only ever return a **diagonal** column. Every number in the table above
+    /// is therefore computed for the wrong channel — correct arithmetic on the
+    /// wrong data. The two defects compound: one picks the wrong channel, the
+    /// other overpredicts the flux in it.
+    #[test]
+    #[ignore = "T5/T6 on a real case; one coupled A2 solve, minutes"]
+    fn t5_what_correcting_the_k4_enthalpy_does_to_a_real_case() {
+        let run = |form: W3Form| {
+            let base = Params {
+                th_model: crate::types::ThModel::Hem,
+                nodalupd: 20,
+                w3_form: form,
+                ..Default::default()
+            };
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpa2::neacrpa2(&base);
+            crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("A2 on the hem path should run")
+        };
+
+        let reference = run(W3Form::Reference);
+        let published = run(W3Form::Published);
+
+        // The two arms must be the same solve, or the comparison is invalid.
+        assert_eq!(
+            reference.k_eff, published.k_eff,
+            "the W-3 form must not feed back into the solve"
+        );
+
+        let peak = |c: &Chf| c.chf.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        // The limiting DNBR is the SMALLEST one over the channel, ignoring the
+        // zeros `fixinfnan` substitutes where the heat flux is zero.
+        let limiting = |c: &Chf| {
+            c.dnbr
+                .iter()
+                .cloned()
+                .filter(|d| *d > 0.0)
+                .fold(f64::INFINITY, f64::min)
+        };
+
+        let (cr, cp) = (&reference.chf, &published.chf);
+        eprintln!("NEACRP A2, hottest channel {:?}:", reference.chf_channel);
+        eprintln!("  k_eff (both arms)   = {:.10}", reference.k_eff);
+        eprintln!();
+        eprintln!("  {:<22} {:>16} {:>16}", "", "reference (T5/T6)", "published W-3");
+        eprintln!(
+            "  {:<22} {:>16.4} {:>16.4}",
+            "peak CHF, W/cm2", peak(cr), peak(cp)
+        );
+        eprintln!(
+            "  {:<22} {:>16.4} {:>16.4}",
+            "limiting DNBR", limiting(cr), limiting(cp)
+        );
+        eprintln!(
+            "  {:<22} {:>15.2}% {:>15}",
+            "CHF overprediction",
+            (peak(cr) / peak(cp) - 1.0) * 100.0,
+            "-"
+        );
+
+        assert!(
+            peak(cp) < peak(cr),
+            "removing the halving must LOWER the predicted CHF: {:.4} vs {:.4}",
+            peak(cp),
+            peak(cr)
+        );
+        assert!(
+            limiting(cp) < limiting(cr),
+            "and so must lower the margin: {:.4} vs {:.4}",
+            limiting(cp),
+            limiting(cr)
+        );
+    }
+
+    /// **The CHF corrections together — C2/T4 and T5/T6 on NEACRP A2.**
+    ///
+    /// # Methodology
+    ///
+    /// `t5_what_correcting_the_k4_enthalpy_does_to_a_real_case` isolates the
+    /// `K4` enthalpy with the channel search held at the reference. This runs
+    /// the two arms the crate actually ships between:
+    /// [`Params::reference_faithful`] (both defects present, as the MATLAB has
+    /// them) and [`Params::default`] (both corrected).
+    ///
+    /// They are not independent, and that is the reason for a separate test:
+    /// C2/T4 changes **which channel** is analysed, T5/T6 changes **the flux
+    /// computed in it**, and the combined effect is not the product of the two
+    /// measured alone — a different channel has a different enthalpy, so the
+    /// `K4` correction lands on different numbers.
+    ///
+    /// The same converged neutronics feeds both arms; only post-processing
+    /// differs. No directional assertion is made on the DNBR here, because
+    /// moving to the true hot channel *lowers* the margin while nothing
+    /// guarantees the two effects share a sign — the measurement is the point.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// NEACRP A2, coupled steady, identical `k_eff` in both arms.
+    ///
+    /// | | channel analysed | true peak | peak CHF, W/cm2 | limiting DNBR |
+    /// |---|---|---|---|---|
+    /// | as written | **(2, 2)** | (2, 5) | 337.8054 | 2.5462 |
+    /// | corrected | (2, 5) | (2, 5) | **275.3966** | **2.0816** |
+    ///
+    /// **The reported margin falls 18.2%**, from a DNBR of 2.55 to 2.08.
+    ///
+    /// **Interpretation.** Splitting the two contributions against the
+    /// `K4`-only measurement:
+    ///
+    /// | step | limiting DNBR |
+    /// |---|---|
+    /// | as written | 2.5462 |
+    /// | correcting T5/T6 only (still the wrong channel) | 2.1034 |
+    /// | also correcting C2/T4 | **2.0816** |
+    ///
+    /// So the enthalpy defect carries about **17.4%** of the overstatement and
+    /// the channel defect a further **1.0%**. The channel error is the smaller
+    /// of the two *here*, and that is a property of this case rather than of
+    /// the defect: A2's power distribution happens to make `(2, 2)` and
+    /// `(2, 5)` thermally similar. The synthetic test in
+    /// [`crate::w3chfhottest`] shows the same defect overstating a margin by a
+    /// factor of **5** when the two channels are not similar, so the small
+    /// figure here should not be read as a bound.
+    ///
+    /// **Both defects push the same way — they overstate margin.** Correcting
+    /// them makes the reported DNBR smaller, which is the direction that
+    /// matters for a number whose only purpose is to say how close the fuel is
+    /// to departing nucleate boiling.
+    ///
+    /// **What this does not establish.** The corrected CHF has been checked
+    /// against the published W-3 correlation's *form*, not against measured
+    /// CHF data, and W-3 has its own stated range of validity. This is a
+    /// correction from "not the correlation" to "the correlation", which is
+    /// verification, not validation.
+    #[test]
+    #[ignore = "the CHF corrections on a real case; one coupled A2 solve, minutes"]
+    fn the_chf_corrections_together_on_neacrp_a2() {
+        let run = |p: Params| {
+            let base = Params {
+                th_model: crate::types::ThModel::Hem,
+                nodalupd: 20,
+                ..p
+            };
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpa2::neacrpa2(&base);
+            crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("A2 on the hem path should run")
+        };
+
+        // Only the CHF switches differ; the operator correction stays on in
+        // both arms so the neutronics is identical.
+        let as_written = run(Params {
+            w3_form: W3Form::Reference,
+            hot_channel_search: crate::types::HotChannelSearch::Reference,
+            ..Default::default()
+        });
+        let corrected = run(Params::default());
+
+        assert_eq!(
+            as_written.k_eff, corrected.k_eff,
+            "the CHF post-processing must not feed back into the solve"
+        );
+
+        let peak = |c: &Chf| c.chf.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let limiting = |c: &Chf| {
+            c.dnbr
+                .iter()
+                .cloned()
+                .filter(|d| *d > 0.0)
+                .fold(f64::INFINITY, f64::min)
+        };
+
+        for (label, out) in [("as written", &as_written), ("corrected", &corrected)] {
+            eprintln!(
+                "{label:<12} channel analysed {:?}, true peak {:?}{}",
+                out.chf_channel.analysed,
+                out.chf_channel.true_peak,
+                if out.chf_channel.misidentified() { "  <- WRONG CHANNEL" } else { "" }
+            );
+            eprintln!(
+                "             peak CHF {:.4} W/cm2, limiting DNBR {:.4}",
+                peak(&out.chf),
+                limiting(&out.chf)
+            );
+        }
+        eprintln!();
+        eprintln!(
+            "reported margin changes by {:+.1}% ({:.4} -> {:.4})",
+            (limiting(&corrected.chf) / limiting(&as_written.chf) - 1.0) * 100.0,
+            limiting(&as_written.chf),
+            limiting(&corrected.chf)
+        );
+
+        // The corrected arm must at least be self-consistent about its channel.
+        assert!(
+            !corrected.chf_channel.misidentified(),
+            "the corrected search must analyse the channel it found"
+        );
     }
 }

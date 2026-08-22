@@ -250,6 +250,21 @@ pub struct TransientOutput {
     pub termination: Termination,
     /// How many power iterations phase 2 needed.
     pub reequilibrate_iterations: usize,
+    /// **Whether Phase-2 re-equilibration actually converged** — defect C7.
+    ///
+    /// The reference runs its 5000-iteration power iteration and carries on
+    /// with whatever it holds when the counter runs out, with no error and no
+    /// flag, so a caller cannot tell a re-equilibrated state from an abandoned
+    /// one. **The iteration and its result are unchanged**; this is the
+    /// verdict the reference does not record.
+    ///
+    /// `false` means the transient started from a state that is not a solution
+    /// of the operator it is about to be marched with — which is precisely the
+    /// inconsistency Phase 2 exists to remove.
+    pub reequilibrate_converged: bool,
+    /// The final relative fission-source residual from that loop, against a
+    /// tolerance of [`defaults::REEQUILIBRATE_TOL`]. Defect C7.
+    pub reequilibrate_residual: f64,
 }
 
 /// Radial power map of one **active-core** axial block.
@@ -507,6 +522,9 @@ pub fn thdiffusion_solvertimexyz(
     let mut fs = sigma.f.mul_vec(&phi);
     let fsnorm0: f64 = fs.iter().sum();
     let mut reequilibrate_iterations = 0usize;
+    // Defect C7 — see `reequilibrate_converged`.
+    let mut reequilibrate_converged = false;
+    let mut reequilibrate_residual = f64::INFINITY;
     for it in 1..=defaults::REEQUILIBRATE_ITER {
         reequilibrate_iterations = it;
         let rhs: Vec<f64> = fs.iter().map(|x| x / k0).collect();
@@ -526,7 +544,9 @@ pub fn thdiffusion_solvertimexyz(
         phi = phinew;
         fs = fsnew;
         k0 = k0new;
+        reequilibrate_residual = resid;
         if resid < defaults::REEQUILIBRATE_TOL && kres < defaults::REEQUILIBRATE_TOL {
+            reequilibrate_converged = true;
             break;
         }
     }
@@ -1001,5 +1021,7 @@ pub fn thdiffusion_solvertimexyz(
         timescheme: params.timescheme,
         termination,
         reequilibrate_iterations,
+        reequilibrate_converged,
+        reequilibrate_residual,
     })
 }

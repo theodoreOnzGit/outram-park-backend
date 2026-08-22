@@ -417,8 +417,53 @@ Implementation Criteria.* PhD thesis, UC Berkeley.
   advanced reactors. Context for the digital-twin engine's intended-use
   boundary — note RESPONSIBLE_USE.md forbids operational deployment.
 
+**`1991finnemann-neacrp-l-335`** — Finnemann, Herbert and Galati, Aldo (1991).
+*NEACRP 3-D LWR Core Transient Benchmark: Final Specifications.*
+NEACRP-L-335 (Revision 1), OECD Nuclear Energy Agency, October 1991 (January
+1992). Scanned committee document, 75 pages, with a February 1992 Siemens/KWU
+covering letter bound in front as an addendum.
+- *Licence:* **none stated.** The document carries **no copyright line, no
+  licence and no distribution statement** anywhere in its front matter — title
+  pages, covering letter and introduction were all checked. It is a scanned
+  NEACRP committee paper bearing an NEA Data Bank routing stamp.
+- *Tier decision:* **proprietary**, on the archive's standing "unsure means
+  proprietary" rule. The document is reported to be publicly available online,
+  but per `DATA_POLICY.md` public hosting grants no redistribution rights and
+  the tier is decided from the document itself, not from where it was found.
+  **Flip to `open/` only against an explicit licence statement**, not against
+  availability.
+- *Good for:* the **source specification for the NEACRP cases in `bedok`** —
+  PWR control-assembly ejection (A1/A2) and BWR case D1 cold water injection /
+  E1 core pressurisation. Section 2 covers the reference PWR, section 5 the
+  reference BWR, sections 3/6 the problems and 4/7 the output requested.
+- *Used by:* `crates/bedok`, and it settled defect-register entries **K9**
+  (withdrawn) and **K8** (downgraded) on 2026-08-22. Section 5.3 defines the
+  BWR cross sections as
+  `Sigma = Sigma_0 + Sigma_rho*(rho - rho_0) + Sigma_T*(sqrt(T) - sqrt(T_0))`
+  — two derivative terms, water density and sqrt(Doppler temperature) — and
+  section 5.8 repeats it in prose, so the absence of a coolant-temperature
+  feedback table in `neacrpd1.m` is the specification, not an omission.
+  Section 5.3 also places control and burnable absorbers *inside* the
+  compositions for the BWR, which is why its control-rod section is
+  legitimately empty where the PWR half carries a separate `DeltaSigma_CA`
+  overlay (Tables 2.5.1/2.5.2). Pinned by
+  `neacrpd1::tests::k9_the_feedback_channels_match_the_benchmark_specification`.
+- *Extraction note:* `kovan lit import`'s metadata extractor got **five of six
+  fields wrong** — year 1999 (a scan artefact; the document says October 1991),
+  slug `1999neacrp` from that year, an empty author list, `document_type:
+  Other`, and a title that concatenated the real title with both authors'
+  names and affiliations separated by literal `<br>`. All corrected from the
+  title page; `lit bibtex` then round-trips cleanly. The extracted
+  `markdown_body` (44,403 chars) is usable. Worth filing against the extractor
+  alongside `op-szai`.
+
 ## Librarian history
 
+- **2026-08-22** — `1991finnemann-neacrp-l-335` catalogued (proprietary,
+  no licence statement in the document). Imported to settle `bedok` defect
+  K9; five of six extracted metadata fields were wrong and were corrected
+  from the title page. `bn` is not installed on this clone, so the
+  extractor defect is recorded here rather than filed as a bead.
 - **2026-08-11** — full pass: staging cleared (two new documents catalogued,
   eight SHA-verified duplicates deleted); metadata defects fixed across the
   archive (furniture titles, scan-date years, missing hashes, wrong slugs);

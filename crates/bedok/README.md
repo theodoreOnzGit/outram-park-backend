@@ -140,6 +140,26 @@ parity cannot validate it. Each correction needs before/after numbers and a
 justification that does not appeal to the reference — benchmark agreement, or a
 physical argument. One at a time, never in the same change as a substitution.
 
+### The correction stage has begun (2026-08-21)
+
+The translation stage is finished and every runnable case has been compared
+against the running MATLAB, so the precondition for correcting anything is met:
+a disagreement can now be attributed, because parity was established first.
+
+Corrections live behind an explicit switch on `Params`, and **a correction that
+is on by default means this crate no longer reproduces the MATLAB on the cases
+it touches.** To get the reference's numbers back, build from
+`Params::reference_faithful()`, which turns every correction off; that is what
+the MATLAB-parity tests do, and it is the one place to update when a new
+correction lands.
+
+| Correction | Switch | Default | Cases affected |
+|---|---|---|---|
+| Defects G1/G2/G3 — the diffusion face coupling and `gradterms` | `Params::gradd_form` | `GradDForm::Conservative` | NEACRP A1/A2 only; **bit-exact no-op** on IAEA-3D and NEACRP D1, whose meshes are uniform |
+| Defects T5/T6 — the W-3 `K4` subcooling enthalpy | `Params::w3_form` | `W3Form::Published` | The reported CHF and DNBR only; does not feed back into the solve |
+| Defects C2/T4 — `highy = ix` in the hottest-channel search | `Params::hot_channel_search` | `HotChannelSearch::Correct` | The reported CHF and DNBR only |
+| Defects T9/T13 — `fueltempavg` aliased to the Doppler temperature | `Params::fueltemp_average` | `FuelTempAverage::VolumeWeighted` | The reported average fuel temperature only; **the Doppler temperature still drives all feedback**, per NEACRP-L-335 sections 2.5/5.5 |
+
 Defects found so far:
 
 | Module | Defect |

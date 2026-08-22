@@ -168,6 +168,20 @@ pub struct BoronOutput {
     ///
     /// Negative: boron is an absorber, so more of it lowers `k_eff`.
     pub slope_pcm_per_ppm: f64,
+    /// **How many bootstrap cold solves hit their 8000-iteration cap without
+    /// converging** — defect C7.
+    ///
+    /// The reference's cold power iteration returns whatever it holds when the
+    /// counter runs out, with no error and no flag, so the bootstrap can build
+    /// its starting state out of eigenvalues that are not solutions and the
+    /// search then hunts around it. **The iteration is unchanged**; this
+    /// counts the abandoned ones.
+    ///
+    /// `0` when the bootstrap was not needed, which is the normal case since
+    /// the stage-2 corrections landed — see
+    /// `the_search_finds_a_critical_boron_on_the_pwr_case`, which now reports
+    /// `bootstrapped == false`.
+    pub cold_solves_not_converged: usize,
     /// `output.scalar_flux` at the critical state.
     pub scalar_flux: Vec<f64>,
     /// `output.fission_source` — `sigma.f * phi`.
@@ -257,7 +271,7 @@ fn eigsolve_cold(
     boron: f64,
     nodalterms: &mut Array2<f64>,
     buck_cache: &mut crate::calc_bucklingxyz::BucklingCache,
-) -> Result<(f64, Vec<f64>, Vec<f64>)> {
+) -> Result<(f64, Vec<f64>, Vec<f64>, ColdSolveVerdict)> {
     let mut p = params.clone();
     p.boron = boron;
 
@@ -295,6 +309,12 @@ fn eigsolve_cold(
     let mut fs = sigma.f.mul_vec(&phi);
     let fsn0: f64 = fs.iter().sum();
     let mut k = k_eff;
+    // Defect C7: the reference exits this loop on the cap with no error and no
+    // flag, so a non-converged eigenvalue is indistinguishable from a
+    // converged one. The iteration is unchanged; what is added is the verdict.
+    let mut converged = false;
+    let mut last_res = f64::INFINITY;
+    let mut last_kres = f64::INFINITY;
     for _ in 0..defaults::COLD_POWER_ITER {
         let rhs: Vec<f64> = fs.iter().map(|x| x / k).collect();
         let mut phin = crate::fixinfnan::fixinfnan(&dm.solve(&rhs), false);
@@ -313,11 +333,35 @@ fn eigsolve_cold(
         phi = phin;
         fs = fsn;
         k = kn;
+        last_res = res;
+        last_kres = kres;
         if res < 1e-8 && kres < 1e-9 {
+            converged = true;
             break;
         }
     }
-    Ok((k, phi, fs))
+    Ok((k, phi, fs, ColdSolveVerdict { converged, iterations: defaults::COLD_POWER_ITER, residual: last_res, k_eff_residual: last_kres }))
+}
+
+/// Whether the cold power iteration actually converged — defect C7.
+///
+/// The reference runs its 8000-iteration loop and returns whatever it holds
+/// when the counter runs out, with no error and no flag, so a caller cannot
+/// tell a converged eigenvalue from an abandoned one. This carries the verdict
+/// alongside the answer. **The answer itself is unchanged.**
+#[derive(Clone, Copy, Debug)]
+pub struct ColdSolveVerdict {
+    /// Whether both tolerances were met before the cap.
+    ///
+    /// **`false` means the eigenvalue and flux are not solutions**, merely
+    /// where the iteration happened to stop.
+    pub converged: bool,
+    /// The cap the loop was allowed.
+    pub iterations: usize,
+    /// The final relative fission-source residual, `1e-8` to pass.
+    pub residual: f64,
+    /// The final relative `k_eff` change, `1e-9` to pass.
+    pub k_eff_residual: f64,
 }
 
 /// Under-relax the four T-H fields the reference relaxes, in place.
@@ -373,6 +417,8 @@ pub fn criticalboron_xyz(
     // Phase 0: coupled steady state at the starting boron
     // =================================================================== //
     let mut bootstrapped = false;
+    // Defect C7 — see `BoronOutput::cold_solves_not_converged`.
+    let mut cold_solves_not_converged = 0usize;
     let (mut th, mut phi, mut k_eff) = match initial_steady {
         Some(s) => {
             let flux: Vec<f64> = (0..s.scalar_flux.rows()).map(|i| s.scalar_flux.get(i, 0)).collect();
@@ -433,7 +479,7 @@ pub fn criticalboron_xyz(
                 let mut fterrb = f64::INFINITY;
 
                 for _ in 0..defaults::MAX_BOOTSTRAP {
-                    let (k, p, fsb) = eigsolve_cold(
+                    let (k, p, fsb, cold) = eigsolve_cold(
                         params,
                         geometry,
                         sigmavaluesref,
@@ -448,6 +494,11 @@ pub fn criticalboron_xyz(
                     )?;
                     keffb = k;
                     phib = p;
+                    // Defect C7: an abandoned cold solve is silent in the
+                    // reference. Counted rather than ignored.
+                    if !cold.converged {
+                        cold_solves_not_converged += 1;
+                    }
                     guard(keffb, params.boron, 0.5, 1.5, "bootstrap")?;
 
                     let pwr: Vec<f64> = fsb.iter().zip(&vig).map(|(a, b)| a * b).collect();
@@ -578,6 +629,7 @@ pub fn criticalboron_xyz(
     let pwrdens: Vec<f64> = fs.iter().zip(&vig).map(|(a, b)| a * b).collect();
 
     Ok(BoronOutput {
+        cold_solves_not_converged,
         boron,
         k_eff,
         boron_history,
@@ -781,7 +833,7 @@ mod tests {
         ];
 
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpa2::neacrpa2(&Params::default());
+            crate::neacrpa2::neacrpa2(&Params::reference_faithful());
         let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
         let es = maxix * maxiy * maxiz;
 
@@ -950,7 +1002,7 @@ mod tests {
         let base = Params {
             th_model: crate::types::ThModel::Hem,
             nodalupd: 20,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -1062,7 +1114,7 @@ mod tests {
     fn x1_per_pass_trace_of_the_coupled_loop() {
         let base = Params {
             th_model: crate::types::ThModel::Hem,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -1160,12 +1212,12 @@ mod tests {
             ("A2 (15.5 MPa)", crate::neacrpa2::neacrpa2(&Params {
                 nodalupd: 1_000_000_000,
                 th_model: crate::types::ThModel::Hem,
-                ..Default::default()
+                ..Params::reference_faithful()
             })),
             ("D1 (6.7 MPa)", crate::neacrpd1::neacrpd1(&Params {
                 nodalupd: 1_000_000_000,
                 th_model: crate::types::ThModel::Hem,
-                ..Default::default()
+                ..Params::reference_faithful()
             })),
         ] {
             let (params, geometry, th, whichsigma, sigmavalues, feedback) = built;
@@ -1277,7 +1329,7 @@ mod tests {
 
         eprintln!("{:>12}  {:>16}  {:>12}  {:>10}", "nodalupd", "k_eff", "residual", "iters");
         for nodalupd in [1_000_000_000usize, 200, 100, 50, 20, 6] {
-            let base = Params { nodalupd, ..Default::default() };
+            let base = Params { nodalupd, ..Params::reference_faithful() };
             let (params, geometry, th, whichsigma, sigmavalues, feedback) =
                 crate::neacrpa2::neacrpa2(&base);
 
@@ -1380,7 +1432,7 @@ mod tests {
 
         let base = Params {
             nodalupd: 1_000_000_000,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -1516,9 +1568,14 @@ mod tests {
     /// chain itself (`kvis`, `pran`, `tcon` units) and the rod-surface
     /// temperature `fueltemp(:, end)`.
     ///
-    /// **Why D1 works and A2 does not is still open** — D1's `hem` path
-    /// heats its coolant from 547 K to saturation. The pressure (6.7 vs
-    /// 15.5 MPa) and the rod geometry both differ.
+    /// **Closed 2026-08-19.** "Why D1 works and A2 does not" had a single
+    /// answer, and it was not in the Nusselt chain this note was working
+    /// towards: **defect Z1**, the silently rounded axial mesh. A2 grades its
+    /// mesh and so was meshing 428 cm against a `Ztot` of 427.3, while D1's
+    /// uniform 30 cm layers made it far less sensitive. With Z1 reproduced —
+    /// and `nodalupd = 20` for defect N1 — A2 matches the MATLAB exactly. The
+    /// candidate list above (`kvis`, `pran`, `tcon` units, the rod-surface
+    /// temperature) was **not** the cause and needs no further pursuit.
     #[test]
     #[ignore = "X1 bisection; a coupled solve, several minutes"]
     fn x1_converged_th_state_against_the_matlab() {
@@ -1534,7 +1591,7 @@ mod tests {
 
         let base = Params {
             th_model: crate::types::ThModel::Hem,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -1656,7 +1713,7 @@ mod tests {
         ];
 
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpd1t::neacrpd1t(&Params::default());
+            crate::neacrpd1t::neacrpd1t(&Params::reference_faithful());
 
         let out = crate::thdiffusion_solvertimexyz::thdiffusion_solvertimexyz(
             &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, None, None,
@@ -1749,7 +1806,7 @@ mod tests {
         const M_FLUXMAX: f64 = 9.9113901351;
         const M_PWRSUM: f64 = 8.1243000000e5;
 
-        let params = Params { nodalupd: 6, ..Default::default() };
+        let params = Params { nodalupd: 6, ..Params::reference_faithful() };
         let (params, geometry, whichsigma, sigmavalues) = crate::iaea3ds::iaea3ds(&params);
         let out = crate::sanodaldiffusion_solverxyz::sanodaldiffusion_solverxyz(
             &geometry, &params, &sigmavalues, &whichsigma, None, None,
@@ -1841,7 +1898,7 @@ mod tests {
         let base = Params {
             th_model: crate::types::ThModel::Hem,
             nodalupd: 20,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -1982,7 +2039,7 @@ mod tests {
         ];
 
         let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpa1t::neacrpa1t(&Params::default());
+            crate::neacrpa1t::neacrpa1t(&Params::reference_faithful());
         params.th_model = crate::types::ThModel::Hem;
         params.nodalupd = 20;
         params.tend = Some(0.15); // keeps the case's own 1 ms grid, truncated
@@ -2126,7 +2183,7 @@ mod tests {
         ];
 
         let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpa2t::neacrpa2t(&Params::default());
+            crate::neacrpa2t::neacrpa2t(&Params::reference_faithful());
         params.th_model = crate::types::ThModel::Hem;
         params.nodalupd = 20;
         params.tend = Some(0.15);
@@ -2279,7 +2336,7 @@ mod tests {
         ];
 
         let (mut params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpd1t::neacrpd1t(&Params::default());
+            crate::neacrpd1t::neacrpd1t(&Params::reference_faithful());
         // The generic uniform 10 ms grid, as the MATLAB run used.
         params.tend = Some(0.5);
         params.tgrid = None;
@@ -2435,7 +2492,7 @@ mod tests {
     #[ignore = "MATLAB parity on D1; a coupled solve, several minutes"]
     fn matlab_parity_neacrpd1_bwr() {
         // ---- 1. the mesh (defect Z1) ----
-        let (params0, geometry0, ..) = crate::neacrpd1::neacrpd1(&Params::default());
+        let (params0, geometry0, ..) = crate::neacrpd1::neacrpd1(&Params::reference_faithful());
         let (_, _, maxiz) = crate::handle3dcoords::handle3dcoords(&params0);
         let zsum: f64 = geometry0.lz[..maxiz].iter().sum();
         eprintln!("D1 mesh: Lz(1:3) = {} {} {}   sum = {zsum}   (MATLAB: 30 30 30, 420)",
@@ -2454,7 +2511,7 @@ mod tests {
         eprintln!("{:>12}  {:>16}  {:>16}  {:>10}", "nodalupd", "this port", "MATLAB", "pcm");
         let mut worst_static = 0.0f64;
         for (nu, want) in MATLAB_STATIC {
-            let base = Params { nodalupd: nu, ..Default::default() };
+            let base = Params { nodalupd: nu, ..Params::reference_faithful() };
             let (params, geometry, th, whichsigma, sigmavalues, feedback) =
                 crate::neacrpd1::neacrpd1(&base);
             let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
@@ -2509,7 +2566,7 @@ mod tests {
         let base = Params {
             th_model: crate::types::ThModel::Hem,
             nodalupd: 20,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpd1::neacrpd1(&base);
@@ -2590,10 +2647,12 @@ mod tests {
     /// at 6 the inner eigensolve diverges in both codes, so the coupled
     /// trajectories are chaotic and land on different attractors.
     ///
-    /// **This is a genuine defect in this port, not a reference defect**, and
-    /// it is left failing rather than pinned: a pinned test would enshrine the
-    /// wrong answer. It is `#[ignore]`d so it does not break the suite, and it
-    /// must pass once the bug is found.
+    /// **Resolved.** While the disagreement stood, this test was deliberately
+    /// left failing rather than pinned — a pinned test would have enshrined
+    /// the wrong answer — and it was `#[ignore]`d only so it did not break the
+    /// suite. Both causes were then found (Z1, then N1) and it **passes
+    /// exactly**, as the table above records. It stays `#[ignore]`d because a
+    /// coupled A2 solve is minutes, not because anything is outstanding.
     ///
     /// **It also corrects an earlier conclusion.** The two-fluid comparison
     /// showed both codes diverging with fuel-temperature residuals agreeing to
@@ -2633,7 +2692,7 @@ mod tests {
         let base = Params {
             th_model: crate::types::ThModel::Hem,
             nodalupd: 20,
-            ..Default::default()
+            ..Params::reference_faithful()
         };
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
             crate::neacrpa2::neacrpa2(&base);
@@ -2748,7 +2807,7 @@ mod tests {
     #[ignore = "X1 bisect; seven coupled solves, ~20 min"]
     fn x1_bisect_which_feedback_channel_destabilises_the_loop() {
         let (base_params, geometry, th, whichsigma, sigmavalues, full) =
-            crate::neacrpa2::neacrpa2(&Params::default());
+            crate::neacrpa2::neacrpa2(&Params::reference_faithful());
 
         let only = |pick: &str| -> FeedbackTables {
             let mut f = FeedbackTables::default();
@@ -2833,7 +2892,7 @@ mod tests {
     /// # Methodology
     ///
     /// Two runs, both with
-    /// [`crate::types::Params::gradd_conservative`] enabled:
+    /// [`crate::types::GradDForm`] enabled:
     ///
     /// 1. **IAEA-3D** — a *uniform* mesh, so the correction is provably a
     ///    no-op. `k_eff` must come back **exactly** 1.029084. This is the
@@ -2848,48 +2907,59 @@ mod tests {
     ///
     /// `#[ignore]`d: a coupled solve, several minutes.
     ///
-    /// # Results — measured 2026-08-18
+    /// # Results — measured 2026-08-22 (REVERSING a 2026-08-18 conclusion)
     ///
-    /// **Control passed.** IAEA-3D with the correction enabled converges to
+    /// **Control passed.** IAEA-3D with the correction on converges to
     /// `k_eff = 1.029084` — unchanged, as the uniform mesh requires.
     ///
-    /// **The hypothesis is REFUTED.** A2's Phase-0 solve does not converge with
-    /// the correction, and is *worse* than without it:
+    /// **A2's Phase-0 solve, at the case's default nodal interval:**
     ///
-    /// | `gradd_conservative` | termination | `k_eff` | first passes |
+    /// | operator | termination | `k_eff` | usable by Phase 0? |
     /// |---|---|---|---|
-    /// | `false` | IterationCap at 51 | 45.78 | recovers to a 1.0355 plateau over passes 7-15, then diverges |
-    /// | `true` | IterationCap at 51 | 1813.67 | **never plateaus** — 3996, 1592, 328, 4187, ... from pass 2 |
+    /// | reference (G1/G2/G3 present) | **IterationCap at 51** | 184.52 | no |
+    /// | conservative (corrected) | **Converged in 10** | 1.026437 | **yes** |
     ///
-    /// **Interpretation.** Correcting the operator does not fix X1, so the
-    /// graded-mesh inconsistency is **not** its cause. That is worth stating
-    /// plainly because the hypothesis was mine and it was wrong.
+    /// The corrected arm's trace settles immediately —
+    /// `1.0000, 1.0251, 1.0262, 1.0262, ...` — with a fission-source residual
+    /// of 2.4e-5 and a fuel-temperature residual of 0.32 K. The reference arm
+    /// wanders over four orders of magnitude and never recovers:
+    /// `1.0000, 87.24, 2069.48, 136.30, 381.64, ...`.
     ///
-    /// The result is more informative than a null one, though. With the
-    /// *reference* operator the loop finds a plateau and holds it for nine
-    /// passes before losing it; with the *more accurate* operator it never
-    /// finds one at all. Whatever destabilises this iteration is therefore not
-    /// operator accuracy — a better-conditioned discretisation made the
-    /// symptom worse, not better.
+    /// # This reverses what this test concluded on 2026-08-18
     ///
-    /// That leaves the coupled driver itself as the remaining suspect for X1,
-    /// consistent with the second sub-question already recorded: **why does
-    /// [`crate::thdiffusion_solverxyz`] fail on A2 at all?** A1, at hot zero
-    /// power where feedback is effectively off, converges in 7 passes on the
-    /// same core and the same operator. The distinguishing feature is live
-    /// feedback at full power, not the mesh.
+    /// It then recorded: *"The hypothesis is REFUTED. A2's Phase-0 solve does
+    /// not converge with the correction, and is worse than without it"* —
+    /// neither arm converged, and the corrected one looked the wilder of the
+    /// two (never plateauing, against a 1.0355 plateau over passes 7-15). That
+    /// finding was carried into the defect register as evidence **against**
+    /// defaulting the correction on.
     ///
-    /// It is also a concrete argument against defaulting
-    /// [`crate::types::Params::gradd_conservative`] to `true`: on the one case
-    /// where it changes anything, it degrades coupled convergence. See
-    /// `docs/bedok-reference-defects.md`, "Pending maintainer decisions".
+    /// **It was wrong, and the reason is defect G3.** At the time the
+    /// correction was applied to the diffusion operator but not to
+    /// `gradterms`, leaving the two more inconsistent than the reference had
+    /// them — so the SA-nodal cancellation stopped working and the power
+    /// distribution was corrupted. What was being measured was a half-applied
+    /// correction, not the correction. With G1, G2 and G3 corrected together
+    /// the conclusion inverts: the corrected operator is the one that
+    /// converges.
+    ///
+    /// **What the original hypothesis asked is still answered "no", though.**
+    /// G1 was never the cause of X1 — X1's causes were defect **Z1** and
+    /// defect **N1**, both since found. The correction improves this case's
+    /// Phase-0 convergence markedly, but that is a separate and later finding,
+    /// not a vindication of the original guess.
+    ///
+    /// The lesson worth keeping: **a negative result from a partially applied
+    /// change is not a result about the change.**
     #[test]
     #[ignore = "G1/X1 experiment; a coupled solve, several minutes"]
     fn does_the_g1_correction_fix_x1() {
+        use crate::types::GradDForm;
+
         // --- control: uniform mesh, must not move ---
         let corrected = Params {
             nodalupd: 6,
-            gradd_conservative: true,
+            gradd_form: GradDForm::Conservative,
             ..Default::default()
         };
         let (p, g, w, sv) = crate::iaea3ds::iaea3ds(&corrected);
@@ -2909,7 +2979,7 @@ mod tests {
         // --- the experiment: A2's Phase-0 solve, graded mesh ---
         for conservative in [false, true] {
             let base = Params {
-                gradd_conservative: conservative,
+                gradd_form: if conservative { GradDForm::Conservative } else { GradDForm::Reference },
                 ..Default::default()
             };
             let (params, geometry, th, whichsigma, sigmavalues, feedback) =
@@ -3009,8 +3079,8 @@ mod tests {
     #[ignore = "X1 diagnostic; two coupled solves, several minutes"]
     fn x1_what_the_phase_zero_solve_does_on_a2_versus_a1() {
         for (name, built) in [
-            ("A2 (full power)", crate::neacrpa2::neacrpa2(&Params::default())),
-            ("A1 (HZP)", crate::neacrpa1t::neacrpa1t(&Params::default())),
+            ("A2 (full power)", crate::neacrpa2::neacrpa2(&Params::reference_faithful())),
+            ("A1 (HZP)", crate::neacrpa1t::neacrpa1t(&Params::reference_faithful())),
         ] {
             let (params, geometry, th, whichsigma, sigmavalues, feedback) = built;
             eprintln!("===== {name} =====");
@@ -3121,7 +3191,7 @@ mod tests {
     #[ignore = "expensive X1 diagnostic (~10 min); run deliberately"]
     fn the_search_on_case_a1_gives_a_second_data_point_for_x1() {
         let (params, geometry, th, whichsigma, sigmavalues, feedback) =
-            crate::neacrpa1t::neacrpa1t(&Params::default());
+            crate::neacrpa1t::neacrpa1t(&Params::reference_faithful());
 
         let out = criticalboron_xyz(
             &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, None, None,
@@ -3173,68 +3243,54 @@ mod tests {
     /// like-for-like, and the graded-mesh defect G1 sits underneath both. What
     /// the run does is report where this port lands, so the number exists.
     ///
-    /// # Results — measured 2026-08-18
+    /// # Results — measured 2026-08-22 (superseding a 2026-08-18 run)
     ///
-    /// **Converged**, in 4 secant + 6 coupled iterations.
+    /// **Converged**, in 4 secant + 5 coupled iterations, **without the
+    /// bootstrap**.
     ///
     /// | | |
     /// |---|---|
-    /// | started at | 1000.00 ppm (`k_eff` = 1.0249) |
-    /// | **critical boron** | **1253.29 ppm** |
-    /// | `k_eff` there | 1.000001 |
-    /// | boron worth slope | **-9.62 pcm/ppm** |
-    /// | Phase 0 needed the bootstrap | **yes** |
+    /// | started at | 1000.00 ppm (`k_eff` = 1.0153) |
+    /// | **critical boron** | **1153.13 ppm** |
+    /// | `k_eff` there | 0.999999 |
+    /// | boron worth slope | **-9.87 pcm/ppm** |
+    /// | Phase 0 needed the bootstrap | **no** |
+    /// | this code's own quoted value | 1139.01 ppm |
+    /// | published benchmark (PANTHER) | 1160.6 ppm |
     ///
-    /// **Two findings, and the second is a problem.**
+    /// **Interpretation.** Two things changed since the 2026-08-18 run, and
+    /// both are improvements rather than drift.
     ///
-    /// *First, the machinery works.* The search drove `|k_eff - 1|` from
-    /// 2.49e-2 to 7.87e-7 and met both convergence criteria. The measured
-    /// boron worth of -9.62 pcm/ppm is close to the reference's own
-    /// -9 pcm/ppm seed and is a normal PWR value, so the slope the secant
-    /// measures is physically sensible.
+    /// *The search no longer needs the bootstrap.* It previously reported
+    /// `bootstrapped == true` because Phase 0's standard coupled solve did not
+    /// produce a usable state on this case; it now converges directly. That
+    /// removes the concern recorded here at the time that Phases 1 and 2 were
+    /// searching around a state the standard solver would not have reached.
     ///
-    /// Note `bootstrapped == true`: the standard coupled solver **did not**
-    /// produce a usable Phase-0 state on this case and the fallback loop was
-    /// needed. That is exactly the cold-start failure the reference's
-    /// comments describe for this heavily-rodded configuration, so the
-    /// bootstrap path is not dead code — it is the path case A2 takes.
+    /// *The answer moved from 1253.29 to 1153.13 ppm*, i.e. from **+114 ppm
+    /// above** this code's own 1139.01 to **+14 ppm above** it, and from
+    /// +92.7 ppm above the published 1160.6 to **-7.5 ppm below** it. The
+    /// -1100 pcm "open discrepancy" recorded here on 2026-08-18 was **X1**,
+    /// and it is resolved: its causes were defect **Z1** (the silently rounded
+    /// axial mesh) and defect **N1** (the unstable default nodal-update
+    /// interval). None of the three candidates listed at the time — an
+    /// unlike-for-like comparison, the bootstrap state, or a translation error
+    /// in the feedback chain — was the cause.
     ///
-    /// *Second, the answer disagrees with the reference's own.*
+    /// **An independent corroboration falls out of this.** The G1/G2/G3
+    /// correction work estimated A2's corrected critical boron at **~1152.5
+    /// ppm** from a two-point secant through coupled solves at 1000 and 1100
+    /// ppm (see `crate::makegrad_dxyz`). This full search, which uses a
+    /// different algorithm and a different starting point, lands at **1153.13
+    /// ppm** — 0.6 ppm apart. Two independent routes agreeing to that
+    /// tolerance is worth more than either number alone.
     ///
-    /// | source | ppm |
-    /// |---|---|
-    /// | **this port** | **1253.29** |
-    /// | the reference MATLAB | 1139.01 |
-    /// | published benchmark (PANTHER) | 1160.6 |
+    /// The remaining **-7.5 ppm against PANTHER** is unexplained and is not
+    /// attributed here.
     ///
-    /// That is **+114 ppm above the reference**, which at the measured
-    /// -9.62 pcm/ppm is roughly **1100 pcm** of reactivity. It is far too
-    /// large to be round-off or tolerance choice: this port computes a
-    /// materially more reactive core than the MATLAB does, and needs more
-    /// boron to hold it critical.
-    ///
-    /// **This is an open discrepancy and it is not attributed.** Candidates,
-    /// none eliminated:
-    ///
-    /// - **The comparison may not be like-for-like.** The 1139.01 figure
-    ///   came from `test_critboron3.m`, which is not in the snapshot, so its
-    ///   starting point, tolerances and T-H model are unknown. It may not
-    ///   have taken the bootstrap path this run did.
-    /// - **The bootstrap state.** Phase 0 fell back here, and the bootstrap
-    ///   converges a *different* coupled state than the standard solver
-    ///   would; Phases 1 and 2 then search around it.
-    /// - **A translation error somewhere in the feedback chain.** Case A2 is
-    ///   the first to drive all five channels, and boron is one of the three
-    ///   this crate had never exercised before `neacrpa2` landed.
-    ///
-    /// Defect G1 (the graded-mesh face coupling) is **not** a candidate on
-    /// its own: the reference carries it identically, so it cannot explain a
-    /// difference *between* the two.
-    ///
-    /// The test asserts only what is defensible — a negative slope, movement
-    /// toward criticality, and a plausible PWR band. **It deliberately does
-    /// not assert agreement with 1139.01 or 1160.6**, because that agreement
-    /// does not exist and pinning a wrong number would hide it.
+    /// The test still asserts only what is defensible — a negative slope,
+    /// movement toward criticality, and a plausible PWR band — and
+    /// deliberately does **not** pin agreement with 1139.01 or 1160.6.
     #[test]
     fn the_search_finds_a_critical_boron_on_the_pwr_case() {
         // `th_model = Hem`: the default two-fluid path cannot run at all in

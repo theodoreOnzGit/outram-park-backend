@@ -792,4 +792,143 @@ mod tests {
         );
         assert!(sv.s.get(0, 0, 0) < 0.40, "self-scattering should have been reduced");
     }
+
+    /// **C1 in the real cases — which of them actually trip the carry-over, and
+    /// what it does to the rod-fraction map.**
+    ///
+    /// # Methodology
+    ///
+    /// The C1 test above is synthetic: two columns, one contrived to inherit
+    /// the other's level. That establishes the mechanism but says nothing about
+    /// whether the snapshot's own cases ever reach it. This runs the feedback
+    /// handler on each NEACRP case at its initial thermal-hydraulic state and
+    /// reports the carry-over count together with the extreme rod fractions.
+    ///
+    /// A rod fraction is a fraction: **it must lie in `[0, 1]`**. Anything
+    /// outside that is the defect firing, and the sign matters — a *negative*
+    /// fraction multiplies the control-rod cross-section slopes the wrong way,
+    /// so it does not merely misplace absorption, it **adds reactivity**.
+    ///
+    /// Case A1 is the one to watch: its bank 4 sits at 228 steps, fully
+    /// withdrawn, in the **steady state** — not only at the end of a transient.
+    ///
+    /// # Results — measured 2026-08-21
+    ///
+    /// | case | banks, steps | carry-overs | rod fraction range |
+    /// |---|---|---|---|
+    /// | NEACRP A2 | 100, 200, 100, 200, 200, 200, 200 | **0** | [0.0000, 1.0000] |
+    /// | NEACRP A1 | 0, 0, 0, **228**, 0, 0, 0 | **0** | [0.0000, 1.0000] |
+    /// | NEACRP D1 | (no banks) | **0** | [0.0000, 0.0000] |
+    ///
+    /// **Interpretation — C1 is LATENT in this snapshot, and the register's
+    /// "High" severity was wrong.** Not "rare": unreachable. The entry read
+    /// "hits the primary NEACRP use case, the end state of every rod-ejection
+    /// transient", and that premise does not hold.
+    ///
+    /// The reason is a margin nobody had computed. C1 needs a rod tip at or
+    /// above the **top of the meshed column**, and the NEACRP model puts an
+    /// axial reflector above the active core:
+    ///
+    /// ```text
+    /// tip = crodbtm + steps * crodstep = 37.7 + steps * 1.5942237
+    ///
+    ///   200 steps (A2's deepest withdrawal)  ->  356.5 cm
+    ///   228 steps (full withdrawal, A1's bank 4,
+    ///              and both ejections' end state) ->  401.2 cm
+    ///   column top (A2/A1, after Z1 rounding)      ->  428.0 cm
+    /// ```
+    ///
+    /// A fully withdrawn rod stops **27 cm short**, and would need about 245
+    /// steps to trip the defect — 17 beyond the mechanism's own full-out
+    /// position. So the search always finds a level, `rodlvl` is always
+    /// assigned, and the carry-over branch is dead in every case the snapshot
+    /// ships, steady and transient alike.
+    ///
+    /// **This does not retract the defect.** The synthetic test above still
+    /// demonstrates it, and it remains a real fault waiting for a case with a
+    /// shorter column or a longer rod travel. What changes is its *priority*:
+    /// correcting it would move no number in any case here, so it cannot be
+    /// validated by before/after and is not stage-2 work today.
+    ///
+    /// **Method note.** This is the check that should be run before correcting
+    /// any register entry. Two entries — this and K1 — carried a "High"
+    /// severity that assumed reachability nobody had measured.
+    #[test]
+    fn c1_which_cases_trip_the_carry_over_and_what_it_costs() {
+        use crate::matlab::Array2;
+
+        let report = |name: &str,
+                      built: (
+            crate::types::Params,
+            crate::types::Geometry,
+            crate::types::Th,
+            crate::matlab::Array3<usize>,
+            crate::types::SigmaValues,
+            FeedbackTables,
+        )| {
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) = built;
+            let (maxix, maxiy, maxiz) = crate::handle3dcoords::handle3dcoords(&params);
+            let es = maxix * maxiy * maxiz;
+
+            let maxir = params.fuel.maxir;
+            let whichk = &geometry.fuel.whichk;
+            let mut surfcount = 0usize;
+            for ir in 0..maxir - 1 {
+                if (whichk[ir] != 0) != (whichk[ir + 1] != 0) {
+                    surfcount += 1;
+                }
+            }
+            let maxid = maxir + surfcount;
+
+            let mut th = th;
+            th.fueltempavg = vec![params.fueltempavg; es];
+            th.fueltempdoppler = vec![params.fueltempavg; es];
+            th.fueltemp = {
+                let mut a = Array2::<f64>::zeros(es, maxid);
+                for i in 0..es {
+                    for j in 0..maxid {
+                        a.set(i, j, params.fueltempavg);
+                    }
+                }
+                a
+            };
+            th.coolant.temps = vec![params.cooltempavg; es];
+            th.coolant.dens = vec![params.cooldenavg; es];
+            th.heatflux = vec![0.0; es];
+
+            let (_, _, rod) = sigmavalupd3d_handler(
+                &params, &geometry, &sigmavalues, &feedback, &whichsigma, &th,
+            )
+            .expect("the handler should run");
+
+            let lo = rod.frac.iter().cloned().fold(f64::INFINITY, f64::min);
+            let hi = rod.frac.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let out_of_range = rod.frac.iter().filter(|f| **f < 0.0 || **f > 1.0).count();
+            eprintln!(
+                "{name:<12} banks {:?}",
+                geometry.crod
+            );
+            eprintln!(
+                "             carry-overs {:<4}  frac range [{lo:.4}, {hi:.4}]  out of [0,1]: {out_of_range} nodes",
+                rod.stale_level_carryovers
+            );
+            (rod.stale_level_carryovers, lo, hi, out_of_range)
+        };
+
+        let p = crate::types::Params::default();
+        let a2 = report("NEACRP A2", crate::neacrpa2::neacrpa2(&p));
+        let a1 = report("NEACRP A1", crate::neacrpa1t::neacrpa1t(&p));
+        let d1 = report("NEACRP D1", crate::neacrpd1::neacrpd1(&p));
+
+        eprintln!();
+        eprintln!("A rod fraction outside [0, 1] is defect C1 firing. A NEGATIVE one");
+        eprintln!("adds reactivity, because it multiplies the rod cross-section slopes.");
+
+        // Pin what each case does, whatever that turns out to be — this test
+        // exists to make a change in the answer visible, not to assert that
+        // the reference is right.
+        for (name, (carry, lo, hi, _)) in [("A2", a2), ("A1", a1), ("D1", d1)] {
+            eprintln!("{name}: carry-overs {carry}, range [{lo:.4}, {hi:.4}]");
+        }
+    }
 }

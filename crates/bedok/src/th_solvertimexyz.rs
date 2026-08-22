@@ -48,6 +48,8 @@ use crate::fuelrodheattime_1dcylnd::fuelrodheattime_1dcylnd;
 use crate::matlab::{norm1, Array2, Array3};
 use crate::th_solverxyz::{RodReport, TMAX_FUEL_DEFAULT};
 use crate::types::{Geometry, Params, Th};
+use crate::th_solverxyz::{fuel_average, pellet_volume_weights};
+
 
 /// `th = th_solvertimexyz(params, geometry, th, whichsigma, pwrdens, thold, dt)`.
 ///
@@ -172,6 +174,7 @@ pub fn th_solvertimexyz(
     // ---- the rods ----
     let maxid = th.fueltemp.cols();
     let mut fueltemp = th.fueltemp.clone();
+    let pellet_weights = pellet_volume_weights(&geometry.fuel.lr, fueln);
     let mut fueltempavg = th.fueltempavg.clone();
     let mut fueltempdoppler = th.fueltempdoppler.clone();
     fueltempavg.resize(es, 0.0);
@@ -253,8 +256,17 @@ pub fn th_solvertimexyz(
                 for (j, t) in solved.iter().enumerate() {
                     fueltemp.set(idx, j, *t);
                 }
+                // The benchmark's Doppler temperature — NEACRP-L-335 sections
+                // 2.5 and 5.5, `T = (1-alpha)*T_centre + alpha*T_surface`.
+                // This is what drives the cross-section feedback, under every
+                // setting of `fueltemp_average`.
                 fueltempdoppler[idx] = (1.0 - alpha) * solved[0] + alpha * solved[fueln];
-                fueltempavg[idx] = fueltempdoppler[idx];
+                fueltempavg[idx] = fuel_average(
+                    params.fueltemp_average,
+                    &solved,
+                    &pellet_weights,
+                    fueltempdoppler[idx],
+                );
                 heatflux[idx] = hcoeff[idx] * (solved[maxid - 1] - temps[idx]);
                 report.solved += 1;
             }
