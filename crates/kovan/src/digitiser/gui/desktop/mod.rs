@@ -1,3 +1,4 @@
+mod csv_preview;
 mod pdf_reader;
 mod theme;
 
@@ -17,6 +18,7 @@ use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
 
+use csv_preview::draw_csv_preview;
 use pdf_reader::PdfReaderState;
 use theme::GuiTheme;
 
@@ -27,8 +29,8 @@ use theme::GuiTheme;
 /// plot-digitiser popup to attach to — see op-p17q, not yet implemented).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
-    #[default]
     Digitiser,
+    #[default]
     PdfReader,
 }
 
@@ -42,22 +44,53 @@ enum FileDialogTarget {
     Image,
     /// Picked path is opened in the PDF reader ([`PdfReaderState::open`]).
     Pdf,
+    /// Picked path becomes the dataset JSON export path (op-jtna).
+    JsonExport,
+    /// Picked path becomes the dataset CSV export path (op-jtna).
+    CsvExport,
+}
+
+impl FileDialogTarget {
+    /// Whether this target opens an existing file (`pick_file`) or names a
+    /// new one to write (`save_file`) — see [`DigitiseApp::open_picker`].
+    fn is_save(self) -> bool {
+        matches!(self, Self::JsonExport | Self::CsvExport)
+    }
+
+    /// The file-filter name (matching one of the names registered on
+    /// [`FileDialog`] in [`DigitiseApp::default`]) this target should default
+    /// to, so "Open PDF…" doesn't come up filtered to "Images" and
+    /// vice versa (op-nje6).
+    fn default_filter(self) -> &'static str {
+        match self {
+            Self::Image => "Images",
+            Self::Pdf => "PDF",
+            Self::JsonExport => "JSON",
+            Self::CsvExport => "CSV",
+        }
+    }
 }
 
 /// What a click on the image currently means. Closed set, enum-dispatched.
+///
+/// **The four axis-reference lines are no longer a `ClickMode` step
+/// (op-zfnh).** Previously calibrating meant cycling through
+/// `SetXRef1 -> SetXRef2 -> SetYRef1 -> SetYRef2`, one click each, with only
+/// the already-set lines drawn. Per GitHub issue #30 ("graphReader uses a
+/// persistent box rather than manually clicking the four coordinates"), all
+/// four lines now appear together as soon as an image loads (seeded at
+/// 10%/90% of the image extent — see [`DigitiseApp::load_image`]) and are
+/// draggable at any time, independent of `mode` — see
+/// [`DigitiseApp::ref_dragging`] and `image_panel`'s reference-line hit test.
+/// This keeps the existing axis-aligned [`crate::digitiser::calibration::PlotCalibration`]
+/// model (columns for x, rows for y); a parallelogram/skewed variant for
+/// off-centre plots is a separate, schema-affecting decision (tracked as
+/// op-vyb9), not implemented here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ClickMode {
-    /// Record the x-axis reference 1 pixel column.
-    SetXRef1,
-    /// Record the x-axis reference 2 pixel column.
-    SetXRef2,
-    /// Record the y-axis reference 1 pixel row.
-    SetYRef1,
-    /// Record the y-axis reference 2 pixel row.
-    SetYRef2,
     /// Select / drag existing points.
     EditPoints,
-    /// Each click adds a hand-placed point.
+    /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
 }
 
@@ -79,6 +112,10 @@ pub struct DigitiseApp {
     mode: ClickMode,
     ref_px: [Option<f64>; 4], // x1, x2 (columns); y1, y2 (rows)
     ref_val: [String; 4],
+    /// Which of the four reference lines (indices into `ref_px`/`ref_val`,
+    /// same order) is currently being dragged, if any — op-zfnh's persistent
+    /// draggable box. `None` when the pointer isn't holding a reference line.
+    ref_dragging: Option<usize>,
     x_log: bool,
     y_log: bool,
     // trace tuning
@@ -118,9 +155,10 @@ impl Default for DigitiseApp {
             raster: None,
             texture: None,
             zoom: 1.0,
-            mode: ClickMode::SetXRef1,
+            mode: ClickMode::EditPoints,
             ref_px: [None; 4],
             ref_val: Default::default(),
+            ref_dragging: None,
             x_log: false,
             y_log: false,
             threshold: 128,
@@ -146,6 +184,13 @@ impl Default for DigitiseApp {
 
 impl DigitiseApp {
     /// Load `path` as the working plot image (PNG/JPEG).
+    ///
+    /// Seeds the four axis-reference lines at 10%/90% of the new image's
+    /// extent (op-zfnh's persistent box, replacing the old one-click-per-line
+    /// flow) — a plot's axes are rarely at the very edge of the figure, so
+    /// this typically starts closer to correct than the previous "nothing
+    /// set yet" state, and every line is immediately visible and draggable
+    /// regardless.
     pub fn load_image(&mut self, path: &str) {
         match PlotRaster::from_path(std::path::Path::new(path)) {
             Ok(r) => {
@@ -153,11 +198,16 @@ impl DigitiseApp {
                 if self.json_out.is_empty() {
                     self.json_out = format!("{path}.digitised.json");
                 }
+                let (w, h) = (r.width() as f64, r.height() as f64);
+                self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
                 self.raster = Some(r);
                 self.texture = None; // re-uploaded next frame
                 self.dataset = None;
                 self.selected = None;
-                self.message = format!("loaded {path}");
+                self.ref_dragging = None;
+                self.message = format!(
+                    "loaded {path} — drag the four reference lines into place, fill their values"
+                );
             }
             Err(e) => self.message = e.to_string(),
         }
@@ -166,7 +216,7 @@ impl DigitiseApp {
     /// Build the calibration the four reference points + values describe.
     fn calibration(&self) -> Result<PlotCalibration, String> {
         let px = |i: usize, what: &str| {
-            self.ref_px[i].ok_or_else(|| format!("{what} pixel not set — click it"))
+            self.ref_px[i].ok_or_else(|| format!("{what} pixel not set — drag its line into place"))
         };
         let val = |i: usize, what: &str| {
             self.ref_val[i]
@@ -405,6 +455,18 @@ impl DigitiseApp {
         }
     }
 
+    /// Remove every marker, keeping the calibration/provenance already
+    /// entered — op-8ixa's "clear all markers button".
+    fn clear_all_points(&mut self) {
+        if let Some(d) = &mut self.dataset {
+            let n = d.points.len();
+            d.points.clear();
+            self.selected = None;
+            self.mark_edited();
+            self.message = format!("cleared {n} marker(s)");
+        }
+    }
+
     fn save(&mut self, reviewed: bool) {
         if reviewed {
             let by = self.operator_name();
@@ -465,24 +527,17 @@ impl DigitiseApp {
                 self.load_image(&p);
             }
             if ui.button("Browse…").clicked() {
-                self.file_dialog_target = Some(FileDialogTarget::Image);
-                self.file_dialog.pick_file();
+                self.open_picker(FileDialogTarget::Image);
             }
         });
         ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
         ui.separator();
 
-        ui.label("1. Axis references — click the image in each mode:");
+        ui.label("1. Axis references — drag the 4 lines on the image into place:");
         let labels = ["X1 (column)", "X2 (column)", "Y1 (row)", "Y2 (row)"];
-        let modes = [
-            ClickMode::SetXRef1,
-            ClickMode::SetXRef2,
-            ClickMode::SetYRef1,
-            ClickMode::SetYRef2,
-        ];
         for i in 0..4 {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.mode, modes[i], labels[i]);
+                ui.label(labels[i]);
                 ui.label(match self.ref_px[i] {
                     Some(p) => format!("px {p:.0}"),
                     None => "px —".to_string(),
@@ -534,7 +589,13 @@ impl DigitiseApp {
             if ui.button("Delete selected").clicked() {
                 self.delete_selected();
             }
+            if ui.button("Clear all").clicked() {
+                self.clear_all_points();
+            }
         });
+        ui.small(
+            "double-click adds a marker (Add points mode) · right-click removes the nearest one",
+        );
         ui.separator();
 
         ui.label("4. Provenance (required to export):");
@@ -544,19 +605,88 @@ impl DigitiseApp {
                 ui.text_edit_singleline(s);
             });
         };
-        field(ui, "figure*", &mut self.figure);
-        field(ui, "document title", &mut self.document_title);
-        field(ui, "document id", &mut self.document_id);
-        field(ui, "page", &mut self.page);
+        // op-5ecn: hover tooltips on the fields the maintainer asked what they
+        // mean — figure, document title/id, page, operator. Each tooltip sits
+        // on the field's own label via `.on_hover_text`, not a separate `?`
+        // icon, so there is nothing extra to click.
+        let field_tip = |ui: &mut egui::Ui, name: &str, tip: &str, s: &mut String| {
+            ui.horizontal(|ui| {
+                ui.label(name).on_hover_text(tip);
+                ui.text_edit_singleline(s);
+            });
+        };
+        field_tip(
+            ui,
+            "figure*",
+            "The figure's own identifier/caption in the source document \
+             (e.g. \"Figure 4\" or \"Fig. 4.2\") — becomes FigureSource::figure. \
+             Required: every dataset must say which figure it came from.",
+            &mut self.figure,
+        );
+        field_tip(
+            ui,
+            "document title",
+            "Title of the document the figure was taken from, for provenance \
+             cross-reference — optional, but strongly recommended when the \
+             figure isn't self-explanatory.",
+            &mut self.document_title,
+        );
+        field_tip(
+            ui,
+            "document id",
+            "This document's identifier in the kovan-literature archive \
+             (e.g. its BibTeX key or KovanDocument id) — lets a reader trace \
+             the digitised dataset back to its source document via `kovan lit`.",
+            &mut self.document_id,
+        );
+        field_tip(
+            ui,
+            "page",
+            "Page number the figure appears on in the source document.",
+            &mut self.page,
+        );
         field(ui, "x label", &mut self.x_label);
         field(ui, "y label", &mut self.y_label);
         field(ui, "notes", &mut self.notes);
-        field(ui, "operator*", &mut self.operator);
+        field_tip(
+            ui,
+            "operator*",
+            "Who is running this digitisation — your name or handle. Recorded \
+             on every hand-placed/corrected point and on the review record \
+             (a KOVAN dataset can only be marked Reviewed by a human — see \
+             this crate's dogfooding rule); an edit after review resets the \
+             dataset back to Unreviewed. Required: every dataset must say who \
+             digitised it.",
+            &mut self.operator,
+        );
         ui.separator();
 
         ui.label("5. Export:");
-        field(ui, "json path", &mut self.json_out);
-        field(ui, "csv path", &mut self.csv_out);
+        // op-jtna: a "Browse…" button beside each export path, using the same
+        // shared FileDialog (in save-file mode) rather than only a typed
+        // path. Written inline rather than as a `field`-style closure because
+        // it needs `&mut self` (to stash which target the dialog is for) at
+        // the same time as `&mut self.json_out`/`&mut self.csv_out` — two
+        // disjoint-field closure arguments the borrow checker can't verify
+        // through a shared helper.
+        let mut open_json_picker = false;
+        ui.horizontal(|ui| {
+            ui.label("json path");
+            ui.text_edit_singleline(&mut self.json_out);
+            open_json_picker = ui.button("Browse…").clicked();
+        });
+        if open_json_picker {
+            self.open_picker(FileDialogTarget::JsonExport);
+        }
+        let mut open_csv_picker = false;
+        ui.horizontal(|ui| {
+            ui.label("csv path");
+            ui.text_edit_singleline(&mut self.csv_out);
+            open_csv_picker = ui.button("Browse…").clicked();
+        });
+        if open_csv_picker {
+            self.open_picker(FileDialogTarget::CsvExport);
+        }
         ui.horizontal(|ui| {
             if ui.button("Save (unreviewed)").clicked() {
                 self.save(false);
@@ -593,16 +723,11 @@ impl DigitiseApp {
             });
             return;
         };
-        // Upload texture on first frame after load.
+        // Upload texture on first frame after load — shares its
+        // PlotRaster-to-ColorImage conversion with the PDF reader's own
+        // image-viewing path (op-wojr) via `raster_to_color_image`.
         if self.texture.is_none() {
-            let (w, h) = (raster.width() as usize, raster.height() as usize);
-            let mut rgb = Vec::with_capacity(w * h * 3);
-            for y in 0..raster.height() {
-                for x in 0..raster.width() {
-                    rgb.extend_from_slice(&raster.rgb(x, y));
-                }
-            }
-            let img = egui::ColorImage::from_rgb([w, h], &rgb);
+            let img = pdf_reader::raster_to_color_image(raster);
             self.texture = Some(ui.ctx().load_texture("plot", img, TextureOptions::NEAREST));
         }
         let texture = self.texture.as_ref().expect("just set").clone();
@@ -633,45 +758,78 @@ impl DigitiseApp {
             };
 
             // --- interactions ---
-            let click_pos = response
-                .clicked()
-                .then(|| response.interact_pointer_pos())
-                .flatten();
-            if let Some(pos) = click_pos {
-                let (px, py) = to_image(pos);
-                match self.mode {
-                    ClickMode::SetXRef1 => {
-                        self.ref_px[0] = Some(px);
-                        self.mode = ClickMode::SetXRef2;
+            // op-zfnh: hit-test the four persistent reference lines — column
+            // position for the two x lines (indices 0/1), row position for
+            // the two y lines (indices 2/3) — within a fixed *screen*-space
+            // tolerance (matches the point-drag tolerances below, which are
+            // already written as `N / zoom` image-space to hold N screen px
+            // at any zoom level).
+            let ref_tol = 6.0 / zoom as f64;
+            fn hit_ref_line(ref_px: &[Option<f64>; 4], tol: f64, px: f64, py: f64) -> Option<usize> {
+                for (i, coord) in [px, px, py, py].into_iter().enumerate() {
+                    if let Some(r) = ref_px[i] {
+                        if (coord - r).abs() < tol {
+                            return Some(i);
+                        }
                     }
-                    ClickMode::SetXRef2 => {
-                        self.ref_px[1] = Some(px);
-                        self.mode = ClickMode::SetYRef1;
+                }
+                None
+            }
+
+            // op-8ixa: right-click removes the nearest marker under the
+            // cursor regardless of mode (graphReader precedent), checked
+            // before the mode-dispatched left-click handling below so a
+            // stray left click from the same gesture can't also fire.
+            if response.secondary_clicked() {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
+                        self.selected = Some(i);
+                        self.delete_selected();
                     }
-                    ClickMode::SetYRef1 => {
-                        self.ref_px[2] = Some(py);
-                        self.mode = ClickMode::SetYRef2;
-                    }
-                    ClickMode::SetYRef2 => {
-                        self.ref_px[3] = Some(py);
-                        self.mode = ClickMode::EditPoints;
-                        self.message =
-                            "references set — fill their values, then Auto-trace".to_string();
-                    }
-                    ClickMode::EditPoints => {
-                        self.selected = self.nearest_point(px, py, 10.0 / zoom as f64);
-                    }
-                    ClickMode::AddPoint => self.add_point(px, py),
+                }
+            }
+            // Adding a point is a double left-click (graphReader precedent) —
+            // a single click in AddPoint mode is reserved for future
+            // click-drag box-select, so it deliberately does not add here.
+            if self.mode == ClickMode::AddPoint && response.double_clicked() {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    self.add_point(px, py);
                 }
             }
             if self.mode == ClickMode::EditPoints {
-                if response.drag_started_by(PointerButton::Primary) {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        let (px, py) = to_image(pos);
+                if let Some(pos) = response
+                    .clicked()
+                    .then(|| response.interact_pointer_pos())
+                    .flatten()
+                {
+                    let (px, py) = to_image(pos);
+                    self.selected = self.nearest_point(px, py, 10.0 / zoom as f64);
+                }
+            }
+
+            // Reference-line dragging (op-zfnh) takes priority over marker
+            // dragging when a drag starts on top of a line — it is checked
+            // first and, if it claims the gesture, marker-drag start below is
+            // skipped for that same drag via the `else`.
+            if response.drag_started_by(PointerButton::Primary) {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    self.ref_dragging = hit_ref_line(&self.ref_px, ref_tol, px, py);
+                    if self.ref_dragging.is_none() && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
                 }
+            }
+            if let (Some(i), Some(pos)) = (self.ref_dragging, response.interact_pointer_pos()) {
+                if response.dragged_by(PointerButton::Primary) {
+                    let (px, py) = to_image(pos);
+                    self.ref_px[i] = Some(if i < 2 { px } else { py });
+                }
+            }
+            if self.mode == ClickMode::EditPoints && self.ref_dragging.is_none() {
                 if let (Some(i), Some(pos)) = (self.dragging, response.interact_pointer_pos()) {
                     if response.dragged_by(PointerButton::Primary) {
                         let (px, py) = to_image(pos);
@@ -679,9 +837,10 @@ impl DigitiseApp {
                         self.mark_edited();
                     }
                 }
-                if response.drag_stopped() {
-                    self.dragging = None;
-                }
+            }
+            if response.drag_stopped() {
+                self.ref_dragging = None;
+                self.dragging = None;
             }
             if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
                 self.delete_selected();
@@ -689,17 +848,25 @@ impl DigitiseApp {
 
             // --- overlays: reference lines, then points ---
             let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+            let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
+            let stroke_for = |i: usize| {
+                if self.ref_dragging == Some(i) {
+                    ref_stroke_active
+                } else {
+                    ref_stroke
+                }
+            };
             if let Some(p) = self.ref_px[0] {
-                painter.vline(to_screen(p, 0.0).x, rect.y_range(), ref_stroke);
+                painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(0));
             }
             if let Some(p) = self.ref_px[1] {
-                painter.vline(to_screen(p, 0.0).x, rect.y_range(), ref_stroke);
+                painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(1));
             }
             if let Some(p) = self.ref_px[2] {
-                painter.hline(rect.x_range(), to_screen(0.0, p).y, ref_stroke);
+                painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(2));
             }
             if let Some(p) = self.ref_px[3] {
-                painter.hline(rect.x_range(), to_screen(0.0, p).y, ref_stroke);
+                painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(3));
             }
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {
@@ -740,6 +907,20 @@ impl DigitiseApp {
         });
     }
 
+    /// Open the shared [`FileDialog`] for `target`, selecting the filter (or
+    /// save extension) that matches it first — op-nje6's fix for the picker
+    /// always coming up filtered to "Images" regardless of what was actually
+    /// being opened.
+    fn open_picker(&mut self, target: FileDialogTarget) {
+        self.file_dialog_target = Some(target);
+        self.file_dialog.config_mut().default_file_filter = Some(target.default_filter().to_string());
+        if target.is_save() {
+            self.file_dialog.save_file();
+        } else {
+            self.file_dialog.pick_file();
+        }
+    }
+
     /// Route a just-picked file path to whichever action requested it.
     fn handle_picked_file(&mut self, path: &std::path::Path) {
         let Some(target) = self.file_dialog_target.take() else {
@@ -749,6 +930,8 @@ impl DigitiseApp {
         match target {
             FileDialogTarget::Image => self.load_image(&path),
             FileDialogTarget::Pdf => self.pdf_reader.open(&path),
+            FileDialogTarget::JsonExport => self.json_out = path,
+            FileDialogTarget::CsvExport => self.csv_out = path,
         }
     }
 }
@@ -774,6 +957,19 @@ impl eframe::App for DigitiseApp {
                     .show_inside(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| self.side_panel(ui));
                     });
+                // op-5sdc: CSV preview + copy button, right-hand side,
+                // htgr_sim_v1-style — see csv_preview.rs.
+                egui::Panel::right("csv_preview")
+                    .min_size(260.0)
+                    .show_inside(ui, |ui| {
+                        if let Some(d) = &self.dataset {
+                            draw_csv_preview(ui, &d.to_csv_string());
+                        } else {
+                            ui.centered_and_justified(|ui| {
+                                ui.label("no dataset yet — run the auto pass or Start empty");
+                            });
+                        }
+                    });
                 egui::CentralPanel::default().show_inside(ui, |ui| self.image_panel(ui));
             }
             View::PdfReader => {
@@ -781,8 +977,7 @@ impl eframe::App for DigitiseApp {
                     let mut open_clicked = false;
                     self.pdf_reader.ui(ui, || open_clicked = true);
                     if open_clicked {
-                        self.file_dialog_target = Some(FileDialogTarget::Pdf);
-                        self.file_dialog.pick_file();
+                        self.open_picker(FileDialogTarget::Pdf);
                     }
                 });
             }
