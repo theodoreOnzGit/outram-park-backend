@@ -74,6 +74,16 @@ Read only a line range once the outline says where the part you need is:
 kovan-cli slice src/big_module.rs 120 180
 ```
 
+Rust-analyzer-backed semantic queries (need `rust-analyzer` on PATH; slower
+than the three above, since they spawn and index a real language server —
+expect the first call in a workspace to take up to a couple of minutes):
+
+```bash
+kovan-cli def foo --file src/lib.rs      # where it's defined, plus its signature
+kovan-cli sig foo --file src/lib.rs      # just the signature
+kovan-cli refs foo --file src/lib.rs     # every reference site, as coordinates
+```
+
 Discover files under a root, honouring `.gitignore`:
 
 ```bash
@@ -127,6 +137,7 @@ The emitted dataset is always `UNREVIEWED` — a human marks it reviewed in
 | `cost` | yes | Token-cost estimate (`kopitiam-tokenizer`-backed) |
 | `outline` | yes | Declarations-only skeleton, ripgrep-first |
 | `slice` | yes | Print one line range |
+| `def` / `sig` / `refs` | yes, but needs `rust-analyzer` | Semantic queries (definition/signature/references) |
 | `discover` / `search` / `scan` | yes | Repository discovery/search |
 | `symbols` / `summary` | yes | Symbol catalogue / Markdown artifact |
 | `lit` | yes | PDF import / BibTeX / literature outline |

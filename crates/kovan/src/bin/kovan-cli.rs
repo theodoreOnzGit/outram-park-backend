@@ -32,6 +32,9 @@
 //! kovan-cli outline src/lib.rs --lang rust
 //! kovan-cli slice src/lib.rs 10 40
 //! kovan-cli skill-gen --out kovan_skill.md
+//! kovan-cli def foo --file src/lib.rs
+//! kovan-cli sig foo --file src/lib.rs
+//! kovan-cli refs foo --file src/lib.rs
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -53,6 +56,11 @@
 //! `kovan-semantics`'s ripgrep-first extractor on one file, `slice` is a
 //! plain line-range read, and `skill-gen` writes a Claude Code Skill-format
 //! Markdown file describing all of the above for an agent to read.
+//! `def`/`sig`/`refs` are that same issue's follow-up — rust-analyzer-backed
+//! semantic queries wired directly to `kopitiam-semantic`'s
+//! `RustAnalyzerSession` (see `commands::semq`); they need `rust-analyzer` on
+//! `PATH`. `callers`/`callees`/`impls` are deliberately not implemented yet
+//! (`op-l3uz`).
 //!
 //! See each `commands::*` submodule for the implementation of one subcommand
 //! (or command group) at a time — this file is only the `clap` surface and
@@ -341,6 +349,39 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Rust-analyzer-backed: where a symbol is defined, plus its signature
+    /// (GitHub issue #32's follow-up — wires `kopitiam-semantic` in
+    /// directly). Needs `rust-analyzer` on PATH.
+    Def {
+        #[command(flatten)]
+        locator: Locator,
+    },
+    /// Rust-analyzer-backed: the signature alone.
+    Sig {
+        #[command(flatten)]
+        locator: Locator,
+    },
+    /// Rust-analyzer-backed: every reference site, as
+    /// `file:line:character` coordinates.
+    Refs {
+        #[command(flatten)]
+        locator: Locator,
+    },
+}
+
+/// Shared arguments for the name-based semantic queries (`def`/`sig`/`refs`)
+/// — the symbol name plus the file whose `documentSymbol` tree declares it
+/// and the workspace root to start rust-analyzer in.
+#[derive(clap::Args)]
+struct Locator {
+    /// The symbol name to resolve (bare or `::`-qualified).
+    symbol: String,
+    /// The file whose `documentSymbol` tree declares `symbol`.
+    #[arg(long)]
+    file: PathBuf,
+    /// Directory containing the workspace `Cargo.toml`.
+    #[arg(long, default_value = ".")]
+    root: PathBuf,
 }
 
 fn main() -> std::process::ExitCode {
@@ -459,6 +500,9 @@ fn run(command: Command) -> Result<(), String> {
         Command::Outline { path, lang } => commands::outline::run(path, lang.into()),
         Command::Slice { path, start, end } => commands::slice::run(path, start, end),
         Command::SkillGen { out } => commands::skill_gen::run(out),
+        Command::Def { locator } => commands::semq::run_def(locator.symbol, locator.file, locator.root),
+        Command::Sig { locator } => commands::semq::run_sig(locator.symbol, locator.file, locator.root),
+        Command::Refs { locator } => commands::semq::run_refs(locator.symbol, locator.file, locator.root),
     }
 }
 

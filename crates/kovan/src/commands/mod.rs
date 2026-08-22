@@ -27,6 +27,7 @@ pub mod methods;
 pub mod outline;
 pub mod scan;
 pub mod search;
+pub mod semq;
 pub mod setup;
 pub mod skill_gen;
 pub mod slice;

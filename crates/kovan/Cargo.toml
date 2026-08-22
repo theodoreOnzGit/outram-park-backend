@@ -104,6 +104,17 @@ kopitiam-pdf = "0.2.5"
 # already kovan-metrics' per-commit API-usage accounting
 # (src/commands/tokens.rs), an unrelated concept.
 kopitiam-tokenizer = "0.2.5"
+# `kovan-cli def`/`refs`/`sig`: rust-analyzer-backed semantic queries (GitHub
+# issue #32's follow-up, "wire in rust analyzer capability from kopitiam into
+# kovan cli" -- op-l3uz). kopitiam-semantic's RustAnalyzerSession SPAWNS the
+# external `rust-analyzer` binary and talks LSP over stdio -- it does not link
+# any `ra_ap_*` crate, so this dependency is lightweight at compile time
+# (confirmed: its own Cargo.toml pulls only anyhow/cargo_metadata/serde_json/
+# url-class crates, no rust-analyzer internals) even though it *needs*
+# `rust-analyzer` on PATH at runtime to do anything. Same crate-local,
+# AGPL-3.0-only boundary-exception shape as kopitiam-pdf/kopitiam-tokenizer
+# above.
+kopitiam-semantic = "0.2.5"
 # Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
 # decoding (no C toolchain, builds on Termux/Android) and the codec
 # `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature
