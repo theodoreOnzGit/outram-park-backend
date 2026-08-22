@@ -28,6 +28,10 @@
 //! kovan-cli setup --dry-run
 //! kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
 //!     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
+//! kovan-cli cost src/lib.rs --by-line
+//! kovan-cli outline src/lib.rs --lang rust
+//! kovan-cli slice src/lib.rs 10 40
+//! kovan-cli skill-gen --out kovan_skill.md
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -43,7 +47,12 @@
 //! `setup` is a standalone, explicit, online, desktop-scope convenience — see
 //! `commands::setup` — that installs a curated list of external CLI tools via
 //! `cargo install`; nothing else in this crate calls it or depends on it
-//! running.
+//! running. `cost`/`outline`/`slice`/`skill-gen` are GitHub issue #32's
+//! token-savings commands — `cost` wraps `kopitiam-tokenizer` directly
+//! (a real dependency, not a port — see `commands::cost`), `outline` reuses
+//! `kovan-semantics`'s ripgrep-first extractor on one file, `slice` is a
+//! plain line-range read, and `skill-gen` writes a Claude Code Skill-format
+//! Markdown file describing all of the above for an agent to read.
 //!
 //! See each `commands::*` submodule for the implementation of one subcommand
 //! (or command group) at a time — this file is only the `clap` surface and
@@ -295,6 +304,43 @@ enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Estimate a file's token cost (GitHub issue #32) — a dependency-free,
+    /// per-Unicode-script BPE approximation (`kopitiam-tokenizer`), read
+    /// before deciding whether to read the whole file.
+    Cost {
+        /// File to estimate.
+        path: PathBuf,
+        /// Also print a per-line breakdown.
+        #[arg(long)]
+        by_line: bool,
+    },
+    /// Declarations-only skeleton of one file (GitHub issue #32) —
+    /// ripgrep-first, reusing `kovan-semantics`'s repository-wide extractor
+    /// on a single file.
+    Outline {
+        /// File to outline.
+        path: PathBuf,
+        /// Source language.
+        #[arg(long, value_enum)]
+        lang: LangArg,
+    },
+    /// Print one line range of a file instead of the whole thing (GitHub
+    /// issue #32) — the third leg of the `cost -> outline -> slice` loop.
+    Slice {
+        /// File to slice.
+        path: PathBuf,
+        /// First line (1-based, inclusive).
+        start: usize,
+        /// Last line (1-based, inclusive).
+        end: usize,
+    },
+    /// Write a Claude Code Skill-format Markdown file documenting
+    /// `kovan-cli` for an AI agent (GitHub issue #32).
+    SkillGen {
+        /// Output path (default: `kovan_skill.md`).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn main() -> std::process::ExitCode {
@@ -409,6 +455,10 @@ fn run(command: Command) -> Result<(), String> {
             csv,
             verbose,
         } => run_digitise(auto, json, csv, verbose),
+        Command::Cost { path, by_line } => commands::cost::run(path, by_line),
+        Command::Outline { path, lang } => commands::outline::run(path, lang.into()),
+        Command::Slice { path, start, end } => commands::slice::run(path, start, end),
+        Command::SkillGen { out } => commands::skill_gen::run(out),
     }
 }
 

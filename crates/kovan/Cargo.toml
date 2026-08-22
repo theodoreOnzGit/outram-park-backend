@@ -93,6 +93,17 @@ which.workspace = true
 # kovan`, 2026-08-21 — no target gate needed; only its one caller
 # (`pdf_reader`) is desktop/`gui`-feature-scoped.
 kopitiam-pdf = "0.2.5"
+# `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
+# issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
+# per-Unicode-script character-weighted model, materially better than
+# kovan-semantics::agent_docs::estimated_tokens' bytes/4 heuristic (which
+# stays as-is; it only feeds 'agent-docs-gen --budget''s own accounting).
+# AGPL-3.0-only, same crate-local/boundary-exception shape as kopitiam-pdf
+# above -- lightweight deps (kopitiam-core, regex, serde_json), no C/BLAS/GPU,
+# so it stays Android/Termux-clean. Named "cost", not "tokens": that name is
+# already kovan-metrics' per-commit API-usage accounting
+# (src/commands/tokens.rs), an unrelated concept.
+kopitiam-tokenizer = "0.2.5"
 # Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
 # decoding (no C toolchain, builds on Termux/Android) and the codec
 # `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature

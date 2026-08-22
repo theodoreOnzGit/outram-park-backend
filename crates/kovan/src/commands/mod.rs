@@ -17,15 +17,19 @@
 
 pub mod agent_docs_gen;
 pub mod api_docs;
+pub mod cost;
 pub mod discover;
 pub mod gen;
 pub mod historian;
 pub mod kloc;
 pub mod lit;
 pub mod methods;
+pub mod outline;
 pub mod scan;
 pub mod search;
 pub mod setup;
+pub mod skill_gen;
+pub mod slice;
 pub mod symbols;
 pub mod tokens;
 pub mod workspace;

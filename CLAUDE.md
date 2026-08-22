@@ -361,9 +361,21 @@ edge you hit** (see "Raising issues" below).
 direction, 2026-08-15).** `kovan` (`kovan-semantics`, `kovan-literature`, etc.)
 is this workspace's *own* deterministic knowledge layer — reach for it first
 for repo understanding, symbol/code queries, and literature scoped to this
-codebase. `kopitiam` remains the right tool for what `kovan` doesn't cover:
-token-frugal generic file skimming (`outline`/`slice`) and `rename`/
-`code-actions`, which `kovan` has no equivalent for.
+codebase. **`kovan-cli` now has its own token-frugal reading loop** — `kovan-cli
+cost <path>` (a real BPE-approximation estimate, `kopitiam-tokenizer`-backed —
+see `crates/kovan/src/commands/cost.rs`), `kovan-cli outline <file>`
+(ripgrep-first declarations skeleton, `kovan-semantics`-backed), and
+`kovan-cli slice <file> <start> <end>` — landed 2026-08-22 per GitHub issue
+#32 ("kovan token savings"). **Prefer these three over `kopitiam
+tokens`/`outline`/`slice` when the file in question is inside this
+workspace** — same reasoning as the rest of this section, kovan is scoped to
+this codebase and kopitiam is not. `kopitiam` remains the right tool for what
+`kovan` doesn't cover yet: rust-analyzer-backed `refs`/`callers`/`callees` (a
+deferred kovan-semantics escalation tier, tracked as `op-l3uz`) and
+`rename`/`code-actions`, which `kovan` has no equivalent for. Run `kovan-cli
+skill-gen` to (re)generate `kovan_skill.md`, a Claude-Code-Skill-format
+Markdown file spelling this out for an agent session that hasn't read this
+file.
 
 > **Licence note.** `kopi-beans` is AGPL-3.0-only. That is fine here because it
 > is **consumed as a standalone binary**, never linked or vendored — see the

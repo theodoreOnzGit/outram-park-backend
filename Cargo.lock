@@ -4382,6 +4382,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "kopitiam-core"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2f1e674a7f9e56cb8a055a4cbe6072dfb3db717f0d68e6575f4a5dec38f0588"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "kopitiam-pdf"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4395,6 +4404,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kopitiam-tokenizer"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26099a05c0bf8d3b319cb8764bb6de7c57a96bc317e6ca47514a526fef94d1bf"
+dependencies = [
+ "kopitiam-core",
+ "regex",
+ "serde_json",
+]
+
+[[package]]
 name = "kovan"
 version = "0.0.0"
 dependencies = [
@@ -4404,6 +4424,7 @@ dependencies = [
  "egui-file-dialog",
  "image",
  "kopitiam-pdf",
+ "kopitiam-tokenizer",
  "kovan-codegen",
  "kovan-common",
  "kovan-discovery",
