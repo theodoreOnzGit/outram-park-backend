@@ -115,6 +115,18 @@ kopitiam-tokenizer = "0.2.5"
 # AGPL-3.0-only boundary-exception shape as kopitiam-pdf/kopitiam-tokenizer
 # above.
 kopitiam-semantic = "0.2.5"
+# `kovan::digitiser::table_ocr`: the table-digitiser OCR engine (op-hnhp),
+# per op-9bvi's DECISION -- a pure-Rust translation of Tesseract's LSTM
+# recognizer (see that crate's own module docs for the Apache-2.0/BSD-2
+# upstream provenance headers), already used in kopitiam's own production
+# OCR-fallback pipeline with the same mandatory-human-review framing this
+# crate's digitiser already enforces. AGPL-3.0-only, same crate-local
+# boundary-exception shape as kopitiam-pdf/tokenizer/semantic above --
+# licensing call explicitly confirmed by the maintainer (GitHub issue #30,
+# op-9bvi). Dependency chain is lean and Android/Termux-clean (kopitiam-ocr
+# -> kopitiam-tensor -> kopitiam-core only, no C/BLAS/GPU/`-sys` crate),
+# checked in kopitiam's own workspace before adding.
+kopitiam-ocr = "0.1.0"
 # Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
 # decoding (no C toolchain, builds on Termux/Android) and the codec
 # `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature

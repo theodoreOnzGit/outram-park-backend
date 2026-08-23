@@ -104,6 +104,26 @@ enum AnnotationTool {
     /// the plot digitiser (op-p17q: "I want an interface where I draw a box
     /// on a pdf or PNG, then right click, and I can digitise a plot").
     CropForDigitise,
+    /// Same drag-then-right-click gesture, but for the table digitiser
+    /// (op-hnhp: "For tables it's the same, draw box, right click,
+    /// digitise with OCR").
+    CropForTableDigitise,
+}
+
+/// Which digitiser a completed crop (op-p17q/op-hnhp) is bound for —
+/// [`PdfReaderState::pending_crop`] is drawn identically either way, but the
+/// caller needs to know which panel to hand the result to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CropKind {
+    Plot,
+    Table,
+}
+
+/// A completed crop-then-right-click gesture (op-p17q / op-hnhp), returned
+/// from [`PdfReaderState::ui`] the frame it happens.
+pub enum CropResult {
+    Plot(PlotRaster),
+    Table(PlotRaster),
 }
 
 /// State for one open document: its source (PDF or image), which page is
@@ -131,8 +151,11 @@ pub struct PdfReaderState {
     /// The last completed crop-for-digitise rectangle (texture-pixel space,
     /// min/max corners), persisting after the drag ends until the user
     /// right-clicks it (confirm) or starts a new drag (replaces it) —
-    /// op-p17q's "draw a box... then right click" two-step gesture.
+    /// op-p17q's "draw a box... then right click" two-step gesture. Shared
+    /// by the plot- and table-digitiser tools; `pending_crop_kind` (set
+    /// alongside it) records which one is bound.
     pending_crop: Option<(Pos2, Pos2)>,
+    pending_crop_kind: Option<CropKind>,
     /// The last "Generate BibTeX" result (op-x3wl) — `Ok` holds the
     /// rendered entry, `Err` a human-readable failure. `None` before the
     /// button has ever been pressed for the currently open PDF.
@@ -199,6 +222,7 @@ impl PdfReaderState {
                 self.highlight_drag_start = None;
                 self.crop_drag_start = None;
                 self.pending_crop = None;
+                self.pending_crop_kind = None;
                 self.bibtex = None;
                 self.message = format!("opened {path} ({page_count} page(s))");
             }
@@ -218,6 +242,7 @@ impl PdfReaderState {
                 self.highlight_drag_start = None;
                 self.crop_drag_start = None;
                 self.pending_crop = None;
+                self.pending_crop_kind = None;
                 self.bibtex = None;
                 self.message = format!("opened {path}");
             }
@@ -293,6 +318,7 @@ impl PdfReaderState {
         if self.page_index + 1 < self.source.page_count() {
             self.page_index += 1;
             self.pending_crop = None;
+            self.pending_crop_kind = None;
         }
     }
 
@@ -301,6 +327,7 @@ impl PdfReaderState {
         self.page_index = self.page_index.saturating_sub(1);
         if self.page_index != before {
             self.pending_crop = None;
+            self.pending_crop_kind = None;
         }
     }
 
@@ -346,10 +373,10 @@ impl PdfReaderState {
     /// caller owns the file dialog (shared with the digitiser's "Load image"
     /// action) and reports the chosen path back via [`PdfReaderState::open`].
     ///
-    /// Returns `Some(raster)` the frame the user completes the
-    /// crop-then-right-click gesture (op-p17q) — the caller (`DigitiseApp`)
-    /// is expected to load it into the plot digitiser and switch views.
-    pub fn ui(&mut self, ui: &mut egui::Ui, mut on_open_clicked: impl FnMut()) -> Option<PlotRaster> {
+    /// Returns `Some` the frame the user completes a crop-then-right-click
+    /// gesture (op-p17q / op-hnhp) — the caller (`DigitiseApp`) is expected
+    /// to load it into the matching digitiser tab and switch views.
+    pub fn ui(&mut self, ui: &mut egui::Ui, mut on_open_clicked: impl FnMut()) -> Option<CropResult> {
         ui.horizontal(|ui| {
             if ui.button("Open…").clicked() {
                 on_open_clicked();
@@ -398,6 +425,11 @@ impl PdfReaderState {
                 &mut self.tool,
                 AnnotationTool::CropForDigitise,
                 "Digitise plot (draw box, right-click)",
+            );
+            ui.selectable_value(
+                &mut self.tool,
+                AnnotationTool::CropForTableDigitise,
+                "Digitise table (draw box, right-click)",
             );
             if is_pdf {
                 ui.separator();
@@ -476,7 +508,16 @@ impl PdfReaderState {
                         }
                     }
                 }
-                AnnotationTool::CropForDigitise => {
+                AnnotationTool::CropForDigitise | AnnotationTool::CropForTableDigitise => {
+                    let kind = if self.tool == AnnotationTool::CropForDigitise {
+                        CropKind::Plot
+                    } else {
+                        CropKind::Table
+                    };
+                    let colour = match kind {
+                        CropKind::Plot => Color32::from_rgb(60, 200, 255),
+                        CropKind::Table => Color32::from_rgb(230, 140, 230),
+                    };
                     if response.drag_started_by(egui::PointerButton::Primary) {
                         self.crop_drag_start = response.interact_pointer_pos().map(to_image);
                     }
@@ -491,11 +532,12 @@ impl PdfReaderState {
                         painter.rect_stroke(
                             Rect::from_min_max(to_screen(rect.0), to_screen(rect.1)),
                             0.0,
-                            Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
+                            Stroke::new(2.0_f32, colour),
                             egui::StrokeKind::Middle,
                         );
                         if response.drag_stopped() {
                             self.pending_crop = Some(rect);
+                            self.pending_crop_kind = Some(kind);
                             self.crop_drag_start = None;
                         }
                     }
@@ -540,10 +582,14 @@ impl PdfReaderState {
             // right-click confirms it below.
             let mut crop_result = None;
             if let Some((min, max)) = self.pending_crop {
+                let colour = match self.pending_crop_kind {
+                    Some(CropKind::Table) => Color32::from_rgb(230, 140, 230),
+                    _ => Color32::from_rgb(60, 200, 255),
+                };
                 painter.rect_stroke(
                     Rect::from_min_max(to_screen(min), to_screen(max)),
                     0.0,
-                    Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
+                    Stroke::new(2.0_f32, colour),
                     egui::StrokeKind::Middle,
                 );
                 if response.secondary_clicked() {
@@ -556,8 +602,12 @@ impl PdfReaderState {
                         if inside {
                             match self.crop_current_page(min, max) {
                                 Ok(raster) => {
-                                    crop_result = Some(raster);
+                                    crop_result = Some(match self.pending_crop_kind {
+                                        Some(CropKind::Table) => CropResult::Table(raster),
+                                        _ => CropResult::Plot(raster),
+                                    });
                                     self.pending_crop = None;
+                                    self.pending_crop_kind = None;
                                 }
                                 Err(e) => self.message = format!("crop failed: {e}"),
                             }

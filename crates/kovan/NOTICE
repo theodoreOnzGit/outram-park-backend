@@ -63,6 +63,47 @@ This crate does not vendor or re-translate any of that — it consumes
 `kopitiam-pdf`'s published, already-translated Rust as an ordinary
 dependency.
 
+Dependency: kopitiam-ocr
+------------------------
+
+  Crate:       kopitiam-ocr
+  Version:     0.1.0 (as of this addition — see Cargo.toml for the resolved
+               version in use)
+  License:     AGPL-3.0-only
+  Repository:  https://github.com/theodoreOnzGit/kopitiam
+  Author:      Theodore Kay Chen Ong
+  Description: "Pure-Rust Tesseract LSTM OCR engine (eng/chi_sim/jpn)" — the
+               table-digitiser OCR engine chosen in kopi-beans `op-9bvi`
+               (GitHub issue #30). Already AGPL-3.0-only, so it adds no new
+               license to reason about — this crate is already the
+               workspace's one AGPL-3.0-only-by-exception crate (see above).
+
+Added 2026-08-23, with the maintainer's explicit confirmation that the AGPL
+combination is acceptable (GitHub issue #30, `op-9bvi`). Declared as a
+normal crates.io dependency (`kopitiam-ocr = "0.1.0"`), not vendored, not
+path/git, and not added to the workspace root's `[workspace.dependencies]`
+— same shape as `kopitiam-pdf` above.
+
+Tesseract / Leptonica provenance (one level further upstream)
+-----------------------------------------------------------------
+
+`kopitiam-ocr` is a close translation of Tesseract's LSTM recognizer
+(Apache-2.0, © Google Inc. and contributors) and a minimal subset of
+Leptonica's image preprocessing (BSD-2-Clause, © Leptonica, Dan Bloomberg),
+per that crate's own module doc comments. Both upstream licenses are
+one-way compatible into an AGPLv3 work. This crate does not vendor or
+re-translate any of that — it consumes `kopitiam-ocr`'s published,
+already-translated Rust as an ordinary dependency.
+
+Android / Termux (kopitiam-ocr)
+---------------------------------
+
+`kopitiam-ocr`'s only dependency is `kopitiam-tensor` (itself depending only
+on `kopitiam-core`) — checked directly against the `kopitiam` workspace's
+own `Cargo.toml` files before adding, 2026-08-23: no C-toolchain, BLAS, or
+GPU dependency anywhere in the chain. Declared unconditionally in this
+crate's `Cargo.toml` (not target-gated), same as `kopitiam-pdf`.
+
 Workspace boundary (read before adding a dependency on `kovan`)
 -------------------------------------------------------------------
 

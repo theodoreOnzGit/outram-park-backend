@@ -22,17 +22,24 @@
 //! fully replaces the file from a fresh scan (design doc §5 step 4),
 //! deliberately, so a stale or hand-edited copy can never silently survive.
 //!
-//! **Known v1 scoping limitation, not yet closed:** the design doc says
-//! `document.id` must equal the `.bib` entry's cite key. This module does
-//! not parse `.bib` files (this workspace has no BibTeX *parser* today —
-//! `kovan_literature::bibtex::to_bibtex` only *renders* a `KovanDocument`
-//! into BibTeX, one-way). [`regenerate`] instead joins `pdf/<stem>.pdf` with
-//! `markdown/<stem>.md` by shared filename stem and uses the stem as `id`.
-//! This is an honest, working v1 — not the bib-key join the design doc
-//! describes — and is flagged here deliberately rather than silently
-//! diverging from that document. Closing the gap needs a BibTeX parser
-//! somewhere in the workspace first (`kovan-literature` is the natural
-//! home); tracked as a follow-up, not done in this change.
+//! **Join key (closed 2026-08-23, op-vi1n):** the design doc says
+//! `document.id` must equal the `.bib` entry's cite key. [`regenerate`] now
+//! parses the project's one `.bib` file with
+//! [`kovan_literature::parse_bib_entries`] and drives the document list from
+//! its cite keys — a document exists only when a `.bib` entry's cite key
+//! *and* a matching `pdf/<key>.pdf` *and* a matching `markdown/<key>.md` all
+//! exist; `id` is that cite key. This is the join the design doc specifies,
+//! not a lookalike: it requires the PDF and markdown files to actually be
+//! *named* after the cite key (the natural outcome of an ingest flow that
+//! names its outputs after the document it processed), which is the only
+//! association this module has any way to make without a further,
+//! not-yet-designed "which file goes with which bib entry" mapping. A `.bib`
+//! entry whose PDF/markdown pair isn't present yet (not fully ingested), or
+//! a `pdf/<stem>.pdf`+`markdown/<stem>.md` pair whose stem matches no cite
+//! key, is silently skipped — both are normal, expected in-progress states,
+//! not errors. (Previously this module joined by shared filename stem alone,
+//! with no reference to the `.bib` file at all — see git history / op-b1y5
+//! if that v1 shape is needed for comparison.)
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -70,6 +77,9 @@ pub enum ProjectError {
     /// The project root has no `.bib` file, or more than one — design doc
     /// §1 says exactly one (the user-named main bibliography file).
     AmbiguousOrMissingBibFile { root: PathBuf, found: Vec<PathBuf> },
+    /// The project's `.bib` file could not be parsed
+    /// ([`kovan_literature::BibParseError`]).
+    Bib { path: PathBuf, source: kovan_literature::BibParseError },
     /// [`write_section`]'s caller-supplied range no longer matches a fresh
     /// scan — the file changed on disk since it was read for editing.
     StaleSectionRange { markdown: PathBuf, name: String },
@@ -100,6 +110,7 @@ impl std::fmt::Display for ProjectError {
                     )
                 }
             }
+            Self::Bib { path, source } => write!(f, "{}: {source}", path.display()),
             Self::StaleSectionRange { markdown, name } => write!(
                 f,
                 "{}: section {name:?} changed on disk since it was opened for editing \
@@ -168,8 +179,8 @@ impl SectionRanges {
 /// One document's entry in `kovan.toml` (design doc §3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DocumentEntry {
-    /// Join key across the `.bib`/PDF/markdown files — see this module's
-    /// doc comment for the v1 filename-stem scoping limitation.
+    /// Join key across the `.bib`/PDF/markdown files — the `.bib` entry's
+    /// cite key (see this module's doc comment).
     pub id: String,
     /// Path to the PDF, relative to `kovan.toml`'s own directory.
     pub pdf: String,
@@ -264,13 +275,20 @@ fn parse_marker(line: &str) -> Option<&str> {
 /// design doc §5's regeneration algorithm, minus the write (see
 /// [`write_index`]/[`regenerate_and_write`]).
 ///
-/// Joins `pdf/<stem>.pdf` with `markdown/<stem>.md` by shared filename
-/// stem (see this module's doc comment for why, not the design doc's
-/// bib-key join). A PDF with no matching markdown file, or vice versa, is
-/// silently skipped — not every PDF has been processed into markdown yet,
-/// and that is a normal, expected state, not an error.
+/// Joins by cite key (design doc §3): for each entry in the project's
+/// `.bib` file whose cite key has a matching `pdf/<key>.pdf` *and*
+/// `markdown/<key>.md`, emits one [`DocumentEntry`] with `id` set to that
+/// cite key. A `.bib` entry missing its PDF or markdown counterpart is
+/// silently skipped — not every reference has been fully ingested yet, and
+/// that is a normal, expected state, not an error. A `pdf`/`markdown`
+/// filename-stem pair with no matching cite key is likewise skipped (see
+/// this module's doc comment for why that's the only association available).
 pub fn regenerate(root: &Path) -> Result<ProjectIndex, ProjectError> {
     let bib_file = find_bib_file(root)?;
+    let bib_path = root.join(&bib_file);
+    let bib_text = read_to_string(&bib_path)?;
+    let bib_entries = kovan_literature::parse_bib_entries(&bib_text)
+        .map_err(|source| ProjectError::Bib { path: bib_path.clone(), source })?;
 
     let pdf_dir = root.join("pdf");
     let markdown_dir = root.join("markdown");
@@ -278,17 +296,18 @@ pub fn regenerate(root: &Path) -> Result<ProjectIndex, ProjectError> {
     let markdown_stems = list_stems(&markdown_dir, "md")?;
 
     let mut documents = Vec::new();
-    for stem in pdf_stems {
-        if !markdown_stems.contains(&stem) {
+    for entry in &bib_entries {
+        let key = &entry.cite_key;
+        if !pdf_stems.contains(key) || !markdown_stems.contains(key) {
             continue;
         }
-        let markdown_path = markdown_dir.join(format!("{stem}.md"));
+        let markdown_path = markdown_dir.join(format!("{key}.md"));
         let text = read_to_string(&markdown_path)?;
         let sections = scan_markdown_sections(&markdown_path, &text)?;
         documents.push(DocumentEntry {
-            id: stem.clone(),
-            pdf: format!("pdf/{stem}.pdf"),
-            markdown: format!("markdown/{stem}.md"),
+            id: key.clone(),
+            pdf: format!("pdf/{key}.pdf"),
+            markdown: format!("markdown/{key}.md"),
             sections,
         });
     }
@@ -553,7 +572,7 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("my bibliography.bib"), "@article{x, title={X}}").unwrap();
+        fs::write(root.join("my bibliography.bib"), "@article{report-a, title={X}}").unwrap();
 
         fs::write(root.join("pdf/report-a.pdf"), b"%PDF-fake").unwrap();
         fs::write(
@@ -581,11 +600,85 @@ last line";
         assert_eq!(reparsed, index);
     }
 
+    /// op-vi1n: the join is by cite key, not by filename stem alone — a
+    /// PDF+markdown pair whose stem has no matching `.bib` entry must be
+    /// skipped even though, under the old v1 stem-only join, it would have
+    /// been included.
+    #[test]
+    fn pdf_markdown_pair_with_no_matching_cite_key_is_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        // The .bib file cites "known-doc" only.
+        fs::write(root.join("refs.bib"), "@article{known-doc, title={X}}").unwrap();
+        // But the actual files on disk are named "unrelated-stem" — same
+        // stem for both pdf and markdown, yet no bib entry names it.
+        fs::write(root.join("pdf/unrelated-stem.pdf"), b"%PDF-fake").unwrap();
+        fs::write(
+            root.join("markdown/unrelated-stem.md"),
+            "<!-- kovan:section full_text -->\n## Full Text\nhello\n",
+        )
+        .unwrap();
+
+        let index = regenerate(root).unwrap();
+        assert!(index.documents.is_empty(), "{:?}", index.documents);
+    }
+
+    /// A `.bib` entry whose cite key has no PDF, or no markdown, on disk
+    /// yet is skipped too — not fully ingested, not an error.
+    #[test]
+    fn bib_entry_with_no_matching_files_yet_is_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        fs::write(root.join("refs.bib"), "@article{not-ingested-yet, title={X}}").unwrap();
+
+        let index = regenerate(root).unwrap();
+        assert!(index.documents.is_empty());
+    }
+
+    /// The mainline case: cite key, pdf stem, and markdown stem all agree.
+    #[test]
+    fn matching_cite_key_pdf_and_markdown_produces_one_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        fs::write(root.join("refs.bib"), "@article{argonnecodecenter1977anl7416, title={X}}")
+            .unwrap();
+        fs::write(root.join("pdf/argonnecodecenter1977anl7416.pdf"), b"%PDF-fake").unwrap();
+        fs::write(
+            root.join("markdown/argonnecodecenter1977anl7416.md"),
+            "<!-- kovan:section full_text -->\n## Full Text\nhello\n",
+        )
+        .unwrap();
+
+        let index = regenerate(root).unwrap();
+        assert_eq!(index.documents.len(), 1);
+        assert_eq!(index.documents[0].id, "argonnecodecenter1977anl7416");
+        assert_eq!(index.documents[0].pdf, "pdf/argonnecodecenter1977anl7416.pdf");
+        assert_eq!(index.documents[0].markdown, "markdown/argonnecodecenter1977anl7416.md");
+    }
+
     #[test]
     fn missing_bib_file_is_reported() {
         let dir = tempfile::tempdir().unwrap();
         let err = regenerate(dir.path()).unwrap_err();
         assert!(matches!(err, ProjectError::AmbiguousOrMissingBibFile { .. }), "{err}");
+    }
+
+    #[test]
+    fn malformed_bib_file_is_reported_not_panicked() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        fs::write(root.join("refs.bib"), "@article{unterminated, title = {oops").unwrap();
+
+        let err = regenerate(root).unwrap_err();
+        assert!(matches!(err, ProjectError::Bib { .. }), "{err}");
     }
 
     #[test]
@@ -618,7 +711,7 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("x.bib"), "@article{x,}").unwrap();
+        fs::write(root.join("x.bib"), "@article{doc,}").unwrap();
         fs::write(root.join("pdf/doc.pdf"), b"%PDF-fake").unwrap();
         let markdown_path = root.join("markdown/doc.md");
         fs::write(
@@ -658,7 +751,7 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("x.bib"), "@article{x,}").unwrap();
+        fs::write(root.join("x.bib"), "@article{doc,}").unwrap();
         fs::write(root.join("pdf/doc.pdf"), b"%PDF-fake").unwrap();
         // On-disk range is [1, 3] already (an extra line was added by
         // someone/something else since the caller last read it).

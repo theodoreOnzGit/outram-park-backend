@@ -15,7 +15,9 @@
 //!   **linear and logarithmic axes independently per axis**. Log axes are
 //!   calibrated in log10 space, never by linear pixel interpolation.
 //! - [`detect`] — automatic detection of the plot frame (axis box) from dark
-//!   line runs. Deterministic; no ML, no OCR.
+//!   line runs. Deterministic; no ML, no OCR (unlike [`table_ocr`] below,
+//!   whose OCR use is a deliberate, separately-decided exception — see its
+//!   own module doc).
 //! - [`trace`] — automatic curve tracing by column scan, with enum-dispatched
 //!   strategies ([`trace::TraceStrategy`]) and colour selectors
 //!   ([`trace::CurveSelector`]).
@@ -32,6 +34,13 @@
 //!   `clap` is already a hard dependency of this crate's own `kovan-cli`, so
 //!   — unlike when this module lived in `kovan-literature`, where `clap` was
 //!   optional — there is nothing left to gate.
+//! - [`table_ocr`] — table digitisation (op-hnhp): OCR text recognition
+//!   over a cropped table region via `kopitiam_ocr` (op-9bvi's engine
+//!   decision), split into cells by a whitespace-run heuristic, with the
+//!   same [`dataset::ReviewStatus`] human-review gate the plot digitiser
+//!   uses. Compiled unconditionally — like `frontend`, it needs no GUI, so
+//!   `kovan-cli`/`kovan-tui` could drive it too even though only the GUI
+//!   does today.
 //! - [`gui`] *(behind this crate's `gui` feature, default except on
 //!   Android)* — the egui app powering the `kovan` binary, exposed as a
 //!   library function (`gui::run`). Its `desktop` submodule also carries
@@ -92,6 +101,7 @@ pub mod frontend;
 pub mod gui;
 pub mod raster;
 pub mod synthetic;
+pub mod table_ocr;
 pub mod trace;
 
 /// Errors produced by the graph digitiser.
@@ -112,6 +122,9 @@ pub enum DigitiserError {
     Trace(String),
     /// A dataset file could not be read, written, or parsed.
     Io(String),
+    /// Table OCR (`table_ocr` — op-hnhp) failed: the `.traineddata` model
+    /// could not be loaded, or line recognition itself failed.
+    Ocr(String),
 }
 
 impl std::fmt::Display for DigitiserError {
@@ -122,6 +135,7 @@ impl std::fmt::Display for DigitiserError {
             DigitiserError::Detection(m) => write!(f, "axis detection error: {m}"),
             DigitiserError::Trace(m) => write!(f, "trace error: {m}"),
             DigitiserError::Io(m) => write!(f, "dataset io error: {m}"),
+            DigitiserError::Ocr(m) => write!(f, "OCR error: {m}"),
         }
     }
 }

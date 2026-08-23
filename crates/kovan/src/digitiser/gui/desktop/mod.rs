@@ -2,6 +2,7 @@ mod bibliography;
 mod csv_preview;
 mod markdown_editor;
 mod pdf_reader;
+mod table_digitiser;
 mod theme;
 
 use eframe::egui::{
@@ -24,6 +25,7 @@ use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
 use markdown_editor::MarkdownEditorState;
 use pdf_reader::PdfReaderState;
+use table_digitiser::TableDigitiserState;
 use theme::GuiTheme;
 
 /// Which top-level panel is showing — the plot digitiser (the window's
@@ -39,6 +41,7 @@ enum View {
     PdfReader,
     MarkdownEditor,
     Bibliography,
+    TableDigitiser,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -129,6 +132,8 @@ pub struct DigitiseApp {
     markdown_editor: MarkdownEditorState,
     // bibliography / project browser (op-9vml)
     bibliography: BibliographyState,
+    // table digitiser (op-hnhp)
+    table_digitiser: TableDigitiserState,
     // image
     image_path: String,
     raster: Option<PlotRaster>,
@@ -186,6 +191,7 @@ impl Default for DigitiseApp {
             pdf_reader: PdfReaderState::default(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
+            table_digitiser: TableDigitiserState::default(),
             image_path: String::new(),
             raster: None,
             texture: None,
@@ -1005,6 +1011,7 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
             ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
+            ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
             ui.separator();
             ComboBox::from_id_salt("gui-theme")
                 .selected_text(self.theme.label())
@@ -1097,16 +1104,24 @@ impl eframe::App for DigitiseApp {
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
                 }
-                // op-p17q: the reader just completed a crop-then-right-click
-                // gesture — load the cropped region as the digitiser's plot
-                // image and switch to it, so "close" (switching back to the
-                // reader) is the natural way to return, per the issue's own
-                // "popup window? Or new tab? ... after I'm done, I close"
-                // — this window's existing view switch already fills that
-                // role, so no separate popup/tab was added.
-                if let Some(raster) = crop_result {
-                    self.load_image_from_raster(raster);
-                    self.view = View::Digitiser;
+                // op-p17q/op-hnhp: the reader just completed a
+                // crop-then-right-click gesture — load the cropped region
+                // into the matching digitiser tab and switch to it, so
+                // "close" (switching back to the reader) is the natural way
+                // to return, per the issue's own "popup window? Or new
+                // tab? ... after I'm done, I close" — this window's
+                // existing view switch already fills that role, so no
+                // separate popup/tab was added.
+                match crop_result {
+                    Some(pdf_reader::CropResult::Plot(raster)) => {
+                        self.load_image_from_raster(raster);
+                        self.view = View::Digitiser;
+                    }
+                    Some(pdf_reader::CropResult::Table(raster)) => {
+                        self.table_digitiser.load_crop(raster);
+                        self.view = View::TableDigitiser;
+                    }
+                    None => {}
                 }
             }
             View::MarkdownEditor => {
@@ -1140,6 +1155,11 @@ impl eframe::App for DigitiseApp {
                     }
                     None => {}
                 }
+            }
+            View::TableDigitiser => {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    self.table_digitiser.ui(ui);
+                });
             }
         }
     }

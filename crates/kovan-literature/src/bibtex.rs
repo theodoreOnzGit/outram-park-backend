@@ -1,4 +1,6 @@
-//! BibTeX rendering from the canonical [`KovanDocument`].
+//! BibTeX rendering from the canonical [`KovanDocument`], and — the other
+//! direction — a plain-text `.bib` file **parser** ([`parse_bib_entries`],
+//! op-vi1n).
 //!
 //! Implements `docs/kovan.md`, "Canonical Representation": the Rust struct is
 //! authoritative and BibTeX is *generated* from it, never the reverse. This is
@@ -7,6 +9,21 @@
 //! The renderer is deterministic and offline — it only reads the fields already
 //! on the document and emits a single `.bib` entry. Values are TeX-escaped so a
 //! title containing `&`, `%`, `_`, `{`… produces a syntactically valid entry.
+//!
+//! ## The parser is deliberately one-way and shallow (op-vi1n's scope)
+//!
+//! [`parse_bib_entries`] reads an arbitrary, user-authored `.bib` file into a
+//! flat list of [`BibEntry`] (entry type, cite key, raw field map). It does
+//! **not** attempt to build a [`KovanDocument`] from the result — the "kovan
+//! folder" project format (`crates/kovan/src/project.rs`, op-b1y5) only needs
+//! the cite key to join a `.bib` entry with its `pdf/`/`markdown/` files, not
+//! a full document reconstruction, and inventing an author-name/date-field
+//! reverse mapping is out of scope here (would need to be exact-inverse of
+//! [`to_bibtex`] to round-trip cleanly, which this parser makes no attempt at).
+//! Field values are returned exactly as written between the delimiters (brace
+//! or quote characters stripped, TeX escapes such as `\&` **not** unescaped)
+//! — good enough for exact-match joins and for display, not for re-deriving
+//! structured data.
 
 use crate::{DocumentType, KovanDocument};
 
@@ -181,6 +198,226 @@ pub fn escape_tex(input: &str) -> String {
     out
 }
 
+/// One parsed `.bib` entry (op-vi1n) — the entry type (`article`,
+/// `techreport`, …, lowercased), its cite key, and every field it declares.
+///
+/// Field names are lowercased (BibTeX field names are case-insensitive) and
+/// values have their delimiters (`{}` or `"..."`) stripped but are otherwise
+/// verbatim — see the module doc's "deliberately one-way and shallow" note.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BibEntry {
+    pub entry_type: String,
+    pub cite_key: String,
+    pub fields: std::collections::BTreeMap<String, String>,
+}
+
+/// Errors from [`parse_bib_entries`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BibParseError {
+    /// An `@type{` (or a field's `{`/`"` value) was opened but the input
+    /// ended before its matching close.
+    UnterminatedEntry { entry_type: String, near: String },
+    /// An entry body did not start with `<cite_key> ,` — e.g. `@article{}` or
+    /// `@article{, title = {X}}`.
+    MissingCiteKey { entry_type: String },
+}
+
+impl std::fmt::Display for BibParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BibParseError::UnterminatedEntry { entry_type, near } => {
+                write!(f, "unterminated @{entry_type} entry (near {near:?})")
+            }
+            BibParseError::MissingCiteKey { entry_type } => {
+                write!(f, "@{entry_type} entry has no cite key")
+            }
+        }
+    }
+}
+
+impl std::error::Error for BibParseError {}
+
+/// Parse a `.bib` file's text into its entries (op-vi1n).
+///
+/// Handles the common `@type{key, field = {value}, field2 = "value2", year =
+/// 2020,}` shape, including nested braces inside a `{…}` value (e.g. `title =
+/// {Heat {and} mass transfer}`) and a trailing comma before the closing `}`.
+/// Text outside any `@…{…}` block (blank lines, `%` comments) is ignored, the
+/// same way BibTeX itself ignores it.
+///
+/// `@string{…}`, `@preamble{…}` and `@comment{…}` blocks (case-insensitive)
+/// are recognised, brace-balanced past, and **dropped** — they are BibTeX
+/// macro/comment constructs, not citable entries, and don't have the
+/// `key, field = value, …` shape this parser otherwise expects.
+///
+/// # Errors
+///
+/// [`BibParseError::UnterminatedEntry`] if a `{` (entry or field value) is
+/// never closed. [`BibParseError::MissingCiteKey`] if an ordinary entry's
+/// body doesn't start with `<key> ,`.
+pub fn parse_bib_entries(input: &str) -> Result<Vec<BibEntry>, BibParseError> {
+    let chars: Vec<char> = input.chars().collect();
+    let mut i = 0usize;
+    let mut entries = Vec::new();
+
+    while i < chars.len() {
+        if chars[i] != '@' {
+            i += 1;
+            continue;
+        }
+        i += 1; // consume '@'
+        let type_start = i;
+        while i < chars.len() && chars[i] != '{' && chars[i] != '(' {
+            i += 1;
+        }
+        let entry_type: String = chars[type_start..i].iter().collect::<String>().trim().to_lowercase();
+        if i >= chars.len() {
+            return Err(BibParseError::UnterminatedEntry {
+                near: entry_type.clone(),
+                entry_type,
+            });
+        }
+        let open = chars[i];
+        let close = if open == '{' { '}' } else { ')' };
+        i += 1; // consume opening delimiter
+
+        let body_start = i;
+        let body_end = find_matching_close(&chars, i, open, close)
+            .ok_or_else(|| BibParseError::UnterminatedEntry {
+                entry_type: entry_type.clone(),
+                near: chars[body_start..].iter().take(30).collect(),
+            })?;
+        let body = &chars[body_start..body_end];
+        i = body_end + 1; // past the closing delimiter
+
+        if matches!(entry_type.as_str(), "string" | "preamble" | "comment") {
+            continue; // macro/comment block — not a citable entry
+        }
+
+        entries.push(parse_entry_body(&entry_type, body)?);
+    }
+
+    Ok(entries)
+}
+
+/// Find the index of the delimiter that closes the one opened just before
+/// `start`, honouring nesting of `open`/`close` within the body.
+fn find_matching_close(chars: &[char], start: usize, open: char, close: char) -> Option<usize> {
+    let mut depth = 1i32;
+    let mut j = start;
+    while j < chars.len() {
+        if chars[j] == open {
+            depth += 1;
+        } else if chars[j] == close {
+            depth -= 1;
+            if depth == 0 {
+                return Some(j);
+            }
+        }
+        j += 1;
+    }
+    None
+}
+
+/// Parse the inside of an entry's braces: `key , field = value , …`.
+fn parse_entry_body(entry_type: &str, body: &[char]) -> Result<BibEntry, BibParseError> {
+    let mut i = 0usize;
+    skip_ws(body, &mut i);
+    let key_start = i;
+    while i < body.len() && body[i] != ',' {
+        i += 1;
+    }
+    let cite_key: String = body[key_start..i].iter().collect::<String>().trim().to_string();
+    if cite_key.is_empty() {
+        return Err(BibParseError::MissingCiteKey { entry_type: entry_type.to_string() });
+    }
+    if i < body.len() {
+        i += 1; // consume the comma after the key
+    }
+
+    let mut fields = std::collections::BTreeMap::new();
+    loop {
+        skip_ws(body, &mut i);
+        if i >= body.len() {
+            break;
+        }
+        if body[i] == ',' {
+            i += 1;
+            continue;
+        }
+        let name_start = i;
+        while i < body.len() && body[i] != '=' {
+            i += 1;
+        }
+        let name: String = body[name_start..i].iter().collect::<String>().trim().to_lowercase();
+        if name.is_empty() {
+            break; // trailing comma / stray whitespace before the close
+        }
+        if i < body.len() {
+            i += 1; // consume '='
+        }
+        skip_ws(body, &mut i);
+
+        let value = if i < body.len() && body[i] == '{' {
+            let vstart = i + 1;
+            let vend = find_matching_close(body, vstart, '{', '}').ok_or_else(|| {
+                BibParseError::UnterminatedEntry {
+                    entry_type: entry_type.to_string(),
+                    near: name.clone(),
+                }
+            })?;
+            let v: String = body[vstart..vend].iter().collect();
+            i = vend + 1;
+            v
+        } else if i < body.len() && body[i] == '"' {
+            let vstart = i + 1;
+            let mut depth = 0i32;
+            let mut j = vstart;
+            let mut vend = None;
+            while j < body.len() {
+                match body[j] {
+                    '{' => depth += 1,
+                    '}' => depth -= 1,
+                    '"' if depth == 0 => {
+                        vend = Some(j);
+                        break;
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
+            let vend = vend.ok_or_else(|| BibParseError::UnterminatedEntry {
+                entry_type: entry_type.to_string(),
+                near: name.clone(),
+            })?;
+            let v: String = body[vstart..vend].iter().collect();
+            i = vend + 1;
+            v
+        } else {
+            // Bare value (e.g. `year = 2020`) — read up to the next comma.
+            let vstart = i;
+            while i < body.len() && body[i] != ',' {
+                i += 1;
+            }
+            body[vstart..i].iter().collect::<String>().trim().to_string()
+        };
+
+        fields.insert(name, value);
+        skip_ws(body, &mut i);
+        if i < body.len() && body[i] == ',' {
+            i += 1;
+        }
+    }
+
+    Ok(BibEntry { entry_type: entry_type.to_string(), cite_key, fields })
+}
+
+fn skip_ws(chars: &[char], i: &mut usize) {
+    while *i < chars.len() && chars[*i].is_whitespace() {
+        *i += 1;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,5 +531,92 @@ mod tests {
     fn empty_slug_becomes_unknown_key() {
         let doc = KovanDocument::new("id", "!!!", Visibility::Open, DocumentType::Other, "T");
         assert!(to_bibtex(&doc).starts_with("@misc{unknown,"));
+    }
+
+    #[test]
+    fn parses_a_single_brace_delimited_entry() {
+        let bib = "@techreport{zweibaum2015ciet,\n  author = {Zweibaum, Nicolas},\n  title = {CIET facility characterisation},\n  year = {2015},\n  institution = {UC Berkeley},\n}\n";
+        let entries = parse_bib_entries(bib).unwrap();
+        assert_eq!(entries.len(), 1);
+        let e = &entries[0];
+        assert_eq!(e.entry_type, "techreport");
+        assert_eq!(e.cite_key, "zweibaum2015ciet");
+        assert_eq!(e.fields.get("author").unwrap(), "Zweibaum, Nicolas");
+        assert_eq!(e.fields.get("title").unwrap(), "CIET facility characterisation");
+        assert_eq!(e.fields.get("year").unwrap(), "2015");
+        assert_eq!(e.fields.get("institution").unwrap(), "UC Berkeley");
+    }
+
+    #[test]
+    fn round_trips_through_to_bibtex_then_parse_bib_entries() {
+        let doc = sample();
+        let rendered = to_bibtex(&doc);
+        let entries = parse_bib_entries(&rendered).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].cite_key, "zweibaum2015ciet");
+        assert_eq!(entries[0].fields.get("title").unwrap(), "CIET facility characterisation");
+        assert_eq!(entries[0].fields.get("doi").unwrap(), "10.1234/ciet");
+    }
+
+    #[test]
+    fn quote_delimited_values_and_bare_numeric_year_parse() {
+        let bib = r#"@article{smith2020, title = "A Title", year = 2020, pages = "1--10"}"#;
+        let entries = parse_bib_entries(bib).unwrap();
+        let e = &entries[0];
+        assert_eq!(e.fields.get("title").unwrap(), "A Title");
+        assert_eq!(e.fields.get("year").unwrap(), "2020");
+        assert_eq!(e.fields.get("pages").unwrap(), "1--10");
+    }
+
+    #[test]
+    fn nested_braces_inside_a_value_are_preserved() {
+        let bib = "@article{k, title = {Heat {and} mass transfer}}";
+        let entries = parse_bib_entries(bib).unwrap();
+        assert_eq!(entries[0].fields.get("title").unwrap(), "Heat {and} mass transfer");
+    }
+
+    #[test]
+    fn multiple_entries_and_surrounding_comments_all_parse() {
+        let bib = "% a leading comment\n@article{a, title = {A}}\n\n@misc{b, title = {B}}\n";
+        let entries = parse_bib_entries(bib).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].cite_key, "a");
+        assert_eq!(entries[1].cite_key, "b");
+    }
+
+    #[test]
+    fn string_preamble_and_comment_blocks_are_skipped_not_returned() {
+        let bib = r#"@string{anl = "Argonne National Laboratory"}
+@comment{this whole block is ignored}
+@preamble{"% some latex preamble"}
+@article{real2020, title = {Real Entry}}
+"#;
+        let entries = parse_bib_entries(bib).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].cite_key, "real2020");
+    }
+
+    #[test]
+    fn missing_cite_key_is_an_error() {
+        let err = parse_bib_entries("@article{, title = {X}}").unwrap_err();
+        assert!(matches!(err, BibParseError::MissingCiteKey { .. }), "{err}");
+    }
+
+    #[test]
+    fn unterminated_entry_is_an_error() {
+        let err = parse_bib_entries("@article{k, title = {X}").unwrap_err();
+        assert!(matches!(err, BibParseError::UnterminatedEntry { .. }), "{err}");
+    }
+
+    #[test]
+    fn field_names_are_lowercased() {
+        let entries = parse_bib_entries("@article{k, TITLE = {X}}").unwrap();
+        assert_eq!(entries[0].fields.get("title").unwrap(), "X");
+    }
+
+    #[test]
+    fn empty_input_produces_no_entries() {
+        assert!(parse_bib_entries("").unwrap().is_empty());
+        assert!(parse_bib_entries("just some text, no entries here").unwrap().is_empty());
     }
 }

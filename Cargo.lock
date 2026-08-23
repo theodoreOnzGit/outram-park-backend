@@ -4424,6 +4424,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kopitiam-ocr"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3fdae34cc729bbf8bb6262b3dafbad8385195efa12cce955475417785e3d451"
+dependencies = [
+ "kopitiam-tensor",
+]
+
+[[package]]
 name = "kopitiam-ontology"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4466,6 +4475,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kopitiam-tensor"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a051ede2079dbeef791039107b2924dc2f1a86b0451b2f45c53a54d2fcbe7ad"
+dependencies = [
+ "kopitiam-core",
+]
+
+[[package]]
 name = "kopitiam-tokenizer"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4485,6 +4503,7 @@ dependencies = [
  "egui",
  "egui-file-dialog",
  "image",
+ "kopitiam-ocr",
  "kopitiam-pdf",
  "kopitiam-semantic",
  "kopitiam-tokenizer",

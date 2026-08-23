@@ -419,10 +419,28 @@ pub use kovan_common::KovanDocument;
 pub use kovan_common::Visibility;
 ```
 
+### Re-export `parse_bib_entries`
+
+```rust
+pub use bibtex::parse_bib_entries;
+```
+
 ### Re-export `to_bibtex`
 
 ```rust
 pub use bibtex::to_bibtex;
+```
+
+### Re-export `BibEntry`
+
+```rust
+pub use bibtex::BibEntry;
+```
+
+### Re-export `BibParseError`
+
+```rust
+pub use bibtex::BibParseError;
 ```
 
 ### Re-export `markdown_outline`
