@@ -120,6 +120,11 @@ kopitiam-semantic = "0.2.5"
 # `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature
 # 2026-08-21 with the rest of the digitiser — see NOTICE.
 image.workspace = true
+# `src/project.rs`: the "kovan folder" project format (op-63u0's design,
+# docs/kovan-folder-format.md) -- `kovan.toml` (de)serialisation (op-b1y5).
+# Already a workspace dependency (kovan-common, kovan-literature both use
+# it) -- checked before adding, per the "search before building" hard rule.
+toml.workspace = true
 # `DigitisedDataset` and friends derive `Serialize`/`Deserialize`
 # (`src/digitiser/dataset.rs`), and `raster.rs` SHA-256-hashes the source
 # image for provenance (`DATA_POLICY.md`) — both moved in with the digitiser.

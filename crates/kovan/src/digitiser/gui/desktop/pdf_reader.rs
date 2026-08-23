@@ -100,6 +100,10 @@ enum AnnotationTool {
     /// Click to add a text note (edited afterwards in the notes list below
     /// the toolbar).
     Note,
+    /// Drag a rectangle, then right-click it to crop and hand the region to
+    /// the plot digitiser (op-p17q: "I want an interface where I draw a box
+    /// on a pdf or PNG, then right click, and I can digitise a plot").
+    CropForDigitise,
 }
 
 /// State for one open document: its source (PDF or image), which page is
@@ -121,6 +125,18 @@ pub struct PdfReaderState {
     annotations: HashMap<usize, Vec<Annotation>>,
     /// Texture-pixel-space start corner of a highlight drag in progress.
     highlight_drag_start: Option<Pos2>,
+    /// Texture-pixel-space start corner of a crop-for-digitise drag in
+    /// progress (op-p17q).
+    crop_drag_start: Option<Pos2>,
+    /// The last completed crop-for-digitise rectangle (texture-pixel space,
+    /// min/max corners), persisting after the drag ends until the user
+    /// right-clicks it (confirm) or starts a new drag (replaces it) —
+    /// op-p17q's "draw a box... then right click" two-step gesture.
+    pending_crop: Option<(Pos2, Pos2)>,
+    /// The last "Generate BibTeX" result (op-x3wl) — `Ok` holds the
+    /// rendered entry, `Err` a human-readable failure. `None` before the
+    /// button has ever been pressed for the currently open PDF.
+    bibtex: Option<Result<String, String>>,
 }
 
 /// Build an egui [`ColorImage`] from a [`PlotRaster`] by reading every pixel
@@ -181,6 +197,9 @@ impl PdfReaderState {
                 self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
                 self.annotations.clear();
                 self.highlight_drag_start = None;
+                self.crop_drag_start = None;
+                self.pending_crop = None;
+                self.bibtex = None;
                 self.message = format!("opened {path} ({page_count} page(s))");
             }
             Err(e) => self.message = format!("cannot open {path}: {e}"),
@@ -197,20 +216,92 @@ impl PdfReaderState {
                 self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
                 self.annotations.clear();
                 self.highlight_drag_start = None;
+                self.crop_drag_start = None;
+                self.pending_crop = None;
+                self.bibtex = None;
                 self.message = format!("opened {path}");
             }
             Err(e) => self.message = format!("cannot open {path} as PDF or image: {e}"),
         }
     }
 
+    /// Generate a BibTeX entry for the currently open PDF (op-x3wl: "I want
+    /// the pdf I'm reading to generate a bibtex entry I can copy and
+    /// paste"). Reuses `kovan_literature::extract_metadata` +
+    /// `to_bibtex` — the exact same pipeline `kovan-cli lit bibtex` already
+    /// runs — rather than a second implementation. Runs synchronously on
+    /// the UI thread: this matches every other action in this GUI (the
+    /// digitiser's own Auto-trace is synchronous too), and `extract_metadata`
+    /// measured well under a second for real reports (see the TUI Ingest
+    /// tab's own docs) — a worker thread would be the right call if a very
+    /// large scanned PDF ever makes this noticeably block, but that has not
+    /// been observed and is not worth the added complexity pre-emptively.
+    fn generate_bibtex(&mut self) {
+        let ReaderSource::Pdf(_) = &self.source else {
+            self.bibtex = Some(Err("no PDF open (BibTeX needs a PDF, not a plain image)".into()));
+            return;
+        };
+        self.bibtex = Some(
+            kovan_literature::extract_metadata(std::path::Path::new(&self.path))
+                .map(|doc| kovan_literature::to_bibtex(&doc))
+                .map_err(|e| e.to_string()),
+        );
+    }
+
+    /// Crop the current page/image to `(min, max)` (texture-pixel space) and
+    /// build a standalone [`PlotRaster`] from it — the hand-off to the plot
+    /// digitiser (op-p17q). Re-rasterizes the current PDF page rather than
+    /// caching the last `Pixmap` alongside the texture: simpler, and
+    /// rasterization is already cheap enough per-page (see the module doc)
+    /// that a second render for this one-time crop action isn't worth the
+    /// extra cached-state bookkeeping.
+    fn crop_current_page(&self, min: Pos2, max: Pos2) -> Result<PlotRaster, String> {
+        let min_x = min.x.max(0.0) as u32;
+        let min_y = min.y.max(0.0) as u32;
+        let want_w = (max.x - min.x).max(1.0) as u32;
+        let want_h = (max.y - min.y).max(1.0) as u32;
+        match &self.source {
+            ReaderSource::None => Err("nothing open".to_string()),
+            ReaderSource::Pdf(doc) => {
+                let pixmap = rasterize_page(doc, self.page_index, RENDER_DPI)
+                    .map_err(|e| format!("page render failed: {e}"))?;
+                let (pw, ph, stride, n) = (pixmap.w, pixmap.h, pixmap.stride, pixmap.n as usize);
+                let samples = pixmap.samples;
+                let w = want_w.min(pw.saturating_sub(min_x)).max(1);
+                let h = want_h.min(ph.saturating_sub(min_y)).max(1);
+                Ok(PlotRaster::from_rgb_fn(w, h, move |x, y| {
+                    let px = (min_x + x).min(pw.saturating_sub(1));
+                    let py = (min_y + y).min(ph.saturating_sub(1));
+                    let offset = py as usize * stride + px as usize * n;
+                    [samples[offset], samples[offset + 1], samples[offset + 2]]
+                }))
+            }
+            ReaderSource::Image(raster) => {
+                let (rw, rh) = (raster.width(), raster.height());
+                let w = want_w.min(rw.saturating_sub(min_x)).max(1);
+                let h = want_h.min(rh.saturating_sub(min_y)).max(1);
+                Ok(PlotRaster::from_rgb_fn(w, h, move |x, y| {
+                    let px = (min_x + x).min(rw.saturating_sub(1));
+                    let py = (min_y + y).min(rh.saturating_sub(1));
+                    raster.rgb(px, py)
+                }))
+            }
+        }
+    }
+
     fn next_page(&mut self) {
         if self.page_index + 1 < self.source.page_count() {
             self.page_index += 1;
+            self.pending_crop = None;
         }
     }
 
     fn prev_page(&mut self) {
+        let before = self.page_index;
         self.page_index = self.page_index.saturating_sub(1);
+        if self.page_index != before {
+            self.pending_crop = None;
+        }
     }
 
     /// Rasterize/convert the current page and upload it as a texture, if not
@@ -254,7 +345,11 @@ impl PdfReaderState {
     /// is called when the user asks to open a different document — the
     /// caller owns the file dialog (shared with the digitiser's "Load image"
     /// action) and reports the chosen path back via [`PdfReaderState::open`].
-    pub fn ui(&mut self, ui: &mut egui::Ui, mut on_open_clicked: impl FnMut()) {
+    ///
+    /// Returns `Some(raster)` the frame the user completes the
+    /// crop-then-right-click gesture (op-p17q) — the caller (`DigitiseApp`)
+    /// is expected to load it into the plot digitiser and switch views.
+    pub fn ui(&mut self, ui: &mut egui::Ui, mut on_open_clicked: impl FnMut()) -> Option<PlotRaster> {
         ui.horizontal(|ui| {
             if ui.button("Open…").clicked() {
                 on_open_clicked();
@@ -273,7 +368,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return;
+            return None;
         }
 
         let page_count = self.source.page_count();
@@ -298,8 +393,21 @@ impl PdfReaderState {
             if ui.button("Clear page annotations").clicked() {
                 self.annotations.remove(&self.page_index);
             }
+            ui.separator();
+            ui.selectable_value(
+                &mut self.tool,
+                AnnotationTool::CropForDigitise,
+                "Digitise plot (draw box, right-click)",
+            );
+            if is_pdf {
+                ui.separator();
+                if ui.button("Generate BibTeX").clicked() {
+                    self.generate_bibtex();
+                }
+            }
         });
         self.notes_panel(ui);
+        self.bibtex_panel(ui);
         ui.separator();
 
         self.ensure_texture(ui.ctx());
@@ -307,7 +415,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return;
+            return None;
         };
         let size = texture.size_vec2() * self.zoom;
         let zoom = self.zoom;
@@ -368,6 +476,30 @@ impl PdfReaderState {
                         }
                     }
                 }
+                AnnotationTool::CropForDigitise => {
+                    if response.drag_started_by(egui::PointerButton::Primary) {
+                        self.crop_drag_start = response.interact_pointer_pos().map(to_image);
+                    }
+                    if let (Some(start), Some(pos)) =
+                        (self.crop_drag_start, response.interact_pointer_pos())
+                    {
+                        let current = to_image(pos);
+                        let rect = (
+                            Pos2::new(start.x.min(current.x), start.y.min(current.y)),
+                            Pos2::new(start.x.max(current.x), start.y.max(current.y)),
+                        );
+                        painter.rect_stroke(
+                            Rect::from_min_max(to_screen(rect.0), to_screen(rect.1)),
+                            0.0,
+                            Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
+                            egui::StrokeKind::Middle,
+                        );
+                        if response.drag_stopped() {
+                            self.pending_crop = Some(rect);
+                            self.crop_drag_start = None;
+                        }
+                    }
+                }
                 AnnotationTool::None => {}
             }
 
@@ -399,7 +531,43 @@ impl PdfReaderState {
                     }
                 }
             }
-        });
+
+            // --- persistent crop-for-digitise box (op-p17q) ---
+            // Drawn regardless of `self.tool`, so switching to "Select" to
+            // pan/zoom around doesn't make an already-drawn box vanish
+            // before the user gets to right-click it — it only disappears
+            // on page/document change (cleared above) or after the
+            // right-click confirms it below.
+            let mut crop_result = None;
+            if let Some((min, max)) = self.pending_crop {
+                painter.rect_stroke(
+                    Rect::from_min_max(to_screen(min), to_screen(max)),
+                    0.0,
+                    Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
+                    egui::StrokeKind::Middle,
+                );
+                if response.secondary_clicked() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let click = to_image(pos);
+                        let inside = click.x >= min.x
+                            && click.x <= max.x
+                            && click.y >= min.y
+                            && click.y <= max.y;
+                        if inside {
+                            match self.crop_current_page(min, max) {
+                                Ok(raster) => {
+                                    crop_result = Some(raster);
+                                    self.pending_crop = None;
+                                }
+                                Err(e) => self.message = format!("crop failed: {e}"),
+                            }
+                        }
+                    }
+                }
+            }
+            crop_result
+        })
+        .inner
     }
 
     /// Editable list of this page's text notes — shown under the toolbar so
@@ -433,6 +601,34 @@ impl PdfReaderState {
         });
         if let Some(i) = delete {
             anns.remove(i);
+        }
+    }
+
+    /// Shows the last "Generate BibTeX" result (op-x3wl), if any — a
+    /// copy-to-clipboard field on success (via `egui`'s own
+    /// `ctx().copy_text`, the same mechanism the digitiser's CSV preview
+    /// button already uses — see `csv_preview.rs`), or the failure message.
+    fn bibtex_panel(&mut self, ui: &mut egui::Ui) {
+        let Some(result) = &self.bibtex else { return };
+        match result {
+            Ok(entry) => {
+                ui.horizontal(|ui| {
+                    ui.label("BibTeX:");
+                    if ui.button("\u{1F4CB} Copy").clicked() {
+                        ui.ctx().copy_text(entry.clone());
+                    }
+                });
+                let mut scratch = entry.clone();
+                ui.add(
+                    egui::TextEdit::multiline(&mut scratch)
+                        .font(egui::TextStyle::Monospace)
+                        .desired_width(f32::INFINITY)
+                        .desired_rows(6),
+                );
+            }
+            Err(e) => {
+                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("BibTeX: {e}"));
+            }
         }
     }
 }

@@ -36,6 +36,7 @@
 //! kovan-cli sig foo --file src/lib.rs
 //! kovan-cli refs foo --file src/lib.rs
 //! kovan-cli lsp-daemon-stop --root .
+//! kovan-cli project regen /path/to/my-kovan-folder
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -61,7 +62,11 @@
 //! semantic queries wired directly to `kopitiam-semantic`'s
 //! `RustAnalyzerSession` (see `commands::semq`); they need `rust-analyzer` on
 //! `PATH`. `callers`/`callees`/`impls` are deliberately not implemented yet
-//! (`op-l3uz`).
+//! (`op-l3uz`). `project regen` wraps [`kovan::project::regenerate_and_write`]
+//! — the "kovan folder" `kovan.toml` index generator (GitHub issue #30's
+//! project-folder format, op-63u0's design, op-b1y5's implementation); the
+//! file is always fully regenerated, never hand-merged — see that module's
+//! docs for why.
 //!
 //! See each `commands::*` submodule for the implementation of one subcommand
 //! (or command group) at a time — this file is only the `clap` surface and
@@ -74,6 +79,7 @@ use clap::{Parser, Subcommand};
 use kovan::commands;
 use commands::gen::GenCommand;
 use commands::lit::LitCommand;
+use commands::project::ProjectCommand;
 use commands::tokens::TokensCommand;
 use commands::{KindArg, LangArg};
 use kovan::digitiser::frontend::AutoArgs;
@@ -215,6 +221,10 @@ enum Command {
     /// (`kovan-literature`).
     #[command(subcommand)]
     Lit(LitCommand),
+    /// The "kovan folder" project format (op-63u0's design): rescan a
+    /// project and rewrite its `kovan.toml` index.
+    #[command(subcommand)]
+    Project(ProjectCommand),
     /// Catalogue a repository's symbols (`kovan-semantics`, ripgrep-first).
     Symbols {
         /// Root directory of the repository.
@@ -434,6 +444,7 @@ fn run(command: Command) -> Result<(), String> {
             Ok(())
         }
         Command::Lit(cmd) => commands::lit::run(cmd),
+        Command::Project(cmd) => commands::project::run(cmd),
         Command::Symbols {
             root,
             lang,

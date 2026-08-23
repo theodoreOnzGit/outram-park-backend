@@ -26,6 +26,7 @@ pub mod lit;
 pub mod lsp_daemon;
 pub mod methods;
 pub mod outline;
+pub mod project;
 pub mod scan;
 pub mod search;
 pub mod semq;

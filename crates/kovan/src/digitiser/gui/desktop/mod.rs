@@ -1,4 +1,6 @@
+mod bibliography;
 mod csv_preview;
+mod markdown_editor;
 mod pdf_reader;
 mod theme;
 
@@ -18,20 +20,25 @@ use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
 
+use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
+use markdown_editor::MarkdownEditorState;
 use pdf_reader::PdfReaderState;
 use theme::GuiTheme;
 
 /// Which top-level panel is showing — the plot digitiser (the window's
-/// original purpose) or the integrated PDF reader (op-95x6). A closed set,
-/// switched with a top-bar button row rather than a popup/new-window (the
-/// window itself already is the "new tab" GitHub issue #30 asked for the
-/// plot-digitiser popup to attach to — see op-p17q, not yet implemented).
+/// original purpose), the integrated PDF reader (op-95x6), or the
+/// structured markdown editor (op-wr08). A closed set, switched with a
+/// top-bar button row rather than a popup/new-window (the window itself
+/// already is the "new tab" GitHub issue #30 asked for the plot-digitiser
+/// popup to attach to — see `op-p17q`, wired the same way).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
     Digitiser,
     #[default]
     PdfReader,
+    MarkdownEditor,
+    Bibliography,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -48,11 +55,24 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
+    /// Picked directory becomes the markdown editor's open project
+    /// (op-wr08).
+    ProjectFolder,
+    /// Picked directory becomes the bibliography/project-browser's open
+    /// project (op-9vml).
+    BibliographyFolder,
 }
 
 impl FileDialogTarget {
+    /// Whether this target picks a directory (`pick_directory`) rather than
+    /// a file — see [`DigitiseApp::open_picker`].
+    fn is_directory(self) -> bool {
+        matches!(self, Self::ProjectFolder | Self::BibliographyFolder)
+    }
+
     /// Whether this target opens an existing file (`pick_file`) or names a
     /// new one to write (`save_file`) — see [`DigitiseApp::open_picker`].
+    /// Meaningless for a directory target; checked after `is_directory`.
     fn is_save(self) -> bool {
         matches!(self, Self::JsonExport | Self::CsvExport)
     }
@@ -60,13 +80,15 @@ impl FileDialogTarget {
     /// The file-filter name (matching one of the names registered on
     /// [`FileDialog`] in [`DigitiseApp::default`]) this target should default
     /// to, so "Open PDF…" doesn't come up filtered to "Images" and
-    /// vice versa (op-nje6).
-    fn default_filter(self) -> &'static str {
+    /// vice versa (op-nje6). `None` for a directory target, which has no
+    /// file-extension filter to select.
+    fn default_filter(self) -> Option<&'static str> {
         match self {
-            Self::Image => "Images",
-            Self::Pdf => "PDF",
-            Self::JsonExport => "JSON",
-            Self::CsvExport => "CSV",
+            Self::Image => Some("Images"),
+            Self::Pdf => Some("PDF"),
+            Self::JsonExport => Some("JSON"),
+            Self::CsvExport => Some("CSV"),
+            Self::ProjectFolder | Self::BibliographyFolder => None,
         }
     }
 }
@@ -103,6 +125,10 @@ pub struct DigitiseApp {
     file_dialog_target: Option<FileDialogTarget>,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
+    // markdown editor (op-wr08)
+    markdown_editor: MarkdownEditorState,
+    // bibliography / project browser (op-9vml)
+    bibliography: BibliographyState,
     // image
     image_path: String,
     raster: Option<PlotRaster>,
@@ -138,6 +164,13 @@ pub struct DigitiseApp {
     json_out: String,
     csv_out: String,
     message: String,
+    /// `true` when `message` reports a failure — op-fueb: a calibration
+    /// failure used to be indistinguishable from an ordinary status update
+    /// (both were the same plain label buried at the bottom of a long
+    /// scrollable panel), so "Auto-trace" clicked with an incomplete
+    /// calibration appeared to silently do nothing. Drives both the colour
+    /// and the top-of-panel duplicate of the message — see `side_panel`.
+    message_is_error: bool,
 }
 
 impl Default for DigitiseApp {
@@ -151,6 +184,8 @@ impl Default for DigitiseApp {
                 .default_file_filter("Images"),
             file_dialog_target: None,
             pdf_reader: PdfReaderState::default(),
+            markdown_editor: MarkdownEditorState::default(),
+            bibliography: BibliographyState::default(),
             image_path: String::new(),
             raster: None,
             texture: None,
@@ -178,19 +213,31 @@ impl Default for DigitiseApp {
             json_out: String::new(),
             csv_out: String::new(),
             message: "load an image, then click the four axis reference points".to_string(),
+            message_is_error: false,
         }
     }
 }
 
 impl DigitiseApp {
+    /// Set an ordinary status message (op-fueb: explicitly the "not an
+    /// error" half of `message`/`message_is_error`, so a later action can't
+    /// leave a stale error's red styling on screen after it succeeds).
+    fn set_status(&mut self, message: impl Into<String>) {
+        self.message = message.into();
+        self.message_is_error = false;
+    }
+
+    /// Set a failure message — styled and duplicated at the top of
+    /// `side_panel` so it can't be missed the way a plain `self.message`
+    /// assignment buried at the bottom of a scrollable panel could be
+    /// (op-fueb: this is exactly what made an incomplete calibration look
+    /// like "Auto-trace" was silently doing nothing).
+    fn set_error(&mut self, message: impl Into<String>) {
+        self.message = message.into();
+        self.message_is_error = true;
+    }
+
     /// Load `path` as the working plot image (PNG/JPEG).
-    ///
-    /// Seeds the four axis-reference lines at 10%/90% of the new image's
-    /// extent (op-zfnh's persistent box, replacing the old one-click-per-line
-    /// flow) — a plot's axes are rarely at the very edge of the figure, so
-    /// this typically starts closer to correct than the previous "nothing
-    /// set yet" state, and every line is immediately visible and draggable
-    /// regardless.
     pub fn load_image(&mut self, path: &str) {
         match PlotRaster::from_path(std::path::Path::new(path)) {
             Ok(r) => {
@@ -198,19 +245,46 @@ impl DigitiseApp {
                 if self.json_out.is_empty() {
                     self.json_out = format!("{path}.digitised.json");
                 }
-                let (w, h) = (r.width() as f64, r.height() as f64);
-                self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
-                self.raster = Some(r);
-                self.texture = None; // re-uploaded next frame
-                self.dataset = None;
-                self.selected = None;
-                self.ref_dragging = None;
-                self.message = format!(
+                self.set_raster(r, format!(
                     "loaded {path} — drag the four reference lines into place, fill their values"
-                );
+                ));
             }
-            Err(e) => self.message = e.to_string(),
+            Err(e) => self.set_error(e.to_string()),
         }
+    }
+
+    /// Load an already-decoded [`PlotRaster`] directly — the hand-off from
+    /// the PDF reader's draw-box-then-right-click crop (op-p17q), which has
+    /// no file path of its own (it's a region cropped out of a rendered
+    /// page/image in memory). `image_path` and the JSON-export default stay
+    /// whatever they were, since there's no source path to derive them from
+    /// here; the operator fills in `json_out` before exporting, same as any
+    /// other required-before-export field.
+    pub fn load_image_from_raster(&mut self, raster: PlotRaster) {
+        self.set_raster(
+            raster,
+            "cropped from the PDF reader — drag the four reference lines into place, \
+             fill their values"
+                .to_string(),
+        );
+    }
+
+    /// Shared reset-to-a-new-image logic between [`Self::load_image`] and
+    /// [`Self::load_image_from_raster`]: seed the four axis-reference lines
+    /// at 10%/90% of the new image's extent (op-zfnh's persistent box,
+    /// replacing the old one-click-per-line flow — a plot's axes are rarely
+    /// at the very edge of the figure, so this typically starts closer to
+    /// correct than "nothing set yet", and every line is immediately visible
+    /// and draggable regardless), and clear any previous dataset/selection.
+    fn set_raster(&mut self, raster: PlotRaster, status: String) {
+        let (w, h) = (raster.width() as f64, raster.height() as f64);
+        self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
+        self.raster = Some(raster);
+        self.texture = None; // re-uploaded next frame
+        self.dataset = None;
+        self.selected = None;
+        self.ref_dragging = None;
+        self.set_status(status);
     }
 
     /// Build the calibration the four reference points + values describe.
@@ -282,20 +356,20 @@ impl DigitiseApp {
     /// The automatic pass: trace with the current calibration and tuning.
     fn auto_trace(&mut self) {
         let Some(raster) = &self.raster else {
-            self.message = "load an image first".to_string();
+            self.set_error("load an image first");
             return;
         };
         let cal = match self.calibration() {
             Ok(c) => c,
             Err(e) => {
-                self.message = e;
+                self.set_error(e);
                 return;
             }
         };
         let source = match self.source(raster) {
             Ok(s) => s,
             Err(e) => {
-                self.message = e;
+                self.set_error(e);
                 return;
             }
         };
@@ -335,15 +409,22 @@ impl DigitiseApp {
             utc_now_iso8601(),
         ) {
             Ok(d) => {
-                self.message = format!(
-                    "auto pass traced {} points — verify, correct, then mark reviewed",
-                    d.points.len()
-                );
+                let n = d.points.len();
                 self.dataset = Some(d);
                 self.selected = None;
                 self.mode = ClickMode::EditPoints;
+                if n == 0 {
+                    self.set_error(
+                        "auto pass traced 0 points — check the ink threshold/curve colour, \
+                         and that the reference box actually brackets the curve",
+                    );
+                } else {
+                    self.set_status(format!(
+                        "auto pass traced {n} points — verify, correct, then mark reviewed"
+                    ));
+                }
             }
-            Err(e) => self.message = e.to_string(),
+            Err(e) => self.set_error(e.to_string()),
         }
     }
 
@@ -351,20 +432,20 @@ impl DigitiseApp {
     /// digitised entirely by hand-placed points.
     fn start_empty(&mut self) {
         let Some(raster) = &self.raster else {
-            self.message = "load an image first".to_string();
+            self.set_error("load an image first");
             return;
         };
         let cal = match self.calibration() {
             Ok(c) => c,
             Err(e) => {
-                self.message = e;
+                self.set_error(e);
                 return;
             }
         };
         let source = match self.source(raster) {
             Ok(s) => s,
             Err(e) => {
-                self.message = e;
+                self.set_error(e);
                 return;
             }
         };
@@ -382,7 +463,7 @@ impl DigitiseApp {
         });
         self.selected = None;
         self.mode = ClickMode::AddPoint;
-        self.message = "empty dataset started — click to place points".to_string();
+        self.set_status("empty dataset started — click to place points");
     }
 
     /// Any edit invalidates a recorded review.
@@ -390,7 +471,7 @@ impl DigitiseApp {
         if let Some(d) = &mut self.dataset {
             if matches!(d.review, ReviewStatus::Reviewed { .. }) {
                 d.review = ReviewStatus::Unreviewed;
-                self.message = "edited after review — status reset to UNREVIEWED".to_string();
+                self.set_status("edited after review — status reset to UNREVIEWED");
             }
         }
     }
@@ -416,7 +497,7 @@ impl DigitiseApp {
 
     fn add_point(&mut self, px: f64, py: f64) {
         let Some(d) = &mut self.dataset else {
-            self.message = "run the auto pass or Start empty first".to_string();
+            self.set_error("run the auto pass or Start empty first");
             return;
         };
         let idx = d
@@ -450,7 +531,7 @@ impl DigitiseApp {
                 d.points.remove(i);
                 self.selected = None;
                 self.mark_edited();
-                self.message = "point deleted".to_string();
+                self.set_status("point deleted");
             }
         }
     }
@@ -463,7 +544,7 @@ impl DigitiseApp {
             d.points.clear();
             self.selected = None;
             self.mark_edited();
-            self.message = format!("cleared {n} marker(s)");
+            self.set_status(format!("cleared {n} marker(s)"));
         }
     }
 
@@ -475,15 +556,15 @@ impl DigitiseApp {
             }
         }
         let Some(d) = &self.dataset else {
-            self.message = "nothing to save".to_string();
+            self.set_error("nothing to save");
             return;
         };
         if self.json_out.trim().is_empty() {
-            self.message = "set a JSON output path".to_string();
+            self.set_error("set a JSON output path");
             return;
         }
         if let Err(e) = d.write_json(std::path::Path::new(self.json_out.trim())) {
-            self.message = e.to_string();
+            self.set_error(e.to_string());
             return;
         }
         let mut saved = format!("saved {}", self.json_out.trim());
@@ -491,12 +572,12 @@ impl DigitiseApp {
             match d.write_csv(std::path::Path::new(self.csv_out.trim())) {
                 Ok(()) => saved.push_str(&format!(" and {}", self.csv_out.trim())),
                 Err(e) => {
-                    self.message = format!("json saved, csv failed: {e}");
+                    self.set_error(format!("json saved, csv failed: {e}"));
                     return;
                 }
             }
         }
-        self.message = saved;
+        self.set_status(saved);
     }
 
     /// Nearest point (index) to image-pixel position, within `max_px`.
@@ -517,6 +598,20 @@ impl DigitiseApp {
 
     fn side_panel(&mut self, ui: &mut egui::Ui) {
         ui.heading("kovan — graph digitiser");
+        // op-fueb: duplicate any failure at the very TOP of the panel, in a
+        // coloured frame — the plain status label at the bottom (kept below,
+        // for continuity) sits past four sections' worth of scrolling and is
+        // easy to miss entirely, which is exactly what made an incomplete
+        // calibration look like "Auto-trace" was silently doing nothing.
+        if self.message_is_error {
+            egui::Frame::new()
+                .fill(Color32::from_rgb(120, 30, 30))
+                .inner_margin(6.0)
+                .show(ui, |ui| {
+                    ui.colored_label(Color32::WHITE, format!("⚠ {}", self.message));
+                });
+            ui.separator();
+        }
         ui.horizontal(|ui| {
             ui.label("image:");
             ui.text_edit_singleline(&mut self.image_path);
@@ -533,7 +628,8 @@ impl DigitiseApp {
         ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
         ui.separator();
 
-        ui.label("1. Axis references — drag the 4 lines on the image into place:");
+        ui.label("1. Axis references — drag the 4 lines on the image into place, \
+                  then type what each one is worth in data units:");
         let labels = ["X1 (column)", "X2 (column)", "Y1 (row)", "Y2 (row)"];
         for i in 0..4 {
             ui.horizontal(|ui| {
@@ -544,6 +640,16 @@ impl DigitiseApp {
                 });
                 ui.label("=");
                 ui.add(egui::TextEdit::singleline(&mut self.ref_val[i]).desired_width(70.0));
+                // op-fueb: live per-field validity, so an empty/unparseable
+                // value is visible the moment it's wrong rather than only
+                // after clicking Auto-trace and hunting for the error.
+                if self.ref_val[i].trim().parse::<f64>().is_ok() {
+                    ui.colored_label(Color32::from_rgb(90, 200, 90), "✓");
+                } else if self.ref_val[i].trim().is_empty() {
+                    ui.colored_label(Color32::from_rgb(230, 160, 60), "not set");
+                } else {
+                    ui.colored_label(Color32::from_rgb(230, 90, 90), "not a number");
+                }
             });
         }
         ui.checkbox(&mut self.x_log, "x axis logarithmic");
@@ -890,12 +996,15 @@ impl DigitiseApp {
 }
 
 impl DigitiseApp {
-    /// Top bar: switch between the Digitiser and PDF Reader panels
-    /// (op-95x6), and the Gruvbox theme selector (op-t5sq).
+    /// Top bar: switch between the Digitiser, PDF Reader (op-95x6) and
+    /// Markdown Editor (op-wr08) panels, and the Gruvbox theme selector
+    /// (op-t5sq).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
+            ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
+            ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
             ui.separator();
             ComboBox::from_id_salt("gui-theme")
                 .selected_text(self.theme.label())
@@ -913,7 +1022,12 @@ impl DigitiseApp {
     /// being opened.
     fn open_picker(&mut self, target: FileDialogTarget) {
         self.file_dialog_target = Some(target);
-        self.file_dialog.config_mut().default_file_filter = Some(target.default_filter().to_string());
+        if target.is_directory() {
+            self.file_dialog.pick_directory();
+            return;
+        }
+        self.file_dialog.config_mut().default_file_filter =
+            target.default_filter().map(str::to_string);
         if target.is_save() {
             self.file_dialog.save_file();
         } else {
@@ -932,6 +1046,8 @@ impl DigitiseApp {
             FileDialogTarget::Pdf => self.pdf_reader.open(&path),
             FileDialogTarget::JsonExport => self.json_out = path,
             FileDialogTarget::CsvExport => self.csv_out = path,
+            FileDialogTarget::ProjectFolder => self.markdown_editor.open_project(&path),
+            FileDialogTarget::BibliographyFolder => self.bibliography.open_project(&path),
         }
     }
 }
@@ -973,13 +1089,57 @@ impl eframe::App for DigitiseApp {
                 egui::CentralPanel::default().show_inside(ui, |ui| self.image_panel(ui));
             }
             View::PdfReader => {
+                let mut open_clicked = false;
+                let mut crop_result = None;
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    let mut open_clicked = false;
-                    self.pdf_reader.ui(ui, || open_clicked = true);
-                    if open_clicked {
-                        self.open_picker(FileDialogTarget::Pdf);
-                    }
+                    crop_result = self.pdf_reader.ui(ui, || open_clicked = true);
                 });
+                if open_clicked {
+                    self.open_picker(FileDialogTarget::Pdf);
+                }
+                // op-p17q: the reader just completed a crop-then-right-click
+                // gesture — load the cropped region as the digitiser's plot
+                // image and switch to it, so "close" (switching back to the
+                // reader) is the natural way to return, per the issue's own
+                // "popup window? Or new tab? ... after I'm done, I close"
+                // — this window's existing view switch already fills that
+                // role, so no separate popup/tab was added.
+                if let Some(raster) = crop_result {
+                    self.load_image_from_raster(raster);
+                    self.view = View::Digitiser;
+                }
+            }
+            View::MarkdownEditor => {
+                let mut browse_clicked = false;
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    self.markdown_editor.ui(ui, || browse_clicked = true);
+                });
+                if browse_clicked {
+                    self.open_picker(FileDialogTarget::ProjectFolder);
+                }
+            }
+            View::Bibliography => {
+                let mut browse_clicked = false;
+                let mut action = None;
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    action = self.bibliography.ui(ui, || browse_clicked = true);
+                });
+                if browse_clicked {
+                    self.open_picker(FileDialogTarget::BibliographyFolder);
+                }
+                // op-9vml's cross-reference jumps: hand off to the PDF
+                // reader or markdown editor tab and switch to it.
+                match action {
+                    Some(BibliographyAction::OpenPdf { path }) => {
+                        self.pdf_reader.open(&path);
+                        self.view = View::PdfReader;
+                    }
+                    Some(BibliographyAction::EditMarkdown { root, doc_id }) => {
+                        self.markdown_editor.open_document(&root, &doc_id);
+                        self.view = View::MarkdownEditor;
+                    }
+                    None => {}
+                }
             }
         }
     }
