@@ -270,7 +270,7 @@
 //! - **Licence:** GPL-3.0-only.
 
 // --- support layer (no `.m` counterpart) ---------------------------------
-pub mod driftflux6_solverstatic3d;
+pub mod driftflux6_solverstatic1d;
 pub mod error;
 pub mod matlab;
 pub mod thdiffusion_solverxyz;

@@ -223,6 +223,20 @@ pub struct Params {
     /// particular that this does **not** change which temperature drives the
     /// cross-section feedback.
     pub fueltemp_average: FuelTempAverage,
+    /// How the SA-nodal coefficients are evaluated at small optical thickness.
+    ///
+    /// Defaults to [`NodalCoeffForm::SeriesBelowSmallAlpha`] — **this crate
+    /// corrects defect N9 rather than reproducing it.** See that type. On
+    /// every case in the snapshot the setting changes nothing, because none
+    /// reaches the affected range.
+    pub nodal_coeff_form: NodalCoeffForm,
+    /// Which quality the **two-fluid** solver writes into
+    /// `th.coolant.quality`.
+    ///
+    /// Defaults to [`QualityForm::Equilibrium`] — **this crate corrects defect
+    /// T10 rather than reproducing it**, so both thermal-hydraulic paths write
+    /// the same quantity. See that type.
+    pub quality_form: QualityForm,
     /// `params.velocities` — prompt neutron group velocities, cm/s.
     ///
     /// One per energy group. The transient driver uses the reciprocals as the
@@ -458,6 +472,138 @@ pub enum FuelTempAverage {
     DopplerAlias,
 }
 
+/// How `calc_abefghxyz` evaluates the SA-nodal coefficients at small optical
+/// thickness `alpha`.
+///
+/// This is the switch for **defect N9**. Every coefficient is built from
+///
+/// ```text
+/// ms = 3*(cosh(a)/a - sinh(a)/a^2)
+/// mc = 5*(sinh(a)/a - 3*cosh(a)/a^2 + 3*sinh(a)/a^3)
+/// ```
+///
+/// and both are differences of far larger terms: `ms` cancels two of order
+/// `1/a` down to `a`, and `mc` cancels three of order `1/a^2` down to `a^2/3`.
+/// The relative cancellation error therefore grows like `a^-4`. Measured,
+/// the coefficients are **28% adrift at `a = 0.01`** and, by `a = 1e-6`,
+/// finite garbage wrong by up to 13 orders of magnitude. The reference has no
+/// fallback, and nothing about the output signals the failure.
+///
+/// # This changes nothing on any case in the snapshot
+///
+/// `alpha = 0.5 * L * sqrt(Sigma_r/D)`, and the smallest value reached by any
+/// case is **0.3535** (NEACRP A2), against IAEA-3D's 0.707 and D1's 0.662 —
+/// more than three orders of magnitude above the failure. This correction is
+/// **defensive**: it exists so that a finer mesh, a large diffusion
+/// coefficient, or a near-pure-scatterer region (`Sigma_r -> 0`) cannot
+/// silently produce zeros and NaNs.
+///
+/// # Where the switch sits, and why there
+///
+/// Below [`SMALL_ALPHA`] the coefficients come from their Taylor series about
+/// `a = 0`, derived term by term and verified against exact arithmetic:
+///
+/// ```text
+/// Aa -> (1/15)*(1 - a^2/35)     Ff -> (2/5)*(1 - a^2/210)
+/// Bb -> (1/35)*(1 - a^2/63)     Gg -> 10*(1 + a^2/90)
+/// Ee -> 2/7 - a^2/735           Hh -> 6*(1 + a^2/42)
+/// ```
+///
+/// The threshold is the **measured** crossover, not an estimated one. Both
+/// forms were compared against the closed form evaluated in 60-digit
+/// arithmetic:
+///
+/// | `a` | closed-form error | series error |
+/// |---|---|---|
+/// | 0.3 | 2.64e-10 | 1.03e-5 |
+/// | **0.1** | **1.26e-7** | **1.27e-7** |
+/// | 0.05 | 3.48e-6 | 7.94e-9 |
+/// | 0.01 | **2.81e-1** | 1.27e-11 |
+///
+/// They cross at `a = 0.1`, where both are near **1.3e-7**, so each form is
+/// used only where it is the more accurate of the two.
+///
+/// The dominant coefficient is **`Bb`**, not `mc` directly: `Bb` divides a
+/// fourth-order cancellation by `mc`, so it inherits and amplifies the loss.
+/// An estimate from `mc` alone puts the crossover an octave lower and is
+/// wrong — the closed form is already **28% adrift at `a = 0.01`**.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NodalCoeffForm {
+    /// Use the Taylor series below [`SMALL_ALPHA`], the closed form above.
+    /// **The default.**
+    #[default]
+    SeriesBelowSmallAlpha,
+    /// The reference's closed form at every `alpha` — defect N9, reproduced.
+    ///
+    /// **It does not fail loudly.** At `alpha = 1e-6` it returns *finite* and
+    /// entirely plausible-looking numbers that are wrong by up to **13 orders
+    /// of magnitude** — `Aa = 1.1e8` against a true 0.0667, `Bb = -1.0e12`
+    /// against 0.0286, `Gg = 3.0` against 10. A `NaN` would at least be
+    /// noticed.
+    ClosedFormAlways,
+}
+
+/// The optical thickness below which [`NodalCoeffForm::SeriesBelowSmallAlpha`]
+/// switches to the Taylor series.
+///
+/// The measured crossover: below it the series is the more accurate form,
+/// above it the closed form is, and at it both sit near `1.3e-7`.
+///
+/// The smallest `alpha` any case in the snapshot reaches is **0.3535**, so the
+/// switch is never taken on present cases — but the margin is **3.5x**, not
+/// the several orders of magnitude a `mc`-only analysis suggests.
+pub const SMALL_ALPHA: f64 = 0.1;
+
+/// Which quality the two-fluid solver writes into `th.coolant.quality`.
+///
+/// This is the switch for **defect T10**, and the defect is an
+/// **inconsistency between two solvers in this crate** rather than a bad
+/// formula in isolation. Both write the same field, and both feed
+/// [`crate::w3chf`]:
+///
+/// ```text
+/// singleflow1devap (HEM):     x = clamp((h - h_l,sat(p)) / h_fg(p), 0, 1)
+/// driftflux6_solverstatic1d:  x =       (h - h_l(p, T_l)) / h_fg(p)
+/// ```
+///
+/// The first is the **equilibrium quality**. The second subtracts the *local*
+/// liquid enthalpy while still dividing by the saturation latent heat, and
+/// applies no clamp: where both phases sit at saturation it reduces to the
+/// **flow** quality `alpha*rho_g/rho_m`, and where the liquid is subcooled it
+/// is neither quantity.
+///
+/// # Why there is a right answer here
+///
+/// Unlike the register's remaining thermal-hydraulic entries, this one does
+/// not need a benchmark to settle. The W-3 correlation's `K1`, `K2` and `K3`
+/// factors are **defined** against the equilibrium quality, and the sibling
+/// solver in this same crate already computes it. Aligning the two is a
+/// derivational argument plus internal consistency, not a modelling choice.
+///
+/// # It changes nothing today, and that is a symptom
+///
+/// The two-fluid path's 1-D kernel (`driftflux6_solverstatic1d.m`) is
+/// **missing from the snapshot**, so every channel keeps its inlet state and
+/// `alphag` never leaves zero — at which point the mixture enthalpy *is* the
+/// liquid enthalpy and the old numerator was identically zero. Measured on
+/// NEACRP D1: quality `0.000000` everywhere under either setting.
+///
+/// **This correction therefore matters prospectively.** Supplying the missing
+/// kernel would make the old formula start producing wrong, unclamped
+/// qualities straight into the CHF correlation. The same entanglement appears
+/// twice elsewhere in this register — T9 was harmless only while T1's 1 K gap
+/// row went unaveraged, and G1 only until G3's `gradterms` had to match it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum QualityForm {
+    /// The equilibrium quality, clamped to `[0, 1]` — identical to what
+    /// [`crate::singleflow1devap`] computes. **The default.**
+    #[default]
+    Equilibrium,
+    /// The reference's local-liquid-enthalpy form, unclamped — defect T10,
+    /// reproduced as written.
+    LocalLiquidEnthalpy,
+}
+
 impl Params {
     /// `[maxi1, maxi2] = handle2dcoords(params)` — which coordinate branch the
     /// populated fields select.
@@ -520,12 +666,17 @@ impl Params {
     /// - [`Params::hot_channel_search`] — defect C2/T4, `highy = ix`.
     /// - [`Params::fueltemp_average`] — defects T9/T13, `fueltempavg`
     ///   aliased to the Doppler temperature.
+    /// - [`Params::nodal_coeff_form`] — defect N9, the small-`alpha`
+    ///   cancellation.
+    /// - [`Params::quality_form`] — defect T10, the two-fluid path's quality.
     pub fn reference_faithful() -> Self {
         Self {
             gradd_form: GradDForm::Reference,
             w3_form: W3Form::Reference,
             hot_channel_search: HotChannelSearch::Reference,
             fueltemp_average: FuelTempAverage::DopplerAlias,
+            nodal_coeff_form: NodalCoeffForm::ClosedFormAlways,
+            quality_form: QualityForm::LocalLiquidEnthalpy,
             ..Self::default()
         }
     }
@@ -906,7 +1057,7 @@ pub struct Coolant {
     pub inletpress: f64,
     /// `th.coolant.inletvoid` — inlet void fraction, dimensionless. Scalar.
     ///
-    /// Read by [`crate::driftflux6_solverstatic3d`] to set the inlet mixture
+    /// Read by [`crate::driftflux6_solverstatic1d`] to set the inlet mixture
     /// density; zero for a subcooled inlet.
     pub inletvoid: f64,
     /// `th.coolant.press` — pressure per node, **MPa**.
@@ -976,7 +1127,7 @@ pub struct Coolant {
 ///
 /// # Only one of these can actually run
 ///
-/// [`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic3d`], whose
+/// [`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic1d`], whose
 /// per-channel solver is **absent from the snapshot** — so it retains the
 /// previous state rather than solving. [`ThModel::Hem`] routes to
 /// [`crate::singleflow1devap`], which works. The NEACRP D1 BWR case sets
@@ -1077,7 +1228,7 @@ pub struct Th {
     /// `th.flowdir` — which way the coolant flows along `z`.
     pub flowdir: FlowDirection,
 
-    // --- staggered six-equation warm-start store (driftflux6_solverstatic3d) --
+    // --- staggered six-equation warm-start store (driftflux6_solverstatic1d) --
     /// `th.stag6_Ustag` — the per-channel state vector the staggered solver
     /// reuses as a warm start, `6*maxiz` rows by `maxix*maxiy` channels.
     ///

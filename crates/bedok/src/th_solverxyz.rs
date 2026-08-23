@@ -256,7 +256,7 @@ pub fn th_solverxyz(
     let th = match params.th_model {
         ThModel::Hem => crate::singleflow1devap::singleflow1devap(params, geometry, th, &pwrdens),
         ThModel::TwoFluid => {
-            crate::driftflux6_solverstatic3d::driftflux6_solverstatic3d(
+            crate::driftflux6_solverstatic1d::driftflux6_solverstatic1d(
                 params, geometry, th, &pwrdens,
             )
             .0
@@ -825,7 +825,7 @@ mod tests {
     ///
     /// `th_model = 'hem'` routes to [`crate::singleflow1devap`], which marches
     /// an enthalpy profile. `'twofluid'` routes to
-    /// [`crate::driftflux6_solverstatic3d`], whose per-channel solver is absent
+    /// [`crate::driftflux6_solverstatic1d`], whose per-channel solver is absent
     /// from the snapshot, so it returns the inlet defaults unchanged.
     ///
     /// The HEM path must therefore show an axial coolant temperature rise,
@@ -842,7 +842,7 @@ mod tests {
     /// with `driftflux6_solverstatic1d.m` absent it has nothing to solve with,
     /// so the coolant never leaves its inlet state. A caller who did not know
     /// that would see a plausible, perfectly uniform core and no error.
-    /// [`crate::driftflux6_solverstatic3d::ChannelReport`] is how to tell.
+    /// [`crate::driftflux6_solverstatic1d::ChannelReport`] is how to tell.
     #[test]
     fn only_the_hem_model_actually_solves_the_coolant() {
         let n = 10;

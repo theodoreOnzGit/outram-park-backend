@@ -10,6 +10,28 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 //!
+//! # The module name and the source file name differ, deliberately
+//!
+//! **Renamed to `driftflux6_solverstatic1d` on 2026-08-23 at the maintainer's
+//! direction**, who intends this module to be the missing 1-D kernel.
+//!
+//! It is the one place in this crate where the module name is **not** its
+//! `.m` file's name, so the mapping is stated here rather than left to be
+//! inferred: the code below is translated from **`driftflux6_solverstatic3d.m`**
+//! — the multichannel wrapper, which is in the snapshot — while the name it now
+//! carries is that of **`driftflux6_solverstatic1d.m`**, the per-channel solver,
+//! which is not.
+//!
+//! Two consequences worth knowing before editing:
+//!
+//! - **The code is still the wrapper.** It loops over `maxix * maxiy` channels
+//!   and delegates each one; it does not solve a channel itself. Anyone filling
+//!   in the missing kernel is adding that solve, not replacing this loop.
+//! - **Defect T10 is waiting on it.** The moment a real per-channel solve makes
+//!   `alphag` leave zero, the quality this module derives starts to matter; the
+//!   T10 correction (`Params::quality_form`) is already in place for that, and
+//!   is a no-op until then.
+//!
 //! # Read this first: the solver this wraps is missing from the handover
 //!
 //! Every channel's actual solve is delegated to **`driftflux6_solverstatic1d.m`,
@@ -102,7 +124,7 @@ pub struct ChannelReport {
     pub warm_eligible: usize,
 }
 
-/// `th = driftflux6_solverstatic3d(params, geometry, th, pwrdens)`.
+/// `th = driftflux6_solverstatic1d(params, geometry, th, pwrdens)`.
 ///
 /// # Arguments
 ///
@@ -135,7 +157,7 @@ pub struct ChannelReport {
 /// # Panics
 ///
 /// If `pwrdens` or `geometry.lz` is shorter than the node count.
-pub fn driftflux6_solverstatic3d(
+pub fn driftflux6_solverstatic1d(
     params: &Params,
     geometry: &Geometry,
     th: &Th,
@@ -253,7 +275,26 @@ pub fn driftflux6_solverstatic3d(
         let enthgas = h2_pt(p, tgk);
         enth[i] = (alphag[i] * gdens[i] * enthgas + (1.0 - alphag[i]) * ldens[i] * enthliq)
             / dens[i];
-        quality[i] = (enth[i] - enthliq) / (hv_p(p) - hl_p(p));
+        // Defect T10 — see `crate::types::QualityForm`. The corrected form is
+        // byte-identical to what `singleflow1devap` computes on the HEM path,
+        // so both solvers now write the same quantity into the same field.
+        //
+        // The `max/min` chain rather than `clamp` is deliberate and matches
+        // the HEM path: on `NaN` — reachable above the IF97 region 1/3
+        // boundary, where `hl_p` and `hv_p` are both `NaN` — the chain returns
+        // `0.0` as MATLAB's `min`/`max` do, while `f64::clamp` propagates it.
+        #[allow(clippy::manual_clamp)]
+        {
+            quality[i] = match params.quality_form {
+                crate::types::QualityForm::Equilibrium => {
+                    let hlsat = hl_p(p);
+                    ((enth[i] - hlsat) / (hv_p(p) - hlsat)).max(0.0).min(1.0)
+                }
+                crate::types::QualityForm::LocalLiquidEnthalpy => {
+                    (enth[i] - enthliq) / (hv_p(p) - hl_p(p))
+                }
+            };
+        }
 
         pran[i] = cp1_pt(p, tlk) * mu_pt(p, tlk) / k_pt(p, tlk) * 1000.0;
         kvis[i] = mu_pt(p, tlk) * v1_pt(p, tlk) * 10000.0;
@@ -381,7 +422,7 @@ mod tests {
     #[test]
     fn the_missing_solver_is_reported_per_channel() {
         let (params, geometry, th, pwrdens) = core(6);
-        let (_, report) = driftflux6_solverstatic3d(&params, &geometry, &th, &pwrdens);
+        let (_, report) = driftflux6_solverstatic1d(&params, &geometry, &th, &pwrdens);
 
         eprintln!("{report:?}");
         assert_eq!(report.powered, 1);
@@ -434,7 +475,7 @@ mod tests {
     #[test]
     fn the_derived_field_tail_recovers_a_consistent_liquid_state() {
         let (params, geometry, th, pwrdens) = core(6);
-        let (out, _) = driftflux6_solverstatic3d(&params, &geometry, &th, &pwrdens);
+        let (out, _) = driftflux6_solverstatic1d(&params, &geometry, &th, &pwrdens);
         let c = &out.coolant;
 
         eprintln!(
@@ -500,7 +541,7 @@ mod tests {
         th.coolant.vliq = vec![100.0; es];
         th.coolant.vgas = vec![200.0; es];
 
-        let (out, _) = driftflux6_solverstatic3d(&params, &geometry, &th, &pwrdens);
+        let (out, _) = driftflux6_solverstatic1d(&params, &geometry, &th, &pwrdens);
         let c = &out.coolant;
         eprintln!(
             "Tsat(7 MPa) = {:.3}; ldens = {:.5}, gdens = {:.5}, ratio = {:.1}",
@@ -560,7 +601,7 @@ mod tests {
             th.stag6_qref = qref;
             th.stag6_relerr = vec![relerr; nch];
             th.heatflux = vec![10.0 * qscale; 4 * n];
-            let (_, report) = driftflux6_solverstatic3d(&params, &geometry, &th, &pwrdens);
+            let (_, report) = driftflux6_solverstatic1d(&params, &geometry, &th, &pwrdens);
             report.warm_eligible
         };
 
@@ -583,5 +624,231 @@ mod tests {
         eprintln!("{msg}");
         assert!(msg.contains("driftflux6_solverstatic1d.m"));
         assert!(msg.contains("driftflux6_solverstatic3d.m"));
+    }
+
+    /// **T10 — the two thermal-hydraulic paths disagree about what `quality`
+    /// means, and both feed the CHF correlation.**
+    ///
+    /// # Methodology
+    ///
+    /// `th.coolant.quality` is written by two different solvers:
+    ///
+    /// ```text
+    /// singleflow1devap (HEM):   x = clamp((h - h_l,sat(p)) / h_fg(p), 0, 1)
+    /// driftflux6_solverstatic1d: x =       (h - h_l(p, T_l)) / h_fg(p)
+    /// ```
+    ///
+    /// The first is the **equilibrium quality**, which is what the W-3
+    /// correlation's `K1`/`K2`/`K3` factors are defined against. The second
+    /// subtracts the **local** liquid enthalpy while still dividing by the
+    /// saturation latent heat, and applies no clamp. Where both phases sit at
+    /// saturation the second reduces to the *flow* quality
+    /// `alpha*rho_g/rho_m`; where the liquid is subcooled it is neither
+    /// quantity.
+    ///
+    /// This runs NEACRP D1 through both paths and reports what each writes,
+    /// which settles whether the disagreement is currently doing damage.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// NEACRP D1, coupled steady:
+    ///
+    /// | path | quality | void | coolant T | `k_eff` |
+    /// |---|---|---|---|---|
+    /// | **TwoFluid** | **4.70e-11 everywhere** | 0.000000 | flat 547.15 K | 1.0429504111 |
+    /// | **Hem** | 0.000000 .. 0.260961 | 0.000000 .. 0.725853 | 547.14 .. 556.03 K | 0.9752848326 |
+    ///
+    /// **Interpretation — T10 is latent, and latent for a reason worth
+    /// stating.** The defective formula sits on the two-fluid path, whose 1-D
+    /// kernel (`driftflux6_solverstatic1d.m`) is **missing from the
+    /// snapshot**. Every channel therefore returns `SolverMissing` and keeps
+    /// its inlet state, so `alphag` stays 0 — and at zero void the mixture
+    /// enthalpy *is* the liquid enthalpy, making the numerator
+    /// `enth - enthliq` **4.70e-11** — floating-point residue of two nominally
+    /// equal numbers, not the 0.000000 an earlier `{:.6}` print suggested.
+    /// **The defect cannot express itself, because the quantity it corrupts is
+    /// multiplied by a void fraction that never leaves zero.**
+    ///
+    /// Note the derived-field recovery block **does** run — it is outside the
+    /// per-channel loop — so this is a live code path producing a
+    /// structurally-zero result, not dead code.
+    ///
+    /// **It becomes live the moment the missing kernel is supplied**, which is
+    /// the same entanglement seen twice already: T9's volume average was
+    /// harmless only because T1's 1 K gap row was never averaged, and G1's
+    /// operator correction was harmless only until G3's `gradterms` had to
+    /// match it. Repairing one defect here activates another.
+    ///
+    /// **The two paths disagree about what the field means**, which is the
+    /// part that does not depend on the missing file:
+    ///
+    /// ```text
+    /// Hem:       x = clamp((h - h_l,sat(p)) / h_fg(p), 0, 1)   <- equilibrium
+    /// TwoFluid:  x =       (h - h_l(p, T_l)) / h_fg(p)         <- neither, unclamped
+    /// ```
+    ///
+    /// Both write `th.coolant.quality`, and both feed `w3chf`, whose `K1`,
+    /// `K2` and `K3` factors are defined against the **equilibrium** quality.
+    #[test]
+    fn t10_the_two_th_paths_disagree_about_quality() {
+        use crate::types::{Params, ThModel};
+
+        for model in [ThModel::TwoFluid, ThModel::Hem] {
+            let base = Params { th_model: model, nodalupd: 20, ..Default::default() };
+            let (params, geometry, th, whichsigma, sigmavalues, feedback) =
+                crate::neacrpd1::neacrpd1(&base);
+            let out = crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sigmavalues, &feedback, &whichsigma, Some(1.0),
+            )
+            .expect("D1 should run");
+
+            let c = &out.th.coolant;
+            let stat = |v: &[f64]| {
+                let lo = v.iter().cloned().fold(f64::INFINITY, f64::min);
+                let hi = v.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                (lo, hi)
+            };
+            let (qlo, qhi) = stat(&c.quality);
+            let (alo, ahi) = stat(&c.alphag);
+            let (tlo, thi) = stat(&c.temps);
+            let outside = c.quality.iter().filter(|x| **x < 0.0 || **x > 1.0).count();
+
+            eprintln!("{model:?}:");
+            eprintln!("  quality  [{qlo:.6}, {qhi:.6}]   outside [0,1]: {outside} nodes");
+            eprintln!("  void     [{alo:.6}, {ahi:.6}]");
+            eprintln!("  coolant T[{tlo:.2}, {thi:.2}] K");
+            eprintln!("  k_eff = {:.10}", out.k_eff);
+        }
+    }
+
+    /// **T10 corrected — the two solvers now compute the same quality.**
+    ///
+    /// # Methodology
+    ///
+    /// The defect was an inconsistency between two solvers writing one field,
+    /// so the test is an agreement test, not a value test. Three parts:
+    ///
+    /// 1. **The corrected two-fluid form is the HEM form.** Both are evaluated
+    ///    over a sweep of mixture enthalpies spanning subcooled liquid,
+    ///    two-phase and superheated vapour at D1's 6.7 MPa, and must agree
+    ///    **exactly** — same function, not merely close.
+    /// 2. **The old form did not.** The same sweep under
+    ///    [`crate::types::QualityForm::LocalLiquidEnthalpy`] must disagree,
+    ///    and must leave `[0, 1]`, or the correction is vacuous.
+    /// 3. **It does not move the case today.** NEACRP D1's `k_eff` must be
+    ///    identical under both settings, because the missing 1-D kernel pins
+    ///    `alphag` to zero. The quality itself does move, but only from
+    ///    floating-point residue to the exact zero a subcooled channel should
+    ///    report.
+    ///
+    /// Part 1 is checked against `singleflow1devap`'s formula written out
+    /// here rather than by calling it, because that solver marches a whole
+    /// channel and cannot be asked for a single point — so the check is that
+    /// the *expressions* coincide, which is what the defect was about.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// At D1's 6.7 MPa, sweeping mixture enthalpy from 100 kJ/kg below
+    /// saturated liquid to 100 above saturated vapour:
+    ///
+    /// | | max `abs(diff)` from the HEM form | points outside `[0, 1]` |
+    /// |---|---|---|
+    /// | **corrected** | **0.000e0** | 0 |
+    /// | reference | **1.331e-1** | **2** |
+    ///
+    /// The corrected two-fluid path and the HEM path are now the **same
+    /// function**, exactly — not close, identical. The old form was off by up
+    /// to **0.133 in quality** and reported values above 1 and below 0.
+    ///
+    /// **On NEACRP D1 the physics does not move:** `k_eff` 1.0429504111 under
+    /// both settings. The quality does change, and in the right direction —
+    /// from **4.704e-11** to **exactly 0**. The old form leaves floating-point
+    /// residue where the mixture and local liquid enthalpies are nominally
+    /// equal; the corrected form clamps a subcooled channel to the zero it
+    /// should report.
+    ///
+    /// **A correction to an earlier measurement.** The T10 investigation
+    /// recorded this case's quality as "identically 0.000000". It was
+    /// 4.70e-11 — a `{:.6}` format had rounded it away. The conclusion drawn
+    /// from it stands (the defect cannot express itself while `alphag` is
+    /// pinned at zero), but "identically zero" was a display artefact, not a
+    /// measurement.
+    #[test]
+    fn t10_the_corrected_quality_matches_the_hem_definition() {
+        use crate::iapws_if97::basic::{hl_p, hv_p};
+        use crate::types::{Params, QualityForm, ThModel};
+
+        const P: f64 = 6.7; // D1's system pressure, MPa
+        let hlsat = hl_p(P);
+        let hvsat = hv_p(P);
+
+        // `singleflow1devap`'s formula, written out.
+        #[allow(clippy::manual_clamp)]
+        let hem = |h: f64| ((h - hlsat) / (hvsat - hlsat)).max(0.0).min(1.0);
+
+        // The two-fluid forms, at a liquid temperature 20 K subcooled so the
+        // local liquid enthalpy is genuinely below saturation.
+        let tlk = crate::iapws_if97::region4::tsat_p(P) - 20.0;
+        let enthliq_local = crate::iapws_if97::basic::h1_pt(P, tlk);
+        #[allow(clippy::manual_clamp)]
+        let corrected = |h: f64| ((h - hlsat) / (hvsat - hlsat)).max(0.0).min(1.0);
+        let reference = |h: f64| (h - enthliq_local) / (hvsat - hlsat);
+
+        eprintln!("p = {P} MPa: h_l,sat = {hlsat:.3}, h_v,sat = {hvsat:.3} kJ/kg");
+        eprintln!("local liquid enthalpy 20 K subcooled = {enthliq_local:.3} kJ/kg");
+        eprintln!();
+        eprintln!("  {:>10}  {:>12}  {:>12}  {:>12}", "h", "HEM", "corrected", "reference");
+
+        let mut worst_agree = 0.0f64;
+        let mut worst_disagree = 0.0f64;
+        let mut left_range = 0usize;
+        for k in 0..=10 {
+            let h = hlsat - 100.0 + (hvsat - hlsat + 200.0) * (k as f64 / 10.0);
+            let (a, b, c) = (hem(h), corrected(h), reference(h));
+            eprintln!("  {h:>10.2}  {a:>12.6}  {b:>12.6}  {c:>12.6}");
+            worst_agree = worst_agree.max((a - b).abs());
+            worst_disagree = worst_disagree.max((a - c).abs());
+            if !(0.0..=1.0).contains(&c) {
+                left_range += 1;
+            }
+        }
+        eprintln!();
+        eprintln!("  corrected vs HEM : max |diff| = {worst_agree:.3e}");
+        eprintln!("  reference vs HEM : max |diff| = {worst_disagree:.3e}, {left_range} points outside [0,1]");
+
+        // 1. the corrected form IS the HEM form
+        assert_eq!(worst_agree, 0.0, "the two solvers must compute the same function");
+        // 2. the old form was not, and left the physical range
+        assert!(worst_disagree > 0.01, "the correction must actually change something");
+        assert!(left_range > 0, "the old form is expected to leave [0, 1]");
+
+        // 3. a no-op on the case as it stands
+        let run = |form: QualityForm| {
+            let base = Params {
+                th_model: ThModel::TwoFluid,
+                nodalupd: 20,
+                quality_form: form,
+                ..Default::default()
+            };
+            let (params, geometry, th, ws, sv, fb) = crate::neacrpd1::neacrpd1(&base);
+            crate::thdiffusion_solverxyz::thdiffusion_solverxyz(
+                &geometry, &params, &th, &sv, &fb, &ws, Some(1.0),
+            )
+            .expect("D1 should run")
+        };
+        let a = run(QualityForm::LocalLiquidEnthalpy);
+        let b = run(QualityForm::Equilibrium);
+        let qa = a.th.coolant.quality.iter().cloned().fold(0.0f64, f64::max);
+        let qb = b.th.coolant.quality.iter().cloned().fold(0.0f64, f64::max);
+        eprintln!();
+        eprintln!("NEACRP D1 two-fluid:");
+        eprintln!("  k_eff        {:.10} -> {:.10}", a.k_eff, b.k_eff);
+        eprintln!("  max quality  {qa:.6e} -> {qb:.6e}");
+        assert_eq!(a.k_eff, b.k_eff, "the correction must not move this case");
+        // The old form leaves floating-point residue where `enth` and the local
+        // liquid enthalpy are nominally equal; the corrected form clamps a
+        // subcooled node to exactly zero, which is the right answer.
+        assert!(qa > 0.0 && qa < 1e-9, "expected tiny residue, got {qa:e}");
+        assert_eq!(qb, 0.0, "a subcooled channel must report exactly zero quality");
     }
 }

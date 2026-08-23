@@ -141,9 +141,9 @@ alongside defects D1-D7:
   [`error::BedokError::IterativeSolveNotTranslated`] instead, which names
   the threshold.
 
-# Status — INCOMPLETE, but building and tested
+# Status — translation complete; verification partial
 
-This is a rewrite in progress. **all 50 `.m` files are translated**: the
+**All 50 `.m` files are translated**: the
 utility and indexing layer, all fourteen SANM nodal files, both flux
 solvers, the whole thermal-hydraulics layer, **both** coupling drivers
 (steady and transient), and five benchmark cases ([`iaea3ds`],
@@ -166,19 +166,56 @@ One more is translated but **cannot be run**: [`geom2dxycase1`] builds a 2-D
 case, and every solver in the snapshot is 3-D. Its own call site in
 `main_exec_diff3d.m` is commented out.
 
-# An open disagreement with the reference
+# Verified against the running MATLAB
 
-[`criticalboron_xyz`] finds case A2 critical at **1253.29 ppm** where the
-MATLAB finds 1139.01 — about **1100 pcm** apart, cause **not established**.
-See that module and `docs/bedok-reference-defects.md`, "Open discrepancies".
+Both steady NEACRP cases reproduce the reference **exactly** — A2 at
+`k_eff = 1.0139476080` and D1 at `0.9752848326`, with fuel temperature,
+coolant temperature, heat flux and power identical to every printed digit.
+Getting to that found two defects: **Z1**, a silently rounded axial mesh,
+and **N1**, an unstable default nodal-update interval that makes A2's
+coupled loop chaotic.
 
-# A defect worth knowing before running the PWR cases
+**The transient path reproduces it too**, on all three cases — including the
+super-prompt HZP ejection (2.1e-7 through a 67-fold excursion) and D1t over
+its **full 20 s window** (261 steps, 2.9e-11). [`iaea3ds`] matches the
+MATLAB as well as its published values, and [`criticalboron_xyz`] **fails
+where the reference fails**, aborting at the same boron concentration.
 
-[`makegrad_dxyz`]'s face coupling is **only consistent on a uniform mesh**
-(defect G1). The NEACRP PWR cases grade their axial mesh, and on
-[`neacrpa2`]'s worst joint — 30 cm against 7.7 cm, at the bottom of the
-core — the coupling is misstated by **+144.8%**. It is pinned by test and
-deliberately not repaired. See `docs/bedok-reference-defects.md`.
+What remains outside the comparison: the T-H modules individually (they are
+covered only transitively), `w3chf` (whose output the reference discards,
+so there is nothing to compare), the ejection transients beyond 0.15 s, and
+IAPWS region 3, which is not translated. See
+`docs/bedok-reference-defects.md`.
+
+# Corrections are on by default — this crate is no longer bit-faithful
+
+With every runnable case verified against the MATLAB, **stage 2 opened on
+2026-08-21** and three groups of reference defects are now **corrected by
+default**. On the cases they touch, this crate deliberately no longer
+reproduces the MATLAB's numbers.
+
+| Defects | What | Switch |
+|---|---|---|
+| G1, G2, G3 | The diffusion face coupling and `gradterms` | [`types::Params::gradd_form`] |
+| T5, T6 | The W-3 `K4` subcooling enthalpy | [`types::Params::w3_form`] |
+| C2, T4 | `highy = ix` in the hottest-channel search | [`types::Params::hot_channel_search`] |
+| T9, T13 | `fueltempavg` aliased to the Doppler temperature | [`types::Params::fueltemp_average`] |
+
+**To reproduce the reference, build from
+[`types::Params::reference_faithful`]**, which turns every correction off.
+That is what the MATLAB-parity tests do.
+
+What each is worth, measured: the operator correction moves NEACRP A2's
+critical boron from 1138.8 to **1152.5 ppm** against a published 1160.6, and
+A1's from 551.4 to **561.0** against 567.7 — closing 63% and 59% of the two
+gaps. The CHF corrections cut A2's reported thermal margin by **18.2%**
+(DNBR 2.55 to 2.08), both defects having overstated it. The fuel-average
+correction moves only a reported number — D1's average fuel temperature
+rises up to 240 K — while the Doppler temperature that drives the feedback
+is bit-identical and `k_eff` does not move.
+
+Everything else in `docs/bedok-reference-defects.md` is still translated
+as-is and pinned by a test asserting the wrong behaviour.
 
 **Both the steady and the transient paths now run end to end on real
 benchmark cases.** [`iaea3ds`] matches a published `k_eff` to -1.1 pcm;
@@ -242,7 +279,7 @@ everything here remains AI-assisted draft material pending human review;
 
 ## Modules
 
-## Module `driftflux6_solverstatic3d`
+## Module `driftflux6_solverstatic1d`
 
 Multichannel wrapper for the staggered six-equation two-fluid solver.
 
@@ -255,6 +292,28 @@ Multichannel wrapper for the staggered six-equation two-fluid solver.
 - **Permission:** given by the author for open-source release under OUTRAM
   PARK; see the crate README, "Permission and attribution".
 - **Licence:** GPL-3.0-only.
+
+# The module name and the source file name differ, deliberately
+
+**Renamed to `driftflux6_solverstatic1d` on 2026-08-23 at the maintainer's
+direction**, who intends this module to be the missing 1-D kernel.
+
+It is the one place in this crate where the module name is **not** its
+`.m` file's name, so the mapping is stated here rather than left to be
+inferred: the code below is translated from **`driftflux6_solverstatic3d.m`**
+— the multichannel wrapper, which is in the snapshot — while the name it now
+carries is that of **`driftflux6_solverstatic1d.m`**, the per-channel solver,
+which is not.
+
+Two consequences worth knowing before editing:
+
+- **The code is still the wrapper.** It loops over `maxix * maxiy` channels
+  and delegates each one; it does not solve a channel itself. Anyone filling
+  in the missing kernel is adding that solve, not replacing this loop.
+- **Defect T10 is waiting on it.** The moment a real per-channel solve makes
+  `alphag` leave zero, the quality this module derives starts to matter; the
+  T10 correction (`Params::quality_form`) is already in place for that, and
+  is a no-op until then.
 
 # Read this first: the solver this wraps is missing from the handover
 
@@ -312,7 +371,7 @@ purely to swallow the JFNK solver's per-iteration printing, which it notes
 would otherwise flood the coupled log at ~2 MB/cycle. Nothing here prints.
 
 ```rust
-pub mod driftflux6_solverstatic3d { /* ... */ }
+pub mod driftflux6_solverstatic1d { /* ... */ }
 ```
 
 ### Types
@@ -589,9 +648,9 @@ pub struct ChannelReport {
 
 ### Functions
 
-#### Function `driftflux6_solverstatic3d`
+#### Function `driftflux6_solverstatic1d`
 
-`th = driftflux6_solverstatic3d(params, geometry, th, pwrdens)`.
+`th = driftflux6_solverstatic1d(params, geometry, th, pwrdens)`.
 
 # Arguments
 
@@ -626,7 +685,7 @@ for a caller that would rather have the error value.
 If `pwrdens` or `geometry.lz` is shorter than the node count.
 
 ```rust
-pub fn driftflux6_solverstatic3d(params: &crate::types::Params, geometry: &crate::types::Geometry, th: &crate::types::Th, pwrdens: &[f64]) -> (crate::types::Th, ChannelReport) { /* ... */ }
+pub fn driftflux6_solverstatic1d(params: &crate::types::Params, geometry: &crate::types::Geometry, th: &crate::types::Th, pwrdens: &[f64]) -> (crate::types::Th, ChannelReport) { /* ... */ }
 ```
 
 #### Function `missing_solver`
@@ -728,7 +787,7 @@ Note the reference itself often *catches* the resulting MATLAB
 "undefined function" error and continues on a fallback path; where it
 does, the translation reproduces that fallback and surfaces this as a
 per-item outcome rather than failing the whole call. See
-[`crate::driftflux6_solverstatic3d`].
+[`crate::driftflux6_solverstatic1d`].
 
 Fields:
 
@@ -2332,6 +2391,146 @@ The outer iteration cap was reached.
     fn vzip(self: Self) -> V { /* ... */ }
     ```
 
+#### Struct `ThSnapshot`
+
+One outer pass's thermal-hydraulic state, for diagnosing a coupled solve.
+
+Not in the reference's `output`. The reference prints a fuel-temperature
+residual per pass and nothing else, which is enough to see *that* a loop is
+misbehaving but not *how*: a loop whose coolant has stopped responding and
+one whose fuel is oscillating produce similar residual traces. These three
+numbers separate them.
+
+```rust
+pub struct ThSnapshot {
+    pub heatflux_sum: f64,
+    pub pwrdens_sum: f64,
+    pub fueltemp_max: f64,
+    pub coolant_max: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heatflux_sum` | `f64` | Total wall heat flux over the core, W/cm².<br><br>Collapsing toward zero means no heat is reaching the coolant. |
+| `pwrdens_sum` | `f64` | Total of the `pwrdens` vector handed to the T-H this pass.<br><br>This is the *input* to the thermal-hydraulics, so it separates "the<br>T-H stopped working" from "the T-H was given no power". |
+| `fueltemp_max` | `f64` | The hottest node's fuel temperature, K. |
+| `coolant_max` | `f64` | The hottest node's coolant temperature, K.<br><br>Equal to the inlet temperature means the coolant never heated. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ThSnapshot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ThSnapshot) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
 #### Struct `CoupledOutput`
 
 `output` — what the reference returns, plus what it computes and discards.
@@ -2343,6 +2542,7 @@ pub struct CoupledOutput {
     pub k_eff_residual: f64,
     pub fueltemp_residual: f64,
     pub fueltemp_residual_history: Vec<f64>,
+    pub th_history: Vec<ThSnapshot>,
     pub k_eff_history: Vec<f64>,
     pub scalar_flux: crate::matlab::Array2<f64>,
     pub fission_source: Vec<f64>,
@@ -2366,6 +2566,7 @@ pub struct CoupledOutput {
 | `k_eff_residual` | `f64` | `output.k_eff_residual` — the final `k_eff` residual. |
 | `fueltemp_residual` | `f64` | `output.fueltemp_residual` — the final fuel-temperature change, K. |
 | `fueltemp_residual_history` | `Vec<f64>` | `output.fueltemp_residual_history` — one entry per outer iteration. |
+| `th_history` | `Vec<ThSnapshot>` | One [`ThSnapshot`] per outer iteration. **Diagnostic, not in the<br>reference** — see that type for why it exists. |
 | `k_eff_history` | `Vec<f64>` | `output.k_eff_history` — one entry per outer iteration. |
 | `scalar_flux` | `crate::matlab::Array2<f64>` | `output.scalar_flux` — the converged flux history, renormalised. |
 | `fission_source` | `Vec<f64>` | `output.fission_source` — renormalised to the initial integral. |
@@ -3291,6 +3492,12 @@ pub struct Params {
     pub timepicard: Option<usize>,
     pub nodalupdtime: Option<usize>,
     pub crittol: Option<f64>,
+    pub gradd_form: GradDForm,
+    pub w3_form: W3Form,
+    pub hot_channel_search: HotChannelSearch,
+    pub fueltemp_average: FuelTempAverage,
+    pub nodal_coeff_form: NodalCoeffForm,
+    pub quality_form: QualityForm,
     pub velocities: Vec<f64>,
     pub beta_dnp: Vec<f64>,
     pub lambda_dnp: Vec<f64>,
@@ -3347,6 +3554,12 @@ pub struct Params {
 | `timepicard` | `Option<usize>` | T-H feedback Picard passes per time step. |
 | `nodalupdtime` | `Option<usize>` | SA-nodal correction update interval in steps; `0` freezes it. |
 | `crittol` | `Option<f64>` | `params.crittol` — tolerance on `|k_eff - 1|` for the critical state.<br><br>Read only by [`crate::criticalboron_xyz`]; defaults to 1e-5. |
+| `gradd_form` | `GradDForm` | Which face-coupling form [`crate::makegrad_dxyz`] builds the diffusion<br>operator with.<br><br>Defaults to [`GradDForm::Conservative`] — **this crate corrects defect<br>G1 rather than reproducing it.** See that type for what the two forms<br>are and what choosing between them costs. |
+| `w3_form` | `W3Form` | Which subcooling enthalpy the W-3 critical-heat-flux correlation's<br>`K4` factor uses.<br><br>Defaults to [`W3Form::Published`] — **this crate corrects defects<br>T5/T6 rather than reproducing them.** See that type. |
+| `hot_channel_search` | `HotChannelSearch` | How the hottest coolant channel is located for the CHF evaluation.<br><br>Defaults to [`HotChannelSearch::Correct`] — **this crate corrects<br>defect C2/T4 rather than reproducing it.** See that type. |
+| `fueltemp_average` | `FuelTempAverage` | How `th.fueltempavg` is formed from the solved rod temperature profile.<br><br>Defaults to [`FuelTempAverage::VolumeWeighted`] — **this crate corrects<br>defect T9/T13 rather than reproducing it.** See that type, and note in<br>particular that this does **not** change which temperature drives the<br>cross-section feedback. |
+| `nodal_coeff_form` | `NodalCoeffForm` | How the SA-nodal coefficients are evaluated at small optical thickness.<br><br>Defaults to [`NodalCoeffForm::SeriesBelowSmallAlpha`] — **this crate<br>corrects defect N9 rather than reproducing it.** See that type. On<br>every case in the snapshot the setting changes nothing, because none<br>reaches the affected range. |
+| `quality_form` | `QualityForm` | Which quality the **two-fluid** solver writes into<br>`th.coolant.quality`.<br><br>Defaults to [`QualityForm::Equilibrium`] — **this crate corrects defect<br>T10 rather than reproducing it**, so both thermal-hydraulic paths write<br>the same quantity. See that type. |
 | `velocities` | `Vec<f64>` | `params.velocities` — prompt neutron group velocities, cm/s.<br><br>One per energy group. The transient driver uses the reciprocals as the<br>inverse-velocity vector multiplying the flux time derivative; an empty<br>vector means no kinetics data and the transient cannot run. |
 | `beta_dnp` | `Vec<f64>` | `params.beta_dnp` — delayed neutron fractions, dimensionless.<br><br>Six families in every case in the snapshot, summing to `betatot`. |
 | `lambda_dnp` | `Vec<f64>` | `params.lambda_dnp` — delayed neutron precursor decay constants, 1/s.<br><br>Same length and ordering as [`Params::beta_dnp`]. |
@@ -3376,6 +3589,11 @@ pub struct Params {
   pub fn nc_or_zero(self: &Self) -> usize { /* ... */ }
   ```
   `Nc`, defaulting to `0` when the field is absent.
+
+- ```rust
+  pub fn reference_faithful() -> Self { /* ... */ }
+  ```
+  [`Params`] with **every correction to a reference defect switched off** —
 
 ###### Trait Implementations
 
@@ -3456,6 +3674,1094 @@ pub struct Params {
 - **Read**
 - **RefUnwindSafe**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `GradDForm`
+
+Which face-coupling form the diffusion operator is built with.
+
+This is the switch for **defect G1/G2**, recorded in
+`docs/bedok-reference-defects.md`: the MATLAB reference couples two nodes
+across a face with a form that is only a consistent discretisation when the
+two are the same width. Its own NEACRP PWR cases grade their axial mesh
+from 8 cm to 30 cm, where it misstates the coupling by up to +144.8%.
+
+# The default is the correction, not the reference
+
+[`GradDForm::Conservative`] is the default, which means **this crate does
+not reproduce the MATLAB's eigenvalues on a graded mesh** unless asked to.
+That was a deliberate maintainer decision, taken once the port had been
+verified against the running MATLAB case by case and no unexplained
+difference remained: with parity established, a faithful default had done
+its job, and shipping a known-inconsistent operator by default had nothing
+left to recommend it.
+
+# On a uniform mesh the two are identical
+
+Not approximately — algebraically. The expressions coincide when
+neighbouring widths are equal, so [`crate::iaea3ds`] and
+[`crate::neacrpd1`] are bit-for-bit unchanged by this setting. Only the
+NEACRP PWR cases (A1, A2 and their transients) grade their mesh, and only
+they move.
+
+# Reproducing the reference
+
+Use [`Params::reference_faithful`], which sets this to
+[`GradDForm::Reference`] along with every other correction switched off.
+Setting this field alone also works and is what the parity tests do.
+
+```rust
+pub enum GradDForm {
+    Conservative,
+    Reference,
+}
+```
+
+##### Variants
+
+###### `Conservative`
+
+The conservative finite-volume coupling, `D*Dp / (L * (h*Dp + hp*D))`.
+
+The series resistance of the two half-nodes, which is the standard
+finite-volume face coefficient and is exact for a linear flux profile
+across the face whatever the widths. **The default.**
+
+###### `Reference`
+
+The MATLAB reference's coupling — defect G1/G2, reproduced as written.
+
+Pairs each half-width with the wrong node's diffusion coefficient and
+takes the harmonic mean the other way round. Correct only where
+neighbouring widths are equal. Select this to compare against the
+reference; do not select it for new work.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> GradDForm { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> GradDForm { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &GradDForm) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `W3Form`
+
+Which subcooling enthalpy the W-3 correlation's `K4` factor uses.
+
+This is the switch for **defects T5 and T6**. The W-3 critical-heat-flux
+correlation (Tong, 1967) forms its subcooling factor from the **inlet**
+enthalpy:
+
+```text
+K4 = 0.8258 + 0.0003413 * (h_Lsat - h_in)
+```
+
+The reference instead builds a per-node upwind average and uses that in
+place of `h_in`, with two faults in it:
+
+- **T5 — it is halved.** `(0.5*h(i) + 0.5*h(i-1))/2` is a two-point average
+  with a stray extra `/2`. Nothing in W-3 motivates a factor of a half.
+  Halving the enthalpy raises `h_Lsat - h`, raising `K4`, so it
+  **overpredicts** the critical heat flux — measured **+22.8%** at PWR
+  conditions (15.5 MPa, 560 K inlet, quality -0.05), growing with
+  subcooling.
+- **T6 — the `i-1` walk runs over the flat index, not along a channel.**
+  Since `iz` varies fastest, the first node of every channel mixes in the
+  **top** node of the previous channel.
+
+# Why the default corrects them
+
+A critical heat flux exists to bound a safety margin, and both faults push
+it the **non-conservative** way — they report more margin than there is.
+The justification for the correction does not appeal to the reference: it
+is the published correlation.
+
+# This reads the author's intent, and says so
+
+The reference's own first node is `enthshift(1) = enthin` — the *full*
+inlet enthalpy, unhalved — which contradicts the loop that follows it. The
+reading taken here is that the inlet enthalpy was intended throughout and
+the loop is unfinished. That is a **reading**, not something the snapshot
+states; it was handed over incomplete. [`W3Form::Reference`] preserves the
+alternative.
+
+```rust
+pub enum W3Form {
+    Published,
+    Reference,
+}
+```
+
+##### Variants
+
+###### `Published`
+
+`K4` from the constant inlet enthalpy, as published. **The default.**
+
+###### `Reference`
+
+The snapshot's halved per-node upwind average — defects T5 and T6,
+reproduced as written. Overpredicts the critical heat flux.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> W3Form { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> W3Form { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &W3Form) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `HotChannelSearch`
+
+How `w3chfhottest` locates the hottest coolant channel.
+
+This is the switch for **defect C2/T4**. The search tracks the running
+maximum channel power and records where it occurred, but writes
+
+```text
+highx = ix;
+highy = ix;      % <- iy is meant
+```
+
+so the column it goes on to analyse is always `(ix, ix)` — **somewhere on
+the lattice diagonal**, whatever the power distribution actually looks
+like. The critical heat flux and DNBR are then computed correctly, for the
+wrong channel.
+
+# This is live, not theoretical
+
+On NEACRP A2's converged steady state the search reports `analysed = (2, 2)`
+while the true peak is at `(2, 5)`. Measured 2026-08-21; see
+`crate::w3chf`'s `t5_what_correcting_the_k4_enthalpy_does_to_a_real_case`.
+
+# Why the default corrects it
+
+There is no reading under which `highy = ix` is intended: the loop's own
+`highx = ix` on the line above establishes that the pair `(ix, iy)` is what
+is being recorded, and `iy` is in scope and unused. It is a typo, and the
+quantity it corrupts is a safety margin.
+
+```rust
+pub enum HotChannelSearch {
+    Correct,
+    Reference,
+}
+```
+
+##### Variants
+
+###### `Correct`
+
+Analyse the channel the search actually found. **The default.**
+
+###### `Reference`
+
+The snapshot's `highy = ix` — defect C2/T4, reproduced as written.
+Can only ever return a channel on the lattice diagonal.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HotChannelSearch { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> HotChannelSearch { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &HotChannelSearch) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `FuelTempAverage`
+
+How `th.fueltempavg` is formed from the solved rod temperature profile.
+
+This is the switch for **defects T9 and T13**. `th_solverxyz.m` computes
+the Doppler temperature as a two-point weight,
+
+```text
+fueltempdoppler = (1 - alpha) * T(centre) + alpha * T(pellet surface)
+```
+
+and then, on the next line, writes `fueltempavg = fueltempdoppler`. The
+line that would have formed a genuine volume-weighted average sits
+commented out directly above it, and the transient twin
+(`th_solvertimexyz.m`) carries the same aliasing. So a reader asking for
+the average fuel temperature is handed a two-point weight instead.
+
+# What this does NOT change: the feedback
+
+**The Doppler temperature remains what drives the cross sections**, under
+either setting. That is the benchmark's own definition — NEACRP-L-335
+section 2.5 (PWR) and 5.5 (BWR) give
+`T = (1 - alpha) * T_F,C + alpha * T_F,S` with `alpha = 0.7`, and
+`sigmavalupd3d_handler` takes its fuel-temperature channel from
+`th.fueltempdoppler`. Correcting `fueltempavg` must not, and does not,
+touch that path — a volume-averaged Doppler temperature would be a
+*departure* from the benchmark, not a correction to it.
+
+# What it does change
+
+`fueltempavg` is not inert. The coupled driver under-relaxes it with the
+other feedback fields and takes its **outer convergence criterion** from
+the max-norm change in it between passes. So this alters the path to the
+fixed point and the pass count, while leaving the converged physics to be
+decided by the Doppler temperature as before.
+
+# The average is over the PELLET only, and derives its own weights
+
+Two traps make the obvious implementation wrong:
+
+- **The gap node is pinned at 1 K** (defect T7). Averaging the whole
+  returned profile drags the mean down by a physically meaningless value,
+  which is what `fuelrodheat_1dcylnd`'s own note warns a volume-averaging
+  caller would hit. The average therefore runs over the fuel nodes
+  `0 .. fueln` only — which is also what "fuel temperature" means.
+- **`geometry.fuel.Vi` is wrong** (defect K1/B1): it is built from the node
+  *thicknesses* where cumulative radii are meant, so with a uniform pellet
+  mesh every annulus comes out identically zero. The weights here are
+  therefore derived from `geometry.fuel.Lr` instead, by accumulating radii
+  — `pi` cancels in the normalisation. This correction consequently does
+  **not** depend on K1 being fixed first.
+
+```rust
+pub enum FuelTempAverage {
+    VolumeWeighted,
+    DopplerAlias,
+}
+```
+
+##### Variants
+
+###### `VolumeWeighted`
+
+A volume-weighted mean over the pellet nodes. **The default.**
+
+###### `DopplerAlias`
+
+The snapshot's `fueltempavg = fueltempdoppler` aliasing — defects
+T9/T13, reproduced as written.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> FuelTempAverage { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> FuelTempAverage { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &FuelTempAverage) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `NodalCoeffForm`
+
+How `calc_abefghxyz` evaluates the SA-nodal coefficients at small optical
+thickness `alpha`.
+
+This is the switch for **defect N9**. Every coefficient is built from
+
+```text
+ms = 3*(cosh(a)/a - sinh(a)/a^2)
+mc = 5*(sinh(a)/a - 3*cosh(a)/a^2 + 3*sinh(a)/a^3)
+```
+
+and both are differences of far larger terms: `ms` cancels two of order
+`1/a` down to `a`, and `mc` cancels three of order `1/a^2` down to `a^2/3`.
+The relative cancellation error therefore grows like `a^-4`. Measured,
+the coefficients are **28% adrift at `a = 0.01`** and, by `a = 1e-6`,
+finite garbage wrong by up to 13 orders of magnitude. The reference has no
+fallback, and nothing about the output signals the failure.
+
+# This changes nothing on any case in the snapshot
+
+`alpha = 0.5 * L * sqrt(Sigma_r/D)`, and the smallest value reached by any
+case is **0.3535** (NEACRP A2), against IAEA-3D's 0.707 and D1's 0.662 —
+more than three orders of magnitude above the failure. This correction is
+**defensive**: it exists so that a finer mesh, a large diffusion
+coefficient, or a near-pure-scatterer region (`Sigma_r -> 0`) cannot
+silently produce zeros and NaNs.
+
+# Where the switch sits, and why there
+
+Below [`SMALL_ALPHA`] the coefficients come from their Taylor series about
+`a = 0`, derived term by term and verified against exact arithmetic:
+
+```text
+Aa -> (1/15)*(1 - a^2/35)     Ff -> (2/5)*(1 - a^2/210)
+Bb -> (1/35)*(1 - a^2/63)     Gg -> 10*(1 + a^2/90)
+Ee -> 2/7 - a^2/735           Hh -> 6*(1 + a^2/42)
+```
+
+The threshold is the **measured** crossover, not an estimated one. Both
+forms were compared against the closed form evaluated in 60-digit
+arithmetic:
+
+| `a` | closed-form error | series error |
+|---|---|---|
+| 0.3 | 2.64e-10 | 1.03e-5 |
+| **0.1** | **1.26e-7** | **1.27e-7** |
+| 0.05 | 3.48e-6 | 7.94e-9 |
+| 0.01 | **2.81e-1** | 1.27e-11 |
+
+They cross at `a = 0.1`, where both are near **1.3e-7**, so each form is
+used only where it is the more accurate of the two.
+
+The dominant coefficient is **`Bb`**, not `mc` directly: `Bb` divides a
+fourth-order cancellation by `mc`, so it inherits and amplifies the loss.
+An estimate from `mc` alone puts the crossover an octave lower and is
+wrong — the closed form is already **28% adrift at `a = 0.01`**.
+
+```rust
+pub enum NodalCoeffForm {
+    SeriesBelowSmallAlpha,
+    ClosedFormAlways,
+}
+```
+
+##### Variants
+
+###### `SeriesBelowSmallAlpha`
+
+Use the Taylor series below [`SMALL_ALPHA`], the closed form above.
+**The default.**
+
+###### `ClosedFormAlways`
+
+The reference's closed form at every `alpha` — defect N9, reproduced.
+
+**It does not fail loudly.** At `alpha = 1e-6` it returns *finite* and
+entirely plausible-looking numbers that are wrong by up to **13 orders
+of magnitude** — `Aa = 1.1e8` against a true 0.0667, `Bb = -1.0e12`
+against 0.0286, `Gg = 3.0` against 10. A `NaN` would at least be
+noticed.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> NodalCoeffForm { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> NodalCoeffForm { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &NodalCoeffForm) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Enum `QualityForm`
+
+Which quality the two-fluid solver writes into `th.coolant.quality`.
+
+This is the switch for **defect T10**, and the defect is an
+**inconsistency between two solvers in this crate** rather than a bad
+formula in isolation. Both write the same field, and both feed
+[`crate::w3chf`]:
+
+```text
+singleflow1devap (HEM):     x = clamp((h - h_l,sat(p)) / h_fg(p), 0, 1)
+driftflux6_solverstatic1d:  x =       (h - h_l(p, T_l)) / h_fg(p)
+```
+
+The first is the **equilibrium quality**. The second subtracts the *local*
+liquid enthalpy while still dividing by the saturation latent heat, and
+applies no clamp: where both phases sit at saturation it reduces to the
+**flow** quality `alpha*rho_g/rho_m`, and where the liquid is subcooled it
+is neither quantity.
+
+# Why there is a right answer here
+
+Unlike the register's remaining thermal-hydraulic entries, this one does
+not need a benchmark to settle. The W-3 correlation's `K1`, `K2` and `K3`
+factors are **defined** against the equilibrium quality, and the sibling
+solver in this same crate already computes it. Aligning the two is a
+derivational argument plus internal consistency, not a modelling choice.
+
+# It changes nothing today, and that is a symptom
+
+The two-fluid path's 1-D kernel (`driftflux6_solverstatic1d.m`) is
+**missing from the snapshot**, so every channel keeps its inlet state and
+`alphag` never leaves zero — at which point the mixture enthalpy *is* the
+liquid enthalpy and the old numerator was identically zero. Measured on
+NEACRP D1: quality `0.000000` everywhere under either setting.
+
+**This correction therefore matters prospectively.** Supplying the missing
+kernel would make the old formula start producing wrong, unclamped
+qualities straight into the CHF correlation. The same entanglement appears
+twice elsewhere in this register — T9 was harmless only while T1's 1 K gap
+row went unaveraged, and G1 only until G3's `gradterms` had to match it.
+
+```rust
+pub enum QualityForm {
+    Equilibrium,
+    LocalLiquidEnthalpy,
+}
+```
+
+##### Variants
+
+###### `Equilibrium`
+
+The equilibrium quality, clamped to `[0, 1]` — identical to what
+[`crate::singleflow1devap`] computes. **The default.**
+
+###### `LocalLiquidEnthalpy`
+
+The reference's local-liquid-enthalpy form, unclamped — defect T10,
+reproduced as written.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> QualityForm { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> QualityForm { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &QualityForm) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -4668,7 +5974,7 @@ pub struct Coolant {
 |------|------|---------------|
 | `inlettemp` | `f64` | `th.coolant.inlettemp` — inlet temperature, **K**. Scalar. |
 | `inletpress` | `f64` | `th.coolant.inletpress` — inlet pressure, **MPa**. Scalar. |
-| `inletvoid` | `f64` | `th.coolant.inletvoid` — inlet void fraction, dimensionless. Scalar.<br><br>Read by [`crate::driftflux6_solverstatic3d`] to set the inlet mixture<br>density; zero for a subcooled inlet. |
+| `inletvoid` | `f64` | `th.coolant.inletvoid` — inlet void fraction, dimensionless. Scalar.<br><br>Read by [`crate::driftflux6_solverstatic1d`] to set the inlet mixture<br>density; zero for a subcooled inlet. |
 | `press` | `Vec<f64>` | `th.coolant.press` — pressure per node, **MPa**. |
 | `temps` | `Vec<f64>` | `th.coolant.temps` — bulk temperature per node, **K**. |
 | `enth` | `Vec<f64>` | `th.coolant.enth` — bulk specific enthalpy per node, **kJ/kg**.<br><br>Cell-**centred**: in the transient scheme it is the mean of the node's<br>two face values. |
@@ -4805,7 +6111,7 @@ The reference selects on the string `params.th_model`, testing
 
 # Only one of these can actually run
 
-[`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic3d`], whose
+[`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic1d`], whose
 per-channel solver is **absent from the snapshot** — so it retains the
 previous state rather than solving. [`ThModel::Hem`] routes to
 [`crate::singleflow1devap`], which works. The NEACRP D1 BWR case sets
@@ -5293,7 +6599,7 @@ pub struct Th {
 | `stag6_ustag` | `crate::matlab::Array2<f64>` | `th.stag6_Ustag` — the per-channel state vector the staggered solver<br>reuses as a warm start, `6*maxiz` rows by `maxix*maxiy` channels.<br><br>Threaded through the coupled Picard loop in `th` rather than returned<br>separately, because the coupling layer under-relaxes only a few named<br>fields and this survives intact between cycles. |
 | `stag6_qref` | `crate::matlab::Array2<f64>` | `th.stag6_qref` — the wall heat flux each stored warm start was computed<br>at, `maxiz` by channels. A seed is only reused while the flux has not<br>moved much. |
 | `stag6_relerr` | `Vec<f64>` | `th.stag6_relerr` — the relative residual each channel's last solve<br>reached, one per channel. `NaN` where a channel has never been solved. |
-| `fueltemp` | `crate::matlab::Array2<f64>` | `th.fueltemp` — the radial temperature profile at each core node, **K**.<br><br>`maxix*maxiy*maxiz` rows by `maxid` columns, where `maxid` is the<br>fuel-rod unknown count [`crate::fuelrodheat_1dcylnd`] describes. Row<br>`idx` is one rod's profile from centre to cladding surface. |
+| `fueltemp` | `crate::matlab::Array2<f64>` | `th.fueltemp` — the radial temperature profile at each core node, **K**.<br><br>`maxix*maxiy*maxiz` rows by `maxid` columns, where `maxid` is the<br>fuel-rod unknown count [`crate::fuelrodheat_1dcylnd`] describes. Row<br>`idx` is one rod's profile from centre to cladding surface.<br><br># One entry is not a temperature<br><br>A rod with a fuel-cladding gap carries a **dummy row that solves to<br>exactly 1 K** — defect T1/T7. The gap is an unresolved void modelled<br>as a conductance, conduction bridges around it, and its matrix row is<br>never written. The profile either side is correct.<br><br>**Do not average, minimise or plot this row directly.** Use<br>[`crate::fuelrodheat_1dcylnd::without_gap_dummies`], or<br>[`crate::fuelrodheat_1dcylnd::gap_dummy_unknowns`] to locate it.<br>Measured on the NEACRP rod: including it drags the radial mean down<br>by **84 K, 10%**. |
 | `fueltempavg` | `Vec<f64>` | `th.fueltempavg` — the fuel temperature fed to the cross-section<br>feedback, **K**, one per node.<br><br>Despite the name this is **not** a volume average: `th_solverxyz.m`<br>assigns it equal to [`Th::fueltempdoppler`], with the volume-averaging<br>line commented out. See that module. |
 | `fueltempdoppler` | `Vec<f64>` | `th.fueltempdoppler` — the Doppler-weighted fuel temperature, **K**.<br><br>`(1 - alpha) * T_centre + alpha * T_pellet_surface`, with `alpha` from<br>[`FuelGeometry::doppleralpha`]. |
 | `linpwrdens` | `Vec<f64>` | `th.linpwrdens` — linear power density, **W/cm** per node. |
@@ -6162,6 +7468,24 @@ pub struct Sigma {
   - ```rust
     fn vzip(self: Self) -> V { /* ... */ }
     ```
+
+### Constants and Statics
+
+#### Constant `SMALL_ALPHA`
+
+The optical thickness below which [`NodalCoeffForm::SeriesBelowSmallAlpha`]
+switches to the Taylor series.
+
+The measured crossover: below it the series is the more accurate form,
+above it the closed form is, and at it both sit near `1.3e-7`.
+
+The smallest `alpha` any case in the snapshot reaches is **0.3535**, so the
+switch is never taken on present cases — but the margin is **3.5x**, not
+the several orders of magnitude a `mc`-only analysis suggests.
+
+```rust
+pub const SMALL_ALPHA: f64 = 0.1;
+```
 
 ## Module `calc_1sttransleakagexyz`
 
@@ -7789,6 +9113,7 @@ The nodal correction operator and the face terms it was built from.
 pub struct SaNodal {
     pub operator: crate::matlab::SparseMatrix,
     pub terms: crate::matlab::Array2<f64>,
+    pub guard_suppressions: usize,
 }
 ```
 
@@ -7798,6 +9123,7 @@ pub struct SaNodal {
 |------|------|---------------|
 | `operator` | `crate::matlab::SparseMatrix` | `nodal` — the correction operator, `philen` square. Assembled only;<br>nothing in the reference solves against it. |
 | `terms` | `crate::matlab::Array2<f64>` | `nodalterms` — `philen` by 6, `(minus, plus)` per axis: columns `0, 1`<br>for `x`, `2, 3` for `y`, `4, 5` for `z`. |
+| `guard_suppressions` | `usize` | **How many faces the near-zero-flux guard suppressed** — defect N11.<br><br>Not in the reference, and the point of the entry. The reference skips<br>a face whose flux (or whose two-node sum) is below<br>`1e-8 * max(abs(phivec))`, leaving that face's nodal correction at<br>zero — which is a **silent fall back to plain finite difference for<br>that face, mid-solve**. Nothing records that it happened, so a solve<br>can be part nodal and part finite-difference with no indication.<br><br>**The suppression itself is reproduced exactly**; this only counts it.<br><br>A non-zero value does not by itself mean a wrong answer — the fallback<br>is deliberate and the reference's own comment explains why the<br>expansion is ill-conditioned there. It means the method in use is not<br>uniformly the one being reported. |
 
 ##### Implementations
 
@@ -9059,6 +10385,7 @@ pub struct BoronOutput {
     pub boron_history: Vec<f64>,
     pub k_eff_history: Vec<f64>,
     pub slope_pcm_per_ppm: f64,
+    pub cold_solves_not_converged: usize,
     pub scalar_flux: Vec<f64>,
     pub fission_source: Vec<f64>,
     pub pwrdens: Vec<f64>,
@@ -9079,6 +10406,7 @@ pub struct BoronOutput {
 | `boron_history` | `Vec<f64>` | `output.boronhist` — every concentration tried, in order. |
 | `k_eff_history` | `Vec<f64>` | `output.keffhist` — the matching eigenvalues. |
 | `slope_pcm_per_ppm` | `f64` | `output.slope_pcm_per_ppm` — the measured boron worth.<br><br>Negative: boron is an absorber, so more of it lowers `k_eff`. |
+| `cold_solves_not_converged` | `usize` | **How many bootstrap cold solves hit their 8000-iteration cap without<br>converging** — defect C7.<br><br>The reference's cold power iteration returns whatever it holds when the<br>counter runs out, with no error and no flag, so the bootstrap can build<br>its starting state out of eigenvalues that are not solutions and the<br>search then hunts around it. **The iteration is unchanged**; this<br>counts the abandoned ones.<br><br>`0` when the bootstrap was not needed, which is the normal case since<br>the stage-2 corrections landed — see<br>`the_search_finds_a_critical_boron_on_the_pwr_case`, which now reports<br>`bootstrapped == false`. |
 | `scalar_flux` | `Vec<f64>` | `output.scalar_flux` at the critical state. |
 | `fission_source` | `Vec<f64>` | `output.fission_source` — `sigma.f * phi`. |
 | `pwrdens` | `Vec<f64>` | `output.pwrdens` — `fission_source .* Vi`. |
@@ -9123,6 +10451,138 @@ pub struct BoronOutput {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+#### Struct `ColdSolveVerdict`
+
+Whether the cold power iteration actually converged — defect C7.
+
+The reference runs its 8000-iteration loop and returns whatever it holds
+when the counter runs out, with no error and no flag, so a caller cannot
+tell a converged eigenvalue from an abandoned one. This carries the verdict
+alongside the answer. **The answer itself is unchanged.**
+
+```rust
+pub struct ColdSolveVerdict {
+    pub converged: bool,
+    pub iterations: usize,
+    pub residual: f64,
+    pub k_eff_residual: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `converged` | `bool` | Whether both tolerances were met before the cap.<br><br>**`false` means the eigenvalue and flux are not solutions**, merely<br>where the iteration happened to stop. |
+| `iterations` | `usize` | The cap the loop was allowed. |
+| `residual` | `f64` | The final relative fission-source residual, `1e-8` to pass. |
+| `k_eff_residual` | `f64` | The final relative `k_eff` change, `1e-9` to pass. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ColdSolveVerdict { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -10247,6 +11707,84 @@ operator. The reference dumps diagnostics to the console here.
 
 ### Functions
 
+#### Function `gap_dummy_unknowns`
+
+Which unknowns in a solved rod profile are **gap dummies** — defect T1/T7.
+
+# The problem this exists to make un-fall-into-able
+
+[`fuelrodheat_1dcylnd`] returns `maxid` temperatures, and one of them is not
+a temperature. A radial node with `whichk == 0` is a **gap**: an unresolved
+void represented by a conductance, not a region. Conduction bridges around
+it — the pellet surface couples straight to the clad inner surface — so its
+matrix row is never written, keeps the preallocated diagonal of `1`, and is
+given `bvec = 1`. It therefore solves to **exactly 1 kelvin**, regardless of
+power, coolant temperature or gap conductance.
+
+That value is physically meaningless but it **is** in the returned vector.
+The profile either side of it is correct, and the live path survives it
+because `th_solverxyz` clamps everything up to the local coolant temperature
+on the next line and takes its Doppler weight from the centre and
+pellet-surface nodes. **A caller that averages or scans the raw profile
+gets a wrong answer**, which is exactly what the volume-average line
+commented out in `th_solverxyz.m` would have done.
+
+# Why the 1 K is left in place
+
+Every plausible replacement is an invention. There is no "gap temperature"
+in this model to compute, so interpolating between the two surfaces would
+manufacture a physically reasonable-looking number the solve never
+produced — worse than an obviously absurd one, because it would not be
+noticed. Dropping the row would change the vector's length and break every
+caller's `maxid` arithmetic. So the raw profile keeps the reference's value,
+and this function plus [`without_gap_dummies`] make the trap avoidable
+rather than merely documented.
+
+# How it is computed
+
+By replaying [`fuelrodheat_1dcylnd`]'s own `ir`/`id` walk, including the
+`surf` flag that makes one `ir` emit two unknowns. It is derived from the
+same logic rather than hard-coded, so it cannot drift from the solver.
+
+# Arguments
+
+- `whichk` — `geometry.fuel.whichk`, the material per radial node, `0` for
+  the gap.
+
+# Returns
+
+The **0-based** unknown indices that are dummies, ascending. Empty for a rod
+with no gap. For the NEACRP rod (`[1,1,1,1,1,0,2,2]`) this is `[6]`.
+
+```rust
+pub fn gap_dummy_unknowns(whichk: &[usize]) -> Vec<usize> { /* ... */ }
+```
+
+#### Function `without_gap_dummies`
+
+A solved rod profile with the gap dummies removed — defect T1/T7.
+
+Use this in preference to the raw profile for **anything that reduces over
+the radius**: an average, a minimum, a plot. See [`gap_dummy_unknowns`] for
+why the raw vector contains a 1 K entry and why it is left there.
+
+The surviving entries keep their order, so the result reads centre-outward
+exactly as the input does; only the physically meaningless rows are gone.
+
+# Arguments
+
+- `whichk` — `geometry.fuel.whichk`.
+- `profile` — a `maxid`-long solved profile from [`fuelrodheat_1dcylnd`],
+  or one row of `th.fueltemp`.
+
+# Panics
+
+If `profile` is shorter than the largest dummy index it would have to skip.
+
+```rust
+pub fn without_gap_dummies(whichk: &[usize], profile: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
 #### Function `fuelrodheat_1dcylnd`
 
 `results = fuelrodheat_1dcylnd(params, geometry, temps, pwr, bc, modtemp)`.
@@ -10504,6 +12042,35 @@ sites, and the divergence is recorded rather than hidden.
 
 ```rust
 pub fn fixinfnan(vector: &[f64], use_min_abs: bool) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `fixinfnan_counted`
+
+`fixinfnan`, and **how many entries it had to replace** — defect C5.
+
+# Why this exists
+
+The reference applies `fixinfnan` to the flux straight out of every linear
+solve. A solve that has blown up returns `Inf`/`NaN`, and this function
+quietly turns those into zeros (or into the smallest finite magnitude). The
+residual norms are then computed on the *patched* vector, so a diverged
+solve can report a small residual and be indistinguishable from a converged
+one. That is defect **C5**, and it is why an unstable case can look healthy
+right up until the answer is examined.
+
+**The numbers are unchanged.** This returns exactly what
+[`fixinfnan`] returns; the count is additional information, so reporting it
+costs no fidelity to the reference. A non-zero count is not a rounding
+detail — it means the linear solve produced values that are not numbers,
+and every quantity derived from that vector afterwards is suspect.
+
+# Returns
+
+`(patched, replaced)` — the vector as the reference would leave it, and the
+number of non-finite entries that were substituted.
+
+```rust
+pub fn fixinfnan_counted(vector: &[f64], use_min_abs: bool) -> (Vec<f64>, usize) { /* ... */ }
 ```
 
 ## Module `fixnegativematrix`
@@ -12206,7 +13773,7 @@ pub struct GradD {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `operator` | `crate::matlab::SparseMatrix` | The diffusion operator, `philenf` square. |
-| `terms` | `crate::matlab::Array2<f64>` | Face diffusion coefficients, `philen` by 6, `(minus, plus)` per axis:<br>columns `0, 1` for `x`, `2, 3` for `y`, `4, 5` for `z`.<br><br>**Already doubled** — see the note on [`makegrad_dxyz`]. |
+| `terms` | `crate::matlab::Array2<f64>` | Face diffusion coefficients, `philen` by 6, `(minus, plus)` per axis:<br>columns `0, 1` for `x`, `2, 3` for `y`, `4, 5` for `z`.<br><br>**Already doubled** — see the note on [`makegrad_dxyz`].<br><br>These are not free of [`Self::operator`]: [`crate::calc_sanodalxyz`]<br>subtracts them from the SA-nodal current so that only the *difference*<br>from the finite-difference estimate survives, which requires<br><br>```text<br>terms = L * (the operator's off-diagonal for that face)<br>```<br><br>Under [`crate::types::GradDForm::Conservative`] that identity holds<br>exactly; under [`crate::types::GradDForm::Reference`] it holds only on<br>a uniform mesh, which is defect **G2**. |
 
 ##### Implementations
 
@@ -13144,6 +14711,8 @@ pub struct TransientOutput {
     pub timescheme: crate::types::TimeScheme,
     pub termination: Termination,
     pub reequilibrate_iterations: usize,
+    pub reequilibrate_converged: bool,
+    pub reequilibrate_residual: f64,
 }
 ```
 
@@ -13172,6 +14741,8 @@ pub struct TransientOutput {
 | `timescheme` | `crate::types::TimeScheme` | Which scheme ran. |
 | `termination` | `Termination` | Why it stopped. |
 | `reequilibrate_iterations` | `usize` | How many power iterations phase 2 needed. |
+| `reequilibrate_converged` | `bool` | **Whether Phase-2 re-equilibration actually converged** — defect C7.<br><br>The reference runs its 5000-iteration power iteration and carries on<br>with whatever it holds when the counter runs out, with no error and no<br>flag, so a caller cannot tell a re-equilibrated state from an abandoned<br>one. **The iteration and its result are unchanged**; this is the<br>verdict the reference does not record.<br><br>`false` means the transient started from a state that is not a solution<br>of the operator it is about to be marched with — which is precisely the<br>inconsistency Phase 2 exists to remove. |
+| `reequilibrate_residual` | `f64` | The final relative fission-source residual from that loop, against a<br>tolerance of [`defaults::REEQUILIBRATE_TOL`]. Defect C7. |
 
 ##### Implementations
 
@@ -13511,8 +15082,12 @@ and eight fuel compositions from 2.1 to 3.1 w/o with burnable absorbers).
 The axial layer heights are
 
 ```text
-30, 7.7, 11, 15, 30 x10, 12.8, 12.8, 8, 30   cm
+written:  30, 7.7, 11, 15, 30 x10, 12.8, 12.8, 8, 30   cm
+ACTUAL:   30, 8,   11, 15, 30 x10, 13,   13,   8, 30   cm
 ```
+
+— the reference silently rounds the mesh to integers (**defect Z1**; see
+[`Z_LENGTHS`]), so `7.7` becomes `8` and `12.8` becomes `13`.
 
 and [`crate::makegrad_dxyz`]'s face coupling is **only a consistent
 discretisation on a uniform mesh** — defect **G1** in
@@ -13596,9 +15171,46 @@ The number of materials in the case's cross-section set.
 pub const MATERIALS: usize = 11;
 ```
 
+#### Constant `Z_LENGTHS_AS_WRITTEN`
+
+The axial layer heights **as the case file writes them**, cm.
+
+**These are not the heights the reference actually meshes with** — see
+[`Z_LENGTHS`] and defect Z1. Kept because they are what the benchmark
+specifies and what a reader of `neacrpa2.m` sees.
+
+```rust
+pub const Z_LENGTHS_AS_WRITTEN: [f64; 18] = _;
+```
+
 #### Constant `Z_LENGTHS`
 
-The axial layer heights, cm — **non-uniform**; see the module warning.
+The axial layer heights the reference **actually uses**, cm — integers.
+
+# Defect Z1: the mesh is silently rounded to integers
+
+`neacrpa2.m` builds the mesh as
+
+```text
+zscale = int64(maxiz/18);
+geometry.Lz(...) = Zlengths(ceil(iz/zscale)) / zscale;
+```
+
+`zscale` is an **`int64`**, and in MATLAB `double / int64` returns an
+`int64` — rounding to the nearest integer. So `7.7 / int64(1)` is **8**, and
+`12.8 / int64(1)` is **13**. Verified by running MATLAB R2026a on
+2026-08-18: `geometry.Lz(1:18)` comes back
+`30 8 11 15 30 30 30 30 30 30 30 30 30 30 13 13 8 30`.
+
+The case is left **internally inconsistent**: `geometry.Ztot` is computed
+from the un-rounded `Zlengths` and is 427.3 cm, while the mesh the solver
+actually integrates over sums to 428 cm.
+
+This is reproduced rather than repaired, per the no-silent-repairs policy.
+It matters more than it looks: it changes the axial mesh, the node volumes,
+and the control-rod tip fractions, and it was the root cause of a 10%
+disagreement in the critical-boron search (X1). See
+`docs/bedok-reference-defects.md`.
 
 ```rust
 pub const Z_LENGTHS: [f64; 18] = _;
@@ -13765,10 +15377,14 @@ temperature and coolant density — so it is what
 
 # The problem
 
-A 17 x 17 x 14 quarter core on a 30.48/2 cm radial by 30.48 cm axial mesh —
-259.08 x 259.08 x 426.72 cm. Reflective on the low `x` and `y` faces (the
-quarter-core symmetry planes), zero flux on the other four. Two energy
-groups, **19 materials**, fission into the fast group only.
+A 17 x 17 x 14 quarter core on a 30.48/2 cm radial mesh. Reflective on the
+low `x` and `y` faces (the quarter-core symmetry planes), zero flux on the
+other four. Two energy groups, **19 materials**, fission into the fast group
+only.
+
+**The axial mesh is 30 cm, not the 30.48 cm the case file writes** — see
+defect Z1 in the mesh section below. The core the solver integrates is
+therefore 420 cm tall, where `geometry.Ztot` claims 426.72.
 
 The material map is built from two files rather than one per level: a 17x17
 *column* map naming which of 10 radial column types each lattice position
@@ -14617,6 +16233,9 @@ pub struct SaNodalOutput {
     pub iterations: usize,
     pub nodal_updates: usize,
     pub termination: Termination,
+    pub effective_nodalupd: usize,
+    pub nodal_guard_suppressions: usize,
+    pub non_finite_substitutions: usize,
     pub diagnostics: Option<Diagnostics>,
 }
 ```
@@ -14635,6 +16254,9 @@ pub struct SaNodalOutput {
 | `iterations` | `usize` | The count the reference prints as `Diffusion iteration`. |
 | `nodal_updates` | `usize` | How many times the nodal correction was rebuilt and the operator<br>refactorised. Not in the reference's `output`; useful because the<br>interval, and hence this count, is what defect N1 is about. |
 | `termination` | `Termination` | Why the iteration stopped. Not in the reference's `output`. |
+| `effective_nodalupd` | `usize` | The nodal-update interval this solve actually used — defect N1.<br><br>Not in the reference's `output`. `params.nodalupd` is honoured when<br>non-zero, and otherwise the built-in `ceil((nx+ny+nz)/10)` applies —<br>which **is 1 for any mesh whose extents sum to 10 or less**, and an<br>interval of 1 destabilises the solver. A caller that never set the<br>field has no other way to discover it is running at 1.<br><br>**A value of 1 here means the result should not be trusted**, whatever<br>the residual and [`Termination`] say; see defect N1 in<br>`docs/bedok-reference-defects.md`. |
+| `nodal_guard_suppressions` | `usize` | **How many faces the SA-nodal near-zero-flux guard suppressed**, summed<br>over every nodal rebuild in this solve — defect N11.<br><br>Each suppression is a face that silently fell back to plain finite<br>difference. See [`crate::calc_sanodalxyz::SaNodal::guard_suppressions`]. |
+| `non_finite_substitutions` | `usize` | **How many non-finite flux entries `fixinfnan` had to substitute** —<br>defect C5. Not in the reference's `output`, and the whole point of it.<br><br>The reference patches `Inf`/`NaN` out of the flux after every linear<br>solve and then computes its residual norms on the patched vector, so a<br>solve that has blown up can report a small residual and look converged.<br>This counts what was hidden.<br><br>**Any non-zero value invalidates the result**, however healthy the<br>residual and [`Termination`] look: it means a linear solve produced<br>values that are not numbers. Zero on every case in the snapshot. |
 | `diagnostics` | `Option<Diagnostics>` | The `params.debugdump` maps, `None` unless it was set. |
 
 ##### Implementations
@@ -16155,7 +17777,7 @@ pub struct Chf {
 
 #### Function `w3chf`
 
-`chf = w3chf(geometry, th)` — critical heat flux at each node by the W-3
+`chf = w3chf(params, geometry, th)` — critical heat flux at each node by the W-3
 correlation, and the DNBR against the actual wall heat flux.
 
 # Arguments
@@ -16222,7 +17844,7 @@ returned rather than performed.
 If the per-node vectors in `th` are not all the same length.
 
 ```rust
-pub fn w3chf(fuel: &crate::types::FuelGeometry, th: &crate::types::Th) -> Chf { /* ... */ }
+pub fn w3chf(params: &crate::types::Params, fuel: &crate::types::FuelGeometry, th: &crate::types::Th) -> Chf { /* ... */ }
 ```
 
 ## Module `w3chfhottest`

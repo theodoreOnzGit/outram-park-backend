@@ -48,7 +48,7 @@ pub enum BedokError {
     /// "undefined function" error and continues on a fallback path; where it
     /// does, the translation reproduces that fallback and surfaces this as a
     /// per-item outcome rather than failing the whole call. See
-    /// [`crate::driftflux6_solverstatic3d`].
+    /// [`crate::driftflux6_solverstatic1d`].
     #[error("{file} is referenced from {referenced_from} but is absent from the snapshot")]
     ReferenceFileMissing {
         /// The absent `.m` file.

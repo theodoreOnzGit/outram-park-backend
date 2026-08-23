@@ -798,12 +798,12 @@ mod tests {
     ///
     /// # The coolant does not heat on this path, and that is correct
     ///
-    /// [`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic3d`],
+    /// [`ThModel::TwoFluid`] routes to [`crate::driftflux6_solverstatic1d`],
     /// whose 1-D kernel `driftflux6_solverstatic1d.m` is **absent from the
     /// snapshot**. The reference's `try`/`catch` swallows MATLAB's "Undefined
     /// function", so every powered channel fails and keeps its previous state —
     /// which is the inlet state. That behaviour is reproduced, surfaced as
-    /// [`crate::driftflux6_solverstatic3d::ChannelOutcome::SolverMissing`], and
+    /// [`crate::driftflux6_solverstatic1d::ChannelOutcome::SolverMissing`], and
     /// pinned here. Heat transfer to the coolant is asserted on the HEM path in
     /// [`the_hem_path_heats_the_coolant_along_each_channel`] instead.
     ///

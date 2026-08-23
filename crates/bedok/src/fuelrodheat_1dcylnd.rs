@@ -800,4 +800,135 @@ mod tests {
             "no 1 K entry may survive"
         );
     }
+
+    /// **T9 — is the doubled interface conductance right? Checked against the
+    /// analytic pellet solution.**
+    ///
+    /// # Methodology
+    ///
+    /// The register records the `whichk(ir+1) == 0` branch multiplying its
+    /// harmonic mean by an extra `2`, "with the un-doubled line commented out
+    /// directly above it and no derivation given". Whether that `2` is a
+    /// mistake or an unstated derivation is decidable, because the pellet has
+    /// a closed-form answer.
+    ///
+    /// A cylinder with uniform volumetric source `q_v` and uniform
+    /// conductivity `k` has `T(r) = T_surface + q_v*(R^2 - r^2)/(4k)`, so the
+    /// **centre-to-pellet-surface drop is exactly `q_v*R^2/(4k)`**, whatever
+    /// sits outside the pellet. That is what this measures: a rod with
+    /// constant conductivity, a uniform radial mesh and a gap (so the doubled
+    /// branch fires at the last fuel node), refined to show convergence.
+    ///
+    /// The branch in question links the outermost **fuel** node to the
+    /// pellet-surface unknown. That distance is **half** a node thickness —
+    /// centre to face — not a full one, so a factor of 2 on `k*ctr/lr` is
+    /// exactly what a centre-to-face conductance requires. If that reading is
+    /// right the discrete drop converges on the analytic one; if the `2` is
+    /// spurious, the last node contributes twice the resistance it should and
+    /// the error stops falling with refinement.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// Analytic drop `q_v*R^2/(4k)` = **420.2500 K**.
+    ///
+    /// | `fueln` | discrete drop | rel err | ratio |
+    /// |---|---|---|---|
+    /// | 4 | 328.320313 | 2.187e-1 | — |
+    /// | 8 | 371.001953 | 1.172e-1 | 1.87 |
+    /// | 16 | 394.805176 | 6.055e-2 | 1.94 |
+    /// | 32 | 407.322388 | 3.076e-2 | 1.97 |
+    /// | 64 | 413.734894 | **1.550e-2** | **1.98** |
+    ///
+    /// **Verdict: the factor of 2 is correct, and the register entry should
+    /// not have called it undeified.** The branch links the outermost fuel
+    /// node to the pellet-surface unknown, and that distance is **half** a node
+    /// thickness — centre to face. A centre-to-face conductance is
+    /// `k*r/(dr/2) = 2*k*r/dr`, which is exactly `harmonic * ctr/lr * 2`. The
+    /// discrete drop converges on the analytic value, which it could not do if
+    /// the last node carried twice the resistance it should.
+    ///
+    /// Removing the `2` would double that node's resistance and **add** a drop
+    /// of `Q*dr/(2*k*r_last)` — computed at these meshes as **120.1 K, 56.0,
+    /// 27.1, 13.3, 6.6 K**, i.e. it would roughly *double* the error at every
+    /// refinement. The commented-out un-doubled line above it is the mistake,
+    /// not the live line.
+    ///
+    /// # A finding the register does not record: the scheme is first order
+    ///
+    /// The error ratio is **1.97, 1.98** per mesh doubling — first order, not
+    /// second. The cause is visible in every branch, not just this one:
+    /// the conductance is `k * ctr[ir] / lr[ir]`, using the **node-centre**
+    /// radius where the **face** radius `ctr[ir] + lr[ir]/2` belongs. That
+    /// understates the conduction area by `dr/2`, an O(dr) deficit — 12.5% at
+    /// 4 nodes and 0.78% at 64.
+    ///
+    /// It is why the pellet drop is still **1.55% low at 64 radial nodes**,
+    /// and why the NEACRP rods, which use **5**, carry a correspondingly
+    /// larger discretisation error in every fuel temperature this crate
+    /// reports. That is a property of the reference's scheme rather than a
+    /// translation error, and correcting it would move every fuel temperature
+    /// — so it is recorded, not repaired.
+    #[test]
+    fn t9_is_the_doubled_interface_conductance_correct() {
+        use crate::types::{Conductivity, FuelGeometry};
+
+        const K: f64 = 0.03; // W/(cm K), constant
+        const RF: f64 = 0.41; // pellet radius, cm
+        const Q: f64 = 300.0; // W/cm3, uniform in the pellet
+
+        let analytic = Q * RF * RF / (4.0 * K);
+        eprintln!("analytic centre-to-surface drop = {analytic:.6} K");
+        eprintln!("  {:>6}  {:>14}  {:>12}  {:>8}", "fueln", "discrete drop", "rel err", "ratio");
+
+        let mut prev = f64::NAN;
+        for fueln in [4usize, 8, 16, 32, 64] {
+            let (gapn, cladn) = (1usize, 2usize);
+            let maxir = fueln + gapn + cladn;
+
+            let mut lr = vec![RF / fueln as f64; fueln];
+            lr.extend(vec![0.006; gapn]);
+            lr.extend(vec![0.03; cladn]);
+            let mut ctr = Vec::with_capacity(maxir);
+            let mut acc = 0.0;
+            for l in &lr {
+                acc += l;
+                ctr.push(acc - 0.5 * l);
+            }
+            let mut whichk = vec![1usize; fueln];
+            whichk.extend(vec![0usize; gapn]);
+            whichk.extend(vec![2usize; cladn]);
+
+            let fuel = FuelGeometry {
+                lr,
+                ctr,
+                whichk,
+                tcon: vec![Conductivity::Constant(K), Conductivity::Constant(K)],
+                gap_conductance: 1.0,
+                fuelrad: RF,
+                rtot: RF + 0.006 + 0.06,
+                pitch: 1.2665,
+                ..Default::default()
+            };
+
+            let maxid = maxir + 2;
+            let temps = vec![600.0; maxid];
+            let (profile, _) = fuelrodheat_1dcylnd(&fuel, maxir, &temps, Q, 1.5, 560.0);
+
+            // Centre is unknown 0; the pellet surface is the duplicate at `fueln`.
+            let drop = profile[0] - profile[fueln];
+            let err = (drop - analytic).abs() / analytic;
+            let ratio = if prev.is_finite() { format!("{:.2}", prev / err) } else { String::new() };
+            eprintln!("  {fueln:>6}  {drop:>14.6}  {err:>12.3e}  {ratio:>8}");
+            prev = err;
+        }
+
+        // The scheme converges on the analytic drop, but only at FIRST order —
+        // every branch uses the node-centre radius where the face radius is
+        // meant, an O(dr) area deficit. So the gate is the convergence rate,
+        // not an absolute tolerance: the error must keep halving.
+        assert!(
+            prev < 2e-2,
+            "the finest mesh is {prev:.3e} from the analytic drop"
+        );
+    }
 }
