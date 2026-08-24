@@ -15,35 +15,69 @@
 //! is treated as a one-page document, so the same page-nav/zoom/scroll
 //! viewer below serves both without knowing which it has.
 //!
-//! Also carries a first-cut annotation layer — highlights and text notes,
-//! per page — for GitHub issue #30's "I want to be able to scroll freely and
-//! annotate the pdf just like okular" (op-gv19). **Scoped down deliberately**:
-//! annotations live only in [`PdfReaderState`] for as long as the process
-//! runs — there is no sidecar file and nothing is written back into the PDF
-//! or picked up again on reopen. Okular persists annotations to disk; doing
-//! that here needs a real file format decision (a sidecar next to the PDF,
-//! or folding into the not-yet-built "kovan folder" project format from
-//! op-63u0/op-b1y5) that is out of scope for this first cut — see op-gv19's
-//! bead description. Ink/freehand strokes are not implemented either:
-//! [`Annotation`] covers only axis-aligned highlight rectangles and
-//! point-anchored text notes, which covers the issue's own wording
-//! ("highlights/notes") without the added complexity of a stroke model.
+//! ## Unified box interaction model (op-x9qn, superseding op-gv19's first cut)
 //!
-//! Does not belong here: PDF *text* extraction (that is
-//! `kovan_literature::extract_metadata`'s job, already exposed via `kovan-cli
-//! lit`), and the draw-box-then-digitise interaction that will attach to this
-//! panel (op-p17q / op-hnhp — separate, not-yet-implemented beads that reuse
-//! this panel as their display surface). Those tools will need their own
-//! canvas-interaction mode alongside [`AnnotationTool`] when they land.
+//! GitHub issue #30's 2026-08-23 follow-up comment asked for one drawing
+//! gesture rather than a toolbar of separate tools: draw a box anywhere on
+//! the page, right-click it, and pick what it becomes —
+//! **Annotate** (a free-text note), **Digitise graph**, or **Read table**.
+//! Right-clicking an *already-saved* annotation box instead offers
+//! **Edit**/**Delete**. This replaces op-gv19's original separate
+//! Highlight/Note toolbar tools (a plain visual-only highlight with no text
+//! is no longer a distinct case — every new box goes through the same
+//! menu) while keeping op-p17q/op-hnhp's draw-box-then-crop mechanics for
+//! the Digitise-graph/Read-table choices unchanged underneath.
+//!
+//! [`AnnotationTool`] is now just `None` (pan/zoom, and right-click an
+//! existing box) or `DrawBox` (drag to propose a new box). [`ContextMenu`]
+//! is the floating menu that appears on a right-click hit; [`Annotation`]
+//! is a saved free-text note (page + pixel rect + author + timestamp);
+//! [`CropProvenance`] carries the same provenance alongside a Digitise/Read
+//! crop so the digitiser tab it hands off to can later save the CSV it
+//! produces back into the project's markdown (op-96am) with the same page
+//! and pixel bbox recorded on the note.
+//!
+//! **In-memory only, still** — same scoping note as before: nothing here
+//! persists to disk on its own. Saving into a project's markdown (op-96am)
+//! is a separate, explicit action taken from the tab a crop was handed to,
+//! or (for a plain Annotate note) not yet wired to a "save into project"
+//! button in this first pass — see op-96am's own bead for what remains.
+//! Ink/freehand strokes are still not implemented: every box is
+//! axis-aligned.
+//!
+//! ## Text selection (op-z9u0)
+//!
+//! A separate `Select text` tool drags out a rectangle and selects the
+//! **lines** of real PDF text (not raw pixels) whose bounding box
+//! intersects it, via `kopitiam_pdf::mupdf::page_to_stext` — MuPDF's
+//! structured-text model (`StextPage`/`StextLine`/`StextChar`), ported with
+//! real per-line device-space bounding boxes. Device space there is in PDF
+//! *points* (unscaled, 72/inch); this panel's pixel space is points ×
+//! `RENDER_DPI / 72.0` — the same scale [`rasterize_page`] itself applies —
+//! so a line's bbox is converted once by that factor before hit-testing
+//! against the drag rect. **Line granularity, not glyph/character
+//! granularity** — a deliberate scope cut (see [`select_text_in_rect`]):
+//! selecting *part* of a line is out of scope for this pass. The selected
+//! text can be copied to the clipboard or saved as an [`Annotation`] over
+//! the selection's bounding box, so a text selection and a hand-typed note
+//! end up in the same place (op-96am's `annotations` markdown section).
+//!
+//! Does not belong here: PDF *text* extraction as a batch/whole-document
+//! operation (that is `kovan_literature::extract_metadata`'s job, already
+//! exposed via `kovan-cli lit`) — this panel's structured-text use is
+//! strictly interactive, one page at a time, cached per page only for as
+//! long as that page stays open.
 
 use std::collections::HashMap;
 
 use eframe::egui::{
     self, Color32, ColorImage, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2,
 };
-use kopitiam_pdf::mupdf::{rasterize_page, PdfDocument};
+use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
 
+use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
+use crate::project;
 
 /// Screen-resolution DPI for page rasterization — sharp enough to read body
 /// text at a typical window size without the per-page render becoming slow.
@@ -51,6 +85,11 @@ use crate::digitiser::raster::PlotRaster;
 /// zooming in past 100% will show visible raster blur; re-rasterizing per
 /// zoom level is future work if that turns out to matter in practice.
 const RENDER_DPI: f32 = 150.0;
+
+/// Low-resolution DPI used only for the page-thumbnail strip (op-0y4k) —
+/// far cheaper per page than [`RENDER_DPI`] since a thumbnail is shown at a
+/// few dozen pixels tall.
+const THUMBNAIL_DPI: f32 = 36.0;
 
 /// What is currently open in the reader — a multi-page PDF, or a single
 /// directly-loaded raster image. Closed set, enum-dispatched per the
@@ -76,59 +115,99 @@ impl ReaderSource {
     }
 }
 
-/// One annotation, anchored in the current page's *texture-pixel* space
-/// (i.e. the un-zoomed rasterization/image size — the same convention the
-/// digitiser's own calibration pixels use) so it stays aligned across zoom
-/// changes without needing to be re-scaled. Closed set, enum-dispatched.
-#[derive(Debug, Clone)]
-enum Annotation {
-    /// A translucent highlight rectangle, corners in texture-pixel space.
-    Highlight { min: Pos2, max: Pos2 },
-    /// A text note anchored at one texture-pixel point.
-    Note { pos: Pos2, text: String },
-}
-
-/// Which annotation tool a click/drag on the page currently invokes. Closed
-/// set, enum-dispatched per the workspace's no-trait-objects rule.
+/// Which annotation interaction is active. Closed set, enum-dispatched.
+/// See the module doc's "Unified box interaction model" — there is no
+/// longer a separate tool per box *kind*; what a box becomes is chosen from
+/// the right-click menu after it's drawn, not from the toolbar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum AnnotationTool {
-    /// No annotation interaction — page nav/zoom only.
+    /// No drawing — page nav/zoom, and right-click on an existing box.
     #[default]
     None,
-    /// Drag a rectangle to add a highlight.
-    Highlight,
-    /// Click to add a text note (edited afterwards in the notes list below
-    /// the toolbar).
-    Note,
-    /// Drag a rectangle, then right-click it to crop and hand the region to
-    /// the plot digitiser (op-p17q: "I want an interface where I draw a box
-    /// on a pdf or PNG, then right click, and I can digitise a plot").
-    CropForDigitise,
-    /// Same drag-then-right-click gesture, but for the table digitiser
-    /// (op-hnhp: "For tables it's the same, draw box, right click,
-    /// digitise with OCR").
-    CropForTableDigitise,
+    /// Drag to propose a new box; right-click it for the Annotate/Digitise
+    /// graph/Read table menu.
+    DrawBox,
+    /// Drag to select the real PDF text lines under the rectangle (op-z9u0)
+    /// — a genuine text selection, not a region annotation.
+    SelectText,
 }
 
-/// Which digitiser a completed crop (op-p17q/op-hnhp) is bound for —
-/// [`PdfReaderState::pending_crop`] is drawn identically either way, but the
-/// caller needs to know which panel to hand the result to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CropKind {
-    Plot,
-    Table,
+/// A saved free-text annotation (the "Annotate" menu action) — a
+/// texture-pixel-space rect plus provenance (op-96am: "annotations... go
+/// straight into markdown with date and time and author... metadata of
+/// which page and exact pixels").
+#[derive(Debug, Clone)]
+struct Annotation {
+    min: Pos2,
+    max: Pos2,
+    text: String,
+    created_at: String,
+    author: String,
+}
+
+impl Annotation {
+    fn contains(&self, p: Pos2) -> bool {
+        p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
+    }
+}
+
+/// What a floating [`ContextMenu`] was opened on.
+#[derive(Debug, Clone, Copy)]
+enum ContextMenuTarget {
+    /// The just-drawn, not-yet-confirmed box in `pending_box`.
+    NewBox,
+    /// An already-saved annotation, by index into that page's `Vec` in
+    /// `annotations`.
+    Existing(usize),
+}
+
+/// A floating right-click menu (op-x9qn), positioned at the click's screen
+/// coordinates. `Copy` so it can be read out of `self` by value without a
+/// borrow fight against the `&mut self` methods its buttons call.
+#[derive(Debug, Clone, Copy)]
+struct ContextMenu {
+    screen_pos: Pos2,
+    target: ContextMenuTarget,
+}
+
+/// In-progress "Annotate" text editor, opened from the context menu's
+/// Annotate/Edit actions. Shown as a panel under the toolbar (not floated
+/// over the exact box position) — simpler and immune to scroll-coordinate
+/// edge cases than a canvas-anchored popup, at the cost of not visually
+/// hovering right over the box while typing.
+struct AnnotateEditor {
+    min: Pos2,
+    max: Pos2,
+    text: String,
+    /// `Some(i)` when editing annotation `i` on the current page in place;
+    /// `None` for a brand-new annotation.
+    editing_existing: Option<usize>,
+}
+
+/// Provenance for a Digitise-graph/Read-table crop (op-p17q/op-hnhp), routed
+/// through to whichever digitiser tab the crop is handed to so a later
+/// "save into project markdown" action there (op-96am) can record where the
+/// CSV came from — same shape as [`Annotation`]'s provenance fields, kept
+/// as a separate type since a crop is not itself a saved [`Annotation`].
+#[derive(Debug, Clone)]
+pub struct CropProvenance {
+    pub page_index: usize,
+    pub min: Pos2,
+    pub max: Pos2,
+    pub created_at: String,
+    pub author: String,
 }
 
 /// A completed crop-then-right-click gesture (op-p17q / op-hnhp), returned
 /// from [`PdfReaderState::ui`] the frame it happens.
 pub enum CropResult {
-    Plot(PlotRaster),
-    Table(PlotRaster),
+    Plot(PlotRaster, CropProvenance),
+    Table(PlotRaster, CropProvenance),
 }
 
 /// State for one open document: its source (PDF or image), which page is
 /// showing, its cached rasterization, the zoom applied to the displayed
-/// texture, and its annotations (op-gv19).
+/// texture, and its annotations.
 #[derive(Default)]
 pub struct PdfReaderState {
     path: String,
@@ -140,22 +219,56 @@ pub struct PdfReaderState {
     texture_page: usize,
     zoom: f32,
     message: String,
-    // annotations (op-gv19) — in-memory only, see the module doc comment.
+    // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
     annotations: HashMap<usize, Vec<Annotation>>,
-    /// Texture-pixel-space start corner of a highlight drag in progress.
-    highlight_drag_start: Option<Pos2>,
-    /// Texture-pixel-space start corner of a crop-for-digitise drag in
-    /// progress (op-p17q).
-    crop_drag_start: Option<Pos2>,
-    /// The last completed crop-for-digitise rectangle (texture-pixel space,
-    /// min/max corners), persisting after the drag ends until the user
-    /// right-clicks it (confirm) or starts a new drag (replaces it) —
-    /// op-p17q's "draw a box... then right click" two-step gesture. Shared
-    /// by the plot- and table-digitiser tools; `pending_crop_kind` (set
-    /// alongside it) records which one is bound.
-    pending_crop: Option<(Pos2, Pos2)>,
-    pending_crop_kind: Option<CropKind>,
+    /// Texture-pixel-space start corner of a box drag in progress.
+    draw_start: Option<Pos2>,
+    /// The last completed, not-yet-confirmed box (texture-pixel space,
+    /// min/max corners) — persists after the drag ends until the user
+    /// right-clicks it (opens the context menu) or starts a new drag
+    /// (replaces it).
+    pending_box: Option<(Pos2, Pos2)>,
+    context_menu: Option<ContextMenu>,
+    annotate_editor: Option<AnnotateEditor>,
+    /// Author name recorded on new annotations/crops (op-96am's provenance
+    /// "author" field) — analogous to the digitiser's own "operator" field.
+    author: String,
+    /// "kovan folder" project (op-63u0) to save annotations into, and the
+    /// markdown file (relative to that root) they belong to — see
+    /// [`Self::save_annotations_into_project`]. Operator-supplied, same
+    /// reasoning as the digitiser tabs' own `project_root`/
+    /// `project_markdown_rel` fields.
+    project_root: String,
+    project_markdown_rel: String,
+    /// Cached structured-text page (op-z9u0), for the currently displayed
+    /// page only — re-extracted on page change, not kept for every page
+    /// (unlike `thumbnails`, since a full-resolution `StextPage` is a lot
+    /// more data per page than a thumbnail texture).
+    stext_cache: Option<(usize, StextPage)>,
+    /// Texture-pixel-space start corner of a text-selection drag in
+    /// progress (op-z9u0).
+    select_start: Option<Pos2>,
+    /// The last completed text selection: its bounding rect (union of every
+    /// selected line's bbox, texture-pixel space) and the concatenated text
+    /// of the lines it covers, one per line. `None` before any selection.
+    text_selection: Option<(Pos2, Pos2, String)>,
+    /// Cached low-res page thumbnails (op-0y4k) — keyed by page index,
+    /// cleared only when a new document is opened (kept across page/zoom
+    /// changes within the same document, unlike the single full-resolution
+    /// `texture`).
+    thumbnails: HashMap<usize, TextureHandle>,
+    /// The `created_at` of the annotation the pointer is currently hovering
+    /// on the canvas, if any (op-4x5s) — a poor-man's stable id
+    /// [`Self::context_panel`] uses to highlight the matching markdown
+    /// block. One frame behind the canvas hover (see where it's set).
+    hover_created_at: Option<String>,
+    /// Whether the left page-thumbnail strip is collapsed — collapsible per
+    /// GitHub issue #30's "a collapsible panel to select pages... like
+    /// Okular" (op-0y4k). Only meaningful for a multi-page PDF. Named so
+    /// the derived `Default` (`false`) means "shown", matching what a user
+    /// opening a fresh multi-page PDF expects to see.
+    hide_thumbnails: bool,
     /// The last "Generate BibTeX" result (op-x3wl) — `Ok` holds the
     /// rendered entry, `Err` a human-readable failure. `None` before the
     /// button has ever been pressed for the currently open PDF.
@@ -190,6 +303,57 @@ fn looks_like_pdf(path: &str) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
 }
 
+/// The concatenated text (op-z9u0) of every [`kopitiam_pdf::mupdf::StextLine`]
+/// on `page` whose device-space bbox (converted to texture-pixel space by
+/// `scale`) intersects `(min, max)`, one output line per selected PDF line
+/// — the "line granularity, not glyph granularity" scope cut from the
+/// module doc: a line is either wholly selected or not selected at all,
+/// never a partial-line (character-range) selection.
+fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> String {
+    let mut out = String::new();
+    for block in &page.blocks {
+        let StextBlock::Text(tb) = block else { continue };
+        for line in &tb.lines {
+            let b = line.bbox;
+            let (lx0, ly0, lx1, ly1) = (b.x0 * scale, b.y0 * scale, b.x1 * scale, b.y1 * scale);
+            let intersects = lx0 <= max.x && lx1 >= min.x && ly0 <= max.y && ly1 >= min.y;
+            if intersects {
+                if !out.is_empty() {
+                    out.push('\n');
+                }
+                out.push_str(&line.text());
+            }
+        }
+    }
+    out
+}
+
+/// Split `text` on lines starting with `### ` (one block per subsection,
+/// running to the next `### ` or EOF) and keep only the blocks containing
+/// at least one of `needles` — [`PdfReaderState::context_panel`]'s plain
+/// substring filter over a project's markdown, not a markdown parser.
+fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut current: Option<String> = None;
+    for line in text.lines() {
+        if line.starts_with("### ") {
+            if let Some(block) = current.take() {
+                blocks.push(block);
+            }
+            current = Some(String::new());
+        }
+        if let Some(block) = &mut current {
+            block.push_str(line);
+            block.push('\n');
+        }
+    }
+    if let Some(block) = current {
+        blocks.push(block);
+    }
+    blocks.retain(|b| needles.iter().any(|n| b.contains(n)));
+    blocks
+}
+
 impl PdfReaderState {
     /// Open `path` as the working document — a PDF or a raster image
     /// (op-wojr), dispatched by [`looks_like_pdf`] — replacing whatever was
@@ -200,6 +364,22 @@ impl PdfReaderState {
         } else {
             self.open_image(path);
         }
+    }
+
+    fn reset_interaction_state(&mut self) {
+        self.page_index = 0;
+        self.texture = None;
+        self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
+        self.annotations.clear();
+        self.draw_start = None;
+        self.pending_box = None;
+        self.context_menu = None;
+        self.annotate_editor = None;
+        self.bibtex = None;
+        self.thumbnails.clear();
+        self.stext_cache = None;
+        self.select_start = None;
+        self.text_selection = None;
     }
 
     fn open_pdf(&mut self, path: &str) {
@@ -215,15 +395,7 @@ impl PdfReaderState {
                 let page_count = doc.page_count();
                 self.path = path.to_string();
                 self.source = ReaderSource::Pdf(doc);
-                self.page_index = 0;
-                self.texture = None;
-                self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
-                self.annotations.clear();
-                self.highlight_drag_start = None;
-                self.crop_drag_start = None;
-                self.pending_crop = None;
-                self.pending_crop_kind = None;
-                self.bibtex = None;
+                self.reset_interaction_state();
                 self.message = format!("opened {path} ({page_count} page(s))");
             }
             Err(e) => self.message = format!("cannot open {path}: {e}"),
@@ -235,15 +407,7 @@ impl PdfReaderState {
             Ok(raster) => {
                 self.path = path.to_string();
                 self.source = ReaderSource::Image(raster);
-                self.page_index = 0;
-                self.texture = None;
-                self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
-                self.annotations.clear();
-                self.highlight_drag_start = None;
-                self.crop_drag_start = None;
-                self.pending_crop = None;
-                self.pending_crop_kind = None;
-                self.bibtex = None;
+                self.reset_interaction_state();
                 self.message = format!("opened {path}");
             }
             Err(e) => self.message = format!("cannot open {path} as PDF or image: {e}"),
@@ -275,11 +439,11 @@ impl PdfReaderState {
 
     /// Crop the current page/image to `(min, max)` (texture-pixel space) and
     /// build a standalone [`PlotRaster`] from it — the hand-off to the plot
-    /// digitiser (op-p17q). Re-rasterizes the current PDF page rather than
-    /// caching the last `Pixmap` alongside the texture: simpler, and
-    /// rasterization is already cheap enough per-page (see the module doc)
-    /// that a second render for this one-time crop action isn't worth the
-    /// extra cached-state bookkeeping.
+    /// digitiser (op-p17q) or table digitiser (op-hnhp). Re-rasterizes the
+    /// current PDF page rather than caching the last `Pixmap` alongside the
+    /// texture: simpler, and rasterization is already cheap enough per-page
+    /// (see the module doc) that a second render for this one-time crop
+    /// action isn't worth the extra cached-state bookkeeping.
     fn crop_current_page(&self, min: Pos2, max: Pos2) -> Result<PlotRaster, String> {
         let min_x = min.x.max(0.0) as u32;
         let min_y = min.y.max(0.0) as u32;
@@ -314,11 +478,76 @@ impl PdfReaderState {
         }
     }
 
+    fn author_name(&self) -> String {
+        let t = self.author.trim();
+        if t.is_empty() {
+            "unnamed".to_string()
+        } else {
+            t.to_string()
+        }
+    }
+
+    fn make_provenance(&self, min: Pos2, max: Pos2) -> CropProvenance {
+        CropProvenance {
+            page_index: self.page_index,
+            min,
+            max,
+            created_at: utc_now_iso8601(),
+            author: self.author_name(),
+        }
+    }
+
+    /// Append every not-yet-saved annotation on the current page into the
+    /// project's `annotations` section (op-96am), via
+    /// [`crate::project::append_to_section`] — one `###` subsection per
+    /// annotation, each stating author/page/pixel-bbox per the design doc's
+    /// §4.1 shape. Saves the whole page's worth in one call rather than one
+    /// call per annotation, so appending N annotations after opening a page
+    /// full of them doesn't need N separate stale-range-checked writes.
+    fn save_annotations_into_project(&mut self) {
+        let Some(anns) = self.annotations.get(&self.page_index) else {
+            self.message = "no annotations on this page to save".to_string();
+            return;
+        };
+        if anns.is_empty() {
+            self.message = "no annotations on this page to save".to_string();
+            return;
+        }
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.message = "set the project root and markdown path first".to_string();
+            return;
+        }
+        let mut block = String::new();
+        for ann in anns {
+            block.push_str(&format!(
+                "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
+                ann.created_at,
+                ann.author,
+                self.page_index + 1,
+                ann.min.x,
+                ann.min.y,
+                ann.max.x,
+                ann.max.y,
+                ann.text
+            ));
+        }
+        match project::append_to_section(
+            std::path::Path::new(self.project_root.trim()),
+            self.project_markdown_rel.trim(),
+            "annotations",
+            block.trim_end(),
+        ) {
+            Ok(_) => self.message = format!("saved {} annotation(s) into project markdown", anns.len()),
+            Err(e) => self.message = e.to_string(),
+        }
+    }
+
     fn next_page(&mut self) {
         if self.page_index + 1 < self.source.page_count() {
             self.page_index += 1;
-            self.pending_crop = None;
-            self.pending_crop_kind = None;
+            self.pending_box = None;
+            self.context_menu = None;
+            self.text_selection = None;
         }
     }
 
@@ -326,9 +555,23 @@ impl PdfReaderState {
         let before = self.page_index;
         self.page_index = self.page_index.saturating_sub(1);
         if self.page_index != before {
-            self.pending_crop = None;
-            self.pending_crop_kind = None;
+            self.pending_box = None;
+            self.context_menu = None;
+            self.text_selection = None;
         }
+    }
+
+    /// Structured text for `page` (op-z9u0), cached only for the page it
+    /// was last extracted for — see `stext_cache`'s doc. `None` for a
+    /// directly-loaded image (there is no PDF text layer to extract) or an
+    /// extraction failure.
+    fn stext_for_page(&mut self, page: usize) -> Option<&StextPage> {
+        if !matches!(self.stext_cache, Some((p, _)) if p == page) {
+            let ReaderSource::Pdf(doc) = &self.source else { return None };
+            let stext = page_to_stext(doc, page, StextOptions::default()).ok()?;
+            self.stext_cache = Some((page, stext));
+        }
+        self.stext_cache.as_ref().map(|(_, s)| s)
     }
 
     /// Rasterize/convert the current page and upload it as a texture, if not
@@ -366,6 +609,130 @@ impl PdfReaderState {
                 self.texture_page = self.page_index;
             }
         }
+    }
+
+    /// Rasterize page `page` at [`THUMBNAIL_DPI`] and cache the texture
+    /// (op-0y4k), returning it. `None` for a directly-loaded image (which
+    /// has no "other pages" to thumbnail) or a render failure — either way
+    /// the thumbnail strip simply shows nothing for that slot rather than
+    /// erroring the whole panel.
+    fn thumbnail_texture(&mut self, ctx: &egui::Context, page: usize) -> Option<TextureHandle> {
+        if let Some(t) = self.thumbnails.get(&page) {
+            return Some(t.clone());
+        }
+        let ReaderSource::Pdf(doc) = &self.source else { return None };
+        let pixmap = rasterize_page(doc, page, THUMBNAIL_DPI).ok()?;
+        let (w, h) = (pixmap.w as usize, pixmap.h as usize);
+        let image = if pixmap.alpha {
+            ColorImage::from_rgba_unmultiplied([w, h], &pixmap.samples)
+        } else {
+            ColorImage::from_rgb([w, h], &pixmap.samples)
+        };
+        let tex = ctx.load_texture(format!("pdf-thumb-{page}"), image, TextureOptions::LINEAR);
+        self.thumbnails.insert(page, tex.clone());
+        Some(tex)
+    }
+
+    /// The left page-thumbnail strip (op-0y4k) — an Okular-style page
+    /// picker for a multi-page PDF. Uses `show_rows` so only the thumbnails
+    /// actually scrolled into view are rasterized/uploaded, rather than
+    /// every page in the document up front.
+    fn thumbnail_strip(&mut self, ui: &mut egui::Ui) {
+        let page_count = self.source.page_count();
+        let row_height = 96.0;
+        egui::ScrollArea::vertical().id_salt("pdf_thumbnails").show_rows(
+            ui,
+            row_height,
+            page_count,
+            |ui, range| {
+                for page in range {
+                    let selected = page == self.page_index;
+                    let frame = egui::Frame::new().inner_margin(4.0).fill(if selected {
+                        Color32::from_rgb(60, 90, 140)
+                    } else {
+                        Color32::TRANSPARENT
+                    });
+                    let resp = frame.show(ui, |ui| {
+                        ui.set_height(row_height - 8.0);
+                        ui.vertical_centered(|ui| {
+                            if let Some(tex) = self.thumbnail_texture(ui.ctx(), page) {
+                                let aspect = tex.size_vec2().y / tex.size_vec2().x.max(1.0);
+                                let w = 72.0_f32;
+                                ui.add(
+                                    egui::Image::new(&tex)
+                                        .fit_to_exact_size(Vec2::new(w, w * aspect)),
+                                );
+                            }
+                            ui.label(format!("{}", page + 1));
+                        });
+                    });
+                    if ui.interact(resp.response.rect, ui.id().with(("thumb", page)), Sense::click())
+                        .clicked()
+                    {
+                        self.page_index = page;
+                        self.pending_box = None;
+                        self.context_menu = None;
+                    }
+                }
+            },
+        );
+    }
+
+    /// The right "page context" panel (op-0y4k): raw text preview of
+    /// whatever the currently open project's markdown records for the
+    /// *currently displayed page* — annotations and digitised CSVs, read
+    /// live off disk (not cached), matching GitHub issue #30's "live from
+    /// markdown file" ask. Filters `### ...` subsections by a `page: N`/
+    /// `page N,` marker, matching the exact provenance text this panel's
+    /// own save actions emit (`Self::save_annotations_into_project`,
+    /// `DigitiseApp::save_into_project`, `TableDigitiserState::
+    /// save_into_project`) — a plain substring filter, not a markdown
+    /// parser, since the marker text is under this crate's own control.
+    fn context_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Page context");
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            ui.small(
+                "Set a project root + markdown path above to see this page's saved \
+                 annotations/CSVs here, live from the markdown file.",
+            );
+            return;
+        }
+        let path =
+            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
+        let text = match std::fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) => {
+                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("{}: {e}", path.display()));
+                return;
+            }
+        };
+        let marker_a = format!("page: {}", self.page_index + 1);
+        let marker_b = format!("page {},", self.page_index + 1);
+        let blocks = blocks_matching(&text, &[&marker_a, &marker_b]);
+        if blocks.is_empty() {
+            ui.small("nothing saved for this page yet");
+            return;
+        }
+        egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
+            for block in blocks {
+                // op-4x5s: highlight the block matching whatever annotation
+                // box the pointer was hovering over the PDF canvas, one
+                // frame ago (see `hover_created_at`'s doc).
+                let is_linked = self
+                    .hover_created_at
+                    .as_deref()
+                    .is_some_and(|id| block.contains(id));
+                if is_linked {
+                    egui::Frame::new()
+                        .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
+                        .inner_margin(4.0)
+                        .show(ui, |ui| ui.monospace(&block));
+                } else {
+                    ui.monospace(&block);
+                }
+                ui.separator();
+            }
+        });
     }
 
     /// Draw the toolbar (page nav, zoom) and the page image. `on_open_clicked`
@@ -412,25 +779,26 @@ impl PdfReaderState {
                 ui.separator();
             }
             ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
+            if is_pdf && page_count > 1 {
+                ui.separator();
+                let label = if self.hide_thumbnails { "Show pages" } else { "Hide pages" };
+                if ui.button(label).clicked() {
+                    self.hide_thumbnails = !self.hide_thumbnails;
+                }
+            }
             ui.separator();
-            ui.label("annotate:");
+            ui.label("tool:");
             ui.selectable_value(&mut self.tool, AnnotationTool::None, "Select");
-            ui.selectable_value(&mut self.tool, AnnotationTool::Highlight, "Highlight");
-            ui.selectable_value(&mut self.tool, AnnotationTool::Note, "Note");
+            ui.selectable_value(&mut self.tool, AnnotationTool::DrawBox, "Draw box");
+            if is_pdf {
+                ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
+            }
             if ui.button("Clear page annotations").clicked() {
                 self.annotations.remove(&self.page_index);
             }
             ui.separator();
-            ui.selectable_value(
-                &mut self.tool,
-                AnnotationTool::CropForDigitise,
-                "Digitise plot (draw box, right-click)",
-            );
-            ui.selectable_value(
-                &mut self.tool,
-                AnnotationTool::CropForTableDigitise,
-                "Digitise table (draw box, right-click)",
-            );
+            ui.label("author:");
+            ui.add(egui::TextEdit::singleline(&mut self.author).desired_width(100.0));
             if is_pdf {
                 ui.separator();
                 if ui.button("Generate BibTeX").clicked() {
@@ -438,9 +806,41 @@ impl PdfReaderState {
                 }
             }
         });
-        self.notes_panel(ui);
+        ui.small(
+            "Draw box → right-click it → Annotate / Digitise graph / Read table. \
+             Right-click an existing box → Edit / Delete.",
+        );
+        ui.horizontal(|ui| {
+            ui.label("project root");
+            ui.text_edit_singleline(&mut self.project_root);
+            ui.label("markdown path");
+            ui.text_edit_singleline(&mut self.project_markdown_rel);
+            if ui.button("Save page annotations into project markdown").clicked() {
+                self.save_annotations_into_project();
+            }
+        });
+        self.text_selection_panel(ui);
+        let mut crop_result = self.annotate_editor_panel(ui);
         self.bibtex_panel(ui);
         ui.separator();
+
+        // 3-pane layout (op-0y4k): left page-thumbnail strip, right live
+        // page-context panel, centre the PDF/image viewer below (whatever
+        // of `ui`'s rect the two side panels didn't claim) — GitHub issue
+        // #30's "On the left, a collapsible panel to select pages... In the
+        // centre, pdf (65%)... In the right panel, raw text preview csv
+        // tables and annotations corresponding to the page of pdf
+        // displayed, live from markdown file."
+        if is_pdf && page_count > 1 && !self.hide_thumbnails {
+            egui::Panel::left("pdf_reader_thumbnails")
+                .resizable(true)
+                .default_size(110.0)
+                .show_inside(ui, |ui| self.thumbnail_strip(ui));
+        }
+        egui::Panel::right("pdf_reader_context")
+            .resizable(true)
+            .default_size(280.0)
+            .show_inside(ui, |ui| self.context_panel(ui));
 
         self.ensure_texture(ui.ctx());
         let Some(texture) = self.texture.clone() else {
@@ -464,194 +864,348 @@ impl PdfReaderState {
                 Color32::WHITE,
             );
 
-            let to_image =
-                move |pos: Pos2| -> Pos2 { ((pos - rect.min) / zoom).to_pos2() };
+            let to_image = move |pos: Pos2| -> Pos2 { ((pos - rect.min) / zoom).to_pos2() };
             let to_screen = move |p: Pos2| -> Pos2 { rect.min + p.to_vec2() * zoom };
 
-            match self.tool {
-                AnnotationTool::Highlight => {
-                    if response.drag_started_by(egui::PointerButton::Primary) {
-                        self.highlight_drag_start =
-                            response.interact_pointer_pos().map(to_image);
-                    }
-                    if let (Some(start), Some(pos)) =
-                        (self.highlight_drag_start, response.interact_pointer_pos())
-                    {
-                        let current = to_image(pos);
-                        let (min, max) = (
-                            Pos2::new(start.x.min(current.x), start.y.min(current.y)),
-                            Pos2::new(start.x.max(current.x), start.y.max(current.y)),
-                        );
-                        painter.rect_filled(
-                            Rect::from_min_max(to_screen(min), to_screen(max)),
-                            0.0,
-                            Color32::from_rgba_unmultiplied(255, 230, 60, 70),
-                        );
-                        if response.drag_stopped() {
-                            self.annotations
-                                .entry(page_index)
-                                .or_default()
-                                .push(Annotation::Highlight { min, max });
-                            self.highlight_drag_start = None;
-                        }
+            // --- drawing a new box ---
+            if self.tool == AnnotationTool::DrawBox {
+                if response.drag_started_by(egui::PointerButton::Primary) {
+                    self.draw_start = response.interact_pointer_pos().map(to_image);
+                }
+                if let (Some(start), Some(pos)) =
+                    (self.draw_start, response.interact_pointer_pos())
+                {
+                    let current = to_image(pos);
+                    let (min, max) = (
+                        Pos2::new(start.x.min(current.x), start.y.min(current.y)),
+                        Pos2::new(start.x.max(current.x), start.y.max(current.y)),
+                    );
+                    painter.rect_stroke(
+                        Rect::from_min_max(to_screen(min), to_screen(max)),
+                        0.0,
+                        Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
+                        egui::StrokeKind::Middle,
+                    );
+                    if response.drag_stopped() {
+                        self.pending_box = Some((min, max));
+                        self.draw_start = None;
                     }
                 }
-                AnnotationTool::Note => {
-                    if response.clicked() {
-                        if let Some(pos) = response.interact_pointer_pos() {
-                            self.annotations.entry(page_index).or_default().push(
-                                Annotation::Note {
-                                    pos: to_image(pos),
-                                    text: String::new(),
-                                },
-                            );
-                        }
+            } else if self.tool == AnnotationTool::SelectText {
+                if response.drag_started_by(egui::PointerButton::Primary) {
+                    self.select_start = response.interact_pointer_pos().map(to_image);
+                }
+                if let (Some(start), Some(pos)) =
+                    (self.select_start, response.interact_pointer_pos())
+                {
+                    let current = to_image(pos);
+                    let (min, max) = (
+                        Pos2::new(start.x.min(current.x), start.y.min(current.y)),
+                        Pos2::new(start.x.max(current.x), start.y.max(current.y)),
+                    );
+                    painter.rect_stroke(
+                        Rect::from_min_max(to_screen(min), to_screen(max)),
+                        0.0,
+                        Stroke::new(2.0_f32, Color32::from_rgb(120, 230, 120)),
+                        egui::StrokeKind::Middle,
+                    );
+                    if response.drag_stopped() {
+                        // op-z9u0: RENDER_DPI/72.0 converts a stext line's
+                        // device-space (PDF points) bbox into this panel's
+                        // texture-pixel space — the same scale
+                        // `rasterize_page` itself applies for the DPI it
+                        // was given.
+                        let scale = RENDER_DPI / 72.0;
+                        self.text_selection = self
+                            .stext_for_page(page_index)
+                            .map(|stext| select_text_in_rect(stext, scale, min, max))
+                            .map(|text| (min, max, text));
+                        self.select_start = None;
                     }
                 }
-                AnnotationTool::CropForDigitise | AnnotationTool::CropForTableDigitise => {
-                    let kind = if self.tool == AnnotationTool::CropForDigitise {
-                        CropKind::Plot
-                    } else {
-                        CropKind::Table
-                    };
-                    let colour = match kind {
-                        CropKind::Plot => Color32::from_rgb(60, 200, 255),
-                        CropKind::Table => Color32::from_rgb(230, 140, 230),
-                    };
-                    if response.drag_started_by(egui::PointerButton::Primary) {
-                        self.crop_drag_start = response.interact_pointer_pos().map(to_image);
-                    }
-                    if let (Some(start), Some(pos)) =
-                        (self.crop_drag_start, response.interact_pointer_pos())
-                    {
-                        let current = to_image(pos);
-                        let rect = (
-                            Pos2::new(start.x.min(current.x), start.y.min(current.y)),
-                            Pos2::new(start.x.max(current.x), start.y.max(current.y)),
-                        );
-                        painter.rect_stroke(
-                            Rect::from_min_max(to_screen(rect.0), to_screen(rect.1)),
-                            0.0,
-                            Stroke::new(2.0_f32, colour),
-                            egui::StrokeKind::Middle,
-                        );
-                        if response.drag_stopped() {
-                            self.pending_crop = Some(rect);
-                            self.pending_crop_kind = Some(kind);
-                            self.crop_drag_start = None;
-                        }
-                    }
-                }
-                AnnotationTool::None => {}
             }
 
-            // --- overlay: this page's saved annotations ---
+            // --- right-click: open the context menu on whatever box was hit ---
+            if response.secondary_clicked() {
+                if let Some(screen_pos) = response.interact_pointer_pos() {
+                    let click = to_image(screen_pos);
+                    if let Some((min, max)) = self.pending_box {
+                        if click.x >= min.x && click.x <= max.x && click.y >= min.y && click.y <= max.y {
+                            self.context_menu =
+                                Some(ContextMenu { screen_pos, target: ContextMenuTarget::NewBox });
+                        }
+                    } else if let Some(i) = self
+                        .annotations
+                        .get(&page_index)
+                        .and_then(|anns| anns.iter().position(|a| a.contains(click)))
+                    {
+                        self.context_menu =
+                            Some(ContextMenu { screen_pos, target: ContextMenuTarget::Existing(i) });
+                    }
+                }
+            }
+
+            // --- overlays: saved annotations (hover-highlighted), then the
+            // pending box ---
+            let hovered = response
+                .hover_pos()
+                .map(to_image)
+                .and_then(|p| {
+                    self.annotations
+                        .get(&page_index)
+                        .and_then(|anns| anns.iter().position(|a| a.contains(p)))
+                });
+            // op-4x5s: remember which annotation (by its `created_at`,
+            // acting as a stable id) is hovered this frame, so the right
+            // panel — drawn earlier in the same `ui()` call, on the
+            // *previous* frame's value, one frame of lag being
+            // imperceptible at interactive frame rates — can highlight the
+            // matching markdown block too.
+            self.hover_created_at = hovered.and_then(|i| {
+                self.annotations
+                    .get(&page_index)
+                    .and_then(|anns| anns.get(i))
+                    .map(|a| a.created_at.clone())
+            });
             if let Some(anns) = self.annotations.get(&page_index) {
-                for ann in anns {
-                    match ann {
-                        Annotation::Highlight { min, max } => {
-                            painter.rect_filled(
-                                Rect::from_min_max(to_screen(*min), to_screen(*max)),
-                                0.0,
-                                Color32::from_rgba_unmultiplied(255, 230, 60, 70),
-                            );
-                        }
-                        Annotation::Note { pos, text } => {
-                            let p = to_screen(*pos);
-                            painter.circle_filled(p, 6.0, Color32::from_rgb(230, 140, 20));
-                            painter.circle_stroke(p, 6.0, Stroke::new(1.0_f32, Color32::BLACK));
-                            if !text.is_empty() {
-                                painter.text(
-                                    p + Vec2::new(8.0, -8.0),
-                                    egui::Align2::LEFT_BOTTOM,
-                                    text,
-                                    egui::FontId::proportional(13.0),
-                                    Color32::from_rgb(230, 140, 20),
-                                );
-                            }
-                        }
-                    }
+                for (i, ann) in anns.iter().enumerate() {
+                    let is_hovered = hovered == Some(i);
+                    painter.rect_filled(
+                        Rect::from_min_max(to_screen(ann.min), to_screen(ann.max)),
+                        0.0,
+                        Color32::from_rgba_unmultiplied(255, 230, 60, if is_hovered { 110 } else { 60 }),
+                    );
+                    painter.rect_stroke(
+                        Rect::from_min_max(to_screen(ann.min), to_screen(ann.max)),
+                        0.0,
+                        Stroke::new(
+                            if is_hovered { 2.5_f32 } else { 1.0_f32 },
+                            Color32::from_rgb(230, 170, 20),
+                        ),
+                        egui::StrokeKind::Middle,
+                    );
                 }
             }
-
-            // --- persistent crop-for-digitise box (op-p17q) ---
-            // Drawn regardless of `self.tool`, so switching to "Select" to
-            // pan/zoom around doesn't make an already-drawn box vanish
-            // before the user gets to right-click it — it only disappears
-            // on page/document change (cleared above) or after the
-            // right-click confirms it below.
-            let mut crop_result = None;
-            if let Some((min, max)) = self.pending_crop {
-                let colour = match self.pending_crop_kind {
-                    Some(CropKind::Table) => Color32::from_rgb(230, 140, 230),
-                    _ => Color32::from_rgb(60, 200, 255),
-                };
+            if let Some((min, max)) = self.pending_box {
                 painter.rect_stroke(
                     Rect::from_min_max(to_screen(min), to_screen(max)),
                     0.0,
-                    Stroke::new(2.0_f32, colour),
+                    Stroke::new(2.0_f32, Color32::from_rgb(60, 200, 255)),
                     egui::StrokeKind::Middle,
                 );
-                if response.secondary_clicked() {
-                    if let Some(pos) = response.interact_pointer_pos() {
-                        let click = to_image(pos);
-                        let inside = click.x >= min.x
-                            && click.x <= max.x
-                            && click.y >= min.y
-                            && click.y <= max.y;
-                        if inside {
-                            match self.crop_current_page(min, max) {
-                                Ok(raster) => {
-                                    crop_result = Some(match self.pending_crop_kind {
-                                        Some(CropKind::Table) => CropResult::Table(raster),
-                                        _ => CropResult::Plot(raster),
+            }
+            if let Some((min, max, _)) = &self.text_selection {
+                painter.rect_filled(
+                    Rect::from_min_max(to_screen(*min), to_screen(*max)),
+                    0.0,
+                    Color32::from_rgba_unmultiplied(120, 230, 120, 50),
+                );
+            }
+        });
+
+        if let Some(result) = self.context_menu_ui(ui.ctx()) {
+            crop_result = Some(result);
+        }
+
+        crop_result
+    }
+
+    /// Draw the floating right-click menu (op-x9qn), if one is open.
+    /// Returns `Some` the frame a Digitise-graph/Read-table crop is
+    /// confirmed.
+    fn context_menu_ui(&mut self, ctx: &egui::Context) -> Option<CropResult> {
+        let menu = self.context_menu?;
+        let mut close = false;
+        let mut result = None;
+        egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
+            .order(egui::Order::Foreground)
+            .fixed_pos(menu.screen_pos)
+            .show(ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.set_min_width(140.0);
+                    match menu.target {
+                        ContextMenuTarget::NewBox => {
+                            if ui.button("Annotate").clicked() {
+                                if let Some((min, max)) = self.pending_box {
+                                    self.annotate_editor = Some(AnnotateEditor {
+                                        min,
+                                        max,
+                                        text: String::new(),
+                                        editing_existing: None,
                                     });
-                                    self.pending_crop = None;
-                                    self.pending_crop_kind = None;
                                 }
-                                Err(e) => self.message = format!("crop failed: {e}"),
+                                close = true;
+                            }
+                            if ui.button("Digitise graph").clicked() {
+                                if let Some((min, max)) = self.pending_box.take() {
+                                    match self.crop_current_page(min, max) {
+                                        Ok(raster) => {
+                                            result = Some(CropResult::Plot(
+                                                raster,
+                                                self.make_provenance(min, max),
+                                            ));
+                                        }
+                                        Err(e) => self.message = format!("crop failed: {e}"),
+                                    }
+                                }
+                                close = true;
+                            }
+                            if ui.button("Read table").clicked() {
+                                if let Some((min, max)) = self.pending_box.take() {
+                                    match self.crop_current_page(min, max) {
+                                        Ok(raster) => {
+                                            result = Some(CropResult::Table(
+                                                raster,
+                                                self.make_provenance(min, max),
+                                            ));
+                                        }
+                                        Err(e) => self.message = format!("crop failed: {e}"),
+                                    }
+                                }
+                                close = true;
+                            }
+                        }
+                        ContextMenuTarget::Existing(i) => {
+                            if ui.button("Edit").clicked() {
+                                if let Some(a) =
+                                    self.annotations.get(&self.page_index).and_then(|a| a.get(i))
+                                {
+                                    self.annotate_editor = Some(AnnotateEditor {
+                                        min: a.min,
+                                        max: a.max,
+                                        text: a.text.clone(),
+                                        editing_existing: Some(i),
+                                    });
+                                }
+                                close = true;
+                            }
+                            if ui.button("Delete").clicked() {
+                                if let Some(anns) = self.annotations.get_mut(&self.page_index) {
+                                    if i < anns.len() {
+                                        anns.remove(i);
+                                    }
+                                }
+                                close = true;
                             }
                         }
                     }
-                }
-            }
-            crop_result
-        })
-        .inner
+                    ui.separator();
+                    if ui.button("Cancel").clicked() {
+                        if matches!(menu.target, ContextMenuTarget::NewBox) {
+                            self.pending_box = None;
+                        }
+                        close = true;
+                    }
+                });
+            });
+        if close {
+            self.context_menu = None;
+        }
+        result
     }
 
-    /// Editable list of this page's text notes — shown under the toolbar so
-    /// a note placed with the Note tool has somewhere to type its text (the
-    /// canvas itself only places the marker; egui has no good in-place
-    /// text-entry-on-a-painter primitive, so editing happens here instead).
-    fn notes_panel(&mut self, ui: &mut egui::Ui) {
-        let Some(anns) = self.annotations.get_mut(&self.page_index) else {
-            return;
-        };
-        if anns.is_empty() {
-            return;
-        }
-        let mut delete: Option<usize> = None;
-        ui.horizontal_wrapped(|ui| {
-            for (i, ann) in anns.iter_mut().enumerate() {
-                if let Annotation::Note { text, .. } = ann {
-                    ui.group(|ui| {
-                        ui.label(format!("note {}", i + 1));
-                        ui.add(
-                            egui::TextEdit::singleline(text)
-                                .hint_text("note text")
-                                .desired_width(160.0),
-                        );
-                        if ui.small_button("✕").clicked() {
-                            delete = Some(i);
-                        }
-                    });
+    /// The last text selection (op-z9u0), if any — a read-only preview with
+    /// Copy-to-clipboard and "Save as annotation" (folds the selection into
+    /// the same `annotations` markdown section a hand-typed note goes into,
+    /// per the module doc).
+    fn text_selection_panel(&mut self, ui: &mut egui::Ui) {
+        let Some((min, max, text)) = self.text_selection.clone() else { return };
+        ui.group(|ui| {
+            ui.label(format!(
+                "Selected text — page {} — bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
+                self.page_index + 1,
+                min.x,
+                min.y,
+                max.x,
+                max.y
+            ));
+            let mut scratch = text.clone();
+            ui.add(
+                egui::TextEdit::multiline(&mut scratch)
+                    .font(egui::TextStyle::Monospace)
+                    .desired_rows(3)
+                    .desired_width(f32::INFINITY),
+            );
+            ui.horizontal(|ui| {
+                if ui.button("\u{1F4CB} Copy").clicked() {
+                    ui.ctx().copy_text(text.clone());
                 }
-            }
+                if ui.button("Save as annotation").clicked() {
+                    let author = self.author_name();
+                    self.annotations.entry(self.page_index).or_default().push(Annotation {
+                        min,
+                        max,
+                        text: text.clone(),
+                        created_at: utc_now_iso8601(),
+                        author,
+                    });
+                    self.text_selection = None;
+                }
+                if ui.button("Dismiss").clicked() {
+                    self.text_selection = None;
+                }
+            });
         });
-        if let Some(i) = delete {
-            anns.remove(i);
+    }
+
+    /// The Annotate text editor, shown as a panel under the toolbar while
+    /// `annotate_editor` is `Some` — see [`AnnotateEditor`]'s doc for why
+    /// this is a panel rather than a canvas-anchored popup. Returns `None`
+    /// always (kept as `-> Option<CropResult>` only so `ui` can chain it the
+    /// same way as `context_menu_ui`, for a single "did anything produce a
+    /// crop this frame" return path); an Annotate action never produces a
+    /// [`CropResult`].
+    fn annotate_editor_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
+        let Some(editor) = &mut self.annotate_editor else { return None };
+        let mut save = false;
+        let mut cancel = false;
+        ui.group(|ui| {
+            ui.label(format!(
+                "Annotate — page {} — bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
+                self.page_index + 1,
+                editor.min.x,
+                editor.min.y,
+                editor.max.x,
+                editor.max.y
+            ));
+            ui.add(
+                egui::TextEdit::multiline(&mut editor.text)
+                    .hint_text("note text")
+                    .desired_rows(3)
+                    .desired_width(f32::INFINITY),
+            );
+            ui.horizontal(|ui| {
+                if ui.button("Save").clicked() {
+                    save = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    cancel = true;
+                }
+            });
+        });
+        if save {
+            let editor = self.annotate_editor.take().expect("checked above");
+            let author = self.author_name();
+            let anns = self.annotations.entry(self.page_index).or_default();
+            match editor.editing_existing {
+                Some(i) if i < anns.len() => {
+                    anns[i].text = editor.text;
+                    anns[i].min = editor.min;
+                    anns[i].max = editor.max;
+                }
+                _ => anns.push(Annotation {
+                    min: editor.min,
+                    max: editor.max,
+                    text: editor.text,
+                    created_at: utc_now_iso8601(),
+                    author,
+                }),
+            }
+            self.pending_box = None;
+        } else if cancel {
+            self.annotate_editor = None;
         }
+        None
     }
 
     /// Shows the last "Generate BibTeX" result (op-x3wl), if any — a
@@ -680,5 +1234,130 @@ impl PdfReaderState {
                 ui.colored_label(Color32::from_rgb(230, 90, 90), format!("BibTeX: {e}"));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kopitiam_pdf::mupdf::{Point, Quad, Rect as PdfRect, StextChar, StextLine, StextTextBlock};
+
+    fn stub_char(c: char) -> StextChar {
+        let p = Point::new(0.0, 0.0);
+        StextChar {
+            c,
+            origin: p,
+            quad: Quad { ul: p, ur: p, ll: p, lr: p },
+            size: 10.0,
+            font: 0,
+            flags: 0,
+            cid: 0,
+            wmode: 0,
+        }
+    }
+
+    fn stub_line(text: &str, bbox: PdfRect) -> StextLine {
+        StextLine {
+            wmode: 0,
+            flags: 0,
+            dir: Point::new(1.0, 0.0),
+            bbox,
+            chars: text.chars().map(stub_char).collect(),
+        }
+    }
+
+    fn stub_page(lines: Vec<StextLine>) -> StextPage {
+        StextPage {
+            mediabox: PdfRect::new(0.0, 0.0, 612.0, 792.0),
+            blocks: vec![StextBlock::Text(StextTextBlock {
+                bbox: PdfRect::new(0.0, 0.0, 612.0, 792.0),
+                lines,
+            })],
+            fonts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn select_text_in_rect_picks_up_intersecting_lines_only() {
+        // Two lines in PDF points, at y=[10,20] and y=[100,110]. A drag
+        // rect covering just the first line (in pixel space, scale=1.0)
+        // should select only its text.
+        let page = stub_page(vec![
+            stub_line("first line", PdfRect::new(0.0, 10.0, 200.0, 20.0)),
+            stub_line("second line", PdfRect::new(0.0, 100.0, 200.0, 110.0)),
+        ]);
+        let text = select_text_in_rect(&page, 1.0, Pos2::new(0.0, 0.0), Pos2::new(300.0, 30.0));
+        assert_eq!(text, "first line");
+    }
+
+    #[test]
+    fn select_text_in_rect_applies_the_dpi_scale() {
+        // Same fixture, but scale=2.0 (as if RENDER_DPI were 144) — the
+        // line's device-space bbox in pixel space is now y=[20,40], so a
+        // drag rect that only covers y=[0,15] in PIXEL space should miss it
+        // even though it would have hit at scale=1.0.
+        let page = stub_page(vec![stub_line("line", PdfRect::new(0.0, 10.0, 200.0, 20.0))]);
+        let missed = select_text_in_rect(&page, 2.0, Pos2::new(0.0, 0.0), Pos2::new(300.0, 15.0));
+        assert_eq!(missed, "");
+        let hit = select_text_in_rect(&page, 2.0, Pos2::new(0.0, 0.0), Pos2::new(300.0, 30.0));
+        assert_eq!(hit, "line");
+    }
+
+    #[test]
+    fn select_text_in_rect_multiple_lines_join_with_newline() {
+        let page = stub_page(vec![
+            stub_line("a", PdfRect::new(0.0, 0.0, 10.0, 10.0)),
+            stub_line("b", PdfRect::new(0.0, 20.0, 10.0, 30.0)),
+        ]);
+        let text = select_text_in_rect(&page, 1.0, Pos2::new(0.0, 0.0), Pos2::new(50.0, 50.0));
+        assert_eq!(text, "a\nb");
+    }
+
+    #[test]
+    fn select_text_in_rect_no_intersection_is_empty() {
+        let page = stub_page(vec![stub_line("x", PdfRect::new(0.0, 0.0, 10.0, 10.0))]);
+        let text =
+            select_text_in_rect(&page, 1.0, Pos2::new(1000.0, 1000.0), Pos2::new(1100.0, 1100.0));
+        assert_eq!(text, "");
+    }
+
+    #[test]
+    fn blocks_matching_keeps_only_blocks_containing_a_needle() {
+        let text = "\
+### Fig. 7 — page 3, pixel bbox [1, 2, 3, 4]
+
+```csv
+x,y
+1,2
+```
+
+### annotation — 2026-08-24T00:00:00Z
+- author: x
+- page: 1
+- pixel bbox: [0, 0, 1, 1]
+
+a note
+";
+        let blocks = blocks_matching(text, &["page: 1"]);
+        assert_eq!(blocks.len(), 1);
+        assert!(blocks[0].starts_with("### annotation"));
+        assert!(blocks[0].contains("a note"));
+    }
+
+    #[test]
+    fn blocks_matching_supports_multiple_needles() {
+        let text = "### a — page 1,\nx\n### b\n- page: 2\ny\n### c\nz\n";
+        let blocks = blocks_matching(text, &["page 1,", "page: 2"]);
+        assert_eq!(blocks.len(), 2);
+    }
+
+    #[test]
+    fn blocks_matching_no_match_is_empty() {
+        assert!(blocks_matching("### a\nx\n", &["page: 99"]).is_empty());
+    }
+
+    #[test]
+    fn blocks_matching_text_with_no_headings_is_empty() {
+        assert!(blocks_matching("just prose, no ### headings\n", &["anything"]).is_empty());
     }
 }

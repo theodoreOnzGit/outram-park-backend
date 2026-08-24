@@ -93,7 +93,16 @@ author_summary   = [24, 31]
 full_text        = [33, 812]
 table_csvs       = [814, 900]     # may be absent (no tables) — key omitted
 graph_csvs       = [902, 940]     # may be absent (no digitised plots)
+annotations      = [942, 970]     # may be absent (no PDF-reader annotations yet)
 ```
+
+**Schema v2 addition (2026-08-24, GitHub issue #30 follow-up comment):** the
+`annotations` key was added to `document.sections` alongside the original
+five. `PROJECT_SCHEMA_VERSION` is `2` as of this change. A `kovan.toml`
+written by the v1 code (no `annotations` key ever present) still parses
+under v2 — the field is optional and simply absent, per §3's "don't
+fabricate a zero" rule below — so this is a backward-compatible addition,
+not a breaking one.
 
 - `[[document]]` is an array-of-tables, one per document in the project —
   mirrors how a `.bib` file itself is a flat list of entries.
@@ -112,7 +121,8 @@ graph_csvs       = [902, 940]     # may be absent (no digitised plots)
 
 One markdown file per document, under `markdown/`, holding the sections the
 issue names: **AI summary, author summary, full text (from OCR or AI),
-table CSVs (from digitised tables), graph CSVs (from digitised plots)**.
+table CSVs (from digitised tables), graph CSVs (from digitised plots),
+annotations (from the PDF reader, schema v2)**.
 
 ### 4.1 Section markers
 
@@ -160,19 +170,48 @@ x,y
 x,y,x_minus,x_plus,y_minus,y_plus,origin
 ...
 ```
+
+<!-- kovan:section annotations -->
+## Annotations
+
+### annotation — 2026-08-24T05:12:00Z
+- author: kovan (gui)
+- page: 3
+- pixel bbox: [120.0, 340.0, 480.0, 520.0]
+
+Free text the operator typed while reading — a note, a caveat, a
+cross-reference to another document.
 ```
 
 - Section **order is fixed** (as listed above) and every generated file
   contains every marker, in that order — a section with no content yet is
   still present, with an empty body, so `op-b1y5`'s regeneration pass can
-  always find all five markers by a single top-to-bottom scan and never
-  needs to invent a line range for a section it can't locate.
+  always find all six markers by a single top-to-bottom scan and never
+  needs to invent a line range for a section it can't locate. (A markdown
+  file predating the `annotations` addition simply has no marker for it —
+  `document.sections.annotations` is then absent, per §3's "don't fabricate
+  a zero" rule, not an error; `kovan-gui`'s append path creates the marker
+  the first time an annotation is actually saved into that document — see
+  `op-96am`.)
 - `table_csvs`/`graph_csvs` bodies are themselves one subsection (`###`) per
   digitised artefact, each holding one fenced ` ```csv ` block — this is
   the same CSV text `DigitisedDataset::to_csv_string()`
   (`crates/kovan/src/digitiser/dataset.rs`) already produces for the plot
   digitiser, and the shape `op-hnhp`'s table digitiser should reuse rather
   than invent a second convention for the same idea.
+- `annotations` bodies are one `###` subsection per PDF-reader annotation
+  (schema v2), each stating `author`, `page` (1-indexed) and `pixel bbox`
+  (or a single `pixel pos` for a point-anchored note, not a region) as a
+  short bullet list immediately under the subsection heading, followed by
+  the annotation's free text. This is deliberately parallel to the
+  `table_csvs`/`graph_csvs` "one `###` per artefact" shape, not a new
+  convention. Per-annotation *line numbers* are not separately tracked in
+  `kovan.toml` (only the whole section's range is) — a reader (human or AI)
+  locates one annotation within the section body the same way they'd locate
+  a paragraph in any markdown file: by reading it. Adding a second,
+  per-item line-pointer index was considered and deliberately deferred as
+  more schema than the concrete ask required; revisit if line-granularity
+  inside a large `annotations` section turns out to matter in practice.
 
 ### 4.2 GUI content-vs-structure contract (`op-wr08`)
 
@@ -180,7 +219,7 @@ x,y,x_minus,x_plus,y_minus,y_plus,origin
 add or remove information, but should not be able to change the structure."
 Concretely, for `op-wr08`'s editor:
 
-- The five `<!-- kovan:section X -->` marker lines, their fixed order, and
+- The six `<!-- kovan:section X -->` marker lines, their fixed order, and
   the section heading text immediately following each marker are
   **read-only** in the GUI — not shown as editable text at all, only as
   section labels/tabs the user picks between.
@@ -212,7 +251,7 @@ has (bibtex is *rendered*, never cached stale).
 **Algorithm** (per changed markdown file):
 
 1. Read the file, scan top-to-bottom for `<!-- kovan:section NAME -->`
-   marker lines (`NAME` restricted to the five known keys — an unknown name
+   marker lines (`NAME` restricted to the six known keys — an unknown name
    is a parse error, not a silently-ignored line, since a typo'd marker
    would otherwise produce a document with a "missing" section that isn't
    actually missing).

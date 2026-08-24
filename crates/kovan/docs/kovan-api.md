@@ -9640,6 +9640,7 @@ pub struct SectionRanges {
     pub full_text: Option<[usize; 2]>,
     pub table_csvs: Option<[usize; 2]>,
     pub graph_csvs: Option<[usize; 2]>,
+    pub annotations: Option<[usize; 2]>,
 }
 ```
 
@@ -9652,6 +9653,7 @@ pub struct SectionRanges {
 | `full_text` | `Option<[usize; 2]>` |  |
 | `table_csvs` | `Option<[usize; 2]>` |  |
 | `graph_csvs` | `Option<[usize; 2]>` |  |
+| `annotations` | `Option<[usize; 2]>` | PDF-reader annotations (schema v2, op-96am) — absent on a v1 file or<br>any document with no annotations saved yet. |
 
 ##### Implementations
 
@@ -10489,24 +10491,51 @@ digitisation appended a CSV subsection).
 pub fn write_section(root: &std::path::Path, markdown_rel: &str, section_name: &str, expected_range: [usize; 2], new_body: &str) -> Result<ProjectIndex, ProjectError> { /* ... */ }
 ```
 
+#### Function `append_to_section`
+
+Append `block` (already-formatted markdown, e.g. one `### …` subsection
+with a fenced CSV or an annotation's metadata bullets + free text) to the
+end of `section_name`'s current body, then write it back via
+[`write_section`] — op-96am's "digitiser export lands its CSV in
+`graph_csvs`/`table_csvs`" and "an annotation lands in `annotations`",
+design doc §5's "a digitiser export landing its CSV into a section"
+trigger.
+
+If `section_name`'s marker doesn't exist in this document yet (an older
+document from before schema v2 added `annotations`, or simply the first
+annotation/digitisation ever saved into it), the marker + a default
+heading (`default_heading_for`, private below) are created at the **end of the file**
+— `scan_markdown_sections` does not require markers to appear in
+[`SECTION_ORDER`]'s canonical order within the file, only that each name
+is valid and appears at most once, so this is a safe, non-reordering
+append rather than a rewrite of the rest of the document.
+
+```rust
+pub fn append_to_section(root: &std::path::Path, markdown_rel: &str, section_name: &str, block: &str) -> Result<ProjectIndex, ProjectError> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `PROJECT_SCHEMA_VERSION`
 
-Current `kovan.toml` schema version (design doc §3).
+Current `kovan.toml` schema version (design doc §3). Bumped 1 -> 2 on
+2026-08-24 when `annotations` was added to [`SECTION_ORDER`] — a
+backward-compatible addition (see the design doc's "Schema v2 addition"
+note), not a breaking change, so a v1 file still parses under this crate.
 
 ```rust
-pub const PROJECT_SCHEMA_VERSION: u32 = 1;
+pub const PROJECT_SCHEMA_VERSION: u32 = 2;
 ```
 
 #### Constant `SECTION_ORDER`
 
-The five standard markdown sections, in their fixed order (design doc
+The six standard markdown sections, in their fixed order (design doc
 §4.1) — every generated markdown file contains every marker in this
-order, even when a section's body is empty.
+order, even when a section's body is empty. `annotations` (schema v2)
+holds PDF-reader annotations — see [`append_to_section`].
 
 ```rust
-pub const SECTION_ORDER: [&str; 5] = _;
+pub const SECTION_ORDER: [&str; 6] = _;
 ```
 
 ## Module `tui`

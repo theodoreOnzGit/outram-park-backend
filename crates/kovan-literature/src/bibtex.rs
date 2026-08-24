@@ -418,6 +418,31 @@ fn skip_ws(chars: &[char], i: &mut usize) {
     }
 }
 
+/// Render one [`BibEntry`] back to BibTeX text — the write side of a
+/// JabRef-like entry editor (op-xj8t), sitting alongside [`parse_bib_entries`]
+/// rather than [`to_bibtex`] (which needs a full [`KovanDocument`], not a raw
+/// entry read back from an arbitrary `.bib` file).
+///
+/// Fields are written in `entry.fields`' `BTreeMap` order (alphabetical by
+/// field name), **not** the original file's field order — round-tripping a
+/// parsed-then-rendered entry byte-for-byte is not a goal (see the module
+/// doc's "deliberately one-way and shallow" note); the entry's *content* is
+/// preserved, its formatting is not.
+pub fn render_entry(entry: &BibEntry) -> String {
+    let mut out = format!("@{}{{{},\n", entry.entry_type, entry.cite_key);
+    for (name, value) in &entry.fields {
+        out.push_str(&format!("  {name} = {{{value}}},\n"));
+    }
+    out.push_str("}\n");
+    out
+}
+
+/// Render a whole `.bib` file's worth of entries — one blank line between
+/// entries, matching common `.bib` file style.
+pub fn render_entries(entries: &[BibEntry]) -> String {
+    entries.iter().map(render_entry).collect::<Vec<_>>().join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -618,5 +643,32 @@ mod tests {
     fn empty_input_produces_no_entries() {
         assert!(parse_bib_entries("").unwrap().is_empty());
         assert!(parse_bib_entries("just some text, no entries here").unwrap().is_empty());
+    }
+
+    #[test]
+    fn render_entry_round_trips_through_parse_bib_entries() {
+        let mut fields = std::collections::BTreeMap::new();
+        fields.insert("title".to_string(), "A Title".to_string());
+        fields.insert("year".to_string(), "2020".to_string());
+        let entry = BibEntry { entry_type: "article".to_string(), cite_key: "smith2020".to_string(), fields };
+        let rendered = render_entry(&entry);
+        assert!(rendered.starts_with("@article{smith2020,"));
+        let back = parse_bib_entries(&rendered).unwrap();
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0], entry);
+    }
+
+    #[test]
+    fn render_entries_joins_multiple_with_a_blank_line() {
+        let e = |key: &str| BibEntry {
+            entry_type: "misc".to_string(),
+            cite_key: key.to_string(),
+            fields: std::collections::BTreeMap::new(),
+        };
+        let rendered = render_entries(&[e("a"), e("b")]);
+        assert!(rendered.contains("@misc{a,"));
+        assert!(rendered.contains("@misc{b,"));
+        let back = parse_bib_entries(&rendered).unwrap();
+        assert_eq!(back.len(), 2);
     }
 }

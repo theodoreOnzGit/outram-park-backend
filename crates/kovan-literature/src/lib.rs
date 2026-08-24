@@ -74,7 +74,7 @@ mod pdf_import;
 #[cfg(test)]
 mod test_pdf;
 
-pub use bibtex::{parse_bib_entries, to_bibtex, BibEntry, BibParseError};
+pub use bibtex::{parse_bib_entries, render_entries, render_entry, to_bibtex, BibEntry, BibParseError};
 pub use markdown::{
     markdown_outline, split_markdown_by_page_limit, text_to_markdown, Heading, PAGE_SEPARATOR,
 };

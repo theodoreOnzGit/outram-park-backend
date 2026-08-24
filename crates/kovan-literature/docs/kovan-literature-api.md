@@ -425,6 +425,18 @@ pub use kovan_common::Visibility;
 pub use bibtex::parse_bib_entries;
 ```
 
+### Re-export `render_entries`
+
+```rust
+pub use bibtex::render_entries;
+```
+
+### Re-export `render_entry`
+
+```rust
+pub use bibtex::render_entry;
+```
+
 ### Re-export `to_bibtex`
 
 ```rust

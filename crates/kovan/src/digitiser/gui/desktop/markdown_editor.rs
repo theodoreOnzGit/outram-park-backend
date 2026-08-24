@@ -5,7 +5,7 @@
 //! A thin GUI shell over [`crate::project`]: this file owns no parsing or
 //! line-range logic of its own — it opens a "kovan folder" project (design
 //! doc `docs/kovan-folder-format.md`, op-63u0), lists its documents and
-//! their five standard sections (from `kovan.toml`, via
+//! their six standard sections (from `kovan.toml`, via
 //! [`crate::project::regenerate`]), and for the selected section shows
 //! [`crate::project::read_section`]'s split: the marker + heading line as
 //! **read-only** text (never an editable field, so there is nothing here a
@@ -46,6 +46,7 @@ fn section_label(key: &str) -> &'static str {
         "full_text" => "Full Text",
         "table_csvs" => "Table CSVs",
         "graph_csvs" => "Graph CSVs",
+        "annotations" => "Annotations",
         _ => "?",
     }
 }

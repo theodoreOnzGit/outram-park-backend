@@ -14,8 +14,10 @@ use eframe::egui::{self, Color32};
 use crate::digitiser::dataset::{utc_now_iso8601, ReviewInterface, ReviewStatus};
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::table_ocr::{self, RecognizedTable};
+use crate::project;
 
 use super::csv_preview::draw_csv_preview;
+use super::pdf_reader::CropProvenance;
 
 /// State for the table digitiser tab.
 #[derive(Default)]
@@ -28,6 +30,13 @@ pub struct TableDigitiserState {
     table: Option<RecognizedTable>,
     json_out: String,
     csv_out: String,
+    /// Provenance carried from the PDF reader's "Read table" crop
+    /// (op-hnhp), if that's how the current region was loaded — see
+    /// `super::DigitiseApp::crop_provenance` for the same idea on the plot
+    /// digitiser side.
+    crop_provenance: Option<CropProvenance>,
+    project_root: String,
+    project_markdown_rel: String,
     message: String,
     message_is_error: bool,
 }
@@ -43,11 +52,12 @@ impl TableDigitiserState {
         self.message_is_error = true;
     }
 
-    /// Receive a crop from the PDF reader's "Digitise table" tool
-    /// (op-hnhp) — replaces whatever was previously being reviewed.
-    pub fn load_crop(&mut self, raster: PlotRaster) {
+    /// Receive a crop from the PDF reader's "Read table" menu action
+    /// (op-hnhp/op-x9qn) — replaces whatever was previously being reviewed.
+    pub fn load_crop(&mut self, raster: PlotRaster, provenance: Option<CropProvenance>) {
         self.crop = Some(raster);
         self.table = None;
+        self.crop_provenance = provenance;
         self.set_status("region loaded — set the OCR model path, then Run OCR");
     }
 
@@ -127,6 +137,47 @@ impl TableDigitiserState {
             }
         }
         self.set_status("saved");
+    }
+
+    /// Append this table's CSV into a "kovan folder" project's `table_csvs`
+    /// section (op-96am/op-x9qn) — the table-digitiser counterpart of
+    /// `super::DigitiseApp::save_into_project`; see that method's doc for
+    /// the reasoning (operator-supplied project root/markdown path, kept
+    /// alongside the standalone JSON/CSV export rather than replacing it).
+    fn save_into_project(&mut self) {
+        let Some(t) = &self.table else {
+            self.set_error("nothing to save — run OCR first");
+            return;
+        };
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error("set the project root and markdown path first");
+            return;
+        }
+        let mut block = "### Digitised table".to_string();
+        if let Some(prov) = &self.crop_provenance {
+            block.push_str(&format!(
+                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.created_at,
+                prov.author
+            ));
+        }
+        block.push_str("\n\n```csv\n");
+        block.push_str(&t.to_csv_string());
+        block.push_str("```\n");
+        match project::append_to_section(
+            std::path::Path::new(self.project_root.trim()),
+            self.project_markdown_rel.trim(),
+            "table_csvs",
+            &block,
+        ) {
+            Ok(_) => self.set_status("saved into project markdown (table_csvs)"),
+            Err(e) => self.set_error(e.to_string()),
+        }
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui) {
@@ -224,6 +275,32 @@ impl TableDigitiserState {
         });
         if ui.button("Save").clicked() {
             self.save();
+        }
+        ui.separator();
+        ui.label("Save into project markdown (op-96am):");
+        ui.horizontal(|ui| {
+            ui.label("project root");
+            ui.text_edit_singleline(&mut self.project_root);
+        });
+        ui.horizontal(|ui| {
+            ui.label("markdown path (relative)");
+            ui.text_edit_singleline(&mut self.project_markdown_rel);
+        });
+        if let Some(prov) = &self.crop_provenance {
+            ui.label(format!(
+                "from PDF reader: page {}, bbox [{:.0}, {:.0}, {:.0}, {:.0}], {}",
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.author
+            ));
+        } else {
+            ui.small("(no PDF-reader crop provenance for this region)");
+        }
+        if ui.button("Save CSV into project markdown").clicked() {
+            self.save_into_project();
         }
         ui.separator();
         let csv_string = self.table.as_ref().unwrap().to_csv_string();

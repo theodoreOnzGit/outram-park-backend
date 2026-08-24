@@ -47,18 +47,23 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-/// Current `kovan.toml` schema version (design doc §3).
-pub const PROJECT_SCHEMA_VERSION: u32 = 1;
+/// Current `kovan.toml` schema version (design doc §3). Bumped 1 -> 2 on
+/// 2026-08-24 when `annotations` was added to [`SECTION_ORDER`] — a
+/// backward-compatible addition (see the design doc's "Schema v2 addition"
+/// note), not a breaking change, so a v1 file still parses under this crate.
+pub const PROJECT_SCHEMA_VERSION: u32 = 2;
 
-/// The five standard markdown sections, in their fixed order (design doc
+/// The six standard markdown sections, in their fixed order (design doc
 /// §4.1) — every generated markdown file contains every marker in this
-/// order, even when a section's body is empty.
-pub const SECTION_ORDER: [&str; 5] = [
+/// order, even when a section's body is empty. `annotations` (schema v2)
+/// holds PDF-reader annotations — see [`append_to_section`].
+pub const SECTION_ORDER: [&str; 6] = [
     "ai_summary",
     "author_summary",
     "full_text",
     "table_csvs",
     "graph_csvs",
+    "annotations",
 ];
 
 /// Errors from scanning a project folder or reading/writing `kovan.toml`.
@@ -139,6 +144,10 @@ pub struct SectionRanges {
     pub table_csvs: Option<[usize; 2]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graph_csvs: Option<[usize; 2]>,
+    /// PDF-reader annotations (schema v2, op-96am) — absent on a v1 file or
+    /// any document with no annotations saved yet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<[usize; 2]>,
 }
 
 impl SectionRanges {
@@ -149,6 +158,7 @@ impl SectionRanges {
             "full_text" => self.full_text = Some(range),
             "table_csvs" => self.table_csvs = Some(range),
             "graph_csvs" => self.graph_csvs = Some(range),
+            "annotations" => self.annotations = Some(range),
             _ => unreachable!("caller already validated against SECTION_ORDER"),
         }
     }
@@ -163,6 +173,7 @@ impl SectionRanges {
             "full_text" => self.full_text,
             "table_csvs" => self.table_csvs,
             "graph_csvs" => self.graph_csvs,
+            "annotations" => self.annotations,
             _ => None,
         }
     }
@@ -173,6 +184,7 @@ impl SectionRanges {
             && self.full_text.is_none()
             && self.table_csvs.is_none()
             && self.graph_csvs.is_none()
+            && self.annotations.is_none()
     }
 }
 
@@ -427,6 +439,77 @@ pub fn write_section(
     fs::write(&markdown_path, new_text).map_err(|e| io_err(&markdown_path, e))?;
 
     regenerate_and_write(root)
+}
+
+/// The `##` heading text a freshly-created section marker gets, if
+/// [`append_to_section`] has to create the marker itself (see there) —
+/// matches the design doc's §4.1 markdown skeleton. Not exhaustive over
+/// arbitrary strings; callers only ever pass one of [`SECTION_ORDER`].
+fn default_heading_for(section_name: &str) -> &'static str {
+    match section_name {
+        "ai_summary" => "## AI Summary",
+        "author_summary" => "## Author's Summary",
+        "full_text" => "## Full Text",
+        "table_csvs" => "## Digitised Tables",
+        "graph_csvs" => "## Digitised Graphs",
+        "annotations" => "## Annotations",
+        _ => "## Untitled Section",
+    }
+}
+
+/// Append `block` (already-formatted markdown, e.g. one `### …` subsection
+/// with a fenced CSV or an annotation's metadata bullets + free text) to the
+/// end of `section_name`'s current body, then write it back via
+/// [`write_section`] — op-96am's "digitiser export lands its CSV in
+/// `graph_csvs`/`table_csvs`" and "an annotation lands in `annotations`",
+/// design doc §5's "a digitiser export landing its CSV into a section"
+/// trigger.
+///
+/// If `section_name`'s marker doesn't exist in this document yet (an older
+/// document from before schema v2 added `annotations`, or simply the first
+/// annotation/digitisation ever saved into it), the marker + a default
+/// heading (`default_heading_for`, private below) are created at the **end of the file**
+/// — `scan_markdown_sections` does not require markers to appear in
+/// [`SECTION_ORDER`]'s canonical order within the file, only that each name
+/// is valid and appears at most once, so this is a safe, non-reordering
+/// append rather than a rewrite of the rest of the document.
+pub fn append_to_section(
+    root: &Path,
+    markdown_rel: &str,
+    section_name: &str,
+    block: &str,
+) -> Result<ProjectIndex, ProjectError> {
+    let markdown_path = root.join(markdown_rel);
+    let text = read_to_string(&markdown_path)?;
+    let current = scan_markdown_sections(&markdown_path, &text)?;
+
+    match current.get(section_name) {
+        Some(range) => {
+            let content = read_section(&markdown_path, range)?;
+            let mut body = content.body;
+            if !body.trim().is_empty() {
+                body.push_str("\n\n");
+            }
+            body.push_str(block.trim_end());
+            write_section(root, markdown_rel, section_name, range, &body)
+        }
+        None => {
+            let mut new_text = text;
+            if !new_text.is_empty() && !new_text.ends_with('\n') {
+                new_text.push('\n');
+            }
+            if !new_text.is_empty() {
+                new_text.push('\n');
+            }
+            new_text.push_str(&format!(
+                "<!-- kovan:section {section_name} -->\n{}\n\n{}\n",
+                default_heading_for(section_name),
+                block.trim_end()
+            ));
+            fs::write(&markdown_path, new_text).map_err(|e| io_err(&markdown_path, e))?;
+            regenerate_and_write(root)
+        }
+    }
 }
 
 fn find_bib_file(root: &Path) -> Result<String, ProjectError> {
@@ -743,6 +826,61 @@ last line";
         let doc = &index.documents[0];
         assert_eq!(doc.sections.full_text, Some([1, 4]));
         assert_eq!(doc.sections.graph_csvs, Some([5, 7]));
+    }
+
+    /// op-96am: appending to an EXISTING section keeps its earlier content
+    /// and adds the new block after a blank-line separator.
+    #[test]
+    fn append_to_section_appends_after_existing_body() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        fs::write(root.join("x.bib"), "@article{doc,}").unwrap();
+        fs::write(root.join("pdf/doc.pdf"), b"%PDF-fake").unwrap();
+        fs::write(
+            root.join("markdown/doc.md"),
+            "<!-- kovan:section annotations -->\n## Annotations\nfirst note\n",
+        )
+        .unwrap();
+
+        let index = append_to_section(root, "markdown/doc.md", "annotations", "second note")
+            .unwrap();
+
+        let written = fs::read_to_string(root.join("markdown/doc.md")).unwrap();
+        assert_eq!(
+            written,
+            "<!-- kovan:section annotations -->\n## Annotations\nfirst note\n\nsecond note\n"
+        );
+        assert!(index.documents[0].sections.annotations.is_some());
+    }
+
+    /// op-96am: appending to a section whose marker doesn't exist yet
+    /// creates it (with a default heading) at the end of the file, without
+    /// disturbing sections already present.
+    #[test]
+    fn append_to_section_creates_a_missing_marker_at_end_of_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::create_dir_all(root.join("pdf")).unwrap();
+        fs::create_dir_all(root.join("markdown")).unwrap();
+        fs::write(root.join("x.bib"), "@article{doc,}").unwrap();
+        fs::write(root.join("pdf/doc.pdf"), b"%PDF-fake").unwrap();
+        fs::write(
+            root.join("markdown/doc.md"),
+            "<!-- kovan:section full_text -->\n## Full Text\nhello\n",
+        )
+        .unwrap();
+
+        let index = append_to_section(root, "markdown/doc.md", "annotations", "first note")
+            .unwrap();
+
+        let written = fs::read_to_string(root.join("markdown/doc.md")).unwrap();
+        assert!(written.starts_with("<!-- kovan:section full_text -->\n## Full Text\nhello\n"));
+        assert!(written.contains("<!-- kovan:section annotations -->\n## Annotations\n\nfirst note\n"));
+        let doc = &index.documents[0];
+        assert!(doc.sections.full_text.is_some());
+        assert!(doc.sections.annotations.is_some());
     }
 
     #[test]

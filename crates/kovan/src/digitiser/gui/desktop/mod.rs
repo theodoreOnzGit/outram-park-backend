@@ -20,11 +20,12 @@ use crate::digitiser::dataset::{
 use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
+use crate::project;
 
 use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
 use markdown_editor::MarkdownEditorState;
-use pdf_reader::PdfReaderState;
+use pdf_reader::{CropProvenance, PdfReaderState};
 use table_digitiser::TableDigitiserState;
 use theme::GuiTheme;
 
@@ -147,6 +148,16 @@ pub struct DigitiseApp {
     /// same order) is currently being dragged, if any — op-zfnh's persistent
     /// draggable box. `None` when the pointer isn't holding a reference line.
     ref_dragging: Option<usize>,
+    /// Which corner of the reference box (as `(x_index, y_index)` into
+    /// `ref_px`/`ref_val`) is currently being dragged, if any — corner-drag
+    /// support for GitHub issue #30's "I also want to be able to drag
+    /// corners of the box for the digitiser ui to adjust the min and max x
+    /// and y" (op-zfnh's original persistent box only let each of the four
+    /// *lines* be dragged independently; this drags an x-line and a y-line
+    /// together in one gesture). `None` when the pointer isn't holding a
+    /// corner. Takes priority over `ref_dragging` when a drag starts on a
+    /// corner (see `image_panel`'s hit test).
+    ref_dragging_corner: Option<(usize, usize)>,
     x_log: bool,
     y_log: bool,
     // trace tuning
@@ -168,6 +179,19 @@ pub struct DigitiseApp {
     dragging: Option<usize>,
     json_out: String,
     csv_out: String,
+    /// Provenance carried from the PDF reader's "Digitise graph" crop
+    /// (op-p17q), if that's how the current image was loaded — used by
+    /// [`Self::save_into_project`] (op-96am) to record page/pixel/date/
+    /// author on the CSV block it appends into a project's `graph_csvs`
+    /// section. `None` when the image was loaded directly (no PDF-reader
+    /// crop in this session).
+    crop_provenance: Option<CropProvenance>,
+    /// Root of the "kovan folder" project (op-63u0) to save into, and the
+    /// markdown file (relative to that root) the CSV belongs to — both
+    /// operator-supplied, same as `json_out`/`csv_out`, since a crop has no
+    /// way to know which project/document it came from on its own.
+    project_root: String,
+    project_markdown_rel: String,
     message: String,
     /// `true` when `message` reports a failure — op-fueb: a calibration
     /// failure used to be indistinguishable from an ordinary status update
@@ -200,6 +224,7 @@ impl Default for DigitiseApp {
             ref_px: [None; 4],
             ref_val: Default::default(),
             ref_dragging: None,
+            ref_dragging_corner: None,
             x_log: false,
             y_log: false,
             threshold: 128,
@@ -218,6 +243,9 @@ impl Default for DigitiseApp {
             dragging: None,
             json_out: String::new(),
             csv_out: String::new(),
+            crop_provenance: None,
+            project_root: String::new(),
+            project_markdown_rel: String::new(),
             message: "load an image, then click the four axis reference points".to_string(),
             message_is_error: false,
         }
@@ -265,14 +293,18 @@ impl DigitiseApp {
     /// page/image in memory). `image_path` and the JSON-export default stay
     /// whatever they were, since there's no source path to derive them from
     /// here; the operator fills in `json_out` before exporting, same as any
-    /// other required-before-export field.
-    pub fn load_image_from_raster(&mut self, raster: PlotRaster) {
+    /// other required-before-export field. `provenance`, when given, is
+    /// carried into [`Self::crop_provenance`] for [`Self::save_into_project`]
+    /// (op-96am) to record on the CSV block it later appends into the
+    /// project's markdown.
+    pub fn load_image_from_raster(&mut self, raster: PlotRaster, provenance: Option<CropProvenance>) {
         self.set_raster(
             raster,
             "cropped from the PDF reader — drag the four reference lines into place, \
              fill their values"
                 .to_string(),
         );
+        self.crop_provenance = provenance;
     }
 
     /// Shared reset-to-a-new-image logic between [`Self::load_image`] and
@@ -290,6 +322,8 @@ impl DigitiseApp {
         self.dataset = None;
         self.selected = None;
         self.ref_dragging = None;
+        self.ref_dragging_corner = None;
+        self.crop_provenance = None;
         self.set_status(status);
     }
 
@@ -586,6 +620,55 @@ impl DigitiseApp {
         self.set_status(saved);
     }
 
+    /// Append this dataset's CSV into a "kovan folder" project's
+    /// `graph_csvs` section (op-96am: "csvs go straight into markdown with
+    /// date and time and author... metadata of which page and exact
+    /// pixels"), via [`project::append_to_section`]. `project_root`/
+    /// `project_markdown_rel` are operator-supplied (same reasoning as
+    /// `json_out`/`csv_out`: a crop has no built-in way to know which
+    /// project/document it belongs to). Distinct from [`Self::save`], which
+    /// writes a standalone JSON/CSV file wherever asked — this instead
+    /// folds the CSV into an existing project document's markdown, keeping
+    /// the JSON/CSV export path available unchanged alongside it (op-x9qn's
+    /// "CSV auto-saves into markdown, but retain csv export capability").
+    fn save_into_project(&mut self) {
+        let Some(d) = &self.dataset else {
+            self.set_error("nothing to save");
+            return;
+        };
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error("set the project root and markdown path first");
+            return;
+        }
+        let title = self.figure.trim();
+        let title = if title.is_empty() { "Digitised graph" } else { title };
+        let mut block = format!("### {title}");
+        if let Some(prov) = &self.crop_provenance {
+            block.push_str(&format!(
+                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.created_at,
+                prov.author
+            ));
+        }
+        block.push_str("\n\n```csv\n");
+        block.push_str(&d.to_csv_string());
+        block.push_str("```\n");
+        match project::append_to_section(
+            std::path::Path::new(self.project_root.trim()),
+            self.project_markdown_rel.trim(),
+            "graph_csvs",
+            &block,
+        ) {
+            Ok(_) => self.set_status("saved into project markdown (graph_csvs)"),
+            Err(e) => self.set_error(e.to_string()),
+        }
+    }
+
     /// Nearest point (index) to image-pixel position, within `max_px`.
     fn nearest_point(&self, px: f64, py: f64, max_px: f64) -> Option<usize> {
         let d = self.dataset.as_ref()?;
@@ -807,6 +890,32 @@ impl DigitiseApp {
                 self.save(true);
             }
         });
+        ui.separator();
+        ui.label("Save into project markdown (op-96am):");
+        ui.horizontal(|ui| {
+            ui.label("project root");
+            ui.text_edit_singleline(&mut self.project_root);
+        });
+        ui.horizontal(|ui| {
+            ui.label("markdown path (relative)");
+            ui.text_edit_singleline(&mut self.project_markdown_rel);
+        });
+        if let Some(prov) = &self.crop_provenance {
+            ui.label(format!(
+                "from PDF reader: page {}, bbox [{:.0}, {:.0}, {:.0}, {:.0}], {}",
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.author
+            ));
+        } else {
+            ui.small("(no PDF-reader crop provenance for this image)");
+        }
+        if ui.button("Save CSV into project markdown").clicked() {
+            self.save_into_project();
+        }
         if let Some(d) = &self.dataset {
             let review = match &d.review {
                 ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
@@ -887,6 +996,27 @@ impl DigitiseApp {
                 }
                 None
             }
+            // Corner hit test — a slightly larger tolerance than a bare line,
+            // since a corner is a single point the pointer has to land near
+            // in both axes at once, not a whole line's length.
+            let corner_tol = 8.0 / zoom as f64;
+            fn hit_ref_corner(
+                ref_px: &[Option<f64>; 4],
+                tol: f64,
+                px: f64,
+                py: f64,
+            ) -> Option<(usize, usize)> {
+                for xi in 0..2 {
+                    for yi in 2..4 {
+                        if let (Some(rx), Some(ry)) = (ref_px[xi], ref_px[yi]) {
+                            if (px - rx).abs() < tol && (py - ry).abs() < tol {
+                                return Some((xi, yi));
+                            }
+                        }
+                    }
+                }
+                None
+            }
 
             // op-8ixa: right-click removes the nearest marker under the
             // cursor regardless of mode (graphReader precedent), checked
@@ -928,11 +1058,28 @@ impl DigitiseApp {
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    self.ref_dragging = hit_ref_line(&self.ref_px, ref_tol, px, py);
-                    if self.ref_dragging.is_none() && self.mode == ClickMode::EditPoints {
+                    self.ref_dragging_corner = hit_ref_corner(&self.ref_px, corner_tol, px, py);
+                    self.ref_dragging = if self.ref_dragging_corner.is_some() {
+                        None
+                    } else {
+                        hit_ref_line(&self.ref_px, ref_tol, px, py)
+                    };
+                    if self.ref_dragging_corner.is_none()
+                        && self.ref_dragging.is_none()
+                        && self.mode == ClickMode::EditPoints
+                    {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
+                }
+            }
+            if let (Some((xi, yi)), Some(pos)) =
+                (self.ref_dragging_corner, response.interact_pointer_pos())
+            {
+                if response.dragged_by(PointerButton::Primary) {
+                    let (px, py) = to_image(pos);
+                    self.ref_px[xi] = Some(px);
+                    self.ref_px[yi] = Some(py);
                 }
             }
             if let (Some(i), Some(pos)) = (self.ref_dragging, response.interact_pointer_pos()) {
@@ -941,7 +1088,10 @@ impl DigitiseApp {
                     self.ref_px[i] = Some(if i < 2 { px } else { py });
                 }
             }
-            if self.mode == ClickMode::EditPoints && self.ref_dragging.is_none() {
+            if self.mode == ClickMode::EditPoints
+                && self.ref_dragging.is_none()
+                && self.ref_dragging_corner.is_none()
+            {
                 if let (Some(i), Some(pos)) = (self.dragging, response.interact_pointer_pos()) {
                     if response.dragged_by(PointerButton::Primary) {
                         let (px, py) = to_image(pos);
@@ -952,6 +1102,7 @@ impl DigitiseApp {
             }
             if response.drag_stopped() {
                 self.ref_dragging = None;
+                self.ref_dragging_corner = None;
                 self.dragging = None;
             }
             if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
@@ -979,6 +1130,27 @@ impl DigitiseApp {
             }
             if let Some(p) = self.ref_px[3] {
                 painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(3));
+            }
+            // Corner-drag handles — a small circle at each of the four
+            // reference-box corners, highlighted while being dragged, so a
+            // corner grab (moves both adjoining lines at once) is
+            // discoverable rather than a hidden hit-test-only gesture.
+            for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
+                    continue;
+                };
+                let pos = to_screen(x, y);
+                let active = self.ref_dragging_corner == Some((xi, yi));
+                painter.circle_filled(
+                    pos,
+                    if active { 6.0 } else { 4.0 },
+                    if active {
+                        Color32::from_rgb(255, 210, 60)
+                    } else {
+                        Color32::from_rgb(60, 120, 255)
+                    },
+                );
+                painter.circle_stroke(pos, if active { 6.0 } else { 4.0 }, Stroke::new(1.0_f32, Color32::WHITE));
             }
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {
@@ -1113,12 +1285,12 @@ impl eframe::App for DigitiseApp {
                 // existing view switch already fills that role, so no
                 // separate popup/tab was added.
                 match crop_result {
-                    Some(pdf_reader::CropResult::Plot(raster)) => {
-                        self.load_image_from_raster(raster);
+                    Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
+                        self.load_image_from_raster(raster, Some(provenance));
                         self.view = View::Digitiser;
                     }
-                    Some(pdf_reader::CropResult::Table(raster)) => {
-                        self.table_digitiser.load_crop(raster);
+                    Some(pdf_reader::CropResult::Table(raster, provenance)) => {
+                        self.table_digitiser.load_crop(raster, Some(provenance));
                         self.view = View::TableDigitiser;
                     }
                     None => {}
