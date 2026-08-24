@@ -12,9 +12,11 @@ use eframe::egui::{
 use egui_file_dialog::FileDialog;
 
 use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
-use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale, PlotCalibration};
+use crate::digitiser::calibration::{
+    AxisCalibration, AxisRef, AxisScale, ParallelogramCalibration, PixelPoint, PlotCalibration,
+};
 use crate::digitiser::dataset::{
-    uncertainty_interval, utc_now_iso8601, DigitisedDataset, DigitisedPoint, FigureSource,
+    utc_now_iso8601, xy_uncertainty_interval, DigitisedDataset, DigitisedPoint, FigureSource,
     PointOrigin, ReviewInterface, ReviewStatus, DATASET_SCHEMA_VERSION,
 };
 use crate::digitiser::detect::DetectConfig;
@@ -109,15 +111,31 @@ impl FileDialogTarget {
 /// draggable at any time, independent of `mode` — see
 /// [`DigitiseApp::ref_dragging`] and `image_panel`'s reference-line hit test.
 /// This keeps the existing axis-aligned [`crate::digitiser::calibration::PlotCalibration`]
-/// model (columns for x, rows for y); a parallelogram/skewed variant for
-/// off-centre plots is a separate, schema-affecting decision (tracked as
-/// op-vyb9), not implemented here.
+/// model (columns for x, rows for y) as the default. A parallelogram/skewed
+/// variant for off-centre plots (op-vyb9) now also exists, selectable via
+/// [`CalibrationShape`] — the two shapes are enum-dispatched siblings, not
+/// one replacing the other, so nothing about the axis-aligned path above
+/// changed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ClickMode {
     /// Select / drag existing points.
     EditPoints,
     /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
+}
+
+/// Which shape the calibration reference box is (op-vyb9): the original
+/// axis-aligned box (4 independently draggable lines), or a freely-skewed
+/// parallelogram (4 independently draggable corners, no rectilinear
+/// constraint) for a plot photographed or scanned at an angle. Selectable in
+/// the side panel; switching shape does not lose the other shape's own
+/// reference positions (`ref_px` and `para_corners` are both seeded on
+/// image load and kept independently — see [`DigitiseApp::set_raster`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum CalibrationShape {
+    #[default]
+    AxisAligned,
+    Parallelogram,
 }
 
 /// All GUI state, owned by value (no lifetimes, no shared state).
@@ -158,6 +176,18 @@ pub struct DigitiseApp {
     /// corner. Takes priority over `ref_dragging` when a drag starts on a
     /// corner (see `image_panel`'s hit test).
     ref_dragging_corner: Option<(usize, usize)>,
+    /// Which calibration shape is active (op-vyb9) — see [`CalibrationShape`].
+    calibration_shape: CalibrationShape,
+    /// Parallelogram corner pixel positions, order `[top_left, top_right,
+    /// bottom_right, bottom_left]` — matches
+    /// `ParallelogramCalibration::pixel_corners`'s convention. Independent
+    /// of `ref_px`; seeded alongside it in `set_raster` so switching
+    /// `calibration_shape` mid-session always has something sensible to
+    /// show.
+    para_corners: [Option<(f64, f64)>; 4],
+    /// Which parallelogram corner (index into `para_corners`) is currently
+    /// being dragged, if any.
+    para_dragging: Option<usize>,
     x_log: bool,
     y_log: bool,
     // trace tuning
@@ -225,6 +255,9 @@ impl Default for DigitiseApp {
             ref_val: Default::default(),
             ref_dragging: None,
             ref_dragging_corner: None,
+            calibration_shape: CalibrationShape::default(),
+            para_corners: [None; 4],
+            para_dragging: None,
             x_log: false,
             y_log: false,
             threshold: 128,
@@ -317,6 +350,16 @@ impl DigitiseApp {
     fn set_raster(&mut self, raster: PlotRaster, status: String) {
         let (w, h) = (raster.width() as f64, raster.height() as f64);
         self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
+        // Parallelogram corners seeded the same 10%/90% inset as the
+        // axis-aligned lines (op-vyb9) — starts as a plain rectangle, drag
+        // any corner to skew it.
+        self.para_corners = [
+            Some((w * 0.1, h * 0.1)), // top_left
+            Some((w * 0.9, h * 0.1)), // top_right
+            Some((w * 0.9, h * 0.9)), // bottom_right
+            Some((w * 0.1, h * 0.9)), // bottom_left
+        ];
+        self.para_dragging = None;
         self.raster = Some(raster);
         self.texture = None; // re-uploaded next frame
         self.dataset = None;
@@ -327,11 +370,14 @@ impl DigitiseApp {
         self.set_status(status);
     }
 
-    /// Build the calibration the four reference points + values describe.
+    /// Build the calibration the four reference points/corners + values
+    /// describe — [`CalibrationShape::AxisAligned`] or
+    /// [`CalibrationShape::Parallelogram`] depending on
+    /// `self.calibration_shape` (op-vyb9). Both branches reuse the same
+    /// four `ref_val` text fields (X1/X2/Y1/Y2 — left/right/bottom/top data
+    /// values), only the *pixel positions* they pair with differ (4 lines
+    /// vs. 4 free corners).
     fn calibration(&self) -> Result<PlotCalibration, String> {
-        let px = |i: usize, what: &str| {
-            self.ref_px[i].ok_or_else(|| format!("{what} pixel not set — drag its line into place"))
-        };
         let val = |i: usize, what: &str| {
             self.ref_val[i]
                 .trim()
@@ -345,31 +391,65 @@ impl DigitiseApp {
                 AxisScale::Linear
             }
         };
-        let x = AxisCalibration::new(
-            scale(self.x_log),
-            AxisRef {
-                pixel: px(0, "X1")?,
-                value: val(0, "X1")?,
-            },
-            AxisRef {
-                pixel: px(1, "X2")?,
-                value: val(1, "X2")?,
-            },
-        )
-        .map_err(|e| e.to_string())?;
-        let y = AxisCalibration::new(
-            scale(self.y_log),
-            AxisRef {
-                pixel: px(2, "Y1")?,
-                value: val(2, "Y1")?,
-            },
-            AxisRef {
-                pixel: px(3, "Y2")?,
-                value: val(3, "Y2")?,
-            },
-        )
-        .map_err(|e| e.to_string())?;
-        Ok(PlotCalibration { x, y })
+        match self.calibration_shape {
+            CalibrationShape::AxisAligned => {
+                let px = |i: usize, what: &str| {
+                    self.ref_px[i]
+                        .ok_or_else(|| format!("{what} pixel not set — drag its line into place"))
+                };
+                let x = AxisCalibration::new(
+                    scale(self.x_log),
+                    AxisRef {
+                        pixel: px(0, "X1")?,
+                        value: val(0, "X1")?,
+                    },
+                    AxisRef {
+                        pixel: px(1, "X2")?,
+                        value: val(1, "X2")?,
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+                let y = AxisCalibration::new(
+                    scale(self.y_log),
+                    AxisRef {
+                        pixel: px(2, "Y1")?,
+                        value: val(2, "Y1")?,
+                    },
+                    AxisRef {
+                        pixel: px(3, "Y2")?,
+                        value: val(3, "Y2")?,
+                    },
+                )
+                .map_err(|e| e.to_string())?;
+                Ok(PlotCalibration::AxisAligned { x, y })
+            }
+            CalibrationShape::Parallelogram => {
+                let corner_labels = ["top-left", "top-right", "bottom-right", "bottom-left"];
+                let corner = |i: usize| {
+                    self.para_corners[i].ok_or_else(|| {
+                        format!("{} corner not set — drag it into place", corner_labels[i])
+                    })
+                };
+                let pixel_corners = [corner(0)?, corner(1)?, corner(2)?, corner(3)?]
+                    .map(|(x, y)| PixelPoint { x, y });
+                // Reuse the AxisAligned fields' data-value meaning: X1/X2 are
+                // the left/right x values, Y1/Y2 are the bottom/top y values
+                // (see `ref_val`'s seeding in `set_raster` and the AxisAligned
+                // branch above — Y1 pairs with the larger-row/bottom line,
+                // Y2 with the smaller-row/top line).
+                let p = ParallelogramCalibration::new(
+                    pixel_corners,
+                    scale(self.x_log),
+                    val(0, "X1 (left)")?,
+                    val(1, "X2 (right)")?,
+                    scale(self.y_log),
+                    val(3, "Y2 (top)")?,
+                    val(2, "Y1 (bottom)")?,
+                )
+                .map_err(|e| e.to_string())?;
+                Ok(PlotCalibration::Parallelogram(p))
+            }
+        }
     }
 
     fn source(&self, raster: &PlotRaster) -> Result<FigureSource, String> {
@@ -406,6 +486,18 @@ impl DigitiseApp {
                 return;
             }
         };
+        // Auto-trace's column/row scan is inherently axis-aligned (same
+        // boundary as `auto.rs`'s own automatic detection pipeline — see
+        // its doc comment) — a Parallelogram calibration (op-vyb9) is a
+        // hand-digitisation aid for a skewed photo, not something the
+        // automatic tracer can drive.
+        let PlotCalibration::AxisAligned { x: x_cal, y: y_cal } = cal else {
+            self.set_error(
+                "Auto-trace needs Rectangle calibration — switch back from Parallelogram, \
+                 or hand-place points instead (double-click on the image)",
+            );
+            return;
+        };
         let source = match self.source(raster) {
             Ok(s) => s,
             Err(e) => {
@@ -415,17 +507,17 @@ impl DigitiseApp {
         };
         let config = AutoDigitiseConfig {
             x: AxisValueSpec {
-                scale: cal.x.scale,
+                scale: x_cal.scale,
                 refs: AxisPixelRefs::Explicit {
-                    r1: cal.x.r1,
-                    r2: cal.x.r2,
+                    r1: x_cal.r1,
+                    r2: x_cal.r2,
                 },
             },
             y: AxisValueSpec {
-                scale: cal.y.scale,
+                scale: y_cal.scale,
                 refs: AxisPixelRefs::Explicit {
-                    r1: cal.y.r1,
-                    r2: cal.y.r2,
+                    r1: y_cal.r1,
+                    r2: y_cal.r2,
                 },
             },
             detect: DetectConfig::default(),
@@ -526,8 +618,9 @@ impl DigitiseApp {
         p.x_px = Some(px);
         p.y_px = Some(py);
         (p.x, p.y) = cal.point_at(px, py);
-        (p.x_minus, p.x_plus) = uncertainty_interval(&cal.x, px, 0.5);
-        (p.y_minus, p.y_plus) = uncertainty_interval(&cal.y, py, 0.5);
+        let ((x_minus, x_plus), (y_minus, y_plus)) = xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+        (p.x_minus, p.x_plus) = (x_minus, x_plus);
+        (p.y_minus, p.y_plus) = (y_minus, y_plus);
         p.origin = if hand_placed || matches!(p.origin, PointOrigin::HandPlaced { .. }) {
             PointOrigin::HandPlaced { by }
         } else {
@@ -717,16 +810,45 @@ impl DigitiseApp {
         ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
         ui.separator();
 
-        ui.label("1. Axis references — drag the 4 lines on the image into place, \
-                  then type what each one is worth in data units:");
-        let labels = ["X1 (column)", "X2 (column)", "Y1 (row)", "Y2 (row)"];
+        ui.label("1. Calibration shape (op-vyb9):");
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.calibration_shape,
+                CalibrationShape::AxisAligned,
+                "Rectangle",
+            );
+            ui.selectable_value(
+                &mut self.calibration_shape,
+                CalibrationShape::Parallelogram,
+                "Parallelogram",
+            );
+        });
+        match self.calibration_shape {
+            CalibrationShape::AxisAligned => {
+                ui.small("Drag the 4 lines on the image into place, then type what each is worth:");
+            }
+            CalibrationShape::Parallelogram => {
+                ui.small(
+                    "Drag the 4 corners on the image into place (for a plot photographed \
+                     or scanned at an angle), then type what each edge is worth:",
+                );
+            }
+        }
+        let labels = match self.calibration_shape {
+            CalibrationShape::AxisAligned => ["X1 (column)", "X2 (column)", "Y1 (row)", "Y2 (row)"],
+            CalibrationShape::Parallelogram => {
+                ["X1 (left)", "X2 (right)", "Y1 (bottom)", "Y2 (top)"]
+            }
+        };
         for i in 0..4 {
             ui.horizontal(|ui| {
                 ui.label(labels[i]);
-                ui.label(match self.ref_px[i] {
-                    Some(p) => format!("px {p:.0}"),
-                    None => "px —".to_string(),
-                });
+                let px_label = match self.calibration_shape {
+                    CalibrationShape::AxisAligned => self.ref_px[i].map(|p| format!("px {p:.0}")),
+                    CalibrationShape::Parallelogram => self.para_corners[i]
+                        .map(|(x, y)| format!("px ({x:.0}, {y:.0})")),
+                };
+                ui.label(px_label.unwrap_or_else(|| "px —".to_string()));
                 ui.label("=");
                 ui.add(egui::TextEdit::singleline(&mut self.ref_val[i]).desired_width(70.0));
                 // op-fueb: live per-field validity, so an empty/unparseable
@@ -1051,23 +1173,53 @@ impl DigitiseApp {
                 }
             }
 
-            // Reference-line dragging (op-zfnh) takes priority over marker
-            // dragging when a drag starts on top of a line — it is checked
-            // first and, if it claims the gesture, marker-drag start below is
-            // skipped for that same drag via the `else`.
+            // Parallelogram corner hit test (op-vyb9) — nearest of the 4
+            // free corners within `corner_tol`, mirroring `hit_ref_corner`'s
+            // tolerance but over independent points rather than line
+            // intersections.
+            fn hit_para_corner(
+                corners: &[Option<(f64, f64)>; 4],
+                tol: f64,
+                px: f64,
+                py: f64,
+            ) -> Option<usize> {
+                let mut best: Option<(usize, f64)> = None;
+                for (i, c) in corners.iter().enumerate() {
+                    if let Some((cx, cy)) = c {
+                        let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
+                        if d < tol && best.is_none_or(|(_, bd)| d < bd) {
+                            best = Some((i, d));
+                        }
+                    }
+                }
+                best.map(|(i, _)| i)
+            }
+
+            // Reference-line/corner dragging (op-zfnh/op-vyb9) takes priority
+            // over marker dragging when a drag starts on top of one — it is
+            // checked first and, if it claims the gesture, marker-drag start
+            // below is skipped for that same drag via the `else`.
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    self.ref_dragging_corner = hit_ref_corner(&self.ref_px, corner_tol, px, py);
-                    self.ref_dragging = if self.ref_dragging_corner.is_some() {
-                        None
-                    } else {
-                        hit_ref_line(&self.ref_px, ref_tol, px, py)
+                    let claimed = match self.calibration_shape {
+                        CalibrationShape::AxisAligned => {
+                            self.ref_dragging_corner =
+                                hit_ref_corner(&self.ref_px, corner_tol, px, py);
+                            self.ref_dragging = if self.ref_dragging_corner.is_some() {
+                                None
+                            } else {
+                                hit_ref_line(&self.ref_px, ref_tol, px, py)
+                            };
+                            self.ref_dragging_corner.is_some() || self.ref_dragging.is_some()
+                        }
+                        CalibrationShape::Parallelogram => {
+                            self.para_dragging =
+                                hit_para_corner(&self.para_corners, corner_tol, px, py);
+                            self.para_dragging.is_some()
+                        }
                     };
-                    if self.ref_dragging_corner.is_none()
-                        && self.ref_dragging.is_none()
-                        && self.mode == ClickMode::EditPoints
-                    {
+                    if !claimed && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
@@ -1088,9 +1240,16 @@ impl DigitiseApp {
                     self.ref_px[i] = Some(if i < 2 { px } else { py });
                 }
             }
+            if let (Some(i), Some(pos)) = (self.para_dragging, response.interact_pointer_pos()) {
+                if response.dragged_by(PointerButton::Primary) {
+                    let (px, py) = to_image(pos);
+                    self.para_corners[i] = Some((px, py));
+                }
+            }
             if self.mode == ClickMode::EditPoints
                 && self.ref_dragging.is_none()
                 && self.ref_dragging_corner.is_none()
+                && self.para_dragging.is_none()
             {
                 if let (Some(i), Some(pos)) = (self.dragging, response.interact_pointer_pos()) {
                     if response.dragged_by(PointerButton::Primary) {
@@ -1103,54 +1262,103 @@ impl DigitiseApp {
             if response.drag_stopped() {
                 self.ref_dragging = None;
                 self.ref_dragging_corner = None;
+                self.para_dragging = None;
                 self.dragging = None;
             }
             if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
                 self.delete_selected();
             }
 
-            // --- overlays: reference lines, then points ---
-            let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
-            let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
-            let stroke_for = |i: usize| {
-                if self.ref_dragging == Some(i) {
-                    ref_stroke_active
-                } else {
-                    ref_stroke
+            // --- overlays: reference lines/quad, then points ---
+            match self.calibration_shape {
+                CalibrationShape::AxisAligned => {
+                    let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+                    let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
+                    let stroke_for = |i: usize| {
+                        if self.ref_dragging == Some(i) {
+                            ref_stroke_active
+                        } else {
+                            ref_stroke
+                        }
+                    };
+                    if let Some(p) = self.ref_px[0] {
+                        painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(0));
+                    }
+                    if let Some(p) = self.ref_px[1] {
+                        painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(1));
+                    }
+                    if let Some(p) = self.ref_px[2] {
+                        painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(2));
+                    }
+                    if let Some(p) = self.ref_px[3] {
+                        painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(3));
+                    }
+                    // Corner-drag handles — a small circle at each of the
+                    // four reference-box corners, highlighted while being
+                    // dragged, so a corner grab (moves both adjoining lines
+                    // at once) is discoverable rather than a hidden
+                    // hit-test-only gesture.
+                    for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                        let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
+                            continue;
+                        };
+                        let pos = to_screen(x, y);
+                        let active = self.ref_dragging_corner == Some((xi, yi));
+                        painter.circle_filled(
+                            pos,
+                            if active { 6.0 } else { 4.0 },
+                            if active {
+                                Color32::from_rgb(255, 210, 60)
+                            } else {
+                                Color32::from_rgb(60, 120, 255)
+                            },
+                        );
+                        painter.circle_stroke(
+                            pos,
+                            if active { 6.0 } else { 4.0 },
+                            Stroke::new(1.0_f32, Color32::WHITE),
+                        );
+                    }
                 }
-            };
-            if let Some(p) = self.ref_px[0] {
-                painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(0));
-            }
-            if let Some(p) = self.ref_px[1] {
-                painter.vline(to_screen(p, 0.0).x, rect.y_range(), stroke_for(1));
-            }
-            if let Some(p) = self.ref_px[2] {
-                painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(2));
-            }
-            if let Some(p) = self.ref_px[3] {
-                painter.hline(rect.x_range(), to_screen(0.0, p).y, stroke_for(3));
-            }
-            // Corner-drag handles — a small circle at each of the four
-            // reference-box corners, highlighted while being dragged, so a
-            // corner grab (moves both adjoining lines at once) is
-            // discoverable rather than a hidden hit-test-only gesture.
-            for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
-                let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
-                    continue;
-                };
-                let pos = to_screen(x, y);
-                let active = self.ref_dragging_corner == Some((xi, yi));
-                painter.circle_filled(
-                    pos,
-                    if active { 6.0 } else { 4.0 },
-                    if active {
-                        Color32::from_rgb(255, 210, 60)
-                    } else {
-                        Color32::from_rgb(60, 120, 255)
-                    },
-                );
-                painter.circle_stroke(pos, if active { 6.0 } else { 4.0 }, Stroke::new(1.0_f32, Color32::WHITE));
+                CalibrationShape::Parallelogram => {
+                    // The quad's 4 edges, in corner order (top_left ->
+                    // top_right -> bottom_right -> bottom_left -> back to
+                    // top_left) — draws a skewed outline instead of the
+                    // axis-aligned box's independent lines.
+                    let screen_corners: Vec<Option<Pos2>> = self
+                        .para_corners
+                        .iter()
+                        .map(|c| c.map(|(x, y)| to_screen(x, y)))
+                        .collect();
+                    for i in 0..4 {
+                        if let (Some(a), Some(b)) =
+                            (screen_corners[i], screen_corners[(i + 1) % 4])
+                        {
+                            painter.line_segment(
+                                [a, b],
+                                Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255)),
+                            );
+                        }
+                    }
+                    for (i, sc) in screen_corners.iter().enumerate() {
+                        let Some(pos) = sc else { continue };
+                        let active = self.para_dragging == Some(i);
+                        painter.circle_filled(
+                            *pos,
+                            if active { 6.0 } else { 4.0 },
+                            if active {
+                                Color32::from_rgb(255, 210, 60)
+                            } else {
+                                Color32::from_rgb(60, 120, 255)
+                            },
+                        );
+                        painter.circle_stroke(
+                            *pos,
+                            if active { 6.0 } else { 4.0 },
+                            Stroke::new(1.0_f32, Color32::WHITE),
+                        );
+                    }
+                }
             }
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {

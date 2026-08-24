@@ -3538,9 +3538,16 @@ is a processing step and must be documented as one).
 
 - [`raster`] — loading a plot image into an owned RGB buffer (pure-Rust
   decoding via the `image` crate; PNG and JPEG).
-- [`calibration`] — mapping pixel coordinates to data coordinates, with
-  **linear and logarithmic axes independently per axis**. Log axes are
-  calibrated in log10 space, never by linear pixel interpolation.
+- [`calibration`] — mapping pixel coordinates to data coordinates.
+  [`calibration::PlotCalibration`] is enum-dispatched over two shapes
+  (op-vyb9): [`calibration::PlotCalibration::AxisAligned`] (the
+  original — **linear and logarithmic axes independently per axis**,
+  with log axes calibrated in log10 space, never by linear pixel
+  interpolation) and [`calibration::PlotCalibration::Parallelogram`] (a
+  skewed pixel-space quadrilateral mapped onto a rectilinear data
+  rectangle via a 2D projective transform, for a plot photographed or
+  scanned at an angle — GUI-interactive only, see [`auto`]'s doc for why
+  the automatic pipeline stays axis-aligned-only).
 - [`detect`] — automatic detection of the plot frame (axis box) from dark
   line runs. Deterministic; no ML, no OCR (unlike [`table_ocr`] below,
   whose OCR use is a deliberate, separately-decided exception — see its
@@ -3637,6 +3644,15 @@ human correct the result.
 
 Does not belong here: the individual algorithms (see [`super::detect`],
 [`super::calibration`], [`super::trace`]) or any interactivity.
+
+**Always builds [`PlotCalibration::AxisAligned`], never
+[`PlotCalibration::Parallelogram`] (op-vyb9).** Automatic frame detection
+([`super::detect::detect_plot_frame`]) only ever finds a rectangle of
+dark line runs, and the trace itself is a column/row scan — neither has
+any notion of a skewed quadrilateral. A parallelogram calibration is
+inherently a hand-digitisation aid (a human places the four corners of a
+photographed/scanned page), so it stays GUI-interactive-only; this
+pipeline's axis-aligned-only scope is not an oversight.
 
 ```rust
 pub mod auto { /* ... */ }
@@ -4255,10 +4271,12 @@ pub fn auto_digitise</* synthetic */ impl Into<String>: Into<String>, /* synthet
 Axis calibration — mapping pixel coordinates to data coordinates.
 
 Belongs here: [`AxisScale`], [`AxisRef`], [`AxisCalibration`],
-[`PlotCalibration`], and the pixel ↔ data-value maps. Logarithmic axes are
-interpolated in **log10 space** — the pixel position of a value on a log
-axis is affine in `log10(value)`, not in the value itself, and getting
-this wrong is the classic digitisation error this module exists to avoid.
+[`PlotCalibration`] (with its [`PlotCalibration::AxisAligned`] and
+[`PlotCalibration::Parallelogram`] variants — op-vyb9), and the pixel ↔
+data-value maps. Logarithmic axes are interpolated in **log10 space** —
+the pixel position of a value on a log axis is affine in `log10(value)`,
+not in the value itself, and getting this wrong is the classic
+digitisation error this module exists to avoid.
 
 Does not belong here: image handling ([`super::raster`]), curve extraction
 ([`super::trace`]), output formats ([`super::dataset`]).
@@ -4889,26 +4907,66 @@ where
 - **WasmNotSendSync**
 - **WasmNotSync**
 - **WithSubscriber**
-#### Struct `PlotCalibration`
+#### Enum `PlotCalibration`
 
-Full two-axis calibration of a plot: an [`AxisCalibration`] for x (pixel
-columns) and one for y (pixel rows; rows increase *downward*, which the
-two-point form handles with no special casing — the bottom-of-plot
-reference simply has the larger row index).
+**Attributes:**
+
+- `Other("#[serde(untagged)]")`
+
+Full two-axis calibration of a plot — either the original **axis-aligned**
+form (an [`AxisCalibration`] for x, one for y) or a **parallelogram/skewed**
+form for a plot photographed or scanned at an angle (op-vyb9, GitHub issue
+#30: "it may be helpful to have a box or parallelogram (in case graph is
+off centre)"). Enum-dispatched per the workspace's no-trait-objects rule —
+the two shapes coexist, selectable, rather than one replacing the other.
+
+## Backward compatibility (deliberate, load-bearing)
+
+`#[serde(untagged)]` makes [`Self::AxisAligned`] serialise to **exactly**
+the flat `{"x": ..., "y": ...}` shape this type had before it became an
+enum — byte-identical to every dataset already exported under
+[`super::dataset::DATASET_SCHEMA_VERSION`] 1. A pre-existing on-disk
+dataset therefore still deserialises unchanged (untagged deserialisation
+tries each variant's own shape against the JSON in order, and the old flat
+shape only matches `AxisAligned`'s field set); a freshly-written
+`Parallelogram` uses a structurally distinct field set
+([`ParallelogramCalibration`]'s own fields) so the two variants can never
+be confused for one another.
 
 ```rust
-pub struct PlotCalibration {
-    pub x: AxisCalibration,
-    pub y: AxisCalibration,
+pub enum PlotCalibration {
+    AxisAligned {
+        x: AxisCalibration,
+        y: AxisCalibration,
+    },
+    Parallelogram(ParallelogramCalibration),
 }
 ```
 
-##### Fields
+##### Variants
+
+###### `AxisAligned`
+
+The original shape: horizontal axis (pixel columns → data x) and
+vertical axis (pixel rows → data y), independent of each other.
+
+Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `x` | `AxisCalibration` | Horizontal axis (pixel columns → data x). |
-| `y` | `AxisCalibration` | Vertical axis (pixel rows → data y). |
+| `x` | `AxisCalibration` |  |
+| `y` | `AxisCalibration` |  |
+
+###### `Parallelogram`
+
+A skewed pixel-space quadrilateral mapped onto a rectilinear data
+rectangle — see [`ParallelogramCalibration`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ParallelogramCalibration` |  |
 
 ##### Implementations
 
@@ -4918,6 +4976,11 @@ pub struct PlotCalibration {
   pub fn point_at(self: &Self, x_px: f64, y_px: f64) -> (f64, f64) { /* ... */ }
   ```
   Map an image pixel `(column, row)` to data coordinates `(x, y)`.
+
+- ```rust
+  pub fn pixel_at(self: &Self, x: f64, y: f64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  The inverse of [`Self::point_at`]: the pixel `(column, row)` a data
 
 ###### Trait Implementations
 
@@ -5005,6 +5068,422 @@ where
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &PlotCalibration) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `PixelPoint`
+
+A pixel-space point (sub-pixel precision, same convention as
+[`AxisRef::pixel`]).
+
+```rust
+pub struct PixelPoint {
+    pub x: f64,
+    pub y: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `x` | `f64` |  |
+| `y` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PixelPoint { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PixelPoint) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SerializableAny**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **SimdFrom**
+  - ```rust
+    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `ParallelogramCalibration`
+
+Calibration from a (possibly skewed) pixel-space quadrilateral to a
+rectilinear data-value rectangle (op-vyb9) — for a plot photographed or
+scanned at an angle, where the figure's own axes are no longer
+pixel-row/column-aligned.
+
+The four [`Self::pixel_corners`] are mapped to the unit square
+`[0,1]×[0,1]` by a 2D projective transform (a homography — the standard
+"straighten a photographed rectangle" map, the same class of transform a
+document scanner's perspective-correction uses). The resulting `(u, v)`
+then feeds the **same per-axis linear/log value interpolation**
+[`AxisCalibration`] already implements and this module already tests
+(`u`/`v` standing in for the pixel position, `0`/`1` standing in for the
+two reference pixels) — deliberately reusing that math rather than
+inventing a second one, so log-axis correctness only has to be verified
+once.
+
+Corners are ordered `[top_left, top_right, bottom_right, bottom_left]`
+— `u = 0` at the left corners, `u = 1` at the right corners, `v = 0` at
+the top corners (smaller row), `v = 1` at the bottom corners (larger
+row), matching this crate's existing "rows increase downward"
+convention.
+
+The homography is **recomputed on every [`Self::point_at`]/
+[`Self::pixel_at`] call**, not cached — a deliberate simplicity choice:
+caching would need either interior mutability (fighting `Copy`/`Eq`) or
+a second field that must stay in sync with `pixel_corners`, and solving
+an 8×8 linear system is microseconds, cheap enough for the few hundred
+to few thousand points a single trace touches. Revisit only if profiling
+ever shows this mattering in practice.
+
+```rust
+pub struct ParallelogramCalibration {
+    pub pixel_corners: [PixelPoint; 4],
+    pub x_scale: AxisScale,
+    pub x_value_at_left: f64,
+    pub x_value_at_right: f64,
+    pub y_scale: AxisScale,
+    pub y_value_at_top: f64,
+    pub y_value_at_bottom: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `pixel_corners` | `[PixelPoint; 4]` |  |
+| `x_scale` | `AxisScale` |  |
+| `x_value_at_left` | `f64` | Data x value at `u = 0` (left edge). |
+| `x_value_at_right` | `f64` | Data x value at `u = 1` (right edge). |
+| `y_scale` | `AxisScale` |  |
+| `y_value_at_top` | `f64` | Data y value at `v = 0` (top edge). |
+| `y_value_at_bottom` | `f64` | Data y value at `v = 1` (bottom edge). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(pixel_corners: [PixelPoint; 4], x_scale: AxisScale, x_value_at_left: f64, x_value_at_right: f64, y_scale: AxisScale, y_value_at_top: f64, y_value_at_bottom: f64) -> Result<Self, DigitiserError> { /* ... */ }
+  ```
+  Build a validated parallelogram calibration.
+
+- ```rust
+  pub fn point_at(self: &Self, x_px: f64, y_px: f64) -> (f64, f64) { /* ... */ }
+  ```
+  Map an image pixel `(column, row)` to data coordinates `(x, y)`.
+
+- ```rust
+  pub fn pixel_at(self: &Self, x: f64, y: f64) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  The inverse of [`Self::point_at`]: the pixel `(column, row)` data
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ParallelogramCalibration { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ParallelogramCalibration) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6580,6 +7059,30 @@ constant scale factor.
 pub fn uncertainty_interval(axis: &super::calibration::AxisCalibration, pixel: f64, half_pixels: f64) -> (f64, f64) { /* ... */ }
 ```
 
+#### Function `xy_uncertainty_interval`
+
+The [`PlotCalibration`]-level generalisation of [`uncertainty_interval`]
+— a pixel-space perturbation of `half_px_x`/`half_px_y` around
+`(x_px, y_px)`, read off as data-value spread in each axis (op-vyb9).
+
+[`PlotCalibration::AxisAligned`] delegates straight to
+[`uncertainty_interval`] for each axis — **byte-identical to the
+pre-parallelogram behaviour**, since x only ever depended on column and y
+only ever depended on row there. [`PlotCalibration::Parallelogram`]
+perturbs the pixel column (for x) or row (for y) by the same half-pixel
+amount and reads the resulting spread off [`PlotCalibration::point_at`] —
+pixel space is still a plain image grid even though the pixel→data map is
+skewed, so "perturb the column, see how x moves" still makes sense; it
+just no longer decomposes into two independent 1-D calibrations the way
+the axis-aligned case does, and a small amount of the other axis's
+movement is folded in along with it (an accepted simplification, same
+spirit as `uncertainty_interval`'s own "treat x and y as independent"
+assumption).
+
+```rust
+pub fn xy_uncertainty_interval(cal: &super::calibration::PlotCalibration, x_px: f64, y_px: f64, half_px_x: f64, half_px_y: f64) -> ((f64, f64), (f64, f64)) { /* ... */ }
+```
+
 #### Function `utc_now_iso8601`
 
 Current UTC time as an ISO 8601 string (`YYYY-MM-DDTHH:MM:SSZ`), from the
@@ -7357,7 +7860,7 @@ pub fn parse_strategy(s: &str) -> Result<super::trace::TraceStrategy, super::Dig
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/digitiser/mod.rs:100:7: 100:22 (#0) }])]")`
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"gui\"), span: crates/kovan/src/digitiser/mod.rs:107:7: 107:22 (#0) }])]")`
 
 Egui-based hybrid digitiser GUI (graphreader-style), exposed as a library
 function so more than one binary can open the same window.
@@ -7856,8 +8359,8 @@ calibration a digitising test should use).
 
 **Method (deterministic).** White background; 1-px black frame on the
 spec's rectangle; then for every pixel column strictly inside the frame,
-`x = cal.x.value_at(col)` and the curve pixel row is
-`cal.y.pixel_at(curve(x))`. A vertical band of `2*half+1` px is inked at
+`x = x_axis.value_at(col)` and the curve pixel row is
+`y_axis.pixel_at(curve(x))`. A vertical band of `2*half+1` px is inked at
 the rounded row, and consecutive columns are connected by filling the row
 interval between them, so steep curves have no gaps. Curve values that
 fall outside the frame (or are non-finite / non-positive on a log axis)

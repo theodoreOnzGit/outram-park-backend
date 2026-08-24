@@ -8,6 +8,15 @@
 //!
 //! Does not belong here: the individual algorithms (see [`super::detect`],
 //! [`super::calibration`], [`super::trace`]) or any interactivity.
+//!
+//! **Always builds [`PlotCalibration::AxisAligned`], never
+//! [`PlotCalibration::Parallelogram`] (op-vyb9).** Automatic frame detection
+//! ([`super::detect::detect_plot_frame`]) only ever finds a rectangle of
+//! dark line runs, and the trace itself is a column/row scan — neither has
+//! any notion of a skewed quadrilateral. A parallelogram calibration is
+//! inherently a hand-digitisation aid (a human places the four corners of a
+//! photographed/scanned page), so it stays GUI-interactive-only; this
+//! pipeline's axis-aligned-only scope is not an oversight.
 
 use serde::{Deserialize, Serialize};
 
@@ -111,7 +120,11 @@ pub fn auto_digitise(
     let x_cal = axis_calibration(&config.x, frame.left as f64, frame.right as f64)?;
     // Rows grow downward: min_value anchors to `bottom` (the larger row).
     let y_cal = axis_calibration(&config.y, frame.bottom as f64, frame.top as f64)?;
-    let calibration = PlotCalibration { x: x_cal, y: y_cal };
+    // Automatic detection only ever finds an axis-aligned frame (a rectangle
+    // of dark line runs) — a skewed/parallelogram calibration (op-vyb9)
+    // needs a human to place the corners, so it's GUI-interactive-only; this
+    // pipeline stays `AxisAligned`.
+    let calibration = PlotCalibration::AxisAligned { x: x_cal, y: y_cal };
 
     let trace_points = trace_curve(raster, &frame, &config.trace)?;
 

@@ -44,7 +44,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::digitiser::dataset::{
-    uncertainty_interval, utc_now_iso8601, DigitisedDataset, PointOrigin, ReviewInterface,
+    utc_now_iso8601, xy_uncertainty_interval, DigitisedDataset, PointOrigin, ReviewInterface,
     ReviewStatus,
 };
 use crate::digitiser::frontend::AutoArgs;
@@ -178,14 +178,22 @@ impl ReviewState {
         let Some(p) = self.dataset.points.get_mut(self.selected) else {
             return;
         };
-        let x_px = p.x_px.unwrap_or_else(|| cal.x.pixel_at(p.x).unwrap_or(0.0)) + dx;
-        let y_px = p.y_px.unwrap_or_else(|| cal.y.pixel_at(p.y).unwrap_or(0.0)) + dy;
+        // Fallback pixel position when one/both of `x_px`/`y_px` weren't
+        // recorded — needs both data values at once, not one axis at a
+        // time, since a parallelogram calibration's inverse map is coupled
+        // (op-vyb9; `AxisAligned`'s own per-axis independence still holds,
+        // this is just the shared entry point).
+        let (fallback_x_px, fallback_y_px) = cal.pixel_at(p.x, p.y).unwrap_or((0.0, 0.0));
+        let x_px = p.x_px.unwrap_or(fallback_x_px) + dx;
+        let y_px = p.y_px.unwrap_or(fallback_y_px) + dy;
         p.x_px = Some(x_px);
         p.y_px = Some(y_px);
         (p.x, p.y) = cal.point_at(x_px, y_px);
         // Hand precision: half-pixel reading error on both axes.
-        (p.x_minus, p.x_plus) = uncertainty_interval(&cal.x, x_px, 0.5);
-        (p.y_minus, p.y_plus) = uncertainty_interval(&cal.y, y_px, 0.5);
+        let ((x_minus, x_plus), (y_minus, y_plus)) =
+            xy_uncertainty_interval(&cal, x_px, y_px, 0.5, 0.5);
+        (p.x_minus, p.x_plus) = (x_minus, x_plus);
+        (p.y_minus, p.y_plus) = (y_minus, y_plus);
         if !matches!(p.origin, PointOrigin::HandPlaced { .. }) {
             p.origin = PointOrigin::HandCorrected {
                 by: self.operator.clone(),

@@ -11,9 +11,16 @@
 //!
 //! - [`raster`] — loading a plot image into an owned RGB buffer (pure-Rust
 //!   decoding via the `image` crate; PNG and JPEG).
-//! - [`calibration`] — mapping pixel coordinates to data coordinates, with
-//!   **linear and logarithmic axes independently per axis**. Log axes are
-//!   calibrated in log10 space, never by linear pixel interpolation.
+//! - [`calibration`] — mapping pixel coordinates to data coordinates.
+//!   [`calibration::PlotCalibration`] is enum-dispatched over two shapes
+//!   (op-vyb9): [`calibration::PlotCalibration::AxisAligned`] (the
+//!   original — **linear and logarithmic axes independently per axis**,
+//!   with log axes calibrated in log10 space, never by linear pixel
+//!   interpolation) and [`calibration::PlotCalibration::Parallelogram`] (a
+//!   skewed pixel-space quadrilateral mapped onto a rectilinear data
+//!   rectangle via a 2D projective transform, for a plot photographed or
+//!   scanned at an angle — GUI-interactive only, see [`auto`]'s doc for why
+//!   the automatic pipeline stays axis-aligned-only).
 //! - [`detect`] — automatic detection of the plot frame (axis box) from dark
 //!   line runs. Deterministic; no ML, no OCR (unlike [`table_ocr`] below,
 //!   whose OCR use is a deliberate, separately-decided exception — see its

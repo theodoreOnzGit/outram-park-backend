@@ -58,8 +58,8 @@ pub struct SyntheticPlotSpec {
 ///
 /// **Method (deterministic).** White background; 1-px black frame on the
 /// spec's rectangle; then for every pixel column strictly inside the frame,
-/// `x = cal.x.value_at(col)` and the curve pixel row is
-/// `cal.y.pixel_at(curve(x))`. A vertical band of `2*half+1` px is inked at
+/// `x = x_axis.value_at(col)` and the curve pixel row is
+/// `y_axis.pixel_at(curve(x))`. A vertical band of `2*half+1` px is inked at
 /// the rounded row, and consecutive columns are connected by filling the row
 /// interval between them, so steep curves have no gaps. Curve values that
 /// fall outside the frame (or are non-finite / non-positive on a log axis)
@@ -80,30 +80,28 @@ pub fn render_synthetic_plot(
             spec.width, spec.height
         )));
     }
-    let cal = PlotCalibration {
-        x: AxisCalibration::new(
-            spec.x_scale,
-            AxisRef {
-                pixel: f.left as f64,
-                value: spec.x_min,
-            },
-            AxisRef {
-                pixel: f.right as f64,
-                value: spec.x_max,
-            },
-        )?,
-        y: AxisCalibration::new(
-            spec.y_scale,
-            AxisRef {
-                pixel: f.bottom as f64,
-                value: spec.y_min,
-            },
-            AxisRef {
-                pixel: f.top as f64,
-                value: spec.y_max,
-            },
-        )?,
-    };
+    let x_axis = AxisCalibration::new(
+        spec.x_scale,
+        AxisRef {
+            pixel: f.left as f64,
+            value: spec.x_min,
+        },
+        AxisRef {
+            pixel: f.right as f64,
+            value: spec.x_max,
+        },
+    )?;
+    let y_axis = AxisCalibration::new(
+        spec.y_scale,
+        AxisRef {
+            pixel: f.bottom as f64,
+            value: spec.y_min,
+        },
+        AxisRef {
+            pixel: f.top as f64,
+            value: spec.y_max,
+        },
+    )?;
 
     // Ink mask, row-major. Frame first.
     let w = spec.width as usize;
@@ -122,9 +120,9 @@ pub fn render_synthetic_plot(
     let row_margin = (f.top + 1, f.bottom - 1);
     let mut prev_row: Option<i64> = None;
     for col in interior {
-        let x = cal.x.value_at(col as f64);
+        let x = x_axis.value_at(col as f64);
         let y = (spec.curve)(x);
-        let row = match cal.y.pixel_at(y) {
+        let row = match y_axis.pixel_at(y) {
             Some(r) if r.is_finite() => r.round() as i64,
             _ => {
                 prev_row = None;
@@ -160,7 +158,7 @@ pub fn render_synthetic_plot(
             [255, 255, 255]
         }
     });
-    Ok((raster, cal))
+    Ok((raster, PlotCalibration::AxisAligned { x: x_axis, y: y_axis }))
 }
 
 #[cfg(test)]
@@ -196,7 +194,10 @@ mod tests {
         assert_eq!(img.rgb(20, 10), [0, 0, 0]);
         assert_eq!(img.rgb(180, 140), [0, 0, 0]);
         // The curve y=5 must sit at the calibrated row, mid-frame.
-        let row = cal.y.pixel_at(5.0).unwrap().round() as u32;
+        let PlotCalibration::AxisAligned { y: y_axis, .. } = &cal else {
+            panic!("render_synthetic_plot always returns AxisAligned")
+        };
+        let row = y_axis.pixel_at(5.0).unwrap().round() as u32;
         assert_eq!(img.rgb(100, row), [0, 0, 0]);
         // And nowhere near the top edge interior.
         assert_eq!(img.rgb(100, 15), [255, 255, 255]);

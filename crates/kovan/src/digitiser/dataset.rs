@@ -247,9 +247,8 @@ impl DigitisedDataset {
             .map(|p| {
                 let (x, y) = calibration.point_at(p.x_px, p.y_px);
                 let half_thickness = (p.thickness_px / 2.0).max(0.5);
-                let (x_minus, x_plus) = uncertainty_interval(&calibration.x, p.x_px, column_half);
-                let (y_minus, y_plus) =
-                    uncertainty_interval(&calibration.y, p.y_px, half_thickness);
+                let ((x_minus, x_plus), (y_minus, y_plus)) =
+                    xy_uncertainty_interval(&calibration, p.x_px, p.y_px, column_half, half_thickness);
                 DigitisedPoint {
                     x,
                     y,
@@ -354,18 +353,33 @@ impl DigitisedDataset {
         if let Some(n) = &self.source.notes {
             let _ = writeln!(s, "# notes: {n}");
         }
-        let cx = &self.calibration.x;
-        let cy = &self.calibration.y;
-        let _ = writeln!(
-            s,
-            "# x_axis: {} scale, px {} = {} , px {} = {}",
-            cx.scale, cx.r1.pixel, cx.r1.value, cx.r2.pixel, cx.r2.value
-        );
-        let _ = writeln!(
-            s,
-            "# y_axis: {} scale, px {} = {} , px {} = {}",
-            cy.scale, cy.r1.pixel, cy.r1.value, cy.r2.pixel, cy.r2.value
-        );
+        match &self.calibration {
+            PlotCalibration::AxisAligned { x: cx, y: cy } => {
+                let _ = writeln!(
+                    s,
+                    "# x_axis: {} scale, px {} = {} , px {} = {}",
+                    cx.scale, cx.r1.pixel, cx.r1.value, cx.r2.pixel, cx.r2.value
+                );
+                let _ = writeln!(
+                    s,
+                    "# y_axis: {} scale, px {} = {} , px {} = {}",
+                    cy.scale, cy.r1.pixel, cy.r1.value, cy.r2.pixel, cy.r2.value
+                );
+            }
+            PlotCalibration::Parallelogram(p) => {
+                let _ = writeln!(s, "# calibration: parallelogram, pixel corners {:?}", p.pixel_corners);
+                let _ = writeln!(
+                    s,
+                    "# x_axis: {} scale, left = {}, right = {}",
+                    p.x_scale, p.x_value_at_left, p.x_value_at_right
+                );
+                let _ = writeln!(
+                    s,
+                    "# y_axis: {} scale, top = {}, bottom = {}",
+                    p.y_scale, p.y_value_at_top, p.y_value_at_bottom
+                );
+            }
+        }
         let _ = writeln!(s, "# x_label: {}", self.x_label);
         let _ = writeln!(s, "# y_label: {}", self.y_label);
         let _ = writeln!(s, "# digitised_by: {}", self.digitised_by);
@@ -444,6 +458,50 @@ pub fn uncertainty_interval(
     (v - lo, hi - v)
 }
 
+/// The [`PlotCalibration`]-level generalisation of [`uncertainty_interval`]
+/// — a pixel-space perturbation of `half_px_x`/`half_px_y` around
+/// `(x_px, y_px)`, read off as data-value spread in each axis (op-vyb9).
+///
+/// [`PlotCalibration::AxisAligned`] delegates straight to
+/// [`uncertainty_interval`] for each axis — **byte-identical to the
+/// pre-parallelogram behaviour**, since x only ever depended on column and y
+/// only ever depended on row there. [`PlotCalibration::Parallelogram`]
+/// perturbs the pixel column (for x) or row (for y) by the same half-pixel
+/// amount and reads the resulting spread off [`PlotCalibration::point_at`] —
+/// pixel space is still a plain image grid even though the pixel→data map is
+/// skewed, so "perturb the column, see how x moves" still makes sense; it
+/// just no longer decomposes into two independent 1-D calibrations the way
+/// the axis-aligned case does, and a small amount of the other axis's
+/// movement is folded in along with it (an accepted simplification, same
+/// spirit as `uncertainty_interval`'s own "treat x and y as independent"
+/// assumption).
+pub fn xy_uncertainty_interval(
+    cal: &PlotCalibration,
+    x_px: f64,
+    y_px: f64,
+    half_px_x: f64,
+    half_px_y: f64,
+) -> ((f64, f64), (f64, f64)) {
+    match cal {
+        PlotCalibration::AxisAligned { x, y } => (
+            uncertainty_interval(x, x_px, half_px_x),
+            uncertainty_interval(y, y_px, half_px_y),
+        ),
+        PlotCalibration::Parallelogram(_) => {
+            let (vx, vy) = cal.point_at(x_px, y_px);
+            let (ax, _) = cal.point_at(x_px - half_px_x, y_px);
+            let (bx, _) = cal.point_at(x_px + half_px_x, y_px);
+            let (_, cy) = cal.point_at(x_px, y_px - half_px_y);
+            let (_, dy) = cal.point_at(x_px, y_px + half_px_y);
+            let x_lo = ax.min(bx);
+            let x_hi = ax.max(bx);
+            let y_lo = cy.min(dy);
+            let y_hi = cy.max(dy);
+            ((vx - x_lo, x_hi - vx), (vy - y_lo, y_hi - vy))
+        }
+    }
+}
+
 /// Current UTC time as an ISO 8601 string (`YYYY-MM-DDTHH:MM:SSZ`), from the
 /// system clock and pure `std` (no chrono dependency). Used by the binaries
 /// to stamp `digitised_at` / review times; pass an explicit string instead
@@ -487,7 +545,7 @@ mod tests {
     use super::*;
 
     fn cal() -> PlotCalibration {
-        PlotCalibration {
+        PlotCalibration::AxisAligned {
             x: AxisCalibration::new(
                 AxisScale::Logarithmic,
                 AxisRef {
