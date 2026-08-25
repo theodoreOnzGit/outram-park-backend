@@ -93,7 +93,16 @@ which.workspace = true
 # C-toolchain crate anywhere in its dependency tree) via `cargo tree -p
 # kovan`, 2026-08-21 — no target gate needed; only its one caller
 # (`pdf_reader`) is desktop/`gui`-feature-scoped.
-kopitiam-pdf = "0.2.6"
+#
+# 0.2.7 (bumped 2026-08-25): `rasterize_page` now falls back to the `hayro`
+# rasterizer (Apache-2.0 OR MIT, pure Rust, upstream-pinned `=0.7.1`) for any
+# page where kopitiam's own glyph decoders would otherwise paint an advance
+# box, transparently — no feature gate, no call-site change here. Still
+# pure-Rust/Android-Termux-clean (`hayro` carries no C/C++/Fortran anywhere
+# in its own dependency chain either) and license-compatible with this
+# crate's AGPL-3.0-only. Verified via `cargo tree -p kovan | grep hayro`
+# after the bump.
+kopitiam-pdf = "0.2.7"
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than
