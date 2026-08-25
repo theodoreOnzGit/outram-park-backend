@@ -4445,9 +4445,9 @@ dependencies = [
 
 [[package]]
 name = "kopitiam-pdf"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5926608c2f4374fa526adfff506f35321d1d85688e2ed96e5a6f031cb1a23572"
+checksum = "be607a1043a8fe59897c05a4b6eb1461a7af0c74409332d662098f5f34741386"
 dependencies = [
  "lopdf",
  "miniz_oxide",

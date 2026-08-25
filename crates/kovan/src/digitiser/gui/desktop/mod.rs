@@ -242,7 +242,7 @@ impl Default for DigitiseApp {
                 .add_file_filter_extensions("PDF", vec!["pdf"])
                 .default_file_filter("Images"),
             file_dialog_target: None,
-            pdf_reader: PdfReaderState::default(),
+            pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),

@@ -6,14 +6,31 @@
 //!
 //! Renders PDF pages through `kopitiam_pdf::mupdf` — the PDF-page-rendering
 //! engine decision this crate's `Cargo.toml` records (op-6ez3): open a PDF's
-//! bytes with [`PdfDocument::open`], rasterize the current page with
-//! [`rasterize_page`] at a fixed screen DPI, upload the samples as an egui
-//! texture. One page is rasterized and cached at a time — a PDF is not
-//! pre-rendered in full, so opening a large document is cheap and only the
-//! visited pages cost render time. A plain image (PNG/JPEG) opens through the
-//! digitiser's own [`PlotRaster`] loader instead — see [`ReaderSource`] — and
-//! is treated as a one-page document, so the same page-nav/zoom/scroll
-//! viewer below serves both without knowing which it has.
+//! bytes with [`PdfDocument::open`], rasterize a page with [`rasterize_page`]
+//! at a fixed screen DPI, upload the samples as an egui texture. A plain
+//! image (PNG/JPEG) opens through the digitiser's own [`PlotRaster`] loader
+//! instead — see [`ReaderSource`] — and is treated as a one-page document, so
+//! the same viewer below serves both without knowing which it has.
+//!
+//! ## Two page-flow modes (op-veti, op-eehc)
+//!
+//! - **Single-page** (the original mode): one page rasterized and cached at
+//!   a time, with Prev/Next navigation. Full tool interactivity (draw-box,
+//!   select-text, annotations).
+//! - **Continuous scroll** (op-veti, default on — GitHub issue #30: "scroll
+//!   thru the pdfs in continuous mode"): every page stacked vertically in
+//!   one scrollable flow, Okular-style. View-only — see
+//!   [`PdfReaderState::continuous_pages_ui`]'s doc for why the interactive
+//!   tools stay single-page-only. Either way, only the pages actually
+//!   rasterized (single-page: the current one; continuous: whatever has
+//!   scrolled into view) cost render time — a PDF is never pre-rendered in
+//!   full.
+//!
+//! **Hot reload** (op-eehc, default on — GitHub issue #30: "hot reload by
+//! default in case I compile live in tex or typst"): the open file's mtime
+//! is polled (throttled, not filesystem-watched) and a change triggers an
+//! automatic re-open, restoring the page the operator was looking at. See
+//! [`PdfReaderState::check_hot_reload`].
 //!
 //! ## Unified box interaction model (op-x9qn, superseding op-gv19's first cut)
 //!
@@ -90,6 +107,11 @@ const RENDER_DPI: f32 = 150.0;
 /// far cheaper per page than [`RENDER_DPI`] since a thumbnail is shown at a
 /// few dozen pixels tall.
 const THUMBNAIL_DPI: f32 = 36.0;
+
+/// How often [`PdfReaderState::check_hot_reload`] is allowed to `stat` the
+/// open file — frequent enough that a live TeX/Typst recompile is picked up
+/// promptly, infrequent enough not to hammer the filesystem every frame.
+const RELOAD_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// What is currently open in the reader — a multi-page PDF, or a single
 /// directly-loaded raster image. Closed set, enum-dispatched per the
@@ -269,6 +291,34 @@ pub struct PdfReaderState {
     /// the derived `Default` (`false`) means "shown", matching what a user
     /// opening a fresh multi-page PDF expects to see.
     hide_thumbnails: bool,
+    /// Whether pages render as one continuous scrollable flow (op-veti,
+    /// "scroll thru the pdfs in continuous mode") instead of one page at a
+    /// time. View-only in this mode — see [`Self::continuous_pages_ui`]'s
+    /// doc for the scope cut on draw-box/select-text/annotation tools.
+    continuous_scroll: bool,
+    /// Full-resolution page textures for continuous-scroll mode (op-veti),
+    /// keyed by page index — separate from the single-page `texture`/
+    /// `texture_page` cache, since continuous mode may have several pages'
+    /// textures live at once. Only populated for pages that have actually
+    /// scrolled into view (see [`Self::full_res_texture`]).
+    page_textures: HashMap<usize, TextureHandle>,
+    /// Whether the open file is watched for changes and auto-reloaded
+    /// (op-eehc — "hot reload by default in case I compile live in tex or
+    /// typst"). Polled, throttled to [`RELOAD_CHECK_INTERVAL`] — not
+    /// filesystem-watched, to avoid a new dependency for a desktop-only,
+    /// not-latency-critical feature.
+    hot_reload: bool,
+    /// A page the thumbnail strip asked the continuous-scroll view to jump
+    /// to (op-veti) — consumed (and cleared) by
+    /// [`Self::continuous_pages_ui`] via `egui`'s `scroll_to_rect`. Ignored
+    /// in single-page mode, which just uses `page_index` directly.
+    scroll_to_page: Option<usize>,
+    /// The open file's mtime as of the last successful open/reload — a
+    /// change from this is what [`Self::check_hot_reload`] reloads on.
+    file_mtime: Option<std::time::SystemTime>,
+    /// Wall-clock time of the last hot-reload mtime check, so it happens at
+    /// most once per [`RELOAD_CHECK_INTERVAL`] rather than every frame.
+    last_reload_check: Option<std::time::Instant>,
     /// The last "Generate BibTeX" result (op-x3wl) — `Ok` holds the
     /// rendered entry, `Err` a human-readable failure. `None` before the
     /// button has ever been pressed for the currently open PDF.
@@ -355,6 +405,15 @@ fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
 }
 
 impl PdfReaderState {
+    /// A fresh reader, with continuous-scroll and hot-reload both **on** by
+    /// default — GitHub issue #30's explicit asks ("scroll thru the pdfs in
+    /// continuous mode", "hot reload by default"). Everything else stays
+    /// the ordinary derived-`Default` zero state; prefer this over
+    /// `PdfReaderState::default()` for exactly those two fields' sake.
+    pub fn new() -> Self {
+        Self { continuous_scroll: true, hot_reload: true, ..Self::default() }
+    }
+
     /// Open `path` as the working document — a PDF or a raster image
     /// (op-wojr), dispatched by [`looks_like_pdf`] — replacing whatever was
     /// previously open.
@@ -377,9 +436,19 @@ impl PdfReaderState {
         self.annotate_editor = None;
         self.bibtex = None;
         self.thumbnails.clear();
+        self.page_textures.clear();
         self.stext_cache = None;
         self.select_start = None;
         self.text_selection = None;
+        self.scroll_to_page = None;
+    }
+
+    /// The `path`'s current on-disk mtime, if it can be read — used to seed/
+    /// refresh [`Self::file_mtime`] on every successful open (including a
+    /// hot-reload's own re-open), so [`Self::check_hot_reload`] always
+    /// compares against the version actually loaded.
+    fn read_mtime(path: &str) -> Option<std::time::SystemTime> {
+        std::fs::metadata(path).ok()?.modified().ok()
     }
 
     fn open_pdf(&mut self, path: &str) {
@@ -394,6 +463,7 @@ impl PdfReaderState {
             Ok(doc) => {
                 let page_count = doc.page_count();
                 self.path = path.to_string();
+                self.file_mtime = Self::read_mtime(path);
                 self.source = ReaderSource::Pdf(doc);
                 self.reset_interaction_state();
                 self.message = format!("opened {path} ({page_count} page(s))");
@@ -406,12 +476,50 @@ impl PdfReaderState {
         match PlotRaster::from_path(std::path::Path::new(path)) {
             Ok(raster) => {
                 self.path = path.to_string();
+                self.file_mtime = Self::read_mtime(path);
                 self.source = ReaderSource::Image(raster);
                 self.reset_interaction_state();
                 self.message = format!("opened {path}");
             }
             Err(e) => self.message = format!("cannot open {path} as PDF or image: {e}"),
         }
+    }
+
+    /// Reload the open file if it changed on disk (op-eehc) — a live TeX/
+    /// Typst compile rewrites the PDF in place, and the reader should pick
+    /// that up without the operator having to re-open it by hand. No-op
+    /// when [`Self::hot_reload`] is off, nothing is open, or fewer than
+    /// [`RELOAD_CHECK_INTERVAL`] has passed since the last check.
+    ///
+    /// Requests a repaint after the check interval so the reload actually
+    /// happens promptly even while the operator isn't touching the mouse/
+    /// keyboard — egui otherwise only repaints on input, and a live compile
+    /// producing a new file is not an egui input event.
+    fn check_hot_reload(&mut self, ctx: &egui::Context) {
+        if !self.hot_reload || self.path.is_empty() {
+            return;
+        }
+        ctx.request_repaint_after(RELOAD_CHECK_INTERVAL);
+        let now = std::time::Instant::now();
+        if let Some(last) = self.last_reload_check {
+            if now.duration_since(last) < RELOAD_CHECK_INTERVAL {
+                return;
+            }
+        }
+        self.last_reload_check = Some(now);
+        let Some(mtime) = Self::read_mtime(&self.path) else { return };
+        if self.file_mtime == Some(mtime) {
+            return;
+        }
+        let path = self.path.clone();
+        let keep_page = self.page_index;
+        self.open(&path);
+        // `open` resets to page 0 via `reset_interaction_state` — restore
+        // the page the operator was looking at (clamped, in case the
+        // recompile changed the page count), so a live-editing loop doesn't
+        // yank the view back to the start on every save.
+        self.page_index = keep_page.min(self.source.page_count().saturating_sub(1));
+        self.message = format!("{} changed on disk — reloaded", self.path);
     }
 
     /// Generate a BibTeX entry for the currently open PDF (op-x3wl: "I want
@@ -670,12 +778,139 @@ impl PdfReaderState {
                         .clicked()
                     {
                         self.page_index = page;
+                        self.scroll_to_page = Some(page);
                         self.pending_box = None;
                         self.context_menu = None;
                     }
                 }
             },
         );
+    }
+
+    /// Rasterize page `page` at [`RENDER_DPI`] for continuous-scroll mode
+    /// (op-veti) and cache the texture in [`Self::page_textures`] — the
+    /// full-resolution counterpart to [`Self::thumbnail_texture`], keyed
+    /// the same way but never evicted (a document opened for continuous
+    /// reading is expected to have every visited page's texture live for
+    /// as long as it stays open, same growth-without-eviction precedent
+    /// `thumbnails` already sets in this file).
+    fn full_res_texture(&mut self, ctx: &egui::Context, page: usize) -> Option<TextureHandle> {
+        if let Some(t) = self.page_textures.get(&page) {
+            return Some(t.clone());
+        }
+        let ReaderSource::Pdf(doc) = &self.source else { return None };
+        let pixmap = rasterize_page(doc, page, RENDER_DPI).ok()?;
+        let (w, h) = (pixmap.w as usize, pixmap.h as usize);
+        let image = if pixmap.alpha {
+            ColorImage::from_rgba_unmultiplied([w, h], &pixmap.samples)
+        } else {
+            ColorImage::from_rgb([w, h], &pixmap.samples)
+        };
+        let tex = ctx.load_texture(format!("pdf-page-full-{page}"), image, TextureOptions::LINEAR);
+        self.page_textures.insert(page, tex.clone());
+        Some(tex)
+    }
+
+    /// Continuous-scroll page flow (op-veti, "scroll thru the pdfs in
+    /// continuous mode"): every page stacked vertically in one scrollable
+    /// canvas, Okular-style, instead of navigating one page at a time.
+    ///
+    /// **View-only for this pass** — draw-box/select-text/annotation tools
+    /// stay single-page-mode-only; switching back to single-page mode
+    /// (opens at whichever page was last most-visible here, see below)
+    /// re-enables full interactivity. Existing saved annotations are still
+    /// shown, read-only, as a visual reference. This is a deliberate scope
+    /// cut, not an oversight: re-deriving "which page, and where on it" a
+    /// click/drag landed across a whole scrolling document is materially
+    /// more work than the single-page coordinate math the tools already
+    /// use, and the issue's own ask here is about *reading*, not digitising.
+    ///
+    /// Each page's **layout size** comes from its already-cached thumbnail
+    /// texture ([`Self::thumbnail_texture`], cheap, [`THUMBNAIL_DPI`])
+    /// scaled up to [`RENDER_DPI`] — this avoids a full rasterization just
+    /// to learn a page's dimensions. The actual full-resolution texture
+    /// ([`Self::full_res_texture`]) is only rasterized for pages that
+    /// intersect the viewport; an off-screen page gets a plain placeholder
+    /// rectangle instead, so opening a long document stays cheap and only
+    /// the pages actually scrolled past cost render time (same principle
+    /// the module doc states for single-page mode).
+    ///
+    /// Updates `self.page_index` to whichever page has the most vertical
+    /// overlap with the viewport each frame, so the toolbar's "page N / M"
+    /// readout (and single-page mode, if the operator switches back) track
+    /// where the operator has actually scrolled to.
+    fn continuous_pages_ui(&mut self, ui: &mut egui::Ui) {
+        let page_count = self.source.page_count();
+        if page_count == 0 {
+            return;
+        }
+        let zoom = self.zoom;
+        let scale = RENDER_DPI / THUMBNAIL_DPI;
+        let spacing = 12.0_f32;
+
+        let mut sizes = Vec::with_capacity(page_count);
+        let mut max_w = 1.0_f32;
+        let mut total_h = 0.0_f32;
+        for p in 0..page_count {
+            let size = self
+                .thumbnail_texture(ui.ctx(), p)
+                .map(|t| t.size_vec2() * scale * zoom)
+                .unwrap_or(Vec2::new(612.0, 792.0) * (RENDER_DPI / 72.0) * zoom);
+            max_w = max_w.max(size.x);
+            total_h += size.y;
+            sizes.push(size);
+        }
+        total_h += spacing * page_count.saturating_sub(1) as f32;
+
+        egui::ScrollArea::both().id_salt("pdf_continuous_scroll").show(ui, |ui| {
+            let (rect, _response) =
+                ui.allocate_exact_size(Vec2::new(max_w, total_h), Sense::hover());
+            let painter = ui.painter_at(rect);
+            let viewport = ui.clip_rect();
+            let mut y = rect.min.y;
+            let mut most_visible: Option<(usize, f32)> = None;
+            for (p, size) in sizes.iter().enumerate() {
+                let page_rect = Rect::from_min_size(Pos2::new(rect.min.x, y), *size);
+                if self.scroll_to_page == Some(p) {
+                    ui.scroll_to_rect(page_rect, Some(egui::Align::TOP));
+                    self.scroll_to_page = None;
+                }
+                if page_rect.intersects(viewport) {
+                    if let Some(tex) = self.full_res_texture(ui.ctx(), p) {
+                        painter.image(
+                            tex.id(),
+                            page_rect,
+                            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                            Color32::WHITE,
+                        );
+                    } else {
+                        painter.rect_filled(page_rect, 0.0, Color32::from_gray(235));
+                    }
+                    if let Some(anns) = self.annotations.get(&p) {
+                        for ann in anns {
+                            let min = page_rect.min + Vec2::new(ann.min.x, ann.min.y) * zoom;
+                            let max = page_rect.min + Vec2::new(ann.max.x, ann.max.y) * zoom;
+                            painter.rect_stroke(
+                                Rect::from_min_max(min, max),
+                                0.0,
+                                Stroke::new(1.0_f32, Color32::from_rgb(230, 170, 20)),
+                                egui::StrokeKind::Middle,
+                            );
+                        }
+                    }
+                    let overlap = page_rect.intersect(viewport).height().max(0.0);
+                    if most_visible.is_none_or(|(_, best)| overlap > best) {
+                        most_visible = Some((p, overlap));
+                    }
+                } else {
+                    painter.rect_filled(page_rect, 0.0, Color32::from_gray(235));
+                }
+                y += size.y + spacing;
+            }
+            if let Some((p, _)) = most_visible {
+                self.page_index = p;
+            }
+        });
     }
 
     /// The right "page context" panel (op-0y4k): raw text preview of
@@ -765,20 +1000,35 @@ impl PdfReaderState {
             return None;
         }
 
+        self.check_hot_reload(ui.ctx());
+
         let page_count = self.source.page_count();
         let is_pdf = matches!(self.source, ReaderSource::Pdf(_));
         ui.horizontal(|ui| {
             if is_pdf {
-                if ui.button("< Prev").clicked() {
-                    self.prev_page();
-                }
-                ui.label(format!("page {} / {}", self.page_index + 1, page_count));
-                if ui.button("Next >").clicked() {
-                    self.next_page();
+                if self.continuous_scroll {
+                    // Prev/Next are single-page-mode navigation; in
+                    // continuous mode the operator scrolls instead, and
+                    // `page_index` already tracks scroll position (see
+                    // `continuous_pages_ui`), so it's shown read-only here.
+                    ui.label(format!("page {} / {} (scrolling)", self.page_index + 1, page_count));
+                } else {
+                    if ui.button("< Prev").clicked() {
+                        self.prev_page();
+                    }
+                    ui.label(format!("page {} / {}", self.page_index + 1, page_count));
+                    if ui.button("Next >").clicked() {
+                        self.next_page();
+                    }
                 }
                 ui.separator();
             }
             ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
+            if is_pdf {
+                ui.separator();
+                ui.checkbox(&mut self.continuous_scroll, "Continuous scroll");
+                ui.checkbox(&mut self.hot_reload, "Hot reload");
+            }
             if is_pdf && page_count > 1 {
                 ui.separator();
                 let label = if self.hide_thumbnails { "Show pages" } else { "Hide pages" };
@@ -841,6 +1091,11 @@ impl PdfReaderState {
             .resizable(true)
             .default_size(280.0)
             .show_inside(ui, |ui| self.context_panel(ui));
+
+        if is_pdf && self.continuous_scroll {
+            self.continuous_pages_ui(ui);
+            return crop_result; // continuous mode is view-only — see its own doc
+        }
 
         self.ensure_texture(ui.ctx());
         let Some(texture) = self.texture.clone() else {
@@ -1359,5 +1614,31 @@ a note
     #[test]
     fn blocks_matching_text_with_no_headings_is_empty() {
         assert!(blocks_matching("just prose, no ### headings\n", &["anything"]).is_empty());
+    }
+
+    // --- hot reload (op-eehc) ---
+
+    #[test]
+    fn read_mtime_returns_none_for_a_missing_file() {
+        assert!(PdfReaderState::read_mtime("/nonexistent/path/does/not/exist.pdf").is_none());
+    }
+
+    #[test]
+    fn read_mtime_returns_some_for_an_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x.txt");
+        std::fs::write(&path, b"hello").unwrap();
+        assert!(PdfReaderState::read_mtime(path.to_str().unwrap()).is_some());
+    }
+
+    #[test]
+    fn new_reader_has_continuous_scroll_and_hot_reload_on_by_default() {
+        let r = PdfReaderState::new();
+        assert!(r.continuous_scroll);
+        assert!(r.hot_reload);
+        // Everything else should still be the plain derived-Default zero
+        // state -- `new()` only overrides those two fields.
+        assert!(r.path.is_empty());
+        assert!(r.thumbnails.is_empty());
     }
 }

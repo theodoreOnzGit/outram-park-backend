@@ -92,7 +92,7 @@ which.workspace = true
 # C-toolchain crate anywhere in its dependency tree) via `cargo tree -p
 # kovan`, 2026-08-21 — no target gate needed; only its one caller
 # (`pdf_reader`) is desktop/`gui`-feature-scoped.
-kopitiam-pdf = "0.2.5"
+kopitiam-pdf = "0.2.6"
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than
