@@ -4525,14 +4525,14 @@ dependencies = [
 
 [[package]]
 name = "kovan-codegen"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "kovan-common",
 ]
 
 [[package]]
 name = "kovan-common"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -4541,7 +4541,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-discovery"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "gix",
  "grep-matcher",
@@ -4554,7 +4554,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-literature"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "kovan-common",
  "lopdf",
@@ -4577,7 +4577,7 @@ dependencies = [
 
 [[package]]
 name = "kovan-semantics"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "kovan-common",
  "kovan-discovery",

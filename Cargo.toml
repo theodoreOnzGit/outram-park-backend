@@ -306,11 +306,16 @@ tampines            = { path = "crates/tampines",            version = "0.0.2" }
 outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.2" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
-kovan-common     = { path = "crates/kovan-common",     version = "0.0.0" }
-kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.0" }
-kovan-literature = { path = "crates/kovan-literature", version = "0.0.0" }
-kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.0" }
-kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.0" }
+# Publish batch 1 (op-3b7h, crates.io "burst of ~5 new names" limit):
+# common/discovery/codegen/literature/semantics bumped to 0.0.1 together —
+# keep each pin here in sync with that crate's own `version` (workspace-
+# maintenance.md's "drift" warning) whenever one changes.
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.1" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.1" }
+kovan-literature = { path = "crates/kovan-literature", version = "0.0.1" }
+kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.1" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.1" }
+# Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
 kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,

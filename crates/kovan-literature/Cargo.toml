@@ -1,9 +1,10 @@
 [package]
 name = "kovan-literature"
 description = "KOVAN nuclear-engineering knowledge archive: PDF → Markdown → KovanDocument → BibTeX."
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 # What ships to crates.io vs what only lives in the GitHub repo.
 #

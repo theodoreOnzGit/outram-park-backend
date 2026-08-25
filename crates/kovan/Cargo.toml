@@ -12,6 +12,7 @@ edition.workspace = true
 # pick it up by accident, and nothing else in the workspace may depend on
 # `kovan` without re-examining that boundary.
 license = "AGPL-3.0-only"
+repository.workspace = true
 
 # Consolidated 2026-08-21 from the former separate `kovan-cli` and
 # `kovan-tui` crates so one crate carries all three interfaces. `kovan` and

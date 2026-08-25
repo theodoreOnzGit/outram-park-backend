@@ -1,9 +1,10 @@
 [package]
 name = "kovan-semantics"
 description = "KOVAN repository-understanding engine — ripgrep-first, escalating to language-native tooling."
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 kovan-common.workspace = true
