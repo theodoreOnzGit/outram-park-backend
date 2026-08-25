@@ -1,6 +1,7 @@
 mod bibliography;
 mod csv_preview;
 mod markdown_editor;
+mod pdf_annots;
 mod pdf_reader;
 mod table_digitiser;
 mod theme;

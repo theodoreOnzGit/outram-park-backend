@@ -92,6 +92,7 @@ use eframe::egui::{
 };
 use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
 
+use super::pdf_annots::{read_page_annotations, AnnotationKind, PdfAnnotation};
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
 use crate::project;
@@ -323,6 +324,11 @@ pub struct PdfReaderState {
     /// rendered entry, `Err` a human-readable failure. `None` before the
     /// button has ever been pressed for the currently open PDF.
     bibtex: Option<Result<String, String>>,
+    /// Cached PDF-native annotations (`/Annots` — highlights, notes, etc.
+    /// written by another viewer such as Okular; see [`super::pdf_annots`]),
+    /// keyed by page index — lightweight enough to keep every page computed
+    /// so far, unlike [`Self::stext_cache`]'s single-page cache.
+    native_annots: HashMap<usize, Vec<PdfAnnotation>>,
 }
 
 /// Build an egui [`ColorImage`] from a [`PlotRaster`] by reading every pixel
@@ -404,6 +410,134 @@ fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
     blocks
 }
 
+/// A point on `quad`'s bottom-ish edge at fraction `t` down from its top
+/// edge (`0.0` = top, `1.0` = bottom), interpolated between the top and
+/// bottom edge midpoints — used to place the `Underline`/`StrikeOut`/
+/// `Squiggly` stroke line within its markup quad without assuming the quad
+/// is axis-aligned (a rotated line of text has a rotated quad).
+fn quad_edge_point(quad: &[Pos2; 4], t: f32, frac: f32) -> Pos2 {
+    // `quad` corners are [top-left, top-right, bottom-right, bottom-left]
+    // (see `read_quad_points`'s reordering). Interpolate the top and bottom
+    // edges at `frac` along their length, then between those two at `t`.
+    let top = quad[0] + (quad[1] - quad[0]) * frac;
+    let bottom = quad[3] + (quad[2] - quad[3]) * frac;
+    top + (bottom - top) * t
+}
+
+/// Paint every native PDF annotation (`/Annots` — see
+/// [`super::pdf_annots`]) already mapped into texture-pixel space, through
+/// `to_screen`. See that module's doc for why this is a geometry+colour
+/// approximation, not the annotation's real `/AP` appearance stream.
+/// Returns the hovered annotation's tooltip text (`Contents`/`author`), if
+/// `hover_pos` (texture-pixel space) lands on one with something to show.
+fn draw_native_annotations(
+    painter: &egui::Painter,
+    annots: &[PdfAnnotation],
+    to_screen: impl Fn(Pos2) -> Pos2,
+    hover_pos: Option<Pos2>,
+) -> Option<(String, Pos2)> {
+    let mut tooltip = None;
+    for ann in annots {
+        let color = ann.color.unwrap_or(Color32::from_rgb(230, 170, 20));
+        let alpha = (ann.opacity * 255.0).round().clamp(0.0, 255.0) as u8;
+        match &ann.kind {
+            AnnotationKind::Highlight => {
+                for quad in &ann.quads {
+                    let pts: Vec<Pos2> = quad.iter().map(|p| to_screen(*p)).collect();
+                    painter.add(egui::Shape::convex_polygon(
+                        pts,
+                        color.gamma_multiply_u8(alpha / 2),
+                        Stroke::NONE,
+                    ));
+                }
+            }
+            AnnotationKind::Underline | AnnotationKind::StrikeOut | AnnotationKind::Squiggly => {
+                let t = match ann.kind {
+                    AnnotationKind::Underline => 0.95,
+                    AnnotationKind::StrikeOut => 0.5,
+                    _ => 0.7,
+                };
+                for quad in &ann.quads {
+                    if matches!(ann.kind, AnnotationKind::Squiggly) {
+                        let segs = 8;
+                        let pts: Vec<Pos2> = (0..=segs)
+                            .map(|i| {
+                                let frac = i as f32 / segs as f32;
+                                let jitter = if i % 2 == 0 { -0.06 } else { 0.06 };
+                                to_screen(quad_edge_point(quad, t + jitter, frac))
+                            })
+                            .collect();
+                        painter.add(egui::Shape::line(pts, Stroke::new(1.5_f32, color)));
+                    } else {
+                        let a = to_screen(quad_edge_point(quad, t, 0.0));
+                        let b = to_screen(quad_edge_point(quad, t, 1.0));
+                        painter.line_segment([a, b], Stroke::new(1.5_f32, color));
+                    }
+                }
+            }
+            AnnotationKind::Square => {
+                let rect = Rect::from_min_max(to_screen(ann.rect.0), to_screen(ann.rect.1));
+                if let Some(ic) = ann.interior_color {
+                    painter.rect_filled(rect, 0.0, ic.gamma_multiply_u8(alpha));
+                }
+                painter.rect_stroke(rect, 0.0, Stroke::new(1.5_f32, color), egui::StrokeKind::Middle);
+            }
+            AnnotationKind::Circle => {
+                let (min, max) = (to_screen(ann.rect.0), to_screen(ann.rect.1));
+                let center = min.lerp(max, 0.5);
+                let radius = Vec2::new((max.x - min.x) / 2.0, (max.y - min.y) / 2.0);
+                let n = 32;
+                let pts: Vec<Pos2> = (0..n)
+                    .map(|i| {
+                        let a = i as f32 / n as f32 * std::f32::consts::TAU;
+                        Pos2::new(center.x + radius.x * a.cos(), center.y + radius.y * a.sin())
+                    })
+                    .collect();
+                let fill = ann
+                    .interior_color
+                    .map(|ic| ic.gamma_multiply_u8(alpha))
+                    .unwrap_or(Color32::TRANSPARENT);
+                painter.add(egui::Shape::convex_polygon(pts, fill, Stroke::new(1.5_f32, color)));
+            }
+            AnnotationKind::Line | AnnotationKind::Ink => {
+                for stroke in &ann.strokes {
+                    let pts: Vec<Pos2> = stroke.iter().map(|p| to_screen(*p)).collect();
+                    painter.add(egui::Shape::line(pts, Stroke::new(1.5_f32, color)));
+                }
+            }
+            AnnotationKind::Note | AnnotationKind::FreeText => {
+                let rect = Rect::from_min_max(to_screen(ann.rect.0), to_screen(ann.rect.1));
+                if matches!(ann.kind, AnnotationKind::FreeText) {
+                    painter.rect_stroke(rect, 0.0, Stroke::new(1.5_f32, color), egui::StrokeKind::Middle);
+                    painter.text(
+                        rect.min + Vec2::new(2.0, 2.0),
+                        egui::Align2::LEFT_TOP,
+                        &ann.contents,
+                        egui::FontId::proportional(11.0),
+                        Color32::BLACK,
+                    );
+                } else {
+                    painter.circle_filled(rect.min, 6.0, color);
+                    painter.circle_stroke(rect.min, 6.0, Stroke::new(1.0_f32, Color32::BLACK));
+                }
+            }
+            AnnotationKind::Other(_) => {}
+        }
+        if let Some(hp) = hover_pos {
+            let (min, max) = ann.rect;
+            if hp.x >= min.x && hp.x <= max.x && hp.y >= min.y && hp.y <= max.y && !ann.contents.is_empty() {
+                let text = if ann.author.is_empty() {
+                    ann.contents.clone()
+                } else {
+                    format!("{}: {}", ann.author, ann.contents)
+                };
+                tooltip = Some((text, to_screen(ann.rect.0)));
+            }
+        }
+    }
+    tooltip
+}
+
 impl PdfReaderState {
     /// A fresh reader, with continuous-scroll and hot-reload both **on** by
     /// default — GitHub issue #30's explicit asks ("scroll thru the pdfs in
@@ -441,6 +575,7 @@ impl PdfReaderState {
         self.select_start = None;
         self.text_selection = None;
         self.scroll_to_page = None;
+        self.native_annots.clear();
     }
 
     /// The `path`'s current on-disk mtime, if it can be read — used to seed/
@@ -682,6 +817,20 @@ impl PdfReaderState {
         self.stext_cache.as_ref().map(|(_, s)| s)
     }
 
+    /// This page's PDF-native annotations (`/Annots` — see
+    /// [`super::pdf_annots`]), reading and caching them on first access. An
+    /// image source (no `/Annots` to have) always reports none.
+    fn native_annotations_for_page(&mut self, page: usize) -> &[PdfAnnotation] {
+        if !self.native_annots.contains_key(&page) {
+            let annots = match &self.source {
+                ReaderSource::Pdf(doc) => read_page_annotations(doc, page, RENDER_DPI),
+                ReaderSource::None | ReaderSource::Image(_) => Vec::new(),
+            };
+            self.native_annots.insert(page, annots);
+        }
+        self.native_annots.get(&page).map(Vec::as_slice).unwrap_or(&[])
+    }
+
     /// Rasterize/convert the current page and upload it as a texture, if not
     /// already cached for this page.
     fn ensure_texture(&mut self, ctx: &egui::Context) {
@@ -886,6 +1035,16 @@ impl PdfReaderState {
                     } else {
                         painter.rect_filled(page_rect, 0.0, Color32::from_gray(235));
                     }
+                    // PDF-native annotations (`/Annots`) draw underneath
+                    // kovan's own, view-only here like everything else in
+                    // continuous mode — no hover tooltip.
+                    let page_annots = self.native_annotations_for_page(p).to_vec();
+                    draw_native_annotations(
+                        &painter,
+                        &page_annots,
+                        |pt: Pos2| page_rect.min + pt.to_vec2() * zoom,
+                        None,
+                    );
                     if let Some(anns) = self.annotations.get(&p) {
                         for ann in anns {
                             let min = page_rect.min + Vec2::new(ann.min.x, ann.min.y) * zoom;
@@ -1107,6 +1266,7 @@ impl PdfReaderState {
         let size = texture.size_vec2() * self.zoom;
         let zoom = self.zoom;
         let page_index = self.page_index;
+        let native_annots = self.native_annotations_for_page(page_index).to_vec();
         // Free scrolling in both directions (op-gv19's Okular-style ask) —
         // the whole page/image pans under a fixed viewport.
         egui::ScrollArea::both().show(ui, |ui| {
@@ -1222,6 +1382,14 @@ impl PdfReaderState {
                     .and_then(|anns| anns.get(i))
                     .map(|a| a.created_at.clone())
             });
+            // PDF-native annotations (`/Annots` — Okular highlights/notes
+            // and the like) draw underneath kovan's own annotation boxes.
+            let native_tooltip = draw_native_annotations(
+                &painter,
+                &native_annots,
+                to_screen,
+                response.hover_pos().map(to_image),
+            );
             if let Some(anns) = self.annotations.get(&page_index) {
                 for (i, ann) in anns.iter().enumerate() {
                     let is_hovered = hovered == Some(i);
@@ -1255,6 +1423,15 @@ impl PdfReaderState {
                     0.0,
                     Color32::from_rgba_unmultiplied(120, 230, 120, 50),
                 );
+            }
+            if let Some((text, anchor)) = native_tooltip {
+                let font = egui::FontId::proportional(12.0);
+                let galley = painter.layout_no_wrap(text, font, Color32::BLACK);
+                let box_rect =
+                    Rect::from_min_size(anchor - Vec2::new(0.0, galley.size().y + 6.0), galley.size() + Vec2::new(8.0, 6.0));
+                painter.rect_filled(box_rect, 3.0, Color32::from_rgba_unmultiplied(255, 250, 205, 235));
+                painter.rect_stroke(box_rect, 3.0, Stroke::new(1.0_f32, Color32::from_gray(120)), egui::StrokeKind::Middle);
+                painter.galley(box_rect.min + Vec2::new(4.0, 3.0), galley, Color32::BLACK);
             }
         });
 
