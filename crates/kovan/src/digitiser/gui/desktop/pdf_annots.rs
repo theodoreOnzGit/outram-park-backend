@@ -99,6 +99,59 @@ pub struct PdfAnnotation {
     pub author: String,
 }
 
+/// Structural, content-free dump of what this module sees on `page_index`,
+/// for the `KOVAN_ANNOT_DEBUG=1` diagnostic (see [`super::pdf_reader`]'s
+/// module doc). Reports which of [`read_page_annotations`]'s early-outs
+/// fires and how many raw `/Annots` entries survive each filtering step —
+/// the seam between "this page genuinely has no annotations" and "it has
+/// them but something here dropped them". Prints no annotation *content*.
+pub fn debug_describe_page(doc: &PdfDocument, page_index: usize) -> String {
+    let Ok(page) = doc.page(page_index).cloned() else {
+        return format!("page {page_index}: doc.page() FAILED");
+    };
+    let Some(annots_raw) = page.dict_gets("Annots") else {
+        let keys: Vec<String> = (0..page.dict_len())
+            .filter_map(|i| page.dict_get_key(i))
+            .map(|k| String::from_utf8_lossy(k).into_owned())
+            .collect();
+        return format!("page {page_index}: page dict has NO /Annots key; keys={keys:?}");
+    };
+    let is_ref = annots_raw.is_indirect();
+    let Ok(annots) = doc.resolve(annots_raw) else {
+        return format!("page {page_index}: /Annots present (indirect={is_ref}) but resolve() FAILED");
+    };
+    let n = annots.array_len();
+    let mut subtypes: Vec<String> = Vec::new();
+    let mut unresolvable = 0;
+    let mut non_dict = 0;
+    let mut flag_skipped = 0;
+    for i in 0..n {
+        let Some(entry) = annots.array_get(i) else { continue };
+        let Ok(annot) = doc.resolve(entry) else {
+            unresolvable += 1;
+            continue;
+        };
+        if !annot.is_dict() {
+            non_dict += 1;
+            continue;
+        }
+        let flags = doc.resolve_get(&annot, "F").map(|o| o.to_int()).unwrap_or(0);
+        if flags & (1 << 1) != 0 || flags & (1 << 5) != 0 {
+            flag_skipped += 1;
+        }
+        subtypes.push(
+            annot
+                .dict_gets("Subtype")
+                .map(|o| String::from_utf8_lossy(o.to_name()).into_owned())
+                .unwrap_or_else(|| "<none>".to_string()),
+        );
+    }
+    format!(
+        "page {page_index}: /Annots indirect={is_ref} array_len={n} unresolvable={unresolvable} \
+non_dict={non_dict} hidden_or_noview={flag_skipped} subtypes={subtypes:?}"
+    )
+}
+
 /// Read every visible annotation on page `page_index` (0-based), already
 /// mapped into `dpi`-scaled texture-pixel space. Skips an annotation whose
 /// `/F` flags mark it `Hidden` (bit 2) or `NoView` (bit 6) — the two flags
@@ -504,6 +557,54 @@ mod tests {
         assert!((a.opacity - 0.4).abs() < 1e-6);
         assert_eq!(a.contents, "hello");
         assert_eq!(a.author, "tester");
+    }
+
+    fn ink_page_doc() -> PdfDocument {
+        let annot = b"<< /Type /Annot /Subtype /Ink /Rect [40 40 160 160] \
+/InkList [[40 40 100 100 160 160] [50 150 150 50]] /C [1 0 0] /CA 1 /Border [0 0 2] >>";
+        let page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots [4 0 R] >>";
+        let bodies: [&[u8]; 4] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            page,
+            annot,
+        ];
+        PdfDocument::open(build_pdf(&bodies)).unwrap()
+    }
+
+    #[test]
+    fn ink_annotation_is_read_with_both_strokes() {
+        let doc = ink_page_doc();
+        let anns = read_page_annotations(&doc, 0, 72.0);
+        assert_eq!(anns.len(), 1, "expected exactly one annotation to be read");
+        let a = &anns[0];
+        assert_eq!(a.kind, AnnotationKind::Ink);
+        assert_eq!(a.strokes.len(), 2, "expected both InkList strokes");
+        assert_eq!(a.strokes[0].len(), 3);
+        assert_eq!(a.strokes[1].len(), 2);
+        assert_eq!(a.color, Some(Color32::from_rgb(255, 0, 0)));
+    }
+
+    /// A `/Annots` entry that is itself an indirect reference to an array
+    /// (rather than the array sitting inline in the page dict) — some
+    /// producers write it this way. `doc.resolve(annots)` in
+    /// `read_page_annotations` must follow that indirection.
+    #[test]
+    fn indirect_annots_array_is_resolved() {
+        let annot = b"<< /Type /Annot /Subtype /Ink /Rect [40 40 160 160] \
+/InkList [[40 40 100 100 160 160]] /C [1 0 0] >>";
+        let annots_arr = b"[5 0 R]";
+        let page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Annots 4 0 R >>";
+        let bodies: [&[u8]; 5] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            page,
+            annots_arr,
+            annot,
+        ];
+        let doc = PdfDocument::open(build_pdf(&bodies)).unwrap();
+        let anns = read_page_annotations(&doc, 0, 72.0);
+        assert_eq!(anns.len(), 1, "expected the indirect /Annots array to be resolved");
     }
 
     #[test]

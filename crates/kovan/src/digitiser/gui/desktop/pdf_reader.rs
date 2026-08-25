@@ -84,6 +84,17 @@
 //! exposed via `kovan-cli lit`) — this panel's structured-text use is
 //! strictly interactive, one page at a time, cached per page only for as
 //! long as that page stays open.
+//!
+//! ## Diagnosing "the annotation isn't visible" reports
+//!
+//! `KOVAN_ANNOT_DEBUG=1 kovan` makes [`draw_native_annotations`] trace every
+//! `/Annots` overlay call to stderr (kind, page-space rect, screen-space
+//! rect, and every Ink/Line stroke's point count) — this is the seam
+//! between "the data and geometry are right" (confirmed in the module test
+//! suite, including end-to-end through [`PdfReaderState::open`] +
+//! [`PdfReaderState::ui`], via egui's headless tessellator) and "the real
+//! GPU rendering path did something no headless test can see", which is
+//! exactly the split a maintainer report of this shape needs distinguished.
 
 use std::collections::HashMap;
 
@@ -436,10 +447,32 @@ fn draw_native_annotations(
     to_screen: impl Fn(Pos2) -> Pos2,
     hover_pos: Option<Pos2>,
 ) -> Option<(String, Pos2)> {
+    // Opt-in stderr trace (`KOVAN_ANNOT_DEBUG=1 kovan`) for diagnosing a
+    // "the code and every headless test say this should render, but I
+    // don't see it" report against a real file/window this crate has no
+    // way to inspect directly -- confirms whether the gap is upstream (no
+    // annotations reached this function at all, or with wrong geometry) or
+    // downstream (correct calls reach here, so the bug is in the real GPU
+    // rendering path, which no headless test here can exercise).
+    let debug = std::env::var_os("KOVAN_ANNOT_DEBUG").is_some();
+    if debug {
+        eprintln!("[kovan-annot-debug] draw_native_annotations: {} annotation(s) on this page", annots.len());
+    }
     let mut tooltip = None;
     for ann in annots {
         let color = ann.color.unwrap_or(Color32::from_rgb(230, 170, 20));
         let alpha = (ann.opacity * 255.0).round().clamp(0.0, 255.0) as u8;
+        if debug {
+            eprintln!(
+                "[kovan-annot-debug] kind={:?} page_rect={:?} strokes={} quads={} screen_rect=({:?}..{:?})",
+                ann.kind,
+                ann.rect,
+                ann.strokes.len(),
+                ann.quads.len(),
+                to_screen(ann.rect.0),
+                to_screen(ann.rect.1)
+            );
+        }
         match &ann.kind {
             AnnotationKind::Highlight => {
                 for quad in &ann.quads {
@@ -502,6 +535,9 @@ fn draw_native_annotations(
             AnnotationKind::Line | AnnotationKind::Ink => {
                 for stroke in &ann.strokes {
                     let pts: Vec<Pos2> = stroke.iter().map(|p| to_screen(*p)).collect();
+                    if debug {
+                        eprintln!("[kovan-annot-debug]   stroke: {} screen points, colour {color:?}", pts.len());
+                    }
                     painter.add(egui::Shape::line(pts, Stroke::new(1.5_f32, color)));
                 }
             }
@@ -1039,6 +1075,34 @@ impl PdfReaderState {
                     // kovan's own, view-only here like everything else in
                     // continuous mode — no hover tooltip.
                     let page_annots = self.native_annotations_for_page(p).to_vec();
+                    if std::env::var_os("KOVAN_ANNOT_DEBUG").is_some() {
+                        // Cached value vs. a fresh uncached read vs. the raw
+                        // /Annots structure — three numbers that between them
+                        // pin the fault to the cache, the reader, or the file.
+                        let (fresh, structure) = match &self.source {
+                            ReaderSource::Pdf(doc) => (
+                                Some(read_page_annotations(doc, p, RENDER_DPI).len()),
+                                Some(super::pdf_annots::debug_describe_page(doc, p)),
+                            ),
+                            _ => (None, None),
+                        };
+                        let file = std::path::Path::new(&self.path)
+                            .file_name()
+                            .map(|f| f.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        let bytes = match &self.source {
+                            ReaderSource::Pdf(doc) => Some(doc.raw_bytes().len()),
+                            _ => None,
+                        };
+                        eprintln!(
+                            "[kovan-annot-debug] continuous: file={file:?} bytes={bytes:?} page={p}/{} cached={} fresh_uncached={fresh:?}",
+                            self.source.page_count(),
+                            page_annots.len(),
+                        );
+                        if let Some(s) = structure {
+                            eprintln!("[kovan-annot-debug]   {s}");
+                        }
+                    }
                     draw_native_annotations(
                         &painter,
                         &page_annots,
@@ -1267,6 +1331,30 @@ impl PdfReaderState {
         let zoom = self.zoom;
         let page_index = self.page_index;
         let native_annots = self.native_annotations_for_page(page_index).to_vec();
+        if std::env::var_os("KOVAN_ANNOT_DEBUG").is_some() {
+            let (fresh, structure) = match &self.source {
+                ReaderSource::Pdf(doc) => (
+                    Some(read_page_annotations(doc, page_index, RENDER_DPI).len()),
+                    Some(super::pdf_annots::debug_describe_page(doc, page_index)),
+                ),
+                _ => (None, None),
+            };
+            let file = std::path::Path::new(&self.path)
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let bytes = match &self.source {
+                ReaderSource::Pdf(doc) => Some(doc.raw_bytes().len()),
+                _ => None,
+            };
+            eprintln!(
+                "[kovan-annot-debug] single-page: file={file:?} bytes={bytes:?} page_index={page_index} cached={} fresh_uncached={fresh:?}",
+                native_annots.len()
+            );
+            if let Some(s) = structure {
+                eprintln!("[kovan-annot-debug]   {s}");
+            }
+        }
         // Free scrolling in both directions (op-gv19's Okular-style ask) —
         // the whole page/image pans under a fixed viewport.
         egui::ScrollArea::both().show(ui, |ui| {
@@ -1673,6 +1761,271 @@ impl PdfReaderState {
 mod tests {
     use super::*;
     use kopitiam_pdf::mupdf::{Point, Quad, Rect as PdfRect, StextChar, StextLine, StextTextBlock};
+
+    /// Drives `draw_native_annotations` through egui's real (headless,
+    /// GPU-free) tessellation pipeline and checks it actually emits visible
+    /// (non-degenerate, correctly-coloured) geometry for an `Ink` stroke —
+    /// a synthetic-shape reproduction of a maintainer report ("still cannot
+    /// see freehand annotations") where the same point counts/rect/colour
+    /// as the real file were confirmed correct at the *data* layer
+    /// (`read_page_annotations`) but the on-screen result was reportedly
+    /// invisible; this test isolates the *drawing* layer instead.
+    #[test]
+    fn ink_stroke_tessellates_to_visible_blue_geometry() {
+        let strokes: Vec<Vec<Pos2>> = vec![
+            (0..177).map(|i| Pos2::new(832.0 + (i as f32 * 0.5), 1073.0 + (i as f32 % 20.0))).collect(),
+            (0..68).map(|i| Pos2::new(959.0 + (i as f32 * 0.2), 1119.0 + (i as f32 % 10.0))).collect(),
+        ];
+        let ann = PdfAnnotation {
+            kind: AnnotationKind::Ink,
+            rect: (Pos2::new(832.0, 1073.0), Pos2::new(983.0, 1253.0)),
+            quads: Vec::new(),
+            strokes,
+            color: Some(Color32::from_rgb(0, 0, 255)),
+            interior_color: None,
+            opacity: 1.0,
+            contents: String::new(),
+            author: String::new(),
+        };
+
+        let ctx = egui::Context::default();
+        let raw_input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1240.0, 1754.0))),
+            ..Default::default()
+        };
+        let output = ctx.run_ui(raw_input, |ui| {
+            let (rect, _resp) = ui.allocate_exact_size(Vec2::new(1240.0, 1754.0), Sense::hover());
+            let painter = ui.painter_at(rect);
+            draw_native_annotations(&painter, std::slice::from_ref(&ann), |p| p, None);
+        });
+        let clipped = ctx.tessellate(output.shapes, output.pixels_per_point);
+
+        let mut total_vertices = 0usize;
+        let mut blue_vertices = 0usize;
+        for prim in &clipped {
+            if let egui::epaint::Primitive::Mesh(mesh) = &prim.primitive {
+                total_vertices += mesh.vertices.len();
+                for v in &mesh.vertices {
+                    if v.color.b() > 200 && v.color.r() < 50 && v.color.g() < 50 && v.color.a() > 0 {
+                        blue_vertices += 1;
+                    }
+                }
+            }
+        }
+        assert!(total_vertices > 0, "no geometry was tessellated at all for the ink strokes");
+        assert!(
+            blue_vertices > 0,
+            "no opaque blue geometry was tessellated for the ink strokes (found {total_vertices} other vertices)"
+        );
+    }
+
+    /// Drives the **real** entry point (`PdfReaderState::open` +
+    /// `PdfReaderState::ui`, the exact pair `DigitiseApp::update` calls
+    /// every frame) through egui's headless tessellation pipeline, unlike
+    /// `ink_stroke_tessellates_to_visible_blue_geometry` above, which calls
+    /// `draw_native_annotations` directly and so cannot catch a bug in
+    /// `native_annotations_for_page`'s caching or in how `ui`/
+    /// `continuous_pages_ui` wire it in. Reproduces a maintainer report
+    /// (a real Ink/freehand annotation, confirmed visible in Okular and
+    /// confirmed present with correct geometry via `read_page_annotations`,
+    /// not appearing in a fresh `kovan` build) with a synthetic PDF built
+    /// entirely from spec-defined bytes — no personal data.
+    #[test]
+    fn open_and_ui_renders_a_real_ink_annotation_end_to_end() {
+        let content = b"<< /Length 40 >>\nstream\n0 0 0 rg 50 700 100 5 re f\nendstream";
+        let annot = b"<< /Type /Annot /Subtype /Ink /Rect [60 105 250 160] \
+/InkList [[60 110 100 150 150 120 200 155 250 110]] /C [0 0 1] /CA 1 /Border [0 0 2] /F 4 >>";
+        let page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Annots [5 0 R] >>";
+        let bodies: [&[u8]; 5] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            page,
+            content,
+            annot,
+        ];
+        let mut pdf: Vec<u8> = Vec::new();
+        pdf.extend_from_slice(b"%PDF-1.5\n");
+        let mut offsets = vec![0usize; bodies.len() + 1];
+        for (idx, body) in bodies.iter().enumerate() {
+            let num = idx + 1;
+            offsets[num] = pdf.len();
+            pdf.extend_from_slice(format!("{num} 0 obj\n").as_bytes());
+            pdf.extend_from_slice(body);
+            pdf.extend_from_slice(b"\nendobj\n");
+        }
+        let xref_ofs = pdf.len();
+        let size = bodies.len() + 1;
+        pdf.extend_from_slice(format!("xref\n0 {size}\n").as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for off in offsets.iter().skip(1) {
+            pdf.extend_from_slice(format!("{off:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!("trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{xref_ofs}\n%%EOF\n").as_bytes(),
+        );
+
+        let tmp = std::env::temp_dir().join(format!(
+            "kovan-pdf-annot-e2e-test-{}.pdf",
+            std::process::id()
+        ));
+        std::fs::write(&tmp, &pdf).unwrap();
+        let path = tmp.to_string_lossy().into_owned();
+
+        for continuous in [false, true] {
+            let mut state = PdfReaderState::new();
+            state.continuous_scroll = continuous;
+            state.open(&path);
+            assert!(matches!(state.source, ReaderSource::Pdf(_)), "PDF failed to open: {}", state.message);
+
+            let ctx = egui::Context::default();
+            let raw_input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(2000.0, 2000.0))),
+                ..Default::default()
+            };
+            // Two frames: the first triggers texture/thumbnail rasterization
+            // and the annotation-cache population; the second draws against
+            // that now-populated state, matching how a real app settles
+            // within a couple of frames after opening a file.
+            let _ = ctx.run_ui(raw_input.clone(), |ui| { let _ = state.ui(ui, || {}); });
+            let output = ctx.run_ui(raw_input, |ui| { let _ = state.ui(ui, || {}); });
+
+            let clipped = ctx.tessellate(output.shapes, output.pixels_per_point);
+            let mut blue_vertices = 0usize;
+            for prim in &clipped {
+                if let egui::epaint::Primitive::Mesh(mesh) = &prim.primitive {
+                    for v in &mesh.vertices {
+                        if v.color.b() > 200 && v.color.r() < 50 && v.color.g() < 50 && v.color.a() > 0 {
+                            blue_vertices += 1;
+                        }
+                    }
+                }
+            }
+            assert!(
+                blue_vertices > 0,
+                "continuous_scroll={continuous}: no blue ink geometry reached the tessellator through the real open()+ui() path (message={:?})",
+                state.message
+            );
+        }
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    /// Same real geometry shape as `open_and_ui_renders_a_real_ink_annotation_end_to_end`
+    /// but on a page that mixes 3 `Widget` (AcroForm field) annotations
+    /// ahead of 5 clustered `Ink` strokes in `/Annots` — matching a real
+    /// signed form's actual structure (3 text-field widgets + a 5-stroke
+    /// signature), to rule out a Widget-entry interaction bug the minimal
+    /// single-Ink fixture above can't catch.
+    #[test]
+    fn open_and_ui_renders_ink_mixed_with_widget_annotations() {
+        let content = b"<< /Length 40 >>\nstream\n0 0 0 rg 50 700 100 5 re f\nendstream";
+        let widget = |i: i32| -> Vec<u8> {
+            format!(
+                "<< /Type /Annot /Subtype /Widget /FT /Tx /Rect [{} 600 {} 620] /F 4 >>",
+                50 + i * 60,
+                100 + i * 60
+            )
+            .into_bytes()
+        };
+        // Real device-pixel rects from a real signed form, converted back to
+        // PDF points (/150dpi scale) -- geometry only, no personal content.
+        let ink_rects_pt: [(f32, f32, f32, f32); 5] = [
+            (375.2, 297.0, 402.2, 307.8),
+            (393.6, 279.0, 395.4, 299.8),
+            (403.0, 315.9, 428.5, 351.6),
+            (428.6, 283.5, 434.2, 295.4),
+            (407.9, 267.0, 464.6, 295.4),
+        ];
+        let ink = |r: (f32, f32, f32, f32)| -> Vec<u8> {
+            format!(
+                "<< /Type /Annot /Subtype /Ink /Rect [{} {} {} {}] \
+/InkList [[{} {} {} {} {} {}]] /C [0 0 1] /CA 1 /F 4 >>",
+                r.0, r.1, r.2, r.3,
+                r.0, r.1, (r.0 + r.2) / 2.0, r.3, r.2, r.1
+            )
+            .into_bytes()
+        };
+        let annots_ref = b"[5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R]";
+        let page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Annots 13 0 R >>";
+        let w0 = widget(0);
+        let w1 = widget(1);
+        let w2 = widget(2);
+        let i0 = ink(ink_rects_pt[0]);
+        let i1 = ink(ink_rects_pt[1]);
+        let i2 = ink(ink_rects_pt[2]);
+        let i3 = ink(ink_rects_pt[3]);
+        let i4 = ink(ink_rects_pt[4]);
+        let bodies: [&[u8]; 13] = [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            page,
+            content,
+            &w0,
+            &w1,
+            &w2,
+            &i0,
+            &i1,
+            &i2,
+            &i3,
+            &i4,
+            annots_ref,
+        ];
+        let mut pdf: Vec<u8> = Vec::new();
+        pdf.extend_from_slice(b"%PDF-1.5\n");
+        let mut offsets = vec![0usize; bodies.len() + 1];
+        for (idx, body) in bodies.iter().enumerate() {
+            let num = idx + 1;
+            offsets[num] = pdf.len();
+            pdf.extend_from_slice(format!("{num} 0 obj\n").as_bytes());
+            pdf.extend_from_slice(body);
+            pdf.extend_from_slice(b"\nendobj\n");
+        }
+        let xref_ofs = pdf.len();
+        let size = bodies.len() + 1;
+        pdf.extend_from_slice(format!("xref\n0 {size}\n").as_bytes());
+        pdf.extend_from_slice(b"0000000000 65535 f \n");
+        for off in offsets.iter().skip(1) {
+            pdf.extend_from_slice(format!("{off:010} 00000 n \n").as_bytes());
+        }
+        pdf.extend_from_slice(
+            format!("trailer\n<< /Size {size} /Root 1 0 R >>\nstartxref\n{xref_ofs}\n%%EOF\n").as_bytes(),
+        );
+
+        let tmp = std::env::temp_dir().join(format!(
+            "kovan-pdf-annot-mixed-e2e-test-{}.pdf",
+            std::process::id()
+        ));
+        std::fs::write(&tmp, &pdf).unwrap();
+        let path = tmp.to_string_lossy().into_owned();
+
+        let mut state = PdfReaderState::new();
+        state.open(&path);
+        assert!(matches!(state.source, ReaderSource::Pdf(_)), "PDF failed to open: {}", state.message);
+        let read_back = state.native_annotations_for_page(0);
+        assert_eq!(read_back.len(), 5, "expected all 5 Ink annotations to survive alongside the 3 Widgets");
+
+        let ctx = egui::Context::default();
+        let raw_input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(2000.0, 2000.0))),
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(raw_input.clone(), |ui| { let _ = state.ui(ui, || {}); });
+        let output = ctx.run_ui(raw_input, |ui| { let _ = state.ui(ui, || {}); });
+        let clipped = ctx.tessellate(output.shapes, output.pixels_per_point);
+        let mut blue_vertices = 0usize;
+        for prim in &clipped {
+            if let egui::epaint::Primitive::Mesh(mesh) = &prim.primitive {
+                for v in &mesh.vertices {
+                    if v.color.b() > 200 && v.color.r() < 50 && v.color.g() < 50 && v.color.a() > 0 {
+                        blue_vertices += 1;
+                    }
+                }
+            }
+        }
+        assert!(blue_vertices > 0, "no blue ink geometry reached the tessellator with Widgets present");
+
+        let _ = std::fs::remove_file(&tmp);
+    }
 
     fn stub_char(c: char) -> StextChar {
         let p = Point::new(0.0, 0.0);
