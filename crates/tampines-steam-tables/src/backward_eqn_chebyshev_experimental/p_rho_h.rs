@@ -63,22 +63,41 @@
 //! | 3 | 16 | 1.08e-4 | 3.25e-4 | 3.69e-4 |
 //! | 5 | 2100 | 2.15e-5 | 5.25e-5 | 1.31e-3 |
 //!
-//! **Limitation 1 — do not use this in subcooled liquid.** Region 1 is not
-//! merely less accurate, it is *intrinsically ill-conditioned*: liquid water
-//! is very nearly incompressible, so along an isotherm density barely moves
-//! while pressure changes by orders of magnitude. Inverting that mapping
-//! amplifies any error enormously — the worst state measured recovers a
-//! pressure a factor of ~4 out (1.0e-3 MPa read back as 4.2e-3 MPa at
-//! T = 280 K). This is a property of the state variables, not a defect in the
-//! fit, and no better fit can remove it. In subcooled liquid, carry pressure
-//! as a state variable or use an equation of state parameterised the other
-//! way.
+//! Region 4 is covered separately, over the two-phase dome, by a `(T, p, x)`
+//! sweep from the bubble point to the dew point — 1050 states over
+//! 280–645 K: median 2.20e-4, 90th percentile 1.34e-3, 99th 4.73e-3,
+//! maximum 1.77e-1.
 //!
-//! **Limitation 2 — Region 4 is untested.** The Region 4 surfaces are present
-//! but no verification test covers them, because two-phase states are not
-//! reachable through the single-phase `(T,p)` flash used to generate the test
-//! set. Region 4 is also the classifier's weakest case. Treat the two-phase
-//! path here as unverified.
+//! # The one real limitation: low pressure in the liquid-like corner
+//!
+//! `p(rho,h)` is **ill-conditioned wherever density stops responding to
+//! pressure**, which in practice means cold liquid at low pressure. Liquid
+//! water is very nearly incompressible, so along a low-pressure isotherm the
+//! density barely moves while pressure changes by orders of magnitude;
+//! inverting that mapping amplifies any error enormously. This is a property
+//! of the state variables, not a defect in the fit — **no better fit can
+//! remove it.**
+//!
+//! It is strongly pressure-dependent, so the blunt advice "do not use this in
+//! liquid" would be wrong. Region 1, by pressure decade (measured 2026-08-31,
+//! relative error as a percentage):
+//!
+//! | Pressure | n | median | 90th pct | max |
+//! |---|---|---|---|---|
+//! | 1e-3 – 1e-2 MPa | 15 | 88.2% | 220.7% | 318.5% |
+//! | 1e-2 – 1e-1 MPa | 32 | 6.77% | 20.3% | 29.4% |
+//! | 1e-1 – 1 MPa | 54 | 0.699% | 1.83% | 2.7% |
+//! | 1 – 10 MPa | 100 | 0.054% | 0.173% | 0.3% |
+//! | 10 – 100 MPa | 98 | 0.0072% | 0.017% | ~0.0% |
+//!
+//! So: **above ~1 MPa Region 1 is usable** (worst 0.3%, and 0.017% above
+//! 10 MPa, which covers ordinary power-cycle liquid conditions). **Below
+//! ~0.1 MPa it is not** — errors reach several hundred percent. Region 4's
+//! own worst case sits in the same corner (the 280 K bubble point, ~1e-3 MPa),
+//! for the same reason.
+//!
+//! If a caller must work in that corner, carry pressure as a state variable
+//! rather than recovering it from `(rho, h)`.
 //!
 //! The classifier itself was measured on the same sweep at **97.5% agreement**
 //! with the crate's forward dispatcher over single-phase states (Region 1
