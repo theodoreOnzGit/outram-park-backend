@@ -66,6 +66,17 @@ path = "src/bin/kovan-tui.rs"
 [dependencies]
 kovan-common.workspace = true
 kovan-discovery.workspace = true
+# `src/root.rs`'s library creation (op-9vo6.4, GitHub issue #35 §4): `gix::init`
+# to make a new Kovan library a real git repository, so a non-Git user gets a
+# valid `.git/` without learning Git. Already a workspace dependency —
+# `kovan-discovery` consumes it read-only — so this adds no new crate to the
+# tree, exactly as issue #35's own checklist predicted. NOTE: `gix::init` is
+# ungated (gix `lib.rs:295`), so no feature addition was needed here; the
+# write-feature question (`worktree-mutation`) arises at step 19's "Save
+# Repository" commit path, not at init. Pure Rust, so it stays Android/Termux
+# clean. DO NOT bump to gix 0.86 — its `gix-protocol ^0.64` pulls the fully
+# yanked `bisync ^0.3.0`; 0.87.1 is the safe target if a bump is ever needed.
+gix.workspace = true
 kovan-literature.workspace = true
 kovan-semantics.workspace = true
 kovan-codegen.workspace = true

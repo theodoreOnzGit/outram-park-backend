@@ -97,6 +97,12 @@ pub enum RootError {
     Toml { path: PathBuf, message: String },
     /// The root declares a `schema_version` this build does not understand.
     UnsupportedSchema { path: PathBuf, found: u32, supported: u32 },
+    /// [`KovanRoot::create`] was asked to create a library where one already
+    /// exists. Refused rather than overwritten — a `kovan_root.toml` is a
+    /// user's own configuration, never something to clobber.
+    AlreadyALibrary { path: PathBuf },
+    /// `git init` failed while creating a library (§4).
+    GitInit { path: PathBuf, message: String },
 }
 
 impl std::fmt::Display for RootError {
@@ -115,6 +121,14 @@ impl std::fmt::Display for RootError {
                  (supports {supported}) — upgrade Kovan to open this library",
                 path.display()
             ),
+            Self::AlreadyALibrary { path } => write!(
+                f,
+                "{}: already a Kovan library (has a {ROOT_MARKER}) — open it instead of creating it",
+                path.display()
+            ),
+            Self::GitInit { path, message } => {
+                write!(f, "{}: could not initialise a git repository: {message}", path.display())
+            }
         }
     }
 }
@@ -211,6 +225,50 @@ impl RootConfig {
     }
 }
 
+/// Render a repo-relative path as a gitignore pattern.
+///
+/// Gitignore syntax always uses `/` as its separator, on every platform, so a
+/// `PathBuf` cannot simply be `display()`ed — on Windows that yields `\` and
+/// silently produces a pattern that matches nothing. Components are rejoined
+/// explicitly. Compare bead `op-ocum`, the same class of bug in `kovan
+/// discover`'s output.
+fn gitignore_pattern(path: &Path) -> String {
+    let joined = path
+        .components()
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect::<Vec<_>>()
+        .join("/");
+    format!("/{}/", joined.trim_matches('/'))
+}
+
+/// The `.gitignore` a newly created library gets (§4).
+///
+/// Derived from `paths` rather than hard-coded, because the restricted-source
+/// location is configurable: a library that moves `restricted_sources`
+/// elsewhere must still have *that* directory ignored. Hard-coding
+/// `/literature/proprietary/` would silently leave restricted PDFs
+/// committable in any library that customised the layout — the exact failure
+/// §4 exists to prevent.
+///
+/// Covers the three categories §4 requires: Kovan's disposable derived state,
+/// restricted source documents, and editor/temporary files.
+pub fn gitignore_for(paths: &RootPaths) -> String {
+    format!(
+        "# Kovan derived/local state — fully rebuildable, safe to delete\n\
+         {state}\n\
+         \n\
+         # Restricted source documents — MUST NOT be committed (see DATA_POLICY.md)\n\
+         {restricted}\n\
+         \n\
+         # Temporary/editor files\n\
+         *.tmp\n\
+         *.swp\n\
+         *~\n",
+        state = gitignore_pattern(Path::new(STATE_DIR)),
+        restricted = gitignore_pattern(&paths.restricted_sources),
+    )
+}
+
 /// An opened Kovan library: its root directory plus its validated config.
 ///
 /// Construct with [`KovanRoot::open`] (an exact directory) or
@@ -284,6 +342,101 @@ impl KovanRoot {
             cursor = dir.parent();
         }
         Err(RootError::NotAKovanRoot { start: start.to_path_buf() })
+    }
+
+    /// Create a new Kovan library at `dir` and open it (§4, §46's "Create
+    /// library" acceptance scenario).
+    ///
+    /// `dir` is created if it does not exist. The conventional skeleton is
+    /// laid out from `config.paths` — papers, topics, projects, and both
+    /// source-storage directories — then `kovan_root.toml` is written, then a
+    /// `.gitignore`, then (when `init_git`) a git repository is initialised.
+    /// The point is that a user who has never used Git gets a valid repository
+    /// without being asked anything about it.
+    ///
+    /// # Safety of the `.gitignore` step
+    ///
+    /// The restricted-source directory **must** end up ignored, or restricted
+    /// PDFs become committable. Two cases are handled:
+    ///
+    /// - No `.gitignore` — one is written from [`gitignore_for`].
+    /// - A `.gitignore` already exists — it is **not** clobbered (it may be the
+    ///   user's own), but if it lacks the restricted-source pattern, that
+    ///   pattern is appended. Refusing to touch it would silently leave
+    ///   restricted documents exposed.
+    ///
+    /// # `init_git`
+    ///
+    /// Pass `true` for the normal path. It is a no-op when `dir` is already
+    /// inside a repository of its own (a `.git` entry is present), so creating
+    /// a library inside an existing checkout does not nest a second repository
+    /// by surprise. Pass `false` to create the files without Git — used by
+    /// tests, and by a caller that intends to wire up version control itself.
+    ///
+    /// # Errors
+    ///
+    /// [`RootError::AlreadyALibrary`] if `dir` already has a marker — an
+    /// existing library is opened, never overwritten. [`RootError::Io`] for
+    /// any filesystem failure, [`RootError::Toml`] if the config cannot be
+    /// serialised, and [`RootError::GitInit`] if `git init` fails.
+    pub fn create(dir: &Path, config: RootConfig, init_git: bool) -> Result<Self, RootError> {
+        if Self::is_root(dir) {
+            return Err(RootError::AlreadyALibrary { path: dir.to_path_buf() });
+        }
+
+        let io_err = |path: &Path| {
+            let path = path.to_path_buf();
+            move |source| RootError::Io { path: path.clone(), source }
+        };
+
+        std::fs::create_dir_all(dir).map_err(io_err(dir))?;
+
+        // Skeleton, straight from the configured layout — never hard-coded, so
+        // a customised `[paths]` produces the directories it actually names.
+        for rel in [
+            &config.paths.papers,
+            &config.paths.topics,
+            &config.paths.projects,
+            &config.paths.open_sources,
+            &config.paths.restricted_sources,
+        ] {
+            let abs = dir.join(rel);
+            std::fs::create_dir_all(&abs).map_err(io_err(&abs))?;
+        }
+
+        let marker = dir.join(ROOT_MARKER);
+        let toml_text = config
+            .to_toml()
+            .map_err(|message| RootError::Toml { path: marker.clone(), message })?;
+        std::fs::write(&marker, toml_text).map_err(io_err(&marker))?;
+
+        let gitignore = dir.join(".gitignore");
+        let generated = gitignore_for(&config.paths);
+        if gitignore.exists() {
+            let existing = std::fs::read_to_string(&gitignore).map_err(io_err(&gitignore))?;
+            let restricted = gitignore_pattern(&config.paths.restricted_sources);
+            if !existing.lines().any(|l| l.trim() == restricted) {
+                let mut merged = existing;
+                if !merged.ends_with('\n') && !merged.is_empty() {
+                    merged.push('\n');
+                }
+                merged.push_str(&format!(
+                    "\n# Restricted source documents — added by Kovan (see DATA_POLICY.md)\n{restricted}\n"
+                ));
+                std::fs::write(&gitignore, merged).map_err(io_err(&gitignore))?;
+            }
+        } else {
+            std::fs::write(&gitignore, generated).map_err(io_err(&gitignore))?;
+        }
+
+        if init_git && !dir.join(".git").exists() {
+            gix::init(dir).map_err(|e| RootError::GitInit {
+                path: dir.to_path_buf(),
+                message: e.to_string(),
+            })?;
+        }
+
+        Self::open(dir)
     }
 
     /// The library's root directory, as given to [`open`](Self::open) or found
@@ -589,6 +742,133 @@ name = "Inner"
                 .join("wang2018multiphysics")
                 .join("wang2018multiphysics.md")
         );
+    }
+
+    // ---------------------------------------------------------------
+    // create (§4 / §46 "Create library")
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn create_lays_out_the_skeleton_and_opens() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("my-kovan");
+        let root =
+            KovanRoot::create(&dir, RootConfig::new("reactor-literature", "Reactor Lit"), false)
+                .unwrap();
+
+        assert_eq!(root.path(), dir);
+        assert_eq!(root.config().library.id, "reactor-literature");
+        for d in [
+            root.papers_dir(),
+            root.topics_dir(),
+            root.projects_dir(),
+            root.open_sources_dir(),
+            root.restricted_sources_dir(),
+        ] {
+            assert!(d.is_dir(), "{} should exist", d.display());
+        }
+        assert!(root.marker_path().is_file());
+        assert!(dir.join(".gitignore").is_file());
+    }
+
+    #[test]
+    fn create_makes_a_real_git_repository() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        let root = KovanRoot::create(&dir, RootConfig::new("lib", "Lib"), true).unwrap();
+
+        // §46: a non-Git user gets a valid `.git/` without learning Git.
+        assert!(root.has_git(), "create(init_git = true) must produce a repository");
+        assert!(dir.join(".git").is_dir());
+        // And it must be openable as one, not merely a directory named .git.
+        assert!(gix::open(&dir).is_ok(), "gix should open the created repository");
+    }
+
+    #[test]
+    fn create_refuses_to_overwrite_an_existing_library() {
+        let tmp = tempfile::tempdir().unwrap();
+        seed_root(tmp.path(), MINIMAL);
+        let err =
+            KovanRoot::create(tmp.path(), RootConfig::new("other", "Other"), false).unwrap_err();
+        assert!(matches!(err, RootError::AlreadyALibrary { .. }), "{err}");
+        // The original marker is untouched.
+        let root = KovanRoot::open(tmp.path()).unwrap();
+        assert_eq!(root.config().library.id, "reactor-literature");
+    }
+
+    #[test]
+    fn generated_gitignore_covers_state_restricted_and_temp_files() {
+        let gi = gitignore_for(&RootPaths::default());
+        assert!(gi.contains("/.kovan/"), "{gi}");
+        assert!(gi.contains("/literature/proprietary/"), "{gi}");
+        assert!(gi.contains("*.tmp"), "{gi}");
+        assert!(gi.contains("*.swp"), "{gi}");
+        assert!(gi.contains("*~"), "{gi}");
+    }
+
+    #[test]
+    fn gitignore_follows_a_customised_restricted_path() {
+        // The whole point of deriving it: a library that relocates its
+        // restricted storage must have THAT directory ignored, not the
+        // conventional one it no longer uses.
+        let paths = RootPaths {
+            restricted_sources: PathBuf::from("secret/closed-access"),
+            ..RootPaths::default()
+        };
+        let gi = gitignore_for(&paths);
+        assert!(gi.contains("/secret/closed-access/"), "{gi}");
+        assert!(!gi.contains("/literature/proprietary/"), "{gi}");
+    }
+
+    #[test]
+    fn gitignore_patterns_use_forward_slashes_on_every_platform() {
+        // Gitignore syntax is `/`-separated everywhere; a Windows-style
+        // separator would produce a pattern matching nothing (cf. op-ocum).
+        let pattern = gitignore_pattern(Path::new("literature").join("proprietary").as_path());
+        assert_eq!(pattern, "/literature/proprietary/");
+        assert!(!pattern.contains('\\'), "{pattern}");
+    }
+
+    #[test]
+    fn create_appends_to_an_existing_gitignore_rather_than_clobbering_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(".gitignore"), "# the user's own rules\n*.bak\n").unwrap();
+
+        KovanRoot::create(&dir, RootConfig::new("lib", "Lib"), false).unwrap();
+
+        let gi = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        // The user's rules survive ...
+        assert!(gi.contains("*.bak"), "{gi}");
+        assert!(gi.contains("# the user's own rules"), "{gi}");
+        // ... and restricted sources are ignored regardless.
+        assert!(gi.contains("/literature/proprietary/"), "{gi}");
+    }
+
+    #[test]
+    fn create_does_not_duplicate_a_restricted_rule_that_is_already_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(".gitignore"), "/literature/proprietary/\n").unwrap();
+
+        KovanRoot::create(&dir, RootConfig::new("lib", "Lib"), false).unwrap();
+
+        let gi = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert_eq!(gi.matches("/literature/proprietary/").count(), 1, "{gi}");
+    }
+
+    #[test]
+    fn create_inside_an_existing_repository_does_not_nest_a_second_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let outer = tmp.path();
+        gix::init(outer).unwrap();
+        // A library created at the repository root must reuse that repository.
+        let root = KovanRoot::create(outer, RootConfig::new("lib", "Lib"), true).unwrap();
+        assert!(root.has_git());
+        // Still exactly one repository — `create` saw `.git` and stood down.
+        assert!(outer.join(".git").is_dir());
     }
 
     #[test]
