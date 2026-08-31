@@ -22,7 +22,12 @@ categories.workspace = true
 # `figures/` holds regenerable output from the `tampines-steam-tables-gui`
 # example (`--export-all` rewrites all 20 files in seconds). It is tens of
 # megabytes and is not crate content.
-exclude = ["docs", "verification_and_validation/*.csv", "figures"]
+exclude = [
+    "docs",
+    "verification_and_validation/*.csv",
+    "verification_and_validation/**/*.csv",
+    "figures",
+]
 
 [dependencies]
 approx.workspace = true

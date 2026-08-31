@@ -3,9 +3,11 @@
 //! The diagnostic tests in this module tree measure the experimental
 //! correlations against IAPWS-traceable references. Rather than leaving those
 //! numbers only in stderr, each diagnostic writes a self-contained markdown
-//! report into `verification_and_validation/generated/`, which is gitignored:
-//! the reports are **regenerable output**, not source, and the committed
-//! write-ups alongside them are hand-authored.
+//! report into `verification_and_validation/generated/`. Those reports are
+//! **committed**, alongside the hand-written write-ups in the parent directory:
+//! the markdown is the durable record. They are still regenerable output rather
+//! than source, so each carries a "do not hand-edit" banner naming the command
+//! that rewrites it.
 //!
 //! Every report records both methodology and results, per the workspace V&V
 //! documentation rule, and carries the standing caveat that these correlations

@@ -16,18 +16,13 @@ Cargo.lock
 # Upstream reference clones (if ever added here) -- never committed.
 /upstream_source/*/
 
-# V&V raw data -- the hand-written .md write-ups in verification_and_validation/
-# are committed; standalone .csv data files they reference are not.
+# V&V raw data. Every .md write-up in verification_and_validation/ is committed
+# -- both the hand-written ones and the machine-generated reports under
+# generated/ -- because the narrative and the numbers are the durable record and
+# stay small. Standalone .csv data files are NOT committed, at any depth:
+# regenerate them by re-running the test or example that produced them.
 /verification_and_validation/*.csv
-
-# Machine-generated V&V reports, written by the diagnostic tests in
-# src/backward_eqn_chebyshev_experimental/tests/. Regenerable in seconds with:
-#
-#   cargo test --release -p tampines-steam-tables --lib backward_eqn_chebyshev_experimental
-#
-# They are output, not source -- the committed .md files above are hand-authored,
-# these are not, and they carry a "do not hand-edit" banner saying so.
-/verification_and_validation/generated/
+/verification_and_validation/**/*.csv
 
 # Generated output of the `steam_table_plotter` example (GitHub issue #26).
 # Regenerate the whole directory in a few seconds with:
