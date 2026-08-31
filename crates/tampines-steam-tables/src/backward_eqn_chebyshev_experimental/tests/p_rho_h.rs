@@ -35,10 +35,14 @@ use crate::interfaces::functional_programming::pt_flash_eqm::{
 };
 use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
 
-/// One generated single-phase state, with the correlation's error on it.
+use super::vv_report::{percentile_cells, VvReport};
+
+/// One generated state, with the correlation's error on it.
 struct SamplePoint {
     region: RhoHRegion,
     t_kelvin: f64,
+    /// Vapour quality, for two-phase states; `None` for single-phase ones.
+    quality: Option<f64>,
     rho_kg_m3: f64,
     h_kj_kg: f64,
     p_reference_mpa: f64,
@@ -116,6 +120,7 @@ fn generate_sample_points(n_p: usize, n_t: usize) -> Vec<SamplePoint> {
             out.push(SamplePoint {
                 region,
                 t_kelvin,
+                quality: None,
                 rho_kg_m3,
                 h_kj_kg,
                 p_reference_mpa: p_mpa,
@@ -185,10 +190,10 @@ fn diagnose_p_rho_h_error() {
     }
 
     // worst offender, to make a regression diagnosable
-    if let Some(worst) = points
+    let worst = points
         .iter()
-        .max_by(|a, b| a.relative_error().partial_cmp(&b.relative_error()).unwrap())
-    {
+        .max_by(|a, b| a.relative_error().partial_cmp(&b.relative_error()).unwrap());
+    if let Some(worst) = worst {
         eprintln!(
             "  worst: {:?} at T = {:.2} K, rho = {:.4} kg/m3, h = {:.2} kJ/kg, \
              p_ref = {:.5} MPa, p_fit = {:.5} MPa",
@@ -200,6 +205,88 @@ fn diagnose_p_rho_h_error() {
             worst.p_fitted_mpa
         );
     }
+
+    let mut rows = Vec::new();
+    for region in [
+        RhoHRegion::Region1,
+        RhoHRegion::Region2,
+        RhoHRegion::Region3,
+        RhoHRegion::Region5,
+    ] {
+        let mut errors: Vec<f64> = points
+            .iter()
+            .filter(|point| point.region == region)
+            .map(SamplePoint::relative_error)
+            .collect();
+        if errors.is_empty() {
+            continue;
+        }
+        let mut row = vec![format!("{region:?}"), errors.len().to_string()];
+        row.extend(percentile_cells(&mut errors, false));
+        rows.push(row);
+    }
+
+    let mut report = VvReport::new(
+        "p_rho_h_single_phase",
+        "p(rho,h) across the single-phase regions",
+    );
+    report
+        .section("Methodology")
+        .paragraph(
+            "IAPWS-IF97 publishes no `(rho,h)` backward equations, so the reference \
+             is this crate's own forward equations. A 60 x 60 `(p, T)` grid is swept \
+             — pressure log-spaced 1e-3 to 50 MPa, temperature linear 280 to 2200 K. \
+             At each node the crate's dispatcher `region_fwd_eqn_single_phase` labels \
+             the region, `v_tp_eqm_single_phase` and `h_tp_eqm_single_phase` give \
+             specific volume and enthalpy, and density is the reciprocal of specific \
+             volume. The correlation must then recover the originating pressure from \
+             `(rho, h)` alone.",
+        )
+        .paragraph(
+            "The region is **supplied** to the correlation here rather than \
+             classified, so this measures the fitted surfaces in isolation, with the \
+             statistical classifier out of the loop. Region 4 is covered separately \
+             (see the two-phase dome report), because two-phase states are not \
+             reachable through a single-phase `(T,p)` flash.",
+        )
+        .section("Results")
+        .paragraph("Relative error in the recovered pressure, by region:")
+        .table(
+            &["Region", "n", "median", "90th pct", "99th pct", "maximum"],
+            &rows,
+        );
+
+    if let Some(worst) = worst {
+        report.paragraph(&format!(
+            "Worst single state: {:?} at T = {:.2} K, rho = {:.4} kg/m3, \
+             h = {:.2} kJ/kg — reference {:.5} MPa, recovered {:.5} MPa.",
+            worst.region,
+            worst.t_kelvin,
+            worst.rho_kg_m3,
+            worst.h_kj_kg,
+            worst.p_reference_mpa,
+            worst.p_fitted_mpa
+        ));
+    }
+
+    report
+        .section("Interpretation")
+        .paragraph(
+            "Regions 2, 3 and 5 recover pressure tightly. Region 1 does not, and its \
+             error is dominated by the low-pressure end rather than by liquid as \
+             such — see the Region 1 conditioning report for the breakdown by \
+             pressure decade, which is the number that should drive any decision \
+             about using this in liquid.",
+        )
+        .paragraph(
+            "Region 3's sample is small (the `(p,T)` sweep grazes it), so its \
+             statistics are the least well supported here.",
+        );
+
+    report.write(
+        "cargo test --release -p tampines-steam-tables --lib \\\n\
+         >   backward_eqn_chebyshev_experimental::tests::p_rho_h",
+    );
 }
 
 /// Verifies the `p(rho,h)` correlations reproduce the originating pressure for
@@ -310,26 +397,87 @@ fn diagnose_p_rho_h_region_1_percentage_error() {
     );
 
     eprintln!("  by pressure decade:");
+    let mut rows = Vec::new();
     for (lo, hi, label) in [
-        (1.0e-3, 1.0e-2, "1e-3..1e-2 MPa"),
-        (1.0e-2, 1.0e-1, "1e-2..1e-1 MPa"),
-        (1.0e-1, 1.0e0, "1e-1..1    MPa"),
-        (1.0e0, 1.0e1, "1   ..10   MPa"),
-        (1.0e1, 1.0e2, "10  ..100  MPa"),
+        (1.0e-3, 1.0e-2, "1e-3 – 1e-2 MPa"),
+        (1.0e-2, 1.0e-1, "1e-2 – 1e-1 MPa"),
+        (1.0e-1, 1.0e0, "1e-1 – 1 MPa"),
+        (1.0e0, 1.0e1, "1 – 10 MPa"),
+        (1.0e1, 1.0e2, "10 – 100 MPa"),
     ] {
-        let bin: Vec<f64> = region_1
+        let mut bin: Vec<f64> = region_1
             .iter()
             .filter(|point| point.p_reference_mpa >= lo && point.p_reference_mpa < hi)
-            .map(|point| 100.0 * point.relative_error())
+            .map(|point| point.relative_error())
             .collect();
         if bin.is_empty() {
             eprintln!("    {label}: no states");
             continue;
         }
         let n = bin.len();
-        let (p50, p90, _p99, max) = percentiles(bin);
+        let (p50, p90, _p99, max) = percentiles(bin.iter().map(|e| 100.0 * e).collect());
         eprintln!("    {label}: n = {n:4}, p50 = {p50:9.4}%, p90 = {p90:9.3}%, max = {max:9.1}%");
+
+        let mut row = vec![label.to_string(), n.to_string()];
+        row.extend(percentile_cells(&mut bin, true));
+        rows.push(row);
     }
+
+    let mut report = VvReport::new(
+        "p_rho_h_region_1_conditioning",
+        "p(rho,h) in Region 1: conditioning of the pressure inversion",
+    );
+    report
+        .section("Why this report exists")
+        .paragraph(
+            "Region 1 is the weakest case for `p(rho,h)`, and an aggregate statistic \
+             badly misrepresents it. The error is overwhelmingly a **low-pressure** \
+             effect rather than a liquid effect, and the difference matters: the \
+             blunt reading (\"do not use this in subcooled liquid\") would rule out \
+             ordinary power-cycle conditions where the correlation is in fact \
+             accurate.",
+        )
+        .section("Methodology")
+        .paragraph(
+            "The Region 1 subset of the standard single-phase sweep (60 x 60 over \
+             `(p, T)`; see the single-phase report for how states are generated), \
+             with the relative error in recovered pressure binned by pressure decade \
+             and expressed as a percentage.",
+        )
+        .section("Results")
+        .paragraph("Relative error in recovered pressure, by pressure decade:")
+        .table(
+            &["Pressure", "n", "median", "90th pct", "99th pct", "maximum"],
+            &rows,
+        )
+        .section("Interpretation")
+        .paragraph(
+            "The inversion is ill-conditioned wherever density stops responding to \
+             pressure. Liquid water is very nearly incompressible, so along a \
+             low-pressure isotherm density barely moves while pressure changes by \
+             orders of magnitude, and recovering pressure from density amplifies any \
+             error enormously. **This is a property of the state variables, not a \
+             defect in the fit — no better fit can remove it.**",
+        )
+        .paragraph(
+            "Practical guidance: above roughly 1 MPa Region 1 recovers pressure to \
+             better than a few tenths of a percent, and better still above 10 MPa, \
+             which covers ordinary power-cycle liquid conditions. Below roughly \
+             0.1 MPa it should not be used — carry pressure as a state variable \
+             there instead.",
+        )
+        .paragraph(
+            "The same corner is where the Region 4 two-phase sweep has its own worst \
+             point (the 280 K bubble point, around 1e-3 MPa). That two independent \
+             sweeps agree on the location of the difficulty is corroboration that the \
+             explanation is the conditioning of the state variables rather than a \
+             local defect in one fitted surface.",
+        );
+
+    report.write(
+        "cargo test --release -p tampines-steam-tables --lib \\\n\
+         >   backward_eqn_chebyshev_experimental::tests::p_rho_h",
+    );
 }
 
 /// Records that `p(rho,h)` is intrinsically ill-conditioned in Region 1, and
@@ -447,6 +595,7 @@ fn generate_two_phase_sample_points(n_t: usize, n_x: usize) -> Vec<SamplePoint> 
             out.push(SamplePoint {
                 region: RhoHRegion::Region4,
                 t_kelvin,
+                quality: Some(quality),
                 rho_kg_m3,
                 h_kj_kg,
                 p_reference_mpa,
@@ -489,10 +638,10 @@ fn diagnose_p_rho_h_region_4_over_the_dome() {
         points.len()
     );
 
-    if let Some(worst) = points
+    let worst = points
         .iter()
-        .max_by(|a, b| a.relative_error().partial_cmp(&b.relative_error()).unwrap())
-    {
+        .max_by(|a, b| a.relative_error().partial_cmp(&b.relative_error()).unwrap());
+    if let Some(worst) = worst {
         eprintln!(
             "  worst: T_sat = {:.2} K, rho = {:.5} kg/m3, h = {:.2} kJ/kg, \
              p_ref = {:.6} MPa, p_fit = {:.6} MPa",
@@ -503,6 +652,99 @@ fn diagnose_p_rho_h_region_4_over_the_dome() {
             worst.p_fitted_mpa
         );
     }
+
+    let mut all: Vec<f64> = points.iter().map(SamplePoint::relative_error).collect();
+    let mut rows = vec![{
+        let mut row = vec!["all qualities".to_string(), points.len().to_string()];
+        row.extend(percentile_cells(&mut all, false));
+        row
+    }];
+    for (lo, hi, label) in [
+        (0.0, 0.05, "bubble point (x < 0.05)"),
+        (0.05, 0.95, "interior (0.05 <= x < 0.95)"),
+        (0.95, 1.01, "dew point (x >= 0.95)"),
+    ] {
+        let mut bin: Vec<f64> = points
+            .iter()
+            .filter(|point| {
+                point
+                    .quality
+                    .is_some_and(|quality| quality >= lo && quality < hi)
+            })
+            .map(SamplePoint::relative_error)
+            .collect();
+        if bin.is_empty() {
+            continue;
+        }
+        let mut row = vec![label.to_string(), bin.len().to_string()];
+        row.extend(percentile_cells(&mut bin, false));
+        rows.push(row);
+    }
+
+    let mut report = VvReport::new(
+        "p_rho_h_region_4_two_phase_dome",
+        "p(rho,h) in Region 4, across the two-phase dome",
+    );
+    report
+        .section("Methodology")
+        .paragraph(
+            "Region 4 cannot be reached through the single-phase `(T,p)` flash used \
+             for the other regions, because a `(T,p)` pair on the saturation line is \
+             underdetermined without a quality. States are therefore generated with \
+             the crate's two-phase `(T,p,x)` flashes.",
+        )
+        .paragraph(
+            "For each saturation temperature the reference pressure is the IAPWS \
+             `sat_pressure_4(T_sat)`; `v_tp_eqm_two_phase` and `h_tp_eqm_two_phase` \
+             give the mixture specific volume and enthalpy at a given quality, and \
+             density is the reciprocal of specific volume. The correlation must \
+             recover the saturation pressure from `(rho, h)` alone.",
+        )
+        .paragraph(
+            "Grid: 50 saturation temperatures over 280-645 K against 21 qualities \
+             from 0 to 1 inclusive, so both saturation boundaries are exercised — \
+             the bubble point at x = 0 and the dew point at x = 1. The upper \
+             temperature stops short of the critical point (647.096 K), where the \
+             two phases merge and the flash degenerates.",
+        )
+        .section("Results")
+        .paragraph("Relative error in the recovered saturation pressure:")
+        .table(
+            &["Subset", "n", "median", "90th pct", "99th pct", "maximum"],
+            &rows,
+        );
+
+    if let Some(worst) = worst {
+        report.paragraph(&format!(
+            "Worst single state: T_sat = {:.2} K, rho = {:.5} kg/m3, \
+             h = {:.2} kJ/kg — reference {:.6} MPa, recovered {:.6} MPa.",
+            worst.t_kelvin,
+            worst.rho_kg_m3,
+            worst.h_kj_kg,
+            worst.p_reference_mpa,
+            worst.p_fitted_mpa
+        ));
+    }
+
+    report
+        .section("Interpretation")
+        .paragraph(
+            "The Region 4 surfaces reproduce IAPWS saturation pressure well across \
+             the bulk of the dome, and the sweep covers both saturation boundaries, \
+             so this region is no longer an untested part of the correlation set.",
+        )
+        .paragraph(
+            "The worst states sit at the cold, low-pressure end of the dome, near \
+             the bubble point — the same corner that dominates the Region 1 error, \
+             and for the same reason: at low pressure a liquid-like density carries \
+             almost no information about pressure, so the inversion is \
+             ill-conditioned there. See the Region 1 conditioning report.",
+        );
+
+    report.write(
+        "cargo test --release -p tampines-steam-tables --lib \\\n\
+         >   backward_eqn_chebyshev_experimental::tests::p_rho_h",
+    );
 }
 
 /// Verifies the Region 4 `p(rho,h)` surfaces across the two-phase dome, from

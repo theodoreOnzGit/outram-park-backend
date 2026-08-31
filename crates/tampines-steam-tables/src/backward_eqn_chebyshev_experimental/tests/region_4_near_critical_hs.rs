@@ -37,6 +37,8 @@ use crate::backward_eqn_chebyshev_experimental::{
 use crate::interfaces::functional_programming::ph_flash_eqm::{s_ph_eqm, x_ph_flash};
 use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
 
+use super::vv_report::{percentile_cells, VvReport};
+
 /// Near-critical band the correlations were fitted over.
 const T_LO_K: f64 = 623.15;
 const T_HI_K: f64 = 647.04;
@@ -164,6 +166,75 @@ fn diagnose_region_4_near_critical_pressure_error() {
             point.relative_error()
         );
     }
+
+    let mut report = VvReport::new(
+        "region_4_near_critical_p_hs",
+        "Near-critical Region 4 (h,s) flash: p(h,s)",
+    );
+    report
+        .section("Methodology")
+        .paragraph(
+            "The reference here is IAPWS-traceable: this crate's IAPWS Region 4 \
+             saturation-pressure equation `sat_pressure_4(T_sat)`. The correlation \
+             must recover that pressure from an `(h, s)` pair alone.",
+        )
+        .paragraph(
+            "Test states are generated **forwards**, which matters. Sweeping the \
+             `(h,s)` fit bounding box directly does not work: the box is a bounding \
+             box, not the valid domain — real near-critical two-phase states occupy \
+             a curved wedge inside it, and most `(h,s)` pairs drawn from the box are \
+             not two-phase states at all. So instead: pick a saturation temperature \
+             in the fitted band, take the reference pressure from `sat_pressure_4`, \
+             pick an enthalpy between the fitted saturated-liquid and saturated-\
+             vapour branches, take the matching entropy from this crate's IAPWS \
+             `(p,h)` flash `s_ph_eqm`, and confirm the state is genuinely two-phase \
+             with `x_ph_flash`.",
+        )
+        .paragraph(&format!(
+            "Grid: 40 saturation temperatures across 623.15-647.04 K against 20 \
+             qualities spanning 0.05-0.95, giving {} usable two-phase states. \
+             Qualities are kept off the exact endpoints, where the flash is \
+             ill-conditioned.",
+            points.len()
+        ))
+        .section("Results")
+        .paragraph("Relative error in the recovered saturation pressure:")
+        .table(
+            &["Statistic", "median", "90th pct", "99th pct", "maximum"],
+            &[{
+                let mut row = vec!["relative error in p".to_string()];
+                row.extend(percentile_cells(&mut errors.clone(), false));
+                row
+            }],
+        )
+        .section("Interpretation")
+        .paragraph(
+            "On genuine two-phase states the correlation reproduces the IAPWS \
+             saturation pressure closely, and this is a real comparison against \
+             IAPWS rather than a self-consistency check.",
+        )
+        .paragraph(
+            "**The sharp edge is the domain, not the accuracy.** `p(h,s)` is fitted \
+             in `log(p)` with coefficients of order 1e4 that cancel to give a \
+             `log(p)` of order 3 on the two-phase wedge. Off the wedge that \
+             cancellation does not happen and the exponential runs away — sampling \
+             the bounding box uniformly has produced pressures as large as 1e71 MPa. \
+             An absurd result from this function almost certainly means the input \
+             `(h,s)` pair is not a near-critical two-phase state, not that the fit \
+             is broken. Callers must establish that before calling; the function \
+             does not validate its input.",
+        )
+        .paragraph(
+            "Not covered here: the companion quality correlation `x(h,s)`, which has \
+             no accuracy measurement of its own. Its lever rule is inherently \
+             ill-conditioned approaching the critical point, where `h_g - h_f` tends \
+             to zero.",
+        );
+
+    report.write(
+        "cargo test --release -p tampines-steam-tables --lib \\\n\
+         >   backward_eqn_chebyshev_experimental::tests::region_4",
+    );
 }
 
 /// Verifies the experimental `p(h,s)` correlation against the crate's IAPWS

@@ -52,6 +52,36 @@ interpretation of what the numbers mean and whether the pass criterion was met.
   **gitignored** (see `.gitignore`) and **excluded from `cargo publish`** (see
   `Cargo.toml`'s `exclude`). Regenerate them by re-running the verification
   test/example that produced them; don't hand-edit.
+- **The `generated/` subfolder is gitignored in its entirety.** See below.
+
+## `generated/` — machine-written reports
+
+`generated/` holds V&V reports **written by the diagnostic tests themselves**,
+not by a human. It is gitignored and regenerable in seconds:
+
+```bash
+cargo test --release -p tampines-steam-tables --lib backward_eqn_chebyshev_experimental
+```
+
+They are a different kind of artifact from the hand-written `.md` files above,
+and the distinction matters:
+
+- The committed files are a **durable, human-reviewed record**, written once
+  and kept. They are the trust workflow described in the banner at the top.
+- The `generated/` files are a **live measurement dump** — they re-measure on
+  every run and always describe the code as it is right now. They carry a
+  "do not hand-edit" banner, and a `Status` section stating plainly that they
+  are measurements rather than a validation sign-off.
+
+Currently `generated/` covers the experimental non-IAPWS Chebyshev backward
+correlations in `src/backward_eqn_chebyshev_experimental/` (see GitHub issue
+#34): Region 5 `T(p,h)`/`T(p,s)`, the near-critical Region 4 `(h,s)` flash, and
+`p(rho,h)` across the regions including a report on why the Region 1 inversion
+is ill-conditioned at low pressure.
+
+A generated report is **not** a substitute for a hand-written V&V case. If one
+of these correlations is ever to be described as validated, that needs a
+committed `.md` here and a human sign-off, per the banner.
 
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).

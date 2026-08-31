@@ -10,6 +10,8 @@ use uom::si::{
 use crate::backward_eqn_chebyshev_experimental::{t_ph_5, t_ps_5};
 use crate::region_5_steam_at_800_plus_degc::{h_tp_5, s_tp_5};
 
+use super::vv_report::VvReport;
+
 /// Fit-domain corners, mirroring the constants in the correlation module.
 const P_MIN_MPA: f64 = 1.0e-4;
 const P_MAX_MPA: f64 = 50.0;
@@ -76,12 +78,77 @@ fn round_trip_error_statistics(n_p: usize, n_t: usize) -> ((f64, f64), (f64, f64
 /// node, feeds them back through the backward correlations, and reports the
 /// maximum and RMS deviation in the recovered temperature.
 ///
-/// Run with `--nocapture` to see the numbers.
+/// Run with `--nocapture` to see the numbers. Also writes a markdown V&V
+/// report to `verification_and_validation/generated/`.
 #[test]
 fn diagnose_region_5_round_trip_error() {
     let ((ph_max, ph_rms), (ps_max, ps_rms)) = round_trip_error_statistics(60, 60);
     eprintln!("Region 5 T(p,h): max |dT| = {ph_max:.6e} K, RMS dT = {ph_rms:.6e} K");
     eprintln!("Region 5 T(p,s): max |dT| = {ps_max:.6e} K, RMS dT = {ps_rms:.6e} K");
+
+    let mut report = VvReport::new(
+        "region_5_backward_t_ph_t_ps",
+        "Region 5 backward correlations T(p,h) and T(p,s)",
+    );
+    report
+        .section("Methodology")
+        .paragraph(
+            "IAPWS-IF97 publishes **no** backward equations for Region 5, so there is \
+             no published reference to compare against. The check is therefore a \
+             round trip against this crate's own Region 5 forward equations, which \
+             are line-for-line transcriptions of the IAPWS tables.",
+        )
+        .paragraph(
+            "A 60 x 60 grid is swept over the full fit domain — pressure log-spaced \
+             from 1e-4 to 50 MPa, temperature linear from 1073.15 to 2273.15 K. At \
+             each node the forward equations `h_tp_5` and `s_tp_5` supply the \
+             reference enthalpy and entropy, and the backward correlations must \
+             recover the temperature the state was generated at. The grid is \
+             deterministic, so these numbers are reproducible.",
+        )
+        .paragraph(
+            "Pass criterion: the recovered temperature must match the originating \
+             temperature within the envelopes recorded in the test source, which are \
+             the measured values rounded up.",
+        )
+        .section("Results")
+        .paragraph(&format!(
+            "Deviation in recovered temperature over {} grid points:",
+            60 * 60
+        ))
+        .table(
+            &["Correlation", "max |dT| [K]", "RMS dT [K]"],
+            &[
+                vec![
+                    "T(p,h)".to_string(),
+                    format!("{ph_max:.3e}"),
+                    format!("{ph_rms:.3e}"),
+                ],
+                vec![
+                    "T(p,s)".to_string(),
+                    format!("{ps_max:.3e}"),
+                    format!("{ps_rms:.3e}"),
+                ],
+            ],
+        )
+        .section("Interpretation")
+        .paragraph(
+            "Both correlations reproduce the forward equations to far better than \
+             the ~0.01 K resolution at which a Region 5 temperature is normally \
+             meaningful, so as an accelerator replacing an iterative solve they are \
+             numerically sound over the fitted box.",
+        )
+        .paragraph(
+            "This says nothing about agreement with IAPWS beyond what the forward \
+             equations themselves guarantee, and it says nothing about behaviour \
+             **outside** the fit domain, where the Chebyshev polynomial is an \
+             unbounded extrapolation. Neither function clamps its input.",
+        );
+
+    report.write(
+        "cargo test --release -p tampines-steam-tables --lib \\\n\
+         >   backward_eqn_chebyshev_experimental::tests::region_5",
+    );
 }
 
 /// Verifies that the Region 5 `T(p,h)` correlation reproduces the forward
