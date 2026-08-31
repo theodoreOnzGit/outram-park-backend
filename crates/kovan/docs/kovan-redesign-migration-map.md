@@ -96,18 +96,39 @@ artifact-append path should be adapted from it, not written fresh.
   already consumes `kopitiam_pdf::mupdf::{PdfDocument, rasterize_page,
   page_to_stext, interpret::Processor}` directly — the *rendering* half is
   already reused; only the *reader shell* is duplicated.
-- **`kopitiam-bibliography` closes the citekey gap.** It is **unpublished**
-  (crates.io index 404, verified 2026-08-31); the maintainer will publish it as
-  **v0.0.1**. Its `bibtex::parse::parse_database` is the BibTeX **parser**
-  `op-b1y5` recorded as missing and §7's amendment requires. Tracked as
-  `op-k25f`; AGPL-3.0-only, approved (see `crates/kovan-literature/NOTICE`
-  when written).
+- **The BibTeX parser §7 needs already exists — this is a correction.** An
+  earlier revision of this document said the workspace had none, quoting
+  `op-b1y5`'s closing comment. That comment was accurate on 2026-08-23 and was
+  superseded by `op-vi1n`. `crates/kovan-literature/src/bibtex.rs` provides
+  `parse_bib_entries(&str) -> Result<Vec<BibEntry>, BibParseError>`, exported at
+  `crates/kovan-literature/src/lib.rs:77`, where
+  `BibEntry { entry_type, cite_key, fields }` — 20 tests, already consumed by
+  `project.rs`'s `ProjectError::Bib`. `cite_key` is exactly §7's identity token
+  and `fields` covers §9's display label. **Steps 5 and 16 are therefore not
+  blocked.**
+- **`kopitiam-bibliography` is an upgrade, not a prerequisite** (`op-k25f`,
+  unpublished, shipping as v0.0.1). It adds what `parse_bib_entries` explicitly
+  does not — its own module doc calls itself *"deliberately one-way and
+  shallow"* — namely BibLaTeX/Hayagriva emission, a citation graph,
+  identifier/DOI handling, anomaly detection, and a network-free
+  `ReferenceResolver` seam. AGPL-3.0-only; relicensing `kovan-literature` is
+  approved if and when it is adopted.
+- **§38's two-backend Git architecture already exists.**
+  `crates/kovan-discovery/src/git.rs` provides `GitProvider`, an enum over
+  `Library(GixBackend)` and `Binary(GixCliBackend)`, exhaustively matched with
+  no `dyn`, plus `open`/`open_preferring_library`/`backend_kind`/`repo_root`/
+  `head`/`tracked_files`/`history`. `GixCliBackend::with_program` already allows
+  pointing the binary backend at system `git` — §38's remote seam. It is
+  read-only today; adding init/add/commit is exactly step 4's job, and steps
+  19–20 compose what is there rather than building a Git layer fresh.
 
 ## 5. Ordering consequences
 
-1. **Steps 5 and 12–16 are gated on the BibTeX parser** (`op-k25f`), because
-   citekey-as-id is load-bearing for the paper directory name, the Markdown
-   filename, and every `[[…]]`/`[@…]` target.
+1. **Nothing is gated on a BibTeX parser** — see §4. Step 5's citekey-uniqueness
+   enforcement at ingestion is a `HashSet` over `cite_key` across the parsed
+   database. Citekey-as-id remains load-bearing for the paper directory name,
+   the Markdown filename, and every `[[…]]`/`[@…]` target, but
+   `parse_bib_entries` already supplies it.
 2. **Step 11 is gated on `kopitiam-pdf` 0.3.2+** (kopitiam#96). Steps 2–10 and
    12–16 do not touch the reader and can proceed in parallel.
 3. **Step 4 is gated on nothing** — it is a feature-flag change to a dependency
