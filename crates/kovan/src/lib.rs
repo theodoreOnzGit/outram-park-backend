@@ -32,6 +32,7 @@
 //! above later the same day, per GitHub issue #30's final spec — see
 //! `NOTICE` and `src/tui/digitiser.rs`.
 
+pub mod artifact;
 pub mod commands;
 pub mod digitiser;
 pub mod entity;

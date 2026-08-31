@@ -77,6 +77,13 @@ kovan-discovery.workspace = true
 # clean. DO NOT bump to gix 0.86 — its `gix-protocol ^0.64` pulls the fully
 # yanked `bisync ^0.3.0`; 0.87.1 is the safe target if a bump is ever needed.
 gix.workspace = true
+# `src/artifact.rs`'s fenced-TOML artifact parser (op-9vo6.12, GitHub issue
+# #35 §13): finding "a Markdown heading immediately followed by a fenced toml
+# block containing [kovan]" is a Markdown-structure question, and hand-rolling
+# a scanner for it would re-solve what this workspace already uses -- see
+# `kovan-literature/src/markdown.rs`, which reads heading outlines with the
+# same crate. Already a workspace dependency, pure Rust, Android-clean.
+pulldown-cmark.workspace = true
 kovan-literature.workspace = true
 kovan-semantics.workspace = true
 kovan-codegen.workspace = true
