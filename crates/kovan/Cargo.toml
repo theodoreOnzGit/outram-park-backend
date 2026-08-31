@@ -102,7 +102,9 @@ which.workspace = true
 # in its own dependency chain either) and license-compatible with this
 # crate's AGPL-3.0-only. Verified via `cargo tree -p kovan | grep hayro`
 # after the bump.
-kopitiam-pdf = "0.2.7"
+
+# now at 0.3.1 due to some bugfixes
+kopitiam-pdf = "0.3.1"
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than
