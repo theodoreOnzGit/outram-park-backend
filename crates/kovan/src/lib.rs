@@ -36,6 +36,8 @@ pub mod artifact;
 pub mod commands;
 pub mod digitiser;
 pub mod entity;
+pub mod index;
+pub mod ingest;
 pub mod project;
 pub mod root;
 pub mod tui;

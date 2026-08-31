@@ -4659,6 +4659,7 @@ name = "kovan"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "directories 5.0.1",
  "eframe",
  "egui",
  "egui-file-dialog",

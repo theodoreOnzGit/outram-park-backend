@@ -1,10 +1,12 @@
 mod bibliography;
 mod csv_preview;
+mod home;
 mod markdown_editor;
 mod pdf_annots;
 mod pdf_reader;
 mod table_digitiser;
 mod theme;
+mod wiki;
 
 use eframe::egui::{
     self, Color32, ComboBox, Key, PointerButton, Pos2, Rect, Sense, Stroke, TextureHandle,
@@ -27,10 +29,12 @@ use crate::project;
 
 use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
+use home::{HomeAction, HomeState};
 use markdown_editor::MarkdownEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
 use table_digitiser::TableDigitiserState;
 use theme::GuiTheme;
+use wiki::{WikiAction, WikiState};
 
 /// Which top-level panel is showing — the plot digitiser (the window's
 /// original purpose), the integrated PDF reader (op-95x6), or the
@@ -38,10 +42,21 @@ use theme::GuiTheme;
 /// top-bar button row rather than a popup/new-window (the window itself
 /// already is the "new tab" GitHub issue #30 asked for the plot-digitiser
 /// popup to attach to — see `op-p17q`, wired the same way).
+///
+/// `Home` and `Wiki` are the Kovan redesign's startup/landing screens
+/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`) — `Home` is now the
+/// `#[default]`, replacing the previous default of launching straight into
+/// `PdfReader`. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
+/// frame a root is opened/created (§8: "after opening a root, land in the
+/// Wiki, not the PDF reader"); the other variants stay reachable from the
+/// top bar exactly as before this redesign — removing them is `op-9vo6.25`
+/// (Research workspace)'s job, not this pass's.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
-    Digitiser,
     #[default]
+    Home,
+    Wiki,
+    Digitiser,
     PdfReader,
     MarkdownEditor,
     Bibliography,
@@ -68,13 +83,22 @@ enum FileDialogTarget {
     /// Picked directory becomes the bibliography/project-browser's open
     /// project (op-9vml).
     BibliographyFolder,
+    /// Picked directory is opened (or discovered from) as a Kovan root
+    /// (op-9vo6.3, §2's "Open Kovan Folder…").
+    KovanRootOpen,
+    /// Picked directory becomes a new Kovan root (op-9vo6.3, §2's
+    /// "+ Create Kovan Folder…").
+    KovanRootCreate,
+    /// Picked file is previewed for ingestion into the open root
+    /// (op-9vo6.9, §22's "+ Ingest Literature").
+    PdfIngest,
 }
 
 impl FileDialogTarget {
     /// Whether this target picks a directory (`pick_directory`) rather than
     /// a file — see [`DigitiseApp::open_picker`].
     fn is_directory(self) -> bool {
-        matches!(self, Self::ProjectFolder | Self::BibliographyFolder)
+        matches!(self, Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate)
     }
 
     /// Whether this target opens an existing file (`pick_file`) or names a
@@ -92,10 +116,10 @@ impl FileDialogTarget {
     fn default_filter(self) -> Option<&'static str> {
         match self {
             Self::Image => Some("Images"),
-            Self::Pdf => Some("PDF"),
+            Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport => Some("JSON"),
             Self::CsvExport => Some("CSV"),
-            Self::ProjectFolder | Self::BibliographyFolder => None,
+            Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate => None,
         }
     }
 }
@@ -146,6 +170,9 @@ pub struct DigitiseApp {
     theme: GuiTheme,
     file_dialog: FileDialog,
     file_dialog_target: Option<FileDialogTarget>,
+    // Kovan root startup/landing screens (op-9vo6.3/.8, GitHub issue #35 §2/§8)
+    home: HomeState,
+    wiki: Option<WikiState>,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
     // markdown editor (op-wr08)
@@ -243,6 +270,8 @@ impl Default for DigitiseApp {
                 .add_file_filter_extensions("PDF", vec!["pdf"])
                 .default_file_filter("Images"),
             file_dialog_target: None,
+            home: HomeState::default(),
+            wiki: None,
             pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
@@ -1388,6 +1417,8 @@ impl DigitiseApp {
     /// (op-t5sq).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.view, View::Home, "Home");
+            ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
@@ -1436,6 +1467,15 @@ impl DigitiseApp {
             FileDialogTarget::CsvExport => self.csv_out = path,
             FileDialogTarget::ProjectFolder => self.markdown_editor.open_project(&path),
             FileDialogTarget::BibliographyFolder => self.bibliography.open_project(&path),
+            FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
+            FileDialogTarget::KovanRootCreate => self.home.begin_create(std::path::Path::new(&path)),
+            FileDialogTarget::PdfIngest => {
+                if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
+                    if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
+                        self.set_error(message);
+                    }
+                }
+            }
         }
     }
 }
@@ -1454,7 +1494,56 @@ impl eframe::App for DigitiseApp {
             self.handle_picked_file(&path);
         }
 
+        // §8: "after opening a root, land in the Wiki, not the PDF
+        // reader." A root becomes available asynchronously (the directory
+        // picker resolves on a later frame than the button click), so this
+        // checks every frame rather than at the click site. Only fires from
+        // `Home` — once the user has navigated elsewhere, opening a
+        // *different* root later does not yank them away from what they
+        // were doing.
+        if self.view == View::Home {
+            if let Some(root) = self.home.root() {
+                if self.wiki.is_none() {
+                    self.wiki = Some(WikiState::new(root));
+                }
+                self.view = View::Wiki;
+            }
+        }
+
         match self.view {
+            View::Home => {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    if let Some(action) = self.home.ui(ui) {
+                        match action {
+                            HomeAction::RequestOpenDialog => self.open_picker(FileDialogTarget::KovanRootOpen),
+                            HomeAction::RequestCreateDialog => self.open_picker(FileDialogTarget::KovanRootCreate),
+                        }
+                    }
+                });
+            }
+            View::Wiki => {
+                let mut ingest_clicked = false;
+                if let Some(root) = self.home.root().cloned() {
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        if let Some(wiki) = self.wiki.as_mut() {
+                            if let Some(WikiAction::RequestIngestDialog) = wiki.ui(ui, &root) {
+                                ingest_clicked = true;
+                            }
+                        }
+                    });
+                } else {
+                    // No root open (e.g. the user navigated here directly
+                    // via the top bar) — nothing to browse yet.
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.weak("no Kovan folder open — go to Home to open or create one");
+                        });
+                    });
+                }
+                if ingest_clicked {
+                    self.open_picker(FileDialogTarget::PdfIngest);
+                }
+            }
             View::Digitiser => {
                 egui::Panel::left("controls")
                     .min_size(290.0)

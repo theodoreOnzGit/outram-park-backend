@@ -98,6 +98,13 @@ serde_json.workspace = true
 # (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
 # and only runs when a user explicitly invokes `setup`).
 which.workspace = true
+# `digitiser/gui/desktop/home.rs`'s recent-Kovan-roots list (op-9vo6.3, §2):
+# "Recent-roots list is local state -> .kovan/ or the XDG config dir, never
+# tracked" -- it lives here rather than under any one root's `.kovan/` since
+# there is, by definition, no open root yet at the startup screen. Already a
+# workspace dependency (`njoy-outram-park-fork::acquire` uses the same
+# `ProjectDirs::from` pattern for its own cache dir), pure Rust, Android-clean.
+directories.workspace = true
 # Pure-Rust PDF page rasterizer (a from-source port of MuPDF's `fitz` draw
 # device — real vector fills/strokes/images, real TrueType/CFF glyph outlines,
 # not a screenshot pipeline). **This is op-6ez3's PDF-page-rendering-engine
