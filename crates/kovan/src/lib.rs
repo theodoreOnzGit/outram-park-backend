@@ -35,4 +35,5 @@
 pub mod commands;
 pub mod digitiser;
 pub mod project;
+pub mod root;
 pub mod tui;
