@@ -85,6 +85,12 @@ pub mod backward_eqn_ps_region_1_to_4;
 /// overall equation
 pub mod backward_eqn_hs_region_1_to_4;
 
+/// experimental, non-IAPWS explicit backward correlations fitted as Chebyshev
+/// polynomials — Region 5 `T(p,h)`/`T(p,s)` (which IF97 does not publish at
+/// all) and the near-critical Region 4 `(h,s)` flash. Kept apart from the
+/// IAPWS-traceable equations above; see the module documentation.
+pub mod backward_eqn_chebyshev_experimental;
+
 /// dynamic viscosity calcs
 pub mod dynamic_viscosity;
 
