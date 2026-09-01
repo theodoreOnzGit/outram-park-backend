@@ -32,17 +32,21 @@
 //! above later the same day, per GitHub issue #30's final spec — see
 //! `NOTICE` and `src/tui/digitiser.rs`.
 
+pub mod advanced_git;
 pub mod artifact;
+pub mod autocomplete;
 pub mod classify;
 pub mod commands;
 pub mod digitiser;
 pub mod entity;
 pub mod graph;
 pub mod index;
+pub mod mindmap;
 pub mod ingest;
 pub mod session;
 pub mod project;
 pub mod repository;
 pub mod research_record;
 pub mod root;
+pub mod sync;
 pub mod tui;

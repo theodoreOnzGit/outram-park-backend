@@ -45,12 +45,64 @@
 //!   is never left wondering why typing did something unexpected.
 
 use eframe::egui::{self, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec2};
-use kopitiam_neovim::core::{Position, Range};
+use kopitiam_neovim::core::{Mode, Position, Range};
 use kopitiam_neovim::editor::key::{Key as KvimKey, KeyCode as KvimKeyCode, Modifiers as KvimModifiers};
 use kopitiam_neovim::editor::Editor;
 
+use crate::autocomplete::{self, Candidate};
+use crate::index::KnowledgeIndex;
+use crate::research_record::ResearchRecordIndex;
+use crate::root::KovanRoot;
+use crate::session::PaperSession;
+
 const CHAR_SIZE: f32 = 14.0;
 const LINE_SPACING: f32 = 1.35;
+
+/// What [`KvimEditorState::ui`] needs to answer citation/wiki completion
+/// queries (§29/§30, `op-9vo6.16`) — the library, not this widget, is what
+/// enumerates candidates; this struct just carries the two things that
+/// enumeration needs.
+pub struct CompletionSource<'a> {
+    pub root: &'a KovanRoot,
+    pub index: &'a KnowledgeIndex,
+}
+
+/// The trigger a completion popup is currently answering, and where it
+/// started in the buffer (so accepting a candidate knows exactly what
+/// range of typed text to replace).
+#[derive(Debug, Clone, PartialEq)]
+enum Trigger {
+    /// A bare `@` — §29. `start` is the position of the `@` itself.
+    Citation { start: Position },
+    /// `[[` — §30. `start` is the position right after the second `[`.
+    /// `paper` is `Some` once the query contains `#`, i.e. the user has
+    /// picked a paper and is now completing one of its artifacts.
+    Wiki { start: Position, paper: Option<String> },
+}
+
+/// Find an active trigger immediately before `cursor` on its own line, and
+/// the query text typed since it. `None` means no popup should show this
+/// frame — the common case.
+fn detect_trigger(line_text: &str, cursor: Position) -> Option<(Trigger, String)> {
+    let before_cursor = line_text.get(..cursor.col)?;
+    if let Some(at) = before_cursor.rfind('@') {
+        let query = &before_cursor[at + 1..];
+        if !query.chars().any(|c| c.is_whitespace() || c == '@' || c == '[' || c == ']') {
+            return Some((Trigger::Citation { start: Position::new(cursor.line, at) }, query.to_string()));
+        }
+    }
+    if let Some(open) = before_cursor.rfind("[[") {
+        let query = &before_cursor[open + 2..];
+        if !query.chars().any(|c| c.is_whitespace() || c == '[' || c == ']') {
+            let (paper, rest, start_col) = match query.split_once('#') {
+                Some((p, a)) => (Some(p.to_string()), a, open + 2 + p.len() + 1),
+                None => (None, query, open + 2),
+            };
+            return Some((Trigger::Wiki { start: Position::new(cursor.line, start_col), paper }, rest.to_string()));
+        }
+    }
+    None
+}
 
 /// State for one `kopitiam-neovim`-backed editor surface.
 pub struct KvimEditorState {
@@ -63,11 +115,14 @@ pub struct KvimEditorState {
     loaded_text: String,
     /// Whether a Visual-mode drag is in progress (§27).
     dragging: bool,
+    /// Top-left of the text area as last painted — the anchor the
+    /// completion popup positions itself from.
+    text_area_origin: Pos2,
 }
 
 impl Default for KvimEditorState {
     fn default() -> Self {
-        Self { editor: Editor::new(), loaded_text: String::new(), dragging: false }
+        Self { editor: Editor::new(), loaded_text: String::new(), dragging: false, text_area_origin: Pos2::ZERO }
     }
 }
 
@@ -98,8 +153,10 @@ impl KvimEditorState {
 
     /// Draw the editor and process this frame's input for it. `ui`'s
     /// available space is fully claimed by a scrollable text area plus a
-    /// one-line mode/status bar.
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    /// one-line mode/status bar. `completion`, when given, enables §29/§30's
+    /// citation/wiki autocomplete popup — omit it for a scratch buffer with
+    /// no library context (e.g. before a Kovan root is open).
+    pub fn ui(&mut self, ui: &mut egui::Ui, completion: Option<CompletionSource<'_>>) {
         ui.horizontal(|ui| {
             ui.strong(self.editor.mode().label());
             let pos = self.editor.cursor();
@@ -113,6 +170,78 @@ impl KvimEditorState {
         egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
             self.text_area(ui);
         });
+
+        if let Some(source) = completion {
+            self.completion_popup_ui(ui, source);
+        }
+    }
+
+    /// §29/§30: while in Insert mode, detect a `@`/`[[` trigger on the
+    /// current line and show a mouse-selectable completion popup for it.
+    /// Keyboard navigation of the popup list itself (arrow keys to move the
+    /// selection) is not implemented in this pass — Up/Down are already
+    /// meaningful cursor motions in Insert mode, and resolving that
+    /// conflict is real interaction-design work left for later dogfooding;
+    /// typing the trigger and clicking a candidate is fully functional
+    /// today and is what "the user must not have to memorise citation
+    /// keys" actually requires.
+    fn completion_popup_ui(&mut self, ui: &mut egui::Ui, source: CompletionSource<'_>) {
+        if self.editor.mode() != Mode::Insert {
+            return;
+        }
+        let cursor = self.editor.cursor();
+        let Some(line_text) = self.editor.buffer().line(cursor.line) else { return };
+        let Some((trigger, query)) = detect_trigger(&line_text, cursor) else { return };
+
+        let candidates: Vec<Candidate> = match &trigger {
+            Trigger::Citation { .. } => autocomplete::citation_candidates(source.root, &query),
+            Trigger::Wiki { paper: None, .. } => autocomplete::wiki_candidates(source.index, &query),
+            Trigger::Wiki { paper: Some(paper), .. } => {
+                let Ok(session) = PaperSession::open(source.root, paper) else { return };
+                let research = ResearchRecordIndex::from_session(&session);
+                autocomplete::artifact_candidates(&research, &query)
+            }
+        };
+        if candidates.is_empty() {
+            return;
+        }
+
+        let font = FontId::monospace(CHAR_SIZE);
+        let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
+        let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
+        let anchor = self.text_area_origin + Vec2::new(cursor.col as f32 * char_width, (cursor.line + 1) as f32 * line_height);
+
+        let mut chosen = None;
+        egui::Area::new(ui.id().with("kvim-completion-popup")).fixed_pos(anchor).show(ui.ctx(), |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                for candidate in candidates.iter().take(20) {
+                    let label = if candidate.detail.is_empty() {
+                        candidate.label.clone()
+                    } else {
+                        format!("{}  —  {}", candidate.label, candidate.detail)
+                    };
+                    if ui.selectable_label(false, label).clicked() {
+                        chosen = Some(candidate.clone());
+                    }
+                }
+            });
+        });
+
+        if let Some(candidate) = chosen {
+            // `start` already sits after any `[[paper#` the buffer still
+            // holds (see `detect_trigger`), so the replacement only ever
+            // supplies what comes *after* that — never the paper name
+            // again, which would otherwise duplicate it.
+            let replacement = match &trigger {
+                Trigger::Citation { .. } => format!("[@{}]", candidate.insert_text),
+                Trigger::Wiki { .. } => format!("{}]]", candidate.insert_text),
+            };
+            let start = match trigger {
+                Trigger::Citation { start } => start,
+                Trigger::Wiki { start, .. } => start,
+            };
+            self.editor.replace_range(Range::new(start, cursor), &replacement);
+        }
     }
 
     fn text_area(&mut self, ui: &mut egui::Ui) {
@@ -124,6 +253,7 @@ impl KvimEditorState {
         let width = ui.available_width().max(400.0);
         let height = line_count as f32 * line_height;
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
+        self.text_area_origin = rect.min;
 
         if response.clicked() || response.drag_started() {
             response.request_focus();

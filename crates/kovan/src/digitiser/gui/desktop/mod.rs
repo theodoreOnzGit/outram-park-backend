@@ -1,3 +1,4 @@
+mod advanced_git_view;
 mod bibliography;
 mod csv_preview;
 mod home;
@@ -28,6 +29,7 @@ use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
 use crate::project;
 
+use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
@@ -37,6 +39,8 @@ use pdf_reader::{CropProvenance, PdfReaderState};
 use table_digitiser::TableDigitiserState;
 use theme::GuiTheme;
 use wiki::{WikiAction, WikiState};
+
+use crate::mindmap::{MindmapAction, MindmapState};
 
 /// Which top-level panel is showing — the plot digitiser (the window's
 /// original purpose), the integrated PDF reader (op-95x6), or the
@@ -70,6 +74,12 @@ enum View {
     KvimEditor,
     Bibliography,
     TableDigitiser,
+    /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
+    /// `Wiki` view's collection model.
+    Mindmap,
+    /// The Advanced Git tab (§38, `op-9vo6.20`) — a separate area, per that
+    /// section's own wording, from ordinary Save Document/Save Repository.
+    AdvancedGit,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -187,6 +197,8 @@ pub struct DigitiseApp {
     home: HomeState,
     wiki: Option<WikiState>,
     kvim_editor: KvimEditorState,
+    mindmap: MindmapState,
+    advanced_git: AdvancedGitState,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
     // markdown editor (op-wr08)
@@ -287,6 +299,8 @@ impl Default for DigitiseApp {
             home: HomeState::default(),
             wiki: None,
             kvim_editor: KvimEditorState::default(),
+            mindmap: MindmapState::default(),
+            advanced_git: AdvancedGitState::default(),
             pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
@@ -1434,6 +1448,8 @@ impl DigitiseApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.view, View::Home, "Home");
             ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
+            ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
+            ui.selectable_value(&mut self.view, View::AdvancedGit, "Advanced Git");
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
@@ -1564,6 +1580,44 @@ impl eframe::App for DigitiseApp {
                     self.open_picker(FileDialogTarget::PdfIngest);
                 }
             }
+            View::Mindmap => {
+                if let Some(root) = self.home.root().cloned() {
+                    let index = crate::index::KnowledgeIndex::load_or_rebuild(&root);
+                    let graph = crate::graph::KnowledgeGraph::load_or_rebuild(&root, &index);
+                    let mut opened_paper = None;
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        if let Some(MindmapAction::OpenPaper(citekey)) = self.mindmap.ui(ui, &root, &index, &graph) {
+                            opened_paper = Some(citekey);
+                        }
+                    });
+                    if let Some(citekey) = opened_paper {
+                        // op-9vo6.10's PaperSession has no live "open in
+                        // Research workspace" navigation yet (op-9vo6.25) —
+                        // report it via the digitiser's own status line
+                        // rather than silently dropping the action.
+                        self.set_status(format!("open {citekey} — Research workspace navigation is op-9vo6.25's job"));
+                    }
+                } else {
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.weak("no Kovan folder open — go to Home to open or create one");
+                        });
+                    });
+                }
+            }
+            View::AdvancedGit => {
+                if let Some(root) = self.home.root().cloned() {
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        self.advanced_git.ui(ui, &root);
+                    });
+                } else {
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.weak("no Kovan folder open — go to Home to open or create one");
+                        });
+                    });
+                }
+            }
             View::Digitiser => {
                 egui::Panel::left("controls")
                     .min_size(290.0)
@@ -1625,13 +1679,19 @@ impl eframe::App for DigitiseApp {
             }
             View::KvimEditor => {
                 let mut open_clicked = false;
+                let root = self.home.root().cloned();
+                let index = root.as_ref().map(crate::index::KnowledgeIndex::load_or_rebuild);
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Open…").clicked() {
                             open_clicked = true;
                         }
                     });
-                    self.kvim_editor.ui(ui);
+                    let completion = match (&root, &index) {
+                        (Some(root), Some(index)) => Some(kvim_editor::CompletionSource { root, index }),
+                        _ => None,
+                    };
+                    self.kvim_editor.ui(ui, completion);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::KvimFile);

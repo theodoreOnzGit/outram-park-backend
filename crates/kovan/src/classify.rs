@@ -61,7 +61,7 @@ impl std::error::Error for ClassifyError {}
 /// methodology" -> `"coupled-neutronics-methodology"` — the §13/§40 style
 /// every artifact example in the issue uses. Non-ASCII-alphanumeric runs
 /// become a single `-`; leading/trailing `-` are trimmed.
-fn slugify(text: &str) -> String {
+pub(crate) fn slugify(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut last_was_dash = true; // suppresses a leading '-'
     for ch in text.chars() {
