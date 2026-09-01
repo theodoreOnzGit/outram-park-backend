@@ -16,6 +16,8 @@ use eframe::egui::{
 use egui_file_dialog::FileDialog;
 
 use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
+use crate::entity::EntityConfig;
+use crate::session::PaperSession;
 use crate::digitiser::calibration::{
     AxisCalibration, AxisRef, AxisScale, ParallelogramCalibration, PixelPoint, PlotCalibration,
 };
@@ -185,6 +187,22 @@ enum CalibrationShape {
     Parallelogram,
 }
 
+/// The paper the operator is currently working on, shared across every
+/// paper-aware view — GitHub issue #35's 2026-09-01 "unify Kovan root and
+/// active-paper context" comment (op-sr4n). Constructed only by
+/// [`DigitiseApp::activate_paper`]; nothing else builds one, so there is
+/// exactly one place a paper becomes "the" active paper.
+struct ActivePaper {
+    session: PaperSession,
+    /// The paper's source PDF, resolved from its `kovan.toml`
+    /// (`[source].pdf`, relative to the paper's own directory) to an
+    /// absolute path and confirmed to exist on disk. `None` when the paper
+    /// has no recorded source, or the recorded path is missing locally
+    /// (the GH comment's own "Missing PDF" acceptance scenario: activation
+    /// still succeeds, the PDF state just reports unavailable).
+    pdf_path: Option<std::path::PathBuf>,
+}
+
 /// All GUI state, owned by value (no lifetimes, no shared state).
 pub struct DigitiseApp {
     // chrome
@@ -198,6 +216,11 @@ pub struct DigitiseApp {
     kvim_editor: KvimEditorState,
     mindmap: MindmapState,
     advanced_git: AdvancedGitState,
+    /// The paper currently in focus, if any — GitHub issue #35's
+    /// "unify root and active-paper context" comment (op-sr4n). Set only by
+    /// [`Self::activate_paper`]; consumed by every paper-aware view instead
+    /// of each independently prompting for a root/path.
+    active_paper: Option<ActivePaper>,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
     // markdown editor (op-wr08)
@@ -300,6 +323,7 @@ impl Default for DigitiseApp {
             kvim_editor: KvimEditorState::default(),
             mindmap: MindmapState::default(),
             advanced_git: AdvancedGitState::default(),
+            active_paper: None,
             pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
@@ -350,6 +374,57 @@ impl DigitiseApp {
     fn set_status(&mut self, message: impl Into<String>) {
         self.message = message.into();
         self.message_is_error = false;
+    }
+
+    /// Make `citekey` the active paper (op-sr4n, GitHub issue #35's
+    /// 2026-09-01 "unify Kovan root and active-paper context" comment):
+    /// opens its [`PaperSession`], resolves its source PDF from
+    /// `kovan.toml`, and pushes both into the views that already understand
+    /// the new [`crate::root::KovanRoot`]/`PaperSession` model — the PDF
+    /// reader and the kvim editor. `bibliography.rs`/`markdown_editor.rs`
+    /// still speak the older `crate::project` format (see the migration
+    /// map, and beads `op-9r26`/`op-s4wg`) and are not wired here.
+    ///
+    /// Requires a Kovan root to already be open. A missing/unreadable
+    /// source PDF is not an error — the GH comment's own "Missing PDF"
+    /// acceptance scenario says activation must still succeed with the PDF
+    /// state simply reporting unavailable — so [`ActivePaper::pdf_path`]
+    /// is `None` in that case rather than this method failing.
+    fn activate_paper(&mut self, citekey: &str) -> Result<(), String> {
+        let root = self.home.root().cloned().ok_or_else(|| "no Kovan folder open".to_string())?;
+        let session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
+
+        let pdf_path = EntityConfig::load(&root.paper_dir(citekey))
+            .ok()
+            .and_then(|cfg| cfg.source)
+            .and_then(|source| source.pdf)
+            .map(|rel| root.paper_dir(citekey).join(rel))
+            .filter(|path| path.is_file());
+
+        if let Some(pdf) = &pdf_path {
+            self.pdf_reader.open(&pdf.to_string_lossy());
+        }
+        self.kvim_editor.load_text(session.markdown());
+
+        self.active_paper = Some(ActivePaper { session, pdf_path });
+        Ok(())
+    }
+
+    /// [`Self::activate_paper`], plus switching to whichever view makes the
+    /// newly active paper visible — the PDF reader when a source document
+    /// is available, the kvim editor otherwise (a paper catalogued from
+    /// metadata alone still has its research Markdown to read/edit). Shared
+    /// by every call site that opens a paper (Wiki, Mindmap, ingestion) so
+    /// they land in the same place rather than each picking its own view.
+    fn activate_paper_and_navigate(&mut self, citekey: &str) {
+        match self.activate_paper(citekey) {
+            Ok(()) => {
+                let has_pdf = self.active_paper.as_ref().is_some_and(|p| p.pdf_path.is_some());
+                self.view = if has_pdf { View::PdfReader } else { View::KvimEditor };
+                self.set_status(format!("opened {citekey}"));
+            }
+            Err(e) => self.set_error(format!("{citekey}: {e}")),
+        }
     }
 
     /// Set a failure message — styled and duplicated at the top of
@@ -1558,11 +1633,14 @@ impl eframe::App for DigitiseApp {
             }
             View::Wiki => {
                 let mut ingest_clicked = false;
+                let mut opened_paper = None;
                 if let Some(root) = self.home.root().cloned() {
                     egui::CentralPanel::default().show(ui, |ui| {
                         if let Some(wiki) = self.wiki.as_mut() {
-                            if let Some(WikiAction::RequestIngestDialog) = wiki.ui(ui, &root) {
-                                ingest_clicked = true;
+                            match wiki.ui(ui, &root) {
+                                Some(WikiAction::RequestIngestDialog) => ingest_clicked = true,
+                                Some(WikiAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                                None => {}
                             }
                         }
                     });
@@ -1578,6 +1656,12 @@ impl eframe::App for DigitiseApp {
                 if ingest_clicked {
                     self.open_picker(FileDialogTarget::PdfIngest);
                 }
+                // op-sr4n.2: a paper link was clicked, or "Ingest & Open"
+                // just finished — activate it and jump to it, same as
+                // Mindmap's own OpenPaper below.
+                if let Some(citekey) = opened_paper {
+                    self.activate_paper_and_navigate(&citekey);
+                }
             }
             View::Mindmap => {
                 if let Some(root) = self.home.root().cloned() {
@@ -1590,11 +1674,11 @@ impl eframe::App for DigitiseApp {
                         }
                     });
                     if let Some(citekey) = opened_paper {
-                        // op-9vo6.10's PaperSession has no live "open in
-                        // Research workspace" navigation yet (op-9vo6.25) —
-                        // report it via the digitiser's own status line
-                        // rather than silently dropping the action.
-                        self.set_status(format!("open {citekey} — Research workspace navigation is op-9vo6.25's job"));
+                        // op-sr4n.3: route through the same
+                        // activate_paper/view-switch helper Wiki uses,
+                        // rather than each view picking its own paper-
+                        // opening behaviour.
+                        self.activate_paper_and_navigate(&citekey);
                     }
                 } else {
                     egui::CentralPanel::default().show(ui, |ui| {
@@ -1678,11 +1762,30 @@ impl eframe::App for DigitiseApp {
             }
             View::KvimEditor => {
                 let mut open_clicked = false;
+                let mut save_clicked = false;
                 let root = self.home.root().cloned();
                 let index = root.as_ref().map(crate::index::KnowledgeIndex::load_or_rebuild);
+                let active_citekey = self.active_paper.as_ref().map(|p| p.session.citekey().to_string());
                 egui::CentralPanel::default().show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        if ui.button("Open…").clicked() {
+                        match &active_citekey {
+                            // op-sr4n.5: following the active paper (GH
+                            // issue #35's "unify root and active-paper
+                            // context" comment) is the normal path; "Open…"
+                            // stays available as the comment's own allowed
+                            // "explicit secondary action" for a standalone
+                            // file outside any paper.
+                            Some(citekey) => {
+                                ui.strong(format!("\u{1F4C4} {citekey}"));
+                                if self.kvim_editor.is_modified() && ui.button("Save").clicked() {
+                                    save_clicked = true;
+                                }
+                            }
+                            None => {
+                                ui.weak("no paper selected — pick one from Wiki or Mindmap");
+                            }
+                        }
+                        if ui.button("Open external file…").clicked() {
                             open_clicked = true;
                         }
                     });
@@ -1694,6 +1797,23 @@ impl eframe::App for DigitiseApp {
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::KvimFile);
+                }
+                if save_clicked {
+                    // §37 "Save Document": writes the buffer to disk,
+                    // nothing more — no Git staging/commit (that is Save
+                    // Repository, op-9vo6.19, not built yet).
+                    let text = self.kvim_editor.text();
+                    if let Some(active) = &mut self.active_paper {
+                        active.session.set_markdown(text);
+                        match active.session.save_document() {
+                            Ok(()) => {
+                                let citekey = active.session.citekey().to_string();
+                                self.kvim_editor.load_text(active.session.markdown());
+                                self.set_status(format!("saved {citekey}"));
+                            }
+                            Err(e) => self.set_error(e.to_string()),
+                        }
+                    }
                 }
             }
             View::Bibliography => {
@@ -1725,5 +1845,129 @@ impl eframe::App for DigitiseApp {
                 });
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::Access;
+    use crate::ingest::{self, IngestChoice};
+    use crate::root::{KovanRoot, RootConfig};
+
+    fn make_root() -> (tempfile::TempDir, KovanRoot) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        (dir, root)
+    }
+
+    /// A tiny, structurally valid one-page PDF with an `/Info` `/Title` —
+    /// same fixture `ingest.rs`'s own tests use, duplicated per this
+    /// workspace's existing per-file test-fixture convention (see
+    /// `ingest.rs`/`mindmap.rs`/`autocomplete.rs`'s own copies) rather than
+    /// adding cross-module test-only public surface.
+    fn write_test_pdf(path: &std::path::Path, title: &str) {
+        use lopdf::{dictionary, Document, Object};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id });
+        let pages = dictionary! { "Type" => "Pages", "Kids" => vec![Object::Reference(page_id)], "Count" => 1 };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let info_id = doc.add_object(dictionary! { "Title" => Object::string_literal(title) });
+        doc.trailer.set("Info", info_id);
+        doc.save(path).unwrap();
+    }
+
+    fn ingest_one(root: &KovanRoot, dir: &std::path::Path, title: &str, access: Access) -> String {
+        let pdf_path = dir.join(format!("{title}.pdf"));
+        write_test_pdf(&pdf_path, title);
+        let preview = ingest::preview(root, &pdf_path).unwrap();
+        let citekey = preview.suggested_citekey.clone();
+        let choice =
+            IngestChoice { citekey: citekey.clone(), access, topics: vec!["htgrs".to_string()], projects: vec![] };
+        ingest::ingest(root, &preview, choice).unwrap();
+        citekey
+    }
+
+    /// GH issue #35's 2026-09-01 "unify root and active-paper context"
+    /// comment, "Testing requirements" section: "activate a known paper ->
+    /// PaperSession opens -> Markdown path resolves -> source PDF path
+    /// resolves when present".
+    #[test]
+    fn activate_paper_resolves_session_and_pdf_path() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Coupled Neutronics Methodology", Access::Open);
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+
+        let active = app.active_paper.as_ref().expect("activation should have set active_paper");
+        assert_eq!(active.session.citekey(), citekey);
+        assert_eq!(active.session.markdown_path(), root.paper_markdown(&citekey));
+        let pdf_path = active.pdf_path.as_ref().expect("an Open-access ingested paper keeps its PDF locally");
+        assert!(pdf_path.is_file());
+    }
+
+    /// Same section, "Missing PDF": "activate a known paper with no local
+    /// PDF -> activation succeeds -> PDF state reports unavailable ->
+    /// paper/Markdown remain usable."
+    #[test]
+    fn activate_paper_succeeds_when_the_recorded_pdf_is_missing_locally() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Graphite Thermal Conductivity", Access::Open);
+        // Simulate the recorded PDF having gone missing from disk (e.g. a
+        // clone of the repo without the submodule/proprietary content
+        // pulled) without touching kovan.toml's own [source].pdf pointer.
+        let stored_pdf = root.open_sources_dir().join(format!("{citekey}.pdf"));
+        std::fs::remove_file(&stored_pdf).unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+
+        let active = app.active_paper.as_ref().expect("activation should still succeed with no local PDF");
+        assert_eq!(active.session.citekey(), citekey);
+        assert!(active.pdf_path.is_none(), "a missing PDF must report unavailable, not a stale path");
+    }
+
+    #[test]
+    fn activate_paper_fails_cleanly_with_no_root_open() {
+        let mut app = DigitiseApp::default();
+        assert!(app.activate_paper("does-not-matter").is_err());
+        assert!(app.active_paper.is_none());
+    }
+
+    /// "Cross-view identity: ensure Wiki/Mindmap activation resolves to the
+    /// same paper identity and paths rather than constructing independent
+    /// representations" — both call sites route through
+    /// `activate_paper_and_navigate`, so this pins that they land on the
+    /// same view/state regardless of which one triggered it.
+    #[test]
+    fn activate_paper_and_navigate_lands_on_pdf_reader_when_a_pdf_is_present() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Fuel Cladding Gap Conductance", Access::Open);
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper_and_navigate(&citekey);
+
+        assert_eq!(app.view, View::PdfReader);
+        assert!(app.active_paper.is_some());
+    }
+
+    #[test]
+    fn activate_paper_and_navigate_falls_back_to_kvim_editor_with_no_pdf() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Metadata Only Record", Access::Open);
+        std::fs::remove_file(root.open_sources_dir().join(format!("{citekey}.pdf"))).unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper_and_navigate(&citekey);
+
+        assert_eq!(app.view, View::KvimEditor);
     }
 }

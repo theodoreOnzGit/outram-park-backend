@@ -60,6 +60,10 @@ fn split_paths(text: &str) -> Vec<String> {
 pub enum WikiAction {
     /// A file picker for a PDF to ingest should open.
     RequestIngestDialog,
+    /// A paper was clicked (or "Ingest & Open" just finished) — the caller
+    /// should activate it (op-sr4n, GitHub issue #35's 2026-09-01 "unify
+    /// root and active-paper context" comment).
+    OpenPaper(String),
 }
 
 pub struct WikiState {
@@ -90,8 +94,12 @@ impl WikiState {
         Ok(())
     }
 
-    fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
-        let Some(flow) = &mut self.ingest_flow else { return };
+    /// Draw the ingest form, if one is open. Returns the citekey the paper
+    /// was ingested under, the frame ingestion succeeds — the caller
+    /// activates it immediately (op-sr4n.2: "Ingest & Open" must actually
+    /// open, not just refresh the index).
+    fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<String> {
+        let Some(flow) = &mut self.ingest_flow else { return None };
         let mut close = false;
         let mut confirmed = None;
 
@@ -140,9 +148,11 @@ impl WikiState {
             });
         });
 
+        let mut opened = None;
         if let Some(()) = confirmed {
+            let citekey = flow.citekey.clone();
             let choice = IngestChoice {
-                citekey: flow.citekey.clone(),
+                citekey: citekey.clone(),
                 access: flow.access,
                 topics: split_paths(&flow.topics_text),
                 projects: split_paths(&flow.projects_text),
@@ -150,6 +160,7 @@ impl WikiState {
             match ingest::ingest(root, &flow.preview, choice) {
                 Ok(()) => {
                     self.refresh(root);
+                    opened = Some(citekey);
                     close = true;
                 }
                 Err(e) => flow.message = e.to_string(),
@@ -158,6 +169,7 @@ impl WikiState {
         if close {
             self.ingest_flow = None;
         }
+        opened
     }
 
     /// Draw the Wiki browser. Returns `Some` when the "+ Ingest
@@ -165,7 +177,9 @@ impl WikiState {
     pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<WikiAction> {
         let mut action = None;
 
-        self.ingest_form(ui, root);
+        if let Some(citekey) = self.ingest_form(ui, root) {
+            action = Some(WikiAction::OpenPaper(citekey));
+        }
 
         ui.horizontal(|ui| {
             ui.heading(&root.config().library.name);
@@ -198,16 +212,34 @@ impl WikiState {
         });
         ui.add_space(8.0);
 
+        // op-sr4n.4: a freshly ingested paper defaults to
+        // `Classification::unsorted()` (a single topic path literally named
+        // "unsorted", entity.rs's `UNSORTED` constant) but no
+        // `topics/unsorted/kovan.toml` directory is ever created for it — so
+        // without this, `children_of("")` never surfaces it and the paper is
+        // invisible in the Wiki, violating "a paper must never disappear
+        // merely because it has not been classified yet". A synthetic entry
+        // at the tree root, shown only while there is something to show,
+        // makes the existing `current = path` / `papers_in(path)` drill-down
+        // machinery reach it with no new collection type or on-disk directory.
+        let unsorted_count = if self.current.is_empty() { self.index.papers_in("unsorted").len() } else { 0 };
+        let mut open_paper = None;
+
         egui::ScrollArea::vertical().show(ui, |ui| {
             let children: Vec<(String, EntityKind, String)> =
                 self.index.children_of(&self.current).into_iter().map(|c| (c.path.clone(), c.kind, c.name.clone())).collect();
             let papers: Vec<String> = self.index.papers_in(&self.current).into_iter().map(|p| p.citekey.clone()).collect();
 
-            if children.is_empty() && papers.is_empty() && self.current.is_empty() {
+            if children.is_empty() && papers.is_empty() && unsorted_count == 0 && self.current.is_empty() {
                 ui.weak("(no topics or projects yet — use + Ingest Literature to get started)");
             }
 
             let mut drill_into = None;
+            if unsorted_count > 0 {
+                if ui.link(format!("\u{1F4E5} Unsorted ({unsorted_count})")).clicked() {
+                    drill_into = Some("unsorted".to_string());
+                }
+            }
             for (path, kind, name) in &children {
                 let icon = match kind {
                     EntityKind::Topic => "\u{1F4C1}",
@@ -226,13 +258,18 @@ impl WikiState {
                 ui.add_space(8.0);
                 ui.label("Papers");
                 for citekey in &papers {
-                    // op-9vo6.10 (PaperSession) wires this link to actually
-                    // open the Research workspace; for now it is a listing.
-                    ui.label(format!("\u{1F4C4} {citekey}"));
+                    // op-sr4n.2: clicking a paper activates it (GH issue #35's
+                    // "unify root and active-paper context" comment).
+                    if ui.link(format!("\u{1F4C4} {citekey}")).clicked() {
+                        open_paper = Some(citekey.clone());
+                    }
                 }
             }
         });
 
+        if let Some(citekey) = open_paper {
+            action = Some(WikiAction::OpenPaper(citekey));
+        }
         action
     }
 }
