@@ -1799,15 +1799,21 @@ impl eframe::App for DigitiseApp {
             View::PdfReader => {
                 let mut open_clicked = false;
                 let mut crop_result = None;
+                let mut context_action = None;
                 egui::CentralPanel::default().show(ui, |ui| {
                     // op-q1qj: the active paper's session (if any) so the
                     // reader saves annotations straight into it instead of
                     // asking for a project root/markdown path.
                     let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
-                    crop_result = self.pdf_reader.ui(ui, || open_clicked = true, active_session);
+                    (crop_result, context_action) = self.pdf_reader.ui(ui, || open_clicked = true, active_session);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
+                }
+                // op-j178: the page-context panel jumped to an artifact.
+                if let Some(pdf_reader::ContextPanelAction::JumpToLine(line)) = context_action {
+                    self.kvim_editor.jump_to_line(line);
+                    self.view = View::KvimEditor;
                 }
                 // op-p17q/op-hnhp: the reader just completed a
                 // crop-then-right-click gesture — load the cropped region

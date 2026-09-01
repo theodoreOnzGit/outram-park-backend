@@ -100,10 +100,13 @@ use kopitiam_pdf::gui_frontend::{
 };
 use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
 
+use crate::artifact::{Artifact, ArtifactKind};
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
 use crate::project;
 use crate::session::PaperSession;
+
+use super::csv_preview::draw_csv_preview;
 
 /// Screen-resolution DPI for [`ViewMode::Annotate`]'s single-page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
@@ -235,6 +238,20 @@ pub struct CropProvenance {
 pub enum CropResult {
     Plot(PlotRaster, CropProvenance),
     Table(PlotRaster, CropProvenance),
+}
+
+/// What clicking an artifact in the page-context panel produced (op-j178,
+/// GH issue #35 2026-09-01 05:37: "there should be a markdown editor in
+/// there with the various blocks... these should be individually clickable
+/// and editable. CSV... editable only through the digitiser UI"). A
+/// digitised table/graph artifact has no `JumpToLine` counterpart —
+/// `context_panel` never makes one clickable, since there is no data path
+/// (yet) to reopen its already-extracted CSV as a live, re-editable
+/// digitiser session; see that method's doc for why.
+pub enum ContextPanelAction {
+    /// Jump to this artifact's heading in the paper's markdown, in the kvim
+    /// editor — [`Artifact::line`], 1-based.
+    JumpToLine(usize),
 }
 
 /// State for one open document: its source (embedded [`PdfReader`] or a
@@ -730,31 +747,79 @@ impl PdfReaderState {
         }
     }
 
-    /// The right "page context" panel (op-0y4k): raw text preview of
-    /// whatever the currently open project's markdown records for
-    /// [`Self::active_page`] — annotations and digitised CSVs, read live off
-    /// disk (not cached), matching GitHub issue #30's "live from markdown
-    /// file" ask. Filters `### ...` subsections by a `page: N`/`page N,`
-    /// marker, matching the exact provenance text this panel's own save
-    /// actions emit (`Self::save_annotations_into_project`,
-    /// `DigitiseApp::save_into_project`, `TableDigitiserState::
-    /// save_into_project`) — a plain substring filter, not a markdown
-    /// parser, since the marker text is under this crate's own control.
-    fn context_panel(&mut self, ui: &mut egui::Ui, active_markdown_path: Option<&std::path::Path>) {
+    /// The right "page context" panel (op-0y4k, op-j178). With an active
+    /// paper open (`active_artifacts` is `Some`), this lists the artifacts
+    /// — §14's fenced-TOML blocks — anchored to [`Self::active_page`],
+    /// via the same [`crate::research_record::ResearchRecordIndex::
+    /// anchored_to_page`] query §31 was built for ("when the PDF reader
+    /// shows page 87, these are what to highlight"): a text/annotation
+    /// artifact is a clickable link that jumps the kvim editor to its
+    /// heading ([`Artifact::line`]); a digitised table/graph artifact shows
+    /// its CSV read-only (never a clickable "edit this text" link — GH
+    /// issue #35 2026-09-01: "CSV... editable only through the digitiser
+    /// UI"). **Not a re-import path**: there is no way yet to reopen an
+    /// already-extracted CSV as a live, re-calibrated digitiser session —
+    /// the fenced-TOML artifact format's `[extraction]` table records only
+    /// `method`/`engine` strings, no pixel/calibration data (see
+    /// `crate::artifact::Extraction`) — so redoing one still means
+    /// re-digitising the figure from the PDF. Falls back to the old
+    /// disk-text `blocks_matching` preview over `project_root`/
+    /// `project_markdown_rel` when no paper is active (a PDF opened outside
+    /// any paper), unchanged from before this pass.
+    fn context_panel(&mut self, ui: &mut egui::Ui, active_artifacts: Option<&[Artifact]>) -> Option<ContextPanelAction> {
         ui.heading("Page context");
-        let path = match active_markdown_path {
-            Some(p) => p.to_path_buf(),
-            None => {
-                if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-                    ui.small(
-                        "Set a project root + markdown path above to see this page's saved \
-                         annotations/CSVs here, live from the markdown file.",
-                    );
-                    return;
-                }
-                std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim())
-            }
+        let Some(artifacts) = active_artifacts else {
+            self.context_panel_fallback(ui);
+            return None;
         };
+        let page = (self.active_page() + 1) as u32;
+        let anchored: Vec<&Artifact> =
+            artifacts.iter().filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page))).collect();
+        if anchored.is_empty() {
+            ui.small("nothing saved for this page yet");
+            return None;
+        }
+        let mut result = None;
+        egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
+            for artifact in anchored {
+                match artifact.kind() {
+                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                        let icon = if artifact.kind() == ArtifactKind::DigitisedTable { "\u{1F4CA}" } else { "\u{1F4C8}" };
+                        ui.label(format!("{icon} {}", artifact.heading));
+                        if let Some(csv) = artifact.csv_block() {
+                            draw_csv_preview(ui, csv);
+                        }
+                        ui.small("re-digitise from the PDF to change it");
+                    }
+                    _ => {
+                        if ui.link(format!("\u{1F4DD} {}", artifact.heading)).clicked() {
+                            result = Some(ContextPanelAction::JumpToLine(artifact.line));
+                        }
+                    }
+                }
+                ui.separator();
+            }
+        });
+        result
+    }
+
+    /// The pre-op-j178 read-only text preview, kept as the fallback for a
+    /// PDF opened outside any paper (see [`Self::context_panel`]'s doc):
+    /// raw text preview of whatever `project_root`/`project_markdown_rel`
+    /// records for [`Self::active_page`], read live off disk (not cached),
+    /// matching GitHub issue #30's "live from markdown file" ask. Filters
+    /// `### ...` subsections by a `page: N`/`page N,` marker, matching the
+    /// exact provenance text `Self::save_annotations_into_project`'s
+    /// fallback path emits.
+    fn context_panel_fallback(&mut self, ui: &mut egui::Ui) {
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            ui.small(
+                "Set a project root + markdown path above to see this page's saved \
+                 annotations/CSVs here, live from the markdown file.",
+            );
+            return;
+        }
+        let path = std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
         let text = match std::fs::read_to_string(&path) {
             Ok(t) => t,
             Err(e) => {
@@ -811,14 +876,20 @@ impl PdfReaderState {
     /// page-context panel reads live from the same file, instead of the
     /// manual `project_root`/`project_markdown_rel` fields (which remain
     /// the fallback for a PDF opened outside any paper).
+    ///
+    /// Returns `(crop_result, context_panel_action)` — the second element
+    /// is `Some` the frame the page-context panel's own per-block click
+    /// produces one (op-j178); see [`ContextPanelAction`].
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
         mut on_open_clicked: impl FnMut(),
         active_paper: Option<&mut PaperSession>,
-    ) -> Option<CropResult> {
+    ) -> (Option<CropResult>, Option<ContextPanelAction>) {
         let active_citekey = active_paper.as_ref().map(|s| s.citekey().to_string());
-        let active_markdown_path = active_paper.as_ref().map(|s| s.markdown_path().to_path_buf());
+        let active_artifacts: Option<Vec<Artifact>> = active_paper
+            .as_ref()
+            .map(|s| crate::research_record::ResearchRecordIndex::from_session(s).artifacts().to_vec());
 
         ui.horizontal(|ui| {
             if ui.button("Open…").clicked() {
@@ -838,7 +909,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return None;
+            return (None, None);
         }
 
         self.check_hot_reload(ui.ctx());
@@ -925,10 +996,11 @@ impl PdfReaderState {
         }
         ui.separator();
 
+        let mut context_action = None;
         egui::Panel::right("pdf_reader_context")
             .resizable(true)
             .default_size(280.0)
-            .show(ui, |ui| self.context_panel(ui, active_markdown_path.as_deref()));
+            .show(ui, |ui| context_action = self.context_panel(ui, active_artifacts.as_deref()));
 
         if is_pdf && self.mode == ViewMode::Read {
             let ReaderSource::Pdf(reader) = &mut self.source else {
@@ -949,7 +1021,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return crop_result;
+            return (crop_result, context_action);
         }
 
         // --- ViewMode::Annotate / a plain image: kovan's own static
@@ -959,7 +1031,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return None;
+            return (None, context_action);
         };
         let size = texture.size_vec2() * self.zoom;
         let zoom = self.zoom;
@@ -1119,7 +1191,7 @@ impl PdfReaderState {
             crop_result = Some(result);
         }
 
-        crop_result
+        (crop_result, context_action)
     }
 
     /// Draw the floating right-click menu (op-x9qn), if one is open.

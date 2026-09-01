@@ -118,11 +118,24 @@ pub struct KvimEditorState {
     /// Top-left of the text area as last painted — the anchor the
     /// completion popup positions itself from.
     text_area_origin: Pos2,
+    /// Set by [`Self::jump_to_line`]; consumed (and cleared) by the next
+    /// [`Self::text_area`] paint, which scrolls that line into view. A
+    /// one-shot flag rather than a persistent "follow the cursor" mode, so
+    /// the operator can freely scroll away afterwards without the view
+    /// snapping back (op-j178: the PDF reader's page-context panel jumping
+    /// to an artifact's heading).
+    pending_scroll_to_line: Option<usize>,
 }
 
 impl Default for KvimEditorState {
     fn default() -> Self {
-        Self { editor: Editor::new(), loaded_text: String::new(), dragging: false, text_area_origin: Pos2::ZERO }
+        Self {
+            editor: Editor::new(),
+            loaded_text: String::new(),
+            dragging: false,
+            text_area_origin: Pos2::ZERO,
+            pending_scroll_to_line: None,
+        }
     }
 }
 
@@ -144,6 +157,17 @@ impl KvimEditorState {
     /// The buffer's current text.
     pub fn text(&self) -> String {
         self.editor.buffer().text()
+    }
+
+    /// Move the cursor to (1-based) `line`'s start and scroll it into view
+    /// on the next paint (op-j178: the PDF reader's page-context panel
+    /// jumping to an artifact's heading — `Artifact::line`'s own doc:
+    /// "1-based line of the heading, for 'jump to it in the editor'").
+    /// Out-of-range clamps to the nearest valid line rather than panicking.
+    pub fn jump_to_line(&mut self, line: usize) {
+        let target = self.editor.buffer().clamp(Position::new(line.saturating_sub(1), 0));
+        self.editor.move_cursor(target);
+        self.pending_scroll_to_line = Some(target.line);
     }
 
     /// Whether the text has changed since the last [`Self::load_text`].
@@ -254,6 +278,12 @@ impl KvimEditorState {
         let height = line_count as f32 * line_height;
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
         self.text_area_origin = rect.min;
+
+        if let Some(line) = self.pending_scroll_to_line.take() {
+            let y = rect.min.y + line as f32 * line_height;
+            let target = Rect::from_min_size(Pos2::new(rect.min.x, y), Vec2::new(1.0, line_height));
+            ui.scroll_to_rect(target, Some(egui::Align::Center));
+        }
 
         if response.clicked() || response.drag_started() {
             response.request_focus();
@@ -409,6 +439,25 @@ mod tests {
 
         assert_eq!(state.text(), "hello world\n", "no 'v' should have been inserted into the buffer");
         assert_eq!(state.editor.mode(), Mode::Visual);
+    }
+
+    /// op-j178: `Artifact::line` is 1-based ("1-based line of the heading");
+    /// `jump_to_line` must land the cursor at 0-based `line - 1`, not `line`.
+    #[test]
+    fn jump_to_line_moves_the_cursor_to_the_zero_based_equivalent() {
+        let mut state = KvimEditorState::default();
+        state.load_text("a\nb\nc\nd\n");
+        state.jump_to_line(3);
+        assert_eq!(state.editor.cursor(), Position::new(2, 0));
+        assert_eq!(state.pending_scroll_to_line, Some(2));
+    }
+
+    #[test]
+    fn jump_to_line_clamps_past_the_end_of_the_buffer() {
+        let mut state = KvimEditorState::default();
+        state.load_text("a\nb\n");
+        state.jump_to_line(999);
+        assert!(state.editor.cursor().line < 999);
     }
 
     #[test]
