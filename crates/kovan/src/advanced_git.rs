@@ -49,6 +49,17 @@ pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
     repository::status(root)
 }
 
+/// §37's "Save Repository" — `git add .` + `git commit`, deterministic, no
+/// AI (`crate::repository::save_repository`'s own doc). `Ok(None)` means
+/// there was nothing to commit. Exposed here, alongside [`status`], so the
+/// Advanced Git view only ever imports from this module (op-nswf, GH issue
+/// #35 2026-09-01 05:42: "Under the git tab, i expect to see save to
+/// repository. I don't see any button" — the backend already existed and
+/// was tested; it just had no button wired to it).
+pub fn save(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
+    repository::save_repository(root)
+}
+
 /// Up to `max` commits of history, newest first — reuses
 /// `kovan_discovery::git::GitProvider`, already this workspace's tested
 /// git-history reader, rather than a second implementation.

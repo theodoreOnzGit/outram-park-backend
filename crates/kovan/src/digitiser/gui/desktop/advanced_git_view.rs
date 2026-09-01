@@ -46,9 +46,30 @@ impl AdvancedGitState {
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
-        if ui.button("Refresh").clicked() {
-            self.refresh(root);
-        }
+        ui.horizontal(|ui| {
+            if ui.button("Refresh").clicked() {
+                self.refresh(root);
+            }
+            // op-nswf, GH issue #35 2026-09-01 05:42: "Under the git tab, i
+            // expect to see save to repository. I don't see any button" —
+            // the backend (`crate::repository::save_repository`) already
+            // existed and was tested; it just had no button wired to it.
+            if ui.button("Save Repository").clicked() {
+                match advanced_git::save(root) {
+                    Ok(Some(summary)) => {
+                        self.set_status(format!(
+                            "saved: {} added, {} changed, {} removed",
+                            summary.added.len(),
+                            summary.changed.len(),
+                            summary.removed.len()
+                        ));
+                        self.refresh(root);
+                    }
+                    Ok(None) => self.set_status("nothing to save — already up to date"),
+                    Err(e) => self.set_error(e.to_string()),
+                }
+            }
+        });
         if !self.message.is_empty() {
             let color = if self.message_is_error { Color32::from_rgb(220, 90, 90) } else { ui.visuals().weak_text_color() };
             ui.colored_label(color, &self.message);
