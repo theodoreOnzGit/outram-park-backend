@@ -1308,12 +1308,12 @@ impl PdfReaderState {
             egui::Panel::left("pdf_reader_thumbnails")
                 .resizable(true)
                 .default_size(110.0)
-                .show_inside(ui, |ui| self.thumbnail_strip(ui));
+                .show(ui, |ui| self.thumbnail_strip(ui));
         }
         egui::Panel::right("pdf_reader_context")
             .resizable(true)
             .default_size(280.0)
-            .show_inside(ui, |ui| self.context_panel(ui));
+            .show(ui, |ui| self.context_panel(ui));
 
         if is_pdf && self.continuous_scroll {
             self.continuous_pages_ui(ui);

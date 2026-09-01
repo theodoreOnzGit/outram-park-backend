@@ -212,37 +212,44 @@ fs2 = "0.4"            # advisory file locks (anti-thundering-herd for parallel 
 # deflate via flate2's miniz_oxide backend — no system zlib.
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 
-# GUI / example stack — egui ecosystem pinned to the matched 0.34 series
-# (egui 0.34 requires Rust >= 1.92)
-egui = "0.34.3"
-eframe = { version = "0.34.3", default-features = false, features = [
+# GUI / example stack — egui ecosystem pinned to the matched 0.36 series
+# (egui 0.36 requires Rust >= 1.95). Bumped from 0.34.3 (op-9vo6.11,
+# GitHub issue #35): `kopitiam-pdf` 0.3.2's reusable reader
+# (`kopitiam_pdf::gui_frontend::PdfReader::show(ui: &mut egui::Ui)`) pins
+# `egui`/`eframe = "0.36"` itself, and an `egui::Ui` from one egui version
+# is a distinct, incompatible type from another — kovan's whole GUI stack
+# has to move to the same series to pass its own `Ui` into that call at
+# all. Requires `rustup update stable` on any machine still on rustc <1.95.
+egui = "0.36.1"
+eframe = { version = "0.36.1", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers.
     "default_fonts", # Embed the default egui fonts.
     "wgpu",          # Use the wgpu rendering backend (Vulkan/Metal/DX12; Wayland-native).
     "persistence",   # Enable restoring app state when restarting the app.
 ] }
-egui_plot = "0.35.0"  # 0.35 pairs with egui 0.34 (0.34.x pairs with egui 0.33)
-egui_extras = { version = "0.34.3", features = ["all_loaders"] }
+egui_plot = "0.37.0"  # 0.37 pairs with egui 0.36 (rust-version 1.95 matches)
+egui_extras = { version = "0.36.1", features = ["all_loaders"] }
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
-# backend). 0.13.0 is the only published version pinned to `egui ^0.34.0`,
-# matching the pin above -- 0.14+ requires egui 0.35+.
-egui-file-dialog = "0.13.0"
+# backend). 0.15.0 is the first version pinned to egui 0.36.
+egui-file-dialog = "0.15.0"
 env_logger = "0.11.10"
 image = { version = "0.25.10", features = ["jpeg", "png"] }
 local-ip-address = "0.6.13"
 # wgpu — cross-platform GPU (Vulkan/Metal/DX12/GL). Version matched to what the
-# egui/eframe 0.34 stack already pulls (avoids a duplicate wgpu in the tree).
+# egui/eframe 0.36 stack already pulls (avoids a duplicate wgpu in the tree —
+# bumped from 29.0.3 alongside the egui 0.36 move, op-9vo6.11).
 # GUI/GPU dependency: it compiles for Android (Vulkan/GLES) but is NOT headless-
 # library-safe — per the Android rule, any crate using it MUST gate it behind a
 # feature / example / optional bin under `cfg(not(target_os = "android"))`,
 # never in an unconditional library build.
-wgpu = "29.0.3"
+wgpu = "30.0.1"
 # naga — wgpu's own shader front-end/validator, used ONLY as a (non-Android)
 # dev-dependency to statically validate hand-written WGSL kernels on CPU (no GPU
 # adapter needed), so CI without a GPU still catches shader syntax/type errors.
-# Version pinned to match `wgpu` above (same 29.x release) so no second naga is
-# pulled into the tree.
-naga = "29.0.3"
+# Version pinned to match `wgpu` above (bumped to the matching 30.x release
+# alongside the egui 0.36 move, op-9vo6.11) so no second naga is pulled into
+# the tree.
+naga = "30.0.1"
 
 # OPC-UA support crates. `async-opcua` itself is declared once, further up under
 # "OPC UA client/server" — do not add a second entry here; duplicate keys in

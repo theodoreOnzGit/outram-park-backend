@@ -266,7 +266,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut current = MockPanel::Main;
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 panel_selector_ui(ui, &mut current);
             });
         });

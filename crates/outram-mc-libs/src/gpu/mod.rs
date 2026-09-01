@@ -167,6 +167,11 @@ mod context {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            // wgpu 30: limit bucketing is a fingerprinting mitigation for
+            // untrusted content (e.g. a web browser exposing wgpu to a
+            // page) — irrelevant to this native GPU-compute application,
+            // and off is also the type's own `Default`.
+            apply_limit_buckets: false,
         }))
         .ok()?;
         let info = adapter.get_info();

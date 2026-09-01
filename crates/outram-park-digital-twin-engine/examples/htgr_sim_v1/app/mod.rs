@@ -572,7 +572,7 @@ impl eframe::App for HtgrSimApp {
         self.last_sim_time_s = snapshot.sim_time_s;
         self.tracers.advance(sim_dt, &snapshot);
 
-        egui::Panel::top("htgr_top").show_inside(ui, |ui| {
+        egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(
                 "HTGR Educational Simulator v1 -- scaffold (OUTRAM PARK digital-twin engine)",
             );
@@ -591,7 +591,7 @@ impl eframe::App for HtgrSimApp {
         // places at once.
         let plots = self.plots.snapshot();
 
-        egui::Panel::right("htgr_controls").show_inside(ui, |ui| {
+        egui::Panel::right("htgr_controls").show(ui, |ui| {
             if self.open_panel == Panel::Plots {
                 ui.horizontal(|ui| {
                     ui.selectable_value(
@@ -622,7 +622,7 @@ impl eframe::App for HtgrSimApp {
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
         let display_unit = self.display_unit;
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
                 Panel::Schematic => {
                     draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit)

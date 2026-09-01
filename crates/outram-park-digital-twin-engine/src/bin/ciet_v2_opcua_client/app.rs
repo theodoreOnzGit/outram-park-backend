@@ -130,7 +130,7 @@ impl eframe::App for CietOpcUaClientApp {
         let Ok(state) = self.shared.read() else {
             // A poisoned lock means the worker panicked. Say so rather than
             // drawing a frame that would silently show stale values.
-            egui::CentralPanel::default().show_inside(root_ui, |ui| {
+            egui::CentralPanel::default().show(root_ui, |ui| {
                 ui.heading("The OPC-UA worker thread has failed");
                 ui.label(
                     "The shared state lock is poisoned, which means the client's network \
@@ -141,7 +141,7 @@ impl eframe::App for CietOpcUaClientApp {
             return;
         };
 
-        egui::Panel::top("ciet_client_top").show_inside(root_ui, |ui| {
+        egui::Panel::top("ciet_client_top").show(root_ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("CIET v2 OPC-UA demo client");
                 ui.label(
@@ -164,11 +164,11 @@ impl eframe::App for CietOpcUaClientApp {
             });
         });
 
-        egui::Panel::bottom("ciet_client_status").show_inside(root_ui, |ui| {
+        egui::Panel::bottom("ciet_client_status").show(root_ui, |ui| {
             status_strip(ui, &state);
         });
 
-        egui::CentralPanel::default().show_inside(root_ui, |ui| match selected_panel {
+        egui::CentralPanel::default().show(root_ui, |ui| match selected_panel {
             Panel::Connect => {
                 let action = crate::ui::discovery_panel::show(
                     ui,

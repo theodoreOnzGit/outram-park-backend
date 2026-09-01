@@ -57,6 +57,7 @@ pub fn probe() -> Option<GpuContext> {
         power_preference: wgpu::PowerPreference::None,
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }))
     .ok()?;
     let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
@@ -219,7 +220,7 @@ pub fn try_van_genuchten_se_gpu(
         None => return Err(GpuError::MapCallbackMissing),
     }
     let out_f32: Vec<f32> = {
-        let view = readback_buffer.slice(..).get_mapped_range();
+        let view = readback_buffer.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     readback_buffer.unmap();

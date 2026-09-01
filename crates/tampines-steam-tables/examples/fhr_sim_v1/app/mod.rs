@@ -28,7 +28,7 @@ impl eframe::App for FHRSimulatorApp {
         // `show_inside`, and the `CentralPanel` must come last.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             ui.heading("FHR Educational Simulator v1");
             ui.separator();
             egui::MenuBar::new().ui(ui, |ui| {
@@ -51,11 +51,11 @@ impl eframe::App for FHRSimulatorApp {
             ui.separator();
         });
 
-        egui::Panel::right("Supplementary Info").show_inside(ui, |ui| {
+        egui::Panel::right("Supplementary Info").show(ui, |ui| {
             self.side_panel(ui);
         });
 
-        egui::Panel::bottom("github").show_inside(ui, |ui| {
+        egui::Panel::bottom("github").show(ui, |ui| {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
@@ -63,7 +63,7 @@ impl eframe::App for FHRSimulatorApp {
         });
 
         // CentralPanel must be added last so it fills the remaining space.
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.separator();
             egui::ScrollArea::both()
                 .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)

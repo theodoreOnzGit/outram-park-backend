@@ -1017,13 +1017,17 @@ impl PlotterApp {
             // not "hover over a curve". Both call the same
             // `evaluation::hover_text` the Evaluation tab uses, so the two
             // tabs can never disagree about what a coordinate means.
-            .label_formatter(move |name, value| {
-                let coords = evaluation::hover_text(tab, log, value.x, value.y);
-                if name.is_empty() {
-                    coords
-                } else {
-                    format!("{name}\n{coords}")
-                }
+            // egui_plot 0.37: `label_formatter` now takes a `&HoverPosition`
+            // (an "on a data point, with its plot name" vs. "elsewhere in
+            // the plot" enum) rather than a separate `(name, value)` pair —
+            // this reads the same two cases back out of it.
+            .label_formatter(move |pos| {
+                let (name, point) = match pos {
+                    egui_plot::HoverPosition::NearDataPoint { plot_name, position, .. } => (*plot_name, *position),
+                    egui_plot::HoverPosition::Elsewhere { position } => ("", *position),
+                };
+                let coords = evaluation::hover_text(tab, log, point.x, point.y);
+                Some(if name.is_empty() { coords } else { format!("{name}\n{coords}") })
             })
             .coordinates_formatter(
                 egui_plot::Corner::LeftTop,
@@ -1141,13 +1145,15 @@ impl PlotterApp {
             .y_axis_label(y_label)
             .allow_scroll(false)
             .legend(Legend::default())
-            .label_formatter(move |name, value| {
-                let coords = evaluation::hover_text(diagram, log, value.x, value.y);
-                if name.is_empty() {
-                    coords
-                } else {
-                    format!("{name}\n{coords}")
-                }
+            // egui_plot 0.37: see the other `label_formatter` call's comment
+            // above for why this now reads a `&HoverPosition`.
+            .label_formatter(move |pos| {
+                let (name, point) = match pos {
+                    egui_plot::HoverPosition::NearDataPoint { plot_name, position, .. } => (*plot_name, *position),
+                    egui_plot::HoverPosition::Elsewhere { position } => ("", *position),
+                };
+                let coords = evaluation::hover_text(diagram, log, point.x, point.y);
+                Some(if name.is_empty() { coords } else { format!("{name}\n{coords}") })
             })
             .coordinates_formatter(
                 egui_plot::Corner::LeftTop,
@@ -1300,7 +1306,7 @@ impl eframe::App for PlotterApp {
         // Top-level tab bar: Graph / Evaluation / Citations (issue #26,
         // 2026-08-21: "Tab selection should be on the top, similar to how
         // htgr sim v1 does it").
-        egui::Panel::top("app_top").show_inside(ui, |ui| {
+        egui::Panel::top("app_top").show(ui, |ui| {
             ui.horizontal(|ui| {
                 for tab in AppTab::ALL {
                     if ui
@@ -1318,31 +1324,31 @@ impl eframe::App for PlotterApp {
                 egui::Panel::left("controls")
                     .resizable(true)
                     .default_size(360.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| self.sidebar(ui));
                     });
 
-                egui::Panel::bottom("caveats").show_inside(ui, |ui| {
+                egui::Panel::bottom("caveats").show(ui, |ui| {
                     let active = self.active_layers();
                     for note in export::footnotes(self.active_tab, &active) {
                         ui.label(egui::RichText::new(note).small());
                     }
                 });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| self.plot_panel(ui));
+                egui::CentralPanel::default().show(ui, |ui| self.plot_panel(ui));
             }
             AppTab::Evaluation => {
                 egui::Panel::left("evaluation_controls")
                     .resizable(true)
                     .default_size(360.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| self.evaluation_sidebar(ui));
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| self.evaluation_plot_panel(ui));
+                egui::CentralPanel::default().show(ui, |ui| self.evaluation_plot_panel(ui));
             }
             AppTab::Citations => {
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     egui::ScrollArea::vertical().show(ui, citations::ui);
                 });
             }

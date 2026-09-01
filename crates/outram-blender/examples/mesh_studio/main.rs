@@ -201,7 +201,7 @@ mod app {
             self.poll();
             let running = self.slot.read().unwrap().running;
 
-            egui::Panel::top("ms_top").show_inside(ui, |ui| {
+            egui::Panel::top("ms_top").show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("Mesh Studio");
                     ui.label("· blender surface → cfmesh tet→dual→layers → OpenFOAM polyMesh (offline demo)");
@@ -212,11 +212,11 @@ mod app {
 
             egui::Panel::right("ms_controls")
                 .min_size(350.0)
-                .show_inside(ui, |ui| {
+                .show(ui, |ui| {
                     egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
                 });
 
-            egui::CentralPanel::default().show_inside(ui, |ui| self.center_ui(ui, running));
+            egui::CentralPanel::default().show(ui, |ui| self.center_ui(ui, running));
 
             if running {
                 ui.ctx().request_repaint();

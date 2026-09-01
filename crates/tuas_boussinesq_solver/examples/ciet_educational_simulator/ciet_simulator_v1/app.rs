@@ -131,7 +131,7 @@ impl eframe::App for CIETApp {
         // `show_inside`, and the `CentralPanel` must come last.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             // The top panel is often a good place for a menu bar:
 
             egui::MenuBar::new().ui(ui, |ui| {
@@ -167,7 +167,7 @@ impl eframe::App for CIETApp {
             ui.separator();
         });
 
-        egui::Panel::right("Supplementary Info").show_inside(ui, |ui| {
+        egui::Panel::right("Supplementary Info").show(ui, |ui| {
             match self.open_panel {
                 Panel::MainPage => {
                     egui::ScrollArea::both().show(ui, |ui| {
@@ -200,7 +200,7 @@ impl eframe::App for CIETApp {
             }
         });
 
-        egui::Panel::bottom("github").show_inside(ui, |ui| {
+        egui::Panel::bottom("github").show(ui, |ui| {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
@@ -208,7 +208,7 @@ impl eframe::App for CIETApp {
         });
 
         // CentralPanel must be added last so it fills the remaining space.
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
             // show correct panel or page based on user selection

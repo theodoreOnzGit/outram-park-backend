@@ -753,7 +753,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             .map_async(wgpu::MapMode::Read, |r| r.unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
-        let view = out_staging.slice(..).get_mapped_range();
+        let view = out_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
         let codes: Vec<u32> = view
             .chunks_exact(4)
             .take(n)

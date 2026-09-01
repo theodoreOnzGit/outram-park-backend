@@ -128,8 +128,16 @@ directories.workspace = true
 # crate's AGPL-3.0-only. Verified via `cargo tree -p kovan | grep hayro`
 # after the bump.
 
-# now at 0.3.1 due to some bugfixes
-kopitiam-pdf = { version = "0.3.1", default-features = false }
+# 0.3.2 (op-9vo6.11, kopitiam#96): the reusable reader (kopitiam-pdf's own
+# `PdfReader`/`gui_frontend`) is now behind a separate `egui` feature, split
+# from the `kpdf` standalone-shell feature (which additionally pulls
+# eframe/rfd for kpdf's own native file dialog and window chrome -- neither
+# needed here, since kovan already has its own eframe/egui-file-dialog
+# stack and owns its own window). `default-features = false` +
+# `features = ["egui"]` pulls in exactly the reusable pieces, nothing more.
+# Requires the workspace's egui/eframe bump to 0.36 (root Cargo.toml) --
+# kopitiam-pdf 0.3.2 itself pins egui/eframe = "0.36".
+kopitiam-pdf = { version = "0.3.2", default-features = false, features = ["egui"] }
 # `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
 # issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
 # per-Unicode-script character-weighted model, materially better than

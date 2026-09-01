@@ -452,7 +452,11 @@ impl GpuContext {
         // Drive the map to completion (single-threaded, blocking).
         let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
 
-        let data = slice.get_mapped_range();
+        // wgpu 30: `get_mapped_range` became fallible. The buffer was just
+        // polled to completion above, so a failure here means the mapping
+        // itself is broken, not a normal runtime condition — worth a panic,
+        // not a `Result` this GPU-readback helper would have to propagate.
+        let data = slice.get_mapped_range().expect("staging buffer mapping failed after a completed poll");
         let out = le_bytes_to_f32_vec(&data);
         drop(data);
         staging_buf.unmap();

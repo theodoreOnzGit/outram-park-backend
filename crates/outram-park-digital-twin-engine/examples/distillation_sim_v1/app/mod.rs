@@ -174,7 +174,7 @@ impl eframe::App for DistColSimApp {
 
         let snapshot = self.physics.snapshot();
 
-        egui::Panel::top("dist_top").show_inside(ui, |ui| {
+        egui::Panel::top("dist_top").show(ui, |ui| {
             ui.heading("Distillation Column Simulator v1 -- OUTRAM PARK digital-twin engine");
             ui.horizontal(|ui| {
                 egui::global_theme_preference_buttons(ui);
@@ -184,11 +184,11 @@ impl eframe::App for DistColSimApp {
             ui.separator();
         });
 
-        egui::Panel::right("dist_controls").show_inside(ui, |ui| {
+        egui::Panel::right("dist_controls").show(ui, |ui| {
             draw_controls(ui, &self.physics, &snapshot);
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
                 Panel::Schematic => draw_schematic_panel(ui, &snapshot),
                 Panel::Plots => {

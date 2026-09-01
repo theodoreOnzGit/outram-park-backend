@@ -81,8 +81,13 @@ approx = { workspace = true }
 # GPU kernels on CPU, so shader syntax/type errors are caught even on CI without a
 # GPU adapter (where the GPU-vs-CPU agreement tests only SKIP). Not linked into the
 # library; wgpu already pulls the same naga version transitively on desktop.
+# `wgsl-in` is NOT one of naga's default features (its own `default = []`) --
+# this crate's use of `naga::front::wgsl` previously only worked because
+# wgpu 29 happened to request the same feature on the one shared naga
+# instance; the wgpu 30 bump (op-9vo6.11) decoupled that, so it is now
+# requested explicitly rather than relying on incidental unification again.
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
-naga = { workspace = true }
+naga = { workspace = true, features = ["wgsl-in"] }
 
 # ── outram-mc-tui: mobile-first preset-geometry / transport-run TUI ───────────
 # A [[bin]] target inside this crate rather than a separate crate. It always

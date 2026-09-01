@@ -254,7 +254,7 @@ mod app {
             let status = self.run.read().unwrap().clone();
             let running = matches!(status, RunStatus::Running);
 
-            egui::Panel::top("mc_top").show_inside(ui, |ui| {
+            egui::Panel::top("mc_top").show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("MC Studio");
                     ui.label("· author geometry → set up → run a basic outram-mc criticality (offline demo)");
@@ -265,13 +265,13 @@ mod app {
 
             egui::Panel::right("mc_controls")
                 .min_size(320.0)
-                .show_inside(ui, |ui| {
+                .show(ui, |ui| {
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         self.controls_ui(ui, running);
                     });
                 });
 
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 self.viewport_and_results_ui(ui, &status);
             });
 

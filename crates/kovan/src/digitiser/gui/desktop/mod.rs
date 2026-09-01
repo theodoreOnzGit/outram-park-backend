@@ -1523,7 +1523,7 @@ impl eframe::App for DigitiseApp {
         self.theme.apply(ui.ctx());
 
         egui::Panel::top("topbar")
-            .show_inside(ui, |ui| self.top_bar(ui));
+            .show(ui, |ui| self.top_bar(ui));
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {
@@ -1548,7 +1548,7 @@ impl eframe::App for DigitiseApp {
 
         match self.view {
             View::Home => {
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     if let Some(action) = self.home.ui(ui) {
                         match action {
                             HomeAction::RequestOpenDialog => self.open_picker(FileDialogTarget::KovanRootOpen),
@@ -1560,7 +1560,7 @@ impl eframe::App for DigitiseApp {
             View::Wiki => {
                 let mut ingest_clicked = false;
                 if let Some(root) = self.home.root().cloned() {
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         if let Some(wiki) = self.wiki.as_mut() {
                             if let Some(WikiAction::RequestIngestDialog) = wiki.ui(ui, &root) {
                                 ingest_clicked = true;
@@ -1570,7 +1570,7 @@ impl eframe::App for DigitiseApp {
                 } else {
                     // No root open (e.g. the user navigated here directly
                     // via the top bar) — nothing to browse yet.
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         ui.centered_and_justified(|ui| {
                             ui.weak("no Kovan folder open — go to Home to open or create one");
                         });
@@ -1585,7 +1585,7 @@ impl eframe::App for DigitiseApp {
                     let index = crate::index::KnowledgeIndex::load_or_rebuild(&root);
                     let graph = crate::graph::KnowledgeGraph::load_or_rebuild(&root, &index);
                     let mut opened_paper = None;
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         if let Some(MindmapAction::OpenPaper(citekey)) = self.mindmap.ui(ui, &root, &index, &graph) {
                             opened_paper = Some(citekey);
                         }
@@ -1598,7 +1598,7 @@ impl eframe::App for DigitiseApp {
                         self.set_status(format!("open {citekey} — Research workspace navigation is op-9vo6.25's job"));
                     }
                 } else {
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         ui.centered_and_justified(|ui| {
                             ui.weak("no Kovan folder open — go to Home to open or create one");
                         });
@@ -1607,11 +1607,11 @@ impl eframe::App for DigitiseApp {
             }
             View::AdvancedGit => {
                 if let Some(root) = self.home.root().cloned() {
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         self.advanced_git.ui(ui, &root);
                     });
                 } else {
-                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                    egui::CentralPanel::default().show(ui, |ui| {
                         ui.centered_and_justified(|ui| {
                             ui.weak("no Kovan folder open — go to Home to open or create one");
                         });
@@ -1621,14 +1621,14 @@ impl eframe::App for DigitiseApp {
             View::Digitiser => {
                 egui::Panel::left("controls")
                     .min_size(290.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| self.side_panel(ui));
                     });
                 // op-5sdc: CSV preview + copy button, right-hand side,
                 // htgr_sim_v1-style — see csv_preview.rs.
                 egui::Panel::right("csv_preview")
                     .min_size(260.0)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         if let Some(d) = &self.dataset {
                             draw_csv_preview(ui, &d.to_csv_string());
                         } else {
@@ -1637,12 +1637,12 @@ impl eframe::App for DigitiseApp {
                             });
                         }
                     });
-                egui::CentralPanel::default().show_inside(ui, |ui| self.image_panel(ui));
+                egui::CentralPanel::default().show(ui, |ui| self.image_panel(ui));
             }
             View::PdfReader => {
                 let mut open_clicked = false;
                 let mut crop_result = None;
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     crop_result = self.pdf_reader.ui(ui, || open_clicked = true);
                 });
                 if open_clicked {
@@ -1670,7 +1670,7 @@ impl eframe::App for DigitiseApp {
             }
             View::MarkdownEditor => {
                 let mut browse_clicked = false;
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     self.markdown_editor.ui(ui, || browse_clicked = true);
                 });
                 if browse_clicked {
@@ -1681,7 +1681,7 @@ impl eframe::App for DigitiseApp {
                 let mut open_clicked = false;
                 let root = self.home.root().cloned();
                 let index = root.as_ref().map(crate::index::KnowledgeIndex::load_or_rebuild);
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     ui.horizontal(|ui| {
                         if ui.button("Open…").clicked() {
                             open_clicked = true;
@@ -1700,7 +1700,7 @@ impl eframe::App for DigitiseApp {
             View::Bibliography => {
                 let mut browse_clicked = false;
                 let mut action = None;
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     action = self.bibliography.ui(ui, || browse_clicked = true);
                 });
                 if browse_clicked {
@@ -1721,7 +1721,7 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::TableDigitiser => {
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     self.table_digitiser.ui(ui);
                 });
             }

@@ -292,7 +292,7 @@ impl eframe::App for WidgetStudio {
             self.last_substeps = 0;
         }
 
-        egui::Panel::left("picker").show_inside(ui, |ui| {
+        egui::Panel::left("picker").show(ui, |ui| {
             ui.heading("Widgets");
             ui.label(
                 RichText::new("Gallery for developing and QC-ing the visual component library.")
@@ -318,7 +318,7 @@ impl eframe::App for WidgetStudio {
 
         egui::Panel::right("controls")
             .min_size(320.0)
-            .show_inside(ui, |ui| match self.selected {
+            .show(ui, |ui| match self.selected {
                 WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
@@ -341,7 +341,7 @@ impl eframe::App for WidgetStudio {
                 }
             });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| match self.selected {
+        egui::CentralPanel::default().show(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),

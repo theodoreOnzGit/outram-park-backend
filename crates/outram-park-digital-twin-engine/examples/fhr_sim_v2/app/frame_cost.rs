@@ -151,10 +151,10 @@ fn measure(
         Part::SidePanel => app.side_panel(ui),
         Part::PowerGraphPage => app.reactor_power_page_graph(ui),
         Part::WholeMainView => {
-            egui::Panel::right("Supplementary Info").show_inside(ui, |ui| {
+            egui::Panel::right("Supplementary Info").show(ui, |ui| {
                 app.side_panel(ui);
             });
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 egui::ScrollArea::both().show(ui, |ui| app.main_page(ui));
             });
         }
