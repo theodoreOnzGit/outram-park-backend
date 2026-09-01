@@ -1,31 +1,49 @@
-//! Project browser + `.bib` entry editor (op-9vml — "Kovan should have a
-//! bibliography window which manages bib files like jabref. However, there
-//! should be more than jabref ... an entry ... should be able to jump to its
-//! PDF, its markdown sections, and its digitised CSVs").
+//! Bibliography browser + `.bib` entry editor (op-9vml — "Kovan should have
+//! a bibliography window which manages bib files like jabref. However,
+//! there should be more than jabref ... an entry ... should be able to jump
+//! to its PDF, its markdown sections, and its digitised CSVs").
 //!
-//! Two halves, both now implemented:
+//! Two halves:
 //!
-//! - **Cross-referencing** (the "more than JabRef" part): list the
-//!   project's documents from `kovan.toml` (via [`crate::project::regenerate`]),
-//!   search/filter by id, jump to a document's PDF (PDF Reader tab) or its
-//!   markdown sections (Markdown Editor tab, op-wr08).
-//! - **`.bib` entry editing** (op-xj8t, the plain JabRef half — list,
-//!   add, edit, delete, save): reads the project's one `.bib` file via
+//! - **Cross-referencing** (the "more than JabRef" part): list the open
+//!   [`KovanRoot`]'s papers and jump straight to one (op-9r26, GH issue #35
+//!   2026-09-01: "Bibliography should automatically use the bibliography
+//!   belonging to the open root ... Do not ask the user to select a
+//!   project folder ... Do not open a folder picker"). One click routes
+//!   through the same [`super::DigitiseApp::activate_paper`] every other
+//!   paper-opening view uses (Wiki, Mindmap) — no separate "open PDF" vs.
+//!   "edit markdown" actions to pick between, since activating a paper
+//!   already does both.
+//! - **`.bib` entry editing** (op-xj8t, the plain JabRef half — list, add,
+//!   edit, delete, save): reads the root's one `.bib` file
+//!   ([`KovanRoot::bibliography_path`]) via
 //!   [`kovan_literature::parse_bib_entries`] (op-vi1n) into
 //!   [`kovan_literature::BibEntry`] and writes it back with
 //!   [`kovan_literature::render_entries`]. **Deliberately not a
 //!   byte-for-byte round trip** — see those functions' own docs: original
 //!   field order and any comments/whitespace outside entries are not
 //!   preserved. Saving fully rewrites the file from the in-memory entry
-//!   list, the same "regenerate wins over incremental patch" posture
-//!   `crate::project::write_index` already takes for `kovan.toml`.
+//!   list.
+//!
+//! # Migrated off the older `crate::project` format (op-9r26)
+//!
+//! This module used to browse a `pdf/` + `markdown/` "kovan folder" project
+//! (`crate::project::regenerate`, addressed by a hand-typed root path and a
+//! generated `kovan.toml` with regenerated line-range sections) — a
+//! genuinely different, older model from [`KovanRoot`]'s citekey-addressed
+//! papers (see `root.rs`'s own module doc, "Relationship to
+//! `crate::project`"). It now speaks only the new model; the old one is
+//! still used elsewhere (the Digitiser tabs' own manual project-root save
+//! path, and a PDF opened outside any paper) but no longer has a GUI
+//! surface of its own — see `crates/kovan/docs/kovan-redesign-migration-map.md`.
 
 use std::collections::BTreeMap;
 
 use eframe::egui;
 use kovan_literature::BibEntry;
 
-use crate::project::{self, ProjectIndex};
+use crate::index::KnowledgeIndex;
+use crate::root::KovanRoot;
 
 /// In-progress edit of one `.bib` entry (op-xj8t) — a `Vec` of `(name,
 /// value)` pairs rather than the target `BTreeMap` directly, so the editor
@@ -73,77 +91,58 @@ impl EntryEditor {
     }
 }
 
-/// State for the bibliography/project-browser tab.
+/// State for the bibliography tab.
 #[derive(Default)]
 pub struct BibliographyState {
-    root: String,
-    index: Option<ProjectIndex>,
     filter: String,
-    /// The project's `.bib` file, parsed (op-xj8t) — `None` until a project
-    /// with a readable `.bib` file has been opened.
+    /// The root's `.bib` file, parsed (op-xj8t) — `None` until [`Self::ui`]
+    /// has loaded it at least once for the currently open root; `Some(vec![])`
+    /// for a valid, empty (or not-yet-existing) bibliography, which is not
+    /// an error — a freshly created library has no entries yet.
     entries: Option<Vec<BibEntry>>,
     editor: Option<EntryEditor>,
     message: String,
 }
 
-/// What the operator asked to do with one listed document — handed back to
-/// [`super::DigitiseApp`], which owns the PDF reader and markdown editor
-/// this panel jumps into.
+/// What the operator asked to do with one listed paper — handed back to
+/// [`super::DigitiseApp`], which owns [`super::DigitiseApp::activate_paper`].
 pub enum BibliographyAction {
-    OpenPdf { path: String },
-    EditMarkdown { root: String, doc_id: String },
+    OpenPaper(String),
 }
 
 impl BibliographyState {
-    pub fn open_project(&mut self, root: &str) {
-        match project::regenerate(std::path::Path::new(root)) {
-            Ok(index) => {
-                let n = index.documents.len();
-                self.root = root.to_string();
-                self.entries = None;
-                self.editor = None;
-                let bib_file = index.bib_file.clone();
-                self.index = Some(index);
-                self.message = format!("opened {root} — {n} document(s)");
-                self.load_bib_entries(&bib_file);
-            }
-            Err(e) => self.message = e.to_string(),
-        }
-    }
-
-    fn bib_path(&self, bib_file: &str) -> std::path::PathBuf {
-        std::path::Path::new(&self.root).join(bib_file)
-    }
-
-    fn load_bib_entries(&mut self, bib_file: &str) {
-        let path = self.bib_path(bib_file);
-        match std::fs::read_to_string(&path) {
+    /// Load (or reload) the bibliography from `root` — the "belongs to the
+    /// open root" rule, so there is no separate project/folder concept for
+    /// this panel to track. A missing `.bib` file is the ordinary "nothing
+    /// ingested yet" empty state, not an error.
+    fn load(&mut self, root: &KovanRoot) {
+        self.editor = None;
+        match std::fs::read_to_string(root.bibliography_path()) {
             Ok(text) => match kovan_literature::parse_bib_entries(&text) {
                 Ok(entries) => self.entries = Some(entries),
-                Err(e) => self.message = format!("{}: {e}", path.display()),
+                Err(e) => {
+                    self.message = format!("{}: {e}", root.bibliography_path().display());
+                    self.entries = Some(Vec::new());
+                }
             },
-            Err(e) => self.message = format!("{}: {e}", path.display()),
+            Err(_) => self.entries = Some(Vec::new()),
         }
     }
 
-    /// Write `self.entries` back to the project's `.bib` file (op-xj8t) —
-    /// fully rewrites the file from the in-memory list (see the module
-    /// doc's "not a byte-for-byte round trip" note), then re-scans the
-    /// project so `kovan.toml`'s cite-key join picks up any cite-key change
-    /// immediately (an edited/added/deleted entry can change which
-    /// documents the join finds).
-    fn save_bib_entries(&mut self) {
-        let Some(index) = &self.index else { return };
+    /// Write `self.entries` back to `root`'s `.bib` file (op-xj8t) — fully
+    /// rewrites the file from the in-memory list (see the module doc's "not
+    /// a byte-for-byte round trip" note), then reloads so an edited/added/
+    /// deleted entry is reflected immediately.
+    fn save_bib_entries(&mut self, root: &KovanRoot) {
         let Some(entries) = &self.entries else { return };
-        let path = self.bib_path(&index.bib_file);
+        let path = root.bibliography_path();
         let text = kovan_literature::render_entries(entries);
         if let Err(e) = std::fs::write(&path, text) {
             self.message = format!("cannot write {}: {e}", path.display());
             return;
         }
-        let root = self.root.clone();
         self.message = format!("saved {}", path.display());
-        self.open_project(&root);
+        self.load(root);
     }
 
     fn start_new_entry(&mut self) {
@@ -158,16 +157,16 @@ impl BibliographyState {
         }
     }
 
-    fn delete_entry(&mut self, i: usize) {
+    fn delete_entry(&mut self, i: usize, root: &KovanRoot) {
         if let Some(entries) = &mut self.entries {
             if i < entries.len() {
                 entries.remove(i);
-                self.save_bib_entries();
+                self.save_bib_entries(root);
             }
         }
     }
 
-    fn commit_editor(&mut self) {
+    fn commit_editor(&mut self, root: &KovanRoot) {
         let Some(editor) = self.editor.take() else { return };
         let entry = editor.to_entry();
         if entry.cite_key.is_empty() {
@@ -180,16 +179,19 @@ impl BibliographyState {
             Some(i) if i < entries.len() => entries[i] = entry,
             _ => entries.push(entry),
         }
-        self.save_bib_entries();
+        self.save_bib_entries(root);
     }
 
     /// The `.bib` entry list + add/edit form (op-xj8t) — drawn above the
-    /// existing document cross-reference list.
-    fn bib_editor_ui(&mut self, ui: &mut egui::Ui) {
+    /// paper cross-reference list.
+    fn bib_editor_ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
         ui.horizontal(|ui| {
             ui.heading("Bibliography entries");
             if ui.button("+ New entry").clicked() {
                 self.start_new_entry();
+            }
+            if ui.button("Refresh").clicked() {
+                self.load(root);
             }
         });
 
@@ -229,7 +231,7 @@ impl BibliographyState {
                 });
             });
             if commit {
-                self.commit_editor();
+                self.commit_editor(root);
             } else if cancel {
                 self.editor = None;
             }
@@ -239,6 +241,9 @@ impl BibliographyState {
             ui.small("no .bib entries loaded");
             return;
         };
+        if entries.is_empty() {
+            ui.small("no bibliography entries yet — ingest a paper from the Wiki to get started");
+        }
         let mut edit_i = None;
         let mut delete_i = None;
         egui::ScrollArea::vertical().id_salt("bib_entries_scroll").max_height(220.0).show(ui, |ui| {
@@ -259,83 +264,44 @@ impl BibliographyState {
             self.start_edit(i);
         }
         if let Some(i) = delete_i {
-            self.delete_entry(i);
+            self.delete_entry(i, root);
         }
         ui.separator();
     }
 
-    /// Draw the panel; returns `Some` the frame the operator clicks a jump
-    /// action on one row.
-    pub fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        mut on_browse: impl FnMut(),
-    ) -> Option<BibliographyAction> {
-        ui.horizontal(|ui| {
-            ui.label("project folder:");
-            ui.text_edit_singleline(&mut self.root);
-            if ui.button("Open").clicked() {
-                let root = self.root.clone();
-                self.open_project(&root);
-            }
-            if ui.button("Browse…").clicked() {
-                on_browse();
-            }
-        });
-
-        if self.index.is_none() {
-            ui.centered_and_justified(|ui| {
-                ui.label("open a kovan-folder project to browse its documents");
-            });
-            if !self.message.is_empty() {
-                ui.label(&self.message);
-            }
-            return None;
+    /// Draw the panel; returns `Some` the frame the operator clicks "Open"
+    /// on a paper. `index` is the open root's already-loaded
+    /// [`KnowledgeIndex`] (the same one Wiki/Mindmap use) — this panel
+    /// lists papers from it, not a second document scan.
+    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) -> Option<BibliographyAction> {
+        if self.entries.is_none() {
+            self.load(root);
         }
 
-        self.bib_editor_ui(ui);
-
-        let Some(index) = &self.index else {
-            return None;
-        };
+        self.bib_editor_ui(ui, root);
+        if !self.message.is_empty() {
+            ui.label(&self.message);
+        }
 
         ui.horizontal(|ui| {
             ui.label("filter:");
             ui.text_edit_singleline(&mut self.filter);
         });
-        ui.label(format!("bib file: {}", index.bib_file));
-        ui.small("Document cross-references — jump to a document's PDF or markdown sections.");
+        ui.small("Papers — click Open to activate one (its PDF and research Markdown together).");
         ui.separator();
 
         let needle = self.filter.trim().to_ascii_lowercase();
         let mut action = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
-            for doc in &index.documents {
-                if !needle.is_empty() && !doc.id.to_ascii_lowercase().contains(&needle) {
+            for paper in &index.papers {
+                if !needle.is_empty() && !paper.citekey.to_ascii_lowercase().contains(&needle) {
                     continue;
                 }
                 ui.horizontal(|ui| {
-                    ui.label(&doc.id);
-                    if ui.button("Open PDF").clicked() {
-                        action = Some(BibliographyAction::OpenPdf {
-                            path: std::path::Path::new(&self.root)
-                                .join(&doc.pdf)
-                                .to_string_lossy()
-                                .into_owned(),
-                        });
+                    ui.label(&paper.citekey);
+                    if ui.button("Open").clicked() {
+                        action = Some(BibliographyAction::OpenPaper(paper.citekey.clone()));
                     }
-                    if ui.button("Edit Markdown").clicked() {
-                        action = Some(BibliographyAction::EditMarkdown {
-                            root: self.root.clone(),
-                            doc_id: doc.id.clone(),
-                        });
-                    }
-                    let sections: Vec<&str> = project::SECTION_ORDER
-                        .iter()
-                        .filter(|name| doc.sections.get(name).is_some())
-                        .copied()
-                        .collect();
-                    ui.label(format!("[{}]", sections.join(", ")));
                 });
             }
         });

@@ -3,7 +3,6 @@ mod bibliography;
 mod csv_preview;
 mod home;
 mod kvim_editor;
-mod markdown_editor;
 mod pdf_reader;
 mod table_digitiser;
 mod theme;
@@ -35,7 +34,6 @@ use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
-use markdown_editor::MarkdownEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
 use table_digitiser::TableDigitiserState;
 use theme::GuiTheme;
@@ -65,13 +63,13 @@ enum View {
     Wiki,
     Digitiser,
     PdfReader,
-    MarkdownEditor,
-    /// The `kopitiam-neovim`-backed editor (§26/§27, `op-9vo6.17`), on a
-    /// scratch buffer for now. Kept alongside `MarkdownEditor` rather than
-    /// replacing it outright: `MarkdownEditor` still serves the working
-    /// `project.rs` model (§3's "MIGRATE", not yet done), and swapping it
-    /// for real paper content is `op-9vo6.18`'s `SyncController`/Research
-    /// workspace wiring, not this step's.
+    /// The `kopitiam-neovim`-backed editor (§26/§27, `op-9vo6.17`) — the
+    /// one user-facing paper-markdown editor (op-shjn, GH issue #35
+    /// 2026-09-01: "the markdown editor should use the kvim editor"). The
+    /// older hand-rolled `markdown_editor.rs` (the pre-redesign
+    /// `crate::project` model) was retired along with `Bibliography`'s
+    /// migration onto `KovanRoot` (op-9r26) — nothing constructs that view
+    /// any more.
     KvimEditor,
     Bibliography,
     TableDigitiser,
@@ -97,12 +95,6 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
-    /// Picked directory becomes the markdown editor's open project
-    /// (op-wr08).
-    ProjectFolder,
-    /// Picked directory becomes the bibliography/project-browser's open
-    /// project (op-9vml).
-    BibliographyFolder,
     /// Picked directory is opened (or discovered from) as a Kovan root
     /// (op-9vo6.3, §2's "Open Kovan Folder…").
     KovanRootOpen,
@@ -122,7 +114,7 @@ impl FileDialogTarget {
     /// Whether this target picks a directory (`pick_directory`) rather than
     /// a file — see [`DigitiseApp::open_picker`].
     fn is_directory(self) -> bool {
-        matches!(self, Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate)
+        matches!(self, Self::KovanRootOpen | Self::KovanRootCreate)
     }
 
     /// Whether this target opens an existing file (`pick_file`) or names a
@@ -143,7 +135,7 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport => Some("JSON"),
             Self::CsvExport => Some("CSV"),
-            Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
+            Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
         }
     }
 }
@@ -234,9 +226,7 @@ pub struct DigitiseApp {
     auto_ingest_opened_pdfs: bool,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
-    // markdown editor (op-wr08)
-    markdown_editor: MarkdownEditorState,
-    // bibliography / project browser (op-9vml)
+    // bibliography (op-9vml, migrated onto KovanRoot by op-9r26)
     bibliography: BibliographyState,
     // table digitiser (op-hnhp)
     table_digitiser: TableDigitiserState,
@@ -338,7 +328,6 @@ impl Default for DigitiseApp {
             pending_ingest_prompt: None,
             auto_ingest_opened_pdfs: false,
             pdf_reader: PdfReaderState::new(),
-            markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),
             image_path: String::new(),
@@ -392,11 +381,8 @@ impl DigitiseApp {
     /// Make `citekey` the active paper (op-sr4n, GitHub issue #35's
     /// 2026-09-01 "unify Kovan root and active-paper context" comment):
     /// opens its [`PaperSession`], resolves its source PDF from
-    /// `kovan.toml`, and pushes both into the views that already understand
-    /// the new [`crate::root::KovanRoot`]/`PaperSession` model — the PDF
-    /// reader and the kvim editor. `bibliography.rs`/`markdown_editor.rs`
-    /// still speak the older `crate::project` format (see the migration
-    /// map, and beads `op-9r26`/`op-s4wg`) and are not wired here.
+    /// `kovan.toml`, and pushes both into the PDF reader and the kvim
+    /// editor.
     ///
     /// Requires a Kovan root to already be open. A missing/unreadable
     /// source PDF is not an error — the GH comment's own "Missing PDF"
@@ -1608,11 +1594,11 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             // op-shjn (GH issue #35, "the markdown editor should use the
-            // kvim editor"): Kvim is now the one user-facing paper-markdown
-            // editor. `View::MarkdownEditor` stays reachable only via
-            // Bibliography's legacy `EditMarkdown` cross-reference (the
-            // old crate::project format, not yet migrated — op-9r26) —
-            // deliberately not a nav button here any more.
+            // kvim editor"): Kvim is the one user-facing paper-markdown
+            // editor. The older hand-rolled markdown_editor.rs was retired
+            // (op-9r26) once Bibliography moved off the old crate::project
+            // model, so there is nothing left for a second nav button to
+            // point at.
             ui.selectable_value(&mut self.view, View::KvimEditor, "Kvim Editor");
             ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
             ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
@@ -1660,8 +1646,6 @@ impl DigitiseApp {
             }
             FileDialogTarget::JsonExport => self.json_out = path,
             FileDialogTarget::CsvExport => self.csv_out = path,
-            FileDialogTarget::ProjectFolder => self.markdown_editor.open_project(&path),
-            FileDialogTarget::BibliographyFolder => self.bibliography.open_project(&path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
             FileDialogTarget::KovanRootCreate => self.home.begin_create(std::path::Path::new(&path)),
             FileDialogTarget::PdfIngest => {
@@ -1845,15 +1829,6 @@ impl eframe::App for DigitiseApp {
                     None => {}
                 }
             }
-            View::MarkdownEditor => {
-                let mut browse_clicked = false;
-                egui::CentralPanel::default().show(ui, |ui| {
-                    self.markdown_editor.ui(ui, || browse_clicked = true);
-                });
-                if browse_clicked {
-                    self.open_picker(FileDialogTarget::ProjectFolder);
-                }
-            }
             View::KvimEditor => {
                 let mut open_clicked = false;
                 let mut save_clicked = false;
@@ -1911,26 +1886,25 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::Bibliography => {
-                let mut browse_clicked = false;
-                let mut action = None;
-                egui::CentralPanel::default().show(ui, |ui| {
-                    action = self.bibliography.ui(ui, || browse_clicked = true);
-                });
-                if browse_clicked {
-                    self.open_picker(FileDialogTarget::BibliographyFolder);
-                }
-                // op-9vml's cross-reference jumps: hand off to the PDF
-                // reader or markdown editor tab and switch to it.
-                match action {
-                    Some(BibliographyAction::OpenPdf { path }) => {
-                        self.pdf_reader.open(&path);
-                        self.view = View::PdfReader;
+                // op-9r26: Bibliography now follows the already-open Kovan
+                // root automatically — no project-folder picker in the
+                // normal workflow (GH issue #35: "Do not ask the user to
+                // select a project folder... Do not open a folder dialog").
+                if let Some(root) = self.home.root().cloned() {
+                    let index = crate::index::KnowledgeIndex::load_or_rebuild(&root);
+                    let mut action = None;
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        action = self.bibliography.ui(ui, &root, &index);
+                    });
+                    if let Some(BibliographyAction::OpenPaper(citekey)) = action {
+                        self.activate_paper_and_navigate(&citekey);
                     }
-                    Some(BibliographyAction::EditMarkdown { root, doc_id }) => {
-                        self.markdown_editor.open_document(&root, &doc_id);
-                        self.view = View::MarkdownEditor;
-                    }
-                    None => {}
+                } else {
+                    egui::CentralPanel::default().show(ui, |ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.weak("no Kovan folder open — go to Home to open or create one");
+                        });
+                    });
                 }
             }
             View::TableDigitiser => {
