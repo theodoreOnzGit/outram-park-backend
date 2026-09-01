@@ -4,7 +4,6 @@ mod csv_preview;
 mod home;
 mod kvim_editor;
 mod markdown_editor;
-mod pdf_annots;
 mod pdf_reader;
 mod table_digitiser;
 mod theme;
