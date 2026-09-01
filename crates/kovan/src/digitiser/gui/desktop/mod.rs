@@ -221,6 +221,17 @@ pub struct DigitiseApp {
     /// [`Self::activate_paper`]; consumed by every paper-aware view instead
     /// of each independently prompting for a root/path.
     active_paper: Option<ActivePaper>,
+    /// A just-opened PDF that is not yet part of the open Kovan library,
+    /// awaiting an Ingest/Skip decision (op-9sc7, GH issue #35 2026-09-01
+    /// 05:22: "opening new pdfs, kovan should ask if you want to ingest
+    /// it"). Absolute path, as a `String` to match [`FileDialogTarget`]'s
+    /// own picked-path convention.
+    pending_ingest_prompt: Option<String>,
+    /// "Always ingest automatically" (op-9sc7's own "checkbox to
+    /// auto-ingest opened pdfs") — when on, a newly opened PDF outside the
+    /// library is ingested immediately with no prompt, using its own
+    /// preview-suggested citekey/topics.
+    auto_ingest_opened_pdfs: bool,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
     // markdown editor (op-wr08)
@@ -324,6 +335,8 @@ impl Default for DigitiseApp {
             mindmap: MindmapState::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
+            pending_ingest_prompt: None,
+            auto_ingest_opened_pdfs: false,
             pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
@@ -408,6 +421,74 @@ impl DigitiseApp {
 
         self.active_paper = Some(ActivePaper { session, pdf_path });
         Ok(())
+    }
+
+    /// Whether `path` is already one of the open library's stored source
+    /// PDFs — i.e. lives directly under `root.open_sources_dir()` or
+    /// `root.restricted_sources_dir()`, exactly where `ingest::ingest`
+    /// (§23 step 3) copies a paper's PDF to. Cheap prefix check rather than
+    /// scanning every paper's `kovan.toml`, and correct as long as nothing
+    /// else writes into those two directories — which nothing in this
+    /// crate does.
+    fn already_ingested(&self, path: &std::path::Path) -> bool {
+        let Some(root) = self.home.root() else { return false };
+        let Ok(canon) = path.canonicalize() else { return false };
+        [root.open_sources_dir(), root.restricted_sources_dir()]
+            .into_iter()
+            .any(|dir| canon.starts_with(dir.canonicalize().unwrap_or(dir)))
+    }
+
+    /// A PDF was just opened (op-9sc7, GH issue #35 2026-09-01 05:22:
+    /// "opening new pdfs, kovan should ask if you want to ingest it") — if
+    /// it is not already part of the open library, either ingest it
+    /// immediately ([`Self::auto_ingest_opened_pdfs`] on) or queue the
+    /// Ingest/Skip prompt [`Self::ingest_prompt_ui`] draws. No-op with no
+    /// root open — nothing to ingest into.
+    fn offer_ingest_if_new(&mut self, path: &str) {
+        let Some(root) = self.home.root().cloned() else { return };
+        if self.already_ingested(std::path::Path::new(path)) {
+            return;
+        }
+        if self.auto_ingest_opened_pdfs {
+            let wiki = self.wiki.get_or_insert_with(|| WikiState::new(&root));
+            if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(path)) {
+                self.set_error(e);
+            }
+        } else {
+            self.pending_ingest_prompt = Some(path.to_string());
+        }
+    }
+
+    /// Draw the Ingest/Skip prompt from [`Self::offer_ingest_if_new`], if
+    /// one is pending. Ingesting hands off to the same "+ Ingest
+    /// Literature…" flow the Wiki's own button opens (§22's preview/
+    /// classify form), rather than a second, competing ingestion path.
+    fn ingest_prompt_ui(&mut self, ctx: &egui::Context) {
+        let Some(path) = self.pending_ingest_prompt.clone() else { return };
+        let Some(root) = self.home.root().cloned() else {
+            self.pending_ingest_prompt = None;
+            return;
+        };
+        let mut close = false;
+        egui::Window::new("Ingest this PDF?").collapsible(false).resizable(false).show(ctx, |ui| {
+            ui.label(format!("{path} is not in your Kovan library yet."));
+            ui.checkbox(&mut self.auto_ingest_opened_pdfs, "Always ingest opened PDFs automatically");
+            ui.horizontal(|ui| {
+                if ui.button("Ingest…").clicked() {
+                    let wiki = self.wiki.get_or_insert_with(|| WikiState::new(&root));
+                    if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
+                        self.set_error(e);
+                    }
+                    close = true;
+                }
+                if ui.button("Skip").clicked() {
+                    close = true;
+                }
+            });
+        });
+        if close {
+            self.pending_ingest_prompt = None;
+        }
     }
 
     /// [`Self::activate_paper`], plus switching to whichever view makes the
@@ -1526,7 +1607,12 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::AdvancedGit, "Advanced Git");
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
-            ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
+            // op-shjn (GH issue #35, "the markdown editor should use the
+            // kvim editor"): Kvim is now the one user-facing paper-markdown
+            // editor. `View::MarkdownEditor` stays reachable only via
+            // Bibliography's legacy `EditMarkdown` cross-reference (the
+            // old crate::project format, not yet migrated — op-9r26) —
+            // deliberately not a nav button here any more.
             ui.selectable_value(&mut self.view, View::KvimEditor, "Kvim Editor");
             ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
             ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
@@ -1568,7 +1654,10 @@ impl DigitiseApp {
         let path = path.to_string_lossy().into_owned();
         match target {
             FileDialogTarget::Image => self.load_image(&path),
-            FileDialogTarget::Pdf => self.pdf_reader.open(&path),
+            FileDialogTarget::Pdf => {
+                self.pdf_reader.open(&path);
+                self.offer_ingest_if_new(&path);
+            }
             FileDialogTarget::JsonExport => self.json_out = path,
             FileDialogTarget::CsvExport => self.csv_out = path,
             FileDialogTarget::ProjectFolder => self.markdown_editor.open_project(&path),
@@ -1603,6 +1692,7 @@ impl eframe::App for DigitiseApp {
         if let Some(path) = self.file_dialog.take_picked() {
             self.handle_picked_file(&path);
         }
+        self.ingest_prompt_ui(ui.ctx());
 
         // §8: "after opening a root, land in the Wiki, not the PDF
         // reader." A root becomes available asynchronously (the directory
@@ -1726,7 +1816,11 @@ impl eframe::App for DigitiseApp {
                 let mut open_clicked = false;
                 let mut crop_result = None;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    crop_result = self.pdf_reader.ui(ui, || open_clicked = true);
+                    // op-q1qj: the active paper's session (if any) so the
+                    // reader saves annotations straight into it instead of
+                    // asking for a project root/markdown path.
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    crop_result = self.pdf_reader.ui(ui, || open_clicked = true, active_session);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);

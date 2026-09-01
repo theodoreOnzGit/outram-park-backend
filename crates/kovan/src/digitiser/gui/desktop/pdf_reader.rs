@@ -103,6 +103,7 @@ use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
 use crate::project;
+use crate::session::PaperSession;
 
 /// Screen-resolution DPI for [`ViewMode::Annotate`]'s single-page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
@@ -594,13 +595,18 @@ impl PdfReaderState {
     }
 
     /// Append every not-yet-saved annotation on the active page into the
-    /// project's `annotations` section (op-96am), via
-    /// [`crate::project::append_to_section`] — one `###` subsection per
-    /// annotation, each stating author/page/pixel-bbox per the design doc's
-    /// §4.1 shape. Saves the whole page's worth in one call rather than one
-    /// call per annotation, so appending N annotations after opening a page
-    /// full of them doesn't need N separate stale-range-checked writes.
-    fn save_annotations_into_project(&mut self) {
+    /// paper's own canonical Markdown (op-q1qj, GH issue #35 2026-09-01
+    /// 05:37: "project root isn't decided") — via
+    /// [`PaperSession::append_block`]/[`PaperSession::save_document`] when
+    /// `active_paper` is `Some` (the normal case: this reader is showing an
+    /// [`crate::digitiser::gui::desktop::DigitiseApp::activate_paper`]'d
+    /// paper's PDF), falling back to the older
+    /// [`crate::project::append_to_section`] path over the manual
+    /// `project_root`/`project_markdown_rel` fields only for a PDF opened
+    /// outside any paper. One `###` subsection per annotation, each stating
+    /// author/page/pixel-bbox per the design doc's §4.1 shape. Saves the
+    /// whole page's worth in one call rather than one call per annotation.
+    fn save_annotations_into_project(&mut self, active_paper: Option<&mut PaperSession>) {
         let page = self.active_page();
         let Some(anns) = self.annotations.get(&page) else {
             self.message = "no annotations on this page to save".to_string();
@@ -610,10 +616,7 @@ impl PdfReaderState {
             self.message = "no annotations on this page to save".to_string();
             return;
         }
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.message = "set the project root and markdown path first".to_string();
-            return;
-        }
+        let count = anns.len();
         let mut block = String::new();
         for ann in anns {
             block.push_str(&format!(
@@ -628,13 +631,28 @@ impl PdfReaderState {
                 ann.text
             ));
         }
+        let block = block.trim_end();
+
+        if let Some(session) = active_paper {
+            session.append_block(block);
+            self.message = match session.save_document() {
+                Ok(()) => format!("saved {count} annotation(s) into {}", session.citekey()),
+                Err(e) => e.to_string(),
+            };
+            return;
+        }
+
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.message = "set the project root and markdown path first".to_string();
+            return;
+        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
             "annotations",
-            block.trim_end(),
+            block,
         ) {
-            Ok(_) => self.message = format!("saved {} annotation(s) into project markdown", anns.len()),
+            Ok(_) => self.message = format!("saved {count} annotation(s) into project markdown"),
             Err(e) => self.message = e.to_string(),
         }
     }
@@ -722,17 +740,21 @@ impl PdfReaderState {
     /// `DigitiseApp::save_into_project`, `TableDigitiserState::
     /// save_into_project`) — a plain substring filter, not a markdown
     /// parser, since the marker text is under this crate's own control.
-    fn context_panel(&mut self, ui: &mut egui::Ui) {
+    fn context_panel(&mut self, ui: &mut egui::Ui, active_markdown_path: Option<&std::path::Path>) {
         ui.heading("Page context");
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            ui.small(
-                "Set a project root + markdown path above to see this page's saved \
-                 annotations/CSVs here, live from the markdown file.",
-            );
-            return;
-        }
-        let path =
-            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
+        let path = match active_markdown_path {
+            Some(p) => p.to_path_buf(),
+            None => {
+                if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+                    ui.small(
+                        "Set a project root + markdown path above to see this page's saved \
+                         annotations/CSVs here, live from the markdown file.",
+                    );
+                    return;
+                }
+                std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim())
+            }
+        };
         let text = match std::fs::read_to_string(&path) {
             Ok(t) => t,
             Err(e) => {
@@ -781,7 +803,23 @@ impl PdfReaderState {
     /// gesture (op-p17q / op-hnhp) — the caller (`DigitiseApp`) is expected
     /// to load it into the matching digitiser tab and switch views. Never
     /// `Some` while in `Read` mode — see the module doc's "Known gap".
-    pub fn ui(&mut self, ui: &mut egui::Ui, mut on_open_clicked: impl FnMut()) -> Option<CropResult> {
+    ///
+    /// `active_paper` is the wider app's [`crate::digitiser::gui::desktop::
+    /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
+    /// 2026-09-01 05:37: "project root isn't decided") — when `Some`,
+    /// annotations save straight into its canonical Markdown and the
+    /// page-context panel reads live from the same file, instead of the
+    /// manual `project_root`/`project_markdown_rel` fields (which remain
+    /// the fallback for a PDF opened outside any paper).
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        mut on_open_clicked: impl FnMut(),
+        active_paper: Option<&mut PaperSession>,
+    ) -> Option<CropResult> {
+        let active_citekey = active_paper.as_ref().map(|s| s.citekey().to_string());
+        let active_markdown_path = active_paper.as_ref().map(|s| s.markdown_path().to_path_buf());
+
         ui.horizontal(|ui| {
             if ui.button("Open…").clicked() {
                 on_open_clicked();
@@ -858,15 +896,26 @@ impl PdfReaderState {
                  Right-click an existing box → Edit / Delete.",
             );
         }
+        let mut save_clicked = false;
         ui.horizontal(|ui| {
-            ui.label("project root");
-            ui.text_edit_singleline(&mut self.project_root);
-            ui.label("markdown path");
-            ui.text_edit_singleline(&mut self.project_markdown_rel);
-            if ui.button("Save page annotations into project markdown").clicked() {
-                self.save_annotations_into_project();
+            match &active_citekey {
+                Some(citekey) => {
+                    ui.label(format!("saving annotations into {citekey}'s notes"));
+                }
+                None => {
+                    ui.label("project root");
+                    ui.text_edit_singleline(&mut self.project_root);
+                    ui.label("markdown path");
+                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                }
+            }
+            if ui.button("Save page annotations").clicked() {
+                save_clicked = true;
             }
         });
+        if save_clicked {
+            self.save_annotations_into_project(active_paper);
+        }
         if show_annotate_ui {
             self.text_selection_panel(ui);
         }
@@ -879,7 +928,7 @@ impl PdfReaderState {
         egui::Panel::right("pdf_reader_context")
             .resizable(true)
             .default_size(280.0)
-            .show(ui, |ui| self.context_panel(ui));
+            .show(ui, |ui| self.context_panel(ui, active_markdown_path.as_deref()));
 
         if is_pdf && self.mode == ViewMode::Read {
             let ReaderSource::Pdf(reader) = &mut self.source else {
@@ -1434,5 +1483,68 @@ a note
         // state -- `new()` only overrides hot-reload.
         assert!(r.path.is_empty());
         assert!(r.annotations.is_empty());
+    }
+
+    /// op-q1qj (GH issue #35 2026-09-01 05:37, "project root isn't
+    /// decided"): with an active paper's `PaperSession` supplied,
+    /// `save_annotations_into_project` must write straight into its
+    /// canonical Markdown via `append_block`/`save_document` — no
+    /// `project_root`/`project_markdown_rel` needed at all.
+    #[test]
+    fn save_annotations_writes_into_the_active_papers_session_when_given_one() {
+        use crate::entity::Access;
+        use crate::ingest::{self, IngestChoice};
+        use crate::root::{KovanRoot, RootConfig};
+        use crate::session::PaperSession;
+
+        // Same minimal, structurally valid one-page PDF fixture as
+        // `ingest.rs`'s own tests (`write_test_pdf`) — `ingest::preview`
+        // needs a real parseable PDF, not just any bytes.
+        fn write_test_pdf(path: &std::path::Path, title: &str) {
+            use lopdf::{dictionary, Document, Object};
+            let mut doc = Document::with_version("1.5");
+            let pages_id = doc.new_object_id();
+            let page_id = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id });
+            let pages = dictionary! { "Type" => "Pages", "Kids" => vec![Object::Reference(page_id)], "Count" => 1 };
+            doc.objects.insert(pages_id, Object::Dictionary(pages));
+            let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+            doc.trailer.set("Root", catalog_id);
+            let info_id = doc.add_object(dictionary! { "Title" => Object::string_literal(title) });
+            doc.trailer.set("Info", info_id);
+            doc.save(path).unwrap();
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        let pdf_path = dir.path().join("incoming.pdf");
+        write_test_pdf(&pdf_path, "A Test Paper About Figures");
+        let preview = ingest::preview(&root, &pdf_path).unwrap();
+        let citekey = preview.suggested_citekey.clone();
+        ingest::ingest(
+            &root,
+            &preview,
+            IngestChoice { citekey: citekey.clone(), access: Access::Open, topics: vec!["htgrs".into()], projects: vec![] },
+        )
+        .unwrap();
+
+        let mut state = PdfReaderState::default();
+        state.annotations.insert(
+            0,
+            vec![Annotation {
+                min: Pos2::new(1.0, 2.0),
+                max: Pos2::new(3.0, 4.0),
+                text: "a note about figure 3".to_string(),
+                created_at: "2026-09-01T00:00:00Z".to_string(),
+                author: "tester".to_string(),
+            }],
+        );
+
+        let mut session = PaperSession::open(&root, &citekey).unwrap();
+        state.save_annotations_into_project(Some(&mut session));
+
+        assert!(state.message.contains(&citekey), "status should name the paper it saved into: {}", state.message);
+        let on_disk = std::fs::read_to_string(root.paper_markdown(&citekey)).unwrap();
+        assert!(on_disk.contains("a note about figure 3"), "annotation text should be in the saved markdown:\n{on_disk}");
+        assert!(on_disk.contains("### annotation"));
     }
 }

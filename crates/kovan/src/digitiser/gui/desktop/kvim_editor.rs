@@ -269,6 +269,14 @@ impl KvimEditorState {
         if response.drag_started() {
             if let Some(pointer) = response.interact_pointer_pos() {
                 let pos = to_position(pointer);
+                // Leave Insert mode first (op-6w9n: a drag-to-select started
+                // while still in Insert mode used to send the 'v' below
+                // straight into the buffer as literal typed text — Insert
+                // mode has no notion of "this keystroke means something
+                // else", it just inserts whatever it's handed).
+                if self.editor.mode() == Mode::Insert {
+                    let _ = self.editor.handle_key(KvimKey::esc());
+                }
                 self.editor.move_cursor(pos);
                 let _ = self.editor.handle_key(KvimKey::char('v')); // enter charwise Visual, anchored here
                 self.dragging = true;
@@ -382,6 +390,25 @@ mod tests {
         state.load_text("# Title\n\n## Summary\n\nBody.\n");
         assert_eq!(state.text(), "# Title\n\n## Summary\n\nBody.\n");
         assert!(!state.is_modified());
+    }
+
+    /// op-6w9n: entering Visual mode for a mouse-drag selection must not
+    /// leak a literal 'v' into the buffer when the drag starts from Insert
+    /// mode — reproduces the maintainer's dogfooding report by driving the
+    /// same handle_key sequence `text_area`'s drag_started branch now uses.
+    #[test]
+    fn entering_visual_mode_from_insert_does_not_type_a_literal_v() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        state.editor.handle_key(KvimKey::char('i')).unwrap();
+        assert_eq!(state.editor.mode(), Mode::Insert);
+
+        // The fixed drag_started sequence: Esc out of Insert first, then 'v'.
+        state.editor.handle_key(KvimKey::esc()).unwrap();
+        state.editor.handle_key(KvimKey::char('v')).unwrap();
+
+        assert_eq!(state.text(), "hello world\n", "no 'v' should have been inserted into the buffer");
+        assert_eq!(state.editor.mode(), Mode::Visual);
     }
 
     #[test]

@@ -20,7 +20,7 @@
 
 use eframe::egui::{self, Color32};
 
-use crate::entity::{Access, EntityKind};
+use crate::entity::{Access, Classification, EntityConfig, EntityKind};
 use crate::index::KnowledgeIndex;
 use crate::ingest::{self, IngestChoice, IngestPreview};
 use crate::root::KovanRoot;
@@ -56,6 +56,29 @@ fn split_paths(text: &str) -> Vec<String> {
     text.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
 }
 
+/// A pending "sort this paper" flow (op-j3ib, GH issue #35's 2026-09-01
+/// 05:33 "if i right click the literature, i want to be able to sort it") —
+/// opened by right-clicking a paper link, prefilled from its current
+/// classification.
+struct ClassifyFlow {
+    citekey: String,
+    topics_text: String,
+    projects_text: String,
+    message: String,
+}
+
+impl ClassifyFlow {
+    fn new(citekey: String, index: &KnowledgeIndex) -> Self {
+        let (topics_text, projects_text) = index
+            .papers
+            .iter()
+            .find(|p| p.citekey == citekey)
+            .map(|p| (p.topics.join(", "), p.projects.join(", ")))
+            .unwrap_or_default();
+        Self { citekey, topics_text, projects_text, message: String::new() }
+    }
+}
+
 /// What the caller (`DigitiseApp`) should do after [`WikiState::ui`] returns.
 pub enum WikiAction {
     /// A file picker for a PDF to ingest should open.
@@ -72,11 +95,17 @@ pub struct WikiState {
     /// is both tree roots shown together.
     current: String,
     ingest_flow: Option<IngestFlow>,
+    classify_flow: Option<ClassifyFlow>,
 }
 
 impl WikiState {
     pub fn new(root: &KovanRoot) -> Self {
-        Self { index: KnowledgeIndex::load_or_rebuild(root), current: String::new(), ingest_flow: None }
+        Self {
+            index: KnowledgeIndex::load_or_rebuild(root),
+            current: String::new(),
+            ingest_flow: None,
+            classify_flow: None,
+        }
     }
 
     fn refresh(&mut self, root: &KovanRoot) {
@@ -172,6 +201,67 @@ impl WikiState {
         opened
     }
 
+    /// Draw the "sort this paper" form, if one is open (op-j3ib). Persists
+    /// straight to the paper's own `kovan.toml` via
+    /// [`EntityConfig::load`]/[`EntityConfig::save`] — no new API, the same
+    /// pair `ingest.rs`'s own paper-creation path uses. Leaving both fields
+    /// empty puts the paper back in the Unsorted inbox (§7's
+    /// `EntityConfig::validate` rejects an empty classification outright,
+    /// so this is the friendly equivalent rather than surfacing that as an
+    /// error) — same fallback ingestion itself already applies.
+    fn classify_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
+        let Some(flow) = &mut self.classify_flow else { return };
+        let mut close = false;
+        let mut save_clicked = false;
+
+        egui::Window::new(format!("Sort {}", flow.citekey)).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Topics (comma-separated, e.g. htgrs/materials):");
+                ui.text_edit_singleline(&mut flow.topics_text);
+            });
+            ui.horizontal(|ui| {
+                ui.label("Projects:");
+                ui.text_edit_singleline(&mut flow.projects_text);
+            });
+            ui.small("Leave both empty to put it back in Unsorted.");
+
+            if !flow.message.is_empty() {
+                ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
+            }
+
+            ui.horizontal(|ui| {
+                if ui.button("Save").clicked() {
+                    save_clicked = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
+        });
+
+        if save_clicked {
+            let dir = root.paper_dir(&flow.citekey);
+            let topics = split_paths(&flow.topics_text);
+            let projects = split_paths(&flow.projects_text);
+            let classification =
+                if topics.is_empty() && projects.is_empty() { Classification::unsorted() } else { Classification { topics, projects } };
+            let result = EntityConfig::load(&dir).map(|mut config| {
+                config.classification = classification;
+                config
+            });
+            match result.and_then(|config| config.save(&dir)) {
+                Ok(()) => {
+                    self.refresh(root);
+                    close = true;
+                }
+                Err(e) => flow.message = e.to_string(),
+            }
+        }
+        if close {
+            self.classify_flow = None;
+        }
+    }
+
     /// Draw the Wiki browser. Returns `Some` when the "+ Ingest
     /// Literature…" button was clicked and a file picker should open.
     pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<WikiAction> {
@@ -180,6 +270,7 @@ impl WikiState {
         if let Some(citekey) = self.ingest_form(ui, root) {
             action = Some(WikiAction::OpenPaper(citekey));
         }
+        self.classify_form(ui, root);
 
         ui.horizontal(|ui| {
             ui.heading(&root.config().library.name);
@@ -224,6 +315,7 @@ impl WikiState {
         // machinery reach it with no new collection type or on-disk directory.
         let unsorted_count = if self.current.is_empty() { self.index.papers_in("unsorted").len() } else { 0 };
         let mut open_paper = None;
+        let mut classify_target = None;
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             let children: Vec<(String, EntityKind, String)> =
@@ -260,13 +352,21 @@ impl WikiState {
                 for citekey in &papers {
                     // op-sr4n.2: clicking a paper activates it (GH issue #35's
                     // "unify root and active-paper context" comment).
-                    if ui.link(format!("\u{1F4C4} {citekey}")).clicked() {
+                    // op-j3ib: right-clicking it opens the "sort" form.
+                    let resp = ui.link(format!("\u{1F4C4} {citekey}"));
+                    if resp.clicked() {
                         open_paper = Some(citekey.clone());
+                    }
+                    if resp.secondary_clicked() {
+                        classify_target = Some(citekey.clone());
                     }
                 }
             }
         });
 
+        if let Some(citekey) = classify_target {
+            self.classify_flow = Some(ClassifyFlow::new(citekey, &self.index));
+        }
         if let Some(citekey) = open_paper {
             action = Some(WikiAction::OpenPaper(citekey));
         }
