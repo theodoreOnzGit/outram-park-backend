@@ -17,6 +17,20 @@
 //! because §22 frames ingestion as something launched *from* the Wiki, not
 //! a standalone tab (§25: "Digitisers are contextual tools launched from
 //! Research" — same idea, applied to ingestion).
+//!
+//! # No private copy of the knowledge state (op-dkll)
+//!
+//! This module used to own its own [`KnowledgeIndex`], reloaded on
+//! construction and refreshed after every ingest/classify — a second,
+//! independent database from Mindmap's own per-frame reload, per GH issue
+//! #35's 2026-09-01 checkpoint (§8: "Wiki and Mindmap should not behave as
+//! independent databases... avoid separately loading stale caches in
+//! different views when a single application-level state can provide
+//! consistency"). [`WikiState`] now takes the index as a `&KnowledgeIndex`
+//! parameter on every call instead of owning one — [`WikiAction::OpenPaper`]
+//! (a successful ingest) and [`WikiAction::KnowledgeChanged`] (a successful
+//! reclassify) are how it tells `DigitiseApp` a shared rebuild is due;
+//! `DigitiseApp` owns the single rebuild, not this module.
 
 use eframe::egui::{self, Color32};
 
@@ -85,12 +99,17 @@ pub enum WikiAction {
     RequestIngestDialog,
     /// A paper was clicked (or "Ingest & Open" just finished) — the caller
     /// should activate it (op-sr4n, GitHub issue #35's 2026-09-01 "unify
-    /// root and active-paper context" comment).
+    /// root and active-paper context" comment). Ingesting also changes the
+    /// shared knowledge state, same as [`Self::KnowledgeChanged`] — the
+    /// caller should refresh it here too, not only navigate.
     OpenPaper(String),
+    /// A reclassify (op-j3ib) succeeded — the caller should rebuild the
+    /// shared `KnowledgeIndex`/`KnowledgeGraph` (op-dkll) before the next
+    /// frame renders Wiki/Mindmap/Bibliography against it.
+    KnowledgeChanged,
 }
 
 pub struct WikiState {
-    index: KnowledgeIndex,
     /// Slash-separated path of the collection currently drilled into; `""`
     /// is both tree roots shown together.
     current: String,
@@ -98,19 +117,15 @@ pub struct WikiState {
     classify_flow: Option<ClassifyFlow>,
 }
 
-impl WikiState {
-    pub fn new(root: &KovanRoot) -> Self {
-        Self {
-            index: KnowledgeIndex::load_or_rebuild(root),
-            current: String::new(),
-            ingest_flow: None,
-            classify_flow: None,
-        }
+impl Default for WikiState {
+    fn default() -> Self {
+        Self { current: String::new(), ingest_flow: None, classify_flow: None }
     }
+}
 
-    fn refresh(&mut self, root: &KovanRoot) {
-        self.index = KnowledgeIndex::rebuild(root);
-        let _ = self.index.save_cache(root);
+impl WikiState {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// A PDF was picked (from the "+ Ingest Literature…" button's dialog) —
@@ -126,7 +141,8 @@ impl WikiState {
     /// Draw the ingest form, if one is open. Returns the citekey the paper
     /// was ingested under, the frame ingestion succeeds — the caller
     /// activates it immediately (op-sr4n.2: "Ingest & Open" must actually
-    /// open, not just refresh the index).
+    /// open, not just refresh the index) and refreshes the shared knowledge
+    /// state (op-dkll).
     fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<String> {
         let Some(flow) = &mut self.ingest_flow else { return None };
         let mut close = false;
@@ -188,7 +204,6 @@ impl WikiState {
             };
             match ingest::ingest(root, &flow.preview, choice) {
                 Ok(()) => {
-                    self.refresh(root);
                     opened = Some(citekey);
                     close = true;
                 }
@@ -208,9 +223,11 @@ impl WikiState {
     /// empty puts the paper back in the Unsorted inbox (§7's
     /// `EntityConfig::validate` rejects an empty classification outright,
     /// so this is the friendly equivalent rather than surfacing that as an
-    /// error) — same fallback ingestion itself already applies.
-    fn classify_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
-        let Some(flow) = &mut self.classify_flow else { return };
+    /// error) — same fallback ingestion itself already applies. Returns
+    /// `true` the frame a reclassify actually succeeds, so the caller knows
+    /// to refresh the shared knowledge state (op-dkll).
+    fn classify_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> bool {
+        let Some(flow) = &mut self.classify_flow else { return false };
         let mut close = false;
         let mut save_clicked = false;
 
@@ -239,6 +256,7 @@ impl WikiState {
             });
         });
 
+        let mut changed = false;
         if save_clicked {
             let dir = root.paper_dir(&flow.citekey);
             let topics = split_paths(&flow.topics_text);
@@ -247,20 +265,24 @@ impl WikiState {
             // yet before writing a classification that names them — same
             // fix as ingestion's own, since this form writes the identical
             // kind of dangling-path classification if skipped.
-            if let Err(e) = crate::entity::ensure_classification_paths(root, &topics, &projects) {
-                flow.message = e.to_string();
-                return;
-            }
-            let classification =
-                if topics.is_empty() && projects.is_empty() { Classification::unsorted() } else { Classification { topics, projects } };
-            let result = EntityConfig::load(&dir).map(|mut config| {
-                config.classification = classification;
-                config
-            });
-            match result.and_then(|config| config.save(&dir)) {
+            match crate::entity::ensure_classification_paths(root, &topics, &projects) {
                 Ok(()) => {
-                    self.refresh(root);
-                    close = true;
+                    let classification = if topics.is_empty() && projects.is_empty() {
+                        Classification::unsorted()
+                    } else {
+                        Classification { topics, projects }
+                    };
+                    let result = EntityConfig::load(&dir).map(|mut config| {
+                        config.classification = classification;
+                        config
+                    });
+                    match result.and_then(|config| config.save(&dir)) {
+                        Ok(()) => {
+                            changed = true;
+                            close = true;
+                        }
+                        Err(e) => flow.message = e.to_string(),
+                    }
                 }
                 Err(e) => flow.message = e.to_string(),
             }
@@ -268,17 +290,22 @@ impl WikiState {
         if close {
             self.classify_flow = None;
         }
+        changed
     }
 
-    /// Draw the Wiki browser. Returns `Some` when the "+ Ingest
-    /// Literature…" button was clicked and a file picker should open.
-    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<WikiAction> {
+    /// Draw the Wiki browser against `index` (the shared `KnowledgeIndex`,
+    /// op-dkll — this module no longer keeps its own copy). Returns `Some`
+    /// when the caller should act: open a file picker, activate a paper, or
+    /// refresh the shared knowledge state.
+    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) -> Option<WikiAction> {
         let mut action = None;
 
         if let Some(citekey) = self.ingest_form(ui, root) {
             action = Some(WikiAction::OpenPaper(citekey));
         }
-        self.classify_form(ui, root);
+        if self.classify_form(ui, root) {
+            action = Some(WikiAction::KnowledgeChanged);
+        }
 
         ui.horizontal(|ui| {
             ui.heading(&root.config().library.name);
@@ -321,14 +348,14 @@ impl WikiState {
         // at the tree root, shown only while there is something to show,
         // makes the existing `current = path` / `papers_in(path)` drill-down
         // machinery reach it with no new collection type or on-disk directory.
-        let unsorted_count = if self.current.is_empty() { self.index.papers_in("unsorted").len() } else { 0 };
+        let unsorted_count = if self.current.is_empty() { index.papers_in("unsorted").len() } else { 0 };
         let mut open_paper = None;
         let mut classify_target = None;
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             let children: Vec<(String, EntityKind, String)> =
-                self.index.children_of(&self.current).into_iter().map(|c| (c.path.clone(), c.kind, c.name.clone())).collect();
-            let papers: Vec<String> = self.index.papers_in(&self.current).into_iter().map(|p| p.citekey.clone()).collect();
+                index.children_of(&self.current).into_iter().map(|c| (c.path.clone(), c.kind, c.name.clone())).collect();
+            let papers: Vec<String> = index.papers_in(&self.current).into_iter().map(|p| p.citekey.clone()).collect();
 
             if children.is_empty() && papers.is_empty() && unsorted_count == 0 && self.current.is_empty() {
                 ui.weak("(no topics or projects yet — use + Ingest Literature to get started)");
@@ -373,7 +400,7 @@ impl WikiState {
         });
 
         if let Some(citekey) = classify_target {
-            self.classify_flow = Some(ClassifyFlow::new(citekey, &self.index));
+            self.classify_flow = Some(ClassifyFlow::new(citekey, index));
         }
         if let Some(citekey) = open_paper {
             action = Some(WikiAction::OpenPaper(citekey));

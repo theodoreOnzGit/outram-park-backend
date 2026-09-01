@@ -182,8 +182,9 @@ impl BibliographyState {
         self.save_bib_entries(root);
     }
 
-    /// The `.bib` entry list + add/edit form (op-xj8t) — drawn above the
-    /// paper cross-reference list.
+    /// The header (heading + New/Refresh) and, while active, the add/edit
+    /// form (op-xj8t). The entry list itself is drawn by [`Self::ui`]
+    /// (op-0wr5) — one consolidated list, not a separate one here.
     fn bib_editor_ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) {
         ui.horizontal(|ui| {
             ui.heading("Bibliography entries");
@@ -236,43 +237,22 @@ impl BibliographyState {
                 self.editor = None;
             }
         }
-
-        let Some(entries) = &self.entries else {
-            ui.small("no .bib entries loaded");
-            return;
-        };
-        if entries.is_empty() {
-            ui.small("no bibliography entries yet — ingest a paper from the Wiki to get started");
-        }
-        let mut edit_i = None;
-        let mut delete_i = None;
-        egui::ScrollArea::vertical().id_salt("bib_entries_scroll").max_height(220.0).show(ui, |ui| {
-            for (i, entry) in entries.iter().enumerate() {
-                ui.horizontal(|ui| {
-                    let title = entry.fields.get("title").map(String::as_str).unwrap_or("");
-                    ui.label(format!("{} [{}] {}", entry.cite_key, entry.entry_type, title));
-                    if ui.small_button("Edit").clicked() {
-                        edit_i = Some(i);
-                    }
-                    if ui.small_button("Delete").clicked() {
-                        delete_i = Some(i);
-                    }
-                });
-            }
-        });
-        if let Some(i) = edit_i {
-            self.start_edit(i);
-        }
-        if let Some(i) = delete_i {
-            self.delete_entry(i, root);
-        }
         ui.separator();
     }
 
     /// Draw the panel; returns `Some` the frame the operator clicks "Open"
-    /// on a paper. `index` is the open root's already-loaded
-    /// [`KnowledgeIndex`] (the same one Wiki/Mindmap use) — this panel
-    /// lists papers from it, not a second document scan.
+    /// on an ingested entry. `index` is the open root's already-loaded
+    /// [`KnowledgeIndex`] (the same one Wiki/Mindmap use, op-dkll) — used
+    /// only to decide which bibliography entries are `Open`-able, not as a
+    /// second, competing list.
+    ///
+    /// One row per `.bib` entry (op-0wr5, GH issue #35's 2026-09-01
+    /// checkpoint §10-12): earlier revisions showed the bibliography and
+    /// its cross-referenced papers as two separate lists — the same
+    /// citekey duplicated, once with `[Edit][Delete]` and once with
+    /// `[Open]`. `[Open][Edit][Delete]` now sit together on one row;
+    /// `Open` is disabled (with an explanatory tooltip) for a citation-only
+    /// entry that has no corresponding ingested Kovan paper.
     pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) -> Option<BibliographyAction> {
         if self.entries.is_none() {
             self.load(root);
@@ -285,26 +265,81 @@ impl BibliographyState {
 
         ui.horizontal(|ui| {
             ui.label("filter:");
-            ui.text_edit_singleline(&mut self.filter);
+            ui.add(
+                egui::TextEdit::singleline(&mut self.filter)
+                    .hint_text("citekey, title, type, year…")
+                    .desired_width(f32::INFINITY),
+            );
         });
-        ui.small("Papers — click Open to activate one (its PDF and research Markdown together).");
-        ui.separator();
+        ui.add_space(4.0);
 
         let needle = self.filter.trim().to_ascii_lowercase();
         let mut action = None;
+        let mut edit_i = None;
+        let mut delete_i = None;
+        let Some(entries) = &self.entries else {
+            ui.small("no .bib entries loaded");
+            return None;
+        };
+        if entries.is_empty() {
+            ui.small("no bibliography entries yet — ingest a paper from the Wiki to get started");
+        }
         egui::ScrollArea::vertical().show(ui, |ui| {
-            for paper in &index.papers {
-                if !needle.is_empty() && !paper.citekey.to_ascii_lowercase().contains(&needle) {
-                    continue;
-                }
-                ui.horizontal(|ui| {
-                    ui.label(&paper.citekey);
-                    if ui.button("Open").clicked() {
-                        action = Some(BibliographyAction::OpenPaper(paper.citekey.clone()));
+            for (i, entry) in entries.iter().enumerate() {
+                let title = entry.fields.get("title").map(String::as_str).unwrap_or("");
+                let year = entry.fields.get("year").map(String::as_str).unwrap_or("");
+                if !needle.is_empty() {
+                    let haystack = format!("{} {title} {} {year}", entry.cite_key, entry.entry_type).to_ascii_lowercase();
+                    if !haystack.contains(&needle) {
+                        continue;
                     }
+                }
+                let ingested = index.has_paper(&entry.cite_key);
+
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.strong(&entry.cite_key);
+                                if !entry.entry_type.is_empty() {
+                                    ui.weak(format!("[{}]", entry.entry_type));
+                                }
+                            });
+                            if !title.is_empty() {
+                                ui.label(title);
+                            }
+                            if !year.is_empty() {
+                                ui.small(year);
+                            }
+                        });
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("Delete").clicked() {
+                                delete_i = Some(i);
+                            }
+                            if ui.small_button("Edit").clicked() {
+                                edit_i = Some(i);
+                            }
+                            let open = ui.add_enabled(ingested, egui::Button::new("Open").small());
+                            if !ingested {
+                                open.clone().on_hover_text(
+                                    "This bibliography entry has not been ingested into the current Kovan library.",
+                                );
+                            }
+                            if open.clicked() {
+                                action = Some(BibliographyAction::OpenPaper(entry.cite_key.clone()));
+                            }
+                        });
+                    });
                 });
+                ui.add_space(4.0);
             }
         });
+        if let Some(i) = edit_i {
+            self.start_edit(i);
+        }
+        if let Some(i) = delete_i {
+            self.delete_entry(i, root);
+        }
         action
     }
 }

@@ -195,6 +195,21 @@ struct ActivePaper {
     pdf_path: Option<std::path::PathBuf>,
 }
 
+/// The library's derived knowledge state, shared by every view that reads
+/// it (op-dkll, GH issue #35's 2026-09-01 checkpoint §8: "Wiki and Mindmap
+/// should not behave as independent databases... avoid separately loading
+/// stale caches in different views when a single application-level state
+/// can provide consistency"). Owned by `DigitiseApp`, rebuilt only by
+/// [`DigitiseApp::refresh_knowledge`] — Wiki, Mindmap, Bibliography and
+/// Kvim's citation/wiki-link completion all read the same instance instead
+/// of each calling `KnowledgeIndex::load_or_rebuild` on their own, which
+/// used to mean up to four independent (and independently stale-until-
+/// reloaded) copies of the same data existing at once.
+struct WorkspaceKnowledge {
+    index: crate::index::KnowledgeIndex,
+    graph: crate::graph::KnowledgeGraph,
+}
+
 /// All GUI state, owned by value (no lifetimes, no shared state).
 pub struct DigitiseApp {
     // chrome
@@ -213,6 +228,10 @@ pub struct DigitiseApp {
     /// [`Self::activate_paper`]; consumed by every paper-aware view instead
     /// of each independently prompting for a root/path.
     active_paper: Option<ActivePaper>,
+    /// The shared knowledge state (op-dkll) — `None` until the first
+    /// [`DigitiseApp::refresh_knowledge`] call, which happens as soon as a
+    /// root opens (same place `self.wiki` is first constructed).
+    workspace: Option<WorkspaceKnowledge>,
     /// A just-opened PDF that is not yet part of the open Kovan library,
     /// awaiting an Ingest/Skip decision (op-9sc7, GH issue #35 2026-09-01
     /// 05:22: "opening new pdfs, kovan should ask if you want to ingest
@@ -325,6 +344,7 @@ impl Default for DigitiseApp {
             mindmap: MindmapState::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
+            workspace: None,
             pending_ingest_prompt: None,
             auto_ingest_opened_pdfs: false,
             pdf_reader: PdfReaderState::new(),
@@ -409,6 +429,20 @@ impl DigitiseApp {
         Ok(())
     }
 
+    /// Rebuild the shared [`WorkspaceKnowledge`] from disk (op-dkll) — the
+    /// one place `KnowledgeIndex`/`KnowledgeGraph` are ever reloaded. Call
+    /// after any mutation a view reports (ingest, reclassify, topic/project
+    /// creation) so the next frame's Wiki/Mindmap/Bibliography/Kvim-
+    /// completion all see it, not just whichever view happened to trigger
+    /// the mutation.
+    fn refresh_knowledge(&mut self, root: &crate::root::KovanRoot) {
+        let index = crate::index::KnowledgeIndex::rebuild(root);
+        let _ = index.save_cache(root);
+        let graph = crate::graph::KnowledgeGraph::rebuild(root, &index);
+        let _ = graph.save_cache(root);
+        self.workspace = Some(WorkspaceKnowledge { index, graph });
+    }
+
     /// Whether `path` is already one of the open library's stored source
     /// PDFs — i.e. lives directly under `root.open_sources_dir()` or
     /// `root.restricted_sources_dir()`, exactly where `ingest::ingest`
@@ -436,7 +470,7 @@ impl DigitiseApp {
             return;
         }
         if self.auto_ingest_opened_pdfs {
-            let wiki = self.wiki.get_or_insert_with(|| WikiState::new(&root));
+            let wiki = self.wiki.get_or_insert_with(WikiState::new);
             if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(path)) {
                 self.set_error(e);
             }
@@ -461,7 +495,7 @@ impl DigitiseApp {
             ui.checkbox(&mut self.auto_ingest_opened_pdfs, "Always ingest opened PDFs automatically");
             ui.horizontal(|ui| {
                 if ui.button("Ingest…").clicked() {
-                    let wiki = self.wiki.get_or_insert_with(|| WikiState::new(&root));
+                    let wiki = self.wiki.get_or_insert_with(WikiState::new);
                     if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
                         self.set_error(e);
                     }
@@ -1590,7 +1624,13 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::Home, "Home");
             ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
             ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
-            ui.selectable_value(&mut self.view, View::AdvancedGit, "Advanced Git");
+            // op-wqaw (GH issue #35's 2026-09-01 checkpoint §21): the
+            // user-facing label is "Save Repository", not "Advanced Git" —
+            // most users shouldn't need Git vocabulary as the primary frame.
+            // The `View::AdvancedGit` variant name is unchanged (internal
+            // only); real Git concepts (branches/history/remotes) live under
+            // that tab's own collapsed "Advanced…" section now.
+            ui.selectable_value(&mut self.view, View::AdvancedGit, "Save Repository");
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             // op-shjn (GH issue #35, "the markdown editor should use the
@@ -1686,9 +1726,12 @@ impl eframe::App for DigitiseApp {
         // *different* root later does not yank them away from what they
         // were doing.
         if self.view == View::Home {
-            if let Some(root) = self.home.root() {
+            if let Some(root) = self.home.root().cloned() {
                 if self.wiki.is_none() {
-                    self.wiki = Some(WikiState::new(root));
+                    self.wiki = Some(WikiState::new());
+                }
+                if self.workspace.is_none() {
+                    self.refresh_knowledge(&root);
                 }
                 self.view = View::Wiki;
             }
@@ -1708,12 +1751,20 @@ impl eframe::App for DigitiseApp {
             View::Wiki => {
                 let mut ingest_clicked = false;
                 let mut opened_paper = None;
+                let mut knowledge_changed = false;
                 if let Some(root) = self.home.root().cloned() {
+                    if self.workspace.is_none() {
+                        self.refresh_knowledge(&root);
+                    }
                     egui::CentralPanel::default().show(ui, |ui| {
-                        if let Some(wiki) = self.wiki.as_mut() {
-                            match wiki.ui(ui, &root) {
+                        if let (Some(wiki), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref()) {
+                            match wiki.ui(ui, &root, &workspace.index) {
                                 Some(WikiAction::RequestIngestDialog) => ingest_clicked = true,
-                                Some(WikiAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                                Some(WikiAction::OpenPaper(citekey)) => {
+                                    opened_paper = Some(citekey);
+                                    knowledge_changed = true;
+                                }
+                                Some(WikiAction::KnowledgeChanged) => knowledge_changed = true,
                                 None => {}
                             }
                         }
@@ -1730,6 +1781,14 @@ impl eframe::App for DigitiseApp {
                 if ingest_clicked {
                     self.open_picker(FileDialogTarget::PdfIngest);
                 }
+                // op-dkll: an ingest or a reclassify (op-j3ib) changed the
+                // library's papers/collections — rebuild the one shared
+                // KnowledgeIndex/KnowledgeGraph before anything else reads it.
+                if knowledge_changed {
+                    if let Some(root) = self.home.root().cloned() {
+                        self.refresh_knowledge(&root);
+                    }
+                }
                 // op-sr4n.2: a paper link was clicked, or "Ingest & Open"
                 // just finished — activate it and jump to it, same as
                 // Mindmap's own OpenPaper below.
@@ -1739,14 +1798,19 @@ impl eframe::App for DigitiseApp {
             }
             View::Mindmap => {
                 if let Some(root) = self.home.root().cloned() {
-                    let index = crate::index::KnowledgeIndex::load_or_rebuild(&root);
-                    let graph = crate::graph::KnowledgeGraph::load_or_rebuild(&root, &index);
+                    if self.workspace.is_none() {
+                        self.refresh_knowledge(&root);
+                    }
                     let mut opened_paper = None;
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        if let Some(MindmapAction::OpenPaper(citekey)) = self.mindmap.ui(ui, &root, &index, &graph) {
-                            opened_paper = Some(citekey);
-                        }
-                    });
+                    if let Some(workspace) = self.workspace.as_ref() {
+                        egui::CentralPanel::default().show(ui, |ui| {
+                            if let Some(MindmapAction::OpenPaper(citekey)) =
+                                self.mindmap.ui(ui, &root, &workspace.index, &workspace.graph)
+                            {
+                                opened_paper = Some(citekey);
+                            }
+                        });
+                    }
                     if let Some(citekey) = opened_paper {
                         // op-sr4n.3: route through the same
                         // activate_paper/view-switch helper Wiki uses,
@@ -1839,7 +1903,6 @@ impl eframe::App for DigitiseApp {
                 let mut open_clicked = false;
                 let mut save_clicked = false;
                 let root = self.home.root().cloned();
-                let index = root.as_ref().map(crate::index::KnowledgeIndex::load_or_rebuild);
                 let active_citekey = self.active_paper.as_ref().map(|p| p.session.citekey().to_string());
                 egui::CentralPanel::default().show(ui, |ui| {
                     ui.horizontal(|ui| {
@@ -1864,8 +1927,9 @@ impl eframe::App for DigitiseApp {
                             open_clicked = true;
                         }
                     });
-                    let completion = match (&root, &index) {
-                        (Some(root), Some(index)) => Some(kvim_editor::CompletionSource { root, index }),
+                    // op-dkll: shared index, not a fresh per-frame rebuild.
+                    let completion = match (&root, self.workspace.as_ref()) {
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource { root, index: &workspace.index }),
                         _ => None,
                     };
                     self.kvim_editor.ui(ui, completion);
@@ -1897,11 +1961,15 @@ impl eframe::App for DigitiseApp {
                 // normal workflow (GH issue #35: "Do not ask the user to
                 // select a project folder... Do not open a folder dialog").
                 if let Some(root) = self.home.root().cloned() {
-                    let index = crate::index::KnowledgeIndex::load_or_rebuild(&root);
+                    if self.workspace.is_none() {
+                        self.refresh_knowledge(&root);
+                    }
                     let mut action = None;
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        action = self.bibliography.ui(ui, &root, &index);
-                    });
+                    if let Some(workspace) = self.workspace.as_ref() {
+                        egui::CentralPanel::default().show(ui, |ui| {
+                            action = self.bibliography.ui(ui, &root, &workspace.index);
+                        });
+                    }
                     if let Some(BibliographyAction::OpenPaper(citekey)) = action {
                         self.activate_paper_and_navigate(&citekey);
                     }
@@ -2043,5 +2111,30 @@ mod tests {
         app.activate_paper_and_navigate(&citekey);
 
         assert_eq!(app.view, View::KvimEditor);
+    }
+
+    /// op-dkll: `refresh_knowledge` is the one place `WorkspaceKnowledge` is
+    /// built — confirms it actually reflects the library's real
+    /// papers/classification (not an empty/stale placeholder) so
+    /// Wiki/Mindmap/Bibliography/Kvim-completion all have something real to
+    /// share, and that it captures both the index and the graph together.
+    #[test]
+    fn refresh_knowledge_populates_index_and_graph_from_the_real_library() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Shared Knowledge State Paper", Access::Open);
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        assert!(app.workspace.is_none(), "must not build anything before the first refresh");
+
+        app.refresh_knowledge(&root);
+        let workspace = app.workspace.as_ref().expect("refresh_knowledge always populates workspace");
+        assert!(workspace.index.has_paper(&citekey));
+        assert!(
+            workspace.graph.outlinks(&crate::graph::paper_node(&citekey)).len()
+                + workspace.graph.backlinks(&crate::graph::paper_node(&citekey)).len()
+                >= 1,
+            "the paper's own classification edge should appear in the graph"
+        );
     }
 }
