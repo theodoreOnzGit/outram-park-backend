@@ -1,6 +1,7 @@
 mod bibliography;
 mod csv_preview;
 mod home;
+mod kvim_editor;
 mod markdown_editor;
 mod pdf_annots;
 mod pdf_reader;
@@ -30,6 +31,7 @@ use crate::project;
 use bibliography::{BibliographyAction, BibliographyState};
 use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
+use kvim_editor::KvimEditorState;
 use markdown_editor::MarkdownEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
 use table_digitiser::TableDigitiserState;
@@ -59,6 +61,13 @@ enum View {
     Digitiser,
     PdfReader,
     MarkdownEditor,
+    /// The `kopitiam-neovim`-backed editor (§26/§27, `op-9vo6.17`), on a
+    /// scratch buffer for now. Kept alongside `MarkdownEditor` rather than
+    /// replacing it outright: `MarkdownEditor` still serves the working
+    /// `project.rs` model (§3's "MIGRATE", not yet done), and swapping it
+    /// for real paper content is `op-9vo6.18`'s `SyncController`/Research
+    /// workspace wiring, not this step's.
+    KvimEditor,
     Bibliography,
     TableDigitiser,
 }
@@ -92,6 +101,10 @@ enum FileDialogTarget {
     /// Picked file is previewed for ingestion into the open root
     /// (op-9vo6.9, §22's "+ Ingest Literature").
     PdfIngest,
+    /// Picked file is loaded into the `kopitiam-neovim`-backed editor
+    /// (op-9vo6.17). No extension filter — any text file is fair game for
+    /// a general-purpose text editor.
+    KvimFile,
 }
 
 impl FileDialogTarget {
@@ -119,7 +132,7 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport => Some("JSON"),
             Self::CsvExport => Some("CSV"),
-            Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate => None,
+            Self::ProjectFolder | Self::BibliographyFolder | Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
         }
     }
 }
@@ -173,6 +186,7 @@ pub struct DigitiseApp {
     // Kovan root startup/landing screens (op-9vo6.3/.8, GitHub issue #35 §2/§8)
     home: HomeState,
     wiki: Option<WikiState>,
+    kvim_editor: KvimEditorState,
     // PDF reader (op-95x6)
     pdf_reader: PdfReaderState,
     // markdown editor (op-wr08)
@@ -272,6 +286,7 @@ impl Default for DigitiseApp {
             file_dialog_target: None,
             home: HomeState::default(),
             wiki: None,
+            kvim_editor: KvimEditorState::default(),
             pdf_reader: PdfReaderState::new(),
             markdown_editor: MarkdownEditorState::default(),
             bibliography: BibliographyState::default(),
@@ -1422,6 +1437,7 @@ impl DigitiseApp {
             ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
             ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
             ui.selectable_value(&mut self.view, View::MarkdownEditor, "Markdown Editor");
+            ui.selectable_value(&mut self.view, View::KvimEditor, "Kvim Editor");
             ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
             ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
             ui.separator();
@@ -1476,6 +1492,10 @@ impl DigitiseApp {
                     }
                 }
             }
+            FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
+                Ok(text) => self.kvim_editor.load_text(&text),
+                Err(e) => self.set_error(format!("{path}: {e}")),
+            },
         }
     }
 }
@@ -1601,6 +1621,20 @@ impl eframe::App for DigitiseApp {
                 });
                 if browse_clicked {
                     self.open_picker(FileDialogTarget::ProjectFolder);
+                }
+            }
+            View::KvimEditor => {
+                let mut open_clicked = false;
+                egui::CentralPanel::default().show_inside(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Open…").clicked() {
+                            open_clicked = true;
+                        }
+                    });
+                    self.kvim_editor.ui(ui);
+                });
+                if open_clicked {
+                    self.open_picker(FileDialogTarget::KvimFile);
                 }
             }
             View::Bibliography => {

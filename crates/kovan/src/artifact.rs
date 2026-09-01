@@ -495,6 +495,33 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
     out
 }
 
+/// Render `heading`/`toml`/`body` as the Markdown block §13 defines:
+/// heading, immediately followed by a fenced `toml` block, followed by the
+/// body. The exact counterpart to [`parse_document`] — text produced here
+/// re-parses to an equivalent [`Artifact`] (see the round-trip test below).
+///
+/// `level` is the heading depth, 1 for `#` through 6 for `######` — same
+/// meaning as [`Artifact::level`].
+///
+/// # Errors
+///
+/// Only if `toml`'s own TOML serialisation fails, which cannot happen for
+/// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
+/// callers an `unwrap`.
+pub fn render_artifact_block(level: u8, heading: &str, payload: &ArtifactToml, body: &str) -> Result<String, String> {
+    let level = level.clamp(1, 6);
+    let hashes = "#".repeat(level as usize);
+    let toml_text = toml::to_string_pretty(payload).map_err(|e| e.to_string())?;
+    let mut out = format!("{hashes} {heading}\n\n```toml\n{toml_text}```\n");
+    let body = body.trim();
+    if !body.is_empty() {
+        out.push('\n');
+        out.push_str(body);
+        out.push('\n');
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -898,5 +925,49 @@ modified = "m"
     fn an_empty_document_yields_nothing_and_does_not_panic() {
         assert_eq!(parse_document(""), ParsedDocument::default());
         assert_eq!(parse_document("# Just a title\n\nprose only\n"), ParsedDocument::default());
+    }
+
+    #[test]
+    fn render_artifact_block_round_trips_through_parse_document() {
+        let payload = ArtifactToml {
+            kovan: ArtifactMeta {
+                id: "coupled-neutronics-methodology".to_string(),
+                kind: ArtifactKind::SourceReference,
+                created: "2026-08-31T15:10:12+08:00".to_string(),
+                modified: "2026-08-31T15:10:12+08:00".to_string(),
+                reviewed: None,
+            },
+            source: Some(SourceAnchor { page: None, pages: Some([42, 48]), region: None }),
+            classification: Classification { topics: vec!["htgrs/neutronics".to_string()], projects: vec![] },
+            extraction: None,
+        };
+        let rendered = render_artifact_block(2, "Coupled neutronics methodology", &payload, "").unwrap();
+
+        let doc = parse_document(&rendered);
+        assert!(doc.problems.is_empty(), "{:?}", doc.problems);
+        assert_eq!(doc.artifacts.len(), 1);
+        let a = &doc.artifacts[0];
+        assert_eq!(a.heading, "Coupled neutronics methodology");
+        assert_eq!(a.level, 2);
+        assert_eq!(a.toml, payload);
+    }
+
+    #[test]
+    fn render_artifact_block_keeps_a_non_empty_body() {
+        let payload = ArtifactToml {
+            kovan: ArtifactMeta {
+                id: "a-note".to_string(),
+                kind: ArtifactKind::Note,
+                created: "c".to_string(),
+                modified: "m".to_string(),
+                reviewed: None,
+            },
+            source: None,
+            classification: Classification::default(),
+            extraction: None,
+        };
+        let rendered = render_artifact_block(3, "A note", &payload, "Some prose about it.").unwrap();
+        let doc = parse_document(&rendered);
+        assert_eq!(doc.artifacts[0].body, "Some prose about it.");
     }
 }

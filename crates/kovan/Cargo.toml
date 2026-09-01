@@ -195,6 +195,7 @@ sha2.workspace = true
 # GitHub issue #30's final interface spec, whose stated reason for wanting
 # exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
 ratatui.workspace = true
+kopitiam-neovim = "0.2.4"
 
 # The `gui` feature's egui/eframe stack, desktop-only: target-gated off
 # Android on top of being behind the feature, so an Android build of this

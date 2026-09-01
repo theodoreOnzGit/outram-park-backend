@@ -33,11 +33,16 @@
 //! `NOTICE` and `src/tui/digitiser.rs`.
 
 pub mod artifact;
+pub mod classify;
 pub mod commands;
 pub mod digitiser;
 pub mod entity;
+pub mod graph;
 pub mod index;
 pub mod ingest;
+pub mod session;
 pub mod project;
+pub mod repository;
+pub mod research_record;
 pub mod root;
 pub mod tui;
