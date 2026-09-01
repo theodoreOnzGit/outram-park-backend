@@ -375,6 +375,22 @@ fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> St
     out
 }
 
+/// What [`PdfReaderState::annotate_page`] should become this frame, if
+/// anything, given the mode transition that just happened — op-smrs (GH
+/// issue #35's 2026-09-01 checkpoint, §17): "read page 87 -> switch to
+/// Annotate -> page resets to page 1" was a real bug, since nothing synced
+/// the embedded [`PdfReader`]'s own page into `annotate_page` at the point
+/// of the switch. `None` for every other transition (including the
+/// reverse, Annotate -> Read, which has no public API to do the same yet —
+/// see the module doc's "Known gap", kopitiam#105).
+fn synced_annotate_page(before: ViewMode, after: ViewMode, reader_current_page: usize, reader_page_count: usize) -> Option<usize> {
+    if before == ViewMode::Read && after == ViewMode::Annotate {
+        Some(reader_current_page.min(reader_page_count.saturating_sub(1)))
+    } else {
+        None
+    }
+}
+
 /// Split `text` on lines starting with `### ` (one block per subsection,
 /// running to the next `### ` or EOF) and keep only the blocks containing
 /// at least one of `needles` — [`PdfReaderState::context_panel`]'s plain
@@ -916,6 +932,7 @@ impl PdfReaderState {
 
         let is_pdf = matches!(self.source, ReaderSource::Pdf(_));
         let show_annotate_ui = !is_pdf || self.mode == ViewMode::Annotate;
+        let mode_before = self.mode;
 
         ui.horizontal(|ui| {
             if is_pdf {
@@ -961,6 +978,46 @@ impl PdfReaderState {
                 }
             }
         });
+
+        // op-smrs (GH issue #35's 2026-09-01 checkpoint, S17): switching
+        // Read -> Annotate used to always drop back to whatever
+        // `annotate_page` last was (0, on the very first switch) instead of
+        // the page the operator was just reading. Sync it at the point the
+        // switch actually happens this frame — the one direction with a
+        // public API to do it (`PdfReader::current_page()`); the reverse,
+        // Annotate -> Read, has none yet (kopitiam#105, see the module doc).
+        if let ReaderSource::Pdf(reader) = &self.source {
+            if let Some(page) = synced_annotate_page(mode_before, self.mode, reader.current_page(), reader.page_count()) {
+                self.annotate_page = page;
+            }
+        }
+
+        // op-t55c (GH issue #35's 2026-09-01 checkpoint, S18): page-turn
+        // keys only worked in Read mode, where the embedded PdfReader
+        // supplies them for free — Annotate/Crop mode's own static canvas
+        // had Prev/Next buttons but no keyboard bindings at all. Unlike the
+        // page-sync direction above, this needs no missing upstream API:
+        // wire the same keys the embedded reader already answers to, so
+        // switching modes doesn't also mean switching input habits.
+        // Deliberately deferred to any focused text-editing widget first
+        // (the checkpoint's own stated exception) — the drag/click gestures
+        // already used by DrawBox/SelectText are pointer-only and never
+        // take keyboard focus, so this only ever yields to `author`/project-
+        // field/text-editor typing.
+        if is_pdf && self.mode == ViewMode::Annotate && ui.ctx().memory(|m| m.focused().is_none()) {
+            let (page_down, page_up) = ui.input(|i| {
+                (
+                    i.key_pressed(egui::Key::PageDown) || i.key_pressed(egui::Key::ArrowRight) || i.key_pressed(egui::Key::J),
+                    i.key_pressed(egui::Key::PageUp) || i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::K),
+                )
+            });
+            if page_down {
+                self.annotate_next_page();
+            } else if page_up {
+                self.annotate_prev_page();
+            }
+        }
+
         if show_annotate_ui {
             ui.small(
                 "Draw box → right-click it → Annotate / Digitise graph / Read table. \
@@ -1555,6 +1612,26 @@ a note
         // state -- `new()` only overrides hot-reload.
         assert!(r.path.is_empty());
         assert!(r.annotations.is_empty());
+    }
+
+    #[test]
+    fn synced_annotate_page_follows_the_reader_on_read_to_annotate() {
+        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Annotate, 86, 200), Some(86));
+    }
+
+    #[test]
+    fn synced_annotate_page_clamps_to_the_last_page() {
+        // A defensive case only -- current_page() should never exceed
+        // page_count() - 1 in practice, but the sync must not panic/produce
+        // an out-of-range page if it somehow did.
+        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Annotate, 999, 5), Some(4));
+    }
+
+    #[test]
+    fn synced_annotate_page_does_nothing_on_other_transitions() {
+        assert_eq!(synced_annotate_page(ViewMode::Annotate, ViewMode::Read, 86, 200), None);
+        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Read, 86, 200), None);
+        assert_eq!(synced_annotate_page(ViewMode::Annotate, ViewMode::Annotate, 86, 200), None);
     }
 
     /// op-q1qj (GH issue #35 2026-09-01 05:37, "project root isn't

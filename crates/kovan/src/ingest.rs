@@ -184,6 +184,10 @@ pub fn ingest(root: &KovanRoot, preview: &IngestPreview, choice: IngestChoice) -
     let paper_dir = root.paper_dir(citekey.as_str());
     let mut config = EntityConfig::paper(citekey.clone(), choice.access);
     if !choice.topics.is_empty() || !choice.projects.is_empty() {
+        // op-8aq6: a classification naming a topic/project path that has no
+        // backing collection entity yet made the paper permanently
+        // unreachable by Wiki drill-down — create whatever's missing first.
+        crate::entity::ensure_classification_paths(root, &choice.topics, &choice.projects).map_err(IngestError::Entity)?;
         config = config.with_topics(choice.topics).with_projects(choice.projects);
     }
     // else: leave EntityConfig::paper's default Classification::unsorted()

@@ -243,6 +243,14 @@ impl WikiState {
             let dir = root.paper_dir(&flow.citekey);
             let topics = split_paths(&flow.topics_text);
             let projects = split_paths(&flow.projects_text);
+            // op-8aq6: create whatever topic/project entities don't exist
+            // yet before writing a classification that names them — same
+            // fix as ingestion's own, since this form writes the identical
+            // kind of dangling-path classification if skipped.
+            if let Err(e) = crate::entity::ensure_classification_paths(root, &topics, &projects) {
+                flow.message = e.to_string();
+                return;
+            }
             let classification =
                 if topics.is_empty() && projects.is_empty() { Classification::unsorted() } else { Classification { topics, projects } };
             let result = EntityConfig::load(&dir).map(|mut config| {

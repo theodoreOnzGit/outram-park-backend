@@ -47,6 +47,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+use crate::root::KovanRoot;
+
 /// Filename marking a directory as a Kovan entity (§6, §7).
 pub const ENTITY_MARKER: &str = "kovan.toml";
 
@@ -590,6 +592,63 @@ impl EntityConfig {
     }
 }
 
+/// Ensure every collection along a slash-separated `path` exists as a real
+/// entity directory under `root`'s `topics/` or `projects/` tree, creating
+/// whichever segments are missing (parents first).
+///
+/// Fixes op-8aq6 (GH issue #35's 2026-09-01 checkpoint, §6-7): classifying a
+/// paper into e.g. `"htgrs/neutronics"` used to only ever write that string
+/// into the paper's own `kovan.toml` — nothing created the corresponding
+/// `topics/htgrs/neutronics/kovan.toml` collection entity. Since
+/// [`crate::index::KnowledgeIndex::children_of`] only lists collections that
+/// exist as real directories, a classification with no backing entity has no
+/// link anywhere in the Wiki tree that reaches it — the paper becomes
+/// permanently unreachable by drill-down, silently, even though it is still
+/// on disk and in the index. Both [`crate::ingest::ingest`] and the Wiki's
+/// own reclassify flow must call this before writing a classification that
+/// names a path, so "classification changes where a paper appears; it must
+/// never determine whether a paper exists or is discoverable" (the
+/// checkpoint's own invariant) actually holds.
+///
+/// A segment's display name defaults to the segment itself — the same
+/// "slug doubles as name until renamed" convention [`EntityConfig::save`]'s
+/// own callers already use elsewhere. Already-existing segments are left
+/// untouched (never overwritten), so this is safe to call unconditionally
+/// before every classification write, not just the first one down a path.
+pub fn ensure_collection_path(root: &KovanRoot, kind: EntityKind, path: &str) -> Result<(), EntityError> {
+    let mut dir = match kind {
+        EntityKind::Topic => root.topics_dir(),
+        EntityKind::Project => root.projects_dir(),
+        EntityKind::Paper => panic!("ensure_collection_path is for topics/projects, not papers"),
+    };
+    for segment in path.split('/').filter(|s| !s.is_empty()) {
+        dir = dir.join(segment);
+        if !EntityConfig::is_entity(&dir) {
+            let config = match kind {
+                EntityKind::Topic => EntityConfig::topic(segment, segment),
+                EntityKind::Project => EntityConfig::project(segment, segment),
+                EntityKind::Paper => unreachable!("checked above"),
+            };
+            config.save(&dir)?;
+        }
+    }
+    Ok(())
+}
+
+/// [`ensure_collection_path`] for every path in `topics` (as
+/// [`EntityKind::Topic`]) and `projects` (as [`EntityKind::Project`]) —
+/// the shape both [`crate::ingest::ingest`] and a reclassify action need to
+/// call with one line.
+pub fn ensure_classification_paths(root: &KovanRoot, topics: &[String], projects: &[String]) -> Result<(), EntityError> {
+    for path in topics {
+        ensure_collection_path(root, EntityKind::Topic, path)?;
+    }
+    for path in projects {
+        ensure_collection_path(root, EntityKind::Project, path)?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -869,5 +928,76 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let err = EntityConfig::topic("htgrs", "HTGRs").save_paper(tmp.path()).unwrap_err();
         assert!(matches!(err, EntityError::KindMismatch { .. }), "{err}");
+    }
+
+    // -------------------------------------------------------------------
+    // ensure_collection_path / ensure_classification_paths — op-8aq6
+    // -------------------------------------------------------------------
+
+    fn test_root() -> (tempfile::TempDir, KovanRoot) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), false).unwrap();
+        (dir, root)
+    }
+
+    #[test]
+    fn ensure_collection_path_creates_every_missing_segment_parents_first() {
+        let (_dir, root) = test_root();
+        ensure_collection_path(&root, EntityKind::Topic, "htgrs/neutronics").unwrap();
+
+        assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs")));
+        assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs/neutronics")));
+        let leaf = EntityConfig::load(&root.topics_dir().join("htgrs/neutronics")).unwrap();
+        assert_eq!(leaf.kind, EntityKind::Topic);
+    }
+
+    #[test]
+    fn ensure_collection_path_leaves_an_existing_segment_untouched() {
+        let (_dir, root) = test_root();
+        let htgrs_dir = root.topics_dir().join("htgrs");
+        EntityConfig::topic("htgrs", "My Custom HTGR Name").save(&htgrs_dir).unwrap();
+
+        ensure_collection_path(&root, EntityKind::Topic, "htgrs/neutronics").unwrap();
+
+        let htgrs = EntityConfig::load(&htgrs_dir).unwrap();
+        assert_eq!(htgrs.name.as_deref(), Some("My Custom HTGR Name"), "an existing entity must not be overwritten");
+    }
+
+    #[test]
+    fn ensure_collection_path_is_idempotent() {
+        let (_dir, root) = test_root();
+        ensure_collection_path(&root, EntityKind::Project, "outram-park").unwrap();
+        ensure_collection_path(&root, EntityKind::Project, "outram-park").unwrap();
+        assert!(EntityConfig::is_entity(&root.projects_dir().join("outram-park")));
+    }
+
+    #[test]
+    fn ensure_classification_paths_covers_both_trees() {
+        let (_dir, root) = test_root();
+        ensure_classification_paths(&root, &["htgrs/materials".to_string()], &["outram-park".to_string()]).unwrap();
+        assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs/materials")));
+        assert!(EntityConfig::is_entity(&root.projects_dir().join("outram-park")));
+    }
+
+    /// The actual bug report (GH issue #35, op-8aq6): a paper classified
+    /// into a not-yet-existing topic path must remain reachable by Wiki
+    /// drill-down, i.e. `KnowledgeIndex::children_of` must now find a real
+    /// link all the way down to it.
+    #[test]
+    fn a_paper_classified_into_a_new_topic_path_stays_reachable_by_drill_down() {
+        let (_dir, root) = test_root();
+        ensure_classification_paths(&root, &["htgrs/neutronics".to_string()], &[]).unwrap();
+        EntityConfig::paper(key("wang2018multiphysics"), Access::Open)
+            .with_topics(["htgrs/neutronics"])
+            .save_paper(&root.paper_dir("wang2018multiphysics"))
+            .unwrap();
+
+        let index = crate::index::KnowledgeIndex::rebuild(&root);
+        let root_children: Vec<&str> = index.children_of("").iter().map(|c| c.path.as_str()).collect();
+        assert!(root_children.contains(&"htgrs"), "{root_children:?}");
+        let htgrs_children: Vec<&str> = index.children_of("htgrs").iter().map(|c| c.path.as_str()).collect();
+        assert!(htgrs_children.contains(&"htgrs/neutronics"), "{htgrs_children:?}");
+        let papers = index.papers_in("htgrs/neutronics");
+        assert!(papers.iter().any(|p| p.citekey == "wang2018multiphysics"));
     }
 }
