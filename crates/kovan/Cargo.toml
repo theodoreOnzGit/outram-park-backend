@@ -42,7 +42,7 @@ repository.workspace = true
 # platform-specific default feature, the same shape crates like `winit` use.
 [features]
 default = ["gui"]
-gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog"]
+gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog", "dep:egui_graphs"]
 
 # Exactly three binaries, per the final interface spec on GitHub issue #30
 # (2026-08-21): `kovan` (GUI), `kovan-cli` (agent CLI), `kovan-tui` (terminal
@@ -215,6 +215,10 @@ kopitiam-neovim = "0.2.4"
 eframe = { workspace = true, optional = true }
 egui = { workspace = true, optional = true }
 egui-file-dialog = { workspace = true, optional = true }
+# Mindmap's graph widget (op-jvjc) -- pure egui, no extra native deps beyond
+# what eframe/egui already require, so it stays in this same Android-gated,
+# `gui`-optional table.
+egui_graphs = { workspace = true, optional = true }
 
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests

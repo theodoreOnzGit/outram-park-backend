@@ -3,20 +3,39 @@
 //! before it, per §45's explicit non-goal: "fancy mindmap physics before
 //! the underlying model works."
 //!
-//! # Deliberately not physics
+//! # Rendering: `egui_graphs`, not a hand-rolled painter (op-jvjc)
 //!
-//! Layout is a static radial fan — the current collection's children and
-//! papers placed evenly around it at a fixed radius — recomputed each
-//! frame from [`KnowledgeIndex`], not a force-directed simulation. That is
-//! squarely what §45 asks for at this stage: an interactive, drillable
-//! map, not a physics engine.
+//! §45's non-goal blocked physics only until the underlying model — paper/
+//! collection classification, [`KnowledgeIndex`]/[`KnowledgeGraph`] — was
+//! working and tested. It now is, so GH issue #35 checkpoint §9 (`op-jvjc`)
+//! authorized moving off the original static-radial-fan painter (fixed
+//! ring radius, `painter.circle_filled`/`line_segment`, per-node
+//! `ui.interact(..., Sense::click())`) onto the `egui_graphs` crate — pan,
+//! zoom, node-dragging, selection, hit-testing and layout are now that
+//! crate's job; **KOVAN stays the sole authoritative data model.**
+//! `NodeKind` is passed to `egui_graphs::Graph` as its node payload
+//! unchanged — the graph widget's internal `petgraph`-backed representation
+//! is never persisted and never becomes anything other than a disposable,
+//! per-frame rendering aid rebuilt from [`KnowledgeIndex`] (see
+//! [`MindmapState::ensure_view`]).
+//!
+//! Layout is [`egui_graphs::FruchtermanReingold`] (force-directed), applied
+//! to a **star topology**: when [`MindmapState::current`] is a collection,
+//! one node represents it, with an edge to each direct child collection and
+//! each directly-classified paper — the closest real-graph equivalent of
+//! the old radial fan's spokes-from-a-center-point, but now genuinely
+//! physics-driven rather than a fixed angle-per-node placement. At the
+//! shared root (`current == ""`) there is no such anchor node, matching the
+//! old top-level behaviour where `center` was just a screen point, not a
+//! modelled entity.
 //!
 //! # Scope: what this step implements, and what it defers
 //!
 //! §8's right-click menu lists six actions: Open, Add subtopic, Rename,
 //! Add literature, Move, Merge, Delete/Reclassify. This pass implements
-//! **Open** (drill in — same as a click) and **Add subtopic** (a plain,
-//! additive [`EntityConfig::topic`]/[`EntityConfig::project`] write,
+//! **Open** (drill in — now a node double-click, handled through
+//! [`egui_graphs::GraphChange::NodeDoubleClicked`]) and **Add subtopic** (a
+//! plain, additive [`EntityConfig::topic`]/[`EntityConfig::project`] write,
 //! already exhaustively tested by `op-9vo6.6`). **Rename**, **Move**,
 //! **Merge** and **Delete/Reclassify** are not implemented and do not
 //! appear in the menu — §40 requires those to be transactional and to
@@ -28,12 +47,38 @@
 //! "Add literature" is `op-9vo6.9`'s ingestion flow, already reachable
 //! from the Wiki view — this menu does not duplicate it.
 //!
-//! GUI state (pan, zoom, selection) lives only in [`MindmapState`], in
-//! memory — never in artifact TOML (§21). It is not yet persisted to
+//! **Add-subtopic trigger changed with the `egui_graphs` swap.**
+//! [`egui_graphs::GraphChange`] (checked directly against its 0.32.0
+//! source, not assumed) has no secondary-click/right-click variant at all —
+//! only click, double-click, selection, drag and hover. The old per-node
+//! "right-click a node to add a subtopic under it" gesture has no
+//! equivalent through that event stream. The fallback used here is a
+//! **whole-canvas** right-click, read off the raw
+//! [`egui_graphs::GraphViewResponse::response`] (the ordinary
+//! `egui::Response` for the widget's whole area, still available
+//! underneath), which always targets [`MindmapState::current`] — the
+//! collection currently drilled into — rather than whichever node happens
+//! to be under the pointer. This is a disclosed, deliberate scope
+//! reduction: the feature (add a subtopic under the current collection)
+//! is preserved; the trigger widens from "any node" to "the canvas," and
+//! the old "Open" menu item (which only ever duplicated a double-click) is
+//! dropped since it is exactly what the fallback's `target` already made a
+//! no-op.
+//!
+//! GUI state (selection, the context menu) lives only in [`MindmapState`],
+//! in memory — never in artifact TOML (§21). It is not yet persisted to
 //! `.kovan/` across sessions; if that is wanted later, `.kovan/` is the
 //! sanctioned location per §21, never artifact TOML.
-
-use eframe::egui::{self, Color32, Pos2, Rect, Sense, Stroke, Vec2};
+//!
+//! # Android/Termux portability
+//!
+//! Everything in this file that touches `eframe`/`egui`/`egui_graphs` is
+//! gated behind `#[cfg(feature = "gui")]`, matching the pattern
+//! `crate::digitiser::mod::gui` already uses. [`LiteratureCard`],
+//! [`literature_card`], `bib_display`, `extract_summary` and
+//! `create_subtopic` have no GUI dependency and stay unconditional, so a
+//! headless (Android/Termux, `kovan-cli`/`kovan-tui`) build of this crate
+//! can still use them.
 
 use crate::artifact::ArtifactKind;
 use crate::entity::{EntityConfig, EntityKind};
@@ -43,10 +88,11 @@ use crate::research_record::ResearchRecordIndex;
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
-const NODE_RADIUS: f32 = 26.0;
-const RING_RADIUS: f32 = 160.0;
+#[cfg(feature = "gui")]
+use eframe::egui;
 
 /// What the mindmap wants the caller to do next.
+#[cfg(feature = "gui")]
 pub enum MindmapAction {
     /// A paper node was double-clicked — the caller should open its
     /// Research workspace (`op-9vo6.10`'s `PaperSession`), once that
@@ -54,25 +100,28 @@ pub enum MindmapAction {
     OpenPaper(String),
 }
 
+#[cfg(feature = "gui")]
 #[derive(Debug, Clone, PartialEq)]
 struct ContextMenu {
-    pos: Pos2,
-    /// Collection path (possibly `""`, the shared root) the menu applies to.
-    target: String,
+    pos: egui::Pos2,
+    /// `None` until "Add subtopic…" is clicked; then the text field's
+    /// current contents. Always applies to [`MindmapState::current`] — see
+    /// the module doc's "Add-subtopic trigger changed" section for why
+    /// there is no longer a separate per-node target.
     new_subtopic: Option<String>,
 }
 
+#[cfg(feature = "gui")]
 #[derive(Debug, Clone)]
 enum NodeKind {
-    Collection { path: String, kind: EntityKind, name: String },
+    /// `name` is not kept here — it only ever fed the node's display label,
+    /// which `egui_graphs::Graph::add_node_with_label` already owns once
+    /// the node is built (see [`Node::label`](egui_graphs::Node::label)).
+    Collection { path: String, kind: EntityKind },
     Paper { citekey: String },
 }
 
-struct LaidOutNode {
-    kind: NodeKind,
-    pos: Pos2,
-}
-
+#[cfg(feature = "gui")]
 fn node_id(kind: &NodeKind) -> String {
     match kind {
         NodeKind::Collection { path, .. } => graph::collection_node(path),
@@ -166,6 +215,12 @@ fn extract_summary(markdown: &str) -> String {
 /// `parent_path` is `""`) — matches the parent's own kind (a project's
 /// child is a project, a topic's a topic), defaulting to a topic at the
 /// shared root, where kind is not yet established.
+///
+/// Unconditional/GUI-free by design (see the module doc's "Android/Termux
+/// portability" section) even though only [`MindmapState`]'s `gui`-gated
+/// context menu calls it today — a future headless consumer (e.g. a
+/// `kovan-cli` mindmap subcommand) can reuse it without pulling in `eframe`.
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
 fn create_subtopic(root: &KovanRoot, index: &KnowledgeIndex, parent_path: &str, name: &str) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err("name must not be empty".to_string());
@@ -191,39 +246,109 @@ fn create_subtopic(root: &KovanRoot, index: &KnowledgeIndex, parent_path: &str, 
     config.save(&dir).map_err(|e| e.to_string())
 }
 
+#[cfg(feature = "gui")]
+type MindmapGraph = egui_graphs::Graph<NodeKind>;
+#[cfg(feature = "gui")]
+type MindmapLayoutState = egui_graphs::FruchtermanReingoldState;
+// `FruchtermanReingold` itself only implements `ForceAlgorithm` (the force
+// computation); `egui_graphs::Layout` is implemented for the generic
+// `LayoutForceDirected<A: ForceAlgorithm>` wrapper around it, not for
+// `FruchtermanReingold` directly (confirmed against 0.32.0's
+// `layouts/force_directed/{algorithm,layout}.rs`).
+#[cfg(feature = "gui")]
+type MindmapLayout = egui_graphs::LayoutForceDirected<egui_graphs::FruchtermanReingold>;
+
+#[cfg(feature = "gui")]
 pub struct MindmapState {
     current: String,
-    pan: Vec2,
-    zoom: f32,
     selected: Option<String>,
     context_menu: Option<ContextMenu>,
     message: String,
+    /// Cache of `(scope, index snapshot used to build it, the built
+    /// egui_graphs graph)`, rebuilt only in [`Self::ensure_view`] when
+    /// `current` or `index` has actually changed. Rebuilding fresh every
+    /// frame would defeat `FruchtermanReingold`'s force-directed
+    /// convergence and discard any node the user just dragged.
+    view: Option<(String, KnowledgeIndex, MindmapGraph)>,
 }
 
+#[cfg(feature = "gui")]
 impl Default for MindmapState {
     fn default() -> Self {
-        Self { current: String::new(), pan: Vec2::ZERO, zoom: 1.0, selected: None, context_menu: None, message: String::new() }
+        Self { current: String::new(), selected: None, context_menu: None, message: String::new(), view: None }
     }
 }
 
+#[cfg(feature = "gui")]
 impl MindmapState {
-    fn layout(&self, index: &KnowledgeIndex, center: Pos2) -> Vec<LaidOutNode> {
-        let children = index.children_of(&self.current);
-        let papers = index.papers_in(&self.current);
-        let total = (children.len() + papers.len()).max(1);
-        let radius = RING_RADIUS * self.zoom;
+    /// Build the star-topology graph for `current`'s scope: one anchor node
+    /// for `current` itself (when non-empty), with an edge to each direct
+    /// child collection and each directly-classified paper. At the shared
+    /// root (`current == ""`) there is no anchor node — direct children and
+    /// papers stand alone, same as the old top-level behaviour.
+    fn build_graph(index: &KnowledgeIndex, current: &str) -> MindmapGraph {
+        let mut g: MindmapGraph = egui_graphs::Graph::new();
 
-        children
-            .into_iter()
-            .map(|c| NodeKind::Collection { path: c.path.clone(), kind: c.kind, name: c.name.clone() })
-            .chain(papers.into_iter().map(|p| NodeKind::Paper { citekey: p.citekey.clone() }))
-            .enumerate()
-            .map(|(i, kind)| {
-                let angle = (i as f32 / total as f32) * std::f32::consts::TAU;
-                let pos = center + Vec2::new(angle.cos(), angle.sin()) * radius;
-                LaidOutNode { kind, pos }
-            })
-            .collect()
+        let push = |g: &mut MindmapGraph, node: NodeKind, label: String| {
+            let color = Self::color_for(&node);
+            let idx = g.add_node_with_label(node, label);
+            if let Some(n) = g.node_mut(idx) {
+                n.set_color(color);
+            }
+            idx
+        };
+
+        let anchor = if current.is_empty() {
+            None
+        } else {
+            let (kind, name) = index
+                .collections
+                .iter()
+                .find(|c| c.path == current)
+                .map(|c| (c.kind, c.name.clone()))
+                .unwrap_or((EntityKind::Topic, current.to_string()));
+            let node = NodeKind::Collection { path: current.to_string(), kind };
+            Some(push(&mut g, node, name))
+        };
+
+        for child in index.children_of(current) {
+            let node = NodeKind::Collection { path: child.path.clone(), kind: child.kind };
+            let idx = push(&mut g, node, child.name.clone());
+            if let Some(a) = anchor {
+                g.add_edge(a, idx, ());
+            }
+        }
+        for paper in index.papers_in(current) {
+            let node = NodeKind::Paper { citekey: paper.citekey.clone() };
+            let idx = push(&mut g, node, paper.citekey.clone());
+            if let Some(a) = anchor {
+                g.add_edge(a, idx, ());
+            }
+        }
+
+        g
+    }
+
+    /// Node colour by kind — Project (orange), Collection/Topic (blue),
+    /// Paper (green) — the same palette the old hand-painted renderer used.
+    fn color_for(kind: &NodeKind) -> egui::Color32 {
+        match kind {
+            NodeKind::Collection { kind: EntityKind::Project, .. } => egui::Color32::from_rgb(220, 150, 60),
+            NodeKind::Collection { .. } => egui::Color32::from_rgb(90, 140, 220),
+            NodeKind::Paper { .. } => egui::Color32::from_rgb(120, 190, 120),
+        }
+    }
+
+    /// Rebuild [`Self::view`] iff `current` or `index` no longer match what
+    /// it was last built from.
+    fn ensure_view(&mut self, index: &KnowledgeIndex) {
+        let stale = match &self.view {
+            Some((current, cached_index, _)) => current != &self.current || cached_index != index,
+            None => true,
+        };
+        if stale {
+            self.view = Some((self.current.clone(), index.clone(), Self::build_graph(index, &self.current)));
+        }
     }
 
     /// Draw the mindmap and process this frame's interaction. Returns
@@ -252,62 +377,61 @@ impl MindmapState {
             }
         });
 
-        let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
-        let center = rect.center() + self.pan;
+        self.ensure_view(index);
 
-        if response.dragged() {
-            self.pan += response.drag_delta();
-        }
-        if response.hovered() {
-            let scroll = ui.input(|i| i.smooth_scroll_delta.y);
-            if scroll != 0.0 {
-                self.zoom = (self.zoom * (1.0 + scroll * 0.001)).clamp(0.3, 3.0);
-            }
-        }
-
-        let nodes = self.layout(index, center);
-        let painter = ui.painter_at(rect);
-
-        for node in &nodes {
-            painter.line_segment([center, node.pos], Stroke::new(1.0, ui.visuals().weak_text_color()));
-        }
-
+        let mut drilled = None;
         let mut opened_paper = None;
-        for node in &nodes {
-            let node_rect = Rect::from_center_size(node.pos, Vec2::splat(NODE_RADIUS * 2.0));
-            let id = ui.id().with(node_id(&node.kind));
-            let node_response = ui.interact(node_rect, id, Sense::click());
+        {
+            let (_, _, egui_graph) = self.view.as_mut().expect("ensure_view just populated this");
 
-            let color = match &node.kind {
-                NodeKind::Collection { kind: EntityKind::Project, .. } => Color32::from_rgb(220, 150, 60),
-                NodeKind::Collection { .. } => Color32::from_rgb(90, 140, 220),
-                NodeKind::Paper { .. } => Color32::from_rgb(120, 190, 120),
-            };
-            painter.circle_filled(node.pos, NODE_RADIUS, color);
-            let label = match &node.kind {
-                NodeKind::Collection { name, .. } => name.clone(),
-                NodeKind::Paper { citekey } => citekey.clone(),
-            };
-            painter.text(node.pos, egui::Align2::CENTER_CENTER, label, egui::FontId::proportional(11.0), Color32::BLACK);
+            let settings_interaction =
+                egui_graphs::SettingsInteraction::new().with_dragging_enabled(true).with_node_selection_enabled(true);
+            let settings_navigation =
+                egui_graphs::SettingsNavigation::new().with_fit_to_screen_enabled(false).with_zoom_and_pan_enabled(true);
+            let settings_style = egui_graphs::SettingsStyle::new().with_labels_always(true);
 
-            if node_response.clicked() {
-                self.selected = Some(node_id(&node.kind));
-            }
-            if node_response.double_clicked() {
-                match &node.kind {
-                    NodeKind::Collection { path, .. } => self.current = path.clone(),
-                    NodeKind::Paper { citekey } => opened_paper = Some(citekey.clone()),
+            let response = egui_graphs::GraphView::<MindmapLayoutState, MindmapLayout>::new()
+                .with_interactions(&settings_interaction)
+                .with_navigations(&settings_navigation)
+                .with_styles(&settings_style)
+                .with_id(Some(format!("mindmap::{}", self.current)))
+                .show(ui, egui_graph);
+
+            for change in &response.changes {
+                match change {
+                    egui_graphs::GraphChange::NodeSelected { node } => {
+                        if let Some(payload) = egui_graph.node(*node).map(|n| n.payload().clone()) {
+                            self.selected = Some(node_id(&payload));
+                        }
+                    }
+                    egui_graphs::GraphChange::NodeDeselected { node } => {
+                        if let Some(payload) = egui_graph.node(*node).map(|n| n.payload().clone()) {
+                            if self.selected.as_deref() == Some(node_id(&payload).as_str()) {
+                                self.selected = None;
+                            }
+                        }
+                    }
+                    egui_graphs::GraphChange::NodeDoubleClicked { node } => {
+                        if let Some(payload) = egui_graph.node(*node).map(|n| n.payload().clone()) {
+                            match payload {
+                                NodeKind::Collection { path, .. } => drilled = Some(path),
+                                NodeKind::Paper { citekey } => opened_paper = Some(citekey),
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
-            if node_response.secondary_clicked() {
-                if let Some(pos) = node_response.interact_pointer_pos() {
-                    let target = match &node.kind {
-                        NodeKind::Collection { path, .. } => path.clone(),
-                        NodeKind::Paper { .. } => self.current.clone(),
-                    };
-                    self.context_menu = Some(ContextMenu { pos, target, new_subtopic: None });
+
+            if response.response.secondary_clicked() {
+                if let Some(pos) = response.response.interact_pointer_pos() {
+                    self.context_menu = Some(ContextMenu { pos, new_subtopic: None });
                 }
             }
+        }
+
+        if let Some(path) = drilled {
+            self.current = path;
         }
         if let Some(citekey) = opened_paper {
             action = Some(MindmapAction::OpenPaper(citekey));
@@ -324,16 +448,11 @@ impl MindmapState {
         let mut close = false;
         egui::Area::new(ui.id().with("mindmap-context-menu")).fixed_pos(menu.pos).show(ui.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
-                if ui.button("Open").clicked() {
-                    self.current = menu.target.clone();
-                    close = true;
-                }
-                ui.separator();
                 if let Some(mut text) = menu.new_subtopic.clone() {
                     ui.horizontal(|ui| {
                         ui.text_edit_singleline(&mut text);
                         if ui.button("Create").clicked() {
-                            match create_subtopic(root, index, &menu.target, &text) {
+                            match create_subtopic(root, index, &self.current, &text) {
                                 Ok(()) => self.message = format!("added {text:?}"),
                                 Err(e) => self.message = format!("could not add subtopic: {e}"),
                             }
@@ -400,7 +519,8 @@ mod tests {
     }
 
     #[test]
-    fn layout_places_children_and_papers_around_the_center() {
+    #[cfg(feature = "gui")]
+    fn build_graph_places_children_and_papers_around_the_anchor() {
         let (_dir, root) = make_root();
         EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
         EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
@@ -408,12 +528,18 @@ mod tests {
             .save_paper(&root.paper_dir("wang2018multiphysics"))
             .unwrap();
         // Papers filed under "htgrs" don't show at the shared root; a
-        // top-level topic does.
+        // top-level topic does. At the shared root there is no anchor node.
         let index = KnowledgeIndex::rebuild(&root);
-        let state = MindmapState::default();
-        let nodes = state.layout(&index, Pos2::ZERO);
-        assert_eq!(nodes.len(), 1);
-        assert!(matches!(&nodes[0].kind, NodeKind::Collection { path, .. } if path == "htgrs"));
+        let top = MindmapState::build_graph(&index, "");
+        assert_eq!(top.node_count(), 1);
+        assert_eq!(top.edge_count(), 0);
+        assert!(matches!(&top.node(top.nodes_iter().next().unwrap().0).unwrap().payload(), NodeKind::Collection { path, .. } if path == "htgrs"));
+
+        // Drilled into "htgrs": one anchor node plus the paper, joined by
+        // an edge.
+        let drilled = MindmapState::build_graph(&index, "htgrs");
+        assert_eq!(drilled.node_count(), 2);
+        assert_eq!(drilled.edge_count(), 1);
     }
 
     #[test]

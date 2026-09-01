@@ -170,7 +170,11 @@ regex = "1"                  # pure-Rust, Android-friendly regex — capture ext
 # listing). NOT the `gitoxide` binary crate — that is what `kovan setup` installs
 # for the CLI fallback backend.
 gix = { version = "0.85", default-features = false, features = ["sha1", "revision", "status", "blame", "dirwalk", "index"] }
-petgraph = "0.6"             # optional graph layer (module/dependency/literature graphs)
+petgraph = "0.8"             # graph layer (module/dependency/literature graphs) -- bumped 0.6->0.8
+                              # for egui_graphs 0.32.0 (op-jvjc), which requires petgraph "0.8"
+                              # exactly; had no consumers at 0.6 (grepped workspace-wide, no
+                              # crate declared or used it), so the bump is a pure version change,
+                              # not a coordinated fix
 # KOVAN-literature PDF ingestion. Both pure-Rust, offline, Android-buildable
 # (checked on aarch64-linux-android), no C/native build deps, MIT-licensed
 # (GPLv3-compatible). pdf-extract does deterministic plain-text extraction;
@@ -232,6 +236,14 @@ egui_extras = { version = "0.36.1", features = ["all_loaders"] }
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.
 egui-file-dialog = "0.15.0"
+# Interactive graph widget (pan/zoom/node-drag/selection/hit-testing/layout)
+# for the Mindmap view (op-jvjc, GH issue #35 checkpoint S9), replacing
+# mindmap.rs's hand-rolled painter-based renderer. 0.32.0 pins
+# `egui = "0.36"` (default-features off, "persistence" feature) -- an exact
+# match to this workspace's own egui pin above -- and `petgraph = "0.8"`
+# (see the petgraph bump above). KOVAN's KnowledgeIndex/KnowledgeGraph stay
+# the sole authoritative data model; egui_graphs is presentation-only.
+egui_graphs = "0.32.0"
 env_logger = "0.11.10"
 image = { version = "0.25.10", features = ["jpeg", "png"] }
 local-ip-address = "0.6.13"
