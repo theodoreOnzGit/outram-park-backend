@@ -18,7 +18,7 @@
 //! - **A `kopitiam-pdf` reader instance** (§24, `op-9vo6.11`) — blocked on
 //!   a `kopitiam-pdf` 0.3.2+ publish (kopitiam#96). Until then, opening a
 //!   paper's PDF still goes through the existing
-//!   `digitiser::gui::desktop::pdf_reader::PdfReaderState`.
+//!   `app::pdf_reader::PdfReaderState`.
 //! - **A `kopitiam-neovim` buffer** (§26, `op-9vo6.17`) — `markdown` here
 //!   is a plain `String` for now. §32's "the buffer is authoritative" rule
 //!   already holds for that form; a later step may change the storage

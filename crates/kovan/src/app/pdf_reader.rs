@@ -632,7 +632,7 @@ impl PdfReaderState {
     /// 05:37: "project root isn't decided") — via
     /// [`PaperSession::append_block`]/[`PaperSession::save_document`] when
     /// `active_paper` is `Some` (the normal case: this reader is showing an
-    /// [`crate::digitiser::gui::desktop::DigitiseApp::activate_paper`]'d
+    /// [`crate::app::DigitiseApp::activate_paper`]'d
     /// paper's PDF), falling back to the older
     /// [`crate::project::append_to_section`] path over the manual
     /// `project_root`/`project_markdown_rel` fields only for a PDF opened
@@ -885,7 +885,7 @@ impl PdfReaderState {
     /// to load it into the matching digitiser tab and switch views. Never
     /// `Some` while in `Read` mode — see the module doc's "Known gap".
     ///
-    /// `active_paper` is the wider app's [`crate::digitiser::gui::desktop::
+    /// `active_paper` is the wider app's [`crate::app::
     /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
     /// 2026-09-01 05:37: "project root isn't decided") — when `Some`,
     /// annotations save straight into its canonical Markdown and the

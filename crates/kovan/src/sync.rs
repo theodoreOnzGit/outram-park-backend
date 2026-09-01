@@ -13,7 +13,7 @@
 //! `kopitiam-pdf` 0.3.2+ publish (kopitiam#96). Keeping `SyncController`'s
 //! contract to plain `u32` page numbers and [`Artifact`] references (never
 //! a `PdfReaderState`/`kopitiam_pdf::mupdf::PdfDocument` type) means it can
-//! be wired to *either* the legacy `digitiser::gui::desktop::pdf_reader`
+//! be wired to *either* the legacy `app::pdf_reader`
 //! (usable today) or the eventual reusable reader with no change to this
 //! module — only to whatever glue code reads its outputs. **Live GUI
 //! wiring of a real reader+editor pair through this controller is left for

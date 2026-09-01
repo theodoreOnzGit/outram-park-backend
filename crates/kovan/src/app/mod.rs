@@ -1,3 +1,14 @@
+//! The KOVAN application shell — [`DigitiseApp`] and its view panels. Moved
+//! here from `digitiser::gui::desktop` 2026-09-01 (GH issue #35 checkpoint
+//! §22, `op-1arj`): the digitiser is one panel the shell hosts, not the
+//! shell's owner, so the shell's own state (this file's `DigitiseApp`,
+//! `KovanRoot`, `ActivePaper`) doesn't belong nested under it. A pure
+//! module-path relocation — every file below is otherwise unchanged; see
+//! `crate::digitiser::gui::run` for the one call site that opens this
+//! shell. `DigitiseApp` itself keeping its pre-move name is a deliberate,
+//! disclosed scope cut for this pass — see the crate's `bn` tracker for the
+//! follow-up rename.
+
 mod advanced_git_view;
 mod bibliography;
 mod csv_preview;

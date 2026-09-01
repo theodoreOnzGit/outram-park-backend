@@ -2,7 +2,7 @@
 //!
 //! The candidate-generation half of both completions: given what the user
 //! has typed after the trigger character, return matches ranked for
-//! display. This module is UI-agnostic — `digitiser::gui::desktop::kvim_editor`
+//! display. This module is UI-agnostic — `app::kvim_editor`
 //! is what detects the trigger and shows a popup; this is what it queries.
 //!
 //! # Not blocked on `kopitiam-bibliography`

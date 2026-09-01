@@ -33,6 +33,24 @@
 //! `NOTICE` and `src/tui/digitiser.rs`.
 
 pub mod advanced_git;
+/// The KOVAN application shell (GH issue #35 checkpoint §22, `op-1arj`) —
+/// [`app::DigitiseApp`] and its view panels (Wiki, Mindmap, PDF Reader,
+/// kvim editor, Bibliography, Save Repository, …), moved here from
+/// `digitiser::gui::desktop` 2026-09-01. It previously lived nested under
+/// the graph digitiser, which was backwards: the digitiser is one panel
+/// *of* the app shell, not its owner — op-9vo6's own scoping-pass finding
+/// #1. Desktop-only, mirroring `digitiser::gui`'s own gating: behind this
+/// crate's `gui` feature (default everywhere except Android) and belt-
+/// and-suspenders target-gated off Android directly, same as the module it
+/// replaces was.
+///
+/// This pass is the module-path relocation only — a pure move, no
+/// behaviour change, and (per grep) touched no reference outside this
+/// crate's own doc comments. Renaming `DigitiseApp` itself to a name that
+/// reflects shell (not digitiser) ownership is a separate, deliberately
+/// deferred follow-up — see the crate's `bn` tracker.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+pub mod app;
 pub mod artifact;
 pub mod autocomplete;
 pub mod classify;

@@ -23,6 +23,13 @@
 //! `kovan-gui` at that point too, then renamed to plain `kovan` the same day
 //! per GitHub issue #30's final 3-binary spec — `kovan` (GUI), `kovan-cli`
 //! (agent CLI), `kovan-tui` (terminal UI).)
+//!
+//! [`run`] opens [`crate::app::DigitiseApp`] — the app shell, not a member
+//! of this module. It used to be a private `desktop` submodule nested
+//! directly under here; GH issue #35 checkpoint §22 (`op-1arj`) moved it out
+//! to `crate::app` 2026-09-01, since the digitiser is one panel of the app
+//! shell, not its owner. This module's own job stays exactly what its doc
+//! above says: open the window, and stay a redirect stub on Android.
 
 /// Open the digitiser window, optionally pre-loading `image_arg` as the plot
 /// image. Blocks until the window is closed. On Android, prints a redirect
@@ -45,7 +52,7 @@ pub fn run(image_arg: Option<String>) -> Result<(), String> {
         "kovan",
         options,
         Box::new(move |_cc| {
-            let mut app = desktop::DigitiseApp::default();
+            let mut app = crate::app::DigitiseApp::default();
             if let Some(path) = image_arg {
                 app.load_image(&path);
             }
@@ -54,6 +61,3 @@ pub fn run(image_arg: Option<String>) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())
 }
-
-#[cfg(not(target_os = "android"))]
-mod desktop;

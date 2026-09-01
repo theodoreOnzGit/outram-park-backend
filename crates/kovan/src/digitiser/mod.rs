@@ -50,10 +50,13 @@
 //!   does today.
 //! - [`gui`] *(behind this crate's `gui` feature, default except on
 //!   Android)* — the egui app powering the `kovan` binary, exposed as a
-//!   library function (`gui::run`). Its `desktop` submodule also carries
-//!   GitHub issue #30's file picker (`egui-file-dialog`, op-689u), Gruvbox
-//!   theming (op-t5sq), and integrated PDF reader panel (op-95x6, over
-//!   `kopitiam_pdf::mupdf` — see the next bullet).
+//!   library function (`gui::run`), which opens `crate::app::DigitiseApp` —
+//!   the shell that also carries GitHub issue #30's file picker
+//!   (`egui-file-dialog`, op-689u), Gruvbox theming (op-t5sq), and
+//!   integrated PDF reader panel (op-95x6, over `kopitiam_pdf::mupdf` — see
+//!   the next bullet). `crate::app` moved out from under this module
+//!   2026-09-01 (`op-1arj`) — it is the digitiser's caller, not a submodule
+//!   of it.
 //!
 //! ## What does not belong here
 //!
@@ -67,8 +70,9 @@
 //! - Network access of any kind.
 //! - PDF *parsing* (text/metadata extraction) — that stays
 //!   `kovan_literature::extract_metadata`'s job. This module's own PDF
-//!   involvement is display-only: `gui`'s private `desktop::pdf_reader`
-//!   submodule opens a PDF with `kopitiam_pdf::mupdf::PdfDocument` and
+//!   involvement is display-only: `crate::app::pdf_reader`, the app
+//!   shell's own panel (not part of this module — see `gui`, above),
+//!   opens a PDF with `kopitiam_pdf::mupdf::PdfDocument` and
 //!   rasterizes the current page
 //!   with `kopitiam_pdf::mupdf::rasterize_page` (op-6ez3's rendering-engine
 //!   decision) so it can be shown as a `kovan` GUI panel. It does not (yet)
