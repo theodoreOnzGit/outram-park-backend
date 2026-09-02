@@ -320,11 +320,24 @@ pub struct PdfReaderState {
     search: SearchState,
     /// The canvas zoom on the page rasters.
     zoom: f32,
-    /// `zoom` as of the last canvas frame — when it changes, the canvas
-    /// rescales the scroll offset so the same page stays in view (the
-    /// `ScrollArea` offset is absolute, but the content height scales with
-    /// zoom). `0.0` before the first frame.
+    /// `zoom` as of the last canvas frame. `0.0` before the first frame.
     last_zoom: f32,
+    /// Where the viewport was centred **last frame**, in zoom-independent
+    /// document units: `y` = fractional page position (page index + fraction
+    /// through it), `x` = fraction of the page width. Re-derived from the
+    /// `ScrollArea`'s real offset every frame, and used to restore the exact
+    /// same view point when `zoom` changes — the `ScrollArea` offset is
+    /// absolute points, so without this a zoom silently lands you on a
+    /// different page (maintainer's bug 2026-09-02).
+    scroll_anchor: egui::Vec2,
+    /// The visible viewport size last frame — needed to convert the centred
+    /// anchor back into a top-left scroll offset.
+    last_viewport: egui::Vec2,
+    /// A scroll offset to force on the **next** frame — set by a
+    /// pointer-anchored zoom (Ctrl+scroll, `+`/`-`) so the document point
+    /// under the mouse stays under the mouse. `ScrollArea` applies it before
+    /// layout and input, so it is exact and one-shot.
+    forced_offset: Option<egui::Vec2>,
     message: String,
     // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
@@ -581,6 +594,9 @@ impl PdfReaderState {
         self.search = SearchState::default();
         self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
         self.last_zoom = 0.0;
+        self.scroll_anchor = egui::Vec2::ZERO;
+        self.last_viewport = egui::Vec2::ZERO;
+        self.forced_offset = None;
         self.annotations.clear();
         self.draw_start = None;
         self.pending_box = None;
@@ -1477,7 +1493,13 @@ impl PdfReaderState {
                 }
                 ui.separator();
             }
-            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
+            // The slider stays (maintainer, 2026-09-02): dragging it means
+            // the pointer is *outside* the viewer, which is exactly the
+            // case that anchors the zoom on the centre of what is on
+            // screen — well-defined and stable. Ctrl+scroll / `+` / `-`
+            // over the page anchor on the pointer instead.
+            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"))
+                .on_hover_text("Ctrl+scroll, or + / -, zooms about the pointer");
             ui.separator();
             ui.label("tool:");
             ui.selectable_value(&mut self.tool, AnnotationTool::None, "Select");
@@ -1613,7 +1635,30 @@ impl PdfReaderState {
         let n = self.source.page_count().max(1);
         let mut open_target: Option<String> = None;
 
-        egui::ScrollArea::both().show_viewport(ui, |ui, viewport| {
+        // A zoom change scales the content but not the `ScrollArea`'s
+        // (absolute, in points) offset, so the same offset lands somewhere
+        // else in the document. `ScrollArea` applies `scroll_offset` before
+        // it lays out or reads input, so setting it outright is exact and
+        // one-shot — unlike an *animated* `scroll_to_rect` afterwards, which
+        // lags a frame and compounds.
+        //
+        // `forced_offset` is the pointer-anchored target the previous frame's
+        // zoom gesture computed (keep the document point under the mouse
+        // exactly where it was); the centre-anchor below is the fallback for
+        // a zoom change from anywhere else.
+        let stride = self.pages.page_stride(zoom, GAP);
+        let content = self.pages.content_size(n, zoom, GAP);
+        let zoom_changed = self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON;
+        let mut area = egui::ScrollArea::both();
+        if let Some(off) = self.forced_offset.take() {
+            area = area.scroll_offset(off);
+        } else if zoom_changed {
+            let target_y = (self.scroll_anchor.y * stride - self.last_viewport.y * 0.5).max(0.0);
+            let target_x = (self.scroll_anchor.x * content.x - self.last_viewport.x * 0.5).max(0.0);
+            area = area.scroll_offset(egui::vec2(target_x, target_y));
+        }
+
+        let scroll_out = area.show_viewport(ui, |ui, viewport| {
             // Rasterise + upload the pages the viewport touches (± one page
             // of margin), evicting far ones.
             let vis = self.pages.visible_range(viewport, n, zoom, GAP);
@@ -1630,27 +1675,56 @@ impl PdfReaderState {
                 ReaderSource::None => {}
             }
 
-            let size = self.pages.content_size(n, zoom, GAP);
-            let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
+            let (rect, response) = ui.allocate_exact_size(content, Sense::click_and_drag());
             let origin = rect.min;
             let painter = ui.painter_at(rect);
 
-            // A zoom change scales the content height but not the (absolute)
-            // scroll offset — without this, zooming jumps to a different page
-            // (maintainer's bug 2026-09-02). Keep the content point that was
-            // at the **centre** of the viewport centred after the zoom.
-            if self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON {
-                let page_h = self.pages.page_size_px().y;
-                let old_stride = (page_h * self.last_zoom + GAP).max(1.0);
-                let new_stride = page_h * zoom + GAP;
-                let anchor_pages = viewport.center().y / old_stride; // fractional page position
-                let new_centre_y = origin.y + anchor_pages * new_stride;
-                ui.scroll_to_rect(
-                    Rect::from_min_size(Pos2::new(origin.x, new_centre_y), egui::vec2(1.0, 1.0)),
-                    Some(egui::Align::Center),
-                );
+            // --- zoom about the pointer: Ctrl+scroll (or pinch), and `+`/`-`
+            // (GH issue #35 2026-09-02 — the maintainer removed the zoom
+            // slider precisely because a slider and a mouse-anchored view
+            // fight each other). The document point under the pointer is
+            // pinned: read it at the current zoom, then compute the exact
+            // scroll offset that puts it back under the pointer at the new
+            // zoom, and force that offset on the next frame.
+            let keys_free = !text_editing && ui.ctx().memory(|m| m.focused().is_none());
+            let (pinch, plus, minus) = ui.input(|i| {
+                (
+                    i.zoom_delta(),
+                    keys_free && (i.key_pressed(egui::Key::Plus) || i.key_pressed(egui::Key::Equals)),
+                    keys_free && i.key_pressed(egui::Key::Minus),
+                )
+            });
+            let step = if plus {
+                1.25
+            } else if minus {
+                1.0 / 1.25
+            } else {
+                1.0
+            };
+            let factor = pinch * step;
+            if (factor - 1.0).abs() > 1e-4 {
+                let new_zoom = (zoom * factor).clamp(0.25, 4.0);
+                if (new_zoom - zoom).abs() > f32::EPSILON {
+                    // Anchor on the pointer; if it is outside the viewer
+                    // (a `+`/`-` press with the mouse parked elsewhere), on
+                    // the centre of what is on screen instead.
+                    let viewport_screen_min = origin + viewport.min.to_vec2();
+                    let anchor_screen = response
+                        .hover_pos()
+                        .unwrap_or_else(|| viewport_screen_min + viewport.size() * 0.5);
+                    let within = anchor_screen - viewport_screen_min;
+                    let anchor_content = viewport.min + within;
+                    // Convert to zoom-invariant document units, then back at
+                    // the new zoom. Works anywhere, including an inter-page
+                    // gap, because the gap is part of the stride.
+                    let new_stride = self.pages.page_size_px().y * new_zoom + GAP;
+                    let new_y = (anchor_content.y / stride) * new_stride;
+                    let new_x = (anchor_content.x / zoom) * new_zoom;
+                    self.zoom = new_zoom;
+                    self.forced_offset =
+                        Some(egui::vec2((new_x - within.x).max(0.0), (new_y - within.y).max(0.0)));
+                }
             }
-            self.last_zoom = zoom;
 
             if let Some(target) = self.scroll_request.take() {
                 let y = origin.y + self.pages.page_top(target, zoom, GAP);
@@ -1677,14 +1751,30 @@ impl PdfReaderState {
                 }
             }
 
-            // The interactive page = the one under the pointer, else the top
-            // of the viewport. Frozen during a drag, and while a block is
-            // being edited in the panel (so moving the mouse to the panel
-            // doesn't swap the page out from under the editor — maintainer's
-            // bug 2026-09-02). Feeds `active_page()` and the context panel.
-            let pointer_page = response.hover_pos().and_then(|s| self.pages.hit(s, origin, n, zoom, GAP)).map(|(p, _)| p);
-            if self.draw_start.is_none() && self.select_start.is_none() && self.editing_block_id.is_none() {
-                self.annotate_page = pointer_page.unwrap_or(*want.start());
+            // The current page is the one at the **centre of the viewport** —
+            // what you are actually reading. It is deliberately *not* driven
+            // by the pointer: with a stationary mouse over the canvas, zoom
+            // (or any re-layout) slides a different page under the cursor and
+            // the whole panel would jump pages for no reason (maintainer's
+            // 2026-09-02 diagnosis: "the mouse is being used as a reference
+            // point"). Held still during a gesture, while a proposed box is
+            // waiting, and while a block is being edited in the panel.
+            let busy = self.draw_start.is_some()
+                || self.select_start.is_some()
+                || self.pending_box.is_some()
+                || self.annotate_editor.is_some()
+                || self.editing_block_id.is_some();
+            if !busy {
+                let centre_page = ((viewport.center().y / stride).floor().max(0.0) as usize).min(n - 1);
+                self.annotate_page = centre_page;
+            }
+            // A *gesture* is the one thing that should re-point the page at
+            // the pointer — you draw/right-click on the page under the mouse,
+            // whichever that is.
+            if !busy && (response.drag_started() || response.secondary_clicked()) {
+                if let Some((p, _)) = response.interact_pointer_pos().and_then(|s| self.pages.hit(s, origin, n, zoom, GAP)) {
+                    self.annotate_page = p;
+                }
             }
             let page = self.annotate_page;
             let page_origin = origin + egui::vec2(0.0, self.pages.page_top(page, zoom, GAP));
@@ -1878,7 +1968,21 @@ impl PdfReaderState {
             }
         });
 
-        // A single click on a saved region box (GH issue #35 2026-09-02):
+        // Re-derive the zoom-independent view anchor from the `ScrollArea`'s
+        // *actual* offset, so the next zoom change restores exactly this
+        // view point. Doing it from the real offset (rather than tracking it
+        // ourselves) means ordinary wheel/drag scrolling stays authoritative.
+        let viewport_size = scroll_out.inner_rect.size();
+        if viewport_size.x > 0.0 && viewport_size.y > 0.0 {
+            self.last_viewport = viewport_size;
+        }
+        self.scroll_anchor = egui::vec2(
+            (scroll_out.state.offset.x + self.last_viewport.x * 0.5) / content.x.max(1.0),
+            (scroll_out.state.offset.y + self.last_viewport.y * 0.5) / stride.max(1.0),
+        );
+        self.last_zoom = zoom;
+
+        // A double-click on a saved region box (GH issue #35 2026-09-02):
         // straight into editing it.
         if let Some(id) = open_target {
             if let Some(art) = active_artifacts.as_deref().and_then(|a| a.iter().find(|x| x.id() == id).cloned()) {
