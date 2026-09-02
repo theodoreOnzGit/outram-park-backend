@@ -82,6 +82,12 @@ pub enum EntityError {
     /// `kind` and the payload disagree — e.g. a topic carrying `[source]`,
     /// which only a paper may have.
     KindMismatch { id: String, message: String },
+    /// A paper's `[source]` combines [`StorageMode::MainRepo`] with a
+    /// non-committable [`Access`] — that combination would mark a
+    /// restricted document safe to place in the (presumably public) main
+    /// repository, which is exactly the accidental-redistribution failure
+    /// GH issue #35's private-submodule amendment exists to prevent.
+    UnsafeStorage { id: String },
 }
 
 impl std::fmt::Display for EntityError {
@@ -106,6 +112,11 @@ impl std::fmt::Display for EntityError {
                  — file it under {UNSORTED:?} if it is not sorted yet"
             ),
             Self::KindMismatch { id, message } => write!(f, "{id}: {message}"),
+            Self::UnsafeStorage { id } => write!(
+                f,
+                "{id}: a restricted-access source cannot use MainRepo storage \
+                 — use PrivateSubmodule or Local instead"
+            ),
         }
     }
 }
@@ -177,12 +188,59 @@ impl Access {
     }
 }
 
+/// How a source document participates in Git — independent of [`Access`].
+///
+/// GH issue #35's 2026-09-01 "private Git submodule" amendment made this
+/// distinction explicit: `access` says who may see the document's content
+/// (redistribution rights); `StorageMode` says which repository, if any,
+/// tracks the file. A restricted document is *always* [`Access::Restricted`]
+/// regardless of storage — what changes is only where it may safely live.
+///
+/// The default, [`StorageMode::Local`], works with zero configuration and
+/// is what every existing library already does — this enum is additive,
+/// not a behaviour change for a library that never sets it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StorageMode {
+    /// Tracked directly in the main library repository. Only ever valid
+    /// alongside [`Access::Open`] — see [`EntityConfig::validate`], which
+    /// rejects the combination of `MainRepo` storage with a non-committable
+    /// access level rather than let a restricted document be marked safe
+    /// for a (presumably public) main repository.
+    MainRepo,
+    /// Tracked in the library's configured private literature submodule
+    /// (see [`crate::root::RootConfig::private_submodule`]) — physically
+    /// the same on-disk directory as [`StorageMode::Local`]
+    /// ([`crate::root::KovanRoot::restricted_sources_dir`]), which becomes
+    /// a private-submodule checkout instead of a plain gitignored directory
+    /// once a submodule is configured. This variant records *intent* — "this
+    /// document should be shared via the private repository" — that
+    /// `Save Repository`'s save sequencing reads to decide what belongs in
+    /// the private repository's own commit. When no private submodule is
+    /// configured, a document marked this way is not an error: it simply
+    /// behaves like [`StorageMode::Local`] until one is (see `op-t1ex`'s
+    /// graceful-degradation requirement).
+    PrivateSubmodule,
+    /// Gitignored, local-only — never staged or committed anywhere, by
+    /// either repository. The default, and the only mode that works with no
+    /// configuration at all; the existing local-only proprietary workflow
+    /// this library already had is exactly this mode, unconditionally
+    /// preserved.
+    #[default]
+    Local,
+}
+
 /// Where a paper's source document lives, and on what terms (§7).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SourceRef {
     /// Redistribution status. Defaults to [`Access::Restricted`].
     #[serde(default)]
     pub access: Access,
+    /// How this source participates in Git. Defaults to
+    /// [`StorageMode::Local`] — see that variant's doc for why this is
+    /// always a safe, zero-configuration default.
+    #[serde(default)]
+    pub storage: StorageMode,
     /// Path to the source PDF, relative to the entity's own directory (so a
     /// library stays relocatable). `None` for a paper catalogued from
     /// metadata alone, with no document held locally.
@@ -400,9 +458,19 @@ impl EntityConfig {
             id: id.into(),
             kind: EntityKind::Paper,
             name: None,
-            source: Some(SourceRef { access, pdf: None }),
+            source: Some(SourceRef { access, storage: StorageMode::default(), pdf: None }),
             classification: Classification::unsorted(),
         }
+    }
+
+    /// Override the default [`StorageMode::Local`] this paper's source was
+    /// created with. A no-op if this entity carries no `[source]` at all
+    /// (a collection, or a paper with the section stripped by hand).
+    pub fn with_storage(mut self, storage: StorageMode) -> Self {
+        if let Some(source) = self.source.as_mut() {
+            source.storage = storage;
+        }
+        self
     }
 
     /// A topic collection with the given slug and display name.
@@ -449,7 +517,8 @@ impl EntityConfig {
     /// Attach a source PDF path, relative to the entity's own directory.
     pub fn with_pdf(mut self, pdf: impl Into<PathBuf>) -> Self {
         let access = self.source.as_ref().map(|s| s.access).unwrap_or_default();
-        self.source = Some(SourceRef { access, pdf: Some(pdf.into()) });
+        let storage = self.source.as_ref().map(|s| s.storage).unwrap_or_default();
+        self.source = Some(SourceRef { access, storage, pdf: Some(pdf.into()) });
         self
     }
 
@@ -466,6 +535,11 @@ impl EntityConfig {
             EntityKind::Paper => {
                 if self.classification.is_empty() {
                     return Err(EntityError::Unclassified { id: self.id.clone() });
+                }
+                if let Some(source) = &self.source {
+                    if source.storage == StorageMode::MainRepo && !source.access.is_committable() {
+                        return Err(EntityError::UnsafeStorage { id: self.id.clone() });
+                    }
                 }
             }
             EntityKind::Topic | EntityKind::Project => {
@@ -741,6 +815,61 @@ mod tests {
         // A [source] with no `access` key inherits the safe default.
         let s: SourceRef = toml::from_str("").unwrap();
         assert_eq!(s.access, Access::Restricted);
+    }
+
+    // -------------------------------------------------------------------
+    // StorageMode — GH issue #35's 2026-09-01 private-submodule amendment
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn storage_mode_defaults_to_local_so_a_bare_source_needs_no_configuration() {
+        assert_eq!(StorageMode::default(), StorageMode::Local);
+        let s: SourceRef = toml::from_str("").unwrap();
+        assert_eq!(s.storage, StorageMode::Local);
+    }
+
+    #[test]
+    fn a_new_paper_starts_with_local_storage() {
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted);
+        assert_eq!(p.source.unwrap().storage, StorageMode::Local);
+    }
+
+    #[test]
+    fn with_storage_overrides_the_default() {
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(StorageMode::PrivateSubmodule);
+        assert_eq!(p.source.unwrap().storage, StorageMode::PrivateSubmodule);
+    }
+
+    #[test]
+    fn open_access_may_use_main_repo_storage() {
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Open).with_storage(StorageMode::MainRepo);
+        assert!(p.validate().is_ok());
+    }
+
+    #[test]
+    fn restricted_access_cannot_use_main_repo_storage() {
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(StorageMode::MainRepo);
+        let err = p.validate().unwrap_err();
+        assert!(matches!(err, EntityError::UnsafeStorage { .. }), "{err}");
+    }
+
+    #[test]
+    fn restricted_access_may_use_private_submodule_or_local_storage() {
+        for mode in [StorageMode::PrivateSubmodule, StorageMode::Local] {
+            let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(mode);
+            assert!(p.validate().is_ok(), "{mode:?} should be valid for a restricted document");
+        }
+    }
+
+    #[test]
+    fn storage_mode_round_trips_through_toml() {
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted)
+            .with_storage(StorageMode::PrivateSubmodule)
+            .with_topics(["htgrs"]);
+        let text = p.to_toml().unwrap();
+        assert!(text.contains(r#"storage = "private-submodule""#), "{text}");
+        let back: EntityConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back, p);
     }
 
     // -------------------------------------------------------------------
