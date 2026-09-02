@@ -111,6 +111,8 @@ previously-resolved issues have been closed:
 | #26 | daemon holds ~37% of a CPU core while idle | **open** |
 | #27 | daemon sync fails with `slotmap too small` | **open** |
 | #28 | writes acknowledged, reported synced, then lost | **open** |
+| #106 | kopitiam-pdf 0.3.2: `PdfReaderConfig.reflow` not wired to the `R` key | **open** (filed 2026-09-02, dogfooding kovan) |
+| #107 | kopitiam-pdf 0.3.2: no host overlay / page-layout API on the embedded reader | **open** (filed 2026-09-02, dogfooding kovan) |
 
 A caution recorded from closing #19: the first attempt to verify it used a
 **stale remote-tracking ref** and concluded, wrongly, that the daemon had not
