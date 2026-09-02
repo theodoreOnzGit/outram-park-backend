@@ -109,7 +109,9 @@
 //! | [`curve_surface`] | curve_to_mesh.cc / displist.cc | **real** — Bevel (round / custom profile / none), taper spline, 2-D fill (ear clip), end caps; sweep a section along the spline frames (GH issue #37 §G) |
 //! | [`curve_mesh`] | OBJECT_OT_convert / MOD_curve / MOD_skin | **real** — mesh_to_splines (edge chains), boundary_to_splines, spline_to_mesh, spline_deform_mesh (curve modifier), skin_spline (GH issue #37 §G) |
 //! | [`nurbs_surface`] | BKE_nurb_makeFaces / editcurve_add.cc | **real** — NurbsSurface tensor-product rational B-spline (periodic knots for cyclic axes), evaluate + to_mesh, plane/sphere/cylinder/torus primitives, control-point patch editing (GH issue #37 §G) |
+//! | [`text`] | `blenkernel/intern/vfont.cc` (text objects) | **real** — Font/Glyph outline table (+ built-in block stroke font), text_to_contours (baseline layout), text_to_mesh (ear-clip fill, extrude, chamfer bevel) for name plates / labels / gauge faces (GH issue #37 §G) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
+//! | [`primitives_extra`] | `add_mesh_*` operators + redo panels | **real** — plane / circle (fill or wire) / cone + truncated cone / torus / geodesic icosphere; AddMeshOptions (location, XYZ-Euler rotation, scale) common settings, all Euler-checked (GH issue #37 §H) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -223,6 +225,7 @@ pub mod nurbs_surface;
 pub mod ops;
 pub mod poke_quads;
 pub mod primitives;
+pub mod primitives_extra;
 pub mod procedural;
 pub mod reactor;
 pub mod proportional;
@@ -239,6 +242,7 @@ pub mod stl;
 pub mod subdivide;
 pub mod subdivision;
 pub mod symmetry;
+pub mod text;
 pub mod topology;
 pub mod transform;
 pub mod transform_input;
