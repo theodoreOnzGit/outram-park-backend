@@ -203,6 +203,45 @@ pub enum Modifier {
         /// Target face fraction (`0.0` … `1.0`).
         ratio: f64,
     },
+    /// Simple Deform (twist / bend / taper / stretch) along an axis (GH issue
+    /// #37 §F, `op-hzs.54.31`).
+    SimpleDeform {
+        /// The deform mode + amount.
+        mode: crate::deform::SimpleDeform,
+        /// Axis the deform is parameterised along.
+        axis: crate::selection::Axis,
+    },
+    /// Cast toward a sphere / cylinder / cuboid.
+    Cast {
+        /// The shape to cast toward.
+        target: crate::deform::CastTarget,
+        /// `0` = unchanged, `1` = fully on the target.
+        factor: f64,
+    },
+    /// Displace along `direction` by value noise (a texture-free stand-in).
+    Displace {
+        /// Displacement direction.
+        direction: Vec3,
+        /// Displacement amplitude.
+        strength: f64,
+        /// Noise frequency.
+        noise_scale: f64,
+        /// Noise seed.
+        seed: u64,
+    },
+    /// Wave: a travelling sine ripple along `axis`.
+    Wave {
+        /// Ripple axis.
+        axis: crate::selection::Axis,
+        /// Peak displacement.
+        amplitude: f64,
+        /// Wave period.
+        wavelength: f64,
+        /// Travel speed.
+        speed: f64,
+        /// Evaluation time.
+        time: f64,
+    },
 }
 
 /// Epsilon (dimensionless model-space length) below which two vertex positions
@@ -254,6 +293,16 @@ impl Modifier {
             Modifier::Decimate { ratio } => {
                 let target = ((input.face_count() as f64) * ratio.clamp(0.0, 1.0)).round() as usize;
                 Ok(crate::decimate::decimate(input, target.max(1)))
+            }
+            Modifier::SimpleDeform { mode, axis } => {
+                Ok(crate::deform::simple_deform(input, &[], *mode, *axis))
+            }
+            Modifier::Cast { target, factor } => Ok(crate::deform::cast(input, &[], *target, *factor)),
+            Modifier::Displace { direction, strength, noise_scale, seed } => {
+                Ok(crate::deform::displace(input, &[], *direction, *strength, *noise_scale, *seed))
+            }
+            Modifier::Wave { axis, amplitude, wavelength, speed, time } => {
+                Ok(crate::deform::wave(input, &[], *axis, *amplitude, *wavelength, *speed, *time))
             }
         }
     }
@@ -794,6 +843,45 @@ mod tests {
         .evaluate(&primitives::grid(1, 3, 2.0))
         .unwrap();
         assert!(sc.face_count() > 3);
+    }
+
+    #[test]
+    fn deform_modifiers_pt1() {
+        let c = primitives::cube(2.0);
+        assert!(Modifier::SimpleDeform {
+            mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
+            axis: crate::selection::Axis::Z,
+        }
+        .evaluate(&c)
+        .unwrap()
+        .face_count()
+            == 6);
+
+        let cast = Modifier::Cast { target: crate::deform::CastTarget::Sphere(2.0), factor: 1.0 }
+            .evaluate(&primitives::grid(4, 4, 4.0))
+            .unwrap();
+        assert!(cast.face_count() > 0);
+
+        let disp = Modifier::Displace {
+            direction: Vec3::new(0.0, 0.0, 1.0),
+            strength: 0.3,
+            noise_scale: 0.5,
+            seed: 1,
+        }
+        .evaluate(&primitives::grid(5, 5, 5.0))
+        .unwrap();
+        assert!((0..disp.vertex_count()).any(|i| disp.vertex(crate::mesh::VertexId(i)).unwrap().position.z.abs() > 1e-6));
+
+        let wv = Modifier::Wave {
+            axis: crate::selection::Axis::Z,
+            amplitude: 0.4,
+            wavelength: 3.0,
+            speed: 0.0,
+            time: 0.0,
+        }
+        .evaluate(&primitives::grid(8, 8, 8.0))
+        .unwrap();
+        assert!(wv.face_count() > 0);
     }
 
     #[test]
