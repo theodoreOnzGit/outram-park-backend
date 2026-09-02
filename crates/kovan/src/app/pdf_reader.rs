@@ -19,7 +19,7 @@
 //! (verified against the published 0.3.2 source; filed as
 //! [kopitiam#107](https://github.com/theodoreOnzGit/kopitiam/issues/107)) — so
 //! saved region boxes could never be drawn over it or clicked. The maintainer
-//! wants boxes visible + single-click-to-edit *everywhere*, so the embedded
+//! wants boxes visible + double-click-to-edit *everywhere*, so the embedded
 //! reader is gone and its one irreplaceable feature, `/`-search, is
 //! reimplemented here ([`SearchState`], `line_hits`) over the same
 //! `page_to_stext` structured text the select-text tool already uses.
@@ -806,7 +806,7 @@ impl PdfReaderState {
         }
     }
 
-    /// Open a saved artifact for editing — the single path a **single-click
+    /// Open a saved artifact for editing — the single path a **double-click
     /// on its box** on the continuous canvas and a **double-click on its
     /// card / preview line** in the context panel both go through, so the
     /// two cannot drift (GH issue #35 2026-09-02).
@@ -1222,7 +1222,11 @@ impl PdfReaderState {
         // buttons above the editor (maintainer's ask, GH issue #35
         // 2026-09-02).
         if let Some(id) = &editing_id {
-            if let Some(a) = anchored.iter().find(|a| a.id() == id.as_str()) {
+            // Look the block up in the *whole* document, not just this
+            // page's anchored set — otherwise moving the mouse off the
+            // canvas (which re-points `active_page` at the top of the
+            // viewport) makes the editor vanish (maintainer's bug 2026-09-02).
+            if let Some(a) = artifacts.iter().find(|a| a.id() == id.as_str()) {
                 egui::Frame::group(ui.style()).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.strong(format!("editing: {}", a.heading));
@@ -1291,7 +1295,7 @@ impl PdfReaderState {
             ui.add_space(8.0);
             ui.strong("Preview (read-only)");
             if let Some(line) = context_editor.ui_readonly(ui) {
-                if let Some(a) = anchored.iter().find(|a| block_span(&editor_text, a).contains(&line)) {
+                if let Some(a) = artifacts.iter().find(|a| block_span(&editor_text, a).contains(&line)) {
                     open_target = Some(a.id().to_string());
                 }
             }
@@ -1306,7 +1310,7 @@ impl PdfReaderState {
         // A double-click landed on a block — open the right editor for it.
         let mut crop_result = None;
         if let Some(id) = open_target {
-            if let Some(a) = anchored.iter().find(|a| a.id() == id).copied() {
+            if let Some(a) = artifacts.iter().find(|a| a.id() == id) {
                 crop_result = self.open_artifact(a);
             }
         }
@@ -1391,7 +1395,7 @@ impl PdfReaderState {
     /// action) and reports the chosen path back via [`PdfReaderState::open`].
     ///
     /// Returns `Some` the frame the user completes a crop-then-right-click
-    /// gesture (op-p17q / op-hnhp) or single-clicks a saved digitised box —
+    /// gesture (op-p17q / op-hnhp) or double-clicks a saved digitised box —
     /// the caller (`DigitiseApp`) loads it into the matching digitiser tab
     /// and switches views.
     ///
@@ -1543,7 +1547,7 @@ impl PdfReaderState {
 
         ui.small(
             "Draw box → right-click it → Annotate / Digitise graph / Read table. \
-             Right-click an existing box → Edit / Delete. Click a saved box → edit it.",
+             Right-click an existing box → Edit / Delete. Double-click a saved box → edit it.",
         );
         let mut save_clicked = false;
         ui.horizontal(|ui| {
@@ -1596,7 +1600,7 @@ impl PdfReaderState {
         // --- a plain image / a PDF: kovan's own **continuous**
         // multi-page canvas (GH issue #35 2026-09-02). Renders the pages
         // itself (via `PageView`) so it can draw saved region boxes over
-        // them and single-click a box to edit it — which the embedded reader
+        // them and double-click a box to edit it — which the embedded reader
         // cannot (kopitiam#107). ---
         let zoom = self.zoom;
         const GAP: f32 = 16.0;
@@ -1649,11 +1653,13 @@ impl PdfReaderState {
                 }
             }
 
-            // The interactive page = the one under the pointer (frozen
-            // during a drag), else the top of the viewport. Feeds
-            // `active_page()` and the context panel.
+            // The interactive page = the one under the pointer, else the top
+            // of the viewport. Frozen during a drag, and while a block is
+            // being edited in the panel (so moving the mouse to the panel
+            // doesn't swap the page out from under the editor — maintainer's
+            // bug 2026-09-02). Feeds `active_page()` and the context panel.
             let pointer_page = response.hover_pos().and_then(|s| self.pages.hit(s, origin, n, zoom, GAP)).map(|(p, _)| p);
-            if self.draw_start.is_none() && self.select_start.is_none() {
+            if self.draw_start.is_none() && self.select_start.is_none() && self.editing_block_id.is_none() {
                 self.annotate_page = pointer_page.unwrap_or(*want.start());
             }
             let page = self.annotate_page;
@@ -1742,7 +1748,9 @@ impl PdfReaderState {
             // --- overlays across every visible page ---
             let page_px = self.pages.page_size_px();
             let hover_screen = response.hover_pos();
-            let clicked = response.clicked();
+            // Double-click, not single (maintainer's ask 2026-09-02) — a
+            // stray single click on a box was too easy to trip.
+            let opened = response.double_clicked();
             let pages = &self.pages;
             let box_rect = |p: usize, min: Pos2, max: Pos2| {
                 Rect::from_min_max(
@@ -1794,7 +1802,7 @@ impl PdfReaderState {
                     let hit = hover_screen.is_some_and(|s| r.contains(s));
                     if hit {
                         hover_id = Some(art.toml.kovan.created.clone());
-                        if clicked {
+                        if opened {
                             open_target = Some(art.id().to_string());
                         }
                     }
