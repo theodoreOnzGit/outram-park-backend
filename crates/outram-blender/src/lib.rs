@@ -98,6 +98,8 @@
 //! | [`spin_screw`] | `bmo_spin_exec` / `MOD_screw.cc` | **real** — spin a profile selection around an axis (bridged or duplicates), screw = spin + axial translation (helix) (GH issue #37 §C) |
 //! | [`transform_input`] | `transform_input.cc` / `transform_constraints.cc` | **real** — Constraint (free/axis/plane), TransformBasis (global/normal), NumericEntry with an expression evaluator (pi/tau/e, ^ right-assoc), grid-increment snap; the CAD precision-input model (GH issue #37 §D) |
 //! | [`snap`] | `transform_snap.cc` / `transform_snap_object.cc` | **real** — snap to grid increment / vertex / edge-midpoint / nearest-on-edge / nearest-on-face; SnapBase closest/center/median/active; align-rotation-to-target; snap-onto-self exclusion (GH issue #37 §D) |
+//! | [`cursor_pivot`] | view3d_cursor_snap / transform_orientations.cc | **real** — 3D cursor placement, PivotPoint (bbox/cursor/individual-origins/median/active), rotate/scale about pivot, custom orientation from a vertex/edge/face selection (GH issue #37 §D) |
+//! | [`measure`] | mesh-statistics overlay / ruler gizmo / mesh-analysis | **real** — edge/area/angle/dihedral readouts, volume, dimensions, Ruler + Protractor, overhang / distortion / sharp-edges / self-intersection (tri-tri) / thickness (ray cast) (GH issue #37 §D) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -168,6 +170,7 @@ pub mod boolean_predicates;
 pub mod bridge;
 pub mod connect;
 pub mod convex_hull;
+pub mod cursor_pivot;
 pub mod decimate;
 pub mod dissolve;
 pub mod edge_bevel;
@@ -195,6 +198,7 @@ pub mod laplacian;
 pub mod loop_cut;
 pub mod loop_subdivision;
 pub mod math;
+pub mod measure;
 pub mod merge;
 pub mod mesh;
 pub mod parameterize;
