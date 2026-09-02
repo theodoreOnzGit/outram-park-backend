@@ -177,6 +177,15 @@ The findings in section 1 of this document are **not** retracted by that
 amendment. Adherence is now a matter of maintainer discipline rather than
 tooling, which removes the automated backstop the original policy provided.
 
+### Amendment, 2026-09-03 — the per-session question is no longer mandatory
+
+At the maintainer's request, the mandatory "ask once at the start of each
+session" step was dropped. The guardrail is still available and still defaults
+to **off**; the difference is that the assistant no longer has to ask about it
+and only applies it when the user turns it on in plain words. The hours in the
+table above are unchanged and still apply in full whenever the user enables it.
+The section-1 findings are, again, not retracted.
+
 ## Purpose of the Policy
 
 The purpose of this policy is not to reduce productivity.

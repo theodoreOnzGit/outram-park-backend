@@ -60,37 +60,29 @@ boundary is this repository's own root, determined by its own `.git`, not the
 process's current working directory and not how far back the rule was stated
 in the conversation.
 
-## Working-hours guardrail (OPT-IN — ask at session start)
+## Working-hours guardrail (OPT-IN — off unless the user turns it on)
 
-**This guardrail is OFF by default.** It is no longer a standing hard rule.
-It is enabled **per session, by the user**, in answer to a question you ask at
-the start of the session. Changed 2026-08-13 at the maintainer's request,
-relayed from a colleague; the history and rationale for the original rule are
-preserved under "Why it exists" below.
+**This guardrail is OFF by default, and nothing about it is mandatory** —
+there is no required question to ask at session start and no required time
+check to run. It is not a standing rule. Changed 2026-08-13, and further
+relaxed 2026-09-03, at the maintainer's request; the history and rationale for
+the original rule are preserved under "Why it exists" below.
 
-### Asking (this part IS mandatory)
+### Turning it on
 
-**Ask once per session, before the first substantive work of that session.**
-Use the `AskUserQuestion` tool with one question — *"Enable the working-hours
-guardrail for this session?"* — offering **Off (default)** and **On**.
+The guardrail applies only when the user turns it on in plain words ("enable
+the working-hours guardrail", "enforce my hours this session"). You are **not**
+required to ask about it — offer it only if the user seems to want it, and
+treat silence as Off, always. The user may switch it on or off at any point;
+honour that immediately, with no confirmation question.
 
-- **Don't ask before purely conversational replies.** Ask at the point a turn
-  is about to become real work (writing code, running suites, agent fleets).
-- **Ask only once.** The session's answer holds until the session ends; a
-  compaction does not reset it. Do not re-prompt, and do not nag if the answer
-  was Off.
-- **If the question is skipped, dismissed, or unanswered, the answer is Off.**
-  Never treat silence as On.
-- The user may switch it on or off at any point by saying so in plain words —
-  honour that immediately, no confirmation question needed.
-
-### If the answer is Off (the default)
+### If it is off (the default)
 
 No time check, no hour restriction, no rest-day rule. Work normally. Do not
 volunteer reminders about the maintainer's hours or health, and do not
 re-litigate the setting.
 
-### If the answer is On
+### If the user has turned it on
 
 Everything below applies **for the rest of that session, as a hard rule**:
 
@@ -122,11 +114,11 @@ equivalent works if `date` isn't available (`fastfetch`, a one-line Python
   already-finished work to GitHub. Nothing beyond finishing and shipping
   work that already exists.
 
-**While enabled, the hour limits do not bend in the moment.** Opting in is a
-decision made at the start of a session; asking for a one-off exception at
-23:00 is not. If the user asks to work past the limit *within an enabled
-session*, say so plainly, log the request in beads for the next active window,
-and stop there — do not negotiate or justify. Turning the guardrail off
+**While enabled, the hour limits do not bend in the moment.** Turning the
+guardrail on is a deliberate decision; asking for a one-off exception at 23:00
+is not. If the user asks to work past the limit *within an enabled session*,
+say so plainly, log the request in beads for the next active window, and stop
+there — do not negotiate or justify. Turning the guardrail off
 outright is always the user's call and is honoured immediately (above); what
 this clause blocks is piecemeal erosion while it is on.
 
@@ -135,11 +127,12 @@ this clause blocks is piecemeal erosion while it is on.
 It protects the human maintainer's rest. Instituted 2026-07-11 after a month of
 illness from overwork; the supporting analysis is in
 [`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
-opt-in does not retract that finding — it moves the decision to the human each
-session rather than having the assistant enforce it unilaterally.
+opt-in does not retract that finding — it moves the decision to the human, who
+turns it on when they want it, rather than having the assistant ask about or
+enforce it.
 
-**To restore it as an always-on rule**, change the default in this section back
-to On and drop the "Asking" subsection. That is a maintainer decision.
+**To restore it as an always-on rule**, or to make asking about it mandatory
+again, edit this section accordingly. That is a maintainer decision.
 
 ## Responsible use & data policy (mandatory, NUS compliance)
 
