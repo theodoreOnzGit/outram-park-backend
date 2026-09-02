@@ -66,11 +66,13 @@ pub enum ModifierError {
     /// A modifier is scaffolded but its algorithm is not implemented yet.
     ///
     /// Retained for forward compatibility (new modifier variants may land as
-    /// stubs); the three current variants — [`Modifier::Subsurf`],
-    /// [`Modifier::Mirror`], [`Modifier::Array`] — are all implemented and do
-    /// not return this.
+    /// stubs).
     #[error("modifier not yet implemented: {0}")]
     NotImplemented(&'static str),
+    /// A modifier's underlying operator failed (e.g. a boolean on
+    /// non-manifold input).
+    #[error("modifier evaluation failed: {0}")]
+    Failed(String),
 }
 
 /// Which axis planes a [`Modifier::Mirror`] reflects across.
@@ -113,6 +115,52 @@ pub enum Modifier {
         /// input mesh's bounding-box extent along that axis.
         offset: [f64; 3],
     },
+    /// Bevel every edge — forwards to [`crate::bevel::bevel`] (GH issue #37 §F,
+    /// `op-hzs.54.29`).
+    Bevel {
+        /// [`crate::bevel::BevelOptions`] for the bevel.
+        options: crate::bevel::BevelOptions,
+    },
+    /// CSG boolean against `operand` — forwards to [`crate::boolean::boolean`].
+    Boolean {
+        /// The cutter / combiner mesh (shared, never mutated).
+        operand: std::sync::Arc<Mesh>,
+        /// Union / difference / intersect.
+        op: crate::ops::BooleanMode,
+    },
+    /// Thicken the surface into a shell — forwards to
+    /// [`crate::solidify::solidify`].
+    Solidify {
+        /// Shell thickness (model units).
+        thickness: f64,
+    },
+    /// Merge vertices within `distance` — forwards to [`crate::weld::weld`].
+    Weld {
+        /// Merge distance.
+        distance: f64,
+    },
+    /// Replace the surface with a wireframe of beams along its edges.
+    Wireframe {
+        /// Beam thickness as a fraction of the local face size.
+        thickness: f64,
+    },
+    /// Split the mesh along edges sharper than `angle` radians — forwards to
+    /// [`crate::edge_tools::edge_split`].
+    EdgeSplit {
+        /// Dihedral angle above which an edge is split.
+        angle: f64,
+    },
+    /// Fan-triangulate every face — forwards to
+    /// [`crate::triangulate::triangulate`].
+    Triangulate,
+    /// Keep only faces all of whose vertices are in `keep`; `invert` keeps the
+    /// complement instead.
+    Mask {
+        /// Vertices whose fully-covered faces survive.
+        keep: std::sync::Arc<Vec<crate::mesh::VertexId>>,
+        /// Keep the complement.
+        invert: bool,
+    },
 }
 
 /// Epsilon (dimensionless model-space length) below which two vertex positions
@@ -138,8 +186,80 @@ impl Modifier {
             Modifier::Subsurf { levels } => Ok(crate::subdivision::catmull_clark(input, *levels)),
             Modifier::Mirror { axes } => Ok(mirror(input, *axes)),
             Modifier::Array { count, offset } => Ok(array(input, *count, *offset)),
+            Modifier::Bevel { options } => Ok(crate::bevel::bevel(input, *options)),
+            Modifier::Boolean { operand, op } => {
+                crate::boolean::boolean(input, operand, *op).map_err(|e| ModifierError::Failed(e.to_string()))
+            }
+            Modifier::Solidify { thickness } => Ok(crate::solidify::solidify(input, *thickness)),
+            Modifier::Weld { distance } => Ok(crate::weld::weld(input, *distance)),
+            Modifier::Wireframe { thickness } => Ok(wireframe(input, *thickness)),
+            Modifier::EdgeSplit { angle } => {
+                let sharp = crate::measure::sharp_edges(input, *angle);
+                Ok(crate::edge_tools::edge_split(input, &sharp))
+            }
+            Modifier::Triangulate => Ok(crate::triangulate::triangulate(input)),
+            Modifier::Mask { keep, invert } => Ok(mask(input, keep, *invert)),
         }
     }
+}
+
+/// Wireframe: inset every face and drop the shrunk interior, leaving a lattice
+/// of border strips along the edges.
+fn wireframe(input: &Mesh, thickness: f64) -> Mesh {
+    let t = thickness.clamp(0.01, 0.9);
+    let bbox = crate::measure::dimensions(input);
+    let amount = bbox.length() * 0.02 * (t / 0.1).max(0.1);
+    let inset = crate::inset::inset_faces(input, amount);
+    // `inset_faces` emits, per source face, its shrunk copy plus a ring of
+    // bridging quads. The shrunk copies keep the source face's side count and
+    // sit first; keep only the ring quads (n-gons of the same side count are
+    // the shrunk faces, quads are the ring — but a quad mesh makes both
+    // 4-gons, so instead keep everything with a *new* vertex).
+    let n_src_verts = input.positions().len();
+    let faces: Vec<Vec<usize>> = inset
+        .polygons()
+        .iter()
+        .filter(|p| {
+            p.iter().any(|v| v.0 < n_src_verts) && p.iter().any(|v| v.0 >= n_src_verts)
+        })
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
+    if faces.is_empty() {
+        return input.clone();
+    }
+    Mesh::from_polygons(&inset.positions(), &faces)
+}
+
+/// Mask: keep faces whose vertices are all in `keep` (or the complement).
+fn mask(input: &Mesh, keep: &[crate::mesh::VertexId], invert: bool) -> Mesh {
+    let set: std::collections::BTreeSet<usize> = keep.iter().map(|v| v.0).collect();
+    let faces: Vec<Vec<usize>> = input
+        .polygons()
+        .iter()
+        .filter(|p| {
+            let covered = p.iter().all(|v| set.contains(&v.0));
+            covered != invert
+        })
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
+    // Compact unreferenced verts.
+    let positions = input.positions();
+    let mut used = vec![false; positions.len()];
+    for f in &faces {
+        for &v in f {
+            used[v] = true;
+        }
+    }
+    let mut idx = vec![usize::MAX; positions.len()];
+    let mut pos = Vec::new();
+    for (i, u) in used.iter().enumerate() {
+        if *u {
+            idx[i] = pos.len();
+            pos.push(positions[i]);
+        }
+    }
+    let f: Vec<Vec<usize>> = faces.iter().map(|face| face.iter().map(|&v| idx[v]).collect()).collect();
+    Mesh::from_polygons(&pos, &f)
 }
 
 /// Reflect one component of `p` across the origin plane for `axis`
@@ -455,6 +575,69 @@ mod tests {
         assert_eq!(out.vertex_count(), 26);
         assert_eq!(out.face_count(), 24);
         assert_eq!(out.euler_characteristic(), 2);
+    }
+
+    #[test]
+    fn generate_modifiers_pt1_forward_to_their_operators() {
+        let c = primitives::cube(2.0);
+
+        let bevel = Modifier::Bevel { options: crate::bevel::BevelOptions { amount: 0.2, ..Default::default() } }
+            .evaluate(&c)
+            .unwrap();
+        assert!(bevel.face_count() > 6);
+
+        let solid = Modifier::Solidify { thickness: 0.3 }.evaluate(&c).unwrap();
+        assert!(solid.face_count() > 6);
+
+        let weld = Modifier::Weld { distance: 0.01 }.evaluate(&c).unwrap();
+        assert_eq!(weld.vertex_count(), 8);
+
+        let tri = Modifier::Triangulate.evaluate(&c).unwrap();
+        assert_eq!(tri.face_count(), 12);
+
+        let split = Modifier::EdgeSplit { angle: std::f64::consts::FRAC_PI_4 }.evaluate(&c).unwrap();
+        assert!(split.vertex_count() >= 8);
+
+        let wire = Modifier::Wireframe { thickness: 0.2 }.evaluate(&c).unwrap();
+        assert!(wire.face_count() > 0 && wire.face_count() != 6, "not the solid faces");
+    }
+
+    #[test]
+    fn boolean_modifier_unions_two_cubes() {
+        let a = primitives::cube(2.0);
+        let mut b = primitives::cube(2.0);
+        // Shift b so it overlaps a with no coplanar faces (the boolean impl
+        // rejects coplanar operand faces).
+        let mut p = b.positions();
+        for q in &mut p {
+            q.x += 1.3;
+            q.y += 0.4;
+            q.z += 0.4;
+        }
+        b = Mesh::from_polygons(&p, &b.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect::<Vec<_>>());
+        let out = Modifier::Boolean {
+            operand: std::sync::Arc::new(b),
+            op: crate::ops::BooleanMode::Union,
+        }
+        .evaluate(&a)
+        .unwrap();
+        assert!(out.face_count() > 0);
+    }
+
+    #[test]
+    fn mask_modifier_keeps_only_covered_faces() {
+        let m = primitives::cube(2.0);
+        // Keep the 4 verts of face 0.
+        let keep: Vec<crate::mesh::VertexId> = m.face_vertices(crate::mesh::FaceId(0));
+        let out = Modifier::Mask { keep: std::sync::Arc::new(keep), invert: false }.evaluate(&m).unwrap();
+        assert_eq!(out.face_count(), 1);
+        let inv = Modifier::Mask {
+            keep: std::sync::Arc::new(m.face_vertices(crate::mesh::FaceId(0))),
+            invert: true,
+        }
+        .evaluate(&m)
+        .unwrap();
+        assert_eq!(inv.face_count(), 5);
     }
 
     /// A two-modifier stack composes: Mirror then Array.
