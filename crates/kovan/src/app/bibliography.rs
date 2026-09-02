@@ -277,6 +277,7 @@ impl BibliographyState {
         let mut action = None;
         let mut edit_i = None;
         let mut delete_i = None;
+        let mut copied: Option<String> = None;
         let Some(entries) = &self.entries else {
             ui.small("no .bib entries loaded");
             return None;
@@ -328,12 +329,27 @@ impl BibliographyState {
                             if open.clicked() {
                                 action = Some(BibliographyAction::OpenPaper(entry.cite_key.clone()));
                             }
+                            // Copy the whole `@type{key, ...}` record to the
+                            // clipboard, ready to paste into a manuscript's
+                            // own `.bib` (maintainer, 2026-09-02).
+                            if ui
+                                .small_button("Copy")
+                                .on_hover_text("Copy this BibTeX entry to the clipboard")
+                                .clicked()
+                            {
+                                let bibtex = kovan_literature::render_entry(entry);
+                                ui.ctx().copy_text(bibtex);
+                                copied = Some(entry.cite_key.clone());
+                            }
                         });
                     });
                 });
                 ui.add_space(4.0);
             }
         });
+        if let Some(key) = copied {
+            self.message = format!("copied {key}'s BibTeX entry to the clipboard");
+        }
         if let Some(i) = edit_i {
             self.start_edit(i);
         }
