@@ -107,6 +107,8 @@
 //! | [`deform2`] | MOD_curve / MOD_lattice / MOD_hook / MOD_shrinkwrap / MOD_surfacedeform | **real** — curve_deform (arc-length ride), Lattice + lattice_deform (trilinear FFD), hook (falloff drag), shrinkwrap (3 modes), bind_to_surface + surface_deform, laplacian_deform -> arap (GH issue #37 §F) |
 //! | [`curve`] | BKE_curve / curve_to_mesh | **real** — Spline (poly / Bézier / NURBS de-Boor), ControlPoint (handle types, radius, tilt, weight), recalculate_handles, cyclic, sample + sample_with_frames (parallel-transport + tilt) (GH issue #37 §G) |
 //! | [`curve_surface`] | curve_to_mesh.cc / displist.cc | **real** — Bevel (round / custom profile / none), taper spline, 2-D fill (ear clip), end caps; sweep a section along the spline frames (GH issue #37 §G) |
+//! | [`curve_mesh`] | OBJECT_OT_convert / MOD_curve / MOD_skin | **real** — mesh_to_splines (edge chains), boundary_to_splines, spline_to_mesh, spline_deform_mesh (curve modifier), skin_spline (GH issue #37 §G) |
+//! | [`nurbs_surface`] | BKE_nurb_makeFaces / editcurve_add.cc | **real** — NurbsSurface tensor-product rational B-spline (periodic knots for cyclic axes), evaluate + to_mesh, plane/sphere/cylinder/torus primitives, control-point patch editing (GH issue #37 §G) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -179,6 +181,7 @@ pub mod bridge;
 pub mod connect;
 pub mod convex_hull;
 pub mod curve;
+pub mod curve_mesh;
 pub mod curve_surface;
 pub mod cursor_pivot;
 pub mod deform;
@@ -216,6 +219,7 @@ pub mod mesh;
 pub mod parameterize;
 pub mod modifiers;
 pub mod normals;
+pub mod nurbs_surface;
 pub mod ops;
 pub mod poke_quads;
 pub mod primitives;
