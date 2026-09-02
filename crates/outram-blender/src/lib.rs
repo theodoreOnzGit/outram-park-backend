@@ -120,6 +120,7 @@
 //! | [`bool_tool`] | `object_boolean_tools` add-on | **real** — BoolStack of non-destructive BoolBrush cutters (Difference/Union/Intersect/Slice, enable toggle); bake (strict fold), carve (skip unresolvable brushes), slice_pieces (inside part per Slice brush); wraps `boolean` (GH issue #37 §I) |
 //! | [`fill_helpers`] | `mesh_f2` / `object_auto_mirror` / `mesh_bsurfaces` | **real** — f2_fill (smart F: quad or triangle from one boundary edge), auto_mirror (bisect + mirror + weld in one call), bsurfaces (lofted quad surface through resampled strokes) (GH issue #37 §I) |
 //! | [`object_ops`] | Object menu (Duplicate/Join/Separate/Apply/Set Origin/Align/Snap) | **real** — SceneObject (Arc<Mesh> + Affine3); duplicate vs linked_duplicate, join, separate_loose_parts (union-find), apply_transform, set_origin (geometry/surface-COM/volume-COM/cursor), align, snap_objects, cursor_to_objects (GH issue #37 §J) |
+//! | [`array_patterns`] | Array modifier Object-Offset + Curve modifier | **real** — radial_array / circular_array (rotate about an axis), object_offset_array (compounding Affine3), array_along_curve (spline frames, align an Axis to the tangent), ArrayCaps start/end (GH issue #37 §J) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -214,6 +215,7 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+pub mod array_patterns;
 pub mod bool_tool;
 pub mod draw_tool;
 pub mod extra_objects;
