@@ -186,7 +186,12 @@ pub fn literature_card(root: &KovanRoot, index: &KnowledgeIndex, graph: &Knowled
 /// `(title, "Family Year")`, both derived from the BibTeX entry — falls
 /// back to the bare citekey when there is no bibliography entry yet (a
 /// paper catalogued from metadata alone).
-fn bib_display(root: &KovanRoot, citekey: &str) -> (String, String) {
+///
+/// `pub(crate)` rather than private: reused by [`crate::app`]'s digitiser
+/// panels to auto-fill a crop's document title from the active paper
+/// (`op-u1m9`) instead of asking the user to retype what the library
+/// already knows.
+pub(crate) fn bib_display(root: &KovanRoot, citekey: &str) -> (String, String) {
     let fallback = (citekey.to_string(), String::new());
     let Ok(text) = std::fs::read_to_string(root.bibliography_path()) else { return fallback };
     let Ok(entries) = kovan_literature::parse_bib_entries(&text) else { return fallback };

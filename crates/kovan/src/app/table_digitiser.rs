@@ -15,12 +15,12 @@ use crate::digitiser::dataset::{utc_now_iso8601, ReviewInterface, ReviewStatus};
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::table_ocr::{self, RecognizedTable};
 use crate::project;
+use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
 use super::pdf_reader::CropProvenance;
 
 /// State for the table digitiser tab.
-#[derive(Default)]
 pub struct TableDigitiserState {
     crop: Option<PlotRaster>,
     /// Path to a `.traineddata` OCR model — supplied by the operator; this
@@ -41,6 +41,38 @@ pub struct TableDigitiserState {
     message_is_error: bool,
 }
 
+impl Default for TableDigitiserState {
+    fn default() -> Self {
+        Self {
+            crop: None,
+            model_path: String::new(),
+            // op-n0kz: pre-fill from the OS login name where available,
+            // same as the graph digitiser's own "your name" field.
+            operator: super::default_operator_name(),
+            table: None,
+            json_out: String::new(),
+            csv_out: String::new(),
+            crop_provenance: None,
+            project_root: String::new(),
+            project_markdown_rel: String::new(),
+            message: String::new(),
+            message_is_error: false,
+        }
+    }
+}
+
+/// What kind of export path the table digitiser's "Browse…" buttons ask the
+/// caller to open a native file picker for (`op-jfc3`) — `TableDigitiserState`
+/// owns no [`egui_file_dialog::FileDialog`] of its own, the same "hand the
+/// request up" shape [`super::pdf_reader::PdfReaderState`]'s `on_open_clicked`
+/// callback already uses, since [`super::DigitiseApp`]'s single shared
+/// dialog instance is what actually opens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickerRequest {
+    Json,
+    Csv,
+}
+
 impl TableDigitiserState {
     fn set_status(&mut self, message: impl Into<String>) {
         self.message = message.into();
@@ -50,6 +82,17 @@ impl TableDigitiserState {
     fn set_error(&mut self, message: impl Into<String>) {
         self.message = message.into();
         self.message_is_error = true;
+    }
+
+    /// Set by [`super::DigitiseApp::handle_picked_file`] once the shared
+    /// file dialog a [`PickerRequest`] triggered returns a path.
+    pub(crate) fn set_json_out(&mut self, path: impl Into<String>) {
+        self.json_out = path.into();
+    }
+
+    /// See [`Self::set_json_out`].
+    pub(crate) fn set_csv_out(&mut self, path: impl Into<String>) {
+        self.csv_out = path.into();
     }
 
     /// Receive a crop from the PDF reader's "Read table" menu action
@@ -139,20 +182,17 @@ impl TableDigitiserState {
         self.set_status("saved");
     }
 
-    /// Append this table's CSV into a "kovan folder" project's `table_csvs`
-    /// section (op-96am/op-x9qn) — the table-digitiser counterpart of
-    /// `super::DigitiseApp::save_into_project`; see that method's doc for
-    /// the reasoning (operator-supplied project root/markdown path, kept
-    /// alongside the standalone JSON/CSV export rather than replacing it).
-    fn save_into_project(&mut self) {
+    /// Append this table's CSV into the active paper's own canonical
+    /// Markdown when one is open (`op-bd8p`, same reasoning as
+    /// `super::DigitiseApp::save_into_project` — see its doc), falling back
+    /// to the manual `project_root`/`project_markdown_rel` fields +
+    /// [`project::append_to_section`] (op-96am/op-x9qn's original design)
+    /// only when no paper is active.
+    fn save_into_project(&mut self, active_paper: Option<&mut PaperSession>) {
         let Some(t) = &self.table else {
             self.set_error("nothing to save — run OCR first");
             return;
         };
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error("set the project root and markdown path first");
-            return;
-        }
         let mut block = "### Digitised table".to_string();
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
@@ -169,6 +209,23 @@ impl TableDigitiserState {
         block.push_str("\n\n```csv\n");
         block.push_str(&t.to_csv_string());
         block.push_str("```\n");
+
+        if let Some(session) = active_paper {
+            session.append_block(&block);
+            match session.save_document() {
+                Ok(()) => {
+                    let citekey = session.citekey().to_string();
+                    self.set_status(format!("saved into {citekey}'s notes"));
+                }
+                Err(e) => self.set_error(e.to_string()),
+            }
+            return;
+        }
+
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error("set the project root and markdown path first");
+            return;
+        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
@@ -180,7 +237,11 @@ impl TableDigitiserState {
         }
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    /// Returns `Some(request)` the frame a "Browse…" button is clicked
+    /// (`op-jfc3`) — the caller opens its shared file dialog for that
+    /// request and later routes the picked path back in via
+    /// [`Self::set_json_out`]/[`Self::set_csv_out`].
+    pub fn ui(&mut self, ui: &mut egui::Ui, active_paper: Option<&mut PaperSession>) -> Option<PickerRequest> {
         ui.heading("kovan — table digitiser (OCR)");
         ui.small(
             "OCR recognises text lines, not table structure — cells are split on runs of \
@@ -203,7 +264,7 @@ impl TableDigitiserState {
                      draw a box, right-click it",
                 );
             });
-            return;
+            return None;
         }
 
         ui.horizontal(|ui| {
@@ -211,7 +272,11 @@ impl TableDigitiserState {
             ui.text_edit_singleline(&mut self.model_path);
         });
         ui.horizontal(|ui| {
-            ui.label("operator*:");
+            ui.label("your name*:").on_hover_text(
+                "Recorded as who ran this OCR pass and, later, who reviewed \
+                 it. Required. Pre-filled from your OS login name where \
+                 available — feel free to change it.",
+            );
             ui.text_edit_singleline(&mut self.operator);
         });
         if ui.button("Run OCR").clicked() {
@@ -221,7 +286,7 @@ impl TableDigitiserState {
 
         if self.table.is_none() {
             ui.label(&self.message);
-            return;
+            return None;
         }
 
         // Each block below re-borrows `self.table` rather than holding one
@@ -265,27 +330,46 @@ impl TableDigitiserState {
         });
 
         ui.separator();
+        // op-jfc3: "Browse…" opens the app's shared native file picker,
+        // same as the graph digitiser already had (op-jtna) — this tab had
+        // only a typed path before.
+        let mut request = None;
         ui.horizontal(|ui| {
             ui.label("json path");
             ui.text_edit_singleline(&mut self.json_out);
+            if ui.button("Browse…").clicked() {
+                request = Some(PickerRequest::Json);
+            }
         });
         ui.horizontal(|ui| {
             ui.label("csv path");
             ui.text_edit_singleline(&mut self.csv_out);
+            if ui.button("Browse…").clicked() {
+                request = Some(PickerRequest::Csv);
+            }
         });
         if ui.button("Save").clicked() {
             self.save();
         }
         ui.separator();
-        ui.label("Save into project markdown (op-96am):");
-        ui.horizontal(|ui| {
-            ui.label("project root");
-            ui.text_edit_singleline(&mut self.project_root);
-        });
-        ui.horizontal(|ui| {
-            ui.label("markdown path (relative)");
-            ui.text_edit_singleline(&mut self.project_markdown_rel);
-        });
+        ui.label("Save into project markdown:");
+        // op-bd8p: mirrors the graph digitiser's own fix -- an active
+        // paper already tells us where this belongs.
+        match active_paper.as_ref().map(|s| s.citekey().to_string()) {
+            Some(citekey) => {
+                ui.label(format!("saving into {citekey}'s notes"));
+            }
+            None => {
+                ui.horizontal(|ui| {
+                    ui.label("project root");
+                    ui.text_edit_singleline(&mut self.project_root);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("markdown path (relative)");
+                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                });
+            }
+        }
         if let Some(prov) = &self.crop_provenance {
             ui.label(format!(
                 "from PDF reader: page {}, bbox [{:.0}, {:.0}, {:.0}, {:.0}], {}",
@@ -300,12 +384,13 @@ impl TableDigitiserState {
             ui.small("(no PDF-reader crop provenance for this region)");
         }
         if ui.button("Save CSV into project markdown").clicked() {
-            self.save_into_project();
+            self.save_into_project(active_paper);
         }
         ui.separator();
         let csv_string = self.table.as_ref().unwrap().to_csv_string();
         draw_csv_preview(ui, &csv_string);
         ui.label(&self.message);
+        request
     }
 }
 
@@ -322,4 +407,60 @@ fn raster_to_ocr_rgb(raster: &PlotRaster) -> kopitiam_ocr::RgbImage {
         }
     }
     kopitiam_ocr::RgbImage::new(w, h, pixels)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::digitiser::dataset::ReviewStatus;
+    use crate::digitiser::table_ocr::RecognizedTable;
+    use crate::entity::{Access, CiteKey, EntityConfig};
+    use crate::root::RootConfig;
+
+    fn make_root() -> (tempfile::TempDir, crate::root::KovanRoot) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = crate::root::KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        (dir, root)
+    }
+
+    fn table() -> RecognizedTable {
+        RecognizedTable {
+            schema_version: 1,
+            source_image_sha256: None,
+            source_note: None,
+            engine: "test".to_string(),
+            recognized_by: "unit test".to_string(),
+            recognized_at: "2026-09-02T00:00:00Z".to_string(),
+            review: ReviewStatus::Unreviewed,
+            rows: vec![vec!["a".to_string(), "b".to_string()]],
+        }
+    }
+
+    /// `op-bd8p`: mirrors the graph digitiser's own fix — an active paper
+    /// already tells the table digitiser where to save; no manual project
+    /// root/markdown path needed.
+    #[test]
+    fn save_into_project_writes_into_the_active_papers_session_when_given_one() {
+        let (_dir, root) = make_root();
+        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir("wang2018multiphysics"))
+            .unwrap();
+        let mut session = PaperSession::open(&root, "wang2018multiphysics").unwrap();
+
+        let mut state = TableDigitiserState { table: Some(table()), ..Default::default() };
+        state.save_into_project(Some(&mut session));
+
+        assert!(!state.message_is_error, "{}", state.message);
+        let reopened = PaperSession::open(&root, "wang2018multiphysics").unwrap();
+        assert!(reopened.markdown().contains("Digitised table"), "{}", reopened.markdown());
+    }
+
+    #[test]
+    fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
+        let mut state = TableDigitiserState { table: Some(table()), ..Default::default() };
+        state.save_into_project(None);
+        assert!(state.message_is_error, "{}", state.message);
+        assert!(state.message.contains("project root"), "{}", state.message);
+    }
 }

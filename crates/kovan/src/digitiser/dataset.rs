@@ -324,8 +324,14 @@ impl DigitisedDataset {
 
     /// Serialise to CSV with the **full provenance record embedded** as `#`
     /// comment header lines — so even the "just give me columns" export can
-    /// never be separated from its calibration. Columns:
-    /// `x, y, x_minus, x_plus, y_minus, y_plus, origin`.
+    /// never be separated from its calibration. Data rows are deliberately
+    /// lean: `x, y` only. Per-point uncertainty
+    /// (`x_minus`/`x_plus`/`y_minus`/`y_plus`) and each point's `origin`
+    /// (auto-traced/hand-placed/hand-corrected) are real data, not noise,
+    /// but they belong in the full structured record
+    /// ([`DigitisedDataset::to_json_string`]) rather than cluttering the
+    /// row a plotting script or spreadsheet reads — maintainer dogfooding
+    /// feedback, 2026-09-02.
     pub fn to_csv_string(&self) -> String {
         use std::fmt::Write;
         let mut s = String::new();
@@ -395,18 +401,10 @@ impl DigitisedDataset {
                 let _ = writeln!(s, "# review: reviewed by {by} at {at} via {interface:?}");
             }
         }
-        let _ = writeln!(s, "x,y,x_minus,x_plus,y_minus,y_plus,origin");
+        let _ = writeln!(s, "# per-point uncertainty and origin (auto-traced/hand-placed/hand-corrected) are in the JSON export, not this CSV");
+        let _ = writeln!(s, "x,y");
         for p in &self.points {
-            let origin = match &p.origin {
-                PointOrigin::AutoTraced => "auto".to_string(),
-                PointOrigin::HandPlaced { by } => format!("hand-placed({by})"),
-                PointOrigin::HandCorrected { by } => format!("hand-corrected({by})"),
-            };
-            let _ = writeln!(
-                s,
-                "{},{},{},{},{},{},{origin}",
-                p.x, p.y, p.x_minus, p.x_plus, p.y_minus, p.y_plus
-            );
+            let _ = writeln!(s, "{},{}", p.x, p.y);
         }
         s
     }
@@ -648,7 +646,7 @@ mod tests {
             "# y_axis: linear scale",
             "# digitised_by: unit test",
             "reviewed by reviewer",
-            "x,y,x_minus,x_plus,y_minus,y_plus,origin",
+            "x,y",
         ] {
             assert!(csv.contains(needle), "csv missing {needle:?}:\n{csv}");
         }
@@ -658,6 +656,58 @@ mod tests {
     fn unreviewed_status_is_stated_in_csv() {
         let csv = dataset().to_csv_string();
         assert!(csv.contains("UNREVIEWED"));
+    }
+
+    /// Maintainer dogfooding feedback, 2026-09-02: per-point uncertainty
+    /// and origin columns clutter the exported CSV and don't belong in
+    /// it — they stay in the JSON export instead.
+    #[test]
+    fn csv_rows_do_not_contain_per_point_uncertainty_or_origin_columns() {
+        let csv = dataset().to_csv_string();
+        // Explanatory `#` header comments are allowed to mention these
+        // words (they say where the data actually lives); only the
+        // non-comment lines (the header row + data rows) must not.
+        let data_section: String = csv.lines().filter(|l| !l.starts_with('#')).collect::<Vec<_>>().join("\n");
+        for needle in ["x_minus", "x_plus", "y_minus", "y_plus", "auto", "hand-placed", "hand-corrected"] {
+            assert!(!data_section.contains(needle), "{needle:?} leaked into the data section:\n{data_section}");
+        }
+        // ... but the JSON export still carries it all in full.
+        let json = dataset().to_json_string();
+        assert!(json.contains("x_minus") && json.contains("y_plus"), "{json}");
+    }
+
+    #[test]
+    fn csv_rows_contain_only_x_and_y() {
+        let trace_record = TraceRecord {
+            engine: "test".to_string(),
+            config: TraceConfig::default(),
+            frame: PixelRect { left: 0, right: 100, top: 0, bottom: 100 },
+            frame_auto_detected: true,
+        };
+        let d = DigitisedDataset::from_pixel_trace(
+            FigureSource::new("Fig. 1").unwrap(),
+            cal(),
+            "time (s)",
+            "power (%)",
+            "unit test",
+            "2026-08-11T00:00:00Z",
+            trace_record,
+            &[
+                PixelTracePoint { x_px: 0.0, y_px: 100.0, thickness_px: 3.0 },
+                PixelTracePoint { x_px: 50.0, y_px: 50.0, thickness_px: 3.0 },
+                PixelTracePoint { x_px: 100.0, y_px: 0.0, thickness_px: 3.0 },
+            ],
+        );
+        let csv = d.to_csv_string();
+        let data_lines: Vec<&str> = csv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
+        // Header + exactly 3 data rows, each with exactly 2 comma-separated
+        // fields (x, y) -- no calibration/reference values, uncertainty, or
+        // origin leaking into the rows themselves.
+        assert_eq!(data_lines.len(), 4, "{data_lines:?}");
+        assert_eq!(data_lines[0], "x,y");
+        for row in &data_lines[1..] {
+            assert_eq!(row.split(',').count(), 2, "row {row:?} should have exactly x,y");
+        }
     }
 
     #[test]

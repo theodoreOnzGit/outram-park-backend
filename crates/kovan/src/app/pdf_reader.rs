@@ -231,6 +231,23 @@ pub struct CropProvenance {
     pub max: Pos2,
     pub created_at: String,
     pub author: String,
+    /// The figure's own identifier/caption in the source document (e.g.
+    /// `"Figure 4"`), as entered in [`PdfReaderState`]'s figure prompt
+    /// (`op-8ci2`) — empty for a "Read table" crop, which has no equivalent
+    /// prompt in this pass.
+    pub figure: String,
+}
+
+/// An in-progress "Digitise graph" crop (`op-8ci2`) waiting on the figure
+/// identifier — asked for immediately after the right-click gesture,
+/// while the user still has the figure in view, rather than leaving the
+/// digitiser's own required `figure*` field blank for them to notice and
+/// fill in later. Rendered as a panel the same way [`AnnotateEditor`] is,
+/// not a canvas-anchored popup — see that type's doc for why.
+struct PendingFigurePrompt {
+    min: Pos2,
+    max: Pos2,
+    figure: String,
 }
 
 /// A completed crop-then-right-click gesture (op-p17q / op-hnhp), returned
@@ -287,6 +304,8 @@ pub struct PdfReaderState {
     pending_box: Option<(Pos2, Pos2)>,
     context_menu: Option<ContextMenu>,
     annotate_editor: Option<AnnotateEditor>,
+    /// See [`PendingFigurePrompt`] (`op-8ci2`).
+    pending_figure_prompt: Option<PendingFigurePrompt>,
     /// Author name recorded on new annotations/crops (op-96am's provenance
     /// "author" field) — analogous to the digitiser's own "operator" field.
     author: String,
@@ -617,14 +636,62 @@ impl PdfReaderState {
         }
     }
 
-    fn make_provenance(&self, min: Pos2, max: Pos2) -> CropProvenance {
+    fn make_provenance(&self, min: Pos2, max: Pos2, figure: impl Into<String>) -> CropProvenance {
         CropProvenance {
             page_index: self.active_page(),
             min,
             max,
             created_at: utc_now_iso8601(),
             author: self.author_name(),
+            figure: figure.into(),
         }
+    }
+
+    /// Draw the "what figure is this?" prompt, if [`Self::pending_figure_prompt`]
+    /// is `Some` — a panel under the toolbar, same placement/rendering
+    /// pattern as [`Self::annotate_editor_panel`] and for the same reason
+    /// (immune to scroll-coordinate edge cases a canvas-anchored popup
+    /// would have to handle). Completes the crop and returns
+    /// `Some(CropResult::Plot(..))` once the user confirms with a
+    /// non-empty figure identifier; `Cancel` discards the pending crop
+    /// entirely (`op-8ci2`).
+    fn figure_prompt_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
+        let prompt = self.pending_figure_prompt.as_mut()?;
+        let mut confirm = false;
+        let mut cancel = false;
+        ui.group(|ui| {
+            ui.label("Digitise graph — what figure is this?");
+            ui.horizontal(|ui| {
+                ui.label("figure*");
+                ui.add(egui::TextEdit::singleline(&mut prompt.figure).hint_text("e.g. \"Figure 4\" or \"Fig. 4.2\""));
+            });
+            ui.horizontal(|ui| {
+                let can_confirm = !prompt.figure.trim().is_empty();
+                if ui.add_enabled(can_confirm, egui::Button::new("Continue")).clicked() {
+                    confirm = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    cancel = true;
+                }
+            });
+        });
+        if confirm {
+            let prompt = self.pending_figure_prompt.take().expect("checked above");
+            return match self.crop_current_page(prompt.min, prompt.max) {
+                Ok(raster) => {
+                    let provenance = self.make_provenance(prompt.min, prompt.max, prompt.figure);
+                    Some(CropResult::Plot(raster, provenance))
+                }
+                Err(e) => {
+                    self.message = format!("crop failed: {e}");
+                    None
+                }
+            };
+        }
+        if cancel {
+            self.pending_figure_prompt = None;
+        }
+        None
     }
 
     /// Append every not-yet-saved annotation on the active page into the
@@ -1048,6 +1115,9 @@ impl PdfReaderState {
             self.text_selection_panel(ui);
         }
         let mut crop_result = if show_annotate_ui { self.annotate_editor_panel(ui) } else { None };
+        if let Some(result) = self.figure_prompt_panel(ui) {
+            crop_result = Some(result);
+        }
         if is_pdf {
             self.bibtex_panel(ui);
         }
@@ -1278,16 +1348,14 @@ impl PdfReaderState {
                                 close = true;
                             }
                             if ui.button("Digitise graph").clicked() {
+                                // op-8ci2: ask for the figure identifier
+                                // right now, while the figure is still in
+                                // view, instead of cropping immediately and
+                                // leaving the digitiser's required `figure*`
+                                // field blank for the user to notice later.
                                 if let Some((min, max)) = self.pending_box.take() {
-                                    match self.crop_current_page(min, max) {
-                                        Ok(raster) => {
-                                            result = Some(CropResult::Plot(
-                                                raster,
-                                                self.make_provenance(min, max),
-                                            ));
-                                        }
-                                        Err(e) => self.message = format!("crop failed: {e}"),
-                                    }
+                                    self.pending_figure_prompt =
+                                        Some(PendingFigurePrompt { min, max, figure: String::new() });
                                 }
                                 close = true;
                             }
@@ -1297,7 +1365,7 @@ impl PdfReaderState {
                                         Ok(raster) => {
                                             result = Some(CropResult::Table(
                                                 raster,
-                                                self.make_provenance(min, max),
+                                                self.make_provenance(min, max, ""),
                                             ));
                                         }
                                         Err(e) => self.message = format!("crop failed: {e}"),

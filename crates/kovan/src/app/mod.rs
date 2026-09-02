@@ -46,7 +46,7 @@ use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
-use table_digitiser::TableDigitiserState;
+use table_digitiser::{PickerRequest as TablePickerRequest, TableDigitiserState};
 use theme::GuiTheme;
 use wiki::{WikiAction, WikiState};
 
@@ -106,6 +106,11 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
+    /// Picked path becomes the table digitiser's JSON export path (op-jfc3
+    /// — the table digitiser had no file picker for this at all before).
+    TableJsonExport,
+    /// Picked path becomes the table digitiser's CSV export path (op-jfc3).
+    TableCsvExport,
     /// Picked directory is opened (or discovered from) as a Kovan root
     /// (op-9vo6.3, §2's "Open Kovan Folder…").
     KovanRootOpen,
@@ -132,7 +137,7 @@ impl FileDialogTarget {
     /// new one to write (`save_file`) — see [`DigitiseApp::open_picker`].
     /// Meaningless for a directory target; checked after `is_directory`.
     fn is_save(self) -> bool {
-        matches!(self, Self::JsonExport | Self::CsvExport)
+        matches!(self, Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport)
     }
 
     /// The file-filter name (matching one of the names registered on
@@ -144,8 +149,8 @@ impl FileDialogTarget {
         match self {
             Self::Image => Some("Images"),
             Self::Pdf | Self::PdfIngest => Some("PDF"),
-            Self::JsonExport => Some("JSON"),
-            Self::CsvExport => Some("CSV"),
+            Self::JsonExport | Self::TableJsonExport => Some("JSON"),
+            Self::CsvExport | Self::TableCsvExport => Some("CSV"),
             Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
         }
     }
@@ -350,6 +355,19 @@ pub struct DigitiseApp {
     message_is_error: bool,
 }
 
+/// A reasonable starting value for a digitiser's "your name" field — the OS
+/// login name, when the environment reports one — so a fresh session
+/// doesn't start with a blank required field every single time. Never
+/// authoritative: still editable, and still required to be non-empty before
+/// export, exactly as before. `op-n0kz`, maintainer dogfooding feedback
+/// ("what is operator even?") — the field's label was jargon and its
+/// tooltip alone wasn't enough for it to read as self-explanatory; renaming
+/// it to plain English and reducing the friction of typing it every session
+/// are the actual fix, not a better tooltip on the same unclear label.
+pub(crate) fn default_operator_name() -> String {
+    std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_default()
+}
+
 impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
@@ -396,7 +414,7 @@ impl Default for DigitiseApp {
             notes: String::new(),
             x_label: "x".to_string(),
             y_label: "y".to_string(),
-            operator: String::new(),
+            operator: default_operator_name(),
             dataset: None,
             selected: None,
             dragging: None,
@@ -608,6 +626,18 @@ impl DigitiseApp {
     /// carried into [`Self::crop_provenance`] for [`Self::save_into_project`]
     /// (op-96am) to record on the CSV block it later appends into the
     /// project's markdown.
+    ///
+    /// `op-u1m9`: `page`, `document_id` and `document_title` are auto-filled
+    /// from what the app already knows — `provenance.page_index` (the PDF
+    /// reader's own current page) and the active paper's citekey/BibTeX
+    /// title — rather than asking the user to retype information the crop
+    /// itself carried, or that `activate_paper` already resolved. `figure`
+    /// is set from `provenance.figure` when it's non-empty (the PDF
+    /// reader's own figure prompt, `op-8ci2`, asked for it at the moment of
+    /// the right-click gesture) and left untouched otherwise — never
+    /// silently blanked, since nothing about a crop's raw pixels alone
+    /// could tell us which figure it is. Fields stay editable afterwards
+    /// either way.
     pub fn load_image_from_raster(&mut self, raster: PlotRaster, provenance: Option<CropProvenance>) {
         self.set_raster(
             raster,
@@ -615,6 +645,28 @@ impl DigitiseApp {
              fill their values"
                 .to_string(),
         );
+
+        if let Some(prov) = &provenance {
+            self.page = (prov.page_index + 1).to_string();
+            if !prov.figure.is_empty() {
+                self.figure = prov.figure.clone();
+            }
+        }
+        if let Some(active) = &self.active_paper {
+            let citekey = active.session.citekey().to_string();
+            self.document_id = citekey.clone();
+            if let Some(root) = self.home.root() {
+                let (title, _author_year) = crate::mindmap::bib_display(root, &citekey);
+                // `bib_display` falls back to the bare citekey when there is
+                // no bibliography entry — don't duplicate that into
+                // `document_title` too; leave it blank rather than showing
+                // the same string twice.
+                if title != citekey {
+                    self.document_title = title;
+                }
+            }
+        }
+
         self.crop_provenance = provenance;
     }
 
@@ -991,26 +1043,25 @@ impl DigitiseApp {
         self.set_status(saved);
     }
 
-    /// Append this dataset's CSV into a "kovan folder" project's
-    /// `graph_csvs` section (op-96am: "csvs go straight into markdown with
-    /// date and time and author... metadata of which page and exact
-    /// pixels"), via [`project::append_to_section`]. `project_root`/
-    /// `project_markdown_rel` are operator-supplied (same reasoning as
-    /// `json_out`/`csv_out`: a crop has no built-in way to know which
-    /// project/document it belongs to). Distinct from [`Self::save`], which
-    /// writes a standalone JSON/CSV file wherever asked — this instead
-    /// folds the CSV into an existing project document's markdown, keeping
-    /// the JSON/CSV export path available unchanged alongside it (op-x9qn's
-    /// "CSV auto-saves into markdown, but retain csv export capability").
+    /// Append this dataset's CSV into the active paper's own canonical
+    /// Markdown when one is open (`op-bd8p`, mirroring `pdf_reader.rs`'s
+    /// `save_annotations_into_project`/op-q1qj: activation already resolved
+    /// which paper and root this crop belongs to, so there is nothing left
+    /// to ask), falling back to the manual `project_root`/
+    /// `project_markdown_rel` fields + [`project::append_to_section`] only
+    /// when no paper is active (a crop loaded outside any paper — the old
+    /// `crate::project` "kovan folder" format, op-96am's original design).
+    ///
+    /// Distinct from [`Self::save`], which writes a standalone JSON/CSV
+    /// file wherever asked — this instead folds the CSV into an existing
+    /// document's markdown, keeping the JSON/CSV export path available
+    /// unchanged alongside it (op-x9qn's "CSV auto-saves into markdown, but
+    /// retain csv export capability").
     fn save_into_project(&mut self) {
         let Some(d) = &self.dataset else {
             self.set_error("nothing to save");
             return;
         };
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error("set the project root and markdown path first");
-            return;
-        }
         let title = self.figure.trim();
         let title = if title.is_empty() { "Digitised graph" } else { title };
         let mut block = format!("### {title}");
@@ -1029,6 +1080,23 @@ impl DigitiseApp {
         block.push_str("\n\n```csv\n");
         block.push_str(&d.to_csv_string());
         block.push_str("```\n");
+
+        if let Some(active) = self.active_paper.as_mut() {
+            active.session.append_block(&block);
+            match active.session.save_document() {
+                Ok(()) => {
+                    let citekey = active.session.citekey().to_string();
+                    self.set_status(format!("saved into {citekey}'s notes"));
+                }
+                Err(e) => self.set_error(e.to_string()),
+            }
+            return;
+        }
+
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error("set the project root and markdown path first");
+            return;
+        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
@@ -1245,13 +1313,13 @@ impl DigitiseApp {
         field(ui, "notes", &mut self.notes);
         field_tip(
             ui,
-            "operator*",
-            "Who is running this digitisation — your name or handle. Recorded \
-             on every hand-placed/corrected point and on the review record \
-             (a KOVAN dataset can only be marked Reviewed by a human — see \
-             this crate's dogfooding rule); an edit after review resets the \
-             dataset back to Unreviewed. Required: every dataset must say who \
-             digitised it.",
+            "your name*",
+            "Recorded on every hand-placed/corrected point and on the review \
+             record (a KOVAN dataset can only be marked Reviewed by a human \
+             — see this crate's dogfooding rule); an edit after review resets \
+             the dataset back to Unreviewed. Required: every dataset must say \
+             who digitised it. Pre-filled from your OS login name where \
+             available — feel free to change it.",
             &mut self.operator,
         );
         ui.separator();
@@ -1291,15 +1359,26 @@ impl DigitiseApp {
             }
         });
         ui.separator();
-        ui.label("Save into project markdown (op-96am):");
-        ui.horizontal(|ui| {
-            ui.label("project root");
-            ui.text_edit_singleline(&mut self.project_root);
-        });
-        ui.horizontal(|ui| {
-            ui.label("markdown path (relative)");
-            ui.text_edit_singleline(&mut self.project_markdown_rel);
-        });
+        ui.label("Save into project markdown:");
+        // op-bd8p: an active paper already tells us exactly where this
+        // belongs -- no manual project root/markdown path to fill in.
+        // Those fields (op-96am's original design) stay available only for
+        // a crop loaded with no paper active.
+        match self.active_paper.as_ref().map(|p| p.session.citekey().to_string()) {
+            Some(citekey) => {
+                ui.label(format!("saving into {citekey}'s notes"));
+            }
+            None => {
+                ui.horizontal(|ui| {
+                    ui.label("project root");
+                    ui.text_edit_singleline(&mut self.project_root);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("markdown path (relative)");
+                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                });
+            }
+        }
         if let Some(prov) = &self.crop_provenance {
             ui.label(format!(
                 "from PDF reader: page {}, bbox [{:.0}, {:.0}, {:.0}, {:.0}], {}",
@@ -1730,6 +1809,8 @@ impl DigitiseApp {
             }
             FileDialogTarget::JsonExport => self.json_out = path,
             FileDialogTarget::CsvExport => self.csv_out = path,
+            FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
+            FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
             FileDialogTarget::KovanRootCreate => self.home.begin_create(std::path::Path::new(&path)),
             FileDialogTarget::PdfIngest => {
@@ -2026,9 +2107,16 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::TableDigitiser => {
+                let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                let mut request = None;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    self.table_digitiser.ui(ui);
+                    request = self.table_digitiser.ui(ui, active_session);
                 });
+                match request {
+                    Some(TablePickerRequest::Json) => self.open_picker(FileDialogTarget::TableJsonExport),
+                    Some(TablePickerRequest::Csv) => self.open_picker(FileDialogTarget::TableCsvExport),
+                    None => {}
+                }
             }
         }
     }
@@ -2306,5 +2394,124 @@ mod tests {
         app.activate_paper_and_navigate(citekey.as_str());
         assert!(!app.message_is_error);
         assert_eq!(app.view, View::KvimEditor, "no PDF reachable -> falls back to the editor, same as any other missing-PDF case");
+    }
+
+    /// `op-u1m9`: page number and paper id/title must come from what the
+    /// app already knows (the crop's own page, the active paper) rather
+    /// than asking the user to retype them.
+    #[test]
+    fn load_image_from_raster_auto_fills_page_and_document_identity_from_the_active_paper() {
+        let (_dir, root) = make_root();
+        // A real bibliography entry so document_title has something to
+        // resolve to, not just the citekey fallback.
+        std::fs::write(
+            root.bibliography_path(),
+            "@article{wang2018multiphysics,\n  author = {Wang, Yan},\n  title = {Coupled Neutronics Methodology},\n  year = {2018},\n}\n",
+        )
+        .unwrap();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir("wang2018multiphysics"))
+            .unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper("wang2018multiphysics").unwrap();
+
+        let raster = crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
+        let provenance = CropProvenance {
+            page_index: 6, // page 7, 0-based
+            min: Pos2::ZERO,
+            max: Pos2::new(1.0, 1.0),
+            created_at: "2026-09-02T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: "Figure 4".to_string(),
+        };
+        app.load_image_from_raster(raster, Some(provenance));
+
+        assert_eq!(app.page, "7");
+        assert_eq!(app.document_id, "wang2018multiphysics");
+        assert_eq!(app.document_title, "Coupled Neutronics Methodology");
+        assert_eq!(app.figure, "Figure 4", "op-8ci2's figure prompt, carried via CropProvenance, must reach the digitiser");
+    }
+
+    /// A crop loaded with no active paper (a standalone image, or a PDF
+    /// opened outside any paper) must not be blocked by the auto-fill --
+    /// page still comes from the crop's own provenance, and document
+    /// identity is simply left blank for the user to fill in, same as
+    /// before `op-u1m9`.
+    #[test]
+    fn load_image_from_raster_still_fills_page_with_no_active_paper() {
+        let mut app = DigitiseApp::default();
+        let raster = crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
+        let provenance = CropProvenance {
+            page_index: 0,
+            min: Pos2::ZERO,
+            max: Pos2::new(1.0, 1.0),
+            created_at: "2026-09-02T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: String::new(),
+        };
+        app.load_image_from_raster(raster, Some(provenance));
+
+        assert_eq!(app.page, "1");
+        assert!(app.document_id.is_empty());
+        assert!(app.document_title.is_empty());
+    }
+
+    fn minimal_dataset() -> DigitisedDataset {
+        use crate::digitiser::detect::PixelRect;
+        use crate::digitiser::trace::PixelTracePoint;
+
+        let calibration = PlotCalibration::AxisAligned {
+            x: AxisCalibration::new(AxisScale::Linear, AxisRef { pixel: 0.0, value: 0.0 }, AxisRef { pixel: 100.0, value: 100.0 }).unwrap(),
+            y: AxisCalibration::new(AxisScale::Linear, AxisRef { pixel: 100.0, value: 0.0 }, AxisRef { pixel: 0.0, value: 100.0 }).unwrap(),
+        };
+        DigitisedDataset::from_pixel_trace(
+            FigureSource::new("Figure 1").unwrap(),
+            calibration,
+            "x",
+            "y",
+            "unit test",
+            "2026-09-02T00:00:00Z",
+            crate::digitiser::dataset::TraceRecord {
+                engine: "test".to_string(),
+                config: crate::digitiser::trace::TraceConfig::default(),
+                frame: PixelRect { left: 0, right: 100, top: 0, bottom: 100 },
+                frame_auto_detected: true,
+            },
+            &[PixelTracePoint { x_px: 50.0, y_px: 50.0, thickness_px: 3.0 }],
+        )
+    }
+
+    /// `op-bd8p`: the graph digitiser's "Save into project markdown" writes
+    /// into the active paper's own session when one is open, instead of
+    /// requiring the manual project_root/project_markdown_rel fields.
+    #[test]
+    fn save_into_project_writes_into_the_active_papers_session_when_given_one() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Save Into Project Test", Access::Open);
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+        app.dataset = Some(minimal_dataset());
+
+        app.save_into_project();
+
+        assert!(!app.message_is_error, "{}", app.message);
+        let reopened = PaperSession::open(&root, &citekey).unwrap();
+        assert!(reopened.markdown().contains("Digitised graph"), "{}", reopened.markdown());
+    }
+
+    #[test]
+    fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(minimal_dataset());
+
+        app.save_into_project();
+
+        assert!(app.message_is_error, "{}", app.message);
+        assert!(app.message.contains("project root"), "{}", app.message);
     }
 }
