@@ -320,6 +320,11 @@ pub struct PdfReaderState {
     search: SearchState,
     /// The canvas zoom on the page rasters.
     zoom: f32,
+    /// `zoom` as of the last canvas frame — when it changes, the canvas
+    /// rescales the scroll offset so the same page stays in view (the
+    /// `ScrollArea` offset is absolute, but the content height scales with
+    /// zoom). `0.0` before the first frame.
+    last_zoom: f32,
     message: String,
     // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
@@ -575,6 +580,7 @@ impl PdfReaderState {
         self.pages.clear();
         self.search = SearchState::default();
         self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
+        self.last_zoom = 0.0;
         self.annotations.clear();
         self.draw_start = None;
         self.pending_box = None;
@@ -1627,6 +1633,23 @@ impl PdfReaderState {
             let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
             let origin = rect.min;
             let painter = ui.painter_at(rect);
+
+            // A zoom change scales the content height but not the (absolute)
+            // scroll offset — without this, zooming jumps you to a different
+            // page (maintainer's bug 2026-09-02). Re-anchor on the page +
+            // fraction that was at the top of the viewport.
+            if self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON {
+                let page_h = self.pages.page_size_px().y;
+                let old_stride = (page_h * self.last_zoom + GAP).max(1.0);
+                let new_stride = page_h * zoom + GAP;
+                let anchor = viewport.min.y / old_stride; // page units, fractional
+                let new_y = origin.y + anchor * new_stride;
+                ui.scroll_to_rect(
+                    Rect::from_min_size(Pos2::new(origin.x, new_y), egui::vec2(1.0, 10.0)),
+                    Some(egui::Align::TOP),
+                );
+            }
+            self.last_zoom = zoom;
 
             if let Some(target) = self.scroll_request.take() {
                 let y = origin.y + self.pages.page_top(target, zoom, GAP);
