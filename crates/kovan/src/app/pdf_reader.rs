@@ -1618,9 +1618,10 @@ impl PdfReaderState {
             // of margin), evicting far ones.
             let vis = self.pages.visible_range(viewport, n, zoom, GAP);
             let want = vis.start().saturating_sub(1)..=(vis.end() + 1).min(n - 1);
+            let render_scale = PageView::render_scale(zoom);
             match &self.source {
                 ReaderSource::Pdf(reader) => {
-                    self.pages.ensure(ui.ctx(), reader.document(), want.clone(), RENDER_DPI);
+                    self.pages.ensure(ui.ctx(), reader.document(), want.clone(), render_scale);
                 }
                 ReaderSource::Image(raster) => {
                     let image = raster_to_color_image(raster);
@@ -1635,18 +1636,18 @@ impl PdfReaderState {
             let painter = ui.painter_at(rect);
 
             // A zoom change scales the content height but not the (absolute)
-            // scroll offset — without this, zooming jumps you to a different
-            // page (maintainer's bug 2026-09-02). Re-anchor on the page +
-            // fraction that was at the top of the viewport.
+            // scroll offset — without this, zooming jumps to a different page
+            // (maintainer's bug 2026-09-02). Keep the content point that was
+            // at the **centre** of the viewport centred after the zoom.
             if self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON {
                 let page_h = self.pages.page_size_px().y;
                 let old_stride = (page_h * self.last_zoom + GAP).max(1.0);
                 let new_stride = page_h * zoom + GAP;
-                let anchor = viewport.min.y / old_stride; // page units, fractional
-                let new_y = origin.y + anchor * new_stride;
+                let anchor_pages = viewport.center().y / old_stride; // fractional page position
+                let new_centre_y = origin.y + anchor_pages * new_stride;
                 ui.scroll_to_rect(
-                    Rect::from_min_size(Pos2::new(origin.x, new_y), egui::vec2(1.0, 10.0)),
-                    Some(egui::Align::TOP),
+                    Rect::from_min_size(Pos2::new(origin.x, new_centre_y), egui::vec2(1.0, 1.0)),
+                    Some(egui::Align::Center),
                 );
             }
             self.last_zoom = zoom;

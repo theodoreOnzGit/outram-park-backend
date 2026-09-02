@@ -34,17 +34,30 @@ use kopitiam_pdf::mupdf::{rasterize_page, PdfDocument};
 /// waits on a re-raster.
 const CACHE_CAP: usize = 10;
 
-/// Fallback page size (US-Letter at 150 DPI) used only before the first
-/// page has rendered, so layout has *something* to work with.
+/// The **logical** page-pixel DPI — the coordinate space every annotation,
+/// region, crop and hit-test uses, independent of the display zoom.
+pub const BASE_DPI: f32 = 150.0;
+
+/// Fallback logical page size (US-Letter at [`BASE_DPI`]) used only before
+/// the first page has rendered, so layout has *something* to work with.
 const FALLBACK_PX: Vec2 = Vec2 { x: 1275.0, y: 1650.0 };
+
+/// One cached page raster and the supersampling factor it was rendered at.
+struct PageTex {
+    handle: TextureHandle,
+    /// `1` = rendered at [`BASE_DPI`], `2` = 2×, etc. — bumped as the
+    /// operator zooms in so the page stays sharp rather than being a
+    /// stretched [`BASE_DPI`] bitmap.
+    scale: u8,
+}
 
 /// A cached, uploaded page raster plus continuous-view geometry helpers.
 #[derive(Default)]
 pub struct PageView {
-    /// The assumed-uniform page pixel size (`RENDER_DPI`), from the first
-    /// page that rendered.
-    page_px: Option<Vec2>,
-    textures: HashMap<usize, TextureHandle>,
+    /// The assumed-uniform **logical** ([`BASE_DPI`]) page pixel size, from
+    /// the first page that rendered.
+    logical_px: Option<Vec2>,
+    textures: HashMap<usize, PageTex>,
     /// Eviction order — least-recently-ensured at the front.
     order: VecDeque<usize>,
     /// Pages whose rasterisation failed, so `ensure` does not retry them
@@ -59,10 +72,19 @@ impl PageView {
         *self = Self::default();
     }
 
-    /// The page pixel size layout uses — the measured one, or [`FALLBACK_PX`]
-    /// before anything has rendered.
+    /// The **logical** ([`BASE_DPI`]) page pixel size layout and every
+    /// coordinate conversion uses — the measured one, or [`FALLBACK_PX`]
+    /// before anything has rendered. Independent of the display zoom and of
+    /// the DPI a page's texture happens to be rendered at.
     pub fn page_size_px(&self) -> Vec2 {
-        self.page_px.unwrap_or(FALLBACK_PX)
+        self.logical_px.unwrap_or(FALLBACK_PX)
+    }
+
+    /// The integer supersampling factor for a display `zoom` — a page's
+    /// raster is rendered at `BASE_DPI * factor` so a zoomed-in page stays
+    /// crisp. Bucketed (1/2/3) so a slider drag re-renders at most twice.
+    pub fn render_scale(zoom: f32) -> u8 {
+        (zoom.ceil() as i32).clamp(1, 3) as u8
     }
 
     /// One page's vertical stride in **content** pixels at `zoom`: the page
@@ -96,18 +118,25 @@ impl PageView {
         first..=last
     }
 
-    /// Rasterise + upload every page in `want` that is not cached, and evict
-    /// cached pages far outside it. `want` is clamped by the caller to the
-    /// real page count.
-    pub fn ensure(&mut self, ctx: &egui::Context, doc: &PdfDocument, want: std::ops::RangeInclusive<usize>, dpi: f32) {
+    /// Rasterise + upload every page in `want` that is not cached **at
+    /// supersampling factor `scale`** (re-rendering one cached at a
+    /// different scale), and evict cached pages far outside `want`. `want`
+    /// is clamped by the caller to the real page count.
+    pub fn ensure(
+        &mut self,
+        ctx: &egui::Context,
+        doc: &PdfDocument,
+        want: std::ops::RangeInclusive<usize>,
+        scale: u8,
+    ) {
+        let scale = scale.max(1);
         for p in want.clone() {
-            if self.textures.contains_key(&p) || self.failed.contains(&p) {
-                // Refresh recency so it is not evicted from under the viewport.
+            if self.textures.get(&p).is_some_and(|t| t.scale == scale) || self.failed.contains(&p) {
                 self.order.retain(|&q| q != p);
                 self.order.push_back(p);
                 continue;
             }
-            match rasterize_page(doc, p, dpi) {
+            match rasterize_page(doc, p, BASE_DPI * scale as f32) {
                 Ok(pixmap) => {
                     let (w, h) = (pixmap.w as usize, pixmap.h as usize);
                     let image = if pixmap.alpha {
@@ -115,9 +144,10 @@ impl PageView {
                     } else {
                         ColorImage::from_rgb([w, h], &pixmap.samples)
                     };
-                    let handle = ctx.load_texture(format!("kovan-page-{p}"), image, TextureOptions::LINEAR);
-                    self.page_px.get_or_insert(Vec2::new(w as f32, h as f32));
-                    self.textures.insert(p, handle);
+                    let handle = ctx.load_texture(format!("kovan-page-{p}@{scale}"), image, TextureOptions::LINEAR);
+                    self.logical_px.get_or_insert(Vec2::new(w as f32 / scale as f32, h as f32 / scale as f32));
+                    self.textures.insert(p, PageTex { handle, scale });
+                    self.order.retain(|&q| q != p);
                     self.order.push_back(p);
                 }
                 Err(_) => {
@@ -125,8 +155,6 @@ impl PageView {
                 }
             }
         }
-        // Evict least-recently-used pages beyond the cap, but never one in
-        // the current window.
         while self.textures.len() > CACHE_CAP {
             let Some(&victim) = self.order.iter().find(|q| !want.contains(q)) else {
                 break;
@@ -136,9 +164,9 @@ impl PageView {
         }
     }
 
-    /// The uploaded texture for `p`, if cached.
+    /// The uploaded texture for `p`, if cached (at whatever scale).
     pub fn texture(&self, p: usize) -> Option<&TextureHandle> {
-        self.textures.get(&p)
+        self.textures.get(&p).map(|t| &t.handle)
     }
 
     /// Install a single already-built image as the only "page" (page 0) —
@@ -146,13 +174,13 @@ impl PageView {
     /// no PDF to rasterise. Idempotent per `size`.
     pub fn set_single_image(&mut self, ctx: &egui::Context, image: ColorImage) {
         let size = Vec2::new(image.size[0] as f32, image.size[1] as f32);
-        if self.page_px == Some(size) && self.textures.contains_key(&0) {
+        if self.logical_px == Some(size) && self.textures.contains_key(&0) {
             return;
         }
         self.clear();
         let handle = ctx.load_texture("kovan-image", image, TextureOptions::LINEAR);
-        self.page_px = Some(size);
-        self.textures.insert(0, handle);
+        self.logical_px = Some(size);
+        self.textures.insert(0, PageTex { handle, scale: 1 });
         self.order.push_back(0);
     }
 
@@ -206,7 +234,7 @@ mod tests {
     /// A `PageView` with a known page size but no textures — enough to test
     /// the pure geometry.
     fn sized(w: f32, h: f32) -> PageView {
-        PageView { page_px: Some(Vec2::new(w, h)), ..PageView::default() }
+        PageView { logical_px: Some(Vec2::new(w, h)), ..PageView::default() }
     }
 
     #[test]
@@ -218,6 +246,16 @@ mod tests {
         // 3 pages, no trailing gap: 800*3 + 10*2 = 2420
         assert_eq!(v.content_size(3, 1.0, 10.0).y, 2420.0);
         assert_eq!(v.content_size(3, 1.0, 10.0).x, 600.0);
+    }
+
+    #[test]
+    fn render_scale_buckets_the_display_zoom() {
+        assert_eq!(PageView::render_scale(0.5), 1);
+        assert_eq!(PageView::render_scale(1.0), 1);
+        assert_eq!(PageView::render_scale(1.3), 2);
+        assert_eq!(PageView::render_scale(2.0), 2);
+        assert_eq!(PageView::render_scale(2.4), 3);
+        assert_eq!(PageView::render_scale(9.0), 3); // clamped
     }
 
     #[test]
