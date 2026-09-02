@@ -102,6 +102,7 @@
 //! | [`measure`] | mesh-statistics overlay / ruler gizmo / mesh-analysis | **real** — edge/area/angle/dihedral readouts, volume, dimensions, Ruler + Protractor, overhang / distortion / sharp-edges / self-intersection (tri-tri) / thickness (ray cast) (GH issue #37 §D) |
 //! | [`normals`] | `MESH_OT_normals_*` / mesh_normals.cc | **real** — flip, recalc inside/outside, vertex_normals by weight (uniform/area/corner-angle), point-to-target, SplitNormals + split_normals_by_angle + harden (GH issue #37 §E) |
 //! | [`attributes`] | `MESH_OT_mark_*` / crease / bevel-weight / auto-smooth | **real** — MeshAttributes: sharp/seam/freestyle marks, edge/vertex crease + bevel weight, per-face smooth + material; auto_smooth; linked_delimiters -> Selection::select_linked_delimited (GH issue #37 §E) |
+//! | [`remesh`] | mesh_remesh_voxel.cc / MOD_mesh_to_volume | **real** — VoxelGrid occupancy, mesh_to_volume (ray-parity raster), volume_to_mesh (blocky isosurface), voxel_remesh (+ smoothing) (GH issue #37 §F) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -215,6 +216,7 @@ pub mod reactor;
 pub mod proportional;
 pub mod recalc_normals;
 pub mod rip_split;
+pub mod remesh;
 pub mod revolve;
 pub mod selection;
 pub mod slide;

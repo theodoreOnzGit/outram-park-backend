@@ -161,6 +161,48 @@ pub enum Modifier {
         /// Keep the complement.
         invert: bool,
     },
+    /// Voxel remesh — rasterise and re-surface at `voxel_size`, then
+    /// `smooth_iterations` Laplacian passes (GH issue #37 §F, `op-hzs.54.30`).
+    Remesh {
+        /// Voxel edge length.
+        voxel_size: f64,
+        /// Smoothing passes (`0` = blocky).
+        smooth_iterations: u32,
+    },
+    /// Screw: revolve the whole mesh's profile around `axis`, `turns` turns,
+    /// `steps` steps, advancing `screw_offset` along the axis (a helix).
+    Screw {
+        /// Rotation axis.
+        axis: crate::selection::Axis,
+        /// Number of full revolutions.
+        turns: f64,
+        /// Steps per revolution.
+        steps: usize,
+        /// Total axial advance.
+        screw_offset: f64,
+    },
+    /// Skin: a rectangular tube of half-width `radius` along every edge.
+    Skin {
+        /// Tube half-width.
+        radius: f64,
+    },
+    /// Build: reveal only the first `factor` fraction of the faces
+    /// (`0.0` … `1.0`).
+    Build {
+        /// Fraction of faces to keep.
+        factor: f64,
+    },
+    /// Multiresolution: `levels` of Catmull-Clark subdivision (the "simple"
+    /// flavour; forwards to [`crate::subdivision::catmull_clark`]).
+    Multires {
+        /// Subdivision levels.
+        levels: u32,
+    },
+    /// Decimate: reduce to `ratio` of the current face count (QEM collapse).
+    Decimate {
+        /// Target face fraction (`0.0` … `1.0`).
+        ratio: f64,
+    },
 }
 
 /// Epsilon (dimensionless model-space length) below which two vertex positions
@@ -199,8 +241,108 @@ impl Modifier {
             }
             Modifier::Triangulate => Ok(crate::triangulate::triangulate(input)),
             Modifier::Mask { keep, invert } => Ok(mask(input, keep, *invert)),
+            Modifier::Remesh { voxel_size, smooth_iterations } => {
+                Ok(crate::remesh::voxel_remesh(input, *voxel_size, *smooth_iterations))
+            }
+            Modifier::Screw { axis, turns, steps, screw_offset } => {
+                let profile = screw_profile(input);
+                Ok(crate::spin_screw::screw(input, &profile, Vec3::ZERO, *axis, *screw_offset, *turns, *steps))
+            }
+            Modifier::Skin { radius } => Ok(skin(input, *radius)),
+            Modifier::Build { factor } => Ok(build(input, *factor)),
+            Modifier::Multires { levels } => Ok(crate::subdivision::catmull_clark(input, *levels)),
+            Modifier::Decimate { ratio } => {
+                let target = ((input.face_count() as f64) * ratio.clamp(0.0, 1.0)).round() as usize;
+                Ok(crate::decimate::decimate(input, target.max(1)))
+            }
         }
     }
+}
+
+/// The profile the Screw modifier revolves: the ordered boundary vertex ring
+/// if the mesh is open, otherwise every vertex in id order.
+fn screw_profile(mesh: &Mesh) -> Vec<crate::mesh::VertexId> {
+    let topo = crate::topology::MeshTopology::new(mesh);
+    let boundary: Vec<crate::mesh::EdgeId> = (0..mesh.edge_count())
+        .map(crate::mesh::EdgeId)
+        .filter(|&e| topo.is_boundary_edge(e))
+        .collect();
+    if let Some((ring, _)) = crate::bridge::ordered_ring(mesh, &boundary) {
+        if ring.len() >= 2 {
+            return ring;
+        }
+    }
+    (0..mesh.vertex_count()).map(crate::mesh::VertexId).collect()
+}
+
+/// Skin: a square tube of half-width `radius` along every edge.
+fn skin(input: &Mesh, radius: f64) -> Mesh {
+    let r = radius.max(1e-4);
+    let src = input.positions();
+    let mut positions: Vec<Vec3> = Vec::new();
+    let mut faces: Vec<Vec<usize>> = Vec::new();
+    for e in 0..input.edge_count() {
+        let Some(ed) = input.edge(crate::mesh::EdgeId(e)) else { continue };
+        let a = src[ed.verts[0].0];
+        let b = src[ed.verts[1].0];
+        let axis = b.sub(a);
+        if axis.length() < 1e-9 {
+            continue;
+        }
+        let ax = axis.normalize();
+        let up = if ax.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+        let u = up.cross(ax).normalize().scale(r);
+        let v = ax.cross(u.normalize()).scale(r);
+        let ring = |c: Vec3, positions: &mut Vec<Vec3>| -> [usize; 4] {
+            let base = positions.len();
+            positions.push(c.add(u).add(v));
+            positions.push(c.sub(u).add(v));
+            positions.push(c.sub(u).sub(v));
+            positions.push(c.add(u).sub(v));
+            [base, base + 1, base + 2, base + 3]
+        };
+        let ra = ring(a, &mut positions);
+        let rb = ring(b, &mut positions);
+        for i in 0..4 {
+            let j = (i + 1) % 4;
+            faces.push(vec![ra[i], ra[j], rb[j], rb[i]]);
+        }
+        faces.push(vec![ra[3], ra[2], ra[1], ra[0]]); // cap a
+        faces.push(vec![rb[0], rb[1], rb[2], rb[3]]); // cap b
+    }
+    if faces.is_empty() {
+        return input.clone();
+    }
+    Mesh::from_polygons(&positions, &faces)
+}
+
+/// Build: keep only the first `factor` fraction of the faces (id order).
+fn build(input: &Mesh, factor: f64) -> Mesh {
+    let n = input.face_count();
+    let keep = ((n as f64) * factor.clamp(0.0, 1.0)).round() as usize;
+    let faces: Vec<Vec<usize>> = input
+        .polygons()
+        .iter()
+        .take(keep)
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
+    let positions = input.positions();
+    let mut used = vec![false; positions.len()];
+    for f in &faces {
+        for &v in f {
+            used[v] = true;
+        }
+    }
+    let mut idx = vec![usize::MAX; positions.len()];
+    let mut pos = Vec::new();
+    for (i, u) in used.iter().enumerate() {
+        if *u {
+            idx[i] = pos.len();
+            pos.push(positions[i]);
+        }
+    }
+    let f: Vec<Vec<usize>> = faces.iter().map(|face| face.iter().map(|&v| idx[v]).collect()).collect();
+    Mesh::from_polygons(&pos, &f)
 }
 
 /// Wireframe: inset every face and drop the shrunk interior, leaving a lattice
@@ -622,6 +764,36 @@ mod tests {
         .evaluate(&a)
         .unwrap();
         assert!(out.face_count() > 0);
+    }
+
+    #[test]
+    fn generate_modifiers_pt2() {
+        let c = primitives::cube(2.0);
+
+        let re = Modifier::Remesh { voxel_size: 0.7, smooth_iterations: 0 }.evaluate(&c).unwrap();
+        assert_eq!(re.euler_characteristic(), 2);
+
+        let dec = Modifier::Decimate { ratio: 0.5 }.evaluate(&primitives::uv_sphere(20, 12, 1.0)).unwrap();
+        assert!(dec.face_count() < primitives::uv_sphere(20, 12, 1.0).face_count());
+
+        let mr = Modifier::Multires { levels: 1 }.evaluate(&c).unwrap();
+        assert_eq!(mr.face_count(), 24);
+
+        let bd = Modifier::Build { factor: 0.5 }.evaluate(&c).unwrap();
+        assert_eq!(bd.face_count(), 3);
+
+        let sk = Modifier::Skin { radius: 0.1 }.evaluate(&c).unwrap();
+        assert!(sk.face_count() > 12, "a tube per cube edge");
+
+        let sc = Modifier::Screw {
+            axis: crate::selection::Axis::Z,
+            turns: 1.0,
+            steps: 8,
+            screw_offset: 2.0,
+        }
+        .evaluate(&primitives::grid(1, 3, 2.0))
+        .unwrap();
+        assert!(sc.face_count() > 3);
     }
 
     #[test]
