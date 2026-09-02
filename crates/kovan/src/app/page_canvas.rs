@@ -51,6 +51,15 @@ struct PageTex {
     scale: u8,
 }
 
+/// DPI for the page-picker thumbnails — small enough that a whole strip is
+/// cheap to hold, big enough to recognise a figure or a table on the page.
+const THUMB_DPI: f32 = 22.0;
+
+/// How many thumbnails to keep uploaded. Generous (they are tiny) so
+/// scrolling the strip on a paper never re-renders, while a 500-page book
+/// still cannot run away with memory.
+const THUMB_CACHE_CAP: usize = 80;
+
 /// A cached, uploaded page raster plus continuous-view geometry helpers.
 #[derive(Default)]
 pub struct PageView {
@@ -63,6 +72,13 @@ pub struct PageView {
     /// Pages whose rasterisation failed, so `ensure` does not retry them
     /// every frame.
     failed: HashSet<usize>,
+    /// [`THUMB_DPI`] page rasters for the page-picker strip, and their own
+    /// LRU order. Separate from `textures` because they are a different
+    /// resolution with a different lifetime — the strip shows pages the
+    /// canvas is nowhere near.
+    thumbs: HashMap<usize, TextureHandle>,
+    thumb_order: VecDeque<usize>,
+    thumb_px: Option<Vec2>,
 }
 
 impl PageView {
@@ -167,6 +183,53 @@ impl PageView {
     /// The uploaded texture for `p`, if cached (at whatever scale).
     pub fn texture(&self, p: usize) -> Option<&TextureHandle> {
         self.textures.get(&p).map(|t| &t.handle)
+    }
+
+    /// The thumbnail pixel size ([`THUMB_DPI`]) the strip lays out with —
+    /// derived from the logical page size so the strip has a stable width
+    /// before any thumbnail has rendered.
+    pub fn thumb_size_px(&self) -> Vec2 {
+        self.thumb_px.unwrap_or(self.page_size_px() * (THUMB_DPI / BASE_DPI))
+    }
+
+    /// Rasterise + upload the page-picker thumbnails for `want`, evicting
+    /// the least-recently-asked-for beyond [`THUMB_CACHE_CAP`]. Cheap per
+    /// page ([`THUMB_DPI`]) and only ever called for the strip's own
+    /// visible range.
+    pub fn ensure_thumbs(&mut self, ctx: &egui::Context, doc: &PdfDocument, want: std::ops::RangeInclusive<usize>) {
+        for p in want.clone() {
+            if self.thumbs.contains_key(&p) || self.failed.contains(&p) {
+                self.thumb_order.retain(|&q| q != p);
+                self.thumb_order.push_back(p);
+                continue;
+            }
+            let Ok(pixmap) = rasterize_page(doc, p, THUMB_DPI) else {
+                self.failed.insert(p);
+                continue;
+            };
+            let (w, h) = (pixmap.w as usize, pixmap.h as usize);
+            let image = if pixmap.alpha {
+                ColorImage::from_rgba_unmultiplied([w, h], &pixmap.samples)
+            } else {
+                ColorImage::from_rgb([w, h], &pixmap.samples)
+            };
+            let handle = ctx.load_texture(format!("kovan-thumb-{p}"), image, TextureOptions::LINEAR);
+            self.thumb_px.get_or_insert(Vec2::new(w as f32, h as f32));
+            self.thumbs.insert(p, handle);
+            self.thumb_order.push_back(p);
+        }
+        while self.thumbs.len() > THUMB_CACHE_CAP {
+            let Some(&victim) = self.thumb_order.iter().find(|q| !want.contains(q)) else {
+                break;
+            };
+            self.thumb_order.retain(|&q| q != victim);
+            self.thumbs.remove(&victim);
+        }
+    }
+
+    /// The uploaded thumbnail for `p`, if cached.
+    pub fn thumb(&self, p: usize) -> Option<&TextureHandle> {
+        self.thumbs.get(&p)
     }
 
     /// Install a single already-built image as the only "page" (page 0) —

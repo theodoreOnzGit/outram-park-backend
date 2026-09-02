@@ -310,6 +310,14 @@ pub struct PdfReaderState {
     /// kovan renders the pages itself so it can draw region boxes over them
     /// and route clicks (the embedded reader cannot — kopitiam#107).
     pages: PageView,
+    /// Whether the left page-thumbnail strip is shown (op-0y4k's Okular-style
+    /// page picker). Re-implemented on kovan's own rasters after the embedded
+    /// reader — which used to supply it — was dropped. On by default; see
+    /// [`PdfReaderState::new`].
+    show_thumbs: bool,
+    /// The page the thumbnail strip was last auto-scrolled to follow, so it
+    /// keeps the current page in view without fighting a manual strip scroll.
+    thumb_synced: Option<usize>,
     /// A page the continuous canvas should scroll to on the next frame —
     /// set by the Prev/Next buttons, `j`/`k`, and a search-hit jump.
     /// Consumed by the canvas.
@@ -574,7 +582,7 @@ impl PdfReaderState {
     /// so hot-reload starts enabled, since [`HotReload`]'s own `Default`
     /// (unlike this panel's prior hand-rolled `bool`) starts disabled.
     pub fn new() -> Self {
-        Self { hot_reload: HotReload::new(true), ..Self::default() }
+        Self { hot_reload: HotReload::new(true), show_thumbs: true, ..Self::default() }
     }
 
     /// Open `path` as the working document — a PDF or a raster image
@@ -597,6 +605,7 @@ impl PdfReaderState {
         self.scroll_anchor = egui::Vec2::ZERO;
         self.last_viewport = egui::Vec2::ZERO;
         self.forced_offset = None;
+        self.thumb_synced = None;
         self.annotations.clear();
         self.draw_start = None;
         self.pending_box = None;
@@ -838,6 +847,14 @@ impl PdfReaderState {
     /// table / graph block re-crops its `[source]` region and comes back as
     /// a [`CropResult`] for the app to route to the matching digitiser.
     fn open_artifact(&mut self, artifact: &Artifact) -> Option<CropResult> {
+        // Take the canvas to the page the block is anchored to — opening a
+        // block from the panel while looking at a different page should
+        // show you what it is about (maintainer, 2026-09-02).
+        if let Some(p) = Self::artifact_page(artifact) {
+            self.annotate_page = p;
+            self.scroll_request = Some(p);
+            self.thumb_synced = None;
+        }
         match artifact.kind() {
             ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => self.recrop_artifact(artifact),
             _ => {
@@ -1150,6 +1167,86 @@ impl PdfReaderState {
         let next = ((cur + dir).rem_euclid(n as isize)) as usize;
         self.search.current = Some(next);
         self.scroll_request = Some(self.search.hits[next].page);
+    }
+
+    /// The left page-picker strip (op-0y4k's "Okular-style page thumbnails",
+    /// restored on kovan's own rasters after the embedded reader that used to
+    /// provide it was dropped — GH issue #35 2026-09-02).
+    ///
+    /// Virtualised: only the thumbnails the strip's own viewport touches are
+    /// rasterised ([`PageView::ensure_thumbs`]). The current page's row is
+    /// highlighted and kept in view; clicking a row scrolls the main canvas
+    /// to that page.
+    fn thumbnail_strip(&mut self, ui: &mut egui::Ui, pages: usize) {
+        let thumb = self.pages.thumb_size_px();
+        let width = ui.available_width().max(48.0);
+        let img_w = (width - 14.0).max(24.0);
+        let img_h = img_w * (thumb.y / thumb.x.max(1.0));
+        let row_h = img_h + 20.0;
+        let current = self.active_page();
+        let follow = self.thumb_synced != Some(current);
+        let mut jump = None;
+
+        egui::ScrollArea::vertical().id_salt("pdf_thumb_strip").show_viewport(ui, |ui, viewport| {
+            let last_page = pages.saturating_sub(1);
+            let first = ((viewport.min.y / row_h).floor().max(0.0) as usize).min(last_page);
+            let last = ((viewport.max.y / row_h).floor().max(0.0) as usize).min(last_page);
+            if let ReaderSource::Pdf(reader) = &self.source {
+                self.pages.ensure_thumbs(ui.ctx(), reader.document(), first..=last);
+            }
+
+            let (rect, _) = ui.allocate_exact_size(egui::vec2(width, pages as f32 * row_h), Sense::hover());
+            let painter = ui.painter_at(rect);
+            let row_of = |p: usize| Rect::from_min_size(Pos2::new(rect.min.x, rect.min.y + p as f32 * row_h), egui::vec2(width, row_h));
+
+            if follow {
+                ui.scroll_to_rect(row_of(current), Some(egui::Align::Center));
+            }
+
+            for p in first..=last {
+                let row = row_of(p);
+                let resp = ui.interact(row, ui.id().with(("kovan-thumb", p)), Sense::click());
+                if p == current {
+                    painter.rect_filled(row, 3.0, Color32::from_rgba_unmultiplied(120, 170, 255, 60));
+                } else if resp.hovered() {
+                    painter.rect_filled(row, 3.0, Color32::from_rgba_unmultiplied(150, 150, 150, 30));
+                }
+                let img = Rect::from_min_size(Pos2::new(row.min.x + 7.0, row.min.y + 3.0), egui::vec2(img_w, img_h));
+                match self.pages.thumb(p) {
+                    Some(tex) => {
+                        painter.image(tex.id(), img, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                    }
+                    None => {
+                        painter.rect_filled(img, 0.0, Color32::from_gray(235));
+                    }
+                }
+                painter.rect_stroke(
+                    img,
+                    0.0,
+                    Stroke::new(if p == current { 2.0 } else { 1.0 }, Color32::from_gray(150)),
+                    egui::StrokeKind::Outside,
+                );
+                painter.text(
+                    Pos2::new(row.center().x, img.max.y + 2.0),
+                    egui::Align2::CENTER_TOP,
+                    format!("{}", p + 1),
+                    egui::FontId::proportional(11.0),
+                    ui.visuals().weak_text_color(),
+                );
+                if resp.clicked() {
+                    jump = Some(p);
+                }
+            }
+        });
+
+        if follow {
+            self.thumb_synced = Some(current);
+        }
+        if let Some(p) = jump {
+            self.scroll_request = Some(p);
+            self.annotate_page = p;
+            self.thumb_synced = Some(p);
+        }
     }
 
     /// Structured text for `page` (op-z9u0), cached only for the page it
@@ -1479,6 +1576,8 @@ impl PdfReaderState {
 
         ui.horizontal(|ui| {
             if is_pdf {
+                ui.toggle_value(&mut self.show_thumbs, "\u{25A6} Pages")
+                    .on_hover_text("Show the page thumbnails");
                 let mut enabled = self.hot_reload.is_enabled();
                 if ui.checkbox(&mut enabled, "Hot reload").changed() {
                     self.hot_reload.set_enabled(enabled);
@@ -1625,6 +1724,16 @@ impl PdfReaderState {
             crop_result = panel_crop;
         }
 
+        // The page-picker strip (op-0y4k), restored on kovan's own rasters.
+        let page_count = self.source.page_count();
+        if is_pdf && self.show_thumbs && page_count > 1 {
+            egui::Panel::left("pdf_reader_thumbs")
+                .resizable(true)
+                .default_size(132.0)
+                .min_size(72.0)
+                .show(ui, |ui| self.thumbnail_strip(ui, page_count));
+        }
+
         // --- a plain image / a PDF: kovan's own **continuous**
         // multi-page canvas (GH issue #35 2026-09-02). Renders the pages
         // itself (via `PageView`) so it can draw saved region boxes over
@@ -1687,6 +1796,33 @@ impl PdfReaderState {
             // scroll offset that puts it back under the pointer at the new
             // zoom, and force that offset on the next frame.
             let keys_free = !text_editing && ui.ctx().memory(|m| m.focused().is_none());
+
+            // Ctrl+D / Ctrl+U step a page, but only while the pointer is over
+            // the page pane (maintainer, 2026-09-02) — the same chords mean
+            // something else to the kvim editor, which owns them when focused.
+            if keys_free && response.hovered() {
+                let (down, up) = ui.input(|i| {
+                    (
+                        i.modifiers.ctrl && i.key_pressed(egui::Key::D),
+                        i.modifiers.ctrl && i.key_pressed(egui::Key::U),
+                    )
+                });
+                if down || up {
+                    let last = n - 1;
+                    let target = if down {
+                        (self.annotate_page + 1).min(last)
+                    } else {
+                        self.annotate_page.saturating_sub(1)
+                    };
+                    if target != self.annotate_page {
+                        self.annotate_page = target;
+                        self.scroll_request = Some(target);
+                        self.pending_box = None;
+                        self.context_menu = None;
+                        self.text_selection = None;
+                    }
+                }
+            }
             let (pinch, plus, minus) = ui.input(|i| {
                 (
                     i.zoom_delta(),
