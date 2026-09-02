@@ -364,6 +364,11 @@ pub struct DigitiseApp {
     dragging: Option<usize>,
     json_out: String,
     csv_out: String,
+    /// An export waiting on a destination: set when an export button is
+    /// pressed with no `json_out`, carrying the `reviewed` flag so the
+    /// export finishes as asked once the file picker returns a path
+    /// (maintainer, 2026-09-02).
+    pending_export: Option<bool>,
     /// Provenance carried from the PDF reader's "Digitise graph" crop
     /// (op-p17q), if that's how the current image was loaded — used by
     /// [`Self::save_into_project`] (op-96am) to record page/pixel/date/
@@ -453,6 +458,7 @@ impl Default for DigitiseApp {
             dragging: None,
             json_out: String::new(),
             csv_out: String::new(),
+            pending_export: None,
             crop_provenance: None,
             project_root: String::new(),
             project_markdown_rel: String::new(),
@@ -484,7 +490,19 @@ impl DigitiseApp {
     /// is `None` in that case rather than this method failing.
     fn activate_paper(&mut self, citekey: &str) -> Result<(), String> {
         let root = self.home.root().cloned().ok_or_else(|| "no Kovan folder open".to_string())?;
-        let session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
+        let mut session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
+
+        // Maintainer, 2026-09-02: "if the annotations are disordered, order
+        // them when opening them." Page-anchored blocks written before
+        // insertion became page-ordered land in whatever order they were
+        // saved; tidy them on open and persist, so the file on disk and the
+        // page-context panel agree with the document.
+        if crate::classify::sort_artifacts_by_page(&mut session) {
+            match session.save_document() {
+                Ok(()) => self.set_status(format!("{citekey}: reordered notes by page")),
+                Err(e) => self.set_error(e.to_string()),
+            }
+        }
 
         let configured_pdf = EntityConfig::load(&root.paper_dir(citekey))
             .ok()
@@ -1045,6 +1063,19 @@ impl DigitiseApp {
     }
 
     fn save(&mut self, reviewed: bool) {
+        if self.dataset.is_none() {
+            self.set_error("nothing to export");
+            return;
+        }
+        // No destination yet — ask for one rather than erroring, and finish
+        // the export when the picker hands a path back (maintainer,
+        // 2026-09-02). Checked *before* recording the review so the review
+        // is not stamped by an export that never happened.
+        if self.json_out.trim().is_empty() {
+            self.pending_export = Some(reviewed);
+            self.open_picker(FileDialogTarget::JsonExport);
+            return;
+        }
         if reviewed {
             let by = self.operator_name();
             if let Some(d) = &mut self.dataset {
@@ -1052,13 +1083,9 @@ impl DigitiseApp {
             }
         }
         let Some(d) = &self.dataset else {
-            self.set_error("nothing to save");
+            self.set_error("nothing to export");
             return;
         };
-        if self.json_out.trim().is_empty() {
-            self.set_error("set a JSON output path");
-            return;
-        }
         if let Err(e) = d.write_json(std::path::Path::new(self.json_out.trim())) {
             self.set_error(e.to_string());
             return;
@@ -1376,42 +1403,9 @@ impl DigitiseApp {
         );
         ui.separator();
 
-        ui.label("5. Export:");
-        // op-jtna: a "Browse…" button beside each export path, using the same
-        // shared FileDialog (in save-file mode) rather than only a typed
-        // path. Written inline rather than as a `field`-style closure because
-        // it needs `&mut self` (to stash which target the dialog is for) at
-        // the same time as `&mut self.json_out`/`&mut self.csv_out` — two
-        // disjoint-field closure arguments the borrow checker can't verify
-        // through a shared helper.
-        let mut open_json_picker = false;
-        ui.horizontal(|ui| {
-            ui.label("json path");
-            ui.text_edit_singleline(&mut self.json_out);
-            open_json_picker = ui.button("Browse…").clicked();
-        });
-        if open_json_picker {
-            self.open_picker(FileDialogTarget::JsonExport);
-        }
-        let mut open_csv_picker = false;
-        ui.horizontal(|ui| {
-            ui.label("csv path");
-            ui.text_edit_singleline(&mut self.csv_out);
-            open_csv_picker = ui.button("Browse…").clicked();
-        });
-        if open_csv_picker {
-            self.open_picker(FileDialogTarget::CsvExport);
-        }
-        ui.horizontal(|ui| {
-            if ui.button("Save (unreviewed)").clicked() {
-                self.save(false);
-            }
-            if ui.button("Mark reviewed + save").clicked() {
-                self.save(true);
-            }
-        });
-        ui.separator();
-        ui.label("Save into project markdown:");
+        // Saving into the paper's own notes is the normal destination, so it
+        // comes before the standalone file export (maintainer, 2026-09-02).
+        ui.label("5. Save into project markdown:");
         // op-bd8p: an active paper already tells us exactly where this
         // belongs -- no manual project root/markdown path to fill in.
         // Those fields (op-96am's original design) stay available only for
@@ -1447,6 +1441,45 @@ impl DigitiseApp {
         if ui.button("Save CSV into project markdown").clicked() {
             self.save_into_project();
         }
+
+        ui.separator();
+        ui.label("6. Export to file:");
+        // op-jtna: a "Browse…" button beside each export path, using the same
+        // shared FileDialog (in save-file mode) rather than only a typed
+        // path. Written inline rather than as a `field`-style closure because
+        // it needs `&mut self` (to stash which target the dialog is for) at
+        // the same time as `&mut self.json_out`/`&mut self.csv_out` — two
+        // disjoint-field closure arguments the borrow checker can't verify
+        // through a shared helper.
+        let mut open_json_picker = false;
+        ui.horizontal(|ui| {
+            ui.label("json path");
+            ui.text_edit_singleline(&mut self.json_out);
+            open_json_picker = ui.button("Browse…").clicked();
+        });
+        if open_json_picker {
+            self.open_picker(FileDialogTarget::JsonExport);
+        }
+        let mut open_csv_picker = false;
+        ui.horizontal(|ui| {
+            ui.label("csv path");
+            ui.text_edit_singleline(&mut self.csv_out);
+            open_csv_picker = ui.button("Browse…").clicked();
+        });
+        if open_csv_picker {
+            self.open_picker(FileDialogTarget::CsvExport);
+        }
+        ui.horizontal(|ui| {
+            // With no path set these open the picker and finish the export
+            // once a path comes back (maintainer, 2026-09-02) — an empty
+            // path is a missing answer, not an error.
+            if ui.button("Export (unreviewed)").clicked() {
+                self.save(false);
+            }
+            if ui.button("Mark reviewed + export").clicked() {
+                self.save(true);
+            }
+        });
         if let Some(d) = &self.dataset {
             let review = match &d.review {
                 ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
@@ -1859,7 +1892,13 @@ impl DigitiseApp {
                 self.pdf_reader.open(&path);
                 self.offer_ingest_if_new(&path);
             }
-            FileDialogTarget::JsonExport => self.json_out = path,
+            FileDialogTarget::JsonExport => {
+                self.json_out = path;
+                // Finish an export that was only waiting on this path.
+                if let Some(reviewed) = self.pending_export.take() {
+                    self.save(reviewed);
+                }
+            }
             FileDialogTarget::CsvExport => self.csv_out = path,
             FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
             FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),

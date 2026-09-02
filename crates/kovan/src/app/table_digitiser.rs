@@ -30,6 +30,11 @@ pub struct TableDigitiserState {
     table: Option<RecognizedTable>,
     json_out: String,
     csv_out: String,
+    /// An export waiting on a destination: set when an export button is
+    /// pressed with no `json_out`, carrying the `reviewed` flag so the
+    /// export finishes as asked once the picker returns a path (maintainer,
+    /// 2026-09-02).
+    pending_export: Option<bool>,
     /// Provenance carried from the PDF reader's "Read table" crop
     /// (op-hnhp), if that's how the current region was loaded — see
     /// `super::DigitiseApp::crop_provenance` for the same idea on the plot
@@ -52,6 +57,7 @@ impl Default for TableDigitiserState {
             table: None,
             json_out: String::new(),
             csv_out: String::new(),
+            pending_export: None,
             crop_provenance: None,
             project_root: String::new(),
             project_markdown_rel: String::new(),
@@ -88,6 +94,10 @@ impl TableDigitiserState {
     /// file dialog a [`PickerRequest`] triggered returns a path.
     pub(crate) fn set_json_out(&mut self, path: impl Into<String>) {
         self.json_out = path.into();
+        // Finish an export that was only waiting on this path.
+        if let Some(reviewed) = self.pending_export.take() {
+            self.save(reviewed);
+        }
     }
 
     /// See [`Self::set_json_out`].
@@ -158,15 +168,27 @@ impl TableDigitiserState {
         }
     }
 
-    fn save(&mut self) {
-        let Some(t) = &self.table else {
-            self.set_error("nothing to save — run OCR first");
-            return;
-        };
-        if self.json_out.trim().is_empty() && self.csv_out.trim().is_empty() {
-            self.set_error("set a JSON or CSV output path");
+    /// Export to the JSON/CSV paths, optionally recording a human review
+    /// first. With no destination set this leaves `pending_export` for
+    /// [`Self::ui`] to turn into a picker request; the export finishes in
+    /// [`Self::set_json_out`] once a path comes back (maintainer,
+    /// 2026-09-02) — an empty path is a missing answer, not an error.
+    fn save(&mut self, reviewed: bool) {
+        if self.table.is_none() {
+            self.set_error("nothing to export — run OCR first");
             return;
         }
+        if self.json_out.trim().is_empty() && self.csv_out.trim().is_empty() {
+            self.pending_export = Some(reviewed);
+            return;
+        }
+        if reviewed {
+            self.mark_reviewed();
+        }
+        let Some(t) = &self.table else {
+            self.set_error("nothing to export — run OCR first");
+            return;
+        };
         if !self.json_out.trim().is_empty() {
             if let Err(e) = t.write_json(std::path::Path::new(self.json_out.trim())) {
                 self.set_error(e.to_string());
@@ -179,7 +201,7 @@ impl TableDigitiserState {
                 return;
             }
         }
-        self.set_status("saved");
+        self.set_status("exported");
     }
 
     /// Append this table's CSV into the active paper's own canonical
@@ -350,28 +372,9 @@ impl TableDigitiserState {
         });
 
         ui.separator();
-        // op-jfc3: "Browse…" opens the app's shared native file picker,
-        // same as the graph digitiser already had (op-jtna) — this tab had
-        // only a typed path before.
         let mut request = None;
-        ui.horizontal(|ui| {
-            ui.label("json path");
-            ui.text_edit_singleline(&mut self.json_out);
-            if ui.button("Browse…").clicked() {
-                request = Some(PickerRequest::Json);
-            }
-        });
-        ui.horizontal(|ui| {
-            ui.label("csv path");
-            ui.text_edit_singleline(&mut self.csv_out);
-            if ui.button("Browse…").clicked() {
-                request = Some(PickerRequest::Csv);
-            }
-        });
-        if ui.button("Save").clicked() {
-            self.save();
-        }
-        ui.separator();
+        // Saving into the paper's own notes is the normal destination, so it
+        // comes before the standalone file export (maintainer, 2026-09-02).
         ui.label("Save into project markdown:");
         // op-bd8p: mirrors the graph digitiser's own fix -- an active
         // paper already tells us where this belongs.
@@ -406,6 +409,40 @@ impl TableDigitiserState {
         if ui.button("Save CSV into project markdown").clicked() {
             self.save_into_project(active_paper);
         }
+
+        ui.separator();
+        ui.label("Export to file:");
+        // op-jfc3: "Browse…" opens the app's shared native file picker,
+        // same as the graph digitiser already had (op-jtna) — this tab had
+        // only a typed path before.
+        ui.horizontal(|ui| {
+            ui.label("json path");
+            ui.text_edit_singleline(&mut self.json_out);
+            if ui.button("Browse…").clicked() {
+                request = Some(PickerRequest::Json);
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("csv path");
+            ui.text_edit_singleline(&mut self.csv_out);
+            if ui.button("Browse…").clicked() {
+                request = Some(PickerRequest::Csv);
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.button("Export (unreviewed)").clicked() {
+                self.save(false);
+            }
+            if ui.button("Mark reviewed + export").clicked() {
+                self.save(true);
+            }
+        });
+        // With no destination set, `save` parks the request here and we ask
+        // for a path; `set_json_out` finishes the export.
+        if self.pending_export.is_some() {
+            request = Some(PickerRequest::Json);
+        }
+
         ui.separator();
         let csv_string = self.table.as_ref().unwrap().to_csv_string();
         draw_csv_preview(ui, &csv_string);

@@ -375,6 +375,15 @@ impl KvimEditorState {
             response.request_focus();
         }
 
+        // Discoverability for §29/§30's triggers — you cannot guess `@`/`[[`
+        // from an empty buffer (maintainer, 2026-09-02). Deliberately a slow
+        // tooltip: it should surface when someone pauses, not nag while they
+        // are typing.
+        ui.style_mut().interaction.tooltip_delay = 2.0;
+        response
+            .clone()
+            .on_hover_text("use @ for citation autocomplete, and [[ for other autocomplete");
+
         if response.drag_started() {
             if let Some(pointer) = response.interact_pointer_pos() {
                 let pos = to_position(pointer);

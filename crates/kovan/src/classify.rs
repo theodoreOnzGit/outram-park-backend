@@ -166,10 +166,115 @@ pub fn insert_artifact(
     };
     let rendered = render_artifact_block(ARTIFACT_HEADING_LEVEL, heading, &toml, body)
         .map_err(ClassifyError::Render)?;
-    session.append_block(&rendered);
+    insert_block_in_page_order(session, &rendered, toml.source.as_ref().and_then(|s| s.first_page()));
 
     let refreshed = ResearchRecordIndex::from_session(session);
     Ok(refreshed.get(&id).expect("just inserted").clone())
+}
+
+/// Insert a rendered artifact block so the document's page-anchored blocks
+/// stay **in page order** — annotations save where they belong rather than
+/// piling up at the end of the file (maintainer, 2026-09-02).
+///
+/// The block goes immediately before the first existing artifact anchored to
+/// a *later* page, so same-page blocks keep their insertion order and
+/// nothing already in the document is moved. With no page anchor, or no
+/// later-page block to sit in front of, it appends as before.
+fn insert_block_in_page_order(session: &mut PaperSession, rendered: &str, page: Option<u32>) {
+    let Some(page) = page else {
+        session.append_block(rendered);
+        return;
+    };
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let successor = parsed
+        .artifacts
+        .iter()
+        .find(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).is_some_and(|p| p > page));
+    match successor {
+        Some(a) => {
+            let at = block_span(&md, a).start;
+            session.set_markdown(insert_lines_before(&md, at, rendered));
+        }
+        None => session.append_block(rendered),
+    }
+}
+
+/// Reorder a document's page-anchored artifact blocks into page order,
+/// in place, leaving everything else exactly where it is (maintainer,
+/// 2026-09-02: "if the annotations are disordered, order them when opening
+/// them"). Returns whether anything moved.
+///
+/// Only the anchored blocks' *text* is permuted between their existing
+/// spans, so the paper title, `## Summary`, any prose between blocks and any
+/// un-anchored artifact all keep their position. The sort is stable, so
+/// same-page blocks keep the order they were written in. Bails out (doing
+/// nothing) if the blocks are already ordered, or if any two spans overlap —
+/// a nested artifact is not something to shuffle blindly.
+pub fn sort_artifacts_by_page(session: &mut PaperSession) -> bool {
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let anchored: Vec<&Artifact> = parsed
+        .artifacts
+        .iter()
+        .filter(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).is_some())
+        .collect();
+    if anchored.len() < 2 {
+        return false;
+    }
+    let spans: Vec<std::ops::Range<usize>> = anchored.iter().map(|a| block_span(&md, a)).collect();
+    let pages: Vec<u32> = anchored
+        .iter()
+        .map(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).unwrap_or(0))
+        .collect();
+    if pages.windows(2).all(|w| w[0] <= w[1]) {
+        return false; // already in order
+    }
+    if spans.windows(2).any(|w| w[0].end > w[1].start) {
+        return false; // nested/overlapping blocks — leave well alone
+    }
+
+    let lines: Vec<&str> = md.lines().collect();
+    let blocks: Vec<String> = spans.iter().map(|r| lines[r.clone()].join("\n")).collect();
+    let mut order: Vec<usize> = (0..spans.len()).collect();
+    order.sort_by_key(|&i| pages[i]); // stable
+
+    let mut out = String::new();
+    let mut line = 0usize;
+    let mut slot = 0usize;
+    while line < lines.len() {
+        if slot < spans.len() && line == spans[slot].start {
+            out.push_str(&blocks[order[slot]]);
+            out.push('\n');
+            line = spans[slot].end;
+            slot += 1;
+            continue;
+        }
+        out.push_str(lines[line]);
+        out.push('\n');
+        line += 1;
+    }
+    session.set_markdown(out);
+    true
+}
+
+/// Splice `block` into `md` immediately before 0-based line `at`, separated
+/// by a blank line, keeping every other line verbatim.
+fn insert_lines_before(md: &str, at: usize, block: &str) -> String {
+    let lines: Vec<&str> = md.lines().collect();
+    let at = at.min(lines.len());
+    let mut out = String::new();
+    for line in &lines[..at] {
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str(block.trim_end());
+    out.push_str("\n\n");
+    for line in lines.iter().skip(at) {
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
 }
 
 /// Replace the **body** (everything after the metadata fence) of the
@@ -409,6 +514,79 @@ mod tests {
         assert!(!md.contains("first draft of the note"));
         assert!(md.contains(&format!("id = \"{}\"", art.id())), "the [kovan] block survives");
         assert_eq!(session.markdown().lines().count(), before_lines, "no lines added/removed");
+    }
+
+    /// Maintainer, 2026-09-02: "when saving annotations, i want them auto
+    /// organised by page number. Not saved one after another."
+    #[test]
+    fn artifacts_are_inserted_in_page_order_not_appended() {
+        let (_dir, mut session) = open_session();
+        let insert = |session: &mut PaperSession, name: &str, page: u32| {
+            let index = ResearchRecordIndex::from_session(session);
+            insert_artifact(
+                session,
+                &index,
+                name,
+                ArtifactKind::Annotation,
+                Some(SourceAnchor { page: Some(page), pages: None, region: None }),
+                Classification::default(),
+                None,
+                "body",
+            )
+            .unwrap();
+        };
+        // Saved out of order, as an operator wandering the PDF would.
+        insert(&mut session, "Note E", 5);
+        insert(&mut session, "Note A", 1);
+        insert(&mut session, "Note C", 3);
+        insert(&mut session, "Note A2", 1);
+
+        let pages: Vec<u32> = ResearchRecordIndex::from_session(&session)
+            .artifacts()
+            .iter()
+            .filter_map(|a| a.toml.source.as_ref().and_then(|s| s.first_page()))
+            .collect();
+        assert_eq!(pages, vec![1, 1, 3, 5], "document order follows page order");
+
+        // Same-page blocks keep the order they were saved in.
+        let headings: Vec<String> =
+            ResearchRecordIndex::from_session(&session).artifacts().iter().map(|a| a.heading.clone()).collect();
+        assert_eq!(headings, vec!["Note A", "Note A2", "Note C", "Note E"]);
+    }
+
+    /// Maintainer, 2026-09-02: "if the annotations are disordered, order
+    /// them when opening them."
+    #[test]
+    fn sort_artifacts_by_page_tidies_a_disordered_document_and_keeps_the_rest() {
+        let (_dir, mut session) = open_session();
+        // Build a deliberately out-of-order document by hand, with a
+        // non-artifact section in the middle that must not move.
+        let md = format!(
+            "# Paper\n\n{}\n## Summary\n\nprose that must stay put.\n\n{}\n{}\n",
+            block("note-e", 5, "Note E"),
+            block("note-a", 1, "Note A"),
+            block("note-c", 3, "Note C"),
+        );
+        session.set_markdown(md);
+
+        assert!(sort_artifacts_by_page(&mut session));
+        let out = session.markdown().to_string();
+        let pages: Vec<u32> = ResearchRecordIndex::from_session(&session)
+            .artifacts()
+            .iter()
+            .filter_map(|a| a.toml.source.as_ref().and_then(|s| s.first_page()))
+            .collect();
+        assert_eq!(pages, vec![1, 3, 5], "{out}");
+        assert!(out.contains("prose that must stay put."), "{out}");
+        assert!(out.contains("## Summary"), "{out}");
+        // Idempotent.
+        assert!(!sort_artifacts_by_page(&mut session));
+    }
+
+    fn block(id: &str, page: u32, heading: &str) -> String {
+        format!(
+            "## {heading}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = {page}\n```\n\nbody of {heading}\n"
+        )
     }
 
     #[test]
