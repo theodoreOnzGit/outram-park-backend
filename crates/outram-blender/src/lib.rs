@@ -82,6 +82,8 @@
 //! | [`knife`] | `editmesh_knife.cc` | **real** — split faces along a path of boundary-point chords (edge-split / vertex); polyline→chord resolver is follow-up (GH issue #37 §B) |
 //! | [`slide`] | `transform_mode_edge_slide.cc` / `_vert_slide.cc` | **real** — position-only edge-loop / vertex slide along rail edges, consistent side propagation (GH issue #37 §B) |
 //! | [`subdivide`] | `bmo_subdivide.cc` | **real** — N-cut subdivide (quad grid / tri lattice / n-gon fan) with smoothness + deterministic fractal; un-subdivide halves a quad grid (GH issue #37 §B) |
+//! | [`bevel`] | `bmesh_bevel.cc` | **real** — multi-segment rounded edge bevel over [`edge_bevel`]: `segments`, `profile`, `WidthType` (offset/width/depth/percent), clamp-overlap; corner fan-filled (rounded corner patch + selected-subset are follow-up) (GH issue #37 §B) |
+//! | [`extrude`] | `bmo_extrude.cc` / `editmesh_extrude.cc` | **real** — extrude individual faces (own normal), region along averaged normals, vertices, manifold; complements [`ops`]'s region/edge extrude (GH issue #37 §B) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -144,6 +146,7 @@
 
 pub mod arap;
 pub mod bisect;
+pub mod bevel;
 pub mod boolean;
 pub mod boolean_classify;
 pub mod boolean_general;
@@ -165,6 +168,7 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+pub mod extrude;
 pub mod fill_holes;
 pub mod inset;
 pub mod knife;
