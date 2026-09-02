@@ -105,6 +105,8 @@
 //! | [`remesh`] | mesh_remesh_voxel.cc / MOD_mesh_to_volume | **real** — VoxelGrid occupancy, mesh_to_volume (ray-parity raster), volume_to_mesh (blocky isosurface), voxel_remesh (+ smoothing) (GH issue #37 §F) |
 //! | [`deform`] | MOD_simpledeform / MOD_cast / MOD_displace / MOD_warp / MOD_wave | **real** — simple_deform (twist/bend/taper/stretch), cast (sphere/cyl/cuboid), displace (value noise), warp (segment map), wave (GH issue #37 §F) |
 //! | [`deform2`] | MOD_curve / MOD_lattice / MOD_hook / MOD_shrinkwrap / MOD_surfacedeform | **real** — curve_deform (arc-length ride), Lattice + lattice_deform (trilinear FFD), hook (falloff drag), shrinkwrap (3 modes), bind_to_surface + surface_deform, laplacian_deform -> arap (GH issue #37 §F) |
+//! | [`curve`] | BKE_curve / curve_to_mesh | **real** — Spline (poly / Bézier / NURBS de-Boor), ControlPoint (handle types, radius, tilt, weight), recalculate_handles, cyclic, sample + sample_with_frames (parallel-transport + tilt) (GH issue #37 §G) |
+//! | [`curve_surface`] | curve_to_mesh.cc / displist.cc | **real** — Bevel (round / custom profile / none), taper spline, 2-D fill (ear clip), end caps; sweep a section along the spline frames (GH issue #37 §G) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -176,6 +178,8 @@ pub mod boolean_predicates;
 pub mod bridge;
 pub mod connect;
 pub mod convex_hull;
+pub mod curve;
+pub mod curve_surface;
 pub mod cursor_pivot;
 pub mod deform;
 pub mod deform2;
