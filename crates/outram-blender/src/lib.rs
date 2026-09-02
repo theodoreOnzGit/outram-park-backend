@@ -92,6 +92,8 @@
 //! | [`connect`] | `bmo_connect.cc` | **real** — connect vertex path / pairs (J) via knife face-chord splits (GH issue #37 §B) |
 //! | [`poke_quads`] | `bmo_poke.cc` / `bmo_join_triangles.cc` | **real** — poke faces (centroid fan + offset), triangulate quads by method, tris↔quads join (GH issue #37 §B) |
 //! | [`edge_tools`] | `bmo_rotate_edges.cc` / mesh_edge_flow / `MOD_edgesplit.cc` | **real** — rotate edge CW/CCW, set edge flow (loop relax), edge split operator (GH issue #37 §B) |
+//! | [`transform_ops`] | `transform_mode_*.cc` | **real** — to-sphere / shear / bend / warp / push-pull / shrink-fatten / randomize / smooth-verts, position-only over a selection (GH issue #37 §C) |
+//! | [`proportional`] | `transform_proportional_*` | **real** — proportional-edit falloff (smooth/sphere/root/inv-sq/sharp/linear/constant/random), Euclidean or connected-only distance (GH issue #37 §C) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -198,6 +200,7 @@ pub mod poke_quads;
 pub mod primitives;
 pub mod procedural;
 pub mod reactor;
+pub mod proportional;
 pub mod recalc_normals;
 pub mod rip_split;
 pub mod revolve;
@@ -209,6 +212,7 @@ pub mod subdivide;
 pub mod subdivision;
 pub mod topology;
 pub mod transform;
+pub mod transform_ops;
 pub mod triangulate;
 pub mod weld;
 
