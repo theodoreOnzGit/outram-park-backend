@@ -62,6 +62,7 @@ const LINE_SPACING: f32 = 1.35;
 /// queries (§29/§30, `op-9vo6.16`) — the library, not this widget, is what
 /// enumerates candidates; this struct just carries the two things that
 /// enumeration needs.
+#[derive(Clone, Copy)]
 pub struct CompletionSource<'a> {
     pub root: &'a KovanRoot,
     pub index: &'a KnowledgeIndex,
@@ -125,6 +126,14 @@ pub struct KvimEditorState {
     /// snapping back (op-j178: the PDF reader's page-context panel jumping
     /// to an artifact's heading).
     pending_scroll_to_line: Option<usize>,
+    /// 0-based, end-exclusive line ranges painted with a faint band — every
+    /// block anchored to the PDF reader's current page (op-j178: the
+    /// page-context panel's read-only preview marks what is double-clickable).
+    /// Persistent; the caller re-sets it each frame.
+    anchor_bands: Vec<std::ops::Range<usize>>,
+    /// A single stronger band for the block currently hovered on the page
+    /// canvas (op-4x5s). Persistent; set/cleared by the caller per frame.
+    hover_band: Option<std::ops::Range<usize>>,
 }
 
 impl Default for KvimEditorState {
@@ -135,6 +144,8 @@ impl Default for KvimEditorState {
             dragging: false,
             text_area_origin: Pos2::ZERO,
             pending_scroll_to_line: None,
+            anchor_bands: Vec::new(),
+            hover_band: None,
         }
     }
 }
@@ -175,6 +186,37 @@ impl KvimEditorState {
         self.text() != self.loaded_text
     }
 
+    /// Reload `text` as the buffer content **only if the buffer has no
+    /// unsaved edits** (`!is_modified()`) and it actually differs from what
+    /// is loaded. Returns whether a reload happened.
+    ///
+    /// This is how an embedded editor stays live while other flows (a PDF
+    /// annotation save, a digitiser CSV save — see
+    /// [`crate::app`]) append to the very same document: the caller hands
+    /// this the session's current Markdown every frame, and it swaps it in
+    /// whenever the operator is not mid-edit, never clobbering typing in
+    /// progress.
+    pub fn sync_to_disk_text(&mut self, text: &str) -> bool {
+        if self.loaded_text == text || self.is_modified() {
+            return false;
+        }
+        self.load_text(text);
+        true
+    }
+
+    /// The faint bands behind every block anchored to the reader's current
+    /// page — re-set each frame by the page-context panel (op-j178). Painted
+    /// only in the read-only preview ([`Self::ui_readonly`]).
+    pub fn set_anchor_bands(&mut self, bands: Vec<std::ops::Range<usize>>) {
+        self.anchor_bands = bands;
+    }
+
+    /// The single stronger band for the block currently hovered on the page
+    /// canvas (op-4x5s). Re-set each frame; `None` clears it.
+    pub fn set_hover_band(&mut self, band: Option<std::ops::Range<usize>>) {
+        self.hover_band = band;
+    }
+
     /// Draw the editor and process this frame's input for it. `ui`'s
     /// available space is fully claimed by a scrollable text area plus a
     /// one-line mode/status bar. `completion`, when given, enables §29/§30's
@@ -192,12 +234,30 @@ impl KvimEditorState {
         ui.separator();
 
         egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-            self.text_area(ui);
+            self.text_area(ui, false);
         });
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
         }
+    }
+
+    /// Draw the buffer **read-only** — the page-context panel's markdown
+    /// preview (op-j178/GH issue #35 2026-09-02: "don't allow me to edit it
+    /// directly"). No key input, no click-to-insert; a click still positions
+    /// the cursor and a **double-click** returns that line (0-based) so the
+    /// caller can open the right per-block editor. Paints the anchor/hover
+    /// bands. `jump_to_line` still works.
+    pub fn ui_readonly(&mut self, ui: &mut egui::Ui) -> Option<usize> {
+        ui.horizontal(|ui| {
+            ui.weak("preview — double-click a highlighted block to edit");
+        });
+        ui.separator();
+        let mut clicked_line = None;
+        egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
+            clicked_line = self.text_area(ui, true);
+        });
+        clicked_line
     }
 
     /// §29/§30: while in Insert mode, detect a `@`/`[[` trigger on the
@@ -268,7 +328,12 @@ impl KvimEditorState {
         }
     }
 
-    fn text_area(&mut self, ui: &mut egui::Ui) {
+    /// Draw and interact with the buffer. In `read_only` mode no edit
+    /// happens — a click just positions the cursor, and a **double-click**
+    /// returns its 0-based line so [`Self::ui_readonly`]'s caller can open a
+    /// per-block editor. Returns `None` otherwise (and always, when
+    /// editable).
+    fn text_area(&mut self, ui: &mut egui::Ui, read_only: bool) -> Option<usize> {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
         let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
@@ -285,16 +350,30 @@ impl KvimEditorState {
             ui.scroll_to_rect(target, Some(egui::Align::Center));
         }
 
-        if response.clicked() || response.drag_started() {
-            response.request_focus();
-        }
-
         let to_position = |pointer: Pos2| -> Position {
             let rel = pointer - rect.min;
             let line = (rel.y / line_height).max(0.0) as usize;
             let col = (rel.x / char_width).round().max(0.0) as usize;
             self.editor.buffer().clamp(Position::new(line, col))
         };
+
+        if read_only {
+            let mut double_clicked_line = None;
+            if let Some(p) = response.interact_pointer_pos() {
+                if response.double_clicked() {
+                    double_clicked_line = Some(to_position(p).line);
+                } else if response.clicked() {
+                    let pos = to_position(p);
+                    self.editor.move_cursor(pos);
+                }
+            }
+            self.paint(ui, rect, char_width, line_height, line_count, &response);
+            return double_clicked_line;
+        }
+
+        if response.clicked() || response.drag_started() {
+            response.request_focus();
+        }
 
         if response.drag_started() {
             if let Some(pointer) = response.interact_pointer_pos() {
@@ -336,7 +415,36 @@ impl KvimEditorState {
             }
         }
 
+        self.paint(ui, rect, char_width, line_height, line_count, &response);
+        None
+    }
+
+    /// Paint the bands, selection, text and cursor into `rect`. Shared by
+    /// the editable and read-only [`Self::text_area`] paths.
+    #[allow(clippy::too_many_arguments)]
+    fn paint(
+        &self,
+        ui: &egui::Ui,
+        rect: Rect,
+        char_width: f32,
+        line_height: f32,
+        line_count: usize,
+        response: &egui::Response,
+    ) {
+        let font = FontId::monospace(CHAR_SIZE);
         let painter = ui.painter_at(rect);
+
+        let band = |range: &std::ops::Range<usize>, fill: Color32| {
+            let y0 = rect.min.y + range.start as f32 * line_height;
+            let y1 = rect.min.y + range.end.max(range.start + 1) as f32 * line_height;
+            painter.rect_filled(Rect::from_min_max(Pos2::new(rect.min.x, y0), Pos2::new(rect.max.x, y1)), 0.0, fill);
+        };
+        for range in &self.anchor_bands {
+            band(range, Color32::from_rgba_unmultiplied(255, 230, 60, 16));
+        }
+        if let Some(range) = &self.hover_band {
+            band(range, Color32::from_rgba_unmultiplied(255, 230, 60, 48));
+        }
 
         if let Some((from, to)) = self.editor.selection() {
             let (start, end) = if (from.line, from.col) <= (to.line, to.col) { (from, to) } else { (to, from) };
@@ -469,6 +577,27 @@ mod tests {
         state.editor.handle_key(KvimKey::char('X')).unwrap();
         assert!(state.text().starts_with('X'));
         assert!(state.is_modified());
+    }
+
+    #[test]
+    fn sync_to_disk_text_reloads_a_clean_buffer_but_never_a_dirty_one() {
+        let mut state = KvimEditorState::default();
+        state.load_text("original\n");
+
+        // Clean buffer: an external change is pulled in.
+        assert!(state.sync_to_disk_text("external change\n"));
+        assert_eq!(state.text(), "external change\n");
+        assert!(!state.is_modified());
+
+        // Already in sync: no-op.
+        assert!(!state.sync_to_disk_text("external change\n"));
+
+        // Dirty buffer: the external change is refused, edits kept.
+        state.editor.handle_key(KvimKey::char('i')).unwrap();
+        state.editor.handle_key(KvimKey::char('Z')).unwrap();
+        assert!(state.is_modified());
+        assert!(!state.sync_to_disk_text("something else\n"));
+        assert!(state.text().starts_with('Z'));
     }
 
     #[test]

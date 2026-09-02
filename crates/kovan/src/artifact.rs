@@ -522,6 +522,29 @@ pub fn render_artifact_block(level: u8, heading: &str, payload: &ArtifactToml, b
     Ok(out)
 }
 
+/// The 0-based, end-exclusive line range of `artifact`'s whole Markdown
+/// block in `md` — its heading line through everything up to (but not
+/// including) the next Markdown heading of depth `<= artifact.level`, or the
+/// end of the document.
+///
+/// This is the span [`render_artifact_block`]'s output occupies once
+/// inserted, so it is what an in-place edit (`crate::classify::
+/// replace_artifact_body`) and a "which block is this line in?" hit test
+/// operate on.
+pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
+    let start = artifact.line.saturating_sub(1);
+    let lines: Vec<&str> = md.lines().collect();
+    let mut end = lines.len();
+    for (i, line) in lines.iter().enumerate().skip(start + 1) {
+        let hashes = line.chars().take_while(|c| *c == '#').count();
+        if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ') {
+            end = i;
+            break;
+        }
+    }
+    start..end
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -925,6 +948,24 @@ modified = "m"
     fn an_empty_document_yields_nothing_and_does_not_panic() {
         assert_eq!(parse_document(""), ParsedDocument::default());
         assert_eq!(parse_document("# Just a title\n\nprose only\n"), ParsedDocument::default());
+    }
+
+    #[test]
+    fn block_span_covers_the_heading_through_the_body() {
+        let md = "# Paper\n\n## First\n\n```toml\n[kovan]\nid = \"first\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nbody one\n\n## Second\n\nbody two\n";
+        let doc = parse_document(md);
+        let a = doc.get("first").unwrap();
+        let span = block_span(md, a);
+        assert_eq!(span.start, a.line - 1);
+        assert_eq!(md.lines().nth(span.end), Some("## Second"));
+    }
+
+    #[test]
+    fn block_span_of_the_last_block_runs_to_eof() {
+        let md = "# Paper\n\n## Only\n\n```toml\n[kovan]\nid = \"only\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\ntail\n";
+        let doc = parse_document(md);
+        let a = doc.get("only").unwrap();
+        assert_eq!(block_span(md, a).end, md.lines().count());
     }
 
     #[test]

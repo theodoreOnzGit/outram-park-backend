@@ -222,6 +222,31 @@ struct ActivePaper {
     pdf_unavailable: bool,
 }
 
+/// Modification times of the repo files a Kovan save writes — the active
+/// paper's Markdown and the library `.bib`. `DigitiseApp` captures this
+/// once per frame and, when it changes, marks the Save Repository tab's git
+/// status stale so it re-scans on its next draw (GH issue #35 2026-09-02:
+/// "on every save, git status should be auto-run for the Save Repository
+/// tab"). Watching the files rather than threading a signal out of every
+/// save site keeps the four Markdown-writing paths (Save Document,
+/// annotation save, inline block edit, digitiser CSV) and the `.bib` editor
+/// covered from one place, and also catches an external edit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct RepoSaveFingerprint {
+    paper_md: Option<std::time::SystemTime>,
+    bib: Option<std::time::SystemTime>,
+}
+
+impl RepoSaveFingerprint {
+    fn capture(root: &crate::root::KovanRoot, active: Option<&ActivePaper>) -> Self {
+        let mtime = |p: &std::path::Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+        Self {
+            paper_md: active.and_then(|a| mtime(a.session.markdown_path())),
+            bib: mtime(&root.bibliography_path()),
+        }
+    }
+}
+
 /// The library's derived knowledge state, shared by every view that reads
 /// it (op-dkll, GH issue #35's 2026-09-01 checkpoint §8: "Wiki and Mindmap
 /// should not behave as independent databases... avoid separately loading
@@ -276,6 +301,12 @@ pub struct DigitiseApp {
     bibliography: BibliographyState,
     // table digitiser (op-hnhp)
     table_digitiser: TableDigitiserState,
+    /// Modification fingerprint of the repo files a save writes (the active
+    /// paper's Markdown + the `.bib`), watched once per frame so the Save
+    /// Repository tab's git status auto-refreshes after any Save Document /
+    /// annotation / CSV / `.bib` save (GH issue #35 2026-09-02). `None`
+    /// until the first frame with a root open.
+    repo_save_fingerprint: Option<RepoSaveFingerprint>,
     // image
     image_path: String,
     raster: Option<PlotRaster>,
@@ -390,6 +421,7 @@ impl Default for DigitiseApp {
             pdf_reader: PdfReaderState::new(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),
+            repo_save_fingerprint: None,
             image_path: String::new(),
             raster: None,
             texture: None,
@@ -1063,36 +1095,55 @@ impl DigitiseApp {
             return;
         };
         let title = self.figure.trim();
-        let title = if title.is_empty() { "Digitised graph" } else { title };
-        let mut block = format!("### {title}");
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n```csv\n");
-        block.push_str(&d.to_csv_string());
-        block.push_str("```\n");
+        let title = if title.is_empty() { "Digitised graph" } else { title }.to_string();
+        let csv_body = format!("```csv\n{}```\n", d.to_csv_string());
 
+        // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
+        // artifact (so the page-context panel can re-open it), replacing the
+        // source block in place on a re-digitise.
         if let Some(active) = self.active_paper.as_mut() {
-            active.session.append_block(&block);
-            match active.session.save_document() {
-                Ok(()) => {
-                    let citekey = active.session.citekey().to_string();
-                    self.set_status(format!("saved into {citekey}'s notes"));
-                }
-                Err(e) => self.set_error(e.to_string()),
+            let prov = self.crop_provenance.clone();
+            let anchor = prov.as_ref().map(|p| crate::artifact::SourceAnchor {
+                page: Some((p.page_index + 1) as u32),
+                pages: None,
+                region: p.region(),
+            });
+            let replace_id = prov.as_ref().and_then(|p| p.source_artifact_id.clone());
+            let citekey = active.session.citekey().to_string();
+            let result: Result<String, String> = crate::classify::save_digitised_csv(
+                &mut active.session,
+                crate::artifact::ArtifactKind::DigitisedGraph,
+                &title,
+                anchor,
+                None,
+                replace_id.as_deref(),
+                &csv_body,
+            )
+            .map_err(|e| e.to_string())
+            .and_then(|_| {
+                active
+                    .session
+                    .save_document()
+                    .map(|()| format!("saved into {citekey}'s notes"))
+                    .map_err(|e| e.to_string())
+            });
+            match result {
+                Ok(m) => self.set_status(m),
+                Err(e) => self.set_error(e),
             }
             return;
         }
 
+        // --- no active paper: the legacy plain-text section path ---
+        let mut block = format!("### {title}");
+        if let Some(prov) = &self.crop_provenance {
+            block.push_str(&format!(
+                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
+                prov.page_index + 1, prov.min.x, prov.min.y, prov.max.x, prov.max.y, prov.created_at, prov.author
+            ));
+        }
+        block.push_str("\n\n");
+        block.push_str(&csv_body);
         if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
             self.set_error("set the project root and markdown path first");
             return;
@@ -1988,21 +2039,31 @@ impl eframe::App for DigitiseApp {
             View::PdfReader => {
                 let mut open_clicked = false;
                 let mut crop_result = None;
-                let mut context_action = None;
+                // op-j178 / GH issue #35 2026-09-02: the page-context panel
+                // renders the *shared* kvim editor (same buffer as the Kvim
+                // Editor view) in place, with citation/wiki completion.
+                let root = self.home.root().cloned();
                 egui::CentralPanel::default().show(ui, |ui| {
                     // op-q1qj: the active paper's session (if any) so the
                     // reader saves annotations straight into it instead of
                     // asking for a project root/markdown path.
                     let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
-                    (crop_result, context_action) = self.pdf_reader.ui(ui, || open_clicked = true, active_session);
+                    let completion = match (&root, self.workspace.as_ref()) {
+                        (Some(root), Some(workspace)) => {
+                            Some(kvim_editor::CompletionSource { root, index: &workspace.index })
+                        }
+                        _ => None,
+                    };
+                    crop_result = self.pdf_reader.ui(
+                        ui,
+                        || open_clicked = true,
+                        active_session,
+                        &mut self.kvim_editor,
+                        completion,
+                    );
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
-                }
-                // op-j178: the page-context panel jumped to an artifact.
-                if let Some(pdf_reader::ContextPanelAction::JumpToLine(line)) = context_action {
-                    self.kvim_editor.jump_to_line(line);
-                    self.view = View::KvimEditor;
                 }
                 // op-p17q/op-hnhp: the reader just completed a
                 // crop-then-right-click gesture — load the cropped region
@@ -2119,6 +2180,27 @@ impl eframe::App for DigitiseApp {
                 }
             }
         }
+
+        // GH issue #35 2026-09-02: keep the shared kvim editor live with
+        // the active paper's Markdown whichever flow just changed it — a
+        // PDF annotation save, a digitiser-graph or table CSV save
+        // (`save_into_project`), or an inline block edit. `sync_to_disk_text`
+        // is a no-op when the buffer has unsaved edits or is already in
+        // sync, so this never clobbers typing in progress.
+        if let Some(active) = &self.active_paper {
+            self.kvim_editor.sync_to_disk_text(active.session.markdown());
+        }
+
+        // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
+        // auto-refresh the Save Repository tab's git status (it otherwise
+        // only re-scans on first open or an explicit Refresh click).
+        if let Some(root) = self.home.root() {
+            let fp = RepoSaveFingerprint::capture(root, self.active_paper.as_ref());
+            if self.repo_save_fingerprint.is_some_and(|prev| prev != fp) {
+                self.advanced_git.mark_stale();
+            }
+            self.repo_save_fingerprint = Some(fp);
+        }
     }
 }
 
@@ -2163,6 +2245,30 @@ mod tests {
             IngestChoice { citekey: citekey.clone(), access, topics: vec!["htgrs".to_string()], projects: vec![] };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey
+    }
+
+    /// GH issue #35 2026-09-02: writing the active paper's Markdown changes
+    /// the fingerprint the frame loop watches, which is what marks the Save
+    /// Repository tab's git status stale.
+    #[test]
+    fn repo_save_fingerprint_changes_when_the_paper_markdown_is_written() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Fingerprint Paper", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+
+        let before = RepoSaveFingerprint::capture(&root, app.active_paper.as_ref());
+
+        // A Save Document.
+        let active = app.active_paper.as_mut().unwrap();
+        active.session.set_markdown(format!("{}\n\n## New\n\nbody\n", active.session.markdown()));
+        // Ensure the mtime resolution actually ticks.
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        active.session.save_document().unwrap();
+
+        let after = RepoSaveFingerprint::capture(&root, app.active_paper.as_ref());
+        assert_ne!(before, after, "a Save Document must move the fingerprint");
     }
 
     /// GH issue #35's 2026-09-01 "unify root and active-paper context"
@@ -2423,9 +2529,11 @@ mod tests {
             page_index: 6, // page 7, 0-based
             min: Pos2::ZERO,
             max: Pos2::new(1.0, 1.0),
+            page_px: [1.0, 1.0],
             created_at: "2026-09-02T00:00:00Z".to_string(),
             author: "tester".to_string(),
             figure: "Figure 4".to_string(),
+            source_artifact_id: None,
         };
         app.load_image_from_raster(raster, Some(provenance));
 
@@ -2448,9 +2556,11 @@ mod tests {
             page_index: 0,
             min: Pos2::ZERO,
             max: Pos2::new(1.0, 1.0),
+            page_px: [1.0, 1.0],
             created_at: "2026-09-02T00:00:00Z".to_string(),
             author: "tester".to_string(),
             figure: String::new(),
+            source_artifact_id: None,
         };
         app.load_image_from_raster(raster, Some(provenance));
 

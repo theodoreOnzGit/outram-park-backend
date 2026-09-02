@@ -100,13 +100,16 @@ use kopitiam_pdf::gui_frontend::{
 };
 use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
 
-use crate::artifact::{Artifact, ArtifactKind};
+use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
+use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
+use crate::entity::Classification;
 use crate::project;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
+use super::kvim_editor::{CompletionSource, KvimEditorState};
 
 /// Screen-resolution DPI for [`ViewMode::Annotate`]'s single-page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
@@ -229,6 +232,12 @@ pub struct CropProvenance {
     pub page_index: usize,
     pub min: Pos2,
     pub max: Pos2,
+    /// The page's pixel size at `RENDER_DPI` when the crop was taken — so a
+    /// digitiser save can normalise `min`/`max` into a [`Region`] for the
+    /// artifact's `[source]` (GH issue #35 2026-09-02: "back to the
+    /// digitiser" needs the region recorded). `[0.0, 0.0]` when unknown
+    /// (no texture at crop time) — then [`Self::region`] is `None`.
+    pub page_px: [f32; 2],
     pub created_at: String,
     pub author: String,
     /// The figure's own identifier/caption in the source document (e.g.
@@ -236,6 +245,36 @@ pub struct CropProvenance {
     /// (`op-8ci2`) — empty for a "Read table" crop, which has no equivalent
     /// prompt in this pass.
     pub figure: String,
+    /// Set only when this crop *re-crops* an already-saved digitised
+    /// artifact's region (the page-context panel's double-click-to-reopen):
+    /// the digitiser's "save into notes" then **replaces** that block
+    /// instead of appending a duplicate.
+    pub source_artifact_id: Option<String>,
+}
+
+impl CropProvenance {
+    /// The crop rectangle as a normalised, validated [`Region`] — `None` if
+    /// the page size was not captured or the rectangle is degenerate.
+    pub fn region(&self) -> Option<Region> {
+        let [w, h] = self.page_px;
+        normalise_region(self.min, self.max, w, h)
+    }
+}
+
+/// A pixel rectangle on a page of size `w` × `h`, as a normalised, validated
+/// [`Region`] (§15: fractions of the page, origin top-left). `None` for a
+/// degenerate page size or a zero-area / out-of-range rectangle.
+pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<Region> {
+    if w <= 0.0 || h <= 0.0 {
+        return None;
+    }
+    let r = Region {
+        x0: (min.x.min(max.x) / w) as f64,
+        y0: (min.y.min(max.y) / h) as f64,
+        x1: (min.x.max(max.x) / w) as f64,
+        y1: (min.y.max(max.y) / h) as f64,
+    };
+    r.is_valid().then_some(r)
 }
 
 /// An in-progress "Digitise graph" crop (`op-8ci2`) waiting on the figure
@@ -257,19 +296,6 @@ pub enum CropResult {
     Table(PlotRaster, CropProvenance),
 }
 
-/// What clicking an artifact in the page-context panel produced (op-j178,
-/// GH issue #35 2026-09-01 05:37: "there should be a markdown editor in
-/// there with the various blocks... these should be individually clickable
-/// and editable. CSV... editable only through the digitiser UI"). A
-/// digitised table/graph artifact has no `JumpToLine` counterpart —
-/// `context_panel` never makes one clickable, since there is no data path
-/// (yet) to reopen its already-extracted CSV as a live, re-editable
-/// digitiser session; see that method's doc for why.
-pub enum ContextPanelAction {
-    /// Jump to this artifact's heading in the paper's markdown, in the kvim
-    /// editor — [`Artifact::line`], 1-based.
-    JumpToLine(usize),
-}
 
 /// State for one open document: its source (embedded [`PdfReader`] or a
 /// plain image), which mode is showing, [`ViewMode::Annotate`]'s own page/
@@ -339,6 +365,24 @@ pub struct PdfReaderState {
     /// rendered entry, `Err` a human-readable failure. `None` before the
     /// button has ever been pressed for the currently open PDF.
     bibtex: Option<Result<String, String>>,
+    /// The page the embedded page-context editor was last auto-scrolled to
+    /// this paper's blocks for (op-j178 / GH issue #35 2026-09-02) — so the
+    /// one-shot `jump_to_line` fires on an actual page change, not every
+    /// frame. `None` until the first sync.
+    context_page_synced: Option<usize>,
+    /// A single reusable kvim editor for **inline per-block editing** in the
+    /// page-context panel (op-j178: "text/annotation blocks editable
+    /// inline"). Only ever holds one block at a time — you edit one block,
+    /// Save or Cancel, then the next. `editing_block_id` says which artifact
+    /// (by stable id) it currently holds, or `None` when no block is open.
+    block_editor: KvimEditorState,
+    editing_block_id: Option<String>,
+    /// The stable id of the anchored-artifact card the pointer is hovering
+    /// in the page-context panel, if any — the canvas overlay reads it to
+    /// highlight that artifact's `region` box (op-4x5s, panel → canvas
+    /// direction). One frame behind, same as `hover_created_at` the other
+    /// way.
+    panel_hover_id: Option<String>,
 }
 
 /// Build an egui [`ColorImage`] from a [`PlotRaster`] by reading every pixel
@@ -436,6 +480,41 @@ fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
     blocks
 }
 
+/// A short read-only preview of an artifact body for the page-context
+/// panel — the first few non-empty lines, capped, with an ellipsis when
+/// there is more.
+fn body_preview(body: &str) -> String {
+    const MAX_LINES: usize = 4;
+    const MAX_CHARS: usize = 280;
+    let body = body.trim();
+    let head = body.lines().take(MAX_LINES).collect::<Vec<_>>().join("\n");
+    let truncated: String = head.chars().take(MAX_CHARS).collect();
+    if truncated.len() < body.len() {
+        format!("{truncated}…")
+    } else {
+        truncated
+    }
+}
+
+/// 1-based line of the first `#`-prefixed heading in `md` whose block (up
+/// to the next heading) mentions `page` — the `page: N` / `page N,` markers
+/// [`PdfReaderState::save_annotations_into_project`]'s legacy path emitted,
+/// kept so pre-artifact `### annotation` notes still auto-scroll. `None`
+/// when nothing on the page is written as plain text.
+fn first_note_heading_line(md: &str, page: usize) -> Option<usize> {
+    let marker_a = format!("page: {}", page + 1);
+    let marker_b = format!("page {},", page + 1);
+    let mut heading_line: Option<usize> = None;
+    for (i, line) in md.lines().enumerate() {
+        if line.starts_with('#') {
+            heading_line = Some(i + 1);
+        } else if (line.contains(&marker_a) || line.contains(&marker_b)) && heading_line.is_some() {
+            return heading_line;
+        }
+    }
+    None
+}
+
 impl PdfReaderState {
     /// A fresh reader — `Read` mode and hot-reload both **on** by default
     /// for a PDF (GitHub issue #30's explicit "hot reload by default in
@@ -472,6 +551,10 @@ impl PdfReaderState {
         self.stext_cache = None;
         self.select_start = None;
         self.text_selection = None;
+        self.hover_created_at = None;
+        self.panel_hover_id = None;
+        self.editing_block_id = None;
+        self.context_page_synced = None;
     }
 
     fn open_pdf(&mut self, path: &str) {
@@ -627,6 +710,75 @@ impl PdfReaderState {
         }
     }
 
+    /// Crop the **normalised `region`** of PDF page `page` (0-based) to a
+    /// standalone [`PlotRaster`], re-rasterising that page at `RENDER_DPI`.
+    /// Returns the raster plus the pixel-space `(min, max)` corners the
+    /// region resolved to, for the re-crop's [`CropProvenance`] (GH issue
+    /// #35 2026-09-02: "back to the digitiser" for a saved digitised block).
+    fn crop_region_of_page(&self, page: usize, region: Region) -> Result<(PlotRaster, Pos2, Pos2), String> {
+        let ReaderSource::Pdf(reader) = &self.source else {
+            return Err("no PDF open".to_string());
+        };
+        let pixmap =
+            rasterize_page(reader.document(), page, RENDER_DPI).map_err(|e| format!("page render failed: {e}"))?;
+        let (pw, ph, stride, n) = (pixmap.w, pixmap.h, pixmap.stride, pixmap.n as usize);
+        let samples = pixmap.samples;
+        let min = Pos2::new(region.x0 as f32 * pw as f32, region.y0 as f32 * ph as f32);
+        let max = Pos2::new(region.x1 as f32 * pw as f32, region.y1 as f32 * ph as f32);
+        let min_x = min.x.max(0.0) as u32;
+        let min_y = min.y.max(0.0) as u32;
+        let w = ((max.x - min.x).max(1.0) as u32).min(pw.saturating_sub(min_x)).max(1);
+        let h = ((max.y - min.y).max(1.0) as u32).min(ph.saturating_sub(min_y)).max(1);
+        let raster = PlotRaster::from_rgb_fn(w, h, move |x, y| {
+            let px = (min_x + x).min(pw.saturating_sub(1));
+            let py = (min_y + y).min(ph.saturating_sub(1));
+            let offset = py as usize * stride + px as usize * n;
+            [samples[offset], samples[offset + 1], samples[offset + 2]]
+        });
+        Ok((raster, min, max))
+    }
+
+    /// Re-open a saved digitised table/graph artifact in the matching
+    /// digitiser (GH issue #35 2026-09-02) — re-crop its `[source]` region
+    /// from the open PDF and return it as a [`CropResult`] the app already
+    /// knows how to route (`CropResult::Table` → table digitiser,
+    /// `::Plot` → graph digitiser). `None` when the artifact has no usable
+    /// region, or the crop fails. Marks the provenance with the artifact's
+    /// id so re-saving replaces the block instead of appending a duplicate.
+    fn recrop_artifact(&mut self, artifact: &Artifact) -> Option<CropResult> {
+        let anchor = artifact.toml.source.as_ref()?;
+        let region = anchor.region?;
+        let page = anchor.page?.saturating_sub(1) as usize;
+        match self.crop_region_of_page(page, region) {
+            Ok((raster, min, max)) => {
+                self.annotate_page = page;
+                self.texture = None;
+                // The re-digitise save goes through `replace_artifact_body`,
+                // which keeps the original `[source]` (region included), so
+                // `page_px`/`region()` are irrelevant here — only the id
+                // matters, to target the right block.
+                let prov = CropProvenance {
+                    page_index: page,
+                    min,
+                    max,
+                    page_px: [0.0, 0.0],
+                    created_at: utc_now_iso8601(),
+                    author: self.author_name(),
+                    figure: artifact.heading.clone(),
+                    source_artifact_id: Some(artifact.id().to_string()),
+                };
+                Some(match artifact.kind() {
+                    ArtifactKind::DigitisedTable => CropResult::Table(raster, prov),
+                    _ => CropResult::Plot(raster, prov),
+                })
+            }
+            Err(e) => {
+                self.message = format!("re-crop failed: {e}");
+                None
+            }
+        }
+    }
+
     fn author_name(&self) -> String {
         let t = self.author.trim();
         if t.is_empty() {
@@ -637,13 +789,23 @@ impl PdfReaderState {
     }
 
     fn make_provenance(&self, min: Pos2, max: Pos2, figure: impl Into<String>) -> CropProvenance {
+        let page_px = self
+            .texture
+            .as_ref()
+            .map(|t| {
+                let [w, h] = t.size();
+                [w as f32, h as f32]
+            })
+            .unwrap_or([0.0, 0.0]);
         CropProvenance {
             page_index: self.active_page(),
             min,
             max,
+            page_px,
             created_at: utc_now_iso8601(),
             author: self.author_name(),
             figure: figure.into(),
+            source_artifact_id: None,
         }
     }
 
@@ -695,53 +857,100 @@ impl PdfReaderState {
     }
 
     /// Append every not-yet-saved annotation on the active page into the
-    /// paper's own canonical Markdown (op-q1qj, GH issue #35 2026-09-01
-    /// 05:37: "project root isn't decided") — via
-    /// [`PaperSession::append_block`]/[`PaperSession::save_document`] when
-    /// `active_paper` is `Some` (the normal case: this reader is showing an
-    /// [`crate::app::DigitiseApp::activate_paper`]'d
-    /// paper's PDF), falling back to the older
-    /// [`crate::project::append_to_section`] path over the manual
-    /// `project_root`/`project_markdown_rel` fields only for a PDF opened
-    /// outside any paper. One `###` subsection per annotation, each stating
-    /// author/page/pixel-bbox per the design doc's §4.1 shape. Saves the
-    /// whole page's worth in one call rather than one call per annotation.
-    fn save_annotations_into_project(&mut self, active_paper: Option<&mut PaperSession>) {
+    /// paper's own canonical Markdown (op-q1qj), as real §13/§14
+    /// **fenced-TOML artifacts** (`kind = "annotation"`, `[source]` page +
+    /// normalised `region`) via [`classify::insert_artifact`] — so each one
+    /// shows up in the page-context artifact list, in
+    /// `ResearchRecordIndex::anchored_to_page`, and links the hover-highlight
+    /// the same way a digitiser artifact does.
+    ///
+    /// `context_editor` is the shared page-context / Kvim-editor buffer: any
+    /// unsaved edits in it are folded into the document first (so the reload
+    /// below does not lose them), and afterwards it is reloaded from the new
+    /// Markdown and scrolled to the first block just written.
+    ///
+    /// Falls back to the older plain-text [`crate::project::append_to_section`]
+    /// path over the manual `project_root`/`project_markdown_rel` fields only
+    /// for a PDF opened outside any paper.
+    fn save_annotations_into_project(
+        &mut self,
+        active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+    ) {
         let page = self.active_page();
-        let Some(anns) = self.annotations.get(&page) else {
+        let Some(anns) = self.annotations.get(&page).filter(|a| !a.is_empty()).cloned() else {
             self.message = "no annotations on this page to save".to_string();
             return;
         };
-        if anns.is_empty() {
-            self.message = "no annotations on this page to save".to_string();
+        let count = anns.len();
+        let tex_size = self.texture.as_ref().map(|t| t.size());
+
+        if let Some(session) = active_paper {
+            // Fold live panel edits in before we reload the buffer below.
+            if context_editor.is_modified() {
+                session.set_markdown(context_editor.text());
+            }
+
+            let mut first_id: Option<String> = None;
+            for ann in &anns {
+                let region =
+                    tex_size.and_then(|[w, h]| normalise_region(ann.min, ann.max, w as f32, h as f32));
+                let snippet: String = ann.text.split_whitespace().take(8).collect::<Vec<_>>().join(" ");
+                let heading = if snippet.is_empty() {
+                    format!("Annotation (p{})", page + 1)
+                } else {
+                    format!("Annotation (p{}) — {snippet}", page + 1)
+                };
+                let anchor = SourceAnchor { page: Some((page + 1) as u32), pages: None, region };
+                let index = crate::research_record::ResearchRecordIndex::from_session(session);
+                match classify::insert_artifact(
+                    session,
+                    &index,
+                    &heading,
+                    ArtifactKind::Annotation,
+                    Some(anchor),
+                    Classification::default(),
+                    None,
+                    &ann.text,
+                ) {
+                    Ok(a) => first_id.get_or_insert_with(|| a.id().to_string()),
+                    Err(e) => {
+                        self.message = format!("annotation save failed: {e}");
+                        return;
+                    }
+                };
+            }
+
+            match session.save_document() {
+                Ok(()) => {
+                    self.message = format!("saved {count} annotation(s) into {}", session.citekey());
+                    // Persisted — drop the in-memory overlay so the box is
+                    // not drawn twice (once as an overlay, once from the
+                    // artifact's own `region`).
+                    self.annotations.remove(&page);
+                    let md = session.markdown().to_string();
+                    context_editor.load_text(&md);
+                    if let Some(a) =
+                        first_id.and_then(|id| crate::artifact::parse_document(&md).get(&id).cloned())
+                    {
+                        context_editor.jump_to_line(a.line);
+                    }
+                    self.context_page_synced = Some(page);
+                }
+                Err(e) => self.message = e.to_string(),
+            }
             return;
         }
-        let count = anns.len();
+
+        // --- no active paper: the legacy plain-text section path ---
         let mut block = String::new();
-        for ann in anns {
+        for ann in &anns {
             block.push_str(&format!(
                 "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
-                ann.created_at,
-                ann.author,
-                page + 1,
-                ann.min.x,
-                ann.min.y,
-                ann.max.x,
-                ann.max.y,
-                ann.text
+                ann.created_at, ann.author, page + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
             ));
         }
         let block = block.trim_end();
-
-        if let Some(session) = active_paper {
-            session.append_block(block);
-            self.message = match session.save_document() {
-                Ok(()) => format!("saved {count} annotation(s) into {}", session.citekey()),
-                Err(e) => e.to_string(),
-            };
-            return;
-        }
-
         if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
             self.message = "set the project root and markdown path first".to_string();
             return;
@@ -830,60 +1039,193 @@ impl PdfReaderState {
         }
     }
 
-    /// The right "page context" panel (op-0y4k, op-j178). With an active
-    /// paper open (`active_artifacts` is `Some`), this lists the artifacts
-    /// — §14's fenced-TOML blocks — anchored to [`Self::active_page`],
-    /// via the same [`crate::research_record::ResearchRecordIndex::
-    /// anchored_to_page`] query §31 was built for ("when the PDF reader
-    /// shows page 87, these are what to highlight"): a text/annotation
-    /// artifact is a clickable link that jumps the kvim editor to its
-    /// heading ([`Artifact::line`]); a digitised table/graph artifact shows
-    /// its CSV read-only (never a clickable "edit this text" link — GH
-    /// issue #35 2026-09-01: "CSV... editable only through the digitiser
-    /// UI"). **Not a re-import path**: there is no way yet to reopen an
-    /// already-extracted CSV as a live, re-calibrated digitiser session —
-    /// the fenced-TOML artifact format's `[extraction]` table records only
-    /// `method`/`engine` strings, no pixel/calibration data (see
-    /// `crate::artifact::Extraction`) — so redoing one still means
-    /// re-digitising the figure from the PDF. Falls back to the old
-    /// disk-text `blocks_matching` preview over `project_root`/
-    /// `project_markdown_rel` when no paper is active (a PDF opened outside
-    /// any paper), unchanged from before this pass.
-    fn context_panel(&mut self, ui: &mut egui::Ui, active_artifacts: Option<&[Artifact]>) -> Option<ContextPanelAction> {
+    /// The right "page context" panel (op-0y4k, op-j178, GH issue #35
+    /// 2026-09-02). With an active paper open (`active_artifacts` is
+    /// `Some`), top to bottom:
+    ///
+    /// 1. **Anchored-block cards** — one per artifact
+    ///    [`crate::research_record::ResearchRecordIndex::anchored_to_page`]
+    ///    returns for [`Self::active_page`]; a CSV card also shows its
+    ///    `draw_csv_preview`. Hovering a card highlights the matching
+    ///    `region` box on the canvas (`panel_hover_id`); a box hovered on
+    ///    the canvas highlights the card + the preview lines (op-4x5s).
+    /// 2. **A read-only markdown preview** ([`KvimEditorState::ui_readonly`])
+    ///    with every anchored block banded. It cannot be typed into —
+    ///    editing a schema-sensitive block as raw text is how the fenced
+    ///    TOML gets broken.
+    ///
+    /// **Double-clicking** a card, or a banded block in the preview, is the
+    /// only edit path: a text/annotation/formula/source-reference block
+    /// opens in `block_editor` (kvim, with `@`/`[[` autocompletion) → Save
+    /// goes through [`classify::replace_artifact_body`]; a digitised
+    /// table/graph block re-crops its `[source]` region from the PDF and
+    /// hands it back as a [`CropResult`] the app routes to the matching
+    /// digitiser.
+    ///
+    /// Falls back to the old disk-text `blocks_matching` preview over
+    /// `project_root`/`project_markdown_rel` when no paper is active.
+    #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
+    fn context_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        active_artifacts: Option<&[Artifact]>,
+        mut active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+        completion: Option<CompletionSource<'_>>,
+    ) -> Option<CropResult> {
         ui.heading("Page context");
         let Some(artifacts) = active_artifacts else {
             self.context_panel_fallback(ui);
             return None;
         };
-        let page = (self.active_page() + 1) as u32;
+        let page0 = self.active_page();
+        let page = (page0 + 1) as u32;
         let anchored: Vec<&Artifact> =
             artifacts.iter().filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page))).collect();
-        if anchored.is_empty() {
-            ui.small("nothing saved for this page yet");
-            return None;
+
+        let editor_text = context_editor.text();
+        // op-j178: band every anchored block in the preview, and (op-4x5s)
+        // a stronger band on whichever block's box is hovered on the canvas.
+        context_editor.set_anchor_bands(anchored.iter().map(|a| block_span(&editor_text, a)).collect());
+        let hovered_block = self
+            .hover_created_at
+            .as_deref()
+            .and_then(|h| anchored.iter().find(|a| a.toml.kovan.created == h || a.id() == h));
+        context_editor.set_hover_band(hovered_block.map(|a| block_span(&editor_text, a)));
+
+        // op-j178: scroll the preview to this page's blocks on a page change.
+        if self.context_page_synced != Some(page0) {
+            let target = anchored
+                .iter()
+                .map(|a| a.line)
+                .min()
+                .or_else(|| first_note_heading_line(&editor_text, page0));
+            if let Some(line) = target {
+                context_editor.jump_to_line(line);
+            }
+            self.context_page_synced = Some(page0);
         }
-        let mut result = None;
+
+        let editing_id = self.editing_block_id.clone();
+        let mut panel_hover: Option<String> = None;
+        let mut open_target: Option<String> = None; // artifact id to open (dbl-click)
+        let mut block_save: Option<(String, String)> = None;
+        let mut block_cancel = false;
+
         egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
-            for artifact in anchored {
-                match artifact.kind() {
-                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                        let icon = if artifact.kind() == ArtifactKind::DigitisedTable { "\u{1F4CA}" } else { "\u{1F4C8}" };
-                        ui.label(format!("{icon} {}", artifact.heading));
-                        if let Some(csv) = artifact.csv_block() {
-                            draw_csv_preview(ui, csv);
+            if anchored.is_empty() {
+                ui.small("nothing saved for this page yet");
+            }
+            for artifact in &anchored {
+                let id = artifact.id().to_string();
+                let linked = hovered_block.is_some_and(|h| h.id() == id);
+                let fill = if linked {
+                    Color32::from_rgba_unmultiplied(255, 230, 60, 40)
+                } else {
+                    Color32::TRANSPARENT
+                };
+                let inner = egui::Frame::new().fill(fill).inner_margin(4.0).show(ui, |ui| {
+                    match artifact.kind() {
+                        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                            let icon = if artifact.kind() == ArtifactKind::DigitisedTable {
+                                "\u{1F4CA}"
+                            } else {
+                                "\u{1F4C8}"
+                            };
+                            ui.label(format!("{icon} {}", artifact.heading));
+                            if let Some(csv) = artifact.csv_block() {
+                                draw_csv_preview(ui, csv);
+                            }
+                            ui.small("double-click → re-open in the digitiser");
                         }
-                        ui.small("re-digitise from the PDF to change it");
-                    }
-                    _ => {
-                        if ui.link(format!("\u{1F4DD} {}", artifact.heading)).clicked() {
-                            result = Some(ContextPanelAction::JumpToLine(artifact.line));
+                        _ => {
+                            ui.label(format!("\u{1F4DD} {}", artifact.heading));
+                            if !artifact.body.trim().is_empty() {
+                                ui.monospace(body_preview(&artifact.body));
+                            }
+                            ui.small("double-click → edit");
                         }
                     }
+                });
+                if inner.response.hovered() {
+                    panel_hover = Some(id.clone());
+                }
+                if inner.response.double_clicked() {
+                    open_target = Some(id.clone());
                 }
                 ui.separator();
             }
+
+            // Inline editor for whichever text block is open (kvim, with
+            // completion — GH issue #35 2026-09-02: "autocompletion in
+            // annotation toolbox").
+            if let Some(id) = &editing_id {
+                if let Some(a) = anchored.iter().find(|a| a.id() == id.as_str()) {
+                    ui.add_space(6.0);
+                    egui::Frame::group(ui.style()).show(ui, |ui| {
+                        ui.strong(format!("editing: {}", a.heading));
+                        ui.push_id(("block-editor", id), |ui| self.block_editor.ui(ui, completion));
+                        ui.horizontal(|ui| {
+                            if ui.button("Save").clicked() {
+                                block_save = Some((id.clone(), self.block_editor.text()));
+                            }
+                            if ui.button("Cancel").clicked() {
+                                block_cancel = true;
+                            }
+                        });
+                    });
+                }
+            }
+
+            ui.add_space(8.0);
+            ui.strong("Preview (read-only)");
+            if let Some(line) = context_editor.ui_readonly(ui) {
+                if let Some(a) = anchored.iter().find(|a| block_span(&editor_text, a).contains(&line)) {
+                    open_target = Some(a.id().to_string());
+                }
+            }
         });
-        result
+
+        self.panel_hover_id = panel_hover;
+
+        if block_cancel {
+            self.editing_block_id = None;
+        }
+
+        // A double-click landed on a block — open the right editor for it.
+        let mut crop_result = None;
+        if let Some(id) = open_target {
+            if let Some(a) = anchored.iter().find(|a| a.id() == id) {
+                match a.kind() {
+                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                        crop_result = self.recrop_artifact(a);
+                    }
+                    _ => {
+                        self.block_editor.load_text(&a.body);
+                        self.editing_block_id = Some(id);
+                    }
+                }
+            }
+        }
+
+        // The inline block editor's Save — replace just that block's body.
+        if let Some((id, new_body)) = block_save {
+            self.editing_block_id = None;
+            if let Some(session) = active_paper.as_deref_mut() {
+                match classify::replace_artifact_body(session, &id, &new_body) {
+                    Ok(_) => match session.save_document() {
+                        Ok(()) => {
+                            context_editor.load_text(session.markdown());
+                            self.message = format!("saved edit to {id}");
+                        }
+                        Err(e) => self.message = e.to_string(),
+                    },
+                    Err(e) => self.message = format!("edit failed: {e}"),
+                }
+            }
+        }
+
+        crop_result
     }
 
     /// The pre-op-j178 read-only text preview, kept as the fallback for a
@@ -960,15 +1302,24 @@ impl PdfReaderState {
     /// manual `project_root`/`project_markdown_rel` fields (which remain
     /// the fallback for a PDF opened outside any paper).
     ///
-    /// Returns `(crop_result, context_panel_action)` — the second element
-    /// is `Some` the frame the page-context panel's own per-block click
-    /// produces one (op-j178); see [`ContextPanelAction`].
+    /// `context_editor` is the shared page-context / Kvim-editor buffer
+    /// (op-j178, GH issue #35 2026-09-02): the page-context panel renders it
+    /// in place, scrolls it to the current page's blocks, and every
+    /// annotation/inline-block save reloads it live. `completion` enables
+    /// the citation/wiki autocomplete popup inside it (§29/§30). The caller
+    /// must reload it from the session too after a save it drives itself.
+    ///
+    /// Returns `Some` only for a completed crop-then-right-click gesture.
+    #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
         mut on_open_clicked: impl FnMut(),
         active_paper: Option<&mut PaperSession>,
-    ) -> (Option<CropResult>, Option<ContextPanelAction>) {
+        context_editor: &mut KvimEditorState,
+        completion: Option<CompletionSource<'_>>,
+    ) -> Option<CropResult> {
+        let mut active_paper = active_paper;
         let active_citekey = active_paper.as_ref().map(|s| s.citekey().to_string());
         let active_artifacts: Option<Vec<Artifact>> = active_paper
             .as_ref()
@@ -992,7 +1343,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return (None, None);
+            return None;
         }
 
         self.check_hot_reload(ui.ctx());
@@ -1109,7 +1460,7 @@ impl PdfReaderState {
             }
         });
         if save_clicked {
-            self.save_annotations_into_project(active_paper);
+            self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         }
         if show_annotate_ui {
             self.text_selection_panel(ui);
@@ -1123,11 +1474,23 @@ impl PdfReaderState {
         }
         ui.separator();
 
-        let mut context_action = None;
-        egui::Panel::right("pdf_reader_context")
+        let panel_crop = egui::Panel::right("pdf_reader_context")
             .resizable(true)
-            .default_size(280.0)
-            .show(ui, |ui| context_action = self.context_panel(ui, active_artifacts.as_deref()));
+            .default_size(460.0)
+            .min_size(320.0)
+            .show(ui, |ui| {
+                self.context_panel(
+                    ui,
+                    active_artifacts.as_deref(),
+                    active_paper.as_deref_mut(),
+                    context_editor,
+                    completion,
+                )
+            })
+            .inner;
+        if panel_crop.is_some() {
+            crop_result = panel_crop;
+        }
 
         if is_pdf && self.mode == ViewMode::Read {
             let ReaderSource::Pdf(reader) = &mut self.source else {
@@ -1148,7 +1511,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return (crop_result, context_action);
+            return crop_result;
         }
 
         // --- ViewMode::Annotate / a plain image: kovan's own static
@@ -1158,7 +1521,7 @@ impl PdfReaderState {
             if !self.message.is_empty() {
                 ui.label(&self.message);
             }
-            return (None, context_action);
+            return None;
         };
         let size = texture.size_vec2() * self.zoom;
         let zoom = self.zoom;
@@ -1297,6 +1660,42 @@ impl PdfReaderState {
                     );
                 }
             }
+            // --- overlays: already-saved annotation artifacts, drawn from
+            // their normalised `region` (op-4x5s: hovering one here
+            // highlights its card in the page-context panel next frame, and
+            // a card hovered there — `panel_hover_id` — highlights the box
+            // here now). ---
+            if let Some(artifacts) = active_artifacts.as_deref() {
+                let tex = texture.size_vec2();
+                let hover_img = response.hover_pos().map(to_image);
+                for art in artifacts {
+                    let Some(anchor) = &art.toml.source else { continue };
+                    if !anchor.covers_page((page + 1) as u32) {
+                        continue;
+                    }
+                    let Some(region) = anchor.region else { continue };
+                    let min = Pos2::new(region.x0 as f32 * tex.x, region.y0 as f32 * tex.y);
+                    let max = Pos2::new(region.x1 as f32 * tex.x, region.y1 as f32 * tex.y);
+                    let hit = hover_img.is_some_and(|p| {
+                        p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y
+                    });
+                    if hit {
+                        self.hover_created_at = Some(art.toml.kovan.created.clone());
+                    }
+                    let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
+                    painter.rect_filled(
+                        Rect::from_min_max(to_screen(min), to_screen(max)),
+                        0.0,
+                        Color32::from_rgba_unmultiplied(120, 170, 255, if linked { 90 } else { 40 }),
+                    );
+                    painter.rect_stroke(
+                        Rect::from_min_max(to_screen(min), to_screen(max)),
+                        0.0,
+                        Stroke::new(if linked { 2.5_f32 } else { 1.0_f32 }, Color32::from_rgb(90, 140, 235)),
+                        egui::StrokeKind::Middle,
+                    );
+                }
+            }
             if let Some((min, max)) = self.pending_box {
                 painter.rect_stroke(
                     Rect::from_min_max(to_screen(min), to_screen(max)),
@@ -1318,7 +1717,7 @@ impl PdfReaderState {
             crop_result = Some(result);
         }
 
-        (crop_result, context_action)
+        crop_result
     }
 
     /// Draw the floating right-click menu (op-x9qn), if one is open.
@@ -1706,7 +2105,9 @@ a note
     /// decided"): with an active paper's `PaperSession` supplied,
     /// `save_annotations_into_project` must write straight into its
     /// canonical Markdown via `append_block`/`save_document` — no
-    /// `project_root`/`project_markdown_rel` needed at all.
+    /// `project_root`/`project_markdown_rel` needed at all. GH issue #35
+    /// 2026-09-02: the block is now a real `annotation` artifact, the
+    /// in-memory overlay is dropped, and the shared editor is reloaded.
     #[test]
     fn save_annotations_writes_into_the_active_papers_session_when_given_one() {
         use crate::entity::Access;
@@ -1757,11 +2158,56 @@ a note
         );
 
         let mut session = PaperSession::open(&root, &citekey).unwrap();
-        state.save_annotations_into_project(Some(&mut session));
+        let mut editor = KvimEditorState::default();
+        editor.load_text(session.markdown());
+        state.save_annotations_into_project(Some(&mut session), &mut editor);
 
         assert!(state.message.contains(&citekey), "status should name the paper it saved into: {}", state.message);
         let on_disk = std::fs::read_to_string(root.paper_markdown(&citekey)).unwrap();
         assert!(on_disk.contains("a note about figure 3"), "annotation text should be in the saved markdown:\n{on_disk}");
-        assert!(on_disk.contains("### annotation"));
+        assert!(on_disk.contains("kind = \"annotation\""), "should be a real fenced-TOML artifact:\n{on_disk}");
+
+        // The saved block re-parses as an artifact anchored to page 1.
+        let index = crate::research_record::ResearchRecordIndex::from_session(&session);
+        assert_eq!(index.anchored_to_page(1).len(), 1);
+        // The in-memory overlay is dropped once persisted.
+        assert!(state.annotations.get(&0).is_none_or(|v| v.is_empty()));
+        // The shared editor now shows the new block.
+        assert!(editor.text().contains("a note about figure 3"));
+    }
+
+    #[test]
+    fn first_note_heading_line_finds_the_page_marker() {
+        let md = "# Paper\n\n### annotation — x\n- page: 3\n\nnote three\n\n### annotation — y\n- page: 7\n\nnote seven\n";
+        assert_eq!(first_note_heading_line(md, 2), Some(3)); // page 3 == page0 2
+        assert_eq!(first_note_heading_line(md, 6), Some(8)); // page 7 heading is line 8
+        assert_eq!(first_note_heading_line(md, 4), None);
+    }
+
+    #[test]
+    fn normalise_region_normalises_and_rejects_degenerate() {
+        let r = normalise_region(Pos2::new(50.0, 100.0), Pos2::new(150.0, 300.0), 200.0, 400.0).unwrap();
+        assert!((r.x0 - 0.25).abs() < 1e-9 && (r.y1 - 0.75).abs() < 1e-9);
+        assert!(normalise_region(Pos2::new(10.0, 10.0), Pos2::new(10.0, 10.0), 200.0, 400.0).is_none());
+        assert!(normalise_region(Pos2::new(10.0, 10.0), Pos2::new(20.0, 20.0), 0.0, 400.0).is_none());
+    }
+
+    #[test]
+    fn crop_provenance_region_uses_the_recorded_page_size() {
+        let p = CropProvenance {
+            page_index: 0,
+            min: Pos2::new(20.0, 40.0),
+            max: Pos2::new(120.0, 240.0),
+            page_px: [200.0, 400.0],
+            created_at: String::new(),
+            author: String::new(),
+            figure: String::new(),
+            source_artifact_id: None,
+        };
+        let r = p.region().unwrap();
+        assert!((r.x0 - 0.1).abs() < 1e-6 && (r.y1 - 0.6).abs() < 1e-6);
+
+        let no_size = CropProvenance { page_px: [0.0, 0.0], ..p };
+        assert!(no_size.region().is_none());
     }
 }

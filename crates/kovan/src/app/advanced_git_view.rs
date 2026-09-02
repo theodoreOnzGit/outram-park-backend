@@ -31,6 +31,12 @@ pub struct AdvancedGitState {
     /// that keeps failing to load (not a git repository, e.g.) is retried
     /// only on an explicit Refresh click, not every single frame.
     loaded_once: bool,
+    /// Set by [`Self::mark_stale`] when the app has written a tracked repo
+    /// file since the last refresh (a Save Document, an annotation/CSV save,
+    /// a `.bib` edit — GH issue #35 2026-09-02: "on every save, git status
+    /// should be auto-run for the Save Repository tab"). Consumed by the
+    /// next [`Self::ui`], which re-scans and clears it.
+    stale: bool,
     status: Option<SaveSummary>,
     branches: Vec<BranchInfo>,
     history: Vec<CommitInfo>,
@@ -44,6 +50,7 @@ pub struct AdvancedGitState {
 impl AdvancedGitState {
     fn refresh(&mut self, root: &KovanRoot) {
         self.loaded_once = true;
+        self.stale = false;
         match advanced_git::status(root) {
             Ok(s) => self.status = Some(s),
             Err(e) => self.set_error(e.to_string()),
@@ -51,6 +58,14 @@ impl AdvancedGitState {
         self.branches = advanced_git::local_branches(root).unwrap_or_default();
         self.history = advanced_git::history(root, 20).unwrap_or_default();
         self.remotes = advanced_git::list_remotes(root).unwrap_or_default();
+    }
+
+    /// Mark the git status stale so the next [`Self::ui`] re-scans — call
+    /// this from the app whenever a save has just written a tracked repo
+    /// file. Cheap (a bool); the actual `git status` only runs when this
+    /// tab is next drawn.
+    pub fn mark_stale(&mut self) {
+        self.stale = true;
     }
 
     fn set_status(&mut self, m: impl Into<String>) {
@@ -68,7 +83,8 @@ impl AdvancedGitState {
         // "Changes since last save" has something real on it immediately —
         // the checkpoint's own point that most users shouldn't need to know
         // "Refresh" is a Git-status re-scan before they can even see it.
-        if !self.loaded_once {
+        if !self.loaded_once || self.stale {
+            self.stale = false;
             self.refresh(root);
         }
 

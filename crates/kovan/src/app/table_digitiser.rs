@@ -193,35 +193,55 @@ impl TableDigitiserState {
             self.set_error("nothing to save — run OCR first");
             return;
         };
-        let mut block = "### Digitised table".to_string();
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n```csv\n");
-        block.push_str(&t.to_csv_string());
-        block.push_str("```\n");
+        let csv_body = format!("```csv\n{}```\n", t.to_csv_string());
 
+        // GH issue #35 2026-09-02: save as a real `[kovan]` artifact so the
+        // page-context panel can re-open it; a re-digitise replaces the
+        // source block in place.
         if let Some(session) = active_paper {
-            session.append_block(&block);
-            match session.save_document() {
-                Ok(()) => {
-                    let citekey = session.citekey().to_string();
-                    self.set_status(format!("saved into {citekey}'s notes"));
-                }
-                Err(e) => self.set_error(e.to_string()),
+            let prov = self.crop_provenance.clone();
+            let heading = prov
+                .as_ref()
+                .filter(|p| !p.figure.is_empty())
+                .map(|p| p.figure.clone())
+                .unwrap_or_else(|| "Digitised table".to_string());
+            let anchor = prov.as_ref().map(|p| crate::artifact::SourceAnchor {
+                page: Some((p.page_index + 1) as u32),
+                pages: None,
+                region: p.region(),
+            });
+            let replace_id = prov.as_ref().and_then(|p| p.source_artifact_id.clone());
+            let citekey = session.citekey().to_string();
+            let result: Result<String, String> = crate::classify::save_digitised_csv(
+                session,
+                crate::artifact::ArtifactKind::DigitisedTable,
+                &heading,
+                anchor,
+                Some("kopitiam-ocr".to_string()),
+                replace_id.as_deref(),
+                &csv_body,
+            )
+            .map_err(|e| e.to_string())
+            .and_then(|_| {
+                session.save_document().map(|()| format!("saved into {citekey}'s notes")).map_err(|e| e.to_string())
+            });
+            match result {
+                Ok(m) => self.set_status(m),
+                Err(e) => self.set_error(e),
             }
             return;
         }
 
+        // --- no active paper: the legacy plain-text section path ---
+        let mut block = "### Digitised table".to_string();
+        if let Some(prov) = &self.crop_provenance {
+            block.push_str(&format!(
+                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
+                prov.page_index + 1, prov.min.x, prov.min.y, prov.max.x, prov.max.y, prov.created_at, prov.author
+            ));
+        }
+        block.push_str("\n\n");
+        block.push_str(&csv_body);
         if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
             self.set_error("set the project root and markdown path first");
             return;
@@ -453,7 +473,14 @@ mod tests {
 
         assert!(!state.message_is_error, "{}", state.message);
         let reopened = PaperSession::open(&root, "wang2018multiphysics").unwrap();
-        assert!(reopened.markdown().contains("Digitised table"), "{}", reopened.markdown());
+        let md = reopened.markdown();
+        assert!(md.contains("Digitised table"), "{md}");
+        // GH issue #35 2026-09-02: it is a real fenced-TOML artifact now.
+        assert!(md.contains("kind = \"digitised_table\""), "{md}");
+        assert!(md.contains("method = \"manual_digitisation\""), "{md}");
+        let idx = crate::research_record::ResearchRecordIndex::from_session(&reopened);
+        assert_eq!(idx.artifacts().len(), 1);
+        assert!(idx.artifacts()[0].csv_block().is_some());
     }
 
     #[test]
