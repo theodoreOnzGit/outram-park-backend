@@ -299,7 +299,7 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.4" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.6" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.6" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.7" }
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.2" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.2" }
@@ -342,7 +342,7 @@ kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
 # `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
 # `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
 # the Mesh Studio GUI).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.3" }
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.4" }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
