@@ -100,6 +100,8 @@
 //! | [`snap`] | `transform_snap.cc` / `transform_snap_object.cc` | **real** — snap to grid increment / vertex / edge-midpoint / nearest-on-edge / nearest-on-face; SnapBase closest/center/median/active; align-rotation-to-target; snap-onto-self exclusion (GH issue #37 §D) |
 //! | [`cursor_pivot`] | view3d_cursor_snap / transform_orientations.cc | **real** — 3D cursor placement, PivotPoint (bbox/cursor/individual-origins/median/active), rotate/scale about pivot, custom orientation from a vertex/edge/face selection (GH issue #37 §D) |
 //! | [`measure`] | mesh-statistics overlay / ruler gizmo / mesh-analysis | **real** — edge/area/angle/dihedral readouts, volume, dimensions, Ruler + Protractor, overhang / distortion / sharp-edges / self-intersection (tri-tri) / thickness (ray cast) (GH issue #37 §D) |
+//! | [`normals`] | `MESH_OT_normals_*` / mesh_normals.cc | **real** — flip, recalc inside/outside, vertex_normals by weight (uniform/area/corner-angle), point-to-target, SplitNormals + split_normals_by_angle + harden (GH issue #37 §E) |
+//! | [`attributes`] | `MESH_OT_mark_*` / crease / bevel-weight / auto-smooth | **real** — MeshAttributes: sharp/seam/freestyle marks, edge/vertex crease + bevel weight, per-face smooth + material; auto_smooth; linked_delimiters -> Selection::select_linked_delimited (GH issue #37 §E) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -162,6 +164,7 @@
 
 pub mod arap;
 pub mod bisect;
+pub mod attributes;
 pub mod bevel;
 pub mod boolean;
 pub mod boolean_classify;
@@ -203,6 +206,7 @@ pub mod merge;
 pub mod mesh;
 pub mod parameterize;
 pub mod modifiers;
+pub mod normals;
 pub mod ops;
 pub mod poke_quads;
 pub mod primitives;

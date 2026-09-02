@@ -645,11 +645,66 @@ impl Selection {
     /// one already-selected element is fully selected in the active mode
     /// (Blender's `Select ▸ Select Linked ▸ Linked`, `Ctrl+L`).
     ///
-    /// Connectivity is by shared edge. Delimiters (stop at a seam / sharp edge /
-    /// material boundary) need the per-edge attribute layers landing in
-    /// `op-hzs.54.28` and are not applied yet.
+    /// Connectivity is by shared edge, unbounded. To stop at seams / sharp
+    /// edges / material boundaries use [`Selection::select_linked_delimited`]
+    /// with an edge set from
+    /// [`crate::attributes::MeshAttributes::linked_delimiters`].
     pub fn select_linked(&mut self, mesh: &Mesh) {
-        let component = flood_components(mesh, self.verts.iter().copied());
+        let component = flood_components(mesh, self.verts.iter().copied(), None);
+        self.set_component(mesh, &component, true);
+    }
+
+    /// Like [`Selection::select_linked`] but the flood is over **face**
+    /// adjacency and does not cross any edge in `delimiters` (Blender's `Ctrl+L`
+    /// with a seam / sharp / material delimiter set). The seeded faces are
+    /// whichever faces the current selection touches; the result is every face
+    /// reachable from them without crossing a delimiter, flushed to the active
+    /// mode.
+    pub fn select_linked_delimited(
+        &mut self,
+        mesh: &Mesh,
+        delimiters: &BTreeSet<EdgeId>,
+    ) {
+        let topo = MeshTopology::new(mesh);
+        let blocked: BTreeSet<(usize, usize)> = delimiters
+            .iter()
+            .filter_map(|&e| mesh.edge(e))
+            .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+            .collect();
+
+        // Seed faces: any face all of whose verts are currently selected, or
+        // any face touching a selected vertex if none are fully selected.
+        let sel_v = self.verts.clone();
+        let mut seeds: Vec<usize> = (0..mesh.face_count())
+            .filter(|&f| {
+                let vs = mesh.face_vertices(FaceId(f));
+                !vs.is_empty() && vs.iter().all(|v| sel_v.contains(v))
+            })
+            .collect();
+        if seeds.is_empty() {
+            seeds = (0..mesh.face_count())
+                .filter(|&f| mesh.face_vertices(FaceId(f)).iter().any(|v| sel_v.contains(v)))
+                .collect();
+        }
+
+        let mut seen: BTreeSet<usize> = seeds.iter().copied().collect();
+        let mut stack = seeds;
+        while let Some(f) = stack.pop() {
+            for e in topo.face_edges(mesh, FaceId(f)) {
+                let ed = mesh.edge(e).unwrap();
+                if blocked.contains(&(ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0))) {
+                    continue;
+                }
+                for &g in topo.edge_faces(e) {
+                    if seen.insert(g.0) {
+                        stack.push(g.0);
+                    }
+                }
+            }
+        }
+
+        let component: BTreeSet<VertexId> =
+            seen.iter().flat_map(|&f| mesh.face_vertices(FaceId(f))).collect();
         self.set_component(mesh, &component, true);
     }
 
@@ -661,7 +716,7 @@ impl Selection {
             Element::Edge(e) => mesh.edge(e).map(|ed| ed.verts.to_vec()).unwrap_or_default(),
             Element::Face(f) => mesh.face_vertices(f),
         };
-        let component = flood_components(mesh, seed_verts.into_iter());
+        let component = flood_components(mesh, seed_verts.into_iter(), None);
         self.set_component(mesh, &component, true);
     }
 
@@ -1334,19 +1389,6 @@ impl PositionLookup {
 // selection above, being an explicit user action, does build a `MeshTopology`
 // and uses the shared implementation there.
 
-/// Vertex → neighbouring vertices (by shared edge), for the linked flood fill.
-fn vertex_adjacency(mesh: &Mesh) -> HashMap<VertexId, Vec<VertexId>> {
-    let mut adj: HashMap<VertexId, Vec<VertexId>> = HashMap::new();
-    for e in 0..mesh.edge_count() {
-        if let Some(edge) = mesh.edge(EdgeId(e)) {
-            let (a, b) = (edge.verts[0], edge.verts[1]);
-            adj.entry(a).or_default().push(b);
-            adj.entry(b).or_default().push(a);
-        }
-    }
-    adj
-}
-
 /// The id of the undirected edge between `a` and `b`, or `None`.
 fn find_edge(mesh: &Mesh, a: VertexId, b: VertexId) -> Option<EdgeId> {
     (0..mesh.edge_count()).map(EdgeId).find(|&e| {
@@ -1541,8 +1583,28 @@ fn face_perimeter(mesh: &Mesh, f: FaceId) -> f64 {
 fn flood_components(
     mesh: &Mesh,
     seeds: impl Iterator<Item = VertexId>,
+    delimiters: Option<&BTreeSet<EdgeId>>,
 ) -> BTreeSet<VertexId> {
-    let adj = vertex_adjacency(mesh);
+    // Adjacency, optionally omitting delimiter edges.
+    let blocked: BTreeSet<(usize, usize)> = delimiters
+        .map(|d| {
+            d.iter()
+                .filter_map(|&e| mesh.edge(e))
+                .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut adj: HashMap<VertexId, Vec<VertexId>> = HashMap::new();
+    for e in 0..mesh.edge_count() {
+        if let Some(ed) = mesh.edge(EdgeId(e)) {
+            let (a, b) = (ed.verts[0], ed.verts[1]);
+            if blocked.contains(&(a.0.min(b.0), a.0.max(b.0))) {
+                continue;
+            }
+            adj.entry(a).or_default().push(b);
+            adj.entry(b).or_default().push(a);
+        }
+    }
     let mut seen: BTreeSet<VertexId> = seeds.collect();
     let mut stack: Vec<VertexId> = seen.iter().copied().collect();
     while let Some(v) = stack.pop() {
