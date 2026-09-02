@@ -181,11 +181,24 @@ struct Annotation {
     text: String,
     created_at: String,
     author: String,
+    /// The annotate-canvas page's pixel size at `RENDER_DPI` when this box
+    /// was drawn — so [`PdfReaderState::save_annotations_into_project`] can
+    /// normalise `min`/`max` into a `[source] region` even for an
+    /// annotation whose page is no longer the one the texture holds (the
+    /// operator scrolled away, or is in Read mode, before saving).
+    /// `[0.0, 0.0]` when the texture was somehow absent → page-only anchor.
+    page_px: [f32; 2],
 }
 
 impl Annotation {
     fn contains(&self, p: Pos2) -> bool {
         p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
+    }
+
+    /// This annotation's rect as a normalised `[source] region`, if the
+    /// page size was captured.
+    fn region(&self) -> Option<Region> {
+        normalise_region(self.min, self.max, self.page_px[0], self.page_px[1])
     }
 }
 
@@ -779,6 +792,19 @@ impl PdfReaderState {
         }
     }
 
+    /// The current annotate-canvas texture's pixel size (`RENDER_DPI`), or
+    /// `[0.0, 0.0]` if there is none — stamped onto a new [`Annotation`] so
+    /// its region survives a page change before the save.
+    fn current_page_px(&self) -> [f32; 2] {
+        self.texture
+            .as_ref()
+            .map(|t| {
+                let [w, h] = t.size();
+                [w as f32, h as f32]
+            })
+            .unwrap_or([0.0, 0.0])
+    }
+
     fn author_name(&self) -> String {
         let t = self.author.trim();
         if t.is_empty() {
@@ -856,78 +882,116 @@ impl PdfReaderState {
         None
     }
 
-    /// Append every not-yet-saved annotation on the active page into the
-    /// paper's own canonical Markdown (op-q1qj), as real §13/§14
-    /// **fenced-TOML artifacts** (`kind = "annotation"`, `[source]` page +
-    /// normalised `region`) via [`classify::insert_artifact`] — so each one
-    /// shows up in the page-context artifact list, in
-    /// `ResearchRecordIndex::anchored_to_page`, and links the hover-highlight
-    /// the same way a digitiser artifact does.
+    /// Persist **every** not-yet-saved in-memory annotation, across all
+    /// pages — not just [`Self::active_page`]'s (GH issue #35 2026-09-02:
+    /// clicking "Save annotations" from Read mode, or after scrolling, used
+    /// to look up the embedded reader's current page and find nothing).
     ///
-    /// `context_editor` is the shared page-context / Kvim-editor buffer: any
-    /// unsaved edits in it are folded into the document first (so the reload
-    /// below does not lose them), and afterwards it is reloaded from the new
-    /// Markdown and scrolled to the first block just written.
-    ///
-    /// Falls back to the older plain-text [`crate::project::append_to_section`]
-    /// path over the manual `project_root`/`project_markdown_rel` fields only
-    /// for a PDF opened outside any paper.
+    /// With an active paper: each becomes a real §13/§14 fenced-TOML
+    /// artifact (`kind = "annotation"`, `[source]` page + normalised
+    /// `region` from the annotation's own captured page size) via
+    /// [`classify::insert_artifact`], so it shows in the page-context list
+    /// and `anchored_to_page`. The shared `context_editor`'s unsaved edits
+    /// are folded in first, then it is reloaded and scrolled to the first
+    /// new block. Falls back to the plain-text
+    /// [`crate::project::append_to_section`] path only for a PDF outside any
+    /// paper.
     fn save_annotations_into_project(
         &mut self,
         active_paper: Option<&mut PaperSession>,
         context_editor: &mut KvimEditorState,
     ) {
-        let page = self.active_page();
-        let Some(anns) = self.annotations.get(&page).filter(|a| !a.is_empty()).cloned() else {
-            self.message = "no annotations on this page to save".to_string();
+        // A still-open Annotate editor with text in it hasn't hit its own
+        // "Save" yet — fold it in so the click doesn't silently drop it.
+        if let Some(ed) = self.annotate_editor.take() {
+            if !ed.text.trim().is_empty() {
+                let page_px = self.current_page_px();
+                let author = self.author_name();
+                let anns = self.annotations.entry(self.active_page()).or_default();
+                match ed.editing_existing {
+                    Some(i) if i < anns.len() => {
+                        anns[i].text = ed.text;
+                        anns[i].min = ed.min;
+                        anns[i].max = ed.max;
+                        anns[i].page_px = page_px;
+                    }
+                    _ => anns.push(Annotation {
+                        min: ed.min,
+                        max: ed.max,
+                        text: ed.text,
+                        created_at: utc_now_iso8601(),
+                        author,
+                        page_px,
+                    }),
+                }
+            }
+        }
+
+        // Deterministic order: page ascending, then insertion order.
+        let mut pending: Vec<(usize, Vec<Annotation>)> = self
+            .annotations
+            .iter()
+            .filter(|(_, a)| !a.is_empty())
+            .map(|(p, a)| (*p, a.clone()))
+            .collect();
+        pending.sort_by_key(|(p, _)| *p);
+        if pending.is_empty() {
+            self.message = "no annotations to save".to_string();
             return;
-        };
-        let count = anns.len();
-        let tex_size = self.texture.as_ref().map(|t| t.size());
+        }
+        let count: usize = pending.iter().map(|(_, a)| a.len()).sum();
 
         if let Some(session) = active_paper {
-            // Fold live panel edits in before we reload the buffer below.
             if context_editor.is_modified() {
                 session.set_markdown(context_editor.text());
             }
 
             let mut first_id: Option<String> = None;
-            for ann in &anns {
-                let region =
-                    tex_size.and_then(|[w, h]| normalise_region(ann.min, ann.max, w as f32, h as f32));
-                let snippet: String = ann.text.split_whitespace().take(8).collect::<Vec<_>>().join(" ");
-                let heading = if snippet.is_empty() {
-                    format!("Annotation (p{})", page + 1)
-                } else {
-                    format!("Annotation (p{}) — {snippet}", page + 1)
-                };
-                let anchor = SourceAnchor { page: Some((page + 1) as u32), pages: None, region };
-                let index = crate::research_record::ResearchRecordIndex::from_session(session);
-                match classify::insert_artifact(
-                    session,
-                    &index,
-                    &heading,
-                    ArtifactKind::Annotation,
-                    Some(anchor),
-                    Classification::default(),
-                    None,
-                    &ann.text,
-                ) {
-                    Ok(a) => first_id.get_or_insert_with(|| a.id().to_string()),
-                    Err(e) => {
-                        self.message = format!("annotation save failed: {e}");
-                        return;
+            for (pg, anns) in &pending {
+                for ann in anns {
+                    let snippet: String =
+                        ann.text.split_whitespace().take(8).collect::<Vec<_>>().join(" ");
+                    let heading = if snippet.is_empty() {
+                        format!("Annotation (p{})", pg + 1)
+                    } else {
+                        format!("Annotation (p{}) — {snippet}", pg + 1)
+                    };
+                    let anchor =
+                        SourceAnchor { page: Some((pg + 1) as u32), pages: None, region: ann.region() };
+                    let index = crate::research_record::ResearchRecordIndex::from_session(session);
+                    match classify::insert_artifact(
+                        session,
+                        &index,
+                        &heading,
+                        ArtifactKind::Annotation,
+                        Some(anchor),
+                        Classification::default(),
+                        None,
+                        &ann.text,
+                    ) {
+                        Ok(a) => {
+                            first_id.get_or_insert_with(|| a.id().to_string());
+                        }
+                        Err(e) => {
+                            self.message = format!("annotation save failed: {e}");
+                            return;
+                        }
                     }
-                };
+                }
             }
 
             match session.save_document() {
                 Ok(()) => {
                     self.message = format!("saved {count} annotation(s) into {}", session.citekey());
-                    // Persisted — drop the in-memory overlay so the box is
-                    // not drawn twice (once as an overlay, once from the
-                    // artifact's own `region`).
-                    self.annotations.remove(&page);
+                    // Persisted — drop the in-memory overlays and leave
+                    // annotate edit mode (the maintainer's ask: the button
+                    // both saves and escapes editing). The artifacts' own
+                    // regions draw the boxes now.
+                    self.annotations.clear();
+                    self.pending_box = None;
+                    self.context_menu = None;
+                    self.tool = AnnotationTool::None;
+                    self.editing_block_id = None;
                     let md = session.markdown().to_string();
                     context_editor.load_text(&md);
                     if let Some(a) =
@@ -935,7 +999,7 @@ impl PdfReaderState {
                     {
                         context_editor.jump_to_line(a.line);
                     }
-                    self.context_page_synced = Some(page);
+                    self.context_page_synced = None;
                 }
                 Err(e) => self.message = e.to_string(),
             }
@@ -944,11 +1008,13 @@ impl PdfReaderState {
 
         // --- no active paper: the legacy plain-text section path ---
         let mut block = String::new();
-        for ann in &anns {
-            block.push_str(&format!(
-                "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
-                ann.created_at, ann.author, page + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
-            ));
+        for (pg, anns) in &pending {
+            for ann in anns {
+                block.push_str(&format!(
+                    "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
+                    ann.created_at, ann.author, pg + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
+                ));
+            }
         }
         let block = block.trim_end();
         if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
@@ -1112,6 +1178,33 @@ impl PdfReaderState {
         let mut block_save: Option<(String, String)> = None;
         let mut block_cancel = false;
 
+        // Inline block editor — pinned above the (scrolling) card list and
+        // preview so its Save/Cancel are always in view, and with the
+        // buttons above the editor (maintainer's ask, GH issue #35
+        // 2026-09-02).
+        if let Some(id) = &editing_id {
+            if let Some(a) = anchored.iter().find(|a| a.id() == id.as_str()) {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.strong(format!("editing: {}", a.heading));
+                        if ui.button("Save").clicked() {
+                            block_save = Some((id.clone(), self.block_editor.text()));
+                        }
+                        if ui.button("Cancel").clicked() {
+                            block_cancel = true;
+                        }
+                    });
+                    ui.push_id(("block-editor", id), |ui| {
+                        egui::ScrollArea::vertical()
+                            .id_salt("pdf_block_editor_scroll")
+                            .max_height(220.0)
+                            .show(ui, |ui| self.block_editor.ui(ui, completion));
+                    });
+                });
+                ui.separator();
+            }
+        }
+
         egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
             if anchored.is_empty() {
                 ui.small("nothing saved for this page yet");
@@ -1154,27 +1247,6 @@ impl PdfReaderState {
                     open_target = Some(id.clone());
                 }
                 ui.separator();
-            }
-
-            // Inline editor for whichever text block is open (kvim, with
-            // completion — GH issue #35 2026-09-02: "autocompletion in
-            // annotation toolbox").
-            if let Some(id) = &editing_id {
-                if let Some(a) = anchored.iter().find(|a| a.id() == id.as_str()) {
-                    ui.add_space(6.0);
-                    egui::Frame::group(ui.style()).show(ui, |ui| {
-                        ui.strong(format!("editing: {}", a.heading));
-                        ui.push_id(("block-editor", id), |ui| self.block_editor.ui(ui, completion));
-                        ui.horizontal(|ui| {
-                            if ui.button("Save").clicked() {
-                                block_save = Some((id.clone(), self.block_editor.text()));
-                            }
-                            if ui.button("Cancel").clicked() {
-                                block_cancel = true;
-                            }
-                        });
-                    });
-                }
             }
 
             ui.add_space(8.0);
@@ -1455,7 +1527,7 @@ impl PdfReaderState {
                     ui.text_edit_singleline(&mut self.project_markdown_rel);
                 }
             }
-            if ui.button("Save page annotations").clicked() {
+            if ui.button("Save annotations").clicked() {
                 save_clicked = true;
             }
         });
@@ -1493,6 +1565,12 @@ impl PdfReaderState {
         }
 
         if is_pdf && self.mode == ViewMode::Read {
+            // GH issue #35 2026-09-02: the embedded reader enters "reflow"
+            // (text) mode on a bare `R`/`r`, and its `PdfReaderConfig.reflow`
+            // flag is not actually wired to that keybinding (kopitiam-pdf
+            // bug — filed). Swallow the key before the reader sees it so a
+            // stray `r` while reading does nothing.
+            ui.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Key { key: egui::Key::R, pressed: true, .. })));
             let ReaderSource::Pdf(reader) = &mut self.source else {
                 unreachable!("is_pdf just matched ReaderSource::Pdf above")
             };
@@ -1840,12 +1918,14 @@ impl PdfReaderState {
                 }
                 if ui.button("Save as annotation").clicked() {
                     let author = self.author_name();
+                    let page_px = self.current_page_px();
                     self.annotations.entry(self.active_page()).or_default().push(Annotation {
                         min,
                         max,
                         text: text.clone(),
                         created_at: utc_now_iso8601(),
                         author,
+                        page_px,
                     });
                     self.text_selection = None;
                 }
@@ -1895,12 +1975,14 @@ impl PdfReaderState {
         if save {
             let editor = self.annotate_editor.take().expect("checked above");
             let author = self.author_name();
+            let page_px = self.current_page_px();
             let anns = self.annotations.entry(self.active_page()).or_default();
             match editor.editing_existing {
                 Some(i) if i < anns.len() => {
                     anns[i].text = editor.text;
                     anns[i].min = editor.min;
                     anns[i].max = editor.max;
+                    anns[i].page_px = page_px;
                 }
                 _ => anns.push(Annotation {
                     min: editor.min,
@@ -1908,6 +1990,7 @@ impl PdfReaderState {
                     text: editor.text,
                     created_at: utc_now_iso8601(),
                     author,
+                    page_px,
                 }),
             }
             self.pending_box = None;
@@ -2149,11 +2232,12 @@ a note
         state.annotations.insert(
             0,
             vec![Annotation {
-                min: Pos2::new(1.0, 2.0),
-                max: Pos2::new(3.0, 4.0),
+                min: Pos2::new(10.0, 20.0),
+                max: Pos2::new(30.0, 40.0),
                 text: "a note about figure 3".to_string(),
                 created_at: "2026-09-01T00:00:00Z".to_string(),
                 author: "tester".to_string(),
+                page_px: [100.0, 200.0],
             }],
         );
 
