@@ -114,6 +114,8 @@
 //! | [`primitives_extra`] | `add_mesh_*` operators + redo panels | **real** — plane / circle (fill or wire) / cone + truncated cone / torus / geodesic icosphere; AddMeshOptions (location, XYZ-Euler rotation, scale) common settings, all Euler-checked (GH issue #37 §H) |
 //! | [`extra_objects`] | `add_mesh_extra_objects` add-on | **real** — rounded_cube (rounded-box SDF projection), capsule, spur_gear (trapezoidal teeth), pipe + elbow (hollow, swept), wedge, star, honeycomb, z_function_surface (generic `Fn(x,y)->z`) (GH issue #37 §H) |
 //! | [`draw_tool`] | interactive Add Object Tool (place gizmo) + snap/PDT entry | **real** — WorkPlane (xy/xz/yz/from-normal), staged DrawGesture (PickBase→DragFootprint→DragDepth→Done), box/circle/cone from-drag, snap_input (SnapTarget projection), eval_dimension (expression entry) (GH issue #37 §H) |
+//! | [`loop_tools`] | `mesh_looptools` add-on | **real** — circle (best-fit circle), flatten (best-fit plane), relax (Laplacian), curve (Catmull–Rom toward anchors), space (equal arc length), gstretch (onto a stroke), bridge + loft, subdivide (loop-edge midpoint split) (GH issue #37 §I) |
+//! | [`snap_line`] | `mesh_snap_utilities_line` add-on | **real** — LineTool connected polyline: add_raw / add_snapped (snap engine) / add_polar / add_constrained (numeric length + angle in a WorkPlane), undo, close, commit_wire, auto_cut_chords (edge-to-edge-on-one-face knife cuts) (GH issue #37 §I) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -217,6 +219,7 @@ pub mod inset;
 pub mod knife;
 pub mod laplacian;
 pub mod loop_cut;
+pub mod loop_tools;
 pub mod loop_subdivision;
 pub mod math;
 pub mod measure;
@@ -240,6 +243,7 @@ pub mod revolve;
 pub mod selection;
 pub mod slide;
 pub mod snap;
+pub mod snap_line;
 pub mod solidify;
 pub mod spin_screw;
 pub mod stl;
