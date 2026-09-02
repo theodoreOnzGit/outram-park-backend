@@ -94,6 +94,8 @@
 //! | [`edge_tools`] | `bmo_rotate_edges.cc` / mesh_edge_flow / `MOD_edgesplit.cc` | **real** — rotate edge CW/CCW, set edge flow (loop relax), edge split operator (GH issue #37 §B) |
 //! | [`transform_ops`] | `transform_mode_*.cc` | **real** — to-sphere / shear / bend / warp / push-pull / shrink-fatten / randomize / smooth-verts, position-only over a selection (GH issue #37 §C) |
 //! | [`proportional`] | `transform_proportional_*` | **real** — proportional-edit falloff (smooth/sphere/root/inv-sq/sharp/linear/constant/random), Euclidean or connected-only distance (GH issue #37 §C) |
+//! | [`symmetry`] | `bmo_symmetrize.cc` / `MESH_OT_symmetry_snap` | **real** — symmetrize (mirror + weld a half), snap-to-symmetry (average with partner), mirror_selection (GH issue #37 §C) |
+//! | [`spin_screw`] | `bmo_spin_exec` / `MOD_screw.cc` | **real** — spin a profile selection around an axis (bridged or duplicates), screw = spin + axial translation (helix) (GH issue #37 §C) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -207,9 +209,11 @@ pub mod revolve;
 pub mod selection;
 pub mod slide;
 pub mod solidify;
+pub mod spin_screw;
 pub mod stl;
 pub mod subdivide;
 pub mod subdivision;
+pub mod symmetry;
 pub mod topology;
 pub mod transform;
 pub mod transform_ops;
