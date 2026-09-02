@@ -89,6 +89,9 @@
 //! | [`bridge`] | `bmo_bridge.cc` | **real** — join two equal-length edge loops with a face strip; twist / cuts / flip / weld; ordered_ring walker (GH issue #37 §B) |
 //! | [`fill`] | `bmo_grid_fill.cc` / `bmo_triangle_fill.cc` / `MESH_OT_edge_face_add` | **real** — make_face (F), grid_fill (Coons quad grid from a 4-sided loop), beauty_fill (Delaunay diagonal flips) (GH issue #37 §B) |
 //! | [`dissolve`] | `bmo_dissolve.cc` / `MESH_OT_delete` | **real** — dissolve faces/edges/vertices (merge to one n-gon), limited dissolve (planar cleanup), the delete/erase matrix (GH issue #37 §B) |
+//! | [`connect`] | `bmo_connect.cc` | **real** — connect vertex path / pairs (J) via knife face-chord splits (GH issue #37 §B) |
+//! | [`poke_quads`] | `bmo_poke.cc` / `bmo_join_triangles.cc` | **real** — poke faces (centroid fan + offset), triangulate quads by method, tris↔quads join (GH issue #37 §B) |
+//! | [`edge_tools`] | `bmo_rotate_edges.cc` / mesh_edge_flow / `MOD_edgesplit.cc` | **real** — rotate edge CW/CCW, set edge flow (loop relax), edge split operator (GH issue #37 §B) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -157,10 +160,12 @@ pub mod boolean_classify;
 pub mod boolean_general;
 pub mod boolean_predicates;
 pub mod bridge;
+pub mod connect;
 pub mod convex_hull;
 pub mod decimate;
 pub mod dissolve;
 pub mod edge_bevel;
+pub mod edge_tools;
 pub mod export;
 
 /// Monte Carlo simulation setup + run (feature `mc-export`) — build materials,
@@ -189,6 +194,7 @@ pub mod mesh;
 pub mod parameterize;
 pub mod modifiers;
 pub mod ops;
+pub mod poke_quads;
 pub mod primitives;
 pub mod procedural;
 pub mod reactor;
