@@ -341,6 +341,9 @@ pub struct PdfReaderState {
     /// The visible viewport size last frame — needed to convert the centred
     /// anchor back into a top-left scroll offset.
     last_viewport: egui::Vec2,
+    /// The `ScrollArea`'s actual offset last frame, so a vertical-only page
+    /// jump can leave the horizontal scroll where the operator put it.
+    last_offset: egui::Vec2,
     /// A scroll offset to force on the **next** frame — set by a
     /// pointer-anchored zoom (Ctrl+scroll, `+`/`-`) so the document point
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
@@ -605,6 +608,7 @@ impl PdfReaderState {
         self.scroll_anchor = egui::Vec2::ZERO;
         self.last_viewport = egui::Vec2::ZERO;
         self.forced_offset = None;
+        self.last_offset = egui::Vec2::ZERO;
         self.thumb_synced = None;
         self.annotations.clear();
         self.draw_start = None;
@@ -1759,7 +1763,17 @@ impl PdfReaderState {
         let content = self.pages.content_size(n, zoom, GAP);
         let zoom_changed = self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON;
         let mut area = egui::ScrollArea::both();
-        if let Some(off) = self.forced_offset.take() {
+        if let Some(target) = self.scroll_request.take() {
+            // An explicit page jump (Prev/Next, `j`/`k`, Ctrl+D/U, a search
+            // hit, a thumbnail click, or opening a block from the panel).
+            // Set outright rather than with an animated `scroll_to_rect`:
+            // opening a digitised block switches the app to the digitiser
+            // view in the same frame, so an animation would never get a
+            // second frame to land and the page would still be wrong on the
+            // way back (maintainer, 2026-09-02).
+            self.forced_offset = None;
+            area = area.scroll_offset(egui::vec2(self.last_offset.x, self.pages.page_top(target, zoom, GAP)));
+        } else if let Some(off) = self.forced_offset.take() {
             area = area.scroll_offset(off);
         } else if zoom_changed {
             let target_y = (self.scroll_anchor.y * stride - self.last_viewport.y * 0.5).max(0.0);
@@ -1860,14 +1874,6 @@ impl PdfReaderState {
                     self.forced_offset =
                         Some(egui::vec2((new_x - within.x).max(0.0), (new_y - within.y).max(0.0)));
                 }
-            }
-
-            if let Some(target) = self.scroll_request.take() {
-                let y = origin.y + self.pages.page_top(target, zoom, GAP);
-                ui.scroll_to_rect(
-                    Rect::from_min_size(Pos2::new(origin.x, y), egui::vec2(1.0, 10.0)),
-                    Some(egui::Align::TOP),
-                );
             }
 
             // Paint each visible page (a grey placeholder while it renders).
@@ -2112,6 +2118,7 @@ impl PdfReaderState {
         if viewport_size.x > 0.0 && viewport_size.y > 0.0 {
             self.last_viewport = viewport_size;
         }
+        self.last_offset = scroll_out.state.offset;
         self.scroll_anchor = egui::vec2(
             (scroll_out.state.offset.x + self.last_viewport.x * 0.5) / content.x.max(1.0),
             (scroll_out.state.offset.y + self.last_viewport.y * 0.5) / stride.max(1.0),
