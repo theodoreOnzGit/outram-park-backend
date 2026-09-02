@@ -112,6 +112,8 @@
 //! | [`text`] | `blenkernel/intern/vfont.cc` (text objects) | **real** — Font/Glyph outline table (+ built-in block stroke font), text_to_contours (baseline layout), text_to_mesh (ear-clip fill, extrude, chamfer bevel) for name plates / labels / gauge faces (GH issue #37 §G) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`primitives_extra`] | `add_mesh_*` operators + redo panels | **real** — plane / circle (fill or wire) / cone + truncated cone / torus / geodesic icosphere; AddMeshOptions (location, XYZ-Euler rotation, scale) common settings, all Euler-checked (GH issue #37 §H) |
+//! | [`extra_objects`] | `add_mesh_extra_objects` add-on | **real** — rounded_cube (rounded-box SDF projection), capsule, spur_gear (trapezoidal teeth), pipe + elbow (hollow, swept), wedge, star, honeycomb, z_function_surface (generic `Fn(x,y)->z`) (GH issue #37 §H) |
+//! | [`draw_tool`] | interactive Add Object Tool (place gizmo) + snap/PDT entry | **real** — WorkPlane (xy/xz/yz/from-normal), staged DrawGesture (PickBase→DragFootprint→DragDepth→Done), box/circle/cone from-drag, snap_input (SnapTarget projection), eval_dimension (expression entry) (GH issue #37 §H) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -206,6 +208,8 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+pub mod draw_tool;
+pub mod extra_objects;
 pub mod extrude;
 pub mod fill;
 pub mod fill_holes;

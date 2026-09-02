@@ -391,7 +391,7 @@ fn centroid(c: &[[f64; 2]]) -> [f64; 2] {
 
 /// Ear-clipping triangulation of a simple polygon (indices into `poly`).
 /// Assumes CCW; a CW polygon is triangulated as its reverse.
-fn ear_clip(poly: &[[f64; 2]]) -> Vec<[usize; 3]> {
+pub(crate) fn ear_clip(poly: &[[f64; 2]]) -> Vec<[usize; 3]> {
     let n = poly.len();
     if n < 3 {
         return Vec::new();
