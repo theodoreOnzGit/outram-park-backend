@@ -76,7 +76,7 @@
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
 //! | `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
-//! | [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — vertex/edge/face select modes + flush, all/none/invert, box/sphere/screen-polygon region select, select linked, select mirror, edge/face loop + ring + boundary loop + shortest path (GH issue #37 §A) |
+//! | [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — select modes + flush; all/none/invert; box/sphere/lasso region; linked; mirror; edge/face loop, ring, boundary loop, shortest path; more/less; select similar; checker deselect; non-manifold / loose / interior-faces / faces-by-sides (GH issue #37 §A — `op-hzs.54.1`–`.4`) |
 //! | [`topology`] | `bmesh_queries.cc` / `bmesh_walkers_impl.cc` | **real** — precomputed radial (edge→faces) + disk (vertex→edges) adjacency; edge-loop / edge-ring / face-loop walkers; Dijkstra + BFS path helpers |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |

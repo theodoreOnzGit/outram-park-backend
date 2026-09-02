@@ -60,9 +60,19 @@
 //!   [`Selection::intersect`], [`Selection::retain`] compose the primitives
 //!   above into Blender's extend / subtract / intersect box-select modes
 //!   without widening the per-operator API.
-//!
-//! Loop / ring selection is `op-hzs.54.2`; select-similar / grow / shrink is
-//! `op-hzs.54.3`; select-by-trait (non-manifold, loose, …) is `op-hzs.54.4`.
+//! - **Loop / ring** (`op-hzs.54.2`) — [`Selection::select_edge_loop`],
+//!   [`Selection::select_edge_ring`], [`Selection::select_face_loop`],
+//!   [`Selection::select_boundary_loop`], [`Selection::select_shortest_path`],
+//!   over [`crate::topology`]'s adjacency walkers.
+//! - **Grow / shrink / similar / nth** (`op-hzs.54.3`) —
+//!   [`Selection::select_more`], [`Selection::select_less`],
+//!   [`Selection::select_similar`] ([`SimilarTrait`]),
+//!   [`Selection::checker_deselect`].
+//! - **By trait** (`op-hzs.54.4`) — [`Selection::select_non_manifold`]
+//!   ([`NonManifoldKinds`]), [`Selection::select_loose`],
+//!   [`Selection::select_interior_faces`],
+//!   [`Selection::select_faces_by_sides`] ([`NumberCompare`]). "Ungrouped
+//!   vertices" waits on vertex groups in `op-hzs.54.28`.
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -137,6 +147,92 @@ pub enum RegionMode {
     /// Select the element only if **all** its vertices are inside the region
     /// (a strict "fully enclosed" box select).
     Enclosed,
+}
+
+/// A trait that [`Selection::select_similar`] matches on (Blender's
+/// `Select ▸ Select Similar`, `Shift+G`). Each variant is meaningful in one
+/// [`SelectMode`]; calling it in the wrong mode is a no-op.
+///
+/// Attribute-backed traits (material, crease, bevel weight, seam, sharp, vertex
+/// groups) arrive with the per-element attribute layers in `op-hzs.54.28`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SimilarTrait {
+    /// **Vertex** — number of connecting edges (valence). Exact match;
+    /// threshold ignored.
+    VertexValence,
+    /// **Edge** — length. `threshold` is a relative tolerance
+    /// (`|a - ref| <= threshold * max(|ref|, eps)`).
+    EdgeLength,
+    /// **Edge** — direction (undirected). `threshold` is the angle tolerance
+    /// in radians.
+    EdgeDirection,
+    /// **Edge** — number of incident faces (1 = boundary, 2 = manifold).
+    /// Exact match; threshold ignored.
+    EdgeFaceCount,
+    /// **Face** — area. `threshold` is a relative tolerance.
+    FaceArea,
+    /// **Face** — number of sides. Exact match; threshold ignored.
+    FaceSides,
+    /// **Face** — perimeter. `threshold` is a relative tolerance.
+    FacePerimeter,
+    /// **Face** — normal direction. `threshold` is the angle tolerance in
+    /// radians.
+    FaceNormal,
+    /// **Face** — coplanar with a selected face: normals parallel within
+    /// ~0.5° **and** plane offset equal within `threshold` (absolute, model
+    /// units).
+    FaceCoplanar,
+}
+
+/// Which non-manifold conditions [`Selection::select_non_manifold`] catches
+/// (Blender's `Select ▸ All by Trait ▸ Non Manifold` checkboxes). All default
+/// on via [`NonManifoldKinds::all`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NonManifoldKinds {
+    /// Wire edges — edges with **no** incident face.
+    pub wire: bool,
+    /// Boundary edges — edges with **one** incident face (an open border).
+    pub boundary: bool,
+    /// Edges shared by **three or more** faces.
+    pub multiple_faces: bool,
+}
+
+impl NonManifoldKinds {
+    /// Every condition enabled.
+    pub fn all() -> Self {
+        NonManifoldKinds { wire: true, boundary: true, multiple_faces: true }
+    }
+}
+
+impl Default for NonManifoldKinds {
+    fn default() -> Self {
+        Self::all()
+    }
+}
+
+/// How [`Selection::select_faces_by_sides`] compares a face's side count to the
+/// target (Blender's `Select ▸ All by Trait ▸ Faces by Sides` "Type" dropdown).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NumberCompare {
+    /// Side count `== n`.
+    Equal,
+    /// Side count `!= n`.
+    NotEqual,
+    /// Side count `< n`.
+    Less,
+    /// Side count `> n`.
+    Greater,
+}
+
+impl NumberCompare {
+    fn test(self, value: usize, target: usize) -> bool {
+        match self {
+            NumberCompare::Equal => value == target,
+            NumberCompare::NotEqual => value != target,
+            NumberCompare::Less => value < target,
+            NumberCompare::Greater => value > target,
+        }
+    }
 }
 
 /// The set of currently-selected mesh elements plus the active [`SelectMode`].
@@ -752,6 +848,289 @@ impl Selection {
     }
 
     // ---------------------------------------------------------------------
+    // Grow / shrink / similar / checker (op-hzs.54.3 — GH issue #37 §A)
+    // ---------------------------------------------------------------------
+
+    /// Grow the selection by one ring — add every element of the active domain
+    /// adjacent to an already-selected one (Blender's `Select ▸ More`,
+    /// `Ctrl` `NumpadPlus`). Adjacency: vertices by shared edge, edges by
+    /// shared vertex, faces by shared edge.
+    pub fn select_more(&mut self, mesh: &Mesh) {
+        let topo = MeshTopology::new(mesh);
+        match self.mode {
+            SelectMode::Vertex => {
+                let mut add: Vec<VertexId> = Vec::new();
+                for &v in &self.verts {
+                    for &e in topo.vertex_edges(v) {
+                        if let Some(n) = topo.other_end(mesh, e, v) {
+                            add.push(n);
+                        }
+                    }
+                }
+                self.verts.extend(add);
+            }
+            SelectMode::Edge => {
+                let mut add: Vec<EdgeId> = Vec::new();
+                for &e in &self.edges {
+                    let Some(ed) = mesh.edge(e) else { continue };
+                    for &v in &ed.verts {
+                        add.extend(topo.vertex_edges(v).iter().copied());
+                    }
+                }
+                self.edges.extend(add);
+            }
+            SelectMode::Face => {
+                let mut add: Vec<FaceId> = Vec::new();
+                for &f in &self.faces {
+                    for e in topo.face_edges(mesh, f) {
+                        add.extend(topo.edge_faces(e).iter().copied());
+                    }
+                }
+                self.faces.extend(add);
+            }
+        }
+        self.sync(mesh);
+    }
+
+    /// Shrink the selection by one ring — remove every selected element of the
+    /// active domain that touches an unselected one (Blender's `Select ▸ Less`,
+    /// `Ctrl` `NumpadMinus`). The inverse boundary of [`Selection::select_more`].
+    pub fn select_less(&mut self, mesh: &Mesh) {
+        let topo = MeshTopology::new(mesh);
+        match self.mode {
+            SelectMode::Vertex => {
+                let sel = self.verts.clone();
+                self.verts.retain(|&v| {
+                    topo.vertex_edges(v)
+                        .iter()
+                        .filter_map(|&e| topo.other_end(mesh, e, v))
+                        .all(|n| sel.contains(&n))
+                });
+            }
+            SelectMode::Edge => {
+                let sel = self.edges.clone();
+                self.edges.retain(|&e| {
+                    let Some(ed) = mesh.edge(e) else { return false };
+                    ed.verts
+                        .iter()
+                        .all(|&v| topo.vertex_edges(v).iter().all(|n| sel.contains(n)))
+                });
+            }
+            SelectMode::Face => {
+                let sel = self.faces.clone();
+                self.faces.retain(|&f| {
+                    topo.face_edges(mesh, f)
+                        .iter()
+                        .all(|&e| topo.edge_faces(e).iter().all(|n| sel.contains(n)))
+                });
+            }
+        }
+        self.sync(mesh);
+    }
+
+    /// Select every element of the active domain whose `trait_` value matches
+    /// that of **some** currently-selected element, within `threshold`
+    /// (Blender's `Select ▸ Select Similar`, `Shift+G`). See [`SimilarTrait`]
+    /// for what `threshold` means per trait. A no-op if `trait_`'s domain does
+    /// not match the active mode, or nothing is selected.
+    pub fn select_similar(&mut self, mesh: &Mesh, trait_: SimilarTrait, threshold: f64) {
+        let topo = MeshTopology::new(mesh);
+        match trait_ {
+            SimilarTrait::VertexValence => {
+                if self.mode != SelectMode::Vertex {
+                    return;
+                }
+                let refs: BTreeSet<usize> =
+                    self.verts.iter().map(|&v| topo.vertex_edges(v).len()).collect();
+                for v in 0..mesh.vertex_count() {
+                    if refs.contains(&topo.vertex_edges(VertexId(v)).len()) {
+                        self.verts.insert(VertexId(v));
+                    }
+                }
+            }
+            SimilarTrait::EdgeLength
+            | SimilarTrait::EdgeDirection
+            | SimilarTrait::EdgeFaceCount => {
+                if self.mode != SelectMode::Edge {
+                    return;
+                }
+                let refs: Vec<EdgeTrait> =
+                    self.edges.iter().map(|&e| edge_trait(mesh, &topo, e, trait_)).collect();
+                for e in 0..mesh.edge_count() {
+                    let cand = edge_trait(mesh, &topo, EdgeId(e), trait_);
+                    if refs.iter().any(|r| cand.matches(r, threshold)) {
+                        self.edges.insert(EdgeId(e));
+                    }
+                }
+            }
+            SimilarTrait::FaceArea
+            | SimilarTrait::FaceSides
+            | SimilarTrait::FacePerimeter
+            | SimilarTrait::FaceNormal
+            | SimilarTrait::FaceCoplanar => {
+                if self.mode != SelectMode::Face {
+                    return;
+                }
+                let refs: Vec<FaceTrait> =
+                    self.faces.iter().map(|&f| face_trait(mesh, f, trait_)).collect();
+                for f in 0..mesh.face_count() {
+                    let cand = face_trait(mesh, FaceId(f), trait_);
+                    if refs.iter().any(|r| cand.matches(r, threshold)) {
+                        self.faces.insert(FaceId(f));
+                    }
+                }
+            }
+        }
+        self.sync(mesh);
+    }
+
+    /// Thin out the selection to a regular pattern: over the selected elements
+    /// of the active domain (ascending by id), keep `selected` in a row, then
+    /// deselect `deselected` in a row, repeating; `offset` shifts where the
+    /// pattern starts (Blender's `Select ▸ Checker Deselect` / Select Nth).
+    ///
+    /// `selected` and `deselected` are clamped to at least 1 and 0
+    /// respectively; with `deselected == 0` this is a no-op.
+    pub fn checker_deselect(
+        &mut self,
+        mesh: &Mesh,
+        selected: usize,
+        deselected: usize,
+        offset: usize,
+    ) {
+        let selected = selected.max(1);
+        if deselected == 0 {
+            return;
+        }
+        let period = selected + deselected;
+        let ids: Vec<usize> = match self.mode {
+            SelectMode::Vertex => self.verts.iter().map(|v| v.0).collect(),
+            SelectMode::Edge => self.edges.iter().map(|e| e.0).collect(),
+            SelectMode::Face => self.faces.iter().map(|f| f.0).collect(),
+        };
+        for (i, id) in ids.into_iter().enumerate() {
+            let phase = (i + offset) % period;
+            if phase >= selected {
+                match self.mode {
+                    SelectMode::Vertex => {
+                        self.verts.remove(&VertexId(id));
+                    }
+                    SelectMode::Edge => {
+                        self.edges.remove(&EdgeId(id));
+                    }
+                    SelectMode::Face => {
+                        self.faces.remove(&FaceId(id));
+                    }
+                }
+            }
+        }
+        self.sync(mesh);
+    }
+
+    // ---------------------------------------------------------------------
+    // Select by trait (op-hzs.54.4 — GH issue #37 §A)
+    // ---------------------------------------------------------------------
+
+    /// Select the **non-manifold** geometry of `mesh` per `kinds` (Blender's
+    /// `Select ▸ All by Trait ▸ Non Manifold`).
+    ///
+    /// In edge mode the offending edges are selected. In vertex mode a vertex
+    /// is selected if it touches an offending edge, **or** has an odd number of
+    /// incident boundary edges (a fan pinch / bow-tie). Face mode is a no-op.
+    ///
+    /// The "non-contiguous" case (neighbouring faces wound inconsistently
+    /// across a shared edge) needs the winding analysis in
+    /// [`crate::recalc_normals`] and is not covered here.
+    pub fn select_non_manifold(&mut self, mesh: &Mesh, kinds: NonManifoldKinds) {
+        let topo = MeshTopology::new(mesh);
+        let is_bad = |e: EdgeId| {
+            let n = topo.edge_faces(e).len();
+            (kinds.wire && n == 0) || (kinds.boundary && n == 1) || (kinds.multiple_faces && n >= 3)
+        };
+        match self.mode {
+            SelectMode::Edge => {
+                for e in 0..mesh.edge_count() {
+                    if is_bad(EdgeId(e)) {
+                        self.edges.insert(EdgeId(e));
+                    }
+                }
+            }
+            SelectMode::Vertex => {
+                for v in 0..mesh.vertex_count() {
+                    let at = topo.vertex_edges(VertexId(v));
+                    let touches_bad = at.iter().any(|&e| is_bad(e));
+                    let boundary_count =
+                        at.iter().filter(|&&e| topo.edge_faces(e).len() == 1).count();
+                    if touches_bad || boundary_count % 2 == 1 {
+                        self.verts.insert(VertexId(v));
+                    }
+                }
+            }
+            SelectMode::Face => {}
+        }
+        self.sync(mesh);
+    }
+
+    /// Select **loose geometry** — elements not connected to any face (Blender's
+    /// `Select ▸ All by Trait ▸ Loose Geometry`). Vertex mode: vertices with no
+    /// incident face. Edge mode: edges with no incident face (including wire
+    /// edges). Face mode is a no-op.
+    pub fn select_loose(&mut self, mesh: &Mesh) {
+        let topo = MeshTopology::new(mesh);
+        match self.mode {
+            SelectMode::Vertex => {
+                for v in 0..mesh.vertex_count() {
+                    if topo.vertex_faces(VertexId(v)).is_empty() {
+                        self.verts.insert(VertexId(v));
+                    }
+                }
+            }
+            SelectMode::Edge => {
+                for e in 0..mesh.edge_count() {
+                    if topo.edge_faces(EdgeId(e)).is_empty() {
+                        self.edges.insert(EdgeId(e));
+                    }
+                }
+            }
+            SelectMode::Face => {}
+        }
+        self.sync(mesh);
+    }
+
+    /// Select **interior faces** — faces every edge of which is shared by three
+    /// or more faces (Blender's `Select ▸ All by Trait ▸ Interior Faces`, the
+    /// buried faces inside a non-manifold solid). Face mode only.
+    pub fn select_interior_faces(&mut self, mesh: &Mesh) {
+        if self.mode != SelectMode::Face {
+            return;
+        }
+        let topo = MeshTopology::new(mesh);
+        for f in 0..mesh.face_count() {
+            let fe = topo.face_edges(mesh, FaceId(f));
+            if !fe.is_empty() && fe.iter().all(|&e| topo.edge_faces(e).len() > 2) {
+                self.faces.insert(FaceId(f));
+            }
+        }
+        self.sync(mesh);
+    }
+
+    /// Select faces whose side count compares to `sides` as `cmp` says
+    /// (Blender's `Select ▸ All by Trait ▸ Faces by Sides` — e.g.
+    /// `NumberCompare::Greater` with `sides == 4` selects every n-gon). Face
+    /// mode only.
+    pub fn select_faces_by_sides(&mut self, mesh: &Mesh, sides: usize, cmp: NumberCompare) {
+        if self.mode != SelectMode::Face {
+            return;
+        }
+        for f in 0..mesh.face_count() {
+            if cmp.test(mesh.face_vertices(FaceId(f)).len(), sides) {
+                self.faces.insert(FaceId(f));
+            }
+        }
+        self.sync(mesh);
+    }
+
+    // ---------------------------------------------------------------------
     // Select mirror
     // ---------------------------------------------------------------------
 
@@ -1033,6 +1412,128 @@ fn element_vertex(mesh: &Mesh, e: Element) -> Option<VertexId> {
         Element::Edge(ed) => mesh.edge(ed).map(|x| x.verts[0]),
         Element::Face(f) => mesh.face_vertices(f).first().copied(),
     }
+}
+
+/// `true` when `a` and `b` agree to a relative tolerance `t`
+/// (`|a - b| <= t * max(|a|, |b|, eps)`).
+fn rel_eq(a: f64, b: f64, t: f64) -> bool {
+    (a - b).abs() <= t * a.abs().max(b.abs()).max(1e-9)
+}
+
+/// `true` when `a` and `b` are parallel **or anti-parallel** to within
+/// `angle_tol` radians (an undirected direction comparison). Zero-length inputs
+/// never match.
+fn dir_parallel(a: Vec3, b: Vec3, angle_tol: f64) -> bool {
+    let (la, lb) = (a.length(), b.length());
+    if la < 1e-12 || lb < 1e-12 {
+        return false;
+    }
+    (a.dot(b).abs() / (la * lb)).min(1.0) >= angle_tol.cos()
+}
+
+/// One selected-element trait value for [`Selection::select_similar`] in edge
+/// mode.
+#[derive(Debug, Clone, Copy)]
+enum EdgeTrait {
+    Length(f64),
+    Direction(Vec3),
+    FaceCount(usize),
+}
+
+impl EdgeTrait {
+    fn matches(&self, reference: &EdgeTrait, threshold: f64) -> bool {
+        match (self, reference) {
+            (EdgeTrait::Length(a), EdgeTrait::Length(b)) => rel_eq(*a, *b, threshold),
+            (EdgeTrait::Direction(a), EdgeTrait::Direction(b)) => dir_parallel(*a, *b, threshold),
+            (EdgeTrait::FaceCount(a), EdgeTrait::FaceCount(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+fn edge_trait(mesh: &Mesh, topo: &MeshTopology, e: EdgeId, t: SimilarTrait) -> EdgeTrait {
+    let Some(edge) = mesh.edge(e) else { return EdgeTrait::FaceCount(usize::MAX) };
+    let (a, b) = (
+        mesh.vertex(edge.verts[0]).map(|v| v.position).unwrap_or(Vec3::ZERO),
+        mesh.vertex(edge.verts[1]).map(|v| v.position).unwrap_or(Vec3::ZERO),
+    );
+    match t {
+        SimilarTrait::EdgeLength => EdgeTrait::Length(b.sub(a).length()),
+        SimilarTrait::EdgeDirection => EdgeTrait::Direction(b.sub(a)),
+        SimilarTrait::EdgeFaceCount => EdgeTrait::FaceCount(topo.edge_faces(e).len()),
+        _ => EdgeTrait::FaceCount(usize::MAX),
+    }
+}
+
+/// One selected-element trait value for [`Selection::select_similar`] in face
+/// mode.
+#[derive(Debug, Clone, Copy)]
+enum FaceTrait {
+    Area(f64),
+    Sides(usize),
+    Perimeter(f64),
+    Normal(Vec3),
+    /// Unit normal + the centroid it passes through (for a coplanar test).
+    Plane(Vec3, Vec3),
+}
+
+impl FaceTrait {
+    fn matches(&self, reference: &FaceTrait, threshold: f64) -> bool {
+        match (self, reference) {
+            (FaceTrait::Area(a), FaceTrait::Area(b)) => rel_eq(*a, *b, threshold),
+            (FaceTrait::Sides(a), FaceTrait::Sides(b)) => a == b,
+            (FaceTrait::Perimeter(a), FaceTrait::Perimeter(b)) => rel_eq(*a, *b, threshold),
+            (FaceTrait::Normal(a), FaceTrait::Normal(b)) => dir_parallel(*a, *b, threshold),
+            (FaceTrait::Plane(na, ca), FaceTrait::Plane(nb, cb)) => {
+                dir_parallel(*na, *nb, 0.0087) && (nb.dot(ca.sub(*cb))).abs() <= threshold
+            }
+            _ => false,
+        }
+    }
+}
+
+fn face_trait(mesh: &Mesh, f: FaceId, t: SimilarTrait) -> FaceTrait {
+    match t {
+        SimilarTrait::FaceArea => FaceTrait::Area(face_area(mesh, f)),
+        SimilarTrait::FaceSides => FaceTrait::Sides(mesh.face_vertices(f).len()),
+        SimilarTrait::FacePerimeter => FaceTrait::Perimeter(face_perimeter(mesh, f)),
+        SimilarTrait::FaceNormal => FaceTrait::Normal(mesh.face_normal(f)),
+        SimilarTrait::FaceCoplanar => FaceTrait::Plane(mesh.face_normal(f), mesh.face_centroid(f)),
+        _ => FaceTrait::Sides(usize::MAX),
+    }
+}
+
+/// Face area by Newell's method (half the magnitude of the Newell vector) —
+/// robust for non-planar / concave polygons.
+fn face_area(mesh: &Mesh, f: FaceId) -> f64 {
+    let vs = mesh.face_vertices(f);
+    if vs.len() < 3 {
+        return 0.0;
+    }
+    let mut n = Vec3::ZERO;
+    for i in 0..vs.len() {
+        let cur = mesh.vertex(vs[i]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+        let nxt = mesh.vertex(vs[(i + 1) % vs.len()]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+        n = n.add(Vec3::new(
+            (cur.y - nxt.y) * (cur.z + nxt.z),
+            (cur.z - nxt.z) * (cur.x + nxt.x),
+            (cur.x - nxt.x) * (cur.y + nxt.y),
+        ));
+    }
+    n.length() * 0.5
+}
+
+/// Face perimeter — the sum of its boundary edge lengths.
+fn face_perimeter(mesh: &Mesh, f: FaceId) -> f64 {
+    let vs = mesh.face_vertices(f);
+    let n = vs.len();
+    (0..n)
+        .map(|i| {
+            let a = mesh.vertex(vs[i]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+            let b = mesh.vertex(vs[(i + 1) % n]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+            b.sub(a).length()
+        })
+        .sum()
 }
 
 /// Flood-fill the connected components (by shared edge) that contain any of
@@ -1321,5 +1822,130 @@ mod tests {
         assert!(s.face_count() >= 2 && s.face_count() <= m.face_count());
         assert!(s.is_selected(Element::Face(FaceId(0))));
         assert!(s.is_selected(Element::Face(FaceId(m.face_count() - 1))));
+    }
+
+    #[test]
+    fn select_more_then_less_returns_to_the_seed_interior() {
+        let m = primitives::grid(6, 6, 6.0);
+        let mut s = Selection::new(SelectMode::Face);
+        s.select(&m, Element::Face(FaceId(14))); // an interior face
+        let n1 = s.face_count();
+        s.select_more(&m);
+        assert!(s.face_count() > n1, "grew");
+        s.select_less(&m);
+        assert_eq!(s.face_count(), n1, "shrank back to the single interior face");
+    }
+
+    #[test]
+    fn select_similar_face_sides_picks_all_quads() {
+        let m = primitives::grid(3, 3, 3.0); // all quads
+        let mut s = Selection::new(SelectMode::Face);
+        s.select(&m, Element::Face(FaceId(0)));
+        s.select_similar(&m, SimilarTrait::FaceSides, 0.0);
+        assert_eq!(s.face_count(), m.face_count(), "every grid face is a quad");
+    }
+
+    #[test]
+    fn select_similar_face_normal_picks_one_cube_side() {
+        let m = cube();
+        let mut s = Selection::new(SelectMode::Face);
+        s.select(&m, Element::Face(FaceId(0)));
+        s.select_similar(&m, SimilarTrait::FaceNormal, 0.01);
+        // A cube has no two faces with parallel normals except opposite pairs,
+        // which `dir_parallel` treats as matching → 2 faces.
+        assert_eq!(s.face_count(), 2);
+    }
+
+    #[test]
+    fn select_similar_edge_length_on_a_cube() {
+        let m = cube(); // all 12 edges equal length
+        let mut s = Selection::new(SelectMode::Edge);
+        s.select(&m, Element::Edge(EdgeId(0)));
+        s.select_similar(&m, SimilarTrait::EdgeLength, 0.001);
+        assert_eq!(s.edge_count(), 12);
+    }
+
+    #[test]
+    fn checker_deselect_keeps_every_other() {
+        let m = primitives::grid(4, 1, 4.0); // 4 faces in a row: ids 0,1,2,3
+        let mut s = Selection::all(&m, SelectMode::Face);
+        assert_eq!(s.face_count(), 4);
+        s.checker_deselect(&m, 1, 1, 0);
+        assert_eq!(s.face_count(), 2);
+        assert!(s.is_selected(Element::Face(FaceId(0))));
+        assert!(!s.is_selected(Element::Face(FaceId(1))));
+        assert!(s.is_selected(Element::Face(FaceId(2))));
+    }
+
+    #[test]
+    fn non_manifold_finds_grid_border_in_edge_mode() {
+        let m = primitives::grid(4, 4, 4.0);
+        let mut s = Selection::new(SelectMode::Edge);
+        s.select_non_manifold(&m, NonManifoldKinds { wire: false, boundary: true, multiple_faces: false });
+        assert_eq!(s.edge_count(), 16, "the 16 boundary edges");
+
+        // A closed cube has no non-manifold edges.
+        let c = cube();
+        let mut sc = Selection::new(SelectMode::Edge);
+        sc.select_non_manifold(&c, NonManifoldKinds::all());
+        assert_eq!(sc.edge_count(), 0);
+    }
+
+    #[test]
+    fn loose_geometry_catches_a_stray_vertex() {
+        let mut positions = cube().positions();
+        let faces: Vec<Vec<usize>> =
+            cube().polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        positions.push(Vec3::new(10.0, 10.0, 10.0)); // unused vertex
+        let m = Mesh::from_polygons(&positions, &faces);
+
+        let mut s = Selection::new(SelectMode::Vertex);
+        s.select_loose(&m);
+        assert_eq!(s.vertex_count(), 1);
+        assert!(s.is_selected(Element::Vertex(VertexId(positions.len() - 1))));
+    }
+
+    #[test]
+    fn faces_by_sides_selects_the_ngon() {
+        // A grid of quads plus one triangle appended.
+        let g = primitives::grid(2, 2, 2.0);
+        let mut positions = g.positions();
+        let mut faces: Vec<Vec<usize>> =
+            g.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let a = positions.len();
+        positions.push(Vec3::new(5.0, 0.0, 0.0));
+        positions.push(Vec3::new(6.0, 0.0, 0.0));
+        positions.push(Vec3::new(5.5, 1.0, 0.0));
+        faces.push(vec![a, a + 1, a + 2]); // a triangle
+        let m = Mesh::from_polygons(&positions, &faces);
+
+        let mut s = Selection::new(SelectMode::Face);
+        s.select_faces_by_sides(&m, 4, NumberCompare::Less);
+        assert_eq!(s.face_count(), 1, "only the triangle has < 4 sides");
+    }
+
+    #[test]
+    fn interior_faces_selects_a_cube_diaphragm() {
+        // A cube split in half at z = 0 by an internal quad. Each diaphragm
+        // edge is shared by the diaphragm + an upper + a lower side face = 3
+        // users, so the diaphragm is an interior face and nothing else is.
+        #[rustfmt::skip]
+        let p = [
+            Vec3::new(-1.0, -1.0, -1.0), Vec3::new(1.0, -1.0, -1.0), Vec3::new(1.0, 1.0, -1.0), Vec3::new(-1.0, 1.0, -1.0),
+            Vec3::new(-1.0, -1.0,  0.0), Vec3::new(1.0, -1.0,  0.0), Vec3::new(1.0, 1.0,  0.0), Vec3::new(-1.0, 1.0,  0.0),
+            Vec3::new(-1.0, -1.0,  1.0), Vec3::new(1.0, -1.0,  1.0), Vec3::new(1.0, 1.0,  1.0), Vec3::new(-1.0, 1.0,  1.0),
+        ];
+        let faces = vec![
+            vec![0, 3, 2, 1],          // bottom cap
+            vec![8, 9, 10, 11],        // top cap
+            vec![0, 1, 5, 4], vec![1, 2, 6, 5], vec![2, 3, 7, 6], vec![3, 0, 4, 7], // lower sides
+            vec![4, 5, 9, 8], vec![5, 6, 10, 9], vec![6, 7, 11, 10], vec![7, 4, 8, 11], // upper sides
+            vec![4, 5, 6, 7],          // diaphragm (id 10)
+        ];
+        let m = Mesh::from_polygons(&p, &faces);
+        let mut s = Selection::new(SelectMode::Face);
+        s.select_interior_faces(&m);
+        assert_eq!(s.face_count(), 1);
+        assert!(s.is_selected(Element::Face(FaceId(10))));
     }
 }
