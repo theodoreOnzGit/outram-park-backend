@@ -1470,7 +1470,12 @@ impl PdfReaderState {
         // already used by DrawBox/SelectText are pointer-only and never
         // take keyboard focus, so this only ever yields to `author`/project-
         // field/text-editor typing.
-        if is_pdf && self.mode == ViewMode::Annotate && ui.ctx().memory(|m| m.focused().is_none()) {
+        let text_editing = self.editing_block_id.is_some() || self.annotate_editor.is_some();
+        if is_pdf
+            && self.mode == ViewMode::Annotate
+            && !text_editing
+            && ui.ctx().memory(|m| m.focused().is_none())
+        {
             let (page_down, page_up) = ui.input(|i| {
                 (
                     i.key_pressed(egui::Key::PageDown) || i.key_pressed(egui::Key::ArrowRight) || i.key_pressed(egui::Key::J),

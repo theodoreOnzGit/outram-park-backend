@@ -408,11 +408,20 @@ impl KvimEditorState {
         }
 
         if response.has_focus() {
-            for event in ui.input(|i| i.events.clone()) {
-                if let Some(key) = map_event(&event) {
-                    let _ = self.editor.handle_key(key);
-                }
-            }
+            // **Consume** the events this editor handles (GH issue #35
+            // 2026-09-02: while typing in Insert mode, `j`/`k` etc. were
+            // still reaching the PDF reader's page-turn shortcuts). A
+            // focused text editor owns its keystrokes.
+            let editor = &mut self.editor;
+            ui.input_mut(|i| {
+                i.events.retain(|event| match map_event(event) {
+                    Some(key) => {
+                        let _ = editor.handle_key(key);
+                        false
+                    }
+                    None => true,
+                });
+            });
         }
 
         self.paint(ui, rect, char_width, line_height, line_count, &response);
