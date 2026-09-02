@@ -92,9 +92,7 @@
 
 use std::collections::HashMap;
 
-use eframe::egui::{
-    self, Color32, ColorImage, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions,
-};
+use eframe::egui::{self, Color32, ColorImage, Pos2, Rect, Sense, Stroke};
 use kopitiam_pdf::gui_frontend::{
     HotReload, PdfReader, PdfReaderConfig, ReaderAction, ReloadDecision, RELOAD_CHECK_INTERVAL,
 };
@@ -110,6 +108,7 @@ use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
 use super::kvim_editor::{CompletionSource, KvimEditorState};
+use super::page_canvas::PageView;
 
 /// Screen-resolution DPI for [`ViewMode::Annotate`]'s single-page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
@@ -144,14 +143,18 @@ impl ReaderSource {
 /// Meaningless for a plain image, which always behaves like `Annotate`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum ViewMode {
-    /// The embedded [`PdfReader`]'s own chrome — fast continuous scroll,
-    /// search, thumbnails, vim keys. No box-draw/select-text tools (see the
-    /// module doc for why).
+    /// Kovan's own **continuous multi-page canvas** ([`PageView`]) — the
+    /// default and primary view (GH issue #35 2026-09-02). Renders the pages
+    /// itself so it can draw saved region boxes over them, single-click a
+    /// box to edit it, and offer draw-box / select-text / crop-to-digitiser.
+    /// Toolbar label: **"Read"**.
     #[default]
-    Read,
-    /// Kovan's own static single-page canvas: draw-box → Annotate/Digitise
-    /// graph/Read table, select-text, crop-to-digitiser.
     Annotate,
+    /// The embedded [`PdfReader`]'s own chrome — `/` search, thumbnails,
+    /// vim keys, text reflow. No region-box overlay (the reader exposes no
+    /// hook — kopitiam#107), so it is the *secondary* view. Toolbar label:
+    /// **"Search & text"**.
+    Read,
 }
 
 /// Which annotation interaction is active. Closed set, enum-dispatched.
@@ -318,17 +321,21 @@ pub struct PdfReaderState {
     path: String,
     source: ReaderSource,
     mode: ViewMode,
-    /// [`ViewMode::Annotate`]'s own page tracking — independent of the
-    /// embedded [`PdfReader`]'s internal page (see the module doc's "Known
-    /// gap": there is no public way to seek the embedded reader to a page,
-    /// so switching modes only syncs `Read` -> `Annotate`, not back).
-    /// Always `0` for a plain image.
+    /// [`ViewMode::Annotate`]'s "page currently in view" — the top page the
+    /// continuous canvas is scrolled to (or the page under the pointer),
+    /// updated each frame. Feeds [`Self::active_page`] and the context
+    /// panel. Always `0` for a plain image.
     annotate_page: usize,
-    texture: Option<TextureHandle>,
-    /// The page index [`Self::texture`] was rendered for, so a page flip or
-    /// zoom-only change knows whether to re-rasterize.
-    texture_page: usize,
-    /// [`ViewMode::Annotate`]'s zoom on the displayed texture.
+    /// [`ViewMode::Annotate`]'s own continuous multi-page raster view
+    /// (GH issue #35 2026-09-02) — kovan renders the pages itself so it can
+    /// draw region boxes over them and route clicks (the embedded reader
+    /// cannot — kopitiam#107).
+    pages: PageView,
+    /// A page the continuous canvas should scroll to on the next frame —
+    /// set by the Prev/Next buttons and the `j`/`k` keys. Consumed by the
+    /// canvas.
+    scroll_request: Option<usize>,
+    /// [`ViewMode::Annotate`]'s zoom on the page rasters.
     zoom: f32,
     message: String,
     // annotations — in-memory only, see the module doc comment.
@@ -551,9 +558,9 @@ impl PdfReaderState {
     }
 
     fn reset_interaction_state(&mut self) {
-        self.mode = ViewMode::Read;
+        self.mode = ViewMode::Annotate;
         self.annotate_page = 0;
-        self.texture = None;
+        self.pages.clear();
         self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
         self.annotations.clear();
         self.draw_start = None;
@@ -765,7 +772,6 @@ impl PdfReaderState {
         match self.crop_region_of_page(page, region) {
             Ok((raster, min, max)) => {
                 self.annotate_page = page;
-                self.texture = None;
                 // The re-digitise save goes through `replace_artifact_body`,
                 // which keeps the original `[source]` (region included), so
                 // `page_px`/`region()` are irrelevant here — only the id
@@ -792,17 +798,38 @@ impl PdfReaderState {
         }
     }
 
-    /// The current annotate-canvas texture's pixel size (`RENDER_DPI`), or
-    /// `[0.0, 0.0]` if there is none — stamped onto a new [`Annotation`] so
-    /// its region survives a page change before the save.
+    /// Open a saved artifact for editing — the single path a **single-click
+    /// on its box** on the continuous canvas and a **double-click on its
+    /// card / preview line** in the context panel both go through, so the
+    /// two cannot drift (GH issue #35 2026-09-02).
+    ///
+    /// A text / annotation / formula / source-reference block loads into
+    /// `block_editor` (the panel then shows the inline editor); a digitised
+    /// table / graph block re-crops its `[source]` region and comes back as
+    /// a [`CropResult`] for the app to route to the matching digitiser.
+    fn open_artifact(&mut self, artifact: &Artifact) -> Option<CropResult> {
+        match artifact.kind() {
+            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => self.recrop_artifact(artifact),
+            _ => {
+                self.block_editor.load_text(&artifact.body);
+                self.editing_block_id = Some(artifact.id().to_string());
+                None
+            }
+        }
+    }
+
+    /// The 0-based page an artifact's `[source]` anchor starts on, if any.
+    fn artifact_page(artifact: &Artifact) -> Option<usize> {
+        artifact.toml.source.as_ref().and_then(|s| s.first_page()).map(|p| p.saturating_sub(1) as usize)
+    }
+
+    /// The annotate-canvas page pixel size (`RENDER_DPI`) — stamped onto a
+    /// new [`Annotation`] so its region survives a page change before the
+    /// save. A box can only be drawn on a page that has rendered, so by the
+    /// time this is read the size is the real measured one.
     fn current_page_px(&self) -> [f32; 2] {
-        self.texture
-            .as_ref()
-            .map(|t| {
-                let [w, h] = t.size();
-                [w as f32, h as f32]
-            })
-            .unwrap_or([0.0, 0.0])
+        let sz = self.pages.page_size_px();
+        [sz.x, sz.y]
     }
 
     fn author_name(&self) -> String {
@@ -815,14 +842,7 @@ impl PdfReaderState {
     }
 
     fn make_provenance(&self, min: Pos2, max: Pos2, figure: impl Into<String>) -> CropProvenance {
-        let page_px = self
-            .texture
-            .as_ref()
-            .map(|t| {
-                let [w, h] = t.size();
-                [w as f32, h as f32]
-            })
-            .unwrap_or([0.0, 0.0]);
+        let page_px = self.current_page_px();
         CropProvenance {
             page_index: self.active_page(),
             min,
@@ -1032,11 +1052,12 @@ impl PdfReaderState {
         }
     }
 
-    /// Advance [`Self::annotate_page`] by one, clamped to the document's
-    /// page count. Only meaningful in [`ViewMode::Annotate`] on a PDF.
+    /// Ask the continuous canvas to scroll one page forward, clamped to the
+    /// document. Only meaningful in [`ViewMode::Annotate`] on a PDF.
     fn annotate_next_page(&mut self) {
-        if self.annotate_page + 1 < self.source.page_count() {
-            self.annotate_page += 1;
+        let target = (self.annotate_page + 1).min(self.source.page_count().saturating_sub(1));
+        if target != self.annotate_page {
+            self.scroll_request = Some(target);
             self.pending_box = None;
             self.context_menu = None;
             self.text_selection = None;
@@ -1044,9 +1065,9 @@ impl PdfReaderState {
     }
 
     fn annotate_prev_page(&mut self) {
-        let before = self.annotate_page;
-        self.annotate_page = self.annotate_page.saturating_sub(1);
-        if self.annotate_page != before {
+        let target = self.annotate_page.saturating_sub(1);
+        if target != self.annotate_page {
+            self.scroll_request = Some(target);
             self.pending_box = None;
             self.context_menu = None;
             self.text_selection = None;
@@ -1066,44 +1087,6 @@ impl PdfReaderState {
         self.stext_cache.as_ref().map(|(_, s)| s)
     }
 
-    /// Rasterize/convert [`Self::active_page`] and upload it as a texture
-    /// for [`ViewMode::Annotate`]'s canvas, if not already cached for that
-    /// page.
-    fn ensure_annotate_texture(&mut self, ctx: &egui::Context) {
-        let page = self.active_page();
-        if self.texture.is_some() && self.texture_page == page {
-            return;
-        }
-        match &self.source {
-            ReaderSource::None => {}
-            ReaderSource::Pdf(reader) => match rasterize_page(reader.document(), page, RENDER_DPI) {
-                Ok(pixmap) => {
-                    let (w, h) = (pixmap.w as usize, pixmap.h as usize);
-                    let image = if pixmap.alpha {
-                        ColorImage::from_rgba_unmultiplied([w, h], &pixmap.samples)
-                    } else {
-                        ColorImage::from_rgb([w, h], &pixmap.samples)
-                    };
-                    self.texture = Some(ctx.load_texture(
-                        format!("pdf-page-{page}"),
-                        image,
-                        TextureOptions::LINEAR,
-                    ));
-                    self.texture_page = page;
-                }
-                Err(e) => {
-                    self.message = format!("page {} render failed: {e}", page + 1);
-                    self.texture = None;
-                }
-            },
-            ReaderSource::Image(raster) => {
-                let image = raster_to_color_image(raster);
-                self.texture =
-                    Some(ctx.load_texture("reader-image", image, TextureOptions::LINEAR));
-                self.texture_page = page;
-            }
-        }
-    }
 
     /// The right "page context" panel (op-0y4k, op-j178, GH issue #35
     /// 2026-09-02). With an active paper open (`active_artifacts` is
@@ -1267,16 +1250,8 @@ impl PdfReaderState {
         // A double-click landed on a block — open the right editor for it.
         let mut crop_result = None;
         if let Some(id) = open_target {
-            if let Some(a) = anchored.iter().find(|a| a.id() == id) {
-                match a.kind() {
-                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                        crop_result = self.recrop_artifact(a);
-                    }
-                    _ => {
-                        self.block_editor.load_text(&a.body);
-                        self.editing_block_id = Some(id);
-                    }
-                }
+            if let Some(a) = anchored.iter().find(|a| a.id() == id).copied() {
+                crop_result = self.open_artifact(a);
             }
         }
 
@@ -1426,8 +1401,8 @@ impl PdfReaderState {
 
         ui.horizontal(|ui| {
             if is_pdf {
-                ui.selectable_value(&mut self.mode, ViewMode::Read, "Read");
-                ui.selectable_value(&mut self.mode, ViewMode::Annotate, "Annotate & crop");
+                ui.selectable_value(&mut self.mode, ViewMode::Annotate, "Read");
+                ui.selectable_value(&mut self.mode, ViewMode::Read, "Search & text");
                 ui.separator();
                 let mut enabled = self.hot_reload.is_enabled();
                 if ui.checkbox(&mut enabled, "Hot reload").changed() {
@@ -1479,6 +1454,7 @@ impl PdfReaderState {
         if let ReaderSource::Pdf(reader) = &self.source {
             if let Some(page) = synced_annotate_page(mode_before, self.mode, reader.current_page(), reader.page_count()) {
                 self.annotate_page = page;
+                self.scroll_request = Some(page);
             }
         }
 
@@ -1592,32 +1568,73 @@ impl PdfReaderState {
             return crop_result;
         }
 
-        // --- ViewMode::Annotate / a plain image: kovan's own static
-        // single-page canvas, unchanged from before this migration. ---
-        self.ensure_annotate_texture(ui.ctx());
-        let Some(texture) = self.texture.clone() else {
-            if !self.message.is_empty() {
-                ui.label(&self.message);
-            }
-            return None;
-        };
-        let size = texture.size_vec2() * self.zoom;
+        // --- ViewMode::Annotate / a plain image: kovan's own **continuous**
+        // multi-page canvas (GH issue #35 2026-09-02). Renders the pages
+        // itself (via `PageView`) so it can draw saved region boxes over
+        // them and single-click a box to edit it — which the embedded reader
+        // cannot (kopitiam#107). ---
         let zoom = self.zoom;
-        let page = self.active_page();
-        // Free scrolling in both directions (op-gv19's Okular-style ask) —
-        // the whole page/image pans under a fixed viewport.
-        egui::ScrollArea::both().show(ui, |ui| {
-            let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
-            let painter = ui.painter_at(rect);
-            painter.image(
-                texture.id(),
-                rect,
-                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                Color32::WHITE,
-            );
+        const GAP: f32 = 16.0;
+        let n = self.source.page_count().max(1);
+        let mut open_target: Option<String> = None;
 
-            let to_image = move |pos: Pos2| -> Pos2 { ((pos - rect.min) / zoom).to_pos2() };
-            let to_screen = move |p: Pos2| -> Pos2 { rect.min + p.to_vec2() * zoom };
+        egui::ScrollArea::both().show_viewport(ui, |ui, viewport| {
+            // Rasterise + upload the pages the viewport touches (± one page
+            // of margin), evicting far ones.
+            let vis = self.pages.visible_range(viewport, n, zoom, GAP);
+            let want = vis.start().saturating_sub(1)..=(vis.end() + 1).min(n - 1);
+            match &self.source {
+                ReaderSource::Pdf(reader) => {
+                    self.pages.ensure(ui.ctx(), reader.document(), want.clone(), RENDER_DPI);
+                }
+                ReaderSource::Image(raster) => {
+                    let image = raster_to_color_image(raster);
+                    self.pages.set_single_image(ui.ctx(), image);
+                }
+                ReaderSource::None => {}
+            }
+
+            let size = self.pages.content_size(n, zoom, GAP);
+            let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
+            let origin = rect.min;
+            let painter = ui.painter_at(rect);
+
+            if let Some(target) = self.scroll_request.take() {
+                let y = origin.y + self.pages.page_top(target, zoom, GAP);
+                ui.scroll_to_rect(
+                    Rect::from_min_size(Pos2::new(origin.x, y), egui::vec2(1.0, 10.0)),
+                    Some(egui::Align::TOP),
+                );
+            }
+
+            // Paint each visible page (a grey placeholder while it renders).
+            for p in want.clone() {
+                let pr = self.pages.page_rect(p, origin, zoom, GAP);
+                if let Some(tex) = self.pages.texture(p) {
+                    painter.image(tex.id(), pr, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                } else {
+                    painter.rect_filled(pr, 0.0, Color32::from_gray(230));
+                    painter.text(
+                        pr.center(),
+                        egui::Align2::CENTER_CENTER,
+                        format!("rendering page {}…", p + 1),
+                        egui::FontId::proportional(14.0),
+                        Color32::from_gray(120),
+                    );
+                }
+            }
+
+            // The interactive page = the one under the pointer (frozen
+            // during a drag), else the top of the viewport. Feeds
+            // `active_page()` and the context panel.
+            let pointer_page = response.hover_pos().and_then(|s| self.pages.hit(s, origin, n, zoom, GAP)).map(|(p, _)| p);
+            if self.draw_start.is_none() && self.select_start.is_none() {
+                self.annotate_page = pointer_page.unwrap_or(*want.start());
+            }
+            let page = self.annotate_page;
+            let page_origin = origin + egui::vec2(0.0, self.pages.page_top(page, zoom, GAP));
+            let to_image = move |pos: Pos2| -> Pos2 { ((pos - page_origin) / zoom).to_pos2() };
+            let to_screen = move |p: Pos2| -> Pos2 { page_origin + p.to_vec2() * zoom };
 
             // --- drawing a new box ---
             if self.tool == AnnotationTool::DrawBox {
@@ -1697,83 +1714,78 @@ impl PdfReaderState {
                 }
             }
 
-            // --- overlays: saved annotations (hover-highlighted), then the
-            // pending box ---
-            let hovered = response
-                .hover_pos()
-                .map(to_image)
-                .and_then(|p| {
-                    self.annotations
-                        .get(&page)
-                        .and_then(|anns| anns.iter().position(|a| a.contains(p)))
-                });
-            // op-4x5s: remember which annotation (by its `created_at`,
-            // acting as a stable id) is hovered this frame, so the right
-            // panel — drawn earlier in the same `ui()` call, on the
-            // *previous* frame's value, one frame of lag being
-            // imperceptible at interactive frame rates — can highlight the
-            // matching markdown block too.
-            self.hover_created_at = hovered.and_then(|i| {
-                self.annotations
-                    .get(&page)
-                    .and_then(|anns| anns.get(i))
-                    .map(|a| a.created_at.clone())
+            // --- overlays across every visible page ---
+            let page_px = self.pages.page_size_px();
+            let hover_screen = response.hover_pos();
+            let clicked = response.clicked();
+            let pages = &self.pages;
+            let box_rect = |p: usize, min: Pos2, max: Pos2| {
+                Rect::from_min_max(
+                    pages.project(p, min, origin, zoom, GAP),
+                    pages.project(p, max, origin, zoom, GAP),
+                )
+            };
+
+            // op-4x5s: which in-memory annotation on the active page is
+            // hovered (also the right-click "Existing" target).
+            let hovered = hover_screen.map(to_image).and_then(|p| {
+                self.annotations.get(&page).and_then(|anns| anns.iter().position(|a| a.contains(p)))
             });
-            if let Some(anns) = self.annotations.get(&page) {
-                for (i, ann) in anns.iter().enumerate() {
-                    let is_hovered = hovered == Some(i);
-                    painter.rect_filled(
-                        Rect::from_min_max(to_screen(ann.min), to_screen(ann.max)),
-                        0.0,
-                        Color32::from_rgba_unmultiplied(255, 230, 60, if is_hovered { 110 } else { 60 }),
-                    );
-                    painter.rect_stroke(
-                        Rect::from_min_max(to_screen(ann.min), to_screen(ann.max)),
-                        0.0,
-                        Stroke::new(
-                            if is_hovered { 2.5_f32 } else { 1.0_f32 },
-                            Color32::from_rgb(230, 170, 20),
-                        ),
-                        egui::StrokeKind::Middle,
-                    );
+            let mut hover_id: Option<String> = hovered.and_then(|i| {
+                self.annotations.get(&page).and_then(|anns| anns.get(i)).map(|a| a.created_at.clone())
+            });
+
+            // In-memory (not-yet-saved) annotation boxes — amber — on every
+            // visible page.
+            for p in want.clone() {
+                if let Some(anns) = self.annotations.get(&p) {
+                    for (i, ann) in anns.iter().enumerate() {
+                        let hot = p == page && hovered == Some(i);
+                        let r = box_rect(p, ann.min, ann.max);
+                        painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(255, 230, 60, if hot { 110 } else { 60 }));
+                        painter.rect_stroke(
+                            r,
+                            0.0,
+                            Stroke::new(if hot { 2.5 } else { 1.0 }, Color32::from_rgb(230, 170, 20)),
+                            egui::StrokeKind::Middle,
+                        );
+                    }
                 }
             }
-            // --- overlays: already-saved annotation artifacts, drawn from
-            // their normalised `region` (op-4x5s: hovering one here
-            // highlights its card in the page-context panel next frame, and
-            // a card hovered there — `panel_hover_id` — highlights the box
-            // here now). ---
+
+            // Saved-artifact region boxes — amber (annotation) / blue
+            // (digitised) — on every visible page. Hover highlights the
+            // panel card; a single click opens the artifact for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
-                let tex = texture.size_vec2();
-                let hover_img = response.hover_pos().map(to_image);
                 for art in artifacts {
-                    let Some(anchor) = &art.toml.source else { continue };
-                    if !anchor.covers_page((page + 1) as u32) {
+                    let Some(pg) = Self::artifact_page(art) else { continue };
+                    if !want.contains(&pg) {
                         continue;
                     }
-                    let Some(region) = anchor.region else { continue };
-                    let min = Pos2::new(region.x0 as f32 * tex.x, region.y0 as f32 * tex.y);
-                    let max = Pos2::new(region.x1 as f32 * tex.x, region.y1 as f32 * tex.y);
-                    let hit = hover_img.is_some_and(|p| {
-                        p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y
-                    });
+                    let Some(region) = art.toml.source.as_ref().and_then(|s| s.region) else { continue };
+                    let min = Pos2::new(region.x0 as f32 * page_px.x, region.y0 as f32 * page_px.y);
+                    let max = Pos2::new(region.x1 as f32 * page_px.x, region.y1 as f32 * page_px.y);
+                    let r = box_rect(pg, min, max);
+                    let hit = hover_screen.is_some_and(|s| r.contains(s));
                     if hit {
-                        self.hover_created_at = Some(art.toml.kovan.created.clone());
+                        hover_id = Some(art.toml.kovan.created.clone());
+                        if clicked {
+                            open_target = Some(art.id().to_string());
+                        }
                     }
                     let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
-                    painter.rect_filled(
-                        Rect::from_min_max(to_screen(min), to_screen(max)),
-                        0.0,
-                        Color32::from_rgba_unmultiplied(120, 170, 255, if linked { 90 } else { 40 }),
-                    );
-                    painter.rect_stroke(
-                        Rect::from_min_max(to_screen(min), to_screen(max)),
-                        0.0,
-                        Stroke::new(if linked { 2.5_f32 } else { 1.0_f32 }, Color32::from_rgb(90, 140, 235)),
-                        egui::StrokeKind::Middle,
-                    );
+                    let is_annot = matches!(art.kind(), ArtifactKind::Annotation);
+                    let (fill, stroke) = if is_annot {
+                        (Color32::from_rgba_unmultiplied(255, 230, 60, if linked { 90 } else { 40 }), Color32::from_rgb(230, 170, 20))
+                    } else {
+                        (Color32::from_rgba_unmultiplied(120, 170, 255, if linked { 90 } else { 40 }), Color32::from_rgb(90, 140, 235))
+                    };
+                    painter.rect_filled(r, 0.0, fill);
+                    painter.rect_stroke(r, 0.0, Stroke::new(if linked { 2.5 } else { 1.0 }, stroke), egui::StrokeKind::Middle);
                 }
             }
+            self.hover_created_at = hover_id;
+
             if let Some((min, max)) = self.pending_box {
                 painter.rect_stroke(
                     Rect::from_min_max(to_screen(min), to_screen(max)),
@@ -1790,6 +1802,16 @@ impl PdfReaderState {
                 );
             }
         });
+
+        // A single click on a saved region box (GH issue #35 2026-09-02):
+        // straight into editing it.
+        if let Some(id) = open_target {
+            if let Some(art) = active_artifacts.as_deref().and_then(|a| a.iter().find(|x| x.id() == id).cloned()) {
+                if let Some(r) = self.open_artifact(&art) {
+                    crop_result = Some(r);
+                }
+            }
+        }
 
         if let Some(result) = self.context_menu_ui(ui.ctx()) {
             crop_result = Some(result);
@@ -2154,9 +2176,11 @@ a note
     }
 
     #[test]
-    fn new_reader_starts_in_read_mode_with_hot_reload_on() {
+    fn new_reader_starts_in_the_continuous_canvas_with_hot_reload_on() {
         let r = PdfReaderState::new();
-        assert_eq!(r.mode, ViewMode::Read);
+        // GH issue #35 2026-09-02: the continuous kovan canvas
+        // (`ViewMode::Annotate`, toolbar label "Read") is the default now.
+        assert_eq!(r.mode, ViewMode::Annotate);
         assert!(r.hot_reload.is_enabled());
         // Everything else should still be the plain derived-Default zero
         // state -- `new()` only overrides hot-reload.
@@ -2266,6 +2290,20 @@ a note
         assert_eq!(first_note_heading_line(md, 2), Some(3)); // page 3 == page0 2
         assert_eq!(first_note_heading_line(md, 6), Some(8)); // page 7 heading is line 8
         assert_eq!(first_note_heading_line(md, 4), None);
+    }
+
+    #[test]
+    fn open_artifact_on_a_text_block_loads_the_inline_editor() {
+        let md = "# P\n\n## Graphite note\n\n```toml\n[kovan]\nid = \"graphite-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n\nthe prose body\n";
+        let doc = crate::artifact::parse_document(md);
+        let art = doc.get("graphite-note").unwrap();
+
+        let mut state = PdfReaderState::default();
+        let crop = state.open_artifact(art);
+        assert!(crop.is_none(), "a text block is edited in place, not sent to a digitiser");
+        assert_eq!(state.editing_block_id.as_deref(), Some("graphite-note"));
+        assert_eq!(state.block_editor.text(), "the prose body");
+        assert_eq!(PdfReaderState::artifact_page(art), Some(2));
     }
 
     #[test]

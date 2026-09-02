@@ -14,6 +14,7 @@ mod bibliography;
 mod csv_preview;
 mod home;
 mod kvim_editor;
+mod page_canvas;
 mod pdf_reader;
 mod table_digitiser;
 mod theme;
