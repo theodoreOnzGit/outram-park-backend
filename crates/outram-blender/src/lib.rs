@@ -86,6 +86,8 @@
 //! | [`extrude`] | `bmo_extrude.cc` / `editmesh_extrude.cc` | **real** — extrude individual faces (own normal), region along averaged normals, vertices, manifold; complements [`ops`]'s region/edge extrude (GH issue #37 §B) |
 //! | [`merge`] | `editmesh_tools.cc` `MESH_OT_merge` | **real** — merge vertices at centre / point / first / last; collapse edges; merge-by-distance over a subset (Auto-Merge) (GH issue #37 §B) |
 //! | [`rip_split`] | `editmesh_rip.cc` / `MESH_OT_separate` / `_split` | **real** — split a face group into an island; separate by selection / loose parts / group; rip a slit along edges (GH issue #37 §B) |
+//! | [`bridge`] | `bmo_bridge.cc` | **real** — join two equal-length edge loops with a face strip; twist / cuts / flip / weld; ordered_ring walker (GH issue #37 §B) |
+//! | [`fill`] | `bmo_grid_fill.cc` / `bmo_triangle_fill.cc` / `MESH_OT_edge_face_add` | **real** — make_face (F), grid_fill (Coons quad grid from a 4-sided loop), beauty_fill (Delaunay diagonal flips) (GH issue #37 §B) |
 //! | [`dissolve`] | `bmo_dissolve.cc` / `MESH_OT_delete` | **real** — dissolve faces/edges/vertices (merge to one n-gon), limited dissolve (planar cleanup), the delete/erase matrix (GH issue #37 §B) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
@@ -154,6 +156,7 @@ pub mod boolean;
 pub mod boolean_classify;
 pub mod boolean_general;
 pub mod boolean_predicates;
+pub mod bridge;
 pub mod convex_hull;
 pub mod decimate;
 pub mod dissolve;
@@ -173,6 +176,7 @@ pub mod sim;
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
 pub mod extrude;
+pub mod fill;
 pub mod fill_holes;
 pub mod inset;
 pub mod knife;
