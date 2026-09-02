@@ -609,8 +609,38 @@ fn array(input: &Mesh, count: u32, offset: [f64; 3]) -> Mesh {
 /// final derived mesh.
 #[derive(Debug, Clone, Default)]
 pub struct ModifierStack {
-    /// The modifiers, evaluated first-to-last (top-to-bottom in Blender's UI).
-    pub modifiers: Vec<Modifier>,
+    /// The modifier entries, evaluated first-to-last (top-to-bottom in
+    /// Blender's UI).
+    pub modifiers: Vec<ModifierEntry>,
+}
+
+/// One modifier plus its per-entry visibility toggles (Blender's row of icons).
+#[derive(Debug, Clone)]
+pub struct ModifierEntry {
+    /// The modifier.
+    pub modifier: Modifier,
+    /// Evaluate this entry in the viewport result (Blender's monitor icon).
+    /// A disabled entry is skipped by [`ModifierStack::evaluate`].
+    pub show_viewport: bool,
+    /// Evaluate this entry in the render result.
+    pub show_render: bool,
+    /// Show the modified geometry while in edit mode.
+    pub show_in_editmode: bool,
+    /// Edit the *modified* geometry directly (the "on cage" toggle).
+    pub on_cage: bool,
+}
+
+impl ModifierEntry {
+    /// An entry with every toggle on (the Blender default for a new modifier).
+    pub fn new(modifier: Modifier) -> Self {
+        ModifierEntry {
+            modifier,
+            show_viewport: true,
+            show_render: true,
+            show_in_editmode: true,
+            on_cage: false,
+        }
+    }
 }
 
 impl ModifierStack {
@@ -619,24 +649,102 @@ impl ModifierStack {
         ModifierStack::default()
     }
 
-    /// Append a modifier to the end of the stack (builder style).
+    /// Append a modifier to the end of the stack (builder style), all toggles
+    /// on.
     pub fn push(mut self, m: Modifier) -> Self {
-        self.modifiers.push(m);
+        self.modifiers.push(ModifierEntry::new(m));
         self
     }
 
-    /// Evaluate the whole stack against `base`.
-    ///
-    /// An empty stack clones `base` unchanged. Otherwise each [`Modifier`] is
-    /// folded in order — the output mesh of one becomes the input of the next —
-    /// so the composed geometry (e.g. mirror-then-array) is produced in a
-    /// single pass. Propagates any [`ModifierError`] from a modifier.
+    /// Append a fully-specified entry (builder style).
+    pub fn push_entry(mut self, e: ModifierEntry) -> Self {
+        self.modifiers.push(e);
+        self
+    }
+
+    /// Move entry `i` one place earlier in the stack.
+    pub fn move_up(&mut self, i: usize) {
+        if i > 0 && i < self.modifiers.len() {
+            self.modifiers.swap(i, i - 1);
+        }
+    }
+
+    /// Move entry `i` one place later in the stack.
+    pub fn move_down(&mut self, i: usize) {
+        if i + 1 < self.modifiers.len() {
+            self.modifiers.swap(i, i + 1);
+        }
+    }
+
+    /// Remove entry `i`.
+    pub fn remove(&mut self, i: usize) {
+        if i < self.modifiers.len() {
+            self.modifiers.remove(i);
+        }
+    }
+
+    /// Copy entry `i` (append a clone to the end) — Blender's *Copy to
+    /// Selected* per-entry, minus the "to another object" plumbing.
+    pub fn duplicate(&mut self, i: usize) {
+        if let Some(e) = self.modifiers.get(i).cloned() {
+            self.modifiers.push(e);
+        }
+    }
+
+    /// Evaluate the whole stack against `base`, skipping entries whose
+    /// `show_viewport` is `false`. Each [`Modifier`]'s output becomes the next
+    /// one's input. Propagates any [`ModifierError`].
     pub fn evaluate(&self, base: &Mesh) -> Result<Mesh, ModifierError> {
         let mut current = base.clone();
-        for m in &self.modifiers {
-            current = m.evaluate(&current)?;
+        for e in &self.modifiers {
+            if e.show_viewport {
+                current = e.modifier.evaluate(&current)?;
+            }
         }
         Ok(current)
+    }
+
+    /// Evaluate using the `show_render` toggle instead of `show_viewport`.
+    pub fn evaluate_render(&self, base: &Mesh) -> Result<Mesh, ModifierError> {
+        let mut current = base.clone();
+        for e in &self.modifiers {
+            if e.show_render {
+                current = e.modifier.evaluate(&current)?;
+            }
+        }
+        Ok(current)
+    }
+
+    /// **Apply** the first entry: bake it into `base` and drop it from the
+    /// stack. Blender's *Apply* on the top modifier. Returns the new base mesh;
+    /// the stack is left with the remaining entries.
+    pub fn apply_first(&mut self, base: &Mesh) -> Result<Mesh, ModifierError> {
+        if self.modifiers.is_empty() {
+            return Ok(base.clone());
+        }
+        let baked = self.modifiers.remove(0).modifier.evaluate(base)?;
+        Ok(baked)
+    }
+
+    /// **Apply all**: bake the whole (viewport-enabled) stack into `base` and
+    /// clear the stack. Equivalent to `evaluate` then emptying `modifiers`.
+    pub fn apply_all(&mut self, base: &Mesh) -> Result<Mesh, ModifierError> {
+        let out = self.evaluate(base)?;
+        self.modifiers.clear();
+        Ok(out)
+    }
+
+    /// **Apply as Shape Key**: the deformed vertex positions, valid only if the
+    /// stack does not change vertex count (a pure deform stack). Returns
+    /// [`ModifierError::Failed`] if the topology changed.
+    pub fn apply_as_shape_key(&self, base: &Mesh) -> Result<Vec<Vec3>, ModifierError> {
+        let out = self.evaluate(base)?;
+        if out.vertex_count() != base.vertex_count() {
+            return Err(ModifierError::Failed(
+                "apply as shape key needs a deform-only stack (vertex count changed)".into(),
+            ));
+        }
+        Ok(out.positions())
     }
 }
 
@@ -843,6 +951,54 @@ mod tests {
         .evaluate(&primitives::grid(1, 3, 2.0))
         .unwrap();
         assert!(sc.face_count() > 3);
+    }
+
+    #[test]
+    fn stack_reorder_apply_and_shape_key() {
+        let base = primitives::cube(2.0);
+
+        // Reorder: Subsurf-then-Twist smooths a straight bar and then twists
+        // it; Twist-then-Subsurf twists the coarse bar and then smooths — the
+        // resulting geometry differs.
+        let bar = primitives::cylinder(8, 1.0, 4.0);
+        let twist = Modifier::SimpleDeform {
+            mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
+            axis: crate::selection::Axis::Z,
+        };
+        let mut a = ModifierStack::new().push(Modifier::Subsurf { levels: 1 }).push(twist.clone());
+        let ga = a.evaluate(&bar).unwrap().positions();
+        a.move_up(1); // twist now first
+        let gb = a.evaluate(&bar).unwrap().positions();
+        let max_diff = ga.iter().zip(&gb).map(|(x, y)| x.sub(*y).length()).fold(0.0_f64, f64::max);
+        assert!(max_diff > 1e-3, "modifier order changed the geometry ({max_diff})");
+
+        // Disable an entry → skipped.
+        let mut s = ModifierStack::new().push(Modifier::Subsurf { levels: 1 });
+        s.modifiers[0].show_viewport = false;
+        assert_eq!(s.evaluate(&base).unwrap().face_count(), 6);
+
+        // Apply-first bakes and pops.
+        let mut ap = ModifierStack::new()
+            .push(Modifier::Triangulate)
+            .push(Modifier::Subsurf { levels: 1 });
+        let after = ap.apply_first(&base).unwrap();
+        assert_eq!(after.face_count(), 12, "triangulate baked");
+        assert_eq!(ap.modifiers.len(), 1, "subsurf remains");
+
+        // Shape key: a deform-only stack succeeds; a topology-changing one
+        // errors.
+        let sk = ModifierStack::new().push(Modifier::SimpleDeform {
+            mode: crate::deform::SimpleDeform::Twist(0.5),
+            axis: crate::selection::Axis::Z,
+        });
+        assert_eq!(sk.apply_as_shape_key(&base).unwrap().len(), base.vertex_count());
+        let bad = ModifierStack::new().push(Modifier::Subsurf { levels: 1 });
+        assert!(bad.apply_as_shape_key(&base).is_err());
+
+        // Duplicate.
+        let mut d = ModifierStack::new().push(Modifier::Triangulate);
+        d.duplicate(0);
+        assert_eq!(d.modifiers.len(), 2);
     }
 
     #[test]
