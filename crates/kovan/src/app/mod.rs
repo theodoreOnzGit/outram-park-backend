@@ -204,6 +204,17 @@ struct ActivePaper {
     /// (the GH comment's own "Missing PDF" acceptance scenario: activation
     /// still succeeds, the PDF state just reports unavailable).
     pdf_path: Option<std::path::PathBuf>,
+    /// Whether `kovan.toml` records a source PDF that could not be found
+    /// locally — distinct from a paper that simply has no source PDF at
+    /// all (catalogued from metadata alone). Drives
+    /// [`DigitiseApp::activate_paper_and_navigate`]'s status message
+    /// (`op-t1ex`, GH issue #35's private-submodule amendment: "KOVAN
+    /// should simply report that the source PDF is unavailable locally").
+    /// The most common cause is a [`crate::entity::StorageMode::PrivateSubmodule`]
+    /// document whose submodule is not (yet) checked out here, but this
+    /// flag does not distinguish that from any other reason the file is
+    /// locally absent — the reporting is the same either way.
+    pdf_unavailable: bool,
 }
 
 /// The library's derived knowledge state, shared by every view that reads
@@ -424,19 +435,20 @@ impl DigitiseApp {
         let root = self.home.root().cloned().ok_or_else(|| "no Kovan folder open".to_string())?;
         let session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
 
-        let pdf_path = EntityConfig::load(&root.paper_dir(citekey))
+        let configured_pdf = EntityConfig::load(&root.paper_dir(citekey))
             .ok()
             .and_then(|cfg| cfg.source)
             .and_then(|source| source.pdf)
-            .map(|rel| root.paper_dir(citekey).join(rel))
-            .filter(|path| path.is_file());
+            .map(|rel| root.paper_dir(citekey).join(rel));
+        let pdf_path = configured_pdf.as_ref().filter(|path| path.is_file()).cloned();
+        let pdf_unavailable = configured_pdf.is_some() && pdf_path.is_none();
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
         }
         self.kvim_editor.load_text(session.markdown());
 
-        self.active_paper = Some(ActivePaper { session, pdf_path });
+        self.active_paper = Some(ActivePaper { session, pdf_path, pdf_unavailable });
         Ok(())
     }
 
@@ -532,10 +544,31 @@ impl DigitiseApp {
         match self.activate_paper(citekey) {
             Ok(()) => {
                 let has_pdf = self.active_paper.as_ref().is_some_and(|p| p.pdf_path.is_some());
+                let pdf_unavailable = self.active_paper.as_ref().is_some_and(|p| p.pdf_unavailable);
                 self.view = if has_pdf { View::PdfReader } else { View::KvimEditor };
-                self.set_status(format!("opened {citekey}"));
+                self.set_status(if pdf_unavailable {
+                    format!("opened {citekey} — source PDF unavailable locally{}", self.private_submodule_hint())
+                } else {
+                    format!("opened {citekey}")
+                });
             }
             Err(e) => self.set_error(format!("{citekey}: {e}")),
+        }
+    }
+
+    /// `" (private literature submodule not checked out)"` when the active
+    /// root has a private submodule configured but not ready — the most
+    /// likely reason a source PDF is unavailable locally (`op-t1ex`) — or
+    /// an empty string otherwise, so [`Self::activate_paper_and_navigate`]'s
+    /// message stays accurate for the ordinary "file just isn't there"
+    /// case (a moved/deleted PDF, or a paper catalogued from metadata
+    /// alone) without implying a submodule that doesn't exist.
+    fn private_submodule_hint(&self) -> &'static str {
+        match self.home.root() {
+            Some(root) if root.private_submodule().is_some() && !root.private_submodule_ready() => {
+                " (private literature submodule not checked out)"
+            }
+            _ => "",
         }
     }
 
@@ -2084,6 +2117,29 @@ mod tests {
         let active = app.active_paper.as_ref().expect("activation should still succeed with no local PDF");
         assert_eq!(active.session.citekey(), citekey);
         assert!(active.pdf_path.is_none(), "a missing PDF must report unavailable, not a stale path");
+        assert!(active.pdf_unavailable, "a paper that DOES record a source PDF, just not found locally, must flag it unavailable");
+    }
+
+    /// A paper genuinely catalogued from metadata alone (never had a source
+    /// PDF at all) must NOT be flagged `pdf_unavailable` — that flag is
+    /// specifically for "a PDF was expected here and isn't," not "there was
+    /// never one to begin with" (`op-t1ex`).
+    #[test]
+    fn a_paper_with_no_recorded_source_pdf_is_not_flagged_unavailable() {
+        let (_dir, root) = make_root();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("metadata-only-2020").unwrap(), Access::Open)
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir("metadata-only-2020"))
+            .unwrap();
+        // No [source].pdf at all -- distinct from `ingest_one` + delete.
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper("metadata-only-2020").unwrap();
+
+        let active = app.active_paper.as_ref().unwrap();
+        assert!(active.pdf_path.is_none());
+        assert!(!active.pdf_unavailable, "there was never a PDF recorded, so nothing is 'unavailable'");
     }
 
     #[test]
@@ -2124,6 +2180,71 @@ mod tests {
         assert_eq!(app.view, View::KvimEditor);
     }
 
+    /// `op-t1ex`: "KOVAN should simply report that the source PDF is
+    /// unavailable locally" -- the status message, not just a silent
+    /// fallback view, must actually say so.
+    #[test]
+    fn activate_paper_and_navigate_reports_a_missing_pdf_in_the_status_message() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Missing Source Record", Access::Open);
+        std::fs::remove_file(root.open_sources_dir().join(format!("{citekey}.pdf"))).unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper_and_navigate(&citekey);
+
+        assert!(!app.message_is_error, "a missing PDF is not an error -- the paper opened fine");
+        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
+    }
+
+    /// Same requirement, but naming the actual cause when it's known: a
+    /// configured private submodule that has not been checked out here.
+    /// `op-3gxp`'s save-repository work already gives every library a
+    /// `restricted_sources_dir()` regardless of submodule readiness, so
+    /// this only needs a library configured with one that was never
+    /// `git init`-ed there.
+    #[test]
+    fn activate_paper_and_navigate_names_an_unready_private_submodule_as_the_likely_cause() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let root = KovanRoot::create(dir.path(), config, false).unwrap();
+        assert!(!root.private_submodule_ready());
+
+        let citekey = crate::entity::CiteKey::parse("wang2018multiphysics").unwrap();
+        crate::entity::EntityConfig::paper(citekey.clone(), Access::Restricted)
+            .with_storage(crate::entity::StorageMode::PrivateSubmodule)
+            .with_pdf(format!("../../{}/pdf/wang2018multiphysics.pdf", root.config().paths.restricted_sources.display()))
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir(citekey.as_str()))
+            .unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper_and_navigate(citekey.as_str());
+
+        assert!(!app.message_is_error);
+        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
+        assert!(app.message.contains("private literature submodule not checked out"), "{}", app.message);
+    }
+
+    /// The submodule-specific hint must not appear for a library with no
+    /// private submodule configured at all -- an ordinary missing PDF
+    /// (moved, deleted) is not a submodule problem, and the message must
+    /// not imply one exists.
+    #[test]
+    fn the_submodule_hint_is_silent_when_no_private_submodule_is_configured() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Ordinary Missing PDF", Access::Open);
+        std::fs::remove_file(root.open_sources_dir().join(format!("{citekey}.pdf"))).unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper_and_navigate(&citekey);
+
+        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
+        assert!(!app.message.contains("submodule"), "{}", app.message);
+    }
+
     /// op-dkll: `refresh_knowledge` is the one place `WorkspaceKnowledge` is
     /// built — confirms it actually reflects the library's real
     /// papers/classification (not an empty/stale placeholder) so
@@ -2147,5 +2268,43 @@ mod tests {
                 >= 1,
             "the paper's own classification edge should appear in the graph"
         );
+    }
+
+    /// `op-t1ex`'s other half: a paper whose source PDF lives in a private
+    /// submodule that has never been checked out here must still show up
+    /// in the Wiki/Mindmap knowledge index and be openable as a paper —
+    /// the PDF being unreachable must never make the paper itself
+    /// unreachable. `KnowledgeIndex`/`KnowledgeGraph` are built entirely
+    /// from `kovan.toml` + Markdown (never from PDF presence — confirmed
+    /// by grep across wiki.rs/mindmap.rs turning up nothing PDF-existence-
+    /// gated), so this mostly pins that architectural fact down as a test
+    /// rather than changing any indexing behaviour.
+    #[test]
+    fn a_paper_with_an_unavailable_private_submodule_pdf_still_appears_in_the_knowledge_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let root = KovanRoot::create(dir.path(), config, false).unwrap();
+        assert!(!root.private_submodule_ready(), "deliberately never checked out for this test");
+
+        let citekey = crate::entity::CiteKey::parse("lee2020corrosion").unwrap();
+        crate::entity::EntityConfig::paper(citekey.clone(), Access::Restricted)
+            .with_storage(crate::entity::StorageMode::PrivateSubmodule)
+            .with_pdf("../../literature/proprietary/pdf/lee2020corrosion.pdf")
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir(citekey.as_str()))
+            .unwrap();
+
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.refresh_knowledge(&root);
+
+        let workspace = app.workspace.as_ref().unwrap();
+        assert!(workspace.index.has_paper(citekey.as_str()), "the paper must be indexed regardless of PDF availability");
+
+        // And it must still open cleanly -- Markdown/BibTeX-level knowledge
+        // usable, PDF just reported unavailable, not an activation failure.
+        app.activate_paper_and_navigate(citekey.as_str());
+        assert!(!app.message_is_error);
+        assert_eq!(app.view, View::KvimEditor, "no PDF reachable -> falls back to the editor, same as any other missing-PDF case");
     }
 }
