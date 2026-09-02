@@ -96,6 +96,8 @@
 //! | [`proportional`] | `transform_proportional_*` | **real** — proportional-edit falloff (smooth/sphere/root/inv-sq/sharp/linear/constant/random), Euclidean or connected-only distance (GH issue #37 §C) |
 //! | [`symmetry`] | `bmo_symmetrize.cc` / `MESH_OT_symmetry_snap` | **real** — symmetrize (mirror + weld a half), snap-to-symmetry (average with partner), mirror_selection (GH issue #37 §C) |
 //! | [`spin_screw`] | `bmo_spin_exec` / `MOD_screw.cc` | **real** — spin a profile selection around an axis (bridged or duplicates), screw = spin + axial translation (helix) (GH issue #37 §C) |
+//! | [`transform_input`] | `transform_input.cc` / `transform_constraints.cc` | **real** — Constraint (free/axis/plane), TransformBasis (global/normal), NumericEntry with an expression evaluator (pi/tau/e, ^ right-assoc), grid-increment snap; the CAD precision-input model (GH issue #37 §D) |
+//! | [`snap`] | `transform_snap.cc` / `transform_snap_object.cc` | **real** — snap to grid increment / vertex / edge-midpoint / nearest-on-edge / nearest-on-face; SnapBase closest/center/median/active; align-rotation-to-target; snap-onto-self exclusion (GH issue #37 §D) |
 //! | [`primitives`] | `editors/mesh/editmesh_add` primitive add-ops | **real** — cube / UV-sphere / cylinder / grid generators (unit-tested) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
@@ -208,6 +210,7 @@ pub mod rip_split;
 pub mod revolve;
 pub mod selection;
 pub mod slide;
+pub mod snap;
 pub mod solidify;
 pub mod spin_screw;
 pub mod stl;
@@ -216,6 +219,7 @@ pub mod subdivision;
 pub mod symmetry;
 pub mod topology;
 pub mod transform;
+pub mod transform_input;
 pub mod transform_ops;
 pub mod triangulate;
 pub mod weld;
