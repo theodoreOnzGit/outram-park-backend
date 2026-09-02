@@ -116,6 +116,8 @@
 //! | [`draw_tool`] | interactive Add Object Tool (place gizmo) + snap/PDT entry | **real** — WorkPlane (xy/xz/yz/from-normal), staged DrawGesture (PickBase→DragFootprint→DragDepth→Done), box/circle/cone from-drag, snap_input (SnapTarget projection), eval_dimension (expression entry) (GH issue #37 §H) |
 //! | [`loop_tools`] | `mesh_looptools` add-on | **real** — circle (best-fit circle), flatten (best-fit plane), relax (Laplacian), curve (Catmull–Rom toward anchors), space (equal arc length), gstretch (onto a stroke), bridge + loft, subdivide (loop-edge midpoint split) (GH issue #37 §I) |
 //! | [`snap_line`] | `mesh_snap_utilities_line` add-on | **real** — LineTool connected polyline: add_raw / add_snapped (snap engine) / add_polar / add_constrained (numeric length + angle in a WorkPlane), undo, close, commit_wire, auto_cut_chords (edge-to-edge-on-one-face knife cuts) (GH issue #37 §I) |
+//! | [`pdt`] | `precision_drawing_tools` add-on | **real** — Placement (Absolute/Delta/Polar/Percent), three_point_circle + three_point_arc, line_line_intersection (3-D closest approach), fillet (tangent corner arc), offset_polyline, taper, angle_between, mirror_point / mirror_vertices across a WorkPlane (GH issue #37 §I) |
+//! | [`bool_tool`] | `object_boolean_tools` add-on | **real** — BoolStack of non-destructive BoolBrush cutters (Difference/Union/Intersect/Slice, enable toggle); bake (strict fold), carve (skip unresolvable brushes), slice_pieces (inside part per Slice brush); wraps `boolean` (GH issue #37 §I) |
 //! | [`revolve`] | Spin (`bmo_spin`) | **real** — sweep a profile polyline around an axis into a surface of revolution (pipes / vessels / cones) |
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
@@ -210,6 +212,7 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+pub mod bool_tool;
 pub mod draw_tool;
 pub mod extra_objects;
 pub mod extrude;
@@ -226,6 +229,7 @@ pub mod measure;
 pub mod merge;
 pub mod mesh;
 pub mod parameterize;
+pub mod pdt;
 pub mod modifiers;
 pub mod normals;
 pub mod nurbs_surface;
