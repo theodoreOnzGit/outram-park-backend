@@ -39,8 +39,9 @@
 //! the page, right-click it, and pick what it becomes —
 //! **Annotate** (a free-text note), **Digitise graph**, or **Read table**.
 //! Right-clicking an *already-saved* annotation box instead offers
-//! **Edit**/**Delete**. [`AnnotationTool`] is `None` (pan/zoom, and
-//! right-click an existing box), `DrawBox` (drag to propose a new box), or
+//! **Edit**/**Delete**. [`AnnotationTool`] is `None` — the "Pan" tool:
+//! drag the page to scroll, arrow keys nudge the view, plus zoom and
+//! right-click on an existing box — `DrawBox` (drag to propose a new box), or
 //! `SelectText` (drag to select real PDF text lines, op-z9u0). [`ContextMenu`]
 //! is the floating menu that appears on a right-click hit; [`Annotation`] is
 //! a saved free-text note (page + pixel rect + author + timestamp);
@@ -118,7 +119,8 @@ impl ReaderSource {
 /// image, which has no other mode).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum AnnotationTool {
-    /// No drawing — pan/zoom, and right-click on an existing box.
+    /// The "Pan" tool: no drawing — grab-and-drag the page to scroll, arrow
+    /// keys nudge the view, plus zoom and right-click on an existing box.
     #[default]
     None,
     /// Drag to propose a new box; right-click it for the Annotate/Digitise
@@ -1282,8 +1284,11 @@ impl PdfReaderState {
     ///    editing a schema-sensitive block as raw text is how the fenced
     ///    TOML gets broken.
     ///
-    /// **Double-clicking** a card, or a banded block in the preview, is the
-    /// only edit path: a text/annotation/formula/source-reference block
+    /// Clicking a text card or a banded block in the preview, and
+    /// **double-clicking** a digitised table/graph card, is the only edit
+    /// path (GH issue #35 2026-09-02: "a single click to bring me into
+    /// insert mode, not double click" — the heavier digitiser re-open keeps
+    /// its double-click): a text/annotation/formula/source-reference block
     /// opens in `block_editor` (kvim, with `@`/`[[` autocompletion) → Save
     /// goes through [`classify::replace_artifact_body`]; a digitised
     /// table/graph block re-crops its `[source]` region from the PDF and
@@ -1383,6 +1388,12 @@ impl PdfReaderState {
                 } else {
                     Color32::TRANSPARENT
                 };
+                // A text block opens on a single click (GH issue #35
+                // 2026-09-02: "a single click to bring me into insert mode");
+                // a digitised table/graph still needs a double-click, since
+                // opening the digitiser is the heavier action and its card is
+                // also the canvas-highlight hover target.
+                let mut open_on_single_click = false;
                 let inner = egui::Frame::new().fill(fill).inner_margin(4.0).show(ui, |ui| {
                     match artifact.kind() {
                         ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
@@ -1398,18 +1409,24 @@ impl PdfReaderState {
                             ui.small("double-click → re-open in the digitiser");
                         }
                         _ => {
+                            open_on_single_click = true;
                             ui.label(format!("\u{1F4DD} {}", artifact.heading));
                             if !artifact.body.trim().is_empty() {
                                 ui.monospace(body_preview(&artifact.body));
                             }
-                            ui.small("double-click → edit");
+                            ui.small("click → edit");
                         }
                     }
                 });
                 if inner.response.hovered() {
                     panel_hover = Some(id.clone());
                 }
-                if inner.response.double_clicked() {
+                let opened = if open_on_single_click {
+                    inner.response.clicked() || inner.response.double_clicked()
+                } else {
+                    inner.response.double_clicked()
+                };
+                if opened {
                     open_target = Some(id.clone());
                 }
                 ui.separator();
@@ -1605,7 +1622,8 @@ impl PdfReaderState {
                 .on_hover_text("Ctrl+scroll, or + / -, zooms about the pointer");
             ui.separator();
             ui.label("tool:");
-            ui.selectable_value(&mut self.tool, AnnotationTool::None, "Select");
+            ui.selectable_value(&mut self.tool, AnnotationTool::None, "Pan")
+                .on_hover_text("drag the page to scroll; arrow keys nudge, PageUp/Down turn pages");
             ui.selectable_value(&mut self.tool, AnnotationTool::DrawBox, "Draw box");
             if is_pdf {
                 ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
@@ -1873,6 +1891,51 @@ impl PdfReaderState {
                     self.zoom = new_zoom;
                     self.forced_offset =
                         Some(egui::vec2((new_x - within.x).max(0.0), (new_y - within.y).max(0.0)));
+                }
+            }
+
+            // --- Pan mode: grab-and-drag the page to scroll (GH issue #35
+            // 2026-09-02 — this tool is a *pan* tool, it does not select
+            // text). The other tools own the primary drag for drawing a box
+            // / selecting text, so this is scoped to `None`. ---
+            if self.tool == AnnotationTool::None {
+                response.clone().on_hover_cursor(if response.dragged() {
+                    egui::CursorIcon::Grabbing
+                } else {
+                    egui::CursorIcon::Grab
+                });
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    // No animation: the view must track the pointer 1:1.
+                    ui.scroll_with_delta_animation(
+                        response.drag_delta(),
+                        egui::style::ScrollAnimation::none(),
+                    );
+                }
+            }
+
+            // --- Arrow keys nudge the view, whenever no text field owns the
+            // keyboard (GH issue #35 2026-09-02). Harmless in every tool
+            // mode — nothing else binds a bare arrow key here. PageUp/Down
+            // and j/k still turn whole pages. ---
+            if keys_free {
+                const ARROW_STEP: f32 = 90.0;
+                let mut delta = egui::Vec2::ZERO;
+                ui.input(|i| {
+                    if i.key_pressed(egui::Key::ArrowDown) {
+                        delta.y -= ARROW_STEP;
+                    }
+                    if i.key_pressed(egui::Key::ArrowUp) {
+                        delta.y += ARROW_STEP;
+                    }
+                    if i.key_pressed(egui::Key::ArrowRight) {
+                        delta.x -= ARROW_STEP;
+                    }
+                    if i.key_pressed(egui::Key::ArrowLeft) {
+                        delta.x += ARROW_STEP;
+                    }
+                });
+                if delta != egui::Vec2::ZERO {
+                    ui.scroll_with_delta(delta);
                 }
             }
 

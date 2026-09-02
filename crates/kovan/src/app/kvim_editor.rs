@@ -134,6 +134,12 @@ pub struct KvimEditorState {
     /// A single stronger band for the block currently hovered on the page
     /// canvas (op-4x5s). Persistent; set/cleared by the caller per frame.
     hover_band: Option<std::ops::Range<usize>>,
+    /// The `egui::Id` of the editable text area as last allocated. Used to
+    /// re-request keyboard focus after a mouse-click on the completion popup
+    /// (GH issue #35 2026-09-02: accepting an autocomplete used to drop
+    /// focus, so the cursor greyed out and further typing did nothing —
+    /// which reads exactly like being kicked back to Normal mode).
+    text_area_id: Option<egui::Id>,
 }
 
 impl Default for KvimEditorState {
@@ -146,6 +152,7 @@ impl Default for KvimEditorState {
             pending_scroll_to_line: None,
             anchor_bands: Vec::new(),
             hover_band: None,
+            text_area_id: None,
         }
     }
 }
@@ -244,13 +251,14 @@ impl KvimEditorState {
 
     /// Draw the buffer **read-only** — the page-context panel's markdown
     /// preview (op-j178/GH issue #35 2026-09-02: "don't allow me to edit it
-    /// directly"). No key input, no click-to-insert; a click still positions
-    /// the cursor and a **double-click** returns that line (0-based) so the
-    /// caller can open the right per-block editor. Paints the anchor/hover
-    /// bands. `jump_to_line` still works.
+    /// directly"). No key input; a **single click** returns that line
+    /// (0-based) so the caller can open the right per-block editor (GH issue
+    /// #35 2026-09-02: "a single click to bring me into insert mode, not
+    /// double click"). Paints the anchor/hover bands. `jump_to_line` still
+    /// works.
     pub fn ui_readonly(&mut self, ui: &mut egui::Ui) -> Option<usize> {
         ui.horizontal(|ui| {
-            ui.weak("preview — double-click a highlighted block to edit");
+            ui.weak("preview — click a highlighted block to edit");
         });
         ui.separator();
         let mut clicked_line = None;
@@ -325,14 +333,28 @@ impl KvimEditorState {
                 Trigger::Wiki { start, .. } => start,
             };
             self.editor.replace_range(Range::new(start, cursor), &replacement);
+
+            // GH issue #35 2026-09-02: "autocompletes should leave me in
+            // insert mode, not normal mode." The mouse-click on the popup
+            // pulls keyboard focus off the text area, so the next frame's
+            // keystrokes stop reaching the engine (the `has_focus()` gate in
+            // `text_area`) and the cursor greys out — indistinguishable from
+            // being dropped back to Normal. Re-assert Insert and hand focus
+            // straight back to the editor.
+            if self.editor.mode() != Mode::Insert {
+                let _ = self.editor.handle_key(KvimKey::esc());
+                let _ = self.editor.handle_key(KvimKey::char('i'));
+            }
+            if let Some(id) = self.text_area_id {
+                ui.ctx().memory_mut(|m| m.request_focus(id));
+            }
         }
     }
 
     /// Draw and interact with the buffer. In `read_only` mode no edit
-    /// happens — a click just positions the cursor, and a **double-click**
-    /// returns its 0-based line so [`Self::ui_readonly`]'s caller can open a
-    /// per-block editor. Returns `None` otherwise (and always, when
-    /// editable).
+    /// happens — a single **click** returns its 0-based line so
+    /// [`Self::ui_readonly`]'s caller can open a per-block editor. Returns
+    /// `None` otherwise (and always, when editable).
     fn text_area(&mut self, ui: &mut egui::Ui, read_only: bool) -> Option<usize> {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
@@ -358,18 +380,17 @@ impl KvimEditorState {
         };
 
         if read_only {
-            let mut double_clicked_line = None;
+            let mut clicked_line = None;
             if let Some(p) = response.interact_pointer_pos() {
-                if response.double_clicked() {
-                    double_clicked_line = Some(to_position(p).line);
-                } else if response.clicked() {
-                    let pos = to_position(p);
-                    self.editor.move_cursor(pos);
+                if response.clicked() {
+                    clicked_line = Some(to_position(p).line);
                 }
             }
             self.paint(ui, rect, char_width, line_height, line_count, &response);
-            return double_clicked_line;
+            return clicked_line;
         }
+
+        self.text_area_id = Some(response.id);
 
         if response.clicked() || response.drag_started() {
             response.request_focus();
