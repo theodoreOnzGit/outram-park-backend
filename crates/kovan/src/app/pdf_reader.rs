@@ -4,57 +4,33 @@
 //! Okular-style (op-wojr — "I want pdf reader to be able to view images
 //! like okular as well").
 //!
-//! ## Two modes, split along a real capability boundary (op-9vo6.11)
+//! ## One continuous canvas that kovan renders itself (GH issue #35 2026-09-02)
 //!
-//! As of kopitiam-pdf 0.3.2 (kopitiam#96), the fast, well-behaved PDF
-//! *reading* engine — continuous scroll, background rendering/caching,
-//! PageUp/PageDown, arrows, vim keys (`j`/`k`/`gg`/`G`/Ctrl-d/u), `/`/`?`/`n`/
-//! `N` search, thumbnails — is no longer kovan's own hand-rolled code. It is
-//! [`kopitiam_pdf::gui_frontend::PdfReader`], embedded read-only
-//! ([`PdfReaderConfig::read_only`]) via [`PdfReader::show`]. This is
-//! **[`ViewMode::Read`]**, the default for a PDF, and it is what fixes the
-//! dogfooding defects `op-9vo6.11` was filed over: lag on long theses, and
-//! PageUp/PageDown/arrows/vim keys that used to not work at all.
+//! kovan renders the PDF pages itself — [`super::page_canvas::PageView`], a
+//! bounded page-texture cache over [`kopitiam_pdf::mupdf::rasterize_page`],
+//! stacked in a `ScrollArea::show_viewport` continuous column. This is the
+//! **only** view.
 //!
-//! What that embedded reader does **not** yet give a host: any way to read
-//! back its current zoom/scroll/page-layout transform, or a wired
-//! `ReaderAction::RegionSelected` (the action exists in kopitiam-pdf's own
-//! `action.rs`, documented as exactly this host contract, but nothing in
-//! `reader.rs` constructs one yet — verified by grep against the published
-//! 0.3.2 source, not assumed). Without either, an overlay drawn by this
-//! panel cannot stay in sync with the embedded reader's own live,
-//! continuously-scrolling page layout — there is nothing public to sync
-//! against. So the box-draw/select-text/crop-to-digitiser interaction stays
-//! on kovan's own rendering, same math as before this migration, just now
-//! confined to **[`ViewMode::Annotate`]**: a single static page — rasterized
-//! straight off the *same* loaded document via
-//! [`PdfReader::document`]/[`PdfReader::current_page`], no second file load
-//! — with kovan's own Prev/Next, zoom, and draw/select-text tools. A plain
-//! raster image (PNG/JPEG, [`PlotRaster`]) has no "continuous scroll" to
-//! speak of at all and always behaves like `Annotate` mode.
+//! It replaced a two-mode design (a `Read` mode that embedded
+//! [`kopitiam_pdf::gui_frontend::PdfReader`], and an `Annotate` mode that was
+//! kovan's own single static page). The embedded reader gave fast reading and
+//! `/` search for free, but its `PdfReaderOutput` carries only a
+//! `Vec<ReaderAction>` — no host-overlay hook and no per-page screen geometry
+//! (verified against the published 0.3.2 source; filed as
+//! [kopitiam#107](https://github.com/theodoreOnzGit/kopitiam/issues/107)) — so
+//! saved region boxes could never be drawn over it or clicked. The maintainer
+//! wants boxes visible + single-click-to-edit *everywhere*, so the embedded
+//! reader is gone and its one irreplaceable feature, `/`-search, is
+//! reimplemented here ([`SearchState`], `line_hits`) over the same
+//! `page_to_stext` structured text the select-text tool already uses.
 //!
-//! This is a real, acknowledged scope gap against the bead's stated ideal
-//! ("interactive tools IN continuous-scroll mode"), not a silent one — see
-//! `docs/kopitiam-issues/kopitiam-pdf-no-viewport-getter-or-region-selected.md`
-//! for the upstream ask that would close it (a viewport/zoom/scroll-offset
-//! getter, or `RegionSelected` actually wired to a drag gesture). Once
-//! either lands, `Annotate` mode's canvas can be dropped in favour of an
-//! overlay on the live `Read`-mode pane.
+//! [`PdfReader`] is still *held* (as the parsed-document container behind
+//! [`ReaderSource::Pdf`] and for [`PdfReader::load_bytes`] hot-reload) but its
+//! `show()` is never called, so its render/thumbnail workers never start.
 //!
-//! **Deleted in this migration, not ported**: kovan's own thumbnail strip,
-//! continuous-scroll page layout, and hand-rolled hot-reload polling (now
-//! [`kopitiam_pdf::gui_frontend::HotReload`], the same mechanism — see that
-//! type's own doc comment, which credits kovan as its origin) — `Read` mode
-//! gets all of these from the embedded reader instead. Also deleted:
-//! `pdf_annots.rs`'s manual `/Annots` overlay renderer. `rasterize_page`
-//! (used by both modes) already bakes existing PDF-native annotations into
-//! the page raster itself (mupdf's `pdf_run_page_annots` pass, run after the
-//! content stream) — verified by reading `kopitiam_pdf::mupdf`'s
-//! `rasterize_page_ex` source, not assumed — so the separate overlay was
-//! redundant for the one thing that matters here (visibility); the overlay's
-//! extra hover-tooltip-from-`/Annots`-metadata feature is not reproduced,
-//! matching kovan's stated philosophy that durable knowledge capture is the
-//! fenced-TOML artifact model, not PDF-native annotations.
+//! `rasterize_page` bakes existing PDF-native `/Annots` into the page raster
+//! itself (mupdf's `pdf_run_page_annots` pass) so Okular highlights etc. are
+//! visible without a separate overlay renderer.
 //!
 //! ## Unified box interaction model (op-x9qn, superseding op-gv19's first cut)
 //!
@@ -93,9 +69,7 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Color32, ColorImage, Pos2, Rect, Sense, Stroke};
-use kopitiam_pdf::gui_frontend::{
-    HotReload, PdfReader, PdfReaderConfig, ReaderAction, ReloadDecision, RELOAD_CHECK_INTERVAL,
-};
+use kopitiam_pdf::gui_frontend::{HotReload, PdfReader, PdfReaderConfig, ReloadDecision, RELOAD_CHECK_INTERVAL};
 use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
@@ -110,7 +84,7 @@ use super::csv_preview::draw_csv_preview;
 use super::kvim_editor::{CompletionSource, KvimEditorState};
 use super::page_canvas::PageView;
 
-/// Screen-resolution DPI for [`ViewMode::Annotate`]'s single-page raster and
+/// Screen-resolution DPI for the continuous canvas's page raster and
 /// for the crop-to-digitiser render — sharp enough to read body text at a
 /// typical window size. `Read` mode's own DPI is the embedded reader's own
 /// business, not this constant's.
@@ -139,26 +113,8 @@ impl ReaderSource {
     }
 }
 
-/// Which of the two rendering paths (see the module doc) is showing a PDF.
-/// Meaningless for a plain image, which always behaves like `Annotate`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum ViewMode {
-    /// Kovan's own **continuous multi-page canvas** ([`PageView`]) — the
-    /// default and primary view (GH issue #35 2026-09-02). Renders the pages
-    /// itself so it can draw saved region boxes over them, single-click a
-    /// box to edit it, and offer draw-box / select-text / crop-to-digitiser.
-    /// Toolbar label: **"Read"**.
-    #[default]
-    Annotate,
-    /// The embedded [`PdfReader`]'s own chrome — `/` search, thumbnails,
-    /// vim keys, text reflow. No region-box overlay (the reader exposes no
-    /// hook — kopitiam#107), so it is the *secondary* view. Toolbar label:
-    /// **"Search & text"**.
-    Read,
-}
-
 /// Which annotation interaction is active. Closed set, enum-dispatched.
-/// Only meaningful while showing [`ViewMode::Annotate`]'s canvas (or a plain
+/// Only meaningful on the continuous canvas (or a plain
 /// image, which has no other mode).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum AnnotationTool {
@@ -314,28 +270,55 @@ pub enum CropResult {
 
 
 /// State for one open document: its source (embedded [`PdfReader`] or a
-/// plain image), which mode is showing, [`ViewMode::Annotate`]'s own page/
+/// plain image), its continuous-canvas page/
 /// zoom/cached texture, and its annotations.
+/// One in-document search hit — a tight box in `RENDER_DPI` texture-pixel
+/// space on `page`.
+#[derive(Debug, Clone, Copy)]
+struct SearchHit {
+    page: usize,
+    min: Pos2,
+    max: Pos2,
+}
+
+/// In-document `/`-search state (GH issue #35 2026-09-02) — the one feature
+/// the dropped embedded reader is missed for, reimplemented over
+/// [`kopitiam_pdf::mupdf::page_to_stext`].
+#[derive(Default)]
+struct SearchState {
+    /// The live query text (bound to the toolbar field).
+    query: String,
+    /// Hits for [`Self::computed_for`], in document order.
+    hits: Vec<SearchHit>,
+    /// The query `hits` was computed for — so a rescan only runs when the
+    /// text actually changes.
+    computed_for: String,
+    /// Index into `hits` of the "current" hit (`Next`/`Prev` cycle it).
+    current: Option<usize>,
+}
+
 #[derive(Default)]
 pub struct PdfReaderState {
     path: String,
     source: ReaderSource,
-    mode: ViewMode,
-    /// [`ViewMode::Annotate`]'s "page currently in view" — the top page the
-    /// continuous canvas is scrolled to (or the page under the pointer),
-    /// updated each frame. Feeds [`Self::active_page`] and the context
-    /// panel. Always `0` for a plain image.
+    /// The page currently in view on the continuous canvas — the top page
+    /// the canvas is scrolled to (or the page under the pointer), updated
+    /// each frame. Feeds [`Self::active_page`] and the context panel.
+    /// Always `0` for a plain image.
     annotate_page: usize,
-    /// [`ViewMode::Annotate`]'s own continuous multi-page raster view
-    /// (GH issue #35 2026-09-02) — kovan renders the pages itself so it can
-    /// draw region boxes over them and route clicks (the embedded reader
-    /// cannot — kopitiam#107).
+    /// The continuous multi-page raster view (GH issue #35 2026-09-02) —
+    /// kovan renders the pages itself so it can draw region boxes over them
+    /// and route clicks (the embedded reader cannot — kopitiam#107).
     pages: PageView,
     /// A page the continuous canvas should scroll to on the next frame —
-    /// set by the Prev/Next buttons and the `j`/`k` keys. Consumed by the
-    /// canvas.
+    /// set by the Prev/Next buttons, `j`/`k`, and a search-hit jump.
+    /// Consumed by the canvas.
     scroll_request: Option<usize>,
-    /// [`ViewMode::Annotate`]'s zoom on the page rasters.
+    /// In-document `/`-search over the same structured text the select-text
+    /// tool uses ([`SearchState`]) — reimplemented here because the embedded
+    /// reader that used to provide it is gone (GH issue #35 2026-09-02).
+    search: SearchState,
+    /// The canvas zoom on the page rasters.
     zoom: f32,
     message: String,
     // annotations — in-memory only, see the module doc comment.
@@ -458,20 +441,50 @@ fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> St
     out
 }
 
-/// What [`PdfReaderState::annotate_page`] should become this frame, if
-/// anything, given the mode transition that just happened — op-smrs (GH
-/// issue #35's 2026-09-01 checkpoint, §17): "read page 87 -> switch to
-/// Annotate -> page resets to page 1" was a real bug, since nothing synced
-/// the embedded [`PdfReader`]'s own page into `annotate_page` at the point
-/// of the switch. `None` for every other transition (including the
-/// reverse, Annotate -> Read, which has no public API to do the same yet —
-/// see the module doc's "Known gap", kopitiam#105).
-fn synced_annotate_page(before: ViewMode, after: ViewMode, reader_current_page: usize, reader_page_count: usize) -> Option<usize> {
-    if before == ViewMode::Read && after == ViewMode::Annotate {
-        Some(reader_current_page.min(reader_page_count.saturating_sub(1)))
-    } else {
-        None
+/// Every `(start_char, end_char)` half-open char range in `chars` that
+/// case-insensitively matches `needle` (ASCII fold). Overlapping matches
+/// are not returned — the scan advances past each hit.
+fn substr_char_ranges(chars: &[char], needle: &str) -> Vec<(usize, usize)> {
+    let needle: Vec<char> = needle.chars().flat_map(|c| c.to_lowercase()).collect();
+    if needle.is_empty() || needle.len() > chars.len() {
+        return Vec::new();
     }
+    let lower: Vec<char> = chars.iter().map(|c| c.to_ascii_lowercase()).collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i + needle.len() <= lower.len() {
+        if lower[i..i + needle.len()] == needle[..] {
+            out.push((i, i + needle.len()));
+            i += needle.len();
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// Case-insensitive occurrences of `needle` on one structured-text line,
+/// each as a tight bounding box in **texture-pixel space** (device-space
+/// char quads × `scale`). Word/character granularity, unlike
+/// [`select_text_in_rect`]'s line granularity — a search hit should
+/// highlight the matched word, not its whole line.
+fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) -> Vec<(Pos2, Pos2)> {
+    let chars: Vec<char> = line.chars.iter().map(|ch| ch.c).collect();
+    substr_char_ranges(&chars, needle)
+        .into_iter()
+        .map(|(s, e)| {
+            let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+            for ch in &line.chars[s..e] {
+                for p in [ch.quad.ul, ch.quad.ur, ch.quad.ll, ch.quad.lr] {
+                    x0 = x0.min(p.x);
+                    y0 = y0.min(p.y);
+                    x1 = x1.max(p.x);
+                    y1 = y1.max(p.y);
+                }
+            }
+            (Pos2::new(x0 * scale, y0 * scale), Pos2::new(x1 * scale, y1 * scale))
+        })
+        .collect()
 }
 
 /// Split `text` on lines starting with `### ` (one block per subsection,
@@ -538,7 +551,7 @@ fn first_note_heading_line(md: &str, page: usize) -> Option<usize> {
 impl PdfReaderState {
     /// A fresh reader — `Read` mode and hot-reload both **on** by default
     /// for a PDF (GitHub issue #30's explicit "hot reload by default in
-    /// case I compile live in tex or typst"; `Read` is [`ViewMode`]'s own
+    /// case I compile live in tex or typst"; (historical note)
     /// derived default already). Prefer this over `PdfReaderState::default()`
     /// so hot-reload starts enabled, since [`HotReload`]'s own `Default`
     /// (unlike this panel's prior hand-rolled `bool`) starts disabled.
@@ -558,9 +571,9 @@ impl PdfReaderState {
     }
 
     fn reset_interaction_state(&mut self) {
-        self.mode = ViewMode::Annotate;
         self.annotate_page = 0;
         self.pages.clear();
+        self.search = SearchState::default();
         self.zoom = if self.zoom > 0.0 { self.zoom } else { 1.0 };
         self.annotations.clear();
         self.draw_start = None;
@@ -634,6 +647,11 @@ impl PdfReaderState {
                 Ok(()) => {
                     self.hot_reload.mark_current(path);
                     self.annotate_page = self.annotate_page.min(reader.page_count().saturating_sub(1));
+                    // The document changed under us — every cached page
+                    // raster, structured-text page and search hit is stale.
+                    self.pages.clear();
+                    self.stext_cache = None;
+                    self.search.computed_for.clear();
                     self.message = format!("{} changed on disk — reloaded", self.path);
                 }
                 Err(e) => self.message = format!("{} changed on disk, but reload failed: {e}", self.path),
@@ -659,21 +677,11 @@ impl PdfReaderState {
         );
     }
 
-    /// The page number in effect for [`ViewMode::Annotate`]'s canvas and the
-    /// right-hand context panel: while reading, the embedded [`PdfReader`]'s
-    /// own current page (so the context panel follows along as the operator
-    /// scrolls); while annotating, [`Self::annotate_page`] (kovan's own
-    /// independent tracking — see the module doc's "Known gap"). Always `0`
-    /// for a plain image.
+    /// The page the canvas is scrolled to / the pointer is over — what the
+    /// right-hand context panel follows. Always `0` for a plain image.
     fn active_page(&self) -> usize {
         match &self.source {
-            ReaderSource::Pdf(reader) => {
-                if self.mode == ViewMode::Read {
-                    reader.current_page()
-                } else {
-                    self.annotate_page
-                }
-            }
+            ReaderSource::Pdf(_) => self.annotate_page,
             ReaderSource::Image(_) | ReaderSource::None => 0,
         }
     }
@@ -1053,7 +1061,7 @@ impl PdfReaderState {
     }
 
     /// Ask the continuous canvas to scroll one page forward, clamped to the
-    /// document. Only meaningful in [`ViewMode::Annotate`] on a PDF.
+    /// document. Only meaningful on a PDF.
     fn annotate_next_page(&mut self) {
         let target = (self.annotate_page + 1).min(self.source.page_count().saturating_sub(1));
         if target != self.annotate_page {
@@ -1072,6 +1080,54 @@ impl PdfReaderState {
             self.context_menu = None;
             self.text_selection = None;
         }
+    }
+
+    /// Rescan the whole document for `self.search.query` (GH issue #35
+    /// 2026-09-02) — the `/`-search the dropped embedded reader used to
+    /// provide. Runs only when the query text changes (see
+    /// `SearchState::computed_for`), synchronously: a paper is a few dozen
+    /// pages of structured text, cheap enough not to warrant a worker.
+    fn recompute_search(&mut self) {
+        self.search.computed_for = self.search.query.clone();
+        self.search.hits.clear();
+        self.search.current = None;
+        let needle = self.search.query.trim();
+        let Some(doc) = self.current_pdf_document() else { return };
+        if needle.is_empty() {
+            return;
+        }
+        let scale = RENDER_DPI / 72.0;
+        let pages = self.source.page_count();
+        let mut hits = Vec::new();
+        for page in 0..pages {
+            let Ok(stext) = page_to_stext(doc, page, StextOptions::default()) else { continue };
+            for block in &stext.blocks {
+                let StextBlock::Text(tb) = block else { continue };
+                for line in &tb.lines {
+                    for (min, max) in line_hits(line, needle, scale) {
+                        hits.push(SearchHit { page, min, max });
+                    }
+                }
+            }
+        }
+        if !hits.is_empty() {
+            self.search.current = Some(0);
+            self.scroll_request = Some(hits[0].page);
+        }
+        self.search.hits = hits;
+    }
+
+    /// Move the current search hit by `dir` (`+1` / `-1`), wrapping, and
+    /// scroll the canvas to its page.
+    fn search_step(&mut self, dir: isize) {
+        let n = self.search.hits.len();
+        if n == 0 {
+            return;
+        }
+        let cur = self.search.current.unwrap_or(0) as isize;
+        let next = ((cur + dir).rem_euclid(n as isize)) as usize;
+        self.search.current = Some(next);
+        self.scroll_request = Some(self.search.hits[next].page);
     }
 
     /// Structured text for `page` (op-z9u0), cached only for the page it
@@ -1329,17 +1385,15 @@ impl PdfReaderState {
         });
     }
 
-    /// Draw the toolbar and the active view — [`ViewMode::Read`]'s embedded
-    /// reader chrome, or [`ViewMode::Annotate`]'s box-draw/select-text
-    /// canvas. `on_open_clicked` is called when the user asks to open a
-    /// different document — the caller owns the file dialog (shared with the
-    /// digitiser's "Load image" action) and reports the chosen path back via
-    /// [`PdfReaderState::open`].
+    /// Draw the toolbar and the continuous page canvas. `on_open_clicked` is
+    /// called when the user asks to open a different document — the caller
+    /// owns the file dialog (shared with the digitiser's "Load image"
+    /// action) and reports the chosen path back via [`PdfReaderState::open`].
     ///
     /// Returns `Some` the frame the user completes a crop-then-right-click
-    /// gesture (op-p17q / op-hnhp) — the caller (`DigitiseApp`) is expected
-    /// to load it into the matching digitiser tab and switch views. Never
-    /// `Some` while in `Read` mode — see the module doc's "Known gap".
+    /// gesture (op-p17q / op-hnhp) or single-clicks a saved digitised box —
+    /// the caller (`DigitiseApp`) loads it into the matching digitiser tab
+    /// and switches views.
     ///
     /// `active_paper` is the wider app's [`crate::app::
     /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
@@ -1396,42 +1450,33 @@ impl PdfReaderState {
         self.check_hot_reload(ui.ctx());
 
         let is_pdf = matches!(self.source, ReaderSource::Pdf(_));
-        let show_annotate_ui = !is_pdf || self.mode == ViewMode::Annotate;
-        let mode_before = self.mode;
 
         ui.horizontal(|ui| {
             if is_pdf {
-                ui.selectable_value(&mut self.mode, ViewMode::Annotate, "Read");
-                ui.selectable_value(&mut self.mode, ViewMode::Read, "Search & text");
-                ui.separator();
                 let mut enabled = self.hot_reload.is_enabled();
                 if ui.checkbox(&mut enabled, "Hot reload").changed() {
                     self.hot_reload.set_enabled(enabled);
                 }
+                ui.separator();
+                if ui.button("< Prev").clicked() {
+                    self.annotate_prev_page();
+                }
+                ui.label(format!("page {} / {}", self.annotate_page + 1, self.source.page_count()));
+                if ui.button("Next >").clicked() {
+                    self.annotate_next_page();
+                }
+                ui.separator();
             }
-            if show_annotate_ui {
-                ui.separator();
-                if is_pdf {
-                    if ui.button("< Prev").clicked() {
-                        self.annotate_prev_page();
-                    }
-                    ui.label(format!("page {} / {}", self.annotate_page + 1, self.source.page_count()));
-                    if ui.button("Next >").clicked() {
-                        self.annotate_next_page();
-                    }
-                    ui.separator();
-                }
-                ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
-                ui.separator();
-                ui.label("tool:");
-                ui.selectable_value(&mut self.tool, AnnotationTool::None, "Select");
-                ui.selectable_value(&mut self.tool, AnnotationTool::DrawBox, "Draw box");
-                if is_pdf {
-                    ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
-                }
-                if ui.button("Clear page annotations").clicked() {
-                    self.annotations.remove(&self.active_page());
-                }
+            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"));
+            ui.separator();
+            ui.label("tool:");
+            ui.selectable_value(&mut self.tool, AnnotationTool::None, "Select");
+            ui.selectable_value(&mut self.tool, AnnotationTool::DrawBox, "Draw box");
+            if is_pdf {
+                ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
+            }
+            if ui.button("Clear page annotations").clicked() {
+                self.annotations.remove(&self.active_page());
             }
             ui.separator();
             ui.label("author:");
@@ -1444,57 +1489,62 @@ impl PdfReaderState {
             }
         });
 
-        // op-smrs (GH issue #35's 2026-09-01 checkpoint, S17): switching
-        // Read -> Annotate used to always drop back to whatever
-        // `annotate_page` last was (0, on the very first switch) instead of
-        // the page the operator was just reading. Sync it at the point the
-        // switch actually happens this frame — the one direction with a
-        // public API to do it (`PdfReader::current_page()`); the reverse,
-        // Annotate -> Read, has none yet (kopitiam#105, see the module doc).
-        if let ReaderSource::Pdf(reader) = &self.source {
-            if let Some(page) = synced_annotate_page(mode_before, self.mode, reader.current_page(), reader.page_count()) {
-                self.annotate_page = page;
-                self.scroll_request = Some(page);
-            }
+        // --- in-document search (GH issue #35 2026-09-02) ---
+        if is_pdf {
+            ui.horizontal(|ui| {
+                ui.label("\u{1F50D}");
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut self.search.query)
+                        .desired_width(180.0)
+                        .hint_text("search this PDF"),
+                );
+                let go_next = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                if self.search.query != self.search.computed_for {
+                    self.recompute_search();
+                }
+                if self.search.hits.is_empty() {
+                    if !self.search.query.is_empty() {
+                        ui.weak("no matches");
+                    }
+                } else {
+                    let cur = self.search.current.map_or(0, |i| i + 1);
+                    ui.weak(format!("{cur} / {}", self.search.hits.len()));
+                    if ui.button("\u{25C0}").clicked() {
+                        self.search_step(-1);
+                    }
+                    if ui.button("\u{25B6}").clicked() || go_next {
+                        self.search_step(1);
+                    }
+                }
+            });
         }
 
-        // op-t55c (GH issue #35's 2026-09-01 checkpoint, S18): page-turn
-        // keys only worked in Read mode, where the embedded PdfReader
-        // supplies them for free — Annotate/Crop mode's own static canvas
-        // had Prev/Next buttons but no keyboard bindings at all. Unlike the
-        // page-sync direction above, this needs no missing upstream API:
-        // wire the same keys the embedded reader already answers to, so
-        // switching modes doesn't also mean switching input habits.
-        // Deliberately deferred to any focused text-editing widget first
-        // (the checkpoint's own stated exception) — the drag/click gestures
-        // already used by DrawBox/SelectText are pointer-only and never
-        // take keyboard focus, so this only ever yields to `author`/project-
-        // field/text-editor typing.
+        // Page-turn keys (only when nothing text-y has keyboard focus).
         let text_editing = self.editing_block_id.is_some() || self.annotate_editor.is_some();
-        if is_pdf
-            && self.mode == ViewMode::Annotate
-            && !text_editing
-            && ui.ctx().memory(|m| m.focused().is_none())
-        {
-            let (page_down, page_up) = ui.input(|i| {
+        if is_pdf && !text_editing && ui.ctx().memory(|m| m.focused().is_none()) {
+            let (page_down, page_up, next_hit, prev_hit) = ui.input(|i| {
                 (
-                    i.key_pressed(egui::Key::PageDown) || i.key_pressed(egui::Key::ArrowRight) || i.key_pressed(egui::Key::J),
-                    i.key_pressed(egui::Key::PageUp) || i.key_pressed(egui::Key::ArrowLeft) || i.key_pressed(egui::Key::K),
+                    i.key_pressed(egui::Key::PageDown) || i.key_pressed(egui::Key::J),
+                    i.key_pressed(egui::Key::PageUp) || i.key_pressed(egui::Key::K),
+                    i.key_pressed(egui::Key::N) && !i.modifiers.shift,
+                    i.key_pressed(egui::Key::N) && i.modifiers.shift,
                 )
             });
-            if page_down {
+            if next_hit && !self.search.hits.is_empty() {
+                self.search_step(1);
+            } else if prev_hit && !self.search.hits.is_empty() {
+                self.search_step(-1);
+            } else if page_down {
                 self.annotate_next_page();
             } else if page_up {
                 self.annotate_prev_page();
             }
         }
 
-        if show_annotate_ui {
-            ui.small(
-                "Draw box → right-click it → Annotate / Digitise graph / Read table. \
-                 Right-click an existing box → Edit / Delete.",
-            );
-        }
+        ui.small(
+            "Draw box → right-click it → Annotate / Digitise graph / Read table. \
+             Right-click an existing box → Edit / Delete. Click a saved box → edit it.",
+        );
         let mut save_clicked = false;
         ui.horizontal(|ui| {
             match &active_citekey {
@@ -1515,10 +1565,8 @@ impl PdfReaderState {
         if save_clicked {
             self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         }
-        if show_annotate_ui {
-            self.text_selection_panel(ui);
-        }
-        let mut crop_result = if show_annotate_ui { self.annotate_editor_panel(ui) } else { None };
+        self.text_selection_panel(ui);
+        let mut crop_result = self.annotate_editor_panel(ui);
         if let Some(result) = self.figure_prompt_panel(ui) {
             crop_result = Some(result);
         }
@@ -1545,35 +1593,7 @@ impl PdfReaderState {
             crop_result = panel_crop;
         }
 
-        if is_pdf && self.mode == ViewMode::Read {
-            // GH issue #35 2026-09-02: the embedded reader enters "reflow"
-            // (text) mode on a bare `R`/`r`, and its `PdfReaderConfig.reflow`
-            // flag is not actually wired to that keybinding (kopitiam-pdf
-            // bug — filed). Swallow the key before the reader sees it so a
-            // stray `r` while reading does nothing.
-            ui.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Key { key: egui::Key::R, pressed: true, .. })));
-            let ReaderSource::Pdf(reader) = &mut self.source else {
-                unreachable!("is_pdf just matched ReaderSource::Pdf above")
-            };
-            let out = reader.show(ui);
-            for action in out.actions {
-                match action {
-                    // This panel opens every PDF read-only (see `open_pdf`),
-                    // so there is nothing to save and nowhere to save it —
-                    // saying so beats silently ignoring the request.
-                    ReaderAction::SaveRequested | ReaderAction::SaveAsRequested => {
-                        reader.set_status("this viewer is read-only");
-                    }
-                    _ => {}
-                }
-            }
-            if !self.message.is_empty() {
-                ui.label(&self.message);
-            }
-            return crop_result;
-        }
-
-        // --- ViewMode::Annotate / a plain image: kovan's own **continuous**
+        // --- a plain image / a PDF: kovan's own **continuous**
         // multi-page canvas (GH issue #35 2026-09-02). Renders the pages
         // itself (via `PageView`) so it can draw saved region boxes over
         // them and single-click a box to edit it — which the embedded reader
@@ -1790,6 +1810,24 @@ impl PdfReaderState {
                 }
             }
             self.hover_created_at = hover_id;
+
+            // Search hits — soft yellow on every visible page, the current
+            // one a bright outline (GH issue #35 2026-09-02).
+            for (i, hit) in self.search.hits.iter().enumerate() {
+                if !want.contains(&hit.page) {
+                    continue;
+                }
+                let r = box_rect(hit.page, hit.min, hit.max);
+                let is_current = self.search.current == Some(i);
+                painter.rect_filled(
+                    r,
+                    2.0,
+                    Color32::from_rgba_unmultiplied(255, 210, 40, if is_current { 150 } else { 70 }),
+                );
+                if is_current {
+                    painter.rect_stroke(r, 2.0, Stroke::new(2.0, Color32::from_rgb(210, 120, 0)), egui::StrokeKind::Outside);
+                }
+            }
 
             if let Some((min, max)) = self.pending_box {
                 painter.rect_stroke(
@@ -2181,36 +2219,26 @@ a note
     }
 
     #[test]
-    fn new_reader_starts_in_the_continuous_canvas_with_hot_reload_on() {
+    fn substr_char_ranges_is_case_insensitive_and_non_overlapping() {
+        let chars: Vec<char> = "The rho of the RHO-region, rhorho".chars().collect();
+        let hits = substr_char_ranges(&chars, "rho");
+        assert_eq!(hits.len(), 4, "two lower, one upper, and rhorho as two non-overlapping");
+        for (s, e) in hits {
+            let m: String = chars[s..e].iter().map(|c| c.to_ascii_lowercase()).collect();
+            assert_eq!(m, "rho");
+        }
+        assert!(substr_char_ranges(&chars, "xyz").is_empty());
+        assert!(substr_char_ranges(&chars, "").is_empty());
+    }
+
+    #[test]
+    fn new_reader_starts_with_hot_reload_on_and_otherwise_default() {
         let r = PdfReaderState::new();
-        // GH issue #35 2026-09-02: the continuous kovan canvas
-        // (`ViewMode::Annotate`, toolbar label "Read") is the default now.
-        assert_eq!(r.mode, ViewMode::Annotate);
         assert!(r.hot_reload.is_enabled());
-        // Everything else should still be the plain derived-Default zero
-        // state -- `new()` only overrides hot-reload.
+        // `new()` only overrides hot-reload.
         assert!(r.path.is_empty());
         assert!(r.annotations.is_empty());
-    }
-
-    #[test]
-    fn synced_annotate_page_follows_the_reader_on_read_to_annotate() {
-        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Annotate, 86, 200), Some(86));
-    }
-
-    #[test]
-    fn synced_annotate_page_clamps_to_the_last_page() {
-        // A defensive case only -- current_page() should never exceed
-        // page_count() - 1 in practice, but the sync must not panic/produce
-        // an out-of-range page if it somehow did.
-        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Annotate, 999, 5), Some(4));
-    }
-
-    #[test]
-    fn synced_annotate_page_does_nothing_on_other_transitions() {
-        assert_eq!(synced_annotate_page(ViewMode::Annotate, ViewMode::Read, 86, 200), None);
-        assert_eq!(synced_annotate_page(ViewMode::Read, ViewMode::Read, 86, 200), None);
-        assert_eq!(synced_annotate_page(ViewMode::Annotate, ViewMode::Annotate, 86, 200), None);
+        assert!(r.search.query.is_empty());
     }
 
     /// op-q1qj (GH issue #35 2026-09-01 05:37, "project root isn't
