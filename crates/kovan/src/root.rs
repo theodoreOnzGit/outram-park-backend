@@ -185,6 +185,32 @@ impl Default for RootPaths {
     }
 }
 
+/// Configuration for an optional private Git submodule holding restricted/
+/// proprietary source PDFs — GH issue #35's 2026-09-01 "private Git
+/// submodule" amendment. Mounted at [`RootPaths::restricted_sources`]: the
+/// same on-disk directory a library without this configured already uses
+/// as a plain gitignored folder becomes, once this is set, a private
+/// submodule checkout instead. There is deliberately no separate path field
+/// here — one directory, one convention, whether or not it happens to be a
+/// submodule this session.
+///
+/// `None` (the field's default, absent state on [`RootConfig`]) means no
+/// private submodule is configured. Every [`crate::entity::StorageMode::PrivateSubmodule`]
+/// document in a library without one degrades to behaving like
+/// [`crate::entity::StorageMode::Local`] — see that variant's own doc, and
+/// `op-t1ex`'s graceful-degradation requirement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrivateSubmoduleConfig {
+    /// The submodule's git remote URL, used for `git submodule add`/
+    /// `.gitmodules` — e.g. `git@github.com:org/private-literature.git`.
+    ///
+    /// **Never a credential or token.** Authentication stays the ambient
+    /// Git/SSH/credential-manager's responsibility entirely; nothing in
+    /// `kovan_root.toml` may ever hold a secret, so this field is a bare
+    /// remote URL and nothing else — see `DATA_POLICY.md`.
+    pub remote: String,
+}
+
 /// The parsed contents of `kovan_root.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootConfig {
@@ -195,6 +221,10 @@ pub struct RootConfig {
     /// Layout overrides; omitted entirely in a conventional library.
     #[serde(default)]
     pub paths: RootPaths,
+    /// A private literature submodule, if this library has deliberately
+    /// opted into one. Absent by default — see [`PrivateSubmoduleConfig`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_submodule: Option<PrivateSubmoduleConfig>,
 }
 
 impl RootConfig {
@@ -207,7 +237,16 @@ impl RootConfig {
             schema_version: SCHEMA_VERSION,
             library: LibraryMeta { id: id.into(), name: name.into() },
             paths: RootPaths::default(),
+            private_submodule: None,
         }
+    }
+
+    /// Configure a private literature submodule for this library, returning
+    /// `self` for chaining — e.g.
+    /// `RootConfig::new("lib", "Lib").with_private_submodule("git@host:org/private.git")`.
+    pub fn with_private_submodule(mut self, remote: impl Into<String>) -> Self {
+        self.private_submodule = Some(PrivateSubmoduleConfig { remote: remote.into() });
+        self
     }
 
     /// Render as the TOML text of a `kovan_root.toml`.
@@ -252,20 +291,32 @@ fn gitignore_pattern(path: &Path) -> String {
 ///
 /// Covers the three categories §4 requires: Kovan's disposable derived state,
 /// restricted source documents, and editor/temporary files.
-pub fn gitignore_for(paths: &RootPaths) -> String {
+///
+/// **Skips the restricted-source pattern entirely when `private_submodule`
+/// is configured.** Once `restricted_sources` is a private submodule
+/// checkout (a gitlink Git tracks specially, not a plain blob), gitignoring
+/// it is at best redundant and at worst confusing — `.gitignore` should
+/// describe what is *not* under version control, and a configured
+/// submodule is very much under version control, just in a different
+/// repository.
+pub fn gitignore_for(paths: &RootPaths, private_submodule: Option<&PrivateSubmoduleConfig>) -> String {
+    let restricted_section = if private_submodule.is_some() {
+        String::new()
+    } else {
+        format!(
+            "\n# Restricted source documents — MUST NOT be committed (see DATA_POLICY.md)\n{}\n",
+            gitignore_pattern(&paths.restricted_sources)
+        )
+    };
     format!(
         "# Kovan derived/local state — fully rebuildable, safe to delete\n\
          {state}\n\
-         \n\
-         # Restricted source documents — MUST NOT be committed (see DATA_POLICY.md)\n\
-         {restricted}\n\
-         \n\
+         {restricted_section}\n\
          # Temporary/editor files\n\
          *.tmp\n\
          *.swp\n\
          *~\n",
         state = gitignore_pattern(Path::new(STATE_DIR)),
-        restricted = gitignore_pattern(&paths.restricted_sources),
     )
 }
 
@@ -411,19 +462,23 @@ impl KovanRoot {
         std::fs::write(&marker, toml_text).map_err(io_err(&marker))?;
 
         let gitignore = dir.join(".gitignore");
-        let generated = gitignore_for(&config.paths);
+        let generated = gitignore_for(&config.paths, config.private_submodule.as_ref());
         if gitignore.exists() {
             let existing = std::fs::read_to_string(&gitignore).map_err(io_err(&gitignore))?;
-            let restricted = gitignore_pattern(&config.paths.restricted_sources);
-            if !existing.lines().any(|l| l.trim() == restricted) {
-                let mut merged = existing;
-                if !merged.ends_with('\n') && !merged.is_empty() {
-                    merged.push('\n');
+            // A configured private submodule must NOT be gitignored — see
+            // `gitignore_for`'s own doc for why.
+            if config.private_submodule.is_none() {
+                let restricted = gitignore_pattern(&config.paths.restricted_sources);
+                if !existing.lines().any(|l| l.trim() == restricted) {
+                    let mut merged = existing;
+                    if !merged.ends_with('\n') && !merged.is_empty() {
+                        merged.push('\n');
+                    }
+                    merged.push_str(&format!(
+                        "\n# Restricted source documents — added by Kovan (see DATA_POLICY.md)\n{restricted}\n"
+                    ));
+                    std::fs::write(&gitignore, merged).map_err(io_err(&gitignore))?;
                 }
-                merged.push_str(&format!(
-                    "\n# Restricted source documents — added by Kovan (see DATA_POLICY.md)\n{restricted}\n"
-                ));
-                std::fs::write(&gitignore, merged).map_err(io_err(&gitignore))?;
             }
         } else {
             std::fs::write(&gitignore, generated).map_err(io_err(&gitignore))?;
@@ -498,10 +553,37 @@ impl KovanRoot {
 
     /// Absolute path of restricted / proprietary source storage.
     ///
-    /// Gitignored by construction in any root Kovan creates (§4). Nothing
-    /// under it may ever be staged or committed.
+    /// Gitignored by construction in any root Kovan creates, **unless** a
+    /// private literature submodule is configured (see
+    /// [`KovanRoot::private_submodule`]) — in that case this same directory
+    /// is the submodule's own checkout instead. Either way, nothing under
+    /// it may ever be staged or committed directly into the *main* library
+    /// repository.
     pub fn restricted_sources_dir(&self) -> PathBuf {
         self.root.join(&self.config.paths.restricted_sources)
+    }
+
+    /// This library's configured private literature submodule, if any — see
+    /// [`PrivateSubmoduleConfig`]. `None` means no private submodule is
+    /// configured, the default for every existing library.
+    pub fn private_submodule(&self) -> Option<&PrivateSubmoduleConfig> {
+        self.config.private_submodule.as_ref()
+    }
+
+    /// Whether [`KovanRoot::restricted_sources_dir`] is actually an
+    /// initialised submodule checkout right now — i.e. a private submodule
+    /// is *configured* (see [`KovanRoot::private_submodule`]) **and** that
+    /// directory contains a `.git` entry (a real checkout, not merely an
+    /// empty directory waiting for `git submodule update --init`).
+    ///
+    /// This is the check a caller uses to decide whether a
+    /// [`crate::entity::StorageMode::PrivateSubmodule`] document's PDF can
+    /// actually be read right now, or whether it must degrade to reporting
+    /// the source unavailable (`op-t1ex`) — configuration alone is not
+    /// enough; the submodule could be configured but never initialised, or
+    /// initialised on another machine and not here.
+    pub fn private_submodule_ready(&self) -> bool {
+        self.config.private_submodule.is_some() && self.restricted_sources_dir().join(".git").exists()
     }
 
     /// Absolute path of the derived-state directory (`.kovan/`).
@@ -798,7 +880,7 @@ name = "Inner"
 
     #[test]
     fn generated_gitignore_covers_state_restricted_and_temp_files() {
-        let gi = gitignore_for(&RootPaths::default());
+        let gi = gitignore_for(&RootPaths::default(), None);
         assert!(gi.contains("/.kovan/"), "{gi}");
         assert!(gi.contains("/literature/proprietary/"), "{gi}");
         assert!(gi.contains("*.tmp"), "{gi}");
@@ -815,9 +897,22 @@ name = "Inner"
             restricted_sources: PathBuf::from("secret/closed-access"),
             ..RootPaths::default()
         };
-        let gi = gitignore_for(&paths);
+        let gi = gitignore_for(&paths, None);
         assert!(gi.contains("/secret/closed-access/"), "{gi}");
         assert!(!gi.contains("/literature/proprietary/"), "{gi}");
+    }
+
+    #[test]
+    fn gitignore_omits_the_restricted_pattern_when_a_private_submodule_is_configured() {
+        // Once the directory is a submodule checkout, gitignoring it would
+        // be redundant at best and confusing at worst — see `gitignore_for`'s
+        // own doc.
+        let submodule = PrivateSubmoduleConfig { remote: "git@example.com:org/private.git".to_string() };
+        let gi = gitignore_for(&RootPaths::default(), Some(&submodule));
+        assert!(!gi.contains("literature/proprietary"), "{gi}");
+        // The other two categories are unaffected.
+        assert!(gi.contains("/.kovan/"), "{gi}");
+        assert!(gi.contains("*.tmp"), "{gi}");
     }
 
     #[test]
@@ -888,5 +983,86 @@ name = "Inner"
 
         let root = KovanRoot::open(tmp.path()).unwrap();
         assert_eq!(root.config(), &config);
+    }
+
+    // ---------------------------------------------------------------
+    // Private literature submodule — GH issue #35's 2026-09-01 amendment
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn a_library_with_no_private_submodule_configured_reports_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(&tmp.path().join("lib"), RootConfig::new("lib", "Lib"), false).unwrap();
+        assert!(root.private_submodule().is_none());
+        assert!(!root.private_submodule_ready());
+    }
+
+    #[test]
+    fn with_private_submodule_stores_only_a_remote_url_never_a_credential() {
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private-literature.git");
+        let submodule = config.private_submodule.as_ref().unwrap();
+        assert_eq!(submodule.remote, "git@example.com:org/private-literature.git");
+
+        let text = config.to_toml().unwrap();
+        assert!(text.contains("[private_submodule]"), "{text}");
+        assert!(text.contains("git@example.com:org/private-literature.git"), "{text}");
+
+        let back: RootConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back, config);
+    }
+
+    #[test]
+    fn create_with_a_private_submodule_does_not_gitignore_its_mount_directory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let root = KovanRoot::create(&dir, config, false).unwrap();
+
+        assert!(root.private_submodule().is_some());
+        let gi = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(!gi.contains("literature/proprietary"), "{gi}");
+        // The directory itself still exists, ready for `git submodule add`.
+        assert!(root.restricted_sources_dir().is_dir());
+    }
+
+    #[test]
+    fn private_submodule_ready_requires_both_configuration_and_an_actual_checkout() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let root = KovanRoot::create(&dir, config, false).unwrap();
+
+        // Configured, but never actually checked out here (no `.git` inside
+        // the mount directory) -- not ready.
+        assert!(!root.private_submodule_ready());
+
+        // Simulate `git submodule update --init` having run.
+        std::fs::create_dir_all(root.restricted_sources_dir().join(".git")).unwrap();
+        assert!(root.private_submodule_ready());
+    }
+
+    #[test]
+    fn create_appends_the_restricted_pattern_only_when_no_submodule_is_configured() {
+        // A pre-existing .gitignore must still gain the restricted pattern
+        // when there is no submodule (existing behaviour, unaffected)...
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("lib");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(".gitignore"), "*.bak\n").unwrap();
+        KovanRoot::create(&dir, RootConfig::new("lib", "Lib"), false).unwrap();
+        let gi = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(gi.contains("/literature/proprietary/"), "{gi}");
+
+        // ... but must NOT gain it when a submodule is configured, even
+        // against a pre-existing .gitignore.
+        let tmp2 = tempfile::tempdir().unwrap();
+        let dir2 = tmp2.path().join("lib");
+        std::fs::create_dir_all(&dir2).unwrap();
+        std::fs::write(dir2.join(".gitignore"), "*.bak\n").unwrap();
+        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        KovanRoot::create(&dir2, config, false).unwrap();
+        let gi2 = std::fs::read_to_string(dir2.join(".gitignore")).unwrap();
+        assert!(!gi2.contains("literature/proprietary"), "{gi2}");
+        assert!(gi2.contains("*.bak"), "{gi2}");
     }
 }
