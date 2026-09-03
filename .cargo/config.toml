@@ -23,3 +23,31 @@
 # feature to switch it off) and via `uuid`. See bead op-okqo.3.
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# ── wasm32-wasip1: run the test harness under Node's built-in WASI ───────────
+#
+# The compile gate (scripts/check-wasm.sh) targets wasm32-unknown-unknown,
+# because that is what a browser runs — but that target cannot *execute* a
+# `cargo test` binary (no stdout, no exit code, no harness entry point without
+# wasm-bindgen and a browser).
+#
+# wasm32-wasip1 shares `target_arch = "wasm32"`, so every cfg gate in this
+# workspace applies identically, while giving the harness the small POSIX
+# surface it needs. That makes it the place to answer what the compile gate
+# cannot: does the wasm path actually RUN, and does it fall back to
+# single-threaded CPU instead of panicking?
+#
+# Caveat, repeated in the runner script: WASI is not a browser. It has a clock
+# and a filesystem, so Instant::now and std::fs work here and would not in a
+# browser. What it shares with the browser is the absence of threads, which is
+# precisely the fallback these tests exercise.
+#
+#   cargo test --target wasm32-wasip1 -p <crate>
+#
+# Requires Node >= 20 on PATH.
+[target.wasm32-wasip1]
+# Cargo invokes the runner with the PACKAGE directory as cwd, not the workspace
+# root, so a plain relative path to the script does not resolve. Rather than
+# hard-coding an absolute path (which would not survive a fresh clone), this
+# walks up from cwd until it finds scripts/wasi-run.mjs.
+runner = ["bash", "-c", "d=$PWD; while [ ! -f \"$d/scripts/wasi-run.mjs\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; exec node --no-warnings \"$d/scripts/wasi-run.mjs\" \"$@\"", "--"]

@@ -33,7 +33,12 @@ outram-foam-basic-lib = { workspace = true, optional = true }
 # polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam
 # polyMesh). Dev-only and target-gated OFF Android (windowing exemption); the
 # library stays pure-Rust and Android-buildable.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 eframe = { workspace = true }
 egui = { workspace = true }
 env_logger = { workspace = true }

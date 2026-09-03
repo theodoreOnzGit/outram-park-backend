@@ -61,7 +61,11 @@ thiserror.workspace = true
 # Gate the whole block off Android so `cargo check --target
 # aarch64-linux-android --tests --examples` does not try to build the GUI stack.
 # The example itself carries `#![cfg(not(target_os = "android"))]`.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: eframe pulls wgpu, whose HAL is not Sync on wasm.
+# Dev-dependencies apply to TESTS as well as examples, so without this gate
+# `cargo test --target wasm32-wasip1` cannot build even a test that touches none
+# of it. The --lib compile gate is blind to this class of problem.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 teh-o-prke.workspace = true
 nee_soon.workspace = true
 ndarray.workspace = true

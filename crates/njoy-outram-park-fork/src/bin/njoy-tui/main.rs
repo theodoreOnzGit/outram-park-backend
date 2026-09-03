@@ -22,28 +22,57 @@
 //! `CLAUDE.md` (only windowing GUI, e.g. `egui`/`eframe`, is out of scope).
 //! `ratatui.workspace = true` is declared unconditionally in `Cargo.toml`.
 
+// ── wasm: a terminal UI has no meaning in a browser ──────────────────────────
+// crossterm (which ratatui re-exports) has no wasm32 backend, so `ratatui` is
+// declared only under cfg(not(target_arch = "wasm32")) in Cargo.toml. A binary
+// still needs a `main`, so every real item below is gated off wasm and a stub
+// main takes over — the same shape the workspace CLAUDE.md prescribes for
+// Android stubs on GPU examples. Without this, `cargo test --target
+// wasm32-wasip1` cannot build the package at all, since cargo builds every
+// bin. Note this does NOT gate off Android: a TUI is Android-in-scope, which
+// is the whole point of this binary. Bead op-okqo.7.
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    println!("njoy-tui is a terminal application; it is not built for wasm.");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 mod app;
+#[cfg(not(target_arch = "wasm32"))]
 mod elements;
+#[cfg(not(target_arch = "wasm32"))]
 mod nuclides;
-#[cfg(test)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod smoke_test;
+#[cfg(not(target_arch = "wasm32"))]
 mod temperature;
+#[cfg(not(target_arch = "wasm32"))]
 mod ui;
+#[cfg(not(target_arch = "wasm32"))]
 mod xsdata;
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::io;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind};
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::crossterm::execute;
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::prelude::CrosstermBackend;
+#[cfg(not(target_arch = "wasm32"))]
 use ratatui::Terminal;
 
+#[cfg(not(target_arch = "wasm32"))]
 use app::{App, Screen};
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -69,6 +98,7 @@ fn main() -> io::Result<()> {
     result
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
     let mut app = App::new();
 
@@ -104,6 +134,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> 
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn draw(f: &mut ratatui::Frame, app: &App) {
     let area = f.area();
     match &app.screen {
@@ -112,6 +143,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn handle_mouse(app: &mut App, ev: event::MouseEvent, area: ratatui::layout::Rect) {
     let mut navigate_to: Option<String> = None;
     let mut go_back = false;
@@ -133,6 +165,7 @@ fn handle_mouse(app: &mut App, ev: event::MouseEvent, area: ratatui::layout::Rec
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn handle_key(app: &mut App, key: event::KeyEvent, area: ratatui::layout::Rect) {
     use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 

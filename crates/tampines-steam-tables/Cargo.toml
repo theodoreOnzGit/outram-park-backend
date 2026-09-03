@@ -45,7 +45,13 @@ uom.workspace = true
 # `cargo check --target aarch64-linux-android --tests --examples` stays clean.
 # The examples themselves carry `#![cfg(not(target_os = "android"))]` so they
 # compile to nothing on Android.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe GUI + TUAS example stack, and
+# eframe pulls wgpu, whose HAL is not Sync on wasm. Dev-dependencies apply to
+# TESTS as well as examples, so without this gate `cargo test --target
+# wasm32-wasip1` fails to build even for a test that touches none of it — which
+# is exactly what happened when tests/wasm_smoke.rs was first run. Note the
+# --lib compile gate cannot catch this class: dev-deps are invisible to it.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 # resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
 teh-o-prke.workspace = true

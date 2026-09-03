@@ -86,7 +86,12 @@ approx = { workspace = true }
 # wgpu 29 happened to request the same feature on the one shared naga
 # instance; the wgpu 30 bump (op-9vo6.11) decoupled that, so it is now
 # requested explicitly rather than relying on incidental unification again.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 naga = { workspace = true, features = ["wgsl-in"] }
 
 # ── outram-mc-tui: mobile-first preset-geometry / transport-run TUI ───────────

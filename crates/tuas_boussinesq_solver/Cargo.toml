@@ -47,7 +47,12 @@ uom.workspace = true
 # C compiler that the Android target has no toolchain for here. The example
 # itself is gated off Android with `#![cfg(not(target_os = "android"))]`, so
 # these deps must be absent from the Android dependency graph too.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui.workspace = true
 eframe.workspace = true
 egui_extras.workspace = true
