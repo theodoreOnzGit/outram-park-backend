@@ -50,6 +50,13 @@
 //! teaching and scoping model in the same spirit as the benzene column, not a
 //! refinery simulator.
 //!
+//! **This module is headless, and stays that way.** The workspace split is that
+//! the plant model lives here with the physics, and any egui rendering lives in
+//! `outram-park-digital-twin-engine`'s *library* under `src/components/` —
+//! `components::distillation_column` is the existing precedent, a scalar-backed
+//! widget whose caller feeds it real per-stage state. Nothing in this file
+//! should grow a drawing dependency.
+//!
 //! No human V&V is claimed. See the test module for what is and is not checked.
 
 use uom::si::f64::{MolarMass, Ratio, ThermodynamicTemperature};
