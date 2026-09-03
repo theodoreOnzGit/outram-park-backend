@@ -215,6 +215,13 @@ use rayon::prelude::*;
 use crate::compute::ComputeBackend;
 use crate::polynomial::{CubicEqn, LinearEqn, QuadraticEqn, Roots};
 
+/// The WGSL kernels for this module's **closed-form** polynomial solvers.
+///
+/// The iterative root finders are deliberately not there — a Rust closure
+/// cannot be shipped to a shader. See the submodule docs.
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
+pub mod gpu;
+
 #[cfg(test)]
 mod tests;
 
