@@ -477,7 +477,7 @@ impl FvMesh {
 }
 
 /// Builder for `FvMesh` — lets tests and I/O code assemble a mesh incrementally.
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct FvMeshBuilder {
     n_cells: usize,
     n_internal_faces: usize,

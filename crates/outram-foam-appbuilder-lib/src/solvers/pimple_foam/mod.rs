@@ -247,6 +247,7 @@ pub enum PressureSolver {
 /// pressure-reference discussion, the original OpenFOAM source, and a
 /// point-by-point justification of where (and why) this port's signs and
 /// solver choices differ from the C++ original.
+#[derive(Debug)]
 pub struct PimpleFoam {
     pub mesh: Arc<FvMesh>,
     pub control: ControlDict,

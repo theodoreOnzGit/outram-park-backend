@@ -33,6 +33,25 @@ pub struct Field<T> {
     data: Vec<T>,
 }
 
+// The concrete instantiations, named. `VolField` and `SurfaceField` already
+// alias theirs (`VolScalarField`, `SurfaceVectorField`, ...); these complete
+// the set for the underlying flat container, so the element types this crate
+// actually uses are nameable rather than spelled `Field<Vector3>` at every
+// call site -- and so a binding generator has a concrete type to bind to.
+
+/// Flat field of `f64` — the element type of [`VolScalarField`](crate::fields::VolScalarField).
+pub type ScalarField = Field<f64>;
+
+/// Flat field of [`Vector3`] — the element type of [`VolVectorField`](crate::fields::VolVectorField).
+pub type VectorField = Field<Vector3>;
+
+/// Flat field of [`Tensor`] — the element type of [`VolTensorField`](crate::fields::VolTensorField).
+pub type TensorField = Field<Tensor>;
+
+/// Flat field of [`SymmTensor`] — the element type of
+/// [`VolSymmTensorField`](crate::fields::VolSymmTensorField).
+pub type SymmTensorField = Field<SymmTensor>;
+
 // ── Construction ─────────────────────────────────────────────────────────────
 
 impl<T: Clone> Field<T> {

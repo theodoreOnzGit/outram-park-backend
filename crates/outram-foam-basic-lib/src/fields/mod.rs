@@ -53,7 +53,7 @@ pub mod vol_field;
 pub mod vol_field_algebra;
 
 pub use boundary::*;
-pub use field::Field;
+pub use field::{Field, ScalarField, SymmTensorField, TensorField, VectorField};
 // Only the two uniquely-named policy items are re-exported. The kernels
 // themselves (`add`, `sum`, `scale`, …) are deliberately NOT glob-re-exported:
 // their names are generic verbs that would collide on sight, so they stay

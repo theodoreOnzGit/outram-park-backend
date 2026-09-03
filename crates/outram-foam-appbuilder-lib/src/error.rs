@@ -90,4 +90,21 @@ pub enum AppBuilderError {
         scheme: String,
         reason: &'static str,
     },
+    /// A case directory is missing something the chosen solver needs -- no
+    /// `constant/polyMesh`, or an absent `0/` field the solver has no default
+    /// for. `case` is the case root and `msg` names what was wanted.
+    #[error("case {case}: {msg}")]
+    Case { case: PathBuf, msg: String },
+    /// The solver is implemented, but its initial state cannot be built from a
+    /// case directory yet because the case reader does not parse something it
+    /// needs. `reason` says what is missing.
+    ///
+    /// Deliberately distinct from a parse failure: the case is fine and the
+    /// solver is fine -- it is the reader between them that is incomplete, and
+    /// running anyway would mean inventing physical properties.
+    #[error("{solver} is not case-wired: {reason}")]
+    SolverNotCaseWired {
+        solver: &'static str,
+        reason: &'static str,
+    },
 }

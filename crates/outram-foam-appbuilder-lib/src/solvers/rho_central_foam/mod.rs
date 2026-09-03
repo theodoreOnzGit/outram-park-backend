@@ -154,6 +154,7 @@ fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarField {
 /// raw cell values instead would make the scheme first-order.
 ///
 /// C++ solver: `applications/solvers/compressible/rhoCentralFoam/`
+#[derive(Debug)]
 pub struct RhoCentralFoam {
     pub mesh: Arc<FvMesh>,
     pub control: ControlDict,

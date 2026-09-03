@@ -49,6 +49,11 @@
 //! - [`solvers`] — one submodule per ported OpenFOAM application. Each owns its
 //!   PISO/PIMPLE (or explicit) time loop. Construct one with `new(mesh, control,
 //!   schemes, solution)`, set the field state, then call `step()` or `run()`.
+//! - [`case_runner`] — the layer above that: read an OpenFOAM case directory,
+//!   build the solver's initial state from it, march the loop and write the
+//!   fields back. `CaseRun::from_case(dir, SolverKind::PimpleFoam)` is the
+//!   one-line way in; the CLI binaries in `outram-foam-cli` are thin wrappers
+//!   over it, and it is what the Python bindings expose.
 //! - [`io`] — readers for `constant/polyMesh` and `0/<field>` files, plus typed
 //!   `controlDict` / `fvSchemes` / `fvSolution` structs.
 //! - [`turbulence`] — pick a closure for a solver run.
@@ -77,6 +82,10 @@
 //! operation, control, licensing, or any safety-critical or operational use.
 
 /// The crate's single error type, [`error::AppBuilderError`].
+/// Driving a solver from an OpenFOAM case directory: read the case, build the
+/// solver's initial state, march the time loop, write the fields back.
+pub mod case_runner;
+
 pub mod error;
 /// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
 /// See `docs/genfoam-port-plan.md` for the module map and translation order.
