@@ -70,17 +70,12 @@ outram-park-fork-dwsim-libs.workspace = true
 # SCOPE (RESPONSIBLE_USE.md): an OFFLINE demonstration interface only. Never to
 # be connected to live operational systems, plant systems, safety-critical
 # infrastructure, or institutional production systems.
-async-opcua = { workspace = true, features = ["server", "client"] }
-tokio.workspace = true
 # Cooperative mDNS/DNS-SD announce + browse, so the simulator can be found on a
 # local network without anyone scanning it. See the root Cargo.toml note.
-mdns-sd.workspace = true
 # `~/.outram-park` (Linux/Termux) / `%APPDATA%\outram-park` (Windows) discovery
 # for the OPC-UA PKI directory.
-directories.workspace = true
 # Reports the machine's own LAN address so the UI can print a connect URL that
 # other devices on the same network can actually reach.
-local-ip-address.workspace = true
 # Error enums for the OPC-UA server/discovery layer.
 thiserror.workspace = true
 
@@ -88,7 +83,6 @@ thiserror.workspace = true
 # and this keeps that). A REAL dependency, not a dev-dependency, because Cargo
 # does not make dev-dependencies available to [[bin]] targets. Pure Rust, so it
 # does not endanger the Android/Termux build; the headless path uses it too.
-env_logger.workspace = true
 
 # GUI stack. Android-hostile -- `eframe` pulls in `android-activity`, which
 # fails to compile as a plain library dependency (it expects the NativeActivity
@@ -188,3 +182,24 @@ path = "src/bin/ciet_educational_simulator_v2/main.rs"
 name = "ciet_v2_opcua_client"
 path = "src/bin/ciet_v2_opcua_client/main.rs"
 
+# ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
+# None of this can work in a browser: async-opcua and tokio want sockets,
+# mdns-sd wants multicast UDP, directories wants XDG/AppData paths, and
+# local-ip-address wants a network interface list. async-opcua additionally
+# drags in getrandom 0.2 and uuid, whose wasm builds each need their own "js"
+# feature — a good illustration that satisfying a transitive wasm requirement is
+# usually worse than not pulling the dependency in the first place.
+#
+# These stay UNGATED for Android: async-opcua was verified building for
+# aarch64-linux-android on 2026-07-28 (see the root Cargo.toml note), and a
+# headless server is Android-in-scope. The gate is wasm-only.
+#
+# The modules that use them (ciet_opcua, opcua_core) are gated to match in
+# lib.rs. Beads op-okqo.3 and op-eeqw.2 (GH #39 Phase 1).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+async-opcua = { workspace = true, features = ["server", "client"] }
+tokio.workspace = true
+mdns-sd.workspace = true
+directories.workspace = true
+local-ip-address.workspace = true
+env_logger.workspace = true

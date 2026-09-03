@@ -1409,6 +1409,91 @@ target rather than letting them break the build.
   verified from a `--lib`-only run. Workspace-wide Android/Termux build tracking
   lives in beads (the **`op-zfr` "Android support" epic**).
 
+## WebAssembly (`wasm32-unknown-unknown`) — supported target, with a hard caveat
+
+**Every in-scope crate's library must compile for `wasm32-unknown-unknown`, and
+a gate enforces it.** Added 2026-09-04 (epic `op-okqo`); 30 of 36 members are in
+scope, 6 are deliberately excluded.
+
+```bash
+scripts/check-wasm.sh          # the gate; -v shows first error lines
+```
+
+Install the target once with `rustup target add wasm32-unknown-unknown`.
+
+### COMPILING IS NOT RUNNING — read this before claiming wasm support
+
+The gate checks **compilation only**, and the gap between that and working in a
+browser is large. `std::thread::spawn`, `std::time::Instant` and `std::fs` all
+**compile** for wasm32 and fail only at **run time** — the first two panic, the
+third errors. `chem-eng-real-time-process-control-simulator` is the standing
+proof: it passes the gate today while containing 5 `thread::spawn` sites and 10
+files using `std::fs`.
+
+So "passes `check-wasm.sh`" means *the types line up*, never *this works in a
+browser*. Making a crate genuinely run on wasm is per-crate work tracked under
+epic `op-eeqw` (GH #39). Do not describe a crate as wasm-ready on the strength
+of this gate.
+
+### The gate is `--lib`, and that is a known limitation
+
+The Android rule uses `--all-targets` because a `--lib`-only check silently
+misses broken examples and tests. wasm cannot follow it: several crates carry
+egui/eframe GUI examples and terminal binaries that legitimately cannot build
+for wasm, so `--all-targets` would be permanently red and therefore ignored.
+A broken wasm-facing *example* will **not** be caught. Stated here rather than
+papered over.
+
+### The mechanism matters: feature-gate vs target-gate vs which target
+
+This trips people, so it is spelled out. Three different tools, three reasons:
+
+| Dependency | Gate | Why |
+|---|---|---|
+| `rayon` | target-gated **off wasm only** | `rayon-core` needs OS threads and does not build for wasm at all. But rayon is pure Rust and **Android-in-scope**, so feature-gating it or gating it off Android would cost Termux its multi-core path for nothing. |
+| `wgpu` | target-gated **off Android** | No system Vulkan/Metal loader there. Note it *also* needs gating off wasm in some crates for a different reason — see below. |
+| `ratatui` / `crossterm` | target-gated **off wasm only** | No terminal in a browser. A TUI **is** Android-in-scope per the Android section, so Android keeps it. |
+| `async-opcua`, `tokio`, `mdns-sd`, `directories` | target-gated **off wasm only** | Sockets, multicast, XDG paths. All verified Android-clean, so Android keeps them. |
+
+**Do not reach for a Cargo feature when a target gate is correct**, and vice
+versa. A feature is for "the user may not want this"; a target gate is for "this
+cannot exist here".
+
+### Patterns this workspace uses
+
+- **`src/wasm_par.rs`** — a small in-crate module giving serial stand-ins for
+  the handful of `rayon` adapters a crate actually uses (`njoy-outram-park-fork`,
+  `outram-mc-libs`, `boon-lay` each have one). It is **not** a parallelism
+  implementation and its docs say so. Where a crate's results are
+  thread-count-independent — which the Monte Carlo drivers document — the serial
+  path is *numerically exact*, not merely a degraded fallback.
+- **`.cargo/config.toml`** supplies `--cfg getrandom_backend="wasm_js"` for the
+  wasm target. `getrandom` 0.3 needs **both** that flag and its `wasm_js`
+  feature; the feature alone is insufficient and getrandom errors if either is
+  missing. Prefer **cutting** a transitive randomness dependency over satisfying
+  it — gating `async-opcua` off wasm removed `getrandom` 0.2 and `uuid` from
+  `outram-park-digital-twin-engine` outright.
+- **`wasm32` has a 32-bit `usize`.** When a constant overflows, **widen the
+  type; do not truncate the constant.** `outram-park-mpi`'s
+  `COLL_CONTEXT_OFFSET = 1 << 40` became `u64` because it is a numeric namespace
+  tag, not a memory size — truncating would have silently collapsed the
+  isolation it provides.
+- **wgpu's WebGPU backend is `!Send` on wasm** (it holds `Rc<Cell<u32>>`), so a
+  `static OnceLock<Option<GpuContext>>` cache will not compile there. Reaching
+  WebGPU from wasm needs a `thread_local!` instead — a real change, not a gate.
+
+### Exclusions are deliberate and listed in one place
+
+`scripts/check-wasm.sh` carries the exclusion list with a reason per crate.
+Currently excluded: `kovan`, `kovan-discovery`, `kovan-metrics`,
+`kovan-semantics` (a filesystem-walking developer CLI/TUI — "compiles for wasm"
+would be meaningless), and `bedok`, `outram-blender` (not wanted as wasm
+targets). Note `kovan-codegen`, `kovan-common` and `kovan-literature` are
+**not** excluded: they already pass, so gating them is free.
+
+**This does not relax the Android rule.** wasm is an additional target, not a
+replacement, and nothing may break `aarch64-linux-android`.
+
 ## File path length: 170-character hard cap (HARD RULE, added 2026-08-18)
 
 **No new file in this workspace may have a repo-relative path longer than 170

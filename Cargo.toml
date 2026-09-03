@@ -114,6 +114,13 @@ peroxide = "0.41.2"
 roots = "0.0.8"
 thiserror = "2.0.18"
 uom = "0.38.0"
+# getrandom is never used directly by this workspace — it arrives transitively
+# via `peroxide` (which depends on `rand` unconditionally, with no feature to
+# switch it off) and via `uuid`. It is pinned here only so the crates that need
+# a wasm build can enable its `wasm_js` backend feature; see
+# `.cargo/config.toml`, which supplies the matching cfg flag the feature alone
+# does not satisfy. Bead op-okqo.3.
+getrandom = "0.3"
 # Pure-Rust dense+sparse linear algebra (SIMD via `pulp`, no system BLAS →
 # Android-safe). Used by outram-blender for the large mesh solves (Laplacian
 # editing / ARAP / parameterization); per-element math stays in fixed-size types.

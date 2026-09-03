@@ -77,3 +77,16 @@ serde.workspace = true
 [[example]]
 name = "fhr_sim_v2"
 path = "examples/fhr_sim_v2/main.rs"
+
+# ── wasm32: name getrandom's entropy backend ─────────────────────────────────
+# getrandom 0.3 will not build for wasm32-unknown-unknown without being told
+# where entropy comes from. The `wasm_js` FEATURE here is half of it; the other
+# half is the matching cfg flag in the workspace `.cargo/config.toml`, and
+# getrandom errors if either is missing.
+#
+# This crate does not want randomness — it arrives via `peroxide`, which pulls
+# `rand` unconditionally with no feature to disable it. Cutting the dependency
+# would mean replacing peroxide's CubicSpline across ~39 sites, which is its own
+# job; satisfying it is the smaller correct change here. Bead op-okqo.3.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }

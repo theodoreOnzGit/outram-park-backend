@@ -1,0 +1,25 @@
+# Cargo configuration for the OUTRAM PARK workspace.
+#
+# ── wasm32: getrandom's backend must be named explicitly ─────────────────────
+#
+# getrandom 0.3 refuses to build for wasm32-unknown-unknown unless it is told
+# where entropy comes from, because that target has no OS. Naming the backend
+# needs BOTH a Cargo feature (`wasm_js`, added per-crate under a
+# `cfg(target_arch = "wasm32")` dependency table) AND this cfg flag — the
+# feature alone is insufficient, and getrandom's own error message says so.
+#
+# It lives here rather than in a build script so that a plain
+# `cargo check --target wasm32-unknown-unknown` works with no extra
+# environment, which is what the wasm gate (bead op-okqo.6) runs.
+#
+# Scope: this applies ONLY to the wasm32-unknown-unknown target. Native and
+# Android builds read nothing from this section.
+#
+# What it implies: on wasm the entropy source is the JavaScript host's
+# `crypto.getRandomValues`. That is correct for a browser and for Node, and it
+# means a wasm build of this workspace is not usable in a bare wasm runtime
+# with no JS glue. Nothing in this workspace needs randomness for physics — the
+# dependency arrives via `peroxide` (which pulls `rand` unconditionally, with no
+# feature to switch it off) and via `uuid`. See bead op-okqo.3.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

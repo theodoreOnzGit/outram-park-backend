@@ -76,6 +76,10 @@ pub mod animation;
 // `opcua_core` below it builds on Android/Termux with no target gate: the
 // headless Termux build of the simulator serves OPC-UA exactly as the desktop
 // one does.
+/// Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+/// browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+/// it. Beads op-okqo.3, op-eeqw.2.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod ciet_opcua;
 // `opcua_core` is the reactor-agnostic OPC-UA server layer `ciet_opcua` is built
 // on: transport, server thread, PKI, mDNS discovery and address-space
@@ -83,6 +87,10 @@ pub mod ciet_opcua;
 // like `ciet_opcua`, and buildable on Android/Termux for the same reason. Named
 // `opcua_core` rather than `opcua` so it cannot shadow the `opcua` crate in a
 // `use` path.
+/// Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+/// browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+/// it. Beads op-okqo.3, op-eeqw.2.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod opcua_core;
 // `htr10` is GUI-free cited-constant + correlation data for the HTR-10
 // pebble-bed simulator rewrite (bead op-jyyp), so like `animation` it builds
