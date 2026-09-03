@@ -208,6 +208,15 @@ use rayon::prelude::*;
 use crate::compute::{select_backend, ComputeBackend};
 use crate::ldu_matrix::ldu_matrix::LduMatrix;
 
+/// The WGSL kernels mirroring this module's CPU paths.
+///
+/// Gated exactly as `wgpu` itself is. Each function here returns `Option`, so
+/// a GPU failure degrades to the CPU path rather than propagating. See its
+/// module docs for the `f32` precision caveat and why these kernels are
+/// **off** the auto-select policy.
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
+pub mod gpu;
+
 #[cfg(test)]
 mod tests;
 

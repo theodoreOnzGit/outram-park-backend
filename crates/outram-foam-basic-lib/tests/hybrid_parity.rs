@@ -44,10 +44,23 @@
 //!    is recorded per kernel in [`ParityClass`] so the two can never be confused.
 //! 2. [`gate_parity_serial_vs_gpu`] — the same comparison for
 //!    [`ComputeBackend::Gpu`].
-//! 3. [`gate_gpu_degrades_and_does_not_lie`] — asserts that *no* module's
-//!    dispatch policy ever reports `Gpu`, because no GPU kernel exists in any of
-//!    them. This is a **tripwire**: the day a real GPU kernel lands, this test
-//!    fails and forces its author to come back and write a parity gate for it.
+//! 3. [`gate_gpu_degrades_and_does_not_lie`] — asserts that no module's
+//!    **auto-select** policy ever reports `Gpu`.
+//!
+//!    Read this one carefully, because its meaning changed on 2026-09-03. It
+//!    used to hold "because no GPU kernel exists in any of them". Real WGSL
+//!    kernels now do exist for `ldu_matrix::parallel` (`spmv`, `axpy`,
+//!    `scale`, `dot`, `norm_l1` — see that module's `gpu` submodule). What
+//!    this gate now asserts is the *deliberate policy* that those kernels are
+//!    **opt-in only**: they run when a caller names `ComputeBackend::Gpu`
+//!    explicitly, and never because auto-select chose it for them. The reason
+//!    is measured, not theoretical — see
+//!    [`gate_gpu_kernels_match_the_oracle`] and
+//!    `examples/hybrid_gpu_report.rs`.
+//! 3b. [`gate_gpu_kernels_match_the_oracle`] — the parity gate for the kernels
+//!    that *do* exist, run against the serial `f64` oracle at the tolerance
+//!    each kernel's doc comment states. Skips with a printed note when no
+//!    adapter is present, which is a valid outcome, not a pass by omission.
 //! 4. [`gate_thread_count_invariance`] — the same input at 1, 2, 4 and 8 rayon
 //!    workers must give byte-identical output. An integration test cannot build
 //!    a rayon pool (rayon is an optional dependency of the *library*, not a
@@ -1431,10 +1444,14 @@ fn gate_gpu_degrades_and_does_not_lie() {
         assert_ne!(
             picked,
             ComputeBackend::Gpu,
-            "{name} reported ComputeBackend::Gpu, but no GPU kernel exists in that module. \
-             If a real GPU kernel has just landed: add it to run_all_kernels() in this file, \
-             state the precision it runs at and its measured max/RMS deviation from the f64 \
-             serial oracle in its doc comment, and only then relax this assertion."
+            "{name} auto-selected ComputeBackend::Gpu. Auto-select must never do that: \
+             the GPU kernels in this crate are f32 (WGSL has no f64) and are opt-in only, \
+             so a caller gets one by naming Gpu explicitly and never by default. \
+             If a kernel has been measured to beat CpuMulti and should now be auto-selected: \
+             record the crossover from examples/hybrid_gpu_report.rs, state the precision \
+             and the measured max/RMS deviation from the f64 serial oracle in its doc \
+             comment, add it to gate_gpu_kernels_match_the_oracle in this file, and only \
+             then relax this assertion for that one module."
         );
         assert!(
             picked.is_available(),
@@ -2284,4 +2301,141 @@ fn crossover_benchmark() {
          the serial path on both backends there. This benchmark validates the floors \
          from outside; it does not re-derive them."
     );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gate 3b — the parity gate for the GPU kernels that actually exist.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Run every real WGSL kernel against the serial `f64` oracle at the tolerance
+/// its doc comment states.
+///
+/// # Methodology
+///
+/// A 1-D Laplacian of 2^20 cells with **non-dyadic** coefficients
+/// (`2 + i/sqrt(7)`, `-1 - i/sqrt(3)`, `-1 - i/sqrt(11)`) and a non-dyadic
+/// operand (`sin(i*pi/1000)*e + i/3`). The choice is deliberate: dyadic values
+/// such as `0.25` are exactly representable in `f32`, so a gate built from them
+/// reports a deviation of exactly zero and proves nothing. An early version of
+/// `examples/hybrid_gpu_report.rs` did exactly that and had to be fixed.
+///
+/// Each kernel is compared on **relative** deviation, `|got - want| /
+/// max(|want|, 1)`, against the tolerance below. The tolerances are set one
+/// order of magnitude above the measured value so that ordinary
+/// adapter-to-adapter variation does not fail the gate, while a real
+/// regression (a wrong index, a dropped term) moves the error by orders of
+/// magnitude and does.
+///
+/// # Results — measured 2026-09-03
+///
+/// Hardware: Mesa Intel(R) Graphics (RPL-S), integrated, **OpenGL** backend.
+/// (The machine also has an RTX A5000, but its kernel driver was not loaded,
+/// so no Vulkan adapter was available. The adapter-scoring in
+/// `compute::gpu::adapter_score` would prefer the discrete card where the
+/// driver is present.)
+///
+/// | Kernel | n | max rel | RMS rel | gate |
+/// |---|---:|---:|---:|---:|
+/// | `spmv` | 1048576 | 2.81e-7 | 6.43e-8 | 1e-5 |
+/// | `axpy` | 1048576 | 1.11e-7 | 3.70e-8 | 1e-6 |
+/// | `scale` | 1048576 | 1.04e-7 | 3.76e-8 | 1e-6 |
+/// | `dot` | 1048576 | 1.04e-11 | — | 1e-6 |
+/// | `norm_l1` | 1048576 | 2.84e-10 | — | 1e-6 |
+///
+/// Interpretation: the elementwise kernels sit right at the `f32` epsilon
+/// floor (~1.2e-7), which is the expected and irreducible cost of WGSL having
+/// no `f64`. The two reductions come out far better because their per-lane
+/// rounding errors partly cancel across the sum — that is **not** a general
+/// guarantee and must not be read as one; a cancellation-heavy input (a
+/// near-converged residual) would do much worse. This is why the reductions
+/// are off auto-select despite these flattering numbers.
+///
+/// No human V&V is claimed by this gate.
+#[test]
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
+fn gate_gpu_kernels_match_the_oracle() {
+    use outram_foam_basic_lib::compute::gpu;
+    use outram_foam_basic_lib::ldu_matrix::ldu_matrix::LduMatrix;
+    use outram_foam_basic_lib::ldu_matrix::parallel::gpu as kgpu;
+    use outram_foam_basic_lib::ldu_matrix::parallel::{HybridLdu, LduTopology};
+
+    let Some(ctx) = gpu::context() else {
+        println!(
+            "[gpu-parity] no GPU adapter on this machine — gate skipped. \
+             This is a valid outcome, not a pass."
+        );
+        return;
+    };
+    println!("[gpu-parity] adapter: {}", ctx.adapter_label());
+
+    let n = 1 << 20;
+    let owner: Vec<usize> = (0..n - 1).collect();
+    let neighbour: Vec<usize> = (1..n).collect();
+    let mut m = LduMatrix::new(n, owner, neighbour);
+    for (i, d) in m.diag.iter_mut().enumerate() {
+        *d = 2.0 + (i as f64) / 7.0_f64.sqrt();
+    }
+    for (i, v) in m.lower.iter_mut().enumerate() {
+        *v = -1.0 - (i as f64) / 3.0_f64.sqrt();
+    }
+    for (i, v) in m.upper.iter_mut().enumerate() {
+        *v = -1.0 - (i as f64) / 11.0_f64.sqrt();
+    }
+    let topo = LduTopology::from_matrix(&m);
+    let x: Vec<f64> = (0..n)
+        .map(|i| {
+            let t = (i as f64) * std::f64::consts::PI / 1000.0;
+            t.sin() * std::f64::consts::E + (i as f64) / 3.0
+        })
+        .collect();
+
+    let rel = |g: f64, w: f64| (g - w).abs() / w.abs().max(1.0);
+    let worst = |got: &[f64], want: &[f64]| {
+        got.iter()
+            .zip(want)
+            .map(|(g, w)| rel(*g, *w))
+            .fold(0.0_f64, f64::max)
+    };
+
+    // spmv
+    let hybrid = HybridLdu::new(Arc::new(m.clone()));
+    let want = hybrid.spmv(&x, ComputeBackend::Serial);
+    let mut got = vec![0.0; n];
+    kgpu::spmv_into(&m, &topo, &x, &mut got).expect("GPU spmv on a present adapter");
+    let d = worst(&got, &want);
+    println!("[gpu-parity] spmv    max rel = {d:.3e} (gate 1e-5)");
+    assert!(d < 1e-5, "spmv deviated {d:e}, above the documented 1e-5 gate");
+
+    // axpy
+    let mut want_y = x.clone();
+    lp::axpy(2.5, &x, &mut want_y, ComputeBackend::Serial);
+    let mut got_y = x.clone();
+    kgpu::axpy(2.5, &x, &mut got_y).expect("GPU axpy");
+    let d = worst(&got_y, &want_y);
+    println!("[gpu-parity] axpy    max rel = {d:.3e} (gate 1e-6)");
+    assert!(d < 1e-6, "axpy deviated {d:e}");
+
+    // scale
+    let mut want_s = x.clone();
+    lp::scale(-1.5, &mut want_s, ComputeBackend::Serial);
+    let mut got_s = x.clone();
+    kgpu::scale(-1.5, &mut got_s).expect("GPU scale");
+    let d = worst(&got_s, &want_s);
+    println!("[gpu-parity] scale   max rel = {d:.3e} (gate 1e-6)");
+    assert!(d < 1e-6, "scale deviated {d:e}");
+
+    // dot
+    let b: Vec<f64> = x.iter().map(|v| v * std::f64::consts::LN_2).collect();
+    let want_d = lp::dot(&x, &b, ComputeBackend::Serial);
+    let got_d = kgpu::dot(&x, &b).expect("GPU dot");
+    let d = rel(got_d, want_d);
+    println!("[gpu-parity] dot     rel = {d:.3e} (gate 1e-6)");
+    assert!(d < 1e-6, "dot deviated {d:e}");
+
+    // norm_l1
+    let want_l1 = lp::norm_l1(&x, ComputeBackend::Serial);
+    let got_l1 = kgpu::norm_l1(&x).expect("GPU norm_l1");
+    let d = rel(got_l1, want_l1);
+    println!("[gpu-parity] norm_l1 rel = {d:.3e} (gate 1e-6)");
+    assert!(d < 1e-6, "norm_l1 deviated {d:e}");
 }

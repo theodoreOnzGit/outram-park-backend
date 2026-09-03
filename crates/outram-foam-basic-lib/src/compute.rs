@@ -473,5 +473,13 @@ mod pollster_lite {
     }
 }
 
+/// The `wgpu` device context and the shared kernel-dispatch helper.
+///
+/// Present only when the `gpu` feature is on and the target is not Android —
+/// the same gate `wgpu` itself is under. Every GPU kernel in the crate reaches
+/// the device through [`gpu::GpuContext::dispatch`].
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
+pub mod gpu;
+
 #[cfg(test)]
 mod tests;
