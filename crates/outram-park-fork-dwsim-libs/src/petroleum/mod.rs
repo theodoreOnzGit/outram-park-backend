@@ -145,6 +145,10 @@ pub mod assay;
 pub mod aux_props;
 pub mod curve_characterization;
 pub mod curve_conversion;
+/// Crude (atmospheric) distillation driven by a black-oil characterisation —
+/// the petroleum counterpart of the benzene/toluene column. See the module
+/// docs for what "based on black oil" can and cannot mean.
+pub mod crude_distillation;
 pub mod fitting;
 pub mod generate_compounds;
 pub mod gl;
