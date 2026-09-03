@@ -37,7 +37,10 @@
 //!   it pulls the broadened value back down toward the physical result.
 
 use crate::{common::phys::BK_EV_PER_K, reconr::ReconrSection};
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::*;
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 

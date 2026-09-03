@@ -155,3 +155,9 @@ pub mod perf_report;
 mod error;
 pub use endf::MtReaction;
 pub use error::NjoyError;
+
+/// Serial stand-ins for the `rayon` adapters this crate uses, on `wasm32`
+/// where `rayon` does not build. See the module docs for why the arithmetic is
+/// unaffected.
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;

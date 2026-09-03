@@ -27,7 +27,7 @@
 //! a Cargo feature.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
 use crate::datatype::Datatype;
@@ -44,7 +44,7 @@ pub(crate) struct Envelope {
     /// Message tag chosen by the sender.
     pub tag: i32,
     /// Communicator context id — messages never match across communicators.
-    pub comm_id: usize,
+    pub comm_id: u64,
     /// Datatype tag of the payload elements.
     pub datatype: Datatype,
     /// Number of elements in the payload.
@@ -78,7 +78,7 @@ pub(crate) struct Transport {
     /// point context ids here (their collective contexts are these plus
     /// [`crate::communicator::COLL_CONTEXT_OFFSET`], which never collide because
     /// allocated ids stay far below that offset).
-    next_comm_id: AtomicUsize,
+    next_comm_id: AtomicU64,
 }
 
 impl Transport {
@@ -87,7 +87,7 @@ impl Transport {
         let mailboxes = (0..size).map(|_| Mailbox::new()).collect();
         Arc::new(Transport {
             mailboxes,
-            next_comm_id: AtomicUsize::new(1),
+            next_comm_id: AtomicU64::new(1),
         })
     }
 
@@ -96,7 +96,7 @@ impl Transport {
     /// Called on **one** rank during a collective communicator-creation call
     /// (`comm_dup`/`comm_split`); that rank then broadcasts the id so the whole
     /// new group agrees on it.
-    pub(crate) fn alloc_comm_id(&self) -> usize {
+    pub(crate) fn alloc_comm_id(&self) -> u64 {
         self.next_comm_id.fetch_add(1, Ordering::Relaxed)
     }
 
@@ -127,7 +127,7 @@ impl Transport {
     /// `None`. `src`/`tag` of `None` are wildcards (`MPI_ANY_SOURCE`/`MPI_ANY_TAG`).
     fn find_match(
         q: &VecDeque<Envelope>,
-        comm_id: usize,
+        comm_id: u64,
         src: Option<i32>,
         tag: Option<i32>,
     ) -> Option<usize> {
@@ -143,7 +143,7 @@ impl Transport {
     pub(crate) fn recv_blocking(
         &self,
         me: usize,
-        comm_id: usize,
+        comm_id: u64,
         src: Option<i32>,
         tag: Option<i32>,
     ) -> Envelope {
@@ -162,7 +162,7 @@ impl Transport {
     pub(crate) fn recv_try(
         &self,
         me: usize,
-        comm_id: usize,
+        comm_id: u64,
         src: Option<i32>,
         tag: Option<i32>,
     ) -> Option<Envelope> {
@@ -177,7 +177,7 @@ impl Transport {
 mod tests {
     use super::*;
 
-    fn env(src: i32, tag: i32, comm_id: usize) -> Envelope {
+    fn env(src: i32, tag: i32, comm_id: u64) -> Envelope {
         Envelope {
             src,
             tag,

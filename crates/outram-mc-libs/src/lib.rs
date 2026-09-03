@@ -40,3 +40,8 @@ pub mod gpu;
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
 pub mod prelude;
+
+/// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
+/// `rayon` does not build. Numerically exact here — see the module docs.
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;

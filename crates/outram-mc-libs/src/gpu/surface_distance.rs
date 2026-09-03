@@ -1170,7 +1170,12 @@ pub fn surface_distance_hybrid(
     policy: crate::gpu::capabilities::SplitPolicy,
 ) -> (Vec<f32>, crate::gpu::capabilities::WorkSplit) {
     use crate::gpu::capabilities::{plan_split, HardwareCapabilities};
-    use rayon::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 
     let caps = match ctx {
         Some(c) => c.capabilities(),

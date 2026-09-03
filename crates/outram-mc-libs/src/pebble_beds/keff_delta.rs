@@ -425,7 +425,12 @@ pub fn run_keff_delta_par<F>(
 where
     F: Fn(Position) -> Option<usize> + Sync,
 {
-    use rayon::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 
     let temp = settings.temperature_k;
 

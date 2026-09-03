@@ -11,7 +11,12 @@
 //! bit-for-bit reproducible and independent of how `rayon` schedules the work.
 
 use fission_yields_data::prelude::Nuclide;
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 use uom::si::f64::*;
 
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng::OoRng64;

@@ -65,6 +65,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+#[cfg(not(target_arch = "wasm32"))]
 use fs2::FileExt;
 use sha2::{Digest, Sha256};
 
@@ -634,6 +635,13 @@ impl EndfCache {
         // 2. Take a per-artifact advisory lock (anti-thundering-herd).
         let lock_path = final_path.with_extension("lock");
         let lock_file = File::create(&lock_path)?;
+        // No flock without a filesystem. On wasm the lock file is still
+        // created (so the surrounding double-checked-acquire logic is
+        // unchanged) but nothing is locked — which is correct there, because
+        // wasm32-unknown-unknown is single-threaded and has no peer process to
+        // race against. The anti-thundering-herd guard exists for concurrent
+        // native processes, and there are none.
+        #[cfg(not(target_arch = "wasm32"))]
         lock_file.lock_exclusive()?;
 
         // 3. Double-checked acquire: a peer may have finished while we blocked.
@@ -669,6 +677,7 @@ impl EndfCache {
         })();
 
         // 8. Always release the lock.
+        #[cfg(not(target_arch = "wasm32"))]
         let _ = FileExt::unlock(&lock_file);
         result
     }

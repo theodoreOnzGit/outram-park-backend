@@ -41,7 +41,7 @@ fission-yields-data = { workspace = true }
 #     derived RNG stream so results are reproducible independent of thread count).
 #   * log    — the `log::debug!` graceful-fallback message emitted when
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
-rayon = { workspace = true }
+# rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
 # Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
 # unconditional (non-gated, non-target-gated) dependency: a terminal UI is
@@ -49,7 +49,7 @@ log = { workspace = true }
 # windowing GUI is out of scope), so it compiles on every target and the binary
 # always builds with a plain `cargo build`. ratatui re-exports its matched
 # crossterm as `ratatui::crossterm`.
-ratatui = { workspace = true }
+# (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
@@ -100,3 +100,21 @@ naga = { workspace = true, features = ["wgsl-in"] }
 [[bin]]
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
+
+# ── Native + Android only: no wasm32 backend ─────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
+# fails with "cannot find module or crate sys". crossterm, which ratatui
+# re-exports, likewise has no wasm backend: there is no terminal in a browser.
+#
+# Both are target-gated off wasm ONLY, not off Android and not behind a feature.
+# rayon and a terminal UI are both Android-in-scope per the workspace CLAUDE.md,
+# so Termux keeps its multi-core path and its TUI; narrowing the gate to wasm is
+# the smallest correct change.
+#
+# On wasm the rayon call sites use `crate::wasm_par`, which runs the same work
+# serially. For this crate that is numerically exact, not just tolerable: the
+# Monte Carlo drivers seed per history and their eigenvalues are documented as
+# thread-count-independent. Bead op-okqo.1.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+ratatui = { workspace = true }

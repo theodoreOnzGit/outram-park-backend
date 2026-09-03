@@ -41,7 +41,7 @@ pub const ANY_SOURCE: i32 = -1;
 pub const ANY_TAG: i32 = -1;
 
 /// The context id of the world communicator every rank starts with.
-pub(crate) const WORLD_COMM_ID: usize = 0;
+pub(crate) const WORLD_COMM_ID: u64 = 0;
 
 /// Offset added to a communicator's point-to-point context id to form its
 /// **collective** context id. MPI isolates collective messages from user
@@ -50,7 +50,16 @@ pub(crate) const WORLD_COMM_ID: usize = 0;
 /// a user `send`/`recv` on a tag a collective happens to reuse can never match a
 /// collective's internal message. The offset is far above any real allocated
 /// comm id (which count up from 0).
-pub(crate) const COLL_CONTEXT_OFFSET: usize = 1 << 40;
+///
+/// # Why `u64` and not `usize`
+///
+/// This is a **numeric namespace tag, not a memory size**, so its width must
+/// not follow the pointer width. As `usize` the expression `1 << 40` is a
+/// compile-time overflow on any 32-bit target — `wasm32`, and equally the
+/// `armv7-linux-androideabi` / `i686-linux-android` targets the workspace
+/// Android rule nominally covers. `u64` is width-stable everywhere and keeps
+/// the 40-bit separation the isolation argument above depends on.
+pub(crate) const COLL_CONTEXT_OFFSET: u64 = 1 << 40;
 
 /// Outcome of a completed receive: which message actually matched.
 ///
@@ -86,7 +95,7 @@ pub struct Communicator {
     transport: Arc<Transport>,
     rank: i32,
     size: i32,
-    comm_id: usize,
+    comm_id: u64,
     /// This thread's global mailbox index (its world rank).
     world_rank: i32,
     /// Local rank → global mailbox index, length `size`.
@@ -114,7 +123,7 @@ impl Communicator {
         transport: Arc<Transport>,
         rank: i32,
         size: i32,
-        comm_id: usize,
+        comm_id: u64,
         world_rank: i32,
         world_ranks: Arc<Vec<i32>>,
     ) -> Self {
@@ -139,7 +148,7 @@ impl Communicator {
     }
 
     /// The communicator context id (internal; distinguishes duplicated communicators).
-    pub(crate) fn comm_id(&self) -> usize {
+    pub(crate) fn comm_id(&self) -> u64 {
         self.comm_id
     }
 
@@ -150,7 +159,7 @@ impl Communicator {
 
     /// This communicator's collective context id (isolates collective messages
     /// from user point-to-point traffic).
-    pub(crate) fn coll_ctx(&self) -> usize {
+    pub(crate) fn coll_ctx(&self) -> u64 {
         self.comm_id + COLL_CONTEXT_OFFSET
     }
 
@@ -173,7 +182,7 @@ impl Communicator {
     }
 
     /// Allocate a fresh process-unique communicator context id from the transport.
-    pub(crate) fn alloc_context(&self) -> usize {
+    pub(crate) fn alloc_context(&self) -> u64 {
         self.transport.alloc_comm_id()
     }
 
@@ -187,7 +196,7 @@ impl Communicator {
         data: &[T],
         dest: i32,
         tag: i32,
-        ctx: usize,
+        ctx: u64,
     ) -> MpiResult<()> {
         self.check_rank(dest)?;
         let global_dest = self.world_ranks[dest as usize];
@@ -209,7 +218,7 @@ impl Communicator {
         &self,
         source: i32,
         tag: i32,
-        ctx: usize,
+        ctx: u64,
     ) -> MpiResult<(Vec<T>, Status)> {
         let src = self.match_source(source)?;
         let tagf = match_tag(tag);

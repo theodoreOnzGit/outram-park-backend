@@ -393,7 +393,12 @@ pub fn run_keff_cpu_multi(
     thread_count: ThreadCount,
 ) -> KeffResult {
     use crate::rng::lcg::future_seed;
-    use rayon::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 
     let sphere = Sphere {
         x0: 0.0,

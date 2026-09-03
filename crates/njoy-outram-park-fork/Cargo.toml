@@ -46,7 +46,9 @@ log.workspace = true
 # (`reconr::refine_resonance_grid`) evaluates independent energy windows in
 # parallel. Pure speedup — the per-window results are identical to the serial
 # order (`delta_at` is a pure function of energy).
-rayon.workspace = true
+# rayon is declared in a target table further down: rayon-core does not build
+# for wasm32-unknown-unknown. See that table for the full reasoning.
+
 # Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.
@@ -66,23 +68,9 @@ hdf5-pure.workspace = true
 # `sha2` is pure Rust.
 sha2 = { workspace = true }
 directories = { workspace = true }
-fs2 = { workspace = true }
-# HIGH-fidelity ENDF download tier — optional, behind the `net-fetch` feature
-# (docs/data-acquisition.md). The default build pulls neither, so a data consumer
-# that only wants the offline tiers stays free of a TLS/HTTP dependency tree.
-# Pure-Rust + cross-platform (rustls, not OpenSSL).
-ureq = { workspace = true, optional = true }
-zip = { workspace = true, optional = true }
-# Terminal-UI stack for the `njoy-tui` binary (see [[bin]] below). An
-# unconditional (non-gated, non-target-gated) dependency: a terminal UI is
-# Android-in-scope per the workspace CLAUDE.md ("Android portability": only
-# windowing GUI, e.g. egui/eframe, is out of scope), so it compiles on every
-# target and the binary always builds with a plain `cargo build`. ratatui
-# re-exports its matched crossterm as `ratatui::crossterm`, so no separate
-# crossterm pin.
-ratatui = { workspace = true }
-# Added per phase as modules are ported (see docs/porting-plan.md):
-#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
+# fs2 gives the cache its advisory lock via flock(2). No filesystem, no flock,
+# no meaning on wasm — target-gated off, and acquire.rs's lock/unlock calls are
+# cfg'd to match. op-okqo.1.
 
 # ── Optional GPU compute (desktop only; ABSENT on Android) ────────────────────
 # wgpu is a target-gated dependency so this crate stays "lean, pure-CPU" on
@@ -140,3 +128,43 @@ path = "tests/openmc_notebooks_data/main.rs"
 [[bin]]
 name = "njoy-tui"
 path = "src/bin/njoy-tui/main.rs"
+
+# ── rayon: native + Android only ─────────────────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown at all — it needs OS
+# threads and fails with "cannot find module or crate sys". So it is
+# target-gated OFF wasm.
+#
+# Note the mechanism deliberately differs from how wgpu is handled elsewhere in
+# this workspace. wgpu is gated off *Android*; rayon is NOT, because rayon is
+# pure Rust with no system component and Termux should keep its multi-core
+# path. Gating rayon by feature instead would also cost Android its threads for
+# no reason. Target-gating off wasm alone is the narrowest correct fix.
+#
+# On wasm the two call sites (reconr, broadr) import `crate::wasm_par` instead
+# of `rayon::prelude`; that module runs the same work serially and produces
+# bit-identical output. Bead op-okqo.1.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon.workspace = true
+fs2 = { workspace = true }
+# HIGH-fidelity ENDF download tier — optional, behind the `net-fetch` feature
+# (docs/data-acquisition.md). The default build pulls neither, so a data consumer
+# that only wants the offline tiers stays free of a TLS/HTTP dependency tree.
+# Pure-Rust + cross-platform (rustls, not OpenSSL).
+#
+# Off wasm as well: a browser cannot open raw sockets, so `net-fetch` there
+# would need the fetch API rather than ureq. Enabling `net-fetch` on wasm
+# therefore gets you the feature flag without the downloader; if a wasm
+# download tier is ever wanted it needs its own backend, not this one.
+ureq = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }
+# Terminal-UI stack for the `njoy-tui` binary (see [[bin]] below). A terminal UI
+# is Android-in-scope per the workspace CLAUDE.md ("Android portability": only
+# windowing GUI, e.g. egui/eframe, is out of scope), so Android keeps it and the
+# binary builds there with a plain `cargo build`. ratatui re-exports its matched
+# crossterm as `ratatui::crossterm`, so there is no separate crossterm pin.
+#
+# It sits in this table because crossterm has no wasm32 backend — there is no
+# terminal in a browser, and the njoy-tui binary is not a wasm target either.
+ratatui = { workspace = true }
+# Added per phase as modules are ported (see docs/porting-plan.md):
+#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)

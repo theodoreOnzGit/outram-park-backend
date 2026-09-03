@@ -331,7 +331,12 @@ pub fn run_keff_csg_par(
     mut tally: Option<&mut Tally>,
     thread_count: ThreadCount,
 ) -> KeffResult {
-    use rayon::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 
     let temp = settings.temperature_k;
     let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);

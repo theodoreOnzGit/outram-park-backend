@@ -107,7 +107,7 @@ impl Communicator {
         let mut ctx = None;
         for i in 0..n {
             if map[1 + 2 * i] as i32 == color {
-                ctx = Some(map[2 + 2 * i] as usize);
+                ctx = Some(map[2 + 2 * i] as u64);
                 break;
             }
         }
@@ -142,13 +142,13 @@ impl Communicator {
     /// Allocate a fresh context and broadcast it from rank 0 so the whole group
     /// agrees (used by [`dup`](Communicator::dup) and
     /// [`create_from_group`](Communicator::create_from_group)).
-    pub(crate) fn agree_new_context(&self) -> MpiResult<usize> {
+    pub(crate) fn agree_new_context(&self) -> MpiResult<u64> {
         let agreed = if self.rank() == 0 {
             let id = self.alloc_context() as i64;
             self.broadcast(Some(&[id]), 0)?
         } else {
             self.broadcast(None, 0)?
         };
-        Ok(agreed[0] as usize)
+        Ok(agreed[0] as u64)
     }
 }

@@ -515,7 +515,10 @@ fn refine_resonance_grid(
     delta_at: &(impl Fn(f64) -> RangeDelta + Sync),
     eps: f64,
 ) -> (Vec<f64>, Vec<RangeDelta>) {
-    use rayon::prelude::*;
+    #[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::*;
 
     // Each seed window [e_i, e_{i+1}] is refined completely independently
     // (`delta_at` is a pure function of energy), so the windows run in

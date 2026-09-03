@@ -14,7 +14,12 @@
 //! `wgpu` kernel). See [`crate::compute::ComputeType`].
 
 use fission_yields_data::prelude::Nuclide;
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
 use uom::si::f64::{Length, ThermodynamicTemperature, Time};
 use uom::si::length::micrometer;
 use uom::si::time::second;
@@ -228,10 +233,10 @@ impl LiveEnsemble {
     }
 
     /// GPU-backed advance. Filled in by the multilayer wgpu kernel; until then
-    /// (and on Android, and whenever no adapter is present) this runs the
-    /// multi-threaded CPU path so `ComputeType::Gpu` is always safe to select.
+    /// (and on Android, on wasm, and whenever no adapter is present) this runs
+    /// the CPU path so `ComputeType::Gpu` is always safe to select.
     fn advance_gpu(&mut self, until: Time) {
-        #[cfg(not(target_os = "android"))]
+        #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
         {
             if crate::gpu::advance_multilayer_best_effort(
                 &self.cell,
@@ -244,7 +249,7 @@ impl LiveEnsemble {
                 return;
             }
         }
-        // No GPU adapter / Android / GPU submit failed → CPU fallback.
+        // No GPU adapter / Android / wasm / GPU submit failed → CPU fallback.
         self.advance_cpu_multi(until, ThreadCount::Auto);
     }
 }
