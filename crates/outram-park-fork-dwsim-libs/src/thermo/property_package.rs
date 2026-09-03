@@ -127,6 +127,13 @@ pub enum PropertyPackageModel {
     Ideal,
     /// Peng-Robinson cubic-EOS package.
     PengRobinson,
+    /// Peng-Robinson **1978** cubic-EOS package.
+    ///
+    /// Prefer this over [`Self::PengRobinson`] for petroleum and other heavy
+    /// mixtures: the 1976 α-slope correlation is stated only for `ω < 0.49`,
+    /// and pseudo-components from a crude assay routinely exceed it. Identical
+    /// to [`Self::PengRobinson`] below that threshold.
+    PengRobinson1978,
     /// Soave-Redlich-Kwong cubic-EOS package.
     Srk,
 }
@@ -138,6 +145,7 @@ impl PropertyPackageModel {
         match self {
             Self::Ideal => None,
             Self::PengRobinson => Some(CubicEos::PengRobinson),
+            Self::PengRobinson1978 => Some(CubicEos::PengRobinson1978),
             Self::Srk => Some(CubicEos::Srk),
         }
     }

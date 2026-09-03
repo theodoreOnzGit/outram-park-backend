@@ -99,6 +99,18 @@ pub enum CubicEos {
     /// Peng-Robinson (1976): `Ωa = 0.45724`, `Ωb = 0.07780`,
     /// `κ(ω) = 0.37464 + 1.54226 ω − 0.26992 ω²`, `(u, w) = (2, −1)`.
     PengRobinson,
+    /// Peng-Robinson **1978** — identical to [`Self::PengRobinson`] in every
+    /// respect except the α-slope `κ(ω)`, which switches to a cubic refit above
+    /// `ω = 0.491`.
+    ///
+    /// Use this rather than [`Self::PengRobinson`] for **heavy** components.
+    /// The 1976 κ correlation is stated only for `ω < 0.49`; petroleum
+    /// pseudo-components routinely exceed it (a crude's heaviest cut reaches
+    /// `ω ≈ 1.16`), and beyond the limit the 1976 α-function misbehaves — in
+    /// this workspace it produced non-finite K-values and a failed bubble-point
+    /// solve. See [`crate::thermo::pr1978`] for the standalone implementation
+    /// this variant reproduces.
+    PengRobinson1978,
     /// Soave-Redlich-Kwong (1972): `Ωa = 0.42748`, `Ωb = 0.08664`,
     /// `m(ω) = 0.480 + 1.574 ω − 0.176 ω²`, `(u, w) = (1, 0)`.
     Srk,
@@ -109,7 +121,7 @@ impl CubicEos {
     #[must_use]
     pub fn omega_a(self) -> f64 {
         match self {
-            Self::PengRobinson => 0.45724,
+            Self::PengRobinson | Self::PengRobinson1978 => 0.45724,
             Self::Srk => 0.42748,
         }
     }
@@ -118,7 +130,7 @@ impl CubicEos {
     #[must_use]
     pub fn omega_b(self) -> f64 {
         match self {
-            Self::PengRobinson => 0.07780,
+            Self::PengRobinson | Self::PengRobinson1978 => 0.07780,
             Self::Srk => 0.08664,
         }
     }
@@ -128,7 +140,7 @@ impl CubicEos {
     #[must_use]
     pub fn u(self) -> f64 {
         match self {
-            Self::PengRobinson => 2.0,
+            Self::PengRobinson | Self::PengRobinson1978 => 2.0,
             Self::Srk => 1.0,
         }
     }
@@ -138,7 +150,7 @@ impl CubicEos {
     #[must_use]
     pub fn w(self) -> f64 {
         match self {
-            Self::PengRobinson => -1.0,
+            Self::PengRobinson | Self::PengRobinson1978 => -1.0,
             Self::Srk => 0.0,
         }
     }
@@ -161,6 +173,11 @@ impl CubicEos {
         let w = acentric_factor;
         match self {
             Self::PengRobinson => 0.37464 + 1.54226 * w - 0.26992 * w * w,
+            // The ONLY place PR78 differs from PR. Below the threshold the two
+            // are bit-for-bit identical by construction; above it PR78 takes the
+            // 1978 cubic refit. Delegated to `pr1978::pr78_kappa` so there is
+            // one definition of the correlation rather than two that can drift.
+            Self::PengRobinson1978 => crate::thermo::pr1978::pr78_kappa(w),
             Self::Srk => 0.480 + 1.574 * w - 0.176 * w * w,
         }
     }

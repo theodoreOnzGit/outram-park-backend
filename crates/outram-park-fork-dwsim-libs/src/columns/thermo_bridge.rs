@@ -508,6 +508,7 @@ impl ColumnThermo {
         match self.package {
             PropertyPackageModel::Ideal => None,
             PropertyPackageModel::PengRobinson => Some(CubicEos::PengRobinson),
+            PropertyPackageModel::PengRobinson1978 => Some(CubicEos::PengRobinson1978),
             PropertyPackageModel::Srk => Some(CubicEos::Srk),
         }
     }

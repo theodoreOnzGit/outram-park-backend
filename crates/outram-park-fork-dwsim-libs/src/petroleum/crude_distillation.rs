@@ -796,8 +796,33 @@ pub fn solve_crude_column(
     let z_total: f64 = raw_z.iter().sum();
     let feed_z: Vec<f64> = raw_z.iter().map(|v| v / z_total).collect();
 
-    // Peng-Robinson: the pseudo-components carry Tc/Pc/omega, which is exactly
-    // what a cubic EOS needs, and a hydrocarbon mixture is what PR is for.
+    // IDEAL (Wilson) K-values, and this is a measured decision rather than a
+    // default. A cubic EOS is the obviously "right" package for a hydrocarbon
+    // mixture — the pseudo-components carry Tc/Pc/omega precisely so one can be
+    // used — but measured 2026-09-04, every cubic package available fails this
+    // column in the bubble-point solve:
+    //
+    //     PengRobinson      BubblePointFailed at stage 0
+    //     Srk               BubblePointFailed at stage 1
+    //     PengRobinson1978  BubblePointFailed at stage 4
+    //     Ideal             converges, 38 iterations, 6.7e-7
+    //
+    // all with "non-finite value in input or K-values".
+    //
+    // PR78 was wired into PropertyPackageModel specifically for this case (the
+    // 1976 kappa correlation is stated only to omega < 0.49 and a crude's cuts
+    // exceed it), and it does get materially further than the other two. But it
+    // is not sufficient, and the reason is not the EOS: `ln_phi` was checked
+    // directly and returns finite liquid AND vapour fugacity coefficients for
+    // this slate at every temperature from 400 K to 600 K, for both PR and
+    // PR78. The failure is in the bubble-point solver's own temperature
+    // iteration with a cubic package, which is a separate defect — see bead
+    // op-190j.5.
+    //
+    // So: ideal K-values here, honestly labelled. That is adequate for a
+    // teaching and scoping model and is NOT adequate for quantitative
+    // petroleum work; switch to PengRobinson1978 once the bubble-point solver
+    // is fixed.
     let thermo = ColumnThermo::new(components.clone(), PropertyPackageModel::Ideal);
 
     // Feed enters at its bubble point — a preheated, fully-condensed crude.
