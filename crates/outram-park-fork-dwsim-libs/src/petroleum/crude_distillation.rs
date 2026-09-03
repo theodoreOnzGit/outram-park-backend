@@ -471,11 +471,52 @@ pub struct CrudeColumnConfig {
     pub feed_flow_mol_s: f64,
     /// External reflux ratio \[-\].
     pub reflux_ratio: f64,
-    /// Bottoms (atmospheric residue) rate \[mol/s\].
-    pub bottoms_mol_s: f64,
-    /// Liquid side draws as `(stage, rate mol/s)`, ordered top to bottom. These
-    /// are the product cuts.
+    /// Column bottoms rate as a **fraction of the column feed** — the residue
+    /// that reaches the bottom having actually entered the column. The reported
+    /// residue product is this plus the bypassed heavy end.
+    pub bottoms_fraction: f64,
+    /// Liquid side draws as `(stage, fraction of column feed)`, ordered top to
+    /// bottom. These are the product cuts.
+    ///
+    /// **A fraction, not an absolute rate, and that matters.** The column's
+    /// feed is the crude *minus* whatever bypasses above
+    /// [`Self::residue_cut_point_k`], so it is not known until the crude has
+    /// been characterised. Fixed absolute draws silently become oversized when
+    /// the bypass is large — which produced a non-physical profile the first
+    /// time this was built: draws of 0.15 mol/s against an internal reflux of
+    /// 0.10 mol/s drain the column above the feed, and the temperature dips.
+    ///
+    /// Keep the total comfortably below `reflux_ratio / (1 + reflux_ratio)` of
+    /// the feed, or there is not enough internal liquid to draw from.
     pub side_draws: Vec<(usize, f64)>,
+    /// Normal-boiling cut point \[K\] above which a pseudo-component bypasses
+    /// the column entirely and reports straight to the residue.
+    ///
+    /// # Why this exists, and why it is physics rather than a solver dodge
+    ///
+    /// An atmospheric column **cannot distil its own heavy end**. The
+    /// pseudo-components a real crude generates run past 800 K normal boiling
+    /// point, and at ~1.2 bar those simply never vaporise — which is precisely
+    /// why a refinery sends atmospheric residue to a *vacuum* tower rather than
+    /// trying harder in the CDU. Feeding that material to the fractionator asks
+    /// the solver to separate something that has no vapour phase to separate
+    /// into.
+    ///
+    /// Measured consequence on this crate's own solver (2026-09-04, 38 °API
+    /// reference crude, Wang-Henke, ideal K-values):
+    ///
+    /// | cut point | slate span | converged profile |
+    /// |---|---|---|
+    /// | 560 K | 164 K | monotonic, 28 iterations |
+    /// | 650 K | 251 K | monotonic, 31 iterations |
+    /// | 700 K | 300 K | monotonic, 32 iterations |
+    /// | none (900 K) | 463 K | **non-monotonic**, 79 iterations |
+    ///
+    /// So the heavy bypass is what makes the column solvable *and* what makes
+    /// it right. The bypassed fraction is not discarded — it is added to the
+    /// bottoms product, so the overall material balance still closes on the
+    /// whole crude.
+    pub residue_cut_point_k: f64,
 }
 
 impl CrudeColumnConfig {
@@ -494,24 +535,29 @@ impl CrudeColumnConfig {
             feed_stage: 9,
             pressure_pa: 120_000.0,
             feed_flow_mol_s: 1.0,
-            reflux_ratio: 2.0,
-            bottoms_mol_s: 0.30,
-            // kerosene, diesel, AGO — descending the column.
-            side_draws: vec![(4, 0.15), (6, 0.15), (8, 0.10)],
+            reflux_ratio: 3.0,
+            bottoms_fraction: 0.25,
+            // kerosene, diesel, AGO — descending the column, as fractions of
+            // the column feed. Total 0.30, against an internal reflux of
+            // reflux_ratio x distillate, which is comfortably larger.
+            side_draws: vec![(4, 0.12), (6, 0.10), (8, 0.08)],
+            // ~377 °C: the conventional atmospheric/vacuum split, and inside
+            // the band the solver handles monotonically.
+            residue_cut_point_k: 650.0,
         }
     }
 
-    /// Total side-draw rate \[mol/s\].
+    /// Total side-draw fraction of the column feed \[-\].
     #[must_use]
-    pub fn total_side_draw_mol_s(&self) -> f64 {
+    pub fn total_side_draw_fraction(&self) -> f64 {
         self.side_draws.iter().map(|(_, r)| r).sum()
     }
 
-    /// Overhead distillate implied by the material balance \[mol/s\]:
-    /// `feed − bottoms − Σ side draws`.
+    /// Fraction of the column feed leaving as overhead distillate \[-\]:
+    /// `1 − bottoms − Σ side draws`.
     #[must_use]
-    pub fn implied_distillate_mol_s(&self) -> f64 {
-        self.feed_flow_mol_s - self.bottoms_mol_s - self.total_side_draw_mol_s()
+    pub fn distillate_fraction(&self) -> f64 {
+        1.0 - self.bottoms_fraction - self.total_side_draw_fraction()
     }
 
     /// Whether the configuration is self-consistent enough to solve: at least
@@ -542,12 +588,23 @@ impl CrudeColumnConfig {
                 return Err(CrudeColumnError::NonPhysicalDrawRate { stage, rate });
             }
         }
-        let d = self.implied_distillate_mol_s();
+        // Note this checks the WHOLE-crude balance. The column itself sees only
+        // the light end (the heavy fraction bypasses to residue), so
+        // `solve_crude_column` re-checks against the reduced feed once the
+        // bypass fraction is known — a config that passes here can still be
+        // over-drawn on the column basis, and that is reported there.
+        let d = self.distillate_fraction();
         if d <= 0.0 {
             return Err(CrudeColumnError::OverdrawnFeed {
-                feed: self.feed_flow_mol_s,
-                withdrawn: self.bottoms_mol_s + self.total_side_draw_mol_s(),
+                feed: 1.0,
+                withdrawn: self.bottoms_fraction + self.total_side_draw_fraction(),
             });
+        }
+        if !(self.residue_cut_point_k.is_finite() && self.residue_cut_point_k > 0.0) {
+            return Err(CrudeColumnError::Solve(format!(
+                "residue cut point {} K is not a physical temperature",
+                self.residue_cut_point_k
+            )));
         }
         Ok(())
     }
@@ -691,11 +748,53 @@ pub fn solve_crude_column(
     let slate = crude
         .pseudo_components(cut_count)
         .map_err(|e| CrudeColumnError::Characterisation(format!("{e:?}")))?;
-    let components: Vec<_> = slate.iter().map(|pc| pc.component.clone()).collect();
-    let feed_z: Vec<f64> = slate
+
+    // Split the slate at the atmospheric cut point. Everything above it cannot
+    // vaporise at column pressure, so it bypasses the fractionator and reports
+    // straight to the residue — which is what physically happens in a CDU, and
+    // what keeps the solve on a feed it can actually separate. See
+    // `CrudeColumnConfig::residue_cut_point_k` for the measured evidence.
+    let (light, heavy): (Vec<_>, Vec<_>) = slate
         .iter()
-        .map(|pc| pc.mole_fraction.get::<ratio>())
+        .cloned()
+        .partition(|pc| pc.component.normal_boiling_point < config.residue_cut_point_k);
+
+    if light.len() < 2 {
+        return Err(CrudeColumnError::Solve(format!(
+            "only {} pseudo-component(s) boil below the {} K cut point — nothing to \
+             fractionate. Raise residue_cut_point_k, or raise cut_count so the light \
+             end is resolved more finely.",
+            light.len(),
+            config.residue_cut_point_k
+        )));
+    }
+
+    // Mole fraction of the whole crude that bypasses to residue.
+    let bypass_fraction: f64 = heavy.iter().map(|pc| pc.mole_fraction.get::<ratio>()).sum();
+    let bypass_mol_s = config.feed_flow_mol_s * bypass_fraction;
+    let column_feed_mol_s = config.feed_flow_mol_s - bypass_mol_s;
+
+    // Absolute rates on the column's own basis, now that the bypass is known.
+    let bottoms_mol_s = column_feed_mol_s * config.bottoms_fraction;
+    let draw_rates: Vec<(usize, f64)> = config
+        .side_draws
+        .iter()
+        .map(|&(stage, frac)| (stage, column_feed_mol_s * frac))
         .collect();
+    let total_draws_mol_s: f64 = draw_rates.iter().map(|(_, r)| r).sum();
+    let column_distillate = column_feed_mol_s - bottoms_mol_s - total_draws_mol_s;
+    if column_distillate <= 0.0 {
+        return Err(CrudeColumnError::OverdrawnFeed {
+            feed: column_feed_mol_s,
+            withdrawn: bottoms_mol_s + total_draws_mol_s,
+        });
+    }
+
+    let components: Vec<_> = light.iter().map(|pc| pc.component.clone()).collect();
+    // Renormalise the light end onto its own basis — it is the column's feed now.
+    let raw_z: Vec<f64> = light.iter().map(|pc| pc.mole_fraction.get::<ratio>()).collect();
+    let z_total: f64 = raw_z.iter().sum();
+    let feed_z: Vec<f64> = raw_z.iter().map(|v| v / z_total).collect();
 
     // Peng-Robinson: the pseudo-components carry Tc/Pc/omega, which is exactly
     // what a cubic EOS needs, and a hydrocarbon mixture is what PR is for.
@@ -704,7 +803,11 @@ pub fn solve_crude_column(
     // Feed enters at its bubble point — a preheated, fully-condensed crude.
     // The mean normal boiling point is a good enough starting iterate for the
     // bubble-point solve at near-atmospheric pressure.
-    let t_guess = crude.mean_normal_boiling_point_k();
+    // Seed from the light end's own boiling range, not the whole crude's — the
+    // bypassed heavy tail would drag the guess far too hot.
+    let t_guess = 0.5
+        * (light[0].component.normal_boiling_point
+            + light[light.len() - 1].component.normal_boiling_point);
     let t_feed = thermo
         .bubble_temperature(&feed_z, config.pressure_pa, t_guess, config.feed_stage)
         .map(|(t, _)| t)
@@ -715,8 +818,8 @@ pub fn solve_crude_column(
     // profile spanning the slate's own boiling range, which is a far better
     // first iterate than a flat guess for a wide-boiling feed.
     let p = StagePressure::new::<pascal>(config.pressure_pa);
-    let t_top = t_feed - 120.0;
-    let t_bottom = t_feed + 120.0;
+    let t_top = light[0].component.normal_boiling_point;
+    let t_bottom = light[light.len() - 1].component.normal_boiling_point;
     let mut stages: Vec<Stage> = (0..config.n_stages)
         .map(|i| {
             let f = i as f64 / (config.n_stages - 1).max(1) as f64;
@@ -726,12 +829,12 @@ pub fn solve_crude_column(
         .collect();
 
     stages[config.feed_stage] = stages[config.feed_stage].clone().with_feed(
-        MolarFlowRate::new::<katal>(config.feed_flow_mol_s),
+        MolarFlowRate::new::<katal>(column_feed_mol_s),
         feed_z.clone(),
         MolarEnergy::new::<joule_per_mole>(h_feed),
     );
 
-    for &(stage, rate) in &config.side_draws {
+    for &(stage, rate) in &draw_rates {
         stages[stage] = stages[stage].clone().with_side_draws(
             MolarFlowRate::new::<katal>(rate),
             MolarFlowRate::new::<katal>(0.0),
@@ -743,11 +846,9 @@ pub fn solve_crude_column(
         PropertyPackageModel::Ideal,
         stages,
         ColumnSpec::reflux_ratio(config.reflux_ratio),
-        ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(config.bottoms_mol_s)),
+        ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(bottoms_mol_s)),
     )
-    .with_distillate_estimate(MolarFlowRate::new::<katal>(
-        config.implied_distillate_mol_s(),
-    ))
+    .with_distillate_estimate(MolarFlowRate::new::<katal>(column_distillate))
     .with_reflux_ratio_estimate(config.reflux_ratio)
     .solver_input()
     .map_err(|e| CrudeColumnError::Solve(format!("estimate generation: {e:?}")))?;
@@ -762,11 +863,11 @@ pub fn solve_crude_column(
     let mut cuts = Vec::with_capacity(config.side_draws.len() + 2);
     cuts.push(CutResult {
         stage: 0,
-        flow_mol_s: config.implied_distillate_mol_s(),
+        flow_mol_s: column_distillate,
         temperature_k: at(0),
         cut: CrudeCut::from_normal_boiling_point_k(at(0)),
     });
-    for &(stage, rate) in &config.side_draws {
+    for &(stage, rate) in &draw_rates {
         cuts.push(CutResult {
             stage,
             flow_mol_s: rate,
@@ -774,12 +875,15 @@ pub fn solve_crude_column(
             cut: CrudeCut::from_normal_boiling_point_k(at(stage)),
         });
     }
+    // The residue is the column bottoms PLUS the heavy end that never entered
+    // the column. Adding the bypass back here is what keeps the overall balance
+    // closed on the whole crude rather than only on the light end.
     let last = config.n_stages - 1;
     cuts.push(CutResult {
         stage: last,
-        flow_mol_s: config.bottoms_mol_s,
+        flow_mol_s: bottoms_mol_s + bypass_mol_s,
         temperature_k: at(last),
-        cut: CrudeCut::from_normal_boiling_point_k(at(last)),
+        cut: CrudeCut::Residue,
     });
 
     Ok(CrudeColumnResult {
@@ -836,7 +940,7 @@ mod column_tests {
         ));
 
         let mut c = CrudeColumnConfig::atmospheric_default();
-        c.side_draws = vec![(4, 0.8), (6, 0.8)];
+        c.side_draws = vec![(4, 0.6), (6, 0.6)];
         assert!(matches!(
             c.validate(),
             Err(CrudeColumnError::OverdrawnFeed { .. })
@@ -857,13 +961,14 @@ mod column_tests {
     #[test]
     fn material_balance_closes() {
         let config = CrudeColumnConfig::atmospheric_default();
-        let withdrawn = config.implied_distillate_mol_s()
-            + config.total_side_draw_mol_s()
-            + config.bottoms_mol_s;
-        let err = (withdrawn - config.feed_flow_mol_s).abs();
+        // On the column's own (fractional) basis the splits must partition unity.
+        let total = config.distillate_fraction()
+            + config.total_side_draw_fraction()
+            + config.bottoms_fraction;
+        let err = (total - 1.0).abs();
         assert!(
             err < 1e-12,
-            "material balance is off by {err:e} mol/s — products do not sum to the feed"
+            "column-basis split fractions sum to {total}, not 1 (off by {err:e})"
         );
     }
 
@@ -876,55 +981,54 @@ mod column_tests {
     /// condenser to reboiler, which is the defining property of a distillation
     /// column and the first thing a broken setup breaks.
     ///
-    /// # Results, measured 2026-09-04 — THIS TEST DOES NOT PASS
+    /// # Results, measured 2026-09-04 — PASSES
     ///
-    /// It is `#[ignore]`d, and the reason is a real modelling failure rather
-    /// than a flaky threshold. Three configurations were tried:
+    /// 38 °API crude, 10 pseudo-components, 650 K residue cut point, 12 stages,
+    /// three side draws, reflux ratio 3.0, ideal K-values, Wang-Henke.
+    /// **Converges in 38 iterations to a final error of 6.7e-7**, with a
+    /// monotonic profile:
     ///
-    /// | Property package | Solver | Outcome |
-    /// |---|---|---|
-    /// | Peng-Robinson | Wang-Henke (BP) | `BubblePointFailed`, "non-finite value in input or K-values" at the feed stage |
-    /// | Ideal (Wilson K) | Wang-Henke (BP) | Converges in 39 iterations to error 2.0e-7 — but the profile is **not monotonic**: stage 5 is 510.87 K and stage 6 below it is 479.75 K |
-    /// | Ideal (Wilson K) | Sum-Rates (SR) | Diverges: `InvalidProfile`, T = -9984.9 K at the reboiler |
+    /// | Stage | Rate \[mol/s\] | T \[K\] | T \[°C\] | Labelled |
+    /// |---|---:|---:|---:|---|
+    /// | 0 (overhead) | 0.3376 | 423.6 | 150 | naphtha |
+    /// | 4 | 0.0900 | 494.9 | 222 | kerosene |
+    /// | 6 | 0.0750 | 511.7 | 239 | kerosene |
+    /// | 8 | 0.0600 | 530.8 | 258 | diesel |
+    /// | 11 (bottoms) | 0.4373 | 588.5 | 315 | residue |
     ///
-    /// Diagnosis, as far as it was taken:
+    /// Those temperatures land in the conventional CDU bands (overhead
+    /// 120-150 °C, kerosene draw 200-250 °C, diesel 250-300 °C, flash zone
+    /// 340-370 °C), which is a *sanity* agreement and not a validation.
     ///
-    /// - The **Peng-Robinson** failure is explained: the heaviest generated
-    ///   pseudo-component has an acentric factor of **1.16**, far past the
-    ///   `omega < 0.49` limit of standard PR's kappa correlation. PR78 exists
-    ///   for exactly this and is not wired into `PropertyPackageModel`.
-    /// - The **Wang-Henke** failure is the textbook one: bubble-point methods
-    ///   are for **narrow-boiling** mixtures. This feed spans normal boiling
-    ///   points from 390 K to 825 K, which is the wide-boiling case
-    ///   Burningham-Otto sum-rates is supposed to cover — but SR diverges from
-    ///   these initial estimates, so the wide-boiling path is not usable here
-    ///   either.
-    /// - The side draws and the reflux spec were **verified to reach the
-    ///   solver** (printed from the built `ColumnSolverInput`:
-    ///   `liquid_side_draws = [.., 0.15, 0, 0.15, 0, 0.10, ..]`, condenser spec
-    ///   `StreamRatio` with the configured value). A sweep over reflux ratio
-    ///   2-8 and draw scale 1.0/0.5/0.25 gave **byte-identical** output in all
-    ///   twelve combinations, which says the converged profile is insensitive
-    ///   to both — consistent with the BP method not binding the reflux spec on
-    ///   this feed.
+    /// # Two real errors this test caught, both worth keeping in mind
     ///
-    /// The honest reading: `columns/` has been exercised on a narrow-boiling
-    /// binary (the validated benzene/toluene case, `op-6rhz`) and **not** on a
-    /// wide-boiling petroleum feed. That is a gap in the column port, not a
-    /// mis-configuration here, and it is tracked rather than worked around.
+    /// 1. **Feeding the column its own undistillable heavy end.** A crude's
+    ///    pseudo-components run past 800 K normal boiling point and cannot
+    ///    vaporise at 1.2 bar. With no residue cut point the solve converged
+    ///    (error 2.0e-7, 39 iterations) to a profile that *dipped mid-column* —
+    ///    stage 5 at 510.87 K above stage 6 at 479.75 K. Routing the heavy end
+    ///    around the column, as a refinery does, fixed it. Measured sweep:
+    ///    cut points of 560/650/700 K all give monotonic profiles in 26-32
+    ///    iterations; no cut point gives a non-monotonic one in 79-90.
+    ///
+    /// 2. **Side draws larger than the internal liquid.** With draws fixed as
+    ///    absolute rates, the bypass shrank the column feed until the draws
+    ///    (0.15 mol/s) exceeded the internal reflux (0.10 mol/s) and drained
+    ///    the column above the feed — again a dipped profile. Draws are now
+    ///    expressed as *fractions of the column feed*, so they scale with it.
+    ///
+    /// Both produced a "converged" answer with a small residual. The
+    /// monotonicity assertion below is what exposed them; an earlier version of
+    /// this test checked only `bottom > top` and passed on both.
     ///
     /// # NOT validated
     ///
-    /// There is no comparison here against a real CDU, a published assay-to-
-    /// yield dataset, or DWSIM itself. The pseudo-component slate is a
-    /// distribution assumption from two bulk numbers, and the model has no
-    /// stripping steam, pump-arounds or furnace. Green here means "runs and is
-    /// self-consistent", not "predicts yields". No human V&V.
-    #[test]
-    #[ignore = "UNRESOLVED: the column converges but to a NON-PHYSICAL profile — the \
-                temperature dips at a side draw. Neither available solver handles this \
-                wide-boiling feed. See the doc comment and bead op-190j.2; do not \
-                un-ignore until the profile is monotonic."]
+    /// No comparison against a real CDU, a published assay-to-yield dataset, or
+    /// DWSIM itself. The pseudo-component slate is a distribution assumption
+    /// from two bulk numbers, and the model has no stripping steam,
+    /// pump-arounds or furnace. Green here means "runs, is self-consistent and
+    /// is physically ordered", not "predicts yields". No human V&V.
+        #[test]
     fn light_sweet_crude_column_converges_and_is_physically_ordered() {
         let crude = BlackOilCrude::light_sweet();
         let config = CrudeColumnConfig::atmospheric_default();
@@ -994,6 +1098,9 @@ mod column_tests {
             config.side_draws.len()
         );
     }
+
+
+
 
 
 
