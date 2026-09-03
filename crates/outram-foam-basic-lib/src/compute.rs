@@ -473,6 +473,13 @@ mod pollster_lite {
     }
 }
 
+/// Data-level co-execution: split one batch between the CPU and the GPU.
+///
+/// A selection policy over the existing backends, not a fourth backend. Always
+/// compiled — with no GPU available it plans every lane onto the CPU, which is
+/// the correct answer rather than a degraded one.
+pub mod hybrid;
+
 /// The `wgpu` device context and the shared kernel-dispatch helper.
 ///
 /// Present only when the `gpu` feature is on and the target is not Android —
