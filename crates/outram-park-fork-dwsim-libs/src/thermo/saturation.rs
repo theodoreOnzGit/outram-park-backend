@@ -193,6 +193,21 @@ pub enum SaturationError {
         /// Smallest `|residual|` seen while trying to bracket.
         residual: f64,
     },
+    /// The residual was driven to zero by the *trivial* solution `K_i ≡ 1`
+    /// rather than by a real phase split.
+    ///
+    /// Above the mixture's critical region a cubic EOS returns the same
+    /// compressibility root for both phases, so every K-value collapses to 1
+    /// and `Σ K_i z_i − 1` vanishes identically. That satisfies the residual
+    /// without describing a saturation point at all, and accepting it would
+    /// report a confident temperature hundreds of kelvin above the real one.
+    #[error("residual met only by the trivial solution K = 1 at {var} = {at} (no phase split)")]
+    TrivialSolution {
+        /// The variable being solved for.
+        var: &'static str,
+        /// Where the trivial solution was found.
+        at: f64,
+    },
     /// The root iteration did not reach the residual tolerance in budget.
     #[error("root find for {var} did not converge in {iterations} iterations (|residual| = {residual:e})")]
     NotConverged {
@@ -434,6 +449,93 @@ where
 // Safeguarded scalar root find (bracket expansion + Illinois false position)
 // ---------------------------------------------------------------------------
 
+/// Sweep `[x_min, x_max]` for the lowest sign change of a residual, returning
+/// the bracketing pair. `None` if no usable sign change exists.
+///
+/// `f` returns `Ok(None)` where the residual is *degenerate* -- the trivial
+/// `K ≡ 1` branch, on which the residual is identically zero and says nothing
+/// about saturation. Those points are holes in the curve, not roots: a cubic
+/// EOS produces them at both ends of the temperature range (below, where only
+/// a liquid-like root exists; above, past the critical region), and bracketing
+/// across one lands the solve hundreds of kelvin from the real answer.
+///
+/// Deliberately a uniform scan rather than another expansion heuristic: it is
+/// the fallback for the case where a heuristic was already fooled, so it must
+/// not itself depend on the residual's shape.
+/// Is this K-set the *trivial* solution `K_i ≡ 1` — a residual satisfied
+/// without any phase split?
+///
+/// A multicomponent saturation residual is satisfied identically when every
+/// K-value is 1, which happens wherever a cubic EOS returns one
+/// compressibility root for both phases: above the critical region, and again
+/// far below it. A converged temperature resting on that is not a saturation
+/// point.
+///
+/// **A single component is the exception, and it is not a corner case.** For
+/// pure `i`, `Σ K_i z_i − 1 = K_i − 1`, so `K = 1` *is* the saturation
+/// condition — it is what `Tsat` means. Applying the trivial-solution test
+/// there would reject every correct answer.
+fn is_trivial_k(k: &[f64]) -> bool {
+    k.len() > 1
+        && k.iter()
+            .all(|&ki| ki.is_finite() && (ki - 1.0).abs() < 1e-8)
+}
+
+/// Solve by scanning for the *lowest* sign change rather than expanding from a
+/// guess, skipping degenerate stretches. Used when the expansion path returned
+/// the trivial branch (see [`SaturationError::TrivialSolution`]).
+#[allow(clippy::too_many_arguments)]
+fn solve_scalar_lowest<F, G>(
+    f: &F,
+    probe: &G,
+    x_min: f64,
+    x_max: f64,
+    x_rel_tol: f64,
+    f_tol: f64,
+    max_iter: usize,
+    var: &'static str,
+) -> Result<f64, SaturationError>
+where
+    F: Fn(f64) -> Result<f64, SaturationError>,
+    G: Fn(f64) -> Result<Option<f64>, SaturationError>,
+{
+    match scan_for_bracket(probe, x_min, x_max)? {
+        Some((a, fa, b, fb)) => refine_bracket(f, a, fa, b, fb, x_rel_tol, f_tol, max_iter, var),
+        None => Err(SaturationError::NoBracket {
+            var,
+            residual: f64::INFINITY,
+        }),
+    }
+}
+
+fn scan_for_bracket<F>(
+    f: &F,
+    x_min: f64,
+    x_max: f64,
+) -> Result<Option<(f64, f64, f64, f64)>, SaturationError>
+where
+    F: Fn(f64) -> Result<Option<f64>, SaturationError>,
+{
+    const STEPS: usize = 192;
+    if !(x_max > x_min) {
+        return Ok(None);
+    }
+    let dx = (x_max - x_min) / STEPS as f64;
+    let mut prev: Option<(f64, f64)> = None;
+    for i in 0..=STEPS {
+        let x = x_min + dx * i as f64;
+        let fx = f(x)?;
+        match (prev, fx) {
+            (Some((px, pf)), Some(cf)) if pf * cf < 0.0 => {
+                return Ok(Some((px, pf, x, cf)));
+            }
+            _ => {}
+        }
+        prev = fx.map(|v| (x, v));
+    }
+    Ok(None)
+}
+
 /// Solve `f(x) = 0` for a scalar `x ∈ [x_min, x_max]` given an initial guess
 /// `x0`, using geometric bracket expansion followed by the Illinois modified
 /// false-position iteration. `var` labels the unknown for error reporting.
@@ -494,11 +596,31 @@ where
         });
     }
 
-    // Illinois modified false position: keeps [a, b] bracketing the root
-    // (fa, fb opposite signs) and halves the stagnant endpoint's function value
-    // to break the one-sided-convergence slowdown of plain regula falsi.
+    refine_bracket(f, a, fa, b, fb, x_rel_tol, f_tol, max_iter, var)
+}
+
+/// Solve for the root inside a bracket already known to contain one.
+///
+/// Illinois modified false position: keeps `[a, b]` bracketing the root
+/// (`fa`, `fb` opposite signs) and halves the stagnant endpoint's function
+/// value to break the one-sided-convergence slowdown of plain regula falsi.
+#[allow(clippy::too_many_arguments)]
+fn refine_bracket<F>(
+    f: &F,
+    mut a: f64,
+    mut fa: f64,
+    mut b: f64,
+    mut fb: f64,
+    x_rel_tol: f64,
+    f_tol: f64,
+    max_iter: usize,
+    var: &'static str,
+) -> Result<f64, SaturationError>
+where
+    F: Fn(f64) -> Result<f64, SaturationError>,
+{
     let mut side = 0i32;
-    let mut last_f = f0;
+    let mut last_f = fa;
     for _ in 0..max_iter {
         let c = (fa * b - fb * a) / (fa - fb);
         let fc = f(c)?;
@@ -685,7 +807,20 @@ where
     let resid = |t: f64| -> Result<f64, SaturationError> {
         eval_curve(Curve::Bubble, components, z, t, pressure, &k_values, &opts).map(|r| r.0)
     };
-    let t = solve_scalar(
+    // Same residual, but reporting `None` where the K-set has collapsed to the
+    // trivial `K ≡ 1` branch and the residual is therefore uninformative.
+    let probe = |t: f64| -> Result<Option<f64>, SaturationError> {
+        eval_curve(Curve::Bubble, components, z, t, pressure, &k_values, &opts)
+            .map(|(r, _, k, _)| if is_trivial_k(&k) { None } else { Some(r) })
+    };
+    // The fast path expands a bracket outward from the Wilson guess. With a
+    // cubic EOS that can fail two ways: it walks off into the degenerate
+    // branch above the critical region (where every K is 1, the residual
+    // vanishes, and no phase split exists), or it chases that branch's
+    // asymptote and never brackets anything. Both are recoverable by scanning
+    // for the *lowest* non-degenerate sign change, which is the physical
+    // saturation point.
+    let fast = solve_scalar(
         &resid,
         t0,
         opts.t_min,
@@ -694,9 +829,46 @@ where
         opts.f_tol,
         opts.max_outer,
         "temperature",
-    )?;
+    );
+    let t = match fast {
+        Ok(t) => t,
+        Err(SaturationError::NoBracket { .. }) => solve_scalar_lowest(
+            &resid,
+            &probe,
+            opts.t_min,
+            opts.t_max,
+            opts.x_rel_tol,
+            opts.f_tol,
+            opts.max_outer,
+            "temperature",
+        )?,
+        Err(e) => return Err(e),
+    };
     let (residual, incip, k, iterations) =
         eval_curve(Curve::Bubble, components, z, t, pressure, &k_values, &opts)?;
+    let (t, residual, incip, k, iterations) = if is_trivial_k(&k) {
+        let t2 = solve_scalar_lowest(
+            &resid,
+            &probe,
+            opts.t_min,
+            opts.t_max,
+            opts.x_rel_tol,
+            opts.f_tol,
+            opts.max_outer,
+            "temperature",
+        )?;
+        let (r2, i2, k2, n2) =
+            eval_curve(Curve::Bubble, components, z, t2, pressure, &k_values, &opts)?;
+        if is_trivial_k(&k2) {
+            return Err(SaturationError::TrivialSolution {
+                var: "temperature",
+                at: t2,
+            });
+        }
+        (t2, r2, i2, k2, n2)
+    } else {
+        (t, residual, incip, k, iterations)
+    };
     Ok(SaturationState {
         temperature: t,
         pressure,
@@ -729,7 +901,21 @@ where
     let resid = |t: f64| -> Result<f64, SaturationError> {
         eval_curve(Curve::Dew, components, z, t, pressure, &k_values, &opts).map(|r| r.0)
     };
-    let t = solve_scalar(
+    // Same residual, but reporting `None` where the K-set has collapsed to the
+    // trivial `K ≡ 1` branch and the residual is therefore uninformative.
+    let probe =
+        |t: f64| -> Result<Option<f64>, SaturationError> {
+            eval_curve(Curve::Dew, components, z, t, pressure, &k_values, &opts)
+                .map(|(r, _, k, _)| if is_trivial_k(&k) { None } else { Some(r) })
+        };
+    // The fast path expands a bracket outward from the Wilson guess. With a
+    // cubic EOS that can fail two ways: it walks off into the degenerate
+    // branch above the critical region (where every K is 1, the residual
+    // vanishes, and no phase split exists), or it chases that branch's
+    // asymptote and never brackets anything. Both are recoverable by scanning
+    // for the *lowest* non-degenerate sign change, which is the physical
+    // saturation point.
+    let fast = solve_scalar(
         &resid,
         t0,
         opts.t_min,
@@ -738,9 +924,46 @@ where
         opts.f_tol,
         opts.max_outer,
         "temperature",
-    )?;
+    );
+    let t = match fast {
+        Ok(t) => t,
+        Err(SaturationError::NoBracket { .. }) => solve_scalar_lowest(
+            &resid,
+            &probe,
+            opts.t_min,
+            opts.t_max,
+            opts.x_rel_tol,
+            opts.f_tol,
+            opts.max_outer,
+            "temperature",
+        )?,
+        Err(e) => return Err(e),
+    };
     let (residual, incip, k, iterations) =
         eval_curve(Curve::Dew, components, z, t, pressure, &k_values, &opts)?;
+    let (t, residual, incip, k, iterations) = if is_trivial_k(&k) {
+        let t2 = solve_scalar_lowest(
+            &resid,
+            &probe,
+            opts.t_min,
+            opts.t_max,
+            opts.x_rel_tol,
+            opts.f_tol,
+            opts.max_outer,
+            "temperature",
+        )?;
+        let (r2, i2, k2, n2) =
+            eval_curve(Curve::Dew, components, z, t2, pressure, &k_values, &opts)?;
+        if is_trivial_k(&k2) {
+            return Err(SaturationError::TrivialSolution {
+                var: "temperature",
+                at: t2,
+            });
+        }
+        (t2, r2, i2, k2, n2)
+    } else {
+        (t, residual, incip, k, iterations)
+    };
     Ok(SaturationState {
         temperature: t,
         pressure,
@@ -828,6 +1051,68 @@ pub fn dew_temperature(
         |x, y, t, p| package.k_values(components, x, y, t, p),
         SaturationOptions::default(),
     )
+}
+
+#[cfg(test)]
+mod degenerate_branch_tests {
+    use super::*;
+    use crate::petroleum::crude_distillation::BlackOilCrude;
+    use crate::thermo::property_package::PropertyPackageModel;
+
+    /// The op-190j.5 case: a crude pseudo-component slate whose bubble point a
+    /// cubic package could not find at all. Above the critical region both
+    /// phases return one compressibility root, every K collapses to 1, and the
+    /// residual tends to zero without crossing — so the expansion heuristic
+    /// chased the asymptote instead of the root.
+    #[test]
+    fn a_cubic_package_finds_the_crude_slate_bubble_point() {
+        let slate = BlackOilCrude::light_sweet()
+            .pseudo_components(8)
+            .expect("slate");
+        let comps: Vec<_> = slate
+            .iter()
+            .filter(|pc| pc.component.normal_boiling_point < 615.0)
+            .map(|pc| pc.component.clone())
+            .collect();
+        let n = comps.len();
+        let z = vec![1.0 / n as f64; n];
+        let p = 120_000.0;
+
+        let ideal = bubble_temperature(&comps, &z, p, PropertyPackageModel::Ideal)
+            .expect("the ideal package has always managed this");
+        for pkg in [
+            PropertyPackageModel::PengRobinson,
+            PropertyPackageModel::PengRobinson1978,
+            PropertyPackageModel::Srk,
+        ] {
+            let st = bubble_temperature(&comps, &z, p, pkg)
+                .unwrap_or_else(|e| panic!("{pkg:?} failed on the crude slate: {e}"));
+            // Not a claim that the packages agree — they should not, exactly —
+            // only that the cubic answer is the same root the ideal one found
+            // and not the degenerate branch a few hundred kelvin above it.
+            assert!(
+                (st.temperature - ideal.temperature).abs() < 120.0,
+                "{pkg:?} converged to {} K, ideal says {} K — that is the \
+                 degenerate branch, not the bubble point",
+                st.temperature,
+                ideal.temperature
+            );
+            assert!(
+                !is_trivial_k(&st.k),
+                "{pkg:?} returned the trivial K = 1 solution"
+            );
+        }
+    }
+
+    /// `K ≡ 1` is the *correct* saturation condition for a pure component, so
+    /// the trivial-solution test must not fire on one.
+    #[test]
+    fn a_pure_component_is_not_a_trivial_solution() {
+        assert!(!is_trivial_k(&[1.0]));
+        assert!(is_trivial_k(&[1.0, 1.0]));
+        assert!(!is_trivial_k(&[1.0, 2.0]));
+        assert!(!is_trivial_k(&[]));
+    }
 }
 
 #[cfg(test)]

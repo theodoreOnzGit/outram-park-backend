@@ -149,6 +149,7 @@ pub mod curve_conversion;
 /// the petroleum counterpart of the benzene/toluene column. See the module
 /// docs for what "based on black oil" can and cannot mean.
 pub mod crude_distillation;
+pub mod crude_plant;
 pub mod fitting;
 pub mod generate_compounds;
 pub mod gl;

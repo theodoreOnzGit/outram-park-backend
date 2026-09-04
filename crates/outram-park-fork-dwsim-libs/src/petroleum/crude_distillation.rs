@@ -59,6 +59,7 @@
 //!
 //! No human V&V is claimed. See the test module for what is and is not checked.
 
+use crate::thermo::property_package::PropertyPackageModel;
 use uom::si::f64::{MolarMass, Ratio, ThermodynamicTemperature};
 use uom::si::molar_mass::gram_per_mole;
 use uom::si::ratio::ratio;
@@ -103,14 +104,22 @@ impl BlackOilCrude {
     /// mid-range associated-gas value.
     #[must_use]
     pub fn light_sweet() -> Self {
-        Self { api_gravity: 38.0, gas_specific_gravity: 0.75, bsw_percent: 0.0 }
+        Self {
+            api_gravity: 38.0,
+            gas_specific_gravity: 0.75,
+            bsw_percent: 0.0,
+        }
     }
 
     /// A heavy crude, 22 °API — near the lower edge of the correlations'
     /// comfortable range, kept as a contrast case for the tests.
     #[must_use]
     pub fn heavy() -> Self {
-        Self { api_gravity: 22.0, gas_specific_gravity: 0.80, bsw_percent: 0.0 }
+        Self {
+            api_gravity: 22.0,
+            gas_specific_gravity: 0.80,
+            bsw_percent: 0.0,
+        }
     }
 
     /// Stock-tank oil specific gravity (water = 1) from the API gravity.
@@ -304,14 +313,20 @@ mod tests {
         for crude in [BlackOilCrude::light_sweet(), BlackOilCrude::heavy()] {
             let assay = crude.bulk_assay();
 
-            let sg = assay.specific_gravity_60f.expect("SG is filled").get::<ratio>();
+            let sg = assay
+                .specific_gravity_60f
+                .expect("SG is filled")
+                .get::<ratio>();
             assert!(
                 (0.7..1.05).contains(&sg),
                 "{} °API gave SG {sg}, outside the crude-oil range",
                 crude.api_gravity
             );
 
-            let mw = assay.molar_mass.expect("MW is filled").get::<gram_per_mole>();
+            let mw = assay
+                .molar_mass
+                .expect("MW is filled")
+                .get::<gram_per_mole>();
             assert!(
                 (80.0..800.0).contains(&mw),
                 "{} °API gave MW {mw} g/mol, outside anything crude-like",
@@ -374,7 +389,9 @@ mod tests {
     #[test]
     fn crude_cuts_into_a_usable_pseudo_component_slate() {
         let crude = BlackOilCrude::light_sweet();
-        let slate = crude.pseudo_components(10).expect("38 °API crude characterises");
+        let slate = crude
+            .pseudo_components(10)
+            .expect("38 °API crude characterises");
 
         assert_eq!(slate.len(), 10, "asked for 10 cuts");
 
@@ -517,6 +534,16 @@ pub struct CrudeColumnConfig {
     /// bottoms product, so the overall material balance still closes on the
     /// whole crude.
     pub residue_cut_point_k: f64,
+    /// Thermodynamic package the column solve runs on.
+    ///
+    /// Defaults to [`PropertyPackageModel::PengRobinson1978`]: a cubic EOS is
+    /// the right model for a hydrocarbon mixture, and the 1978 α-slope
+    /// correlation is the one that stays valid past `ω = 0.49`, which a
+    /// crude's heavier pseudo-components routinely exceed.
+    ///
+    /// [`PropertyPackageModel::Ideal`] remains available and is much faster;
+    /// it is adequate for scoping and teaching and not for quantitative work.
+    pub package: PropertyPackageModel,
 }
 
 impl CrudeColumnConfig {
@@ -544,6 +571,7 @@ impl CrudeColumnConfig {
             // ~377 °C: the conventional atmospheric/vacuum split, and inside
             // the band the solver handles monotonically.
             residue_cut_point_k: 650.0,
+            package: PropertyPackageModel::PengRobinson1978,
         }
     }
 
@@ -696,47 +724,45 @@ impl CrudeColumnResult {
     }
 }
 
-/// Solve an atmospheric crude column for `crude` under `config`.
+/// Everything a crude column run needs, assembled from a black-oil
+/// characterisation: the solver input plus the flows the caller has to add
+/// back to close the balance on the whole crude.
 ///
-/// # What happens
+/// Shared by [`solve_crude_column`] (a steady solve) and
+/// [`CrudePlant`](crate::petroleum::crude_plant::CrudePlant) (a transient
+/// one), so the two cannot drift apart in how they set a column up.
+#[derive(Debug, Clone)]
+pub struct CrudeColumnSetup {
+    /// The assembled column, ready for any solver or the dynamic model.
+    pub input: crate::columns::model::ColumnSolverInput,
+    /// `(stage, rate)` \[mol/s\] for each side draw, in config order.
+    pub draw_rates: Vec<(usize, f64)>,
+    /// Overhead distillate leaving the column \[mol/s\].
+    pub column_distillate_mol_s: f64,
+    /// Bottoms leaving the column \[mol/s\], excluding the bypass.
+    pub bottoms_mol_s: f64,
+    /// Heavy end that never entered the column and reports straight to
+    /// residue \[mol/s\]. See [`CrudeColumnConfig::residue_cut_point_k`].
+    pub bypass_mol_s: f64,
+}
+
+/// Assemble a crude column from a black-oil characterisation without solving
+/// it.
 ///
-/// 1. The black-oil spec is characterised into `cut_count` pseudo-components
-///    ([`BlackOilCrude::pseudo_components`]).
-/// 2. Those become the column's component list, with the crude entering as a
-///    saturated liquid on `config.feed_stage`.
-/// 3. Liquid side draws are placed per `config.side_draws`.
-/// 4. The rigorous MESH solver runs with a reflux-ratio spec at the top and a
-///    bottoms-rate spec at the bottom.
+/// `cut_count` is how finely the crude is cut into pseudo-components.
 ///
-/// # Arguments
+/// # Errors
 ///
-/// - `crude` — the black-oil characterisation of the feed.
-/// - `config` — column geometry, pressure and draw rates.
-/// - `cut_count` — pseudo-components to characterise into. More resolves the
-///   cuts better and costs solve time; 8-12 is the usual range.
-///
-/// # Returns
-///
-/// A [`CrudeColumnResult`], or [`CrudeColumnError`] if the configuration is
-/// inconsistent, the crude cannot be characterised, or the MESH solve fails to
-/// converge.
-///
-/// # This is not a validated yield prediction
-///
-/// The cut labels are assigned from converged draw *temperatures* after the
-/// fact; nothing constrains a draw to land in a given band. The pseudo-component
-/// slate is a distribution assumption from bulk properties, not a measured
-/// assay. Treat the output as a scoping calculation.
-pub fn solve_crude_column(
+/// [`CrudeColumnError`] on an invalid configuration, a characterisation
+/// failure, or a light end too small to fractionate.
+pub fn crude_column_setup(
     crude: &BlackOilCrude,
     config: &CrudeColumnConfig,
     cut_count: usize,
-) -> Result<CrudeColumnResult, CrudeColumnError> {
+) -> Result<CrudeColumnSetup, CrudeColumnError> {
     use crate::columns::initial_estimates::RigorousColumn;
-    use crate::columns::solver::ColumnSolverMethod;
     use crate::columns::thermo_bridge::ColumnThermo;
     use crate::columns::{ColumnSpec, MolarFlowRate, Stage, StagePressure, StageTemperature};
-    use crate::thermo::property_package::PropertyPackageModel;
     use uom::si::catalytic_activity::katal;
     use uom::si::f64::MolarEnergy;
     use uom::si::molar_energy::joule_per_mole;
@@ -792,38 +818,37 @@ pub fn solve_crude_column(
 
     let components: Vec<_> = light.iter().map(|pc| pc.component.clone()).collect();
     // Renormalise the light end onto its own basis — it is the column's feed now.
-    let raw_z: Vec<f64> = light.iter().map(|pc| pc.mole_fraction.get::<ratio>()).collect();
+    let raw_z: Vec<f64> = light
+        .iter()
+        .map(|pc| pc.mole_fraction.get::<ratio>())
+        .collect();
     let z_total: f64 = raw_z.iter().sum();
     let feed_z: Vec<f64> = raw_z.iter().map(|v| v / z_total).collect();
 
-    // IDEAL (Wilson) K-values, and this is a measured decision rather than a
-    // default. A cubic EOS is the obviously "right" package for a hydrocarbon
-    // mixture — the pseudo-components carry Tc/Pc/omega precisely so one can be
-    // used — but measured 2026-09-04, every cubic package available fails this
-    // column in the bubble-point solve:
+    // Cubic EOS by default -- see `CrudeColumnConfig::package`.
     //
-    //     PengRobinson      BubblePointFailed at stage 0
-    //     Srk               BubblePointFailed at stage 1
-    //     PengRobinson1978  BubblePointFailed at stage 4
-    //     Ideal             converges, 38 iterations, 6.7e-7
+    // This used to be pinned to Ideal (Wilson) K-values because every cubic
+    // package failed the bubble-point solve on this slate, with
+    // "non-finite value in input or K-values". Fixed 2026-09-04 under bead
+    // op-190j.5; the cause was two compounding defects, neither in the EOS:
     //
-    // all with "non-finite value in input or K-values".
+    //   * `CubicEos::select_root` accepted a compressibility root at or below
+    //     the covolume `B`, which put `ln(Z - B)` in `ln_phi` on a negative
+    //     argument and returned `Some(NaN)` instead of `None`. Those NaNs then
+    //     propagated into the K-values.
+    //   * Above the critical region both phases return the same root, so every
+    //     K collapses to 1 and the bubble residual decays to zero without ever
+    //     crossing. The bracket-expansion heuristic moves whichever endpoint
+    //     has the smaller |residual|, so it chased that asymptote away from the
+    //     real root and reported "could not bracket".
     //
-    // PR78 was wired into PropertyPackageModel specifically for this case (the
-    // 1976 kappa correlation is stated only to omega < 0.49 and a crude's cuts
-    // exceed it), and it does get materially further than the other two. But it
-    // is not sufficient, and the reason is not the EOS: `ln_phi` was checked
-    // directly and returns finite liquid AND vapour fugacity coefficients for
-    // this slate at every temperature from 400 K to 600 K, for both PR and
-    // PR78. The failure is in the bubble-point solver's own temperature
-    // iteration with a cubic package, which is a separate defect — see bead
-    // op-190j.5.
-    //
-    // So: ideal K-values here, honestly labelled. That is adequate for a
-    // teaching and scoping model and is NOT adequate for quantitative
-    // petroleum work; switch to PengRobinson1978 once the bubble-point solver
-    // is fixed.
-    let thermo = ColumnThermo::new(components.clone(), PropertyPackageModel::Ideal);
+    // Both are fixed at their source in `thermo::cubic_eos` and
+    // `thermo::saturation`. PengRobinson, PengRobinson1978 and Srk all solve
+    // this column now, and `columns::bubble_point` additionally rejects a
+    // converged profile whose temperature falls going down the column, so a
+    // wrong answer of the kind that motivated the bead can no longer be
+    // returned as a success.
+    let thermo = ColumnThermo::new(components.clone(), config.package);
 
     // Feed enters at its bubble point — a preheated, fully-condensed crude.
     // The mean normal boiling point is a good enough starting iterate for the
@@ -868,7 +893,7 @@ pub fn solve_crude_column(
 
     let input = RigorousColumn::distillation(
         components,
-        PropertyPackageModel::Ideal,
+        config.package,
         stages,
         ColumnSpec::reflux_ratio(config.reflux_ratio),
         ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(bottoms_mol_s)),
@@ -877,6 +902,61 @@ pub fn solve_crude_column(
     .with_reflux_ratio_estimate(config.reflux_ratio)
     .solver_input()
     .map_err(|e| CrudeColumnError::Solve(format!("estimate generation: {e:?}")))?;
+
+    Ok(CrudeColumnSetup {
+        input,
+        draw_rates,
+        column_distillate_mol_s: column_distillate,
+        bottoms_mol_s,
+        bypass_mol_s,
+    })
+}
+
+/// Solve an atmospheric crude column for `crude` under `config`.
+///
+/// # What happens
+///
+/// 1. The black-oil spec is characterised into `cut_count` pseudo-components
+///    ([`BlackOilCrude::pseudo_components`]).
+/// 2. Those become the column's component list, with the crude entering as a
+///    saturated liquid on `config.feed_stage`.
+/// 3. Liquid side draws are placed per `config.side_draws`.
+/// 4. The rigorous MESH solver runs with a reflux-ratio spec at the top and a
+///    bottoms-rate spec at the bottom.
+///
+/// # Arguments
+///
+/// - `crude` — the black-oil characterisation of the feed.
+/// - `config` — column geometry, pressure and draw rates.
+/// - `cut_count` — pseudo-components to characterise into. More resolves the
+///   cuts better and costs solve time; 8-12 is the usual range.
+///
+/// # Returns
+///
+/// A [`CrudeColumnResult`], or [`CrudeColumnError`] if the configuration is
+/// inconsistent, the crude cannot be characterised, or the MESH solve fails to
+/// converge.
+///
+/// # This is not a validated yield prediction
+///
+/// The cut labels are assigned from converged draw *temperatures* after the
+/// fact; nothing constrains a draw to land in a given band. The pseudo-component
+/// slate is a distribution assumption from bulk properties, not a measured
+/// assay. Treat the output as a scoping calculation.
+pub fn solve_crude_column(
+    crude: &BlackOilCrude,
+    config: &CrudeColumnConfig,
+    cut_count: usize,
+) -> Result<CrudeColumnResult, CrudeColumnError> {
+    use crate::columns::solver::ColumnSolverMethod;
+
+    let CrudeColumnSetup {
+        input,
+        draw_rates,
+        column_distillate_mol_s: column_distillate,
+        bottoms_mol_s,
+        bypass_mol_s,
+    } = crude_column_setup(crude, config, cut_count)?;
 
     let out = ColumnSolverMethod::default()
         .solve(&input)
@@ -941,7 +1021,10 @@ mod column_tests {
 
         let mut c = CrudeColumnConfig::atmospheric_default();
         c.n_stages = 2;
-        assert!(matches!(c.validate(), Err(CrudeColumnError::TooFewStages(2))));
+        assert!(matches!(
+            c.validate(),
+            Err(CrudeColumnError::TooFewStages(2))
+        ));
 
         let mut c = CrudeColumnConfig::atmospheric_default();
         c.feed_stage = 0;
@@ -1053,7 +1136,7 @@ mod column_tests {
     /// from two bulk numbers, and the model has no stripping steam,
     /// pump-arounds or furnace. Green here means "runs, is self-consistent and
     /// is physically ordered", not "predicts yields". No human V&V.
-        #[test]
+    #[test]
     fn light_sweet_crude_column_converges_and_is_physically_ordered() {
         let crude = BlackOilCrude::light_sweet();
         let config = CrudeColumnConfig::atmospheric_default();
@@ -1123,10 +1206,4 @@ mod column_tests {
             config.side_draws.len()
         );
     }
-
-
-
-
-
-
 }

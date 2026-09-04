@@ -370,20 +370,20 @@ impl CubicEos {
         let a = am * p / (R * t).powi(2);
         let b = bm * p / (R * t);
         let roots = self.z_roots(a, b);
-        select_root(&roots, phase)
+        select_root(&roots, phase, b)
     }
 
     /// Largest real compressibility root — the vapour-phase `Z` [-].
     #[must_use]
     pub fn z_vapor(self, a: f64, b: f64) -> Option<f64> {
-        select_root(&self.z_roots(a, b), Phase::Vapor)
+        select_root(&self.z_roots(a, b), Phase::Vapor, b)
     }
 
     /// Smallest strictly-positive real compressibility root — the liquid-phase
     /// `Z` [-].
     #[must_use]
     pub fn z_liquid(self, a: f64, b: f64) -> Option<f64> {
-        select_root(&self.z_roots(a, b), Phase::Liquid)
+        select_root(&self.z_roots(a, b), Phase::Liquid, b)
     }
 
     /// Natural log of the fugacity coefficient `ln φ_i` [-] for every component
@@ -397,7 +397,14 @@ impl CubicEos {
     /// `          · ln[(2Z + B(u + √(u²−4w))) / (2Z + B(u − √(u²−4w)))]`.
     ///
     /// `t` [K], `p` [Pa], `z` mole fractions [-]. As `p → 0`, `Z → 1` and every
-    /// `ln φ_i → 0` (ideal-gas limit). Returns `None` if no `Z` root is found.
+    /// `ln φ_i → 0` (ideal-gas limit).
+    ///
+    /// Returns `None` if the phase has no admissible `Z` root -- either none at
+    /// all, or only spurious ones at or below the covolume `B`. That case is
+    /// real and routine: well above the mixture's critical temperature there is
+    /// no liquid to speak of, and a caller wanting a K-value there should fall
+    /// back to an ideal estimate rather than trust a root that does not exist.
+    /// Every returned value is finite.
     #[must_use]
     pub fn ln_phi(
         self,
@@ -416,7 +423,7 @@ impl CubicEos {
         let apart = self.a_partial(&ai, z, kij);
         let a = am * p / (R * t).powi(2);
         let b = bm * p / (R * t);
-        let zf = select_root(&self.z_roots(a, b), phase)?;
+        let zf = select_root(&self.z_roots(a, b), phase, b)?;
 
         let sq = self.sqrt_disc();
         let lg = ((2.0 * zf + b * (self.u() + sq)) / (2.0 * zf + b * (self.u() - sq))).ln();
@@ -532,7 +539,7 @@ impl CubicEos {
         let bm = self.b_mix(comps, z);
         let a = am * p / (R * t).powi(2);
         let b = bm * p / (R * t);
-        let zf = select_root(&self.z_roots(a, b), phase)?;
+        let zf = select_root(&self.z_roots(a, b), phase, b)?;
         let dadt = self.dadt(comps, z, t, kij);
 
         let sq = self.sqrt_disc();
@@ -546,22 +553,32 @@ impl CubicEos {
 /// Select the phase root: [`Phase::Vapor`] → largest; [`Phase::Liquid`] →
 /// smallest strictly-positive. Returns `None` for an empty root set (or a
 /// liquid request with no positive root).
-fn select_root(roots: &[f64], phase: Phase) -> Option<f64> {
+fn select_root(roots: &[f64], phase: Phase, b: f64) -> Option<f64> {
+    // A compressibility root is only physical above the covolume: `Z > B` is
+    // what makes the molar volume `v = ZRT/p` exceed the volume the molecules
+    // themselves occupy. The cubic still *has* roots below `B` -- spurious ones
+    // that appear once the fluid is far above its critical temperature -- and
+    // taking one puts `ln(Z - B)` in `ln_phi` on a negative argument, which
+    // silently yields NaN. Filtering here is what lets `None` mean "no usable
+    // root for this phase" the way every caller already assumes.
+    let admissible = |r: f64| r.is_finite() && r > b;
     match phase {
-        Phase::Vapor => roots.iter().copied().fold(None, |acc, r| match acc {
-            Some(m) if m >= r => Some(m),
-            _ => Some(r),
-        }),
-        Phase::Liquid => {
-            roots
-                .iter()
-                .copied()
-                .filter(|&r| r > 0.0)
-                .fold(None, |acc, r| match acc {
-                    Some(m) if m <= r => Some(m),
-                    _ => Some(r),
-                })
-        }
+        Phase::Vapor => roots
+            .iter()
+            .copied()
+            .filter(|&r| admissible(r))
+            .fold(None, |acc, r| match acc {
+                Some(m) if m >= r => Some(m),
+                _ => Some(r),
+            }),
+        Phase::Liquid => roots
+            .iter()
+            .copied()
+            .filter(|&r| admissible(r) && r > 0.0)
+            .fold(None, |acc, r| match acc {
+                Some(m) if m <= r => Some(m),
+                _ => Some(r),
+            }),
     }
 }
 

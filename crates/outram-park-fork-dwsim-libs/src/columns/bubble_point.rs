@@ -988,6 +988,19 @@ impl WangHenkeSolver {
             }
         }
 
+        // A converged residual is not on its own evidence of a physical
+        // answer. Both of the modelling errors recorded in bead op-190j.5
+        // converged to a small residual (2.0e-7, 6.7e-7) on a temperature
+        // profile that dipped mid-column -- and a column cannot get colder
+        // going down. Without this check a wrong answer is indistinguishable
+        // from a right one by return value, which is how both got as far as
+        // they did.
+        //
+        // Stages carrying a specified heat duty are exempt: an intercooler or
+        // pumparound legitimately reverses the gradient across itself, so an
+        // inversion there is a design, not a defect.
+        check_monotonic_temperature(&tj, &input.stage_heats)?;
+
         Ok(StageProfile {
             temperatures: tj,
             vapor_flows: vj,
@@ -1002,6 +1015,45 @@ impl WangHenkeSolver {
             error: t_error + vf_error,
         })
     }
+}
+
+/// Reject a converged profile whose temperature falls going down the column.
+///
+/// Stage 0 is the top. Gravity of the check: a distillation column's
+/// temperature rises monotonically from condenser to reboiler because each
+/// stage below is richer in the heavier components. A dip means the solve has
+/// settled somewhere unphysical however small its residual.
+///
+/// `heats` is the *specified* per-stage duty; a non-zero entry marks a stage
+/// with deliberate heating or cooling, across which a reversal is expected and
+/// is not flagged. The tolerance absorbs numerical wobble on a flat profile;
+/// it is deliberately loose enough not to fire on a well-converged column and
+/// tight enough to catch the multi-kelvin dips that motivated it.
+pub(crate) fn check_monotonic_temperature(t: &[f64], heats: &[f64]) -> Result<(), ColumnError> {
+    /// Kelvin a stage may sit below the one above before it counts as a dip.
+    const TOLERANCE_K: f64 = 0.5;
+    for i in 1..t.len() {
+        let duty_above = heats.get(i - 1).copied().unwrap_or(0.0);
+        let duty_here = heats.get(i).copied().unwrap_or(0.0);
+        if duty_above != 0.0 || duty_here != 0.0 {
+            continue;
+        }
+        if t[i] < t[i - 1] - TOLERANCE_K {
+            return Err(ColumnError::InvalidProfile {
+                stage: i,
+                detail: format!(
+                    "temperature falls going down the column: stage {} is {:.2} K, \
+                     stage {i} is {:.2} K ({:.2} K colder). A converged residual \
+                     on a non-monotonic profile is a wrong answer, not a solution.",
+                    i - 1,
+                    t[i - 1],
+                    t[i],
+                    t[i - 1] - t[i]
+                ),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// `sum1_j = Σ_{m<=j} (F_m − U_m − W_m)` and `sum2_j = Σ_{m<j} (…)`.
@@ -1290,5 +1342,43 @@ impl BroydenTemperature {
 
         let rhs: Vec<f64> = f.iter().map(|v| -v).collect();
         lu_solve(self.jac.clone(), &rhs).unwrap_or_else(|| vec![0.0; n])
+    }
+}
+
+#[cfg(test)]
+mod monotonicity_tests {
+    use super::check_monotonic_temperature;
+
+    #[test]
+    fn a_rising_profile_passes() {
+        let t = [355.0, 360.0, 366.0, 372.0, 380.0];
+        assert!(check_monotonic_temperature(&t, &[0.0; 5]).is_ok());
+    }
+
+    /// The shape both modelling errors in bead op-190j.5 produced: converged,
+    /// small residual, and a dip in the middle.
+    #[test]
+    fn a_dip_mid_column_is_rejected() {
+        let t = [355.0, 372.0, 361.0, 375.0, 380.0];
+        let err = check_monotonic_temperature(&t, &[0.0; 5])
+            .expect_err("a column that gets colder going down must not pass");
+        let msg = format!("{err}");
+        assert!(msg.contains("falls going down"), "unhelpful message: {msg}");
+    }
+
+    /// A flat, well-converged profile must not trip on numerical wobble.
+    #[test]
+    fn sub_tolerance_wobble_is_not_a_dip() {
+        let t = [400.0, 399.9, 400.1, 400.0];
+        assert!(check_monotonic_temperature(&t, &[0.0; 4]).is_ok());
+    }
+
+    /// An intercooler or pumparound is allowed to reverse the gradient across
+    /// itself; that is a design, not a defect.
+    #[test]
+    fn a_stage_with_a_specified_duty_may_reverse() {
+        let t = [355.0, 372.0, 350.0, 375.0];
+        let heats = [0.0, 0.0, -5.0e5, 0.0];
+        assert!(check_monotonic_temperature(&t, &heats).is_ok());
     }
 }

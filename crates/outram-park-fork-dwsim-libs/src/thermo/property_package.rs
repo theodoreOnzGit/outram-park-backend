@@ -189,11 +189,23 @@ impl PropertyPackageModel {
                 let ln_phi_l = eos.ln_phi(components, x, t, p, Phase::Liquid, None);
                 let ln_phi_v = eos.ln_phi(components, y, t, p, Phase::Vapor, None);
                 match (ln_phi_l, ln_phi_v) {
-                    (Some(l), Some(v)) => l
-                        .iter()
-                        .zip(v.iter())
-                        .map(|(&li, &vi)| (li - vi).exp())
-                        .collect(),
+                    (Some(l), Some(v)) => {
+                        let k: Vec<f64> = l
+                            .iter()
+                            .zip(v.iter())
+                            .map(|(&li, &vi)| (li - vi).exp())
+                            .collect();
+                        // Belt and braces over `ln_phi`'s own `Z > B` guard: a
+                        // K-value that is not finite and positive cannot be used
+                        // by any caller, and letting one through aborts a whole
+                        // column solve several layers up with an error that
+                        // names the symptom rather than the cause.
+                        if k.iter().all(|v| v.is_finite() && *v > 0.0) {
+                            k
+                        } else {
+                            wilson_k_values(components, t, p)
+                        }
+                    }
                     // No usable root for a phase → fall back to the ideal estimate.
                     _ => wilson_k_values(components, t, p),
                 }

@@ -409,30 +409,46 @@ impl DynamicColumn {
             (self.op.reboiler_duty_watts - l_above_reb * (hl[last] - hl[last - 1])) / denom_reb;
 
         // Interior stages, from `last-1` down to `1`.
+        //
+        // Written in enthalpy **differences** relative to this stage's own
+        // liquid, `h^L_j`. The direct form divides by the absolute `h^V_j`,
+        // which makes the answer depend on where the enthalpy scale is zeroed:
+        // benzene/toluene happens to sit on the positive side of this crate's
+        // reference and works, while heavy petroleum cuts at CDU temperatures
+        // sit on the negative side and produce a *negative* vapour flow, and so
+        // a negative distillate, from a perfectly good column.
+        //
+        // Subtracting `h^L_j x (stage mass balance)` from the energy balance
+        // removes the reference: every term becomes a difference, and the
+        // divisor becomes the latent heat `h^V_j - h^L_j`, which is positive
+        // and order thousands of J/mol whatever the reference. This is the
+        // same form the reboiler balance directly above already uses.
         for j in (1..last).rev() {
-            let l_above = if j - 1 == 0 { 0.0 } else { l[j - 1] }; // reflux handled at stage 1
-            if j - 1 == 0 {
-                // Stage 1's liquid-from-above is the reflux L_0 = R/(R+1) * V_1,
-                // which couples V_1 to itself. Solve the substituted balance.
-                let r = self.op.reflux_ratio;
-                let rest =
-                    v[j + 1] * hv[j + 1] + self.feed_flows[j] * self.feed_enth[j] + self.heats[j]
-                        - (l[j] + self.liquid_side[j]) * hl[j]
-                        - self.vapor_side[j] * hv[j];
-                let denom = hv[j] - (r / (r + 1.0)) * hl[0];
-                Self::check_latent(denom, j)?;
-                v[j] = rest / denom;
+            let latent = hv[j] - hl[j];
+            Self::check_latent(latent, j)?;
+            // Everything entering stage j, each carried at its enthalpy
+            // measured *from* this stage's liquid.
+            let from_above = if j - 1 == 0 {
+                // Stage 1's liquid from above is the reflux L_0 = R/(R+1) V_1,
+                // which couples V_1 to itself; it is folded into the divisor
+                // below rather than added here.
+                0.0
             } else {
-                let rest = l_above * hl[j - 1]
-                    + v[j + 1] * hv[j + 1]
-                    + self.feed_flows[j] * self.feed_enth[j]
-                    + self.heats[j]
-                    - (l[j] + self.liquid_side[j]) * hl[j]
-                    - self.vapor_side[j] * hv[j];
-                let denom = hv[j];
-                Self::check_latent(denom, j)?;
-                v[j] = rest / denom;
-            }
+                l[j - 1] * (hl[j - 1] - hl[j])
+            };
+            let rest = from_above
+                + v[j + 1] * (hv[j + 1] - hl[j])
+                + self.feed_flows[j] * (self.feed_enth[j] - hl[j])
+                + self.heats[j]
+                - self.vapor_side[j] * (hv[j] - hl[j]);
+            let denom = if j - 1 == 0 {
+                let r = self.op.reflux_ratio;
+                latent - (r / (r + 1.0)) * (hl[0] - hl[j])
+            } else {
+                latent
+            };
+            Self::check_enthalpy_divisor(denom, j)?;
+            v[j] = rest / denom;
         }
         // Total condenser: no vapour leaves.
         v[0] = 0.0;
@@ -456,6 +472,35 @@ impl DynamicColumn {
             distillate,
             bottoms,
         })
+    }
+
+    /// Guard a divisor that is a genuine **latent heat** — `h_vap − h_liq` at
+    /// one stage, which must be positive and large.
+    ///
+    /// Only the reboiler balance divides by one of these. See
+    /// [`Self::check_enthalpy_divisor`] for the interior stages, whose divisor
+    /// is a different quantity and must not be held to this test.
+    /// Guard a divisor that is an **absolute** molar enthalpy (or a
+    /// combination of them), as the interior-stage vapour balances are.
+    ///
+    /// Absolute enthalpies are defined only up to the reference state, so the
+    /// sign carries no physical meaning and a negative value is not an error:
+    /// for heavy petroleum pseudo-components at CDU temperatures `h_vap` is
+    /// routinely negative on this crate's reference. Holding these to the
+    /// latent-heat test rejected a perfectly good crude column at stage 10
+    /// with `h_vap = -914.8 J/mol`; benzene/toluene never tripped it only
+    /// because its enthalpies happen to be positive on the same reference.
+    ///
+    /// What genuinely matters is that the divisor is finite and not so close
+    /// to zero that the quotient explodes — a *magnitude* test, not a sign one.
+    fn check_enthalpy_divisor(denom: f64, stage: usize) -> Result<(), ColumnError> {
+        if !(denom.is_finite() && denom.abs() > 1.0) {
+            return Err(ColumnError::UnsupportedConfiguration(format!(
+                "stage {stage}: energy-balance divisor {denom} J/mol is too close to \
+                 zero to divide by"
+            )));
+        }
+        Ok(())
     }
 
     fn check_latent(denom: f64, stage: usize) -> Result<(), ColumnError> {

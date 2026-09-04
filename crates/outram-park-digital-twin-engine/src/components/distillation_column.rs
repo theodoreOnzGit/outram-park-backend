@@ -42,6 +42,14 @@ pub struct DistillationColumnVisual<'a> {
     /// On-screen size of the whole column (width, total height including
     /// the condenser cap and reboiler sump).
     pub screen_vector: Vec2,
+    /// Side draws to mark, as `(stage, label)`. Empty for a two-product
+    /// column; a crude unit draws several cuts down its length, and where they
+    /// come off is most of what distinguishes one from a benzene splitter.
+    ///
+    /// Scalar-backed like the rest: the caller passes the stages its own model
+    /// actually draws from. Out-of-range stages are ignored rather than
+    /// clamped, so a mismatched slice cannot silently point at the wrong tray.
+    pub side_draws: &'a [(usize, &'a str)],
 }
 
 impl<'a> DistillationColumnVisual<'a> {
@@ -60,7 +68,15 @@ impl<'a> DistillationColumnVisual<'a> {
             stage_liquid_fraction,
             screen_position,
             screen_vector,
+            side_draws: &[],
         }
+    }
+
+    /// Mark side draws at the given stages. See [`Self::side_draws`].
+    #[must_use]
+    pub fn with_side_draws(mut self, side_draws: &'a [(usize, &'a str)]) -> Self {
+        self.side_draws = side_draws;
+        self
     }
 
     /// The on-screen rectangle of tray `j`, top to bottom.
@@ -142,6 +158,31 @@ impl Widget for DistillationColumnVisual<'_> {
             }
         }
 
+        // Side draws: a short arrow off the right edge of the drawing tray,
+        // labelled with the cut. Drawn after the trays so the arrows sit over
+        // the tray fill rather than under it.
+        for &(stage, label) in self.side_draws {
+            if stage >= n {
+                continue;
+            }
+            let rect = self.tray_rect(stage, n, body);
+            let y = rect.center().y;
+            let from = Pos2::new(outer.right(), y);
+            let to = Pos2::new(outer.right() + 18.0, y);
+            let stroke = egui::Stroke::new(2.0, Color32::from_rgb(40, 40, 40));
+            painter.line_segment([from, to], stroke);
+            // arrow head
+            painter.line_segment([to, to + Vec2::new(-5.0, -3.5)], stroke);
+            painter.line_segment([to, to + Vec2::new(-5.0, 3.5)], stroke);
+            painter.text(
+                to + Vec2::new(4.0, 0.0),
+                egui::Align2::LEFT_CENTER,
+                label,
+                egui::FontId::proportional(10.0),
+                Color32::from_rgb(40, 40, 40),
+            );
+        }
+
         // Reboiler sump.
         let sump_rect =
             Rect::from_min_max(Pos2::new(outer.left(), body.bottom()), outer.right_bottom());
@@ -161,5 +202,67 @@ impl Widget for DistillationColumnVisual<'_> {
             egui::StrokeKind::Outside,
         );
         response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{Pos2, Vec2};
+
+    /// The integration this widget exists for: a headless
+    /// [`CrudePlant`](outram_park_fork_dwsim_libs::petroleum::crude_plant::CrudePlant)
+    /// snapshot must feed it directly, with no arithmetic in between. If this
+    /// stops compiling, the widget and the plant have drifted apart.
+    #[test]
+    fn a_crude_plant_snapshot_drives_the_widget() {
+        use outram_park_fork_dwsim_libs::petroleum::crude_distillation::{
+            BlackOilCrude, CrudeColumnConfig,
+        };
+        use outram_park_fork_dwsim_libs::petroleum::crude_plant::CrudePlant;
+
+        let plant = CrudePlant::new(
+            &BlackOilCrude::light_sweet(),
+            &CrudeColumnConfig::atmospheric_default(),
+            8,
+        )
+        .expect("the reference crude column must build");
+        let snap = plant.snapshot().expect("snapshot");
+
+        let draws: Vec<(usize, &str)> = snap
+            .cuts
+            .iter()
+            .map(|(stage, _, cut)| (*stage, cut.label()))
+            .collect();
+        let w = DistillationColumnVisual::from_scalars(
+            &snap.stage_temperature_k,
+            &snap.lightest_liquid_fraction,
+            Pos2::new(0.0, 0.0),
+            Vec2::new(120.0, 400.0),
+        )
+        .with_side_draws(&draws);
+
+        assert_eq!(w.stage_temperature_k.len(), snap.n_stages);
+        assert_eq!(w.side_draws.len(), 5, "overhead + 3 draws + residue");
+    }
+
+    /// A side draw naming a stage the column does not have is ignored rather
+    /// than clamped onto the nearest tray, so a mismatched slice cannot
+    /// silently point the arrow at the wrong place.
+    #[test]
+    fn out_of_range_side_draws_are_ignored() {
+        let t = [350.0, 360.0, 370.0];
+        let x = [0.9, 0.5, 0.1];
+        let draws = [(1usize, "kero"), (99usize, "nowhere")];
+        let w = DistillationColumnVisual::from_scalars(
+            &t,
+            &x,
+            Pos2::new(0.0, 0.0),
+            Vec2::new(100.0, 200.0),
+        )
+        .with_side_draws(&draws);
+        // The widget keeps what it was given; the render skips the bad one.
+        assert_eq!(w.side_draws.len(), 2);
+        assert!(w.side_draws.iter().any(|&(s, _)| s >= t.len()));
     }
 }
