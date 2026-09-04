@@ -933,6 +933,66 @@ what crate they need and how to call it.
   update its `///` doc comment in the same change.
 - Do not write examples that require reading internal modules to understand.
 
+### Verifying it: dogfood the API on a small model (HARD RULE)
+
+**Before claiming a public API is usable from Python, run it on a Haiku agent
+with a fresh context and the wheel only — no repository access, no `.pyi`
+pasted in, no source.** Count the round trips to a working script and log
+every exception. That number is the usability measure; the exception log is
+the fix list.
+
+**WHY THIS EXISTS: capability masks usability defects.** A strong model is the
+*worst* instrument for this, for the same reason the author of a tool is the
+worst person to usability-test it — when the API is unguessable it reads the
+Rust source and compensates, and the compensation is invisible in the result.
+The finished script looks clean and the defect ships.
+
+Measured on 2026-09-04, writing short scripts against this workspace's own
+wheel **with** full source access and grep, an Opus session guessed wrong ten
+times across six scripts:
+
+| guessed | actual |
+|---|---|
+| `mc.Sphere(center, radius)` | `Sphere(x0, y0, z0, r, bc)` |
+| `RegionToken.HalfSpace(0, False)` | needs a `HalfSpaceSense` |
+| `HalfSpaceSense.Negative()` | `.Inside()` |
+| `KeffResult.k_eff` | `.k_mean` |
+| `GeometryPath.cell` | only `.material` exists |
+| `profiles.stage_temperatures` | `.stage_temperature` (singular) |
+| `triso_particle(c, [radii], [mats])` | needs `TrisoRadii`, `TrisoMaterials` |
+| `TrayHydraulics()` | `.HoldupTimeConstant(tau_seconds=..)` |
+| `ControlDict()` | thirteen positional arguments |
+| `FvSolution()` | not constructible at all |
+
+Every one cost a round trip. A model that *cannot* read the source has no way
+to recover from any of them, which is the point: it is forced to rely on the
+affordances the API actually provides, exactly as a human at a terminal is.
+
+**What the test requires:**
+
+- **Fixed context.** Wheel installed, nothing else. Handing the agent the
+  stubs or the crate source tests something other than the API.
+- **A fixed task list** spanning the tiers — a one-call case, a case assembled
+  from parts, and one exotic enough to need the low-level types.
+- **Every exception logged, not just the count.** Ranked by frequency across
+  tasks, that log *is* the backlog, in priority order. This is the same
+  technique as `outram-park/codegen/blocked.md` applied one level up: make the
+  gaps countable and they stop being a matter of opinion.
+
+**What it does NOT measure: physical correctness.** A script can run cleanly
+and be nonsense. This never substitutes for the V&V tests — it tests whether
+the API can be *found and called*, nothing more.
+
+**Reading the result.** A failure the Opus session also hit is an API defect.
+A failure unique to the small model is more likely its own priors — the tell
+is whether a different model trips on the same call. Fix the first kind.
+
+The harness itself, and the first baseline, are tracked as `op-m2mj`. Take
+the baseline *before* changing anything: the fixes this suggests — enum
+errors that name their constructors, did-you-mean on a wrong attribute,
+constructors that return the general type rather than swallowing the run —
+should be measured against it, not asserted.
+
 ## Bookkeeping pass (maintainer command)
 
 When the maintainer asks for a **"bookkeeping pass"** (or "bookkeeping", "book
