@@ -935,6 +935,14 @@ what crate they need and how to call it.
 
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
+> **If it is too complex for Haiku, it is a bad API.**
+
+That is the standing test for **every crate in this workspace**, and it is a
+test, not a slogan: a small model has no budget to read the source, so it can
+only use what the interface itself makes discoverable — exactly like the human
+this section already requires the API to serve. When it cannot get there, the
+interface is wrong, however correct the physics underneath.
+
 **Before claiming a public API is usable from Python, run it on a Haiku agent
 with a fresh context and the wheel only — no repository access, no `.pyi`
 pasted in, no source.** Count the round trips to a working script and log
@@ -986,6 +994,16 @@ the API can be *found and called*, nothing more.
 **Reading the result.** A failure the Opus session also hit is an API defect.
 A failure unique to the small model is more likely its own priors — the tell
 is whether a different model trips on the same call. Fix the first kind.
+
+**The same principle applies one layer down, to Rust callers.** A confusing
+trait-bound error is the compiler's version of an undiscoverable API, and
+`#[diagnostic::on_unimplemented]` has been stable since Rust 1.78 — it
+replaces "the trait bound `X: Y` is not satisfied" with a message, a label
+and a note of your choosing, naming what to construct instead.
+`#[diagnostic::do_not_recommend]` (stable since 1.85) suppresses a blanket
+impl the compiler would otherwise suggest unhelpfully. This workspace has 65
+public traits and, as of 2026-09-04, not one of them carries either
+attribute. Any trait whose bound a caller can plausibly fail should.
 
 The harness itself, and the first baseline, are tracked as `op-m2mj`. Take
 the baseline *before* changing anything: the fixes this suggests — enum
