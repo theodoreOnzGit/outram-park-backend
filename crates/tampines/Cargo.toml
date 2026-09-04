@@ -26,6 +26,13 @@ tuas_boussinesq_solver.workspace = true
 outram-park-fork-coolprop.workspace = true
 tampines-steam-tables.workspace = true
 outram-foam-basic-lib.workspace = true
+# Uncertainty quantification and reduced-order models (RAVEN port). tampines
+# reaches real-time by evaluating a SURROGATE where a full property or closure
+# solve is too slow per tick per node -- see the crate docs. The ROM layer
+# itself is tracked in beads op-38my; this dependency is wired now so the
+# intent is discoverable from the manifest and the doc links resolve, in the
+# same spirit as the note above about crates without a consumer yet.
+raffles.workspace = true
 # The 3-D multiphase reference (epic op-2kk). `multiphase_1d` reduces its
 # closures to 1-D rather than inventing its own -- the hard constraint in beads
 # op-dt3.12 / op-dt3.13. Only the algebraic closures are consumed

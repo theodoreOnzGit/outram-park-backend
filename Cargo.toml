@@ -308,6 +308,7 @@ teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.4" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.6" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.7" }
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.2" }
+raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.2" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }

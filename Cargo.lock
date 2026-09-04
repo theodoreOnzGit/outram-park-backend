@@ -8324,6 +8324,7 @@ dependencies = [
  "outram-foam-multiphase",
  "outram-park-fork-coolprop",
  "outram-park-fork-dwsim-libs",
+ "raffles",
  "roots",
  "serde",
  "tampines-steam-tables",
