@@ -20,6 +20,7 @@ pub enum LatticeType {
     Hex,
 }
 
+#[derive(Debug, Clone)]
 /// A rectangular lattice. Maps to `openmc::RectLattice`.
 pub struct RectLattice {
     /// User-facing lattice id.
@@ -187,6 +188,7 @@ fn coincident(d1: f64, d2: f64) -> bool {
     (d1 - d2).abs() < FP_COINCIDENT
 }
 
+#[derive(Debug, Clone)]
 /// A hexagonal lattice. Maps to `openmc::HexLattice`.
 ///
 /// C++ source: `src/lattice.cpp:456` (constructor) and the `HexLattice::*`
@@ -862,6 +864,7 @@ fn fill_lattice_x(n_rings: usize, univ: &[i32], out: &mut [i32]) {
     }
 }
 
+#[derive(Debug, Clone)]
 /// A lattice fill — dispatched by enum, not a trait object (per the workspace
 /// "enums over `dyn`" rule). [`crate::geometry::geometry::Geometry`] holds a
 /// `Vec<Lattice>` and matches on the variant during descent.

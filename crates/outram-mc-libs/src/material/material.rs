@@ -36,6 +36,7 @@ pub struct MacroXs {
     pub nu_fission: f64,
 }
 
+#[derive(Debug, Clone)]
 /// A material — mixture of nuclides.  Maps to `openmc::Material`.
 pub struct Material {
     pub id: i32,

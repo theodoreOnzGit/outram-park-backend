@@ -91,6 +91,7 @@ const N_INC_ELASTIC_GRID: usize = 400;
 /// (NJOY/ACE convention for the ITCA block).
 const N_INC_ELASTIC_COSINES: usize = 16;
 
+#[derive(Debug, Clone)]
 /// The bound-atom thermal **elastic** channel of one scatterer, if it has one.
 ///
 /// An ENDF `tsl` evaluation carries at most one MF=7/MT=2 elastic law, so this
@@ -115,6 +116,7 @@ pub enum ThermalElastic {
     Incoherent(IncoherentElasticTable),
 }
 
+#[derive(Debug, Clone)]
 /// Coherent-elastic (Bragg) scattering for one crystalline scatterer at one
 /// temperature, stored **exactly** as the Bragg-edge step table.
 ///
@@ -192,6 +194,7 @@ impl CoherentElasticTable {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Incoherent-elastic scattering for one hydrogenous solid at one temperature,
 /// pre-tabulated on a log energy grid.
 ///
@@ -294,6 +297,7 @@ struct EmissionTable {
     n_mu: usize,
 }
 
+#[derive(Debug, Clone)]
 /// Bound-atom thermal scattering for one scatterer at one temperature — the
 /// transport-side data surface, carrying **both** the incoherent-inelastic
 /// S(α,β) channel and the scatterer's elastic channel (if it has one).

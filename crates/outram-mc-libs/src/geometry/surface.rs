@@ -49,6 +49,7 @@ pub trait Surface: Send + Sync {
 
 // ── Concrete surfaces ─────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone)]
 /// Infinite plane perpendicular to the X axis: x = x0.
 pub struct XPlane {
     pub x0: f64,
@@ -76,6 +77,7 @@ impl Surface for XPlane {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Infinite plane perpendicular to the Y axis: y = y0.
 pub struct YPlane {
     pub y0: f64,
@@ -103,6 +105,7 @@ impl Surface for YPlane {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Infinite plane perpendicular to the Z axis: z = z0.
 pub struct ZPlane {
     pub z0: f64,
@@ -130,6 +133,7 @@ impl Surface for ZPlane {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Sphere: (x-x0)² + (y-y0)² + (z-z0)² = r²
 pub struct Sphere {
     pub x0: f64,
@@ -190,6 +194,7 @@ impl Surface for Sphere {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Infinite cylinder along the Z axis: (x-x0)² + (y-y0)² = r²
 pub struct ZCylinder {
     pub x0: f64,
@@ -283,6 +288,7 @@ fn smallest_positive_root(a: f64, b: f64, c: f64, eps: f64) -> f64 {
     }
 }
 
+#[derive(Debug, Clone)]
 /// General plane: A·x + B·y + C·z = D.
 ///
 /// The unrestricted-orientation plane (the axis-aligned [`XPlane`]/[`YPlane`]/
@@ -319,6 +325,7 @@ impl Surface for Plane {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Infinite cylinder along the X axis: (y-y0)² + (z-z0)² = r².
 ///
 /// The X-axis twin of [`ZCylinder`]; same intersection algebra with the radial
@@ -374,6 +381,7 @@ impl Surface for XCylinder {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Infinite cylinder along the Y axis: (x-x0)² + (z-z0)² = r².
 ///
 /// The Y-axis twin of [`ZCylinder`]; radial pair `(x, z)`, parallel axis `y`.
@@ -428,6 +436,7 @@ impl Surface for YCylinder {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Double-napped cone about the Z axis: (x-x0)² + (y-y0)² = r_sq·(z-z0)².
 ///
 /// `r_sq` is the **square of the slope** (tan² of the half-opening-angle), the
@@ -471,6 +480,7 @@ impl Surface for ZCone {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Double-napped cone about the X axis: (y-y0)² + (z-z0)² = r_sq·(x-x0)².
 ///
 /// X-axis twin of [`ZCone`]; `r_sq` is the slope². Ported from OpenMC
@@ -512,6 +522,7 @@ impl Surface for XCone {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Double-napped cone about the Y axis: (x-x0)² + (z-z0)² = r_sq·(y-y0)².
 ///
 /// Y-axis twin of [`ZCone`]; `r_sq` is the slope². Ported from OpenMC
@@ -553,6 +564,7 @@ impl Surface for YCone {
     }
 }
 
+#[derive(Debug, Clone)]
 /// General quadric: A x² + B y² + C z² + D xy + E yz + F xz + G x + H y + J z + K = 0.
 ///
 /// The most general second-order surface — every other surface here is a special
@@ -991,6 +1003,7 @@ fn torus_distance(
     best
 }
 
+#[derive(Debug, Clone)]
 /// Torus about the **Z** axis, centred at `(x0, y0, z0)`.
 ///
 /// Radial pair `(x, y)`, axial `z`:
@@ -1046,6 +1059,7 @@ impl Surface for ZTorus {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Torus about the **X** axis, centred at `(x0, y0, z0)`.
 ///
 /// Radial pair `(y, z)`, axial `x`:
@@ -1101,6 +1115,7 @@ impl Surface for XTorus {
     }
 }
 
+#[derive(Debug, Clone)]
 /// Torus about the **Y** axis, centred at `(x0, y0, z0)`.
 ///
 /// Radial pair `(x, z)`, axial `y`:
@@ -1163,6 +1178,7 @@ impl Surface for YTorus {
 // The `Surface` trait above stays as the compiler-enforced contract each
 // concrete surface satisfies.
 
+#[derive(Debug, Clone)]
 /// A CSG quadric surface — the closed set the geometry navigator dispatches over.
 ///
 /// Wraps each concrete surface struct. Maps to the OpenMC `Surface` polymorphic

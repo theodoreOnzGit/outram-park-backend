@@ -82,6 +82,37 @@ pub struct ReconrSection {
     pub pairs: Vec<(f64, f64)>,
 }
 
+impl ReconrSection {
+    /// The energy grid \[eV\], as its own contiguous vector.
+    ///
+    /// [`Self::pairs`] carries the same numbers interleaved, which is the
+    /// natural Rust shape and an awkward one for array consumers: NumPy, a
+    /// plotting call, or anything else that wants two columns has to
+    /// transpose it. These two accessors hand over the columns directly.
+    #[must_use]
+    pub fn energies(&self) -> Vec<f64> {
+        self.pairs.iter().map(|&(e, _)| e).collect()
+    }
+
+    /// The cross sections \[b\], aligned with [`Self::energies`].
+    #[must_use]
+    pub fn xs(&self) -> Vec<f64> {
+        self.pairs.iter().map(|&(_, s)| s).collect()
+    }
+
+    /// Number of points on the grid.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.pairs.len()
+    }
+
+    /// Whether the grid is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.pairs.is_empty()
+    }
+}
+
 /// Result of running RECONR on one material.
 #[derive(Debug, Clone)]
 pub struct ReconrResult {
@@ -516,9 +547,9 @@ fn refine_resonance_grid(
     eps: f64,
 ) -> (Vec<f64>, Vec<RangeDelta>) {
     #[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_par::*;
+    use rayon::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par::*;
 
     // Each seed window [e_i, e_{i+1}] is refined completely independently
     // (`delta_at` is a pure function of energy), so the windows run in

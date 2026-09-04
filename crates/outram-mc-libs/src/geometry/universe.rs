@@ -12,6 +12,7 @@ use super::cell::Cell;
 use super::position::Position;
 use super::surface::SurfaceKind;
 
+#[derive(Debug, Clone)]
 /// A universe — an ordered list of cells searched top-to-bottom.
 /// Maps to `openmc::Universe`.
 pub struct Universe {

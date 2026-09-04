@@ -98,6 +98,7 @@ struct InelasticLevel {
     continuum: bool,
 }
 
+#[derive(Debug, Clone)]
 /// The cross-section representation backing a [`Nuclide`] — the LOW/HIGH-fidelity
 /// fork.
 ///
@@ -142,6 +143,7 @@ enum XsSource {
     },
 }
 
+#[derive(Debug, Clone)]
 /// One isotope's cross-section data, pulled from `njoy-outram-park-fork`.
 ///
 /// Two constructors give the two fidelity tiers, both feeding the *same*

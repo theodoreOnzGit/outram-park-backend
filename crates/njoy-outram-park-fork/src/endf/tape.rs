@@ -56,6 +56,23 @@ impl Tape {
     ///
     /// Line length must be 80 characters (padded with spaces if shorter is fine).
     /// Binary (blocked-binary) tapes are not supported in this version.
+    /// Parse an ENDF ASCII tape from a file on disk.
+    ///
+    /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
+    /// unreachable from a binding generator that cannot monomorphise a type
+    /// parameter. This is the same parse behind a concrete signature, so
+    /// `Tape::read_file("n-094_Pu_239.endf")` works from Rust and from Python
+    /// alike -- the ordinary case, without the caller opening the file first.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::Io`] if the file cannot be opened or read, or any parse
+    /// error [`Tape::read`] reports.
+    pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
+        let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
+        Self::read(file)
+    }
+
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
         let mut lines = BufReader::new(reader).lines();
         let mut tpid = String::new();

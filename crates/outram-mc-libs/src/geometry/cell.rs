@@ -54,6 +54,7 @@ pub enum CellFill {
     Void,
 }
 
+#[derive(Debug, Clone)]
 /// A CSG cell. Maps to `openmc::Cell`.
 pub struct Cell {
     /// User-facing cell id (for reporting/tallies).

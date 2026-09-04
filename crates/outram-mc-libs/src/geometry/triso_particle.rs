@@ -161,6 +161,7 @@ impl TrisoMaterials {
     }
 }
 
+#[derive(Debug, Clone)]
 /// One assembled TRISO particle: the concentric surfaces, the per-shell cells,
 /// and the universe that searches them.
 ///
