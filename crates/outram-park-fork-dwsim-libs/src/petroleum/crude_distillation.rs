@@ -519,17 +519,27 @@ pub struct CrudeColumnConfig {
     /// the solver to separate something that has no vapour phase to separate
     /// into.
     ///
-    /// Measured consequence on this crate's own solver (2026-09-04, 38 °API
-    /// reference crude, Wang-Henke, ideal K-values):
+    /// Measured on this crate's own solver, 38 °API reference crude, 10
+    /// pseudo-components, Wang-Henke. Re-measured on `PengRobinson1978` after
+    /// the cubic path was fixed in `44a2001339`; the original ideal-K figures
+    /// are kept beside them because the *change in failure mode* is the
+    /// interesting part.
     ///
-    /// | cut point | slate span | converged profile |
+    /// | cut point | `PengRobinson1978` | ideal K (superseded) |
     /// |---|---|---|
-    /// | 560 K | 164 K | monotonic, 28 iterations |
-    /// | 650 K | 251 K | monotonic, 31 iterations |
-    /// | 700 K | 300 K | monotonic, 32 iterations |
-    /// | none (900 K) | 463 K | **non-monotonic**, 79 iterations |
+    /// | 560 K | monotonic, 28 it, 8.8e-7 | monotonic, 28 it |
+    /// | 650 K | monotonic, 37 it, 6.6e-7 | monotonic, 31 it |
+    /// | 700 K | monotonic, 37 it, 6.6e-7 | monotonic, 32 it |
+    /// | none | **`NotConverged`** after 100 it, error 5.9e-3 | **converged but non-monotonic**, 79 it |
     ///
-    /// So the heavy bypass is what makes the column solvable *and* what makes
+    /// So the heavy bypass is still required — it was never merely a numerical
+    /// workaround — but the failure without it is now *honest*. On ideal
+    /// K-values the solver returned a converged-looking answer with a
+    /// physically impossible profile; on PR78 it reports `NotConverged` and
+    /// refuses. Failing loudly is the better behaviour, and it is worth knowing
+    /// that the cubic path gives it.
+    ///
+    /// The heavy bypass is what makes the column solvable *and* what makes
     /// it right. The bypassed fraction is not discarded — it is added to the
     /// bottoms product, so the overall material balance still closes on the
     /// whole crude.
@@ -1089,24 +1099,47 @@ mod column_tests {
     /// condenser to reboiler, which is the defining property of a distillation
     /// column and the first thing a broken setup breaks.
     ///
-    /// # Results, measured 2026-09-04 — PASSES
+    /// # Results, re-measured 2026-09-04 on **Peng-Robinson 1978** — PASSES
     ///
-    /// 38 °API crude, 10 pseudo-components, 650 K residue cut point, 12 stages,
-    /// three side draws, reflux ratio 3.0, ideal K-values, Wang-Henke.
-    /// **Converges in 38 iterations to a final error of 6.7e-7**, with a
+    /// 38 °API crude, **8** pseudo-components, 650 K residue cut point, 12
+    /// stages, three side draws, reflux ratio 3.0, `PengRobinson1978`,
+    /// Wang-Henke.
+    /// **Converges in 34 iterations to a final error of 8.875e-7**, with a
     /// monotonic profile:
     ///
     /// | Stage | Rate \[mol/s\] | T \[K\] | T \[°C\] | Labelled |
     /// |---|---:|---:|---:|---|
-    /// | 0 (overhead) | 0.3376 | 423.6 | 150 | naphtha |
-    /// | 4 | 0.0900 | 494.9 | 222 | kerosene |
-    /// | 6 | 0.0750 | 511.7 | 239 | kerosene |
-    /// | 8 | 0.0600 | 530.8 | 258 | diesel |
-    /// | 11 (bottoms) | 0.4373 | 588.5 | 315 | residue |
+    /// | 0 (overhead) | 0.3376 | 424.95 | 152 | naphtha |
+    /// | 4 | 0.0900 | 494.89 | 222 | kerosene |
+    /// | 6 | 0.0750 | 511.25 | 238 | kerosene |
+    /// | 8 | 0.0600 | 529.94 | 257 | kerosene |
+    /// | 11 (bottoms) | 0.4373 | 586.85 | 314 | residue |
     ///
     /// Those temperatures land in the conventional CDU bands (overhead
     /// 120-150 °C, kerosene draw 200-250 °C, diesel 250-300 °C, flash zone
     /// 340-370 °C), which is a *sanity* agreement and not a validation.
+    ///
+    /// # These numbers superseded an earlier, wrong set
+    ///
+    /// The figures previously recorded here were taken on **ideal K-values**,
+    /// because at the time no cubic package would solve this column. That was
+    /// fixed in `44a2001339`, which corrected two defects in the cubic path —
+    /// `select_root` accepting a compressibility root at or below the covolume
+    /// `B`, so `ln_phi` evaluated `ln(Z − B)` on a negative argument and
+    /// returned `Some(vec![NaN, …])` instead of `None`, defeating `k_values`'
+    /// existing "no usable root" fallback.
+    ///
+    /// Worth recording *why* the earlier diagnosis missed it: the evidence
+    /// offered was that `CubicEos::ln_phi` returns finite values across
+    /// 400-600 K, which was true and irrelevant — **the bubble-point solver
+    /// explores to roughly 1950 K**, and the failure lives out there. Checking
+    /// the range the column *operates* in rather than the range the *solver*
+    /// searches is the mistake to avoid repeating.
+    ///
+    /// The stage-8 draw also moved from 530.8 K to 529.94 K, which flips its
+    /// label from `Diesel` to `Kerosene` — it now sits just under the 530 K
+    /// band boundary. That is a label straddling a threshold, not a physical
+    /// change; see [`CrudeCut`] on why the bands are annotation only.
     ///
     /// # Two real errors this test caught, both worth keeping in mind
     ///
