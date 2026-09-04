@@ -48,7 +48,10 @@ pub enum Bevel {
     /// A circle of the given radius, `segments` sides.
     Round { depth: f64, segments: usize },
     /// A custom cross-section, as `[x, y]` points in the spline's frame plane.
-    Profile { section: Vec<[f64; 2]>, closed: bool },
+    Profile {
+        section: Vec<[f64; 2]>,
+        closed: bool,
+    },
 }
 
 /// How a bevel-free cyclic spline is filled.
@@ -75,7 +78,12 @@ pub struct CurveGeometry {
 
 impl Default for CurveGeometry {
     fn default() -> Self {
-        CurveGeometry { bevel: Bevel::None, taper: None, fill: FillMode::None, caps: true }
+        CurveGeometry {
+            bevel: Bevel::None,
+            taper: None,
+            fill: FillMode::None,
+            caps: true,
+        }
     }
 }
 
@@ -103,8 +111,13 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
 
     if section.is_empty() {
         return match opts.fill {
-            FillMode::Full if spline.cyclic => fill_outline(&frames.iter().map(|f| f.position).collect::<Vec<_>>()),
-            _ => wire_mesh(&frames.iter().map(|f| f.position).collect::<Vec<_>>(), spline.cyclic),
+            FillMode::Full if spline.cyclic => {
+                fill_outline(&frames.iter().map(|f| f.position).collect::<Vec<_>>())
+            }
+            _ => wire_mesh(
+                &frames.iter().map(|f| f.position).collect::<Vec<_>>(),
+                spline.cyclic,
+            ),
         };
     }
 
@@ -133,7 +146,10 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
         let ring: Vec<usize> = section
             .iter()
             .map(|&[sx, sy]| {
-                let p = f.position.add(f.normal.scale(sx * scale)).add(binormal.scale(sy * scale));
+                let p = f
+                    .position
+                    .add(f.normal.scale(sx * scale))
+                    .add(binormal.scale(sy * scale));
                 positions.push(p);
                 positions.len() - 1
             })
@@ -142,7 +158,11 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
     }
 
     let sn = section.len();
-    let sides = if section_closed { sn } else { sn.saturating_sub(1) };
+    let sides = if section_closed {
+        sn
+    } else {
+        sn.saturating_sub(1)
+    };
     let mut faces: Vec<Vec<usize>> = Vec::new();
     let seg_rings: Vec<&Vec<usize>> = if spline.cyclic {
         rings.iter().chain(std::iter::once(&rings[0])).collect()
@@ -192,7 +212,9 @@ fn taper_scale(taper: &Spline, t: f64) -> f64 {
 }
 
 fn ring_centroid(ring: &[usize], positions: &[Vec3]) -> Vec3 {
-    ring.iter().fold(Vec3::ZERO, |acc, &i| acc.add(positions[i])).scale(1.0 / ring.len().max(1) as f64)
+    ring.iter()
+        .fold(Vec3::ZERO, |acc, &i| acc.add(positions[i]))
+        .scale(1.0 / ring.len().max(1) as f64)
 }
 
 /// A degenerate "mesh" recording the polyline as sliver triangles (so the
@@ -214,7 +236,10 @@ fn fill_outline(pts: &[Vec3]) -> Mesh {
         return Mesh::new();
     }
     // Best-fit plane normal (Newell).
-    let c = pts.iter().fold(Vec3::ZERO, |a, &p| a.add(p)).scale(1.0 / n as f64);
+    let c = pts
+        .iter()
+        .fold(Vec3::ZERO, |a, &p| a.add(p))
+        .scale(1.0 / n as f64);
     let mut nrm = Vec3::ZERO;
     for i in 0..n {
         nrm = nrm.add(pts[i].sub(c).cross(pts[(i + 1) % n].sub(c)));
@@ -224,10 +249,17 @@ fn fill_outline(pts: &[Vec3]) -> Mesh {
     }
     let nrm = nrm.normalize();
     // 2-D coords.
-    let up = if nrm.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+    let up = if nrm.z.abs() < 0.9 {
+        Vec3::new(0.0, 0.0, 1.0)
+    } else {
+        Vec3::new(1.0, 0.0, 0.0)
+    };
     let ex = up.cross(nrm).normalize();
     let ey = nrm.cross(ex);
-    let p2: Vec<[f64; 2]> = pts.iter().map(|&p| [p.sub(c).dot(ex), p.sub(c).dot(ey)]).collect();
+    let p2: Vec<[f64; 2]> = pts
+        .iter()
+        .map(|&p| [p.sub(c).dot(ex), p.sub(c).dot(ey)])
+        .collect();
 
     let mut idx: Vec<usize> = (0..n).collect();
     let mut faces: Vec<Vec<usize>> = Vec::new();
@@ -236,7 +268,11 @@ fn fill_outline(pts: &[Vec3]) -> Mesh {
         guard += 1;
         let mut clipped = false;
         for k in 0..idx.len() {
-            let (ia, ib, ic) = (idx[(k + idx.len() - 1) % idx.len()], idx[k], idx[(k + 1) % idx.len()]);
+            let (ia, ib, ic) = (
+                idx[(k + idx.len() - 1) % idx.len()],
+                idx[k],
+                idx[(k + 1) % idx.len()],
+            );
             if is_ear(&p2, ia, ib, ic, &idx) {
                 faces.push(vec![ia, ib, ic]);
                 idx.remove(k);
@@ -294,7 +330,10 @@ mod tests {
         let m = curve_to_mesh(
             &s,
             &CurveGeometry {
-                bevel: Bevel::Round { depth: 0.5, segments: 8 },
+                bevel: Bevel::Round {
+                    depth: 0.5,
+                    segments: 8,
+                },
                 caps: true,
                 ..Default::default()
             },
@@ -316,7 +355,10 @@ mod tests {
         let m = curve_to_mesh(
             &s,
             &CurveGeometry {
-                bevel: Bevel::Round { depth: 0.5, segments: 8 },
+                bevel: Bevel::Round {
+                    depth: 0.5,
+                    segments: 8,
+                },
                 taper: Some(taper),
                 caps: false,
                 ..Default::default()
@@ -324,7 +366,9 @@ mod tests {
         );
         let r_at = |want_z: f64| {
             (0..m.vertex_count())
-                .filter(|&i| (m.vertex(crate::mesh::VertexId(i)).unwrap().position.z - want_z).abs() < 0.1)
+                .filter(|&i| {
+                    (m.vertex(crate::mesh::VertexId(i)).unwrap().position.z - want_z).abs() < 0.1
+                })
                 .map(|i| {
                     let p = m.vertex(crate::mesh::VertexId(i)).unwrap().position;
                     (p.x * p.x + p.y * p.y).sqrt()
@@ -339,16 +383,30 @@ mod tests {
     fn custom_profile_sweep() {
         let s = Spline::poly(&[Vec3::ZERO, Vec3::new(0.0, 0.0, 3.0)]);
         // An L-shaped open profile.
-        let section = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 0.3], [0.3, 0.3], [0.3, 1.0], [0.0, 1.0]];
+        let section = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.3],
+            [0.3, 0.3],
+            [0.3, 1.0],
+            [0.0, 1.0],
+        ];
         let m = curve_to_mesh(
             &s,
             &CurveGeometry {
-                bevel: Bevel::Profile { section: section.clone(), closed: true },
+                bevel: Bevel::Profile {
+                    section: section.clone(),
+                    closed: true,
+                },
                 caps: false,
                 ..Default::default()
             },
         );
-        assert_eq!(m.face_count(), section.len(), "one strip quad per profile side");
+        assert_eq!(
+            m.face_count(),
+            section.len(),
+            "one strip quad per profile side"
+        );
     }
 
     #[test]
@@ -361,7 +419,13 @@ mod tests {
         ]);
         s.set_type(SplineType::Poly);
         s.cyclic = true;
-        let m = curve_to_mesh(&s, &CurveGeometry { fill: FillMode::Full, ..Default::default() });
+        let m = curve_to_mesh(
+            &s,
+            &CurveGeometry {
+                fill: FillMode::Full,
+                ..Default::default()
+            },
+        );
         // A quad → 2 ear-clipped triangles.
         assert_eq!(m.face_count(), 2);
         assert_eq!(m.euler_characteristic(), 1);
@@ -369,7 +433,11 @@ mod tests {
 
     #[test]
     fn no_bevel_no_fill_is_a_wire() {
-        let s = Spline::poly(&[Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 1.0, 0.0)]);
+        let s = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(2.0, 1.0, 0.0),
+        ]);
         let m = curve_to_mesh(&s, &CurveGeometry::default());
         assert_eq!(m.vertex_count(), 3);
     }

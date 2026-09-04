@@ -36,13 +36,18 @@ use crate::root::KovanRoot;
 pub enum SessionError {
     /// No paper with this citekey exists in the library.
     NotFound { citekey: String },
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 impl std::fmt::Display for SessionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotFound { citekey } => write!(f, "no paper with citekey {citekey:?} in this library"),
+            Self::NotFound { citekey } => {
+                write!(f, "no paper with citekey {citekey:?} in this library")
+            }
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
         }
     }
@@ -72,11 +77,21 @@ impl PaperSession {
     pub fn open(root: &KovanRoot, citekey: &str) -> Result<Self, SessionError> {
         let markdown_path = root.paper_markdown(citekey);
         if !markdown_path.is_file() {
-            return Err(SessionError::NotFound { citekey: citekey.to_string() });
+            return Err(SessionError::NotFound {
+                citekey: citekey.to_string(),
+            });
         }
-        let markdown = std::fs::read_to_string(&markdown_path)
-            .map_err(|source| SessionError::Io { path: markdown_path.clone(), source })?;
-        Ok(Self { citekey: citekey.to_string(), markdown_path, markdown, dirty: false })
+        let markdown =
+            std::fs::read_to_string(&markdown_path).map_err(|source| SessionError::Io {
+                path: markdown_path.clone(),
+                source,
+            })?;
+        Ok(Self {
+            citekey: citekey.to_string(),
+            markdown_path,
+            markdown,
+            dirty: false,
+        })
     }
 
     pub fn citekey(&self) -> &str {
@@ -125,8 +140,10 @@ impl PaperSession {
     /// §37's "Save Document": write the buffer to disk. Does not stage or
     /// commit anything — that is `op-9vo6.19`'s separate "Save Repository".
     pub fn save_document(&mut self) -> Result<(), SessionError> {
-        std::fs::write(&self.markdown_path, &self.markdown)
-            .map_err(|source| SessionError::Io { path: self.markdown_path.clone(), source })?;
+        std::fs::write(&self.markdown_path, &self.markdown).map_err(|source| SessionError::Io {
+            path: self.markdown_path.clone(),
+            source,
+        })?;
         self.dirty = false;
         Ok(())
     }

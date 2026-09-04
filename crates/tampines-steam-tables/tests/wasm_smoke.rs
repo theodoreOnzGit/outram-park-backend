@@ -80,14 +80,20 @@ fn edwards_pipe(n_cells: i64, dt_us: f64) -> TampinesSteamArray {
 
     // Same PISO configuration as the benchmark: four outer correctors, four
     // inner pressure correctors, no under-relaxation.
-    array.set_pimple_algorithm(4, 4, uom::si::f64::Ratio::new::<ratio>(1.0), uom::si::f64::Ratio::new::<ratio>(1.0));
+    array.set_pimple_algorithm(
+        4,
+        4,
+        uom::si::f64::Ratio::new::<ratio>(1.0),
+        uom::si::f64::Ratio::new::<ratio>(1.0),
+    );
 
     let n = array.mesh.n_cells;
     for c in 0..n {
         array.p.internal[c] = P_INIT_PA;
     }
-    let temps: Vec<ThermodynamicTemperature> =
-        (0..n).map(|_| ThermodynamicTemperature::new::<kelvin>(T_INIT_K)).collect();
+    let temps: Vec<ThermodynamicTemperature> = (0..n)
+        .map(|_| ThermodynamicTemperature::new::<kelvin>(T_INIT_K))
+        .collect();
     array
         .set_temperature_vector(temps)
         .expect("temperature vector length matches cell count");
@@ -155,7 +161,10 @@ fn steam_property_flash_works_under_wasm() {
     let array = edwards_pipe(4, 50.0);
     for c in 0..array.mesh.n_cells {
         let t = array.t.internal[c];
-        assert!(t.is_finite() && t > 0.0, "cell {c}: flashed temperature {t} is not physical");
+        assert!(
+            t.is_finite() && t > 0.0,
+            "cell {c}: flashed temperature {t} is not physical"
+        );
         let rho = array.rho.internal[c];
         assert!(
             (500.0..1200.0).contains(&rho),

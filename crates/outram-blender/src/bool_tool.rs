@@ -71,7 +71,11 @@ pub struct BoolBrush {
 impl BoolBrush {
     /// A new enabled brush.
     pub fn new(mesh: Arc<Mesh>, op: BrushOp) -> Self {
-        BoolBrush { mesh, op, enabled: true }
+        BoolBrush {
+            mesh,
+            op,
+            enabled: true,
+        }
     }
 }
 
@@ -177,8 +181,11 @@ mod tests {
     fn cube_at(size: f64, t: Vec3) -> Mesh {
         let m = primitives::cube(size);
         let positions: Vec<Vec3> = m.positions().iter().map(|p| p.add(t)).collect();
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         Mesh::from_polygons(&positions, &faces)
     }
 
@@ -195,7 +202,10 @@ mod tests {
     #[test]
     fn disabled_brush_is_a_no_op() {
         let base = primitives::cube(2.0);
-        let mut brush = BoolBrush::new(Arc::new(cube_at(1.0, Vec3::new(1.0, 1.0, 1.0))), BrushOp::Difference);
+        let mut brush = BoolBrush::new(
+            Arc::new(cube_at(1.0, Vec3::new(1.0, 1.0, 1.0))),
+            BrushOp::Difference,
+        );
         brush.enabled = false;
         let out = BoolStack::new().with(brush).bake(&base).unwrap();
         assert_eq!(out.face_count(), base.face_count());
@@ -205,8 +215,14 @@ mod tests {
     fn two_brushes_fold_in_order() {
         let base = primitives::cube(4.0);
         let stack = BoolStack::new()
-            .with(BoolBrush::new(Arc::new(cube_at(1.5, Vec3::new(2.0, 2.0, 2.0))), BrushOp::Difference))
-            .with(BoolBrush::new(Arc::new(cube_at(1.5, Vec3::new(-2.0, -2.0, -2.0))), BrushOp::Difference));
+            .with(BoolBrush::new(
+                Arc::new(cube_at(1.5, Vec3::new(2.0, 2.0, 2.0))),
+                BrushOp::Difference,
+            ))
+            .with(BoolBrush::new(
+                Arc::new(cube_at(1.5, Vec3::new(-2.0, -2.0, -2.0))),
+                BrushOp::Difference,
+            ));
         let out = stack.bake(&base).unwrap();
         assert_eq!(out.euler_characteristic(), 2);
         assert!(out.face_count() > base.face_count());
@@ -221,10 +237,16 @@ mod tests {
         let stack = BoolStack::new()
             .with(BoolBrush::new(coplanar, BrushOp::Difference))
             .with(BoolBrush::new(good, BrushOp::Difference));
-        assert!(stack.bake(&base).is_err(), "strict bake fails on the coplanar brush");
+        assert!(
+            stack.bake(&base).is_err(),
+            "strict bake fails on the coplanar brush"
+        );
         let (out, skipped) = stack.carve(&base);
         assert_eq!(skipped, vec![0]);
-        assert!(out.face_count() > base.face_count(), "the good brush still applied");
+        assert!(
+            out.face_count() > base.face_count(),
+            "the good brush still applied"
+        );
     }
 
     #[test]
@@ -234,7 +256,10 @@ mod tests {
         let stack = BoolStack::new().with(BoolBrush::new(brush, BrushOp::Slice));
 
         let baked = stack.bake(&base).unwrap();
-        assert!(baked.face_count() > base.face_count(), "base keeps the outside, cut");
+        assert!(
+            baked.face_count() > base.face_count(),
+            "base keeps the outside, cut"
+        );
 
         let pieces = stack.slice_pieces(&base);
         assert_eq!(pieces.len(), 1);

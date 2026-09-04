@@ -247,8 +247,13 @@ impl DigitisedDataset {
             .map(|p| {
                 let (x, y) = calibration.point_at(p.x_px, p.y_px);
                 let half_thickness = (p.thickness_px / 2.0).max(0.5);
-                let ((x_minus, x_plus), (y_minus, y_plus)) =
-                    xy_uncertainty_interval(&calibration, p.x_px, p.y_px, column_half, half_thickness);
+                let ((x_minus, x_plus), (y_minus, y_plus)) = xy_uncertainty_interval(
+                    &calibration,
+                    p.x_px,
+                    p.y_px,
+                    column_half,
+                    half_thickness,
+                );
                 DigitisedPoint {
                     x,
                     y,
@@ -373,7 +378,11 @@ impl DigitisedDataset {
                 );
             }
             PlotCalibration::Parallelogram(p) => {
-                let _ = writeln!(s, "# calibration: parallelogram, pixel corners {:?}", p.pixel_corners);
+                let _ = writeln!(
+                    s,
+                    "# calibration: parallelogram, pixel corners {:?}",
+                    p.pixel_corners
+                );
                 let _ = writeln!(
                     s,
                     "# x_axis: {} scale, left = {}, right = {}",
@@ -667,13 +676,31 @@ mod tests {
         // Explanatory `#` header comments are allowed to mention these
         // words (they say where the data actually lives); only the
         // non-comment lines (the header row + data rows) must not.
-        let data_section: String = csv.lines().filter(|l| !l.starts_with('#')).collect::<Vec<_>>().join("\n");
-        for needle in ["x_minus", "x_plus", "y_minus", "y_plus", "auto", "hand-placed", "hand-corrected"] {
-            assert!(!data_section.contains(needle), "{needle:?} leaked into the data section:\n{data_section}");
+        let data_section: String = csv
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .collect::<Vec<_>>()
+            .join("\n");
+        for needle in [
+            "x_minus",
+            "x_plus",
+            "y_minus",
+            "y_plus",
+            "auto",
+            "hand-placed",
+            "hand-corrected",
+        ] {
+            assert!(
+                !data_section.contains(needle),
+                "{needle:?} leaked into the data section:\n{data_section}"
+            );
         }
         // ... but the JSON export still carries it all in full.
         let json = dataset().to_json_string();
-        assert!(json.contains("x_minus") && json.contains("y_plus"), "{json}");
+        assert!(
+            json.contains("x_minus") && json.contains("y_plus"),
+            "{json}"
+        );
     }
 
     #[test]
@@ -681,7 +708,12 @@ mod tests {
         let trace_record = TraceRecord {
             engine: "test".to_string(),
             config: TraceConfig::default(),
-            frame: PixelRect { left: 0, right: 100, top: 0, bottom: 100 },
+            frame: PixelRect {
+                left: 0,
+                right: 100,
+                top: 0,
+                bottom: 100,
+            },
             frame_auto_detected: true,
         };
         let d = DigitisedDataset::from_pixel_trace(
@@ -693,20 +725,39 @@ mod tests {
             "2026-08-11T00:00:00Z",
             trace_record,
             &[
-                PixelTracePoint { x_px: 0.0, y_px: 100.0, thickness_px: 3.0 },
-                PixelTracePoint { x_px: 50.0, y_px: 50.0, thickness_px: 3.0 },
-                PixelTracePoint { x_px: 100.0, y_px: 0.0, thickness_px: 3.0 },
+                PixelTracePoint {
+                    x_px: 0.0,
+                    y_px: 100.0,
+                    thickness_px: 3.0,
+                },
+                PixelTracePoint {
+                    x_px: 50.0,
+                    y_px: 50.0,
+                    thickness_px: 3.0,
+                },
+                PixelTracePoint {
+                    x_px: 100.0,
+                    y_px: 0.0,
+                    thickness_px: 3.0,
+                },
             ],
         );
         let csv = d.to_csv_string();
-        let data_lines: Vec<&str> = csv.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
+        let data_lines: Vec<&str> = csv
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.is_empty())
+            .collect();
         // Header + exactly 3 data rows, each with exactly 2 comma-separated
         // fields (x, y) -- no calibration/reference values, uncertainty, or
         // origin leaking into the rows themselves.
         assert_eq!(data_lines.len(), 4, "{data_lines:?}");
         assert_eq!(data_lines[0], "x,y");
         for row in &data_lines[1..] {
-            assert_eq!(row.split(',').count(), 2, "row {row:?} should have exactly x,y");
+            assert_eq!(
+                row.split(',').count(),
+                2,
+                "row {row:?} should have exactly x,y"
+            );
         }
     }
 

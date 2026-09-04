@@ -148,8 +148,8 @@ pub fn dgammadpipi1_pt(p: f64, t: f64) -> f64 {
     let (pi, tau) = reduce(p, t);
     let mut total = 0.0;
     for k in 0..NTERMS {
-        total += N[k] * I[k] * (I[k] - 1.0) * (7.1 - pi).powf(I[k] - 2.0)
-            * (tau - 1.222).powf(J[k]);
+        total +=
+            N[k] * I[k] * (I[k] - 1.0) * (7.1 - pi).powf(I[k] - 2.0) * (tau - 1.222).powf(J[k]);
     }
     total
 }
@@ -167,8 +167,7 @@ pub fn dgammadpitau1_pt(p: f64, t: f64) -> f64 {
     let (pi, tau) = reduce(p, t);
     let mut total = 0.0;
     for k in 0..NTERMS {
-        total += -N[k] * I[k] * (7.1 - pi).powf(I[k] - 1.0) * J[k]
-            * (tau - 1.222).powf(J[k] - 1.0);
+        total += -N[k] * I[k] * (7.1 - pi).powf(I[k] - 1.0) * J[k] * (tau - 1.222).powf(J[k] - 1.0);
     }
     total
 }

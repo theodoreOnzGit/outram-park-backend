@@ -2,24 +2,15 @@ use uom::si::area::square_centimeter;
 use uom::si::f64::*;
 
 use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
-use crate::
-array_fluid_collections::
-fluid_component_collection::
-fluid_component_collection::FluidComponentCollection;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 // let's construct the branches with test pressures and obtain
-use crate::
-array_fluid_collections::
-fluid_component_collection::
-fluid_component_collection::FluidComponentCollectionMethods;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;
 use crate::prelude::beta_testing::FluidArray;
 use uom::ConstZero;
 
 use uom::si::thermodynamic_temperature::degree_celsius;
-use crate::
-array_fluid_collections::
-fluid_component_collection::
-fluid_component_super_collection::FluidComponentSuperCollection;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 
 use crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;

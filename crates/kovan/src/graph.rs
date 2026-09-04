@@ -43,8 +43,14 @@ const CACHE_HEADER: &str = "\
 
 #[derive(Debug)]
 pub enum GraphError {
-    Io { path: PathBuf, source: std::io::Error },
-    Toml { path: PathBuf, message: String },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    Toml {
+        path: PathBuf,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for GraphError {
@@ -115,23 +121,41 @@ impl KnowledgeGraph {
         for paper in &index.papers {
             let from = paper_node(&paper.citekey);
             for t in &paper.topics {
-                edges.push(Edge { from: from.clone(), to: collection_node(t), kind: EdgeKind::Classification });
+                edges.push(Edge {
+                    from: from.clone(),
+                    to: collection_node(t),
+                    kind: EdgeKind::Classification,
+                });
             }
             for p in &paper.projects {
-                edges.push(Edge { from: from.clone(), to: collection_node(p), kind: EdgeKind::Classification });
+                edges.push(Edge {
+                    from: from.clone(),
+                    to: collection_node(p),
+                    kind: EdgeKind::Classification,
+                });
             }
 
             let md_path = root.paper_markdown(&paper.citekey);
-            let Ok(text) = std::fs::read_to_string(&md_path) else { continue };
+            let Ok(text) = std::fs::read_to_string(&md_path) else {
+                continue;
+            };
 
             let parsed = parse_document(&text);
             for artifact in &parsed.artifacts {
                 let art_node = artifact_node(&paper.citekey, artifact.id());
                 for t in &artifact.toml.classification.topics {
-                    edges.push(Edge { from: art_node.clone(), to: collection_node(t), kind: EdgeKind::Classification });
+                    edges.push(Edge {
+                        from: art_node.clone(),
+                        to: collection_node(t),
+                        kind: EdgeKind::Classification,
+                    });
                 }
                 for p in &artifact.toml.classification.projects {
-                    edges.push(Edge { from: art_node.clone(), to: collection_node(p), kind: EdgeKind::Classification });
+                    edges.push(Edge {
+                        from: art_node.clone(),
+                        to: collection_node(p),
+                        kind: EdgeKind::Classification,
+                    });
                 }
             }
 
@@ -140,30 +164,53 @@ impl KnowledgeGraph {
                     Some(id) => artifact_node(&link.citekey, &id),
                     None => paper_node(&link.citekey),
                 };
-                edges.push(Edge { from: from.clone(), to, kind: EdgeKind::WikiLink });
+                edges.push(Edge {
+                    from: from.clone(),
+                    to,
+                    kind: EdgeKind::WikiLink,
+                });
             }
             for cited in extract_citations(&text) {
-                edges.push(Edge { from: from.clone(), to: paper_node(&cited), kind: EdgeKind::Cites });
+                edges.push(Edge {
+                    from: from.clone(),
+                    to: paper_node(&cited),
+                    kind: EdgeKind::Cites,
+                });
             }
         }
 
         edges.sort();
         edges.dedup();
-        Self { schema_version: GRAPH_SCHEMA_VERSION, edges }
+        Self {
+            schema_version: GRAPH_SCHEMA_VERSION,
+            edges,
+        }
     }
 
     /// Persist to `.kovan/graph/graph.toml`, atomically — same convention
     /// as [`KnowledgeIndex::save_cache`].
     pub fn save_cache(&self, root: &KovanRoot) -> Result<(), GraphError> {
         let dir = root.state_dir().join("graph");
-        std::fs::create_dir_all(&dir).map_err(|source| GraphError::Io { path: dir.clone(), source })?;
+        std::fs::create_dir_all(&dir).map_err(|source| GraphError::Io {
+            path: dir.clone(),
+            source,
+        })?;
         let final_path = dir.join("graph.toml");
         let tmp_path = dir.join("graph.toml.tmp");
-        let body =
-            toml::to_string_pretty(self).map_err(|e| GraphError::Toml { path: final_path.clone(), message: e.to_string() })?;
-        std::fs::write(&tmp_path, format!("{CACHE_HEADER}\n{body}"))
-            .map_err(|source| GraphError::Io { path: tmp_path.clone(), source })?;
-        std::fs::rename(&tmp_path, &final_path).map_err(|source| GraphError::Io { path: final_path, source })
+        let body = toml::to_string_pretty(self).map_err(|e| GraphError::Toml {
+            path: final_path.clone(),
+            message: e.to_string(),
+        })?;
+        std::fs::write(&tmp_path, format!("{CACHE_HEADER}\n{body}")).map_err(|source| {
+            GraphError::Io {
+                path: tmp_path.clone(),
+                source,
+            }
+        })?;
+        std::fs::rename(&tmp_path, &final_path).map_err(|source| GraphError::Io {
+            path: final_path,
+            source,
+        })
     }
 
     /// Read a previously saved cache — `None` on any failure, exactly like
@@ -215,7 +262,9 @@ pub fn extract_wiki_links(markdown: &str) -> Vec<WikiLinkRef> {
     let mut out = Vec::new();
     for (start, _) in markdown.match_indices("[[") {
         let after = &markdown[start + 2..];
-        let Some(end) = after.find("]]") else { continue };
+        let Some(end) = after.find("]]") else {
+            continue;
+        };
         let inner = &after[..end];
         if inner.is_empty() || inner.contains('[') || inner.contains(']') {
             continue;
@@ -238,7 +287,11 @@ pub fn extract_citations(markdown: &str) -> Vec<String> {
         let after = &markdown[start + 2..];
         let Some(end) = after.find(']') else { continue };
         let inner = &after[..end];
-        if !inner.is_empty() && inner.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ':')) {
+        if !inner.is_empty()
+            && inner
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ':'))
+        {
             out.push(inner.to_string());
         }
     }
@@ -256,17 +309,29 @@ mod tests {
         let md = "See [[wang2018multiphysics]] and [[wang2018multiphysics#table-4-4]] for detail.";
         let links = extract_wiki_links(md);
         assert_eq!(links.len(), 2);
-        assert_eq!(links[0], WikiLinkRef { citekey: "wang2018multiphysics".to_string(), artifact: None });
+        assert_eq!(
+            links[0],
+            WikiLinkRef {
+                citekey: "wang2018multiphysics".to_string(),
+                artifact: None
+            }
+        );
         assert_eq!(
             links[1],
-            WikiLinkRef { citekey: "wang2018multiphysics".to_string(), artifact: Some("table-4-4".to_string()) }
+            WikiLinkRef {
+                citekey: "wang2018multiphysics".to_string(),
+                artifact: Some("table-4-4".to_string())
+            }
         );
     }
 
     #[test]
     fn extract_citations_finds_a_bracketed_citekey() {
         let md = "Wang's methodology [@wang2018multiphysics] uses graphite data.";
-        assert_eq!(extract_citations(md), vec!["wang2018multiphysics".to_string()]);
+        assert_eq!(
+            extract_citations(md),
+            vec!["wang2018multiphysics".to_string()]
+        );
     }
 
     #[test]
@@ -279,12 +344,17 @@ mod tests {
     fn rebuild_combines_classification_wiki_links_and_citations() {
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
-
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
             .unwrap();
+
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
         EntityConfig::paper(CiteKey::parse("lee2020corrosion").unwrap(), Access::Open)
             .with_topics(["htgrs"])
             .save_paper(&root.paper_dir("lee2020corrosion"))
@@ -306,13 +376,31 @@ mod tests {
         let htgrs = collection_node("htgrs");
         let table = artifact_node("wang2018multiphysics", "table-1");
 
-        assert!(graph.edges.contains(&Edge { from: wang.clone(), to: htgrs.clone(), kind: EdgeKind::Classification }));
-        assert!(graph.edges.contains(&Edge { from: lee.clone(), to: htgrs.clone(), kind: EdgeKind::Classification }));
-        assert!(graph.edges.contains(&Edge { from: table.clone(), to: htgrs.clone(), kind: EdgeKind::Classification }));
-        assert!(graph.edges.contains(&Edge { from: wang.clone(), to: lee.clone(), kind: EdgeKind::Cites }));
-        assert!(graph
-            .edges
-            .contains(&Edge { from: wang.clone(), to: artifact_node("lee2020corrosion", "a-note"), kind: EdgeKind::WikiLink }));
+        assert!(graph.edges.contains(&Edge {
+            from: wang.clone(),
+            to: htgrs.clone(),
+            kind: EdgeKind::Classification
+        }));
+        assert!(graph.edges.contains(&Edge {
+            from: lee.clone(),
+            to: htgrs.clone(),
+            kind: EdgeKind::Classification
+        }));
+        assert!(graph.edges.contains(&Edge {
+            from: table.clone(),
+            to: htgrs.clone(),
+            kind: EdgeKind::Classification
+        }));
+        assert!(graph.edges.contains(&Edge {
+            from: wang.clone(),
+            to: lee.clone(),
+            kind: EdgeKind::Cites
+        }));
+        assert!(graph.edges.contains(&Edge {
+            from: wang.clone(),
+            to: artifact_node("lee2020corrosion", "a-note"),
+            kind: EdgeKind::WikiLink
+        }));
 
         // Backlinks are derived, not authored: htgrs has three inbound
         // classification edges without anyone writing them by hand.
@@ -324,10 +412,13 @@ mod tests {
     fn deleting_the_cache_and_rebuilding_reproduces_the_same_graph() {
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
-            .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
 
         let index = KnowledgeIndex::rebuild(&root);
         let before = KnowledgeGraph::rebuild(&root, &index);

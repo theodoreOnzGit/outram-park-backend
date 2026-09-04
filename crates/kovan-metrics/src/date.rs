@@ -105,14 +105,21 @@ impl Date {
         const MONTHS: [&str; 12] = [
             "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
-        let name = MONTHS.get((self.month as usize).saturating_sub(1)).copied().unwrap_or("???");
+        let name = MONTHS
+            .get((self.month as usize).saturating_sub(1))
+            .copied()
+            .unwrap_or("???");
         format!("{:02} {} {}", self.day, name, self.year)
     }
 
     /// Days since the Unix epoch (1970-01-01), negative before it. Hinnant's
     /// `days_from_civil`.
     pub fn to_epoch_days(self) -> i64 {
-        let y = if self.month <= 2 { self.year - 1 } else { self.year } as i64;
+        let y = if self.month <= 2 {
+            self.year - 1
+        } else {
+            self.year
+        } as i64;
         let era = if y >= 0 { y } else { y - 399 } / 400;
         let yoe = y - era * 400;
         let m = self.month as i64;

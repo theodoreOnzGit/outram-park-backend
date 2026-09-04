@@ -216,7 +216,11 @@ impl Spline {
 
             let auto_dir = next.sub(prev);
             let auto_len = auto_dir.length();
-            let tangent = if auto_len > 1e-9 { auto_dir.scale(1.0 / auto_len) } else { Vec3::new(1.0, 0.0, 0.0) };
+            let tangent = if auto_len > 1e-9 {
+                auto_dir.scale(1.0 / auto_len)
+            } else {
+                Vec3::new(1.0, 0.0, 0.0)
+            };
             let spacing = (p.sub(prev).length() + next.sub(p).length()) * 0.5 / 3.0;
 
             let cp = &mut self.points[i];
@@ -226,7 +230,14 @@ impl Spline {
                 HandleType::Aligned => {
                     let d = cp.handle_right.sub(p);
                     let len = d.length();
-                    cp.handle_left = p.sub(if len > 1e-9 { d.scale(1.0 / len) } else { tangent }.scale(len.max(spacing)));
+                    cp.handle_left = p.sub(
+                        if len > 1e-9 {
+                            d.scale(1.0 / len)
+                        } else {
+                            tangent
+                        }
+                        .scale(len.max(spacing)),
+                    );
                 }
                 HandleType::Free => {}
             }
@@ -236,7 +247,14 @@ impl Spline {
                 HandleType::Aligned => {
                     let d = p.sub(cp.handle_left);
                     let len = d.length();
-                    cp.handle_right = p.add(if len > 1e-9 { d.scale(1.0 / len) } else { tangent }.scale(len.max(spacing)));
+                    cp.handle_right = p.add(
+                        if len > 1e-9 {
+                            d.scale(1.0 / len)
+                        } else {
+                            tangent
+                        }
+                        .scale(len.max(spacing)),
+                    );
                 }
                 HandleType::Free => {}
             }
@@ -245,7 +263,10 @@ impl Spline {
 
     /// Evaluate the spline to a polyline (`resolution` points per segment).
     pub fn sample(&self) -> Vec<Vec3> {
-        self.sample_with_frames().into_iter().map(|s| s.position).collect()
+        self.sample_with_frames()
+            .into_iter()
+            .map(|s| s.position)
+            .collect()
     }
 
     /// Evaluate the spline to a list of [`SplineSample`]s (position, radius,
@@ -291,7 +312,10 @@ impl Spline {
             let b = &self.points[(s + 1) % n];
             for k in 0..self.resolution.max(1) {
                 let t = k as f64 / self.resolution.max(1) as f64;
-                out.push((a.position.add(b.position.sub(a.position).scale(t)), lerp(a.radius, b.radius, t)));
+                out.push((
+                    a.position.add(b.position.sub(a.position).scale(t)),
+                    lerp(a.radius, b.radius, t),
+                ));
             }
         }
         if !self.cyclic {
@@ -323,7 +347,7 @@ impl Spline {
     fn sample_nurbs(&self) -> Vec<(Vec3, f64)> {
         let n = self.points.len();
         let p = self.order.min(n).max(2) - 1; // degree
-        // Clamped uniform knot vector.
+                                              // Clamped uniform knot vector.
         let m = n + p + 1;
         let mut knots = vec![0.0; m];
         for (i, kv) in knots.iter_mut().enumerate() {
@@ -392,7 +416,11 @@ fn nurbs_point(pts: &[ControlPoint], knots: &[f64], degree: usize, u: f64) -> (V
         let mut saved = 0.0;
         for r in 0..j {
             let denom = right[r + 1] + left[j - r];
-            let temp = if denom.abs() > 1e-12 { basis[r] / denom } else { 0.0 };
+            let temp = if denom.abs() > 1e-12 {
+                basis[r] / denom
+            } else {
+                0.0
+            };
             basis[r] = saved + right[r + 1] * temp;
             saved = left[j - r] * temp;
         }
@@ -424,7 +452,11 @@ fn frames_from(raw: &[(Vec3, f64)], cyclic: bool, tilts: &[f64]) -> Vec<SplineSa
     // Parallel-transport an initial normal along the polyline.
     let tangent_at = |i: usize| -> Vec3 {
         let a = if i == 0 {
-            if cyclic { raw[m - 1].0 } else { raw[0].0 }
+            if cyclic {
+                raw[m - 1].0
+            } else {
+                raw[0].0
+            }
         } else {
             raw[i - 1].0
         };
@@ -436,10 +468,18 @@ fn frames_from(raw: &[(Vec3, f64)], cyclic: bool, tilts: &[f64]) -> Vec<SplineSa
             raw[m - 1].0
         };
         let d = b.sub(a);
-        if d.length() > 1e-9 { d.normalize() } else { Vec3::new(1.0, 0.0, 0.0) }
+        if d.length() > 1e-9 {
+            d.normalize()
+        } else {
+            Vec3::new(1.0, 0.0, 0.0)
+        }
     };
     let t0 = tangent_at(0);
-    let up = if t0.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+    let up = if t0.z.abs() < 0.9 {
+        Vec3::new(0.0, 0.0, 1.0)
+    } else {
+        Vec3::new(1.0, 0.0, 0.0)
+    };
     let mut normal = up.cross(t0).normalize();
     let mut prev_t = t0;
     for i in 0..m {
@@ -454,7 +494,12 @@ fn frames_from(raw: &[(Vec3, f64)], cyclic: bool, tilts: &[f64]) -> Vec<SplineSa
         // Apply the interpolated tilt about the tangent.
         let tilt = interp_tilt(tilts, i, m);
         let n = rodrigues(normal, t, tilt);
-        out.push(SplineSample { position: raw[i].0, radius: raw[i].1, tangent: t, normal: n.normalize() });
+        out.push(SplineSample {
+            position: raw[i].0,
+            radius: raw[i].1,
+            tangent: t,
+            normal: n.normalize(),
+        });
     }
     out
 }
@@ -471,7 +516,9 @@ fn interp_tilt(tilts: &[f64], i: usize, m: usize) -> f64 {
 
 fn rodrigues(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
     let (s, c) = theta.sin_cos();
-    v.scale(c).add(k.cross(v).scale(s)).add(k.scale(k.dot(v) * (1.0 - c)))
+    v.scale(c)
+        .add(k.cross(v).scale(s))
+        .add(k.scale(k.dot(v) * (1.0 - c)))
 }
 
 #[cfg(test)]
@@ -480,7 +527,11 @@ mod tests {
 
     #[test]
     fn poly_spline_is_the_control_polygon() {
-        let s = Spline::poly(&[Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 0.0)]);
+        let s = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+        ]);
         let pts = s.sample();
         assert_eq!(pts.first().copied(), Some(Vec3::ZERO));
         assert_eq!(pts.last().copied(), Some(Vec3::new(1.0, 1.0, 0.0)));
@@ -489,18 +540,28 @@ mod tests {
 
     #[test]
     fn bezier_passes_through_its_control_points() {
-        let mut s = Spline::bezier(&[Vec3::ZERO, Vec3::new(2.0, 2.0, 0.0), Vec3::new(4.0, 0.0, 0.0)]);
+        let mut s = Spline::bezier(&[
+            Vec3::ZERO,
+            Vec3::new(2.0, 2.0, 0.0),
+            Vec3::new(4.0, 0.0, 0.0),
+        ]);
         s.resolution = 20;
         let pts = s.sample();
         assert!(pts.first().unwrap().sub(Vec3::ZERO).length() < 1e-9);
         assert!(pts.last().unwrap().sub(Vec3::new(4.0, 0.0, 0.0)).length() < 1e-9);
         // The middle control point is interpolated by a Bézier spline.
-        assert!(pts.iter().any(|p| p.sub(Vec3::new(2.0, 2.0, 0.0)).length() < 1e-6));
+        assert!(pts
+            .iter()
+            .any(|p| p.sub(Vec3::new(2.0, 2.0, 0.0)).length() < 1e-6));
     }
 
     #[test]
     fn vector_handles_make_straight_segments() {
-        let mut s = Spline::bezier(&[Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0)]);
+        let mut s = Spline::bezier(&[
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(2.0, 0.0, 0.0),
+        ]);
         for p in s.points.iter_mut() {
             p.type_left = HandleType::Vector;
             p.type_right = HandleType::Vector;
@@ -532,7 +593,11 @@ mod tests {
 
     #[test]
     fn cyclic_toggle_closes_the_loop() {
-        let mut s = Spline::poly(&[Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 0.0)]);
+        let mut s = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(1.0, 1.0, 0.0),
+        ]);
         assert_eq!(s.sample().len(), 3);
         s.toggle_cyclic();
         assert_eq!(s.sample().len(), 3, "3 segments now, still resolution 1");
@@ -553,13 +618,21 @@ mod tests {
         assert!((frames.first().unwrap().radius - 1.0).abs() < 1e-9);
         assert!((frames.last().unwrap().radius - 3.0).abs() < 1e-9);
         // The normal rolled ~90° between the ends.
-        let dot = frames.first().unwrap().normal.dot(frames.last().unwrap().normal);
+        let dot = frames
+            .first()
+            .unwrap()
+            .normal
+            .dot(frames.last().unwrap().normal);
         assert!(dot.abs() < 0.2, "tilt rolled the frame");
     }
 
     #[test]
     fn set_type_switches_evaluator() {
-        let mut s = Spline::poly(&[Vec3::ZERO, Vec3::new(2.0, 2.0, 0.0), Vec3::new(4.0, 0.0, 0.0)]);
+        let mut s = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(2.0, 2.0, 0.0),
+            Vec3::new(4.0, 0.0, 0.0),
+        ]);
         s.set_type(SplineType::Bezier);
         assert_eq!(s.spline_type, SplineType::Bezier);
         s.resolution = 10;

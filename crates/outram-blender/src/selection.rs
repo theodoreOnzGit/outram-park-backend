@@ -200,7 +200,11 @@ pub struct NonManifoldKinds {
 impl NonManifoldKinds {
     /// Every condition enabled.
     pub fn all() -> Self {
-        NonManifoldKinds { wire: true, boundary: true, multiple_faces: true }
+        NonManifoldKinds {
+            wire: true,
+            boundary: true,
+            multiple_faces: true,
+        }
     }
 }
 
@@ -358,7 +362,9 @@ impl Selection {
             SelectMode::Vertex => {
                 let vs: Vec<VertexId> = match e {
                     Element::Vertex(v) => vec![v],
-                    Element::Edge(ed) => mesh.edge(ed).map(|x| x.verts.to_vec()).unwrap_or_default(),
+                    Element::Edge(ed) => {
+                        mesh.edge(ed).map(|x| x.verts.to_vec()).unwrap_or_default()
+                    }
                     Element::Face(f) => mesh.face_vertices(f),
                 };
                 for v in vs {
@@ -579,9 +585,7 @@ impl Selection {
         if polygon.len() < 3 {
             return;
         }
-        self.select_by_vertex_predicate(mesh, region, |p| {
-            point_in_polygon_2d(project(p), polygon)
-        });
+        self.select_by_vertex_predicate(mesh, region, |p| point_in_polygon_2d(project(p), polygon));
     }
 
     /// Shared core of the region operators: mark the vertices for which
@@ -594,7 +598,11 @@ impl Selection {
         inside: impl Fn(Vec3) -> bool,
     ) {
         let vin: Vec<bool> = (0..mesh.vertex_count())
-            .map(|i| mesh.vertex(VertexId(i)).map(|v| inside(v.position)).unwrap_or(false))
+            .map(|i| {
+                mesh.vertex(VertexId(i))
+                    .map(|v| inside(v.position))
+                    .unwrap_or(false)
+            })
             .collect();
         let vhit = |v: VertexId| vin.get(v.0).copied().unwrap_or(false);
 
@@ -608,7 +616,9 @@ impl Selection {
             }
             SelectMode::Edge => {
                 for e in 0..mesh.edge_count() {
-                    let Some(edge) = mesh.edge(EdgeId(e)) else { continue };
+                    let Some(edge) = mesh.edge(EdgeId(e)) else {
+                        continue;
+                    };
                     let hit = match region {
                         RegionMode::Touching => vhit(edge.verts[0]) || vhit(edge.verts[1]),
                         RegionMode::Enclosed => vhit(edge.verts[0]) && vhit(edge.verts[1]),
@@ -660,16 +670,17 @@ impl Selection {
     /// whichever faces the current selection touches; the result is every face
     /// reachable from them without crossing a delimiter, flushed to the active
     /// mode.
-    pub fn select_linked_delimited(
-        &mut self,
-        mesh: &Mesh,
-        delimiters: &BTreeSet<EdgeId>,
-    ) {
+    pub fn select_linked_delimited(&mut self, mesh: &Mesh, delimiters: &BTreeSet<EdgeId>) {
         let topo = MeshTopology::new(mesh);
         let blocked: BTreeSet<(usize, usize)> = delimiters
             .iter()
             .filter_map(|&e| mesh.edge(e))
-            .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+            .map(|ed| {
+                (
+                    ed.verts[0].0.min(ed.verts[1].0),
+                    ed.verts[0].0.max(ed.verts[1].0),
+                )
+            })
             .collect();
 
         // Seed faces: any face all of whose verts are currently selected, or
@@ -683,7 +694,11 @@ impl Selection {
             .collect();
         if seeds.is_empty() {
             seeds = (0..mesh.face_count())
-                .filter(|&f| mesh.face_vertices(FaceId(f)).iter().any(|v| sel_v.contains(v)))
+                .filter(|&f| {
+                    mesh.face_vertices(FaceId(f))
+                        .iter()
+                        .any(|v| sel_v.contains(v))
+                })
                 .collect();
         }
 
@@ -692,7 +707,10 @@ impl Selection {
         while let Some(f) = stack.pop() {
             for e in topo.face_edges(mesh, FaceId(f)) {
                 let ed = mesh.edge(e).unwrap();
-                if blocked.contains(&(ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0))) {
+                if blocked.contains(&(
+                    ed.verts[0].0.min(ed.verts[1].0),
+                    ed.verts[0].0.max(ed.verts[1].0),
+                )) {
                     continue;
                 }
                 for &g in topo.edge_faces(e) {
@@ -703,8 +721,10 @@ impl Selection {
             }
         }
 
-        let component: BTreeSet<VertexId> =
-            seen.iter().flat_map(|&f| mesh.face_vertices(FaceId(f))).collect();
+        let component: BTreeSet<VertexId> = seen
+            .iter()
+            .flat_map(|&f| mesh.face_vertices(FaceId(f)))
+            .collect();
         self.set_component(mesh, &component, true);
     }
 
@@ -816,15 +836,11 @@ impl Selection {
         let topo = MeshTopology::new(mesh);
         match (self.mode, from, to) {
             (SelectMode::Edge, Element::Edge(a), Element::Edge(b)) => {
-                let path = topology::shortest_hop_path(a, b, |e| {
-                    edge_neighbours(&topo, mesh, e)
-                });
+                let path = topology::shortest_hop_path(a, b, |e| edge_neighbours(&topo, mesh, e));
                 self.add_edges(mesh, path);
             }
             (SelectMode::Face, Element::Face(a), Element::Face(b)) => {
-                let path = topology::shortest_hop_path(a, b, |f| {
-                    face_neighbours(&topo, mesh, f)
-                });
+                let path = topology::shortest_hop_path(a, b, |f| face_neighbours(&topo, mesh, f));
                 self.add_faces(mesh, path);
             }
             _ => {
@@ -995,8 +1011,11 @@ impl Selection {
                 if self.mode != SelectMode::Vertex {
                     return;
                 }
-                let refs: BTreeSet<usize> =
-                    self.verts.iter().map(|&v| topo.vertex_edges(v).len()).collect();
+                let refs: BTreeSet<usize> = self
+                    .verts
+                    .iter()
+                    .map(|&v| topo.vertex_edges(v).len())
+                    .collect();
                 for v in 0..mesh.vertex_count() {
                     if refs.contains(&topo.vertex_edges(VertexId(v)).len()) {
                         self.verts.insert(VertexId(v));
@@ -1009,8 +1028,11 @@ impl Selection {
                 if self.mode != SelectMode::Edge {
                     return;
                 }
-                let refs: Vec<EdgeTrait> =
-                    self.edges.iter().map(|&e| edge_trait(mesh, &topo, e, trait_)).collect();
+                let refs: Vec<EdgeTrait> = self
+                    .edges
+                    .iter()
+                    .map(|&e| edge_trait(mesh, &topo, e, trait_))
+                    .collect();
                 for e in 0..mesh.edge_count() {
                     let cand = edge_trait(mesh, &topo, EdgeId(e), trait_);
                     if refs.iter().any(|r| cand.matches(r, threshold)) {
@@ -1026,8 +1048,11 @@ impl Selection {
                 if self.mode != SelectMode::Face {
                     return;
                 }
-                let refs: Vec<FaceTrait> =
-                    self.faces.iter().map(|&f| face_trait(mesh, f, trait_)).collect();
+                let refs: Vec<FaceTrait> = self
+                    .faces
+                    .iter()
+                    .map(|&f| face_trait(mesh, f, trait_))
+                    .collect();
                 for f in 0..mesh.face_count() {
                     let cand = face_trait(mesh, FaceId(f), trait_);
                     if refs.iter().any(|r| cand.matches(r, threshold)) {
@@ -1114,8 +1139,10 @@ impl Selection {
                 for v in 0..mesh.vertex_count() {
                     let at = topo.vertex_edges(VertexId(v));
                     let touches_bad = at.iter().any(|&e| is_bad(e));
-                    let boundary_count =
-                        at.iter().filter(|&&e| topo.edge_faces(e).len() == 1).count();
+                    let boundary_count = at
+                        .iter()
+                        .filter(|&&e| topo.edge_faces(e).len() == 1)
+                        .count();
                     if touches_bad || boundary_count % 2 == 1 {
                         self.verts.insert(VertexId(v));
                     }
@@ -1200,7 +1227,8 @@ impl Selection {
     pub fn select_mirror(&mut self, mesh: &Mesh, axis: Axis, merge_dist: f64, extend: bool) {
         let lookup = PositionLookup::new(mesh, merge_dist.max(1e-9));
         let mirror_vert = |v: VertexId| {
-            mesh.vertex(v).and_then(|vx| lookup.find(axis.reflect(vx.position)))
+            mesh.vertex(v)
+                .and_then(|vx| lookup.find(axis.reflect(vx.position)))
         };
 
         let mut m_verts: BTreeSet<VertexId> = BTreeSet::new();
@@ -1229,8 +1257,11 @@ impl Selection {
             }
             SelectMode::Face => {
                 for &f in &self.faces {
-                    let want: Option<BTreeSet<VertexId>> =
-                        mesh.face_vertices(f).iter().map(|&v| mirror_vert(v)).collect();
+                    let want: Option<BTreeSet<VertexId>> = mesh
+                        .face_vertices(f)
+                        .iter()
+                        .map(|&v| mirror_vert(v))
+                        .collect();
                     let Some(want) = want else { continue };
                     for cand in 0..mesh.face_count() {
                         let cvs: BTreeSet<VertexId> =
@@ -1316,7 +1347,11 @@ impl Selection {
                     .collect();
             }
             SelectMode::Face => {
-                self.verts = self.faces.iter().flat_map(|&f| mesh.face_vertices(f)).collect();
+                self.verts = self
+                    .faces
+                    .iter()
+                    .flat_map(|&f| mesh.face_vertices(f))
+                    .collect();
                 self.edges = (0..mesh.edge_count())
                     .map(EdgeId)
                     .filter(|&e| {
@@ -1344,7 +1379,9 @@ impl PositionLookup {
         let mut grid: HashMap<[i64; 3], Vec<(Vec3, VertexId)>> = HashMap::new();
         for i in 0..mesh.vertex_count() {
             if let Some(v) = mesh.vertex(VertexId(i)) {
-                grid.entry(Self::key(v.position, cell)).or_default().push((v.position, VertexId(i)));
+                grid.entry(Self::key(v.position, cell))
+                    .or_default()
+                    .push((v.position, VertexId(i)));
             }
         }
         PositionLookup { cell, grid }
@@ -1420,7 +1457,9 @@ fn face_edges(mesh: &Mesh, f: FaceId) -> Vec<EdgeId> {
 /// Edges sharing a vertex with `e` — the adjacency for an edge-mode shortest
 /// path.
 fn edge_neighbours(topo: &MeshTopology, mesh: &Mesh, e: EdgeId) -> Vec<EdgeId> {
-    let Some(edge) = mesh.edge(e) else { return Vec::new() };
+    let Some(edge) = mesh.edge(e) else {
+        return Vec::new();
+    };
     let mut out: Vec<EdgeId> = Vec::new();
     for &v in &edge.verts {
         for &n in topo.vertex_edges(v) {
@@ -1494,10 +1533,16 @@ impl EdgeTrait {
 }
 
 fn edge_trait(mesh: &Mesh, topo: &MeshTopology, e: EdgeId, t: SimilarTrait) -> EdgeTrait {
-    let Some(edge) = mesh.edge(e) else { return EdgeTrait::FaceCount(usize::MAX) };
+    let Some(edge) = mesh.edge(e) else {
+        return EdgeTrait::FaceCount(usize::MAX);
+    };
     let (a, b) = (
-        mesh.vertex(edge.verts[0]).map(|v| v.position).unwrap_or(Vec3::ZERO),
-        mesh.vertex(edge.verts[1]).map(|v| v.position).unwrap_or(Vec3::ZERO),
+        mesh.vertex(edge.verts[0])
+            .map(|v| v.position)
+            .unwrap_or(Vec3::ZERO),
+        mesh.vertex(edge.verts[1])
+            .map(|v| v.position)
+            .unwrap_or(Vec3::ZERO),
     );
     match t {
         SimilarTrait::EdgeLength => EdgeTrait::Length(b.sub(a).length()),
@@ -1555,7 +1600,10 @@ fn face_area(mesh: &Mesh, f: FaceId) -> f64 {
     let mut n = Vec3::ZERO;
     for i in 0..vs.len() {
         let cur = mesh.vertex(vs[i]).map(|v| v.position).unwrap_or(Vec3::ZERO);
-        let nxt = mesh.vertex(vs[(i + 1) % vs.len()]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+        let nxt = mesh
+            .vertex(vs[(i + 1) % vs.len()])
+            .map(|v| v.position)
+            .unwrap_or(Vec3::ZERO);
         n = n.add(Vec3::new(
             (cur.y - nxt.y) * (cur.z + nxt.z),
             (cur.z - nxt.z) * (cur.x + nxt.x),
@@ -1572,7 +1620,10 @@ fn face_perimeter(mesh: &Mesh, f: FaceId) -> f64 {
     (0..n)
         .map(|i| {
             let a = mesh.vertex(vs[i]).map(|v| v.position).unwrap_or(Vec3::ZERO);
-            let b = mesh.vertex(vs[(i + 1) % n]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+            let b = mesh
+                .vertex(vs[(i + 1) % n])
+                .map(|v| v.position)
+                .unwrap_or(Vec3::ZERO);
             b.sub(a).length()
         })
         .sum()
@@ -1590,7 +1641,12 @@ fn flood_components(
         .map(|d| {
             d.iter()
                 .filter_map(|&e| mesh.edge(e))
-                .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+                .map(|ed| {
+                    (
+                        ed.verts[0].0.min(ed.verts[1].0),
+                        ed.verts[0].0.max(ed.verts[1].0),
+                    )
+                })
                 .collect()
         })
         .unwrap_or_default();
@@ -1629,8 +1685,8 @@ fn point_in_polygon_2d(p: [f64; 2], polygon: &[[f64; 2]]) -> bool {
     for i in 0..n {
         let (xi, yi) = (polygon[i][0], polygon[i][1]);
         let (xj, yj) = (polygon[j][0], polygon[j][1]);
-        let intersects = ((yi > p[1]) != (yj > p[1]))
-            && (p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi);
+        let intersects =
+            ((yi > p[1]) != (yj > p[1])) && (p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi);
         if intersects {
             inside = !inside;
         }
@@ -1703,13 +1759,17 @@ mod tests {
         s.select(&m, Element::Vertex(vs[0]));
         s.select(&m, Element::Vertex(vs[1]));
         s.set_mode(&m, SelectMode::Face);
-        assert_eq!(s.face_count(), 0, "a half-selected face is not selected in face mode");
+        assert_eq!(
+            s.face_count(),
+            0,
+            "a half-selected face is not selected in face mode"
+        );
     }
 
     #[test]
     fn box_select_enclosed_vs_touching() {
         let m = cube(); // corners at ±1
-        // A box covering only x < 0.
+                        // A box covering only x < 0.
         let (min, max) = (Vec3::new(-2.0, -2.0, -2.0), Vec3::new(0.0, 2.0, 2.0));
 
         let mut touch = Selection::new(SelectMode::Face);
@@ -1734,7 +1794,11 @@ mod tests {
 
         let mut none = Selection::new(SelectMode::Vertex);
         none.select_in_sphere(&m, Vec3::ZERO, 1.0, RegionMode::Touching);
-        assert_eq!(none.vertex_count(), 0, "cube corners are at distance sqrt(3) > 1");
+        assert_eq!(
+            none.vertex_count(),
+            0,
+            "cube corners are at distance sqrt(3) > 1"
+        );
     }
 
     #[test]
@@ -1753,8 +1817,11 @@ mod tests {
         // Two disjoint cubes in one mesh.
         let a = primitives::cube(2.0);
         let mut positions = a.positions();
-        let mut faces: Vec<Vec<usize>> =
-            a.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = a
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let off = positions.len();
         for p in a.positions() {
             positions.push(p.add(Vec3::new(10.0, 0.0, 0.0)));
@@ -1790,24 +1857,40 @@ mod tests {
         s.select(&m, Element::Face(neg_x));
         s.select_mirror(&m, Axis::X, 1e-6, true);
         assert!(s.is_selected(Element::Face(pos_x)));
-        assert!(s.is_selected(Element::Face(neg_x)), "extend keeps the original");
+        assert!(
+            s.is_selected(Element::Face(neg_x)),
+            "extend keeps the original"
+        );
 
         let mut replaced = Selection::new(SelectMode::Face);
         replaced.select(&m, Element::Face(neg_x));
         replaced.select_mirror(&m, Axis::X, 1e-6, false);
         assert!(replaced.is_selected(Element::Face(pos_x)));
-        assert!(!replaced.is_selected(Element::Face(neg_x)), "no extend replaces");
+        assert!(
+            !replaced.is_selected(Element::Face(neg_x)),
+            "no extend replaces"
+        );
     }
 
     #[test]
     fn set_algebra_composes_extend_and_subtract() {
         let m = cube();
         let mut base = Selection::new(SelectMode::Vertex);
-        base.select_in_box(&m, Vec3::new(-2.0, -2.0, -2.0), Vec3::new(0.0, 2.0, 2.0), RegionMode::Touching);
+        base.select_in_box(
+            &m,
+            Vec3::new(-2.0, -2.0, -2.0),
+            Vec3::new(0.0, 2.0, 2.0),
+            RegionMode::Touching,
+        );
         let n0 = base.vertex_count();
 
         let mut rhs = Selection::new(SelectMode::Vertex);
-        rhs.select_in_box(&m, Vec3::new(-2.0, -2.0, -2.0), Vec3::new(2.0, 2.0, 0.0), RegionMode::Touching);
+        rhs.select_in_box(
+            &m,
+            Vec3::new(-2.0, -2.0, -2.0),
+            Vec3::new(2.0, 2.0, 0.0),
+            RegionMode::Touching,
+        );
 
         let mut ext = base.clone();
         ext.union(&m, &rhs);
@@ -1823,11 +1906,17 @@ mod tests {
         let m = primitives::grid(5, 5, 5.0);
         let topo = crate::topology::MeshTopology::new(&m);
         // An interior horizontal edge.
-        let e = (0..m.edge_count()).map(EdgeId).find(|&e| {
-            let ed = m.edge(e).unwrap();
-            let (a, b) = (m.vertex(ed.verts[0]).unwrap().position, m.vertex(ed.verts[1]).unwrap().position);
-            topo.is_manifold_edge(e) && (a.y - b.y).abs() < 1e-9
-        }).unwrap();
+        let e = (0..m.edge_count())
+            .map(EdgeId)
+            .find(|&e| {
+                let ed = m.edge(e).unwrap();
+                let (a, b) = (
+                    m.vertex(ed.verts[0]).unwrap().position,
+                    m.vertex(ed.verts[1]).unwrap().position,
+                );
+                topo.is_manifold_edge(e) && (a.y - b.y).abs() < 1e-9
+            })
+            .unwrap();
 
         let mut s = Selection::new(SelectMode::Edge);
         s.select_edge_loop(&m, e);
@@ -1853,7 +1942,10 @@ mod tests {
     fn boundary_loop_selection_rings_a_grid_border() {
         let m = primitives::grid(4, 4, 4.0);
         let topo = crate::topology::MeshTopology::new(&m);
-        let b = (0..m.edge_count()).map(EdgeId).find(|&e| topo.is_boundary_edge(e)).unwrap();
+        let b = (0..m.edge_count())
+            .map(EdgeId)
+            .find(|&e| topo.is_boundary_edge(e))
+            .unwrap();
         let mut s = Selection::new(SelectMode::Edge);
         s.select_boundary_loop(&m, b);
         assert_eq!(s.edge_count(), 16, "the whole 16-edge border");
@@ -1862,14 +1954,20 @@ mod tests {
     #[test]
     fn shortest_path_selection_vertex_mode() {
         let m = primitives::grid(4, 4, 4.0);
-        let corner_a = (0..m.vertex_count()).map(VertexId).min_by(|&a, &b| {
-            let (pa, pb) = (m.vertex(a).unwrap().position, m.vertex(b).unwrap().position);
-            (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
-        }).unwrap();
-        let corner_b = (0..m.vertex_count()).map(VertexId).max_by(|&a, &b| {
-            let (pa, pb) = (m.vertex(a).unwrap().position, m.vertex(b).unwrap().position);
-            (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
-        }).unwrap();
+        let corner_a = (0..m.vertex_count())
+            .map(VertexId)
+            .min_by(|&a, &b| {
+                let (pa, pb) = (m.vertex(a).unwrap().position, m.vertex(b).unwrap().position);
+                (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
+            })
+            .unwrap();
+        let corner_b = (0..m.vertex_count())
+            .map(VertexId)
+            .max_by(|&a, &b| {
+                let (pa, pb) = (m.vertex(a).unwrap().position, m.vertex(b).unwrap().position);
+                (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
+            })
+            .unwrap();
 
         let mut s = Selection::new(SelectMode::Vertex);
         s.select_shortest_path(&m, Element::Vertex(corner_a), Element::Vertex(corner_b));
@@ -1880,7 +1978,11 @@ mod tests {
     fn shortest_path_selection_face_mode() {
         let m = primitives::grid(4, 4, 4.0);
         let mut s = Selection::new(SelectMode::Face);
-        s.select_shortest_path(&m, Element::Face(FaceId(0)), Element::Face(FaceId(m.face_count() - 1)));
+        s.select_shortest_path(
+            &m,
+            Element::Face(FaceId(0)),
+            Element::Face(FaceId(m.face_count() - 1)),
+        );
         assert!(s.face_count() >= 2 && s.face_count() <= m.face_count());
         assert!(s.is_selected(Element::Face(FaceId(0))));
         assert!(s.is_selected(Element::Face(FaceId(m.face_count() - 1))));
@@ -1895,7 +1997,11 @@ mod tests {
         s.select_more(&m);
         assert!(s.face_count() > n1, "grew");
         s.select_less(&m);
-        assert_eq!(s.face_count(), n1, "shrank back to the single interior face");
+        assert_eq!(
+            s.face_count(),
+            n1,
+            "shrank back to the single interior face"
+        );
     }
 
     #[test]
@@ -1943,7 +2049,14 @@ mod tests {
     fn non_manifold_finds_grid_border_in_edge_mode() {
         let m = primitives::grid(4, 4, 4.0);
         let mut s = Selection::new(SelectMode::Edge);
-        s.select_non_manifold(&m, NonManifoldKinds { wire: false, boundary: true, multiple_faces: false });
+        s.select_non_manifold(
+            &m,
+            NonManifoldKinds {
+                wire: false,
+                boundary: true,
+                multiple_faces: false,
+            },
+        );
         assert_eq!(s.edge_count(), 16, "the 16 boundary edges");
 
         // A closed cube has no non-manifold edges.
@@ -1956,8 +2069,11 @@ mod tests {
     #[test]
     fn loose_geometry_catches_a_stray_vertex() {
         let mut positions = cube().positions();
-        let faces: Vec<Vec<usize>> =
-            cube().polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = cube()
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         positions.push(Vec3::new(10.0, 10.0, 10.0)); // unused vertex
         let m = Mesh::from_polygons(&positions, &faces);
 
@@ -1972,8 +2088,11 @@ mod tests {
         // A grid of quads plus one triangle appended.
         let g = primitives::grid(2, 2, 2.0);
         let mut positions = g.positions();
-        let mut faces: Vec<Vec<usize>> =
-            g.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = g
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let a = positions.len();
         positions.push(Vec3::new(5.0, 0.0, 0.0));
         positions.push(Vec3::new(6.0, 0.0, 0.0));
@@ -1998,11 +2117,17 @@ mod tests {
             Vec3::new(-1.0, -1.0,  1.0), Vec3::new(1.0, -1.0,  1.0), Vec3::new(1.0, 1.0,  1.0), Vec3::new(-1.0, 1.0,  1.0),
         ];
         let faces = vec![
-            vec![0, 3, 2, 1],          // bottom cap
-            vec![8, 9, 10, 11],        // top cap
-            vec![0, 1, 5, 4], vec![1, 2, 6, 5], vec![2, 3, 7, 6], vec![3, 0, 4, 7], // lower sides
-            vec![4, 5, 9, 8], vec![5, 6, 10, 9], vec![6, 7, 11, 10], vec![7, 4, 8, 11], // upper sides
-            vec![4, 5, 6, 7],          // diaphragm (id 10)
+            vec![0, 3, 2, 1],   // bottom cap
+            vec![8, 9, 10, 11], // top cap
+            vec![0, 1, 5, 4],
+            vec![1, 2, 6, 5],
+            vec![2, 3, 7, 6],
+            vec![3, 0, 4, 7], // lower sides
+            vec![4, 5, 9, 8],
+            vec![5, 6, 10, 9],
+            vec![6, 7, 11, 10],
+            vec![7, 4, 8, 11], // upper sides
+            vec![4, 5, 6, 7],  // diaphragm (id 10)
         ];
         let m = Mesh::from_polygons(&p, &faces);
         let mut s = Selection::new(SelectMode::Face);

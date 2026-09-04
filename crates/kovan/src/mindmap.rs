@@ -117,8 +117,13 @@ enum NodeKind {
     /// `name` is not kept here — it only ever fed the node's display label,
     /// which `egui_graphs::Graph::add_node_with_label` already owns once
     /// the node is built (see [`Node::label`](egui_graphs::Node::label)).
-    Collection { path: String, kind: EntityKind },
-    Paper { citekey: String },
+    Collection {
+        path: String,
+        kind: EntityKind,
+    },
+    Paper {
+        citekey: String,
+    },
 }
 
 #[cfg(feature = "gui")]
@@ -153,7 +158,12 @@ pub struct LiteratureCard {
 
 /// Build a paper's literature card from its index entry, bibliography
 /// record, and its own Markdown (for artifact counts and its `## Summary`).
-pub fn literature_card(root: &KovanRoot, index: &KnowledgeIndex, graph: &KnowledgeGraph, citekey: &str) -> LiteratureCard {
+pub fn literature_card(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    graph: &KnowledgeGraph,
+    citekey: &str,
+) -> LiteratureCard {
     let mut card = LiteratureCard::default();
     if let Some(paper) = index.papers.iter().find(|p| p.citekey == citekey) {
         card.topics = paper.topics.clone();
@@ -168,7 +178,9 @@ pub fn literature_card(root: &KovanRoot, index: &KnowledgeIndex, graph: &Knowled
         let research = ResearchRecordIndex::from_session(&session);
         for a in research.artifacts() {
             match a.kind() {
-                ArtifactKind::Note | ArtifactKind::Annotation | ArtifactKind::SourceReference => card.note_count += 1,
+                ArtifactKind::Note | ArtifactKind::Annotation | ArtifactKind::SourceReference => {
+                    card.note_count += 1
+                }
                 ArtifactKind::Formula => card.formula_count += 1,
                 ArtifactKind::DigitisedTable => card.table_count += 1,
                 ArtifactKind::DigitisedGraph => card.graph_count += 1,
@@ -178,7 +190,11 @@ pub fn literature_card(root: &KovanRoot, index: &KnowledgeIndex, graph: &Knowled
     }
 
     let node = graph::paper_node(citekey);
-    card.citation_count = graph.outlinks(&node).iter().filter(|e| e.kind == EdgeKind::Cites).count();
+    card.citation_count = graph
+        .outlinks(&node)
+        .iter()
+        .filter(|e| e.kind == EdgeKind::Cites)
+        .count();
     card.backlink_count = graph.backlinks(&node).len();
     card
 }
@@ -193,24 +209,48 @@ pub fn literature_card(root: &KovanRoot, index: &KnowledgeIndex, graph: &Knowled
 /// already knows.
 pub(crate) fn bib_display(root: &KovanRoot, citekey: &str) -> (String, String) {
     let fallback = (citekey.to_string(), String::new());
-    let Ok(text) = std::fs::read_to_string(root.bibliography_path()) else { return fallback };
-    let Ok(entries) = kovan_literature::parse_bib_entries(&text) else { return fallback };
-    let Some(entry) = entries.into_iter().find(|e| e.cite_key == citekey) else { return fallback };
+    let Ok(text) = std::fs::read_to_string(root.bibliography_path()) else {
+        return fallback;
+    };
+    let Ok(entries) = kovan_literature::parse_bib_entries(&text) else {
+        return fallback;
+    };
+    let Some(entry) = entries.into_iter().find(|e| e.cite_key == citekey) else {
+        return fallback;
+    };
 
-    let title = entry.fields.get("title").cloned().unwrap_or_else(|| citekey.to_string());
+    let title = entry
+        .fields
+        .get("title")
+        .cloned()
+        .unwrap_or_else(|| citekey.to_string());
     let author = entry.fields.get("author").cloned().unwrap_or_default();
     let year = entry.fields.get("year").cloned().unwrap_or_default();
     // BibTeX name order is "Family, Given and Family, Given ..."; the
     // display label wants only the first author's family name.
-    let family = author.split(" and ").next().unwrap_or("").split(',').next().unwrap_or("").trim().to_string();
-    let author_year = [family, year].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ");
+    let family = author
+        .split(" and ")
+        .next()
+        .unwrap_or("")
+        .split(',')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let author_year = [family, year]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
     (title, author_year)
 }
 
 /// The prose under a `## Summary` heading, up to the next heading (or end
 /// of document). Empty if there is no such heading.
 fn extract_summary(markdown: &str) -> String {
-    let Some(start) = markdown.find("## Summary") else { return String::new() };
+    let Some(start) = markdown.find("## Summary") else {
+        return String::new();
+    };
     let after = &markdown[start + "## Summary".len()..];
     let end = after.find("\n#").unwrap_or(after.len());
     after[..end].trim().to_string()
@@ -226,7 +266,12 @@ fn extract_summary(markdown: &str) -> String {
 /// context menu calls it today — a future headless consumer (e.g. a
 /// `kovan-cli` mindmap subcommand) can reuse it without pulling in `eframe`.
 #[cfg_attr(not(feature = "gui"), allow(dead_code))]
-fn create_subtopic(root: &KovanRoot, index: &KnowledgeIndex, parent_path: &str, name: &str) -> Result<(), String> {
+fn create_subtopic(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    parent_path: &str,
+    name: &str,
+) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err("name must not be empty".to_string());
     }
@@ -237,13 +282,22 @@ fn create_subtopic(root: &KovanRoot, index: &KnowledgeIndex, parent_path: &str, 
     let parent_kind = if parent_path.is_empty() {
         EntityKind::Topic
     } else {
-        index.collections.iter().find(|c| c.path == parent_path).map(|c| c.kind).unwrap_or(EntityKind::Topic)
+        index
+            .collections
+            .iter()
+            .find(|c| c.path == parent_path)
+            .map(|c| c.kind)
+            .unwrap_or(EntityKind::Topic)
     };
     let tree_root = match parent_kind {
         EntityKind::Project => root.projects_dir(),
         _ => root.topics_dir(),
     };
-    let dir = if parent_path.is_empty() { tree_root.join(&slug) } else { tree_root.join(parent_path).join(&slug) };
+    let dir = if parent_path.is_empty() {
+        tree_root.join(&slug)
+    } else {
+        tree_root.join(parent_path).join(&slug)
+    };
     let config = match parent_kind {
         EntityKind::Project => EntityConfig::project(slug, name),
         _ => EntityConfig::topic(slug, name),
@@ -280,7 +334,13 @@ pub struct MindmapState {
 #[cfg(feature = "gui")]
 impl Default for MindmapState {
     fn default() -> Self {
-        Self { current: String::new(), selected: None, context_menu: None, message: String::new(), view: None }
+        Self {
+            current: String::new(),
+            selected: None,
+            context_menu: None,
+            message: String::new(),
+            view: None,
+        }
     }
 }
 
@@ -312,19 +372,27 @@ impl MindmapState {
                 .find(|c| c.path == current)
                 .map(|c| (c.kind, c.name.clone()))
                 .unwrap_or((EntityKind::Topic, current.to_string()));
-            let node = NodeKind::Collection { path: current.to_string(), kind };
+            let node = NodeKind::Collection {
+                path: current.to_string(),
+                kind,
+            };
             Some(push(&mut g, node, name))
         };
 
         for child in index.children_of(current) {
-            let node = NodeKind::Collection { path: child.path.clone(), kind: child.kind };
+            let node = NodeKind::Collection {
+                path: child.path.clone(),
+                kind: child.kind,
+            };
             let idx = push(&mut g, node, child.name.clone());
             if let Some(a) = anchor {
                 g.add_edge(a, idx, ());
             }
         }
         for paper in index.papers_in(current) {
-            let node = NodeKind::Paper { citekey: paper.citekey.clone() };
+            let node = NodeKind::Paper {
+                citekey: paper.citekey.clone(),
+            };
             let idx = push(&mut g, node, paper.citekey.clone());
             if let Some(a) = anchor {
                 g.add_edge(a, idx, ());
@@ -338,7 +406,10 @@ impl MindmapState {
     /// Paper (green) — the same palette the old hand-painted renderer used.
     fn color_for(kind: &NodeKind) -> egui::Color32 {
         match kind {
-            NodeKind::Collection { kind: EntityKind::Project, .. } => egui::Color32::from_rgb(220, 150, 60),
+            NodeKind::Collection {
+                kind: EntityKind::Project,
+                ..
+            } => egui::Color32::from_rgb(220, 150, 60),
             NodeKind::Collection { .. } => egui::Color32::from_rgb(90, 140, 220),
             NodeKind::Paper { .. } => egui::Color32::from_rgb(120, 190, 120),
         }
@@ -352,14 +423,24 @@ impl MindmapState {
             None => true,
         };
         if stale {
-            self.view = Some((self.current.clone(), index.clone(), Self::build_graph(index, &self.current)));
+            self.view = Some((
+                self.current.clone(),
+                index.clone(),
+                Self::build_graph(index, &self.current),
+            ));
         }
     }
 
     /// Draw the mindmap and process this frame's interaction. Returns
     /// `Some` when the caller should navigate to a paper's Research
     /// workspace.
-    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex, graph: &KnowledgeGraph) -> Option<MindmapAction> {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        root: &KovanRoot,
+        index: &KnowledgeIndex,
+        graph: &KnowledgeGraph,
+    ) -> Option<MindmapAction> {
         let mut action = None;
 
         ui.horizontal(|ui| {
@@ -389,10 +470,12 @@ impl MindmapState {
         {
             let (_, _, egui_graph) = self.view.as_mut().expect("ensure_view just populated this");
 
-            let settings_interaction =
-                egui_graphs::SettingsInteraction::new().with_dragging_enabled(true).with_node_selection_enabled(true);
-            let settings_navigation =
-                egui_graphs::SettingsNavigation::new().with_fit_to_screen_enabled(false).with_zoom_and_pan_enabled(true);
+            let settings_interaction = egui_graphs::SettingsInteraction::new()
+                .with_dragging_enabled(true)
+                .with_node_selection_enabled(true);
+            let settings_navigation = egui_graphs::SettingsNavigation::new()
+                .with_fit_to_screen_enabled(false)
+                .with_zoom_and_pan_enabled(true);
             let settings_style = egui_graphs::SettingsStyle::new().with_labels_always(true);
 
             let response = egui_graphs::GraphView::<MindmapLayoutState, MindmapLayout>::new()
@@ -430,7 +513,10 @@ impl MindmapState {
 
             if response.response.secondary_clicked() {
                 if let Some(pos) = response.response.interact_pointer_pos() {
-                    self.context_menu = Some(ContextMenu { pos, new_subtopic: None });
+                    self.context_menu = Some(ContextMenu {
+                        pos,
+                        new_subtopic: None,
+                    });
                 }
             }
         }
@@ -449,65 +535,89 @@ impl MindmapState {
     }
 
     fn context_menu_ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) {
-        let Some(menu) = self.context_menu.clone() else { return };
+        let Some(menu) = self.context_menu.clone() else {
+            return;
+        };
         let mut close = false;
-        egui::Area::new(ui.id().with("mindmap-context-menu")).fixed_pos(menu.pos).show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                if let Some(mut text) = menu.new_subtopic.clone() {
-                    ui.horizontal(|ui| {
-                        ui.text_edit_singleline(&mut text);
-                        if ui.button("Create").clicked() {
-                            match create_subtopic(root, index, &self.current, &text) {
-                                Ok(()) => self.message = format!("added {text:?}"),
-                                Err(e) => self.message = format!("could not add subtopic: {e}"),
+        egui::Area::new(ui.id().with("mindmap-context-menu"))
+            .fixed_pos(menu.pos)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    if let Some(mut text) = menu.new_subtopic.clone() {
+                        ui.horizontal(|ui| {
+                            ui.text_edit_singleline(&mut text);
+                            if ui.button("Create").clicked() {
+                                match create_subtopic(root, index, &self.current, &text) {
+                                    Ok(()) => self.message = format!("added {text:?}"),
+                                    Err(e) => self.message = format!("could not add subtopic: {e}"),
+                                }
+                                close = true;
                             }
-                            close = true;
+                        });
+                        if !close {
+                            if let Some(m) = self.context_menu.as_mut() {
+                                m.new_subtopic = Some(text);
+                            }
                         }
-                    });
-                    if !close {
+                    } else if ui.button("Add subtopic…").clicked() {
                         if let Some(m) = self.context_menu.as_mut() {
-                            m.new_subtopic = Some(text);
+                            m.new_subtopic = Some(String::new());
                         }
                     }
-                } else if ui.button("Add subtopic…").clicked() {
-                    if let Some(m) = self.context_menu.as_mut() {
-                        m.new_subtopic = Some(String::new());
+                    ui.separator();
+                    if ui.button("Cancel").clicked() {
+                        close = true;
                     }
-                }
-                ui.separator();
-                if ui.button("Cancel").clicked() {
-                    close = true;
-                }
+                });
             });
-        });
         if close {
             self.context_menu = None;
         }
     }
 
-    fn literature_card_ui(&self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex, graph: &KnowledgeGraph) {
-        let Some(selected) = &self.selected else { return };
-        let Some(citekey) = selected.strip_prefix("paper:") else { return };
+    fn literature_card_ui(
+        &self,
+        ui: &mut egui::Ui,
+        root: &KovanRoot,
+        index: &KnowledgeIndex,
+        graph: &KnowledgeGraph,
+    ) {
+        let Some(selected) = &self.selected else {
+            return;
+        };
+        let Some(citekey) = selected.strip_prefix("paper:") else {
+            return;
+        };
 
-        egui::Window::new("Literature card").id(ui.id().with("literature-card")).collapsible(false).show(ui.ctx(), |ui| {
-            let card = literature_card(root, index, graph, citekey);
-            ui.strong(&card.title_or_citekey);
-            if !card.author_year.is_empty() {
-                ui.label(&card.author_year);
-            }
-            if !card.topics.is_empty() || !card.projects.is_empty() {
-                ui.label(format!("Topics: {}  Projects: {}", card.topics.join(", "), card.projects.join(", ")));
-            }
-            ui.label(format!(
-                "{} notes, {} formulas, {} tables, {} graphs",
-                card.note_count, card.formula_count, card.table_count, card.graph_count
-            ));
-            ui.label(format!("{} citations, {} backlinks", card.citation_count, card.backlink_count));
-            if !card.summary.is_empty() {
-                ui.separator();
-                ui.label(&card.summary);
-            }
-        });
+        egui::Window::new("Literature card")
+            .id(ui.id().with("literature-card"))
+            .collapsible(false)
+            .show(ui.ctx(), |ui| {
+                let card = literature_card(root, index, graph, citekey);
+                ui.strong(&card.title_or_citekey);
+                if !card.author_year.is_empty() {
+                    ui.label(&card.author_year);
+                }
+                if !card.topics.is_empty() || !card.projects.is_empty() {
+                    ui.label(format!(
+                        "Topics: {}  Projects: {}",
+                        card.topics.join(", "),
+                        card.projects.join(", ")
+                    ));
+                }
+                ui.label(format!(
+                    "{} notes, {} formulas, {} tables, {} graphs",
+                    card.note_count, card.formula_count, card.table_count, card.graph_count
+                ));
+                ui.label(format!(
+                    "{} citations, {} backlinks",
+                    card.citation_count, card.backlink_count
+                ));
+                if !card.summary.is_empty() {
+                    ui.separator();
+                    ui.label(&card.summary);
+                }
+            });
     }
 }
 
@@ -527,18 +637,25 @@ mod tests {
     #[cfg(feature = "gui")]
     fn build_graph_places_children_and_papers_around_the_anchor() {
         let (_dir, root) = make_root();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
             .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
         // Papers filed under "htgrs" don't show at the shared root; a
         // top-level topic does. At the shared root there is no anchor node.
         let index = KnowledgeIndex::rebuild(&root);
         let top = MindmapState::build_graph(&index, "");
         assert_eq!(top.node_count(), 1);
         assert_eq!(top.edge_count(), 0);
-        assert!(matches!(&top.node(top.nodes_iter().next().unwrap().0).unwrap().payload(), NodeKind::Collection { path, .. } if path == "htgrs"));
+        assert!(
+            matches!(&top.node(top.nodes_iter().next().unwrap().0).unwrap().payload(), NodeKind::Collection { path, .. } if path == "htgrs")
+        );
 
         // Drilled into "htgrs": one anchor node plus the paper, joined by
         // an edge.
@@ -550,7 +667,10 @@ mod tests {
     #[test]
     fn extract_summary_reads_up_to_the_next_heading() {
         let md = "# Title\n\n## Summary\n\nThis is the summary.\nStill the summary.\n\n## Notes\n\nNot the summary.\n";
-        assert_eq!(extract_summary(md), "This is the summary.\nStill the summary.");
+        assert_eq!(
+            extract_summary(md),
+            "This is the summary.\nStill the summary."
+        );
         assert_eq!(extract_summary("# no summary heading here\n"), "");
     }
 
@@ -578,11 +698,16 @@ mod tests {
     #[test]
     fn literature_card_counts_artifacts_and_backlinks() {
         let (_dir, root) = make_root();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
             .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "wang2018multiphysics").unwrap();
         session.append_block(
             "## A table\n\n```toml\n[kovan]\nid = \"t1\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 1\n```\n",
@@ -607,20 +732,29 @@ mod tests {
 
         assert_eq!(card.table_count, 1);
         assert_eq!(card.topics, vec!["htgrs".to_string()]);
-        assert_eq!(card.backlink_count, 1, "lee2020corrosion's [@wang2018multiphysics] citation is a backlink to this paper");
+        assert_eq!(
+            card.backlink_count, 1,
+            "lee2020corrosion's [@wang2018multiphysics] citation is a backlink to this paper"
+        );
     }
 
     #[test]
     fn create_subtopic_matches_the_parents_kind() {
         let (_dir, root) = make_root();
-        EntityConfig::project("outram-park", "Outram Park").save(&root.projects_dir().join("outram-park")).unwrap();
+        EntityConfig::project("outram-park", "Outram Park")
+            .save(&root.projects_dir().join("outram-park"))
+            .unwrap();
         let index = KnowledgeIndex::rebuild(&root);
 
         create_subtopic(&root, &index, "outram-park", "Sub Effort").unwrap();
-        assert!(EntityConfig::is_entity(&root.projects_dir().join("outram-park").join("sub-effort")));
+        assert!(EntityConfig::is_entity(
+            &root.projects_dir().join("outram-park").join("sub-effort")
+        ));
 
         create_subtopic(&root, &index, "", "New Topic").unwrap();
-        assert!(EntityConfig::is_entity(&root.topics_dir().join("new-topic")));
+        assert!(EntityConfig::is_entity(
+            &root.topics_dir().join("new-topic")
+        ));
     }
 
     #[test]

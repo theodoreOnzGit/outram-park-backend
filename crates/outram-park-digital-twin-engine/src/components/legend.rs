@@ -18,7 +18,7 @@ use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 /// Which unit the tick labels are written in.
 ///
-/// Theodore note: I am making degrees celsius default because it is 
+/// Theodore note: I am making degrees celsius default because it is
 /// better to look at
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LegendUnit {

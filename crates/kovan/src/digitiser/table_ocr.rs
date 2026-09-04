@@ -86,7 +86,11 @@ impl RecognizedTable {
         at: impl Into<String>,
         interface: ReviewInterface,
     ) {
-        self.review = ReviewStatus::Reviewed { by: by.into(), at: at.into(), interface };
+        self.review = ReviewStatus::Reviewed {
+            by: by.into(),
+            at: at.into(),
+            interface,
+        };
     }
 
     pub fn to_json_string(&self) -> String {
@@ -106,7 +110,11 @@ impl RecognizedTable {
     pub fn to_csv_string(&self) -> String {
         use std::fmt::Write;
         let mut s = String::new();
-        let _ = writeln!(s, "# kovan table-ocr dataset (schema v{})", self.schema_version);
+        let _ = writeln!(
+            s,
+            "# kovan table-ocr dataset (schema v{})",
+            self.schema_version
+        );
         let _ = writeln!(s, "# engine: {}", self.engine);
         if let Some(note) = &self.source_note {
             let _ = writeln!(s, "# source: {note}");

@@ -119,9 +119,8 @@ pub fn calc_1sttransleakagexyz(
     let philen = g_count * es;
 
     // The transverse coupling: each axis is driven by the other two.
-    let add = |a: &[f64], b: &[f64]| -> Vec<f64> {
-        a.iter().zip(b.iter()).map(|(p, q)| p + q).collect()
-    };
+    let add =
+        |a: &[f64], b: &[f64]| -> Vec<f64> { a.iter().zip(b.iter()).map(|(p, q)| p + q).collect() };
     let ssource_x = add(&leakzero.y, &leakzero.z);
     let ssource_y = add(&leakzero.x, &leakzero.z);
     let ssource_z = add(&leakzero.x, &leakzero.y);
@@ -254,9 +253,7 @@ pub fn calc_1sttransleakagexyz(
                     BoundaryCondition::Vacuum | BoundaryCondition::ZeroFlux => {
                         (ssource[idxplus] - ssource[idx]) / (tplus + 1.0)
                     }
-                    BoundaryCondition::Reflective => {
-                        6.0 * (ssource[idxplus] - ssource[idx]) / h
-                    }
+                    BoundaryCondition::Reflective => 6.0 * (ssource[idxplus] - ssource[idx]) / h,
                 };
                 out[idx] = value * 0.25 * width(idx).powi(2) / diffvalues[idx];
             }
@@ -278,9 +275,7 @@ pub fn calc_1sttransleakagexyz(
                     BoundaryCondition::Vacuum | BoundaryCondition::ZeroFlux => {
                         (ssource[idx] - ssource[idxminus]) / (tminus + 1.0)
                     }
-                    BoundaryCondition::Reflective => {
-                        6.0 * (ssource[idx] - ssource[idxminus]) / h
-                    }
+                    BoundaryCondition::Reflective => 6.0 * (ssource[idx] - ssource[idxminus]) / h,
                 };
                 out[idx] = value * 0.25 * width(idx).powi(2) / diffvalues[idx];
             }

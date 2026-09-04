@@ -57,7 +57,10 @@ pub fn stamp_trailer(msgfile: &Path) {
     let root = git::repo_root();
     let cum = transcript::read_cumulative(&root);
     let (delta, source) = match crate::baseline::load() {
-        Some(base) => (cum.counts.saturating_sub(&base), cum.source.as_str().to_string()),
+        Some(base) => (
+            cum.counts.saturating_sub(&base),
+            cum.source.as_str().to_string(),
+        ),
         None => {
             crate::baseline::save(&cum.counts, cum.records);
             (
@@ -205,8 +208,14 @@ pub fn show() {
     println!("cumulative total:   {}", g(cum.counts.total()));
     println!("  cumulative input       : {:>15}", g(cum.counts.input));
     println!("  cumulative output      : {:>15}", g(cum.counts.output));
-    println!("  cumulative cache_write : {:>15}", g(cum.counts.cache_write));
-    println!("  cumulative cache_read  : {:>15}", g(cum.counts.cache_read));
+    println!(
+        "  cumulative cache_write : {:>15}",
+        g(cum.counts.cache_write)
+    );
+    println!(
+        "  cumulative cache_read  : {:>15}",
+        g(cum.counts.cache_read)
+    );
     println!("since last commit:  {}", g(delta.total()));
 }
 
@@ -431,7 +440,12 @@ mod tests {
             to: Some(Date::new(2026, 8, 13).unwrap()),
             commits_total: 3,
             commits_with_data: 2,
-            totals: TokenCounts { input: 1, output: 2, cache_read: 3, cache_write: 4 },
+            totals: TokenCounts {
+                input: 1,
+                output: 2,
+                cache_read: 3,
+                cache_write: 4,
+            },
             grand_total: 10,
             rows: vec![QueryRow {
                 date: "2026-08-13".into(),

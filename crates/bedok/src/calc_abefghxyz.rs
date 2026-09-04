@@ -187,8 +187,7 @@ pub fn calc_abefghxyz(
         for ix in 0..maxix {
             for iy in 0..maxiy {
                 for iz in 0..maxiz {
-                    dvec[g * es + ix * xstep + iy * maxiz + iz] =
-                        diffvalues.get(ix, iy, iz, g);
+                    dvec[g * es + ix * xstep + iy * maxiz + iz] = diffvalues.get(ix, iy, iz, g);
                 }
             }
         }

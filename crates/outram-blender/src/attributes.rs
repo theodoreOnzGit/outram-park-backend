@@ -276,7 +276,10 @@ mod tests {
         let sph = primitives::uv_sphere(24, 12, 1.0);
         let mut b = MeshAttributes::new(&sph);
         b.auto_smooth(&sph, std::f64::consts::FRAC_PI_4);
-        assert!(b.sharp.len() < sph.edge_count(), "most sphere edges stay smooth");
+        assert!(
+            b.sharp.len() < sph.edge_count(),
+            "most sphere edges stay smooth"
+        );
     }
 
     #[test]
@@ -297,10 +300,13 @@ mod tests {
         let m = primitives::grid(4, 1, 4.0);
         let topo = crate::topology::MeshTopology::new(&m);
         // The shared edge between face 1 and 2.
-        let seam_edge = (0..m.edge_count()).map(EdgeId).find(|&e| {
-            let f = topo.edge_faces(e);
-            f.len() == 2 && ((f[0].0 == 1 && f[1].0 == 2) || (f[0].0 == 2 && f[1].0 == 1))
-        }).unwrap();
+        let seam_edge = (0..m.edge_count())
+            .map(EdgeId)
+            .find(|&e| {
+                let f = topo.edge_faces(e);
+                f.len() == 2 && ((f[0].0 == 1 && f[1].0 == 2) || (f[0].0 == 2 && f[1].0 == 1))
+            })
+            .unwrap();
         let mut a = MeshAttributes::new(&m);
         a.mark_seam(&[seam_edge]);
         let delim = a.linked_delimiters(&m, true, false, false);

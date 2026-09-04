@@ -215,7 +215,10 @@ pub fn numstat(sha: &str) -> NumStat {
             stat.rs_added += a;
             stat.rs_removed += r;
         }
-        if let Some(name) = path.strip_prefix("crates/").and_then(|p| p.split('/').next()) {
+        if let Some(name) = path
+            .strip_prefix("crates/")
+            .and_then(|p| p.split('/').next())
+        {
             if !name.is_empty() {
                 match per_crate.iter_mut().find(|(k, _)| k == name) {
                     Some((_, v)) => *v += a,
@@ -271,7 +274,10 @@ mod tests {
             normalise_renamed_path("old/path/f.rs => new/path/f.rs"),
             "new/path/f.rs"
         );
-        assert_eq!(normalise_renamed_path("crates/a/src/lib.rs"), "crates/a/src/lib.rs");
+        assert_eq!(
+            normalise_renamed_path("crates/a/src/lib.rs"),
+            "crates/a/src/lib.rs"
+        );
     }
 
     #[test]
@@ -279,6 +285,9 @@ mod tests {
         // The failure this guards: counting the lines against `old-crate`.
         let p = normalise_renamed_path("crates/{old-crate => new-crate}/src/lib.rs");
         assert_eq!(p, "crates/new-crate/src/lib.rs");
-        assert_eq!(p.strip_prefix("crates/").unwrap().split('/').next(), Some("new-crate"));
+        assert_eq!(
+            p.strip_prefix("crates/").unwrap().split('/').next(),
+            Some("new-crate")
+        );
     }
 }

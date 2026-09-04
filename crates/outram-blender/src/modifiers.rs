@@ -268,9 +268,8 @@ impl Modifier {
             Modifier::Mirror { axes } => Ok(mirror(input, *axes)),
             Modifier::Array { count, offset } => Ok(array(input, *count, *offset)),
             Modifier::Bevel { options } => Ok(crate::bevel::bevel(input, *options)),
-            Modifier::Boolean { operand, op } => {
-                crate::boolean::boolean(input, operand, *op).map_err(|e| ModifierError::Failed(e.to_string()))
-            }
+            Modifier::Boolean { operand, op } => crate::boolean::boolean(input, operand, *op)
+                .map_err(|e| ModifierError::Failed(e.to_string())),
             Modifier::Solidify { thickness } => Ok(crate::solidify::solidify(input, *thickness)),
             Modifier::Weld { distance } => Ok(crate::weld::weld(input, *distance)),
             Modifier::Wireframe { thickness } => Ok(wireframe(input, *thickness)),
@@ -280,12 +279,30 @@ impl Modifier {
             }
             Modifier::Triangulate => Ok(crate::triangulate::triangulate(input)),
             Modifier::Mask { keep, invert } => Ok(mask(input, keep, *invert)),
-            Modifier::Remesh { voxel_size, smooth_iterations } => {
-                Ok(crate::remesh::voxel_remesh(input, *voxel_size, *smooth_iterations))
-            }
-            Modifier::Screw { axis, turns, steps, screw_offset } => {
+            Modifier::Remesh {
+                voxel_size,
+                smooth_iterations,
+            } => Ok(crate::remesh::voxel_remesh(
+                input,
+                *voxel_size,
+                *smooth_iterations,
+            )),
+            Modifier::Screw {
+                axis,
+                turns,
+                steps,
+                screw_offset,
+            } => {
                 let profile = screw_profile(input);
-                Ok(crate::spin_screw::screw(input, &profile, Vec3::ZERO, *axis, *screw_offset, *turns, *steps))
+                Ok(crate::spin_screw::screw(
+                    input,
+                    &profile,
+                    Vec3::ZERO,
+                    *axis,
+                    *screw_offset,
+                    *turns,
+                    *steps,
+                ))
             }
             Modifier::Skin { radius } => Ok(skin(input, *radius)),
             Modifier::Build { factor } => Ok(build(input, *factor)),
@@ -297,13 +314,37 @@ impl Modifier {
             Modifier::SimpleDeform { mode, axis } => {
                 Ok(crate::deform::simple_deform(input, &[], *mode, *axis))
             }
-            Modifier::Cast { target, factor } => Ok(crate::deform::cast(input, &[], *target, *factor)),
-            Modifier::Displace { direction, strength, noise_scale, seed } => {
-                Ok(crate::deform::displace(input, &[], *direction, *strength, *noise_scale, *seed))
+            Modifier::Cast { target, factor } => {
+                Ok(crate::deform::cast(input, &[], *target, *factor))
             }
-            Modifier::Wave { axis, amplitude, wavelength, speed, time } => {
-                Ok(crate::deform::wave(input, &[], *axis, *amplitude, *wavelength, *speed, *time))
-            }
+            Modifier::Displace {
+                direction,
+                strength,
+                noise_scale,
+                seed,
+            } => Ok(crate::deform::displace(
+                input,
+                &[],
+                *direction,
+                *strength,
+                *noise_scale,
+                *seed,
+            )),
+            Modifier::Wave {
+                axis,
+                amplitude,
+                wavelength,
+                speed,
+                time,
+            } => Ok(crate::deform::wave(
+                input,
+                &[],
+                *axis,
+                *amplitude,
+                *wavelength,
+                *speed,
+                *time,
+            )),
         }
     }
 }
@@ -321,7 +362,9 @@ fn screw_profile(mesh: &Mesh) -> Vec<crate::mesh::VertexId> {
             return ring;
         }
     }
-    (0..mesh.vertex_count()).map(crate::mesh::VertexId).collect()
+    (0..mesh.vertex_count())
+        .map(crate::mesh::VertexId)
+        .collect()
 }
 
 /// Skin: a square tube of half-width `radius` along every edge.
@@ -331,7 +374,9 @@ fn skin(input: &Mesh, radius: f64) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     let mut faces: Vec<Vec<usize>> = Vec::new();
     for e in 0..input.edge_count() {
-        let Some(ed) = input.edge(crate::mesh::EdgeId(e)) else { continue };
+        let Some(ed) = input.edge(crate::mesh::EdgeId(e)) else {
+            continue;
+        };
         let a = src[ed.verts[0].0];
         let b = src[ed.verts[1].0];
         let axis = b.sub(a);
@@ -339,7 +384,11 @@ fn skin(input: &Mesh, radius: f64) -> Mesh {
             continue;
         }
         let ax = axis.normalize();
-        let up = if ax.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+        let up = if ax.z.abs() < 0.9 {
+            Vec3::new(0.0, 0.0, 1.0)
+        } else {
+            Vec3::new(1.0, 0.0, 0.0)
+        };
         let u = up.cross(ax).normalize().scale(r);
         let v = ax.cross(u.normalize()).scale(r);
         let ring = |c: Vec3, positions: &mut Vec<Vec3>| -> [usize; 4] {
@@ -390,7 +439,10 @@ fn build(input: &Mesh, factor: f64) -> Mesh {
             pos.push(positions[i]);
         }
     }
-    let f: Vec<Vec<usize>> = faces.iter().map(|face| face.iter().map(|&v| idx[v]).collect()).collect();
+    let f: Vec<Vec<usize>> = faces
+        .iter()
+        .map(|face| face.iter().map(|&v| idx[v]).collect())
+        .collect();
     Mesh::from_polygons(&pos, &f)
 }
 
@@ -410,9 +462,7 @@ fn wireframe(input: &Mesh, thickness: f64) -> Mesh {
     let faces: Vec<Vec<usize>> = inset
         .polygons()
         .iter()
-        .filter(|p| {
-            p.iter().any(|v| v.0 < n_src_verts) && p.iter().any(|v| v.0 >= n_src_verts)
-        })
+        .filter(|p| p.iter().any(|v| v.0 < n_src_verts) && p.iter().any(|v| v.0 >= n_src_verts))
         .map(|p| p.iter().map(|v| v.0).collect())
         .collect();
     if faces.is_empty() {
@@ -449,7 +499,10 @@ fn mask(input: &Mesh, keep: &[crate::mesh::VertexId], invert: bool) -> Mesh {
             pos.push(positions[i]);
         }
     }
-    let f: Vec<Vec<usize>> = faces.iter().map(|face| face.iter().map(|&v| idx[v]).collect()).collect();
+    let f: Vec<Vec<usize>> = faces
+        .iter()
+        .map(|face| face.iter().map(|&v| idx[v]).collect())
+        .collect();
     Mesh::from_polygons(&pos, &f)
 }
 
@@ -880,9 +933,14 @@ mod tests {
     fn generate_modifiers_pt1_forward_to_their_operators() {
         let c = primitives::cube(2.0);
 
-        let bevel = Modifier::Bevel { options: crate::bevel::BevelOptions { amount: 0.2, ..Default::default() } }
-            .evaluate(&c)
-            .unwrap();
+        let bevel = Modifier::Bevel {
+            options: crate::bevel::BevelOptions {
+                amount: 0.2,
+                ..Default::default()
+            },
+        }
+        .evaluate(&c)
+        .unwrap();
         assert!(bevel.face_count() > 6);
 
         let solid = Modifier::Solidify { thickness: 0.3 }.evaluate(&c).unwrap();
@@ -894,11 +952,18 @@ mod tests {
         let tri = Modifier::Triangulate.evaluate(&c).unwrap();
         assert_eq!(tri.face_count(), 12);
 
-        let split = Modifier::EdgeSplit { angle: std::f64::consts::FRAC_PI_4 }.evaluate(&c).unwrap();
+        let split = Modifier::EdgeSplit {
+            angle: std::f64::consts::FRAC_PI_4,
+        }
+        .evaluate(&c)
+        .unwrap();
         assert!(split.vertex_count() >= 8);
 
         let wire = Modifier::Wireframe { thickness: 0.2 }.evaluate(&c).unwrap();
-        assert!(wire.face_count() > 0 && wire.face_count() != 6, "not the solid faces");
+        assert!(
+            wire.face_count() > 0 && wire.face_count() != 6,
+            "not the solid faces"
+        );
     }
 
     #[test]
@@ -913,7 +978,13 @@ mod tests {
             q.y += 0.4;
             q.z += 0.4;
         }
-        b = Mesh::from_polygons(&p, &b.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect::<Vec<_>>());
+        b = Mesh::from_polygons(
+            &p,
+            &b.polygons()
+                .iter()
+                .map(|f| f.iter().map(|v| v.0).collect())
+                .collect::<Vec<_>>(),
+        );
         let out = Modifier::Boolean {
             operand: std::sync::Arc::new(b),
             op: crate::ops::BooleanMode::Union,
@@ -927,10 +998,17 @@ mod tests {
     fn generate_modifiers_pt2() {
         let c = primitives::cube(2.0);
 
-        let re = Modifier::Remesh { voxel_size: 0.7, smooth_iterations: 0 }.evaluate(&c).unwrap();
+        let re = Modifier::Remesh {
+            voxel_size: 0.7,
+            smooth_iterations: 0,
+        }
+        .evaluate(&c)
+        .unwrap();
         assert_eq!(re.euler_characteristic(), 2);
 
-        let dec = Modifier::Decimate { ratio: 0.5 }.evaluate(&primitives::uv_sphere(20, 12, 1.0)).unwrap();
+        let dec = Modifier::Decimate { ratio: 0.5 }
+            .evaluate(&primitives::uv_sphere(20, 12, 1.0))
+            .unwrap();
         assert!(dec.face_count() < primitives::uv_sphere(20, 12, 1.0).face_count());
 
         let mr = Modifier::Multires { levels: 1 }.evaluate(&c).unwrap();
@@ -965,12 +1043,21 @@ mod tests {
             mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
             axis: crate::selection::Axis::Z,
         };
-        let mut a = ModifierStack::new().push(Modifier::Subsurf { levels: 1 }).push(twist.clone());
+        let mut a = ModifierStack::new()
+            .push(Modifier::Subsurf { levels: 1 })
+            .push(twist.clone());
         let ga = a.evaluate(&bar).unwrap().positions();
         a.move_up(1); // twist now first
         let gb = a.evaluate(&bar).unwrap().positions();
-        let max_diff = ga.iter().zip(&gb).map(|(x, y)| x.sub(*y).length()).fold(0.0_f64, f64::max);
-        assert!(max_diff > 1e-3, "modifier order changed the geometry ({max_diff})");
+        let max_diff = ga
+            .iter()
+            .zip(&gb)
+            .map(|(x, y)| x.sub(*y).length())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_diff > 1e-3,
+            "modifier order changed the geometry ({max_diff})"
+        );
 
         // Disable an entry → skipped.
         let mut s = ModifierStack::new().push(Modifier::Subsurf { levels: 1 });
@@ -991,7 +1078,10 @@ mod tests {
             mode: crate::deform::SimpleDeform::Twist(0.5),
             axis: crate::selection::Axis::Z,
         });
-        assert_eq!(sk.apply_as_shape_key(&base).unwrap().len(), base.vertex_count());
+        assert_eq!(
+            sk.apply_as_shape_key(&base).unwrap().len(),
+            base.vertex_count()
+        );
         let bad = ModifierStack::new().push(Modifier::Subsurf { levels: 1 });
         assert!(bad.apply_as_shape_key(&base).is_err());
 
@@ -1004,18 +1094,23 @@ mod tests {
     #[test]
     fn deform_modifiers_pt1() {
         let c = primitives::cube(2.0);
-        assert!(Modifier::SimpleDeform {
-            mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
-            axis: crate::selection::Axis::Z,
-        }
-        .evaluate(&c)
-        .unwrap()
-        .face_count()
-            == 6);
+        assert!(
+            Modifier::SimpleDeform {
+                mode: crate::deform::SimpleDeform::Twist(std::f64::consts::PI),
+                axis: crate::selection::Axis::Z,
+            }
+            .evaluate(&c)
+            .unwrap()
+            .face_count()
+                == 6
+        );
 
-        let cast = Modifier::Cast { target: crate::deform::CastTarget::Sphere(2.0), factor: 1.0 }
-            .evaluate(&primitives::grid(4, 4, 4.0))
-            .unwrap();
+        let cast = Modifier::Cast {
+            target: crate::deform::CastTarget::Sphere(2.0),
+            factor: 1.0,
+        }
+        .evaluate(&primitives::grid(4, 4, 4.0))
+        .unwrap();
         assert!(cast.face_count() > 0);
 
         let disp = Modifier::Displace {
@@ -1026,7 +1121,13 @@ mod tests {
         }
         .evaluate(&primitives::grid(5, 5, 5.0))
         .unwrap();
-        assert!((0..disp.vertex_count()).any(|i| disp.vertex(crate::mesh::VertexId(i)).unwrap().position.z.abs() > 1e-6));
+        assert!((0..disp.vertex_count()).any(|i| disp
+            .vertex(crate::mesh::VertexId(i))
+            .unwrap()
+            .position
+            .z
+            .abs()
+            > 1e-6));
 
         let wv = Modifier::Wave {
             axis: crate::selection::Axis::Z,
@@ -1045,7 +1146,12 @@ mod tests {
         let m = primitives::cube(2.0);
         // Keep the 4 verts of face 0.
         let keep: Vec<crate::mesh::VertexId> = m.face_vertices(crate::mesh::FaceId(0));
-        let out = Modifier::Mask { keep: std::sync::Arc::new(keep), invert: false }.evaluate(&m).unwrap();
+        let out = Modifier::Mask {
+            keep: std::sync::Arc::new(keep),
+            invert: false,
+        }
+        .evaluate(&m)
+        .unwrap();
         assert_eq!(out.face_count(), 1);
         let inv = Modifier::Mask {
             keep: std::sync::Arc::new(m.face_vertices(crate::mesh::FaceId(0))),

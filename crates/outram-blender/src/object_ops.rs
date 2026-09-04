@@ -63,14 +63,21 @@ pub struct SceneObject {
 impl SceneObject {
     /// A new object at the identity transform.
     pub fn new(mesh: Mesh) -> Self {
-        SceneObject { mesh: Arc::new(mesh), transform: Affine3::IDENTITY }
+        SceneObject {
+            mesh: Arc::new(mesh),
+            transform: Affine3::IDENTITY,
+        }
     }
 
     /// This object's geometry in world space.
     pub fn world_mesh(&self) -> Mesh {
         let positions = self.transform.transform_points(&self.mesh.positions());
-        let faces: Vec<Vec<usize>> =
-            self.mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = self
+            .mesh
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         Mesh::from_polygons(&positions, &faces)
     }
 
@@ -81,13 +88,19 @@ impl SceneObject {
 
     /// A full, independent copy (new mesh storage).
     pub fn duplicate(&self) -> SceneObject {
-        SceneObject { mesh: Arc::new((*self.mesh).clone()), transform: self.transform }
+        SceneObject {
+            mesh: Arc::new((*self.mesh).clone()),
+            transform: self.transform,
+        }
     }
 
     /// A copy that **shares** the same mesh data (Blender's Linked Duplicate);
     /// editing one instance's mesh would affect both.
     pub fn linked_duplicate(&self) -> SceneObject {
-        SceneObject { mesh: Arc::clone(&self.mesh), transform: self.transform }
+        SceneObject {
+            mesh: Arc::clone(&self.mesh),
+            transform: self.transform,
+        }
     }
 
     /// Whether this object shares its mesh with `other`.
@@ -98,7 +111,10 @@ impl SceneObject {
     /// Bake the transform into the geometry and reset the transform to the
     /// identity (Apply Transform → All).
     pub fn apply_transform(&self) -> SceneObject {
-        SceneObject { mesh: Arc::new(self.world_mesh()), transform: Affine3::IDENTITY }
+        SceneObject {
+            mesh: Arc::new(self.world_mesh()),
+            transform: Affine3::IDENTITY,
+        }
     }
 
     /// Move the object's local origin per `mode`, keeping every vertex in the
@@ -115,15 +131,29 @@ impl SceneObject {
                 world.sub(self.transform.translation)
             }
         };
-        let shifted: Vec<Vec3> =
-            self.mesh.positions().iter().map(|p| p.sub(new_local_origin)).collect();
-        let faces: Vec<Vec<usize>> =
-            self.mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let shifted: Vec<Vec3> = self
+            .mesh
+            .positions()
+            .iter()
+            .map(|p| p.sub(new_local_origin))
+            .collect();
+        let faces: Vec<Vec<usize>> = self
+            .mesh
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let m = self.transform.linear;
         let mapped = Vec3::new(
-            m[0][0] * new_local_origin.x + m[0][1] * new_local_origin.y + m[0][2] * new_local_origin.z,
-            m[1][0] * new_local_origin.x + m[1][1] * new_local_origin.y + m[1][2] * new_local_origin.z,
-            m[2][0] * new_local_origin.x + m[2][1] * new_local_origin.y + m[2][2] * new_local_origin.z,
+            m[0][0] * new_local_origin.x
+                + m[0][1] * new_local_origin.y
+                + m[0][2] * new_local_origin.z,
+            m[1][0] * new_local_origin.x
+                + m[1][1] * new_local_origin.y
+                + m[1][2] * new_local_origin.z,
+            m[2][0] * new_local_origin.x
+                + m[2][1] * new_local_origin.y
+                + m[2][2] * new_local_origin.z,
         );
         SceneObject {
             mesh: Arc::new(Mesh::from_polygons(&shifted, &faces)),
@@ -165,7 +195,10 @@ pub fn join(objects: &[SceneObject]) -> SceneObject {
             faces.push(f.iter().map(|v| v.0 + base).collect());
         }
     }
-    SceneObject { mesh: Arc::new(Mesh::from_polygons(&positions, &faces)), transform: Affine3::IDENTITY }
+    SceneObject {
+        mesh: Arc::new(Mesh::from_polygons(&positions, &faces)),
+        transform: Affine3::IDENTITY,
+    }
 }
 
 /// Split `object`'s mesh into connected components (by shared vertices), each
@@ -197,7 +230,10 @@ pub fn separate_loose_parts(object: &SceneObject) -> Vec<SceneObject> {
             }
         }
         if f.len() > 2 {
-            let (a, b) = (find(&mut parent, f[0].0), find(&mut parent, f[f.len() - 1].0));
+            let (a, b) = (
+                find(&mut parent, f[0].0),
+                find(&mut parent, f[f.len() - 1].0),
+            );
             if a != b {
                 parent[a] = b;
             }
@@ -276,7 +312,10 @@ pub fn align(objects: &[SceneObject], axis: Axis, mode: AlignMode) -> Vec<SceneO
             };
             SceneObject {
                 mesh: Arc::clone(&o.mesh),
-                transform: Affine3::from_rows(o.transform.linear, o.transform.translation.add(delta)),
+                transform: Affine3::from_rows(
+                    o.transform.linear,
+                    o.transform.translation.add(delta),
+                ),
             }
         })
         .collect()
@@ -311,7 +350,11 @@ pub fn snap_objects(objects: &[SceneObject], to: SnapObjectsTo) -> Vec<SceneObje
             SnapObjectsTo::Grid { step } => {
                 let s = step.max(1e-9);
                 let p = o.transform.translation;
-                Vec3::new((p.x / s).round() * s, (p.y / s).round() * s, (p.z / s).round() * s)
+                Vec3::new(
+                    (p.x / s).round() * s,
+                    (p.y / s).round() * s,
+                    (p.z / s).round() * s,
+                )
             }
             SnapObjectsTo::Active { index } => objects
                 .get(index)
@@ -346,7 +389,9 @@ fn vertex_median(mesh: &Mesh) -> Vec3 {
     if p.is_empty() {
         return Vec3::ZERO;
     }
-    p.iter().fold(Vec3::ZERO, |a, &q| a.add(q)).scale(1.0 / p.len() as f64)
+    p.iter()
+        .fold(Vec3::ZERO, |a, &q| a.add(q))
+        .scale(1.0 / p.len() as f64)
 }
 
 fn surface_com(mesh: &Mesh) -> Vec3 {
@@ -399,7 +444,10 @@ mod tests {
     use crate::primitives;
 
     fn translated(mesh: Mesh, t: Vec3) -> SceneObject {
-        SceneObject { mesh: Arc::new(mesh), transform: Affine3::translation(t) }
+        SceneObject {
+            mesh: Arc::new(mesh),
+            transform: Affine3::translation(t),
+        }
     }
 
     #[test]
@@ -447,7 +495,9 @@ mod tests {
         // Cube local-space corners at ±1, transform +10 x. Local geometry
         // median is the origin already, so move origin to a corner instead.
         let o = translated(primitives::cube(2.0), Vec3::new(10.0, 0.0, 0.0));
-        let re = o.set_origin(OriginMode::Cursor { world: Vec3::new(11.0, 1.0, 1.0) });
+        let re = o.set_origin(OriginMode::Cursor {
+            world: Vec3::new(11.0, 1.0, 1.0),
+        });
         // World geometry unchanged.
         let (lo0, hi0) = crate::measure::bounding_box(&o.world_mesh());
         let (lo1, hi1) = crate::measure::bounding_box(&re.world_mesh());
@@ -459,9 +509,16 @@ mod tests {
     #[test]
     fn volume_com_of_a_cube_is_its_centre() {
         let mut m = primitives::cube(2.0);
-        let shifted: Vec<Vec3> = m.positions().iter().map(|p| p.add(Vec3::new(1.0, 2.0, 3.0))).collect();
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let shifted: Vec<Vec3> = m
+            .positions()
+            .iter()
+            .map(|p| p.add(Vec3::new(1.0, 2.0, 3.0)))
+            .collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         m = Mesh::from_polygons(&shifted, &faces);
         let com = volume_com(&m);
         assert!(com.sub(Vec3::new(1.0, 2.0, 3.0)).length() < 1e-9);
@@ -488,10 +545,23 @@ mod tests {
 
     #[test]
     fn snap_objects_to_grid_and_cursor() {
-        let objs = [translated(primitives::cube(1.0), Vec3::new(0.34, 1.71, -0.4))];
+        let objs = [translated(
+            primitives::cube(1.0),
+            Vec3::new(0.34, 1.71, -0.4),
+        )];
         let g = snap_objects(&objs, SnapObjectsTo::Grid { step: 0.25 });
-        assert!(g[0].world_origin().sub(Vec3::new(0.25, 1.75, -0.5)).length() < 1e-9);
-        let c = snap_objects(&objs, SnapObjectsTo::Cursor { world: Vec3::new(7.0, 7.0, 7.0) });
+        assert!(
+            g[0].world_origin()
+                .sub(Vec3::new(0.25, 1.75, -0.5))
+                .length()
+                < 1e-9
+        );
+        let c = snap_objects(
+            &objs,
+            SnapObjectsTo::Cursor {
+                world: Vec3::new(7.0, 7.0, 7.0),
+            },
+        );
         assert_eq!(c[0].world_origin(), Vec3::new(7.0, 7.0, 7.0));
     }
 

@@ -341,8 +341,7 @@ pub fn calc_a1_expansionxyz(
                         let de = if g == g2 { 1.0 } else { 0.0 };
                         a[g * n + g2] = -dl * fl * buckblk.get(ig, g2) - de * dl;
                         a[g * n + g_count + g2] = dh * fh * buckblk.get(ipg, g2) + de * dh;
-                        a[(g_count + g) * n + g2] =
-                            a_plus * al * buckblk.get(ig, g2) + de * a_plus;
+                        a[(g_count + g) * n + g2] = a_plus * al * buckblk.get(ig, g2) + de * a_plus;
                         a[(g_count + g) * n + g_count + g2] =
                             a_minus * ah * buckblk.get(ipg, g2) + de * a_minus;
                     }

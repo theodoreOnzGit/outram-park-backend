@@ -222,7 +222,12 @@ mod tests {
         assert_eq!(m.cols(), 5);
         for t in m.find() {
             let d = t.i as isize - t.j as isize;
-            assert!(d.abs() <= 1, "entry at ({}, {}) is outside the band", t.i, t.j);
+            assert!(
+                d.abs() <= 1,
+                "entry at ({}, {}) is outside the band",
+                t.i,
+                t.j
+            );
         }
     }
 

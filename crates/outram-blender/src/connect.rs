@@ -43,8 +43,7 @@ use crate::mesh::{FaceId, Mesh, VertexId};
 /// face, split that face along the chord between them. Returns the rebuilt
 /// mesh.
 pub fn connect_vertex_path(mesh: &Mesh, path: &[VertexId]) -> Mesh {
-    let pairs: Vec<(VertexId, VertexId)> =
-        path.windows(2).map(|w| (w[0], w[1])).collect();
+    let pairs: Vec<(VertexId, VertexId)> = path.windows(2).map(|w| (w[0], w[1])).collect();
     connect_vertex_pairs(mesh, &pairs)
 }
 
@@ -107,7 +106,7 @@ mod tests {
     #[test]
     fn connect_a_path_across_two_grid_quads() {
         let m = primitives::grid(2, 1, 2.0); // quads 0,1; verts 0..5
-        // Diagonal of quad 0 then diagonal of quad 1.
+                                             // Diagonal of quad 0 then diagonal of quad 1.
         let q0 = m.face_vertices(FaceId(0));
         let q1 = m.face_vertices(FaceId(1));
         let c = connect_vertex_path(&m, &[q0[0], q0[2], q1[2]]);

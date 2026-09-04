@@ -67,7 +67,9 @@ pub fn poke_faces(mesh: &Mesh, offset: f64) -> Mesh {
             faces.push(vs);
             continue;
         }
-        let c = mesh.face_centroid(FaceId(f)).add(mesh.face_normal(FaceId(f)).scale(offset));
+        let c = mesh
+            .face_centroid(FaceId(f))
+            .add(mesh.face_normal(FaceId(f)).scale(offset));
         let ci = positions.len();
         positions.push(c);
         let n = vs.len();
@@ -132,7 +134,13 @@ pub fn tris_to_quads(mesh: &Mesh, max_angle: f64) -> Mesh {
     let polys = mesh.polygons();
     let mut tri: Vec<Option<[usize; 3]>> = polys
         .iter()
-        .map(|p| if p.len() == 3 { Some([p[0].0, p[1].0, p[2].0]) } else { None })
+        .map(|p| {
+            if p.len() == 3 {
+                Some([p[0].0, p[1].0, p[2].0])
+            } else {
+                None
+            }
+        })
         .collect();
     let others: Vec<Vec<usize>> = polys
         .iter()
@@ -146,7 +154,10 @@ pub fn tris_to_quads(mesh: &Mesh, max_angle: f64) -> Mesh {
         let Some(t) = t else { continue };
         for k in 0..3 {
             let (a, b, c) = (t[k], t[(k + 1) % 3], t[(k + 2) % 3]);
-            edge_tri.entry((a.min(b), a.max(b))).or_default().push((ti, c));
+            edge_tri
+                .entry((a.min(b), a.max(b)))
+                .or_default()
+                .push((ti, c));
         }
     }
 
@@ -192,12 +203,28 @@ fn min_angle4(pos: &[Vec3], a: usize, b: usize, c: usize, d: usize, diag_ac: boo
     let ang = |o: usize, p: usize, q: usize| {
         let u = pos[p].sub(pos[o]);
         let v = pos[q].sub(pos[o]);
-        (u.dot(v) / (u.length() * v.length() + 1e-12)).clamp(-1.0, 1.0).acos()
+        (u.dot(v) / (u.length() * v.length() + 1e-12))
+            .clamp(-1.0, 1.0)
+            .acos()
     };
     if diag_ac {
-        [ang(a, b, c), ang(b, c, a), ang(c, a, b), ang(a, c, d), ang(c, d, a), ang(d, a, c)]
+        [
+            ang(a, b, c),
+            ang(b, c, a),
+            ang(c, a, b),
+            ang(a, c, d),
+            ang(c, d, a),
+            ang(d, a, c),
+        ]
     } else {
-        [ang(b, c, d), ang(c, d, b), ang(d, b, c), ang(b, d, a), ang(d, a, b), ang(a, b, d)]
+        [
+            ang(b, c, d),
+            ang(c, d, b),
+            ang(d, b, c),
+            ang(b, d, a),
+            ang(d, a, b),
+            ang(a, b, d),
+        ]
     }
     .into_iter()
     .fold(f64::MAX, f64::min)
@@ -224,7 +251,9 @@ fn quad_angle_deviation(pos: &[Vec3], q: &[usize; 4]) -> f64 {
     let ang = |o: usize, p: usize, r: usize| {
         let u = pos[p].sub(pos[o]);
         let v = pos[r].sub(pos[o]);
-        (u.dot(v) / (u.length() * v.length() + 1e-12)).clamp(-1.0, 1.0).acos()
+        (u.dot(v) / (u.length() * v.length() + 1e-12))
+            .clamp(-1.0, 1.0)
+            .acos()
     };
     let half_pi = std::f64::consts::FRAC_PI_2;
     (0..4)
@@ -251,7 +280,10 @@ mod tests {
         let m = primitives::grid(1, 1, 2.0);
         let p = poke_faces(&m, 0.5);
         // The new vertex (last) is off the z = 0 plane.
-        let c = p.vertex(crate::mesh::VertexId(p.vertex_count() - 1)).unwrap().position;
+        let c = p
+            .vertex(crate::mesh::VertexId(p.vertex_count() - 1))
+            .unwrap()
+            .position;
         assert!((c.z.abs() - 0.5).abs() < 1e-9);
     }
 

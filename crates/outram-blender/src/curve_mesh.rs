@@ -55,8 +55,10 @@ pub fn mesh_to_splines(mesh: &Mesh) -> Vec<Spline> {
 /// `cyclic`).
 pub fn boundary_to_splines(mesh: &Mesh) -> Vec<Spline> {
     let topo = MeshTopology::new(mesh);
-    let boundary: BTreeSet<EdgeId> =
-        (0..mesh.edge_count()).map(EdgeId).filter(|&e| topo.is_boundary_edge(e)).collect();
+    let boundary: BTreeSet<EdgeId> = (0..mesh.edge_count())
+        .map(EdgeId)
+        .filter(|&e| topo.is_boundary_edge(e))
+        .collect();
     chains(mesh, Some(&boundary))
 }
 
@@ -67,7 +69,9 @@ fn chains(mesh: &Mesh, restrict: Option<&BTreeSet<EdgeId>>) -> Vec<Spline> {
         if restrict.is_some_and(|r| !r.contains(&EdgeId(e))) {
             continue;
         }
-        let Some(ed) = mesh.edge(EdgeId(e)) else { continue };
+        let Some(ed) = mesh.edge(EdgeId(e)) else {
+            continue;
+        };
         let (a, b) = (ed.verts[0].0, ed.verts[1].0);
         adj.entry(a).or_default().push((b, e));
         adj.entry(b).or_default().push((a, e));
@@ -78,8 +82,11 @@ fn chains(mesh: &Mesh, restrict: Option<&BTreeSet<EdgeId>>) -> Vec<Spline> {
 
     // Start from every non-degree-2 vertex first (open chains), then leftover
     // pure loops.
-    let mut starts: Vec<usize> =
-        adj.iter().filter(|(_, ns)| ns.len() != 2).map(|(&v, _)| v).collect();
+    let mut starts: Vec<usize> = adj
+        .iter()
+        .filter(|(_, ns)| ns.len() != 2)
+        .map(|(&v, _)| v)
+        .collect();
     starts.sort_unstable();
     starts.dedup();
 
@@ -93,13 +100,18 @@ fn chains(mesh: &Mesh, restrict: Option<&BTreeSet<EdgeId>>) -> Vec<Spline> {
         loop {
             used.insert(cur_e);
             let ed = mesh.edge(EdgeId(cur_e)).unwrap();
-            let next_v = if ed.verts[0].0 == cur_v { ed.verts[1].0 } else { ed.verts[0].0 };
+            let next_v = if ed.verts[0].0 == cur_v {
+                ed.verts[1].0
+            } else {
+                ed.verts[0].0
+            };
             chain.push(next_v);
             let ns = &adj[&next_v];
             if ns.len() != 2 {
                 break; // hit a branch / endpoint
             }
-            let Some(&(_, next_e)) = ns.iter().find(|&&(_, e)| e != cur_e && !used.contains(&e)) else {
+            let Some(&(_, next_e)) = ns.iter().find(|&&(_, e)| e != cur_e && !used.contains(&e))
+            else {
                 break;
             };
             if next_v == start_v {
@@ -146,7 +158,10 @@ fn chains(mesh: &Mesh, restrict: Option<&BTreeSet<EdgeId>>) -> Vec<Spline> {
 /// Convert a [`Spline`] to a mesh — a wire, a round tube, or a filled outline.
 pub fn spline_to_mesh(spline: &Spline, tube_radius: Option<f64>) -> Mesh {
     let bevel = match tube_radius {
-        Some(r) => Bevel::Round { depth: r, segments: 12 },
+        Some(r) => Bevel::Round {
+            depth: r,
+            segments: 12,
+        },
         None => Bevel::None,
     };
     crate::curve_surface::curve_to_mesh(
@@ -175,7 +190,10 @@ pub fn skin_spline(spline: &Spline, radius: f64, segments: usize) -> Mesh {
     crate::curve_surface::curve_to_mesh(
         spline,
         &CurveGeometry {
-            bevel: Bevel::Round { depth: radius, segments: segments.max(3) },
+            bevel: Bevel::Round {
+                depth: radius,
+                segments: segments.max(3),
+            },
             caps: !spline.cyclic,
             ..Default::default()
         },
@@ -203,7 +221,11 @@ mod tests {
         // The chains between them touch every vertex at least once.
         let touched: std::collections::BTreeSet<_> = splines
             .iter()
-            .flat_map(|s| s.points.iter().map(|p| (p.position.x as i64, p.position.y as i64)))
+            .flat_map(|s| {
+                s.points
+                    .iter()
+                    .map(|p| (p.position.x as i64, p.position.y as i64))
+            })
             .collect();
         assert!(touched.len() >= 9);
     }
@@ -219,7 +241,11 @@ mod tests {
 
     #[test]
     fn spline_to_mesh_round_trips_a_tube() {
-        let s = Spline::poly(&[Vec3::ZERO, Vec3::new(0.0, 0.0, 3.0), Vec3::new(2.0, 0.0, 3.0)]);
+        let s = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(0.0, 0.0, 3.0),
+            Vec3::new(2.0, 0.0, 3.0),
+        ]);
         let tube = spline_to_mesh(&s, Some(0.3));
         assert!(tube.face_count() > 10);
     }
@@ -244,9 +270,16 @@ mod tests {
             m.add_vertex(Vec3::new(-0.1, 0.0, i as f64 * 0.5));
         }
         m.add_face(&[VertexId(0), VertexId(1), VertexId(3)]);
-        let curve = Spline::poly(&[Vec3::ZERO, Vec3::new(0.0, 0.0, 1.5), Vec3::new(2.0, 0.0, 1.5)]);
+        let curve = Spline::poly(&[
+            Vec3::ZERO,
+            Vec3::new(0.0, 0.0, 1.5),
+            Vec3::new(2.0, 0.0, 1.5),
+        ]);
         let d = spline_deform_mesh(&m, &curve, Axis::Z);
-        assert!(d.vertex(VertexId(12)).unwrap().position.x > 0.5, "far end followed the curve");
+        assert!(
+            d.vertex(VertexId(12)).unwrap().position.x > 0.5,
+            "far end followed the curve"
+        );
     }
 
     #[test]

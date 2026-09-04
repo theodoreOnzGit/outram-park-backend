@@ -81,7 +81,10 @@ impl Font {
         // overlapping rectangles fine).
         glyphs.insert(
             'I',
-            Glyph { contours: vec![bar(0.43, 0.0, 0.43 + w, 1.0)], advance: 0.7 },
+            Glyph {
+                contours: vec![bar(0.43, 0.0, 0.43 + w, 1.0)],
+                advance: 0.7,
+            },
         );
         glyphs.insert(
             'L',
@@ -223,19 +226,35 @@ impl Font {
                 contours: vec![
                     bar(0.1, 0.0, 0.1 + w, 1.0),
                     bar(0.9 - w, 0.0, 0.9, 1.0),
-                    vec![[0.1, 1.0], [0.1 + w, 1.0], [0.5, 0.35], [0.5 - w * 0.5, 0.35]],
-                    vec![[0.9 - w, 1.0], [0.9, 1.0], [0.5 + w * 0.5, 0.35], [0.5, 0.35]],
+                    vec![
+                        [0.1, 1.0],
+                        [0.1 + w, 1.0],
+                        [0.5, 0.35],
+                        [0.5 - w * 0.5, 0.35],
+                    ],
+                    vec![
+                        [0.9 - w, 1.0],
+                        [0.9, 1.0],
+                        [0.5 + w * 0.5, 0.35],
+                        [0.5, 0.35],
+                    ],
                 ],
                 advance: 1.1,
             },
         );
         glyphs.insert(
             '-',
-            Glyph { contours: vec![bar(0.2, 0.45, 0.8, 0.55)], advance: 0.8 },
+            Glyph {
+                contours: vec![bar(0.2, 0.45, 0.8, 0.55)],
+                advance: 0.8,
+            },
         );
         glyphs.insert(
             '.',
-            Glyph { contours: vec![bar(0.4, 0.0, 0.4 + w, w)], advance: 0.4 },
+            Glyph {
+                contours: vec![bar(0.4, 0.0, 0.4 + w, w)],
+                advance: 0.4,
+            },
         );
         for d in '0'..='9' {
             // Digits as a plain outlined box (placeholder — legible as a
@@ -260,7 +279,10 @@ impl Font {
             );
         }
 
-        Font { glyphs, default_advance: 0.5 }
+        Font {
+            glyphs,
+            default_advance: 0.5,
+        }
     }
 }
 
@@ -279,7 +301,12 @@ pub struct TextGeometry {
 
 impl Default for TextGeometry {
     fn default() -> Self {
-        TextGeometry { size: 1.0, tracking: 0.1, extrude: 0.0, bevel: 0.0 }
+        TextGeometry {
+            size: 1.0,
+            tracking: 0.1,
+            extrude: 0.0,
+            bevel: 0.0,
+        }
     }
 }
 
@@ -291,7 +318,12 @@ pub fn text_to_contours(text: &str, font: &Font, size: f64, tracking: f64) -> Ve
     for c in text.chars() {
         if let Some(g) = font.glyph(c) {
             for contour in &g.contours {
-                out.push(contour.iter().map(|&[x, y]| [(x + pen) * size, y * size]).collect());
+                out.push(
+                    contour
+                        .iter()
+                        .map(|&[x, y]| [(x + pen) * size, y * size])
+                        .collect(),
+                );
             }
             pen += g.advance + tracking;
         } else {
@@ -311,8 +343,16 @@ pub fn text_to_mesh(text: &str, font: &Font, opts: &TextGeometry) -> Mesh {
 
     let mut positions: Vec<Vec3> = Vec::new();
     let mut faces: Vec<Vec<usize>> = Vec::new();
-    let front_z = if opts.extrude > 0.0 { -opts.extrude * 0.5 } else { 0.0 };
-    let back_z = if opts.extrude > 0.0 { opts.extrude * 0.5 } else { 0.0 };
+    let front_z = if opts.extrude > 0.0 {
+        -opts.extrude * 0.5
+    } else {
+        0.0
+    };
+    let back_z = if opts.extrude > 0.0 {
+        opts.extrude * 0.5
+    } else {
+        0.0
+    };
     let inset = opts.bevel.min(opts.extrude * 0.49).max(0.0);
 
     for contour in &contours {
@@ -351,7 +391,11 @@ pub fn text_to_mesh(text: &str, font: &Font, opts: &TextGeometry) -> Mesh {
                 .map(|&[x, y]| {
                     let (dx, dy) = (x - c[0], y - c[1]);
                     let l = (dx * dx + dy * dy).sqrt().max(1e-9);
-                    positions.push(Vec3::new(x - dx / l * inset, y - dy / l * inset, front_z + inset));
+                    positions.push(Vec3::new(
+                        x - dx / l * inset,
+                        y - dy / l * inset,
+                        front_z + inset,
+                    ));
                     positions.len() - 1
                 })
                 .collect();
@@ -360,7 +404,11 @@ pub fn text_to_mesh(text: &str, font: &Font, opts: &TextGeometry) -> Mesh {
                 .map(|&[x, y]| {
                     let (dx, dy) = (x - c[0], y - c[1]);
                     let l = (dx * dx + dy * dy).sqrt().max(1e-9);
-                    positions.push(Vec3::new(x - dx / l * inset, y - dy / l * inset, back_z - inset));
+                    positions.push(Vec3::new(
+                        x - dx / l * inset,
+                        y - dy / l * inset,
+                        back_z - inset,
+                    ));
                     positions.len() - 1
                 })
                 .collect();
@@ -385,7 +433,9 @@ pub fn text_to_mesh(text: &str, font: &Font, opts: &TextGeometry) -> Mesh {
 
 fn centroid(c: &[[f64; 2]]) -> [f64; 2] {
     let n = c.len().max(1) as f64;
-    let (sx, sy) = c.iter().fold((0.0, 0.0), |(ax, ay), &[x, y]| (ax + x, ay + y));
+    let (sx, sy) = c
+        .iter()
+        .fold((0.0, 0.0), |(ax, ay), &[x, y]| (ax + x, ay + y));
     [sx / n, sy / n]
 }
 
@@ -397,7 +447,11 @@ pub(crate) fn ear_clip(poly: &[[f64; 2]]) -> Vec<[usize; 3]> {
         return Vec::new();
     }
     let ccw = signed_area(poly) >= 0.0;
-    let mut idx: Vec<usize> = if ccw { (0..n).collect() } else { (0..n).rev().collect() };
+    let mut idx: Vec<usize> = if ccw {
+        (0..n).collect()
+    } else {
+        (0..n).rev().collect()
+    };
     let mut out = Vec::new();
     let mut guard = 0;
     while idx.len() > 3 && guard < n * n + 10 {
@@ -425,11 +479,14 @@ pub(crate) fn ear_clip(poly: &[[f64; 2]]) -> Vec<[usize; 3]> {
 
 fn signed_area(p: &[[f64; 2]]) -> f64 {
     let n = p.len();
-    (0..n).map(|i| {
-        let (x0, y0) = (p[i][0], p[i][1]);
-        let (x1, y1) = (p[(i + 1) % n][0], p[(i + 1) % n][1]);
-        x0 * y1 - x1 * y0
-    }).sum::<f64>() * 0.5
+    (0..n)
+        .map(|i| {
+            let (x0, y0) = (p[i][0], p[i][1]);
+            let (x1, y1) = (p[(i + 1) % n][0], p[(i + 1) % n][1]);
+            x0 * y1 - x1 * y0
+        })
+        .sum::<f64>()
+        * 0.5
 }
 
 fn is_ear(p: &[[f64; 2]], a: usize, b: usize, c: usize, poly: &[usize]) -> bool {
@@ -476,7 +533,14 @@ mod tests {
     #[test]
     fn flat_text_fills_to_a_disc() {
         let font = Font::builtin_stroke();
-        let m = text_to_mesh("L", &font, &TextGeometry { size: 1.0, ..Default::default() });
+        let m = text_to_mesh(
+            "L",
+            &font,
+            &TextGeometry {
+                size: 1.0,
+                ..Default::default()
+            },
+        );
         assert!(m.face_count() > 0);
         // All at z = 0.
         for i in 0..m.vertex_count() {
@@ -487,7 +551,15 @@ mod tests {
     #[test]
     fn extruded_text_is_a_solid() {
         let font = Font::builtin_stroke();
-        let m = text_to_mesh("I", &font, &TextGeometry { size: 1.0, extrude: 0.3, ..Default::default() });
+        let m = text_to_mesh(
+            "I",
+            &font,
+            &TextGeometry {
+                size: 1.0,
+                extrude: 0.3,
+                ..Default::default()
+            },
+        );
         // Front fill + back fill + side walls → closed genus-0 per contour.
         assert!(m.face_count() > 6);
         let (lo, hi) = crate::measure::bounding_box(&m);
@@ -498,8 +570,25 @@ mod tests {
     #[test]
     fn bevel_adds_chamfer_rings() {
         let font = Font::builtin_stroke();
-        let plain = text_to_mesh("I", &font, &TextGeometry { size: 1.0, extrude: 0.4, ..Default::default() });
-        let bev = text_to_mesh("I", &font, &TextGeometry { size: 1.0, extrude: 0.4, bevel: 0.05, ..Default::default() });
+        let plain = text_to_mesh(
+            "I",
+            &font,
+            &TextGeometry {
+                size: 1.0,
+                extrude: 0.4,
+                ..Default::default()
+            },
+        );
+        let bev = text_to_mesh(
+            "I",
+            &font,
+            &TextGeometry {
+                size: 1.0,
+                extrude: 0.4,
+                bevel: 0.05,
+                ..Default::default()
+            },
+        );
         assert!(bev.face_count() > plain.face_count(), "chamfer added faces");
     }
 
@@ -510,7 +599,13 @@ mod tests {
         // than "II".
         let a = text_to_contours("II", &font, 1.0, 0.0);
         let b = text_to_contours("I@I", &font, 1.0, 0.0);
-        let last_x = |cs: &[Vec<[f64; 2]>]| cs.last().unwrap().iter().map(|p| p[0]).fold(f64::MIN, f64::max);
+        let last_x = |cs: &[Vec<[f64; 2]>]| {
+            cs.last()
+                .unwrap()
+                .iter()
+                .map(|p| p[0])
+                .fold(f64::MIN, f64::max)
+        };
         assert!(last_x(&b) > last_x(&a));
     }
 }

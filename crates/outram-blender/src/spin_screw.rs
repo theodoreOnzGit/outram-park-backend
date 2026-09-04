@@ -53,7 +53,16 @@ pub fn spin(
     steps: usize,
     use_duplicates: bool,
 ) -> Mesh {
-    sweep(mesh, profile, center, axis, angle, 0.0, steps.max(1), use_duplicates)
+    sweep(
+        mesh,
+        profile,
+        center,
+        axis,
+        angle,
+        0.0,
+        steps.max(1),
+        use_duplicates,
+    )
 }
 
 /// [`spin`] with an axial translation: the profile advances `screw_offset`
@@ -69,7 +78,16 @@ pub fn screw(
     steps: usize,
 ) -> Mesh {
     let angle = turns * std::f64::consts::TAU;
-    sweep(mesh, profile, center, axis, angle, screw_offset, steps.max(1), false)
+    sweep(
+        mesh,
+        profile,
+        center,
+        axis,
+        angle,
+        screw_offset,
+        steps.max(1),
+        false,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -87,20 +105,31 @@ fn sweep(
         return mesh.clone();
     }
     let src = mesh.positions();
-    let base: Vec<Vec3> = profile.iter().filter_map(|v| src.get(v.0).copied()).collect();
+    let base: Vec<Vec3> = profile
+        .iter()
+        .filter_map(|v| src.get(v.0).copied())
+        .collect();
     if base.len() != profile.len() {
         return mesh.clone();
     }
     let k = axis_unit(axis);
 
     let mut positions = src.clone();
-    let mut faces: Vec<Vec<usize>> = mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+    let mut faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect();
 
     let full_turn = (angle - std::f64::consts::TAU).abs() < 1e-6;
     let mut rings: Vec<Vec<usize>> = Vec::with_capacity(steps + 1);
     // step 0 reuses the original profile vertex ids.
     rings.push(profile.iter().map(|v| v.0).collect());
-    let ring_count = if full_turn && !use_duplicates { steps } else { steps + 1 };
+    let ring_count = if full_turn && !use_duplicates {
+        steps
+    } else {
+        steps + 1
+    };
     for s in 1..ring_count {
         let a = angle * s as f64 / steps as f64;
         let t = axial * s as f64 / steps as f64;
@@ -144,7 +173,9 @@ fn sweep(
 /// Rotate `v` about unit axis `k` by `theta` (Rodrigues).
 fn rotate_about(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
     let (s, c) = theta.sin_cos();
-    v.scale(c).add(k.cross(v).scale(s)).add(k.scale(k.dot(v) * (1.0 - c)))
+    v.scale(c)
+        .add(k.cross(v).scale(s))
+        .add(k.scale(k.dot(v) * (1.0 - c)))
 }
 
 /// The unit vector for an [`Axis`].
@@ -174,7 +205,15 @@ mod tests {
     #[test]
     fn spin_a_profile_into_a_cylinder_band() {
         let (m, prof) = profile_mesh();
-        let s = spin(&m, &prof, Vec3::ZERO, Axis::Z, std::f64::consts::TAU, 12, false);
+        let s = spin(
+            &m,
+            &prof,
+            Vec3::ZERO,
+            Axis::Z,
+            std::f64::consts::TAU,
+            12,
+            false,
+        );
         // 12 segments * (3-1)=2 quads = 24 new faces + dummy.
         assert_eq!(s.face_count(), 1 + 24);
         // A full turn reuses ring[0] as the closing ring: 11 new rings * 3.
@@ -186,7 +225,15 @@ mod tests {
     #[test]
     fn spin_half_turn_is_open() {
         let (m, prof) = profile_mesh();
-        let s = spin(&m, &prof, Vec3::ZERO, Axis::Z, std::f64::consts::PI, 6, false);
+        let s = spin(
+            &m,
+            &prof,
+            Vec3::ZERO,
+            Axis::Z,
+            std::f64::consts::PI,
+            6,
+            false,
+        );
         // 6 segments -> 7 rings -> 6*2 = 12 quads + dummy.
         assert_eq!(s.face_count(), 1 + 12);
     }
@@ -203,8 +250,24 @@ mod tests {
     #[test]
     fn use_duplicates_does_not_bridge() {
         let (m, prof) = profile_mesh();
-        let dup = spin(&m, &prof, Vec3::ZERO, Axis::Z, std::f64::consts::TAU, 4, true);
-        let bridged = spin(&m, &prof, Vec3::ZERO, Axis::Z, std::f64::consts::TAU, 4, false);
+        let dup = spin(
+            &m,
+            &prof,
+            Vec3::ZERO,
+            Axis::Z,
+            std::f64::consts::TAU,
+            4,
+            true,
+        );
+        let bridged = spin(
+            &m,
+            &prof,
+            Vec3::ZERO,
+            Axis::Z,
+            std::f64::consts::TAU,
+            4,
+            false,
+        );
         let quads = |mm: &Mesh| mm.polygons().iter().filter(|p| p.len() == 4).count();
         assert_eq!(quads(&dup), 0, "duplicates path bridges nothing");
         assert!(quads(&bridged) > 0);
@@ -214,7 +277,8 @@ mod tests {
     /// quads — the band closed around the axis.
     fn vertical_edges_paired(m: &Mesh) -> bool {
         let pos = m.positions();
-        let mut count: std::collections::HashMap<(usize, usize), usize> = std::collections::HashMap::new();
+        let mut count: std::collections::HashMap<(usize, usize), usize> =
+            std::collections::HashMap::new();
         for poly in m.polygons() {
             if poly.len() != 4 {
                 continue;

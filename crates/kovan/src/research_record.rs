@@ -30,7 +30,11 @@ impl ResearchRecordIndex {
     /// cannot be built by accident.
     pub fn from_session(session: &PaperSession) -> Self {
         let parsed = parse_document(session.markdown());
-        Self { citekey: session.citekey().to_string(), artifacts: parsed.artifacts, problems: parsed.problems }
+        Self {
+            citekey: session.citekey().to_string(),
+            artifacts: parsed.artifacts,
+            problems: parsed.problems,
+        }
     }
 
     /// Rebuild in place from `session`'s current buffer — call this after
@@ -63,7 +67,10 @@ impl ResearchRecordIndex {
     /// Every artifact anchored to 1-based `page` — §31's "Follow" query:
     /// when the PDF reader shows page 87, these are what to highlight.
     pub fn anchored_to_page(&self, page: u32) -> Vec<&Artifact> {
-        self.artifacts.iter().filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page))).collect()
+        self.artifacts
+            .iter()
+            .filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page)))
+            .collect()
     }
 }
 
@@ -109,7 +116,10 @@ mod tests {
         assert!(index.anchored_to_page(8).is_empty());
 
         let on_disk = std::fs::read_to_string(session.markdown_path()).unwrap();
-        assert!(!on_disk.contains("note-1"), "disk must be unaffected before save_document");
+        assert!(
+            !on_disk.contains("note-1"),
+            "disk must be unaffected before save_document"
+        );
     }
 
     #[test]

@@ -138,7 +138,10 @@ impl FileDialogTarget {
     /// new one to write (`save_file`) — see [`DigitiseApp::open_picker`].
     /// Meaningless for a directory target; checked after `is_directory`.
     fn is_save(self) -> bool {
-        matches!(self, Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport)
+        matches!(
+            self,
+            Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport
+        )
     }
 
     /// The file-filter name (matching one of the names registered on
@@ -402,7 +405,9 @@ pub struct DigitiseApp {
 /// it to plain English and reducing the friction of typing it every session
 /// are the actual fix, not a better tooltip on the same unclear label.
 pub(crate) fn default_operator_name() -> String {
-    std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_default()
+    std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_default()
 }
 
 impl Default for DigitiseApp {
@@ -489,7 +494,11 @@ impl DigitiseApp {
     /// state simply reporting unavailable — so [`ActivePaper::pdf_path`]
     /// is `None` in that case rather than this method failing.
     fn activate_paper(&mut self, citekey: &str) -> Result<(), String> {
-        let root = self.home.root().cloned().ok_or_else(|| "no Kovan folder open".to_string())?;
+        let root = self
+            .home
+            .root()
+            .cloned()
+            .ok_or_else(|| "no Kovan folder open".to_string())?;
         let mut session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
 
         // Maintainer, 2026-09-02: "if the annotations are disordered, order
@@ -509,7 +518,10 @@ impl DigitiseApp {
             .and_then(|cfg| cfg.source)
             .and_then(|source| source.pdf)
             .map(|rel| root.paper_dir(citekey).join(rel));
-        let pdf_path = configured_pdf.as_ref().filter(|path| path.is_file()).cloned();
+        let pdf_path = configured_pdf
+            .as_ref()
+            .filter(|path| path.is_file())
+            .cloned();
         let pdf_unavailable = configured_pdf.is_some() && pdf_path.is_none();
 
         if let Some(pdf) = &pdf_path {
@@ -517,7 +529,11 @@ impl DigitiseApp {
         }
         self.kvim_editor.load_text(session.markdown());
 
-        self.active_paper = Some(ActivePaper { session, pdf_path, pdf_unavailable });
+        self.active_paper = Some(ActivePaper {
+            session,
+            pdf_path,
+            pdf_unavailable,
+        });
         Ok(())
     }
 
@@ -543,8 +559,12 @@ impl DigitiseApp {
     /// else writes into those two directories — which nothing in this
     /// crate does.
     fn already_ingested(&self, path: &std::path::Path) -> bool {
-        let Some(root) = self.home.root() else { return false };
-        let Ok(canon) = path.canonicalize() else { return false };
+        let Some(root) = self.home.root() else {
+            return false;
+        };
+        let Ok(canon) = path.canonicalize() else {
+            return false;
+        };
         [root.open_sources_dir(), root.restricted_sources_dir()]
             .into_iter()
             .any(|dir| canon.starts_with(dir.canonicalize().unwrap_or(dir)))
@@ -557,7 +577,9 @@ impl DigitiseApp {
     /// Ingest/Skip prompt [`Self::ingest_prompt_ui`] draws. No-op with no
     /// root open — nothing to ingest into.
     fn offer_ingest_if_new(&mut self, path: &str) {
-        let Some(root) = self.home.root().cloned() else { return };
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
         if self.already_ingested(std::path::Path::new(path)) {
             return;
         }
@@ -576,28 +598,36 @@ impl DigitiseApp {
     /// Literature…" flow the Wiki's own button opens (§22's preview/
     /// classify form), rather than a second, competing ingestion path.
     fn ingest_prompt_ui(&mut self, ctx: &egui::Context) {
-        let Some(path) = self.pending_ingest_prompt.clone() else { return };
+        let Some(path) = self.pending_ingest_prompt.clone() else {
+            return;
+        };
         let Some(root) = self.home.root().cloned() else {
             self.pending_ingest_prompt = None;
             return;
         };
         let mut close = false;
-        egui::Window::new("Ingest this PDF?").collapsible(false).resizable(false).show(ctx, |ui| {
-            ui.label(format!("{path} is not in your Kovan library yet."));
-            ui.checkbox(&mut self.auto_ingest_opened_pdfs, "Always ingest opened PDFs automatically");
-            ui.horizontal(|ui| {
-                if ui.button("Ingest…").clicked() {
-                    let wiki = self.wiki.get_or_insert_with(WikiState::new);
-                    if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
-                        self.set_error(e);
+        egui::Window::new("Ingest this PDF?")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label(format!("{path} is not in your Kovan library yet."));
+                ui.checkbox(
+                    &mut self.auto_ingest_opened_pdfs,
+                    "Always ingest opened PDFs automatically",
+                );
+                ui.horizontal(|ui| {
+                    if ui.button("Ingest…").clicked() {
+                        let wiki = self.wiki.get_or_insert_with(WikiState::new);
+                        if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
+                            self.set_error(e);
+                        }
+                        close = true;
                     }
-                    close = true;
-                }
-                if ui.button("Skip").clicked() {
-                    close = true;
-                }
+                    if ui.button("Skip").clicked() {
+                        close = true;
+                    }
+                });
             });
-        });
         if close {
             self.pending_ingest_prompt = None;
         }
@@ -612,11 +642,24 @@ impl DigitiseApp {
     fn activate_paper_and_navigate(&mut self, citekey: &str) {
         match self.activate_paper(citekey) {
             Ok(()) => {
-                let has_pdf = self.active_paper.as_ref().is_some_and(|p| p.pdf_path.is_some());
-                let pdf_unavailable = self.active_paper.as_ref().is_some_and(|p| p.pdf_unavailable);
-                self.view = if has_pdf { View::PdfReader } else { View::KvimEditor };
+                let has_pdf = self
+                    .active_paper
+                    .as_ref()
+                    .is_some_and(|p| p.pdf_path.is_some());
+                let pdf_unavailable = self
+                    .active_paper
+                    .as_ref()
+                    .is_some_and(|p| p.pdf_unavailable);
+                self.view = if has_pdf {
+                    View::PdfReader
+                } else {
+                    View::KvimEditor
+                };
                 self.set_status(if pdf_unavailable {
-                    format!("opened {citekey} — source PDF unavailable locally{}", self.private_submodule_hint())
+                    format!(
+                        "opened {citekey} — source PDF unavailable locally{}",
+                        self.private_submodule_hint()
+                    )
                 } else {
                     format!("opened {citekey}")
                 });
@@ -659,9 +702,12 @@ impl DigitiseApp {
                 if self.json_out.is_empty() {
                     self.json_out = format!("{path}.digitised.json");
                 }
-                self.set_raster(r, format!(
+                self.set_raster(
+                    r,
+                    format!(
                     "loaded {path} — drag the four reference lines into place, fill their values"
-                ));
+                ),
+                );
             }
             Err(e) => self.set_error(e.to_string()),
         }
@@ -689,7 +735,11 @@ impl DigitiseApp {
     /// silently blanked, since nothing about a crop's raw pixels alone
     /// could tell us which figure it is. Fields stay editable afterwards
     /// either way.
-    pub fn load_image_from_raster(&mut self, raster: PlotRaster, provenance: Option<CropProvenance>) {
+    pub fn load_image_from_raster(
+        &mut self,
+        raster: PlotRaster,
+        provenance: Option<CropProvenance>,
+    ) {
         self.set_raster(
             raster,
             "cropped from the PDF reader — drag the four reference lines into place, \
@@ -999,7 +1049,8 @@ impl DigitiseApp {
         p.x_px = Some(px);
         p.y_px = Some(py);
         (p.x, p.y) = cal.point_at(px, py);
-        let ((x_minus, x_plus), (y_minus, y_plus)) = xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+        let ((x_minus, x_plus), (y_minus, y_plus)) =
+            xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
         (p.x_minus, p.x_plus) = (x_minus, x_plus);
         (p.y_minus, p.y_plus) = (y_minus, y_plus);
         p.origin = if hand_placed || matches!(p.origin, PointOrigin::HandPlaced { .. }) {
@@ -1123,7 +1174,12 @@ impl DigitiseApp {
             return;
         };
         let title = self.figure.trim();
-        let title = if title.is_empty() { "Digitised graph" } else { title }.to_string();
+        let title = if title.is_empty() {
+            "Digitised graph"
+        } else {
+            title
+        }
+        .to_string();
         let csv_body = format!("```csv\n{}```\n", d.to_csv_string());
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
@@ -1167,7 +1223,13 @@ impl DigitiseApp {
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
                 " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1, prov.min.x, prov.min.y, prov.max.x, prov.max.y, prov.created_at, prov.author
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.created_at,
+                prov.author
             ));
         }
         block.push_str("\n\n");
@@ -1270,8 +1332,9 @@ impl DigitiseApp {
                 ui.label(labels[i]);
                 let px_label = match self.calibration_shape {
                     CalibrationShape::AxisAligned => self.ref_px[i].map(|p| format!("px {p:.0}")),
-                    CalibrationShape::Parallelogram => self.para_corners[i]
-                        .map(|(x, y)| format!("px ({x:.0}, {y:.0})")),
+                    CalibrationShape::Parallelogram => {
+                        self.para_corners[i].map(|(x, y)| format!("px ({x:.0}, {y:.0})"))
+                    }
                 };
                 ui.label(px_label.unwrap_or_else(|| "px —".to_string()));
                 ui.label("=");
@@ -1303,11 +1366,7 @@ impl DigitiseApp {
                     TraceStrategy::ContinuityNearest,
                     "ContinuityNearest",
                 );
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::LargestRun,
-                    "LargestRun",
-                );
+                ui.selectable_value(&mut self.strategy, TraceStrategy::LargestRun, "LargestRun");
                 ui.selectable_value(
                     &mut self.strategy,
                     TraceStrategy::ColumnCentroid,
@@ -1410,7 +1469,11 @@ impl DigitiseApp {
         // belongs -- no manual project root/markdown path to fill in.
         // Those fields (op-96am's original design) stay available only for
         // a crop loaded with no paper active.
-        match self.active_paper.as_ref().map(|p| p.session.citekey().to_string()) {
+        match self
+            .active_paper
+            .as_ref()
+            .map(|p| p.session.citekey().to_string())
+        {
             Some(citekey) => {
                 ui.label(format!("saving into {citekey}'s notes"));
             }
@@ -1550,7 +1613,12 @@ impl DigitiseApp {
             // already written as `N / zoom` image-space to hold N screen px
             // at any zoom level).
             let ref_tol = 6.0 / zoom as f64;
-            fn hit_ref_line(ref_px: &[Option<f64>; 4], tol: f64, px: f64, py: f64) -> Option<usize> {
+            fn hit_ref_line(
+                ref_px: &[Option<f64>; 4],
+                tol: f64,
+                px: f64,
+                py: f64,
+            ) -> Option<usize> {
                 for (i, coord) in [px, px, py, py].into_iter().enumerate() {
                     if let Some(r) = ref_px[i] {
                         if (coord - r).abs() < tol {
@@ -1773,8 +1841,7 @@ impl DigitiseApp {
                         .map(|c| c.map(|(x, y)| to_screen(x, y)))
                         .collect();
                     for i in 0..4 {
-                        if let (Some(a), Some(b)) =
-                            (screen_corners[i], screen_corners[(i + 1) % 4])
+                        if let (Some(a), Some(b)) = (screen_corners[i], screen_corners[(i + 1) % 4])
                         {
                             painter.line_segment(
                                 [a, b],
@@ -1903,7 +1970,9 @@ impl DigitiseApp {
             FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
             FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
-            FileDialogTarget::KovanRootCreate => self.home.begin_create(std::path::Path::new(&path)),
+            FileDialogTarget::KovanRootCreate => {
+                self.home.begin_create(std::path::Path::new(&path))
+            }
             FileDialogTarget::PdfIngest => {
                 if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
                     if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
@@ -1925,8 +1994,7 @@ impl eframe::App for DigitiseApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.theme.apply(ui.ctx());
 
-        egui::Panel::top("topbar")
-            .show(ui, |ui| self.top_bar(ui));
+        egui::Panel::top("topbar").show(ui, |ui| self.top_bar(ui));
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {
@@ -1958,8 +2026,12 @@ impl eframe::App for DigitiseApp {
                 egui::CentralPanel::default().show(ui, |ui| {
                     if let Some(action) = self.home.ui(ui) {
                         match action {
-                            HomeAction::RequestOpenDialog => self.open_picker(FileDialogTarget::KovanRootOpen),
-                            HomeAction::RequestCreateDialog => self.open_picker(FileDialogTarget::KovanRootCreate),
+                            HomeAction::RequestOpenDialog => {
+                                self.open_picker(FileDialogTarget::KovanRootOpen)
+                            }
+                            HomeAction::RequestCreateDialog => {
+                                self.open_picker(FileDialogTarget::KovanRootCreate)
+                            }
                         }
                     }
                 });
@@ -1973,7 +2045,9 @@ impl eframe::App for DigitiseApp {
                         self.refresh_knowledge(&root);
                     }
                     egui::CentralPanel::default().show(ui, |ui| {
-                        if let (Some(wiki), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref()) {
+                        if let (Some(wiki), Some(workspace)) =
+                            (self.wiki.as_mut(), self.workspace.as_ref())
+                        {
                             match wiki.ui(ui, &root, &workspace.index) {
                                 Some(WikiAction::RequestIngestDialog) => ingest_clicked = true,
                                 Some(WikiAction::OpenPaper(citekey)) => {
@@ -2021,7 +2095,8 @@ impl eframe::App for DigitiseApp {
                     if let Some(workspace) = self.workspace.as_ref() {
                         egui::CentralPanel::default().show(ui, |ui| {
                             if let Some(MindmapAction::OpenPaper(citekey)) =
-                                self.mindmap.ui(ui, &root, &workspace.index, &workspace.graph)
+                                self.mindmap
+                                    .ui(ui, &root, &workspace.index, &workspace.graph)
                             {
                                 opened_paper = Some(citekey);
                             }
@@ -2089,9 +2164,10 @@ impl eframe::App for DigitiseApp {
                     // asking for a project root/markdown path.
                     let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
                     let completion = match (&root, self.workspace.as_ref()) {
-                        (Some(root), Some(workspace)) => {
-                            Some(kvim_editor::CompletionSource { root, index: &workspace.index })
-                        }
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource {
+                            root,
+                            index: &workspace.index,
+                        }),
                         _ => None,
                     };
                     crop_result = self.pdf_reader.ui(
@@ -2129,7 +2205,10 @@ impl eframe::App for DigitiseApp {
                 let mut open_clicked = false;
                 let mut save_clicked = false;
                 let root = self.home.root().cloned();
-                let active_citekey = self.active_paper.as_ref().map(|p| p.session.citekey().to_string());
+                let active_citekey = self
+                    .active_paper
+                    .as_ref()
+                    .map(|p| p.session.citekey().to_string());
                 egui::CentralPanel::default().show(ui, |ui| {
                     ui.horizontal(|ui| {
                         match &active_citekey {
@@ -2155,7 +2234,10 @@ impl eframe::App for DigitiseApp {
                     });
                     // op-dkll: shared index, not a fresh per-frame rebuild.
                     let completion = match (&root, self.workspace.as_ref()) {
-                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource { root, index: &workspace.index }),
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource {
+                            root,
+                            index: &workspace.index,
+                        }),
                         _ => None,
                     };
                     self.kvim_editor.ui(ui, completion);
@@ -2214,8 +2296,12 @@ impl eframe::App for DigitiseApp {
                     request = self.table_digitiser.ui(ui, active_session);
                 });
                 match request {
-                    Some(TablePickerRequest::Json) => self.open_picker(FileDialogTarget::TableJsonExport),
-                    Some(TablePickerRequest::Csv) => self.open_picker(FileDialogTarget::TableCsvExport),
+                    Some(TablePickerRequest::Json) => {
+                        self.open_picker(FileDialogTarget::TableJsonExport)
+                    }
+                    Some(TablePickerRequest::Csv) => {
+                        self.open_picker(FileDialogTarget::TableCsvExport)
+                    }
                     None => {}
                 }
             }
@@ -2228,7 +2314,8 @@ impl eframe::App for DigitiseApp {
         // is a no-op when the buffer has unsaved edits or is already in
         // sync, so this never clobbers typing in progress.
         if let Some(active) = &self.active_paper {
-            self.kvim_editor.sync_to_disk_text(active.session.markdown());
+            self.kvim_editor
+                .sync_to_disk_text(active.session.markdown());
         }
 
         // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
@@ -2281,8 +2368,12 @@ mod tests {
         write_test_pdf(&pdf_path, title);
         let preview = ingest::preview(root, &pdf_path).unwrap();
         let citekey = preview.suggested_citekey.clone();
-        let choice =
-            IngestChoice { citekey: citekey.clone(), access, topics: vec!["htgrs".to_string()], projects: vec![] };
+        let choice = IngestChoice {
+            citekey: citekey.clone(),
+            access,
+            topics: vec!["htgrs".to_string()],
+            projects: vec![],
+        };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey
     }
@@ -2302,7 +2393,9 @@ mod tests {
 
         // A Save Document.
         let active = app.active_paper.as_mut().unwrap();
-        active.session.set_markdown(format!("{}\n\n## New\n\nbody\n", active.session.markdown()));
+        active
+            .session
+            .set_markdown(format!("{}\n\n## New\n\nbody\n", active.session.markdown()));
         // Ensure the mtime resolution actually ticks.
         std::thread::sleep(std::time::Duration::from_millis(10));
         active.session.save_document().unwrap();
@@ -2318,16 +2411,30 @@ mod tests {
     #[test]
     fn activate_paper_resolves_session_and_pdf_path() {
         let (dir, root) = make_root();
-        let citekey = ingest_one(&root, dir.path(), "Coupled Neutronics Methodology", Access::Open);
+        let citekey = ingest_one(
+            &root,
+            dir.path(),
+            "Coupled Neutronics Methodology",
+            Access::Open,
+        );
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
         app.activate_paper(&citekey).unwrap();
 
-        let active = app.active_paper.as_ref().expect("activation should have set active_paper");
+        let active = app
+            .active_paper
+            .as_ref()
+            .expect("activation should have set active_paper");
         assert_eq!(active.session.citekey(), citekey);
-        assert_eq!(active.session.markdown_path(), root.paper_markdown(&citekey));
-        let pdf_path = active.pdf_path.as_ref().expect("an Open-access ingested paper keeps its PDF locally");
+        assert_eq!(
+            active.session.markdown_path(),
+            root.paper_markdown(&citekey)
+        );
+        let pdf_path = active
+            .pdf_path
+            .as_ref()
+            .expect("an Open-access ingested paper keeps its PDF locally");
         assert!(pdf_path.is_file());
     }
 
@@ -2337,7 +2444,12 @@ mod tests {
     #[test]
     fn activate_paper_succeeds_when_the_recorded_pdf_is_missing_locally() {
         let (dir, root) = make_root();
-        let citekey = ingest_one(&root, dir.path(), "Graphite Thermal Conductivity", Access::Open);
+        let citekey = ingest_one(
+            &root,
+            dir.path(),
+            "Graphite Thermal Conductivity",
+            Access::Open,
+        );
         // Simulate the recorded PDF having gone missing from disk (e.g. a
         // clone of the repo without the submodule/proprietary content
         // pulled) without touching kovan.toml's own [source].pdf pointer.
@@ -2348,9 +2460,15 @@ mod tests {
         app.home.open_dir(root.path());
         app.activate_paper(&citekey).unwrap();
 
-        let active = app.active_paper.as_ref().expect("activation should still succeed with no local PDF");
+        let active = app
+            .active_paper
+            .as_ref()
+            .expect("activation should still succeed with no local PDF");
         assert_eq!(active.session.citekey(), citekey);
-        assert!(active.pdf_path.is_none(), "a missing PDF must report unavailable, not a stale path");
+        assert!(
+            active.pdf_path.is_none(),
+            "a missing PDF must report unavailable, not a stale path"
+        );
         assert!(active.pdf_unavailable, "a paper that DOES record a source PDF, just not found locally, must flag it unavailable");
     }
 
@@ -2361,10 +2479,13 @@ mod tests {
     #[test]
     fn a_paper_with_no_recorded_source_pdf_is_not_flagged_unavailable() {
         let (_dir, root) = make_root();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("metadata-only-2020").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("metadata-only-2020"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("metadata-only-2020").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("metadata-only-2020"))
+        .unwrap();
         // No [source].pdf at all -- distinct from `ingest_one` + delete.
 
         let mut app = DigitiseApp::default();
@@ -2373,7 +2494,10 @@ mod tests {
 
         let active = app.active_paper.as_ref().unwrap();
         assert!(active.pdf_path.is_none());
-        assert!(!active.pdf_unavailable, "there was never a PDF recorded, so nothing is 'unavailable'");
+        assert!(
+            !active.pdf_unavailable,
+            "there was never a PDF recorded, so nothing is 'unavailable'"
+        );
     }
 
     #[test]
@@ -2391,7 +2515,12 @@ mod tests {
     #[test]
     fn activate_paper_and_navigate_lands_on_pdf_reader_when_a_pdf_is_present() {
         let (dir, root) = make_root();
-        let citekey = ingest_one(&root, dir.path(), "Fuel Cladding Gap Conductance", Access::Open);
+        let citekey = ingest_one(
+            &root,
+            dir.path(),
+            "Fuel Cladding Gap Conductance",
+            Access::Open,
+        );
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
@@ -2427,8 +2556,15 @@ mod tests {
         app.home.open_dir(root.path());
         app.activate_paper_and_navigate(&citekey);
 
-        assert!(!app.message_is_error, "a missing PDF is not an error -- the paper opened fine");
-        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
+        assert!(
+            !app.message_is_error,
+            "a missing PDF is not an error -- the paper opened fine"
+        );
+        assert!(
+            app.message.contains("source PDF unavailable locally"),
+            "{}",
+            app.message
+        );
     }
 
     /// Same requirement, but naming the actual cause when it's known: a
@@ -2440,14 +2576,18 @@ mod tests {
     #[test]
     fn activate_paper_and_navigate_names_an_unready_private_submodule_as_the_likely_cause() {
         let dir = tempfile::tempdir().unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(dir.path(), config, false).unwrap();
         assert!(!root.private_submodule_ready());
 
         let citekey = crate::entity::CiteKey::parse("wang2018multiphysics").unwrap();
         crate::entity::EntityConfig::paper(citekey.clone(), Access::Restricted)
             .with_storage(crate::entity::StorageMode::PrivateSubmodule)
-            .with_pdf(format!("../../{}/pdf/wang2018multiphysics.pdf", root.config().paths.restricted_sources.display()))
+            .with_pdf(format!(
+                "../../{}/pdf/wang2018multiphysics.pdf",
+                root.config().paths.restricted_sources.display()
+            ))
             .with_topics(["htgrs"])
             .save_paper(&root.paper_dir(citekey.as_str()))
             .unwrap();
@@ -2457,8 +2597,17 @@ mod tests {
         app.activate_paper_and_navigate(citekey.as_str());
 
         assert!(!app.message_is_error);
-        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
-        assert!(app.message.contains("private literature submodule not checked out"), "{}", app.message);
+        assert!(
+            app.message.contains("source PDF unavailable locally"),
+            "{}",
+            app.message
+        );
+        assert!(
+            app.message
+                .contains("private literature submodule not checked out"),
+            "{}",
+            app.message
+        );
     }
 
     /// The submodule-specific hint must not appear for a library with no
@@ -2475,7 +2624,11 @@ mod tests {
         app.home.open_dir(root.path());
         app.activate_paper_and_navigate(&citekey);
 
-        assert!(app.message.contains("source PDF unavailable locally"), "{}", app.message);
+        assert!(
+            app.message.contains("source PDF unavailable locally"),
+            "{}",
+            app.message
+        );
         assert!(!app.message.contains("submodule"), "{}", app.message);
     }
 
@@ -2487,18 +2640,35 @@ mod tests {
     #[test]
     fn refresh_knowledge_populates_index_and_graph_from_the_real_library() {
         let (dir, root) = make_root();
-        let citekey = ingest_one(&root, dir.path(), "Shared Knowledge State Paper", Access::Open);
+        let citekey = ingest_one(
+            &root,
+            dir.path(),
+            "Shared Knowledge State Paper",
+            Access::Open,
+        );
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
-        assert!(app.workspace.is_none(), "must not build anything before the first refresh");
+        assert!(
+            app.workspace.is_none(),
+            "must not build anything before the first refresh"
+        );
 
         app.refresh_knowledge(&root);
-        let workspace = app.workspace.as_ref().expect("refresh_knowledge always populates workspace");
+        let workspace = app
+            .workspace
+            .as_ref()
+            .expect("refresh_knowledge always populates workspace");
         assert!(workspace.index.has_paper(&citekey));
         assert!(
-            workspace.graph.outlinks(&crate::graph::paper_node(&citekey)).len()
-                + workspace.graph.backlinks(&crate::graph::paper_node(&citekey)).len()
+            workspace
+                .graph
+                .outlinks(&crate::graph::paper_node(&citekey))
+                .len()
+                + workspace
+                    .graph
+                    .backlinks(&crate::graph::paper_node(&citekey))
+                    .len()
                 >= 1,
             "the paper's own classification edge should appear in the graph"
         );
@@ -2516,9 +2686,13 @@ mod tests {
     #[test]
     fn a_paper_with_an_unavailable_private_submodule_pdf_still_appears_in_the_knowledge_index() {
         let dir = tempfile::tempdir().unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(dir.path(), config, false).unwrap();
-        assert!(!root.private_submodule_ready(), "deliberately never checked out for this test");
+        assert!(
+            !root.private_submodule_ready(),
+            "deliberately never checked out for this test"
+        );
 
         let citekey = crate::entity::CiteKey::parse("lee2020corrosion").unwrap();
         crate::entity::EntityConfig::paper(citekey.clone(), Access::Restricted)
@@ -2533,13 +2707,20 @@ mod tests {
         app.refresh_knowledge(&root);
 
         let workspace = app.workspace.as_ref().unwrap();
-        assert!(workspace.index.has_paper(citekey.as_str()), "the paper must be indexed regardless of PDF availability");
+        assert!(
+            workspace.index.has_paper(citekey.as_str()),
+            "the paper must be indexed regardless of PDF availability"
+        );
 
         // And it must still open cleanly -- Markdown/BibTeX-level knowledge
         // usable, PDF just reported unavailable, not an activation failure.
         app.activate_paper_and_navigate(citekey.as_str());
         assert!(!app.message_is_error);
-        assert_eq!(app.view, View::KvimEditor, "no PDF reachable -> falls back to the editor, same as any other missing-PDF case");
+        assert_eq!(
+            app.view,
+            View::KvimEditor,
+            "no PDF reachable -> falls back to the editor, same as any other missing-PDF case"
+        );
     }
 
     /// `op-u1m9`: page number and paper id/title must come from what the
@@ -2555,16 +2736,20 @@ mod tests {
             "@article{wang2018multiphysics,\n  author = {Wang, Yan},\n  title = {Coupled Neutronics Methodology},\n  year = {2018},\n}\n",
         )
         .unwrap();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
         app.activate_paper("wang2018multiphysics").unwrap();
 
-        let raster = crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
+        let raster =
+            crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
         let provenance = CropProvenance {
             page_index: 6, // page 7, 0-based
             min: Pos2::ZERO,
@@ -2580,7 +2765,10 @@ mod tests {
         assert_eq!(app.page, "7");
         assert_eq!(app.document_id, "wang2018multiphysics");
         assert_eq!(app.document_title, "Coupled Neutronics Methodology");
-        assert_eq!(app.figure, "Figure 4", "op-8ci2's figure prompt, carried via CropProvenance, must reach the digitiser");
+        assert_eq!(
+            app.figure, "Figure 4",
+            "op-8ci2's figure prompt, carried via CropProvenance, must reach the digitiser"
+        );
     }
 
     /// A crop loaded with no active paper (a standalone image, or a PDF
@@ -2591,7 +2779,8 @@ mod tests {
     #[test]
     fn load_image_from_raster_still_fills_page_with_no_active_paper() {
         let mut app = DigitiseApp::default();
-        let raster = crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
+        let raster =
+            crate::digitiser::raster::PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]);
         let provenance = CropProvenance {
             page_index: 0,
             min: Pos2::ZERO,
@@ -2614,8 +2803,30 @@ mod tests {
         use crate::digitiser::trace::PixelTracePoint;
 
         let calibration = PlotCalibration::AxisAligned {
-            x: AxisCalibration::new(AxisScale::Linear, AxisRef { pixel: 0.0, value: 0.0 }, AxisRef { pixel: 100.0, value: 100.0 }).unwrap(),
-            y: AxisCalibration::new(AxisScale::Linear, AxisRef { pixel: 100.0, value: 0.0 }, AxisRef { pixel: 0.0, value: 100.0 }).unwrap(),
+            x: AxisCalibration::new(
+                AxisScale::Linear,
+                AxisRef {
+                    pixel: 0.0,
+                    value: 0.0,
+                },
+                AxisRef {
+                    pixel: 100.0,
+                    value: 100.0,
+                },
+            )
+            .unwrap(),
+            y: AxisCalibration::new(
+                AxisScale::Linear,
+                AxisRef {
+                    pixel: 100.0,
+                    value: 0.0,
+                },
+                AxisRef {
+                    pixel: 0.0,
+                    value: 100.0,
+                },
+            )
+            .unwrap(),
         };
         DigitisedDataset::from_pixel_trace(
             FigureSource::new("Figure 1").unwrap(),
@@ -2627,10 +2838,19 @@ mod tests {
             crate::digitiser::dataset::TraceRecord {
                 engine: "test".to_string(),
                 config: crate::digitiser::trace::TraceConfig::default(),
-                frame: PixelRect { left: 0, right: 100, top: 0, bottom: 100 },
+                frame: PixelRect {
+                    left: 0,
+                    right: 100,
+                    top: 0,
+                    bottom: 100,
+                },
                 frame_auto_detected: true,
             },
-            &[PixelTracePoint { x_px: 50.0, y_px: 50.0, thickness_px: 3.0 }],
+            &[PixelTracePoint {
+                x_px: 50.0,
+                y_px: 50.0,
+                thickness_px: 3.0,
+            }],
         )
     }
 
@@ -2651,7 +2871,11 @@ mod tests {
 
         assert!(!app.message_is_error, "{}", app.message);
         let reopened = PaperSession::open(&root, &citekey).unwrap();
-        assert!(reopened.markdown().contains("Digitised graph"), "{}", reopened.markdown());
+        assert!(
+            reopened.markdown().contains("Digitised graph"),
+            "{}",
+            reopened.markdown()
+        );
     }
 
     #[test]

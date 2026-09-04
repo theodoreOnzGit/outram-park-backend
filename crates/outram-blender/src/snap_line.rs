@@ -91,7 +91,10 @@ impl LineTool {
     /// range and `target` is not a grid snap).
     pub fn add_snapped(&mut self, mesh: &Mesh, cursor: Vec3, target: SnapTarget, max_dist: f64) {
         match snap_point(mesh, cursor, target, max_dist, &[]) {
-            Some(hit) => self.points.push(LinePoint { position: hit.position, on: hit.element }),
+            Some(hit) => self.points.push(LinePoint {
+                position: hit.position,
+                on: hit.element,
+            }),
             None => self.add_raw(cursor),
         }
     }
@@ -100,9 +103,14 @@ impl LineTool {
     /// `angle` measured in `plane` from `plane.u` (CCW about `plane.normal`).
     /// No-op if there is no previous point.
     pub fn add_polar(&mut self, plane: &WorkPlane, length: f64, angle: f64) {
-        let Some(prev) = self.points.last().map(|p| p.position) else { return };
+        let Some(prev) = self.points.last().map(|p| p.position) else {
+            return;
+        };
         let dir = plane.u.scale(angle.cos()).add(plane.v.scale(angle.sin()));
-        self.points.push(LinePoint { position: prev.add(dir.scale(length)), on: None });
+        self.points.push(LinePoint {
+            position: prev.add(dir.scale(length)),
+            on: None,
+        });
     }
 
     /// Snap `cursor` as [`LineTool::add_snapped`] would, then optionally
@@ -121,8 +129,14 @@ impl LineTool {
         angle: Option<f64>,
     ) {
         let snapped = snap_point(mesh, cursor, target, max_dist, &[])
-            .map(|h| LinePoint { position: h.position, on: h.element })
-            .unwrap_or(LinePoint { position: cursor, on: None });
+            .map(|h| LinePoint {
+                position: h.position,
+                on: h.element,
+            })
+            .unwrap_or(LinePoint {
+                position: cursor,
+                on: None,
+            });
 
         let Some(prev) = self.points.last().map(|p| p.position) else {
             self.points.push(snapped);
@@ -138,7 +152,10 @@ impl LineTool {
         let l = length.unwrap_or(cur_len);
         let a = angle.unwrap_or(cur_ang);
         let dir = plane.u.scale(a.cos()).add(plane.v.scale(a.sin()));
-        self.points.push(LinePoint { position: prev.add(dir.scale(l)), on: None });
+        self.points.push(LinePoint {
+            position: prev.add(dir.scale(l)),
+            on: None,
+        });
     }
 
     /// Remove the last placed point.
@@ -170,8 +187,11 @@ impl LineTool {
             return base.clone();
         }
         let mut positions = base.positions();
-        let mut faces: Vec<Vec<usize>> =
-            base.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = base
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let start = positions.len();
         for p in &self.points {
             positions.push(p.position);
@@ -217,11 +237,19 @@ impl LineTool {
             if ea == eb {
                 continue;
             }
-            let Some(face) = common_face(mesh, ea, eb) else { continue };
+            let Some(face) = common_face(mesh, ea, eb) else {
+                continue;
+            };
             chords.push(Chord {
                 face,
-                from: KnifePoint::EdgeSplit { edge: ea, t: edge_param(mesh, ea, a.position) },
-                to: KnifePoint::EdgeSplit { edge: eb, t: edge_param(mesh, eb, b.position) },
+                from: KnifePoint::EdgeSplit {
+                    edge: ea,
+                    t: edge_param(mesh, ea, a.position),
+                },
+                to: KnifePoint::EdgeSplit {
+                    edge: eb,
+                    t: edge_param(mesh, eb, b.position),
+                },
             });
         }
         chords
@@ -351,8 +379,14 @@ mod tests {
         let p1 = midpoint(&m, e1);
 
         let mut t = LineTool::new();
-        t.points.push(LinePoint { position: p0, on: Some(SnapElement::Edge(e0)) });
-        t.points.push(LinePoint { position: p1, on: Some(SnapElement::Edge(e1)) });
+        t.points.push(LinePoint {
+            position: p0,
+            on: Some(SnapElement::Edge(e0)),
+        });
+        t.points.push(LinePoint {
+            position: p1,
+            on: Some(SnapElement::Edge(e1)),
+        });
 
         let chords = t.auto_cut_chords(&m);
         assert_eq!(chords.len(), 1);
@@ -364,6 +398,10 @@ mod tests {
 
     fn midpoint(m: &Mesh, e: EdgeId) -> Vec3 {
         let ed = m.edge(e).unwrap();
-        m.vertex(ed.verts[0]).unwrap().position.add(m.vertex(ed.verts[1]).unwrap().position).scale(0.5)
+        m.vertex(ed.verts[0])
+            .unwrap()
+            .position
+            .add(m.vertex(ed.verts[1]).unwrap().position)
+            .scale(0.5)
     }
 }

@@ -95,7 +95,9 @@ pub fn convertsparseformat2d(
     let new_rows = to_subscripts(&new_rows);
     let new_cols = to_subscripts(&new_cols);
 
-    Ok(SparseMatrix::assemble(&new_rows, &new_cols, &vals, len, len))
+    Ok(SparseMatrix::assemble(
+        &new_rows, &new_cols, &vals, len, len,
+    ))
 }
 
 /// Turn converted indices into sparse subscripts, rejecting anything
@@ -148,13 +150,9 @@ mod tests {
     fn values_are_not_remapped() {
         let p = params();
         let mut m = SparseMatrix::assemble(&[0], &[0], &[7.0], 4, 4);
-        let mut out = convertsparseformat2d(
-            &p,
-            &mut m,
-            IndexMode::Plain,
-            IndexMode::DiamondDifference,
-        )
-        .unwrap();
+        let mut out =
+            convertsparseformat2d(&p, &mut m, IndexMode::Plain, IndexMode::DiamondDifference)
+                .unwrap();
         let found = out.find();
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].v, 7.0);

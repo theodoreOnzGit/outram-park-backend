@@ -269,7 +269,7 @@ pub fn dracs_hot_leg_insulation_thickness_calibration_validation_test_v1(
     use uom::si::length::centimeter;
     use uom::si::{f64::*, mass_rate::kilogram_per_second};
 
-        use crate::pre_built_components::ciet_nat_circ_tests::dracs_loop_components::*;
+    use crate::pre_built_components::ciet_nat_circ_tests::dracs_loop_components::*;
     use crate::prelude::beta_testing::{
         FluidArray, HeatTransferEntity, HeatTransferInteractionType, LiquidMaterial,
     };

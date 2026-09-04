@@ -209,14 +209,24 @@ impl Relation {
     /// [`EdgeDetail`] on any relation, this just names the family
     /// [`Relation::label`]'s own doc comments point at.
     pub const fn is_approximation_family(self) -> bool {
-        matches!(self, Self::ApproximationOf | Self::Simplifies | Self::ReducedFrom | Self::SurrogateOf | Self::Represents)
+        matches!(
+            self,
+            Self::ApproximationOf
+                | Self::Simplifies
+                | Self::ReducedFrom
+                | Self::SurrogateOf
+                | Self::Represents
+        )
     }
 
     /// Whether this relation's meaning is enriched by a
     /// [`VerificationRecord`] — the verification/validation/benchmark
     /// family. Advisory only, see [`Relation::is_approximation_family`].
     pub const fn is_verification_family(self) -> bool {
-        matches!(self, Self::BenchmarkOf | Self::VerifiedAgainst | Self::ValidatedAgainst | Self::ComparedWith)
+        matches!(
+            self,
+            Self::BenchmarkOf | Self::VerifiedAgainst | Self::ValidatedAgainst | Self::ComparedWith
+        )
     }
 }
 
@@ -320,7 +330,11 @@ impl VerificationRecord {
     /// [`VerificationRecord::with_result`] / [`VerificationRecord::with_acceptance_criterion`]
     /// once those are known.
     pub fn new(benchmark: impl Into<String>) -> Self {
-        Self { benchmark: benchmark.into(), result: None, acceptance_criterion: None }
+        Self {
+            benchmark: benchmark.into(),
+            result: None,
+            acceptance_criterion: None,
+        }
     }
 
     /// Attach the measured/reported result (with its uncertainty, where
@@ -652,7 +666,11 @@ impl ConceptGraph {
                 origin: Origin::Core,
             },
         );
-        assert!(prior.is_none(), "duplicate core concept id (compile-time bug): {:?}", concept.id());
+        assert!(
+            prior.is_none(),
+            "duplicate core concept id (compile-time bug): {:?}",
+            concept.id()
+        );
     }
 
     /// Add a runtime, [`Origin::User`] concept. Fails on a duplicate ID
@@ -691,7 +709,12 @@ impl ConceptGraph {
         }
         self.concepts.insert(
             id.clone(),
-            Concept { id, name: name.into(), aliases: aliases.into_iter().map(Into::into).collect(), origin },
+            Concept {
+                id,
+                name: name.into(),
+                aliases: aliases.into_iter().map(Into::into).collect(),
+                origin,
+            },
         );
         Ok(())
     }
@@ -700,8 +723,19 @@ impl ConceptGraph {
     /// [`EdgeDetail::None`]. Use [`ConceptGraph::relate_with`] for a
     /// provisional edge or one carrying an [`Applicability`] /
     /// [`VerificationRecord`].
-    pub fn relate(&mut self, source: &str, relation: Relation, target: &str) -> Result<(), OntologyError> {
-        self.relate_with(source, relation, target, RelationStatus::Established, EdgeDetail::None)
+    pub fn relate(
+        &mut self,
+        source: &str,
+        relation: Relation,
+        target: &str,
+    ) -> Result<(), OntologyError> {
+        self.relate_with(
+            source,
+            relation,
+            target,
+            RelationStatus::Established,
+            EdgeDetail::None,
+        )
     }
 
     /// Add an edge with an explicit [`RelationStatus`] and [`EdgeDetail`].
@@ -721,7 +755,13 @@ impl ConceptGraph {
         if !self.concepts.contains_key(target) {
             return Err(OntologyError::UnknownConcept(target.to_string()));
         }
-        self.edges.push(ConceptEdge { source: source.to_string(), relation, target: target.to_string(), status, detail });
+        self.edges.push(ConceptEdge {
+            source: source.to_string(),
+            relation,
+            target: target.to_string(),
+            status,
+            detail,
+        });
         Ok(())
     }
 
@@ -729,7 +769,10 @@ impl ConceptGraph {
     /// characters only. Deterministic string processing — no fuzzy scoring,
     /// no AI, matching this crate's offline charter.
     fn normalize(s: &str) -> String {
-        s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+        s.chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect()
     }
 
     /// Resolve a query string against every concept's ID, name, and
@@ -775,13 +818,19 @@ impl ConceptGraph {
     /// [`Relation`]. Directional: this never includes an edge whose
     /// `target` is `id` — see [`ConceptGraph::incoming`] for the reverse.
     pub fn outgoing(&self, id: &str, relation: Option<Relation>) -> Vec<&ConceptEdge> {
-        self.edges.iter().filter(|e| e.source == id && relation.map_or(true, |r| e.relation == r)).collect()
+        self.edges
+            .iter()
+            .filter(|e| e.source == id && relation.map_or(true, |r| e.relation == r))
+            .collect()
     }
 
     /// Edges whose `target` is `id`, optionally filtered to one
     /// [`Relation`] — the reverse of [`ConceptGraph::outgoing`].
     pub fn incoming(&self, id: &str, relation: Option<Relation>) -> Vec<&ConceptEdge> {
-        self.edges.iter().filter(|e| e.target == id && relation.map_or(true, |r| e.relation == r)).collect()
+        self.edges
+            .iter()
+            .filter(|e| e.target == id && relation.map_or(true, |r| e.relation == r))
+            .collect()
     }
 
     /// How many concepts this graph holds.
@@ -818,7 +867,14 @@ mod tests {
     fn sample_ontology() -> ConceptGraph {
         let mut g = ConceptGraph::new();
 
-        for c in [Reactor::NuclearReactor, Reactor::GasCooledReactor, Reactor::Htgr, Reactor::Vhtr, Reactor::Fhr, Reactor::Msr] {
+        for c in [
+            Reactor::NuclearReactor,
+            Reactor::GasCooledReactor,
+            Reactor::Htgr,
+            Reactor::Vhtr,
+            Reactor::Fhr,
+            Reactor::Msr,
+        ] {
             g.add_core(c);
         }
         for c in [Neutronics::Transport, Neutronics::Diffusion] {
@@ -859,18 +915,33 @@ mod tests {
             ("astra", "ASTRA Critical Facility", &["ASTRA"]),
         ];
         for (id, name, aliases) in user_concepts {
-            g.add_user_concept(*id, *name, aliases.iter().copied()).unwrap();
+            g.add_user_concept(*id, *name, aliases.iter().copied())
+                .unwrap();
         }
 
-        for (id, name) in [("ong2024", "Ong 2024 Dissertation"), ("iaea1694", "IAEA TECDOC-1694"), ("tuas", "TUAS Thermal-Hydraulics Paper")] {
-            g.add_literature_concept(id, name, std::iter::empty::<&str>()).unwrap();
+        for (id, name) in [
+            ("ong2024", "Ong 2024 Dissertation"),
+            ("iaea1694", "IAEA TECDOC-1694"),
+            ("tuas", "TUAS Thermal-Hydraulics Paper"),
+        ] {
+            g.add_literature_concept(id, name, std::iter::empty::<&str>())
+                .unwrap();
         }
 
-        g.relate("gas-cooled-reactor", Relation::SpecializationOf, "nuclear-reactor").unwrap();
-        g.relate("htgr", Relation::SpecializationOf, "gas-cooled-reactor").unwrap();
-        g.relate("vhtr", Relation::SpecializationOf, "htgr").unwrap();
-        g.relate("fhr", Relation::SpecializationOf, "nuclear-reactor").unwrap();
-        g.relate("msr", Relation::SpecializationOf, "nuclear-reactor").unwrap();
+        g.relate(
+            "gas-cooled-reactor",
+            Relation::SpecializationOf,
+            "nuclear-reactor",
+        )
+        .unwrap();
+        g.relate("htgr", Relation::SpecializationOf, "gas-cooled-reactor")
+            .unwrap();
+        g.relate("vhtr", Relation::SpecializationOf, "htgr")
+            .unwrap();
+        g.relate("fhr", Relation::SpecializationOf, "nuclear-reactor")
+            .unwrap();
+        g.relate("msr", Relation::SpecializationOf, "nuclear-reactor")
+            .unwrap();
 
         g.relate_with(
             "boussinesq",
@@ -889,48 +960,118 @@ mod tests {
             Relation::ApproximationOf,
             "neutron-transport",
             RelationStatus::Established,
-            EdgeDetail::Applicability(Applicability::new().with_assumption("diffusion regime: weakly absorbing, optically thick medium")),
+            EdgeDetail::Applicability(
+                Applicability::new()
+                    .with_assumption("diffusion regime: weakly absorbing, optically thick medium"),
+            ),
         )
         .unwrap();
 
-        g.relate("multiphysics", Relation::CoupledWith, "thermal-hydraulics").unwrap();
-        g.relate("multiphysics", Relation::CoupledWith, "neutronics").unwrap();
+        g.relate("multiphysics", Relation::CoupledWith, "thermal-hydraulics")
+            .unwrap();
+        g.relate("multiphysics", Relation::CoupledWith, "neutronics")
+            .unwrap();
 
-        g.relate("openmc", Relation::GeneratesData, "multigroup-xs").unwrap();
-        g.relate("genfoam", Relation::Employs, "multigroup-xs").unwrap();
-        g.relate("genfoam", Relation::GeneratesData, "frequency-response").unwrap();
-        g.relate("transfer-function", Relation::IdentifiedFrom, "frequency-response").unwrap();
-        g.relate_with("transfer-function", Relation::SurrogateOf, "multiphysics", RelationStatus::Provisional, EdgeDetail::None).unwrap();
-        g.relate("pid", Relation::Employs, "transfer-function").unwrap();
+        g.relate("openmc", Relation::GeneratesData, "multigroup-xs")
+            .unwrap();
+        g.relate("genfoam", Relation::Employs, "multigroup-xs")
+            .unwrap();
+        g.relate("genfoam", Relation::GeneratesData, "frequency-response")
+            .unwrap();
+        g.relate(
+            "transfer-function",
+            Relation::IdentifiedFrom,
+            "frequency-response",
+        )
+        .unwrap();
+        g.relate_with(
+            "transfer-function",
+            Relation::SurrogateOf,
+            "multiphysics",
+            RelationStatus::Provisional,
+            EdgeDetail::None,
+        )
+        .unwrap();
+        g.relate("pid", Relation::Employs, "transfer-function")
+            .unwrap();
 
-        g.relate("thermal-hydraulics", Relation::Employs, "conservation-mass").unwrap();
-        g.relate("thermal-hydraulics", Relation::Employs, "conservation-momentum").unwrap();
-        g.relate("thermal-hydraulics", Relation::Employs, "conservation-energy").unwrap();
-        g.relate("conservation-energy", Relation::DiscretizedBy, "finite-volume").unwrap();
-        g.relate("finite-volume", Relation::Employs, "first-order-upwind").unwrap();
-        g.relate("conservation-momentum", Relation::SolvedBy, "brent-dekker").unwrap();
-        g.relate("finite-volume", Relation::SolvedBy, "lapack").unwrap();
-        g.relate("finite-volume", Relation::ImplementedBy, "genfoam").unwrap();
+        g.relate("thermal-hydraulics", Relation::Employs, "conservation-mass")
+            .unwrap();
+        g.relate(
+            "thermal-hydraulics",
+            Relation::Employs,
+            "conservation-momentum",
+        )
+        .unwrap();
+        g.relate(
+            "thermal-hydraulics",
+            Relation::Employs,
+            "conservation-energy",
+        )
+        .unwrap();
+        g.relate(
+            "conservation-energy",
+            Relation::DiscretizedBy,
+            "finite-volume",
+        )
+        .unwrap();
+        g.relate("finite-volume", Relation::Employs, "first-order-upwind")
+            .unwrap();
+        g.relate("conservation-momentum", Relation::SolvedBy, "brent-dekker")
+            .unwrap();
+        g.relate("finite-volume", Relation::SolvedBy, "lapack")
+            .unwrap();
+        g.relate("finite-volume", Relation::ImplementedBy, "genfoam")
+            .unwrap();
         g.relate("ciet", Relation::Represents, "fhr").unwrap();
 
-        g.relate("pbmr-benchmark", Relation::DerivedFrom, "pbmr400").unwrap();
-        g.relate("pbmr-benchmark", Relation::Simplifies, "pbmr400").unwrap();
-        g.relate_with("htr10-benchmark", Relation::BenchmarkOf, "htr10", RelationStatus::Established, EdgeDetail::Verification(VerificationRecord::new("HTR-10 benchmark model definition"))).unwrap();
-        g.relate_with("genfoam", Relation::ValidatedAgainst, "htr10-benchmark", RelationStatus::Established, EdgeDetail::Verification(VerificationRecord::new("HTR-10 benchmark"))).unwrap();
-        g.relate_with("openmc", Relation::VerifiedAgainst, "astra", RelationStatus::Established, EdgeDetail::Verification(VerificationRecord::new("ASTRA critical facility"))).unwrap();
+        g.relate("pbmr-benchmark", Relation::DerivedFrom, "pbmr400")
+            .unwrap();
+        g.relate("pbmr-benchmark", Relation::Simplifies, "pbmr400")
+            .unwrap();
+        g.relate_with(
+            "htr10-benchmark",
+            Relation::BenchmarkOf,
+            "htr10",
+            RelationStatus::Established,
+            EdgeDetail::Verification(VerificationRecord::new("HTR-10 benchmark model definition")),
+        )
+        .unwrap();
+        g.relate_with(
+            "genfoam",
+            Relation::ValidatedAgainst,
+            "htr10-benchmark",
+            RelationStatus::Established,
+            EdgeDetail::Verification(VerificationRecord::new("HTR-10 benchmark")),
+        )
+        .unwrap();
+        g.relate_with(
+            "openmc",
+            Relation::VerifiedAgainst,
+            "astra",
+            RelationStatus::Established,
+            EdgeDetail::Verification(VerificationRecord::new("ASTRA critical facility")),
+        )
+        .unwrap();
         g.relate_with(
             "pbmr-benchmark",
             Relation::ComparedWith,
             "htr10-benchmark",
             RelationStatus::Established,
-            EdgeDetail::Verification(VerificationRecord::new("PBMR-400 vs. HTR-10 pebble-bed benchmark comparison")),
+            EdgeDetail::Verification(VerificationRecord::new(
+                "PBMR-400 vs. HTR-10 pebble-bed benchmark comparison",
+            )),
         )
         .unwrap();
 
-        g.relate("transfer-function", Relation::SupportedBy, "ong2024").unwrap();
-        g.relate("pbmr-benchmark", Relation::SupportedBy, "iaea1694").unwrap();
-        g.relate("htr10-benchmark", Relation::SupportedBy, "iaea1694").unwrap();
-        g.relate("thermal-hydraulics", Relation::SupportedBy, "tuas").unwrap();
+        g.relate("transfer-function", Relation::SupportedBy, "ong2024")
+            .unwrap();
+        g.relate("pbmr-benchmark", Relation::SupportedBy, "iaea1694")
+            .unwrap();
+        g.relate("htr10-benchmark", Relation::SupportedBy, "iaea1694")
+            .unwrap();
+        g.relate("thermal-hydraulics", Relation::SupportedBy, "tuas")
+            .unwrap();
 
         g
     }
@@ -938,8 +1079,16 @@ mod tests {
     #[test]
     fn sample_ontology_is_large_enough_to_exercise_the_abstraction() {
         let g = sample_ontology();
-        assert!(g.len() >= 35, "expected at least 35 concepts, got {}", g.len());
-        assert!(g.edges().len() >= 25, "expected at least 25 edges, got {}", g.edges().len());
+        assert!(
+            g.len() >= 35,
+            "expected at least 35 concepts, got {}",
+            g.len()
+        );
+        assert!(
+            g.edges().len() >= 25,
+            "expected at least 25 edges, got {}",
+            g.edges().len()
+        );
     }
 
     // --- alias resolution ---
@@ -949,7 +1098,13 @@ mod tests {
         let g = sample_ontology();
         assert_eq!(g.resolve("HTGR").single().unwrap().id, "htgr");
         assert_eq!(g.resolve("H T G R").single().unwrap().id, "htgr");
-        assert_eq!(g.resolve("high-temperature gas-cooled reactor").single().unwrap().id, "htgr");
+        assert_eq!(
+            g.resolve("high-temperature gas-cooled reactor")
+                .single()
+                .unwrap()
+                .id,
+            "htgr"
+        );
         assert_eq!(g.resolve("FHR").single().unwrap().id, "fhr");
         assert_eq!(g.resolve("TH").single().unwrap().id, "thermal-hydraulics");
     }
@@ -957,15 +1112,20 @@ mod tests {
     #[test]
     fn resolve_reports_not_found_distinctly_from_ambiguous() {
         let g = sample_ontology();
-        assert_eq!(g.resolve("this concept does not exist"), ResolveOutcome::NotFound);
+        assert_eq!(
+            g.resolve("this concept does not exist"),
+            ResolveOutcome::NotFound
+        );
         assert_eq!(g.resolve("this concept does not exist").single(), None);
     }
 
     #[test]
     fn resolve_reports_ambiguous_when_two_concepts_share_a_normalised_form() {
         let mut g = ConceptGraph::new();
-        g.add_user_concept("alpha-one", "Alpha One", ["Shared"]).unwrap();
-        g.add_user_concept("alpha-two", "Alpha Two", ["Shared"]).unwrap();
+        g.add_user_concept("alpha-one", "Alpha One", ["Shared"])
+            .unwrap();
+        g.add_user_concept("alpha-two", "Alpha Two", ["Shared"])
+            .unwrap();
 
         match g.resolve("shared") {
             ResolveOutcome::Ambiguous(matches) => assert_eq!(matches.len(), 2),
@@ -987,7 +1147,10 @@ mod tests {
     fn a_concept_resolved_by_id_name_or_alias_has_one_canonical_id() {
         let g = sample_ontology();
         let by_id = g.resolve("htgr").single().unwrap();
-        let by_name = g.resolve("High-Temperature Gas-Cooled Reactor").single().unwrap();
+        let by_name = g
+            .resolve("High-Temperature Gas-Cooled Reactor")
+            .single()
+            .unwrap();
         let by_alias = g.resolve("HTGRs").single().unwrap();
         assert_eq!(by_id.id, "htgr");
         assert_eq!(by_id.id, by_name.id);
@@ -999,13 +1162,21 @@ mod tests {
     #[test]
     fn edges_are_directional_not_symmetric() {
         let g = sample_ontology();
-        assert!(!g.outgoing("htgr", Some(Relation::SpecializationOf)).is_empty(), "htgr specialises gas-cooled-reactor");
         assert!(
-            g.outgoing("gas-cooled-reactor", Some(Relation::SpecializationOf)).iter().all(|e| e.target != "htgr"),
+            !g.outgoing("htgr", Some(Relation::SpecializationOf))
+                .is_empty(),
+            "htgr specialises gas-cooled-reactor"
+        );
+        assert!(
+            g.outgoing("gas-cooled-reactor", Some(Relation::SpecializationOf))
+                .iter()
+                .all(|e| e.target != "htgr"),
             "the reverse edge must not exist just because the forward one does"
         );
         assert!(
-            g.incoming("gas-cooled-reactor", Some(Relation::SpecializationOf)).iter().any(|e| e.source == "htgr"),
+            g.incoming("gas-cooled-reactor", Some(Relation::SpecializationOf))
+                .iter()
+                .any(|e| e.source == "htgr"),
             "incoming is the deliberate reverse-lookup, distinct from outgoing"
         );
     }
@@ -1018,14 +1189,21 @@ mod tests {
         // "multiphysics" (a runtime concept) couples the ThermalHydraulics
         // and Neutronics domains -- neither compiled enum references the
         // other directly.
-        let targets: Vec<&str> = g.outgoing("multiphysics", Some(Relation::CoupledWith)).iter().map(|e| e.target.as_str()).collect();
+        let targets: Vec<&str> = g
+            .outgoing("multiphysics", Some(Relation::CoupledWith))
+            .iter()
+            .map(|e| e.target.as_str())
+            .collect();
         assert!(targets.contains(&"thermal-hydraulics"));
         assert!(targets.contains(&"neutronics"));
 
         // "ciet" (a runtime, Origin::User facility concept) represents
         // "fhr" (a compiled Reactor variant) -- a runtime concept relating
         // straight to the core, per the module doc.
-        assert!(g.outgoing("ciet", Some(Relation::Represents)).iter().any(|e| e.target == "fhr"));
+        assert!(g
+            .outgoing("ciet", Some(Relation::Represents))
+            .iter()
+            .any(|e| e.target == "fhr"));
     }
 
     // --- user extensions never mutate the compiled core ---
@@ -1034,35 +1212,52 @@ mod tests {
     fn user_concepts_can_relate_to_core_concepts_without_touching_the_core() {
         let mut g = ConceptGraph::new();
         g.add_core(Reactor::Htgr);
-        g.add_user_concept("my-htgr-design", "My HTGR Design Variant", std::iter::empty::<&str>()).unwrap();
-        g.relate("my-htgr-design", Relation::SpecializationOf, "htgr").unwrap();
+        g.add_user_concept(
+            "my-htgr-design",
+            "My HTGR Design Variant",
+            std::iter::empty::<&str>(),
+        )
+        .unwrap();
+        g.relate("my-htgr-design", Relation::SpecializationOf, "htgr")
+            .unwrap();
 
         assert_eq!(g.concept("htgr").unwrap().origin, Origin::Core);
         assert_eq!(g.concept("my-htgr-design").unwrap().origin, Origin::User);
-        assert!(g.outgoing("my-htgr-design", Some(Relation::SpecializationOf)).iter().any(|e| e.target == "htgr"));
+        assert!(g
+            .outgoing("my-htgr-design", Some(Relation::SpecializationOf))
+            .iter()
+            .any(|e| e.target == "htgr"));
     }
 
     #[test]
     fn a_user_concept_cannot_shadow_a_core_concepts_id() {
         let mut g = ConceptGraph::new();
         g.add_core(Reactor::Htgr);
-        let err = g.add_user_concept("htgr", "A different HTGR", std::iter::empty::<&str>()).unwrap_err();
+        let err = g
+            .add_user_concept("htgr", "A different HTGR", std::iter::empty::<&str>())
+            .unwrap_err();
         assert_eq!(err, OntologyError::DuplicateConcept("htgr".to_string()));
         // The core concept itself must be untouched.
-        assert_eq!(g.concept("htgr").unwrap().name, "High-Temperature Gas-Cooled Reactor");
+        assert_eq!(
+            g.concept("htgr").unwrap().name,
+            "High-Temperature Gas-Cooled Reactor"
+        );
         assert_eq!(g.concept("htgr").unwrap().origin, Origin::Core);
     }
 
     #[test]
     fn relate_rejects_a_dangling_edge() {
         let mut g = ConceptGraph::new();
-        g.add_user_concept("only-concept", "Only Concept", std::iter::empty::<&str>()).unwrap();
+        g.add_user_concept("only-concept", "Only Concept", std::iter::empty::<&str>())
+            .unwrap();
         assert_eq!(
-            g.relate("only-concept", Relation::Employs, "does-not-exist").unwrap_err(),
+            g.relate("only-concept", Relation::Employs, "does-not-exist")
+                .unwrap_err(),
             OntologyError::UnknownConcept("does-not-exist".to_string())
         );
         assert_eq!(
-            g.relate("does-not-exist", Relation::Employs, "only-concept").unwrap_err(),
+            g.relate("does-not-exist", Relation::Employs, "only-concept")
+                .unwrap_err(),
             OntologyError::UnknownConcept("does-not-exist".to_string())
         );
     }
@@ -1072,7 +1267,11 @@ mod tests {
     #[test]
     fn approximation_edges_carry_structured_applicability() {
         let g = sample_ontology();
-        let edge = g.outgoing("boussinesq", Some(Relation::ApproximationOf)).into_iter().next().unwrap();
+        let edge = g
+            .outgoing("boussinesq", Some(Relation::ApproximationOf))
+            .into_iter()
+            .next()
+            .unwrap();
         match &edge.detail {
             EdgeDetail::Applicability(a) => {
                 assert!(!a.assumptions.is_empty());
@@ -1085,19 +1284,33 @@ mod tests {
     #[test]
     fn verification_edges_carry_a_structured_record() {
         let g = sample_ontology();
-        let edge = g.outgoing("htr10-benchmark", Some(Relation::BenchmarkOf)).into_iter().next().unwrap();
+        let edge = g
+            .outgoing("htr10-benchmark", Some(Relation::BenchmarkOf))
+            .into_iter()
+            .next()
+            .unwrap();
         match &edge.detail {
-            EdgeDetail::Verification(v) => assert_eq!(v.benchmark, "HTR-10 benchmark model definition"),
+            EdgeDetail::Verification(v) => {
+                assert_eq!(v.benchmark, "HTR-10 benchmark model definition")
+            }
             other => panic!("expected Verification, got {other:?}"),
         }
     }
 
     #[test]
     fn verification_record_builder_round_trips_result_and_criterion() {
-        let record = VerificationRecord::new("some benchmark").with_result("k_eff = 1.00234 +/- 0.00015").with_acceptance_criterion("within 500 pcm of the reference k_eff");
+        let record = VerificationRecord::new("some benchmark")
+            .with_result("k_eff = 1.00234 +/- 0.00015")
+            .with_acceptance_criterion("within 500 pcm of the reference k_eff");
         assert_eq!(record.benchmark, "some benchmark");
-        assert_eq!(record.result.as_deref(), Some("k_eff = 1.00234 +/- 0.00015"));
-        assert_eq!(record.acceptance_criterion.as_deref(), Some("within 500 pcm of the reference k_eff"));
+        assert_eq!(
+            record.result.as_deref(),
+            Some("k_eff = 1.00234 +/- 0.00015")
+        );
+        assert_eq!(
+            record.acceptance_criterion.as_deref(),
+            Some("within 500 pcm of the reference k_eff")
+        );
     }
 
     // --- provisional vs. established ---
@@ -1105,10 +1318,18 @@ mod tests {
     #[test]
     fn plain_relate_defaults_to_established_while_relate_with_can_mark_provisional() {
         let g = sample_ontology();
-        let established = g.outgoing("htgr", Some(Relation::SpecializationOf)).into_iter().next().unwrap();
+        let established = g
+            .outgoing("htgr", Some(Relation::SpecializationOf))
+            .into_iter()
+            .next()
+            .unwrap();
         assert_eq!(established.status, RelationStatus::Established);
 
-        let provisional = g.outgoing("transfer-function", Some(Relation::SurrogateOf)).into_iter().next().unwrap();
+        let provisional = g
+            .outgoing("transfer-function", Some(Relation::SurrogateOf))
+            .into_iter()
+            .next()
+            .unwrap();
         assert_eq!(provisional.status, RelationStatus::Provisional);
     }
 
@@ -1121,15 +1342,26 @@ mod tests {
         // a false claim about two real benchmark models. A small synthetic
         // graph exercises the relation type honestly instead.
         let mut g = ConceptGraph::new();
-        g.add_user_concept("model-a", "Model A", std::iter::empty::<&str>()).unwrap();
-        g.add_user_concept("model-b", "Model B", std::iter::empty::<&str>()).unwrap();
-        g.add_user_concept("parameter-x", "Parameter X", std::iter::empty::<&str>()).unwrap();
+        g.add_user_concept("model-a", "Model A", std::iter::empty::<&str>())
+            .unwrap();
+        g.add_user_concept("model-b", "Model B", std::iter::empty::<&str>())
+            .unwrap();
+        g.add_user_concept("parameter-x", "Parameter X", std::iter::empty::<&str>())
+            .unwrap();
 
-        g.relate("model-a", Relation::ParameterizedBy, "parameter-x").unwrap();
-        g.relate("model-a", Relation::Contradicts, "model-b").unwrap();
+        g.relate("model-a", Relation::ParameterizedBy, "parameter-x")
+            .unwrap();
+        g.relate("model-a", Relation::Contradicts, "model-b")
+            .unwrap();
 
-        assert!(g.outgoing("model-a", Some(Relation::ParameterizedBy)).iter().any(|e| e.target == "parameter-x"));
-        assert!(g.outgoing("model-a", Some(Relation::Contradicts)).iter().any(|e| e.target == "model-b"));
+        assert!(g
+            .outgoing("model-a", Some(Relation::ParameterizedBy))
+            .iter()
+            .any(|e| e.target == "parameter-x"));
+        assert!(g
+            .outgoing("model-a", Some(Relation::Contradicts))
+            .iter()
+            .any(|e| e.target == "model-b"));
     }
 
     // --- GUI-facing labels ---
@@ -1137,7 +1369,10 @@ mod tests {
     #[test]
     fn every_relation_has_a_human_label_distinct_from_its_variant_name() {
         assert_eq!(Relation::ApproximationOf.label(), "approximates");
-        assert_eq!(Relation::SpecializationOf.label(), "is a specialised form of");
+        assert_eq!(
+            Relation::SpecializationOf.label(),
+            "is a specialised form of"
+        );
         assert_eq!(Relation::Contradicts.label(), "contradicts");
     }
 

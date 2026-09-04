@@ -210,8 +210,16 @@ impl<T: Copy + Default> Array3<T> {
     }
 
     fn linear(&self, i: usize, j: usize, k: usize) -> usize {
-        assert!(i < self.rows, "dim-1 index {i} out of range 0..{}", self.rows);
-        assert!(j < self.cols, "dim-2 index {j} out of range 0..{}", self.cols);
+        assert!(
+            i < self.rows,
+            "dim-1 index {i} out of range 0..{}",
+            self.rows
+        );
+        assert!(
+            j < self.cols,
+            "dim-2 index {j} out of range 0..{}",
+            self.cols
+        );
         assert!(
             k < self.pages,
             "dim-3 index {k} out of range 0..{}",
@@ -673,13 +681,13 @@ impl Decomposition {
 /// The one caller, `fixinfnan`, only reaches it when at least one entry is
 /// non-finite.
 pub fn min_abs_finite(v: &[f64]) -> Option<f64> {
-    v.iter()
-        .filter(|x| x.is_finite())
-        .map(|x| x.abs())
-        .fold(None, |acc: Option<f64>, x| match acc {
+    v.iter().filter(|x| x.is_finite()).map(|x| x.abs()).fold(
+        None,
+        |acc: Option<f64>, x| match acc {
             Some(m) if m <= x => Some(m),
             _ => Some(x),
-        })
+        },
+    )
 }
 
 #[cfg(test)]

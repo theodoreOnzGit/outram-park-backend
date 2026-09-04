@@ -35,6 +35,10 @@ pub fn run(path: PathBuf, by_line: bool) -> Result<(), String> {
             println!("{}: {}", line.line, line.tokens);
         }
     }
-    println!("{}: ~{} estimated tokens", path.display(), estimate_tokens(&text));
+    println!(
+        "{}: ~{} estimated tokens",
+        path.display(),
+        estimate_tokens(&text)
+    );
     Ok(())
 }

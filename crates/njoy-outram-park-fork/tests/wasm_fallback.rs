@@ -54,7 +54,11 @@ fn synthetic_capture(n: usize) -> ReconrSection {
             (e, 100.0 / e.sqrt())
         })
         .collect();
-    ReconrSection { mt: MtReaction::Mt102Capture, qi: 0.0, pairs }
+    ReconrSection {
+        mt: MtReaction::Mt102Capture,
+        qi: 0.0,
+        pairs,
+    }
 }
 
 #[test]
@@ -75,7 +79,10 @@ fn doppler_broaden_runs_under_wasm() {
     );
 
     for (i, (e, xs)) in broadened.pairs.iter().enumerate() {
-        assert!(e.is_finite() && *e > 0.0, "point {i}: energy {e} eV is not physical");
+        assert!(
+            e.is_finite() && *e > 0.0,
+            "point {i}: energy {e} eV is not physical"
+        );
         assert!(
             xs.is_finite() && *xs >= 0.0,
             "point {i}: broadened cross-section {xs} b is not physical"

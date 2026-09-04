@@ -158,7 +158,13 @@ pub fn render_synthetic_plot(
             [255, 255, 255]
         }
     });
-    Ok((raster, PlotCalibration::AxisAligned { x: x_axis, y: y_axis }))
+    Ok((
+        raster,
+        PlotCalibration::AxisAligned {
+            x: x_axis,
+            y: y_axis,
+        },
+    ))
 }
 
 #[cfg(test)]

@@ -17,8 +17,8 @@ pub fn coriolis_flowmeter_empirical_custom_component_example_3(
     // this tests the calc pressure loss for fluid component
     use uom::si::f64::*;
     use uom::ConstZero;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureLoss;
     use uom::si::length::inch;
     use std::f64::consts::PI;
     use uom::si::ratio::ratio;
@@ -35,8 +35,8 @@ pub fn coriolis_flowmeter_empirical_custom_component_example_3(
     use std::ops::DerefMut;
     use std::ops::Deref;
 
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureChange;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidCustomComponentCalcPressureChange;
 
     // this is the test component
     pub struct CoriolisFlowmeter {

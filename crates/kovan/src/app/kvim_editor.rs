@@ -78,7 +78,10 @@ enum Trigger {
     /// `[[` — §30. `start` is the position right after the second `[`.
     /// `paper` is `Some` once the query contains `#`, i.e. the user has
     /// picked a paper and is now completing one of its artifacts.
-    Wiki { start: Position, paper: Option<String> },
+    Wiki {
+        start: Position,
+        paper: Option<String>,
+    },
 }
 
 /// Find an active trigger immediately before `cursor` on its own line, and
@@ -88,18 +91,35 @@ fn detect_trigger(line_text: &str, cursor: Position) -> Option<(Trigger, String)
     let before_cursor = line_text.get(..cursor.col)?;
     if let Some(at) = before_cursor.rfind('@') {
         let query = &before_cursor[at + 1..];
-        if !query.chars().any(|c| c.is_whitespace() || c == '@' || c == '[' || c == ']') {
-            return Some((Trigger::Citation { start: Position::new(cursor.line, at) }, query.to_string()));
+        if !query
+            .chars()
+            .any(|c| c.is_whitespace() || c == '@' || c == '[' || c == ']')
+        {
+            return Some((
+                Trigger::Citation {
+                    start: Position::new(cursor.line, at),
+                },
+                query.to_string(),
+            ));
         }
     }
     if let Some(open) = before_cursor.rfind("[[") {
         let query = &before_cursor[open + 2..];
-        if !query.chars().any(|c| c.is_whitespace() || c == '[' || c == ']') {
+        if !query
+            .chars()
+            .any(|c| c.is_whitespace() || c == '[' || c == ']')
+        {
             let (paper, rest, start_col) = match query.split_once('#') {
                 Some((p, a)) => (Some(p.to_string()), a, open + 2 + p.len() + 1),
                 None => (None, query, open + 2),
             };
-            return Some((Trigger::Wiki { start: Position::new(cursor.line, start_col), paper }, rest.to_string()));
+            return Some((
+                Trigger::Wiki {
+                    start: Position::new(cursor.line, start_col),
+                    paper,
+                },
+                rest.to_string(),
+            ));
         }
     }
     None
@@ -165,8 +185,12 @@ impl KvimEditorState {
     /// since `Editor` exposes no way to install a different `Buffer` value.
     pub fn load_text(&mut self, text: &str) {
         self.editor = Editor::new();
-        let end = self.editor.buffer().clamp(Position::new(usize::MAX, usize::MAX));
-        self.editor.replace_range(Range::new(Position::ORIGIN, end), text);
+        let end = self
+            .editor
+            .buffer()
+            .clamp(Position::new(usize::MAX, usize::MAX));
+        self.editor
+            .replace_range(Range::new(Position::ORIGIN, end), text);
         self.editor.move_cursor(Position::ORIGIN);
         self.loaded_text = text.to_string();
         self.dragging = false;
@@ -183,7 +207,10 @@ impl KvimEditorState {
     /// "1-based line of the heading, for 'jump to it in the editor'").
     /// Out-of-range clamps to the nearest valid line rather than panicking.
     pub fn jump_to_line(&mut self, line: usize) {
-        let target = self.editor.buffer().clamp(Position::new(line.saturating_sub(1), 0));
+        let target = self
+            .editor
+            .buffer()
+            .clamp(Position::new(line.saturating_sub(1), 0));
         self.editor.move_cursor(target);
         self.pending_scroll_to_line = Some(target.line);
     }
@@ -240,9 +267,11 @@ impl KvimEditorState {
         });
         ui.separator();
 
-        egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-            self.text_area(ui, false);
-        });
+        egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                self.text_area(ui, false);
+            });
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
@@ -262,9 +291,11 @@ impl KvimEditorState {
         });
         ui.separator();
         let mut clicked_line = None;
-        egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-            clicked_line = self.text_area(ui, true);
-        });
+        egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                clicked_line = self.text_area(ui, true);
+            });
         clicked_line
     }
 
@@ -282,14 +313,24 @@ impl KvimEditorState {
             return;
         }
         let cursor = self.editor.cursor();
-        let Some(line_text) = self.editor.buffer().line(cursor.line) else { return };
-        let Some((trigger, query)) = detect_trigger(&line_text, cursor) else { return };
+        let Some(line_text) = self.editor.buffer().line(cursor.line) else {
+            return;
+        };
+        let Some((trigger, query)) = detect_trigger(&line_text, cursor) else {
+            return;
+        };
 
         let candidates: Vec<Candidate> = match &trigger {
             Trigger::Citation { .. } => autocomplete::citation_candidates(source.root, &query),
-            Trigger::Wiki { paper: None, .. } => autocomplete::wiki_candidates(source.index, &query),
-            Trigger::Wiki { paper: Some(paper), .. } => {
-                let Ok(session) = PaperSession::open(source.root, paper) else { return };
+            Trigger::Wiki { paper: None, .. } => {
+                autocomplete::wiki_candidates(source.index, &query)
+            }
+            Trigger::Wiki {
+                paper: Some(paper), ..
+            } => {
+                let Ok(session) = PaperSession::open(source.root, paper) else {
+                    return;
+                };
                 let research = ResearchRecordIndex::from_session(&session);
                 autocomplete::artifact_candidates(&research, &query)
             }
@@ -301,23 +342,29 @@ impl KvimEditorState {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
         let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
-        let anchor = self.text_area_origin + Vec2::new(cursor.col as f32 * char_width, (cursor.line + 1) as f32 * line_height);
+        let anchor = self.text_area_origin
+            + Vec2::new(
+                cursor.col as f32 * char_width,
+                (cursor.line + 1) as f32 * line_height,
+            );
 
         let mut chosen = None;
-        egui::Area::new(ui.id().with("kvim-completion-popup")).fixed_pos(anchor).show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                for candidate in candidates.iter().take(20) {
-                    let label = if candidate.detail.is_empty() {
-                        candidate.label.clone()
-                    } else {
-                        format!("{}  —  {}", candidate.label, candidate.detail)
-                    };
-                    if ui.selectable_label(false, label).clicked() {
-                        chosen = Some(candidate.clone());
+        egui::Area::new(ui.id().with("kvim-completion-popup"))
+            .fixed_pos(anchor)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    for candidate in candidates.iter().take(20) {
+                        let label = if candidate.detail.is_empty() {
+                            candidate.label.clone()
+                        } else {
+                            format!("{}  —  {}", candidate.label, candidate.detail)
+                        };
+                        if ui.selectable_label(false, label).clicked() {
+                            chosen = Some(candidate.clone());
+                        }
                     }
-                }
+                });
             });
-        });
 
         if let Some(candidate) = chosen {
             // `start` already sits after any `[[paper#` the buffer still
@@ -332,7 +379,8 @@ impl KvimEditorState {
                 Trigger::Citation { start } => start,
                 Trigger::Wiki { start, .. } => start,
             };
-            self.editor.replace_range(Range::new(start, cursor), &replacement);
+            self.editor
+                .replace_range(Range::new(start, cursor), &replacement);
 
             // GH issue #35 2026-09-02: "autocompletes should leave me in
             // insert mode, not normal mode." The mouse-click on the popup
@@ -363,7 +411,8 @@ impl KvimEditorState {
         let line_count = self.editor.buffer().line_count().max(1);
         let width = ui.available_width().max(400.0);
         let height = line_count as f32 * line_height;
-        let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
+        let (rect, response) =
+            ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
         self.text_area_origin = rect.min;
 
         if let Some(line) = self.pending_scroll_to_line.take() {
@@ -476,7 +525,11 @@ impl KvimEditorState {
         let band = |range: &std::ops::Range<usize>, fill: Color32| {
             let y0 = rect.min.y + range.start as f32 * line_height;
             let y1 = rect.min.y + range.end.max(range.start + 1) as f32 * line_height;
-            painter.rect_filled(Rect::from_min_max(Pos2::new(rect.min.x, y0), Pos2::new(rect.max.x, y1)), 0.0, fill);
+            painter.rect_filled(
+                Rect::from_min_max(Pos2::new(rect.min.x, y0), Pos2::new(rect.max.x, y1)),
+                0.0,
+                fill,
+            );
         };
         for range in &self.anchor_bands {
             band(range, Color32::from_rgba_unmultiplied(255, 230, 60, 16));
@@ -486,35 +539,65 @@ impl KvimEditorState {
         }
 
         if let Some((from, to)) = self.editor.selection() {
-            let (start, end) = if (from.line, from.col) <= (to.line, to.col) { (from, to) } else { (to, from) };
+            let (start, end) = if (from.line, from.col) <= (to.line, to.col) {
+                (from, to)
+            } else {
+                (to, from)
+            };
             for line in start.line..=end.line {
                 let col_start = if line == start.line { start.col } else { 0 };
                 let line_len = self.editor.buffer().line_len(line);
-                let col_end = if line == end.line { end.col.max(col_start + 1) } else { line_len.max(col_start + 1) };
+                let col_end = if line == end.line {
+                    end.col.max(col_start + 1)
+                } else {
+                    line_len.max(col_start + 1)
+                };
                 let y = rect.min.y + line as f32 * line_height;
                 let x0 = rect.min.x + col_start as f32 * char_width;
                 let x1 = rect.min.x + col_end as f32 * char_width;
-                painter.rect_filled(Rect::from_min_max(Pos2::new(x0, y), Pos2::new(x1, y + line_height)), 0.0, Color32::from_rgba_unmultiplied(100, 140, 220, 90));
+                painter.rect_filled(
+                    Rect::from_min_max(Pos2::new(x0, y), Pos2::new(x1, y + line_height)),
+                    0.0,
+                    Color32::from_rgba_unmultiplied(100, 140, 220, 90),
+                );
             }
         }
 
         for line in 0..line_count {
-            let Some(text) = self.editor.buffer().line(line) else { continue };
+            let Some(text) = self.editor.buffer().line(line) else {
+                continue;
+            };
             let y = rect.min.y + line as f32 * line_height;
-            painter.text(Pos2::new(rect.min.x, y), egui::Align2::LEFT_TOP, text, font.clone(), ui.visuals().text_color());
+            painter.text(
+                Pos2::new(rect.min.x, y),
+                egui::Align2::LEFT_TOP,
+                text,
+                font.clone(),
+                ui.visuals().text_color(),
+            );
         }
 
         let cursor = self.editor.cursor();
         let cx = rect.min.x + cursor.col as f32 * char_width;
         let cy = rect.min.y + cursor.line as f32 * line_height;
-        let cursor_color = if response.has_focus() { Color32::from_rgb(230, 180, 60) } else { Color32::from_gray(140) };
+        let cursor_color = if response.has_focus() {
+            Color32::from_rgb(230, 180, 60)
+        } else {
+            Color32::from_gray(140)
+        };
         painter.rect_filled(
-            Rect::from_min_size(Pos2::new(cx, cy), Vec2::new(char_width.max(2.0), line_height)),
+            Rect::from_min_size(
+                Pos2::new(cx, cy),
+                Vec2::new(char_width.max(2.0), line_height),
+            ),
             0.0,
             cursor_color.gamma_multiply(0.5),
         );
         painter.rect_stroke(
-            Rect::from_min_size(Pos2::new(cx, cy), Vec2::new(char_width.max(2.0), line_height)),
+            Rect::from_min_size(
+                Pos2::new(cx, cy),
+                Vec2::new(char_width.max(2.0), line_height),
+            ),
             0.0,
             Stroke::new(1.0, cursor_color),
             egui::StrokeKind::Outside,
@@ -528,8 +611,17 @@ impl KvimEditorState {
 fn map_event(event: &egui::Event) -> Option<KvimKey> {
     match event {
         egui::Event::Text(text) => text.chars().next().map(KvimKey::char),
-        egui::Event::Key { key, pressed: true, modifiers, .. } => {
-            let mods = KvimModifiers { ctrl: modifiers.ctrl, alt: modifiers.alt, shift: modifiers.shift };
+        egui::Event::Key {
+            key,
+            pressed: true,
+            modifiers,
+            ..
+        } => {
+            let mods = KvimModifiers {
+                ctrl: modifiers.ctrl,
+                alt: modifiers.alt,
+                shift: modifiers.shift,
+            };
             let code = match key {
                 egui::Key::Enter => KvimKeyCode::Enter,
                 egui::Key::Escape => KvimKeyCode::Esc,
@@ -548,7 +640,12 @@ fn map_event(event: &egui::Event) -> Option<KvimKey> {
                 // `Event::Text` — only forward it here for a Ctrl-chord
                 // (`<C-d>`, `<C-r>`, …), which egui does not also emit as
                 // text.
-                _ if modifiers.ctrl => key.name().chars().next().map(|c| c.to_ascii_lowercase()).map(KvimKeyCode::Char)?,
+                _ if modifiers.ctrl => key
+                    .name()
+                    .chars()
+                    .next()
+                    .map(|c| c.to_ascii_lowercase())
+                    .map(KvimKeyCode::Char)?,
                 _ => return None,
             };
             Some(KvimKey::new(code, mods))
@@ -584,7 +681,11 @@ mod tests {
         state.editor.handle_key(KvimKey::esc()).unwrap();
         state.editor.handle_key(KvimKey::char('v')).unwrap();
 
-        assert_eq!(state.text(), "hello world\n", "no 'v' should have been inserted into the buffer");
+        assert_eq!(
+            state.text(),
+            "hello world\n",
+            "no 'v' should have been inserted into the buffer"
+        );
         assert_eq!(state.editor.mode(), Mode::Visual);
     }
 
@@ -672,7 +773,11 @@ mod tests {
             repeat: false,
             modifiers: egui::Modifiers::default(),
         };
-        assert_eq!(map_event(&plain_a), None, "a plain letter arrives via Event::Text, not Event::Key");
+        assert_eq!(
+            map_event(&plain_a),
+            None,
+            "a plain letter arrives via Event::Text, not Event::Key"
+        );
     }
 
     #[test]
@@ -682,7 +787,10 @@ mod tests {
             physical_key: None,
             pressed: true,
             repeat: false,
-            modifiers: egui::Modifiers { ctrl: true, ..Default::default() },
+            modifiers: egui::Modifiers {
+                ctrl: true,
+                ..Default::default()
+            },
         };
         assert_eq!(map_event(&ctrl_d), Some(KvimKey::ctrl('d')));
     }

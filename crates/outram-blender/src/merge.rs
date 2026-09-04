@@ -57,7 +57,11 @@ pub enum MergeTarget {
 /// degenerate (fewer than three distinct corners) are dropped. Returns the
 /// rebuilt mesh.
 pub fn merge_vertices(mesh: &Mesh, verts: &[VertexId], target: MergeTarget) -> Mesh {
-    let mut set: Vec<usize> = verts.iter().map(|v| v.0).filter(|&v| v < mesh.vertex_count()).collect();
+    let mut set: Vec<usize> = verts
+        .iter()
+        .map(|v| v.0)
+        .filter(|&v| v < mesh.vertex_count())
+        .collect();
     set.sort_unstable();
     set.dedup();
     if set.len() < 2 {
@@ -65,9 +69,10 @@ pub fn merge_vertices(mesh: &Mesh, verts: &[VertexId], target: MergeTarget) -> M
     }
     let positions = mesh.positions();
     let pos = match target {
-        MergeTarget::Center => {
-            set.iter().fold(Vec3::ZERO, |acc, &i| acc.add(positions[i])).scale(1.0 / set.len() as f64)
-        }
+        MergeTarget::Center => set
+            .iter()
+            .fold(Vec3::ZERO, |acc, &i| acc.add(positions[i]))
+            .scale(1.0 / set.len() as f64),
         MergeTarget::Point(p) => p,
         MergeTarget::First => positions[set[0]],
         MergeTarget::Last => positions[*set.last().unwrap()],
@@ -101,8 +106,10 @@ pub fn merge_edges(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
         return mesh.clone();
     }
     // Fold moved positions onto the final representative of each cluster.
-    let final_moves: HashMap<usize, Vec3> =
-        moved.into_iter().map(|(v, p)| (resolve(&remap, v), p)).collect();
+    let final_moves: HashMap<usize, Vec3> = moved
+        .into_iter()
+        .map(|(v, p)| (resolve(&remap, v), p))
+        .collect();
     rebuild(mesh, &remap, &final_moves)
 }
 
@@ -110,7 +117,11 @@ pub fn merge_edges(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
 /// keeping the lowest id of each cluster. The subset form of
 /// [`crate::weld::weld`].
 pub fn merge_by_distance(mesh: &Mesh, verts: &[VertexId], threshold: f64) -> Mesh {
-    let mut set: Vec<usize> = verts.iter().map(|v| v.0).filter(|&v| v < mesh.vertex_count()).collect();
+    let mut set: Vec<usize> = verts
+        .iter()
+        .map(|v| v.0)
+        .filter(|&v| v < mesh.vertex_count())
+        .collect();
     set.sort_unstable();
     set.dedup();
     let positions = mesh.positions();
@@ -126,7 +137,11 @@ pub fn merge_by_distance(mesh: &Mesh, verts: &[VertexId], threshold: f64) -> Mes
             if remap.contains_key(&b) {
                 continue;
             }
-            if positions[a].sub(positions[b]).dot(positions[a].sub(positions[b])) <= t2 {
+            if positions[a]
+                .sub(positions[b])
+                .dot(positions[a].sub(positions[b]))
+                <= t2
+            {
                 remap.insert(b, a);
             }
         }
@@ -192,8 +207,10 @@ fn rebuild(mesh: &Mesh, remap: &HashMap<usize, usize>, moves: &HashMap<usize, Ve
             compact_pos.push(positions[i]);
         }
     }
-    let compact_faces: Vec<Vec<usize>> =
-        faces.iter().map(|f| f.iter().map(|&v| new_idx[v]).collect()).collect();
+    let compact_faces: Vec<Vec<usize>> = faces
+        .iter()
+        .map(|f| f.iter().map(|&v| new_idx[v]).collect())
+        .collect();
     Mesh::from_polygons(&compact_pos, &compact_faces)
 }
 
@@ -205,7 +222,10 @@ impl SoupView for Mesh {
     fn clone_positions_faces(&self) -> (Vec<Vec3>, Vec<Vec<usize>>) {
         (
             self.positions(),
-            self.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect(),
+            self.polygons()
+                .iter()
+                .map(|f| f.iter().map(|v| v.0).collect())
+                .collect(),
         )
     }
 }
@@ -232,7 +252,13 @@ mod tests {
         let p = Vec3::new(5.0, 5.0, 5.0);
         let merged = merge_vertices(&m, &[VertexId(0), VertexId(2)], MergeTarget::Point(p));
         // The surviving vertex is at p.
-        assert!((0..merged.vertex_count()).any(|i| merged.vertex(VertexId(i)).unwrap().position.sub(p).length() < 1e-9));
+        assert!((0..merged.vertex_count()).any(|i| merged
+            .vertex(VertexId(i))
+            .unwrap()
+            .position
+            .sub(p)
+            .length()
+            < 1e-9));
     }
 
     #[test]
@@ -248,7 +274,11 @@ mod tests {
         // Grid with a duplicated vertex stacked on vertex 0.
         let g = primitives::grid(1, 1, 2.0);
         let mut positions = g.positions();
-        let faces: Vec<Vec<usize>> = g.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = g
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         positions.push(positions[0]); // exact duplicate, id 4
         let m = Mesh::from_polygons(&positions, &faces);
         // id 4 is unreferenced; merging {0,4} within threshold drops it.

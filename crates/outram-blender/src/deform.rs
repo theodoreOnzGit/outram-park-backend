@@ -82,7 +82,10 @@ fn axis_unit(a: Axis) -> Vec3 {
 }
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 fn deform(mesh: &Mesh, verts: &[VertexId], f: impl Fn(Vec3) -> Vec3) -> Mesh {
@@ -90,7 +93,11 @@ fn deform(mesh: &Mesh, verts: &[VertexId], f: impl Fn(Vec3) -> Vec3) -> Mesh {
     let idx: Vec<usize> = if verts.is_empty() {
         (0..positions.len()).collect()
     } else {
-        verts.iter().map(|v| v.0).filter(|&i| i < positions.len()).collect()
+        verts
+            .iter()
+            .map(|v| v.0)
+            .filter(|&i| i < positions.len())
+            .collect()
     };
     for &i in &idx {
         positions[i] = f(positions[i]);
@@ -100,7 +107,11 @@ fn deform(mesh: &Mesh, verts: &[VertexId], f: impl Fn(Vec3) -> Vec3) -> Mesh {
 
 fn axis_span(mesh: &Mesh, verts: &[VertexId], axis: Axis) -> (f64, f64) {
     let pos = mesh.positions();
-    let idx: Vec<usize> = if verts.is_empty() { (0..pos.len()).collect() } else { verts.iter().map(|v| v.0).collect() };
+    let idx: Vec<usize> = if verts.is_empty() {
+        (0..pos.len()).collect()
+    } else {
+        verts.iter().map(|v| v.0).collect()
+    };
     let mut lo = f64::MAX;
     let mut hi = f64::MIN;
     for &i in &idx {
@@ -113,7 +124,9 @@ fn axis_span(mesh: &Mesh, verts: &[VertexId], axis: Axis) -> (f64, f64) {
 
 fn rodrigues(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
     let (s, c) = theta.sin_cos();
-    v.scale(c).add(k.cross(v).scale(s)).add(k.scale(k.dot(v) * (1.0 - c)))
+    v.scale(c)
+        .add(k.cross(v).scale(s))
+        .add(k.scale(k.dot(v) * (1.0 - c)))
 }
 
 /// Apply a [`SimpleDeform`] along `axis` over the selection's extent.
@@ -146,7 +159,8 @@ pub fn simple_deform(mesh: &Mesh, verts: &[VertexId], mode: SimpleDeform, axis: 
                 let along_scale = 1.0 + factor;
                 let perp_scale = 1.0 / (1.0 + factor).abs().max(1e-6).sqrt();
                 let along = k.scale(c);
-                k.scale(mid + (c - mid) * along_scale).add(p.sub(along).scale(perp_scale))
+                k.scale(mid + (c - mid) * along_scale)
+                    .add(p.sub(along).scale(perp_scale))
             }
         }
     })
@@ -165,17 +179,32 @@ fn bend_axis(axis: Axis) -> Vec3 {
 /// (about the selection's centre).
 pub fn cast(mesh: &Mesh, verts: &[VertexId], target: CastTarget, factor: f64) -> Mesh {
     let pos = mesh.positions();
-    let idx: Vec<usize> = if verts.is_empty() { (0..pos.len()).collect() } else { verts.iter().map(|v| v.0).collect() };
-    let centre = idx.iter().fold(Vec3::ZERO, |a, &i| a.add(pos[i])).scale(1.0 / idx.len().max(1) as f64);
+    let idx: Vec<usize> = if verts.is_empty() {
+        (0..pos.len()).collect()
+    } else {
+        verts.iter().map(|v| v.0).collect()
+    };
+    let centre = idx
+        .iter()
+        .fold(Vec3::ZERO, |a, &i| a.add(pos[i]))
+        .scale(1.0 / idx.len().max(1) as f64);
     // Reference size: mean distance from the centre.
-    let mean_r = idx.iter().map(|&i| pos[i].sub(centre).length()).sum::<f64>() / idx.len().max(1) as f64;
+    let mean_r = idx
+        .iter()
+        .map(|&i| pos[i].sub(centre).length())
+        .sum::<f64>()
+        / idx.len().max(1) as f64;
 
     deform(mesh, verts, |p| {
         let d = p.sub(centre);
         let onto = match target {
             CastTarget::Sphere(r) => {
                 let len = d.length();
-                if len < 1e-9 { p } else { centre.add(d.scale(r.max(1e-9) / len)) }
+                if len < 1e-9 {
+                    p
+                } else {
+                    centre.add(d.scale(r.max(1e-9) / len))
+                }
             }
             CastTarget::Cylinder { radius, axis } => {
                 let k = axis_unit(axis);
@@ -203,8 +232,19 @@ pub fn cast(mesh: &Mesh, verts: &[VertexId], target: CastTarget, factor: f64) ->
 
 /// Displace along `direction` by `strength` times value noise sampled at
 /// `p * noise_scale`. A texture-free stand-in for Blender's Displace.
-pub fn displace(mesh: &Mesh, verts: &[VertexId], direction: Vec3, strength: f64, noise_scale: f64, seed: u64) -> Mesh {
-    let dir = if direction.length() > 1e-9 { direction.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+pub fn displace(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    direction: Vec3,
+    strength: f64,
+    noise_scale: f64,
+    seed: u64,
+) -> Mesh {
+    let dir = if direction.length() > 1e-9 {
+        direction.normalize()
+    } else {
+        Vec3::new(0.0, 0.0, 1.0)
+    };
     deform(mesh, verts, |p| {
         let n = value_noise(p.scale(noise_scale), seed) - 0.5;
         p.add(dir.scale(strength * n * 2.0))
@@ -213,14 +253,28 @@ pub fn displace(mesh: &Mesh, verts: &[VertexId], direction: Vec3, strength: f64,
 
 /// Warp space so the segment `from` … `from2` maps onto `to` … `to2` (a
 /// rotate + scale + translate blended by proximity to `from`).
-pub fn warp(mesh: &Mesh, verts: &[VertexId], from: Vec3, from2: Vec3, to: Vec3, to2: Vec3, falloff_radius: f64) -> Mesh {
+pub fn warp(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    from: Vec3,
+    from2: Vec3,
+    to: Vec3,
+    to2: Vec3,
+    falloff_radius: f64,
+) -> Mesh {
     let src_vec = from2.sub(from);
     let dst_vec = to2.sub(to);
     let src_len = src_vec.length().max(1e-9);
     let scale = dst_vec.length() / src_len;
     let rot_axis = src_vec.cross(dst_vec);
-    let angle = (src_vec.dot(dst_vec) / (src_len * dst_vec.length().max(1e-9))).clamp(-1.0, 1.0).acos();
-    let k = if rot_axis.length() > 1e-9 { rot_axis.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+    let angle = (src_vec.dot(dst_vec) / (src_len * dst_vec.length().max(1e-9)))
+        .clamp(-1.0, 1.0)
+        .acos();
+    let k = if rot_axis.length() > 1e-9 {
+        rot_axis.normalize()
+    } else {
+        Vec3::new(0.0, 0.0, 1.0)
+    };
 
     deform(mesh, verts, |p| {
         let rel = p.sub(from);
@@ -237,7 +291,15 @@ pub fn warp(mesh: &Mesh, verts: &[VertexId], from: Vec3, from2: Vec3, to: Vec3, 
 /// A travelling sine ripple: displace along `axis` by
 /// `amplitude · sin(2π (r/wavelength − speed·time))` where `r` is the distance
 /// from the origin in the plane orthogonal to `axis`.
-pub fn wave(mesh: &Mesh, verts: &[VertexId], axis: Axis, amplitude: f64, wavelength: f64, speed: f64, time: f64) -> Mesh {
+pub fn wave(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    axis: Axis,
+    amplitude: f64,
+    wavelength: f64,
+    speed: f64,
+    time: f64,
+) -> Mesh {
     let k = axis_unit(axis);
     let wl = wavelength.abs().max(1e-6);
     deform(mesh, verts, |p| {
@@ -322,7 +384,11 @@ mod tests {
     fn cast_to_sphere_puts_verts_on_the_sphere() {
         let m = primitives::grid(4, 4, 4.0);
         let c = cast(&m, &[], CastTarget::Sphere(3.0), 1.0);
-        let centre = m.positions().iter().fold(Vec3::ZERO, |a, &p| a.add(p)).scale(1.0 / m.vertex_count() as f64);
+        let centre = m
+            .positions()
+            .iter()
+            .fold(Vec3::ZERO, |a, &p| a.add(p))
+            .scale(1.0 / m.vertex_count() as f64);
         for i in 0..c.vertex_count() {
             let r = c.vertex(VertexId(i)).unwrap().position.sub(centre).length();
             // A vertex at the centre can't be cast; skip near-zero.
@@ -338,16 +404,27 @@ mod tests {
         let a = displace(&m, &[], Vec3::new(0.0, 0.0, 1.0), 0.5, 0.5, 3);
         let b = displace(&m, &[], Vec3::new(0.0, 0.0, 1.0), 0.5, 0.5, 3);
         for i in 0..a.vertex_count() {
-            assert!(a.vertex(VertexId(i)).unwrap().position.sub(b.vertex(VertexId(i)).unwrap().position).length() < 1e-12);
+            assert!(
+                a.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(b.vertex(VertexId(i)).unwrap().position)
+                    .length()
+                    < 1e-12
+            );
         }
-        assert!((0..a.vertex_count()).any(|i| a.vertex(VertexId(i)).unwrap().position.z.abs() > 1e-6));
+        assert!(
+            (0..a.vertex_count()).any(|i| a.vertex(VertexId(i)).unwrap().position.z.abs() > 1e-6)
+        );
     }
 
     #[test]
     fn wave_makes_a_ripple() {
         let m = primitives::grid(10, 10, 10.0);
         let w = wave(&m, &[], Axis::Z, 0.5, 3.0, 0.0, 0.0);
-        let zs: Vec<f64> = (0..w.vertex_count()).map(|i| w.vertex(VertexId(i)).unwrap().position.z).collect();
+        let zs: Vec<f64> = (0..w.vertex_count())
+            .map(|i| w.vertex(VertexId(i)).unwrap().position.z)
+            .collect();
         assert!(zs.iter().cloned().fold(f64::MIN, f64::max) > 0.1);
         assert!(zs.iter().cloned().fold(f64::MAX, f64::min) < -0.1);
     }
@@ -365,8 +442,14 @@ mod tests {
             0.0,
         );
         // A vertex that was at (2, 0, 0) should land near (0, 2, 0).
-        let near = (0..m.vertex_count())
-            .find(|&i| m.vertex(VertexId(i)).unwrap().position.sub(Vec3::new(2.0, 0.0, 0.0)).length() < 1e-6);
+        let near = (0..m.vertex_count()).find(|&i| {
+            m.vertex(VertexId(i))
+                .unwrap()
+                .position
+                .sub(Vec3::new(2.0, 0.0, 0.0))
+                .length()
+                < 1e-6
+        });
         if let Some(i) = near {
             let p = w.vertex(VertexId(i)).unwrap().position;
             assert!(p.sub(Vec3::new(0.0, 2.0, 0.0)).length() < 1e-6);

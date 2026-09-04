@@ -288,7 +288,12 @@ impl ParallelogramCalibration {
                 ));
             }
         }
-        for v in [x_value_at_left, x_value_at_right, y_value_at_top, y_value_at_bottom] {
+        for v in [
+            x_value_at_left,
+            x_value_at_right,
+            y_value_at_top,
+            y_value_at_bottom,
+        ] {
             if !v.is_finite() {
                 return Err(DigitiserError::Calibration(
                     "parallelogram reference values must be finite".to_string(),
@@ -468,7 +473,11 @@ fn homography(pixel_corners: &[PixelPoint; 4], reverse: bool) -> Option<[f64; 8]
         let (u, v) = uv[i];
         // `uv_at` solves pixel -> (u,v): source = pixel, target = (u,v).
         // `pixel_at_uv` solves (u,v) -> pixel: source = (u,v), target = pixel.
-        let (sx, sy, tx, ty) = if reverse { (u, v, px, py) } else { (px, py, u, v) };
+        let (sx, sy, tx, ty) = if reverse {
+            (u, v, px, py)
+        } else {
+            (px, py, u, v)
+        };
         let r0 = 2 * i;
         let r1 = 2 * i + 1;
         a[r0] = [sx, sy, 1.0, 0.0, 0.0, 0.0, -tx * sx, -tx * sy];
@@ -598,7 +607,10 @@ mod tests {
 
     #[test]
     fn axis_aligned_serialises_to_the_old_flat_shape_byte_for_byte() {
-        let cal = PlotCalibration::AxisAligned { x: lin(0.0, 0.0, 100.0, 10.0), y: lin(0.0, 0.0, 100.0, 10.0) };
+        let cal = PlotCalibration::AxisAligned {
+            x: lin(0.0, 0.0, 100.0, 10.0),
+            y: lin(0.0, 0.0, 100.0, 10.0),
+        };
         let json = serde_json::to_value(&cal).unwrap();
         // No "AxisAligned" tag key anywhere -- just the flat {x, y} object.
         let obj = json.as_object().unwrap();
@@ -641,20 +653,40 @@ mod tests {
         // A pixel-space quad that IS a plain axis-aligned rectangle should
         // reproduce exactly what AxisCalibration::value_at already gives —
         // the sanity check that the homography degenerates correctly.
-        let cal = parallelogram([corner(100.0, 100.0), corner(600.0, 100.0), corner(600.0, 500.0), corner(100.0, 500.0)]);
+        let cal = parallelogram([
+            corner(100.0, 100.0),
+            corner(600.0, 100.0),
+            corner(600.0, 500.0),
+            corner(100.0, 500.0),
+        ]);
         let x_axis = lin(100.0, 0.0, 600.0, 10.0);
         let y_axis = lin(500.0, 0.0, 100.0, 40.0); // v=1 at bottom(row 500)=y_at_bottom=0
-        for (px, py) in [(100.0, 100.0), (600.0, 500.0), (350.0, 300.0), (250.0, 450.0)] {
+        for (px, py) in [
+            (100.0, 100.0),
+            (600.0, 500.0),
+            (350.0, 300.0),
+            (250.0, 450.0),
+        ] {
             let (x, y) = cal.point_at(px, py);
-            assert!((x - x_axis.value_at(px)).abs() < 1e-9, "x at ({px},{py}): got {x}");
-            assert!((y - y_axis.value_at(py)).abs() < 1e-9, "y at ({px},{py}): got {y}");
+            assert!(
+                (x - x_axis.value_at(px)).abs() < 1e-9,
+                "x at ({px},{py}): got {x}"
+            );
+            assert!(
+                (y - y_axis.value_at(py)).abs() < 1e-9,
+                "y at ({px},{py}): got {y}"
+            );
         }
     }
 
     #[test]
     fn parallelogram_corners_map_to_their_own_reference_values() {
-        let corners =
-            [corner(50.0, 20.0), corner(400.0, 60.0), corner(370.0, 480.0), corner(30.0, 430.0)];
+        let corners = [
+            corner(50.0, 20.0),
+            corner(400.0, 60.0),
+            corner(370.0, 480.0),
+            corner(30.0, 430.0),
+        ];
         let cal = parallelogram(corners);
         // top-left -> (x_left, y_top); top-right -> (x_right, y_top);
         // bottom-right -> (x_right, y_bottom); bottom-left -> (x_left, y_bottom).
@@ -685,7 +717,12 @@ mod tests {
     #[test]
     fn parallelogram_with_logarithmic_axis_matches_the_geometric_mean() {
         let cal = ParallelogramCalibration::new(
-            [corner(0.0, 0.0), corner(200.0, 0.0), corner(200.0, 100.0), corner(0.0, 100.0)],
+            [
+                corner(0.0, 0.0),
+                corner(200.0, 0.0),
+                corner(200.0, 100.0),
+                corner(0.0, 100.0),
+            ],
             AxisScale::Logarithmic,
             1.0,
             100.0,
@@ -713,7 +750,12 @@ mod tests {
         .is_err());
         // Three collinear corners (degenerate quad).
         assert!(ParallelogramCalibration::new(
-            [corner(0.0, 0.0), corner(50.0, 0.0), corner(100.0, 0.0), corner(0.0, 100.0)],
+            [
+                corner(0.0, 0.0),
+                corner(50.0, 0.0),
+                corner(100.0, 0.0),
+                corner(0.0, 100.0)
+            ],
             AxisScale::Linear,
             0.0,
             10.0,
@@ -728,15 +770,44 @@ mod tests {
     fn parallelogram_rejects_the_same_invalid_inputs_as_axis_calibration() {
         let c = |x, y| corner(x, y);
         let corners = [c(0.0, 0.0), c(100.0, 0.0), c(100.0, 100.0), c(0.0, 100.0)];
-        assert!(ParallelogramCalibration::new(corners, AxisScale::Linear, 3.0, 3.0, AxisScale::Linear, 0.0, 1.0).is_err());
-        assert!(ParallelogramCalibration::new(corners, AxisScale::Logarithmic, 0.0, 1.0, AxisScale::Linear, 0.0, 1.0).is_err());
-        assert!(ParallelogramCalibration::new(corners, AxisScale::Linear, f64::NAN, 1.0, AxisScale::Linear, 0.0, 1.0).is_err());
+        assert!(ParallelogramCalibration::new(
+            corners,
+            AxisScale::Linear,
+            3.0,
+            3.0,
+            AxisScale::Linear,
+            0.0,
+            1.0
+        )
+        .is_err());
+        assert!(ParallelogramCalibration::new(
+            corners,
+            AxisScale::Logarithmic,
+            0.0,
+            1.0,
+            AxisScale::Linear,
+            0.0,
+            1.0
+        )
+        .is_err());
+        assert!(ParallelogramCalibration::new(
+            corners,
+            AxisScale::Linear,
+            f64::NAN,
+            1.0,
+            AxisScale::Linear,
+            0.0,
+            1.0
+        )
+        .is_err());
     }
 
     #[test]
     fn plot_calibration_pixel_at_dispatches_to_the_right_variant() {
-        let axis_aligned =
-            PlotCalibration::AxisAligned { x: lin(0.0, 0.0, 100.0, 10.0), y: lin(0.0, 0.0, 100.0, 10.0) };
+        let axis_aligned = PlotCalibration::AxisAligned {
+            x: lin(0.0, 0.0, 100.0, 10.0),
+            y: lin(0.0, 0.0, 100.0, 10.0),
+        };
         assert_eq!(axis_aligned.pixel_at(5.0, 5.0), Some((50.0, 50.0)));
 
         let para = PlotCalibration::Parallelogram(parallelogram([

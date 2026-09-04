@@ -51,13 +51,8 @@ mod tests {
 
     #[test]
     fn negative_entries_are_zeroed_and_positives_kept() {
-        let mut m = SparseMatrix::assemble(
-            &[0, 1, 2, 0],
-            &[0, 1, 2, 2],
-            &[1.0, -2.0, 3.0, -0.5],
-            3,
-            3,
-        );
+        let mut m =
+            SparseMatrix::assemble(&[0, 1, 2, 0], &[0, 1, 2, 2], &[1.0, -2.0, 3.0, -0.5], 3, 3);
         fixnegativematrix(&mut m);
 
         let found = m.find();

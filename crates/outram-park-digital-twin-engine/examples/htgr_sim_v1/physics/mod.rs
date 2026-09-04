@@ -2294,8 +2294,8 @@ mod tests {
 
         let mut commands = PlantCommands::default();
         commands.control_rod_insertion_fraction = 1.0; // full scram, held
-        // Keep the circulator at nominal flow -- the issue's own repro steps
-        // say "scram reactor and run cooling", i.e. forced cooling stays on.
+                                                       // Keep the circulator at nominal flow -- the issue's own repro steps
+                                                       // say "scram reactor and run cooling", i.e. forced cooling stays on.
 
         let sim_minutes = 30.0;
         let steps = (sim_minutes * 60.0 / PLANT_TIMESTEP_S) as usize;
@@ -2326,7 +2326,10 @@ mod tests {
                     t_f,
                     t_in,
                     t_out,
-                    plant.kinetics.decay_heat_power().get::<uom::si::power::watt>(),
+                    plant
+                        .kinetics
+                        .decay_heat_power()
+                        .get::<uom::si::power::watt>(),
                     plant.primary.mass_flow().get::<kilogram_per_second>(),
                 );
             }
@@ -2436,7 +2439,10 @@ mod tests {
                     plant.pebble_temperature().get::<kelvin>(),
                     diff_k,
                     plant.core_heat_to_helium.get::<uom::si::power::watt>(),
-                    plant.kinetics.decay_heat_power().get::<uom::si::power::watt>(),
+                    plant
+                        .kinetics
+                        .decay_heat_power()
+                        .get::<uom::si::power::watt>(),
                 );
             }
         }

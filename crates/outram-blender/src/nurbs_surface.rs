@@ -94,10 +94,18 @@ impl NurbsSurface {
         let mut den = 0.0;
         for j in 0..=dv {
             let vj = sv - dv + j;
-            let vj_r = if self.cyclic_v { vj % self.nv } else { vj.min(self.nv - 1) };
+            let vj_r = if self.cyclic_v {
+                vj % self.nv
+            } else {
+                vj.min(self.nv - 1)
+            };
             for i in 0..=du {
                 let ui = su - du + i;
-                let ui_r = if self.cyclic_u { ui % self.nu } else { ui.min(self.nu - 1) };
+                let ui_r = if self.cyclic_u {
+                    ui % self.nu
+                } else {
+                    ui.min(self.nu - 1)
+                };
                 let w = self.weight(ui_r, vj_r) * bu[i] * bv[j];
                 num = num.add(self.ctrl(ui_r, vj_r).scale(w));
                 den += w;
@@ -114,8 +122,16 @@ impl NurbsSurface {
     pub fn to_mesh(&self, res_u: usize, res_v: usize) -> Mesh {
         let ru = res_u.max(2);
         let rv = res_v.max(2);
-        let ud = if self.cyclic_u { ru as f64 } else { (ru - 1) as f64 };
-        let vd = if self.cyclic_v { rv as f64 } else { (rv - 1) as f64 };
+        let ud = if self.cyclic_u {
+            ru as f64
+        } else {
+            (ru - 1) as f64
+        };
+        let vd = if self.cyclic_v {
+            rv as f64
+        } else {
+            (rv - 1) as f64
+        };
         let mut positions = Vec::with_capacity(ru * rv);
         for j in 0..rv {
             for i in 0..ru {
@@ -169,7 +185,8 @@ impl NurbsSurface {
         let (nu, nv) = (16usize, 9usize);
         let mut control = Vec::with_capacity(nu * nv);
         for j in 0..nv {
-            let la = -std::f64::consts::FRAC_PI_2 + std::f64::consts::PI * j as f64 / (nv - 1) as f64;
+            let la =
+                -std::f64::consts::FRAC_PI_2 + std::f64::consts::PI * j as f64 / (nv - 1) as f64;
             for i in 0..nu {
                 let lo = std::f64::consts::TAU * i as f64 / nu as f64;
                 control.push(Vec3::new(
@@ -283,7 +300,11 @@ fn basis(knots: &[f64], degree: usize, n: usize, u: f64) -> (usize, Vec<f64>) {
         let mut saved = 0.0;
         for r in 0..j {
             let denom = right[r + 1] + left[j - r];
-            let temp = if denom.abs() > 1e-12 { b[r] / denom } else { 0.0 };
+            let temp = if denom.abs() > 1e-12 {
+                b[r] / denom
+            } else {
+                0.0
+            };
             b[r] = saved + right[r + 1] * temp;
             saved = left[j - r] * temp;
         }
@@ -300,7 +321,12 @@ mod tests {
     #[test]
     fn plane_evaluates_to_its_control_grid_corners() {
         let s = NurbsSurface::plane(4, 4);
-        assert!(s.evaluate(0.0, 0.0).sub(Vec3::new(-1.0, -1.0, 0.0)).length() < 1e-6);
+        assert!(
+            s.evaluate(0.0, 0.0)
+                .sub(Vec3::new(-1.0, -1.0, 0.0))
+                .length()
+                < 1e-6
+        );
         assert!(s.evaluate(1.0, 1.0).sub(Vec3::new(1.0, 1.0, 0.0)).length() < 1e-6);
         // A mid sample is still on z = 0.
         assert!(s.evaluate(0.5, 0.5).z.abs() < 1e-9);
@@ -320,7 +346,11 @@ mod tests {
         for j in 0..11 {
             for i in 0..17 {
                 let p = s.evaluate(i as f64 / 16.0, j as f64 / 10.0);
-                assert!((p.length() - 2.0).abs() < 0.25, "r ≈ 2 (got {})", p.length());
+                assert!(
+                    (p.length() - 2.0).abs() < 0.25,
+                    "r ≈ 2 (got {})",
+                    p.length()
+                );
             }
         }
     }

@@ -245,7 +245,10 @@ impl TableDigitiserState {
             )
             .map_err(|e| e.to_string())
             .and_then(|_| {
-                session.save_document().map(|()| format!("saved into {citekey}'s notes")).map_err(|e| e.to_string())
+                session
+                    .save_document()
+                    .map(|()| format!("saved into {citekey}'s notes"))
+                    .map_err(|e| e.to_string())
             });
             match result {
                 Ok(m) => self.set_status(m),
@@ -259,7 +262,13 @@ impl TableDigitiserState {
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
                 " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1, prov.min.x, prov.min.y, prov.max.x, prov.max.y, prov.created_at, prov.author
+                prov.page_index + 1,
+                prov.min.x,
+                prov.min.y,
+                prov.max.x,
+                prov.max.y,
+                prov.created_at,
+                prov.author
             ));
         }
         block.push_str("\n\n");
@@ -283,7 +292,11 @@ impl TableDigitiserState {
     /// (`op-jfc3`) — the caller opens its shared file dialog for that
     /// request and later routes the picked path back in via
     /// [`Self::set_json_out`]/[`Self::set_csv_out`].
-    pub fn ui(&mut self, ui: &mut egui::Ui, active_paper: Option<&mut PaperSession>) -> Option<PickerRequest> {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        active_paper: Option<&mut PaperSession>,
+    ) -> Option<PickerRequest> {
         ui.heading("kovan — table digitiser (OCR)");
         ui.small(
             "OCR recognises text lines, not table structure — cells are split on runs of \
@@ -340,19 +353,21 @@ impl TableDigitiserState {
             .id_salt("table_ocr_grid")
             .max_height(300.0)
             .show(ui, |ui| {
-                egui::Grid::new("table_ocr_cells").striped(true).show(ui, |ui| {
-                    for row in self.table.as_mut().unwrap().rows.iter_mut() {
-                        for cell in row.iter_mut() {
-                            if ui
-                                .add(egui::TextEdit::singleline(cell).desired_width(120.0))
-                                .changed()
-                            {
-                                edited = true;
+                egui::Grid::new("table_ocr_cells")
+                    .striped(true)
+                    .show(ui, |ui| {
+                        for row in self.table.as_mut().unwrap().rows.iter_mut() {
+                            for cell in row.iter_mut() {
+                                if ui
+                                    .add(egui::TextEdit::singleline(cell).desired_width(120.0))
+                                    .changed()
+                                {
+                                    edited = true;
+                                }
                             }
+                            ui.end_row();
                         }
-                        ui.end_row();
-                    }
-                });
+                    });
             });
         if edited {
             self.mark_edited();
@@ -476,7 +491,8 @@ mod tests {
 
     fn make_root() -> (tempfile::TempDir, crate::root::KovanRoot) {
         let dir = tempfile::tempdir().unwrap();
-        let root = crate::root::KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        let root = crate::root::KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false)
+            .unwrap();
         (dir, root)
     }
 
@@ -499,13 +515,19 @@ mod tests {
     #[test]
     fn save_into_project_writes_into_the_active_papers_session_when_given_one() {
         let (_dir, root) = make_root();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
-            .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "wang2018multiphysics").unwrap();
 
-        let mut state = TableDigitiserState { table: Some(table()), ..Default::default() };
+        let mut state = TableDigitiserState {
+            table: Some(table()),
+            ..Default::default()
+        };
         state.save_into_project(Some(&mut session));
 
         assert!(!state.message_is_error, "{}", state.message);
@@ -522,7 +544,10 @@ mod tests {
 
     #[test]
     fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
-        let mut state = TableDigitiserState { table: Some(table()), ..Default::default() };
+        let mut state = TableDigitiserState {
+            table: Some(table()),
+            ..Default::default()
+        };
         state.save_into_project(None);
         assert!(state.message_is_error, "{}", state.message);
         assert!(state.message.contains("project root"), "{}", state.message);

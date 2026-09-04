@@ -70,13 +70,20 @@ pub const SECTION_ORDER: [&str; 6] = [
 #[derive(Debug)]
 pub enum ProjectError {
     /// An I/O failure reading/writing a file, with the path it happened on.
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// `toml` (de)serialisation failed.
     Toml(String),
     /// A `<!-- kovan:section NAME -->` marker named something outside
     /// [`SECTION_ORDER`] — design doc §5 step 1: "an unknown name is a
     /// parse error, not a silently-ignored line."
-    UnknownSection { markdown: PathBuf, name: String, line: usize },
+    UnknownSection {
+        markdown: PathBuf,
+        name: String,
+        line: usize,
+    },
     /// The same section marker appeared twice in one file.
     DuplicateSection { markdown: PathBuf, name: String },
     /// The project root has no `.bib` file, or more than one — design doc
@@ -84,7 +91,10 @@ pub enum ProjectError {
     AmbiguousOrMissingBibFile { root: PathBuf, found: Vec<PathBuf> },
     /// The project's `.bib` file could not be parsed
     /// ([`kovan_literature::BibParseError`]).
-    Bib { path: PathBuf, source: kovan_literature::BibParseError },
+    Bib {
+        path: PathBuf,
+        source: kovan_literature::BibParseError,
+    },
     /// [`write_section`]'s caller-supplied range no longer matches a fresh
     /// scan — the file changed on disk since it was read for editing.
     StaleSectionRange { markdown: PathBuf, name: String },
@@ -95,17 +105,29 @@ impl std::fmt::Display for ProjectError {
         match self {
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Toml(m) => write!(f, "toml error: {m}"),
-            Self::UnknownSection { markdown, name, line } => write!(
+            Self::UnknownSection {
+                markdown,
+                name,
+                line,
+            } => write!(
                 f,
                 "{}:{line}: unknown section marker {name:?} (expected one of {SECTION_ORDER:?})",
                 markdown.display()
             ),
             Self::DuplicateSection { markdown, name } => {
-                write!(f, "{}: duplicate section marker {name:?}", markdown.display())
+                write!(
+                    f,
+                    "{}: duplicate section marker {name:?}",
+                    markdown.display()
+                )
             }
             Self::AmbiguousOrMissingBibFile { root, found } => {
                 if found.is_empty() {
-                    write!(f, "{}: no .bib file found (need exactly one)", root.display())
+                    write!(
+                        f,
+                        "{}: no .bib file found (need exactly one)",
+                        root.display()
+                    )
                 } else {
                     write!(
                         f,
@@ -267,7 +289,10 @@ pub fn scan_markdown_sections(
 
     let mut ranges = SectionRanges::default();
     for (idx, (name, start)) in markers.iter().enumerate() {
-        let end = markers.get(idx + 1).map(|(_, l)| l - 1).unwrap_or(total_lines);
+        let end = markers
+            .get(idx + 1)
+            .map(|(_, l)| l - 1)
+            .unwrap_or(total_lines);
         ranges.set(name, [*start, end]);
     }
     Ok(ranges)
@@ -299,8 +324,11 @@ pub fn regenerate(root: &Path) -> Result<ProjectIndex, ProjectError> {
     let bib_file = find_bib_file(root)?;
     let bib_path = root.join(&bib_file);
     let bib_text = read_to_string(&bib_path)?;
-    let bib_entries = kovan_literature::parse_bib_entries(&bib_text)
-        .map_err(|source| ProjectError::Bib { path: bib_path.clone(), source })?;
+    let bib_entries =
+        kovan_literature::parse_bib_entries(&bib_text).map_err(|source| ProjectError::Bib {
+            path: bib_path.clone(),
+            source,
+        })?;
 
     let pdf_dir = root.join("pdf");
     let markdown_dir = root.join("markdown");
@@ -397,7 +425,11 @@ pub fn read_section(
     } else {
         String::new()
     };
-    Ok(SectionContent { marker_line, heading_line, body })
+    Ok(SectionContent {
+        marker_line,
+        heading_line,
+        body,
+    })
 }
 
 /// Write a new `body` back into `section_name` of `markdown_rel` (relative
@@ -562,7 +594,10 @@ fn read_to_string(path: &Path) -> Result<String, ProjectError> {
 }
 
 fn io_err(path: &Path, source: std::io::Error) -> ProjectError {
-    ProjectError::Io { path: path.to_path_buf(), source }
+    ProjectError::Io {
+        path: path.to_path_buf(),
+        source,
+    }
 }
 
 #[cfg(test)]
@@ -623,7 +658,10 @@ last line";
     fn duplicate_marker_is_an_error() {
         let md = "<!-- kovan:section full_text -->\na\n<!-- kovan:section full_text -->\nb";
         let err = scan_markdown_sections(Path::new("doc.md"), md).unwrap_err();
-        assert!(matches!(err, ProjectError::DuplicateSection { .. }), "{err}");
+        assert!(
+            matches!(err, ProjectError::DuplicateSection { .. }),
+            "{err}"
+        );
     }
 
     #[test]
@@ -655,7 +693,11 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("my bibliography.bib"), "@article{report-a, title={X}}").unwrap();
+        fs::write(
+            root.join("my bibliography.bib"),
+            "@article{report-a, title={X}}",
+        )
+        .unwrap();
 
         fs::write(root.join("pdf/report-a.pdf"), b"%PDF-fake").unwrap();
         fs::write(
@@ -716,7 +758,11 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("refs.bib"), "@article{not-ingested-yet, title={X}}").unwrap();
+        fs::write(
+            root.join("refs.bib"),
+            "@article{not-ingested-yet, title={X}}",
+        )
+        .unwrap();
 
         let index = regenerate(root).unwrap();
         assert!(index.documents.is_empty());
@@ -729,9 +775,16 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("refs.bib"), "@article{argonnecodecenter1977anl7416, title={X}}")
-            .unwrap();
-        fs::write(root.join("pdf/argonnecodecenter1977anl7416.pdf"), b"%PDF-fake").unwrap();
+        fs::write(
+            root.join("refs.bib"),
+            "@article{argonnecodecenter1977anl7416, title={X}}",
+        )
+        .unwrap();
+        fs::write(
+            root.join("pdf/argonnecodecenter1977anl7416.pdf"),
+            b"%PDF-fake",
+        )
+        .unwrap();
         fs::write(
             root.join("markdown/argonnecodecenter1977anl7416.md"),
             "<!-- kovan:section full_text -->\n## Full Text\nhello\n",
@@ -741,15 +794,24 @@ last line";
         let index = regenerate(root).unwrap();
         assert_eq!(index.documents.len(), 1);
         assert_eq!(index.documents[0].id, "argonnecodecenter1977anl7416");
-        assert_eq!(index.documents[0].pdf, "pdf/argonnecodecenter1977anl7416.pdf");
-        assert_eq!(index.documents[0].markdown, "markdown/argonnecodecenter1977anl7416.md");
+        assert_eq!(
+            index.documents[0].pdf,
+            "pdf/argonnecodecenter1977anl7416.pdf"
+        );
+        assert_eq!(
+            index.documents[0].markdown,
+            "markdown/argonnecodecenter1977anl7416.md"
+        );
     }
 
     #[test]
     fn missing_bib_file_is_reported() {
         let dir = tempfile::tempdir().unwrap();
         let err = regenerate(dir.path()).unwrap_err();
-        assert!(matches!(err, ProjectError::AmbiguousOrMissingBibFile { .. }), "{err}");
+        assert!(
+            matches!(err, ProjectError::AmbiguousOrMissingBibFile { .. }),
+            "{err}"
+        );
     }
 
     #[test]
@@ -758,7 +820,11 @@ last line";
         let root = dir.path();
         fs::create_dir_all(root.join("pdf")).unwrap();
         fs::create_dir_all(root.join("markdown")).unwrap();
-        fs::write(root.join("refs.bib"), "@article{unterminated, title = {oops").unwrap();
+        fs::write(
+            root.join("refs.bib"),
+            "@article{unterminated, title = {oops",
+        )
+        .unwrap();
 
         let err = regenerate(root).unwrap_err();
         assert!(matches!(err, ProjectError::Bib { .. }), "{err}");
@@ -808,8 +874,14 @@ last line";
         )
         .unwrap();
 
-        let index = write_section(root, "markdown/doc.md", "full_text", [1, 3], "new body\nline 2")
-            .unwrap();
+        let index = write_section(
+            root,
+            "markdown/doc.md",
+            "full_text",
+            [1, 3],
+            "new body\nline 2",
+        )
+        .unwrap();
 
         let written = fs::read_to_string(&markdown_path).unwrap();
         assert_eq!(
@@ -844,8 +916,8 @@ last line";
         )
         .unwrap();
 
-        let index = append_to_section(root, "markdown/doc.md", "annotations", "second note")
-            .unwrap();
+        let index =
+            append_to_section(root, "markdown/doc.md", "annotations", "second note").unwrap();
 
         let written = fs::read_to_string(root.join("markdown/doc.md")).unwrap();
         assert_eq!(
@@ -872,12 +944,14 @@ last line";
         )
         .unwrap();
 
-        let index = append_to_section(root, "markdown/doc.md", "annotations", "first note")
-            .unwrap();
+        let index =
+            append_to_section(root, "markdown/doc.md", "annotations", "first note").unwrap();
 
         let written = fs::read_to_string(root.join("markdown/doc.md")).unwrap();
         assert!(written.starts_with("<!-- kovan:section full_text -->\n## Full Text\nhello\n"));
-        assert!(written.contains("<!-- kovan:section annotations -->\n## Annotations\n\nfirst note\n"));
+        assert!(
+            written.contains("<!-- kovan:section annotations -->\n## Annotations\n\nfirst note\n")
+        );
         let doc = &index.documents[0];
         assert!(doc.sections.full_text.is_some());
         assert!(doc.sections.annotations.is_some());
@@ -899,9 +973,12 @@ last line";
         )
         .unwrap();
 
-        let err = write_section(root, "markdown/doc.md", "full_text", [1, 3], "clobber")
-            .unwrap_err();
-        assert!(matches!(err, ProjectError::StaleSectionRange { .. }), "{err}");
+        let err =
+            write_section(root, "markdown/doc.md", "full_text", [1, 3], "clobber").unwrap_err();
+        assert!(
+            matches!(err, ProjectError::StaleSectionRange { .. }),
+            "{err}"
+        );
         // And the file must be untouched.
         let still_there = fs::read_to_string(root.join("markdown/doc.md")).unwrap();
         assert!(still_there.contains("already longer"));

@@ -284,7 +284,8 @@ pub fn diffusion_solverxyz(
     let mut fission_source = sigma.f.mul_vec(&scalar_flux);
     let init_norm = norm1(&fission_source);
 
-    let mut lhs = SparseMatrix::combine(&[(&gradd.operator, 1.0), (&sigma.tot, 1.0), (&sigma.sd, -1.0)]);
+    let mut lhs =
+        SparseMatrix::combine(&[(&gradd.operator, 1.0), (&sigma.tot, 1.0), (&sigma.sd, -1.0)]);
     let dlhs = Decomposition::new(&mut lhs);
 
     // ----- Run source iteration ----- //
@@ -527,12 +528,15 @@ mod tests {
     #[test]
     fn a_uniform_cube_converges_below_k_inf() {
         let (geometry, params, sigmavalues, whichsigma) = cube(4);
-        let out =
-            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
+        let out = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
 
         assert_eq!(out.termination, Termination::Converged);
         assert!(out.k_eff > 0.0, "k_eff = {}", out.k_eff);
-        assert!(out.k_eff < 2.5, "k_eff = {} should leak below k_inf", out.k_eff);
+        assert!(
+            out.k_eff < 2.5,
+            "k_eff = {} should leak below k_inf",
+            out.k_eff
+        );
         assert!(out.residual < TOL);
         assert!(out.k_eff_residual < TOL);
         assert_eq!(out.scalar_flux.len(), 64);
@@ -543,8 +547,7 @@ mod tests {
     #[test]
     fn the_fundamental_mode_is_positive_and_centre_peaked() {
         let (geometry, params, sigmavalues, whichsigma) = cube(4);
-        let out =
-            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
+        let out = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
 
         assert!(
             out.scalar_flux.iter().all(|&x| x > 0.0),
@@ -562,14 +565,8 @@ mod tests {
     fn the_initial_k_eff_guess_does_not_move_the_answer() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3);
         let a = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
-        let b = diffusion_solverxyz(
-            &geometry,
-            &params,
-            &sigmavalues,
-            &whichsigma,
-            Some(1.8),
-        )
-        .unwrap();
+        let b =
+            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, Some(1.8)).unwrap();
 
         assert!(
             (a.k_eff - b.k_eff).abs() < 1e-5,
@@ -584,8 +581,7 @@ mod tests {
     #[test]
     fn the_power_density_is_the_source_times_the_volume() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3);
-        let out =
-            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
+        let out = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
 
         for n in 0..out.pwrdens.len() {
             assert!((out.pwrdens[n] - out.fission_source[n] * 1000.0).abs() < 1e-9);
@@ -597,8 +593,7 @@ mod tests {
     #[test]
     fn the_relative_power_map_is_normalised() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3);
-        let out =
-            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
+        let out = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
 
         let rp = &out.diagnostics.rel_power;
         let mean: f64 = rp.as_slice().iter().sum::<f64>() / rp.as_slice().len() as f64;
@@ -610,8 +605,7 @@ mod tests {
     #[test]
     fn a_symmetric_problem_has_zero_asymmetry() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3);
-        let out =
-            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
+        let out = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap();
 
         for m in [
             &out.diagnostics.sigmaf_asymmetry,
@@ -639,8 +633,8 @@ mod tests {
             ..Default::default()
         };
 
-        let err = diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None)
-            .unwrap_err();
+        let err =
+            diffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None).unwrap_err();
         assert!(matches!(
             err,
             BedokError::IterativeSolveNotTranslated { .. }

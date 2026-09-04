@@ -50,7 +50,11 @@ use crate::mesh::{EdgeId, FaceId, Mesh};
 /// by both groups is duplicated so the two groups no longer share it. Returns
 /// one mesh with two now-independent islands (positions unchanged).
 pub fn split_faces(mesh: &Mesh, faces: &[FaceId]) -> Mesh {
-    let sel: HashSet<usize> = faces.iter().map(|f| f.0).filter(|&f| f < mesh.face_count()).collect();
+    let sel: HashSet<usize> = faces
+        .iter()
+        .map(|f| f.0)
+        .filter(|&f| f < mesh.face_count())
+        .collect();
     if sel.is_empty() || sel.len() == mesh.face_count() {
         return mesh.clone();
     }
@@ -60,7 +64,11 @@ pub fn split_faces(mesh: &Mesh, faces: &[FaceId]) -> Mesh {
     let mut used_sel: HashSet<usize> = HashSet::new();
     let mut used_other: HashSet<usize> = HashSet::new();
     for (fi, poly) in polys.iter().enumerate() {
-        let tgt = if sel.contains(&fi) { &mut used_sel } else { &mut used_other };
+        let tgt = if sel.contains(&fi) {
+            &mut used_sel
+        } else {
+            &mut used_other
+        };
         for v in poly {
             tgt.insert(v.0);
         }
@@ -142,8 +150,10 @@ pub fn separate_loose_parts(mesh: &Mesh) -> Vec<Mesh> {
     let mut out: Vec<Mesh> = groups
         .into_values()
         .map(|fs| {
-            let picked: Vec<Vec<usize>> =
-                fs.iter().map(|&fi| polys[fi].iter().map(|v| v.0).collect()).collect();
+            let picked: Vec<Vec<usize>> = fs
+                .iter()
+                .map(|&fi| polys[fi].iter().map(|v| v.0).collect())
+                .collect();
             compact(&positions, &picked)
         })
         .collect();
@@ -163,8 +173,10 @@ pub fn separate_by_group(mesh: &Mesh, group: impl Fn(FaceId) -> usize) -> Vec<(u
             .push(poly.iter().map(|v| v.0).collect());
     }
     let positions = mesh.positions();
-    let mut out: Vec<(usize, Mesh)> =
-        buckets.into_iter().map(|(k, fs)| (k, compact(&positions, &fs))).collect();
+    let mut out: Vec<(usize, Mesh)> = buckets
+        .into_iter()
+        .map(|(k, fs)| (k, compact(&positions, &fs)))
+        .collect();
     out.sort_by_key(|(k, _)| *k);
     out
 }
@@ -189,7 +201,8 @@ pub fn rip_edges(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
             let n = poly.len();
             if (0..n).any(|i| {
                 let (a, b) = (poly[i].0, poly[(i + 1) % n].0);
-                (a == ed.verts[0].0 && b == ed.verts[1].0) || (a == ed.verts[1].0 && b == ed.verts[0].0)
+                (a == ed.verts[0].0 && b == ed.verts[1].0)
+                    || (a == ed.verts[1].0 && b == ed.verts[0].0)
             }) {
                 incident.push(fi);
             }
@@ -243,7 +256,10 @@ fn compact(positions: &[Vec3], faces: &[Vec<usize>]) -> Mesh {
             pos.push(positions[i]);
         }
     }
-    let f: Vec<Vec<usize>> = faces.iter().map(|face| face.iter().map(|&v| idx[v]).collect()).collect();
+    let f: Vec<Vec<usize>> = faces
+        .iter()
+        .map(|face| face.iter().map(|&v| idx[v]).collect())
+        .collect();
     Mesh::from_polygons(&pos, &f)
 }
 
@@ -276,8 +292,11 @@ mod tests {
     fn separate_loose_parts_of_two_cubes() {
         let a = primitives::cube(2.0);
         let mut positions = a.positions();
-        let mut faces: Vec<Vec<usize>> =
-            a.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = a
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let off = positions.len();
         for p in a.positions() {
             positions.push(p.add(Vec3::new(10.0, 0.0, 0.0)));
@@ -305,9 +324,15 @@ mod tests {
     fn rip_an_interior_grid_edge_opens_a_slit() {
         let m = primitives::grid(2, 2, 4.0);
         let topo = crate::topology::MeshTopology::new(&m);
-        let interior = (0..m.edge_count()).map(EdgeId).find(|&e| topo.is_manifold_edge(e)).unwrap();
+        let interior = (0..m.edge_count())
+            .map(EdgeId)
+            .find(|&e| topo.is_manifold_edge(e))
+            .unwrap();
         let r = rip_edges(&m, &[interior]);
-        assert!(r.vertex_count() > m.vertex_count(), "ripped edge's verts duplicated");
+        assert!(
+            r.vertex_count() > m.vertex_count(),
+            "ripped edge's verts duplicated"
+        );
         assert_eq!(r.face_count(), m.face_count());
     }
 }

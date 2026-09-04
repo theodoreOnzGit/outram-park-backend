@@ -70,10 +70,7 @@ pub fn dracs_cold_branch_builder(
 #[test]
 pub fn dracs_branch_pressure_change_test() {
     // let's construct the branches with test pressures and obtain
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
     use uom::ConstZero;
     use approx::assert_abs_diff_eq;
@@ -137,18 +134,12 @@ pub fn dracs_branch_pressure_change_test() {
 #[test]
 pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
     // let's construct the branches with test pressures and obtain
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
     use uom::ConstZero;
 
     use uom::si::thermodynamic_temperature::degree_celsius;
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_super_collection::FluidComponentSuperCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 
     use crate::pre_built_components::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
@@ -682,19 +673,13 @@ pub fn dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2() {
 #[test]
 pub fn dracs_natural_circ_thermal_hydraulics_test_prototype_1() {
     // let's construct the branches with test pressures and obtain
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
     use uom::si::f64::*;
     use uom::ConstZero;
     use uom::si::mass_rate::kilogram_per_second;
 
     use uom::si::thermodynamic_temperature::degree_celsius;
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_super_collection::FluidComponentSuperCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 
     let cold_temperature = ThermodynamicTemperature::new::<degree_celsius>(46.0);
     let hot_temperature = ThermodynamicTemperature::new::<degree_celsius>(80.0);

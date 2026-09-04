@@ -357,7 +357,10 @@ pub fn try_transform_vertices_gpu(
     }
 
     let out_f32: Vec<f32> = {
-        let view = readback_buffer.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = readback_buffer
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     readback_buffer.unmap();

@@ -75,7 +75,10 @@ pub fn edge_slide(mesh: &Mesh, edges: &[EdgeId], factor: f64) -> Mesh {
             let lf = left[i.min(left.len().saturating_sub(1))];
             let a_rail = lf
                 .and_then(|f| {
-                    rails.iter().copied().find(|&r| topo.face_edges(mesh, f).contains(&r))
+                    rails
+                        .iter()
+                        .copied()
+                        .find(|&r| topo.face_edges(mesh, f).contains(&r))
                 })
                 .unwrap_or(rails[0]);
             let b_rail = *rails.iter().find(|&&r| r != a_rail).unwrap_or(&rails[1]);
@@ -109,7 +112,10 @@ pub fn vertex_slide(mesh: &Mesh, vert: VertexId, along_edge: EdgeId, factor: f64
 }
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// One ordered vertex walk of an edge chain.
@@ -132,7 +138,11 @@ fn ordered_chains(mesh: &Mesh, topo: &MeshTopology, edge_set: &BTreeSet<EdgeId>)
             .find(|&e| {
                 mesh.edge(e).is_some_and(|ed| {
                     ed.verts.iter().any(|&v| {
-                        topo.vertex_edges(v).iter().filter(|x| edge_set.contains(x)).count() == 1
+                        topo.vertex_edges(v)
+                            .iter()
+                            .filter(|x| edge_set.contains(x))
+                            .count()
+                            == 1
                     })
                 })
             })
@@ -212,9 +222,7 @@ mod tests {
                     m.vertex(ed.verts[0]).unwrap().position,
                     m.vertex(ed.verts[1]).unwrap().position,
                 );
-                topo.is_manifold_edge(e)
-                    && (a.x).abs() < 1e-9
-                    && (b.x).abs() < 1e-9
+                topo.is_manifold_edge(e) && (a.x).abs() < 1e-9 && (b.x).abs() < 1e-9
             })
             .unwrap();
         topology::edge_loop(&topo, m, seed)
@@ -233,7 +241,10 @@ mod tests {
             .map(|i| slid.vertex(VertexId(i)).unwrap().position.x)
             .collect();
         assert!(!moved.is_empty());
-        assert!(moved.iter().all(|&x| (x - moved[0]).abs() < 1e-9), "loop slid coherently");
+        assert!(
+            moved.iter().all(|&x| (x - moved[0]).abs() < 1e-9),
+            "loop slid coherently"
+        );
         assert!((moved[0].abs() - 1.0).abs() < 1e-9, "0.5 of a 2.0 rail");
     }
 
@@ -249,7 +260,10 @@ mod tests {
                 .map(|i| mm.vertex(VertexId(i)).unwrap().position.x)
                 .unwrap()
         };
-        assert!((x_of(&pos) + x_of(&neg)).abs() < 1e-9, "opposite factors → opposite slides");
+        assert!(
+            (x_of(&pos) + x_of(&neg)).abs() < 1e-9,
+            "opposite factors → opposite slides"
+        );
     }
 
     #[test]
@@ -270,7 +284,10 @@ mod tests {
         let e = EdgeId(0);
         let ed = m.edge(e).unwrap();
         let slid = vertex_slide(&m, ed.verts[0], e, 0.5);
-        let mid = m.vertex(ed.verts[0]).unwrap().position
+        let mid = m
+            .vertex(ed.verts[0])
+            .unwrap()
+            .position
             .add(m.vertex(ed.verts[1]).unwrap().position)
             .scale(0.5);
         assert!(slid.vertex(ed.verts[0]).unwrap().position.sub(mid).length() < 1e-12);

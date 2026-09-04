@@ -5,8 +5,7 @@ pub fn dimensionless_darcy_loss_correlation_get_be(
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
     use uom::si::f64::*;
     use uom::si::ratio::ratio;
-    use crate::array_fluid_collections::
-    fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
 
     let flowmeter_dimensionless_correlation =
         DimensionlessDarcyLossCorrelations::new_simple_reynolds_power_component(
@@ -43,8 +42,7 @@ pub fn dimensionless_darcy_loss_correlation_get_re_from_be(
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
     use uom::si::f64::*;
     use uom::si::ratio::ratio;
-    use crate::array_fluid_collections::
-    fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
 
     let flowmeter_dimensionless_correlation =
         DimensionlessDarcyLossCorrelations::new_simple_reynolds_power_component(

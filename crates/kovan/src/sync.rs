@@ -94,7 +94,10 @@ impl SyncController {
     pub fn jump_to_source(artifact: &Artifact) -> Option<PdfJumpTarget> {
         let anchor = artifact.toml.source.as_ref()?;
         let page = anchor.first_page()?;
-        Some(PdfJumpTarget { page, region: anchor.region })
+        Some(PdfJumpTarget {
+            page,
+            region: anchor.region,
+        })
     }
 
     /// §31's Explicit jump, PDF → editor: every artifact whose heading is
@@ -102,8 +105,15 @@ impl SyncController {
     /// starts after it — i.e. "which artifact is the editor cursor
     /// currently inside", the counterpart query to clicking a PDF region
     /// and being taken to its artifact in the Markdown.
-    pub fn artifact_at_editor_line<'a>(index: &'a ResearchRecordIndex, editor_line: usize) -> Option<&'a Artifact> {
-        index.artifacts().iter().filter(|a| a.line <= editor_line + 1).max_by_key(|a| a.line)
+    pub fn artifact_at_editor_line<'a>(
+        index: &'a ResearchRecordIndex,
+        editor_line: usize,
+    ) -> Option<&'a Artifact> {
+        index
+            .artifacts()
+            .iter()
+            .filter(|a| a.line <= editor_line + 1)
+            .max_by_key(|a| a.line)
     }
 }
 
@@ -153,7 +163,10 @@ mod tests {
         ctrl.set_editing_active(true);
 
         assert!(!ctrl.allow_follow());
-        assert!(ctrl.follow_page(&index, 5).is_empty(), "Follow must not yank the editor while typing");
+        assert!(
+            ctrl.follow_page(&index, 5).is_empty(),
+            "Follow must not yank the editor while typing"
+        );
     }
 
     #[test]
@@ -177,10 +190,13 @@ mod tests {
         let (_dir, session) = {
             let dir = tempfile::tempdir().unwrap();
             let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-            EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Restricted)
-                .with_topics(["htgrs"])
-                .save_paper(&root.paper_dir("wang2018multiphysics"))
-                .unwrap();
+            EntityConfig::paper(
+                CiteKey::parse("wang2018multiphysics").unwrap(),
+                Access::Restricted,
+            )
+            .with_topics(["htgrs"])
+            .save_paper(&root.paper_dir("wang2018multiphysics"))
+            .unwrap();
             let mut s = PaperSession::open(&root, "wang2018multiphysics").unwrap();
             s.append_block("## Free note\n\n```toml\n[kovan]\nid = \"free\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n");
             (dir, s)

@@ -584,13 +584,19 @@ pub fn advance_flight_gpu(
         .map_async(wgpu::MapMode::Read, |r| r.unwrap());
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
-    let pos_view = pos_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+    let pos_view = pos_staging
+        .slice(..)
+        .get_mapped_range()
+        .expect("staging buffer mapping failed after a completed poll");
     let new_pos = bytes_to_f32_vec(&pos_view, batch.pos.len());
     drop(pos_view);
     pos_staging.unmap();
 
     // state layout: rng_hi[0..N] ++ rng_lo[0..N] ++ outcome[0..N].
-    let state_view = state_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+    let state_view = state_staging
+        .slice(..)
+        .get_mapped_range()
+        .expect("staging buffer mapping failed after a completed poll");
     let state_out = bytes_to_u32_vec(&state_view, 3 * n);
     drop(state_view);
     state_staging.unmap();

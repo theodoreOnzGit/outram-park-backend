@@ -52,7 +52,10 @@ use crate::mesh::{Mesh, VertexId};
 fn soup(mesh: &Mesh) -> (Vec<Vec3>, Vec<Vec<usize>>) {
     (
         mesh.positions(),
-        mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect(),
+        mesh.polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect(),
     )
 }
 
@@ -80,7 +83,11 @@ fn best_fit_plane(pts: &[Vec3]) -> (Vec3, Vec3) {
 
 /// An orthonormal in-plane basis for a plane with unit `normal`.
 fn plane_basis(normal: Vec3) -> (Vec3, Vec3) {
-    let a = if normal.x.abs() < 0.9 { Vec3::new(1.0, 0.0, 0.0) } else { Vec3::new(0.0, 1.0, 0.0) };
+    let a = if normal.x.abs() < 0.9 {
+        Vec3::new(1.0, 0.0, 0.0)
+    } else {
+        Vec3::new(0.0, 1.0, 0.0)
+    };
     let u = a.sub(normal.scale(a.dot(normal))).normalize();
     let v = normal.cross(u);
     (u, v)
@@ -105,7 +112,9 @@ pub fn circle(mesh: &Mesh, loop_verts: &[VertexId], _cyclic: bool) -> Mesh {
     let n = loop_verts.len();
     for (k, vid) in loop_verts.iter().enumerate() {
         let a = a0 + std::f64::consts::TAU * k as f64 / n as f64;
-        positions[vid.0] = c.add(u.scale(radius * a.cos())).add(v.scale(radius * a.sin()));
+        positions[vid.0] = c
+            .add(u.scale(radius * a.cos()))
+            .add(v.scale(radius * a.sin()));
     }
     rebuilt(&positions, &faces)
 }
@@ -158,13 +167,7 @@ pub fn relax(
 
 /// Pull the loop toward a smooth Catmull–Rom spline through every `keep`-th
 /// vertex (the "anchors"), by `factor`. `keep >= 2`.
-pub fn curve(
-    mesh: &Mesh,
-    loop_verts: &[VertexId],
-    cyclic: bool,
-    keep: usize,
-    factor: f64,
-) -> Mesh {
+pub fn curve(mesh: &Mesh, loop_verts: &[VertexId], cyclic: bool, keep: usize, factor: f64) -> Mesh {
     let (mut positions, faces) = soup(mesh);
     let n = loop_verts.len();
     if n < 4 {
@@ -211,7 +214,12 @@ fn catmull_rom(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f64) -> Vec3 {
     let t3 = t2 * t;
     let a = p1.scale(2.0);
     let b = p2.sub(p0).scale(t);
-    let c = p0.scale(2.0).sub(p1.scale(5.0)).add(p2.scale(4.0)).sub(p3).scale(t2);
+    let c = p0
+        .scale(2.0)
+        .sub(p1.scale(5.0))
+        .add(p2.scale(4.0))
+        .sub(p3)
+        .scale(t2);
     let d = p1.scale(3.0).sub(p0).sub(p2.scale(3.0)).add(p3).scale(t3);
     a.add(b).add(c).add(d).scale(0.5)
 }
@@ -220,7 +228,10 @@ fn catmull_rom(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: f64) -> Vec3 {
 /// polyline through their current positions (endpoints of an open loop stay
 /// put).
 pub fn space(mesh: &Mesh, loop_verts: &[VertexId], cyclic: bool) -> Mesh {
-    let cur: Vec<Vec3> = loop_verts.iter().map(|v| mesh.vertex(*v).unwrap().position).collect();
+    let cur: Vec<Vec3> = loop_verts
+        .iter()
+        .map(|v| mesh.vertex(*v).unwrap().position)
+        .collect();
     resample_onto(mesh, loop_verts, &cur, cyclic)
 }
 
@@ -376,11 +387,20 @@ mod tests {
         let m = primitives::grid(3, 3, 4.0);
         let loop_v = grid_border(&m);
         let out = circle(&m, &loop_v, true);
-        let pts: Vec<Vec3> = loop_v.iter().map(|v| out.vertex(*v).unwrap().position).collect();
-        let c = pts.iter().fold(Vec3::ZERO, |a, &p| a.add(p)).scale(1.0 / pts.len() as f64);
+        let pts: Vec<Vec3> = loop_v
+            .iter()
+            .map(|v| out.vertex(*v).unwrap().position)
+            .collect();
+        let c = pts
+            .iter()
+            .fold(Vec3::ZERO, |a, &p| a.add(p))
+            .scale(1.0 / pts.len() as f64);
         let radii: Vec<f64> = pts.iter().map(|p| p.sub(c).length()).collect();
         let r0 = radii[0];
-        assert!(radii.iter().all(|r| (r - r0).abs() < 1e-9), "all on one circle");
+        assert!(
+            radii.iter().all(|r| (r - r0).abs() < 1e-9),
+            "all on one circle"
+        );
     }
 
     #[test]
@@ -390,13 +410,19 @@ mod tests {
         let loop_v = grid_border(&m);
         let mut positions = m.positions();
         positions[loop_v[2].0] = positions[loop_v[2].0].add(Vec3::new(0.0, 0.0, 1.7));
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         m = Mesh::from_polygons(&positions, &faces);
 
         let out = flatten(&m, &loop_v);
         // Every loop vertex now lies in one common plane.
-        let pts: Vec<Vec3> = loop_v.iter().map(|v| out.vertex(*v).unwrap().position).collect();
+        let pts: Vec<Vec3> = loop_v
+            .iter()
+            .map(|v| out.vertex(*v).unwrap().position)
+            .collect();
         let (c, nrm) = super::best_fit_plane(&pts);
         for p in &pts {
             assert!(p.sub(c).dot(nrm).abs() < 1e-9, "coplanar after flatten");
@@ -404,7 +430,10 @@ mod tests {
         // And the z spread shrank versus the 1.7-unit spike.
         let zspread = pts.iter().map(|p| p.z).fold(f64::MIN, f64::max)
             - pts.iter().map(|p| p.z).fold(f64::MAX, f64::min);
-        assert!(zspread < 1.7, "spike pulled into plane (was 1.7, now {zspread:.3})");
+        assert!(
+            zspread < 1.7,
+            "spike pulled into plane (was 1.7, now {zspread:.3})"
+        );
     }
 
     #[test]
@@ -418,8 +447,11 @@ mod tests {
                 positions[v.0] = positions[v.0].add(Vec3::new(0.0, 0.0, 0.6));
             }
         }
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let rough = Mesh::from_polygons(&positions, &faces);
 
         let rough_var = loop_variance(&rough, &loop_v);
@@ -428,7 +460,10 @@ mod tests {
     }
 
     fn loop_variance(m: &Mesh, loop_v: &[VertexId]) -> f64 {
-        let zs: Vec<f64> = loop_v.iter().map(|v| m.vertex(*v).unwrap().position.z).collect();
+        let zs: Vec<f64> = loop_v
+            .iter()
+            .map(|v| m.vertex(*v).unwrap().position.z)
+            .collect();
         let mean = zs.iter().sum::<f64>() / zs.len() as f64;
         zs.iter().map(|z| (z - mean).powi(2)).sum::<f64>() / zs.len() as f64
     }
@@ -438,12 +473,19 @@ mod tests {
         let m = primitives::grid(4, 4, 6.0);
         let loop_v = grid_border(&m);
         let out = space(&m, &loop_v, true);
-        let pts: Vec<Vec3> = loop_v.iter().map(|v| out.vertex(*v).unwrap().position).collect();
+        let pts: Vec<Vec3> = loop_v
+            .iter()
+            .map(|v| out.vertex(*v).unwrap().position)
+            .collect();
         let n = pts.len();
-        let gaps: Vec<f64> =
-            (0..n).map(|i| pts[(i + 1) % n].sub(pts[i]).length()).collect();
+        let gaps: Vec<f64> = (0..n)
+            .map(|i| pts[(i + 1) % n].sub(pts[i]).length())
+            .collect();
         let g0 = gaps[0];
-        assert!(gaps.iter().all(|g| (g - g0).abs() < 1e-6), "equal arc spacing");
+        assert!(
+            gaps.iter().all(|g| (g - g0).abs() < 1e-6),
+            "equal arc spacing"
+        );
     }
 
     #[test]
@@ -457,9 +499,21 @@ mod tests {
         ];
         let out = gstretch(&m, &loop_v, &stroke, false);
         // First and last loop vertices land on the stroke endpoints.
-        assert!(out.vertex(loop_v[0]).unwrap().position.sub(stroke[0]).length() < 1e-9);
         assert!(
-            out.vertex(*loop_v.last().unwrap()).unwrap().position.sub(stroke[2]).length() < 1e-9
+            out.vertex(loop_v[0])
+                .unwrap()
+                .position
+                .sub(stroke[0])
+                .length()
+                < 1e-9
+        );
+        assert!(
+            out.vertex(*loop_v.last().unwrap())
+                .unwrap()
+                .position
+                .sub(stroke[2])
+                .length()
+                < 1e-9
         );
     }
 
@@ -487,7 +541,11 @@ mod tests {
         let loop_v = grid_border(&m);
         let before_v = m.vertex_count();
         let out = subdivide(&m, &loop_v, true);
-        assert_eq!(out.vertex_count(), before_v + loop_v.len(), "one midpoint per loop edge");
+        assert_eq!(
+            out.vertex_count(),
+            before_v + loop_v.len(),
+            "one midpoint per loop edge"
+        );
         assert!(out.face_count() >= m.face_count());
     }
 
@@ -501,8 +559,11 @@ mod tests {
                 positions[v.0] = positions[v.0].add(Vec3::new(0.0, 0.0, 0.9));
             }
         }
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let rough = Mesh::from_polygons(&positions, &faces);
         let out = curve(&rough, &loop_v, true, 3, 1.0);
         // The between-anchor vertices moved toward the spline (z reduced).

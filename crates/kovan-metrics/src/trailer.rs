@@ -192,7 +192,8 @@ mod tests {
 
     #[test]
     fn source_none_is_a_true_zero_not_missing_data() {
-        let body = format!("{TRAILER_KEY}: total=0 in=0 out=0 cache_read=0 cache_write=0 source=none");
+        let body =
+            format!("{TRAILER_KEY}: total=0 in=0 out=0 cache_read=0 cache_write=0 source=none");
         let p = parse(&body).unwrap();
         assert_eq!(p.total, 0);
         assert!(!p.has_data(), "source=none must render as 'no data', not 0");
@@ -218,14 +219,29 @@ mod tests {
 
     #[test]
     fn delta_clamps_at_zero_when_transcripts_rotate() {
-        let now = TokenCounts { input: 5, output: 0, cache_read: 0, cache_write: 0 };
-        let baseline = TokenCounts { input: 100, output: 0, cache_read: 0, cache_write: 0 };
+        let now = TokenCounts {
+            input: 5,
+            output: 0,
+            cache_read: 0,
+            cache_write: 0,
+        };
+        let baseline = TokenCounts {
+            input: 100,
+            output: 0,
+            cache_read: 0,
+            cache_write: 0,
+        };
         assert_eq!(now.saturating_sub(&baseline).input, 0);
     }
 
     #[test]
     fn total_is_the_sum_of_all_four_components() {
-        let c = TokenCounts { input: 1, output: 2, cache_read: 4, cache_write: 8 };
+        let c = TokenCounts {
+            input: 1,
+            output: 2,
+            cache_read: 4,
+            cache_write: 8,
+        };
         assert_eq!(c.total(), 15);
     }
 

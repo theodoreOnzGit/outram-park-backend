@@ -90,7 +90,11 @@ pub fn rounded_cube(size: f64, radius: f64, segments: usize) -> Mesh {
 
     // Six faces of a subdivided cube, then project each vertex.
     let project = |p: Vec3| -> Vec3 {
-        let q = Vec3::new(p.x.clamp(-inner, inner), p.y.clamp(-inner, inner), p.z.clamp(-inner, inner));
+        let q = Vec3::new(
+            p.x.clamp(-inner, inner),
+            p.y.clamp(-inner, inner),
+            p.z.clamp(-inner, inner),
+        );
         let d = p.sub(q);
         let l = d.length();
         if l < 1e-12 {
@@ -103,8 +107,14 @@ pub fn rounded_cube(size: f64, radius: f64, segments: usize) -> Mesh {
     let mut positions: Vec<Vec3> = Vec::new();
     let mut faces: Vec<Vec<usize>> = Vec::new();
     // For each of ±x, ±y, ±z faces build an (s+1)x(s+1) grid.
-    let axes: [(usize, f64); 6] =
-        [(0, 1.0), (0, -1.0), (1, 1.0), (1, -1.0), (2, 1.0), (2, -1.0)];
+    let axes: [(usize, f64); 6] = [
+        (0, 1.0),
+        (0, -1.0),
+        (1, 1.0),
+        (1, -1.0),
+        (2, 1.0),
+        (2, -1.0),
+    ];
     for (ax, sign) in axes {
         let base = positions.len();
         for iu in 0..=s {
@@ -123,7 +133,12 @@ pub fn rounded_cube(size: f64, radius: f64, segments: usize) -> Mesh {
         for iu in 0..s {
             for iv in 0..s {
                 // Wind so the normal points along `sign` on this axis.
-                let quad = [at(iu, iv), at(iu + 1, iv), at(iu + 1, iv + 1), at(iu, iv + 1)];
+                let quad = [
+                    at(iu, iv),
+                    at(iu + 1, iv),
+                    at(iu + 1, iv + 1),
+                    at(iu, iv + 1),
+                ];
                 if sign > 0.0 {
                     faces.push(quad.to_vec());
                 } else {
@@ -244,10 +259,12 @@ pub fn elbow(
     // handled by building a closed 2-wall polygon per station and stitching
     // consecutive stations.
     let ring = |rad: f64| -> Vec<(f64, f64)> {
-        (0..nt).map(|i| {
-            let a = TAU * i as f64 / nt as f64;
-            (rad * a.cos(), rad * a.sin())
-        }).collect()
+        (0..nt)
+            .map(|i| {
+                let a = TAU * i as f64 / nt as f64;
+                (rad * a.cos(), rad * a.sin())
+            })
+            .collect()
     };
     let outer_sec = ring(outer);
     let inner_sec = ring(inner);
@@ -310,11 +327,11 @@ pub fn wedge(size_x: f64, size_y: f64, size_z: f64) -> Mesh {
         Vec3::new(0.0, size_y, size_z),
     ];
     let faces = vec![
-        vec![0usize, 2, 1],       // y = 0 triangle (facing -y)
-        vec![3, 4, 5],            // y = size_y triangle (facing +y)
-        vec![0, 1, 4, 3],         // bottom (z = 0)
-        vec![0, 3, 5, 2],         // back (x = 0)
-        vec![1, 2, 5, 4],         // hypotenuse face
+        vec![0usize, 2, 1], // y = 0 triangle (facing -y)
+        vec![3, 4, 5],      // y = size_y triangle (facing +y)
+        vec![0, 1, 4, 3],   // bottom (z = 0)
+        vec![0, 3, 5, 2],   // back (x = 0)
+        vec![1, 2, 5, 4],   // hypotenuse face
     ];
     Mesh::from_polygons(&p, &faces)
 }
@@ -328,13 +345,19 @@ pub fn star(points: usize, outer_radius: f64, inner_radius: f64, depth: f64) -> 
     let mut outline: Vec<[f64; 2]> = Vec::with_capacity(p * 2);
     for i in 0..(2 * p) {
         let a = PI * i as f64 / p as f64 - PI / 2.0;
-        let r = if i % 2 == 0 { outer_radius } else { inner_radius };
+        let r = if i % 2 == 0 {
+            outer_radius
+        } else {
+            inner_radius
+        };
         outline.push([r * a.cos(), r * a.sin()]);
     }
     if depth <= 0.0 {
         let positions: Vec<Vec3> = outline.iter().map(|&[x, y]| Vec3::new(x, y, 0.0)).collect();
-        let faces: Vec<Vec<usize>> =
-            crate::text::ear_clip(&outline).into_iter().map(|t| t.to_vec()).collect();
+        let faces: Vec<Vec<usize>> = crate::text::ear_clip(&outline)
+            .into_iter()
+            .map(|t| t.to_vec())
+            .collect();
         return Mesh::from_polygons(&positions, &faces);
     }
     extrude_outline(&outline, -depth * 0.5, depth * 0.5)
@@ -393,7 +416,12 @@ pub fn z_function_surface<F: Fn(f64, f64) -> f64>(
     let mut faces: Vec<Vec<usize>> = Vec::with_capacity(nx * ny);
     for iy in 0..ny {
         for ix in 0..nx {
-            faces.push(vec![at(ix, iy), at(ix + 1, iy), at(ix + 1, iy + 1), at(ix, iy + 1)]);
+            faces.push(vec![
+                at(ix, iy),
+                at(ix + 1, iy),
+                at(ix + 1, iy + 1),
+                at(ix, iy + 1),
+            ]);
         }
     }
     Mesh::from_polygons(&positions, &faces)
@@ -443,7 +471,10 @@ mod tests {
                 (p.x * p.x + p.y * p.y).sqrt()
             })
             .fold(0.0_f64, f64::max);
-        assert!((maxr - 1.3).abs() < 1e-9, "tip radius = root + tooth_height");
+        assert!(
+            (maxr - 1.3).abs() < 1e-9,
+            "tip radius = root + tooth_height"
+        );
     }
 
     #[test]

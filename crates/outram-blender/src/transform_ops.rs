@@ -71,7 +71,11 @@ fn apply(mesh: &Mesh, verts: &[VertexId], mut f: impl FnMut(usize, Vec3) -> Vec3
     let idx: Vec<usize> = if verts.is_empty() {
         (0..positions.len()).collect()
     } else {
-        verts.iter().map(|v| v.0).filter(|&i| i < positions.len()).collect()
+        verts
+            .iter()
+            .map(|v| v.0)
+            .filter(|&i| i < positions.len())
+            .collect()
     };
     for &i in &idx {
         positions[i] = f(i, positions[i]);
@@ -80,7 +84,10 @@ fn apply(mesh: &Mesh, verts: &[VertexId], mut f: impl FnMut(usize, Vec3) -> Vec3
 }
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// Blend the selection toward a sphere of `radius` about `center` by `factor`
@@ -98,15 +105,30 @@ pub fn to_sphere(mesh: &Mesh, verts: &[VertexId], center: Vec3, radius: f64, fac
 }
 
 /// Shear: shift each vertex along `shear_axis` by `factor · coord(measure_axis)`.
-pub fn shear(mesh: &Mesh, verts: &[VertexId], measure_axis: Axis, shear_axis: Axis, factor: f64) -> Mesh {
+pub fn shear(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    measure_axis: Axis,
+    shear_axis: Axis,
+    factor: f64,
+) -> Mesh {
     let dir = shear_axis.unit();
-    apply(mesh, verts, |_, p| p.add(dir.scale(factor * measure_axis.get(p))))
+    apply(mesh, verts, |_, p| {
+        p.add(dir.scale(factor * measure_axis.get(p)))
+    })
 }
 
 /// Bend the selection around an arc: a vertex at signed distance `t` along
 /// `along` from `center` is rotated by `angle · t / span` about the axis
 /// `axis`, where `span` is the selection's extent along `along`.
-pub fn bend(mesh: &Mesh, verts: &[VertexId], center: Vec3, along: Axis, axis: Axis, angle: f64) -> Mesh {
+pub fn bend(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    center: Vec3,
+    along: Axis,
+    axis: Axis,
+    angle: f64,
+) -> Mesh {
     // Selection extent along `along`.
     let positions = mesh.positions();
     let idx: Vec<usize> = if verts.is_empty() {
@@ -132,7 +154,14 @@ pub fn bend(mesh: &Mesh, verts: &[VertexId], center: Vec3, along: Axis, axis: Ax
 
 /// Warp: bend the selection around `center` in the plane orthogonal to `axis`,
 /// mapping its `along` extent onto an arc of `angle`.
-pub fn warp(mesh: &Mesh, verts: &[VertexId], center: Vec3, along: Axis, axis: Axis, angle: f64) -> Mesh {
+pub fn warp(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    center: Vec3,
+    along: Axis,
+    axis: Axis,
+    angle: f64,
+) -> Mesh {
     bend(mesh, verts, center, along, axis, angle)
 }
 
@@ -159,7 +188,11 @@ pub fn shrink_fatten(mesh: &Mesh, verts: &[VertexId], offset: f64) -> Mesh {
         for &f in topo.vertex_faces(VertexId(v)) {
             n = n.add(mesh.face_normal(f));
         }
-        *slot = if n.length() > 1e-12 { n.normalize() } else { Vec3::ZERO };
+        *slot = if n.length() > 1e-12 {
+            n.normalize()
+        } else {
+            Vec3::ZERO
+        };
     }
     apply(mesh, verts, |i, p| p.add(vnorm[i].scale(offset)))
 }
@@ -171,7 +204,11 @@ pub fn randomize(mesh: &Mesh, verts: &[VertexId], amount: f64, seed: u64, unifor
     let mut rng = XorShift::new(seed);
     apply(mesh, verts, |_, p| {
         let dir = Vec3::new(rng.unit() - 0.5, rng.unit() - 0.5, rng.unit() - 0.5);
-        let dir = if dir.length() > 1e-12 { dir.normalize() } else { Vec3::new(1.0, 0.0, 0.0) };
+        let dir = if dir.length() > 1e-12 {
+            dir.normalize()
+        } else {
+            Vec3::new(1.0, 0.0, 0.0)
+        };
         let m = if uniform { amount } else { amount * rng.unit() };
         p.add(dir.scale(m))
     })
@@ -207,7 +244,10 @@ pub fn smooth_vertices(
             if ns.is_empty() {
                 continue;
             }
-            let mean = ns.iter().fold(Vec3::ZERO, |acc, &n| acc.add(snap[n])).scale(1.0 / ns.len() as f64);
+            let mean = ns
+                .iter()
+                .fold(Vec3::ZERO, |acc, &n| acc.add(snap[n]))
+                .scale(1.0 / ns.len() as f64);
             let delta = mean.sub(snap[v]).scale(f);
             positions[v] = Vec3::new(
                 snap[v].x + if mask[0] { delta.x } else { 0.0 },
@@ -305,7 +345,14 @@ mod tests {
         let a = randomize(&m, &[], 0.3, 42, false);
         let b = randomize(&m, &[], 0.3, 42, false);
         for i in 0..a.vertex_count() {
-            assert!(a.vertex(VertexId(i)).unwrap().position.sub(b.vertex(VertexId(i)).unwrap().position).length() < 1e-12);
+            assert!(
+                a.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(b.vertex(VertexId(i)).unwrap().position)
+                    .length()
+                    < 1e-12
+            );
         }
     }
 
@@ -330,7 +377,10 @@ mod tests {
         pos[spike] = pos[spike].add(Vec3::new(0.0, 0.0, 3.0));
         m = Mesh::from_polygons(&pos, &to_soup(&m));
         let s = smooth_vertices(&m, &[], 5, 0.5, [true, true, false]);
-        assert!((s.vertex(VertexId(spike)).unwrap().position.z - 3.0).abs() < 1e-6, "z locked");
+        assert!(
+            (s.vertex(VertexId(spike)).unwrap().position.z - 3.0).abs() < 1e-6,
+            "z locked"
+        );
     }
 
     #[test]

@@ -270,7 +270,11 @@ pub fn parse_bib_entries(input: &str) -> Result<Vec<BibEntry>, BibParseError> {
         while i < chars.len() && chars[i] != '{' && chars[i] != '(' {
             i += 1;
         }
-        let entry_type: String = chars[type_start..i].iter().collect::<String>().trim().to_lowercase();
+        let entry_type: String = chars[type_start..i]
+            .iter()
+            .collect::<String>()
+            .trim()
+            .to_lowercase();
         if i >= chars.len() {
             return Err(BibParseError::UnterminatedEntry {
                 near: entry_type.clone(),
@@ -282,11 +286,12 @@ pub fn parse_bib_entries(input: &str) -> Result<Vec<BibEntry>, BibParseError> {
         i += 1; // consume opening delimiter
 
         let body_start = i;
-        let body_end = find_matching_close(&chars, i, open, close)
-            .ok_or_else(|| BibParseError::UnterminatedEntry {
+        let body_end = find_matching_close(&chars, i, open, close).ok_or_else(|| {
+            BibParseError::UnterminatedEntry {
                 entry_type: entry_type.clone(),
                 near: chars[body_start..].iter().take(30).collect(),
-            })?;
+            }
+        })?;
         let body = &chars[body_start..body_end];
         i = body_end + 1; // past the closing delimiter
 
@@ -327,9 +332,15 @@ fn parse_entry_body(entry_type: &str, body: &[char]) -> Result<BibEntry, BibPars
     while i < body.len() && body[i] != ',' {
         i += 1;
     }
-    let cite_key: String = body[key_start..i].iter().collect::<String>().trim().to_string();
+    let cite_key: String = body[key_start..i]
+        .iter()
+        .collect::<String>()
+        .trim()
+        .to_string();
     if cite_key.is_empty() {
-        return Err(BibParseError::MissingCiteKey { entry_type: entry_type.to_string() });
+        return Err(BibParseError::MissingCiteKey {
+            entry_type: entry_type.to_string(),
+        });
     }
     if i < body.len() {
         i += 1; // consume the comma after the key
@@ -349,7 +360,11 @@ fn parse_entry_body(entry_type: &str, body: &[char]) -> Result<BibEntry, BibPars
         while i < body.len() && body[i] != '=' {
             i += 1;
         }
-        let name: String = body[name_start..i].iter().collect::<String>().trim().to_lowercase();
+        let name: String = body[name_start..i]
+            .iter()
+            .collect::<String>()
+            .trim()
+            .to_lowercase();
         if name.is_empty() {
             break; // trailing comma / stray whitespace before the close
         }
@@ -399,7 +414,11 @@ fn parse_entry_body(entry_type: &str, body: &[char]) -> Result<BibEntry, BibPars
             while i < body.len() && body[i] != ',' {
                 i += 1;
             }
-            body[vstart..i].iter().collect::<String>().trim().to_string()
+            body[vstart..i]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_string()
         };
 
         fields.insert(name, value);
@@ -409,7 +428,11 @@ fn parse_entry_body(entry_type: &str, body: &[char]) -> Result<BibEntry, BibPars
         }
     }
 
-    Ok(BibEntry { entry_type: entry_type.to_string(), cite_key, fields })
+    Ok(BibEntry {
+        entry_type: entry_type.to_string(),
+        cite_key,
+        fields,
+    })
 }
 
 fn skip_ws(chars: &[char], i: &mut usize) {
@@ -440,7 +463,11 @@ pub fn render_entry(entry: &BibEntry) -> String {
 /// Render a whole `.bib` file's worth of entries — one blank line between
 /// entries, matching common `.bib` file style.
 pub fn render_entries(entries: &[BibEntry]) -> String {
-    entries.iter().map(render_entry).collect::<Vec<_>>().join("\n")
+    entries
+        .iter()
+        .map(render_entry)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -567,7 +594,10 @@ mod tests {
         assert_eq!(e.entry_type, "techreport");
         assert_eq!(e.cite_key, "zweibaum2015ciet");
         assert_eq!(e.fields.get("author").unwrap(), "Zweibaum, Nicolas");
-        assert_eq!(e.fields.get("title").unwrap(), "CIET facility characterisation");
+        assert_eq!(
+            e.fields.get("title").unwrap(),
+            "CIET facility characterisation"
+        );
         assert_eq!(e.fields.get("year").unwrap(), "2015");
         assert_eq!(e.fields.get("institution").unwrap(), "UC Berkeley");
     }
@@ -579,7 +609,10 @@ mod tests {
         let entries = parse_bib_entries(&rendered).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].cite_key, "zweibaum2015ciet");
-        assert_eq!(entries[0].fields.get("title").unwrap(), "CIET facility characterisation");
+        assert_eq!(
+            entries[0].fields.get("title").unwrap(),
+            "CIET facility characterisation"
+        );
         assert_eq!(entries[0].fields.get("doi").unwrap(), "10.1234/ciet");
     }
 
@@ -597,7 +630,10 @@ mod tests {
     fn nested_braces_inside_a_value_are_preserved() {
         let bib = "@article{k, title = {Heat {and} mass transfer}}";
         let entries = parse_bib_entries(bib).unwrap();
-        assert_eq!(entries[0].fields.get("title").unwrap(), "Heat {and} mass transfer");
+        assert_eq!(
+            entries[0].fields.get("title").unwrap(),
+            "Heat {and} mass transfer"
+        );
     }
 
     #[test]
@@ -630,7 +666,10 @@ mod tests {
     #[test]
     fn unterminated_entry_is_an_error() {
         let err = parse_bib_entries("@article{k, title = {X}").unwrap_err();
-        assert!(matches!(err, BibParseError::UnterminatedEntry { .. }), "{err}");
+        assert!(
+            matches!(err, BibParseError::UnterminatedEntry { .. }),
+            "{err}"
+        );
     }
 
     #[test]
@@ -642,7 +681,9 @@ mod tests {
     #[test]
     fn empty_input_produces_no_entries() {
         assert!(parse_bib_entries("").unwrap().is_empty());
-        assert!(parse_bib_entries("just some text, no entries here").unwrap().is_empty());
+        assert!(parse_bib_entries("just some text, no entries here")
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -650,7 +691,11 @@ mod tests {
         let mut fields = std::collections::BTreeMap::new();
         fields.insert("title".to_string(), "A Title".to_string());
         fields.insert("year".to_string(), "2020".to_string());
-        let entry = BibEntry { entry_type: "article".to_string(), cite_key: "smith2020".to_string(), fields };
+        let entry = BibEntry {
+            entry_type: "article".to_string(),
+            cite_key: "smith2020".to_string(),
+            fields,
+        };
         let rendered = render_entry(&entry);
         assert!(rendered.starts_with("@article{smith2020,"));
         let back = parse_bib_entries(&rendered).unwrap();

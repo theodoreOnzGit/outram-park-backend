@@ -76,8 +76,16 @@ impl TransformBasis {
     /// A basis whose `z` is `normal` (Blender's *Normal* orientation), with
     /// `x`/`y` an arbitrary orthonormal completion.
     pub fn from_normal(normal: Vec3) -> Self {
-        let z = if normal.length() > 1e-9 { normal.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
-        let up = if z.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+        let z = if normal.length() > 1e-9 {
+            normal.normalize()
+        } else {
+            Vec3::new(0.0, 0.0, 1.0)
+        };
+        let up = if z.z.abs() < 0.9 {
+            Vec3::new(0.0, 0.0, 1.0)
+        } else {
+            Vec3::new(1.0, 0.0, 0.0)
+        };
         let x = up.cross(z).normalize();
         let y = z.cross(x);
         TransformBasis { x, y, z }
@@ -90,7 +98,10 @@ impl TransformBasis {
 
     /// Reconstruct a world vector from basis-space components.
     fn to_world(self, c: [f64; 3]) -> Vec3 {
-        self.x.scale(c[0]).add(self.y.scale(c[1])).add(self.z.scale(c[2]))
+        self.x
+            .scale(c[0])
+            .add(self.y.scale(c[1]))
+            .add(self.z.scale(c[2]))
     }
 }
 
@@ -176,14 +187,22 @@ pub fn apply_translation(mesh: &Mesh, verts: &[VertexId], delta: Vec3) -> Mesh {
     let idx: Vec<usize> = if verts.is_empty() {
         (0..positions.len()).collect()
     } else {
-        verts.iter().map(|v| v.0).filter(|&i| i < positions.len()).collect()
+        verts
+            .iter()
+            .map(|v| v.0)
+            .filter(|&i| i < positions.len())
+            .collect()
     };
     for &i in &idx {
         positions[i] = positions[i].add(delta);
     }
     Mesh::from_polygons(
         &positions,
-        &mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect::<Vec<_>>(),
+        &mesh
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect::<Vec<_>>(),
     )
 }
 
@@ -433,7 +452,10 @@ mod tests {
 
     #[test]
     fn numeric_override_wins_over_the_raw_delta() {
-        let n = NumericEntry { x: Some(10.0), ..Default::default() };
+        let n = NumericEntry {
+            x: Some(10.0),
+            ..Default::default()
+        };
         let d = resolve_translation(
             Vec3::new(3.0, 4.0, 5.0),
             Constraint::Free,
@@ -477,7 +499,10 @@ mod tests {
         let t = apply_translation(&m, &[VertexId(0)], Vec3::new(1.0, 0.0, 0.0));
         assert_eq!(
             t.vertex(VertexId(0)).unwrap().position,
-            m.vertex(VertexId(0)).unwrap().position.add(Vec3::new(1.0, 0.0, 0.0))
+            m.vertex(VertexId(0))
+                .unwrap()
+                .position
+                .add(Vec3::new(1.0, 0.0, 0.0))
         );
     }
 }

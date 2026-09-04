@@ -54,7 +54,10 @@ pub struct Cursor3D {
 
 impl Default for Cursor3D {
     fn default() -> Self {
-        Cursor3D { position: Vec3::ZERO, basis: TransformBasis::global() }
+        Cursor3D {
+            position: Vec3::ZERO,
+            basis: TransformBasis::global(),
+        }
     }
 }
 
@@ -73,11 +76,17 @@ impl Cursor3D {
         let idx: Vec<usize> = if verts.is_empty() {
             (0..pos.len()).collect()
         } else {
-            verts.iter().map(|v| v.0).filter(|&i| i < pos.len()).collect()
+            verts
+                .iter()
+                .map(|v| v.0)
+                .filter(|&i| i < pos.len())
+                .collect()
         };
         if !idx.is_empty() {
-            self.position =
-                idx.iter().fold(Vec3::ZERO, |acc, &i| acc.add(pos[i])).scale(1.0 / idx.len() as f64);
+            self.position = idx
+                .iter()
+                .fold(Vec3::ZERO, |acc, &i| acc.add(pos[i]))
+                .scale(1.0 / idx.len() as f64);
         }
     }
 
@@ -105,7 +114,10 @@ pub fn selection_to_cursor(mesh: &Mesh, verts: &[VertexId], cursor: Vec3) -> Vec
     if idx.is_empty() {
         return Vec3::ZERO;
     }
-    let median = idx.iter().fold(Vec3::ZERO, |acc, &i| acc.add(pos[i])).scale(1.0 / idx.len() as f64);
+    let median = idx
+        .iter()
+        .fold(Vec3::ZERO, |acc, &i| acc.add(pos[i]))
+        .scale(1.0 / idx.len() as f64);
     cursor.sub(median)
 }
 
@@ -127,17 +139,16 @@ pub enum PivotPoint {
 /// The single pivot position for `pivot` (for [`PivotPoint::IndividualOrigins`]
 /// this returns the overall median — use [`rotate_about_pivot`] for the real
 /// per-component behaviour).
-pub fn pivot_position(
-    mesh: &Mesh,
-    verts: &[VertexId],
-    pivot: PivotPoint,
-    cursor: Vec3,
-) -> Vec3 {
+pub fn pivot_position(mesh: &Mesh, verts: &[VertexId], pivot: PivotPoint, cursor: Vec3) -> Vec3 {
     let pos = mesh.positions();
     let idx: Vec<usize> = if verts.is_empty() {
         (0..pos.len()).collect()
     } else {
-        verts.iter().map(|v| v.0).filter(|&i| i < pos.len()).collect()
+        verts
+            .iter()
+            .map(|v| v.0)
+            .filter(|&i| i < pos.len())
+            .collect()
     };
     match pivot {
         PivotPoint::Cursor => cursor,
@@ -146,7 +157,9 @@ pub fn pivot_position(
             if idx.is_empty() {
                 cursor
             } else {
-                idx.iter().fold(Vec3::ZERO, |acc, &i| acc.add(pos[i])).scale(1.0 / idx.len() as f64)
+                idx.iter()
+                    .fold(Vec3::ZERO, |acc, &i| acc.add(pos[i]))
+                    .scale(1.0 / idx.len() as f64)
             }
         }
         PivotPoint::BoundingBoxCenter => {
@@ -190,7 +203,9 @@ pub fn scale_about_pivot(
     factor: f64,
     cursor: Vec3,
 ) -> Mesh {
-    transform_about_pivot(mesh, verts, pivot, cursor, |p, c| c.add(p.sub(c).scale(factor)))
+    transform_about_pivot(mesh, verts, pivot, cursor, |p, c| {
+        c.add(p.sub(c).scale(factor))
+    })
 }
 
 fn transform_about_pivot(
@@ -204,12 +219,19 @@ fn transform_about_pivot(
     let sel: Vec<usize> = if verts.is_empty() {
         (0..positions.len()).collect()
     } else {
-        verts.iter().map(|v| v.0).filter(|&i| i < positions.len()).collect()
+        verts
+            .iter()
+            .map(|v| v.0)
+            .filter(|&i| i < positions.len())
+            .collect()
     };
 
     if pivot == PivotPoint::IndividualOrigins {
         for comp in components(mesh, &sel) {
-            let c = comp.iter().fold(Vec3::ZERO, |acc, &i| acc.add(positions[i])).scale(1.0 / comp.len().max(1) as f64);
+            let c = comp
+                .iter()
+                .fold(Vec3::ZERO, |acc, &i| acc.add(positions[i]))
+                .scale(1.0 / comp.len().max(1) as f64);
             for &i in &comp {
                 positions[i] = xf(positions[i], c);
             }
@@ -222,7 +244,11 @@ fn transform_about_pivot(
     }
     Mesh::from_polygons(
         &positions,
-        &mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect::<Vec<_>>(),
+        &mesh
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect::<Vec<_>>(),
     )
 }
 
@@ -243,14 +269,24 @@ pub fn orientation_from_selection(
         let n = mesh.face_normal(f);
         let vs = mesh.face_vertices(f);
         if vs.len() >= 2 {
-            let edge = mesh.vertex(vs[1])?.position.sub(mesh.vertex(vs[0])?.position);
+            let edge = mesh
+                .vertex(vs[1])?
+                .position
+                .sub(mesh.vertex(vs[0])?.position);
             let x = ortho(edge, n);
-            return Some(TransformBasis { x, y: n.cross(x), z: n });
+            return Some(TransformBasis {
+                x,
+                y: n.cross(x),
+                z: n,
+            });
         }
     }
     if let Some(&e) = edges.first() {
         let ed = mesh.edge(e)?;
-        let dir = mesh.vertex(ed.verts[1])?.position.sub(mesh.vertex(ed.verts[0])?.position);
+        let dir = mesh
+            .vertex(ed.verts[1])?
+            .position
+            .sub(mesh.vertex(ed.verts[0])?.position);
         return Some(TransformBasis::from_normal(dir));
     }
     if verts.len() >= 2 {
@@ -282,7 +318,9 @@ fn axis_unit(axis: Axis) -> Vec3 {
 
 fn rotate_about_axis(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
     let (s, c) = theta.sin_cos();
-    v.scale(c).add(k.cross(v).scale(s)).add(k.scale(k.dot(v) * (1.0 - c)))
+    v.scale(c)
+        .add(k.cross(v).scale(s))
+        .add(k.scale(k.dot(v) * (1.0 - c)))
 }
 
 /// The component of `v` orthogonal to unit `n`, normalised (or an arbitrary
@@ -292,7 +330,11 @@ fn ortho(v: Vec3, n: Vec3) -> Vec3 {
     if p.length() > 1e-9 {
         p.normalize()
     } else {
-        let up = if n.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+        let up = if n.z.abs() < 0.9 {
+            Vec3::new(0.0, 0.0, 1.0)
+        } else {
+            Vec3::new(1.0, 0.0, 0.0)
+        };
         up.cross(n).normalize()
     }
 }
@@ -367,8 +409,14 @@ mod tests {
     #[test]
     fn pivot_positions() {
         let m = primitives::cube(2.0); // corners ±1
-        assert_eq!(pivot_position(&m, &[], PivotPoint::BoundingBoxCenter, Vec3::ZERO), Vec3::ZERO);
-        assert_eq!(pivot_position(&m, &[], PivotPoint::MedianPoint, Vec3::ZERO), Vec3::ZERO);
+        assert_eq!(
+            pivot_position(&m, &[], PivotPoint::BoundingBoxCenter, Vec3::ZERO),
+            Vec3::ZERO
+        );
+        assert_eq!(
+            pivot_position(&m, &[], PivotPoint::MedianPoint, Vec3::ZERO),
+            Vec3::ZERO
+        );
         assert_eq!(
             pivot_position(&m, &[], PivotPoint::Cursor, Vec3::new(7.0, 0.0, 0.0)),
             Vec3::new(7.0, 0.0, 0.0)
@@ -378,11 +426,25 @@ mod tests {
     #[test]
     fn rotate_about_cursor_turns_the_selection() {
         let m = primitives::grid(1, 1, 2.0);
-        let r = rotate_about_pivot(&m, &[], PivotPoint::Cursor, Axis::Z, std::f64::consts::FRAC_PI_2, Vec3::ZERO);
+        let r = rotate_about_pivot(
+            &m,
+            &[],
+            PivotPoint::Cursor,
+            Axis::Z,
+            std::f64::consts::FRAC_PI_2,
+            Vec3::ZERO,
+        );
         // A corner at (1, y, 0) rotates 90° about Z to (~-y, 1, 0)... check a
         // known one: the vertex farthest along +x moves onto +y.
         let far_x = (0..m.vertex_count())
-            .max_by(|&a, &b| m.vertex(VertexId(a)).unwrap().position.x.partial_cmp(&m.vertex(VertexId(b)).unwrap().position.x).unwrap())
+            .max_by(|&a, &b| {
+                m.vertex(VertexId(a))
+                    .unwrap()
+                    .position
+                    .x
+                    .partial_cmp(&m.vertex(VertexId(b)).unwrap().position.x)
+                    .unwrap()
+            })
             .unwrap();
         let p = r.vertex(VertexId(far_x)).unwrap().position;
         assert!(p.x.abs() < 1.001 && p.y > 0.9);
@@ -393,7 +455,12 @@ mod tests {
         let m = primitives::cube(2.0);
         let s = scale_about_pivot(&m, &[], PivotPoint::MedianPoint, 2.0, Vec3::ZERO);
         for i in 0..8 {
-            assert!((s.vertex(VertexId(i)).unwrap().position.length() - 2.0 * m.vertex(VertexId(i)).unwrap().position.length()).abs() < 1e-9);
+            assert!(
+                (s.vertex(VertexId(i)).unwrap().position.length()
+                    - 2.0 * m.vertex(VertexId(i)).unwrap().position.length())
+                .abs()
+                    < 1e-9
+            );
         }
     }
 
@@ -403,7 +470,11 @@ mod tests {
         // centre fixed rather than pushing them apart.
         let a = primitives::cube(2.0);
         let mut positions = a.positions();
-        let mut faces: Vec<Vec<usize>> = a.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = a
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let off = positions.len();
         for p in a.positions() {
             positions.push(p.add(Vec3::new(10.0, 0.0, 0.0)));
@@ -414,7 +485,11 @@ mod tests {
         let m = Mesh::from_polygons(&positions, &faces);
         let s = scale_about_pivot(&m, &[], PivotPoint::IndividualOrigins, 2.0, Vec3::ZERO);
         // Second cube's centre stays near (10, 0, 0).
-        let c2 = (off..m.vertex_count()).fold(Vec3::ZERO, |acc, i| acc.add(s.vertex(VertexId(i)).unwrap().position)).scale(1.0 / 8.0);
+        let c2 = (off..m.vertex_count())
+            .fold(Vec3::ZERO, |acc, i| {
+                acc.add(s.vertex(VertexId(i)).unwrap().position)
+            })
+            .scale(1.0 / 8.0);
         assert!(c2.sub(Vec3::new(10.0, 0.0, 0.0)).length() < 1e-6);
     }
 
@@ -430,7 +505,12 @@ mod tests {
         let m = primitives::grid(1, 1, 2.0);
         let b = orientation_from_selection(&m, &[], &[EdgeId(0)], &[]).unwrap();
         let ed = m.edge(EdgeId(0)).unwrap();
-        let dir = m.vertex(ed.verts[1]).unwrap().position.sub(m.vertex(ed.verts[0]).unwrap().position).normalize();
+        let dir = m
+            .vertex(ed.verts[1])
+            .unwrap()
+            .position
+            .sub(m.vertex(ed.verts[0]).unwrap().position)
+            .normalize();
         assert!(b.z.sub(dir).length() < 1e-9 || b.z.add(dir).length() < 1e-9);
     }
 }

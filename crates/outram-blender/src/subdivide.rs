@@ -67,7 +67,12 @@ pub struct SubdivideOptions {
 
 impl Default for SubdivideOptions {
     fn default() -> Self {
-        SubdivideOptions { cuts: 1, smoothness: 0.0, fractal: 0.0, seed: 1 }
+        SubdivideOptions {
+            cuts: 1,
+            smoothness: 0.0,
+            fractal: 0.0,
+            seed: 1,
+        }
     }
 }
 
@@ -115,7 +120,10 @@ pub fn subdivide(mesh: &Mesh, opts: SubdivideOptions) -> Mesh {
             3 => subdivide_tri(&vs, n, &mut positions, &mut faces, &mut edge_ids),
             k if k > 4 => {
                 // Fan from centroid, then subdivide each fan triangle.
-                let c = vs.iter().fold(Vec3::ZERO, |acc, &i| acc.add(src_pos[i])).scale(1.0 / k as f64);
+                let c = vs
+                    .iter()
+                    .fold(Vec3::ZERO, |acc, &i| acc.add(src_pos[i]))
+                    .scale(1.0 / k as f64);
                 let ci = positions.len();
                 positions.push(c);
                 for i in 0..k {
@@ -129,7 +137,12 @@ pub fn subdivide(mesh: &Mesh, opts: SubdivideOptions) -> Mesh {
 
     // Smoothness: pull each *new* vertex toward the average of its neighbours.
     if opts.smoothness > 0.0 {
-        smooth_new_points(&mut positions, &faces, src_pos.len(), opts.smoothness.clamp(0.0, 1.0));
+        smooth_new_points(
+            &mut positions,
+            &faces,
+            src_pos.len(),
+            opts.smoothness.clamp(0.0, 1.0),
+        );
     }
 
     // Fractal: displace each new vertex along a face normal.
@@ -158,7 +171,9 @@ pub fn subdivide(mesh: &Mesh, opts: SubdivideOptions) -> Mesh {
 pub fn un_subdivide(mesh: &Mesh, iterations: u32) -> Mesh {
     let mut m = mesh.clone();
     for _ in 0..iterations {
-        let Some(next) = un_subdivide_once(&m) else { break };
+        let Some(next) = un_subdivide_once(&m) else {
+            break;
+        };
         m = next;
     }
     m
@@ -218,10 +233,13 @@ fn un_subdivide_once(mesh: &Mesh) -> Option<Mesh> {
     }
 
     // Keep vertices with both coords even; rebuild quads over the coarse grid.
-    let keep: Vec<bool> = coord.iter().map(|c| {
-        let (i, j) = c.unwrap();
-        i.rem_euclid(2) == 0 && j.rem_euclid(2) == 0
-    }).collect();
+    let keep: Vec<bool> = coord
+        .iter()
+        .map(|c| {
+            let (i, j) = c.unwrap();
+            i.rem_euclid(2) == 0 && j.rem_euclid(2) == 0
+        })
+        .collect();
     if keep.iter().filter(|&&k| k).count() < 4 {
         return None;
     }
@@ -232,8 +250,15 @@ fn un_subdivide_once(mesh: &Mesh) -> Option<Mesh> {
         .map(|(i, c)| (c.unwrap(), i))
         .collect();
 
-    let positions: Vec<Vec3> = (0..nv).filter(|&i| keep[i]).map(|i| mesh.vertex(VertexId(i)).unwrap().position).collect();
-    let remap: HashMap<usize, usize> = (0..nv).filter(|&i| keep[i]).enumerate().map(|(new, old)| (old, new)).collect();
+    let positions: Vec<Vec3> = (0..nv)
+        .filter(|&i| keep[i])
+        .map(|i| mesh.vertex(VertexId(i)).unwrap().position)
+        .collect();
+    let remap: HashMap<usize, usize> = (0..nv)
+        .filter(|&i| keep[i])
+        .enumerate()
+        .map(|(new, old)| (old, new))
+        .collect();
 
     let (mut imin, mut imax, mut jmin, mut jmax) = (i64::MAX, i64::MIN, i64::MAX, i64::MIN);
     for c in coord.iter().flatten() {
@@ -248,7 +273,11 @@ fn un_subdivide_once(mesh: &Mesh) -> Option<Mesh> {
         let mut jj = jmin;
         while jj + 2 <= jmax {
             let corners = [(ii, jj), (ii + 2, jj), (ii + 2, jj + 2), (ii, jj + 2)];
-            if let Some(q) = corners.iter().map(|c| by_coord.get(c).map(|&o| remap[&o])).collect::<Option<Vec<_>>>() {
+            if let Some(q) = corners
+                .iter()
+                .map(|c| by_coord.get(c).map(|&o| remap[&o]))
+                .collect::<Option<Vec<_>>>()
+            {
                 faces.push(q);
             }
             jj += 2;
@@ -302,7 +331,8 @@ fn subdivide_quad(
                 let pc = positions[c];
                 let pd = positions[d];
                 let (u, v) = (i as f64 / n as f64, j as f64 / n as f64);
-                let p = pa.scale((1.0 - u) * (1.0 - v))
+                let p = pa
+                    .scale((1.0 - u) * (1.0 - v))
                     .add(pb.scale(u * (1.0 - v)))
                     .add(pc.scale(u * v))
                     .add(pd.scale((1.0 - u) * v));
@@ -313,7 +343,12 @@ fn subdivide_quad(
     }
     for i in 0..n {
         for j in 0..n {
-            faces.push(vec![grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]]);
+            faces.push(vec![
+                grid[i][j],
+                grid[i + 1][j],
+                grid[i + 1][j + 1],
+                grid[i][j + 1],
+            ]);
         }
     }
 }
@@ -427,7 +462,13 @@ mod tests {
     fn one_cut_matches_the_simple_subdivide_counts() {
         // A cube (V=8,E=12,F=6): one cut → V=26, F=24, chi=2.
         let m = primitives::cube(2.0);
-        let s = subdivide(&m, SubdivideOptions { cuts: 1, ..Default::default() });
+        let s = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 1,
+                ..Default::default()
+            },
+        );
         assert_eq!(s.face_count(), 24);
         assert_eq!(s.vertex_count(), 26);
         assert_eq!(s.euler_characteristic(), 2);
@@ -436,7 +477,13 @@ mod tests {
     #[test]
     fn two_cuts_on_a_quad_make_nine() {
         let m = primitives::grid(1, 1, 2.0);
-        let s = subdivide(&m, SubdivideOptions { cuts: 2, ..Default::default() });
+        let s = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 2,
+                ..Default::default()
+            },
+        );
         assert_eq!(s.face_count(), 9);
         assert_eq!(s.euler_characteristic(), 1);
     }
@@ -448,7 +495,13 @@ mod tests {
         let b = m.add_vertex(Vec3::new(1.0, 0.0, 0.0));
         let c = m.add_vertex(Vec3::new(0.0, 1.0, 0.0));
         m.add_face(&[a, b, c]);
-        let s = subdivide(&m, SubdivideOptions { cuts: 2, ..Default::default() });
+        let s = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 2,
+                ..Default::default()
+            },
+        );
         assert_eq!(s.face_count(), 9, "(cuts+1)^2 triangles");
         assert_eq!(s.euler_characteristic(), 1);
     }
@@ -456,17 +509,53 @@ mod tests {
     #[test]
     fn fractal_is_deterministic_and_moves_points() {
         let m = primitives::grid(2, 2, 2.0);
-        let a = subdivide(&m, SubdivideOptions { cuts: 2, fractal: 0.3, seed: 7, ..Default::default() });
-        let b = subdivide(&m, SubdivideOptions { cuts: 2, fractal: 0.3, seed: 7, ..Default::default() });
-        let flat = subdivide(&m, SubdivideOptions { cuts: 2, ..Default::default() });
+        let a = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 2,
+                fractal: 0.3,
+                seed: 7,
+                ..Default::default()
+            },
+        );
+        let b = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 2,
+                fractal: 0.3,
+                seed: 7,
+                ..Default::default()
+            },
+        );
+        let flat = subdivide(
+            &m,
+            SubdivideOptions {
+                cuts: 2,
+                ..Default::default()
+            },
+        );
         // Same seed → identical.
         for i in 0..a.vertex_count() {
-            assert!(a.vertex(VertexId(i)).unwrap().position
-                .sub(b.vertex(VertexId(i)).unwrap().position).length() < 1e-12);
+            assert!(
+                a.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(b.vertex(VertexId(i)).unwrap().position)
+                    .length()
+                    < 1e-12
+            );
         }
         // Some vertex moved off the z = 0 plane.
-        assert!((0..a.vertex_count()).any(|i| a.vertex(VertexId(i)).unwrap().position.z.abs() > 1e-6));
-        assert!((0..flat.vertex_count()).all(|i| flat.vertex(VertexId(i)).unwrap().position.z.abs() < 1e-9));
+        assert!(
+            (0..a.vertex_count()).any(|i| a.vertex(VertexId(i)).unwrap().position.z.abs() > 1e-6)
+        );
+        assert!((0..flat.vertex_count()).all(|i| flat
+            .vertex(VertexId(i))
+            .unwrap()
+            .position
+            .z
+            .abs()
+            < 1e-9));
     }
 
     #[test]

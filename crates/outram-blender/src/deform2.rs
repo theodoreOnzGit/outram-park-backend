@@ -58,7 +58,10 @@ fn axis_unit(a: Axis) -> Vec3 {
     }
 }
 fn to_soup(m: &Mesh) -> Vec<Vec<usize>> {
-    m.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect()
+    m.polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// Deform `mesh` so its `axis` coordinate rides `curve` (a polyline, `>= 2`
@@ -79,13 +82,25 @@ pub fn curve_deform(mesh: &Mesh, curve: &[Vec3], axis: Axis) -> Mesh {
         return mesh.clone();
     }
     let k = axis_unit(axis);
-    let lo = mesh.positions().iter().map(|&p| axis_coord(p, axis)).fold(f64::MAX, f64::min);
+    let lo = mesh
+        .positions()
+        .iter()
+        .map(|&p| axis_coord(p, axis))
+        .fold(f64::MAX, f64::min);
 
     let sample = |s: f64| -> (Vec3, Vec3) {
         let s = s.clamp(0.0, total);
-        let i = seg_len.iter().rposition(|&l| l <= s).unwrap_or(0).min(curve.len() - 2);
+        let i = seg_len
+            .iter()
+            .rposition(|&l| l <= s)
+            .unwrap_or(0)
+            .min(curve.len() - 2);
         let seg = seg_len[i + 1] - seg_len[i];
-        let t = if seg > 1e-9 { (s - seg_len[i]) / seg } else { 0.0 };
+        let t = if seg > 1e-9 {
+            (s - seg_len[i]) / seg
+        } else {
+            0.0
+        };
         let pos = curve[i].add(curve[i + 1].sub(curve[i]).scale(t));
         let tan = curve[i + 1].sub(curve[i]).normalize();
         (pos, tan)
@@ -99,10 +114,15 @@ pub fn curve_deform(mesh: &Mesh, curve: &[Vec3], axis: Axis) -> Mesh {
             let along = k.scale(c);
             let perp = p.sub(along);
             let (base, tan) = sample(c - lo);
-            let up = if tan.z.abs() < 0.9 { Vec3::new(0.0, 0.0, 1.0) } else { Vec3::new(1.0, 0.0, 0.0) };
+            let up = if tan.z.abs() < 0.9 {
+                Vec3::new(0.0, 0.0, 1.0)
+            } else {
+                Vec3::new(1.0, 0.0, 0.0)
+            };
             let bx = up.cross(tan).normalize();
             let by = tan.cross(bx);
-            base.add(bx.scale(perp.dot(perp_axis_x(axis)))).add(by.scale(perp.dot(perp_axis_y(axis))))
+            base.add(bx.scale(perp.dot(perp_axis_x(axis))))
+                .add(by.scale(perp.dot(perp_axis_y(axis))))
         })
         .collect();
     Mesh::from_polygons(&positions, &to_soup(mesh))
@@ -152,7 +172,12 @@ impl Lattice {
                 }
             }
         }
-        Lattice { dims: d, rest_min: min, rest_max: max, points }
+        Lattice {
+            dims: d,
+            rest_min: min,
+            rest_max: max,
+            points,
+        }
     }
 
     fn at(&self, x: usize, y: usize, z: usize) -> Vec3 {
@@ -173,9 +198,12 @@ pub fn lattice_deform(mesh: &Mesh, lat: &Lattice) -> Mesh {
         .positions()
         .iter()
         .map(|&p| {
-            let u = ((p.x - lat.rest_min.x) / ext.x.max(1e-9)).clamp(0.0, 1.0) * (lat.dims[0] - 1) as f64;
-            let v = ((p.y - lat.rest_min.y) / ext.y.max(1e-9)).clamp(0.0, 1.0) * (lat.dims[1] - 1) as f64;
-            let w = ((p.z - lat.rest_min.z) / ext.z.max(1e-9)).clamp(0.0, 1.0) * (lat.dims[2] - 1) as f64;
+            let u = ((p.x - lat.rest_min.x) / ext.x.max(1e-9)).clamp(0.0, 1.0)
+                * (lat.dims[0] - 1) as f64;
+            let v = ((p.y - lat.rest_min.y) / ext.y.max(1e-9)).clamp(0.0, 1.0)
+                * (lat.dims[1] - 1) as f64;
+            let w = ((p.z - lat.rest_min.z) / ext.z.max(1e-9)).clamp(0.0, 1.0)
+                * (lat.dims[2] - 1) as f64;
             let (x0, y0, z0) = (u.floor() as usize, v.floor() as usize, w.floor() as usize);
             let (x1, y1, z1) = (
                 (x0 + 1).min(lat.dims[0] - 1),
@@ -262,15 +290,16 @@ pub fn shrinkwrap(mesh: &Mesh, target: &Mesh, mode: ShrinkMode, factor: f64) -> 
         .enumerate()
         .map(|(i, &p)| {
             let onto = match mode {
-                ShrinkMode::NearestVertex => {
-                    tpos.iter().copied().min_by(|&a, &b| {
-                        a.sub(p).length().partial_cmp(&b.sub(p).length()).unwrap()
-                    }).unwrap_or(p)
-                }
+                ShrinkMode::NearestVertex => tpos
+                    .iter()
+                    .copied()
+                    .min_by(|&a, &b| a.sub(p).length().partial_cmp(&b.sub(p).length()).unwrap())
+                    .unwrap_or(p),
                 ShrinkMode::NearestSurfacePoint => nearest_on_tris(p, &tris).unwrap_or(p),
                 ShrinkMode::ProjectAlongNormal => {
                     let n = vnorm.get(i).copied().unwrap_or(Vec3::new(0.0, 0.0, 1.0));
-                    project_both_ways(p, n, &tris).unwrap_or_else(|| nearest_on_tris(p, &tris).unwrap_or(p))
+                    project_both_ways(p, n, &tris)
+                        .unwrap_or_else(|| nearest_on_tris(p, &tris).unwrap_or(p))
                 }
             };
             p.add(onto.sub(p).scale(factor.clamp(0.0, 1.0)))
@@ -332,10 +361,16 @@ pub fn surface_deform(mesh: &Mesh, bind: &SurfaceBind, deformed_target: &Mesh) -
         .binds
         .iter()
         .map(|&(ti, b, off)| {
-            let Some(t) = tris.get(ti) else { return Vec3::ZERO };
+            let Some(t) = tris.get(ti) else {
+                return Vec3::ZERO;
+            };
             let foot = t[0].scale(b[0]).add(t[1].scale(b[1])).add(t[2].scale(b[2]));
             let n = t[1].sub(t[0]).cross(t[2].sub(t[0]));
-            let n = if n.length() > 1e-12 { n.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+            let n = if n.length() > 1e-12 {
+                n.normalize()
+            } else {
+                Vec3::new(0.0, 0.0, 1.0)
+            };
             foot.add(n.scale(off))
         })
         .collect();
@@ -475,7 +510,11 @@ mod tests {
     fn lattice_deform_bulges_a_grid() {
         let m = primitives::grid(6, 6, 6.0);
         let (lo, hi) = crate::measure::bounding_box(&m);
-        let mut lat = Lattice::from_bounds([2, 2, 2], lo.sub(Vec3::new(0.5, 0.5, 0.5)), hi.add(Vec3::new(0.5, 0.5, 0.5)));
+        let mut lat = Lattice::from_bounds(
+            [2, 2, 2],
+            lo.sub(Vec3::new(0.5, 0.5, 0.5)),
+            hi.add(Vec3::new(0.5, 0.5, 0.5)),
+        );
         // Push all top control points up.
         for p in lat.points.iter_mut() {
             if p.z > 0.0 {
@@ -491,12 +530,24 @@ mod tests {
         let m = primitives::grid(8, 8, 8.0);
         let all: Vec<VertexId> = (0..m.vertex_count()).map(VertexId).collect();
         let d = hook(&m, &all, Vec3::ZERO, Vec3::new(0.0, 0.0, 3.0), 4.0);
-        let centre = (0..m.vertex_count()).find(|&i| m.vertex(VertexId(i)).unwrap().position.length() < 1e-9).unwrap();
-        assert!((d.vertex(VertexId(centre)).unwrap().position.z - 3.0).abs() < 1e-9, "hook centre fully dragged");
+        let centre = (0..m.vertex_count())
+            .find(|&i| m.vertex(VertexId(i)).unwrap().position.length() < 1e-9)
+            .unwrap();
+        assert!(
+            (d.vertex(VertexId(centre)).unwrap().position.z - 3.0).abs() < 1e-9,
+            "hook centre fully dragged"
+        );
         // A far corner is outside the falloff radius.
-        let corner = (0..m.vertex_count()).max_by(|&a, &b| {
-            m.vertex(VertexId(a)).unwrap().position.length().partial_cmp(&m.vertex(VertexId(b)).unwrap().position.length()).unwrap()
-        }).unwrap();
+        let corner = (0..m.vertex_count())
+            .max_by(|&a, &b| {
+                m.vertex(VertexId(a))
+                    .unwrap()
+                    .position
+                    .length()
+                    .partial_cmp(&m.vertex(VertexId(b)).unwrap().position.length())
+                    .unwrap()
+            })
+            .unwrap();
         assert!(d.vertex(VertexId(corner)).unwrap().position.z.abs() < 1e-9);
     }
 
@@ -526,14 +577,27 @@ mod tests {
 
         let out = surface_deform(&cloth, &bind, &lifted);
         for i in 0..out.vertex_count() {
-            assert!((out.vertex(VertexId(i)).unwrap().position.z - 2.0).abs() < 0.1, "cloth rose with the table");
+            assert!(
+                (out.vertex(VertexId(i)).unwrap().position.z - 2.0).abs() < 0.1,
+                "cloth rose with the table"
+            );
         }
     }
 
     #[test]
     fn laplacian_deform_forwards_to_arap() {
         let m = primitives::grid(5, 5, 4.0);
-        let a = laplacian_deform(&m, &[(VertexId(0), m.vertex(VertexId(0)).unwrap().position.add(Vec3::new(0.0, 0.0, 1.0)))], 3);
+        let a = laplacian_deform(
+            &m,
+            &[(
+                VertexId(0),
+                m.vertex(VertexId(0))
+                    .unwrap()
+                    .position
+                    .add(Vec3::new(0.0, 0.0, 1.0)),
+            )],
+            3,
+        );
         assert!(a.is_ok());
     }
 }

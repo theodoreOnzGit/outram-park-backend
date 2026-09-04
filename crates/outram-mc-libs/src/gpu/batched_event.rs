@@ -833,7 +833,10 @@ pub fn advance_generation_gpu(
             .map_async(wgpu::MapMode::Read, |r| r.unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         let alive = {
-            let view = ctrl_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+            let view = ctrl_staging
+                .slice(..)
+                .get_mapped_range()
+                .expect("staging buffer mapping failed after a completed poll");
             u32::from_ne_bytes(view[0..4].try_into().unwrap())
         };
         ctrl_staging.unmap();
@@ -875,12 +878,18 @@ pub fn advance_generation_gpu(
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
     let istate_out = {
-        let view = istate_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = istate_staging
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_u32(&view, 4 * n)
     };
     istate_staging.unmap();
     let fstate_out = {
-        let view = fstate_staging.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = fstate_staging
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32(&view, 8 * n)
     };
     fstate_staging.unmap();

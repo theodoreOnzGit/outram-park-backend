@@ -92,11 +92,18 @@ pub enum RootError {
     /// No [`ROOT_MARKER`] was found at `start` or in any ancestor directory.
     NotAKovanRoot { start: PathBuf },
     /// An I/O failure, carrying the path it happened on.
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// `kovan_root.toml` is not valid TOML, or does not match the schema.
     Toml { path: PathBuf, message: String },
     /// The root declares a `schema_version` this build does not understand.
-    UnsupportedSchema { path: PathBuf, found: u32, supported: u32 },
+    UnsupportedSchema {
+        path: PathBuf,
+        found: u32,
+        supported: u32,
+    },
     /// [`KovanRoot::create`] was asked to create a library where one already
     /// exists. Refused rather than overwritten — a `kovan_root.toml` is a
     /// user's own configuration, never something to clobber.
@@ -235,7 +242,10 @@ impl RootConfig {
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
-            library: LibraryMeta { id: id.into(), name: name.into() },
+            library: LibraryMeta {
+                id: id.into(),
+                name: name.into(),
+            },
             paths: RootPaths::default(),
             private_submodule: None,
         }
@@ -245,7 +255,9 @@ impl RootConfig {
     /// `self` for chaining — e.g.
     /// `RootConfig::new("lib", "Lib").with_private_submodule("git@host:org/private.git")`.
     pub fn with_private_submodule(mut self, remote: impl Into<String>) -> Self {
-        self.private_submodule = Some(PrivateSubmoduleConfig { remote: remote.into() });
+        self.private_submodule = Some(PrivateSubmoduleConfig {
+            remote: remote.into(),
+        });
         self
     }
 
@@ -299,7 +311,10 @@ fn gitignore_pattern(path: &Path) -> String {
 /// describe what is *not* under version control, and a configured
 /// submodule is very much under version control, just in a different
 /// repository.
-pub fn gitignore_for(paths: &RootPaths, private_submodule: Option<&PrivateSubmoduleConfig>) -> String {
+pub fn gitignore_for(
+    paths: &RootPaths,
+    private_submodule: Option<&PrivateSubmoduleConfig>,
+) -> String {
     let restricted_section = if private_submodule.is_some() {
         String::new()
     } else {
@@ -358,12 +373,18 @@ impl KovanRoot {
     pub fn open(dir: &Path) -> Result<Self, RootError> {
         let marker = dir.join(ROOT_MARKER);
         if !marker.is_file() {
-            return Err(RootError::NotAKovanRoot { start: dir.to_path_buf() });
+            return Err(RootError::NotAKovanRoot {
+                start: dir.to_path_buf(),
+            });
         }
-        let text = std::fs::read_to_string(&marker)
-            .map_err(|source| RootError::Io { path: marker.clone(), source })?;
-        let config: RootConfig = toml::from_str(&text)
-            .map_err(|e| RootError::Toml { path: marker.clone(), message: e.to_string() })?;
+        let text = std::fs::read_to_string(&marker).map_err(|source| RootError::Io {
+            path: marker.clone(),
+            source,
+        })?;
+        let config: RootConfig = toml::from_str(&text).map_err(|e| RootError::Toml {
+            path: marker.clone(),
+            message: e.to_string(),
+        })?;
         if config.schema_version > SCHEMA_VERSION {
             return Err(RootError::UnsupportedSchema {
                 path: marker,
@@ -371,7 +392,10 @@ impl KovanRoot {
                 supported: SCHEMA_VERSION,
             });
         }
-        Ok(Self { root: dir.to_path_buf(), config })
+        Ok(Self {
+            root: dir.to_path_buf(),
+            config,
+        })
     }
 
     /// Find the enclosing library by walking upward from `start`.
@@ -385,14 +409,20 @@ impl KovanRoot {
     /// [`RootError::NotAKovanRoot`] if no ancestor carries a marker; otherwise
     /// the same errors as [`KovanRoot::open`] for the root that was found.
     pub fn discover(start: &Path) -> Result<Self, RootError> {
-        let mut cursor: Option<&Path> = if start.is_file() { start.parent() } else { Some(start) };
+        let mut cursor: Option<&Path> = if start.is_file() {
+            start.parent()
+        } else {
+            Some(start)
+        };
         while let Some(dir) = cursor {
             if Self::is_root(dir) {
                 return Self::open(dir);
             }
             cursor = dir.parent();
         }
-        Err(RootError::NotAKovanRoot { start: start.to_path_buf() })
+        Err(RootError::NotAKovanRoot {
+            start: start.to_path_buf(),
+        })
     }
 
     /// Create a new Kovan library at `dir` and open it (§4, §46's "Create
@@ -432,12 +462,17 @@ impl KovanRoot {
     /// serialised, and [`RootError::GitInit`] if `git init` fails.
     pub fn create(dir: &Path, config: RootConfig, init_git: bool) -> Result<Self, RootError> {
         if Self::is_root(dir) {
-            return Err(RootError::AlreadyALibrary { path: dir.to_path_buf() });
+            return Err(RootError::AlreadyALibrary {
+                path: dir.to_path_buf(),
+            });
         }
 
         let io_err = |path: &Path| {
             let path = path.to_path_buf();
-            move |source| RootError::Io { path: path.clone(), source }
+            move |source| RootError::Io {
+                path: path.clone(),
+                source,
+            }
         };
 
         std::fs::create_dir_all(dir).map_err(io_err(dir))?;
@@ -456,9 +491,10 @@ impl KovanRoot {
         }
 
         let marker = dir.join(ROOT_MARKER);
-        let toml_text = config
-            .to_toml()
-            .map_err(|message| RootError::Toml { path: marker.clone(), message })?;
+        let toml_text = config.to_toml().map_err(|message| RootError::Toml {
+            path: marker.clone(),
+            message,
+        })?;
         std::fs::write(&marker, toml_text).map_err(io_err(&marker))?;
 
         let gitignore = dir.join(".gitignore");
@@ -583,7 +619,8 @@ impl KovanRoot {
     /// enough; the submodule could be configured but never initialised, or
     /// initialised on another machine and not here.
     pub fn private_submodule_ready(&self) -> bool {
-        self.config.private_submodule.is_some() && self.restricted_sources_dir().join(".git").exists()
+        self.config.private_submodule.is_some()
+            && self.restricted_sources_dir().join(".git").exists()
     }
 
     /// Absolute path of the derived-state directory (`.kovan/`).
@@ -641,7 +678,10 @@ name = "Reactor Literature"
         assert_eq!(root.config().library.name, "Reactor Literature");
         // §5: a file that omits [paths] entirely still gets the conventions.
         assert_eq!(root.config().paths, RootPaths::default());
-        assert_eq!(root.bibliography_path(), tmp.path().join("bibliography.bib"));
+        assert_eq!(
+            root.bibliography_path(),
+            tmp.path().join("bibliography.bib")
+        );
         assert_eq!(root.papers_dir(), tmp.path().join("papers"));
         assert_eq!(
             root.restricted_sources_dir(),
@@ -713,7 +753,9 @@ name = "Lib"
         );
         let err = KovanRoot::open(tmp.path()).unwrap_err();
         match err {
-            RootError::UnsupportedSchema { found, supported, .. } => {
+            RootError::UnsupportedSchema {
+                found, supported, ..
+            } => {
                 assert_eq!(found, 99);
                 assert_eq!(supported, SCHEMA_VERSION);
             }
@@ -834,9 +876,12 @@ name = "Inner"
     fn create_lays_out_the_skeleton_and_opens() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("my-kovan");
-        let root =
-            KovanRoot::create(&dir, RootConfig::new("reactor-literature", "Reactor Lit"), false)
-                .unwrap();
+        let root = KovanRoot::create(
+            &dir,
+            RootConfig::new("reactor-literature", "Reactor Lit"),
+            false,
+        )
+        .unwrap();
 
         assert_eq!(root.path(), dir);
         assert_eq!(root.config().library.id, "reactor-literature");
@@ -860,10 +905,16 @@ name = "Inner"
         let root = KovanRoot::create(&dir, RootConfig::new("lib", "Lib"), true).unwrap();
 
         // §46: a non-Git user gets a valid `.git/` without learning Git.
-        assert!(root.has_git(), "create(init_git = true) must produce a repository");
+        assert!(
+            root.has_git(),
+            "create(init_git = true) must produce a repository"
+        );
         assert!(dir.join(".git").is_dir());
         // And it must be openable as one, not merely a directory named .git.
-        assert!(gix::open(&dir).is_ok(), "gix should open the created repository");
+        assert!(
+            gix::open(&dir).is_ok(),
+            "gix should open the created repository"
+        );
     }
 
     #[test]
@@ -907,7 +958,9 @@ name = "Inner"
         // Once the directory is a submodule checkout, gitignoring it would
         // be redundant at best and confusing at worst — see `gitignore_for`'s
         // own doc.
-        let submodule = PrivateSubmoduleConfig { remote: "git@example.com:org/private.git".to_string() };
+        let submodule = PrivateSubmoduleConfig {
+            remote: "git@example.com:org/private.git".to_string(),
+        };
         let gi = gitignore_for(&RootPaths::default(), Some(&submodule));
         assert!(!gi.contains("literature/proprietary"), "{gi}");
         // The other two categories are unaffected.
@@ -992,20 +1045,32 @@ name = "Inner"
     #[test]
     fn a_library_with_no_private_submodule_configured_reports_none() {
         let tmp = tempfile::tempdir().unwrap();
-        let root = KovanRoot::create(&tmp.path().join("lib"), RootConfig::new("lib", "Lib"), false).unwrap();
+        let root = KovanRoot::create(
+            &tmp.path().join("lib"),
+            RootConfig::new("lib", "Lib"),
+            false,
+        )
+        .unwrap();
         assert!(root.private_submodule().is_none());
         assert!(!root.private_submodule_ready());
     }
 
     #[test]
     fn with_private_submodule_stores_only_a_remote_url_never_a_credential() {
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private-literature.git");
+        let config = RootConfig::new("lib", "Lib")
+            .with_private_submodule("git@example.com:org/private-literature.git");
         let submodule = config.private_submodule.as_ref().unwrap();
-        assert_eq!(submodule.remote, "git@example.com:org/private-literature.git");
+        assert_eq!(
+            submodule.remote,
+            "git@example.com:org/private-literature.git"
+        );
 
         let text = config.to_toml().unwrap();
         assert!(text.contains("[private_submodule]"), "{text}");
-        assert!(text.contains("git@example.com:org/private-literature.git"), "{text}");
+        assert!(
+            text.contains("git@example.com:org/private-literature.git"),
+            "{text}"
+        );
 
         let back: RootConfig = toml::from_str(&text).unwrap();
         assert_eq!(back, config);
@@ -1015,7 +1080,8 @@ name = "Inner"
     fn create_with_a_private_submodule_does_not_gitignore_its_mount_directory() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("lib");
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(&dir, config, false).unwrap();
 
         assert!(root.private_submodule().is_some());
@@ -1029,7 +1095,8 @@ name = "Inner"
     fn private_submodule_ready_requires_both_configuration_and_an_actual_checkout() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("lib");
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(&dir, config, false).unwrap();
 
         // Configured, but never actually checked out here (no `.git` inside
@@ -1059,7 +1126,8 @@ name = "Inner"
         let dir2 = tmp2.path().join("lib");
         std::fs::create_dir_all(&dir2).unwrap();
         std::fs::write(dir2.join(".gitignore"), "*.bak\n").unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         KovanRoot::create(&dir2, config, false).unwrap();
         let gi2 = std::fs::read_to_string(dir2.join(".gitignore")).unwrap();
         assert!(!gi2.contains("literature/proprietary"), "{gi2}");

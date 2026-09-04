@@ -2404,7 +2404,10 @@ fn gate_gpu_kernels_match_the_oracle() {
     kgpu::spmv_into(&m, &topo, &x, &mut got).expect("GPU spmv on a present adapter");
     let d = worst(&got, &want);
     println!("[gpu-parity] spmv    max rel = {d:.3e} (gate 1e-5)");
-    assert!(d < 1e-5, "spmv deviated {d:e}, above the documented 1e-5 gate");
+    assert!(
+        d < 1e-5,
+        "spmv deviated {d:e}, above the documented 1e-5 gate"
+    );
 
     // axpy
     let mut want_y = x.clone();

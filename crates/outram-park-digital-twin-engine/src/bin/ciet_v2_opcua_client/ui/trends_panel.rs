@@ -142,7 +142,8 @@ fn trend_plot(
                     continue;
                 }
                 plot_ui.line(
-                    Line::new(signal.display_name(), PlotPoints::from(trend.points())).width(1.6_f32),
+                    Line::new(signal.display_name(), PlotPoints::from(trend.points()))
+                        .width(1.6_f32),
                 );
             }
         });

@@ -187,10 +187,13 @@ pub(super) fn extract_signature(hover: &str) -> String {
 /// signature (from `hover` at the same identifier — the declaration `--file`
 /// matched *is* the definition site).
 pub fn run_def(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
-    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Def {
-        file: file.clone(),
-        symbol: symbol.clone(),
-    }) {
+    if let Some(resp) = lsp_daemon::query(
+        &root,
+        &lsp_daemon::Request::Def {
+            file: file.clone(),
+            symbol: symbol.clone(),
+        },
+    ) {
         return print_daemon_response(resp);
     }
     let pos = locate_declaration(&file, &symbol)?;
@@ -201,16 +204,24 @@ pub fn run_def(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Strin
     if let Some(h) = &hover {
         println!("{}", extract_signature(&h.contents));
     }
-    println!("defined at {}:{}:{}", file.display(), pos.line, pos.character);
+    println!(
+        "defined at {}:{}:{}",
+        file.display(),
+        pos.line,
+        pos.character
+    );
     Ok(())
 }
 
 /// `kovan-cli sig <symbol> --file <file>` — the signature alone.
 pub fn run_sig(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
-    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Sig {
-        file: file.clone(),
-        symbol: symbol.clone(),
-    }) {
+    if let Some(resp) = lsp_daemon::query(
+        &root,
+        &lsp_daemon::Request::Sig {
+            file: file.clone(),
+            symbol: symbol.clone(),
+        },
+    ) {
         return print_daemon_response(resp);
     }
     let pos = locate_declaration(&file, &symbol)?;
@@ -230,10 +241,13 @@ pub fn run_sig(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Strin
 /// `kopitiam_semantic` query — no +1 display conversion, same convention
 /// kopitiam's own `refs` uses).
 pub fn run_refs(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), String> {
-    if let Some(resp) = lsp_daemon::query(&root, &lsp_daemon::Request::Refs {
-        file: file.clone(),
-        symbol: symbol.clone(),
-    }) {
+    if let Some(resp) = lsp_daemon::query(
+        &root,
+        &lsp_daemon::Request::Refs {
+            file: file.clone(),
+            symbol: symbol.clone(),
+        },
+    ) {
         return print_daemon_response(resp);
     }
     let pos = locate_declaration(&file, &symbol)?;
@@ -269,7 +283,9 @@ pub fn run_refs(symbol: String, file: PathBuf, root: PathBuf) -> Result<(), Stri
 /// `Result<(), String>` error convention.
 fn print_daemon_response(resp: lsp_daemon::Response) -> Result<(), String> {
     if !resp.ok {
-        return Err(resp.error.unwrap_or_else(|| "daemon request failed".to_string()));
+        return Err(resp
+            .error
+            .unwrap_or_else(|| "daemon request failed".to_string()));
     }
     if let Some(sig) = &resp.signature {
         println!("{sig}");
@@ -314,7 +330,13 @@ mod tests {
         .unwrap();
 
         let by_bare = locate_declaration(&file, "bar").expect("bare name should resolve");
-        assert_eq!(by_bare, SymPos { line: 1, character: 3 });
+        assert_eq!(
+            by_bare,
+            SymPos {
+                line: 1,
+                character: 3
+            }
+        );
 
         let by_qualified =
             locate_declaration(&file, "crate::bar").expect("qualified name should resolve");

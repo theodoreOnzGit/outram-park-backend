@@ -456,7 +456,9 @@ impl GpuContext {
         // polled to completion above, so a failure here means the mapping
         // itself is broken, not a normal runtime condition — worth a panic,
         // not a `Result` this GPU-readback helper would have to propagate.
-        let data = slice.get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let data = slice
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         let out = le_bytes_to_f32_vec(&data);
         drop(data);
         staging_buf.unmap();

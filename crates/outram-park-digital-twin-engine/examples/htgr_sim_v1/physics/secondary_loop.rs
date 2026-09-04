@@ -527,7 +527,7 @@ impl Default for FeedwaterCommand {
             };
         } else {
             return Self::Manual {
-                mass_flow_demand: MassRate::new::<kilogram_per_second>(10.0)
+                mass_flow_demand: MassRate::new::<kilogram_per_second>(10.0),
             };
         }
     }

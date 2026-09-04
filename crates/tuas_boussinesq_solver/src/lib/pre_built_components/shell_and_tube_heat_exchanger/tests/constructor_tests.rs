@@ -14,9 +14,9 @@ pub fn du_heat_exchanger_constructor_test() {
 
     use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::GnielinskiData;
 
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
-        use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;
@@ -233,9 +233,9 @@ pub fn insulated_sthe_constructor_test() {
 
     use crate::heat_transfer_correlations::nusselt_number_correlations::input_structs::GnielinskiData;
 
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
-        use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;

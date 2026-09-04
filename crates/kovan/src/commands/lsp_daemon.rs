@@ -208,8 +208,7 @@ mod unix_impl {
     /// `kovan-cli lsp-daemon-serve`, which [`spawn_daemon`] launches detached
     /// — never meant to be typed by a human or agent directly.
     pub fn serve(root: PathBuf) -> Result<(), String> {
-        let root =
-            std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
+        let root = std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
         let path = socket_path(&root);
 
         let listener = match UnixListener::bind(&path) {
@@ -222,8 +221,7 @@ mod unix_impl {
                 }
                 std::fs::remove_file(&path)
                     .map_err(|e| format!("removing stale socket {}: {e}", path.display()))?;
-                UnixListener::bind(&path)
-                    .map_err(|e| format!("binding {}: {e}", path.display()))?
+                UnixListener::bind(&path).map_err(|e| format!("binding {}: {e}", path.display()))?
             }
             Err(e) => return Err(format!("binding {}: {e}", path.display())),
         };
@@ -261,8 +259,9 @@ mod unix_impl {
             Ok(req) => (handle_request(session, req), false),
             Err(e) => (Response::error(format!("bad request: {e}")), false),
         };
-        let out = serde_json::to_string(&response)
-            .unwrap_or_else(|_| r#"{"ok":false,"error":"internal serialization error"}"#.to_string());
+        let out = serde_json::to_string(&response).unwrap_or_else(|_| {
+            r#"{"ok":false,"error":"internal serialization error"}"#.to_string()
+        });
         let stream = reader.get_mut();
         let _ = stream.write_all(out.as_bytes());
         let _ = stream.write_all(b"\n");
@@ -336,7 +335,10 @@ mod unix_impl {
     /// unless the state is already `Ready`, so a request against a session
     /// that just started must wait here first rather than surfacing that as
     /// a client-visible error on the very first query.
-    fn wait_until_ready(session: &AsyncRustAnalyzerSession, timeout: Duration) -> Result<(), String> {
+    fn wait_until_ready(
+        session: &AsyncRustAnalyzerSession,
+        timeout: Duration,
+    ) -> Result<(), String> {
         let deadline = Instant::now() + timeout;
         loop {
             match session.state() {
@@ -376,9 +378,11 @@ mod unix_impl {
     /// this platform, so nothing ever invokes this. Kept so the CLI's
     /// `LspDaemonServe` variant compiles on every target.
     pub fn serve(_root: PathBuf) -> Result<(), String> {
-        Err("the kovan-cli lsp-daemon is Unix-only (Linux/macOS/Android); \
+        Err(
+            "the kovan-cli lsp-daemon is Unix-only (Linux/macOS/Android); \
              this platform always uses the spawn-per-call path instead"
-            .to_string())
+                .to_string(),
+        )
     }
 
     /// There is never a daemon to stop on this platform.

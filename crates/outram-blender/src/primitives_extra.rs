@@ -67,14 +67,21 @@ pub struct AddMeshOptions {
 
 impl Default for AddMeshOptions {
     fn default() -> Self {
-        AddMeshOptions { location: Vec3::ZERO, rotation_euler: Vec3::ZERO, scale: 1.0 }
+        AddMeshOptions {
+            location: Vec3::ZERO,
+            rotation_euler: Vec3::ZERO,
+            scale: 1.0,
+        }
     }
 }
 
 impl AddMeshOptions {
     /// Placement at `location` with no rotation and unit scale.
     pub fn at(location: Vec3) -> Self {
-        AddMeshOptions { location, ..Default::default() }
+        AddMeshOptions {
+            location,
+            ..Default::default()
+        }
     }
 
     /// Apply this placement (scale → rotate → translate) to `mesh`, returning
@@ -108,7 +115,10 @@ impl AddMeshOptions {
 }
 
 fn polygons_as_usize(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// A single `size x size` quad in the `z = 0` plane, centred on the origin,
@@ -117,8 +127,12 @@ fn polygons_as_usize(mesh: &Mesh) -> Vec<Vec<usize>> {
 /// Topology: **4** vertices, **4** edges, **1** face, `chi = 1` (a disc).
 pub fn plane(size: f64) -> Mesh {
     let h = size * 0.5;
-    let positions =
-        vec![Vec3::new(-h, -h, 0.0), Vec3::new(h, -h, 0.0), Vec3::new(h, h, 0.0), Vec3::new(-h, h, 0.0)];
+    let positions = vec![
+        Vec3::new(-h, -h, 0.0),
+        Vec3::new(h, -h, 0.0),
+        Vec3::new(h, h, 0.0),
+        Vec3::new(-h, h, 0.0),
+    ];
     Mesh::from_polygons(&positions, &[vec![0, 1, 2, 3]])
 }
 
@@ -193,7 +207,12 @@ pub fn cone(segments: usize, radius1: f64, radius2: f64, height: f64) -> Mesh {
 ///
 /// `major_segments` around the main ring, `minor_segments` around the tube
 /// (each clamped `>= 3`). All quads, closed, genus-1 → `chi = 0`.
-pub fn torus(major_segments: usize, minor_segments: usize, major_radius: f64, minor_radius: f64) -> Mesh {
+pub fn torus(
+    major_segments: usize,
+    minor_segments: usize,
+    major_radius: f64,
+    minor_radius: f64,
+) -> Mesh {
     let (nm, nt) = (major_segments.max(3), minor_segments.max(3));
     let mut positions: Vec<Vec3> = Vec::with_capacity(nm * nt);
     for i in 0..nm {
@@ -209,7 +228,12 @@ pub fn torus(major_segments: usize, minor_segments: usize, major_radius: f64, mi
     let mut faces: Vec<Vec<usize>> = Vec::with_capacity(nm * nt);
     for i in 0..nm {
         for j in 0..nt {
-            faces.push(vec![idx(i, j), idx(i + 1, j), idx(i + 1, j + 1), idx(i, j + 1)]);
+            faces.push(vec![
+                idx(i, j),
+                idx(i + 1, j),
+                idx(i + 1, j + 1),
+                idx(i, j + 1),
+            ]);
         }
     }
     Mesh::from_polygons(&positions, &faces)
@@ -237,10 +261,26 @@ pub fn icosphere(subdivisions: usize, radius: f64) -> Mesh {
         Vec3::new(-t, 0.0, 1.0),
     ];
     let mut tris: Vec<[usize; 3]> = vec![
-        [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
-        [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
-        [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
-        [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+        [0, 11, 5],
+        [0, 5, 1],
+        [0, 1, 7],
+        [0, 7, 10],
+        [0, 10, 11],
+        [1, 5, 9],
+        [5, 11, 4],
+        [11, 10, 2],
+        [10, 7, 6],
+        [7, 1, 8],
+        [3, 9, 4],
+        [3, 4, 2],
+        [3, 2, 6],
+        [3, 6, 8],
+        [3, 8, 9],
+        [4, 9, 5],
+        [2, 4, 11],
+        [6, 2, 10],
+        [8, 6, 7],
+        [9, 8, 1],
     ];
 
     let mut midpoint_cache: std::collections::HashMap<(usize, usize), usize> =
@@ -370,7 +410,11 @@ mod tests {
     #[test]
     fn add_mesh_options_scale() {
         let m = plane(2.0);
-        let placed = AddMeshOptions { scale: 3.0, ..Default::default() }.place(&m);
+        let placed = AddMeshOptions {
+            scale: 3.0,
+            ..Default::default()
+        }
+        .place(&m);
         let (lo, hi) = crate::measure::bounding_box(&placed);
         assert!((hi.x - lo.x - 6.0).abs() < 1e-9);
     }

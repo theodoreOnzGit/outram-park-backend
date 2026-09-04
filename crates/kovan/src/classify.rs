@@ -25,8 +25,8 @@
 //! annotate/crop canvas and the digitiser tabs); this module is UI-free.
 
 use crate::artifact::{
-    block_span, parse_document, render_artifact_block, Artifact, ArtifactKind, ArtifactMeta, ArtifactToml,
-    Extraction, SourceAnchor,
+    block_span, parse_document, render_artifact_block, Artifact, ArtifactKind, ArtifactMeta,
+    ArtifactToml, Extraction, SourceAnchor,
 };
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::entity::Classification;
@@ -128,7 +128,16 @@ pub fn classify_selection(
     classification: Classification,
     body: &str,
 ) -> Result<Artifact, ClassifyError> {
-    insert_artifact(session, index, heading, kind, Some(anchor), classification, None, body)
+    insert_artifact(
+        session,
+        index,
+        heading,
+        kind,
+        Some(anchor),
+        classification,
+        None,
+        body,
+    )
 }
 
 /// Build and append one fenced-TOML artifact (§13/§14) to `session`'s
@@ -159,14 +168,24 @@ pub fn insert_artifact(
     let now = utc_now_iso8601();
 
     let toml = ArtifactToml {
-        kovan: ArtifactMeta { id: id.clone(), kind, created: now.clone(), modified: now, reviewed: None },
+        kovan: ArtifactMeta {
+            id: id.clone(),
+            kind,
+            created: now.clone(),
+            modified: now,
+            reviewed: None,
+        },
         source: anchor,
         classification,
         extraction,
     };
     let rendered = render_artifact_block(ARTIFACT_HEADING_LEVEL, heading, &toml, body)
         .map_err(ClassifyError::Render)?;
-    insert_block_in_page_order(session, &rendered, toml.source.as_ref().and_then(|s| s.first_page()));
+    insert_block_in_page_order(
+        session,
+        &rendered,
+        toml.source.as_ref().and_then(|s| s.first_page()),
+    );
 
     let refreshed = ResearchRecordIndex::from_session(session);
     Ok(refreshed.get(&id).expect("just inserted").clone())
@@ -187,10 +206,13 @@ fn insert_block_in_page_order(session: &mut PaperSession, rendered: &str, page: 
     };
     let md = session.markdown().to_string();
     let parsed = parse_document(&md);
-    let successor = parsed
-        .artifacts
-        .iter()
-        .find(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).is_some_and(|p| p > page));
+    let successor = parsed.artifacts.iter().find(|a| {
+        a.toml
+            .source
+            .as_ref()
+            .and_then(|s| s.first_page())
+            .is_some_and(|p| p > page)
+    });
     match successor {
         Some(a) => {
             let at = block_span(&md, a).start;
@@ -217,7 +239,13 @@ pub fn sort_artifacts_by_page(session: &mut PaperSession) -> bool {
     let anchored: Vec<&Artifact> = parsed
         .artifacts
         .iter()
-        .filter(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).is_some())
+        .filter(|a| {
+            a.toml
+                .source
+                .as_ref()
+                .and_then(|s| s.first_page())
+                .is_some()
+        })
         .collect();
     if anchored.len() < 2 {
         return false;
@@ -225,7 +253,13 @@ pub fn sort_artifacts_by_page(session: &mut PaperSession) -> bool {
     let spans: Vec<std::ops::Range<usize>> = anchored.iter().map(|a| block_span(&md, a)).collect();
     let pages: Vec<u32> = anchored
         .iter()
-        .map(|a| a.toml.source.as_ref().and_then(|s| s.first_page()).unwrap_or(0))
+        .map(|a| {
+            a.toml
+                .source
+                .as_ref()
+                .and_then(|s| s.first_page())
+                .unwrap_or(0)
+        })
         .collect();
     if pages.windows(2).all(|w| w[0] <= w[1]) {
         return false; // already in order
@@ -296,7 +330,9 @@ pub fn replace_artifact_body(
 ) -> Result<Artifact, ClassifyError> {
     let md = session.markdown().to_string();
     let parsed = parse_document(&md);
-    let artifact = parsed.get(id).ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
+    let artifact = parsed
+        .get(id)
+        .ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
 
     let mut toml = artifact.toml.clone();
     toml.kovan.modified = utc_now_iso8601();
@@ -345,7 +381,10 @@ pub fn save_digitised_csv(
         kind,
         anchor,
         Classification::default(),
-        Some(Extraction { method: "manual_digitisation".to_string(), engine }),
+        Some(Extraction {
+            method: "manual_digitisation".to_string(),
+            engine,
+        }),
         csv_body,
     )
 }
@@ -388,8 +427,14 @@ mod tests {
 
     #[test]
     fn slugify_matches_the_issues_own_examples() {
-        assert_eq!(slugify("Coupled neutronics methodology"), "coupled-neutronics-methodology");
-        assert_eq!(slugify("Table 4.4 — Core component materials"), "table-4-4-core-component-materials");
+        assert_eq!(
+            slugify("Coupled neutronics methodology"),
+            "coupled-neutronics-methodology"
+        );
+        assert_eq!(
+            slugify("Table 4.4 — Core component materials"),
+            "table-4-4-core-component-materials"
+        );
         assert_eq!(slugify("   ---   "), "");
     }
 
@@ -398,8 +443,15 @@ mod tests {
         let (_dir, mut session) = open_session();
         let index = ResearchRecordIndex::from_session(&session);
 
-        let anchor = SourceAnchor { page: None, pages: Some([42, 48]), region: None };
-        let classification = Classification { topics: vec!["htgrs/neutronics".to_string()], projects: vec![] };
+        let anchor = SourceAnchor {
+            page: None,
+            pages: Some([42, 48]),
+            region: None,
+        };
+        let classification = Classification {
+            topics: vec!["htgrs/neutronics".to_string()],
+            projects: vec![],
+        };
         let artifact = classify_selection(
             &mut session,
             &index,
@@ -422,14 +474,35 @@ mod tests {
     #[test]
     fn a_second_selection_with_the_same_heading_gets_a_disambiguated_id() {
         let (_dir, mut session) = open_session();
-        let anchor = || SourceAnchor { page: Some(3), pages: None, region: None };
+        let anchor = || SourceAnchor {
+            page: Some(3),
+            pages: None,
+            region: None,
+        };
 
         let index = ResearchRecordIndex::from_session(&session);
-        classify_selection(&mut session, &index, "Note", ArtifactKind::Annotation, anchor(), Classification::default(), "").unwrap();
+        classify_selection(
+            &mut session,
+            &index,
+            "Note",
+            ArtifactKind::Annotation,
+            anchor(),
+            Classification::default(),
+            "",
+        )
+        .unwrap();
 
         let index = ResearchRecordIndex::from_session(&session);
-        let second =
-            classify_selection(&mut session, &index, "Note", ArtifactKind::Annotation, anchor(), Classification::default(), "").unwrap();
+        let second = classify_selection(
+            &mut session,
+            &index,
+            "Note",
+            ArtifactKind::Annotation,
+            anchor(),
+            Classification::default(),
+            "",
+        )
+        .unwrap();
 
         assert_eq!(second.id(), "note-2");
     }
@@ -440,7 +513,11 @@ mod tests {
         let index = ResearchRecordIndex::from_session(&session);
         let original = session.markdown().to_string();
 
-        let bad_anchor = SourceAnchor { page: None, pages: None, region: None }; // neither page nor pages
+        let bad_anchor = SourceAnchor {
+            page: None,
+            pages: None,
+            region: None,
+        }; // neither page nor pages
         let err = classify_selection(
             &mut session,
             &index,
@@ -453,7 +530,11 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, ClassifyError::BadAnchor(_)));
-        assert_eq!(session.markdown(), original, "a rejected anchor must not touch the buffer");
+        assert_eq!(
+            session.markdown(),
+            original,
+            "a rejected anchor must not touch the buffer"
+        );
         assert!(!session.is_dirty());
     }
 
@@ -473,7 +554,10 @@ mod tests {
             ArtifactKind::DigitisedGraph,
             Some(anchor),
             Classification::default(),
-            Some(Extraction { method: "manual_digitisation".into(), engine: None }),
+            Some(Extraction {
+                method: "manual_digitisation".into(),
+                engine: None,
+            }),
             "```csv\nx,y\n1,2\n```",
         )
         .unwrap();
@@ -481,7 +565,10 @@ mod tests {
         assert_eq!(art.kind(), ArtifactKind::DigitisedGraph);
         let reparsed = ResearchRecordIndex::from_session(&session);
         let a = reparsed.get(art.id()).unwrap();
-        assert_eq!(a.toml.extraction.as_ref().unwrap().method, "manual_digitisation");
+        assert_eq!(
+            a.toml.extraction.as_ref().unwrap().method,
+            "manual_digitisation"
+        );
         assert_eq!(a.toml.source.as_ref().unwrap().region.unwrap().x1, 0.6);
         assert!(a.csv_block().is_some());
     }
@@ -495,7 +582,11 @@ mod tests {
             &index,
             "Graphite temperature assumption",
             ArtifactKind::Annotation,
-            SourceAnchor { page: Some(87), pages: None, region: None },
+            SourceAnchor {
+                page: Some(87),
+                pages: None,
+                region: None,
+            },
             Classification::default(),
             "first draft of the note",
         )
@@ -503,7 +594,8 @@ mod tests {
         let created = art.toml.kovan.created.clone();
         let before_lines = session.markdown().lines().count();
 
-        let updated = replace_artifact_body(&mut session, art.id(), "a corrected note about it").unwrap();
+        let updated =
+            replace_artifact_body(&mut session, art.id(), "a corrected note about it").unwrap();
 
         assert_eq!(updated.toml.kovan.created, created, "created is stable");
         // `modified` is re-stamped with `utc_now_iso8601()` by construction;
@@ -512,8 +604,15 @@ mod tests {
         let md = session.markdown();
         assert!(md.contains("a corrected note about it"));
         assert!(!md.contains("first draft of the note"));
-        assert!(md.contains(&format!("id = \"{}\"", art.id())), "the [kovan] block survives");
-        assert_eq!(session.markdown().lines().count(), before_lines, "no lines added/removed");
+        assert!(
+            md.contains(&format!("id = \"{}\"", art.id())),
+            "the [kovan] block survives"
+        );
+        assert_eq!(
+            session.markdown().lines().count(),
+            before_lines,
+            "no lines added/removed"
+        );
     }
 
     /// Maintainer, 2026-09-02: "when saving annotations, i want them auto
@@ -528,7 +627,11 @@ mod tests {
                 &index,
                 name,
                 ArtifactKind::Annotation,
-                Some(SourceAnchor { page: Some(page), pages: None, region: None }),
+                Some(SourceAnchor {
+                    page: Some(page),
+                    pages: None,
+                    region: None,
+                }),
                 Classification::default(),
                 None,
                 "body",
@@ -549,8 +652,11 @@ mod tests {
         assert_eq!(pages, vec![1, 1, 3, 5], "document order follows page order");
 
         // Same-page blocks keep the order they were saved in.
-        let headings: Vec<String> =
-            ResearchRecordIndex::from_session(&session).artifacts().iter().map(|a| a.heading.clone()).collect();
+        let headings: Vec<String> = ResearchRecordIndex::from_session(&session)
+            .artifacts()
+            .iter()
+            .map(|a| a.heading.clone())
+            .collect();
         assert_eq!(headings, vec!["Note A", "Note A2", "Note C", "Note E"]);
     }
 
@@ -614,7 +720,12 @@ mod tests {
             "```csv\nx,y\n1,10\n```\n",
         )
         .unwrap();
-        assert_eq!(ResearchRecordIndex::from_session(&session).artifacts().len(), 1);
+        assert_eq!(
+            ResearchRecordIndex::from_session(&session)
+                .artifacts()
+                .len(),
+            1
+        );
 
         // Re-digitise: same id, new numbers — one artifact, updated body,
         // `[source]` region preserved.
@@ -633,6 +744,10 @@ mod tests {
         assert_eq!(idx.artifacts().len(), 1, "replace, not append");
         let a = idx.get(first.id()).unwrap();
         assert!(a.body.contains("2,22"));
-        assert_eq!(a.toml.source.as_ref().unwrap().page, Some(4), "[source] survives a re-digitise");
+        assert_eq!(
+            a.toml.source.as_ref().unwrap().page,
+            Some(4),
+            "[source] survives a re-digitise"
+        );
     }
 }

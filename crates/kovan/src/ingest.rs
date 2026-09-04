@@ -57,7 +57,10 @@ pub enum IngestError {
     CiteKeyTaken { citekey: String },
     /// The chosen citekey is not safe as a directory name — see [`CiteKey`].
     Entity(EntityError),
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// The bibliography file exists but is not valid BibTeX.
     Bib { path: PathBuf, message: String },
 }
@@ -66,9 +69,15 @@ impl std::fmt::Display for IngestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Metadata { path, message } => {
-                write!(f, "{}: could not extract metadata: {message}", path.display())
+                write!(
+                    f,
+                    "{}: could not extract metadata: {message}",
+                    path.display()
+                )
             }
-            Self::CiteKeyTaken { citekey } => write!(f, "a paper with citekey {citekey:?} already exists"),
+            Self::CiteKeyTaken { citekey } => {
+                write!(f, "a paper with citekey {citekey:?} already exists")
+            }
             Self::Entity(e) => write!(f, "{e}"),
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Bib { path, message } => write!(f, "{}: {message}", path.display()),
@@ -107,8 +116,10 @@ pub struct IngestPreview {
 
 /// Run the automatic-detection half of §22 over `pdf_path`. Writes nothing.
 pub fn preview(root: &KovanRoot, pdf_path: &Path) -> Result<IngestPreview, IngestError> {
-    let doc = kovan_literature::extract_metadata(pdf_path)
-        .map_err(|e| IngestError::Metadata { path: pdf_path.to_path_buf(), message: e.to_string() })?;
+    let doc = kovan_literature::extract_metadata(pdf_path).map_err(|e| IngestError::Metadata {
+        path: pdf_path.to_path_buf(),
+        message: e.to_string(),
+    })?;
 
     let bibtex_text = to_bibtex(&doc);
     let bib_entry = parse_bib_entries(&bibtex_text)
@@ -122,11 +133,20 @@ pub fn preview(root: &KovanRoot, pdf_path: &Path) -> Result<IngestPreview, Inges
     let authors = doc
         .authors
         .iter()
-        .map(|a| if a.given.is_empty() { a.family.clone() } else { format!("{}, {}", a.family, a.given) })
+        .map(|a| {
+            if a.given.is_empty() {
+                a.family.clone()
+            } else {
+                format!("{}, {}", a.family, a.given)
+            }
+        })
         .collect::<Vec<_>>()
         .join(" and ");
 
-    let already_exists = root.paper_dir(&bib_entry.cite_key).join(ENTITY_MARKER).is_file();
+    let already_exists = root
+        .paper_dir(&bib_entry.cite_key)
+        .join(ENTITY_MARKER)
+        .is_file();
 
     Ok(IngestPreview {
         source_pdf: pdf_path.to_path_buf(),
@@ -162,18 +182,38 @@ pub struct IngestChoice {
 /// function's job — it is GUI navigation, not a filesystem write, and the
 /// Research workspace itself is `op-9vo6.25`'s later step. A caller opens
 /// it itself once this returns `Ok`.
-pub fn ingest(root: &KovanRoot, preview: &IngestPreview, choice: IngestChoice) -> Result<(), IngestError> {
+pub fn ingest(
+    root: &KovanRoot,
+    preview: &IngestPreview,
+    choice: IngestChoice,
+) -> Result<(), IngestError> {
     let citekey = CiteKey::parse(&choice.citekey).map_err(IngestError::Entity)?;
 
-    if root.paper_dir(citekey.as_str()).join(ENTITY_MARKER).is_file() {
-        return Err(IngestError::CiteKeyTaken { citekey: citekey.as_str().to_string() });
+    if root
+        .paper_dir(citekey.as_str())
+        .join(ENTITY_MARKER)
+        .is_file()
+    {
+        return Err(IngestError::CiteKeyTaken {
+            citekey: citekey.as_str().to_string(),
+        });
     }
 
     // §23 step 3: store the PDF under open/restricted source storage.
-    let store_dir = if choice.access.is_committable() { root.open_sources_dir() } else { root.restricted_sources_dir() };
-    std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io { path: store_dir.clone(), source })?;
+    let store_dir = if choice.access.is_committable() {
+        root.open_sources_dir()
+    } else {
+        root.restricted_sources_dir()
+    };
+    std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io {
+        path: store_dir.clone(),
+        source,
+    })?;
     let dest_pdf = store_dir.join(format!("{}.pdf", citekey.as_str()));
-    std::fs::copy(&preview.source_pdf, &dest_pdf).map_err(|source| IngestError::Io { path: dest_pdf.clone(), source })?;
+    std::fs::copy(&preview.source_pdf, &dest_pdf).map_err(|source| IngestError::Io {
+        path: dest_pdf.clone(),
+        source,
+    })?;
 
     // §23 step 4: create/update the bibliography.
     let mut entry = preview.bib_entry.clone();
@@ -187,8 +227,11 @@ pub fn ingest(root: &KovanRoot, preview: &IngestPreview, choice: IngestChoice) -
         // op-8aq6: a classification naming a topic/project path that has no
         // backing collection entity yet made the paper permanently
         // unreachable by Wiki drill-down — create whatever's missing first.
-        crate::entity::ensure_classification_paths(root, &choice.topics, &choice.projects).map_err(IngestError::Entity)?;
-        config = config.with_topics(choice.topics).with_projects(choice.projects);
+        crate::entity::ensure_classification_paths(root, &choice.topics, &choice.projects)
+            .map_err(IngestError::Entity)?;
+        config = config
+            .with_topics(choice.topics)
+            .with_projects(choice.projects);
     }
     // else: leave EntityConfig::paper's default Classification::unsorted()
     // in place — §7's inbox for rapid ingestion, and what keeps `validate`
@@ -211,22 +254,35 @@ pub fn ingest(root: &KovanRoot, preview: &IngestPreview, choice: IngestChoice) -
 fn append_bib_entry(root: &KovanRoot, entry: BibEntry) -> Result<(), IngestError> {
     let bib_path = root.bibliography_path();
     let mut entries = if bib_path.is_file() {
-        let text =
-            std::fs::read_to_string(&bib_path).map_err(|source| IngestError::Io { path: bib_path.clone(), source })?;
-        parse_bib_entries(&text).map_err(|e| IngestError::Bib { path: bib_path.clone(), message: format!("{e:?}") })?
+        let text = std::fs::read_to_string(&bib_path).map_err(|source| IngestError::Io {
+            path: bib_path.clone(),
+            source,
+        })?;
+        parse_bib_entries(&text).map_err(|e| IngestError::Bib {
+            path: bib_path.clone(),
+            message: format!("{e:?}"),
+        })?
     } else {
         Vec::new()
     };
     if entries.iter().any(|e| e.cite_key == entry.cite_key) {
-        return Err(IngestError::CiteKeyTaken { citekey: entry.cite_key });
+        return Err(IngestError::CiteKeyTaken {
+            citekey: entry.cite_key,
+        });
     }
     entries.push(entry);
     entries.sort_by(|a, b| a.cite_key.cmp(&b.cite_key));
 
     let text = render_entries(&entries);
     let tmp_path = PathBuf::from(format!("{}.tmp", bib_path.display()));
-    std::fs::write(&tmp_path, text).map_err(|source| IngestError::Io { path: tmp_path.clone(), source })?;
-    std::fs::rename(&tmp_path, &bib_path).map_err(|source| IngestError::Io { path: bib_path, source })
+    std::fs::write(&tmp_path, text).map_err(|source| IngestError::Io {
+        path: tmp_path.clone(),
+        source,
+    })?;
+    std::fs::rename(&tmp_path, &bib_path).map_err(|source| IngestError::Io {
+        path: bib_path,
+        source,
+    })
 }
 
 /// Express `target` relative to `base` (both absolute paths under the same
@@ -237,7 +293,11 @@ fn append_bib_entry(root: &KovanRoot, entry: BibEntry) -> Result<(), IngestError
 fn relative_to(base: &Path, target: &Path) -> PathBuf {
     let base_comps: Vec<_> = base.components().collect();
     let target_comps: Vec<_> = target.components().collect();
-    let common = base_comps.iter().zip(target_comps.iter()).take_while(|(a, b)| a == b).count();
+    let common = base_comps
+        .iter()
+        .zip(target_comps.iter())
+        .take_while(|(a, b)| a == b)
+        .count();
     let mut out = PathBuf::new();
     for _ in common..base_comps.len() {
         out.push("..");
@@ -282,7 +342,10 @@ mod tests {
         let base = PathBuf::from("/lib/papers/wang2018multiphysics");
         let target = PathBuf::from("/lib/literature/open/wang2018multiphysics.pdf");
         let rel = relative_to(&base, &target);
-        assert_eq!(rel, PathBuf::from("../../literature/open/wang2018multiphysics.pdf"));
+        assert_eq!(
+            rel,
+            PathBuf::from("../../literature/open/wang2018multiphysics.pdf")
+        );
     }
 
     #[test]
@@ -305,8 +368,12 @@ mod tests {
 
         let paper_dir = root.paper_dir(&p.suggested_citekey);
         assert!(paper_dir.join("kovan.toml").is_file());
-        assert!(paper_dir.join(format!("{}.md", p.suggested_citekey)).is_file());
-        let stored_pdf = root.open_sources_dir().join(format!("{}.pdf", p.suggested_citekey));
+        assert!(paper_dir
+            .join(format!("{}.md", p.suggested_citekey))
+            .is_file());
+        let stored_pdf = root
+            .open_sources_dir()
+            .join(format!("{}.pdf", p.suggested_citekey));
         assert!(stored_pdf.is_file());
 
         let bib_text = std::fs::read_to_string(root.bibliography_path()).unwrap();

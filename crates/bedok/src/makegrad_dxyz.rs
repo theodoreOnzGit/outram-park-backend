@@ -192,18 +192,18 @@ pub fn makegrad_dxyz(
     // One direction's contribution.
     #[allow(clippy::too_many_arguments)]
     let direction = |lines: &[(usize, usize)],
-                         stride: usize,
-                         col_minus: usize,
-                         col_plus: usize,
-                         widths: &[f64],
-                         bc_min: BoundaryCondition,
-                         bc_max: BoundaryCondition,
-                         accumulate: bool,
-                         diag: &mut Vec<f64>,
-                         row: &mut Vec<usize>,
-                         col: &mut Vec<usize>,
-                         ele: &mut Vec<f64>,
-                         terms: &mut Array2<f64>| {
+                     stride: usize,
+                     col_minus: usize,
+                     col_plus: usize,
+                     widths: &[f64],
+                     bc_min: BoundaryCondition,
+                     bc_max: BoundaryCondition,
+                     accumulate: bool,
+                     diag: &mut Vec<f64>,
+                     row: &mut Vec<usize>,
+                     col: &mut Vec<usize>,
+                     ele: &mut Vec<f64>,
+                     terms: &mut Array2<f64>| {
         let write_diag = |idx: usize, v: f64, diag: &mut Vec<f64>| {
             if accumulate {
                 diag[idx] += v;
@@ -263,9 +263,7 @@ pub fn makegrad_dxyz(
                     let dp = diff(np, g);
                     let dt_plus = 0.5 * (h + hp) * (d0 * dp) / (h * d0 + hp * dp) / widths[low];
                     let dt_minus = match bc_min {
-                        BoundaryCondition::Vacuum => {
-                            0.5 * d0 / (2.0 * d0 + 0.5 * widths[low])
-                        }
+                        BoundaryCondition::Vacuum => 0.5 * d0 / (2.0 * d0 + 0.5 * widths[low]),
                         BoundaryCondition::Reflective => 0.0,
                         BoundaryCondition::ZeroFlux => d0 / widths[low],
                     };
@@ -293,9 +291,7 @@ pub fn makegrad_dxyz(
                     let dm = diff(nm, g);
                     let dt_minus = 0.5 * (h + hm) * (d0 * dm) / (h * d0 + hm * dm) / widths[high];
                     let dt_plus = match bc_max {
-                        BoundaryCondition::Vacuum => {
-                            0.5 * d0 / (2.0 * d0 + 0.5 * widths[high])
-                        }
+                        BoundaryCondition::Vacuum => 0.5 * d0 / (2.0 * d0 + 0.5 * widths[high]),
                         BoundaryCondition::Reflective => 0.0,
                         BoundaryCondition::ZeroFlux => d0 / widths[high],
                     };
@@ -452,7 +448,10 @@ mod tests {
         let found = g.operator.find();
         let diag = found.iter().find(|t| t.i == 1 && t.j == 1).unwrap().v;
         // z contributes 0.5; y and x add their own boundary terms on top.
-        assert!(diag > 0.5, "diagonal {diag} looks like it kept the identity");
+        assert!(
+            diag > 0.5,
+            "diagonal {diag} looks like it kept the identity"
+        );
         assert_ne!(diag, 1.0);
     }
 

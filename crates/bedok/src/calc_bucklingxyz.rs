@@ -290,9 +290,27 @@ pub fn calc_bucklingxyz(
     };
 
     Buckling {
-        x: SparseMatrix::assemble(&cache.row, &cache.col, &scale(&cache.lxe), cache.plen, cache.plen),
-        y: SparseMatrix::assemble(&cache.row, &cache.col, &scale(&cache.lye), cache.plen, cache.plen),
-        z: SparseMatrix::assemble(&cache.row, &cache.col, &scale(&cache.lze), cache.plen, cache.plen),
+        x: SparseMatrix::assemble(
+            &cache.row,
+            &cache.col,
+            &scale(&cache.lxe),
+            cache.plen,
+            cache.plen,
+        ),
+        y: SparseMatrix::assemble(
+            &cache.row,
+            &cache.col,
+            &scale(&cache.lye),
+            cache.plen,
+            cache.plen,
+        ),
+        z: SparseMatrix::assemble(
+            &cache.row,
+            &cache.col,
+            &scale(&cache.lze),
+            cache.plen,
+            cache.plen,
+        ),
     }
 }
 
@@ -444,14 +462,8 @@ mod tests {
         let (params, geometry, mut sigma, _) = setup();
         let mut cache = BucklingCache::new();
 
-        let mut buck = calc_bucklingxyz(
-            &mut cache,
-            &params,
-            &geometry,
-            &mut sigma,
-            &[0.0, 0.0],
-            1.0,
-        );
+        let mut buck =
+            calc_bucklingxyz(&mut cache, &params, &geometry, &mut sigma, &[0.0, 0.0], 1.0);
         assert_eq!(buck.x.nnz(), 0);
     }
 }

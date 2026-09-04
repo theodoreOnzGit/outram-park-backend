@@ -17,15 +17,11 @@ use crate::array_fluid_collections::fluid_component_collection::{
 #[test]
 pub fn heater_branch_with_heater_v2_test() {
     use crate::pre_built_components::ciet_isothermal_test_components::*;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_collection::FluidComponentCollection;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component::FluidComponent;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
     use uom::si::mass_rate::kilogram_per_second;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 
     use uom::si::pressure::pascal;
     use super::new_pipe_3_relap_model;
@@ -132,11 +128,9 @@ pub fn heater_branch_with_heater_v2_test() {
 #[test]
 pub fn ctah_branch_test() {
     use crate::pre_built_components::ciet_isothermal_test_components::*;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
     use uom::si::mass_rate::kilogram_per_second;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 
     use uom::si::pressure::pascal;
     // first let's construct the ctah branch

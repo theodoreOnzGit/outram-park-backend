@@ -527,7 +527,10 @@ mod wiring_tests {
             "at omega = {w_heavy} PR78 should depart from base PR, but kappa differs by only {:e}",
             (pr78 - pr).abs()
         );
-        println!("[pr78] omega=1.16: PR kappa={pr:.5}, PR78 kappa={pr78:.5}, diff={:.3e}", pr78 - pr);
+        println!(
+            "[pr78] omega=1.16: PR kappa={pr:.5}, PR78 kappa={pr78:.5}, diff={:.3e}",
+            pr78 - pr
+        );
     }
 
     /// # Methodology
@@ -558,5 +561,4 @@ mod wiring_tests {
             "PR78 must share base PR's co-volume prefactor"
         );
     }
-
 }

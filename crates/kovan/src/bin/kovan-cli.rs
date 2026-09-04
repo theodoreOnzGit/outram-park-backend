@@ -532,9 +532,15 @@ fn run(command: Command) -> Result<(), String> {
         Command::Outline { path, lang } => commands::outline::run(path, lang.into()),
         Command::Slice { path, start, end } => commands::slice::run(path, start, end),
         Command::SkillGen { out } => commands::skill_gen::run(out),
-        Command::Def { locator } => commands::semq::run_def(locator.symbol, locator.file, locator.root),
-        Command::Sig { locator } => commands::semq::run_sig(locator.symbol, locator.file, locator.root),
-        Command::Refs { locator } => commands::semq::run_refs(locator.symbol, locator.file, locator.root),
+        Command::Def { locator } => {
+            commands::semq::run_def(locator.symbol, locator.file, locator.root)
+        }
+        Command::Sig { locator } => {
+            commands::semq::run_sig(locator.symbol, locator.file, locator.root)
+        }
+        Command::Refs { locator } => {
+            commands::semq::run_refs(locator.symbol, locator.file, locator.root)
+        }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
     }

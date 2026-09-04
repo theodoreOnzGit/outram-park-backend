@@ -41,9 +41,7 @@
 //! associativity differs. Reproducible is not the same as identical, and the
 //! parity gates use a tolerance for exactly this reason.
 
-use crate::compute::gpu::{
-    bytes_to_f64_vec, context, f64_to_f32_bytes, u32_to_bytes, WORKGROUP_SIZE,
-};
+use crate::compute::gpu::{bytes_to_f64_vec, context, f64_to_f32_bytes, u32_to_bytes, WORKGROUP_SIZE};
 use crate::compute::ComputeBackend;
 use crate::ldu_matrix::ldu_matrix::LduMatrix;
 
@@ -183,7 +181,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 /// kernel by `examples/hybrid_gpu_report.rs` on a 1 048 576-cell 1-D Laplacian
 /// with non-dyadic coefficients: **max relative deviation 2.81e-7, RMS
 /// 6.43e-8** (Mesa Intel Graphics RPL-S, OpenGL backend, 2026-09-03).
-pub fn spmv_into(matrix: &LduMatrix, topology: &LduTopology, x: &[f64], y: &mut [f64]) -> Option<()> {
+pub fn spmv_into(
+    matrix: &LduMatrix,
+    topology: &LduTopology,
+    x: &[f64],
+    y: &mut [f64],
+) -> Option<()> {
     let ctx = context()?;
     let n = matrix.n_cells;
     if n == 0 || x.len() != n || y.len() != n {
@@ -406,7 +409,10 @@ mod tests {
         spmv_into(&m, &t, &x, &mut got).expect("GPU spmv");
 
         let rel = max_rel(&got, &want);
-        assert!(rel < 1e-5, "max relative deviation {rel:e} exceeds the f32 budget");
+        assert!(
+            rel < 1e-5,
+            "max relative deviation {rel:e} exceeds the f32 budget"
+        );
     }
 
     #[test]

@@ -47,9 +47,9 @@ pub fn du_test_shell_and_tube_heat_exchanger_set_a() {
 
     use crate::pre_built_components::heat_transfer_entities::HeatTransferEntity;
 
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
-        use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::fluid_component_calculation::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger;

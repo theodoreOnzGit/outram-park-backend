@@ -45,8 +45,14 @@ const CACHE_HEADER: &str = "\
 /// [`KnowledgeIndex::rebuild`] itself, which is total — see its own docs.
 #[derive(Debug)]
 pub enum IndexError {
-    Io { path: PathBuf, source: std::io::Error },
-    Toml { path: PathBuf, message: String },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    Toml {
+        path: PathBuf,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for IndexError {
@@ -113,29 +119,55 @@ impl KnowledgeIndex {
     /// contributes nothing.
     pub fn rebuild(root: &KovanRoot) -> Self {
         let mut collections = Vec::new();
-        scan_collections(&root.topics_dir(), EntityKind::Topic, String::new(), &mut collections);
-        scan_collections(&root.projects_dir(), EntityKind::Project, String::new(), &mut collections);
+        scan_collections(
+            &root.topics_dir(),
+            EntityKind::Topic,
+            String::new(),
+            &mut collections,
+        );
+        scan_collections(
+            &root.projects_dir(),
+            EntityKind::Project,
+            String::new(),
+            &mut collections,
+        );
         collections.sort_by(|a, b| a.path.cmp(&b.path));
 
         let mut papers = Vec::new();
         scan_papers(&root.papers_dir(), &mut papers);
         papers.sort_by(|a, b| a.citekey.cmp(&b.citekey));
 
-        Self { schema_version: INDEX_SCHEMA_VERSION, papers, collections }
+        Self {
+            schema_version: INDEX_SCHEMA_VERSION,
+            papers,
+            collections,
+        }
     }
 
     /// Persist this index to `.kovan/index/index.toml`, atomically (temp
     /// file + rename, same pattern as [`crate::project::write_index`]).
     pub fn save_cache(&self, root: &KovanRoot) -> Result<(), IndexError> {
         let dir = root.state_dir().join("index");
-        std::fs::create_dir_all(&dir).map_err(|source| IndexError::Io { path: dir.clone(), source })?;
+        std::fs::create_dir_all(&dir).map_err(|source| IndexError::Io {
+            path: dir.clone(),
+            source,
+        })?;
         let final_path = dir.join("index.toml");
         let tmp_path = dir.join("index.toml.tmp");
-        let body =
-            toml::to_string_pretty(self).map_err(|e| IndexError::Toml { path: final_path.clone(), message: e.to_string() })?;
-        std::fs::write(&tmp_path, format!("{CACHE_HEADER}\n{body}"))
-            .map_err(|source| IndexError::Io { path: tmp_path.clone(), source })?;
-        std::fs::rename(&tmp_path, &final_path).map_err(|source| IndexError::Io { path: final_path, source })
+        let body = toml::to_string_pretty(self).map_err(|e| IndexError::Toml {
+            path: final_path.clone(),
+            message: e.to_string(),
+        })?;
+        std::fs::write(&tmp_path, format!("{CACHE_HEADER}\n{body}")).map_err(|source| {
+            IndexError::Io {
+                path: tmp_path.clone(),
+                source,
+            }
+        })?;
+        std::fs::rename(&tmp_path, &final_path).map_err(|source| IndexError::Io {
+            path: final_path,
+            source,
+        })
     }
 
     /// Read a previously saved cache. Returns `None` on any failure —
@@ -168,7 +200,10 @@ impl KnowledgeIndex {
     /// render thousands of paper nodes at root level" stays true regardless
     /// of library size.
     pub fn children_of(&self, parent_path: &str) -> Vec<&CollectionEntry> {
-        self.collections.iter().filter(|c| is_direct_child(parent_path, &c.path)).collect()
+        self.collections
+            .iter()
+            .filter(|c| is_direct_child(parent_path, &c.path))
+            .collect()
     }
 
     /// Papers classified **directly** under exactly `path` (not its
@@ -177,7 +212,9 @@ impl KnowledgeIndex {
     pub fn papers_in(&self, path: &str) -> Vec<&PaperEntry> {
         self.papers
             .iter()
-            .filter(|p| p.topics.iter().any(|t| t == path) || p.projects.iter().any(|pr| pr == path))
+            .filter(|p| {
+                p.topics.iter().any(|t| t == path) || p.projects.iter().any(|pr| pr == path)
+            })
             .collect()
     }
 
@@ -200,31 +237,50 @@ fn is_direct_child(parent: &str, path: &str) -> bool {
 }
 
 fn scan_collections(dir: &Path, kind: EntityKind, prefix: String, out: &mut Vec<CollectionEntry>) {
-    let Ok(read_dir) = std::fs::read_dir(dir) else { return };
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in read_dir.flatten() {
         let path = entry.path();
         if !path.is_dir() || !EntityConfig::is_entity(&path) {
             continue;
         }
-        let Ok(config) = EntityConfig::load(&path) else { continue };
+        let Ok(config) = EntityConfig::load(&path) else {
+            continue;
+        };
         if config.kind != kind {
             continue;
         }
-        let slug = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        let full_path = if prefix.is_empty() { slug.clone() } else { format!("{prefix}/{slug}") };
-        out.push(CollectionEntry { path: full_path.clone(), kind, name: config.name.unwrap_or(slug) });
+        let slug = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let full_path = if prefix.is_empty() {
+            slug.clone()
+        } else {
+            format!("{prefix}/{slug}")
+        };
+        out.push(CollectionEntry {
+            path: full_path.clone(),
+            kind,
+            name: config.name.unwrap_or(slug),
+        });
         scan_collections(&path, kind, full_path, out);
     }
 }
 
 fn scan_papers(dir: &Path, out: &mut Vec<PaperEntry>) {
-    let Ok(read_dir) = std::fs::read_dir(dir) else { return };
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in read_dir.flatten() {
         let path = entry.path();
         if !path.is_dir() || !EntityConfig::is_entity(&path) {
             continue;
         }
-        let Ok(config) = EntityConfig::load(&path) else { continue };
+        let Ok(config) = EntityConfig::load(&path) else {
+            continue;
+        };
         if config.kind != EntityKind::Paper {
             continue;
         }
@@ -264,7 +320,9 @@ mod tests {
     #[test]
     fn rebuild_finds_nested_topics_and_a_classified_paper() {
         let (_dir, root) = make_root();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
+            .unwrap();
         EntityConfig::topic("materials", "Materials")
             .save(&root.topics_dir().join("htgrs").join("materials"))
             .unwrap();
@@ -294,7 +352,9 @@ mod tests {
     #[test]
     fn deleting_the_cache_and_rebuilding_reproduces_the_same_index() {
         let (_dir, root) = make_root();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
+            .unwrap();
         EntityConfig::paper(key("wang2018multiphysics"), Access::Open)
             .with_topics(["htgrs"])
             .save_paper(&root.paper_dir("wang2018multiphysics"))

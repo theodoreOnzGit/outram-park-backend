@@ -150,7 +150,9 @@ fn render(
     o.push_str("## Scope\n\n");
     o.push_str(&format!(
         "- **Branch:** `{branch_ref}`{}\n",
-        base_ref.map(|b| format!(" (vs base `{b}`)")).unwrap_or_default()
+        base_ref
+            .map(|b| format!(" (vs base `{b}`)"))
+            .unwrap_or_default()
     ));
     o.push_str(&format!("- **Window:** {span}\n"));
     o.push_str(&format!("- **Commits (non-merge):** {}\n", rows.len()));
@@ -165,14 +167,26 @@ fn render(
     o.push_str("## Totals\n\n");
     o.push_str("### Lines written (git numstat, merges excluded)\n\n");
     o.push_str("| Metric | Lines | KLOC |\n|---|--:|--:|\n");
-    o.push_str(&format!("| Added (all files) | {} | {} |\n", g(added), kloc(added)));
-    o.push_str(&format!("| Removed (all files) | {} | {} |\n", g(removed), kloc(removed)));
+    o.push_str(&format!(
+        "| Added (all files) | {} | {} |\n",
+        g(added),
+        kloc(added)
+    ));
+    o.push_str(&format!(
+        "| Removed (all files) | {} | {} |\n",
+        g(removed),
+        kloc(removed)
+    ));
     o.push_str(&format!(
         "| **Net (all files)** | **{}** | **{}** |\n",
         group_i64(net(added, removed)),
         net_kloc(added, removed)
     ));
-    o.push_str(&format!("| Added (Rust `.rs`) | {} | {} |\n", g(rs_added), kloc(rs_added)));
+    o.push_str(&format!(
+        "| Added (Rust `.rs`) | {} | {} |\n",
+        g(rs_added),
+        kloc(rs_added)
+    ));
     o.push_str(&format!(
         "| Net (Rust `.rs`) | {} | {} |\n",
         group_i64(net(rs_added, rs_removed)),
@@ -264,7 +278,8 @@ pub fn generate(
                 (Some(f), Some(t)) => format!("{}_to_{}", f.ddmmyy(), t.ddmmyy()),
                 _ => format!("since_{}_to_{}", base, Date::today().ddmmyy()),
             };
-            root.join(REPORT_DIR_REL).join(format!("historian_{tag}.md"))
+            root.join(REPORT_DIR_REL)
+                .join(format!("historian_{tag}.md"))
         }
     };
     if let Some(parent) = path.parent() {
@@ -279,12 +294,18 @@ pub fn generate(
 }
 
 /// Resolve the default output path for a window, without writing anything.
-pub fn default_output_path(root: &Path, from: Option<Date>, to: Option<Date>, base: &str) -> PathBuf {
+pub fn default_output_path(
+    root: &Path,
+    from: Option<Date>,
+    to: Option<Date>,
+    base: &str,
+) -> PathBuf {
     let tag = match (from, to) {
         (Some(f), Some(t)) => format!("{}_to_{}", f.ddmmyy(), t.ddmmyy()),
         _ => format!("since_{}_to_{}", base, Date::today().ddmmyy()),
     };
-    root.join(REPORT_DIR_REL).join(format!("historian_{tag}.md"))
+    root.join(REPORT_DIR_REL)
+        .join(format!("historian_{tag}.md"))
 }
 
 #[cfg(test)]
@@ -343,7 +364,10 @@ mod tests {
         // The honesty rule: absent data must be visibly absent.
         let rows = vec![row("2026-07-01", "pre-hooks commit", 40, 0, None)];
         let md = render(None, None, "origin/develop", Some("origin/main"), &rows);
-        assert!(md.contains("| 40 | 0 | — |"), "missing token data must render as an em dash");
+        assert!(
+            md.contains("| 40 | 0 | — |"),
+            "missing token data must render as an em dash"
+        );
         assert!(md.contains("**Token coverage:** 0/1"));
         assert!(md.contains("all of `origin/develop` not in `origin/main`"));
     }

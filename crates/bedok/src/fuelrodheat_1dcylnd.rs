@@ -414,7 +414,10 @@ mod tests {
         }
         // Cladding: indices 7, 8, 9 (index 6 is the gap dummy).
         for i in 8..=9 {
-            assert!(t[i] < t[i - 1], "clad node {i} is not below its inner neighbour");
+            assert!(
+                t[i] < t[i - 1],
+                "clad node {i} is not below its inner neighbour"
+            );
         }
         // The gap jump: the pellet surface is hotter than the clad inner face.
         assert!(t[5] > t[7], "no temperature drop across the gap");

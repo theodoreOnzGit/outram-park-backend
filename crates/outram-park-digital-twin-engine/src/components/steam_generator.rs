@@ -1460,7 +1460,12 @@ impl SteamGeneratorVisual {
             primary_out,
         );
 
-        painter.rect_stroke(shell, 0.0, Stroke::new(1.5_f32, OUTLINE), StrokeKind::Middle);
+        painter.rect_stroke(
+            shell,
+            0.0,
+            Stroke::new(1.5_f32, OUTLINE),
+            StrokeKind::Middle,
+        );
     }
 }
 

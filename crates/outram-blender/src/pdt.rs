@@ -59,7 +59,12 @@ pub enum Placement {
     Delta { from: Vec3, delta: Vec3 },
     /// `from`, stepped `distance` along `angle` (radians) measured in `plane`
     /// from `plane.u`, CCW about `plane.normal`.
-    Polar { from: Vec3, plane: WorkPlane, distance: f64, angle: f64 },
+    Polar {
+        from: Vec3,
+        plane: WorkPlane,
+        distance: f64,
+        angle: f64,
+    },
     /// `a + (b - a) * percent/100`.
     Percent { a: Vec3, b: Vec3, percent: f64 },
 }
@@ -70,7 +75,12 @@ impl Placement {
         match *self {
             Placement::Absolute { coord } => coord,
             Placement::Delta { from, delta } => from.add(delta),
-            Placement::Polar { from, plane, distance, angle } => {
+            Placement::Polar {
+                from,
+                plane,
+                distance,
+                angle,
+            } => {
                 let dir = plane.u.scale(angle.cos()).add(plane.v.scale(angle.sin()));
                 from.add(dir.scale(distance))
             }
@@ -127,7 +137,11 @@ pub fn three_point_arc(p0: Vec3, p1: Vec3, p2: Vec3, segments: usize) -> Vec<Vec
     // Sweep from 0 in whichever direction keeps p1 on the arc to p2.
     let a1 = ang(p1).rem_euclid(std::f64::consts::TAU);
     let a2 = ang(p2).rem_euclid(std::f64::consts::TAU);
-    let end = if a1 < a2 { a2 } else { a2 - std::f64::consts::TAU };
+    let end = if a1 < a2 {
+        a2
+    } else {
+        a2 - std::f64::consts::TAU
+    };
     (0..=seg)
         .map(|i| {
             let t = end * i as f64 / seg as f64;
@@ -196,10 +210,16 @@ pub fn fillet(prev: Vec3, corner: Vec3, next: Vec3, radius: f64, segments: usize
     let r0 = t0.sub(centre);
     let r1 = t1.sub(centre);
     let sweep = {
-        let x = r0.dot(r1).clamp(-r0.length() * r1.length(), r0.length() * r1.length());
+        let x = r0
+            .dot(r1)
+            .clamp(-r0.length() * r1.length(), r0.length() * r1.length());
         (x / (r0.length() * r1.length())).clamp(-1.0, 1.0).acos()
     };
-    let axis = if r0.cross(r1).dot(n) >= 0.0 { n } else { n.scale(-1.0) };
+    let axis = if r0.cross(r1).dot(n) >= 0.0 {
+        n
+    } else {
+        n.scale(-1.0)
+    };
     (0..=seg)
         .map(|i| {
             let a = sweep * i as f64 / seg as f64;
@@ -256,7 +276,9 @@ pub fn taper(points: &[Vec3], axis: Vec3, rate: f64, pivot: Vec3) -> Vec<Vec3> {
             let rel = p.sub(pivot);
             let along = rel.dot(k);
             let perp = rel.sub(k.scale(along));
-            pivot.add(k.scale(along)).add(perp.scale(1.0 + rate * along))
+            pivot
+                .add(k.scale(along))
+                .add(perp.scale(1.0 + rate * along))
         })
         .collect()
 }
@@ -285,8 +307,11 @@ pub fn mirror_vertices(mesh: &Mesh, verts: &[VertexId], plane: &WorkPlane) -> Me
     for v in verts {
         positions[v.0] = mirror_point(positions[v.0], plane);
     }
-    let faces: Vec<Vec<usize>> =
-        mesh.polygons().iter().map(|f| f.iter().map(|x| x.0).collect()).collect();
+    let faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|f| f.iter().map(|x| x.0).collect())
+        .collect();
     Mesh::from_polygons(&positions, &faces)
 }
 
@@ -297,9 +322,19 @@ mod tests {
 
     #[test]
     fn placement_modes() {
-        assert_eq!(Placement::Absolute { coord: Vec3::new(1.0, 2.0, 3.0) }.resolve(), Vec3::new(1.0, 2.0, 3.0));
         assert_eq!(
-            Placement::Delta { from: Vec3::new(1.0, 0.0, 0.0), delta: Vec3::new(0.0, 2.0, 0.0) }.resolve(),
+            Placement::Absolute {
+                coord: Vec3::new(1.0, 2.0, 3.0)
+            }
+            .resolve(),
+            Vec3::new(1.0, 2.0, 3.0)
+        );
+        assert_eq!(
+            Placement::Delta {
+                from: Vec3::new(1.0, 0.0, 0.0),
+                delta: Vec3::new(0.0, 2.0, 0.0)
+            }
+            .resolve(),
             Vec3::new(1.0, 2.0, 0.0)
         );
         let p = Placement::Polar {
@@ -310,7 +345,12 @@ mod tests {
         }
         .resolve();
         assert!(p.sub(Vec3::new(0.0, 2.0, 0.0)).length() < 1e-9);
-        let q = Placement::Percent { a: Vec3::ZERO, b: Vec3::new(4.0, 0.0, 0.0), percent: 25.0 }.resolve();
+        let q = Placement::Percent {
+            a: Vec3::ZERO,
+            b: Vec3::new(4.0, 0.0, 0.0),
+            percent: 25.0,
+        }
+        .resolve();
         assert!(q.sub(Vec3::new(1.0, 0.0, 0.0)).length() < 1e-9);
     }
 
@@ -326,7 +366,12 @@ mod tests {
         assert!(c.length() < 1e-9);
         assert!((r - 1.0).abs() < 1e-9);
         assert!((n.z.abs() - 1.0).abs() < 1e-9);
-        assert!(three_point_circle(Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0)).is_none());
+        assert!(three_point_circle(
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(2.0, 0.0, 0.0)
+        )
+        .is_none());
     }
 
     #[test]
@@ -387,7 +432,11 @@ mod tests {
 
     #[test]
     fn offset_polyline_shifts_a_straight_run_by_distance() {
-        let pts = [Vec3::ZERO, Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0)];
+        let pts = [
+            Vec3::ZERO,
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(2.0, 0.0, 0.0),
+        ];
         let off = offset_polyline(&pts, Vec3::new(0.0, 0.0, 1.0), 0.5, false);
         for (o, p) in off.iter().zip(pts.iter()) {
             let d = o.sub(*p);
@@ -415,16 +464,29 @@ mod tests {
 
     #[test]
     fn angle_between_right_angle() {
-        let a = angle_between(Vec3::new(1.0, 0.0, 0.0), Vec3::ZERO, Vec3::new(0.0, 1.0, 0.0));
+        let a = angle_between(
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::new(0.0, 1.0, 0.0),
+        );
         assert!((a - FRAC_PI_2).abs() < 1e-9);
-        let straight = angle_between(Vec3::new(1.0, 0.0, 0.0), Vec3::ZERO, Vec3::new(-1.0, 0.0, 0.0));
+        let straight = angle_between(
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::ZERO,
+            Vec3::new(-1.0, 0.0, 0.0),
+        );
         assert!((straight - PI).abs() < 1e-9);
     }
 
     #[test]
     fn mirror_point_and_vertices_across_xy() {
         let plane = WorkPlane::xy();
-        assert!(mirror_point(Vec3::new(1.0, 2.0, 3.0), &plane).sub(Vec3::new(1.0, 2.0, -3.0)).length() < 1e-9);
+        assert!(
+            mirror_point(Vec3::new(1.0, 2.0, 3.0), &plane)
+                .sub(Vec3::new(1.0, 2.0, -3.0))
+                .length()
+                < 1e-9
+        );
 
         let m = crate::primitives::cube(2.0);
         let all: Vec<VertexId> = (0..m.vertex_count()).map(VertexId).collect();
@@ -436,9 +498,21 @@ mod tests {
     #[test]
     fn place_vertex_adds_one() {
         let m = crate::primitives::cube(2.0);
-        let (m2, id) = place_vertex(&m, &Placement::Absolute { coord: Vec3::new(9.0, 9.0, 9.0) });
+        let (m2, id) = place_vertex(
+            &m,
+            &Placement::Absolute {
+                coord: Vec3::new(9.0, 9.0, 9.0),
+            },
+        );
         assert_eq!(m2.vertex_count(), m.vertex_count() + 1);
-        assert!(m2.vertex(id).unwrap().position.sub(Vec3::new(9.0, 9.0, 9.0)).length() < 1e-9);
+        assert!(
+            m2.vertex(id)
+                .unwrap()
+                .position
+                .sub(Vec3::new(9.0, 9.0, 9.0))
+                .length()
+                < 1e-9
+        );
     }
 
     #[test]

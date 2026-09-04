@@ -37,7 +37,6 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-
 use crate::mesh::{EdgeId, Mesh, VertexId};
 use crate::topology::MeshTopology;
 
@@ -50,7 +49,9 @@ pub fn rotate_edge(mesh: &Mesh, edge: EdgeId, cw: bool) -> Mesh {
     if f.len() != 2 {
         return mesh.clone();
     }
-    let Some(ed) = mesh.edge(edge) else { return mesh.clone() };
+    let Some(ed) = mesh.edge(edge) else {
+        return mesh.clone();
+    };
     let (a, b) = (ed.verts[0].0, ed.verts[1].0);
     let polys = mesh.polygons();
     let (f0, f1) = (f[0].0, f[1].0);
@@ -130,7 +131,12 @@ pub fn edge_split(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
     let split: HashSet<(usize, usize)> = edges
         .iter()
         .filter_map(|&e| mesh.edge(e))
-        .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+        .map(|ed| {
+            (
+                ed.verts[0].0.min(ed.verts[1].0),
+                ed.verts[0].0.max(ed.verts[1].0),
+            )
+        })
         .collect();
     if split.is_empty() {
         return mesh.clone();
@@ -148,7 +154,10 @@ pub fn edge_split(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
     }
     for e in 0..mesh.edge_count() {
         let ed = mesh.edge(EdgeId(e)).unwrap();
-        let key = (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0));
+        let key = (
+            ed.verts[0].0.min(ed.verts[1].0),
+            ed.verts[0].0.max(ed.verts[1].0),
+        );
         if split.contains(&key) {
             continue;
         }
@@ -169,9 +178,8 @@ pub fn edge_split(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
         for v in poly {
             vc.entry((v.0, comp)).or_insert_with(|| {
                 // First component to claim the vertex keeps the original id.
-                let existing = (0..fi).any(|g| {
-                    find(&mut parent, g) != comp && polys[g].iter().any(|x| x.0 == v.0)
-                });
+                let existing = (0..fi)
+                    .any(|g| find(&mut parent, g) != comp && polys[g].iter().any(|x| x.0 == v.0));
                 if existing {
                     positions.push(positions[v.0]);
                     positions.len() - 1
@@ -196,7 +204,10 @@ pub fn edge_split(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
 // --- helpers ---
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// The boundary ring of `f0 ∪ f1` where they share edge `(a, b)`.
@@ -225,7 +236,7 @@ fn combined_ring(f0: &[VertexId], f1: &[VertexId], a: usize, b: usize) -> Option
         ring.push(r1[(i1 + 1 + k) % r1.len()]); // starts at b
     }
     ring.pop(); // drop trailing a
-    // Deduplicate accidental repeats.
+                // Deduplicate accidental repeats.
     ring.dedup();
     if ring.len() >= 4 && ring.first() == ring.last() {
         ring.pop();
@@ -304,7 +315,14 @@ mod tests {
         let mut m = primitives::grid(2, 2, 4.0);
         // Find the exact centre vertex (0,0).
         let cv = (0..m.vertex_count())
-            .find(|&i| m.vertex(VertexId(i)).unwrap().position.sub(Vec3::ZERO).length() < 1e-9)
+            .find(|&i| {
+                m.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(Vec3::ZERO)
+                    .length()
+                    < 1e-9
+            })
             .unwrap();
         let mut pos = m.positions();
         pos[cv] = pos[cv].add(Vec3::new(1.0, 0.0, 0.0)); // kink it
@@ -317,7 +335,10 @@ mod tests {
             .copied()
             .find(|&e| {
                 let ed = m.edge(e).unwrap();
-                (m.vertex(ed.verts[0]).unwrap().position.y - m.vertex(ed.verts[1]).unwrap().position.y).abs() > 0.5
+                (m.vertex(ed.verts[0]).unwrap().position.y
+                    - m.vertex(ed.verts[1]).unwrap().position.y)
+                    .abs()
+                    > 0.5
             })
             .unwrap();
         let loop_edges = crate::topology::edge_loop(&topo, &m, seed);
@@ -333,7 +354,10 @@ mod tests {
         let topo = MeshTopology::new(&m);
         let ring = topo.face_edges(&m, crate::mesh::FaceId(0));
         let s = edge_split(&m, &ring);
-        assert!(s.vertex_count() >= m.vertex_count(), "some ring verts duplicated");
+        assert!(
+            s.vertex_count() >= m.vertex_count(),
+            "some ring verts duplicated"
+        );
         assert_eq!(s.face_count(), 6);
     }
 

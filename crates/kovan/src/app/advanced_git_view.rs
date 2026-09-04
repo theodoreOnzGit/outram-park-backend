@@ -139,7 +139,11 @@ impl AdvancedGitState {
             }
         });
         if !self.message.is_empty() {
-            let color = if self.message_is_error { Color32::from_rgb(220, 90, 90) } else { ui.visuals().weak_text_color() };
+            let color = if self.message_is_error {
+                Color32::from_rgb(220, 90, 90)
+            } else {
+                ui.visuals().weak_text_color()
+            };
             ui.colored_label(color, &self.message);
         }
         ui.separator();
@@ -186,7 +190,11 @@ impl AdvancedGitState {
         });
     }
 
-    fn run(&mut self, root: &KovanRoot, op: impl Fn(&KovanRoot, &str, &str) -> Result<String, advanced_git::RemoteError>) {
+    fn run(
+        &mut self,
+        root: &KovanRoot,
+        op: impl Fn(&KovanRoot, &str, &str) -> Result<String, advanced_git::RemoteError>,
+    ) {
         match op(root, &self.remote_input, &self.branch_input) {
             Ok(_) => self.set_status("done"),
             Err(e) => self.set_error(e.to_string()),

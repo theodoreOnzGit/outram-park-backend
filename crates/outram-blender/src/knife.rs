@@ -150,7 +150,10 @@ pub fn knife(mesh: &Mesh, chords: &[Chord]) -> KnifeResult {
         }
     }
 
-    KnifeResult { mesh: Mesh::from_polygons(&positions, &out_faces), cut_vertices }
+    KnifeResult {
+        mesh: Mesh::from_polygons(&positions, &out_faces),
+        cut_vertices,
+    }
 }
 
 /// Insert any cached edge-split vertices that lie on `ring`'s edges, in order.
@@ -241,13 +244,19 @@ mod tests {
     #[test]
     fn chord_between_two_edge_midpoints_splits_a_quad() {
         let m = primitives::grid(1, 1, 2.0); // one quad, 4 verts, 4 edges
-        // Cut from the midpoint of edge 0 to the midpoint of edge 2 (opposite).
+                                             // Cut from the midpoint of edge 0 to the midpoint of edge 2 (opposite).
         let r = knife(
             &m,
             &[Chord {
                 face: FaceId(0),
-                from: KnifePoint::EdgeSplit { edge: EdgeId(0), t: 0.5 },
-                to: KnifePoint::EdgeSplit { edge: EdgeId(2), t: 0.5 },
+                from: KnifePoint::EdgeSplit {
+                    edge: EdgeId(0),
+                    t: 0.5,
+                },
+                to: KnifePoint::EdgeSplit {
+                    edge: EdgeId(2),
+                    t: 0.5,
+                },
             }],
         );
         assert_eq!(r.mesh.face_count(), 2, "quad → 2 faces");
@@ -263,7 +272,10 @@ mod tests {
             &[Chord {
                 face: FaceId(0),
                 from: KnifePoint::Vertex(VertexId(0)),
-                to: KnifePoint::EdgeSplit { edge: EdgeId(1), t: 0.5 },
+                to: KnifePoint::EdgeSplit {
+                    edge: EdgeId(1),
+                    t: 0.5,
+                },
             }],
         );
         assert_eq!(r.mesh.face_count(), 2);
@@ -281,13 +293,25 @@ mod tests {
             &[
                 Chord {
                     face: FaceId(0),
-                    from: KnifePoint::EdgeSplit { edge: EdgeId(0), t: 0.25 },
-                    to: KnifePoint::EdgeSplit { edge: EdgeId(2), t: 0.75 },
+                    from: KnifePoint::EdgeSplit {
+                        edge: EdgeId(0),
+                        t: 0.25,
+                    },
+                    to: KnifePoint::EdgeSplit {
+                        edge: EdgeId(2),
+                        t: 0.75,
+                    },
                 },
                 Chord {
                     face: FaceId(0),
-                    from: KnifePoint::EdgeSplit { edge: EdgeId(0), t: 0.75 },
-                    to: KnifePoint::EdgeSplit { edge: EdgeId(2), t: 0.25 },
+                    from: KnifePoint::EdgeSplit {
+                        edge: EdgeId(0),
+                        t: 0.75,
+                    },
+                    to: KnifePoint::EdgeSplit {
+                        edge: EdgeId(2),
+                        t: 0.25,
+                    },
                 },
             ],
         );

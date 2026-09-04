@@ -338,9 +338,7 @@ impl DigitiserState {
             DigitiserPhase::Setup => {
                 "Up/Down: field  e: edit  Enter: run digitiser  1-7: tabs  q: quit"
             }
-            DigitiserPhase::Running(_) => {
-                "tracing… x: abandon (q/Esc will not quit while running)"
-            }
+            DigitiserPhase::Running(_) => "tracing… x: abandon (q/Esc will not quit while running)",
             DigitiserPhase::Review(_) => {
                 "Tab/←→ select · ↑↓ nudge y · h/l nudge x (Shift=5px) · d delete · \
                  a duplicate · v mark reviewed · e: edit output path · S save · x discard · q quit"
@@ -482,8 +480,7 @@ impl DigitiserState {
                 Err(TryRecvError::Disconnected) => {
                     next_status = "automatic pass failed".to_string();
                     next = Some(DigitiserPhase::Failed(FailureReport {
-                        message: "the worker thread ended without returning a result"
-                            .to_string(),
+                        message: "the worker thread ended without returning a result".to_string(),
                     }));
                 }
             }

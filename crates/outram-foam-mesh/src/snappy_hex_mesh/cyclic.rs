@@ -298,11 +298,7 @@ pub fn check_conformity(topo: &PolyPatchMesh, tol: f64) -> Result<(), CyclicErro
                 return Err(CyclicError::SeparationMismatch {
                     local,
                     found: [found.x, found.y, found.z],
-                    expected: [
-                        pair.separation.x,
-                        pair.separation.y,
-                        pair.separation.z,
-                    ],
+                    expected: [pair.separation.x, pair.separation.y, pair.separation.z],
                     error: err,
                 });
             }

@@ -103,7 +103,11 @@ pub fn vertex_normals(mesh: &Mesh, weight: NormalWeight) -> Vec<Vec3> {
             };
             acc = acc.add(n.scale(w));
         }
-        *slot = if acc.length() > 1e-12 { acc.normalize() } else { Vec3::ZERO };
+        *slot = if acc.length() > 1e-12 {
+            acc.normalize()
+        } else {
+            Vec3::ZERO
+        };
     }
     out
 }
@@ -115,7 +119,11 @@ pub fn point_normals_to_target(mesh: &Mesh, target: Vec3, invert: bool) -> Vec<V
         .iter()
         .map(|&p| {
             let d = target.sub(p);
-            let n = if d.length() > 1e-12 { d.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+            let n = if d.length() > 1e-12 {
+                d.normalize()
+            } else {
+                Vec3::new(0.0, 0.0, 1.0)
+            };
             if invert {
                 n.scale(-1.0)
             } else {
@@ -169,7 +177,11 @@ pub fn split_normals_by_angle(mesh: &Mesh, angle: f64) -> SplitNormals {
                     acc = acc.add(gn);
                 }
             }
-            corner.push(if acc.length() > 1e-12 { acc.normalize() } else { fn_ });
+            corner.push(if acc.length() > 1e-12 {
+                acc.normalize()
+            } else {
+                fn_
+            });
         }
         normals.push(corner);
     }
@@ -233,7 +245,11 @@ mod tests {
     #[test]
     fn weighting_modes_all_produce_unit_normals() {
         let m = primitives::uv_sphere(12, 8, 1.0);
-        for w in [NormalWeight::Uniform, NormalWeight::FaceArea, NormalWeight::CornerAngle] {
+        for w in [
+            NormalWeight::Uniform,
+            NormalWeight::FaceArea,
+            NormalWeight::CornerAngle,
+        ] {
             for n in vertex_normals(&m, w) {
                 if n.length() > 1e-9 {
                     assert!((n.length() - 1.0).abs() < 1e-9);

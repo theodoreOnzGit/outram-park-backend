@@ -105,13 +105,21 @@ impl WorkPlane {
         let b = n.x * n.y * a;
         let u = Vec3::new(1.0 + s * n.x * n.x * a, s * b, -s * n.x);
         let v = Vec3::new(b, s + n.y * n.y * a, -n.y);
-        WorkPlane { origin, u: u.normalize(), v: v.normalize(), normal: n }
+        WorkPlane {
+            origin,
+            u: u.normalize(),
+            v: v.normalize(),
+            normal: n,
+        }
     }
 
     /// World-space point for plane coordinates `(a, b)` and height `h` along
     /// the normal.
     pub fn point(&self, a: f64, b: f64, h: f64) -> Vec3 {
-        self.origin.add(self.u.scale(a)).add(self.v.scale(b)).add(self.normal.scale(h))
+        self.origin
+            .add(self.u.scale(a))
+            .add(self.v.scale(b))
+            .add(self.normal.scale(h))
     }
 
     /// Project a world point onto plane coordinates `(u_coord, v_coord)`
@@ -125,7 +133,9 @@ impl WorkPlane {
 /// Project one world point onto a snap target of `mesh`, returning the snapped
 /// position (or `p` unchanged if nothing is within `max_dist`).
 pub fn snap_input(mesh: &Mesh, p: Vec3, target: SnapTarget, max_dist: f64) -> Vec3 {
-    snap_point(mesh, p, target, max_dist, &[]).map(|h| h.position).unwrap_or(p)
+    snap_point(mesh, p, target, max_dist, &[])
+        .map(|h| h.position)
+        .unwrap_or(p)
 }
 
 /// Evaluate a scalar that may be a literal or an expression (`"2*0.5"`,
@@ -148,12 +158,15 @@ pub fn box_from_drag(plane: &WorkPlane, corner_a: Vec3, corner_b: Vec3, depth: f
         plane.point(u1, v1, 0.0),
         plane.point(u0, v1, 0.0),
     ];
-    let top: Vec<Vec3> = base.iter().map(|p| p.add(plane.normal.scale(depth))).collect();
+    let top: Vec<Vec3> = base
+        .iter()
+        .map(|p| p.add(plane.normal.scale(depth)))
+        .collect();
     let mut positions = base.to_vec();
     positions.extend(top);
     let faces = vec![
-        vec![0usize, 3, 2, 1],       // base (facing -normal)
-        vec![4, 5, 6, 7],            // top (facing +normal)
+        vec![0usize, 3, 2, 1], // base (facing -normal)
+        vec![4, 5, 6, 7],      // top (facing +normal)
         vec![0, 1, 5, 4],
         vec![1, 2, 6, 5],
         vec![2, 3, 7, 6],
@@ -281,7 +294,13 @@ pub struct DrawGesture {
 impl DrawGesture {
     /// Start a gesture on `plane` building `kind`.
     pub fn new(plane: WorkPlane, kind: DrawKind) -> Self {
-        DrawGesture { plane, kind, p0: None, p1: None, depth: None }
+        DrawGesture {
+            plane,
+            kind,
+            p0: None,
+            p1: None,
+            depth: None,
+        }
     }
 
     /// Current stage.
@@ -336,7 +355,12 @@ mod tests {
     #[test]
     fn box_drag_on_xy_has_the_dragged_extents() {
         let plane = WorkPlane::xy();
-        let m = box_from_drag(&plane, Vec3::new(-1.0, -2.0, 0.0), Vec3::new(3.0, 1.0, 0.0), 5.0);
+        let m = box_from_drag(
+            &plane,
+            Vec3::new(-1.0, -2.0, 0.0),
+            Vec3::new(3.0, 1.0, 0.0),
+            5.0,
+        );
         assert_eq!(m.euler_characteristic(), 2);
         let (lo, hi) = bounding_box(&m);
         assert!((hi.x - lo.x - 4.0).abs() < 1e-9);
@@ -347,9 +371,17 @@ mod tests {
     #[test]
     fn box_drag_on_yz_extrudes_along_x() {
         let plane = WorkPlane::yz();
-        let m = box_from_drag(&plane, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 2.0, 2.0), 3.0);
+        let m = box_from_drag(
+            &plane,
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 2.0, 2.0),
+            3.0,
+        );
         let (lo, hi) = bounding_box(&m);
-        assert!((hi.x - lo.x - 3.0).abs() < 1e-9, "depth is along +x on the yz plane");
+        assert!(
+            (hi.x - lo.x - 3.0).abs() < 1e-9,
+            "depth is along +x on the yz plane"
+        );
     }
 
     #[test]
@@ -399,7 +431,12 @@ mod tests {
     #[test]
     fn snap_input_grid_increment() {
         let cube = primitives::cube(2.0);
-        let snapped = snap_input(&cube, Vec3::new(0.34, 0.71, -0.4), SnapTarget::Increment(0.25), 1.0);
+        let snapped = snap_input(
+            &cube,
+            Vec3::new(0.34, 0.71, -0.4),
+            SnapTarget::Increment(0.25),
+            1.0,
+        );
         assert!(snapped.sub(Vec3::new(0.25, 0.75, -0.5)).length() < 1e-9);
     }
 

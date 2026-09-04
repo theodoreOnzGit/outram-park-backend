@@ -1023,11 +1023,19 @@ impl PlotterApp {
             // this reads the same two cases back out of it.
             .label_formatter(move |pos| {
                 let (name, point) = match pos {
-                    egui_plot::HoverPosition::NearDataPoint { plot_name, position, .. } => (*plot_name, *position),
+                    egui_plot::HoverPosition::NearDataPoint {
+                        plot_name,
+                        position,
+                        ..
+                    } => (*plot_name, *position),
                     egui_plot::HoverPosition::Elsewhere { position } => ("", *position),
                 };
                 let coords = evaluation::hover_text(tab, log, point.x, point.y);
-                Some(if name.is_empty() { coords } else { format!("{name}\n{coords}") })
+                Some(if name.is_empty() {
+                    coords
+                } else {
+                    format!("{name}\n{coords}")
+                })
             })
             .coordinates_formatter(
                 egui_plot::Corner::LeftTop,
@@ -1149,11 +1157,19 @@ impl PlotterApp {
             // above for why this now reads a `&HoverPosition`.
             .label_formatter(move |pos| {
                 let (name, point) = match pos {
-                    egui_plot::HoverPosition::NearDataPoint { plot_name, position, .. } => (*plot_name, *position),
+                    egui_plot::HoverPosition::NearDataPoint {
+                        plot_name,
+                        position,
+                        ..
+                    } => (*plot_name, *position),
                     egui_plot::HoverPosition::Elsewhere { position } => ("", *position),
                 };
                 let coords = evaluation::hover_text(diagram, log, point.x, point.y);
-                Some(if name.is_empty() { coords } else { format!("{name}\n{coords}") })
+                Some(if name.is_empty() {
+                    coords
+                } else {
+                    format!("{name}\n{coords}")
+                })
             })
             .coordinates_formatter(
                 egui_plot::Corner::LeftTop,

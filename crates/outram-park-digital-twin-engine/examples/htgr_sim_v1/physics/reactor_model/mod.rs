@@ -240,12 +240,18 @@ impl ReactorModel {
                 helium_inlet_temperature,
                 helium_mass_flow,
             ),
-            Self::AxialSevenNode(core) => {
-                core.step(dt, fission_power, helium_inlet_temperature, helium_mass_flow)
-            }
-            Self::CoarseMeshGenFoam(core) => {
-                core.step(dt, fission_power, helium_inlet_temperature, helium_mass_flow)
-            }
+            Self::AxialSevenNode(core) => core.step(
+                dt,
+                fission_power,
+                helium_inlet_temperature,
+                helium_mass_flow,
+            ),
+            Self::CoarseMeshGenFoam(core) => core.step(
+                dt,
+                fission_power,
+                helium_inlet_temperature,
+                helium_mass_flow,
+            ),
         }
     }
 

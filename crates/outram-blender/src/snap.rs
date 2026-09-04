@@ -108,7 +108,10 @@ pub fn snap_point(
                 return None;
             }
             let s = |x: f64| (x / step).round() * step;
-            Some(SnapHit { position: Vec3::new(s(query.x), s(query.y), s(query.z)), element: None })
+            Some(SnapHit {
+                position: Vec3::new(s(query.x), s(query.y), s(query.z)),
+                element: None,
+            })
         }
         SnapTarget::Vertex => {
             let mut best: Option<(f64, usize)> = None;
@@ -144,7 +147,10 @@ pub fn snap_point(
                     best = Some((d, cand, EdgeId(e)));
                 }
             }
-            best.map(|(_, p, e)| SnapHit { position: p, element: Some(SnapElement::Edge(e)) })
+            best.map(|(_, p, e)| SnapHit {
+                position: p,
+                element: Some(SnapElement::Edge(e)),
+            })
         }
         SnapTarget::FaceNearest => {
             let mut best: Option<(f64, Vec3, FaceId)> = None;
@@ -159,7 +165,10 @@ pub fn snap_point(
                     best = Some((d, cand, FaceId(f)));
                 }
             }
-            best.map(|(_, p, f)| SnapHit { position: p, element: Some(SnapElement::Face(f)) })
+            best.map(|(_, p, f)| SnapHit {
+                position: p,
+                element: Some(SnapElement::Face(f)),
+            })
         }
     }
 }
@@ -176,16 +185,21 @@ pub fn snap_translation(
     max_dist: f64,
 ) -> Vec3 {
     let pos = mesh.positions();
-    let mv: Vec<usize> = moving.iter().map(|v| v.0).filter(|&i| i < pos.len()).collect();
+    let mv: Vec<usize> = moving
+        .iter()
+        .map(|v| v.0)
+        .filter(|&i| i < pos.len())
+        .collect();
     if mv.is_empty() {
         return raw_delta;
     }
 
     let base_pos0 = match base {
         SnapBase::Active(v) => pos.get(v.0).copied().unwrap_or(Vec3::ZERO),
-        SnapBase::Median => {
-            mv.iter().fold(Vec3::ZERO, |acc, &i| acc.add(pos[i])).scale(1.0 / mv.len() as f64)
-        }
+        SnapBase::Median => mv
+            .iter()
+            .fold(Vec3::ZERO, |acc, &i| acc.add(pos[i]))
+            .scale(1.0 / mv.len() as f64),
         SnapBase::Center => {
             let (mut lo, mut hi) = (
                 Vec3::new(f64::MAX, f64::MAX, f64::MAX),
@@ -199,7 +213,9 @@ pub fn snap_translation(
         }
         SnapBase::Closest => {
             // Provisional: use the median, then re-evaluate below.
-            mv.iter().fold(Vec3::ZERO, |acc, &i| acc.add(pos[i])).scale(1.0 / mv.len() as f64)
+            mv.iter()
+                .fold(Vec3::ZERO, |acc, &i| acc.add(pos[i]))
+                .scale(1.0 / mv.len() as f64)
         }
     };
 
@@ -215,7 +231,10 @@ pub fn snap_translation(
             let nearest = mv
                 .iter()
                 .min_by(|&&a, &&b| {
-                    pos[a].add(raw_delta).sub(hit.position).length()
+                    pos[a]
+                        .add(raw_delta)
+                        .sub(hit.position)
+                        .length()
                         .partial_cmp(&pos[b].add(raw_delta).sub(hit.position).length())
                         .unwrap()
                 })
@@ -253,7 +272,10 @@ fn closest_on_face(p: Vec3, poly: &[Vec3]) -> Vec3 {
         return poly.first().copied().unwrap_or(Vec3::ZERO);
     }
     // Project onto the face plane.
-    let c = poly.iter().fold(Vec3::ZERO, |acc, &q| acc.add(q)).scale(1.0 / poly.len() as f64);
+    let c = poly
+        .iter()
+        .fold(Vec3::ZERO, |acc, &q| acc.add(q))
+        .scale(1.0 / poly.len() as f64);
     let mut n = Vec3::ZERO;
     for i in 0..poly.len() {
         let u = poly[i].sub(c);
@@ -312,7 +334,14 @@ mod tests {
     #[test]
     fn increment_snap_rounds_to_grid() {
         let m = primitives::cube(2.0);
-        let h = snap_point(&m, Vec3::new(1.2, -0.4, 2.7), SnapTarget::Increment(1.0), 0.0, &[]).unwrap();
+        let h = snap_point(
+            &m,
+            Vec3::new(1.2, -0.4, 2.7),
+            SnapTarget::Increment(1.0),
+            0.0,
+            &[],
+        )
+        .unwrap();
         assert_eq!(h.position, Vec3::new(1.0, 0.0, 3.0));
     }
 
@@ -333,14 +362,28 @@ mod tests {
     fn edge_midpoint_snap() {
         let m = primitives::cube(2.0);
         // Midpoint of the edge from (-1,-1,-1) to (1,-1,-1) is (0,-1,-1).
-        let h = snap_point(&m, Vec3::new(0.1, -0.9, -1.1), SnapTarget::EdgeMidpoint, 1.0, &[]).unwrap();
+        let h = snap_point(
+            &m,
+            Vec3::new(0.1, -0.9, -1.1),
+            SnapTarget::EdgeMidpoint,
+            1.0,
+            &[],
+        )
+        .unwrap();
         assert_eq!(h.position, Vec3::new(0.0, -1.0, -1.0));
     }
 
     #[test]
     fn face_nearest_projects_onto_the_face() {
         let m = primitives::grid(2, 2, 4.0); // z = 0 plane
-        let h = snap_point(&m, Vec3::new(0.5, 0.5, 3.0), SnapTarget::FaceNearest, 5.0, &[]).unwrap();
+        let h = snap_point(
+            &m,
+            Vec3::new(0.5, 0.5, 3.0),
+            SnapTarget::FaceNearest,
+            5.0,
+            &[],
+        )
+        .unwrap();
         assert!((h.position.z).abs() < 1e-9);
         assert!((h.position.x - 0.5).abs() < 1e-9 && (h.position.y - 0.5).abs() < 1e-9);
         assert_eq!(align_rotation_target(&m, &h).unwrap().z.abs(), 1.0);
@@ -351,7 +394,11 @@ mod tests {
         // Two separate cubes; drag one so its corner meets the other's corner.
         let a = primitives::cube(2.0); // corners ±1
         let mut positions = a.positions();
-        let mut faces: Vec<Vec<usize>> = a.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = a
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let off = positions.len();
         for p in a.positions() {
             positions.push(p.add(Vec3::new(5.0, 0.0, 0.0))); // second cube at x ∈ [4,6]
@@ -364,7 +411,14 @@ mod tests {
         let moving: Vec<VertexId> = (off..m.vertex_count()).map(VertexId).collect();
         // Roughly drag the second cube left by ~3; snapping should pull a
         // moving corner exactly onto a static corner.
-        let delta = snap_translation(&m, &moving, Vec3::new(-3.2, 0.1, 0.0), SnapBase::Closest, SnapTarget::Vertex, 2.0);
+        let delta = snap_translation(
+            &m,
+            &moving,
+            Vec3::new(-3.2, 0.1, 0.0),
+            SnapBase::Closest,
+            SnapTarget::Vertex,
+            2.0,
+        );
         // After applying, some moving corner coincides with a static corner.
         let mut coincident = false;
         for &mv in &moving {
@@ -381,7 +435,14 @@ mod tests {
     #[test]
     fn snap_translation_falls_back_when_out_of_range() {
         let m = primitives::cube(2.0);
-        let d = snap_translation(&m, &[VertexId(0)], Vec3::new(100.0, 0.0, 0.0), SnapBase::Median, SnapTarget::Vertex, 0.5);
+        let d = snap_translation(
+            &m,
+            &[VertexId(0)],
+            Vec3::new(100.0, 0.0, 0.0),
+            SnapBase::Median,
+            SnapTarget::Vertex,
+            0.5,
+        );
         assert_eq!(d, Vec3::new(100.0, 0.0, 0.0));
     }
 }

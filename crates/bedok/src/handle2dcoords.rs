@@ -42,9 +42,7 @@ pub fn handle2dcoords(params: &Params) -> Result<(usize, usize)> {
     // The 2-D cylindrical test is (maxir, maxiz); `coordinate_mode_2d` encodes
     // that, and it is not the same test the 3-D routine applies.
     match params.coordinate_mode_2d() {
-        Some(CoordinateMode::Cylindrical) => {
-            Ok((params.maxir.unwrap(), params.maxiz.unwrap()))
-        }
+        Some(CoordinateMode::Cylindrical) => Ok((params.maxir.unwrap(), params.maxiz.unwrap())),
         Some(CoordinateMode::Cartesian) => Ok((params.maxix.unwrap(), params.maxiy.unwrap())),
         Some(CoordinateMode::Generic) => Ok((params.maxi1.unwrap(), params.maxi2.unwrap())),
         None => Err(BedokError::NoCoordinateBranch),

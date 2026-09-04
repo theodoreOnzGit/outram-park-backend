@@ -354,7 +354,11 @@ mod tests {
 
         let mut worst = 0.0_f64;
         for (g, w) in got.iter().zip(&want) {
-            assert_eq!(g.root_type(0), w.root_type(0), "root type must match exactly");
+            assert_eq!(
+                g.root_type(0),
+                w.root_type(0),
+                "root type must match exactly"
+            );
             if g.root_type(0) == RootType::Real {
                 worst = worst.max((g.get(0) - w.get(0)).abs() / w.get(0).abs().max(1.0));
             }

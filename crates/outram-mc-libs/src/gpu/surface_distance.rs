@@ -1105,7 +1105,9 @@ pub fn surface_distance_gpu(
     });
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
-    let view = slice.get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+    let view = slice
+        .get_mapped_range()
+        .expect("staging buffer mapping failed after a completed poll");
     let out = bytes_to_f32_vec(&view, n_query);
     drop(view);
     staging_buf.unmap();
@@ -1171,11 +1173,11 @@ pub fn surface_distance_hybrid(
 ) -> (Vec<f32>, crate::gpu::capabilities::WorkSplit) {
     use crate::gpu::capabilities::{plan_split, HardwareCapabilities};
     #[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_par::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_par as rayon;
+    use rayon::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par as rayon;
 
     let caps = match ctx {
         Some(c) => c.capabilities(),

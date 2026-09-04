@@ -186,11 +186,7 @@ mod tests {
     #[test]
     fn saturation_temperature_matches_published_values() {
         // (p [MPa], Tsat [K])
-        let cases = [
-            (0.1, 372.755_919),
-            (1.0, 453.035_632),
-            (10.0, 584.149_488),
-        ];
+        let cases = [(0.1, 372.755_919), (1.0, 453.035_632), (10.0, 584.149_488)];
 
         for (p, t_ref) in cases {
             let t = tsat_p(p);

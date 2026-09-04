@@ -51,7 +51,10 @@ const HISTORIES: usize = 256;
 const SEED: u64 = 0xC0FFEE;
 
 fn config() -> EnsembleConfig {
-    EnsembleConfig { n_histories: HISTORIES, base_seed: SEED }
+    EnsembleConfig {
+        n_histories: HISTORIES,
+        base_seed: SEED,
+    }
 }
 
 #[test]

@@ -27,8 +27,8 @@ pub fn test_to_assert_if_conductance_from_insulation_to_ambient_is_correct() {
     use uom::si::thermal_conductance::watt_per_kelvin;
 
     use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -211,8 +211,8 @@ pub fn regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation
     use uom::si::thermal_conductance::watt_per_kelvin;
 
     use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -391,7 +391,7 @@ pub fn regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation
 #[test]
 pub fn assert_if_hydraulic_diameter_of_heater_v1_is_correct() {
     use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
     use uom::si::f64::*;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
@@ -427,8 +427,8 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to
     use uom::si::thermal_conductance::watt_per_kelvin;
 
     use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;
@@ -611,8 +611,8 @@ pub fn regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape
     use uom::si::thermal_conductance::watt_per_kelvin;
 
     use crate::pre_built_components::insulated_porous_media_fluid_components::InsulatedPorousMediaFluidComponent;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use crate::boundary_conditions::BCType;
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
     use crate::heat_transfer_correlations::heat_transfer_interactions::heat_transfer_interaction_enums::HeatTransferInteractionType;

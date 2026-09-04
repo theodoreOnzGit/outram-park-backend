@@ -137,10 +137,16 @@ pub fn proportional_move(
 }
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect()
 }
 
-fn euclidean_distance(pos: &[Vec3], grabbed: &[(VertexId, Vec3)]) -> (Vec<f64>, Vec<Option<usize>>) {
+fn euclidean_distance(
+    pos: &[Vec3],
+    grabbed: &[(VertexId, Vec3)],
+) -> (Vec<f64>, Vec<Option<usize>>) {
     let mut dist = vec![f64::INFINITY; pos.len()];
     let mut near = vec![None; pos.len()];
     for (v, p) in pos.iter().enumerate() {
@@ -158,7 +164,10 @@ fn euclidean_distance(pos: &[Vec3], grabbed: &[(VertexId, Vec3)]) -> (Vec<f64>, 
     (dist, near)
 }
 
-fn topological_distance(mesh: &Mesh, grabbed: &[(VertexId, Vec3)]) -> (Vec<f64>, Vec<Option<usize>>) {
+fn topological_distance(
+    mesh: &Mesh,
+    grabbed: &[(VertexId, Vec3)],
+) -> (Vec<f64>, Vec<Option<usize>>) {
     let topo = MeshTopology::new(mesh);
     let nv = mesh.vertex_count();
     let pos = mesh.positions();
@@ -177,7 +186,9 @@ fn topological_distance(mesh: &Mesh, grabbed: &[(VertexId, Vec3)]) -> (Vec<f64>,
             continue;
         }
         for &e in topo.vertex_edges(VertexId(v)) {
-            let Some(w) = topo.other_end(mesh, e, VertexId(v)) else { continue };
+            let Some(w) = topo.other_end(mesh, e, VertexId(v)) else {
+                continue;
+            };
             let step = pos[w.0].sub(pos[v]).length();
             let nd = d + step;
             if nd < dist[w.0] {
@@ -200,7 +211,9 @@ impl PartialOrd for Ord64 {
 }
 impl Ord for Ord64 {
     fn cmp(&self, o: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&o.0).unwrap_or(std::cmp::Ordering::Equal)
+        self.0
+            .partial_cmp(&o.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -247,16 +260,35 @@ mod tests {
         let m = primitives::grid(6, 6, 6.0);
         // Grab the centre vertex, move it +z by 2.
         let cv = (0..m.vertex_count())
-            .find(|&i| m.vertex(VertexId(i)).unwrap().position.sub(Vec3::ZERO).length() < 1e-9)
+            .find(|&i| {
+                m.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(Vec3::ZERO)
+                    .length()
+                    < 1e-9
+            })
             .unwrap();
-        let out = proportional_move(&m, &[(VertexId(cv), Vec3::new(0.0, 0.0, 2.0))], 3.0, Falloff::Smooth, false, 1);
+        let out = proportional_move(
+            &m,
+            &[(VertexId(cv), Vec3::new(0.0, 0.0, 2.0))],
+            3.0,
+            Falloff::Smooth,
+            false,
+            1,
+        );
         let cz = out.vertex(VertexId(cv)).unwrap().position.z;
         assert!((cz - 2.0).abs() < 1e-9, "grabbed vertex fully moved");
         // A vertex ~1 unit away moved partway; one outside the radius did not.
         let mut some_partial = false;
         let mut some_zero = false;
         for i in 0..m.vertex_count() {
-            let d = m.vertex(VertexId(i)).unwrap().position.sub(m.vertex(VertexId(cv)).unwrap().position).length();
+            let d = m
+                .vertex(VertexId(i))
+                .unwrap()
+                .position
+                .sub(m.vertex(VertexId(cv)).unwrap().position)
+                .length();
             let dz = out.vertex(VertexId(i)).unwrap().position.z;
             if d > 0.5 && d < 2.0 && dz > 0.1 && dz < 2.0 {
                 some_partial = true;
@@ -275,7 +307,11 @@ mod tests {
         // even though they overlap in space.
         let g = primitives::grid(3, 3, 2.0);
         let mut positions = g.positions();
-        let mut faces: Vec<Vec<usize>> = g.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let mut faces: Vec<Vec<usize>> = g
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         let off = positions.len();
         for p in g.positions() {
             positions.push(p.add(Vec3::new(0.0, 0.0, 0.01))); // almost coincident
@@ -285,10 +321,18 @@ mod tests {
         }
         let m = Mesh::from_polygons(&positions, &faces);
 
-        let out = proportional_move(&m, &[(VertexId(0), Vec3::new(0.0, 0.0, 5.0))], 10.0, Falloff::Linear, true, 1);
+        let out = proportional_move(
+            &m,
+            &[(VertexId(0), Vec3::new(0.0, 0.0, 5.0))],
+            10.0,
+            Falloff::Linear,
+            true,
+            1,
+        );
         // The second island's vertices did not move.
         for i in off..m.vertex_count() {
-            let dz = out.vertex(VertexId(i)).unwrap().position.z - m.vertex(VertexId(i)).unwrap().position.z;
+            let dz = out.vertex(VertexId(i)).unwrap().position.z
+                - m.vertex(VertexId(i)).unwrap().position.z;
             assert!(dz.abs() < 1e-9);
         }
     }
@@ -296,10 +340,31 @@ mod tests {
     #[test]
     fn random_falloff_is_seed_deterministic() {
         let m = primitives::grid(4, 4, 4.0);
-        let a = proportional_move(&m, &[(VertexId(0), Vec3::new(0.0, 0.0, 1.0))], 10.0, Falloff::Random, false, 7);
-        let b = proportional_move(&m, &[(VertexId(0), Vec3::new(0.0, 0.0, 1.0))], 10.0, Falloff::Random, false, 7);
+        let a = proportional_move(
+            &m,
+            &[(VertexId(0), Vec3::new(0.0, 0.0, 1.0))],
+            10.0,
+            Falloff::Random,
+            false,
+            7,
+        );
+        let b = proportional_move(
+            &m,
+            &[(VertexId(0), Vec3::new(0.0, 0.0, 1.0))],
+            10.0,
+            Falloff::Random,
+            false,
+            7,
+        );
         for i in 0..a.vertex_count() {
-            assert!(a.vertex(VertexId(i)).unwrap().position.sub(b.vertex(VertexId(i)).unwrap().position).length() < 1e-12);
+            assert!(
+                a.vertex(VertexId(i))
+                    .unwrap()
+                    .position
+                    .sub(b.vertex(VertexId(i)).unwrap().position)
+                    .length()
+                    < 1e-12
+            );
         }
     }
 }

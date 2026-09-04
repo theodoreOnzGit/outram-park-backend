@@ -349,7 +349,10 @@ pub fn try_kernel_release_fraction_gpu(
         None => return Err(GpuError::MapCallbackMissing),
     }
     let times: Vec<f32> = {
-        let view = readback_buffer.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = readback_buffer
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     readback_buffer.unmap();
@@ -765,12 +768,18 @@ pub fn try_advance_multilayer_gpu(
     map_and_wait(device, &flags_readback)?;
 
     let pos_data: Vec<f32> = {
-        let view = pos_readback.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = pos_readback
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     pos_readback.unmap();
     let flags_data: Vec<u32> = {
-        let view = flags_readback.slice(..).get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let view = flags_readback
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_u32_vec(&view)
     };
     flags_readback.unmap();

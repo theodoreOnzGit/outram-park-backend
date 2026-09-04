@@ -35,15 +35,22 @@ use crate::root::KovanRoot;
 
 #[derive(Debug)]
 pub enum RepositoryError {
-    NotAGitRepository { path: PathBuf },
-    Io { path: PathBuf, source: std::io::Error },
+    NotAGitRepository {
+        path: PathBuf,
+    },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     Git(String),
 }
 
 impl std::fmt::Display for RepositoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotAGitRepository { path } => write!(f, "{}: not a git repository", path.display()),
+            Self::NotAGitRepository { path } => {
+                write!(f, "{}: not a git repository", path.display())
+            }
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Git(message) => write!(f, "{message}"),
         }
@@ -73,7 +80,11 @@ impl SaveSummary {
     /// Render as a commit message body.
     pub fn to_commit_message(&self) -> String {
         let mut out = String::from("Save Kovan repository\n");
-        for (label, paths) in [("Added", &self.added), ("Edited", &self.changed), ("Removed", &self.removed)] {
+        for (label, paths) in [
+            ("Added", &self.added),
+            ("Edited", &self.changed),
+            ("Removed", &self.removed),
+        ] {
             if paths.is_empty() {
                 continue;
             }
@@ -112,8 +123,15 @@ fn is_excluded(root: &KovanRoot, path: &Path) -> bool {
 /// repository, excluding restricted sources/`.kovan`/`.git`) and
 /// [`save_private_submodule`] (the private submodule's own worktree,
 /// excluding only its own `.git`).
-fn collect_files(base: &Path, dir: &Path, excluded: &impl Fn(&Path) -> bool, out: &mut Vec<(PathBuf, PathBuf)>) {
-    let Ok(read_dir) = std::fs::read_dir(dir) else { return };
+fn collect_files(
+    base: &Path,
+    dir: &Path,
+    excluded: &impl Fn(&Path) -> bool,
+    out: &mut Vec<(PathBuf, PathBuf)>,
+) {
+    let Ok(read_dir) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in read_dir.flatten() {
         let path = entry.path();
         if excluded(&path) {
@@ -167,8 +185,19 @@ fn build_tree_from(
         blobs.insert(rel.to_string_lossy().replace('\\', "/"), oid);
 
         let parent = rel.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
-        let filename = rel.file_name().expect("an entry has a name").to_string_lossy().into_owned();
-        dir_files.entry(parent.clone()).or_default().push(tree::Entry { mode, filename: filename.into(), oid });
+        let filename = rel
+            .file_name()
+            .expect("an entry has a name")
+            .to_string_lossy()
+            .into_owned();
+        dir_files
+            .entry(parent.clone())
+            .or_default()
+            .push(tree::Entry {
+                mode,
+                filename: filename.into(),
+                oid,
+            });
 
         let mut cursor = parent.as_path();
         loop {
@@ -181,8 +210,14 @@ fn build_tree_from(
     };
 
     for (abs, rel) in &files {
-        let bytes = std::fs::read(abs).map_err(|source| RepositoryError::Io { path: abs.clone(), source })?;
-        let oid = repo.write_blob(&bytes).map_err(|e| RepositoryError::Git(e.to_string()))?.detach();
+        let bytes = std::fs::read(abs).map_err(|source| RepositoryError::Io {
+            path: abs.clone(),
+            source,
+        })?;
+        let oid = repo
+            .write_blob(&bytes)
+            .map_err(|e| RepositoryError::Git(e.to_string()))?
+            .detach();
         register_entry(rel, tree::EntryKind::Blob.into(), oid);
     }
 
@@ -200,17 +235,30 @@ fn build_tree_from(
         for candidate in &dirs {
             if candidate != dir && candidate.parent() == Some(dir.as_path()) {
                 if let Some(&child_oid) = written.get(candidate) {
-                    let name = candidate.file_name().expect("non-root has a name").to_string_lossy().into_owned();
-                    entries.push(tree::Entry { mode: tree::EntryKind::Tree.into(), filename: name.into(), oid: child_oid });
+                    let name = candidate
+                        .file_name()
+                        .expect("non-root has a name")
+                        .to_string_lossy()
+                        .into_owned();
+                    entries.push(tree::Entry {
+                        mode: tree::EntryKind::Tree.into(),
+                        filename: name.into(),
+                        oid: child_oid,
+                    });
                 }
             }
         }
         entries.sort();
-        let oid = repo.write_object(Tree { entries }).map_err(|e| RepositoryError::Git(e.to_string()))?.detach();
+        let oid = repo
+            .write_object(Tree { entries })
+            .map_err(|e| RepositoryError::Git(e.to_string()))?
+            .detach();
         written.insert(dir.clone(), oid);
     }
 
-    let root_oid = *written.get(&PathBuf::new()).expect("root directory is always present");
+    let root_oid = *written
+        .get(&PathBuf::new())
+        .expect("root directory is always present");
     Ok((root_oid, blobs))
 }
 
@@ -236,11 +284,19 @@ fn flatten_tree(
     prefix: &str,
     out: &mut BTreeMap<String, gix::ObjectId>,
 ) -> Result<(), RepositoryError> {
-    let tree = repo.find_tree(tree_id).map_err(|e| RepositoryError::Git(e.to_string()))?;
-    let decoded = tree.decode().map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let tree = repo
+        .find_tree(tree_id)
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let decoded = tree
+        .decode()
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
     for entry in decoded.entries.iter() {
         let name = entry.filename.to_string();
-        let path = if prefix.is_empty() { name } else { format!("{prefix}/{name}") };
+        let path = if prefix.is_empty() {
+            name
+        } else {
+            format!("{prefix}/{name}")
+        };
         if entry.mode.is_tree() {
             flatten_tree(repo, entry.oid.to_owned(), &path, out)?;
         } else {
@@ -251,11 +307,19 @@ fn flatten_tree(
 }
 
 /// Diff `new_blobs` (the current worktree) against `HEAD`'s tree, if any.
-fn diff_against_head(repo: &gix::Repository, new_blobs: &BTreeMap<String, gix::ObjectId>) -> Result<SaveSummary, RepositoryError> {
+fn diff_against_head(
+    repo: &gix::Repository,
+    new_blobs: &BTreeMap<String, gix::ObjectId>,
+) -> Result<SaveSummary, RepositoryError> {
     let old_blobs = match repo.head_id() {
         Ok(head) => {
-            let commit = repo.find_commit(head.detach()).map_err(|e| RepositoryError::Git(e.to_string()))?;
-            let tree_id = commit.tree_id().map_err(|e| RepositoryError::Git(e.to_string()))?.detach();
+            let commit = repo
+                .find_commit(head.detach())
+                .map_err(|e| RepositoryError::Git(e.to_string()))?;
+            let tree_id = commit
+                .tree_id()
+                .map_err(|e| RepositoryError::Git(e.to_string()))?
+                .detach();
             let mut map = BTreeMap::new();
             flatten_tree(repo, tree_id, "", &mut map)?;
             map
@@ -287,7 +351,9 @@ fn diff_against_head(repo: &gix::Repository, new_blobs: &BTreeMap<String, gix::O
 /// prompt rather than this module doing so implicitly.
 fn open(root: &KovanRoot) -> Result<gix::Repository, RepositoryError> {
     if !root.has_git() {
-        return Err(RepositoryError::NotAGitRepository { path: root.path().to_path_buf() });
+        return Err(RepositoryError::NotAGitRepository {
+            path: root.path().to_path_buf(),
+        });
     }
     gix::open(root.path()).map_err(|e| RepositoryError::Git(e.to_string()))
 }
@@ -299,18 +365,29 @@ fn open(root: &KovanRoot) -> Result<gix::Repository, RepositoryError> {
 /// depend on what happens to be configured on the machine running it).
 /// Shared between [`save_repository`] (the parent repository) and
 /// [`save_private_submodule`] (a private submodule's own history).
-fn commit_tree(repo: &mut gix::Repository, tree_id: gix::ObjectId, message: String) -> Result<gix::ObjectId, RepositoryError> {
+fn commit_tree(
+    repo: &mut gix::Repository,
+    tree_id: gix::ObjectId,
+    message: String,
+) -> Result<gix::ObjectId, RepositoryError> {
     let mut snapshot = repo.config_snapshot_mut();
     snapshot
-        .append_config(["user.name=Kovan", "user.email=kovan@localhost"], gix::config::Source::Api)
+        .append_config(
+            ["user.name=Kovan", "user.email=kovan@localhost"],
+            gix::config::Source::Api,
+        )
         .map_err(|e| RepositoryError::Git(e.to_string()))?;
-    snapshot.commit().map_err(|e| RepositoryError::Git(e.to_string()))?;
+    snapshot
+        .commit()
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
 
     let parents: Vec<gix::ObjectId> = match repo.head_id() {
         Ok(id) => vec![id.detach()],
         Err(_) => Vec::new(),
     };
-    let commit_id = repo.commit("HEAD", message, tree_id, parents).map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let commit_id = repo
+        .commit("HEAD", message, tree_id, parents)
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
     Ok(commit_id.detach())
 }
 
@@ -328,7 +405,8 @@ fn commit_tree(repo: &mut gix::Repository, tree_id: gix::ObjectId, message: Stri
 /// a lightweight, frequently-polled preview. [`save_repository`] itself has
 /// no such gap — it always commits the submodule's actual current state.
 fn private_submodule_head(root: &KovanRoot) -> Result<Option<gix::ObjectId>, RepositoryError> {
-    let sub_repo = gix::open(root.restricted_sources_dir()).map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let sub_repo = gix::open(root.restricted_sources_dir())
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
     Ok(match sub_repo.head_id() {
         Ok(id) => Some(id.detach()),
         Err(_) => None,
@@ -356,7 +434,8 @@ fn private_submodule_head(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
 /// or not-ready private submodule.
 fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, RepositoryError> {
     let submodule_dir = root.restricted_sources_dir();
-    let mut sub_repo = gix::open(&submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let mut sub_repo =
+        gix::open(&submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
 
     let excluded = |path: &Path| path.components().any(|c| c.as_os_str() == ".git");
     let (tree_id, blobs) = build_tree_from(&sub_repo, &submodule_dir, excluded, None)?;
@@ -378,9 +457,20 @@ fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
 /// submodule. Always rewritten to the current single-submodule mapping
 /// rather than merged/diffed, since Kovan supports exactly one private
 /// literature submodule per library today.
-fn write_gitmodules(root: &KovanRoot, submodule: &crate::root::PrivateSubmoduleConfig) -> Result<(), RepositoryError> {
-    let rel = root.config().paths.restricted_sources.to_string_lossy().replace('\\', "/");
-    let contents = format!("[submodule \"{rel}\"]\n\tpath = {rel}\n\turl = {}\n", submodule.remote);
+fn write_gitmodules(
+    root: &KovanRoot,
+    submodule: &crate::root::PrivateSubmoduleConfig,
+) -> Result<(), RepositoryError> {
+    let rel = root
+        .config()
+        .paths
+        .restricted_sources
+        .to_string_lossy()
+        .replace('\\', "/");
+    let contents = format!(
+        "[submodule \"{rel}\"]\n\tpath = {rel}\n\turl = {}\n",
+        submodule.remote
+    );
     let path = root.path().join(".gitmodules");
     std::fs::write(&path, contents).map_err(|source| RepositoryError::Io { path, source })
 }
@@ -391,7 +481,10 @@ fn write_gitmodules(root: &KovanRoot, submodule: &crate::root::PrivateSubmoduleC
 /// [`save_repository`] (committing, via [`save_private_submodule`]) each
 /// wrap around their own choice of how to get that commit id.
 fn submodule_gitlink(root: &KovanRoot, commit: Option<gix::ObjectId>) -> Option<SubmoduleGitlink> {
-    commit.map(|commit| SubmoduleGitlink { path: root.config().paths.restricted_sources.clone(), commit })
+    commit.map(|commit| SubmoduleGitlink {
+        path: root.config().paths.restricted_sources.clone(),
+        commit,
+    })
 }
 
 /// What would change if [`save_repository`] ran right now — the "N changes
@@ -400,7 +493,11 @@ fn submodule_gitlink(root: &KovanRoot, commit: Option<gix::ObjectId>) -> Option<
 /// that guarantee's coverage.
 pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
     let repo = open(root)?;
-    let gitlink = if root.private_submodule_ready() { submodule_gitlink(root, private_submodule_head(root)?) } else { None };
+    let gitlink = if root.private_submodule_ready() {
+        submodule_gitlink(root, private_submodule_head(root)?)
+    } else {
+        None
+    };
     let (_tree_id, blobs) = build_tree(&repo, root, gitlink.as_ref())?;
     diff_against_head(&repo, &blobs)
 }
@@ -461,7 +558,8 @@ mod tests {
     /// `private_submodule_ready()` is true.
     fn make_root_with_private_submodule() -> (tempfile::TempDir, KovanRoot) {
         let dir = tempfile::tempdir().unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private-literature.git");
+        let config = RootConfig::new("lib", "Lib")
+            .with_private_submodule("git@example.com:org/private-literature.git");
         let root = KovanRoot::create(dir.path(), config, true).unwrap();
         gix::init(root.restricted_sources_dir()).unwrap();
         (dir, root)
@@ -470,24 +568,42 @@ mod tests {
     /// The `EntryMode` at `path` inside `tree_id`, descending through
     /// intermediate directories — used to confirm a gitlink was recorded
     /// as a `Commit`-mode entry, not walked as an ordinary `Tree`.
-    fn entry_mode_at(repo: &gix::Repository, tree_id: gix::ObjectId, path: &Path) -> Option<tree::EntryMode> {
-        let mut components: Vec<String> = path.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
+    fn entry_mode_at(
+        repo: &gix::Repository,
+        tree_id: gix::ObjectId,
+        path: &Path,
+    ) -> Option<tree::EntryMode> {
+        let mut components: Vec<String> = path
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
         let last = components.pop()?;
         let mut current = tree_id;
         for comp in &components {
             let decoded_tree = repo.find_tree(current).ok()?;
             let decoded = decoded_tree.decode().ok()?;
-            current = decoded.entries.iter().find(|e| e.filename == comp.as_bytes())?.oid.to_owned();
+            current = decoded
+                .entries
+                .iter()
+                .find(|e| e.filename == comp.as_bytes())?
+                .oid
+                .to_owned();
         }
         let decoded_tree = repo.find_tree(current).ok()?;
         let decoded = decoded_tree.decode().ok()?;
-        decoded.entries.iter().find(|e| e.filename == last.as_bytes()).map(|e| e.mode)
+        decoded
+            .entries
+            .iter()
+            .find(|e| e.filename == last.as_bytes())
+            .map(|e| e.mode)
     }
 
     #[test]
     fn first_save_repository_commits_the_skeleton() {
         let (_dir, root) = make_root();
-        let summary = save_repository(&root).unwrap().expect("a fresh library has files to commit");
+        let summary = save_repository(&root)
+            .unwrap()
+            .expect("a fresh library has files to commit");
         assert!(summary.added.iter().any(|p| p == "kovan_root.toml"));
         assert!(summary.added.iter().any(|p| p == ".gitignore"));
         assert!(summary.changed.is_empty());
@@ -507,23 +623,37 @@ mod tests {
         let (_dir, root) = make_root();
         save_repository(&root).unwrap();
 
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
-            .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
 
         let summary = save_repository(&root).unwrap().unwrap();
-        assert!(summary.added.iter().any(|p| p.contains("wang2018multiphysics")));
+        assert!(summary
+            .added
+            .iter()
+            .any(|p| p.contains("wang2018multiphysics")));
     }
 
     #[test]
     fn restricted_pdfs_are_never_part_of_the_saved_tree() {
         let (_dir, root) = make_root();
         std::fs::create_dir_all(root.restricted_sources_dir()).unwrap();
-        std::fs::write(root.restricted_sources_dir().join("secret.pdf"), b"proprietary bytes").unwrap();
+        std::fs::write(
+            root.restricted_sources_dir().join("secret.pdf"),
+            b"proprietary bytes",
+        )
+        .unwrap();
 
         let summary = save_repository(&root).unwrap().unwrap();
-        assert!(!summary.added.iter().any(|p| p.contains("secret.pdf")), "{:?}", summary.added);
+        assert!(
+            !summary.added.iter().any(|p| p.contains("secret.pdf")),
+            "{:?}",
+            summary.added
+        );
 
         // Structural, not gitignore-convention: even with the restricted
         // directory's .gitignore pattern removed, the same file must not
@@ -577,14 +707,31 @@ mod tests {
         // ready. Must fall back to the exact pre-op-3gxp behaviour: fully
         // excluded, no gitlink, no error.
         let dir = tempfile::tempdir().unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(dir.path(), config, true).unwrap();
         assert!(!root.private_submodule_ready());
 
-        std::fs::write(root.restricted_sources_dir().join("secret.pdf"), b"proprietary bytes").unwrap();
+        std::fs::write(
+            root.restricted_sources_dir().join("secret.pdf"),
+            b"proprietary bytes",
+        )
+        .unwrap();
         let summary = save_repository(&root).unwrap().unwrap();
-        let rel = root.config().paths.restricted_sources.to_string_lossy().replace('\\', "/");
-        assert!(!summary.added.iter().any(|p| p == &rel || p.contains("secret.pdf")), "{:?}", summary.added);
+        let rel = root
+            .config()
+            .paths
+            .restricted_sources
+            .to_string_lossy()
+            .replace('\\', "/");
+        assert!(
+            !summary
+                .added
+                .iter()
+                .any(|p| p == &rel || p.contains("secret.pdf")),
+            "{:?}",
+            summary.added
+        );
     }
 
     #[test]
@@ -592,13 +739,26 @@ mod tests {
         let (_dir, root) = make_root_with_private_submodule();
         save_repository(&root).unwrap(); // initial skeleton; submodule is still empty, so still excluded this round.
 
-        std::fs::write(root.restricted_sources_dir().join("secret.pdf"), b"proprietary bytes").unwrap();
+        std::fs::write(
+            root.restricted_sources_dir().join("secret.pdf"),
+            b"proprietary bytes",
+        )
+        .unwrap();
         let summary = save_repository(&root).unwrap().unwrap();
 
-        let rel = root.config().paths.restricted_sources.to_string_lossy().replace('\\', "/");
+        let rel = root
+            .config()
+            .paths
+            .restricted_sources
+            .to_string_lossy()
+            .replace('\\', "/");
         // The gitlink path itself is reported, never the file inside it.
         assert!(summary.added.contains(&rel), "{:?}", summary.added);
-        assert!(!summary.added.iter().any(|p| p.contains("secret.pdf")), "{:?}", summary.added);
+        assert!(
+            !summary.added.iter().any(|p| p.contains("secret.pdf")),
+            "{:?}",
+            summary.added
+        );
 
         // The submodule genuinely has its own commit now.
         let sub_repo = gix::open(root.restricted_sources_dir()).unwrap();
@@ -611,17 +771,32 @@ mod tests {
         let parent_head = parent_repo.head_id().unwrap().detach();
         let commit = parent_repo.find_commit(parent_head).unwrap();
         let tree_id = commit.tree_id().unwrap().detach();
-        let mode = entry_mode_at(&parent_repo, tree_id, &root.config().paths.restricted_sources).unwrap();
-        assert!(mode.is_commit(), "expected a gitlink (Commit-mode) entry, got {mode:?}");
+        let mode = entry_mode_at(
+            &parent_repo,
+            tree_id,
+            &root.config().paths.restricted_sources,
+        )
+        .unwrap();
+        assert!(
+            mode.is_commit(),
+            "expected a gitlink (Commit-mode) entry, got {mode:?}"
+        );
 
         let mut flat = BTreeMap::new();
         flatten_tree(&parent_repo, tree_id, "", &mut flat).unwrap();
-        assert_eq!(flat.get(&rel), Some(&sub_head), "the gitlink must point at the submodule's actual HEAD");
+        assert_eq!(
+            flat.get(&rel),
+            Some(&sub_head),
+            "the gitlink must point at the submodule's actual HEAD"
+        );
 
         // .gitmodules exists and names the right path + remote.
         let gitmodules = std::fs::read_to_string(root.path().join(".gitmodules")).unwrap();
         assert!(gitmodules.contains(&rel), "{gitmodules}");
-        assert!(gitmodules.contains("git@example.com:org/private-literature.git"), "{gitmodules}");
+        assert!(
+            gitmodules.contains("git@example.com:org/private-literature.git"),
+            "{gitmodules}"
+        );
     }
 
     #[test]
@@ -633,7 +808,12 @@ mod tests {
         std::fs::write(root.restricted_sources_dir().join("a.pdf"), b"two, edited").unwrap();
         let summary = save_repository(&root).unwrap().unwrap();
 
-        let rel = root.config().paths.restricted_sources.to_string_lossy().replace('\\', "/");
+        let rel = root
+            .config()
+            .paths
+            .restricted_sources
+            .to_string_lossy()
+            .replace('\\', "/");
         assert!(summary.changed.contains(&rel), "{:?}", summary.changed);
     }
 
@@ -643,10 +823,18 @@ mod tests {
         // actually a valid repository -- `gix::open` on it must fail, and
         // that failure must propagate before any parent-repository write.
         let dir = tempfile::tempdir().unwrap();
-        let config = RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
+        let config =
+            RootConfig::new("lib", "Lib").with_private_submodule("git@example.com:org/private.git");
         let root = KovanRoot::create(dir.path(), config, true).unwrap();
-        std::fs::write(root.restricted_sources_dir().join(".git"), "not a real gitdir pointer").unwrap();
-        assert!(root.private_submodule_ready(), "a .git entry, however invalid, is enough to look ready");
+        std::fs::write(
+            root.restricted_sources_dir().join(".git"),
+            "not a real gitdir pointer",
+        )
+        .unwrap();
+        assert!(
+            root.private_submodule_ready(),
+            "a .git entry, however invalid, is enough to look ready"
+        );
 
         let parent_repo = gix::open(root.path()).unwrap();
         let head_before = parent_repo.head_id().ok().map(|id| id.detach());
@@ -656,7 +844,10 @@ mod tests {
 
         let parent_repo = gix::open(root.path()).unwrap();
         let head_after = parent_repo.head_id().ok().map(|id| id.detach());
-        assert_eq!(head_before, head_after, "a failed private-submodule save must not produce a parent commit");
+        assert_eq!(
+            head_before, head_after,
+            "a failed private-submodule save must not produce a parent commit"
+        );
     }
 
     #[test]
@@ -668,7 +859,10 @@ mod tests {
         std::fs::write(root.path().join("README.md"), "hello").unwrap();
         let before = status(&root).unwrap();
         let after = status(&root).unwrap();
-        assert_eq!(before, after, "status must not itself change what a second status call sees");
+        assert_eq!(
+            before, after,
+            "status must not itself change what a second status call sees"
+        );
         assert!(before.added.iter().any(|p| p == "README.md"));
     }
 }

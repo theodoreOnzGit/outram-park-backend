@@ -108,7 +108,10 @@ pub fn auto_mirror(mesh: &Mesh, plane: &WorkPlane, weld_dist: f64) -> Mesh {
         mirrored.rotate_right(1);
         faces.push(mirrored);
     }
-    crate::weld::weld(&Mesh::from_polygons(&positions, &faces), weld_dist.max(1e-9))
+    crate::weld::weld(
+        &Mesh::from_polygons(&positions, &faces),
+        weld_dist.max(1e-9),
+    )
 }
 
 /// A lofted quad surface through `strokes` (each an ordered polyline). Every
@@ -146,7 +149,10 @@ pub fn bsurfaces(strokes: &[Vec<Vec3>], cols: usize) -> Mesh {
 fn soup(mesh: &Mesh) -> (Vec<Vec3>, Vec<Vec<usize>>) {
     (
         mesh.positions(),
-        mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect(),
+        mesh.polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect(),
     )
 }
 
@@ -224,15 +230,26 @@ mod tests {
         let out = auto_mirror(&cube, &plane, 1e-6);
         let (lo, hi) = crate::measure::bounding_box(&out);
         assert!((hi.x + lo.x).abs() < 1e-6, "symmetric about x = 0");
-        assert!((hi.x - 1.0).abs() < 1e-6 && (lo.x + 1.0).abs() < 1e-6, "full width restored");
+        assert!(
+            (hi.x - 1.0).abs() < 1e-6 && (lo.x + 1.0).abs() < 1e-6,
+            "full width restored"
+        );
     }
 
     #[test]
     fn bsurfaces_lofts_strokes_into_a_grid() {
         let strokes = vec![
-            vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 0.0, 0.0)],
+            vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(2.0, 0.0, 0.0),
+            ],
             vec![Vec3::new(0.0, 1.0, 0.3), Vec3::new(2.0, 1.0, 0.3)],
-            vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(1.0, 2.0, -0.2), Vec3::new(2.0, 2.0, 0.0)],
+            vec![
+                Vec3::new(0.0, 2.0, 0.0),
+                Vec3::new(1.0, 2.0, -0.2),
+                Vec3::new(2.0, 2.0, 0.0),
+            ],
         ];
         let m = bsurfaces(&strokes, 5);
         assert_eq!(m.vertex_count(), 3 * 5);

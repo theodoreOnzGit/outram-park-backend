@@ -91,7 +91,10 @@ fn rotation(axis: Vec3, angle: f64) -> Affine3 {
 /// translate back).
 fn rotation_about(axis: Vec3, angle: f64, center: Vec3) -> Affine3 {
     let r = rotation(axis, angle);
-    compose(Affine3::translation(center), compose(r, Affine3::translation(center.scale(-1.0))))
+    compose(
+        Affine3::translation(center),
+        compose(r, Affine3::translation(center.scale(-1.0))),
+    )
 }
 
 fn append(pos: &mut Vec<Vec3>, faces: &mut Vec<Vec<usize>>, mesh: &Mesh, xf: Affine3) {
@@ -123,13 +126,28 @@ pub fn radial_array_capped(
     let mut pos = Vec::new();
     let mut faces = Vec::new();
     if let Some(c) = &caps.start {
-        append(&mut pos, &mut faces, c, rotation_about(axis, -step_angle, center));
+        append(
+            &mut pos,
+            &mut faces,
+            c,
+            rotation_about(axis, -step_angle, center),
+        );
     }
     for i in 0..n {
-        append(&mut pos, &mut faces, mesh, rotation_about(axis, step_angle * i as f64, center));
+        append(
+            &mut pos,
+            &mut faces,
+            mesh,
+            rotation_about(axis, step_angle * i as f64, center),
+        );
     }
     if let Some(c) = &caps.end {
-        append(&mut pos, &mut faces, c, rotation_about(axis, step_angle * n as f64, center));
+        append(
+            &mut pos,
+            &mut faces,
+            c,
+            rotation_about(axis, step_angle * n as f64, center),
+        );
     }
     Mesh::from_polygons(&pos, &faces)
 }
@@ -178,9 +196,8 @@ pub fn object_offset_array_capped(
 }
 
 fn pure_translation_inverse(a: Affine3) -> Option<Affine3> {
-    let is_ident = (0..3).all(|i| {
-        (0..3).all(|j| (a.linear[i][j] - if i == j { 1.0 } else { 0.0 }).abs() < 1e-12)
-    });
+    let is_ident = (0..3)
+        .all(|i| (0..3).all(|j| (a.linear[i][j] - if i == j { 1.0 } else { 0.0 }).abs() < 1e-12));
     is_ident.then(|| Affine3::translation(a.translation.scale(-1.0)))
 }
 
@@ -223,7 +240,11 @@ pub fn array_along_curve_capped(
         place(&mut pos, &mut faces, 0.0, c);
     }
     for i in 0..n {
-        let u = if n == 1 { 0.0 } else { i as f64 / (n as f64 - 1.0) };
+        let u = if n == 1 {
+            0.0
+        } else {
+            i as f64 / (n as f64 - 1.0)
+        };
         place(&mut pos, &mut faces, u, mesh);
     }
     if let Some(c) = &caps.end {
@@ -259,8 +280,11 @@ mod tests {
     fn cube_at(size: f64, t: Vec3) -> Mesh {
         let m = primitives::cube(size);
         let positions: Vec<Vec3> = m.positions().iter().map(|p| p.add(t)).collect();
-        let faces: Vec<Vec<usize>> =
-            m.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+        let faces: Vec<Vec<usize>> = m
+            .polygons()
+            .iter()
+            .map(|f| f.iter().map(|v| v.0).collect())
+            .collect();
         Mesh::from_polygons(&positions, &faces)
     }
 
@@ -282,7 +306,13 @@ mod tests {
     #[test]
     fn radial_array_partial_sweep() {
         let unit = cube_at(0.5, Vec3::new(3.0, 0.0, 0.0));
-        let fan = radial_array(&unit, 4, std::f64::consts::FRAC_PI_2 / 3.0, Vec3::new(0.0, 0.0, 1.0), Vec3::ZERO);
+        let fan = radial_array(
+            &unit,
+            4,
+            std::f64::consts::FRAC_PI_2 / 3.0,
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::ZERO,
+        );
         assert_eq!(fan.vertex_count(), 4 * 8);
         // Last copy rotated 90° total → centred near (0, 3, 0).
         let (_lo, hi) = bounding_box(&fan);
@@ -346,10 +376,16 @@ mod tests {
         // aligning local X to the tangent should make it long in y.
         let bar = {
             let m = primitives::cube(1.0);
-            let p: Vec<Vec3> =
-                m.positions().iter().map(|q| Vec3::new(q.x * 4.0, q.y, q.z)).collect();
-            let f: Vec<Vec<usize>> =
-                m.polygons().iter().map(|x| x.iter().map(|v| v.0).collect()).collect();
+            let p: Vec<Vec3> = m
+                .positions()
+                .iter()
+                .map(|q| Vec3::new(q.x * 4.0, q.y, q.z))
+                .collect();
+            let f: Vec<Vec<usize>> = m
+                .polygons()
+                .iter()
+                .map(|x| x.iter().map(|v| v.0).collect())
+                .collect();
             Mesh::from_polygons(&p, &f)
         };
         let s = Spline::poly(&[Vec3::ZERO, Vec3::new(0.0, 12.0, 0.0)]);

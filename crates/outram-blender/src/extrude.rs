@@ -49,7 +49,11 @@ use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
 /// outward normal. Each face gets its own duplicated top and side walls; the
 /// original faces are removed.
 pub fn extrude_faces_individual(mesh: &Mesh, faces: &[FaceId], amount: f64) -> Mesh {
-    let sel: HashSet<usize> = faces.iter().map(|f| f.0).filter(|&f| f < mesh.face_count()).collect();
+    let sel: HashSet<usize> = faces
+        .iter()
+        .map(|f| f.0)
+        .filter(|&f| f < mesh.face_count())
+        .collect();
     let mut positions = mesh.positions();
     let mut out: Vec<Vec<usize>> = Vec::new();
 
@@ -83,7 +87,11 @@ pub fn extrude_faces_individual(mesh: &Mesh, faces: &[FaceId], amount: f64) -> M
 /// become the raised top; boundary edges gain side walls.
 pub fn extrude_faces_along_normals(mesh: &Mesh, faces: &[FaceId], amount: f64) -> Mesh {
     let sel: Vec<usize> = {
-        let mut s: Vec<usize> = faces.iter().map(|f| f.0).filter(|&f| f < mesh.face_count()).collect();
+        let mut s: Vec<usize> = faces
+            .iter()
+            .map(|f| f.0)
+            .filter(|&f| f < mesh.face_count())
+            .collect();
         s.sort_unstable();
         s.dedup();
         s
@@ -117,7 +125,11 @@ pub fn extrude_faces_along_normals(mesh: &Mesh, faces: &[FaceId], amount: f64) -
     let mut positions = mesh.positions();
     let mut dup: HashMap<usize, usize> = HashMap::new();
     for (&v, nrm) in &vnorm {
-        let d = if nrm.length() > 1e-12 { nrm.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+        let d = if nrm.length() > 1e-12 {
+            nrm.normalize()
+        } else {
+            Vec3::new(0.0, 0.0, 1.0)
+        };
         positions.push(positions[v].add(d.scale(amount)));
         dup.insert(v, positions.len() - 1);
     }
@@ -151,7 +163,11 @@ pub fn extrude_faces_along_normals(mesh: &Mesh, faces: &[FaceId], amount: f64) -
 /// covers the lone-vertex / wire case.
 pub fn extrude_vertices(mesh: &Mesh, verts: &[VertexId], offset: Vec3) -> Mesh {
     let mut positions = mesh.positions();
-    let mut out: Vec<Vec<usize>> = mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let mut out: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
     for &v in verts {
         if v.0 >= mesh.vertex_count() {
             continue;
@@ -207,7 +223,10 @@ pub fn selection_boundary_edges(mesh: &Mesh, faces: &[FaceId]) -> Vec<EdgeId> {
     let mut out = Vec::new();
     for e in 0..mesh.edge_count() {
         let ed = mesh.edge(EdgeId(e)).unwrap();
-        let key = (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0));
+        let key = (
+            ed.verts[0].0.min(ed.verts[1].0),
+            ed.verts[0].0.max(ed.verts[1].0),
+        );
         if use_count.get(&key).copied() == Some(1) {
             out.push(EdgeId(e));
         }
@@ -265,6 +284,10 @@ mod tests {
     fn selection_boundary_edges_of_one_grid_face() {
         let m = primitives::grid(2, 2, 4.0);
         let b = selection_boundary_edges(&m, &[FaceId(0)]);
-        assert_eq!(b.len(), 4, "an interior grid quad has 4 boundary edges vs the selection");
+        assert_eq!(
+            b.len(),
+            4,
+            "an interior grid quad has 4 boundary edges vs the selection"
+        );
     }
 }

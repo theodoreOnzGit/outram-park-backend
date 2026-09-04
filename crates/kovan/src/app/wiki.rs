@@ -62,12 +62,23 @@ impl IngestFlow {
         } else {
             String::new()
         };
-        Self { preview, citekey, access: Access::Restricted, topics_text: String::new(), projects_text: String::new(), message }
+        Self {
+            preview,
+            citekey,
+            access: Access::Restricted,
+            topics_text: String::new(),
+            projects_text: String::new(),
+            message,
+        }
     }
 }
 
 fn split_paths(text: &str) -> Vec<String> {
-    text.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
+    text.split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect()
 }
 
 /// A pending "sort this paper" flow (op-j3ib, GH issue #35's 2026-09-01
@@ -89,7 +100,12 @@ impl ClassifyFlow {
             .find(|p| p.citekey == citekey)
             .map(|p| (p.topics.join(", "), p.projects.join(", ")))
             .unwrap_or_default();
-        Self { citekey, topics_text, projects_text, message: String::new() }
+        Self {
+            citekey,
+            topics_text,
+            projects_text,
+            message: String::new(),
+        }
     }
 }
 
@@ -119,7 +135,11 @@ pub struct WikiState {
 
 impl Default for WikiState {
     fn default() -> Self {
-        Self { current: String::new(), ingest_flow: None, classify_flow: None }
+        Self {
+            current: String::new(),
+            ingest_flow: None,
+            classify_flow: None,
+        }
     }
 }
 
@@ -132,7 +152,11 @@ impl WikiState {
     /// run §22's automatic-detection preview and open the classification
     /// form. On failure (an unreadable PDF), returns the error message for
     /// the caller's own status line — there is no form to attach it to yet.
-    pub fn begin_ingest(&mut self, root: &KovanRoot, pdf_path: &std::path::Path) -> Result<(), String> {
+    pub fn begin_ingest(
+        &mut self,
+        root: &KovanRoot,
+        pdf_path: &std::path::Path,
+    ) -> Result<(), String> {
         let preview = ingest::preview(root, pdf_path).map_err(|e| e.to_string())?;
         self.ingest_flow = Some(IngestFlow::new(preview));
         Ok(())
@@ -144,54 +168,63 @@ impl WikiState {
     /// open, not just refresh the index) and refreshes the shared knowledge
     /// state (op-dkll).
     fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<String> {
-        let Some(flow) = &mut self.ingest_flow else { return None };
+        let Some(flow) = &mut self.ingest_flow else {
+            return None;
+        };
         let mut close = false;
         let mut confirmed = None;
 
-        egui::Window::new("Ingest Literature").collapsible(false).resizable(false).show(ui.ctx(), |ui| {
-            ui.label(format!("Title: {}", flow.preview.title));
-            if !flow.preview.authors.is_empty() {
-                ui.label(format!("Authors: {}", flow.preview.authors));
-            }
-            if let Some(year) = flow.preview.year {
-                ui.label(format!("Year: {year}"));
-            }
-            if let Some(doi) = &flow.preview.doi {
-                ui.label(format!("DOI: {doi}"));
-            }
-            ui.separator();
-
-            ui.horizontal(|ui| {
-                ui.label("Citekey:");
-                ui.text_edit_singleline(&mut flow.citekey);
-            });
-
-            ui.label("SOURCE");
-            ui.radio_value(&mut flow.access, Access::Restricted, "Restricted / proprietary");
-            ui.radio_value(&mut flow.access, Access::Open, "Open / redistributable");
-
-            ui.horizontal(|ui| {
-                ui.label("Topics (comma-separated, e.g. htgrs/materials):");
-                ui.text_edit_singleline(&mut flow.topics_text);
-            });
-            ui.horizontal(|ui| {
-                ui.label("Projects:");
-                ui.text_edit_singleline(&mut flow.projects_text);
-            });
-
-            if !flow.message.is_empty() {
-                ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
-            }
-
-            ui.horizontal(|ui| {
-                if ui.button("Ingest & Open").clicked() {
-                    confirmed = Some(());
+        egui::Window::new("Ingest Literature")
+            .collapsible(false)
+            .resizable(false)
+            .show(ui.ctx(), |ui| {
+                ui.label(format!("Title: {}", flow.preview.title));
+                if !flow.preview.authors.is_empty() {
+                    ui.label(format!("Authors: {}", flow.preview.authors));
                 }
-                if ui.button("Cancel").clicked() {
-                    close = true;
+                if let Some(year) = flow.preview.year {
+                    ui.label(format!("Year: {year}"));
                 }
+                if let Some(doi) = &flow.preview.doi {
+                    ui.label(format!("DOI: {doi}"));
+                }
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    ui.label("Citekey:");
+                    ui.text_edit_singleline(&mut flow.citekey);
+                });
+
+                ui.label("SOURCE");
+                ui.radio_value(
+                    &mut flow.access,
+                    Access::Restricted,
+                    "Restricted / proprietary",
+                );
+                ui.radio_value(&mut flow.access, Access::Open, "Open / redistributable");
+
+                ui.horizontal(|ui| {
+                    ui.label("Topics (comma-separated, e.g. htgrs/materials):");
+                    ui.text_edit_singleline(&mut flow.topics_text);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Projects:");
+                    ui.text_edit_singleline(&mut flow.projects_text);
+                });
+
+                if !flow.message.is_empty() {
+                    ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
+                }
+
+                ui.horizontal(|ui| {
+                    if ui.button("Ingest & Open").clicked() {
+                        confirmed = Some(());
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                });
             });
-        });
 
         let mut opened = None;
         if let Some(()) = confirmed {
@@ -227,34 +260,39 @@ impl WikiState {
     /// `true` the frame a reclassify actually succeeds, so the caller knows
     /// to refresh the shared knowledge state (op-dkll).
     fn classify_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> bool {
-        let Some(flow) = &mut self.classify_flow else { return false };
+        let Some(flow) = &mut self.classify_flow else {
+            return false;
+        };
         let mut close = false;
         let mut save_clicked = false;
 
-        egui::Window::new(format!("Sort {}", flow.citekey)).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Topics (comma-separated, e.g. htgrs/materials):");
-                ui.text_edit_singleline(&mut flow.topics_text);
-            });
-            ui.horizontal(|ui| {
-                ui.label("Projects:");
-                ui.text_edit_singleline(&mut flow.projects_text);
-            });
-            ui.small("Leave both empty to put it back in Unsorted.");
+        egui::Window::new(format!("Sort {}", flow.citekey))
+            .collapsible(false)
+            .resizable(false)
+            .show(ui.ctx(), |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Topics (comma-separated, e.g. htgrs/materials):");
+                    ui.text_edit_singleline(&mut flow.topics_text);
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Projects:");
+                    ui.text_edit_singleline(&mut flow.projects_text);
+                });
+                ui.small("Leave both empty to put it back in Unsorted.");
 
-            if !flow.message.is_empty() {
-                ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
-            }
+                if !flow.message.is_empty() {
+                    ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
+                }
 
-            ui.horizontal(|ui| {
-                if ui.button("Save").clicked() {
-                    save_clicked = true;
-                }
-                if ui.button("Cancel").clicked() {
-                    close = true;
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("Save").clicked() {
+                        save_clicked = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                });
             });
-        });
 
         let mut changed = false;
         if save_clicked {
@@ -297,7 +335,12 @@ impl WikiState {
     /// op-dkll — this module no longer keeps its own copy). Returns `Some`
     /// when the caller should act: open a file picker, activate a paper, or
     /// refresh the shared knowledge state.
-    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) -> Option<WikiAction> {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        root: &KovanRoot,
+        index: &KnowledgeIndex,
+    ) -> Option<WikiAction> {
         let mut action = None;
 
         if let Some(citekey) = self.ingest_form(ui, root) {
@@ -348,22 +391,40 @@ impl WikiState {
         // at the tree root, shown only while there is something to show,
         // makes the existing `current = path` / `papers_in(path)` drill-down
         // machinery reach it with no new collection type or on-disk directory.
-        let unsorted_count = if self.current.is_empty() { index.papers_in("unsorted").len() } else { 0 };
+        let unsorted_count = if self.current.is_empty() {
+            index.papers_in("unsorted").len()
+        } else {
+            0
+        };
         let mut open_paper = None;
         let mut classify_target = None;
 
         egui::ScrollArea::vertical().show(ui, |ui| {
-            let children: Vec<(String, EntityKind, String)> =
-                index.children_of(&self.current).into_iter().map(|c| (c.path.clone(), c.kind, c.name.clone())).collect();
-            let papers: Vec<String> = index.papers_in(&self.current).into_iter().map(|p| p.citekey.clone()).collect();
+            let children: Vec<(String, EntityKind, String)> = index
+                .children_of(&self.current)
+                .into_iter()
+                .map(|c| (c.path.clone(), c.kind, c.name.clone()))
+                .collect();
+            let papers: Vec<String> = index
+                .papers_in(&self.current)
+                .into_iter()
+                .map(|p| p.citekey.clone())
+                .collect();
 
-            if children.is_empty() && papers.is_empty() && unsorted_count == 0 && self.current.is_empty() {
+            if children.is_empty()
+                && papers.is_empty()
+                && unsorted_count == 0
+                && self.current.is_empty()
+            {
                 ui.weak("(no topics or projects yet — use + Ingest Literature to get started)");
             }
 
             let mut drill_into = None;
             if unsorted_count > 0 {
-                if ui.link(format!("\u{1F4E5} Unsorted ({unsorted_count})")).clicked() {
+                if ui
+                    .link(format!("\u{1F4E5} Unsorted ({unsorted_count})"))
+                    .clicked()
+                {
                     drill_into = Some("unsorted".to_string());
                 }
             }

@@ -91,18 +91,34 @@ pub enum ArtifactKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArtifactError {
     /// The `[kovan]` table is present but does not match the schema.
-    Malformed { heading: String, line: usize, message: String },
+    Malformed {
+        heading: String,
+        line: usize,
+        message: String,
+    },
     /// A `[source]` anchor is self-contradictory or out of range.
-    BadAnchor { heading: String, line: usize, message: String },
+    BadAnchor {
+        heading: String,
+        line: usize,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for ArtifactError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Malformed { heading, line, message } => {
+            Self::Malformed {
+                heading,
+                line,
+                message,
+            } => {
                 write!(f, "line {line} ({heading:?}): {message}")
             }
-            Self::BadAnchor { heading, line, message } => {
+            Self::BadAnchor {
+                heading,
+                line,
+                message,
+            } => {
                 write!(f, "line {line} ({heading:?}): {message}")
             }
         }
@@ -133,7 +149,12 @@ pub struct Region {
 
 impl From<[f64; 4]> for Region {
     fn from(v: [f64; 4]) -> Self {
-        Self { x0: v[0], y0: v[1], x1: v[2], y1: v[3] }
+        Self {
+            x0: v[0],
+            y0: v[1],
+            x1: v[2],
+            y1: v[3],
+        }
     }
 }
 
@@ -199,12 +220,17 @@ impl SourceAnchor {
                 return Err("`pages` starts at 0, but page numbers are 1-based".into());
             }
             if end < start {
-                return Err(format!("`pages` range [{start}, {end}] ends before it starts"));
+                return Err(format!(
+                    "`pages` range [{start}, {end}] ends before it starts"
+                ));
             }
         }
         if let Some(region) = self.region {
             if self.page.is_none() {
-                return Err("`region` needs a `page`; a rectangle spanning a page range is undefined".into());
+                return Err(
+                    "`region` needs a `page`; a rectangle spanning a page range is undefined"
+                        .into(),
+                );
             }
             if !region.is_valid() {
                 return Err(format!(
@@ -372,7 +398,11 @@ impl ParsedDocument {
 
 /// 1-based line number of `byte_offset` within `text`.
 fn line_of(text: &str, byte_offset: usize) -> usize {
-    text[..byte_offset.min(text.len())].bytes().filter(|b| *b == b'\n').count() + 1
+    text[..byte_offset.min(text.len())]
+        .bytes()
+        .filter(|b| *b == b'\n')
+        .count()
+        + 1
 }
 
 /// Scan a Markdown document for Kovan artifacts (§13).
@@ -399,7 +429,10 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
     let mut toml_buf: Option<String> = None;
     let mut fence_end = 0usize;
 
-    let parser = Parser::new_ext(markdown, Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH);
+    let parser = Parser::new_ext(
+        markdown,
+        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH,
+    );
     for (event, range) in parser.into_offset_iter() {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
@@ -417,7 +450,11 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
             Event::Text(t) | Event::Code(t) if in_heading => heading_text.push_str(&t),
             Event::End(TagEnd::Heading(_)) => {
                 in_heading = false;
-                pending = Some((heading_text.trim().to_string(), heading_level, heading_start));
+                pending = Some((
+                    heading_text.trim().to_string(),
+                    heading_level,
+                    heading_start,
+                ));
             }
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
                 if pending.is_some() && lang.split(',').next().unwrap_or("").trim() == "toml" =>
@@ -430,7 +467,8 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
                 }
             }
             Event::End(TagEnd::CodeBlock) => {
-                if let (Some(buf), Some((heading, level, offset))) = (toml_buf.take(), pending.take())
+                if let (Some(buf), Some((heading, level, offset))) =
+                    (toml_buf.take(), pending.take())
                 {
                     let line = line_of(markdown, offset);
                     // §13: no `[kovan]` table means an ordinary code example.
@@ -508,7 +546,12 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
 /// Only if `toml`'s own TOML serialisation fails, which cannot happen for
 /// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
 /// callers an `unwrap`.
-pub fn render_artifact_block(level: u8, heading: &str, payload: &ArtifactToml, body: &str) -> Result<String, String> {
+pub fn render_artifact_block(
+    level: u8,
+    heading: &str,
+    payload: &ArtifactToml,
+    body: &str,
+) -> Result<String, String> {
     let level = level.clamp(1, 6);
     let hashes = "#".repeat(level as usize);
     let toml_text = toml::to_string_pretty(payload).map_err(|e| e.to_string())?;
@@ -537,7 +580,8 @@ pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
     let mut end = lines.len();
     for (i, line) in lines.iter().enumerate().skip(start + 1) {
         let hashes = line.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ') {
+        if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ')
+        {
             end = i;
             break;
         }
@@ -592,7 +636,11 @@ Graphite temperature here appears to represent nominal operating conditions.
 
         assert_eq!(a.toml.classification.topics, vec!["htgrs/materials"]);
         assert_eq!(a.toml.classification.projects, vec!["outram-park"]);
-        assert!(a.body.contains("nominal operating conditions"), "{:?}", a.body);
+        assert!(
+            a.body.contains("nominal operating conditions"),
+            "{:?}",
+            a.body
+        );
     }
 
     #[test]
@@ -797,14 +845,24 @@ topics = ["htgrs/neutronics"]
     // Anchors — §15
     // -------------------------------------------------------------------
 
-    fn anchor(page: Option<u32>, pages: Option<[u32; 2]>, region: Option<[f64; 4]>) -> SourceAnchor {
-        SourceAnchor { page, pages, region: region.map(Region::from) }
+    fn anchor(
+        page: Option<u32>,
+        pages: Option<[u32; 2]>,
+        region: Option<[f64; 4]>,
+    ) -> SourceAnchor {
+        SourceAnchor {
+            page,
+            pages,
+            region: region.map(Region::from),
+        }
     }
 
     #[test]
     fn a_valid_anchor_is_one_page_a_page_plus_region_or_a_range() {
         assert!(anchor(Some(87), None, None).validate().is_ok());
-        assert!(anchor(Some(87), None, Some([0.1, 0.2, 0.8, 0.9])).validate().is_ok());
+        assert!(anchor(Some(87), None, Some([0.1, 0.2, 0.8, 0.9]))
+            .validate()
+            .is_ok());
         assert!(anchor(None, Some([42, 48]), None).validate().is_ok());
         // §15's range is inclusive, so a single-page range is legal.
         assert!(anchor(None, Some([42, 42]), None).validate().is_ok());
@@ -812,23 +870,70 @@ topics = ["htgrs/neutronics"]
 
     #[test]
     fn contradictory_and_out_of_range_anchors_are_rejected() {
-        assert!(anchor(None, None, None).validate().is_err(), "neither page nor pages");
-        assert!(anchor(Some(1), Some([1, 2]), None).validate().is_err(), "both");
-        assert!(anchor(Some(0), None, None).validate().is_err(), "pages are 1-based");
-        assert!(anchor(None, Some([0, 2]), None).validate().is_err(), "pages are 1-based");
-        assert!(anchor(None, Some([9, 2]), None).validate().is_err(), "end before start");
-        assert!(anchor(None, Some([1, 2]), Some([0.1, 0.2, 0.8, 0.9])).validate().is_err(), "region without page");
+        assert!(
+            anchor(None, None, None).validate().is_err(),
+            "neither page nor pages"
+        );
+        assert!(
+            anchor(Some(1), Some([1, 2]), None).validate().is_err(),
+            "both"
+        );
+        assert!(
+            anchor(Some(0), None, None).validate().is_err(),
+            "pages are 1-based"
+        );
+        assert!(
+            anchor(None, Some([0, 2]), None).validate().is_err(),
+            "pages are 1-based"
+        );
+        assert!(
+            anchor(None, Some([9, 2]), None).validate().is_err(),
+            "end before start"
+        );
+        assert!(
+            anchor(None, Some([1, 2]), Some([0.1, 0.2, 0.8, 0.9]))
+                .validate()
+                .is_err(),
+            "region without page"
+        );
     }
 
     #[test]
     fn a_region_must_be_normalised_and_non_degenerate() {
         // §15: values are fractions of the page, never screen pixels.
-        assert!(anchor(Some(1), None, Some([0.0, 0.0, 1.0, 1.0])).validate().is_ok());
-        assert!(anchor(Some(1), None, Some([12.0, 30.0, 87.0, 68.0])).validate().is_err(), "pixels");
-        assert!(anchor(Some(1), None, Some([-0.1, 0.2, 0.8, 0.9])).validate().is_err(), "negative");
-        assert!(anchor(Some(1), None, Some([0.8, 0.2, 0.1, 0.9])).validate().is_err(), "x inverted");
-        assert!(anchor(Some(1), None, Some([0.1, 0.9, 0.8, 0.2])).validate().is_err(), "y inverted");
-        assert!(anchor(Some(1), None, Some([0.5, 0.2, 0.5, 0.9])).validate().is_err(), "zero width");
+        assert!(anchor(Some(1), None, Some([0.0, 0.0, 1.0, 1.0]))
+            .validate()
+            .is_ok());
+        assert!(
+            anchor(Some(1), None, Some([12.0, 30.0, 87.0, 68.0]))
+                .validate()
+                .is_err(),
+            "pixels"
+        );
+        assert!(
+            anchor(Some(1), None, Some([-0.1, 0.2, 0.8, 0.9]))
+                .validate()
+                .is_err(),
+            "negative"
+        );
+        assert!(
+            anchor(Some(1), None, Some([0.8, 0.2, 0.1, 0.9]))
+                .validate()
+                .is_err(),
+            "x inverted"
+        );
+        assert!(
+            anchor(Some(1), None, Some([0.1, 0.9, 0.8, 0.2]))
+                .validate()
+                .is_err(),
+            "y inverted"
+        );
+        assert!(
+            anchor(Some(1), None, Some([0.5, 0.2, 0.5, 0.9]))
+                .validate()
+                .is_err(),
+            "zero width"
+        );
     }
 
     #[test]
@@ -851,7 +956,11 @@ region = [12.0, 30.0, 87.0, 68.0]
         let doc = parse_document(md);
         assert!(doc.artifacts.is_empty());
         assert_eq!(doc.problems.len(), 1);
-        assert!(matches!(doc.problems[0], ArtifactError::BadAnchor { .. }), "{:?}", doc.problems);
+        assert!(
+            matches!(doc.problems[0], ArtifactError::BadAnchor { .. }),
+            "{:?}",
+            doc.problems
+        );
     }
 
     #[test]
@@ -947,7 +1056,10 @@ modified = "m"
     #[test]
     fn an_empty_document_yields_nothing_and_does_not_panic() {
         assert_eq!(parse_document(""), ParsedDocument::default());
-        assert_eq!(parse_document("# Just a title\n\nprose only\n"), ParsedDocument::default());
+        assert_eq!(
+            parse_document("# Just a title\n\nprose only\n"),
+            ParsedDocument::default()
+        );
     }
 
     #[test]
@@ -978,11 +1090,19 @@ modified = "m"
                 modified: "2026-08-31T15:10:12+08:00".to_string(),
                 reviewed: None,
             },
-            source: Some(SourceAnchor { page: None, pages: Some([42, 48]), region: None }),
-            classification: Classification { topics: vec!["htgrs/neutronics".to_string()], projects: vec![] },
+            source: Some(SourceAnchor {
+                page: None,
+                pages: Some([42, 48]),
+                region: None,
+            }),
+            classification: Classification {
+                topics: vec!["htgrs/neutronics".to_string()],
+                projects: vec![],
+            },
             extraction: None,
         };
-        let rendered = render_artifact_block(2, "Coupled neutronics methodology", &payload, "").unwrap();
+        let rendered =
+            render_artifact_block(2, "Coupled neutronics methodology", &payload, "").unwrap();
 
         let doc = parse_document(&rendered);
         assert!(doc.problems.is_empty(), "{:?}", doc.problems);
@@ -1007,7 +1127,8 @@ modified = "m"
             classification: Classification::default(),
             extraction: None,
         };
-        let rendered = render_artifact_block(3, "A note", &payload, "Some prose about it.").unwrap();
+        let rendered =
+            render_artifact_block(3, "A note", &payload, "Some prose about it.").unwrap();
         let doc = parse_document(&rendered);
         assert_eq!(doc.artifacts[0].body, "Some prose about it.");
     }

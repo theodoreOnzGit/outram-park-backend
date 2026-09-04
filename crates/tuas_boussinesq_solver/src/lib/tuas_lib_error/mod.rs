@@ -274,10 +274,19 @@ mod tests {
         println!("rendered message:\n{msg}");
 
         assert!(msg.contains("SteelSS304L"), "must name the material: {msg}");
-        assert!(msg.contains("1100.00 K"), "must give the temperature in K: {msg}");
-        assert!(msg.contains("826.85 degC"), "must give the temperature in degC: {msg}");
+        assert!(
+            msg.contains("1100.00 K"),
+            "must give the temperature in K: {msg}"
+        );
+        assert!(
+            msg.contains("826.85 degC"),
+            "must give the temperature in degC: {msg}"
+        );
         assert!(msg.contains("250.00 K"), "must give the lower bound: {msg}");
-        assert!(msg.contains("1000.00 K"), "must give the upper bound: {msg}");
+        assert!(
+            msg.contains("1000.00 K"),
+            "must give the upper bound: {msg}"
+        );
     }
 
     /// Methodology: build a [`TuasLibError::CorrelationRangeError`] for the
@@ -311,9 +320,15 @@ mod tests {
         let msg = err.to_string();
         println!("rendered message:\n{msg}");
 
-        assert!(msg.contains("fluence gam"), "must name the parameter: {msg}");
+        assert!(
+            msg.contains("fluence gam"),
+            "must name the parameter: {msg}"
+        );
         assert!(msg.contains("17"), "must give the value: {msg}");
-        assert!(msg.contains('0') && msg.contains("15"), "must give both bounds: {msg}");
+        assert!(
+            msg.contains('0') && msg.contains("15"),
+            "must give both bounds: {msg}"
+        );
         assert!(msg.contains("10^25 n/m^2"), "must give the units: {msg}");
         assert!(
             !msg.to_lowercase().contains("temperature"),

@@ -426,11 +426,11 @@ where
     F: Fn(Position) -> Option<usize> + Sync,
 {
     #[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_par::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_par as rayon;
+    use rayon::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par as rayon;
 
     let temp = settings.temperature_k;
 

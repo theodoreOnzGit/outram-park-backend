@@ -170,8 +170,7 @@ pub fn run(out: Option<PathBuf>) -> Result<(), String> {
 }
 
 fn write(out: &Path) -> Result<(), String> {
-    std::fs::write(out, SKILL_MD)
-        .map_err(|e| format!("cannot write {}: {e}", out.display()))?;
+    std::fs::write(out, SKILL_MD).map_err(|e| format!("cannot write {}: {e}", out.display()))?;
     println!("wrote {}", out.display());
     Ok(())
 }

@@ -51,7 +51,11 @@ pub fn make_face(mesh: &Mesh, verts: &[VertexId]) -> Mesh {
         return mesh.clone();
     }
     let positions = mesh.positions();
-    let mut faces: Vec<Vec<usize>> = mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+    let mut faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect();
     if verts.len() == 2 {
         faces.push(vec![verts[0].0, verts[1].0, verts[0].0]);
     } else {
@@ -109,12 +113,14 @@ pub fn grid_fill(mesh: &Mesh, boundary: &[VertexId], span: usize) -> Mesh {
                 let pl = positions[left_rev[other - j]];
                 let pr = positions[right[j]];
                 // Coons-ish bilinear blend of the four edges.
-                let p = pb.scale(1.0 - v)
+                let p = pb
+                    .scale(1.0 - v)
                     .add(pt.scale(v))
                     .add(pl.scale(1.0 - u))
                     .add(pr.scale(u))
                     .sub(
-                        positions[bottom[0]].scale((1.0 - u) * (1.0 - v))
+                        positions[bottom[0]]
+                            .scale((1.0 - u) * (1.0 - v))
                             .add(positions[bottom[span]].scale(u * (1.0 - v)))
                             .add(positions[top_rev[0]].scale(u * v))
                             .add(positions[top_rev[span]].scale((1.0 - u) * v)),
@@ -125,10 +131,19 @@ pub fn grid_fill(mesh: &Mesh, boundary: &[VertexId], span: usize) -> Mesh {
         }
     }
 
-    let mut faces: Vec<Vec<usize>> = mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+    let mut faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect();
     for i in 0..span {
         for j in 0..other {
-            faces.push(vec![grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]]);
+            faces.push(vec![
+                grid[i][j],
+                grid[i + 1][j],
+                grid[i + 1][j + 1],
+                grid[i][j + 1],
+            ]);
         }
     }
     Mesh::from_polygons(&positions, &faces)
@@ -154,7 +169,10 @@ pub fn beauty_fill(mesh: &Mesh) -> Mesh {
     for (ti, t) in tris.iter().enumerate() {
         for k in 0..3 {
             let (a, b, c) = (t[k], t[(k + 1) % 3], t[(k + 2) % 3]);
-            edge_tri.entry((a.min(b), a.max(b))).or_default().push((ti, c));
+            edge_tri
+                .entry((a.min(b), a.max(b)))
+                .or_default()
+                .push((ti, c));
         }
     }
 
@@ -203,7 +221,13 @@ mod tests {
     #[test]
     fn make_face_closes_a_hole_in_a_cube() {
         let m = primitives::cube(2.0);
-        let open = crate::dissolve::delete(&m, crate::dissolve::DeleteMode::Faces, &[], &[], &[crate::mesh::FaceId(0)]);
+        let open = crate::dissolve::delete(
+            &m,
+            crate::dissolve::DeleteMode::Faces,
+            &[],
+            &[],
+            &[crate::mesh::FaceId(0)],
+        );
         assert_eq!(open.face_count(), 5);
         let ring = open_boundary(&open);
         let filled = make_face(&open, &ring);
@@ -220,7 +244,9 @@ mod tests {
             crate::dissolve::DeleteMode::Faces,
             &[],
             &[],
-            &(0..g.face_count()).map(crate::mesh::FaceId).collect::<Vec<_>>(),
+            &(0..g.face_count())
+                .map(crate::mesh::FaceId)
+                .collect::<Vec<_>>(),
         );
         let _ = border_only; // deleting all faces leaves nothing — build the ring directly instead
         let mut m = Mesh::new();
@@ -263,9 +289,13 @@ mod tests {
 
     fn open_boundary(m: &Mesh) -> Vec<VertexId> {
         let topo = crate::topology::MeshTopology::new(m);
-        let edges: Vec<crate::mesh::EdgeId> =
-            (0..m.edge_count()).map(crate::mesh::EdgeId).filter(|&e| topo.is_boundary_edge(e)).collect();
-        crate::bridge::ordered_ring(m, &edges).map(|(r, _)| r).unwrap_or_default()
+        let edges: Vec<crate::mesh::EdgeId> = (0..m.edge_count())
+            .map(crate::mesh::EdgeId)
+            .filter(|&e| topo.is_boundary_edge(e))
+            .collect();
+        crate::bridge::ordered_ring(m, &edges)
+            .map(|(r, _)| r)
+            .unwrap_or_default()
     }
 
     fn worst_triangle(m: &Mesh) -> f64 {

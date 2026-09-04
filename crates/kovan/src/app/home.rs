@@ -30,7 +30,8 @@ use crate::root::{KovanRoot, RootConfig};
 const MAX_RECENT: usize = 10;
 
 fn recent_roots_path() -> Option<PathBuf> {
-    directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan").map(|d| d.config_dir().join("recent_roots.toml"))
+    directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
+        .map(|d| d.config_dir().join("recent_roots.toml"))
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -40,17 +41,27 @@ struct RecentRootsFile {
 }
 
 fn load_recent_roots() -> Vec<PathBuf> {
-    let Some(path) = recent_roots_path() else { return Vec::new() };
-    let Ok(text) = std::fs::read_to_string(path) else { return Vec::new() };
-    toml::from_str::<RecentRootsFile>(&text).map(|f| f.roots).unwrap_or_default()
+    let Some(path) = recent_roots_path() else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    toml::from_str::<RecentRootsFile>(&text)
+        .map(|f| f.roots)
+        .unwrap_or_default()
 }
 
 fn save_recent_roots(roots: &[PathBuf]) {
-    let Some(path) = recent_roots_path() else { return };
+    let Some(path) = recent_roots_path() else {
+        return;
+    };
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let file = RecentRootsFile { roots: roots.to_vec() };
+    let file = RecentRootsFile {
+        roots: roots.to_vec(),
+    };
     if let Ok(text) = toml::to_string_pretty(&file) {
         let _ = std::fs::write(path, text);
     }
@@ -135,14 +146,19 @@ impl HomeState {
     /// A directory was picked for "+ Create Kovan Folder…" — stash it and
     /// show the id/name prompt rather than creating immediately.
     pub fn begin_create(&mut self, dir: &Path) {
-        let default_id = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "library".to_string());
+        let default_id = dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "library".to_string());
         self.new_library_id = default_id.clone();
         self.new_library_name = default_id;
         self.pending_create_dir = Some(dir.to_path_buf());
     }
 
     fn finish_create(&mut self) {
-        let Some(dir) = self.pending_create_dir.take() else { return };
+        let Some(dir) = self.pending_create_dir.take() else {
+            return;
+        };
         if self.new_library_id.trim().is_empty() {
             self.set_error("library id must not be empty");
             self.pending_create_dir = Some(dir);
@@ -177,7 +193,11 @@ impl HomeState {
             ui.add_space(20.0);
 
             if !self.message.is_empty() {
-                let color = if self.message_is_error { Color32::from_rgb(220, 90, 90) } else { ui.visuals().weak_text_color() };
+                let color = if self.message_is_error {
+                    Color32::from_rgb(220, 90, 90)
+                } else {
+                    ui.visuals().weak_text_color()
+                };
                 ui.colored_label(color, &self.message);
                 ui.add_space(10.0);
             }

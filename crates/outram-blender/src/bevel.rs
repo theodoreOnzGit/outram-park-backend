@@ -93,7 +93,11 @@ impl Default for BevelOptions {
 /// Bevel every edge of `mesh` per `opts`.
 pub fn bevel(mesh: &Mesh, opts: BevelOptions) -> Mesh {
     let ps = mesh.positions();
-    let polys: Vec<Vec<usize>> = mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let polys: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
     if polys.is_empty() {
         return mesh.clone();
     }
@@ -111,7 +115,11 @@ pub fn bevel(mesh: &Mesh, opts: BevelOptions) -> Mesh {
                 c += 1.0;
             }
         }
-        if c > 0.0 { s / c } else { 1.0 }
+        if c > 0.0 {
+            s / c
+        } else {
+            1.0
+        }
     };
     let mut offset = match opts.width_type {
         WidthType::Offset => opts.amount,
@@ -254,7 +262,10 @@ pub fn bevel(mesh: &Mesh, opts: BevelOptions) -> Mesh {
         if ring.len() == 3 {
             faces.push(ring);
         } else {
-            let c = ring.iter().fold(Vec3::ZERO, |acc, &p| acc.add(positions[p])).scale(1.0 / ring.len() as f64);
+            let c = ring
+                .iter()
+                .fold(Vec3::ZERO, |acc, &p| acc.add(positions[p]))
+                .scale(1.0 / ring.len() as f64);
             let ci = positions.len();
             positions.push(c);
             for r in 0..ring.len() {
@@ -309,7 +320,8 @@ mod tests {
 
     /// Every undirected edge is shared by exactly two faces.
     fn watertight(m: &Mesh) -> bool {
-        let mut count: std::collections::HashMap<(usize, usize), usize> = std::collections::HashMap::new();
+        let mut count: std::collections::HashMap<(usize, usize), usize> =
+            std::collections::HashMap::new();
         for poly in m.polygons() {
             let k = poly.len();
             for i in 0..k {
@@ -323,7 +335,14 @@ mod tests {
     #[test]
     fn one_segment_matches_the_flat_edge_bevel_counts() {
         let m = primitives::cube(2.0);
-        let b = bevel(&m, BevelOptions { amount: 0.3, segments: 1, ..Default::default() });
+        let b = bevel(
+            &m,
+            BevelOptions {
+                amount: 0.3,
+                segments: 1,
+                ..Default::default()
+            },
+        );
         // 6 shrunk squares + 12 edge quads + 8 corner triangles.
         assert_eq!(b.face_count(), 26);
         assert_eq!(b.euler_characteristic(), 2);
@@ -332,23 +351,51 @@ mod tests {
     #[test]
     fn three_segments_add_rings_and_stay_closed() {
         let m = primitives::cube(2.0);
-        let b = bevel(&m, BevelOptions { amount: 0.3, segments: 3, profile: 0.5, ..Default::default() });
+        let b = bevel(
+            &m,
+            BevelOptions {
+                amount: 0.3,
+                segments: 3,
+                profile: 0.5,
+                ..Default::default()
+            },
+        );
         assert!(b.face_count() > 26, "more faces than the flat chamfer");
-        assert_eq!(b.euler_characteristic(), 2, "rounded bevel still closed genus-0");
+        assert_eq!(
+            b.euler_characteristic(),
+            2,
+            "rounded bevel still closed genus-0"
+        );
         assert!(watertight(&b), "every edge used by exactly two faces");
     }
 
     #[test]
     fn clamp_overlap_bounds_a_huge_amount() {
         let m = primitives::cube(2.0);
-        let b = bevel(&m, BevelOptions { amount: 100.0, segments: 1, clamp_overlap: true, ..Default::default() });
+        let b = bevel(
+            &m,
+            BevelOptions {
+                amount: 100.0,
+                segments: 1,
+                clamp_overlap: true,
+                ..Default::default()
+            },
+        );
         assert_eq!(b.euler_characteristic(), 2, "clamped, no inverted faces");
     }
 
     #[test]
     fn width_type_percent_scales_with_the_mesh() {
         let m = primitives::cube(2.0); // edge length 2
-        let b = bevel(&m, BevelOptions { amount: 10.0, width_type: WidthType::Percent, segments: 1, ..Default::default() });
+        let b = bevel(
+            &m,
+            BevelOptions {
+                amount: 10.0,
+                width_type: WidthType::Percent,
+                segments: 1,
+                ..Default::default()
+            },
+        );
         assert_eq!(b.face_count(), 26);
         assert_eq!(b.euler_characteristic(), 2);
     }
@@ -356,7 +403,15 @@ mod tests {
     #[test]
     fn profile_zero_is_a_flat_chamfer() {
         let m = primitives::cube(2.0);
-        let flat = bevel(&m, BevelOptions { amount: 0.3, segments: 3, profile: 0.0, ..Default::default() });
+        let flat = bevel(
+            &m,
+            BevelOptions {
+                amount: 0.3,
+                segments: 3,
+                profile: 0.0,
+                ..Default::default()
+            },
+        );
         assert_eq!(flat.euler_characteristic(), 2);
         assert!(watertight(&flat));
     }

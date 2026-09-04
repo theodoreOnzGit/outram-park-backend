@@ -46,7 +46,11 @@ use crate::topology::MeshTopology;
 /// if `faces` is empty, disconnected, or its union boundary is not one simple
 /// loop (e.g. it encloses a hole).
 pub fn dissolve_faces(mesh: &Mesh, faces: &[FaceId]) -> Mesh {
-    let sel: BTreeSet<usize> = faces.iter().map(|f| f.0).filter(|&f| f < mesh.face_count()).collect();
+    let sel: BTreeSet<usize> = faces
+        .iter()
+        .map(|f| f.0)
+        .filter(|&f| f < mesh.face_count())
+        .collect();
     if sel.len() < 2 {
         return mesh.clone();
     }
@@ -100,7 +104,7 @@ pub fn dissolve_vertices(mesh: &Mesh, verts: &[VertexId]) -> Mesh {
         }
         x
     }
-    
+
     for &v in verts {
         let f = topo.vertex_faces(v);
         for w in f.windows(2) {
@@ -172,7 +176,12 @@ pub fn delete(
             let dead_e: HashSet<(usize, usize)> = edges
                 .iter()
                 .filter_map(|&e| mesh.edge(e))
-                .map(|ed| (ed.verts[0].0.min(ed.verts[1].0), ed.verts[0].0.max(ed.verts[1].0)))
+                .map(|ed| {
+                    (
+                        ed.verts[0].0.min(ed.verts[1].0),
+                        ed.verts[0].0.max(ed.verts[1].0),
+                    )
+                })
                 .collect();
             let kept: Vec<Vec<usize>> = polys
                 .iter()
@@ -281,7 +290,6 @@ fn union_boundary_ring(polys: &[Vec<VertexId>], sel: &BTreeSet<usize>) -> Option
     (ring.len() >= 3).then_some(ring)
 }
 
-
 fn compact(positions: &[Vec3], faces: &[Vec<usize>]) -> Mesh {
     let mut used = vec![false; positions.len()];
     for f in faces {
@@ -326,7 +334,10 @@ mod tests {
     fn dissolve_edge_merges_its_faces() {
         let m = primitives::grid(2, 1, 2.0);
         let topo = MeshTopology::new(&m);
-        let shared = (0..m.edge_count()).map(EdgeId).find(|&e| topo.is_manifold_edge(e)).unwrap();
+        let shared = (0..m.edge_count())
+            .map(EdgeId)
+            .find(|&e| topo.is_manifold_edge(e))
+            .unwrap();
         let d = dissolve_edges(&m, &[shared]);
         assert_eq!(d.face_count(), 1);
     }

@@ -68,12 +68,12 @@ pub fn super_fluid_collection_example_7() {
     use uom::si::{pressure::atmosphere, thermodynamic_temperature::kelvin};
 
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
 
     // honestly, I am quite unsure as to how to structure the
     //

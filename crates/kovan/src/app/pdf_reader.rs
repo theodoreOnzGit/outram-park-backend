@@ -70,8 +70,12 @@
 use std::collections::HashMap;
 
 use eframe::egui::{self, Color32, ColorImage, Pos2, Rect, Sense, Stroke};
-use kopitiam_pdf::gui_frontend::{HotReload, PdfReader, PdfReaderConfig, ReloadDecision, RELOAD_CHECK_INTERVAL};
-use kopitiam_pdf::mupdf::{page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage};
+use kopitiam_pdf::gui_frontend::{
+    HotReload, PdfReader, PdfReaderConfig, ReloadDecision, RELOAD_CHECK_INTERVAL,
+};
+use kopitiam_pdf::mupdf::{
+    page_to_stext, rasterize_page, PdfDocument, StextBlock, StextOptions, StextPage,
+};
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
 use crate::classify;
@@ -270,7 +274,6 @@ pub enum CropResult {
     Table(PlotRaster, CropProvenance),
 }
 
-
 /// State for one open document: its source (embedded [`PdfReader`] or a
 /// plain image), its continuous-canvas page/
 /// zoom/cached texture, and its annotations.
@@ -456,7 +459,9 @@ fn looks_like_pdf(path: &str) -> bool {
 fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> String {
     let mut out = String::new();
     for block in &page.blocks {
-        let StextBlock::Text(tb) = block else { continue };
+        let StextBlock::Text(tb) = block else {
+            continue;
+        };
         for line in &tb.lines {
             let b = line.bbox;
             let (lx0, ly0, lx1, ly1) = (b.x0 * scale, b.y0 * scale, b.x1 * scale, b.y1 * scale);
@@ -513,7 +518,10 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
                     y1 = y1.max(p.y);
                 }
             }
-            (Pos2::new(x0 * scale, y0 * scale), Pos2::new(x1 * scale, y1 * scale))
+            (
+                Pos2::new(x0 * scale, y0 * scale),
+                Pos2::new(x1 * scale, y1 * scale),
+            )
         })
         .collect()
 }
@@ -587,7 +595,11 @@ impl PdfReaderState {
     /// so hot-reload starts enabled, since [`HotReload`]'s own `Default`
     /// (unlike this panel's prior hand-rolled `bool`) starts disabled.
     pub fn new() -> Self {
-        Self { hot_reload: HotReload::new(true), show_thumbs: true, ..Self::default() }
+        Self {
+            hot_reload: HotReload::new(true),
+            show_thumbs: true,
+            ..Self::default()
+        }
     }
 
     /// Open `path` as the working document — a PDF or a raster image
@@ -670,7 +682,9 @@ impl PdfReaderState {
     /// isn't a PDF, or fewer than [`RELOAD_CHECK_INTERVAL`] has passed since
     /// the last check.
     fn check_hot_reload(&mut self, ctx: &egui::Context) {
-        let ReaderSource::Pdf(reader) = &mut self.source else { return };
+        let ReaderSource::Pdf(reader) = &mut self.source else {
+            return;
+        };
         if !self.hot_reload.is_enabled() || self.path.is_empty() {
             return;
         }
@@ -683,7 +697,9 @@ impl PdfReaderState {
             Ok(bytes) => match reader.load_bytes(bytes) {
                 Ok(()) => {
                     self.hot_reload.mark_current(path);
-                    self.annotate_page = self.annotate_page.min(reader.page_count().saturating_sub(1));
+                    self.annotate_page = self
+                        .annotate_page
+                        .min(reader.page_count().saturating_sub(1));
                     // The document changed under us — every cached page
                     // raster, structured-text page and search hit is stale.
                     self.pages.clear();
@@ -691,9 +707,16 @@ impl PdfReaderState {
                     self.search.computed_for.clear();
                     self.message = format!("{} changed on disk — reloaded", self.path);
                 }
-                Err(e) => self.message = format!("{} changed on disk, but reload failed: {e}", self.path),
+                Err(e) => {
+                    self.message = format!("{} changed on disk, but reload failed: {e}", self.path)
+                }
             },
-            Err(e) => self.message = format!("{} changed on disk, but could not be re-read: {e}", self.path),
+            Err(e) => {
+                self.message = format!(
+                    "{} changed on disk, but could not be re-read: {e}",
+                    self.path
+                )
+            }
         }
     }
 
@@ -704,7 +727,9 @@ impl PdfReaderState {
     /// runs — rather than a second implementation.
     fn generate_bibtex(&mut self) {
         let ReaderSource::Pdf(_) = &self.source else {
-            self.bibtex = Some(Err("no PDF open (BibTeX needs a PDF, not a plain image)".into()));
+            self.bibtex = Some(Err(
+                "no PDF open (BibTeX needs a PDF, not a plain image)".into()
+            ));
             return;
         };
         self.bibtex = Some(
@@ -780,20 +805,28 @@ impl PdfReaderState {
     /// Returns the raster plus the pixel-space `(min, max)` corners the
     /// region resolved to, for the re-crop's [`CropProvenance`] (GH issue
     /// #35 2026-09-02: "back to the digitiser" for a saved digitised block).
-    fn crop_region_of_page(&self, page: usize, region: Region) -> Result<(PlotRaster, Pos2, Pos2), String> {
+    fn crop_region_of_page(
+        &self,
+        page: usize,
+        region: Region,
+    ) -> Result<(PlotRaster, Pos2, Pos2), String> {
         let ReaderSource::Pdf(reader) = &self.source else {
             return Err("no PDF open".to_string());
         };
-        let pixmap =
-            rasterize_page(reader.document(), page, RENDER_DPI).map_err(|e| format!("page render failed: {e}"))?;
+        let pixmap = rasterize_page(reader.document(), page, RENDER_DPI)
+            .map_err(|e| format!("page render failed: {e}"))?;
         let (pw, ph, stride, n) = (pixmap.w, pixmap.h, pixmap.stride, pixmap.n as usize);
         let samples = pixmap.samples;
         let min = Pos2::new(region.x0 as f32 * pw as f32, region.y0 as f32 * ph as f32);
         let max = Pos2::new(region.x1 as f32 * pw as f32, region.y1 as f32 * ph as f32);
         let min_x = min.x.max(0.0) as u32;
         let min_y = min.y.max(0.0) as u32;
-        let w = ((max.x - min.x).max(1.0) as u32).min(pw.saturating_sub(min_x)).max(1);
-        let h = ((max.y - min.y).max(1.0) as u32).min(ph.saturating_sub(min_y)).max(1);
+        let w = ((max.x - min.x).max(1.0) as u32)
+            .min(pw.saturating_sub(min_x))
+            .max(1);
+        let h = ((max.y - min.y).max(1.0) as u32)
+            .min(ph.saturating_sub(min_y))
+            .max(1);
         let raster = PlotRaster::from_rgb_fn(w, h, move |x, y| {
             let px = (min_x + x).min(pw.saturating_sub(1));
             let py = (min_y + y).min(ph.saturating_sub(1));
@@ -862,7 +895,9 @@ impl PdfReaderState {
             self.thumb_synced = None;
         }
         match artifact.kind() {
-            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => self.recrop_artifact(artifact),
+            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                self.recrop_artifact(artifact)
+            }
             _ => {
                 self.block_editor.load_text(&artifact.body);
                 self.editing_block_id = Some(artifact.id().to_string());
@@ -873,7 +908,12 @@ impl PdfReaderState {
 
     /// The 0-based page an artifact's `[source]` anchor starts on, if any.
     fn artifact_page(artifact: &Artifact) -> Option<usize> {
-        artifact.toml.source.as_ref().and_then(|s| s.first_page()).map(|p| p.saturating_sub(1) as usize)
+        artifact
+            .toml
+            .source
+            .as_ref()
+            .and_then(|s| s.first_page())
+            .map(|p| p.saturating_sub(1) as usize)
     }
 
     /// The annotate-canvas page pixel size (`RENDER_DPI`) — stamped onto a
@@ -924,11 +964,17 @@ impl PdfReaderState {
             ui.label("Digitise graph — what figure is this?");
             ui.horizontal(|ui| {
                 ui.label("figure*");
-                ui.add(egui::TextEdit::singleline(&mut prompt.figure).hint_text("e.g. \"Figure 4\" or \"Fig. 4.2\""));
+                ui.add(
+                    egui::TextEdit::singleline(&mut prompt.figure)
+                        .hint_text("e.g. \"Figure 4\" or \"Fig. 4.2\""),
+                );
             });
             ui.horizontal(|ui| {
                 let can_confirm = !prompt.figure.trim().is_empty();
-                if ui.add_enabled(can_confirm, egui::Button::new("Continue")).clicked() {
+                if ui
+                    .add_enabled(can_confirm, egui::Button::new("Continue"))
+                    .clicked()
+                {
                     confirm = true;
                 }
                 if ui.button("Cancel").clicked() {
@@ -1022,15 +1068,22 @@ impl PdfReaderState {
             let mut first_id: Option<String> = None;
             for (pg, anns) in &pending {
                 for ann in anns {
-                    let snippet: String =
-                        ann.text.split_whitespace().take(8).collect::<Vec<_>>().join(" ");
+                    let snippet: String = ann
+                        .text
+                        .split_whitespace()
+                        .take(8)
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     let heading = if snippet.is_empty() {
                         format!("Annotation (p{})", pg + 1)
                     } else {
                         format!("Annotation (p{}) — {snippet}", pg + 1)
                     };
-                    let anchor =
-                        SourceAnchor { page: Some((pg + 1) as u32), pages: None, region: ann.region() };
+                    let anchor = SourceAnchor {
+                        page: Some((pg + 1) as u32),
+                        pages: None,
+                        region: ann.region(),
+                    };
                     let index = crate::research_record::ResearchRecordIndex::from_session(session);
                     match classify::insert_artifact(
                         session,
@@ -1055,7 +1108,8 @@ impl PdfReaderState {
 
             match session.save_document() {
                 Ok(()) => {
-                    self.message = format!("saved {count} annotation(s) into {}", session.citekey());
+                    self.message =
+                        format!("saved {count} annotation(s) into {}", session.citekey());
                     // Persisted — drop the in-memory overlays and leave
                     // annotate edit mode (the maintainer's ask: the button
                     // both saves and escapes editing). The artifacts' own
@@ -1067,8 +1121,8 @@ impl PdfReaderState {
                     self.editing_block_id = None;
                     let md = session.markdown().to_string();
                     context_editor.load_text(&md);
-                    if let Some(a) =
-                        first_id.and_then(|id| crate::artifact::parse_document(&md).get(&id).cloned())
+                    if let Some(a) = first_id
+                        .and_then(|id| crate::artifact::parse_document(&md).get(&id).cloned())
                     {
                         context_editor.jump_to_line(a.line);
                     }
@@ -1137,7 +1191,9 @@ impl PdfReaderState {
         self.search.hits.clear();
         self.search.current = None;
         let needle = self.search.query.trim();
-        let Some(doc) = self.current_pdf_document() else { return };
+        let Some(doc) = self.current_pdf_document() else {
+            return;
+        };
         if needle.is_empty() {
             return;
         }
@@ -1145,9 +1201,13 @@ impl PdfReaderState {
         let pages = self.source.page_count();
         let mut hits = Vec::new();
         for page in 0..pages {
-            let Ok(stext) = page_to_stext(doc, page, StextOptions::default()) else { continue };
+            let Ok(stext) = page_to_stext(doc, page, StextOptions::default()) else {
+                continue;
+            };
             for block in &stext.blocks {
-                let StextBlock::Text(tb) = block else { continue };
+                let StextBlock::Text(tb) = block else {
+                    continue;
+                };
                 for line in &tb.lines {
                     for (min, max) in line_hits(line, needle, scale) {
                         hits.push(SearchHit { page, min, max });
@@ -1193,57 +1253,85 @@ impl PdfReaderState {
         let follow = self.thumb_synced != Some(current);
         let mut jump = None;
 
-        egui::ScrollArea::vertical().id_salt("pdf_thumb_strip").show_viewport(ui, |ui, viewport| {
-            let last_page = pages.saturating_sub(1);
-            let first = ((viewport.min.y / row_h).floor().max(0.0) as usize).min(last_page);
-            let last = ((viewport.max.y / row_h).floor().max(0.0) as usize).min(last_page);
-            if let ReaderSource::Pdf(reader) = &self.source {
-                self.pages.ensure_thumbs(ui.ctx(), reader.document(), first..=last);
-            }
-
-            let (rect, _) = ui.allocate_exact_size(egui::vec2(width, pages as f32 * row_h), Sense::hover());
-            let painter = ui.painter_at(rect);
-            let row_of = |p: usize| Rect::from_min_size(Pos2::new(rect.min.x, rect.min.y + p as f32 * row_h), egui::vec2(width, row_h));
-
-            if follow {
-                ui.scroll_to_rect(row_of(current), Some(egui::Align::Center));
-            }
-
-            for p in first..=last {
-                let row = row_of(p);
-                let resp = ui.interact(row, ui.id().with(("kovan-thumb", p)), Sense::click());
-                if p == current {
-                    painter.rect_filled(row, 3.0, Color32::from_rgba_unmultiplied(120, 170, 255, 60));
-                } else if resp.hovered() {
-                    painter.rect_filled(row, 3.0, Color32::from_rgba_unmultiplied(150, 150, 150, 30));
+        egui::ScrollArea::vertical()
+            .id_salt("pdf_thumb_strip")
+            .show_viewport(ui, |ui, viewport| {
+                let last_page = pages.saturating_sub(1);
+                let first = ((viewport.min.y / row_h).floor().max(0.0) as usize).min(last_page);
+                let last = ((viewport.max.y / row_h).floor().max(0.0) as usize).min(last_page);
+                if let ReaderSource::Pdf(reader) = &self.source {
+                    self.pages
+                        .ensure_thumbs(ui.ctx(), reader.document(), first..=last);
                 }
-                let img = Rect::from_min_size(Pos2::new(row.min.x + 7.0, row.min.y + 3.0), egui::vec2(img_w, img_h));
-                match self.pages.thumb(p) {
-                    Some(tex) => {
-                        painter.image(tex.id(), img, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+
+                let (rect, _) =
+                    ui.allocate_exact_size(egui::vec2(width, pages as f32 * row_h), Sense::hover());
+                let painter = ui.painter_at(rect);
+                let row_of = |p: usize| {
+                    Rect::from_min_size(
+                        Pos2::new(rect.min.x, rect.min.y + p as f32 * row_h),
+                        egui::vec2(width, row_h),
+                    )
+                };
+
+                if follow {
+                    ui.scroll_to_rect(row_of(current), Some(egui::Align::Center));
+                }
+
+                for p in first..=last {
+                    let row = row_of(p);
+                    let resp = ui.interact(row, ui.id().with(("kovan-thumb", p)), Sense::click());
+                    if p == current {
+                        painter.rect_filled(
+                            row,
+                            3.0,
+                            Color32::from_rgba_unmultiplied(120, 170, 255, 60),
+                        );
+                    } else if resp.hovered() {
+                        painter.rect_filled(
+                            row,
+                            3.0,
+                            Color32::from_rgba_unmultiplied(150, 150, 150, 30),
+                        );
                     }
-                    None => {
-                        painter.rect_filled(img, 0.0, Color32::from_gray(235));
+                    let img = Rect::from_min_size(
+                        Pos2::new(row.min.x + 7.0, row.min.y + 3.0),
+                        egui::vec2(img_w, img_h),
+                    );
+                    match self.pages.thumb(p) {
+                        Some(tex) => {
+                            painter.image(
+                                tex.id(),
+                                img,
+                                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                                Color32::WHITE,
+                            );
+                        }
+                        None => {
+                            painter.rect_filled(img, 0.0, Color32::from_gray(235));
+                        }
+                    }
+                    painter.rect_stroke(
+                        img,
+                        0.0,
+                        Stroke::new(
+                            if p == current { 2.0 } else { 1.0 },
+                            Color32::from_gray(150),
+                        ),
+                        egui::StrokeKind::Outside,
+                    );
+                    painter.text(
+                        Pos2::new(row.center().x, img.max.y + 2.0),
+                        egui::Align2::CENTER_TOP,
+                        format!("{}", p + 1),
+                        egui::FontId::proportional(11.0),
+                        ui.visuals().weak_text_color(),
+                    );
+                    if resp.clicked() {
+                        jump = Some(p);
                     }
                 }
-                painter.rect_stroke(
-                    img,
-                    0.0,
-                    Stroke::new(if p == current { 2.0 } else { 1.0 }, Color32::from_gray(150)),
-                    egui::StrokeKind::Outside,
-                );
-                painter.text(
-                    Pos2::new(row.center().x, img.max.y + 2.0),
-                    egui::Align2::CENTER_TOP,
-                    format!("{}", p + 1),
-                    egui::FontId::proportional(11.0),
-                    ui.visuals().weak_text_color(),
-                );
-                if resp.clicked() {
-                    jump = Some(p);
-                }
-            }
-        });
+            });
 
         if follow {
             self.thumb_synced = Some(current);
@@ -1267,7 +1355,6 @@ impl PdfReaderState {
         }
         self.stext_cache.as_ref().map(|(_, s)| s)
     }
-
 
     /// The right "page context" panel (op-0y4k, op-j178, GH issue #35
     /// 2026-09-02). With an active paper open (`active_artifacts` is
@@ -1313,17 +1400,25 @@ impl PdfReaderState {
         };
         let page0 = self.active_page();
         let page = (page0 + 1) as u32;
-        let anchored: Vec<&Artifact> =
-            artifacts.iter().filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page))).collect();
+        let anchored: Vec<&Artifact> = artifacts
+            .iter()
+            .filter(|a| a.toml.source.as_ref().is_some_and(|s| s.covers_page(page)))
+            .collect();
 
         let editor_text = context_editor.text();
         // op-j178: band every anchored block in the preview, and (op-4x5s)
         // a stronger band on whichever block's box is hovered on the canvas.
-        context_editor.set_anchor_bands(anchored.iter().map(|a| block_span(&editor_text, a)).collect());
-        let hovered_block = self
-            .hover_created_at
-            .as_deref()
-            .and_then(|h| anchored.iter().find(|a| a.toml.kovan.created == h || a.id() == h));
+        context_editor.set_anchor_bands(
+            anchored
+                .iter()
+                .map(|a| block_span(&editor_text, a))
+                .collect(),
+        );
+        let hovered_block = self.hover_created_at.as_deref().and_then(|h| {
+            anchored
+                .iter()
+                .find(|a| a.toml.kovan.created == h || a.id() == h)
+        });
         context_editor.set_hover_band(hovered_block.map(|a| block_span(&editor_text, a)));
 
         // op-j178: scroll the preview to this page's blocks on a page change.
@@ -1376,70 +1471,76 @@ impl PdfReaderState {
             }
         }
 
-        egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
-            if anchored.is_empty() {
-                ui.small("nothing saved for this page yet");
-            }
-            for artifact in &anchored {
-                let id = artifact.id().to_string();
-                let linked = hovered_block.is_some_and(|h| h.id() == id);
-                let fill = if linked {
-                    Color32::from_rgba_unmultiplied(255, 230, 60, 40)
-                } else {
-                    Color32::TRANSPARENT
-                };
-                // A text block opens on a single click (GH issue #35
-                // 2026-09-02: "a single click to bring me into insert mode");
-                // a digitised table/graph still needs a double-click, since
-                // opening the digitiser is the heavier action and its card is
-                // also the canvas-highlight hover target.
-                let mut open_on_single_click = false;
-                let inner = egui::Frame::new().fill(fill).inner_margin(4.0).show(ui, |ui| {
-                    match artifact.kind() {
-                        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                            let icon = if artifact.kind() == ArtifactKind::DigitisedTable {
-                                "\u{1F4CA}"
-                            } else {
-                                "\u{1F4C8}"
-                            };
-                            ui.label(format!("{icon} {}", artifact.heading));
-                            if let Some(csv) = artifact.csv_block() {
-                                draw_csv_preview(ui, csv);
+        egui::ScrollArea::vertical()
+            .id_salt("pdf_context_panel_scroll")
+            .show(ui, |ui| {
+                if anchored.is_empty() {
+                    ui.small("nothing saved for this page yet");
+                }
+                for artifact in &anchored {
+                    let id = artifact.id().to_string();
+                    let linked = hovered_block.is_some_and(|h| h.id() == id);
+                    let fill = if linked {
+                        Color32::from_rgba_unmultiplied(255, 230, 60, 40)
+                    } else {
+                        Color32::TRANSPARENT
+                    };
+                    // A text block opens on a single click (GH issue #35
+                    // 2026-09-02: "a single click to bring me into insert mode");
+                    // a digitised table/graph still needs a double-click, since
+                    // opening the digitiser is the heavier action and its card is
+                    // also the canvas-highlight hover target.
+                    let mut open_on_single_click = false;
+                    let inner = egui::Frame::new()
+                        .fill(fill)
+                        .inner_margin(4.0)
+                        .show(ui, |ui| match artifact.kind() {
+                            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                                let icon = if artifact.kind() == ArtifactKind::DigitisedTable {
+                                    "\u{1F4CA}"
+                                } else {
+                                    "\u{1F4C8}"
+                                };
+                                ui.label(format!("{icon} {}", artifact.heading));
+                                if let Some(csv) = artifact.csv_block() {
+                                    draw_csv_preview(ui, csv);
+                                }
+                                ui.small("double-click → re-open in the digitiser");
                             }
-                            ui.small("double-click → re-open in the digitiser");
-                        }
-                        _ => {
-                            open_on_single_click = true;
-                            ui.label(format!("\u{1F4DD} {}", artifact.heading));
-                            if !artifact.body.trim().is_empty() {
-                                ui.monospace(body_preview(&artifact.body));
+                            _ => {
+                                open_on_single_click = true;
+                                ui.label(format!("\u{1F4DD} {}", artifact.heading));
+                                if !artifact.body.trim().is_empty() {
+                                    ui.monospace(body_preview(&artifact.body));
+                                }
+                                ui.small("click → edit");
                             }
-                            ui.small("click → edit");
-                        }
+                        });
+                    if inner.response.hovered() {
+                        panel_hover = Some(id.clone());
                     }
-                });
-                if inner.response.hovered() {
-                    panel_hover = Some(id.clone());
+                    let opened = if open_on_single_click {
+                        inner.response.clicked() || inner.response.double_clicked()
+                    } else {
+                        inner.response.double_clicked()
+                    };
+                    if opened {
+                        open_target = Some(id.clone());
+                    }
+                    ui.separator();
                 }
-                let opened = if open_on_single_click {
-                    inner.response.clicked() || inner.response.double_clicked()
-                } else {
-                    inner.response.double_clicked()
-                };
-                if opened {
-                    open_target = Some(id.clone());
-                }
-                ui.separator();
-            }
 
-            ui.add_space(8.0);
-            ui.strong("Preview (read-only)");
-            if let Some(line) = context_editor.ui_readonly(ui) {
-                if let Some(a) = artifacts.iter().find(|a| block_span(&editor_text, a).contains(&line)) {
-                    open_target = Some(a.id().to_string());
+                ui.add_space(8.0);
+                ui.strong("Preview (read-only)");
+                if let Some(line) = context_editor.ui_readonly(ui) {
+                    if let Some(a) = artifacts
+                        .iter()
+                        .find(|a| block_span(&editor_text, a).contains(&line))
+                    {
+                        open_target = Some(a.id().to_string());
+                    }
                 }
-            }
-        });
+            });
 
         self.panel_hover_id = panel_hover;
 
@@ -1491,11 +1592,15 @@ impl PdfReaderState {
             );
             return;
         }
-        let path = std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
+        let path =
+            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
         let text = match std::fs::read_to_string(&path) {
             Ok(t) => t,
             Err(e) => {
-                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("{}: {e}", path.display()));
+                ui.colored_label(
+                    Color32::from_rgb(230, 90, 90),
+                    format!("{}: {e}", path.display()),
+                );
                 return;
             }
         };
@@ -1507,26 +1612,28 @@ impl PdfReaderState {
             ui.small("nothing saved for this page yet");
             return;
         }
-        egui::ScrollArea::vertical().id_salt("pdf_context_panel_scroll").show(ui, |ui| {
-            for block in blocks {
-                // op-4x5s: highlight the block matching whatever annotation
-                // box the pointer was hovering over the annotate canvas,
-                // one frame ago (see `hover_created_at`'s doc).
-                let is_linked = self
-                    .hover_created_at
-                    .as_deref()
-                    .is_some_and(|id| block.contains(id));
-                if is_linked {
-                    egui::Frame::new()
-                        .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
-                        .inner_margin(4.0)
-                        .show(ui, |ui| ui.monospace(&block));
-                } else {
-                    ui.monospace(&block);
+        egui::ScrollArea::vertical()
+            .id_salt("pdf_context_panel_scroll")
+            .show(ui, |ui| {
+                for block in blocks {
+                    // op-4x5s: highlight the block matching whatever annotation
+                    // box the pointer was hovering over the annotate canvas,
+                    // one frame ago (see `hover_created_at`'s doc).
+                    let is_linked = self
+                        .hover_created_at
+                        .as_deref()
+                        .is_some_and(|id| block.contains(id));
+                    if is_linked {
+                        egui::Frame::new()
+                            .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
+                            .inner_margin(4.0)
+                            .show(ui, |ui| ui.monospace(&block));
+                    } else {
+                        ui.monospace(&block);
+                    }
+                    ui.separator();
                 }
-                ui.separator();
-            }
-        });
+            });
     }
 
     /// Draw the toolbar and the continuous page canvas. `on_open_clicked` is
@@ -1566,9 +1673,11 @@ impl PdfReaderState {
     ) -> Option<CropResult> {
         let mut active_paper = active_paper;
         let active_citekey = active_paper.as_ref().map(|s| s.citekey().to_string());
-        let active_artifacts: Option<Vec<Artifact>> = active_paper
-            .as_ref()
-            .map(|s| crate::research_record::ResearchRecordIndex::from_session(s).artifacts().to_vec());
+        let active_artifacts: Option<Vec<Artifact>> = active_paper.as_ref().map(|s| {
+            crate::research_record::ResearchRecordIndex::from_session(s)
+                .artifacts()
+                .to_vec()
+        });
 
         ui.horizontal(|ui| {
             if ui.button("Open…").clicked() {
@@ -1607,7 +1716,11 @@ impl PdfReaderState {
                 if ui.button("< Prev").clicked() {
                     self.annotate_prev_page();
                 }
-                ui.label(format!("page {} / {}", self.annotate_page + 1, self.source.page_count()));
+                ui.label(format!(
+                    "page {} / {}",
+                    self.annotate_page + 1,
+                    self.source.page_count()
+                ));
                 if ui.button("Next >").clicked() {
                     self.annotate_next_page();
                 }
@@ -1790,7 +1903,10 @@ impl PdfReaderState {
             // second frame to land and the page would still be wrong on the
             // way back (maintainer, 2026-09-02).
             self.forced_offset = None;
-            area = area.scroll_offset(egui::vec2(self.last_offset.x, self.pages.page_top(target, zoom, GAP)));
+            area = area.scroll_offset(egui::vec2(
+                self.last_offset.x,
+                self.pages.page_top(target, zoom, GAP),
+            ));
         } else if let Some(off) = self.forced_offset.take() {
             area = area.scroll_offset(off);
         } else if zoom_changed {
@@ -1807,7 +1923,8 @@ impl PdfReaderState {
             let render_scale = PageView::render_scale(zoom);
             match &self.source {
                 ReaderSource::Pdf(reader) => {
-                    self.pages.ensure(ui.ctx(), reader.document(), want.clone(), render_scale);
+                    self.pages
+                        .ensure(ui.ctx(), reader.document(), want.clone(), render_scale);
                 }
                 ReaderSource::Image(raster) => {
                     let image = raster_to_color_image(raster);
@@ -1858,7 +1975,8 @@ impl PdfReaderState {
             let (pinch, plus, minus) = ui.input(|i| {
                 (
                     i.zoom_delta(),
-                    keys_free && (i.key_pressed(egui::Key::Plus) || i.key_pressed(egui::Key::Equals)),
+                    keys_free
+                        && (i.key_pressed(egui::Key::Plus) || i.key_pressed(egui::Key::Equals)),
                     keys_free && i.key_pressed(egui::Key::Minus),
                 )
             });
@@ -1889,8 +2007,10 @@ impl PdfReaderState {
                     let new_y = (anchor_content.y / stride) * new_stride;
                     let new_x = (anchor_content.x / zoom) * new_zoom;
                     self.zoom = new_zoom;
-                    self.forced_offset =
-                        Some(egui::vec2((new_x - within.x).max(0.0), (new_y - within.y).max(0.0)));
+                    self.forced_offset = Some(egui::vec2(
+                        (new_x - within.x).max(0.0),
+                        (new_y - within.y).max(0.0),
+                    ));
                 }
             }
 
@@ -1943,7 +2063,12 @@ impl PdfReaderState {
             for p in want.clone() {
                 let pr = self.pages.page_rect(p, origin, zoom, GAP);
                 if let Some(tex) = self.pages.texture(p) {
-                    painter.image(tex.id(), pr, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                    painter.image(
+                        tex.id(),
+                        pr,
+                        Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                        Color32::WHITE,
+                    );
                 } else {
                     painter.rect_filled(pr, 0.0, Color32::from_gray(230));
                     painter.text(
@@ -1970,14 +2095,18 @@ impl PdfReaderState {
                 || self.annotate_editor.is_some()
                 || self.editing_block_id.is_some();
             if !busy {
-                let centre_page = ((viewport.center().y / stride).floor().max(0.0) as usize).min(n - 1);
+                let centre_page =
+                    ((viewport.center().y / stride).floor().max(0.0) as usize).min(n - 1);
                 self.annotate_page = centre_page;
             }
             // A *gesture* is the one thing that should re-point the page at
             // the pointer — you draw/right-click on the page under the mouse,
             // whichever that is.
             if !busy && (response.drag_started() || response.secondary_clicked()) {
-                if let Some((p, _)) = response.interact_pointer_pos().and_then(|s| self.pages.hit(s, origin, n, zoom, GAP)) {
+                if let Some((p, _)) = response
+                    .interact_pointer_pos()
+                    .and_then(|s| self.pages.hit(s, origin, n, zoom, GAP))
+                {
                     self.annotate_page = p;
                 }
             }
@@ -1991,8 +2120,7 @@ impl PdfReaderState {
                 if response.drag_started_by(egui::PointerButton::Primary) {
                     self.draw_start = response.interact_pointer_pos().map(to_image);
                 }
-                if let (Some(start), Some(pos)) =
-                    (self.draw_start, response.interact_pointer_pos())
+                if let (Some(start), Some(pos)) = (self.draw_start, response.interact_pointer_pos())
                 {
                     let current = to_image(pos);
                     let (min, max) = (
@@ -2049,17 +2177,25 @@ impl PdfReaderState {
                 if let Some(screen_pos) = response.interact_pointer_pos() {
                     let click = to_image(screen_pos);
                     if let Some((min, max)) = self.pending_box {
-                        if click.x >= min.x && click.x <= max.x && click.y >= min.y && click.y <= max.y {
-                            self.context_menu =
-                                Some(ContextMenu { screen_pos, target: ContextMenuTarget::NewBox });
+                        if click.x >= min.x
+                            && click.x <= max.x
+                            && click.y >= min.y
+                            && click.y <= max.y
+                        {
+                            self.context_menu = Some(ContextMenu {
+                                screen_pos,
+                                target: ContextMenuTarget::NewBox,
+                            });
                         }
                     } else if let Some(i) = self
                         .annotations
                         .get(&page)
                         .and_then(|anns| anns.iter().position(|a| a.contains(click)))
                     {
-                        self.context_menu =
-                            Some(ContextMenu { screen_pos, target: ContextMenuTarget::Existing(i) });
+                        self.context_menu = Some(ContextMenu {
+                            screen_pos,
+                            target: ContextMenuTarget::Existing(i),
+                        });
                     }
                 }
             }
@@ -2081,10 +2217,15 @@ impl PdfReaderState {
             // op-4x5s: which in-memory annotation on the active page is
             // hovered (also the right-click "Existing" target).
             let hovered = hover_screen.map(to_image).and_then(|p| {
-                self.annotations.get(&page).and_then(|anns| anns.iter().position(|a| a.contains(p)))
+                self.annotations
+                    .get(&page)
+                    .and_then(|anns| anns.iter().position(|a| a.contains(p)))
             });
             let mut hover_id: Option<String> = hovered.and_then(|i| {
-                self.annotations.get(&page).and_then(|anns| anns.get(i)).map(|a| a.created_at.clone())
+                self.annotations
+                    .get(&page)
+                    .and_then(|anns| anns.get(i))
+                    .map(|a| a.created_at.clone())
             });
 
             // In-memory (not-yet-saved) annotation boxes — amber — on every
@@ -2094,11 +2235,23 @@ impl PdfReaderState {
                     for (i, ann) in anns.iter().enumerate() {
                         let hot = p == page && hovered == Some(i);
                         let r = box_rect(p, ann.min, ann.max);
-                        painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(255, 230, 60, if hot { 110 } else { 60 }));
+                        painter.rect_filled(
+                            r,
+                            0.0,
+                            Color32::from_rgba_unmultiplied(
+                                255,
+                                230,
+                                60,
+                                if hot { 110 } else { 60 },
+                            ),
+                        );
                         painter.rect_stroke(
                             r,
                             0.0,
-                            Stroke::new(if hot { 2.5 } else { 1.0 }, Color32::from_rgb(230, 170, 20)),
+                            Stroke::new(
+                                if hot { 2.5 } else { 1.0 },
+                                Color32::from_rgb(230, 170, 20),
+                            ),
                             egui::StrokeKind::Middle,
                         );
                     }
@@ -2110,11 +2263,15 @@ impl PdfReaderState {
             // panel card; a single click opens the artifact for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
                 for art in artifacts {
-                    let Some(pg) = Self::artifact_page(art) else { continue };
+                    let Some(pg) = Self::artifact_page(art) else {
+                        continue;
+                    };
                     if !want.contains(&pg) {
                         continue;
                     }
-                    let Some(region) = art.toml.source.as_ref().and_then(|s| s.region) else { continue };
+                    let Some(region) = art.toml.source.as_ref().and_then(|s| s.region) else {
+                        continue;
+                    };
                     let min = Pos2::new(region.x0 as f32 * page_px.x, region.y0 as f32 * page_px.y);
                     let max = Pos2::new(region.x1 as f32 * page_px.x, region.y1 as f32 * page_px.y);
                     let r = box_rect(pg, min, max);
@@ -2128,12 +2285,33 @@ impl PdfReaderState {
                     let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
                     let is_annot = matches!(art.kind(), ArtifactKind::Annotation);
                     let (fill, stroke) = if is_annot {
-                        (Color32::from_rgba_unmultiplied(255, 230, 60, if linked { 90 } else { 40 }), Color32::from_rgb(230, 170, 20))
+                        (
+                            Color32::from_rgba_unmultiplied(
+                                255,
+                                230,
+                                60,
+                                if linked { 90 } else { 40 },
+                            ),
+                            Color32::from_rgb(230, 170, 20),
+                        )
                     } else {
-                        (Color32::from_rgba_unmultiplied(120, 170, 255, if linked { 90 } else { 40 }), Color32::from_rgb(90, 140, 235))
+                        (
+                            Color32::from_rgba_unmultiplied(
+                                120,
+                                170,
+                                255,
+                                if linked { 90 } else { 40 },
+                            ),
+                            Color32::from_rgb(90, 140, 235),
+                        )
                     };
                     painter.rect_filled(r, 0.0, fill);
-                    painter.rect_stroke(r, 0.0, Stroke::new(if linked { 2.5 } else { 1.0 }, stroke), egui::StrokeKind::Middle);
+                    painter.rect_stroke(
+                        r,
+                        0.0,
+                        Stroke::new(if linked { 2.5 } else { 1.0 }, stroke),
+                        egui::StrokeKind::Middle,
+                    );
                 }
             }
             self.hover_created_at = hover_id;
@@ -2149,10 +2327,20 @@ impl PdfReaderState {
                 painter.rect_filled(
                     r,
                     2.0,
-                    Color32::from_rgba_unmultiplied(255, 210, 40, if is_current { 150 } else { 70 }),
+                    Color32::from_rgba_unmultiplied(
+                        255,
+                        210,
+                        40,
+                        if is_current { 150 } else { 70 },
+                    ),
                 );
                 if is_current {
-                    painter.rect_stroke(r, 2.0, Stroke::new(2.0, Color32::from_rgb(210, 120, 0)), egui::StrokeKind::Outside);
+                    painter.rect_stroke(
+                        r,
+                        2.0,
+                        Stroke::new(2.0, Color32::from_rgb(210, 120, 0)),
+                        egui::StrokeKind::Outside,
+                    );
                 }
             }
 
@@ -2191,7 +2379,10 @@ impl PdfReaderState {
         // A double-click on a saved region box (GH issue #35 2026-09-02):
         // straight into editing it.
         if let Some(id) = open_target {
-            if let Some(art) = active_artifacts.as_deref().and_then(|a| a.iter().find(|x| x.id() == id).cloned()) {
+            if let Some(art) = active_artifacts
+                .as_deref()
+                .and_then(|a| a.iter().find(|x| x.id() == id).cloned())
+            {
                 if let Some(r) = self.open_artifact(&art) {
                     crop_result = Some(r);
                 }
@@ -2238,8 +2429,11 @@ impl PdfReaderState {
                                 // leaving the digitiser's required `figure*`
                                 // field blank for the user to notice later.
                                 if let Some((min, max)) = self.pending_box.take() {
-                                    self.pending_figure_prompt =
-                                        Some(PendingFigurePrompt { min, max, figure: String::new() });
+                                    self.pending_figure_prompt = Some(PendingFigurePrompt {
+                                        min,
+                                        max,
+                                        figure: String::new(),
+                                    });
                                 }
                                 close = true;
                             }
@@ -2260,8 +2454,10 @@ impl PdfReaderState {
                         }
                         ContextMenuTarget::Existing(i) => {
                             if ui.button("Edit").clicked() {
-                                if let Some(a) =
-                                    self.annotations.get(&self.active_page()).and_then(|a| a.get(i))
+                                if let Some(a) = self
+                                    .annotations
+                                    .get(&self.active_page())
+                                    .and_then(|a| a.get(i))
                                 {
                                     self.annotate_editor = Some(AnnotateEditor {
                                         min: a.min,
@@ -2302,7 +2498,9 @@ impl PdfReaderState {
     /// the same `annotations` markdown section a hand-typed note goes into,
     /// per the module doc).
     fn text_selection_panel(&mut self, ui: &mut egui::Ui) {
-        let Some((min, max, text)) = self.text_selection.clone() else { return };
+        let Some((min, max, text)) = self.text_selection.clone() else {
+            return;
+        };
         ui.group(|ui| {
             ui.label(format!(
                 "Selected text — page {} — bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
@@ -2326,14 +2524,17 @@ impl PdfReaderState {
                 if ui.button("Save as annotation").clicked() {
                     let author = self.author_name();
                     let page_px = self.current_page_px();
-                    self.annotations.entry(self.active_page()).or_default().push(Annotation {
-                        min,
-                        max,
-                        text: text.clone(),
-                        created_at: utc_now_iso8601(),
-                        author,
-                        page_px,
-                    });
+                    self.annotations
+                        .entry(self.active_page())
+                        .or_default()
+                        .push(Annotation {
+                            min,
+                            max,
+                            text: text.clone(),
+                            created_at: utc_now_iso8601(),
+                            author,
+                            page_px,
+                        });
                     self.text_selection = None;
                 }
                 if ui.button("Dismiss").clicked() {
@@ -2352,7 +2553,9 @@ impl PdfReaderState {
     /// [`CropResult`].
     fn annotate_editor_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
         let page = self.active_page();
-        let Some(editor) = &mut self.annotate_editor else { return None };
+        let Some(editor) = &mut self.annotate_editor else {
+            return None;
+        };
         let mut save = false;
         let mut cancel = false;
         ui.group(|ui| {
@@ -2446,7 +2649,12 @@ mod tests {
         StextChar {
             c,
             origin: p,
-            quad: Quad { ul: p, ur: p, ll: p, lr: p },
+            quad: Quad {
+                ul: p,
+                ur: p,
+                ll: p,
+                lr: p,
+            },
             size: 10.0,
             font: 0,
             flags: 0,
@@ -2495,7 +2703,10 @@ mod tests {
         // line's device-space bbox in pixel space is now y=[20,40], so a
         // drag rect that only covers y=[0,15] in PIXEL space should miss it
         // even though it would have hit at scale=1.0.
-        let page = stub_page(vec![stub_line("line", PdfRect::new(0.0, 10.0, 200.0, 20.0))]);
+        let page = stub_page(vec![stub_line(
+            "line",
+            PdfRect::new(0.0, 10.0, 200.0, 20.0),
+        )]);
         let missed = select_text_in_rect(&page, 2.0, Pos2::new(0.0, 0.0), Pos2::new(300.0, 15.0));
         assert_eq!(missed, "");
         let hit = select_text_in_rect(&page, 2.0, Pos2::new(0.0, 0.0), Pos2::new(300.0, 30.0));
@@ -2515,8 +2726,12 @@ mod tests {
     #[test]
     fn select_text_in_rect_no_intersection_is_empty() {
         let page = stub_page(vec![stub_line("x", PdfRect::new(0.0, 0.0, 10.0, 10.0))]);
-        let text =
-            select_text_in_rect(&page, 1.0, Pos2::new(1000.0, 1000.0), Pos2::new(1100.0, 1100.0));
+        let text = select_text_in_rect(
+            &page,
+            1.0,
+            Pos2::new(1000.0, 1000.0),
+            Pos2::new(1100.0, 1100.0),
+        );
         assert_eq!(text, "");
     }
 
@@ -2564,7 +2779,11 @@ a note
     fn substr_char_ranges_is_case_insensitive_and_non_overlapping() {
         let chars: Vec<char> = "The rho of the RHO-region, rhorho".chars().collect();
         let hits = substr_char_ranges(&chars, "rho");
-        assert_eq!(hits.len(), 4, "two lower, one upper, and rhorho as two non-overlapping");
+        assert_eq!(
+            hits.len(),
+            4,
+            "two lower, one upper, and rhorho as two non-overlapping"
+        );
         for (s, e) in hits {
             let m: String = chars[s..e].iter().map(|c| c.to_ascii_lowercase()).collect();
             assert_eq!(m, "rho");
@@ -2607,7 +2826,8 @@ a note
             let page_id = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id });
             let pages = dictionary! { "Type" => "Pages", "Kids" => vec![Object::Reference(page_id)], "Count" => 1 };
             doc.objects.insert(pages_id, Object::Dictionary(pages));
-            let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+            let catalog_id =
+                doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
             doc.trailer.set("Root", catalog_id);
             let info_id = doc.add_object(dictionary! { "Title" => Object::string_literal(title) });
             doc.trailer.set("Info", info_id);
@@ -2623,7 +2843,12 @@ a note
         ingest::ingest(
             &root,
             &preview,
-            IngestChoice { citekey: citekey.clone(), access: Access::Open, topics: vec!["htgrs".into()], projects: vec![] },
+            IngestChoice {
+                citekey: citekey.clone(),
+                access: Access::Open,
+                topics: vec!["htgrs".into()],
+                projects: vec![],
+            },
         )
         .unwrap();
 
@@ -2645,10 +2870,20 @@ a note
         editor.load_text(session.markdown());
         state.save_annotations_into_project(Some(&mut session), &mut editor);
 
-        assert!(state.message.contains(&citekey), "status should name the paper it saved into: {}", state.message);
+        assert!(
+            state.message.contains(&citekey),
+            "status should name the paper it saved into: {}",
+            state.message
+        );
         let on_disk = std::fs::read_to_string(root.paper_markdown(&citekey)).unwrap();
-        assert!(on_disk.contains("a note about figure 3"), "annotation text should be in the saved markdown:\n{on_disk}");
-        assert!(on_disk.contains("kind = \"annotation\""), "should be a real fenced-TOML artifact:\n{on_disk}");
+        assert!(
+            on_disk.contains("a note about figure 3"),
+            "annotation text should be in the saved markdown:\n{on_disk}"
+        );
+        assert!(
+            on_disk.contains("kind = \"annotation\""),
+            "should be a real fenced-TOML artifact:\n{on_disk}"
+        );
 
         // The saved block re-parses as an artifact anchored to page 1.
         let index = crate::research_record::ResearchRecordIndex::from_session(&session);
@@ -2675,7 +2910,10 @@ a note
 
         let mut state = PdfReaderState::default();
         let crop = state.open_artifact(art);
-        assert!(crop.is_none(), "a text block is edited in place, not sent to a digitiser");
+        assert!(
+            crop.is_none(),
+            "a text block is edited in place, not sent to a digitiser"
+        );
         assert_eq!(state.editing_block_id.as_deref(), Some("graphite-note"));
         assert_eq!(state.block_editor.text(), "the prose body");
         assert_eq!(PdfReaderState::artifact_page(art), Some(2));
@@ -2683,10 +2921,20 @@ a note
 
     #[test]
     fn normalise_region_normalises_and_rejects_degenerate() {
-        let r = normalise_region(Pos2::new(50.0, 100.0), Pos2::new(150.0, 300.0), 200.0, 400.0).unwrap();
+        let r = normalise_region(
+            Pos2::new(50.0, 100.0),
+            Pos2::new(150.0, 300.0),
+            200.0,
+            400.0,
+        )
+        .unwrap();
         assert!((r.x0 - 0.25).abs() < 1e-9 && (r.y1 - 0.75).abs() < 1e-9);
-        assert!(normalise_region(Pos2::new(10.0, 10.0), Pos2::new(10.0, 10.0), 200.0, 400.0).is_none());
-        assert!(normalise_region(Pos2::new(10.0, 10.0), Pos2::new(20.0, 20.0), 0.0, 400.0).is_none());
+        assert!(
+            normalise_region(Pos2::new(10.0, 10.0), Pos2::new(10.0, 10.0), 200.0, 400.0).is_none()
+        );
+        assert!(
+            normalise_region(Pos2::new(10.0, 10.0), Pos2::new(20.0, 20.0), 0.0, 400.0).is_none()
+        );
     }
 
     #[test]
@@ -2704,7 +2952,10 @@ a note
         let r = p.region().unwrap();
         assert!((r.x0 - 0.1).abs() < 1e-6 && (r.y1 - 0.6).abs() < 1e-6);
 
-        let no_size = CropProvenance { page_px: [0.0, 0.0], ..p };
+        let no_size = CropProvenance {
+            page_px: [0.0, 0.0],
+            ..p
+        };
         assert!(no_size.region().is_none());
     }
 }

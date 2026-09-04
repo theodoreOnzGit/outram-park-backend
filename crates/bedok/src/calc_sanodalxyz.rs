@@ -165,7 +165,14 @@ pub fn calc_sanodalxyz(
     );
 
     // `dummyplus` and `dummy.*first`; note the sign flips on 3*A2 and Gg*A4.
-    let dummy_plus = |w: &[f64], a1: &[f64], a2: &[f64], a3: &[f64], a4: &[f64], hh: &[f64], gg: &[f64]| -> Vec<f64> {
+    let dummy_plus = |w: &[f64],
+                      a1: &[f64],
+                      a2: &[f64],
+                      a3: &[f64],
+                      a4: &[f64],
+                      hh: &[f64],
+                      gg: &[f64]|
+     -> Vec<f64> {
         (0..philen)
             .map(|i| {
                 2.0 * diffvalues_d[i] / w[i % es]
@@ -173,7 +180,14 @@ pub fn calc_sanodalxyz(
             })
             .collect()
     };
-    let dummy_first = |w: &[f64], a1f: &[f64], a2: &[f64], a3f: &[f64], a4: &[f64], hh: &[f64], gg: &[f64]| -> Vec<f64> {
+    let dummy_first = |w: &[f64],
+                       a1f: &[f64],
+                       a2: &[f64],
+                       a3f: &[f64],
+                       a4: &[f64],
+                       hh: &[f64],
+                       gg: &[f64]|
+     -> Vec<f64> {
         (0..philen)
             .map(|i| {
                 2.0 * diffvalues_d[i] / w[i % es]
@@ -182,12 +196,60 @@ pub fn calc_sanodalxyz(
             .collect()
     };
 
-    let dplus_x = dummy_plus(&geometry.lx, &e.a1.x, &e.a2.x, &e.a3.x, &e.a4.x, &coeffs.x.hh, &coeffs.x.gg);
-    let dplus_y = dummy_plus(&geometry.ly, &e.a1.y, &e.a2.y, &e.a3.y, &e.a4.y, &coeffs.y.hh, &coeffs.y.gg);
-    let dplus_z = dummy_plus(&geometry.lz, &e.a1.z, &e.a2.z, &e.a3.z, &e.a4.z, &coeffs.z.hh, &coeffs.z.gg);
-    let dfirst_x = dummy_first(&geometry.lx, &e.a1.xfirst, &e.a2.x, &e.a3.xfirst, &e.a4.x, &coeffs.x.hh, &coeffs.x.gg);
-    let dfirst_y = dummy_first(&geometry.ly, &e.a1.yfirst, &e.a2.y, &e.a3.yfirst, &e.a4.y, &coeffs.y.hh, &coeffs.y.gg);
-    let dfirst_z = dummy_first(&geometry.lz, &e.a1.zfirst, &e.a2.z, &e.a3.zfirst, &e.a4.z, &coeffs.z.hh, &coeffs.z.gg);
+    let dplus_x = dummy_plus(
+        &geometry.lx,
+        &e.a1.x,
+        &e.a2.x,
+        &e.a3.x,
+        &e.a4.x,
+        &coeffs.x.hh,
+        &coeffs.x.gg,
+    );
+    let dplus_y = dummy_plus(
+        &geometry.ly,
+        &e.a1.y,
+        &e.a2.y,
+        &e.a3.y,
+        &e.a4.y,
+        &coeffs.y.hh,
+        &coeffs.y.gg,
+    );
+    let dplus_z = dummy_plus(
+        &geometry.lz,
+        &e.a1.z,
+        &e.a2.z,
+        &e.a3.z,
+        &e.a4.z,
+        &coeffs.z.hh,
+        &coeffs.z.gg,
+    );
+    let dfirst_x = dummy_first(
+        &geometry.lx,
+        &e.a1.xfirst,
+        &e.a2.x,
+        &e.a3.xfirst,
+        &e.a4.x,
+        &coeffs.x.hh,
+        &coeffs.x.gg,
+    );
+    let dfirst_y = dummy_first(
+        &geometry.ly,
+        &e.a1.yfirst,
+        &e.a2.y,
+        &e.a3.yfirst,
+        &e.a4.y,
+        &coeffs.y.hh,
+        &coeffs.y.gg,
+    );
+    let dfirst_z = dummy_first(
+        &geometry.lz,
+        &e.a1.zfirst,
+        &e.a2.z,
+        &e.a3.zfirst,
+        &e.a4.z,
+        &coeffs.z.hh,
+        &coeffs.z.gg,
+    );
 
     let phi_scale = phivec.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let phi_scale = if phi_scale == 0.0 { 1.0 } else { phi_scale };
@@ -236,12 +298,12 @@ pub fn calc_sanodalxyz(
     let mut terms = Array2::<f64>::zeros(philen, 6);
 
     let face_terms = |lines: &[(usize, usize)],
-                          stride: usize,
-                          cm: usize,
-                          cp: usize,
-                          dplus: &[f64],
-                          dfirst: &[f64],
-                          terms: &mut Array2<f64>| {
+                      stride: usize,
+                      cm: usize,
+                      cp: usize,
+                      dplus: &[f64],
+                      dfirst: &[f64],
+                      terms: &mut Array2<f64>| {
         for &(low, high) in lines {
             // low face
             if occupied(low) {
@@ -298,22 +360,22 @@ pub fn calc_sanodalxyz(
     let mut diag_slot: Vec<Option<usize>> = vec![None; philen];
 
     let assemble = |lines: &[(usize, usize)],
-                        stride: usize,
-                        cm: usize,
-                        cp: usize,
-                        widths: &[f64],
-                        creates: bool,
+                    stride: usize,
+                    cm: usize,
+                    cp: usize,
+                    widths: &[f64],
+                    creates: bool,
+                    row: &mut Vec<usize>,
+                    col: &mut Vec<usize>,
+                    ele: &mut Vec<f64>,
+                    diag_slot: &mut Vec<Option<usize>>,
+                    terms: &Array2<f64>| {
+        let diagonal = |idx: usize,
+                        v: f64,
+                        ele: &mut Vec<f64>,
                         row: &mut Vec<usize>,
                         col: &mut Vec<usize>,
-                        ele: &mut Vec<f64>,
-                        diag_slot: &mut Vec<Option<usize>>,
-                        terms: &Array2<f64>| {
-        let diagonal = |idx: usize,
-                            v: f64,
-                            ele: &mut Vec<f64>,
-                            row: &mut Vec<usize>,
-                            col: &mut Vec<usize>,
-                            diag_slot: &mut Vec<Option<usize>>| {
+                        diag_slot: &mut Vec<Option<usize>>| {
             if creates {
                 row.push(idx);
                 col.push(idx);
@@ -394,9 +456,45 @@ pub fn calc_sanodalxyz(
     };
 
     // z creates the diagonal slots; y and x accumulate into them.
-    assemble(&z_lines, 1, 4, 5, &geometry.lz, true, &mut row, &mut col, &mut ele, &mut diag_slot, &terms);
-    assemble(&y_lines, maxiz, 2, 3, &geometry.ly, false, &mut row, &mut col, &mut ele, &mut diag_slot, &terms);
-    assemble(&x_lines, xstep, 0, 1, &geometry.lx, false, &mut row, &mut col, &mut ele, &mut diag_slot, &terms);
+    assemble(
+        &z_lines,
+        1,
+        4,
+        5,
+        &geometry.lz,
+        true,
+        &mut row,
+        &mut col,
+        &mut ele,
+        &mut diag_slot,
+        &terms,
+    );
+    assemble(
+        &y_lines,
+        maxiz,
+        2,
+        3,
+        &geometry.ly,
+        false,
+        &mut row,
+        &mut col,
+        &mut ele,
+        &mut diag_slot,
+        &terms,
+    );
+    assemble(
+        &x_lines,
+        xstep,
+        0,
+        1,
+        &geometry.lx,
+        false,
+        &mut row,
+        &mut col,
+        &mut ele,
+        &mut diag_slot,
+        &terms,
+    );
 
     assert!(row.len() <= philen * 10, "Error in calc_sanodal");
 
@@ -472,16 +570,7 @@ mod tests {
         let c = coeffs(0.5);
         let mut cache = BucklingCache::new();
         let mut r = calc_sanodalxyz(
-            &params,
-            &geometry,
-            &c,
-            &[1.0; ES],
-            &mut sigma,
-            &diffd,
-            &terms,
-            &terms,
-            1.0,
-            &mut cache,
+            &params, &geometry, &c, &[1.0; ES], &mut sigma, &diffd, &terms, &terms, 1.0, &mut cache,
         );
         assert_eq!(r.operator.rows(), ES);
         assert!(r.terms.as_slice().iter().all(|v| v.is_finite()));
@@ -507,16 +596,7 @@ mod tests {
         let c = coeffs(0.5);
         let mut cache = BucklingCache::new();
         let r = calc_sanodalxyz(
-            &params,
-            &geometry,
-            &c,
-            &[0.0; ES],
-            &mut sigma,
-            &diffd,
-            &terms,
-            &terms,
-            1.0,
-            &mut cache,
+            &params, &geometry, &c, &[0.0; ES], &mut sigma, &diffd, &terms, &terms, 1.0, &mut cache,
         );
         assert!(r.terms.as_slice().iter().all(|v| *v == 0.0));
     }
@@ -550,16 +630,7 @@ mod tests {
         let c = coeffs(0.5);
         let mut cache = BucklingCache::new();
         let _ = calc_sanodalxyz(
-            &params,
-            &geometry,
-            &c,
-            &[1.0; ES],
-            &mut sigma,
-            &diffd,
-            &terms,
-            &terms,
-            1.0,
-            &mut cache,
+            &params, &geometry, &c, &[1.0; ES], &mut sigma, &diffd, &terms, &terms, 1.0, &mut cache,
         );
     }
 }

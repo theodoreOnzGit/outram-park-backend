@@ -189,7 +189,7 @@ use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, visco
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
-use uom::si::specific_heat_capacity::{kilojoule_per_kilogram_kelvin,joule_per_kilogram_kelvin};
+use uom::si::specific_heat_capacity::{kilojoule_per_kilogram_kelvin, joule_per_kilogram_kelvin};
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
@@ -592,7 +592,9 @@ pub fn helium_specific_heat(temperature: ThermodynamicTemperature) -> SpecificHe
     }
     let pressure_pa = design().primary_pressure.get::<uom::si::pressure::pascal>();
     match state_pt(Fluid::Helium, t, pressure_pa) {
-        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(state.cp),
+        Ok(state) if state.cp.is_finite() && state.cp > 0.0 => {
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(state.cp)
+        }
         _ => SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(IDEAL_CP),
     }
 }
@@ -1274,9 +1276,10 @@ mod tests {
     fn enthalpy_round_trips_and_htc_scales_with_flow() {
         for t_k in [400.0, 750.0, 1200.0] {
             let t = ThermodynamicTemperature::new::<kelvin>(t_k);
-            let round_tripped =
-                temperature_from_specific_enthalpy(pebble_bed_specific_enthalpy_from_temperature(t))
-                    .get::<kelvin>();
+            let round_tripped = temperature_from_specific_enthalpy(
+                pebble_bed_specific_enthalpy_from_temperature(t),
+            )
+            .get::<kelvin>();
             assert!((round_tripped - t_k).abs() < 1e-9);
         }
 

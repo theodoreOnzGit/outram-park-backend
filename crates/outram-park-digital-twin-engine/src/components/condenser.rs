@@ -1162,7 +1162,12 @@ impl CondenserVisual {
             }
         }
 
-        painter.rect_stroke(left_box, 2.0, Stroke::new(1.0_f32, OUTLINE), StrokeKind::Middle);
+        painter.rect_stroke(
+            left_box,
+            2.0,
+            Stroke::new(1.0_f32, OUTLINE),
+            StrokeKind::Middle,
+        );
         painter.rect_stroke(
             right_box,
             2.0,

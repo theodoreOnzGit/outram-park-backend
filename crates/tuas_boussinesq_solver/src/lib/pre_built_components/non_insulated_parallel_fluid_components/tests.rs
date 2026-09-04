@@ -30,9 +30,7 @@ pub fn parallel_bare_pipes_debugging_heat_addition() {
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::boussinesq_thermophysical_properties::SolidMaterial;
-    use crate::
-        array_fluid_collections::
-    fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
     use uom::si::power::kilowatt;
@@ -361,9 +359,7 @@ pub fn parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss() {
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::boussinesq_thermophysical_properties::SolidMaterial;
-    use crate::
-        array_fluid_collections::
-    fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
     use uom::si::power::kilowatt;
@@ -701,9 +697,7 @@ pub fn parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia() {
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::boussinesq_thermophysical_properties::SolidMaterial;
-    use crate::
-        array_fluid_collections::
-    fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
     use uom::si::power::kilowatt;
@@ -1020,9 +1014,7 @@ pub fn parallel_fluid_component_test() {
     use crate::pre_built_components::non_insulated_fluid_components::NonInsulatedFluidComponent;
     use crate::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use crate::boussinesq_thermophysical_properties::SolidMaterial;
-    use crate::
-        array_fluid_collections::
-    fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
     use uom::si::thermodynamic_temperature::degree_celsius;
 
     use uom::si::mass_rate::kilogram_per_second;
@@ -1030,12 +1022,8 @@ pub fn parallel_fluid_component_test() {
     use uom::si::pressure::atmosphere;
 
     use crate::boussinesq_thermophysical_properties::LiquidMaterial;
-    use crate::
-        array_fluid_collections::
-    fluid_component_collection::fluid_component_traits::FluidComponentTrait;
-    use crate::
-        array_fluid_collections::
-    fluid_component_collection::fluid_component::FluidComponent;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 
     use uom::si::pressure::pascal;
     use crate::pre_built_components::non_insulated_parallel_fluid_components::NonInsulatedParallelFluidComponent;

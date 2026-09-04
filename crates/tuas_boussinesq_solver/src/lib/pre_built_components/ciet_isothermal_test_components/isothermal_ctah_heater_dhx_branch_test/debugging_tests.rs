@@ -5,10 +5,7 @@
 pub fn dhx_branch_pressure_change_regression_test() {
     // let's construct the branches with test pressures and obtain
     // mass flowrates
-    use crate::
-        array_fluid_collections::
-        fluid_component_collection::
-    fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
     use crate::pre_built_components::ciet_isothermal_test_components::ciet_branch_builders_isothermal::dhx_branch_builder_isothermal_test;
     use uom::si::f64::*;
     use uom::ConstZero;

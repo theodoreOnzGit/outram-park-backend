@@ -90,9 +90,8 @@ pub fn fiss_src_extrapolatexyz(
         phirecord.cols()
     );
 
-    let column = |a: &Array2<f64>, j: usize| -> Vec<f64> {
-        (0..a.rows()).map(|i| a.get(i, j)).collect()
-    };
+    let column =
+        |a: &Array2<f64>, j: usize| -> Vec<f64> { (0..a.rows()).map(|i| a.get(i, j)).collect() };
 
     let phi = column(phirecord, 0);
     let phiold = column(phirecord, 1);

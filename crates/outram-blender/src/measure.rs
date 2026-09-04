@@ -61,7 +61,10 @@ pub fn face_area(mesh: &Mesh, f: FaceId) -> f64 {
         return 0.0;
     }
     let mut n = Vec3::ZERO;
-    let p: Vec<Vec3> = vs.iter().map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO)).collect();
+    let p: Vec<Vec3> = vs
+        .iter()
+        .map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO))
+        .collect();
     for i in 0..p.len() {
         let a = p[i];
         let b = p[(i + 1) % p.len()];
@@ -77,7 +80,10 @@ pub fn face_perimeter(mesh: &Mesh, f: FaceId) -> f64 {
     (0..n)
         .map(|i| {
             let a = mesh.vertex(vs[i]).map(|x| x.position).unwrap_or(Vec3::ZERO);
-            let b = mesh.vertex(vs[(i + 1) % n]).map(|x| x.position).unwrap_or(Vec3::ZERO);
+            let b = mesh
+                .vertex(vs[(i + 1) % n])
+                .map(|x| x.position)
+                .unwrap_or(Vec3::ZERO);
             b.sub(a).length()
         })
         .sum()
@@ -104,17 +110,25 @@ pub fn corner_angle(mesh: &Mesh, f: FaceId, v: VertexId) -> Option<f64> {
     let o = mesh.vertex(vs[i])?.position;
     let a = mesh.vertex(vs[(i + n - 1) % n])?.position.sub(o);
     let b = mesh.vertex(vs[(i + 1) % n])?.position.sub(o);
-    Some((a.dot(b) / (a.length() * b.length() + 1e-12)).clamp(-1.0, 1.0).acos())
+    Some(
+        (a.dot(b) / (a.length() * b.length() + 1e-12))
+            .clamp(-1.0, 1.0)
+            .acos(),
+    )
 }
 
 /// Sum of all edge lengths.
 pub fn total_edge_length(mesh: &Mesh) -> f64 {
-    (0..mesh.edge_count()).map(|e| edge_length(mesh, EdgeId(e))).sum()
+    (0..mesh.edge_count())
+        .map(|e| edge_length(mesh, EdgeId(e)))
+        .sum()
 }
 
 /// Sum of all face areas.
 pub fn total_surface_area(mesh: &Mesh) -> f64 {
-    (0..mesh.face_count()).map(|f| face_area(mesh, FaceId(f))).sum()
+    (0..mesh.face_count())
+        .map(|f| face_area(mesh, FaceId(f)))
+        .sum()
 }
 
 /// Signed volume of the mesh via the divergence theorem (`Σ (a · (b × c)) / 6`
@@ -130,7 +144,10 @@ pub fn signed_volume(mesh: &Mesh) -> f64 {
         let a = mesh.vertex(vs[0]).map(|x| x.position).unwrap_or(Vec3::ZERO);
         for i in 1..vs.len() - 1 {
             let b = mesh.vertex(vs[i]).map(|x| x.position).unwrap_or(Vec3::ZERO);
-            let c = mesh.vertex(vs[i + 1]).map(|x| x.position).unwrap_or(Vec3::ZERO);
+            let c = mesh
+                .vertex(vs[i + 1])
+                .map(|x| x.position)
+                .unwrap_or(Vec3::ZERO);
             v += a.dot(b.cross(c));
         }
     }
@@ -182,7 +199,9 @@ impl Protractor {
     pub fn angle(&self) -> f64 {
         let u = self.a.sub(self.vertex);
         let v = self.b.sub(self.vertex);
-        (u.dot(v) / (u.length() * v.length() + 1e-12)).clamp(-1.0, 1.0).acos()
+        (u.dot(v) / (u.length() * v.length() + 1e-12))
+            .clamp(-1.0, 1.0)
+            .acos()
     }
 }
 
@@ -191,7 +210,11 @@ impl Protractor {
 /// overhangs for additive manufacturing.
 pub fn overhang(mesh: &Mesh, f: FaceId, up: Vec3) -> f64 {
     let n = mesh.face_normal(f);
-    let u = if up.length() > 1e-9 { up.normalize() } else { Vec3::new(0.0, 0.0, 1.0) };
+    let u = if up.length() > 1e-9 {
+        up.normalize()
+    } else {
+        Vec3::new(0.0, 0.0, 1.0)
+    };
     n.dot(u).clamp(-1.0, 1.0).acos()
 }
 
@@ -203,7 +226,10 @@ pub fn distortion(mesh: &Mesh, f: FaceId) -> f64 {
     if vs.len() < 4 {
         return 0.0;
     }
-    let p: Vec<Vec3> = vs.iter().map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO)).collect();
+    let p: Vec<Vec3> = vs
+        .iter()
+        .map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO))
+        .collect();
     let mut norms: Vec<Vec3> = Vec::new();
     for i in 1..p.len() - 1 {
         let n = p[i].sub(p[0]).cross(p[i + 1].sub(p[0]));
@@ -235,7 +261,12 @@ pub fn sharp_edges(mesh: &Mesh, angle: f64) -> Vec<EdgeId> {
 pub fn self_intersections(mesh: &Mesh) -> Vec<(FaceId, FaceId)> {
     let tris = triangulated(mesh);
     let face_verts: Vec<std::collections::BTreeSet<usize>> = (0..mesh.face_count())
-        .map(|f| mesh.face_vertices(FaceId(f)).into_iter().map(|v| v.0).collect())
+        .map(|f| {
+            mesh.face_vertices(FaceId(f))
+                .into_iter()
+                .map(|v| v.0)
+                .collect()
+        })
         .collect();
     let mut out = Vec::new();
     for i in 0..tris.len() {
@@ -293,7 +324,10 @@ fn triangulated(mesh: &Mesh) -> Vec<(Tri, (Vec3, Vec3), usize)> {
     let mut out = Vec::new();
     for f in 0..mesh.face_count() {
         let vs = mesh.face_vertices(FaceId(f));
-        let p: Vec<Vec3> = vs.iter().map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO)).collect();
+        let p: Vec<Vec3> = vs
+            .iter()
+            .map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO))
+            .collect();
         for i in 1..p.len().saturating_sub(1) {
             let t: Tri = [p[0], p[i], p[i + 1]];
             let lo = Vec3::new(
@@ -313,7 +347,12 @@ fn triangulated(mesh: &Mesh) -> Vec<(Tri, (Vec3, Vec3), usize)> {
 }
 
 fn aabb_overlap(lo0: &Vec3, hi0: &Vec3, lo1: &Vec3, hi1: &Vec3) -> bool {
-    lo0.x <= hi1.x && hi0.x >= lo1.x && lo0.y <= hi1.y && hi0.y >= lo1.y && lo0.z <= hi1.z && hi0.z >= lo1.z
+    lo0.x <= hi1.x
+        && hi0.x >= lo1.x
+        && lo0.y <= hi1.y
+        && hi0.y >= lo1.y
+        && lo0.z <= hi1.z
+        && hi0.z >= lo1.z
 }
 
 /// Möller triangle-triangle intersection (interval-overlap form), tolerant of
@@ -388,7 +427,10 @@ mod tests {
     fn dihedral_and_corner_angles_of_a_cube() {
         let m = primitives::cube(2.0);
         let d = dihedral_angle(&m, EdgeId(0)).unwrap();
-        assert!((d - std::f64::consts::FRAC_PI_2).abs() < 1e-9, "cube edges are 90°");
+        assert!(
+            (d - std::f64::consts::FRAC_PI_2).abs() < 1e-9,
+            "cube edges are 90°"
+        );
         let f = FaceId(0);
         let v = m.face_vertices(f)[0];
         assert!((corner_angle(&m, f, v).unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
@@ -396,7 +438,10 @@ mod tests {
 
     #[test]
     fn ruler_and_protractor() {
-        let r = Ruler { a: Vec3::ZERO, b: Vec3::new(3.0, 4.0, 0.0) };
+        let r = Ruler {
+            a: Vec3::ZERO,
+            b: Vec3::new(3.0, 4.0, 0.0),
+        };
         assert!((r.distance() - 5.0).abs() < 1e-9);
         let p = Protractor {
             a: Vec3::new(1.0, 0.0, 0.0),
@@ -410,8 +455,14 @@ mod tests {
     fn overhang_and_sharp_edges() {
         let m = primitives::cube(2.0);
         // The +Z face points up → overhang ≈ 0; the -Z face → ≈ π.
-        let top = (0..m.face_count()).map(FaceId).find(|&f| m.face_centroid(f).z > 0.5).unwrap();
-        let bot = (0..m.face_count()).map(FaceId).find(|&f| m.face_centroid(f).z < -0.5).unwrap();
+        let top = (0..m.face_count())
+            .map(FaceId)
+            .find(|&f| m.face_centroid(f).z > 0.5)
+            .unwrap();
+        let bot = (0..m.face_count())
+            .map(FaceId)
+            .find(|&f| m.face_centroid(f).z < -0.5)
+            .unwrap();
         assert!(overhang(&m, top, Vec3::new(0.0, 0.0, 1.0)) < 0.01);
         assert!((overhang(&m, bot, Vec3::new(0.0, 0.0, 1.0)) - std::f64::consts::PI).abs() < 0.01);
         assert_eq!(sharp_edges(&m, std::f64::consts::FRAC_PI_4).len(), 12);

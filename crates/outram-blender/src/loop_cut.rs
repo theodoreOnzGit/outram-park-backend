@@ -66,12 +66,20 @@ pub struct LoopCutResult {
 /// clone with no new loops. `factor` is clamped to `[-1, 1]`.
 pub fn loop_cut(mesh: &Mesh, seed: EdgeId, cuts: usize, factor: f64) -> LoopCutResult {
     if cuts == 0 || mesh.edge(seed).is_none() {
-        return LoopCutResult { mesh: mesh.clone(), new_loops: Vec::new(), closed: false };
+        return LoopCutResult {
+            mesh: mesh.clone(),
+            new_loops: Vec::new(),
+            closed: false,
+        };
     }
     let topo = MeshTopology::new(mesh);
     let ring = topology::edge_ring(&topo, mesh, seed);
     if ring.len() < 2 {
-        return LoopCutResult { mesh: mesh.clone(), new_loops: Vec::new(), closed: false };
+        return LoopCutResult {
+            mesh: mesh.clone(),
+            new_loops: Vec::new(),
+            closed: false,
+        };
     }
     let ring_set: BTreeSet<EdgeId> = ring.iter().copied().collect();
     let closed = ring_closes(&topo, &ring_set);
@@ -138,7 +146,11 @@ pub fn loop_cut(mesh: &Mesh, seed: EdgeId, cuts: usize, factor: f64) -> LoopCutR
         })
         .collect();
 
-    LoopCutResult { mesh: Mesh::from_polygons(&positions, &faces), new_loops, closed }
+    LoopCutResult {
+        mesh: Mesh::from_polygons(&positions, &faces),
+        new_loops,
+        closed,
+    }
 }
 
 /// The vertex shared by two edges, if any.
@@ -150,9 +162,15 @@ fn shared_vertex(mesh: &Mesh, a: EdgeId, b: EdgeId) -> Option<VertexId> {
 /// The `t` positions of the cuts, ascending, with the slide applied.
 fn cut_parameters(cuts: usize, factor: f64) -> Vec<f64> {
     let base: Vec<f64> = (1..=cuts).map(|j| j as f64 / (cuts as f64 + 1.0)).collect();
-    let room = base.first().copied().unwrap_or(0.5).min(1.0 - base.last().copied().unwrap_or(0.5));
+    let room = base
+        .first()
+        .copied()
+        .unwrap_or(0.5)
+        .min(1.0 - base.last().copied().unwrap_or(0.5));
     let offset = factor * room;
-    base.iter().map(|&t| (t + offset).clamp(1e-4, 1.0 - 1e-4)).collect()
+    base.iter()
+        .map(|&t| (t + offset).clamp(1e-4, 1.0 - 1e-4))
+        .collect()
 }
 
 /// Emit the `cuts + 1` strip quads for one loop quad.
@@ -172,7 +190,11 @@ fn emit_strip(
     let edge_at = |i: usize| topology_edge(mesh, vs[i], vs[(i + 1) % 4]);
     let split01 = edge_at(0).is_some_and(|e| ring_set.contains(&e))
         && edge_at(2).is_some_and(|e| ring_set.contains(&e));
-    let vs = if split01 { vs.clone() } else { vec![vs[1], vs[2], vs[3], vs[0]] };
+    let vs = if split01 {
+        vs.clone()
+    } else {
+        vec![vs[1], vs[2], vs[3], vs[0]]
+    };
     let (v0, v1, v2, v3) = (vs[0], vs[1], vs[2], vs[3]);
 
     let ea = topology_edge(mesh, v0, v1);
@@ -201,8 +223,15 @@ fn emit_strip(
 }
 
 /// The split-vertex ids for `edge`, ordered so index 0 is nearest `near_end`.
-fn ids_from(split: &HashMap<EdgeId, Vec<usize>>, mesh: &Mesh, edge: EdgeId, near_end: VertexId) -> Vec<usize> {
-    let Some(ids) = split.get(&edge) else { return Vec::new() };
+fn ids_from(
+    split: &HashMap<EdgeId, Vec<usize>>,
+    mesh: &Mesh,
+    edge: EdgeId,
+    near_end: VertexId,
+) -> Vec<usize> {
+    let Some(ids) = split.get(&edge) else {
+        return Vec::new();
+    };
     let ed = mesh.edge(edge).unwrap();
     if ed.verts[0] == near_end {
         ids.clone()

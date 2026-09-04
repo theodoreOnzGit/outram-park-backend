@@ -632,7 +632,9 @@ impl crate::gpu::GpuContext {
 
         // wgpu 30: `get_mapped_range` became fallible — see gpu.rs's own
         // read-back for the same pattern and reasoning.
-        let data = slice.get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+        let data = slice
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         let flat = crate::gpu::le_bytes_to_f32_vec(&data);
         drop(data);
         staging_buf.unmap();

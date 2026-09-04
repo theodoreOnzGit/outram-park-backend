@@ -129,7 +129,12 @@ pub fn snap_to_symmetry(mesh: &Mesh, axis: Axis, match_threshold: f64) -> Mesh {
 
 /// The mirror-image vertices of `verts` across the [`Axis`] plane, matched by
 /// position within `tolerance`. Unmatched inputs are dropped.
-pub fn mirror_selection(mesh: &Mesh, verts: &[VertexId], axis: Axis, tolerance: f64) -> Vec<VertexId> {
+pub fn mirror_selection(
+    mesh: &Mesh,
+    verts: &[VertexId],
+    axis: Axis,
+    tolerance: f64,
+) -> Vec<VertexId> {
     let src = mesh.positions();
     let lookup = PositionLookup::new(&src, tolerance.max(1e-6));
     verts
@@ -160,7 +165,10 @@ fn snap_axis(p: Vec3, axis: Axis, value: f64) -> Vec3 {
 }
 
 fn to_soup(mesh: &Mesh) -> Vec<Vec<usize>> {
-    mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect()
+    mesh.polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect()
 }
 
 /// Grid-hash position → vertex-id lookup with a tolerance.
@@ -179,7 +187,11 @@ impl PositionLookup {
         PositionLookup { cell, grid }
     }
     fn key(p: Vec3, cell: f64) -> [i64; 3] {
-        [(p.x / cell).round() as i64, (p.y / cell).round() as i64, (p.z / cell).round() as i64]
+        [
+            (p.x / cell).round() as i64,
+            (p.y / cell).round() as i64,
+            (p.z / cell).round() as i64,
+        ]
     }
     fn find(&self, target: Vec3) -> Option<usize> {
         let k = Self::key(target, self.cell);
@@ -219,10 +231,20 @@ mod tests {
             .map(crate::mesh::FaceId)
             .filter(|&f| cube.face_centroid(f).x > 0.1)
             .collect();
-        let half = crate::dissolve::delete(&cube, crate::dissolve::DeleteMode::Faces, &[], &[], &px_faces);
+        let half = crate::dissolve::delete(
+            &cube,
+            crate::dissolve::DeleteMode::Faces,
+            &[],
+            &[],
+            &px_faces,
+        );
         assert!(half.face_count() < 6);
         let sym = symmetrize(&half, Axis::X, false, 1e-4); // keep the -X side, mirror onto +X
-        assert_eq!(sym.euler_characteristic(), 2, "symmetric result is closed again");
+        assert_eq!(
+            sym.euler_characteristic(),
+            2,
+            "symmetric result is closed again"
+        );
     }
 
     #[test]

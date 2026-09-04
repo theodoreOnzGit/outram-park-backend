@@ -71,7 +71,11 @@ impl VoxelGrid {
 
     /// The world-space centre of cell `(x, y, z)`.
     pub fn cell_center(&self, x: usize, y: usize, z: usize) -> Vec3 {
-        self.origin.add(Vec3::new(x as f64 * self.cell, y as f64 * self.cell, z as f64 * self.cell))
+        self.origin.add(Vec3::new(
+            x as f64 * self.cell,
+            y as f64 * self.cell,
+            z as f64 * self.cell,
+        ))
     }
 
     /// Number of occupied cells.
@@ -104,7 +108,12 @@ pub fn mesh_to_volume(mesh: &Mesh, cell: f64) -> VoxelGrid {
             }
         }
     }
-    VoxelGrid { origin, cell, dims, occ }
+    VoxelGrid {
+        origin,
+        cell,
+        dims,
+        occ,
+    }
 }
 
 /// Emit a watertight blocky surface: one outward-facing quad per occupied-cell
@@ -129,12 +138,60 @@ pub fn volume_to_mesh(grid: &VoxelGrid) -> Mesh {
 
     // Face directions: (offset, the four corner offsets, wound CCW outward).
     let faces_def: [([i64; 3], [Vec3; 4]); 6] = [
-        ([1, 0, 0], [Vec3::new(h, -h, -h), Vec3::new(h, h, -h), Vec3::new(h, h, h), Vec3::new(h, -h, h)]),
-        ([-1, 0, 0], [Vec3::new(-h, -h, -h), Vec3::new(-h, -h, h), Vec3::new(-h, h, h), Vec3::new(-h, h, -h)]),
-        ([0, 1, 0], [Vec3::new(-h, h, -h), Vec3::new(-h, h, h), Vec3::new(h, h, h), Vec3::new(h, h, -h)]),
-        ([0, -1, 0], [Vec3::new(-h, -h, -h), Vec3::new(h, -h, -h), Vec3::new(h, -h, h), Vec3::new(-h, -h, h)]),
-        ([0, 0, 1], [Vec3::new(-h, -h, h), Vec3::new(h, -h, h), Vec3::new(h, h, h), Vec3::new(-h, h, h)]),
-        ([0, 0, -1], [Vec3::new(-h, -h, -h), Vec3::new(-h, h, -h), Vec3::new(h, h, -h), Vec3::new(h, -h, -h)]),
+        (
+            [1, 0, 0],
+            [
+                Vec3::new(h, -h, -h),
+                Vec3::new(h, h, -h),
+                Vec3::new(h, h, h),
+                Vec3::new(h, -h, h),
+            ],
+        ),
+        (
+            [-1, 0, 0],
+            [
+                Vec3::new(-h, -h, -h),
+                Vec3::new(-h, -h, h),
+                Vec3::new(-h, h, h),
+                Vec3::new(-h, h, -h),
+            ],
+        ),
+        (
+            [0, 1, 0],
+            [
+                Vec3::new(-h, h, -h),
+                Vec3::new(-h, h, h),
+                Vec3::new(h, h, h),
+                Vec3::new(h, h, -h),
+            ],
+        ),
+        (
+            [0, -1, 0],
+            [
+                Vec3::new(-h, -h, -h),
+                Vec3::new(h, -h, -h),
+                Vec3::new(h, -h, h),
+                Vec3::new(-h, -h, h),
+            ],
+        ),
+        (
+            [0, 0, 1],
+            [
+                Vec3::new(-h, -h, h),
+                Vec3::new(h, -h, h),
+                Vec3::new(h, h, h),
+                Vec3::new(-h, h, h),
+            ],
+        ),
+        (
+            [0, 0, -1],
+            [
+                Vec3::new(-h, -h, -h),
+                Vec3::new(-h, h, -h),
+                Vec3::new(h, h, -h),
+                Vec3::new(h, -h, -h),
+            ],
+        ),
     ];
 
     for z in 0..grid.dims[2] {
@@ -148,7 +205,10 @@ pub fn volume_to_mesh(grid: &VoxelGrid) -> Mesh {
                     if grid.get(x as i64 + off[0], y as i64 + off[1], z as i64 + off[2]) {
                         continue;
                     }
-                    let quad: Vec<usize> = corners.iter().map(|&cc| corner(c.add(cc), &mut positions)).collect();
+                    let quad: Vec<usize> = corners
+                        .iter()
+                        .map(|&cc| corner(c.add(cc), &mut positions))
+                        .collect();
                     faces.push(quad);
                 }
             }
@@ -179,7 +239,10 @@ fn triangles(mesh: &Mesh) -> Vec<Tri> {
     let mut out = Vec::new();
     for f in 0..mesh.face_count() {
         let vs = mesh.face_vertices(FaceId(f));
-        let p: Vec<Vec3> = vs.iter().map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO)).collect();
+        let p: Vec<Vec3> = vs
+            .iter()
+            .map(|v| mesh.vertex(*v).map(|x| x.position).unwrap_or(Vec3::ZERO))
+            .collect();
         for i in 1..p.len().saturating_sub(1) {
             out.push([p[0], p[i], p[i + 1]]);
         }
@@ -250,7 +313,11 @@ mod tests {
         let g = mesh_to_volume(&m, 1.0);
         let s = volume_to_mesh(&g);
         assert!(s.face_count() > 0);
-        assert_eq!(s.euler_characteristic(), 2, "blocky surface is closed genus-0");
+        assert_eq!(
+            s.euler_characteristic(),
+            2,
+            "blocky surface is closed genus-0"
+        );
     }
 
     #[test]

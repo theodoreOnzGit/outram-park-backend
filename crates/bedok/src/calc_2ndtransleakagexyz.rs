@@ -82,9 +82,8 @@ pub fn calc_2ndtransleakagexyz(
     let es = maxix * maxiy * maxiz;
     let philen = g_count * es;
 
-    let add = |a: &[f64], b: &[f64]| -> Vec<f64> {
-        a.iter().zip(b.iter()).map(|(p, q)| p + q).collect()
-    };
+    let add =
+        |a: &[f64], b: &[f64]| -> Vec<f64> { a.iter().zip(b.iter()).map(|(p, q)| p + q).collect() };
     let ssource_x = add(&leakzero.y, &leakzero.z);
     let ssource_y = add(&leakzero.x, &leakzero.z);
     let ssource_z = add(&leakzero.x, &leakzero.y);

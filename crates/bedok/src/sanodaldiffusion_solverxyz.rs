@@ -457,7 +457,10 @@ pub fn sanodaldiffusion_solverxyz(
             nodal_updates += 1;
         }
 
-        let rhs: Vec<f64> = fission_source.iter().map(|x| x / k_eff[iteration]).collect();
+        let rhs: Vec<f64> = fission_source
+            .iter()
+            .map(|x| x / k_eff[iteration])
+            .collect();
         let scalar_flux_l_plus = fixinfnan(&dlhs.solve(&rhs), false);
 
         fission_source_new = sigma.f.mul_vec(&scalar_flux_l_plus);
@@ -733,19 +736,17 @@ mod tests {
     #[test]
     fn a_uniform_cube_converges_near_finite_difference() {
         let (geometry, params, sigmavalues, whichsigma) = cube(4, 2);
-        let out = sanodaldiffusion_solverxyz(
-            &geometry,
-            &params,
-            &sigmavalues,
-            &whichsigma,
-            None,
-            None,
-        )
-        .unwrap();
+        let out =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         assert_eq!(out.termination, Termination::Converged);
         assert!(out.k_eff > 0.0, "k_eff = {}", out.k_eff);
-        assert!(out.k_eff < 2.5, "k_eff = {} should leak below k_inf", out.k_eff);
+        assert!(
+            out.k_eff < 2.5,
+            "k_eff = {} should leak below k_inf",
+            out.k_eff
+        );
 
         let fd = crate::diffusion_solverxyz::diffusion_solverxyz(
             &geometry,
@@ -756,7 +757,12 @@ mod tests {
         )
         .unwrap();
         let gap = (out.k_eff - fd.k_eff).abs() / fd.k_eff;
-        assert!(gap < 0.05, "nodal {} vs finite difference {}", out.k_eff, fd.k_eff);
+        assert!(
+            gap < 0.05,
+            "nodal {} vs finite difference {}",
+            out.k_eff,
+            fd.k_eff
+        );
     }
 
     /// Defect N1, pinned: a nodal-update interval of 1 does not converge.
@@ -790,7 +796,12 @@ mod tests {
         for n in [3usize, 4, 5] {
             let (geometry, params, sigmavalues, whichsigma) = cube(n, 1);
             let out = sanodaldiffusion_solverxyz(
-                &geometry, &params, &sigmavalues, &whichsigma, None, None,
+                &geometry,
+                &params,
+                &sigmavalues,
+                &whichsigma,
+                None,
+                None,
             )
             .unwrap();
             assert_eq!(
@@ -808,10 +819,9 @@ mod tests {
     fn the_default_interval_is_one_on_a_small_mesh() {
         // `nodalupd = 0` selects `ceil((3+3+3)/10) = 1`.
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 0);
-        let out = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let out =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
         assert_eq!(out.termination, Termination::IterationCap);
         // One rebuild per iteration, plus the pass that hit the cap.
         assert!(out.nodal_updates >= MAX_ITER);
@@ -822,10 +832,9 @@ mod tests {
     #[test]
     fn the_output_flux_is_the_whole_history() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 2);
-        let out = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let out =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         assert_eq!(out.scalar_flux.rows(), 27);
         assert_eq!(out.scalar_flux.cols(), HISTORY);
@@ -852,10 +861,9 @@ mod tests {
     #[test]
     fn a_warm_start_does_not_move_the_answer() {
         let (geometry, params, sigmavalues, whichsigma) = cube(4, 5);
-        let cold = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let cold =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
         let warm = sanodaldiffusion_solverxyz(
             &geometry,
             &params,
@@ -920,7 +928,12 @@ mod tests {
             for upd in [2usize, 3, 5, 10] {
                 let (geometry, params, sigmavalues, whichsigma) = cube(n, upd);
                 let cold = sanodaldiffusion_solverxyz(
-                    &geometry, &params, &sigmavalues, &whichsigma, None, None,
+                    &geometry,
+                    &params,
+                    &sigmavalues,
+                    &whichsigma,
+                    None,
+                    None,
                 )
                 .unwrap();
                 let warm = sanodaldiffusion_solverxyz(
@@ -977,10 +990,9 @@ mod tests {
     #[test]
     fn a_narrow_warm_start_is_replicated() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 2);
-        let cold = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let cold =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         // One column only.
         let mut narrow = Array2::<f64>::zeros(27, 1);
@@ -1005,16 +1017,14 @@ mod tests {
     #[test]
     fn the_nodal_update_interval_is_honoured() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 2);
-        let frequent = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let frequent =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 1000);
-        let never = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let never =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         assert!(
             frequent.nodal_updates > never.nodal_updates,
@@ -1055,20 +1065,18 @@ mod tests {
     #[test]
     fn the_debug_diagnostics_are_gated_and_carry_the_references_nan() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 2);
-        let off = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let off =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
         assert!(off.diagnostics.is_none());
 
         let params = Params {
             debugdump: 1,
             ..params
         };
-        let on = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let on =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
         let d = on.diagnostics.expect("debugdump was set");
 
         for (name, (diag, _)) in [
@@ -1106,19 +1114,17 @@ mod tests {
     #[test]
     fn a_loose_inner_tolerance_stops_earlier() {
         let (geometry, params, sigmavalues, whichsigma) = cube(3, 2);
-        let tight = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let tight =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         let params = Params {
             innertol: Some(1e-3),
             ..params
         };
-        let loose = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap();
+        let loose =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap();
 
         assert!(
             loose.iterations <= tight.iterations,
@@ -1142,10 +1148,9 @@ mod tests {
             ..Default::default()
         };
 
-        let err = sanodaldiffusion_solverxyz(
-            &geometry, &params, &sigmavalues, &whichsigma, None, None,
-        )
-        .unwrap_err();
+        let err =
+            sanodaldiffusion_solverxyz(&geometry, &params, &sigmavalues, &whichsigma, None, None)
+                .unwrap_err();
         assert!(matches!(
             err,
             BedokError::IterativeSolveNotTranslated { .. }

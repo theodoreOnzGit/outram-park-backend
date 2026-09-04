@@ -213,7 +213,9 @@ fn without_cyclic_declaration_the_seam_is_frozen_as_before() {
     assert_eq!(zmin.kind, PatchKind::Patch);
     assert_eq!(zmin.cyclic_partner, None);
     assert!(
-        resolve_pairs(&cast.topology).expect("no pairs to resolve").is_empty(),
+        resolve_pairs(&cast.topology)
+            .expect("no pairs to resolve")
+            .is_empty(),
         "no cyclic pairs without the declaration"
     );
 

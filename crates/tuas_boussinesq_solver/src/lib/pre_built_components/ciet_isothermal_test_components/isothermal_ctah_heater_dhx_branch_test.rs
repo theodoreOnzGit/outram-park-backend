@@ -13,8 +13,7 @@ pub fn isothermal_dhx_ctah_and_heater_branch_code_to_code_verification_test() {
     use crate::pre_built_components::
         ciet_isothermal_test_components::
     isothermal_ctah_heater_branch_test::IsothermalCIETSolvers;
-    use crate::array_fluid_collections::
-    fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_super_collection::FluidComponentSuperCollection;
     use uom::si::f64::*;
     use super::ciet_branch_builders_isothermal::heater_branch_builder_isothermal_test;
     use super::ciet_branch_builders_isothermal::ctah_branch_builder_isothermal_test;

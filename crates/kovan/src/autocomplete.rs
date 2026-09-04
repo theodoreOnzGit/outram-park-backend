@@ -58,8 +58,12 @@ fn matches_query(query: &str, haystacks: &[&str]) -> bool {
 /// author, title, year, DOI. Reads `root`'s bibliography fresh each call —
 /// see the module doc on why a cache isn't worth it here.
 pub fn citation_candidates(root: &KovanRoot, query: &str) -> Vec<Candidate> {
-    let Ok(text) = std::fs::read_to_string(root.bibliography_path()) else { return Vec::new() };
-    let Ok(entries) = kovan_literature::parse_bib_entries(&text) else { return Vec::new() };
+    let Ok(text) = std::fs::read_to_string(root.bibliography_path()) else {
+        return Vec::new();
+    };
+    let Ok(entries) = kovan_literature::parse_bib_entries(&text) else {
+        return Vec::new();
+    };
 
     let mut out: Vec<Candidate> = entries
         .into_iter()
@@ -74,8 +78,16 @@ pub fn citation_candidates(root: &KovanRoot, query: &str) -> Vec<Candidate> {
             let title = e.fields.get("title").cloned().unwrap_or_default();
             let year = e.fields.get("year").cloned().unwrap_or_default();
             let author = e.fields.get("author").cloned().unwrap_or_default();
-            let detail = [author, year, title].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" — ");
-            Candidate { label: e.cite_key.clone(), insert_text: e.cite_key, detail }
+            let detail = [author, year, title]
+                .into_iter()
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join(" — ");
+            Candidate {
+                label: e.cite_key.clone(),
+                insert_text: e.cite_key,
+                detail,
+            }
         })
         .collect();
     out.sort_by(|a, b| a.label.cmp(&b.label));
@@ -88,7 +100,11 @@ pub fn wiki_candidates(index: &KnowledgeIndex, query: &str) -> Vec<Candidate> {
 
     for paper in &index.papers {
         if matches_query(query, &[&paper.citekey]) {
-            out.push(Candidate { label: paper.citekey.clone(), insert_text: paper.citekey.clone(), detail: "paper".to_string() });
+            out.push(Candidate {
+                label: paper.citekey.clone(),
+                insert_text: paper.citekey.clone(),
+                detail: "paper".to_string(),
+            });
         }
     }
     for collection in &index.collections {
@@ -98,7 +114,11 @@ pub fn wiki_candidates(index: &KnowledgeIndex, query: &str) -> Vec<Candidate> {
                 crate::entity::EntityKind::Project => "project",
                 crate::entity::EntityKind::Paper => continue, // collections never carry this kind
             };
-            out.push(Candidate { label: collection.name.clone(), insert_text: collection.path.clone(), detail: kind.to_string() });
+            out.push(Candidate {
+                label: collection.name.clone(),
+                insert_text: collection.path.clone(),
+                detail: kind.to_string(),
+            });
         }
     }
     out.sort_by(|a, b| a.label.cmp(&b.label));
@@ -112,7 +132,11 @@ pub fn artifact_candidates(index: &ResearchRecordIndex, query: &str) -> Vec<Cand
         .artifacts()
         .iter()
         .filter(|a| matches_query(query, &[a.id(), &a.heading]))
-        .map(|a| Candidate { label: a.heading.clone(), insert_text: a.id().to_string(), detail: format!("{:?}", a.kind()) })
+        .map(|a| Candidate {
+            label: a.heading.clone(),
+            insert_text: a.id().to_string(),
+            detail: format!("{:?}", a.kind()),
+        })
         .collect();
     out.sort_by(|a, b| a.label.cmp(&b.label));
     out
@@ -142,7 +166,11 @@ mod tests {
         assert_eq!(citation_candidates(&root, "wang").len(), 1);
         assert_eq!(citation_candidates(&root, "2020").len(), 1);
         assert_eq!(citation_candidates(&root, "corrosion").len(), 1);
-        assert_eq!(citation_candidates(&root, "").len(), 2, "empty query lists everything");
+        assert_eq!(
+            citation_candidates(&root, "").len(),
+            2,
+            "empty query lists everything"
+        );
         assert!(citation_candidates(&root, "nonexistentxyz").is_empty());
     }
 
@@ -157,16 +185,25 @@ mod tests {
     #[test]
     fn wiki_candidates_covers_papers_and_collections() {
         let (_dir, root) = make_root();
-        EntityConfig::topic("htgrs", "HTGRs").save(&root.topics_dir().join("htgrs")).unwrap();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
             .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
 
         let index = KnowledgeIndex::rebuild(&root);
         let all = wiki_candidates(&index, "");
-        assert!(all.iter().any(|c| c.insert_text == "wang2018multiphysics" && c.detail == "paper"));
-        assert!(all.iter().any(|c| c.insert_text == "htgrs" && c.detail == "topic"));
+        assert!(all
+            .iter()
+            .any(|c| c.insert_text == "wang2018multiphysics" && c.detail == "paper"));
+        assert!(all
+            .iter()
+            .any(|c| c.insert_text == "htgrs" && c.detail == "topic"));
 
         let filtered = wiki_candidates(&index, "wang");
         assert_eq!(filtered.len(), 1);
@@ -175,11 +212,15 @@ mod tests {
     #[test]
     fn artifact_candidates_matches_heading_and_id() {
         let (_dir, root) = make_root();
-        EntityConfig::paper(CiteKey::parse("wang2018multiphysics").unwrap(), Access::Open)
-            .with_topics(["htgrs"])
-            .save_paper(&root.paper_dir("wang2018multiphysics"))
-            .unwrap();
-        let mut session = crate::session::PaperSession::open(&root, "wang2018multiphysics").unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
+        let mut session =
+            crate::session::PaperSession::open(&root, "wang2018multiphysics").unwrap();
         session.append_block(
             "## Table 4.4\n\n```toml\n[kovan]\nid = \"table-4-4\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n",
         );

@@ -72,7 +72,11 @@ impl EntryEditor {
             editing_index: Some(i),
             entry_type: entry.entry_type.clone(),
             cite_key: entry.cite_key.clone(),
-            fields: entry.fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            fields: entry
+                .fields
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
         }
     }
 
@@ -167,7 +171,9 @@ impl BibliographyState {
     }
 
     fn commit_editor(&mut self, root: &KovanRoot) {
-        let Some(editor) = self.editor.take() else { return };
+        let Some(editor) = self.editor.take() else {
+            return;
+        };
         let entry = editor.to_entry();
         if entry.cite_key.is_empty() {
             self.message = "cite key cannot be empty".to_string();
@@ -253,7 +259,12 @@ impl BibliographyState {
     /// `[Open]`. `[Open][Edit][Delete]` now sit together on one row;
     /// `Open` is disabled (with an explanatory tooltip) for a citation-only
     /// entry that has no corresponding ingested Kovan paper.
-    pub fn ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot, index: &KnowledgeIndex) -> Option<BibliographyAction> {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        root: &KovanRoot,
+        index: &KnowledgeIndex,
+    ) -> Option<BibliographyAction> {
         if self.entries.is_none() {
             self.load(root);
         }

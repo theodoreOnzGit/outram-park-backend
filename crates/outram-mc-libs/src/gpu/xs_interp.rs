@@ -350,7 +350,9 @@ pub fn interp_xs_gpu(
     // Block until the GPU has finished and the map callback has fired.
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
-    let view = slice.get_mapped_range().expect("staging buffer mapping failed after a completed poll");
+    let view = slice
+        .get_mapped_range()
+        .expect("staging buffer mapping failed after a completed poll");
     let out = bytes_to_f32_vec(&view, n_query);
     drop(view);
     staging_buf.unmap();

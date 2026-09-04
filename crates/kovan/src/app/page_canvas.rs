@@ -40,7 +40,10 @@ pub const BASE_DPI: f32 = 150.0;
 
 /// Fallback logical page size (US-Letter at [`BASE_DPI`]) used only before
 /// the first page has rendered, so layout has *something* to work with.
-const FALLBACK_PX: Vec2 = Vec2 { x: 1275.0, y: 1650.0 };
+const FALLBACK_PX: Vec2 = Vec2 {
+    x: 1275.0,
+    y: 1650.0,
+};
 
 /// One cached page raster and the supersampling factor it was rendered at.
 struct PageTex {
@@ -122,7 +125,13 @@ impl PageView {
 
     /// The inclusive page range intersecting `viewport` (content
     /// coordinates), clamped to `0..n`.
-    pub fn visible_range(&self, viewport: Rect, n: usize, zoom: f32, gap: f32) -> std::ops::RangeInclusive<usize> {
+    pub fn visible_range(
+        &self,
+        viewport: Rect,
+        n: usize,
+        zoom: f32,
+        gap: f32,
+    ) -> std::ops::RangeInclusive<usize> {
         if n == 0 {
             return 0..=0;
         }
@@ -160,8 +169,13 @@ impl PageView {
                     } else {
                         ColorImage::from_rgb([w, h], &pixmap.samples)
                     };
-                    let handle = ctx.load_texture(format!("kovan-page-{p}@{scale}"), image, TextureOptions::LINEAR);
-                    self.logical_px.get_or_insert(Vec2::new(w as f32 / scale as f32, h as f32 / scale as f32));
+                    let handle = ctx.load_texture(
+                        format!("kovan-page-{p}@{scale}"),
+                        image,
+                        TextureOptions::LINEAR,
+                    );
+                    self.logical_px
+                        .get_or_insert(Vec2::new(w as f32 / scale as f32, h as f32 / scale as f32));
                     self.textures.insert(p, PageTex { handle, scale });
                     self.order.retain(|&q| q != p);
                     self.order.push_back(p);
@@ -189,14 +203,20 @@ impl PageView {
     /// derived from the logical page size so the strip has a stable width
     /// before any thumbnail has rendered.
     pub fn thumb_size_px(&self) -> Vec2 {
-        self.thumb_px.unwrap_or(self.page_size_px() * (THUMB_DPI / BASE_DPI))
+        self.thumb_px
+            .unwrap_or(self.page_size_px() * (THUMB_DPI / BASE_DPI))
     }
 
     /// Rasterise + upload the page-picker thumbnails for `want`, evicting
     /// the least-recently-asked-for beyond [`THUMB_CACHE_CAP`]. Cheap per
     /// page ([`THUMB_DPI`]) and only ever called for the strip's own
     /// visible range.
-    pub fn ensure_thumbs(&mut self, ctx: &egui::Context, doc: &PdfDocument, want: std::ops::RangeInclusive<usize>) {
+    pub fn ensure_thumbs(
+        &mut self,
+        ctx: &egui::Context,
+        doc: &PdfDocument,
+        want: std::ops::RangeInclusive<usize>,
+    ) {
         for p in want.clone() {
             if self.thumbs.contains_key(&p) || self.failed.contains(&p) {
                 self.thumb_order.retain(|&q| q != p);
@@ -213,7 +233,8 @@ impl PageView {
             } else {
                 ColorImage::from_rgb([w, h], &pixmap.samples)
             };
-            let handle = ctx.load_texture(format!("kovan-thumb-{p}"), image, TextureOptions::LINEAR);
+            let handle =
+                ctx.load_texture(format!("kovan-thumb-{p}"), image, TextureOptions::LINEAR);
             self.thumb_px.get_or_insert(Vec2::new(w as f32, h as f32));
             self.thumbs.insert(p, handle);
             self.thumb_order.push_back(p);
@@ -263,7 +284,14 @@ impl PageView {
 
     /// Screen point → `(page, page-pixel point)`. `None` when the point is
     /// left of the pages, past the last page, or in an inter-page gap.
-    pub fn hit(&self, screen: Pos2, origin: Pos2, n: usize, zoom: f32, gap: f32) -> Option<(usize, Pos2)> {
+    pub fn hit(
+        &self,
+        screen: Pos2,
+        origin: Pos2,
+        n: usize,
+        zoom: f32,
+        gap: f32,
+    ) -> Option<(usize, Pos2)> {
         if n == 0 {
             return None;
         }
@@ -287,7 +315,6 @@ impl PageView {
         }
         Some((p, px))
     }
-
 }
 
 #[cfg(test)]
@@ -297,7 +324,10 @@ mod tests {
     /// A `PageView` with a known page size but no textures — enough to test
     /// the pure geometry.
     fn sized(w: f32, h: f32) -> PageView {
-        PageView { logical_px: Some(Vec2::new(w, h)), ..PageView::default() }
+        PageView {
+            logical_px: Some(Vec2::new(w, h)),
+            ..PageView::default()
+        }
     }
 
     #[test]
@@ -343,9 +373,13 @@ mod tests {
         let v = sized(600.0, 800.0);
         let origin = Pos2::ZERO;
         // y = 805 at zoom 1, gap 10 → 5px into the gap after page 0.
-        assert!(v.hit(Pos2::new(10.0, 805.0), origin, 3, 1.0, 10.0).is_none());
+        assert!(v
+            .hit(Pos2::new(10.0, 805.0), origin, 3, 1.0, 10.0)
+            .is_none());
         // past the last page
-        assert!(v.hit(Pos2::new(10.0, 10_000.0), origin, 3, 1.0, 10.0).is_none());
+        assert!(v
+            .hit(Pos2::new(10.0, 10_000.0), origin, 3, 1.0, 10.0)
+            .is_none());
         // left of the pages
         assert!(v.hit(Pos2::new(-5.0, 10.0), origin, 3, 1.0, 10.0).is_none());
     }

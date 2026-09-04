@@ -84,7 +84,11 @@ const COLD_OUT_K: f64 = 773.0;
 fn linear_seed(from_k: f64, to_k: f64, n: usize) -> Vec<ThermodynamicTemperature> {
     (0..n)
         .map(|i| {
-            let f = if n > 1 { i as f64 / (n - 1) as f64 } else { 0.0 };
+            let f = if n > 1 {
+                i as f64 / (n - 1) as f64
+            } else {
+                0.0
+            };
             ThermodynamicTemperature::new::<kelvin>(from_k + (to_k - from_k) * f)
         })
         .collect()
@@ -92,9 +96,7 @@ fn linear_seed(from_k: f64, to_k: f64, n: usize) -> Vec<ThermodynamicTemperature
 
 /// Build the three coupled arrays: helium shell, steel tube wall, steam tube.
 #[allow(clippy::type_complexity)]
-fn build_exchanger(
-    dt: Time,
-) -> (CompressibleFluidArray, SolidColumn, TampinesSteamArray) {
+fn build_exchanger(dt: Time) -> (CompressibleFluidArray, SolidColumn, TampinesSteamArray) {
     let flow_length = Length::new::<meter>(6.0);
     let shell_area = Area::new::<square_meter>(0.05);
     let tube_area = Area::new::<square_meter>(0.02);
@@ -121,9 +123,7 @@ fn build_exchanger(
         .iter()
         .zip(linear_seed(COLD_OUT_K, COLD_IN_K, NODES).iter())
         .map(|(h, c)| {
-            ThermodynamicTemperature::new::<kelvin>(
-                (h.get::<kelvin>() + c.get::<kelvin>()) * 0.5,
-            )
+            ThermodynamicTemperature::new::<kelvin>((h.get::<kelvin>() + c.get::<kelvin>()) * 0.5)
         })
         .collect();
     let metal = SolidColumn::new_block(

@@ -320,9 +320,11 @@ impl GpuContext {
         // --- readback -------------------------------------------------------
         let mapped = Arc::new(Mutex::new(None));
         let cb = Arc::clone(&mapped);
-        readback.slice(..).map_async(wgpu::MapMode::Read, move |res| {
-            *cb.lock().unwrap() = Some(res);
-        });
+        readback
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |res| {
+                *cb.lock().unwrap() = Some(res);
+            });
         // One `wait_indefinitely` poll returns when the *submitted work* is
         // done, which is not the same instant the map callback fires — and
         // with several threads sharing one device another thread's poll can

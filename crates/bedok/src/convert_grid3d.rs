@@ -103,10 +103,8 @@ pub fn convert_grid3d(
                         for _nn in 0..nc {
                             // REFERENCE DEFECT: the block offset does not vary
                             // with the loop variable — see the doc comment.
-                            let idx = (g_count + nc - 1) * energyindexstep
-                                + ix * xstep
-                                + iy * maxiz
-                                + iz;
+                            let idx =
+                                (g_count + nc - 1) * energyindexstep + ix * xstep + iy * maxiz + iz;
                             key[idx] = Some(counter);
                             reversekey[counter] = idx;
                             counter += 1;

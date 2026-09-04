@@ -108,23 +108,37 @@ impl MeshTopology {
             }
         }
 
-        MeshTopology { edge_faces, vertex_edges, vertex_faces, edge_lookup }
+        MeshTopology {
+            edge_faces,
+            vertex_edges,
+            vertex_faces,
+            edge_lookup,
+        }
     }
 
     /// Faces incident to edge `e` (its radial cycle). Empty for an out-of-range
     /// or wire edge.
     pub fn edge_faces(&self, e: EdgeId) -> &[FaceId] {
-        self.edge_faces.get(e.0).map(|v| v.as_slice()).unwrap_or(&[])
+        self.edge_faces
+            .get(e.0)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Edges incident to vertex `v` (its disk cycle, unordered).
     pub fn vertex_edges(&self, v: VertexId) -> &[EdgeId] {
-        self.vertex_edges.get(v.0).map(|s| s.as_slice()).unwrap_or(&[])
+        self.vertex_edges
+            .get(v.0)
+            .map(|s| s.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Faces incident to vertex `v`.
     pub fn vertex_faces(&self, v: VertexId) -> &[FaceId] {
-        self.vertex_faces.get(v.0).map(|s| s.as_slice()).unwrap_or(&[])
+        self.vertex_faces
+            .get(v.0)
+            .map(|s| s.as_slice())
+            .unwrap_or(&[])
     }
 
     /// `true` when `e` has exactly one incident face — a mesh-boundary (open)
@@ -204,14 +218,18 @@ impl MeshTopology {
     pub fn edge_loop_step(&self, edge: EdgeId, pivot: VertexId) -> Option<EdgeId> {
         let at_pivot = self.vertex_edges(pivot);
         if self.is_boundary_edge(edge) {
-            let mut it = at_pivot.iter().copied().filter(|&e| e != edge && self.is_boundary_edge(e));
+            let mut it = at_pivot
+                .iter()
+                .copied()
+                .filter(|&e| e != edge && self.is_boundary_edge(e));
             let first = it.next()?;
             return it.next().is_none().then_some(first);
         }
         if at_pivot.len() != 4 {
             return None;
         }
-        let here: std::collections::BTreeSet<FaceId> = self.edge_faces(edge).iter().copied().collect();
+        let here: std::collections::BTreeSet<FaceId> =
+            self.edge_faces(edge).iter().copied().collect();
         at_pivot
             .iter()
             .copied()
@@ -244,7 +262,9 @@ impl MeshTopology {
 /// terminates at the first pole / non-manifold vertex on each side.
 pub fn edge_loop(topo: &MeshTopology, mesh: &Mesh, seed: EdgeId) -> Vec<EdgeId> {
     let mut out = vec![seed];
-    let Some(edge) = mesh.edge(seed) else { return out };
+    let Some(edge) = mesh.edge(seed) else {
+        return out;
+    };
     for &start in &edge.verts {
         let mut cur = seed;
         let mut pivot = start;
@@ -253,7 +273,9 @@ pub fn edge_loop(topo: &MeshTopology, mesh: &Mesh, seed: EdgeId) -> Vec<EdgeId> 
                 break;
             }
             out.push(next);
-            let Some(far) = topo.other_end(mesh, next, pivot) else { break };
+            let Some(far) = topo.other_end(mesh, next, pivot) else {
+                break;
+            };
             cur = next;
             pivot = far;
         }
@@ -354,7 +376,9 @@ pub fn shortest_vertex_path(
         }
         let vp = mesh.vertex(v).map(|x| x.position);
         for &e in topo.vertex_edges(v) {
-            let Some(n) = topo.other_end(mesh, e, v) else { continue };
+            let Some(n) = topo.other_end(mesh, e, v) else {
+                continue;
+            };
             if n.0 >= nv {
                 continue;
             }
@@ -439,7 +463,9 @@ impl PartialOrd for OrdF64 {
 }
 impl Ord for OrdF64 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+        self.0
+            .partial_cmp(&other.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -453,11 +479,19 @@ mod tests {
         let m = primitives::cube(2.0);
         let t = MeshTopology::new(&m);
         for e in 0..m.edge_count() {
-            assert_eq!(t.edge_faces(EdgeId(e)).len(), 2, "closed cube: every edge is manifold");
+            assert_eq!(
+                t.edge_faces(EdgeId(e)).len(),
+                2,
+                "closed cube: every edge is manifold"
+            );
             assert!(!t.is_boundary_edge(EdgeId(e)));
         }
         for v in 0..m.vertex_count() {
-            assert_eq!(t.vertex_edges(VertexId(v)).len(), 3, "cube corner valence 3");
+            assert_eq!(
+                t.vertex_edges(VertexId(v)).len(),
+                3,
+                "cube corner valence 3"
+            );
             assert_eq!(t.vertex_faces(VertexId(v)).len(), 3);
         }
     }
@@ -466,7 +500,9 @@ mod tests {
     fn grid_boundary_edges_are_detected() {
         let m = primitives::grid(4, 4, 4.0);
         let t = MeshTopology::new(&m);
-        let boundary = (0..m.edge_count()).filter(|&e| t.is_boundary_edge(EdgeId(e))).count();
+        let boundary = (0..m.edge_count())
+            .filter(|&e| t.is_boundary_edge(EdgeId(e)))
+            .count();
         // A 4x4 quad grid has 16 boundary edges (4 per side).
         assert_eq!(boundary, 16);
     }
@@ -524,11 +560,18 @@ mod tests {
         // endpoints have equal y.
         let horizontal = (0..m.edge_count()).map(EdgeId).find(|&e| {
             let ed = m.edge(e).unwrap();
-            let (a, b) = (m.vertex(ed.verts[0]).unwrap().position, m.vertex(ed.verts[1]).unwrap().position);
+            let (a, b) = (
+                m.vertex(ed.verts[0]).unwrap().position,
+                m.vertex(ed.verts[1]).unwrap().position,
+            );
             t.is_manifold_edge(e) && (a.y - b.y).abs() < 1e-9
         });
         let loop_edges = edge_loop(&t, &m, horizontal.unwrap());
-        assert_eq!(loop_edges.len(), 5, "a full row of 5 quads has a 5-edge loop");
+        assert_eq!(
+            loop_edges.len(),
+            5,
+            "a full row of 5 quads has a 5-edge loop"
+        );
     }
 
     #[test]
@@ -541,7 +584,10 @@ mod tests {
         // only in z.
         let vertical = (0..m.edge_count()).map(EdgeId).find(|&e| {
             let ed = m.edge(e).unwrap();
-            let (a, b) = (m.vertex(ed.verts[0]).unwrap().position, m.vertex(ed.verts[1]).unwrap().position);
+            let (a, b) = (
+                m.vertex(ed.verts[0]).unwrap().position,
+                m.vertex(ed.verts[1]).unwrap().position,
+            );
             t.is_manifold_edge(e)
                 && (a.x - b.x).abs() < 1e-9
                 && (a.y - b.y).abs() < 1e-9
@@ -566,16 +612,22 @@ mod tests {
         let m = primitives::grid(4, 4, 4.0);
         let t = MeshTopology::new(&m);
         // Corner to corner along one border: 4 edges, 5 vertices.
-        let corner_a = (0..m.vertex_count()).map(VertexId).min_by(|&a, &b| {
-            let pa = m.vertex(a).unwrap().position;
-            let pb = m.vertex(b).unwrap().position;
-            (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
-        }).unwrap();
-        let corner_b = (0..m.vertex_count()).map(VertexId).max_by(|&a, &b| {
-            let pa = m.vertex(a).unwrap().position;
-            let pb = m.vertex(b).unwrap().position;
-            (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
-        }).unwrap();
+        let corner_a = (0..m.vertex_count())
+            .map(VertexId)
+            .min_by(|&a, &b| {
+                let pa = m.vertex(a).unwrap().position;
+                let pb = m.vertex(b).unwrap().position;
+                (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
+            })
+            .unwrap();
+        let corner_b = (0..m.vertex_count())
+            .map(VertexId)
+            .max_by(|&a, &b| {
+                let pa = m.vertex(a).unwrap().position;
+                let pb = m.vertex(b).unwrap().position;
+                (pa.x + pa.y).partial_cmp(&(pb.x + pb.y)).unwrap()
+            })
+            .unwrap();
         let path = shortest_vertex_path(&t, &m, corner_a, corner_b);
         assert!(!path.is_empty());
         assert_eq!(path.first().copied(), Some(corner_a));
@@ -589,12 +641,21 @@ mod tests {
         // 0-1-2-3-4 chain.
         let adj = |x: usize| -> Vec<usize> {
             let mut v = Vec::new();
-            if x > 0 { v.push(x - 1); }
-            if x < 4 { v.push(x + 1); }
+            if x > 0 {
+                v.push(x - 1);
+            }
+            if x < 4 {
+                v.push(x + 1);
+            }
             v
         };
         let p = shortest_hop_path(0usize, 4usize, adj);
         assert_eq!(p, vec![0, 1, 2, 3, 4]);
-        assert!(shortest_hop_path(0usize, 9usize, |x: usize| if x < 4 { vec![x + 1] } else { vec![] }).is_empty());
+        assert!(shortest_hop_path(0usize, 9usize, |x: usize| if x < 4 {
+            vec![x + 1]
+        } else {
+            vec![]
+        })
+        .is_empty());
     }
 }

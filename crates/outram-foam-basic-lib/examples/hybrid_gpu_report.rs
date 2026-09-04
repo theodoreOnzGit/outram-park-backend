@@ -238,7 +238,10 @@ mod desktop {
         }
 
         // dot / norm_l1 — scalars, so max == RMS by construction.
-        let b: Vec<f64> = parity_operand(n).iter().map(|v| v * std::f64::consts::LN_2).collect();
+        let b: Vec<f64> = parity_operand(n)
+            .iter()
+            .map(|v| v * std::f64::consts::LN_2)
+            .collect();
         let want_d = par::dot(&x, &b, ComputeBackend::Serial);
         if let Some(got_d) = kgpu::dot(&x, &b) {
             let rel = (got_d - want_d).abs() / want_d.abs().max(1.0);
@@ -348,7 +351,9 @@ mod desktop {
         ] {
             match cross {
                 Some(n) => println!("- `{name}`: n = {n}"),
-                None => println!("- `{name}`: never within the swept range — keep it off auto-select"),
+                None => {
+                    println!("- `{name}`: never within the swept range — keep it off auto-select")
+                }
             }
         }
         println!();

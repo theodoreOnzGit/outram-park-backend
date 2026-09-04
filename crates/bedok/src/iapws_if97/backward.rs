@@ -64,7 +64,9 @@ pub fn tb23_p(p: f64) -> f64 {
 /// [`t_ph`] does the region selection.
 pub fn t1_ph(p: f64, h: f64) -> f64 {
     const I: [i32; 20] = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 5, 6];
-    const J: [i32; 20] = [0, 1, 2, 6, 22, 32, 0, 1, 2, 3, 4, 10, 32, 10, 32, 10, 32, 32, 32, 32];
+    const J: [i32; 20] = [
+        0, 1, 2, 6, 22, 32, 0, 1, 2, 3, 4, 10, 32, 10, 32, 10, 32, 32, 32, 32,
+    ];
     const N: [f64; 20] = [
         -238.724_899_245_210,
         404.211_886_379_450,
@@ -478,7 +480,10 @@ mod tests {
             worst_at.0, worst_at.1
         );
         assert!(samples > 100, "the sweep only visited {samples} states");
-        assert!(worst < 0.025, "worst round-trip error {worst} K exceeds 25 mK");
+        assert!(
+            worst < 0.025,
+            "worst round-trip error {worst} K exceeds 25 mK"
+        );
     }
 
     /// The same round trip for the vapour side, through the `t_ph` dispatcher.
@@ -524,7 +529,10 @@ mod tests {
             "T_ph vapour round trip: worst {worst:.6} K at p = {} MPa, T = {} K",
             worst_at.0, worst_at.1
         );
-        assert!(worst < 0.025, "worst round-trip error {worst} K exceeds 25 mK");
+        assert!(
+            worst < 0.025,
+            "worst round-trip error {worst} K exceeds 25 mK"
+        );
     }
 
     /// Inside the saturation dome the dispatcher returns `Tsat`, exactly, at
@@ -576,7 +584,10 @@ mod tests {
         // convention, and agree with Tsat to the fit tolerance.
         for (label, h) in [("x = 0", hl), ("x = 1", hv)] {
             let t = t_ph(p, h);
-            eprintln!("{label}: t_ph = {t}, Tsat = {tsat}, diff = {}", (t - tsat).abs());
+            eprintln!(
+                "{label}: t_ph = {t}, Tsat = {tsat}, diff = {}",
+                (t - tsat).abs()
+            );
             assert!(
                 (t - tsat).abs() < 0.025,
                 "{label} gave {t}, more than 25 mK from Tsat = {tsat}"
@@ -625,7 +636,10 @@ mod tests {
             let h = h2bc_p(p);
             let tb = t2b_ph(p, h);
             let tc = t2c_ph(p, h);
-            eprintln!("at {p} MPa, h2bc = {h} kJ/kg: T2b = {tb}, T2c = {tc}, diff = {}", (tb - tc).abs());
+            eprintln!(
+                "at {p} MPa, h2bc = {h} kJ/kg: T2b = {tb}, T2c = {tc}, diff = {}",
+                (tb - tc).abs()
+            );
             assert!(
                 (tb - tc).abs() < 0.1,
                 "2b/2c disagree by {} K at {p} MPa",

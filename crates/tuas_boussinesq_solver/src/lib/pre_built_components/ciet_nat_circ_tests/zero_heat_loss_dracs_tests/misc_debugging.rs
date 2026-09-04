@@ -8,8 +8,7 @@
 /// quite lehcheh (troublesome) to type, but ok lah
 #[test]
 pub fn steel_properties_debugging() {
-    use crate::pre_built_components::
-    ciet_nat_circ_tests::dracs_loop_components::*;
+    use crate::pre_built_components::ciet_nat_circ_tests::dracs_loop_components::*;
     // let's construct the branches with test pressures and obtain
     use uom::si::f64::*;
     use uom::ConstZero;

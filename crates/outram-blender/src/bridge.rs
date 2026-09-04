@@ -58,7 +58,12 @@ pub struct BridgeOptions {
 
 impl Default for BridgeOptions {
     fn default() -> Self {
-        BridgeOptions { twist: 0, cuts: 0, flip: false, merge_distance: 0.0 }
+        BridgeOptions {
+            twist: 0,
+            cuts: 0,
+            flip: false,
+            merge_distance: 0.0,
+        }
     }
 }
 
@@ -77,7 +82,11 @@ pub fn bridge_edge_loops(
     }
     let n = ring_a.len();
     let mut positions = mesh.positions();
-    let mut faces: Vec<Vec<usize>> = mesh.polygons().iter().map(|f| f.iter().map(|v| v.0).collect()).collect();
+    let mut faces: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|f| f.iter().map(|v| v.0).collect())
+        .collect();
 
     // Ring B, flipped and twisted.
     let mut b: Vec<usize> = ring_b.iter().map(|v| v.0).collect();
@@ -132,7 +141,8 @@ pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<V
         return None;
     }
     // vertex → incident set-edges
-    let mut adj: std::collections::HashMap<VertexId, Vec<VertexId>> = std::collections::HashMap::new();
+    let mut adj: std::collections::HashMap<VertexId, Vec<VertexId>> =
+        std::collections::HashMap::new();
     for &e in &set {
         let ed = mesh.edge(e)?;
         adj.entry(ed.verts[0]).or_default().push(ed.verts[1]);
@@ -141,15 +151,26 @@ pub fn ordered_ring(mesh: &Mesh, edges: &[crate::mesh::EdgeId]) -> Option<(Vec<V
     if adj.values().any(|n| n.len() > 2) {
         return None; // branching
     }
-    let ends: Vec<VertexId> = adj.iter().filter(|(_, n)| n.len() == 1).map(|(&v, _)| v).collect();
+    let ends: Vec<VertexId> = adj
+        .iter()
+        .filter(|(_, n)| n.len() == 1)
+        .map(|(&v, _)| v)
+        .collect();
     let closed = ends.is_empty();
-    let start = if closed { *adj.keys().next().unwrap() } else { ends[0] };
+    let start = if closed {
+        *adj.keys().next().unwrap()
+    } else {
+        ends[0]
+    };
 
     let mut ring = vec![start];
     let mut prev: Option<VertexId> = None;
     let mut cur = start;
     loop {
-        let next = adj[&cur].iter().copied().find(|&v| Some(v) != prev && (Some(v) != Some(start) || ring.len() == 1));
+        let next = adj[&cur]
+            .iter()
+            .copied()
+            .find(|&v| Some(v) != prev && (Some(v) != Some(start) || ring.len() == 1));
         // For a closed loop we want to stop when we would revisit `start`.
         let next = match next {
             Some(v) if v == start => break,
@@ -175,11 +196,20 @@ pub fn align_by_nearest(mesh: &Mesh, ring_a: &[VertexId], ring_b: &[VertexId]) -
     if ring_a.is_empty() || ring_b.is_empty() {
         return ring_b.to_vec();
     }
-    let a0 = mesh.vertex(ring_a[0]).map(|v| v.position).unwrap_or(Vec3::ZERO);
+    let a0 = mesh
+        .vertex(ring_a[0])
+        .map(|v| v.position)
+        .unwrap_or(Vec3::ZERO);
     let best = (0..ring_b.len())
         .min_by(|&i, &j| {
-            let di = mesh.vertex(ring_b[i]).map(|v| v.position.sub(a0).length()).unwrap_or(f64::MAX);
-            let dj = mesh.vertex(ring_b[j]).map(|v| v.position.sub(a0).length()).unwrap_or(f64::MAX);
+            let di = mesh
+                .vertex(ring_b[i])
+                .map(|v| v.position.sub(a0).length())
+                .unwrap_or(f64::MAX);
+            let dj = mesh
+                .vertex(ring_b[j])
+                .map(|v| v.position.sub(a0).length())
+                .unwrap_or(f64::MAX);
             di.partial_cmp(&dj).unwrap()
         })
         .unwrap_or(0);
@@ -239,7 +269,16 @@ mod tests {
     #[test]
     fn cuts_deepen_the_bridge() {
         let (m, a, b) = two_open_rings();
-        let br = bridge_edge_loops(&m, &a, &b, false, BridgeOptions { cuts: 2, ..Default::default() });
+        let br = bridge_edge_loops(
+            &m,
+            &a,
+            &b,
+            false,
+            BridgeOptions {
+                cuts: 2,
+                ..Default::default()
+            },
+        );
         // 3 segments * (cuts+1=3) quads + dummy.
         assert_eq!(br.face_count(), 1 + 9);
     }
@@ -248,7 +287,16 @@ mod tests {
     fn twist_rotates_the_pairing() {
         let (m, a, b) = two_open_rings();
         let straight = bridge_edge_loops(&m, &a, &b, false, BridgeOptions::default());
-        let twisted = bridge_edge_loops(&m, &a, &b, false, BridgeOptions { twist: 1, ..Default::default() });
+        let twisted = bridge_edge_loops(
+            &m,
+            &a,
+            &b,
+            false,
+            BridgeOptions {
+                twist: 1,
+                ..Default::default()
+            },
+        );
         // Same face count, different geometry (a twisted ribbon self-crosses).
         assert_eq!(straight.face_count(), twisted.face_count());
     }
@@ -257,7 +305,10 @@ mod tests {
     fn ordered_ring_walks_a_grid_border() {
         let m = primitives::grid(3, 3, 3.0);
         let topo = crate::topology::MeshTopology::new(&m);
-        let border: Vec<EdgeId> = (0..m.edge_count()).map(EdgeId).filter(|&e| topo.is_boundary_edge(e)).collect();
+        let border: Vec<EdgeId> = (0..m.edge_count())
+            .map(EdgeId)
+            .filter(|&e| topo.is_boundary_edge(e))
+            .collect();
         let (ring, closed) = ordered_ring(&m, &border).unwrap();
         assert!(closed);
         assert_eq!(ring.len(), 12, "3x3 grid border has 12 vertices");

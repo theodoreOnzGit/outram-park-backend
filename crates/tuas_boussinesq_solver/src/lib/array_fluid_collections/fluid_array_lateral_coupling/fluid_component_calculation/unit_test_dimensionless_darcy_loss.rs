@@ -5,8 +5,7 @@ pub fn dimensionless_darcy_loss_correlation_get_pressure_loss(
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
     use uom::si::f64::*;
     use uom::si::ratio::ratio;
-    use crate::array_fluid_collections::
-    fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
     use uom::si::length::meter;
     use uom::si::pressure::pascal;
     use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -68,8 +67,7 @@ pub fn dimensionless_darcy_loss_correlation_get_mass_flowrate_from_pressure_loss
 ) -> Result<(), crate::tuas_lib_error::TuasLibError> {
     use uom::si::f64::*;
     use uom::si::ratio::ratio;
-    use crate::array_fluid_collections::
-    fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::DimensionlessDarcyLossCorrelations;
     use uom::si::length::meter;
     use uom::si::mass_density::kilogram_per_cubic_meter;
     use uom::si::dynamic_viscosity::centipoise;

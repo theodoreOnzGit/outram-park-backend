@@ -69,11 +69,18 @@ pub enum EntityError {
     /// The directory has no `kovan.toml`.
     NotAnEntity { path: PathBuf },
     /// An I/O failure, carrying the path it happened on.
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     /// `kovan.toml` is not valid TOML, or does not match the schema.
     Toml { path: PathBuf, message: String },
     /// The entity declares a `schema_version` this build does not understand.
-    UnsupportedSchema { path: PathBuf, found: u32, supported: u32 },
+    UnsupportedSchema {
+        path: PathBuf,
+        found: u32,
+        supported: u32,
+    },
     /// A cite key cannot be used as a directory name — see [`CiteKey`].
     UnsafeCiteKey { raw: String, reason: String },
     /// A paper declares no topic and no project. §7 requires at least one;
@@ -268,7 +275,10 @@ impl Classification {
     /// The inbox classification for a paper that has not been sorted yet — a
     /// single topic, [`UNSORTED`].
     pub fn unsorted() -> Self {
-        Self { topics: vec![UNSORTED.to_string()], projects: Vec::new() }
+        Self {
+            topics: vec![UNSORTED.to_string()],
+            projects: Vec::new(),
+        }
     }
 
     /// Whether this entity belongs to nothing at all.
@@ -326,7 +336,10 @@ impl CiteKey {
     /// message can be shown to whoever typed the key.
     pub fn parse(raw: &str) -> Result<Self, EntityError> {
         let reject = |reason: &str| {
-            Err(EntityError::UnsafeCiteKey { raw: raw.to_string(), reason: reason.to_string() })
+            Err(EntityError::UnsafeCiteKey {
+                raw: raw.to_string(),
+                reason: reason.to_string(),
+            })
         };
         if raw.is_empty() {
             return reject("it is empty");
@@ -340,7 +353,9 @@ impl CiteKey {
         if let Some(bad) = raw.chars().find(|c| {
             matches!(c, '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*') || c.is_control()
         }) {
-            return reject(&format!("it contains {bad:?}, which is not allowed in a filename"));
+            return reject(&format!(
+                "it contains {bad:?}, which is not allowed in a filename"
+            ));
         }
         if raw.trim() != raw {
             return reject("it has leading or trailing whitespace");
@@ -458,7 +473,11 @@ impl EntityConfig {
             id: id.into(),
             kind: EntityKind::Paper,
             name: None,
-            source: Some(SourceRef { access, storage: StorageMode::default(), pdf: None }),
+            source: Some(SourceRef {
+                access,
+                storage: StorageMode::default(),
+                pdf: None,
+            }),
             classification: Classification::unsorted(),
         }
     }
@@ -518,7 +537,11 @@ impl EntityConfig {
     pub fn with_pdf(mut self, pdf: impl Into<PathBuf>) -> Self {
         let access = self.source.as_ref().map(|s| s.access).unwrap_or_default();
         let storage = self.source.as_ref().map(|s| s.storage).unwrap_or_default();
-        self.source = Some(SourceRef { access, storage, pdf: Some(pdf.into()) });
+        self.source = Some(SourceRef {
+            access,
+            storage,
+            pdf: Some(pdf.into()),
+        });
         self
     }
 
@@ -534,11 +557,15 @@ impl EntityConfig {
         match self.kind {
             EntityKind::Paper => {
                 if self.classification.is_empty() {
-                    return Err(EntityError::Unclassified { id: self.id.clone() });
+                    return Err(EntityError::Unclassified {
+                        id: self.id.clone(),
+                    });
                 }
                 if let Some(source) = &self.source {
                     if source.storage == StorageMode::MainRepo && !source.access.is_committable() {
-                        return Err(EntityError::UnsafeStorage { id: self.id.clone() });
+                        return Err(EntityError::UnsafeStorage {
+                            id: self.id.clone(),
+                        });
                     }
                 }
             }
@@ -592,12 +619,18 @@ impl EntityConfig {
     pub fn load(dir: &Path) -> Result<Self, EntityError> {
         let marker = dir.join(ENTITY_MARKER);
         if !marker.is_file() {
-            return Err(EntityError::NotAnEntity { path: dir.to_path_buf() });
+            return Err(EntityError::NotAnEntity {
+                path: dir.to_path_buf(),
+            });
         }
-        let text = std::fs::read_to_string(&marker)
-            .map_err(|source| EntityError::Io { path: marker.clone(), source })?;
-        let config: Self = toml::from_str(&text)
-            .map_err(|e| EntityError::Toml { path: marker.clone(), message: e.to_string() })?;
+        let text = std::fs::read_to_string(&marker).map_err(|source| EntityError::Io {
+            path: marker.clone(),
+            source,
+        })?;
+        let config: Self = toml::from_str(&text).map_err(|e| EntityError::Toml {
+            path: marker.clone(),
+            message: e.to_string(),
+        })?;
         if config.schema_version > SCHEMA_VERSION {
             return Err(EntityError::UnsupportedSchema {
                 path: marker,
@@ -639,8 +672,10 @@ impl EntityConfig {
         let markdown = dir.join(format!("{}.md", self.id));
         if !markdown.exists() {
             let stub = format!("# {}\n\n## Summary\n\n", self.id);
-            std::fs::write(&markdown, stub)
-                .map_err(|source| EntityError::Io { path: markdown, source })?;
+            std::fs::write(&markdown, stub).map_err(|source| EntityError::Io {
+                path: markdown,
+                source,
+            })?;
         }
         Ok(())
     }
@@ -655,14 +690,19 @@ impl EntityConfig {
     /// serialisation fails, or [`EntityError::Io`].
     pub fn save(&self, dir: &Path) -> Result<(), EntityError> {
         self.validate()?;
-        std::fs::create_dir_all(dir)
-            .map_err(|source| EntityError::Io { path: dir.to_path_buf(), source })?;
+        std::fs::create_dir_all(dir).map_err(|source| EntityError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?;
         let marker = dir.join(ENTITY_MARKER);
-        let text = self
-            .to_toml()
-            .map_err(|message| EntityError::Toml { path: marker.clone(), message })?;
-        std::fs::write(&marker, text)
-            .map_err(|source| EntityError::Io { path: marker.clone(), source })
+        let text = self.to_toml().map_err(|message| EntityError::Toml {
+            path: marker.clone(),
+            message,
+        })?;
+        std::fs::write(&marker, text).map_err(|source| EntityError::Io {
+            path: marker.clone(),
+            source,
+        })
     }
 }
 
@@ -689,7 +729,11 @@ impl EntityConfig {
 /// own callers already use elsewhere. Already-existing segments are left
 /// untouched (never overwritten), so this is safe to call unconditionally
 /// before every classification write, not just the first one down a path.
-pub fn ensure_collection_path(root: &KovanRoot, kind: EntityKind, path: &str) -> Result<(), EntityError> {
+pub fn ensure_collection_path(
+    root: &KovanRoot,
+    kind: EntityKind,
+    path: &str,
+) -> Result<(), EntityError> {
     let mut dir = match kind {
         EntityKind::Topic => root.topics_dir(),
         EntityKind::Project => root.projects_dir(),
@@ -713,7 +757,11 @@ pub fn ensure_collection_path(root: &KovanRoot, kind: EntityKind, path: &str) ->
 /// [`EntityKind::Topic`]) and `projects` (as [`EntityKind::Project`]) —
 /// the shape both [`crate::ingest::ingest`] and a reclassify action need to
 /// call with one line.
-pub fn ensure_classification_paths(root: &KovanRoot, topics: &[String], projects: &[String]) -> Result<(), EntityError> {
+pub fn ensure_classification_paths(
+    root: &KovanRoot,
+    topics: &[String],
+    projects: &[String],
+) -> Result<(), EntityError> {
     for path in topics {
         ensure_collection_path(root, EntityKind::Topic, path)?;
     }
@@ -738,7 +786,13 @@ mod tests {
 
     #[test]
     fn auto_generated_style_keys_are_accepted_as_is() {
-        for k in ["wang2018multiphysics", "ornl-4344", "smith_2020a", "a+b", "IAEA1694"] {
+        for k in [
+            "wang2018multiphysics",
+            "ornl-4344",
+            "smith_2020a",
+            "a+b",
+            "IAEA1694",
+        ] {
             assert!(CiteKey::parse(k).is_ok(), "{k} should be accepted");
         }
     }
@@ -747,16 +801,32 @@ mod tests {
     fn path_separators_are_rejected_so_a_key_cannot_escape_the_papers_directory() {
         for k in ["../etc/passwd", "a/b", "a\\b", ".."] {
             let err = CiteKey::parse(k).unwrap_err();
-            assert!(matches!(err, EntityError::UnsafeCiteKey { .. }), "{k}: {err}");
+            assert!(
+                matches!(err, EntityError::UnsafeCiteKey { .. }),
+                "{k}: {err}"
+            );
         }
     }
 
     #[test]
     fn windows_hostile_keys_are_rejected() {
-        for k in ["a:b", "a?b", "a*b", "a|b", "a<b", "a>b", "a\"b", "trailing.", " lead", "trail "]
-        {
+        for k in [
+            "a:b",
+            "a?b",
+            "a*b",
+            "a|b",
+            "a<b",
+            "a>b",
+            "a\"b",
+            "trailing.",
+            " lead",
+            "trail ",
+        ] {
             let err = CiteKey::parse(k).unwrap_err();
-            assert!(matches!(err, EntityError::UnsafeCiteKey { .. }), "{k}: {err}");
+            assert!(
+                matches!(err, EntityError::UnsafeCiteKey { .. }),
+                "{k}: {err}"
+            );
         }
     }
 
@@ -764,7 +834,10 @@ mod tests {
     fn windows_reserved_device_names_are_rejected_with_or_without_extension() {
         for k in ["CON", "con", "NUL", "COM1", "lpt9", "AUX.bib"] {
             let err = CiteKey::parse(k).unwrap_err();
-            assert!(matches!(err, EntityError::UnsafeCiteKey { .. }), "{k}: {err}");
+            assert!(
+                matches!(err, EntityError::UnsafeCiteKey { .. }),
+                "{k}: {err}"
+            );
         }
     }
 
@@ -780,11 +853,20 @@ mod tests {
 
     #[test]
     fn sanitise_derives_a_safe_key_from_a_hand_typed_one() {
-        assert_eq!(CiteKey::sanitise("Wang, J. (2018)").unwrap().as_str(), "Wang-J-2018");
+        assert_eq!(
+            CiteKey::sanitise("Wang, J. (2018)").unwrap().as_str(),
+            "Wang-J-2018"
+        );
         assert_eq!(CiteKey::sanitise("a//b").unwrap().as_str(), "a-b");
-        assert_eq!(CiteKey::sanitise("  spaced  key  ").unwrap().as_str(), "spaced-key");
+        assert_eq!(
+            CiteKey::sanitise("  spaced  key  ").unwrap().as_str(),
+            "spaced-key"
+        );
         // Already safe keys pass through untouched.
-        assert_eq!(CiteKey::sanitise("wang2018multiphysics").unwrap().as_str(), "wang2018multiphysics");
+        assert_eq!(
+            CiteKey::sanitise("wang2018multiphysics").unwrap().as_str(),
+            "wang2018multiphysics"
+        );
     }
 
     #[test]
@@ -798,7 +880,10 @@ mod tests {
     fn sanitise_output_is_always_acceptable_to_parse() {
         for raw in ["Wang, J. (2018)", "a//b", "!!!x!!!", "CON!"] {
             if let Ok(k) = CiteKey::sanitise(raw) {
-                assert!(CiteKey::parse(k.as_str()).is_ok(), "{raw} -> {k} should re-parse");
+                assert!(
+                    CiteKey::parse(k.as_str()).is_ok(),
+                    "{raw} -> {k} should re-parse"
+                );
             }
         }
     }
@@ -836,19 +921,22 @@ mod tests {
 
     #[test]
     fn with_storage_overrides_the_default() {
-        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(StorageMode::PrivateSubmodule);
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted)
+            .with_storage(StorageMode::PrivateSubmodule);
         assert_eq!(p.source.unwrap().storage, StorageMode::PrivateSubmodule);
     }
 
     #[test]
     fn open_access_may_use_main_repo_storage() {
-        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Open).with_storage(StorageMode::MainRepo);
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Open)
+            .with_storage(StorageMode::MainRepo);
         assert!(p.validate().is_ok());
     }
 
     #[test]
     fn restricted_access_cannot_use_main_repo_storage() {
-        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(StorageMode::MainRepo);
+        let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted)
+            .with_storage(StorageMode::MainRepo);
         let err = p.validate().unwrap_err();
         assert!(matches!(err, EntityError::UnsafeStorage { .. }), "{err}");
     }
@@ -856,8 +944,12 @@ mod tests {
     #[test]
     fn restricted_access_may_use_private_submodule_or_local_storage() {
         for mode in [StorageMode::PrivateSubmodule, StorageMode::Local] {
-            let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted).with_storage(mode);
-            assert!(p.validate().is_ok(), "{mode:?} should be valid for a restricted document");
+            let p = EntityConfig::paper(key("wang2018multiphysics"), Access::Restricted)
+                .with_storage(mode);
+            assert!(
+                p.validate().is_ok(),
+                "{mode:?} should be valid for a restricted document"
+            );
         }
     }
 
@@ -924,7 +1016,9 @@ mod tests {
         // Only papers must belong to something; a top-level topic belongs to
         // nothing by construction.
         assert!(EntityConfig::topic("htgrs", "HTGRs").validate().is_ok());
-        assert!(EntityConfig::project("outram-park", "Outram Park").validate().is_ok());
+        assert!(EntityConfig::project("outram-park", "Outram Park")
+            .validate()
+            .is_ok());
     }
 
     // -------------------------------------------------------------------
@@ -1000,7 +1094,10 @@ mod tests {
         )
         .unwrap();
         let err = EntityConfig::load(tmp.path()).unwrap_err();
-        assert!(matches!(err, EntityError::UnsupportedSchema { .. }), "{err}");
+        assert!(
+            matches!(err, EntityError::UnsupportedSchema { .. }),
+            "{err}"
+        );
     }
 
     #[test]
@@ -1049,13 +1146,18 @@ mod tests {
 
         // Re-ingesting the same paper must not destroy the researcher's work.
         p.save_paper(&dir).unwrap();
-        assert_eq!(std::fs::read_to_string(&md).unwrap(), "# mine\n\nyears of notes\n");
+        assert_eq!(
+            std::fs::read_to_string(&md).unwrap(),
+            "# mine\n\nyears of notes\n"
+        );
     }
 
     #[test]
     fn save_paper_on_a_collection_is_a_kind_mismatch() {
         let tmp = tempfile::tempdir().unwrap();
-        let err = EntityConfig::topic("htgrs", "HTGRs").save_paper(tmp.path()).unwrap_err();
+        let err = EntityConfig::topic("htgrs", "HTGRs")
+            .save_paper(tmp.path())
+            .unwrap_err();
         assert!(matches!(err, EntityError::KindMismatch { .. }), "{err}");
     }
 
@@ -1065,7 +1167,12 @@ mod tests {
 
     fn test_root() -> (tempfile::TempDir, KovanRoot) {
         let dir = tempfile::tempdir().unwrap();
-        let root = KovanRoot::create(dir.path(), crate::root::RootConfig::new("lib", "Lib"), false).unwrap();
+        let root = KovanRoot::create(
+            dir.path(),
+            crate::root::RootConfig::new("lib", "Lib"),
+            false,
+        )
+        .unwrap();
         (dir, root)
     }
 
@@ -1075,7 +1182,9 @@ mod tests {
         ensure_collection_path(&root, EntityKind::Topic, "htgrs/neutronics").unwrap();
 
         assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs")));
-        assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs/neutronics")));
+        assert!(EntityConfig::is_entity(
+            &root.topics_dir().join("htgrs/neutronics")
+        ));
         let leaf = EntityConfig::load(&root.topics_dir().join("htgrs/neutronics")).unwrap();
         assert_eq!(leaf.kind, EntityKind::Topic);
     }
@@ -1084,12 +1193,18 @@ mod tests {
     fn ensure_collection_path_leaves_an_existing_segment_untouched() {
         let (_dir, root) = test_root();
         let htgrs_dir = root.topics_dir().join("htgrs");
-        EntityConfig::topic("htgrs", "My Custom HTGR Name").save(&htgrs_dir).unwrap();
+        EntityConfig::topic("htgrs", "My Custom HTGR Name")
+            .save(&htgrs_dir)
+            .unwrap();
 
         ensure_collection_path(&root, EntityKind::Topic, "htgrs/neutronics").unwrap();
 
         let htgrs = EntityConfig::load(&htgrs_dir).unwrap();
-        assert_eq!(htgrs.name.as_deref(), Some("My Custom HTGR Name"), "an existing entity must not be overwritten");
+        assert_eq!(
+            htgrs.name.as_deref(),
+            Some("My Custom HTGR Name"),
+            "an existing entity must not be overwritten"
+        );
     }
 
     #[test]
@@ -1097,15 +1212,26 @@ mod tests {
         let (_dir, root) = test_root();
         ensure_collection_path(&root, EntityKind::Project, "outram-park").unwrap();
         ensure_collection_path(&root, EntityKind::Project, "outram-park").unwrap();
-        assert!(EntityConfig::is_entity(&root.projects_dir().join("outram-park")));
+        assert!(EntityConfig::is_entity(
+            &root.projects_dir().join("outram-park")
+        ));
     }
 
     #[test]
     fn ensure_classification_paths_covers_both_trees() {
         let (_dir, root) = test_root();
-        ensure_classification_paths(&root, &["htgrs/materials".to_string()], &["outram-park".to_string()]).unwrap();
-        assert!(EntityConfig::is_entity(&root.topics_dir().join("htgrs/materials")));
-        assert!(EntityConfig::is_entity(&root.projects_dir().join("outram-park")));
+        ensure_classification_paths(
+            &root,
+            &["htgrs/materials".to_string()],
+            &["outram-park".to_string()],
+        )
+        .unwrap();
+        assert!(EntityConfig::is_entity(
+            &root.topics_dir().join("htgrs/materials")
+        ));
+        assert!(EntityConfig::is_entity(
+            &root.projects_dir().join("outram-park")
+        ));
     }
 
     /// The actual bug report (GH issue #35, op-8aq6): a paper classified
@@ -1122,10 +1248,21 @@ mod tests {
             .unwrap();
 
         let index = crate::index::KnowledgeIndex::rebuild(&root);
-        let root_children: Vec<&str> = index.children_of("").iter().map(|c| c.path.as_str()).collect();
+        let root_children: Vec<&str> = index
+            .children_of("")
+            .iter()
+            .map(|c| c.path.as_str())
+            .collect();
         assert!(root_children.contains(&"htgrs"), "{root_children:?}");
-        let htgrs_children: Vec<&str> = index.children_of("htgrs").iter().map(|c| c.path.as_str()).collect();
-        assert!(htgrs_children.contains(&"htgrs/neutronics"), "{htgrs_children:?}");
+        let htgrs_children: Vec<&str> = index
+            .children_of("htgrs")
+            .iter()
+            .map(|c| c.path.as_str())
+            .collect();
+        assert!(
+            htgrs_children.contains(&"htgrs/neutronics"),
+            "{htgrs_children:?}"
+        );
         let papers = index.papers_in("htgrs/neutronics");
         assert!(papers.iter().any(|p| p.citekey == "wang2018multiphysics"));
     }

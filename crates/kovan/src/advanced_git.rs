@@ -64,17 +64,28 @@ pub fn save(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
 /// `kovan_discovery::git::GitProvider`, already this workspace's tested
 /// git-history reader, rather than a second implementation.
 pub fn history(root: &KovanRoot, max: usize) -> Result<Vec<CommitInfo>, RepositoryError> {
-    let provider = GitProvider::open(root.path()).map_err(|e| RepositoryError::Git(e.to_string()))?;
-    provider.history(max).map_err(|e| RepositoryError::Git(e.to_string()))
+    let provider =
+        GitProvider::open(root.path()).map_err(|e| RepositoryError::Git(e.to_string()))?;
+    provider
+        .history(max)
+        .map_err(|e| RepositoryError::Git(e.to_string()))
 }
 
 /// Local branches (`refs/heads/*`), marking which one `HEAD` points at.
 pub fn local_branches(root: &KovanRoot) -> Result<Vec<BranchInfo>, RepositoryError> {
     let repo = gix::open(root.path()).map_err(|e| RepositoryError::Git(e.to_string()))?;
-    let current = repo.head_name().ok().flatten().map(|n| n.shorten().to_string());
+    let current = repo
+        .head_name()
+        .ok()
+        .flatten()
+        .map(|n| n.shorten().to_string());
 
-    let platform = repo.references().map_err(|e| RepositoryError::Git(e.to_string()))?;
-    let iter = platform.local_branches().map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let platform = repo
+        .references()
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
+    let iter = platform
+        .local_branches()
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
 
     let mut out = Vec::new();
     for reference in iter {
@@ -97,14 +108,20 @@ pub enum RemoteError {
     /// without system Git; only remote operations are unavailable".
     GitUnavailable,
     /// `git` ran and exited non-zero.
-    Failed { command: String, stderr: String },
+    Failed {
+        command: String,
+        stderr: String,
+    },
     Io(std::io::Error),
 }
 
 impl std::fmt::Display for RemoteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::GitUnavailable => write!(f, "no usable system `git` binary — remote operations are unavailable"),
+            Self::GitUnavailable => write!(
+                f,
+                "no usable system `git` binary — remote operations are unavailable"
+            ),
             Self::Failed { command, stderr } => write!(f, "`{command}` failed: {stderr}"),
             Self::Io(e) => write!(f, "{e}"),
         }
@@ -115,7 +132,11 @@ impl std::error::Error for RemoteError {}
 
 /// Whether the system `git` binary can be run at all.
 pub fn system_git_available() -> bool {
-    Command::new("git").arg("--version").output().map(|o| o.status.success()).unwrap_or(false)
+    Command::new("git")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn run_git(root: &KovanRoot, args: &[&str]) -> Result<String, RemoteError> {
@@ -152,9 +173,14 @@ pub fn list_remotes(root: &KovanRoot) -> Result<Vec<RemoteInfo>, RemoteError> {
     let mut out = Vec::new();
     for line in text.lines() {
         let mut parts = line.split_whitespace();
-        let (Some(name), Some(url)) = (parts.next(), parts.next()) else { continue };
+        let (Some(name), Some(url)) = (parts.next(), parts.next()) else {
+            continue;
+        };
         if seen.insert(name.to_string()) {
-            out.push(RemoteInfo { name: name.to_string(), url: url.to_string() });
+            out.push(RemoteInfo {
+                name: name.to_string(),
+                url: url.to_string(),
+            });
         }
     }
     Ok(out)
@@ -233,7 +259,12 @@ mod tests {
         let (_dir, root) = make_root();
         // KovanRoot::create's gix::init doesn't name a branch; give the
         // local repo one so push has something to name.
-        StdCommand::new("git").args(["-C"]).arg(root.path()).args(["checkout", "-B", "main"]).status().unwrap();
+        StdCommand::new("git")
+            .args(["-C"])
+            .arg(root.path())
+            .args(["checkout", "-B", "main"])
+            .status()
+            .unwrap();
         repository::save_repository(&root).unwrap();
 
         StdCommand::new("git")
@@ -253,7 +284,8 @@ mod tests {
     }
 
     #[test]
-    fn remote_operations_report_git_unavailable_cleanly_when_configured_to_look_for_a_missing_binary() {
+    fn remote_operations_report_git_unavailable_cleanly_when_configured_to_look_for_a_missing_binary(
+    ) {
         // `run_git` itself always probes the real `git`; this test instead
         // confirms `system_git_available` is a plain, panic-free bool
         // check callers can gate on (§38's "remains fully functional

@@ -177,16 +177,15 @@ pub use crate::fields::parallel::{
 // prefix is unwanted.
 pub use crate::ldu_matrix::parallel::{
     axpy as ldu_axpy, dot as ldu_dot, norm_l1 as ldu_norm_l1, norm_l2 as ldu_norm_l2,
-    scale as ldu_scale,
-    spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK, REDUCTION_BLOCK,
-    SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
+    scale as ldu_scale, spmv_backend_for, vecop_backend_for, HybridLdu, LduTopology, CELL_BLOCK,
+    REDUCTION_BLOCK, SPMV_MIN_CELLS, VECOP_MIN_ELEMENTS,
 };
 
 // --- Batched root finding on the hybrid backend (Layer 1) ---
 pub use crate::math::parallel::{
     cubic_roots_batch, linear_roots_batch, poly_roots_backend_for, quadratic_roots_batch,
-    root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch,
-    RootBatchFailure, RootMethod, RootProblem, RootSettings, RootSolution, RootStatus,
+    root_batch_backend_for, solve_bracketed_batch, solve_newton_batch, RootBatch, RootBatchFailure,
+    RootMethod, RootProblem, RootSettings, RootSolution, RootStatus,
 };
 
 // --- Batched 1-D golden-section extremum search (Layer 1) ---
@@ -196,9 +195,8 @@ pub use crate::math::parallel::{
 // MAXIMISES, and negating internally would flip the sign of returned values
 // under the caller's feet.
 pub use crate::math::minimise::{
-    golden_section_batch, minimise_backend_for, MinBatch, MinBatchFailure, MinProblem,
-    MinSettings, MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS,
-    SQRT_EPSILON,
+    golden_section_batch, minimise_backend_for, MinBatch, MinBatchFailure, MinProblem, MinSettings,
+    MinSolution, MinStatus, Sense, GOLDEN_RATIO, MINIMISE_BATCH_MIN_PROBLEMS, SQRT_EPSILON,
 };
 
 // --- Batched numerical integration on the hybrid backend (Layer 1) ---
@@ -207,11 +205,11 @@ pub use crate::math::minimise::{
 // definite integrals). `MAX_ADAPTIVE_DEPTH` is deliberately not re-exported —
 // it is an internal safety ceiling, not a tuning knob.
 pub use crate::ode::parallel::{
-    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble,
-    integrate_ensemble_mixed, quadrature_backend_for, quadrature_batch, AdaptiveSettings,
-    GaussOrder, OdeEnsemble, OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus,
-    QuadratureBatch, QuadratureBatchFailure, QuadratureInterval, QuadratureRule,
-    QuadratureSolution, QuadratureStatus, ODE_ENSEMBLE_MIN_LANES, QUADRATURE_MIN_INTERVALS,
+    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble, integrate_ensemble_mixed,
+    quadrature_backend_for, quadrature_batch, AdaptiveSettings, GaussOrder, OdeEnsemble,
+    OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus, QuadratureBatch,
+    QuadratureBatchFailure, QuadratureInterval, QuadratureRule, QuadratureSolution,
+    QuadratureStatus, ODE_ENSEMBLE_MIN_LANES, QUADRATURE_MIN_INTERVALS,
 };
 
 // --- Finite differences and batched Jacobians on the hybrid backend (Layer 1) ---

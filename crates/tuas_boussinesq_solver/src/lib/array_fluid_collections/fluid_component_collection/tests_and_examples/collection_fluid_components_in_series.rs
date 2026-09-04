@@ -61,16 +61,16 @@ pub fn simple_fluid_collection_example_5() {
     use uom::si::length::meter;
     use uom::si::angle::degree;
 
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 
     use uom::si::{pressure::atmosphere, thermodynamic_temperature::kelvin};
 
     use crate::boussinesq_thermophysical_properties::{LiquidMaterial, SolidMaterial};
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
-        use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
-        use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
+    use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionOreintation;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+    use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollectionMethods;
 
     // honestly, I am quite unsure as to how to structure the
     //
