@@ -1003,7 +1003,16 @@ and a note of your choosing, naming what to construct instead.
 `#[diagnostic::do_not_recommend]` (stable since 1.85) suppresses a blanket
 impl the compiler would otherwise suggest unhelpfully. This workspace has 65
 public traits and, as of 2026-09-04, not one of them carries either
-attribute. Any trait whose bound a caller can plausibly fail should.
+attribute. Any trait whose bound a caller can plausibly fail should — the
+audit is `op-wiep`, ranked by how often each trait is actually named as a
+bound (`EquationOfState` 91, `ThermoModel` 89, `FluidComponentTrait` 53
+lead it).
+
+A good message does not restate the bound. It names the concrete types that
+*do* implement the trait, or the constructor to call: "implemented by
+`PengRobinson`, `Srk`, `PengRobinson1978`" turns a search through the source
+into a choice from a list, which is the same standard the Python enums are
+held to above.
 
 The harness itself, and the first baseline, are tracked as `op-m2mj`. Take
 the baseline *before* changing anything: the fixes this suggests — enum
