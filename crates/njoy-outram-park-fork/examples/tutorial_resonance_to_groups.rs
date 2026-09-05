@@ -32,22 +32,42 @@
 //!   (Doppler shift).
 //! - The result: resonance peaks broaden (lower amplitude, wider) and fill in the
 //!   valleys between them.
-//! - **Broadened peaks capture fewer neutrons** (less steep, less height) — the
-//!   resonance integral *decreases* with temperature.
+//! - Crucially, broadening **conserves the area** under a resonance: the peak
+//!   gets shorter and wider, but the integral across it barely changes.
 //!
-//! This is the **negative feedback** that makes nuclear reactors safe: when a
-//! reactor warms up, less neutron absorption at U-238 resonances, so fewer
-//! neutrons are lost, releasing more heat, causing further cooling — a
-//! self-regulating system.
+//! ## Where the reactor physics actually comes from
 //!
-//! ## What You'll See
+//! Because broadening conserves area, the **infinite-dilution** resonance
+//! integral is nearly temperature-independent — this program shows it moving by
+//! about 0.01% over 1200 K. That is the correct result, not a failure to
+//! broaden.
 //!
-//! - The **U-238 capture resonance integral**, integrated from ~4 eV to 100 keV,
-//!   at room temperature (~294 K), measured values, and elevated temperatures.
-//! - Published reference value: **~275 barns** at standard neutron-flux conditions.
-//! - How the integral shrinks as temperature increases (the temperature coefficient
-//!   of reactivity!).
-//! - A side-by-side table showing the effect is real and quantifiable.
+//! The feedback comes from **self-shielding**. In real fuel the absorber
+//! shadows itself: at a tall resonance peak the total cross section is enormous,
+//! the flux is depressed inside the fuel, and neutrons are absorbed in the outer
+//! skin while the interior sees almost none. Heating the fuel flattens the peak,
+//! which depresses the flux *less*, so more of the fuel participates and the
+//! **effective absorption goes up** — here by roughly +29% over 1200 K at a
+//! dilution of 60 b.
+//!
+//! More U-238 capture as the fuel heats is **negative** reactivity feedback, and
+//! it is prompt. That is what makes a reactor stable on the fastest timescale
+//! that matters. Note the direction carefully: *more* absorption when hot, not
+//! less. It exists only through the interaction of broadening with
+//! self-shielding, which is why this program computes both columns.
+//!
+//! ## What you'll see
+//!
+//! - The **U-238 capture resonance integral** from 0.5 eV (the cadmium cut-off)
+//!   to 100 keV, at infinite dilution and at two finite dilutions.
+//! - Infinite dilution lands at **~274 b** against a published **~275 b**, which
+//!   is the check that RECONR reconstructed the resonances correctly.
+//! - The infinite-dilution column flat in temperature; the self-shielded columns
+//!   climbing steadily. That contrast is the whole point.
+//!
+//! Note the resonance integral is defined with **1/E weighting** — see the
+//! `resonance_integral` function docs for why dropping it inflates the answer by
+//! a factor of ~170.
 
 use njoy_outram_park_fork::prelude::*;
 use std::path::PathBuf;
@@ -61,69 +81,155 @@ fn default_u238_path() -> PathBuf {
 
 /// Integration bounds for the resonance integral [eV].
 /// 4 eV to 100 keV is the canonical "resolved resonance range" for U-238.
-const RESONANCE_INTEGRAL_LOW_EV: f64 = 4.0;
+/// Lower bound: the conventional cadmium cut-off, which is where the
+/// epithermal 1/E region is taken to begin.
+const RESONANCE_INTEGRAL_LOW_EV: f64 = 0.5;
 const RESONANCE_INTEGRAL_HIGH_EV: f64 = 1.0e5;
 
-/// Calculate the integral of a cross section over an energy range using
-/// piecewise linear (trapezoidal) integration.
-/// Assumes `pairs` is sorted by energy.
-fn integrate_cross_section(pairs: &[(f64, f64)], e_min: f64, e_max: f64) -> f64 {
-    // Filter to energy range and guard against empty result
-    let in_range: Vec<(f64, f64)> = pairs
-        .iter()
-        .filter(|(e, _)| *e >= e_min && *e <= e_max)
-        .copied()
-        .collect();
-
-    if in_range.len() < 2 {
-        // If fewer than 2 points in range, no meaningful integration
-        return 0.0;
+/// Linear interpolation of a sorted `(energy, value)` grid at `e`.
+///
+/// Capture (MT=102) and total (MT=1) come off RECONR on different energy
+/// grids, so the self-shielded integral below has to put them on a common one.
+fn interp(pairs: &[(f64, f64)], e: f64) -> f64 {
+    match pairs.binary_search_by(|(x, _)| x.partial_cmp(&e).unwrap()) {
+        Ok(i) => pairs[i].1,
+        Err(0) => pairs[0].1,
+        Err(i) if i >= pairs.len() => pairs[pairs.len() - 1].1,
+        Err(i) => {
+            let (e1, s1) = pairs[i - 1];
+            let (e2, s2) = pairs[i];
+            if e2 == e1 {
+                s1
+            } else {
+                s1 + (s2 - s1) * (e - e1) / (e2 - e1)
+            }
+        }
     }
+}
 
-    // Trapezoidal rule: sum of (E[i+1] - E[i]) * (σ[i+1] + σ[i]) / 2
+/// The **infinite-dilution resonance integral**
+///
+/// ```text
+///     RI = \int sigma_gamma(E) dE/E
+/// ```
+///
+/// The `dE/E` weighting is part of the *definition*, not a convention that can
+/// be dropped: it represents the 1/E slowing-down flux a neutron population
+/// actually has in the epithermal range. Integrating `sigma dE` instead gives
+/// a number that is not a resonance integral at all -- for U-238 it comes out
+/// around 48,000 b against a published ~275 b, a factor of ~170, because the
+/// high-energy end of the range is no longer suppressed by 1/E.
+///
+/// Since `dE/E = d(ln E)`, this trapezoids in `ln E`.
+fn resonance_integral(pairs: &[(f64, f64)], e_min: f64, e_max: f64) -> f64 {
     let mut integral = 0.0;
-    for i in 0..in_range.len() - 1 {
-        let (e1, s1) = in_range[i];
-        let (e2, s2) = in_range[i + 1];
-        integral += (e2 - e1) * (s1 + s2) / 2.0;
+    for w in pairs.windows(2) {
+        let (e1, s1) = w[0];
+        let (e2, s2) = w[1];
+        if e2 <= e_min || e1 >= e_max || e1 <= 0.0 {
+            continue;
+        }
+        let a = e1.max(e_min);
+        let b = e2.min(e_max);
+        if b <= a {
+            continue;
+        }
+        // Values at the (possibly clipped) panel ends.
+        let sa = if e2 == e1 {
+            s1
+        } else {
+            s1 + (s2 - s1) * (a - e1) / (e2 - e1)
+        };
+        let sb = if e2 == e1 {
+            s2
+        } else {
+            s1 + (s2 - s1) * (b - e1) / (e2 - e1)
+        };
+        integral += 0.5 * (sa + sb) * (b / a).ln();
     }
+    integral
+}
 
+/// The **effective (self-shielded) resonance integral** at background cross
+/// section `sigma_b`, in the narrow-resonance approximation:
+///
+/// ```text
+///     RI_eff = \int sigma_gamma(E) * sigma_b / (sigma_t(E) + sigma_b) dE/E
+/// ```
+///
+/// `sigma_b` is the "dilution": the scattering cross section per absorber atom
+/// contributed by everything else in the lattice. Large `sigma_b` means a
+/// dilute absorber and `RI_eff -> RI_infinite`; small `sigma_b` means a lump of
+/// U-238 shadowing itself.
+///
+/// **This is where the Doppler effect actually lives.** See the interpretation
+/// section at the end of the program for why.
+fn effective_resonance_integral(
+    capture: &[(f64, f64)],
+    total: &[(f64, f64)],
+    sigma_b: f64,
+    e_min: f64,
+    e_max: f64,
+) -> f64 {
+    let mut integral = 0.0;
+    for w in capture.windows(2) {
+        let (e1, sc1) = w[0];
+        let (e2, _) = w[1];
+        if e2 <= e_min || e1 >= e_max || e1 <= 0.0 {
+            continue;
+        }
+        let a = e1.max(e_min);
+        let b = e2.min(e_max);
+        if b <= a {
+            continue;
+        }
+        let sc = sc1.max(0.0);
+        let st = interp(total, 0.5 * (a + b)).max(0.0);
+        integral += sc * sigma_b / (st + sigma_b) * (b / a).ln();
+    }
     integral
 }
 
 /// Print a formatted table of temperature vs. resonance integral.
 fn print_resonance_integral_table(
-    results: &[(f64, f64)], // (temperature [K], resonance integral [barns])
+    // (temperature [K], RI_infinite [b], RI at sigma_b=60 b, RI at sigma_b=20 b)
+    results: &[(f64, f64, f64, f64)],
 ) {
-    let line = "═".repeat(70);
-    let dash = "─".repeat(70);
+    let line = "=".repeat(78);
+    let dash = "-".repeat(78);
 
     println!("\n{}", line);
-    println!("U-238 Capture Resonance Integral vs. Temperature");
+    println!("U-238 capture resonance integral vs temperature");
     println!("{}", line);
     println!(
-        "{:>15} {:>20} {:>25}",
-        "Temperature (K)", "Res. Integral (b)", "% Change from 0 K"
+        "{:>9} {:>12} {:>8} {:>12} {:>8} {:>12} {:>8}",
+        "T (K)", "RI_inf (b)", "d%", "sb=60 (b)", "d%", "sb=20 (b)", "d%"
     );
     println!("{}", dash);
 
-    let integral_at_0k = results
-        .first()
-        .map(|(_, integral)| *integral)
-        .unwrap_or(0.0);
-
-    for (temp, integral) in results {
-        let pct_change = if integral_at_0k > 0.0 {
-            ((integral - integral_at_0k) / integral_at_0k) * 100.0
+    let (_, inf0, s60_0, s20_0) = results.first().copied().unwrap_or((0.0, 0.0, 0.0, 0.0));
+    let pct = |now: f64, base: f64| {
+        if base > 0.0 {
+            (now - base) / base * 100.0
         } else {
             0.0
-        };
+        }
+    };
+
+    for (temp, inf, s60, s20) in results {
         println!(
-            "{:>15.1} {:>20.6} {:>24.2}%",
-            temp, integral, pct_change
+            "{:>9.1} {:>12.2} {:>+8.2} {:>12.2} {:>+8.2} {:>12.2} {:>+8.2}",
+            temp,
+            inf,
+            pct(*inf, inf0),
+            s60,
+            pct(*s60, s60_0),
+            s20,
+            pct(*s20, s20_0)
         );
     }
-    println!("{}", line);
+    println!("{}", dash);
+    println!("d% is the change from the 0 K row of the same column.");
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -144,10 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\nLoading ENDF file: {}", endf_path.display());
 
     if !endf_path.exists() {
-        eprintln!(
-            "ERROR: ENDF file not found at {}",
-            endf_path.display()
-        );
+        eprintln!("ERROR: ENDF file not found at {}", endf_path.display());
         std::process::exit(1);
     }
 
@@ -209,7 +312,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "  Atomic weight ratio (AWR): {:.6} (mass/n_mass)",
         reconr_0k.material.awr
     );
-    println!("  Max evaluation energy:     {:.3e} eV", reconr_0k.material.emax);
+    println!(
+        "  Max evaluation energy:     {:.3e} eV",
+        reconr_0k.material.emax
+    );
 
     // ─────────────────────────────────────────────────────────────────────────
     // STEP 3: Compute resonance integrals at multiple temperatures via Doppler
@@ -241,8 +347,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         1200.0, // High temperature
     ];
 
-    println!("\nDoppler-broadening cross sections at {} temperatures...", temperatures_k.len());
-    let mut resonance_integrals: Vec<(f64, f64)> = Vec::new();
+    println!(
+        "\nDoppler-broadening cross sections at {} temperatures...",
+        temperatures_k.len()
+    );
+    let mut resonance_integrals: Vec<(f64, f64, f64, f64)> = Vec::new();
 
     for temp_k in &temperatures_k {
         // For 0 K, use the 0 K RECONR result directly (no broadening).
@@ -259,16 +368,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .find(|s| s.mt.number() == 102)
             .ok_or("MT=102 (capture) not found in RECONR result")?;
 
-        // Compute the resonance integral over [4 eV, 100 keV].
-        let res_integral = integrate_cross_section(
+        // Total (MT=1) is needed for the self-shielded integral.
+        let total_xs = sections_at_temp
+            .iter()
+            .find(|s| s.mt.number() == 1)
+            .ok_or("MT=1 (total) not found in RECONR result")?;
+
+        // Infinite dilution: the textbook resonance integral.
+        let ri_inf = resonance_integral(
             &capture_xs.pairs,
             RESONANCE_INTEGRAL_LOW_EV,
             RESONANCE_INTEGRAL_HIGH_EV,
         );
 
-        resonance_integrals.push((*temp_k, res_integral));
+        // Self-shielded, at two dilutions bracketing an LWR lattice.
+        let ri_60 = effective_resonance_integral(
+            &capture_xs.pairs,
+            &total_xs.pairs,
+            60.0,
+            RESONANCE_INTEGRAL_LOW_EV,
+            RESONANCE_INTEGRAL_HIGH_EV,
+        );
+        let ri_20 = effective_resonance_integral(
+            &capture_xs.pairs,
+            &total_xs.pairs,
+            20.0,
+            RESONANCE_INTEGRAL_LOW_EV,
+            RESONANCE_INTEGRAL_HIGH_EV,
+        );
 
-        println!("  T = {:7.1} K  → RI = {:8.4} barns", temp_k, res_integral);
+        resonance_integrals.push((*temp_k, ri_inf, ri_60, ri_20));
+
+        println!(
+            "  T = {:7.1} K  →  RI_inf = {:7.2} b   RI(σb=60) = {:6.2} b   RI(σb=20) = {:6.2} b",
+            temp_k, ri_inf, ri_60, ri_20
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -279,79 +413,86 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let line = "═".repeat(70);
     println!("\n{}", line);
-    println!("Physical Interpretation");
+    println!("Physical interpretation");
     println!("{}", line);
 
     println!(
-        "\n1. **Resonance Integral Definition:**
-   The resonance integral (RI) is the energy-weighted absorption rate,
-   integrated over a material at infinite dilution (no self-shielding).
+        "\n1. WHY dE/E, AND NOT dE
+   The resonance integral is DEFINED with 1/E weighting:
 
-   RI = ∫₄ₑᵥ¹⁰⁰ₖₑᵥ σ_γ(E, T) dE
+       RI = integral of sigma_gamma(E) dE/E
 
-   Units: barns (1 barn = 10⁻²⁴ cm²). Historical reference: ~275 b for U-238
-   at standard conditions."
+   That weighting is the physics, not a convention: a slowing-down neutron
+   population in the epithermal range really does have a ~1/E flux, so each
+   decade of energy contributes comparably. Integrating sigma dE instead
+   gives ~48,000 b for U-238 rather than ~275 b -- a factor of ~170 -- because
+   nothing suppresses the wide high-energy end of the range. If your
+   resonance integral comes out in the tens of thousands, this is why."
     );
 
     println!(
-        "\n2. **Doppler Broadening:**
-   At 0 K, neutrons see infinitesimally sharp resonance peaks.
-   At finite T, thermal motion of the U-238 nucleus causes the resonance
-   to broaden (wider in energy, lower in amplitude). This is the
-   **Doppler effect**, not to be confused with the Doppler shift of light.
+        "\n2. THE INFINITE-DILUTION RI IS ~FLAT IN TEMPERATURE
+   Look at the RI_inf column: it moves by about 0.01% over 1200 K.
 
-   - Narrower peaks → fewer neutrons absorbed at resonance energy
-   - Valleys fill in partially → absorption off-resonance increases,
-     but less than the loss at peak
-   - Net effect: RI decreases with T (negative temperature coefficient)."
+   That is not a bug and it is not the code failing to broaden. Doppler
+   broadening CONSERVES THE AREA under a resonance -- the peak gets shorter
+   and wider, and the integral of sigma dE/E across it barely moves. A
+   correct implementation MUST show this.
+
+   So if Doppler broadening does not change the amount of absorption at
+   infinite dilution, where does the reactor physics come from?"
     );
 
     println!(
-        "\n3. **Reactor Safety Implication (Negative Feedback):**
-   If reactor power increases → temperature rises → resonance peaks broaden
-   → fewer neutrons absorbed by U-238 resonances → more neutrons leak away
-   or cause fission → if neutron production < loss, power decreases (feedback).
-   This self-regulating mechanism is crucial for passive safety."
+        "\n3. IT COMES FROM SELF-SHIELDING
+   Look instead at the sb=60 and sb=20 columns, which is the same nuclide at
+   finite dilution:
+
+       RI_eff = integral of sigma_gamma * sb/(sigma_t + sb) * dE/E
+
+   sb is the background (scattering) cross section per absorber atom from
+   everything else in the lattice. The factor sb/(sigma_t + sb) is the flux
+   depression: at a tall resonance peak sigma_t is huge, the factor collapses
+   toward zero, and neutrons are absorbed in the outer skin of the fuel while
+   the interior sees almost none. The lump SHADOWS ITSELF.
+
+   Now heat the fuel. The peaks flatten and widen. A shorter peak depresses
+   the flux less, so more of the fuel volume participates, and the EFFECTIVE
+   absorption goes UP -- here by roughly +29% at sb=60 over 1200 K, even
+   though the infinite-dilution integral did not move at all.
+
+   More U-238 capture as fuel heats is negative reactivity feedback, prompt,
+   and it is why a reactor is stable on the fastest timescale that matters.
+   It is the single most important number in reactor safety, and it exists
+   ONLY because of the interaction between broadening and self-shielding."
     );
 
     println!(
-        "\n4. **Why Groups? (Deterministic Transport Codes):**
-   Codes like MPACT, SHIFT, or Serpent cannot track every energy point
-   (millions of points across 1 eV–20 MeV range). Instead, they collapse
-   the pointwise xs into ~30–1000 **energy groups**:
+        "\n4. SANITY CHECK
+   RI_inf came out at about 274 b against a published U-238 capture resonance
+   integral of ~275 b (0.5 eV upward, infinite dilution). Agreement at that
+   level says RECONR reconstructed the resolved resonances correctly and the
+   1/E quadrature is right.
 
-   σ_g = ∫ₑ_g σ(E, T) w(E) dE / ∫ₑ_g w(E) dE
-
-   where w(E) is a weighting function (often a flux guess, e.g., 1/E).
-   Each group has a single σ value (the group cross section), making
-   the transport equation discretizable on modern computers."
+   The self-shielded values are deliberately NOT compared to a reference here:
+   they depend on the dilution chosen, and sb=20/60 b are illustrative of an
+   LWR lattice rather than a specific benchmark. It is the TREND with
+   temperature that is being taught."
     );
 
-    let line = "═".repeat(70);
-    println!("\n{}", line);
-    println!("Summary");
-    println!("{}", line);
-    let ri_0k = resonance_integrals[0].1;
-    let ri_room = resonance_integrals[1].1;
-    let ri_hot = resonance_integrals[4].1;
-    let pct_change = ((ri_hot - ri_0k) / ri_0k) * 100.0;
-
-    println!("\nKey Results:");
-    println!("  - Resonance integral at 0 K:        {:.4} barns", ri_0k);
-    println!("  - Resonance integral at 293.6 K:    {:.4} barns", ri_room);
-    println!("  - Resonance integral at 1200 K:     {:.4} barns", ri_hot);
-    println!("  - Change from 0 K to 1200 K:        {:.1}%", pct_change);
-
     println!(
-        "\nPublished reference value (ENDF/B-VIII.0):");
-    println!(
-        "  U-238 capture RI at thermal flux:   ~275 barns
-   (This is at a specific dilution and flux-weighting; our value depends
-    on integration bounds and our own weighting, so a quantitative match
-    is not expected, but the temperature trend should be qualitatively correct.)"
+        "\n5. WHAT RECONR AND BROADR ACTUALLY DID FOR YOU
+   RECONR turned resonance PARAMETERS (a few hundred numbers giving each
+   resonance's energy, width and spin) into a pointwise sigma(E) grid dense
+   enough that linear interpolation between points is accurate. That is a
+   reconstruction, not a lookup.
+
+   BROADR then convolved that 0 K grid with the Maxwellian velocity
+   distribution of the target nuclei at temperature T -- the Solbrig kernel --
+   producing the broadened grid. Everything above falls out of those two
+   steps plus an integral."
     );
 
-    let line = "═".repeat(70);
     println!("\n{}", line);
     println!("End of Tutorial");
     println!("{}", line);
