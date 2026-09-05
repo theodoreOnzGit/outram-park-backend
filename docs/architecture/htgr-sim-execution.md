@@ -218,6 +218,70 @@ merely convenient; it is on the critical path for this epic.
 
 ---
 
+## 4.2 Three execution classes, not one — the kernel contract is not enough
+
+**CURRENT §3 describes one class of work. There are three, and conflating them
+will break the design.**
+
+The HTGR core and turbine models are **simplified today and will get more
+complex**. Planned alongside them: high-fidelity models running *outside* the
+real-time loop to periodically **calibrate** it — a Monte Carlo (`outram-mc-libs`)
+and LIGGGHTS/DEM pipeline, surfaced in a separate tab, user-triggerable — plus
+**periodic burnup** calculations.
+
+None of that fits the §3 kernel contract, which requires *bounded work per
+invocation*. A criticality calculation or a DEM settling run is unbounded by
+nature and may take minutes. Forcing it into a per-timestep kernel would stall
+the plant loop; leaving it undesigned would have it invent its own threading and
+reintroduce exactly the problem this epic removes.
+
+### The three classes
+
+| class | cadence | bounded? | carries state? | result feeds back as |
+|---|---|---|---|---|
+| **A. Real-time kernels** | every timestep | **yes** — frame budget | plant state | the next `PlantSnapshot` |
+| **B. Periodic state-carrying jobs** — burnup | every N timesteps | roughly | **yes** — isotopic inventory evolves | updated cross sections / inventory |
+| **C. On-demand calibration jobs** — MC, DEM | user-triggered or occasional | **no** — minutes | no (one-shot) | **parameters**, not state |
+
+Class A is what §3 specifies. **B and C need their own contract.**
+
+### What B and C require
+
+- **They must not block a plant timestep.** Class A's frame budget is the
+  invariant; a calibration run that stalls the loop is a defect regardless of
+  how good its physics is.
+- **They must be cancellable.** A user who triggers a manual calibration and
+  changes their mind must not wait minutes, and a browser tab close must not
+  leak a running worker.
+- **Their results arrive asynchronously as a parameter update**, which is a
+  *different message class from a snapshot*. A snapshot is the whole plant at
+  one instant; a calibration result is a set of coefficients valid until
+  superseded. Do not force one into the other's shape.
+- **Applying a result must be explicit and visible.** The plant model changing
+  underneath the operator because a background job finished is exactly the kind
+  of silent reinterpretation the multi-thermo epic (#126) forbids elsewhere.
+  Show what was applied, when, and from which run.
+- **Class B carries state**, so it is not a pure function of the current
+  timestep. Burnup inventory must be owned somewhere explicit and versioned —
+  a worker holding it implicitly breaks determinism, exactly as §8 forbids.
+- **They must not starve class A.** In the browser this is a scheduling
+  requirement on the pool: a long MC run must not consume every worker. Reserve
+  capacity, or use a separate pool.
+
+### Consequence for the fidelity growth
+
+Because the core and turbine models **will** grow, the kernel boundary must not
+encode today's cost or today's granularity. Specifically: do not assume a kernel
+is cheap because it is cheap now, do not assume the subsystem list is fixed, and
+do not let the protocol name today's subsystems (§8, and the generalisation
+requirement in §4.1 says the same thing for a different reason).
+
+This is the same constraint arriving from two directions — refinery
+generalisation and HTGR fidelity growth — which is reason to take it seriously
+rather than treat it as speculative.
+
+---
+
 ## 5. State ownership
 
 ```
