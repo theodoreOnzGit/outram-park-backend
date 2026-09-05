@@ -997,7 +997,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-05** (8 of 36 crates). The bar and its
+**Declared mature as of 2026-09-06** (9 of 36 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1011,6 +1011,7 @@ the authority:
 | `njoy-outram-park-fork` | agrees with NJOY2016 to 7 significant figures | cross-code |
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
+| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
 to it. Three honest notes on this roster: `teh-o-prke` is the thinnest of the
