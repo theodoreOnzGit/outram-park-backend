@@ -1,6 +1,6 @@
 [package]
 name = "njoy-outram-park-fork"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
