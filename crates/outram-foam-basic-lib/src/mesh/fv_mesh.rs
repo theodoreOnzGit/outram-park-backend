@@ -181,6 +181,35 @@ pub struct CyclicCoupling {
 /// ```
 /// The `neighbour` array has length `n_internal_faces`; boundary faces have no
 /// entry in `neighbour`.
+///
+/// ## Getting one
+///
+/// This was a documented friction point in an API dogfood run (gh #58): the
+/// prelude exports `FvMesh`, but nothing told the reader *how to obtain one*,
+/// and they ended up reading the test suite to find out. The ready-made
+/// constructors are listed here so that is not necessary:
+///
+/// - [`FvMesh::periodic_1d`] — a 1-D periodic column of `n` cells. The usual
+///   choice for verifying an operator against an analytic solution, since
+///   periodicity removes boundary treatment from the comparison.
+/// - [`FvMesh::periodic_ring_ami`](crate::mesh::ami) — a periodic ring with a
+///   non-conformal AMI interface, for exercising the AMI paths.
+/// - [`FvMeshBuilder`] — build one face by face when neither fits.
+///
+/// Meshes are shared by the field types via `Arc`, so wrap it once:
+///
+/// ```
+/// use outram_foam_basic_lib::prelude::*;
+/// use std::sync::Arc;
+///
+/// // 16 cells over a unit length, unit cross-sectional area.
+/// let mesh = Arc::new(FvMesh::periodic_1d(16, 1.0, 1.0));
+/// assert_eq!(mesh.n_cells, 16);   // a public field, not a method
+///
+/// // A field is then built on that mesh.
+/// let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+/// assert_eq!(phi.internal.len(), 16);
+/// ```
 #[derive(Debug, Clone)]
 pub struct FvMesh {
     // ── Topology ──────────────────────────────────────────────────────────────
