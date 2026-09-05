@@ -17,7 +17,8 @@ maturity gate in that file for what this means and how the bar is revised.
   and DC gain. First-order, second-order, decaying-sinusoid and
   decaying-exponential recurrences each match analytic superposition.
   Evidence class: **analytical solution**, supported by **cross-code
-  comparison against Scilab**. 32 `#[test]` markers in-crate.
+  comparison against Scilab**. **33 tests pass, 0 fail, 0 ignored** — nothing
+  carrying this bar is `#[ignore]`d.
 
   **Provenance of the Scilab comparison.** The maintainer validated this
   simulator against Scilab as part of their PhD dissertation (Theodore Ong, UC

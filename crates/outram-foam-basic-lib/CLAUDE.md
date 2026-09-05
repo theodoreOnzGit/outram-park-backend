@@ -24,8 +24,7 @@ maturity gate in that file for what this means and how the bar is revised.
   comparison against OpenFOAM (563 in-source references, including a test that
   the first application is unchanged from the OpenFOAM spelling).
 
-  Measured at declaration: 581 `#[test]` markers in-crate and the suite green
-  (individual per-crate pass count not separately recorded at declaration time).
+  Measured at declaration: **646 tests pass, 0 fail, 22 ignored**.
 
   Note the bar here is deliberately about *the numerics*, not about a physical
   benchmark: this crate is the primitive and finite-volume layer, so

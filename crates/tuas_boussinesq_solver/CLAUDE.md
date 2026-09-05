@@ -16,7 +16,15 @@ maturity gate in that file for what this means and how the bar is revised.
   correlations within **max_relative = 0.02**. Evidence class: **comparison
   against experimental data** (the CIET facility) and **cross-code comparison**
   against the Gnielinski, Wakao and Churchill correlations, supported by
-  analytical solutions and unit tests. 388 `#[test]` markers in-crate.
+  analytical solutions and unit tests. **363 tests pass, 0 fail, 46 ignored**.
+
+  On those 46 ignored tests: the three that carry this bar --
+  `steady_state_test_for_heater_v1_eight_nodes_validation` and the two
+  `transient_test_step{up,down}_4050s_fig_2_21_zweibaum_thesis_*` -- are plain
+  `#[test]` and **do** run. The ignored ones are mesh-refinement sweeps,
+  lumped-capacitance timestep studies and CTAH flow cases, i.e. parametric
+  studies rather than the validation path. Checked explicitly at declaration,
+  because a bar resting on an `#[ignore]`d test would be no bar at all.
 
   Measured at declaration: 942 in-source CIET references, 501 Gnielinski, 281
   explicit experimental-data references.

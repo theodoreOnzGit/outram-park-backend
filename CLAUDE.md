@@ -1003,7 +1003,7 @@ the authority:
 
 | crate | bar | evidence class |
 |---|---|---|
-| `tampines-steam-tables` | IAPWS-IF97 tables to 1e-8 fwd / 5e-5 bwd | reference standard |
+| `tampines-steam-tables` | IF97 region eqns to 1e-8 vs IAPWS values; flash tables looser (0.5% vol, 8% λ) | reference standard |
 | `tuas_boussinesq_solver` | CIET outlet temp within 0.2 °C; Gnielinski 2% | experimental + cross-code |
 | `outram-foam-appbuilder-lib` | Sod (1978) Table II vs exact Riemann; L2 within 5% of peak | analytical / MMS |
 | `chem-eng-real-time-process-control-simulator` | discretisations exact at samples vs closed form | analytical (+ Scilab, dissertation) |

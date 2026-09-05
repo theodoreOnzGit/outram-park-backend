@@ -10,23 +10,48 @@ The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
 and the Haiku dogfooding hard rule) **are in force for this crate**. See the
 maturity gate in that file for what this means and how the bar is revised.
 
-- **2026-09-05 — mature.** Bar: agreement with the **IAPWS-IF97** published
-  verification tables to **max_relative = 1e-8** on the forward properties;
-  **5e-5** on the backward `T(p,h)` and `T(p,s)` correlations (looser because
-  the backward equations are themselves fits, not inversions); and **1e-4** on
-  the extreme rows (1000 bar / 0 °C), set by the published table precision
-  rather than by this crate. Evidence class: **cross-code / reference-standard
-  comparison** against IAPWS-IF97, supported by unit tests.
+- **2026-09-05 — mature.** Evidence class: **cross-code / reference-standard
+  comparison** against IAPWS-IF97, supported by unit tests. **1027 tests pass,
+  0 fail, 17 ignored.**
 
-  Measured at declaration: 1001 `#[test]` markers in-crate and the suite green
-  (individual per-crate pass count not separately recorded at declaration time;
-  118 explicit IAPWS-IF97 references in-source). Additional evidence: re-running
-  the suite regenerates `verification_and_validation/generated/*.md` with every
-  number byte-identical and only the timestamp line changed — the V&V results
-  reproduce exactly.
+  The bar differs by code path, and conflating them would overstate the crate:
+
+  **1. IF97 region equations vs the IAPWS published verification values** —
+  `max_relative = 1e-8` forward; `5e-5` on the backward `T(p,h)` / `T(p,s)`
+  correlations (looser because the backward equations are themselves fits, not
+  inversions); `1e-4` on the 1000 bar / 0 °C row, set by the published table
+  precision. This is the tight path and the one IF97 actually certifies.
+
+  **2. The flash interfaces (`hs`/`ph`/`pt`/`ps`) vs published steam tables** —
+  materially looser, and these are the tolerances the table tests assert:
+  temperature to 0.025 mK, specific volume to **0.5%**, pressure to 15 kPa or
+  0.60%, quality to 1e-3, several derived properties to **2%**, and **thermal
+  conductivity to 8%**. A caller who needs transport properties should treat
+  this crate as ~8% on λ, not as an IF97-grade result.
+
+  **Known gaps, recorded rather than smoothed over.** These are `#[ignore]`d
+  with reasons, and a reader of this bar needs them:
+
+  - `hs`/`ph` flash at **1000 bar** — "goes out of bounds for some reason, yet
+    to debug". An unresolved bug, not a tolerance question.
+  - `hs` flash at the **triple point** — not supported yet.
+  - `pt`/`ps` flash over **240–1000 bar** — "to implement in next major
+    version".
+  - **Metastable region 2** regressions — outstanding TODO.
+  - The **Peng-Robinson EOS** under `openfoam_algorithms/` shows **7%, 17% and
+    26% errors vs NIST** at various states, flagged as a possible root-selection
+    or formula bug. This is a separate subsystem from IF97 and is *not* covered
+    by the bar above; it should not be relied on until debugged.
+
+  Additional evidence: re-running the suite regenerates
+  `verification_and_validation/generated/*.md` with every number byte-identical
+  and only the timestamp line changed — the V&V results reproduce exactly.
 
   IF97 is a released international standard with its own verification tables,
-  which makes this the best-anchored bar of the six declared crates.
+  which makes path 1 the best-anchored bar of the declared crates. Path 2 and
+  the gap list are why this entry is longer than the others: the crate is
+  strong exactly where IF97 certifies it and weaker elsewhere, and a one-line
+  bar would have hidden that.
 
 
 TAMPINES Steam Tables is an in-house Rust implementation of the IAPWS-IF97

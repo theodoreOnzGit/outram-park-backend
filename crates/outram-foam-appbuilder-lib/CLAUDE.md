@@ -30,8 +30,9 @@ maturity gate in that file for what this means and how the bar is revised.
 
   Measured at declaration: 100 cells, `dt = 1e-6 s`, run to Sod's canonical
   τ = 0.2 (t = 6.3246e-3 s); `L2` norms land at **1–5% of peak**, which is the
-  expected accuracy of a 2nd-order scheme on this problem. 310 `#[test]`
-  markers in-crate.
+  expected accuracy of a 2nd-order scheme on this problem. **326 tests pass,
+  0 fail, 4 ignored**; the Sod validation test itself
+  (`rho_central_foam_matches_sod_table_ii`) is a plain `#[test]` and runs.
 
   Two things make this bar unusually honest and worth preserving as the
   template for other solver crates:
