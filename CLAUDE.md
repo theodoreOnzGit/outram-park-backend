@@ -933,6 +933,51 @@ what crate they need and how to call it.
   update its `///` doc comment in the same change.
 - Do not write examples that require reading internal modules to understand.
 
+## Every egui simulator ships a headless mode (HARD RULE)
+
+**Any example or binary with an egui/eframe GUI MUST also provide a headless
+execution path** that runs the underlying model with no window, no event loop
+and no GUI thread, and emits a machine-readable trace on stdout.
+
+```
+cargo run --release --example <sim> -- --headless [steps] [sample_every]
+```
+
+**WHY: a GUI-only simulator cannot be tested, and cannot be trusted.** An agent
+or a CI job cannot open a window, so without this the model can only be checked
+by a human watching it — which means in practice it is not checked at all. Every
+claim about what the simulator does becomes unfalsifiable.
+
+It also makes a specific, recurring class of bug invisible. `htgr_sim_v1`'s
+`PlantCommands::default()` is documented as starting *"near steady state rather
+than on a prompt excursion"*. The first headless run ever taken of it (2026-09-06)
+showed power **overshooting to 27.8 MW — roughly 2.8x nominal — before settling
+near 8.1 MW**, with the bed temperature still drifting downward 1200 s in. The
+docstring was wrong and had been wrong unnoticed, because nobody could run the
+thing without watching it.
+
+**Requirements:**
+
+- **No GUI, no window, no event loop, no spawned physics thread.** The headless
+  path drives the model directly.
+- **Deterministic.** No wall clock, no RNG seeded from time, no I/O inside the
+  loop. Same config in, byte-identical trace out. Assert this in a test — it is
+  the property every committed fixture depends on.
+- **Machine-readable output**, CSV or equivalent, with a stable header and fixed
+  precision so a committed fixture diffs cleanly.
+- **A regression test that calls the headless path directly**, not through the
+  GUI.
+- Where the model can leave physical range, assert bounds in that test. Loose
+  bounds that catch divergence are worth far more than none; **this is a
+  harness check, not physics V&V, and must not be described as validation.**
+
+**This is a precondition for declaring any simulator's behaviour, not an
+optional convenience.** A simulator without a headless mode has no reference
+baseline, so it cannot be refactored safely and cannot be shown to still work
+afterwards.
+
+Tracked: `op-otiy`.
+
 ### When this applies: only to crates declared mature (HARD RULE)
 
 **The dogfooding rule below is a hard rule for every crate the maintainer has
