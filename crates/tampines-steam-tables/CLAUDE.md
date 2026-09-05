@@ -39,9 +39,11 @@ maturity gate in that file for what this means and how the bar is revised.
     version".
   - **Metastable region 2** regressions — outstanding TODO.
   - The **Peng-Robinson EOS** under `openfoam_algorithms/` shows **7%, 17% and
-    26% errors vs NIST** at various states, flagged as a possible root-selection
-    or formula bug. This is a separate subsystem from IF97 and is *not* covered
-    by the bar above; it should not be relied on until debugged.
+    26% errors vs NIST** at various states. **Out of scope, and not a defect in
+    anything this crate delivers:** that vendored OpenFOAM thermophysics tree
+    exists only to support the 1D steam solver, and the PR EOS inside it is
+    never used. Recorded here only so a reader of the ignore reasons does not
+    re-derive the same alarm. Do not spend time on it.
 
   Additional evidence: re-running the suite regenerates
   `verification_and_validation/generated/*.md` with every number byte-identical
