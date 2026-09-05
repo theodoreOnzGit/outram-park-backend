@@ -164,9 +164,57 @@ built:
    **Do not subdivide it prematurely**, but do not draw a boundary that makes
    subdivision impossible.
 
-**If profiling shows the DAG is a true chain and the SG cannot be subdivided,
-say so and stop.** A worker pool over a serial DAG is machinery without a
-purpose, and that finding is a legitimate and valuable outcome.
+**The worker pool is built regardless of what the DAG shows** — see §4.1. What
+the DAG determines is *how much HTGR itself benefits*, not whether the runtime
+exists.
+
+### 4.1 The pool is unconditional — DECIDED (maintainer, 2026-09-06)
+
+**Build the worker pool whether or not the HTGR DAG exercises it.**
+
+The deliverable of this epic is a **reusable execution runtime**, not a faster
+HTGR sim. HTGR Sim v1 is the dogfood case — the first consumer — but the
+architecture is meant to carry other Outram Park simulators, and a steady-state
+**refinery flowsheet is the obvious second consumer**: a sequential-modular
+solve over a large complex has genuinely independent unit operations, and
+recycle/tear convergence has independent work inside each sweep. That case has
+the parallelism HTGR's near-chain may lack.
+
+So the DAG bead's role changes. It is **no longer a go/no-go gate on the
+pool**. It answers a narrower and still-useful question: *how much does HTGR
+itself gain, and where?*
+
+### The risk this creates, and how to contain it
+
+**An abstraction validated only against a case that does not stress it is an
+abstraction that has not been validated.** If HTGR's DAG really is a chain, the
+pool's first genuine exercise would be a different simulator entirely — and
+whatever is wrong with the design would surface there, late, in someone else's
+work.
+
+Two mitigations, both required:
+
+1. **The pool must be exercised by a genuinely parallel case in its own test
+   suite**, even if that case is synthetic — independent kernels with known
+   results, dispatched concurrently, reconciled into one coherent step. This is
+   cheap and it is the only thing that proves the machinery before a second
+   real simulator arrives.
+2. **Design against the refinery shape, not only the HTGR shape.** A flowsheet
+   has many small independent units and a recycle loop; a plant timestep has
+   few large dependent ones. A protocol tuned exclusively to the second will
+   fit the first badly. Specifically: do not assume a fixed small kernel count,
+   do not assume every kernel runs every step, and do not bake the HTGR
+   subsystem list into the protocol types.
+
+### Consequence for placement
+
+Generalisation is now a **hard requirement, not an aspiration**. The runtime
+interfaces — kernel trait, scheduler, snapshot publication, worker protocol
+types — **belong in the `outram-park-digital-twin-engine` library**, not in
+`examples/htgr_sim_v1/`. Nothing simulator-specific may leak into them.
+
+`op-eeqw.5` (promote out of `examples/` into a library target) is no longer
+merely convenient; it is on the critical path for this epic.
 
 ---
 
