@@ -5,6 +5,27 @@ Pure-Rust port of the OpenMC Monte Carlo neutron transport kernels.
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openmc/`
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: k-eff within **500 pcm** of the ICSBEP Godiva
+  bare-HEU-sphere benchmark (HEU-MET-FAST-001), reconstructed from an ENDF
+  evaluation rather than a pre-built ACE library. Evidence class: **cross-code
+  comparison** (this crate is a port of OpenMC's kernels), supported by unit
+  tests and internal consistency.
+
+  Measured at declaration: **k_eff = 0.99659 ± 0.00300, i.e. −341 pcm**, via
+  `examples/endf_to_keff.rs` reading `n-092_U_235`/`n-092_U_238` from disk. **286 tests pass** (13 ignored).
+
+  The bar is set at 500 pcm because that is what the crate demonstrably
+  achieves today, not because 500 pcm is a good criticality tolerance — it is
+  not. Expect this to tighten once the scatter matrix and unstructured-mesh
+  tallies land.
+
+
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
 

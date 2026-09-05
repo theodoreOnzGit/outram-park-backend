@@ -24,3 +24,25 @@
 pub mod alpha_nightly;
 pub mod beta_testing;
 pub mod stable;
+
+/// Convenience re-exports: `use chem_eng_real_time_process_control_simulator::prelude::*;`
+///
+/// The tiered preludes (`alpha_nightly::prelude`, `beta_testing::prelude`,
+/// `stable::prelude`) remain available for callers who want to pin one. This
+/// module exists because the *plain* path is what a caller writes first, and
+/// without it that path did not resolve at all — the crate's own examples all
+/// reach for `alpha_nightly::prelude::*`, which is not a name anyone guesses.
+///
+/// It forwards to `alpha_nightly`, which is currently the only populated tier.
+/// When `beta_testing` or `stable` is filled in, re-point this at the most
+/// stable populated tier rather than adding a fourth thing to choose between.
+///
+/// ```
+/// use chem_eng_real_time_process_control_simulator::prelude::*;
+///
+/// // Transfer-function types resolve from the prelude alone.
+/// fn takes_tf(_: &TransferFn, _: &TransferFnFirstOrder, _: &TransferFnSecondOrder) {}
+/// ```
+pub mod prelude {
+    pub use crate::alpha_nightly::prelude::*;
+}

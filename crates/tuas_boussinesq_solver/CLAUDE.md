@@ -4,6 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **TUAS** (Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows) is a Rust thermal-hydraulics library for single-phase, nearly-incompressible fluid systems using the Boussinesq approximation. It was developed as part of a PhD thesis (Theodore Ong, UC Berkeley, supervisor Prof. Per F. Peterson) to simulate the CIET integral effects test and Gen-IV FHR reactors.
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: CIET heater v1 steady-state outlet temperature
+  within **0.2 °C** of experimental data, and the transient step-up/step-down
+  at 4050 s tracking Fig. 2.21 of the Zweibaum thesis; Gnielinski Nusselt
+  correlations within **max_relative = 0.02**. Evidence class: **comparison
+  against experimental data** (the CIET facility) and **cross-code comparison**
+  against the Gnielinski, Wakao and Churchill correlations, supported by
+  analytical solutions and unit tests. 388 `#[test]` markers in-crate.
+
+  Measured at declaration: 942 in-source CIET references, 501 Gnielinski, 281
+  explicit experimental-data references.
+
+  **This crate clears a stronger bar than the gate requires.** The maturity
+  gate deliberately excludes published-benchmark/experimental agreement as a
+  *precondition* (it would deadlock crates whose benchmarks run through the
+  API being gated) — but where it already exists, as here, it is the bar worth
+  recording.
+
+
 License: GPL-3.0. Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
 
 ---

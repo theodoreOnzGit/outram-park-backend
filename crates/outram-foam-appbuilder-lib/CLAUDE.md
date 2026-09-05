@@ -14,6 +14,39 @@ This crate provides:
 4. **The GeN-Foam port** (`genfoam`) — deterministic reactor neutronics,
    thermal-hydraulics, thermo-mechanics, and their multi-region coupling.
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: the `rhoCentralFoam` port reproduces **Sod
+  (1978) Table II** with the **exact Riemann solution (Toro, ch. 4) as the
+  arbiter**, at discrete `L2` within **5% of field peak** per variable, and
+  `L∞` permitted to stay O(1) at the discontinuities. Evidence class:
+  **analytical / manufactured solution** (the exact Riemann solver is the
+  reference, not another code), supported by cross-code comparison against an
+  OpenFOAM `rhoCentralFoam` reference run in the companion tutorial case.
+
+  Measured at declaration: 100 cells, `dt = 1e-6 s`, run to Sod's canonical
+  τ = 0.2 (t = 6.3246e-3 s); `L2` norms land at **1–5% of peak**, which is the
+  expected accuracy of a 2nd-order scheme on this problem. 310 `#[test]`
+  markers in-crate.
+
+  Two things make this bar unusually honest and worth preserving as the
+  template for other solver crates:
+
+  1. **`L∞` is deliberately not bounded tight.** It is dominated by the one or
+     two cells straddling the shock and the contact, which a 2nd-order scheme
+     necessarily smears. Demanding a small `L∞` here would be demanding the
+     scheme not be what it is. Read it as "worst single cell", not as accuracy.
+  2. **The exact solution, not Table II, is the arbiter.** Table II's coarse
+     9-station sampling does not always resolve the local profile, so each
+     station is additionally flagged for whether it is faithful. A bar written
+     against the published table alone would have been measuring the table's
+     sampling as much as the port.
+
+
 > The `README.md` "Limitations" section is the authoritative per-module status
 > and is kept current; prefer it over any summary here.
 

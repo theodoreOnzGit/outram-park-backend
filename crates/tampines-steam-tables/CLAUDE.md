@@ -4,6 +4,31 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 
 ## Project overview
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: agreement with the **IAPWS-IF97** published
+  verification tables to **max_relative = 1e-8** on the forward properties;
+  **5e-5** on the backward `T(p,h)` and `T(p,s)` correlations (looser because
+  the backward equations are themselves fits, not inversions); and **1e-4** on
+  the extreme rows (1000 bar / 0 °C), set by the published table precision
+  rather than by this crate. Evidence class: **cross-code / reference-standard
+  comparison** against IAPWS-IF97, supported by unit tests.
+
+  Measured at declaration: 1001 `#[test]` markers in-crate and the suite green
+  (individual per-crate pass count not separately recorded at declaration time;
+  118 explicit IAPWS-IF97 references in-source). Additional evidence: re-running
+  the suite regenerates `verification_and_validation/generated/*.md` with every
+  number byte-identical and only the timestamp line changed — the V&V results
+  reproduce exactly.
+
+  IF97 is a released international standard with its own verification tables,
+  which makes this the best-anchored bar of the six declared crates.
+
+
 TAMPINES Steam Tables is an in-house Rust implementation of the IAPWS-IF97
 steam/water property formulation for the **T**hermo-hydraulic **A**rtificial
 intelligence **M**ulti-**P**hase **IN**tegrated **E**mulator **S**ystem

@@ -997,6 +997,29 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
+**Declared mature as of 2026-09-05** (8 of 36 crates). The bar and its
+evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
+the authority:
+
+| crate | bar | evidence class |
+|---|---|---|
+| `tampines-steam-tables` | IAPWS-IF97 tables to 1e-8 fwd / 5e-5 bwd | reference standard |
+| `tuas_boussinesq_solver` | CIET outlet temp within 0.2 °C; Gnielinski 2% | experimental + cross-code |
+| `outram-foam-appbuilder-lib` | Sod (1978) Table II vs exact Riemann; L2 within 5% of peak | analytical / MMS |
+| `chem-eng-real-time-process-control-simulator` | discretisations exact at samples vs closed form | analytical (+ Scilab, dissertation) |
+| `outram-foam-basic-lib` | conservation to 1e-12; convergence order matches theory | analytical / MMS |
+| `njoy-outram-park-fork` | agrees with NJOY2016 to 7 significant figures | cross-code |
+| `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
+| `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
+
+Every other crate is **not** declared, and the dogfooding rule does not apply
+to it. Three honest notes on this roster: `teh-o-prke` is the thinnest of the
+eight and lacks analytical transient validation (its own file says so, and
+says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
+today rather than at what criticality work should eventually demand; and the
+Scilab half of the process-control crate's evidence lives in the maintainer's
+dissertation rather than in this repository, so its recorded bar is written
+against the analytical tests that *are* reproducible here.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**

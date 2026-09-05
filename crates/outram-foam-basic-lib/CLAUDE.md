@@ -8,6 +8,31 @@ compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: the `vv_*` verification suite passes —
+  conservation to machine precision (`epsilon = 1e-12`) across cyclic, AMI
+  matching and AMI non-conformal advection, diffusion and vector-Laplacian
+  paths; agreement with analytic references on reductions, volume integrals
+  and the Robin convective boundary; and **observed convergence order matching
+  theory** for the differentiation schemes. Evidence class: **analytical /
+  manufactured solution** plus internal consistency, supported by cross-code
+  comparison against OpenFOAM (563 in-source references, including a test that
+  the first application is unchanged from the OpenFOAM spelling).
+
+  Measured at declaration: 581 `#[test]` markers in-crate and the suite green
+  (individual per-crate pass count not separately recorded at declaration time).
+
+  Note the bar here is deliberately about *the numerics*, not about a physical
+  benchmark: this crate is the primitive and finite-volume layer, so
+  conservation and convergence order are the properties that matter. Physical
+  validation belongs to the solvers built on it.
+
+
 ---
 
 ## Why this crate exists

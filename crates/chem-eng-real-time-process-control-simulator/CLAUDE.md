@@ -2,6 +2,41 @@
 
 Guidance for Claude Code (and other AI assistants) working in this crate.
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: every discretisation reproduces its
+  **closed-form continuous-time solution** — ZOH first-order coefficients match
+  the analytic closed form, ZOH second-order step response is **exact at the
+  sample points**, Tustin reduces to the trapezoidal rule and round-trips back
+  to the continuous coefficients, prewarping matches the continuous frequency
+  response at `w0`, and pole-zero matching preserves both pole/zero locations
+  and DC gain. First-order, second-order, decaying-sinusoid and
+  decaying-exponential recurrences each match analytic superposition.
+  Evidence class: **analytical solution**, supported by **cross-code
+  comparison against Scilab**. 32 `#[test]` markers in-crate.
+
+  **Provenance of the Scilab comparison.** The maintainer validated this
+  simulator against Scilab as part of their PhD dissertation (Theodore Ong, UC
+  Berkeley). That is the authoritative record and the reason this crate is
+  declared. Recording the limit honestly: the in-source trace of it is a
+  single `/// validated with scilab` comment on
+  `stable_first_order_with_delay_simulation_no_zeroes`
+  (`src/examples/first_order_demos.rs`). The dissertation comparison is not
+  reproducible from this repository alone.
+
+  **Therefore the bar above is written against the analytical tests**, which
+  *are* reproducible here and are strong on their own — "exact at samples" is
+  a stronger statement than agreement to a tolerance. Worth doing when
+  convenient: port the specific Scilab cases into the test suite with their
+  expected outputs, so the dissertation result becomes checkable in CI rather
+  than cited. Until then the Scilab agreement is supporting evidence, not the
+  measured bar.
+
+
 > This crate is a member of the **OUTRAM PARK** workspace
 > (`crates/chem-eng-real-time-process-control-simulator`). See the workspace root
 > `CLAUDE.md` for the shared dependency policy and full migration history.

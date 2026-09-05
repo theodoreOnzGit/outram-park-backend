@@ -14,6 +14,10 @@
 ///
 /// Will probably need some other kind of method to calculate feedback
 ///
+/// Convenience re-exports: `use teh_o_prke::prelude::*;`. This is the
+/// intended entry point — see the module docs for the completeness rule.
+pub mod prelude;
+
 pub mod zero_power_prke;
 
 /// Pure-Rust dense LU solver (`SquareMatrix`), inlined from `outram-foam-basic-lib`
