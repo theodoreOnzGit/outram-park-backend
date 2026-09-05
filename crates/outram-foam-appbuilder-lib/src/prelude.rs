@@ -27,7 +27,28 @@ pub use crate::io::fv_schemes::{
     DdtScheme, DivScheme, FvSchemes, GradScheme, LaplacianScheme, SnGradScheme,
 };
 pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverType, PimpleControl};
-pub use crate::io::output::write_scalar_field;
+// NOT re-exported: `crate::io::output::write_scalar_field` and its siblings.
+//
+// They are `todo!()` stubs that panic when called. An API dogfood run (gh #58)
+// hit exactly that: the agent found `write_scalar_field` in the prelude,
+// reasonably assumed a function offered on the discovery surface would work,
+// wrote it into a tutorial, and got a runtime panic.
+//
+// A prelude is a statement about what to reach for. Advertising an
+// unconditional panic there makes the natural path a crash, which is worse than
+// the function being hard to find. The stubs remain public at
+// `io::output::{write_scalar_field, write_vector_field, write_vtk}` for anyone
+// tracking the work, and their own docs say plainly that they panic.
+//
+// Re-export them here once they are implemented.
+
+// Field readers, which ARE implemented. Previously the prelude exported the
+// mesh reader but none of these, so "read a field from disk" dead-ended on the
+// discovery surface while the functions existed one module away.
+pub use crate::io::field_reader::{
+    read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field,
+    read_vol_vector_field_full,
+};
 pub use crate::io::poly_mesh::read_poly_mesh;
 
 // GeN-Foam neutronics — point kinetics (0-D)
