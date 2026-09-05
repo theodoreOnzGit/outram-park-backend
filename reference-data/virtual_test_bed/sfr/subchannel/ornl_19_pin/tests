@@ -1,0 +1,31 @@
+[Tests]
+  # Syntax Checks for 19-pin model
+  [channel_syntax]
+    type = RunApp
+    input = ornl_19_pin.i
+    check_input = True
+    executable_pattern = 'subchannel*|combined*'
+  []
+  [viz_syntax]
+    type = RunApp
+    input = ornl_19_pin_viz.i
+    check_input = True
+    executable_pattern = 'subchannel*|combined*'
+  []
+  # Regression checks for 19-pin model
+  [ORNL-19]
+    type = CSVDiff
+    input = ornl_19_pin.i
+    csvdiff = ornl_19_pin_out.csv
+    capabilities = 'method!=dbg'
+    valgrind = NONE
+    recover = false
+    abs_zero = 1e-5
+    rel_err = 6e-5
+    max_threads = 1
+    max_parallel = 1
+    requirement = 'The system will examine the subchannel solver for the ORNL 19-pin case'
+    prereq = 'channel_syntax'
+    executable_pattern = 'subchannel*|combined*'
+  []
+[]

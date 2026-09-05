@@ -1,0 +1,36 @@
+[package]
+name = "bedok"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
+repository = "https://github.com/theodoreOnzGit/outram-park-backend"
+readme = "README.md"
+publish = false
+
+# Dependencies are added as the modules that need them land, rather than all up
+# front, so an unused entry never implies a capability the crate does not have.
+#
+# Expected additions, with the module that will pull each one in:
+#   csv                     -> the benchmark case files (neacrpd1, iaea3ds, ...)
+#   faer                    -> the sparse solves in diffusion_solverxyz
+#   plotters (workspace dep -> plotreactor3dcolour
+#     to be added)
+#
+# No steam-table dependency is needed: `IAPWS_IF97.m` is being translated
+# directly into `src/iapws_if97/`, so `tampines-steam-tables` is NOT used here.
+# That third-party translation is BSD-2-Clause (Copyright (c) 2013, Mark
+# Mikofski), which is GPL-3.0-compatible; its terms are reproduced in the crate
+# NOTICE as that licence requires.
+[dependencies]
+thiserror.workspace = true
+# Sparse linear algebra, for the two flux solvers.
+#
+# Everything ported before them avoided a sparse solve: the A2 system in
+# calc_a1234_expansionxyz only *looks* like a philen-square solve and is in fact
+# block-diagonal in energy groups, while the gradD and nodal operators are
+# assembled but never solved. diffusion_solverxyz and
+# sanodaldiffusion_solverxyz solve the full flux system, which couples nodes
+# spatially, and both factorise LHS once and reuse that factorisation across
+# power iterations (MATLAB `decomposition`).
+faer.workspace = true

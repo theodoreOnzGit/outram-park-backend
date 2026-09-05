@@ -15,16 +15,53 @@
 //! mandatory Rust design rules -- `RwLock` allows concurrent reads from
 //! multiple threads, where `Mutex` serialises even read-only access and so
 //! defeats parallelism during a timestep's compute phase.
+//!
+//! ## Beyond threading: the rest of the "app builder" pattern
+//!
+//! [`SharedState`], [`spawn_physics_thread_monitored`] and [`RealTimePacer`]
+//! cover the physics-thread and real-time-pacing half of the reusable
+//! real-time-simulator pattern (bead `op-wqk.22`). Two more pieces of that
+//! same pattern live here as of this module's latest pass, both additive --
+//! neither is wired into an existing simulator yet, each simulator opts in
+//! on its own:
+//!
+//! - [`plot_history`] -- a generic bounded ring buffer ([`PlotHistory`]) for
+//!   the "keep the last `N` samples for a trend graph" loop every simulator
+//!   ends up hand-rolling.
+//! - [`csv_logging`] -- a real CSV file writer ([`CsvLogger`]) with interval
+//!   throttling, replacing the on-screen "CSV" text-label affordance that
+//!   exists today but never actually writes a file.
+//! - [`csv_display`] -- the on-screen half `csv_logging` doesn't cover: one
+//!   copyable text box ([`draw_csv_panel`]) with a one-click "Copy CSV"
+//!   button, replacing the per-row `ui.label(...)` pattern that requires
+//!   dragging a selection across however many rows are on screen.
+//!
+//! A fourth piece, OPC-UA, is **not** here -- it already has its own reusable
+//! home in [`crate::opcua_core`] (see that module's docs and bead
+//! `op-szmi.1`), so it is not duplicated in this module.
 
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::{self, JoinHandle};
 
 pub mod crash;
+pub mod csv_display;
+pub mod csv_logging;
+pub mod gui_frame_metrics;
+pub mod plot_history;
+pub mod real_time_pacing;
 
 pub use crash::{
-    show_crash_modal_if_crashed, spawn_monitored, spawn_physics_thread_monitored, CrashReport,
-    ThreadHealth,
+    mark_component, show_crash_modal_if_crashed, show_crash_modal_with_restart, spawn_monitored,
+    spawn_physics_thread_monitored, CrashModalOutcome, CrashReport, ThreadHealth,
 };
+pub use csv_display::{
+    cap_row_count, draw_csv_panel, filter_rows_by_time_interval, rows_to_csv_string,
+    CsvSnapshotPanel, DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS, MAX_CSV_ROWS,
+};
+pub use csv_logging::{CsvLogger, CsvLoggerError};
+pub use gui_frame_metrics::GuiFrameMetrics;
+pub use plot_history::{PlotHistory, XySample};
+pub use real_time_pacing::{pace_tick, RealTimePacer, TickPacing};
 
 /// A physics/simulation state shared between a rendering thread (the GUI)
 /// and one or more computation threads, matching `fhr_sim_v2`'s
@@ -229,7 +266,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut current = MockPanel::Main;
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 panel_selector_ui(ui, &mut current);
             });
         });

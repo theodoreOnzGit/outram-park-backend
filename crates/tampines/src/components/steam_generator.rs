@@ -27,7 +27,10 @@ impl SteamGenerator {
     /// Construct a new steam generator around the given heat exchanger and
     /// initial secondary-side state.
     pub fn new(heat_exchanger: HeatExchanger, secondary_side: HemSteamCv) -> Self {
-        Self { heat_exchanger, secondary_side }
+        Self {
+            heat_exchanger,
+            secondary_side,
+        }
     }
 
     /// Advance the secondary-side state given a primary-side heat duty.

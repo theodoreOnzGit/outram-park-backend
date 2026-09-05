@@ -8,6 +8,28 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: reconstructed and Doppler-broadened output
+  agrees with **NJOY2016** to **7 significant figures** where a reference tape
+  exists (group boundaries match the Fortran output bit-for-bit at that
+  precision). Evidence class: **cross-code comparison** against the Fortran it
+  is a port of, supported by unit tests over the SLBW and Reich-Moore
+  resonance formalisms.
+
+  Measured at declaration: RECONR + BROADR verified on U-238 (MAT 9237, AWR
+  236.0058, 246 tape sections, 50 reactions, 961,073 grid points) broadened to
+  293.6 K and 900 K, via `examples/endf_to_broadened_xs.rs`. **651 tests pass** (8 ignored).
+
+  Caveat already recorded in this crate's docs: a faithful port does not
+  reproduce a 2017 evaluation bit-for-bit in every path, so the 7-figure bar
+  applies where a reference tape is available and not as a blanket claim.
+
+
 ## Standing goal: openmc-notebooks data notebooks as verification tests (MANDATORY)
 
 Part of the workspace-wide direction that **every notebook in
@@ -78,6 +100,30 @@ offline WMP + MGXS path needs no network. One honest qualification since
   `[workspace.dependencies]` (matches the egui/eframe 0.34 stack — no duplicate
   `wgpu` in the tree). This does **not** re-introduce a BLAS/Fortran build
   burden, and it does **not** change the Android or default-path leanness.
+
+## HARD RULE — no raw ENDF tape inside any crate directory
+
+**`.endf` tapes live at the repo root in `reference-data/endf/`, never under
+`crates/`.** `cargo package` builds its tarball by walking the crate root, so a
+tape placed anywhere under a crate is a candidate for publication, and crates.io
+caps a package at 10 MB. This workspace's eleven reference tapes total ~89 MB —
+U-235 alone is 35 MB.
+
+- **Read them through [`reference_data`](src/reference_data.rs)**:
+  `reference_endf("<file>")` → `Option<PathBuf>`, or
+  `reference_endf_or_skip("<file>", "<label>")` to print a skip note. Both
+  honour the `OUTRAM_PARK_ENDF_DIR` override. Do **not** hand-roll
+  `CARGO_MANIFEST_DIR`-relative paths at each call site.
+- **Data-gated tests must skip, not fail**, when a tape is absent — a crates.io
+  consumer has no repository around the crate.
+- **`tests/no_endf_inside_crates.rs` enforces this** and fails with the offending
+  paths if any `.endf` reappears under `crates/`.
+- Record every new tape's provenance in `reference-data/endf/README.md`
+  (library, MAT, size, source URL, date accessed), per `DATA_POLICY.md`.
+- Until 2026-08-17 the tapes sat in `tests/resources/` and were kept out of the
+  tarball only by `Cargo.toml`'s `include` allowlist. That worked, but one
+  careless `"tests/**"` entry would have attempted an 89 MB publish. The layout
+  now enforces it instead of a rule.
 
 ## Build and test
 

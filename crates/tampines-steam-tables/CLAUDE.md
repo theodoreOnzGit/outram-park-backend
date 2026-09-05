@@ -4,6 +4,58 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 
 ## Project overview
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Evidence class: **cross-code / reference-standard
+  comparison** against IAPWS-IF97, supported by unit tests. **1027 tests pass,
+  0 fail, 17 ignored.**
+
+  The bar differs by code path, and conflating them would overstate the crate:
+
+  **1. IF97 region equations vs the IAPWS published verification values** —
+  `max_relative = 1e-8` forward; `5e-5` on the backward `T(p,h)` / `T(p,s)`
+  correlations (looser because the backward equations are themselves fits, not
+  inversions); `1e-4` on the 1000 bar / 0 °C row, set by the published table
+  precision. This is the tight path and the one IF97 actually certifies.
+
+  **2. The flash interfaces (`hs`/`ph`/`pt`/`ps`) vs published steam tables** —
+  materially looser, and these are the tolerances the table tests assert:
+  temperature to 0.025 mK, specific volume to **0.5%**, pressure to 15 kPa or
+  0.60%, quality to 1e-3, several derived properties to **2%**, and **thermal
+  conductivity to 8%**. A caller who needs transport properties should treat
+  this crate as ~8% on λ, not as an IF97-grade result.
+
+  **Known gaps, recorded rather than smoothed over.** These are `#[ignore]`d
+  with reasons, and a reader of this bar needs them:
+
+  - `hs`/`ph` flash at **1000 bar** — "goes out of bounds for some reason, yet
+    to debug". An unresolved bug, not a tolerance question.
+  - `hs` flash at the **triple point** — not supported yet.
+  - `pt`/`ps` flash over **240–1000 bar** — "to implement in next major
+    version".
+  - **Metastable region 2** regressions — outstanding TODO.
+  - The **Peng-Robinson EOS** under `openfoam_algorithms/` shows **7%, 17% and
+    26% errors vs NIST** at various states. **Out of scope, and not a defect in
+    anything this crate delivers:** that vendored OpenFOAM thermophysics tree
+    exists only to support the 1D steam solver, and the PR EOS inside it is
+    never used. Recorded here only so a reader of the ignore reasons does not
+    re-derive the same alarm. Do not spend time on it.
+
+  Additional evidence: re-running the suite regenerates
+  `verification_and_validation/generated/*.md` with every number byte-identical
+  and only the timestamp line changed — the V&V results reproduce exactly.
+
+  IF97 is a released international standard with its own verification tables,
+  which makes path 1 the best-anchored bar of the declared crates. Path 2 and
+  the gap list are why this entry is longer than the others: the crate is
+  strong exactly where IF97 certifies it and weaker elsewhere, and a one-line
+  bar would have hidden that.
+
+
 TAMPINES Steam Tables is an in-house Rust implementation of the IAPWS-IF97
 steam/water property formulation for the **T**hermo-hydraulic **A**rtificial
 intelligence **M**ulti-**P**hase **IN**tegrated **E**mulator **S**ystem
@@ -24,18 +76,75 @@ License: GPL-3.0 (OpenFOAM-derived algorithms are included; see README).
 
 ```bash
 cargo build --release                           # build the library
-cargo test --release                            # run all unit/verification tests (~144 test fns)
+cargo test --release --lib                      # unit/verification tests (938 test fns; see the note below)
 cargo test --release <name>                     # run a subset by substring match
 cargo run --release --example fhr_sim_v1        # earlier FHR educational simulator (fhr_sim_v2 moved to crates/tampines/examples/)
 ```
 
-On Linux, `ndarray-linalg` uses the system OpenBLAS, so you need:
+**No system BLAS is needed.** This crate's `[dependencies]` are only `approx`,
+`ndarray`, `thiserror` and `uom` — the `ndarray-linalg` entries that used to sit
+in the three `[target.*.dependencies]` blocks were vestigial and have been
+removed, and nothing in `src/` imports `ndarray_linalg`. Earlier revisions of
+this file told Linux users to `sudo apt install libopenblas-dev` and told
+Windows/macOS users that the static Intel MKL feature applied; neither is true
+any more. `tuas_boussinesq_solver` (a dev-dependency, used only by the
+FHR-simulator examples) also dropped `ndarray-linalg` at TUAS v0.1.2 in favour of
+pure-Rust `peroxide`, so the transitive need is gone too.
 
-```bash
-sudo apt install libopenblas-dev
-```
+### Testing notes — the suite is dominated by one very long test
 
-Windows/macOS targets use the static Intel MKL feature instead (see `Cargo.toml`).
+**HARD RULE: a timeout is NOT a test failure.** Do not report a killed run as a
+failing test, do not "fix" it by loosening a tolerance, and do not conclude the
+suite is broken because a full-suite command was cut off.
+
+The Edwards–O'Brien blowdown integration test
+**`tests/edwards_blowdown.rs::edwards_obrien_pipe_blowdown_600ms`** integrates
+the full 600 ms transient on a 24-cell mesh at `dt = 30 µs` — 20 000 PIMPLE
+steps, each doing real IAPWS-IF97 `(p, h)` two-phase flashes on every cell.
+**Measured 2026-08-11 in release mode: 384.75 s (≈ 6.5 min) for that test alone**
+(`cargo test --release -p tampines-steam-tables --test edwards_blowdown
+edwards_obrien_pipe_blowdown_600ms` → `1 passed; 0 failed; finished in 384.75s`).
+Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
+in two solver modes. Cargo runs the two in **parallel**, so the whole target
+costs about as much as its longest test rather than the sum — **measured
+2026-08-11: `cargo test --release -p tampines-steam-tables --test
+edwards_blowdown` → `2 passed; 0 failed; finished in 393.58s`** (404 s of wall
+clock including the build). That integration target, not the library tests, is
+why a bare `cargo test --release -p tampines-steam-tables` blows through a
+default command timeout.
+
+**Two caveats on any timing you read, including the ones above.**
+
+- *Hardware and load.* The in-file `//!` header of `tests/edwards_blowdown.rs`
+  still says "~180 s wall" from 2026-07-16, and a figure of ~897 s (≈ 15 min)
+  has also been reported for this test. Neither reproduced here on 2026-08-11.
+  Measure on the machine in front of you rather than quoting a number.
+- *Command time is not test time.* Wall-clock for the `cargo test` **command**
+  also includes compilation and, importantly, **waiting on the cargo file
+  lock** when another process is building the workspace. During this
+  measurement one such invocation sat on `Blocking waiting for file lock on
+  build directory` for well over ten minutes before the test even started, which
+  is an easy way to attribute a lock wait to the test. Read the harness's own
+  `finished in <N>s` line, not the shell's elapsed time.
+
+Practical consequences for an agent or a CI step:
+
+- **Budget real wall-clock time.** A default 120 s command timeout kills the
+  Edwards test mid-run. Give it a generous timeout or run it in the background.
+- **Split the run.** `cargo test --release --lib` is the fast path — the 938
+  library test functions finish in seconds. Add `--test edwards_blowdown` as a
+  separate, long-timeout invocation when you actually need it.
+- **Run the targeted subset while iterating**
+  (`cargo test --release -p tampines-steam-tables <substring>`), and the
+  integration test only when finishing.
+- **Report what you measured.** If a run was killed, say it was killed and how
+  long it got — never convert that into a pass or a fail count.
+
+**Current suite status (measured 2026-08-11, `cargo test --release --lib`,
+after the Marviken work of bead `op-21g.16` landed):** **940 passed, 0 failed,
+13 ignored** (953 test functions). List the ignored ones
+with `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`
+rather than trusting any count written down in a document.
 
 ## Code layout
 
@@ -67,16 +176,58 @@ transient two-phase coupling.
 
 Multiphase critical-flow solvers (Homogeneous Equilibrium Model) live in
 `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/`,
-validated against Moody (1975), Zaloudek HEM reference curves, and Marviken.
-The three split solvers (in-dome / subcooled / superheated-vapour) cover all
-stagnation buckets relative to the p-h VLE dome.
+validated against Moody (1975) and Zaloudek HEM reference curves. **Marviken is
+now gated, with a split result — validated on test 23, NOT validated on
+test 24** — see below. The three split solvers (in-dome /
+subcooled / superheated-vapour) cover all stagnation buckets relative to the
+p-h VLE dome.
 
 All three stagnation buckets (in-dome, subcooled, superheated) are validated.
-The only known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody
-chart tests — its sole deeply-subcooled data point fails with |Δ log10 G| = 0.170
-because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli limit
-at extreme pressure ratios (p_bubble/p₀ ≈ 0.02); it is `#[ignore]`d. All other
-Moody isobars (0.50 – 30.0 × p_ref) pass.
+The known discrepancy is `isobar_pref_0_25` (p₀ = 1.72 bar) in the Moody chart
+tests — its sole deeply-subcooled data point deviates by |Δ log10 G| = 0.170
+because the IAPWS-IF97 isentrope diverges from the incompressible-Bernoulli
+limit at extreme pressure ratios (p_bubble/p₀ ≈ 0.02). **That test is no longer
+`#[ignore]`d** — it is active and passes, because the Moody tests are now
+region-filtered and assert only their in-dome (Region 4) points, skipping the
+single-phase ones (see the region-filtering note below, and bead `op-21g.2`,
+which is a candidate for closure on those grounds). All Moody isobars
+(0.25 – 30.0 × p_ref) are active.
+
+**Ignored tests — the complete list, 13 of them** (regenerated 2026-08-11 from
+`cargo test --release -p tampines-steam-tables --lib -- --ignored --list`, which
+is authoritative; `grep -rnE '^\s*#\[ignore' src/` returns 15 hits because one of
+them sits inside a `/* … */` block comment and is not compiled at all):
+
+| Test | Kind |
+|---|---|
+| `zaloudek_*::outside_dome_stagnation_subcooled::diagnose_bubble_point_artifact` | Diagnostic — per-point sweep, asserts nothing |
+| `cd_nozzle_choked_flow_overexpanded::wet_steam_test` | **Unfinished** — "temporary skip test" |
+| `diverging_nozzle_perfectly_expanded_supersonic::..._wet_steam` | **Unfinished** — "test not ready" |
+| `ph_flash_steam_table::single_phase_table_1000_bar::single_phase_table_2_to_750_degc` | Known gap — "at 1000 bar, ph flashing goes out of bounds, yet to debug" |
+| `hs_flash_steam_table::single_phase_table_1000_bar::single_phase_table_2_to_750_degc` | Same 1000-bar gap, `(h,s)` path |
+| `hs_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_0_to_240_degc_except_triple_pt` | Known gap — "hs flash cannot do triple point pressure yet" |
+| `hs_flash_steam_table::single_phase_table_0_006112127_bar::single_phase_table_250_to_800_degc` | Same triple-point gap |
+| `ps_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_1000_bar` | Deferred — "to implement in next major version" |
+| `pt_flash_steam_table::single_phase_table_240_bar_to_1000_bar::single_phase_table_2_to_750_degc_1000_bar` | Deferred — "to implement in next major version" |
+| `openfoam_source::thermophysics::eos::peng_robinson::tests::co2_nist_density_400k_10mpa` | **Known error** — PR EOS 17 % off at Pr > 1 |
+| `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_300k_10mpa` | **Known error** — PR EOS 7 % off vs NIST at Pr = 2.94 |
+| `openfoam_source::thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa` | **Known error** — PR EOS 26 % off vs NIST at 200 K / 5 MPa |
+| `openfoam_source::thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess` | **Known error** — Newton stalls at ~1152 K; JANAF discontinuity at `Tcommon` |
+
+One diagnostic is ignored by design. Three unfinished ones are real gaps and all
+three sit on the **wet-steam** path — the same path the turbine work depends on.
+The four `peng_robinson` / `janaf` entries are **recorded numerical errors, not
+skipped scaffolding**: they document a suspected root-selection or formula bug in
+the vendored OpenFOAM thermophysics, so do not describe that layer as verified.
+
+**Correction (2026-08-11):** an earlier version of this table listed
+`moody_*::diagnose_deep_subcooled_failures` as an ignored test and claimed the
+list was complete at five entries. Both were wrong.
+`diagnose_deep_subcooled_failures` was commented out wholesale on 2026-06-30
+(it lives inside a `/* … */` block in
+`moody_critical_mass_flux_homogeneous_eqm.rs`), so it is not a test at all —
+that file has **13 tests and zero `#[ignore]`s**. The nine flash-table, Peng-
+Robinson and JANAF entries were simply missed.
 
 Verification tests are under `.../tests/`, validated against:
 
@@ -93,7 +244,38 @@ Verification tests are under `.../tests/`, validated against:
 - Zaloudek critical mass flux — `zaloudek_*`. NOTE: these reference values are
   graph-read (digitised) HEM curves, not raw experimental data, so keep mass-flux
   (G) tolerances loose.
-- Marviken critical flow tests — `marviken_tests.rs`.
+
+**Marviken — gated 2026-08-11, split outcome (bead `op-21g.16`).**
+`marviken_tests.rs` is now a real V&V case: 6 active tests, none ignored,
+~1.4 s, comparing this crate's HEM critical-flow dispatcher against the
+digitised NUREG/CR-2671 (MXC-301) Fig. 8:24 envelopes for the 500 mm /
+`L/D` = 0.3 nozzle.
+
+- **Test 23 (3 K nominal subcooling) — VALIDATED.** Mean deviation 12.6 %,
+  worst 23.1 %, inside a justified ±25 % per-point / ±15 % mean band whose
+  dominant term is the ±12.9 % measured experimental scatter.
+- **Test 24 (33 K nominal subcooling) — NOT VALIDATED.** Mean −48.5 %, worst
+  −70.2 %, 31 of 40 points outside the band. Kept as an honest characterisation
+  test, not a validation. **Do not describe the choked-flow work as
+  Marviken-validated for subcooled stagnation states, and do not cite it as such
+  in a paper.**
+- **The test-24 deficit is a solver defect, not HEM physics.** The bare HEM
+  maximum-mass-flux criterion (`max_p ρ√(2Δh)` along the isentrope, built from
+  the public `(p,s)` flashes in the same test file) reproduces *both* Marviken
+  tests to a mean of 9–10 %, with test 24 essentially unbiased at −1.8 %. The
+  48.6 % gap comes from `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`
+  taking its bubble-point sonic-kink branch (`ρ_f·c_2φ`) because the quality at
+  the energy maximum is < 0.03 while `DEEP_SUBCOOLING_RATIO = 5.0` is not
+  reached — i.e. the Marviken points land in the "overlap zone" that solver's
+  own comment block flags as unresolved for want of experimental data. **This is
+  the second time an apparent HEM limitation here turned out to be a
+  choke-finder branch problem**; see the near-bubble-point artifact below.
+  Retuning the threshold was deliberately *not* done as part of the validation —
+  that would be fitting the model to its own validation data.
+
+Full methodology, data provenance, error budget, per-point results and the
+lessons note for higher-fidelity (drift-flux / two-fluid) reruns live in the
+module `//!` doc of `marviken_tests.rs`.
 
 ### Resolved: near-bubble-point HEM artifact (x ≈ 0)
 
@@ -118,7 +300,7 @@ The original combined canary
 with the test files partitioning each Zaloudek throat by where its backward-mapped
 stagnation `(p0, h0)` lands relative to the VLE dome (`ph_flash_region`):
 
-- `subcooled_outside_dome_stagnation.rs` — stagnation OUTSIDE the dome (left
+- `outside_dome_stagnation_subcooled.rs` — stagnation OUTSIDE the dome (left
   side, Region 1 subcooled liquid). Keeps only `ph_flash_region == Region1`,
   runs `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`. The 20
   genuinely-subcooled curves (x_t = 0.05 … 1.00) pass.
@@ -148,7 +330,7 @@ The x = 0.0 bubble-point curve is the curve of primary interest going forward
 x_t = 1e-4).
 
 The former canary
-`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled`
+`outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
 (x_t = 1e-4, throats essentially on the saturated-liquid line) now **passes** and
 is no longer `#[ignore]`d. The `diagnose_bubble_point_artifact` test in the same
 file prints the per-point breakdown that drove the fix (its `thr_dGlg` column is
@@ -202,7 +384,7 @@ documents the root cause and the quality-based routing.
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only, no longer wired into the OOP API |
 
 **Near-bubble-point HEM artifact (x_t ≈ 0) — fixed:**
-`subcooled_outside_dome_stagnation::quality_bubble_point_subcooled` now passes.
+`outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` now passes.
 The old failure was numerical (the energy-balance choke finder is blind to the
 sound-speed discontinuity at the bubble point), not an HEM physics limitation —
 HEM at the throat reproduces the x ≈ 0 reference to ±0.04 in log10 G. The solver
@@ -249,6 +431,7 @@ solely the FHR simulator examples use it. The library is TUAS-free (the former
 `rhoPimpleFoam` equation scaffolds, whose logic already lives inline in
 `rhoPimpleFoam/mod.rs`).
 
-See **`docs/notes.md`** for the 2026-06 migration log and the planned removal
-of the vestigial `ndarray-linalg` dep. The former `fhr_sim_v2` UI state-update
-bug is resolved (see `docs/notes.md`).
+See **`docs/notes.md`** for the 2026-06 migration log. The vestigial
+`ndarray-linalg` dep is **removed** (done, not planned — see "Build, test, run"
+above), and the former `fhr_sim_v2` UI state-update bug is resolved (both
+recorded in `docs/notes.md`).

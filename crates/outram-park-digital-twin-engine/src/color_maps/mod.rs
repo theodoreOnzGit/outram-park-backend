@@ -9,6 +9,11 @@
 //! computed by the caller (e.g. a normalised temperature or quality), the
 //! same signature the existing call sites use.
 
+/// Fabio Crameri's Scientific colour maps (MIT). Perceptually uniform,
+/// CVD-friendly and greyscale-safe -- see the module docs for provenance and
+/// for when to prefer them over the maps in this file.
+pub mod crameri;
+
 use egui::Color32;
 
 /// Hot-to-cold colour map, variant 1: blue (cold) to red (hot), with a
@@ -85,14 +90,23 @@ mod tests {
 
     #[test]
     fn hot_to_cold_mark_1_endpoints() {
-        assert_eq!(hot_to_cold_colour_mark_1(0.0), Color32::from_rgb(0, 135, 255));
+        assert_eq!(
+            hot_to_cold_colour_mark_1(0.0),
+            Color32::from_rgb(0, 135, 255)
+        );
         assert_eq!(hot_to_cold_colour_mark_1(1.0), Color32::from_rgb(255, 0, 0));
     }
 
     #[test]
     fn hot_to_cold_mark_1_clamps_out_of_range() {
-        assert_eq!(hot_to_cold_colour_mark_1(-1.0), hot_to_cold_colour_mark_1(0.0));
-        assert_eq!(hot_to_cold_colour_mark_1(2.0), hot_to_cold_colour_mark_1(1.0));
+        assert_eq!(
+            hot_to_cold_colour_mark_1(-1.0),
+            hot_to_cold_colour_mark_1(0.0)
+        );
+        assert_eq!(
+            hot_to_cold_colour_mark_1(2.0),
+            hot_to_cold_colour_mark_1(1.0)
+        );
     }
 
     #[test]
@@ -103,13 +117,25 @@ mod tests {
 
     #[test]
     fn steam_quality_mark_1_endpoints() {
-        assert_eq!(steam_quality_colour_mark_1(0.0), Color32::from_rgb(0, 0, 255));
-        assert_eq!(steam_quality_colour_mark_1(1.0), Color32::from_rgb(255, 255, 255));
+        assert_eq!(
+            steam_quality_colour_mark_1(0.0),
+            Color32::from_rgb(0, 0, 255)
+        );
+        assert_eq!(
+            steam_quality_colour_mark_1(1.0),
+            Color32::from_rgb(255, 255, 255)
+        );
     }
 
     #[test]
     fn steam_quality_mark_1_clamps_out_of_range() {
-        assert_eq!(steam_quality_colour_mark_1(-1.0), steam_quality_colour_mark_1(0.0));
-        assert_eq!(steam_quality_colour_mark_1(2.0), steam_quality_colour_mark_1(1.0));
+        assert_eq!(
+            steam_quality_colour_mark_1(-1.0),
+            steam_quality_colour_mark_1(0.0)
+        );
+        assert_eq!(
+            steam_quality_colour_mark_1(2.0),
+            steam_quality_colour_mark_1(1.0)
+        );
     }
 }

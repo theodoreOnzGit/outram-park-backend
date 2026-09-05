@@ -75,6 +75,7 @@ pub mod kinematics;
 pub mod matrix;
 pub mod overlap;
 pub mod panel;
+pub mod pendf_feed;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
@@ -90,8 +91,8 @@ pub use input::{
     SmoothingOption, UnitAssignments, WeightOption, WeightSelection,
 };
 pub use panel::{
-    group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs,
-    DEFAULT_FLUX_STEP, NO_NEXT_BREAK_EV,
+    group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs, DEFAULT_FLUX_STEP,
+    NO_NEXT_BREAK_EV,
 };
 pub use photon_groups::{photon_group_structure, PhotonGroupStructure};
 pub use weights::{AnalyticWeight, ThermalFissionParams, BOLTZMANN_EV_PER_K};
@@ -99,17 +100,16 @@ pub use weights::{AnalyticWeight, ThermalFissionParams, BOLTZMANN_EV_PER_K};
 // Self-shielded (Bondarenko-dilution) MGXS surface (op-bsz): the URR PENDF
 // feeder, the slowing-down flux branch, the resolved/unresolved overlap
 // correction, the per-dilution group-XS assembly, and the fission Chi / matrix.
-pub use fission_matrix::{
-    fission_group_chi, separable_fission_matrix, FissionMatrix, GroupChi,
-};
+pub use fission_matrix::{fission_group_chi, separable_fission_matrix, FissionMatrix, GroupChi};
 pub use overlap::{shield_with_overlap, OverlapState};
 pub use self_shielded::{self_shielded_group_xs, SelfShieldedMgxs};
 pub use slowing_down::{genflx_slowing_down, SlowingDownParams};
 pub use unresolved::{
-    genflx_bondarenko, LssfFlag, OverlapContext, SelfShieldedFluxSet, UnresolvedTable,
-    UnrShielded, UrrEnergyPoint, UrrReaction,
+    genflx_bondarenko, LssfFlag, OverlapContext, SelfShieldedFluxSet, UnresolvedTable, UnrShielded,
+    UrrEnergyPoint, UrrReaction,
 };
-pub use urr_pendf::{lssf_from_flag, read_urr_table};
+pub use pendf_feed::{classify_mtd, read_pendf_cross_section, MtdClass, PendfCrossSection};
+pub use urr_pendf::{lssf_from_flag, read_urr_from_tape, read_urr_table};
 
 // Re-export the shared neutron group structures (owned by ERRORR's `gengpn`
 // port) so a GROUPR user finds them without knowing they live in ERRORR.

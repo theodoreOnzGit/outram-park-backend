@@ -1,0 +1,101 @@
+==============================================================================
+PRE-AGENTIC BASELINE
+==============================================================================
+repository                                         total      code   days
+------------------------------------------------------------------------------
+thermal_hydraulics_rs                            111,437    59,808    144
+    2023-06-27 .. 2024-10-14  [4d534af51eca256f318462234c0c8592930f764b]
+chem-eng-real-time-process-control-simulator       8,848     4,802      9
+    2023-10-26 .. 2024-04-29  [origin/develop]
+teh-o-prke                                        10,751     6,579     32
+    2024-04-12 .. 2025-06-26  [origin/develop]
+tuas_boussinesq_solver                            76,672    44,453     69
+    2024-10-10 .. 2026-06-22  [develop]
+tampines-steam-tables                             79,990    56,082     98
+    2025-01-21 .. 2026-06-22  [develop]
+boon-lay                                          15,765     9,574     30
+    2026-01-14 .. 2026-05-12  [develop]
+------------------------------------------------------------------------------
+BASELINE TOTAL                                   303,463   181,298    367
+  (days are a union of distinct dates, not a column sum)
+
+  TUAS at head       : 171,618 total, 96,507 code
+  less imported      : 94,946 total, 52,054 code (236 files, at c451c8e)
+  TUAS net-new       : 76,672 total, 44,453 code
+  predecessor kept 7,754 code lines that were never imported;
+  they stay in the baseline under thermal_hydraulics_rs, and are the reason
+  the baseline total exceeds the pre-agentic code vendored into the backend.
+
+  baseline rate: 494 code lines per active day
+
+  Split by how much non-agentic AI help each repository had:
+    no AI assistance at all               115,642 code,  246 days, 470 lines/day
+    some non-agentic NUS AI-know help      65,656 code,  125 days, 525 lines/day
+    (this comparison is not clean -- the author also grew more fluent in
+     Rust over the same period, and the crates differ in nature)
+
+==============================================================================
+AGENTIC OUTPUT -- outram-park-backend
+==============================================================================
+  branch 3130b38b65edc94288fb2715bbcab868e6846f79 @ 2026-07-23, 26 crates
+  window 2026-06-19 .. 2026-07-23: 30 active days
+
+-- Translated or ported ----------------------------------------
+  njoy-outram-park-fork                         NJOY2016                 32,481
+  outram-park-fork-coolprop                     CoolProp                 28,707
+  outram-foam-appbuilder-lib                    OpenFOAM                 20,495
+  outram-foam-basic-lib                         OpenFOAM                 15,691
+  outram-mc-libs                                OpenMC                   15,406
+  outram-park-fork-pflotran                     PFLOTRAN                  7,939
+  outram-foam-mesh                              OpenFOAM                  6,218
+  outram-blender                                Blender                   4,769
+  outram-park-fork-dwsim-libs                   DWSIM                     2,079
+  outram-foam-turbulence-lib                    OpenFOAM                  1,717
+  outram-foam-cli                               OpenFOAM                    960
+  SUBTOTAL                                                              136,462
+
+-- Originally written ------------------------------------------
+  outram-park-digital-twin-engine               ---                       8,651
+  tampines                                      ---                       7,306
+  kovan-tui                                     ---                       1,716
+  kovan-cli                                     ---                       1,354
+  njoy-tui (bin in njoy-outram-park-fork)       ---                       1,304
+  kovan-codegen                                 ---                       1,267
+  kovan-semantics                               ---                       1,222
+  outram-mc-tui (bin in outram-mc-libs)         ---                       1,202
+  kovan-literature                              ---                       1,114
+  kovan-discovery                               ---                         934
+  kovan-common                                  ---                         617
+  nee_soon                                      ---                         490
+  SUBTOTAL                                                               27,177
+
+-- Agentic extensions to vendored crates -----------------------
+  tampines-steam-tables                         tampines-steam-tables     7,150  (63,232 - 56,082)
+  boon-lay                                      boon-lay                  3,680  (13,254 - 9,574)
+  tuas_boussinesq_solver                        tuas_boussinesq_solver      836  (97,343 - 96,507)
+  teh-o-prke                                    teh-o-prke                  692  (7,271 - 6,579)
+  chem-eng-real-time-process-control-simulator  chem-eng-real-time-process-control-simulator        0  (4,802 - 4,802)
+  SUBTOTAL                                                               12,358
+
+  TOTAL AGENTIC                                                         175,997
+  total Rust code in crates/                                            349,541
+
+  agentic rate: 5,867 code lines per active day
+
+==============================================================================
+COMPARISON WITH THE MANUSCRIPT (drift check)
+==============================================================================
+quantity                      manuscript    measured       delta
+------------------------------------------------------------------------------
+baseline_total_lines             303,463     303,463          +0
+baseline_code_lines              181,298     181,298          +0
+baseline_active_days                 367         367          +0
+agentic_code_lines               175,997     175,997          +0
+subtotal_translated              136,462     136,462          +0
+subtotal_original                 27,177      27,177          +0
+subtotal_extension                12,358      12,358          +0
+n_crates                              26          26          +0
+
+  A non-zero delta is not automatically an error: the repositories
+  keep moving. It means the manuscript figure needs re-stating from
+  this run, or the run needs pinning to the commit the table used.

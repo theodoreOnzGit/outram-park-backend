@@ -1,6 +1,7 @@
 /// this is the struct to contain the thermal hydraulics state of the fhr
+use crate::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty::SteamGeneratorDutyLimit;
 use uom::si::f64::*;
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct FHRThermalHydraulicsState {
     /// reactor branch flow (upwards through the core)
     /// note that positive flow means from bottom mixing node to top
@@ -11,27 +12,27 @@ pub struct FHRThermalHydraulicsState {
     /// downcomer 2 branch flow (upwards through the core)
     /// note that positive flow means from bottom mixing node to top
     pub downcomer_branch_2_flow: MassRate,
-    /// ihx branch flow 
+    /// ihx branch flow
     /// note that positive flow means from bottom mixing node to top
     pub intermediate_heat_exchanger_branch_flow: MassRate,
-    /// ihx branch flow 
-    /// note that positive flow means from bottom 
-    /// (between pipe 17 and pump 16) 
+    /// ihx branch flow
+    /// note that positive flow means from bottom
+    /// (between pipe 17 and pump 16)
     /// to top
     /// (between pipe 12 and pipe 13)
     pub intrmd_loop_ihx_br_flow: MassRate,
     /// steam generator branch
-    /// note that positive flow means from bottom 
-    /// (between pipe 17 and pump 16) 
+    /// note that positive flow means from bottom
+    /// (between pipe 17 and pump 16)
     /// to top
     /// (between pipe 12 and pipe 13)
     pub intrmd_loop_steam_gen_br_flow: MassRate,
 
-    // other diagnostics 
+    // other diagnostics
     /// shows the current simulation time
     pub simulation_time: Time,
 
-    // temperature diagnostics 
+    // temperature diagnostics
     /// shows the current reactor temperature profile in degc (2dp)
     pub reactor_temp_profile_degc: Vec<f64>,
     /// shows the current ihx shell side temperature profile in degc (2dp)
@@ -56,9 +57,7 @@ pub struct FHRThermalHydraulicsState {
     /// shows the temperature profile of pipe_11
     pub pipe_11_temp_profile_degc: Vec<f64>,
 
-
     // intermediate loop
-
     /// shows the temperature profile of pipe_12
     pub pipe_12_temp_profile_degc: Vec<f64>,
     /// shows the temperature profile of pipe_13
@@ -76,10 +75,33 @@ pub struct FHRThermalHydraulicsState {
     /// shows the temperature profile of pipe_13
     pub downcomer_3_temp_profile_degc: Vec<f64>,
 
-    // for coupling to secondary loop 
+    // for coupling to secondary loop
     /// heat added to steam generator
     pub heat_added_to_steam_generator_shell_side: Energy,
 
+    /// Steam-generator effectiveness `Q / Q_max` for this timestep,
+    /// dimensionless and always within `[0, 1]`.
+    ///
+    /// `Q_max = C_min (T_salt_in - T_feed_in)` is the counter-flow
+    /// thermodynamic maximum; an effectiveness of exactly 1 means the
+    /// exchanger is pinch-limited and raising the `UA` slider further will not
+    /// (and physically cannot) transfer any more heat. See
+    /// [`secondary_loop::steam_generator_duty`] for the derivation and the
+    /// V&V sweep.
+    ///
+    /// [`secondary_loop::steam_generator_duty`]:
+    ///     crate::app::thermal_hydraulics_backend::secondary_loop::steam_generator_duty
+    pub steam_generator_effectiveness: f64,
 
+    /// The counter-flow thermodynamic maximum duty `Q_max` \[W\] the transfer
+    /// was clamped against this timestep. Reported alongside
+    /// [`Self::steam_generator_effectiveness`] so a user who finds the `UA`
+    /// slider unresponsive can see the number that is actually binding.
+    pub steam_generator_maximum_duty: Power,
+
+    /// Which physical constraint set the steam-generator duty this timestep:
+    /// the `UA` conductance (the normal, well-posed regime), the salt capacity
+    /// rate, the feedwater enthalpy pinch, or the absence of any driving
+    /// temperature difference.
+    pub steam_generator_duty_limit: SteamGeneratorDutyLimit,
 }
-

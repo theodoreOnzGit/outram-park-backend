@@ -22,7 +22,10 @@ impl Pump {
     /// Construct a new pump with the given operating-point specification and
     /// efficiency.
     pub fn new(specification: PumpSpecification, efficiency: Ratio) -> Self {
-        Self { specification, efficiency }
+        Self {
+            specification,
+            efficiency,
+        }
     }
 
     /// Evaluate this pump's outlet state for the given inlet.

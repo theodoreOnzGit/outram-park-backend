@@ -48,19 +48,23 @@
 //!
 //! # Scope
 //!
-//! - **TODO(subagent):** implement [`read_urr_table`] — mirror `stounr`
-//!   `groupr.f90:6822-6875`: read the HEAD CONT (`lssf`, `intunr`), read the LIST
-//!   record (`temz`, `nsig0`, `nunr`, `nx`, the sigma-zero grid, the per-energy
-//!   blocks), select the LIST whose temperature matches `temperature_k` (the
-//!   `abs(temz - temp) <= 1` gate, `groupr.f90:6857`), and build an
+//! - **DONE:** [`read_urr_table`] — mirrors `stounr` `groupr.f90:6822-6875`:
+//!   reads the HEAD CONT (`lssf`, `intunr`), reads the LIST record (`temz`,
+//!   `nsig0`, `nunr`, `nx`, the sigma-zero grid, the per-energy blocks), selects
+//!   the LIST whose temperature matches `temperature_k` (the
+//!   `abs(temz - temp) <= 1` gate, `groupr.f90:6857`), and builds an
 //!   [`UnresolvedTable`] via [`UnresolvedTable::store`]. The negative-energy
 //!   overlap marker becomes [`UrrEnergyPoint::overlap`].
-//! - The MAT/MF/MT tape navigation (`findf`/`tosend`) is the caller's job via the
-//!   [`crate::endf::tape::Tape`] API; this reader takes the **MF=2/MT=152 section
-//!   rows** already extracted. See the doc on [`read_urr_table`].
+//! - **DONE:** [`read_urr_from_tape`] — the MAT/MF/MT tape-locate half of
+//!   `stounr` (`groupr.f90:6802-6845`) wired to a real
+//!   [`crate::endf::tape::Tape`]: the `ntape==0` / `lrp==-1` / "no MT=152
+//!   section" no-data cases, then a direct `(mat, 2, 152)` section lookup
+//!   feeding [`read_urr_table`]. See its doc for the exact mapping and the
+//!   `findf`/`tosend` simplification it takes.
 
 use crate::endf::interp::IntLaw;
 use crate::endf::records::SectionCursor;
+use crate::endf::tape::Tape;
 use crate::groupr::unresolved::{LssfFlag, UnresolvedTable, UrrEnergyPoint};
 use crate::NjoyError;
 
@@ -154,6 +158,67 @@ pub fn read_urr_table(
         }
         // temz < temperature_k - 1: skip this LIST, try the next stored temperature.
     }
+}
+
+/// Locate + read the URR self-shielded cross-section table for `mat` at
+/// `temperature_k` from a parsed PENDF [`Tape`] — the tape-navigation half of
+/// `stounr` (`groupr.f90:6802-6845`), wired to [`read_urr_table`] for the
+/// section-body decode.
+///
+/// # Mirrors `stounr`, `groupr.f90:6802-6845`
+/// - `tape` is `None` (no PENDF tape supplied) -> `Ok(None)`, matching `nunr=0`
+///   with no further work (`if (ntape.eq.0) return`, `groupr.f90:6823-6824`).
+/// - `lrp == -1` (ENDF File 1 `LRP` flag: no resonance region at all for this
+///   material) -> `Ok(None)`, matching the `allocate(unr(1)); return` early
+///   exit (`groupr.f90:6825-6827`) — GROUPR never looks for MT=152 on a
+///   material with no resonance parameters.
+/// - No MF=2/MT=152 section for `mat` on the tape -> `Ok(None)`, matching the
+///   "not found" fallthrough at label 105 (`groupr.f90:6839-6844`): no
+///   self-shielded URR data was ever written for this material (a purely
+///   resolved-resonance or resonance-free evaluation).
+/// - Otherwise, the section rows are handed to [`read_urr_table`], which
+///   applies the `stounr` temperature-matching gate and returns
+///   `Ok(Some(table))` or propagates its [`NjoyError::EndfParse`] (malformed
+///   record, or the fatal "cannot find temp" case, `groupr.f90:6853-6856`).
+///
+/// # Tape-navigation simplification
+/// Upstream `stounr` walks the tape sequentially: `findf(mat,2,0,ntape)` locates
+/// the first File-2 section for `mat`, reads its CONT header, and — if that
+/// section is not MT=152 — advances past it with `tosend` and checks exactly
+/// one more section before giving up (`groupr.f90:6829-6841`; File 2 holds at
+/// most MT=151 then MT=152). The in-memory [`Tape`] already indexes every
+/// section by `(mat, mf, mt)` (see [`Tape::section`]), so this port replaces
+/// that two-step sequential walk with a direct index lookup — a faithful
+/// simplification of tape mechanics (a different way to find the same record),
+/// not a change to the data or the temperature/URR-table semantics.
+///
+/// # Parameters
+/// - `tape` — the parsed PENDF tape, or `None` if GROUPR was not given one.
+/// - `mat` — ENDF material number.
+/// - `lrp` — the material's ENDF File 1 `LRP` resonance-parameter-representation
+///   flag (`-1` = none present).
+/// - `temperature_k` — requested temperature \[K\] (`stounr`'s `temp` argument).
+///
+/// # Errors
+/// [`NjoyError::EndfParse`] on a malformed MF=2/MT=152 record or when the
+/// requested temperature cannot be found on the tape (see [`read_urr_table`]).
+pub fn read_urr_from_tape(
+    tape: Option<&Tape>,
+    mat: i32,
+    lrp: i32,
+    temperature_k: f64,
+) -> Result<Option<UnresolvedTable>, NjoyError> {
+    let Some(tape) = tape else {
+        return Ok(None); // ntape == 0 (groupr.f90:6823-6824)
+    };
+    if lrp == -1 {
+        return Ok(None); // no resonance region at all (groupr.f90:6825-6827)
+    }
+    let Some(section) = tape.section(mat, 2, 152) else {
+        return Ok(None); // no MT=152 section found (groupr.f90:6839-6844)
+    };
+    let table = read_urr_table(&section.rows, temperature_k)?;
+    Ok(Some(table))
 }
 
 /// Decode one accepted MF=2/MT=152 LIST body (the `unr(7..)` payload) into an
@@ -251,24 +316,18 @@ mod tests {
     /// energy points (the middle one flagged as resolved/unresolved overlap via
     /// a negative energy). Returns `(data, sigma0_grid, points)` so a test can
     /// reuse it as both tape input and the expected [`UnresolvedTable`] content.
-    fn synthetic_body(
-        temz_energies: [f64; 3],
-    ) -> (Vec<f64>, Vec<f64>, Vec<UrrEnergyPoint>) {
+    fn synthetic_body(temz_energies: [f64; 3]) -> (Vec<f64>, Vec<f64>, Vec<UrrEnergyPoint>) {
         let sigma0 = vec![1.0e10, 100.0];
         // xs[point][reaction][dilution], barn.
         let xs_by_point: [[[f64; 2]; 3]; 3] = [
-            [[10.0, 9.0], [8.0, 7.5], [1.0, 0.9]], // point 0
-            [[12.0, 11.0], [9.0, 8.5], [1.5, 1.4]], // point 1 (overlap)
+            [[10.0, 9.0], [8.0, 7.5], [1.0, 0.9]],   // point 0
+            [[12.0, 11.0], [9.0, 8.5], [1.5, 1.4]],  // point 1 (overlap)
             [[15.0, 14.0], [10.0, 9.5], [2.0, 1.9]], // point 2
         ];
         let overlap = [false, true, false];
 
         // Signed energies as stored on tape (overlap => negative).
-        let signed = [
-            temz_energies[0],
-            -temz_energies[1],
-            temz_energies[2],
-        ];
+        let signed = [temz_energies[0], -temz_energies[1], temz_energies[2]];
 
         let mut data = sigma0.clone();
         for ip in 0..3 {
@@ -359,7 +418,11 @@ mod tests {
 
         // Recover each stored cross section through `shield` at the stored
         // (energy, dilution) nodes and check < 1e-12 against the known values.
-        let reactions = [UrrReaction::Total, UrrReaction::Elastic, UrrReaction::Fission];
+        let reactions = [
+            UrrReaction::Total,
+            UrrReaction::Elastic,
+            UrrReaction::Fission,
+        ];
         for (ip, e) in energies.iter().enumerate() {
             for (rx_col, &rx) in reactions.iter().enumerate() {
                 let want = &points[ip].xs[rx_col];
@@ -404,7 +467,11 @@ mod tests {
             let (_, s, mut p) = synthetic_body(energies);
             let mut data = s.clone();
             for pt in &mut p {
-                let signed_e = if pt.overlap { -pt.energy_ev } else { pt.energy_ev };
+                let signed_e = if pt.overlap {
+                    -pt.energy_ev
+                } else {
+                    pt.energy_ev
+                };
                 data.push(signed_e);
                 for col in &mut pt.xs {
                     for x in col.iter_mut() {

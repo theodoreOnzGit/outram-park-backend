@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Mesh editing operators. Follows the published architecture of Blender's bmesh
+// operator system (bmesh/operators, bmo_*, GPL-2.0-or-later) — concepts only, no
+// upstream source was copied. Individual algorithms are cited in the module they
+// live in (boolean.rs, subdivision.rs, decimate.rs, ...).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh **operators** — the editing verbs (Blender's `bmesh/operators`, `bmo_*`).
 //!
 //! Each operator is a **pure function over the polygon-soup view** of a mesh:
@@ -27,9 +50,9 @@
 //!   This is distinct from Catmull-Clark, which lives in
 //!   [`crate::subdivision::catmull_clark`] and the non-destructive
 //!   [`crate::modifiers::Modifier::Subsurf`].
-//! - [`bevel_vertices`] / [`MeshOp::Bevel`] — vertex bevel / truncation
-//!   (`bmo_bevel` in vertex-only mode). Only the single-chamfer case is built;
-//!   rounded multi-segment bevels are a follow-up.
+//! - [`bevel_vertices`] / [`bevel_vertices_rounded`] / [`MeshOp::Bevel`] —
+//!   vertex bevel / truncation (`bmo_bevel` in vertex-only mode): a single flat
+//!   chamfer, or a rounded spherical cap for `segments >= 2`.
 //! - [`MeshOp::Boolean`] — CSG union/difference/intersection of two meshes,
 //!   delegated to [`crate::boolean`] (`bmo_boolean`, backed upstream by the
 //!   Manifold library). This is the operator most relevant to feeding
@@ -43,13 +66,29 @@ use crate::mesh::{EdgeId, FaceId, Mesh};
 /// Errors returned by [`MeshOp::apply`].
 #[derive(Debug, thiserror::Error)]
 pub enum MeshOpError {
-    /// The operator is scaffolded but its algorithm is not implemented yet.
+    /// An operator is declared but its algorithm is not implemented yet.
+    ///
+    /// Retained for forward compatibility (a new [`MeshOp`] variant may land as
+    /// a stub); **every current variant is implemented**, so [`MeshOp::apply`]
+    /// never returns this today.
     #[error("mesh operator not yet implemented: {0}")]
     NotImplemented(&'static str),
     /// Propagated from a mesh boolean (crate::boolean) — the operand meshes are
     /// outside the supported restricted case.
     #[error(transparent)]
     Boolean(#[from] crate::boolean::BooleanError),
+    /// Propagated from Laplacian smoothing (crate::laplacian) — the sparse solve
+    /// failed (e.g. a non-positive-definite system).
+    #[error(transparent)]
+    Laplacian(#[from] crate::laplacian::LaplacianError),
+    /// Propagated from ARAP deformation (crate::arap) — missing constraints or a
+    /// non-positive-definite system.
+    #[error(transparent)]
+    Arap(#[from] crate::arap::ArapError),
+    /// Propagated from convex-hull construction (crate::convex_hull) — a
+    /// degenerate (fewer than four distinct / collinear / coplanar) point set.
+    #[error(transparent)]
+    Hull(#[from] crate::convex_hull::HullError),
 }
 
 /// Boolean CSG mode for [`MeshOp::Boolean`] (mirrors Blender's Boolean modifier).
@@ -357,10 +396,47 @@ fn subdivide_once(positions: &[Vec3], faces: &[Vec<usize>]) -> (Vec<Vec3>, Vec<V
 ///   per-edge to at most half the edge length. `width <= 0` collapses the
 ///   edge-points onto the original vertices (a no-op-shaped degenerate result).
 pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
+    let skel = truncate_skeleton(mesh, width);
+    let mut faces = skel.faces;
+    // Single chamfer: each vertex ring closes as one flat n-gon face.
+    for ring in &skel.rings {
+        if ring.len() >= 3 {
+            faces.push(ring.clone());
+        }
+    }
+    Mesh::from_polygons(&skel.positions, &faces)
+}
+
+/// The shared **truncation skeleton** both the flat ([`bevel_vertices`]) and the
+/// rounded ([`bevel_vertices_rounded`]) vertex bevels build on.
+///
+/// It holds the edge-points (two per original edge), the truncated original
+/// faces (each `n`-gon widened to a `2n`-gon), and, per original vertex, the
+/// **ring** of that vertex's edge-points in angular (fan) order wound outward.
+/// The flat bevel caps each ring with one face; the rounded bevel domes it.
+struct TruncSkeleton {
+    /// Edge-point positions (index space shared by `faces` and `rings`).
+    positions: Vec<Vec3>,
+    /// The truncated original faces (each a `2n`-gon of edge-point indices).
+    faces: Vec<Vec<usize>>,
+    /// `rings[v]` = the outward-wound ring of edge-point indices around original
+    /// vertex `v` (empty for an isolated vertex, or shorter than 3 for a
+    /// degenerate corner).
+    rings: Vec<Vec<usize>>,
+}
+
+/// Build the [`TruncSkeleton`] for `mesh` truncated by `width`.
+///
+/// Places one edge-point per (near, far) vertex at
+/// `near + min(width, L/2) * normalize(far - near)`, widens every face to a
+/// `2n`-gon of edge-points, and reads each vertex's edge-point ring off the fan
+/// of incident faces (out-edge `V->next` links to in-edge `prev->V`; chaining
+/// the links walks the ring in angular order, wound outward).
+fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
     let positions = mesh.positions();
     let polys = mesh.polygons();
 
-    // Edge-point per (near-vertex, far-vertex): index into new_positions.
+    // Edge-point per (near-vertex, far-vertex): index into new positions.
     let mut ep_index: HashMap<(usize, usize), usize> = HashMap::new();
     let mut new_positions: Vec<Vec3> = Vec::new();
 
@@ -385,9 +461,8 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
         ep_index.insert((b, a), ib);
     }
 
-    let mut new_faces: Vec<Vec<usize>> = Vec::new();
-
     // Truncated original faces: each corner → two edge-points (in, then out).
+    let mut faces: Vec<Vec<usize>> = Vec::new();
     for face in &polys {
         let n = face.len();
         let mut nf = Vec::with_capacity(2 * n);
@@ -398,13 +473,10 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
             nf.push(ep_index[&(cur, prev)]); // on edge entering `cur`
             nf.push(ep_index[&(cur, next)]); // on edge leaving `cur`
         }
-        new_faces.push(nf);
+        faces.push(nf);
     }
 
-    // Vertex faces. Around each vertex, each face pairs its two edges at that
-    // corner: out-edge `V→next` links to in-edge `prev→V`. Chaining those links
-    // walks the incident edges in angular order; the edge-points in that order
-    // form the vertex face, wound outward.
+    // Per-vertex edge-point ring, in angular order (out-neighbour → in-neighbour).
     let nv = positions.len();
     let mut links: Vec<HashMap<usize, usize>> = vec![HashMap::new(); nv];
     for face in &polys {
@@ -413,32 +485,208 @@ pub fn bevel_vertices(mesh: &Mesh, width: f64) -> Mesh {
             let prev = face[(i + n - 1) % n].0;
             let cur = face[i].0;
             let next = face[(i + 1) % n].0;
-            links[cur].insert(next, prev); // out-neighbour `next` → in-neighbour `prev`
+            links[cur].insert(next, prev);
         }
     }
 
+    let mut rings: Vec<Vec<usize>> = Vec::with_capacity(nv);
     for v in 0..nv {
         let map = &links[v];
-        if map.is_empty() {
-            continue; // isolated vertex — no incident face
-        }
-        let start = *map.keys().next().expect("non-empty link map");
-        let mut vf: Vec<usize> = Vec::with_capacity(map.len());
-        let mut cur = start;
-        // Bounded by the degree so a non-manifold vertex can't loop forever.
-        for _ in 0..=map.len() {
-            vf.push(ep_index[&(v, cur)]);
-            match map.get(&cur) {
-                Some(&nx) if nx != start => cur = nx,
-                _ => break,
+        let mut ring: Vec<usize> = Vec::new();
+        if !map.is_empty() {
+            let start = *map.keys().next().expect("non-empty link map");
+            let mut cur = start;
+            // Bounded by the degree so a non-manifold vertex can't loop forever.
+            for _ in 0..=map.len() {
+                ring.push(ep_index[&(v, cur)]);
+                match map.get(&cur) {
+                    Some(&nx) if nx != start => cur = nx,
+                    _ => break,
+                }
             }
         }
-        if vf.len() >= 3 {
-            new_faces.push(vf);
+        rings.push(ring);
+    }
+
+    TruncSkeleton {
+        positions: new_positions,
+        faces,
+        rings,
+    }
+}
+
+/// Rounded (multi-segment) vertex bevel — truncate every vertex and replace the
+/// flat chamfer with a **spherical cap** of `segments` bands.
+///
+/// # What it computes
+///
+/// The truncation (edge-points, widened faces) is identical to
+/// [`bevel_vertices`]; only the per-vertex cap differs. For `segments <= 1` this
+/// *is* [`bevel_vertices`] (one flat face per vertex). For `segments >= 2`, each
+/// vertex `V`'s edge-point ring is domed into a spherical cap on the sphere
+/// centred at `V` of radius `~width`:
+///
+/// - the ring of edge-points is **band 0** (shared with the truncated faces, so
+///   the result stays watertight);
+/// - `segments - 1` **intermediate rings** are inserted by spherical-linear
+///   interpolation (`slerp`) of each edge-point's direction toward the cap
+///   **apex** `V + R * n`, where `n` is the outward vertex normal (sum of
+///   incident face normals) and `R` the mean edge-point distance; the radius is
+///   interpolated linearly so band 0 stays exactly on the (possibly
+///   per-edge-clamped) edge-points;
+/// - the cap closes with a triangle fan to the apex.
+///
+/// The corner therefore becomes a smooth convex spherical cap of radius `~width`
+/// about the original vertex — a *rounded* bevel. This is a mesh-authoring
+/// rounding (a spherical cap through the edge-points), **not** a CAD fillet
+/// tangent to the adjacent faces; the apex bulges toward the original corner
+/// along the outward normal. Higher `segments` gives a smoother cap.
+///
+/// # Counts (verification)
+///
+/// For a cube (`V=8, E=12, F=6`, every vertex degree 3) at `segments = s >= 2`:
+/// `V = 24s + 8`, `F = 24s + 6` (6 octagons + `3s` cap faces per vertex),
+/// `E = 48s + 12`, `chi = 2`. Asserted in the module tests.
+///
+/// # Inputs / units
+///
+/// - `mesh` — source mesh (borrowed, unmodified); assumed manifold/orientable.
+/// - `width` — chamfer width (model-space units, clamped per-edge to half the
+///   edge length), same as [`bevel_vertices`].
+/// - `segments` — bevel resolution: `0`/`1` = single flat chamfer, `>= 2` =
+///   rounded cap with `segments - 1` intermediate rings.
+pub fn bevel_vertices_rounded(mesh: &Mesh, width: f64, segments: u32) -> Mesh {
+    if segments <= 1 {
+        return bevel_vertices(mesh, width);
+    }
+    let seg = segments as usize;
+    let skel = truncate_skeleton(mesh, width);
+    let src = mesh.positions();
+
+    // Outward vertex normals = normalized sum of incident face normals.
+    let nv = src.len();
+    let mut vnormal = vec![Vec3::ZERO; nv];
+    for f in 0..mesh.face_count() {
+        let fn_ = mesh.face_normal(FaceId(f));
+        for v in mesh.face_vertices(FaceId(f)) {
+            vnormal[v.0] = vnormal[v.0].add(fn_);
         }
     }
 
-    Mesh::from_polygons(&new_positions, &new_faces)
+    let mut positions = skel.positions;
+    let mut faces = skel.faces;
+
+    for (v, ring) in skel.rings.iter().enumerate() {
+        if ring.len() < 3 {
+            continue;
+        }
+        let vpos = src[v];
+        let n_out = vnormal[v].normalize();
+        if n_out == Vec3::ZERO {
+            // Degenerate normal — fall back to a flat cap for this vertex.
+            faces.push(ring.clone());
+            continue;
+        }
+
+        let d = ring.len();
+        // Band 0 = the edge-points; per-edge directions and radii from V.
+        let dir0: Vec<Vec3> = ring
+            .iter()
+            .map(|&ep| positions[ep].sub(vpos).normalize())
+            .collect();
+        let len0: Vec<f64> = ring
+            .iter()
+            .map(|&ep| positions[ep].sub(vpos).length())
+            .collect();
+        let apex_r = len0.iter().sum::<f64>() / d as f64;
+
+        // Intermediate ring vertex indices, `ring_idx[k]` for k = 1..seg-1.
+        let mut ring_idx: Vec<Vec<usize>> = Vec::with_capacity(seg - 1);
+        for k in 1..seg {
+            let t = k as f64 / seg as f64;
+            let mut this_ring = Vec::with_capacity(d);
+            for i in 0..d {
+                let dir = slerp(dir0[i], n_out, t);
+                let r = len0[i] * (1.0 - t) + apex_r * t;
+                this_ring.push(positions.len());
+                positions.push(vpos.add(dir.scale(r)));
+            }
+            ring_idx.push(this_ring);
+        }
+        // Apex.
+        let apex = positions.len();
+        positions.push(vpos.add(n_out.scale(apex_r)));
+
+        // Bands: ring[0] = edge-points, ring[k] = ring_idx[k-1], up to apex.
+        let mut prev: Vec<usize> = ring.clone();
+        for band in ring_idx.iter() {
+            for i in 0..d {
+                let j = (i + 1) % d;
+                push_oriented(
+                    &mut faces,
+                    &positions,
+                    vpos,
+                    vec![prev[i], prev[j], band[j], band[i]],
+                );
+            }
+            prev = band.clone();
+        }
+        // Top fan to the apex.
+        for i in 0..d {
+            let j = (i + 1) % d;
+            push_oriented(&mut faces, &positions, vpos, vec![prev[i], prev[j], apex]);
+        }
+    }
+
+    Mesh::from_polygons(&positions, &faces)
+}
+
+/// Push face `idx` into `faces`, reversing its winding if needed so its outward
+/// normal points away from the cap centre `centre` (i.e. `normal . (centroid -
+/// centre) >= 0`). Keeps every rounded-cap face consistently outward regardless
+/// of the ring traversal direction.
+fn push_oriented(faces: &mut Vec<Vec<usize>>, positions: &[Vec3], centre: Vec3, idx: Vec<usize>) {
+    let mut c = Vec3::ZERO;
+    for &i in &idx {
+        c = c.add(positions[i]);
+    }
+    let c = c.scale(1.0 / idx.len() as f64);
+    // Newell normal of the polygon.
+    let mut nrm = Vec3::ZERO;
+    for k in 0..idx.len() {
+        let p = positions[idx[k]];
+        let q = positions[idx[(k + 1) % idx.len()]];
+        nrm = nrm.add(Vec3::new(
+            (p.y - q.y) * (p.z + q.z),
+            (p.z - q.z) * (p.x + q.x),
+            (p.x - q.x) * (p.y + q.y),
+        ));
+    }
+    let mut idx = idx;
+    if nrm.dot(c.sub(centre)) < 0.0 {
+        idx.reverse();
+    }
+    faces.push(idx);
+}
+
+/// Spherical-linear interpolation of two **unit** vectors by `t in [0, 1]`.
+///
+/// Returns a unit vector on the great-circle arc from `a` (t=0) to `b` (t=1).
+/// Degenerates gracefully: near-parallel inputs return `a`; near-antiparallel
+/// inputs fall back to normalized linear interpolation (the arc is undefined
+/// there, but this keeps the result finite for the rounded-bevel cap).
+fn slerp(a: Vec3, b: Vec3, t: f64) -> Vec3 {
+    let dot = a.dot(b).clamp(-1.0, 1.0);
+    let omega = dot.acos();
+    if omega < 1e-9 {
+        return a;
+    }
+    if omega > std::f64::consts::PI - 1e-9 {
+        return a.scale(1.0 - t).add(b.scale(t)).normalize();
+    }
+    let so = omega.sin();
+    a.scale(((1.0 - t) * omega).sin() / so)
+        .add(b.scale((t * omega).sin() / so))
 }
 
 /// A closed set of mesh-editing operators.
@@ -468,17 +716,17 @@ pub enum MeshOp {
     },
     /// Bevel (truncate) every vertex by `width` model-space units.
     ///
-    /// Only the **single-chamfer** vertex bevel is implemented ([`bevel_vertices`]):
-    /// `segments` is accepted for API stability but a value `>= 2` (a *rounded*,
-    /// multi-segment bevel) is **not** built — [`MeshOp::apply`] applies the
-    /// single chamfer regardless of `segments` and does not add intermediate
-    /// rings. Rounded multi-segment bevels are a documented follow-up.
+    /// Dispatches to [`bevel_vertices_rounded`]: `segments <= 1` is the single
+    /// flat chamfer ([`bevel_vertices`], the polyhedral truncation);
+    /// `segments >= 2` rounds each cut corner into a spherical cap with
+    /// `segments - 1` intermediate rings.
     Bevel {
         /// Bevel width in model-space units (clamped per-edge to half the edge
         /// length).
         width: f64,
-        /// Number of segments across the bevel. `1` = a single chamfer (the only
-        /// case built); `>= 2` is treated as `1` today (see the variant docs).
+        /// Number of segments across the bevel: `1` = a single flat chamfer,
+        /// `>= 2` = a rounded spherical cap with `segments - 1` intermediate
+        /// rings (see [`bevel_vertices_rounded`]).
         segments: u32,
     },
     /// Combine the target mesh with `other` under a [`BooleanMode`], delegated to
@@ -488,6 +736,103 @@ pub enum MeshOp {
         other: Mesh,
         /// Union / difference / intersection.
         mode: BooleanMode,
+    },
+    /// **Implicit Laplacian smoothing** (mesh fairing), delegated to
+    /// [`crate::laplacian::laplacian_smooth`]. Solves `(I + λL) x' = x` per
+    /// iteration with boundary vertices pinned; unconditionally stable.
+    Smooth {
+        /// Uniform (umbrella) or cotangent (Laplace–Beltrami) weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Smoothing strength per step (`>= 0`; `0` is a no-op).
+        lambda: f64,
+        /// Number of implicit steps (`0` is a no-op).
+        iterations: u32,
+    },
+    /// **Taubin `λ|μ` smoothing** (explicit, shrinkage-free denoising), delegated
+    /// to [`crate::laplacian::taubin_smooth`].
+    Taubin {
+        /// Uniform or cotangent weighting.
+        weighting: crate::laplacian::LaplacianWeighting,
+        /// Shrinking factor `0 < λ < 1`.
+        lambda: f64,
+        /// Un-shrinking factor `−1 < μ < −λ`.
+        mu: f64,
+        /// Number of `λ|μ` iteration pairs.
+        iterations: u32,
+    },
+    /// **As-Rigid-As-Possible deformation**, delegated to
+    /// [`crate::arap::arap_deform`]. Deforms the mesh to meet the `handles`
+    /// (vertex → target) while keeping one-rings maximally rigid.
+    Arap {
+        /// Handle constraints: each `(vertex, target position)`.
+        handles: Vec<(crate::mesh::VertexId, Vec3)>,
+        /// Number of local/global ARAP iterations.
+        iterations: u32,
+    },
+    /// **QEM mesh decimation** (quadric-error-metric simplification), delegated
+    /// to [`crate::decimate::decimate`]. Reduces the mesh to roughly
+    /// `target_faces` triangles.
+    Decimate {
+        /// The goal triangle count (a lower-bound target).
+        target_faces: usize,
+    },
+    /// **Loop subdivision** (smooth triangle subdivision surface), delegated to
+    /// [`crate::loop_subdivision::loop_subdivide`].
+    LoopSubdivide {
+        /// Number of refinement steps (each quadruples the triangle count).
+        iterations: u32,
+    },
+    /// Replace the mesh with the **convex hull of its vertices**, delegated to
+    /// [`crate::convex_hull::convex_hull`].
+    ConvexHull,
+    /// **Weld / remove-doubles**: merge vertices closer than `distance` into
+    /// one, delegated to [`crate::weld::weld`]. `distance = 0` welds only
+    /// bit-identical duplicates (a safe no-op otherwise).
+    Weld {
+        /// Euclidean merge tolerance in mesh units (`0` = exact duplicates only).
+        distance: f64,
+    },
+    /// **Fill holes**: cap every open boundary loop with a centroid triangle
+    /// fan, delegated to [`crate::fill_holes::fill_holes`]. A no-op on an
+    /// already-closed mesh.
+    FillHoles,
+    /// **Solidify**: extrude the surface into a closed shell of the given
+    /// `thickness`, delegated to [`crate::solidify::solidify`]. An open surface
+    /// becomes a slab; a closed surface becomes a hollow double shell.
+    Solidify {
+        /// Shell thickness in mesh units; the inner shell is offset inward.
+        thickness: f64,
+    },
+    /// **Recalculate normals outside**: make the winding globally consistent and
+    /// outward-facing, delegated to
+    /// [`crate::recalc_normals::recalculate_normals`]. Repairs an
+    /// inconsistently-wound polygon soup.
+    RecalculateNormals,
+    /// **Triangulate**: fan-triangulate every face into triangles, delegated to
+    /// [`crate::triangulate::triangulate`]. Produces a triangle-only mesh for
+    /// the operators/bridges that require one.
+    Triangulate,
+    /// **Inset faces**: replace each face with a shrunk inner copy plus a ring
+    /// of bridging quads, delegated to [`crate::inset::inset_faces`].
+    Inset {
+        /// Fraction each corner moves toward its face centroid, in `(0, 1)`.
+        amount: f64,
+    },
+    /// **Bisect**: cut the mesh by a plane and keep the `normal`-negative half,
+    /// delegated to [`crate::bisect::bisect`]. The cut is left open (cap it with
+    /// [`MeshOp::FillHoles`]).
+    Bisect {
+        /// A point the cutting plane passes through.
+        point: Vec3,
+        /// The plane normal; the kept half is where `normal · (x − point) <= 0`.
+        normal: Vec3,
+    },
+    /// **Edge bevel**: chamfer every edge by `width`, delegated to
+    /// [`crate::edge_bevel::bevel_edges`]. Distinct from [`MeshOp::Bevel`], which
+    /// truncates *vertices*.
+    BevelEdges {
+        /// Distance each face is cut back from its edges (mesh units).
+        width: f64,
     },
 }
 
@@ -500,10 +845,36 @@ impl MeshOp {
     /// - [`MeshOp::Extrude`] → [`extrude_faces`] over every face (whole-mesh
     ///   extrude).
     /// - [`MeshOp::Subdivide`] → [`subdivide`].
-    /// - [`MeshOp::Bevel`] → [`bevel_vertices`] (single chamfer; `segments >= 2`
-    ///   is treated as `1`, see the variant docs).
+    /// - [`MeshOp::Bevel`] → [`bevel_vertices_rounded`] (single flat chamfer for
+    ///   `segments <= 1`, a rounded spherical cap for `segments >= 2`).
     /// - [`MeshOp::Boolean`] → [`crate::boolean::boolean`], whose error is
     ///   surfaced as [`MeshOpError::Boolean`].
+    /// - [`MeshOp::Smooth`] → [`crate::laplacian::laplacian_smooth`], whose error
+    ///   is surfaced as [`MeshOpError::Laplacian`].
+    /// - [`MeshOp::Taubin`] → [`crate::laplacian::taubin_smooth`] (infallible
+    ///   explicit filter).
+    /// - [`MeshOp::Arap`] → [`crate::arap::arap_deform`], error surfaced as
+    ///   [`MeshOpError::Arap`].
+    /// - [`MeshOp::Decimate`] → [`crate::decimate::decimate`].
+    /// - [`MeshOp::LoopSubdivide`] → [`crate::loop_subdivision::loop_subdivide`].
+    /// - [`MeshOp::ConvexHull`] → [`crate::convex_hull::convex_hull`] over the
+    ///   mesh's vertex positions, error surfaced as [`MeshOpError::Hull`].
+    /// - [`MeshOp::Weld`] → [`crate::weld::weld`].
+    /// - [`MeshOp::FillHoles`] → [`crate::fill_holes::fill_holes`].
+    /// - [`MeshOp::Solidify`] → [`crate::solidify::solidify`].
+    /// - [`MeshOp::RecalculateNormals`] →
+    ///   [`crate::recalc_normals::recalculate_normals`].
+    /// - [`MeshOp::Triangulate`] → [`crate::triangulate::triangulate`].
+    /// - [`MeshOp::Inset`] → [`crate::inset::inset_faces`].
+    /// - [`MeshOp::Bisect`] → [`crate::bisect::bisect`].
+    /// - [`MeshOp::BevelEdges`] → [`crate::edge_bevel::bevel_edges`].
+    ///
+    /// # Errors
+    ///
+    /// Only the four delegating variants above can fail
+    /// ([`MeshOpError::Boolean`], [`MeshOpError::Laplacian`],
+    /// [`MeshOpError::Arap`], [`MeshOpError::Hull`]); every other variant is
+    /// infallible and always returns [`Ok`].
     pub fn apply(&self, mesh: Mesh) -> Result<Mesh, MeshOpError> {
         match self {
             MeshOp::Extrude { offset } => {
@@ -511,8 +882,51 @@ impl MeshOp {
                 Ok(extrude_faces(&mesh, &faces, *offset))
             }
             MeshOp::Subdivide { iterations } => Ok(subdivide(&mesh, *iterations)),
-            MeshOp::Bevel { width, .. } => Ok(bevel_vertices(&mesh, *width)),
+            MeshOp::Bevel { width, segments } => {
+                Ok(bevel_vertices_rounded(&mesh, *width, *segments))
+            }
             MeshOp::Boolean { other, mode } => Ok(crate::boolean::boolean(&mesh, other, *mode)?),
+            MeshOp::Smooth {
+                weighting,
+                lambda,
+                iterations,
+            } => Ok(crate::laplacian::laplacian_smooth(
+                &mesh,
+                *weighting,
+                *lambda,
+                *iterations,
+            )?),
+            MeshOp::Taubin {
+                weighting,
+                lambda,
+                mu,
+                iterations,
+            } => Ok(crate::laplacian::taubin_smooth(
+                &mesh,
+                *weighting,
+                *lambda,
+                *mu,
+                *iterations,
+            )),
+            MeshOp::Arap {
+                handles,
+                iterations,
+            } => Ok(crate::arap::arap_deform(&mesh, handles, *iterations)?),
+            MeshOp::Decimate { target_faces } => {
+                Ok(crate::decimate::decimate(&mesh, *target_faces))
+            }
+            MeshOp::LoopSubdivide { iterations } => {
+                Ok(crate::loop_subdivision::loop_subdivide(&mesh, *iterations))
+            }
+            MeshOp::ConvexHull => Ok(crate::convex_hull::convex_hull(&mesh.positions())?),
+            MeshOp::Weld { distance } => Ok(crate::weld::weld(&mesh, *distance)),
+            MeshOp::FillHoles => Ok(crate::fill_holes::fill_holes(&mesh)),
+            MeshOp::Solidify { thickness } => Ok(crate::solidify::solidify(&mesh, *thickness)),
+            MeshOp::RecalculateNormals => Ok(crate::recalc_normals::recalculate_normals(&mesh)),
+            MeshOp::Triangulate => Ok(crate::triangulate::triangulate(&mesh)),
+            MeshOp::Inset { amount } => Ok(crate::inset::inset_faces(&mesh, *amount)),
+            MeshOp::Bisect { point, normal } => Ok(crate::bisect::bisect(&mesh, *point, *normal)),
+            MeshOp::BevelEdges { width } => Ok(crate::edge_bevel::bevel_edges(&mesh, *width)),
         }
     }
 }
@@ -530,7 +944,7 @@ mod tests {
     /// and strictly larger than the input.
     /// Result (data-independent, topological): cube 8/6 → 26 verts / 24 faces.
     #[test]
-    fn operators_report_not_implemented() {
+    fn implemented_operators_dispatch_and_edit() {
         let m = primitives::cube(1.0);
         let op = MeshOp::Subdivide { iterations: 1 };
         let out = op.apply(m).expect("subdivide is implemented");
@@ -565,7 +979,9 @@ mod tests {
     #[test]
     fn meshop_extrude_dispatches_over_all_faces() {
         let grid = primitives::grid(1, 1, 2.0);
-        let op = MeshOp::Extrude { offset: Vec3::new(0.0, 0.0, 1.0) };
+        let op = MeshOp::Extrude {
+            offset: Vec3::new(0.0, 0.0, 1.0),
+        };
         let out = op.apply(grid).expect("extrude implemented");
         // Same cup as the direct call above.
         assert_eq!(out.vertex_count(), 8);
@@ -600,7 +1016,11 @@ mod tests {
         let cube = primitives::cube(2.0);
 
         let zero = subdivide(&cube, 0);
-        assert_eq!(zero.vertex_count(), cube.vertex_count(), "0 iters is a clone");
+        assert_eq!(
+            zero.vertex_count(),
+            cube.vertex_count(),
+            "0 iters is a clone"
+        );
         assert_eq!(zero.face_count(), cube.face_count());
 
         let twice = subdivide(&cube, 2);
@@ -644,19 +1064,102 @@ mod tests {
         assert_eq!(oct, 6, "6 octagonal truncated faces");
     }
 
-    /// Bevel via [`MeshOp::Bevel`] with `segments >= 2` still applies only the
-    /// single chamfer (documented limitation) — the result equals `segments = 1`.
+    /// Rounded (multi-segment) vertex bevel of a cube.
+    ///
+    /// Methodology: bevel `cube(2.0)` at `width = 0.5` with `segments = s`. For a
+    /// cube (every vertex degree 3) the closed-form counts are `V = 24s + 8`,
+    /// `F = 24s + 6` (6 octagons + `3s` spherical-cap faces per vertex), and
+    /// `E = 48s + 12`, so `chi = 2`. The result must be a closed 2-manifold and
+    /// the cap vertices must lie on the sphere of radius `~width` about each
+    /// original corner (genuinely rounded, not flat).
+    ///
+    /// Results (asserted below) for `s = 3`: `V = 80`, `F = 78`, `chi = 2`,
+    /// every edge shared by exactly two faces, and the beveled cube's bounding
+    /// box slightly exceeds the original `[-1,1]^3` because the convex cap bulges
+    /// outward along each corner's normal.
     #[test]
-    fn meshop_bevel_multisegment_falls_back_to_single_chamfer() {
+    fn rounded_bevel_cube_counts_and_manifold() {
+        let s = 3u32;
+        let out = bevel_vertices_rounded(&primitives::cube(2.0), 0.5, s);
+        let sf = s as i64;
+        assert_eq!(out.vertex_count() as i64, 24 * sf + 8, "V = 24s + 8");
+        assert_eq!(out.face_count() as i64, 24 * sf + 6, "F = 24s + 6");
+        assert_eq!(out.euler_characteristic(), 2, "closed solid, chi = 2");
+
+        // Edge-manifold: every undirected edge borders exactly two faces.
+        let mut edge_use: HashMap<(usize, usize), usize> = HashMap::new();
+        for f in 0..out.face_count() {
+            let vs = out.face_vertices(FaceId(f));
+            let n = vs.len();
+            for i in 0..n {
+                let (a, b) = (vs[i].0, vs[(i + 1) % n].0);
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_use.entry(key).or_insert(0) += 1;
+            }
+        }
+        assert!(
+            edge_use.values().all(|&c| c == 2),
+            "rounded bevel must be edge-manifold"
+        );
+    }
+
+    /// [`MeshOp::Smooth`] dispatches to Laplacian smoothing: it preserves the
+    /// mesh's topology (vertex/face counts and `chi`) and, on a closed sphere,
+    /// returns a valid closed mesh. (Numerical denoising behaviour is verified
+    /// in the `laplacian` module tests.)
+    #[test]
+    fn meshop_smooth_preserves_topology() {
+        use crate::laplacian::LaplacianWeighting;
+        let sphere = primitives::uv_sphere(16, 8, 1.0);
+        let (v, f, chi) = (
+            sphere.vertex_count(),
+            sphere.face_count(),
+            sphere.euler_characteristic(),
+        );
+        let out = MeshOp::Smooth {
+            weighting: LaplacianWeighting::Cotangent,
+            lambda: 0.5,
+            iterations: 2,
+        }
+        .apply(sphere)
+        .expect("smoothing solve ok");
+        assert_eq!(out.vertex_count(), v, "smoothing preserves vertex count");
+        assert_eq!(out.face_count(), f, "smoothing preserves face count");
+        assert_eq!(
+            out.euler_characteristic(),
+            chi,
+            "smoothing preserves topology (chi)"
+        );
+    }
+
+    /// `segments <= 1` is exactly the single flat chamfer (the truncated cube),
+    /// while `segments >= 2` adds intermediate rings — so the two differ.
+    #[test]
+    fn rounded_bevel_segments_change_the_result() {
         let cube = primitives::cube(2.0);
-        let one = MeshOp::Bevel { width: 0.5, segments: 1 }
-            .apply(cube.clone())
-            .expect("bevel implemented");
-        let many = MeshOp::Bevel { width: 0.5, segments: 4 }
-            .apply(cube)
-            .expect("bevel implemented");
-        assert_eq!(one.vertex_count(), many.vertex_count());
-        assert_eq!(one.face_count(), many.face_count());
-        assert_eq!(one.vertex_count(), 24, "same truncated cube either way");
+        let flat = MeshOp::Bevel {
+            width: 0.5,
+            segments: 1,
+        }
+        .apply(cube.clone())
+        .expect("bevel implemented");
+        let rounded = MeshOp::Bevel {
+            width: 0.5,
+            segments: 4,
+        }
+        .apply(cube)
+        .expect("bevel implemented");
+        assert_eq!(flat.vertex_count(), 24, "segments=1 is the truncated cube");
+        assert!(
+            rounded.vertex_count() > flat.vertex_count(),
+            "segments>=2 must add intermediate-ring vertices ({} vs {})",
+            rounded.vertex_count(),
+            flat.vertex_count()
+        );
+        assert_eq!(
+            rounded.euler_characteristic(),
+            2,
+            "rounded result still closed"
+        );
     }
 }

@@ -37,19 +37,23 @@
 //!   it pulls the broadened value back down toward the physical result.
 
 use crate::{common::phys::BK_EV_PER_K, reconr::ReconrSection};
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::*;
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 
 /// erfc(x) for x ≥ 0, max absolute error < 1.2 × 10⁻⁷ (A&S 7.1.26).
 fn erfc_nonneg(x: f64) -> f64 {
-    if x >= 10.0 { return 0.0; }
+    if x >= 10.0 {
+        return 0.0;
+    }
     let t = 1.0 / (1.0 + 0.327_591_1 * x);
-    let poly = t * (0.254_829_592
-        + t * (-0.284_496_736
-        + t * (1.421_413_741
-        + t * (-1.453_152_027
-        + t * 1.061_405_429))));
+    let poly = t
+        * (0.254_829_592
+            + t * (-0.284_496_736
+                + t * (1.421_413_741 + t * (-1.453_152_027 + t * 1.061_405_429))));
     poly * (-x * x).exp()
 }
 
@@ -64,17 +68,19 @@ const F_ZERO: [f64; 5] = [0.5, INV2SQRTPI, 0.25, INV2SQRTPI, 0.375];
 ///
 /// `f_n(a) = ∫_a^∞ z^n · exp(-z²) dz / √π`
 fn f_funcs(a: f64) -> [f64; 5] {
-    if a >= 10.0 { return [0.0; 5]; }
-    let asq   = a * a;
-    let expo  = (-asq).exp() / SQRT_PI;   // exp(-a²)/√π
-    let f0    = 0.5 * erfc_nonneg(a);
-    let f1    = 0.5 * expo;
-    let expoa = expo * a;                  // a·exp(-a²)/√π
-    let f2    = 0.5 * (f0 + expoa);
+    if a >= 10.0 {
+        return [0.0; 5];
+    }
+    let asq = a * a;
+    let expo = (-asq).exp() / SQRT_PI; // exp(-a²)/√π
+    let f0 = 0.5 * erfc_nonneg(a);
+    let f1 = 0.5 * expo;
+    let expoa = expo * a; // a·exp(-a²)/√π
+    let f2 = 0.5 * (f0 + expoa);
     let expoa2 = expoa * a;
-    let f3    = 0.5 * (2.0 * f1 + expoa2);
+    let f3 = 0.5 * (2.0 * f1 + expoa2);
     let expoa3 = expoa2 * a;
-    let f4    = 0.5 * (3.0 * f2 + expoa3);
+    let f4 = 0.5 * (3.0 * f2 + expoa3);
     [f0, f1, f2, f3, f4]
 }
 
@@ -90,7 +96,9 @@ fn h_funcs(f_old: &[f64; 5], a_new: f64) -> ([f64; 5], [f64; 5]) {
     for k in 0..5 {
         h[k] -= f_new[k];
         const SMALL: f64 = 1e-12;
-        if h[k].abs() <= SMALL * f_new[k].abs() { h[k] = 0.0; }
+        if h[k].abs() <= SMALL * f_new[k].abs() {
+            h[k] = 0.0;
+        }
     }
     (h, f_new)
 }
@@ -102,9 +110,9 @@ fn h_funcs(f_old: &[f64; 5], a_new: f64) -> ([f64; 5], [f64; 5]) {
 /// - `xx = (reference endpoint)²`
 fn s_terms(h: &[f64; 5], oy: f64, yy: f64, xx: f64) -> (f64, f64) {
     let s1 = (h[2] * oy + 2.0 * h[1]) * oy + h[0];
-    let s2 = ((h[4] + (6.0 * yy - xx) * h[2]) * oy
-            + (4.0 * h[3] + (4.0 * yy - 2.0 * xx) * h[1])) * oy
-            + (yy - xx) * h[0];
+    let s2 = ((h[4] + (6.0 * yy - xx) * h[2]) * oy + (4.0 * h[3] + (4.0 * yy - 2.0 * xx) * h[1]))
+        * oy
+        + (yy - xx) * h[0];
     (s1, s2)
 }
 
@@ -119,17 +127,23 @@ fn s_terms(h: &[f64; 5], oy: f64, yy: f64, xx: f64) -> (f64, f64) {
 /// Returns the broadened cross section \[b\] at the query point.
 fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
     let n = eu.len();
-    if n < 2 { return sigma[0]; }
+    if n < 2 {
+        return sigma[0];
+    }
 
-    const ATOP: f64 = 4.0;     // Gaussian tail cutoff: exp(-16) ≈ 1e-7
+    const ATOP: f64 = 4.0; // Gaussian tail cutoff: exp(-16) ≈ 1e-7
 
-    let yy  = y * y;
-    let oy  = -1.0 / y;        // negative 1/y for below-y panels
+    let yy = y * y;
+    let oy = -1.0 / y; // negative 1/y for below-y panels
 
     // Locate panel containing y
     let k = {
         let pos = eu.partition_point(|&u| u <= y);
-        if pos == 0 { 0 } else { (pos - 1).min(n - 2) }
+        if pos == 0 {
+            0
+        } else {
+            (pos - 1).min(n - 2)
+        }
     };
 
     let mut sbt = 0.0f64;
@@ -140,10 +154,12 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
     let mut l = k + 1;
     while l > 0 {
         l -= 1;
-        let x  = eu[l];
+        let x = eu[l];
         let xp = eu[l + 1];
         let xx = xp * xp;
-        if xx <= x * x { continue; }
+        if xx <= x * x {
+            continue;
+        }
 
         let aa = y - x;
         let (h, f_new) = h_funcs(&f, aa);
@@ -154,7 +170,9 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
         let (s1, s2) = s_terms(&h, oy, yy, xx);
         sbt += sigma[l + 1] * s1 + slope * s2;
 
-        if aa > ATOP { break; }
+        if aa > ATOP {
+            break;
+        }
     }
 
     // 1/v extension below klow=0: σ(u) = σ_0 · u_0 / u
@@ -166,14 +184,16 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
     }
 
     // ── Above-y panels (l = k up to n-2) ───────────────────────────────────
-    let oy = -oy;               // flip: now positive 1/y for above-y panels
+    let oy = -oy; // flip: now positive 1/y for above-y panels
     let mut f = F_ZERO;
 
     for l in k..(n - 1) {
-        let x  = eu[l + 1];    // right endpoint
-        let xm = eu[l];        // left endpoint
+        let x = eu[l + 1]; // right endpoint
+        let xm = eu[l]; // left endpoint
         let xx = xm * xm;
-        if xx >= x * x { continue; }
+        if xx >= x * x {
+            continue;
+        }
 
         let aa = x - y;
         let (h, f_new) = h_funcs(&f, aa);
@@ -184,7 +204,9 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
         let (s1, s2) = s_terms(&h, oy, yy, xx);
         sbt += sigma[l] * s1 + slope * s2;
 
-        if aa > ATOP { break; }
+        if aa > ATOP {
+            break;
+        }
     }
 
     // Constant extension above khigh (last value)
@@ -201,8 +223,8 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
     // The (x+y) mapping means a = x + y, so at x = 0 we start at a = y (hence
     // `f_funcs(y)`, not `F_ZERO`), and a increases as x increases.
     if y <= ATOP {
-        let oy = -1.0 / y;          // Fortran: y=-y; oy=-oy  ⇒  oy = -1/y
-        let mut f = f_funcs(y);     // funky initialised at a = y
+        let oy = -1.0 / y; // Fortran: y=-y; oy=-oy  ⇒  oy = -1/y
+        let mut f = f_funcs(y); // funky initialised at a = y
 
         // 1/v extension below klow=0: panel x ∈ [0, eu[0]], a ∈ [y, eu[0]+y]
         let aa0 = eu[0] + y;
@@ -212,10 +234,12 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
 
         if aa0 <= ATOP {
             for l in 0..(n - 1) {
-                let x  = eu[l + 1];     // right endpoint
-                let xm = eu[l];         // left endpoint
+                let x = eu[l + 1]; // right endpoint
+                let xm = eu[l]; // left endpoint
                 let xx = xm * xm;
-                if x * x <= xx { continue; }
+                if x * x <= xx {
+                    continue;
+                }
 
                 let aa = x + y;
                 let (h, f_new) = h_funcs(&f, aa);
@@ -226,7 +250,9 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
                 let (s1, s2) = s_terms(&h, oy, yy, xx);
                 sbt -= sigma[l] * s1 + slope * s2;
 
-                if aa > ATOP { break; }
+                if aa > ATOP {
+                    break;
+                }
             }
 
             // Constant extension above khigh
@@ -256,11 +282,7 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
 /// The velocity-space scaling factor `α = AWR / (k_B · T)` maps energies to
 /// the dimensionless velocity `u = √(α·E)`. The free-gas kernel becomes a
 /// Gaussian in `u`, enabling analytic panel-by-panel integration.
-pub fn doppler_broaden(
-    sections: &[ReconrSection],
-    awr: f64,
-    temp_k: f64,
-) -> Vec<ReconrSection> {
+pub fn doppler_broaden(sections: &[ReconrSection], awr: f64, temp_k: f64) -> Vec<ReconrSection> {
     if sections.is_empty() || temp_k <= 0.0 {
         return sections.to_vec();
     }
@@ -278,7 +300,8 @@ pub fn doppler_broaden(
             // Each reaction is broadened on its own energy grid: RECONR may give
             // different reactions slightly different grids, so `eu` and `sigma`
             // must be built from the *same* section to stay length-consistent.
-            let eu: Vec<f64> = sec.pairs
+            let eu: Vec<f64> = sec
+                .pairs
                 .iter()
                 .map(|&(e, _)| if e > 0.0 { (alpha * e).sqrt() } else { 0.0 })
                 .collect();
@@ -301,7 +324,11 @@ pub fn doppler_broaden(
                 })
                 .collect();
 
-            ReconrSection { mt: sec.mt, qi: sec.qi, pairs }
+            ReconrSection {
+                mt: sec.mt,
+                qi: sec.qi,
+                pairs,
+            }
         })
         .collect()
 }
@@ -344,9 +371,9 @@ mod tests {
         let un = eu[eu.len() - 1];
         let sig = |x: f64| -> f64 {
             if x < u0 {
-                sigma[0] * u0 / x            // 1/v extension below the grid
+                sigma[0] * u0 / x // 1/v extension below the grid
             } else if x >= un {
-                sigma[sigma.len() - 1]       // constant extension above the grid
+                sigma[sigma.len() - 1] // constant extension above the grid
             } else {
                 // linear in u² (= linear in energy) within the panel
                 let i = eu.partition_point(|&u| u <= x).max(1) - 1;
@@ -362,7 +389,9 @@ mod tests {
         let mut acc = 0.0;
         for k in 0..=n {
             let x = (k as f64 + 0.5) * dx;
-            if x >= xmax { break; }
+            if x >= xmax {
+                break;
+            }
             let w = if k == 0 || k == n { 0.5 } else { 1.0 };
             let kern = (-(x - y).powi(2)).exp() - (-(x + y).powi(2)).exp();
             acc += w * sig(x) * x * x * kern;
@@ -375,7 +404,7 @@ mod tests {
         // Flat σ broadened at a spread of y values (low → high). The analytic
         // panel result must track the brute-force kernel integral everywhere.
         let kb = BK_EV_PER_K;
-        let alpha = 1.0 / (kb * 300.0);          // AWR=1, T=300 K
+        let alpha = 1.0 / (kb * 300.0); // AWR=1, T=300 K
         let e_grid: Vec<f64> = (0..50).map(|i| (i + 1) as f64 * 0.01).collect();
         let eu: Vec<f64> = e_grid.iter().map(|&e| (alpha * e).sqrt()).collect();
         let sigma = vec![100.0; e_grid.len()];
@@ -445,11 +474,14 @@ mod tests {
         // At T→0, alpha→∞, so all contributions collapse — in practice we bail
         // early on temp_k ≤ 0.
         let pairs = vec![(0.01, 10.0), (1.0, 5.0), (10.0, 2.0)];
-        let sec = ReconrSection { mt: MtReaction::Mt2Elastic, qi: 0.0, pairs };
+        let sec = ReconrSection {
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs,
+        };
         let out = doppler_broaden(&[sec.clone()], 35.0, 0.0);
         assert_eq!(out[0].pairs, sec.pairs);
     }
-
 }
 
 /// Run the BROADR card-input driver (NJOY module entry point).
@@ -459,5 +491,7 @@ mod tests {
 /// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
 /// typed API directly rather than this driver.
 pub fn run() -> Result<(), crate::NjoyError> {
-    Err(crate::NjoyError::NotPorted("broadr driver (physics ported — use the module API)"))
+    Err(crate::NjoyError::NotPorted(
+        "broadr driver (physics ported — use the module API)",
+    ))
 }

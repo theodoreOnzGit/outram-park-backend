@@ -16,6 +16,21 @@ Cargo.lock
 # Upstream reference clones (if ever added here) -- never committed.
 /upstream_source/*/
 
-# V&V raw data -- the .md write-ups in verification_and_validation/ are
-# committed; standalone .csv data files they reference are not.
+# V&V raw data. Every .md write-up in verification_and_validation/ is committed
+# -- both the hand-written ones and the machine-generated reports under
+# generated/ -- because the narrative and the numbers are the durable record and
+# stay small. Standalone .csv data files are NOT committed, at any depth:
+# regenerate them by re-running the test or example that produced them.
 /verification_and_validation/*.csv
+/verification_and_validation/**/*.csv
+
+# Generated output of the `steam_table_plotter` example (GitHub issue #26).
+# Regenerate the whole directory in a few seconds with:
+#
+#   cargo run --release -p tampines-steam-tables --example steam_table_plotter -- --export-all
+#
+# It is ignored by default because the four PNG/PDF/SVG figure sets plus their
+# curve and reference-point CSVs run to tens of megabytes, and every byte of it
+# is reproducible from the command above. If a particular figure is wanted as a
+# committed publication artifact, add that one file with `git add -f`.
+/figures/

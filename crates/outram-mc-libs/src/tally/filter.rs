@@ -10,7 +10,6 @@
 /// [`SpatialLegendreFilter`].
 /// TODO: Zernike, SphericalHarmonics, MuFilter, PolarAzimuthal,
 ///       Surface, DelayedGroup, Time, Particle.
-
 use crate::geometry::position::Position;
 use super::mesh::RegularMesh;
 
@@ -54,45 +53,104 @@ pub struct FilterEvent {
 // ── Concrete filters ──────────────────────────────────────────────────────────
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
-pub struct CellFilter { pub cell_indices: Vec<usize> }
+///
+/// **These are 0-based indices into the geometry's cell array, not cell IDs.**
+/// OpenMC's C++ filters bin by user-assigned global ID; this port bins by
+/// array position, matching [`FilterEvent::cell_idx`]. Passing an ID here
+/// silently produces wrong bins rather than an error, so the distinction
+/// matters more than it looks.
+///
+/// ```
+/// use outram_mc_libs::prelude::*;
+/// // the first and third cells of the geometry, not cells with IDs 1 and 3
+/// let f = CellFilter { cell_indices: vec![0, 2] };
+/// assert_eq!(f.n_bins(), 2);
+/// ```
+pub struct CellFilter {
+    /// 0-based positions in the cell array. One tally bin per entry.
+    pub cell_indices: Vec<usize>,
+}
 impl Filter for CellFilter {
-    fn n_bins(&self) -> usize { self.cell_indices.len() }
+    fn n_bins(&self) -> usize {
+        self.cell_indices.len()
+    }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         self.cell_indices.iter().position(|&c| c == ev.cell_idx)
     }
 }
 
 /// Filter by material.  Maps to `openmc::MaterialFilter`.
-pub struct MaterialFilter { pub material_indices: Vec<usize> }
+///
+/// **These are 0-based indices into the material array, not material IDs** --
+/// same convention as [`CellFilter`], and the same silent-wrong-answer trap if
+/// you pass an ID.
+pub struct MaterialFilter {
+    /// 0-based positions in the material array. One tally bin per entry.
+    pub material_indices: Vec<usize>,
+}
 impl Filter for MaterialFilter {
-    fn n_bins(&self) -> usize { self.material_indices.len() }
+    fn n_bins(&self) -> usize {
+        self.material_indices.len()
+    }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.material_indices.iter().position(|&m| m == ev.material_idx)
+        self.material_indices
+            .iter()
+            .position(|&m| m == ev.material_idx)
     }
 }
 
 /// Filter by energy bin (contiguous group boundaries in eV).
 /// Maps to `openmc::EnergyFilter`.
-pub struct EnergyFilter { pub bins: Vec<f64> }  // n+1 edges → n bins
+///
+/// **`bins` holds bin EDGES, not bin centres and not counts.** `n + 1`
+/// ascending edges define `n` bins. The name is short for "bin boundaries";
+/// read it as edges every time.
+///
+/// Energies outside `[bins[0], bins[last])` are not scored at all -- the event
+/// is dropped, not clamped into the end bin.
+///
+/// ```
+/// use outram_mc_libs::prelude::*;
+/// // 3 edges -> 2 bins: [0, 1) MeV and [1, 20) MeV, in eV
+/// let f = EnergyFilter { bins: vec![0.0, 1.0e6, 20.0e6] };
+/// assert_eq!(f.n_bins(), 2);
+/// ```
+pub struct EnergyFilter {
+    /// Ascending bin EDGES in eV. `n + 1` edges produce `n` bins.
+    pub bins: Vec<f64>,
+}
 impl Filter for EnergyFilter {
     fn n_bins(&self) -> usize {
-        if self.bins.len() < 2 { 0 } else { self.bins.len() - 1 }
+        if self.bins.len() < 2 {
+            0
+        } else {
+            self.bins.len() - 1
+        }
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         if ev.energy < self.bins[0] || ev.energy >= *self.bins.last().unwrap() {
             return None;
         }
-        let idx = self.bins.partition_point(|&e| e <= ev.energy).saturating_sub(1);
+        let idx = self
+            .bins
+            .partition_point(|&e| e <= ev.energy)
+            .saturating_sub(1);
         Some(idx)
     }
 }
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
-pub struct UniverseFilter { pub universe_indices: Vec<usize> }
+pub struct UniverseFilter {
+    pub universe_indices: Vec<usize>,
+}
 impl Filter for UniverseFilter {
-    fn n_bins(&self) -> usize { self.universe_indices.len() }
+    fn n_bins(&self) -> usize {
+        self.universe_indices.len()
+    }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.universe_indices.iter().position(|&u| u == ev.universe_idx)
+        self.universe_indices
+            .iter()
+            .position(|&u| u == ev.universe_idx)
     }
 }
 
@@ -109,9 +167,13 @@ impl Filter for UniverseFilter {
 /// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
 /// port scores the whole segment into the midpoint's cell, which is exact for a
 /// mesh whose cells are large relative to the mean free path.
-pub struct MeshFilter { pub mesh: RegularMesh }
+pub struct MeshFilter {
+    pub mesh: RegularMesh,
+}
 impl Filter for MeshFilter {
-    fn n_bins(&self) -> usize { self.mesh.n_bins() }
+    fn n_bins(&self) -> usize {
+        self.mesh.n_bins()
+    }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         self.mesh.get_bin(ev.position)
     }
@@ -193,7 +255,11 @@ impl Filter for SpatialLegendreFilter {
     /// single-bin filter.
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         let x = self.axis_coord(ev.position);
-        if x >= self.min && x <= self.max { Some(0) } else { None }
+        if x >= self.min && x <= self.max {
+            Some(0)
+        } else {
+            None
+        }
     }
 
     /// Legendre moment weights `P_0(ξ) … P_order(ξ)`, or `None` if the event's
@@ -246,17 +312,37 @@ mod tests {
     /// expected moment weights (P_0=1 everywhere; P_1=ξ).
     #[test]
     fn legendre_filter_normalizes_axis() {
-        let f = SpatialLegendreFilter { order: 2, axis: LegendreAxis::Z, min: -10.0, max: 10.0 };
+        let f = SpatialLegendreFilter {
+            order: 2,
+            axis: LegendreAxis::Z,
+            min: -10.0,
+            max: 10.0,
+        };
         let ev = |z: f64| FilterEvent {
-            cell_idx: 0, material_idx: 0, universe_idx: 0, energy: 1.0, surface_idx: usize::MAX,
+            cell_idx: 0,
+            material_idx: 0,
+            universe_idx: 0,
+            energy: 1.0,
+            surface_idx: usize::MAX,
             position: Position::new(0.0, 0.0, z),
         };
         let mid = f.expansion_moments(&ev(0.0)).unwrap();
         assert!((mid[0] - 1.0).abs() < 1e-14 && mid[1].abs() < 1e-14);
         let top = f.expansion_moments(&ev(10.0)).unwrap();
-        assert!((top[1] - 1.0).abs() < 1e-14, "max → ξ=+1 ⇒ P_1=1, got {}", top[1]);
+        assert!(
+            (top[1] - 1.0).abs() < 1e-14,
+            "max → ξ=+1 ⇒ P_1=1, got {}",
+            top[1]
+        );
         let bot = f.expansion_moments(&ev(-10.0)).unwrap();
-        assert!((bot[1] + 1.0).abs() < 1e-14, "min → ξ=−1 ⇒ P_1=−1, got {}", bot[1]);
-        assert!(f.expansion_moments(&ev(11.0)).is_none(), "outside [min,max] → None");
+        assert!(
+            (bot[1] + 1.0).abs() < 1e-14,
+            "min → ξ=−1 ⇒ P_1=−1, got {}",
+            bot[1]
+        );
+        assert!(
+            f.expansion_moments(&ev(11.0)).is_none(),
+            "outside [min,max] → None"
+        );
     }
 }

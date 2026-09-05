@@ -22,14 +22,33 @@
 pub use crate::error::AppBuilderError;
 
 // I/O
-pub use crate::io::control_dict::{
-    ControlDict, StartControl, StopControl, WriteControl, WriteFormat,
-};
+pub use crate::io::control_dict::{ControlDict, StartControl, StopControl, WriteControl, WriteFormat};
 pub use crate::io::fv_schemes::{
     DdtScheme, DivScheme, FvSchemes, GradScheme, LaplacianScheme, SnGradScheme,
 };
 pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverType, PimpleControl};
-pub use crate::io::output::write_scalar_field;
+// NOT re-exported: `crate::io::output::write_scalar_field` and its siblings.
+//
+// They are `todo!()` stubs that panic when called. An API dogfood run (gh #58)
+// hit exactly that: the agent found `write_scalar_field` in the prelude,
+// reasonably assumed a function offered on the discovery surface would work,
+// wrote it into a tutorial, and got a runtime panic.
+//
+// A prelude is a statement about what to reach for. Advertising an
+// unconditional panic there makes the natural path a crash, which is worse than
+// the function being hard to find. The stubs remain public at
+// `io::output::{write_scalar_field, write_vector_field, write_vtk}` for anyone
+// tracking the work, and their own docs say plainly that they panic.
+//
+// Re-export them here once they are implemented.
+
+// Field readers, which ARE implemented. Previously the prelude exported the
+// mesh reader but none of these, so "read a field from disk" dead-ended on the
+// discovery surface while the functions existed one module away.
+pub use crate::io::field_reader::{
+    read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field,
+    read_vol_vector_field_full,
+};
 pub use crate::io::poly_mesh::read_poly_mesh;
 
 // GeN-Foam neutronics — point kinetics (0-D)
@@ -53,7 +72,16 @@ pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerMode
 
 // Solvers
 pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
+pub use crate::solvers::melt_foam::MeltFoam;
 pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
+pub use crate::solvers::reacting_two_phase_euler_foam::{
+    build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,
+    InterfacialMassTransfer, PhaseSelector, PhaseSpecies, PhaseThermo, ReactingTwoPhaseEulerFoam,
+    ReactionMechanism, ReactionSource,
+};
 pub use crate::solvers::rho_central_foam::RhoCentralFoam;
 pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
 pub use crate::solvers::sonic_foam::SonicFoam;
+
+// Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
+pub use crate::turbulence::TurbulenceClosure;

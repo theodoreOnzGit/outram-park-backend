@@ -40,7 +40,19 @@
 // implementation is pure `f32`/`f64` Rust with no `wgpu`, so it builds (and is
 // tested) on Android too. Only the GPU-dispatch function and the `wgpu` imports
 // inside it are `#[cfg(not(target_os = "android"))]`.
+// Runtime hardware capability sourcing (adapter limits + CPU threads) and the
+// CPU/GPU work-splitting planner. Plain data only — no `wgpu` types escape it —
+// so it builds and is tested on Android too; only `GpuLimits::from_adapter` is
+// `#[cfg]`-gated.
+pub mod capabilities;
+
 pub mod xs_interp;
+
+// Ray–surface distance for all 15 CSG SurfaceKind variants (op-9s8.2): the
+// geometric foundation for GPU CSG transport. Encoding + scalar f32 CPU mirror
+// (built and tested on every target, incl. Android) + WGSL compute path (the
+// `*_gpu` function and its `wgpu` imports are `#[cfg(not(target_os = "android"))]`).
+pub mod surface_distance;
 
 // Dense log-spaced tabulation of a material's macroscopic total cross section,
 // with batched CPU-reference + GPU lookup reusing the `xs_interp` kernel. Builds
@@ -95,6 +107,19 @@ mod context {
         /// Which physical adapter/backend was selected (name, backend, device
         /// type). Diagnostic only.
         pub info: wgpu::AdapterInfo,
+        /// Compute limits **as reported by this adapter**, sourced at probe time
+        /// — not assumed. Check these before building a bind-group layout; see
+        /// [`super::capabilities::GpuLimits::supports_storage_buffers`].
+        pub limits: super::capabilities::GpuLimits,
+    }
+
+    impl GpuContext {
+        /// This machine's capabilities: the adapter's limits plus the CPU thread
+        /// count, ready to hand to
+        /// [`super::capabilities::plan_split`].
+        pub fn capabilities(&self) -> super::capabilities::HardwareCapabilities {
+            super::capabilities::HardwareCapabilities::with_gpu(Some(self.limits.clone()))
+        }
     }
 
     impl std::fmt::Debug for GpuContext {
@@ -116,25 +141,54 @@ mod context {
     /// never an error: every kernel here has a CPU reference implementation that
     /// runs whenever this returns `None`.
     ///
-    /// A default power preference and downlevel limits are requested (no window, so
+    /// A default power preference is requested (no window, so
     /// `compatible_surface: None`), which is all a compute-only workload needs.
+    ///
+    /// # Limits are sourced, not assumed
+    ///
+    /// This requests `adapter.limits()` — **what the hardware actually reports**
+    /// — rather than [`wgpu::Limits::downlevel_defaults`].
+    ///
+    /// It used to request the downlevel defaults, which pin
+    /// `max_storage_buffers_per_shader_stage` to **4**. The `surface_distance`
+    /// kernel binds **7**, so `create_bind_group_layout` rejected `surf_dist.bgl`
+    /// with *"Too many bindings of type StorageBuffers … limit is 4, count was
+    /// 7"* on hardware that in fact allows 1,048,576 of them (bead `op-bjd`).
+    /// The ceiling was self-imposed.
+    ///
+    /// Requesting the adapter's own limits is always satisfiable by definition,
+    /// so this cannot fail where the old call succeeded. Kernels must still ask
+    /// [`super::capabilities::GpuLimits::supports_storage_buffers`] before
+    /// building a layout, because a *different* machine may genuinely be
+    /// limited — the answer there is a CPU fallback, not a panic.
     pub fn probe() -> Option<GpuContext> {
         let instance = wgpu::Instance::default();
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
             force_fallback_adapter: false,
             compatible_surface: None,
+            // wgpu 30: limit bucketing is a fingerprinting mitigation for
+            // untrusted content (e.g. a web browser exposing wgpu to a
+            // page) — irrelevant to this native GPU-compute application,
+            // and off is also the type's own `Default`.
+            apply_limit_buckets: false,
         }))
         .ok()?;
         let info = adapter.get_info();
+        let limits = super::capabilities::GpuLimits::from_adapter(&adapter);
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("outram-mc-libs headless compute device"),
             required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            required_limits: adapter.limits(),
             ..Default::default()
         }))
         .ok()?;
-        Some(GpuContext { device, queue, info })
+        Some(GpuContext {
+            device,
+            queue,
+            info,
+            limits,
+        })
     }
 
     /// Minimal pure-`std` executor: block the current thread until `future`

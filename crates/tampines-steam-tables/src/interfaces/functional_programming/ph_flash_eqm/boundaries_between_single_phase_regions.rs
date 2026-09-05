@@ -9,8 +9,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 
 /// see page 39
 pub(crate) fn is_ph_point_region_1_and_above_16_529_mpa(p: Pressure, h: AvailableEnergy) -> bool {
-
-    // before anything, check if enthalpy is within enthalpy validity range 
+    // before anything, check if enthalpy is within enthalpy validity range
     let ref_temperature = ThermodynamicTemperature::new::<kelvin>(623.15);
     let min_pressure = sat_pressure_4(ref_temperature);
     let max_pressure = Pressure::new::<megapascal>(100.0);
@@ -22,16 +21,16 @@ pub(crate) fn is_ph_point_region_1_and_above_16_529_mpa(p: Pressure, h: Availabl
         panic!("p in (p,h) point is outside validity range");
     };
 
-    // note that points along this boundary belongs to region 1 
+    // note that points along this boundary belongs to region 1
     // (see page 11)
     // also, points along the P_B23 boundary line belong to region 2
 
-    // now let's get the boundary line enthalpy 
+    // now let's get the boundary line enthalpy
 
     let h_boundary_line = h_tp_1(ref_temperature, p);
 
-    // if enthalpy is more than this boundary, then it's not region 1 
-    // i use greater than and NOT greater or equal to 
+    // if enthalpy is more than this boundary, then it's not region 1
+    // i use greater than and NOT greater or equal to
     // because the boundary line belongs to reg 1
 
     if h > h_boundary_line {
@@ -42,15 +41,11 @@ pub(crate) fn is_ph_point_region_1_and_above_16_529_mpa(p: Pressure, h: Availabl
     //
 
     return true;
-
-
 }
 
-/// also see page 39 
-pub(crate) fn is_ph_point_region_2_and_above_16_529_mpa(p: Pressure,
-    h: AvailableEnergy) -> bool {
-
-    // before anything, check if enthalpy is within enthalpy validity range 
+/// also see page 39
+pub(crate) fn is_ph_point_region_2_and_above_16_529_mpa(p: Pressure, h: AvailableEnergy) -> bool {
+    // before anything, check if enthalpy is within enthalpy validity range
     let ref_temperature = ThermodynamicTemperature::new::<kelvin>(623.15);
     let min_pressure = sat_pressure_4(ref_temperature);
     let max_pressure = Pressure::new::<megapascal>(100.0);
@@ -62,12 +57,12 @@ pub(crate) fn is_ph_point_region_2_and_above_16_529_mpa(p: Pressure,
         panic!("p in (p,h) point is outside validity range");
     };
 
-    // note that points along this boundary belongs to region 1 
+    // note that points along this boundary belongs to region 1
     // (see page 11)
     // also, points along the P_B23 boundary line belong to region 2
 
-    // now let's get the boundary line enthalpy 
-    // first, get the appropriate temperature Tb23 
+    // now let's get the boundary line enthalpy
+    // first, get the appropriate temperature Tb23
     let t_boundary_b23 = t_boundary_2_3(p);
 
     let h_boundary_line = h_tp_2(t_boundary_b23, p);
@@ -76,7 +71,7 @@ pub(crate) fn is_ph_point_region_2_and_above_16_529_mpa(p: Pressure,
     //
     // then its outside region 2
     //
-    // i use smaller than and NOT smaller or equal to 
+    // i use smaller than and NOT smaller or equal to
     // because the boundary line belongs to reg 2
     if h < h_boundary_line {
         return false;
@@ -84,16 +79,14 @@ pub(crate) fn is_ph_point_region_2_and_above_16_529_mpa(p: Pressure,
 
     // otherwise it's inside region 2
     return true;
-
-
 }
 
-
-/// also see page 39 
-pub(crate) fn is_ph_point_region_3_and_above_critical_point(p: Pressure,
-    h: AvailableEnergy) -> bool {
-
-    // before anything, check if enthalpy is within enthalpy validity range 
+/// also see page 39
+pub(crate) fn is_ph_point_region_3_and_above_critical_point(
+    p: Pressure,
+    h: AvailableEnergy,
+) -> bool {
+    // before anything, check if enthalpy is within enthalpy validity range
     let ref_temperature = ThermodynamicTemperature::new::<kelvin>(T_C_KELVIN);
     let min_pressure = sat_pressure_4(ref_temperature);
     let max_pressure = Pressure::new::<megapascal>(100.0);
@@ -105,12 +98,12 @@ pub(crate) fn is_ph_point_region_3_and_above_critical_point(p: Pressure,
         panic!("p in (p,h) point is outside validity range");
     };
 
-    // note that points along this boundary belongs to region 1 
+    // note that points along this boundary belongs to region 1
     // (see page 11)
     // also, points along the P_B23 boundary line belong to region 2
 
-    // now let's get the boundary line enthalpy 
-    // first, get the appropriate temperature Tb23 
+    // now let's get the boundary line enthalpy
+    // first, get the appropriate temperature Tb23
     // this is the upper bound
     let t_boundary_b23 = t_boundary_2_3(p);
     let h_boundary_line_23 = h_tp_2(t_boundary_b23, p);
@@ -121,7 +114,7 @@ pub(crate) fn is_ph_point_region_3_and_above_critical_point(p: Pressure,
     //
     // then its outside region 3
     //
-    // i use smaller than and NOT smaller or equal to 
+    // i use smaller than and NOT smaller or equal to
     // because the boundary line belongs to reg 2
     if h >= h_boundary_line_23 {
         return false;
@@ -133,8 +126,4 @@ pub(crate) fn is_ph_point_region_3_and_above_critical_point(p: Pressure,
 
     // otherwise it's inside region 3
     return true;
-
-
 }
-
-

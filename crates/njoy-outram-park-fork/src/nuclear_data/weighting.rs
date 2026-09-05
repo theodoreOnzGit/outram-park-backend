@@ -72,7 +72,10 @@ impl Default for WeightingSpectrum {
     /// `a = 0.988 MeV`, `b = 2.249 × 10⁻⁶ eV⁻¹`) — the correct default for the fast
     /// bare-sphere spectra this crate's CORE data targets.
     fn default() -> Self {
-        WeightingSpectrum::Watt { a: 0.988e6, b: 2.249e-6 }
+        WeightingSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        }
     }
 }
 
@@ -138,6 +141,9 @@ mod tests {
         assert!(at_peak > w.weight(0.5 * kt));
         assert!(at_peak > w.weight(2.0 * kt));
         // Degenerate temperature yields no weight rather than a NaN.
-        assert_eq!(WeightingSpectrum::Maxwellian { temp_ev: 0.0 }.weight(kt), 0.0);
+        assert_eq!(
+            WeightingSpectrum::Maxwellian { temp_ev: 0.0 }.weight(kt),
+            0.0
+        );
     }
 }

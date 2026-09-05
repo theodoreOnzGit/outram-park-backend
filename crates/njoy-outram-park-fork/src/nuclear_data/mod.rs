@@ -21,6 +21,7 @@
 //! adding a new representation is a new variant that every `match` must handle.
 
 pub mod delayed;
+pub mod delayed_mgxs;
 pub mod secondary;
 pub mod weighting;
 
@@ -28,6 +29,7 @@ use crate::wmp::WindowedMultipole;
 use crate::NjoyError;
 use secondary::{FissionSpectrum, NuBar};
 pub use delayed::{DecayConstant, DelayedChi, DelayedChiGroup, DelayedNuBar};
+pub use delayed_mgxs::DelayedMgxs;
 pub use weighting::WeightingSpectrum;
 
 /// Microscopic neutron cross sections at one energy/temperature \[barn\].
@@ -291,7 +293,9 @@ impl Mgxs {
             if w <= 0.0 {
                 continue;
             }
-            let g = group_bounds.partition_point(|&b| b <= mid).saturating_sub(1);
+            let g = group_bounds
+                .partition_point(|&b| b <= mid)
+                .saturating_sub(1);
             let g = g.min(n_g - 1);
             let avg = |v: &[f64]| 0.5 * (v[i] + v[i + 1]);
             num[0][g] += avg(total) * w;
@@ -302,7 +306,11 @@ impl Mgxs {
             den[g] += w;
             // Scattering-rate-weighted μ̄ (guard against a short/empty mubar column).
             let el = avg(elastic);
-            let mu = if mubar.len() == energy.len() { avg(mubar) } else { 0.0 };
+            let mu = if mubar.len() == energy.len() {
+                avg(mubar)
+            } else {
+                0.0
+            };
             num_mubar[g] += el * mu * w;
             den_scat[g] += el * w;
         }
@@ -383,14 +391,10 @@ impl Mgxs {
         grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
         grid.dedup();
 
-        let has_total = result
-            .sections
-            .iter()
-            .any(|s| s.mt == MtReaction::Mt1Total);
+        let has_total = result.sections.iter().any(|s| s.mt == MtReaction::Mt1Total);
 
-        let sample = |mt: MtReaction| -> Vec<f64> {
-            grid.iter().map(|&e| result.eval_mt(mt, e)).collect()
-        };
+        let sample =
+            |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
         let elastic = sample(MtReaction::Mt2Elastic);
         let fission = sample(MtReaction::Mt18Fission);
         let capture = sample(MtReaction::Mt102Capture);
@@ -414,8 +418,16 @@ impl Mgxs {
         };
 
         Self::collapse(
-            name, &grid, &total, &elastic, &fission, &capture, &nu_fission, &mubar,
-            &bounds, spectrum,
+            name,
+            &grid,
+            &total,
+            &elastic,
+            &fission,
+            &capture,
+            &nu_fission,
+            &mubar,
+            &bounds,
+            spectrum,
         )
     }
 }
@@ -607,7 +619,15 @@ mod tests {
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.0e6, 5.0e6, 1.1e7];
         let mg = Mgxs::collapse(
-            "Test", &energy, &flat, &flat, &zero, &zero, &zero, &zero, &bounds,
+            "Test",
+            &energy,
+            &flat,
+            &flat,
+            &zero,
+            &zero,
+            &zero,
+            &zero,
+            &bounds,
             &WeightingSpectrum::default(),
         );
         assert_eq!(mg.n_groups(), 3);
@@ -649,14 +669,23 @@ mod tests {
         let zero = vec![0.0; energy.len()];
         let bounds = vec![1.0e5, 1.01e7];
         let mg = Mgxs::collapse(
-            "R", &energy, &sigma, &sigma, &zero, &zero, &zero, &zero, &bounds,
+            "R",
+            &energy,
+            &sigma,
+            &sigma,
+            &zero,
+            &zero,
+            &zero,
+            &zero,
+            &bounds,
             &WeightingSpectrum::default(),
         );
         let unweighted_mid = 0.5 * (1.0e5 + 1.01e7) / 1.0e6;
         assert!(
             mg.total[0] < unweighted_mid,
             "watt-weighted avg {} should be below unweighted midpoint {}",
-            mg.total[0], unweighted_mid
+            mg.total[0],
+            unweighted_mid
         );
     }
 
@@ -746,9 +775,15 @@ mod tests {
         let u = lib.get("U238").expect("U238 has a fast range");
         assert_eq!(u.n_groups(), FAST_GROUP_COUNT);
         assert!((*u.group_bounds.last().unwrap() - 2.0e7).abs() < 1.0);
-        assert!(u.elastic.iter().any(|&x| x > 0.0), "U238 fast elastic present");
+        assert!(
+            u.elastic.iter().any(|&x| x > 0.0),
+            "U238 fast elastic present"
+        );
         // Fast fission opens above ~1 MeV → some group carries ν·σ_f.
-        assert!(u.nu_fission.iter().any(|&x| x > 0.0), "U238 fast ν·σ_f present");
+        assert!(
+            u.nu_fission.iter().any(|&x| x > 0.0),
+            "U238 fast ν·σ_f present"
+        );
 
         // H-1 is non-resonant; its WMP covers the whole sublibrary, so it is not in
         // the fast-MGXS container.

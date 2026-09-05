@@ -59,6 +59,18 @@ dolt-pprof/
 
 # Backup data (auto-exported JSONL, local-only)
 backup/
+*.jsonl.bak
+
+# Compat export (kopi-beans, migrated from beads-rs 2026-08-07 — blocked as of
+# that date, see .beads/README.md and https://github.com/theodoreOnzGit/kopitiam/issues/16;
+# previously migrated from Go beads 2026-07-20). Canonical issue data lives in
+# the git ref refs/heads/beads/store (state/deps/tombstones jsonl + meta.json).
+# issues.jsonl is only a per-machine symlink into the tracker's local exports
+# directory, so tracking it produced a permanent typechange in `git status`.
+issues.jsonl
+
+# Auto-import staleness stamp (size + mtime of the local export; per-machine)
+.auto-import-issues.jsonl
 
 # Per-project environment file (Dolt connection config, GH#2520)
 .env

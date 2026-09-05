@@ -35,8 +35,12 @@
 //! - [`point_kinetics`] — 0-D point-kinetics (implemented).
 //! - [`diffusion`] — multigroup neutron diffusion, k-eigenvalue + transient
 //!   (implemented).
-//! - [`sp3`], [`sn`] — higher-order transport (documented scaffolds; see the
-//!   `neutronics` epic in beads).
+//! - [`sp3`] — simplified-P3 transport, eigenvalue + transient (implemented).
+//! - [`sn`] — discrete-ordinates (S_N) transport, **eigenvalue only**
+//!   (implemented; the transient `step` is deferred, unlike `diffusion` and
+//!   `sp3`). Each model also exposes a lightweight state-only constructor
+//!   (`::new`) that allocates flux state without cross sections and therefore
+//!   cannot solve — build with `with_cross_sections` to obtain a working model.
 //! - [`state`] — the shared spatial flux / power / precursor / power-density
 //!   state that the spatial models read and write.
 //! - [`xs`] — the multigroup cross-section (`XS`) data structures.
@@ -80,9 +84,9 @@ pub enum NeutronicsModelKind {
     PointKinetics,
     /// Multigroup neutron diffusion.
     Diffusion,
-    /// Simplified P3 (SP3) transport — scaffold.
+    /// Simplified P3 (SP3) transport (eigenvalue + transient).
     Sp3,
-    /// Discrete-ordinates (SN) transport — scaffold.
+    /// Discrete-ordinates (SN) transport (eigenvalue only).
     Sn,
 }
 
@@ -133,8 +137,10 @@ pub enum NeutronicsError {
     #[error("time step must be positive, got {0} s")]
     NonPositiveTimeStep(f64),
 
-    /// The requested model variant is a scaffold that is not yet implemented.
-    #[error("neutronics model {0:?} is a scaffold and not yet implemented")]
+    /// The model was built with the state-only `::new` constructor, so it holds
+    /// flux state but no cross sections and cannot solve. Rebuild it with
+    /// `with_cross_sections` to obtain a working model.
+    #[error("neutronics model {0:?} was built without cross sections (state-only); use with_cross_sections to solve")]
     ModelNotImplemented(NeutronicsModelKind),
 }
 
@@ -214,9 +220,9 @@ pub enum NeutronicsModel {
     PointKinetics(PointKineticsModel),
     /// Multigroup neutron diffusion.
     Diffusion(DiffusionNeutronics),
-    /// Simplified P3 transport (scaffold).
+    /// Simplified P3 transport (eigenvalue + transient).
     Sp3(Sp3Neutronics),
-    /// Discrete-ordinates transport (scaffold).
+    /// Discrete-ordinates transport (eigenvalue only).
     Sn(SnNeutronics),
 }
 

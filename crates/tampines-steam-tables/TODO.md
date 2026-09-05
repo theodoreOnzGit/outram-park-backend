@@ -3,12 +3,21 @@
 
 ## Android build for `fhr_sim_v2` (feasibility confirmed 2026-07-04)
 
-Goal: compile the `fhr_sim_v2` eframe/egui simulator (`examples/fhr_sim_v2/`)
-for Android (`aarch64-linux-android`) and package it as an installable APK.
+> **`fhr_sim_v2` no longer lives in this crate.** It moved to
+> `crates/tampines/examples/fhr_sim_v2/` (bead `op-dt3.7`), so this item now
+> belongs to the `tampines` crate — it is kept here only because the feasibility
+> investigation below was done from here. The commands below are written against
+> the old in-crate path and must be re-pointed at `-p tampines` before they will
+> run. Only `fhr_sim_v1`, `depressurisation` and `rankine_cycle` remain under
+> this crate's `examples/`.
+
+Goal: compile the `fhr_sim_v2` eframe/egui simulator for Android
+(`aarch64-linux-android`) and package it as an installable APK.
 
 **Verdict: feasible.** A `cargo check --example fhr_sim_v2 -p tampines-steam-tables
---target aarch64-linux-android` type-checks almost the whole tree, including the
-parts that usually break Android ports:
+--target aarch64-linux-android`, run 2026-07-04 while the example still lived
+here, type-checked almost the whole tree, including the parts that usually break
+Android ports:
 
 - `android-activity v0.6.1` compiles — eframe 0.34.3 pulls in its Android winit
   backend for this target.

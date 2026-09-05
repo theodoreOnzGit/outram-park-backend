@@ -106,7 +106,11 @@ impl FloaterHormannInterpolant {
                 }
                 sum += prod;
             }
-            let sign = if (k as isize - d as isize).rem_euclid(2) == 0 { 1.0 } else { -1.0 };
+            let sign = if (k as isize - d as isize).rem_euclid(2) == 0 {
+                1.0
+            } else {
+                -1.0
+            };
             weights[k] = sign * sum;
         }
 
@@ -201,6 +205,9 @@ mod tests {
         let points = vec![(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (3.0, 4.0)];
         let interpolant = FloaterHormannInterpolant::new(&points, 1).unwrap();
         let x = Ratio::new::<ratio>(1.5);
-        assert!((interpolant.evaluate_ratio(x).get::<ratio>() - interpolant.evaluate(1.5)).abs() < 1e-12);
+        assert!(
+            (interpolant.evaluate_ratio(x).get::<ratio>() - interpolant.evaluate(1.5)).abs()
+                < 1e-12
+        );
     }
 }

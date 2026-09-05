@@ -179,7 +179,11 @@ impl DepletionChain {
         let mut index = HashMap::with_capacity(nuclides.len());
         for (i, n) in nuclides.iter().enumerate() {
             let prev = index.insert(n.name.clone(), i);
-            assert!(prev.is_none(), "duplicate nuclide name in chain: {}", n.name);
+            assert!(
+                prev.is_none(),
+                "duplicate nuclide name in chain: {}",
+                n.name
+            );
         }
         Self { nuclides, index }
     }
@@ -228,7 +232,10 @@ impl DepletionChain {
             NuclideData {
                 name: "I135".to_string(),
                 half_life_seconds: Some(i135_half_life_s),
-                decays: vec![DecayBranch { target: "Xe135".to_string(), branching: 1.0 }],
+                decays: vec![DecayBranch {
+                    target: "Xe135".to_string(),
+                    branching: 1.0,
+                }],
                 reactions: vec![gamma_to("Xe136")],
                 fission_yields: Vec::new(),
                 fission_q_ev: None,
@@ -237,7 +244,10 @@ impl DepletionChain {
             NuclideData {
                 name: "Xe135".to_string(),
                 half_life_seconds: Some(xe135_half_life_s),
-                decays: vec![DecayBranch { target: "Cs135".to_string(), branching: 1.0 }],
+                decays: vec![DecayBranch {
+                    target: "Cs135".to_string(),
+                    branching: 1.0,
+                }],
                 reactions: vec![gamma_to("Xe136")],
                 fission_yields: Vec::new(),
                 fission_q_ev: None,
@@ -265,7 +275,10 @@ impl DepletionChain {
                 name: "Gd157".to_string(),
                 half_life_seconds: None,
                 decays: Vec::new(),
-                reactions: vec![NeutronReaction { kind: ReactionKind::Gamma, target: None }],
+                reactions: vec![NeutronReaction {
+                    kind: ReactionKind::Gamma,
+                    target: None,
+                }],
                 fission_yields: Vec::new(),
                 fission_q_ev: None,
             },
@@ -283,7 +296,10 @@ impl DepletionChain {
                 name: "U234".to_string(),
                 half_life_seconds: None,
                 decays: Vec::new(),
-                reactions: vec![NeutronReaction { kind: ReactionKind::Fission, target: None }],
+                reactions: vec![NeutronReaction {
+                    kind: ReactionKind::Fission,
+                    target: None,
+                }],
                 fission_yields: fp(
                     1.093250e-04,
                     2.087260e-04,
@@ -299,7 +315,10 @@ impl DepletionChain {
                 name: "U235".to_string(),
                 half_life_seconds: None,
                 decays: Vec::new(),
-                reactions: vec![NeutronReaction { kind: ReactionKind::Fission, target: None }],
+                reactions: vec![NeutronReaction {
+                    kind: ReactionKind::Fission,
+                    target: None,
+                }],
                 fission_yields: fp(
                     6.142710e-5,
                     1.483250e-04,
@@ -315,7 +334,10 @@ impl DepletionChain {
                 name: "U238".to_string(),
                 half_life_seconds: None,
                 decays: Vec::new(),
-                reactions: vec![NeutronReaction { kind: ReactionKind::Fission, target: None }],
+                reactions: vec![NeutronReaction {
+                    kind: ReactionKind::Fission,
+                    target: None,
+                }],
                 fission_yields: fp(
                     4.141120e-04,
                     7.605360e-04,
@@ -365,7 +387,8 @@ impl DepletionChain {
     /// follows the notebook's lumped convention (Xe135_m1 is not tracked).
     pub fn simple_from_data() -> Self {
         let i135_half_life = half_life_from_decay_lib(
-            openmc_endf_8_depletion_lib_b::decay_xml_info_serde::iodine::get_iodine_xml_serde_data(),
+            openmc_endf_8_depletion_lib_b::decay_xml_info_serde::iodine::get_iodine_xml_serde_data(
+            ),
             "I135",
         )
         .expect("I135 must be present in the ENDF/B-VIII iodine decay library");
@@ -376,13 +399,24 @@ impl DepletionChain {
         .expect("Xe135 must be present in the ENDF/B-VIII xenon decay library");
 
         // Cross-check the live decay-lib half-lives against chain_simple.xml.
-        assert_close_rel(i135_half_life, 2.36520e4, 1e-6, "I135 half-life (decay lib vs chain_simple.xml)");
-        assert_close_rel(xe135_half_life, 3.29040e4, 1e-6, "Xe135 half-life (decay lib vs chain_simple.xml)");
+        assert_close_rel(
+            i135_half_life,
+            2.36520e4,
+            1e-6,
+            "I135 half-life (decay lib vs chain_simple.xml)",
+        );
+        assert_close_rel(
+            xe135_half_life,
+            3.29040e4,
+            1e-6,
+            "Xe135 half-life (decay lib vs chain_simple.xml)",
+        );
 
         // Live read of the fission-yield crate (see doc note re: U-235
         // unreachability): read via the raw `.value` f64 to avoid the uom clash.
-        let xe135_nuc = fission_yields_data::prelude::parse_nuclide_allow_underscore_isomer("Xe135")
-            .expect("\"Xe135\" must parse as a fission_yields_data::Nuclide");
+        let xe135_nuc =
+            fission_yields_data::prelude::parse_nuclide_allow_underscore_isomer("Xe135")
+                .expect("\"Xe135\" must parse as a fission_yields_data::Nuclide");
         let u232_xe135_yield: f64 =
             fission_yields_data::prelude::u232_thermal_fission_yield(xe135_nuc).value;
         assert!(
@@ -556,8 +590,9 @@ mod tests {
     use super::*;
     use crate::depletion::{MicroRate, ReactionRates};
 
-    const EXPECTED_ORDER: [&str; 9] =
-        ["I135", "Xe135", "Xe136", "Cs135", "Gd157", "Gd156", "U234", "U235", "U238"];
+    const EXPECTED_ORDER: [&str; 9] = [
+        "I135", "Xe135", "Xe136", "Cs135", "Gd157", "Gd156", "U234", "U235", "U238",
+    ];
 
     /// Test 1 — chain identity & indexing.
     ///
@@ -598,8 +633,14 @@ mod tests {
         assert!((chain.decay_constant_of("I135").unwrap() - lam_i135).abs() < 1e-15);
         assert!((chain.decay_constant_of("Xe135").unwrap() - lam_xe135).abs() < 1e-15);
         // Sanity on the magnitudes quoted in the docs.
-        assert!((lam_i135 - 2.9306071e-5).abs() < 1e-11, "lambda I135 = {lam_i135}");
-        assert!((lam_xe135 - 2.1065742e-5).abs() < 1e-11, "lambda Xe135 = {lam_xe135}");
+        assert!(
+            (lam_i135 - 2.9306071e-5).abs() < 1e-11,
+            "lambda I135 = {lam_i135}"
+        );
+        assert!(
+            (lam_xe135 - 2.1065742e-5).abs() < 1e-11,
+            "lambda Xe135 = {lam_xe135}"
+        );
         // Stable nuclide -> zero decay constant.
         assert_eq!(chain.decay_constant_of("U235").unwrap(), 0.0);
 
@@ -666,8 +707,22 @@ mod tests {
         let gamma_rate = 3.0e-6_f64;
         let mut rates = ReactionRates::zero();
         rates.flux = 1.0e14;
-        rates.set("U235", MicroRate { gamma: 0.0, fission: fission_rate, n2n: 0.0 });
-        rates.set("Xe135", MicroRate { gamma: gamma_rate, fission: 0.0, n2n: 0.0 });
+        rates.set(
+            "U235",
+            MicroRate {
+                gamma: 0.0,
+                fission: fission_rate,
+                n2n: 0.0,
+            },
+        );
+        rates.set(
+            "Xe135",
+            MicroRate {
+                gamma: gamma_rate,
+                fission: 0.0,
+                n2n: 0.0,
+            },
+        );
 
         let a = chain.build_matrix(&rates);
         let lam_xe135 = LN_2 / 3.29040e4;
@@ -689,9 +744,7 @@ mod tests {
 
         // U235 also feeds its other fission products (spot-check I135).
         let yield_u235_i135 = 0.0292737;
-        assert!(
-            (a.get(idx("I135"), idx("U235")) - fission_rate * yield_u235_i135).abs() < 1e-22
-        );
+        assert!((a.get(idx("I135"), idx("U235")) - fission_rate * yield_u235_i135).abs() < 1e-22);
     }
 
     /// Test 5 — live consumption of `fission-yields-data`.
@@ -713,7 +766,10 @@ mod tests {
             .expect("Xe135 parses");
         let y: f64 = fission_yields_data::prelude::u232_thermal_fission_yield(xe135).value;
         assert!(y.is_finite() && y > 0.0, "U232->Xe135 thermal yield = {y}");
-        assert!((y - 0.00645867).abs() < 1e-8, "measured U232->Xe135 yield = {y}");
+        assert!(
+            (y - 0.00645867).abs() < 1e-8,
+            "measured U232->Xe135 yield = {y}"
+        );
 
         // The chain's own U235->Xe135 yield is the chain_simple.xml value.
         let chain = DepletionChain::simple();

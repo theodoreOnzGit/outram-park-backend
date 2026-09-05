@@ -1,0 +1,50 @@
+#######################################################
+##                                                   ##
+## README File for generation of file 7 for Si in SiC##
+## using LEAPR module of NJOY processing package.    ##
+## Included content is for the generation of the     ##
+## inelastic part of the S(a,b) published in         ##
+## ENDF/B-VIII.beta5. The coherent elastic xsec      ##
+## (MT = 2) was generated using an 'in-house'        ##
+## routine [1].                                      ##
+##                                                   ##
+## Compare to beta4 release, the coherent elastic    ##
+## xsec is updated. The alpha, beta grid for S(a,b)  ##
+## is updated.                                       ##
+##                                                   ##
+##  1. Y. Zhu, A.I. Hawari, "Implementation of a     ##
+##     Generalized Coherent Elastic Scattering       ##
+##     Formulation for Thermal Neutron Scattering    ##
+##     Analysis," Proceedings of ICNC 2015: 35th     ##
+##     International Conference on Nuclear           ##
+##     Criticality Safety (2015)                     ##
+##                                                   ##
+#######################################################
+##                                                   ##
+## LEIP Laboratories (Sep 17 2017)                   ##
+##                                                   ##
+#######################################################
+
+NOTES:
+1) The published ENDF-BVIII library tabulates the
+   coherent elastic cross section on MT = 2; therefore,
+   the provided leapr input may reproduce MT = 4 only!
+	
+Folder Content
+--------------
+tsl-SiinSiC.endf = File 7 in ENDF-6 format
+         submitted to CSWEG for publication in
+         ENDF/B-VIII (MT = 2, MT = 4)
+
+
+File 7 Library Parameters
+-------------------------
+iMAT = 43
+ZA = 143
+Temperatures = 300, 400, 500, 600, 700, 800, 1000, 1200 K
+
+NJOY Compilation
+----------------
+The NJOY99 package used in the processing of these
+libraries was compiled with ifort from the intel-2017 
+composer suite. The upn was version 396.

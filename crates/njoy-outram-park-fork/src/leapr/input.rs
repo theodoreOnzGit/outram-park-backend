@@ -28,13 +28,24 @@
 //! - `twt`, `tbeta`, `weight` — dimensionless mode weights (sum to 1).
 //! - `c` — dimensionless diffusion constant (0 => free gas).
 
-use crate::common::phys::BK_EV_PER_K;
+use crate::leapr::vintage::PhysicalConstants;
 
-/// Coherent-elastic (Bragg) lattice option (card 5 `iel`). Only the tag is
-/// modelled here; the coherent-elastic cross section itself is produced by
-/// [`crate::thermr::coherent`] (the `coher` path in leapr.f90 is **not** ported).
+/// Coherent-elastic (Bragg) lattice option (card 5 `iel`), selecting which
+/// lattice the reciprocal-lattice sum in [`crate::leapr::coher`] (the ported
+/// `coher`/`formf`/`tausq` path of leapr.f90) runs over. Downstream, the
+/// resulting Bragg-edge `S(E)` is *evaluated* by [`crate::thermr::coherent`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElasticOption {
+    /// Incoherent elastic instead of a Bragg lattice (`iel < 0`).
+    ///
+    /// Undocumented in NJOY's card comments, which list only 0..=6, but real
+    /// decks use it — `tsl-YinYH2.leapr` and `tsl-HinYH2.leapr` of
+    /// ENDF/B-VIII.0 both pass `iel = -1` — and `endout` acts on it
+    /// (`leapr.f90:3053`, `if (iel.lt.0)`), writing an MF=7/MT=2 `LTHR=2`
+    /// Debye-Waller TAB1 rather than Bragg edges. NJOY also *derives* it, with
+    /// `iel = -1` set internally when `iel == 0` and `twt == 0`
+    /// (`leapr.f90:3052`).
+    Incoherent,
     /// No coherent elastic (default).
     None,
     /// Graphite.
@@ -49,6 +60,62 @@ pub enum ElasticOption {
     Lead,
     /// Iron.
     Iron,
+}
+
+impl ElasticOption {
+    /// Map the card-5 `iel` integer code onto the option, or `None` if the code
+    /// is outside the set NJOY accepts (any negative value, or 0..=6).
+    pub fn from_code(iel: i32) -> Option<Self> {
+        match iel {
+            i if i < 0 => Some(Self::Incoherent),
+            0 => Some(Self::None),
+            1 => Some(Self::Graphite),
+            2 => Some(Self::Beryllium),
+            3 => Some(Self::BerylliumOxide),
+            4 => Some(Self::Aluminium),
+            5 => Some(Self::Lead),
+            6 => Some(Self::Iron),
+            _ => None,
+        }
+    }
+
+    /// The Bragg lattice this option selects for
+    /// [`crate::leapr::coher::coher`], or `None` when the option asks for no
+    /// coherent-elastic calculation.
+    ///
+    /// [`Incoherent`](Self::Incoherent) and [`None`](Self::None) both return
+    /// `None` here, for different reasons: the first wants an MF=7/MT=2
+    /// `LTHR=2` Debye-Waller section instead of Bragg edges, the second wants no
+    /// MT=2 at all. A caller that needs to tell them apart should match on the
+    /// option itself.
+    pub const fn coherent_lattice(self) -> Option<crate::leapr::coher::CoherentLattice> {
+        use crate::leapr::coher::CoherentLattice as L;
+        match self {
+            Self::Incoherent | Self::None => Option::None,
+            Self::Graphite => Some(L::Graphite),
+            Self::Beryllium => Some(L::Beryllium),
+            Self::BerylliumOxide => Some(L::BerylliumOxide),
+            Self::Aluminium => Some(L::Aluminium),
+            Self::Lead => Some(L::Lead),
+            Self::Iron => Some(L::Iron),
+        }
+    }
+
+    /// The card-5 `iel` integer code for this option (`-1` for
+    /// [`Incoherent`](Self::Incoherent), which is how NJOY spells it
+    /// internally).
+    pub fn code(self) -> i32 {
+        match self {
+            Self::Incoherent => -1,
+            Self::None => 0,
+            Self::Graphite => 1,
+            Self::Beryllium => 2,
+            Self::BerylliumOxide => 3,
+            Self::Aluminium => 4,
+            Self::Lead => 5,
+            Self::Iron => 6,
+        }
+    }
 }
 
 /// Cold-moderator option (card 5 `ncold`) selecting a Young-Koppel rotational
@@ -66,6 +133,102 @@ pub enum ColdOption {
     OrthoDeuterium,
     /// Para deuterium (`ncold = 4`, `law = 5`).
     ParaDeuterium,
+}
+
+impl ColdOption {
+    /// Map the card-5 `ncold` integer code onto the option, or `None` if the
+    /// code is outside the 0..=4 set NJOY accepts.
+    pub fn from_code(ncold: i32) -> Option<Self> {
+        match ncold {
+            0 => Some(Self::None),
+            1 => Some(Self::OrthoHydrogen),
+            2 => Some(Self::ParaHydrogen),
+            3 => Some(Self::OrthoDeuterium),
+            4 => Some(Self::ParaDeuterium),
+            _ => None,
+        }
+    }
+
+    /// The card-5 `ncold` integer code for this option.
+    pub fn code(self) -> i32 {
+        match self {
+            Self::None => 0,
+            Self::OrthoHydrogen => 1,
+            Self::ParaHydrogen => 2,
+            Self::OrthoDeuterium => 3,
+            Self::ParaDeuterium => 4,
+        }
+    }
+}
+
+/// How a **secondary** scatterer is treated (card 6 `b7`).
+///
+/// A `tsl` evaluation for a compound moderator may describe a second atomic
+/// species alongside the principal one — the oxygen in `tsl-HinH2O`, where H is
+/// principal and O is secondary. `b7` says how that second species is handled,
+/// and the choice matters because it decides whether the secondary contributes
+/// to the tabulated `S(alpha, beta)` at all:
+///
+/// - [`ShortCollisionTime`](Self::ShortCollisionTime) (`b7 = 0`) is the only
+///   kind whose scattering is **merged into the tabulated law**. NJOY runs its
+///   whole temperature loop a second time for the secondary scatterer and adds
+///   the result in (`leapr.f90:398`, `3018-3030`).
+/// - [`FreeGas`](Self::FreeGas) (`b7 = 1`) and
+///   [`Diffusion`](Self::Diffusion) (`b7 = 2`) are described **analytically**
+///   by the `B(7)..B(12)` constants of MF=7/MT=4 instead. The tabulated
+///   `S(alpha, beta)` stays purely the principal scatterer's, and a downstream
+///   code reconstructs the secondary's contribution from those constants. This
+///   is why light water's `S(alpha, beta)` is an H-only law.
+///
+/// The `b7` field is a *real* in the Fortran deck, so the codes are compared as
+/// floats; see [`from_code`](Self::from_code).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecondaryScattererKind {
+    /// `b7 = 0` — short-collision-time only. The secondary scatterer's law is
+    /// computed on its own and **merged** into the principal `S(alpha, beta)`.
+    ShortCollisionTime,
+    /// `b7 = 1` — free gas, carried analytically in `B(7)..B(12)`.
+    FreeGas,
+    /// `b7 = 2` — diffusion, carried analytically in `B(7)..B(12)`.
+    Diffusion,
+}
+
+impl SecondaryScattererKind {
+    /// Map the card-6 `b7` value onto the kind, or `None` if it is outside the
+    /// `0..=2` set NJOY accepts.
+    ///
+    /// `b7` is read as a real, so this rounds to the nearest integer and rejects
+    /// anything more than `1e-6` away from it rather than silently truncating a
+    /// malformed `1.5`.
+    pub fn from_code(b7: f64) -> Option<Self> {
+        if !b7.is_finite() || (b7 - b7.round()).abs() > 1e-6 {
+            return None;
+        }
+        match b7.round() as i32 {
+            0 => Some(Self::ShortCollisionTime),
+            1 => Some(Self::FreeGas),
+            2 => Some(Self::Diffusion),
+            _ => None,
+        }
+    }
+
+    /// The card-6 `b7` value for this kind, as written into `B(7)` of MF=7/MT=4.
+    pub fn code(self) -> f64 {
+        match self {
+            Self::ShortCollisionTime => 0.0,
+            Self::FreeGas => 1.0,
+            Self::Diffusion => 2.0,
+        }
+    }
+
+    /// Whether this kind's scattering is merged into the tabulated
+    /// `S(alpha, beta)` rather than carried analytically in `B(7)..B(12)`.
+    ///
+    /// True only for [`ShortCollisionTime`](Self::ShortCollisionTime) — the
+    /// `b7 <= 0` branch of `leapr.f90:3018`.
+    pub fn merges_into_sab(self) -> bool {
+        matches!(self, Self::ShortCollisionTime)
+    }
 }
 
 /// Kind of translational term convolved into the continuous law (card 6 `b7`
@@ -146,12 +309,28 @@ pub struct LeaprInput {
     pub continuous: ContinuousDist,
     /// Discrete oscillators (may be empty).
     pub oscillators: Vec<DiscreteOscillator>,
+    /// The physical-constant set this job is run with — i.e. the value of `k_B`
+    /// that defines `tev = k_B T`, and through it the beta-grid spacing and the
+    /// `LAT = 1` scale factor.
+    ///
+    /// **Defaults to [`PhysicalConstants::Codata2018`]**, the crate constant, so
+    /// a job constructed by hand behaves exactly as it did before this field
+    /// existed. Set it to the evaluation's vintage when *reproducing* published
+    /// data: [`crate::leapr::deck::LeaprDeck::input_at`] does this for you from
+    /// the deck's own `EVAL-<MON><YY>` comment card. Getting it wrong is a
+    /// ~100x parity error, not a rounding difference — see
+    /// [`crate::leapr::vintage`].
+    pub constants: PhysicalConstants,
 }
 
 impl LeaprInput {
     /// Thermal energy `tev = k_B * T` \[eV\] for this job.
+    ///
+    /// `k_B` comes from [`LeaprInput::constants`], **not** from
+    /// [`crate::common::phys::BK_EV_PER_K`] directly, so a job reproducing an
+    /// older evaluation uses that evaluation's constant.
     pub fn tev(&self) -> f64 {
-        BK_EV_PER_K * self.temperature_k.abs()
+        self.constants.bk_ev_per_k() * self.temperature_k.abs()
     }
 
     /// Alpha/beta scale factor `sc` (`0.0253/tev` when `lat`, else `1`).
@@ -201,6 +380,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         assert_eq!(inp.scale(), 1.0);
         // tev at 296 K ~ 0.0255 eV

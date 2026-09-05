@@ -1,6 +1,15 @@
 [package]
 name = "tampines-steam-tables"
-version = "0.2.4"
+version = "0.2.8"
+authors = [
+    "Ong Kay Chen Theodore",
+    "Ethan Yew Hoe, Wong",
+    "Professor Per F. Peterson",
+    "University of California, Berkeley Thermal Hydraulics Lab",
+    "Singapore Nuclear Research and Safety Institute (SNRSI)",
+    "National University of Singapore (NUS)",
+    "Repository Contributors",
+]
 edition.workspace = true
 license.workspace = true
 description = "IAPWS-IF97 steam tables for the TAMPINES simulator -- draws from (not a 1:1 port of) the rust-steam crate; independent OUTRAM PARK implementation, not the original rust-steam project"
@@ -10,7 +19,15 @@ readme = "README.md"
 categories.workspace = true
 # `docs/` holds LaTeX sources and build artifacts (.aux/.bbl/.bcf/...) that are
 # not crate content.
-exclude = ["docs", "verification_and_validation/*.csv"]
+# `figures/` holds regenerable output from the `tampines-steam-tables-gui`
+# example (`--export-all` rewrites all 20 files in seconds). It is tens of
+# megabytes and is not crate content.
+exclude = [
+    "docs",
+    "verification_and_validation/*.csv",
+    "verification_and_validation/**/*.csv",
+    "figures",
+]
 
 [dependencies]
 approx.workspace = true
@@ -21,13 +38,20 @@ uom.workspace = true
 
 # All dev-dependencies below are used ONLY by the FHR-simulator / Rankine-cycle
 # examples (the library itself and its unit tests are TUAS-free and GUI-free).
-# They are Android-hostile: `tuas_boussinesq_solver` pulls in system BLAS via
-# `ndarray-linalg`, and the `egui`/`eframe` GUI stack pulls in `ring`, which
-# needs an Android C toolchain (`cc-rs`). Gate the whole block off Android so
+# They are Android-hostile: the `egui`/`eframe` GUI stack pulls in `ring`,
+# which needs an Android C toolchain (`cc-rs`). (`tuas_boussinesq_solver` no
+# longer pulls system BLAS -- its `ndarray-linalg` dependency was removed in
+# TUAS v0.1.2.) Gate the whole block off Android so
 # `cargo check --target aarch64-linux-android --tests --examples` stays clean.
 # The examples themselves carry `#![cfg(not(target_os = "android"))]` so they
 # compile to nothing on Android.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe GUI + TUAS example stack, and
+# eframe pulls wgpu, whose HAL is not Sync on wasm. Dev-dependencies apply to
+# TESTS as well as examples, so without this gate `cargo test --target
+# wasm32-wasip1` fails to build even for a test that touches none of it — which
+# is exactly what happened when tests/wasm_smoke.rs was first run. Note the
+# --lib compile gate cannot catch this class: dev-deps are invisible to it.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 # resolves to the in-tree crate rather than crates.io
 tuas_boussinesq_solver.workspace = true
 teh-o-prke.workspace = true
@@ -40,6 +64,20 @@ roots.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
 serde.workspace = true
+# PNG encoding for the `tampines-steam-tables-gui` example's raster export
+# backend (GitHub issue #26). Already a root [workspace.dependencies] entry, so
+# this adds no new third-party dependency to the workspace -- it only opts this
+# crate's dev build in. The PDF and SVG backends need no crate at all: with
+# every glyph reduced to a polyline by the example's own stroke font, a page is
+# a plain path stream (see examples/tampines-steam-tables-gui/figure/pdf.rs).
+image.workspace = true
+# In-app export path picker (GitHub issue #26 file-browser export request).
+# egui-file-dialog 0.13.0 is the only published version pinned to
+# `egui ^0.34.0` / `eframe ^0.34.0`, matching this workspace's pinned 0.34.3
+# exactly (0.14+ requires egui 0.35+, which this workspace does not carry).
+# Pure egui/eframe, no GTK/native-dialog backend, so it stays Android-hostile
+# only insofar as egui/eframe already are -- no new Android exposure.
+egui-file-dialog.workspace = true
 
 
 
@@ -59,3 +97,13 @@ path = "examples/depressurisation/main.rs"
 name = "rankine_cycle"
 path = "examples/transient_rankine_cycle/main.rs"
 
+
+# Interactive T-p / p-h / T-s / h-s steam-table plotter and figure generator
+# (GitHub issue #26). `test = true` so `cargo test --example
+# tampines-steam-tables-gui` runs its self-checks -- including the
+# saturation-curve V&V gate against the published Wagner table, and the
+# byte-reproducibility gates on the SVG, PDF and CSV exports.
+[[example]]
+name = "tampines-steam-tables-gui"
+path = "examples/tampines-steam-tables-gui/main.rs"
+test = true

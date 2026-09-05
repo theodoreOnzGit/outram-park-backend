@@ -163,7 +163,11 @@ pub fn compute_resonance_amplitudes(
         }
         let g3 = g2 * g2;
 
-        out.push(ResonanceAmplitudes { beta_pr, beta, gbetpr: [g1, g2, g3] });
+        out.push(ResonanceAmplitudes {
+            beta_pr,
+            beta,
+            gbetpr: [g1, g2, g3],
+        });
     }
 
     Ok(out)

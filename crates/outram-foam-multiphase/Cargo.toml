@@ -1,0 +1,29 @@
+[package]
+name = "outram-foam-multiphase"
+version = "0.0.2"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OUTRAM-FOAM Phase II multiphase CFD — pure-Rust translation of OpenFOAM's multiphase solvers (drift-flux first; Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference high-fidelity physics from which TAMPINES 1D reduced-order models are derived. SCAFFOLD/early: no human V&V. Independent OUTRAM PARK fork, not the official OpenFOAM."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# docs/ and the OpenFOAM reference clone are repo-only; never shipped.
+exclude = ["docs", "upstream_source"]
+
+[dependencies]
+# Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
+# API boundary; `thiserror` the crate error enum. The finite-volume framework
+# (FvMesh, VolScalarField, fvc/fvm operators) is reused from the Layer-1-4
+# crate — pure-Rust LU/LDU, no system BLAS, so this crate stays Android-buildable.
+uom.workspace = true
+thiserror.workspace = true
+outram-foam-basic-lib.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+
+[lib]
+name = "outram_foam_multiphase"
+path = "src/lib.rs"

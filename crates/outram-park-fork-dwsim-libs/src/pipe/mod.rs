@@ -16,9 +16,7 @@ pub mod transient;
 use beggs_brill::{beggs_brill_pressure_drop, BeggsBrillResult};
 use lockhart_martinelli::{lockhart_martinelli_pressure_drop, LockhartMartinelliResult};
 use uom::si::angle::radian;
-use uom::si::f64::{
-    Angle, DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, VolumeRate,
-};
+use uom::si::f64::{Angle, DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, VolumeRate};
 
 /// Shared inputs for a two-phase pipe pressure-drop evaluation, common to
 /// every [`PipeFlowCorrelation`] variant.
@@ -164,13 +162,19 @@ mod dispatch_tests {
 
     #[test]
     fn default_is_beggs_brill() {
-        assert_eq!(PipeFlowCorrelation::default(), PipeFlowCorrelation::BeggsBrill);
+        assert_eq!(
+            PipeFlowCorrelation::default(),
+            PipeFlowCorrelation::BeggsBrill
+        );
     }
 
     #[test]
     fn both_correlations_dispatch_and_produce_positive_pressure_drop() {
         let inputs = sample_inputs();
-        for corr in [PipeFlowCorrelation::BeggsBrill, PipeFlowCorrelation::LockhartMartinelli] {
+        for corr in [
+            PipeFlowCorrelation::BeggsBrill,
+            PipeFlowCorrelation::LockhartMartinelli,
+        ] {
             let result = corr.pressure_drop(&inputs);
             assert!(result.total_pressure_drop().value > 0.0);
         }

@@ -9,10 +9,10 @@
 
 | Axis | Status |
 |---|---|
-| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Verification & Validation (V&V) — human-reviewed | ✅ Cleared by maintainer (2026-07-21): hand-coded solver, validated against the CIET integral effects test; peer-reviewed, doi:10.1016/j.jandt.2025.03.006 |
 | Human / user interface — human-reviewed | ❌ Not yet manually checked |
 
-**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+**Status: INCOMPLETE** — the V&V axis is cleared (2026-07-21); the Human/user-interface axis remains to be manually checked and cleared by the maintainer.
 
 Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
 
@@ -25,6 +25,34 @@ in development and not fully featured yet.
 The crate contains many useful traits and examples of how to use 
 those traits for your own projects.
 
+# Publication & citation
+
+TUAS is described — and its verification & validation documented — in a
+peer-reviewed journal article. The article's V&V comprises a natural-circulation
+**verification** against the System Analysis Module (SAM) model of CIET, plus
+**validation** against CIET forced-circulation experimental data and a HITEC-salt
+to YD-325-oil shell-and-tube heat exchanger. The records that reproduce this V&V
+live under [`verification_and_validation/`](./verification_and_validation/).
+
+If you use TUAS in academic work, please cite:
+
+> Ong, T. K. C., Xiao, S., & Peterson, P. F. (2025). An open-source
+> Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
+> (TUAS). *International Journal of Advanced Nuclear Reactor Design and
+> Technology*. https://doi.org/10.1016/j.jandt.2025.03.006
+
+```bibtex
+@article{ong2025tuas,
+  title   = {An open-source Thermo-hydraulic Uniphase Advection and
+             Convection Solver for Salt Flows (TUAS)},
+  author  = {Ong, Theodore Kay Chen and Xiao, Sicong and Peterson, Per F.},
+  journal = {International Journal of Advanced Nuclear Reactor Design and Technology},
+  year    = {2025},
+  doi     = {10.1016/j.jandt.2025.03.006},
+  note    = {Preprint: SSRN, doi:10.2139/ssrn.4998548}
+}
+```
+
 # Human-in-the-loop calibration (important)
 
 **Model calibration and validation-tolerance decisions in this crate are
@@ -35,7 +63,7 @@ exception are engineering judgments that require a human reviewer. An automated
 agent can *measure* and *report*, but the accept/reject decision is a human's.
 
 The concrete worked example is the **coupled DRACS natural-circulation loop**
-(`src/lib/pre_built_components/ciet_steady_state_natural_circulation_test_components/coupled_dracs_loop_tests/`,
+(`src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/`,
 V&V record `verification_and_validation/coupled_dracs_pipe38_K17p8_vs_ciet_experiment.md`):
 
 - The DRACS cold-leg pipe-38 form loss was recalibrated from the RELAP value
@@ -1624,3 +1652,10 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

@@ -55,7 +55,10 @@ impl Majorant {
     /// `sigma_max ≥ Σ_t` everywhere the neutron can travel; looser than an
     /// energy-dependent majorant, so it produces more virtual collisions.
     pub fn uniform(sigma_max: f64) -> Self {
-        Majorant { energy: vec![0.0, f64::INFINITY], sigma: vec![sigma_max, sigma_max] }
+        Majorant {
+            energy: vec![0.0, f64::INFINITY],
+            sigma: vec![sigma_max, sigma_max],
+        }
     }
 
     /// Build the majorant `Σ_maj(E) = max_m Σ_t,m(E)` over `materials` on the
@@ -89,7 +92,10 @@ impl Majorant {
                 m * scale
             })
             .collect();
-        Majorant { energy: energies.to_vec(), sigma }
+        Majorant {
+            energy: energies.to_vec(),
+            sigma,
+        }
     }
 
     /// Build a **provably bounding** majorant by taking, for each energy bin, the
@@ -341,13 +347,19 @@ mod tests {
             id: 1,
             name: "fuel".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.8e-2,
+            }],
         };
         let matrix = Material {
             id: 2,
             name: "matrix".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 1, atom_density: 6.0e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 6.0e-2,
+            }],
         };
         let mats = [fuel, matrix];
         let grid: Vec<f64> = (0..40).map(|i| 1.0e3 * 1.4_f64.powi(i)).collect();

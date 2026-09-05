@@ -91,6 +91,22 @@
 //!
 //! **Results (2026-07-17, NVIDIA GeForce RTX 3050, Vulkan; warm OS disk cache).**
 //!
+//! > **SUPERSEDED AND PENDING A RE-RUN (flagged 2026-08-06, bead `op-jis`).**
+//! > The k∞ below, and the XS-kernel error columns further down, were measured
+//! > with the pre-`op-jis` `prn` output function (the raw top-52 bits of the LCG
+//! > state). `op-jis` replaced it with OpenMC's PCG-RXS-M-XS output permutation,
+//! > which changes every uniform: the eigenvalue, the sampled kernel positions,
+//! > and the Watt-sampled query energies behind the error columns all move. This
+//! > example **could not be re-run** on 2026-08-06 — it needs `--features
+//! > net-fetch` to download the ENDF tapes and no local cache was present, so
+//! > **no number below has been replaced or estimated**. The two tracked CSVs it
+//! > writes, `verification_and_validation/gpu_benchmarks/triso_keff_convergence.csv`
+//! > and `triso_xs_throughput.csv`, therefore also still hold pre-`op-jis`
+//! > values. Re-run with
+//! > `cargo run --release -p outram-mc-libs --features net-fetch --example triso_gpu_benchmark`
+//! > before citing any of this as current. (The sibling `godiva_gpu_benchmark`,
+//! > which needs no network data, *was* re-run and is current.)
+//!
 //! - **Nuclide fidelity:** U-234, U-235, U-238, H-1 all HIGH-fidelity ENDF/B-VII.1
 //!   (carbon fell back to H-1 as documented above). Reconstruction wall-clock:
 //!   U-234 0.4 s, U-235 12.4 s, U-238 28.4 s, H-1 0.9 s; total 42.1 s (tapes were
@@ -148,7 +164,7 @@ fn main() {
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
     use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
-    use outram_mc_libs::pebble_beds::stochastic_media::PackedSpheres;
+    use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::rng::distributions::watt;
     use std::fs;
@@ -182,16 +198,37 @@ fn main() {
         lib.label()
     );
     let t_data = Instant::now();
-    let nuclides: Vec<Nuclide> = names
-        .iter()
-        .map(|name| {
-            let t = Instant::now();
-            let n = Nuclide::from_endf(lib, name, temp_k, 1.0e-3)
-                .unwrap_or_else(|e| panic!("reconstruct {name} from ENDF/B-VII.1: {e}"));
-            println!("  {name}: reconstructed in {:.1} s", t.elapsed().as_secs_f64());
-            n
-        })
-        .collect();
+    let mut nuclides: Vec<Nuclide> = Vec::with_capacity(names.len());
+    for name in names.iter() {
+        let t = Instant::now();
+        match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
+            Ok(n) => {
+                println!(
+                    "  {name}: reconstructed in {:.1} s",
+                    t.elapsed().as_secs_f64()
+                );
+                nuclides.push(n);
+            }
+            // Fail gracefully rather than panicking with a backtrace: the usual
+            // cause is no outbound network (offline / restrictive proxy). Print
+            // an honest explanation and point at the offline CORE-data twin, then
+            // exit non-zero cleanly.
+            Err(e) => {
+                eprintln!(
+                    "\ncould not obtain ENDF data for {name} from ENDF/B-VII.1: {e}\n\n\
+                     This HIGH-fidelity benchmark downloads the ENDF/B-VII.1 neutron tapes\n\
+                     from the IAEA Nuclear Data Services and reconstructs them on device\n\
+                     (RECONR + BROADR), so it needs outbound network access to\n\
+                     https://www-nds.iaea.org. If you are offline or behind a restrictive\n\
+                     proxy, run one of the offline CORE-data TRISO twins instead (embedded\n\
+                     WMP data, no network):\n  \
+                     cargo run --release -p outram-mc-libs --example triso_delta_tracking\n  \
+                     cargo run --release -p outram-mc-libs --example triso_stochastic_media"
+                );
+                std::process::exit(1);
+            }
+        }
+    }
     let data_secs = t_data.elapsed().as_secs_f64();
     println!("All four nuclides HIGH-fidelity ENDF/B-VII.1; data ready in {data_secs:.1} s.\n");
 
@@ -203,16 +240,28 @@ fn main() {
         name: "HEU kernel".into(),
         temperature: temp_k,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
     let moderator = Material {
         id: 2,
         name: "H-1 matrix".into(),
         temperature: temp_k,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 4.0e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 4.0e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -233,7 +282,13 @@ fn main() {
     let majorant = Majorant::bounding(&materials, &nuclides, 1.0e-3, 2.0e7, 4096, 32, 0.1);
 
     // Geometry lookup for delta tracking: kernel → fuel (0), matrix → moderator (1).
-    let material_at = move |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize });
+    let material_at = move |p: Position| {
+        Some(if packed.is_inside_kernel(p) {
+            0usize
+        } else {
+            1usize
+        })
+    };
 
     // ── 5. Delta-tracking fission-source power iteration (CPU f64 reference).
     let settings = KeffSettings {
@@ -248,7 +303,14 @@ fn main() {
         settings.n_particles, settings.n_inactive, settings.n_active
     );
     let t_mc = Instant::now();
-    let result = run_keff_delta(half, &materials, &nuclides, &majorant, material_at, &settings);
+    let result = run_keff_delta(
+        half,
+        &materials,
+        &nuclides,
+        &majorant,
+        material_at,
+        &settings,
+    );
     let mc_secs = t_mc.elapsed().as_secs_f64();
     let histories = settings.n_particles * (settings.n_inactive + settings.n_active);
     let hist_per_s = histories as f64 / mc_secs;
@@ -266,7 +328,10 @@ fn main() {
     // ── 6. Isolated GPU-vs-CPU XS-kernel throughput on the HEU fuel Σ_t.
     println!("\nXS-kernel throughput benchmark (HEU fuel macroscopic total Σ_t):");
     let table = UnionTotalXs::tabulate(&materials[0], &nuclides, 1.0e-3, 2.0e7, 4096);
-    println!("  tabulated Σ_t on {} log-spaced points (1e-3 .. 2e7 eV).", table.grid.len());
+    println!(
+        "  tabulated Σ_t on {} log-spaced points (1e-3 .. 2e7 eV).",
+        table.grid.len()
+    );
 
     let gpu = outram_mc_libs::gpu::probe();
     match &gpu {
@@ -315,7 +380,16 @@ fn main() {
             cpu_qps / 1.0e6,
             gpu_qps / 1.0e6,
         );
-        xs_rows.push(XsRow { n, cpu_ms, gpu_ms, cpu_qps, gpu_qps, speedup, max_abs, mean_abs });
+        xs_rows.push(XsRow {
+            n,
+            cpu_ms,
+            gpu_ms,
+            cpu_qps,
+            gpu_qps,
+            speedup,
+            max_abs,
+            mean_abs,
+        });
     }
 
     // ── 7. Write the two plottable CSVs.
@@ -328,10 +402,18 @@ fn main() {
     let conv_path = out_dir.join("triso_keff_convergence.csv");
     {
         let mut f = fs::File::create(&conv_path).expect("create keff convergence CSV");
-        writeln!(f, "generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase").unwrap();
+        writeln!(
+            f,
+            "generation,k_generation,k_cumulative_mean,k_cumulative_sigma,phase"
+        )
+        .unwrap();
         let mut active: Vec<f64> = Vec::new();
         for (gen, &k) in result.k_by_generation.iter().enumerate() {
-            let phase = if gen < settings.n_inactive { "inactive" } else { "active" };
+            let phase = if gen < settings.n_inactive {
+                "inactive"
+            } else {
+                "active"
+            };
             if gen >= settings.n_inactive {
                 active.push(k);
                 let (m, s) = mean_and_stderr(&active);

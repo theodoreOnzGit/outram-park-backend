@@ -66,6 +66,22 @@ affiliated with, endorsed by, or connected to any of them.
   official DWSIM product and is not sanctioned by DWSIM Inc. or its
   contributors.
 
+### PFLOTRAN
+- **Stewardship:** PFLOTRAN development team across the US national labs —
+  Los Alamos (LANL), Pacific Northwest (PNNL), Oak Ridge (ORNL), Lawrence
+  Berkeley (LBNL), and Sandia (SNL). Original authors include Peter C.
+  Lichtner, Glenn E. Hammond, Chuan Lu, Richard T. Mills, Satish Karra, and
+  others.
+- **Upstream URL:** https://www.pflotran.org (code: https://bitbucket.org/pflotran/pflotran)
+- **Upstream license:** GNU LGPL, version 2.1 or later (LGPL-2.1-or-later).
+- Outram Park's `outram-park-fork-pflotran` crate is an independent pure-Rust
+  translation of selected PFLOTRAN subsurface-flow and reactive-transport
+  methods. The upstream LGPL-2.1-or-later terms permit relicensing under the
+  GNU GPL (LGPL-2.1 §3), so this crate is distributed as GPL-3.0-only,
+  consistent with the rest of the suite. It is not an official PFLOTRAN
+  product and is not sanctioned by the PFLOTRAN development team or any of the
+  national laboratories above. See that crate's `NOTICE` file.
+
 ## Good-faith attribution commitment
 
 Every source file in Outram Park that ports code from an upstream project

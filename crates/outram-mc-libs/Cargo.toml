@@ -1,6 +1,7 @@
 [package]
 name = "outram-mc-libs"
-version = "0.1.0"
+version = "0.0.4"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Pure-Rust port of OpenMC Monte Carlo neutron transport kernels -- an independent OUTRAM PARK fork, not the official OpenMC software"
@@ -40,8 +41,15 @@ fission-yields-data = { workspace = true }
 #     derived RNG stream so results are reproducible independent of thread count).
 #   * log    — the `log::debug!` graceful-fallback message emitted when
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
-rayon = { workspace = true }
+# rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
+# Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
+# unconditional (non-gated, non-target-gated) dependency: a terminal UI is
+# Android-in-scope per the workspace CLAUDE.md ("Android portability": only
+# windowing GUI is out of scope), so it compiles on every target and the binary
+# always builds with a plain `cargo build`. ratatui re-exports its matched
+# crossterm as `ratatui::crossterm`.
+# (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
@@ -68,3 +76,50 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+
+# naga (non-Android, dev-only): statically parse + validate the hand-written WGSL
+# GPU kernels on CPU, so shader syntax/type errors are caught even on CI without a
+# GPU adapter (where the GPU-vs-CPU agreement tests only SKIP). Not linked into the
+# library; wgpu already pulls the same naga version transitively on desktop.
+# `wgsl-in` is NOT one of naga's default features (its own `default = []`) --
+# this crate's use of `naga::front::wgsl` previously only worked because
+# wgpu 29 happened to request the same feature on the one shared naga
+# instance; the wgpu 30 bump (op-9vo6.11) decoupled that, so it is now
+# requested explicitly rather than relying on incidental unification again.
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
+naga = { workspace = true, features = ["wgsl-in"] }
+
+# ── outram-mc-tui: mobile-first preset-geometry / transport-run TUI ───────────
+# A [[bin]] target inside this crate rather than a separate crate. It always
+# builds (`ratatui` is an unconditional dependency), so `cargo run -p
+# outram-mc-libs --bin outram-mc-tui` and `cargo install --path
+# crates/outram-mc-libs` need no feature flags. Sources live under
+# src/bin/outram-mc-tui/; the binary uses this crate's own library
+# (`outram_mc_libs::...`) for transport, geometry, and tallies. Design doc +
+# Termux usage: docs/outram-mc-tui.md.
+[[bin]]
+name = "outram-mc-tui"
+path = "src/bin/outram-mc-tui/main.rs"
+
+# ── Native + Android only: no wasm32 backend ─────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
+# fails with "cannot find module or crate sys". crossterm, which ratatui
+# re-exports, likewise has no wasm backend: there is no terminal in a browser.
+#
+# Both are target-gated off wasm ONLY, not off Android and not behind a feature.
+# rayon and a terminal UI are both Android-in-scope per the workspace CLAUDE.md,
+# so Termux keeps its multi-core path and its TUI; narrowing the gate to wasm is
+# the smallest correct change.
+#
+# On wasm the rayon call sites use `crate::wasm_par`, which runs the same work
+# serially. For this crate that is numerically exact, not just tolerable: the
+# Monte Carlo drivers seed per history and their eigenvalues are documented as
+# thread-count-independent. Bead op-okqo.1.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+ratatui = { workspace = true }

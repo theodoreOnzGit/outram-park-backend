@@ -28,6 +28,14 @@
 //! `repository-summary.md`. `validation-links.md` / `dependency-graph.md` are
 //! future work (they need the literature/graph layers).
 //!
+//! ## Ontology
+//!
+//! [`ontology`] is a separate layer: a typed graph of scientific/engineering
+//! *concepts* ([`ConceptGraph`], [`Relation`]) rather than code symbols —
+//! see its own module doc. Self-contained (no dependency on the `kovan`
+//! GUI/mindmap crate), meant to be usable by autocomplete, the literature
+//! layer, `kovan-codegen`, and a future graph-visualisation front end alike.
+//!
 //! ## Example
 //!
 //! ```no_run
@@ -47,10 +55,21 @@
 use std::path::Path;
 
 pub mod adapters;
+pub mod agent_docs;
 pub mod extract;
+pub mod ontology;
 mod outputs;
 
+pub use agent_docs::{
+    agents_markdown, condensed_index_markdown, estimated_tokens, inventory, write_bundle,
+    BundleReport, CrateEntry,
+};
 pub use extract::{catalogue_symbols_detailed, extract_from_text, ExtractedSymbol, SymbolKind};
+pub use ontology::{
+    Applicability, Concept, ConceptEdge, ConceptGraph, CoreConcept, EdgeDetail, Neutronics,
+    OntologyError, Origin, Reactor, Relation, RelationStatus, ResolveOutcome, ThermalHydraulics,
+    VerificationRecord,
+};
 pub use outputs::{repository_summary_markdown, symbols_markdown};
 
 pub use kovan_common::{KovanRepository, KovanSymbol, KovanValidationCase, Language};

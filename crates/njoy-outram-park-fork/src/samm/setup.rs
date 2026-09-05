@@ -36,13 +36,26 @@ pub struct SammSetup {
 /// [`context::compute_channel_kinematics`]'s doc comment).
 pub fn setup(section: &mut RmlSection, awr: f64) -> Result<SammSetup, NjoyError> {
     context::apply_particle_pair_defaults(&mut section.particle_pairs);
-    let quantum_info = context::check_quantum_numbers(&section.particle_pairs, &section.spin_groups)?;
-    let kinematics = context::compute_channel_kinematics(&mut section.particle_pairs, &section.spin_groups, awr)?;
+    let quantum_info =
+        context::check_quantum_numbers(&section.particle_pairs, &section.spin_groups)?;
+    let kinematics = context::compute_channel_kinematics(
+        &mut section.particle_pairs,
+        &section.spin_groups,
+        awr,
+    )?;
 
     let mut amplitudes = Vec::with_capacity(section.spin_groups.len());
     for (n, group) in section.spin_groups.iter().enumerate() {
-        amplitudes.push(betset::compute_resonance_amplitudes(group, &kinematics[n], &section.particle_pairs)?);
+        amplitudes.push(betset::compute_resonance_amplitudes(
+            group,
+            &kinematics[n],
+            &section.particle_pairs,
+        )?);
     }
 
-    Ok(SammSetup { kinematics, amplitudes, quantum_info })
+    Ok(SammSetup {
+        kinematics,
+        amplitudes,
+        quantum_info,
+    })
 }

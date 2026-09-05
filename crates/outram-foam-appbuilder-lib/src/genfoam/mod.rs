@@ -57,12 +57,27 @@
 //!
 //! This is an incremental, multi-session port. See
 //! `docs/genfoam-port-plan.md` for the full module map and translation order.
-//! Currently implemented:
+//! Each submodule's own `//!` header states its precise status; in summary:
 //!
-//! - [`neutronics::point_kinetics`] — the 0-D point-kinetics ODE core.
+//! - [`neutronics`] — point-kinetics (0-D), multigroup diffusion, SP3, and S_N
+//!   discrete-ordinates eigenvalue/transient solvers are implemented, along
+//!   with the shared cross-section ([`neutronics::xs`]) and flux/power
+//!   ([`neutronics::state`]) data structures.
+//! - [`thermo_mechanics`] — the linear-elastic thermal-stress constitutive core
+//!   and the full displacement/heat field solve on the mechanics mesh are
+//!   implemented.
+//! - [`multi_region`] — the mesh-to-mesh mapping, coupling-field registry, and
+//!   the tightly-coupled Picard outer iteration are implemented (with some
+//!   scaffolded gaps noted in that module's header).
+//! - [`thermal_hydraulics`] — the phase/structure field state, the one-phase
+//!   porous solver driver, all six closure families, the TH boundary
+//!   conditions, the diagnostic function objects and the bespoke hydrogen
+//!   thermophysical package are implemented with unit tests. The two-phase
+//!   (MULES) solver, `onePhaseLegacy` and the `nusselt_baffle` boundary
+//!   condition remain unported. See that module's header for the per-sub-module
+//!   breakdown and the full gap list.
 //!
-//! Everything else (XS data structures, diffusion/SP3/SN, multi-region coupling,
-//! thermal-hydraulics, thermo-mechanics) is planned but not yet translated.
+//! The generic FV building blocks ([`common`]) round out the subtree.
 
 pub mod common;
 pub mod multi_region;

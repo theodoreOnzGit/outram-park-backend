@@ -13,8 +13,8 @@
 
 use super::friction_factor::{darcy_friction_factor, reynolds_number};
 use uom::si::f64::{
-    Acceleration, DynamicViscosity, Length, MassDensity, Pressure, Ratio, SurfaceTension,
-    Velocity, VolumeRate,
+    Acceleration, DynamicViscosity, Length, MassDensity, Pressure, Ratio, SurfaceTension, Velocity,
+    VolumeRate,
 };
 use uom::si::length::meter;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -173,12 +173,14 @@ pub fn beggs_brill_pressure_drop(
     let f_tp = f_ns.get::<ratio>() * s.exp();
 
     let friction_pressure_drop = Pressure::new::<pascal>(
-        f_tp * v_m * v_m / 2.0 * density_no_slip.get::<kilogram_per_cubic_meter>() * length.get::<meter>()
+        f_tp * v_m * v_m / 2.0
+            * density_no_slip.get::<kilogram_per_cubic_meter>()
+            * length.get::<meter>()
             / d,
     );
-    let elevation_pressure_drop =
-        mixture_density * Acceleration::new::<uom::si::acceleration::meter_per_second_squared>(G)
-            * elevation_change;
+    let elevation_pressure_drop = mixture_density
+        * Acceleration::new::<uom::si::acceleration::meter_per_second_squared>(G)
+        * elevation_change;
 
     BeggsBrillResult {
         regime,

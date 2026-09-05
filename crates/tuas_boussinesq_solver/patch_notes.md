@@ -227,6 +227,6 @@ effects test (CIET) facility. Nuclear Engineering and Design, 377, 111144.
 Given that the calibrated simulation with the TUAS solver agreed better with 
 experimental data than SAM, I consider this validation effort successful.
 The tests are parked under the pre_built_components module, where we have 
-the ciet_steady_state_natural_circulation_test_components module. Inside that,
+the ciet_nat_circ_tests module. Inside that,
 I put the coupled_dracs_loop_tests modules with dataset_a, dataset_b 
 and dataset_c.

@@ -36,7 +36,12 @@ impl CoolingTower {
         water_flow_rate: VolumeRate,
         target_approach: TemperatureInterval,
     ) -> Self {
-        Self { air_inlet, water_inlet_temperature, water_flow_rate, target_approach }
+        Self {
+            air_inlet,
+            water_inlet_temperature,
+            water_flow_rate,
+            target_approach,
+        }
     }
 
     /// Evaluate this cooling tower's water outlet temperature and air

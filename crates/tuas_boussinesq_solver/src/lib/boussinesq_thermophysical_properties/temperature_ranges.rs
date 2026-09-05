@@ -13,118 +13,79 @@ use super::solid_database::copper::max_temp_copper_zou_zweibaum_spline;
 use super::solid_database::copper::min_temp_copper_zou_zweibaum_spline;
 use super::solid_database::fiberglass::max_temp_fiberglass_zou_zweibaum_spline;
 use super::solid_database::fiberglass::min_temp_fiberglass_zou_zweibaum_spline;
+use super::solid_database::nuclear_graphite::max_temp_nuclear_graphite;
+use super::solid_database::nuclear_graphite::min_temp_nuclear_graphite;
 use super::solid_database::pyrogel_hps::max_temp_pyrogel_hps;
 use super::solid_database::pyrogel_hps::min_temp_pyrogel_hps;
 use super::solid_database::ss_304_l::max_temp_ss_304l_zou_zweibaum_spline;
 use super::solid_database::ss_304_l::min_temp_ss_304l_zou_zweibaum_spline;
+use super::solid_database::ss_304_l_high_temp::max_temp_ss_304l_high_temp_kim;
+use super::solid_database::ss_304_l_high_temp::min_temp_ss_304l_high_temp_kim;
 use super::SolidMaterial;
 use super::Material;
 use super::LiquidMaterial;
 use super::liquid_database::dowtherm_a::max_temp_dowtherm_a;
 
 impl Material {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            Material::Solid(solid) => {
-                solid.max_temperature()
-            },
-            Material::Liquid(liquid) => {
-                liquid.max_temperature()
-            },
+            Material::Solid(solid) => solid.max_temperature(),
+            Material::Liquid(liquid) => liquid.max_temperature(),
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
-
         match self {
-            Material::Solid(solid) => {
-                solid.min_temperature()
-            },
-            Material::Liquid(liquid) => {
-                liquid.min_temperature()
-            },
+            Material::Solid(solid) => solid.min_temperature(),
+            Material::Liquid(liquid) => liquid.min_temperature(),
         }
     }
 }
 
 impl LiquidMaterial {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            LiquidMaterial::TherminolVP1 => {
-                max_temp_dowtherm_a()
-            },
-            LiquidMaterial::DowthermA => {
-                max_temp_dowtherm_a()
-            },
-            LiquidMaterial::HITEC => {
-                max_temp_hitec()
-            },
-            LiquidMaterial::YD325 => {
-                max_temp_yd325_oil()
-            },
-            LiquidMaterial::FLiBe => {
-                max_temp_flibe()
-            },
-            LiquidMaterial::FLiNaK => {
-                max_temp_flinak()
-            },
-            LiquidMaterial::CustomLiquid((_lower_bound, upper_bound)
-                , _, _, _, _) => {
-                *upper_bound
-            },
+            LiquidMaterial::TherminolVP1 => max_temp_dowtherm_a(),
+            LiquidMaterial::DowthermA => max_temp_dowtherm_a(),
+            LiquidMaterial::HITEC => max_temp_hitec(),
+            LiquidMaterial::YD325 => max_temp_yd325_oil(),
+            LiquidMaterial::FLiBe => max_temp_flibe(),
+            LiquidMaterial::FLiNaK => max_temp_flinak(),
+            LiquidMaterial::CustomLiquid((_lower_bound, upper_bound), _, _, _, _) => *upper_bound,
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
     /// given material
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {
-            LiquidMaterial::TherminolVP1 => {
-                min_temp_dowtherm_a()
-            },
-            LiquidMaterial::DowthermA => {
-                min_temp_dowtherm_a()
-            },
-            LiquidMaterial::HITEC => {
-                min_temp_hitec()
-            },
-            LiquidMaterial::YD325 => {
-                min_temp_yd325_oil()
-            },
-            LiquidMaterial::FLiBe => {
-                min_temp_flibe()
-            },
-            LiquidMaterial::FLiNaK => {
-                min_temp_flinak()
-            },
-            LiquidMaterial::CustomLiquid((lower_bound, _upper_bound)
-                , _, _, _, _) => {
-                *lower_bound
-            },
+            LiquidMaterial::TherminolVP1 => min_temp_dowtherm_a(),
+            LiquidMaterial::DowthermA => min_temp_dowtherm_a(),
+            LiquidMaterial::HITEC => min_temp_hitec(),
+            LiquidMaterial::YD325 => min_temp_yd325_oil(),
+            LiquidMaterial::FLiBe => min_temp_flibe(),
+            LiquidMaterial::FLiNaK => min_temp_flinak(),
+            LiquidMaterial::CustomLiquid((lower_bound, _upper_bound), _, _, _, _) => *lower_bound,
         }
-
     }
 }
 impl SolidMaterial {
-
     /// gives the maximum temperature for the correlations in the
     /// given material
     pub fn max_temperature(&self) -> ThermodynamicTemperature {
         match self {
             SolidMaterial::SteelSS304L => max_temp_ss_304l_zou_zweibaum_spline(),
+            SolidMaterial::SteelSS304LHighTemp => max_temp_ss_304l_high_temp_kim(),
             SolidMaterial::Copper => max_temp_copper_zou_zweibaum_spline(),
             SolidMaterial::Fiberglass => max_temp_fiberglass_zou_zweibaum_spline(),
             SolidMaterial::PyrogelHPS => max_temp_pyrogel_hps(),
-            SolidMaterial::CustomSolid((_lower_bound,upper_bound), 
-                _, _, _, _) => {
-                *upper_bound
-            },
+            SolidMaterial::NuclearGraphiteMatrixA3 => max_temp_nuclear_graphite(),
+            SolidMaterial::NuclearGraphiteIG110 => max_temp_nuclear_graphite(),
+            SolidMaterial::CustomSolid((_lower_bound, upper_bound), _, _, _, _) => *upper_bound,
         }
     }
     /// gives the minimum temperature (in kelvin) for the correlations in the
@@ -132,14 +93,13 @@ impl SolidMaterial {
     pub fn min_temperature(&self) -> ThermodynamicTemperature {
         match self {
             SolidMaterial::SteelSS304L => min_temp_ss_304l_zou_zweibaum_spline(),
+            SolidMaterial::SteelSS304LHighTemp => min_temp_ss_304l_high_temp_kim(),
             SolidMaterial::Copper => min_temp_copper_zou_zweibaum_spline(),
             SolidMaterial::Fiberglass => min_temp_fiberglass_zou_zweibaum_spline(),
             SolidMaterial::PyrogelHPS => min_temp_pyrogel_hps(),
-            SolidMaterial::CustomSolid((lower_bound, _upper_bound), 
-                _, _, _, _) => {
-                *lower_bound
-            },
+            SolidMaterial::NuclearGraphiteMatrixA3 => min_temp_nuclear_graphite(),
+            SolidMaterial::NuclearGraphiteIG110 => min_temp_nuclear_graphite(),
+            SolidMaterial::CustomSolid((lower_bound, _upper_bound), _, _, _, _) => *lower_bound,
         }
-
     }
 }

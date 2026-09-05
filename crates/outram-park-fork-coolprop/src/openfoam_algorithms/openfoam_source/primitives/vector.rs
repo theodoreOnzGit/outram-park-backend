@@ -31,11 +31,31 @@ pub struct Vector3 {
 }
 
 impl Vector3 {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
-    pub const ONE: Self = Self { x: 1.0, y: 1.0, z: 1.0 };
-    pub const X: Self = Self { x: 1.0, y: 0.0, z: 0.0 };
-    pub const Y: Self = Self { x: 0.0, y: 1.0, z: 0.0 };
-    pub const Z: Self = Self { x: 0.0, y: 0.0, z: 1.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
+    pub const X: Self = Self {
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    };
+    pub const Y: Self = Self {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
+    pub const Z: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
 
     #[inline]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
@@ -85,7 +105,11 @@ impl Vector3 {
     /// Normalise to unit vector; returns zero if `|v| < tol`.
     pub fn normalise(self, tol: f64) -> Self {
         let s = self.mag();
-        if s < tol { Self::ZERO } else { self / s }
+        if s < tol {
+            Self::ZERO
+        } else {
+            self / s
+        }
     }
 
     /// Remove the component collinear with `unit_vec`: `self - (self·unit) * unit`.
@@ -98,7 +122,11 @@ impl Vector3 {
     #[inline]
     pub fn lerp(a: Self, b: Self, t: f64) -> Self {
         let ot = 1.0 - t;
-        Self { x: ot * a.x + t * b.x, y: ot * a.y + t * b.y, z: ot * a.z + t * b.z }
+        Self {
+            x: ot * a.x + t * b.x,
+            y: ot * a.y + t * b.y,
+            z: ot * a.z + t * b.z,
+        }
     }
 }
 
@@ -107,77 +135,127 @@ impl Vector3 {
 impl Neg for Vector3 {
     type Output = Self;
     #[inline]
-    fn neg(self) -> Self { Self { x: -self.x, y: -self.y, z: -self.z } }
+    fn neg(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
 }
 
 impl Add for Vector3 {
     type Output = Self;
     #[inline]
-    fn add(self, r: Self) -> Self { Self { x: self.x + r.x, y: self.y + r.y, z: self.z + r.z } }
+    fn add(self, r: Self) -> Self {
+        Self {
+            x: self.x + r.x,
+            y: self.y + r.y,
+            z: self.z + r.z,
+        }
+    }
 }
 
 impl Sub for Vector3 {
     type Output = Self;
     #[inline]
-    fn sub(self, r: Self) -> Self { Self { x: self.x - r.x, y: self.y - r.y, z: self.z - r.z } }
+    fn sub(self, r: Self) -> Self {
+        Self {
+            x: self.x - r.x,
+            y: self.y - r.y,
+            z: self.z - r.z,
+        }
+    }
 }
 
 impl Mul<f64> for Vector3 {
     type Output = Self;
     #[inline]
-    fn mul(self, s: f64) -> Self { Self { x: self.x * s, y: self.y * s, z: self.z * s } }
+    fn mul(self, s: f64) -> Self {
+        Self {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
+    }
 }
 
 impl Mul<Vector3> for f64 {
     type Output = Vector3;
     #[inline]
-    fn mul(self, v: Vector3) -> Vector3 { v * self }
+    fn mul(self, v: Vector3) -> Vector3 {
+        v * self
+    }
 }
 
 impl Div<f64> for Vector3 {
     type Output = Self;
     #[inline]
-    fn div(self, s: f64) -> Self { Self { x: self.x / s, y: self.y / s, z: self.z / s } }
+    fn div(self, s: f64) -> Self {
+        Self {
+            x: self.x / s,
+            y: self.y / s,
+            z: self.z / s,
+        }
+    }
 }
 
 impl AddAssign for Vector3 {
     #[inline]
-    fn add_assign(&mut self, r: Self) { *self = *self + r; }
+    fn add_assign(&mut self, r: Self) {
+        *self = *self + r;
+    }
 }
 
 impl SubAssign for Vector3 {
     #[inline]
-    fn sub_assign(&mut self, r: Self) { *self = *self - r; }
+    fn sub_assign(&mut self, r: Self) {
+        *self = *self - r;
+    }
 }
 
 impl MulAssign<f64> for Vector3 {
     #[inline]
-    fn mul_assign(&mut self, s: f64) { *self = *self * s; }
+    fn mul_assign(&mut self, s: f64) {
+        *self = *self * s;
+    }
 }
 
 impl DivAssign<f64> for Vector3 {
     #[inline]
-    fn div_assign(&mut self, s: f64) { *self = *self / s; }
+    fn div_assign(&mut self, s: f64) {
+        *self = *self / s;
+    }
 }
 
 // --- Free functions mirroring OpenFOAM globals ---
 
 #[inline]
-pub fn mag_sqr(v: Vector3) -> f64 { v.mag_sqr() }
+pub fn mag_sqr(v: Vector3) -> f64 {
+    v.mag_sqr()
+}
 
 #[inline]
-pub fn mag(v: Vector3) -> f64 { v.mag() }
+pub fn mag(v: Vector3) -> f64 {
+    v.mag()
+}
 
 /// Dot product. C++ `operator&`.
 #[inline]
-pub fn dot(a: Vector3, b: Vector3) -> f64 { a.dot(b) }
+pub fn dot(a: Vector3, b: Vector3) -> f64 {
+    a.dot(b)
+}
 
 /// Cross product. C++ `operator^`.
 #[inline]
-pub fn cross(a: Vector3, b: Vector3) -> Vector3 { a.cross(b) }
+pub fn cross(a: Vector3, b: Vector3) -> Vector3 {
+    a.cross(b)
+}
 
 #[inline]
-pub fn lerp(a: Vector3, b: Vector3, t: f64) -> Vector3 { Vector3::lerp(a, b, t) }
+pub fn lerp(a: Vector3, b: Vector3, t: f64) -> Vector3 {
+    Vector3::lerp(a, b, t)
+}
 
 #[cfg(test)]
 mod tests {

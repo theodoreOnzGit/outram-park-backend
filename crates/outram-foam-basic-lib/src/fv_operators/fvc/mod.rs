@@ -25,6 +25,10 @@
 //! Mirrors `Foam::fvc::` (`src/finiteVolume/finiteVolume/fvc/`). Contents:
 //! Gauss gradient (`grad`, `grad_vec`), Gauss divergence (`div`, `div_flux`,
 //! `div_vec`, `div_tensor`, `div_symm_tensor`), surface-normal gradient
+//! the Gauss cell gradient (`grad`, `grad_vec`) and the mesh-independent
+//! least-squares cell gradient (`grad_least_squares` — exact for a linear field
+//! on a non-orthogonal mesh, where the Gauss gradient is not), the
+//! surface-normal gradient
 //! (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 //! (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 //! (`reconstruct`), the Rhie–Chow time-derivative flux correction
@@ -38,6 +42,7 @@ mod div;
 mod div_tensor;
 mod flux;
 mod grad;
+mod grad_least_squares;
 mod grad_vec;
 mod interpolate;
 mod muscl;
@@ -49,6 +54,7 @@ pub use div::{div, div_flux, div_vec};
 pub use div_tensor::{div_symm_tensor, div_tensor};
 pub use flux::{buoyancy_flux, flux};
 pub use grad::grad;
+pub use grad_least_squares::grad_least_squares;
 pub use grad_vec::grad_vec;
 pub use interpolate::interpolate;
 pub use muscl::{reconstruct_pos_neg, Limiter};

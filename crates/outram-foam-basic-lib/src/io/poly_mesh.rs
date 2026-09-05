@@ -47,9 +47,7 @@
 
 use std::path::Path;
 
-use super::dict::{
-    fmt_scalar, tokenize, write_header, Token, BANNER, FOOTER, SEPARATOR,
-};
+use super::dict::{fmt_scalar, tokenize, write_header, Token, BANNER, FOOTER, SEPARATOR};
 use super::IoError;
 use crate::mesh::{BoundaryPatch, FvMesh, FvMeshBuilder, PatchKind};
 use crate::primitives::Vector3;
@@ -342,7 +340,10 @@ impl PolyMesh {
         s.push_str(&format!("{}\n(\n", self.patches.len()));
         for p in &self.patches {
             s.push_str(&format!("    {}\n    {{\n", p.name));
-            s.push_str(&format!("        type            {};\n", kind_to_str(p.kind)));
+            s.push_str(&format!(
+                "        type            {};\n",
+                kind_to_str(p.kind)
+            ));
             s.push_str(&format!("        nFaces          {};\n", p.size));
             s.push_str(&format!("        startFace       {};\n", p.start));
             s.push_str("    }\n");
@@ -404,6 +405,7 @@ fn kind_from_str(s: &str) -> PatchKind {
         "empty" => PatchKind::Empty,
         "wedge" => PatchKind::Wedge,
         "cyclic" => PatchKind::Cyclic,
+        "cyclicAMI" => PatchKind::CyclicAmi,
         "processor" => PatchKind::Processor,
         _ => PatchKind::Patch,
     }
@@ -417,6 +419,7 @@ fn kind_to_str(k: PatchKind) -> &'static str {
         PatchKind::Empty => "empty",
         PatchKind::Wedge => "wedge",
         PatchKind::Cyclic => "cyclic",
+        PatchKind::CyclicAmi => "cyclicAMI",
         PatchKind::Processor => "processor",
     }
 }
@@ -468,7 +471,7 @@ impl ListCursor {
     fn skip_header(&mut self) {
         if self.peek() == Some("FoamFile") {
             self.next(); // FoamFile
-            // consume up to and including the matching '}'
+                         // consume up to and including the matching '}'
             let mut depth = 0usize;
             while let Some(t) = self.next() {
                 match t.as_str() {
@@ -639,7 +642,8 @@ fn write_file(path: &Path, contents: &str) -> Result<(), IoError> {
 fn header_str(class: &str, object: &str) -> String {
     let mut s = String::new();
     s.push_str(BANNER);
-    let header = super::dict::FoamHeader::standard_with_location(class, "constant/polyMesh", object);
+    let header =
+        super::dict::FoamHeader::standard_with_location(class, "constant/polyMesh", object);
     write_header(&mut s, &header);
     s.push_str(SEPARATOR);
     s.push_str("\n\n");

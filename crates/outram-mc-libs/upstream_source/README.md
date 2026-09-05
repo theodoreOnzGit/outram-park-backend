@@ -6,12 +6,39 @@
 
 - **Project:** OpenMC
 - **Repository:** <https://github.com/openmc-dev/openmc>
-- **License:** MIT (verify against the upstream `LICENSE` file when a clone
-  is made — not yet independently confirmed against a local checkout by this
-  crate)
+- **License:** MIT — **confirmed 2026-08-06** by reading the upstream `LICENSE`
+  file directly (verbatim MIT text, `Copyright (c) 2011-2025 Massachusetts
+  Institute of Technology, UChicago Argonne LLC, and OpenMC contributors`).
+  Note GitHub's licence detector reports `NOASSERTION`/"Other" for the repo —
+  a false alarm caused by the file having no "MIT License" title line, which
+  defeats the strict matcher. MIT is GPLv3-compatible one-way; ported files
+  must carry the MIT copyright + permission notice.
 - **Branch tracked:** `develop` (when cloned — see below)
 - **Commit at last sync:** not currently tracked — no persistent local clone (see note)
 - **Clone command:** `git clone --depth 1 https://github.com/openmc-dev/openmc.git upstream_source/OpenMC`
+
+### Fork clone: `virtual_lattice`
+
+- **Directory:** `upstream_source/OpenMC-virtual-lattice/` (gitignored via the
+  crate `.gitignore` rule `/upstream_source/*/`)
+- **Repository:** <https://github.com/liangjg/openmc> (fork of
+  `openmc-dev/openmc`)
+- **Branch:** `virtual_lattice`
+- **Commit at sync:** `be04e2804f9dc563d53429d97368c5d905070978`
+  (2025-10-27, *"Merge pull request #2 from cn-skywalker/virtual_lattice_0.15.2"*)
+- **Date vendored:** 2026-08-06
+- **License:** MIT, inherited from upstream OpenMC — the fork's `LICENSE` is
+  the unmodified upstream file (verified against the clone).
+- **Clone command:**
+  `git clone --depth 1 --branch virtual_lattice --single-branch https://github.com/liangjg/openmc.git upstream_source/OpenMC-virtual-lattice`
+- **Why:** the branch adds a *virtual lattice* — a uniform-grid ray-traversal
+  accelerator for CSG cells packed with tens of thousands of explicit TRISO
+  spheres. It is **not in upstream** `openmc-dev/openmc`: 14 commits ahead of
+  `develop`, 17 files changed, contributed by Liang Jingang, Li Ruihan and
+  `cn-skywalker`. Recommended to this project by Zhe Chuan.
+- **Ported to:** `src/geometry/virtual_lattice/` — see that module's docs for
+  the per-function reference map and the scope of what was and was not
+  translated.
 
 ## Provenance
 

@@ -123,7 +123,11 @@ impl Law4 {
     /// Number of XSS words this Law-4 data occupies.
     pub fn data_len(&self) -> i32 {
         let ne = self.incident.len() as i32;
-        let dists: i32 = self.incident.iter().map(|d| 2 + 3 * d.e_out_mev.len() as i32).sum();
+        let dists: i32 = self
+            .incident
+            .iter()
+            .map(|d| 2 + 3 * d.e_out_mev.len() as i32)
+            .sum();
         self.nr_words() + 1 + ne + ne + dists
     }
 
@@ -196,7 +200,10 @@ pub struct Emission {
 pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
     let x = (awr + 1.0) / awr;
     let q_mev = qi_ev / EMEV;
-    EnergyLaw::Law3 { ldat1_mev: x * (-q_mev), ldat2: 1.0 / (x * x) }
+    EnergyLaw::Law3 {
+        ldat1_mev: x * (-q_mev),
+        ldat2: 1.0 / (x * x),
+    }
 }
 
 /// The base neutron multiplicity of a producing reaction, or `None` if the
@@ -206,12 +213,12 @@ pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
 /// ν̄ (NU) block, which is a separate increment.
 fn neutron_yield(mt: i32) -> Option<u32> {
     match mt {
-        16 => Some(2),                      // (n,2n)
-        17 => Some(3),                      // (n,3n)
-        37 => Some(4),                      // (n,4n)
-        51..=91 => Some(1),                 // (n,n') discrete levels + continuum
+        16 => Some(2),      // (n,2n)
+        17 => Some(3),      // (n,3n)
+        37 => Some(4),      // (n,4n)
+        51..=91 => Some(1), // (n,n') discrete levels + continuum
         22 | 23 | 24 | 25 | 28 | 29 | 30 | 32 | 33 | 34 | 35 | 36 | 41 | 42 | 44 | 45 => Some(1),
-        5 => Some(1),                       // (n,anything) — approx one neutron
+        5 => Some(1), // (n,anything) — approx one neutron
         _ => None,
     }
 }
@@ -338,7 +345,10 @@ pub fn parse_mf5_law4(section: &Section) -> Result<Law4, NjoyError> {
         incident.push(build_outgoing(e_in_ev, intt, &g.pairs));
     }
 
-    Ok(Law4 { e_in_interp, incident })
+    Ok(Law4 {
+        e_in_interp,
+        incident,
+    })
 }
 
 /// The neutron emission of an MF=6 LAW=1 reaction, reduced to an ACE Law 4
@@ -404,7 +414,11 @@ impl Mf6Neutron {
             let (e0, e1) = (tables[i - 1].e_in_mev, tables[i].e_in_mev);
             if e_in_mev <= e1 {
                 let (m0, m1) = (table_mean(&tables[i - 1]), table_mean(&tables[i]));
-                let frac = if e1 > e0 { (e_in_mev - e0) / (e1 - e0) } else { 0.0 };
+                let frac = if e1 > e0 {
+                    (e_in_mev - e0) / (e1 - e0)
+                } else {
+                    0.0
+                };
                 return (m0 + frac * (m1 - m0)) * EMEV;
             }
         }
@@ -480,7 +494,14 @@ pub fn parse_mf6_law1_neutron(section: &Section) -> Result<Mf6Neutron, NjoyError
         incident.push(build_outgoing(e_in_ev, intt, &pairs));
     }
 
-    Ok(Mf6Neutron { lct, yield_pairs: ymult.pairs, law4: Law4 { e_in_interp, incident } })
+    Ok(Mf6Neutron {
+        lct,
+        yield_pairs: ymult.pairs,
+        law4: Law4 {
+            e_in_interp,
+            incident,
+        },
+    })
 }
 
 /// Build one outgoing-energy distribution: convert eV→MeV, scale the pdf to /MeV,
@@ -497,7 +518,11 @@ fn build_outgoing(e_in_ev: f64, intt: u32, pairs: &[(f64, f64)]) -> OutgoingEner
     for i in 1..n {
         let de = e_out_mev[i] - e_out_mev[i - 1];
         cdf[i] = cdf[i - 1]
-            + if intt == 1 { pdf[i - 1] * de } else { 0.5 * (pdf[i] + pdf[i - 1]) * de };
+            + if intt == 1 {
+                pdf[i - 1] * de
+            } else {
+                0.5 * (pdf[i] + pdf[i - 1]) * de
+            };
     }
     // Renormalise so the distribution integrates to 1.
     if let Some(&total) = cdf.last() {
@@ -511,7 +536,13 @@ fn build_outgoing(e_in_ev: f64, intt: u32, pairs: &[(f64, f64)]) -> OutgoingEner
         }
     }
 
-    OutgoingEnergy { e_in_mev: e_in_ev / EMEV, intt, e_out_mev, pdf, cdf }
+    OutgoingEnergy {
+        e_in_mev: e_in_ev / EMEV,
+        intt,
+        e_out_mev,
+        pdf,
+        cdf,
+    }
 }
 
 /// Reduce an ENDF interpolation table to the ACE convention: a single lin-lin
@@ -542,8 +573,7 @@ mod tests {
     use std::fs::File;
 
     fn u235_fission_chi() -> Law4 {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         let sec = tape.section(9228, 5, 18).expect("U-235 MF=5/MT=18");
         parse_mf5_law4(sec).unwrap()
@@ -563,17 +593,22 @@ mod tests {
     fn fission_chi_distributions_are_valid() {
         let law = u235_fission_chi();
         for d in &law.incident {
-            assert!(d.e_out_mev.windows(2).all(|w| w[1] >= w[0]), "E_out ascending");
+            assert!(
+                d.e_out_mev.windows(2).all(|w| w[1] >= w[0]),
+                "E_out ascending"
+            );
             assert!(d.pdf.iter().all(|&p| p >= 0.0), "pdf non-negative");
             assert!((d.cdf[0]).abs() < 1e-9, "cdf starts at 0");
             assert!((d.cdf.last().unwrap() - 1.0).abs() < 1e-6, "cdf ends at 1");
-            assert!(d.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+            assert!(
+                d.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9),
+                "cdf monotone"
+            );
         }
     }
 
     fn u235_mf6(mt: i32) -> Mf6Neutron {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         let sec = tape.section(9228, 6, mt).expect("U-235 MF=6");
         parse_mf6_law1_neutron(sec).unwrap()
@@ -584,8 +619,10 @@ mod tests {
         // MT=16 (n,2n): neutron multiplicity 2, centre-of-mass frame (LCT=2).
         let n2n = u235_mf6(16);
         assert_eq!(n2n.lct, 2, "LCT=2 (CM)");
-        assert!(n2n.yield_pairs.iter().all(|&(_, y)| (y - 2.0).abs() < 1e-6),
-            "(n,2n) yield is 2");
+        assert!(
+            n2n.yield_pairs.iter().all(|&(_, y)| (y - 2.0).abs() < 1e-6),
+            "(n,2n) yield is 2"
+        );
         assert!(n2n.law4.incident.len() > 5, "MT16 has an E_in grid");
     }
 
@@ -596,11 +633,20 @@ mod tests {
             let d = u235_mf6(mt);
             assert!(d.yield_pairs.iter().all(|&(_, y)| y >= 1.0), "yield ≥ 1");
             for dist in &d.law4.incident {
-                assert!(dist.e_out_mev.windows(2).all(|w| w[1] >= w[0]), "E_out ascending");
+                assert!(
+                    dist.e_out_mev.windows(2).all(|w| w[1] >= w[0]),
+                    "E_out ascending"
+                );
                 assert!(dist.pdf.iter().all(|&p| p >= 0.0), "pdf ≥ 0");
                 assert!((dist.cdf[0]).abs() < 1e-9, "cdf starts at 0");
-                assert!((dist.cdf.last().unwrap() - 1.0).abs() < 1e-6, "cdf ends at 1");
-                assert!(dist.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+                assert!(
+                    (dist.cdf.last().unwrap() - 1.0).abs() < 1e-6,
+                    "cdf ends at 1"
+                );
+                assert!(
+                    dist.cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9),
+                    "cdf monotone"
+                );
             }
         }
     }
@@ -620,10 +666,17 @@ mod tests {
         let m = Mf6Neutron {
             lct: 1,
             yield_pairs: vec![(0.0, 2.0)],
-            law4: Law4 { e_in_interp: vec![], incident: vec![table] },
+            law4: Law4 {
+                e_in_interp: vec![],
+                incident: vec![table],
+            },
         };
         // Single table ⇒ same mean at any incident energy.
-        assert!((m.mean_energy(5.0e6) - 1.0e6).abs() < 1.0, "got {}", m.mean_energy(5.0e6));
+        assert!(
+            (m.mean_energy(5.0e6) - 1.0e6).abs() < 1.0,
+            "got {}",
+            m.mean_energy(5.0e6)
+        );
     }
 
     /// Between two incident-energy tables the mean is linearly interpolated:
@@ -641,10 +694,17 @@ mod tests {
         let m = Mf6Neutron {
             lct: 1,
             yield_pairs: vec![(0.0, 2.0)],
-            law4: Law4 { e_in_interp: vec![], incident: vec![t(1.0, 2.0), t(3.0, 4.0)] },
+            law4: Law4 {
+                e_in_interp: vec![],
+                incident: vec![t(1.0, 2.0), t(3.0, 4.0)],
+            },
         };
         // mean(1 MeV)=1.0, mean(3 MeV)=2.0 ⇒ mean(2 MeV)=1.5 MeV.
-        assert!((m.mean_energy(2.0e6) - 1.5e6).abs() < 1.0, "got {}", m.mean_energy(2.0e6));
+        assert!(
+            (m.mean_energy(2.0e6) - 1.5e6).abs() < 1.0,
+            "got {}",
+            m.mean_energy(2.0e6)
+        );
     }
 
     /// Real-data sanity: the U-235 (n,2n) MF=6 mean emitted-neutron energy at a
@@ -655,8 +715,14 @@ mod tests {
         let n2n = u235_mf6(16);
         // MT=16 threshold is ~5–6 MeV; sample at 14 MeV.
         let ebar = n2n.mean_energy(1.4e7);
-        assert!(ebar > 0.0, "mean emitted energy must be positive, got {ebar}");
-        assert!(ebar < 1.4e7, "mean emitted energy {ebar} must be < incident 14 MeV");
+        assert!(
+            ebar > 0.0,
+            "mean emitted energy must be positive, got {ebar}"
+        );
+        assert!(
+            ebar < 1.4e7,
+            "mean emitted energy {ebar} must be < incident 14 MeV"
+        );
         assert!(
             (0.2e6..8.0e6).contains(&ebar),
             "U-235 (n,2n) ⟨E'⟩ {ebar} eV should be ~1–5 MeV"

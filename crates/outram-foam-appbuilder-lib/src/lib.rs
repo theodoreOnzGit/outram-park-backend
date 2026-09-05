@@ -26,14 +26,78 @@
 //! trademark of OpenCFD Limited. See `TRADEMARKS.md` (this crate's
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
+//!
+//! # `outram-foam-appbuilder-lib` — Layer 5: solver applications and case I/O
+//!
+//! This crate is the **application layer** of the OUTRAM PARK OpenFOAM-in-Rust
+//! stack. It sits on top of `outram-foam-basic-lib` (Layers 1–4: tensors,
+//! fields, mesh, `fvm`/`fvc` operators, linear solvers) and
+//! `outram-foam-turbulence-lib` (turbulence closures), and supplies the parts
+//! those crates deliberately do not: the **time-advancement loops**, the
+//! **case-file structures**, and the **multiphysics coupling drivers**.
+//!
+//! ```text
+//! outram-foam-basic-lib        Layers 1–4  primitives, fields, mesh, FV operators
+//! outram-foam-turbulence-lib   Layer 4     RAS/LES closures
+//!            │
+//!            ▼
+//! outram-foam-appbuilder-lib   Layer 5     ← THIS CRATE
+//! ```
+//!
+//! ## Where to start
+//!
+//! - [`solvers`] — one submodule per ported OpenFOAM application. Each owns its
+//!   PISO/PIMPLE (or explicit) time loop. Construct one with `new(mesh, control,
+//!   schemes, solution)`, set the field state, then call `step()` or `run()`.
+//! - [`case_runner`] — the layer above that: read an OpenFOAM case directory,
+//!   build the solver's initial state from it, march the loop and write the
+//!   fields back. `CaseRun::from_case(dir, SolverKind::PimpleFoam)` is the
+//!   one-line way in; the CLI binaries in `outram-foam-cli` are thin wrappers
+//!   over it, and it is what the Python bindings expose.
+//! - [`io`] — readers for `constant/polyMesh` and `0/<field>` files, plus typed
+//!   `controlDict` / `fvSchemes` / `fvSolution` structs.
+//! - [`turbulence`] — pick a closure for a solver run.
+//! - [`prelude`] — one `use` that pulls in the commonly needed public items.
+//! - `tutorials/` — runnable end-to-end cases; the intended entry point for a
+//!   reader new to the crate.
+//!
+//! ## Maturity — read before depending on this
+//!
+//! This is an early (0.1.0), in-progress crate and its surface is uneven:
+//! some paths are validated against published benchmarks, others are
+//! unexercised, and several are `todo!()`. The **`README.md` "Limitations"
+//! section is the authoritative per-module status** and is deliberately
+//! detailed. Two consequences bite immediately:
+//!
+//! - **No OpenFOAM dictionary parsing.** [`io::control_dict::ControlDict::read`],
+//!   [`io::fv_schemes::FvSchemes::read`] and
+//!   [`io::fv_solution::FvSolution::read`] are `todo!()`. Configure a case by
+//!   constructing the structs in Rust (`Default::default()` plus field
+//!   assignment), not by reading `system/…` from disk.
+//! - **No field output.** Every writer in [`io::output`] is `todo!()`, so a
+//!   solver run leaves its results in memory only — read them off the solver's
+//!   public field members.
+//!
+//! Per the workspace `RESPONSIBLE_USE.md`, nothing here is for reactor
+//! operation, control, licensing, or any safety-critical or operational use.
+
+/// The crate's single error type, [`error::AppBuilderError`].
+/// Driving a solver from an OpenFOAM case directory: read the case, build the
+/// solver's initial state, march the time loop, write the fields back.
+pub mod case_runner;
 
 pub mod error;
 /// GeN-Foam reactor-multiphysics port (neutronics + TH + thermo-mechanics).
 /// See `docs/genfoam-port-plan.md` for the module map and translation order.
 pub mod genfoam;
-/// input and output
+/// OpenFOAM case input/output — polyMesh and field readers, typed
+/// `controlDict`/`fvSchemes`/`fvSolution`, and (unimplemented) field writers.
 pub mod io;
-/// for users to import
+/// Re-exports of the crate's commonly used public items, for
+/// `use outram_foam_appbuilder_lib::prelude::*;`.
 pub mod prelude;
-/// your solvers are here!
+/// The ported OpenFOAM solver applications and their time-advancement loops.
 pub mod solvers;
+/// Turbulence-closure selection for the solver loops — the Layer-5 adapter over
+/// `outram-foam-turbulence-lib`. See [`turbulence::TurbulenceClosure`].
+pub mod turbulence;

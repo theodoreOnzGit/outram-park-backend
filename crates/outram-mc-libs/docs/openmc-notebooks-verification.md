@@ -5,6 +5,18 @@ This mapping was drafted by an AI assistant and is untrusted until a human has
 verified every "tractable-now" claim against the actual crate API. See
 `docs/ai-fleet-review/op-6tz/REVIEW_MANIFEST.md`.
 
+<!-- op-jis-supersede-banner -->
+> ⚠️ **Measured results re-stated 2026-08-06 for `op-jis`.** `rng::lcg::prn`
+> gained OpenMC's PCG-RXS-M-XS output permutation (bead `op-jis`). The LCG
+> **state recurrence is unchanged**, so the notebook→API mapping, the
+> tractability assessments, and the gap beads in this document are all
+> unaffected — but every **measured** k / flux / fraction below is a statistic of
+> the sampled uniforms and has moved. Re-measured figures are dated 2026-08-06
+> and carry a *Supersedes* note; the one case that could not be re-run is marked
+> **PENDING A RE-RUN**. Upstream reference values (analytic k∞ = 1.10000, ICSBEP
+> 1.0000 ± 0.0010, the openmc-notebooks outputs) are external and did **not**
+> move.
+
 Tracks beads epic **op-6tz** ("OpenMC-API parity + openmc-notebooks as
 verification tests"). This is the notebook → test → required-API mapping doc
 (op-6tz.1); the test harness it drives lives in
@@ -100,7 +112,7 @@ requiring the still-gated features above is `#[ignore]` with a documented gap.
 | `gamma-detector` | outram-mc | `data.decay_photon_energy`, `Source`, `stats.Discrete`/`Isotropic`, photon transport, `EnergyFilter` | Neutron-only; no photon transport, no decay-photon source | no | op-6tz.19 | Photon transport is out of scope (`src/photon.cpp` not ported). |
 | `post-processing` | outram-mc | `StatePoint`, `RegularMesh`, `MeshFilter`, `Tally`, mesh reshaping | No StatePoint persistence / mesh tally | no | op-6tz.22, .13 | Reads back tally results for plotting; needs scored mesh tallies + StatePoint. |
 | `pandas-dataframes` | outram-mc | `Tally.get_pandas_dataframe`, `DistribcellFilter`, `MeshFilter`, `EnergyFilter`, `Trigger` | No DataFrame export, no distribcell/mesh scoring | no | op-6tz.22 (→.9) | Pandas export is an inspection layer atop scored tallies. |
-| `mg-mode-part-i` | outram-mc | `XSdata`, `Macroscopic`, `MGXSLibrary`, `RectLattice`, multigroup `run` | **LIVE** — `physics::physics_mg`: `Mgxs` (`XSdata`/`Macroscopic`) + `MgxsLibrary` (`MGXSLibrary`) MGXS data types + `run_keff_mg` multigroup k-eigenvalue over CSG geometry | **yes** | op-6tz.15 | Multigroup transport execution is outram-mc's (MGXS *generation* is njoy). Live test asserts a **2-group infinite-medium k∞ = 1.10085 ± 0.00175 vs analytic 1.10000** (reflective cube), plus a leakage-monotonicity smoke. See `tests/openmc_notebooks/mg_mode_part_i.rs`. |
+| `mg-mode-part-i` | outram-mc | `XSdata`, `Macroscopic`, `MGXSLibrary`, `RectLattice`, multigroup `run` | **LIVE** — `physics::physics_mg`: `Mgxs` (`XSdata`/`Macroscopic`) + `MgxsLibrary` (`MGXSLibrary`) MGXS data types + `run_keff_mg` multigroup k-eigenvalue over CSG geometry | **yes** | op-6tz.15 | Multigroup transport execution is outram-mc's (MGXS *generation* is njoy). Live test asserts a **2-group infinite-medium k∞ = 1.10213 ± 0.00179 vs analytic 1.10000** (reflective cube, 2026-08-06; supersedes the pre-`op-jis` 1.10085 ± 0.00175), plus a leakage-monotonicity smoke. See `tests/openmc_notebooks/mg_mode_part_i.rs`. |
 | `mg-mode-part-ii` | outram-mc | `mgxs.Library`, `plot_xs`, `MeshFilter`, multigroup `run` | MG transport now live (`run_keff_mg`); MG cross-section **plotting** (`plot_xs`) + mesh tally still absent | no | op-6tz.15 | Needs MGXS plotting + mesh tally on top of the now-live MG kernel. |
 | `mg-mode-part-iii` | outram-mc | `mgxs.Library`, `RectLattice`, `MeshFilter`, multigroup `run` | MG transport now live; spatial **mesh tally** filter still absent | no | op-6tz.15 | Needs a mesh tally filter on top of the now-live MG kernel. |
 | `depletion` | outram-mc | `deplete.CoupledOperator`, `deplete.PredictorIntegrator`, `deplete.Results`, `deplete.Chain`, `model.pin` | **LIVE (partial)** — `depletion` module: CRAM `exp(A·dt)` solver + `DepletionChain` (chain_simple) + one-group burnup loop | **yes** (one-group trends) | op-6tz.18 | Inventory + k_inf trends match the notebook (sign/order); absolute k needs multigroup transport-coupled rates (follow-up). See `docs/ai-fleet-review/op-6tz-depletion/`. |
@@ -139,9 +151,14 @@ spectrum). The benchmark-gated case is the Godiva one:
   (`tally::scoring::score_track_length`, per-batch `flush_batch`). Pass criterion
   is physical spectrum shape (no reference k): all bins finite/non-negative,
   fractions normalize to 1, a substantial fast tail (E > 0.1 MeV) *and* substantial
-  below-0.1-MeV slowing-down flux, and a converged peak bin. Measured
-  (2026-07-17, deterministic): k_inf = 1.82844 ± 0.00917, fast fraction = 0.674,
-  below-0.1-MeV fraction = 0.326, peak-bin (1.87–3.00 MeV) batch rel-sd = 0.027.
+  below-0.1-MeV slowing-down flux, and a converged peak bin. **Measured
+  2026-08-06** (deterministic, under the `op-jis` PCG output permutation):
+  k_inf = 1.82955 ± 0.01050, fast (> 0.1 MeV) fraction = 0.673, below-0.1-MeV
+  slowing-down/thermal fraction = 0.327, total track-length flux = 6.7141e3,
+  peak bin 45 (1.866–2.999 MeV) batch rel-sd = 0.023.
+  **Supersedes** the 2026-07-17 figures k_inf = 1.82844 ± 0.00917, fast fraction
+  = 0.674, below-0.1-MeV fraction = 0.326, peak-bin rel-sd = 0.027, which were
+  measured with the pre-`op-jis` output function (raw top-52 state bits).
   This verifies the track-length energy-binned tally wiring, not spectral accuracy;
   volume normalization / derived-tally arithmetic is downstream op-6tz.22.
 
@@ -149,18 +166,37 @@ spectrum). The benchmark-gated case is the Godiva one:
   documented in `tests/openmc_notebooks/mg_mode_part_i.rs` and the unit test in
   `src/physics/physics_mg.rs`. A 2-group macroscopic MGXS set with a closed-form
   infinite-medium eigenvalue k∞ = 1.10 is run in a reflective cube (zero leakage);
-  measured k∞ = 1.10085 ± 0.00175 (+0.5σ, 2026-07-17). A supplementary
-  vacuum-cube leakage smoke asserts only physics-sanity monotonicity (no invented
-  reference). This verifies the MG collision physics and CSG transport, not a
-  benchmark accuracy gate.
+  **measured k∞ = 1.10213 ± 0.00179 (2026-08-06)** — +213 pcm from the analytic
+  1.10000, i.e. 1.2σ on the quoted σ. **Supersedes** the pre-`op-jis`
+  k∞ = 1.10085 ± 0.00175 (+0.5σ, 2026-07-17), measured with the raw top-52
+  state-bit output function. The analytic reference 1.10000 is external and
+  unchanged. A supplementary vacuum-cube leakage smoke asserts only
+  physics-sanity monotonicity (no invented reference); its 2026-08-06 values are
+  k(30 cm) = 0.60630 and k(12 cm) = 0.24077 against the same k∞ = 1.1. This
+  verifies the MG collision physics and CSG transport, not a benchmark accuracy
+  gate.
 
 - **`pincell` (partial) — Godiva bare-sphere k-eff.** Methodology & measured
-  results are documented in the test module and in
-  `src/physics/keff.rs` (LOW-tier k_eff ~ 1.010 +/- 0.002 vs ICSBEP
-  HEU-MET-FAST-001 1.0000 +/- 0.0010, 2026-07). The harness test asserts a broad
+  results are documented in the test module and in `src/physics/keff.rs`.
+  **Measured 2026-08-06** (`examples/godiva_keff`, LOW tier / `from_core`):
+  **k_eff = 1.01042 ± 0.00174**, Δk = **+1042 pcm** vs ICSBEP HEU-MET-FAST-001
+  1.0000 ± 0.0010 (combined σ 0.00201 ⇒ 5.2σ, the expected LOW-tier data-fidelity
+  bias). **Supersedes** the 2026-07 record k_eff = 1.01022 ± 0.00177 (+1022 pcm),
+  measured with the pre-`op-jis` output function (raw top-52 state bits); the
+  ICSBEP reference is external and unchanged. The harness test asserts a broad
   plausibility band, not a benchmark gate — it guards the transport chain, not
   accuracy. This is a *criticality-eigenvalue* stand-in for the pincell notebook,
   **not** the notebook's LWR thermal pin cell.
+
+- **`pincell` (thermal LWR variant) — SUPERSEDED, PENDING A RE-RUN.** The
+  thermal pin-cell k_inf recorded elsewhere in the crate
+  (**k_inf = 1.39802 ± 0.00652**, op-6tz.12) was measured with the pre-`op-jis`
+  output function and has moved, but the test **SKIPS on this machine**: it
+  requires the ENDF/B-VIII.0 `tsl-HinH2O.endf` thermal-scattering evaluation,
+  which is not present. **No replacement value was measured or invented**, and
+  the tracked comparison CSV
+  `verification_and_validation/openmc_notebook_comparisons/pincell.csv` likewise
+  still holds pre-`op-jis` numbers. Do not cite either as current.
 
 The remaining (still-gated) rows are `#[ignore]` with the gap bead recorded in the
 ignore reason — no fabricated passing tests.

@@ -1,9 +1,10 @@
 [package]
 name = "kovan-common"
 description = "KOVAN shared canonical types (KovanDocument, KovanSymbol, …)."
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde.workspace = true

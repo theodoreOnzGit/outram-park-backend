@@ -1,6 +1,6 @@
 //! Thermal S(α,β) ACE table for **H in ZrH** — the incoherent-*elastic* path.
 //!
-//! Fixture: `tests/resources/tsl-HinZrH-ENDF8.0.endf` (MAT=7). Unlike Al-27
+//! Fixture: `reference-data/endf/tsl-HinZrH-ENDF8.0.endf` (MAT=7). Unlike Al-27
 //! (coherent Bragg elastic), H(ZrH) is a hydrogenous solid whose bound protons
 //! scatter *incoherently* elastically: MF=7/MT=2 with `LTHR=2` (a bound cross
 //! section `σ_b` + the Debye-Waller integral `W'(T)`), plus MF=7/MT=4 incoherent
@@ -28,8 +28,8 @@ const HZRH_MAT: i32 = 7;
 const NANG: usize = 8; // equally-probable cosines (elastic NEA and inelastic nang)
 
 fn hzrh_mf7() -> Mf7 {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/tsl-HinZrH-ENDF8.0.endf");
+    let p =
+        njoy_outram_park_fork::reference_data::reference_endf_dir().join("tsl-HinZrH-ENDF8.0.endf");
     let tape = Tape::read(File::open(p).unwrap()).unwrap();
     parse_mf7(&tape, HZRH_MAT).unwrap()
 }
@@ -44,7 +44,11 @@ fn hzrh_thermal() -> AceTable {
         .map(|i| elo * (ehi / elo).powf(i as f64 / (ne - 1) as f64))
         .collect();
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;
-    let opts = ThermalAceOptions { n_outgoing: 16, n_cosines: NANG, natom: 1.0 };
+    let opts = ThermalAceOptions {
+        n_outgoing: 16,
+        n_cosines: NANG,
+        natom: 1.0,
+    };
     AceTable::thermal_from_mf7(&mf7, temp, "hzrh", 0, &grid, opts).unwrap()
 }
 
@@ -70,15 +74,30 @@ fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
 #[test]
 fn hzrh_has_incoherent_elastic_and_inelastic_but_no_coherent() {
     let mf7 = hzrh_mf7();
-    assert!(mf7.coherent_elastic.is_none(), "H(ZrH) is not crystalline-coherent");
+    assert!(
+        mf7.coherent_elastic.is_none(),
+        "H(ZrH) is not crystalline-coherent"
+    );
     assert!(mf7.incoherent_inelastic.is_some(), "H(ZrH) has S(α,β)");
-    let ie = mf7.incoherent_elastic.expect("H(ZrH) has incoherent elastic (LTHR=2)");
+    let ie = mf7
+        .incoherent_elastic
+        .expect("H(ZrH) has incoherent elastic (LTHR=2)");
     // SB ≈ 81.98 barn; 8 temperatures 296–1200 K; W' ascends with T.
-    assert!((ie.sb - 81.98).abs() < 0.1, "σ_b ≈ 81.98 barn, got {}", ie.sb);
+    assert!(
+        (ie.sb - 81.98).abs() < 0.1,
+        "σ_b ≈ 81.98 barn, got {}",
+        ie.sb
+    );
     assert_eq!(ie.temperature_k, 296.0, "T₀ = lowest tabulated temperature");
     assert_eq!(ie.wp_of_t.len(), 8, "8 (T, W') points");
-    assert!(ie.wp_of_t.windows(2).all(|w| w[1].0 > w[0].0), "T ascending");
-    assert!(ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1), "W'(T) non-decreasing");
+    assert!(
+        ie.wp_of_t.windows(2).all(|w| w[1].0 > w[0].0),
+        "T ascending"
+    );
+    assert!(
+        ie.wp_of_t.windows(2).all(|w| w[1].1 >= w[0].1),
+        "W'(T) non-decreasing"
+    );
 }
 
 #[test]
@@ -91,15 +110,27 @@ fn incoherent_elastic_cross_section_physics() {
     assert!(lo > 0.0 && hi >= 0.0, "σ ≥ 0");
     assert!(hi < lo, "σ falls with E: lo={lo}, hi={hi}");
     // Low-energy limit → σ_b/N (Debye-Waller factor → 1).
-    assert!((lo - ie.sb).abs() / ie.sb < 0.05, "σ(E→0) → σ_b: {lo} vs {}", ie.sb);
+    assert!(
+        (lo - ie.sb).abs() / ie.sb < 0.05,
+        "σ(E→0) → σ_b: {lo} vs {}",
+        ie.sb
+    );
 }
 
 #[test]
 fn thermal_table_uses_idpnc3_elastic_branch() {
     let ace = hzrh_thermal();
-    assert!(ace.zaid.starts_with("hzrh") && ace.zaid.ends_with('t'), "ZAID {}", ace.zaid);
+    assert!(
+        ace.zaid.starts_with("hzrh") && ace.zaid.ends_with('t'),
+        "ZAID {}",
+        ace.zaid
+    );
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
-    assert_eq!(ace.nxs[nxs::IDPNC], 3, "incoherent elastic (no coherent) ⇒ IDPNC=3");
+    assert_eq!(
+        ace.nxs[nxs::IDPNC],
+        3,
+        "incoherent elastic (no coherent) ⇒ IDPNC=3"
+    );
     assert_eq!(ace.nxs[nxs::NCL], (NANG - 1) as i32, "NCL = NEA − 1");
     assert_eq!(ace.nxs[nxs::NCLI], 0, "no secondary elastic block");
     // Primary elastic slots populated; secondary (mixed-case) slots empty.
@@ -119,24 +150,36 @@ fn incoherent_elastic_block_layout_is_consistent() {
     // ITCE energies ascending.
     let e0 = ace.jxs[jxs::ITCE] as usize; // 1-based → first energy
     let energies = &ace.xss[e0..e0 + nee];
-    assert!(energies.windows(2).all(|w| w[1] >= w[0]), "elastic E ascending");
+    assert!(
+        energies.windows(2).all(|w| w[1] >= w[0]),
+        "elastic E ascending"
+    );
 
     // ITCX cross sections: non-negative and non-increasing in E.
     let x0 = (ace.jxs[jxs::ITCX] - 1) as usize;
     let xs = &ace.xss[x0..x0 + nee];
     assert!(xs.iter().all(|&s| s >= 0.0), "σ_ie ≥ 0");
     assert!(xs.iter().any(|&s| s > 0.0), "σ_ie not all zero");
-    assert!(xs.windows(2).all(|w| w[1] <= w[0] + 1e-12), "σ_ie non-increasing");
+    assert!(
+        xs.windows(2).all(|w| w[1] <= w[0] + 1e-12),
+        "σ_ie non-increasing"
+    );
 
     // ITCA: NEE × NEA equally-probable cosines, each in [−1, 1].
     let nea = (ace.nxs[nxs::NCL] + 1) as usize;
     assert_eq!(nea, NANG);
     let a0 = (ace.jxs[jxs::ITCA] - 1) as usize;
     let angles = &ace.xss[a0..a0 + nee * nea];
-    assert!(angles.iter().all(|&m| (-1.0..=1.0).contains(&m)), "cosines ∈ [−1,1]");
+    assert!(
+        angles.iter().all(|&m| (-1.0..=1.0).contains(&m)),
+        "cosines ∈ [−1,1]"
+    );
     // Each energy's NEA cosines are sorted ascending (equal-probability bins).
     for row in angles.chunks(nea) {
-        assert!(row.windows(2).all(|w| w[1] >= w[0]), "cosines ascending per energy");
+        assert!(
+            row.windows(2).all(|w| w[1] >= w[0]),
+            "cosines ascending per energy"
+        );
     }
 }
 
@@ -150,7 +193,14 @@ fn thermal_table_roundtrips_through_file() {
     assert_eq!(rjxs, ace.jxs.to_vec(), "JXS round-trip");
     assert_eq!(rxss.len(), ace.xss.len(), "XSS length");
     for (i, (&got, &want)) in rxss.iter().zip(ace.xss.iter()).enumerate() {
-        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-8 * want.abs().max(1.0) };
-        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+        let tol = if ace.xss_is_int[i] {
+            0.0
+        } else {
+            1e-8 * want.abs().max(1.0)
+        };
+        assert!(
+            (got - want).abs() <= tol,
+            "xss[{i}]: got {got}, want {want}"
+        );
     }
 }

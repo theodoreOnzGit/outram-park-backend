@@ -8,6 +8,30 @@ compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: the `vv_*` verification suite passes —
+  conservation to machine precision (`epsilon = 1e-12`) across cyclic, AMI
+  matching and AMI non-conformal advection, diffusion and vector-Laplacian
+  paths; agreement with analytic references on reductions, volume integrals
+  and the Robin convective boundary; and **observed convergence order matching
+  theory** for the differentiation schemes. Evidence class: **analytical /
+  manufactured solution** plus internal consistency, supported by cross-code
+  comparison against OpenFOAM (563 in-source references, including a test that
+  the first application is unchanged from the OpenFOAM spelling).
+
+  Measured at declaration: **646 tests pass, 0 fail, 22 ignored**.
+
+  Note the bar here is deliberately about *the numerics*, not about a physical
+  benchmark: this crate is the primitive and finite-volume layer, so
+  conservation and convergence order are the properties that matter. Physical
+  validation belongs to the solvers built on it.
+
+
 ---
 
 ## Why this crate exists
@@ -49,9 +73,17 @@ only on the one below it:
 
 ```
 Layer 5  Solver logic       rhoPimpleFoam / sonicFoam / rhoCentralFoam loops
-Layer 4  Thermophysics      fluidThermo / psiThermo / rhoThermo
-Layer 3  FV operators       fvm:: / fvc:: + Kurganov-Tadmor central-upwind fluxes
-Layer 2  Fields + Mesh      volScalarField, fvMesh, fvMatrix
+Layer 4  Thermophysics ← THIS CRATE
+           • Fluid thermo     fluidThermo / psiThermo / rhoThermo (fluid_thermo)
+Layer 3  FV operators ← THIS CRATE
+           • fvm:: / fvc::    implicit + explicit operators (fv_operators)
+           • Source terms     fvOptions / fvModels (fv_options)
+           • Flux limiters    TVD limiters (limiters)
+Layer 2  Fields + Mesh ← THIS CRATE
+           • Fields           volScalarField, surfaceField (fields)
+           • Mesh             fvMesh, AMI, region interfaces (mesh)
+           • Matrices         lduMatrix, fvMatrix + solvers (ldu_matrix, krylov)
+           • Case I/O         polyMesh / dictionary / field files (io)
 Layer 1  Primitives ← THIS CRATE
            • Tensor algebra   Vector3, Tensor, SymmTensor, SphericalTensor
            • Dense matrices   scalarSquareMatrix, LU/QR/Cholesky/SVD
@@ -62,8 +94,9 @@ Layer 1  Primitives ← THIS CRATE
            • Thermophysics    specie-level EOS / thermo / transport kernels (1h)
 ```
 
-`outram-foam-basic-lib` covers **Layer 1** only. Layers 2–5 will live in
-separate crates that depend on this one.
+`outram-foam-basic-lib` covers **Layers 1–4**. Layer 5 (the solver loops) lives
+in separate crates that depend on this one — see "Layer 5 is intentionally
+excluded" above and the workspace `CLAUDE.md` for the planned crate list.
 
 ---
 

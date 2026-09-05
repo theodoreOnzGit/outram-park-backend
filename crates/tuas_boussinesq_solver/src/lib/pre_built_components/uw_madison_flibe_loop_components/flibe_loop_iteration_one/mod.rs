@@ -18,8 +18,8 @@
 
 /// components for first iteration of UW madison FLiBe loop model
 ///
-/// Pipes have 
-/// OD of 2.54 cm (1 in) and 3mm thick wall according to literature 
+/// Pipes have
+/// OD of 2.54 cm (1 in) and 3mm thick wall according to literature
 /// means ID is 2.54cm - 2*3mm
 ///
 /// For schematics, please refer to:
@@ -40,11 +40,11 @@
 /// [13],[hot leg bend 2],[0.0697],[158],[-0.0646247146633051],[0.0261100795610891],
 ///
 ///
-/// for heat losses, and insulation, the paper used pyrogel. 
-/// However, thicknesses and heat loss aren't really calibrated well yet. 
+/// for heat losses, and insulation, the paper used pyrogel.
+/// However, thicknesses and heat loss aren't really calibrated well yet.
 ///
-/// Pyrogel data seems to be limited. But potentially useful to add to 
-/// the library. The actual one is Pyrogel HPS, but what I found online is 
+/// Pyrogel data seems to be limited. But potentially useful to add to
+/// the library. The actual one is Pyrogel HPS, but what I found online is
 /// Pyrogel XT and Pyrogel HT. There are several kinds of pyrogel.
 pub mod components;
 
@@ -53,6 +53,3 @@ pub mod thermal_hydraulics_calculations;
 
 /// parasitic heat loss calibrations
 pub mod parasitic_heat_loss_calibration;
-
-
-

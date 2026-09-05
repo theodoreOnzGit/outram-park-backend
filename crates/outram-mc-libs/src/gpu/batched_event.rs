@@ -160,7 +160,11 @@ impl EventTablesF32 {
         xs.extend(t.atom_density.iter().map(|&x| x as f32));
         xs.extend(t.awr.iter().map(|&x| x as f32));
         xs.extend(t.e_max.iter().map(|&x| x as f32));
-        Self { xs, n_grid: g, n_nuclide: nn }
+        Self {
+            xs,
+            n_grid: g,
+            n_nuclide: nn,
+        }
     }
 
     #[inline]
@@ -311,7 +315,11 @@ fn two_body_with_mu(
 /// Invert the Langevin function for λ (Newton). Mirrors `langevin_inverse`. No draws.
 fn langevin_inverse(mu_bar: f32) -> f32 {
     let x = mu_bar.abs();
-    let mut lambda = if x < 0.3 { 3.0 * x } else { (1.0 / (1.0 - x)).min(50.0) };
+    let mut lambda = if x < 0.3 {
+        3.0 * x
+    } else {
+        (1.0 / (1.0 - x)).min(50.0)
+    };
     for _ in 0..30 {
         let coth = 1.0 / lambda.tanh();
         let f = coth - 1.0 / lambda - x;
@@ -353,7 +361,13 @@ fn exponential_mu(mubar: f32, xi: f32) -> f32 {
 /// Continuum inelastic (Weisskopf). Mirrors `continuum_inelastic_scatter`; draw
 /// order = e_cm_out seed (1), up to 64×(r1,r2), mu (1), rotate (1).
 #[allow(clippy::too_many_arguments)]
-fn continuum_inelastic(e: f32, u: [f32; 3], awr: f32, mut lo: u32, mut hi: u32) -> (f32, [f32; 3], u32, u32) {
+fn continuum_inelastic(
+    e: f32,
+    u: [f32; 3],
+    awr: f32,
+    mut lo: u32,
+    mut hi: u32,
+) -> (f32, [f32; 3], u32, u32) {
     let a = awr;
     let ap1 = a + 1.0;
     let e_cm_elastic = e * (a / ap1) * (a / ap1);
@@ -695,12 +709,19 @@ pub fn advance_generation_gpu(
     let ctrl_buf = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("batched_event.ctrl"),
         size: 4,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
+        usage: wgpu::BufferUsages::STORAGE
+            | wgpu::BufferUsages::COPY_SRC
+            | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
     let params_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("batched_event.params"),
-        contents: &pack_params(tables.n_grid as u32, n as u32, tables.n_nuclide as u32, sphere),
+        contents: &pack_params(
+            tables.n_grid as u32,
+            n as u32,
+            tables.n_nuclide as u32,
+            sphere,
+        ),
         usage: wgpu::BufferUsages::UNIFORM,
     });
 
@@ -756,11 +777,26 @@ pub fn advance_generation_gpu(
         label: Some("batched_event.bg"),
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: xs_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: istate_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: fstate_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: ctrl_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 4, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: xs_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: istate_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: fstate_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: ctrl_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
 
@@ -792,10 +828,15 @@ pub fn advance_generation_gpu(
         enc.copy_buffer_to_buffer(&ctrl_buf, 0, &ctrl_staging, 0, 4);
         queue.submit(Some(enc.finish()));
 
-        ctrl_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
+        ctrl_staging
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, |r| r.unwrap());
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         let alive = {
-            let view = ctrl_staging.slice(..).get_mapped_range();
+            let view = ctrl_staging
+                .slice(..)
+                .get_mapped_range()
+                .expect("staging buffer mapping failed after a completed poll");
             u32::from_ne_bytes(view[0..4].try_into().unwrap())
         };
         ctrl_staging.unmap();
@@ -828,17 +869,27 @@ pub fn advance_generation_gpu(
     enc.copy_buffer_to_buffer(&fstate_buf, 0, &fstate_staging, 0, fstate_size);
     queue.submit(Some(enc.finish()));
 
-    istate_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
-    fstate_staging.slice(..).map_async(wgpu::MapMode::Read, |r| r.unwrap());
+    istate_staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, |r| r.unwrap());
+    fstate_staging
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, |r| r.unwrap());
     device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
     let istate_out = {
-        let view = istate_staging.slice(..).get_mapped_range();
+        let view = istate_staging
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_u32(&view, 4 * n)
     };
     istate_staging.unmap();
     let fstate_out = {
-        let view = fstate_staging.slice(..).get_mapped_range();
+        let view = fstate_staging
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32(&view, 8 * n)
     };
     fstate_staging.unmap();
@@ -880,9 +931,18 @@ mod tests {
             name: "Godiva".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         let ct = CollisionTables::build(&material, &nuclides, 1e-3, 2e7, 4096);
@@ -963,7 +1023,12 @@ mod tests {
             return;
         };
         let tables = godiva_tables();
-        let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 8.7407 };
+        let sphere = EventSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 8.7407,
+        };
         let n = 4096usize;
 
         let base = make_batch(n, sphere.r);
@@ -1011,9 +1076,15 @@ mod tests {
             frac_alive < 2e-3,
             "alive mismatches {alive_mismatch}/{n} exceed 0.2% (near-threshold f32 tolerance)"
         );
-        assert_eq!(fiss_mismatch, 0, "fission-nuclide tags must match where alive agrees");
+        assert_eq!(
+            fiss_mismatch, 0,
+            "fission-nuclide tags must match where alive agrees"
+        );
         assert!(max_e_rel < 1e-3, "max survivor energy rel diff {max_e_rel}");
-        assert!(max_prod_rel < 1e-3, "max production rel diff {max_prod_rel}");
+        assert!(
+            max_prod_rel < 1e-3,
+            "max production rel diff {max_prod_rel}"
+        );
         eprintln!(
             "gpu_event_matches_cpu_mirror on {}: alive_mismatch={alive_mismatch}/{n}, \
              max_e_rel={max_e_rel}, max_prod_rel={max_prod_rel}",
@@ -1037,19 +1108,34 @@ mod tests {
     #[test]
     fn cpu_mirror_event_makes_progress() {
         let tables = godiva_tables();
-        let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 8.7407 };
+        let sphere = EventSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 8.7407,
+        };
         let n = 2048usize;
         let mut batch = make_batch(n, sphere.r);
-        let seed0: Vec<(u32, u32)> =
-            batch.seed_lo.iter().zip(&batch.seed_hi).map(|(&a, &b)| (a, b)).collect();
+        let seed0: Vec<(u32, u32)> = batch
+            .seed_lo
+            .iter()
+            .zip(&batch.seed_hi)
+            .map(|(&a, &b)| (a, b))
+            .collect();
 
         let alive_after = advance_event_cpu_mirror(&tables, &mut batch, sphere);
         assert_eq!(alive_after, batch.n_alive(), "returned count matches flags");
-        assert!(alive_after > 0 && alive_after < n, "event both kills and keeps neutrons");
+        assert!(
+            alive_after > 0 && alive_after < n,
+            "event both kills and keeps neutrons"
+        );
         let advanced = (0..n)
             .filter(|&i| (batch.seed_lo[i], batch.seed_hi[i]) != seed0[i])
             .count();
-        assert_eq!(advanced, n, "every neutron's LCG advanced at least one step");
+        assert_eq!(
+            advanced, n,
+            "every neutron's LCG advanced at least one step"
+        );
     }
 
     /// V&V (CPU mirror determinism): the mirror is a pure function of its inputs —
@@ -1061,7 +1147,12 @@ mod tests {
     #[test]
     fn cpu_mirror_event_is_deterministic() {
         let tables = godiva_tables();
-        let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: 8.7407 };
+        let sphere = EventSphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: 8.7407,
+        };
         let n = 1000usize;
         let mk = || make_batch(n, sphere.r);
         let mut a = mk();

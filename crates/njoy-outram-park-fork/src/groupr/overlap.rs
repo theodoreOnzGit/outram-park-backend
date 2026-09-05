@@ -151,8 +151,7 @@ pub fn shield_with_overlap(
             if ctx.in_overlap {
                 // Augment the terpu sigma-zero argument by xtot for every
                 // reaction (total included) — groupr.f90:6965,6982.
-                let augmented: Vec<f64> =
-                    run_dilutions.iter().map(|&s| s + state.xtot).collect();
+                let augmented: Vec<f64> = run_dilutions.iter().map(|&s| s + state.xtot).collect();
                 table.shield(reaction, e, background_sig, &augmented)
             } else {
                 table.shield(reaction, e, background_sig, run_dilutions)
@@ -210,7 +209,9 @@ mod tests {
         let mut state = OverlapState::default();
         let got = shield_with_overlap(&t, UrrReaction::Total, 15.0, &[12.0], &[10.0], &mut state)
             .expect("shield_with_overlap");
-        let plain = t.shield(UrrReaction::Total, 15.0, &[12.0], &[10.0]).expect("shield");
+        let plain = t
+            .shield(UrrReaction::Total, 15.0, &[12.0], &[10.0])
+            .expect("shield");
         assert_eq!(got, plain, "non-overlap must match plain shield");
         assert!(!state.in_overlap, "no overlap at 15 eV");
     }
@@ -245,27 +246,37 @@ mod tests {
             .overlap_context(UrrReaction::Total, 25.0)
             .expect("overlap context in URR range");
         assert!(ctx.in_overlap, "both bracketing points flagged → iovl==1");
-        assert!((ctx.sinf - 25.0).abs() < 1e-12, "sinf(25 eV) = {}", ctx.sinf);
+        assert!(
+            (ctx.sinf - 25.0).abs() < 1e-12,
+            "sinf(25 eV) = {}",
+            ctx.sinf
+        );
 
         let total = shield_with_overlap(&t, UrrReaction::Total, 25.0, &[28.0], &[10.0], &mut state)
             .expect("total shield_with_overlap");
         assert!((state.xtot - 3.0).abs() < 1e-12, "xtot = {}", state.xtot);
         assert!(state.in_overlap);
         // Total is itself shielded at the augmented dilution 10 + 3 = 13.
-        let total_ref = t.shield(UrrReaction::Total, 25.0, &[28.0], &[13.0]).expect("ref");
+        let total_ref = t
+            .shield(UrrReaction::Total, 25.0, &[28.0], &[13.0])
+            .expect("ref");
         assert_eq!(total, total_ref, "total uses augmented dilution");
 
         // Partial (Elastic) with the same state: augmented dilution 13 barn.
         let elastic =
             shield_with_overlap(&t, UrrReaction::Elastic, 25.0, &[5.0], &[10.0], &mut state)
                 .expect("elastic shield_with_overlap");
-        let elastic_ref = t.shield(UrrReaction::Elastic, 25.0, &[5.0], &[13.0]).expect("ref");
+        let elastic_ref = t
+            .shield(UrrReaction::Elastic, 25.0, &[5.0], &[13.0])
+            .expect("ref");
         assert_eq!(elastic, elastic_ref, "partial uses augmented dilution");
 
         // Direction: augmenting the dilution (10 -> 13) reduces self-shielding,
         // so the additive correction `s - sinf` is less negative (closer to the
         // infinite-dilution background) than the un-augmented shield.
-        let elastic_plain = t.shield(UrrReaction::Elastic, 25.0, &[5.0], &[10.0]).expect("plain");
+        let elastic_plain = t
+            .shield(UrrReaction::Elastic, 25.0, &[5.0], &[10.0])
+            .expect("plain");
         assert!(
             elastic.sig[0] >= elastic_plain.sig[0] - 1e-12,
             "augmented (less shielded) {} should be >= un-augmented {}",
@@ -285,7 +296,14 @@ mod tests {
         let t = overlap_table();
         let mut state = OverlapState::default();
         assert!(matches!(
-            shield_with_overlap(&t, UrrReaction::Total, 25.0, &[1.0, 2.0], &[10.0], &mut state),
+            shield_with_overlap(
+                &t,
+                UrrReaction::Total,
+                25.0,
+                &[1.0, 2.0],
+                &[10.0],
+                &mut state
+            ),
             Err(NjoyError::EndfParse(_))
         ));
     }

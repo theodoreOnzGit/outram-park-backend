@@ -19,6 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! Parser for OpenFOAM's `system/fvSchemes` — the per-operator numerical scheme
+//! selection dictionary. Each scheme family (ddt, grad, div, laplacian, snGrad,
+//! interpolation) is a typed enum on [`FvSchemes`], so rust-analyzer surfaces
+//! every valid option on hover and an unknown scheme is a `Result` error.
+
 use crate::error::AppBuilderError;
 use std::path::Path;
 
@@ -87,6 +92,18 @@ pub enum InterpolationScheme {
 }
 
 impl FvSchemes {
+    /// Parse a `system/fvSchemes` file from disk.
+    ///
+    /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM
+    /// dictionary parsing exists in this crate; see the sibling
+    /// [`crate::io::control_dict::ControlDict::read`] and
+    /// [`crate::io::fv_solution::FvSolution::read`], which are in the same
+    /// state.
+    ///
+    /// Build the struct in Rust instead — [`FvSchemes::default`] documents what
+    /// the solvers in this crate actually do, and
+    /// [`crate::solvers::schemes`] documents which selections are honoured and
+    /// which return [`AppBuilderError::UnsupportedScheme`].
     pub fn read(path: &Path) -> Result<Self, AppBuilderError> {
         let _ = path;
         todo!("FvSchemes::read — parse system/fvSchemes")
@@ -94,11 +111,28 @@ impl FvSchemes {
 }
 
 impl Default for FvSchemes {
+    /// The defaults describe **what the solvers in this crate actually do** when
+    /// no `system/fvSchemes` is supplied, not what a typical OpenFOAM case
+    /// writes.
+    ///
+    /// Notably `default_div` is [`DivScheme::GaussUpwind`], not `Gauss linear`.
+    /// Convection in [`crate::solvers::pimple_foam::PimpleFoam`] is assembled by
+    /// [`crate::solvers::schemes::div_vec_scheme`], whose bounded first-order
+    /// upwind arm is the safe default on the coarse meshes the tutorials use;
+    /// second-order central differencing is opted into by setting
+    /// `schemes.default_div = DivScheme::GaussLinear`. This field previously
+    /// said `GaussLinear` while every solver hardwired upwind and ignored the
+    /// struct entirely — the value was a claim nothing honoured.
+    ///
+    /// `default_grad`, `default_laplacian`, `default_sn_grad` and
+    /// `default_interpolation` are **still not consulted by any solver**; they
+    /// are parsed and stored only. Do not read them as a statement about the
+    /// discretisation in use.
     fn default() -> Self {
         Self {
             ddt: DdtScheme::Euler,
             default_grad: GradScheme::GaussLinear,
-            default_div: DivScheme::GaussLinear,
+            default_div: DivScheme::GaussUpwind,
             default_laplacian: LaplacianScheme::GaussLinearCorrected,
             default_sn_grad: SnGradScheme::Corrected,
             default_interpolation: InterpolationScheme::Linear,

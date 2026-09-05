@@ -122,7 +122,7 @@ complete rationale.
   emit companion-crate skeletons (can't live in a lib crate).
 - Added `Method::Pde` (call #4).
 
-### kovan-cli — agent-facing `kovan` CLI · [DECISIONS](../crates/kovan-cli/DECISIONS.md)
+### kovan-cli — agent-facing `kovan` CLI · [DECISIONS](../crates/kovan/DECISIONS.md)
 - New commands: `symbols`, `summary`, `gen` (nested root/linear/nonlinear/ode/pde),
   `lit import|bibtex|outline`, repo-wide `search --root`; `methods` extended for PDE.
 - `clap::ValueEnum` mirrors of the library catalogue enums (rather than deriving
@@ -131,7 +131,7 @@ complete rationale.
 - **Friction:** `kovan_semantics::outputs` is a private module (only its two fns are
   re-exported). Left out: `lit assets`, a general `--json` mode.
 
-### kovan-tui — human-facing `ratatui` TUI · [DECISIONS](../crates/kovan-tui/DECISIONS.md)
+### kovan-tui — human-facing `ratatui` TUI · [DECISIONS](../crates/kovan/DECISIONS.md)
 - Grew from the static placeholder to a **five-tab TUI** (overview / repo browser /
   symbol catalogue / method catalogue+preview / literature browser) over the real
   lib functionality. Verified with a live `tmux` smoke test plus 44 headless tests.

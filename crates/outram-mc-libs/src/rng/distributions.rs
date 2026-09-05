@@ -3,7 +3,6 @@
 /// C++ source: `src/random_dist.cpp`, `include/openmc/random_dist.h`.
 /// Also covers energy/angle distributions from
 /// `src/distribution_energy.cpp`, `src/distribution_angle.cpp`.
-
 use std::f64::consts::PI;
 
 use super::lcg::prn;
@@ -36,9 +35,11 @@ pub fn sample_normal(seed: &mut u64) -> f64 {
 /// Used by boon-lay Lagrangian diffusion to advance a particle one step.
 #[inline]
 pub fn sample_normal_3d(seed: &mut u64, sigma: f64) -> (f64, f64, f64) {
-    (sigma * sample_normal(seed),
-     sigma * sample_normal(seed),
-     sigma * sample_normal(seed))
+    (
+        sigma * sample_normal(seed),
+        sigma * sample_normal(seed),
+        sigma * sample_normal(seed),
+    )
 }
 
 /// Sample from an exponential distribution with the given `rate` λ.
@@ -115,8 +116,10 @@ mod tests {
         let n = 100_000;
         let mean = (0..n).map(|_| sample_exp(&mut seed, rate)).sum::<f64>() / n as f64;
         let expected = 1.0 / rate;
-        assert!((mean - expected).abs() / expected < 0.01,
-            "mean = {mean:.4}, expected {expected:.4}");
+        assert!(
+            (mean - expected).abs() / expected < 0.01,
+            "mean = {mean:.4}, expected {expected:.4}"
+        );
     }
 
     #[test]

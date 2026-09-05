@@ -1,0 +1,25 @@
+# Gas-Cooled Microreactor Assembly
+
+*Contacts: Yinbin Miao (ymiao.at.anl.gov), Nicolas Stauff (nstauff.at.anl.gov)*
+
+!tag name=Gas-Cooled Microreactor Assembly
+     image=https://mooseframework.inl.gov/virtual_test_bed/media/gcmr/Fig_1.jpg
+     pairs=reactor_type:microreactor
+                       reactor:GCMR
+                       geometry:assembly
+                       simulation_type:neutronics;multiphysics
+                       codes_used:BlueCrab;Griffin;SAM;BISON
+                       input_features:multiapps
+                       transient:steady_state;RIA;flow_blockage
+                       computing_needs:HPC
+                       fiscal_year:2023
+                       institution:ANL
+                       sponsor:NEAMS
+
+[Description of the assembly design](gcmr/GCMR_Assembly_Model_Description.md)
+
+[Multiphysics Models](gcmr/GCMR_Multiphysics_models.md)
+
+[Dynamic Multiphysics simulation of flow blockage](gcmr/GCMR_results_FlowBlockage.md)
+
+[Dynamic Multiphysics simulation of a Reactivity Insertion Accident](gcmr/GCMR_results_RIA.md)

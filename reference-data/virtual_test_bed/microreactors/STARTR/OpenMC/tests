@@ -1,0 +1,17 @@
+[Tests]
+  design = 'microreactors/STARTR/index.md'
+  issues = '#721'
+  [generate_xml]
+    type = RunCommand
+    command = 'python STARTR_OpenMC_driver.py 0'
+    capabilities = cardinalapp
+  []
+  [xml_diff]
+    type = XMLDiff
+    input = ''
+    cli_args = '--help'
+    xmldiff = 'geometry.xml materials.xml settings.xml'
+    prereq = 'generate_xml'
+    delete_output_before_running = false
+  []
+[]

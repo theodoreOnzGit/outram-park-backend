@@ -19,12 +19,11 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
-};
+use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 /// Explicit first-order Euler solver with adaptive step size.
 /// Maps to `Foam::Euler` (which inherits from `adaptiveSolver`).
+#[derive(Debug, Clone)]
 pub struct Euler {
     /// Adaptive step-size controller settings (tolerances, scale limits).
     pub config: OdeSolverConfig,
@@ -52,9 +51,9 @@ impl Euler {
 
     /// Take one adaptive step. On return `x` and `y` are updated and
     /// `dx_try` holds a suggested step size for the next call.
-    pub fn solve_step(
+    pub fn solve_step<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x: &mut f64,
         y: &mut Vec<f64>,
         dx_try: &mut f64,
@@ -83,9 +82,9 @@ impl Euler {
     }
 
     /// Integrate from `x_start` to `x_end`.
-    pub fn integrate(
+    pub fn integrate<Sys: OdeSystem + ?Sized>(
         &mut self,
-        ode: &dyn OdeSystem,
+        ode: &Sys,
         x_start: f64,
         x_end: f64,
         y: &mut Vec<f64>,

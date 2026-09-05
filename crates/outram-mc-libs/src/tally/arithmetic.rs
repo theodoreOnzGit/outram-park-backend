@@ -61,7 +61,11 @@ pub struct DerivedTally {
 fn bin_mean_std(bin: &TallyBin, n_realizations: u64) -> (f64, f64) {
     let mean = bin.mean(n_realizations);
     let rel = bin.rel_std_dev(n_realizations);
-    let std = if rel.is_finite() { mean.abs() * rel } else { 0.0 };
+    let std = if rel.is_finite() {
+        mean.abs() * rel
+    } else {
+        0.0
+    };
     (mean, std)
 }
 
@@ -70,7 +74,11 @@ fn bin_mean_std(bin: &TallyBin, n_realizations: u64) -> (f64, f64) {
 /// in [`DerivedTally::mul`]/[`DerivedTally::div`], matching OpenMC's convention of
 /// treating an exact-zero bin as carrying no relative uncertainty).
 fn rel_var(x: f64, s: f64) -> f64 {
-    if x == 0.0 { 0.0 } else { (s / x).powi(2) }
+    if x == 0.0 {
+        0.0
+    } else {
+        (s / x).powi(2)
+    }
 }
 
 impl DerivedTally {
@@ -101,7 +109,10 @@ impl DerivedTally {
     /// of active batches. Panics if `score_idx >= tally.scores.len()`.
     pub fn from_tally_score(tally: &Tally, score_idx: usize, n_realizations: u64) -> DerivedTally {
         let n_scores = tally.scores.len().max(1);
-        assert!(score_idx < n_scores, "score_idx {score_idx} out of range (n_scores {n_scores})");
+        assert!(
+            score_idx < n_scores,
+            "score_idx {score_idx} out of range (n_scores {n_scores})"
+        );
         let n_fbins = tally.bins.len() / n_scores;
         let mut values = Vec::with_capacity(n_fbins);
         let mut std_devs = Vec::with_capacity(n_fbins);
@@ -115,7 +126,11 @@ impl DerivedTally {
 
     /// Construct directly from parallel mean / std-dev arrays (must be equal length).
     pub fn new(values: Vec<f64>, std_devs: Vec<f64>) -> DerivedTally {
-        assert_eq!(values.len(), std_devs.len(), "values and std_devs must have equal length");
+        assert_eq!(
+            values.len(),
+            std_devs.len(),
+            "values and std_devs must have equal length"
+        );
         DerivedTally { values, std_devs }
     }
 
@@ -204,7 +219,12 @@ impl DerivedTally {
         let mut values = Vec::with_capacity(self.len());
         let mut std_devs = Vec::with_capacity(self.len());
         for i in 0..self.len() {
-            let (v, s) = f(self.values[i], self.std_devs[i], other.values[i], other.std_devs[i]);
+            let (v, s) = f(
+                self.values[i],
+                self.std_devs[i],
+                other.values[i],
+                other.std_devs[i],
+            );
             values.push(v);
             std_devs.push(s);
         }

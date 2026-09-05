@@ -116,7 +116,7 @@ use crate::MeshError;
 ///   (boundary).
 #[derive(Debug, Clone)]
 pub struct PolyMesh {
-    /// Mesh points [m].
+    /// Mesh points `[m]`.
     pub points: Vec<Vector3>,
     /// Faces — each an ordered loop of point indices.
     pub faces: Vec<Vec<usize>>,
@@ -153,7 +153,7 @@ impl PolyMesh {
             .position(|p| f >= p.start && f < p.start + p.size)
     }
 
-    /// Total enclosed volume [m³] — sum of primal cell volumes.
+    /// Total enclosed volume `[m³]` — sum of primal cell volumes.
     ///
     /// Used as the reference in the volume-preservation V&V check.
     pub fn total_volume(&self) -> f64 {
@@ -180,13 +180,23 @@ impl PolyMesh {
     }
 
     /// Construct a uniform structured hexahedral block: `nx × ny × nz` cells
-    /// filling `[0, lx] × [0, ly] × [0, lz]` [m]. Six boundary patches are
+    /// filling `[0, lx] × [0, ly] × [0, lz]` `[m]`. Six boundary patches are
     /// created (`xMin`, `xMax`, `yMin`, `yMax`, `zMin`, `zMax`).
     ///
     /// This is the primary V&V fixture — a mesh whose dual is analytically
     /// known (interior dual cells are cubes of the cell spacing).
-    pub fn structured_hex_block(nx: usize, ny: usize, nz: usize, lx: f64, ly: f64, lz: f64) -> Self {
-        assert!(nx >= 1 && ny >= 1 && nz >= 1, "block needs >=1 cell per axis");
+    pub fn structured_hex_block(
+        nx: usize,
+        ny: usize,
+        nz: usize,
+        lx: f64,
+        ly: f64,
+        lz: f64,
+    ) -> Self {
+        assert!(
+            nx >= 1 && ny >= 1 && nz >= 1,
+            "block needs >=1 cell per axis"
+        );
         let (hx, hy, hz) = (lx / nx as f64, ly / ny as f64, lz / nz as f64);
         let pid = |i: usize, j: usize, k: usize| i + (nx + 1) * (j + (ny + 1) * k);
         let cid = |i: usize, j: usize, k: usize| i + nx * (j + ny * k);
@@ -212,7 +222,12 @@ impl PolyMesh {
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..=nx {
-                    let loop_pos = vec![pid(i, j, k), pid(i, j + 1, k), pid(i, j + 1, k + 1), pid(i, j, k + 1)];
+                    let loop_pos = vec![
+                        pid(i, j, k),
+                        pid(i, j + 1, k),
+                        pid(i, j + 1, k + 1),
+                        pid(i, j, k + 1),
+                    ];
                     let low = if i > 0 { Some(cid(i - 1, j, k)) } else { None };
                     let high = if i < nx { Some(cid(i, j, k)) } else { None };
                     match (low, high) {
@@ -232,7 +247,12 @@ impl PolyMesh {
         for k in 0..nz {
             for j in 0..=ny {
                 for i in 0..nx {
-                    let loop_pos = vec![pid(i, j, k), pid(i, j, k + 1), pid(i + 1, j, k + 1), pid(i + 1, j, k)];
+                    let loop_pos = vec![
+                        pid(i, j, k),
+                        pid(i, j, k + 1),
+                        pid(i + 1, j, k + 1),
+                        pid(i + 1, j, k),
+                    ];
                     let low = if j > 0 { Some(cid(i, j - 1, k)) } else { None };
                     let high = if j < ny { Some(cid(i, j, k)) } else { None };
                     match (low, high) {
@@ -252,7 +272,12 @@ impl PolyMesh {
         for k in 0..=nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    let loop_pos = vec![pid(i, j, k), pid(i + 1, j, k), pid(i + 1, j + 1, k), pid(i, j + 1, k)];
+                    let loop_pos = vec![
+                        pid(i, j, k),
+                        pid(i + 1, j, k),
+                        pid(i + 1, j + 1, k),
+                        pid(i, j + 1, k),
+                    ];
                     let low = if k > 0 { Some(cid(i, j, k - 1)) } else { None };
                     let high = if k < nz { Some(cid(i, j, k)) } else { None };
                     match (low, high) {
@@ -500,7 +525,7 @@ fn build_topo(m: &PolyMesh) -> Result<PrimalTopo, MeshError> {
 /// [`DualMesh::to_fv_mesh`].
 #[derive(Debug, Clone)]
 pub struct DualMesh {
-    /// Dual points [m].
+    /// Dual points `[m]`.
     pub points: Vec<Vector3>,
     /// Dual faces (ordered vertex loops).
     pub faces: Vec<Vec<usize>>,
@@ -536,7 +561,7 @@ impl DualMesh {
         cf
     }
 
-    /// Total enclosed volume [m³] — sum of dual cell volumes. Equals the primal
+    /// Total enclosed volume `[m³]` — sum of dual cell volumes. Equals the primal
     /// total volume to machine precision when the boundary is faithfully
     /// reproduced (all features preserved).
     pub fn total_volume(&self) -> f64 {
@@ -595,6 +620,70 @@ impl DualMesh {
         None
     }
 
+    /// Convert the dual to the writable `outram-foam-basic-lib`
+    /// [`PolyMesh`](outram_foam_basic_lib::io::PolyMesh) — the on-disk
+    /// `constant/polyMesh` representation.
+    ///
+    /// Faces are re-ordered into OpenFOAM order (internal first, then boundary
+    /// grouped by patch) exactly as [`to_fv_mesh`](Self::to_fv_mesh) does, but
+    /// the point/face connectivity is kept rather than being flattened to
+    /// geometry. `patch_names[i]` names the patch built from primal patch `i`;
+    /// missing names default to `patch<i>`, and every patch is created as
+    /// [`PatchKind::Wall`].
+    ///
+    /// Use it to write a polyhedral dual to an OpenFOAM case
+    /// ([`PolyMesh::write`](outram_foam_basic_lib::io::PolyMesh::write)) or to
+    /// grade it with [`assess_quality`](crate::mesh_quality::assess_quality) —
+    /// dual meshes are the ones most likely to be badly non-orthogonal, so
+    /// checking them is worthwhile.
+    ///
+    /// # Errors
+    /// Never fails today; the `Result` is kept so a future validity check can
+    /// be added without a breaking change.
+    pub fn to_foam_poly_mesh(
+        &self,
+        patch_names: &[String],
+    ) -> Result<outram_foam_basic_lib::io::PolyMesh, MeshError> {
+        let nf = self.faces.len();
+        let mut order: Vec<usize> = (0..nf).filter(|&f| self.neighbour[f].is_some()).collect();
+        let n_internal = order.len();
+        let n_patches = patch_names.len();
+        let mut patch_faces: Vec<Vec<usize>> = vec![Vec::new(); n_patches.max(1)];
+        for f in 0..nf {
+            if self.neighbour[f].is_none() {
+                let pi = self.face_patch[f].unwrap_or(0);
+                patch_faces[pi].push(f);
+            }
+        }
+        let mut patches = Vec::new();
+        for (pi, pf) in patch_faces.iter().enumerate() {
+            let start = order.len();
+            order.extend_from_slice(pf);
+            let name = patch_names
+                .get(pi)
+                .cloned()
+                .unwrap_or_else(|| format!("patch{pi}"));
+            patches.push(BoundaryPatch::new(name, start, pf.len(), PatchKind::Wall));
+        }
+
+        let faces = order
+            .iter()
+            .map(|&old_f| outram_foam_basic_lib::io::MeshFace {
+                verts: self.faces[old_f].clone(),
+                owner: self.owner[old_f],
+                neighbour: self.neighbour[old_f],
+            })
+            .collect();
+
+        Ok(outram_foam_basic_lib::io::PolyMesh {
+            points: self.points.clone(),
+            faces,
+            n_internal_faces: n_internal,
+            n_cells: self.n_cells,
+            patches,
+        })
+    }
+
     /// Convert the dual to a flat `outram-foam-basic-lib` [`FvMesh`]: faces are
     /// re-ordered internal-first then by patch, geometry (centres, area vectors,
     /// volumes) is computed from the connectivity, and validity is checked by
@@ -616,7 +705,10 @@ impl DualMesh {
         for (pi, pf) in patch_faces.iter().enumerate() {
             let start = order.len();
             order.extend_from_slice(pf);
-            let name = patch_names.get(pi).cloned().unwrap_or_else(|| format!("patch{pi}"));
+            let name = patch_names
+                .get(pi)
+                .cloned()
+                .unwrap_or_else(|| format!("patch{pi}"));
             patches.push(BoundaryPatch::new(name, start, pf.len(), PatchKind::Wall));
         }
         // Drop empty trailing patches so validate()'s contiguous coverage holds

@@ -51,7 +51,9 @@ use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 use uom::ConstZero;
 
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial};
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
+    try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
+};
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::chatgpt_vibe_coded_sphere_crossing::{sphere_first_crossing_uom, SphereCrossing};
 
 // for a single triso particle,

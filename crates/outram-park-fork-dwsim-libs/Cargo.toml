@@ -1,6 +1,7 @@
 [package]
 name = "outram-park-fork-dwsim-libs"
-version = "0.1.0"
+version = "0.0.3"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Pure-Rust port of DWSIM thermal-hydraulics and thermodynamics kernels -- an independent OUTRAM PARK fork, not the official DWSIM software"
@@ -17,6 +18,16 @@ thiserror = { workspace = true }
 ndarray = { workspace = true }
 uom = { workspace = true }
 roots = { workspace = true }
+# Read-only reader for DWSIM's zipped `.dwxmz` reference flowsheets
+# (`flowsheet::import`). Workspace-inherited with default features off and only
+# `deflate` enabled -- pure Rust (miniz_oxide), no C toolchain, so the library
+# still builds for aarch64-linux-android / Termux. Every `.dwxmz` in the
+# upstream reference corpus is DEFLATE-compressed.
+zip = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+# `tests/flowsheet_import.rs` opens a committed `.dwxmz` fixture directly to
+# patch its XML before re-importing it. Integration tests do not inherit the
+# library's own dependencies, so `zip` is declared again here.
+zip = { workspace = true }

@@ -97,7 +97,7 @@ impl eframe::App for _App {
         let ctx = ui.ctx().clone();
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(Color32::from_gray(32)))
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 // Optional controls
                 ui.horizontal(|ui| {
                     ui.label("Rings:");

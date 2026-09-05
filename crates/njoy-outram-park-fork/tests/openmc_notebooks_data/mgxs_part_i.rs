@@ -9,7 +9,9 @@
 //! `mgxs.TotalXS`/`AbsorptionXS`/`ScatterXS` tally objects, runs Monte-Carlo
 //! transport, and extracts **flux-weighted, self-shielded** multigroup constants
 //! from the tallies. njoy does not have a transport solver or tallies (those are
-//! `outram-mc-libs`), so the full flux-solved MGXS is scaffolded `#[ignore]`.
+//! `outram-mc-libs`), so the *transport-tallied* flux-solved MGXS is not
+//! reproduced here; njoy's fixed-spectrum GROUPR reductions of that MGXS are
+//! verified live instead (all tests in this file are live, none `#[ignore]`d).
 //!
 //! What njoy *does* own is the underlying **group-collapse primitive**:
 //! averaging a pointwise σ(E) over a group under an assumed weighting spectrum,
@@ -30,15 +32,25 @@
 //! it against `Mgxs::collapse` (they agree to <0.03% on U-235). The engine is a
 //! fixed-spectrum group-average, still not the notebook's self-shielded solve.
 //!
-//! # Gaps (bead under op-6tz.6)
+//! # Status
 //!
-//! - Flux-solved / self-shielded (dilution/Bondarenko) MGXS, the group-to-group
-//!   **scatter matrix**, and group **Chi** — these need the GROUPR *matrix* path
-//!   (`cm2lab` kinematics + File-6 feeders, `NotPorted` in op-cjw.15) and/or
-//!   transport-tally MGXS from `outram-mc-libs`.
+//! All tests in this file are now **LIVE** (none `#[ignore]`d): the fixed-spectrum
+//! group collapse, the GROUPR vector group-average engine, the Bondarenko
+//! self-shielded MGXS, the group Chi, the separable fission matrix, and the
+//! group-to-group **elastic scatter matrix** (op-cjw.15 / op-3ut / op-bsz).
+//!
+//! # Gaps that remain (bead under op-6tz.6)
+//!
+//! - The **transport-tallied, flux-solved** self-shielded MGXS the notebook
+//!   actually produces (an MC solve) — these live tests use a fixed-spectrum
+//!   GROUPR reduction, a documented low-fidelity partial, not a Boltzmann solve.
+//! - The **full** `nu=True` nu-scatter matrix (all reactions + multiplicity)
+//!   needs the GROUPR *matrix* File-6 feeders (`getff`/`cm2lab`, `NotPorted` in
+//!   op-cjw.15); only the two-body elastic slice is live. See `mgxs_part_ii.rs`.
+//! - Validation against a real NJOY GROUPR GENDF golden tape / the notebook's MC
+//!   outputs (op-ini) — these are self-consistency (property) checks today.
 
 use std::fs::File;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use njoy_outram_park_fork::{
@@ -60,14 +72,13 @@ const U235_MAT: i32 = 9228;
 const U238_MAT: i32 = 9237;
 
 fn u235_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir()
+        .join("n-092_U_235-ENDF8.0.endf");
     Tape::read(File::open(p).expect("open U-235")).expect("parse U-235 tape")
 }
 
 fn u238_tape() -> Tape {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources/n-092_U_238.endf");
+    let p = njoy_outram_park_fork::reference_data::reference_endf_dir().join("n-092_U_238.endf");
     Tape::read(File::open(p).expect("open U-238")).expect("parse U-238 tape")
 }
 
@@ -77,8 +88,15 @@ fn u238_tape() -> Tape {
 #[test]
 fn collapse_to_notebook_two_group_structure() {
     let tape = u235_tape();
-    let result = reconr(&tape, &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 })
-        .expect("RECONR U-235");
+    let result = reconr(
+        &tape,
+        &ReconrConfig {
+            mat: U235_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("RECONR U-235");
     let nu = NuBar::from_endf(&tape, U235_MAT)
         .expect("MF=1/452")
         .expect("U-235 ν̄");
@@ -89,18 +107,31 @@ fn collapse_to_notebook_two_group_structure() {
     let grid: Vec<f64> = (0..=n)
         .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
         .collect();
-    let sample = |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
+    let sample =
+        |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
     let total = sample(MtReaction::Mt1Total);
     let elastic = sample(MtReaction::Mt2Elastic);
     let fission = sample(MtReaction::Mt18Fission);
     let capture = sample(MtReaction::Mt102Capture);
-    let nu_fission: Vec<f64> = grid.iter().zip(&fission).map(|(&e, &sf)| sf * nu.at(e)).collect();
+    let nu_fission: Vec<f64> = grid
+        .iter()
+        .zip(&fission)
+        .map(|(&e, &sf)| sf * nu.at(e))
+        .collect();
     let mubar = vec![0.0; grid.len()];
 
     // The notebook's 2-group structure.
     let bounds = [0.0_f64, 0.625, 2.0e7];
     let mg = Mgxs::collapse(
-        "U235", &grid, &total, &elastic, &fission, &capture, &nu_fission, &mubar, &bounds,
+        "U235",
+        &grid,
+        &total,
+        &elastic,
+        &fission,
+        &capture,
+        &nu_fission,
+        &mubar,
+        &bounds,
         &WeightingSpectrum::OneOverE,
     );
 
@@ -117,17 +148,26 @@ fn collapse_to_notebook_two_group_structure() {
             ("capture", &mg.capture),
             ("nu_fission", &mg.nu_fission),
         ] {
-            assert!(col[g].is_finite() && col[g] >= 0.0, "group {g} {label} = {}", col[g]);
+            assert!(
+                col[g].is_finite() && col[g] >= 0.0,
+                "group {g} {label} = {}",
+                col[g]
+            );
         }
     }
     // 1/v absorber: the thermal group total dwarfs the fast group total.
     assert!(
         mg.total[0] > 5.0 * mg.total[1],
         "thermal σ_t {:.1} should dominate fast σ_t {:.1}",
-        mg.total[0], mg.total[1]
+        mg.total[0],
+        mg.total[1]
     );
     // Fission production present in the thermal group.
-    assert!(mg.nu_fission[0] > 0.0, "thermal ν·σ_f = {}", mg.nu_fission[0]);
+    assert!(
+        mg.nu_fission[0] > 0.0,
+        "thermal ν·σ_f = {}",
+        mg.nu_fission[0]
+    );
 }
 
 /// Live partial (**GROUPR numeric engine path**, op-cjw.15): group-average the
@@ -166,12 +206,15 @@ fn collapse_to_notebook_two_group_structure() {
 /// - Thermal group total (1071 b) dwarfs the fast group total (35 b): the 1/v
 ///   capture/fission signature.
 ///
-/// # Gap that remains (still `#[ignore]` below)
+/// # Gap that remains (now LIVE below, not `#[ignore]`d)
 ///
 /// True self-shielded (dilution/Bondarenko) MGXS, the group-to-group **scatter
-/// matrix**, and group **Chi** need the GROUPR *matrix* path (`cm2lab` kinematics
-/// + File-6 feeders), which op-cjw.15 leaves `NotPorted`, and/or transport-tally
-/// MGXS from `outram-mc-libs`.
+/// matrix**, and group **Chi** are now exercised **live** in this file
+/// (`flux_weighted_self_shielded_mgxs`, `groupr_elastic_scatter_matrix_u235`) via
+/// the ported GROUPR self-shielding (op-bsz) and matrix-elastic (op-3ut) paths.
+/// What is *still* unported is the **full** `nu=True` nu-scatter matrix (File-6
+/// `getff`/`cm2lab` feeders, `NotPorted` in op-cjw.15) and the transport-tallied
+/// flux-solved MGXS from `outram-mc-libs`.
 #[test]
 fn groupr_engine_vector_group_average() {
     /// Measured agreement between the GROUPR panel engine and `Mgxs::collapse`
@@ -181,8 +224,15 @@ fn groupr_engine_vector_group_average() {
     const MAX_REL_DIFF: f64 = 0.005;
 
     let tape = u235_tape();
-    let result = reconr(&tape, &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 })
-        .expect("RECONR U-235");
+    let result = reconr(
+        &tape,
+        &ReconrConfig {
+            mat: U235_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("RECONR U-235");
     let nu = NuBar::from_endf(&tape, U235_MAT)
         .expect("MF=1/452")
         .expect("U-235 ν̄");
@@ -192,12 +242,17 @@ fn groupr_engine_vector_group_average() {
     let grid: Vec<f64> = (0..=n)
         .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
         .collect();
-    let sample = |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
+    let sample =
+        |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
     let total = sample(MtReaction::Mt1Total);
     let elastic = sample(MtReaction::Mt2Elastic);
     let fission = sample(MtReaction::Mt18Fission);
     let capture = sample(MtReaction::Mt102Capture);
-    let nu_fission: Vec<f64> = grid.iter().zip(&fission).map(|(&e, &sf)| sf * nu.at(e)).collect();
+    let nu_fission: Vec<f64> = grid
+        .iter()
+        .zip(&fission)
+        .map(|(&e, &sf)| sf * nu.at(e))
+        .collect();
     let mubar = vec![0.0; grid.len()];
 
     // Group edges: thermal edge is the reconstructed-grid floor (1e-3 eV) — the
@@ -206,14 +261,25 @@ fn groupr_engine_vector_group_average() {
 
     // --- GROUPR panel-quadrature engine (op-cjw.15) ---
     let sigma_pw = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(total.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(total.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let flux = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
     let sig_g_engine = group_average_vector(&sigma_pw, &flux, &bounds);
 
     // --- Lightweight collapse primitive, same weight/bounds ---
     let mg = Mgxs::collapse(
-        "U235", &grid, &total, &elastic, &fission, &capture, &nu_fission, &mubar, &bounds,
+        "U235",
+        &grid,
+        &total,
+        &elastic,
+        &fission,
+        &capture,
+        &nu_fission,
+        &mubar,
+        &bounds,
         &WeightingSpectrum::OneOverE,
     );
 
@@ -234,14 +300,18 @@ fn groupr_engine_vector_group_average() {
         assert!(
             rel < MAX_REL_DIFF,
             "group {g}: GROUPR engine σ_t {:.4} vs collapse {:.4}, rel diff {:.4} ≥ {}",
-            sig_g_engine[g], mg.total[g], rel, MAX_REL_DIFF
+            sig_g_engine[g],
+            mg.total[g],
+            rel,
+            MAX_REL_DIFF
         );
     }
     // 1/v absorber: thermal group total dwarfs the fast group total.
     assert!(
         sig_g_engine[0] > 5.0 * sig_g_engine[1],
         "thermal σ_t {:.1} should dominate fast σ_t {:.4}",
-        sig_g_engine[0], sig_g_engine[1]
+        sig_g_engine[0],
+        sig_g_engine[1]
     );
 }
 
@@ -287,8 +357,15 @@ fn groupr_engine_vector_group_average() {
 #[test]
 fn flux_weighted_self_shielded_mgxs() {
     let tape = u235_tape();
-    let result = reconr(&tape, &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 })
-        .expect("RECONR U-235");
+    let result = reconr(
+        &tape,
+        &ReconrConfig {
+            mat: U235_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("RECONR U-235");
     let nu = NuBar::from_endf(&tape, U235_MAT)
         .expect("MF=1/452")
         .expect("U-235 ν̄");
@@ -298,16 +375,27 @@ fn flux_weighted_self_shielded_mgxs() {
     let grid: Vec<f64> = (0..=n)
         .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
         .collect();
-    let sample = |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
+    let sample =
+        |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
     let total = sample(MtReaction::Mt1Total);
     let fission = sample(MtReaction::Mt18Fission);
-    let nu_fission: Vec<f64> = grid.iter().zip(&fission).map(|(&e, &sf)| sf * nu.at(e)).collect();
+    let nu_fission: Vec<f64> = grid
+        .iter()
+        .zip(&fission)
+        .map(|(&e, &sf)| sf * nu.at(e))
+        .collect();
 
     let sigma_t = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(total.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(total.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let nu_sf = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(nu_fission.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(nu_fission.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let weight = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
     let bounds = [1.0e-3_f64, 0.625, 2.0e7];
@@ -316,14 +404,24 @@ fn flux_weighted_self_shielded_mgxs() {
     let sigma_pot = 11.2_f64; // barn (approximate U elastic asymptote)
     let dilutions = [f64::INFINITY, 1.0e4, 1.0e2, 1.0e0];
     let ss = self_shielded_group_xs(
-        &sigma_t, &sigma_t, None, UrrReaction::Total, &weight, sigma_pot, &dilutions, &bounds, &grid,
+        &sigma_t,
+        &sigma_t,
+        None,
+        UrrReaction::Total,
+        &weight,
+        sigma_pot,
+        &dilutions,
+        &bounds,
+        &grid,
     )
     .expect("self-shielded MGXS");
     assert_eq!(ss.n_groups(), 2);
     for is in 0..dilutions.len() {
         println!(
             "U-235 σ_t(σ0={:>9.2e}) = [{:.3}, {:.4}] b",
-            dilutions[is], ss.get(is, 0), ss.get(is, 1)
+            dilutions[is],
+            ss.get(is, 0),
+            ss.get(is, 1)
         );
     }
     let vec_t = group_average_vector(&sigma_t, &weight, &bounds);
@@ -333,12 +431,18 @@ fn flux_weighted_self_shielded_mgxs() {
         }
         // σ0→∞ ≈ plain flux-weighted vector average (tabulation tol).
         let rel = (ss.get(0, g) - vec_t[g]).abs() / vec_t[g].max(1e-30);
-        assert!(rel < 2.0e-2, "inf σ_t g{g} {:.4} vs vector {:.4} rel {rel:.3}", ss.get(0, g), vec_t[g]);
+        assert!(
+            rel < 2.0e-2,
+            "inf σ_t g{g} {:.4} vs vector {:.4} rel {rel:.3}",
+            ss.get(0, g),
+            vec_t[g]
+        );
         // Monotone non-increasing as σ0 decreases.
         for is in 1..dilutions.len() {
             assert!(
                 ss.get(is, g) <= ss.get(is - 1, g) + 1e-6 * ss.get(is - 1, g).abs().max(1.0),
-                "self-shielding increased σ_t at g{g}, σ0={:.1e}", dilutions[is]
+                "self-shielding increased σ_t at g{g}, σ0={:.1e}",
+                dilutions[is]
             );
         }
     }
@@ -348,12 +452,19 @@ fn flux_weighted_self_shielded_mgxs() {
     let chi = fission_group_chi(&spectrum, &bounds).expect("group chi");
     let chi_sum: f64 = chi.chi.iter().sum();
     println!("U-235 group Chi = {:?}, sum = {chi_sum}", chi.chi);
-    assert!((chi_sum - 1.0).abs() < 1e-9, "group Chi must sum to 1, got {chi_sum}");
+    assert!(
+        (chi_sum - 1.0).abs() < 1e-9,
+        "group Chi must sum to 1, got {chi_sum}"
+    );
     for &c in &chi.chi {
         assert!(c >= 0.0, "χ_g must be non-negative");
     }
     // Fission neutrons are born fast: the fast group (g=1) carries ~all of χ.
-    assert!(chi.get(1) > 0.9, "fast group χ {:.4} should dominate", chi.get(1));
+    assert!(
+        chi.get(1) > 0.9,
+        "fast group χ {:.4} should dominate",
+        chi.get(1)
+    );
 
     // --- (3) Separable fission matrix σ_f[g→g'] = (group νσ_f)_g · χ_g' ---
     let fm = separable_fission_matrix(&nu_sf, &spectrum, &weight, &bounds, &bounds)
@@ -362,19 +473,29 @@ fn flux_weighted_self_shielded_mgxs() {
     for g in 0..2 {
         // Row sum equals the incident-group νσ_f (χ sums to 1).
         let rel = (fm.row_sum(g) - nu_sf_g[g]).abs() / nu_sf_g[g].max(1e-30);
-        assert!(rel < 1e-6, "row sum g{g} {:.5} vs νσ_f {:.5} rel {rel:.2e}", fm.row_sum(g), nu_sf_g[g]);
+        assert!(
+            rel < 1e-6,
+            "row sum g{g} {:.5} vs νσ_f {:.5} rel {rel:.2e}",
+            fm.row_sum(g),
+            nu_sf_g[g]
+        );
         // Each row is proportional to the shared Chi.
         for gp in 0..2 {
             let expected = nu_sf_g[g] * chi.get(gp);
             assert!(
                 (fm.element(g, gp) - expected).abs() < 1e-9 * expected.abs().max(1.0),
-                "fission matrix [{g}->{gp}] {:.6} != νσ_f·χ {:.6}", fm.element(g, gp), expected
+                "fission matrix [{g}->{gp}] {:.6} != νσ_f·χ {:.6}",
+                fm.element(g, gp),
+                expected
             );
         }
     }
     println!(
         "U-235 fission matrix row sums = [{:.4}, {:.4}] b (νσ_f = [{:.4}, {:.4}])",
-        fm.row_sum(0), fm.row_sum(1), nu_sf_g[0], nu_sf_g[1]
+        fm.row_sum(0),
+        fm.row_sum(1),
+        nu_sf_g[0],
+        nu_sf_g[1]
     );
 }
 
@@ -445,18 +566,31 @@ fn groupr_elastic_scatter_matrix_u235() {
     const U235_AWR: f64 = 233.0248;
 
     let tape = u235_tape();
-    let result = reconr(&tape, &ReconrConfig { mat: U235_MAT, tolerance: 0.001, temperature: 0.0 })
-        .expect("RECONR U-235");
+    let result = reconr(
+        &tape,
+        &ReconrConfig {
+            mat: U235_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("RECONR U-235");
 
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
         .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
         .collect();
-    let elastic: Vec<f64> = grid.iter().map(|&e| result.eval_mt(MtReaction::Mt2Elastic, e)).collect();
+    let elastic: Vec<f64> = grid
+        .iter()
+        .map(|&e| result.eval_mt(MtReaction::Mt2Elastic, e))
+        .collect();
 
     let sigma_el = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(elastic.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(elastic.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let flux = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
     let bounds = [1.0e-3_f64, 0.625, 2.0e7];
@@ -482,7 +616,10 @@ fn groupr_elastic_scatter_matrix_u235() {
     );
     println!(
         "  matrix elements: [0->0]={:.4} [0->1]={:.4} [1->0]={:.5} [1->1]={:.5}",
-        sm.element(0, 0, 0), sm.element(0, 0, 1), sm.element(1, 0, 0), sm.element(1, 0, 1)
+        sm.element(0, 0, 0),
+        sm.element(0, 0, 1),
+        sm.element(1, 0, 0),
+        sm.element(1, 0, 1)
     );
 
     // (2) No physical up-scatter: elastic only degrades energy. The one place a
@@ -525,13 +662,19 @@ fn groupr_elastic_scatter_matrix_u235() {
     for (g, &rs) in [row0, row1].iter().enumerate() {
         assert!(rs.is_finite() && rs >= 0.0, "row {g} sum = {rs}");
     }
-    assert!(sm.element(1, 0, 1) > sm.element(1, 0, 0), "fast in-group > fast->thermal (heavy nucleus)");
+    assert!(
+        sm.element(1, 0, 1) > sm.element(1, 0, 0),
+        "fast in-group > fast->thermal (heavy nucleus)"
+    );
 
     // (3) GENDF matrix record round-trip (mf=6 elastic, IG2LO>0, NG2>2 where data).
     let section = sm.to_gendf_section(6, 2, 92235.0, 0.0, 0.0);
     let rows = section.to_rows();
     let back = GendfSection::from_rows(6, 2, &rows).expect("parse matrix GENDF section");
-    assert_eq!(back, section, "matrix GENDF section survives the record round trip");
+    assert_eq!(
+        back, section,
+        "matrix GENDF section survives the record round trip"
+    );
 }
 
 /// Notebook op (self-shielded MGXS, **skeleton** for op-bsz): the self-shielded
@@ -583,7 +726,11 @@ fn self_shielded_mgxs_dilution_limits_u238() {
     let tape = u238_tape();
     let result = reconr(
         &tape,
-        &ReconrConfig { mat: U238_MAT, tolerance: 0.001, temperature: 0.0 },
+        &ReconrConfig {
+            mat: U238_MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
     )
     .expect("RECONR U-238");
 
@@ -599,14 +746,17 @@ fn self_shielded_mgxs_dilution_limits_u238() {
         .collect();
 
     let sigma_t = PointwiseXs::LinLin(Arc::new(
-        grid.iter().copied().zip(total.iter().copied()).collect::<Vec<_>>(),
+        grid.iter()
+            .copied()
+            .zip(total.iter().copied())
+            .collect::<Vec<_>>(),
     ));
     let weight = GroupFlux::spectrum(WeightingSpectrum::OneOverE);
 
     // U-238 potential scattering ~ 4pi R^2 with R ~ 9.44 fm (public ENDF value);
     // an approximate high-energy elastic asymptote for the Bondarenko flux.
     let sigma_pot = 11.3_f64; // barn (approximate; refine when assertions land)
-    // Background dilutions, infinite down to fully-shielded.
+                              // Background dilutions, infinite down to fully-shielded.
     let dilutions = [f64::INFINITY, 1.0e4, 1.0e3, 1.0e2, 1.0e1, 1.0e0];
     // Coarse fast structure spanning the URR region of U-238 (~ keV region).
     let bounds = [1.0e-3_f64, 1.0e0, 1.0e2, 1.0e4, 2.0e7];

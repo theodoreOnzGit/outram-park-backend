@@ -1,0 +1,58 @@
+[package]
+name = "outram-park-fork-pflotran"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only: PFLOTRAN upstream is LGPL-2.1-or-later, which LGPL-2.1 §3 lets a
+# licensee relicense under the ordinary GPL — so this crate is distributed as
+# GPL-3.0-only, consistent with the rest of the suite. Upstream provenance and
+# the "verify before publish" caveat live in NOTICE + upstream_source/README.md.
+# (Bead op-v6s.1.)
+license.workspace = true
+description = "Independent pure-Rust fork/translation of PFLOTRAN (subsurface flow & reactive transport) — enum-dispatched, uom-typed, no PETSc/FFI, no MPI. SCAFFOLD ONLY: no flow mode solves yet, no human V&V — not affiliated with the PFLOTRAN project. Use at your own risk."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# docs/ and the upstream reference clone are repo-only provenance/codegen aids,
+# never shipped in the packaged crate. upstream_source/README.md (the small
+# provenance record) is intentionally NOT excluded so it stays in the package.
+exclude = ["docs", "upstream_source/pflotran"]
+
+[dependencies]
+# Pure-Rust, Android-safe deps only (no BLAS / C / PETSc). `uom` types the
+# physical-quantity API boundary (pressure, saturation, permeability, ...);
+# `thiserror` provides the crate error enum.
+uom.workspace = true
+thiserror.workspace = true
+# The Newton-Krylov linear-algebra backbone (bead op-v6s.4). We reuse
+# outram-foam-basic-lib's face-addressed sparse `LduMatrix` (SpMV) and its dense
+# `SquareMatrix` LU, plus the pure-Rust `krylov` module (asymmetric BiCGStab /
+# GMRES + ILU(0)/Jacobi preconditioners) added there for exactly this crate —
+# rather than translating OpenBLAS standalone. Both are pure Rust and Android-
+# clean (no system BLAS), so pflotran stays Android-buildable.
+outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+# Real IAPWS-IF97 water properties for the eos_real module (op-v6s.15.7), reusing
+# the workspace steam-table crate instead of the simple correlations. Pure Rust
+# (BLAS only in its gated dev-deps), so pflotran stays Android-buildable.
+tampines-steam-tables = { path = "../tampines-steam-tables" }
+# Data-parallelism for the hot assembly / per-cell loops (bead op-v6s.14). Pure
+# Rust, Android-clean — parallelises the RICHARDS residual/Jacobian, the
+# multiphase block residual, and the reactive-transport per-cell speciation.
+rayon.workspace = true
+# MPI-style domain decomposition / scale-out (bead op-v6s.15.9). The pure-Rust
+# MPICH-subset (shared-memory threads-as-ranks) drives the halo exchange in the
+# `decomposition` module. Pure Rust (std threads only), Android-clean.
+outram-park-mpi = { path = "../outram-park-mpi" }
+# HDF5 snapshot I/O (bead op-v6s.15.11), the `hdf5_io` module. Reuses the
+# workspace's pure-Rust `hdf5-pure` (no system libhdf5, no C toolchain) — the same
+# reader njoy-outram-park-fork uses — so pflotran gains portable binary output
+# while staying Android-buildable.
+hdf5-pure.workspace = true
+
+# Optional GPU acceleration (bead op-v6s.14, src/gpu.rs) — target-gated OFF
+# Android (no system Vulkan/Metal loader there, and the workspace Android rule
+# forbids GPU deps in the library build), so the crate still builds headless for
+# aarch64-linux-android. On desktop it is built unconditionally with a mandatory
+# runtime CPU fallback; GPU is acceleration only, CPU is the trusted path.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu.workspace = true

@@ -47,9 +47,9 @@ pub struct VolField<T: Clone> {
 
 // ── Type aliases (matching OpenFOAM names) ────────────────────────────────────
 
-/// Scalar volume field: one `f64` per cell (e.g. pressure [Pa], temperature [K]).
+/// Scalar volume field: one `f64` per cell (e.g. pressure `[Pa]`, temperature `[K]`).
 pub type VolScalarField = VolField<f64>;
-/// Vector volume field: one `Vector3` per cell (e.g. velocity [m/s]).
+/// Vector volume field: one `Vector3` per cell (e.g. velocity `[m/s]`).
 pub type VolVectorField = VolField<Vector3>;
 /// General (rank-2) tensor volume field: one `Tensor` per cell.
 pub type VolTensorField = VolField<Tensor>;

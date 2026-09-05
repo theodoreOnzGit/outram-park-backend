@@ -27,10 +27,26 @@
 //!
 //! ## Sub-modules
 //!
+//! All six families are implemented, each with its own `tests` module checking
+//! the correlations against published values or closed-form limits. They are
+//! **unit-tested, not system-validated** — none has been exercised inside a
+//! converged multiphysics run.
+//!
 //! - [`fs_drag`] — fluid-structure (wall) Darcy friction-factor correlations.
-//!   **Implemented + verified.**
-//! - `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`, `turbulence` —
-//!   scaffolded (`// TODO(genfoam)`); see `docs/genfoam-port-plan.md`.
+//!   Implemented; additionally **verified** against the analytic laminar limit
+//!   `f·Re → 64`.
+//! - [`ff_drag`] — fluid-fluid (interfacial) drag correlations.
+//! - [`heat_transfer`] — fluid-structure and fluid-fluid heat-transfer
+//!   coefficients, plus critical heat flux.
+//! - [`phase_change`] — saturation properties and phase-change source terms.
+//! - [`interfacial`] — interfacial area, bubble/droplet diameter, virtual mass,
+//!   and the flow-regime map.
+//! - [`turbulence`] — the two-phase/porous turbulence **closure algebra**. The
+//!   k/ε transport equations and `correctNut` orchestration are deferred; see
+//!   that module's header for the precise deferral list.
+//!
+//! See `docs/genfoam-port-plan.md` for the translation order and per-family
+//! tracking beads.
 
 pub mod fs_drag;
 

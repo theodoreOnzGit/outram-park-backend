@@ -44,10 +44,7 @@ use uom::si::{area::barn, energy::electronvolt, f64::Energy};
 const U235_MAT: i32 = 9228;
 
 fn resource(name: &str) -> PathBuf {
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources");
-    p.push(name);
-    p
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join(name)
 }
 
 fn u235_path() -> PathBuf {
@@ -75,10 +72,16 @@ fn read_cross_sections_by_mt() {
     let tot = lib.total_xs(e).get::<barn>();
 
     println!("U-235 @ 0.0253 eV: σ_f={fis:.1} σ_γ={cap:.1} σ_el={el:.1} σ_t={tot:.1} b");
-    assert!((fis - 585.0).abs() < 25.0, "σ_f = {fis:.1} b, expected ≈585");
+    assert!(
+        (fis - 585.0).abs() < 25.0,
+        "σ_f = {fis:.1} b, expected ≈585"
+    );
     assert!((cap - 99.0).abs() < 12.0, "σ_γ = {cap:.1} b, expected ≈99");
     assert!((el - 15.0).abs() < 4.0, "σ_el = {el:.1} b, expected ≈15");
-    assert!((tot - 699.0).abs() < 30.0, "σ_t = {tot:.1} b, expected ≈699");
+    assert!(
+        (tot - 699.0).abs() < 30.0,
+        "σ_t = {tot:.1} b, expected ≈699"
+    );
 }
 
 /// Notebook op: evaluating σ over an *array* of energies. Mirrors the notebook's
@@ -94,14 +97,22 @@ fn cross_sections_over_energy_array() {
     let energies = [0.0253_f64, 1.0, 10.0, 1.0e3];
     let fis: Vec<f64> = energies
         .iter()
-        .map(|&e| lib.xs_for_reaction(MtReaction::Mt18Fission, ev(e)).get::<barn>())
+        .map(|&e| {
+            lib.xs_for_reaction(MtReaction::Mt18Fission, ev(e))
+                .get::<barn>()
+        })
         .collect();
     println!("U-235 σ_f over {energies:?} eV = {fis:?} b");
     for (e, s) in energies.iter().zip(&fis) {
         assert!(s.is_finite() && *s >= 0.0, "σ_f({e} eV) = {s} invalid");
     }
     // The 1/v thermal fission (~585 b) dwarfs the ~keV smooth region.
-    assert!(fis[0] > fis[3], "thermal fission {} should exceed keV {}", fis[0], fis[3]);
+    assert!(
+        fis[0] > fis[3],
+        "thermal fission {} should exceed keV {}",
+        fis[0],
+        fis[3]
+    );
 }
 
 /// Notebook op: `nuc[MT].xs['294K']` — temperature-dependent cross section.
@@ -133,7 +144,10 @@ fn temperature_dependent_xs_doppler() {
 
     assert!(p0 > 1000.0, "0 K peak {p0:.0} b should be a tall resonance");
     assert!(p294 < p0, "294 K peak {p294:.0} !< 0 K {p0:.0} (Doppler)");
-    assert!(p1000 < p294, "1000 K peak {p1000:.0} !< 294 K {p294:.0} (Doppler)");
+    assert!(
+        p1000 < p294,
+        "1000 K peak {p1000:.0} !< 294 K {p294:.0} (Doppler)"
+    );
 }
 
 /// Notebook op: secondary fission neutron data — ν̄(E) and the χ energy
@@ -149,13 +163,19 @@ fn secondary_nubar_and_fission_spectrum() {
         .expect("U-235 has ν̄");
     let nu_thermal = nu.at(0.0253);
     println!("U-235 ν̄(0.0253 eV) = {nu_thermal:.4}");
-    assert!((nu_thermal - 2.44).abs() < 0.15, "ν̄ = {nu_thermal:.3}, expected ≈2.44");
+    assert!(
+        (nu_thermal - 2.44).abs() < 0.15,
+        "ν̄ = {nu_thermal:.3}, expected ≈2.44"
+    );
 
     let chi = FissionSpectrum::from_endf_mf5(&tape, U235_MAT)
         .expect("MF=5/18 parse")
         .expect("U-235 has an MF=5/MT=18 fission spectrum");
     let mean = chi.mean_energy(1.0e6);
-    println!("U-235 χ mean outgoing energy (E_in=1 MeV) = {:.3} MeV", mean / 1.0e6);
+    println!(
+        "U-235 χ mean outgoing energy (E_in=1 MeV) = {:.3} MeV",
+        mean / 1.0e6
+    );
     assert!(
         (0.5e6..5.0e6).contains(&mean),
         "χ mean outgoing energy {mean:.0} eV outside the physical fission range"

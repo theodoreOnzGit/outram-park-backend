@@ -92,8 +92,11 @@ impl IncoherentInelastic {
     ///
     /// [`teff_table`]: super::mf7::IncoherentInelastic::teff_table
     pub fn teff_ev(&self, temp_k: f64) -> f64 {
-        let teff_k =
-            if self.teff_table.is_empty() { temp_k } else { interp_linear(&self.teff_table, temp_k) };
+        let teff_k = if self.teff_table.is_empty() {
+            temp_k
+        } else {
+            interp_linear(&self.teff_table, temp_k)
+        };
         BK_EV_PER_K * teff_k
     }
 
@@ -125,8 +128,12 @@ impl IncoherentInelastic {
         };
 
         // Outside the tabulated grid → SCT (the free-gas-limit tail).
-        let alpha_max =
-            self.s_tables.first().and_then(|t| t.alpha.last()).copied().unwrap_or(0.0);
+        let alpha_max = self
+            .s_tables
+            .first()
+            .and_then(|t| t.alpha.last())
+            .copied()
+            .unwrap_or(0.0);
         let beta_max = self.beta.last().copied().unwrap_or(0.0);
         if a_tab > alpha_max || b_tab > beta_max {
             return self.sct_double_differential(e, ep, mu, temp_k, natom);
@@ -253,7 +260,10 @@ impl IncoherentInelastic {
         }
         eps.sort_by(|a, b| a.partial_cmp(b).unwrap());
         eps.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
-        let sig = eps.iter().map(|&ep| self.sigma_e_to_ep(e, ep, temp_k, natom)).collect();
+        let sig = eps
+            .iter()
+            .map(|&ep| self.sigma_e_to_ep(e, ep, temp_k, natom))
+            .collect();
         (eps, sig)
     }
 
@@ -290,7 +300,10 @@ impl IncoherentInelastic {
                 let target = (k as f64 + 0.5) / nieb as f64 * total;
                 let ep = invert_cdf(&eps, &cum, target);
                 let cosines = self.equiprobable_cosines(e, ep, temp_k, natom, nang);
-                OutgoingBin { e_out_ev: ep, cosines }
+                OutgoingBin {
+                    e_out_ev: ep,
+                    cosines,
+                }
             })
             .collect()
     }
@@ -308,9 +321,13 @@ impl IncoherentInelastic {
         nang: usize,
     ) -> Vec<f64> {
         const NMU: usize = 200;
-        let mu: Vec<f64> = (0..=NMU).map(|k| -1.0 + 2.0 * k as f64 / NMU as f64).collect();
-        let f: Vec<f64> =
-            mu.iter().map(|&m| self.double_differential(e, ep, m, temp_k, natom)).collect();
+        let mu: Vec<f64> = (0..=NMU)
+            .map(|k| -1.0 + 2.0 * k as f64 / NMU as f64)
+            .collect();
+        let f: Vec<f64> = mu
+            .iter()
+            .map(|&m| self.double_differential(e, ep, m, temp_k, natom))
+            .collect();
         let mut cum = vec![0.0f64; mu.len()];
         for k in 1..mu.len() {
             cum[k] = cum[k - 1] + 0.5 * (f[k] + f[k - 1]) * (mu[k] - mu[k - 1]);
@@ -318,7 +335,9 @@ impl IncoherentInelastic {
         let total = cum[mu.len() - 1];
         if total <= 0.0 {
             // Isotropic fallback: uniform cosines at the bin midpoints.
-            return (0..nang).map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64).collect();
+            return (0..nang)
+                .map(|j| -1.0 + 2.0 * (j as f64 + 0.5) / nang as f64)
+                .collect();
         }
         (0..nang)
             .map(|j| {
@@ -415,8 +434,7 @@ mod tests {
     use std::fs::File;
 
     fn al27() -> IncoherentInelastic {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/tsl-013_Al_027-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("tsl-013_Al_027-ENDF8.0.endf");
         let tape = Tape::read(File::open(p).unwrap()).unwrap();
         parse_mf7(&tape, 53).unwrap().incoherent_inelastic.unwrap()
     }
@@ -448,7 +466,10 @@ mod tests {
         let temp = ii.temperature_k;
         for &e in &[0.001, 0.0253, 0.1, 0.5, 1.0] {
             let xs = ii.cross_section(e, temp, 1.0);
-            assert!(xs.is_finite() && xs >= 0.0, "σ_inel(E={e}) finite ≥ 0, got {xs}");
+            assert!(
+                xs.is_finite() && xs >= 0.0,
+                "σ_inel(E={e}) finite ≥ 0, got {xs}"
+            );
         }
     }
 

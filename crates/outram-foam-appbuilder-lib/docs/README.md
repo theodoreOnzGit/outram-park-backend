@@ -15,14 +15,14 @@ output via [`rustdoc-md`](https://github.com/tqwewe/rustdoc-md). Regenerate
 it any time with:
 
 ```bash
-python3 scripts/gen_api_docs.py outram-foam-appbuilder-lib
+kovan api-docs outram-foam-appbuilder-lib
 ```
 
 (needs a nightly toolchain — `rustup toolchain install nightly` — since
 rustdoc's JSON output is nightly-only; the script installs `rustdoc-md`
 itself if it isn't already on `PATH`.) It fully overwrites `api.md`, so hand
 edits there don't survive a regeneration. See
-`outram-park-fork-coolprop/docs/README.md` and `scripts/gen_api_docs.py`'s
+`outram-park-fork-coolprop/docs/README.md` and `kovan`'s `commands::api_docs`
 own docstring for why this uses the JSON pipeline instead of scraping
 `cargo doc`'s HTML output.
 
@@ -55,7 +55,15 @@ structure.
 
 ## Existing content in this folder
 
-This folder already has `planned-modules.md` (hand-maintained) — untouched by this convention.
+Three hand-maintained items predate (and sit outside) this convention:
+
+- `planned-modules.md` — the OpenFOAM C++ source refs and the planned
+  `io::` / `solvers::` module layout.
+- `genfoam-port-plan.md` — the GeN-Foam module map, translation order, and
+  current port status.
+- `ai-fleet-review/` — per-review manifests recording what an AI fleet
+  produced and what a human still has to verify. These are **untrusted AI
+  drafts with unchecked human-verify lists**, not sign-offs.
 
 ## What's *not* here (yet)
 

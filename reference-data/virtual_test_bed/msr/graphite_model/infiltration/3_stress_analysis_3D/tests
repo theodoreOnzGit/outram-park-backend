@@ -1,0 +1,16 @@
+[tests]
+  issues = '#669'
+  [stress_analysis_3d]
+    type = CSVDiff
+    input = msre3D_100percent_INF.i
+    csvdiff = 'msre3D_100percent_INF_out_line_0001.csv'
+    # Expensive test, kept only for grizzly
+    executable_pattern = 'grizzly*'
+    capabilities = 'method=opt'
+    allow_warnings = true
+    min_parallel = 16
+    # Timeout observed at 3000s
+    max_time = 4000
+    rel_err = 1e-5
+  []
+[]

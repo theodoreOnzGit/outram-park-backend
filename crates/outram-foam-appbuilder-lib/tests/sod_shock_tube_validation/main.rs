@@ -76,9 +76,7 @@
 //! monotone (non-oscillatory) captures of the shock, contact, and rarefaction.
 
 use outram_foam_appbuilder_lib::io::control_dict::{ControlDict, StartControl, StopControl};
-use outram_foam_appbuilder_lib::io::field_reader::{
-    read_vol_scalar_field, read_vol_vector_field_full,
-};
+use outram_foam_appbuilder_lib::io::field_reader::{read_vol_scalar_field, read_vol_vector_field_full};
 use outram_foam_appbuilder_lib::io::fv_schemes::FvSchemes;
 use outram_foam_appbuilder_lib::io::fv_solution::FvSolution;
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
@@ -271,8 +269,29 @@ fn exact_state(l: GasState, r: GasState, x: f64, x0: f64, t: f64) -> GasState {
 //  Test 1 — the exact Riemann arbiter reproduces the analytic star state
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Verify the exact Riemann solver (used as the faithfulness arbiter) against the
-/// closed-form star-state values for the Sod problem (CLAUDE.md §5.2).
+/// Verify the exact Riemann solver — the *arbiter* the port is judged against —
+/// reproduces the closed-form star state of the Sod problem.
+///
+/// # Methodology
+///
+/// This test validates the reference, not the solver. Everything downstream
+/// (`rho_central_foam_matches_sod_table_ii`) trusts `star_pressure` /
+/// `star_velocity` / `right_shock_speed`, so those are first checked against the
+/// published star-state values for the standard Sod initial data
+/// (`ρ_L, u_L, p_L = 1, 0, 1`; `ρ_R, u_R, p_R = 0.125, 0, 0.1`; γ = 1.4),
+/// all dimensionless.
+///
+/// **Pass criterion:** each of `P*`, `u*`, `ρ*_L`, `ρ*_R` and `S_shock` within
+/// `1e-3` absolute of the reference values printed alongside them below. See
+/// CLAUDE.md §5.2 beside this file for the derivation.
+///
+/// # Results
+///
+/// Recorded in this file's module header (`## Results`, measured 2026-07-06):
+/// all five star-state quantities agreed with the analytic values to better
+/// than `1e-4` — an order of magnitude inside the `1e-3` gate asserted here.
+/// The margin is deliberate: the gate is a regression guard, not the
+/// measurement.
 #[test]
 fn exact_riemann_reproduces_sod_star_state() {
     let l = GasState {
@@ -333,10 +352,37 @@ const SOD_TABLE_II: [(f64, f64, f64, f64); 9] = [
 //  Test 2 — the exact solution overlaid on Sod Table II (documents fidelity)
 // ═════════════════════════════════════════════════════════════════════════════
 
-/// Overlay the exact Riemann solution on Sod Table II at τ = 0.2. Constant-state
-/// points must agree to < 0.01; the fan/contact points (x/L = 0.3, 0.4, 0.7) are
-/// printed only — this is exactly the Table II coarseness the port validation
-/// routes around via the arbiter.
+/// Establish *which* of Sod (1978) Table II's stations are a faithful sample of
+/// the exact solution, by overlaying the exact Riemann solution on them at
+/// τ = 0.2.
+///
+/// # Methodology
+///
+/// Table II was produced by Glimm's method and carries visible scatter inside
+/// the rarefaction fan and across the contact. This test classifies each of the
+/// 9 stations rather than assuming all are usable: a station is **faithful**
+/// when all three of ρ, u and P agree with the exact solution to `< 0.02`
+/// absolute (dimensionless). Faithful stations are then asserted to the tighter
+/// `< 0.015`; unfaithful stations (the fan/contact points x/L = 0.3, 0.4, 0.7)
+/// are **printed only, never asserted**. That classification is what
+/// [`rho_central_foam_matches_sod_table_ii`] consumes, so this test defines the
+/// validation gate's scope.
+///
+/// **Pass criterion:** every faithful station within `0.015` absolute in each
+/// of ρ, u and P. The constant states themselves agree far better than that —
+/// to `< 0.001` — and the `0.015` bound exists solely to admit x/L = 0.3, the
+/// one faithful-but-in-fan station, which carries ~1.1 % Glimm's-method
+/// scatter.
+///
+/// # Results
+///
+/// **GAP — the per-station classification is not recorded anywhere.** The
+/// station table is printed at run time (`cargo test --release -p
+/// outram-foam-appbuilder-lib --test sod_shock_tube_validation -- --nocapture`)
+/// but has never been transcribed into a doc, a `RESULTS.md` or a committed
+/// CSV, unlike the other two tests in this file. The classification it produces
+/// is nonetheless load-bearing for the primary validation gate, so this is a
+/// real V&V documentation gap and not merely a missing convenience.
 #[test]
 fn exact_riemann_matches_sod_table_ii() {
     let l = GasState {

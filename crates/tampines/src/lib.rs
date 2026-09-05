@@ -32,6 +32,41 @@
 //!   (`teh-o-prke`, `outram-mc-libs`, `njoy-outram-park-fork`), or GUI /
 //!   visualization code (`outram-park-digital-twin-gui`).
 //!
+//! ## Reaching real time: evaluate a surrogate, not the full model
+//!
+//! This crate holds the physics a transient evaluates *most often* — fluid
+//! properties, HEM critical flow, drift-flux closures, packed-bed conjugate
+//! heat transfer, the KTA and ZBS correlations. That makes it the inner loop
+//! of every coupled run, and a digital twin at interactive rates cannot afford
+//! a full property or closure solve per tick per node.
+//!
+//! **The intended answer is a surrogate, and it is [`raffles`].** `raffles` is
+//! this workspace's port of RAVEN's uncertainty-quantification core, where a
+//! reduced-order model is a first-class object: sample the expensive model
+//! over its state space once, fit a cheap stand-in, evaluate that per tick.
+//!
+//! This is written down because it is not the obvious move. The natural
+//! reaction to a slow closure is to put a lookup table next to it, and a dozen
+//! bespoke tables scattered through this crate is precisely the outcome to
+//! avoid — they drift from the correlations they approximate, and none of them
+//! carries an error estimate. Prefer a `raffles` surrogate over a local table,
+//! and if you find yourself writing a table anyway, treat it as a stopgap and
+//! say so at the call site.
+//!
+//! Two constraints on any implementation:
+//!
+//! - **The surrogate must stay Android-clean.** Dense linear algebra for
+//!   fitting comes from the pure-Rust `faer` already in the workspace
+//!   dependencies — never a system BLAS or `ndarray-linalg`, per the
+//!   workspace's Android/Termux rule.
+//! - **A surrogate without an error bound is not usable here.** These feed
+//!   safety-relevant transients, and a fast wrong answer is worse than a slow
+//!   right one.
+//!
+//! The ROM layer itself does not exist yet — `raffles::surrogate` is currently
+//! a stub. Tracked in the workspace beads as `op-38my`; the dependency is
+//! wired ahead of it so the intent is visible from the manifest.
+//!
 //! ## Status
 //!
 //! **Scaffold only.** This crate is being built out incrementally; see the
@@ -47,9 +82,12 @@ pub mod cooling_tower;
 pub mod critical_flow;
 pub mod error;
 pub mod fluids;
+pub mod gas_phase;
 pub mod heat_transfer;
 pub mod hem;
 pub mod humid_air;
+pub mod multiphase_1d;
+pub mod pebble_bed;
 pub mod single_phase;
 
 pub use error::TampinesError;

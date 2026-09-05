@@ -4,10 +4,16 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use boon_lay::Nuclide;
+use boon_lay::compute::ComputeType;
+use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::walk_on_spheres::{
+    WalkParams, WoSWalker,
+};
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::cached_normals::DiffusionRandomCache;
+use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoCell;
 use boon_lay::prelude::SingleNuclideSimulatorMC;
 use boon_lay::prelude::decay_library::DecayLibrary;
 use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::SingleParticleDiffusionSimulatorMC;
+use rayon::prelude::*;
 use uom::si::time::second;
 use uom::si::f64::Time;
 use uom::si::time::millisecond;
@@ -158,17 +164,22 @@ impl TRISOSimApp {
 
             let timestep = simulator_state_clone.get_timestep();
 
+            // Decay each atom on the CPU (unchanged), then advance its diffusion
+            // with the fast, timestep-free Walk-on-Spheres engine via the selected
+            // compute backend — replacing the old Fourier sub-timestepping path
+            // that made the buffer layer crawl.
             for decay_simulation in simulation_vector.iter_mut() {
                 decay_simulation.advance_timestep(timestep);
-
-                diffusion_simulator
-                    .move_single_decaying_particle_within_triso_based_on_fourier_no_cached(
-                        decay_simulation,
-                        triso_cell,
-                        timestep,
-                        &cached_normals,
-                    );
             }
+            advance_diffusion_wos(
+                &mut simulation_vector,
+                &mut diffusion_simulator.rng,
+                triso_cell,
+                timestep,
+                simulator_state_clone.get_compute_backend(),
+                simulator_state_clone.get_user_selected_nuclide(),
+            );
+            let _ = &cached_normals; // retained for the legacy Fourier path
             *thread_ptr.lock().unwrap() = (simulation_vector, decay_library);
 
             let realtime = false;
@@ -275,6 +286,106 @@ impl TRISOSimApp {
                 dbg!(&(elapsed_time, nuclide, pos));
             }
             barrier.wait();
+        }
+    }
+}
+
+/// Advance every atom's diffusion by `timestep` with the Walk-on-Spheres engine,
+/// using the selected compute backend, then write the new positions back.
+///
+/// Each atom becomes a transient [`WoSWalker`] at its current position and
+/// nuclide, started at `t = 0`, and is diffused to `t = timestep`. The CPU
+/// backends diffuse each atom with its *own* nuclide's diffusion coefficient
+/// (exact); the GPU backend batches the whole population through the multilayer
+/// kernel using the **user-selected** nuclide's coefficient (a single-`D`
+/// approximation for the visualization — the kernel is one nuclide per dispatch),
+/// and transparently falls back to the CPU when no adapter is present.
+fn advance_diffusion_wos(
+    sims: &mut [SingleNuclideSimulatorMC],
+    rng: &mut OoRng64,
+    triso_cell: TrisoCell,
+    timestep: Time,
+    backend: ComputeType,
+    selected_nuclide: Nuclide,
+) {
+    let params = WalkParams::crp6_default();
+
+    let mut walkers: Vec<WoSWalker> = sims
+        .iter()
+        .map(|s| {
+            let (x, y, z) = s.position;
+            let child = OoRng64::from_u64(rng.next_u64());
+            WoSWalker::new([x, y, z], s.get_current_nuclide(), child)
+        })
+        .collect();
+    let mut released = vec![false; walkers.len()];
+
+    match backend {
+        ComputeType::Gpu => {
+            if !boon_lay::gpu::advance_multilayer_best_effort(
+                &triso_cell,
+                &params,
+                &mut walkers,
+                &mut released,
+                selected_nuclide,
+                timestep,
+            ) {
+                diffuse_cpu(
+                    &mut walkers,
+                    &mut released,
+                    &triso_cell,
+                    &params,
+                    timestep,
+                    true,
+                );
+            }
+        }
+        ComputeType::CpuMultiThread(_) => diffuse_cpu(
+            &mut walkers,
+            &mut released,
+            &triso_cell,
+            &params,
+            timestep,
+            true,
+        ),
+        ComputeType::CpuSingleThread => diffuse_cpu(
+            &mut walkers,
+            &mut released,
+            &triso_cell,
+            &params,
+            timestep,
+            false,
+        ),
+    }
+
+    for (s, w) in sims.iter_mut().zip(walkers.iter()) {
+        s.position = (w.position[0], w.position[1], w.position[2]);
+    }
+}
+
+/// CPU diffusion of a walker batch to `until`, sequential or rayon-parallel.
+fn diffuse_cpu(
+    walkers: &mut [WoSWalker],
+    released: &mut [bool],
+    triso_cell: &TrisoCell,
+    params: &WalkParams,
+    until: Time,
+    multi_thread: bool,
+) {
+    if multi_thread {
+        walkers
+            .par_iter_mut()
+            .zip(released.par_iter_mut())
+            .for_each(|(w, r)| {
+                if !*r && !w.diffuse_until(triso_cell, params, until) {
+                    *r = true;
+                }
+            });
+    } else {
+        for (w, r) in walkers.iter_mut().zip(released.iter_mut()) {
+            if !*r && !w.diffuse_until(triso_cell, params, until) {
+                *r = true;
+            }
         }
     }
 }

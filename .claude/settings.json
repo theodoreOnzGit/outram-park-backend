@@ -4,8 +4,21 @@
       {
         "hooks": [
           {
-            "command": "bd prime --hook-json",
+            "command": "bn prime --mcp",
             "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR/scripts/push-beads-store.sh\"",
+            "type": "command",
+            "timeout": 30,
+            "statusMessage": "Publishing beads store ref"
           }
         ],
         "matcher": ""

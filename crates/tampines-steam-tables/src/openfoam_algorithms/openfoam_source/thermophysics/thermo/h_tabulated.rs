@@ -37,13 +37,13 @@ use super::traits::ThermoModel;
 #[derive(Debug, Clone)]
 pub struct HTabulatedThermo<E: EquationOfState> {
     eos: E,
-    cp_ts:  Vec<f64>,  // temperature knots for Cp [K]
-    cp_vs:  Vec<f64>,  // Cp values [J/(kg·K)]
-    ha_ts:  Vec<f64>,  // temperature knots for Ha [K]
-    ha_vs:  Vec<f64>,  // absolute enthalpy values [J/kg]
-    s_ts:   Vec<f64>,  // temperature knots for S [K]
-    s_vs:   Vec<f64>,  // entropy values [J/(kg·K)]
-    hf:     f64,       // heat of formation = Ha at reference T [J/kg]
+    cp_ts: Vec<f64>, // temperature knots for Cp [K]
+    cp_vs: Vec<f64>, // Cp values [J/(kg·K)]
+    ha_ts: Vec<f64>, // temperature knots for Ha [K]
+    ha_vs: Vec<f64>, // absolute enthalpy values [J/kg]
+    s_ts: Vec<f64>,  // temperature knots for S [K]
+    s_vs: Vec<f64>,  // entropy values [J/(kg·K)]
+    hf: f64,         // heat of formation = Ha at reference T [J/kg]
 }
 
 impl<E: EquationOfState> HTabulatedThermo<E> {
@@ -53,16 +53,19 @@ impl<E: EquationOfState> HTabulatedThermo<E> {
     /// `hf` is the formation enthalpy returned by `hc()` for the `hs = ha - hf` split.
     pub fn new(
         eos: E,
-        cp_table:  (Vec<f64>, Vec<f64>),
-        ha_table:  (Vec<f64>, Vec<f64>),
-        s_table:   (Vec<f64>, Vec<f64>),
+        cp_table: (Vec<f64>, Vec<f64>),
+        ha_table: (Vec<f64>, Vec<f64>),
+        s_table: (Vec<f64>, Vec<f64>),
         hf: AvailableEnergy,
     ) -> Self {
         Self {
             eos,
-            cp_ts: cp_table.0, cp_vs: cp_table.1,
-            ha_ts: ha_table.0, ha_vs: ha_table.1,
-            s_ts:  s_table.0,  s_vs:  s_table.1,
+            cp_ts: cp_table.0,
+            cp_vs: cp_table.1,
+            ha_ts: ha_table.0,
+            ha_vs: ha_table.1,
+            s_ts: s_table.0,
+            s_vs: s_table.1,
             hf: hf.get::<joule_per_kilogram>(),
         }
     }
@@ -71,16 +74,36 @@ impl<E: EquationOfState> HTabulatedThermo<E> {
 // --- EquationOfState delegation ---
 
 impl<E: EquationOfState> EquationOfState for HTabulatedThermo<E> {
-    fn mol_weight(&self) -> MolarMass           { self.eos.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity         { self.eos.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.eos.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.eos.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.eos.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.eos.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.eos.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.eos.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.eos.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.eos.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel ---
@@ -88,16 +111,17 @@ impl<E: EquationOfState> EquationOfState for HTabulatedThermo<E> {
 impl<E: EquationOfState> ThermoModel for HTabulatedThermo<E> {
     fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let tv = t.get::<kelvin>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
-            interpolate_xy(tv, &self.cp_ts, &self.cp_vs),
-        ) + self.eos.cp_eos(p, t)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(interpolate_xy(
+            tv,
+            &self.cp_ts,
+            &self.cp_vs,
+        )) + self.eos.cp_eos(p, t)
     }
 
     fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
         let tv = t.get::<kelvin>();
-        AvailableEnergy::new::<joule_per_kilogram>(
-            interpolate_xy(tv, &self.ha_ts, &self.ha_vs),
-        ) + self.eos.h_eos(p, t)
+        AvailableEnergy::new::<joule_per_kilogram>(interpolate_xy(tv, &self.ha_ts, &self.ha_vs))
+            + self.eos.h_eos(p, t)
     }
 
     fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
@@ -110,9 +134,9 @@ impl<E: EquationOfState> ThermoModel for HTabulatedThermo<E> {
 
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let tv = t.get::<kelvin>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
-            interpolate_xy(tv, &self.s_ts, &self.s_vs),
-        ) + self.eos.s_eos(p, t)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(interpolate_xy(
+            tv, &self.s_ts, &self.s_vs,
+        )) + self.eos.s_eos(p, t)
     }
 }
 
@@ -137,7 +161,10 @@ mod tests {
         let ts = vec![200.0, 1000.0];
         let cps = vec![cp, cp];
         let has = vec![cp * (200.0 - t_ref), cp * (1000.0 - t_ref)];
-        let ss  = vec![cp * (200.0_f64 / t_ref).ln(), cp * (1000.0_f64 / t_ref).ln()];
+        let ss = vec![
+            cp * (200.0_f64 / t_ref).ln(),
+            cp * (1000.0_f64 / t_ref).ln(),
+        ];
         HTabulatedThermo::new(
             eos,
             (ts.clone(), cps),
@@ -183,7 +210,10 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t1 = ThermodynamicTemperature::new::<kelvin>(300.0);
         let t2 = ThermodynamicTemperature::new::<kelvin>(800.0);
-        assert!(a.s(p, t1).get::<joule_per_kilogram_kelvin>() < a.s(p, t2).get::<joule_per_kilogram_kelvin>());
+        assert!(
+            a.s(p, t1).get::<joule_per_kilogram_kelvin>()
+                < a.s(p, t2).get::<joule_per_kilogram_kelvin>()
+        );
     }
 
     #[test]
@@ -192,7 +222,9 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t_in = ThermodynamicTemperature::new::<kelvin>(700.0);
         let ha = a.ha(p, t_in);
-        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0)).unwrap();
+        let t_out = a
+            .t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0))
+            .unwrap();
         assert_relative_eq!(t_in.get::<kelvin>(), t_out.get::<kelvin>(), epsilon = 0.1);
     }
 }

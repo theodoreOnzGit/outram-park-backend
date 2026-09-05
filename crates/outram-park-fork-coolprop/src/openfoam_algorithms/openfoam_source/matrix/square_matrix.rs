@@ -30,7 +30,9 @@ pub enum MatrixError {
 impl std::fmt::Display for MatrixError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MatrixError::Singular { col } => write!(f, "matrix is singular: zero pivot at column {col}"),
+            MatrixError::Singular { col } => {
+                write!(f, "matrix is singular: zero pivot at column {col}")
+            }
         }
     }
 }
@@ -49,10 +51,15 @@ pub struct SquareMatrix {
 
 impl SquareMatrix {
     pub fn new(n: usize) -> Self {
-        Self { n, data: vec![0.0; n * n] }
+        Self {
+            n,
+            data: vec![0.0; n * n],
+        }
     }
 
-    pub fn n(&self) -> usize { self.n }
+    pub fn n(&self) -> usize {
+        self.n
+    }
 
     #[inline]
     pub fn get(&self, i: usize, j: usize) -> f64 {
@@ -88,7 +95,11 @@ impl SquareMatrix {
                     .iter()
                     .map(|x| x.abs())
                     .fold(0.0_f64, f64::max);
-                if mx > 0.0 { 1.0 / mx } else { 0.0 }
+                if mx > 0.0 {
+                    1.0 / mx
+                } else {
+                    0.0
+                }
             })
             .collect();
 
@@ -207,8 +218,10 @@ mod tests {
     fn lu_solve_2x2() {
         // 2x + y = 5,  x + 3y = 10  →  x = 1, y = 3
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 2.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 3.0);
+        m.set(0, 0, 2.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 3.0);
         let x = m.solve(&[5.0, 10.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
@@ -219,9 +232,15 @@ mod tests {
         // A = [2 1 1; 1 3 1; 1 1 4], RHS chosen so solution = (1,2,3)
         // verify: 2+2+3=7, 1+6+3=10, 1+2+12=15
         let mut m = SquareMatrix::new(3);
-        m.set(0, 0, 2.0); m.set(0, 1, 1.0); m.set(0, 2, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 3.0); m.set(1, 2, 1.0);
-        m.set(2, 0, 1.0); m.set(2, 1, 1.0); m.set(2, 2, 4.0);
+        m.set(0, 0, 2.0);
+        m.set(0, 1, 1.0);
+        m.set(0, 2, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 3.0);
+        m.set(1, 2, 1.0);
+        m.set(2, 0, 1.0);
+        m.set(2, 1, 1.0);
+        m.set(2, 2, 4.0);
         let x = m.solve(&[7.0, 10.0, 15.0]).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 2.0).abs() < 1e-12, "y={}", x[1]);
@@ -233,8 +252,10 @@ mod tests {
         // First row has a zero on the diagonal — requires pivoting
         // 0·x + 1·y = 3,  2·x + 0·y = 4  →  x=2, y=3
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 0.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 2.0); m.set(1, 1, 0.0);
+        m.set(0, 0, 0.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 2.0);
+        m.set(1, 1, 0.0);
         let x = m.solve(&[3.0, 4.0]).unwrap();
         assert!((x[0] - 2.0).abs() < 1e-12, "x={}", x[0]);
         assert!((x[1] - 3.0).abs() < 1e-12, "y={}", x[1]);
@@ -243,7 +264,9 @@ mod tests {
     #[test]
     fn lu_identity() {
         let mut m = SquareMatrix::new(3);
-        m.set(0, 0, 1.0); m.set(1, 1, 1.0); m.set(2, 2, 1.0);
+        m.set(0, 0, 1.0);
+        m.set(1, 1, 1.0);
+        m.set(2, 2, 1.0);
         let x = m.solve(&[7.0, -2.0, 5.0]).unwrap();
         assert!((x[0] - 7.0).abs() < 1e-12);
         assert!((x[1] + 2.0).abs() < 1e-12);
@@ -254,19 +277,27 @@ mod tests {
     fn singular_matrix_returns_err() {
         // A = [[1, 1], [1, 1]] — rank 1, col 1 of L is all-zero after elimination
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 1.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 1.0);
+        m.set(0, 0, 1.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 1.0);
         let result = m.solve(&[2.0, 2.0]);
-        assert!(matches!(result, Err(MatrixError::Singular { .. })),
-            "expected Singular, got {:?}", result);
+        assert!(
+            matches!(result, Err(MatrixError::Singular { .. })),
+            "expected Singular, got {:?}",
+            result
+        );
     }
 
     #[test]
     fn fully_zero_matrix_returns_err() {
         let m = SquareMatrix::new(3); // all zeros
         let result = m.solve(&[1.0, 0.0, 0.0]);
-        assert!(matches!(result, Err(MatrixError::Singular { col: 0 })),
-            "expected Singular at col 0, got {:?}", result);
+        assert!(
+            matches!(result, Err(MatrixError::Singular { col: 0 })),
+            "expected Singular at col 0, got {:?}",
+            result
+        );
     }
 
     #[test]
@@ -281,7 +312,9 @@ mod tests {
             }
         }
         let b: Vec<f64> = (0..n).map(|_| 1.0).collect();
-        let x = m.solve(&b).expect("Hilbert 5×5 should not be detected as singular");
+        let x = m
+            .solve(&b)
+            .expect("Hilbert 5×5 should not be detected as singular");
 
         // Compute residual r = Ax - b using the original matrix (reconstruct it).
         let mut m2 = SquareMatrix::new(n);
@@ -298,7 +331,10 @@ mod tests {
             b_norm_sq += b[i].powi(2);
         }
         let rel_residual = r_norm_sq.sqrt() / b_norm_sq.sqrt();
-        assert!(rel_residual < 1e-8, "relative residual {rel_residual:.3e} too large");
+        assert!(
+            rel_residual < 1e-8,
+            "relative residual {rel_residual:.3e} too large"
+        );
     }
 
     #[test]
@@ -311,8 +347,10 @@ mod tests {
         //   row 0: 1e8 + 1 = 1e8+1 ✓
         //   row 1: 1 + 1e8 = 1e8+1 ✓
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 1.0e8); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0);   m.set(1, 1, 1.0e8);
+        m.set(0, 0, 1.0e8);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 1.0e8);
         let rhs = [1.0e8 + 1.0, 1.0e8 + 1.0];
         let x = m.solve(&rhs).unwrap();
         assert!((x[0] - 1.0).abs() < 1e-6, "x[0]={}", x[0]);
@@ -325,8 +363,10 @@ mod tests {
         // RHS (5,5) → sol (1,2): 3+2=5 ✓, 1+4=5 ✓
         // RHS (13,11) → sol (3,4): 9+4=13 ✓, 3+8=11 ✓
         let mut m = SquareMatrix::new(2);
-        m.set(0, 0, 3.0); m.set(0, 1, 1.0);
-        m.set(1, 0, 1.0); m.set(1, 1, 2.0);
+        m.set(0, 0, 3.0);
+        m.set(0, 1, 1.0);
+        m.set(1, 0, 1.0);
+        m.set(1, 1, 2.0);
         let pivot = m.lu_decompose();
 
         let mut b1 = vec![5.0, 5.0];

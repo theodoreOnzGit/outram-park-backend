@@ -4,7 +4,7 @@
 //!
 //! **What this verifies.** The Rust NJOY port reconstructs the U-238 radiative
 //! capture cross section (MT=102) *directly from the ENDF/B-VIII.0 tape*
-//! (`tests/resources/n-092_U_238.endf`) with RECONR (Reich-Moore, LRF=3), then
+//! (`reference-data/endf/n-092_U_238.endf`) with RECONR (Reich-Moore, LRF=3), then
 //! Doppler-broadens it to 900 K and 1200 K with BROADR (SIGMA1 free-gas kernel).
 //! The result is compared **point-for-point** against OpenMC's own ENDF/B-VIII.0
 //! pointwise capture cross section, pre-extracted into the committed reference
@@ -79,7 +79,7 @@ fn manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 fn endf_path() -> PathBuf {
-    manifest().join("tests/resources/n-092_U_238.endf")
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join("n-092_U_238.endf")
 }
 fn reference_csv(temp_k: u32) -> PathBuf {
     manifest().join(format!(
@@ -137,14 +137,26 @@ fn capture_pipeline_is_physical() {
     let thermal = lib0.capture_xs(ev(0.0253)).get::<barn>();
     let peak0 = lib0.capture_xs(ev(6.673)).get::<barn>();
     let wing0 = lib0.capture_xs(ev(6.5)).get::<barn>();
-    assert!((2.0..3.5).contains(&thermal), "thermal capture {thermal} b (expect ~2.7)");
-    assert!(peak0 > 5000.0, "6.67 eV 0 K peak {peak0} b (expect thousands)");
+    assert!(
+        (2.0..3.5).contains(&thermal),
+        "thermal capture {thermal} b (expect ~2.7)"
+    );
+    assert!(
+        peak0 > 5000.0,
+        "6.67 eV 0 K peak {peak0} b (expect thousands)"
+    );
 
     let lib900 = rust_broadened(900.0);
     let peak900 = lib900.capture_xs(ev(6.673)).get::<barn>();
     let wing900 = lib900.capture_xs(ev(6.5)).get::<barn>();
-    assert!(peak900 < peak0, "Doppler must lower the peak: {peak900} !< {peak0}");
-    assert!(wing900 > wing0, "Doppler must raise the wing: {wing900} !> {wing0}");
+    assert!(
+        peak900 < peak0,
+        "Doppler must lower the peak: {peak900} !< {peak0}"
+    );
+    assert!(
+        wing900 > wing0,
+        "Doppler must raise the wing: {wing900} !> {wing0}"
+    );
     eprintln!("0 K   : peak {peak0:.0} b, wing {wing0:.1} b, thermal {thermal:.3} b");
     eprintln!("900 K : peak {peak900:.0} b, wing {wing900:.1} b");
 }
@@ -153,11 +165,11 @@ fn capture_pipeline_is_physical() {
 
 struct Metrics {
     n_rrr: usize,
-    l1_rrr: f64,     // Σ|Δ|/Σ|omc| over RRR (E ≤ 20 keV)
+    l1_rrr: f64, // Σ|Δ|/Σ|omc| over RRR (E ≤ 20 keV)
     mean_rel_rrr: f64,
     max_rel_rrr: f64,
     max_rel_e: f64,
-    l1_above: f64,   // same, above the RRR
+    l1_above: f64, // same, above the RRR
     n_above: usize,
     nonfinite: usize, // Rust points that were NaN/inf or negative
 }
@@ -210,7 +222,11 @@ fn compare_temperature(temp_k: u32) -> Metrics {
     Metrics {
         n_rrr,
         l1_rrr: abs_rrr / omc_rrr.max(1e-30),
-        mean_rel_rrr: if n_sig > 0 { sum_rel / n_sig as f64 } else { 0.0 },
+        mean_rel_rrr: if n_sig > 0 {
+            sum_rel / n_sig as f64
+        } else {
+            0.0
+        },
         max_rel_rrr: max_rel,
         max_rel_e,
         l1_above: abs_abv / omc_abv.max(1e-30),
@@ -251,8 +267,16 @@ fn capture_doppler_matches_openmc() {
         }
 
         // ── Gates (what the port must satisfy) ──────────────────────────────
-        assert!(m.n_rrr > 100, "too few RRR points ({}) — reference grid wrong?", m.n_rrr);
-        assert_eq!(m.nonfinite, 0, "{temp_k} K: {} non-finite/negative capture points", m.nonfinite);
+        assert!(
+            m.n_rrr > 100,
+            "too few RRR points ({}) — reference grid wrong?",
+            m.n_rrr
+        );
+        assert_eq!(
+            m.nonfinite, 0,
+            "{temp_k} K: {} non-finite/negative capture points",
+            m.nonfinite
+        );
         // Above the resolved region the port returns the MF=3 infinite-dilution
         // average, which matches OpenMC's pointwise capture tightly.
         assert!(

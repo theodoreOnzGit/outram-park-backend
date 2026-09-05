@@ -47,29 +47,48 @@
 //!   x↔y, so the four corner cells (and, separately, the four central cells) must
 //!   agree to within Monte-Carlo statistics.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed).** With 500
+//! **Results (measured 2026-08-06, this harness; deterministic seed).** With 500
 //! particles, 20 inactive + 35 active generations the run gives
-//! **k_inf = 1.83164 ± 0.00763** (matching `expansion_filters.rs`, the same
+//! **k_inf = 1.82334 ± 0.00769** (matching `expansion_filters.rs`, the same
 //! infinite-medium model). The reshaped 4 × 4 flux grid (track-length units) is:
 //!
-//! - row 0: `[1.742e4, 1.989e4, 1.989e4, 1.741e4]`
-//! - row 1: `[1.928e4, 2.373e4, 2.376e4, 1.928e4]`
-//! - row 2: `[1.930e4, 2.376e4, 2.374e4, 1.927e4]`
-//! - row 3: `[1.741e4, 1.989e4, 1.990e4, 1.742e4]`
+//! - row 0: `[1.807e4, 1.703e4, 1.704e4, 1.806e4]`
+//! - row 1: `[1.727e4, 2.253e4, 2.251e4, 1.727e4]`
+//! - row 2: `[1.729e4, 2.252e4, 2.253e4, 1.729e4]`
+//! - row 3: `[1.804e4, 1.704e4, 1.703e4, 1.806e4]`
 //!
-//! with max = 2.376e4, min = 1.741e4, total = 3.213e5 and spatial structure
-//! `(max − min)/max = 0.267`. The four **centre** cells (fuel-overlapping) are
-//! ~2.375e4 and clearly separated from the four **corner** cells (pure moderator)
-//! at ~1.741e4 — the fuel cylinder raises the flux at the pitch centre. The
-//! corner cells agree to **0.0%** (spread 5.2e0 on a mean of 1.741e4) and the
-//! centre cells to **0.0%** (spread 1.2e1 on 2.375e4): the grid is symmetric under
+//! with max = 2.253e4, min = 1.703e4, total = 2.996e5 and spatial structure
+//! `(max − min)/max = 0.244`. The four **centre** cells (fuel-overlapping) are
+//! ~2.252e4 and clearly separated from the outer ring of pure-moderator cells —
+//! the four **corner** cells at ~1.806e4 and the eight edge cells at
+//! ~1.703e4–1.729e4 (the grid minimum) — the fuel cylinder raises the flux at the
+//! pitch centre. The
+//! corner cells agree to **0.0%** (spread 8.720e0 on a mean of 1.806e4) and the
+//! centre cells to **0.0%** (spread 7.985e0 on 2.252e4): the grid is symmetric under
 //! x→−x, y→−y and x↔y, exactly as the geometry demands. Interpretation:
 //! `RegularMesh`/`MeshFilter` binning and the midpoint-position threading through
 //! the scoring path are wired correctly; the reshaped grid recovers both the
 //! fuel/moderator spatial structure and the geometry's four-fold symmetry.
 //! Absolute cell values are track-length units (volume normalization is
 //! op-6tz.22). The grid + summary are written to
-//! `verification_and_validation/openmc_notebook_comparisons/post_processing.csv`.
+//! `verification_and_validation/openmc_notebook_comparisons/post_processing.csv`
+//! (the `date` column in that generated CSV is a literal in the test body and
+//! still reads 2026-07-17 — the authoritative date is this block).
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it every scored mesh cell. Superseded:
+//! **k_inf = 1.83164 ± 0.00763**; grid rows
+//! `[1.742e4, 1.989e4, 1.989e4, 1.741e4]`, `[1.928e4, 2.373e4, 2.376e4, 1.928e4]`,
+//! `[1.930e4, 2.376e4, 2.374e4, 1.927e4]`, `[1.741e4, 1.989e4, 1.990e4, 1.742e4]`;
+//! max = 2.376e4, min = 1.741e4, total = 3.213e5, structure = 0.267; corner mean
+//! ~1.741e4 (spread 5.2e0), centre mean ~2.375e4 (spread 1.2e1). Note the
+//! outer-ring ordering also changed: the corner cells were then the grid minimum,
+//! whereas they now sit slightly *above* the edge cells — both remain far below
+//! the fuel-overlapping centre, so the asserted structure and symmetry properties
+//! are unaffected.
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -92,9 +111,18 @@ fn heu_fuel() -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     }
 }
@@ -115,20 +143,52 @@ fn nuclides() -> Vec<Nuclide> {
 /// off them. Cell 0 = fuel (material 0), cell 1 = moderator (material 1).
 fn reflective_box(r_fuel: f64, half: f64, zmax: f64) -> Geometry {
     let surfaces = vec![
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -half, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: half, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -zmax, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: zmax, bc: BoundaryType::Reflective }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: r_fuel,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: half,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -zmax,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: zmax,
+            bc: BoundaryType::Reflective,
+        }),
     ];
 
     // Fuel: inside the cylinder, capped in z.
-    let mut fuel_region = vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }];
-    fuel_region.push(RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside });
+    let mut fuel_region = vec![RegionToken::HalfSpace {
+        surface_idx: 0,
+        sense: HalfSpaceSense::Inside,
+    }];
+    fuel_region.push(RegionToken::HalfSpace {
+        surface_idx: 5,
+        sense: HalfSpaceSense::Outside,
+    });
     fuel_region.push(RegionToken::Intersection);
-    fuel_region.push(RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside });
+    fuel_region.push(RegionToken::HalfSpace {
+        surface_idx: 6,
+        sense: HalfSpaceSense::Inside,
+    });
     fuel_region.push(RegionToken::Intersection);
     let fuel = Cell::material(1, fuel_region, 0, 293.6);
 
@@ -136,18 +196,39 @@ fn reflective_box(r_fuel: f64, half: f64, zmax: f64) -> Geometry {
     let moder = Cell::material(
         2,
         vec![
-            RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-            RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside }, // x > -half
+            RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Outside,
+            },
+            RegionToken::HalfSpace {
+                surface_idx: 1,
+                sense: HalfSpaceSense::Outside,
+            }, // x > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside }, // x < +half
+            RegionToken::HalfSpace {
+                surface_idx: 2,
+                sense: HalfSpaceSense::Inside,
+            }, // x < +half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside }, // y > -half
+            RegionToken::HalfSpace {
+                surface_idx: 3,
+                sense: HalfSpaceSense::Outside,
+            }, // y > -half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside }, // y < +half
+            RegionToken::HalfSpace {
+                surface_idx: 4,
+                sense: HalfSpaceSense::Inside,
+            }, // y < +half
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 5, sense: HalfSpaceSense::Outside }, // z > -zmax
+            RegionToken::HalfSpace {
+                surface_idx: 5,
+                sense: HalfSpaceSense::Outside,
+            }, // z > -zmax
             RegionToken::Intersection,
-            RegionToken::HalfSpace { surface_idx: 6, sense: HalfSpaceSense::Inside }, // z < +zmax
+            RegionToken::HalfSpace {
+                surface_idx: 6,
+                sense: HalfSpaceSense::Inside,
+            }, // z < +zmax
             RegionToken::Intersection,
         ],
         1,
@@ -157,7 +238,10 @@ fn reflective_box(r_fuel: f64, half: f64, zmax: f64) -> Geometry {
     Geometry {
         surfaces,
         cells: vec![fuel, moder],
-        universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0, 1],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -199,7 +283,10 @@ fn post_processing_statepoint() {
         id: 2,
         name: "H moderator".into(),
         temperature: 293.6,
-        components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 3,
+            atom_density: 6.6e-2,
+        }],
     };
     let materials = vec![fuel, moderator];
 
@@ -226,14 +313,26 @@ fn post_processing_statepoint() {
         bins: vec![TallyBin::default(); n_cells],
     };
 
-    let settings = KeffSettings { n_particles: 500, n_inactive: 20, n_active: 35, ..KeffSettings::default() };
+    let settings = KeffSettings {
+        n_particles: 500,
+        n_inactive: 20,
+        n_active: 35,
+        ..KeffSettings::default()
+    };
     let src = SourceBox {
         lower: Position::new(-r_fuel, -r_fuel, -zmax),
         upper: Position::new(r_fuel, r_fuel, zmax),
     };
 
     let t0 = std::time::Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, Some(&mut tally));
+    let result = run_keff_csg(
+        &geom,
+        &materials,
+        &nuclides,
+        src,
+        &settings,
+        Some(&mut tally),
+    );
     let dt = t0.elapsed();
 
     let n_active = settings.n_active as u64;
@@ -248,17 +347,28 @@ fn post_processing_statepoint() {
 
     // ── Validity: every cell finite and non-negative ───────────────────────────
     for (b, v) in flat.iter().enumerate() {
-        assert!(v.is_finite() && *v >= 0.0, "mesh cell {b} flux {v} not finite/non-negative");
+        assert!(
+            v.is_finite() && *v >= 0.0,
+            "mesh cell {b} flux {v} not finite/non-negative"
+        );
     }
     let total: f64 = flat.iter().sum();
-    assert!(total > 0.0, "total meshed flux must be positive, got {total}");
+    assert!(
+        total > 0.0,
+        "total meshed flux must be positive, got {total}"
+    );
 
     let vmax = flat.iter().cloned().fold(f64::MIN, f64::max);
     let vmin = flat.iter().cloned().fold(f64::MAX, f64::min);
     let structure = (vmax - vmin) / vmax;
 
     // Corner cells (pure moderator) and centre cells (fuel-overlapping).
-    let corners = [grid[0][0], grid[0][nx - 1], grid[ny - 1][0], grid[ny - 1][nx - 1]];
+    let corners = [
+        grid[0][0],
+        grid[0][nx - 1],
+        grid[ny - 1][0],
+        grid[ny - 1][nx - 1],
+    ];
     let centre = [grid[1][1], grid[1][2], grid[2][1], grid[2][2]];
     let (corner_mean, corner_std) = mean_std(&corners);
     let (centre_mean, centre_std) = mean_std(&centre);
@@ -286,8 +396,15 @@ fn post_processing_statepoint() {
     );
 
     // ── k sanity ───────────────────────────────────────────────────────────────
-    assert!(result.k_mean.is_finite() && result.k_mean > 0.0, "k_inf must be finite & positive");
-    assert!(result.k_std < 0.03, "eigenvalue under-converged: k_std {}", result.k_std);
+    assert!(
+        result.k_mean.is_finite() && result.k_mean > 0.0,
+        "k_inf must be finite & positive"
+    );
+    assert!(
+        result.k_std < 0.03,
+        "eigenvalue under-converged: k_std {}",
+        result.k_std
+    );
 
     // ── Spatial structure: the grid is not flat ────────────────────────────────
     assert!(

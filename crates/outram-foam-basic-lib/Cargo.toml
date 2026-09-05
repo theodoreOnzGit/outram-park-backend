@@ -1,6 +1,7 @@
 [package]
 name = "outram-foam-basic-lib"
-version = "0.1.0"
+version = "0.1.3"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "OpenFOAM primitive functions translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
@@ -16,10 +17,34 @@ categories.workspace = true
 # `upstream_source/README.md` provenance record stays in the package).
 exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoam"]
 
+# Hybrid execution backend (bead op-yvj.4.1). BOTH features are OFF by default
+# so the default build stays Android-clean and dependency-light: a plain
+# `cargo build` pulls neither rayon nor wgpu, and `ComputeBackend::Serial` --
+# the reference implementation and the oracle every other path is checked
+# against -- is always present regardless of features.
+#
+# `parallel` adds the rayon multi-CPU path. rayon is pure Rust with no system
+# component, so it is Android/Termux clean and is NOT target-gated; it is
+# feature-gated only to keep the default dependency surface small.
+#
+# `gpu` adds the wgpu path. wgpu is additionally target-gated off Android
+# below, since Android has no system Vulkan/Metal loader and the workspace
+# Android rule forbids GPU dependencies in a library build. Enabling `gpu` on
+# an Android target therefore yields a build with no GPU backend rather than a
+# broken one, and dispatch falls back to CpuMulti or Serial.
+[features]
+default = []
+parallel = ["dep:rayon"]
+gpu = ["dep:wgpu"]
+
 [dependencies]
 thiserror.workspace = true
 uom.workspace = true
 ndarray.workspace = true
+rayon = { workspace = true, optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true

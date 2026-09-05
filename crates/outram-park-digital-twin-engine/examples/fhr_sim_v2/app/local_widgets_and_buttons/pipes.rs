@@ -1,10 +1,9 @@
 use egui::{vec2, Sense, Stroke, Vec2, Widget};
 use uom::si::{f64::*, thermodynamic_temperature::degree_celsius};
 
-
-use crate::app::local_widgets_and_buttons::{hot_to_cold_colour_mark_2, steam_quality_colour_functions::steam_quality_colour_mark_1};
-
-use super::hot_to_cold_colour_mark_1;
+use outram_park_digital_twin_engine::color_maps::{
+    hot_to_cold_colour_mark_1, hot_to_cold_colour_mark_2, steam_quality_colour_mark_1,
+};
 
 pub struct SinglePipeColourBlueRedTempSensitive {
     size: Vec2,
@@ -15,17 +14,17 @@ pub struct SinglePipeColourBlueRedTempSensitive {
 }
 
 impl SinglePipeColourBlueRedTempSensitive {
-
     /// still need to correct for minimum size
     ///
-    /// note that you will put in a vector from start to end 
-    /// like how many pixels in x,y direction you want to go 
+    /// note that you will put in a vector from start to end
+    /// like how many pixels in x,y direction you want to go
     /// then the pipe will autosize everything
-    pub fn new(vector: Vec2,
+    pub fn new(
+        vector: Vec2,
         min_temp: ThermodynamicTemperature,
         max_temp: ThermodynamicTemperature,
-        temp: ThermodynamicTemperature,) -> Self {
-
+        temp: ThermodynamicTemperature,
+    ) -> Self {
         let min_width = 20.0;
 
         // now the size here
@@ -39,51 +38,40 @@ impl SinglePipeColourBlueRedTempSensitive {
             size.y = min_width
         }
 
-
-        Self { size, 
+        Self {
+            size,
             vector,
-            min_temp, 
-            max_temp, 
+            min_temp,
+            max_temp,
             temp,
         }
-
     }
 
-
-    /// returns hotness based on max and min temp of fhr 
+    /// returns hotness based on max and min temp of fhr
     pub fn hotness(&self, temp: ThermodynamicTemperature) -> f32 {
-
         let button_temp_degc = temp.get::<degree_celsius>();
         let min_temp_degc = self.min_temp.get::<degree_celsius>();
         let max_temp_degc = self.max_temp.get::<degree_celsius>();
 
-        let hotness: f64 = 
-            (button_temp_degc - min_temp_degc)/(max_temp_degc- min_temp_degc);
+        let hotness: f64 = (button_temp_degc - min_temp_degc) / (max_temp_degc - min_temp_degc);
 
         return hotness as f32;
     }
-    /// gets the size of the widget 
+    /// gets the size of the widget
     pub fn size(&self) -> Vec2 {
-
         self.size.clone()
     }
 }
 
 impl Widget for SinglePipeColourBlueRedTempSensitive {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-
         let size = self.size();
-        let (response, painter) = ui.allocate_painter(
-            size, Sense::hover()
-        );
-        let pipe_hotness = 
-            self.hotness(self.temp);
+        let (response, painter) = ui.allocate_painter(size, Sense::hover());
+        let pipe_hotness = self.hotness(self.temp);
 
-        let pipe_colour = hot_to_cold_colour_mark_1(
-            pipe_hotness
-        );
-        // let colour = 
-        let width = 20.0;
+        let pipe_colour = hot_to_cold_colour_mark_1(pipe_hotness);
+        // let colour =
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 
@@ -95,14 +83,15 @@ impl Widget for SinglePipeColourBlueRedTempSensitive {
         let delta_y = &self.vector.y;
 
         painter.line_segment(
-            [pipe_ctr - vec2(0.50*delta_x, 0.50*delta_y), 
-            pipe_ctr + vec2(0.50*delta_x, 0.50*delta_y)], 
-            stroke
+            [
+                pipe_ctr - vec2(0.50 * delta_x, 0.50 * delta_y),
+                pipe_ctr + vec2(0.50 * delta_x, 0.50 * delta_y),
+            ],
+            stroke,
         );
         response
     }
 }
-
 
 pub struct SinglePipeColourBlackRedTempSensitive {
     size: Vec2,
@@ -113,17 +102,17 @@ pub struct SinglePipeColourBlackRedTempSensitive {
 }
 
 impl SinglePipeColourBlackRedTempSensitive {
-
     /// still need to correct for minimum size
     ///
-    /// note that you will put in a vector from start to end 
-    /// like how many pixels in x,y direction you want to go 
+    /// note that you will put in a vector from start to end
+    /// like how many pixels in x,y direction you want to go
     /// then the pipe will autosize everything
-    pub fn new(vector: Vec2,
+    pub fn new(
+        vector: Vec2,
         min_temp: ThermodynamicTemperature,
         max_temp: ThermodynamicTemperature,
-        temp: ThermodynamicTemperature,) -> Self {
-
+        temp: ThermodynamicTemperature,
+    ) -> Self {
         let min_width = 20.0;
 
         // now the size here
@@ -137,51 +126,40 @@ impl SinglePipeColourBlackRedTempSensitive {
             size.y = min_width
         }
 
-
-        Self { size, 
+        Self {
+            size,
             vector,
-            min_temp, 
-            max_temp, 
+            min_temp,
+            max_temp,
             temp,
         }
-
     }
 
-
-    /// returns hotness based on max and min temp of fhr 
+    /// returns hotness based on max and min temp of fhr
     pub fn hotness(&self, temp: ThermodynamicTemperature) -> f32 {
-
         let button_temp_degc = temp.get::<degree_celsius>();
         let min_temp_degc = self.min_temp.get::<degree_celsius>();
         let max_temp_degc = self.max_temp.get::<degree_celsius>();
 
-        let hotness: f64 = 
-            (button_temp_degc - min_temp_degc)/(max_temp_degc- min_temp_degc);
+        let hotness: f64 = (button_temp_degc - min_temp_degc) / (max_temp_degc - min_temp_degc);
 
         return hotness as f32;
     }
-    /// gets the size of the widget 
+    /// gets the size of the widget
     pub fn size(&self) -> Vec2 {
-
         self.size.clone()
     }
 }
 
 impl Widget for SinglePipeColourBlackRedTempSensitive {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-
         let size = self.size();
-        let (response, painter) = ui.allocate_painter(
-            size, Sense::hover()
-        );
-        let pipe_hotness = 
-            self.hotness(self.temp);
+        let (response, painter) = ui.allocate_painter(size, Sense::hover());
+        let pipe_hotness = self.hotness(self.temp);
 
-        let pipe_colour = hot_to_cold_colour_mark_2(
-            pipe_hotness
-        );
-        // let colour = 
-        let width = 20.0;
+        let pipe_colour = hot_to_cold_colour_mark_2(pipe_hotness);
+        // let colour =
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 
@@ -193,14 +171,15 @@ impl Widget for SinglePipeColourBlackRedTempSensitive {
         let delta_y = &self.vector.y;
 
         painter.line_segment(
-            [pipe_ctr - vec2(0.50*delta_x, 0.50*delta_y), 
-            pipe_ctr + vec2(0.50*delta_x, 0.50*delta_y)], 
-            stroke
+            [
+                pipe_ctr - vec2(0.50 * delta_x, 0.50 * delta_y),
+                pipe_ctr + vec2(0.50 * delta_x, 0.50 * delta_y),
+            ],
+            stroke,
         );
         response
     }
 }
-
 
 pub struct SinglePipeColourBlueWhiteQualitySensitive {
     size: Vec2,
@@ -209,15 +188,12 @@ pub struct SinglePipeColourBlueWhiteQualitySensitive {
 }
 
 impl SinglePipeColourBlueWhiteQualitySensitive {
-
     /// still need to correct for minimum size
     ///
-    /// note that you will put in a vector from start to end 
-    /// like how many pixels in x,y direction you want to go 
+    /// note that you will put in a vector from start to end
+    /// like how many pixels in x,y direction you want to go
     /// then the pipe will autosize everything
-    pub fn new(vector: Vec2,
-        quality: f64,) -> Self {
-
+    pub fn new(vector: Vec2, quality: f64) -> Self {
         let min_width = 20.0;
 
         // now the size here
@@ -231,36 +207,28 @@ impl SinglePipeColourBlueWhiteQualitySensitive {
             size.y = min_width
         }
 
-
-        Self { size, 
+        Self {
+            size,
             vector,
             quality,
         }
-
     }
 
-
-    /// gets the size of the widget 
+    /// gets the size of the widget
     pub fn size(&self) -> Vec2 {
-
         self.size.clone()
     }
 }
 
 impl Widget for SinglePipeColourBlueWhiteQualitySensitive {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-
         let size = self.size();
-        let (response, painter) = ui.allocate_painter(
-            size, Sense::hover()
-        );
+        let (response, painter) = ui.allocate_painter(size, Sense::hover());
         let pipe_quality = self.quality;
 
-        let pipe_colour = steam_quality_colour_mark_1(
-            pipe_quality as f32
-        );
-        // let colour = 
-        let width = 20.0;
+        let pipe_colour = steam_quality_colour_mark_1(pipe_quality as f32);
+        // let colour =
+        let width = 20.0_f32;
 
         let stroke = Stroke::new(width, pipe_colour);
 
@@ -272,12 +240,12 @@ impl Widget for SinglePipeColourBlueWhiteQualitySensitive {
         let delta_y = &self.vector.y;
 
         painter.line_segment(
-            [pipe_ctr - vec2(0.50*delta_x, 0.50*delta_y), 
-            pipe_ctr + vec2(0.50*delta_x, 0.50*delta_y)], 
-            stroke
+            [
+                pipe_ctr - vec2(0.50 * delta_x, 0.50 * delta_y),
+                pipe_ctr + vec2(0.50 * delta_x, 0.50 * delta_y),
+            ],
+            stroke,
         );
         response
     }
 }
-
-

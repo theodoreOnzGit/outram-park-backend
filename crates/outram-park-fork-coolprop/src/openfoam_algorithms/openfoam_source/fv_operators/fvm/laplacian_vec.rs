@@ -46,38 +46,42 @@ pub fn laplacian_vec(
 
     // Internal faces
     for f in 0..mesh.n_internal_faces {
-        let o  = mesh.owner[f];
+        let o = mesh.owner[f];
         let nb = mesh.neighbour[f];
         let sf = mesh.face_area_vectors[f];
         let delta = (mesh.cell_centres[nb] - mesh.cell_centres[o]).mag();
-        let area  = sf.mag();
+        let area = sf.mag();
         let coeff = gamma_f.internal[f] * area / delta;
 
-        mat.ldu.diag[o]    += coeff;
-        mat.ldu.diag[nb]   += coeff;
-        mat.ldu.upper[f]   -= coeff;
-        mat.ldu.lower[f]   -= coeff;
+        mat.ldu.diag[o] += coeff;
+        mat.ldu.diag[nb] += coeff;
+        mat.ldu.upper[f] -= coeff;
+        mat.ldu.lower[f] -= coeff;
     }
 
     // Boundary faces
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for fi in 0..patch.size {
-            let gf    = patch.start + fi;
+            let gf = patch.start + fi;
             let owner = mesh.owner[gf];
-            let sf    = mesh.face_area_vectors[gf];
-            let area  = sf.mag();
-            let cf    = mesh.face_centres[gf];
+            let sf = mesh.face_area_vectors[gf];
+            let area = sf.mag();
+            let cf = mesh.face_centres[gf];
             let delta = (cf - mesh.cell_centres[owner]).mag().max(1e-30);
             let coeff = gamma_f.boundary[pi].values[fi] * area / delta;
 
             match &u.boundary[pi].bc {
-                BoundaryCondition::FixedValue(_) | BoundaryCondition::FixedField(_) | BoundaryCondition::Calculated(_) => {
+                BoundaryCondition::FixedValue(_)
+                | BoundaryCondition::FixedField(_)
+                | BoundaryCondition::Calculated(_) => {
                     // Dirichlet-type: wall value from boundary.values[fi]
                     let u_wall = u.boundary[pi].values[fi];
                     mat.ldu.diag[owner] += coeff;
-                    mat.source[owner]   = mat.source[owner] + u_wall * coeff;
+                    mat.source[owner] = mat.source[owner] + u_wall * coeff;
                 }
-                BoundaryCondition::ZeroGradient | BoundaryCondition::Symmetry | BoundaryCondition::Empty => {}
+                BoundaryCondition::ZeroGradient
+                | BoundaryCondition::Symmetry
+                | BoundaryCondition::Empty => {}
             }
         }
     }
@@ -92,36 +96,49 @@ mod tests {
     use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
     use crate::openfoam_algorithms::openfoam_source::field::Field;
     use crate::openfoam_algorithms::openfoam_source::fv_matrix::SolverSettings;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        BoundaryPatch, FvMeshBuilder, PatchKind,
+    };
     use crate::openfoam_algorithms::openfoam_source::Vector3;
     use approx::assert_relative_eq;
 
     fn line_mesh(n: usize) -> Arc<FvMesh> {
         let dx = 1.0 / n as f64;
         let n_int = n - 1;
-        let mut owner     = (0..n_int).collect::<Vec<_>>();
+        let mut owner = (0..n_int).collect::<Vec<_>>();
         let neighbour = (1..n).collect::<Vec<_>>();
         owner.push(n - 1); // right boundary
-        owner.push(0);     // left boundary
-        // neighbour list is only for internal faces
-        let cell_volumes    = vec![dx; n];
-        let cell_centres    = (0..n).map(|i| Vector3::new((i as f64 + 0.5) * dx, 0.0, 0.0)).collect();
-        let face_centres: Vec<_> = (0..n_int).map(|f| Vector3::new((f as f64 + 1.0) * dx, 0.0, 0.0))
-            .chain([Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 0.0)]).collect();
-        let face_area_vectors: Vec<_> = (0..n_int).map(|_| Vector3::new(1.0, 0.0, 0.0))
-            .chain([Vector3::new(1.0, 0.0, 0.0), Vector3::new(-1.0, 0.0, 0.0)]).collect();
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(n).n_internal_faces(n_int)
-            .owner(owner).neighbour(neighbour)
-            .patches(vec![
-                BoundaryPatch::new("right", n_int,     1, PatchKind::Wall),
-                BoundaryPatch::new("left",  n_int + 1, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(cell_volumes)
-            .cell_centres(cell_centres)
-            .face_area_vectors(face_area_vectors)
-            .face_centres(face_centres)
-            .build().unwrap())
+        owner.push(0); // left boundary
+                       // neighbour list is only for internal faces
+        let cell_volumes = vec![dx; n];
+        let cell_centres = (0..n)
+            .map(|i| Vector3::new((i as f64 + 0.5) * dx, 0.0, 0.0))
+            .collect();
+        let face_centres: Vec<_> = (0..n_int)
+            .map(|f| Vector3::new((f as f64 + 1.0) * dx, 0.0, 0.0))
+            .chain([Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 0.0)])
+            .collect();
+        let face_area_vectors: Vec<_> = (0..n_int)
+            .map(|_| Vector3::new(1.0, 0.0, 0.0))
+            .chain([Vector3::new(1.0, 0.0, 0.0), Vector3::new(-1.0, 0.0, 0.0)])
+            .collect();
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(n)
+                .n_internal_faces(n_int)
+                .owner(owner)
+                .neighbour(neighbour)
+                .patches(vec![
+                    BoundaryPatch::new("right", n_int, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", n_int + 1, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(cell_volumes)
+                .cell_centres(cell_centres)
+                .face_area_vectors(face_area_vectors)
+                .face_centres(face_centres)
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -142,11 +159,7 @@ mod tests {
                 values: Field::new(vec![Vector3::ZERO]),
             },
         ];
-        let u_init = VolVectorField::new(
-            "U", m.clone(),
-            Field::new(vec![Vector3::ZERO; n]),
-            u_bc,
-        );
+        let u_init = VolVectorField::new("U", m.clone(), Field::new(vec![Vector3::ZERO; n]), u_bc);
         let mat = laplacian_vec(&gamma, &u_init, m.clone());
         let (u, perf) = mat.solve("U", SolverSettings::default());
         assert!(perf.converged, "residual = {}", perf.final_residual);

@@ -19,6 +19,13 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `sonic_foam` — transonic/supersonic compressible solver (sonicFoam)
+//!
+//! Rust port of sonicFoam: a pressure-based compressible solver for trans- and
+//! supersonic flow of a single-phase gas, using the compressibility ψ = ρ/p as
+//! the primary thermodynamic closure. See [`SonicFoam`] for the pressure
+//! equation and the current explicit-convection limitation.
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -60,6 +67,33 @@ pub struct SonicFoam {
 }
 
 impl SonicFoam {
+    /// Build a transonic/supersonic ψ-based compressible solver on `mesh`, with
+    /// every field allocated at a placeholder initial state.
+    ///
+    /// | Field | Initial value |
+    /// |---|---|
+    /// | `u` — velocity [m/s] | zero |
+    /// | `p` — static pressure, Pa | uniform 1.0e5 |
+    /// | `rho` — density [kg/m³] | uniform 1.0 |
+    /// | `e` — specific internal energy [J/kg] | zero |
+    /// | `psi` — compressibility ρ/p [s²/m²] | uniform 1.0e-5 |
+    /// | `mu` — dynamic viscosity, Pa·s | uniform 1.8e-5 |
+    /// | `phi` — mass face flux [kg/s] | zero |
+    ///
+    /// The density closure is `ρ = ψ·p`.
+    ///
+    /// # Maturity warning
+    ///
+    /// **This solver has no tutorial and no validation case — it is unexercised
+    /// and unverified.** It also treats convection **explicitly** (`fvc::div`),
+    /// because `outram-foam-basic-lib` has no implicit `fvm::div` scalar
+    /// convection operator, so it carries an explicit scheme's CFL restriction on
+    /// top of the transonic physics. See the crate README's "Limitations".
+    ///
+    /// # Arguments
+    ///
+    /// See [`crate::solvers::pimple_foam::PimpleFoam::new`] — the four arguments
+    /// have the same meaning and the same honoured-field caveats.
     pub fn new(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -256,6 +290,32 @@ impl SonicFoam {
         Ok(())
     }
 
+    /// Advance the solver from the `controlDict` start time to its end time,
+    /// calling [`Self::step`] repeatedly at the fixed step `control.delta_t`.
+    ///
+    /// This is a convenience wrapper over [`Self::step`]. Set the initial field
+    /// state on the public members *before* calling it, and read the results off
+    /// those same members afterwards — **`run` writes nothing to disk**, because
+    /// every writer in [`crate::io::output`] is still `todo!()`.
+    ///
+    /// # Time control
+    ///
+    /// * Starts at `t` for [`StartControl::StartTime(t)`](StartControl::StartTime);
+    ///   any other `startFrom` selection is treated as `t = 0`.
+    /// * Runs while `t < end` for
+    ///   [`StopControl::EndTime(end)`](StopControl::EndTime). **For every other
+    ///   `stopAt` selection this returns `Ok(())` immediately without taking a
+    ///   single step**, since those selections are defined in terms of a write
+    ///   this crate cannot perform.
+    /// * The step is fixed at `control.delta_t`. `adjustTimeStep`, `maxCo` and
+    ///   `maxDeltaT` are **not implemented** — choose a Δt that respects your own
+    ///   Courant limit.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first error from [`Self::step`] (typically
+    /// [`AppBuilderError::Diverged`]); the run stops at that point with the
+    /// fields left in their last state.
     pub fn run(&mut self) -> Result<(), AppBuilderError> {
         let start = match self.control.start {
             StartControl::StartTime(t) => t,

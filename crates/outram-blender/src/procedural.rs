@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// A directed-acyclic-graph geometry evaluator. Follows the published architecture
+// of Blender's Geometry Nodes (nodes/geometry, GPL-2.0-or-later) — concepts only,
+// no upstream source was copied. Node bodies delegate to this crate's own
+// operators, each cited in its own module.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Procedural geometry generation — a **Geometry-Nodes-style** node graph
 //! (Blender's `nodes/geometry`, the Geometry Nodes system).
 //!
@@ -268,12 +291,16 @@ impl GeometryGraph {
 fn build_primitive(kind: PrimitiveKind) -> Mesh {
     match kind {
         PrimitiveKind::Cube { size } => crate::primitives::cube(size),
-        PrimitiveKind::UvSphere { segments, rings, radius } => {
-            crate::primitives::uv_sphere(segments, rings, radius)
-        }
-        PrimitiveKind::Cylinder { segments, radius, height } => {
-            crate::primitives::cylinder(segments, radius, height)
-        }
+        PrimitiveKind::UvSphere {
+            segments,
+            rings,
+            radius,
+        } => crate::primitives::uv_sphere(segments, rings, radius),
+        PrimitiveKind::Cylinder {
+            segments,
+            radius,
+            height,
+        } => crate::primitives::cylinder(segments, radius, height),
     }
 }
 
@@ -387,8 +414,14 @@ mod tests {
         let xs: Vec<f64> = mesh.positions().iter().map(|p| p.x).collect();
         let min_x = xs.iter().cloned().fold(f64::INFINITY, f64::min);
         let max_x = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        assert!((min_x - (-0.5)).abs() < 1e-12, "min X should be -0.5, got {min_x}");
-        assert!((max_x - 3.5).abs() < 1e-12, "max X should be 3.5, got {max_x}");
+        assert!(
+            (min_x - (-0.5)).abs() < 1e-12,
+            "min X should be -0.5, got {min_x}"
+        );
+        assert!(
+            (max_x - 3.5).abs() < 1e-12,
+            "max X should be 3.5, got {max_x}"
+        );
         // Disjoint: no vertex sits in the gap between the two cubes.
         assert!(
             xs.iter().all(|&x| x <= 0.5 + 1e-12 || x >= 2.5 - 1e-12),
@@ -414,13 +447,28 @@ mod tests {
     fn subdivide_cube_one_level() {
         let mut g = GeometryGraph::new();
         let prim = g.add(GeometryNode::Primitive(PrimitiveKind::Cube { size: 1.0 }));
-        let sub = g.add(GeometryNode::Subdivide { input: prim, levels: 1 });
+        let sub = g.add(GeometryNode::Subdivide {
+            input: prim,
+            levels: 1,
+        });
         g.add(GeometryNode::OutputMesh { input: sub });
 
         let mesh = g.evaluate().expect("subdivide graph must evaluate");
-        assert_eq!(mesh.vertex_count(), 26, "Catmull-Clark L1 cube: 8 + 6 + 12 = 26 verts");
-        assert_eq!(mesh.face_count(), 24, "Catmull-Clark L1 cube: 6 * 4 = 24 faces");
-        assert_eq!(mesh.euler_characteristic(), 2, "subdivision preserves chi = 2");
+        assert_eq!(
+            mesh.vertex_count(),
+            26,
+            "Catmull-Clark L1 cube: 8 + 6 + 12 = 26 verts"
+        );
+        assert_eq!(
+            mesh.face_count(),
+            24,
+            "Catmull-Clark L1 cube: 6 * 4 = 24 faces"
+        );
+        assert_eq!(
+            mesh.euler_characteristic(),
+            2,
+            "subdivision preserves chi = 2"
+        );
     }
 
     /// An out-of-range [`NodeId`] edge is reported, not panicked on.

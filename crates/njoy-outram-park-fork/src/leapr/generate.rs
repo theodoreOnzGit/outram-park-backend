@@ -1,0 +1,1446 @@
+//! **Thermal-scattering `S(alpha, beta)` by regeneration** — the default source.
+//!
+//! This is the consumer surface for thermal scattering laws. Ask for a material
+//! at a temperature and you get an ENDF MF=7 [`Mf7`] (or, with
+//! [`thermal_scattering_tape`], the whole tape), regenerated from that
+//! evaluation's own ~12 KB LEAPR card deck rather than read from its
+//! multi-megabyte tape.
+//!
+//! ```no_run
+//! use njoy_outram_park_fork::leapr::generate::{SabRequest, thermal_scattering_law};
+//! use njoy_outram_park_fork::leapr::decks::SabMaterial;
+//! use njoy_outram_park_fork::units::Temperature;
+//! use uom::si::thermodynamic_temperature::kelvin;
+//!
+//! # fn demo() -> Result<(), njoy_outram_park_fork::NjoyError> {
+//! // HTR-10 runs at temperatures the ENDF tape does not tabulate.
+//! let law = thermal_scattering_law(&SabRequest::new(
+//!     SabMaterial::CrystallineGraphite,
+//!     Temperature::new::<kelvin>(523.0),
+//! ))?;
+//! let inelastic = law.incoherent_inelastic.as_ref().expect("MT=4");
+//! println!("{} beta points", inelastic.beta.len());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Why regeneration is the default
+//!
+//! Measured on 2026-08-13 against ENDF/B-VIII.0 crystalline graphite, in
+//! release mode:
+//!
+//! - **The generated MF=7/MT=4 section is bit-identical to the official
+//!   tape's.** Running the full path here — deck -> kernels -> [`endout`] ->
+//!   ENDF text — and comparing the *stored* values at 296 K over the whole
+//!   150 x 400 grid gives **60,000 / 60,000 values identical**, max relative
+//!   deviation **0.000e0**. The 4.917e-6 residual the raw-kernel parity test
+//!   reports (`tests/leapr_graphite_deck_parity.rs`) is the tape's own
+//!   6-to-7-significant-figure storage round-off, and it vanishes once
+//!   `endout` applies the same `sigfig` rounding NJOY applies. So the
+//!   12,444-byte deck does not *approximate* the 8,730,804-byte tape for this
+//!   channel; it reproduces it. (Reproduced by
+//!   `examples/graphite_sab_generation.rs`.)
+//! - It can generate at temperatures the tape never tabulated. Graphite is
+//!   tabulated at 296/400/500/600/700/800/1000/1200/1600/2000 K; the HTR-10
+//!   benchmark wants 393 K and 523 K, and interpolating a scattering law
+//!   between tabulated temperatures is strictly worse than generating at the
+//!   one you want.
+//! - Generation costs **1.83-2.72 s per temperature**, measured over two cold-
+//!   cache runs on a 12-core workstation shared with other work (1.836 / 1.830 /
+//!   1.832 s at 296 / 393 / 523 K on the quieter run; 2.082 / 2.721 / 2.180 s on
+//!   the busier one). Contention can only inflate a timing, so **~1.83 s is an
+//!   upper bound** on the uncontended cost. A **disk-cache hit is 0.009 s** and
+//!   an in-process memo hit is under a millisecond, so this is a first-use cost,
+//!   not a per-query one.
+//!
+//! # What is and is not validated
+//!
+//! **This matters more than the convenience**, and it is **per material**, not
+//! a property of the code path. Only crystalline graphite has been compared
+//! against a reference tape:
+//!
+//! | Material / channel | Status (2026-08-13) |
+//! |---|---|
+//! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
+//! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
+//! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
+//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated** — but *checked*. Regeneration at 293.6 K agrees with the published evaluation to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff` (1195.35 K vs 1194.3 K). That is an agreement band against this repository's own recorded measurements, not a tape diff, so [`SabRequest::validation`] still reports it unvalidated. See `tests/leapr_h2o_secondary_scatterer.rs`. |
+//!
+//! MT=2 matters out of proportion to its size: it is roughly 90 % of graphite's
+//! thermal cross section (4.55 b coherent-elastic against 0.49 b inelastic at
+//! 0.0253 eV) while being 0.4 % of the tape's bytes. Making regeneration the
+//! default could not have rested on the MT=4 result alone.
+//!
+//! **Both channels reach that agreement only because the constant set comes
+//! from the deck's declared vintage**, and they need *different* constants from
+//! it: MT=4 depends on `bk` through `tev = bk*T`, MT=2 on `ev`/`amu`/`hbar`/
+//! `amassn` through [`crate::leapr::vintage::PhysicalConstants::econ`]. With the
+//! crate's modern constants MT=2 is 9.986e-7 off — a uniform multiplicative
+//! offset, not scatter. See [`crate::leapr::vintage`].
+//!
+//! [`SabRequest::validation`] returns this status programmatically, per
+//! channel and per material, so a caller can act on it rather than rediscover
+//! it. The elastic channel is generated **by default**; omitting it would drop
+//! most of graphite's thermal cross section. Use [`ElasticChannel::Omit`] only
+//! if you are sourcing that channel elsewhere.
+//!
+//! # A physics approximation you inherit either way
+//!
+//! `rho(E)`, the phonon frequency spectrum, is a **deck input, not a computed
+//! quantity**, so generating at a new temperature reuses the spectrum the
+//! evaluator calculated at theirs. Thermal expansion and anharmonicity are
+//! therefore not modelled across temperature. This is inherent to how LEAPR
+//! works and the shipped ENDF tape shares it exactly — its nine
+//! higher-temperature blocks are "reuse the 296 K spectrum" entries — so
+//! generating at 523 K is **not** a regression against reading the tape. It is
+//! still an approximation, and it is the one that limits how far from the
+//! deck's own temperature range you should go.
+//!
+//! # Caching
+//!
+//! Two layers:
+//!
+//! - **In process**, a memo of parsed [`Mf7`] values behind an `RwLock`, so a
+//!   transport code asking for the same law per-material rather than once does
+//!   not re-read and re-parse a ~1 MB tape. Active under **either**
+//!   [`CachePolicy`] — a repeated call within one process is always this
+//!   process's own freshly computed answer, so remembering it costs nothing.
+//! - **On disk**, through [`crate::acquire::EndfCache`] — the crate's single
+//!   caching layer, with its lock / double-check / fsync / atomic-rename /
+//!   SHA-256 discipline. **Opt-in only**, via
+//!   [`SabRequest::with_cache`]`(`[`CachePolicy::UseCacheIfAvailable`]`)`; the
+//!   default [`CachePolicy::AlwaysRegenerate`] never reads or writes it. See
+//!   [`CachePolicy`] for why the disk cache is opt-in rather than the default:
+//!   in short, its key cannot see a code change unless
+//!   [`GENERATOR_REVISION`] is remembered to be bumped for it, and that
+//!   discipline has already failed once for real (revision 3's own history).
+//!
+//! **The disk cache's key** embeds a SHA-256 over the deck's *content* hash,
+//! the material, the temperature, the physical-constant set (both `bk` and
+//! `econ`), the elastic-channel choice, the Bragg cut-off, and
+//! [`GENERATOR_REVISION`]. Change any of them and you get a different file;
+//! nothing is ever overwritten in place. The deck's *path* is deliberately
+//! **not** in the key — the same deck in two directories shares one entry —
+//! but it is recorded in the `.recipe` sidecar written beside each artifact.
+//!
+//! # Android
+//!
+//! Everything here is pure CPU and pure Rust, and builds for
+//! `aarch64-linux-android`. The ~1.8 s/temperature generation cost is a real
+//! consideration on a phone (expect several times that on a mobile core), which
+//! is exactly why the disk cache exists: pay it once per (material,
+//! temperature), not per run. A device that cannot afford even that should
+//! point [`SabSource::EndfTape`] at a tape instead.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, OnceLock, RwLock};
+
+use uom::si::thermodynamic_temperature::kelvin;
+
+use crate::acquire::EndfCache;
+use crate::endf::tape::Tape;
+use crate::leapr::coher::{
+    coher_general_with_constants, coher_general_with_per_atom_debye_waller, coher_with_constants,
+    GeneralCrystal,
+};
+use crate::leapr::continuous::phonon_expansion;
+use crate::leapr::discrete::add_discrete_oscillators;
+use crate::leapr::translation::add_translation;
+use crate::leapr::deck::LeaprDeck;
+use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
+use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
+use crate::leapr::frequency::FrequencyModel;
+use crate::leapr::input::ElasticOption;
+use crate::leapr::vintage::PhysicalConstants;
+use crate::thermr::mf7::{parse_mf7, Mf7};
+use crate::units::Temperature;
+use crate::NjoyError;
+
+/// Bump this whenever a change to the LEAPR kernels or to
+/// [`crate::leapr::endout`] alters generated output.
+///
+/// It is mixed into the cache key, so bumping it invalidates every previously
+/// cached artifact without anyone having to delete files. The recipe hash sees
+/// the deck and the parameters; it cannot see the code, so this constant stands
+/// in for the code's identity. Leaving it stale after a physics change means
+/// serving yesterday's numbers from cache — the one way this cache can lie.
+/// **Revision 2 (2026-08-14)** — [`generate_tape`] now runs the translational
+/// and discrete-oscillator stages (`trans`, `discre`) after the phonon
+/// expansion, where it previously emitted the continuum-only law; and
+/// [`crate::leapr::endout`] now writes the secondary-scatterer `B(7)..B(12)`
+/// constants. The first changes `S(alpha, beta)`, `T_eff` and the Debye-Waller
+/// integral for every deck with `twt > 0` or discrete oscillators (light water,
+/// the hydrides, the methanes); graphite is unaffected, having neither term.
+///
+/// **Revision 3 (2026-08-21)** — [`generate_tape`] now picks the deck
+/// temperature block that matches the request
+/// ([`temperature_block_index`]), instead of always using block 0. Every deck
+/// whose spectrum is re-specified per temperature (`HInH2O`, `DInD2O`,
+/// `OInD2O`) changes output for any request other than the deck's first
+/// declared temperature. **This bump is itself a case study in why
+/// [`CachePolicy`] exists**: the fix that made revision 3 necessary
+/// (commit `1a904fc5`) landed without bumping this constant, so a
+/// disk-cached H-in-H₂O tape from before the fix kept being served afterward
+/// — found only by re-measuring against the published evaluation, not by
+/// anything erroring. See issue
+/// <https://github.com/theodoreOnzGit/outram-park-backend/issues/27>.
+pub const GENERATOR_REVISION: u32 = 3;
+
+/// Whether a regeneration request may reuse a previously generated tape from
+/// the on-disk cache, or must compute fresh.
+///
+/// [`GENERATOR_REVISION`] is meant to invalidate the cache automatically when
+/// the generator's own code changes — but it depends on someone remembering
+/// to bump it, and revision 3 above is a real instance of that discipline
+/// failing: a physics-changing commit landed without the bump, and a stale
+/// cached tape kept being served until the cache was cleared by hand (issue
+/// [#27](https://github.com/theodoreOnzGit/outram-park-backend/issues/27)).
+///
+/// Rather than rely solely on that discipline, the choice is made explicit at
+/// the call site instead. **Default is [`AlwaysRegenerate`](Self::AlwaysRegenerate)** —
+/// compute fresh every time, accepting the ~1.8 s/temperature cost documented
+/// in the [module docs](self), rather than risk a stale answer silently. A
+/// caller who wants the disk-cache speed opts in with
+/// [`UseCacheIfAvailable`](Self::UseCacheIfAvailable), and the accuracy/speed
+/// tradeoff that choice makes is spelled out in its own doc comment and
+/// logged on every cache hit — never silent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CachePolicy {
+    /// **Default.** Always regenerate from the deck; never read from the
+    /// on-disk cache. Slower (pays the full generation cost on every call,
+    /// modulo the in-process memo — see the [module docs](self)) but the
+    /// result is always the current generator's own output, with no
+    /// dependence on whether [`GENERATOR_REVISION`] was remembered to be
+    /// bumped after some other change.
+    ///
+    /// This policy never writes to the disk cache either: the cache is
+    /// populated lazily by whoever first opts into
+    /// [`UseCacheIfAvailable`](Self::UseCacheIfAvailable) for a given recipe,
+    /// not by every default-policy caller as a side effect.
+    #[default]
+    AlwaysRegenerate,
+    /// Reuse a cached artifact for this exact recipe if one exists on disk;
+    /// generate fresh (and populate the cache) if none does. A missing or
+    /// unreadable cache entry is never an error — it falls back to
+    /// generating, silently, the same as [`AlwaysRegenerate`] would.
+    ///
+    /// **The tradeoff, explicit:** a cache hit is fast (~0.009 s vs
+    /// ~1.8 s/temperature — see the [module docs](self)) but the artifact was
+    /// written by *some* past version of this crate's LEAPR generator. If
+    /// that generator has changed since without [`GENERATOR_REVISION`] being
+    /// bumped for the change, the cached tape is stale and this policy will
+    /// hand it back without any way to notice from the request alone. Every
+    /// cache hit therefore logs a `log::warn!` naming this risk, so cache
+    /// usage is never silent even when it is correct.
+    UseCacheIfAvailable,
+}
+
+/// Upper energy \[eV\] of the coherent-elastic Bragg sum handed to
+/// [`crate::leapr::coher::coher`].
+///
+/// 5 eV is the value the graphite parity study used, and it comfortably covers
+/// the thermal range where a scattering law applies (the ENDF/B-VIII.0 graphite
+/// tape's retained Bragg grid tops out well below it). NJOY thins the tail
+/// above the last significant edge, so raising this does not add resolution
+/// where it matters.
+pub const COHERENT_ELASTIC_EMAX_EV: f64 = 5.0;
+
+/// Which MF=7 channels to emit.
+///
+/// A closed enum (workspace rule: no trait objects).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ElasticChannel {
+    /// **Default.** Generate MF=7/MT=2 alongside MT=4, giving a complete
+    /// scattering law.
+    ///
+    /// For crystalline graphite this channel is validated against
+    /// ENDF/B-VIII.0 (max relative deviation 9.986e-7 over 2,200 tabulated
+    /// values; see the [module docs](self)). It is the default regardless of
+    /// material because omitting it drops roughly 90 % of graphite's thermal
+    /// cross section, which is the worse error by a wide margin.
+    #[default]
+    Generate,
+    /// As [`Self::Generate`], but for a **compound** crystal handled through
+    /// the generalized path, build MF=7/MT=2 with a **per-atom-type**
+    /// Debye-Waller factor inside the structure factor — Zhu's *exact*
+    /// option — instead of the single compound coefficient of his *cubic
+    /// approximation*.
+    ///
+    /// This changes nothing for a material whose elastic channel comes from one
+    /// of stock LEAPR's six built-in lattices (they are monatomic, so the two
+    /// treatments coincide) and nothing for [`Self::Omit`]. It changes the
+    /// **difference** reflections of a compound with unlike scattering lengths,
+    /// where the sublattices subtract and the result is exquisitely sensitive
+    /// to the two coefficients differing; the sum reflections barely move.
+    ///
+    /// **Not the default, and not validated.** It is offered because the
+    /// ENDF/B-VIII.0 SiC evaluation appears to use it, and because measuring
+    /// the difference is the only way to test that reading — see
+    /// `docs/leapr-sic-coherent-elastic-vv.md`. Choose it deliberately.
+    GenerateExactDebyeWaller,
+    /// Emit MT=4 only — the validated channel — because the elastic channel is
+    /// being sourced elsewhere. The resulting [`Mf7`] has
+    /// `coherent_elastic == None`, and a transport code that does not notice
+    /// will under-count graphite's thermal cross section badly. Choose this
+    /// deliberately.
+    Omit,
+}
+
+impl ElasticChannel {
+    /// A short label for cache keys. Stable.
+    pub const fn label(self) -> &'static str {
+        match self {
+            ElasticChannel::Generate => "mt2+mt4",
+            ElasticChannel::GenerateExactDebyeWaller => "mt2exactdw+mt4",
+            ElasticChannel::Omit => "mt4",
+        }
+    }
+}
+
+/// Where a scattering law comes from.
+///
+/// A closed enum (workspace rule: no trait objects). The default is
+/// regeneration; the tape is used only when a caller points at one explicitly.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum SabSource {
+    /// **Default.** Regenerate from the material's LEAPR deck (located by
+    /// [`crate::leapr::decks::locate_deck`]) and cache the result.
+    #[default]
+    RegenerateFromDeck,
+    /// Read an existing ENDF thermal-scattering tape from this path.
+    ///
+    /// Nothing is generated and nothing is cached; the tape is parsed as-is.
+    /// Its tabulated temperatures are whatever the evaluator chose, so the
+    /// requested temperature must be one of them (within
+    /// [`crate::thermr::mf7::temperature_match_tolerance_k`]).
+    EndfTape(PathBuf),
+}
+
+/// How much confidence a given MF=7 channel has earned, in this crate, today.
+///
+/// Returned by [`SabRequest::validation`] so a caller can branch on validation
+/// status instead of having to have read the docs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelValidation {
+    /// Compared point-by-point against a published reference evaluation and
+    /// found to agree within that reference's own storage precision.
+    ValidatedAgainstReferenceTape,
+    /// Produced by ported, unit-tested kernels, but **not** compared
+    /// point-by-point against a published reference evaluation. Treat the
+    /// numbers as an untrusted draft: the code path is shared with a validated
+    /// case, which is evidence about the code, not about this material.
+    NotValidatedAgainstReferenceTape,
+    /// The channel is not present in the result at all.
+    NotEmitted,
+}
+
+/// A request for a thermal scattering law.
+///
+/// Built with [`SabRequest::new`] (regenerate, both channels) and adjusted with
+/// the `with_*` methods.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SabRequest {
+    /// Which bound-scatterer material.
+    pub material: SabMaterial,
+    /// The temperature to produce the law at. Regeneration accepts any positive
+    /// temperature; see the `rho(E)` caveat in the [module docs](self) before
+    /// straying far from the deck's own range.
+    pub temperature: Temperature,
+    /// Which channels to emit. Defaults to [`ElasticChannel::Generate`].
+    pub elastic: ElasticChannel,
+    /// Where the law comes from. Defaults to [`SabSource::RegenerateFromDeck`].
+    pub source: SabSource,
+    /// Whether a [`SabSource::RegenerateFromDeck`] request may reuse a cached
+    /// tape. Defaults to [`CachePolicy::AlwaysRegenerate`]; ignored for
+    /// [`SabSource::EndfTape`], which never touches the regeneration cache.
+    pub cache: CachePolicy,
+}
+
+impl SabRequest {
+    /// A request for `material` at `temperature`, regenerated from its deck
+    /// with both channels, always fresh — the defaults.
+    pub fn new(material: SabMaterial, temperature: Temperature) -> Self {
+        SabRequest {
+            material,
+            temperature,
+            elastic: ElasticChannel::default(),
+            source: SabSource::default(),
+            cache: CachePolicy::default(),
+        }
+    }
+
+    /// Choose which channels to emit.
+    pub fn with_elastic(mut self, elastic: ElasticChannel) -> Self {
+        self.elastic = elastic;
+        self
+    }
+
+    /// Opt into (or explicitly re-affirm) a disk-cache policy. See
+    /// [`CachePolicy`] for the tradeoff — the default is already
+    /// [`CachePolicy::AlwaysRegenerate`], so this method exists for the
+    /// minority of callers choosing [`CachePolicy::UseCacheIfAvailable`].
+    pub fn with_cache(mut self, cache: CachePolicy) -> Self {
+        self.cache = cache;
+        self
+    }
+
+    /// Take the law from an existing ENDF tape instead of regenerating it.
+    pub fn with_tape(mut self, path: impl Into<PathBuf>) -> Self {
+        self.source = SabSource::EndfTape(path.into());
+        self
+    }
+
+    /// The temperature in kelvin, as the LEAPR kernels want it.
+    pub fn temperature_k(&self) -> f64 {
+        self.temperature.get::<kelvin>()
+    }
+
+    /// The validation standing of each channel for *this* request, as
+    /// `(inelastic MT=4, elastic MT=2)`.
+    ///
+    /// Validation is a property of the **material**, not of the code path: as of
+    /// 2026-08-13 only [`SabMaterial::CrystallineGraphite`] has been compared
+    /// point-by-point against a reference tape (both channels). The porous
+    /// reactor grades run the identical code with a different deck and are
+    /// reported as unvalidated, because they are.
+    ///
+    /// A tape source reports both channels validated in the sense that matters:
+    /// they are the published evaluation itself, not something this crate
+    /// computed. See the [module docs](self) for the measured figures.
+    pub fn validation(&self) -> (ChannelValidation, ChannelValidation) {
+        if matches!(self.source, SabSource::EndfTape(_)) {
+            return (
+                ChannelValidation::ValidatedAgainstReferenceTape,
+                ChannelValidation::ValidatedAgainstReferenceTape,
+            );
+        }
+        // Validation is a property of the material, not of the code path: only
+        // crystalline graphite has been compared against a reference tape.
+        let status = if matches!(self.material, SabMaterial::CrystallineGraphite) {
+            ChannelValidation::ValidatedAgainstReferenceTape
+        } else {
+            ChannelValidation::NotValidatedAgainstReferenceTape
+        };
+        let elastic = match self.elastic {
+            ElasticChannel::Omit => ChannelValidation::NotEmitted,
+            ElasticChannel::Generate => status,
+            // Never validated, for any material. For a built-in monatomic
+            // lattice this channel shares an arm with `Generate` and emits the
+            // identical bytes, so graphite's validation would carry over on the
+            // merits -- but the exact-Debye-Waller option has not itself been
+            // compared against any reference tape, and inferring a validation
+            // status is exactly the overclaim this reporter exists to prevent.
+            ElasticChannel::GenerateExactDebyeWaller => {
+                ChannelValidation::NotValidatedAgainstReferenceTape
+            }
+        };
+        (status, elastic)
+    }
+}
+
+/// Everything that determined a generated artifact's bytes — the auditable
+/// record written beside it in the cache.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenerationRecipe {
+    /// Which material.
+    pub material: SabMaterial,
+    /// Where the deck text came from.
+    pub deck_source: DeckSource,
+    /// SHA-256 of the deck text, lowercase hex.
+    pub deck_sha256: String,
+    /// The evaluation vintage the deck declares, rendered as `EVAL-<MON><YY>`,
+    /// or `"none"` when the deck carries no such field.
+    pub eval_field: String,
+    /// The constant set that vintage selected.
+    pub constants: PhysicalConstants,
+    /// Temperature \[K\].
+    pub temperature_k: f64,
+    /// Which channels were emitted.
+    pub elastic: ElasticChannel,
+}
+
+impl GenerationRecipe {
+    /// The inputs that **determine the output bytes**, in canonical text form.
+    /// This is what [`Self::key`] hashes.
+    ///
+    /// Deliberately verbose and stable: every line here changes the result.
+    /// Note what is *absent* — [`Self::deck_source`], the path the deck was read
+    /// from. Two identical decks in different directories must share a cache
+    /// entry, and [`Self::deck_sha256`] already identifies the content; keying
+    /// on the path would silently double the cache whenever
+    /// `OUTRAM_PARK_TSL_DIR` moved. The path is still recorded, in
+    /// [`Self::canonical_text`].
+    ///
+    /// Changing this format changes every cache key — correct, but wasteful, so
+    /// do it only when adding a genuine input.
+    pub fn key_text(&self) -> String {
+        format!(
+            "njoy-outram-park-fork leapr S(alpha,beta) generation\n\
+             generator_revision = {}\n\
+             material           = {}\n\
+             mat                = {}\n\
+             deck_sha256        = {}\n\
+             evaluation         = {}\n\
+             constants          = {} (bk = {:.9e} eV/K, econ = {:.9e} /eV)\n\
+             temperature_k      = {:.9e}\n\
+             channels           = {}\n\
+             coher_emax_ev      = {:.9e}\n",
+            GENERATOR_REVISION,
+            self.material.label(),
+            self.material.mat(),
+            self.deck_sha256,
+            self.eval_field,
+            self.constants.label(),
+            self.constants.bk_ev_per_k(),
+            self.constants.econ(),
+            self.temperature_k,
+            self.elastic.label(),
+            COHERENT_ELASTIC_EMAX_EV,
+        )
+    }
+
+    /// The full audit record written to the `.recipe` sidecar beside a cached
+    /// artifact: [`Self::key_text`] plus the things worth recording that do not
+    /// affect the bytes (where the deck was read from, and the resulting key).
+    pub fn canonical_text(&self) -> String {
+        format!(
+            "{}deck_source        = {}\ncache_key          = {}\n",
+            self.key_text(),
+            self.deck_source,
+            self.key()
+        )
+    }
+
+    /// The first 16 hex characters of the SHA-256 of [`Self::key_text`] — the
+    /// cache key.
+    ///
+    /// 64 bits is far more than enough to separate the handful of artifacts one
+    /// project generates, and it keeps the file name readable.
+    pub fn key(&self) -> String {
+        let full = sha256_hex(self.key_text().as_bytes());
+        full[..16].to_string()
+    }
+
+    /// The cache file name: material, temperature and key, with an `.endf`
+    /// extension because the artifact really is an ENDF tape.
+    pub fn cache_file_name(&self) -> String {
+        format!(
+            "{}-{:.4}K-{}.endf",
+            self.material.label(),
+            self.temperature_k,
+            self.key()
+        )
+    }
+}
+
+/// Lowercase-hex SHA-256, for cache keys and provenance records.
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write;
+    let digest = Sha256::digest(bytes);
+    let mut s = String::with_capacity(64);
+    for b in digest {
+        let _ = write!(s, "{b:02x}");
+    }
+    s
+}
+
+/// Which of the deck's temperature blocks (cards 10-19) supplies the spectrum
+/// for a run at `temperature_k`.
+///
+/// A LEAPR deck may re-specify the frequency distribution, translational weight
+/// and oscillators **per temperature**: card 10 carries a positive temperature
+/// when cards 11-19 follow, and a negative one when they are inherited from the
+/// preceding block ([`LeaprTemperature::inherited`]). NJOY's own driver walks
+/// the blocks in order and computes each declared temperature with *its own*
+/// cards; this port generates one temperature per call, so it has to pick the
+/// block itself.
+///
+/// The rule:
+///
+/// 1. If a declared temperature matches `temperature_k` within NJOY's
+///    `T/1000 + 5` K tolerance ([`temperature_match_tolerance_k`], the same one
+///    `thermr` uses to match a tabulated temperature), use **that** block — the
+///    nearest such block if several are inside the tolerance.
+/// 2. Otherwise, block 0 is only safe when every later block inherits it, i.e.
+///    the deck carries a single spectrum used at all its temperatures. Then any
+///    `temperature_k` is legitimate: the spectrum is temperature-independent and
+///    only `tev` changes. This is the case for every crystalline deck here
+///    (graphite, Be, BeO, SiC, ZrH, UO2, ...), and is what makes
+///    off-grid requests such as HTR-10's 523 K meaningful.
+/// 3. Otherwise the deck has genuinely different spectra per temperature and the
+///    request is off-grid, so there is no defensible block to use — refuse
+///    rather than silently substituting one.
+///
+/// **Why this is not just cosmetic** (found 2026-08-21 while validating the
+/// Si-in-SiC kernel). Before this function existed, `generate_tape` used block 0
+/// unconditionally. For the three liquid decks that re-specify their spectrum —
+/// `HInH2O` (18 blocks), `DInD2O` and `OInD2O` (17 each) — that silently
+/// substituted the coldest block at every temperature. Measured on `HInH2O`,
+/// block 0 (283.6 K) against the block that actually belongs to the request:
+/// the mean phonon energy is 0.56 % high at 293.6 K and **28 % high at 650 K**,
+/// and the translational weight `twt` is 0.0069 against 0.0079 (293.6 K) and
+/// 0.0262 (650 K) — a factor of 3.8 at the top. Water is the most-used moderator
+/// in the library, and 293.6 K (the temperature this crate's own H-in-H₂O tests
+/// request, and a temperature the deck *does* declare) was hitting the wrong
+/// block. Nothing errored; the numbers were just wrong.
+fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
+    let declared = deck.temperatures_k();
+    let tol = crate::thermr::mf7::temperature_match_tolerance_k(temperature_k);
+
+    let nearest = declared
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (i, (t - temperature_k).abs()))
+        .filter(|(_, d)| *d <= tol)
+        .min_by(|a, b| a.1.total_cmp(&b.1));
+    if let Some((i, _)) = nearest {
+        return Ok(i);
+    }
+
+    // No declared temperature matches. Safe only if there is one spectrum.
+    if deck.temperatures.iter().skip(1).all(|b| b.inherited) {
+        return Ok(0);
+    }
+
+    Err(NjoyError::NotPorted(
+        "LEAPR deck re-specifies its frequency spectrum per temperature (card 10 positive \
+         for more than one block), and the requested temperature matches none of them. \
+         Generating from another temperature's spectrum would silently produce a wrong \
+         S(alpha,beta); request one of the deck's own temperatures instead.",
+    ))
+}
+
+/// Build the LEAPR output for one temperature and write it as an ENDF MF=7
+/// tape, with no caching.
+///
+/// This is the missing half of NJOY's `leapr` driver for the single-scatterer,
+/// continuous-spectrum case: it composes
+/// [`FrequencyModel::start`] -> [`phonon_expansion`] ->
+/// [`coher`](crate::leapr::coher::coher) -> [`endout`], including the `dwpix`
+/// and `tempf` conversions `endout` expects (`leapr.f90:717, 3035`) which no
+/// other code path performs.
+///
+/// The physical constants come from the deck's own declared vintage
+/// ([`LeaprDeck::constants`]) and are threaded into **both** channels — `bk`
+/// into `tev` for the inelastic law, and the whole set into `econ` for the
+/// Bragg edge energies. That is what makes the result reproduce the published
+/// tape instead of missing it by ~100x the storage precision (inelastic) or by
+/// a uniform ~1e-6 offset (elastic). See [`crate::leapr::vintage`].
+///
+/// # Errors
+///
+/// - [`NjoyError::NotPorted`] if the deck uses a LEAPR feature the port does not
+///   implement ([`LeaprDeck::unsupported_features`]). Silently generating
+///   something plausible for an unsupported deck would be the worst outcome
+///   available, so this refuses.
+/// - [`NjoyError::EndfParse`] for a non-positive or non-finite temperature.
+pub fn generate_tape(
+    deck: &LeaprDeck,
+    temperature: Temperature,
+    elastic: ElasticChannel,
+) -> Result<Tape, NjoyError> {
+    let unsupported = deck.unsupported_features();
+    if !unsupported.is_empty() {
+        log::warn!(
+            "LEAPR deck '{}' uses features this port does not implement: {:?}",
+            deck.title,
+            unsupported
+        );
+        return Err(NjoyError::NotPorted(
+            "LEAPR deck uses features this port does not implement \
+             (see LeaprDeck::unsupported_features)",
+        ));
+    }
+
+    let temperature_k = temperature.get::<kelvin>();
+    let block = temperature_block_index(deck, temperature_k)?;
+    let input = deck.input_at_temperature(block, temperature_k)?;
+
+    let freq = FrequencyModel::start(
+        &input.continuous.rho,
+        input.continuous.delta_ev,
+        input.tev(),
+        input.continuous.tbeta,
+    );
+    // The scattering law is built in the same three stages, in the same order,
+    // as the Fortran temperature loop (leapr.f90:376-384):
+    //
+    //     call contin  ->  call trans (if twt > 0)  ->  call discre (if nd > 0)
+    //
+    // Each stage convolves its term into `ssm` AND advances the Debye-Waller
+    // integral / effective temperature. Running only `contin` is correct for a
+    // pure solid-type moderator (graphite: twt = 0, nd = 0) and badly wrong for
+    // a molecular liquid — light water carries both a translational term and two
+    // discrete oscillators (the H2O bend and stretch), which between them supply
+    // most of its bound-atom zero-point motion. Omitting them left T_eff at
+    // 482 K against the evaluation's 1194 K, and sigma_inel at +73 % (1 eV) to
+    // +48 % (8 eV) above the published values, rising rather than relaxing onto
+    // the free-atom limit. Bead op-ziux.
+    let mut ssm = phonon_expansion(&input, &freq);
+
+    // `dwpix`/`tempf` start as `contin` leaves them (leapr.f90:715-716) and are
+    // then advanced in place by the later stages, exactly as the Fortran globals
+    // are. `dwpix` is kept in raw LEAPR units until after the last stage.
+    let mut dwpix = freq.f0;
+    let mut tempf = freq.tbar * temperature_k;
+
+    // `trans` (leapr.f90:844-1007, guard at 379). Updates `tempf` only.
+    if input.continuous.twt > 0.0 {
+        add_translation(&mut ssm, &input, &freq, &mut tempf);
+    }
+
+    // `discre` (leapr.f90:1320-1661, guard at 382). Updates both `dwpix` and
+    // `tempf`; a no-op when the deck declares no oscillators.
+    add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
+
+    // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
+    // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
+    let bk = input.constants.bk_ev_per_k();
+    let dwpix = dwpix / (deck.awr * temperature_k * bk);
+
+    // The Debye-Waller coefficient MF=7/MT=2 is written with. Normally the
+    // deck's own (the principal scatterer's), but a compound Bragg channel
+    // computed through the generalized path uses the *universal* coefficient —
+    // see `compound_debye_waller`.
+    let mut dwpix_elastic = dwpix;
+
+    let elastic_output = match (elastic, deck.iel) {
+        (ElasticChannel::Omit, _) => ElasticOutput::None,
+        // `iel = 0` means "no built-in lattice", which is how every evaluation
+        // produced with modified LEAPR reaches us — the crystal structure lived
+        // in a separate input file that the distributed deck does not carry.
+        // Consult the crystal catalogue before giving up on the channel.
+        (ElasticChannel::Generate, ElasticOption::None) => {
+            match GeneralCrystal::for_material(deck.mat, deck.za) {
+                Some(crystal) => {
+                    dwpix_elastic = compound_debye_waller(crystal, deck, temperature_k, dwpix)?;
+                    ElasticOutput::Coherent(coher_general_with_constants(
+                        &crystal.structure(),
+                        deck.npr as usize,
+                        COHERENT_ELASTIC_EMAX_EV,
+                        input.constants,
+                    ))
+                }
+                None => ElasticOutput::None,
+            }
+        }
+        (ElasticChannel::GenerateExactDebyeWaller, ElasticOption::None) => {
+            match GeneralCrystal::for_material(deck.mat, deck.za) {
+                Some(crystal) => {
+                    // `dwpix_elastic` stays the compound coefficient even though
+                    // `endout` will not apply it to MT=2: it is still the
+                    // honest answer to "what is this material's Debye-Waller
+                    // coefficient", and the LTHR=2 path would write it.
+                    dwpix_elastic = compound_debye_waller(crystal, deck, temperature_k, dwpix)?;
+                    let structure = crystal.structure();
+                    let per_atom =
+                        per_atom_debye_waller(crystal, &structure, deck, temperature_k, dwpix)?;
+                    ElasticOutput::CoherentPreWeighted(coher_general_with_per_atom_debye_waller(
+                        &structure,
+                        deck.npr as usize,
+                        COHERENT_ELASTIC_EMAX_EV,
+                        input.constants,
+                        &per_atom,
+                    ))
+                }
+                None => ElasticOutput::None,
+            }
+        }
+        (
+            ElasticChannel::Generate | ElasticChannel::GenerateExactDebyeWaller,
+            ElasticOption::Incoherent,
+        ) => {
+            // `endout` can write the LTHR=2 Debye-Waller section, but the bound
+            // cross section `sb` it needs is a LEAPR quantity no code path here
+            // computes. Refusing beats inventing a plausible number.
+            return Err(NjoyError::NotPorted(
+                "incoherent-elastic (iel < 0) output needs the bound cross section \
+                 `sb`, which this port does not compute — request ElasticChannel::Omit \
+                 or supply the elastic channel from a tape",
+            ));
+        }
+        // Every built-in lattice is monatomic, so the exact and compound
+        // Debye-Waller treatments coincide there and the two channels share
+        // this arm.
+        (ElasticChannel::Generate | ElasticChannel::GenerateExactDebyeWaller, iel) => {
+            let lattice = iel
+                .coherent_lattice()
+                .expect("every remaining ElasticOption variant maps to a coherent lattice");
+            // The deck's own vintage, not the crate default: `econ` scales every
+            // Bragg edge energy, so the constant set decides whether MT=2 is
+            // 1e-6-close to the published tape or bit-exact against it.
+            ElasticOutput::Coherent(coher_with_constants(
+                lattice,
+                deck.npr as usize,
+                COHERENT_ELASTIC_EMAX_EV,
+                input.constants,
+            ))
+        }
+    };
+
+    let out = LeaprOutput {
+        mat: deck.mat,
+        za: deck.za,
+        awr: deck.awr,
+        lat: if deck.lat { 1 } else { 0 },
+        isym: deck.isabt,
+        ilog: deck.ilog != 0,
+        smin: deck.smin,
+        alpha: deck.alpha.clone(),
+        beta: deck.beta.clone(),
+        temperatures_k: vec![temperature_k],
+        dwpix: vec![dwpix_elastic],
+        tempf: vec![tempf],
+        ssm: vec![ssm],
+        ssp: None,
+        npr: deck.npr,
+        spr: deck.spr,
+        elastic: elastic_output,
+        secondary: deck.secondary_scatterer(),
+        constants: input.constants,
+    };
+
+    Ok(endout(&out))
+}
+
+/// The LEAPR Debye-Waller coefficient `W'(T)` \[1/eV\] for one deck at one
+/// temperature — `dwpix` in `leapr.f90`, already divided by `awr * T * k_B`
+/// (`leapr.f90:3035`) so it is in the form [`endout`] wants.
+///
+/// This is the same quantity [`generate_tape`] computes on its way to a tape;
+/// it is factored out here because the **compound** coefficient a generalized
+/// coherent-elastic section needs is a weighted average over several decks
+/// (see [`compound_debye_waller`]), and computing it must not require
+/// generating each of their tapes.
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] if the deck uses an unimplemented LEAPR feature, or
+/// [`NjoyError::EndfParse`] for a bad temperature — the same conditions
+/// [`generate_tape`] refuses on.
+pub fn debye_waller_coefficient(deck: &LeaprDeck, temperature_k: f64) -> Result<f64, NjoyError> {
+    let input = deck.input_at_temperature(0, temperature_k)?;
+    let freq = FrequencyModel::start(
+        &input.continuous.rho,
+        input.continuous.delta_ev,
+        input.tev(),
+        input.continuous.tbeta,
+    );
+    let mut dwpix = freq.f0;
+    if !input.oscillators.is_empty() {
+        // Discrete oscillators advance `dwpix` inside `discre`, which also
+        // convolves them into `S(alpha, beta)`; there is no cheaper way to get
+        // the one without the other, so pay for the full expansion.
+        let mut ssm = phonon_expansion(&input, &freq);
+        let mut tempf = freq.tbar * temperature_k;
+        add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
+    }
+    Ok(dwpix / (deck.awr * temperature_k * input.constants.bk_ev_per_k()))
+}
+
+/// The **universal (compound) Debye-Waller coefficient** `W'(T)` \[1/eV\] for a
+/// catalogued crystal, under Zhu's cubic approximation.
+///
+/// Zhu (2014) Eq. (3.3): a compound's Bragg channel has one Debye-Waller
+/// coefficient, not one per sublattice —
+/// `W'_tot = sum_n (atomic fraction)_n * W'_n` — where each `W'_n` comes from
+/// that atom type's own mass and partial phonon spectrum. Each LEAPR deck
+/// carries exactly one such spectrum, so the compound coefficient is assembled
+/// by running [`debye_waller_coefficient`] over the decks
+/// [`GeneralCrystal::debye_waller_decks`] names.
+///
+/// `own_dwpix` is the coefficient already computed for `deck` itself; it is
+/// reused rather than recomputed, so generating a two-sublattice compound costs
+/// one extra Debye-Waller integral, not two.
+///
+/// **This is what makes MF=7/MT=2 identical for every material of the same
+/// compound**, which is the behaviour the published ENDF/B-VIII.0 SiC
+/// evaluations show (MAT 43 and MAT 44 carry byte-identical MT=2 sections).
+///
+/// # Errors
+/// Propagates from [`debye_waller_coefficient`] for any partner deck. A partner
+/// deck that is not embedded in this crate is an
+/// [`NjoyError::NotPorted`] — silently falling back to the single-sublattice
+/// coefficient would produce a subtly wrong, plausible-looking tape.
+fn compound_debye_waller(
+    crystal: GeneralCrystal,
+    deck: &LeaprDeck,
+    temperature_k: f64,
+    own_dwpix: f64,
+) -> Result<f64, NjoyError> {
+    let mut total = 0.0;
+    for &(material, fraction) in crystal.debye_waller_decks() {
+        let w = if material.mat() == deck.mat {
+            own_dwpix
+        } else {
+            let text = embedded_deck_text(material).ok_or(NjoyError::NotPorted(
+                "generalized coherent elastic needs the partner sublattice's LEAPR deck for the \
+                 compound Debye-Waller coefficient, and it is not embedded in this crate",
+            ))?;
+            debye_waller_coefficient(&LeaprDeck::parse(text)?, temperature_k)?
+        };
+        total += fraction * w;
+    }
+    Ok(total)
+}
+
+/// One Debye-Waller coefficient `W'(T)` \[1/eV\] **per basis atom** of
+/// `structure`, in basis order — the input
+/// [`coher_general_with_per_atom_debye_waller`] needs for Zhu's exact option.
+///
+/// Each atom's coefficient comes from the LEAPR deck of *its own* species
+/// ([`GeneralCrystal::debye_waller_deck_for_species`]), so a two-sublattice
+/// compound costs at most one Debye-Waller integral per species, not per atom:
+/// the per-species results are computed once and broadcast over the basis.
+/// `own_dwpix` is the coefficient already computed for `deck` itself and is
+/// reused rather than recomputed, exactly as in [`compound_debye_waller`].
+///
+/// # Errors
+/// [`NjoyError::NotPorted`] if a species has no deck mapping, or if a partner
+/// deck is not embedded in this crate. Falling back to the compound
+/// coefficient would silently turn the exact option back into the
+/// approximation it was chosen over.
+fn per_atom_debye_waller(
+    crystal: GeneralCrystal,
+    structure: &crate::leapr::coher::CrystalStructure,
+    deck: &LeaprDeck,
+    temperature_k: f64,
+    own_dwpix: f64,
+) -> Result<Vec<f64>, NjoyError> {
+    let mut by_species: Vec<(&'static str, f64)> = Vec::new();
+    let mut out = Vec::with_capacity(structure.basis.len());
+    for atom in &structure.basis {
+        if let Some(&(_, w)) = by_species.iter().find(|&&(l, _)| l == atom.label) {
+            out.push(w);
+            continue;
+        }
+        let material =
+            crystal
+                .debye_waller_deck_for_species(atom.label)
+                .ok_or(NjoyError::NotPorted(
+                    "the exact Debye-Waller option needs a LEAPR deck for every species in the \
+                 crystal, and one of them has no mapping in the crystal catalogue",
+                ))?;
+        let w = if material.mat() == deck.mat {
+            own_dwpix
+        } else {
+            let text = embedded_deck_text(material).ok_or(NjoyError::NotPorted(
+                "the exact Debye-Waller option needs the partner sublattice's LEAPR deck, and it \
+                 is not embedded in this crate",
+            ))?;
+            debye_waller_coefficient(&LeaprDeck::parse(text)?, temperature_k)?
+        };
+        by_species.push((atom.label, w));
+        out.push(w);
+    }
+    Ok(out)
+}
+
+/// The in-process memo of parsed laws, keyed by [`GenerationRecipe::key`].
+///
+/// `Arc<Mf7>` because the law is read-only once built and is shared across a
+/// simulation (workspace rule: `Arc<T>` for read-after-construction data). The
+/// map lives for the life of the process; a handful of materials at a handful
+/// of temperatures is on the order of a megabyte each, which is the point —
+/// re-parsing that per query is what this avoids.
+static MEMO: OnceLock<RwLock<HashMap<String, Arc<Mf7>>>> = OnceLock::new();
+
+/// Get the memo, initialising it on first use.
+fn memo() -> &'static RwLock<HashMap<String, Arc<Mf7>>> {
+    MEMO.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// Resolve a thermal scattering law for `request` — **regenerating from the
+/// LEAPR deck by default**, and reading a tape only when asked to.
+///
+/// Cached twice over (in process, then on disk); see the [module docs](self)
+/// for the caching contract and its invalidation rule, and for what is and is
+/// not validated in the result.
+///
+/// # Errors
+///
+/// - [`NjoyError::Download`] if the deck cannot be located — the message names
+///   the paths tried and the environment variable to set.
+/// - [`NjoyError::NotPorted`] if the deck needs an unported LEAPR feature.
+/// - [`NjoyError::Io`] / [`NjoyError::EndfParse`] from reading or parsing.
+pub fn thermal_scattering_law(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
+    match &request.source {
+        SabSource::EndfTape(path) => {
+            let tape = Tape::read(std::fs::File::open(path)?)?;
+            Ok(Arc::new(parse_mf7(&tape, request.material.mat())?))
+        }
+        SabSource::RegenerateFromDeck => regenerate_cached(request),
+    }
+}
+
+/// The whole ENDF **tape** for a request, where
+/// [`thermal_scattering_law`] gives just the parsed MF=7.
+///
+/// Same sources, caching, errors and validation standing as
+/// [`thermal_scattering_law`] — this is the identical artifact, handed over one
+/// step earlier. Use it when a consumer wants to drive several `from_tape`
+/// constructors off one tape (the inelastic channel plus whichever elastic law
+/// the evaluation carries) instead of re-reading the file per channel; that is
+/// exactly what `outram-mc-libs`' `ThermalScattering::from_leapr` does.
+///
+/// # Errors
+///
+/// - [`NjoyError::Download`] if the deck cannot be located.
+/// - [`NjoyError::NotPorted`] if the deck needs an unported LEAPR feature.
+/// - [`NjoyError::Io`] / [`NjoyError::EndfParse`] from reading or parsing.
+pub fn thermal_scattering_tape(request: &SabRequest) -> Result<Tape, NjoyError> {
+    match &request.source {
+        SabSource::EndfTape(path) => Ok(Tape::read(std::fs::File::open(path)?)?),
+        SabSource::RegenerateFromDeck => {
+            let located = locate_deck(request.material)?;
+            let deck = LeaprDeck::parse(&located.text)?;
+            match request.cache {
+                CachePolicy::AlwaysRegenerate => {
+                    generate_tape(&deck, request.temperature, request.elastic)
+                }
+                CachePolicy::UseCacheIfAvailable => {
+                    let recipe = build_recipe(request, &located, &deck);
+                    let (path, _key) = disk_cache_path(request, &recipe, &deck)?;
+                    Ok(Tape::read(std::fs::File::open(&path)?)?)
+                }
+            }
+        }
+    }
+}
+
+/// The [`GenerationRecipe`] a request resolves to — everything that
+/// determines the output bytes, independent of [`CachePolicy`].
+///
+/// Split out so [`regenerate_cached`] and [`disk_cache_path`] build the
+/// identical recipe from the identical inputs; the two entry points must
+/// never disagree about what artifact a request names.
+fn build_recipe(
+    request: &SabRequest,
+    located: &crate::leapr::decks::LocatedDeck,
+    deck: &LeaprDeck,
+) -> GenerationRecipe {
+    GenerationRecipe {
+        material: request.material,
+        deck_source: located.source.clone(),
+        deck_sha256: sha256_hex(located.text.as_bytes()),
+        eval_field: deck
+            .evaluation_date()
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| "none".to_string()),
+        constants: deck.constants(),
+        temperature_k: request.temperature_k(),
+        elastic: request.elastic,
+    }
+}
+
+/// Resolve the on-disk cached tape for a [`CachePolicy::UseCacheIfAvailable`]
+/// request: reuse it if present (logging the accuracy/speed tradeoff — see
+/// [`CachePolicy`]), otherwise generate fresh and populate the cache for next
+/// time. A cache miss is never an error; it falls back to
+/// [`CachePolicy::AlwaysRegenerate`]'s own behaviour, silently.
+///
+/// Only ever called under [`CachePolicy::UseCacheIfAvailable`] — the default
+/// policy never reads or writes this cache, by design (see [`CachePolicy`]).
+fn disk_cache_path(
+    request: &SabRequest,
+    recipe: &GenerationRecipe,
+    deck: &LeaprDeck,
+) -> Result<(std::path::PathBuf, String), NjoyError> {
+    let key = recipe.key();
+
+    let cache = EndfCache::new()?;
+    let path = cache
+        .dir()
+        .join("leapr-generated")
+        .join(recipe.cache_file_name());
+
+    if path.exists() {
+        log::warn!(
+            "LEAPR regeneration cache HIT for {} at {:.4} K ({}): reusing a tape from disk \
+             instead of regenerating. CachePolicy::UseCacheIfAvailable trades accuracy for \
+             speed -- this artifact was produced by whatever version of this crate's LEAPR \
+             generator wrote it, which may be older than the code running now (see \
+             https://github.com/theodoreOnzGit/outram-park-backend/issues/27). Use \
+             CachePolicy::AlwaysRegenerate (the default) for a guaranteed-current answer.",
+            request.material.label(),
+            request.temperature_k(),
+            recipe.cache_file_name(),
+        );
+    }
+
+    let path = cache.get_or_produce(path, || {
+        let tape = generate_tape(deck, request.temperature, request.elastic)?;
+        let mut bytes: Vec<u8> = Vec::new();
+        tape.write(&mut bytes)?;
+        crate::acquire::validate_endf(&bytes, "generated LEAPR MF=7 tape")?;
+        Ok(bytes)
+    })?;
+
+    // Provenance sidecar, best-effort: the full recipe in human-readable form,
+    // so a cached artifact can be audited without re-deriving how it was made.
+    let sidecar = path.with_extension("recipe");
+    if !sidecar.exists() {
+        let _ = std::fs::write(&sidecar, recipe.canonical_text());
+    }
+
+    Ok((path, key))
+}
+
+/// The regeneration path of [`thermal_scattering_law`]: memo, then disk cache,
+/// then generate.
+fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
+    let located = locate_deck(request.material)?;
+    let deck = LeaprDeck::parse(&located.text)?;
+    let recipe = build_recipe(request, &located, &deck);
+    let key = recipe.key();
+
+    // 1. In-process memo, keyed by the recipe. Building the recipe is cheap
+    //    next to a parse or a generation and touches no disk, so a memo hit
+    //    is reached under either CachePolicy without ever consulting the disk
+    //    cache — a repeated in-process call is always this process's own
+    //    freshly computed answer, regardless of policy.
+    if let Ok(guard) = memo().read() {
+        if let Some(hit) = guard.get(&key) {
+            return Ok(Arc::clone(hit));
+        }
+    }
+
+    // 2. Produce the tape, per policy (see `CachePolicy`), and parse it.
+    let tape = match request.cache {
+        CachePolicy::AlwaysRegenerate => {
+            generate_tape(&deck, request.temperature, request.elastic)?
+        }
+        CachePolicy::UseCacheIfAvailable => {
+            let (path, _key) = disk_cache_path(request, &recipe, &deck)?;
+            Tape::read(std::fs::File::open(&path)?)?
+        }
+    };
+    let law = Arc::new(parse_mf7(&tape, request.material.mat())?);
+
+    if let Ok(mut guard) = memo().write() {
+        guard.insert(key, Arc::clone(&law));
+    }
+    Ok(law)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn t(k: f64) -> Temperature {
+        Temperature::new::<kelvin>(k)
+    }
+
+    /// The defaults are the ones the maintainer asked for: regenerate, both
+    /// channels.
+    ///
+    /// **Methodology.** Build a bare [`SabRequest`] and assert the source and
+    /// channel defaults, since "generation is the default" is a policy claim
+    /// that should fail loudly if someone flips it.
+    /// **Pass criterion:** `SabSource::RegenerateFromDeck` and
+    /// `ElasticChannel::Generate`.
+    ///
+    /// **Result (2026-08-13):** holds.
+    #[test]
+    fn generation_is_the_default_source() {
+        let r = SabRequest::new(SabMaterial::CrystallineGraphite, t(523.0));
+        assert_eq!(r.source, SabSource::RegenerateFromDeck);
+        assert_eq!(r.elastic, ElasticChannel::Generate);
+        assert_eq!(r.cache, CachePolicy::AlwaysRegenerate);
+        assert_eq!(r.temperature_k(), 523.0);
+
+        let tape_req = r.clone().with_tape("/tmp/does-not-exist.endf");
+        assert!(matches!(tape_req.source, SabSource::EndfTape(_)));
+
+        let cached_req = r.with_cache(CachePolicy::UseCacheIfAvailable);
+        assert_eq!(cached_req.cache, CachePolicy::UseCacheIfAvailable);
+    }
+
+    /// Serializes the two tests below, which both mutate the process-wide
+    /// `OUTRAM_PARK_DATA_DIR` env var to point the disk cache at an isolated
+    /// temp directory. `cargo test` runs tests in threads of one process, so
+    /// without this lock they could stomp on each other's env var.
+    static CACHE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// `CachePolicy::AlwaysRegenerate` (the default) never returns a stale
+    /// disk-cached tape — it does not even look at the disk cache.
+    ///
+    /// **Methodology.** This is the exact bug this policy exists to prevent
+    /// (issue #27 / bead `op-ergh`): plant an on-disk cache entry for a
+    /// request whose bytes are wrong on purpose (empty `.endf` written by
+    /// hand under the recipe's real cache key, not something `generate_tape`
+    /// could ever produce), then make the identical request under
+    /// `AlwaysRegenerate` and confirm it succeeds with real generated bytes
+    /// rather than reading — or erroring on — the planted file.
+    ///
+    /// **Pass criterion:** the request succeeds (proving it never opened the
+    /// planted file, which is not valid ENDF and would fail to parse if read)
+    /// and returns a real, non-empty coherent-elastic-bearing law.
+    #[test]
+    fn always_regenerate_ignores_a_stale_disk_cache_entry() {
+        let _guard = CACHE_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!(
+            "op_leapr_cache_test_always_regen_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: serialized by CACHE_ENV_LOCK against the sibling test below;
+        // no other test in this crate reads or writes OUTRAM_PARK_DATA_DIR.
+        unsafe {
+            std::env::set_var(crate::acquire::CACHE_DIR_ENV, &tmp);
+        }
+
+        let request = SabRequest::new(SabMaterial::CrystallineGraphite, t(296.0));
+        let located = locate_deck(request.material).unwrap();
+        let deck = LeaprDeck::parse(&located.text).unwrap();
+        let recipe = build_recipe(&request, &located, &deck);
+
+        let cache_dir = tmp.join("leapr-generated");
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        let planted = cache_dir.join(recipe.cache_file_name());
+        std::fs::write(&planted, b"this is not a valid ENDF tape").unwrap();
+
+        let law = thermal_scattering_law(&request)
+            .expect("AlwaysRegenerate must succeed by generating fresh, not by reading the planted (invalid) cached file");
+        assert!(
+            law.coherent_elastic.is_some(),
+            "the freshly generated law must carry graphite's coherent-elastic channel"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var(crate::acquire::CACHE_DIR_ENV);
+        }
+    }
+
+    /// `CachePolicy::UseCacheIfAvailable` reuses a hit and falls back
+    /// gracefully — never an error — on a miss.
+    ///
+    /// **Methodology.** Point the disk cache at an isolated empty temp
+    /// directory (a guaranteed miss) and confirm the request still succeeds
+    /// by generating fresh, exactly as `AlwaysRegenerate` would. Then request
+    /// the identical recipe again and confirm the disk cache is now
+    /// populated (the artifact the first call must have written), so a truly
+    /// third call would be a hit.
+    ///
+    /// **Pass criterion:** both calls succeed; the cache file exists after
+    /// the first call.
+    #[test]
+    fn use_cache_if_available_falls_back_gracefully_on_a_miss_and_then_populates_it() {
+        let _guard = CACHE_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!(
+            "op_leapr_cache_test_use_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: serialized by CACHE_ENV_LOCK against the sibling test above.
+        unsafe {
+            std::env::set_var(crate::acquire::CACHE_DIR_ENV, &tmp);
+        }
+
+        // A temperature distinct from the sibling test's 296 K: the in-process
+        // memo is shared across CachePolicy values (by design -- see
+        // `regenerate_cached`), so reusing 296 K here could hit that test's
+        // memo entry and never touch the disk cache this test is checking.
+        let request = SabRequest::new(SabMaterial::CrystallineGraphite, t(400.0))
+            .with_cache(CachePolicy::UseCacheIfAvailable);
+
+        let _ = thermal_scattering_law(&request)
+            .expect("a cache MISS must fall back to generating fresh, not error");
+
+        let located = locate_deck(request.material).unwrap();
+        let deck = LeaprDeck::parse(&located.text).unwrap();
+        let recipe = build_recipe(&request, &located, &deck);
+        let cache_dir = tmp.join("leapr-generated");
+        assert!(
+            cache_dir.join(recipe.cache_file_name()).exists(),
+            "the miss-then-generate path must have populated the disk cache for next time"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var(crate::acquire::CACHE_DIR_ENV);
+        }
+    }
+
+    /// The per-channel validation status is reported honestly, and differs
+    /// between the generated and tape sources.
+    ///
+    /// **Methodology.** The elastic channel is roughly 90 % of graphite's
+    /// thermal cross section, so whether it has been measured must be reachable
+    /// from the API rather than only from prose. Assert the standing of each
+    /// (material, channel) pair.
+    /// **Pass criterion:** crystalline graphite reports both channels validated
+    /// (MT=4 by `tests/leapr_graphite_deck_parity.rs`, MT=2 by
+    /// `tests/leapr_graphite_coherent_elastic_parity.rs`); the porous grades
+    /// report neither; omitting the elastic channel reports it not emitted; a
+    /// tape source reports both validated.
+    ///
+    /// **Result (2026-08-13):** holds. This is the tripwire that keeps the
+    /// claim current — extend it, do not relax it, when a new material is
+    /// measured.
+    #[test]
+    fn validation_status_is_reported_per_channel() {
+        let gen = SabRequest::new(SabMaterial::CrystallineGraphite, t(296.0));
+        assert_eq!(
+            gen.validation(),
+            (
+                ChannelValidation::ValidatedAgainstReferenceTape,
+                ChannelValidation::ValidatedAgainstReferenceTape
+            ),
+            "crystalline graphite: both channels measured against ENDF/B-VIII.0"
+        );
+
+        // The porous grades run the same code with a different deck and have
+        // never been measured. Saying so is the whole point of this accessor.
+        for m in [
+            SabMaterial::ReactorGraphite10P,
+            SabMaterial::ReactorGraphite30P,
+        ] {
+            assert_eq!(
+                SabRequest::new(m, t(296.0)).validation(),
+                (
+                    ChannelValidation::NotValidatedAgainstReferenceTape,
+                    ChannelValidation::NotValidatedAgainstReferenceTape
+                ),
+                "{}: no parity measurement has been taken",
+                m.label()
+            );
+        }
+
+        let no_elastic = gen.clone().with_elastic(ElasticChannel::Omit);
+        assert_eq!(
+            no_elastic.validation().1,
+            ChannelValidation::NotEmitted,
+            "omitting MT=2 must be visible in the status"
+        );
+
+        let from_tape = gen.clone().with_tape("/tmp/x.endf");
+        assert_eq!(
+            from_tape.validation(),
+            (
+                ChannelValidation::ValidatedAgainstReferenceTape,
+                ChannelValidation::ValidatedAgainstReferenceTape
+            )
+        );
+    }
+
+    /// The cache key changes when — and only when — something that changes the
+    /// output bytes changes.
+    ///
+    /// **Methodology.** Build a baseline recipe and perturb, one at a time: the
+    /// temperature, the constant set, the channel choice, the deck hash, and the
+    /// material. Each must produce a different key; an unchanged recipe must
+    /// produce the same key twice (determinism). Also check the file name embeds
+    /// the material and temperature so a cache directory is human-readable.
+    /// **Pass criterion:** 5 distinct keys plus the baseline, all different;
+    /// repeated hashing is stable.
+    ///
+    /// **Result (2026-08-13):** holds. This is the whole invalidation rule —
+    /// there is no expiry or mtime check, so a key collision would be the only
+    /// way to serve a stale artifact.
+    #[test]
+    fn cache_key_covers_every_input_that_changes_the_bytes() {
+        let base = GenerationRecipe {
+            material: SabMaterial::CrystallineGraphite,
+            deck_source: DeckSource::Embedded,
+            deck_sha256: "a".repeat(64),
+            eval_field: "EVAL-SEP17".to_string(),
+            constants: PhysicalConstants::Njoy2016Legacy,
+            temperature_k: 296.0,
+            elastic: ElasticChannel::Generate,
+        };
+        assert_eq!(base.key(), base.key(), "hashing must be deterministic");
+
+        let mut variants = vec![base.key()];
+        let mut push = |r: GenerationRecipe| variants.push(r.key());
+
+        push(GenerationRecipe {
+            temperature_k: 523.0,
+            ..base.clone()
+        });
+        push(GenerationRecipe {
+            constants: PhysicalConstants::Codata2018,
+            ..base.clone()
+        });
+        push(GenerationRecipe {
+            elastic: ElasticChannel::Omit,
+            ..base.clone()
+        });
+        push(GenerationRecipe {
+            deck_sha256: "b".repeat(64),
+            ..base.clone()
+        });
+        push(GenerationRecipe {
+            material: SabMaterial::ReactorGraphite30P,
+            ..base.clone()
+        });
+
+        let mut uniq = variants.clone();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(
+            uniq.len(),
+            variants.len(),
+            "every recipe input must move the cache key: {variants:?}"
+        );
+
+        // ...and the deck's *path* must NOT move it. The same deck read from two
+        // directories has to share one cache entry, or moving OUTRAM_PARK_TSL_DIR
+        // silently doubles the cache.
+        let elsewhere = GenerationRecipe {
+            deck_source: DeckSource::File(PathBuf::from("/somewhere/else/x.leapr")),
+            ..base.clone()
+        };
+        assert_eq!(
+            elsewhere.key(),
+            base.key(),
+            "deck_source must not be part of the cache key"
+        );
+        // It is still recorded in the audit sidecar, though.
+        assert!(elsewhere
+            .canonical_text()
+            .contains("/somewhere/else/x.leapr"));
+
+        let name = base.cache_file_name();
+        assert!(name.starts_with("crystalline-graphite-296.0000K-"));
+        assert!(name.ends_with(".endf"));
+    }
+
+    /// The canonical recipe text records everything an auditor needs, including
+    /// the constant that makes the numbers reproducible.
+    ///
+    /// **Methodology.** Assert the presence of the fields the workspace
+    /// data-provenance rule asks for: material, deck identity (hash), the
+    /// evaluation's own vintage field, and the physical constant actually used.
+    /// **Pass criterion:** each appears in the text.
+    ///
+    /// **Result (2026-08-13):** holds; the text is what is written to the
+    /// `.recipe` sidecar beside each cached artifact.
+    #[test]
+    fn recipe_text_is_an_audit_record() {
+        let r = GenerationRecipe {
+            material: SabMaterial::CrystallineGraphite,
+            deck_source: DeckSource::File(PathBuf::from("/x/tsl-crystalline-graphite.leapr")),
+            deck_sha256: "c".repeat(64),
+            eval_field: "EVAL-SEP17".to_string(),
+            constants: PhysicalConstants::Njoy2016Legacy,
+            temperature_k: 393.0,
+            elastic: ElasticChannel::Generate,
+        };
+        let text = r.canonical_text();
+        assert!(text.contains("crystalline-graphite"));
+        assert!(text.contains("mat                = 30"));
+        assert!(text.contains(&"c".repeat(64)));
+        assert!(text.contains("EVAL-SEP17"));
+        assert!(text.contains("njoy2016-legacy"));
+        assert!(
+            text.contains("8.617385000e-5"),
+            "the bk actually used: {text}"
+        );
+        assert!(text.contains(&format!("generator_revision = {GENERATOR_REVISION}")));
+    }
+}

@@ -28,7 +28,10 @@
 //! implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_vec`,
 //! `ddt_coeff_vec`) and the second time derivative (`d2dt2`, `d2dt2_coeff`),
 //! first-order upwind convection (`div`, `div_vec`), the Gauss-orthogonal
-//! Laplacian (`laplacian`, `laplacian_vec`), and implicit / explicit source
+//! Laplacian (`laplacian`, `laplacian_vec`), its **non-orthogonality-corrected**
+//! counterpart (`laplacian_corrected`, `solve_laplacian_non_orthogonal`,
+//! selected by the `NonOrthoScheme` enum — the orthogonal form is silently
+//! first-order-wrong on any non-hex mesh), and implicit / explicit source
 //! terms (`sp`, `su`, `su_sp` and their `_vec` forms). See each function's doc
 //! and the `sup` module header for the LHS / RHS sign conventions that apply
 //! when combining these matrices.
@@ -39,6 +42,7 @@ mod ddt_vec;
 mod div;
 mod div_vec;
 mod laplacian;
+mod laplacian_corrected;
 mod laplacian_vec;
 mod sup;
 
@@ -48,5 +52,9 @@ pub use ddt_vec::{ddt_coeff_vec, ddt_vec};
 pub use div::div;
 pub use div_vec::div_vec;
 pub use laplacian::laplacian;
+pub use laplacian_corrected::{
+    laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
+    solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,
+};
 pub use laplacian_vec::laplacian_vec;
 pub use sup::{sp, sp_vec, su, su_sp, su_sp_vec, su_vec};

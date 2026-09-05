@@ -1,7 +1,6 @@
 use super::{pi_2, tau_2, REGION_2_COEFFS_IDEAL};
 use uom::si::f64::*;
 
-
 /// Returns the region-2 ideal gamma
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
@@ -16,7 +15,6 @@ pub fn gamma_2_ideal(t: ThermodynamicTemperature, p: Pressure) -> f64 {
     }
     pi.ln() + sum
 }
-
 
 /// Returns the region-2 ideal gamma_tau
 /// Temperature is assumed to be in K

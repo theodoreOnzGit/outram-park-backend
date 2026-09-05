@@ -8,11 +8,11 @@
 ///
 /// Key operation: [`Universe::find_cell`] — given a local position, return the
 /// first cell in this universe that contains it.
-
 use super::cell::Cell;
 use super::position::Position;
 use super::surface::SurfaceKind;
 
+#[derive(Debug, Clone)]
 /// A universe — an ordered list of cells searched top-to-bottom.
 /// Maps to `openmc::Universe`.
 pub struct Universe {
@@ -30,7 +30,12 @@ impl Universe {
     /// universe's cells in order and return the first whose region contains the
     /// point. Returns the **global cell index**, or `None` if the point is in no
     /// cell of this universe (a geometry "lost particle").
-    pub fn find_cell(&self, r: Position, surfaces: &[SurfaceKind], cells: &[Cell]) -> Option<usize> {
+    pub fn find_cell(
+        &self,
+        r: Position,
+        surfaces: &[SurfaceKind],
+        cells: &[Cell],
+    ) -> Option<usize> {
         for &i_cell in &self.cell_indices {
             if cells[i_cell].contains(r, surfaces) {
                 return Some(i_cell);

@@ -8,14 +8,20 @@ pub trait EnergyDist: Send + Sync {
 }
 
 /// Monoenergetic source (all particles at the same energy).
-pub struct Monoenergetic { pub e: f64 }
+pub struct Monoenergetic {
+    pub e: f64,
+}
 impl EnergyDist for Monoenergetic {
-    fn sample(&self, _seed: &mut u64) -> f64 { self.e }
+    fn sample(&self, _seed: &mut u64) -> f64 {
+        self.e
+    }
 }
 
 /// Maxwellian fission spectrum: f(E) ∝ √E · exp(−E / θ). θ in eV.
 /// TODO: port Maxwell sampler from `random_dist.cpp`.
-pub struct MaxwellSpectrum { pub theta: f64 }
+pub struct MaxwellSpectrum {
+    pub theta: f64,
+}
 impl EnergyDist for MaxwellSpectrum {
     fn sample(&self, seed: &mut u64) -> f64 {
         crate::rng::distributions::maxwell(seed, self.theta)
@@ -24,7 +30,10 @@ impl EnergyDist for MaxwellSpectrum {
 
 /// Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)). a, b in eV.
 /// TODO: port from `random_dist.cpp`.
-pub struct WattSpectrum { pub a: f64, pub b: f64 }
+pub struct WattSpectrum {
+    pub a: f64,
+    pub b: f64,
+}
 impl EnergyDist for WattSpectrum {
     fn sample(&self, seed: &mut u64) -> f64 {
         crate::rng::distributions::watt(seed, self.a, self.b)

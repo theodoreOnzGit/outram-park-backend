@@ -71,9 +71,15 @@ pub trait SolidThermo {
 /// metals, ceramics, and PCB substrates where property variation with T is
 /// small.
 ///
-/// ```rust
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::fluid_thermo::{ConstSolidThermo, SolidThermo};
+/// `openfoam_algorithms::openfoam_source` is `pub(crate)`, so this example is
+/// written against the crate-internal path and cannot be compiled as a doctest
+/// (rustdoc builds doctests as an external crate, which cannot see
+/// `pub(crate)` items).  It is exercised for real by the unit test
+/// `tests::kappa_field_uniform` at the bottom of this file.
+///
+/// ```ignore
+/// use crate::openfoam_algorithms::openfoam_source::*;
+/// use crate::openfoam_algorithms::openfoam_source::fluid_thermo::{ConstSolidThermo, SolidThermo};
 /// use std::sync::Arc;
 ///
 /// let mesh = Arc::new(

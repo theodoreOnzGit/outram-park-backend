@@ -101,7 +101,8 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, two_body_scatter, two_body_scatter_with_mu,
+    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
+    two_body_scatter_with_mu,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
@@ -212,6 +213,18 @@ struct Site {
 ///   bit-reproducible reference),
 /// - [`ComputeType::CpuMultiThread`] → [`run_keff_cpu_multi`] (rayon-parallel),
 /// - [`ComputeType::Gpu`] → [`run_keff_gpu`] (GPU Sigma_t lookup, CPU fallback).
+///
+/// # This does not take tallies, deliberately
+///
+/// There is no `Tally` parameter here, and that is a design choice rather than
+/// an omission: eigenvalue generations are run for convergence, and scoring
+/// through them costs throughput while mixing in the inactive generations that
+/// have not yet converged onto the fundamental mode.
+///
+/// To score flux or reaction rates, run [`crate::physics::fixed_source::run_fixed_source`]
+/// -- which *does* take tallies -- against the converged source distribution.
+/// Expecting a `Some(&mut tally)` argument here and finding none is a common
+/// first guess, so it is stated rather than left to be inferred.
 pub fn run_keff(
     radius_cm: f64,
     material: &Material,
@@ -219,7 +232,9 @@ pub fn run_keff(
     settings: &KeffSettings,
 ) -> KeffResult {
     match settings.compute {
-        ComputeType::CpuSingleThread => run_keff_cpu_single(radius_cm, material, nuclides, settings),
+        ComputeType::CpuSingleThread => {
+            run_keff_cpu_single(radius_cm, material, nuclides, settings)
+        }
         ComputeType::CpuMultiThread(tc) => {
             run_keff_cpu_multi(radius_cm, material, nuclides, settings, tc)
         }
@@ -247,7 +262,13 @@ pub fn run_keff_cpu_single(
     nuclides: &[Nuclide],
     settings: &KeffSettings,
 ) -> KeffResult {
-    let sphere = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum };
+    let sphere = Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm,
+        bc: BoundaryType::Vacuum,
+    };
     let mut seed = settings.seed;
     let temp = settings.temperature_k;
 
@@ -275,7 +296,14 @@ pub fn run_keff_cpu_single(
 
         for site in &source {
             production += transport_history(
-                *site, &sphere, material, nuclides, temp, k_running, &mut next_bank, &mut seed,
+                *site,
+                &sphere,
+                material,
+                nuclides,
+                temp,
+                k_running,
+                &mut next_bank,
+                &mut seed,
             );
         }
 
@@ -295,7 +323,11 @@ pub fn run_keff_cpu_single(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// Per-history stride \[RNG draws\] reserved for each history's sub-stream in the
@@ -373,9 +405,20 @@ pub fn run_keff_cpu_multi(
     thread_count: ThreadCount,
 ) -> KeffResult {
     use crate::rng::lcg::future_seed;
+    #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par::prelude::*;
+    #[cfg(target_arch = "wasm32")]
+    use crate::wasm_par as rayon;
 
-    let sphere = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum };
+    let sphere = Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm,
+        bc: BoundaryType::Vacuum,
+    };
     let temp = settings.temperature_k;
 
     // Dedicated, explicitly sized rayon pool (never the implicit global pool):
@@ -468,7 +511,11 @@ pub fn run_keff_cpu_multi(
     });
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// GPU-accelerated fission-source power iteration ([`ComputeType::Gpu`]), with a
@@ -556,12 +603,19 @@ pub fn run_keff_gpu_inner(
     nuclides: &[Nuclide],
     settings: &KeffSettings,
 ) -> KeffResult {
-    let sphere = Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm, bc: BoundaryType::Vacuum };
+    let sphere = Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm,
+        bc: BoundaryType::Vacuum,
+    };
     let mut seed = settings.seed;
     let temp = settings.temperature_k;
 
     // Build the dense Sigma_t table once (temperature is fixed for the run).
-    let table = crate::gpu::union_grid::UnionTotalXs::tabulate(material, nuclides, 1e-3, 2e7, 16384);
+    let table =
+        crate::gpu::union_grid::UnionTotalXs::tabulate(material, nuclides, 1e-3, 2e7, 16384);
 
     // Initial source: uniform in the sphere volume, isotropic, Watt energy —
     // identical to run_keff_cpu_single, on the same single seed stream.
@@ -621,7 +675,11 @@ pub fn run_keff_gpu_inner(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 // ===========================================================================
@@ -722,7 +780,12 @@ pub fn run_keff_gpu_batched(
 
     // The bounding-sphere intersection is computed on the GPU in the flight
     // kernel, so only the f32 FlightSphere is needed here (no CSG Sphere).
-    let flight_sphere = FlightSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
+    let flight_sphere = FlightSphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm as f32,
+    };
     let temp = settings.temperature_k;
 
     // Native-breakpoint union grid, built once (temperature fixed for the run),
@@ -763,7 +826,10 @@ pub fn run_keff_gpu_batched(
                 r: s.r,
                 u: s.u,
                 e: s.e,
-                seed: future_seed((hist_idx as u64).wrapping_mul(BATCH_HIST_STRIDE), gen_base_seed),
+                seed: future_seed(
+                    (hist_idx as u64).wrapping_mul(BATCH_HIST_STRIDE),
+                    gen_base_seed,
+                ),
             })
             .collect();
 
@@ -796,14 +862,14 @@ pub fn run_keff_gpu_batched(
                 batch.rng_hi.push((p.seed >> 32) as u32);
                 batch.rng_lo.push(p.seed as u32);
             }
-            let outcomes = advance_flight_gpu(ctx, &grid_f32, &sigma_f32, &mut batch, flight_sphere);
+            let outcomes =
+                advance_flight_gpu(ctx, &grid_f32, &sigma_f32, &mut batch, flight_sphere);
 
             // --- CPU: resolve each outcome; build the next event's live batch. ---
             let mut survivors: Vec<LiveNeutron> = Vec::with_capacity(n);
             for (i, outcome) in outcomes.iter().enumerate() {
                 // Reassemble the GPU-advanced per-particle seed.
-                let mut seed =
-                    ((batch.rng_hi[i] as u64) << 32) | (batch.rng_lo[i] as u64);
+                let mut seed = ((batch.rng_hi[i] as u64) << 32) | (batch.rng_lo[i] as u64);
                 match outcome {
                     FlightOutcome::Leaked => { /* escaped to vacuum → dead */ }
                     FlightOutcome::Collided => {
@@ -816,13 +882,26 @@ pub fn run_keff_gpu_batched(
                         let u = live[i].u;
                         let e = live[i].e;
                         let (prod, result) = collide_batched(
-                            r, u, e, material, nuclides, temp, k_running, &mut next_bank, &mut seed,
+                            r,
+                            u,
+                            e,
+                            material,
+                            nuclides,
+                            temp,
+                            k_running,
+                            &mut next_bank,
+                            &mut seed,
                         );
                         production += prod;
                         match result {
                             CollisionResult::Dead => {}
                             CollisionResult::Scatter { e: e2, u: u2 } => {
-                                survivors.push(LiveNeutron { r, u: u2, e: e2, seed });
+                                survivors.push(LiveNeutron {
+                                    r,
+                                    u: u2,
+                                    e: e2,
+                                    seed,
+                                });
                             }
                             CollisionResult::ScatterWithSecondary {
                                 e: e2,
@@ -830,11 +909,21 @@ pub fn run_keff_gpu_batched(
                                 sec_e,
                                 sec_u,
                             } => {
-                                survivors.push(LiveNeutron { r, u: u2, e: e2, seed });
+                                survivors.push(LiveNeutron {
+                                    r,
+                                    u: u2,
+                                    e: e2,
+                                    seed,
+                                });
                                 // The (n,2n) extra neutron gets its own sub-stream
                                 // (jump-ahead off the parent's post-collision seed).
                                 let sec_seed = future_seed(BATCH_SECONDARY_STRIDE, seed);
-                                survivors.push(LiveNeutron { r, u: sec_u, e: sec_e, seed: sec_seed });
+                                survivors.push(LiveNeutron {
+                                    r,
+                                    u: sec_u,
+                                    e: sec_e,
+                                    seed: sec_seed,
+                                });
                             }
                         }
                     }
@@ -857,7 +946,11 @@ pub fn run_keff_gpu_batched(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 // ===========================================================================
@@ -973,8 +1066,15 @@ pub fn run_keff_event_cpu_mirror(
     let tables = EventTablesF32::from_collision_tables(&CollisionTables::build(
         material, nuclides, 1e-3, 2e7, 16384,
     ));
-    let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
-    run_event_power_iteration(radius_cm, material, nuclides, settings, &tables, &sphere, None)
+    let sphere = EventSphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm as f32,
+    };
+    run_event_power_iteration(
+        radius_cm, material, nuclides, settings, &tables, &sphere, None,
+    )
 }
 
 /// **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
@@ -1011,8 +1111,21 @@ pub fn run_keff_gpu_event(
     let tables = EventTablesF32::from_collision_tables(&CollisionTables::build(
         material, nuclides, 1e-3, 2e7, 16384,
     ));
-    let sphere = EventSphere { x0: 0.0, y0: 0.0, z0: 0.0, r: radius_cm as f32 };
-    run_event_power_iteration(radius_cm, material, nuclides, settings, &tables, &sphere, Some(ctx))
+    let sphere = EventSphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: radius_cm as f32,
+    };
+    run_event_power_iteration(
+        radius_cm,
+        material,
+        nuclides,
+        settings,
+        &tables,
+        &sphere,
+        Some(ctx),
+    )
 }
 
 /// Shared power-iteration loop for the fused event path — drives either the GPU
@@ -1106,7 +1219,11 @@ fn run_event_power_iteration(
     }
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult { k_mean, k_std, k_by_generation }
+    KeffResult {
+        k_mean,
+        k_std,
+        k_by_generation,
+    }
 }
 
 /// The outcome of one CPU-side collision in the batched GPU path
@@ -1122,7 +1239,12 @@ enum CollisionResult {
     Scatter { e: f64, u: Direction },
     /// Scattered **and** emitted one extra same-generation neutron (`(n,2n)`,
     /// yield 2) → both the down-scattered primary and the secondary stay live.
-    ScatterWithSecondary { e: f64, u: Direction, sec_e: f64, sec_u: Direction },
+    ScatterWithSecondary {
+        e: f64,
+        u: Direction,
+        sec_e: f64,
+        sec_u: Direction,
+    },
 }
 
 /// Resolve one collision at `r` \[cm\] for a neutron of energy `e` \[eV\] and
@@ -1158,7 +1280,11 @@ fn collide_batched(
 
     let xi = prn(seed) * x.total;
     if xi < x.fission {
-        let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+        let nu_bar = if x.fission > 0.0 {
+            x.nu_fission / x.fission
+        } else {
+            0.0
+        };
         let n = sample_num_neutrons(nu_bar, k_running, seed);
         for _ in 0..n {
             let (dx, dy, dz) = isotropic_direction(seed);
@@ -1184,12 +1310,23 @@ fn collide_batched(
         let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
         (
             0.0,
-            CollisionResult::ScatterWithSecondary { e: e2, u: u2, sec_e: e2, sec_u: u2 },
+            CollisionResult::ScatterWithSecondary {
+                e: e2,
+                u: u2,
+                sec_e: e2,
+                sec_u: u2,
+            },
         )
     } else {
-        let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-            Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-            None => elastic_scatter(e, u, nuc.awr, seed),
+        // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
+        // see the equivalent branch in [`transport_history`].
+        let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+            (e_out, rotate_direction(u, mu_lab, seed))
+        } else {
+            match nuc.sample_elastic_mu_cm(e, seed) {
+                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                None => elastic_scatter(e, u, nuc.awr, seed),
+            }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     }
@@ -1251,7 +1388,11 @@ fn transport_history(
             // inelastic − n2n) sweeps up any remaining scattering as elastic-like.
             let xi = prn(seed) * x.total;
             if xi < x.fission {
-                let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                let nu_bar = if x.fission > 0.0 {
+                    x.nu_fission / x.fission
+                } else {
+                    0.0
+                };
                 production += nu_bar;
                 let n = sample_num_neutrons(nu_bar, k_running, seed);
                 for _ in 0..n {
@@ -1298,12 +1439,21 @@ fn transport_history(
                 e = e2;
                 u = u2;
             } else {
-                // Elastic. Use the ENDF MF=4 angular distribution when the nuclide
-                // carries one (HIGH tier) — fast neutrons scatter forward off heavy
-                // nuclei, which raises bare-sphere leakage — else isotropic-CM.
-                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                    None => elastic_scatter(e, u, nuc.awr, seed),
+                // Scattering. A moderator nuclide carrying an S(alpha, beta)
+                // table thermalizes via the bound-atom law below its cutoff
+                // (lab-frame outgoing energy + cosine, up-scatter allowed);
+                // mirrors `crate::physics::transport_csg` and OpenMC
+                // `src/thermal.cpp` `ThermalData::sample`. Otherwise: use the
+                // ENDF MF=4 angular distribution when the nuclide carries one
+                // (HIGH tier) — fast neutrons scatter forward off heavy nuclei,
+                // which raises bare-sphere leakage — else isotropic-CM.
+                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (e_out, rotate_direction(u, mu_lab, seed))
+                } else {
+                    match nuc.sample_elastic_mu_cm(e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    }
                 };
                 e = e2;
                 u = u2;
@@ -1383,7 +1533,11 @@ fn transport_history_tabulated(
             // Sigma_t *source* above differs, never the RNG draws below.
             let xi = prn(seed) * x.total;
             if xi < x.fission {
-                let nu_bar = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+                let nu_bar = if x.fission > 0.0 {
+                    x.nu_fission / x.fission
+                } else {
+                    0.0
+                };
                 production += nu_bar;
                 let n = sample_num_neutrons(nu_bar, k_running, seed);
                 for _ in 0..n {
@@ -1410,9 +1564,16 @@ fn transport_history_tabulated(
                 e = e2;
                 u = u2;
             } else {
-                let (e2, u2) = match nuc.sample_elastic_mu_cm(e, seed) {
-                    Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                    None => elastic_scatter(e, u, nuc.awr, seed),
+                // Kept in lockstep with [`transport_history`] — the two differ
+                // only in where Sigma_t comes from, so the bound-atom
+                // S(alpha, beta) branch must be present here too.
+                let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (e_out, rotate_direction(u, mu_lab, seed))
+                } else {
+                    match nuc.sample_elastic_mu_cm(e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
+                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    }
                 };
                 e = e2;
                 u = u2;
@@ -1468,9 +1629,18 @@ mod tests {
             name: "Godiva".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         (material, nuclides)
@@ -1487,11 +1657,25 @@ mod tests {
     /// (0.9–1.4), not a benchmark gate — this guards the full transport chain (data
     /// → geometry → collision → scatter → fission → power iteration), not accuracy.
     ///
-    /// **Results (2026-07).** k_eff ≈ 1.010 ± 0.002, i.e. ~+1 000 pcm high (down
-    /// from ~1.129 / +12 900 pcm before the LOW tier gained inelastic + forward
-    /// elastic scatter — see `docs/development-history.md`). The result is
-    /// stationary and low-noise; the small residual bias is expected for this
-    /// fidelity (no self-shielding; one mean cosine; evaporation for inelastic).
+    /// **Results (2026-08-06, re-measured under the `op-jis` PCG-RXS-M-XS `prn`
+    /// output permutation).** k_eff = **1.01997 ± 0.00571**, i.e. **+1 997 pcm**
+    /// high — inside the [0.9, 1.4] plausibility band and comfortably under the
+    /// `σ < 0.02` noise gate this test asserts. Still far down from ~1.129 /
+    /// +12 900 pcm before the LOW tier gained inelastic + forward elastic scatter
+    /// (see `docs/development-history.md`). The result is stationary; the residual
+    /// bias is expected for this fidelity (no self-shielding; one mean cosine;
+    /// evaporation for inelastic). Measured by running this test's exact
+    /// configuration (1 500 histories × [20 inactive + 40 active], default seed) on
+    /// 2026-08-06 — the test itself prints nothing, so the value was taken from a
+    /// throwaway driver replicating it verbatim.
+    ///
+    /// **Supersedes (2026-07): k_eff ≈ 1.010 ± 0.002, ~+1 000 pcm.** That figure was
+    /// measured with the pre-`op-jis` `prn` output function (raw top-52 state bits).
+    /// The LCG *state recurrence* is unchanged — seeding and jump-ahead did not move
+    /// — but every uniform double changed, so this estimator simply re-drew. Note
+    /// the quoted σ also grew (0.002 → 0.00571); at 40 active generations that
+    /// spread is ordinary batch scatter, not a fidelity change. No tolerance was
+    /// changed; the test passes as written.
     #[test]
     fn godiva_converges_to_sane_keff() {
         let (material, nuclides) = godiva();
@@ -1509,7 +1693,11 @@ mod tests {
             "Godiva k_eff {} outside the plausible first-cut band [0.9, 1.4]",
             result.k_mean
         );
-        assert!(result.k_std < 0.02, "k noisy/unconverged: σ = {}", result.k_std);
+        assert!(
+            result.k_std < 0.02,
+            "k noisy/unconverged: σ = {}",
+            result.k_std
+        );
     }
 
     /// A far-subcritical configuration (tiny sphere ⇒ leakage-dominated) must
@@ -1522,9 +1710,17 @@ mod tests {
             id: 1,
             name: "U235".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 4.8e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.8e-2,
+            }],
         };
-        let settings = KeffSettings { n_particles: 1000, n_inactive: 15, n_active: 25, ..KeffSettings::default() };
+        let settings = KeffSettings {
+            n_particles: 1000,
+            n_inactive: 15,
+            n_active: 25,
+            ..KeffSettings::default()
+        };
 
         let k_big = run_keff(9.0, &material, &nuclides, &settings).k_mean;
         let k_small = run_keff(3.0, &material, &nuclides, &settings).k_mean;
@@ -1561,25 +1757,44 @@ mod tests {
     /// (prints `SKIP` and is not asserted) when no GPU adapter is present in the
     /// test process, so the test is green on CPU-only CI.
     ///
-    /// **Results (2026-07-17; adapter: NVIDIA GeForce RTX 3050, LOW-tier data,
-    /// 800 histories × [15 + 40], seed = 1).** All three modes ran (GPU arm not
+    /// **Results (2026-08-06; adapter: NVIDIA GeForce RTX 3050, LOW-tier data,
+    /// 800 histories × [15 + 40], seed = 1; re-measured under the `op-jis`
+    /// PCG-RXS-M-XS `prn` output permutation).** All three modes ran (GPU arm not
     /// skipped — a real adapter was present in the test process):
-    /// - k_single = **1.00762 ± 0.00827** (trusted reference),
-    /// - k_multi  = **1.00715 ± 0.00768**,
-    /// - k_gpu    = **1.01284 ± 0.00823** (fused collision-on-GPU path).
+    /// - k_single = **1.01207 ± 0.00673** (trusted reference),
+    /// - k_multi  = **1.01897 ± 0.00945**,
+    /// - k_gpu    = **1.00863 ± 0.00834** (fused collision-on-GPU path).
     ///
-    /// Pairwise σ-distances:
-    /// - single-vs-multi: |Δk| = 0.00047 = **0.04σ** (5σ band 0.05643) — a
-    ///   statistically independent stream landing essentially on top of the
-    ///   reference;
-    /// - single-vs-gpu: |Δk| = 0.00522 = **0.45σ** (combined σ 0.01167, 5σ band
-    ///   0.05833) — the fused collision-on-GPU path (independent per-history streams
+    /// Pairwise σ-distances, with `σ_comb = sqrt(σ_a² + σ_b²)` and the arithmetic
+    /// written out so a reader can check it against the numbers above:
+    /// - single-vs-multi: |Δk| = |1.01207 − 1.01897| = 0.00690;
+    ///   σ_comb = sqrt(0.00673² + 0.00945²) = sqrt(4.5293e-5 + 8.9300e-5)
+    ///   = sqrt(1.3459e-4) = 0.01160; 0.00690 / 0.01160 = **0.59σ** (5σ band
+    ///   0.05801) — a statistically independent stream well inside the reference's
+    ///   uncertainty;
+    /// - single-vs-gpu: |Δk| = |1.01207 − 1.00863| = 0.00344;
+    ///   σ_comb = sqrt(0.00673² + 0.00834²) = sqrt(4.5293e-5 + 6.9556e-5)
+    ///   = sqrt(1.1485e-4) = 0.01072; 0.00344 / 0.01072 = **0.32σ** (5σ band
+    ///   0.05358) — the fused collision-on-GPU path (independent per-history streams
     ///   + `f32` flight *and* collision) lands well within combined uncertainty of
     ///   the reference. The GPU is acceleration only, judged against the CPU
     ///   reference, never trusted above it.
     ///
-    /// All three land within ~1300 pcm of unity and within ~0.5σ of each other —
+    /// Not asserted by this test, recorded for completeness (same arithmetic):
+    /// multi-vs-gpu |Δk| = 0.01034, σ_comb = sqrt(0.00945² + 0.00834²) = 0.01260,
+    /// = **0.82σ** — the widest of the three pairs.
+    ///
+    /// All three land within ~1 900 pcm of unity and within 0.82σ of each other —
     /// moving the whole collision onto the GPU does not change the physics.
+    ///
+    /// **Supersedes (2026-07-17, measured with the pre-`op-jis` `prn` output
+    /// function — raw top-52 state bits):** k_single = 1.00762 ± 0.00827,
+    /// k_multi = 1.00715 ± 0.00768, k_gpu = 1.01284 ± 0.00823; single-vs-multi
+    /// |Δk| = 0.00047 = 0.04σ, single-vs-gpu |Δk| = 0.00522 = 0.45σ. The LCG state
+    /// recurrence is unchanged (integer-state facts, golden seeds, jump-ahead
+    /// identities and the GPU integer-state mirror all still hold), so all that
+    /// moved is the uniform stream every arm draws from — each of the three arms
+    /// re-drew independently. No tolerance was changed; the 5σ gate is unaltered.
     #[test]
     fn three_compute_modes_agree_on_godiva() {
         let (material, nuclides) = godiva();
@@ -1620,7 +1835,12 @@ mod tests {
         assert!(
             d_sm <= 5.0 * sig_sm,
             "single ({:.5}±{:.5}) vs multi ({:.5}±{:.5}) disagree beyond 5σ: |Δk|={:.5} > {:.5}",
-            single.k_mean, single.k_std, multi.k_mean, multi.k_std, d_sm, 5.0 * sig_sm
+            single.k_mean,
+            single.k_std,
+            multi.k_mean,
+            multi.k_std,
+            d_sm,
+            5.0 * sig_sm
         );
 
         // GPU arm: skip gracefully when no adapter, else run and assert agreement.
@@ -1628,7 +1848,12 @@ mod tests {
             eprintln!("SKIP gpu arm: no adapter");
             return;
         }
-        let gpu = run_keff(8.7407, &material, &nuclides, &base.with_compute(ComputeType::Gpu));
+        let gpu = run_keff(
+            8.7407,
+            &material,
+            &nuclides,
+            &base.with_compute(ComputeType::Gpu),
+        );
         eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
 
         let d_sg = (single.k_mean - gpu.k_mean).abs();
@@ -1642,7 +1867,12 @@ mod tests {
         assert!(
             d_sg <= 5.0 * sig_sg,
             "single ({:.5}±{:.5}) vs gpu ({:.5}±{:.5}) disagree beyond 5σ: |Δk|={:.5} > {:.5}",
-            single.k_mean, single.k_std, gpu.k_mean, gpu.k_std, d_sg, 5.0 * sig_sg
+            single.k_mean,
+            single.k_std,
+            gpu.k_mean,
+            gpu.k_std,
+            d_sg,
+            5.0 * sig_sg
         );
     }
 
@@ -1696,7 +1926,11 @@ mod tests {
         )
         .k_mean;
 
-        assert_eq!(one_a.to_bits(), one_b.to_bits(), "not run-to-run reproducible: {one_a} != {one_b}");
+        assert_eq!(
+            one_a.to_bits(),
+            one_b.to_bits(),
+            "not run-to-run reproducible: {one_a} != {one_b}"
+        );
         assert_eq!(
             one_a.to_bits(),
             four.to_bits(),
@@ -1732,20 +1966,44 @@ mod tests {
     /// (energy transfer + forward peaking) are what close the Godiva gap and that
     /// they survive the reduction to group data.
     ///
-    /// **Results (2026-07-03; HIGH = ENDF/B-VII.1, LOW = embedded VIII.0 group;
-    /// 5000 particles, 40 inactive + 120 active generations, default seed).**
-    /// LOW k_eff = **1.01024 (+1 024 pcm)**; HIGH k_eff = **1.00367 ± 0.00182
-    /// (+367 pcm)** — both in agreement with the benchmark. The ranked HIGH-tier
-    /// lever contributions (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm
-    /// ≫ continuous-energy data ~400 pcm) are in `docs/development-history.md`.
+    /// **Results — read the two vintages separately.**
     ///
-    /// **(n,2n) multiplicity — measured worth.** A same-settings A/B (n2n on vs
+    /// **LOW tier (2026-08-06, re-measured under the `op-jis` PCG-RXS-M-XS `prn`
+    /// output permutation).** k_eff = **1.01042 ± 0.00174 (+1 042 pcm)** vs ICSBEP
+    /// 1.0000 ± 0.0010 — still in agreement with the benchmark. Source: a re-run of
+    /// `examples/godiva_keff` (5 000 particles × [40 inactive + 110 active],
+    /// embedded LOW-tier data, default seed), which is the LOW-tier Godiva case that
+    /// was actually re-executed for `op-jis`. Note it is [40 + 110], not the
+    /// [40 + 120] this test uses: the in-test LOW arm sits behind the `net-fetch`
+    /// gate and therefore re-runs together with the HIGH arm below.
+    /// *Supersedes* LOW k_eff = 1.01024 (+1 024 pcm), measured 2026-07-03 with the
+    /// pre-`op-jis` `prn` output function (raw top-52 state bits).
+    ///
+    /// **HIGH tier — SUPERSEDED BY `op-jis`, PENDING RE-RUN.** Everything from here
+    /// to the end of this doc comment (the HIGH k_eff, the ranked lever
+    /// contributions, the (n,2n) A/B and the MF=5 χ A/B) was measured on 2026-07-03
+    /// with the **pre-`op-jis`** `prn` output function (raw top-52 state bits). The
+    /// LCG state recurrence did not change, but every uniform double did, so every
+    /// one of these figures is expected to have moved. They are retained verbatim
+    /// rather than deleted because they are the last values actually measured — but
+    /// **do not cite them as current** until `examples/godiva_keff_endf` has been
+    /// re-run under the new `prn` and this block reconciled against it.
+    ///
+    /// *(2026-07-03; HIGH = ENDF/B-VII.1; 5000 particles, 40 inactive + 120 active
+    /// generations, default seed.)* HIGH k_eff = **1.00367 ± 0.00182 (+367 pcm)** —
+    /// in agreement with the benchmark. The ranked HIGH-tier lever contributions
+    /// (anisotropic elastic ~10 300 pcm ≫ inelastic ~2 510 pcm ≫ continuous-energy
+    /// data ~400 pcm) are in `docs/development-history.md`.
+    ///
+    /// **(n,2n) multiplicity — measured worth** *(2026-07-03, pre-`op-jis`; pending
+    /// re-run — see the banner above).* A same-settings A/B (n2n on vs
     /// forced off) gives 0.99872 ± 0.00173 (on) vs 0.99701 ± 0.00168 (off), a shift
     /// of **+171 ± 241 pcm** — the correct sign but only ~0.7σ, **not resolved from
     /// zero**. Expected: U (n,2n) has a ~5–6 MeV threshold and sees only the thin
     /// high-energy tail, so its Godiva worth is tens of pcm — a *fidelity* fix.
     ///
-    /// **Energy-dependent χ (ENDF MF=5) — measured worth.** Replacing the fixed
+    /// **Energy-dependent χ (ENDF MF=5) — measured worth** *(2026-07-03,
+    /// pre-`op-jis`; pending re-run — see the banner above).* Replacing the fixed
     /// thermal-Watt fission birth spectrum with the real energy-dependent MF=5/MT=18
     /// χ(E→E') (LF=1, per-nuclide, ported from OpenMC `ContinuousTabular::sample`).
     /// A paired A/B (MF=5 vs Watt, same reconstruction and seed) gives HIGH =
@@ -1773,9 +2031,18 @@ mod tests {
             name: "Godiva".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         let settings = KeffSettings {
@@ -1808,7 +2075,11 @@ mod tests {
             k_high > 0.95 && k_high < 1.05,
             "HIGH Godiva k_eff {k_high} not within ~5000 pcm of the benchmark"
         );
-        assert!(result.k_std < 0.02, "HIGH k noisy/unconverged: σ = {}", result.k_std);
+        assert!(
+            result.k_std < 0.02,
+            "HIGH k noisy/unconverged: σ = {}",
+            result.k_std
+        );
 
         // (b) Both levers now live in the LOW tier too, so the embedded/offline run
         //     also lands near unity — from group data plus a single per-group μ̄.
@@ -1863,16 +2134,26 @@ mod tests {
 
         // Detect this host's hardware and accumulate measured rows into a
         // per-PC report (the "what performance is available on my PC" answer).
-        let mut report =
-            PerfReport::new("Godiva GPU batched-flight transport — this machine", "2026-07-17");
+        let mut report = PerfReport::new(
+            "Godiva GPU batched-flight transport — this machine",
+            "2026-07-17",
+        );
         eprintln!("[sweep] host: {}", report.hardware.headline());
 
         for &n_particles in &sizes {
-            let base = KeffSettings { n_particles, n_inactive, n_active, ..KeffSettings::default() };
+            let base = KeffSettings {
+                n_particles,
+                n_inactive,
+                n_active,
+                ..KeffSettings::default()
+            };
             let histories_total = n_particles * n_gen;
 
             let mut runs: Vec<(&str, ComputeType)> = vec![
-                ("CpuMultiThread", ComputeType::CpuMultiThread(ThreadCount::Auto)),
+                (
+                    "CpuMultiThread",
+                    ComputeType::CpuMultiThread(ThreadCount::Auto),
+                ),
                 ("Gpu", ComputeType::Gpu),
             ];
             // Single-thread only up to 1e5 to bound total benchmark wall-time.
@@ -1945,11 +2226,18 @@ mod tests {
         };
         let (material, nuclides) = godiva();
         let radius = 8.7407;
-        let base = KeffSettings { n_inactive: 3, n_active: 7, ..KeffSettings::default() };
+        let base = KeffSettings {
+            n_inactive: 3,
+            n_active: 7,
+            ..KeffSettings::default()
+        };
         eprintln!("[cmp] adapter: {}", ctx.info.name);
         eprintln!("[cmp] N         BEFORE(cpu-collide) AFTER(gpu-collide)  Multi     speedup(before/after)");
         for &n in &[10_000usize, 100_000, 1_000_000] {
-            let s = KeffSettings { n_particles: n, ..base };
+            let s = KeffSettings {
+                n_particles: n,
+                ..base
+            };
 
             let t0 = Instant::now();
             let before = run_keff_gpu_batched(&ctx, radius, &material, &nuclides, &s);

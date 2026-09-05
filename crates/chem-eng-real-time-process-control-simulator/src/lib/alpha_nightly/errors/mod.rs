@@ -3,15 +3,13 @@ use thiserror::Error;
 /// Master Error type of this crate
 #[derive(Debug, Error)]
 pub enum ChemEngProcessControlSimulatorError {
-
-
-    /// it's a generic error which is a placeholder since I used 
+    /// it's a generic error which is a placeholder since I used
     /// so many string errors
     #[error("Placeholder Error Type for Strings{0} ")]
     GenericStringError(String),
 
-    /// when transfer function is unstable when it should be 
-    /// stable 
+    /// when transfer function is unstable when it should be
+    /// stable
     #[error("Unstable Damping Factor for Stable Transfer Function")]
     UnstableDampingFactorForStableTransferFunction,
 
@@ -20,9 +18,6 @@ pub enum ChemEngProcessControlSimulatorError {
 
     #[error("csv error")]
     CsvError(csv::Error),
-
-
-    
 }
 
 impl From<csv::Error> for ChemEngProcessControlSimulatorError {
@@ -41,26 +36,16 @@ impl From<String> for ChemEngProcessControlSimulatorError {
 impl Into<String> for ChemEngProcessControlSimulatorError {
     fn into(self) -> String {
         match self {
-            ChemEngProcessControlSimulatorError::GenericStringError(string) => {
-                string
-            },
+            ChemEngProcessControlSimulatorError::GenericStringError(string) => string,
             ChemEngProcessControlSimulatorError::UnstableDampingFactorForStableTransferFunction => {
-                // just recursively calling, probably need to check 
+                // just recursively calling, probably need to check
                 // thermal hydraulics
                 "unstable damping factor".to_owned()
-            },
+            }
             ChemEngProcessControlSimulatorError::WrongTransferFnType => {
                 "wrong transfer function type".to_owned()
-            },
-            ChemEngProcessControlSimulatorError::CsvError(err) => {
-                err.to_string()
-            },
-
+            }
+            ChemEngProcessControlSimulatorError::CsvError(err) => err.to_string(),
         }
-
-
     }
 }
-
-
-

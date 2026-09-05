@@ -16,8 +16,16 @@
 //! Add a `constant/thermophysicalProperties` reader (for `ψ`/`R`/`γ`, `μ`) to
 //! the io layer and wire the parsed values into [`SonicFoam`] before `run()`,
 //! plus require `0/e` (specific internal energy) as an initial field. Then this
-//! binary can follow `rhoCentralFoam`'s read→construct→march→write path.
 
+//! `sonicFoam` — not case-wired; see
+//! [`outram_foam_appbuilder_lib::case_runner::SolverKind::is_case_wired`].
+//!
+//! The solver itself is implemented. What is missing is a reader for
+//! `constant/thermophysicalProperties`, without which its initial state
+//! cannot be built from a case directory. The explanation now lives in one
+//! place, on the error, rather than being restated here.
+
+use outram_foam_appbuilder_lib::case_runner::{CaseRun, SolverKind};
 use outram_foam_cli::{CaseArgs, CliError};
 
 fn main() {
@@ -29,13 +37,8 @@ fn main() {
 }
 
 fn run(args: &CaseArgs) -> Result<(), CliError> {
-    let _case = args.case_dir()?;
-    Err(CliError::Tool(
-        "sonicFoam: not yet case-wired. The solver needs the compressibility psi = rho/p (and mu) \
-         from constant/thermophysicalProperties, which the case reader does not parse yet (it \
-         reads only vol fields + system/ dicts). Running with a default psi would impose the wrong \
-         equation of state, so no run is performed. See rhoCentralFoam for the case-wiring pattern \
-         once a thermo reader exists."
-            .into(),
-    ))
+    let case_dir = args.case_dir()?;
+    CaseRun::from_case(&case_dir, SolverKind::SonicFoam)
+        .map(|_| ())
+        .map_err(|e| CliError::Tool(e.to_string()))
 }

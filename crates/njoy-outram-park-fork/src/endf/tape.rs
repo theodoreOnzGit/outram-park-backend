@@ -56,6 +56,36 @@ impl Tape {
     ///
     /// Line length must be 80 characters (padded with spaces if shorter is fine).
     /// Binary (blocked-binary) tapes are not supported in this version.
+    /// Parse an ENDF ASCII tape from a file on disk.
+    ///
+    /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
+    /// unreachable from a binding generator that cannot monomorphise a type
+    /// parameter. This is the same parse behind a concrete signature, so
+    /// `Tape::read_file("n-094_Pu_239.endf")` works from Rust and from Python
+    /// alike -- the ordinary case, without the caller opening the file first.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::Io`] if the file cannot be opened or read, or any parse
+    /// error [`Tape::read`] reports.
+    /// ```no_run
+    /// use njoy_outram_park_fork::endf::tape::Tape;
+    /// use std::path::Path;
+    ///
+    /// let tape = Tape::read_file(Path::new("n-092_U_238.endf"))?;
+    /// let mat = tape.materials()[0];          // the tape knows its own MAT
+    /// let mf3_total = tape.section(mat, 3, 1); // MF=3, MT=1: total cross section
+    /// # Ok::<(), njoy_outram_park_fork::NjoyError>(())
+    /// ```
+    ///
+    /// Prefer this over `File::open` + [`Tape::read`] for a file on disk. The
+    /// generic [`Tape::read`] is for the cases this cannot serve — a socket, a
+    /// decompressor, an in-memory buffer.
+    pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
+        let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
+        Self::read(file)
+    }
+
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
         let mut lines = BufReader::new(reader).lines();
         let mut tpid = String::new();
@@ -83,19 +113,29 @@ impl Tape {
                 // Flush any open section
                 if let Some(key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(key).or_insert(idx);
                 }
                 continue;
             }
 
-            let key = EndfKey { mat: rl.mat, mf: rl.mf, mt: rl.mt };
+            let key = EndfKey {
+                mat: rl.mat,
+                mf: rl.mf,
+                mt: rl.mt,
+            };
 
             // Start a new section when the key changes
             if current_key != Some(key) {
                 if let Some(prev_key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key: prev_key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key: prev_key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(prev_key).or_insert(idx);
                 }
                 current_key = Some(key);
@@ -107,11 +147,18 @@ impl Tape {
         // Flush the last open section (if the tape lacked a TEND)
         if let Some(key) = current_key.take() {
             let idx = sections.len();
-            sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+            sections.push(Section {
+                key,
+                rows: std::mem::take(&mut current_rows),
+            });
             index.entry(key).or_insert(idx);
         }
 
-        Ok(Tape { tpid, sections, index })
+        Ok(Tape {
+            tpid,
+            sections,
+            index,
+        })
     }
 
     /// Look up a section by `(mat, mf, mt)`, returning `None` if absent.
@@ -121,6 +168,20 @@ impl Tape {
     }
 
     /// Iterate over all sections in file order.
+    /// Every ENDF material number on this tape, ascending and deduplicated.
+    ///
+    /// A tape carries its own MAT numbers, so a caller should never have to
+    /// look one up in a table to use the file they already hold. Most
+    /// evaluations contain exactly one material, which makes
+    /// `tape.materials()[0]` the common case.
+    #[must_use]
+    pub fn materials(&self) -> Vec<i32> {
+        let mut mats: Vec<i32> = self.sections.iter().map(|s| s.key.mat).collect();
+        mats.sort_unstable();
+        mats.dedup();
+        mats
+    }
+
     pub fn sections(&self) -> &[Section] {
         &self.sections
     }
@@ -143,7 +204,11 @@ impl Tape {
         for (i, sec) in sections.iter().enumerate() {
             index.entry(sec.key).or_insert(i);
         }
-        Tape { tpid, sections, index }
+        Tape {
+            tpid,
+            sections,
+            index,
+        }
     }
 
     /// Write this tape back out in ENDF ASCII (formatted) mode — the write
@@ -181,14 +246,22 @@ impl Tape {
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
             for row in &sec.rows {
-                writeln!(w, "{}", format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq))
-                    .map_err(NjoyError::Io)?;
+                writeln!(
+                    w,
+                    "{}",
+                    format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq)
+                )
+                .map_err(NjoyError::Io)?;
                 seq += 1;
             }
 
             // SEND — end of section (always follows a section's data rows).
-            writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq))
-                .map_err(NjoyError::Io)?;
+            writeln!(
+                w,
+                "{}",
+                format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq)
+            )
+            .map_err(NjoyError::Io)?;
             seq += 1;
 
             let next_key = iter.peek().map(|s| s.key);

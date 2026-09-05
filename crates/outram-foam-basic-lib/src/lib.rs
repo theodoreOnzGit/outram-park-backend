@@ -27,6 +27,10 @@
 //! directory, mirrored from the workspace root) for the full attribution
 //! and non-affiliation notice.
 
+/// Cross-layer — where a numerical kernel runs (`ComputeBackend`: serial,
+/// multi-CPU via `rayon`, or GPU via `wgpu`), the worker-count policy, and the
+/// backend-selection rule. Dispatch only, no kernels.
+pub mod compute;
 /// Layer 2 — field containers (`VolField`/`SurfaceField`), boundary
 /// conditions, and field-level tensor algebra.
 pub mod fields;
@@ -36,11 +40,21 @@ pub mod fluid_thermo;
 /// Layer 3 — finite-volume discretisation operators (`fvc` explicit, `fvm`
 /// implicit, and `adjust_phi` continuity correction).
 pub mod fv_operators;
+/// Layer 3 — optional source terms attached to finite-volume equations,
+/// OpenFOAM's `fvOptions` (Foundation `fvModels`) mechanism.
+pub mod fv_options;
 /// Layer 1f — one-dimensional data interpolation (linear and spline).
 pub mod interpolation;
+/// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
+/// time-directory field read/write, and whole-case reading.
+pub mod io;
+/// Layer 2 — asymmetric Krylov iterative solvers (BiCGStab, restarted GMRES)
+/// and preconditioners (Jacobi, ILU(0)) for the sparse `LduMatrix`.
+pub mod krylov;
 /// Layer 2 — sparse LDU (lower/diagonal/upper) matrices, the assembled
 /// `FvMatrix`, and iterative linear solvers (CG, Gauss–Seidel, GAMG).
 pub mod ldu_matrix;
+pub mod limiters;
 /// Layer 1g — mathematical special functions (inverse error function,
 /// incomplete gamma functions and their inverse).
 pub mod math;
@@ -49,9 +63,6 @@ pub mod matrix;
 /// Layer 2 — the finite-volume mesh: cells, faces, boundary patches, and
 /// geometric metrics.
 pub mod mesh;
-/// OpenFOAM ASCII case I/O — `FoamFile` dictionaries, `polyMesh` read/write,
-/// time-directory field read/write, and whole-case reading.
-pub mod io;
 /// Layer 1e — ordinary-differential-equation solvers (Euler, RKF45,
 /// Rosenbrock23).
 pub mod ode;

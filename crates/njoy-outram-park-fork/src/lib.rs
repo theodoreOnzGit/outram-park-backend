@@ -36,11 +36,20 @@
 //! [`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
 
 pub mod acer;
-/// HIGH-fidelity data acquisition — download raw ENDF tapes from a pinned
-/// upstream and reconstruct pointwise cross sections on device. Behind the
-/// **`net-fetch`** feature (opt-in; the default build ships the offline LOW tier
-/// only). See [`acquire`] and `docs/data-acquisition.md`.
-#[cfg(feature = "net-fetch")]
+/// Data acquisition and the crate's **single on-disk artifact cache**.
+///
+/// Two halves, with different gating:
+///
+/// - **The cache substrate is always compiled.** [`acquire::EndfCache`] does
+///   platform cache-dir discovery, per-artifact advisory locking, a
+///   double-checked acquire, fsync + atomic rename, and a SHA-256 sidecar. It
+///   has two producers: the download path below, and the **offline LEAPR
+///   regeneration** path ([`leapr::generate`]), which is on by default.
+/// - **The download path is behind the `net-fetch` feature** (opt-in): fetching
+///   raw ENDF tapes from a pinned upstream and reconstructing pointwise cross
+///   sections on device. The default build carries no TLS/HTTP dependency.
+///
+/// See [`acquire`] and `docs/data-acquisition.md`.
 pub mod acquire;
 pub mod broadr;
 pub mod common;
@@ -54,7 +63,7 @@ pub mod gaspr;
 /// method and damage energy (MT=444) are deferred — see [`heatr`] module docs.
 pub mod heatr;
 /// User friendly interface to access njoy library (used to be called library,
-/// but I renamed as interface to avoid mixing with lib.rs) 
+/// but I renamed as interface to avoid mixing with lib.rs)
 ///
 ///
 pub mod interface;
@@ -66,6 +75,10 @@ pub mod nuclear_data;
 pub mod photon;
 pub mod prelude;
 pub mod reconr;
+/// Locating the repository's reference ENDF tapes for V&V. The tapes live at
+/// the repo root (`reference-data/endf/`), never inside a crate — they are far
+/// too large for a crates.io package.
+pub mod reference_data;
 /// Thermal neutron scattering (the THERMR domain): read MF=7 S(α,β) evaluations
 /// and, in future, compute bound-atom thermal cross sections. Distinct from
 /// [`acer::thermal`], which *writes* the thermal ACE table.
@@ -142,3 +155,9 @@ pub mod perf_report;
 mod error;
 pub use endf::MtReaction;
 pub use error::NjoyError;
+
+/// Serial stand-ins for the `rayon` adapters this crate uses, on `wasm32`
+/// where `rayon` does not build. See the module docs for why the arithmetic is
+/// unaffected.
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;

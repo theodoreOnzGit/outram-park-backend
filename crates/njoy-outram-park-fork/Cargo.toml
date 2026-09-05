@@ -1,6 +1,7 @@
 [package]
 name = "njoy-outram-park-fork"
-version = "0.0.1"
+version = "0.0.3"
+authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only for the work as a whole (matches the rest of OUTRAM PARK).
 # This crate is a derivative work of NJOY2016, which is itself under a modified
@@ -14,15 +15,21 @@ description = "Pure-Rust port (in progress) of NJOY2016 nuclear-data processing 
 keywords = ["nuclear", "endf", "cross-sections", "reconr", "neutronics"]
 
 # LICENSE.njoy and NOTICE must travel with every redistribution (BSD-3 cond. 1).
-# Integration tests and ENDF fixture files (some > 30 MB) are excluded from the
-# tarball — they are development-only and crates.io does not run them.
+# Integration tests are excluded from the tarball — development-only, and
+# crates.io does not run them. Raw ENDF tapes are not merely excluded here: as
+# of 2026-08-17 they do not live under this crate at all, but at the repo root
+# in reference-data/endf/ (~89 MB, U-235 alone 35 MB, against a 10 MB crates.io
+# cap). See src/reference_data.rs; tests/no_endf_inside_crates.rs enforces it.
+# Patterns are gitignore-style globs: an unanchored "LICENSE*" would also match
+# the vendored upstream_source/NJOY2016/ licence files (gitignored, so cargo
+# then refuses to package a "dirty" tree). Leading "/" anchors to the crate root.
 include = [
     "src/**",
     "docs/**",
-    "LICENSE*",
-    "NOTICE",
-    "README.md",
-    "Cargo.toml",
+    "/LICENSE*",
+    "/NOTICE",
+    "/README.md",
+    "/Cargo.toml",
 ]
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate.
@@ -39,7 +46,9 @@ log.workspace = true
 # (`reconr::refine_resonance_grid`) evaluates independent energy windows in
 # parallel. Pure speedup — the per-window results are identical to the serial
 # order (`delta_at` is a pure function of energy).
-rayon.workspace = true
+# rayon is declared in a target table further down: rayon-core does not build
+# for wasm32-unknown-unknown. See that table for the full reasoning.
+
 # Pure-Rust DEFLATE codec for the embedded WMPB blob (`WindowedMultipole::from_blob`
 # / `to_blob`). Default (non-optional): the zero-dependency shipping path decodes
 # the blob without HDF5, so the codec must be in the default build.
@@ -48,17 +57,20 @@ miniz_oxide.workspace = true
 # burden). Used by `WindowedMultipole::load_h5` (WMP blob-baking) and the OpenMC
 # ENDF/B-8.0 code-to-code Doppler verification test. See docs/architecture.md.
 hdf5-pure.workspace = true
-# HIGH-fidelity ENDF download tier — all optional, behind the `net-fetch` feature
-# (docs/data-acquisition.md). The default lean build pulls none of these, so a
-# data consumer that only wants the embedded LOW tier stays free of a TLS/HTTP
-# dependency tree. Pure-Rust + cross-platform (rustls, not OpenSSL).
-ureq = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
-directories = { workspace = true, optional = true }
-fs2 = { workspace = true, optional = true }
-zip = { workspace = true, optional = true }
-# Added per phase as modules are ported (see docs/porting-plan.md):
-#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)
+# ── On-disk artifact cache (always compiled) ─────────────────────────────────
+# `acquire::EndfCache` is the crate's single caching layer: platform cache-dir
+# discovery, a per-artifact advisory lock, double-checked acquire, fsync + atomic
+# rename, and a SHA-256 sidecar. It has two producers — the `net-fetch` download
+# path, and the **offline LEAPR regeneration** path
+# (`leapr::generate`), which is on by default and needs no network. So these
+# three must be unconditional. All are small, pure-Rust and Android-clean:
+# `directories` reads env vars, `fs2` uses `flock` (present on Android/bionic),
+# `sha2` is pure Rust.
+sha2 = { workspace = true }
+directories = { workspace = true }
+# fs2 gives the cache its advisory lock via flock(2). No filesystem, no flock,
+# no meaning on wasm — target-gated off, and acquire.rs's lock/unlock calls are
+# cfg'd to match. op-okqo.1.
 
 # ── Optional GPU compute (desktop only; ABSENT on Android) ────────────────────
 # wgpu is a target-gated dependency so this crate stays "lean, pure-CPU" on
@@ -84,7 +96,11 @@ wgpu = { workspace = true }
 # reconstruct pointwise cross sections on device. Off by default — the embedded
 # LOW tier (WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`.
-net-fetch = ["dep:ureq", "dep:sha2", "dep:directories", "dep:fs2", "dep:zip"]
+#
+# Only the HTTP/TLS and zip halves are gated; the on-disk cache substrate
+# (`acquire::EndfCache`) is always compiled, because the offline LEAPR
+# regeneration path (`leapr::generate`, on by default) caches through it.
+net-fetch = ["dep:ureq", "dep:zip"]
 
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
 # Own folder + README under tests/u238_doppler_verification/. Uses the always-on
@@ -100,3 +116,55 @@ path = "tests/u238_doppler_verification/main.rs"
 [[test]]
 name = "openmc_notebooks_data"
 path = "tests/openmc_notebooks_data/main.rs"
+
+# ── njoy-tui: mobile-first JANIS-like nuclear-data browser TUI ────────────────
+# A [[bin]] target inside this crate rather than a separate crate. It always
+# builds (`ratatui` is an unconditional dependency), so `cargo run -p
+# njoy-outram-park-fork --bin njoy-tui` and `cargo install --path
+# crates/njoy-outram-park-fork` need no feature flags. Sources live under
+# src/bin/njoy-tui/; the binary uses this crate's own library
+# (`njoy_outram_park_fork::...`) for the WMP/MGXS data. Design doc + Termux
+# usage: docs/njoy-tui.md.
+[[bin]]
+name = "njoy-tui"
+path = "src/bin/njoy-tui/main.rs"
+
+# ── rayon: native + Android only ─────────────────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown at all — it needs OS
+# threads and fails with "cannot find module or crate sys". So it is
+# target-gated OFF wasm.
+#
+# Note the mechanism deliberately differs from how wgpu is handled elsewhere in
+# this workspace. wgpu is gated off *Android*; rayon is NOT, because rayon is
+# pure Rust with no system component and Termux should keep its multi-core
+# path. Gating rayon by feature instead would also cost Android its threads for
+# no reason. Target-gating off wasm alone is the narrowest correct fix.
+#
+# On wasm the two call sites (reconr, broadr) import `crate::wasm_par` instead
+# of `rayon::prelude`; that module runs the same work serially and produces
+# bit-identical output. Bead op-okqo.1.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon.workspace = true
+fs2 = { workspace = true }
+# HIGH-fidelity ENDF download tier — optional, behind the `net-fetch` feature
+# (docs/data-acquisition.md). The default build pulls neither, so a data consumer
+# that only wants the offline tiers stays free of a TLS/HTTP dependency tree.
+# Pure-Rust + cross-platform (rustls, not OpenSSL).
+#
+# Off wasm as well: a browser cannot open raw sockets, so `net-fetch` there
+# would need the fetch API rather than ureq. Enabling `net-fetch` on wasm
+# therefore gets you the feature flag without the downloader; if a wasm
+# download tier is ever wanted it needs its own backend, not this one.
+ureq = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }
+# Terminal-UI stack for the `njoy-tui` binary (see [[bin]] below). A terminal UI
+# is Android-in-scope per the workspace CLAUDE.md ("Android portability": only
+# windowing GUI, e.g. egui/eframe, is out of scope), so Android keeps it and the
+# binary builds there with a plain `cargo build`. ratatui re-exports its matched
+# crossterm as `ratatui::crossterm`, so there is no separate crossterm pin.
+#
+# It sits in this table because crossterm has no wasm32 backend — there is no
+# terminal in a browser, and the njoy-tui binary is not a wasm target either.
+ratatui = { workspace = true }
+# Added per phase as modules are ported (see docs/porting-plan.md):
+#   ndarray  — ENDF tape arrays and cross-section grids (column-major data)

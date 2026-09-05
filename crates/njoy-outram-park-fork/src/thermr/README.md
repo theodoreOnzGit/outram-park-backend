@@ -35,6 +35,14 @@ consumer surface for Monte Carlo is `scattering`
 (`IncoherentInelasticScattering`); the ACE `…t` table writer is
 [`crate::acer::thermal`] (`AceTable::thermal_from_mf7`).
 
+`temperature_thinning` is a **study tool, not a production path**: it measures
+what dropping tabulated temperatures from an evaluation would cost, by
+withholding a tabulated temperature, interpolating to it from the ones kept
+(through the same kernel and `LI` law the production reader uses), and
+comparing against the evaluation's own values. It also does leave-one-out
+characterisation of the *existing* interpolation and an ENDF-byte model for the
+MT=4 section. Nothing in it changes how a requested temperature is resolved.
+
 ## Testing
 
 **Ported and verified** — Al-27 (σ_b≈1.45 b; σ_inel rises to σ_free≈1.35 b near
@@ -49,8 +57,28 @@ machine-exact (rel 1.7e-16); T_eff(293.6 K)=1194 K. The 17.4 MB `tsl-HinH2O`
 file is not checked in, so the test reads `$HINH2O_TSL` (or a default path) and
 skips when absent. See `docs/ai-fleet-review/op-cjw-thermr-h2o/REVIEW_MANIFEST.md`.
 
+**Temperature-grid thinning cost (graphite, ENDF/B-VIII.0, 2026-08-13)** —
+`tests/thermal_temperature_thinning.rs` (8 tests, 0.49 s) with the full report
+in `examples/temperature_thinning_study.rs` and the durable record in
+`verification_and_validation/thermal_temperature_grid_thinning.md`. Headline:
+MF=7/MT=4 is 99.59 % of the 8.7 MB tape, so thinning its ten temperatures is
+where the bytes are. Keeping 296/600/1200/2000 K costs **1.6–3.1 %** in
+`σ_total(0.0253 eV)` across 293–1000 K and saves 54.3 % of the tape;
+296/400/500/600/1000/2000 K costs **nothing** below 600 K (it keeps every point
+HTR-10 operates between) and still saves 36.2 %. Every candidate grid meets a
+5 % criterion over 293–1000 K; **none meets 1 %**. The error is concentrated at
+high incident energy and high-`Q` Bragg edges, outside the thermal window.
+
 ## Caveats
 
+- **`σ_inel` at an interpolated temperature leaves its tabulated bracket above
+  ~0.5 eV** — 4.4175 b at 393.15 K / 3.9 eV against a bracket of
+  [4.6097, 4.6367] (measured 2026-08-13, MAT 30; ~4–5 % low at 3.9 eV, ≲ 1 %
+  low at 0.5 eV, correct at and below 0.1 eV). `σ_inel(E,T)` is monotone in `T`
+  across the tabulated grid, so this is a defect in the `LI = 4` `S(α,β)`
+  temperature interpolation, not an approximation error. It affects every
+  non-tabulated temperature request. Found by the thinning study; **not fixed**
+  — see that study's V&V record.
 - Only the **IFENG=0** (equiprobable) inelastic form is emitted — the
   skewed/continuous **IFENG=1/2** forms are not ported.
 - Multi-scatterer mixing is taken as `nmix = 1`.

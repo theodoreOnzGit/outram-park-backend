@@ -36,15 +36,12 @@ use crate::openfoam_algorithms::openfoam_source::vol_field::VolVectorField;
 ///
 /// # Returns
 /// `true` if any adjustment was made, `false` if already balanced.
-pub fn adjust_phi(
-    phi: &mut SurfaceScalarField,
-    u: &VolVectorField,
-) -> bool {
+pub fn adjust_phi(phi: &mut SurfaceScalarField, u: &VolVectorField) -> bool {
     let mesh = &phi.mesh;
 
     // 1. Count adjustable boundary faces and sum all boundary fluxes.
-    let mut total_flux    = 0.0_f64;
-    let mut adjustable_n  = 0usize;
+    let mut total_flux = 0.0_f64;
+    let mut adjustable_n = 0usize;
 
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for fi in 0..patch.size {
@@ -78,30 +75,40 @@ mod tests {
     use crate::openfoam_algorithms::openfoam_source::boundary::bc::{BoundaryCondition, PatchField};
     use crate::openfoam_algorithms::openfoam_source::field::Field;
     use crate::openfoam_algorithms::openfoam_source::vol_field::VolVectorField;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        BoundaryPatch, FvMeshBuilder, PatchKind,
+    };
     use crate::openfoam_algorithms::openfoam_source::{FvMesh, Vector3};
 
     fn two_cell_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -109,11 +116,20 @@ mod tests {
         let m = two_cell_mesh();
         // Inlet (left) fixed at phi=-1, outlet (right) ZeroGradient at phi=0.5 (imbalanced)
         let bnd = vec![
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![0.5]) },
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![-1.0]) },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![0.5]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![-1.0]),
+            },
         ];
         let u_bnd = vec![
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![Vector3::ZERO]) },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![Vector3::ZERO]),
+            },
             PatchField {
                 bc: BoundaryCondition::FixedValue(Vector3::new(-1.0, 0.0, 0.0)),
                 values: Field::new(vec![Vector3::new(-1.0, 0.0, 0.0)]),
@@ -125,7 +141,11 @@ mod tests {
         let adjusted = adjust_phi(&mut phi, &u);
         assert!(adjusted);
         // net = 0.5 + (-1) = -0.5 → correction = 0.5 → outlet becomes 0.5+0.5=1.0
-        let net: f64 = phi.boundary.iter().flat_map(|p| p.values.iter().cloned()).sum();
+        let net: f64 = phi
+            .boundary
+            .iter()
+            .flat_map(|p| p.values.iter().cloned())
+            .sum();
         assert!(net.abs() < 1e-12, "net flux = {net}");
     }
 
@@ -133,12 +153,24 @@ mod tests {
     fn no_adjustment_when_balanced() {
         let m = two_cell_mesh();
         let bnd = vec![
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![1.0]) },
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![-1.0]) },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![1.0]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![-1.0]),
+            },
         ];
         let u_bnd = vec![
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![Vector3::ZERO]) },
-            PatchField { bc: BoundaryCondition::ZeroGradient, values: Field::new(vec![Vector3::ZERO]) },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![Vector3::ZERO]),
+            },
+            PatchField {
+                bc: BoundaryCondition::ZeroGradient,
+                values: Field::new(vec![Vector3::ZERO]),
+            },
         ];
         let u = VolVectorField::new("U", m.clone(), Field::new(vec![Vector3::ZERO; 2]), u_bnd);
         let mut phi = SurfaceScalarField::new("phi", m.clone(), Field::new(vec![0.0]), bnd);

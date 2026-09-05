@@ -49,11 +49,13 @@
 //!   ([`genflx_bondarenko`]); the `getunr` sigma-zero/energy interpolation
 //!   ([`UnresolvedTable::shield`], [`terpu`]) with both the additive (`lssf==0`)
 //!   and multiplicative (`lssf>0`) self-shielding conventions.
-//! - **NOT PORTED — PENDF URR-tape reading.** `stounr`'s `findf`/`contio`/
-//!   `listio` navigation of the MF=2/MT=152 record (`groupr.f90:6822-6875`) is a
-//!   separate ENDF-feeder concern. [`UnresolvedTable::store`] accepts an
-//!   *already-parsed* set of points; [`read_urr_from_pendf`] is the documented
-//!   boundary marker returning [`NjoyError::NotPorted`].
+//! - **DONE — PENDF URR-tape reading.** `stounr`'s `findf`/`contio`/`listio`
+//!   navigation of the MF=2/MT=152 record (`groupr.f90:6822-6875`) is ported as
+//!   the separate ENDF-feeder in [`crate::groupr::urr_pendf`]:
+//!   [`crate::groupr::urr_pendf::read_urr_from_tape`] locates the section on a
+//!   real [`crate::endf::tape::Tape`] and [`crate::groupr::urr_pendf::read_urr_table`]
+//!   decodes it. [`UnresolvedTable::store`] (this module) remains the
+//!   already-parsed data-holding half either feeder builds on.
 //! - **NOT PORTED — the slowing-down flux branch of `genflx`** (`nflmax > 0`,
 //!   `groupr.f90:5396-5620`): the iterative integral-slowing-down solve with
 //!   heterogeneity/admixed-moderator terms (`alpha`, `beta`, `sam`, `gamma`).
@@ -259,8 +261,8 @@ impl UrrReaction {
 ///
 /// `xs[ix][is]` is the cross section \[barn\] for reaction column `ix` at stored
 /// dilution `is` (index into [`UnresolvedTable::sigma0_grid`]). This is the
-/// already-parsed layout `stounr` would fill from the PENDF LIST body; parsing
-/// that tape is out of scope (see [`read_urr_from_pendf`]).
+/// already-parsed layout `stounr` fills from the PENDF LIST body; the tape
+/// reader that builds it lives in [`crate::groupr::urr_pendf`].
 #[derive(Debug, Clone)]
 pub struct UrrEnergyPoint {
     /// Energy \[eV\] of this URR point (must be positive; ascending across the
@@ -337,7 +339,7 @@ const DEL: f64 = 1.0e-10;
 impl UnresolvedTable {
     /// Store an already-parsed URR self-shielded cross-section table — the
     /// data-holding half of `stounr` (`groupr.f90:6846-6875`) without the PENDF
-    /// tape navigation (see [`read_urr_from_pendf`]).
+    /// tape navigation (see [`crate::groupr::urr_pendf::read_urr_from_tape`]).
     ///
     /// # Parameters
     /// - `temperature_k` — temperature \[K\] of the stored data.
@@ -701,20 +703,6 @@ pub fn terpu(sigz: f64, xs: &[f64], sigs: &[f64]) -> f64 {
     sig
 }
 
-/// Read a URR self-shielded cross-section table from a PENDF tape (MF=2/MT=152)
-/// — **not ported** (documented boundary).
-///
-/// Upstream `stounr` navigates the tape with `findf`/`contio`/`tosend`/`listio`
-/// (`groupr.f90:6822-6875`) to locate MAT + temperature and read the LIST body.
-/// That ENDF-record reading is a separate feeder concern; this port takes an
-/// already-parsed table through [`UnresolvedTable::store`]. Returns
-/// [`NjoyError::NotPorted`] tagged `"groupr::stounr (PENDF URR-tape reading)"`.
-pub fn read_urr_from_pendf() -> Result<UnresolvedTable, NjoyError> {
-    Err(NjoyError::NotPorted(
-        "groupr::stounr (PENDF URR-tape reading)",
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -743,7 +731,10 @@ mod tests {
             assert_eq!(bondarenko_flux_value(st, 1.0, spot, f64::INFINITY), 1.0);
             // very large dilution -> approaches C = 1
             let big = bondarenko_flux_value(st, 1.0, spot, 1.0e12);
-            assert!((big - 1.0).abs() < 1e-9, "sigma_t={st}: big-dilution phi={big}");
+            assert!(
+                (big - 1.0).abs() < 1e-9,
+                "sigma_t={st}: big-dilution phi={big}"
+            );
             // zero dilution -> C * sigma_pot / sigma_t (the 1/sigma_t NR shape)
             let nr = bondarenko_flux_value(st, 1.0, spot, 0.0);
             assert!((nr - spot / st).abs() < 1e-13, "sigma_t={st}: nr phi={nr}");
@@ -823,7 +814,11 @@ mod tests {
         let xs = [1.0, 2.0, 5.0, 12.0];
         for k in 0..sigs.len() {
             let v = terpu(sigs[k], &xs, &sigs);
-            assert!((v - xs[k]).abs() < 1e-10, "node {k}: terpu={v}, xs={}", xs[k]);
+            assert!(
+                (v - xs[k]).abs() < 1e-10,
+                "node {k}: terpu={v}, xs={}",
+                xs[k]
+            );
         }
         let mid = terpu(50.0, &xs, &sigs); // between sigs=100 (2.0) and 10 (5.0)
         assert!((2.0..=5.0).contains(&mid), "terpu(50)={mid} out of (2,5)");
@@ -940,19 +935,10 @@ mod tests {
         let above = t.shield(UrrReaction::Total, 40.0, &[1.0], &[10.0]).unwrap();
         assert_eq!(above.next_energy, None);
         // Fission column not stored (only reaction 0 present).
-        let absent = t.shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0]).unwrap();
+        let absent = t
+            .shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0])
+            .unwrap();
         assert_eq!(absent.next_energy, None);
         assert_eq!(absent.sig, vec![1.0]);
-    }
-
-    /// The PENDF URR-tape reader is an explicit `NotPorted` boundary.
-    #[test]
-    fn urr_tape_reader_not_ported() {
-        assert!(matches!(
-            read_urr_from_pendf(),
-            Err(NjoyError::NotPorted(
-                "groupr::stounr (PENDF URR-tape reading)"
-            ))
-        ));
     }
 }

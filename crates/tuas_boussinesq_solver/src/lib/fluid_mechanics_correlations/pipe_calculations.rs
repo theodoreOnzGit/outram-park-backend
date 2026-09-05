@@ -21,10 +21,11 @@ pub fn pipe_calc_pressure_loss(
     fluid_density: MassDensity,
     pipe_length: Length,
     absolute_roughness: Length,
-    form_loss_k: f64) -> Result<Pressure,TuasLibError> {
+    form_loss_k: f64,
+) -> Result<Pressure, TuasLibError> {
     // first let's calculate roughness ratio
 
-    let roughness_ratio_quantity = absolute_roughness/hydraulic_diameter;
+    let roughness_ratio_quantity = absolute_roughness / hydraulic_diameter;
 
     let roughness_ratio = roughness_ratio_quantity;
 
@@ -44,10 +45,10 @@ pub fn pipe_calc_pressure_loss(
         fluid_mass_flowrate,
         cross_sectional_area,
         hydraulic_diameter,
-        fluid_viscosity);
+        fluid_viscosity,
+    );
 
-    let length_to_diameter_ratio 
-        = pipe_length/hydraulic_diameter;
+    let length_to_diameter_ratio = pipe_length / hydraulic_diameter;
 
     // then let's obtain the pipe Bejan Number
     // given the Re
@@ -56,7 +57,8 @@ pub fn pipe_calc_pressure_loss(
         reynolds_number.into(),
         roughness_ratio.into(),
         length_to_diameter_ratio.into(),
-        form_loss_k)?;
+        form_loss_k,
+    )?;
 
     // once we get bejan_number, we can get the pressure loss terms
     //
@@ -64,8 +66,8 @@ pub fn pipe_calc_pressure_loss(
         bejan_number,
         hydraulic_diameter,
         fluid_density,
-        fluid_viscosity);
-
+        fluid_viscosity,
+    );
 
     // now before i exit, i want to make sure reverse flow is taken care
     // of
@@ -75,8 +77,6 @@ pub fn pipe_calc_pressure_loss(
 
     return Ok(pressure_loss);
 }
-
-
 
 /// a function which calculates mass flowrate
 /// given a pressure loss and pipe properties
@@ -88,41 +88,41 @@ pub fn pipe_calc_mass_flowrate(
     fluid_density: MassDensity,
     pipe_length: Length,
     absolute_roughness: Length,
-    form_loss_k: f64) -> Result<MassRate,TuasLibError> {
-
+    form_loss_k: f64,
+) -> Result<MassRate, TuasLibError> {
     // first let's get our relevant ratios:
-    let roughness_ratio_quantity = absolute_roughness/hydraulic_diameter;
+    let roughness_ratio_quantity = absolute_roughness / hydraulic_diameter;
 
     let roughness_ratio = roughness_ratio_quantity;
 
-    let length_to_diameter_ratio 
-        = pipe_length/hydraulic_diameter;
+    let length_to_diameter_ratio = pipe_length / hydraulic_diameter;
 
     // then get Bejan number:
 
-    let bejan_number_calculated_using_diameter = 
-        dimensionalisation::calc_bejan_from_pressure(
-            pressure_loss, hydraulic_diameter, 
-            fluid_density, fluid_viscosity);
+    let bejan_number_calculated_using_diameter = dimensionalisation::calc_bejan_from_pressure(
+        pressure_loss,
+        hydraulic_diameter,
+        fluid_density,
+        fluid_viscosity,
+    );
 
     // let's get Re
-    let reynolds_number_calculated_using_diameter = 
+    let reynolds_number_calculated_using_diameter =
         churchill_friction_factor::get_reynolds_from_bejan(
             bejan_number_calculated_using_diameter.into(),
             roughness_ratio.into(),
             length_to_diameter_ratio.into(),
-            form_loss_k)?;
-
+            form_loss_k,
+        )?;
 
     // and finally return mass flowrate
     //
-    let fluid_mass_flowrate = 
-        dimensionalisation::calc_reynolds_to_mass_rate(
-            cross_sectional_area,
-            reynolds_number_calculated_using_diameter.into(),
-            hydraulic_diameter,
-            fluid_viscosity);
+    let fluid_mass_flowrate = dimensionalisation::calc_reynolds_to_mass_rate(
+        cross_sectional_area,
+        reynolds_number_calculated_using_diameter.into(),
+        hydraulic_diameter,
+        fluid_viscosity,
+    );
 
     return Ok(fluid_mass_flowrate);
-
 }

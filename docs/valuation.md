@@ -136,3 +136,102 @@ Three specific things:
 domain expert's judgment behind it is the actual scarce asset — and that
 scarcity is a function of the maintainer's expertise and AI-augmented
 workflow, not raw labor-hours invested.
+
+## Update — 2026-07-22 (token lens; hand-coded crates separated)
+
+A refresh nine days on, adding a **token-count** lens and separating the two
+large hand-coded / hardcoded-data crates — `tuas_boussinesq_solver` and
+`tampines-steam-tables` — that dominate line count but were **not** AI-generated
+(CIET pre-built components + calibration data, and hardcoded IAPWS steam-table
+arrays, respectively). Same caveat as above: rough bands, not an audited
+appraisal.
+
+### Size today
+
+Measured from the tracked tree (`git ls-files`, so `target/` and gitignored
+vendor clones are excluded). "Authored source + docs" = `.rs` + `.md` + `.toml`
++ `.tex` + `.py` + shell/yaml; bundled data blobs (ENDF, WMP, regression CSVs)
+are excluded from the token corpus because they are not generated code.
+
+| Metric | Whole repo | Excl. `tuas` + `tampines-steam-tables` |
+|---|---|---|
+| Authored source + docs | 26.4 MB / 666,378 lines | 15.3 MB / 379,932 lines |
+| `.rs` files | 2,105 | — |
+| Total tracked bytes (incl. data) | ~128.6 MB | — |
+
+The two excluded crates are 286,446 source lines — about **43%** of the authored
+corpus (`tuas_boussinesq_solver` 177,792 and `tampines-steam-tables` 108,654).
+The repo grew ~40% in `.rs` lines since the 2026-07-13 estimate (new
+`outram-park-fork-pflotran` crate, the `outram-blender` boolean work, and other
+sessions).
+
+### Token estimate
+
+At ~3.2-4.0 characters per token (code is denser than prose), estimated by
+byte/character ratio rather than an exact tokenizer — order-of-magnitude bands:
+
+| Corpus | Tokens |
+|---|---|
+| Whole authored source + docs (26.4 MB) | ~6.5-8M (≈ 7M) |
+| Excl. hand-coded `tuas` + `tampines-steam-tables` (15.3 MB) | ~3.8-4.8M (≈ 4.3M) |
+| Entire repo incl. bundled nuclear-data blobs (~125 MB text) | ~30-36M |
+
+### Dollar value
+
+Two different questions:
+
+**1. Generation / token cost** — what the tokens cost to produce via an LLM API:
+
+| | Whole authored corpus (~7M tok) | Excl. hand-coded (~4.3M tok) |
+|---|---|---|
+| Emit output once (Sonnet-to-Opus rate) | ~$105-525 | ~$65-325 |
+| Realistic agentic spend (15-30x, iteration + context) | ~$1.5K-5K | ~$1K-3K |
+
+**2. Replacement / economic value** — what it would cost to commission
+equivalent work. Unchanged in band from the 2026-07-13 estimate: **~$200-600K**
+with AI leverage (~$1-3M without). Excluding the two hand-coded crates lowers
+this *less* than their 43% line share, because they are the most mechanical /
+data-heavy part (the "easily replaced" category above): rough band **~$150-450K**
+for the remainder.
+
+**Bottom line (2026-07-22):** ~7M tokens of authored code + docs (~4.3M
+excluding the hand-coded `tuas` + `tampines-steam-tables`; ~30M+ including
+bundled nuclear data). Cheap to *generate* (~$1-5K of tokens) but ~$150-600K to
+*replace* — the gap being domain judgment and the validation record, not the raw
+token count.
+
+### Cost to replace *without* AI
+
+The bands above are the *with-AI* replacement cost (a domain specialist paired
+with LLM tooling). This is the without-AI counterfactual — commissioning the
+same result by traditional software engineering, no LLM assistance. Two anchors:
+
+- **COCOMO-organic upper bound (non-credible).** Effort ≈ `2.4 * KLOC^1.05`
+  person-months. 569 KLOC of `.rs` → ~1,875 person-months ≈ **156 person-years**;
+  the ~302 KLOC remaining after removing `tuas` + `tampines-steam-tables` →
+  ~**80 person-years**. At a fully-loaded $150-220K/year that is roughly
+  $23-34M / $12-18M. **Not treated as credible** — it assumes from-scratch
+  novel design, whereas most of this codebase is careful translation of existing
+  reference implementations (OpenFOAM, OpenMC, NJOY, CoolProp, rust-steam), which
+  is far faster than invention. Kept only as an upper anchor, same as the
+  original COCOMO note above.
+
+- **Grounded manual-translation estimate.** Hand-translating already-designed,
+  validated numerical reference code — unit-tested and checked against
+  benchmarks as you go — runs on the order of 5-15 KLOC per engineer-month for a
+  domain-literate specialist. 569 KLOC → ~40-115 person-months (~3-10 FTE-years);
+  ~302 KLOC excluding the hand-coded crates → ~20-60 person-months
+  (~2-5 FTE-years). Adding cross-crate integration and the validation record on
+  top:
+
+| Scope | Without-AI replacement cost |
+|---|---|
+| Whole authored repo | ~$1-3M (roughly 5-15 fully-loaded FTE-years) |
+| Excl. hand-coded `tuas` + `tampines-steam-tables` | ~$0.6-1.8M |
+
+**Interpretation.** The without-AI figure is roughly **3-6x** the with-AI band
+(~$200-600K) — and that multiple *is* the AI leverage this project captures. The
+gap is smaller than the naive COCOMO comparison implies, because the hardest,
+slowest work (domain judgment, isolating subtle physics bugs, building the
+validation record — see "Is the work easily replaced?" above) is barely
+accelerated by AI; it is the mechanical translation *volume* that AI collapses.

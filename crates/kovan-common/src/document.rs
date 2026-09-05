@@ -31,6 +31,11 @@ pub enum DocumentType {
     Benchmark,
     /// A user manual or software manual.
     Manual,
+    /// A doctoral or master's thesis / dissertation (e.g. a UC Berkeley
+    /// eScholarship deposit). Distinct from [`DocumentType::Report`] because the
+    /// citation form differs: a thesis cites its awarding institution, not an
+    /// issuing organisation and report number.
+    Thesis,
     /// Anything else; refine into a dedicated variant when a real need appears.
     Other,
 }
@@ -556,6 +561,7 @@ mod tests {
             DocumentType::Standard,
             DocumentType::Benchmark,
             DocumentType::Manual,
+            DocumentType::Thesis,
             DocumentType::Other,
         ] {
             let json = serde_json::to_string(&dt).expect("serialise");

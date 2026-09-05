@@ -27,8 +27,15 @@
 
 Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 neutron-transport kernels — RNG, geometry/CSG, particle tracking,
-k-eigenvalue, and delta (Woodcock) tracking for doubly heterogeneous media
+k-eigenvalue (criticality) and fixed-source (external-source / shielding)
+drivers, and delta (Woodcock) tracking for doubly heterogeneous media
 (e.g. pebble-bed cores).
+
+Both canonical Monte Carlo modes are available: the **k-eigenvalue** driver
+(`run_keff` / `run_keff_csg`) for criticality, and the **fixed-source** driver
+(`run_fixed_source`) for an external neutron source (point or box) driving a
+sub-critical or non-multiplying system — the shielding / detector-response
+case, scoring track-length tallies with no power iteration.
 
 Data-free: all cross sections come from `njoy-outram-park-fork`'s
 `XsProvider` surface, not from any data bundled in this crate. See
@@ -70,6 +77,26 @@ outram-mc-libs = "0.1.0"
 use outram_mc_libs::prelude::*;
 ```
 
+### `outram-mc-tui` — terminal transport UI
+
+This crate also ships a **mobile-first, touchscreen** terminal UI: pick a preset
+geometry (pebble bed / LWR cell / TMSR-like pebble bed / bare metal sphere),
+tune the run settings (CPU single/multi/GPU, histories, batches, seed), and
+watch the k-eigenvalue converge with a neutron-spectrum / cross-section overlay.
+It is a `[[bin]]` **inside this crate** (not a separate crate); `ratatui` is an
+unconditional dependency, so it always builds with a plain `cargo build` — no
+feature flags.
+
+```bash
+# run from a checkout
+cargo run -p outram-mc-libs --bin outram-mc-tui --release
+# install the standalone binary (also works on Termux/Android)
+cargo install --path crates/outram-mc-libs
+```
+
+Full design notes and Termux usage live in
+[`docs/outram-mc-tui.md`](docs/outram-mc-tui.md).
+
 ## Scope
 
 See `CLAUDE.md` for the full porting-rule and module-scope table (RNG,
@@ -82,3 +109,10 @@ discipline.
 
 GPL-3.0-only (see the workspace root `LICENSE`), permitted under the terms
 of OpenMC's upstream MIT license — see `TRADEMARKS.md`.
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

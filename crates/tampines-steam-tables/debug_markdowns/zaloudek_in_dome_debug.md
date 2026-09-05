@@ -1,6 +1,6 @@
 # Zaloudek In-Dome Stagnation — Debug Reference
 
-Test file: `src/steam_turbine_equations/converging_diverging_nozzles/tests/zaloudek_critical_mass_flux_homogeneous_eqm/in_dome_stagnation.rs`
+Test file: `src/steam_turbine_equations/converging_diverging_nozzles/tests/zaloudek_mass_flux_hom_eqm/in_dome_stagnation.rs`
 
 Solver file: `src/steam_turbine_equations/converging_diverging_nozzles/choked_flow/stagnation_point_within_vle_ph_dome_multiphase.rs`
 

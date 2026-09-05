@@ -686,6 +686,34 @@ pub fn x_ph_flash(p: Pressure, h: AvailableEnergy) -> f64 {
                 // using a slightly colder temperature than tsat
                 // and for vapour I get it slightly higher than
                 // the tsat
+                //
+                // BEAD op-hidb (fixed 2026-08-20): this function's own copy of
+                // the sub-region chain used to pick its final (t_sat > 643.15 K)
+                // branch by TEMPERATURE alone (`t_sat_kelvin <= 646.599` /
+                // `<= 646.483`), unlike `v_ph_eqm`/`u_ph_eqm`/`s_ph_eqm` in this
+                // same file, whose identical chains already gate that final
+                // branch on PRESSURE (`p_mpa <= 21.9010` / `<= 21.9316`) per
+                // v_tp_3u/v_tp_3x/v_tp_3y/v_tp_3z's own doc comments, which
+                // state their validity windows in MPa, not just Kelvin. Sub
+                // -region Y (`v_tp_3y`) is only valid from 21.9316 MPa up to
+                // the critical pressure; below that, at a `t_sat` past 646.483
+                // K but a pressure still under 21.9316 MPa (e.g. t_sat =
+                // 646.503 K, p = 21.906 MPa, the case that surfaced this bug),
+                // the temperature-only check fired `v_tp_3y` anyway and it
+                // returned a finite but wildly nonphysical volume -- measured
+                // h_f on the order of -1e21 kJ/kg instead of ~1993 kJ/kg,
+                // silently corrupting `x_ph_flash` and its quality formula in
+                // that band. The fix is exactly the pattern already proven
+                // correct in the other three functions: gate the final branch
+                // on pressure. (An earlier attempt at this fix replaced the
+                // whole chain, including the ALREADY-correct earlier branches,
+                // with a general-dispatcher-plus-epsilon-nudge scheme; that
+                // introduced new regressions at other reference-table points
+                // -- notably t_sat = 643.15 K exactly, a genuine near-critical
+                // sub-region corner the crate's own test data already flags as
+                // "kinda fails bad" -- so it was reverted in favour of this
+                // narrower, already-validated fix.)
+                let p_mpa = p.get::<megapascal>();
                 let v_vap: SpecificVolume = {
                     // this covers up to tsat at 643.15 K
                     if t_sat_kelvin <= 640.691 {
@@ -694,7 +722,7 @@ pub fn x_ph_flash(p: Pressure, h: AvailableEnergy) -> f64 {
                         v_tp_3r(t_sat, p)
                     } else
                     // this covers pressure from 21.0434 Mpa to crit point
-                    if t_sat_kelvin <= 646.599 {
+                    if p_mpa <= 21.9010 {
                         v_tp_3x(t_sat, p)
                     } else {
                         v_tp_3z(t_sat, p)
@@ -707,7 +735,7 @@ pub fn x_ph_flash(p: Pressure, h: AvailableEnergy) -> f64 {
                         v_tp_3c(t_sat, p)
                     } else if t_sat_kelvin <= 643.15 {
                         v_tp_3s(t_sat, p)
-                    } else if t_sat_kelvin <= 646.483 {
+                    } else if p_mpa <= 21.9316 {
                         v_tp_3u(t_sat, p)
                     } else {
                         v_tp_3y(t_sat, p)

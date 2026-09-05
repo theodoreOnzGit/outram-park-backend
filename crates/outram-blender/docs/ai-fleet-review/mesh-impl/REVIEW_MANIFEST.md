@@ -1,5 +1,22 @@
 # outram-blender — Mesh-Implementation Fleet Review Manifest
 
+> ## ⚠️ HISTORICAL SNAPSHOT (superseded) — dated 2026-07-17
+>
+> This manifest records one AI-fleet pass as it stood on **2026-07-17**. Several
+> "PARTIAL" / "not implemented" entries below have since been closed and are
+> **no longer current** — the mesh **boolean** now does general union /
+> difference / intersect on non-convex closed meshes, the **vertex bevel**
+> rounds for `segments >= 2`, **CSG cylinder fitting** and the **faceted /
+> DAGMC** export route both landed (the latter with a closed-2-manifold gate),
+> `wgpu` is compiled unconditionally on desktop (there is no `gpu` cargo
+> feature any more), and the crate has since gained end-to-end Monte Carlo
+> (`sim` / MC Studio) and volume-meshing (`foam_mesh` / Mesh Studio) paths.
+> The "Algorithms & provenance" claim that *no* upstream source is ported is
+> likewise superseded: `src/boolean_predicates.rs` is now a literal, attributed
+> port of Blender's `math_boolean.cc` (see `NOTICE`). For the crate's actual
+> current status and module map, read the **README.md**; this file is kept as a
+> record of that pass, not as a description of the present code.
+
 > ## ⚠️ UNTRUSTED AI-GENERATED DRAFT — HUMAN REVIEW REQUIRED
 >
 > **Every line of the code described here was produced by an AI fleet (a lead

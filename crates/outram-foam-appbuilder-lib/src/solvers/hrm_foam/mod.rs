@@ -19,6 +19,18 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+//! # `hrm_foam` — Homogeneous Relaxation Model solver (HRMFoam)
+//!
+//! Rust port of the HRMFoam flashing-flow solver: a compressible two-phase model
+//! in which the vapour mass fraction relaxes toward its equilibrium value over a
+//! finite relaxation time θ, using the Downar-Zapolski (1996) correlation. Used
+//! for rapid depressurisation / flashing (e.g. blowdown) where mechanical
+//! equilibrium holds but thermodynamic equilibrium lags.
+//!
+//! The model constants ([`THETA_0`], [`DZ_A`], [`DZ_B`]) and their runtime
+//! overrides ([`HrmModelConfig`]) are defined here; [`HrmFoam`] owns the time
+//! loop.
+
 use crate::error::AppBuilderError;
 use crate::io::control_dict::{ControlDict, StartControl, StopControl};
 use crate::io::fv_schemes::FvSchemes;
@@ -119,10 +131,25 @@ pub struct HrmFoam {
     pub p_sat: VolScalarField,
     /// Mass flux φ = ρ U·Sf [kg/s]
     pub phi: SurfaceScalarField,
+    /// The Downar-Zapolski relaxation-model constants this run uses.
+    ///
+    /// Set through [`HrmFoam::with_model_config`]; [`HrmFoam::new`] installs
+    /// [`HrmModelConfig::default`].
     pub model: HrmModelConfig,
 }
 
 impl HrmFoam {
+    /// Build a Homogeneous Relaxation Model two-phase flashing-flow solver on
+    /// `mesh`, using the default [`HrmModelConfig`].
+    ///
+    /// Equivalent to [`HrmFoam::with_model_config`] with
+    /// `HrmModelConfig::default()`; see that method for the initial field state
+    /// and the maturity warning.
+    ///
+    /// # Arguments
+    ///
+    /// See [`crate::solvers::pimple_foam::PimpleFoam::new`] — the four arguments
+    /// have the same meaning and the same honoured-field caveats.
     pub fn new(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -132,6 +159,25 @@ impl HrmFoam {
         Self::with_model_config(mesh, control, schemes, solution, HrmModelConfig::default())
     }
 
+    /// Build an HRM solver with explicit relaxation-model constants.
+    ///
+    /// Fields are allocated at a placeholder state — velocity zero, pressure
+    /// uniform 1.0e5 Pa, density uniform at `model.rho_min.max(1.0)` kg/m³, and
+    /// the enthalpy / dryness-fraction / equilibrium-quality fields zero. The
+    /// caller must overwrite these, and set `p_sat`, before stepping: the
+    /// saturation pressure is **not** computed internally, it is supplied by the
+    /// caller each time step.
+    ///
+    /// # Maturity warning
+    ///
+    /// **This solver has no tutorial and no validation case — it is unexercised
+    /// and unverified.** See the crate README's "Limitations".
+    ///
+    /// # Arguments
+    ///
+    /// * `mesh`, `control`, `schemes`, `solution` — as for
+    ///   [`crate::solvers::pimple_foam::PimpleFoam::new`].
+    /// * `model` — the Downar-Zapolski relaxation-time constants.
     pub fn with_model_config(
         mesh: Arc<FvMesh>,
         control: ControlDict,
@@ -181,6 +227,18 @@ impl HrmFoam {
         HrmModelConfig::default().relaxation_time(psi, x)
     }
 
+    /// The Downar-Zapolski (1996) relaxation time θ, in seconds, evaluated with
+    /// **this solver's** [`HrmModelConfig`], rather than the default one used by the
+    /// associated [`HrmFoam::relaxation_time`].
+    ///
+    /// θ is the time constant with which the dryness fraction `x` relaxes
+    /// towards its equilibrium value `x_eq`; a small θ approaches equilibrium
+    /// (homogeneous-equilibrium) flashing, a large θ approaches frozen flow.
+    ///
+    /// # Arguments
+    ///
+    /// * `psi` — dimensionless pressure undershoot `(p_sat − p) / p_sat`, ≥ 0.
+    /// * `x`   — current dryness fraction, in [0, 1].
     pub fn relaxation_time_with_config(&self, psi: f64, x: f64) -> f64 {
         self.model.relaxation_time(psi, x)
     }
@@ -489,6 +547,17 @@ impl HrmFoam {
         Ok(())
     }
 
+    /// Advance the solver from the `controlDict` start time to its end time,
+    /// calling [`Self::step`] at the fixed step `control.delta_t`.
+    ///
+    /// Same time-control semantics and same caveats as
+    /// [`crate::solvers::pimple_foam::PimpleFoam::run`]: only
+    /// [`StopControl::EndTime`] takes any steps, `adjustTimeStep` is not
+    /// implemented, and nothing is written to disk.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the first error from [`Self::step`].
     pub fn run(&mut self) -> Result<(), AppBuilderError> {
         let start = match self.control.start {
             StartControl::StartTime(t) => t,

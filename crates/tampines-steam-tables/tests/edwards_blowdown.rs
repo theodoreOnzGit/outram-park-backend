@@ -27,7 +27,8 @@
 //! - **Break boundary**: a choked (critical) outlet. Each step the last cell's
 //!   `(p0,h0)` is fed to the crate's existing HEM critical-flow dispatcher
 //!   [`get_critical_pressure_and_mass_flux_multiphase_ph`] (the same machinery
-//!   validated against Moody / Zaloudek / Marviken), giving the throat mass
+//!   validated against Moody / Zaloudek; Marviken data is digitised but its
+//!   test is `#[ignore]`d and not yet gated), giving the throat mass
 //!   flux `G*` and throat pressure. The break mass flow is
 //!   `m_dot = G* * A_break(t)` and the equivalent full-face outlet velocity
 //!   `U = m_dot / (rho * A)` is imposed via `set_outlet_velocity`. The closed
@@ -46,7 +47,11 @@
 //! ## Results (measured 2026-07-16, IAPWS-IF97 tables, 24 cells, dt = 30 us,
 //! PIMPLE 4 outer / 4 inner PISO correctors, alpha_p = alpha_u = 1.0)
 //!
-//! The full 600 ms transient completes (20 000 steps, ~180 s wall) with no NaN
+//! The full 600 ms transient completes (20 000 steps) with no NaN
+//! (wall time varies with hardware/load: ~180 s measured 2026-07-16; the whole
+//! 2-test `--test edwards_blowdown` target measured 371.87 s release wall on
+//! 2026-08-11 — budget for it, and never report a harness timeout as a test
+//! failure)
 //! and all void fractions in [0, 1]. Headline numbers (printed with
 //! `--nocapture`):
 //!
@@ -135,9 +140,7 @@ use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{
-    Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity,
-};
+use uom::si::f64::{Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::pressure::pascal;

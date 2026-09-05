@@ -49,25 +49,70 @@
 //! 4. **Mesh-quality-gated relaxation** (`smoothDisplacement` +
 //!    `scaleMesh`/`meshMover.scaleMesh`, lines 2134/2208). The smoothed
 //!    displacement is applied scaled by a relaxation factor `lambda` (start
-//!    1.0). The moved [`PolyPatchMesh`] is rebuilt ([`PolyPatchMesh::build_fvmesh`])
-//!    and its [`quality`](PolyPatchMesh::quality) checked against
+//!    1.0). The moved [`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) is rebuilt ([`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh))
+//!    and its [`quality`](crate::snappy_hex_mesh::PolyPatchMesh::quality) checked against
 //!    [`QualityLimits`]. If the move is accepted it is committed; otherwise
 //!    `lambda` is halved and retried (a few backoffs), reproducing OpenFOAM's
 //!    "relax displacement until correct mesh" loop. Nearest-surface targets are
 //!    recomputed every solve iteration so points converge onto the surface.
-//! 5. **Feature-edge snapping** (optional; mirrors the intent of
-//!    `snappySnapDriverFeature.C`). When [`SnapControls::feature_snap`] is set,
-//!    STL feature edges (edges shared by two triangles whose dihedral angle
-//!    exceeds `feature_angle_deg`) are detected, and any patch point whose
-//!    surface projection lands within a feature band of such an edge is snapped
-//!    exactly onto the edge instead of the smooth surface, so creases stay
-//!    sharp. This is a genuine, tested but *restricted* addition — it does not
-//!    reproduce OpenFOAM's full feature-point/`pointConstraint` alignment.
+//! 5. **Feature snapping with `pointConstraint` accumulation** (port of
+//!    `snappySnapDriverFeature.C` — `binFeatureFace`/reconstruction lines
+//!    931–993 and `featureAttractionUsingReconstruction` line 997 — together
+//!    with the accumulator itself in `pointConstraintI.H`:
+//!    `applyConstraint` line 48 and `constrainDisplacement` line 185). When
+//!    [`SnapControls::feature_snap`] is set, STL feature edges (creases whose
+//!    dihedral angle exceeds `feature_angle_deg`) **and feature points**
+//!    (corners where ≥2 non-collinear feature edges meet) are extracted, and
+//!    every wall patch point near a feature is classified with a per-point
+//!    `PointConstraint` that governs how it is allowed to move:
+//!    - **rank 0 — free on surface:** ordinary nearest-surface projection (as
+//!      for a point with no nearby feature). `constrainDisplacement` is the
+//!      identity here.
+//!    - **rank 2 — on a feature edge:** the point is pulled onto the crease and
+//!      its *smoothing correction* is constrained to the unit edge direction
+//!      (`constrainDisplacement` keeps only the along-edge component), so the
+//!      point slides along the crease but never drifts off it.
+//!    - **rank 3 — on a feature point:** the point is pulled onto the corner
+//!      vertex and fully fixed (its displacement is anchored, zero smoothing),
+//!      so it lands exactly on the corner.
+//!
+//!    The rank labels and the free→edge→point accumulation mirror OpenFOAM's
+//!    `pointConstraint` exactly: applying one constraining direction promotes
+//!    free→edge, a second non-collinear direction promotes edge→point, and a
+//!    saturated point stays fixed. The one honest difference from OpenFOAM is
+//!    the *source* of those directions — here they are feature-edge directions
+//!    extracted from the STL geometry, not surface normals read from an
+//!    `extendedFeatureEdgeMesh` file (see the *Honest scope* section below).
+//!
+//! # Honest scope — what is and is not modelled
+//!
+//! Implemented and tested here: geometry-derived feature-edge and
+//! feature-point extraction; the full `pointConstraint` free/edge/point
+//! accumulation and `constrainDisplacement`; exact corner snapping on convex
+//! feature points; along-edge-constrained crease snapping; and preservation of
+//! mesh validity + watertightness under all of the above.
+//!
+//! Deliberately **not** modelled (documented, not silently skipped):
+//! - **No `extendedFeatureEdgeMesh` file input.** OpenFOAM reads a precomputed
+//!   feature-edge/point file (`surfaceFeatures`) with per-edge classification
+//!   (external/internal/flat/open/multiple). Here features are detected from
+//!   the triangle soup by dihedral angle only; concave vs convex creases are
+//!   not distinguished and open/non-manifold edges are ignored.
+//! - **No multi-region / multi-patch constraint combination.** OpenFOAM's
+//!   `combine` merges constraints contributed by several surfaces/patches
+//!   meeting at a point. This serial single-region port classifies each point
+//!   against one feature set and does not combine across regions.
+//! - **No `snapDist`-scaled trimming or per-point feature attraction from the
+//!   binned pointFace surface normals.** Proximity uses a single feature band
+//!   (a fraction of the local patch edge length), not OpenFOAM's per-point
+//!   `snapDist`. Attraction is geometric (nearest point on edge / corner
+//!   vertex), not reconstructed from plane–plane intersection of binned face
+//!   normals.
 //!
 //! Because [`FvMesh`](outram_foam_basic_lib::mesh::FvMesh) stores only geometry
 //! and no point/face-vertex topology, snapping works on the point-based
-//! [`PolyPatchMesh`] carried in [`CastellatedMesh::topology`]: it moves points,
-//! then [`PolyPatchMesh::build_fvmesh`] recomputes all finite-volume geometry.
+//! [`PolyPatchMesh`](crate::snappy_hex_mesh::PolyPatchMesh) carried in [`CastellatedMesh::topology`]: it moves points,
+//! then [`PolyPatchMesh::build_fvmesh`](crate::snappy_hex_mesh::PolyPatchMesh::build_fvmesh) recomputes all finite-volume geometry.
 //!
 //! # Verification & validation
 //!
@@ -99,6 +144,7 @@
 use std::collections::HashMap;
 
 use outram_foam_basic_lib::mesh::PatchKind;
+use super::cyclic::{CyclicPointConstraints, DEFAULT_CYCLIC_TOL};
 use outram_foam_basic_lib::primitives::Vector3;
 
 use crate::snappy_hex_mesh::castellation::CastellatedMesh;
@@ -125,13 +171,15 @@ pub struct SnapControls {
     /// than this ratio, so it is advisory.
     pub tolerance: f64,
     /// Mesh-quality limits the relaxation must satisfy for a move to be
-    /// committed (non-orthogonality [deg], skewness, min cell volume [m³]).
+    /// committed (non-orthogonality `[deg]`, skewness, min cell volume `[m³]`).
     pub quality: QualityLimits,
-    /// Enable feature-edge snapping (restricted port of
-    /// `snappySnapDriverFeature.C`): patch points whose surface projection lands
-    /// near an STL crease are snapped exactly onto the crease edge.
+    /// Enable feature snapping (port of `snappySnapDriverFeature.C` with the
+    /// `pointConstraint` accumulator of `pointConstraintI.H`): patch points near
+    /// an STL crease are constrained to slide along the feature edge, and points
+    /// near a corner (≥2 non-collinear feature edges meeting) are fully fixed on
+    /// the corner vertex. See the module docs (item 5 + *Honest scope*).
     pub feature_snap: bool,
-    /// Dihedral-angle threshold [degrees] above which a shared STL edge counts
+    /// Dihedral-angle threshold `[degrees]` above which a shared STL edge counts
     /// as a feature edge. Only used when `feature_snap` is set. A box has 90°
     /// creases, so any threshold below 90 detects its edges.
     pub feature_angle_deg: f64,
@@ -252,19 +300,39 @@ pub fn snap(
         }
     }
 
-    // Optional: precompute STL feature edges once.
+    // Cyclic (periodic) constraints. Points on a cyclic plane are not frozen
+    // (see `frozen_patch_points`); instead their displacement is projected into
+    // the plane and synchronised with their partner across the seam, so the
+    // halves stay conformal — the invariant `check_conformity` gates on — while
+    // the geometry on the seam still gets snapped. Bookkeeping errors here are
+    // a malformed mesh, so they surface as a construction error rather than
+    // being silently ignored.
+    let cyclic = CyclicPointConstraints::build(&mesh.topology, DEFAULT_CYCLIC_TOL)
+        .map_err(|e| MeshError::Construction(format!("snap: {e}")))?;
+
+    // Optional: precompute STL feature edges and feature points once.
     let feature_edges = if controls.feature_snap {
         detect_feature_edges(surface, controls.feature_angle_deg)
     } else {
         Vec::new()
     };
+    let feature_points = if controls.feature_snap {
+        detect_feature_points(&feature_edges)
+    } else {
+        Vec::new()
+    };
     // Feature band ≈ a fraction of the finest cell size; use the mean edge
-    // length of the patch faces as a robust local length scale.
-    let feature_band = if controls.feature_snap {
-        0.5 * mean_patch_edge_length(mesh, wall_idx)
+    // length of the patch faces as a robust local length scale. Corners get a
+    // wider capture radius than edges: a corner is a single point (not a line),
+    // so fewer patch points sit within a given distance of it, and missing a
+    // corner degrades the crease intersection more than missing an edge point.
+    let patch_len = if controls.feature_snap {
+        mean_patch_edge_length(mesh, wall_idx)
     } else {
         0.0
     };
+    let edge_band = 0.5 * patch_len;
+    let corner_band = 1.25 * patch_len;
 
     // Working copy of the topology whose points we morph in place.
     let mut work = mesh.topology.clone();
@@ -277,26 +345,46 @@ pub fn snap(
     const SMOOTH_BLEND: f64 = 0.5;
 
     for _iter in 0..controls.n_solve_iter {
-        // 2. Raw displacement per patch point (target - current).
+        // 2. Raw displacement per patch point (target - current), together with
+        //    the per-point feature `PointConstraint`. `anchor[i]` marks a point
+        //    whose displacement must not be smoothed (a fully-fixed corner, or a
+        //    frozen boundary point): it anchors its neighbours instead of being
+        //    averaged. `disp[i]` for an edge point is the *perpendicular* pull
+        //    onto the crease (⟂ the edge direction); the along-edge freedom is
+        //    added from the smoothed field afterwards via `constrain_displacement`.
         let mut disp = vec![Vector3::ZERO; patch_points.len()];
+        let mut constraint = vec![PointConstraint::Free; patch_points.len()];
+        let mut anchor = frozen.clone();
         let mut max_raw = 0.0f64;
         for (i, &pid) in patch_points.iter().enumerate() {
             if frozen[i] {
                 continue;
             }
             let p = work.points[pid];
-            let mut target = match surface.nearest_point(p) {
+            let surf_target = match surface.nearest_point(p) {
                 Some(t) => t,
                 None => continue,
             };
-            // 5. Feature-edge attraction: if the surface projection lands within
-            //    the feature band of a crease, snap exactly onto the crease.
-            if controls.feature_snap {
-                if let Some(fe) = nearest_feature_point(&feature_edges, target) {
-                    if target.dist(fe) <= feature_band {
-                        target = fe;
-                    }
-                }
+            // 5. Feature classification (pointConstraint accumulation). Off ⇒
+            //    every point is `Free` and the branch below is the plain
+            //    surface projection, byte-for-byte identical to the non-feature
+            //    path so the sphere V&V numbers are preserved.
+            let (target, c) = if controls.feature_snap {
+                classify_feature(
+                    p,
+                    surf_target,
+                    &feature_edges,
+                    &feature_points,
+                    edge_band,
+                    corner_band,
+                )
+            } else {
+                (surf_target, PointConstraint::Free)
+            };
+            constraint[i] = c;
+            if matches!(c, PointConstraint::Point) {
+                // Corner: fully fixed on the vertex, never smoothed.
+                anchor[i] = true;
             }
             let d = target - p;
             disp[i] = d;
@@ -310,16 +398,38 @@ pub fn snap(
             break;
         }
 
-        // 3. Laplacian patch-smoothing of the displacement field, then blend
-        //    back a share of the direct surface pull. The pure edge-Laplacian of
-        //    the displacement can drift points tangentially off the surface; the
+        // 3. Laplacian patch-smoothing of the displacement field, then combine
+        //    per the point's constraint. Corners and frozen points are anchored
+        //    (not smoothed) so they hold their exact target. Free points blend a
+        //    share of the smoothed field into the direct surface pull (the pure
+        //    edge-Laplacian can drift points tangentially off the surface; the
         //    blend keeps the straight-to-nearest-point component dominant so the
-        //    morph converges onto the surface (at convergence both terms → 0).
+        //    morph converges onto the surface). Edge points keep their exact
+        //    perpendicular pull onto the crease and take only the along-edge
+        //    component of the smoothed field (`constrain_displacement`), so they
+        //    slide along the crease but never leave it.
         let mut smoothed = disp.clone();
-        smooth_patch_displacement(&mut smoothed, &adjacency, &frozen, controls.n_smooth_patch);
+        smooth_patch_displacement(&mut smoothed, &adjacency, &anchor, controls.n_smooth_patch);
         for i in 0..disp.len() {
-            disp[i] = disp[i] * (1.0 - SMOOTH_BLEND) + smoothed[i] * SMOOTH_BLEND;
+            if anchor[i] {
+                continue; // frozen or corner: keep the exact (possibly zero) target
+            }
+            match constraint[i] {
+                PointConstraint::Edge { .. } => {
+                    disp[i] = disp[i] + constraint[i].constrain_displacement(smoothed[i]);
+                }
+                _ => {
+                    disp[i] = disp[i] * (1.0 - SMOOTH_BLEND) + smoothed[i] * SMOOTH_BLEND;
+                }
+            }
         }
+
+        // 3b. Cyclic constraint — MUST be the last edit of `disp`, so nothing
+        //     downstream can reintroduce a seam-breaking component. Projects
+        //     each periodic-plane point's motion into its plane, then averages
+        //     partner displacements so both halves move identically and the
+        //     separation vector (hence conformity) is preserved exactly.
+        cyclic.constrain_and_sync(&mut disp, &local_of);
 
         // 4. Quality-gated relaxation: apply lambda*disp, re-impose the hanging
         //    constraints, halving lambda on quality failure.
@@ -419,9 +529,30 @@ fn frozen_patch_points(
     let mut frozen = vec![false; local_of.len()];
     let wall_range = mesh.topology.patch_face_ids(wall_idx);
     let n_int = mesh.topology.n_internal_faces;
+
+    // Faces belonging to a cyclic patch do NOT freeze their points. A periodic
+    // plane is not a fixed wall: its points may slide *within* the plane as long
+    // as both halves move identically, which
+    // [`CyclicPointConstraints`](crate::snappy_hex_mesh::CyclicPointConstraints)
+    // enforces. Freezing them instead — the behaviour before cyclic support —
+    // left the geometry un-snapped (staircased) exactly where it crosses a
+    // periodic plane. A point that *also* lies on some other boundary patch is
+    // still frozen by that patch's faces below.
+    let cyclic_ranges: Vec<std::ops::Range<usize>> = mesh
+        .topology
+        .patches
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.kind == PatchKind::Cyclic)
+        .map(|(i, _)| mesh.topology.patch_face_ids(i))
+        .collect();
+
     for (fi, poly) in mesh.topology.faces.iter().enumerate() {
         // Only boundary faces outside the wall patch can freeze a point.
         if fi < n_int || wall_range.contains(&fi) {
+            continue;
+        }
+        if cyclic_ranges.iter().any(|r| r.contains(&fi)) {
             continue;
         }
         for &p in poly {
@@ -593,7 +724,200 @@ fn detect_feature_edges(surface: &TriangleSoup, angle_deg: f64) -> Vec<FeatureEd
     features
 }
 
-/// Mean edge length of the wall-patch faces [m] — a local length scale used to
+/// Per-point motion constraint accumulated from nearby features — a port of
+/// OpenFOAM's `pointConstraint` (`pointConstraintI.H`).
+///
+/// OpenFOAM stores the constraint as a `(rank, vector)` tuple and promotes the
+/// rank as constraining directions are applied
+/// (`pointConstraint::applyConstraint`, `pointConstraintI.H:48`):
+/// rank 0 (free) → rank 1/2 (one plane/line) → rank 3 (fixed). This enum keeps
+/// the three geometrically-distinct outcomes a serial feature snap needs, using
+/// the same OpenFOAM rank numbering in the docs:
+///
+/// - [`Free`](PointConstraint::Free) — OpenFOAM rank 0/1: the point may move
+///   freely (surface projection handles it). `constrain_displacement` is the
+///   identity.
+/// - [`Edge`](PointConstraint::Edge) — OpenFOAM rank 2: the point lies on a
+///   feature edge and may move only along the unit edge direction `dir`
+///   (all lengths in metres; `dir` is dimensionless). `constrain_displacement`
+///   keeps only the along-`dir` component (`pointConstraintI.H:201`).
+/// - [`Point`](PointConstraint::Point) — OpenFOAM rank 3: the point lies on a
+///   feature corner and is fully fixed. `constrain_displacement` returns zero
+///   (`pointConstraintI.H:206`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum PointConstraint {
+    /// Unconstrained — ordinary surface projection governs the move.
+    Free,
+    /// Constrained to a feature edge; motion allowed only along `dir` (unit).
+    Edge { dir: Vector3 },
+    /// Constrained to a feature point (corner); fully fixed.
+    Point,
+}
+
+/// Two feature-edge directions closer than this (in `|a × b|`, both unit) are
+/// treated as collinear — mirrors OpenFOAM's `magPlaneNormal > 1e-3` /
+/// `mag(second & pc.second) <= 1-1e-3` collinearity tests in
+/// `pointConstraintI.H` (`applyConstraint`/`combine`).
+const FEATURE_COLLINEAR_TOL: f64 = 1e-3;
+
+impl PointConstraint {
+    /// Accumulate one constraining feature-edge direction, promoting the rank —
+    /// a port of `pointConstraint::applyConstraint` (`pointConstraintI.H:48`).
+    ///
+    /// `dir` need not be unit; it is normalised here (a zero vector is ignored).
+    /// `Free` → `Edge` on the first direction; `Edge` → `Point` when a second,
+    /// non-collinear direction arrives (the OpenFOAM `free→edge→point`
+    /// promotion, driven by feature-edge directions rather than plane normals);
+    /// `Point` is saturated.
+    fn apply_edge_dir(&mut self, dir: Vector3) {
+        let u = dir.normalise(1e-30);
+        if u == Vector3::ZERO {
+            return;
+        }
+        match self {
+            PointConstraint::Free => *self = PointConstraint::Edge { dir: u },
+            PointConstraint::Edge { dir } => {
+                if dir.cross(u).mag() > FEATURE_COLLINEAR_TOL {
+                    *self = PointConstraint::Point;
+                }
+            }
+            PointConstraint::Point => {}
+        }
+    }
+
+    /// Project a displacement onto the subspace this constraint permits — a port
+    /// of `pointConstraint::constrainDisplacement` (`pointConstraintI.H:185`).
+    ///
+    /// `Free` returns `d` unchanged; `Edge{dir}` keeps only the along-`dir`
+    /// component `(d·dir)·dir`; `Point` returns the zero vector. `d` is in
+    /// metres; the result is in metres.
+    fn constrain_displacement(&self, d: Vector3) -> Vector3 {
+        match self {
+            PointConstraint::Free => d,
+            PointConstraint::Edge { dir } => *dir * d.dot(*dir),
+            PointConstraint::Point => Vector3::ZERO,
+        }
+    }
+}
+
+/// Detect feature points (corners) from a set of feature edges.
+///
+/// A feature point is a vertex where ≥2 non-collinear feature edges meet — the
+/// geometric analogue of OpenFOAM's rank-3 `pointConstraint`
+/// (`snappySnapDriverFeature.C` reconstruction, three distinct surface-normal
+/// bins → a corner, lines 972–993). Endpoints are merged on a 1e-6 m grid, the
+/// unit direction of every incident feature edge (pointing away from the shared
+/// vertex) is accumulated with [`PointConstraint::apply_edge_dir`], and the
+/// vertex is a feature point iff the accumulation saturates to
+/// [`PointConstraint::Point`]. Returns the corner positions `[m]`.
+fn detect_feature_points(edges: &[FeatureEdge]) -> Vec<Vector3> {
+    let quant = 1e-6_f64;
+    let key = |v: Vector3| -> (i64, i64, i64) {
+        (
+            (v.x / quant).round() as i64,
+            (v.y / quant).round() as i64,
+            (v.z / quant).round() as i64,
+        )
+    };
+    // vertex key -> (position, incident unit directions away from the vertex)
+    let mut incident: HashMap<(i64, i64, i64), (Vector3, Vec<Vector3>)> = HashMap::new();
+    for e in edges {
+        let dir = (e.b - e.a).normalise(1e-30);
+        if dir == Vector3::ZERO {
+            continue;
+        }
+        incident
+            .entry(key(e.a))
+            .or_insert((e.a, Vec::new()))
+            .1
+            .push(dir);
+        incident
+            .entry(key(e.b))
+            .or_insert((e.b, Vec::new()))
+            .1
+            .push(-dir);
+    }
+    let mut points = Vec::new();
+    for (_k, (pos, dirs)) in incident {
+        let mut pc = PointConstraint::Free;
+        for d in dirs {
+            pc.apply_edge_dir(d);
+        }
+        if pc == PointConstraint::Point {
+            points.push(pos);
+        }
+    }
+    points
+}
+
+/// Classify a patch point against the feature set, returning its attraction
+/// target `[m]` and its `PointConstraint`.
+///
+/// Port of the intent of `snappySnapDriver::featureAttractionUsingReconstruction`
+/// (`snappySnapDriverFeature.C:997`) and its `binFeatureFace` helper (lines
+/// 931–993), with geometry-derived features in place of binned surface normals:
+///
+/// - If a **feature point** lies within `corner_band` of `p`, the point is a
+///   corner: target = the corner vertex, constraint = [`PointConstraint::Point`]
+///   (fully fixed).
+/// - Otherwise, every **feature edge** within `edge_band` of `p` is accumulated
+///   with [`PointConstraint::apply_edge_dir`]. One (or several collinear) edges
+///   ⇒ [`PointConstraint::Edge`] with target = the nearest point on the closest
+///   crease. Two non-collinear edges ⇒ a corner missed by explicit vertex
+///   detection: [`PointConstraint::Point`] at the nearest crease point.
+/// - If no feature is within band, the point is [`PointConstraint::Free`] and
+///   its target is the supplied `surf_target` (the nearest-surface projection).
+///
+/// `p` is the current point position `[m]`; `surf_target` its nearest-surface
+/// projection `[m]`; `edge_band`/`corner_band` are capture radii `[m]`.
+fn classify_feature(
+    p: Vector3,
+    surf_target: Vector3,
+    feature_edges: &[FeatureEdge],
+    feature_points: &[Vector3],
+    edge_band: f64,
+    corner_band: f64,
+) -> (Vector3, PointConstraint) {
+    // Corner first — highest rank wins (OpenFOAM keeps the higher-rank
+    // constraint, `snappySnapDriverFeature.C:1079`).
+    let mut best_corner: Option<Vector3> = None;
+    let mut best_cd = corner_band;
+    for &fp in feature_points {
+        let d = p.dist(fp);
+        if d <= best_cd {
+            best_cd = d;
+            best_corner = Some(fp);
+        }
+    }
+    if let Some(fp) = best_corner {
+        return (fp, PointConstraint::Point);
+    }
+
+    // Edge accumulation.
+    let mut pc = PointConstraint::Free;
+    let mut best_edge: Option<Vector3> = None;
+    let mut best_ed = edge_band;
+    for e in feature_edges {
+        let c = closest_point_on_segment(p, e.a, e.b);
+        let d = p.dist(c);
+        if d <= edge_band {
+            pc.apply_edge_dir(e.b - e.a);
+            if d <= best_ed {
+                best_ed = d;
+                best_edge = Some(c);
+            }
+        }
+    }
+    match (pc, best_edge) {
+        (PointConstraint::Free, _) | (_, None) => (surf_target, PointConstraint::Free),
+        (PointConstraint::Edge { dir }, Some(c)) => (c, PointConstraint::Edge { dir }),
+        // ≥2 non-collinear crease directions within band but no explicit vertex:
+        // treat as a corner pinned at the nearest crease point.
+        (PointConstraint::Point, Some(c)) => (c, PointConstraint::Point),
+    }
+}
+
+/// Mean edge length of the wall-patch faces `[m]` — a local length scale used to
 /// size the feature-attraction band.
 fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     let mut total = 0.0f64;
@@ -615,8 +939,10 @@ fn mean_patch_edge_length(mesh: &CastellatedMesh, wall_idx: usize) -> f64 {
     }
 }
 
-/// Nearest point on any feature edge to `p` [m], or `None` if there are no
-/// feature edges.
+/// Nearest point on any feature edge to `p` `[m]`, or `None` if there are no
+/// feature edges. Retained as a standalone crease-distance primitive used by the
+/// V&V tests to measure how close snapped points land to the feature edges.
+#[cfg_attr(not(test), allow(dead_code))]
 fn nearest_feature_point(edges: &[FeatureEdge], p: Vector3) -> Option<Vector3> {
     let mut best: Option<Vector3> = None;
     let mut best_d = f64::INFINITY;
@@ -711,7 +1037,7 @@ mod tests {
         TriangleSoup::new("box", tris)
     }
 
-    /// Max distance [m] from every wall-patch point to the exact nearest
+    /// Max distance `[m]` from every wall-patch point to the exact nearest
     /// surface point, plus the mean.
     fn patch_surface_error(mesh: &CastellatedMesh, surface: &TriangleSoup) -> (f64, f64) {
         let wall = mesh
@@ -737,7 +1063,7 @@ mod tests {
     }
 
     /// Max over all cells of the magnitude of the sum of signed (outward-oriented)
-    /// face-area vectors [m²]. Zero ⇒ every cell is a closed polyhedron.
+    /// face-area vectors `[m²]`. Zero ⇒ every cell is a closed polyhedron.
     fn max_cell_closure(mesh: &CastellatedMesh) -> f64 {
         let topo = &mesh.topology;
         let (areas, _c) = topo.face_geometry();
@@ -758,10 +1084,7 @@ mod tests {
     #[test]
     fn snap_sphere_projects_onto_surface() {
         let surface = sphere_soup(Vector3::ZERO, 1.0, 24, 24);
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
         let cast = castellate(&surface, &controls).expect("castellation succeeds");
@@ -788,7 +1111,10 @@ mod tests {
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells");
         assert!(q.min_cell_volume > 0.0, "positive min cell volume");
         let closure = max_cell_closure(&snapped);
-        println!("snap sphere: min_vol={:.3e} max_closure={closure:.3e}", q.min_cell_volume);
+        println!(
+            "snap sphere: min_vol={:.3e} max_closure={closure:.3e}",
+            q.min_cell_volume
+        );
         assert!(
             closure < 1e-9,
             "cells stay watertight (max |Σ Sf| = {closure:.3e})"
@@ -814,19 +1140,15 @@ mod tests {
     /// (`8×8×8`, level 2), then snap with `feature_snap = true`. For every wall
     /// patch point whose surface projection lands within the feature band of a
     /// box edge, the snapped point must lie on a feature edge to tight tolerance.
-    /// Results (2026-07-17): 12 feature edges detected; 188 patch points landed
-    /// on a box feature edge with max residual 0.0 m; mesh stays valid +
-    /// watertight (max per-cell |Σ Sf| < 1e-9 m²).
+    /// Results (2026-07-20, `pointConstraint` port): 12 feature edges detected;
+    /// 212 patch points landed on a box feature edge with max residual
+    /// 5.55e-17 m (machine zero); mesh stays valid + watertight (max per-cell
+    /// |Σ Sf| = 8.13e-18 m²). (This is the coarse count-based check; the exact
+    /// corner-vs-edge classification is in `feature_snap_box_corners_and_edges`.)
     #[test]
     fn feature_snap_captures_box_edges() {
-        let surface = box_soup(
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new(1.0, 1.0, 1.0),
-        );
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let surface = box_soup(Vector3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0));
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
         let cast = castellate(&surface, &controls).expect("castellate box");
@@ -844,7 +1166,10 @@ mod tests {
         sc.feature_angle_deg = 40.0;
         let snapped = snap(&cast, &surface, &sc).expect("snap box");
 
-        snapped.fv_mesh.validate().expect("rebuilt box mesh validates");
+        snapped
+            .fv_mesh
+            .validate()
+            .expect("rebuilt box mesh validates");
         let q = snapped.topology.quality();
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells: {q:?}");
         let closure = max_cell_closure(&snapped);
@@ -918,10 +1243,7 @@ mod tests {
     fn snap_requires_wall_patch() {
         // Build a trivial castellation, then strip the wall patch kind.
         let surface = sphere_soup(Vector3::ZERO, 1.0, 12, 12);
-        let domain = Bounds::new(
-            Vector3::new(-2.0, -2.0, -2.0),
-            Vector3::new(2.0, 2.0, 2.0),
-        );
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
         let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
         let controls = CastellationControls::new(bg, 1, Vector3::new(-1.9, -1.9, -1.9));
         let mut cast = castellate(&surface, &controls).unwrap();
@@ -932,5 +1254,237 @@ mod tests {
         }
         let err = snap(&cast, &surface, &SnapControls::default()).unwrap_err();
         assert!(matches!(err, MeshError::Construction(_)));
+    }
+
+    /// V&V — the `pointConstraint` accumulator reproduces OpenFOAM's
+    /// free→edge→point rank promotion and `constrainDisplacement` projection.
+    ///
+    /// Methodology: exercise [`PointConstraint::apply_edge_dir`] and
+    /// [`PointConstraint::constrain_displacement`] against the semantics of
+    /// `pointConstraintI.H` (`applyConstraint` line 48, `constrainDisplacement`
+    /// line 185). Reference behaviour: applying one direction ⇒ rank-2 edge;
+    /// applying a second collinear direction ⇒ still an edge; applying a second
+    /// non-collinear direction ⇒ rank-3 point. `constrain_displacement` must be
+    /// the identity for `Free`, keep only the along-`dir` component for `Edge`,
+    /// and return zero for `Point`. Pass criterion: all four projections exact
+    /// to 1e-15 m and the promotions land in the expected variant.
+    ///
+    /// Results (2026-07-20): all promotions correct; edge projection of
+    /// (1,2,3) onto x̂ = (1,0,0) exactly; point projection = 0 exactly;
+    /// free projection returns the input unchanged. Residuals 0.0 m.
+    #[test]
+    fn point_constraint_accumulator_and_projection() {
+        let x = Vector3::new(1.0, 0.0, 0.0);
+        let y = Vector3::new(0.0, 1.0, 0.0);
+
+        // Free is the identity projection.
+        let free = PointConstraint::Free;
+        let d = Vector3::new(1.0, 2.0, 3.0);
+        assert!(free.constrain_displacement(d).dist(d) < 1e-15);
+
+        // One direction (or several collinear) ⇒ Edge; keeps only along-dir.
+        let mut pc = PointConstraint::Free;
+        pc.apply_edge_dir(x * 2.0); // non-unit input is normalised
+        pc.apply_edge_dir(x * -5.0); // collinear ⇒ still an edge
+        assert!(matches!(pc, PointConstraint::Edge { .. }));
+        let proj = pc.constrain_displacement(Vector3::new(1.0, 2.0, 3.0));
+        assert!(
+            proj.dist(Vector3::new(1.0, 0.0, 0.0)) < 1e-15,
+            "along-x only"
+        );
+
+        // A second, non-collinear direction ⇒ Point (fully fixed).
+        pc.apply_edge_dir(y);
+        assert_eq!(pc, PointConstraint::Point);
+        assert!(
+            pc.constrain_displacement(Vector3::new(1.0, 2.0, 3.0)).mag() < 1e-15,
+            "corner is fully fixed"
+        );
+    }
+
+    /// V&V — feature-point detection recovers a box's 8 corners.
+    ///
+    /// Methodology: extract the 12 feature edges of a `[-1,1]³` box
+    /// (`detect_feature_edges`, 40° threshold), then run
+    /// [`detect_feature_points`]. A cube corner has 3 mutually-orthogonal
+    /// incident feature edges, so the accumulator must saturate to rank 3 at
+    /// each of the 8 corners and nowhere else. Pass criterion: exactly 8
+    /// detected points, each coincident (≤1e-9 m) with a `(±1,±1,±1)` vertex.
+    ///
+    /// Results (2026-07-20): 8 feature points detected, each within 0.0 m of a
+    /// box corner.
+    #[test]
+    fn detect_feature_points_finds_box_corners() {
+        let surface = box_soup(Vector3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0));
+        let edges = detect_feature_edges(&surface, 40.0);
+        assert_eq!(edges.len(), 12, "box has 12 feature edges");
+        let pts = detect_feature_points(&edges);
+        assert_eq!(
+            pts.len(),
+            8,
+            "box has 8 feature points, detected {}",
+            pts.len()
+        );
+        let corners = [
+            Vector3::new(-1.0, -1.0, -1.0),
+            Vector3::new(1.0, -1.0, -1.0),
+            Vector3::new(1.0, 1.0, -1.0),
+            Vector3::new(-1.0, 1.0, -1.0),
+            Vector3::new(-1.0, -1.0, 1.0),
+            Vector3::new(1.0, -1.0, 1.0),
+            Vector3::new(1.0, 1.0, 1.0),
+            Vector3::new(-1.0, 1.0, 1.0),
+        ];
+        for &c in &corners {
+            let hit = pts.iter().any(|&p| p.dist(c) < 1e-9);
+            assert!(hit, "corner {c:?} recovered as a feature point");
+        }
+    }
+
+    /// V&V — box corner + edge feature snapping with `pointConstraint`.
+    ///
+    /// **Methodology.** Castellate a `[-1,1]³` box inside a `[-2,2]³` background
+    /// (`8×8×8`, surface-refinement level 2; finest cell ≈ 0.125 m) then snap
+    /// with `feature_snap = true`, `feature_angle_deg = 40`. The box has 8
+    /// feature points (corners) and 12 feature edges. For every wall patch point
+    /// we classify it exactly as [`snap`] does (against the same feature set and
+    /// bands) and check:
+    /// - every point the classifier tags [`PointConstraint::Point`] (a corner)
+    ///   lands on the nearest box **corner vertex** to ≈0 residual;
+    /// - every point tagged [`PointConstraint::Edge`] lands on a box **feature
+    ///   edge** to ≈0 residual;
+    /// - all 8 corners are each occupied by at least one snapped patch point;
+    /// - the rebuilt mesh validates, has no inverted cells, passes the quality
+    ///   gate, and stays watertight (max per-cell `|Σ Sf|` ≈ 0).
+    ///
+    /// Pass criterion: corner residual < 1e-6 m, edge residual < 1e-6 m, all 8
+    /// corners occupied, closure < 1e-9 m², 0 negative-volume cells.
+    ///
+    /// **Results (2026-07-20, host x86_64, release).**
+    /// - 12 feature edges + 8 feature points detected.
+    /// - 56 patch points classified as corner-constrained; all **8/8 corners
+    ///   occupied**; max corner residual **0.0 m** (exact — corners are
+    ///   fully-fixed anchors placed on the vertex).
+    /// - 156 patch points classified as edge-constrained; max edge residual
+    ///   **5.55e-17 m** (machine zero — the perpendicular pull lands them on the
+    ///   crease and only the along-edge smoothing component remains).
+    /// - Rebuilt mesh: `validate()` Ok, quality gate accepts, 0 negative-volume
+    ///   cells, min cell volume **6.51e-4 m³**.
+    /// - Watertightness: max per-cell `|Σ Sf|` = **8.13e-18 m²** (machine zero).
+    ///
+    /// Interpretation: the `pointConstraint` accumulation snaps corner patch
+    /// points exactly onto box corners and edge patch points exactly onto box
+    /// creases, while every cell stays valid, non-inverted, and closed — the
+    /// sharp-feature capability the plain surface morph lacks.
+    #[test]
+    fn feature_snap_box_corners_and_edges() {
+        let lo = Vector3::new(-1.0, -1.0, -1.0);
+        let hi = Vector3::new(1.0, 1.0, 1.0);
+        let surface = box_soup(lo, hi);
+        let domain = Bounds::new(Vector3::new(-2.0, -2.0, -2.0), Vector3::new(2.0, 2.0, 2.0));
+        let bg = BackgroundMesh::uniform(domain, 8, 8, 8);
+        let controls = CastellationControls::new(bg, 2, Vector3::new(-1.9, -1.9, -1.9));
+        let cast = castellate(&surface, &controls).expect("castellate box");
+
+        let feats = detect_feature_edges(&surface, 40.0);
+        let fpts = detect_feature_points(&feats);
+        assert_eq!(feats.len(), 12);
+        assert_eq!(fpts.len(), 8);
+
+        let mut sc = SnapControls::default();
+        sc.feature_snap = true;
+        sc.feature_angle_deg = 40.0;
+        let snapped = snap(&cast, &surface, &sc).expect("snap box");
+
+        // Mesh integrity.
+        snapped
+            .fv_mesh
+            .validate()
+            .expect("rebuilt box mesh validates");
+        let q = snapped.topology.quality();
+        assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells: {q:?}");
+        assert!(
+            QualityLimits::default().accepts(&q),
+            "post-snap quality gate: {q:?}"
+        );
+        let closure = max_cell_closure(&snapped);
+        assert!(closure < 1e-9, "box cells watertight: {closure:.3e}");
+
+        // Reclassify every snapped wall point exactly as `snap` does, using the
+        // same feature bands, and check where the constraint says it should sit.
+        let wall = snapped
+            .topology
+            .patches
+            .iter()
+            .position(|p| p.kind == PatchKind::Wall)
+            .unwrap();
+        let plen = mean_patch_edge_length(&snapped, wall);
+        let edge_band = 0.5 * plen;
+        let corner_band = 1.25 * plen;
+
+        let ids = snapped.topology.patch_point_ids(wall);
+        let mut n_corner = 0usize;
+        let mut n_edge = 0usize;
+        let mut max_corner_resid = 0.0f64;
+        let mut max_edge_resid = 0.0f64;
+        let mut occupied = [false; 8];
+        let corner_pos: Vec<Vector3> = fpts.clone();
+        for &pid in &ids {
+            let p = snapped.topology.points[pid];
+            // classify against the current position (surf_target only matters for Free)
+            let surf_target = surface.nearest_point(p).unwrap_or(p);
+            let (_t, c) = classify_feature(p, surf_target, &feats, &fpts, edge_band, corner_band);
+            match c {
+                PointConstraint::Point => {
+                    n_corner += 1;
+                    // nearest actual box corner
+                    let mut bd = f64::INFINITY;
+                    let mut bi = 0usize;
+                    for (k, &cp) in corner_pos.iter().enumerate() {
+                        let d = p.dist(cp);
+                        if d < bd {
+                            bd = d;
+                            bi = k;
+                        }
+                    }
+                    if bd > max_corner_resid {
+                        max_corner_resid = bd;
+                    }
+                    occupied[bi] = true;
+                }
+                PointConstraint::Edge { .. } => {
+                    n_edge += 1;
+                    if let Some(fp) = nearest_feature_point(&feats, p) {
+                        let d = p.dist(fp);
+                        if d > max_edge_resid {
+                            max_edge_resid = d;
+                        }
+                    }
+                }
+                PointConstraint::Free => {}
+            }
+        }
+        let n_occupied = occupied.iter().filter(|&&b| b).count();
+        println!(
+            "feature snap box: corners={n_corner} (occupied {n_occupied}/8, max resid \
+             {max_corner_resid:.3e} m) edges={n_edge} (max resid {max_edge_resid:.3e} m) \
+             min_vol={:.3e} closure={closure:.3e}",
+            q.min_cell_volume
+        );
+
+        assert!(n_corner > 0, "some patch points are corner-constrained");
+        assert!(n_edge > 0, "some patch points are edge-constrained");
+        assert!(
+            max_corner_resid < 1e-6,
+            "corner points land on corners (max resid {max_corner_resid:.3e} m)"
+        );
+        assert!(
+            max_edge_resid < 1e-6,
+            "edge points land on edges (max resid {max_edge_resid:.3e} m)"
+        );
+        assert_eq!(
+            n_occupied, 8,
+            "all 8 box corners occupied by a snapped point"
+        );
     }
 }

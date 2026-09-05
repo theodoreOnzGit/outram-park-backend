@@ -7,6 +7,51 @@ Guidance for Claude Code (and other AI assistants) working in this crate.
 > full consolidation/migration history. Dependencies are inherited from the root
 > `[workspace.dependencies]` — do not pin versions in this crate's `Cargo.toml`.
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: published delayed-neutron data reproduced
+  exactly (U-235 five-group total β = 0.0065; U-233 and Pu-239 group sets
+  likewise), PRKE limiting cases exact (zero reactivity holds power constant,
+  cold state produces no decay heat, precursor update is O(1) per step), and
+  the LU solver verified against hand-computed 2×2 and 3×3 systems including
+  pivoting and singular detection. Evidence class: **unit tests and internal
+  consistency**, with literature constants as the reference. **29 tests pass**.
+
+  **This is the thinnest declaration in the workspace, and is deliberately
+  recorded as such.** There is no analytical transient validation yet — no
+  step-reactivity insertion checked against the exact in-hour solution, and no
+  Nordheim-Fuchs excursion checked against its closed form. Both are available
+  in closed form and should be added; when they are, this bar should be
+  restated in terms of them.
+
+### Known API defect, found on declaration day
+
+The time-stepping method is named:
+
+```
+solve_next_timestep_precursor_concentration_and_neutron_pop_vector_implicit
+```
+
+That is **76 characters**, and it is the single most important call in the
+crate — advancing the PRKE state is the whole point of the library. The
+explicit variant is the same name ending `_explicit`.
+
+This is exactly the class of defect the Haiku dogfooding rule exists to catch,
+and it was found by writing the prelude's own doc example: the call does not
+fit on a line, so the example wraps it awkwardly, which is the visible symptom.
+
+**Not fixed yet, because renaming is a breaking change** and this crate is
+consumed by the `outram-park` Python bindings and their generated stubs. The
+fix when it happens: add `step_implicit` / `step_explicit` as the primary
+names, keep the current names as `#[deprecated]` forwarders for one release,
+and regenerate the bindings. Recorded here rather than silently left, so the
+next person does not have to rediscover it.
+
+
 ## Note: `pki/` is a dummy key, not a secret (do not flag as a security issue)
 
 The `pki/` directory (`pki/own/`, `pki/private/`) is a **throwaway dummy key**

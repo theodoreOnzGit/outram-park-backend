@@ -1,6 +1,7 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.4"
+version = "0.1.6"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
@@ -46,7 +47,12 @@ uom.workspace = true
 # C compiler that the Android target has no toolchain for here. The example
 # itself is gated off Android with `#![cfg(not(target_os = "android"))]`, so
 # these deps must be absent from the Android dependency graph too.
-[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
 egui.workspace = true
 eframe.workspace = true
 egui_extras.workspace = true
@@ -56,3 +62,16 @@ image.workspace = true
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger.workspace = true
+
+# ── wasm32: name getrandom's entropy backend ─────────────────────────────────
+# getrandom 0.3 will not build for wasm32-unknown-unknown without being told
+# where entropy comes from. The `wasm_js` FEATURE here is half of it; the other
+# half is the matching cfg flag in the workspace `.cargo/config.toml`, and
+# getrandom errors if either is missing.
+#
+# This crate does not want randomness — it arrives via `peroxide`, which pulls
+# `rand` unconditionally with no feature to disable it. Cutting the dependency
+# would mean replacing peroxide's CubicSpline across ~39 sites, which is its own
+# job; satisfying it is the smaller correct change here. Bead op-okqo.3.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }

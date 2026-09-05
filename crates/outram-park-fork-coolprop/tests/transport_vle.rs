@@ -27,9 +27,7 @@ use outram_park_fork_coolprop::{
     OPCPFluidSingleCV,
 };
 use uom::si::f64::*;
-use uom::si::{
-    available_energy::joule_per_kilogram, pressure::pascal, volume::cubic_meter,
-};
+use uom::si::{available_energy::joule_per_kilogram, pressure::pascal, volume::cubic_meter};
 
 fn rel(a: f64, b: f64) -> f64 {
     (a - b).abs() / b.abs()
@@ -60,7 +58,10 @@ fn transport_helium_hardcoded_vs_literature() {
     assert!(rel(la, 0.152) < 0.05, "He λ = {la:.4e} (lit 0.152)");
     // 400 K
     let mu = viscosity(Fluid::Helium, 400.0, 0.1203).unwrap();
-    assert!(rel(mu, 24.3e-6) < 0.02, "He μ(400) = {mu:.4e} (lit 2.43e-5)");
+    assert!(
+        rel(mu, 24.3e-6) < 0.02,
+        "He μ(400) = {mu:.4e} (lit 2.43e-5)"
+    );
 }
 
 #[test]
@@ -73,7 +74,10 @@ fn transport_water_hardcoded_vs_iapws() {
     assert!(rel(la, 0.607) < 0.02, "H2O λ = {la:.4e} (lit 0.607)");
     // Superheated steam at 373.15 K: μ≈12.3 µPa·s.
     let mu = viscosity(Fluid::Water, 373.15, 0.5977).unwrap();
-    assert!(rel(mu, 12.3e-6) < 0.02, "H2O steam μ = {mu:.4e} (lit 1.23e-5)");
+    assert!(
+        rel(mu, 12.3e-6) < 0.02,
+        "H2O steam μ = {mu:.4e} (lit 1.23e-5)"
+    );
 }
 
 #[test]
@@ -106,7 +110,11 @@ fn transport_is_positive_where_available() {
 #[test]
 fn vle_nitrogen_normal_boiling_point() {
     let s = saturation_at_temperature(Fluid::Nitrogen, 77.355).expect("N2 VLE");
-    assert!(rel(s.pressure, 101_325.0) < 5e-3, "p_sat = {} Pa", s.pressure);
+    assert!(
+        rel(s.pressure, 101_325.0) < 5e-3,
+        "p_sat = {} Pa",
+        s.pressure
+    );
     assert!(rel(s.rho_liquid, 806.6) < 1e-2, "ρ' = {}", s.rho_liquid);
     assert!(rel(s.rho_vapour, 4.61) < 2e-2, "ρ'' = {}", s.rho_vapour);
 }
@@ -114,16 +122,28 @@ fn vle_nitrogen_normal_boiling_point() {
 #[test]
 fn vle_water_at_100c() {
     let s = saturation_at_temperature(Fluid::Water, 373.124).expect("Water VLE");
-    assert!(rel(s.pressure, 101_325.0) < 5e-3, "p_sat = {} Pa", s.pressure);
+    assert!(
+        rel(s.pressure, 101_325.0) < 5e-3,
+        "p_sat = {} Pa",
+        s.pressure
+    );
     assert!(rel(s.rho_liquid, 958.35) < 1e-2, "ρ' = {}", s.rho_liquid);
 }
 
 #[test]
 fn tsat_inversion_round_trip() {
-    for &(f, t) in &[(Fluid::Nitrogen, 90.0), (Fluid::Water, 400.0), (Fluid::Ammonia, 300.0)] {
+    for &(f, t) in &[
+        (Fluid::Nitrogen, 90.0),
+        (Fluid::Water, 400.0),
+        (Fluid::Ammonia, 300.0),
+    ] {
         let p = saturation_at_temperature(f, t).unwrap().pressure;
         let t_back = saturation_temperature(f, p).unwrap();
-        assert!(rel(t_back, t) < 1e-3, "{}: T {t} -> p {p} -> T {t_back}", f.name());
+        assert!(
+            rel(t_back, t) < 1e-3,
+            "{}: T {t} -> p {p} -> T {t_back}",
+            f.name()
+        );
     }
 }
 
@@ -180,10 +200,18 @@ fn transport_more_hardcoded_fluids_vs_literature() {
     ];
     for &(f, t, rho, expect, label) in cases {
         let mu = viscosity(f, t, rho).unwrap_or_else(|| panic!("{label}: None"));
-        assert!(rel(mu, expect) < 0.06, "{label} = {mu:.4e} (lit {expect:.2e})");
+        assert!(
+            rel(mu, expect) < 0.06,
+            "{label} = {mu:.4e} (lit {expect:.2e})"
+        );
     }
     // A couple of hardcoded conductivities.
-    assert!(rel(conductivity(Fluid::HeavyWater, 300.0, 1104.0).unwrap(), 0.60) < 0.03);
+    assert!(
+        rel(
+            conductivity(Fluid::HeavyWater, 300.0, 1104.0).unwrap(),
+            0.60
+        ) < 0.03
+    );
     assert!(rel(conductivity(Fluid::Ethane, 300.0, 1.22).unwrap(), 0.0211) < 0.03);
     assert!(rel(conductivity(Fluid::R23, 300.0, 2.9).unwrap(), 0.014) < 0.05);
     assert!(rel(conductivity(Fluid::Methane, 300.0, 0.651).unwrap(), 0.0343) < 0.03);
@@ -201,7 +229,10 @@ fn transport_friction_theory_and_methanol_vs_literature() {
     ];
     for &(f, t, rho, expect, label) in cases {
         let mu = viscosity(f, t, rho).unwrap_or_else(|| panic!("{label}: None"));
-        assert!(rel(mu, expect) < 0.08, "{label} = {mu:.4e} (lit {expect:.2e})");
+        assert!(
+            rel(mu, expect) < 0.08,
+            "{label} = {mu:.4e} (lit {expect:.2e})"
+        );
     }
 }
 
@@ -214,15 +245,27 @@ fn conductivity_critical_enhancement_active_near_critical() {
     let rho = f.eos().rho_critical * f.eos().molar_mass;
     let dense = conductivity(f, t, rho).unwrap();
     let dilute = conductivity(f, 300.0, 1.123).unwrap();
-    assert!(dense > 1.8 * dilute, "expected near-critical enhancement: {dense} vs {dilute}");
+    assert!(
+        dense > 1.8 * dilute,
+        "expected near-critical enhancement: {dense} vs {dilute}"
+    );
 }
 
 #[test]
 fn coverage_counts() {
     // Count fluids that yield a usable μ / λ (correlation or hardcoded).
-    let n_visc = Fluid::ALL.iter().filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
-    let n_cond = Fluid::ALL.iter().filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some()).count();
-    let n_anc = Fluid::ALL.iter().filter(|f| f.ancillaries().is_some()).count();
+    let n_visc = Fluid::ALL
+        .iter()
+        .filter(|f| viscosity(**f, 1.3 * f.eos().t_critical, 1.0).is_some())
+        .count();
+    let n_cond = Fluid::ALL
+        .iter()
+        .filter(|f| conductivity(**f, 1.3 * f.eos().t_critical, 1.0).is_some())
+        .count();
+    let n_anc = Fluid::ALL
+        .iter()
+        .filter(|f| f.ancillaries().is_some())
+        .count();
     assert!(n_visc >= 42, "viscosity coverage regressed: {n_visc}");
     assert!(n_cond >= 45, "conductivity coverage regressed: {n_cond}");
     assert!(n_anc >= 131, "ancillary coverage regressed: {n_anc}");

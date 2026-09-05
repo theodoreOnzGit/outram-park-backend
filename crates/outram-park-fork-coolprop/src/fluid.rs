@@ -604,7 +604,9 @@ impl Fluid {
             Fluid::Deuterium => Some(&fluids::deuterium::DEUTERIUM_ANCILLARIES),
             Fluid::Dichloroethane => Some(&fluids::dichloroethane::DICHLOROETHANE_ANCILLARIES),
             Fluid::DiethylEther => Some(&fluids::diethylether::DIETHYLETHER_ANCILLARIES),
-            Fluid::DimethylCarbonate => Some(&fluids::dimethylcarbonate::DIMETHYLCARBONATE_ANCILLARIES),
+            Fluid::DimethylCarbonate => {
+                Some(&fluids::dimethylcarbonate::DIMETHYLCARBONATE_ANCILLARIES)
+            }
             Fluid::DimethylEther => Some(&fluids::dimethylether::DIMETHYLETHER_ANCILLARIES),
             Fluid::Ethane => Some(&fluids::ethane::ETHANE_ANCILLARIES),
             Fluid::Ethanol => Some(&fluids::ethanol::ETHANOL_ANCILLARIES),
@@ -617,7 +619,9 @@ impl Fluid {
             Fluid::HeavyWater => Some(&fluids::heavywater::HEAVYWATER_ANCILLARIES),
             Fluid::Helium => Some(&fluids::helium::HELIUM_ANCILLARIES),
             Fluid::Hydrogen => Some(&fluids::hydrogen::HYDROGEN_ANCILLARIES),
-            Fluid::HydrogenChloride => Some(&fluids::hydrogenchloride::HYDROGENCHLORIDE_ANCILLARIES),
+            Fluid::HydrogenChloride => {
+                Some(&fluids::hydrogenchloride::HYDROGENCHLORIDE_ANCILLARIES)
+            }
             Fluid::HydrogenSulfide => Some(&fluids::hydrogensulfide::HYDROGENSULFIDE_ANCILLARIES),
             Fluid::IsoButane => Some(&fluids::isobutane::ISOBUTANE_ANCILLARIES),
             Fluid::IsoButene => Some(&fluids::isobutene::ISOBUTENE_ANCILLARIES),
@@ -633,7 +637,9 @@ impl Fluid {
             Fluid::Methane => Some(&fluids::methane::METHANE_ANCILLARIES),
             Fluid::Methanol => Some(&fluids::methanol::METHANOL_ANCILLARIES),
             Fluid::MethylLinoleate => Some(&fluids::methyllinoleate::METHYLLINOLEATE_ANCILLARIES),
-            Fluid::MethylLinolenate => Some(&fluids::methyllinolenate::METHYLLINOLENATE_ANCILLARIES),
+            Fluid::MethylLinolenate => {
+                Some(&fluids::methyllinolenate::METHYLLINOLENATE_ANCILLARIES)
+            }
             Fluid::MethylOleate => Some(&fluids::methyloleate::METHYLOLEATE_ANCILLARIES),
             Fluid::MethylPalmitate => Some(&fluids::methylpalmitate::METHYLPALMITATE_ANCILLARIES),
             Fluid::MethylStearate => Some(&fluids::methylstearate::METHYLSTEARATE_ANCILLARIES),
@@ -645,9 +651,15 @@ impl Fluid {
             Fluid::NNonane => Some(&fluids::n_nonane::N_NONANE_ANCILLARIES),
             Fluid::NOctane => Some(&fluids::n_octane::N_OCTANE_ANCILLARIES),
             Fluid::NPentane => Some(&fluids::n_pentane::N_PENTANE_ANCILLARIES),
-            Fluid::NPerfluorobutane => Some(&fluids::n_perfluorobutane::N_PERFLUOROBUTANE_ANCILLARIES),
-            Fluid::NPerfluorohexane => Some(&fluids::n_perfluorohexane::N_PERFLUOROHEXANE_ANCILLARIES),
-            Fluid::NPerfluoropentane => Some(&fluids::n_perfluoropentane::N_PERFLUOROPENTANE_ANCILLARIES),
+            Fluid::NPerfluorobutane => {
+                Some(&fluids::n_perfluorobutane::N_PERFLUOROBUTANE_ANCILLARIES)
+            }
+            Fluid::NPerfluorohexane => {
+                Some(&fluids::n_perfluorohexane::N_PERFLUOROHEXANE_ANCILLARIES)
+            }
+            Fluid::NPerfluoropentane => {
+                Some(&fluids::n_perfluoropentane::N_PERFLUOROPENTANE_ANCILLARIES)
+            }
             Fluid::NPropane => Some(&fluids::n_propane::N_PROPANE_ANCILLARIES),
             Fluid::NUndecane => Some(&fluids::n_undecane::N_UNDECANE_ANCILLARIES),
             Fluid::Neon => Some(&fluids::neon::NEON_ANCILLARIES),
@@ -710,7 +722,9 @@ impl Fluid {
             Fluid::R41 => Some(&fluids::r41::R41_ANCILLARIES),
             Fluid::RC318 => Some(&fluids::rc318::RC318_ANCILLARIES),
             Fluid::SulfurDioxide => Some(&fluids::sulfurdioxide::SULFURDIOXIDE_ANCILLARIES),
-            Fluid::SulfurHexafluoride => Some(&fluids::sulfurhexafluoride::SULFURHEXAFLUORIDE_ANCILLARIES),
+            Fluid::SulfurHexafluoride => {
+                Some(&fluids::sulfurhexafluoride::SULFURHEXAFLUORIDE_ANCILLARIES)
+            }
             Fluid::Tetrahydrofuran => Some(&fluids::tetrahydrofuran::TETRAHYDROFURAN_ANCILLARIES),
             Fluid::Toluene => Some(&fluids::toluene::TOLUENE_ANCILLARIES),
             Fluid::Trans2Butene => Some(&fluids::trans_2_butene::TRANS_2_BUTENE_ANCILLARIES),
@@ -772,7 +786,9 @@ impl Fluid {
             Fluid::R407C => Some(&fluids::r407c::R407C_TRANSPORT),
             Fluid::R410A => Some(&fluids::r410a::R410A_TRANSPORT),
             Fluid::R507A => Some(&fluids::r507a::R507A_TRANSPORT),
-            Fluid::SulfurHexafluoride => Some(&fluids::sulfurhexafluoride::SULFURHEXAFLUORIDE_TRANSPORT),
+            Fluid::SulfurHexafluoride => {
+                Some(&fluids::sulfurhexafluoride::SULFURHEXAFLUORIDE_TRANSPORT)
+            }
             Fluid::Toluene => Some(&fluids::toluene::TOLUENE_TRANSPORT),
             Fluid::Water => Some(&fluids::water::WATER_TRANSPORT),
             #[allow(unreachable_patterns)]

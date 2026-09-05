@@ -1,0 +1,52 @@
+[package]
+name = "outram-park-fork-cfmesh"
+version = "0.0.1"
+edition.workspace = true
+# GPL-3.0-only: this crate is a Rust port/fork of cfMesh (GPL-3.0-only). The
+# voro++-derived portions (BSD, LBNL) retain their permissive provenance
+# in-tree (see NOTICE); BSD is GPLv3-compatible, so the crate as a whole is
+# distributed under GPL-3.0-only.
+license.workspace = true
+description = "Pure-Rust fork/port of cfMesh (Creative Fields' automatic unstructured mesh generator: Cartesian / tetrahedral / polyhedral meshing with boundary layers), with voro++ as the Voronoi/polyhedral-dual reference. Consumes an outram-blender surface mesh and produces an outram-foam polyMesh. An independent OUTRAM PARK fork, not the official cfMesh. GPL-3.0; scaffold stage — no human V&V yet, use at your own risk."
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+# The vendored upstream clones are dev-only reference material (gitignored) and
+# must never be packaged; `upstream_source/README.md` (the small provenance
+# record) stays in the package.
+exclude = ["upstream_source/cfMesh", "upstream_source/voro"]
+
+# The volume-meshing core (VolumeMesh, cartesian, carve, snap) is pure Rust
+# with no dependencies, so the crate stays Android/Termux-buildable by default.
+# The optional `foam-export` feature adds the bridge to the real
+# `outram-foam-basic-lib` `PolyMesh` (that crate is BLAS-free / Android-safe);
+# it is off by default so the base build pulls nothing.
+[features]
+foam-export = ["dep:outram-foam-basic-lib"]
+
+[dependencies]
+outram-foam-basic-lib = { workspace = true, optional = true }
+
+[dev-dependencies]
+
+# GUI example stack — the `mesh_studio` egui app (author a surface → generate a
+# polyhedral volume mesh with prism boundary layers → export OpenFOAM/outram-foam
+# polyMesh). Dev-only and target-gated OFF Android (windowing exemption); the
+# library stays pure-Rust and Android-buildable.
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+env_logger = { workspace = true }
+
+# The mesh-authoring GUI. Needs `foam-export` for the polyMesh writer, so it only
+# builds with that feature:
+#   cargo run -p outram-park-fork-cfmesh --example mesh_studio --features foam-export --release
+[[example]]
+name = "mesh_studio"
+path = "examples/mesh_studio/main.rs"
+required-features = ["foam-export"]

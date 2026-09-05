@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Closed-form generators for a cube, UV sphere, cylinder and grid, validated
+// against Euler's polyhedron formula V - E + F = chi (L. Euler, 1758). No named
+// published algorithm and no upstream source — written from first principles.
+// Blender analogue (architecture only): the editmesh_add "Add Mesh" operators.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Real** mesh primitive generators (Blender's "Add Mesh" primitives).
 //!
 //! This is the one module in the crate with fully implemented, unit-tested
@@ -70,13 +93,18 @@ pub fn cube(size: f64) -> Mesh {
 /// Topology (closed, genus-0, `chi = 2`): **2 poles + (rings - 1) * segments**
 /// vertices; the two pole caps are triangle fans (`segments` triangles each)
 /// and the `rings - 2` intermediate bands are quad strips
-/// (`(rings - 2) * segments` quads).
+/// (`(rings - 2) * segments` quads). Faces are wound counter-clockwise as seen
+/// from outside, so face normals point **outward** (positive enclosed volume) —
+/// consistent with [`cube`] and [`cylinder`].
 ///
 /// # Panics
 ///
 /// Panics if `segments < 3` or `rings < 2` — too few to close the surface.
 pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
-    assert!(segments >= 3, "uv_sphere needs segments >= 3, got {segments}");
+    assert!(
+        segments >= 3,
+        "uv_sphere needs segments >= 3, got {segments}"
+    );
     assert!(rings >= 2, "uv_sphere needs rings >= 2, got {rings}");
     let mut m = Mesh::new();
 
@@ -102,20 +130,23 @@ pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
     }
 
     let top = &ring_verts[0];
-    // North cap: fan of triangles (CCW outward looking down the +Z axis).
+    // North cap: fan of triangles wound so the outward normal points up (+Z).
+    // Seen from above (down the +Z axis) the loop pole -> top[i] -> top[i+1]
+    // runs counter-clockwise, giving a +Z (outward) normal.
     for i in 0..segments {
         let a = top[i];
         let b = top[(i + 1) % segments];
-        m.add_face(&[north, b, a]);
+        m.add_face(&[north, a, b]);
     }
-    // South cap.
+    // South cap: mirror winding so the outward normal points down (-Z).
     let bottom = &ring_verts[rings - 2];
     for i in 0..segments {
         let a = bottom[i];
         let b = bottom[(i + 1) % segments];
-        m.add_face(&[south, a, b]);
+        m.add_face(&[south, b, a]);
     }
-    // Intermediate quad bands between latitude j and j+1.
+    // Intermediate quad bands between latitude j (upper) and j+1 (lower), wound
+    // so the outward normal points radially outward.
     for j in 0..(rings - 2) {
         for i in 0..segments {
             let i1 = (i + 1) % segments;
@@ -123,7 +154,7 @@ pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
             let b = ring_verts[j][i1];
             let c = ring_verts[j + 1][i1];
             let d = ring_verts[j + 1][i];
-            m.add_face(&[a, b, c, d]);
+            m.add_face(&[a, d, c, b]);
         }
     }
     m
@@ -143,7 +174,10 @@ pub fn uv_sphere(segments: usize, rings: usize, radius: f64) -> Mesh {
 ///
 /// Panics if `segments < 3` — too few sides to enclose a volume.
 pub fn cylinder(segments: usize, radius: f64, height: f64) -> Mesh {
-    assert!(segments >= 3, "cylinder needs segments >= 3, got {segments}");
+    assert!(
+        segments >= 3,
+        "cylinder needs segments >= 3, got {segments}"
+    );
     let mut m = Mesh::new();
     let hz = height * 0.5;
 
@@ -185,7 +219,10 @@ pub fn cylinder(segments: usize, radius: f64, height: f64) -> Mesh {
 ///
 /// Panics if `nx < 1` or `ny < 1`.
 pub fn grid(nx: usize, ny: usize, size: f64) -> Mesh {
-    assert!(nx >= 1 && ny >= 1, "grid needs nx >= 1 and ny >= 1, got {nx}x{ny}");
+    assert!(
+        nx >= 1 && ny >= 1,
+        "grid needs nx >= 1 and ny >= 1, got {nx}x{ny}"
+    );
     let mut m = Mesh::new();
     let half = size * 0.5;
     let dx = size / nx as f64;
@@ -196,11 +233,7 @@ pub fn grid(nx: usize, ny: usize, size: f64) -> Mesh {
     let mut verts = Vec::with_capacity((nx + 1) * (ny + 1));
     for i in 0..=nx {
         for j in 0..=ny {
-            verts.push(m.add_vertex(Vec3::new(
-                -half + dx * i as f64,
-                -half + dy * j as f64,
-                0.0,
-            )));
+            verts.push(m.add_vertex(Vec3::new(-half + dx * i as f64, -half + dy * j as f64, 0.0)));
         }
     }
 
@@ -238,7 +271,11 @@ mod tests {
         assert_eq!(s.vertex_count(), 2 + (rings - 1) * segments);
         // segments + segments caps + (rings-2)*segments quads.
         assert_eq!(s.face_count(), 2 * segments + (rings - 2) * segments);
-        assert_eq!(s.euler_characteristic(), 2, "closed sphere must have chi = 2");
+        assert_eq!(
+            s.euler_characteristic(),
+            2,
+            "closed sphere must have chi = 2"
+        );
     }
 
     #[test]
@@ -255,7 +292,68 @@ mod tests {
         assert_eq!(cy.vertex_count(), 2 * segments);
         assert_eq!(cy.edge_count(), 3 * segments);
         assert_eq!(cy.face_count(), segments + 2);
-        assert_eq!(cy.euler_characteristic(), 2, "closed cylinder must have chi = 2");
+        assert_eq!(
+            cy.euler_characteristic(),
+            2,
+            "closed cylinder must have chi = 2"
+        );
+    }
+
+    /// Signed volume via the divergence theorem: `(1/6) sum v0 . (v1 x v2)`
+    /// over fan-triangulated faces. Positive for an outward-wound closed
+    /// surface. Regression guard for the `uv_sphere` inward-winding bug (bead
+    /// op-hzs.14): every closed generator must be outward-oriented (positive),
+    /// and consistent with each other, so a downstream boolean / classifier
+    /// never sees a mixed-orientation input.
+    fn signed_volume(m: &Mesh) -> f64 {
+        let ps = m.positions();
+        let mut vol = 0.0;
+        for face in m.polygons() {
+            let v0 = ps[face[0].0];
+            for k in 1..face.len() - 1 {
+                vol += v0.dot(ps[face[k].0].cross(ps[face[k + 1].0]));
+            }
+        }
+        vol / 6.0
+    }
+
+    /// Methodology: every closed primitive must be **outward**-wound, i.e. its
+    /// signed volume must be positive and match the analytic enclosed volume.
+    /// `cube(2.0)` = `2^3 = 8`; `cylinder(seg, 1, 2)` -> `pi r^2 h = 2*pi`
+    /// approximated by a `seg`-gon prism (a bit under); `uv_sphere` -> a bit
+    /// under `4/3 pi r^3`. Pass criterion: all strictly positive, cube exact,
+    /// the faceted ones within their polygonal-approximation band.
+    ///
+    /// Results (asserted below): cube `= 8`; cylinder and sphere strictly
+    /// positive and within the faceted band of their analytic volumes.
+    #[test]
+    fn closed_primitives_are_outward_wound() {
+        assert!(
+            (signed_volume(&cube(2.0)) - 8.0).abs() < 1e-9,
+            "cube volume must be exactly 8"
+        );
+
+        let cyl = signed_volume(&cylinder(64, 1.0, 2.0));
+        let cyl_analytic = 2.0 * PI; // pi * 1^2 * 2
+        assert!(
+            cyl > 0.0,
+            "cylinder must be outward-wound (positive volume), got {cyl}"
+        );
+        assert!(
+            cyl < cyl_analytic && cyl > 0.98 * cyl_analytic,
+            "cylinder volume {cyl} out of band"
+        );
+
+        let sph = signed_volume(&uv_sphere(64, 32, 1.0));
+        let sph_analytic = 4.0 / 3.0 * PI; // r = 1
+        assert!(
+            sph > 0.0,
+            "uv_sphere must be outward-wound (positive volume), got {sph}"
+        );
+        assert!(
+            sph < sph_analytic && sph > 0.98 * sph_analytic,
+            "sphere volume {sph} out of band"
+        );
     }
 
     #[test]
@@ -264,6 +362,10 @@ mod tests {
         let g = grid(nx, ny, 1.0);
         assert_eq!(g.vertex_count(), (nx + 1) * (ny + 1));
         assert_eq!(g.face_count(), nx * ny);
-        assert_eq!(g.euler_characteristic(), 1, "flat grid patch is a disc, chi = 1");
+        assert_eq!(
+            g.euler_characteristic(),
+            1,
+            "flat grid patch is a disc, chi = 1"
+        );
     }
 }

@@ -20,6 +20,24 @@ codes. In OUTRAM PARK its job is to produce the **ACE** continuous-energy
 libraries that [`outram-mc-libs`] consumes: NJOY is the data-prep step *upstream* of
 an OpenMC calculation.
 
+## `njoy-tui` — terminal nuclear-data browser
+
+This crate ships a **mobile-first, touchscreen** terminal UI — a JANIS-like
+browser over the embedded WMP/MGXS data: fuzzy nuclide finder, log-log
+cross-section plot, and a °C/K Doppler-temperature stepper. It is a `[[bin]]`
+**inside this crate** (not a separate crate); `ratatui` is an unconditional
+dependency, so it always builds with a plain `cargo build` — no feature flags.
+
+```bash
+# run from a checkout
+cargo run -p njoy-outram-park-fork --bin njoy-tui --release
+# install the standalone binary (also works on Termux/Android)
+cargo install --path crates/njoy-outram-park-fork
+```
+
+Full design notes, the mobile-first/touch interaction model, and Termux usage
+live in [`docs/njoy-tui.md`](docs/njoy-tui.md).
+
 ## GPU compute — precision / performance tradeoff (opt-in)
 
 njoy ships an **optional GPU compute path** (Cargo feature `gpu`, **desktop only**
@@ -143,3 +161,10 @@ See the porting plan for the test strategy.
 
 [NJOY2016]: https://github.com/njoy/NJOY2016
 [`outram-mc-libs`]: https://github.com/theodoreOnzGit/outram-park-backend
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore, Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

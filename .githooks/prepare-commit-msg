@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# OUTRAM PARK token-accounting hook (standing rule): stamp every commit message
+# with an API-Usage trailer derived from the Claude Code session transcripts.
+#
+# Never blocks a commit — `kovan tokens trailer` degrades to a zero/"source=none"
+# trailer if no usage data is available, and a missing `kovan` binary is simply
+# a no-op. See crates/kovan-metrics (this replaced docs/historian/token_usage.py).
+set -u
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+# shellcheck source=/dev/null
+. "$ROOT/.githooks/kovan-bin.sh" 2>/dev/null || exit 0
+[ -n "${KOVAN_BIN:-}" ] || exit 0
+"$KOVAN_BIN" tokens trailer "$1" || true
+exit 0

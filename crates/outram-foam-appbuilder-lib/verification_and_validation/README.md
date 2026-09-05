@@ -48,10 +48,19 @@ interpretation of what the numbers mean and whether the pass criterion was met.
   BibTeX, and a representative CSV *excerpt* embedded as a fenced code block
   are the durable, human-readable record and stay small.
 - **Standalone `.csv` files** (a full benchmark dataset a `.md` references,
-  when the embedded excerpt is a sample rather than the whole table) are
-  **gitignored** (see `.gitignore`) and **excluded from `cargo publish`** (see
-  `Cargo.toml`'s `exclude`). Regenerate them by re-running the verification
-  test/example that produced them; don't hand-edit.
+  when the embedded excerpt is a sample rather than the whole table).
+  **Whether these are ignored depends on where they sit**, and both globs are
+  top-level-only:
+  - Directly under `verification_and_validation/` — **gitignored** (see
+    `.gitignore`) and **excluded from `cargo publish`** (see `Cargo.toml`'s
+    `exclude`, which uses the same `verification_and_validation/*.csv` glob).
+  - Inside a per-case **sub-folder** (e.g.
+    `sod_shock_tube_validation/…csv`) — matched by *neither* glob, so such a
+    CSV **is committed and is packaged into the published crate**. Keep those
+    small and deliberate.
+
+  Regenerate either kind by re-running the verification test/example that
+  produced it; don't hand-edit.
 
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).

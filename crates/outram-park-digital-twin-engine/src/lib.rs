@@ -31,7 +31,11 @@
 //!   reusable across digital-twin GUI applications.
 //! - **Does NOT belong here:** any new physics -- if a visualization needs a
 //!   physical quantity `tampines`/`nee_soon` don't yet expose, add it there,
-//!   not here.
+//!   not here. The one maintainer-directed exception is [`htr10`] (bead
+//!   `op-jyyp`, 2026-08-11): the HTR-10 simulator rewrite's *cited* design
+//!   constants and packed-bed reference correlations, kept here with their
+//!   V&V unit tests so the example rewrite and its tests share one
+//!   provenance-checked source.
 //!
 //! ## Android / portability
 //!
@@ -42,9 +46,19 @@
 //!
 //! ## Status
 //!
-//! **Scaffold only.** This crate is being built out incrementally; see the
-//! `op-wqk` epic in the workspace's beads issue tracker for the live module
-//! plan and progress.
+//! The four modules below are implemented: [`color_maps`] and [`app_scaffold`]
+//! are ports of already-working code, [`components`] wraps the physics types
+//! it visualizes, and [`animation`] carries the tracer kinematics. The one
+//! deliberate stand-in is [`components::InstrumentationVisual`], which stays a
+//! label/value placeholder because `nee_soon` exposes no instrumentation
+//! readout type to wrap yet.
+//!
+//! Per `RESPONSIBLE_USE.md`, everything here is **untrusted draft material
+//! until human-reviewed** — see the crate README's bookkeeping-status block for
+//! the maintainer sign-off state. The example simulators are **offline
+//! demonstrations only**.
+//!
+//! See the workspace's beads issue tracker for the live module plan.
 
 #![forbid(unsafe_code)]
 
@@ -56,6 +70,33 @@
 // `cargo check --target aarch64-linux-android` clean (see workspace CLAUDE.md
 // Android-portability rule). Desktop builds are unchanged.
 pub mod animation;
+// `ciet_opcua` is the CIET Educational Simulator v2 half of the OPC-UA
+// interface -- plant state, node map, identity strings -- shared by the two CIET
+// v2 binaries. It is deliberately GUI-free and physics-free, and like
+// `opcua_core` below it builds on Android/Termux with no target gate: the
+// headless Termux build of the simulator serves OPC-UA exactly as the desktop
+// one does.
+/// Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+/// browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+/// it. Beads op-okqo.3, op-eeqw.2.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod ciet_opcua;
+// `opcua_core` is the reactor-agnostic OPC-UA server layer `ciet_opcua` is built
+// on: transport, server thread, PKI, mDNS discovery and address-space
+// construction, parameterised by whichever simulator is being served. GUI-free
+// like `ciet_opcua`, and buildable on Android/Termux for the same reason. Named
+// `opcua_core` rather than `opcua` so it cannot shadow the `opcua` crate in a
+// `use` path.
+/// Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+/// browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+/// it. Beads op-okqo.3, op-eeqw.2.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod opcua_core;
+// `htr10` is GUI-free cited-constant + correlation data for the HTR-10
+// pebble-bed simulator rewrite (bead op-jyyp), so like `animation` it builds
+// on Android with no target gate. NOT VALIDATED -- its tests reproduce
+// published numbers; they do not validate a simulator.
+pub mod htr10;
 #[cfg(not(target_os = "android"))]
 pub mod app_scaffold;
 #[cfg(not(target_os = "android"))]
