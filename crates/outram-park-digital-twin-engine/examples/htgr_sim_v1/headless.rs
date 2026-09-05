@@ -40,8 +40,17 @@ pub struct HeadlessConfig {
     /// Operator commands, held constant for the whole run.
     ///
     /// `PlantCommands::default()` is the published operating point with the
-    /// rods at their critical insertion, so the default run is a steady-state
-    /// hold rather than a transient — which is what a baseline wants.
+    /// rods at their critical insertion.
+    ///
+    /// Its docstring in `physics` claims this starts *"near steady state
+    /// rather than on a prompt excursion"*. **Measured 2026-09-06, it does
+    /// not:** power rises to ~27.8 MW near 100 s — roughly 2.8x nominal —
+    /// before settling near 8.1 MW by 1200 s, with bed temperature still
+    /// drifting downward at that point. It is a large startup transient.
+    ///
+    /// That makes it a *better* baseline, not a worse one — a transient
+    /// exercises far more of the model than a hold would — but it must not be
+    /// described as steady state.
     pub commands: PlantCommands,
 }
 
@@ -148,6 +157,56 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(run(&cfg), run(&cfg), "headless run is not deterministic");
+    }
+
+    /// **The reference baseline for the execution refactor (bead `op-fbou`).**
+    ///
+    /// Compares a headless run against `reference/baseline_default_commands.csv`,
+    /// captured 2026-09-06 **before** any execution change.
+    ///
+    /// Its job is to prove that extracting kernels and changing who schedules
+    /// them **changed nothing about the physics**. Serial extraction should keep
+    /// this bit-exact; that is why the comparison is exact rather than
+    /// tolerance-based. When parallel execution lands and reduction order
+    /// legitimately changes, add a *separate* tolerance-based comparison rather
+    /// than loosening this one.
+    ///
+    /// **This is a baseline of the current PRISMATIC model, and of what it does
+    /// rather than what it should do.** It is not an HTR-10 reference and must
+    /// never be cited as one — see `op-jyyp.11` for that. It becomes
+    /// intentionally obsolete when `op-jyyp` rewrites the physics.
+    #[test]
+    fn matches_the_recorded_reference_baseline() {
+        let fixture = include_str!("reference/baseline_default_commands.csv");
+        let cfg = HeadlessConfig {
+            steps: 3000,
+            sample_every: 25,
+            ..Default::default()
+        };
+
+        let produced: Vec<String> = std::iter::once(TraceRow::csv_header().to_string())
+            .chain(run(&cfg).iter().map(|r| r.to_csv()))
+            .collect();
+        let expected: Vec<&str> = fixture.lines().filter(|l| !l.is_empty()).collect();
+
+        assert_eq!(
+            produced.len(),
+            expected.len(),
+            "row count changed: produced {} vs reference {}",
+            produced.len(),
+            expected.len()
+        );
+
+        for (i, (got, want)) in produced.iter().zip(expected.iter()).enumerate() {
+            assert_eq!(
+                got, want,
+                "reference baseline diverged at row {i}\n  produced: {got}\n  reference: {want}\n\
+                 If this is an intended physics change, regenerate with:\n  \
+                 cargo run --release --example htgr_sim_v1 -- --headless 3000 25 \
+                 > examples/htgr_sim_v1/reference/baseline_default_commands.csv\n  \
+                 If it is NOT intended, the execution refactor changed the physics."
+            );
+        }
     }
 
     /// A plant stepped from `PlantCommands::default()` should hold near its
