@@ -933,12 +933,77 @@ what crate they need and how to call it.
   update its `///` doc comment in the same change.
 - Do not write examples that require reading internal modules to understand.
 
+### When this applies: only to crates declared mature (HARD RULE)
+
+**The dogfooding rule below is a hard rule for every crate the maintainer has
+declared mature, and is not enforced on any crate before that.** Both halves
+bind: do not skip it on a mature crate, and do not demand it of one still
+finding its shape.
+
+**API polish comes after the internals are shown to be reasonably accurate,
+never before.** An interface is a commitment to a shape, and shaping an
+interface around physics that is still moving means paying for the same
+interface twice — and the wheel, the stubs, the examples and the codegen
+registry all move with it. Worse, an API that is pleasant to call and quietly
+wrong is more dangerous than one that is awkward, because the ergonomics
+invite trust the numbers have not earned.
+
+**What "reasonably accurate" means here.** A crate becomes eligible when its
+internals are backed by at least one of:
+
+- **Analytical or manufactured solution.** Agreement with a closed-form
+  result, or an MMS convergence study showing the expected order of accuracy.
+  This proves the numerics.
+- **Cross-code comparison.** Agreement with an established code (OpenMC,
+  Serpent, MOOSE, OpenFOAM, NJOY) on the same input, where no closed form
+  exists.
+- **Unit tests and internal consistency.** Conservation, symmetry, reciprocity
+  and limiting-case invariants holding under test. Necessary always, and
+  sufficient on its own only for crates with no physics to get wrong
+  (utility, I/O, tooling).
+
+**Published-benchmark agreement is deliberately not on that list.** Matching
+HTR-10, MSRE or ICSBEP is the *goal* of the validation pipeline, and that
+pipeline is driven through the very API in question — so requiring it first
+would deadlock the work. Benchmark agreement is the reward for a good API, not
+its entry fee. (Rationale recorded 2026-09-05; revisit if it proves too
+lenient.)
+
+**The tolerance is per-crate, and lives in that crate's own `CLAUDE.md`.**
+There is no workspace-wide number: 500 pcm means something in `outram-mc-libs`
+and nothing in `outram-park-fork-dwsim-libs`. Each crate states its own bar,
+the reference it is measured against, and the evidence class above that it
+claims. A crate with no such statement is by definition not yet mature.
+
+**Who declares it.** The maintainer, and only the maintainer, marks a crate
+mature. An agent that believes a crate has cleared its bar may *propose*
+maturity — open the issue in both trackers, cite the specific runs and
+numbers, and stop there. Do not flip the flag, and do not begin enforcing the
+dogfooding rule on the strength of your own assessment.
+
+**The bar moves, and that is expected.** Standards tighten as the physics
+firms up and as reference data improves. Record every revision as a dated
+entry in the crate's own `CLAUDE.md`, keeping the superseded ones:
+
+```
+- 2026-09-05 — mature. Bar: k-eff within 500 pcm of a cross-code OpenMC run
+  on the same ENDF/B-VIII.0 evaluation. Evidence: cross-code comparison.
+- 2026-11-xx — bar tightened to 200 pcm now that the scatter matrix is
+  verified; the 500 pcm entry above stands as what was accepted before.
+```
+
+Keeping the history matters more than it looks: an agent reading the crate
+later needs to know not just today's bar but that it moved, or it will
+misread older results as failures against a standard that did not exist when
+they were produced.
+
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**
 
-That is the standing test for **every crate in this workspace**, and it is a
-test, not a slogan: a small model has no budget to read the source, so it can
+That is the standing test for **every crate declared mature** (see the gate
+directly above — it is not asked of a crate still finding its shape), and it
+is a test, not a slogan: a small model has no budget to read the source, so it can
 only use what the interface itself makes discoverable — exactly like the human
 this section already requires the API to serve. When it cannot get there, the
 interface is wrong, however correct the physics underneath.
