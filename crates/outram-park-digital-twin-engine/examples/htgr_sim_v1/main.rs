@@ -49,6 +49,8 @@ mod app;
 mod headless;
 #[cfg(not(target_os = "android"))]
 mod physics;
+#[cfg(not(target_os = "android"))]
+mod runtime;
 
 #[cfg(not(target_os = "android"))]
 use app::HtgrSimApp;

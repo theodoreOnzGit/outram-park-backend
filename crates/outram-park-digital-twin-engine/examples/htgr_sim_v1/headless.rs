@@ -26,7 +26,8 @@
 //! `determinism_same_config_same_trace` in this module asserts it.
 
 use crate::app::state::HtgrSnapshot;
-use crate::physics::{HtgrPlant, PlantCommands, PLANT_TIMESTEP_S};
+use crate::physics::{PlantCommands, PLANT_TIMESTEP_S};
+use crate::runtime::{PlantControls, PlantRuntime};
 use uom::si::f64::Time;
 use uom::si::time::second;
 
@@ -37,7 +38,7 @@ pub struct HeadlessConfig {
     pub steps: usize,
     /// Emit one trace row every `sample_every` steps. `1` records every step.
     pub sample_every: usize,
-    /// Operator commands, held constant for the whole run.
+    /// Operator controls, held constant for the whole run.
     ///
     /// `PlantCommands::default()` is the published operating point with the
     /// rods at their critical insertion.
@@ -51,7 +52,7 @@ pub struct HeadlessConfig {
     /// That makes it a *better* baseline, not a worse one — a transient
     /// exercises far more of the model than a hold would — but it must not be
     /// described as steady state.
-    pub commands: PlantCommands,
+    pub controls: PlantControls,
 }
 
 impl Default for HeadlessConfig {
@@ -59,7 +60,7 @@ impl Default for HeadlessConfig {
         Self {
             steps: 600,
             sample_every: 60,
-            commands: PlantCommands::default(),
+            controls: PlantControls::default(),
         }
     }
 }
@@ -109,17 +110,22 @@ impl TraceRow {
 /// Single-threaded, no clock, no I/O. See the module docs on determinism.
 pub fn run(cfg: &HeadlessConfig) -> Vec<TraceRow> {
     let dt: Time = Time::new::<second>(PLANT_TIMESTEP_S);
-    let mut plant = HtgrPlant::new();
+    // Drives the extracted runtime rather than `HtgrPlant` directly, so the
+    // reference baseline exercises the same boundary a native scheduler or a
+    // Web Worker will use. That the baseline stayed bit-exact across this
+    // change is the evidence that extraction altered no physics.
+    let mut rt = PlantRuntime::new();
+    rt.submit(cfg.controls.clone());
     let mut snap = HtgrSnapshot::default();
     let sample_every = cfg.sample_every.max(1);
 
     let mut trace = Vec::with_capacity(cfg.steps / sample_every + 1);
 
     for step in 0..cfg.steps {
-        plant.step(dt, cfg.commands.clone());
+        rt.tick(dt);
 
         if step % sample_every == 0 || step + 1 == cfg.steps {
-            plant.write_snapshot(&mut snap);
+            rt.publish(&mut snap);
             trace.push(TraceRow {
                 step,
                 sim_time_s: snap.sim_time_s,
