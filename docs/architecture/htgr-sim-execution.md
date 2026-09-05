@@ -293,21 +293,55 @@ Both platforms, all of the time:
 | `op-jyyp` — HTR-10 pebble-bed retarget | **Same files, different axis.** That epic rewrites the physics content; this one changes how physics is invoked. **Sequencing must be agreed** — see below. |
 | `scripts/check-wasm.sh` | Its compiles-vs-runs distinction is preserved and extended. Passing that gate is necessary and **not** sufficient. |
 
-### The sequencing question, stated plainly
+### Sequencing — DECIDED: architecture first (maintainer, 2026-09-06)
 
-`op-jyyp` says the primary-loop model is *"a REWRITE, not a retune"*. Extracting
-kernels from code that is about to be rewritten risks doing the work twice.
+`op-jyyp` states the primary-loop model is *"a REWRITE, not a retune"*, which
+raised the question of whether to extract kernels from code about to be
+rewritten.
 
-Two defensible orders:
+**Decision: architecture first.** Establish the kernel contract against the
+current prismatic physics, then write the HTR-10 pebble-bed physics into a
+shape that already satisfies it.
 
-- **Architecture first** — establish the kernel contract, then write the
-  pebble-bed physics into a shape that already satisfies it. Costs a rebase of
-  the extraction; buys a correct boundary for all the new physics.
-- **Physics first** — let `op-jyyp` land, then extract. Costs extracting from a
-  larger, newer body of code; avoids churn.
+**Why this is the right way round:** the kernel contract is cheap to establish
+now (the `step` functions already exist and extraction should be close to
+mechanical) and expensive to retrofit later onto a larger, newer body of code.
+Writing the pebble-bed closures directly into the kernel shape costs the
+physics work nothing, because a bounded single-threaded `step` is what those
+closures would naturally be anyway.
 
-**This is a maintainer decision and is not made here.** It should be settled
-before kernel extraction starts.
+**What this gates, precisely.** Only the five `op-jyyp` children that rewrite
+`htgr_sim_v1`'s own physics modules now wait on kernel extraction:
+
+| bead | module it rewrites |
+|---|---|
+| `op-jyyp.2` | Ergun/KTA packed-bed pressure drop (primary loop) |
+| `op-jyyp.6` | graphite/moderator feedback channel (kinetics) |
+| `op-jyyp.7` | reflector / core barrel / cavity cooling (primary loop) |
+| `op-jyyp.8` | decay heat (kinetics) |
+| `op-jyyp.9` | helical-coil once-through steam generator (SG kernel) |
+
+The other thirteen `op-jyyp` children are **library-level work in tampines,
+TUAS, boon-lay and the material databases**. They do not touch the simulator's
+execution path and are **deliberately not gated**.
+
+**The cost, stated honestly.** `op-jyyp.9` (the helical-coil SG) is
+substantial physics work now sitting behind an architectural bead. Kernel
+extraction must therefore be treated as **time-critical**, not as leisurely
+groundwork — if it stalls, it stalls the SG rewrite. It should be scoped to be
+close to mechanical, and if it turns out not to be, that is a signal to
+re-examine this decision rather than to let the physics wait.
+
+### A consequence for the reference baseline
+
+The reference recorded before extraction is a baseline of the **current
+prismatic model**. Its job is to prove that *extraction changed nothing* — and
+that job ends the moment extraction is shown equivalent.
+
+**It is not an HTR-10 reference and must never be cited as one.** Once
+`op-jyyp` rewrites the physics, this baseline is intentionally obsolete. The
+HTR-10 reference is `op-jyyp.11`'s business (PBMR-400 coupled benchmark, then
+HTR-10 criticality and safety demonstration).
 
 ---
 
