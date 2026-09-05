@@ -275,9 +275,82 @@ impl Nuclide {
         let cache = EndfCache::new()?;
         let tape = cache.download_tape(library, mat, z, a, sym)?;
 
+        Self::from_tape(&tape, mat, name, temp_k, tolerance)
+    }
+
+    /// Build a nuclide from an ENDF file **on disk** — the ordinary case.
+    ///
+    /// Supply the evaluation yourself, point at it, get a transport-ready
+    /// nuclide. No network, no feature gate, no MAT table lookup: the material
+    /// number is read from the tape.
+    ///
+    /// ```no_run
+    /// use outram_mc_libs::material::nuclide::Nuclide;
+    /// use std::path::Path;
+    ///
+    /// let u235 = Nuclide::from_endf_file(
+    ///     Path::new("reference-data/endf/n-092_U_235-ENDF8.0.endf"),
+    ///     "U235",
+    ///     293.6,   // K
+    ///     1e-3,    // RECONR tolerance
+    /// )?;
+    /// # Ok::<(), outram_mc_libs::NjoyError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError`] if the file cannot be read or parsed, if it holds no
+    /// material, or for any reason [`Self::from_tape`] reports.
+    pub fn from_endf_file(
+        path: &std::path::Path,
+        name: &str,
+        temp_k: f64,
+        tolerance: f64,
+    ) -> Result<Self, NjoyError> {
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path)?;
+        // The tape knows its own MAT; making the caller supply one they would
+        // have to look up is the kind of avoidable step that turns a two-line
+        // task into a search through the source.
+        let mat = tape.materials().first().copied().ok_or_else(|| {
+            NjoyError::Download(format!("{} contains no ENDF material", path.display()))
+        })?;
+        Self::from_tape(&tape, mat, name, temp_k, tolerance)
+    }
+
+    /// Build a nuclide from an ENDF tape **already in hand** — no network, no
+    /// feature gate.
+    ///
+    /// This is the local half of [`Self::from_endf`]: RECONR to pointwise
+    /// σ(E), Doppler-broaden to `temp_k`, then pull ν̄, χ, the inelastic level
+    /// structure and the elastic angular distribution off the same tape.
+    /// `from_endf` is this function with a download bolted to the front.
+    ///
+    /// `mat` is the ENDF material number, `tolerance` the RECONR
+    /// reconstruction tolerance (1e-3 is a reasonable default), and `temp_k`
+    /// the temperature to broaden to \[K\].
+    ///
+    /// Most callers want [`Self::from_endf_file`] instead, which reads the
+    /// file and finds `mat` for you. Reach for this one when you already hold
+    /// a [`Tape`](njoy_outram_park_fork::endf::tape::Tape) — several nuclides
+    /// off one tape, or a tape that did not come from a file.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
+    /// evaluation uses a resonance format RECONR does not reconstruct.
+    pub fn from_tape(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        name: &str,
+        temp_k: f64,
+        tolerance: f64,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::broadr::doppler_broaden;
+        use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+
         // 2. RECONR at 0 K.
         let recon0 = reconr(
-            &tape,
+            tape,
             &ReconrConfig {
                 mat,
                 tolerance,
@@ -295,12 +368,12 @@ impl Nuclide {
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).
-        let nu = NuBar::from_endf(&tape, mat)?.unwrap_or_else(|| nubar_for(name, false));
+        let nu = NuBar::from_endf(tape, mat)?.unwrap_or_else(|| nubar_for(name, false));
 
         // 4b. Energy-dependent fission spectrum χ(E→E') from MF=5/MT=18 (LF=1). A
         //     non-fissionable nuclide (no MF=5) or an unsupported LF falls back to
         //     the thermal-Watt stand-in — harmless, since such nuclides never fission.
-        let chi = FissionSpectrum::from_endf_mf5(&tape, mat)?.unwrap_or_default();
+        let chi = FissionSpectrum::from_endf_mf5(tape, mat)?.unwrap_or_default();
 
         // 5. Extract the inelastic level structure (MT=51…91) once, for
         //    energy-loss scattering in transport.
@@ -1108,7 +1181,8 @@ fn langevin_inverse(mu_bar: f64) -> f64 {
 /// kinematics); MT=91 is the continuum. If only the *lumped* total inelastic
 /// (MT=4) is present with no resolved levels, it is used as a single continuum
 /// channel so the down-scatter is still modelled.
-#[cfg(feature = "net-fetch")]
+// Used by `Nuclide::from_tape`, which is not feature-gated: the inelastic
+// level structure comes off any tape, downloaded or supplied.
 fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     let mut levels: Vec<InelasticLevel> = recon
         .sections

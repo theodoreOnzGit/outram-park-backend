@@ -68,6 +68,19 @@ impl Tape {
     ///
     /// [`NjoyError::Io`] if the file cannot be opened or read, or any parse
     /// error [`Tape::read`] reports.
+    /// ```no_run
+    /// use njoy_outram_park_fork::endf::tape::Tape;
+    /// use std::path::Path;
+    ///
+    /// let tape = Tape::read_file(Path::new("n-092_U_238.endf"))?;
+    /// let mat = tape.materials()[0];          // the tape knows its own MAT
+    /// let mf3_total = tape.section(mat, 3, 1); // MF=3, MT=1: total cross section
+    /// # Ok::<(), njoy_outram_park_fork::NjoyError>(())
+    /// ```
+    ///
+    /// Prefer this over `File::open` + [`Tape::read`] for a file on disk. The
+    /// generic [`Tape::read`] is for the cases this cannot serve — a socket, a
+    /// decompressor, an in-memory buffer.
     pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
         let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
         Self::read(file)
@@ -155,6 +168,20 @@ impl Tape {
     }
 
     /// Iterate over all sections in file order.
+    /// Every ENDF material number on this tape, ascending and deduplicated.
+    ///
+    /// A tape carries its own MAT numbers, so a caller should never have to
+    /// look one up in a table to use the file they already hold. Most
+    /// evaluations contain exactly one material, which makes
+    /// `tape.materials()[0]` the common case.
+    #[must_use]
+    pub fn materials(&self) -> Vec<i32> {
+        let mut mats: Vec<i32> = self.sections.iter().map(|s| s.key.mat).collect();
+        mats.sort_unstable();
+        mats.dedup();
+        mats
+    }
+
     pub fn sections(&self) -> &[Section] {
         &self.sections
     }

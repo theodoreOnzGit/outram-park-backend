@@ -17,7 +17,7 @@ pub use crate::geometry::triso_particle::{
     build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
 };
 pub use crate::particle::particle::{Particle, ParticleType};
-pub use crate::material::material::{MacroXs, Material};
+pub use crate::material::material::{MacroXs, Material, NuclideComponent};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
 pub use crate::material::thermal::{
     CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
@@ -99,3 +99,7 @@ pub use crate::gpu::batched_event::advance_generation_gpu;
 // Per-machine performance-report generator (detects host GPU/CPU/OS; renders a
 // local, gitignored "what performance is available on my PC" markdown report).
 pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
+
+// The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`
+// is enough to write a signature that propagates it.
+pub use crate::NjoyError;

@@ -20,6 +20,13 @@
 //! Laboratory.** See `TRADEMARKS.md` (this crate's directory, mirrored from
 //! the workspace root) for the full attribution and non-affiliation notice.
 
+/// The error type every ENDF-reading entry point in this crate returns
+/// (`Nuclide::from_endf_file`, `from_tape`, `from_endf`).
+///
+/// Re-exported so callers can name it without taking their own dependency on
+/// `njoy-outram-park-fork`.
+pub use njoy_outram_park_fork::NjoyError;
+
 pub mod rng;
 pub mod geometry;
 pub mod particle;
