@@ -53,7 +53,21 @@ pub struct FilterEvent {
 // ── Concrete filters ──────────────────────────────────────────────────────────
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
+///
+/// **These are 0-based indices into the geometry's cell array, not cell IDs.**
+/// OpenMC's C++ filters bin by user-assigned global ID; this port bins by
+/// array position, matching [`FilterEvent::cell_idx`]. Passing an ID here
+/// silently produces wrong bins rather than an error, so the distinction
+/// matters more than it looks.
+///
+/// ```
+/// use outram_mc_libs::prelude::*;
+/// // the first and third cells of the geometry, not cells with IDs 1 and 3
+/// let f = CellFilter { cell_indices: vec![0, 2] };
+/// assert_eq!(f.n_bins(), 2);
+/// ```
 pub struct CellFilter {
+    /// 0-based positions in the cell array. One tally bin per entry.
     pub cell_indices: Vec<usize>,
 }
 impl Filter for CellFilter {
@@ -66,7 +80,12 @@ impl Filter for CellFilter {
 }
 
 /// Filter by material.  Maps to `openmc::MaterialFilter`.
+///
+/// **These are 0-based indices into the material array, not material IDs** --
+/// same convention as [`CellFilter`], and the same silent-wrong-answer trap if
+/// you pass an ID.
 pub struct MaterialFilter {
+    /// 0-based positions in the material array. One tally bin per entry.
     pub material_indices: Vec<usize>,
 }
 impl Filter for MaterialFilter {
@@ -82,9 +101,24 @@ impl Filter for MaterialFilter {
 
 /// Filter by energy bin (contiguous group boundaries in eV).
 /// Maps to `openmc::EnergyFilter`.
+///
+/// **`bins` holds bin EDGES, not bin centres and not counts.** `n + 1`
+/// ascending edges define `n` bins. The name is short for "bin boundaries";
+/// read it as edges every time.
+///
+/// Energies outside `[bins[0], bins[last])` are not scored at all -- the event
+/// is dropped, not clamped into the end bin.
+///
+/// ```
+/// use outram_mc_libs::prelude::*;
+/// // 3 edges -> 2 bins: [0, 1) MeV and [1, 20) MeV, in eV
+/// let f = EnergyFilter { bins: vec![0.0, 1.0e6, 20.0e6] };
+/// assert_eq!(f.n_bins(), 2);
+/// ```
 pub struct EnergyFilter {
+    /// Ascending bin EDGES in eV. `n + 1` edges produce `n` bins.
     pub bins: Vec<f64>,
-} // n+1 edges → n bins
+}
 impl Filter for EnergyFilter {
     fn n_bins(&self) -> usize {
         if self.bins.len() < 2 {

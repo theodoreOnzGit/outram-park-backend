@@ -213,6 +213,18 @@ struct Site {
 ///   bit-reproducible reference),
 /// - [`ComputeType::CpuMultiThread`] → [`run_keff_cpu_multi`] (rayon-parallel),
 /// - [`ComputeType::Gpu`] → [`run_keff_gpu`] (GPU Sigma_t lookup, CPU fallback).
+///
+/// # This does not take tallies, deliberately
+///
+/// There is no `Tally` parameter here, and that is a design choice rather than
+/// an omission: eigenvalue generations are run for convergence, and scoring
+/// through them costs throughput while mixing in the inactive generations that
+/// have not yet converged onto the fundamental mode.
+///
+/// To score flux or reaction rates, run [`crate::physics::fixed_source::run_fixed_source`]
+/// -- which *does* take tallies -- against the converged source distribution.
+/// Expecting a `Some(&mut tally)` argument here and finding none is a common
+/// first guess, so it is stated rather than left to be inferred.
 pub fn run_keff(
     radius_cm: f64,
     material: &Material,
