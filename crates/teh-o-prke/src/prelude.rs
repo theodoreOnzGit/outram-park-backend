@@ -9,6 +9,11 @@
 //! lives in. **A public item reachable only by its full module path is not
 //! considered exposed** — if you add one, add it here in the same change.
 //!
+//! Advancing the PRKE state is [`SixGroupPRKE::step_implicit`] (and
+//! `step_explicit`). Those are short aliases for the far longer
+//! `solve_next_timestep_precursor_concentration_and_neutron_pop_vector_*`
+//! names, which still work.
+//!
 //! The completeness test is executable: this crate's own examples and doc
 //! examples must compile with `use teh_o_prke::prelude::*;` as their only
 //! import from this crate.

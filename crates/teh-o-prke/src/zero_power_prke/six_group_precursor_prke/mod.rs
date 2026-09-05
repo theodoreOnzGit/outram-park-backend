@@ -1,3 +1,5 @@
+use crate::teh_o_prke_error::TehOPrkeError;
+use ndarray::Array1;
 use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::volumetric_number_density::per_cubic_meter;
@@ -84,6 +86,57 @@ impl SixGroupPRKE {
 
     /// enables you to convert reactivity into keff, useful for calculating
     /// the neutron generation time
+    /// Advance one timestep, implicitly. Short name for
+    /// [`Self::solve_next_timestep_precursor_concentration_and_neutron_pop_vector_implicit`].
+    ///
+    /// That name is 76 characters and does not fit on a line. Two independent
+    /// API dogfood runs (gh #58) flagged it as the main friction point in this
+    /// crate -- the second noting a first-time user would reach for `step()`
+    /// and be surprised it did not exist. This is that method, forwarding.
+    ///
+    /// The long name is kept and still works: it is precise about solving for
+    /// the precursor-concentration *and* neutron-population vector, implicitly.
+    /// Renaming outright would break the Python bindings and their generated
+    /// stubs (gh #61), so this is additive.
+    ///
+    /// `source` is an external neutron source as a volumetric number *rate*
+    /// (neutrons per cubic metre per second); pass zero for none.
+    pub fn step_implicit(
+        &mut self,
+        timestep: Time,
+        reactivity: Ratio,
+        neutron_generation_time: Time,
+        background_source_rate: VolumetricNumberRate,
+    ) -> Result<Array1<VolumetricNumberDensity>, TehOPrkeError> {
+        self.solve_next_timestep_precursor_concentration_and_neutron_pop_vector_implicit(
+            timestep,
+            reactivity,
+            neutron_generation_time,
+            background_source_rate,
+        )
+    }
+
+    /// Advance one timestep, explicitly. Short name for
+    /// [`Self::solve_next_timestep_precursor_concentration_and_neutron_pop_vector_explicit`].
+    ///
+    /// Prefer [`Self::step_implicit`] unless you specifically want the explicit
+    /// scheme: the PRKE equations are stiff, and the implicit form is stable at
+    /// timesteps where the explicit one is not.
+    pub fn step_explicit(
+        &mut self,
+        timestep: Time,
+        reactivity: Ratio,
+        neutron_generation_time: Time,
+        background_source_rate: VolumetricNumberRate,
+    ) -> Result<Array1<VolumetricNumberDensity>, TehOPrkeError> {
+        self.solve_next_timestep_precursor_concentration_and_neutron_pop_vector_explicit(
+            timestep,
+            reactivity,
+            neutron_generation_time,
+            background_source_rate,
+        )
+    }
+
     pub fn get_keff_from_reactivity(reactivity: Ratio) -> Ratio {
         // reactivity is rho
         //

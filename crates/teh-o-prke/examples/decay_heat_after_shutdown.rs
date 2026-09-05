@@ -190,7 +190,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get_current_neutron_population_density()
             .get::<per_cubic_meter>();
         let relative_power = current_neutron_pop / full_power_neutron_density;
-        let current_fission_power = Power::new::<megawatt>(normalized_full_power_mw * relative_power);
+        let current_fission_power =
+            Power::new::<megawatt>(normalized_full_power_mw * relative_power);
 
         // Advance the decay heat with this fission power
         decay_heat.advance_timestep(current_fission_power, dt);
