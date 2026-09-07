@@ -26,8 +26,9 @@
 //! `determinism_same_config_same_trace` in this module asserts it.
 
 use crate::app::state::HtgrSnapshot;
-use crate::physics::{PlantCommands, PLANT_TIMESTEP_S};
+use crate::physics::PLANT_TIMESTEP_S;
 use crate::runtime::{PlantControls, PlantRuntime};
+use outram_park_digital_twin_engine::prelude::{HeadlessModel, HeadlessRun};
 use uom::si::f64::Time;
 use uom::si::time::second;
 
@@ -105,40 +106,81 @@ impl TraceRow {
     }
 }
 
+/// The plant as a [`HeadlessModel`], so it uses the engine library's shared
+/// harness rather than a bespoke loop.
+///
+/// Owns the snapshot buffer because [`HeadlessModel::sample`] takes `&self`
+/// while `PlantRuntime::publish` writes into a caller-supplied snapshot; the
+/// buffer is a rendering scratch space, not plant state.
+pub struct HtgrHeadless {
+    runtime: PlantRuntime,
+    scratch: std::cell::RefCell<HtgrSnapshot>,
+}
+
+impl HtgrHeadless {
+    /// A fresh plant at the default operating point.
+    pub fn new() -> Self {
+        Self {
+            runtime: PlantRuntime::new(),
+            scratch: std::cell::RefCell::new(HtgrSnapshot::default()),
+        }
+    }
+}
+
+impl Default for HtgrHeadless {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HeadlessModel for HtgrHeadless {
+    type Controls = PlantControls;
+    type Sample = TraceRow;
+
+    fn submit(&mut self, controls: PlantControls) {
+        self.runtime.submit(controls);
+    }
+
+    fn tick(&mut self) {
+        self.runtime.tick(Time::new::<second>(PLANT_TIMESTEP_S));
+    }
+
+    fn sample(&self, step: usize) -> TraceRow {
+        let mut snap = self.scratch.borrow_mut();
+        self.runtime.publish(&mut snap);
+        TraceRow {
+            step,
+            sim_time_s: snap.sim_time_s,
+            reactor_power_mw: snap.reactor_power_mw,
+            prompt_power_mw: snap.prompt_power_mw,
+            delayed_power_mw: snap.delayed_power_mw,
+            fuel_temperature_k: snap.fuel_temperature_k,
+            bed_temperature_k: snap.bed_temperature_k,
+        }
+    }
+
+    fn csv_header() -> &'static str {
+        TraceRow::csv_header()
+    }
+
+    fn sample_csv(s: &TraceRow) -> String {
+        s.to_csv()
+    }
+}
+
 /// Advance a fresh plant for `cfg.steps` and return the sampled trace.
 ///
 /// Single-threaded, no clock, no I/O. See the module docs on determinism.
 pub fn run(cfg: &HeadlessConfig) -> Vec<TraceRow> {
-    let dt: Time = Time::new::<second>(PLANT_TIMESTEP_S);
-    // Drives the extracted runtime rather than `HtgrPlant` directly, so the
-    // reference baseline exercises the same boundary a native scheduler or a
-    // Web Worker will use. That the baseline stayed bit-exact across this
-    // change is the evidence that extraction altered no physics.
-    let mut rt = PlantRuntime::new();
-    rt.submit(cfg.controls.clone());
-    let mut snap = HtgrSnapshot::default();
-    let sample_every = cfg.sample_every.max(1);
-
-    let mut trace = Vec::with_capacity(cfg.steps / sample_every + 1);
-
-    for step in 0..cfg.steps {
-        rt.tick(dt);
-
-        if step % sample_every == 0 || step + 1 == cfg.steps {
-            rt.publish(&mut snap);
-            trace.push(TraceRow {
-                step,
-                sim_time_s: snap.sim_time_s,
-                reactor_power_mw: snap.reactor_power_mw,
-                prompt_power_mw: snap.prompt_power_mw,
-                delayed_power_mw: snap.delayed_power_mw,
-                fuel_temperature_k: snap.fuel_temperature_k,
-                bed_temperature_k: snap.bed_temperature_k,
-            });
-        }
-    }
-
-    trace
+    let mut model = HtgrHeadless::new();
+    outram_park_digital_twin_engine::prelude::run(
+        &mut model,
+        cfg.controls.clone(),
+        HeadlessRun {
+            steps: cfg.steps,
+            sample_every: cfg.sample_every,
+        },
+    )
 }
 
 /// Run and print the trace as CSV on stdout. The `--headless` entry point.

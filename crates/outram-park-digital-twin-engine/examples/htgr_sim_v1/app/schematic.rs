@@ -1385,6 +1385,117 @@ pub fn draw_schematic(
 
 #[cfg(test)]
 mod tests {
+    //! ── Layout invariants (bead `op-z6bk` / gh #154) ──────────────────────
+    //!
+    //! The schematic drifted away from the physics and nothing caught it: the
+    //! model flows helium downward through the core and runs the steam
+    //! generator counter-current, while the drawing said otherwise, and every
+    //! test passed because the tests check numbers and the picture was checked
+    //! by eye.
+    //!
+    //! These assert on the layout functions directly. They are pure geometry —
+    //! `sg_rect()`, `sg_nozzles()` and friends take no `Ui` — so a flow-direction
+    //! bug is a few floats, not a screenshot. See
+    //! `outram_park_digital_twin_engine::ascii` for rendering the same geometry
+    //! when you want to look at it rather than assert on it.
+
+    /// **The steam generator and the reactor exchange gas counter-currently, so
+    /// the two streams must traverse the vessel in OPPOSITE directions.**
+    ///
+    /// The physics is counter-current and defended:
+    /// `temperature_cross::lmtd_profile` uses `FlowArrangement::CounterCurrent`,
+    /// and `steam_generator`'s `counter_flow_index_map_is_its_own_inverse`
+    /// warns that getting it wrong makes the exchanger *"silently become
+    /// co-current, which is a different (and worse) machine that still runs and
+    /// still produces plausible-looking numbers."*
+    ///
+    /// This test asserts the drawing agrees. Screen y grows DOWN, so a stream
+    /// travelling from larger y to smaller y is rising.
+    ///
+    /// # Currently failing on purpose — it reproduces gh #154 item 5
+    ///
+    /// Measured 2026-09-07: gas rises (`hot_gas_in.y` 534.2 -> `cold_gas_out.y`
+    /// 175.8) and water also rises (`feed_in.y` 516.9 -> `steam_out.y` 197.2).
+    /// Both in the same direction, so the drawing is **co-current**.
+    ///
+    /// **Ignored rather than fixed here, because which stream to flip is an
+    /// engineering decision, not a mechanical one.** The gas side is pinned by
+    /// the artwork and the duct routing — `hot_gas_duct_path`'s docs explain
+    /// that the hot nozzle sits at the bottom of the centre tube the helium
+    /// rises through — so flipping it would move the duct. Flipping the water
+    /// side instead means feedwater entering at the top and steam leaving at
+    /// the bottom, which is a real design choice about the once-through coil
+    /// and belongs to whoever owns the HTR-10 arrangement.
+    ///
+    /// Remove `#[ignore]` when the schematic is corrected. Until then this
+    /// records the bug executably instead of in prose.
+    #[test]
+    #[ignore = "reproduces gh #154 item 5: SG drawn co-current; fix is a design \
+                decision on which stream to flip"]
+    fn sg_gas_and_water_flow_in_opposite_directions() {
+        let n = sg_nozzles();
+        let gas_rises = n.hot_gas_in.y > n.cold_gas_out.y;
+        let water_rises = n.feed_in.y > n.steam_out.y;
+        assert_ne!(
+            gas_rises, water_rises,
+            "steam generator is drawn CO-current: gas {} and water {}.\n               hot_gas_in.y={:.1} cold_gas_out.y={:.1} feed_in.y={:.1} steam_out.y={:.1}\n               The physics is counter-current (FlowArrangement::CounterCurrent), so the              drawing is wrong, not the model.",
+            if gas_rises { "rises" } else { "falls" },
+            if water_rises { "rises" } else { "falls" },
+            n.hot_gas_in.y,
+            n.cold_gas_out.y,
+            n.feed_in.y,
+            n.steam_out.y,
+        );
+    }
+
+    /// Hot gas enters the SG low and leaves cold high, because the helical-coil
+    /// artwork puts the hot nozzle at the bottom of the centre tube the helium
+    /// rises through (see `hot_gas_duct_path`'s docs).
+    #[test]
+    fn sg_hot_gas_enters_below_the_cold_gas_outlet() {
+        let n = sg_nozzles();
+        assert!(
+            n.hot_gas_in.y > n.cold_gas_out.y,
+            "hot gas should enter below the cold outlet: in y={:.1}, out y={:.1}",
+            n.hot_gas_in.y,
+            n.cold_gas_out.y
+        );
+    }
+
+    /// The steam generator sits **lower** than the reactor vessel.
+    ///
+    /// Requested in the 2026-09-07 review. Screen y grows down, so "lower"
+    /// means a larger centre y.
+    #[test]
+    fn steam_generator_sits_lower_than_the_reactor() {
+        let (r, sg) = (reactor_rect(), sg_rect());
+        assert!(
+            sg.center().y > r.center().y,
+            "SG should sit lower than the reactor: SG centre y={:.1}, reactor centre y={:.1}",
+            sg.center().y,
+            r.center().y
+        );
+    }
+
+    /// The hot gas duct runs from the reactor to the steam generator, so it
+    /// must start nearer the reactor than the SG and end the other way round.
+    /// Catches the path being reversed or re-anchored to the wrong vessel.
+    #[test]
+    fn hot_gas_duct_runs_reactor_to_steam_generator() {
+        let path = hot_gas_duct_path();
+        let (start, end) = (path[0], path[path.len() - 1]);
+        let (r, sg) = (reactor_rect().center(), sg_rect().center());
+        let d = |a: Pos2, b: Pos2| ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt();
+        assert!(
+            d(start, r) < d(start, sg),
+            "duct does not start at the reactor end"
+        );
+        assert!(
+            d(end, sg) < d(end, r),
+            "duct does not end at the steam generator"
+        );
+    }
+
     use super::*;
 
     /// Half the drawn width of a helium run: the clearance every leg of the hot
