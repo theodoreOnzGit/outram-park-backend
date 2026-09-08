@@ -116,11 +116,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::artifact::{block_span, parse_document, render_artifact_block};
+use crate::artifact::{
+    block_span, parse_document, render_artifact_block, ArtifactKind, ArtifactMeta, ArtifactToml,
+    ARTIFACT_LEVEL,
+};
+use crate::entity::Classification;
 use crate::classify::splice_lines;
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::hex_lower;
-use crate::graph::{artifact_node, NodeId};
+#[cfg(test)]
+use crate::graph::artifact_node;
+use crate::graph::NodeId;
 use crate::index::KnowledgeIndex;
 use crate::root::KovanRoot;
 use crate::session::{PaperSession, SessionError};
@@ -219,13 +225,33 @@ pub struct UserRelation {
     pub kind: RelationKind,
 }
 
-/// The on-disk record of one [`UserRelation`], as stored inside its source
-/// artifact's fenced TOML (`ArtifactToml::relation`). `source` is implicit —
-/// it is always the artifact this record is found inside.
+impl RelationKind {
+    /// The snake_case wire name, as written in a relation artifact's
+    /// `[relation] kind` and shown in its heading.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::RelatedTo => "related_to",
+            Self::Supports => "supports",
+            Self::Contradicts => "contradicts",
+            Self::DerivedFrom => "derived_from",
+            Self::UsesDataFrom => "uses_data_from",
+            Self::Validates => "validates",
+            Self::VerifiedAgainst => "verified_against",
+            Self::Implements => "implements",
+        }
+    }
+}
+
+/// The `[relation]` table of a relation artifact.
+///
+/// Both endpoints are explicit: a relation is its own artifact now, not a
+/// record nested inside the thing it starts from, so nothing about it is
+/// implied by where it is written. The id lives in `[kovan] id`, like every
+/// other artifact's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelationRecord {
-    /// Stable id, unique within the library.
-    pub id: String,
+    /// The node this relation starts at.
+    pub source: NodeId,
     /// The node this relation points at.
     pub target: NodeId,
     /// What kind of relationship this is.
@@ -307,80 +333,198 @@ fn generate_relation_id() -> String {
 /// [`splice_lines`] mechanism, same "every other line untouched" guarantee —
 /// and bumping `modified`. `f` returning `Err` leaves the buffer exactly as
 /// it was (the re-render/splice only happens after `f` succeeds).
-fn mutate_relations<T>(
-    session: &mut PaperSession,
-    artifact_id: &str,
-    f: impl FnOnce(&mut Vec<RelationRecord>) -> Result<T, RelationError>,
-) -> Result<T, RelationError> {
+/// The paper a node belongs to, for the endpoints that live in one.
+///
+/// `artifact:<citekey>#<id>` and `paper:<citekey>` both resolve; a
+/// `collection:` node has no Markdown file and yields `None`.
+fn owning_paper(node: &str) -> Option<String> {
+    if let Some((citekey, _)) = parse_artifact_node(node) {
+        return Some(citekey.to_string());
+    }
+    node.strip_prefix("paper:").map(str::to_string)
+}
+
+/// Open the mindmap document's buffer, creating the file with its own
+/// `[kovan] kind = "mindmap"` header artifact if it does not exist yet.
+///
+/// The mindmap is a document in the same schema as a paper, so it opens
+/// with a header artifact naming itself — which is also what makes every
+/// relation under it addressable as `artifact:mindmap#<id>`.
+fn open_mindmap(root: &KovanRoot) -> Result<(std::path::PathBuf, String), RelationError> {
+    let path = root.mindmap_markdown();
+    if !path.is_file() {
+        let header = ArtifactToml {
+            kovan: ArtifactMeta {
+                id: MINDMAP_DOC.to_string(),
+                kind: ArtifactKind::Mindmap,
+                created: utc_now_iso8601(),
+                modified: utc_now_iso8601(),
+                reviewed: None,
+            },
+            source: None,
+            classification: Classification::default(),
+            extraction: None,
+            connections: Vec::new(),
+            relation: None,
+        };
+        let rendered = render_artifact_block(ARTIFACT_LEVEL, MINDMAP_DOC, &header, "")
+            .map_err(RelationError::Render)?;
+        std::fs::write(&path, &rendered).map_err(|e| {
+            RelationError::Render(format!("cannot create {}: {e}", path.display()))
+        })?;
+        return Ok((path, rendered));
+    }
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| RelationError::Render(format!("cannot read {}: {e}", path.display())))?;
+    Ok((path, text))
+}
+
+/// The mindmap document's own id, used as the citekey half of a relation
+/// artifact's node identity (`artifact:mindmap#<relation id>`).
+pub const MINDMAP_DOC: &str = "mindmap";
+
+/// Add `relation_id` to `node`'s artifact `connections` list, in that
+/// artifact's own paper — the back-pointer half of the two-way reference.
+///
+/// A node with no Markdown artifact of its own (a collection, or a paper
+/// with no header block yet) is skipped rather than treated as an error:
+/// the relation itself is already recorded in the mindmap, and a missing
+/// back-pointer degrades discovery, not correctness.
+fn link_back(root: &KovanRoot, node: &str, relation_id: &str, add: bool) -> Result<(), RelationError> {
+    let Some(citekey) = owning_paper(node) else {
+        return Ok(());
+    };
+    let artifact_id = match parse_artifact_node(node) {
+        Some((_, id)) => id.to_string(),
+        None => citekey.clone(),
+    };
+    let Ok(mut session) = PaperSession::open(root, &citekey) else {
+        return Ok(());
+    };
     let md = session.markdown().to_string();
     let parsed = parse_document(&md);
-    let artifact = parsed
-        .get(artifact_id)
-        .ok_or_else(|| RelationError::ArtifactNotFound {
-            citekey: session.citekey().to_string(),
-            artifact_id: artifact_id.to_string(),
-        })?;
-
+    let Some(artifact) = parsed.get(&artifact_id) else {
+        return Ok(());
+    };
     let mut toml = artifact.toml.clone();
-    let result = f(&mut toml.relation)?;
+    let had = toml.connections.iter().any(|c| c == relation_id);
+    if add && !had {
+        toml.connections.push(relation_id.to_string());
+    } else if !add && had {
+        toml.connections.retain(|c| c != relation_id);
+    } else {
+        return Ok(());
+    }
     toml.kovan.modified = utc_now_iso8601();
     let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, &artifact.body)
         .map_err(RelationError::Render)?;
-
     let span = block_span(&md, artifact);
     session.set_markdown(splice_lines(&md, span, &rendered));
-    Ok(result)
+    session.save_document().map_err(RelationError::Session)?;
+    Ok(())
 }
 
-/// Every relation record in `root`, paired with the artifact node it
-/// belongs to. Reads every paper in `index` from disk — see the module
-/// docs' "`connections(node)` scans the whole library".
-fn all_relations(root: &KovanRoot, index: &KnowledgeIndex) -> Vec<UserRelation> {
-    let mut out = Vec::new();
-    for paper in &index.papers {
-        let Ok(text) = std::fs::read_to_string(root.paper_markdown(&paper.citekey)) else {
-            continue;
-        };
-        let parsed = parse_document(&text);
-        for artifact in &parsed.artifacts {
-            if artifact.toml.relation.is_empty() {
-                continue;
-            }
-            let source = artifact_node(&paper.citekey, artifact.id());
-            for rec in &artifact.toml.relation {
-                out.push(UserRelation {
-                    id: rec.id.clone(),
-                    source: source.clone(),
-                    target: rec.target.clone(),
-                    kind: rec.kind,
-                });
-            }
-        }
-    }
-    out
+/// Render one relation as its own artifact block.
+///
+/// Every relation is a first-class artifact in the document schema — `#`
+/// heading, ```toml metadata, nothing else — exactly like an annotation or
+/// a digitised graph (maintainer direction, GH issue #35, 2026-09-08: "I
+/// want all connectors, relationships to use the same artifact schema").
+/// It carries no body: a connector is metadata, and any prose about it
+/// belongs in the artifacts it joins.
+fn render_relation_artifact(rel: &UserRelation, created: &str) -> Result<String, RelationError> {
+    let toml = ArtifactToml {
+        kovan: ArtifactMeta {
+            id: rel.id.clone(),
+            kind: ArtifactKind::Relation,
+            created: created.to_string(),
+            modified: utc_now_iso8601(),
+            reviewed: None,
+        },
+        source: None,
+        classification: Classification::default(),
+        extraction: None,
+        connections: Vec::new(),
+        relation: Some(RelationRecord {
+            source: rel.source.clone(),
+            target: rel.target.clone(),
+            kind: rel.kind,
+        }),
+    };
+    render_artifact_block(ARTIFACT_LEVEL, &relation_heading(rel), &toml, "")
+        .map_err(RelationError::Render)
 }
 
-/// Find which paper+artifact holds relation `id`, scanning `index`'s papers
-/// from disk. `None` if no relation anywhere has this id.
-fn locate_relation(root: &KovanRoot, index: &KnowledgeIndex, id: &str) -> Option<(String, String)> {
-    for paper in &index.papers {
-        let Ok(text) = std::fs::read_to_string(root.paper_markdown(&paper.citekey)) else {
-            continue;
-        };
-        let parsed = parse_document(&text);
-        for artifact in &parsed.artifacts {
-            if artifact.toml.relation.iter().any(|r| r.id == id) {
-                return Some((paper.citekey.clone(), artifact.id().to_string()));
-            }
-        }
-    }
-    None
+/// A relation artifact's heading: readable in a plain editor, and carrying
+/// no `#` of its own (the schema reserves a line-leading `#` for artifact
+/// boundaries).
+fn relation_heading(rel: &UserRelation) -> String {
+    format!(
+        "relation: {} {} {}",
+        rel.source,
+        rel.kind.as_str(),
+        rel.target
+    )
 }
 
-/// Every relation touching `node`, as either its source or its target —
-/// matching the prototype's `RelationStore.incident`. Empty if `node` has no
-/// connections, never an error (same total-function contract as
-/// `crate::autocomplete::library_candidates`).
+/// Every relation in the library, read from the mindmap document.
+fn all_relations(root: &KovanRoot, _index: &KnowledgeIndex) -> Vec<UserRelation> {
+    let Ok(text) = std::fs::read_to_string(root.mindmap_markdown()) else {
+        return Vec::new();
+    };
+    parse_document(&text)
+        .artifacts
+        .iter()
+        .filter(|a| a.kind() == ArtifactKind::Relation)
+        .filter_map(|a| {
+            a.toml.relation.as_ref().map(|r| UserRelation {
+                id: a.id().to_string(),
+                source: r.source.clone(),
+                target: r.target.clone(),
+                kind: r.kind,
+            })
+        })
+        .collect()
+}
+
+/// Relation `id`, read from the mindmap document.
+fn locate_relation(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    id: &str,
+) -> Option<UserRelation> {
+    all_relations(root, index).into_iter().find(|r| r.id == id)
+}
+
+/// Remove relation artifact `id` from the mindmap document, saving it.
+fn remove_relation_artifact(root: &KovanRoot, id: &str) -> Result<bool, RelationError> {
+    let (path, md) = open_mindmap(root)?;
+    let parsed = parse_document(&md);
+    let Some(artifact) = parsed
+        .artifacts
+        .iter()
+        .find(|a| a.id() == id && a.kind() == ArtifactKind::Relation)
+    else {
+        return Ok(false);
+    };
+    let span = block_span(&md, artifact);
+    std::fs::write(&path, splice_lines(&md, span, ""))
+        .map_err(|e| RelationError::Render(format!("cannot write {}: {e}", path.display())))?;
+    Ok(true)
+}
+
+/// Every relation in the library, read from the mindmap document.
+///
+/// The whole-library read the mindmap needs; [`connections`] filters this
+/// to one node.
+pub fn connections_all(root: &KovanRoot) -> Vec<UserRelation> {
+    all_relations(root, &KnowledgeIndex::default())
+}
+
+/// Every relation with `node` at either end.
+///
+/// Scans every paper in `index`; see the module docs on why that is
+/// acceptable at library scale and what would replace it if it stops being.
 pub fn connections(root: &KovanRoot, index: &KnowledgeIndex, node: &str) -> Vec<UserRelation> {
     all_relations(root, index)
         .into_iter()
@@ -388,16 +532,15 @@ pub fn connections(root: &KovanRoot, index: &KnowledgeIndex, node: &str) -> Vec<
         .collect()
 }
 
-/// Create a new [`UserRelation`] from `source` to `target` and persist it
-/// into `source`'s own artifact block.
+/// Record a new typed relation from `source` to `target`, as a relation
+/// artifact appended to `source`'s own paper.
 ///
 /// # Errors
 ///
-/// [`RelationError::SourceNotArtifact`] if `source` is not
-/// `artifact:<citekey>#<id>`; [`RelationError::SelfRelation`] if
-/// `source == target`; [`RelationError::Session`] if the owning paper
-/// cannot be opened or saved; [`RelationError::ArtifactNotFound`] if that
-/// paper has no artifact with the named id.
+/// [`RelationError::SourceNotArtifact`] when `source` is not an artifact or
+/// paper node (a collection cannot own a relation, having no file of its
+/// own), and [`RelationError::Session`]/[`RelationError::Render`] on a
+/// failure to read, render or write the paper.
 pub fn add_connection(
     root: &KovanRoot,
     source: &str,
@@ -407,37 +550,39 @@ pub fn add_connection(
     if source == target {
         return Err(RelationError::SelfRelation(source.to_string()));
     }
-    let (citekey, artifact_id) =
-        parse_artifact_node(source).ok_or_else(|| RelationError::SourceNotArtifact(source.to_string()))?;
+    // A source must belong to a paper, so the back-pointer has somewhere to
+    // live; the relation itself always goes in the mindmap document.
+    owning_paper(source).ok_or_else(|| RelationError::SourceNotArtifact(source.to_string()))?;
 
-    let mut session = PaperSession::open(root, citekey).map_err(RelationError::Session)?;
-    let id = generate_relation_id();
-    mutate_relations(&mut session, artifact_id, |relations| {
-        relations.push(RelationRecord {
-            id: id.clone(),
-            target: target.to_string(),
-            kind,
-        });
-        Ok(())
-    })?;
-    session.save_document().map_err(RelationError::Session)?;
-
-    Ok(UserRelation {
-        id,
+    let rel = UserRelation {
+        id: generate_relation_id(),
         source: source.to_string(),
         target: target.to_string(),
         kind,
-    })
+    };
+    let (path, md) = open_mindmap(root)?;
+    let rendered = render_relation_artifact(&rel, &utc_now_iso8601())?;
+    let mut next = md.trim_end().to_string();
+    next.push_str("\n\n");
+    next.push_str(rendered.trim_end());
+    next.push('\n');
+    std::fs::write(&path, next)
+        .map_err(|e| RelationError::Render(format!("cannot write {}: {e}", path.display())))?;
+
+    // Two-way reference: each endpoint's own artifact records the relation
+    // id, so a reader holding the paper can find the connector without
+    // scanning, and the connector names the paper and artifact it came from.
+    link_back(root, source, &rel.id, true)?;
+    link_back(root, target, &rel.id, true)?;
+    Ok(rel)
 }
 
-/// Change relation `id`'s `target` and/or `kind`, leaving whichever is
-/// `None` unchanged. Locates the owning paper+artifact by scanning `index`
-/// (see the module docs).
+/// Change relation `id`'s target, its kind, or both. `None` leaves that
+/// field as it was.
 ///
 /// # Errors
 ///
-/// [`RelationError::RelationNotFound`] if no relation anywhere has this id;
-/// [`RelationError::Session`] if the owning paper cannot be opened or saved.
+/// [`RelationError::NotFound`] when no relation artifact has that id.
 pub fn edit_connection(
     root: &KovanRoot,
     index: &KnowledgeIndex,
@@ -445,80 +590,74 @@ pub fn edit_connection(
     target: Option<&str>,
     kind: Option<RelationKind>,
 ) -> Result<UserRelation, RelationError> {
-    let (citekey, artifact_id) =
-        locate_relation(root, index, id).ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
+    let mut rel = locate_relation(root, index, id)
+        .ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
+    let old_target = rel.target.clone();
+    if let Some(t) = target {
+        rel.target = t.to_string();
+    }
+    if let Some(k) = kind {
+        rel.kind = k;
+    }
 
-    let mut session = PaperSession::open(root, &citekey).map_err(RelationError::Session)?;
-    let mut updated: Option<RelationRecord> = None;
-    mutate_relations(&mut session, &artifact_id, |relations| {
-        let rec = relations
-            .iter_mut()
-            .find(|r| r.id == id)
-            .ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
-        if let Some(t) = target {
-            rec.target = t.to_string();
-        }
-        if let Some(k) = kind {
-            rec.kind = k;
-        }
-        updated = Some(rec.clone());
-        Ok(())
-    })?;
-    session.save_document().map_err(RelationError::Session)?;
+    let (path, md) = open_mindmap(root)?;
+    let parsed = parse_document(&md);
+    let artifact = parsed
+        .artifacts
+        .iter()
+        .find(|a| a.id() == id && a.kind() == ArtifactKind::Relation)
+        .ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
+    let created = artifact.toml.kovan.created.clone();
+    let rendered = render_relation_artifact(&rel, &created)?;
+    let span = block_span(&md, artifact);
+    std::fs::write(&path, splice_lines(&md, span, &rendered))
+        .map_err(|e| RelationError::Render(format!("cannot write {}: {e}", path.display())))?;
 
-    let rec = updated.expect("mutate_relations only returns Ok after finding and updating the record");
-    Ok(UserRelation {
-        id: rec.id,
-        source: artifact_node(&citekey, &artifact_id),
-        target: rec.target,
-        kind: rec.kind,
-    })
+    // Retarget: the old endpoint stops pointing at this relation, the new
+    // one starts.
+    if old_target != rel.target {
+        link_back(root, &old_target, id, false)?;
+        link_back(root, &rel.target, id, true)?;
+    }
+    Ok(rel)
 }
 
-/// Delete relation `id`. Locates the owning paper+artifact by scanning
-/// `index` (see the module docs).
+/// Delete relation `id`.
 ///
 /// # Errors
 ///
-/// [`RelationError::RelationNotFound`] if no relation anywhere has this id;
-/// [`RelationError::Session`] if the owning paper cannot be opened or saved.
-pub fn delete_connection(root: &KovanRoot, index: &KnowledgeIndex, id: &str) -> Result<(), RelationError> {
-    let (citekey, artifact_id) =
-        locate_relation(root, index, id).ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
-
-    let mut session = PaperSession::open(root, &citekey).map_err(RelationError::Session)?;
-    mutate_relations(&mut session, &artifact_id, |relations| {
-        let before = relations.len();
-        relations.retain(|r| r.id != id);
-        if relations.len() == before {
-            return Err(RelationError::RelationNotFound(id.to_string()));
-        }
-        Ok(())
-    })?;
-    session.save_document().map_err(RelationError::Session)
+/// [`RelationError::NotFound`] when no relation artifact has that id.
+pub fn delete_connection(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    id: &str,
+) -> Result<(), RelationError> {
+    let rel = locate_relation(root, index, id)
+        .ok_or_else(|| RelationError::RelationNotFound(id.to_string()))?;
+    remove_relation_artifact(root, id)?;
+    // Leave no dangling back-pointers behind.
+    link_back(root, &rel.source, id, false)?;
+    link_back(root, &rel.target, id, false)?;
+    Ok(())
 }
 
-/// Delete every relation incident to `node` (source or target), without
-/// touching anything else. The building block
-/// [`crate::app::delete_artifact_cascade`] (op-30um.2) composes with an
-/// artifact deletion to make one atomic user-facing operation; this function
-/// on its own makes no claim about atomicity with any other mutation.
+/// Delete every relation with `node` at either end, returning how many went.
 ///
-/// Returns the number of relations removed. Never errors on "nothing to
-/// remove" — an artifact with zero incident connections is the common case,
-/// not a failure.
-pub fn delete_incident(root: &KovanRoot, index: &KnowledgeIndex, node: &str) -> Result<usize, RelationError> {
-    let incident = connections(root, index, node);
-    let mut removed = 0usize;
-    for rel in incident {
-        // A relation may already be gone if two incident relations shared an
-        // owning artifact and an earlier iteration's mutate_relations call
-        // already dropped it as a side effect of some other edit; treat that
-        // as already-removed rather than an error.
-        match delete_connection(root, index, &rel.id) {
-            Ok(()) => removed += 1,
-            Err(RelationError::RelationNotFound(_)) => {}
-            Err(e) => return Err(e),
+/// This is what makes [`crate::classify::delete_artifact_cascade`] a
+/// cascade: an *incoming* relation lives in the other paper's file, so
+/// removing an artifact has to reach beyond its own document.
+pub fn delete_incident(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    node: &str,
+) -> Result<usize, RelationError> {
+    let doomed: Vec<UserRelation> = connections(root, index, node);
+    let mut removed = 0;
+    for rel in doomed {
+        if remove_relation_artifact(root, &rel.id)? {
+            link_back(root, &rel.source, &rel.id, false)?;
+            link_back(root, &rel.target, &rel.id, false)?;
+            removed += 1;
         }
     }
     Ok(removed)
@@ -579,7 +718,7 @@ mod tests {
     }
 
     #[test]
-    fn add_connection_persists_into_the_source_artifacts_toml_block() {
+    fn add_connection_writes_the_mindmap_artifact_and_both_back_pointers() {
         let (_dir, root, _index) = make_library();
         let source = artifact_node("src", "note-a");
         let target = artifact_node("dst", "note-b");
@@ -589,23 +728,53 @@ mod tests {
         assert_eq!(rel.target, target);
         assert_eq!(rel.kind, RelationKind::Supports);
 
-        // Persisted where the module docs say: inside the source artifact's
-        // own fenced TOML, not under `.kovan/`.
-        let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
-        let parsed = parse_document(&text);
-        let a = parsed.get("note-a").unwrap();
-        assert_eq!(a.toml.relation.len(), 1);
-        assert_eq!(a.toml.relation[0].id, rel.id);
-        assert_eq!(a.toml.relation[0].target, target);
-        assert_eq!(a.toml.relation[0].kind, RelationKind::Supports);
+        // The relation is its own artifact in the MINDMAP document — same
+        // `#` heading + ```toml schema as every other artifact, never under
+        // `.kovan/`.
+        let mindmap = std::fs::read_to_string(root.mindmap_markdown()).unwrap();
+        let map_doc = parse_document(&mindmap);
+        let a = map_doc.get(&rel.id).expect("relation artifact in mindmap.md");
+        assert_eq!(a.kind(), ArtifactKind::Relation);
+        let record = a.toml.relation.as_ref().expect("[relation] table");
+        assert_eq!(record.source, source, "names the artifact it came from");
+        assert_eq!(record.target, target);
+        assert_eq!(record.kind, RelationKind::Supports);
+        // A connector is metadata: no body, and its heading is readable.
+        assert!(a.body.trim().is_empty());
+        assert!(a.heading.starts_with("relation: "));
+        // The mindmap document opens with its own header artifact.
+        assert_eq!(
+            map_doc.get(MINDMAP_DOC).map(|m| m.kind()),
+            Some(ArtifactKind::Mindmap)
+        );
+
+        // ...and BOTH endpoints point back at it, so the reference is
+        // two-way from either file.
+        for (citekey, artifact_id) in [("src", "note-a"), ("dst", "note-b")] {
+            let text = std::fs::read_to_string(root.paper_markdown(citekey)).unwrap();
+            let endpoint = parse_document(&text);
+            let art = endpoint.get(artifact_id).unwrap();
+            assert_eq!(
+                art.toml.connections,
+                vec![rel.id.clone()],
+                "{citekey}#{artifact_id} should point back at the relation"
+            );
+            // The endpoint stays an ordinary artifact — the relation itself
+            // is not nested inside it.
+            assert!(art.toml.relation.is_none());
+        }
     }
 
     #[test]
-    fn add_connection_rejects_a_non_artifact_source() {
+    fn add_connection_rejects_a_source_with_no_file_of_its_own() {
+        // A paper node IS a valid source now — the paper's header block is
+        // an artifact like any other (GH issue #35, 2026-09-08). What still
+        // cannot own a relation is a collection: topics and projects have
+        // no Markdown file for the relation artifact to live in.
         let (_dir, root, _index) = make_library();
         let err = add_connection(
             &root,
-            "paper:src",
+            "collection:htgrs",
             &artifact_node("dst", "note-b"),
             RelationKind::RelatedTo,
         )
@@ -716,7 +885,7 @@ mod tests {
         let after_a = after_doc.get("note-a").unwrap();
         assert_eq!(before_a.heading, after_a.heading);
         assert_eq!(before_a.body, after_a.body);
-        assert!(after_a.toml.relation.is_empty());
+        assert!(after_a.toml.relation.is_none());
     }
 
     #[test]

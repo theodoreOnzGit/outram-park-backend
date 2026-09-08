@@ -194,6 +194,9 @@ pub struct LibraryCandidate {
 /// `crate::artifact`, owned elsewhere), so the mapping lives here instead.
 fn artifact_kind_label(kind: ArtifactKind) -> &'static str {
     match kind {
+        ArtifactKind::Paper => "paper",
+        ArtifactKind::Relation => "connection",
+        ArtifactKind::Mindmap => "mindmap",
         ArtifactKind::Note => "note",
         ArtifactKind::Annotation => "annotation",
         ArtifactKind::SourceReference => "source reference",
@@ -328,6 +331,12 @@ pub fn library_candidates(
             };
             let parsed = parse_document(&text);
             for artifact in &parsed.artifacts {
+                // The paper's own header artifact is already offered as a
+                // `Paper` candidate; listing it again as an artifact would
+                // show every paper twice in one fuzzy field.
+                if artifact.kind() == ArtifactKind::Paper {
+                    continue;
+                }
                 if !matches_query(query, &[artifact.id(), &artifact.heading]) {
                     continue;
                 }
@@ -438,7 +447,7 @@ mod tests {
         let mut session =
             crate::session::PaperSession::open(&root, "wang2018multiphysics").unwrap();
         session.append_block(
-            "## Table 4.4\n\n```toml\n[kovan]\nid = \"table-4-4\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n",
+            "# Table 4.4\n\n```toml\n[kovan]\nid = \"table-4-4\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n",
         );
         let index = ResearchRecordIndex::from_session(&session);
 
@@ -472,7 +481,7 @@ mod tests {
         .unwrap();
         let mut wang = crate::session::PaperSession::open(&root, "wang2018multiphysics").unwrap();
         wang.append_block(
-            "## Conduction Coefficient\n\n```toml\n[kovan]\nid = \"conduction-coeff\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
+            "# Conduction Coefficient\n\n```toml\n[kovan]\nid = \"conduction-coeff\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
         );
         wang.save_document().unwrap();
 
@@ -482,7 +491,7 @@ mod tests {
             .unwrap();
         let mut lee = crate::session::PaperSession::open(&root, "lee2020corrosion").unwrap();
         lee.append_block(
-            "## Corrosion Rate Table\n\n```toml\n[kovan]\nid = \"corrosion-rate\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
+            "# Corrosion Rate Table\n\n```toml\n[kovan]\nid = \"corrosion-rate\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
         );
         lee.save_document().unwrap();
 

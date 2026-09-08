@@ -215,7 +215,7 @@ impl TableDigitiserState {
             self.set_error("nothing to save — run OCR first");
             return;
         };
-        let csv_body = format!("```csv\n{}```\n", t.to_csv_string());
+        let csv_body = crate::artifact::render_csv_body(&t.to_csv_string());
 
         // GH issue #35 2026-09-02: save as a real `[kovan]` artifact so the
         // page-context panel can re-open it; a re-digitise replaces the
@@ -239,7 +239,10 @@ impl TableDigitiserState {
                 crate::artifact::ArtifactKind::DigitisedTable,
                 &heading,
                 anchor,
-                Some("kopitiam-ocr".to_string()),
+                Some(crate::artifact::Extraction::new(
+                    "manual_digitisation",
+                    Some("kopitiam-ocr".to_string()),
+                )),
                 replace_id.as_deref(),
                 &csv_body,
             )
@@ -549,8 +552,15 @@ mod tests {
         assert!(md.contains("kind = \"digitised_table\""), "{md}");
         assert!(md.contains("method = \"manual_digitisation\""), "{md}");
         let idx = crate::research_record::ResearchRecordIndex::from_session(&reopened);
-        assert_eq!(idx.artifacts().len(), 1);
-        assert!(idx.artifacts()[0].csv_block().is_some());
+        // The paper header artifact plus the saved table.
+        assert_eq!(idx.artifacts().len(), 2);
+        // Index by kind, not position: artifact 0 is now the paper header.
+        let table = idx
+            .artifacts()
+            .iter()
+            .find(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedTable)
+            .expect("the digitised table");
+        assert!(table.csv_block().is_some());
     }
 
     #[test]

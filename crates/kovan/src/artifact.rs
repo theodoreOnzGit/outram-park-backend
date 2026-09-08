@@ -61,6 +61,15 @@
 use crate::entity::Classification;
 use serde::{Deserialize, Serialize};
 
+/// The Markdown heading depth that delimits one artifact from the next: a
+/// single `#`.
+///
+/// Every artifact — the paper header included — starts at a `#` heading and
+/// runs to the line before the next `#`. Deeper headings inside that span
+/// are the operator's own prose structure, not boundaries (maintainer
+/// direction, GH issue #35, 2026-09-08).
+pub const ARTIFACT_LEVEL: u8 = 1;
+
 /// The kinds of artifact §14 defines.
 ///
 /// Deliberately a small vocabulary — §14: "Keep the vocabulary small until
@@ -69,6 +78,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactKind {
+    /// The paper itself — the document's **first** artifact, whose heading
+    /// is the citekey and whose body carries the BibTeX record in a
+    /// ```latex fence plus whatever prose (Summary, abstract) follows.
+    ///
+    /// Making the header an artifact rather than a special case means one
+    /// parser, one renderer and one span rule for the whole document
+    /// (maintainer direction, GH issue #35, 2026-09-08). It is the one
+    /// artifact [`crate::classify::delete_artifact_cascade`] refuses to
+    /// delete: removing it would decapitate the paper.
+    Paper,
     /// A researcher's free-standing note.
     Note,
     /// A remark anchored to a specific place in the source document.
@@ -82,6 +101,14 @@ pub enum ArtifactKind {
     DigitisedTable,
     /// A curve read off a figure, body carried as CSV (§20).
     DigitisedGraph,
+    /// A typed connector between two nodes — the artifact form of a
+    /// [`crate::relation::UserRelation`]. Carries a `[relation]` table and
+    /// no body (maintainer direction, GH issue #35, 2026-09-08: "I want all
+    /// connectors, relationships to use the same artifact schema").
+    Relation,
+    /// A saved mindmap — its own metadata in the same `[kovan]`/TOML shape
+    /// as every other artifact, rather than a private file format.
+    Mindmap,
 }
 
 /// Errors from reading one artifact's metadata.
@@ -299,6 +326,55 @@ pub struct Extraction {
     /// The engine used, where one was, e.g. `"kopitiam-ocr"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub engine: Option<String>,
+    /// The figure's own identifier in the source, e.g. `"Fig 1."`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub figure: Option<String>,
+    /// The x column's label, which is also the CSV's first header field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x_label: Option<String>,
+    /// The y column's label, which is also the CSV's second header field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y_label: Option<String>,
+    /// The x-axis calibration in words, e.g.
+    /// `"log scale, px 107.2 = 0.001 , px 358.7 = 1000"` — without it the
+    /// numbers below cannot be re-derived from the figure, so it is
+    /// provenance, not decoration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x_axis: Option<String>,
+    /// The y-axis calibration in words. See [`Self::x_axis`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y_axis: Option<String>,
+    /// Who digitised it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digitised_by: Option<String>,
+    /// RFC 3339 timestamp of the digitisation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digitised_at: Option<String>,
+    /// Human-review state, e.g. `"UNREVIEWED — points not yet
+    /// human-verified"`. Only a human may set this to a reviewed value —
+    /// see the workspace digitiser rules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
+}
+
+impl Extraction {
+    /// An [`Extraction`] with only the method and engine set — the shape
+    /// used by non-digitiser paths (a table lifted natively from the PDF,
+    /// say) that have no plot calibration to record.
+    pub fn new(method: impl Into<String>, engine: Option<String>) -> Self {
+        Self {
+            method: method.into(),
+            engine,
+            figure: None,
+            x_label: None,
+            y_label: None,
+            x_axis: None,
+            y_axis: None,
+            digitised_by: None,
+            digitised_at: None,
+            review: None,
+        }
+    }
 }
 
 /// The mandatory `[kovan]` table (§14).
@@ -346,8 +422,18 @@ pub struct ArtifactToml {
     /// hand-drawn connections stays exactly as terse as it was before this
     /// field existed. See `crate::relation`'s module docs for why this is
     /// the relation's on-disk home rather than a separate store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation: Option<crate::relation::RelationRecord>,
+    /// Ids of the relation artifacts in the mindmap document that name this
+    /// artifact at either end — the back half of a two-way reference.
+    ///
+    /// The relation artifact lives in `mindmap.md` and points *out* at the
+    /// paper and artifact it came from; this list points *back* at it, so a
+    /// reader holding either file can find the other without scanning the
+    /// library (maintainer direction, GH issue #35, 2026-09-08: "they
+    /// should reference each other").
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub relation: Vec<crate::relation::RelationRecord>,
+    pub connections: Vec<String>,
 }
 
 /// One artifact, as found in a Markdown document.
@@ -390,6 +476,10 @@ impl Artifact {
     /// Returned verbatim, without parsing: the CSV is the researcher's data
     /// and this module's job is to locate it, not to interpret it.
     pub fn csv_block(&self) -> Option<&str> {
+        // Sentinel-delimited (the current format) and bare-fence (written
+        // before GH issue #35, 2026-09-08) bodies both resolve here: the
+        // sentinels sit outside the fence, so scanning for the fence finds
+        // the data either way.
         let mut rest = self.body.as_str();
         while let Some(open) = rest.find("```csv") {
             let after = &rest[open + "```csv".len()..];
@@ -400,6 +490,28 @@ impl Artifact {
             rest = after;
         }
         None
+    }
+
+    /// This artifact's CSV as it should be **exported to a `.csv` file**:
+    /// the header row and the data rows, with any `#` provenance comment
+    /// lines dropped.
+    ///
+    /// Bodies written since GH issue #35 (2026-09-08) carry no comments in
+    /// the first place, so this is a no-op on them; it exists so an
+    /// artifact saved in the older commented form still exports cleanly
+    /// (maintainer direction: "only the data within backticks, nothing
+    /// more").
+    pub fn csv_export(&self) -> Option<String> {
+        let block = self.csv_block()?;
+        let data: Vec<&str> = block
+            .lines()
+            .filter(|l| !l.trim_start().starts_with('#'))
+            .collect();
+        (!data.is_empty()).then(|| {
+            let mut s = data.join("\n");
+            s.push('\n');
+            s
+        })
     }
 }
 
@@ -471,10 +583,17 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
     for (event, range) in parser.into_offset_iter() {
         match event {
             Event::Start(Tag::Heading { level, .. }) => {
-                // A new heading closes any previous artifact's body.
-                if let Some(a) = out.artifacts.last_mut() {
-                    if a.body.is_empty() && fence_end > 0 && fence_end <= range.start {
-                        a.body = markdown[fence_end..range.start].trim().to_string();
+                // Only a level-1 heading closes the previous artifact: `##`
+                // and below are the operator's own subdivisions *inside* an
+                // artifact's prose and belong to its body (maintainer
+                // direction, GH issue #35, 2026-09-08 — "can be subdivided
+                // by ## or ### or any markdown ... till the next artifact
+                // denoted by #").
+                if level as u8 == ARTIFACT_LEVEL {
+                    if let Some(a) = out.artifacts.last_mut() {
+                        if a.body.is_empty() && fence_end > 0 && fence_end <= range.start {
+                            a.body = markdown[fence_end..range.start].trim().to_string();
+                        }
                     }
                 }
                 in_heading = true;
@@ -485,11 +604,15 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
             Event::Text(t) | Event::Code(t) if in_heading => heading_text.push_str(&t),
             Event::End(TagEnd::Heading(_)) => {
                 in_heading = false;
-                pending = Some((
-                    heading_text.trim().to_string(),
-                    heading_level,
-                    heading_start,
-                ));
+                // Only a level-1 heading can open an artifact, so a `##`
+                // followed by a ```toml fence stays ordinary prose.
+                pending = (heading_level == ARTIFACT_LEVEL).then(|| {
+                    (
+                        heading_text.trim().to_string(),
+                        heading_level,
+                        heading_start,
+                    )
+                });
             }
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
                 if pending.is_some() && lang.split(',').next().unwrap_or("").trim() == "toml" =>
@@ -581,6 +704,25 @@ pub fn parse_document(markdown: &str) -> ParsedDocument {
 /// Only if `toml`'s own TOML serialisation fails, which cannot happen for
 /// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
 /// callers an `unwrap`.
+/// Wrap `csv_data` — the header row plus data rows, and nothing else — as a
+/// sentinel-delimited fenced CSV body ready for
+/// [`render_artifact_block`].
+///
+/// The provenance that used to sit in `#` comments inside the fence belongs
+/// in the artifact's `[extraction]` table instead (see [`Extraction`]), so
+/// what lands between the backticks is exactly what a spreadsheet would
+/// read.
+pub fn render_csv_body(csv_data: &str) -> String {
+    format!("```csv\n{}\n```\n", csv_data.trim_end())
+}
+
+/// Wrap `latex` — a BibTeX record or a formula — as a fenced ```latex
+/// block, the schema's third block type alongside ```toml (metadata) and
+/// ```csv (data).
+pub fn render_latex_body(latex: &str) -> String {
+    format!("```latex\n{}\n```\n", latex.trim_end())
+}
+
 pub fn render_artifact_block(
     level: u8,
     heading: &str,
@@ -613,7 +755,22 @@ pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
     let start = artifact.line.saturating_sub(1);
     let lines: Vec<&str> = md.lines().collect();
     let mut end = lines.len();
+    // Fence tracking is not optional here. A `#` at the start of a line
+    // inside a ```csv or ```toml block is data or a TOML comment, not a
+    // heading — and a digitised artifact's CSV used to begin with
+    // `# kovan digitiser dataset (schema v1)`. Without this, deleting such
+    // an artifact truncated its span at that line and left the rest of the
+    // block orphaned in the document: the "delete annotation isn't working
+    // properly" report (GH issue #35, 2026-09-08).
+    let mut in_fence = false;
     for (i, line) in lines.iter().enumerate().skip(start + 1) {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
         let hashes = line.chars().take_while(|c| *c == '#').count();
         if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ')
         {
@@ -628,9 +785,79 @@ pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
 mod tests {
     use super::*;
 
+    // -----------------------------------------------------------------
+    // Sentinel-delimited CSV bodies (GH issue #35, 2026-09-08).
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn render_csv_body_is_a_bare_fence_with_only_the_data_inside() {
+        let body = render_csv_body("time (s),power (%)\n0,1\n");
+        let lines: Vec<&str> = body.lines().collect();
+        assert_eq!(lines[0], "```csv");
+        assert_eq!(lines[1], "time (s),power (%)");
+        assert_eq!(lines[2], "0,1");
+        assert_eq!(lines[3], "```");
+        // No HTML sentinels: the `#` heading delimits the artifact and the
+        // fence language identifies the block (GH issue #35, 2026-09-08).
+        assert!(!body.contains("<!--"));
+    }
+
+    #[test]
+    fn a_sentinel_wrapped_body_round_trips_through_the_parser() {
+        let toml = ArtifactToml {
+            kovan: ArtifactMeta {
+                id: "fig-1".into(),
+                kind: ArtifactKind::DigitisedGraph,
+                created: "t".into(),
+                modified: "t".into(),
+                reviewed: None,
+            },
+            source: None,
+            classification: Classification::default(),
+            extraction: Some(Extraction::new("manual_digitisation", None)),
+            relation: None,
+            connections: Vec::new(),
+        };
+        let md =
+            render_artifact_block(ARTIFACT_LEVEL, "Fig 1.", &toml, &render_csv_body("a,b\n1,2\n"))
+                .unwrap();
+        let doc = parse_document(&md);
+        let art = doc.get("fig-1").expect("artifact parses");
+        assert_eq!(art.csv_block().unwrap().trim(), "a,b\n1,2");
+        assert_eq!(art.csv_export().unwrap(), "a,b\n1,2\n");
+        assert!(!art.body.contains("<!--"));
+    }
+
+    #[test]
+    fn csv_export_strips_the_comment_lines_of_an_older_body() {
+        // Bodies written before this format carried `#` provenance inside
+        // the fence; exporting one must still yield data only.
+        let art = Artifact {
+            heading: "Fig 1.".into(),
+            level: ARTIFACT_LEVEL,
+            line: 1,
+            toml: ArtifactToml {
+                kovan: ArtifactMeta {
+                    id: "fig-1".into(),
+                    kind: ArtifactKind::DigitisedGraph,
+                    created: "t".into(),
+                    modified: "t".into(),
+                    reviewed: None,
+                },
+                source: None,
+                classification: Classification::default(),
+                extraction: None,
+                relation: None,
+            connections: Vec::new(),
+            },
+            body: "```csv\n# kovan digitiser dataset (schema v1)\n# figure: Fig 1.\nx,y\n1,2\n```\n".into(),
+        };
+        assert_eq!(art.csv_export().unwrap(), "x,y\n1,2\n");
+    }
+
     /// The annotation example from §13, verbatim.
     const ANNOTATION: &str = r#"
-## Graphite temperature assumption
+# Graphite temperature assumption
 
 ```toml
 [kovan]
@@ -659,7 +886,7 @@ Graphite temperature here appears to represent nominal operating conditions.
 
         let a = &doc.artifacts[0];
         assert_eq!(a.heading, "Graphite temperature assumption");
-        assert_eq!(a.level, 2);
+        assert_eq!(a.level, ARTIFACT_LEVEL);
         assert_eq!(a.id(), "graphite-temperature-assumption");
         assert_eq!(a.kind(), ArtifactKind::Annotation);
         assert!(!a.is_reviewed());
@@ -699,7 +926,7 @@ tolerance = 1e-8
     fn a_string_value_mentioning_kovan_does_not_make_an_artifact() {
         // The [kovan] check is structural, not a substring match.
         let md = r#"
-## Example
+# Example
 
 ```toml
 note = "the header looks like [kovan] but is not one"
@@ -713,7 +940,7 @@ note = "the header looks like [kovan] but is not one"
     #[test]
     fn a_paragraph_between_heading_and_fence_breaks_the_immediately_followed_rule() {
         let md = r#"
-## Not an artifact
+# Not an artifact
 
 Some prose sits in between.
 
@@ -732,7 +959,7 @@ modified = "2026-08-31T00:00:00+08:00"
     #[test]
     fn blank_lines_between_heading_and_fence_are_fine() {
         // Blank lines are Markdown whitespace, not intervening content.
-        let md = "## Heading\n\n\n\n```toml\n[kovan]\nid = \"x\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n";
+        let md = "# Heading\n\n\n\n```toml\n[kovan]\nid = \"x\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n";
         let doc = parse_document(md);
         assert_eq!(doc.artifacts.len(), 1, "{:?}", doc.problems);
     }
@@ -740,7 +967,7 @@ modified = "2026-08-31T00:00:00+08:00"
     #[test]
     fn several_artifacts_are_returned_in_document_order_with_their_own_bodies() {
         let md = r#"
-## First
+# First
 
 ```toml
 [kovan]
@@ -752,7 +979,7 @@ modified = "m"
 
 body of first
 
-## Second
+# Second
 
 ```toml
 [kovan]
@@ -777,14 +1004,14 @@ body of second
     fn one_malformed_artifact_does_not_lose_the_others() {
         // A wiki must stay browsable when one note is broken.
         let md = r#"
-## Broken
+# Broken
 
 ```toml
 [kovan]
 id = "broken"
 ```
 
-## Fine
+# Fine
 
 ```toml
 [kovan]
@@ -807,7 +1034,7 @@ modified = "m"
     #[test]
     fn digitised_table_example_from_the_issue_keeps_its_csv_and_provenance() {
         let md = r#"
-## Table 4.4 — Core component materials
+# Table 4.4 — Core component materials
 
 ```toml
 [kovan]
@@ -852,7 +1079,7 @@ reflector,1.76,graphite,900
     fn source_reference_needs_no_body_at_all() {
         // §17: classify a section without reproducing any of its text.
         let md = r#"
-## Coupled neutronics methodology
+# Coupled neutronics methodology
 
 ```toml
 [kovan]
@@ -974,7 +1201,7 @@ topics = ["htgrs/neutronics"]
     #[test]
     fn a_bad_anchor_is_reported_and_the_artifact_is_not_returned() {
         let md = r#"
-## Bad anchor
+# Bad anchor
 
 ```toml
 [kovan]
@@ -1017,7 +1244,7 @@ region = [12.0, 30.0, 87.0, 68.0]
     #[test]
     fn anchored_to_page_selects_across_a_document() {
         let md = r#"
-## On 87
+# On 87
 
 ```toml
 [kovan]
@@ -1030,7 +1257,7 @@ modified = "m"
 page = 87
 ```
 
-## Spanning 42 to 48
+# Spanning 42 to 48
 
 ```toml
 [kovan]
@@ -1043,7 +1270,7 @@ modified = "m"
 pages = [42, 48]
 ```
 
-## Unanchored
+# Unanchored
 
 ```toml
 [kovan]
@@ -1083,7 +1310,7 @@ modified = "m"
 
     #[test]
     fn line_numbers_point_at_the_heading() {
-        let md = "intro\n\n## Second line block\n\n```toml\n[kovan]\nid = \"x\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n";
+        let md = "intro\n\n# Second line block\n\n```toml\n[kovan]\nid = \"x\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n";
         let doc = parse_document(md);
         assert_eq!(doc.artifacts[0].line, 3);
     }
@@ -1099,17 +1326,21 @@ modified = "m"
 
     #[test]
     fn block_span_covers_the_heading_through_the_body() {
-        let md = "# Paper\n\n## First\n\n```toml\n[kovan]\nid = \"first\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nbody one\n\n## Second\n\nbody two\n";
+        // `##` subheadings belong to the artifact's prose; only the next
+        // `#` ends the span (GH issue #35, 2026-09-08).
+        let md = "# First\n\n```toml\n[kovan]\nid = \"first\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nbody one\n\n## a subheading\n\nstill body one\n\n# Second\n\nbody two\n";
         let doc = parse_document(md);
         let a = doc.get("first").unwrap();
         let span = block_span(md, a);
         assert_eq!(span.start, a.line - 1);
-        assert_eq!(md.lines().nth(span.end), Some("## Second"));
+        assert_eq!(md.lines().nth(span.end), Some("# Second"));
+        // The subheading is inside the span, not a boundary.
+        assert!(md.lines().take(span.end).any(|l| l == "## a subheading"));
     }
 
     #[test]
     fn block_span_of_the_last_block_runs_to_eof() {
-        let md = "# Paper\n\n## Only\n\n```toml\n[kovan]\nid = \"only\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\ntail\n";
+        let md = "# Only\n\n```toml\n[kovan]\nid = \"only\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\ntail\n";
         let doc = parse_document(md);
         let a = doc.get("only").unwrap();
         assert_eq!(block_span(md, a).end, md.lines().count());
@@ -1135,17 +1366,18 @@ modified = "m"
                 projects: vec![],
             },
             extraction: None,
-            relation: Vec::new(),
+            relation: None,
+            connections: Vec::new(),
         };
         let rendered =
-            render_artifact_block(2, "Coupled neutronics methodology", &payload, "").unwrap();
+            render_artifact_block(ARTIFACT_LEVEL, "Coupled neutronics methodology", &payload, "").unwrap();
 
         let doc = parse_document(&rendered);
         assert!(doc.problems.is_empty(), "{:?}", doc.problems);
         assert_eq!(doc.artifacts.len(), 1);
         let a = &doc.artifacts[0];
         assert_eq!(a.heading, "Coupled neutronics methodology");
-        assert_eq!(a.level, 2);
+        assert_eq!(a.level, ARTIFACT_LEVEL);
         assert_eq!(a.toml, payload);
     }
 
@@ -1162,10 +1394,11 @@ modified = "m"
             source: None,
             classification: Classification::default(),
             extraction: None,
-            relation: Vec::new(),
+            relation: None,
+            connections: Vec::new(),
         };
         let rendered =
-            render_artifact_block(3, "A note", &payload, "Some prose about it.").unwrap();
+            render_artifact_block(ARTIFACT_LEVEL, "A note", &payload, "Some prose about it.").unwrap();
         let doc = parse_document(&rendered);
         assert_eq!(doc.artifacts[0].body, "Some prose about it.");
     }

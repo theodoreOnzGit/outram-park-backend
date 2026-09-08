@@ -96,6 +96,14 @@ impl std::error::Error for ClassifyError {}
 /// Errors from [`delete_artifact_cascade`].
 #[derive(Debug)]
 pub enum CascadeError {
+    /// The artifact named is the paper's own header block
+    /// ([`ArtifactKind::Paper`]), which is never deletable — removing it
+    /// would take the document's identity, its BibTeX record and the
+    /// heading every other artifact hangs beneath.
+    CannotDeletePaper {
+        /// The paper whose header was targeted.
+        citekey: String,
+    },
     /// No artifact with this id exists in `citekey`'s paper. Returned
     /// *before* anything is deleted — see the function docs.
     ArtifactNotFound { citekey: String, artifact_id: String },
@@ -108,6 +116,11 @@ pub enum CascadeError {
 impl std::fmt::Display for CascadeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::CannotDeletePaper { citekey } => write!(
+                f,
+                "{citekey:?}'s title block is the paper itself and is never deleted \
+                 — delete the artifacts under it instead"
+            ),
             Self::ArtifactNotFound {
                 citekey,
                 artifact_id,
@@ -164,7 +177,7 @@ fn unique_id(heading: &str, existing: &ResearchRecordIndex) -> Result<String, Cl
 
 /// The heading depth every inserted artifact gets — one level under the
 /// paper's own `#` title (see the §13 examples).
-const ARTIFACT_HEADING_LEVEL: u8 = 2;
+const ARTIFACT_HEADING_LEVEL: u8 = crate::artifact::ARTIFACT_LEVEL;
 
 /// Build and insert a fine-grained classification artifact into `session`'s
 /// buffer (never straight to disk — call `session.save_document()`
@@ -237,7 +250,8 @@ pub fn insert_artifact(
         source: anchor,
         classification,
         extraction,
-        relation: Vec::new(),
+        relation: None,
+            connections: Vec::new(),
     };
     let rendered = render_artifact_block(ARTIFACT_HEADING_LEVEL, heading, &toml, body)
         .map_err(ClassifyError::Render)?;
@@ -436,7 +450,7 @@ pub fn save_digitised_csv(
     kind: ArtifactKind,
     heading: &str,
     anchor: Option<SourceAnchor>,
-    engine: Option<String>,
+    extraction: Option<Extraction>,
     replace_id: Option<&str>,
     csv_body: &str,
 ) -> Result<Artifact, ClassifyError> {
@@ -453,10 +467,7 @@ pub fn save_digitised_csv(
         kind,
         anchor,
         Classification::default(),
-        Some(Extraction {
-            method: "manual_digitisation".to_string(),
-            engine,
-        }),
+        extraction.or_else(|| Some(Extraction::new("manual_digitisation", None))),
         csv_body,
     )
 }
@@ -558,14 +569,24 @@ pub fn delete_artifact_cascade(
     citekey: &str,
     artifact_id: &str,
 ) -> Result<usize, CascadeError> {
-    // Precondition, checked before any write: the artifact must exist.
+    // Preconditions, checked before any write: the artifact must exist, and
+    // it must not be the paper's own header.
     let probe = PaperSession::open(root, citekey).map_err(CascadeError::Session)?;
-    parse_document(probe.markdown())
+    let doc = parse_document(probe.markdown());
+    let artifact = doc
         .get(artifact_id)
         .ok_or_else(|| CascadeError::ArtifactNotFound {
             citekey: citekey.to_string(),
             artifact_id: artifact_id.to_string(),
         })?;
+    // "however it will never delete the main title" — the paper header
+    // carries the document's identity and its BibTeX record, and every
+    // other artifact in the file sits under it.
+    if artifact.kind() == ArtifactKind::Paper {
+        return Err(CascadeError::CannotDeletePaper {
+            citekey: citekey.to_string(),
+        });
+    }
     drop(probe);
 
     let node = artifact_node(citekey, artifact_id);
@@ -849,7 +870,8 @@ x,y
         assert!(session.is_dirty());
 
         let refreshed = ResearchRecordIndex::from_session(&session);
-        assert_eq!(refreshed.artifacts().len(), 1);
+        // The paper header artifact plus the one just inserted.
+        assert_eq!(refreshed.artifacts().len(), 2);
         assert!(refreshed.anchored_to_page(45).len() == 1);
     }
 
@@ -936,10 +958,7 @@ x,y
             ArtifactKind::DigitisedGraph,
             Some(anchor),
             Classification::default(),
-            Some(Extraction {
-                method: "manual_digitisation".into(),
-                engine: None,
-            }),
+            Some(Extraction::new("manual_digitisation", None)),
             "```csv\nx,y\n1,2\n```",
         )
         .unwrap();
@@ -1039,7 +1058,12 @@ x,y
             .iter()
             .map(|a| a.heading.clone())
             .collect();
-        assert_eq!(headings, vec!["Note A", "Note A2", "Note C", "Note E"]);
+        // The paper header sorts first (it carries no page anchor), then
+        // the page-ordered notes.
+        assert_eq!(
+            headings,
+            vec!["wang2018multiphysics", "Note A", "Note A2", "Note C", "Note E"]
+        );
     }
 
     /// Maintainer, 2026-09-02: "if the annotations are disordered, order
@@ -1073,7 +1097,7 @@ x,y
 
     fn block(id: &str, page: u32, heading: &str) -> String {
         format!(
-            "## {heading}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = {page}\n```\n\nbody of {heading}\n"
+            "# {heading}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = {page}\n```\n\nbody of {heading}\n"
         )
     }
 
@@ -1097,16 +1121,17 @@ x,y
             ArtifactKind::DigitisedGraph,
             "Figure 2",
             Some(anchor),
-            Some("kopitiam-ocr".into()),
+            Some(Extraction::new("manual_digitisation", Some("kopitiam-ocr".into()))),
             None,
             "```csv\nx,y\n1,10\n```\n",
         )
         .unwrap();
+        // The paper header artifact plus the digitised graph.
         assert_eq!(
             ResearchRecordIndex::from_session(&session)
                 .artifacts()
                 .len(),
-            1
+            2
         );
 
         // Re-digitise: same id, new numbers — one artifact, updated body,
@@ -1123,7 +1148,9 @@ x,y
         .unwrap();
         assert_eq!(again.id(), first.id());
         let idx = ResearchRecordIndex::from_session(&session);
-        assert_eq!(idx.artifacts().len(), 1, "replace, not append");
+        // Header + the one digitised artifact: replaced in place, not
+        // appended as a second copy.
+        assert_eq!(idx.artifacts().len(), 2, "replace, not append");
         let a = idx.get(first.id()).unwrap();
         assert!(a.body.contains("2,22"));
         assert_eq!(
@@ -1235,6 +1262,78 @@ x,y
         let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
         assert!(parse_document(&text).get("note-a").is_some());
     }
+}
+
+/// Give `session`'s document its paper header artifact if it has none:
+/// `# <citekey>` plus a `[kovan] kind = "paper"` TOML block, and the paper's
+/// BibTeX record in a ```latex fence when `bibtex` is given.
+///
+/// The header is the document's first artifact, and the one
+/// [`delete_artifact_cascade`] refuses to remove. Papers scaffolded before
+/// GH issue #35 (2026-09-08) open with a bare `# <citekey>` title and no
+/// TOML, so they parse as no artifact at all — this upgrades them in place,
+/// keeping every existing line below the header untouched.
+///
+/// Returns `true` when it added the header, `false` when one was already
+/// there. Idempotent, so it is safe to call on every open. Does not save —
+/// the caller decides when to write.
+pub fn ensure_paper_header(
+    session: &mut PaperSession,
+    bitex_source: Option<&str>,
+) -> Result<bool, ClassifyError> {
+    let citekey = session.citekey().to_string();
+    let md = session.markdown().to_string();
+    if parse_document(&md)
+        .artifacts
+        .iter()
+        .any(|a| a.kind() == ArtifactKind::Paper)
+    {
+        return Ok(false);
+    }
+
+    let now = utc_now_iso8601();
+    let toml = ArtifactToml {
+        kovan: ArtifactMeta {
+            id: citekey.clone(),
+            kind: ArtifactKind::Paper,
+            created: now.clone(),
+            modified: now,
+            reviewed: None,
+        },
+        source: None,
+        classification: Classification::default(),
+        extraction: None,
+        connections: Vec::new(),
+        relation: None,
+    };
+    let body = bitex_source
+        .map(|b| crate::artifact::render_latex_body(b))
+        .unwrap_or_default();
+    let header =
+        render_artifact_block(ARTIFACT_HEADING_LEVEL, &citekey, &toml, &body)
+            .map_err(ClassifyError::Render)?;
+
+    // Drop a pre-existing bare `# <citekey>` title line: the header artifact
+    // replaces it, and leaving both would give the document two level-1
+    // headings for the same thing.
+    let mut rest: Vec<&str> = md.lines().collect();
+    if let Some(first) = rest.iter().position(|l| !l.trim().is_empty()) {
+        if rest[first].trim() == format!("# {citekey}") {
+            rest.drain(..=first);
+        }
+    }
+    let tail = rest.join("\n");
+    let mut next = header.trim_end().to_string();
+    next.push_str("\n");
+    if !tail.trim().is_empty() {
+        next.push('\n');
+        next.push_str(tail.trim_start_matches('\n'));
+    }
+    if !next.ends_with('\n') {
+        next.push('\n');
+    }
+    session.set_markdown(next);
+    Ok(true)
 }
 
 // ---------------------------------------------------------------------------
@@ -1429,10 +1528,7 @@ pub fn migrate_legacy_csv_sections(
             section.kind,
             anchor,
             Classification::default(),
-            Some(Extraction {
-                method: "manual_digitisation".to_string(),
-                engine: None,
-            }),
+            Some(Extraction::new("manual_digitisation", None)),
             &section.csv,
         )?;
         migrated += 1;

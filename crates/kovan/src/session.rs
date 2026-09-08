@@ -234,8 +234,8 @@ mod tests {
     fn append_block_adds_a_blank_line_separator() {
         let (_dir, root, citekey) = make_paper();
         let mut session = PaperSession::open(&root, &citekey).unwrap();
-        session.append_block("## A note\n\n```toml\n[kovan]\nid = \"a-note\"\n```\n");
-        assert!(session.markdown().contains("## Summary\n\n## A note"));
+        session.append_block("# A note\n\n```toml\n[kovan]\nid = \"a-note\"\n```\n");
+        assert!(session.markdown().contains("## Summary\n\n# A note"));
         assert!(session.is_dirty());
     }
 }

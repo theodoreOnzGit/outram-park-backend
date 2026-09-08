@@ -374,7 +374,7 @@ mod tests {
         std::fs::write(
             root.paper_markdown("wang2018multiphysics"),
             "# wang2018multiphysics\n\n## Summary\n\nCites [@lee2020corrosion] and links [[lee2020corrosion#a-note]].\n\n\
-             ## A table\n\n```toml\n[kovan]\nid = \"table-1\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
+             # A table\n\n```toml\n[kovan]\nid = \"table-1\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
              [source]\npage = 3\n\n[classification]\ntopics = [\"htgrs\"]\n```\n\n```csv\na,b\n1,2\n```\n",
         )
         .unwrap();

@@ -646,6 +646,18 @@ impl KovanRoot {
     ///
     /// The directory name, the filename, the wiki-link target and the citation
     /// key are all the same string — that is the point of the §7 amendment.
+    /// The library's mindmap document, `<root>/mindmap.md`.
+    ///
+    /// Tracked, human-readable Markdown in the same artifact schema as any
+    /// paper — the mindmap is not a private binary or a `.kovan/` cache.
+    /// Every relation artifact lives here (maintainer direction, GH issue
+    /// #35, 2026-09-08), so the connectors between papers are one file a
+    /// reader can open, diff and review, rather than being scattered
+    /// through the papers they join.
+    pub fn mindmap_markdown(&self) -> PathBuf {
+        self.path().join("mindmap.md")
+    }
+
     pub fn paper_markdown(&self, citekey: &str) -> PathBuf {
         self.paper_dir(citekey).join(format!("{citekey}.md"))
     }

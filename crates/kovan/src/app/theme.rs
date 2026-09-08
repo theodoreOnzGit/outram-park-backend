@@ -145,6 +145,17 @@ const GRUVBOX_NEUTRAL_ORANGE: egui::Color32 = egui::Color32::from_rgb(0xd6, 0x5d
 pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
     let dark = matches!(theme, GuiTheme::GruvboxDark);
     match kind {
+        // The paper header draws no region box; it shares the note accent
+        // so a mindmap node for it is not left uncoloured.
+        // Connectors and mindmaps have no page region to tint; they share
+        // the note accent so a graph node for them is never uncoloured.
+        ArtifactKind::Relation | ArtifactKind::Mindmap | ArtifactKind::Paper => {
+            if dark {
+                GRUVBOX_BRIGHT_YELLOW
+            } else {
+                GRUVBOX_NEUTRAL_YELLOW
+            }
+        }
         ArtifactKind::Annotation | ArtifactKind::Note => {
             if dark {
                 GRUVBOX_BRIGHT_YELLOW

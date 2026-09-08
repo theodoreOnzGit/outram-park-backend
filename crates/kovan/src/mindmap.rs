@@ -178,6 +178,11 @@ pub fn literature_card(
         let research = ResearchRecordIndex::from_session(&session);
         for a in research.artifacts() {
             match a.kind() {
+                // The paper header is the card itself, not one of its
+                // artifacts — counting it would double-count the paper.
+                // A connector is an edge, and a saved mindmap is a view of
+                // the graph — neither is a note/table/figure of the paper.
+                ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => {}
                 ArtifactKind::Note | ArtifactKind::Annotation | ArtifactKind::SourceReference => {
                     card.note_count += 1
                 }
@@ -710,7 +715,7 @@ mod tests {
         .unwrap();
         let mut session = PaperSession::open(&root, "wang2018multiphysics").unwrap();
         session.append_block(
-            "## A table\n\n```toml\n[kovan]\nid = \"t1\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 1\n```\n",
+            "# A table\n\n```toml\n[kovan]\nid = \"t1\"\nkind = \"digitised_table\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 1\n```\n",
         );
         session.append_block("## Summary\n\nA hand-written summary.\n");
         session.save_document().unwrap();

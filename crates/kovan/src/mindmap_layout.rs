@@ -363,6 +363,11 @@ fn icon(node: &MapNode) -> &'static str {
         MapNodeKind::Collection(EntityKind::Project) => "P",
         MapNodeKind::Collection(_) => "T",
         MapNodeKind::Paper => "PAPER",
+        // A paper's own header artifact is drawn as the paper node itself,
+        // never as a child of it.
+        MapNodeKind::Artifact(ArtifactKind::Paper) => "PAPER",
+        MapNodeKind::Artifact(ArtifactKind::Relation) => "REL",
+        MapNodeKind::Artifact(ArtifactKind::Mindmap) => "MAP",
         MapNodeKind::Artifact(ArtifactKind::Note) => "NOTE",
         MapNodeKind::Artifact(ArtifactKind::Annotation) => "NOTE",
         MapNodeKind::Artifact(ArtifactKind::DigitisedGraph) => "GRAPH",
@@ -515,7 +520,7 @@ mod tests {
             .unwrap();
         let mut terry = PaperSession::open(&root, "terry2005").unwrap();
         terry.append_block(
-            "## Pebble packing note\n\n```toml\n[kovan]\nid = \"pebble-packing-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 4\n```\n",
+            "# Pebble packing note\n\n```toml\n[kovan]\nid = \"pebble-packing-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 4\n```\n",
         );
         terry.save_document().unwrap();
 
@@ -525,7 +530,7 @@ mod tests {
             .unwrap();
         let mut iaea = PaperSession::open(&root, "iaea1694").unwrap();
         iaea.append_block(
-            "## Digitised curve\n\n```toml\n[kovan]\nid = \"digitised-curve\"\nkind = \"digitised_graph\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 9\n```\n",
+            "# Digitised curve\n\n```toml\n[kovan]\nid = \"digitised-curve\"\nkind = \"digitised_graph\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 9\n```\n",
         );
         iaea.save_document().unwrap();
 

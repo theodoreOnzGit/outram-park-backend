@@ -1210,7 +1210,7 @@ impl DigitiseApp {
             title
         }
         .to_string();
-        let csv_body = format!("```csv\n{}```\n", d.to_csv_string());
+        let csv_body = crate::artifact::render_csv_body(&d.to_csv_data_only());
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
@@ -1229,7 +1229,7 @@ impl DigitiseApp {
                 crate::artifact::ArtifactKind::DigitisedGraph,
                 &title,
                 anchor,
-                None,
+                Some(d.extraction("manual_digitisation", None)),
                 replace_id.as_deref(),
                 &csv_body,
             )

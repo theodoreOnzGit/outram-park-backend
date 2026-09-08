@@ -348,6 +348,13 @@ pub(super) struct MenuEntry {
 /// `collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`.
 pub(super) fn saved_artifact_menu_entries(kind: ArtifactKind, have_library: bool) -> Vec<MenuEntry> {
     let edit_label = match kind {
+        // The paper header is an artifact too, but it is not source-anchored
+        // and so never has a canvas rectangle to right-click.
+        ArtifactKind::Paper => "Edit paper metadata",
+        // Neither is source-anchored, so neither is ever right-clicked on
+        // the page; the arms exist so a new kind is a compile error here.
+        ArtifactKind::Relation => "Edit connection",
+        ArtifactKind::Mindmap => "Edit mindmap",
         ArtifactKind::Note | ArtifactKind::Annotation => "Edit annotation",
         ArtifactKind::DigitisedGraph => "Edit digitisation",
         ArtifactKind::DigitisedTable => "Edit table",
@@ -1990,19 +1997,41 @@ impl PdfReaderState {
             .as_ref()
             .map(|s| classify::find_legacy_csv_sections(s.markdown()).len())
             .unwrap_or(0);
-        if legacy_count > 0 {
+        // A paper scaffolded before the artifact schema opens with a bare
+        // `# <citekey>` and no TOML, so it has no paper header artifact.
+        let needs_header = active_paper.as_ref().is_some_and(|s| {
+            !crate::artifact::parse_document(s.markdown())
+                .artifacts
+                .iter()
+                .any(|a| a.kind() == crate::artifact::ArtifactKind::Paper)
+        });
+        if legacy_count > 0 || needs_header {
             let page_px = self.current_page_px();
             let mut outcome: Option<String> = None;
             ui.horizontal(|ui| {
-                ui.label(format!(
-                    "{legacy_count} digitiser section(s) saved in the old format — no region box is drawn for them."
-                ));
+                ui.label(if legacy_count > 0 && needs_header {
+                    format!(
+                        "{legacy_count} digitiser section(s) in the old format, and no paper header block."
+                    )
+                } else if legacy_count > 0 {
+                    format!(
+                        "{legacy_count} digitiser section(s) saved in the old format — no region box is drawn for them."
+                    )
+                } else {
+                    "This paper has no header artifact yet.".to_string()
+                });
                 if ui.button("Upgrade to artifacts").clicked() {
                     if let Some(session) = active_paper.as_mut() {
                         outcome = Some(
-                            match classify::migrate_legacy_csv_sections(session, page_px) {
-                                Ok(n) => match session.save_document() {
-                                    Ok(()) => format!("upgraded {n} digitiser section(s)"),
+                            match classify::ensure_paper_header(session, None).and_then(|added| {
+                                classify::migrate_legacy_csv_sections(session, page_px)
+                                    .map(|n| (added, n))
+                            }) {
+                                Ok((added, n)) => match session.save_document() {
+                                    Ok(()) => format!(
+                                        "upgraded {n} digitiser section(s){}",
+                                        if added { ", added the paper header" } else { "" }
+                                    ),
                                     Err(e) => format!("upgrade saved nothing: {e}"),
                                 },
                                 Err(e) => format!("upgrade failed: {e}"),
@@ -3549,7 +3578,7 @@ a note
 
     #[test]
     fn open_artifact_on_a_text_block_loads_the_inline_editor() {
-        let md = "# P\n\n## Graphite note\n\n```toml\n[kovan]\nid = \"graphite-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n\nthe prose body\n";
+        let md = "# Graphite note\n\n```toml\n[kovan]\nid = \"graphite-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n\nthe prose body\n";
         let doc = crate::artifact::parse_document(md);
         let art = doc.get("graphite-note").unwrap();
 
@@ -3618,7 +3647,7 @@ a note
     fn make_artifact(id: &str, kind: ArtifactKind, source: Option<SourceAnchor>) -> Artifact {
         Artifact {
             heading: id.to_string(),
-            level: 2,
+            level: crate::artifact::ARTIFACT_LEVEL,
             line: 1,
             toml: crate::artifact::ArtifactToml {
                 kovan: crate::artifact::ArtifactMeta {
@@ -3631,7 +3660,8 @@ a note
                 source,
                 classification: Classification::default(),
                 extraction: None,
-                relation: Vec::new(),
+                relation: None,
+            connections: Vec::new(),
             },
             body: String::new(),
         }
@@ -3720,7 +3750,7 @@ a note
         // Annotation and a DigitisedGraph+CSV artifact must reconstruct as
         // PDF rectangles, from real parsed Markdown+TOML data.
         let md = r#"
-## Graphite temperature assumption
+# Graphite temperature assumption
 
 ```toml
 [kovan]
@@ -3736,7 +3766,7 @@ region = [0.214, 0.341, 0.721, 0.508]
 
 Graphite temperature here appears to represent nominal operating conditions.
 
-## Fig. 12 — power vs time
+# Fig. 12 — power vs time
 
 ```toml
 [kovan]
@@ -3804,7 +3834,7 @@ t_s,power_mw
 
     #[test]
     fn artifact_overlays_for_page_excludes_artifacts_anchored_to_a_different_page() {
-        let md = "## Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 5\nregion = [0.1, 0.1, 0.9, 0.9]\n```\n";
+        let md = "# Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 5\nregion = [0.1, 0.1, 0.9, 0.9]\n```\n";
         let doc = crate::artifact::parse_document(md);
         assert_eq!(doc.artifacts.len(), 1, "{:?}", doc.problems);
 

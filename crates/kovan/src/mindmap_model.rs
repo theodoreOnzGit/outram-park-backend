@@ -384,14 +384,19 @@ impl MindmapModel {
 /// real [`ArtifactKind`] enum is closed and exhaustively matched here, so
 /// there is no fallback to reproduce, but a future new variant will make
 /// this `match` (not a silent default) the compile error that points here.
-fn map_node_kind_for_artifact(kind: ArtifactKind) -> MapNodeKind {
+fn map_node_kind_for_artifact(kind: ArtifactKind) -> Option<MapNodeKind> {
     match kind {
+        // None of these three is a node of the map. A relation is an EDGE,
+        // a saved mindmap is the view itself, and a paper's header artifact
+        // IS the paper node the caller already added — emitting any of them
+        // would duplicate or mis-shape the graph (GH issue #35, 2026-09-08).
+        ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => None,
         ArtifactKind::Note
         | ArtifactKind::Annotation
         | ArtifactKind::SourceReference
         | ArtifactKind::Formula
         | ArtifactKind::DigitisedTable
-        | ArtifactKind::DigitisedGraph => MapNodeKind::Artifact(kind),
+        | ArtifactKind::DigitisedGraph => Some(MapNodeKind::Artifact(kind)),
     }
 }
 
@@ -441,16 +446,30 @@ pub fn build_model(
         if let Ok(session) = PaperSession::open(root, &p.citekey) {
             let research = ResearchRecordIndex::from_session(&session);
             for artifact in research.artifacts() {
+                let Some(kind) = map_node_kind_for_artifact(artifact.kind()) else {
+                    continue;
+                };
                 let artifact_id = graph::artifact_node(&p.citekey, artifact.id());
                 model.add_node(MapNode {
                     id: artifact_id,
-                    kind: map_node_kind_for_artifact(artifact.kind()),
+                    kind,
                     title: artifact.heading.clone(),
                     parent: Some(paper_id.clone()),
                     subtitle: format!("{:?}", artifact.kind()),
                 });
             }
         }
+    }
+
+    // Relation artifacts in the mindmap document are edges, not nodes —
+    // read straight from `mindmap.md` so the map shows the connectors the
+    // operator drew (GH issue #35, 2026-09-08).
+    for rel in crate::relation::connections_all(root) {
+        model.add_edge(MapEdge {
+            source: rel.source.clone(),
+            target: rel.target.clone(),
+            label: rel.kind.as_str().to_string(),
+        });
     }
 
     for e in &graph.edges {
@@ -498,7 +517,7 @@ mod tests {
             .unwrap();
         let mut terry = PaperSession::open(&root, "terry2005").unwrap();
         terry.append_block(
-            "## Pebble packing note\n\n```toml\n[kovan]\nid = \"pebble-packing-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 4\n```\n",
+            "# Pebble packing note\n\n```toml\n[kovan]\nid = \"pebble-packing-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 4\n```\n",
         );
         terry.save_document().unwrap();
 
@@ -508,7 +527,7 @@ mod tests {
             .unwrap();
         let mut iaea = PaperSession::open(&root, "iaea1694").unwrap();
         iaea.append_block(
-            "## Digitised curve\n\n```toml\n[kovan]\nid = \"digitised-curve\"\nkind = \"digitised_graph\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 9\n```\n",
+            "# Digitised curve\n\n```toml\n[kovan]\nid = \"digitised-curve\"\nkind = \"digitised_graph\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 9\n```\n",
         );
         iaea.save_document().unwrap();
 
