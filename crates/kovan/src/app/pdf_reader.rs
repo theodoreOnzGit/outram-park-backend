@@ -145,7 +145,7 @@ use crate::relation::{self, RelationKind};
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
-use super::csv_preview::{draw_csv_preview, CopyButton};
+use super::csv_preview::draw_csv_preview;
 use super::kvim_editor::{CompletionSource, KvimEditorState};
 use super::page_canvas::PageView;
 
@@ -1880,10 +1880,12 @@ impl PdfReaderState {
                                 };
                                 ui.label(format!("{icon} {}", artifact.heading));
                                 if let Some(csv) = artifact.csv_block() {
-                                    // No copy button here: the preview is
-                                    // for recognising the artifact, not for
-                                    // exporting it.
-                                    draw_csv_preview(ui, csv, CopyButton::Hidden, &id);
+                                    // Copy CSV stays here too: reinstated
+                                    // 2026-09-08 on maintainer use — reading
+                                    // a figure's numbers straight out of the
+                                    // reader is convenient enough to earn
+                                    // the button's space.
+                                    draw_csv_preview(ui, csv, &id);
                                 }
                                 ui.small("double-click → go to page · right-click → menu");
                             }

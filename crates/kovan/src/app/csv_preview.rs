@@ -19,23 +19,14 @@
 
 use eframe::egui;
 
-/// Whether a CSV preview carries its "Copy CSV" button.
+/// Draw a "CSV preview" heading with a copy button, then `csv_text` in a
+/// scrollable, monospace, read-only text box below.
 ///
-/// Shown in the digitiser tabs, where the CSV is the thing being produced
-/// and copying it out is the point. Hidden on the PDF reader's page-context
-/// cards, where the preview is there to identify an artifact at a glance
-/// and the button is clutter (maintainer, GH issue #35, 2026-09-08) — the
-/// body is still drag-selectable there, so nothing is actually lost.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CopyButton {
-    /// Draw the button beside the heading.
-    Shown,
-    /// Heading only.
-    Hidden,
-}
-
-/// Draw a "CSV preview" heading, optionally with a copy button, then
-/// `csv_text` in a scrollable, monospace, read-only text box below.
+/// Every caller shows the button, the PDF reader's page-context cards
+/// included: it was briefly hidden there on 2026-09-08 and reinstated the
+/// same day on use — copying a figure's numbers straight out of the reader
+/// is convenient enough to earn the space. A `CopyButton` enum for the
+/// distinction went with it, since one live variant is not a choice.
 ///
 /// `id_salt` must be unique among the previews drawn in one frame —
 /// several digitised artifacts can be anchored to the same page, and egui
@@ -46,10 +37,10 @@ pub enum CopyButton {
 /// `draw_csv_panel`'s doc comment for why a `TextEdit` over a throwaway
 /// per-frame copy is used instead of a plain `Label` (native drag-select
 /// works over the whole body as one contiguous selection that way).
-pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str, copy: CopyButton, id_salt: &str) {
+pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str, id_salt: &str) {
     ui.horizontal(|ui| {
         ui.heading("CSV preview");
-        if copy == CopyButton::Shown && ui.button("\u{1F4CB} Copy CSV").clicked() {
+        if ui.button("\u{1F4CB} Copy CSV").clicked() {
             ui.ctx().copy_text(csv_text.to_string());
         }
     });
