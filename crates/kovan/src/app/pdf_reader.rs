@@ -2865,7 +2865,7 @@ impl PdfReaderState {
         let menu = self.context_menu.clone()?;
         let mut close = false;
         let mut result = None;
-        egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
+        let area = egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
             .order(egui::Order::Foreground)
             .fixed_pos(menu.screen_pos)
             .show(ctx, |ui| {
@@ -3039,7 +3039,24 @@ impl PdfReaderState {
                     }
                 });
             });
-        if close {
+        // A left-click anywhere outside the menu dismisses it, the way a
+        // dropdown is expected to behave (maintainer, GH issue #35,
+        // 2026-09-08). Checked against the menu's own rect rather than a
+        // global "was clicked" flag, so a click *on* an entry still runs
+        // that entry's action and closes via `close` below.
+        // PRIMARY only. The right-click that opens this menu is also a
+        // click, and on the opening frame the pointer sits at the menu's
+        // own corner — treating any button here would make the menu close
+        // itself the instant it appeared. Secondary clicks are the toggle
+        // gesture and are handled at the call sites.
+        let clicked_outside = ctx
+            .input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
+            && !ctx.input(|i| {
+                i.pointer
+                    .interact_pos()
+                    .is_some_and(|p| area.response.rect.contains(p))
+            });
+        if close || clicked_outside {
             self.context_menu = None;
         }
         result
