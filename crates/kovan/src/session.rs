@@ -137,6 +137,30 @@ impl PaperSession {
         self.dirty = true;
     }
 
+    /// Re-read the paper's Markdown from disk, replacing the buffer and
+    /// clearing the dirty flag.
+    ///
+    /// Needed because a few operations deliberately work on their own
+    /// short-lived sessions rather than this one —
+    /// [`crate::classify::delete_artifact_cascade`] must edit *several*
+    /// papers' files (an incoming relation lives in the other paper's
+    /// Markdown), so it opens each from disk and saves it. Without this, a
+    /// GUI holding an open session would keep showing the deleted artifact
+    /// and would write its stale buffer back over the deletion on the next
+    /// save. Call it after any such out-of-band write.
+    ///
+    /// Discards unsaved edits: save first if the buffer matters.
+    pub fn reload(&mut self) -> Result<(), SessionError> {
+        let markdown =
+            std::fs::read_to_string(&self.markdown_path).map_err(|source| SessionError::Io {
+                path: self.markdown_path.clone(),
+                source,
+            })?;
+        self.markdown = markdown;
+        self.dirty = false;
+        Ok(())
+    }
+
     /// §37's "Save Document": write the buffer to disk. Does not stage or
     /// commit anything — that is `op-9vo6.19`'s separate "Save Repository".
     pub fn save_document(&mut self) -> Result<(), SessionError> {

@@ -445,17 +445,9 @@ impl CropProvenance {
 /// [`Region`] (§15: fractions of the page, origin top-left). `None` for a
 /// degenerate page size or a zero-area / out-of-range rectangle.
 pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<Region> {
-    if w <= 0.0 || h <= 0.0 {
-        return None;
-    }
-    let r = Region {
-        x0: (min.x.min(max.x) / w) as f64,
-        y0: (min.y.min(max.y) / h) as f64,
-        x1: (min.x.max(max.x) / w) as f64,
-        y1: (min.y.max(max.y) / h) as f64,
-    };
-    r.is_valid().then_some(r)
+    Region::from_pixels((min.x, min.y), (max.x, max.y), w, h)
 }
+
 
 /// The screen-space rectangle [`Region`] (§15, normalised page fractions)
 /// reconstructs to on the continuous multi-page canvas, given which 0-based
@@ -1987,6 +1979,43 @@ impl PdfReaderState {
             });
         });
 
+        // Legacy digitiser sections (GH issue #35, 2026-09-08). A graph or
+        // table digitised while no paper was active was written as a plain
+        // `### … — page N, pixel bbox […]` heading plus a bare ```csv fence,
+        // with no `[kovan]` block — so `parse_document` never saw it as an
+        // artifact and the canvas below drew no region box for it, while
+        // annotations showed up fine. Offer the one-click upgrade rather
+        // than rewriting the operator's file behind their back.
+        let legacy_count = active_paper
+            .as_ref()
+            .map(|s| classify::find_legacy_csv_sections(s.markdown()).len())
+            .unwrap_or(0);
+        if legacy_count > 0 {
+            let page_px = self.current_page_px();
+            let mut outcome: Option<String> = None;
+            ui.horizontal(|ui| {
+                ui.label(format!(
+                    "{legacy_count} digitiser section(s) saved in the old format — no region box is drawn for them."
+                ));
+                if ui.button("Upgrade to artifacts").clicked() {
+                    if let Some(session) = active_paper.as_mut() {
+                        outcome = Some(
+                            match classify::migrate_legacy_csv_sections(session, page_px) {
+                                Ok(n) => match session.save_document() {
+                                    Ok(()) => format!("upgraded {n} digitiser section(s)"),
+                                    Err(e) => format!("upgrade saved nothing: {e}"),
+                                },
+                                Err(e) => format!("upgrade failed: {e}"),
+                            },
+                        );
+                    }
+                }
+            });
+            if let Some(m) = outcome {
+                self.message = m;
+            }
+        }
+
         if matches!(self.source, ReaderSource::None) {
             ui.centered_and_justified(|ui| {
                 ui.label("nothing open — click \"Open…\" (PDF or image)");
@@ -2695,7 +2724,7 @@ impl PdfReaderState {
         ) {
             crop_result = Some(result);
         }
-        self.connection_popup_ui(ui.ctx(), root_index);
+        self.connection_popup_ui(ui.ctx(), root_index, active_paper.as_deref_mut());
 
         crop_result
     }
@@ -2903,7 +2932,20 @@ impl PdfReaderState {
     /// [`classify::delete_artifact_cascade`] and renders whatever it
     /// returns — this function never itself decides what edges exist, per
     /// op-30um.3's "no graph-walking in the UI layer" requirement.
-    fn connection_popup_ui(&mut self, ctx: &egui::Context, root_index: Option<(&KovanRoot, &KnowledgeIndex)>) {
+    /// `active_paper` is the reader's own open session, needed because
+    /// [`classify::delete_artifact_cascade`] works on its own short-lived
+    /// sessions read from disk (an *incoming* relation lives in the other
+    /// paper's Markdown, so one session cannot cover the write). After it
+    /// succeeds, this session's buffer is stale: it still contains the
+    /// deleted artifact, so the canvas would keep drawing its box and the
+    /// next save would write the deletion back out. Reloading closes that
+    /// gap — see [`crate::session::PaperSession::reload`].
+    fn connection_popup_ui(
+        &mut self,
+        ctx: &egui::Context,
+        root_index: Option<(&KovanRoot, &KnowledgeIndex)>,
+        mut active_paper: Option<&mut PaperSession>,
+    ) {
         let Some(popup) = self.connection_popup.clone() else {
             return;
         };
@@ -3037,14 +3079,50 @@ impl PdfReaderState {
                                 close = true;
                             }
                             if ui.button("Yes").clicked() {
-                                if let Some((root, index)) = root_index {
-                                    self.connection_message =
-                                        match classify::delete_artifact_cascade(root, index, &citekey, &artifact_id)
-                                        {
-                                            Ok(n) => format!("deleted annotation and {n} connection(s)"),
-                                            Err(e) => format!("could not delete: {e}"),
+                                self.connection_message = match root_index {
+                                    // The cascade reads each paper from
+                                    // disk, so an unsaved buffer would be
+                                    // invisible to it — flush first, then
+                                    // delete, then reload so this session
+                                    // does not write the artifact back.
+                                    Some((root, index)) => {
+                                        let flushed = match active_paper.as_deref_mut() {
+                                            Some(s) if s.is_dirty() => s.save_document().err(),
+                                            _ => None,
                                         };
-                                }
+                                        match flushed {
+                                            Some(e) => format!("could not save before deleting: {e}"),
+                                            None => match classify::delete_artifact_cascade(
+                                                root,
+                                                index,
+                                                &citekey,
+                                                &artifact_id,
+                                            ) {
+                                                Ok(n) => {
+                                                    let reload_err = active_paper
+                                                        .as_deref_mut()
+                                                        .and_then(|s| s.reload().err());
+                                                    match reload_err {
+                                                        Some(e) => format!(
+                                                            "deleted, but reopening the paper failed: {e}"
+                                                        ),
+                                                        None => format!(
+                                                            "deleted the artifact and {n} connection(s)"
+                                                        ),
+                                                    }
+                                                }
+                                                Err(e) => format!("could not delete: {e}"),
+                                            },
+                                        }
+                                    }
+                                    // Previously a silent no-op: the button
+                                    // closed the dialog and nothing happened,
+                                    // which reads exactly like a broken
+                                    // delete. Say why instead.
+                                    None => "cannot delete: no Kovan root and index are loaded \
+                                             (open a library first)"
+                                        .to_string(),
+                                };
                                 close = true;
                             }
                         });

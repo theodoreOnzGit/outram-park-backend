@@ -26,7 +26,7 @@
 
 use crate::artifact::{
     block_span, parse_document, render_artifact_block, Artifact, ArtifactKind, ArtifactMeta,
-    ArtifactToml, Extraction, SourceAnchor,
+    ArtifactToml, Extraction, Region, SourceAnchor,
 };
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::entity::Classification;
@@ -567,6 +567,168 @@ mod tests {
         (dir, PaperSession::open(&root, citekey).unwrap())
     }
 
+    // -------------------------------------------------------------------
+    // Legacy digitiser-section migration (GH issue #35, 2026-09-08). The
+    // fixture is the real shape found in the maintainer's own library —
+    // `papers/shin2021geant4dna/shin2021geant4dna.md`, saved 2026-09-02 by
+    // the graph digitiser's no-active-paper path — which is why its
+    // digitised graph never drew a box on the PDF canvas.
+    // -------------------------------------------------------------------
+
+    const LEGACY_GRAPH: &str = "\
+# shin2021geant4dna
+
+## Summary
+
+### Fig 1. — page 3, pixel bbox [38.6, 71.9, 1215.4, 797.4], 2026-09-02T02:31:04Z, unnamed
+
+```csv
+# kovan digitiser dataset (schema v1)
+# figure: Fig 1.
+x,y
+0.0014512785392496895,5.142650829867108
+```
+";
+
+    #[test]
+    fn a_stale_session_buffer_would_resurrect_a_cascaded_artifact_unless_reloaded() {
+        // The delete bug behind GH issue #35's "sure anot box cannot":
+        // `delete_artifact_cascade` works on its own session read from disk,
+        // so a GUI holding an open `PaperSession` keeps the deleted artifact
+        // in its buffer. Saving that buffer afterwards writes it straight
+        // back. `PaperSession::reload` is what closes the gap.
+        let (dir, mut session) = open_session();
+        let root = KovanRoot::open(dir.path()).unwrap();
+        let citekey = session.citekey().to_string();
+
+        let index = ResearchRecordIndex::from_session(&session);
+        let artifact = insert_artifact(
+            &mut session,
+            &index,
+            "Doomed note",
+            ArtifactKind::Annotation,
+            Some(SourceAnchor {
+                page: Some(1),
+                pages: None,
+                region: None,
+            }),
+            Classification::default(),
+            None,
+            "body",
+        )
+        .unwrap();
+        let id = artifact.id().to_string();
+        session.save_document().unwrap();
+
+        let k_index = KnowledgeIndex::rebuild(&root);
+        assert_eq!(
+            delete_artifact_cascade(&root, &k_index, &citekey, &id).unwrap(),
+            0
+        );
+
+        // On disk it is gone...
+        let on_disk = std::fs::read_to_string(root.paper_markdown(&citekey)).unwrap();
+        assert!(parse_document(&on_disk).get(&id).is_none());
+
+        // ...but the still-open session has not noticed, which is exactly
+        // what made the canvas keep drawing the box.
+        assert!(parse_document(session.markdown()).get(&id).is_some());
+
+        session.reload().unwrap();
+        assert!(parse_document(session.markdown()).get(&id).is_none());
+        assert!(!session.is_dirty());
+    }
+
+    #[test]
+    fn find_legacy_csv_sections_reads_the_real_world_graph_section() {
+        let found = find_legacy_csv_sections(LEGACY_GRAPH);
+        assert_eq!(found.len(), 1);
+        let s = &found[0];
+        assert_eq!(s.heading, "Fig 1.");
+        assert_eq!(s.kind, ArtifactKind::DigitisedGraph);
+        assert_eq!(s.page, Some(3));
+        assert_eq!(s.bbox, Some([38.6, 71.9, 1215.4, 797.4]));
+        assert!(s.csv.starts_with("```csv"));
+        assert!(s.csv.trim_end().ends_with("```"));
+    }
+
+    #[test]
+    fn find_legacy_csv_sections_reads_the_table_digitisers_fixed_heading() {
+        let md = "### Digitised table — page 2, pixel bbox [1.0, 2.0, 3.0, 4.0], t, a\n\n```csv\nx,y\n1,2\n```\n";
+        let found = find_legacy_csv_sections(md);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].kind, ArtifactKind::DigitisedTable);
+        assert_eq!(found[0].page, Some(2));
+    }
+
+    #[test]
+    fn find_legacy_csv_sections_ignores_a_hand_written_csv_section() {
+        // No provenance tail => somebody's own table, not a legacy save.
+        let md = "### My own numbers\n\n```csv\nx,y\n1,2\n```\n";
+        assert!(find_legacy_csv_sections(md).is_empty());
+    }
+
+    #[test]
+    fn migrating_a_legacy_graph_section_gives_it_a_page_and_a_region() {
+        let (_dir, mut session) = open_session();
+        session.set_markdown(LEGACY_GRAPH);
+
+        // Before: parse_document sees no artifact at all — the exact reason
+        // the canvas drew nothing.
+        assert!(parse_document(session.markdown()).artifacts.is_empty());
+
+        let n = migrate_legacy_csv_sections(&mut session, [1240.0, 1754.0]).unwrap();
+        assert_eq!(n, 1);
+
+        let doc = parse_document(session.markdown());
+        assert_eq!(doc.artifacts.len(), 1);
+        let art = &doc.artifacts[0];
+        assert_eq!(art.kind(), ArtifactKind::DigitisedGraph);
+        let source = art.toml.source.as_ref().expect("page anchor");
+        assert_eq!(source.page, Some(3));
+        let region = source.region.expect("region normalised from the bbox");
+        assert!(region.is_valid());
+        // 38.6/1240 and 797.4/1754, to the resolution the heading recorded.
+        assert!((region.x0 - 0.031_129).abs() < 1e-4, "x0 = {}", region.x0);
+        assert!((region.y1 - 0.454_617).abs() < 1e-4, "y1 = {}", region.y1);
+        // The CSV body survives verbatim.
+        assert!(art.body.contains("0.0014512785392496895,5.142650829867108"));
+        // And the legacy heading is gone.
+        assert!(!session.markdown().contains("pixel bbox"));
+    }
+
+    #[test]
+    fn migrating_a_document_with_no_legacy_sections_changes_nothing() {
+        let (_dir, mut session) = open_session();
+        let before = session.markdown().to_string();
+        assert_eq!(migrate_legacy_csv_sections(&mut session, [100.0, 100.0]).unwrap(), 0);
+        assert_eq!(session.markdown(), before);
+    }
+
+    #[test]
+    fn migration_is_idempotent() {
+        let (_dir, mut session) = open_session();
+        session.set_markdown(LEGACY_GRAPH);
+        assert_eq!(migrate_legacy_csv_sections(&mut session, [1240.0, 1754.0]).unwrap(), 1);
+        let after_first = session.markdown().to_string();
+        assert_eq!(migrate_legacy_csv_sections(&mut session, [1240.0, 1754.0]).unwrap(), 0);
+        assert_eq!(session.markdown(), after_first);
+    }
+
+    #[test]
+    fn a_legacy_section_with_an_unusable_bbox_still_migrates_with_its_page() {
+        let (_dir, mut session) = open_session();
+        // bbox wider than the page => cannot normalise to a valid region.
+        session.set_markdown(
+            "### Fig 9. — page 1, pixel bbox [0.0, 0.0, 99999.0, 99999.0], t, a\n\n```csv\nx,y\n1,2\n```\n",
+        );
+        assert_eq!(migrate_legacy_csv_sections(&mut session, [100.0, 100.0]).unwrap(), 1);
+        let doc = parse_document(session.markdown());
+        let source = doc.artifacts[0].toml.source.as_ref().unwrap();
+        assert_eq!(source.page, Some(1));
+        assert!(source.region.is_none());
+    }
+
     #[test]
     fn slugify_matches_the_issues_own_examples() {
         assert_eq!(
@@ -995,4 +1157,207 @@ mod tests {
         let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
         assert!(parse_document(&text).get("note-a").is_some());
     }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy digitiser-section migration (GH issue #35, 2026-09-08)
+// ---------------------------------------------------------------------------
+
+/// One **legacy** digitiser CSV section — the pre-artifact format the graph
+/// and table digitisers wrote when no paper was active, as a plain Markdown
+/// heading plus a bare ```csv fence and no `[kovan]` block at all:
+///
+/// ```text
+/// ### Fig 1. — page 3, pixel bbox [38.6, 71.9, 1215.4, 797.4], 2026-09-02T02:31:04Z, unnamed
+///
+/// ```csv
+/// …
+/// ```
+/// ```
+///
+/// Because such a section carries no fenced TOML, [`parse_document`] does not
+/// see it as an artifact at all: it has no id, no kind and no `[source]`, so
+/// the PDF canvas cannot draw a region box for it and the page-context panel
+/// cannot list it. That is the whole reason a digitised graph or table saved
+/// this way is invisible in the GUI while annotations show up fine.
+///
+/// The heading itself carries everything needed to rebuild a real artifact
+/// except the page's pixel size, which the caller supplies — see
+/// [`migrate_legacy_csv_sections`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct LegacyCsvSection {
+    /// The section title with the provenance tail stripped, e.g. `"Fig 1."`.
+    /// Becomes the migrated artifact's heading.
+    pub heading: String,
+    /// [`ArtifactKind::DigitisedTable`] when the heading is the table
+    /// digitiser's fixed `"Digitised table"`, otherwise
+    /// [`ArtifactKind::DigitisedGraph`] — the two legacy writers are
+    /// distinguishable only by that title, since neither recorded a kind.
+    pub kind: ArtifactKind,
+    /// 1-based source page from the heading, if it recorded one.
+    pub page: Option<u32>,
+    /// The crop rectangle in page pixels as `[min_x, min_y, max_x, max_y]`,
+    /// if the heading recorded a `pixel bbox`.
+    pub bbox: Option<[f32; 4]>,
+    /// The CSV body, fence included, exactly as written.
+    pub csv: String,
+    /// The section's line span in the document, 0-based and end-exclusive —
+    /// heading through closing fence.
+    pub lines: std::ops::Range<usize>,
+}
+
+/// Every legacy digitiser CSV section in `md`, in document order.
+///
+/// Recognises a level-3 heading whose text either is `Digitised table` or is
+/// followed by the ` — page N, pixel bbox [...], <timestamp>, <author>` tail
+/// the legacy writers appended, and which is followed by a ```csv fence. A
+/// heading with no CSV fence before the next heading is not a legacy section
+/// and is skipped.
+///
+/// Pure: takes and returns owned data, touches no file, so the recogniser is
+/// unit-testable without a session or a PDF.
+pub fn find_legacy_csv_sections(md: &str) -> Vec<LegacyCsvSection> {
+    let lines: Vec<&str> = md.lines().collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        let Some(rest) = lines[i].strip_prefix("### ") else {
+            i += 1;
+            continue;
+        };
+        let (title, page, bbox) = split_legacy_heading(rest);
+        // Find the CSV fence that belongs to this heading, before any
+        // following heading.
+        let mut j = i + 1;
+        let mut fence_start = None;
+        while j < lines.len() {
+            let l = lines[j].trim_start();
+            if l.starts_with('#') {
+                break;
+            }
+            if l.starts_with("```csv") {
+                fence_start = Some(j);
+                break;
+            }
+            j += 1;
+        }
+        let Some(fence_start) = fence_start else {
+            i += 1;
+            continue;
+        };
+        // A legacy section must have carried provenance; a bare `### x` with
+        // a CSV fence under it is somebody's hand-written table, not ours.
+        if page.is_none() && bbox.is_none() && title != "Digitised table" {
+            i = fence_start + 1;
+            continue;
+        }
+        let mut end = fence_start + 1;
+        while end < lines.len() && lines[end].trim_end() != "```" {
+            end += 1;
+        }
+        if end >= lines.len() {
+            i = fence_start + 1;
+            continue;
+        }
+        end += 1; // include the closing fence
+        let kind = if title == "Digitised table" {
+            ArtifactKind::DigitisedTable
+        } else {
+            ArtifactKind::DigitisedGraph
+        };
+        out.push(LegacyCsvSection {
+            heading: title,
+            kind,
+            page,
+            bbox,
+            csv: lines[fence_start..end].join("\n"),
+            lines: i..end,
+        });
+        i = end;
+    }
+    out
+}
+
+/// Split a legacy `### ` heading's text into its title and the provenance
+/// the legacy writers appended (`— page N, pixel bbox [x0, y0, x1, y1], …`).
+/// A heading with no such tail yields the whole text as the title and no
+/// page/bbox.
+fn split_legacy_heading(rest: &str) -> (String, Option<u32>, Option<[f32; 4]>) {
+    let Some((title, tail)) = rest.split_once(" — ") else {
+        return (rest.trim().to_string(), None, None);
+    };
+    let page = tail
+        .split_once("page ")
+        .and_then(|(_, t)| t.split(|c: char| !c.is_ascii_digit()).next())
+        .and_then(|d| d.parse::<u32>().ok());
+    let bbox = tail
+        .split_once("pixel bbox [")
+        .and_then(|(_, t)| t.split_once(']'))
+        .and_then(|(inner, _)| {
+            let v: Vec<f32> = inner
+                .split(',')
+                .filter_map(|n| n.trim().parse::<f32>().ok())
+                .collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        });
+    (title.trim().to_string(), page, bbox)
+}
+
+/// Rewrite every legacy digitiser CSV section in `session`'s buffer as a real
+/// fenced-TOML artifact, so it gains an id, a kind and a `[source]` anchor
+/// and therefore draws on the PDF canvas like any other artifact.
+///
+/// `page_px` is the document's page size in pixels at the render DPI (what
+/// `PageView::page_size_px` returns) — needed because the legacy heading
+/// recorded the crop in raw pixels, and `[source] region` is normalised page
+/// fractions. A section whose heading recorded no bbox, or whose bbox does
+/// not normalise to a valid [`Region`], still migrates: it keeps its page
+/// anchor and simply has no region, which is the honest representation of
+/// what was recorded.
+///
+/// Returns how many sections were migrated. Idempotent: a document with no
+/// legacy sections is left byte-identical and returns `Ok(0)`, so it is safe
+/// to run on every paper.
+///
+/// Does not save the session — the caller decides when to write to disk.
+pub fn migrate_legacy_csv_sections(
+    session: &mut PaperSession,
+    page_px: [f32; 2],
+) -> Result<usize, ClassifyError> {
+    let sections = find_legacy_csv_sections(session.markdown());
+    if sections.is_empty() {
+        return Ok(0);
+    }
+    // Remove the legacy blocks bottom-up so each range stays valid, then
+    // re-insert as artifacts (which places them in page order).
+    for section in sections.iter().rev() {
+        let md = splice_lines(session.markdown(), section.lines.clone(), "");
+        session.set_markdown(md);
+    }
+    let mut migrated = 0;
+    for section in &sections {
+        let anchor = section.page.map(|page| SourceAnchor {
+            page: Some(page),
+            pages: None,
+            region: section.bbox.and_then(|b| {
+                Region::from_pixels((b[0], b[1]), (b[2], b[3]), page_px[0], page_px[1])
+            }),
+        });
+        let index = ResearchRecordIndex::from_session(session);
+        insert_artifact(
+            session,
+            &index,
+            &section.heading,
+            section.kind,
+            anchor,
+            Classification::default(),
+            Some(Extraction {
+                method: "manual_digitisation".to_string(),
+                engine: None,
+            }),
+            &section.csv,
+        )?;
+        migrated += 1;
+    }
+    Ok(migrated)
 }

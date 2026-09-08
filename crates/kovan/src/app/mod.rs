@@ -1219,6 +1219,23 @@ impl DigitiseApp {
         }
 
         // --- no active paper: the legacy plain-text section path ---
+        //
+        // GH issue #35, 2026-09-08: this path writes a plain heading plus a
+        // bare ```csv fence with no `[kovan]` block, so what it saves is NOT
+        // an artifact — it has no id, no kind and no `[source]`, and the PDF
+        // canvas therefore draws no region box for it. That is why a
+        // digitised graph looks fine while it is still on screen and is
+        // simply gone the next time the paper is opened. It used to happen
+        // silently; say so instead, and refuse outright when there is no
+        // project markdown configured either, rather than writing data the
+        // GUI cannot show.
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error(
+                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
+                 so this saves as a real artifact with a region box",
+            );
+            return;
+        }
         let mut block = format!("### {title}");
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
@@ -1234,17 +1251,17 @@ impl DigitiseApp {
         }
         block.push_str("\n\n");
         block.push_str(&csv_body);
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error("set the project root and markdown path first");
-            return;
-        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
             "graph_csvs",
             &block,
         ) {
-            Ok(_) => self.set_status("saved into project markdown (graph_csvs)"),
+            Ok(_) => self.set_status(
+                "saved as a plain section (no active paper) — this is NOT a Kovan \
+                 artifact and draws no box on the PDF; activate the paper and use \
+                 the reader's \"Upgrade to artifacts\" button to fix it",
+            ),
             Err(e) => self.set_error(e.to_string()),
         }
     }
@@ -2879,13 +2896,17 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
+    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
         let mut app = DigitiseApp::default();
         app.dataset = Some(minimal_dataset());
 
         app.save_into_project();
 
+        // GH issue #35, 2026-09-08: this used to point at the manual
+        // project fields. It now names the real fix — activate a paper —
+        // because the manual path writes a plain section that is not a
+        // Kovan artifact and so never draws a region box on the PDF.
         assert!(app.message_is_error, "{}", app.message);
-        assert!(app.message.contains("project root"), "{}", app.message);
+        assert!(app.message.contains("no active paper"), "{}", app.message);
     }
 }

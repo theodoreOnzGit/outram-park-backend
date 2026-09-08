@@ -165,6 +165,31 @@ impl From<Region> for [f64; 4] {
 }
 
 impl Region {
+    /// This rectangle in normalised page fractions, from a pixel rectangle
+    /// on a page of size `w` x `h` pixels (§15: fractions of the page,
+    /// origin top-left). Corners may be given in any order — they are
+    /// sorted here.
+    ///
+    /// `None` for a degenerate page size (`w` or `h` non-positive) or a
+    /// zero-area / out-of-range rectangle, i.e. exactly when the result
+    /// would fail [`Region::is_valid`].
+    ///
+    /// The one place this normalisation lives: the PDF reader's crop and
+    /// annotation paths and [`crate::classify`]'s legacy-section migration
+    /// all go through it rather than repeating the arithmetic.
+    pub fn from_pixels(min: (f32, f32), max: (f32, f32), w: f32, h: f32) -> Option<Self> {
+        if w <= 0.0 || h <= 0.0 {
+            return None;
+        }
+        let r = Self {
+            x0: (min.0.min(max.0) / w) as f64,
+            y0: (min.1.min(max.1) / h) as f64,
+            x1: (min.0.max(max.0) / w) as f64,
+            y1: (min.1.max(max.1) / h) as f64,
+        };
+        r.is_valid().then_some(r)
+    }
+
     /// Whether every coordinate is in `0.0..=1.0` and the rectangle is
     /// non-degenerate (`x0 < x1`, `y0 < y1`).
     pub fn is_valid(&self) -> bool {
