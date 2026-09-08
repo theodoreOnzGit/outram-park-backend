@@ -31,11 +31,23 @@
 //! shell, not its owner. This module's own job stays exactly what its doc
 //! above says: open the window, and stay a redirect stub on Android.
 
+/// Which state to open the window in, from the command line — see
+/// [`crate::app::DigitiseApp::open_root_and_paper`]. Both fields absent is
+/// the ordinary interactive launch (the Home screen).
+#[derive(Debug, Clone, Default)]
+pub struct Startup {
+    /// A Kovan root to open immediately (`--root`).
+    pub root: Option<String>,
+    /// A paper in that root to activate immediately (`--paper`), which
+    /// lands on the PDF reader when the paper has a source PDF.
+    pub paper: Option<String>,
+}
+
 /// Open the digitiser window, optionally pre-loading `image_arg` as the plot
 /// image. Blocks until the window is closed. On Android, prints a redirect
 /// message and returns `Ok(())` immediately instead of opening a window.
 #[cfg(target_os = "android")]
-pub fn run(_image_arg: Option<String>) -> Result<(), String> {
+pub fn run(_image_arg: Option<String>, _startup: Startup) -> Result<(), String> {
     eprintln!(
         "kovan is desktop-only; on Android/Termux use \
          kovan-cli digitise (automatic) or kovan-tui (interactive review)."
@@ -46,7 +58,7 @@ pub fn run(_image_arg: Option<String>) -> Result<(), String> {
 /// Open the digitiser window, optionally pre-loading `image_arg` as the plot
 /// image. Blocks until the window is closed.
 #[cfg(not(target_os = "android"))]
-pub fn run(image_arg: Option<String>) -> Result<(), String> {
+pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
     let options = eframe::NativeOptions::default();
     eframe::run_native(
         "kovan",
@@ -55,6 +67,14 @@ pub fn run(image_arg: Option<String>) -> Result<(), String> {
             let mut app = crate::app::DigitiseApp::default();
             if let Some(path) = image_arg {
                 app.load_image(&path);
+            }
+            if let Some(dir) = startup.root {
+                if let Err(e) = app.open_root_and_paper(
+                    std::path::Path::new(&dir),
+                    startup.paper.as_deref(),
+                ) {
+                    eprintln!("kovan: {e}");
+                }
             }
             Ok(Box::new(app))
         }),

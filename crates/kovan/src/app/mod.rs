@@ -543,6 +543,36 @@ impl DigitiseApp {
     /// creation) so the next frame's Wiki/Mindmap/Bibliography/Kvim-
     /// completion all see it, not just whichever view happened to trigger
     /// the mutation.
+    /// Open the Kovan root at `root_dir` and, when `citekey` is given,
+    /// activate that paper — the scripted equivalent of clicking through
+    /// Home -> Open -> Wiki -> a paper.
+    ///
+    /// Exists so the GUI can be launched **directly into a known state**
+    /// (`kovan --root <dir> --paper <citekey>`), which is what makes it
+    /// dogfoodable and screenshotable without a human driving the mouse.
+    /// The workspace rules require every egui surface to have a path a
+    /// machine can take; for a GUI whose whole job is interactive, that
+    /// path is at least being able to *start* anywhere a user can reach.
+    ///
+    /// Returns the first failure as a message suitable for the status bar;
+    /// the window still opens either way, so a bad citekey is visible
+    /// rather than fatal.
+    pub fn open_root_and_paper(
+        &mut self,
+        root_dir: &std::path::Path,
+        citekey: Option<&str>,
+    ) -> Result<(), String> {
+        self.home.open_dir(root_dir);
+        let Some(root) = self.home.root().cloned() else {
+            return Err(format!("not a Kovan root: {}", root_dir.display()));
+        };
+        self.refresh_knowledge(&root);
+        if let Some(citekey) = citekey {
+            self.activate_paper_and_navigate(citekey);
+        }
+        Ok(())
+    }
+
     fn refresh_knowledge(&mut self, root: &crate::root::KovanRoot) {
         let index = crate::index::KnowledgeIndex::rebuild(root);
         let _ = index.save_cache(root);

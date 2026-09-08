@@ -51,6 +51,27 @@ pub enum ClassifyError {
     BadAnchor(String),
     /// Rendering the artifact to Markdown failed (TOML serialisation).
     Render(String),
+    /// The artifact was written into the buffer but could not be read back
+    /// out of it — the document's Markdown structure swallowed it.
+    ///
+    /// In practice this means an **unbalanced code fence**: a stray or
+    /// unterminated ``` earlier in the file puts everything after it inside
+    /// a code block, so the new artifact's fenced TOML is content rather
+    /// than metadata. Found in the wild (GH issue #35, 2026-09-08) in a
+    /// paper whose second digitiser dataset had been written with no
+    /// heading and no opening fence, leaving a dangling closing fence at
+    /// the end of the file.
+    ///
+    /// This used to be an `expect("just inserted")`, i.e. a panic that took
+    /// the whole GUI down on a file the user could not have known was
+    /// malformed. It is an error now so the caller can say so and carry on.
+    NotReadableBack {
+        /// The id that was written and could not be found again.
+        id: String,
+        /// How many ``` fences the document has, when that is odd — the
+        /// actionable detail, since it names the actual defect.
+        fences: usize,
+    },
 }
 
 impl std::fmt::Display for ClassifyError {
@@ -60,6 +81,12 @@ impl std::fmt::Display for ClassifyError {
             Self::UnknownId(id) => write!(f, "no artifact with id {id:?}"),
             Self::BadAnchor(msg) => write!(f, "{msg}"),
             Self::Render(msg) => write!(f, "{msg}"),
+            Self::NotReadableBack { id, fences } => write!(
+                f,
+                "wrote artifact {id:?} but could not read it back: the document has \
+                 {fences} ``` fences, an odd number, so an unterminated code block is \
+                 swallowing it — close the stray fence and try again"
+            ),
         }
     }
 }
@@ -197,6 +224,7 @@ pub fn insert_artifact(
     }
     let id = unique_id(heading, index)?;
     let now = utc_now_iso8601();
+    let before = session.markdown().to_string();
 
     let toml = ArtifactToml {
         kovan: ArtifactMeta {
@@ -220,7 +248,19 @@ pub fn insert_artifact(
     );
 
     let refreshed = ResearchRecordIndex::from_session(session);
-    Ok(refreshed.get(&id).expect("just inserted").clone())
+    match refreshed.get(&id) {
+        Some(artifact) => Ok(artifact.clone()),
+        // Not "impossible": see `ClassifyError::NotReadableBack`. Roll the
+        // buffer back so a failed insert leaves the document as it was
+        // rather than half-written.
+        None => {
+            session.set_markdown(before);
+            Err(ClassifyError::NotReadableBack {
+                id,
+                fences: session.markdown().matches("```").count(),
+            })
+        }
+    }
 }
 
 /// Insert a rendered artifact block so the document's page-anchored blocks
@@ -637,6 +677,44 @@ x,y
         session.reload().unwrap();
         assert!(parse_document(session.markdown()).get(&id).is_none());
         assert!(!session.is_dirty());
+    }
+
+    #[test]
+    fn an_unbalanced_code_fence_reports_instead_of_panicking() {
+        // The GUI crash found while dogfooding on 2026-09-08: the
+        // maintainer's shin2021geant4dna.md had a second digitiser dataset
+        // written with no heading and no opening fence, leaving a dangling
+        // ``` at the end of the file. Everything appended after it lands
+        // inside that unterminated code block, so `parse_document` cannot
+        // see the artifact just written — which used to hit
+        // `expect("just inserted")` and take the whole window down.
+        let (_dir, mut session) = open_session();
+        session.set_markdown("# paper\n\nsome notes\n\n```\n");
+        let before = session.markdown().to_string();
+
+        let index = ResearchRecordIndex::from_session(&session);
+        let err = insert_artifact(
+            &mut session,
+            &index,
+            "Fig 1.",
+            ArtifactKind::DigitisedGraph,
+            None,
+            Classification::default(),
+            None,
+            "```csv\nx,y\n1,2\n```",
+        )
+        .unwrap_err();
+
+        match err {
+            ClassifyError::NotReadableBack { ref id, fences } => {
+                assert_eq!(id, "fig-1");
+                assert_eq!(fences % 2, 1, "an odd fence count is the whole diagnosis");
+            }
+            other => panic!("wrong error: {other}"),
+        }
+        assert!(err.to_string().contains("unterminated code block"));
+        // And the failed insert left the document exactly as it was.
+        assert_eq!(session.markdown(), before);
     }
 
     #[test]
