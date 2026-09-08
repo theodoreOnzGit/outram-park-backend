@@ -190,6 +190,14 @@ pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
 /// vocabulary, so that whichever future bead builds the health layer picks
 /// this colour up rather than inventing a second red somewhere else in the
 /// GUI.
+///
+/// op-30um.6 checked for a natural call site (the kind-aware right-click
+/// menu) and found none: that menu only knows an artifact's *kind*, never
+/// whether its region/CSV/anchor is actually intact, so it has nothing
+/// health-related to colour yet. `#[allow(dead_code)]` rather than deleting
+/// this — it stays the reserved colour for whenever an artifact-health
+/// check exists to call it.
+#[allow(dead_code)]
 pub fn unavailable_accent(theme: GuiTheme) -> egui::Color32 {
     match theme {
         GuiTheme::GruvboxDark => GRUVBOX_BRIGHT_RED,

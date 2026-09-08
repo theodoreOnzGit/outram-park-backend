@@ -94,6 +94,33 @@
 //! [`super::page_canvas::PageView::project`] uses, so the two agree pixel
 //! for pixel, but callable and unit-testable with no window or GPU texture
 //! state.
+//!
+//! ## Right-click on a saved artifact: one kind-aware menu (op-30um.3/.6)
+//!
+//! Right-clicking an already-saved artifact's region box — of *any*
+//! [`ArtifactKind`], now that [`super::theme::artifact_accent`] draws them
+//! all — offers one fixed five-entry menu: an edit entry, then
+//! **Add connection…** / **Edit connections…** / **Delete connection…**,
+//! then **Delete annotation…**, which asks "Sure anot? [No] [Yes]" before
+//! calling [`classify::delete_artifact_cascade`]. Only the edit entry's
+//! *label* varies by kind ("Edit annotation", "Edit source reference",
+//! "Edit formula", "Edit table", "Edit digitisation") — its handling does
+//! not, since [`PdfReaderState::open_artifact`] already dispatches
+//! text-bodied kinds to the block editor and `DigitisedTable`/
+//! `DigitisedGraph` to a digitiser re-crop. This is deliberately **one**
+//! menu, not five (op-30um.6's stated anti-goal).
+//!
+//! The entry list itself — which buttons appear, in what order, enabled or
+//! not, and what each does when clicked — is [`saved_artifact_menu_entries`],
+//! a plain function from `(ArtifactKind, bool)` to `Vec<MenuEntry>` with no
+//! `egui` in its signature. [`PdfReaderState::context_menu_ui`] does nothing
+//! but render that list and match on each [`MenuAction`]; the connection
+//! actions themselves are a further thin shell straight over
+//! [`relation::add_connection`]/[`relation::connections`]/
+//! [`relation::edit_connection`]/[`relation::delete_connection`], fed by
+//! [`library_candidates`] for "Add connection…"'s fuzzy picker. No
+//! graph-walking, relation deletion, or partial write ever happens in the
+//! egui layer itself — a cancelled dialog leaves everything untouched.
 
 use std::collections::HashMap;
 
@@ -255,6 +282,110 @@ enum ConnectionPopup {
     /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
     /// nothing at all (the dialog is closed, `self` otherwise untouched).
     ConfirmDelete { citekey: String, artifact_id: String },
+}
+
+/// What one [`MenuEntry`] does when clicked, for the op-30um.3/.6 saved-
+/// artifact right-click menu. [`PdfReaderState::context_menu_ui`] is the
+/// only place that matches on this and calls into behaviour (opening the
+/// block editor, a [`ConnectionPopup`]) — [`saved_artifact_menu_entries`]
+/// itself never touches `egui`, a [`KovanRoot`], or a [`KnowledgeIndex`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MenuAction {
+    /// Edit or re-open this artifact's payload.
+    /// [`PdfReaderState::open_artifact`] already dispatches by kind (loads
+    /// the block editor for text-bodied kinds, re-crops into the digitiser
+    /// for `DigitisedTable`/`DigitisedGraph`) — this action is the single
+    /// varying entry op-30um.6 asks for; the label is what changes per
+    /// kind, not the handling.
+    EditArtifact,
+    /// Opens [`ConnectionPopup::Add`].
+    AddConnection,
+    /// Opens [`ConnectionPopup::Manage`] (shared with `DeleteConnection` —
+    /// one management view, two doors in, per [`ConnectionPopup`]'s doc).
+    EditConnections,
+    /// Opens [`ConnectionPopup::Manage`].
+    DeleteConnection,
+    /// Opens [`ConnectionPopup::ConfirmDelete`] — the "Sure anot?" confirm.
+    /// [`crate::classify::delete_artifact_cascade`] only runs if that
+    /// confirm is accepted; picking this entry never deletes by itself.
+    DeleteArtifact,
+}
+
+/// One row of the op-30um.3/.6 saved-artifact right-click menu, decoupled
+/// from `egui` so the *composition* of the menu — which entries appear for
+/// which [`ArtifactKind`], in what order, enabled or not — is a plain data
+/// value a test can assert on directly, with no window and no GPU context.
+/// Same "testable without a window" reasoning as the workspace's headless-
+/// simulator hard rule, applied to a menu instead of a physics loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct MenuEntry {
+    /// The button text, exactly as shown.
+    pub label: &'static str,
+    /// What picking this entry does — matched in [`PdfReaderState::context_menu_ui`].
+    pub action: MenuAction,
+    /// Whether the button is clickable. The connection entries are
+    /// disabled (never hidden) when no `(KovanRoot, KnowledgeIndex)` pair
+    /// is available, matching how the citation/wiki completion popup
+    /// already behaves without a library.
+    pub enabled: bool,
+    /// Whether a `ui.separator()` is drawn immediately after this entry.
+    pub separator_after: bool,
+}
+
+/// Builds the op-30um.3/.6 right-click menu for a saved artifact of `kind`,
+/// given whether a library (`KovanRoot` + `KnowledgeIndex`) is available to
+/// back the connection actions.
+///
+/// Every kind gets the identical five-entry shape and the identical
+/// connection/delete verbs (op-30um.6's explicit requirement — "keep the
+/// connection and delete verbs identical across kinds"); only the first
+/// entry's label and the fact that it dispatches through
+/// [`PdfReaderState::open_artifact`]'s existing per-kind branch varies.
+/// This is deliberately **one** function for all five [`ArtifactKind`]
+/// variants, not five menus — the anti-goal op-30um.6 states explicitly.
+///
+/// Reference behaviour (wording only, not ported code):
+/// `collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`.
+pub(super) fn saved_artifact_menu_entries(kind: ArtifactKind, have_library: bool) -> Vec<MenuEntry> {
+    let edit_label = match kind {
+        ArtifactKind::Note | ArtifactKind::Annotation => "Edit annotation",
+        ArtifactKind::DigitisedGraph => "Edit digitisation",
+        ArtifactKind::DigitisedTable => "Edit table",
+        ArtifactKind::Formula => "Edit formula",
+        ArtifactKind::SourceReference => "Edit source reference",
+    };
+    vec![
+        MenuEntry {
+            label: edit_label,
+            action: MenuAction::EditArtifact,
+            enabled: true,
+            separator_after: true,
+        },
+        MenuEntry {
+            label: "Add connection…",
+            action: MenuAction::AddConnection,
+            enabled: have_library,
+            separator_after: false,
+        },
+        MenuEntry {
+            label: "Edit connections…",
+            action: MenuAction::EditConnections,
+            enabled: have_library,
+            separator_after: false,
+        },
+        MenuEntry {
+            label: "Delete connection…",
+            action: MenuAction::DeleteConnection,
+            enabled: have_library,
+            separator_after: true,
+        },
+        MenuEntry {
+            label: "Delete annotation…",
+            action: MenuAction::DeleteArtifact,
+            enabled: true,
+            separator_after: false,
+        },
+    ]
 }
 
 /// In-progress "Annotate" text editor, opened from the context menu's
@@ -2665,69 +2796,84 @@ impl PdfReaderState {
                                 close = true;
                             }
                         }
-                        // op-30um.3: the full menu on a saved artifact's own
-                        // region box. Every button here is a thin shell — it
-                        // either reuses an existing operation
-                        // ([`Self::open_artifact`]) or opens a
+                        // op-30um.3/.6: the full menu on a saved artifact's
+                        // own region box, for every `ArtifactKind` alike.
+                        // The entry list itself comes from the pure
+                        // [`saved_artifact_menu_entries`] — this match arm
+                        // does nothing but render that list and dispatch
+                        // each [`MenuAction`], either reusing an existing
+                        // operation ([`Self::open_artifact`]) or opening a
                         // [`ConnectionPopup`]/confirm dialog that itself
                         // calls straight into `crate::relation`/
                         // `crate::classify::delete_artifact_cascade`; no
-                        // relation lookup or graph walk happens in this
-                        // match arm.
+                        // relation lookup, graph walk, or menu-composition
+                        // logic happens in this match arm.
                         ContextMenuTarget::SavedArtifact(id) => {
                             let id = id.clone();
                             let node = citekey.map(|ck| artifact_node(ck, &id));
-                            if ui.button("Edit annotation").clicked() {
-                                if let Some(art) = active_artifacts
-                                    .and_then(|arts| arts.iter().find(|a| a.id() == id).cloned())
-                                {
-                                    if let Some(r) = self.open_artifact(&art) {
-                                        result = Some(r);
+                            let have_library = root_index.is_some() && node.is_some();
+                            let artifact = active_artifacts
+                                .and_then(|arts| arts.iter().find(|a| a.id() == id).cloned());
+                            match &artifact {
+                                Some(art) => {
+                                    for entry in saved_artifact_menu_entries(art.kind(), have_library) {
+                                        if ui
+                                            .add_enabled(
+                                                entry.enabled,
+                                                egui::Button::new(entry.label),
+                                            )
+                                            .clicked()
+                                        {
+                                            match entry.action {
+                                                MenuAction::EditArtifact => {
+                                                    if let Some(r) = self.open_artifact(art) {
+                                                        result = Some(r);
+                                                    }
+                                                }
+                                                MenuAction::AddConnection => {
+                                                    if let Some(source) = node.clone() {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::Add {
+                                                                source,
+                                                                query: String::new(),
+                                                                kind: RelationKind::RelatedTo,
+                                                            });
+                                                    }
+                                                }
+                                                MenuAction::EditConnections
+                                                | MenuAction::DeleteConnection => {
+                                                    if let Some(node) = node.clone() {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::Manage { node });
+                                                    }
+                                                }
+                                                MenuAction::DeleteArtifact => {
+                                                    if let Some(ck) = citekey {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::ConfirmDelete {
+                                                                citekey: ck.to_string(),
+                                                                artifact_id: id.clone(),
+                                                            });
+                                                    }
+                                                }
+                                            }
+                                            close = true;
+                                        }
+                                        if entry.separator_after {
+                                            ui.separator();
+                                        }
                                     }
                                 }
-                                close = true;
-                            }
-                            let have_library = root_index.is_some() && node.is_some();
-                            if ui
-                                .add_enabled(have_library, egui::Button::new("Add connection…"))
-                                .clicked()
-                            {
-                                if let Some(source) = node.clone() {
-                                    self.connection_popup = Some(ConnectionPopup::Add {
-                                        source,
-                                        query: String::new(),
-                                        kind: RelationKind::RelatedTo,
-                                    });
+                                None => {
+                                    // The overlay that opened this menu came
+                                    // from `active_artifacts`, so this is
+                                    // only reachable if the artifact was
+                                    // removed from under an open menu (e.g.
+                                    // a cascade delete from elsewhere) —
+                                    // nothing to act on, so offer nothing
+                                    // but Cancel.
+                                    ui.label("(artifact no longer available)");
                                 }
-                                close = true;
-                            }
-                            if ui
-                                .add_enabled(have_library, egui::Button::new("Edit connections…"))
-                                .clicked()
-                            {
-                                if let Some(node) = node.clone() {
-                                    self.connection_popup = Some(ConnectionPopup::Manage { node });
-                                }
-                                close = true;
-                            }
-                            if ui
-                                .add_enabled(have_library, egui::Button::new("Delete connection…"))
-                                .clicked()
-                            {
-                                if let Some(node) = node.clone() {
-                                    self.connection_popup = Some(ConnectionPopup::Manage { node });
-                                }
-                                close = true;
-                            }
-                            ui.separator();
-                            if ui.button("Delete annotation…").clicked() {
-                                if let Some(ck) = citekey {
-                                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
-                                        citekey: ck.to_string(),
-                                        artifact_id: id.clone(),
-                                    });
-                                }
-                                close = true;
                             }
                         }
                     }
@@ -3683,5 +3829,194 @@ t_s,power_mw
         let (arrow, other) = relation_other_end(&rel, "artifact:dst#b");
         assert_eq!(arrow, "←");
         assert_eq!(other, "artifact:src#a");
+    }
+
+    // -------------------------------------------------------------------
+    // saved_artifact_menu_entries (op-30um.3/.6 — the pure, window-free
+    // menu-composition function the right-click menu renders verbatim).
+    // -------------------------------------------------------------------
+
+    /// Every [`ArtifactKind`] must get the identical five-entry shape
+    /// (op-30um.6: "keep the connection and delete verbs identical across
+    /// kinds") with only the first entry's label varying, and the
+    /// connection separator/verbs/order fixed regardless of kind.
+    #[test]
+    fn saved_artifact_menu_entries_has_the_same_shape_for_every_kind() {
+        for kind in [
+            ArtifactKind::Note,
+            ArtifactKind::Annotation,
+            ArtifactKind::SourceReference,
+            ArtifactKind::Formula,
+            ArtifactKind::DigitisedTable,
+            ArtifactKind::DigitisedGraph,
+        ] {
+            let entries = saved_artifact_menu_entries(kind, true);
+            assert_eq!(entries.len(), 5, "{kind:?}");
+            let actions: Vec<MenuAction> = entries.iter().map(|e| e.action).collect();
+            assert_eq!(
+                actions,
+                vec![
+                    MenuAction::EditArtifact,
+                    MenuAction::AddConnection,
+                    MenuAction::EditConnections,
+                    MenuAction::DeleteConnection,
+                    MenuAction::DeleteArtifact,
+                ],
+                "{kind:?}"
+            );
+            // Exactly one entry can ever invoke the delete cascade — a
+            // menu structurally cannot dispatch it twice from one click.
+            assert_eq!(
+                actions.iter().filter(|a| **a == MenuAction::DeleteArtifact).count(),
+                1,
+                "{kind:?}"
+            );
+            assert_eq!(entries[4].label, "Delete annotation…", "{kind:?}");
+            // Grouped as [edit] | [add/edit/delete connection] | [delete]:
+            // a separator after the edit entry and after the connection
+            // group, none elsewhere.
+            let separators: Vec<bool> = entries.iter().map(|e| e.separator_after).collect();
+            assert_eq!(separators, vec![true, false, false, true, false], "{kind:?}");
+        }
+    }
+
+    /// The one entry that does vary by kind: its label, matching the
+    /// layer-2 prototype's wording
+    /// (`collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`).
+    #[test]
+    fn saved_artifact_menu_entries_edit_label_is_kind_specific() {
+        let label_for = |kind| saved_artifact_menu_entries(kind, true)[0].label;
+        assert_eq!(label_for(ArtifactKind::Note), "Edit annotation");
+        assert_eq!(label_for(ArtifactKind::Annotation), "Edit annotation");
+        assert_eq!(label_for(ArtifactKind::SourceReference), "Edit source reference");
+        assert_eq!(label_for(ArtifactKind::Formula), "Edit formula");
+        assert_eq!(label_for(ArtifactKind::DigitisedTable), "Edit table");
+        assert_eq!(label_for(ArtifactKind::DigitisedGraph), "Edit digitisation");
+    }
+
+    /// Without a `(KovanRoot, KnowledgeIndex)` pair, the three connection
+    /// entries are disabled (never hidden — same convention the citation
+    /// completion popup already uses); Edit and Delete stay enabled since
+    /// neither touches the relation store.
+    #[test]
+    fn saved_artifact_menu_entries_disables_connection_actions_without_a_library() {
+        let entries = saved_artifact_menu_entries(ArtifactKind::Annotation, false);
+        let enabled: Vec<bool> = entries.iter().map(|e| e.enabled).collect();
+        assert_eq!(enabled, vec![true, false, false, false, true]);
+    }
+
+    /// The composition function itself is pure data assembly — calling it
+    /// (even for a `DeleteArtifact`-bearing menu) can never mutate a
+    /// library, matching op-30um.3's "no graph-walking, no relation
+    /// deletion, and no partial writes in the UI" constraint. This is the
+    /// pdf_reader-side half of "a cancelled delete mutates nothing": the
+    /// menu that *offers* delete has no way to perform it just by being
+    /// built.
+    #[test]
+    fn building_the_menu_never_touches_the_library_a_cancelled_delete_mutates_nothing() {
+        use crate::entity::Access;
+        use crate::research_record::ResearchRecordIndex;
+        use crate::root::RootConfig;
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
+            .save_paper(&root.paper_dir("src"))
+            .unwrap();
+        let mut session = PaperSession::open(&root, "src").unwrap();
+        let index = ResearchRecordIndex::from_session(&session);
+        classify::insert_artifact(
+            &mut session,
+            &index,
+            "A Note",
+            ArtifactKind::Note,
+            None,
+            Classification::default(),
+            None,
+            "body",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let before = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+
+        // Building the menu — including its `DeleteArtifact` entry — is
+        // the entire UI-side effect of a right-click. Nothing about
+        // constructing it touches the filesystem.
+        let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true);
+
+        let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert_eq!(before, after, "composing the menu must not touch the paper's file");
+    }
+
+    /// A separate check, at the domain level `saved_artifact_menu_entries`
+    /// itself has no access to: the "No" path really does call nothing.
+    /// `ConnectionPopup::ConfirmDelete` is a plain enum value — holding one
+    /// (as the popup does while its dialog is open) has no effect on its
+    /// own; only picking "Yes" (a distinct code path in
+    /// `connection_popup_ui`, calling
+    /// [`classify::delete_artifact_cascade`]) does. Constructing and then
+    /// dropping the popup value here stands in for the whole "No"/dismiss
+    /// interaction.
+    #[test]
+    fn holding_a_confirm_delete_popup_without_choosing_yes_calls_nothing() {
+        let popup = ConnectionPopup::ConfirmDelete {
+            citekey: "src".to_string(),
+            artifact_id: "note-a".to_string(),
+        };
+        // Dropped here, unchosen — same as the dialog's "No" button, which
+        // maps to `self.connection_popup = None` and nothing else.
+        drop(popup);
+    }
+
+    /// The `DeleteArtifact` entry's real effect, at the same fidelity as
+    /// [`classify`]'s own cascade tests: exactly one call to
+    /// `classify::delete_artifact_cascade` — the same call
+    /// `ConnectionPopup::ConfirmDelete`'s "Yes" button makes — removes the
+    /// artifact, and calling it a second time on the same id errors
+    /// instead of silently no-op'ing, which is what "invoking the cascade
+    /// exactly once" means operationally: a second click cannot find
+    /// anything left to delete.
+    #[test]
+    fn delete_artifact_entry_invokes_the_cascade_exactly_once() {
+        use crate::entity::Access;
+        use crate::research_record::ResearchRecordIndex;
+        use crate::root::RootConfig;
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
+            .save_paper(&root.paper_dir("src"))
+            .unwrap();
+        let mut session = PaperSession::open(&root, "src").unwrap();
+        let index = ResearchRecordIndex::from_session(&session);
+        let artifact = classify::insert_artifact(
+            &mut session,
+            &index,
+            "A Note",
+            ArtifactKind::Note,
+            None,
+            Classification::default(),
+            None,
+            "body",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        let artifact_id = artifact.id().to_string();
+
+        let entries = saved_artifact_menu_entries(ArtifactKind::Note, true);
+        assert!(matches!(entries[4].action, MenuAction::DeleteArtifact));
+
+        // First invocation — the "Yes" branch's exact call — succeeds.
+        let removed =
+            classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap();
+        assert_eq!(removed, 0);
+
+        // A second invocation on the same id (what a stray double-dispatch
+        // would look like) finds nothing left and errors rather than
+        // silently repeating the deletion.
+        let err =
+            classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap_err();
+        assert!(matches!(err, classify::CascadeError::ArtifactNotFound { .. }));
     }
 }
