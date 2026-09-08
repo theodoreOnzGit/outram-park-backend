@@ -298,6 +298,14 @@ pub(super) enum MenuAction {
     /// varying entry op-30um.6 asks for; the label is what changes per
     /// kind, not the handling.
     EditArtifact,
+    /// Take the canvas to this artifact's page and zoom so its `[source]`
+    /// region fills the view. Present only for a source-anchored artifact
+    /// (maintainer, GH issue #35, 2026-09-08).
+    GoToPage,
+    /// Re-crop this artifact's region and hand it to the matching
+    /// digitiser. Digitised graphs and tables only — the heavier action,
+    /// which is why it moved out of double-click and onto the menu.
+    GoToDigitiser,
     /// Opens [`ConnectionPopup::Add`].
     AddConnection,
     /// Opens [`ConnectionPopup::Manage`] (shared with `DeleteConnection` —
@@ -346,7 +354,11 @@ pub(super) struct MenuEntry {
 ///
 /// Reference behaviour (wording only, not ported code):
 /// `collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`.
-pub(super) fn saved_artifact_menu_entries(kind: ArtifactKind, have_library: bool) -> Vec<MenuEntry> {
+pub(super) fn saved_artifact_menu_entries(
+    kind: ArtifactKind,
+    have_library: bool,
+    has_page: bool,
+) -> Vec<MenuEntry> {
     let edit_label = match kind {
         // The paper header is an artifact too, but it is not source-anchored
         // and so never has a canvas rectangle to right-click.
@@ -361,7 +373,11 @@ pub(super) fn saved_artifact_menu_entries(kind: ArtifactKind, have_library: bool
         ArtifactKind::Formula => "Edit formula",
         ArtifactKind::SourceReference => "Edit source reference",
     };
-    vec![
+    let is_csv = matches!(
+        kind,
+        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
+    );
+    let entries = vec![
         MenuEntry {
             label: edit_label,
             action: MenuAction::EditArtifact,
@@ -392,7 +408,31 @@ pub(super) fn saved_artifact_menu_entries(kind: ArtifactKind, have_library: bool
             enabled: true,
             separator_after: false,
         },
-    ]
+    ];
+
+    // Navigation entries go at the top, above Edit: they are the cheap,
+    // non-mutating actions, and "go to page" is the one every anchored
+    // artifact has.
+    let mut nav = Vec::new();
+    if has_page {
+        nav.push(MenuEntry {
+            label: "Go to page",
+            action: MenuAction::GoToPage,
+            enabled: true,
+            separator_after: !is_csv,
+        });
+    }
+    if is_csv {
+        nav.push(MenuEntry {
+            label: "Go to digitiser",
+            action: MenuAction::GoToDigitiser,
+            // Re-cropping needs the region the crop came from.
+            enabled: has_page,
+            separator_after: true,
+        });
+    }
+    nav.extend(entries);
+    nav
 }
 
 /// In-progress "Annotate" text editor, opened from the context menu's
@@ -1172,6 +1212,29 @@ impl PdfReaderState {
         }
     }
 
+    /// Take the canvas to `artifact`'s page and zoom so its `[source]`
+    /// region roughly fills the view.
+    ///
+    /// The zoom is derived from the region's own extent — a region covering
+    /// a third of the page height is worth ~3x — clamped to the same
+    /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
+    /// no region just navigates, leaving the zoom alone: there is nothing
+    /// to frame.
+    fn go_to_artifact(&mut self, artifact: &Artifact) {
+        let Some(page) = Self::artifact_page(artifact) else {
+            return;
+        };
+        self.annotate_page = page;
+        self.scroll_request = Some(page);
+        self.thumb_synced = None;
+        if let Some(region) = artifact.toml.source.as_ref().and_then(|s| s.region) {
+            let w = (region.x1 - region.x0).max(1e-3) as f32;
+            let h = (region.y1 - region.y0).max(1e-3) as f32;
+            // Fit the larger dimension, so neither axis overflows.
+            self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        }
+    }
+
     /// Open a saved artifact for editing — the single path a **double-click
     /// on its box** on the continuous canvas and a **double-click on its
     /// card / preview line** in the context panel both go through, so the
@@ -1185,15 +1248,13 @@ impl PdfReaderState {
         // Take the canvas to the page the block is anchored to — opening a
         // block from the panel while looking at a different page should
         // show you what it is about (maintainer, 2026-09-02).
-        if let Some(p) = Self::artifact_page(artifact) {
-            self.annotate_page = p;
-            self.scroll_request = Some(p);
-            self.thumb_synced = None;
-        }
+        self.go_to_artifact(artifact);
         match artifact.kind() {
-            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                self.recrop_artifact(artifact)
-            }
+            // A digitised graph/table now *zooms to its page* rather than
+            // re-opening the digitiser: going back to the digitiser is the
+            // heavier, rarer action and lives on the right-click menu as
+            // "Go to digitiser" (maintainer, GH issue #35, 2026-09-08).
+            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => None,
             _ => {
                 self.block_editor.load_text(&artifact.body);
                 self.editing_block_id = Some(artifact.id().to_string());
@@ -1801,7 +1862,7 @@ impl PdfReaderState {
                                 if let Some(csv) = artifact.csv_block() {
                                     draw_csv_preview(ui, csv);
                                 }
-                                ui.small("double-click → re-open in the digitiser");
+                                ui.small("double-click → go to page · right-click → menu");
                             }
                             _ => {
                                 open_on_single_click = true;
@@ -1809,11 +1870,25 @@ impl PdfReaderState {
                                 if !artifact.body.trim().is_empty() {
                                     ui.monospace(body_preview(&artifact.body));
                                 }
-                                ui.small("click → edit");
+                                ui.small("click → edit · right-click → menu");
                             }
                         });
                     if inner.response.hovered() {
                         panel_hover = Some(id.clone());
+                    }
+                    // Right-click anywhere on the card opens the same menu a
+                    // right-click on its canvas box does — every artifact
+                    // gets a dropdown, including the ones with no region to
+                    // click on (maintainer, GH issue #35, 2026-09-08).
+                    if inner.response.secondary_clicked() {
+                        let screen_pos = inner
+                            .response
+                            .interact_pointer_pos()
+                            .unwrap_or_else(|| inner.response.rect.center());
+                        self.context_menu = Some(ContextMenu {
+                            screen_pos,
+                            target: ContextMenuTarget::SavedArtifact(id.clone()),
+                        });
                     }
                     let opened = if open_on_single_click {
                         inner.response.clicked() || inner.response.double_clicked()
@@ -2874,7 +2949,10 @@ impl PdfReaderState {
                                 .and_then(|arts| arts.iter().find(|a| a.id() == id).cloned());
                             match &artifact {
                                 Some(art) => {
-                                    for entry in saved_artifact_menu_entries(art.kind(), have_library) {
+                                    let has_page = Self::artifact_page(art).is_some();
+                                    for entry in
+                                        saved_artifact_menu_entries(art.kind(), have_library, has_page)
+                                    {
                                         if ui
                                             .add_enabled(
                                                 entry.enabled,
@@ -2885,6 +2963,12 @@ impl PdfReaderState {
                                             match entry.action {
                                                 MenuAction::EditArtifact => {
                                                     if let Some(r) = self.open_artifact(art) {
+                                                        result = Some(r);
+                                                    }
+                                                }
+                                                MenuAction::GoToPage => self.go_to_artifact(art),
+                                                MenuAction::GoToDigitiser => {
+                                                    if let Some(r) = self.recrop_artifact(art) {
                                                         result = Some(r);
                                                     }
                                                 }
@@ -3958,20 +4042,28 @@ t_s,power_mw
             ArtifactKind::DigitisedTable,
             ArtifactKind::DigitisedGraph,
         ] {
-            let entries = saved_artifact_menu_entries(kind, true);
-            assert_eq!(entries.len(), 5, "{kind:?}");
+            let entries = saved_artifact_menu_entries(kind, true, true);
             let actions: Vec<MenuAction> = entries.iter().map(|e| e.action).collect();
-            assert_eq!(
-                actions,
-                vec![
-                    MenuAction::EditArtifact,
-                    MenuAction::AddConnection,
-                    MenuAction::EditConnections,
-                    MenuAction::DeleteConnection,
-                    MenuAction::DeleteArtifact,
-                ],
-                "{kind:?}"
+            // The connection and delete verbs are byte-identical across
+            // every kind (op-30um.6); only the leading navigation entries
+            // vary, and only by whether the kind carries CSV.
+            let is_csv = matches!(
+                kind,
+                ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
             );
+            let mut expected = vec![MenuAction::GoToPage];
+            if is_csv {
+                expected.push(MenuAction::GoToDigitiser);
+            }
+            expected.extend([
+                MenuAction::EditArtifact,
+                MenuAction::AddConnection,
+                MenuAction::EditConnections,
+                MenuAction::DeleteConnection,
+                MenuAction::DeleteArtifact,
+            ]);
+            assert_eq!(actions, expected, "{kind:?}");
+            assert_eq!(entries.len(), if is_csv { 7 } else { 6 }, "{kind:?}");
             // Exactly one entry can ever invoke the delete cascade — a
             // menu structurally cannot dispatch it twice from one click.
             assert_eq!(
@@ -3979,12 +4071,17 @@ t_s,power_mw
                 1,
                 "{kind:?}"
             );
-            assert_eq!(entries[4].label, "Delete annotation…", "{kind:?}");
-            // Grouped as [edit] | [add/edit/delete connection] | [delete]:
-            // a separator after the edit entry and after the connection
-            // group, none elsewhere.
+            assert_eq!(entries.last().unwrap().label, "Delete annotation…", "{kind:?}");
+            // Grouped as [navigation] | [edit] | [connections] | [delete]:
+            // a separator closing each group, none elsewhere.
             let separators: Vec<bool> = entries.iter().map(|e| e.separator_after).collect();
-            assert_eq!(separators, vec![true, false, false, true, false], "{kind:?}");
+            let mut expected_seps = if is_csv {
+                vec![false, true]
+            } else {
+                vec![true]
+            };
+            expected_seps.extend([true, false, false, true, false]);
+            assert_eq!(separators, expected_seps, "{kind:?}");
         }
     }
 
@@ -3993,7 +4090,15 @@ t_s,power_mw
     /// (`collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`).
     #[test]
     fn saved_artifact_menu_entries_edit_label_is_kind_specific() {
-        let label_for = |kind| saved_artifact_menu_entries(kind, true)[0].label;
+        // The edit entry sits after the navigation group, so find it by
+        // action rather than by position.
+        let label_for = |kind| {
+            saved_artifact_menu_entries(kind, true, true)
+                .into_iter()
+                .find(|e| e.action == MenuAction::EditArtifact)
+                .expect("an edit entry")
+                .label
+        };
         assert_eq!(label_for(ArtifactKind::Note), "Edit annotation");
         assert_eq!(label_for(ArtifactKind::Annotation), "Edit annotation");
         assert_eq!(label_for(ArtifactKind::SourceReference), "Edit source reference");
@@ -4008,9 +4113,10 @@ t_s,power_mw
     /// neither touches the relation store.
     #[test]
     fn saved_artifact_menu_entries_disables_connection_actions_without_a_library() {
-        let entries = saved_artifact_menu_entries(ArtifactKind::Annotation, false);
+        let entries = saved_artifact_menu_entries(ArtifactKind::Annotation, false, true);
         let enabled: Vec<bool> = entries.iter().map(|e| e.enabled).collect();
-        assert_eq!(enabled, vec![true, false, false, false, true]);
+        // Go to page, Edit, [three connection entries disabled], Delete.
+        assert_eq!(enabled, vec![true, true, false, false, false, true]);
     }
 
     /// The composition function itself is pure data assembly — calling it
@@ -4050,7 +4156,7 @@ t_s,power_mw
         // Building the menu — including its `DeleteArtifact` entry — is
         // the entire UI-side effect of a right-click. Nothing about
         // constructing it touches the filesystem.
-        let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true);
+        let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
 
         let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
         assert_eq!(before, after, "composing the menu must not touch the paper's file");
@@ -4112,8 +4218,11 @@ t_s,power_mw
         let index = KnowledgeIndex::rebuild(&root);
         let artifact_id = artifact.id().to_string();
 
-        let entries = saved_artifact_menu_entries(ArtifactKind::Note, true);
-        assert!(matches!(entries[4].action, MenuAction::DeleteArtifact));
+        let entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
+        assert!(matches!(
+            entries.last().unwrap().action,
+            MenuAction::DeleteArtifact
+        ));
 
         // First invocation — the "Yes" branch's exact call — succeeds.
         let removed =
