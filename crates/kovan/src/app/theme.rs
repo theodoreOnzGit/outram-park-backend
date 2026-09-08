@@ -9,6 +9,15 @@
 //! PNG/PDF/SVG figure styling, which `kovan`'s digitiser/reader has no
 //! equivalent of.
 //!
+//! # Artifact-kind accent colours (op-30um.5, GitHub issue #35 "layer 2")
+//!
+//! [`artifact_accent`] is the **single, central** place that resolves a
+//! [`crate::artifact::ArtifactKind`] to a colour. Every place in the GUI
+//! that draws a source-anchored artifact — today the PDF canvas
+//! (`app::pdf_reader`), and in future the mindmap — must call it rather than
+//! writing a literal `Color32` at the call site, so the same kind always
+//! reads as the same colour everywhere, in both themes.
+//!
 //! # Gruvbox provenance and licence
 //!
 //! The Gruvbox colour palette below is based on
@@ -17,6 +26,8 @@
 //! (`GRUVBOX_*` constants); no source code from that project is used.
 
 use eframe::egui;
+
+use crate::artifact::ArtifactKind;
 
 /// Which visual theme the GUI chrome uses.
 ///
@@ -52,6 +63,25 @@ impl GuiTheme {
             Self::GruvboxLight => ctx.set_visuals(gruvbox_visuals(false)),
         }
     }
+
+    /// Reads back which of the two themes is currently in effect, from
+    /// `visuals`' own [`egui::Visuals::dark_mode`] — e.g. `ui.visuals()` —
+    /// rather than requiring every caller to separately track or receive a
+    /// copy of whichever `GuiTheme` the top-level app last applied.
+    ///
+    /// This is how a panel that does not own the app's `GuiTheme` field
+    /// itself (e.g. `app::pdf_reader`, which draws artifact-accent boxes but
+    /// is not handed the app's own theme selector) recovers "which theme is
+    /// this?" from the `egui::Ui`/`Visuals` it is already given. Exact for
+    /// anything this crate applies via [`GuiTheme::apply`], since
+    /// [`GuiTheme`] only ever distinguishes dark from light.
+    pub fn current(visuals: &egui::Visuals) -> Self {
+        if visuals.dark_mode {
+            Self::GruvboxDark
+        } else {
+            Self::GruvboxLight
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -70,8 +100,102 @@ const GRUVBOX_LIGHT_FG: egui::Color32 = egui::Color32::from_rgb(0x3c, 0x38, 0x36
 const GRUVBOX_BRIGHT_BLUE: egui::Color32 = egui::Color32::from_rgb(0x83, 0xa5, 0x98);
 const GRUVBOX_NEUTRAL_BLUE: egui::Color32 = egui::Color32::from_rgb(0x45, 0x85, 0x88);
 const GRUVBOX_BRIGHT_YELLOW: egui::Color32 = egui::Color32::from_rgb(0xfa, 0xbd, 0x2f);
+const GRUVBOX_NEUTRAL_YELLOW: egui::Color32 = egui::Color32::from_rgb(0xd7, 0x99, 0x21);
 const GRUVBOX_FADED_RED: egui::Color32 = egui::Color32::from_rgb(0x9d, 0x00, 0x06);
 const GRUVBOX_BRIGHT_RED: egui::Color32 = egui::Color32::from_rgb(0xfb, 0x49, 0x34);
+// Added for the artifact-kind accent mapping (op-30um.5) — the base palette
+// above only ever needed one accent (blue) plus warn/error, so aqua, purple
+// and orange were not yet defined.
+const GRUVBOX_BRIGHT_AQUA: egui::Color32 = egui::Color32::from_rgb(0x8e, 0xc0, 0x7c);
+const GRUVBOX_NEUTRAL_AQUA: egui::Color32 = egui::Color32::from_rgb(0x68, 0x9d, 0x6a);
+const GRUVBOX_BRIGHT_PURPLE: egui::Color32 = egui::Color32::from_rgb(0xd3, 0x86, 0x9b);
+const GRUVBOX_NEUTRAL_PURPLE: egui::Color32 = egui::Color32::from_rgb(0xb1, 0x62, 0x86);
+const GRUVBOX_BRIGHT_ORANGE: egui::Color32 = egui::Color32::from_rgb(0xfe, 0x80, 0x19);
+const GRUVBOX_NEUTRAL_ORANGE: egui::Color32 = egui::Color32::from_rgb(0xd6, 0x5d, 0x0e);
+
+/// The accent colour that identifies one [`ArtifactKind`] wherever a saved,
+/// source-anchored artifact is drawn — today the PDF canvas's region boxes
+/// (`app::pdf_reader`), and, per the GitHub issue #35 "layer 2" prototype
+/// this ports, intended to stay the *same* mapping when the mindmap grows
+/// its own artifact nodes. Resolved centrally, here, so nothing downstream
+/// invents its own literal `Color32` for an artifact kind — see the module
+/// doc.
+///
+/// | [`ArtifactKind`] | accent |
+/// |---|---|
+/// | `Annotation` / `Note` | Gruvbox yellow |
+/// | `DigitisedGraph` (+ CSV payload) | Gruvbox aqua |
+/// | `DigitisedTable` (+ CSV payload) | Gruvbox blue |
+/// | `Formula` | Gruvbox purple |
+/// | `SourceReference` | Gruvbox orange |
+///
+/// Each kind has a `dark`-picked and a `light`-picked hex value (Gruvbox's
+/// own bright/neutral split — the brighter, cooler variant reads clearly on
+/// a dark background; the neutral, more saturated variant carries the same
+/// contrast against Gruvbox's pale `light0_hard` background), so the same
+/// kind is legible, and visually distinct from every other kind, in both
+/// [`GuiTheme`] variants.
+///
+/// A future "corrupt/unavailable artifact" health layer is expected to add
+/// a red accent alongside this table — see [`unavailable_accent`], a
+/// documented seam this function deliberately does not cover: nothing in
+/// this crate today classifies an artifact as corrupt/unavailable, so there
+/// is no case to add here yet, and inventing one would pre-empt that
+/// layer's own design.
+pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
+    let dark = matches!(theme, GuiTheme::GruvboxDark);
+    match kind {
+        ArtifactKind::Annotation | ArtifactKind::Note => {
+            if dark {
+                GRUVBOX_BRIGHT_YELLOW
+            } else {
+                GRUVBOX_NEUTRAL_YELLOW
+            }
+        }
+        ArtifactKind::DigitisedGraph => {
+            if dark {
+                GRUVBOX_BRIGHT_AQUA
+            } else {
+                GRUVBOX_NEUTRAL_AQUA
+            }
+        }
+        ArtifactKind::DigitisedTable => {
+            if dark {
+                GRUVBOX_BRIGHT_BLUE
+            } else {
+                GRUVBOX_NEUTRAL_BLUE
+            }
+        }
+        ArtifactKind::Formula => {
+            if dark {
+                GRUVBOX_BRIGHT_PURPLE
+            } else {
+                GRUVBOX_NEUTRAL_PURPLE
+            }
+        }
+        ArtifactKind::SourceReference => {
+            if dark {
+                GRUVBOX_BRIGHT_ORANGE
+            } else {
+                GRUVBOX_NEUTRAL_ORANGE
+            }
+        }
+    }
+}
+
+/// Reserved Gruvbox red for a corrupt/unavailable artifact — the health
+/// layer op-30um.5's own spec explicitly defers (see the module doc and
+/// [`artifact_accent`]'s doc). **Not called from anywhere in this crate
+/// yet.** It is added now, alongside the rest of the artifact-kind accent
+/// vocabulary, so that whichever future bead builds the health layer picks
+/// this colour up rather than inventing a second red somewhere else in the
+/// GUI.
+pub fn unavailable_accent(theme: GuiTheme) -> egui::Color32 {
+    match theme {
+        GuiTheme::GruvboxDark => GRUVBOX_BRIGHT_RED,
+        GuiTheme::GruvboxLight => GRUVBOX_FADED_RED,
+    }
+}
 
 /// Builds a full [`egui::Visuals`] from the Gruvbox palette.
 ///
@@ -149,4 +273,110 @@ fn gruvbox_visuals(dark: bool) -> egui::Visuals {
     visuals.widgets.open.fg_stroke.color = fg;
 
     visuals
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALL_KINDS: [ArtifactKind; 6] = [
+        ArtifactKind::Note,
+        ArtifactKind::Annotation,
+        ArtifactKind::SourceReference,
+        ArtifactKind::Formula,
+        ArtifactKind::DigitisedTable,
+        ArtifactKind::DigitisedGraph,
+    ];
+
+    #[test]
+    fn note_and_annotation_share_the_same_accent() {
+        // §14's Note/Annotation split is about anchoring, not colour — the
+        // layer-2 spec groups them under one "yellow" row.
+        for theme in GuiTheme::ALL {
+            assert_eq!(
+                artifact_accent(ArtifactKind::Note, theme),
+                artifact_accent(ArtifactKind::Annotation, theme)
+            );
+        }
+    }
+
+    #[test]
+    fn every_other_kind_gets_a_visually_distinct_accent_in_each_theme() {
+        for theme in GuiTheme::ALL {
+            let distinct = [
+                ArtifactKind::Annotation,
+                ArtifactKind::DigitisedGraph,
+                ArtifactKind::DigitisedTable,
+                ArtifactKind::Formula,
+                ArtifactKind::SourceReference,
+            ];
+            for (i, a) in distinct.iter().enumerate() {
+                for b in &distinct[i + 1..] {
+                    assert_ne!(
+                        artifact_accent(*a, theme),
+                        artifact_accent(*b, theme),
+                        "{a:?} and {b:?} must not share an accent under {theme:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn accent_is_defined_for_every_kind_in_both_themes() {
+        for theme in GuiTheme::ALL {
+            for kind in ALL_KINDS {
+                // Just asserts the match is exhaustive and returns something
+                // opaque — a compile-time guarantee already, but pinning it
+                // here means adding a 7th `ArtifactKind` variant with no
+                // corresponding match arm fails a *test*, not just silently
+                // falls through to a wildcard (there is deliberately no `_`
+                // arm in `artifact_accent`).
+                let c = artifact_accent(kind, theme);
+                assert_eq!(c.a(), 255, "accent must be fully opaque: {kind:?}/{theme:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn dark_and_light_accents_differ_for_every_kind() {
+        // Reusing the exact same hex in both themes was the failure mode
+        // `gruvbox_visuals`'s own `warn` colour has today (bright yellow in
+        // both) — deliberately not repeated here: every artifact accent has
+        // its own dark/light pair so contrast against each background holds.
+        for kind in ALL_KINDS {
+            assert_ne!(
+                artifact_accent(kind, GuiTheme::GruvboxDark),
+                artifact_accent(kind, GuiTheme::GruvboxLight),
+                "{kind:?} should pick a different hex per theme"
+            );
+        }
+    }
+
+    #[test]
+    fn unavailable_accent_is_gruvbox_red_and_differs_per_theme() {
+        assert_eq!(unavailable_accent(GuiTheme::GruvboxDark), GRUVBOX_BRIGHT_RED);
+        assert_eq!(unavailable_accent(GuiTheme::GruvboxLight), GRUVBOX_FADED_RED);
+    }
+
+    #[test]
+    fn current_reads_back_dark_mode_from_visuals() {
+        assert_eq!(
+            GuiTheme::current(&egui::Visuals::dark()),
+            GuiTheme::GruvboxDark
+        );
+        assert_eq!(
+            GuiTheme::current(&egui::Visuals::light()),
+            GuiTheme::GruvboxLight
+        );
+        // And the visuals this crate actually builds round-trip too.
+        assert_eq!(
+            GuiTheme::current(&gruvbox_visuals(true)),
+            GuiTheme::GruvboxDark
+        );
+        assert_eq!(
+            GuiTheme::current(&gruvbox_visuals(false)),
+            GuiTheme::GruvboxLight
+        );
+    }
 }

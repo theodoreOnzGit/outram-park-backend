@@ -30,8 +30,12 @@ use crate::artifact::{
 };
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::entity::Classification;
+use crate::graph::artifact_node;
+use crate::index::KnowledgeIndex;
+use crate::relation::{delete_incident, RelationError};
 use crate::research_record::ResearchRecordIndex;
-use crate::session::PaperSession;
+use crate::root::KovanRoot;
+use crate::session::{PaperSession, SessionError};
 
 /// Errors building or inserting a fine-grained classification artifact.
 #[derive(Debug)]
@@ -61,6 +65,33 @@ impl std::fmt::Display for ClassifyError {
 }
 
 impl std::error::Error for ClassifyError {}
+
+/// Errors from [`delete_artifact_cascade`].
+#[derive(Debug)]
+pub enum CascadeError {
+    /// No artifact with this id exists in `citekey`'s paper. Returned
+    /// *before* anything is deleted — see the function docs.
+    ArtifactNotFound { citekey: String, artifact_id: String },
+    /// Opening/reading/saving a paper failed.
+    Session(SessionError),
+    /// Removing an incident relation failed.
+    Relation(RelationError),
+}
+
+impl std::fmt::Display for CascadeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ArtifactNotFound {
+                citekey,
+                artifact_id,
+            } => write!(f, "paper {citekey:?} has no artifact with id {artifact_id:?}"),
+            Self::Session(e) => write!(f, "{e}"),
+            Self::Relation(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for CascadeError {}
 
 /// A lowercase-kebab-case slug from free text, e.g. "Coupled neutronics
 /// methodology" -> `"coupled-neutronics-methodology"` — the §13/§40 style
@@ -178,6 +209,7 @@ pub fn insert_artifact(
         source: anchor,
         classification,
         extraction,
+        relation: Vec::new(),
     };
     let rendered = render_artifact_block(ARTIFACT_HEADING_LEVEL, heading, &toml, body)
         .map_err(ClassifyError::Render)?;
@@ -392,7 +424,12 @@ pub fn save_digitised_csv(
 /// Replace lines `range` (0-based, end-exclusive) of `md` with
 /// `replacement`, keeping every other line verbatim and the document
 /// newline-terminated.
-fn splice_lines(md: &str, range: std::ops::Range<usize>, replacement: &str) -> String {
+///
+/// `pub(crate)`, not private: [`crate::relation`]'s connection CRUD splices a
+/// re-rendered artifact block back into a paper's Markdown exactly the way
+/// [`replace_artifact_body`] does, and reuses this rather than a second
+/// hand-rolled line-splice (the workspace's "search before building" rule).
+pub(crate) fn splice_lines(md: &str, range: std::ops::Range<usize>, replacement: &str) -> String {
     let lines: Vec<&str> = md.lines().collect();
     let mut out = String::new();
     for line in &lines[..range.start.min(lines.len())] {
@@ -406,6 +443,111 @@ fn splice_lines(md: &str, range: std::ops::Range<usize>, replacement: &str) -> S
         out.push('\n');
     }
     out
+}
+
+/// Remove lines `range` (0-based, end-exclusive) from `md` outright — no
+/// replacement text, and no stray blank line left in the gap (unlike
+/// [`splice_lines`] with an empty `replacement`, which would still emit one
+/// blank line). Used by [`delete_artifact_cascade`] to remove a whole
+/// artifact block.
+fn remove_lines(md: &str, range: std::ops::Range<usize>) -> String {
+    let lines: Vec<&str> = md.lines().collect();
+    let mut out = String::new();
+    for (i, line) in lines.iter().enumerate() {
+        if i >= range.start && i < range.end {
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+/// Delete artifact `artifact_id` from paper `citekey`, **and** every
+/// [`crate::relation::UserRelation`] incident to it (as either its source or
+/// its target), as one operation this function owns end to end (op-30um.2).
+///
+/// # Design: the confirm dialog only decides whether to call this
+///
+/// The layer-1 prototype's requirement is that the egui "Delete
+/// annotation..." confirmation ("Sure anot? [No] [Yes]") must not itself
+/// walk the graph, delete edges, or leave a half-applied state — it may only
+/// decide whether this function is called at all. No: nothing runs, nothing
+/// changes. Yes: this function runs exactly once and owns every step.
+///
+/// # What "one transaction" means here, and its real limit
+///
+/// **Checked before anything is written:** the artifact must actually exist
+/// in `citekey`'s paper, or this returns
+/// [`CascadeError::ArtifactNotFound`] having touched no file at all — a
+/// failed precondition can never leave a partial mutation behind.
+///
+/// **Ordered once writing starts:** incident relations are removed first
+/// ([`crate::relation::delete_incident`]), the artifact's own block second.
+/// If the process is interrupted between the two, the surviving state is
+/// "artifact still present, no relations pointing at it" rather than
+/// "relations dangling at a node that no longer exists" — the safer of the
+/// two half-finished states, since a leftover artifact is merely undeleted
+/// (re-run the operation) while a dangling relation is a silent broken
+/// reference nothing else in this crate currently detects.
+///
+/// **This is NOT a cross-file ACID transaction.** A relation incident to
+/// this artifact may be recorded inside a *different* paper's Markdown file
+/// than the artifact itself (see `crate::relation`'s module docs), and plain
+/// file writes with no journal cannot be rolled back automatically if the
+/// process dies mid-sequence. The operation is idempotent, though: a
+/// repeated call after a partial failure finds fewer (or zero) incident
+/// relations left to remove and, once the artifact itself is gone, returns
+/// [`CascadeError::ArtifactNotFound`] cleanly rather than corrupting
+/// anything further. This limit is inherent to storing authored data in
+/// plain tracked files rather than a database — it is documented here
+/// rather than papered over with an unearned "atomic" claim.
+///
+/// # Errors
+///
+/// [`CascadeError::ArtifactNotFound`] if `citekey`'s paper has no artifact
+/// `artifact_id`; [`CascadeError::Session`] if the paper cannot be opened or
+/// saved; [`CascadeError::Relation`] if removing an incident relation fails.
+///
+/// # Returns
+///
+/// The number of incident relations removed alongside the artifact.
+pub fn delete_artifact_cascade(
+    root: &KovanRoot,
+    index: &KnowledgeIndex,
+    citekey: &str,
+    artifact_id: &str,
+) -> Result<usize, CascadeError> {
+    // Precondition, checked before any write: the artifact must exist.
+    let probe = PaperSession::open(root, citekey).map_err(CascadeError::Session)?;
+    parse_document(probe.markdown())
+        .get(artifact_id)
+        .ok_or_else(|| CascadeError::ArtifactNotFound {
+            citekey: citekey.to_string(),
+            artifact_id: artifact_id.to_string(),
+        })?;
+    drop(probe);
+
+    let node = artifact_node(citekey, artifact_id);
+    let removed_relations = delete_incident(root, index, &node).map_err(CascadeError::Relation)?;
+
+    // Re-open: `delete_incident` may just have rewritten this very paper's
+    // file, if this artifact had any outgoing relation of its own.
+    let mut session = PaperSession::open(root, citekey).map_err(CascadeError::Session)?;
+    let md = session.markdown().to_string();
+    let artifact = parse_document(&md)
+        .artifacts
+        .into_iter()
+        .find(|a| a.id() == artifact_id)
+        .ok_or_else(|| CascadeError::ArtifactNotFound {
+            citekey: citekey.to_string(),
+            artifact_id: artifact_id.to_string(),
+        })?;
+    let span = block_span(&md, &artifact);
+    session.set_markdown(remove_lines(&md, span));
+    session.save_document().map_err(CascadeError::Session)?;
+
+    Ok(removed_relations)
 }
 
 #[cfg(test)]
@@ -749,5 +891,108 @@ mod tests {
             Some(4),
             "[source] survives a re-digitise"
         );
+    }
+
+    // -----------------------------------------------------------------
+    // delete_artifact_cascade (op-30um.2)
+    // -----------------------------------------------------------------
+
+    /// Two papers, each with one artifact, plus one relation between them —
+    /// enough to exercise a cascade delete that must remove both an
+    /// artifact and an incident relation living in an *other* paper's file.
+    fn make_cascade_fixture() -> (tempfile::TempDir, KovanRoot, KnowledgeIndex) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        for citekey in ["src", "dst"] {
+            EntityConfig::paper(CiteKey::parse(citekey).unwrap(), Access::Open)
+                .save_paper(&root.paper_dir(citekey))
+                .unwrap();
+        }
+        for (citekey, heading, body) in [("src", "Note A", "body a"), ("dst", "Note B", "body b")] {
+            let mut session = PaperSession::open(&root, citekey).unwrap();
+            let index = ResearchRecordIndex::from_session(&session);
+            insert_artifact(
+                &mut session,
+                &index,
+                heading,
+                ArtifactKind::Note,
+                None,
+                Classification::default(),
+                None,
+                body,
+            )
+            .unwrap();
+            session.save_document().unwrap();
+        }
+        let index = KnowledgeIndex::rebuild(&root);
+        (dir, root, index)
+    }
+
+    #[test]
+    fn cascade_removes_the_artifact_and_its_own_outgoing_relation() {
+        let (_dir, root, index) = make_cascade_fixture();
+        let source = artifact_node("src", "note-a");
+        let target = artifact_node("dst", "note-b");
+        crate::relation::add_connection(&root, &source, &target, crate::relation::RelationKind::Supports)
+            .unwrap();
+
+        let removed = delete_artifact_cascade(&root, &index, "src", "note-a").unwrap();
+        assert_eq!(removed, 1);
+
+        let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert!(parse_document(&text).get("note-a").is_none());
+        assert!(crate::relation::connections(&root, &index, &target).is_empty());
+    }
+
+    #[test]
+    fn cascade_removes_an_incoming_relation_recorded_in_another_papers_file() {
+        let (_dir, root, index) = make_cascade_fixture();
+        let source = artifact_node("dst", "note-b");
+        let target = artifact_node("src", "note-a");
+        // "dst"'s note-b relates TO "src"'s note-a: the relation record
+        // lives inside dst's file, but we are about to delete note-a.
+        crate::relation::add_connection(&root, &source, &target, crate::relation::RelationKind::Contradicts)
+            .unwrap();
+
+        let removed = delete_artifact_cascade(&root, &index, "src", "note-a").unwrap();
+        assert_eq!(removed, 1, "the incoming relation in dst's file must also go");
+
+        assert!(crate::relation::connections(&root, &index, &source).is_empty());
+        let dst_text = std::fs::read_to_string(root.paper_markdown("dst")).unwrap();
+        assert!(parse_document(&dst_text).get("note-b").is_some(), "dst's own artifact survives");
+    }
+
+    #[test]
+    fn cascade_on_an_unknown_artifact_errors_and_touches_nothing() {
+        let (_dir, root, index) = make_cascade_fixture();
+        let before = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+
+        let err = delete_artifact_cascade(&root, &index, "src", "no-such-id").unwrap_err();
+        assert!(matches!(err, CascadeError::ArtifactNotFound { .. }));
+
+        let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert_eq!(before, after, "a failed precondition must not touch the file");
+    }
+
+    #[test]
+    fn cascade_with_no_incident_relations_just_removes_the_artifact() {
+        let (_dir, root, index) = make_cascade_fixture();
+        let removed = delete_artifact_cascade(&root, &index, "src", "note-a").unwrap();
+        assert_eq!(removed, 0);
+        let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert!(parse_document(&text).get("note-a").is_none());
+    }
+
+    #[test]
+    fn a_cancelled_cascade_never_happens_the_ui_just_does_not_call_it() {
+        // op-30um.2's actual requirement: the confirm dialog only decides
+        // whether to invoke `delete_artifact_cascade` at all. There is
+        // nothing to assert about "No" beyond "the function was never
+        // called" — captured here as a compile-time/documentation fact
+        // rather than a runtime one, since the No path is simply the
+        // absence of a call.
+        let (_dir, root, _index) = make_cascade_fixture();
+        let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert!(parse_document(&text).get("note-a").is_some());
     }
 }

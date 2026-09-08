@@ -32,6 +32,17 @@ use crate::root::KovanRoot;
 
 pub const GRAPH_SCHEMA_VERSION: u32 = 1;
 
+/// A node identity string — `paper:<citekey>`, `artifact:<citekey>#<id>`, or
+/// `collection:<path>`, as built by [`paper_node`]/[`artifact_node`]/
+/// [`collection_node`]. A named alias rather than a bare `String` at call
+/// sites, per the workspace's human-interface rule that a reader should see
+/// the meaning of a type, not just its representation — every consumer
+/// (`autocomplete::LibraryCandidate::node`, [`crate::relation::UserRelation`])
+/// treats it as an opaque, already-canonical identity, never something to
+/// parse apart except where a function's own docs say otherwise (e.g.
+/// [`crate::relation`]'s artifact-node parsing for relation sources).
+pub type NodeId = String;
+
 const CACHE_HEADER: &str = "\
 # GENERATED FILE — do not edit by hand.
 # The derived knowledge graph: wiki links, citations, and paper/artifact

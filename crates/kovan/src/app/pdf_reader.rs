@@ -66,6 +66,34 @@
 //! so a line's bbox is converted once by that factor before hit-testing
 //! against the drag rect. **Line granularity, not glyph/character
 //! granularity** — a deliberate scope cut (see [`select_text_in_rect`]).
+//!
+//! ## Every source-anchored artifact draws, not only annotations (op-30um.5)
+//!
+//! The canvas's "saved artifact region boxes" pass draws **every** artifact
+//! [`crate::research_record::ResearchRecordIndex`] returns that has a valid
+//! page plus a normalised `[source] region` — `Annotation`/`Note`,
+//! `DigitisedGraph`, `DigitisedTable`, `Formula`, and `SourceReference`
+//! alike, per GitHub issue #35's "layer 2" prototype
+//! (`collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/`).
+//! The artifact is the node; a digitised graph's or table's CSV is that
+//! artifact's *payload* (shown via [`draw_csv_preview`] in the page-context
+//! panel), never a second overlay of its own. An artifact anchored only by
+//! a `pages` range has no `region` (§15 forbids combining the two) and so
+//! is never boxable — it still appears in the page-context panel, just not
+//! as a canvas rectangle.
+//!
+//! Colour is **semantic and resolved centrally**: [`super::theme::
+//! artifact_accent`] maps each [`ArtifactKind`] to a Gruvbox accent that
+//! holds in both themes (yellow / aqua / blue / purple / orange), so no
+//! call site here constructs a literal `Color32` for an artifact box.
+//!
+//! The region→screen-rect reconstruction itself
+//! ([`region_to_screen_rect`], selected per visible page by
+//! [`artifact_overlays_for_page`]) is a **pure function** independent of
+//! `egui::Ui`/`PageView` — the same placement arithmetic
+//! [`super::page_canvas::PageView::project`] uses, so the two agree pixel
+//! for pixel, but callable and unit-testable with no window or GPU texture
+//! state.
 
 use std::collections::HashMap;
 
@@ -78,11 +106,16 @@ use kopitiam_pdf::mupdf::{
 };
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
+use crate::autocomplete::{library_candidates, LibraryCandidate};
 use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
 use crate::entity::Classification;
+use crate::graph::artifact_node;
+use crate::index::KnowledgeIndex;
 use crate::project;
+use crate::relation::{self, RelationKind};
+use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
@@ -168,22 +201,60 @@ impl Annotation {
 }
 
 /// What a floating [`ContextMenu`] was opened on.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum ContextMenuTarget {
     /// The just-drawn, not-yet-confirmed box in `pending_box`.
     NewBox,
-    /// An already-saved annotation, by index into that page's `Vec` in
-    /// `annotations`.
+    /// An already-saved, not-yet-persisted **in-memory** annotation box, by
+    /// index into that page's `Vec` in `annotations` — see the module doc's
+    /// "in-memory only" note. Offers only Edit/Delete, since it has no
+    /// citekey/artifact id yet to hang a relation off of.
     Existing(usize),
+    /// A **saved** artifact already in the paper's Markdown (any kind, per
+    /// op-30um.5's overlay — Annotation/Note, DigitisedGraph, DigitisedTable,
+    /// Formula, SourceReference), by its stable
+    /// [`crate::artifact::ArtifactMeta::id`]. Offers the full op-30um.3 menu:
+    /// Edit / Add connection / Edit connections / Delete connection /
+    /// Delete annotation.
+    SavedArtifact(String),
 }
 
 /// A floating right-click menu (op-x9qn), positioned at the click's screen
-/// coordinates. `Copy` so it can be read out of `self` by value without a
-/// borrow fight against the `&mut self` methods its buttons call.
-#[derive(Debug, Clone, Copy)]
+/// coordinates. `Clone`, not `Copy` — [`ContextMenuTarget::SavedArtifact`]
+/// owns a `String`, so a read-out-of-`self` call site now clones instead of
+/// copying (same "read it out without fighting the `&mut self` methods its
+/// buttons call" reasoning [`ContextMenuTarget`] used to rely on `Copy` for).
+#[derive(Debug, Clone)]
 struct ContextMenu {
     screen_pos: Pos2,
     target: ContextMenuTarget,
+}
+
+/// Which connection-related sub-popup one of op-30um.3's new menu items
+/// opens, and which node it operates on. A thin shell over
+/// [`crate::relation`]'s CRUD: this only renders results and forwards a
+/// click to the matching function — no relation lookup or graph walk
+/// happens anywhere else in this file.
+#[derive(Debug, Clone)]
+enum ConnectionPopup {
+    /// "Add connection..." — a fuzzy target picker (backed by
+    /// [`library_candidates`]) plus a cyclable [`RelationKind`].
+    Add {
+        source: String,
+        query: String,
+        kind: RelationKind,
+    },
+    /// "Edit connections..." / "Delete connection..." — both open the same
+    /// view of every [`relation::UserRelation`] touching `node`
+    /// ([`relation::connections`]), each row offering a kind-cycle button
+    /// and a Delete button; the two menu entries are two doors into one
+    /// management view rather than two separate dialogs.
+    Manage { node: String },
+    /// "Delete annotation..." confirm — the maintainer's own wording,
+    /// verbatim: "Sure anot? [No] [Yes]". `Yes` calls
+    /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
+    /// nothing at all (the dialog is closed, `self` otherwise untouched).
+    ConfirmDelete { citekey: String, artifact_id: String },
 }
 
 /// In-progress "Annotate" text editor, opened from the context menu's
@@ -253,6 +324,94 @@ pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<R
         y1: (min.y.max(max.y) / h) as f64,
     };
     r.is_valid().then_some(r)
+}
+
+/// The screen-space rectangle [`Region`] (§15, normalised page fractions)
+/// reconstructs to on the continuous multi-page canvas, given which 0-based
+/// `page` it is anchored to, that page's logical pixel size at the render
+/// DPI, and the canvas's own placement parameters — the canvas-space
+/// `origin`, display `zoom`, and inter-page `gap`, the same three
+/// [`super::page_canvas::PageView::project`] already threads through. The
+/// arithmetic mirrors `project` exactly (`page_top = page * (page_px.y *
+/// zoom + gap)`, then `origin + point * zoom`), so a call here and a call
+/// through the live `PageView` land on the same pixel — but this function
+/// needs no `PageView` (and so no `egui` texture/GPU state), which is what
+/// makes it unit-testable headlessly (op-30um.5).
+///
+/// Returns `None` — "do not draw" — when `region` fails [`Region::is_valid`]
+/// or `page_px`/`zoom` is degenerate. An artifact with a bad or unmeasured
+/// region must not draw nonsense rather than fail loudly here; the parse
+/// side (`crate::artifact::SourceAnchor::validate`) is where a bad region is
+/// actually reported.
+pub(super) fn region_to_screen_rect(
+    region: Region,
+    page: usize,
+    page_px: egui::Vec2,
+    origin: Pos2,
+    zoom: f32,
+    gap: f32,
+) -> Option<Rect> {
+    if !region.is_valid() || page_px.x <= 0.0 || page_px.y <= 0.0 || zoom <= 0.0 {
+        return None;
+    }
+    let page_top = page as f32 * (page_px.y * zoom + gap);
+    let to_screen = |x_frac: f64, y_frac: f64| -> Pos2 {
+        origin
+            + egui::vec2(
+                x_frac as f32 * page_px.x * zoom,
+                page_top + y_frac as f32 * page_px.y * zoom,
+            )
+    };
+    Some(Rect::from_min_max(
+        to_screen(region.x0, region.y0),
+        to_screen(region.x1, region.y1),
+    ))
+}
+
+/// Every source-anchored artifact that should draw a rectangle on 0-based
+/// `page` of the continuous canvas, each paired with its reconstructed
+/// screen rect ([`region_to_screen_rect`]) — the pure core of
+/// [`PdfReaderState::ui`]'s "saved artifact region boxes" render pass
+/// (op-30um.5).
+///
+/// The production rule this exists for: **every** artifact with a valid
+/// page plus a normalised source region draws, not only `Annotation`s — see
+/// the module doc. Skips (never returned for this `page`): an artifact
+/// anchored to a different page, one with no `[source]` at all, one with a
+/// `pages`-range-only anchor (no `region` — §15 forbids combining the two,
+/// so a range artifact is correctly excluded here regardless of how many
+/// pages it spans), and one whose region is degenerate or out of range.
+pub(super) fn artifact_overlays_for_page<'a>(
+    artifacts: &'a [Artifact],
+    page: usize,
+    page_px: egui::Vec2,
+    origin: Pos2,
+    zoom: f32,
+    gap: f32,
+) -> Vec<(&'a Artifact, Rect)> {
+    artifacts
+        .iter()
+        .filter_map(|artifact| {
+            if PdfReaderState::artifact_page(artifact) != Some(page) {
+                return None;
+            }
+            let region = artifact.toml.source.as_ref()?.region?;
+            let rect = region_to_screen_rect(region, page, page_px, origin, zoom, gap)?;
+            Some((artifact, rect))
+        })
+        .collect()
+}
+
+/// The "other" endpoint of `rel` as seen from `node`, plus which arrow to
+/// draw — pulled out of [`PdfReaderState::connection_popup_ui`]'s "Manage"
+/// list rendering so the source/target direction logic is unit-testable
+/// without an `egui::Ui` (op-30um.3).
+pub(super) fn relation_other_end<'a>(rel: &'a relation::UserRelation, node: &str) -> (&'static str, &'a str) {
+    if rel.source == node {
+        ("→", &rel.target)
+    } else {
+        ("←", &rel.source)
+    }
 }
 
 /// An in-progress "Digitise graph" crop (`op-8ci2`) waiting on the figure
@@ -366,6 +525,13 @@ pub struct PdfReaderState {
     /// (replaces it).
     pending_box: Option<(Pos2, Pos2)>,
     context_menu: Option<ContextMenu>,
+    /// The connection sub-popup opened from a saved artifact's right-click
+    /// menu (op-30um.3), if any — see [`ConnectionPopup`].
+    connection_popup: Option<ConnectionPopup>,
+    /// Status text for the last connection CRUD action (op-30um.3), shown
+    /// in [`Self::connection_popup_ui`] — e.g. an error from
+    /// `add_connection`/`edit_connection`/`delete_connection` failing.
+    connection_message: String,
     annotate_editor: Option<AnnotateEditor>,
     /// See [`PendingFigurePrompt`] (`op-8ci2`).
     pending_figure_prompt: Option<PendingFigurePrompt>,
@@ -2196,6 +2362,26 @@ impl PdfReaderState {
                             screen_pos,
                             target: ContextMenuTarget::Existing(i),
                         });
+                    } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
+                        artifact_overlays_for_page(
+                            arts,
+                            page,
+                            self.pages.page_size_px(),
+                            origin,
+                            zoom,
+                            GAP,
+                        )
+                        .into_iter()
+                        .find(|(_, r)| r.contains(screen_pos))
+                        .map(|(art, _)| art.id().to_string())
+                    }) {
+                        // op-30um.3: a saved artifact's own region box —
+                        // the full Edit/Add-connection/Edit-connections/
+                        // Delete-connection/Delete-annotation menu.
+                        self.context_menu = Some(ContextMenu {
+                            screen_pos,
+                            target: ContextMenuTarget::SavedArtifact(id),
+                        });
                     }
                 }
             }
@@ -2258,60 +2444,40 @@ impl PdfReaderState {
                 }
             }
 
-            // Saved-artifact region boxes — amber (annotation) / blue
-            // (digitised) — on every visible page. Hover highlights the
-            // panel card; a single click opens the artifact for editing.
+            // Saved-artifact region boxes — every source-anchored artifact
+            // with a valid page + normalised region draws (op-30um.5:
+            // generalised from annotation-only), coloured by
+            // `theme::artifact_accent` per its `ArtifactKind`. Hover
+            // highlights the panel card; a single click opens the artifact
+            // for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
-                for art in artifacts {
-                    let Some(pg) = Self::artifact_page(art) else {
-                        continue;
-                    };
-                    if !want.contains(&pg) {
-                        continue;
-                    }
-                    let Some(region) = art.toml.source.as_ref().and_then(|s| s.region) else {
-                        continue;
-                    };
-                    let min = Pos2::new(region.x0 as f32 * page_px.x, region.y0 as f32 * page_px.y);
-                    let max = Pos2::new(region.x1 as f32 * page_px.x, region.y1 as f32 * page_px.y);
-                    let r = box_rect(pg, min, max);
-                    let hit = hover_screen.is_some_and(|s| r.contains(s));
-                    if hit {
-                        hover_id = Some(art.toml.kovan.created.clone());
-                        if opened {
-                            open_target = Some(art.id().to_string());
+                let gui_theme = super::theme::GuiTheme::current(ui.visuals());
+                for p in want.clone() {
+                    for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                    {
+                        let hit = hover_screen.is_some_and(|s| r.contains(s));
+                        if hit {
+                            hover_id = Some(art.toml.kovan.created.clone());
+                            if opened {
+                                open_target = Some(art.id().to_string());
+                            }
                         }
+                        let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
+                        let accent = super::theme::artifact_accent(art.kind(), gui_theme);
+                        let fill = Color32::from_rgba_unmultiplied(
+                            accent.r(),
+                            accent.g(),
+                            accent.b(),
+                            if linked { 90 } else { 40 },
+                        );
+                        painter.rect_filled(r, 0.0, fill);
+                        painter.rect_stroke(
+                            r,
+                            0.0,
+                            Stroke::new(if linked { 2.5 } else { 1.0 }, accent),
+                            egui::StrokeKind::Middle,
+                        );
                     }
-                    let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
-                    let is_annot = matches!(art.kind(), ArtifactKind::Annotation);
-                    let (fill, stroke) = if is_annot {
-                        (
-                            Color32::from_rgba_unmultiplied(
-                                255,
-                                230,
-                                60,
-                                if linked { 90 } else { 40 },
-                            ),
-                            Color32::from_rgb(230, 170, 20),
-                        )
-                    } else {
-                        (
-                            Color32::from_rgba_unmultiplied(
-                                120,
-                                170,
-                                255,
-                                if linked { 90 } else { 40 },
-                            ),
-                            Color32::from_rgb(90, 140, 235),
-                        )
-                    };
-                    painter.rect_filled(r, 0.0, fill);
-                    painter.rect_stroke(
-                        r,
-                        0.0,
-                        Stroke::new(if linked { 2.5 } else { 1.0 }, stroke),
-                        egui::StrokeKind::Middle,
-                    );
                 }
             }
             self.hover_created_at = hover_id;
@@ -2389,9 +2555,16 @@ impl PdfReaderState {
             }
         }
 
-        if let Some(result) = self.context_menu_ui(ui.ctx()) {
+        let root_index = completion.map(|c| (c.root, c.index));
+        if let Some(result) = self.context_menu_ui(
+            ui.ctx(),
+            active_citekey.as_deref(),
+            active_artifacts.as_deref(),
+            root_index,
+        ) {
             crop_result = Some(result);
         }
+        self.connection_popup_ui(ui.ctx(), root_index);
 
         crop_result
     }
@@ -2399,8 +2572,22 @@ impl PdfReaderState {
     /// Draw the floating right-click menu (op-x9qn), if one is open.
     /// Returns `Some` the frame a Digitise-graph/Read-table crop is
     /// confirmed.
-    fn context_menu_ui(&mut self, ctx: &egui::Context) -> Option<CropResult> {
-        let menu = self.context_menu?;
+    ///
+    /// `citekey` is the active paper's citekey (needed to build/resolve an
+    /// `artifact:<citekey>#<id>` node for a [`ContextMenuTarget::SavedArtifact`]);
+    /// `root_index` is `Some` only once a Kovan root and its
+    /// [`KnowledgeIndex`] are both available (op-30um.3's connection actions
+    /// are simply unavailable — shown as disabled, never a panic — without
+    /// them, exactly like the citation/wiki completion popup this same
+    /// `(root, index)` pair already feeds).
+    fn context_menu_ui(
+        &mut self,
+        ctx: &egui::Context,
+        citekey: Option<&str>,
+        active_artifacts: Option<&[Artifact]>,
+        root_index: Option<(&KovanRoot, &KnowledgeIndex)>,
+    ) -> Option<CropResult> {
+        let menu = self.context_menu.clone()?;
         let mut close = false;
         let mut result = None;
         egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
@@ -2409,7 +2596,7 @@ impl PdfReaderState {
             .show(ctx, |ui| {
                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                     ui.set_min_width(140.0);
-                    match menu.target {
+                    match &menu.target {
                         ContextMenuTarget::NewBox => {
                             if ui.button("Annotate").clicked() {
                                 if let Some((min, max)) = self.pending_box {
@@ -2453,6 +2640,7 @@ impl PdfReaderState {
                             }
                         }
                         ContextMenuTarget::Existing(i) => {
+                            let i = *i;
                             if ui.button("Edit").clicked() {
                                 if let Some(a) = self
                                     .annotations
@@ -2477,6 +2665,71 @@ impl PdfReaderState {
                                 close = true;
                             }
                         }
+                        // op-30um.3: the full menu on a saved artifact's own
+                        // region box. Every button here is a thin shell — it
+                        // either reuses an existing operation
+                        // ([`Self::open_artifact`]) or opens a
+                        // [`ConnectionPopup`]/confirm dialog that itself
+                        // calls straight into `crate::relation`/
+                        // `crate::classify::delete_artifact_cascade`; no
+                        // relation lookup or graph walk happens in this
+                        // match arm.
+                        ContextMenuTarget::SavedArtifact(id) => {
+                            let id = id.clone();
+                            let node = citekey.map(|ck| artifact_node(ck, &id));
+                            if ui.button("Edit annotation").clicked() {
+                                if let Some(art) = active_artifacts
+                                    .and_then(|arts| arts.iter().find(|a| a.id() == id).cloned())
+                                {
+                                    if let Some(r) = self.open_artifact(&art) {
+                                        result = Some(r);
+                                    }
+                                }
+                                close = true;
+                            }
+                            let have_library = root_index.is_some() && node.is_some();
+                            if ui
+                                .add_enabled(have_library, egui::Button::new("Add connection…"))
+                                .clicked()
+                            {
+                                if let Some(source) = node.clone() {
+                                    self.connection_popup = Some(ConnectionPopup::Add {
+                                        source,
+                                        query: String::new(),
+                                        kind: RelationKind::RelatedTo,
+                                    });
+                                }
+                                close = true;
+                            }
+                            if ui
+                                .add_enabled(have_library, egui::Button::new("Edit connections…"))
+                                .clicked()
+                            {
+                                if let Some(node) = node.clone() {
+                                    self.connection_popup = Some(ConnectionPopup::Manage { node });
+                                }
+                                close = true;
+                            }
+                            if ui
+                                .add_enabled(have_library, egui::Button::new("Delete connection…"))
+                                .clicked()
+                            {
+                                if let Some(node) = node.clone() {
+                                    self.connection_popup = Some(ConnectionPopup::Manage { node });
+                                }
+                                close = true;
+                            }
+                            ui.separator();
+                            if ui.button("Delete annotation…").clicked() {
+                                if let Some(ck) = citekey {
+                                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
+                                        citekey: ck.to_string(),
+                                        artifact_id: id.clone(),
+                                    });
+                                }
+                                close = true;
+                            }
+                        }
                     }
                     ui.separator();
                     if ui.button("Cancel").clicked() {
@@ -2491,6 +2744,174 @@ impl PdfReaderState {
             self.context_menu = None;
         }
         result
+    }
+
+    /// Draw the op-30um.3 connection sub-popup ([`ConnectionPopup`]), if one
+    /// is open — a separate floating window from [`Self::context_menu_ui`]
+    /// so a fuzzy-candidate list or a connections list has room, rather than
+    /// being squeezed into the small right-click menu itself.
+    ///
+    /// Every button here calls straight into one of
+    /// [`relation::add_connection`]/[`relation::connections`]/
+    /// [`relation::edit_connection`]/[`relation::delete_connection`]/
+    /// [`classify::delete_artifact_cascade`] and renders whatever it
+    /// returns — this function never itself decides what edges exist, per
+    /// op-30um.3's "no graph-walking in the UI layer" requirement.
+    fn connection_popup_ui(&mut self, ctx: &egui::Context, root_index: Option<(&KovanRoot, &KnowledgeIndex)>) {
+        let Some(popup) = self.connection_popup.clone() else {
+            return;
+        };
+        let mut close = false;
+
+        match popup {
+            ConnectionPopup::Add {
+                source,
+                mut query,
+                mut kind,
+            } => {
+                egui::Window::new("Add connection…")
+                    .collapsible(false)
+                    .resizable(true)
+                    .show(ctx, |ui| {
+                        let Some((root, index)) = root_index else {
+                            ui.label("no library open");
+                            if ui.button("Close").clicked() {
+                                close = true;
+                            }
+                            return;
+                        };
+                        ui.horizontal(|ui| {
+                            ui.label("connect");
+                            ui.monospace(&source);
+                            ui.label("as:");
+                            if ui.button(kind.label()).clicked() {
+                                kind = kind.next();
+                            }
+                        });
+                        ui.add(
+                            egui::TextEdit::singleline(&mut query)
+                                .hint_text("search papers, artifacts, topics, projects…"),
+                        );
+                        ui.separator();
+                        let candidates: Vec<LibraryCandidate> =
+                            library_candidates(root, index, &query, &[]);
+                        egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                            if candidates.is_empty() {
+                                ui.label("no matches");
+                            }
+                            for c in &candidates {
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("{} — {}", c.candidate.label, c.candidate.detail));
+                                    if ui.button("Add").clicked() {
+                                        self.connection_message =
+                                            match relation::add_connection(root, &source, &c.node, kind) {
+                                                Ok(_) => {
+                                                    format!("connected: {source} {} {}", kind.label(), c.node)
+                                                }
+                                                Err(e) => format!("could not add connection: {e}"),
+                                            };
+                                        close = true;
+                                    }
+                                });
+                            }
+                        });
+                        if !self.connection_message.is_empty() {
+                            ui.separator();
+                            ui.label(&self.connection_message);
+                        }
+                        ui.separator();
+                        if ui.button("Close").clicked() {
+                            close = true;
+                        }
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::Add { source, query, kind });
+                }
+            }
+            ConnectionPopup::Manage { node } => {
+                egui::Window::new("Connections")
+                    .collapsible(false)
+                    .resizable(true)
+                    .show(ctx, |ui| {
+                        let Some((root, index)) = root_index else {
+                            ui.label("no library open");
+                            if ui.button("Close").clicked() {
+                                close = true;
+                            }
+                            return;
+                        };
+                        let conns = relation::connections(root, index, &node);
+                        if conns.is_empty() {
+                            ui.label("no connections");
+                        }
+                        for rel in &conns {
+                            ui.horizontal(|ui| {
+                                let (arrow, other) = relation_other_end(rel, &node);
+                                ui.label(format!("{arrow} {other}"));
+                                if ui
+                                    .button(rel.kind.label())
+                                    .on_hover_text("click to cycle the relation kind")
+                                    .clicked()
+                                {
+                                    if let Err(e) =
+                                        relation::edit_connection(root, index, &rel.id, None, Some(rel.kind.next()))
+                                    {
+                                        self.connection_message = format!("could not edit connection: {e}");
+                                    }
+                                }
+                                if ui.button("Delete").clicked() {
+                                    if let Err(e) = relation::delete_connection(root, index, &rel.id) {
+                                        self.connection_message = format!("could not delete connection: {e}");
+                                    }
+                                }
+                            });
+                        }
+                        if !self.connection_message.is_empty() {
+                            ui.separator();
+                            ui.label(&self.connection_message);
+                        }
+                        ui.separator();
+                        if ui.button("Close").clicked() {
+                            close = true;
+                        }
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::Manage { node });
+                }
+            }
+            ConnectionPopup::ConfirmDelete { citekey, artifact_id } => {
+                egui::Window::new("Delete annotation")
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(format!("Delete {artifact_id:?}?"));
+                        ui.label("Sure anot?");
+                        ui.horizontal(|ui| {
+                            if ui.button("No").clicked() {
+                                close = true;
+                            }
+                            if ui.button("Yes").clicked() {
+                                if let Some((root, index)) = root_index {
+                                    self.connection_message =
+                                        match classify::delete_artifact_cascade(root, index, &citekey, &artifact_id)
+                                        {
+                                            Ok(n) => format!("deleted annotation and {n} connection(s)"),
+                                            Err(e) => format!("could not delete: {e}"),
+                                        };
+                                }
+                                close = true;
+                            }
+                        });
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete { citekey, artifact_id });
+                }
+            }
+        }
+
+        if close {
+            self.connection_popup = None;
+        }
     }
 
     /// The last text selection (op-z9u0), if any — a read-only preview with
@@ -2957,5 +3378,310 @@ a note
             ..p
         };
         assert!(no_size.region().is_none());
+    }
+
+    // -------------------------------------------------------------------
+    // Region -> screen-rect reconstruction (op-30um.5, GH issue #35
+    // "layer 2" — every source-anchored artifact draws, not only
+    // annotations). Pure-function tests: no `egui::Ui`, no `PageView`, no
+    // window.
+    // -------------------------------------------------------------------
+
+    /// Builds an [`Artifact`] directly (bypassing [`crate::artifact::
+    /// parse_document`]'s own anchor validation) so a test can exercise
+    /// `artifact_overlays_for_page`'s own defensive checks against an
+    /// anchor shape the parser would otherwise reject upfront.
+    fn make_artifact(id: &str, kind: ArtifactKind, source: Option<SourceAnchor>) -> Artifact {
+        Artifact {
+            heading: id.to_string(),
+            level: 2,
+            line: 1,
+            toml: crate::artifact::ArtifactToml {
+                kovan: crate::artifact::ArtifactMeta {
+                    id: id.to_string(),
+                    kind,
+                    created: "c".to_string(),
+                    modified: "m".to_string(),
+                    reviewed: None,
+                },
+                source,
+                classification: Classification::default(),
+                extraction: None,
+                relation: Vec::new(),
+            },
+            body: String::new(),
+        }
+    }
+
+    #[test]
+    fn region_to_screen_rect_round_trips_through_normalise_region() {
+        // Pixel rect -> `normalise_region` -> `Region` -> back through
+        // `region_to_screen_rect` at zoom 1.0 / origin (0,0) / page 0 must
+        // reproduce the original pixel rect.
+        let page_px = egui::vec2(200.0, 400.0);
+        let min = Pos2::new(50.0, 100.0);
+        let max = Pos2::new(150.0, 300.0);
+        let region = normalise_region(min, max, page_px.x, page_px.y).unwrap();
+        let rect = region_to_screen_rect(region, 0, page_px, Pos2::ZERO, 1.0, 16.0).unwrap();
+        assert!((rect.min.x - min.x).abs() < 1e-3, "{rect:?}");
+        assert!((rect.min.y - min.y).abs() < 1e-3, "{rect:?}");
+        assert!((rect.max.x - max.x).abs() < 1e-3, "{rect:?}");
+        assert!((rect.max.y - max.y).abs() < 1e-3, "{rect:?}");
+    }
+
+    #[test]
+    fn region_to_screen_rect_stacks_a_later_page_below_the_first() {
+        // The same full-page region on page 2 (0-based) must land
+        // `page_top` further down the continuous canvas — the exact
+        // stacking `PageView::project` does, reproduced with no `PageView`.
+        let page_px = egui::vec2(200.0, 400.0);
+        let region = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        let (zoom, gap) = (1.0_f32, 16.0_f32);
+        let rect0 = region_to_screen_rect(region, 0, page_px, Pos2::ZERO, zoom, gap).unwrap();
+        let rect2 = region_to_screen_rect(region, 2, page_px, Pos2::ZERO, zoom, gap).unwrap();
+        assert_eq!(rect0.min.y, 0.0);
+        let expected_top = 2.0 * (page_px.y * zoom + gap);
+        assert!((rect2.min.y - expected_top).abs() < 1e-3, "{rect2:?}");
+    }
+
+    #[test]
+    fn region_to_screen_rect_rejects_a_degenerate_region() {
+        let zero_width = Region {
+            x0: 0.5,
+            y0: 0.2,
+            x1: 0.5,
+            y1: 0.9,
+        };
+        assert!(!zero_width.is_valid());
+        assert!(region_to_screen_rect(
+            zero_width,
+            0,
+            egui::vec2(200.0, 400.0),
+            Pos2::ZERO,
+            1.0,
+            16.0
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn region_to_screen_rect_rejects_a_degenerate_page_size() {
+        let region = Region {
+            x0: 0.1,
+            y0: 0.1,
+            x1: 0.9,
+            y1: 0.9,
+        };
+        assert!(region_to_screen_rect(
+            region,
+            0,
+            egui::vec2(0.0, 400.0),
+            Pos2::ZERO,
+            1.0,
+            16.0
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_reconstructs_an_annotation_and_a_digitised_graph() {
+        // Mirrors the layer-2 prototype's own acceptance check
+        // (`prototype_artifact_overlays.py`'s "PASS: overlay reconstruction
+        // is artifact-generic, not annotation-only"): both an existing
+        // Annotation and a DigitisedGraph+CSV artifact must reconstruct as
+        // PDF rectangles, from real parsed Markdown+TOML data.
+        let md = r#"
+## Graphite temperature assumption
+
+```toml
+[kovan]
+id = "graphite-temperature-assumption"
+kind = "annotation"
+created = "2026-08-31T15:04:32+08:00"
+modified = "2026-08-31T15:04:32+08:00"
+
+[source]
+page = 3
+region = [0.214, 0.341, 0.721, 0.508]
+```
+
+Graphite temperature here appears to represent nominal operating conditions.
+
+## Fig. 12 — power vs time
+
+```toml
+[kovan]
+id = "fig-12-power-vs-time"
+kind = "digitised_graph"
+created = "2026-08-31T15:10:00+08:00"
+modified = "2026-08-31T15:10:00+08:00"
+
+[source]
+page = 3
+region = [0.1, 0.1, 0.9, 0.6]
+
+[extraction]
+method = "manual_digitisation"
+```
+
+```csv
+t_s,power_mw
+0,10
+1,12
+```
+"#;
+        let doc = crate::artifact::parse_document(md);
+        assert!(doc.problems.is_empty(), "{:?}", doc.problems);
+        assert_eq!(doc.artifacts.len(), 2);
+
+        let page_px = egui::vec2(600.0, 800.0);
+        let (zoom, gap) = (1.0_f32, 16.0_f32);
+        // page 3 in the artifact (1-based) is index 2 (0-based).
+        let overlays = artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
+        assert_eq!(
+            overlays.len(),
+            2,
+            "{:?}",
+            overlays.iter().map(|(a, _)| a.id()).collect::<Vec<_>>()
+        );
+
+        let annot = overlays
+            .iter()
+            .find(|(a, _)| a.kind() == ArtifactKind::Annotation)
+            .expect("annotation overlay");
+        let graph = overlays
+            .iter()
+            .find(|(a, _)| a.kind() == ArtifactKind::DigitisedGraph)
+            .expect("digitised-graph overlay");
+        assert!(
+            graph.0.csv_block().is_some(),
+            "the graph artifact carries its CSV payload — the CSV is not a separate node"
+        );
+
+        let page_top = 2.0 * (page_px.y * zoom + gap);
+        let expected_annot_y0 = page_top + 0.341_f32 * page_px.y;
+        let expected_graph_y0 = page_top + 0.1_f32 * page_px.y;
+        assert!(
+            (annot.1.min.y - expected_annot_y0).abs() < 1.0,
+            "{:?} vs {expected_annot_y0}",
+            annot.1
+        );
+        assert!(
+            (graph.1.min.y - expected_graph_y0).abs() < 1.0,
+            "{:?} vs {expected_graph_y0}",
+            graph.1
+        );
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_excludes_artifacts_anchored_to_a_different_page() {
+        let md = "## Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 5\nregion = [0.1, 0.1, 0.9, 0.9]\n```\n";
+        let doc = crate::artifact::parse_document(md);
+        assert_eq!(doc.artifacts.len(), 1, "{:?}", doc.problems);
+
+        let page_px = egui::vec2(600.0, 800.0);
+        // Anchored to page 5 (1-based) == index 4 (0-based). A different
+        // page currently in view must not draw it.
+        let elsewhere =
+            artifact_overlays_for_page(&doc.artifacts, 0, page_px, Pos2::ZERO, 1.0, 16.0);
+        assert!(elsewhere.is_empty());
+        let here = artifact_overlays_for_page(&doc.artifacts, 4, page_px, Pos2::ZERO, 1.0, 16.0);
+        assert_eq!(here.len(), 1);
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_skips_a_degenerate_region_without_panicking() {
+        // `parse_document` itself rejects an invalid region as a
+        // `BadAnchor` problem before it ever becomes an `Artifact` (see
+        // `crate::artifact`'s own tests) — this exercises
+        // `artifact_overlays_for_page`'s own defensive check directly.
+        let bad = make_artifact(
+            "bad-region",
+            ArtifactKind::Note,
+            Some(SourceAnchor {
+                page: Some(3),
+                pages: None,
+                region: Some(Region {
+                    x0: 0.5,
+                    y0: 0.2,
+                    x1: 0.5,
+                    y1: 0.9,
+                }),
+            }),
+        );
+        let overlays = artifact_overlays_for_page(
+            std::slice::from_ref(&bad),
+            2,
+            egui::vec2(600.0, 800.0),
+            Pos2::ZERO,
+            1.0,
+            16.0,
+        );
+        assert!(overlays.is_empty());
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_never_boxes_a_pages_range_anchor() {
+        // §15: a `pages = [start, end]` anchor cannot also carry a
+        // `region` — so a range-anchored artifact is never boxable,
+        // regardless of how many pages it spans or which of those pages
+        // is currently in view.
+        let ranged = make_artifact(
+            "spans-42-to-48",
+            ArtifactKind::SourceReference,
+            Some(SourceAnchor {
+                page: None,
+                pages: Some([42, 48]),
+                region: None,
+            }),
+        );
+        let page_px = egui::vec2(600.0, 800.0);
+        // 0-based index of its own first page (42 - 1 = 41) — even asking
+        // for exactly that page yields nothing, since there is no region.
+        let overlays = artifact_overlays_for_page(
+            std::slice::from_ref(&ranged),
+            41,
+            page_px,
+            Pos2::ZERO,
+            1.0,
+            16.0,
+        );
+        assert!(overlays.is_empty());
+    }
+
+    // -------------------------------------------------------------------
+    // relation_other_end (op-30um.3 — the "Edit connections…"/"Delete
+    // connection…" list's direction logic).
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn relation_other_end_points_forward_when_node_is_the_source() {
+        let rel = crate::relation::UserRelation {
+            id: "r1".to_string(),
+            source: "artifact:src#a".to_string(),
+            target: "artifact:dst#b".to_string(),
+            kind: crate::relation::RelationKind::Supports,
+        };
+        let (arrow, other) = relation_other_end(&rel, "artifact:src#a");
+        assert_eq!(arrow, "→");
+        assert_eq!(other, "artifact:dst#b");
+    }
+
+    #[test]
+    fn relation_other_end_points_backward_when_node_is_the_target() {
+        let rel = crate::relation::UserRelation {
+            id: "r1".to_string(),
+            source: "artifact:src#a".to_string(),
+            target: "artifact:dst#b".to_string(),
+            kind: crate::relation::RelationKind::Supports,
+        };
+        let (arrow, other) = relation_other_end(&rel, "artifact:dst#b");
+        assert_eq!(arrow, "←");
+        assert_eq!(other, "artifact:src#a");
     }
 }

@@ -313,6 +313,16 @@ pub struct ArtifactToml {
     /// Extraction provenance (§19, §20). Digitised kinds only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extraction: Option<Extraction>,
+    /// User-authored relations to other nodes, **sourced from this
+    /// artifact** (op-30um.1) — one `[[relation]]` table per
+    /// [`crate::relation::UserRelation`], with the `source` half of that
+    /// triple implicit (it is always the artifact this TOML belongs to).
+    /// Omitted from the written TOML when empty, so an artifact with no
+    /// hand-drawn connections stays exactly as terse as it was before this
+    /// field existed. See `crate::relation`'s module docs for why this is
+    /// the relation's on-disk home rather than a separate store.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation: Vec<crate::relation::RelationRecord>,
 }
 
 /// One artifact, as found in a Markdown document.
@@ -1100,6 +1110,7 @@ modified = "m"
                 projects: vec![],
             },
             extraction: None,
+            relation: Vec::new(),
         };
         let rendered =
             render_artifact_block(2, "Coupled neutronics methodology", &payload, "").unwrap();
@@ -1126,6 +1137,7 @@ modified = "m"
             source: None,
             classification: Classification::default(),
             extraction: None,
+            relation: Vec::new(),
         };
         let rendered =
             render_artifact_block(3, "A note", &payload, "Some prose about it.").unwrap();
