@@ -43,7 +43,7 @@ use crate::project;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
-use csv_preview::draw_csv_preview;
+use csv_preview::{draw_csv_preview, CopyButton};
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
@@ -2189,7 +2189,7 @@ impl eframe::App for DigitiseApp {
                     .min_size(260.0)
                     .show(ui, |ui| {
                         if let Some(d) = &self.dataset {
-                            draw_csv_preview(ui, &d.to_csv_string());
+                            draw_csv_preview(ui, &d.to_csv_string(), CopyButton::Shown, "graph_digitiser_csv");
                         } else {
                             ui.centered_and_justified(|ui| {
                                 ui.label("no dataset yet — run the auto pass or Start empty");

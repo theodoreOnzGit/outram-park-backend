@@ -19,22 +19,42 @@
 
 use eframe::egui;
 
-/// Draw a "CSV preview" heading with a copy button, then `csv_text` in a
-/// scrollable, monospace, read-only text box below.
+/// Whether a CSV preview carries its "Copy CSV" button.
+///
+/// Shown in the digitiser tabs, where the CSV is the thing being produced
+/// and copying it out is the point. Hidden on the PDF reader's page-context
+/// cards, where the preview is there to identify an artifact at a glance
+/// and the button is clutter (maintainer, GH issue #35, 2026-09-08) — the
+/// body is still drag-selectable there, so nothing is actually lost.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CopyButton {
+    /// Draw the button beside the heading.
+    Shown,
+    /// Heading only.
+    Hidden,
+}
+
+/// Draw a "CSV preview" heading, optionally with a copy button, then
+/// `csv_text` in a scrollable, monospace, read-only text box below.
+///
+/// `id_salt` must be unique among the previews drawn in one frame —
+/// several digitised artifacts can be anchored to the same page, and egui
+/// would otherwise give their scroll areas the same id and make them share
+/// one scroll position.
 ///
 /// The box is read-only in practice, not enforced — see the cited
 /// `draw_csv_panel`'s doc comment for why a `TextEdit` over a throwaway
 /// per-frame copy is used instead of a plain `Label` (native drag-select
 /// works over the whole body as one contiguous selection that way).
-pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str) {
+pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str, copy: CopyButton, id_salt: &str) {
     ui.horizontal(|ui| {
         ui.heading("CSV preview");
-        if ui.button("\u{1F4CB} Copy CSV").clicked() {
+        if copy == CopyButton::Shown && ui.button("\u{1F4CB} Copy CSV").clicked() {
             ui.ctx().copy_text(csv_text.to_string());
         }
     });
     egui::ScrollArea::both()
-        .id_salt("digitiser_csv_preview")
+        .id_salt(id_salt)
         .show(ui, |ui| {
             let mut scratch = csv_text.to_string();
             ui.add(

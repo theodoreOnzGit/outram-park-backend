@@ -17,7 +17,7 @@ use crate::digitiser::table_ocr::{self, RecognizedTable};
 use crate::project;
 use crate::session::PaperSession;
 
-use super::csv_preview::draw_csv_preview;
+use super::csv_preview::{draw_csv_preview, CopyButton};
 use super::pdf_reader::CropProvenance;
 
 /// State for the table digitiser tab.
@@ -474,7 +474,7 @@ impl TableDigitiserState {
 
         ui.separator();
         let csv_string = self.table.as_ref().unwrap().to_csv_string();
-        draw_csv_preview(ui, &csv_string);
+        draw_csv_preview(ui, &csv_string, CopyButton::Shown, "table_digitiser_csv");
         ui.label(&self.message);
         request
     }
