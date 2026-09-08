@@ -228,7 +228,7 @@ impl Annotation {
 }
 
 /// What a floating [`ContextMenu`] was opened on.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ContextMenuTarget {
     /// The just-drawn, not-yet-confirmed box in `pending_box`.
     NewBox,
@@ -1212,6 +1212,26 @@ impl PdfReaderState {
         }
     }
 
+    /// Open the floating context menu on `target`, or close it if it is
+    /// already open on that same target.
+    ///
+    /// A second right-click on the same thing dismisses the menu rather
+    /// than re-opening it in place (maintainer, GH issue #35, 2026-09-08:
+    /// "box should disappear after a second right click"). Right-clicking a
+    /// *different* target moves the menu there instead of closing it, which
+    /// is what makes the gesture usable for comparing two artifacts.
+    fn toggle_context_menu(&mut self, screen_pos: Pos2, target: ContextMenuTarget) {
+        let same = self
+            .context_menu
+            .as_ref()
+            .is_some_and(|m| m.target == target);
+        self.context_menu = if same {
+            None
+        } else {
+            Some(ContextMenu { screen_pos, target })
+        };
+    }
+
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
     /// region roughly fills the view.
     ///
@@ -1885,10 +1905,7 @@ impl PdfReaderState {
                             .response
                             .interact_pointer_pos()
                             .unwrap_or_else(|| inner.response.rect.center());
-                        self.context_menu = Some(ContextMenu {
-                            screen_pos,
-                            target: ContextMenuTarget::SavedArtifact(id.clone()),
-                        });
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id.clone()));
                     }
                     let opened = if open_on_single_click {
                         inner.response.clicked() || inner.response.double_clicked()
@@ -2612,20 +2629,14 @@ impl PdfReaderState {
                             && click.y >= min.y
                             && click.y <= max.y
                         {
-                            self.context_menu = Some(ContextMenu {
-                                screen_pos,
-                                target: ContextMenuTarget::NewBox,
-                            });
+                            self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
                         }
                     } else if let Some(i) = self
                         .annotations
                         .get(&page)
                         .and_then(|anns| anns.iter().position(|a| a.contains(click)))
                     {
-                        self.context_menu = Some(ContextMenu {
-                            screen_pos,
-                            target: ContextMenuTarget::Existing(i),
-                        });
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::Existing(i));
                     } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
                         artifact_overlays_for_page(
                             arts,
@@ -2642,10 +2653,7 @@ impl PdfReaderState {
                         // op-30um.3: a saved artifact's own region box —
                         // the full Edit/Add-connection/Edit-connections/
                         // Delete-connection/Delete-annotation menu.
-                        self.context_menu = Some(ContextMenu {
-                            screen_pos,
-                            target: ContextMenuTarget::SavedArtifact(id),
-                        });
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id));
                     }
                 }
             }
@@ -4083,6 +4091,44 @@ t_s,power_mw
             expected_seps.extend([true, false, false, true, false]);
             assert_eq!(separators, expected_seps, "{kind:?}");
         }
+    }
+
+    #[test]
+    fn a_second_right_click_on_the_same_artifact_closes_the_menu() {
+        // Maintainer, GH issue #35 (2026-09-08): "box should disappear
+        // after a second right click".
+        let mut state = PdfReaderState::default();
+        let at = Pos2::new(10.0, 20.0);
+        let a = ContextMenuTarget::SavedArtifact("fig-1".to_string());
+
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_some(), "first right-click opens it");
+
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_none(), "second right-click closes it");
+
+        // ...and a third opens it again, so the gesture is a true toggle.
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_some());
+    }
+
+    #[test]
+    fn right_clicking_a_different_artifact_moves_the_menu_rather_than_closing() {
+        let mut state = PdfReaderState::default();
+        state.toggle_context_menu(
+            Pos2::new(1.0, 1.0),
+            ContextMenuTarget::SavedArtifact("fig-1".to_string()),
+        );
+        state.toggle_context_menu(
+            Pos2::new(9.0, 9.0),
+            ContextMenuTarget::SavedArtifact("table-2".to_string()),
+        );
+        let menu = state.context_menu.as_ref().expect("menu moved, not closed");
+        assert_eq!(
+            menu.target,
+            ContextMenuTarget::SavedArtifact("table-2".to_string())
+        );
+        assert_eq!(menu.screen_pos, Pos2::new(9.0, 9.0));
     }
 
     /// The one entry that does vary by kind: its label, matching the
