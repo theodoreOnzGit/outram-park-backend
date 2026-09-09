@@ -61,8 +61,15 @@ pub use stage::*;
 pub mod velocity_triangle;
 pub use velocity_triangle::*;
 
+/// The same stage chain driven in time by the 1-D HEM KNP hybrid solver.
+pub mod transient;
+pub use transient::*;
+
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod transient_tests;
 
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;

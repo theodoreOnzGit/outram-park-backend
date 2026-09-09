@@ -483,7 +483,37 @@ are untouched.
   they are for the rest of this crate's HEM work. Stage pressures are not solved
   from a mass-flow match.
 
-Suite after this change: **996 passed, 0 failed, 14 ignored**
+## Transient variant — `mean_flow_stages::transient`
+
+The same stage chain driven in time by the crate's **1-D HEM KNP hybrid
+solver** (`TampinesSteamArray` in `SolverMode::HybridAllMach`), meshed **one
+cell per stage**. What the steady model is told, the solver now owns:
+
+- **Pressure is solved**, from the boundary conditions, rather than supplied
+  per stage.
+- **Axial velocity is solved**, so the velocity triangle is built on the
+  momentum equation's own answer instead of on an assumed nozzle enthalpy drop.
+  That is what makes the model transient rather than a design-point one.
+- **The work leaves through the energy equation.** Each stage's specific work
+  becomes a power from the local mass flux and is registered as a negative
+  per-cell power source, so the shaft work is an energy sink the solver sees.
+
+The KNP hybrid is selected by the constructor rather than inherited: turbine
+passages run near-sonic at the nozzle throats and the last stages expand into
+the dome, which is the regime the plain pressure-based path rings in. The mode
+is public, so the historical bit-identical `Pimple` path is still reachable.
+
+Because pressure is solved, there is no interstage station to read a degree of
+reaction off, so the rotor's share of the local drop is a per-stage input
+(`rotor_drop_fraction`). Zero reproduces the pure impulse stage, and that limit
+is asserted through the solver as well as in the steady model.
+
+**Still assumed:** shaft speed is fixed. Stages report the power they extracted
+but nothing yet feeds it into a torque balance, so coupling to
+`steam_turbine_equations::generator` is the obvious next step. The annulus is
+uniform, which is the mean-line assumption showing up in the mesh.
+
+Suite after this change: **1004 passed, 0 failed, 14 ignored**
 (`cargo test --release --lib`).
 
 v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
