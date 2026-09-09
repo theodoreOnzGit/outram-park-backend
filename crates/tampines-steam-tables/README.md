@@ -435,6 +435,57 @@ steam tables into `outram-foam-appbuilder-lib`-level solvers.
 
 # Changelog
 
+v0.2.9 — mean-flow stage-by-stage turbine model (patch, additive)
+
+Adds `steam_turbine_equations::mean_flow_stages`, which resolves a steam
+turbine into stages along the mean streamline with **one homogeneous-
+equilibrium control volume per stage** (bead `op-yi7m`, gh:#164). Purely
+additive: no existing signature changes, and the 982 pre-existing library tests
+are untouched.
+
+- **Every stage is both impulse and reaction**, solved in two parts in the order
+  they physically happen. The blade first turns the relative flow at constant
+  relative speed, and the tangential momentum removed is work by the Euler
+  equation on the velocity triangle. The rotor passage then acts as a nozzle,
+  because its exit pressure is below its inlet pressure, and the blade row
+  develops lift from that acceleration. `StageWorkSplit` reports the two
+  contributions separately, and both terms are public so a unit test can
+  exercise either mechanism on its own.
+- **The split does not double count.** The lift term is driven by the velocity
+  increment the rotor pressure drop produced, `dw = sqrt(w2^2 + 2 dh_rotor) -
+  w2`, not by the full relative velocity. A rotor with no pressure drop
+  therefore has no reaction part and reduces exactly to the classical impulse
+  stage — asserted, not assumed.
+- **Stage pressures are supplied, not derived** from an assumed degree of
+  reaction. Splitting an enthalpy drop by reaction would need an `(h,s)` flash,
+  whose gaps at the triple point and at 1000 bar are recorded in this crate's
+  `CLAUDE.md`. Supplying pressures keeps every stage on the validated `(p,s)`
+  and `(p,h)` paths; the degree of reaction is *reported* from the kinematics
+  instead of prescribed.
+- **Angle convention:** angles are measured from **axial**, not from
+  tangential. The classical optimum blade-speed ratio therefore reads
+  `U/c1 = sin(alpha1)/2` here rather than the textbook `cos(alpha1)/2`. Same
+  physics, and the test sweeps it numerically rather than asserting the formula.
+- **14 tests plus one `#[ignore]`d diagnostic**, following this crate's existing
+  diagnostic pattern. They anchor on closed-form turbomachinery results rather
+  than on the model's own output: symmetric-impulse work `2U(c_th1 - U)`, its
+  optimum blade-speed ratio, the vanishing reaction term at zero rotor drop,
+  energy conservation through the control-volume chain, and reheat appearing as
+  staged isentropic drops summing above the single-step drop.
+- **Worked machine.** Eight stages, 40 bar / 400 degC admission, 0.35 bar
+  exhaust: 702 kJ/kg total work, stage efficiency rising 0.674 to 0.765,
+  reaction fraction rising 0.359 to 0.427 toward the LP end, moisture first
+  appearing at stage 6, exhaust quality 0.949. The wetness is not imposed — it
+  falls out of the equilibrium flashes.
+- **Scope.** Mean-line only: no radial equilibrium, no spanwise variation, no
+  tip leakage. The equilibrium assumption is inherited from the flashes, so
+  supersaturation and droplet lag in the wet stages are outside it, exactly as
+  they are for the rest of this crate's HEM work. Stage pressures are not solved
+  from a mass-flow match.
+
+Suite after this change: **996 passed, 0 failed, 14 ignored**
+(`cargo test --release --lib`).
+
 v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
 
 Patch release fixing the late-time instability that made the v0.2.3

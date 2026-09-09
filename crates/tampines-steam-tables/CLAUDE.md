@@ -168,7 +168,10 @@ API (`(p,T)`, `(p,h)`, `(p,s)`, `(h,s)` flashes) and an object-oriented
 lives here.
 
 `steam_turbine_equations/` holds nozzle and turbine equations, including the
-choked-flow work (see below). `openfoam_algorithms/` contains reference
+choked-flow work (see below) and `mean_flow_stages/`, the mean-line
+stage-by-stage turbine model (one HEM control volume per stage, a velocity
+triangle at each mean radius, and every stage part impulse and part reaction —
+see the module `//!` docs and the v0.2.9 README changelog entry). `openfoam_algorithms/` contains reference
 OpenFOAM solver ports (rhoPimpleFoam, driftFluxFoam, etc.) intended for future
 transient two-phase coupling.
 
