@@ -34,11 +34,23 @@
 //! transient. The mode is public, so a caller who wants the historical
 //! bit-identical PIMPLE path can still ask for it.
 //!
+//! # The shaft is closed-loop
+//!
+//! Shaft speed is **not** an input. Each stage's tangential momentum change
+//! becomes a torque, the torques sum, and
+//! [`ThreePhaseElectricGeneratorTurbine`] advances the rotor against the
+//! electrical braking of its own load. The next timestep's velocity triangles
+//! are built at the new speed, so steam, shaft and load are coupled.
+//!
+//! Torque is built from tangential momentum, `T = mdot * r * dc_theta`, and
+//! **not** by dividing shaft power by shaft speed. The difference matters at
+//! exactly one point and it is the important one: at standstill the blade speed
+//! is zero, so the work is zero, but the tangential momentum change is not.
+//! That is a turbine's starting torque. Recovering torque from power would give
+//! `0/0` there and the machine could never spin up.
+//!
 //! # What is still assumed
 //!
-//! - **Shaft speed is fixed.** The stages report the power they extracted, but
-//!   nothing feeds it into a torque balance yet. Coupling to
-//!   [`super::super::generator`] is the obvious next step.
 //! - **The rotor's share of the local pressure drop is an input**, given per
 //!   stage as [`TransientStage::rotor_drop_fraction`], because with pressure
 //!   solved rather than supplied there is no interstage station to read it off.
@@ -46,16 +58,21 @@
 //!   no radial equilibrium, no spanwise variation, no tip leakage.
 
 use uom::si::available_energy::joule_per_kilogram;
+use uom::si::energy::joule;
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::power::watt;
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
+use uom::si::time::second;
+use uom::si::torque::newton_meter;
 use uom::si::velocity::meter_per_second;
 use uom::si::volume::cubic_meter;
 
 use crate::interfaces::object_oriented_programming::TampinesSteamTableCV;
-use crate::openfoam_algorithms::rhoPimpleFoam::{SolverMode, TampinesSteamArray};
 use crate::openfoam_algorithms::openfoam_source::mesh::MeshError;
+use crate::openfoam_algorithms::rhoPimpleFoam::{SolverMode, TampinesSteamArray};
+use crate::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 
 use super::stage::{RotorBlading, StageGeometry, StageWorkSplit};
 use super::velocity_triangle::VelocityTriangle;
@@ -87,7 +104,11 @@ pub struct TransientStageOutcome {
     pub work_split: StageWorkSplit,
     /// Mass flow through this cell, from the solved density and velocity.
     pub mass_flow: MassRate,
+    /// Shaft torque this stage applied, `mdot * r * dc_theta`. Finite at
+    /// standstill, which is what lets the machine start.
+    pub torque: Torque,
     /// Shaft power this stage extracted. Positive means work leaving the steam.
+    /// Zero at standstill even when the torque is not.
     pub shaft_power: Power,
 }
 
@@ -96,6 +117,15 @@ pub struct TransientStageOutcome {
 pub struct TransientStepOutcome {
     /// One entry per stage, in flow order.
     pub stage_outcomes: Vec<TransientStageOutcome>,
+    /// Shaft speed the stages were evaluated at, before the shaft advanced.
+    pub shaft_speed_before: AngularVelocity,
+    /// Shaft speed after the generator's torque balance advanced.
+    pub shaft_speed_after: AngularVelocity,
+    /// Instantaneous three-phase electrical power delivered into the load,
+    /// evaluated at the new shaft speed.
+    pub electrical_power: Power,
+    /// Simulated time at the end of this step.
+    pub time: Time,
 }
 
 impl TransientStepOutcome {
@@ -103,8 +133,17 @@ impl TransientStepOutcome {
     pub fn total_shaft_power(&self) -> Power {
         self.stage_outcomes
             .iter()
-            .fold(Power::new::<uom::si::power::watt>(0.0), |sum, outcome| {
+            .fold(Power::new::<watt>(0.0), |sum, outcome| {
                 sum + outcome.shaft_power
+            })
+    }
+
+    /// Total shaft torque over all stages.
+    pub fn total_torque(&self) -> Torque {
+        self.stage_outcomes
+            .iter()
+            .fold(Torque::new::<newton_meter>(0.0), |sum, outcome| {
+                sum + outcome.torque
             })
     }
 }
@@ -117,8 +156,16 @@ pub struct TransientMeanFlowTurbine {
     pub array: TampinesSteamArray,
     /// Stages in flow order, one per cell of `array`.
     pub stages: Vec<TransientStage>,
-    /// Shaft speed, shared by every stage and held fixed for now.
-    pub shaft_speed: AngularVelocity,
+    /// The shaft and its generator. Owns the rotor speed, which is therefore a
+    /// solved quantity rather than an input.
+    pub generator: ThreePhaseElectricGeneratorTurbine,
+    /// Electrical load the generator works into. Smaller resistance means
+    /// heavier braking, so this is the load-change knob for a transient.
+    pub load_resistance: ElectricalResistance,
+    /// Simulated time, advanced one `delta_t` per [`Self::step`]. The
+    /// generator's back-EMF is time-dependent, so this is state, not
+    /// bookkeeping.
+    pub current_time: Time,
 }
 
 impl TransientMeanFlowTurbine {
@@ -134,7 +181,8 @@ impl TransientMeanFlowTurbine {
         length: Length,
         xs_area: Area,
         delta_t: Time,
-        shaft_speed: AngularVelocity,
+        generator: ThreePhaseElectricGeneratorTurbine,
+        load_resistance: ElectricalResistance,
     ) -> Result<Self, MeshError> {
         let mut array = TampinesSteamArray::new(length, xs_area, stages.len() as i64, delta_t)?;
 
@@ -147,8 +195,15 @@ impl TransientMeanFlowTurbine {
         Ok(Self {
             array,
             stages,
-            shaft_speed,
+            generator,
+            load_resistance,
+            current_time: Time::new::<second>(0.0),
         })
+    }
+
+    /// Current shaft speed, read from the generator that owns it.
+    pub fn shaft_speed(&self) -> AngularVelocity {
+        self.generator.get_omega()
     }
 
     /// Sets every cell to one uniform `(p, T)` state.
@@ -197,6 +252,7 @@ impl TransientMeanFlowTurbine {
     /// with the local mass flux, and register it as a negative power source.
     /// Then step the array once, so the energy equation sees the work leave.
     pub fn step(&mut self) -> TransientStepOutcome {
+        let shaft_speed_before = self.shaft_speed();
         let stage_outcomes = self.evaluate_stages();
 
         let n_cells = self.array.mesh.n_cells;
@@ -216,7 +272,36 @@ impl TransientMeanFlowTurbine {
 
         self.array.step();
 
-        TransientStepOutcome { stage_outcomes }
+        // The shaft closes the loop: the stages' tangential momentum change is
+        // a torque, and the generator advances the rotor against its own
+        // electrical braking. The next step's triangles are built at this new
+        // speed.
+        let total_torque = stage_outcomes
+            .iter()
+            .fold(Torque::new::<newton_meter>(0.0), |sum, outcome| {
+                sum + outcome.torque
+            });
+
+        self.generator.advance_timestep(
+            total_torque,
+            self.load_resistance,
+            self.current_time,
+            self.array.delta_t,
+        );
+
+        self.current_time += self.array.delta_t;
+
+        let electrical_power = self
+            .generator
+            .get_power(self.load_resistance, self.current_time);
+
+        TransientStepOutcome {
+            stage_outcomes,
+            shaft_speed_before,
+            shaft_speed_after: self.shaft_speed(),
+            electrical_power,
+            time: self.current_time,
+        }
     }
 
     /// Advances `n_steps` timesteps, returning the last step's outcome.
@@ -241,7 +326,7 @@ impl TransientMeanFlowTurbine {
     fn evaluate_stage(&self, index: usize) -> TransientStageOutcome {
         let stage = self.stages[index];
 
-        let blade_speed: Velocity = self.shaft_speed * stage.geometry.mean_radius;
+        let blade_speed: Velocity = self.shaft_speed() * stage.geometry.mean_radius;
 
         // The axial velocity comes from the momentum equation, not from an
         // assumed enthalpy drop. That is what makes this model transient: the
@@ -270,10 +355,20 @@ impl TransientMeanFlowTurbine {
 
         let shaft_power: Power = work_split.total() * mass_flow;
 
+        // Torque from tangential momentum rather than from power over speed,
+        // so it stays finite at standstill and the machine can start.
+        let tangential_velocity_change = stage
+            .blading
+            .tangential_velocity_change(&triangle, rotor_enthalpy_drop);
+        let angular_momentum_rate =
+            mass_flow * stage.geometry.mean_radius * tangential_velocity_change;
+        let torque = Torque::new::<newton_meter>(angular_momentum_rate.get::<joule>());
+
         TransientStageOutcome {
             triangle,
             work_split,
             mass_flow,
+            torque,
             shaft_power,
         }
     }

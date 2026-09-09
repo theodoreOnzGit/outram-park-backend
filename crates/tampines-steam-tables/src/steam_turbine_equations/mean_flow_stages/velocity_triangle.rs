@@ -104,17 +104,28 @@ impl VelocityTriangle {
         }
     }
 
+    /// The tangential velocity the rotor removed from the steam,
+    /// `c_theta1 - c_theta2`.
+    ///
+    /// This is the quantity torque is built from, and it is deliberately kept
+    /// separate from the work. Specific work is this times the blade speed, so
+    /// at standstill the work vanishes while this does not. That is the
+    /// physical statement that a turbine develops **starting torque at zero
+    /// speed**, and it is why a machine coupled to a shaft can spin up at all.
+    /// Recovering torque by dividing a power by the shaft speed would instead
+    /// give `0/0` exactly where the spin-up starts.
+    pub fn tangential_velocity_change(&self) -> Velocity {
+        self.absolute_tangential_in - self.absolute_tangential_out
+    }
+
     /// Specific work by the Euler turbomachinery equation,
     /// `w = U * (c_theta1 - c_theta2)`.
     ///
     /// This is the momentum route to work: it counts only how much tangential
     /// momentum the rotor removed from the steam. It is exact for any axial
-    /// stage, and it is the route an **impulse** stage uses.
+    /// stage, and it is the route the **impulse** part of a stage uses.
     pub fn euler_specific_work(&self) -> AvailableEnergy {
-        let tangential_change: Velocity =
-            self.absolute_tangential_in - self.absolute_tangential_out;
-
-        self.blade_speed * tangential_change
+        self.blade_speed * self.tangential_velocity_change()
     }
 
     /// Blade speed at the mean radius.

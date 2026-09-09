@@ -16,6 +16,7 @@ use uom::si::area::square_meter;
 use uom::si::f64::*;
 use uom::si::length::meter;
 use uom::si::power::watt;
+use uom::si::torque::newton_meter;
 use uom::si::pressure::{bar, pascal};
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::degree_celsius;
@@ -23,8 +24,31 @@ use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
 use crate::openfoam_algorithms::rhoPimpleFoam::SolverMode;
+use crate::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 
 use super::*;
+
+/// A deliberately light rotor.
+///
+/// The crate's 250 MW preset carries 530 000 kg m^2, which at a CFD timestep of
+/// 10 microseconds moves the shaft by microradians per second per step. That is
+/// correct for a real machine and useless for a test, so these use a lab-scale
+/// inertia where the spin-up is visible in a handful of steps. Nothing else
+/// about the generator changes.
+fn test_generator(initial_speed: AngularVelocity) -> ThreePhaseElectricGeneratorTurbine {
+    ThreePhaseElectricGeneratorTurbine::new(
+        MagneticFluxDensity::new::<uom::si::magnetic_flux_density::tesla>(1.0),
+        Area::new::<square_meter>(0.65),
+        70,
+        MomentOfInertia::new::<uom::si::moment_of_inertia::kilogram_square_meter>(5.0),
+        Ratio::new::<ratio>(0.98),
+        initial_speed,
+    )
+}
+
+fn nominal_load() -> ElectricalResistance {
+    ElectricalResistance::new::<uom::si::electrical_resistance::ohm>(10.0)
+}
 
 fn stage_geometry() -> StageGeometry {
     StageGeometry {
@@ -55,12 +79,25 @@ fn transient_stages(rotor_drop_fraction: f64) -> Vec<TransientStage> {
 }
 
 fn build_machine(rotor_drop_fraction: f64) -> TransientMeanFlowTurbine {
+    build_machine_with(
+        rotor_drop_fraction,
+        AngularVelocity::new::<radian_per_second>(420.0),
+        nominal_load(),
+    )
+}
+
+fn build_machine_with(
+    rotor_drop_fraction: f64,
+    initial_speed: AngularVelocity,
+    load_resistance: ElectricalResistance,
+) -> TransientMeanFlowTurbine {
     let machine = TransientMeanFlowTurbine::new(
         transient_stages(rotor_drop_fraction),
         Length::new::<meter>(1.0),
         Area::new::<square_meter>(0.1),
         Time::new::<second>(1.0e-5),
-        AngularVelocity::new::<radian_per_second>(420.0),
+        test_generator(initial_speed),
+        load_resistance,
     )
     .expect("a four-cell 1-D mesh must build");
 
@@ -292,4 +329,155 @@ fn short_run_stays_bounded() {
             "cell {cell} left the solver's pressure bounds at {pressure} Pa"
         );
     }
+}
+
+/// A turbine at standstill develops **torque but no power**.
+///
+/// This is the property the whole torque-from-momentum construction exists to
+/// preserve. At zero shaft speed the blade speed is zero, so the Euler work is
+/// zero, but the steam is still being turned and still pushing on the blades.
+/// Had torque been recovered by dividing power by speed, this case would be
+/// `0/0` and the machine could never start.
+#[test]
+fn standstill_develops_starting_torque_but_no_power() {
+    let mut machine = build_machine_with(
+        0.5,
+        AngularVelocity::new::<radian_per_second>(0.0),
+        nominal_load(),
+    );
+    impose_descending_pressure(&mut machine);
+    machine
+        .array
+        .set_uniform_velocity_field(Velocity::new::<meter_per_second>(120.0));
+
+    let outcome = machine.step();
+
+    for (index, stage_outcome) in outcome.stage_outcomes.iter().enumerate() {
+        assert_relative_eq!(stage_outcome.shaft_power.get::<watt>(), 0.0, epsilon = 1e-9);
+        assert!(
+            stage_outcome.torque.get::<newton_meter>() > 0.0,
+            "stage {} must develop starting torque at rest, got {:?}",
+            index + 1,
+            stage_outcome.torque
+        );
+    }
+
+    assert!(
+        outcome.total_torque().get::<newton_meter>() > 0.0,
+        "the machine must have a net starting torque"
+    );
+}
+
+/// Given torque at rest, the shaft must actually accelerate.
+#[test]
+fn machine_spins_up_from_rest() {
+    let mut machine = build_machine_with(
+        0.5,
+        AngularVelocity::new::<radian_per_second>(0.0),
+        nominal_load(),
+    );
+    impose_descending_pressure(&mut machine);
+    machine
+        .array
+        .set_uniform_velocity_field(Velocity::new::<meter_per_second>(120.0));
+
+    let first = machine.step();
+
+    assert_relative_eq!(
+        first.shaft_speed_before.get::<radian_per_second>(),
+        0.0,
+        epsilon = 1e-12
+    );
+    assert!(
+        first.shaft_speed_after.get::<radian_per_second>() > 0.0,
+        "the shaft must accelerate away from rest, got {:?}",
+        first.shaft_speed_after
+    );
+
+    let later = machine.run(50).expect("50 steps must produce an outcome");
+
+    assert!(
+        later.shaft_speed_after > first.shaft_speed_after,
+        "the shaft must keep accelerating while torque exceeds braking"
+    );
+    assert!(
+        later.total_shaft_power().get::<watt>() > 0.0,
+        "once turning, the machine must deliver shaft power"
+    );
+}
+
+/// Shaft speed is solved, not imposed: it must change as the machine runs.
+#[test]
+fn shaft_speed_is_solved_rather_than_held() {
+    let mut machine = build_machine(0.5);
+    impose_descending_pressure(&mut machine);
+    machine
+        .array
+        .set_uniform_velocity_field(Velocity::new::<meter_per_second>(120.0));
+
+    let outcome = machine.step();
+
+    assert_ne!(
+        outcome.shaft_speed_before, outcome.shaft_speed_after,
+        "the generator's torque balance must move the shaft"
+    );
+    assert_relative_eq!(
+        machine.shaft_speed().get::<radian_per_second>(),
+        outcome.shaft_speed_after.get::<radian_per_second>(),
+        max_relative = 1e-12
+    );
+}
+
+/// A heavier electrical load brakes the shaft harder, so the same steam
+/// conditions must leave the machine turning more slowly.
+///
+/// This is the load-change response the fixed-speed model could not express at
+/// all.
+#[test]
+fn heavier_electrical_load_slows_the_shaft() {
+    let run_to_speed = |resistance_ohm: f64| {
+        let mut machine = build_machine_with(
+            0.5,
+            AngularVelocity::new::<radian_per_second>(0.0),
+            ElectricalResistance::new::<uom::si::electrical_resistance::ohm>(resistance_ohm),
+        );
+        impose_descending_pressure(&mut machine);
+        machine
+            .array
+            .set_uniform_velocity_field(Velocity::new::<meter_per_second>(120.0));
+
+        machine.run(200);
+        machine.shaft_speed().get::<radian_per_second>()
+    };
+
+    let light_load = run_to_speed(100.0);
+    let heavy_load = run_to_speed(1.0);
+
+    assert!(
+        heavy_load < light_load,
+        "a heavier load must brake harder: {heavy_load} rad/s at 1 ohm vs \
+         {light_load} rad/s at 100 ohm"
+    );
+}
+
+/// Turning the shaft must produce electrical output.
+#[test]
+fn a_turning_shaft_delivers_electrical_power() {
+    let mut machine = build_machine(0.5);
+    impose_descending_pressure(&mut machine);
+    machine
+        .array
+        .set_uniform_velocity_field(Velocity::new::<meter_per_second>(120.0));
+
+    let outcome = machine.run(10).expect("10 steps must produce an outcome");
+
+    assert!(
+        outcome.electrical_power.get::<watt>() > 0.0,
+        "a spinning generator into a finite load must deliver power, got {:?}",
+        outcome.electrical_power
+    );
+    assert!(
+        outcome.time.get::<second>() > 0.0,
+        "simulated time must advance"
+    );
 }

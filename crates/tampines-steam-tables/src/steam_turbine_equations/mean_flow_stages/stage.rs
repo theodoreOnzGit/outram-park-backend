@@ -149,12 +149,28 @@ impl RotorBlading {
         triangle: &VelocityTriangle,
         rotor_enthalpy_drop: AvailableEnergy,
     ) -> AvailableEnergy {
+        triangle.get_blade_speed()
+            * self.reaction_tangential_velocity_change(triangle, rotor_enthalpy_drop)
+    }
+
+    /// The tangential velocity change the **reaction** part accounts for, which
+    /// is the reaction work divided by the blade speed.
+    ///
+    /// Kept separate for the same reason as
+    /// [`VelocityTriangle::tangential_velocity_change`]: torque must stay
+    /// finite at standstill so a shaft-coupled machine can spin up. See that
+    /// method for the argument.
+    pub fn reaction_tangential_velocity_change(
+        &self,
+        triangle: &VelocityTriangle,
+        rotor_enthalpy_drop: AvailableEnergy,
+    ) -> Velocity {
         // No through-flow means no passage mass flow for a cascade force to act
-        // on, and the specific-work expression divides by the axial velocity.
-        // A stage handed a rising pressure lands here, and must return zero
-        // rather than a NaN that would poison the rest of the machine.
+        // on, and the expression below divides by the axial velocity. A stage
+        // handed a rising pressure lands here, and must return zero rather than
+        // a NaN that would poison the rest of the machine.
         if triangle.get_axial_velocity() <= Velocity::new::<meter_per_second>(0.0) {
-            return AvailableEnergy::new::<joule_per_kilogram>(0.0);
+            return Velocity::new::<meter_per_second>(0.0);
         }
 
         let relative_speed_out = triangle.get_relative_speed_out();
@@ -169,10 +185,18 @@ impl RotorBlading {
 
         let force_term: Ratio = self.solidity * tangential_coefficient * 0.5;
 
-        let speed_term: Velocity =
-            speed_increment * mean_relative_speed / triangle.get_axial_velocity() * force_term;
+        speed_increment * mean_relative_speed / triangle.get_axial_velocity() * force_term
+    }
 
-        triangle.get_blade_speed() * speed_term
+    /// The total tangential velocity change of the stage, both mechanisms
+    /// summed. Multiply by mass flow and mean radius to get shaft torque.
+    pub fn tangential_velocity_change(
+        &self,
+        triangle: &VelocityTriangle,
+        rotor_enthalpy_drop: AvailableEnergy,
+    ) -> Velocity {
+        triangle.tangential_velocity_change()
+            + self.reaction_tangential_velocity_change(triangle, rotor_enthalpy_drop)
     }
 
     /// Both parts of the stage work, in the order they physically happen:

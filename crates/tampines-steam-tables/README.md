@@ -508,12 +508,27 @@ reaction off, so the rotor's share of the local drop is a per-stage input
 (`rotor_drop_fraction`). Zero reproduces the pure impulse stage, and that limit
 is asserted through the solver as well as in the steady model.
 
-**Still assumed:** shaft speed is fixed. Stages report the power they extracted
-but nothing yet feeds it into a torque balance, so coupling to
-`steam_turbine_equations::generator` is the obvious next step. The annulus is
-uniform, which is the mean-line assumption showing up in the mesh.
+### The shaft is closed-loop
 
-Suite after this change: **1004 passed, 0 failed, 14 ignored**
+Shaft speed is **not** an input. Each stage's tangential momentum change becomes
+a torque, the torques sum, and `ThreePhaseElectricGeneratorTurbine` advances the
+rotor against the electrical braking of its own load. The next timestep's
+velocity triangles are built at the new speed, so steam, shaft and load are
+coupled and the machine can spin up, coast down and answer a load change.
+
+Torque is built from tangential momentum, `T = mdot * r * dc_theta`, and **not**
+by dividing shaft power by shaft speed. The difference matters at exactly one
+point and it is the important one: at standstill the blade speed is zero, so the
+work is zero, but the tangential momentum change is not. That is a turbine's
+starting torque. Recovering torque from power would give `0/0` there and the
+machine could never start. `VelocityTriangle::tangential_velocity_change` and
+`RotorBlading::reaction_tangential_velocity_change` exist to keep that quantity
+separate from the work for both mechanisms.
+
+**Still assumed:** the annulus is uniform, which is the mean-line assumption
+showing up in the mesh.
+
+Suite after this change: **1009 passed, 0 failed, 14 ignored**
 (`cargo test --release --lib`).
 
 v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
