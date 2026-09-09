@@ -1462,18 +1462,68 @@ mod tests {
         );
     }
 
-    /// The steam generator sits **lower** than the reactor vessel.
-    ///
-    /// Requested in the 2026-09-07 review. Screen y grows down, so "lower"
-    /// means a larger centre y.
+    /// Print the vessel geometry, for checking against the authoritative
+    /// layout in gh #154. Run with `-- --ignored --nocapture`.
     #[test]
-    fn steam_generator_sits_lower_than_the_reactor() {
+    #[ignore = "diagnostic, not an assertion"]
+    fn print_vessel_geometry() {
         let (r, sg) = (reactor_rect(), sg_rect());
+        let h = r.height();
+        println!("reactor: top={:.1} bottom={:.1} height={:.1}", r.top(), r.bottom(), h);
+        println!("sg:      top={:.1} bottom={:.1} height={:.1}", sg.top(), sg.bottom(), sg.height());
+        // Fractions of reactor height H, measured UP from the reactor bottom,
+        // so they compare directly with #154's 0.20 H / 1.20-1.25 H targets.
+        println!("sg bottom = {:.3} H above reactor bottom", (r.bottom() - sg.bottom()) / h);
+        println!("sg top    = {:.3} H above reactor bottom", (r.bottom() - sg.top()) / h);
+    }
+
+    /// **The SG vessel is offset UPWARD relative to the reactor**, per the
+    /// authoritative layout in gh #154:
+    ///
+    /// ```text
+    ///     reactor bottom = 0        SG bottom ~ 0.20 H
+    ///     reactor top    = H        SG top    ~ 1.20-1.25 H
+    /// ```
+    ///
+    /// with roughly comparable vessel heights. Screen y grows DOWN, so "above"
+    /// means a smaller y.
+    ///
+    /// # Currently failing on purpose — this is the acceptance criterion
+    ///
+    /// Measured 2026-09-07: reactor `top=140.0 bottom=540.0 height=400.0`;
+    /// SG `top=151.4 bottom=558.6 height=407.2`. In units of reactor height H
+    /// measured up from the reactor bottom, the SG bottom is at **-0.047 H**
+    /// and its top at **0.972 H** — so the SG currently sits slightly *below*
+    /// the reactor bottom, and needs to move **up** by roughly 0.25 H.
+    ///
+    /// Note this is the opposite direction from the "shift the steam generator
+    /// lower" wording in the original review and in gh #154's first comment.
+    /// The **target** is unambiguous and both comments agree on it (bottom at
+    /// ~0.20 H), so this test asserts the target rather than the direction.
+    /// Comparable heights already hold (400.0 vs 407.2).
+    ///
+    /// Remove `#[ignore]` once the vessel is repositioned.
+    #[test]
+    #[ignore = "acceptance criterion for gh #154 item 4: SG must move UP ~0.25 H \
+                to reach the authoritative bottom offset of ~0.20 H"]
+    fn steam_generator_is_offset_upward_from_the_reactor() {
+        let (r, sg) = (reactor_rect(), sg_rect());
+        let h = r.height();
+        let bottom_offset = (r.bottom() - sg.bottom()) / h;
+        let top_offset = (r.bottom() - sg.top()) / h;
+
         assert!(
-            sg.center().y > r.center().y,
-            "SG should sit lower than the reactor: SG centre y={:.1}, reactor centre y={:.1}",
-            sg.center().y,
-            r.center().y
+            (0.15..=0.25).contains(&bottom_offset),
+            "SG bottom should sit ~0.20 H above the reactor bottom, measured {bottom_offset:.3} H"
+        );
+        assert!(
+            (1.15..=1.30).contains(&top_offset),
+            "SG top should sit ~1.20-1.25 H above the reactor bottom, measured {top_offset:.3} H"
+        );
+        assert!(
+            (sg.height() / h - 1.0).abs() < 0.25,
+            "vessel heights should be roughly comparable: reactor {h:.1}, SG {:.1}",
+            sg.height()
         );
     }
 
