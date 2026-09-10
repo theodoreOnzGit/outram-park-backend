@@ -1175,8 +1175,11 @@ and in sync with the code. It is a recurring command, not a one-off.
    doc comments changed, so `docs/<crate>-api.md` stays in sync with the code:
 
    ```bash
-   kovan api-docs <crate-dir-name>                    # e.g. outram-foam-basic-lib
+   kovan-cli api-docs <crate-dir-name>               # e.g. outram-foam-basic-lib
    ```
+
+   Use **`kovan-cli`**, not `kovan` — `kovan` is the egui GUI binary and will
+   hang a non-interactive session trying to open a display.
 
    This runs `cargo +nightly doc --no-deps` → rustdoc JSON → the `rustdoc-md`
    binary → `crates/<crate>/docs/<crate>-api.md`. Both prerequisites are **mandatory —
@@ -1244,12 +1247,13 @@ cargo install rustdoc-md --locked         # rustdoc JSON -> markdown
 
 Two things depend on them, and both are load-bearing:
 
-- **`kovan api-docs <crate>`** — regenerates `crates/<crate>/docs/<crate>-api.md`, the
+- **`kovan-cli api-docs <crate>`** — regenerates `crates/<crate>/docs/<crate>-api.md`, the
   committed markdown mirror of a crate's public API and the third leg of the
   per-crate `docs/` convention. Step 1 of the bookkeeping pass runs it. (It
   replaced `scripts/gen_api_docs.py`, retired 2026-08-14, so the doc toolchain
-  needs no Python interpreter — same reasoning as epic `op-yz7b`.)
-- **`kovan agent-docs-gen --regenerate-missing`** — generates a mirror for a
+  needs no Python interpreter — same reasoning as epic `op-yz7b`.) Use
+  `kovan-cli`, **not** `kovan` (the GUI binary — it hangs a headless session).
+- **`kovan-cli agent-docs-gen --regenerate-missing`** — generates a mirror for a
   crate that has none, so it can be bundled for an external agent.
 
 **Never report a mirror as un-regenerable because a tool is missing.** Installing
@@ -1286,7 +1290,7 @@ This is settled direction, not a preference, and it has been applied three times
 |---|---|---|
 | `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
 | `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
-| `scripts/gen_api_docs.py` | `kovan api-docs` (`kovan`) | 2026-08-14, `op-w44a.7` |
+| `scripts/gen_api_docs.py` | `kovan-cli api-docs` | 2026-08-14, `op-w44a.7` |
 | `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
 | `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
 
