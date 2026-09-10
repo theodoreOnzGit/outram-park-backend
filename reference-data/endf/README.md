@@ -37,12 +37,37 @@ Sizes are as committed; ~89 MB total.
 | `tsl-reactor-graphite-10P.endf` | C in graphite, 10 % porosity | ENDF/B-VIII.0 (thermal) | 31 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
 | `tsl-reactor-graphite-30P.endf` | C in graphite, 30 % porosity | ENDF/B-VIII.0 (thermal) | 32 | 8.3 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-08-14 |
 
+#### FHR TRISO-pebble neutron tapes (added 2026-09-10, `op-mzvp.2.6`)
+
+The nuclide inventory for the explicit-TRISO and ring-RPT pebble V&V cases
+(19.9 % HALEU UCO kernel, PyC/SiC layers, graphite matrix + shell, FLiBe
+coolant). Copied from a local ENDF/B-VIII.0 neutron sublibrary mirror
+(`ENDF-B-VIII.0_neutrons`, originally NNDC/IAEA NDS). All are LRU/LRF Reich-Moore
+(LRF=3) or File-3-only and reconstruct through `Nuclide::from_endf_file`
+(verified 2026-09-10 — U-235 σ_a(0.0253 eV) = 685.5 b, U-238 σ_a = 2.68 b, etc.).
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-092_U_234-ENDF8.0.endf` | U-234 | ENDF/B-VIII.0 (neutron) | 9225 | 1.9 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-003_Li_006-ENDF8.0.endf` | Li-6 | ENDF/B-VIII.0 (neutron) | 325 | 752 KB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-003_Li_007-ENDF8.0.endf` | Li-7 | ENDF/B-VIII.0 (neutron) | 328 | 384 KB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-004_Be_009-ENDF8.0.endf` | Be-9 | ENDF/B-VIII.0 (neutron) | 425 | 1.3 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-006_C_012-ENDF8.0.endf` | C-12 | ENDF/B-VIII.0 (neutron) | 625 | 3.7 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-006_C_013-ENDF8.0.endf` | C-13 | ENDF/B-VIII.0 (neutron) | 628 | 3.4 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-008_O_016-ENDF8.0.endf` | O-16 | ENDF/B-VIII.0 (neutron) | 825 | 40 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-009_F_019-ENDF8.0.endf` | F-19 | ENDF/B-VIII.0 (neutron) | 925 | 840 KB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-014_Si_028-ENDF8.0.endf` | Si-28 | ENDF/B-VIII.0 (neutron) | 1425 | 1.8 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-014_Si_029-ENDF8.0.endf` | Si-29 | ENDF/B-VIII.0 (neutron) | 1428 | 1.7 MB | NNDC/IAEA NDS | 2026-09-10 |
+| `n-014_Si_030-ENDF8.0.endf` | Si-30 | ENDF/B-VIII.0 (neutron) | 1431 | 1.5 MB | NNDC/IAEA NDS | 2026-09-10 |
+
+Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
+`tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
+`tsl-SiinSiC.endf` are already present (rows above).
+
 ### Still wanted
 
 | File | Nuclide | Library | MAT | Source | Date accessed |
 |---|---|---|---|---|---|
-| `n-009_F_019-ENDF8.0.endf` | F-19 | ENDF/B-VIII.0 (neutron) | 925 | _(fill in: IAEA NDS / NNDC)_ | _(fill in)_ |
-| `n-008_O_016-ENDF8.0.endf` | O-16 | ENDF/B-VIII.0 (neutron) | 825 | _(fill in)_ | _(fill in)_ |
 | `tsl-HinH2O.endf` | H in H₂O | ENDF/B-VIII.0 (thermal) | 1 | _(fill in)_ | _(fill in)_ |
 
 ## The two SiC tapes share one coherent-elastic section — do not double-count
