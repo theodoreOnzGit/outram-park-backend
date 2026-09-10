@@ -31,23 +31,25 @@
 //! broadened grid). Plottable output: `results/compare_capture_{900,1200}K.csv`
 //! (`energy_eV, sigma_openmc_b, sigma_rust_b, rel_diff, region`).
 //!
-//! **What the test gates vs reports.** Gated (must pass): all capture values
-//! finite and non-negative, and the above-RRR (MF=3) band matches OpenMC to
-//! < 5% L1. Reported (not gated): the RRR magnitude-weighted L1
-//! `Σ|σ_rust − σ_omc| / Σ|σ_omc|`, plus the 6.67 eV / 20.9 eV peak values.
+//! **What the test gates.** All capture values finite and non-negative; the
+//! above-RRR (MF=3) band matches OpenMC to < 0.1 % L1; the RRR
+//! magnitude-weighted L1 `Σ|σ_rust − σ_omc| / Σ|σ_omc|` < 0.1 %; the worst
+//! single RRR point < 3 %; and the 6.67 eV / 20.87 eV capture peaks within
+//! 0.5 % — at both 900 K and 1200 K.
 //!
-//! ## Results (measured 2026-07-06; RECONR tol 0.1%, SIGMA1) — and a finding
+//! ## Results (re-baselined 2026-09-10 after `WAVE_K`; RECONR tol 0.1%, SIGMA1)
 //!
-//! - Fast/above-RRR (MF=3 infinite dilution): **L1 ≈ 1.5%** vs OpenMC. ✅
-//! - Resonance **peaks** broaden correctly: 6.67 eV and 20.9 eV within ~10%. ✅
-//! - **KNOWN DISCREPANCY** — in the RRR the port **over-predicts resonance
-//!   wings**: SIGMA1/BROADR leaves a spurious ~200 b flat pedestal several eV
-//!   past each resonance where OpenMC decays to ~1 b (e.g. 103.5 eV resonance,
-//!   900 K: 105 eV → OpenMC 1.8 b vs Rust 211 b). RRR L1 ≈ 0.30 (900 K) /
-//!   0.32 (1200 K). This is a real
-//!   port fidelity bug the verification surfaced; it is documented in
-//!   `README.md` and left for the BROADR debugging pass (per the njoy port's
-//!   "Opus debugs/verifies" division). The gate is **not** loosened to hide it.
+//! - Fast/above-RRR (MF=3 infinite dilution): **L1 = 0.0000** (pass-through).
+//! - RRR: **L1 = 0.0002** at 900 K and 1200 K; worst point 0.74 % (80.06 eV,
+//!   900 K) / 0.72 % (516.4 eV, 1200 K); 6.67 eV peak 4532.5 vs 4530.8 b
+//!   (900 K), 3997.1 vs 3995.9 b (1200 K); 20.87 eV peak 4218.6 vs 4214.6 b
+//!   (900 K), 3705.5 vs 3702.9 b (1200 K).
+//! - History: on 2026-07-06 the RRR L1 was 0.30/0.32 — a SIGMA1 wing pedestal
+//!   (~200 b several eV past each resonance where OpenMC decays to ~1 b),
+//!   reported but not gated. That bug was fixed in the BROADR pass and the
+//!   2026-09-10 `WAVE_K` correction (`cwaven` had been rounded up in the 4th
+//!   figure; every resonance σ moved +0.08 %) took the residual from ~0.0007 to
+//!   0.0002, at which point the L1 became a hard gate (`op-cjw.10`).
 //!
 //! See `README.md` for the full table and interpretation; numbers are printed by
 //! `capture_doppler_matches_openmc` (`-- --nocapture`).
@@ -278,24 +280,45 @@ fn capture_doppler_matches_openmc() {
             m.nonfinite
         );
         // Above the resolved region the port returns the MF=3 infinite-dilution
-        // average, which matches OpenMC's pointwise capture tightly.
+        // average — the same numbers OpenMC's tape carries, so this is a
+        // pass-through check. Measured 0.0000 (2026-09-10); gate 0.1 %.
         assert!(
-            m.l1_above < 0.05,
-            "{temp_k} K: fast-region L1 {:.4} vs OpenMC exceeds 5%",
+            m.l1_above < 1e-3,
+            "{temp_k} K: fast-region L1 {:.4} vs OpenMC exceeds 0.1%",
             m.l1_above
         );
 
-        // ── KNOWN DISCREPANCY (reported, not gated) ─────────────────────────
-        // In the resolved resonance region the peaks broaden correctly (~10%)
-        // but the port over-predicts the resonance WINGS — SIGMA1/BROADR leaves
-        // a spurious wide pedestal several eV past each resonance where OpenMC
-        // decays to ~1 b. This is a real port fidelity bug, documented in
-        // README.md and flagged for the BROADR debugging pass; it is NOT masked
-        // by loosening the gate. The RRR L1 is reported for tracking.
-        eprintln!(
-            "⚠ KNOWN DISCREPANCY {temp_k} K: RRR L1 = {:.3} (resonance wings over-predicted; see README)",
+        // ── RRR gates (op-cjw.10, re-baselined 2026-09-10 after WAVE_K) ─────
+        // The wing pedestal (RRR L1 ≈ 0.30 in 2026-07) is gone: RRR L1 is
+        // 0.0002 at both temperatures, the worst single point 0.74 % (900 K,
+        // 80.06 eV) / 0.72 % (1200 K, 516.4 eV), and the 6.67 / 20.87 eV
+        // peaks agree to 0.04–0.1 %. Gates sit 3–5× above those measurements:
+        // a regression of the wing bug (or of WAVE_K, which moves every
+        // resonance σ by 0.08 %) trips the L1 gate long before the old 5 %
+        // fast-region gate would have noticed anything.
+        assert!(
+            m.l1_rrr < 1e-3,
+            "{temp_k} K: RRR L1 {:.5} vs OpenMC exceeds 0.1% (measured 0.0002 on 2026-09-10)",
             m.l1_rrr
         );
+        assert!(
+            m.max_rel_rrr < 0.03,
+            "{temp_k} K: worst RRR point {:.4} at {:.3} eV exceeds 3% (measured 0.74%)",
+            m.max_rel_rrr,
+            m.max_rel_e
+        );
+        for e0 in [6.673_f64, 20.87] {
+            let s_rust = lib.capture_xs(ev(e0)).get::<barn>();
+            let (_, s_omc) = omc
+                .iter()
+                .copied()
+                .min_by(|a, b| (a.0 - e0).abs().partial_cmp(&(b.0 - e0).abs()).unwrap())
+                .unwrap();
+            assert!(
+                ((s_rust - s_omc) / s_omc).abs() < 5e-3,
+                "{temp_k} K: {e0} eV peak {s_rust:.1} b vs OpenMC {s_omc:.1} b differs by more than 0.5%"
+            );
+        }
     }
 
     println!("plottable CSVs -> {}", results_dir().display());
