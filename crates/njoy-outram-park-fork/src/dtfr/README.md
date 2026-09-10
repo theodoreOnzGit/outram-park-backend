@@ -107,3 +107,15 @@ was blocked by *other* modules under concurrent edit — see the handoff notes):
 
 - NJOY2016 manual §DTFR (LA-UR-17-20093)
 - `dtfr.f90` (NJOY2016, commit ac5adf5); DTF-IV Sₙ code
+
+## NJOY2016 parity (2026-09-10)
+
+`tests/dtfr_u238_claw_njoy_golden.rs` runs `build_neutron_table` on the
+GENDF of an upstream `groupr(+6 2)/moder/dtfr` chain for U-238
+(`reference-data/dtfr/`) and matches NJOY's CLAW output: the `l=0 n-n
+table (32x29)` (absorption, nu*sigma_f, total, scatter band) at all 928
+entries and the ten printed edit columns at all 290 entries, worst 4.5e-6 =
+the `1PE12.5` printing. The edit accumulation (`dtfr.f90:365-382`,
+`mted = 300` reading the MT=1 flux word) was ported for this comparison.
+Still not assembled: nu*sigma_f (needs nubar), chi (MF=5/6 MT=18 spectra),
+thermal corrections, photon tables and P>0 orders (`op-7aq`).

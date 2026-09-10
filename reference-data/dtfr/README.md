@@ -34,9 +34,12 @@ The crate's `build_neutron_table` (MF=3/MT=1 total → `iptotl`, absorption
 same GENDF reproduces the 32 x 29 n-n table: 115 non-zero entries, worst
 relative deviation **4.5e-6** (group 23 total: 10.99815 vs NJOY's
 `1.09982E+01`, i.e. the 6-figure printing). nu*sigma_f is zero on both
-sides (no nubar on the tape). The 48 edit columns (elastic/inelastic/…
-edits, fission, chi) are outside the crate's minimal reader and are not
-compared.
+sides (no nubar on the tape). The edit block is compared too: NJOY
+prints the ten positions its `ids`/fission rules select (`dtfr.f90:820-835`:
+els, ins, n2n, n3n, ngm, nal, np, ftot, phi, totl), and the crate's edit
+accumulation (`dtfr.f90:365-382`, ported 2026-09-10) reproduces all 290
+entries (145 non-zero) to the same 4.5e-6. nu*sigma_f and chi need nubar /
+MF=5 data the GENDF does not carry and stay zero on both sides.
 
 Data policy: derived products of open ENDF/B-VIII.0 data processed with the
 BSD-licensed NJOY2016; no proprietary content.
