@@ -20,6 +20,8 @@ and the oracle build it came from. Regenerate with
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.gendf` (16 KB, 186 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.gendf` (15 KB, 177 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf` (28 KB, 340 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf` (51 KB, 624 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF of `../endf/n-092_U_238.endf` (the RECONR/BROADR steps of the first deck) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.njoy-input` | 2026-09-10 |
 
@@ -84,6 +86,20 @@ values, but **`lord = 3`** and reactions `MF=3 MT=1, 2` plus **`MF=6 MT=2`**
 transfer elements, `il` fastest, then `iz`, then the secondary slot.
 Consumed by `crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs`
 (the `lord3` test), whose doc comment records the measured agreement.
+
+### `u238-ENDF8.0-293.6K-29g-iwt3-{6sigz,1sigz}-lord3-inelastic-mf3-mf6.gendf`
+
+GROUPR alone on the same PENDF, `lord = 3`, reactions `MF=3` and `MF=6` for
+the **discrete inelastic levels** MT=51, 52, 60 and 89 (`QI` = -44.916 keV,
+-148.38 keV, -930.55 keV, -1.2857 MeV): the `q < 0` threshold path of
+`getdis` (`groupr.f90:9440,9619-9677`). The `6sigz` tape has the six
+sigma-zero values of the other decks — only `MF=3/MT=51` is self-shielded
+(`nz = 6`, `:5816-5823`); everything else has `nz = 1` but is still served
+from the tabulated `genflx` flux at dilution 1 (`getflx`, `:6478-6510`). The
+`1sigz` tape has `nsigz = 1` (`1e10` alone), so `getflx` uses the bare
+`getwtf` 1/E weight on its 1 % ladder (`:6512-6516`). Consumed by
+`crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs`,
+whose doc comment records the three findings and the measured agreement.
 
 ### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf`
 

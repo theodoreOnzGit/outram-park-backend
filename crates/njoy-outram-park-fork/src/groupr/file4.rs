@@ -23,6 +23,21 @@
 //! * `LTT = 3`: the Legendre TAB2 followed by the tabulated one; `getfle`
 //!   hands over at the end of the first (`:9780-9800`).
 //!
+//! **The slide at label 210 (`:9789-9793`) copies only `nhi` entries**:
+//! `do i=1,nhi: flo(i)=fhi(i)` moves the upper point's first `nhi = nlz`
+//! coefficients down, so every `flo(k)` with `k > nlz` keeps whatever the
+//! last point that *had* a `k`-th coefficient left there — `getco` cleans
+//! `fhi(1..nle)` on every read but nothing ever cleans `flo`. In a bracket
+//! whose lower point has fewer coefficients than its upper one (`nlmax =
+//! max(nlo, nhi)`), the missing low-side coefficients are therefore the
+//! stale ones, not zero. This port reproduces that deliberately
+//! ([`File4Angular::from_tape`] precomputes the carried `flo` per bracket):
+//! measured 2026-09-10 on U-238 MF=4/MT=52, where `a3` first appears at
+//! 1.06 MeV after being absent since 640 keV, the GROUPR P3 transfer from
+//! group 26 to group 25 is `-8.760e-5` in NJOY, `-9.469e-5` with clean
+//! zeros (the converged value is `-9.48e-5`), and `-8.7605e-5` with the
+//! carried `flo` (`tests/groupr_u238_inelastic_matrix_golden.rs`).
+//!
 //! Below the first tabulated energy the distribution is isotropic
 //! (`:9840-9847`); above the last, upstream extrapolates up to `1.01 E_last`
 //! (`over`, `:9757`) and aborts beyond. Only the frame the data is given in
@@ -153,6 +168,11 @@ pub struct File4Angular {
     /// `LI` — 1 when the section declares isotropy (no records follow).
     pub isotropic: bool,
     points: Vec<EnergyPoint>,
+    /// `flo` as `getfle` holds it while `e` lies in the bracket whose lower
+    /// point is `points[j]` (`lo_fl[j]`, `nl_max` entries): the clean
+    /// `getco` array for `j = 0`, then the label-210 slide's partial copy
+    /// (`:9789-9793`) — see the module doc.
+    lo_fl: Vec<Vec<f64>>,
 }
 
 /// `getfle`'s answer at one energy.
@@ -269,6 +289,28 @@ fn read_records(
     Ok(())
 }
 
+/// The `flo` array `getfle` holds for each bracket, replayed in order:
+/// `getco(points[0])` padded with zeros to `nl_max` (`:9722-9727`), then for
+/// every later point the label-210 slide `do i=1,nhi: flo(i)=fhi(i)` with
+/// `nhi = nlz` of that point (`:9789-9793`) — entries above `nlz` are left
+/// as they were.
+fn carried_lo(points: &[EnergyPoint], nl_max: usize) -> Vec<Vec<f64>> {
+    let mut out = Vec::with_capacity(points.len());
+    let mut flo = vec![0.0f64; nl_max];
+    for (j, p) in points.iter().enumerate() {
+        if j == 0 {
+            flo[..p.fl.len()].copy_from_slice(&p.fl);
+            for v in flo.iter_mut().skip(p.fl.len()) {
+                *v = 0.0;
+            }
+        } else {
+            flo[..p.fl.len()].copy_from_slice(&p.fl);
+        }
+        out.push(flo.clone());
+    }
+    out
+}
+
 impl File4Angular {
     /// Read `MF=4/MT=mt` of `mat` and convert every record with `getco`
     /// (`getfle` initialisation, `groupr.f90:9705-9760`, for all energies
@@ -318,10 +360,12 @@ impl File4Angular {
         }
         // getfle:9758 — two points that are both isotropic mean isotropy.
         let isotropic = li == 1 || (points.len() == 2 && points.iter().all(|p| p.fl.len() == 1));
+        let lo_fl = carried_lo(&points, nl_max);
         Ok(Self {
             lct,
             isotropic,
             points,
+            lo_fl,
         })
     }
 
@@ -383,10 +427,11 @@ impl File4Angular {
                 "getfle: desired energy {e} above highest given ({ehi})"
             )));
         }
-        // Label 300.
+        // Label 300. `flo` is the carried array (`:9789-9793`), `nlo` the
+        // lower point's own count (`nlo = nhi` at the slide).
         if e >= elo * (1.0 - SMALL) {
-            let (flo, fhi) = (&pts[hi - 1].fl, &pts[hi].fl);
-            let nlmax = flo.len().max(fhi.len());
+            let (flo, fhi) = (&self.lo_fl[hi - 1], &pts[hi].fl);
+            let nlmax = pts[hi - 1].fl.len().max(fhi.len());
             let law = IntLaw::from_code(pts[hi].law);
             let mut fle = vec![0.0f64; nle];
             for (i, slot) in fle.iter_mut().enumerate().take(nlmax.min(nle)) {
@@ -491,6 +536,53 @@ mod tests {
         assert!((fl[0] - 1.0).abs() < 2e-8, "fl(1) = {}", fl[0]);
         assert_eq!(fl.len(), 2, "nlz: {fl:?}");
         assert!((fl[1] - 1.0 / 3.0).abs() < 2e-8, "fl(2) = {}", fl[1]);
+    }
+
+    /// Methodology: the label-210 slide copies only `nhi` entries
+    /// (`:9789-9793`), so a bracket whose lower point lacks a coefficient
+    /// its upper point has interpolates from the last point that had it.
+    /// Three Legendre points: 1 eV `(a1, a2) = (0.2, 0.1)`, 10 eV `a1 =
+    /// 0.3` only (`nlz = 2`), 100 eV `(0.4, 0.3)`. At 55 eV (halfway in the
+    /// second bracket) upstream gives `fle(3) = terp1(10, 0.1, 100, 0.3)
+    /// = 0.2`, not `terp1(10, 0, 100, 0.3) = 0.15`; in the first bracket
+    /// nothing is stale. Result (2026-09-10): exact.
+    #[test]
+    fn slide_keeps_stale_high_order_coefficients() {
+        let mut rows = vec![
+            [92238.0, 236.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 236.0, 0.0, 2.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 3.0],
+            [3.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 2.0, 0.0],
+            [0.2, 0.1, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 10.0, 0.0, 0.0, 1.0, 0.0],
+            [0.3, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 100.0, 0.0, 0.0, 2.0, 0.0],
+        ];
+        rows.extend(pack(&[0.4, 0.3]));
+        let tape = Tape::from_sections(
+            String::new(),
+            vec![Section {
+                key: EndfKey {
+                    mat: 9237,
+                    mf: 4,
+                    mt: 51,
+                },
+                rows,
+            }],
+        );
+        let f = File4Angular::from_tape(&tape, 9237, 51, NLD).unwrap();
+        let first = f.coefficients_at(5.5, NLD).unwrap();
+        assert_eq!(first.nle, 3);
+        assert!((first.fle[1] - 0.25).abs() < 1e-12 && (first.fle[2] - 0.05).abs() < 1e-12);
+        let second = f.coefficients_at(55.0, NLD).unwrap();
+        assert_eq!(second.nle, 3);
+        assert!((second.fle[1] - 0.35).abs() < 1e-12, "{:?}", second.fle);
+        assert!(
+            (second.fle[2] - 0.2).abs() < 1e-12,
+            "stale a2 expected: {:?}",
+            second.fle
+        );
     }
 
     /// Methodology: NJOY's 64-point table must integrate `1` and `mu^2`

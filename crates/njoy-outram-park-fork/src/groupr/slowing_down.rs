@@ -97,7 +97,7 @@
 
 use std::sync::Arc;
 
-use crate::groupr::panel::{GroupFlux, PointwiseXs, NO_NEXT_BREAK_EV};
+use crate::groupr::panel::{GroupFlux, PointwiseXs, GETWTF_STEP, NO_NEXT_BREAK_EV};
 use crate::groupr::unresolved::{bondarenko_flux_value, SelfShieldedFluxSet};
 use crate::NjoyError;
 
@@ -167,13 +167,6 @@ impl Default for SlowingDownParams {
         }
     }
 }
-
-/// `getwtf`'s own step between weight-function samples, `s101 = 1.01`
-/// (`groupr.f90:5140`): the analytic weights (`iwt = 2, 3, 4, 6, 7, 10`)
-/// return `enext = 1.01*e`, and a tabulated weight's next break is capped at
-/// it (`:5175-5178`). `genflx` uses it for the tail below `felo` and for the
-/// narrow-resonance extension above `fehi`.
-const GETWTF_STEP: f64 = 1.01;
 
 /// Solve the integral slowing-down equation for the self-shielded weighting flux
 /// `phi(E; sigma_0)` — the `iwt < 0` / `nflmax > 0` branch of `genflx`

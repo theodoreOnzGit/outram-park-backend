@@ -199,7 +199,19 @@ the vector `panel`: all 29 groups of the three quantities within
 within **2.72e-6** and every group flux within 3.89e-7 of NJOY, on a golden
 that differs from the homogeneous one by 2x in group 1 at `sigma_0 = 1 b`.
 
-Still **not** golden-validated: discrete-level inelastic matrices, File-6 continuum feeds, GAMINR,
+**Discrete-level inelastic vectors and P0-P3 matrices (MT=51/52/60/89),
+golden-validated (2026-09-10, `tests/groupr_u238_inelastic_matrix_golden.rs`,
+`reference-data/gendf/*-{6sigz,1sigz}-lord3-inelastic-mf3-mf6.gendf`):** the
+`q < 0` threshold path of `getdis` on two decks (`nsigz = 6` and `nsigz = 1`,
+which exercise the two `getflx` branches): vectors within 3.2e-6, every
+transfer element within 1e-5 or under one unit of `1e-7 sigma_g`. Three
+findings on the way: `GroupFlux::analytic` now steps at `getwtf`'s 1.01
+(`GETWTF_STEP`), not GAMINR's 1.05; `nz = 1` reactions in an `nsigz > 1`
+deck take the tabulated `genflx` flux (a test-construction error, not a
+port defect); and `getfle`'s label-210 slide keeps stale high-order
+coefficients, now replicated in `File4Angular` (an 8 % P3 element).
+
+Still **not** golden-validated: File-6 continuum feeds, GAMINR,
 `LSSF = 0` materials, and more than one temperature.
 
 ## Caveats

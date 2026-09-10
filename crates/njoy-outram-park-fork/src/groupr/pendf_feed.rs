@@ -160,6 +160,13 @@ pub struct PendfCrossSection {
     /// Atomic-weight ratio `AWR = mass_target / mass_neutron` (`sigma(2)` /
     /// `c2h` of the section HEAD CONT, `groupr.f90:6717`), dimensionless.
     pub awr: f64,
+    /// Reaction `QI` \[eV\] — `c2` of the section's TAB1 (`q = c2h`,
+    /// `groupr.f90:6748`); `0` for a derived quantity. Sets `getdis`'s
+    /// threshold `(awr+1)*(-q)/awr` (`:6751`) for discrete two-body levels.
+    pub qi: f64,
+    /// `LR` — `l2` of the section's TAB1 (`lrflag = l2h`, `groupr.f90:6749`,
+    /// forced to `0` off MF=3); selects `getdis`'s multiplicity `yld`.
+    pub lr: i32,
     /// The pointwise cross section \[barn vs eV\], ready for
     /// [`PointwiseXs::value`]/[`PointwiseXs::next_break`].
     pub xs: PointwiseXs,
@@ -215,6 +222,8 @@ pub fn read_pendf_cross_section(
             let q = DerivedQuantity::from_mt(mtd).expect("classified as derived");
             return Ok(PendfCrossSection {
                 awr,
+                qi: 0.0,
+                lr: 0,
                 xs: PointwiseXs::Derived(q),
             });
         }
@@ -237,8 +246,14 @@ pub fn read_pendf_cross_section(
         ));
     }
 
+    // `q = c2h`, `lrflag = l2h` (0 unless MF=3) (groupr.f90:6748-6750).
+    let qi = tab1.head.c2;
+    let lr = if mf == 3 { tab1.head.l2 } else { 0 };
+
     Ok(PendfCrossSection {
         awr,
+        qi,
+        lr,
         xs: PointwiseXs::LinLin(Arc::new(tab1.pairs)),
     })
 }

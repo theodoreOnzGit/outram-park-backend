@@ -102,7 +102,7 @@ pub use input::{
 };
 pub use panel::{
     group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs, DEFAULT_FLUX_STEP,
-    NO_NEXT_BREAK_EV,
+    GETWTF_STEP, NO_NEXT_BREAK_EV,
 };
 pub use photon_groups::{photon_group_structure, PhotonGroupStructure};
 pub use weights::{AnalyticWeight, ThermalFissionParams, BOLTZMANN_EV_PER_K};
