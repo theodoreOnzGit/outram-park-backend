@@ -142,6 +142,7 @@ pub mod frequency;
 pub mod generate;
 pub mod input;
 pub mod sct;
+pub mod skold;
 pub mod translation;
 pub mod vintage;
 

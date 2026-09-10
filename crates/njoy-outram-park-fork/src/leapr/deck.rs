@@ -586,9 +586,13 @@ impl LeaprDeck {
                 self.ncold.code()
             ));
         }
-        if self.nsk != 0 {
+        // nsk = 2 (Sköld) is applied by `generate_tape` (`skold.rs`). nsk = 1
+        // (Vineyard) only reads the S(kappa) table upstream — `ska` is used by
+        // `coldh` and `skold` alone (`leapr.f90:359-372, 2463`) — so outside a
+        // cold-hydrogen run it is a no-op there and here.
+        if !(0..=2).contains(&self.nsk) {
             out.push(format!(
-                "nsk = {} (Vineyard/Skold pair-correlation correction is not ported)",
+                "nsk = {} is not a valid S(kappa) option (0, 1, 2)",
                 self.nsk
             ));
         }

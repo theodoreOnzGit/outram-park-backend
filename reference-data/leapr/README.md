@@ -26,6 +26,7 @@ regenerated with the legacy `bk` their published tapes used.
 | Tape | Deck | What it exercises | Run |
 |---|---|---|---|
 | `tsl-SiO2-alpha-njoy2016-leapr.endf` (9,777 lines) | `tsl-SiO2-alpha.leapr`, unmodified: Si in α-quartz, MAT 47, 5 temperatures (293.6/350/400/500/800 K), `nphon` default | **Mixed moderator**: card 6 `1 0 15.862 7.4975 1` — oxygen as a short-collision-time secondary (`b7 = 0`), so LEAPR runs a second temperature loop over the oxygen's own spectrum with `alpha / (aws/awr)`, merges `S = S_Si + (sbs/sb) S_O`, and writes two `T_eff` TAB1s (`leapr.f90:399-408, 3013-3025, 3578-3617`). `twt = 0`, no oscillators, `iel = 0`. | 9.6 s |
+| `tsl-DinD2O-293.6K-njoy2016-leapr.endf` (4.3 MB) | `tsl-DinD2O.leapr` (CAB model, MAT 11, `EVAL-JUN17`) cut to its 293.6 K block (`ntempr = 1`; the full deck has 17), 396 α x 396 β, `nphon = 200` | **Sköld correction** (`nsk = 2`, cards 17-19: `S(kappa)` table and `cfrac`) on top of `contin` + `trans` + `discre`; no secondary. NJOY's listing: `T_eff` 394.719 → 391.784 → 865.561 K, lambda 3.322120. | 40 s |
 | `tsl-HinH2O-293.6K-njoy2016-leapr.endf` (24,168 lines) | `tsl-HinH2O.leapr` (CAB model, MAT 1, `EVAL-JUN17`) cut to its 293.6 K block only (`ntempr = 1`; the full 18-temperature tape is 18.5 MB), `nphon = 200`, 222 α x 317 β | **`contin` + `trans` + `discre`** with a free-gas oxygen secondary (`b7 = 1`): translational weight and two discrete oscillators. NJOY's listing: `T_eff` 480.905 K after `contin`, 478.107 K after `trans`, 1194.341 K after `discre`; lambda 1.724930. | 6.3 s |
 
 ## Measured agreement (2026-09-10)
@@ -45,6 +46,13 @@ instead, `T_eff` came out 4e-6 low, lambda 1.1e-5 high and the SCT tail
 oxygen, `B(8) = mss·sps`, `B(9) = aws`) identical. Before this tape the
 H-in-H2O chain had only been compared with the published evaluation
 (σ_inel ~0.6 %, `T_eff` +0.09 %), which a different LEAPR build produced.
+
+`tests/leapr_d2o_skold_njoy_oracle.rs` — 60,322 points at 293.6 K agree
+to **1.0e-13**; `T_eff` 865.561 K exactly. Porting `skold`
+(`leapr.f90:2816-2862`) also surfaced that `sbfill`'s `bet += delta` loop
+can stop one entry short of the `2·nbt-1` that `trans` reads (31,628 for
+`nbt = 15,815` here); upstream silently reads a stale array slot weighted by
+the kernel's truncated tail, the port zero-pads.
 
 Data policy: derived products of open ENDF/B-VIII.0 evaluation inputs
 processed with the BSD-licensed NJOY2016; no proprietary content.

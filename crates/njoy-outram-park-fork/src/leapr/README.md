@@ -70,22 +70,10 @@ index (NJOY `ssm(nbeta,nalpha)` layout).
 - **`coldh` orchestrator** (1936–2183): the Young–Koppel rotational
   convolution loop is ported (`coldh::add_cold_hydrogen`) but is only
   self-consistency tested, never reference-validated.
-- **`skold`** (2816–2922): the Sköld pair-correlation correction. `deck.rs`
-  *parses* cards 17–19 into `PairCorrelation`, and
-  `LeaprDeck::unsupported_features()` flags such a deck, but nothing consumes
-  the data.
-
-## Testing — methodology and results
-
-Ran under the 12 GB cap via `scripts/test.sh leapr`. **Re-measured 2026-08-13:
-35 in-module tests, 35 passed, 0 failed**, plus the 4 integration tests of
-`tests/leapr_graphite_deck_parity.rs` (see the validation section above). All
-builds/tests in `--release`; `cargo check -p njoy-outram-park-fork
---all-targets` is clean (0 warnings).
-
-Closed-form / self-consistency V&V checks with **measured numbers**
-(2026-07-15 unless noted):
-
+- **`skold`** (2816–2922): ported (`skold.rs`, 2026-09-10) and verified
+  like-for-like against NJOY2016 on `tsl-DinD2O` at 293.6 K (60,322 points
+  to 1e-13, `tests/leapr_d2o_skold_njoy_oracle.rs`). `nsk = 1` (Vineyard)
+  only reads the table upstream; `ska` is used by `coldh` and `skold` alone.
 - **SCT / free-gas detailed balance** (`sct.rs`): `S(α,−β) = e^{−β} S(α,β)`
   exact for `tbar = 1` — relative error `< 1e-13` across sampled (α,β).
 - **`besk1`** (`translation.rs`): `K₁(0.5) = 1.656441`, `K₁(1) = 0.601907`,
