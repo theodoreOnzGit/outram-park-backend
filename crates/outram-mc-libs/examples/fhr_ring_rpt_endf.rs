@@ -11,31 +11,33 @@
 //!     --example fhr_ring_rpt_endf
 //! ```
 //!
-//! # What it computes
+//! # What it computes (full 4 cm pebble, 0.1 cm graphite shell, FLiBe, 600 K)
 //!
-//! - **Explicit fuel-zone k∞** — five-layer TRISO particles randomly packed
-//!   (30 % by volume) in a graphite matrix cube, delta (Woodcock) tracking.
-//! - **Homogenised fuel-zone k∞** — the same TRISO material dissolved into one
-//!   medium ([`homogenise_by_volume`]) filling the same cube.
-//! - **Ring-RPT pebble** — the homogenised fuel as a spherical shell (inner
-//!   radius 1.493359375 cm, volume = total particle volume), graphite + FLiBe,
-//!   reflective; six-factor decomposition + lethargy spectrum.
+//! - **Explicit-TRISO pebble** — five-layer TRISO particles randomly packed
+//!   (30 % by volume) in the r < 1.9 cm graphite fuel zone; delta (Woodcock)
+//!   tracking on a reflective cube reaching r = 3.
+//! - **Ring-RPT pebble** — the TRISO material [`homogenise_by_volume`]-dissolved
+//!   into a spherical shell (inner radius 1.493359375 cm, volume = total
+//!   particle volume). Run two ways: on the *same reflective cube* as the
+//!   explicit case (a matched-boundary `RPT − explicit` delta), and through the
+//!   real [`fhr_pebble_geometry`] CSG sphere (directly comparable to the OpenMC
+//!   RPT number, with the six-factor decomposition).
+//! - **Naive homogenisation** — the homogenised fuel filling the whole r < 1.9
+//!   zone; the `naive − explicit` gap is the double-heterogeneity error RPT
+//!   exists to remove.
 //!
-//! The RPT-equivalence quantity is the **fuel-zone k∞ difference**
-//! `homogenised − explicit`; RPT works if it is small. That difference is
-//! compared against OpenMC's `ring_rpt − explicit` = −31 ± 92 pcm.
+//! Reference: OpenMC `ring_rpt − explicit = −31 ± 92 pcm` (`op-mzvp.1`, #156).
 //!
-//! # Caveats (this run)
+//! # Caveats
 //!
-//! 1. **No graphite S(α,β) yet** — the matrix/coating/shell carbon is free-gas
-//!    here, bound `c_Graphite` in the OpenMC deck. `tests/htr10_graphite_thermal
-//!    _scattering_pebble_bed.rs` measures ~1700 pcm for that difference in a
-//!    graphite pebble bed, so the *absolute* k values will sit well above
-//!    OpenMC's. The RPT *difference* is far less sensitive (common-mode).
-//!    Adding S(α,β) is `op-mzvp.2.8` follow-up.
-//! 2. **Charged-particle absorption** — Li-6(n,t) is under-counted (`op-mzvp.2.10`);
-//!    small at 99.995 % Li-7.
-//! 3. Not a validated result — an AI-assisted code-to-code check.
+//! 1. **Graphite S(α,β)** is on (`c_Graphite`, ENDF/B-VIII.0 crystalline
+//!    graphite) for the coating / matrix / shell carbon; the fuel-kernel carbon
+//!    stays free-gas, as in the OpenMC deck.
+//! 2. **Delta-cube corners** carry FLiBe past r = 3 — an over-count of coolant
+//!    the CSG-sphere row does not have.
+//! 3. **The RPT inner radius** (1.4934 cm) was tuned by the deck author against
+//!    OpenMC, so it is not optimal for this code.
+//! 4. Not a validated result — an AI-assisted code-to-code check.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -62,13 +64,23 @@ mod desktop {
     use outram_mc_libs::physics::transport_csg::SourceBox;
     use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
     use outram_mc_libs::pebble_beds::fhr_pebble::{
-        homogeneous_cube, homogenise_by_volume, triso_layer_at, TrisoLayer, TrisoSpec,
+        fhr_pebble_geometry, homogenise_by_volume, rpt_fuel_outer_radius, triso_layer_at,
+        TrisoLayer, TrisoSpec,
     };
     use outram_mc_libs::pebble_beds::crp_packing::pack_spheres_crp;
     use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
     use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
     use outram_mc_libs::geometry::position::Position;
+    use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::thermal::ThermalScattering;
     use std::path::PathBuf;
+
+    /// Full-pebble radii from the OpenMC deck (`openmc_inputs/triso_pebble.py`,
+    /// `rpt_pebble.py`): 4 cm pebble, 0.1 cm graphite shell.
+    const R_FUEL_ZONE: f64 = 1.9; // 2.0 − shell; TRISO-in-graphite (explicit) / homog fuel (naive)
+    const R_PEBBLE: f64 = 2.0; //  graphite shell outer
+    const R_ROOT: f64 = 3.0; //   reflective boundary
+    const R_RPT_INNER: f64 = 1.493_359_375; // ring-RPT inner graphite ball
 
     const AVOGADRO_1E24: f64 = 0.602_214_076; // N_A / 1e24 [atoms·mol⁻¹ / 1e24]
     const TEMP_K: f64 = 600.0;
@@ -133,16 +145,22 @@ mod desktop {
     }
 
     fn nuclides() -> Vec<Nuclide> {
-        // C12G / C13G are the *same* reconstruction as C12 / C13 for now — the
-        // bound-graphite S(α,β) overlay is op-mzvp.2.8 follow-up.
+        // C12 / C13 (fuel kernel) stay free-gas. C12G / C13G (buffer, PyC,
+        // matrix, shell) carry the ENDF/B-VIII.0 crystalline-graphite S(α,β)
+        // law — below ~4 eV they scatter off the bound lattice (coherent Bragg
+        // + incoherent inelastic) instead of a free carbon atom. This is
+        // `c_Graphite` in the OpenMC deck; without it a graphite-moderated
+        // spectrum sits ~1700 pcm too high (tests/htr10_graphite_thermal_scatt…).
+        let sab = graphite_sab();
+        eprintln!("  graphite S(α,β): ENDF/B-VIII.0 tsl-crystalline-graphite (MAT 30) … ok");
         vec![
             load("U235", "n-092_U_235-ENDF8.0.endf"),
             load("U238", "n-092_U_238.endf"),
             load("O16", "n-008_O_016-ENDF8.0.endf"),
             load("C12", "n-006_C_012-ENDF8.0.endf"),
             load("C13", "n-006_C_013-ENDF8.0.endf"),
-            load("C12", "n-006_C_012-ENDF8.0.endf"),
-            load("C13", "n-006_C_013-ENDF8.0.endf"),
+            load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab.clone()),
+            load("C13", "n-006_C_013-ENDF8.0.endf").with_thermal_scattering(sab),
             load("Si28", "n-014_Si_028-ENDF8.0.endf"),
             load("Si29", "n-014_Si_029-ENDF8.0.endf"),
             load("Si30", "n-014_Si_030-ENDF8.0.endf"),
@@ -151,6 +169,19 @@ mod desktop {
             load("Li7", "n-003_Li_007-ENDF8.0.endf"),
             load("Be9", "n-004_Be_009-ENDF8.0.endf"),
         ]
+    }
+
+    fn graphite_sab() -> ThermalScattering {
+        ThermalScattering::from_endf_file(
+            endf_dir()
+                .join("tsl-crystalline-graphite.endf")
+                .to_str()
+                .expect("valid UTF-8 path"),
+            30, // MAT 30 — C in crystalline graphite (ENDF/B-VIII.0)
+            TEMP_K,
+            "c_Graphite",
+        )
+        .expect("crystalline-graphite S(α,β) from reference-data/endf/")
     }
 
     /// Atom-density components \[atoms/barn·cm\] for a compound of mass density
@@ -271,6 +302,7 @@ mod desktop {
         pub const PYC2: usize = 3;
         pub const SIC: usize = 4;
         pub const GRAPHITE: usize = 5;
+        pub const FLIBE: usize = 6;
         pub const HOMOG: usize = 7;
     }
 
@@ -300,130 +332,133 @@ mod desktop {
             compute,
             ..KeffSettings::default()
         };
-
-        // ── 1. Explicit fuel-zone k∞ (delta tracking) ──
-        let h = 0.35_f64; // 0.7 cm cube — ~320 TRISO particles at pf 0.3
+        // Full-pebble delta domain: a reflective cube whose half-width reaches
+        // the pebble's reflective radius. The OpenMC deck clips the coolant at a
+        // reflective SPHERE r = 3; here the cube corners (3 < r < 5.2) carry
+        // FLiBe too — a documented over-count of coolant (see the V&V record).
+        let half = R_ROOT;
         let seed = 20_260_910;
-        // Collective-rearrangement packing reaches 0.30 (RSA saturates below it).
-        let spheres = pack_spheres_crp(spec.opyc, h, spec.packing_fraction, seed)
+
+        // TRISO packed into a cube that fully covers the r < 1.9 fuel sphere.
+        let pack_half = R_FUEL_ZONE + spec.opyc;
+        let spheres = pack_spheres_crp(spec.opyc, pack_half, spec.packing_fraction, seed)
             .expect("TRISO CRP packing");
-        let packed = PackedSpheres::from_spheres(spheres, h, spec.opyc);
+        let packed = PackedSpheres::from_spheres(spheres, pack_half, spec.opyc);
         eprintln!(
-            "Explicit fuel zone: {} TRISO particles, realized pf {:.4}, cube half-width {h} cm",
+            "Explicit fuel zone: {} TRISO particles in r < {R_FUEL_ZONE} cm, realized pf {:.4}",
             packed.len(),
             packed.packing_fraction()
         );
-        // The delta run sees the full material array; `material_at` returns the
-        // `mi::*` index directly, so kernel..OPyC + graphite matrix are all in
-        // scope and the majorant bounds every one of them.
-        let majorant = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.1);
-        let material_at = |p: Position| -> Option<usize> {
-            match packed.containing_center(p) {
-                Some(c) => triso_layer_at((p - c).norm(), &spec).map(layer_material),
-                None => Some(mi::GRAPHITE),
+
+        let r_rpt_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
+        let majorant = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+
+        // ── Zone lookups (radius from the pebble centre) ──
+        let zone_outside_fuel = |r: f64| -> usize {
+            if r < R_PEBBLE {
+                mi::GRAPHITE // graphite shell
+            } else {
+                mi::FLIBE // coolant (+ cube corners)
             }
         };
-        let explicit = run_keff_delta(h, &mats, &nucs, &majorant, material_at, &keff);
+
+        // 1. Explicit-TRISO pebble.
+        let explicit_at = |p: Position| -> Option<usize> {
+            let r = p.norm();
+            if r < R_FUEL_ZONE {
+                Some(match packed.containing_center(p) {
+                    Some(c) => layer_material(
+                        triso_layer_at((p - c).norm(), &spec).unwrap_or(TrisoLayer::Opyc),
+                    ),
+                    None => mi::GRAPHITE, // matrix
+                })
+            } else {
+                Some(zone_outside_fuel(r))
+            }
+        };
+        let explicit = run_keff_delta(half, &mats, &nucs, &majorant, explicit_at, &keff);
+        eprintln!("  k_eff (explicit TRISO pebble) = {:.5} ± {:.5}", explicit.k_mean, explicit.k_std);
+
+        // 2. Ring-RPT pebble — SAME reflective cube, homogenised fuel as a shell.
+        let rpt_at = |p: Position| -> Option<usize> {
+            let r = p.norm();
+            Some(if r < R_RPT_INNER {
+                mi::GRAPHITE // inner graphite ball
+            } else if r < r_rpt_fuel {
+                mi::HOMOG // homogenised TRISO fuel shell
+            } else {
+                zone_outside_fuel(r)
+            })
+        };
+        let rpt = run_keff_delta(half, &mats, &nucs, &majorant, rpt_at, &keff);
         eprintln!(
-            "  k∞ (explicit TRISO)     = {:.5} ± {:.5}\n",
-            explicit.k_mean, explicit.k_std
+            "  k_eff (ring-RPT pebble)       = {:.5} ± {:.5}   (fuel shell {R_RPT_INNER:.4}–{r_rpt_fuel:.4} cm)",
+            rpt.k_mean, rpt.k_std
         );
 
-        // ── 2. Homogenised fuel-zone k∞ (same cube, one medium) ──
-        let homog_only = vec![mats[mi::HOMOG].clone()];
-        let cube = homogeneous_cube(h, 0, TEMP_K);
-        let src = SourceBox {
-            lower: Position::new(-h, -h, -h),
-            upper: Position::new(h, h, h),
+        // 3. Naive homogenisation — homog fuel fills the whole r < 1.9 zone.
+        let naive_at = |p: Position| -> Option<usize> {
+            let r = p.norm();
+            Some(if r < R_FUEL_ZONE { mi::HOMOG } else { zone_outside_fuel(r) })
         };
+        let naive = run_keff_delta(half, &mats, &nucs, &majorant, naive_at, &keff);
+        eprintln!("  k_eff (naive homogenised)     = {:.5} ± {:.5}", naive.k_mean, naive.k_std);
+
+        // 4. Ring-RPT pebble through the real CSG sphere geometry — this is
+        //    directly comparable to the OpenMC RPT number (reflective sphere
+        //    r = 3, no cube-corner coolant), and yields the six factors + spectrum.
+        let pebble = fhr_pebble_geometry(
+            R_RPT_INNER, r_rpt_fuel, R_PEBBLE, R_ROOT,
+            mi::HOMOG, mi::GRAPHITE, mi::FLIBE, BoundaryType::Reflective, TEMP_K,
+        );
         let rp_cfg = ReactorPhysicsConfig {
             keff: keff.clone(),
-            source_box: src,
+            source_box: SourceBox {
+                lower: Position::new(-r_rpt_fuel, -r_rpt_fuel, -r_rpt_fuel),
+                upper: Position::new(r_rpt_fuel, r_rpt_fuel, r_rpt_fuel),
+            },
             ..Default::default()
         };
-        let homog_cube = run_keff_reactor_physics(&cube, &homog_only, &nucs, &rp_cfg)
-            .expect("homogenised cube reactor physics");
+        let rpt_csg = run_keff_reactor_physics(&pebble, &mats, &nucs, &rp_cfg)
+            .expect("ring-RPT CSG pebble reactor physics");
         eprintln!(
-            "  k∞ (homogenised)        = {:.5} ± {:.5}",
-            homog_cube.keff.k_mean, homog_cube.keff.k_std
+            "  k_eff (ring-RPT pebble, CSG sphere) = {:.5} ± {:.5}   leak {:.2e}",
+            rpt_csg.keff.k_mean, rpt_csg.keff.k_std, rpt_csg.leakage_total.mean
         );
-
-        let d_pcm = (homog_cube.keff.k_mean - explicit.k_mean) * 1.0e5;
-        let sigma_pcm =
-            (explicit.k_std.powi(2) + homog_cube.keff.k_std.powi(2)).sqrt() * 1.0e5;
-        eprintln!(
-            "  RPT equivalence: homogenised − explicit = {:+.0} pcm  (combined σ {:.0} pcm, {:.2}σ)",
-            d_pcm,
-            sigma_pcm,
-            d_pcm.abs() / sigma_pcm.max(1.0)
-        );
-        print_six_factors("homogenised fuel zone", &homog_cube);
-
-        // ── 3. Ring-RPT shell fuel-zone k∞ (delta tracking, radius-classified) ──
-        // The homogenised fuel occupies a spherical shell r ∈ (r_inner, r_shell)
-        // sized so its volume = the total particle volume, graphite elsewhere.
-        // Same reflective cube domain as (1) and (2), so the three k∞ numbers are
-        // a like-for-like comparison; solved with delta tracking because the
-        // domain is a cube with a radius-classified fuel shell, not a CSG pebble.
-        //
-        // NOTE (2026-09-10): this is no longer a workaround. `op-mzvp.2.11` /
-        // GitHub #168 — `run_keff_csg` leaking on concentric spheres — is FIXED,
-        // and `fhr_pebble_geometry` now transports with zero leakage (see its
-        // `reflective_pebble_transport_does_not_leak` regression test). Running
-        // the *full* graphite + FLiBe pebble through `run_keff_csg` is therefore
-        // unblocked; what it still needs is the OpenMC deck's own pebble radii
-        // (fuel-zone / graphite-shell / coolant-cell), which this example does
-        // not carry, so the comparison stays a fuel-zone k∞ until those land.
-        let r_inner_fz = 0.20_f64; // fits inside the h = 0.35 cube
-        let r_shell_fz = (r_inner_fz.powi(3) + spec.packing_fraction * (0.85_f64).powi(3)).cbrt();
-        let rpt_mats = vec![mats[mi::HOMOG].clone(), mats[mi::GRAPHITE].clone()];
-        let rpt_majorant = Majorant::bounding(&rpt_mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.1);
-        let rpt_at = move |p: Position| -> Option<usize> {
-            let r = p.norm();
-            if r > r_inner_fz && r < r_shell_fz {
-                Some(0) // homogenised fuel shell
-            } else {
-                Some(1) // graphite
-            }
-        };
-        let rpt = run_keff_delta(h, &rpt_mats, &nucs, &rpt_majorant, rpt_at, &keff);
-        eprintln!(
-            "\n  k∞ (ring-RPT shell)     = {:.5} ± {:.5}   (fuel shell {r_inner_fz:.3}–{r_shell_fz:.3} cm)",
-            rpt.k_mean, rpt.k_std
-        );
+        print_six_factors("ring-RPT CSG pebble", &rpt_csg);
 
         // ── Summary ──
-        let delta = |k: f64, s: f64| {
-            let dk = (k - explicit.k_mean) * 1e5;
-            let cs = (s.powi(2) + explicit.k_std.powi(2)).sqrt() * 1e5;
+        let d = |k: f64, s: f64, k0: f64, s0: f64| {
+            let dk = (k - k0) * 1e5;
+            let cs = (s * s + s0 * s0).sqrt() * 1e5;
             (dk, dk.abs() / cs.max(1.0))
         };
-        let (d_nh, z_nh) = delta(homog_cube.keff.k_mean, homog_cube.keff.k_std);
-        let (d_rp, z_rp) = delta(rpt.k_mean, rpt.k_std);
-        eprintln!("\n── outram-mc-libs fuel-zone k∞ (ENDF/B-VIII.0, free-gas C) ──");
-        eprintln!("  explicit TRISO        : {:.5} ± {:.5}", explicit.k_mean, explicit.k_std);
-        eprintln!(
-            "  naive homogenised     : {:.5} ± {:.5}   Δ(naive−explicit) = {d_nh:+.0} pcm  ({z_nh:.1}σ)",
-            homog_cube.keff.k_mean, homog_cube.keff.k_std
-        );
-        eprintln!(
-            "  ring-RPT shell        : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rp:+.0} pcm  ({z_rp:.1}σ)",
-            rpt.k_mean, rpt.k_std
-        );
+        let (d_rp, z_rp) = d(rpt.k_mean, rpt.k_std, explicit.k_mean, explicit.k_std);
+        let (d_nv, z_nv) = d(naive.k_mean, naive.k_std, explicit.k_mean, explicit.k_std);
+        eprintln!("\n── outram-mc-libs FHR pebble (ENDF/B-VIII.0, c_Graphite S(α,β)) ──");
+        eprintln!("  reflective-cube domain (matched boundary for the RPT − explicit delta):");
+        eprintln!("    explicit TRISO   : {:.5} ± {:.5}", explicit.k_mean, explicit.k_std);
+        eprintln!("    ring-RPT         : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rp:+.0} pcm  ({z_rp:.1}σ)", rpt.k_mean, rpt.k_std);
+        eprintln!("    naive homogenised: {:.5} ± {:.5}   Δ(naive−explicit) = {d_nv:+.0} pcm  ({z_nv:.1}σ)", naive.k_mean, naive.k_std);
+        eprintln!("  reflective-sphere CSG (matched to OpenMC):");
+        eprintln!("    ring-RPT         : {:.5} ± {:.5}", rpt_csg.keff.k_mean, rpt_csg.keff.k_std);
 
         // ── OpenMC reference (op-mzvp.1, GH #156) ──
         eprintln!("\n── OpenMC full-pebble reference (op-mzvp.1, ENDF/B-VIII.0, c_Graphite) ──");
         eprintln!("  explicit TRISO pebble : k = 1.36510 ± 0.00063");
         eprintln!("  ring-RPT pebble       : k = 1.36479 ± 0.00067   Δ(RPT−explicit) = −31 pcm (0.34σ)");
         eprintln!("  η/f/p/ε (explicit)    : 2.0158 / 0.9172 / 0.4837 / 1.5064");
+        eprintln!("  η/f/p/ε (ring-RPT)    : 2.0073 / 0.9216 / 0.4842 / 1.5043");
         eprintln!(
-            "\nCAVEATS:\n  • free-gas carbon (no c_Graphite S(α,β)) — op-mzvp.2.8; absolute k not \
-             comparable to OpenMC.\n  • fuel-zone k∞ in a 0.7 cm reflective cube, NOT the full \
-             graphite+FLiBe pebble. op-mzvp.2.11 / GH #168 (CSG surface tracking leaked on \
-             concentric spheres) is FIXED, so the CSG pebble path is unblocked; wiring the full \
-             pebble now needs only the OpenMC deck's own pebble radii.\n  • Li-6(n,t) \
-             absorption under-counted — op-mzvp.2.10 (tiny at 99.995 % Li-7).\n  • AI-assisted \
-             code-to-code check, not a validated result."
+            "\nCAVEATS (see verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md):\n\
+             - delta-cube corners carry FLiBe past r = 3 (over-counts coolant vs\n\
+               the OpenMC reflective sphere); the CSG-sphere row removes this.\n\
+             - explicit-TRISO delta resolves the 5 coating layers by nearest-centre\n\
+               + radius, not exact CSG.\n\
+             - the RPT inner radius (1.4934 cm) was tuned by the deck author for\n\
+               OpenMC, so it is not optimal here.\n\
+             - Li-6(n,t) now counted (op-mzvp.2.10 fixed); tiny at 99.995 % Li-7.\n\
+             - AI-assisted code-to-code check, not a validated result."
         );
     }
 
