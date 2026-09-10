@@ -19,8 +19,8 @@
 //!   `phi = C(E) (sigma_0 + sigma_pot) / (sigma_t(E) + sigma_0)`.
 //! - `iwt < 0` — the **integral slowing-down** model for an infinite mixture of a
 //!   heavy absorber and one or more light moderators (`nflmax > 0`,
-//!   `groupr.f90:5396-5620`). This module ports *that* branch — the **homogeneous
-//!   single-moderator** case (see the scope note below).
+//!   `groupr.f90:5396-5620`). This module ports *that* branch, including the
+//!   heterogeneity / multi-moderator terms (see the scope note below).
 //!
 //! # What the slowing-down branch does (`groupr.f90:5396-5620`)
 //!
@@ -58,21 +58,27 @@
 //! |---|---|---|
 //! | 1 | 5434-5452 | build the `felo..fehi` energy grid, seed the background source `sigma_0 * C(E)` |
 //! | 2 | 5456-5458 | set the top point to the Bondarenko narrow-resonance flux |
-//! | 3 | 5459-5475 (`k=1`) | add the scattering-in source from the narrow-resonance flux above `fehi` |
-//! | 4 | 5477-5550 (`k=1`) | solve the slowing-down equation high energy -> low energy, accumulating the elastic scattering source `do k=1,nalph` for the single moderator |
+//! | 3 | 5459-5475 | add the scattering-in source from the narrow-resonance flux above `fehi`, one term per moderator `k=1..nalph` |
+//! | 4 | 5477-5550 | solve the slowing-down equation high energy -> low energy, accumulating the elastic scattering source `do k=1,nalph` (absorber, admixed, external moderator) |
 //! | 5 | 5556-5560 | below `felo`, extend with the weight-function shape scaled by the solved flux at `felo` |
 //! | 6 | 5596-5615 | tabulate the converged P0 flux |
 //! | 7 | 5623-5665 | complete the flux above `fehi` with the Bondarenko narrow-resonance model |
 //!
-//! **NOT ported (documented gap):** the heterogeneity / multi-moderator terms —
-//! the `do k = 1, nalph` accumulation for a second (`k=2`) and third (`k=3`)
-//! moderator, the `beta` heterogeneity (Dancoff-like) adjustment, the admixed
-//! moderator `sam`, and the external-fraction `gamma`
-//! (`groupr.f90:5468-5471,5496-5499,5513-5516,5536-5539`). If any of
-//! [`SlowingDownParams::beta`], [`SlowingDownParams::sam`],
-//! [`SlowingDownParams::alpha2`], [`SlowingDownParams::alpha3`], or
-//! [`SlowingDownParams::gamma`] is non-zero, [`genflx_slowing_down`] returns
-//! [`NjoyError::NotPorted`] rather than a partially-correct flux.
+//! **Heterogeneity / multi-moderator terms (ported 2026-09-10):** the
+//! `do k = 1, nalph` accumulation for a second (`k=2`, admixed) and third
+//! (`k=3`, external) moderator, the `beta` heterogeneity (Dancoff-like)
+//! adjustment, the admixed moderator `sam`, and the external-fraction `gamma`
+//! (`groupr.f90:5449,5468-5471,5496-5499,5513-5516,5536-5539`). The seed
+//! source is `(sigz - sam)*wtf*(1 - beta)`; the `k=2` source is
+//! `sam + beta*gamma*(sigz - sam)` and the `k=3` source
+//! `beta*(1 - gamma)*(sigz - sam)`, both energy independent (`s1 == s2`), and
+//! `alpha(k)` sets each moderator's slowing-down reach `ej/alpha(k)`. Card 8a's
+//! rule that an external moderator without an admixed one still occupies the
+//! `k=2` slot (`alpha2 = small = 1e-10`, `groupr.f90:4994`) is applied here.
+//! Validated against NJOY2016's GENDF (tier 5 of
+//! `tests/groupr_u238_gendf_golden.rs`): U-238, `alpha2 = 0.7768, sam = 0.5,
+//! beta = 0.3, alpha3 = 0.7143, gamma = 0.4`, every group flux within 3.9e-7
+//! and every `sigma_g` within 2.7e-6 of NJOY (its 7-figure storage floor).
 //!
 //! **NOT ported (feeder concern):** reading the total/elastic cross sections off
 //! a PENDF tape (`findf`/`contio`/`gety1`/`gety2`, `groupr.f90:5420-5442`). This
@@ -99,11 +105,9 @@ use crate::NjoyError;
 /// solve — the `ir`-selected features of `genflx` (`groupr.f90:5330-5336`).
 ///
 /// All barn quantities are per absorber atom. The default is the homogeneous,
-/// single-moderator case (`beta = 0`, `sam = 0`, no second/third moderator),
-/// which is the case this module ports; the heterogeneity / multi-moderator
-/// fields are carried so the interface is complete, but a non-zero value there
-/// makes [`genflx_slowing_down`] return [`NjoyError::NotPorted`] (see the module
-/// scope note).
+/// single-moderator case (`beta = 0`, `sam = 0`, no second/third moderator);
+/// the heterogeneity / multi-moderator fields switch on the `k = 2, 3` terms
+/// (see the module scope note).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlowingDownParams {
     /// Lowest group bound `felo` \[eV\] — the bottom of the flux solve
@@ -127,24 +131,20 @@ pub struct SlowingDownParams {
     /// an explicit input because this port takes already-parsed cross sections.
     /// Must be `> 0`; use the true absorber mass (e.g. `238.0` for U-238).
     pub absorber_awr: f64,
-    /// Second-moderator scattering `alpha = ((A-1)/(A+1))^2` (`alpha2`), or `0`
-    /// for none (`groupr.f90:5331,5379`). **Not ported** — a non-zero value
-    /// returns [`NjoyError::NotPorted`].
+    /// Second (admixed) moderator scattering `alpha = ((A-1)/(A+1))^2`
+    /// (`alpha2`), or `0` for none (`groupr.f90:5331,5379`; card 8a).
     pub alpha2: f64,
-    /// Third-moderator scattering `alpha` (`alpha3`, external only), or `0`
-    /// (`groupr.f90:5332,5380`). **Not ported** — a non-zero value returns
-    /// [`NjoyError::NotPorted`].
+    /// Third (external) moderator scattering `alpha` (`alpha3`), or `0` for
+    /// none (`groupr.f90:5332,5380`). A non-zero `alpha3` with `alpha2 = 0`
+    /// sets `alpha2 = 1e-10` internally (`groupr.f90:4994`).
     pub alpha3: f64,
     /// Heterogeneity (Dancoff-like) parameter `beta` (`groupr.f90:5333`).
-    /// **Not ported** — a non-zero value returns [`NjoyError::NotPorted`].
     pub beta: f64,
     /// Second/admixed moderator cross section `sam` \[barn per absorber atom\]
-    /// (`groupr.f90:5334`). **Not ported** — a non-zero value returns
-    /// [`NjoyError::NotPorted`].
+    /// (`groupr.f90:5334`).
     pub sam: f64,
-    /// Fraction `gamma` of the second moderator in the external moderator
-    /// (`groupr.f90:5335`). **Not ported** — a non-zero value returns
-    /// [`NjoyError::NotPorted`].
+    /// Fraction `gamma` of the admixed moderator's cross section in the
+    /// external moderator's (`groupr.f90:5335`).
     pub gamma: f64,
 }
 
@@ -168,9 +168,16 @@ impl Default for SlowingDownParams {
     }
 }
 
+/// `getwtf`'s own step between weight-function samples, `s101 = 1.01`
+/// (`groupr.f90:5140`): the analytic weights (`iwt = 2, 3, 4, 6, 7, 10`)
+/// return `enext = 1.01*e`, and a tabulated weight's next break is capped at
+/// it (`:5175-5178`). `genflx` uses it for the tail below `felo` and for the
+/// narrow-resonance extension above `fehi`.
+const GETWTF_STEP: f64 = 1.01;
+
 /// Solve the integral slowing-down equation for the self-shielded weighting flux
-/// `phi(E; sigma_0)` — the homogeneous single-moderator case of the `iwt < 0` /
-/// `nflmax > 0` branch of `genflx` (`groupr.f90:5396-5620`).
+/// `phi(E; sigma_0)` — the `iwt < 0` / `nflmax > 0` branch of `genflx`
+/// (`groupr.f90:5396-5620`), heterogeneity and multi-moderator terms included.
 ///
 /// # Physics
 /// For an infinite homogeneous mixture of one heavy absorber (whose total cross
@@ -197,7 +204,7 @@ impl Default for SlowingDownParams {
 ///   finite value such as `1e10` for the infinite-dilution limit (NJOY uses
 ///   `sigzmx = 1e10`, `groupr.f90:5359`), not `f64::INFINITY`.
 /// - `params` — the [`SlowingDownParams`] (`felo`, `fehi`, `nflmax`, `sigpot`,
-///   `absorber_awr`; the heterogeneity / multi-moderator fields must be zero).
+///   `absorber_awr`, and the card-8a heterogeneity / multi-moderator fields).
 ///
 /// # Returns
 /// A [`SelfShieldedFluxSet`] with one tabulated P0 flux per dilution, matching
@@ -206,18 +213,8 @@ impl Default for SlowingDownParams {
 /// solved region `felo..fehi`, and the narrow-resonance extension above `fehi`.
 ///
 /// # Errors
-/// - [`NjoyError::NotPorted`] if any heterogeneity / multi-moderator field
-///   (`beta`, `sam`, `alpha2`, `alpha3`, `gamma`) is non-zero — those terms are
-///   documented as not ported (see the module scope note).
 /// - [`NjoyError::EndfParse`] for invalid inputs: no dilutions, a non-finite or
 ///   negative dilution, `fehi <= max(felo, 0.1)`, or `absorber_awr <= 0`.
-/// `getwtf`'s own step between weight-function samples, `s101 = 1.01`
-/// (`groupr.f90:5140`): the analytic weights (`iwt = 2, 3, 4, 6, 7, 10`)
-/// return `enext = 1.01*e`, and a tabulated weight's next break is capped at
-/// it (`:5175-5178`). `genflx` uses it for the tail below `felo` and for the
-/// narrow-resonance extension above `fehi`.
-const GETWTF_STEP: f64 = 1.01;
-
 pub fn genflx_slowing_down(
     sigma_t: &PointwiseXs,
     sigma_el: &PointwiseXs,
@@ -225,18 +222,6 @@ pub fn genflx_slowing_down(
     dilutions: &[f64],
     params: &SlowingDownParams,
 ) -> Result<SelfShieldedFluxSet, NjoyError> {
-    // --- Heterogeneity / multi-moderator terms are not ported. --------------
-    if params.beta != 0.0
-        || params.sam != 0.0
-        || params.alpha2 != 0.0
-        || params.alpha3 != 0.0
-        || params.gamma != 0.0
-    {
-        return Err(NjoyError::NotPorted(
-            "groupr::genflx slowing-down heterogeneity / multi-moderator terms (beta, sam, alpha2, alpha3, gamma)",
-        ));
-    }
-
     // --- Input validation. --------------------------------------------------
     if dilutions.is_empty() {
         return Err(NjoyError::EndfParse(
@@ -268,8 +253,46 @@ pub fn genflx_slowing_down(
     let sigpot = params.sigpot;
     // Absorber's own scattering alpha (groupr.f90:5428).
     let alpha1 = ((awr - 1.0) / (awr + 1.0)).powi(2);
-    let one_minus_alpha = 1.0 - alpha1;
     let nsigz = dilutions.len();
+    let (beta, sam, gamma) = (params.beta, params.sam, params.gamma);
+    // Card-8a rule (groupr.f90:4994): an external moderator without an admixed
+    // one still needs the k=2 slot, so alpha2 is set to `small` = 1e-10.
+    let alpha2 = if params.alpha3 != 0.0 && params.alpha2 == 0.0 {
+        1.0e-10
+    } else {
+        params.alpha2
+    };
+    // alpha(1..nalph) (groupr.f90:5402-5406): nalph = 1, 2 or 3.
+    let mut alphas = vec![alpha1];
+    if alpha2 != 0.0 {
+        alphas.push(alpha2);
+    }
+    if params.alpha3 != 0.0 {
+        if alphas.len() < 2 {
+            alphas.push(alpha2);
+        }
+        alphas.push(params.alpha3);
+    }
+    // Moderator scattering sources per dilution for k = 2 (admixed + the
+    // admixed fraction of the external moderator) and k = 3 (the rest of the
+    // external moderator) (groupr.f90:5496-5499). Both are energy independent,
+    // so s1 == s2 for those k; k = 1 uses the absorber's own elastic ss(e).
+    let s_k2: Vec<f64> = dilutions
+        .iter()
+        .map(|&sz| sam + beta * gamma * (sz - sam))
+        .collect();
+    let s_k3: Vec<f64> = dilutions
+        .iter()
+        .map(|&sz| beta * (1.0 - gamma) * (sz - sam))
+        .collect();
+    // (s1, s2) for moderator k at panel [p, p+1] and dilution iz.
+    let mod_source = |k: usize, p: usize, iz: usize, ss: &[f64]| -> (f64, f64) {
+        match k {
+            0 => (ss[p], ss[p + 1]),
+            1 => (s_k2[iz], s_k2[iz]),
+            _ => (s_k3[iz], s_k3[iz]),
+        }
+    };
 
     // --- Step 1: build the energy grid felo..fehi. --------------------------
     // March the total-xs break points from felo up to fehi, capped at nemax
@@ -307,11 +330,12 @@ pub fn genflx_slowing_down(
     // flux[p][iz] == b(iz+3+li) in NJOY.
     let mut flux: Vec<Vec<f64>> = vec![vec![0.0; nsigz]; ne];
 
-    // Seed the background source: (sigz)*wtf (homogeneous: sam=0, beta=0)
+    // Seed the background source: (sigz - sam)*wtf*(1 - beta) -- the external
+    // moderator's asymptotic source, less the heterogeneity fraction
     // (groupr.f90:5449).
     for p in 0..ne {
         for iz in 0..nsigz {
-            flux[p][iz] = dilutions[iz] * wtf[p];
+            flux[p][iz] = (dilutions[iz] - sam) * wtf[p] * (1.0 - beta);
         }
     }
 
@@ -325,26 +349,37 @@ pub fn genflx_slowing_down(
     }
 
     // --- Step 3: scattering-in source from the narrow-resonance flux above
-    //             fehi, added to the points below fehi (k=1 only).
+    //             fehi, added to the points below fehi, one term per moderator.
     // (groupr.f90:5459-5475)
-    for p in 0..(ne - 1) {
-        let e = energies[p];
-        if e >= alpha1 * fehi {
-            // Upstream uses the loop's last `wtf` here -- the weight at fehi, not
-            // at e (groupr.f90:5460: `wtf` is not re-evaluated inside this
-            // loop). Measured 2026-09-10: with wtf(e) the 5-10 keV group flux
-            // was 7.4e-4 off NJOY at sigma_0 = 1 b; with wtf(fehi) it is not.
-            let f1 = (1.0 - alpha1 * fehi / e) * wtf[ne - 1] / one_minus_alpha;
-            for iz in 0..nsigz {
-                flux[p][iz] += f1 * sigpot;
+    for (k, &alpha_k) in alphas.iter().enumerate() {
+        for p in 0..(ne - 1) {
+            let e = energies[p];
+            if e >= alpha_k * fehi {
+                // Upstream uses the loop's last `wtf` here -- the weight at fehi,
+                // not at e (groupr.f90:5460: `wtf` is not re-evaluated inside
+                // this loop). Measured 2026-09-10: with wtf(e) the 5-10 keV group
+                // flux was 7.4e-4 off NJOY at sigma_0 = 1 b; with wtf(fehi) it
+                // is not.
+                let f1 = (1.0 - alpha_k * fehi / e) * wtf[ne - 1] / (1.0 - alpha_k);
+                for iz in 0..nsigz {
+                    // k=1: f1*sigpot; k=2: f1*(sam+beta*gamma*(sigz-sam));
+                    // k=3: f1*beta*(1-gamma)*(sigz-sam) (groupr.f90:5467-5471).
+                    let src = match k {
+                        0 => sigpot,
+                        1 => s_k2[iz],
+                        _ => s_k3[iz],
+                    };
+                    flux[p][iz] += f1 * src;
+                }
             }
         }
     }
 
     // --- Step 4: solve the slowing-down equation from high to low energy. ---
-    // (groupr.f90:5477-5550, single moderator k=1)
+    // (groupr.f90:5477-5550, `do k = 1, nalph` over the moderators)
     // Fortran je runs ne-1 .. 1; point index p = je-1 runs ne-2 .. 0.
     let mut p_signed = ne as isize - 2;
+    let mut add = vec![0.0; nsigz];
     while p_signed >= 0 {
         let p = p_signed as usize;
         let ej = energies[p];
@@ -359,17 +394,18 @@ pub fn genflx_slowing_down(
         // denom(iz) = sigz + sigma_t(ej) (groupr.f90:5488).
         let mut denom: Vec<f64> = (0..nsigz).map(|iz| dilutions[iz] + tt[p]).collect();
 
-        // Diagonal / next-point scattering contribution (groupr.f90:5490-5505).
-        {
-            let mut elim = ej / alpha1;
+        // Diagonal / next-point scattering contribution, per moderator
+        // (groupr.f90:5490-5505).
+        for (k, &alpha_k) in alphas.iter().enumerate() {
+            let one_minus_alpha = 1.0 - alpha_k;
+            let mut elim = ej / alpha_k;
             if elim > ejp {
                 elim = ejp;
             }
             let g3 = f1 * (elim / ej).ln() - (elim - ej) / width;
             let g4 = (elim - ej) / width - f2 * (elim / ej).ln();
-            let s1 = ss[p]; // b(lj+3)
-            let s2 = ss[p + 1]; // b(lj+3+nx)
             for iz in 0..nsigz {
+                let (s1, s2) = mod_source(k, p, iz, &ss);
                 flux[p][iz] += g4 * s2 * flux[p + 1][iz] / one_minus_alpha;
                 denom[iz] -= g3 * s1 / one_minus_alpha;
             }
@@ -380,14 +416,14 @@ pub fn genflx_slowing_down(
             flux[p][iz] /= denom[iz];
         }
 
-        // Distribute this point's scattering source to lower energies
-        // (groupr.f90:5509-5548).
-        {
-            let s1 = ss[p];
-            let s2 = ss[p + 1];
-            let add: Vec<f64> = (0..nsigz)
-                .map(|iz| (f3 * s1 * flux[p][iz] + f4 * s2 * flux[p + 1][iz]) / one_minus_alpha)
-                .collect();
+        // Distribute this point's scattering source to lower energies, per
+        // moderator (groupr.f90:5509-5548).
+        for (k, &alpha_k) in alphas.iter().enumerate() {
+            let one_minus_alpha = 1.0 - alpha_k;
+            for iz in 0..nsigz {
+                let (s1, s2) = mod_source(k, p, iz, &ss);
+                add[iz] = (f3 * s1 * flux[p][iz] + f4 * s2 * flux[p + 1][iz]) / one_minus_alpha;
+            }
             // Fortran: ie = je (= p+1, a 1-based point number); li = ie-1.
             let mut ie = p + 1;
             let mut elim = 2.0 * ej;
@@ -395,18 +431,19 @@ pub fn genflx_slowing_down(
                 ie -= 1;
                 let li = ie - 1; // lower point index
                 let ei = energies[li];
-                elim = ei / alpha1;
+                elim = ei / alpha_k;
                 if elim > ej {
                     if elim >= ejp {
                         // Whole [ej, ejp] panel is reachable (groupr.f90:5528-5531).
-                        for iz in 0..nsigz {
-                            flux[li][iz] += add[iz];
+                        for (f, a) in flux[li].iter_mut().zip(&add) {
+                            *f += a;
                         }
                     } else {
                         // Partial panel up to elim (groupr.f90:5532-5544).
                         let g3 = f1 * (elim / ej).ln() - (elim - ej) / width;
                         let g4 = (elim - ej) / width - f2 * (elim / ej).ln();
                         for iz in 0..nsigz {
+                            let (s1, s2) = mod_source(k, p, iz, &ss);
                             flux[li][iz] += (g3 * s1 * flux[p][iz] + g4 * s2 * flux[p + 1][iz])
                                 / one_minus_alpha;
                         }
@@ -417,7 +454,6 @@ pub fn genflx_slowing_down(
 
         p_signed -= 1;
     }
-
     // --- Step 5: below felo, extend with the weight-function shape. ----------
     // factor(iz) = phi(felo)/C(felo) (groupr.f90:5558-5560).
     let factor: Vec<f64> = (0..nsigz)
@@ -622,23 +658,59 @@ mod tests {
         );
     }
 
-    /// The heterogeneity / multi-moderator terms are a documented `NotPorted`
-    /// boundary — a non-zero `beta` (or `sam`, `alpha2`, `alpha3`, `gamma`) must
-    /// return [`NjoyError::NotPorted`], never a partially-correct flux
-    /// (CLAUDE.md "no fabrication").
+    /// **Multi-moderator terms with zero source reduce to the homogeneous
+    /// solve.** With `sam = 0` and `beta = 0` the `k = 2` source
+    /// `sam + beta*gamma*(sigz - sam)` and the `k = 3` source
+    /// `beta*(1 - gamma)*(sigz - sam)` are identically zero, so a non-zero
+    /// `alpha2` / `alpha3` / `gamma` must leave every flux value bit-identical
+    /// to the single-moderator solve (the extra terms add exact zeros).
+    /// Conversely a non-zero `beta` or `sam` must change the answer — the
+    /// oracle-pinned magnitude lives in `tests/groupr_u238_gendf_golden.rs`
+    /// tier 5.
     #[test]
-    fn heterogeneity_terms_report_not_ported() {
-        let st = PointwiseXs::Constant(10.0);
-        let se = PointwiseXs::Constant(8.0);
+    fn multi_moderator_zero_source_matches_homogeneous() {
+        let mut pairs = Vec::new();
+        for k in 0..=20 {
+            let e = 1.0 + k as f64 * 4.95;
+            let cap = 200.0 / (1.0 + ((e - 50.0) / 2.0).powi(2));
+            pairs.push((e, 11.0 + cap));
+        }
+        let grid: Vec<f64> = pairs.iter().map(|p| p.0).collect();
+        let st = PointwiseXs::LinLin(Arc::new(pairs));
+        let se = PointwiseXs::Constant(11.0);
         let w = GroupFlux::Flat;
-        let params = SlowingDownParams {
-            beta: 0.5,
-            ..Default::default()
+        let dil = [1.0e3, 10.0];
+        let base = homog_params(grid[0], *grid.last().unwrap(), 11.0);
+        let with_mods = SlowingDownParams {
+            alpha2: 0.7768,
+            alpha3: 0.7143,
+            gamma: 0.4,
+            ..base
         };
-        assert!(matches!(
-            genflx_slowing_down(&st, &se, &w, &[100.0], &params),
-            Err(NjoyError::NotPorted(_))
-        ));
+        let with_beta = SlowingDownParams {
+            beta: 0.3,
+            ..with_mods
+        };
+        let a = genflx_slowing_down(&st, &se, &w, &dil, &base).unwrap();
+        let b = genflx_slowing_down(&st, &se, &w, &dil, &with_mods).unwrap();
+        let c = genflx_slowing_down(&st, &se, &w, &dil, &with_beta).unwrap();
+        let mut moved = 0.0_f64;
+        for iz in 0..dil.len() {
+            let (fa, fb, fc) = (
+                a.flux(iz).unwrap(),
+                b.flux(iz).unwrap(),
+                c.flux(iz).unwrap(),
+            );
+            for &e in &grid {
+                assert_eq!(
+                    fa.value(e),
+                    fb.value(e),
+                    "zero-source moderators changed phi"
+                );
+                moved = moved.max(((fc.value(e) - fa.value(e)) / fa.value(e)).abs());
+            }
+        }
+        assert!(moved > 1e-3, "beta = 0.3 left the flux unchanged: {moved}");
     }
 
     /// Invalid inputs are rejected rather than silently mishandled: no dilutions,

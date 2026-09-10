@@ -19,6 +19,7 @@ and the oracle build it came from. Regenerate with
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | NJOY2016 upstream `ac5adf5` (2016.79), gfortran, built 2026-09-10 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf` (28 KB, 340 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf` (51 KB, 624 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF of `../endf/n-092_U_238.endf` (the RECONR/BROADR steps of the first deck) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.njoy-input` | 2026-09-10 |
 
@@ -56,6 +57,21 @@ NJOY's listing for this run: "flux calculator used weight function from 1e-5
 to 9.9740E-02 ev, 926 points; computed flux from 1.0000E-01 to 1.0000E+04 ev,
 99934 points; finished with narrow-resonance flux to 3.0000E+07 ev, 55488
 points". Consumed by the same test (tier 4).
+
+### `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.gendf`
+
+GROUPR alone (`tape20` = the ENDF tape, `tape22` = the 293.6 K PENDF written
+by the first deck's RECONR/BROADR), the flux-calculator deck above with card
+8a extended to its heterogeneity / multi-moderator fields:
+`fehi = 1e4, sigpot = 11.29, nflmax = 300000, ninwt = 0, jsigz = 0,
+alpha2 = 0.7768` (an O-16-like admixed moderator), `sam = 0.5` b per absorber
+atom, `beta = 0.3` (heterogeneity), `alpha3 = 0.7143` (a C-12-like external
+moderator), `gamma = 0.4`. NJOY's listing: "alpha2, sam = 7.7680E-01 0.500 /
+beta, alpha3, gamma = 0.300 7.1430E-01 0.4000", same 926 / 99,934 / 55,488
+point counts as the homogeneous run. `genflx` runs `nalph = 3`
+(`groupr.f90:5402-5406`) with the seed `(sigz - sam)*wtf*(1 - beta)` and the
+`k = 2, 3` moderator sources (`:5449,5468-5471,5496-5499,5513-5516,5536-5539`).
+Consumed by the same test (tier 5).
 
 ### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf`
 

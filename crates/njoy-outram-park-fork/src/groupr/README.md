@@ -191,9 +191,16 @@ seven-digit 20-point table and came out 2.5 % (one `1e-7` unit) low.
 the vector `panel`: all 29 groups of the three quantities within
 **5.59e-7** of NJOY, fluxes within 2.97e-7.
 
+**Flux-calculator heterogeneity / multi-moderator terms, golden-validated
+(2026-09-10, `tests/groupr_u238_gendf_golden.rs` tier 5,
+`reference-data/gendf/*-iwt-3-fehi1e4-het-6sigz.gendf`):** card 8a
+`alpha2 = 0.7768, sam = 0.5, beta = 0.3, alpha3 = 0.7143, gamma = 0.4`
+(`nalph = 3`) through `slowing_down::genflx_slowing_down`: every `sigma_g`
+within **2.72e-6** and every group flux within 3.89e-7 of NJOY, on a golden
+that differs from the homogeneous one by 2x in group 1 at `sigma_0 = 1 b`.
+
 Still **not** golden-validated: discrete-level inelastic matrices, File-6 continuum feeds, GAMINR,
-`LSSF = 0` materials, more than one temperature, and the flux calculator's
-heterogeneity / multi-moderator terms (still `NotPorted`).
+`LSSF = 0` materials, and more than one temperature.
 
 ## Caveats
 
