@@ -161,6 +161,38 @@ pub fn genflx_bondarenko(
     dilutions: &[f64],
     energy_grid: &[f64],
 ) -> Result<SelfShieldedFluxSet, NjoyError> {
+    genflx_bondarenko_urr(sigma_t, None, weight, sigma_pot, dilutions, energy_grid)
+}
+
+/// [`genflx_bondarenko`] with the **URR-shielded total** in the denominator —
+/// the full narrow-resonance branch of `genflx` (`groupr.f90:5636-5650`).
+///
+/// Upstream does not form `fac` from the smooth total: at every flux point it
+/// sets `tot(iz) = sigt(e)` for each dilution, calls `getunr(1, e, en, tot)` so
+/// that inside the unresolved range `tot(iz)` becomes the MT=152 self-shielded
+/// total for that `sigz(iz)`, and only then takes
+/// `fac = (sigpot + sigz)/(tot(iz) + sigz)`. Passing `urr = None` reproduces
+/// [`genflx_bondarenko`] exactly (the `stounr` "no unresolved sigma zero data"
+/// case, where `getunr` returns its input unchanged).
+///
+/// # Why this exists (measured 2026-09-10)
+/// Against an NJOY2016 GENDF written after UNRESR (U-238, 293.6 K, `iwt = 3`),
+/// the flux built from the smooth total was **6.8 % low** in the 20–50 keV
+/// group at `sigma_0 = 1` b (0.062356 vs NJOY 0.066892) while `sigma_g` was
+/// still within 1.5e-3 — the signature of a too-large denominator in `fac`
+/// rather than a wrong `sigma_rx`. Shielding the total restores the
+/// `tests/groupr_u238_gendf_golden.rs` agreement to the 7-figure floor.
+///
+/// # Errors
+/// As [`genflx_bondarenko`], plus any [`UnresolvedTable::shield`] failure.
+pub fn genflx_bondarenko_urr(
+    sigma_t: &PointwiseXs,
+    urr: Option<&UnresolvedTable>,
+    weight: &GroupFlux,
+    sigma_pot: f64,
+    dilutions: &[f64],
+    energy_grid: &[f64],
+) -> Result<SelfShieldedFluxSet, NjoyError> {
     if energy_grid.len() < 2 {
         return Err(NjoyError::EndfParse(
             "genflx_bondarenko: energy grid needs >= 2 points".into(),
@@ -174,20 +206,32 @@ pub fn genflx_bondarenko(
         }
     }
 
-    let mut fluxes = Vec::with_capacity(dilutions.len());
-    for &s0 in dilutions {
-        let mut tab = Vec::with_capacity(energy_grid.len());
-        for &e in energy_grid {
-            let st = sigma_t.value(e);
-            let c = weight.value(e);
-            tab.push((e, bondarenko_flux_value(st, c, sigma_pot, s0)));
+    let n = dilutions.len();
+    let mut tabs: Vec<Vec<(f64, f64)>> = (0..n)
+        .map(|_| Vec::with_capacity(energy_grid.len()))
+        .collect();
+    let mut tot = vec![0.0_f64; n];
+    for &e in energy_grid {
+        let st = sigma_t.value(e);
+        let c = weight.value(e);
+        // tot(iz) = ttt for every iz, then getunr(1, e, en, tot)
+        // (groupr.f90:5638-5642) — a no-op outside the unresolved range.
+        tot.fill(st);
+        if let Some(table) = urr {
+            let shielded = table.shield(UrrReaction::Total, e, &tot, dilutions)?;
+            tot.copy_from_slice(&shielded.sig);
         }
-        fluxes.push(GroupFlux::Tabulated(Arc::new(tab)));
+        for (iz, &s0) in dilutions.iter().enumerate() {
+            tabs[iz].push((e, bondarenko_flux_value(tot[iz], c, sigma_pot, s0)));
+        }
     }
 
     Ok(SelfShieldedFluxSet {
         dilutions: dilutions.to_vec(),
-        fluxes,
+        fluxes: tabs
+            .into_iter()
+            .map(|t| GroupFlux::Tabulated(Arc::new(t)))
+            .collect(),
     })
 }
 

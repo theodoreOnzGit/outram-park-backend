@@ -17,6 +17,7 @@ and the oracle build it came from. Regenerate with
 | File | Material | Input tape | Oracle | Deck | Generated |
 |---|---|---|---|---|---|
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | NJOY2016 upstream `ac5adf5` (2016.79), gfortran, built 2026-09-10 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input` | 2026-09-10 |
 
 ### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf`
 
@@ -32,6 +33,14 @@ words (`il` fastest, then `iz`, then `it`).
 
 Consumed by `crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs`,
 whose doc comment records the measured agreement.
+
+### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf`
+
+Identical to the above except that `UNRESR` (`9237 1 6 1 / 293.6 / 1e10 1e4
+1e3 1e2 10 1 /`) runs between `BROADR` and `GROUPR`, so the PENDF GROUPR read
+carries an MF=2/MT=152 self-shielded URR table and the tape's unresolved-range
+groups (20–149 keV) are Bondarenko-shielded through `stounr`/`getunr`.
+Consumed by the same test (tier 3).
 
 Data policy: GENDF is a *derived* product of open ENDF/B-VIII.0 data processed
 with the BSD-licensed NJOY2016; it carries no proprietary content.

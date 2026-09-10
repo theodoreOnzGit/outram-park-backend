@@ -96,7 +96,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 
 | Rust module | Fortran file | LOC | Status |
 |---|---|---|---|
-| `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level; **vector path + Bondarenko self-shielding golden-validated vs an NJOY2016 GENDF on U-238, 2026-09-10** (`tests/groupr_u238_gendf_golden.rs`: 2.65e-6 on NJOY's own PENDF, 9.2e-4 end-to-end); matrix path / URR MT=152 / `lord>0` V&V still pending |
+| `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level; **vector path + Bondarenko self-shielding golden-validated vs an NJOY2016 GENDF on U-238, 2026-09-10** (`tests/groupr_u238_gendf_golden.rs`: 2.65e-6 on NJOY's own PENDF with and without a MT=152 URR table, 9.2e-4 end-to-end; the URR-flux `getunr` total was found and ported from it); matrix path / GAMINR / `lord>0` V&V still pending |
 | `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, V&V pending |
 | `modules::errorr` | `errorr.f90` | 11.2k | 🟡 multigroup covariance matrices — ported (`src/errorr/`); it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller; translation-level, V&V pending |
 | `modules::covr` | `covr.f90` | ~3k | 🟡 covariance output/plotting — ported (`src/covr/`); translation-level, V&V pending |

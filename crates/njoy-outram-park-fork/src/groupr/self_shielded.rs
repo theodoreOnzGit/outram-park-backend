@@ -57,7 +57,7 @@
 use std::sync::Arc;
 
 use crate::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
-use crate::groupr::unresolved::{genflx_bondarenko, UnresolvedTable, UrrReaction};
+use crate::groupr::unresolved::{genflx_bondarenko_urr, UnresolvedTable, UrrReaction};
 use crate::NjoyError;
 
 /// A self-shielded multigroup cross section: `sigma_g(sigma_0)` for one reaction
@@ -162,7 +162,10 @@ pub fn self_shielded_group_xs(
     // (1) Build the per-dilution Bondarenko weighting fluxes on the fine grid.
     // This also validates the energy grid (strictly ascending, >= 2 points).
     // Narrow-resonance branch of `genflx` (groupr.f90:5623-5665).
-    let flux_set = genflx_bondarenko(sigma_t, weight, sigma_pot, dilutions, energy_grid)?;
+    // With a URR table the total in the denominator is the MT=152 shielded
+    // total per dilution, as upstream's getunr(1, e, en, tot) call makes it
+    // (groupr.f90:5636-5650); see `genflx_bondarenko_urr` for the measurement.
+    let flux_set = genflx_bondarenko_urr(sigma_t, urr, weight, sigma_pot, dilutions, energy_grid)?;
 
     let n_groups = group_bounds.len() - 1;
     let mut sigma = Vec::with_capacity(dilutions.len());

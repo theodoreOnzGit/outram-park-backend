@@ -140,9 +140,19 @@ validated against a real NJOY2016 GENDF tape:
   slack on sub-threshold fission under its `errint` floor (`reconr.f90:109-117`),
   not an engine discrepancy.
 
+- fed NJOY's PENDF **after UNRESR** (a second deck with `unresr` and the same
+  six `sigz`), with `urr_pendf::read_urr_from_tape` supplying the MF=2/MT=152
+  table: `sigma_g` within **2.65e-6**, flux within **4.93e-7** — i.e. the URR
+  groups (20–149 keV) agree to the storage floor too. This measurement found
+  and fixed one port defect: `genflx` shields the *total* in the flux
+  denominator through `getunr(1, …)` (`groupr.f90:5636-5650`); the port used
+  the smooth total, which left the group-22 flux 6.8 % low at `sigz = 1` b
+  (`unresolved::genflx_bondarenko_urr` is the fix; `sigma_g` had only moved
+  1.5e-3, so a cross-section-only check would have missed it).
+
 Still **not** golden-validated: the matrix path (`mfd=6` scatter matrices,
-File-6 feeds), URR self-shielding through MT=152 (no UNRESR step in that deck),
-GAMINR, and `lord > 0`.
+File-6 feeds), GAMINR, `lord > 0`, `LSSF = 0` materials, and more than one
+temperature.
 
 ## Caveats
 

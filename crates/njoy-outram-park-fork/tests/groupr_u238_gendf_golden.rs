@@ -73,8 +73,18 @@
 //!    pointwise input is the crate's RECONR (`tolerance = 0.001`) + BROADR
 //!    (293.6 K) from the committed ENDF tape. Skips when either the tape or the
 //!    golden GENDF is absent. Takes ~3 min in release (the U-238 RECONR).
+//! 3. **URR self-shielding through MT=152 (strict)** —
+//!    `njoy_unresr_pendf_urr_self_shielding`: a second oracle run with
+//!    `unresr 20 22 24 / 9237 1 6 1 / 293.6 / <sigz> / 0 /` between BROADR and
+//!    GROUPR (deck `…-unresr.njoy-input`, golden `…-unresr.gendf`), so NJOY's
+//!    `stounr` found the MF=2/MT=152 table and `getunr` shielded both the
+//!    flux's total and the reaction cross sections inside the unresolved range
+//!    (20 keV – 149 keV for U-238: groups 22, 23, bottom of 24). The pointwise
+//!    input is that run's PENDF (`OUTRAM_PARK_NJOY_U238_UNRESR_PENDF`, *not*
+//!    committed); [`read_urr_from_tape`] on the same tape feeds the engine its
+//!    table. Skips when the variable is unset.
 //!
-//! # Results (2026-09-10, both tiers run on this machine)
+//! # Results (2026-09-10, all tiers run on this machine)
 //!
 //! **Tier 1 — engine isolated on NJOY's PENDF** (155,207 sigt points → 156,864
 //! flux points, NJOY's listing says 156,854 — its loop stops one point short
@@ -114,6 +124,21 @@
 //! group-averaging engine reproduces NJOY's `sigma_f` to 2e-6 when fed NJOY's
 //! grid. MT=18 is therefore asserted at 3e-2 in tier 2, the others at 3e-3.
 //!
+//! **Tier 3 — URR self-shielding via MT=152, engine isolated on the UNRESR
+//! PENDF** (same 155,207-point grid). First measurement, with the flux built
+//! from the *smooth* total: `sigma_g` within 1.48e-3 (MT=102, group 22,
+//! σ0 = 1 b) / 3.43e-3 (MT=18) but the group flux **6.78 % low** in group 22
+//! at σ0 = 1 b (0.062356 vs 0.066892) — exactly the prediction from reading
+//! `genflx`, which calls `getunr(1, e, en, tot)` (`groupr.f90:5636-5650`) so
+//! the denominator of `fac` is the MT=152 *shielded* total per dilution, while
+//! the port used the smooth one. After porting that (`genflx_bondarenko_urr`,
+//! now what `self_shielded_group_xs` uses): `sigma_g` within **2.65e-6**
+//! (MT=102, group 9) / 2.07e-6 (MT=18), group flux within **4.93e-7** — the
+//! maxima moved back to the resolved range, i.e. the URR groups agree to the
+//! storage floor. The `read_urr_from_tape` decoder + `UnresolvedTable::shield`
+//! (`stounr`/`getunr`) + the URR flux are thereby validated for `LSSF = 1`
+//! U-238 at one temperature.
+//!
 //! Side findings filed as follow-ups rather than fixed here: the crate's
 //! RECONR does not implement the `errint`/`errmax` resonance-integral
 //! relaxation, and the crate's BROADR does not thin (NJOY: 448,168 → 155,207).
@@ -128,7 +153,8 @@ use njoy_outram_park_fork::groupr::gendf::GendfSection;
 use njoy_outram_park_fork::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
 use njoy_outram_park_fork::groupr::pendf_feed::read_pendf_cross_section;
 use njoy_outram_park_fork::groupr::self_shielded::self_shielded_group_xs;
-use njoy_outram_park_fork::groupr::unresolved::{genflx_bondarenko, UrrReaction};
+use njoy_outram_park_fork::groupr::unresolved::{genflx_bondarenko_urr, UnresolvedTable, UrrReaction};
+use njoy_outram_park_fork::groupr::urr_pendf::read_urr_from_tape;
 use njoy_outram_park_fork::groupr::weights::AnalyticWeight;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 use njoy_outram_park_fork::reference_data::{reference_endf_or_skip, reference_file_or_skip};
@@ -137,6 +163,8 @@ const MAT: i32 = 9237;
 const TEMP_K: f64 = 293.6;
 const GOLDEN_GENDF: &str = "u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf";
 const NJOY_PENDF_ENV: &str = "OUTRAM_PARK_NJOY_U238_PENDF";
+const GOLDEN_GENDF_URR: &str = "u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf";
+const NJOY_PENDF_URR_ENV: &str = "OUTRAM_PARK_NJOY_U238_UNRESR_PENDF";
 
 /// The 30 group breaks of the deck (card 6b), eV, ascending.
 const BOUNDS: [f64; 30] = [
@@ -310,6 +338,7 @@ fn compare(
     label: &str,
     pointwise: &BTreeMap<i32, Vec<(f64, f64)>>,
     golden: &BTreeMap<i32, GoldenReaction>,
+    urr: Option<&UnresolvedTable>,
 ) -> Deviations {
     let sigt_pairs = &pointwise[&1];
     let grid = njoy_flux_grid(sigt_pairs);
@@ -321,7 +350,7 @@ fn compare(
     let sig_t = PointwiseXs::LinLin(Arc::new(sigt_pairs.clone()));
     let weight = GroupFlux::analytic(AnalyticWeight::OneOverE, TEMP_K);
     // sigpot = 0: NJOY reads sigpot only for iwt < 0 (groupr.f90:4978).
-    let flux_set = genflx_bondarenko(&sig_t, &weight, 0.0, &SIGZ, &grid).unwrap();
+    let flux_set = genflx_bondarenko_urr(&sig_t, urr, &weight, 0.0, &SIGZ, &grid).unwrap();
 
     let mut dev = Deviations {
         sigma: MaxDev::default(),
@@ -332,7 +361,7 @@ fn compare(
         let pairs = &pointwise[&mt];
         let sig_rx = PointwiseXs::LinLin(Arc::new(pairs.clone()));
         let mgxs = self_shielded_group_xs(
-            &sig_t, &sig_rx, None, reaction, &weight, 0.0, &SIGZ, &BOUNDS, &grid,
+            &sig_t, &sig_rx, urr, reaction, &weight, 0.0, &SIGZ, &BOUNDS, &grid,
         )
         .unwrap();
         let gold = &golden[&mt];
@@ -347,11 +376,14 @@ fn compare(
             let phi = flux_set.flux(iz).unwrap();
             for g in 0..N_GROUPS {
                 let integ = group_integral(&sig_rx, phi, BOUNDS[g], BOUNDS[g + 1]);
-                // The assembled path and the explicit path must be the same number.
-                assert!(
-                    (mgxs.get(iz, g) - integ.average()).abs() <= 1e-12 * integ.average().abs(),
-                    "self_shielded_group_xs and group_integral disagree"
-                );
+                // Without a URR table the assembled path and the explicit path
+                // must be the same number (with one, the engine shields sigma_rx).
+                if urr.is_none() {
+                    assert!(
+                        (mgxs.get(iz, g) - integ.average()).abs() <= 1e-12 * integ.average().abs(),
+                        "self_shielded_group_xs and group_integral disagree"
+                    );
+                }
                 dev_sigma.update(mt, g + 1, iz, mgxs.get(iz, g), gold.sigma[g][iz]);
                 dev.flux.update(mt, g + 1, iz, integ.flux, gold.flux[g][iz]);
                 let r = ((mgxs.get(iz, g) - gold.sigma[g][iz]) / gold.sigma[g][iz]).abs();
@@ -407,7 +439,7 @@ fn njoy_pendf_isolates_the_group_averaging_engine() {
         };
         pointwise.insert(mt, (*pairs).clone());
     }
-    let dev = compare("tier1 njoy-pendf", &pointwise, &golden);
+    let dev = compare("tier1 njoy-pendf", &pointwise, &golden, None);
     assert!(
         dev.sigma.rel < TIER1_TOL,
         "sigma_g deviates from NJOY: {}",
@@ -469,7 +501,7 @@ fn crate_reconr_broadr_vs_njoy_gendf() {
             .unwrap_or_else(|| panic!("MT={mt} reconstructed"));
         pointwise.insert(mt, sec.pairs.clone());
     }
-    let dev = compare("tier2 crate-pendf", &pointwise, &golden);
+    let dev = compare("tier2 crate-pendf", &pointwise, &golden, None);
     assert!(
         dev.sigma.rel < TIER2_TOL,
         "sigma_g deviates from NJOY: {}",
@@ -482,6 +514,67 @@ fn crate_reconr_broadr_vs_njoy_gendf() {
     );
     assert!(
         dev.flux.rel < TIER2_TOL,
+        "group flux deviates from NJOY: {}",
+        dev.flux
+    );
+}
+
+/// **Tier 3 — URR self-shielding through MT=152.** Pointwise input = NJOY's
+/// own PENDF *after UNRESR* (the deck in
+/// `reference-data/gendf/u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input`
+/// adds `unresr 20 22 24 / 9237 1 6 1 / 293.6 / <sigz> / 0 /` before GROUPR),
+/// golden = the GENDF GROUPR wrote from that PENDF, so `stounr` found the
+/// MF=2/MT=152 table and `getunr` shielded both the flux's total and the
+/// reaction cross sections inside the unresolved range (20 keV – 149 keV for
+/// U-238: groups 22, 23 and the bottom of 24).
+///
+/// Methodology: as tier 1, plus [`read_urr_from_tape`] on the same PENDF feeds
+/// [`self_shielded_group_xs`] its `urr` table. Pass criterion: every `sigma_g`
+/// and group flux within **1e-5** relative of the GENDF.
+///
+/// Result (2026-09-10): before the `genflx_bondarenko_urr` port the group flux
+/// was 6.78 % low in group 22 at σ0 = 1 b; after it, worst `sigma_g` 2.65e-6
+/// and worst flux 4.93e-7, both in resolved-range groups (module doc).
+#[test]
+fn njoy_unresr_pendf_urr_self_shielding() {
+    let Some(golden_path) =
+        reference_file_or_skip("gendf", GOLDEN_GENDF_URR, "groupr-u238-golden-urr")
+    else {
+        return;
+    };
+    let Ok(pendf_path) = std::env::var(NJOY_PENDF_URR_ENV) else {
+        println!(
+            "[groupr-u238-golden-urr] SKIP tier 3: set {NJOY_PENDF_URR_ENV} to the NJOY 293.6 K \
+             PENDF written by UNRESR (regenerate with the committed deck)"
+        );
+        return;
+    };
+    let golden = load_golden(&golden_path);
+    let tape = Tape::read_file(std::path::Path::new(&pendf_path)).expect("NJOY PENDF parses");
+    let urr = read_urr_from_tape(Some(&tape), MAT, 1, TEMP_K)
+        .expect("PENDF MF=2/MT=152 decodes")
+        .expect("UNRESR wrote MF=2/MT=152 to this PENDF");
+    let mut pointwise = BTreeMap::new();
+    for (mt, _) in MTS {
+        let xs = read_pendf_cross_section(&tape, MAT, mt).expect("PENDF MF=3 section");
+        let PointwiseXs::LinLin(pairs) = xs.xs else {
+            panic!("PENDF feeder returned a non-tabulated cross section");
+        };
+        pointwise.insert(mt, (*pairs).clone());
+    }
+    let dev = compare("tier3 njoy-unresr-pendf", &pointwise, &golden, Some(&urr));
+    assert!(
+        dev.sigma.rel < TIER1_TOL,
+        "sigma_g deviates from NJOY: {}",
+        dev.sigma
+    );
+    assert!(
+        dev.sigma_mt18.rel < TIER1_TOL,
+        "sigma_g (MT=18) deviates from NJOY: {}",
+        dev.sigma_mt18
+    );
+    assert!(
+        dev.flux.rel < TIER1_TOL,
         "group flux deviates from NJOY: {}",
         dev.flux
     );
