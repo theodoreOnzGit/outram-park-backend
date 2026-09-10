@@ -196,3 +196,55 @@ mod tests {
         assert!(!is_endf_tape(Path::new("README.md")));
     }
 }
+
+// ── Other reference-data subdirectories (golden tapes that are not ENDF) ─────
+
+/// Environment variable that overrides the **root** of the reference-data tree
+/// (the parent of `endf/`, `gendf/`, …) for [`reference_file`]. Distinct from
+/// [`ENDF_DIR_ENV`], which overrides only the `endf/` subdirectory.
+pub const REFERENCE_DATA_ROOT_ENV: &str = "OUTRAM_PARK_REFERENCE_DATA_DIR";
+
+/// The directory `reference-data/<subdir>` is read from, whether or not it
+/// exists: `$OUTRAM_PARK_REFERENCE_DATA_DIR/<subdir>` when set, else the
+/// in-repo `<crate>/../../reference-data/<subdir>`.
+///
+/// `subdir` is a bare directory name such as `"gendf"`; the raw ENDF tapes keep
+/// their own accessor ([`reference_endf_dir`]) because they have a separate
+/// override variable and the library-suffix tolerance.
+pub fn reference_data_dir(subdir: &str) -> PathBuf {
+    if let Ok(root) = std::env::var(REFERENCE_DATA_ROOT_ENV) {
+        if !root.is_empty() {
+            return PathBuf::from(root).join(subdir);
+        }
+    }
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    p.push("../../reference-data");
+    p.push(subdir);
+    p
+}
+
+/// Absolute path of `reference-data/<subdir>/<file>` (e.g. a golden GENDF tape
+/// under `"gendf"`), or `None` when it is not present on this machine.
+///
+/// Same contract as [`reference_endf`]: a data-gated test must **skip** when
+/// this returns `None` — a crates.io consumer has no repository around the crate.
+pub fn reference_file(subdir: &str, file: &str) -> Option<PathBuf> {
+    let p = reference_data_dir(subdir).join(file);
+    p.exists().then_some(p)
+}
+
+/// [`reference_file`], but prints a skip note naming `label` and the directory
+/// tried when the file is absent — the idiom for a data-gated V&V test.
+pub fn reference_file_or_skip(subdir: &str, file: &str, label: &str) -> Option<PathBuf> {
+    match reference_file(subdir, file) {
+        Some(p) => Some(p),
+        None => {
+            println!(
+                "[{label}] SKIP: reference file {file} not found in {} \
+                 (set {REFERENCE_DATA_ROOT_ENV} to the reference-data root holding it)",
+                reference_data_dir(subdir).display()
+            );
+            None
+        }
+    }
+}

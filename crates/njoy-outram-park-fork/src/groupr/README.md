@@ -120,10 +120,29 @@ Inline `#[cfg(test)]` tests in each file, run via
 - **`mod.rs`** — `run()` → `NotPorted("groupr")`; the neutron + photon surfaces
   both resolve (ign=17 → 176 boundaries; igg=10 → 43 boundaries).
 
-Test counts: see the porting agent's hand-off / CI. The **numeric group
-averaging is untested here by design** — its V&V gate (reproduce upstream group
-cross sections + a scattering matrix for a reference nuclide against the Fortran
-oracle) is deferred until the engine is ported.
+Test counts: see the porting agent's hand-off / CI.
+
+### Golden-file validation vs NJOY2016 (2026-09-10)
+
+The **vector path with the Bondarenko self-shielded flux** (`genflx` narrow-
+resonance branch + `panel`/`displa`, i.e. `unresolved::genflx_bondarenko`,
+`panel::group_integral`, `self_shielded::self_shielded_group_xs`) is now
+validated against a real NJOY2016 GENDF tape:
+`tests/groupr_u238_gendf_golden.rs`, golden data + the exact deck in
+`reference-data/gendf/` (U-238, ENDF/B-VIII.0, 293.6 K, 29 user groups,
+`iwt=3`, six `sigz`, MT 1/2/18/102). Measured, all 29 groups × 6 dilutions:
+
+- fed NJOY's **own PENDF** (engine isolated): `sigma_g` within **2.65e-6** and
+  the group flux within **4.93e-7** of the GENDF — the 7-significant-figure
+  storage floor;
+- fed the crate's **own RECONR + BROADR**: MT 1/2/102 within **9.24e-4**, flux
+  within 6.06e-5; MT=18 within 1.14e-2, which is NJOY's own `errmax = 10*err`
+  slack on sub-threshold fission under its `errint` floor (`reconr.f90:109-117`),
+  not an engine discrepancy.
+
+Still **not** golden-validated: the matrix path (`mfd=6` scatter matrices,
+File-6 feeds), URR self-shielding through MT=152 (no UNRESR step in that deck),
+GAMINR, and `lord > 0`.
 
 ## Caveats
 
