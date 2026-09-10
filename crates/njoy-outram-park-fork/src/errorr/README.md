@@ -88,7 +88,13 @@ NJOY2016 runs, decks committed — see that README for provenance):
   points across the free-gas 1/v rise of a light nuclide (bead `op-tubm`,
   a BROADR defect the oracle exposed — reported, not asserted, here).
 - The `to_tape` writer round-trips through the crate's ENDF reader with
-  NJOY's layout (`output_tape_round_trips_like_njoy_layout`).
+  NJOY's layout (`output_tape_round_trips_like_njoy_layout`), and the tape
+  it writes drives COVR to a BOXER library byte-identical to NJOY's for all
+  nine materials (`tests/covr_boxer_golden.rs` tier 2). That test caught
+  `covout` zeroing every output element below `eps = 1e-20`: upstream
+  (`errorr.f90:7563-7568`) uses `eps` only to bracket a row's `ig2lo`/`ng2`
+  and writes interior sub-`eps` elements verbatim, so the crate now does the
+  same (2026-09-10).
 - 46 unit tests (`merge`/`uniong`, `terpa`, `gety1` idioms, every `LB`
   kernel, the weight stops) in the modules' `#[cfg(test)]` blocks.
 

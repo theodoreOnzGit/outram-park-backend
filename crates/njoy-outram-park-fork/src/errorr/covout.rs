@@ -451,9 +451,9 @@ pub fn covout(
                             v = 0.0;
                         }
                     }
-                    if v.abs() <= EPS {
-                        v = 0.0;
-                    }
+                    // errorr.f90:7563-7568 uses eps only to bracket the row
+                    // (ig2lo/ng2 in `to_tape`); interior elements below eps
+                    // are written verbatim, so they are kept here too.
                     values[ig * ngn + igp] = v;
                 }
             }
