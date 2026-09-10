@@ -1,9 +1,9 @@
 # Golden NJOY2016 WIMSR library for V&V (repo-tracked, NOT crate-packaged)
 
 A WIMS-D format library written by the upstream Fortran NJOY2016 `WIMSR`
-module, with the GENDF it read, as the oracle for a future port of
-`wimsr.f90` (bead `op-cjw.14`; the crate's `src/wimsr/` is still a
-`NotPorted` stub — nothing here is consumed by a test yet). Like the other
+module, with the GENDF it read, as the oracle for the crate's port of
+`wimsr.f90` (bead `op-cjw.14`; `src/wimsr/`, consumed by
+`tests/wimsr_u238_njoy_golden.rs`). Like the other
 `reference-data/` directories it lives outside `crates/` so it is
 git-tracked but never part of a published crate tarball. Read it through
 `njoy_outram_park_fork::reference_data::reference_file("wimsr", …)`.
@@ -44,13 +44,29 @@ goldens); regenerate it with the deck's RECONR/BROADR lines.
   THERMR's free-gas MT=221 and `mti = 221` here.
 - `ires = 1` with six `sigma0` values exercises `resint`/`rsiout`;
   `isof = 1` the fission-spectrum path (NJOY's listing: "spectrum
-  calculated from fission matrix"); `ip1opt = 0` (P1 matrices) was left at
-  the default `1` in this run — a second deck with `ip1opt = 0` is the
-  natural next oracle for `p1scat`/`p1sout`.
+  calculated from fission matrix"); `ip1opt = 0` (card 5's eighth entry)
+  writes the P1 matrix (`p1scat`/`p1sout`) — the library's last block
+  (`            122` words, one `(ig-l1+1, nb, values)` triple per group).
+  (An earlier version of this note said `ip1opt` had been left at 1; the
+  committed deck and library show otherwise.)
 - Port size: `wimsr.f90` is 2,150 lines — `wminit` (115), `xsecs` (560),
   `xseco` (260), `resint` + `rsiout` (440), `p1scat` + `p1sout` (300),
   `wimout` (160) — and reads the GENDF with the same `contio`/`listio`
   walk the crate's DTFR reader already performs.
+
+## Measured agreement (2026-09-11, `tests/wimsr_u238_njoy_golden.rs`)
+
+Tier 1 (NJOY's GENDF in): the crate's library is **byte-identical** to
+`tape25` — 185/185 lines, no numeric fallback needed. The `iprint = 2`
+listing stages agree to the printed 4–6 figures: potential and
+slowing-down power (groups 16–23) 1.8e-5, transport-corrected total
+3.6e-5, absorption 2.4e-5, neutron current spectrum 3.0e-5, the 293.6 K
+thermal block 2.3e-5, the resonance-integral tables (absorption groups
+16/20, fission yield group 20) 2.8e-6, flux per unit lethargy 4.6e-6, P1
+rows 1.6e-5, fission spectrum 1.5e-5. One upstream quirk had to be
+mirrored for the listing (not the library): `xseco` declares its `p1nrm`
+as an integer (`wimsr.f90:1435`), so the "neutron current spectrum" is
+printed unnormalised whenever `0.5 < p1flx(igref) ≤ 1`.
 
 Data policy: derived products of open ENDF/B-VIII.0 data processed with the
 BSD-licensed NJOY2016; no proprietary content.

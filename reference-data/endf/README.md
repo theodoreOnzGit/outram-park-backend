@@ -86,6 +86,24 @@ correction (bug `op-cjw.3`) is *not* exercised by this tape. Oracles:
 resource (`sha256` recorded in the commit that added it). ENDF/B-VII.1 is
 open, published evaluated data (NNDC/BNL), redistributed unchanged.
 
+#### U-238 JENDL-3.3, the `LRF=3`/`LCOMP=1` MF=32 evaluation (added 2026-09-11, `op-gh96`)
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-092_U_238-JENDL3.3.endf` | U-238 | JENDL-3.3 (neutron), JAEA (T. Kawano et al., EVAL-Mar00, DIST-MAR02 REV4-FEB02; "Retrieved by E4-util 2007/04/12") | 9237 | 2.7 MB | NJOY2016 upstream test suite, `tests/resources/J33U238` (https://github.com/njoy/NJOY2016, `master`, fetched through raw.githubusercontent.com) | 2026-09-11 |
+
+The `LCOMP=1` (general covariance LIST) case NJOY2016's own tests 15–17
+use: MF=2 has ten `LRU=1/LRF=3` Reich-Moore ranges of 1 keV from 1e-5 eV
+to 10 keV plus an `LRU=2/LRF=2` URR to 150 keV; MF=32 carries one
+`LCOMP=1` short-range block per resolved range (`NSRS=1`, `MPAR=3`,
+26–37 resonances each) and an `LRU=2` block, plus MF=31/33/34. It is the
+oracle for ERRORR's ERRORJ Reich-Moore branch (`ggrmat`) and `LCOMP=1`
+reader (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, decks and tapes in
+`../errorr/u238-JENDL3.3-*`). SHA-256
+`e1a6fad0d5a55f5580c68f54c3322ea2eb4fb7af7fa967e6396006b9ddbda6fd`,
+byte-identical to the upstream resource. JENDL-3.3 is open, published
+evaluated data (JAEA Nuclear Data Center), redistributed unchanged.
+
 #### Ar-37 MF=2 L-block-order variant (added 2026-09-10, `op-cjw.1`)
 
 | File | Nuclide | Library | MAT | Size | Source | Date accessed |
