@@ -42,11 +42,17 @@ const TEMP_K: f64 = 293.6;
 const TOL_ELASTIC: f64 = 4e-3;
 const TOL_OTHER: f64 = 1.2e-2;
 const ABS_FLOOR: f64 = 1e-8;
-/// The SIGMA1 low-`y` residual (H-2 capture 2 % low at 1e-5 eV, 0.17 % at
-/// 1e-4 eV, bead `op-tubm`'s follow-up) is printed but asserted only from here.
-const ASSERT_FROM_EV: f64 = 1e-4;
+/// Asserted from the grid floor. Until 2026-09-10 this was 1e-4 eV to keep
+/// the SIGMA1 low-`y` residual (H-2 capture 2.3 % low at 1e-5 eV, bead
+/// `op-0xv5`) out of the assertion; that residual was the A&S `erfc`'s
+/// absolute error amplified by `1/y²`, and with a precise `erfc` H-2 capture
+/// at 1e-5 eV is within the errmax regime like everything else.
+const ASSERT_FROM_EV: f64 = 1e-5;
 /// `(label, MT)` pairs known to be limited by RECONR, printed but not asserted.
-const KNOWN_RECONR_GAPS: &[(&str, i32)] = &[("si30", 102)];
+/// Empty since 2026-09-10: Si-30 MT=102 (13 % at 3.3 keV, bead `op-yr43`) was
+/// the crate's 0.1 b error floor in the resonance-grid refinement; with
+/// upstream's `resxs` test ported it is within 9e-3 like the other captures.
+const KNOWN_RECONR_GAPS: &[(&str, i32)] = &[];
 const N_SAMPLES: usize = 400;
 
 struct Case {

@@ -26,11 +26,16 @@
 //!
 //! ## Implementation notes
 //!
-//! - `erfc` is implemented in pure Rust (A&S 7.1.26, max error < 1.2 × 10⁻⁷).
+//! - `erfc` is implemented in pure Rust to ~1e-13 relative (series below 3,
+//!   continued fraction above), matching the precision of upstream's SLATEC
+//!   `derfc` (`mathm.f90:447`). Until 2026-09-10 it was A&S 7.1.26 (1.2e-7
+//!   *absolute*), which the `1/y²` weights of `s1`/`s2` amplified into a
+//!   1.9 % deficit at `y = 0.03` — H-2 capture 2.3 % low at 1e-5 eV against
+//!   NJOY (bead `op-0xv5`); see `one_over_v_is_preserved_at_low_y`.
 //! - The `hnabb` Taylor-series refinement from the Fortran is not implemented;
-//!   the direct difference `h = f_old - f_new` is used throughout. The error
-//!   from cancellation is < `TOLER × |f|` ≈ 10⁻⁵ of an already-small tail,
-//!   negligible for practical energy grids.
+//!   the direct difference `h = f_old - f_new` is used throughout. It only
+//!   engages for panels narrower than ~1e-5 in `a` (upstream `toler`), where
+//!   the cancellation error is ~1e-16/Δa of an already-small contribution.
 //! - Both kernel terms are implemented: the dominant σ₊ (exp(-(x-y)²)) pass and
 //!   the σ₋ (exp(-(x+y)²)) correction. The latter is only evaluated for y ≤ 4
 //!   (it is < 10⁻⁷ above that) and matters mainly near thermal energies, where
@@ -50,17 +55,49 @@ use crate::wasm_par::*;
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 
-/// erfc(x) for x ≥ 0, max absolute error < 1.2 × 10⁻⁷ (A&S 7.1.26).
+/// `erfc(x)` for `x >= 0` to ~1e-15 relative: the everywhere-positive
+/// series `erf(x) = (2/√π) e^{-x²} Σ 2^n x^{2n+1} / (1·3·…·(2n+1))` below 3
+/// and the continued fraction `erfc(x) = e^{-x²}/(x√π) · 1/(1 + (1/2x²)/(1 +
+/// (2/2x²)/(1 + …)))` above.
+///
+/// Precision matters here beyond what a cross-section tolerance suggests:
+/// `bsigma` combines `h_n = f_n(a) - f_n(b)` with `1/y` and `1/y²` weights,
+/// so at small `y` (thermal energies of a light nuclide, `y = 0.03` for H-2
+/// at 1e-5 eV) an *absolute* `erfc` error of 1e-7 is multiplied by ~1e3.
+/// With A&S 7.1.26 (1.2e-7 absolute) a pure 1/v cross section — which SIGMA1
+/// leaves exactly invariant — came back 1.9 % low at `y = 0.03` and ±4e-4
+/// at `y = 1..2` (bead `op-0xv5`, 2026-09-10); with this `erfc` it is
+/// preserved to ~1e-12.
 fn erfc_nonneg(x: f64) -> f64 {
-    if x >= 10.0 {
-        return 0.0;
+    if x >= 27.0 {
+        return 0.0; // exp(-x²) underflows f64 (erfc(27) ~ 5e-319)
     }
-    let t = 1.0 / (1.0 + 0.327_591_1 * x);
-    let poly = t
-        * (0.254_829_592
-            + t * (-0.284_496_736
-                + t * (1.421_413_741 + t * (-1.453_152_027 + t * 1.061_405_429))));
-    poly * (-x * x).exp()
+    let two_over_sqrt_pi = 2.0 / SQRT_PI;
+    if x < 3.0 {
+        // erf(x) = (2/√π) e^{-x²} Σ_{n>=0} 2^n x^{2n+1} / (2n+1)!!
+        let x2 = x * x;
+        let mut term = x;
+        let mut sum = x;
+        let mut n = 0u32;
+        while term.abs() > 1e-17 * sum.abs() {
+            n += 1;
+            term *= 2.0 * x2 / (2 * n + 1) as f64;
+            sum += term;
+            if n > 200 {
+                break;
+            }
+        }
+        1.0 - two_over_sqrt_pi * (-x2).exp() * sum
+    } else {
+        // Continued fraction evaluated bottom-up: erfc(x) = e^{-x²}/(x√π) K,
+        // K = 1/(1 + (1/2)/x² /(1 + (2/2)/x² /(1 + ...))).
+        let inv_2x2 = 1.0 / (2.0 * x * x);
+        let mut k = 1.0f64;
+        for m in (1..=80).rev() {
+            k = 1.0 + (m as f64) * inv_2x2 / k;
+        }
+        (-x * x).exp() / (x * SQRT_PI) / k
+    }
 }
 
 // ── f-functions ───────────────────────────────────────────────────────────────
@@ -642,6 +679,41 @@ mod tests {
         }
     }
 
+    /// Regression for bead `op-0xv5`: SIGMA1 leaves a pure 1/v cross section
+    /// exactly invariant, so on an H-2-like grid (`u` from 0.03, geometric
+    /// 0.2 % spacing) the broadened value must equal `1/y` at every `y` up to
+    /// the lin-lin chord of `1/u` (~(Δu/u)²/8 = 5e-7).
+    ///
+    /// **Methodology.** Query `y = 0.03 .. 5`; the low end is H-2 at 1e-5 eV
+    /// and 293.6 K.
+    ///
+    /// **Result (2026-09-10).** With A&S 7.1.26 `erfc`: -1.94e-2 at
+    /// `y = 0.03`, -1.68e-2 at 0.04, -9.3e-3 at 0.06, -1.6e-3 at 0.10, and
+    /// ±3-4e-4 even at `y = 1-2` (sign-alternating: the approximation's
+    /// oscillating 1e-7 absolute error times `1/y²`). With the series /
+    /// continued-fraction `erfc`: a flat +2.5e-5 on a 1 % grid and +1.0e-6 on
+    /// this 0.2 % grid (the chord term), with +3.9e-6 / +6.3e-6 at
+    /// `y = 0.03 / 0.04` — three thousand times better than before. Asserted
+    /// below 2e-5.
+    #[test]
+    fn one_over_v_is_preserved_at_low_y() {
+        let mut eu = vec![0.03f64];
+        while *eu.last().unwrap() < 40.0 {
+            let next = eu.last().unwrap() * 1.002;
+            eu.push(next);
+        }
+        let sigma: Vec<f64> = eu.iter().map(|&u| 1.0 / u).collect();
+        let mut worst = 0.0f64;
+        for &y in &[0.03, 0.04, 0.06, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0, 5.0] {
+            let got = bsigma_scalar(y, &eu, &sigma);
+            let rel = (got - 1.0 / y) / (1.0 / y);
+            eprintln!("[1/v] y={y:5.2}  rel error {rel:+.3e}");
+            worst = worst.max(rel.abs());
+        }
+        eprintln!("[1/v] worst {worst:.3e}");
+        assert!(worst < 2e-5, "1/v not preserved: worst {worst:.3e}");
+    }
+
     #[test]
     fn broadening_preserves_one_over_v() {
         // SIGMA1 leaves a 1/v cross section invariant: σ(E) = K/√E ∝ 1/u.
@@ -660,8 +732,12 @@ mod tests {
             let got = bsigma_scalar(y, &eu, &sigma);
             let want = sigma[j];
             let rel = (got - want).abs() / want;
+            // The linear 0.01 eV grid is coarse in `u` at its low end (Δu/u
+            // ~ 9 % at 0.06 eV), so the lin-lin chord of 1/u dominates:
+            // measured 2.85e-3 at 0.06 eV (2026-09-10, precise erfc; the
+            // A&S erfc needed 1e-2 here).
             assert!(
-                rel < 1e-2,
+                rel < 5e-3,
                 "1/v not preserved at E={:.2}: got {got:.3}, want {want:.3} (rel {rel:.2e})",
                 e_grid[j]
             );
