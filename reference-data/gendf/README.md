@@ -19,6 +19,8 @@ and the oracle build it came from. Regenerate with
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | NJOY2016 upstream `ac5adf5` (2016.79), gfortran, built 2026-09-10 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf` (28 KB, 340 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf` (51 KB, 624 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF of `../endf/n-092_U_238.endf` (the RECONR/BROADR steps of the first deck) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.njoy-input` | 2026-09-10 |
 
 ### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf`
 
@@ -54,6 +56,28 @@ NJOY's listing for this run: "flux calculator used weight function from 1e-5
 to 9.9740E-02 ev, 926 points; computed flux from 1.0000E-01 to 1.0000E+04 ev,
 99934 points; finished with narrow-resonance flux to 3.0000E+07 ev, 55488
 points". Consumed by the same test (tier 4).
+
+### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf`
+
+GROUPR alone (`tape20` = the ENDF tape, `tape22` = the 293.6 K PENDF written
+by the first deck's RECONR/BROADR), same 29 groups, `iwt = 3`, six sigma-zero
+values, but **`lord = 3`** and reactions `MF=3 MT=1, 2` plus **`MF=6 MT=2`**
+(the elastic transfer matrix). The MF=6 section therefore carries `NL = 4`,
+`NZ = 6`: per initial group the four Legendre flux components
+`wtf*fac^(il+1)` (`genflx`, `groupr.f90:5651-5657`) followed by the P0–P3
+transfer elements, `il` fastest, then `iz`, then the secondary slot.
+Consumed by `crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs`
+(the `lord3` test), whose doc comment records the measured agreement.
+
+### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf`
+
+GROUPR alone on the same PENDF, `lord = 0`, six sigma-zero values, reactions
+`MF=3 MT=1` and the three **derived quantities** `MT=257` (average energy,
+`sig = E`), `MT=258` (average lethargy, `sig = ln(1e7/E)`) and `MT=259`
+(average reciprocal velocity, `sig = 1/sqrt(1.919e8 E)`), which `getsig`
+computes analytically at retrieval time with a `1.01 E` step
+(`groupr.f90:6758-6772`); GROUPR writes them with `NL = NZ = 1`. Consumed by
+`crates/njoy-outram-park-fork/tests/groupr_u238_derived_quantities_golden.rs`.
 
 Data policy: GENDF is a *derived* product of open ENDF/B-VIII.0 data processed
 with the BSD-licensed NJOY2016; it carries no proprietary content.

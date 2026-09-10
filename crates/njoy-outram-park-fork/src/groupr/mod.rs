@@ -53,7 +53,8 @@
 //! The **two-body matrix** path is ported and golden-validated (2026-09-10):
 //! [`file4`] (`getfle`/`getco`), [`two_body`] (`getdis`) and [`matrix_panel`]
 //! (the full `panel`/`displa` with feed-function re-evaluation) reproduce
-//! NJOY's U-238 MF=6/MT=2 section to 5.5e-6
+//! NJOY's U-238 MF=6/MT=2 section (`lord = 0` and `lord = 3`) to the
+//! seven-figure floor
 //! (`tests/groupr_u238_elastic_matrix_golden.rs`).
 //!
 //! The remaining matrix and self-shielding kernels are **not** ported (they

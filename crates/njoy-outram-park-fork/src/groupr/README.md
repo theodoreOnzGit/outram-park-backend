@@ -172,13 +172,26 @@ validated against a real NJOY2016 GENDF tape:
 On NJOY's own PENDF, with the File-4 `LTT = 3` distribution from the ENDF
 tape, `two_body.rs` (`getdis`) + `matrix_panel.rs` (`panel`/`displa`)
 reproduce all 29 initial-group records with identical `ig2lo`/`ng2`; the
-516 words agree to **5.52e-6** (transfer elements) and **1.44e-7** (group
+516 words agree to **3.42e-7** (transfer elements) and **1.44e-7** (group
 fluxes), i.e. the seven-figure GENDF floor. Prediction before the run was
-1e-5.
+1e-5. A second oracle with **`lord = 3`** (`NL = 4`, six sigma-zero values,
+`reference-data/gendf/*-lord3-mf6.gendf`, the `genflx` `fac^(il+1)` flux
+components from `unresolved::genflx_bondarenko_components`) agrees on all
+2064 words: P0/P1 and the large P2/P3 elements to the seven-figure floor,
+the P2/P3 elements below `1e-5 sigma_g` within 0.02 units of the feed
+function's own `1e-7` rounding. That oracle exposed one port defect first:
+`getfle` writes the coefficient count back into `getdis`'s `nld`, which
+sets the Gauss order — with `nld` left at 21 the group-1 P2 feed used the
+seven-digit 20-point table and came out 2.5 % (one `1e-7` unit) low.
 
-Still **not** golden-validated: `lord > 0` matrices (and `nz > 1` with
-`nl > 1`, whose `P_l` flux components `matrix_panel.rs` does not take),
-discrete-level inelastic matrices, File-6 continuum feeds, GAMINR,
+**Derived quantities `MT=257/258/259`, golden-validated (2026-09-10,
+`tests/groupr_u238_derived_quantities_golden.rs`,
+`reference-data/gendf/*-mt257-259.gendf`):** `getsig`'s analytic branch
+(`pendf_feed.rs` → `PointwiseXs::Derived`, `1.01 E` retrieval step) through
+the vector `panel`: all 29 groups of the three quantities within
+**5.59e-7** of NJOY, fluxes within 2.97e-7.
+
+Still **not** golden-validated: discrete-level inelastic matrices, File-6 continuum feeds, GAMINR,
 `LSSF = 0` materials, more than one temperature, and the flux calculator's
 heterogeneity / multi-moderator terms (still `NotPorted`).
 

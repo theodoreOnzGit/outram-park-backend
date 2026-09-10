@@ -329,6 +329,14 @@ impl TwoBodyFeed {
             enext = at.enext;
         }
         let fle = &at.fle;
+        // `getfle` writes the number of coefficients actually present back
+        // into its `nle` dummy (`nle = nlmax`, `:9826`; `nle = 1` below the
+        // first point, `:9843`), and `getdis` passed `nld` for it — so from
+        // here on `nld` is that count, which sets `ld`, `npo` and hence the
+        // quadrature order. Measured 2026-09-10: with `nld` left at 21 the
+        // U-238 group-1 P2 feed used the seven-digit 20-point table and came
+        // out one 1e-7 unit (2.5 %) below NJOY's, which uses 8 points here.
+        let nld = at.nle.max(1);
         let awr = self.awr;
         let aprime = self.aprime;
         let awr2 = awr * (awr + 1.0 - aprime) / aprime;

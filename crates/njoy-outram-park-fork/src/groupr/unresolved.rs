@@ -235,6 +235,88 @@ pub fn genflx_bondarenko_urr(
     })
 }
 
+/// The full `genflx` Bondarenko flux table with its **Legendre components**
+/// — `fout(l) = wtf*fac` for `il = 1` and `fout(l) = fout(l-1)*fac` above
+/// (`groupr.f90:5651-5657`, `fac = (sigpot+sigz)/(tot+sigz)`), i.e. the
+/// `il`-th component is `wtf * fac^il`, which `getflx` hands to `panel` as
+/// `flux(iz, il)` (`:6498-6503`) for a `lord > 0` matrix with `nsigz > 1`.
+///
+/// Returns `components[iz][il]` for `il = 0..nl` (0-based Legendre order);
+/// `components[iz][0]` is exactly [`genflx_bondarenko_urr`]'s flux for
+/// dilution `iz`.
+///
+/// # Errors
+/// As [`genflx_bondarenko_urr`]; `nl == 0` is an [`NjoyError::EndfParse`].
+pub fn genflx_bondarenko_components(
+    sigma_t: &PointwiseXs,
+    urr: Option<&UnresolvedTable>,
+    weight: &GroupFlux,
+    sigma_pot: f64,
+    dilutions: &[f64],
+    energy_grid: &[f64],
+    nl: usize,
+) -> Result<Vec<Vec<GroupFlux>>, NjoyError> {
+    if nl == 0 {
+        return Err(NjoyError::EndfParse(
+            "genflx_bondarenko_components: nl must be >= 1".into(),
+        ));
+    }
+    if energy_grid.len() < 2 {
+        return Err(NjoyError::EndfParse(
+            "genflx_bondarenko: energy grid needs >= 2 points".into(),
+        ));
+    }
+    for w in energy_grid.windows(2) {
+        if !(w[1] > w[0]) {
+            return Err(NjoyError::EndfParse(
+                "genflx_bondarenko: energy grid must be strictly ascending".into(),
+            ));
+        }
+    }
+    let n = dilutions.len();
+    let mut tabs: Vec<Vec<Vec<(f64, f64)>>> = (0..n)
+        .map(|_| {
+            (0..nl)
+                .map(|_| Vec::with_capacity(energy_grid.len()))
+                .collect()
+        })
+        .collect();
+    let mut tot = vec![0.0_f64; n];
+    for &e in energy_grid {
+        let st = sigma_t.value(e);
+        let c = weight.value(e);
+        tot.fill(st);
+        if let Some(table) = urr {
+            let shielded = table.shield(UrrReaction::Total, e, &tot, dilutions)?;
+            tot.copy_from_slice(&shielded.sig);
+        }
+        for (iz, &s0) in dilutions.iter().enumerate() {
+            // fac as in bondarenko_flux_value: 1 at infinite dilution or a
+            // non-positive denominator.
+            let denom = tot[iz] + s0;
+            let fac = if s0.is_infinite() || denom <= 0.0 {
+                1.0
+            } else {
+                (s0 + sigma_pot) / denom
+            };
+            let mut f = c;
+            for il in 0..nl {
+                f *= fac;
+                tabs[iz][il].push((e, f));
+            }
+        }
+    }
+    Ok(tabs
+        .into_iter()
+        .map(|per_il| {
+            per_il
+                .into_iter()
+                .map(|t| GroupFlux::Tabulated(Arc::new(t)))
+                .collect()
+        })
+        .collect())
+}
+
 // ===========================================================================
 // stounr / getunr — URR self-shielded cross-section table
 // ===========================================================================

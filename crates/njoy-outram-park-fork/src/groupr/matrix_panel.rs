@@ -22,10 +22,12 @@
 //! cross-section/flux samples and the next break across sub-panels.
 //!
 //! # Scope
-//! - `nz >= 1` dilutions with one [`GroupFlux`] per dilution — the `il = 1`
-//!   flux component of `genflx`. Upstream weights higher Legendre orders
-//!   with `fout(l-1)*fac` when `nz > 1` (`:5605-5608`); that is **not**
-//!   provided here, so `nz > 1` together with `nl > 1` is refused.
+//! - `nz >= 1` dilutions, each with either one [`GroupFlux`] (used for every
+//!   Legendre order, as `getflx` does for `nsigz = 1`, `:6510-6513`) or the
+//!   `nl` Legendre components `wtf*fac^(il+1)` of `genflx` (`:5651-5657`,
+//!   [`crate::groupr::unresolved::genflx_bondarenko_components`]) that
+//!   `getflx` interpolates for `nsigz > 1` (`:6498-6503`) — see
+//!   [`FluxComponents`].
 //! - The cross section must be a tabulated [`PointwiseXs::LinLin`] so the
 //!   `gety1` conventions apply (next point, duplicate-energy discontinuity,
 //!   zero past the last point → `emax`).
@@ -166,6 +168,41 @@ impl PanelState {
 /// `ans(il, iz, it)` stored as `ans[it][iz][il]`.
 type Ans = Vec<Vec<Vec<f64>>>;
 
+/// The weighting flux per dilution and Legendre order — what `getflx`
+/// returns as `flux(iz, il)`.
+///
+/// `per_dilution[iz]` holds either a single flux, used for every `il`
+/// (the `nsigz = 1` rule, `:6510-6513`), or one component per Legendre
+/// order (`nsigz > 1`, `:6498-6503`).
+#[derive(Debug, Clone)]
+pub struct FluxComponents {
+    /// `[iz][il]` (or `[iz][0]` alone to broadcast over `il`).
+    pub per_dilution: Vec<Vec<GroupFlux>>,
+}
+
+impl FluxComponents {
+    /// One flux per dilution, broadcast over Legendre order.
+    pub fn p0(fluxes: Vec<GroupFlux>) -> Self {
+        FluxComponents {
+            per_dilution: fluxes.into_iter().map(|f| vec![f]).collect(),
+        }
+    }
+
+    /// `nz`.
+    pub fn nz(&self) -> usize {
+        self.per_dilution.len()
+    }
+
+    fn component(&self, iz: usize, il: usize) -> &GroupFlux {
+        let comp = &self.per_dilution[iz];
+        if comp.len() == 1 {
+            &comp[0]
+        } else {
+            &comp[il]
+        }
+    }
+}
+
 /// Fold a source's `(en, idiscf)` into `(enext, idisc)` (`:5947-5949` etc.).
 fn merge_next(en: f64, idiscf: bool, enext: &mut f64, idisc: &mut bool) {
     if (en - *enext).abs() < *enext * SMALL && idiscf && !*idisc {
@@ -186,7 +223,7 @@ fn merge_next(en: f64, idiscf: bool, enext: &mut f64, idisc: &mut bool) {
 fn panel(
     st: &mut PanelState,
     pairs: &[(f64, f64)],
-    fluxes: &[GroupFlux],
+    fluxes: &FluxComponents,
     feed: &mut TwoBodyFeed,
     nl: usize,
     nz: usize,
@@ -206,12 +243,12 @@ fn panel(
     }
     let getflx = |e: f64, out: &mut Vec<Vec<f64>>| -> (f64, bool) {
         let mut en = EMAX;
-        for (iz, f) in fluxes.iter().enumerate() {
-            let v = f.value(e);
+        for iz in 0..nz {
             for il in 0..nl {
-                out[iz][il] = v;
+                let f = fluxes.component(iz, il);
+                out[iz][il] = f.value(e);
+                en = en.min(f.next_break(e));
             }
-            en = en.min(f.next_break(e));
         }
         (en, false)
     };
@@ -510,7 +547,9 @@ pub struct MatrixHeader {
 /// (`:891-929`, `it` outermost, then `iz`, then `il`).
 ///
 /// - `sigma` — the PENDF cross section (must be [`PointwiseXs::LinLin`]);
-/// - `fluxes` — one weighting flux per dilution (`nz = fluxes.len()`);
+/// - `fluxes` — the weighting flux per dilution and Legendre order
+///   (`nz = fluxes.nz()`; a single flux per dilution is broadcast over `il`
+///   only when `nz = 1`, as upstream);
 /// - `feed` — the reaction's [`TwoBodyFeed`] (its `egn` is the group
 ///   structure); it is reset before the walk;
 /// - `nl` — Legendre orders (`lord + 1`).
@@ -520,21 +559,22 @@ pub struct MatrixHeader {
 /// for an empty flux list or a non-tabulated cross section; feed errors.
 pub fn two_body_matrix(
     sigma: &PointwiseXs,
-    fluxes: &[GroupFlux],
+    fluxes: &FluxComponents,
     feed: &mut TwoBodyFeed,
     nl: usize,
     header: &MatrixHeader,
 ) -> Result<GendfSection, NjoyError> {
-    let nz = fluxes.len();
+    let nz = fluxes.nz();
     if nz == 0 || nl == 0 {
         return Err(NjoyError::EndfParse(
             "two_body_matrix: need >= 1 flux and >= 1 Legendre order".into(),
         ));
     }
-    if nz > 1 && nl > 1 {
-        return Err(NjoyError::NotPorted(
-            "groupr::matrix_panel P_l flux components for nz > 1 (genflx fout(l-1)*fac, groupr.f90:5605-5608)",
-        ));
+    if nz > 1 && nl > 1 && fluxes.per_dilution.iter().any(|c| c.len() < nl) {
+        return Err(NjoyError::EndfParse(format!(
+            "two_body_matrix: nz = {nz} > 1 with nl = {nl} needs {nl} flux components per \
+             dilution (genflx fout(l-1)*fac, groupr.f90:5651-5657)"
+        )));
     }
     let PointwiseXs::LinLin(pairs) = sigma else {
         return Err(NjoyError::EndfParse(
@@ -664,7 +704,7 @@ mod tests {
         let lost = 4.0 * ((1.0 / alpha).ln() / (1.0 - alpha) - 1.0) / 9.0;
         let mut feed = TwoBodyFeed::new(isotropic_angular(), &egn, awr, 0.0, 0).unwrap();
         let sigma = PointwiseXs::LinLin(Arc::new(vec![(1.0e-5, 4.0), (2.0e7, 4.0)]));
-        let flux = [GroupFlux::Flat];
+        let flux = FluxComponents::p0(vec![GroupFlux::Flat]);
         let header = MatrixHeader {
             mf: 6,
             mt: 2,
@@ -706,7 +746,7 @@ mod tests {
         let egn = [1.0e-5, 1.0, 10.0, 100.0];
         let mut feed = TwoBodyFeed::new(isotropic_angular(), &egn, 0.9992, 0.0, 0).unwrap();
         let sigma = PointwiseXs::LinLin(Arc::new(vec![(1.0e-5, 4.0), (2.0e7, 4.0)]));
-        let flux = [GroupFlux::Flat];
+        let flux = FluxComponents::p0(vec![GroupFlux::Flat]);
         let header = MatrixHeader {
             mf: 6,
             mt: 2,

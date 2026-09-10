@@ -41,16 +41,16 @@
 //!   module does not attempt the `mfd`-based File-10 dispatch at all (see
 //!   [`MtdClass`]'s doc) — a caller wanting photon-production yields needs a
 //!   separate reader.
-//! - **NOT PORTED — MF=5 (energy-distribution "spectra", `groupr.f90:6672-6679`)
-//!   and the derived non-cross-section quantities `MT=257/258/259`
-//!   (average energy / lethargy / reciprocal velocity,
-//!   `groupr.f90:6687-6694,6758-6772`).** These do not pull a pointwise
-//!   cross-section TAB1 at all — `MT=257/258/259` are analytic functions of
-//!   the incident energy computed at retrieval time, and `MF=5` needs the
-//!   secondary-energy-distribution feeder ([`crate::groupr::matrix`]'s
-//!   `Continuum6` gap). [`classify_mtd`] reports these as
-//!   [`MtdClass::DerivedQuantity`] / a `mfd == 5` caller keeps its own
-//!   `NotPorted`; this module does not attempt them.
+//! - **DONE (2026-09-10):** the derived non-cross-section quantities
+//!   `MT=257/258/259` (average energy / lethargy / reciprocal velocity,
+//!   `groupr.f90:6687-6694,6758-6772`) — analytic functions of the incident
+//!   energy served as [`PointwiseXs::Derived`] with `getsig`'s `1.01 E`
+//!   retrieval step; golden-tested against an NJOY GENDF in
+//!   `tests/groupr_u238_derived_quantities_golden.rs`.
+//! - **NOT PORTED — MF=5 (energy-distribution "spectra",
+//!   `groupr.f90:6672-6679`)**, which needs the secondary-energy-distribution
+//!   feeder ([`crate::groupr::matrix`]'s `Continuum6` gap); a `mfd == 5`
+//!   caller keeps its own `NotPorted`.
 //! - **NOT PORTED — the charged-particle elastic branch**
 //!   (`mtd == 2 .and. izap > 1`, `groupr.f90:6773-6781`, `sig ≡ 1`) and the
 //!   `awrp`-relative mass-ratio rescale (`groupr.f90:6718`). Both are
@@ -59,7 +59,7 @@
 
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
-use crate::groupr::panel::PointwiseXs;
+use crate::groupr::panel::{DerivedQuantity, PointwiseXs};
 use crate::NjoyError;
 use std::sync::Arc;
 
@@ -94,7 +94,8 @@ pub enum MtdClass {
     /// `MT=257/258/259` (average energy / lethargy / reciprocal velocity) —
     /// not a stored cross section at all; `getsig` computes these directly
     /// from the incident energy at retrieval time (`groupr.f90:6687-6694,
-    /// 6758-6772`). **Not ported** by this feeder.
+    /// 6758-6772`). Served as [`PointwiseXs::Derived`] by
+    /// [`read_pendf_cross_section`] (no tape read, `:6687-6694`).
     DerivedQuantity,
 }
 
@@ -192,8 +193,7 @@ pub struct PendfCrossSection {
 ///   or a malformed TAB1 record.
 /// - [`NjoyError::SectionNotFound`] if no `(mat, mf, mt)` section exists on
 ///   `tape`.
-/// - [`NjoyError::NotPorted`] for [`MtdClass::DerivedQuantity`]
-///   (`MT=257/258/259`) or a non-lin-lin/multi-region TAB1. A File-10
+/// - [`NjoyError::NotPorted`] for a non-lin-lin/multi-region TAB1. A File-10
 ///   photon-production request is out of scope for this function entirely —
 ///   see the module gap list; a caller wanting MF=10 must read it itself.
 pub fn read_pendf_cross_section(
@@ -201,13 +201,24 @@ pub fn read_pendf_cross_section(
     mat: i32,
     mtd: i32,
 ) -> Result<PendfCrossSection, NjoyError> {
-    let (mf, mt) =
-        match classify_mtd(mtd)? {
-            MtdClass::CrossSection { mf, mt } => (mf, mt),
-            MtdClass::DerivedQuantity => return Err(NjoyError::NotPorted(
-                "groupr::getsig derived quantity (MT=257/258/259, groupr.f90:6687-6694,6758-6772)",
-            )),
-        };
+    let (mf, mt) = match classify_mtd(mtd)? {
+        MtdClass::CrossSection { mf, mt } => (mf, mt),
+        MtdClass::DerivedQuantity => {
+            // `:6687-6694`: no TAB1 is read; `enext = emin`, `thresh = 0`,
+            // `lrflag = 0`. Upstream leaves `awr` at whatever the previous
+            // reaction set; report the material's own AWR from MF=1/451 when
+            // the tape has it (0 otherwise) — informational only.
+            let awr = tape
+                .section(mat, 1, 451)
+                .and_then(|s| s.rows.first().map(|r| r[1]))
+                .unwrap_or(0.0);
+            let q = DerivedQuantity::from_mt(mtd).expect("classified as derived");
+            return Ok(PendfCrossSection {
+                awr,
+                xs: PointwiseXs::Derived(q),
+            });
+        }
+    };
 
     let section = tape
         .section(mat, mf, mt)

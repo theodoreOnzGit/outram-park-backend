@@ -101,6 +101,62 @@ pub enum PointwiseXs {
     /// pairs. Zero outside `[E_first, E_last]`, matching `gety1`
     /// (`endf` `eval_tab1`). Shared read-only via [`Arc`].
     LinLin(Arc<Vec<(f64, f64)>>),
+    /// One of `getsig`'s analytic "non cross section quantities"
+    /// (`MT = 257/258/259`, `groupr.f90:6758-6772`): a function of the
+    /// incident energy computed at retrieval time, with `enext = 1.01 E`
+    /// (`step`, `:6664`) so the panel march refines it geometrically.
+    Derived(DerivedQuantity),
+}
+
+/// The three analytic quantities `getsig` serves for `MT = 257/258/259`
+/// (`groupr.f90:6758-6772`); their group averages are flux-weighted mean
+/// energy, lethargy and reciprocal velocity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivedQuantity {
+    /// `MT = 257`: `sig = E` \[eV\].
+    AverageEnergy,
+    /// `MT = 258`: `sig = ln(E0/E)` with `E0 = 1e7` eV (`ezero`, `:6666`).
+    AverageLethargy,
+    /// `MT = 259`: `sig = 1/sqrt(vc E)` with `vc = 1.919e8` (`:6665`), i.e.
+    /// the reciprocal neutron speed in s/cm for `E` in eV.
+    AverageInverseVelocity,
+}
+
+impl DerivedQuantity {
+    /// `getsig`'s `step` (`:6664`): the next retrieval point is `1.01 E`.
+    pub const STEP: f64 = 1.01;
+    /// `ezero` (`:6666`).
+    pub const EZERO_EV: f64 = 1.0e7;
+    /// `vc` (`:6665`).
+    pub const VC: f64 = 1.919e8;
+
+    /// The `MT` number of the quantity.
+    pub fn mt(self) -> i32 {
+        match self {
+            DerivedQuantity::AverageEnergy => 257,
+            DerivedQuantity::AverageLethargy => 258,
+            DerivedQuantity::AverageInverseVelocity => 259,
+        }
+    }
+
+    /// The quantity for `mt` (257/258/259), or `None`.
+    pub fn from_mt(mt: i32) -> Option<Self> {
+        match mt {
+            257 => Some(DerivedQuantity::AverageEnergy),
+            258 => Some(DerivedQuantity::AverageLethargy),
+            259 => Some(DerivedQuantity::AverageInverseVelocity),
+            _ => None,
+        }
+    }
+
+    /// `sig(1,1)` at `e` \[eV\] (`:6758-6772`).
+    pub fn value(self, e: f64) -> f64 {
+        match self {
+            DerivedQuantity::AverageEnergy => e,
+            DerivedQuantity::AverageLethargy => (Self::EZERO_EV / e).ln(),
+            DerivedQuantity::AverageInverseVelocity => 1.0 / (Self::VC * e).sqrt(),
+        }
+    }
 }
 
 impl PointwiseXs {
@@ -112,6 +168,7 @@ impl PointwiseXs {
         match self {
             PointwiseXs::Constant(c) => *c,
             PointwiseXs::LinLin(pairs) => tab_linlin(pairs, e),
+            PointwiseXs::Derived(q) => q.value(e),
         }
     }
 
@@ -124,6 +181,13 @@ impl PointwiseXs {
         match self {
             PointwiseXs::Constant(_) => NO_NEXT_BREAK_EV,
             PointwiseXs::LinLin(pairs) => next_grid_point(pairs, e),
+            PointwiseXs::Derived(_) => {
+                if e > 0.0 {
+                    DerivedQuantity::STEP * e
+                } else {
+                    NO_NEXT_BREAK_EV
+                }
+            }
         }
     }
 }
