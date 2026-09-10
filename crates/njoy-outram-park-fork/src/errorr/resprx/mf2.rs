@@ -18,6 +18,7 @@
 use crate::endf::records::{Cont, List, SectionCursor};
 use crate::endf::tape::Tape;
 use crate::reconr::slbw::WAVE_K;
+use crate::samm::mf2::{parse_rml_section, RmlSection};
 use crate::NjoyError;
 
 use super::super::math::efacts;
@@ -36,11 +37,18 @@ pub struct Mf2Range {
     pub spi_cont: Option<Cont>,
     /// For resolved BW/RM ranges: the `NLS` L-state LISTs in file order.
     pub lists: Vec<List>,
+    /// For an `LRF=7` range: the parsed R-matrix-limited section (what
+    /// `rdsammy` reads from the `nscr6` copy in `rpxsamm`).
+    pub rml: Option<RmlSection>,
 }
 
 /// `rdumrd2`'s output: every range plus the URR `amur` triples.
 #[derive(Debug, Clone, Default)]
 pub struct Mf2Resonances {
+    /// `AWR` of the MF=2/MT=151 HEAD (the mass `ppsammy`'s kinematics use).
+    pub awr: f64,
+    /// `NIS`.
+    pub nis: i32,
     /// Ranges in file order (`indx` = position + 1).
     pub ranges: Vec<Mf2Range>,
     /// `amur(1:3, nlru2)` = `(AMUN, AMUF, AMUX)` per `(L, J)` of every
@@ -65,7 +73,11 @@ impl Mf2Resonances {
         let mut cur = SectionCursor::new(&sec.rows);
         let head = cur.read_cont()?;
         let nis = head.n1;
-        let mut out = Mf2Resonances::default();
+        let mut out = Mf2Resonances {
+            awr: head.c2,
+            nis,
+            ..Default::default()
+        };
         for _ni in 0..nis {
             let iso = cur.read_cont()?;
             let lfw = iso.l2;
@@ -82,6 +94,7 @@ impl Mf2Resonances {
                     nls: 0,
                     spi_cont: None,
                     lists: Vec::new(),
+                    rml: None,
                 };
                 match (lru, lrf) {
                     // breit-wigner / reich-moore (errorr.f90:5119-5140)
@@ -93,14 +106,19 @@ impl Mf2Resonances {
                         }
                         r.spi_cont = Some(c);
                     }
-                    // reich-moore limited (errorr.f90:5143-5155): skipped, nlspepi unset
+                    // reich-moore limited (errorr.f90:5143-5155): upstream skips it
+                    // here (nlspepi unset) and rpxsamm re-reads it with rdsammy;
+                    // the port parses it once. `parse_rml_section` reads the
+                    // (SPI, AP, IFG, KRM, NJS) CONT itself.
                     (1, 7) => {
+                        let pos = cur.position();
                         let c = cur.read_cont()?;
-                        let _ = cur.read_list()?;
-                        for _ in 0..c.n1 {
-                            let _ = cur.read_list()?;
-                            let _ = cur.read_list()?;
-                        }
+                        r.nls = c.n1;
+                        let mut sub = SectionCursor::new(&sec.rows[pos..]);
+                        let rml = parse_rml_section(&mut sub)?;
+                        cur.skip_rows(sub.position() - 1)?;
+                        r.spi_cont = Some(c);
+                        r.rml = Some(rml);
                     }
                     // unresolved lrf=1, lfw=0 (errorr.f90:5158-5166)
                     (2, 1) if lfw == 0 => {

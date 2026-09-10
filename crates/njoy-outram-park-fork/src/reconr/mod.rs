@@ -38,6 +38,7 @@ pub mod linearize;
 pub mod mf1;
 pub mod mf2;
 pub mod rm;
+pub mod rml;
 pub mod slbw;
 
 pub use mf1::MaterialInfo;
@@ -378,7 +379,7 @@ fn add_resonance_contributions(
         add_rm_range(sections, range, eps);
     }
     for range in res_info.resolved_rml_ranges() {
-        add_rml_range(sections, range, eps);
+        rml::add_rml_range(sections, range, eps);
     }
     for range in res_info.resolved_aa_ranges() {
         add_aa_range(sections, range, eps);
@@ -400,24 +401,34 @@ fn add_aa_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_aa_halo_energies(&mut halo, &aa.l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], |e| {
         let s = aa::eval_aa_range(e, aa, range.ap);
         RangeDelta {
             total: s.total,
             elastic: s.elastic,
             fission: s.fission,
             capture: s.capture,
+            other: [0.0; MAX_OTHER],
         }
     });
 }
 
+/// Upper bound on the extra (non-elastic, non-fission, non-capture)
+/// R-matrix-limited reaction channels carried per energy: `mmtres(10)`
+/// upstream minus the three fixed slots.
+pub(crate) const MAX_OTHER: usize = 7;
+
 /// Resonance cross-section contributions at one energy, by reaction \[b\].
 #[derive(Debug, Default, Clone, Copy)]
-struct RangeDelta {
-    total: f64,
-    elastic: f64,
-    fission: f64,
-    capture: f64,
+pub(crate) struct RangeDelta {
+    pub(crate) total: f64,
+    pub(crate) elastic: f64,
+    pub(crate) fission: f64,
+    pub(crate) capture: f64,
+    /// Extra LRF=7 particle-pair channels (`mmtres(3..)` that are not
+    /// fission), in the order of `other_mts` handed to [`rebuild_range`];
+    /// unused entries stay zero.
+    pub(crate) other: [f64; MAX_OTHER],
 }
 
 fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
@@ -442,7 +453,7 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
 
     // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
     let mlbw = matches!(range.formalism, Some(ResonanceFormalism::Mlbw));
-    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], |e| {
         let mut d = RangeDelta::default();
         for (l, awri, ra, tuples) in &prepared {
             let s = if mlbw {
@@ -467,7 +478,7 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
     let mut halo = Vec::new();
     add_rm_halo_energies(&mut halo, &range.rm_l_states, range.el, range.eh);
 
-    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
+    rebuild_range(sections, range.el, range.eh, halo, eps, &[], |e| {
         let mut d = RangeDelta::default();
         for ls in &range.rm_l_states {
             let s: RmSigmas = rm::eval_rm_lstate(e, ls, range.ap, range.spi, range.naps);
@@ -477,56 +488,6 @@ fn add_rm_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64
             d.capture += s.capture;
         }
         d
-    });
-}
-
-/// Add R-Matrix Limited (LRF=7) resonance contributions — dispatches into
-/// `crate::samm`, which handles the full multichannel R-matrix rather than
-/// a pole approximation (needed for light nuclides / strongly overlapping
-/// resonances that SLBW/MLBW/Reich-Moore can't represent correctly).
-///
-/// Runs `samm::setup::setup` once per range (the one-time, per-section
-/// spin/parity/penetrability/channel-amplitude setup — Phase 2 of the
-/// `samm` port), then evaluates `samm::xsformula::cssammy` at every grid
-/// energy, exactly mirroring [`add_rm_range`]'s shape.
-fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f64) {
-    let Some(rml) = &range.rml else { return };
-    if rml.section.spin_groups.is_empty() {
-        return;
-    }
-
-    // `samm::setup::setup` mutates particle-pair defaults in place, so it
-    // needs an owned, mutable copy rather than the shared `&EnergyRange`.
-    let mut section = rml.section.clone();
-    let setup = match crate::samm::setup::setup(&mut section, rml.awr) {
-        Ok(s) => s,
-        Err(e) => {
-            log::error!(
-                "reconr: samm::setup::setup failed for LRF=7 range [{}, {}]: {e}",
-                range.el,
-                range.eh
-            );
-            return;
-        }
-    };
-
-    let mut halo = Vec::new();
-    add_rml_halo_energies(&mut halo, &section, range.el, range.eh);
-
-    rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
-        let r = crate::samm::xsformula::cssammy(
-            &section,
-            &setup.kinematics,
-            &setup.amplitudes,
-            &setup.quantum_info,
-            e,
-        );
-        RangeDelta {
-            total: r.total,
-            elastic: r.elastic,
-            fission: r.fission,
-            capture: r.capture,
-        }
     });
 }
 
@@ -550,12 +511,13 @@ fn add_rml_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f6
 /// fixed halo leaves, where the Lorentzian wing would otherwise be grossly
 /// over-linearised (the U-238 capture-wing pedestal bug; see this crate's
 /// `docs/porting-plan.md`).
-fn rebuild_range(
+pub(crate) fn rebuild_range(
     sections: &mut Vec<ReconrSection>,
     el: f64,
     eh: f64,
     halo: Vec<f64>,
     eps: f64,
+    other_mts: &[i32],
     delta_at: impl Fn(f64) -> RangeDelta + Sync,
 ) {
     // Range-boundary nodes, shaded as upstream `rdfil2` does ("shade nodes to
@@ -602,12 +564,26 @@ fn rebuild_range(
     // deltas already evaluated at every point (so `delta_at` is not called again).
     let (egrid, deltas) = refine_resonance_grid(&egrid, &delta_at, eps);
 
-    for mt in [
+    // The four fixed reactions, then the extra LRF=7 channels by MT; a
+    // channel with no MF=3 section on the tape is dropped, as upstream
+    // `emerge` only adds resonance terms to sections it finds
+    // (reconr.f90:4755-4767).
+    let targets: Vec<(MtReaction, Option<usize>)> = [
         MtReaction::Mt1Total,
         MtReaction::Mt2Elastic,
         MtReaction::Mt18Fission,
         MtReaction::Mt102Capture,
-    ] {
+    ]
+    .into_iter()
+    .map(|m| (m, None))
+    .chain(
+        other_mts
+            .iter()
+            .enumerate()
+            .map(|(k, &mt)| (MtReaction::from_any(mt), Some(k))),
+    )
+    .collect();
+    for (mt, other_k) in targets {
         let sec = match sections.iter_mut().find(|s| s.mt == mt) {
             Some(s) => s,
             None => continue,
@@ -638,11 +614,12 @@ fn rebuild_range(
         // Add background + resonance for every in-range grid energy.
         for (i, &e) in egrid.iter().enumerate() {
             let base = eval_lin_lin(&bg, e);
-            let add = match mt {
-                MtReaction::Mt1Total => deltas[i].total,
-                MtReaction::Mt2Elastic => deltas[i].elastic,
-                MtReaction::Mt18Fission => deltas[i].fission,
-                MtReaction::Mt102Capture => deltas[i].capture,
+            let add = match (mt, other_k) {
+                (_, Some(k)) => deltas[i].other[k],
+                (MtReaction::Mt1Total, _) => deltas[i].total,
+                (MtReaction::Mt2Elastic, _) => deltas[i].elastic,
+                (MtReaction::Mt18Fission, _) => deltas[i].fission,
+                (MtReaction::Mt102Capture, _) => deltas[i].capture,
                 _ => 0.0,
             };
             new_pairs.push((e, base + add));
@@ -745,26 +722,30 @@ fn test_panel(
     };
     let d_mid = delta_at(xm);
     // Linear interpolation at the (rounded) midpoint (reconr.f90:2382-2383,
-    // 2395-2396) and the per-reaction deviations; upstream tests the three
-    // partials (elastic, fission, capture), not the total.
+    // 2395-2396) and the per-reaction deviations; upstream tests the
+    // `nsig-1` partials (elastic, fission, capture, and for LRF=7 every
+    // extra particle-pair channel, reconr.f90:331-340), not the total. An
+    // unused `other` slot is zero on both sides and passes trivially.
     let fr2 = (xm - e1) / dx;
     let fr1 = 1.0 - fr2;
-    let parts = [
-        (d1.elastic, d2.elastic, d_mid.elastic),
-        (d1.fission, d2.fission, d_mid.fission),
-        (d1.capture, d2.capture, d_mid.capture),
-    ];
-    let dm: [f64; 3] = std::array::from_fn(|j| {
+    const NP: usize = 3 + MAX_OTHER;
+    let parts: [(f64, f64, f64); NP] = std::array::from_fn(|j| match j {
+        0 => (d1.elastic, d2.elastic, d_mid.elastic),
+        1 => (d1.fission, d2.fission, d_mid.fission),
+        2 => (d1.capture, d2.capture, d_mid.capture),
+        k => (d1.other[k - 3], d2.other[k - 3], d_mid.other[k - 3]),
+    });
+    let dm: [f64; NP] = std::array::from_fn(|j| {
         let (lo, hi, t) = parts[j];
         (t - (fr1 * lo + fr2 * hi)).abs()
     });
-    let sig: [f64; 3] = [d_mid.elastic, d_mid.fission, d_mid.capture];
+    let sig: [f64; NP] = std::array::from_fn(|j| parts[j].2);
     let (errn, errm) = if e2 < RES_TIGHT_RANGE_EV {
         (tol.err / 5.0, tol.errmax / 5.0)
     } else {
         (tol.err, tol.errmax)
     };
-    let not_converged = (0..3).any(|j| dm[j] > errn * sig[j]);
+    let not_converged = (0..NP).any(|j| dm[j] > errn * sig[j]);
     if !not_converged {
         return PanelTest {
             xm,
@@ -772,7 +753,7 @@ fn test_panel(
             accept: Some(PanelAccept::Converged),
         };
     }
-    if (0..3).any(|j| dm[j] > errm * sig[j]) {
+    if (0..NP).any(|j| dm[j] > errm * sig[j]) {
         return PanelTest {
             xm,
             d_mid,
@@ -781,7 +762,7 @@ fn test_panel(
     }
     // Resonance-integral check (reconr.f90:2403-2412).
     let tsti = 2.0 * tol.errint * xm / dx;
-    if (0..3).any(|j| dm[j] >= tsti) {
+    if (0..NP).any(|j| dm[j] >= tsti) {
         return PanelTest {
             xm,
             d_mid,
@@ -1033,41 +1014,6 @@ fn add_rm_halo_energies(grid: &mut Vec<f64>, rm_l_states: &[RmLState], el: f64, 
             grid.push(res.er);
             for &off in OFFSETS {
                 let e = res.er + off * half_g;
-                if e > el && e < eh && e > 0.0 {
-                    grid.push(e);
-                }
-            }
-        }
-    }
-}
-
-/// Add a halo of energy points around each R-Matrix Limited resonance peak.
-///
-/// Total width proxy is `|Gamma_gamma| + sum(|Gamma_c|)` over every explicit
-/// channel — [`crate::samm::mf2::RmlResonance`] has no single "total width"
-/// field the way SLBW/Reich-Moore resonances do (LRF=7 channels are
-/// per-spin-group, not a fixed six-column layout), so this sums what's
-/// available per resonance instead.
-fn add_rml_halo_energies(
-    grid: &mut Vec<f64>,
-    section: &crate::samm::mf2::RmlSection,
-    el: f64,
-    eh: f64,
-) {
-    const OFFSETS: &[f64] = &[
-        -10.0, -5.0, -2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0,
-    ];
-    for group in &section.spin_groups {
-        for res in &group.resonances {
-            if res.energy <= 0.0 {
-                continue;
-            }
-            let gt: f64 =
-                res.gamma_gamma.abs() + res.channel_widths.iter().map(|w| w.abs()).sum::<f64>();
-            let half_g = gt / 2.0;
-            grid.push(res.energy);
-            for &off in OFFSETS {
-                let e = res.energy + off * half_g;
                 if e > el && e < eh && e > 0.0 {
                     grid.push(e);
                 }

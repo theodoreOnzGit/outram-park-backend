@@ -28,13 +28,15 @@
 //! `ign`, `iwt` 2–12 (1 with a caller-supplied TAB1), `irelco` 0/1, lumped
 //! reactions (`MT` 851–870), and MF=32 through the `resprx` chain
 //! (`irespr = 1`: MLBW `LCOMP=1/2` resolved ranges with the scattering-
-//! radius uncertainty, `LRU=2` unresolved ranges).
+//! radius uncertainty, `LRF=7` ranges through the SAMM derivatives
+//! (`rpxsamm`, `LCOMP=1/2` with INTG correlations), `LRU=2` unresolved
+//! ranges).
 //!
 //! **What it refuses (`NotPorted`) rather than approximating:** the MF=32
-//! branches [`super::resprx`] lists (`LRF=7` SAMM, `LCOMP=0`, `LRF=1/3`
-//! sensitivities, INTG correlations), ENDF/B-IV tapes, ratio-to-standard
-//! NC-type records (`LTY` 1–3), MF=31/34/35/40, `iread` 1/2, GENDF input
-//! (`colaps`).
+//! branches [`super::resprx`] lists (`LCOMP=0`, `LRF=1/3` sensitivities,
+//! INTG correlations in the ERRORJ branch), ENDF/B-IV tapes,
+//! ratio-to-standard NC-type records (`LTY` 1–3), MF=31/34/35/40, `iread`
+//! 1/2, GENDF input (`colaps`).
 
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -198,6 +200,11 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
     // sigc, then resprx when MF=32 is on file (covout, errorr.f90:7174-7178)
     let coarse = sigc(&egn, &groups, &flx, &reactions);
     let resonance = if reactions.mf32_present {
+        let ctx = super::resprx::sammy::SammyContext {
+            mts: &reactions.mts,
+            derived: &g.derived,
+            coarse: &coarse,
+        };
         Some(resprx(
             endf,
             matd,
@@ -206,6 +213,7 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
             &cfg.weight,
             cfg.tempin,
             cfg.dap,
+            &ctx,
         )?)
     } else {
         None

@@ -52,6 +52,8 @@ errorr / nendf npend 0 nout 0 0 / matd ign iwt iprint irelco / mprint tempin / 0
 | `ggmlbw` (l.6527-6650) | `resprx::mlbw::ggmlbw` | zero-temperature MLBW on the work array |
 | `rpxgrp` (l.5227-5367) | `resprx::group::rpxgrp` | "simplistic" trapezoid group average with the `egtwtf` weight |
 | `rpxunr` / `ggunr1` (l.4785-5013, 6800-6905) | `resprx::unresolved::{rpxunr, ggunr1}` | `LRU=2` one-sided 1 % sensitivities of the URR SLBW averages (`egnrl` fluctuation integrals) |
+| `rpxsamm` (l.3252-3732) + `s2sammy`'s `mmtres` (l.796-808) | `resprx::sammy::{rpxsamm, mmtres_of}` | `LRF=7`: the `LCOMP=1`/`LCOMP=2` parameter covariance (INTG correlations read from the tape's raw text), `enode` from the resonance centres and half-heights, the adaptive panel integration of the analytic SAMM derivatives (`samm::derivs`) with the `egtwtf` weight, `cflx·csig/sigs` rescaling and the `crr(ig,ig2,mt,mt1)` fold that `rescon`'s SAMMY branch adds to every block |
+| `covadd` (l.6907-6966) | `covadd::covadd` | the `nendf = 999` option: dummy `LB=5` MF=33 sections so a tape with MF=32 only has output blocks |
 
 The MF=32 chain keeps several upstream idioms verbatim because the oracle
 carries them: `gwidth = ER·1e-4` keeps the sign of a bound level; the
@@ -73,16 +75,31 @@ The earlier structural reader (`covariance.rs`, `read_covariance_section`)
 is still available; `covcal` reads the records directly through
 `SectionCursor` because it needs them staged in `covcal`'s own flat layout.
 
+The SAMM branch keeps its own upstream idioms (see `resprx/sammy.rs`):
+the panel search's `enext` is `egtwtf`'s next stop from the *previous*
+panel, bounded by `(1+eps)·ee` and the next node; the midpoint test is
+`eps = 0.01` relative plus `1e-7` absolute on every `sigp` slot; a range's
+contribution above the shaded `eh` is zeroed; the total gets its
+sensitivity only through `akxy`; and once MF=2 has an `LRF=7` range,
+`rescon` uses `crr` for *every* block and ignores the `c**`/`u**`
+accumulators (so an `LRU=2` range of the same material would be lost —
+upstream, `errorr.f90:8528`). The port accumulates `crr` over ranges
+where upstream would abort on a second `allocate`.
+
 ### Not ported (returns `NotPorted`, never approximates)
 
-- **MF=32 branches outside the validated slice:** `LRF=7` (`rpxsamm`, the
-  SAMM derivative path — what `op-cjw.4` waits on), `LCOMP=0` (`rpxlc0`),
+- **MF=32 branches outside the validated slice:** `LCOMP=0` (`rpxlc0`),
   `LRF=1` resolved sensitivities (upstream's `rpendf` has no SLBW branch and
-  returns a stale `sig1`), `LRF=3` (`ggrmat`), `NRO ≠ 0`, `NLRS > 0`, INTG
-  correlation records (`NM > 0`; the tape reader stores six floats per
-  line), `irespr = 0` (`resprp`, the older method), and an MF=2 URR that is
-  not `LRF=2` (upstream reads uninitialised `amur`). `LCOMP=1` is ported in
-  the same routine as `LCOMP=2` but has no oracle tape yet.
+  returns a stale `sig1`), `LRF=3` in the ERRORJ branch (`ggrmat`) and an
+  `LRF=3` range in a material that also has an `LRF=7` one (upstream routes
+  it through `rpxsamm`'s `rdsammy` mode 3), `NRO ≠ 0`, `NLRS > 0`, INTG
+  correlation records in the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr =
+  0` (`resprp`, the older method), an MF=2 URR that is not `LRF=2`
+  (upstream reads uninitialised `amur`), `LRF=7` with background R-matrix
+  terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them), and
+  `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
+  with sammy method"). `LCOMP=1` is ported for both the MLBW and the
+  `LRF=7` branch but has no oracle tape yet.
 - **MF=31/34/35/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
   pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), `nin`
   (input covariance tape merge), `ngout != 0` (`colaps` from a GENDF),
@@ -145,6 +162,34 @@ committed evaluation with MF=32), 2026-09-10:
   within 1.3e-4 of NJOY's at the sampled energies and the tier-2 `σ_g`
   worst is 3.7e-3 (`MT=3`, group 12), resonance-pair covariances worst
   2.3e-2 on a 6e-6 element of the `(1,1)` block.
+
+`tests/errorr_mf32_cl35_rml_golden.rs` — the `LRF=7` SAMM path on
+ENDF/B-VII.1 Cl-35 (MAT 1725; the NJOY2016 test-suite `cl35rml` resource,
+`LCOMP=2` with 1088 parameters and 3093 INTG lines; dummy MF=33 via
+`covadd`), 2026-09-11:
+
+- **Tier 1 (NJOY PENDF in):** all 10 blocks / 3174 non-zero elements
+  within **4.83e-7** of `tape23` — `(2,2)`, `(2,102)`, `(2,600)`,
+  `(102,102)`, `(102,600)`, `(600,600)` all at the printing floor; the
+  `MT=1` blocks identically zero on both sides. `σ_g` worst 3.3e-7. This
+  is the first oracle for `samm::derivs` (`babb`, `abpart`'s derivative
+  half, `setqri`, `settri`, `derres`, the u-parameter normalisation).
+- The first run had the three cross blocks wrong by ~1.9 (signs flipped)
+  with every diagonal block at 4e-7: the SAMMY branch of `rescon` stores
+  `crr(ig,ig2)` into Fortran `cova(ig,ig2)`, which is the *transpose* of
+  the crate's `cova` layout (`add_tri`/`add_sq` store Fortran
+  `cova(ig2,ig)` at `[(ig-1)·ngn + ig2-1]`). Fixed and pinned by
+  `rescon_sammy_branch_uses_crr_for_every_pair`.
+- **Tier 2 (crate RECONR + BROADR in):** diagonal relative blocks
+  unchanged (the normalisation cancels), cross blocks ≤ 3.7e-3, `σ_g` ≤
+  3.6e-3 (`MT=600`, group 11) — reported. The first tier-2 run found the
+  crate's RECONR dropping the R-matrix (n,p) channel from `MT=600` (80
+  background points against NJOY's 10 730); `reconr::add_rml_range` now
+  carries every extra `LRF=7` particle-pair channel as upstream `emerge`
+  does (`tests/reconr_cl35_rml_njoy_golden.rs`).
+- Cost: 13 714 panels / 131 147 derivative evaluations, 20 s in release
+  against NJOY's ~3 s for the same deck — the per-energy derivative
+  assembly allocates more than it should; recorded, not optimised further.
 
 ## Caveats
 

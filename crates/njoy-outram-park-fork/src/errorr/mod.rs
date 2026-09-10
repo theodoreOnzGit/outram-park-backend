@@ -46,6 +46,7 @@
 //! `iread` 1/2, `nstan`/`nin`, GENDF input (`colaps`), `covadd`, ENDF/B-IV.
 //! See `README.md` in this directory.
 
+pub mod covadd;
 pub mod covariance;
 pub mod covcal;
 pub mod covout;

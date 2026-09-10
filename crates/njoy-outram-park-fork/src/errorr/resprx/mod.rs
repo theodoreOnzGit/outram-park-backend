@@ -18,11 +18,12 @@
 //! ```text
 //! resprx   read MF=2 (rdumrd2) and MF=32 range by range
 //!   ├─ rpxunr   LRU=2: 1 % one-sided sensitivities of the URR SLBW averages   (unresolved.rs)
+//!   ├─ rpxsamm  LRU=1, LRF=7: analytic SAMM derivatives, LCOMP=1/2 covariance (sammy.rs)
 //!   └─ rpxlc12  LRU=1, LCOMP=1/2: central-difference MLBW sensitivities       (resolved.rs)
 //!        rpxlc2   compact (LCOMP=2) covariance                                  (resolved.rs)
 //!        rpendf   pointwise σ on the eskip grid -> ggmlbw                       (mlbw.rs)
 //!        rpxgrp   simplistic group average with the egtwtf weight               (group.rs)
-//! rescon   fold c**/u** into each output (MT, MT1) block                       (this file)
+//! rescon   fold c**/u** (or the SAMM crr) into each output (MT, MT1) block     (this file)
 //! ```
 //!
 //! The accumulators are the upstream module arrays: `cff/cgg/cee/ctt`
@@ -34,17 +35,20 @@
 //! the relative one).
 //!
 //! **Validated** on TENDL-2023 Ar-37 (MLBW `LCOMP=2` with `DAP`, plus an
-//! `LRU=2` block) against the NJOY2016 binary —
-//! `tests/errorr_mf32_ar37_golden.rs`. **Refused** (`NotPorted`): `LRF=7`
-//! (`rpxsamm`, the SAMM derivative path), `LCOMP=0` (`rpxlc0`), `LRF=1`
-//! and `LRF=3` resolved sensitivities, `NRO ≠ 0`, `NLRS > 0`, INTG
-//! correlations (`NM > 0`), `irespr = 0` (`resprp`), and an `LRU=2/LRF=1`
-//! MF=2 URR (upstream reads uninitialised `amur`).
+//! `LRU=2` block) and on ENDF/B-VII.1 Cl-35 (`LRF=7` `LCOMP=2` with INTG
+//! correlations, through `rpxsamm`) against the NJOY2016 binary —
+//! `tests/errorr_mf32_ar37_golden.rs`, `tests/errorr_mf32_cl35_rml_golden.rs`.
+//! **Refused** (`NotPorted`): `LCOMP=0` (`rpxlc0`), `LRF=1` and `LRF=3`
+//! resolved sensitivities, `NRO ≠ 0`, `NLRS > 0`, INTG correlations in
+//! the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr = 0` (`resprp`), an
+//! `LRU=2/LRF=1` MF=2 URR (upstream reads uninitialised `amur`), and an
+//! `LRF=3` range in a material that also has an `LRF=7` one.
 
 pub mod group;
 pub mod mf2;
 pub mod mlbw;
 pub mod resolved;
+pub mod sammy;
 pub mod unresolved;
 
 use crate::endf::records::SectionCursor;
@@ -155,6 +159,15 @@ pub struct ResonanceCovariance {
     /// `ifresr` / `ifunrs` — a resolved / unresolved range was processed.
     pub ifresr: bool,
     pub ifunrs: bool,
+    /// `nmtres > 0` — the SAMMY branch of `rescon` applies: [`Self::crr`]
+    /// is added to every block and the `c**`/`u**` accumulators are
+    /// ignored (upstream, `errorr.f90:8528`).
+    pub sammy: bool,
+    /// `crr(ig, ig2, ix, ixp)` from `rpxsamm`, flattened
+    /// `((ig·ngn + ig2)·nmt + ix)·nmt + ixp` (0-based); empty unless `sammy`.
+    pub crr: Vec<f64>,
+    /// `nmt` the `crr` layout was built with.
+    pub nmt: usize,
     /// The `mess` lines upstream prints.
     pub messages: Vec<String>,
 }
@@ -183,6 +196,9 @@ impl ResonanceCovariance {
             nresg: 0,
             ifresr: false,
             ifunrs: false,
+            sammy: false,
+            crr: Vec::new(),
+            nmt: 0,
             messages: Vec::new(),
         }
     }
@@ -230,11 +246,34 @@ impl ResonanceCovariance {
 
     /// Add this material's MF=32 contribution to the `(mt, mat1/mt1)`
     /// block `cova` (`[ig][igp]`, `ngn × ngn`) — `rescon`,
-    /// `errorr.f90:8513-8819` for `irespr = 1`. Returns `true` when any
-    /// diagonal element is non-zero afterwards (upstream's `izero`), or
-    /// `false` untouched when the pair is not one of the seven the
-    /// resonance range covers.
-    pub fn rescon(&self, mt: i32, mat1: i32, mt1: i32, cova: &mut [f64]) -> bool {
+    /// `errorr.f90:8513-8819` for `irespr = 1`. `ix`/`ixp` are the
+    /// reactions' 0-based positions in `mts` (the SAMMY branch indexes
+    /// `crr` by them and applies to every block, `errorr.f90:8800-8806`).
+    /// Returns `true` when any diagonal element is non-zero afterwards
+    /// (upstream's `izero`), or `false` untouched when the pair is not
+    /// one of the seven the ERRORJ branch covers.
+    pub fn rescon(
+        &self,
+        ix: usize,
+        ixp: usize,
+        mt: i32,
+        mat1: i32,
+        mt1: i32,
+        cova: &mut [f64],
+    ) -> bool {
+        let ngn = self.ngn;
+        if self.sammy {
+            // cova(ig,ig2) += crr(ig,ig2,ix,ixp) (errorr.f90:8802-8806); the
+            // crate's cova[(a-1)*ngn+(b-1)] is the Fortran cova(b,a) (see
+            // add_tri/add_sq below), hence the transposed store.
+            let nmt = self.nmt;
+            for ig in 0..ngn {
+                for ig2 in 0..ngn {
+                    cova[ig2 * ngn + ig] += self.crr[((ig * ngn + ig2) * nmt + ix) * nmt + ixp];
+                }
+            }
+            return (0..ngn).any(|ig| cova[ig * ngn + ig] != 0.0);
+        }
         if mat1 != 0 {
             return false;
         }
@@ -248,7 +287,6 @@ impl ResonanceCovariance {
             (1, 1) => 7,
             _ => return false,
         };
-        let ngn = self.ngn;
         let iglast = ngn.min(self.nresg);
         // cova(ig2, ig) in Fortran is cova[(ig-1)*ngn + (ig2-1)] here
         let add_tri = |cova: &mut [f64], v: &[f64], last: usize| {
@@ -340,6 +378,7 @@ fn group_window(egn: &[f64], elr: f64, ehr: f64) -> (f64, f64, usize, usize) {
 /// fatal format checks (`NRO ≠ 0`, `LRU/LRF` combinations "with no
 /// coding", an MF=2/MF=32 L-state mismatch, an unresolvable MF=32
 /// resonance); `NotPorted` for the branches listed in the module docs.
+#[allow(clippy::too_many_arguments)]
 pub fn resprx(
     endf: &Tape,
     matd: i32,
@@ -348,11 +387,14 @@ pub fn resprx(
     weight: &ErrorrWeight,
     tempin: f64,
     dap_user: f64,
+    sammy_ctx: &sammy::SammyContext,
 ) -> Result<ResonanceCovariance, NjoyError> {
     let ngn = egn.len() - 1;
     let mut rc = ResonanceCovariance::new(ngn);
     let eskip = Eskip::from_groups(egn);
     let mf2 = Mf2Resonances::read(endf, matd)?;
+    // s2sammy (errorr.f90:796-808): nmtres > 0 once MF=2 has an LRF=7 range
+    let mmtres = sammy::mmtres_of(&mf2)?;
     let sec = endf
         .section(matd, 32, 151)
         .ok_or(NjoyError::SectionNotFound {
@@ -360,6 +402,7 @@ pub fn resprx(
             mf: 32,
             mt: 151,
         })?;
+    let raw = endf.raw_mf32_lines(matd, 151);
     let mut cur = SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?;
     let nis = head.n1;
@@ -388,11 +431,6 @@ pub fn resprx(
                     "errorr::resprx: illegal or unrecognized data structure in mf32 (nro={nro})"
                 )));
             }
-            if lrf == 7 {
-                return Err(NjoyError::NotPorted(
-                    "errorr::resprx: lrf=7 (RML) needs rpxsamm — the SAMM derivative path",
-                ));
-            }
             let sp = cur.read_cont()?;
             let spi = sp.c1;
             let ap = sp.c2;
@@ -401,7 +439,10 @@ pub fn resprx(
                 NjoyError::EndfParse("errorr::resprx: more MF=32 ranges than MF=2 ranges".into())
             })?;
             let mut nls = mf2r.nls;
-            if sp.n1 > nls {
+            if lrf == 7 {
+                // errorr.f90:3145-3147: nls is NJS from MF=32 itself
+                nls = sp.n1;
+            } else if sp.n1 > nls {
                 return Err(NjoyError::EndfParse(
                     "errorr::resprx: mf2/mf32 l-state mis-match (probable evaluation file error)"
                         .into(),
@@ -419,7 +460,12 @@ pub fn resprx(
             let mut isr = sp.n2;
             let mut dap = 0.0;
             let mut dap3 = vec![0.0f64; nls];
-            if isr == 1 {
+            if lrf == 7 {
+                // errorr.f90:3221-3223
+                if isr != 0 || isru {
+                    rc.messages.push("resprx: scat. radius unc not ready for lrf=7".into());
+                }
+            } else if isr == 1 {
                 if lrf == 1 || lrf == 2 {
                     let c = cur.read_cont()?;
                     dap = if !isru { c.c2 } else { ap * dap_user };
@@ -514,6 +560,11 @@ pub fn resprx(
                 unresolved::rpxunr(
                     &mut cur, a0, &rp, &mf2.amur, egn, cflx, weight, tempin, &mut rc,
                 )?;
+            } else if let Some(mm) = &mmtres {
+                // resolved with the sammy method (errorr.f90:3231-3233)
+                sammy::rpxsamm(
+                    &mut cur, raw, &rp, &mf2, mf2r, mm, egn, weight, tempin, sammy_ctx, &mut rc,
+                )?;
             } else {
                 match lcomp {
                     0 => {
@@ -585,14 +636,35 @@ mod tests {
         rc.cee = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]; // (1,1)(1,2)(1,3)(2,2)(2,3)(3,3)
         rc.ceg = (1..=9).map(|v| v as f64 * 10.0).collect();
         let mut cova = vec![0.0; 9];
-        assert!(rc.rescon(2, 0, 2, &mut cova));
+        assert!(rc.rescon(0, 0, 2, 0, 2, &mut cova));
         assert_eq!(cova, vec![1.0, 2.0, 3.0, 2.0, 4.0, 5.0, 3.0, 5.0, 6.0]);
         let mut cova = vec![0.0; 9];
-        assert!(rc.rescon(2, 0, 102, &mut cova));
+        assert!(rc.rescon(0, 1, 2, 0, 102, &mut cova));
         assert_eq!(cova, (1..=9).map(|v| v as f64 * 10.0).collect::<Vec<_>>());
         let mut cova = vec![0.0; 9];
-        assert!(!rc.rescon(2, 0, 4, &mut cova));
+        assert!(!rc.rescon(0, 1, 2, 0, 4, &mut cova));
         assert!(cova.iter().all(|&v| v == 0.0));
-        assert!(!rc.rescon(2, 1, 2, &mut cova));
+        assert!(!rc.rescon(0, 1, 2, 1, 2, &mut cova));
+    }
+
+    /// The SAMMY branch adds `crr(ig, ig2, ix, ixp)` to any block, and
+    /// ignores the `c**` accumulators (`errorr.f90:8528`).
+    #[test]
+    fn rescon_sammy_branch_uses_crr_for_every_pair() {
+        let mut rc = ResonanceCovariance::new(2);
+        rc.sammy = true;
+        rc.nmt = 2;
+        rc.cee = vec![9.0, 9.0, 9.0];
+        // crr[(ig,ig2,ix,ixp)] = 1000*ig + 100*ig2 + 10*ix + ixp
+        rc.crr = (0..16)
+            .map(|k| {
+                let (ig, ig2, ix, ixp) = (k / 8, (k / 4) % 2, (k / 2) % 2, k % 2);
+                (1000 * ig + 100 * ig2 + 10 * ix + ixp) as f64
+            })
+            .collect();
+        let mut cova = vec![0.0; 4];
+        assert!(rc.rescon(1, 0, 4, 0, 2, &mut cova));
+        // crate cova[(ig2)*ngn + ig] = Fortran cova(ig, ig2) = crr(ig, ig2, 1, 0)
+        assert_eq!(cova, vec![10.0, 1010.0, 110.0, 1110.0]);
     }
 }

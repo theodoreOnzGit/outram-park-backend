@@ -67,3 +67,30 @@ unchanged (worst 3.0e-4 at 1400 eV). MT=1 still differs by 1.45 % at
 4 keV and 0.34 % at 4268 eV where MT=2/MT=102 agree — the MF=3 total
 background near the RRR/URR boundary, not the resonance kernel (recorded,
 not chased).
+
+## Cl-35 (ENDF/B-VII.1, `LRF=7` R-matrix limited) — added 2026-09-11 (bead `op-cjw.2`)
+
+| Tape | Material | Deck | Points |
+|---|---|---|---|
+| `cl35-ENDF7.1-0K-err0.01.pendf` (4.0 MB) | Cl-35, MAT 1725, `LRP=1`, RRR 1e-5 eV – 1.2 MeV `LRU=1/LRF=7` (`KRM=3`, 8 spin groups, pairs γ/n/p) | `cl35-ENDF7.1-0K-err0.01.njoy-input` — NJOY2016's own `tests/20/input` (`errorr` 999 dummy-MF=33 step, then `reconr 21 22 / 1725 0 0 / 0.01 /`; the PENDF is that deck's `tape22`) from `../endf/n-017_Cl_035-ENDF7.1.endf` | 10,730 per section, unionised; `MT=600` carries the R-matrix (n,p) channel |
+
+The deck's `err = 0.01` is the upstream test's own setting; RECONR writes
+the exact 0 K value at every node regardless, which is what
+`tests/reconr_cl35_rml_njoy_golden.rs` uses: the crate's SAMM kernel
+(`samm::xsformula::cssammy`) evaluated at all 10,417 nodes below 1.2 MeV
+plus the ENDF MF=3 background agrees with the tape to **4.9e-7** (elastic,
+whose background is zero), **4.5e-7** (capture) and **4.9e-7** ((n,p)) —
+the 7-figure printing floor. `MT=1` on this tape is the *sum of every
+partial* (RECONR: "redundant reactions are reconstructed to be the sum of
+their parts"), which differs from the evaluation's own MF=3 `MT=1` TAB1
+by `MT=600`'s and `MT=107`'s backgrounds (2.7e-3 at 1.15 MeV); the test
+checks the kernel's total against its own three channels instead. The
+crate's end-to-end RECONR (`err = 0.001`) sits within 1.3e-4 (elastic),
+1.1e-3 (capture) and 4.0e-4 ((n,p)) of the tape at sampled energies —
+interpolation between two independently thinned grids. Before 2026-09-11
+the crate dropped the (n,p) channel from RECONR's output (its `MT=600`
+had only the 80 background points); it now carries every extra `LRF=7`
+particle-pair channel as upstream `emerge` does.
+
+Data policy: derived product of open ENDF/B-VII.1 data processed with the
+BSD-licensed NJOY2016; the input tape is NJOY2016's own test resource.

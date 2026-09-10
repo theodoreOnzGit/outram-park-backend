@@ -64,6 +64,28 @@ Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
 `tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
 `tsl-SiinSiC.endf` are already present (rows above).
 
+#### Cl-35 ENDF/B-VII.1, the `LRF=7` (R-matrix limited) evaluation (added 2026-09-11, `op-cjw.2`/`op-cjw.4`)
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-017_Cl_035-ENDF7.1.endf` | Cl-35 | ENDF/B-VII.1 (neutron), ORNL/LANL evaluation (Sayer, Guber, Leal, Larson, Young; `$Rev:: 532`, 2011-12-05, DIST-DEC06) | 1725 | 2.9 MB | NJOY2016 upstream test suite, `tests/resources/cl35rml` (https://github.com/njoy/NJOY2016, `master`, fetched through raw.githubusercontent.com — the NNDC/IAEA hosts answer 403 from this environment) | 2026-09-11 |
+
+The only committed evaluation with an **R-matrix-limited resolved range**
+(`LRU=1/LRF=7`, `KRM=3` Reich-Moore, `IFG=0`, 1e-5 eV – 1.2 MeV, 8 spin
+groups, particle pairs `(γ, n, p)` so `MT=2/102/600` all come from the
+R-matrix) **and an MF=32 for it** (`LCOMP=2`, 1088 parameter uncertainties,
+3093 `NDIGIT=2` INTG correlation lines). It carries no MF=33; the ERRORR
+oracle deck inserts the dummy `MT=1/2/102/600` sections with NJOY's own
+`999` option (`errorr::covadd` in the crate). Every spin group lists the
+eliminated capture channel first, so the `reorder_eliminated_channel`
+correction (bug `op-cjw.3`) is *not* exercised by this tape. Oracles:
+`../reconr/cl35-ENDF7.1-0K-err0.01.pendf` (SAMM kernel,
+`tests/reconr_cl35_rml_njoy_golden.rs`) and
+`../errorr/cl35-ENDF7.1-293.6K*` (`rpxsamm`,
+`tests/errorr_mf32_cl35_rml_golden.rs`). Byte-identical to the upstream
+resource (`sha256` recorded in the commit that added it). ENDF/B-VII.1 is
+open, published evaluated data (NNDC/BNL), redistributed unchanged.
+
 #### Ar-37 MF=2 L-block-order variant (added 2026-09-10, `op-cjw.1`)
 
 | File | Nuclide | Library | MAT | Size | Source | Date accessed |
@@ -139,9 +161,16 @@ These are needed because they are **not** available in this build environment
   the SAMM reconstruction path under verification (bead **op-cjw.2**). F-19 is
   preferred because it has spin groups where the eliminated capture channel is
   not first — it exercises the `reorder_eliminated_channel` fix.
+  **2026-09-10 finding:** the committed `n-009_F_019-ENDF8.0.endf` and
+  `n-008_O_016-ENDF8.0.endf` carry `LRP=0` / a single `LRU=0` range — no
+  resonance parameters at all — so neither is an LRF=7 case. **2026-09-11:**
+  the SAMM path is now verified on Cl-35 (ENDF/B-VII.1, row above) instead;
+  an evaluation whose eliminated channel is *not* listed first is still wanted
+  for the `op-cjw.3` reorder.
 - **`n-008_O_016-ENDF8.0.endf`** — O-16, also LRF=7 in VIII.0. A simpler second
   SAMM case, and doubles as a clean elastic-scatter-matrix golden for GROUPR
-  (bead **op-3ut**): light nuclide, no unresolved range.
+  (bead **op-3ut**): light nuclide, no unresolved range. (See the F-19 note:
+  the committed VIII.0 O-16 file has no resonance parameters.)
 
 Provide the **raw ENDF-6 ASCII tape** (the unzipped single-material `.endf`
 text file), named exactly as in the table so the tests find it.

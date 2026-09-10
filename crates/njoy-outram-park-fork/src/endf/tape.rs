@@ -49,6 +49,12 @@ pub struct Tape {
     sections: Vec<Section>,
     /// Fast lookup by key.
     index: HashMap<EndfKey, usize>,
+    /// The raw text (columns 1-66) of every MF=32 data row, one entry per
+    /// row of the parsed section — the INTG records of a compact
+    /// (`LCOMP=2`) covariance are `2i5,1x,18i3`-style integer lines that
+    /// the six-float row parser cannot represent. Only MF=32 is kept so
+    /// the tape's memory footprint does not double.
+    raw_mf32: HashMap<EndfKey, Vec<String>>,
 }
 
 impl Tape {
@@ -101,6 +107,8 @@ impl Tape {
 
         let mut current_key: Option<EndfKey> = None;
         let mut current_rows: Vec<[f64; 6]> = Vec::new();
+        let mut current_raw: Vec<String> = Vec::new();
+        let mut raw_mf32: HashMap<EndfKey, Vec<String>> = HashMap::new();
 
         for line_res in lines {
             let line = line_res.map_err(NjoyError::Io)?;
@@ -118,6 +126,10 @@ impl Tape {
                         rows: std::mem::take(&mut current_rows),
                     });
                     index.entry(key).or_insert(idx);
+                    if key.mf == 32 {
+                        raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+                    }
+                    current_raw.clear();
                 }
                 continue;
             }
@@ -137,11 +149,19 @@ impl Tape {
                         rows: std::mem::take(&mut current_rows),
                     });
                     index.entry(prev_key).or_insert(idx);
+                    if prev_key.mf == 32 {
+                        raw_mf32.entry(prev_key).or_insert(std::mem::take(&mut current_raw));
+                    }
+                    current_raw.clear();
                 }
                 current_key = Some(key);
             }
 
             current_rows.push(rl.fields);
+            if key.mf == 32 {
+                let n = line.len().min(66);
+                current_raw.push(line[..n].to_string());
+            }
         }
 
         // Flush the last open section (if the tape lacked a TEND)
@@ -152,12 +172,16 @@ impl Tape {
                 rows: std::mem::take(&mut current_rows),
             });
             index.entry(key).or_insert(idx);
+            if key.mf == 32 {
+                raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+            }
         }
 
         Ok(Tape {
             tpid,
             sections,
             index,
+            raw_mf32,
         })
     }
 
@@ -208,7 +232,25 @@ impl Tape {
             tpid,
             sections,
             index,
+            raw_mf32: HashMap::new(),
         }
+    }
+
+    /// Carry another tape's raw MF=32 text over (a tape rebuilt with
+    /// [`Tape::from_sections`] from `other`'s sections — `errorr::covadd`).
+    pub fn copy_raw_mf32_from(&mut self, other: &Tape) {
+        for (k, v) in &other.raw_mf32 {
+            self.raw_mf32.entry(*k).or_insert_with(|| v.clone());
+        }
+    }
+
+    /// The raw text (columns 1-66) of an MF=32 section's data rows, one
+    /// string per row of [`Section::rows`] — `None` for a tape not read
+    /// from text, or a section that is not MF=32.
+    pub fn raw_mf32_lines(&self, mat: i32, mt: i32) -> Option<&[String]> {
+        self.raw_mf32
+            .get(&EndfKey { mat, mf: 32, mt })
+            .map(|v| v.as_slice())
     }
 
     /// Assemble a minimal **PENDF** tape for one material from pointwise

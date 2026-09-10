@@ -452,6 +452,8 @@ pub fn covout(
             // contribution from resonance-parameter uncertainty (errorr.f90:7464-7466)
             if let Some(rc) = resonance {
                 if rc.rescon(
+                    ix,
+                    ixp,
                     reactions.mts[ix],
                     reactions.mats[ixp],
                     reactions.mts[ixp],

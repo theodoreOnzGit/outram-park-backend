@@ -98,5 +98,34 @@ exposed a RECONR defect (Ar-37 elastic +6.3 % at low energy, −8.2 % at
 1 keV: `LRF=2` evaluated with the SLBW elastic formula), recorded on its
 own bead.
 
-Data policy: derived products of open ENDF/B-VIII.0 and TENDL-2023 data
-processed with the BSD-licensed NJOY2016; no proprietary content.
+## Cl-35 (ENDF/B-VII.1, `LRF=7` R-matrix limited, MF=32 `LCOMP=2`) — added 2026-09-11 (`op-cjw.1`/`op-cjw.4`)
+
+| Tape | Material | Deck | Companion PENDF |
+|---|---|---|---|
+| `cl35-ENDF7.1-293.6K-ign4-iwt2-rel.errorr` (770 lines) | Cl-35, MAT 1725 | `cl35-ENDF7.1-293.6K-ign4-iwt2-rel.njoy-input`: `reconr 20 21 / 1725 0 0 / 0.001 /`, `broadr 20 21 22 / 1725 1 / 0.001 / 293.6 /`, `errorr 20 22 0 23 0 0 / 1725 4 2 1 1 / 1 293.6 / 0 33 1 1 -1 2e6 0 /` (`ign=4` 27 groups, `iwt=2`, `irelco=1`) | `cl35-ENDF7.1-293.6K.pendf` (5.0 MB, committed) |
+
+`tape20` for this deck is **not** the pristine tape but NJOY's own `999`
+output for it (the `tests/20` deck's `tape21`): the evaluation carries no
+MF=33, and ERRORR needs the four dummy `MT=1/2/102/600` sections to have
+blocks for the resonance covariance to land in. The crate reproduces that
+step with `errorr::covadd` on the pristine `../endf/n-017_Cl_035-ENDF7.1.endf`.
+NJOY's shipped `tests/20` deck takes the group cross sections from a
+GROUPR GENDF (`ngout`); this deck takes them from the PENDF (`npend`),
+the path the crate implements — the MF=32 arithmetic is the same.
+
+Measured (2026-09-11, `tests/errorr_mf32_cl35_rml_golden.rs`): tier 1
+(NJOY PENDF in) — all 10 blocks, 3174 non-zero elements within **4.83e-7**
+of `tape23`: `(2,2)` 4.16e-7, `(2,102)` 4.41e-7, `(2,600)` 4.12e-7,
+`(102,102)` 4.38e-7, `(102,600)` 4.20e-7, `(600,600)` 4.83e-7; the four
+`MT=1` blocks are identically zero on both sides (a directly-evaluated
+dummy total gets no sensitivity through `akxy`). `σ_g` worst 3.3e-7. This
+is the first oracle for the SAMM resonance-parameter derivatives
+(`samm.f90` `babb`/`abpart`/`setqri`/`settri`/`derres`) and for
+`rpxsamm`'s panel integration and INTG covariance. Tier 2 (crate RECONR +
+BROADR in): the diagonal relative blocks are unchanged (the `cflx·csig`
+normalisation cancels exactly), the cross blocks move by ≤ 3.7e-3 and
+`σ_g` by ≤ 3.6e-3 (`MT=600`, group 11) — the crate's PENDF, not ERRORR.
+
+Data policy: derived products of open ENDF/B-VIII.0, ENDF/B-VII.1 and
+TENDL-2023 data processed with the BSD-licensed NJOY2016; no proprietary
+content.
