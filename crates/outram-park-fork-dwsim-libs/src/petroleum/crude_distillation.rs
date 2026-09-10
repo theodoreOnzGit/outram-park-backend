@@ -462,14 +462,19 @@ mod tests {
 ///
 /// **A real CDU is not reboiled.** It is a refluxed absorber stripped with
 /// open steam at the bottom, with pump-around circuits removing heat down the
-/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] exists in the
-/// solver's enum, but [`RigorousColumn::distillation`] is the only constructor
-/// and fixes the type to a reboiled distillation column; reaching the other
-/// variant would mean extending that builder. That is deliberately **not** done
-/// here, and the consequence is stated rather than hidden: this model has no
-/// stripping steam, no pump-arounds and no crude furnace, so its energy balance
-/// is not a refinery's. It resolves *where the cuts land*, which is what a
-/// teaching or scoping model is for.
+/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] is reachable since
+/// 2026-09-10 through [`RigorousColumn::refluxed_absorber`](crate::columns::initial_estimates::RigorousColumn::refluxed_absorber) (GitHub #103), but
+/// this module deliberately still builds a reboiled
+/// [`RigorousColumn::distillation`](crate::columns::initial_estimates::RigorousColumn::distillation) column, because the refluxed-absorber
+/// variant is **not yet physically solvable** in this port: the bubble-point
+/// solvers pin its distillate rate to the initial estimate and never enforce
+/// the bottom-stage energy balance, and Naphtali-Sandholm does not converge on
+/// it (both measured and recorded in that constructor's docs and in
+/// `columns::column_type_tests`). Switching the CDU over is solver work, not a
+/// builder change. The consequence is stated rather than hidden: this model has
+/// no stripping steam, no pump-arounds and no crude furnace, so its energy
+/// balance is not a refinery's. It resolves *where the cuts land*, which is
+/// what a teaching or scoping model is for.
 ///
 /// # Units
 ///
