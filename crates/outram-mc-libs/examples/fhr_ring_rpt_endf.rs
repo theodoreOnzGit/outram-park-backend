@@ -113,9 +113,9 @@ mod desktop {
         pub const U235: usize = 0;
         pub const U238: usize = 1;
         pub const O16: usize = 2;
-        pub const C12: usize = 3; // free-gas (fuel kernel)
+        pub const C12: usize = 3; // free-gas (fuel kernel + SiC coating)
         pub const C13: usize = 4;
-        pub const C12G: usize = 5; // bound graphite (coatings, matrix, shell) — S(α,β) TODO
+        pub const C12G: usize = 5; // crystalline-graphite S(α,β) — buffer, PyC, matrix, shell
         pub const C13G: usize = 6;
         pub const SI28: usize = 7;
         pub const SI29: usize = 8;
@@ -235,7 +235,12 @@ mod desktop {
         let pyc1 = Material { id: 3, name: "PyC1".into(), temperature: TEMP_K, components: graphite_carbon(1.9) };
         let pyc2 = Material { id: 4, name: "PyC2".into(), temperature: TEMP_K, components: graphite_carbon(1.87) };
 
-        // ── SiC: ρ = 3.2, C 0.5 + Si-nat 0.5 ──
+        // ── SiC: ρ = 3.2, C 0.5 + Si-nat 0.5. Free-gas C (nx::C12/C13), NOT
+        // the bound-graphite law: the OpenMC deck treats SiC as free-gas
+        // (`SiC.add_element('C', 0.5)` with no `add_s_alpha_beta`), and a
+        // dedicated `tsl-CinSiC`/`tsl-SiinSiC` law is used by neither code.
+        // SiC is a 35 µm coating between fuel and moderator, so its thermal
+        // treatment is a minor contributor — matched to the deck here. ──
         let sic = Material {
             id: 5,
             name: "SiC".into(),
@@ -243,8 +248,8 @@ mod desktop {
             components: number_densities(
                 3.2,
                 &[
-                    (nx::C12G, 0.5 * C12_AB, M_C12),
-                    (nx::C13G, 0.5 * C13_AB, M_C13),
+                    (nx::C12, 0.5 * C12_AB, M_C12),
+                    (nx::C13, 0.5 * C13_AB, M_C13),
                     (nx::SI28, 0.5 * SI28_AB, M_SI28),
                     (nx::SI29, 0.5 * SI29_AB, M_SI29),
                     (nx::SI30, 0.5 * SI30_AB, M_SI30),
