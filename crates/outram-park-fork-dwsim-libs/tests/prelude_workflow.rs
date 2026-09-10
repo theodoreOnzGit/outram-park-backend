@@ -11,23 +11,33 @@
 //! user does. It imports **only** `outram_park_fork_dwsim_libs::prelude::*`
 //! and drives the GitHub #70 acceptance workflow —
 //!
-//! `BlackOilCrude::heavy()` → 12 pseudo-components → `CrudeColumnConfig::atmospheric_default()`
+//! `BlackOilCrude::light_sweet()` → 12 pseudo-components → `CrudeColumnConfig::atmospheric_default()`
 //! (Peng-Robinson 1978) → rigorous MESH column → cut slate
 //!
 //! — then checks: the prelude really was the only import (the test reads its
 //! own source and counts `use outram_park_fork_dwsim_libs` lines), the
 //! characterisation is the one the black-oil correlations imply, the column
 //! converges, the profile is monotone, the material balance closes on the
-//! whole crude, and the cut slate reproduces the figures recorded in #70 from
-//! the Python bindings.
+//! whole crude, and the cut slate reproduces the figures this crate produced
+//! when the test was (re)baselined.
 //!
-//! **Reference figures (issue #70, via the Python bindings, before this test
-//! existed):** 22.0 °API → SG 0.9218; 38 iterations to a final error of about
-//! `8.5e-7`; naphtha 0.15005, kerosene 0.04001, diesel 0.03335, heavier diesel
-//! draw 0.02668, atmospheric residue 0.74991, total 1.00000 mol/s. These are a
-//! target to *reproduce*, not to tune to; flows are compared to `1e-4` mol/s
-//! (the reference is quoted to five decimals) and the iteration count and
-//! error are recorded rather than asserted exactly.
+//! **Why the crude changed (2026-09-10, GitHub #170).** #70 ran this workflow
+//! on the 22 °API `BlackOilCrude::heavy()` and recorded SG 0.9218, 38
+//! iterations to `~8.5e-7`, naphtha 0.15005, kerosene 0.04001, diesel 0.03335
+//! and 0.02668, residue 0.74991 mol/s. That slate's twelfth cut carried a
+//! **negative critical volume** (`Vc = −7.33e-2 m³/mol`, `ω = 25.3`) as an
+//! ordinary finite `f64`; the column converged and the balance closed on it
+//! anyway. The characterisation now refuses that cut, so those figures are
+//! unreachable by design and this test asserts the refusal instead. The
+//! column half of the workflow runs on the 38 °API crude, whose 12-cut slate
+//! stays inside the correlations' range.
+//!
+//! **Pinned figures (this crate, 2026-09-10, release build):** 38.0 °API →
+//! SG 0.834808; 34 iterations to a final error of `7.7244e-7`; naphtha
+//! 0.33764, kerosene 0.09004, 0.07503, 0.06003, atmospheric residue 0.43726,
+//! total 1.000000 mol/s. Flows are compared to `1e-4` mol/s; the iteration
+//! count and error are recorded rather than asserted exactly. These are the
+//! crate's own output, pinned for regression — not a reference from anywhere.
 //!
 //! ## Results
 //!
@@ -35,9 +45,9 @@
 //!
 //! ## Honest scope
 //!
-//! Verification of API reachability and internal consistency, plus agreement
-//! with the crate's own earlier output through a different binding. Not
-//! validation against a real crude assay or a refinery yield.
+//! Verification of API reachability and internal consistency. Not validation
+//! against a real crude assay or a refinery yield, and — since the #170
+//! rebaseline — no longer a cross-check against an independent earlier run.
 
 use outram_park_fork_dwsim_libs::prelude::*;
 
@@ -48,19 +58,25 @@ use outram_park_fork_dwsim_libs::prelude::*;
 /// `ColumnSpec` and `units` markers — so the prelude is proven sufficient for
 /// the *manual* path as well as the packaged one.
 ///
-/// **Results (2026-09-10, `cargo test --release --test prelude_workflow`):**
-/// `SG = 0.921824` (141.5/153.5); black-oil mean molar mass 499.1 g/mol, mean
-/// NBP 767.6 K; 12 pseudo-components with `Tb` from 414.4 K to 1503.7 K, of
-/// which the five below the 650 K cut point enter the column. The column
-/// **converged in 38 iterations to a final error of 8.5103e-7**. Cuts
-/// (mol/s): naphtha 0.15005 (stage 0, 442.42 K), kerosene 0.04001 (stage 4,
-/// 524.19 K), diesel 0.03335 (stage 6, 537.85 K), diesel 0.02668 (stage 8,
-/// 550.73 K), residue 0.74991 (stage 11, 601.51 K); total 1.000000 mol/s,
-/// residual 0. Stage profile monotone, 442.42 K → 601.51 K. Every flow
-/// matches the #70 reference to the five decimals quoted there, the iteration
-/// count matches exactly (38), and the final error agrees with the quoted
-/// "~8.5e-7". The PR78 flash of the four lightest pseudo-components at their
-/// mid boiling point and 1.2 bar is two-phase as expected, and the hand-built
+/// **Results (2026-09-10, `cargo test --release --test prelude_workflow`,
+/// after the #170 rebaseline):** the 22 °API `heavy()` at 12 cuts is refused
+/// with `CharacterizationError::PseudoComponent` whose message names
+/// `Crude22API_NBP_1231`, cut 12 and `critical_volume` (value
+/// `−7.329e-2 m³/mol`), and `solve_crude_column` on it fails with
+/// `CrudeColumnError::Characterisation`. For the 38 °API `light_sweet()`:
+/// `SG = 0.834808` (141.5/169.5); black-oil mean molar mass 206.5 g/mol, mean
+/// NBP 538.8 K; 12 pseudo-components with `Tb` from 381.7 K to 866.3 K, of
+/// which the nine below the 650 K cut point enter the column. The column
+/// **converged in 34 iterations to a final error of 7.7244e-7**. Cuts
+/// (mol/s): naphtha 0.33764 (stage 0, 423.69 K), kerosene 0.09004 (stage 4,
+/// 494.32 K), kerosene 0.07503 (stage 6, 511.17 K), kerosene 0.06003 (stage
+/// 8, 528.98 K), residue 0.43726 (stage 11, 587.32 K); total 1.000000 mol/s,
+/// residual 0. Stage profile monotone, 423.69 K → 587.32 K. Labels are pinned
+/// except at stage 8, which sits 1 K below the 530 K kerosene/diesel boundary
+/// and is allowed either label; the bottoms is labelled `Residue` by
+/// construction, not from its 587 K temperature. The PR78 flash
+/// of the four lightest pseudo-components at their mid boiling point
+/// (423.9 K) and 1.2 bar is two-phase (`β = 0.100`), and the hand-built
 /// benzene/toluene `RigorousColumn::distillation` solves to `D = 0.5 mol/s`.
 #[test]
 fn crude_workflow_needs_only_the_prelude() {
@@ -90,24 +106,49 @@ fn crude_workflow_needs_only_the_prelude() {
         "no inline crate paths allowed outside the prelude import"
     );
 
+    // ── 0. The #170 guard, reached through the prelude. ─────────────────────
+    // The 22 API crude's heaviest cut has a negative critical volume at 12
+    // cuts; the characterisation must refuse it and say which cut and why,
+    // and the packaged column must surface that refusal rather than solve.
+    let cut_count = 12;
+    let heavy = BlackOilCrude::heavy();
+    assert_eq!(heavy.api_gravity, 22.0);
+    match heavy.pseudo_components(cut_count) {
+        Err(CharacterizationError::PseudoComponent(inner)) => {
+            let msg = inner.to_string();
+            assert!(
+                msg.contains("critical_volume") && msg.contains("(cut 12)"),
+                "the refusal must name the property and the cut: {msg}"
+            );
+            assert!(msg.contains("Crude22API_NBP_1231"), "{msg}");
+        }
+        other => panic!("22 API at 12 cuts must be refused with a NonPhysical Vc, got {other:?}"),
+    }
+    assert!(
+        matches!(
+            solve_crude_column(&heavy, &CrudeColumnConfig::atmospheric_default(), cut_count),
+            Err(CrudeColumnError::Characterisation(_))
+        ),
+        "the column must not solve on a slate the characterisation refused"
+    );
+
     // ── 1. Black-oil characterisation. ───────────────────────────────────────
-    let crude = BlackOilCrude::heavy();
-    assert_eq!(crude.api_gravity, 22.0);
+    let crude = BlackOilCrude::light_sweet();
+    assert_eq!(crude.api_gravity, 38.0);
     let sg = crude.oil_specific_gravity();
-    let sg_expected = 141.5 / (22.0 + 131.5);
+    let sg_expected = 141.5 / (38.0 + 131.5);
     assert!(
         (sg - sg_expected).abs() < 1e-12,
         "SG = {sg}, expected {sg_expected}"
     );
     assert!(
-        (sg - 0.9218).abs() < 5e-5,
-        "SG = {sg} vs the #70 figure 0.9218"
+        (sg - 0.834808).abs() < 5e-7,
+        "SG = {sg} vs the pinned figure 0.834808"
     );
 
-    let cut_count = 12;
     let slate: Vec<PseudoComponent> = crude
         .pseudo_components(cut_count)
-        .expect("22 API crude characterises");
+        .expect("38 API crude characterises");
     assert_eq!(slate.len(), cut_count);
     let z_sum: f64 = slate
         .iter()
@@ -143,7 +184,7 @@ fn crude_workflow_needs_only_the_prelude() {
     let config = CrudeColumnConfig::atmospheric_default();
     assert_eq!(config.package, PropertyPackageModel::PengRobinson1978);
     let result: CrudeColumnResult =
-        solve_crude_column(&crude, &config, cut_count).expect("the 22 API crude column converges");
+        solve_crude_column(&crude, &config, cut_count).expect("the 38 API crude column converges");
 
     println!(
         "[prelude] converged in {} iterations, final error {:.4e}",
@@ -172,33 +213,47 @@ fn crude_workflow_needs_only_the_prelude() {
         );
     }
 
-    // ── 5. Material balance and the #70 reference slate. ─────────────────────
+    // ── 5. Material balance and the pinned cut slate. ────────────────────────
     let total = result.total_product_mol_s();
     assert!(
         (total - config.feed_flow_mol_s).abs() < 1e-9,
         "products total {total} mol/s"
     );
 
+    // Flows and labels pinned from this crate's own 2026-09-10 run (see the
+    // module doc). The distillate and side draws are labelled from their draw
+    // temperatures; the bottoms is always `Residue`. The stage-8 draw sits
+    // within 1 K of the 530 K kerosene/diesel boundary, so either label is
+    // accepted there rather than pinning a coin-flip.
     let reference = [
-        (0_usize, 0.15005_f64, CrudeCut::Naphtha),
-        (4, 0.04001, CrudeCut::Kerosene),
-        (6, 0.03335, CrudeCut::Diesel),
-        (8, 0.02668, CrudeCut::Diesel),
-        (11, 0.74991, CrudeCut::Residue),
+        (0_usize, 0.33764_f64, CrudeCut::Naphtha),
+        (4, 0.09004, CrudeCut::Kerosene),
+        (6, 0.07503, CrudeCut::Kerosene),
+        (8, 0.06003, CrudeCut::Kerosene),
+        (11, 0.43726, CrudeCut::Residue),
     ];
     assert_eq!(result.cuts.len(), reference.len());
     for (cut, (stage, flow, label)) in result.cuts.iter().zip(reference) {
         assert_eq!(cut.stage, stage);
         assert!(
             (cut.flow_mol_s - flow).abs() < 1e-4,
-            "stage {stage}: {} mol/s vs #70 reference {flow}",
+            "stage {stage}: {} mol/s vs the pinned {flow}",
             cut.flow_mol_s
         );
-        assert_eq!(
-            cut.cut, label,
-            "stage {stage} labelled {:?}, reference {label:?}",
-            cut.cut
-        );
+        if stage == 8 {
+            assert!(
+                matches!(cut.cut, CrudeCut::Kerosene | CrudeCut::Diesel),
+                "stage 8 ({:.2} K) labelled {:?}, expected kerosene or diesel",
+                cut.temperature_k,
+                cut.cut
+            );
+        } else {
+            assert_eq!(
+                cut.cut, label,
+                "stage {stage} labelled {:?}, pinned {label:?}",
+                cut.cut
+            );
+        }
     }
 
     // ── 6. The manual column path, also prelude-only. ────────────────────────

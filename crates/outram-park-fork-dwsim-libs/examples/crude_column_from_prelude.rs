@@ -14,10 +14,14 @@
 //!
 //! ## What it does
 //!
-//! 1. Describes a **heavy crude** the black-oil way — 22 °API, gas gravity
-//!    0.80 ([`BlackOilCrude::heavy`]) — and prints the bulk properties the
-//!    black-oil correlations imply (specific gravity, mean molar mass, mean
-//!    normal boiling point).
+//! 1. Describes a **light sweet crude** the black-oil way — 38 °API, gas
+//!    gravity 0.75 ([`BlackOilCrude::light_sweet`]) — and prints the bulk
+//!    properties the black-oil correlations imply (specific gravity, mean
+//!    molar mass, mean normal boiling point). Until 2026-09-10 this example
+//!    ran the 22 °API [`BlackOilCrude::heavy`]; that slate's heaviest cut
+//!    carries a negative critical volume, which the characterisation now
+//!    refuses instead of emitting (GitHub #170), so at 12 cuts the heavy
+//!    crude fails in step 2 by design.
 //! 2. Cuts it into **12 pseudo-components** ([`BlackOilCrude::pseudo_components`])
 //!    and prints the slate: normal boiling point, `Tc`, `Pc`, `ω`, mole
 //!    fraction, and which conventional refinery cut each lands in.
@@ -50,12 +54,16 @@
 //!
 //! ## Measured output (2026-09-10, release build)
 //!
-//! 22 °API → SG 0.9218, mean molar mass 499.1 g/mol, mean NBP 767.6 K; the
-//! column converged in **38** iterations to a final error of `8.5103e-7`;
-//! naphtha 0.15005 mol/s (442.4 K), kerosene 0.04001 (524.2 K), diesel
-//! 0.03335 (537.9 K), diesel 0.02668 (550.7 K), residue 0.74991 (601.5 K);
-//! products total 1.000000 mol/s. These reproduce the figures recorded in #70
-//! from the Python bindings to every quoted decimal.
+//! 38 °API → SG 0.8348, mean molar mass 206.5 g/mol, mean NBP 538.8 K; 12
+//! pseudo-components with `Tb` from 381.7 K to 866.3 K, nine of them below
+//! the 650 K residue cut point; the column converged in **34** iterations to
+//! a final error of `7.7244e-7`; naphtha 0.33764 mol/s (423.7 K), kerosene
+//! 0.09004 (494.3 K), kerosene 0.07503 (511.2 K), kerosene 0.06003 (529.0 K),
+//! residue 0.43726 (587.3 K); products total 1.000000 mol/s. The crate's own
+//! output, recorded for regression — not a reference from elsewhere. (The #70
+//! figures — 22 °API, 38 iterations, `8.5103e-7`, residue 0.74991 — were
+//! produced on a slate containing a negative critical volume and are no
+//! longer reachable; see `tests/prelude_workflow.rs`.)
 //!
 //! Run with:
 //! `cargo run -p outram-park-fork-dwsim-libs --release --example crude_column_from_prelude`
@@ -68,7 +76,7 @@ fn main() {
     println!("======================================================================");
 
     // ── 1. The crude, described the way a production engineer describes one ──
-    let crude = BlackOilCrude::heavy();
+    let crude = BlackOilCrude::light_sweet();
     println!(
         " Crude            : {:.1} °API, gas SG {:.2}, BS&W {:.1} %vol",
         crude.api_gravity, crude.gas_specific_gravity, crude.bsw_percent

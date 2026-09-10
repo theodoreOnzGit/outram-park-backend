@@ -22,7 +22,7 @@
 //!
 //! | Group | Names | Start here |
 //! |---|---|---|
-//! | **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::heavy(), &CrudeColumnConfig::atmospheric_default(), 12)` |
+//! | **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::light_sweet(), &CrudeColumnConfig::atmospheric_default(), 12)` |
 //! | **Assay characterisation** | [`Assay`], [`BulkAssay`], [`CurveAssay`], [`characterize`], [`PseudoComponent`], [`CharacterizationError`] | `characterize(&Assay::Bulk(..), cut_count)` |
 //! | **Thermodynamics** | [`Component`], [`ComponentError`], [`mod@reference`] (preset compounds), [`PropertyPackageModel`], [`PropertyPackage`], [`FlashResult`], [`FlashError`], [`bubble_temperature`], [`dew_temperature`], [`SaturationState`], [`SaturationError`] | `PropertyPackageModel::PengRobinson1978.flash_pt(&components, &z, t, p)` |
 //! | **Rigorous MESH column** | [`RigorousColumn`] (four constructors: `distillation`, `absorption`, `reboiled_absorber`, `refluxed_absorber`), [`Stage`], [`ColumnSpec`], [`SpecType`], [`SpecBasis`], [`ColumnType`], [`CondenserType`], [`InitialEstimates`], [`ColumnSolverInput`], [`ColumnSolverOutput`], [`ColumnError`], [`ColumnSolverMethod`], [`WangHenkeSolver`], [`ModifiedWangHenkeSolver`], [`SumRatesSolver`], [`NaphtaliSandholmSolver`], [`ColumnThermo`], and the `uom` aliases [`StagePressure`], [`StageTemperature`], [`MolarFlowRate`], [`MolarEnthalpy`], [`StageHeatDuty`], [`StageEfficiency`] | `RigorousColumn::distillation(..).solver_input()?` then `ColumnSolverMethod::default().solve(&input)?` |
@@ -82,7 +82,10 @@
 //! ```
 //! use outram_park_fork_dwsim_libs::prelude::*;
 //!
-//! let crude = BlackOilCrude::heavy(); // 22 °API
+//! // 38 °API. The 22 °API `BlackOilCrude::heavy()` no longer characterises at
+//! // 12 cuts: its heaviest cut has a negative critical volume, which the
+//! // characterisation refuses instead of emitting (GitHub #170).
+//! let crude = BlackOilCrude::light_sweet();
 //! let config = CrudeColumnConfig::atmospheric_default(); // PengRobinson1978
 //! let result = solve_crude_column(&crude, &config, 12).expect("column converges");
 //! for cut in &result.cuts {
