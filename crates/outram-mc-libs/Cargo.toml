@@ -125,6 +125,11 @@ path = "src/bin/outram-mc-tui/main.rs"
 name = "fhr_ring_rpt_endf"
 required-features = ["endf-pebble-cases"]
 
+# Diagnostic: U-238 URR band vs the evaluation's own MF=3 (op-mzvp.2.12).
+[[example]]
+name = "u238_urr_probe"
+required-features = ["endf-pebble-cases"]
+
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
 # fails with "cannot find module or crate sys". crossterm, which ratatui

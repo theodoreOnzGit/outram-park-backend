@@ -324,6 +324,54 @@ not acceptable is not looking.
 Related: the recurring-failure-mode list in
 [`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
 
+## Debugging a port: read upstream first (HARD RULE)
+
+**When a ported module misbehaves, find out how the upstream code handles that
+exact situation BEFORE proposing, writing, or testing a fix.** Most of this
+workspace is a translation — NJOY2016, PFLOTRAN, CoolProp, GeN-Foam, OFFBEAT,
+`code_aster`, DWSIM — and in a translation the overwhelmingly likely cause of a
+discrepancy is that upstream does something the port does not. Upstream is the
+specification. Reasoning about the physics from first principles, or from what
+the port's own comments claim, is not a substitute for reading it.
+
+**What "read upstream first" means, concretely:**
+
+1. **Find the upstream routine** that owns the behaviour and read it — the
+   Fortran/C++/VB source, not just the manual. Vendored sources live in the
+   gitignored `vendor/` folders (workspace rule); the manuals are in `kovan`'s
+   literature store.
+2. **Ask what upstream does that we do not.** Bounds and guards are the usual
+   answer: an upper energy limit, a card default, a branch on a format flag, a
+   range check, a special case for a boundary. A missing *limit* is a far more
+   common port defect than a wrong *formula*, because formulas get reviewed
+   line-by-line during translation and control flow does not.
+3. **Check the data's own format flags before blaming the code.** ENDF-6 (and
+   equivalents elsewhere) change the meaning of a section based on flags —
+   `LSSF`, `LRU`/`LRF`, `LI`, `INT`. A file where `LSSF=1` means something
+   categorically different from `LSSF=0`, and a "missing physics" hypothesis
+   that ignores the flag will send you porting a module you did not need.
+4. **Only then form a hypothesis, and state its predicted sign and magnitude
+   before you measure.** If the fix would move the answer the wrong way, you
+   have the wrong hypothesis — stop and go back to step 1.
+
+**Record what you find in the bead**, including when upstream turns out to
+handle it the same way we do (that result is worth as much as a defect, and
+saves the next session repeating the search).
+
+**Why this exists.** A worked example, 2026-09-10: the U-238 ring-RPT
+discrepancy (`op-mzvp.2.12`) was recorded with "URR self-shielding not
+reconstructed" as the leading hypothesis and "expect ours low + structureless"
+as the predicted signature. Reading the evaluation first would have shown
+`LSSF=1` in U-238's `LRU=2` range — MF=3 already carries the infinitely-dilute
+unresolved cross sections, so the reconstruction is *not* low (it reproduces
+MF=3 to 0.08 % from 24 keV up), and adding PURR self-shielding would have
+*raised* k, moving the case further from the reference rather than closer. The
+real defect was one upstream guard we had not ported: NJOY bounds BROADR at
+`thnmax` and never runs SIGMA1 across the resolved/unresolved boundary, while
+this port broadens the whole grid unconditionally (`op-sdbk`). Hours went into
+a first-principles argument and two speculative patches that reading
+`broadr.f90` and the ENDF flag would have pre-empted.
+
 ## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
 **KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
