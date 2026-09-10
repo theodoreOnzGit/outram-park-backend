@@ -464,8 +464,8 @@ pub fn infinite_dilution_reference(
         if e < range.el || e > range.eh {
             continue;
         }
-        for seq in range_sequences(range, e) {
-            let aa = channel_radius_urr(seq.awri, seq.naps, seq.ap)?;
+        for seq in range_sequences(range, e)? {
+            let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = crate::reconr::slbw::WAVE_K * rat * e2;
             let ab = 4.0 * std::f64::consts::PI / (k * k);
