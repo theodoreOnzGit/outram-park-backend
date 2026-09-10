@@ -87,17 +87,38 @@ change to any formula.
 
 ## Testing
 
-**TODO** (Opus verification pass — no tests were written or run as part of
-this translation, per the crate's model-division-of-labour rule in
-`CLAUDE.md`; the ported code has been reviewed line-by-line against the
-Fortran source but has **not been executed even once**, so treat it as
-unverified in the strongest sense until a real run happens).
+**Verification pass executed 2026-09-10** — every step of the ladder below
+now has a test, and steps 4 and 6 run against NJOY2016 itself (built
+in-session from `upstream_source/NJOY2016`, gfortran 13.3.0). The pass found
+**four defects**, all fixed and pinned by the tests named:
 
-Gate: reproduce upstream PURR probability tables for a URR nuclide (e.g.
-U-238) within statistical tolerance (bin cross sections + probabilities depend
-on ladder count and RNG seed), and confirm the table-averaged σ recovers the
-`infinite_dilution_reference` limit. Suggested verification order, easiest
-first:
+| # | Defect | Symptom | Test |
+|---|---|---|---|
+| 1 | `wfun::uw2` (and UNRESR's `uw`) inverted the last break-line test — a false `aimz-brk9.ge.zero` falls through to the *Taylor* series upstream | `w(2.13+0.001i)` 37× low; UNRESR's `WTable` nodes near (1.8–2.3, 0–0.3) wrong | `uw2_matches_gfortran_oracle` |
+| 2 | `wfun::DopplerTable` lookups used upstream's 1-based `ii+2`/`jj-3`/`jj+2` on 0-based rows | every table lookup one cell off in *x* and *y* | `doppler_table_is_exact_at_its_own_nodes` |
+| 3 | `infinite_dilution_reference` used UNRESR's un-folded `V_l` with `unresx`'s `/nu` — upstream `unfac2` folds `AMUN` into `V_l` first | every `AMUN=2` sequence's neutron width halved: U-235 fission/capture 1.7 % low at 2.25 keV, 6 % at 10 keV | `tests/purr_u235_urr.rs` |
+| 4 | `reconr::slbw::WAVE_K` was `2.1977e-3`, the `cwaven` formula rounded up in the 4th figure | all `1/k²` resonance terms 0.081 % low in RECONR/UNRESR/PURR | `wave_k_is_the_upstream_cwaven` |
+
+Results on ENDF/B-VIII.0 U-235 (URR 2.25–25 keV, `LSSF=1`) against the NJOY
+run `reconr 0.001 / broadr 300 K / unresr / purr` (`sigz 1e10 … 1`, `nbin 20`,
+`nladr 32`):
+
+- `infinite_dilution_reference` reproduces NJOY's `unresx` (`spot`, `dbar`,
+  total/elastic/fission/capture) to the 7 figures NJOY writes at 2.25, 5.5
+  and 10 keV, and agrees with this crate's own UNRESR at σ₀ = 10¹⁰ to all
+  digits.
+- `probability_table` at NJOY's first energy with the same seed: probabilities
+  sum to 1, table means reproduce the renormalised reference, Bondarenko
+  moments monotone in σ₀, and the σ₀ = 1 b self-shielding ratios match NJOY's
+  direct sampling to 0.1 % (0.9562/0.9909/0.9037/0.8968 vs
+  0.9557/0.9904/0.9035/0.8956). Absolute 32-ladder means agree within the
+  Monte Carlo noise for total/elastic/fission; capture is 2.4 % low where
+  NJOY's own mean sits 2σ above its analytic reference. The two random
+  streams are **not** bit-identical despite the same seed — not chased.
+
+Gate for **U-238** still open: its URR range is `NRO=1` (energy-dependent
+scattering radius), which `unresr::mf2::parse_lru2_ranges` rejects — see the
+NRO=1 bead, `op-as32`. The verification ladder, easiest first:
 1. `Rng` against a known `rann` output sequence (fully deterministic, exact
    match expected).
 2. `wfun::uw2` against `crate::unresr::wfun::uw` (should agree everywhere
@@ -113,12 +134,23 @@ first:
    argument above.
 6. Only then, the full `probability_table` Monte Carlo pipeline end to end.
 
+Steps 1–3 and 5 are unit tests in `mod.rs`/`wfun.rs` (`Rng` against a
+verbatim-`rann` gfortran oracle for `idum=-101`; `uw2` against a
+verbatim-`uw2` oracle at 16 points; Wigner spacing mean/width; all four
+`line_shape` tiers against `uw2` across every boundary, and tier *selection*
+pinned bit-for-bit against the closed-form tier formulas).
+
 ## Caveats
 
-- **Not runtime-tested at all** — see Testing above. The bin-edge construction
-  in particular (`purr.f90:2283-2319`'s dynamic non-uniform schedule) has
-  many small index-arithmetic steps (Fortran 1-indexed → Rust 0-indexed) that
-  were hand-verified branch-by-branch during translation but never exercised.
+- **Runtime-tested on U-235 only** — see Testing above. The bin-edge
+  construction (`purr.f90:2283-2319`'s dynamic non-uniform schedule) is
+  exercised by the U-235 test (edges ascending, last edge `1e6`,
+  probabilities summing to one) but its values have not been compared
+  bin-by-bin against NJOY's `MT=153` output.
+- At the closed edges of the table tier (`|x| = 3.9`, `y = 3.0` exactly)
+  upstream reads one row/column past its `tr`/`ti` arrays (an unchecked
+  out-of-bounds read); [`wfun::DopplerTable`] clamps the cell and
+  extrapolates the quadratic instead.
 - **PENDF MT=152/MT=153 output-tape bookkeeping is not ported** — this crate
   has no established PENDF output-section-writer concept yet (unlike ACE),
   and it is pure tape plumbing, not physics. [`probability_table`] returns the

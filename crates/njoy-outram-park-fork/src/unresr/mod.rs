@@ -53,7 +53,11 @@ use crate::NjoyError;
 /// radius). Returns `(V_l, φ_l)` (`unresl` always calls `uunfac` with its
 /// `amun` argument fixed at `1.0` — `unresl:1021` — and applies the real
 /// `AMUN`-derived scaling separately when it forms `Γn(E)`; this port keeps
-/// that same separation, so `penetrability_factor` takes no `amun` argument).
+/// that same separation, so `penetrability_factor` takes no `amun` argument.
+/// **PURR's `unresx` does NOT do this**: it passes the real `amun` to
+/// `unfac2`, which folds it into `vl` — see
+/// [`crate::purr::infinite_dilution_reference`] for the resulting extra
+/// factor that port must apply).
 pub fn penetrability_factor(l: i32, rho: f64, rho_c: f64) -> (f64, f64) {
     let r2 = rho * rho;
     match l {

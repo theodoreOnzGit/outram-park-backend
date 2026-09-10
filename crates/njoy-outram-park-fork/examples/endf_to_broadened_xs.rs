@@ -175,10 +175,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let temp1_k = 293.6; // Room temperature
     let temp2_k = 900.0; // Elevated temperature (hotter reactor)
 
-    let broadened_293k =
-        doppler_broaden(&reconr_result.sections, reconr_result.material.awr, temp1_k);
-    let broadened_900k =
-        doppler_broaden(&reconr_result.sections, reconr_result.material.awr, temp2_k);
+    let thnmax = broadening_limit(&reconr_result);
+    let broadened_293k = doppler_broaden_below(
+        &reconr_result.sections,
+        reconr_result.material.awr,
+        temp1_k,
+        thnmax,
+    );
+    let broadened_900k = doppler_broaden_below(
+        &reconr_result.sections,
+        reconr_result.material.awr,
+        temp2_k,
+        thnmax,
+    );
 
     println!(
         "✓ Broadened cross sections to {} K and {} K",

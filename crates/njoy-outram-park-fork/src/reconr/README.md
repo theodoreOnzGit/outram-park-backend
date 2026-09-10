@@ -126,6 +126,32 @@ as-coded oddities ported literally rather than "fixed" (a background term
 scaled by the same energy factor twice, and an `LI==6` special case that
 redefines total rather than using the just-computed sum).
 
+## Discontinuities are shaded, never duplicated (2026-09-10)
+
+A PENDF grid from this port, like upstream's, never holds two points at one
+energy. `reconr.f90`'s `lunion` rewrites a tabulated step at `E` as
+`sigfig(E,7,-1)` / `sigfig(E,7,+1)` (and drops the second point when the two
+σ values are equal), and `rdfil2` places the resonance-range boundary nodes
+at the same shaded energies ("shade nodes to prevent discontinuities"), so
+the abrupt end of the resonance contribution at `EH` is also a two-point
+ramp. `shade_discontinuities` and `rebuild_range` do the same here. Before
+this, the port collapsed U-238's 20 keV MF=3 step into a single point (the
+unresolved value *plus* the resonance tail) and BROADR then smeared it —
+see `../broadr/README.md` and `op-sdbk`.
+
+## The wave-number constant (fixed 2026-09-10)
+
+`slbw::WAVE_K` — NJOY's `cwaven = sqrt(2*amassn*amu*ev)*1e-12/hbar`
+(`reconr.f90:903`) — was hard-coded as `2.1977e-3`, the formula rounded *up*
+in its fourth figure; the exact value from the same CODATA-2018 constants is
+`2.196807689e-3`. Every resonance cross section is proportional to `4π/k²`,
+so all of them (SLBW, MLBW, Reich-Moore, Adler-Adler, RML, and UNRESR/PURR,
+which share the constant) were 0.081 % low. Potential scattering
+(`∝ sin²(k·AP)/k² ≈ AP²`) is insensitive to it, which is why it hid until
+the U-235 URR oracle comparison matched potential scattering to five figures
+while fission and capture were a steady 0.077 % low. Locked by
+`wave_k_is_the_upstream_cwaven`.
+
 ## Caveats
 
 - Near the critical point of the resolved/unresolved boundary, grid density is

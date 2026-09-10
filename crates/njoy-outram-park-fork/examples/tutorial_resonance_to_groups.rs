@@ -359,7 +359,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             reconr_0k.sections.clone()
         } else {
             // Use BROADR to apply Doppler broadening.
-            doppler_broaden(&reconr_0k.sections, reconr_0k.material.awr, *temp_k)
+            broaden_result(&reconr_0k, *temp_k).sections
         };
 
         // Find the capture cross section (MT=102).
