@@ -50,6 +50,7 @@ errorr / nendf npend 0 nout 0 0 / matd ign iwt iprint irelco / mprint tempin / 0
 | `rdumrd2` / `rskiprp` (l.5091-5225, 5369-5409) | `resprx::mf2::{Mf2Resonances, build_work_array}` | MF=2 scan (`nlspepi`, URR `amur` from an `LRF=2` URR), the resolved-range work array with `S_l`/`P_l` at each `ER` |
 | `rpxlc2` / `rpxlc12` / `rpendf` (l.4108-4783, 5015-5089) | `resprx::resolved::{rpxlc2, rpxlc12, rpendf}` | `LCOMP=2` compact covariance (and `LCOMP=1`), central-difference MLBW sensitivities (`ER` ±0.01 %, widths ±1 %), the `eskip` pointwise grid |
 | `ggmlbw` (l.6527-6650) | `resprx::mlbw::ggmlbw` | zero-temperature MLBW on the work array |
+| `ggrmat` (l.6227-6525) | `resprx::rmatrix::ggrmat` | zero-temperature Reich-Moore (`LRF=3`) on the work array, one `(L, J)` at a time (`npnls`/`valspi`), the 3×3 complex `efrobns` path once a fission width has been seen |
 | `rpxgrp` (l.5227-5367) | `resprx::group::rpxgrp` | "simplistic" trapezoid group average with the `egtwtf` weight |
 | `rpxunr` / `ggunr1` (l.4785-5013, 6800-6905) | `resprx::unresolved::{rpxunr, ggunr1}` | `LRU=2` one-sided 1 % sensitivities of the URR SLBW averages (`egnrl` fluctuation integrals) |
 | `rpxsamm` (l.3252-3732) + `s2sammy`'s `mmtres` (l.796-808) | `resprx::sammy::{rpxsamm, mmtres_of}` | `LRF=7`: the `LCOMP=1`/`LCOMP=2` parameter covariance (INTG correlations read from the tape's raw text), `enode` from the resonance centres and half-heights, the adaptive panel integration of the analytic SAMM derivatives (`samm::derivs`) with the `egtwtf` weight, `cflx·csig/sigs` rescaling and the `crr(ig,ig2,mt,mt1)` fold that `rescon`'s SAMMY branch adds to every block |
@@ -90,16 +91,16 @@ where upstream would abort on a second `allocate`.
 
 - **MF=32 branches outside the validated slice:** `LCOMP=0` (`rpxlc0`),
   `LRF=1` resolved sensitivities (upstream's `rpendf` has no SLBW branch and
-  returns a stale `sig1`), `LRF=3` in the ERRORJ branch (`ggrmat`) and an
-  `LRF=3` range in a material that also has an `LRF=7` one (upstream routes
-  it through `rpxsamm`'s `rdsammy` mode 3), `NRO ≠ 0`, `NLRS > 0`, INTG
+  returns a stale `sig1`), an `LRF=3` range in a material that also has an
+  `LRF=7` one (upstream routes it through `rpxsamm`'s `rdsammy` mode 3),
+  `NRO ≠ 0`, `NLRS > 0`, INTG
   correlation records in the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr =
   0` (`resprp`, the older method), an MF=2 URR that is not `LRF=2`
   (upstream reads uninitialised `amur`), `LRF=7` with background R-matrix
   terms (`KBK > 0`: `derext` and `samm::mf2` do not carry them), and
   `NIS > 1` with an `LRF=7` range (upstream: "multiple isotopes do not work
-  with sammy method"). `LCOMP=1` is ported for both the MLBW and the
-  `LRF=7` branch but has no oracle tape yet.
+  with sammy method"). `LCOMP=1` has an oracle for `LRF=3` (JENDL-3.3
+  U-238) but not for MLBW or `LRF=7`.
 - **MF=31/34/35/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
   pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), `nin`
   (input covariance tape merge), `ngout != 0` (`colaps` from a GENDF),
@@ -190,6 +191,38 @@ ENDF/B-VII.1 Cl-35 (MAT 1725; the NJOY2016 test-suite `cl35rml` resource,
 - Cost: 13 714 panels / 131 147 derivative evaluations, 20 s in release
   against NJOY's ~3 s for the same deck — the per-energy derivative
   assembly allocates more than it should; recorded, not optimised further.
+
+`tests/errorr_mf32_j33u238_lrf3_golden.rs` — the ERRORJ Reich-Moore branch
+(`ggrmat`, `LRF=3`) and the `LCOMP=1` reader on JENDL-3.3 U-238 (MAT 9237;
+the NJOY2016 test-suite `J33U238` resource: ten `LRF=3` ranges of 1 keV,
+one `LCOMP=1` block each with `NSRS=1`, `MPAR=3`, plus an `LRU=2` block),
+`ign=3`, `iwt=6`, 300 K, 2026-09-11:
+
+- **Tier 1 (NJOY PENDF in, env-gated on `OUTRAM_PARK_NJOY_J33U238_PENDF`):**
+  all 666 blocks / 14 069 non-zero elements within **4.95e-7** of `tape23`
+  (`σ_g` 4.43e-7, resonance pairs 4.57e-7, other 4.95e-7); the listing's
+  resolved/unresolved diagonals for the seven resonance pairs within 4.67e-4
+  (4 printed figures). Upstream warns `mf2 nls=2, but mf32 nls=0` per range
+  and continues; the port does the same.
+- The listing rows first disagreed for the cross pairs: `errorr.f90:7673`
+  indexes the *square* cross-term arrays (`cef/ceg/cfg`) with the
+  packed-triangle index it uses for the diagonal ones, so the printed
+  "resolved" value for `(2,18)` etc. is not the diagonal element. The
+  port's `ResonanceCovariance::diagonal` mirrors that (documented on the
+  function); the output tape is unaffected.
+- **Tier 2 (crate RECONR + BROADR in, ~80 s):** groups 1–12 (below 9120 eV,
+  inside the resolved ranges) asserted at 2e-2 / 5e-2 — measured `σ_g`
+  4.09e-3, resonance-pair covariances 8.17e-3, listing rows 8.28e-3. Two
+  exclusions, both PENDF findings and not ERRORR ones: (a) the crate's
+  RECONR does not reconstruct the infinitely-dilute averages of an
+  `LSSF=0` URR (JENDL-3.3's MF=3 elastic is zero to 150 keV; NJOY's
+  `sigunr` fills it), so groups 13–18 are reported only (bead `op-t0wt`);
+  (b) U-238's sub-threshold fission, `σ_g(MT=18) ≈ 1e-7 b` in the resolved
+  range, is below both pipelines' `errint = err/20000` integral criterion
+  and differs by 6.5 % (group 11) — the absolute `(18,18)` covariance
+  agrees and the relative one moves by exactly `σ_g⁻²`, so group cross
+  sections under 1e-6 b and covariance elements whose partial is under
+  1e-6 b are not compared in tier 2.
 
 ## Caveats
 

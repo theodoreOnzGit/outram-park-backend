@@ -98,7 +98,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 |---|---|---|---|
 | `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level; **vector path + Bondarenko self-shielding golden-validated vs an NJOY2016 GENDF on U-238, 2026-09-10** (`tests/groupr_u238_gendf_golden.rs`: 2.65e-6 on NJOY's own PENDF with and without a MT=152 URR table and for the `iwt<0` flux calculator, 9.2e-4 end-to-end; the URR-flux `getunr` total and three `genflx` slowing-down grid/source details were found and ported from it); matrix path / GAMINR / `lord>0` / heterogeneous flux calculator V&V still pending |
 | `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, V&V pending |
-| `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟡 Not ported: `LCOMP=0`, `LRF=1/3` ERRORJ sensitivities (`ggrmat`), `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
+| `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟢 `LRF=3` ERRORJ sensitivities (`ggrmat`) + `LCOMP=1` validated on JENDL-3.3 U-238 to 4.95e-7 (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, 2026-09-11). 🟡 Not ported: `LCOMP=0`, `LRF=1` ERRORJ sensitivities, `NRO≠0`, `NLRS>0`, INTG in the ERRORJ branch, `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
 | `modules::covr` | `covr.f90` | ~3k | 🟢 library option (ERRORR tape → BOXER) ported and byte-identical to NJOY on 9 materials × 2 matrix types (`tests/covr_boxer_golden.rs`); PostScript plotting out of scope |
 | `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
 | `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), `derext`/`KBK` background terms, `KRM≠3`, `IFG=1`; `yfour` (4+ channels) unexercised |
@@ -106,12 +106,19 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
 Output formats for codes OUTRAM PARK does not target — most are still on-demand
-`NotPorted` stubs, but three have been ported (translation-level, V&V pending):
+`NotPorted` stubs, three have been ported at translation level (V&V pending)
+and one is validated:
 
+- **Ported and validated (🟢):** `wimsr.f90` (`src/wimsr/`, 2026-09-11):
+  WIMS-D library byte-identical to NJOY2016's on ENDF/B-VIII.0 U-238 (29
+  groups, six sigma-zeros, `ires=1`, `ip1opt=0`, `isof=1`) and every
+  `iprint=2` listing stage within the printed precision
+  (`tests/wimsr_u238_njoy_golden.rs`); the card-deck reader is not written
+  (`run()` stays `NotPorted`, callers build a `WimsrInput`).
 - **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
   `mixr.f90` (`src/mixr/`).
 - **Still `NotPorted` stubs (⬜):** `ccccr.f90`, `matxsr.f90`, `powr.f90`,
-  `wimsr.f90`, `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
+  `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
   shared by `plotr`/`viewr`/`covr`).
 
 > Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared

@@ -21,7 +21,7 @@
 //!   ├─ rpxsamm  LRU=1, LRF=7: analytic SAMM derivatives, LCOMP=1/2 covariance (sammy.rs)
 //!   └─ rpxlc12  LRU=1, LCOMP=1/2: central-difference MLBW sensitivities       (resolved.rs)
 //!        rpxlc2   compact (LCOMP=2) covariance                                  (resolved.rs)
-//!        rpendf   pointwise σ on the eskip grid -> ggmlbw                       (mlbw.rs)
+//!        rpendf   pointwise σ on the eskip grid -> ggmlbw / ggrmat              (mlbw.rs, rmatrix.rs)
 //!        rpxgrp   simplistic group average with the egtwtf weight               (group.rs)
 //! rescon   fold c**/u** (or the SAMM crr) into each output (MT, MT1) block     (this file)
 //! ```
@@ -38,16 +38,17 @@
 //! `LRU=2` block) and on ENDF/B-VII.1 Cl-35 (`LRF=7` `LCOMP=2` with INTG
 //! correlations, through `rpxsamm`) against the NJOY2016 binary —
 //! `tests/errorr_mf32_ar37_golden.rs`, `tests/errorr_mf32_cl35_rml_golden.rs`.
-//! **Refused** (`NotPorted`): `LCOMP=0` (`rpxlc0`), `LRF=1` and `LRF=3`
-//! resolved sensitivities, `NRO ≠ 0`, `NLRS > 0`, INTG correlations in
-//! the ERRORJ branch (`rpxlc2`, `NM > 0`), `irespr = 0` (`resprp`), an
-//! `LRU=2/LRF=1` MF=2 URR (upstream reads uninitialised `amur`), and an
-//! `LRF=3` range in a material that also has an `LRF=7` one.
+//! **Refused** (`NotPorted`): `LCOMP=0` (`rpxlc0`), `LRF=1` resolved
+//! sensitivities, `NRO ≠ 0`, `NLRS > 0`, INTG correlations in the ERRORJ
+//! branch (`rpxlc2`, `NM > 0`), `irespr = 0` (`resprp`), an `LRU=2/LRF=1`
+//! MF=2 URR (upstream reads uninitialised `amur`), and an `LRF=3` range in
+//! a material that also has an `LRF=7` one.
 
 pub mod group;
 pub mod mf2;
 pub mod mlbw;
 pub mod resolved;
+pub mod rmatrix;
 pub mod sammy;
 pub mod unresolved;
 
@@ -210,10 +211,17 @@ impl ResonanceCovariance {
         n * (ig - 1) - (ig - 1) * (ig.saturating_sub(2)) / 2 + (ig2 - ig)
     }
 
-    /// The diagonal `(ig, ig)` of one accumulator divided by `cflx(ig)²`
-    /// — the *absolute* "resolved"/"unresolve" contribution the listing
-    /// prints (`covout`, `errorr.f90:7660-7710`; for `irelco = 1` the
-    /// listing then divides by `csig(ig,ix) csig(ig,ixp)`, l.7712-7721).
+    /// The "resolved"/"unresolve" column the listing prints for group
+    /// `ig`, divided by `cflx(ig)²` (`covout`, `errorr.f90:7660-7710`; for
+    /// `irelco = 1` the listing then divides by `csig(ig,ix) csig(ig,ixp)`,
+    /// l.7712-7721). **Upstream quirk kept:** the listing addresses every
+    /// accumulator with the packed-triangle index
+    /// `ngn(ig-1) - (ig-1)(ig-2)/2 + 1` (l.7673), which is the diagonal of
+    /// the packed `c**` arrays but an off-diagonal element of the *square*
+    /// cross-term arrays `cef`/`ceg`/`cfg` — so the printed "ef"/"eg"/"fg"
+    /// rows are not the true diagonals. The NJOY listing is the oracle for
+    /// this function (`tests/errorr_mf32_j33u238_lrf3_golden.rs` pins the
+    /// cross-term rows), so it reproduces the quirk.
     /// `which` is `"tt"`, `"ee"`, `"eg"`, `"ef"`, `"ff"`, `"fg"` or
     /// `"gg"`; `unresolved` selects the `u**` set.
     pub fn diagonal(&self, which: &str, unresolved: bool, cflx: &[f64]) -> Vec<f64> {
@@ -221,7 +229,8 @@ impl ResonanceCovariance {
         (1..=n)
             .map(|ig| {
                 let p = self.packed(ig, ig);
-                let sq = (ig - 1) * n + (ig - 1);
+                // errorr.f90:7673 -- the same packed index into the square arrays
+                let sq = p;
                 let v = match (which, unresolved) {
                     ("tt", false) => self.ctt[p],
                     ("ee", false) => self.cee[p],

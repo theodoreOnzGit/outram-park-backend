@@ -17,12 +17,13 @@
 //! the parameter covariance matrix.
 //!
 //! **Scope.** `LRF=2` (MLBW) with `LCOMP=2` is what the Ar-37 oracle
-//! exercises (`tests/errorr_mf32_ar37_golden.rs`). `LCOMP=1` is ported in
-//! the same routine as upstream but has no oracle yet. Refused with
-//! `NotPorted`: `LRF=1` (upstream's `rpendf` has no SLBW branch and would
-//! return stale `sig1`), `LRF=3` (needs `ggrmat`), `LCOMP=0` (`rpxlc0`),
-//! `NLRS > 0`, and `NM > 0` INTG correlation records (the tape reader
-//! stores 6 floats per line; INTG lines are integer-packed).
+//! exercises (`tests/errorr_mf32_ar37_golden.rs`); `LRF=3` (Reich-Moore,
+//! [`super::rmatrix::ggrmat`]) with `LCOMP=1` is what the JENDL-3.3 U-238
+//! oracle exercises (`tests/errorr_mf32_j33u238_lrf3_golden.rs`). Refused
+//! with `NotPorted`: `LRF=1` (upstream's `rpendf` has no SLBW branch and
+//! would return stale `sig1`), `LCOMP=0` (`rpxlc0`), `NLRS > 0`, and
+//! `NM > 0` INTG correlation records in `rpxlc2` (the SAMM branch reads
+//! them from the tape's raw text; this branch does not yet).
 //!
 //! **Upstream idioms kept deliberately** (the oracle depends on them):
 //! - for `LRF=1/2` the scattering-radius perturbation writes `AP + DAP`
@@ -170,12 +171,17 @@ pub fn rpxlc2(cur: &mut SectionCursor, lrf: i32) -> Result<Lcomp2Params, NjoyErr
 ///
 /// `arat` is updated from the MF=2 `AWRI` whenever `ggmlbw` runs (the
 /// upstream global side effect).
+///
+/// `npnls`/`valspi` select the `(L, J)` group `ggrmat` evaluates for an
+/// `LRF=3` range (`npnls = 99`: every group); `ggmlbw` ignores them.
 pub fn rpendf(
     b: &[f64],
     rp: &RangeParams,
     eskip: &Eskip,
     eres: f64,
     arat: &mut f64,
+    npnls: usize,
+    valspi: f64,
 ) -> Result<Vec<SigRow>, NjoyError> {
     let mut sig: Vec<SigRow> = Vec::new();
     let mut e1 = rp.elg;
@@ -198,9 +204,9 @@ pub fn rpendf(
                     s
                 }
                 3 => {
-                    return Err(NjoyError::NotPorted(
-                        "errorr::rpendf: lrf=3 needs ggrmat (Reich-Moore sensitivities)",
-                    ))
+                    let (s, ar) = super::rmatrix::ggrmat(e1, b, npnls, valspi)?;
+                    *arat = ar;
+                    s
                 }
                 _ => {
                     return Err(NjoyError::NotPorted(
@@ -283,12 +289,6 @@ pub fn rpxlc12(
             "errorr::rpxlc12: lrf=1 — upstream rpendf has no SLBW branch (stale sig1)",
         ));
     }
-    if lrf == 3 {
-        return Err(NjoyError::NotPorted(
-            "errorr::rpxlc12: lrf=3 needs ggrmat (Reich-Moore sensitivities)",
-        ));
-    }
-
     // general (lcomp=1) head, or the compact (lcomp=2) block (l.4157-4169)
     let mut arat;
     let ral0;
@@ -388,7 +388,7 @@ pub fn rpxlc12(
         // --- scattering radius uncertainty (l.4265-4346) ---
         if rp.isr == 1 {
             let dap = rp.dap;
-            let sigr = rpendf(&b, rp, eskip, -1.0, &mut arat)?;
+            let sigr = rpendf(&b, rp, eskip, -1.0, &mut arat, 99, 0.0)?;
             // perturb ap and the penetration factors
             let ap_p = b[7] + dap;
             b[7] = ap_p;
@@ -416,7 +416,7 @@ pub fn rpxlc12(
                 }
                 inow += 9 * nrs;
             }
-            let mut sigp = rpendf(&b, rp, eskip, -1.0, &mut arat)?;
+            let mut sigp = rpendf(&b, rp, eskip, -1.0, &mut arat, 99, 0.0)?;
             // sensitivity to ap
             for (p, r) in sigp.iter_mut().zip(&sigr) {
                 for j in 0..4 {
@@ -476,6 +476,9 @@ pub fn rpxlc12(
         let mut il2 = lb;
         let mut ipos = 0usize;
         let mut ilnum = 0usize;
+        // |ajres| of the resonance being perturbed (errorr.f90:4383), the
+        // `valspi` ggrmat selects the (L, J) group with
+        let mut ajres_abs = 0.0f64;
         for loopm in 1..=nrb {
             let eres = sec.params[6 * (loopm - 1)];
             for loopn in 1..=mpar {
@@ -516,6 +519,7 @@ pub fn rpxlc12(
                             "errorr::rpxlc12: problem — MF=32 resonance E={eres:e} ajres={ajres:e} not found in MF=2"
                         )));
                     }
+                    ajres_abs = ajres.abs();
                 }
 
                 // perturbed(-) (l.4389-4415)
@@ -546,7 +550,7 @@ pub fn rpxlc12(
                     b[il3] = backdt * 0.99;
                 }
                 let sigr = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat)?)
+                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
                 } else {
                     None
                 };
@@ -567,7 +571,7 @@ pub fn rpxlc12(
                     b[il3] = backdt * 1.01;
                 }
                 let sigp = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat)?)
+                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
                 } else {
                     None
                 };

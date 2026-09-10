@@ -126,6 +126,28 @@ BROADR in): the diagonal relative blocks are unchanged (the `cflx·csig`
 normalisation cancels exactly), the cross blocks move by ≤ 3.7e-3 and
 `σ_g` by ≤ 3.6e-3 (`MT=600`, group 11) — the crate's PENDF, not ERRORR.
 
-Data policy: derived products of open ENDF/B-VIII.0, ENDF/B-VII.1 and
-TENDL-2023 data processed with the BSD-licensed NJOY2016; no proprietary
+## U-238 (JENDL-3.3, `LRF=3` Reich-Moore, MF=32 `LCOMP=1`) — added 2026-09-11 (`op-gh96`)
+
+| Tape | Material | Deck | Companion PENDF |
+|---|---|---|---|
+| `u238-JENDL3.3-300K-ign3-iwt6-rel.errorr` (5958 lines) | U-238, MAT 9237 | `u238-JENDL3.3-300K-ign3-iwt6-rel.njoy-input`: `reconr 20 21 / 9237 0 / 0.001 /`, `broadr 20 21 22 / 9237 1 / 0.001 / 300. /`, `errorr 20 22 0 23 0 0 / 9237 3 6 1 1 / 1 300. / 0 33 1 1 -1 2e6 0 /` (NJOY2016's own `tests/16` deck) | 25 MB, **not committed** — set `OUTRAM_PARK_NJOY_J33U238_PENDF` to `tape22` |
+
+Input: `../endf/n-092_U_238-JENDL3.3.endf` (the NJOY2016 test-suite
+`J33U238` resource, see `../endf/README.md`). MF=2: ten `LRU=1/LRF=3`
+ranges of 1 keV from 1e-5 eV to 10 keV, then `LRU=2/LRF=2` (`LSSF=0`) to
+150 keV; MF=32: one `LCOMP=1` short-range block per resolved range
+(`NSRS=1`, `MPAR=3` — `ER`, `Γn`, `Γγ` — 26–37 resonances, full
+covariance LIST) plus an `LRU=2` block; MF=33 for 37 reactions. NJOY's
+listing warns `mf2 nls=2, but mf32 nls=0` for every range and continues.
+
+Measured (2026-09-11, `tests/errorr_mf32_j33u238_lrf3_golden.rs`): tier 1
+(NJOY PENDF in) — all 666 blocks / 14 069 non-zero elements within
+**4.95e-7**; listing diagonals within 4.67e-4. Tier 2 (crate RECONR +
+BROADR in), groups 1–12: `σ_g` 4.09e-3, resonance-pair covariances
+8.17e-3, listing 8.28e-3; groups 13–18 reported only (the crate's RECONR
+has no `LSSF=0` URR average, bead `op-t0wt`) and sub-threshold fission
+(`σ_g < 1e-6 b`) excluded — see the test's module docs.
+
+Data policy: derived products of open ENDF/B-VIII.0, ENDF/B-VII.1,
+JENDL-3.3 and TENDL-2023 data processed with the BSD-licensed NJOY2016; no proprietary
 content.
