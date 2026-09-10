@@ -51,10 +51,17 @@
 //! function [`FeedFunction::TwoBodyElastic`], the incident-energy matrix panel
 //! integrator [`scatter_matrix`], and the GENDF matrix-record packing.
 //!
-//! **Not ported** (documented [`crate::NjoyError::NotPorted`] on use): the
-//! anisotropic-CM elastic feed (a File-4 Legendre expansion `fle(il)` of the CM
-//! angular distribution, `getfle` `groupr.f90:9679-...`, used at
-//! `getdis:9522-9526`) and the File-6 continuum feed (`getmf6`/`cm2lab`/`f6lab`).
+//! **Ported elsewhere (2026-09-10):** the exact `getdis` with the File-4
+//! Legendre expansion `fle(il)` ([`crate::groupr::two_body`], fed by
+//! [`crate::groupr::file4`]) and the statement-for-statement matrix `panel`/
+//! `displa` ([`crate::groupr::matrix_panel`]), golden-validated against an
+//! NJOY MF=6/MT=2 section. Use those for anything that must match NJOY;
+//! this module's [`scatter_matrix`] is the earlier trapezoid reduction.
+//!
+//! **Not ported** (documented [`crate::NjoyError::NotPorted`] on use): in
+//! this module the anisotropic-CM elastic feed variant (see
+//! [`crate::groupr::two_body::TwoBodyFeed`] instead) and the File-6
+//! continuum feed (`getmf6`/`cm2lab`/`f6lab`).
 //! Those build a non-isotropic `ff(il, ig)`; here `fle` is fixed to the isotropic
 //! `[1, 0, 0, …]`. See the [`FeedFunction`] variants for the exact gaps.
 
@@ -200,7 +207,10 @@ pub enum FeedFunction {
         awr: f64,
     },
 
-    /// Anisotropic-CM elastic / discrete-inelastic feed — **not ported**.
+    /// Anisotropic-CM elastic / discrete-inelastic feed — **not ported in
+    /// this module**; the exact `getdis` lives in
+    /// [`crate::groupr::two_body::TwoBodyFeed`] and is driven by
+    /// [`crate::groupr::matrix_panel::two_body_matrix`].
     ///
     /// Would replace the isotropic `fle = [1, 0, …]` with the File-4 Legendre
     /// expansion of the CM angular distribution (`getfle`, and `getdis:9522-9526`

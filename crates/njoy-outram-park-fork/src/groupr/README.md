@@ -80,10 +80,16 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
 - reaction retrieval & feed functions: `getmf6`, `getff`, `getfwt`, `getflx`,
   `getyld`, `getsig` (MF=10 photon-production + `MT=257/258/259` derived
   quantities only — the ordinary MF=3/MF=13 case is ported, see
-  `pendf_feed.rs`), `getdis` (anisotropic-CM only — see `matrix.rs`),
-  `getgfl`, `getgyl`, `getsed`, `anased`;
-- quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector/matrix
-  `panel`/`displa` reduction is ported — see `panel.rs`/`matrix.rs`);
+  `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
+  in `two_body.rs` with `getfle`/`getco` in `file4.rs`; charged-particle
+  Coulomb term, `MT=251-253` and File-6 two-body data remain), `getgfl`,
+  `getgyl`, `getsed`, `anased`;
+- quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector
+  `panel`/`displa` reduction is ported — see `panel.rs`; the full matrix
+  `panel`/`displa` with Lobatto re-evaluation of the feed function, the
+  `rndoff`/`delta` shading and the `ig1`/`iglo`/`igt` bookkeeping is ported
+  statement for statement in `matrix_panel.rs`; `matrix.rs` keeps the
+  earlier trapezoid reduction for its isotropic kernel);
 - flux calculator & URR self-shielding: `getfwt`; the slowing-down branch of
   `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
@@ -160,10 +166,21 @@ validated against a real NJOY2016 GENDF tape:
   (`:5626-5631`), and the NR in-scatter source uses the weight at `fehi`,
   not at `e` (`:5460`).
 
-Still **not** golden-validated: the matrix path (`mfd=6` scatter matrices,
-File-6 feeds), GAMINR, `lord > 0`, `LSSF = 0` materials, more than one
-temperature, and the flux calculator's heterogeneity / multi-moderator terms
-(still `NotPorted`).
+**Elastic transfer matrix, golden-validated (2026-09-10,
+`tests/groupr_u238_elastic_matrix_golden.rs`):** the same U-238 deck with
+`6 2` added (oracle `reference-data/dtfr/*-mf6.gendf`, `NL = 1`, `NZ = 6`).
+On NJOY's own PENDF, with the File-4 `LTT = 3` distribution from the ENDF
+tape, `two_body.rs` (`getdis`) + `matrix_panel.rs` (`panel`/`displa`)
+reproduce all 29 initial-group records with identical `ig2lo`/`ng2`; the
+516 words agree to **5.52e-6** (transfer elements) and **1.44e-7** (group
+fluxes), i.e. the seven-figure GENDF floor. Prediction before the run was
+1e-5.
+
+Still **not** golden-validated: `lord > 0` matrices (and `nz > 1` with
+`nl > 1`, whose `P_l` flux components `matrix_panel.rs` does not take),
+discrete-level inelastic matrices, File-6 continuum feeds, GAMINR,
+`LSSF = 0` materials, more than one temperature, and the flux calculator's
+heterogeneity / multi-moderator terms (still `NotPorted`).
 
 ## Caveats
 
