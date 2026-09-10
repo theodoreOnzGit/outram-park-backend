@@ -43,3 +43,23 @@ MF=5 data the GENDF does not carry and stay zero on both sides.
 
 Data policy: derived products of open ENDF/B-VIII.0 data processed with the
 BSD-licensed NJOY2016; no proprietary content.
+
+## Full-channel run (2026-09-10): `u238-29g-claw-full.*`
+
+Deck `u238-29g-claw-full.njoy-input` (same build, same PENDF): GROUPR with
+**`lord = 1`**, `igg = 3` (LANL 12 photon groups), reactions
+`3/1 2 4 16 18 102 452 455 456`, `6/2`, `6/18` (fission matrix: `ig = 0`
+constant-spectrum record, `ig2lo = 0` rows for groups 1-19, full rows
+above), `5/455` (six delayed spectra), `16/51`, `16/18`; `moder 23 -24`;
+`dtfr -24 25 0 0 / 0 0 1 / 2 29 / 1 12 / 'u238' 9237 1 293.6 /
+'u238s' 9237 6 293.6 / /` — two material cards, sigma-zero index 1
+(infinite dilution) and 6 (1 b).
+
+| File | Content |
+|---|---|
+| `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord1-full.gendf` (1402 lines) | the ASCII GENDF (`tape23`) DTFR consumed through its binary MODER copy |
+| `u238-29g-claw-full.dtf` (914 lines) | `tape25`: per material the `edit xsec (29x 48)` block (17 printed columns incl. `nusf`, `chi`, `chid`, `nud`, `ftot`, `nnf`, `n2nf`), the `l=0` and `l=1 n-n table (32x 29)`, and the `l=0h n-p table (12x 29)` |
+
+Consumed by `crates/njoy-outram-park-fork/tests/dtfr_u238_claw_full_golden.rs`:
+`assemble_tables` reproduces every printed number of both material cards
+within 4.9e-6.
