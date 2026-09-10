@@ -64,7 +64,8 @@
 //! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
 //! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
 //! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
-//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated** — but *checked*. Regeneration at 293.6 K agrees with the published evaluation to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff` (1195.35 K vs 1194.3 K). That is an agreement band against this repository's own recorded measurements, not a tape diff, so [`SabRequest::validation`] still reports it unvalidated. See `tests/leapr_h2o_secondary_scatterer.rs`. |
+//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`, so [`SabRequest::validation`] still reports it unvalidated (`tests/leapr_h2o_secondary_scatterer.rs`). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
+//! | `SiO2Alpha` MF=7/**MT=4** (mixed moderator, `b7 = 0`) | **Validated like-for-like against NJOY2016** (2026-09-10): 43,449 points over 5 temperatures identical to 1e-13, both `T_eff` tables exact (`tests/leapr_sio2_mixed_moderator_oracle.rs`). Not compared with the published tape. |
 //!
 //! MT=2 matters out of proportion to its size: it is roughly 90 % of graphite's
 //! thermal cross section (4.55 b coherent-elastic against 0.49 b inelastic at
@@ -695,9 +696,49 @@ pub fn generate_tape(
     // `tempf`; a no-op when the deck declares no oscillators.
     add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
 
+    // Mixed moderator (nss != 0, b7 <= 0): LEAPR runs the whole temperature
+    // loop a second time for the secondary scatterer with alpha scaled by
+    // arat = aws/awr (leapr.f90:323-330, 399-408), keeps the principal's law
+    // on a scratch file (`copys`) and its tempf/dwpix in tempf1/dwp1, then
+    // merges in endout (:3013-3025):
+    //     sb  = spr*((1+awr)/awr)^2,  sbs = sps*((1+aws)/aws)^2
+    //     ssm = (sbs/sb) * ssm_secondary + ssm_principal
+    let bk = input.constants.bk_ev_per_k();
+    let mut tempf_secondary = None;
+    let mut dwpix_secondary = None;
+    if deck.is_mixed_moderator() {
+        let input2 = deck.input_at_secondary(block, temperature_k)?;
+        let freq2 = FrequencyModel::start(
+            &input2.continuous.rho,
+            input2.continuous.delta_ev,
+            input2.tev(),
+            input2.continuous.tbeta,
+        );
+        let mut ssm2 = phonon_expansion(&input2, &freq2);
+        let mut dwpix2 = freq2.f0;
+        let mut tempf2 = freq2.tbar * temperature_k;
+        if input2.continuous.twt > 0.0 {
+            add_translation(&mut ssm2, &input2, &freq2, &mut tempf2);
+        }
+        add_discrete_oscillators(&mut ssm2, &input2, &mut dwpix2, &mut tempf2);
+
+        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).powi(2);
+        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).powi(2);
+        let srat = sbs / sb;
+        for ib in 0..ssm.nbeta {
+            for ia in 0..ssm.nalpha {
+                let merged = srat * ssm2.get(ib, ia) + ssm.get(ib, ia);
+                ssm.set(ib, ia, merged);
+            }
+        }
+        // leapr.f90:3038: the secondary's integral is divided by aws, the
+        // principal's (dwp1) by awr.
+        dwpix_secondary = Some(vec![dwpix2 / (deck.aws * temperature_k * bk)]);
+        tempf_secondary = Some(vec![tempf2]);
+    }
+
     // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
     // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
-    let bk = input.constants.bk_ev_per_k();
     let dwpix = dwpix / (deck.awr * temperature_k * bk);
 
     // The Debye-Waller coefficient MF=7/MT=2 is written with. Normally the
@@ -793,6 +834,8 @@ pub fn generate_tape(
         temperatures_k: vec![temperature_k],
         dwpix: vec![dwpix_elastic],
         tempf: vec![tempf],
+        tempf_secondary,
+        dwpix_secondary,
         ssm: vec![ssm],
         ssp: None,
         npr: deck.npr,

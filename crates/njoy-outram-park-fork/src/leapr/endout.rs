@@ -27,16 +27,16 @@
 //!   no `S(alpha,beta)` physics and the crate's `[f64; 6]` row model cannot store
 //!   Hollerith text (same limitation MIXR documents). MF=7 is complete; MF=1 is
 //!   omitted.
-//! - **Secondary scatterers are written, but only the analytic kinds are
-//!   complete.** [`SecondaryScatterer`] emits `NS` and the `B(7)..B(12)`
-//!   constants (3307–3321), which is the *entire* secondary treatment for
-//!   `b7 = 1` (free gas) and `b7 = 2` (diffusion) — the light-water case.
-//!   The `b7 = 0` **mixed-moderator merge** (3018–3030: a second LEAPR pass
-//!   over the secondary scatterer with `alpha` scaled by `aws/awr`, merged as
-//!   `S = S_principal + (sbs/sb) * S_secondary`) is **not** ported, nor is the
-//!   secondary effective-temperature table that accompanies it (3578–3597).
-//!   [`crate::leapr::generate::generate_tape`] refuses that case rather than
-//!   emit a law with its secondary silently missing.
+//! - **Secondary scatterers.** [`SecondaryScatterer`] emits `NS` and the
+//!   `B(7)..B(12)` constants (3307–3321), which is the *entire* secondary
+//!   treatment for `b7 = 1` (free gas) and `b7 = 2` (diffusion) — the
+//!   light-water case. For `b7 = 0` (mixed moderator)
+//!   [`crate::leapr::generate::generate_tape`] runs the second LEAPR pass
+//!   (`alpha / (aws/awr)`) and the merge `S = S_principal + (sbs/sb)
+//!   S_secondary` (3018–3030); this writer then adds the secondary
+//!   effective-temperature TAB1 (3578–3597, [`LeaprOutput::tempf_secondary`])
+//!   and applies the mixed Debye-Waller rules (3182, 3208). Verified against
+//!   an NJOY2016 run of `tsl-SiO2-alpha` (`tests/leapr_sio2_mixed_moderator_oracle.rs`).
 //! - The `sigfig`-rounding and `smin` flooring of every `S` value **are** ported
 //!   (they match the Fortran bit-for-bit through [`crate::mixr::mix::sigfig`]).
 //!
@@ -147,8 +147,20 @@ pub struct LeaprOutput {
     /// Debye-Waller integral `W'(T)` \[1/eV\] per temperature (LEAPR `dwpix`
     /// after its `/(awr*T*bk)` conversion, 3035).
     pub dwpix: Vec<f64>,
-    /// Effective (SCT) temperature `T_eff` \[K\] per temperature (LEAPR `tempf`).
+    /// Effective (SCT) temperature `T_eff` \[K\] per temperature (LEAPR `tempf`,
+    /// or `tempf1` — the principal's — for a mixed moderator).
     pub tempf: Vec<f64>,
+    /// Mixed moderator only (`nss != 0`, `b7 <= 0`): the **secondary**
+    /// scatterer's `T_eff` \[K\] per temperature, written as a second
+    /// effective-temperature TAB1 after the principal's
+    /// (`leapr.f90:3578-3597` writes `tempf1`, then `:3598-3617` `tempf`).
+    pub tempf_secondary: Option<Vec<f64>>,
+    /// Mixed moderator only: the secondary's Debye-Waller integral `W'(T)`
+    /// \[1/eV\] (`dwpix / (aws T k_B)`, `leapr.f90:3038`). The coherent
+    /// elastic section then uses the average of the two scatterers'
+    /// coefficients (`:3208, :3234, :3268`) and the incoherent one the
+    /// secondary's (`:3182`).
+    pub dwpix_secondary: Option<Vec<f64>>,
     /// Negative-beta asymmetric law `Ss(alpha,-beta)` per temperature.
     pub ssm: Vec<SabMatrix>,
     /// Positive-beta asymmetric law `Ss(alpha,+beta)` per temperature (cold H/D;
@@ -310,7 +322,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
 
     // extra temperatures: one LIST of jmax S values each (3256–3286).
     for t in 1..ntempr {
-        let w = out.dwpix[t];
+        let w = w_coherent(out, t);
         let mut svals = vec![0.0_f64; jmax];
         let mut sum = 0.0;
         for j in 0..nedge {
@@ -329,6 +341,26 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
     rows
 }
 
+/// The Debye-Waller coefficient the coherent-elastic section applies at
+/// temperature index `t`: the principal's, or for a mixed moderator the mean
+/// of principal and secondary (`leapr.f90:3207-3208, 3233-3234, 3267-3268`).
+fn w_coherent(out: &LeaprOutput, t: usize) -> f64 {
+    match &out.dwpix_secondary {
+        Some(s) => (s[t] + out.dwpix[t]) / 2.0,
+        None => out.dwpix[t],
+    }
+}
+
+/// The Debye-Waller coefficient the incoherent-elastic section writes at
+/// temperature index `t`: `dwpix`, which after a mixed-moderator run holds
+/// the secondary's value (`leapr.f90:3182` with `:3038`).
+fn w_incoherent(out: &LeaprOutput, t: usize) -> f64 {
+    match &out.dwpix_secondary {
+        Some(s) => s[t],
+        None => out.dwpix[t],
+    }
+}
+
 /// Build the MF=7/MT=2 **incoherent** elastic section (`LTHR=2`,
 /// `leapr.f90:3158–3190`): one `W'(T)` TAB1 with `SB = sb_npr`.
 fn build_incoherent_elastic(out: &LeaprOutput, sb_npr: f64) -> Vec<[f64; 6]> {
@@ -342,7 +374,7 @@ fn build_incoherent_elastic(out: &LeaprOutput, sb_npr: f64) -> Vec<[f64; 6]> {
     let mut pairs = Vec::with_capacity(ndw);
     for i in 0..ndw {
         if i < ntempr {
-            pairs.push((out.temperatures_k[i], sigfig(out.dwpix[i], 7, 0)));
+            pairs.push((out.temperatures_k[i], sigfig(w_incoherent(out, i), 7, 0)));
         } else {
             let prev = pairs[i - 1];
             pairs.push(prev);
@@ -512,6 +544,15 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
         .collect();
     push_tab1(&mut rows, 0.0, 0.0, 0, 0, &[(ntempr as i32, 2)], &teff);
 
+    // Mixed moderator: the secondary scatterer's T_eff as a second TAB1
+    // (leapr.f90:3578-3617 — `tempf1` (principal) first, then `tempf`).
+    if let Some(sec) = &out.tempf_secondary {
+        let teff2: Vec<(f64, f64)> = (0..ntempr)
+            .map(|i| (sigfig(out.temperatures_k[i], 7, 0), sigfig(sec[i], 7, 0)))
+            .collect();
+        push_tab1(&mut rows, 0.0, 0.0, 0, 0, &[(ntempr as i32, 2)], &teff2);
+    }
+
     rows
 }
 
@@ -526,7 +567,9 @@ pub fn endout(out: &LeaprOutput) -> Tape {
 
     let elastic_rows = match &out.elastic {
         ElasticOutput::None => None,
-        ElasticOutput::Coherent(br) => Some(build_coherent_elastic(out, &br.edges, out.dwpix[0])),
+        ElasticOutput::Coherent(br) => {
+            Some(build_coherent_elastic(out, &br.edges, w_coherent(out, 0)))
+        }
         // Debye-Waller already inside the structure factors: pass W' = 0 so the
         // `exp(-4 W' E)` weighting below is the identity, rather than squaring
         // the suppression that `coher_general_with_per_atom_debye_waller`
@@ -590,6 +633,8 @@ mod tests {
             temperatures_k: vec![296.0],
             dwpix: vec![8.0e-3],
             tempf: vec![430.0],
+            tempf_secondary: None,
+            dwpix_secondary: None,
             ssm: vec![ssm],
             ssp: None,
             npr: 1,

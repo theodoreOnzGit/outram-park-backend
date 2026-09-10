@@ -62,7 +62,11 @@ index (NJOY `ssm(nbeta,nalpha)` layout).
   (`leapr.f90:3035`) and `tempf = tbar * T` (`leapr.f90:717`), both of which
   `endout` expects pre-converted. `run()` returns `NjoyError::NotPorted`; drive
   the module API directly.
-- `copys` (2468–2487): scratch-tape plumbing for the mixed-moderator merge.
+- `copys` (2468–2487) is not needed: the mixed-moderator merge (3013–3025,
+  `generate_tape`) keeps the principal law in memory instead of on a scratch
+  tape. The merge itself, the secondary pass (`arat = aws/awr`) and the second
+  `T_eff` TAB1 are ported and byte-checked against an NJOY2016 run of
+  `tsl-SiO2-alpha` (2026-09-10, `tests/leapr_sio2_mixed_moderator_oracle.rs`).
 - **`coldh` orchestrator** (1936–2183): the Young–Koppel rotational
   convolution loop is ported (`coldh::add_cold_hydrogen`) but is only
   self-consistency tested, never reference-validated.
