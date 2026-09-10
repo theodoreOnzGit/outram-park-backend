@@ -15,6 +15,10 @@
 //!   Reuses [`transport_csg::transport_history`] for the per-history physics.
 //! - [`physics_mg`] — multigroup transport (group-averaged cross sections;
 //!   pending / partial).
+//! - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**
+//!   auto-captured 3-group six-factor decomposition (η, f, p, ε, P_FNL, P_TNL)
+//!   and lethargy-normalised flux spectrum, from one combined tally + explicit
+//!   leakage accounting. Built on [`transport_csg::run_keff_csg_reactor_physics`].
 //!
 //! # Collision-level kernels (the per-collision physics the drivers call)
 //!
@@ -37,3 +41,4 @@ pub mod fission;
 pub mod keff;
 pub mod search;
 pub mod physics_mg;
+pub mod reactor_physics;

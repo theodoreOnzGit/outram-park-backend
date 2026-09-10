@@ -35,7 +35,13 @@ pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
-pub use crate::physics::transport_csg::{run_keff_csg, SourceBox};
+pub use crate::physics::transport_csg::{
+    run_keff_csg, run_keff_csg_reactor_physics, SourceBox,
+};
+pub use crate::physics::reactor_physics::{
+    run_keff_reactor_physics, Estimate, Group, LethargySpectrum, ReactorPhysicsConfig,
+    ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
+};
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
