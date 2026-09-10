@@ -450,6 +450,8 @@ impl Nuclide {
     /// raw free-gas / CE evaluation from the underlying [`XsSource`]. Split out so
     /// [`xs_at_energy`](Self::xs_at_energy) can layer the bound-atom thermal
     /// treatment on top without duplicating the two data-tier arms.
+    //
+    // (helper below the impl: `absorption_mt27`)
     fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         match &self.xs {
             XsSource::Core { e_max, wmp, fast } => {
@@ -499,7 +501,6 @@ impl Nuclide {
                 let total = recon.eval_mt(MtReaction::Mt1Total, e);
                 let elastic = recon.eval_mt(MtReaction::Mt2Elastic, e);
                 let fission = recon.eval_mt(MtReaction::Mt18Fission, e);
-                let capture = recon.eval_mt(MtReaction::Mt102Capture, e);
                 let inelastic: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
                 // (n,2n) from the reconstructed MF=3 background (threshold reaction,
                 // no resonance contribution). Carried separately so the transport
@@ -510,7 +511,7 @@ impl Nuclide {
                     total,
                     elastic,
                     fission,
-                    absorption: fission + capture,
+                    absorption: absorption_mt27(recon, fission, e),
                     inelastic,
                     n2n,
                     nu_fission: fission * self.nu.at(e),
@@ -803,6 +804,66 @@ impl Nuclide {
         }
         grid
     }
+}
+
+/// Total absorption σ_a(E) \[barn\] — the ENDF **MT=27** quantity: every
+/// reaction that removes the incident neutron with no neutron in the exit
+/// channel (radiative capture + charged-particle emission) **plus fission**.
+///
+/// This is the OpenMC `Nuclide::create_derived` sum
+/// (`src/nuclide.cpp:409-417`): every non-redundant reaction with
+/// `is_disappearance(mt)` (`src/endf.cpp:59` — MT 101–117, …) plus fission.
+///
+/// # Redundant-section handling
+///
+/// [`crate::material::nuclide::Nuclide::from_endf_file`]'s RECONR path linearises
+/// every MF=3 section as it appears on the tape, without stripping the aggregate
+/// (\"redundant\") sums the way OpenMC's ACE reader marks `redundant_`. So this
+/// takes the **most aggregated** section available and never adds a partial on
+/// top of a sum that already contains it:
+///
+/// 1. MF=3 **MT=27** present ⇒ use it directly (already includes fission).
+/// 2. else MF=3 **MT=101** (neutron-disappearance total, excludes fission)
+///    present ⇒ `fission + MT101`.
+/// 3. else ⇒ `fission + MT102 (n,γ) + Σ MT103…117` (the individual
+///    charged-particle-emission partials that are present).
+///
+/// Was previously `fission + MT102` only, which classified e.g. the ~940 b
+/// Li-6(n,t)α (MT=105) as *scattering* (GitHub #169).
+fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
+    use njoy_outram_park_fork::MtReaction as Mt;
+
+    let mt27 = recon.eval_mt(Mt::Mt27Absorption, e);
+    if mt27 > 0.0 {
+        return mt27;
+    }
+    let mt101 = recon.eval_mt(Mt::Mt101AbsorptionTotal, e);
+    if mt101 > 0.0 {
+        return fission + mt101;
+    }
+    // MT 102 (n,γ) plus every charged-particle disappearance partial present.
+    const DISAPPEARANCE: [Mt; 15] = [
+        Mt::Mt102Capture,
+        Mt::Mt103Np,
+        Mt::Mt104Nd,
+        Mt::Mt105Nt,
+        Mt::Mt106NHe3,
+        Mt::Mt107NAlpha,
+        Mt::Mt108N2Alpha,
+        Mt::Mt109N3Alpha,
+        Mt::Mt111N2Proton,
+        Mt::Mt112NProtonAlpha,
+        Mt::Mt113NT2Alpha,
+        Mt::Mt114ND2Alpha,
+        Mt::Mt115NProtonD,
+        Mt::Mt116NProtonT,
+        Mt::Mt117NDAlpha,
+    ];
+    fission
+        + DISAPPEARANCE
+            .iter()
+            .map(|&mt| recon.eval_mt(mt, e))
+            .sum::<f64>()
 }
 
 /// Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`

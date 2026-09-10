@@ -8,11 +8,13 @@ pub use crate::geometry::position::{Position, Direction};
 pub use crate::geometry::surface::{
     BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder,
 };
-pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 pub use crate::geometry::universe::Universe;
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
-pub use crate::geometry::geometry::{BoundaryHit, Coord, Crossing, Geometry, GeometryPath};
+pub use crate::geometry::geometry::{
+    BoundaryHit, Coord, Crossing, Geometry, GeometryPath, SurfaceCrossing,
+};
 pub use crate::geometry::triso_particle::{
     build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
 };
@@ -35,9 +37,7 @@ pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
-pub use crate::physics::transport_csg::{
-    run_keff_csg, run_keff_csg_reactor_physics, SourceBox,
-};
+pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
 pub use crate::physics::reactor_physics::{
     run_keff_reactor_physics, Estimate, Group, LethargySpectrum, ReactorPhysicsConfig,
     ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,

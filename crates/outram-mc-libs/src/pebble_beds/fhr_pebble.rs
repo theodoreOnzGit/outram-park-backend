@@ -153,7 +153,10 @@ pub fn homogenise_by_volume(
 ) -> Material {
     assert!(!parts.is_empty(), "homogenise_by_volume: no constituents");
     let total_v: f64 = parts.iter().map(|(_, v)| *v).sum();
-    assert!(total_v > 0.0, "homogenise_by_volume: total volume must be > 0");
+    assert!(
+        total_v > 0.0,
+        "homogenise_by_volume: total volume must be > 0"
+    );
 
     // Accumulate volume-weighted atom density per nuclide index.
     let mut acc: Vec<(usize, f64)> = Vec::new();
@@ -346,12 +349,30 @@ fn outside(surface_idx: usize) -> RegionToken {
 pub fn homogeneous_cube(h: f64, material_idx: usize, temperature: f64) -> Geometry {
     use crate::geometry::surface::{XPlane, YPlane, ZPlane};
     let surfaces = vec![
-        SurfaceKind::XPlane(XPlane { x0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: h, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: h, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -h, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: h, bc: BoundaryType::Reflective }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -h,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: h,
+            bc: BoundaryType::Reflective,
+        }),
     ];
     let region = vec![
         outside(0),
@@ -430,8 +451,18 @@ mod tests {
         let a = mat(1, &[(0, 1.0)]);
         let b = mat(2, &[(0, 3.0), (1, 2.0)]);
         let h = homogenise_by_volume(&[(&a, 1.0), (&b, 3.0)], 9, "homog", 600.0);
-        let n0 = h.components.iter().find(|c| c.nuclide_idx == 0).unwrap().atom_density;
-        let n1 = h.components.iter().find(|c| c.nuclide_idx == 1).unwrap().atom_density;
+        let n0 = h
+            .components
+            .iter()
+            .find(|c| c.nuclide_idx == 0)
+            .unwrap()
+            .atom_density;
+        let n1 = h
+            .components
+            .iter()
+            .find(|c| c.nuclide_idx == 1)
+            .unwrap()
+            .atom_density;
         assert!((n0 - 2.5).abs() < 1e-12, "N0 = {n0}");
         assert!((n1 - 1.5).abs() < 1e-12, "N1 = {n1}");
     }
@@ -460,12 +491,22 @@ mod tests {
     fn reflective_root_does_not_leak() {
         use crate::geometry::position::{Direction, Position};
         let g = fhr_pebble_geometry(
-            1.4934, 1.7534, 2.0, 3.0, 0, 1, 2, BoundaryType::Reflective, 600.0,
+            1.4934,
+            1.7534,
+            2.0,
+            3.0,
+            0,
+            1,
+            2,
+            BoundaryType::Reflective,
+            600.0,
         );
         // Start in the coolant, heading straight out.
         let mut r = Position::new(2.5, 0.0, 0.0);
         let u = Direction::new(1.0, 0.0, 0.0);
-        let path = g.locate(r, u, usize::MAX).expect("located in coolant");
+        let path = g
+            .locate(r, u, crate::geometry::cell::SurfaceToken::NONE)
+            .expect("located in coolant");
         let db = g.distance_to_boundary(&path);
         assert!(
             db.distance.is_finite() && db.distance <= 0.5 + 1e-9,
@@ -474,24 +515,58 @@ mod tests {
         );
         r = crate::geometry::position::stream(r, u, db.distance);
         if let crate::geometry::geometry::Crossing::Surface(i) = db.crossing {
-            let (_, _, alive) = g.cross_surface(i, r, u);
-            assert!(alive, "root sphere must be reflective (alive after crossing)");
+            assert!(
+                g.cross_surface(i, r, u).alive,
+                "root sphere must be reflective (alive after crossing)"
+            );
         } else {
-            panic!("expected a surface crossing at the root sphere, got {:?}", db.crossing);
+            panic!(
+                "expected a surface crossing at the root sphere, got {:?}",
+                db.crossing
+            );
         }
     }
 
-    /// **Known-failing regression for `op-mzvp.2.11`.** `run_keff_csg` leaks
-    /// ~87 % of neutrons on this four-region concentric-sphere reflective
-    /// geometry: a near-tangent transmissive crossing of a curved surface plus
-    /// the fixed 1e-9 nudge lands the neutron back on the wrong side, `locate`
-    /// re-picks the cell it was leaving, and the next `distance_to_boundary`
-    /// finds no forward surface → the neutron streams to infinity. A single
-    /// internal sphere (`fuel ball + one reflective shell`) works; the failure
-    /// needs an all-concentric-sphere geometry to trigger reliably. Unignore
-    /// once the surface-tracking fix lands.
+    /// Regression for **`op-mzvp.2.11` / GitHub #168** — a fully reflected
+    /// pebble must conserve neutrons.
+    ///
+    /// # Methodology
+    ///
+    /// Transport the four-region concentric-sphere pebble
+    /// (`inner graphite ball / homogenised fuel shell / graphite shell /
+    /// coolant shell`, outermost sphere **reflective**) through
+    /// [`run_keff_reactor_physics`] — 300 particles, 5 inactive + 10 active
+    /// generations, LOW-tier `U235`/`U238`/`C0` core data at 600 K. With every
+    /// escape path closed, the tallied leakage per source neutron must be zero
+    /// to within the harness tolerance; the pass criterion is
+    /// `leakage_total.mean < 1e-3`.
+    ///
+    /// This is a **harness / conservation check, not physics V&V**: it says the
+    /// tracker does not lose neutrons, and says nothing about whether the
+    /// eigenvalue is right.
+    ///
+    /// # Results
+    ///
+    /// - **Before the fix** (2026-09-10, commit `ee06b5d`): leakage
+    ///   **0.8463 per source neutron** — ~85 % of the population lost, k_eff
+    ///   ≈ 0.14 against an expected ≈ 1.3.
+    /// - **After the fix** (2026-09-10, this change): leakage
+    ///   **exactly 0.0 per source neutron**, k_eff **1.30450 ± 0.02347**.
+    ///
+    /// # Why it used to fail
+    ///
+    /// It takes *shell* cells — two concentric surfaces per region — to trigger
+    /// it. A neutron crossing an internal sphere landed (to within round-off)
+    /// exactly on it; `locate` re-derived the sign of `Surface::evaluate` there,
+    /// picked the cell the neutron had just **left**, and the next
+    /// `distance_to_boundary` then found no forward surface at all — the one it
+    /// was sitting on is suppressed as coincident, and the region's *other*
+    /// surface was behind it. The flight distance came back `INFINITY`, so the
+    /// neutron streamed its sampled `d_col` clean out of the geometry and
+    /// "collided" in vacuum, banking fission sites at positions no cell
+    /// contains. The fix is to carry the crossed surface **and the side landed
+    /// on** ([`crate::geometry::cell::SurfaceToken`]) rather than re-deriving it.
     #[test]
-    #[ignore = "op-mzvp.2.11: run_keff_csg near-tangent curved-surface crossing leaks"]
     fn reflective_pebble_transport_does_not_leak() {
         use crate::material::nuclide::Nuclide;
         use crate::physics::keff::KeffSettings;
@@ -510,7 +585,15 @@ mod tests {
         let r_inner = 1.4934;
         let r_fuel = rpt_fuel_outer_radius(r_inner, 1.9, 0.30);
         let g = fhr_pebble_geometry(
-            r_inner, r_fuel, 2.0, 3.0, 0, 1, 2, BoundaryType::Reflective, 600.0,
+            r_inner,
+            r_fuel,
+            2.0,
+            3.0,
+            0,
+            1,
+            2,
+            BoundaryType::Reflective,
+            600.0,
         );
         let cfg = ReactorPhysicsConfig {
             keff: KeffSettings {
@@ -526,12 +609,23 @@ mod tests {
             n_fine_bins: 60,
             ..Default::default()
         };
-        let rep = run_keff_reactor_physics(&g, &[fuel, graphite, coolant], &nucs, &cfg)
-            .expect("Ok");
+        let rep =
+            run_keff_reactor_physics(&g, &[fuel, graphite, coolant], &nucs, &cfg).expect("Ok");
+        eprintln!(
+            "[op-mzvp.2.11] reflective pebble: k_eff = {:.5} +/- {:.5}, leakage = {:.3e} per source neutron",
+            rep.keff.k_mean, rep.keff.k_std, rep.leakage_total.mean
+        );
         assert!(
             rep.leakage_total.mean < 1.0e-3,
-            "reflective pebble leaked {} per source neutron — op-mzvp.2.11",
+            "reflective pebble leaked {} per source neutron — op-mzvp.2.11 / GH #168 regressed",
             rep.leakage_total.mean
+        );
+        // A fully reflected fuelled pebble is strongly multiplying; the collapse
+        // to k ~ 0.14 was the leak's signature, so gate on it too.
+        assert!(
+            rep.keff.k_mean > 1.0,
+            "reflective pebble k_eff = {} (expected ~1.3) — op-mzvp.2.11 / GH #168 regressed",
+            rep.keff.k_mean
         );
     }
 
@@ -539,12 +633,24 @@ mod tests {
     fn pebble_geometry_locates_every_region() {
         use crate::geometry::position::{Direction, Position};
         let g = fhr_pebble_geometry(
-            1.4934, 1.7534, 2.0, 3.0, 0, 1, 2, BoundaryType::Reflective, 600.0,
+            1.4934,
+            1.7534,
+            2.0,
+            3.0,
+            0,
+            1,
+            2,
+            BoundaryType::Reflective,
+            600.0,
         );
         let u = Direction::new(1.0, 0.0, 0.0);
         let leaf_mat = |r: f64| {
-            g.locate(Position::new(r, 0.0, 0.0), u, usize::MAX)
-                .and_then(|p| p.material)
+            g.locate(
+                Position::new(r, 0.0, 0.0),
+                u,
+                crate::geometry::cell::SurfaceToken::NONE,
+            )
+            .and_then(|p| p.material)
         };
         assert_eq!(leaf_mat(0.5), Some(1), "inner graphite");
         assert_eq!(leaf_mat(1.6), Some(0), "homogenised fuel shell");

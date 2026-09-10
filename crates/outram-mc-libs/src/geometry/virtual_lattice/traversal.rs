@@ -27,9 +27,13 @@ impl VirtualLattice {
     ///   outside walks in along its first boundary index (see below).
     /// - `u` — ray direction. Normalised internally, mirroring upstream, which
     ///   carries the comment *"don't know if u has been normalized"*.
-    /// - `on_surface` — global index of the surface the particle currently sits
-    ///   on, or `usize::MAX` if none. That surface is queried with the
-    ///   `coincident` flag so round-off cannot re-report a zero crossing.
+    /// - `on_surface` — global **index** of the surface the particle currently
+    ///   sits on, or `usize::MAX` if none. That surface is queried with the
+    ///   `coincident` flag so round-off cannot re-report a zero crossing. Note
+    ///   this is a bare index, not the sided
+    ///   [`crate::geometry::cell::SurfaceToken`] the CSG path carries: this
+    ///   accelerator answers a ray query and never decides cell membership, so
+    ///   it has no use for the side. Pass `token`'s index if you have one.
     /// - `max_distance` — stop walking once the voxel exit distance exceeds
     ///   this. Upstream passes the sampled collision distance
     ///   (`p->collision_distance()`): there is no point tracking surfaces

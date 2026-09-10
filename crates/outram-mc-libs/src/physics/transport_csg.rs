@@ -51,6 +51,7 @@
 //! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
+use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
@@ -157,10 +158,25 @@ pub fn run_keff_csg(
 ) -> KeffResult {
     match settings.compute {
         ComputeType::CpuSingleThread => run_keff_csg_seq(
-            geom, materials, nuclides, source_box, settings, tally, &[], None,
+            geom,
+            materials,
+            nuclides,
+            source_box,
+            settings,
+            tally,
+            &[],
+            None,
         ),
         ComputeType::CpuMultiThread(tc) => run_keff_csg_par(
-            geom, materials, nuclides, source_box, settings, tally, &[], None, tc,
+            geom,
+            materials,
+            nuclides,
+            source_box,
+            settings,
+            tally,
+            &[],
+            None,
+            tc,
         ),
         ComputeType::Gpu => {
             log::debug!(
@@ -300,7 +316,7 @@ pub fn run_keff_csg_seq(
         let (dx, dy, dz) = isotropic_direction(&mut seed);
         let u = Direction::new(dx, dy, dz);
         let fissile = geom
-            .locate(r, u, usize::MAX)
+            .locate(r, u, SurfaceToken::NONE)
             .and_then(|p| p.material)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
@@ -485,7 +501,7 @@ pub fn run_keff_csg_par(
         let (dx, dy, dz) = isotropic_direction(&mut src_seed);
         let u = Direction::new(dx, dy, dz);
         let fissile = geom
-            .locate(r, u, usize::MAX)
+            .locate(r, u, SurfaceToken::NONE)
             .and_then(|p| p.material)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
@@ -687,7 +703,7 @@ pub(crate) fn transport_history(
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
-        let mut on_surface = usize::MAX;
+        let mut on_surface = SurfaceToken::NONE;
         let mut events = 0u32;
 
         'history: loop {
@@ -753,7 +769,7 @@ pub(crate) fn transport_history(
             if d_col < d_bound.distance {
                 // ── Collision ──────────────────────────────────────────────
                 r = stream(r, u, d_col);
-                on_surface = usize::MAX;
+                on_surface = SurfaceToken::NONE;
                 let m = path.material.expect("collision requires a material");
                 let material = &materials[m];
 
@@ -816,20 +832,23 @@ pub(crate) fn transport_history(
                 r = stream(r, u, d_bound.distance);
                 match d_bound.crossing {
                     Crossing::Surface(i_surf) => {
-                        let (r2, u2, alive) = geom.cross_surface(i_surf, r, u);
-                        if !alive {
+                        let crossed = geom.cross_surface(i_surf, r, u);
+                        if !crossed.alive {
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).
                             score_leak(leak_batch, leak_edges, e, 1.0);
                             break 'history;
                         }
-                        r = r2;
-                        u = u2;
-                        on_surface = i_surf;
+                        r = crossed.r;
+                        u = crossed.u;
+                        // Carry which SIDE of the surface the particle landed on,
+                        // so the next `locate` cannot re-select the cell it just
+                        // left (GitHub #168 — see `Geometry::cross_surface`).
+                        on_surface = crossed.on_surface;
                     }
                     Crossing::Lattice => {
                         r = stream(r, u, NUDGE); // step into the next tile, re-locate
-                        on_surface = usize::MAX;
+                        on_surface = SurfaceToken::NONE;
                     }
                     Crossing::None => {
                         // Streamed to infinity — a leak at the true escape energy.
@@ -893,9 +912,18 @@ mod leakage_tests {
             name: "Godiva".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         (vec![m], nuclides)
@@ -937,7 +965,9 @@ mod leakage_tests {
             id: 0,
             name: "rp".into(),
             filters: vec![
-                Box::new(EnergyFilter { bins: edges.clone() }),
+                Box::new(EnergyFilter {
+                    bins: edges.clone(),
+                }),
                 Box::new(MaterialFilter {
                     material_indices: vec![0],
                 }),
@@ -981,9 +1011,20 @@ mod leakage_tests {
         let mut leak = vec![TallyBin::default(); edges.len() - 1];
         let s = settings();
         let res = run_keff_csg_reactor_physics(
-            &geom, &mats, &nucs, src(), &s, &mut tally, &edges, &mut leak,
+            &geom,
+            &mats,
+            &nucs,
+            src(),
+            &s,
+            &mut tally,
+            &edges,
+            &mut leak,
         );
-        assert!(res.k_mean > 0.5, "reflective HEU sphere should be supercritical-ish, k={}", res.k_mean);
+        assert!(
+            res.k_mean > 0.5,
+            "reflective HEU sphere should be supercritical-ish, k={}",
+            res.k_mean
+        );
         let leaked = total_leak(&leak, s.n_active as u64);
         assert!(
             leaked < 1.0e-6,
@@ -1004,7 +1045,14 @@ mod leakage_tests {
         let mut leak = vec![TallyBin::default(); edges.len() - 1];
         let s = settings();
         let _res = run_keff_csg_reactor_physics(
-            &geom, &mats, &nucs, src(), &s, &mut tally, &edges, &mut leak,
+            &geom,
+            &mats,
+            &nucs,
+            src(),
+            &s,
+            &mut tally,
+            &edges,
+            &mut leak,
         );
         let leaked = total_leak(&leak, s.n_active as u64);
         assert!(

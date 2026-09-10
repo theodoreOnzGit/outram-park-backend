@@ -70,6 +70,7 @@
 //! assert_eq!(lib.n_groups(), 1);
 //! ```
 
+use crate::geometry::cell::SurfaceToken;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::physics::fission::sample_num_neutrons;
@@ -367,7 +368,10 @@ pub fn run_keff_mg(
         );
         let (dx, dy, dz) = isotropic_direction(&mut seed);
         let u = Direction::new(dx, dy, dz);
-        match geom.locate(r, u, usize::MAX).and_then(|p| p.material) {
+        match geom
+            .locate(r, u, SurfaceToken::NONE)
+            .and_then(|p| p.material)
+        {
             Some(m) if lib.material(m).is_fissile() => {
                 let g = lib.material(m).sample_chi_group(&mut seed);
                 source.push(Site { r, u, g });
@@ -435,7 +439,7 @@ fn transport_history(
     let mut r = site.r;
     let mut u = site.u;
     let mut g = site.g;
-    let mut on_surface = usize::MAX;
+    let mut on_surface = SurfaceToken::NONE;
     let mut events = 0u32;
 
     'history: loop {
@@ -462,7 +466,7 @@ fn transport_history(
         if d_col < d_bound.distance {
             // ── Collision ──────────────────────────────────────────────────
             r = stream(r, u, d_col);
-            on_surface = usize::MAX;
+            on_surface = SurfaceToken::NONE;
             let m = path.material.expect("collision requires a material");
             let mat = lib.material(m);
 
@@ -494,17 +498,19 @@ fn transport_history(
             r = stream(r, u, d_bound.distance);
             match d_bound.crossing {
                 Crossing::Surface(i_surf) => {
-                    let (r2, u2, alive) = geom.cross_surface(i_surf, r, u);
-                    if !alive {
+                    let crossed = geom.cross_surface(i_surf, r, u);
+                    if !crossed.alive {
                         break 'history; // vacuum leak
                     }
-                    r = r2;
-                    u = u2;
-                    on_surface = i_surf;
+                    r = crossed.r;
+                    u = crossed.u;
+                    // Carry which SIDE of the surface the particle landed on —
+                    // see `Geometry::cross_surface` (GitHub #168).
+                    on_surface = crossed.on_surface;
                 }
                 Crossing::Lattice => {
                     r = stream(r, u, NUDGE); // step into the next tile, re-locate
-                    on_surface = usize::MAX;
+                    on_surface = SurfaceToken::NONE;
                 }
                 Crossing::None => break 'history, // streamed to infinity
             }
