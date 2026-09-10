@@ -44,7 +44,11 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             s.parse::<f64>().ok()
         }
         Some(sep) => {
-            let mantissa = &s[..sep];
+            // Fortran also writes an explicit exponent letter (`1.00000E-5`,
+            // `1.5D+3`); ENDF/B-VIII.0 C-12/C-13/O-16/Li-7 MF=3 use that form.
+            // Without stripping it the mantissa `1.00000E` fails to parse and
+            // the field silently became 0.0 (bead op-sti5).
+            let mantissa = s[..sep].trim_end_matches(['E', 'e', 'D', 'd']);
             let exponent = &s[sep..]; // includes the `+`/`-`
             let mant: Option<f64> = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
                 Some(1.0_f64.copysign(if mantissa.starts_with('-') { -1.0 } else { 1.0 }))
@@ -333,6 +337,20 @@ mod tests {
     fn endf_float_negative_exponent() {
         let v = parse_endf_float(" 9.991673-1").unwrap();
         assert!((v - 0.9991673).abs() < 1e-9, "got {}", v);
+    }
+
+    /// Fortran E/D-exponent forms as they appear packed in the ENDF/B-VIII.0
+    /// C-12 tape (`n-006_C_012-ENDF8.0.endf` MF=3/MT=1 line 4:
+    /// ` 1.00000E-5 4.94234700 1.090516E-5 …`) — these read as 0.0 before the
+    /// fix (op-sti5).
+    #[test]
+    fn endf_float_fortran_exponent_letter() {
+        assert!((parse_endf_float(" 1.00000E-5").unwrap() - 1.0e-5).abs() < 1e-17);
+        assert!((parse_endf_float("1.090516E-5").unwrap() - 1.090516e-5).abs() < 1e-17);
+        assert!((parse_endf_float(" .001000000").unwrap() - 1.0e-3).abs() < 1e-15);
+        assert!((parse_endf_float("   1.5D+3  ").unwrap() - 1.5e3).abs() < 1e-9);
+        assert!((parse_endf_float("  -2.5e-01 ").unwrap() + 0.25).abs() < 1e-15);
+        assert!((parse_endf_float("  1.5E5    ").unwrap() - 1.5e5).abs() < 1e-9);
     }
 
     #[test]

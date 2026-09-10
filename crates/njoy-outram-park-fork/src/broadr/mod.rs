@@ -36,6 +36,9 @@
 //!   (it is < 10⁻⁷ above that) and matters mainly near thermal energies, where
 //!   it pulls the broadened value back down toward the physical result.
 
+pub mod broadn;
+pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
+
 use crate::{
     common::phys::BK_EV_PER_K,
     reconr::{ReconrResult, ReconrSection},
@@ -128,7 +131,7 @@ fn s_terms(h: &[f64; 5], oy: f64, yy: f64, xx: f64) -> (f64, f64) {
 /// `sigma` is the cross section grid \[b\].
 ///
 /// Returns the broadened cross section \[b\] at the query point.
-fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
+pub(super) fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
     let n = eu.len();
     if n < 2 {
         return sigma[0];
@@ -349,9 +352,7 @@ pub fn broadening_limit(result: &ReconrResult) -> f64 {
 /// not skip outright (`go to 165`) or always broaden (MT=18, `go to 170`).
 /// MT=1 is the union grid itself and is handled before the loop.
 fn threshold_candidate(mt: i32) -> bool {
-    !matches!(mt, 1 | 3 | 4 | 18 | 19 | 46..=49)
-        && !(201..=599).contains(&mt)
-        && mt <= 850
+    !matches!(mt, 1 | 3 | 4 | 18 | 19 | 46..=49) && !(201..=599).contains(&mt) && mt <= 850
 }
 
 /// Doppler-broaden RECONR output up to `thnmax` \[eV\], copying everything
@@ -362,14 +363,17 @@ fn threshold_candidate(mt: i32) -> bool {
 /// [`broadening_limit`]. [`doppler_broaden`] is the same kernel with no bound
 /// and exists for kernel-level tests.
 ///
-/// Per section: points with `E <= thnmax` are broadened (upstream broadens the
-/// node *at* `thnmax` too — `if (et.ge.thnmax) go to 130` makes it a node,
-/// and only `es(1).gt.thnmax` sends the walk to the copy-through at label
-/// 190, `broadr.f90:1348-1353` and `:1467`), and every point with
-/// `E > thnmax` keeps its input value exactly. The SIGMA1 integral for a
-/// broadened point still runs over the *whole* grid — as upstream's does over
-/// all three loaded pages — so a point just below `thnmax` does see the
-/// structure above it, exactly as in `broadr.f90`.
+/// Per section, the output grid is **BROADR's own adaptive grid**
+/// ([`broadn_section`], `broadr.f90` `broadn`): nodes chosen from the input
+/// grid with midpoints inserted until lin-lin interpolation of the
+/// broadened function meets `errthn` (points the walk skips are dropped).
+/// Upstream broadens the node *at* `thnmax` too — `if (et.ge.thnmax) go to
+/// 130` makes it a node, and only `es(1).gt.thnmax` sends the walk to the
+/// copy-through at label 190, `broadr.f90:1348-1353` and `:1467` — and
+/// every point with `E > thnmax` keeps its input value exactly. The SIGMA1
+/// integral for a broadened point still runs over the *whole* input grid —
+/// as upstream's does over all three loaded pages — so a point just below
+/// `thnmax` does see the structure above it, exactly as in `broadr.f90`.
 ///
 /// Two consecutive points at one energy (a discontinuity that RECONR did not
 /// shade) are separated as upstream separates them on the union grid
@@ -387,13 +391,27 @@ pub fn doppler_broaden_below(
     temp_k: f64,
     thnmax: f64,
 ) -> Vec<ReconrSection> {
+    doppler_broaden_below_with(sections, awr, temp_k, thnmax, &BroadnTolerances::default())
+}
+
+/// [`doppler_broaden_below`] with explicit BROADR tolerances (card 3
+/// `errthn errmax errint`); the plain form uses `errthn = 0.001` and the
+/// upstream defaults for the other two.
+#[must_use]
+pub fn doppler_broaden_below_with(
+    sections: &[ReconrSection],
+    awr: f64,
+    temp_k: f64,
+    thnmax: f64,
+    tol: &BroadnTolerances,
+) -> Vec<ReconrSection> {
     if sections.is_empty() || temp_k <= 0.0 {
         return sections.to_vec();
     }
     let alpha = awr / (BK_EV_PER_K * temp_k);
 
     sections
-        .iter()
+        .par_iter()
         .map(|sec| {
             if sec.pairs.len() < 2 {
                 return sec.clone();
@@ -401,8 +419,7 @@ pub fn doppler_broaden_below(
             let mut pairs = sec.pairs.clone();
             nudge_duplicate_energies(&mut pairs);
 
-            let n_broaden = pairs.partition_point(|&(e, _)| e <= thnmax);
-            if n_broaden == 0 {
+            if pairs.first().is_some_and(|&(e, _)| e > thnmax) {
                 return ReconrSection {
                     mt: sec.mt,
                     qi: sec.qi,
@@ -410,25 +427,12 @@ pub fn doppler_broaden_below(
                 };
             }
 
-            let eu: Vec<f64> = pairs
-                .iter()
-                .map(|&(e, _)| if e > 0.0 { (alpha * e).sqrt() } else { 0.0 })
-                .collect();
-            let sigma: Vec<f64> = pairs.iter().map(|&(_, s)| s.max(0.0)).collect();
-
-            let broadened: Vec<(f64, f64)> = pairs[..n_broaden]
-                .par_iter()
-                .enumerate()
-                .map(|(j, &(e, _))| {
-                    if e <= 0.0 {
-                        return (e, 0.0);
-                    }
-                    (e, bsigma_scalar(eu[j], &eu, &sigma))
-                })
-                .collect();
-
-            let mut out = broadened;
-            out.extend_from_slice(&pairs[n_broaden..]);
+            // broadr.f90 `broadn`: the output grid is BROADR's own adaptive
+            // node/midpoint grid, not the input grid (see `broadn.rs`).
+            let e: Vec<f64> = pairs.iter().map(|p| p.0).collect();
+            let s: Vec<f64> = pairs.iter().map(|p| p.1).collect();
+            let emtr = lab_threshold(sec.qi, awr);
+            let out = broadn_section(&e, &s, alpha, tol, thnmax, emtr);
             ReconrSection {
                 mt: sec.mt,
                 qi: sec.qi,
@@ -461,7 +465,11 @@ fn nudge_duplicate_energies(pairs: &mut [(f64, f64)]) {
         let e = pairs[i].0;
         if pairs[i + 1].0 == e {
             let nudged = e * FACT;
-            let prev = if i == 0 { f64::NEG_INFINITY } else { pairs[i - 1].0 };
+            let prev = if i == 0 {
+                f64::NEG_INFINITY
+            } else {
+                pairs[i - 1].0
+            };
             if nudged > prev {
                 pairs[i].0 = nudged;
             }
@@ -752,7 +760,7 @@ mod tests {
         let secs = vec![
             section(MtReaction::from_any(2), vec![(1e-5, 20.0), (2e7, 20.0)]),
             section(MtReaction::from_any(18), vec![(5e5, 0.0), (2e7, 1.0)]), // always broadened
-            section(MtReaction::from_any(4), vec![(4e4, 0.0), (2e7, 1.0)]), // skipped (sum)
+            section(MtReaction::from_any(4), vec![(4e4, 0.0), (2e7, 1.0)]),  // skipped (sum)
             section(MtReaction::from_any(51), vec![(4.5e4, 0.0), (2e7, 1.0)]),
             section(MtReaction::from_any(16), vec![(6.2e6, 0.0), (2e7, 1.0)]),
         ];
@@ -777,7 +785,9 @@ mod tests {
         // straddling thnmax = 100. Below: broadened. At and above the upper
         // side of the step: bit-identical to the input.
         let kb = BK_EV_PER_K;
-        let mut pairs: Vec<(f64, f64)> = (1..=200).map(|i| (i as f64 * 0.5, 10.0)).collect();
+        // 1..=199 so the last plateau point is 99.5 (1..=200 would put 100.0
+        // *before* the shaded 99.99999 and hand BROADR a non-ascending grid).
+        let mut pairs: Vec<(f64, f64)> = (1..=199).map(|i| (i as f64 * 0.5, 10.0)).collect();
         // last point below 100 is 99.5; insert the shaded pair and a tail
         pairs.push((99.99999, 10.0));
         pairs.push((100.00001, 30.0));
@@ -788,17 +798,28 @@ mod tests {
         let temp = 3000.0;
         let out = doppler_broaden_below(&[sec.clone()], awr, temp, 100.0);
         let o = &out[0].pairs;
-        assert_eq!(o.len(), pairs.len());
+        // The output grid below thnmax is BROADR's own (`broadn`,
+        // broadr.f90:1256-1508: skipped points are dropped, midpoints added),
+        // so only the tail above thnmax is compared, point for point — label
+        // 190 copies it "to output" verbatim.
         let split = pairs.partition_point(|&(e, _)| e <= 100.0);
-        for j in split..pairs.len() {
-            assert_eq!(o[j], pairs[j], "point {j} above thnmax must be untouched");
-        }
+        let osplit = o.partition_point(|&(e, _)| e <= 100.0);
+        assert_eq!(
+            &o[osplit..],
+            &pairs[split..],
+            "points above thnmax must be untouched"
+        );
+        assert!(o.windows(2).all(|w| w[1].0 > w[0].0), "grid ascending");
         // The unbounded kernel would smear the step into the upper side.
         let unb = doppler_broaden(&[sec], awr, temp);
-        assert!(unb[0].pairs[split].1 < 29.0, "unbounded: {}", unb[0].pairs[split].1);
+        assert!(
+            unb[0].pairs[split].1 < 29.0,
+            "unbounded: {}",
+            unb[0].pairs[split].1
+        );
         // And the lower side of the seam IS broadened (sees the step above it,
         // as upstream's does): strictly between the two plateau values.
-        let lo = o[split - 1].1;
+        let lo = o[osplit - 1].1;
         assert!(lo > 10.0 && lo < 30.0, "lower side of the seam: {lo}");
         // Sanity that the temperature is high enough for the step to matter:
         // Doppler width at 100 eV should exceed the 0.5 eV grid spacing.

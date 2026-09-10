@@ -33,12 +33,50 @@ Gaussian kernel.
 This `modules::broadr` entry is the card-input **driver** (temperature list,
 thinning tolerance, tape I/O) and is deferred with the NJOY `main` driver.
 
-The per-energy-point broadening is **data-parallel** (`rayon`): each
-`bsigma_scalar` call is an independent pure function of the shared, immutable
-0 K grid, so the output points are broadened across all cores (results are
-bit-for-bit identical to serial order). On a dense reconstructed grid this is a
-large win over serial Fortran — each call walks many σ panels within the
-Gaussian cutoff, so the cost is O(points × panels-in-cutoff).
+The output grid is **BROADR's own adaptive grid**, not the input grid —
+`broadn` (`broadr.f90:1256-1508`, ported 2026-09-10 in `broadn.rs`,
+`broadn_section`): the walk over the input grid picks *nodes* (slope-sign
+change, "round" 3-figure energy, 0.0253 eV, every 10th point, energy
+doubling), bisects each node interval on a stack until the kernel at the
+midpoint is within `errthn` of the chord (`errmax`/`errint` relaxation and
+the `rmax = 3` ratio guard as upstream), drops the input points it skipped
+(that is BROADR's thinning: U-238 961k → 133k points below `thnmax`, NJOY
+448k → 155k) and inserts midpoints where the broadened function needs them.
+For a light nuclide that is the whole thermal `1/v` rise: before this port
+the grid-preserving kernel gave H-2 elastic 3.0× (1e-3 eV) and 5.2×
+(1e-2 eV) NJOY's PENDF, agreeing only *at* the surviving grid points (bead
+`op-tubm`, found by the ERRORR tier-2 golden test).
+
+Two deliberate deviations, both documented in `broadn.rs`: the stack ceiling
+is 40 instead of upstream's 12 (upstream never fills it because it walks
+RECONR's *union* grid; this crate keeps each reaction on its own grid, and
+eleven halvings from H-2's next point at 100 eV only reach 0.12 eV, so the
+thermal rise was accepted as one chord), and the last input point below
+`thnmax` is always a node (upstream judges the seam interval against the
+`thnmax` node's broadened value and then writes that node's unbroadened
+copy, so the resolved side of the seam is wrong unless that point is a node
+— NJOY's U-238 PENDF keeps `(19999.99 eV, 0.2809805 b)`). Reactions are
+broadened one at a time (`nreac = 1`), across sections in parallel
+(`rayon`); the joint multi-reaction walk of upstream is not reproduced, so
+grids differ from NJOY's union grid while the values agree to `errthn`.
+
+**Validated (`tests/broadr_light_nuclide_pendf_golden.rs`, 2026-09-10)**
+against NJOY2016 `tape22` PENDFs for H-2, Be-9, Li-6, C-12, F-19, Si-30
+(`reconr 0.001 / broadr 293.6 K, errthn 0.001`, 400 log-spaced samples per
+reaction): elastic within 6e-4 everywhere (H-2 5.8e-4, Be-9 2.3e-4, Li-6
+3.6e-4, C-12 1.8e-4, F-19 7.0e-4, Si-30 1.1e-3); capture 8–9e-3 at tens of
+keV where NJOY converges ~1e-5 b cross sections only to `errmax = 1 %`
+(`op-428f`). Residuals recorded on their own beads, printed by the test
+but not asserted: the SIGMA1 kernel's low-`y` treatment of `1/v` (H-2
+capture 2.3 % low at 1e-5 eV, 0.17 % at 1e-4, `op-0xv5`) and RECONR
+under-resolving Si-30's inter-resonance capture (13 % at 3.3 keV,
+`op-yr43`). The C-12 comparison only became possible once
+`parse_endf_float` accepted Fortran `E`-exponent fields (`op-sti5`).
+
+`doppler_broaden` (the unbounded kernel on the input grid, used by the
+kernel-level tests) remains **data-parallel** (`rayon`) per point: each
+`bsigma_scalar` call is an independent pure function of the shared,
+immutable 0 K grid.
 
 ## The wing-pedestal investigation (2026-07-07) — it wasn't SIGMA1
 
@@ -135,8 +173,9 @@ BROADR effect.
 
 - Only free-gas broadening — bound/crystalline effects at very low energy are
   THERMR's job (S(α,β)), not BROADR's.
-- Thinning tolerance trades grid size against accuracy; keep it tighter than the
-  downstream ACER tolerance.
+- Thinning tolerance (`BroadnTolerances`, default `errthn = 0.001`) trades
+  grid size against accuracy; keep it tighter than the downstream ACER
+  tolerance.
 - The `run()` driver returns `NotPorted`; use `crate::interface`.
 
 ## References

@@ -72,7 +72,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | Rust module | Fortran file | LOC | Phase | Status |
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
-| `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
+| `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) + `broadn` adaptive grid/thinning (2026-09-10, validated vs six NJOY PENDFs, `tests/broadr_light_nuclide_pendf_golden.rs`); kernel low-`y` residual `op-0xv5` |
 | `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/` (`spectra.rs`, `kerma.rs`, `damage.rs`); full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
 | `purr` | `purr.f90` | 2919 | 3 | ✅ fully ported — ENDF parsing (reuses `unresr::mf2`), `uw2`, `DopplerTable` (`uwtab2`), `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections`, and `probability_table`/`line_shape` (`unrest`, the Monte Carlo core) — see `src/purr/README.md`. Translation-only, **not run even once** — Opus verification pending; PENDF MT=152/153 tape writer not ported (pure plumbing, no physics) |
