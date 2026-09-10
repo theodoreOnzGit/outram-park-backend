@@ -239,7 +239,27 @@ independent of any thinning decision — including the HTR-10 benchmark points
 393.15 K and 523.15 K that `tests/thermal_graphite_coherent.rs` already
 exercises (that test checks 0.0253 eV only, where the behaviour is correct).
 
-Reported here, not fixed: the fix is a separate change needing its own V&V.
+Reported here on 2026-08-13; **fixed 2026-09-10** (`op-55lj`). Reading
+upstream first showed `thermr.f90` never interpolates in temperature at all
+(`calcem` refuses any block farther than `T/500` from the request), so the
+production path is a port-only extension with the evaluation as its only
+oracle. The cause was the *place* of the interpolation: `S(α,β)` interpolated
+at fixed table coordinates and then integrated with the target temperature's
+kinematics — with `LAT=1` the table's `α,β` are in units of `kT₀`, so the
+physical transfer a table point represents shifts with `T` and the integrated
+`σ` is not bracketed. The production path now evaluates the kernel and
+`σ_inel` at each bracketing tabulated temperature (own `S`, kinematics,
+`T_eff`) and interpolates the two *results* in `T` with the evaluation's
+`LI` law, bracketed by construction. Re-measured at 393.15 K (MAT 30):
+0.001 eV 0.5230 ∈ [0.3017, 0.5437], 0.0253 eV 0.6797 ∈ [0.4864, 0.6960],
+0.1 eV 1.9537 ∈ [1.5936, 1.9819], 0.5 eV 3.9838 ∈ [3.7915, 3.9978],
+1 eV 4.3601 ∈ [4.2625, 4.3670], **3.9 eV 4.6349 ∈ [4.6097, 4.6367]** —
+each exactly the log-lin combination of the two ends. Locked by
+`tests/thermal_temperature_thinning.rs::production_interpolation_stays_inside_its_bracket`.
+The thinning-study numbers above are unaffected: the study's own
+reconstruction (`SabTemperatureStack`) interpolates `S` at fixed `(α,β)` by
+design, to measure that table-level error, and never used the production
+path.
 
 ---
 

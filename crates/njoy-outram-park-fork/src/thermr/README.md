@@ -71,14 +71,25 @@ high incident energy and high-`Q` Bragg edges, outside the thermal window.
 
 ## Caveats
 
-- **`σ_inel` at an interpolated temperature leaves its tabulated bracket above
-  ~0.5 eV** — 4.4175 b at 393.15 K / 3.9 eV against a bracket of
-  [4.6097, 4.6367] (measured 2026-08-13, MAT 30; ~4–5 % low at 3.9 eV, ≲ 1 %
-  low at 0.5 eV, correct at and below 0.1 eV). `σ_inel(E,T)` is monotone in `T`
-  across the tabulated grid, so this is a defect in the `LI = 4` `S(α,β)`
-  temperature interpolation, not an approximation error. It affects every
-  non-tabulated temperature request. Found by the thinning study; **not fixed**
-  — see that study's V&V record.
+- **Temperature interpolation is a port-only extension — NJOY has none.**
+  `thermr.f90`'s main loop requires the PENDF to carry the requested
+  temperature (`:347-349`, "desired temperature not on tape") and `calcem`
+  refuses any MF=7 block farther than `T/500` from the request (`:1720-1741`,
+  "desired temperature not found"); NJOY users run LEAPR at the exact
+  temperature. This port keeps the maintainer's 2026-08-11 decision to
+  interpolate inside the tabulated grid (HTR-10's 393.15/523.15 K are not
+  tabulated), and since 2026-09-10 (`op-55lj`) does it on the **evaluated
+  quantities**: the kernel and `σ_inel` are computed at each bracketing
+  tabulated temperature (its own `S(α,β)`, kinematics and `T_eff`) and the
+  two results interpolated in `T` with the file's `LI` law, so the result is
+  bracketed by construction — 4.6349 b at 393.15 K / 3.9 eV inside
+  [4.6097, 4.6367] on MAT 30. The previous scheme (interpolate `S` at fixed
+  `(α,β)`, integrate with the target temperature's kinematics) gave 4.4175 b
+  there, 4 % below the bracket, because `LAT=1` scales `α,β` with `1/kT`.
+  Locked by `tests/thermal_temperature_thinning.rs::production_interpolation_stays_inside_its_bracket`.
+  The tolerance for snapping to a tabulated block is `rdelas`'s `T/1000+5` K,
+  deliberately looser than `calcem`'s `T/500` (293.15 K → the 296 K graphite
+  block, which `calcem` alone would refuse).
 - Only the **IFENG=0** (equiprobable) inelastic form is emitted — the
   skewed/continuous **IFENG=1/2** forms are not ported.
 - Multi-scatterer mixing is taken as `nmix = 1`.
