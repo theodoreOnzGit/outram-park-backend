@@ -106,6 +106,40 @@ byte-identical. Used only as the ERRORR MF=32 oracle input
 (`../errorr/ar37-tendl2023-L1last-*`); every other Ar-37 test reads the
 unmodified tape.
 
+#### NJOY2016 upstream test-suite tapes (added 2026-09-10, `op-cjw.1`)
+
+Six evaluations taken from the **NJOY2016 upstream regression suite**,
+`tests/resources/`, at commit
+[`ac5adf5`](https://github.com/njoy/NJOY2016/commit/ac5adf5f33d893e42f2eed7fb286b0d51c7580da)
+(2026-04-06). Same provenance route as `n-017_Cl_035-ENDF7.1.endf` above: the
+public data hosts (`www-nds.iaea.org`, `www.nndc.bnl.gov`) answer 403 from this
+build environment, but github.com does not, and these are the exact tapes
+upstream itself regression-tests against — which makes them the *right* oracle
+inputs, not merely the reachable ones. NJOY2016 is distributed under its own
+LICENSE (see `upstream_source/NJOY2016/LICENSE`); the evaluations themselves are
+open published nuclear data (ENDF/B-VIII.0/8.1, JEFF-3.3), unchanged from
+upstream except for the two renames noted below.
+
+| File | Nuclide | Library | MAT | Size | Upstream name | What it covers that nothing else here does |
+|---|---|---|---|---|---|---|
+| `n-025_Mn_055-ENDF8.0.endf` | Mn-55 | ENDF/B-VIII.0 (neutron) | 2525 | 5.9 MB | `n-025_Mn_055-ENDF8.0.endf` | **MF=32 with `LCOMP=1`** on an `LRU=1/LRF=3` Reich-Moore range — the general (long) resonance-parameter covariance format. `MPAR=3`, `NRB=187` resonances, `NVS=158763` = the full 561×561 lower-triangle plus 6×187 parameter values. Closes the `LCOMP=1` gap in [#171](https://github.com/theodoreOnzGit/outram-park-backend/issues/171). |
+| `n-094_Pu_239-JEFF3.3.endf` | Pu-239 | JEFF-3.3 (neutron) | 9437 | 6.1 MB | `J33Pu239` | A second, **fissile** `LCOMP=1` case (three `LRU=1/LRF=3` subranges), so the ERRORR fission-covariance path is exercised too, not only capture/elastic. |
+| `n-092_U_238-JEFF3.3.endf` | U-238 | JEFF-3.3 (neutron) | 9237 | 2.7 MB | `J33U238` | `LCOMP=1` across **ten** `LRU=1/LRF=3` subranges — the multi-subrange stitching the single-range Mn-55 case cannot reach. Also a second-library U-238 for the URR work (`op-mzvp`), independent of the ENDF/B-VIII.0 `n-092_U_238.endf` already here. |
+| `n-042_Mo_095-ENDF8.0-beta.endf` | Mo-95 | ENDF/B-VIII.0 beta (neutron) | 4234 | 2.3 MB | `n-042_Mo_095-beta.endf` | A **second `LRU=1/LRF=7`** R-matrix-limited evaluation with MF=32 (`LCOMP=2`). Cl-35 was the only one; a single tape cannot distinguish "the port is right" from "the port matches Cl-35". |
+| `n-038_Sr_088-ENDF8.1.endf` | Sr-88 | ENDF/B-VIII.1 (neutron) | 3837 | 481 KB | `n-038_Sr_088-ENDF8.1.endf` | A **third** `LRF=7` case, and by far the smallest (481 KB) — cheap enough for a unit test rather than an integration test. |
+| `n-026_Fe_058-ENDF8.0-Beta4.endf` | Fe-58 | ENDF/B-VIII.0 beta4 (neutron) | 2637 | 7.9 MB | `n-026_Fe_058-ENDF8.0-Beta4.endf` | The only **`LRU=2/LRF=1`** (energy-**independent** unresolved widths, `LSSF=1`, 3.5e5–3.0e6 eV) tape here. Every other unresolved range in this folder is `LRF=2`, so the UNRESR/PURR `LRF=1` branch has never been run on real data. |
+
+Renamed from upstream: `J33U238` -> `n-092_U_238-JEFF3.3.endf` and `J33Pu239` ->
+`n-094_Pu_239-JEFF3.3.endf`, to match this folder's `n-ZZZ_El_AAA-<lib>.endf`
+convention. `n-042_Mo_095-beta.endf` -> `n-042_Mo_095-ENDF8.0-beta.endf` for the
+same reason. Contents are byte-identical to upstream.
+
+Two things the upstream suite does **not** have, checked by scanning all 68 of
+its `tests/resources/` tapes (see "Still wanted"): **no `LRF=4` (Adler-Adler)
+anywhere**, and **no tsl with `B(7)=0`** — every `NS>=1` thermal tape upstream
+carries (`t322` ENDF/B-III polyethylene, `t404` ENDF/B-IV MAT 1269,
+`tsl-HinH2O-ENDF8.0-Beta6`) has `B(7)=1`, free gas.
+
 ### Still wanted
 
 `tsl-HinH2O.endf` was the only entry here; it landed 2026-09-10 (see
@@ -113,18 +147,25 @@ unmodified tape.
 GitHub Issues, one issue per tape, each carrying the screening already done so
 nobody repeats it:
 
-| Need | Unblocks | Issue |
-|---|---|---|
-| MF=32/MT=151 with `LCOMP=1` (and one with `LCOMP=0`), ideally on an `LRF=1` or `LRF=3` range | `op-cjw.1` / `op-cjw.4` — the `errorr/resprx` chain: `LCOMP=1` is ported with **zero** oracle coverage, `LCOMP=0` is `NotPorted` | [#171](https://github.com/theodoreOnzGit/outram-park-backend/issues/171) |
-| Adler-Adler resolved range (`LRU=1`, `LRF=4`) | `op-cjw.5` — `reconr::aa` is ported from Fortran alone and has never been run on a real tape | [#172](https://github.com/theodoreOnzGit/outram-park-backend/issues/172) |
-| tsl with `NS>=1` **and** `B(7)=0` (SCT secondary, not free gas) | `op-cjw.20` — the secondary-scatterer SCT term (`teff2`) | [#173](https://github.com/theodoreOnzGit/outram-park-backend/issues/173) |
-| ENDF-102 (ENDF-6 Formats Manual) PDF — a document, not a tape | `op-z1hk` — the section numbers cited in `interp.rs` / `mf7.rs` point at nothing in the kovan archive | [#174](https://github.com/theodoreOnzGit/outram-park-backend/issues/174) |
+| Need | Unblocks | Issue | Status |
+|---|---|---|---|
+| MF=32/MT=151 with `LCOMP=1` | `op-cjw.1` / `op-cjw.4` | [#171](https://github.com/theodoreOnzGit/outram-park-backend/issues/171) | **Landed 2026-09-10** — Mn-55, U-238/JEFF-3.3, Pu-239/JEFF-3.3 (section above) |
+| MF=32/MT=151 with `LCOMP=0` | same | [#171](https://github.com/theodoreOnzGit/outram-park-backend/issues/171) | **Still open.** Not present on any of the 68 upstream test tapes either. `LCOMP=0` is the deprecated ENDF-5-carryover layout; `rpxlc0` stays `NotPorted` until a tape exists. |
+| Adler-Adler resolved range (`LRU=1`, `LRF=4`) | `op-cjw.5` | [#172](https://github.com/theodoreOnzGit/outram-park-backend/issues/172) | **Still open.** Not on any of the 68 upstream tapes — including the ENDF/B-III (`t322`), ENDF/B-IV (`t404`), ENDF/B-V (`t511`) and ENDF/B-VI (`e6pu241c`, `eni61`) legacy tapes NJOY2016 itself ships. **NJOY2016 has no Adler-Adler regression test of its own.** |
+| tsl with `NS>=1` **and** `B(7)=0` (SCT secondary) | `op-cjw.20` | [#173](https://github.com/theodoreOnzGit/outram-park-backend/issues/173) | **Still open.** Not upstream either: every `NS>=1` thermal tape in their suite is `B(7)=1` (free gas). |
+| ENDF-102 (ENDF-6 Formats Manual) PDF — a document, not a tape | `op-z1hk` | [#174](https://github.com/theodoreOnzGit/outram-park-backend/issues/174) | **Still open.** `www.nndc.bnl.gov` is 403 from here. |
 
-Screening results behind those issues, so they are not re-derived: **only
-`n-017_Cl_035-ENDF7.1.endf` and `n-018_Ar_37-tendl2023.endf` carry MF=32 at
-all, and both are `LCOMP=2`**; **no tape here has `LRF=4`**; and every tsl tape
-predating `tsl-HinH2O.endf` has `NI=6` (`NS=0`), while `tsl-HinH2O.endf` itself
-has `B(7)=1`.
+Screening behind those rows, so it is not re-derived: all 68 tapes in the
+NJOY2016 upstream `tests/resources/` were parsed for every MF=2/MT=151 range
+header (`LRU`/`LRF`), every MF=32/MT=151 `LCOMP`, and every MF=7/MT=4 `NI`/`NS`/
+`B(7)`. Within this folder before that pass, **only `n-017_Cl_035-ENDF7.1.endf`
+and `n-018_Ar_37-tendl2023.endf` carried MF=32 at all, and both were `LCOMP=2`**.
+
+The three still-open tape needs are all **legacy or rare-option formats**: the
+last two have no oracle upstream either, so they are not simply "we did not look
+hard enough" — a tape has to come from an ENDF/B-V-era archive or a
+special-purpose evaluation. Treat them as low priority against work that has
+data to run on.
 
 **Not** a data need, despite an earlier claim to the contrary: the
 charged-particle-elastic `sig=1` branch in GROUPR `getsig` (`op-urh`) needs an
