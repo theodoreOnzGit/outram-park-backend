@@ -12,7 +12,15 @@ categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate. `docs/` (incl. the generated
 # docs/api.md rustdoc mirror) isn't crate content either.
-exclude = ["verification_and_validation/*.csv", "verification_and_validation/**/*.csv", "docs"]
+exclude = [
+    "verification_and_validation/*.csv",
+    "verification_and_validation/**/*.csv",
+    # OpenMC input-script snapshots: committed to git for reproducibility, but
+    # they are third-party (BSD-3) reference decks, not crate source — keep them
+    # out of the published tarball.
+    "verification_and_validation/**/openmc_inputs/**",
+    "docs",
+]
 
 [dependencies]
 thiserror = { workspace = true }
@@ -58,6 +66,12 @@ log = { workspace = true }
 # (`Nuclide::from_core`, embedded WMP + fast MGXS) needs no network. Enable with
 # `--features net-fetch`. See docs/data-acquisition.md.
 net-fetch = ["njoy-outram-park-fork/net-fetch"]
+
+# HIGH-fidelity FHR TRISO-pebble V&V cases (op-mzvp.2). A no-op feature that just
+# gates `examples/fhr_ring_rpt_endf.rs` out of the default build/test — it needs
+# the reference ENDF tapes in `reference-data/endf/` (repo-only, not packaged)
+# and reconstructs ~13 nuclides, so it is slow and not a CI gate.
+endf-pebble-cases = []
 
 # Optional GPU compute (headless, no window) for the embarrassingly-parallel MC
 # kernels — see `src/gpu/`. wgpu is **target-gated OFF Android** (no system
@@ -105,6 +119,11 @@ naga = { workspace = true, features = ["wgsl-in"] }
 [[bin]]
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
+
+# Gated V&V example — see the `endf-pebble-cases` feature above.
+[[example]]
+name = "fhr_ring_rpt_endf"
+required-features = ["endf-pebble-cases"]
 
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
