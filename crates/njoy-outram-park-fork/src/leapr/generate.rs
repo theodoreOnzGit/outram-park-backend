@@ -150,6 +150,7 @@ use crate::leapr::continuous::phonon_expansion;
 use crate::leapr::discrete::add_discrete_oscillators;
 use crate::leapr::translation::add_translation;
 use crate::leapr::deck::LeaprDeck;
+use crate::leapr::SabMatrix;
 use crate::leapr::input::ColdOption;
 use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
 use crate::leapr::skold::apply_skold;
@@ -616,50 +617,43 @@ fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize
     ))
 }
 
-/// Build the LEAPR output for one temperature and write it as an ENDF MF=7
-/// tape, with no caching.
+/// One temperature's completed scattering law — the `ssm` slab plus the
+/// per-temperature globals the Fortran temperature loop leaves behind
+/// (`leapr.f90:332-397`), with the `dwpix` conversions `endout` expects
+/// already applied (`:3035-3038`).
+#[derive(Debug, Clone)]
+pub struct TemperatureLaw {
+    /// The (merged, for a mixed moderator) negative-beta asymmetric law.
+    pub ssm: SabMatrix,
+    /// Principal Debye-Waller integral `W'(T)` \[1/eV\], divided by `awr T k_B`.
+    pub dwpix: f64,
+    /// Principal effective temperature \[K\].
+    pub tempf: f64,
+    /// Mixed moderator only: the secondary's `T_eff` \[K\].
+    pub tempf_secondary: Option<f64>,
+    /// Mixed moderator only: the secondary's `W'(T)` \[1/eV\], divided by `aws T k_B`.
+    pub dwpix_secondary: Option<f64>,
+    /// The constant set the law was built with.
+    pub constants: PhysicalConstants,
+}
+
+/// Run the Fortran temperature loop for one temperature block —
+/// `contin` -> `trans` -> `discre` -> `skold`, then the second pass and the
+/// `S` merge for a mixed moderator — and return what `endout` needs for that
+/// temperature. `block` indexes `deck.temperatures`; `temperature_k` is the
+/// temperature to evaluate at (normally that block's own).
 ///
-/// This is the missing half of NJOY's `leapr` driver for the single-scatterer,
-/// continuous-spectrum case: it composes
-/// [`FrequencyModel::start`] -> [`phonon_expansion`] ->
-/// [`coher`](crate::leapr::coher::coher) -> [`endout`], including the `dwpix`
-/// and `tempf` conversions `endout` expects (`leapr.f90:717, 3035`) which no
-/// other code path performs.
-///
-/// The physical constants come from the deck's own declared vintage
-/// ([`LeaprDeck::constants`]) and are threaded into **both** channels — `bk`
-/// into `tev` for the inelastic law, and the whole set into `econ` for the
-/// Bragg edge energies. That is what makes the result reproduce the published
-/// tape instead of missing it by ~100x the storage precision (inelastic) or by
-/// a uniform ~1e-6 offset (elastic). See [`crate::leapr::vintage`].
+/// This is the per-temperature body shared by [`generate_tape`] (one
+/// temperature) and [`crate::leapr::run::run_deck`] (every temperature of
+/// the deck, as `subroutine leapr` does).
 ///
 /// # Errors
-///
-/// - [`NjoyError::NotPorted`] if the deck uses a LEAPR feature the port does not
-///   implement ([`LeaprDeck::unsupported_features`]). Silently generating
-///   something plausible for an unsupported deck would be the worst outcome
-///   available, so this refuses.
-/// - [`NjoyError::EndfParse`] for a non-positive or non-finite temperature.
-pub fn generate_tape(
+/// Those of [`LeaprDeck::input_at_temperature`] / `input_at_secondary`.
+pub fn build_law_at_temperature(
     deck: &LeaprDeck,
-    temperature: Temperature,
-    elastic: ElasticChannel,
-) -> Result<Tape, NjoyError> {
-    let unsupported = deck.unsupported_features();
-    if !unsupported.is_empty() {
-        log::warn!(
-            "LEAPR deck '{}' uses features this port does not implement: {:?}",
-            deck.title,
-            unsupported
-        );
-        return Err(NjoyError::NotPorted(
-            "LEAPR deck uses features this port does not implement \
-             (see LeaprDeck::unsupported_features)",
-        ));
-    }
-
-    let temperature_k = temperature.get::<kelvin>();
-    let block = temperature_block_index(deck, temperature_k)?;
+    block: usize,
+    temperature_k: f64,
+) -> Result<TemperatureLaw, NjoyError> {
     let input = deck.input_at_temperature(block, temperature_k)?;
 
     let freq = FrequencyModel::start(
@@ -749,13 +743,77 @@ pub fn generate_tape(
         }
         // leapr.f90:3038: the secondary's integral is divided by aws, the
         // principal's (dwp1) by awr.
-        dwpix_secondary = Some(vec![dwpix2 / (deck.aws * temperature_k * bk)]);
-        tempf_secondary = Some(vec![tempf2]);
+        dwpix_secondary = Some(dwpix2 / (deck.aws * temperature_k * bk));
+        tempf_secondary = Some(tempf2);
     }
 
     // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
     // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
     let dwpix = dwpix / (deck.awr * temperature_k * bk);
+    Ok(TemperatureLaw {
+        ssm,
+        dwpix,
+        tempf,
+        tempf_secondary,
+        dwpix_secondary,
+        constants: input.constants,
+    })
+}
+
+/// Build the LEAPR output for one temperature and write it as an ENDF MF=7
+/// tape, with no caching.
+///
+/// This is the missing half of NJOY's `leapr` driver for the single-scatterer,
+/// continuous-spectrum case: it composes
+/// [`FrequencyModel::start`] -> [`phonon_expansion`] ->
+/// [`coher`](crate::leapr::coher::coher) -> [`endout`], including the `dwpix`
+/// and `tempf` conversions `endout` expects (`leapr.f90:717, 3035`) which no
+/// other code path performs.
+///
+/// The physical constants come from the deck's own declared vintage
+/// ([`LeaprDeck::constants`]) and are threaded into **both** channels — `bk`
+/// into `tev` for the inelastic law, and the whole set into `econ` for the
+/// Bragg edge energies. That is what makes the result reproduce the published
+/// tape instead of missing it by ~100x the storage precision (inelastic) or by
+/// a uniform ~1e-6 offset (elastic). See [`crate::leapr::vintage`].
+///
+/// # Errors
+///
+/// - [`NjoyError::NotPorted`] if the deck uses a LEAPR feature the port does not
+///   implement ([`LeaprDeck::unsupported_features`]). Silently generating
+///   something plausible for an unsupported deck would be the worst outcome
+///   available, so this refuses.
+/// - [`NjoyError::EndfParse`] for a non-positive or non-finite temperature.
+pub fn generate_tape(
+    deck: &LeaprDeck,
+    temperature: Temperature,
+    elastic: ElasticChannel,
+) -> Result<Tape, NjoyError> {
+    let unsupported = deck.unsupported_features();
+    if !unsupported.is_empty() {
+        log::warn!(
+            "LEAPR deck '{}' uses features this port does not implement: {:?}",
+            deck.title,
+            unsupported
+        );
+        return Err(NjoyError::NotPorted(
+            "LEAPR deck uses features this port does not implement \
+             (see LeaprDeck::unsupported_features)",
+        ));
+    }
+
+    let temperature_k = temperature.get::<kelvin>();
+    let block = temperature_block_index(deck, temperature_k)?;
+    let TemperatureLaw {
+        ssm,
+        dwpix,
+        tempf,
+        tempf_secondary,
+        dwpix_secondary,
+        constants,
+    } = build_law_at_temperature(deck, block, temperature_k)?;
+    let tempf_secondary = tempf_secondary.map(|v| vec![v]);
+    let dwpix_secondary = dwpix_secondary.map(|v| vec![v]);
 
     // The Debye-Waller coefficient MF=7/MT=2 is written with. Normally the
     // deck's own (the principal scatterer's), but a compound Bragg channel
@@ -777,7 +835,7 @@ pub fn generate_tape(
                         &crystal.structure(),
                         deck.npr as usize,
                         COHERENT_ELASTIC_EMAX_EV,
-                        input.constants,
+                        constants,
                     ))
                 }
                 None => ElasticOutput::None,
@@ -798,7 +856,7 @@ pub fn generate_tape(
                         &structure,
                         deck.npr as usize,
                         COHERENT_ELASTIC_EMAX_EV,
-                        input.constants,
+                        constants,
                         &per_atom,
                     ))
                 }
@@ -832,7 +890,7 @@ pub fn generate_tape(
                 lattice,
                 deck.npr as usize,
                 COHERENT_ELASTIC_EMAX_EV,
-                input.constants,
+                constants,
             ))
         }
     };
@@ -858,7 +916,7 @@ pub fn generate_tape(
         spr: deck.spr,
         elastic: elastic_output,
         secondary: deck.secondary_scatterer(),
-        constants: input.constants,
+        constants: constants,
     };
 
     Ok(endout(&out))

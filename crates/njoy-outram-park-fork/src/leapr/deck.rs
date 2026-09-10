@@ -777,17 +777,23 @@ impl CardCursor {
 
     /// Read one card-20 comment record.
     ///
-    /// Returns `Ok(None)` at the terminator — a record that supplies no text, in
-    /// practice a bare `/` or a blank line, which leaves NJOY's sentinel `'$'`
-    /// in place and ends the comment loop. Also returns `Ok(None)` at end of
-    /// deck, so a deck that simply stops is not an error.
+    /// Returns `Ok(None)` at the terminator — a record that supplies no text,
+    /// which leaves NJOY's sentinel `'$'` in place and ends the comment loop
+    /// (`leapr.f90:3096-3110`). In Fortran list-directed input that is any
+    /// record whose first item is the slash — a bare `/` or `/ end leapr`
+    /// alike (the D-in-D2O deck ends its comments that way; until 2026-09-10
+    /// the trailing words were taken as a 67th comment card, which the NJOY
+    /// oracle's 66-card header exposed). A blank record also ends the loop
+    /// here (Fortran would skip it and read on; every deck in the tree
+    /// follows a blank with a slash, so the two agree). Also returns
+    /// `Ok(None)` at end of deck, so a deck that simply stops is not an error.
     pub fn read_comment(&mut self) -> Result<Option<String>, NjoyError> {
         if self.pos >= self.lines.len() {
             return Ok(None);
         }
         let line = self.next_record()?.to_string();
         let t = line.trim();
-        if t.is_empty() || t == "/" {
+        if t.is_empty() || t.starts_with('/') {
             return Ok(None);
         }
         Ok(Some(strip_text_card(&line)))

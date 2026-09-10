@@ -54,5 +54,17 @@ can stop one entry short of the `2·nbt-1` that `trans` reads (31,628 for
 `nbt = 15,815` here); upstream silently reads a stale array slot weighted by
 the kernel's truncated tail, the port zero-pads.
 
+`tests/leapr_run_driver_njoy_oracle.rs` (2026-09-10) — the whole-deck
+driver `leapr::run::run_deck` on the three `.njoy-input` decks above
+against the three tapes: MF=1/MT=451 **byte-identical** in columns 1-75
+(60 lines H-in-H2O, 78 SiO2-alpha, 72 D-in-D2O — HEAD/CONTs, the
+Hollerith comment cards, the dictionary with NJOY's card-count estimates
+`24097` / `9677`+`5` / `53069`), and every MF=7 data row identical (worst
+1.3e-16 relative; 24,101 / 9,686+5 / 53,072 rows), which pins the
+five-temperature `LT = 4` layout, the two `T_eff` TAB1s and SiO2's
+incoherent-elastic TAB1 (`LTHR = 2`, `SB = 2.16877`, from `iel = 0` with
+`twt = 0`, `leapr.f90:3043`). The D2O run caught the card reader taking
+`/ end leapr` as a comment card.
+
 Data policy: derived products of open ENDF/B-VIII.0 evaluation inputs
 processed with the BSD-licensed NJOY2016; no proprietary content.
