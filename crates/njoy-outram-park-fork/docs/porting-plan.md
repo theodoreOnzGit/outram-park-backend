@@ -73,7 +73,7 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
 | `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/mod.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
+| `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/` (`spectra.rs`, `kerma.rs`, `damage.rs`); full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
 | `purr` | `purr.f90` | 2919 | 3 | ✅ fully ported — ENDF parsing (reuses `unresr::mf2`), `uw2`, `DopplerTable` (`uwtab2`), `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections`, and `probability_table`/`line_shape` (`unrest`, the Monte Carlo core) — see `src/purr/README.md`. Translation-only, **not run even once** — Opus verification pending; PENDF MT=152/153 tape writer not ported (pure plumbing, no physics) |
 | `thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -90,7 +90,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
 | — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
 | — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
-| `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp.rs`) |
+| `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp/`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
 
@@ -322,7 +322,7 @@ Output formats for codes OUTRAM PARK does not target — most are still on-deman
   distribution. Until 4b/4d finish it is still not a complete CE transport
   library (fission has no NU block; continuum producers are isotropic); 4f
   (thermal S(α,β)) is a separate, now-complete table type layered on top.
-  - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp.rs`).
+  - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp/`).
     **Independent MIT CRPG work — NOT NJOY/LANL.** Reads the **MIT** `WMP_Library`
     (<https://github.com/mit-crpg/WMP_Library>, MIT-licensed) HDF5 multipole data:
     complex poles/residues + windows enabling *analytic* on-the-fly Doppler
@@ -342,7 +342,7 @@ Output formats for codes OUTRAM PARK does not target — most are still on-deman
     entry in `NOTICE`, distinct from the NJOY/BSD notice. **Remaining:** the
     **EXTENDED** set (298 more nuclides, 9.64 MB raw) is not yet packaged — planned
     as a **separate sibling crate** (not embedded here) so the njoy crate stays
-    small; no sibling crate exists yet. See the `src/wmp.rs` module docs and
+    small; no sibling crate exists yet. See the `src/wmp/mod.rs` module docs and
     [`project_wmp_embedding_plan`] in the assistant's memory for the full sizing
     rationale.
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
@@ -395,9 +395,9 @@ first):
 
 | File | Lines | Status |
 |---|---|---|
-| `src/heatr/mod.rs` | 1363 | ⬜ TODO: split by function (H1-H7 KERMA phases are a natural boundary) |
-| `src/wmp.rs` | 1276 | ⬜ TODO: split by function (parsing vs. Doppler-broadening evaluation is a natural boundary) |
-| `src/purr/mod.rs` | 1079 | ⬜ TODO: split by function (ladder generation vs. `unrest`'s Monte Carlo core is a natural boundary) |
+| `src/heatr/mod.rs` | ~~1363~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `heatr/{spectra,kerma,damage,tests}.rs` (200/154/222/826 lines) + a 97-line `mod.rs` |
+| `src/wmp.rs` | ~~1276~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `wmp/{types,evaluate,h5,blob,tests}.rs` (147/252/171/470/324 lines) + a 94-line `mod.rs` — parsing (`h5`/`blob`) vs. Doppler-broadening evaluation (`evaluate`) as planned |
+| `src/purr/mod.rs` | 1414 | ⬜ TODO: split by function (ladder generation vs. `unrest`'s Monte Carlo core is a natural boundary). Not split on 2026-09-10 because the URR/PURR track (`op-cjw.6`, `op-cjw.20`) was being actively edited by a concurrent session; do it when that track is quiet |
 
 ---
 
@@ -618,7 +618,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 > `dispatch.rs`, `api.rs`), per a new mandatory crate convention — see §5
 > above and this crate's `CLAUDE.md`. Pure reorganization, no logic
 > changes. Applies to all NJOY ports from this date forward; three
-> existing over-length files (`heatr/mod.rs`, `wmp.rs`, `purr/mod.rs`)
+> existing over-length files (`purr/mod.rs`; `heatr/mod.rs` and `wmp.rs` were split 2026-09-10)
 > tracked as TODOs to split opportunistically.
 >
 > **Update (2026-07-07, Phase 5 — cross-section formula):** **Phase 5 is
@@ -736,7 +736,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
-  in njoy** (`src/wmp.rs`), not `outram-mc-libs`. Real U-238 broadening of the
+  in njoy** (`src/wmp/`), not `outram-mc-libs`. Real U-238 broadening of the
   6.67 eV capture resonance is confirmed (`tests/wmp_u238.rs`). njoy also holds
   the **independent oracle**: `RECONR` reconstructs the 0 K pointwise U-238
   σ(n,γ); `BROADR` SIGMA1-broadens it to T. The code-to-code gate vs the OpenMC
@@ -788,7 +788,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
   ACER 4b/4d NU/DLW blocks (below) remain open for the *ACE-file* path, which a
   full transport library still needs for tools other than this workspace's own
   `outram-mc-libs`.
-- **WMP import (`src/wmp.rs`, 4g).** 🟡 Done: `load_h5` reads the MIT
+- **WMP import (`src/wmp/`, 4g).** 🟡 Done: `load_h5` reads the MIT
   `WMP_Library` HDF5 (behind the `wmp-hdf5` feature). This is now the data
   ingestion path for njoy's own WMP evaluator (all nuclear data lives in njoy;
   `outram-mc-libs` pulls via `XsProvider`). Remaining: `from_blob` so a curated set
