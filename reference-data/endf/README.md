@@ -140,3 +140,9 @@ around it. The matching NJOY golden output
 is generated on demand from the locally-built `vendor/njoy2016` oracle (which is
 gitignored), never committed as a large tape; only extracted reference values
 (CSV) are committed, per the existing `u238_doppler` pattern.
+
+## Synthetic test tape (not an evaluation)
+
+| File | Material | Contents | Provenance |
+|---|---|---|---|
+| `photoat-synthetic-Z6.endf` (8 KB, 149 lines) | "MAT 600", ZA 6000, Z = 6 | MF=1/451; MF=23 MT=501/502/504/516/522 (lin-lin, 53 energies 1 keV–100 GeV); MF=27 MT=502 form factor, MT=504 scattering function (24 momentum transfers 0–1e9 /Å) | **Synthetic**, generated 2026-09-10 by `photoat-synthetic-Z6.generator.py` (committed next to it) from analytic shapes — coherent `2.4/(1+(E/3e4)^2)`, incoherent `3.99 (1+E/511 keV)^-0.9 (1-0.3 e^{-E/1e4})`, photoelectric `4e3 (E/1 keV)^-3`, pair `0.2 ln(E/1.022 MeV)`, `F(x) = 6/(1+(x/0.6)^2)^2`, `S(x) = 6(1-1/(1+(x/0.5)^2))`. Not evaluated data; exists only so NJOY2016 GAMINR and this crate can be run on the same photoatomic input (both public photoatomic data hosts refuse downloads from the build environment). |

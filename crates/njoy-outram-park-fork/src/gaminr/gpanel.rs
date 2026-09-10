@@ -25,19 +25,16 @@
 //! the photon group structure. Serialize the result with the shared GENDF writer
 //! ([`GendfSection`], re-exported here) using `mf = 23`.
 //!
-//! # Not ported — the photon scatter/production **matrix** (`gtff`, `dspla`)
+//! # The matrix path lives in [`super::matrix`] / [`super::gtff`]
 //!
-//! The group-to-group matrix feed function `gtff` (`gaminr.f90:1162-1514`) is
-//! **not** ported — the coherent (Rayleigh) form-factor Legendre integral
-//! (`mtd = 502`), the incoherent (Compton, Klein–Nishina × S(q,Z)) energy-angle
-//! integral (`mtd = 504`), and the pair-production matrix (`mtd = 516`) all build
-//! the `ff(il, ig)` feed function this vector path fixes to 1. The matrix branch
-//! of `dspla` (`gaminr.f90:1083-1128`, `mfd = 26`) that divides those integrals
-//! by the group flux is likewise not ported. See [`crate::groupr::kinematics`]
-//! for the analogous neutron matrix-path gap. [`gtff_matrix`] is a documented
-//! `NotPorted` stub.
-
-use crate::NjoyError;
+//! The group-to-group feed function `gtff` (`gaminr.f90:1162-1514`) — the
+//! coherent form-factor Legendre integral (`mtd = 502`), the incoherent
+//! Klein–Nishina × S(q,Z) integral (`mtd = 504`) and the pair-production
+//! matrix (`mtd = 516`) — is ported in [`super::gtff`], and the photon
+//! `gpanel`, `dspla`'s normalisation and the total-heating edit in
+//! [`super::matrix`] (`gaminr_reaction`). Those carry the oracle
+//! (`tests/gaminr_synthetic_photoat_golden.rs`); this module remains the
+//! lightweight vector-only entry point.
 
 // Re-export the shared numeric engine with GAMINR-facing names, so a GAMINR user
 // finds it without needing to know it is physically shared with GROUPR.
@@ -45,20 +42,6 @@ pub use crate::groupr::gendf::{GendfGroupRecord, GendfSection, GendfTape};
 pub use crate::groupr::panel::{
     group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs,
 };
-
-/// The photon scatter/production group-to-group **matrix** feed function —
-/// **not ported**.
-///
-/// Placeholder for `gtff`'s matrix branches (`gaminr.f90:1162-1514`): the
-/// coherent form-factor (`mtd = 502`), incoherent Klein–Nishina × S(q,Z)
-/// (`mtd = 504`), and pair-production (`mtd = 516`) feed functions. Ported, this
-/// would return the lab-frame secondary-group feed function `ff(il, ig)` at
-/// incident photon energy `e_in` \[eV\] for reaction `mt`.
-///
-/// Returns [`NjoyError::NotPorted`] tagged `"gaminr::gtff"`.
-pub fn gtff_matrix(_e_in: f64, _mt: i32) -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("gaminr::gtff"))
-}
 
 #[cfg(test)]
 mod tests {
@@ -106,14 +89,5 @@ mod tests {
         assert_eq!(back, section);
         // Arc feeder path is exercised elsewhere; touch Arc so the import is used.
         let _ = Arc::new(section);
-    }
-
-    /// The photon matrix feed function honestly reports itself unported.
-    #[test]
-    fn gtff_matrix_reports_not_ported() {
-        assert!(matches!(
-            gtff_matrix(1.0e6, 504),
-            Err(NjoyError::NotPorted("gaminr::gtff"))
-        ));
     }
 }

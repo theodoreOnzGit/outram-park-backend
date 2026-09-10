@@ -22,6 +22,7 @@ and the oracle build it came from. Regenerate with
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.gendf` (16 KB, 186 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.gendf` (15 KB, 177 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
+| `photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf` (24 KB, 288 lines) | synthetic Z = 6, "MAT 600" | `../endf/photoat-synthetic-Z6.endf` (synthetic) | same build, GAMINR | `photoat-synthetic-Z6-lanl12-iwt3-lord3.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf` (28 KB, 340 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf` (51 KB, 624 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF of `../endf/n-092_U_238.endf` (the RECONR/BROADR steps of the first deck) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.njoy-input` | 2026-09-10 |
 
@@ -110,6 +111,16 @@ GROUPR alone on the same PENDF, `lord = 0`, six sigma-zero values, reactions
 computes analytically at retrieval time with a `1.01 E` step
 (`groupr.f90:6758-6772`); GROUPR writes them with `NL = NZ = 1`. Consumed by
 `crates/njoy-outram-park-fork/tests/groupr_u238_derived_quantities_golden.rs`.
+
+### `photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf`
+
+**GAMINR** (not GROUPR) on the synthetic photoatomic tape
+`../endf/photoat-synthetic-Z6.endf` used as both `nendf` and `npend` (its
+MF=23 is already lin-lin): `gaminr 20 20 0 21 / 600 3 3 3 1 /` — LANL
+12-group structure (`igg = 3`), `iwt = 3` (1/E with roll-offs), `lord = 3`,
+reactions `23/501 502 504 516 522`, `26/502 504 516`, `23/525` (total
+heating, last). 288 lines. Consumed by
+`crates/njoy-outram-park-fork/tests/gaminr_synthetic_photoat_golden.rs`.
 
 Data policy: GENDF is a *derived* product of open ENDF/B-VIII.0 data processed
 with the BSD-licensed NJOY2016; it carries no proprietary content.
