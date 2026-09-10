@@ -745,3 +745,275 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod explore_column_types {
+    //! Exploratory scratch tests (to be replaced by the regression tests).
+    use super::*;
+    use crate::columns::bubble_point::WangHenkeSolver;
+    use crate::columns::bubble_point2::ModifiedWangHenkeSolver;
+    use crate::columns::initial_estimates::RigorousColumn;
+    use crate::columns::newton_raphson::NaphtaliSandholmSolver;
+    use crate::columns::sum_rates::SumRatesSolver;
+    use crate::columns::thermo_bridge::tests::{benzene, toluene};
+    use crate::columns::thermo_bridge::ColumnThermo;
+    use crate::thermo::property_package::PropertyPackageModel;
+    use crate::thermo::saturation::dew_temperature;
+    use uom::si::catalytic_activity::katal;
+    use uom::si::f64::MolarEnergy;
+    use uom::si::molar_energy::joule_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    const P_ATM: f64 = 101_325.0;
+
+    fn stages(n: usize, t0: f64, dt: f64) -> Vec<Stage> {
+        let p = StagePressure::new::<pascal>(P_ATM);
+        (0..n)
+            .map(|i| {
+                let t = StageTemperature::new::<kelvin>(t0 + dt * i as f64);
+                Stage::new(format!("stage {i}"), p, t, 2)
+            })
+            .collect()
+    }
+
+    fn report(label: &str, r: &Result<ColumnSolverOutput, ColumnError>, input: &ColumnSolverInput) {
+        match r {
+            Ok(out) => {
+                println!("== {label}: OK iters={} err={:.4e}", out.iterations_taken, out.final_error);
+                println!("   T = {:?}", out.stage_temperatures.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>());
+                println!("   V = {:?}", out.vapor_flows.iter().map(|t| (t * 1e4).round() / 1e4).collect::<Vec<_>>());
+                println!("   L = {:?}", out.liquid_flows.iter().map(|t| (t * 1e4).round() / 1e4).collect::<Vec<_>>());
+                println!("   LSS = {:?}", out.liquid_side_draws.iter().map(|t| (t * 1e4).round() / 1e4).collect::<Vec<_>>());
+                println!("   x_bz = {:?}", out.liquid_compositions.iter().map(|x| (x[0] * 1e4).round() / 1e4).collect::<Vec<_>>());
+                println!("   y_bz = {:?}", out.vapor_compositions.iter().map(|x| (x[0] * 1e4).round() / 1e4).collect::<Vec<_>>());
+                println!("   Q = {:?}", out.stage_heats.iter().map(|t| t.round()).collect::<Vec<_>>());
+                println!("   D = {:.6} B = {:.6} residual = {:.3e}",
+                    out.distillate_molar_flow(input.condenser_type).get::<katal>(),
+                    out.bottoms_molar_flow().get::<katal>(),
+                    out.molar_balance_residual(&input.feed_flows));
+                println!("   cspec calc = {} rspec calc = {}", out.condenser_spec.calculated_value, out.reboiler_spec.calculated_value);
+            }
+            Err(e) => println!("== {label}: ERR {e}"),
+        }
+    }
+
+    fn run_all(label: &str, column: &RigorousColumn) {
+        let input = column.solver_input().expect("solver_input");
+        println!("---- {label}: estimate T={:?}", input.stage_temperatures.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>());
+        println!("     est V={:?}", input.vapor_flows.iter().map(|t| (t * 1e3).round() / 1e3).collect::<Vec<_>>());
+        println!("     est L={:?}", input.liquid_flows.iter().map(|t| (t * 1e3).round() / 1e3).collect::<Vec<_>>());
+        println!("     est LSS={:?} Q={:?}", input.liquid_side_draws, input.stage_heats);
+        report("WH", &WangHenkeSolver::default().solve_column(&input), &input);
+        report("MWH", &ModifiedWangHenkeSolver::default().solve_column(&input), &input);
+        report("SR", &SumRatesSolver::default().solve_column(&input), &input);
+        report("NS(no warm)", &NaphtaliSandholmSolver::default().solve_column(&input), &input);
+        report("NS(warm)", &NaphtaliSandholmSolver::with_warm_start().solve_column(&input), &input);
+    }
+
+    #[test]
+    fn explore_reboiled_absorber() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_feed = thermo.bubble_temperature(&z, P_ATM, 365.0, 0).map(|(t, _)| t).unwrap();
+        let h_feed = thermo.feed_molar_enthalpy(&z, t_feed, P_ATM, 0.0);
+        println!("feed bubble T = {t_feed}, h = {h_feed}");
+        let mut st = stages(8, 355.0, 4.0);
+        st[0] = st[0].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z.to_vec(), MolarEnergy::new::<joule_per_mole>(h_feed));
+        let column = RigorousColumn::reboiled_absorber(
+            comps,
+            PropertyPackageModel::Ideal,
+            st,
+            ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(0.5)),
+        );
+        run_all("reboiled absorber, B=0.5", &column);
+    }
+
+    #[test]
+    fn explore_refluxed_absorber() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_dew = dew_temperature(&comps, &z, P_ATM, PropertyPackageModel::Ideal).unwrap().temperature;
+        let h_feed = thermo.feed_molar_enthalpy(&z, t_dew, P_ATM, 1.0);
+        println!("feed dew T = {t_dew}, h = {h_feed}");
+        let mut st = stages(8, 355.0, 4.0);
+        st[7] = st[7].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z.to_vec(), MolarEnergy::new::<joule_per_mole>(h_feed));
+        let column = RigorousColumn::refluxed_absorber(
+            comps.clone(),
+            PropertyPackageModel::Ideal,
+            st.clone(),
+            ColumnSpec::reflux_ratio(2.0),
+        )
+        .with_distillate_estimate(MolarFlowRate::new::<katal>(0.5))
+        .with_reflux_ratio_estimate(2.0);
+        run_all("refluxed absorber, RR=2, D est 0.5", &column);
+        let column2 = RigorousColumn::refluxed_absorber(
+            comps,
+            PropertyPackageModel::Ideal,
+            st,
+            ColumnSpec::reflux_ratio(2.0),
+        )
+        .with_distillate_estimate(MolarFlowRate::new::<katal>(0.3))
+        .with_reflux_ratio_estimate(2.0);
+        run_all("refluxed absorber, RR=2, D est 0.3", &column2);
+    }
+
+    #[test]
+    fn explore_absorption_column() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        // Lean toluene liquid, subcooled a little, on stage 0.
+        let z_l = [0.0, 1.0];
+        let t_l = 360.0;
+        let h_l = thermo.feed_molar_enthalpy(&z_l, t_l, P_ATM, 0.0);
+        // Benzene-rich saturated vapour on the bottom stage.
+        let z_v = [0.9, 0.1];
+        let t_v = dew_temperature(&comps, &z_v, P_ATM, PropertyPackageModel::Ideal).unwrap().temperature;
+        let h_v = thermo.feed_molar_enthalpy(&z_v, t_v, P_ATM, 1.0);
+        println!("liquid feed h = {h_l} at {t_l}; vapour feed dew T = {t_v}, h = {h_v}");
+        for n in [6usize] {
+            let mut st = stages(n, 358.0, 2.0);
+            st[0] = st[0].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z_l.to_vec(), MolarEnergy::new::<joule_per_mole>(h_l));
+            st[n - 1] = st[n - 1].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z_v.to_vec(), MolarEnergy::new::<joule_per_mole>(h_v));
+            let column = RigorousColumn::absorption(comps.clone(), PropertyPackageModel::Ideal, st);
+            run_all(&format!("absorber n={n}"), &column);
+        }
+    }
+}
+
+#[cfg(test)]
+mod explore_refluxed_sweep {
+    use super::*;
+    use crate::columns::initial_estimates::RigorousColumn;
+    use crate::columns::newton_raphson::NaphtaliSandholmSolver;
+    use crate::columns::thermo_bridge::tests::{benzene, toluene};
+    use crate::columns::thermo_bridge::ColumnThermo;
+    use crate::thermo::property_package::PropertyPackageModel;
+    use crate::thermo::saturation::dew_temperature;
+    use uom::si::catalytic_activity::katal;
+    use uom::si::f64::MolarEnergy;
+    use uom::si::molar_energy::joule_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    const P_ATM: f64 = 101_325.0;
+
+    #[test]
+    fn sweep() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_dew = dew_temperature(&comps, &z, P_ATM, PropertyPackageModel::Ideal).unwrap().temperature;
+        let h_feed = thermo.feed_molar_enthalpy(&z, t_dew, P_ATM, 1.0);
+        for (t0, dt) in [(355.0, 4.0), (362.0, 1.2), (364.0, 1.0)] {
+            for d_est in [0.2, 0.3, 0.33, 0.4] {
+                for n in [8usize, 5] {
+                    let p = StagePressure::new::<pascal>(P_ATM);
+                    let mut st: Vec<Stage> = (0..n)
+                        .map(|i| Stage::new(format!("s{i}"), p, StageTemperature::new::<kelvin>(t0 + dt * i as f64), 2))
+                        .collect();
+                    st[n - 1] = st[n - 1].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z.to_vec(), MolarEnergy::new::<joule_per_mole>(h_feed));
+                    let column = RigorousColumn::refluxed_absorber(comps.clone(), PropertyPackageModel::Ideal, st, ColumnSpec::reflux_ratio(2.0))
+                        .with_distillate_estimate(MolarFlowRate::new::<katal>(d_est))
+                        .with_reflux_ratio_estimate(2.0);
+                    let input = column.solver_input().unwrap();
+                    match NaphtaliSandholmSolver::default().solve_column(&input) {
+                        Ok(out) => println!(
+                            "n={n} T0={t0} dT={dt} Dest={d_est}: OK it={} err={:.3e} T={:?} V0={:.4} LSS0={:.4} B={:.4} L0={:.4} x0={:.4} xB={:.4} Q0={:.0} resid={:.2e}",
+                            out.iterations_taken, out.final_error,
+                            out.stage_temperatures.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>(),
+                            out.vapor_flows[0], out.liquid_side_draws[0], out.liquid_flows[n - 1], out.liquid_flows[0],
+                            out.liquid_compositions[0][0], out.liquid_compositions[n - 1][0], out.stage_heats[0],
+                            out.molar_balance_residual(&input.feed_flows)
+                        ),
+                        Err(e) => println!("n={n} T0={t0} dT={dt} Dest={d_est}: ERR {e}"),
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod explore_refluxed_2 {
+    use super::*;
+    use crate::columns::bubble_point::WangHenkeSolver;
+    use crate::columns::initial_estimates::RigorousColumn;
+    use crate::columns::newton_raphson::NaphtaliSandholmSolver;
+    use crate::columns::thermo_bridge::tests::{benzene, toluene};
+    use crate::columns::thermo_bridge::ColumnThermo;
+    use crate::thermo::property_package::PropertyPackageModel;
+    use crate::thermo::saturation::dew_temperature;
+    use uom::si::catalytic_activity::katal;
+    use uom::si::f64::MolarEnergy;
+    use uom::si::molar_energy::joule_per_mole;
+    use uom::si::pressure::pascal;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    const P_ATM: f64 = 101_325.0;
+
+    fn show(label: &str, r: &Result<ColumnSolverOutput, ColumnError>, input: &ColumnSolverInput) {
+        let n = input.number_of_stages;
+        match r {
+            Ok(out) => println!(
+                "{label}: OK it={} err={:.3e} T={:?} V={:?} L={:?} LSS0={:.4} x0={:.4} xB={:.4} Q0={:.0} Qn={:.0} resid={:.2e}",
+                out.iterations_taken, out.final_error,
+                out.stage_temperatures.iter().map(|t| (t * 10.0).round() / 10.0).collect::<Vec<_>>(),
+                out.vapor_flows.iter().map(|t| (t * 1e3).round() / 1e3).collect::<Vec<_>>(),
+                out.liquid_flows.iter().map(|t| (t * 1e3).round() / 1e3).collect::<Vec<_>>(),
+                out.liquid_side_draws[0], out.liquid_compositions[0][0], out.liquid_compositions[n - 1][0],
+                out.stage_heats[0], out.stage_heats[n - 1], out.molar_balance_residual(&input.feed_flows)
+            ),
+            Err(e) => println!("{label}: ERR {e}"),
+        }
+    }
+
+    #[test]
+    fn ns_no_warm_on_distillation() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_feed = thermo.bubble_temperature(&z, P_ATM, 365.0, 4).map(|(t, _)| t).unwrap();
+        let h_feed = thermo.feed_molar_enthalpy(&z, t_feed, P_ATM, 0.0);
+        let p = StagePressure::new::<pascal>(P_ATM);
+        let mut st: Vec<Stage> = (0..8).map(|i| Stage::new(format!("s{i}"), p, StageTemperature::new::<kelvin>(355.0 + 4.0 * i as f64), 2)).collect();
+        st[4] = st[4].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z.to_vec(), MolarEnergy::new::<joule_per_mole>(h_feed));
+        let column = RigorousColumn::distillation(comps, PropertyPackageModel::Ideal, st, ColumnSpec::reflux_ratio(2.0), ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(0.5)))
+            .with_distillate_estimate(MolarFlowRate::new::<katal>(0.5)).with_reflux_ratio_estimate(2.0);
+        let input = column.solver_input().unwrap();
+        show("distillation NS(no warm)", &NaphtaliSandholmSolver::default().solve_column(&input), &input);
+    }
+
+    #[test]
+    fn refluxed_with_consistent_l_estimate() {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_dew = dew_temperature(&comps, &z, P_ATM, PropertyPackageModel::Ideal).unwrap().temperature;
+        for beta in [1.0, 0.5] {
+            let h_feed = thermo.feed_molar_enthalpy(&z, t_dew, P_ATM, beta);
+            for d_est in [0.25, 0.33, 0.4] {
+                let n = 8usize;
+                let p = StagePressure::new::<pascal>(P_ATM);
+                let mut st: Vec<Stage> = (0..n).map(|i| Stage::new(format!("s{i}"), p, StageTemperature::new::<kelvin>(355.0 + 4.0 * i as f64), 2)).collect();
+                st[n - 1] = st[n - 1].clone().with_feed(MolarFlowRate::new::<katal>(1.0), z.to_vec(), MolarEnergy::new::<joule_per_mole>(h_feed));
+                let mut column = RigorousColumn::refluxed_absorber(comps.clone(), PropertyPackageModel::Ideal, st, ColumnSpec::reflux_ratio(2.0))
+                    .with_distillate_estimate(MolarFlowRate::new::<katal>(d_est))
+                    .with_reflux_ratio_estimate(2.0);
+                // Consistent CMO estimate: V_i = (R+1) D, L_0 = R D, L_i = V - D (i<ns), L_ns = F - D.
+                let rr = 2.0;
+                let v: Vec<f64> = (0..n).map(|i| if i == 0 { 1e-10 } else { (rr + 1.0) * d_est }).collect();
+                let l: Vec<f64> = (0..n).map(|i| if i == 0 { rr * d_est } else if i < n - 1 { (rr + 1.0) * d_est - d_est } else { 1.0 - d_est }).collect();
+                column.initial_estimates.vapor_molar_flows = v;
+                column.initial_estimates.liquid_molar_flows = l;
+                let input = column.solver_input().unwrap();
+                let lbl = format!("beta={beta} Dest={d_est}");
+                show(&format!("{lbl} WH"), &WangHenkeSolver::default().solve_column(&input), &input);
+                show(&format!("{lbl} NS(no warm)"), &NaphtaliSandholmSolver::default().solve_column(&input), &input);
+                show(&format!("{lbl} NS(warm)"), &NaphtaliSandholmSolver::with_warm_start().solve_column(&input), &input);
+            }
+        }
+    }
+}

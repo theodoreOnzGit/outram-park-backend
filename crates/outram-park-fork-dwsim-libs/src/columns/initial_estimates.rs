@@ -46,10 +46,11 @@
 //!   flags and the `Validate*` calls collapse into one check per profile).
 
 use uom::si::catalytic_activity::katal;
+use uom::si::power::watt;
 
 use crate::columns::model::{
     ColumnError, ColumnSolverInput, ColumnSpec, ColumnType, CondenserType, InitialEstimates,
-    MolarFlowRate, SolvingScheme, Stage,
+    MolarFlowRate, SolvingScheme, Stage, StageHeatDuty,
 };
 use crate::columns::thermo_bridge::ColumnThermo;
 use crate::thermo::property_package::PropertyPackageModel;
@@ -107,17 +108,15 @@ pub struct RigorousColumn {
 }
 
 impl RigorousColumn {
-    /// A distillation column with `stages` stages, a total condenser, and the
-    /// two given specifications.
-    ///
-    /// Iteration budget and tolerances take upstream's defaults (100 iterations,
-    /// `1e-5`); the reflux-ratio seed is upstream's 5.0. The distillate-rate
-    /// seed defaults to half the total feed, which is a neutral starting split.
-    #[must_use]
-    pub fn distillation(
+    /// The shared body of the four constructors: upstream's defaults for the
+    /// iteration budget (100), tolerances (`1e-5`), reflux-ratio seed (5.0), and
+    /// a distillate-rate seed of half the total feed.
+    fn with_configuration(
         components: Vec<Component>,
         package: PropertyPackageModel,
         stages: Vec<Stage>,
+        column_type: ColumnType,
+        condenser_type: CondenserType,
         condenser_spec: ColumnSpec,
         reboiler_spec: ColumnSpec,
     ) -> Self {
@@ -126,8 +125,8 @@ impl RigorousColumn {
             components,
             package,
             stages,
-            column_type: ColumnType::DistillationColumn,
-            condenser_type: CondenserType::TotalCondenser,
+            column_type,
+            condenser_type,
             condenser_spec,
             reboiler_spec,
             max_iterations: 100,
@@ -139,6 +138,447 @@ impl RigorousColumn {
             distillate_rate_estimate: 0.5 * total_feed,
             vapor_rate_estimate: 0.0,
         }
+    }
+
+    /// A [`ColumnSpec::heat_duty`] carrying a stage's own `heat_duty` \[W\], so
+    /// that a solver which reads an end duty from the spec sees the same number
+    /// the caller put on the stage.
+    fn heat_duty_spec_from_stage(stage: Option<&Stage>) -> ColumnSpec {
+        let q = stage.map_or(0.0, |s| s.heat_duty);
+        ColumnSpec::heat_duty(StageHeatDuty::new::<watt>(q))
+    }
+
+    /// A distillation column with `stages` stages, a total condenser, and the
+    /// two given specifications.
+    ///
+    /// Iteration budget and tolerances take upstream's defaults (100 iterations,
+    /// `1e-5`); the reflux-ratio seed is upstream's 5.0. The distillate-rate
+    /// seed defaults to half the total feed, which is a neutral starting split.
+    ///
+    /// # Duty convention ([`ColumnType::DistillationColumn`])
+    ///
+    /// Condenser at stage `0` **and** reboiler at stage `n - 1`. **Both** end
+    /// duties are back-calculated from the end-stage energy balances, unless
+    /// the corresponding spec is a [`SpecType::HeatDuty`], in which case that
+    /// duty is imposed and the balance solves for a flow instead. Whatever
+    /// `heat_duty` the caller put on stage `0` or stage `n - 1` via
+    /// [`Stage::with_heat_duty`] is **discarded** by [`Self::solver_input`]
+    /// (zeroed before the solve); interior stage duties are honoured.
+    ///
+    /// [`SpecType::HeatDuty`]: crate::columns::model::SpecType::HeatDuty
+    #[must_use]
+    pub fn distillation(
+        components: Vec<Component>,
+        package: PropertyPackageModel,
+        stages: Vec<Stage>,
+        condenser_spec: ColumnSpec,
+        reboiler_spec: ColumnSpec,
+    ) -> Self {
+        Self::with_configuration(
+            components,
+            package,
+            stages,
+            ColumnType::DistillationColumn,
+            CondenserType::TotalCondenser,
+            condenser_spec,
+            reboiler_spec,
+        )
+    }
+
+    /// An absorption column ([`ColumnType::AbsorptionColumn`]): **no condenser,
+    /// no reboiler**, and therefore no end specification at all.
+    ///
+    /// The lean solvent is fed to the top stage (index `0`) and the gas to the
+    /// bottom stage (index `n - 1`) via [`Stage::with_feed`]. The overhead
+    /// product is the vapour leaving stage `0` (`V_0`, read with
+    /// [`ColumnSolverOutput::distillate_molar_flow`] and this column's
+    /// [`Self::condenser_type`]); the bottoms product is the liquid leaving
+    /// stage `n - 1` (`L_ns`, [`ColumnSolverOutput::bottoms_molar_flow`]). With
+    /// feeds, pressures and stage count fixed the column has **zero** remaining
+    /// degrees of freedom — every flow is set by the mass and energy balances.
+    ///
+    /// # Duty convention — both end duties are USER INPUT
+    ///
+    /// This is the rule that is silently got wrong, so it is spelled out:
+    ///
+    /// - **Nothing is back-calculated.** Unlike the other three column types,
+    ///   the solvers never solve an end-stage energy balance for a duty
+    ///   (`BubblePoint.vb:1664`, "use the provided values"). Every stage
+    ///   including both ends is an ordinary adiabatic-or-specified stage.
+    /// - **The end duties are read from the stages.** Whatever `heat_duty`
+    ///   \[W\] the caller set on stage `0` and stage `n - 1` with
+    ///   [`Stage::with_heat_duty`] is passed through unchanged by
+    ///   [`Self::solver_input`] — [`Stage::new`]'s default of `0 W` gives an
+    ///   adiabatic absorber, which is the normal case.
+    /// - **The two specs are `HeatDuty` mirrors of those stages, not free
+    ///   inputs.** This constructor sets [`Self::condenser_spec`] and
+    ///   [`Self::reboiler_spec`] to [`ColumnSpec::heat_duty`] carrying stage
+    ///   `0`'s and stage `n - 1`'s `heat_duty` respectively. It does this
+    ///   because the ported solvers write the `HeatDuty` spec value **over**
+    ///   the stage duty (`Q_0 = spec`, `BubblePoint.vb:987-990`;
+    ///   `NewtonRaphson.vb:389-455`), so a spec left at its default `0 W` would
+    ///   silently override a non-zero stage duty. Do not replace these specs
+    ///   with a flow, ratio or purity spec: an absorber has no degree of
+    ///   freedom for one to fix.
+    /// - **Sign, for a non-zero end duty.** The two solvers disagree on the
+    ///   sign of the bottom-end `HeatDuty` spec — Wang-Henke applies it as
+    ///   `Q_ns = -value` (the `Heat_Duty` case of `BubblePoint.vb:997-1021`, faithfully ported), while
+    ///   Naphtali-Sandholm applies `Q_ns = +value`. A non-zero bottom-stage
+    ///   duty on an absorber therefore currently means opposite things to the
+    ///   two solvers; `0 W` (adiabatic) is unambiguous and is the tested
+    ///   configuration. This is a pre-existing solver-side inconsistency,
+    ///   recorded here rather than hidden; the constructor does not attempt to
+    ///   correct it.
+    ///
+    /// [`Self::condenser_type`] is [`CondenserType::FullReflux`], which is the
+    /// configuration under which every solver in this port treats stage `0` as
+    /// a plain stage with a vapour product and `LSS_0 = 0` — it does **not**
+    /// mean anything is refluxed. Note that, as an internal-consistency
+    /// convention, Wang-Henke's flow estimate seeds `V` from the bottom-most
+    /// feed and `L` from the top-most feed (`RigorousColumn.vb:3337-3421`).
+    ///
+    /// # Which solver
+    ///
+    /// Use [`NaphtaliSandholmSolver`] (without warm start). The Wang-Henke
+    /// bubble-point family assumes a condenser at stage `0` when it steps the
+    /// vapour flows and has **not** been shown to converge on an absorber in
+    /// this port; sum-rates, upstream's absorber method, has not been shown to
+    /// converge on anything (see [`crate::columns`]'s test module). The
+    /// regression test `absorption_column_solves_through_the_public_api`
+    /// records the measured behaviour of all three.
+    ///
+    /// # Example
+    ///
+    /// A 6-stage benzene/toluene absorber: toluene liquid (the "lean solvent")
+    /// onto stage 0, saturated benzene-rich vapour onto stage 5, every stage
+    /// adiabatic. The example checks the duty convention end to end: the specs
+    /// mirror the stage duties, `solver_input` passes both end duties through
+    /// unchanged, and `LSS_0` is not seeded with a distillate.
+    ///
+    /// ```
+    /// use outram_park_fork_dwsim_libs::columns::initial_estimates::RigorousColumn;
+    /// use outram_park_fork_dwsim_libs::columns::{
+    ///     ColumnType, CondenserType, MolarEnthalpy, MolarFlowRate, SpecType, Stage,
+    ///     StageHeatDuty, StagePressure, StageTemperature,
+    /// };
+    /// use outram_park_fork_dwsim_libs::thermo::component::reference::{benzene, toluene};
+    /// use outram_park_fork_dwsim_libs::thermo::property_package::PropertyPackageModel;
+    /// use uom::si::catalytic_activity::katal;
+    /// use uom::si::molar_energy::joule_per_mole;
+    /// use uom::si::power::watt;
+    /// use uom::si::pressure::pascal;
+    /// use uom::si::thermodynamic_temperature::kelvin;
+    ///
+    /// let p = StagePressure::new::<pascal>(101_325.0);
+    /// let mut stages: Vec<Stage> = (0..6)
+    ///     .map(|i| {
+    ///         let t = StageTemperature::new::<kelvin>(360.0 + 3.0 * i as f64);
+    ///         Stage::new(format!("stage {i}"), p, t, 2)
+    ///     })
+    ///     .collect();
+    /// // Lean toluene liquid on the top stage (enthalpy on the column's own
+    /// // reference state; -26 kJ/mol is a saturated-liquid value at ~370 K).
+    /// stages[0] = stages[0].clone().with_feed(
+    ///     MolarFlowRate::new::<katal>(1.0),
+    ///     vec![0.0, 1.0],
+    ///     MolarEnthalpy::new::<joule_per_mole>(-26_000.0),
+    /// );
+    /// // Benzene-rich vapour on the bottom stage.
+    /// stages[5] = stages[5].clone().with_feed(
+    ///     MolarFlowRate::new::<katal>(1.0),
+    ///     vec![0.9, 0.1],
+    ///     MolarEnthalpy::new::<joule_per_mole>(6_000.0),
+    /// );
+    /// // An intercooler on the top stage: the ONLY way to put a duty on an
+    /// // absorber's end stage is on the stage itself.
+    /// stages[0] = stages[0].clone().with_heat_duty(StageHeatDuty::new::<watt>(-500.0));
+    ///
+    /// let column = RigorousColumn::absorption(
+    ///     vec![benzene(), toluene()],
+    ///     PropertyPackageModel::Ideal,
+    ///     stages,
+    /// );
+    /// assert_eq!(column.column_type, ColumnType::AbsorptionColumn);
+    /// assert_eq!(column.condenser_type, CondenserType::FullReflux);
+    ///
+    /// // Both specs are HeatDuty mirrors of the end stages -- not free inputs.
+    /// assert_eq!(column.condenser_spec.spec_type, SpecType::HeatDuty);
+    /// assert_eq!(column.condenser_spec.value, -500.0);
+    /// assert_eq!(column.reboiler_spec.spec_type, SpecType::HeatDuty);
+    /// assert_eq!(column.reboiler_spec.value, 0.0);
+    ///
+    /// // solver_input passes BOTH end duties through unchanged and seeds no
+    /// // distillate draw on stage 0.
+    /// let input = column.solver_input().unwrap();
+    /// assert_eq!(input.stage_heats[0], -500.0);
+    /// assert_eq!(input.stage_heats[5], 0.0);
+    /// assert_eq!(input.liquid_side_draws[0], 0.0);
+    /// ```
+    ///
+    /// [`ColumnSolverOutput::distillate_molar_flow`]: crate::columns::model::ColumnSolverOutput::distillate_molar_flow
+    /// [`ColumnSolverOutput::bottoms_molar_flow`]: crate::columns::model::ColumnSolverOutput::bottoms_molar_flow
+    /// [`NaphtaliSandholmSolver`]: crate::columns::newton_raphson::NaphtaliSandholmSolver
+    #[must_use]
+    pub fn absorption(
+        components: Vec<Component>,
+        package: PropertyPackageModel,
+        stages: Vec<Stage>,
+    ) -> Self {
+        let condenser_spec = Self::heat_duty_spec_from_stage(stages.first());
+        let reboiler_spec = Self::heat_duty_spec_from_stage(stages.last());
+        Self::with_configuration(
+            components,
+            package,
+            stages,
+            ColumnType::AbsorptionColumn,
+            CondenserType::FullReflux,
+            condenser_spec,
+            reboiler_spec,
+        )
+    }
+
+    /// A reboiled absorber ([`ColumnType::ReboiledAbsorber`]) — a **stripper**:
+    /// reboiler at stage `n - 1`, **no condenser**, one specification (at the
+    /// reboiler end).
+    ///
+    /// The liquid to be stripped is fed to the top stage (index `0`) via
+    /// [`Stage::with_feed`]; the reboiler generates the stripping vapour. The
+    /// overhead product is the vapour leaving stage `0` (`V_0`, read with
+    /// [`ColumnSolverOutput::distillate_molar_flow`] and this column's
+    /// [`Self::condenser_type`]); the bottoms product is `L_ns`. The column has
+    /// **one** degree of freedom, fixed by `reboiler_spec` — a bottoms molar
+    /// flow ([`ColumnSpec::product_molar_flow`]), a reboiler duty
+    /// ([`ColumnSpec::heat_duty`]), a bottoms purity, or any other
+    /// reboiler-end [`SpecType`].
+    ///
+    /// # Duty convention
+    ///
+    /// - **Reboiler duty `Q_ns` is back-calculated** from the bottom-stage
+    ///   energy balance (the `ReboiledAbsorber` case of `BubblePoint.vb:1645-1673`) unless `reboiler_spec` is
+    ///   a `HeatDuty`, in which case it is imposed. Any `heat_duty` the caller
+    ///   set on stage `n - 1` is **discarded** by [`Self::solver_input`].
+    /// - **Top-stage duty `Q_0` is user input**, read from stage `0`'s
+    ///   `heat_duty` ([`Stage::with_heat_duty`]; default `0 W`, adiabatic) and
+    ///   passed through unchanged. There is no condenser to back-calculate.
+    /// - **There is no condenser-end specification.** The solvers force the
+    ///   condenser-end spec to "directly imposable" and ignore it
+    ///   (`BubblePoint.vb:126`, `:992-995`). This constructor sets
+    ///   [`Self::condenser_spec`] to a `HeatDuty` mirror of stage `0`'s
+    ///   `heat_duty`, so the one solver that still *reads* it
+    ///   (Naphtali-Sandholm writes `Q_0 = spec`, `NewtonRaphson.vb:389-455`) sees
+    ///   the same number as the stage. Leave it alone.
+    ///
+    /// [`Self::condenser_type`] is [`CondenserType::FullReflux`]: the
+    /// configuration under which every solver treats stage `0` as a plain stage
+    /// with a vapour product and `LSS_0 = 0`. It is required, not cosmetic —
+    /// with a `TotalCondenser` the Naphtali-Sandholm residuals would zero `V_0`
+    /// (`NewtonRaphson.vb:174-177`) and the stripper would have no overhead.
+    ///
+    /// # Example
+    ///
+    /// An 8-stage benzene/toluene stripper: equimolar saturated liquid onto
+    /// stage 0, bottoms fixed at 0.5 mol/s. The example checks the duty
+    /// convention: stage 7's duty is dropped (to be back-calculated), stage 0's
+    /// is kept, the condenser-end spec mirrors stage 0, and no distillate draw
+    /// is seeded.
+    ///
+    /// ```
+    /// use outram_park_fork_dwsim_libs::columns::initial_estimates::RigorousColumn;
+    /// use outram_park_fork_dwsim_libs::columns::{
+    ///     ColumnSpec, ColumnType, CondenserType, MolarEnthalpy, MolarFlowRate, SpecType,
+    ///     Stage, StageHeatDuty, StagePressure, StageTemperature,
+    /// };
+    /// use outram_park_fork_dwsim_libs::thermo::component::reference::{benzene, toluene};
+    /// use outram_park_fork_dwsim_libs::thermo::property_package::PropertyPackageModel;
+    /// use uom::si::catalytic_activity::katal;
+    /// use uom::si::molar_energy::joule_per_mole;
+    /// use uom::si::power::watt;
+    /// use uom::si::pressure::pascal;
+    /// use uom::si::thermodynamic_temperature::kelvin;
+    ///
+    /// let p = StagePressure::new::<pascal>(101_325.0);
+    /// let mut stages: Vec<Stage> = (0..8)
+    ///     .map(|i| {
+    ///         let t = StageTemperature::new::<kelvin>(360.0 + 3.0 * i as f64);
+    ///         Stage::new(format!("stage {i}"), p, t, 2)
+    ///     })
+    ///     .collect();
+    /// stages[0] = stages[0]
+    ///     .clone()
+    ///     .with_feed(
+    ///         MolarFlowRate::new::<katal>(1.0),
+    ///         vec![0.5, 0.5],
+    ///         MolarEnthalpy::new::<joule_per_mole>(-25_000.0),
+    ///     )
+    ///     .with_heat_duty(StageHeatDuty::new::<watt>(-200.0)); // top-stage cooler: kept
+    /// stages[7] = stages[7]
+    ///     .clone()
+    ///     .with_heat_duty(StageHeatDuty::new::<watt>(99_999.0)); // ignored: back-calculated
+    ///
+    /// let column = RigorousColumn::reboiled_absorber(
+    ///     vec![benzene(), toluene()],
+    ///     PropertyPackageModel::Ideal,
+    ///     stages,
+    ///     ColumnSpec::product_molar_flow(MolarFlowRate::new::<katal>(0.5)),
+    /// );
+    /// assert_eq!(column.column_type, ColumnType::ReboiledAbsorber);
+    /// assert_eq!(column.condenser_type, CondenserType::FullReflux);
+    /// assert_eq!(column.reboiler_spec.spec_type, SpecType::ProductMolarFlowRate);
+    /// // The condenser-end "spec" is a placeholder mirroring stage 0's duty.
+    /// assert_eq!(column.condenser_spec.spec_type, SpecType::HeatDuty);
+    /// assert_eq!(column.condenser_spec.value, -200.0);
+    ///
+    /// let input = column.solver_input().unwrap();
+    /// assert_eq!(input.stage_heats[0], -200.0); // user input, kept
+    /// assert_eq!(input.stage_heats[7], 0.0);    // reboiler: back-calculated
+    /// assert_eq!(input.liquid_side_draws[0], 0.0);
+    /// ```
+    ///
+    /// [`ColumnSolverOutput::distillate_molar_flow`]: crate::columns::model::ColumnSolverOutput::distillate_molar_flow
+    /// [`SpecType`]: crate::columns::model::SpecType
+    #[must_use]
+    pub fn reboiled_absorber(
+        components: Vec<Component>,
+        package: PropertyPackageModel,
+        stages: Vec<Stage>,
+        reboiler_spec: ColumnSpec,
+    ) -> Self {
+        let condenser_spec = Self::heat_duty_spec_from_stage(stages.first());
+        Self::with_configuration(
+            components,
+            package,
+            stages,
+            ColumnType::ReboiledAbsorber,
+            CondenserType::FullReflux,
+            condenser_spec,
+            reboiler_spec,
+        )
+    }
+
+    /// A refluxed absorber ([`ColumnType::RefluxedAbsorber`]): total condenser
+    /// at stage `0`, **no reboiler**, one specification (at the condenser end).
+    ///
+    /// This is the shape of a crude distillation unit (steam-stripped, no
+    /// reboiler) and of a reformate stabiliser. The vapour to be rectified is
+    /// fed to the bottom stage (index `n - 1`) via [`Stage::with_feed`] — since
+    /// there is no reboiler, **the feed's own vapour fraction is the only
+    /// source of up-flowing vapour**, so a saturated- or partly-vaporised feed
+    /// is needed for the column to be well-posed. The distillate is the liquid
+    /// draw off stage `0` (`LSS_0`, [`ColumnSolverOutput::distillate_molar_flow`]);
+    /// the bottoms is `L_ns`. The column has **one** degree of freedom, fixed by
+    /// `condenser_spec` — a reflux ratio ([`ColumnSpec::reflux_ratio`]), a
+    /// distillate flow ([`ColumnSpec::product_molar_flow`]), a condenser duty, a
+    /// distillate purity, or any other condenser-end [`SpecType`].
+    ///
+    /// # Duty convention
+    ///
+    /// - **Condenser duty `Q_0` is back-calculated** from the top-stage energy
+    ///   balance (the `RefluxedAbsorber` case of `BubblePoint.vb:1645-1673`) unless `condenser_spec` is a
+    ///   `HeatDuty`, in which case it is imposed. Any `heat_duty` the caller set
+    ///   on stage `0` is **discarded** by [`Self::solver_input`].
+    /// - **Bottom-stage duty `Q_ns` is user input**, read from stage `n - 1`'s
+    ///   `heat_duty` ([`Stage::with_heat_duty`]; default `0 W`, adiabatic) and
+    ///   passed through unchanged. There is no reboiler to back-calculate.
+    /// - **There is no reboiler-end specification.** The solvers force the
+    ///   reboiler-end spec to "directly imposable" and ignore it — the bottoms
+    ///   rate is simply `B = L_ns` from the mass balance (`BubblePoint.vb:127`,
+    ///   `:1020`). This constructor sets [`Self::reboiler_spec`] to a `HeatDuty`
+    ///   mirror of stage `n - 1`'s `heat_duty`, so the one solver that still
+    ///   *reads* it (Naphtali-Sandholm writes `Q_ns = spec`,
+    ///   `NewtonRaphson.vb:457-498`) sees the same number as the stage. Leave it
+    ///   alone.
+    ///
+    /// # Which solver
+    ///
+    /// Use [`NaphtaliSandholmSolver`]. In the Wang-Henke bubble-point family the
+    /// bottoms rate `B = L_ns` is closed by the *mass* balance alone, which
+    /// leaves the distillate rate pinned at its initial estimate
+    /// ([`Self::with_distillate_estimate`]) — the bottom-stage energy balance
+    /// is never enforced. Naphtali-Sandholm keeps every energy balance as an
+    /// equation. The regression test
+    /// `refluxed_absorber_solves_through_the_public_api` records the measured
+    /// behaviour of both.
+    ///
+    /// # Example
+    ///
+    /// An 8-stage benzene/toluene refluxed absorber: equimolar saturated vapour
+    /// onto stage 7, reflux ratio 2. The example checks the duty convention:
+    /// stage 0's duty is dropped (to be back-calculated), stage 7's is kept, and
+    /// the reboiler-end spec mirrors stage 7.
+    ///
+    /// ```
+    /// use outram_park_fork_dwsim_libs::columns::initial_estimates::RigorousColumn;
+    /// use outram_park_fork_dwsim_libs::columns::{
+    ///     ColumnSpec, ColumnType, CondenserType, MolarEnthalpy, MolarFlowRate, SpecType,
+    ///     Stage, StageHeatDuty, StagePressure, StageTemperature,
+    /// };
+    /// use outram_park_fork_dwsim_libs::thermo::component::reference::{benzene, toluene};
+    /// use outram_park_fork_dwsim_libs::thermo::property_package::PropertyPackageModel;
+    /// use uom::si::catalytic_activity::katal;
+    /// use uom::si::molar_energy::joule_per_mole;
+    /// use uom::si::power::watt;
+    /// use uom::si::pressure::pascal;
+    /// use uom::si::thermodynamic_temperature::kelvin;
+    ///
+    /// let p = StagePressure::new::<pascal>(101_325.0);
+    /// let mut stages: Vec<Stage> = (0..8)
+    ///     .map(|i| {
+    ///         let t = StageTemperature::new::<kelvin>(355.0 + 3.0 * i as f64);
+    ///         Stage::new(format!("stage {i}"), p, t, 2)
+    ///     })
+    ///     .collect();
+    /// stages[0] = stages[0]
+    ///     .clone()
+    ///     .with_heat_duty(StageHeatDuty::new::<watt>(99_999.0)); // ignored: back-calculated
+    /// stages[7] = stages[7]
+    ///     .clone()
+    ///     .with_feed(
+    ///         MolarFlowRate::new::<katal>(1.0),
+    ///         vec![0.5, 0.5],
+    ///         MolarEnthalpy::new::<joule_per_mole>(7_000.0), // saturated vapour
+    ///     )
+    ///     .with_heat_duty(StageHeatDuty::new::<watt>(300.0)); // bottom-stage duty: kept
+    ///
+    /// let column = RigorousColumn::refluxed_absorber(
+    ///     vec![benzene(), toluene()],
+    ///     PropertyPackageModel::Ideal,
+    ///     stages,
+    ///     ColumnSpec::reflux_ratio(2.0),
+    /// );
+    /// assert_eq!(column.column_type, ColumnType::RefluxedAbsorber);
+    /// assert_eq!(column.condenser_type, CondenserType::TotalCondenser);
+    /// assert_eq!(column.condenser_spec.spec_type, SpecType::StreamRatio);
+    /// // The reboiler-end "spec" is a placeholder mirroring stage 7's duty.
+    /// assert_eq!(column.reboiler_spec.spec_type, SpecType::HeatDuty);
+    /// assert_eq!(column.reboiler_spec.value, 300.0);
+    ///
+    /// let input = column.solver_input().unwrap();
+    /// assert_eq!(input.stage_heats[0], 0.0);   // condenser: back-calculated
+    /// assert_eq!(input.stage_heats[7], 300.0); // user input, kept
+    /// // A total condenser seeds the distillate draw on stage 0.
+    /// assert!(input.liquid_side_draws[0] > 0.0);
+    /// ```
+    ///
+    /// [`ColumnSolverOutput::distillate_molar_flow`]: crate::columns::model::ColumnSolverOutput::distillate_molar_flow
+    /// [`SpecType`]: crate::columns::model::SpecType
+    /// [`NaphtaliSandholmSolver`]: crate::columns::newton_raphson::NaphtaliSandholmSolver
+    #[must_use]
+    pub fn refluxed_absorber(
+        components: Vec<Component>,
+        package: PropertyPackageModel,
+        stages: Vec<Stage>,
+        condenser_spec: ColumnSpec,
+    ) -> Self {
+        let reboiler_spec = Self::heat_duty_spec_from_stage(stages.last());
+        Self::with_configuration(
+            components,
+            package,
+            stages,
+            ColumnType::RefluxedAbsorber,
+            CondenserType::TotalCondenser,
+            condenser_spec,
+            reboiler_spec,
+        )
     }
 
     /// Set the distillate molar-rate estimate \[mol/s\].
@@ -358,10 +798,27 @@ impl RigorousColumn {
             && self.initial_estimates.liquid_molar_flows.len() == n;
 
         // Running net feed sum: sum1_i = Σ_{m<=i} (F_m − U_m − W_m).
+        //
+        // For a refluxed absorber with a liquid distillate the distillate
+        // estimate is counted as the stage-0 liquid draw it will become
+        // (`solver_input` writes `LSS_0 = distillate_rate_estimate` after this
+        // call), so that `L_ns = F − D` closes the overall balance. Every other
+        // column type re-imposes its end flows from a spec on the first solver
+        // pass, so leaving `D` out of `sum1` — as upstream does — is harmless
+        // there; a refluxed absorber has no reboiler spec and reads
+        // `B = L_ns` straight from this estimate (`BubblePoint.vb:1020`), so
+        // an `L_ns` that ignores `D` pins the bubble-point solvers to the
+        // degenerate all-liquid solution `D = 0` (measured 2026-09-10; see
+        // `refluxed_absorber_solves_through_the_public_api`).
+        let counts_distillate_in_sum1 = self.column_type == ColumnType::RefluxedAbsorber
+            && self.condenser_type != CondenserType::FullReflux;
         let mut sum1 = vec![0.0_f64; n];
         let mut running = 0.0_f64;
         for i in 0..n {
             running += feed_flows[i] - liquid_side_draws[i] - vapor_side_draws[i];
+            if i == 0 && counts_distillate_in_sum1 {
+                running -= distrate;
+            }
             sum1[i] = running;
         }
 
