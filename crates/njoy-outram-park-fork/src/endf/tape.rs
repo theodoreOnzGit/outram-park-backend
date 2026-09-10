@@ -211,6 +211,67 @@ impl Tape {
         }
     }
 
+    /// Assemble a minimal **PENDF** tape for one material from pointwise
+    /// lin-lin MF=3 cross sections — the in-memory counterpart of what
+    /// RECONR/BROADR write, sufficient for the modules that *read* a PENDF
+    /// (GROUPR's `getsig`, ERRORR's `grpav`).
+    ///
+    /// Layout written:
+    /// - MF=1/MT=451: HEAD `(za, awr, 0, 0, 0, 0)`; for `iverf >= 5` the
+    ///   `(elis, sta, lis, liso, 0, nfor)` CONT; for `iverf >= 6` the
+    ///   `(awi, emax, lrel, 0, nsub, nver)` CONT; then the `hdatio` head
+    ///   `(temp_k, 0, 1, 0, 0, 0)` — the record NJOY reads the material
+    ///   temperature from (`groupr.f90`/`errorr.f90` `hdatio` + `c1h`).
+    /// - MF=3/MT for each `(mt, pairs)`: HEAD `(za, awr, 0, 0, 0, 0)` + a
+    ///   one-region lin-lin TAB1 `(0, 0, 0, 0, 1, np) / (np, 2) / pairs`.
+    ///
+    /// No MF=2 is written (no resonance range record), so a consumer that
+    /// needs `thnmax`/URR tables must not rely on this tape for them.
+    pub fn pendf_from_pointwise<'a>(
+        mat: i32,
+        iverf: i32,
+        za: f64,
+        awr: f64,
+        temp_k: f64,
+        sections: impl IntoIterator<Item = (i32, &'a [(f64, f64)])>,
+    ) -> Self {
+        let key = |mf: i32, mt: i32| EndfKey { mat, mf, mt };
+        let mut out = Vec::new();
+        let mut rows = vec![[za, awr, 0.0, 0.0, 0.0, 0.0]];
+        if iverf >= 5 {
+            rows.push([0.0, 0.0, 0.0, 0.0, 0.0, f64::from(iverf.min(6))]);
+        }
+        if iverf >= 6 {
+            rows.push([1.0, 2.0e7, 0.0, 0.0, 10.0, 8.0]);
+        }
+        rows.push([temp_k, 0.0, 1.0, 0.0, 0.0, 0.0]);
+        out.push(Section {
+            key: key(1, 451),
+            rows,
+        });
+        for (mt, pairs) in sections {
+            let np = pairs.len() as f64;
+            let mut rows = vec![
+                [za, awr, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, np],
+                [np, 2.0, 0.0, 0.0, 0.0, 0.0],
+            ];
+            for chunk in pairs.chunks(3) {
+                let mut row = [0.0f64; 6];
+                for (i, &(x, y)) in chunk.iter().enumerate() {
+                    row[2 * i] = x;
+                    row[2 * i + 1] = y;
+                }
+                rows.push(row);
+            }
+            out.push(Section {
+                key: key(3, mt),
+                rows,
+            });
+        }
+        Tape::from_sections(String::new(), out)
+    }
+
     /// Write this tape back out in ENDF ASCII (formatted) mode — the write
     /// side of [`Tape::read`], and the core of what NJOY's **MODER** module
     /// does when converting mode (`endf.f90`'s `contio`/`lineio` write paths,
