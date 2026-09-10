@@ -118,7 +118,10 @@ pub use unresolved::{
     genflx_bondarenko, LssfFlag, OverlapContext, SelfShieldedFluxSet, UnresolvedTable, UnrShielded,
     UrrEnergyPoint, UrrReaction,
 };
-pub use pendf_feed::{classify_mtd, read_pendf_cross_section, MtdClass, PendfCrossSection};
+pub use pendf_feed::{
+    classify_mtd, decode_extended_mfd, gety1_first_energy, read_pendf_cross_section,
+    read_pendf_mf10_cross_section, ExtendedMfd, MtdClass, PendfCrossSection,
+};
 pub use urr_pendf::{lssf_from_flag, read_urr_from_tape, read_urr_table};
 
 // Re-export the shared neutron group structures (owned by ERRORR's `gengpn`

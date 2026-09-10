@@ -283,7 +283,7 @@ pub fn assemble_tables(
                             for k in 1..=ng {
                                 let jg = ng - k + 1;
                                 spect[jg as usize] = 0.0;
-                                if k >= ig2lo && k <= ig2lo + ng2 - 1 {
+                                if (ig2lo..=ig2lo + ng2 - 1).contains(&k) {
                                     spect[jg as usize] = raw(rec, k - ig2lo + 1);
                                 }
                             }
@@ -394,7 +394,7 @@ pub fn assemble_tables(
                     for k in 1..=ngp {
                         let jgp = ngp - k + 1;
                         spect[jgp as usize] = 0.0;
-                        if k >= ig2lo && k <= ig2lo + ng2 - 1 {
+                        if (ig2lo..=ig2lo + ng2 - 1).contains(&k) {
                             spect[jgp as usize] = raw(rec, k - ig2lo + 1);
                         }
                     }

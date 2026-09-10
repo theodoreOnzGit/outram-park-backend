@@ -211,8 +211,16 @@ deck take the tabulated `genflx` flux (a test-construction error, not a
 port defect); and `getfle`'s label-210 slide keeps stale high-order
 coefficients, now replicated in `File4Angular` (an 8 % P3 element).
 
-Still **not** golden-validated: File-6 continuum feeds, GAMINR,
-`LSSF = 0` materials, and more than one temperature.
+**MF=10 residual production (`mfd = 4zzzaaam`), golden-validated
+(2026-09-10, `tests/groupr_u235_mf10_golden.rs`,
+`reference-data/gendf/u235-*-1sigz-mf10.gendf`):** `getsig`'s MF=10
+subsection search (`groupr.f90:6719-6746`) for U-235 `MT=4` into the ground
+state and the 235m isomer; see the test's doc comment for the measured
+agreement on NJOY's PENDF table (strict) and on the ENDF table (looser).
+
+Still **not** golden-validated: File-6 continuum feeds,
+`LSSF = 0` materials, and more than one temperature. GAMINR's engine now has
+its own oracle (`src/gaminr/README.md`).
 
 ## Caveats
 

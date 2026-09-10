@@ -35,12 +35,15 @@
 //!   MF=3 (or MF=13, "redundant" summed cross section) TAB1 record, which
 //!   covers the overwhelming majority of GROUPR reaction requests (elastic,
 //!   capture, fission, discrete/continuum inelastic levels, ...).
-//! - **NOT PORTED — MF=10 (photon-production yields keyed by `izap`/`lfs`,
-//!   `groupr.f90:6719-6746`).** That branch reads *multiple* TAB1 records in
-//!   one section and searches them by isotope/final-state identifiers. This
-//!   module does not attempt the `mfd`-based File-10 dispatch at all (see
-//!   [`MtdClass`]'s doc) — a caller wanting photon-production yields needs a
-//!   separate reader.
+//! - **DONE (2026-09-10) — MF=10 residual production (`mfd >= 40000000`,
+//!   `groupr.f90:6719-6746`):** [`decode_extended_mfd`] decodes the card-9
+//!   `4zzzaaam` form (`:684-699`) and [`read_pendf_mf10_cross_section`]
+//!   walks the section's TAB1 subsections for the one with `L1 = izar`,
+//!   `L2 = lfs`, taking its `C2` as `QI` and `lrflag = 0`. Golden-tested
+//!   against NJOY's GENDF for U-235 `MT=4` into the ground state and the
+//!   235m isomer (`tests/groupr_u235_mf10_golden.rs`); note RECONR rewrites
+//!   MF=10 onto its union grid, so the PENDF's table is the one GROUPR
+//!   integrates.
 //! - **DONE (2026-09-10):** the derived non-cross-section quantities
 //!   `MT=257/258/259` (average energy / lethargy / reciprocal velocity,
 //!   `groupr.f90:6687-6694,6758-6772`) — analytic functions of the incident
@@ -151,6 +154,123 @@ pub fn classify_mtd(mtd: i32) -> Result<MtdClass, NjoyError> {
         other => other,
     };
     Ok(MtdClass::CrossSection { mf: 3, mt })
+}
+
+/// `gety1`'s initialisation scan (`endf.f90`, label 100): the "first"
+/// energy GROUPR's group loop compares group tops against
+/// (`if (ehi.le.first) go to 580`, `groupr.f90:520`). Leading zero points
+/// are skipped: `first` is the energy of the last zero point before the
+/// first non-zero one, times `down = 0.999999` when that is not the first
+/// point; a table starting with a non-zero value, or with a single leading
+/// zero, gives `x(1)`.
+pub fn gety1_first_energy(pairs: &[(f64, f64)]) -> f64 {
+    const DOWN: f64 = 0.999_999;
+    let np = pairs.len();
+    if np == 0 {
+        return 1.0e10;
+    }
+    let mut ip = 0usize; // 0-based
+    loop {
+        let (x, y) = pairs[ip];
+        if y != 0.0 || ip + 1 >= np.saturating_sub(1) {
+            return x;
+        }
+        if pairs[ip + 1].1 != 0.0 {
+            return if ip > 0 { DOWN * x } else { x };
+        }
+        ip += 1;
+    }
+}
+
+/// The residual-production request forms of GROUPR's card 9 `mfd`
+/// (`groupr.f90:684-699`): `mfd = f*10000000 + izar*10 + lfs` with
+/// `f = 1` (MF=3 by residual), `2` (MF=3*MF=6), `3` (MF=3*MF=9), `4`
+/// (MF=10); `40000000` alone is the MF=10 fission special case.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtendedMfd {
+    /// The file class `f` (1..=4).
+    pub file_class: i32,
+    /// Residual `ZA` (`izar`; `-1` for the fission special case).
+    pub izar: i32,
+    /// Residual level / isomer number (`lfs`).
+    pub lfs: i32,
+    /// `izam` as written to the GENDF HEAD `C2` for this numeric form
+    /// (`:696-698`, `:875`): `mod(mfd, 10000000) = izar*10 + lfs` (times 10
+    /// when `lfs >= 10`), e.g. `922351` for U-235m; `-1` for fission. (The
+    /// card-9a residual form builds `izar*1000 + lfs` instead, `:673`.)
+    pub izam: i32,
+}
+
+/// Decode a card-9 `mfd >= 10000000` (`groupr.f90:684-699`); `None` for an
+/// ordinary `mfd`.
+pub fn decode_extended_mfd(mfd: i32) -> Option<ExtendedMfd> {
+    if mfd < 10_000_000 {
+        return None;
+    }
+    if mfd == 40_000_000 {
+        return Some(ExtendedMfd {
+            file_class: 4,
+            izar: -1,
+            lfs: 0,
+            izam: -1,
+        });
+    }
+    let file_class = mfd / 10_000_000;
+    let rest = mfd - 10_000_000 * file_class;
+    let izar = rest / 10;
+    let lfs = rest - 10 * izar;
+    let izam = if lfs < 10 { rest } else { 10 * rest };
+    Some(ExtendedMfd {
+        file_class,
+        izar,
+        lfs,
+        izam,
+    })
+}
+
+/// `getsig`'s MF=10 branch (`groupr.f90:6719-6746`, `mfd >= 40000000`): read
+/// the MF=10 section `mt` of `mat` and select the subsection whose TAB1
+/// carries `L1 = izar`, `L2 = lfs`; its `C2` is the level's `QI` and
+/// `lrflag` is forced to `0` (`:6749-6750`, `mf /= 3`).
+///
+/// # Errors
+/// [`NjoyError::SectionNotFound`] when MF=10/`mt` is absent;
+/// [`NjoyError::EndfParse`] when no subsection matches (`can't find
+/// mf,mt,izar,lfs`, `:6730-6733`); [`NjoyError::NotPorted`] for a non-lin-lin
+/// or multi-region TAB1, as for MF=3.
+pub fn read_pendf_mf10_cross_section(
+    tape: &Tape,
+    mat: i32,
+    mt: i32,
+    izar: i32,
+    lfs: i32,
+) -> Result<PendfCrossSection, NjoyError> {
+    let section = tape
+        .section(mat, 10, mt)
+        .ok_or(NjoyError::SectionNotFound { mat, mf: 10, mt })?;
+    let mut cur = SectionCursor::new(&section.rows);
+    let head = cur.read_cont()?;
+    let awr = head.c2;
+    let nfs = head.n1;
+    for _ in 0..nfs {
+        let tab1 = cur.read_tab1()?;
+        if tab1.head.l1 == izar && tab1.head.l2 == lfs {
+            if tab1.interp.len() != 1 || tab1.interp[0].1 != 2 {
+                return Err(NjoyError::NotPorted(
+                    "groupr::getsig general (non-lin-lin / multi-region) MF=10 interpolation",
+                ));
+            }
+            return Ok(PendfCrossSection {
+                awr,
+                qi: tab1.head.c2,
+                lr: 0,
+                xs: PointwiseXs::LinLin(Arc::new(tab1.pairs)),
+            });
+        }
+    }
+    Err(NjoyError::EndfParse(format!(
+        "getsig: can't find mf,mt,izar,lfs = 10 {mt} {izar} {lfs}"
+    )))
 }
 
 /// A PENDF pointwise cross section plus its atomic-weight ratio — the tape-read

@@ -22,6 +22,7 @@ and the oracle build it came from. Regenerate with
 | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-het-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.gendf` (16 KB, 186 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.gendf` (15 KB, 177 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-1sigz-lord3-inelastic-mf3-mf6.njoy-input` | 2026-09-10 |
+| `u235-ENDF8.0-293.6K-29g-iwt3-1sigz-mf10.gendf` (12 KB, 146 lines) | U-235, MAT 9228 | `../endf/n-092_U_235-ENDF8.0.endf` (ENDF/B-VIII.0) | same build | `u235-ENDF8.0-293.6K-29g-iwt3-1sigz-mf10.njoy-input` | 2026-09-10 |
 | `photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf` (24 KB, 288 lines) | synthetic Z = 6, "MAT 600" | `../endf/photoat-synthetic-Z6.endf` (synthetic) | same build, GAMINR | `photoat-synthetic-Z6-lanl12-iwt3-lord3.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.gendf` (28 KB, 340 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF (as above) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mt257-259.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.gendf` (51 KB, 624 lines) | U-238, MAT 9237 | NJOY's own 293.6 K PENDF of `../endf/n-092_U_238.endf` (the RECONR/BROADR steps of the first deck) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-lord3-mf6.njoy-input` | 2026-09-10 |
@@ -121,6 +122,20 @@ MF=23 is already lin-lin): `gaminr 20 20 0 21 / 600 3 3 3 1 /` — LANL
 reactions `23/501 502 504 516 522`, `26/502 504 516`, `23/525` (total
 heating, last). 288 lines. Consumed by
 `crates/njoy-outram-park-fork/tests/gaminr_synthetic_photoat_golden.rs`.
+
+### `u235-ENDF8.0-293.6K-29g-iwt3-1sigz-mf10.gendf`
+
+U-235 (MAT 9228) from `../endf/n-092_U_235-ENDF8.0.endf`: RECONR
+(`err = 0.002`) → BROADR (293.6 K, `errthn = 0.002`) → GROUPR
+`9228 1 0 3 0 1 1 1` (29 groups, `iwt = 3`, **`nsigz = 1`**), reactions
+`3 1`, `3 4`, **`40922350 4`** and **`40922351 4`** — the numeric card-9
+form `4zzzaaam` for MF=10 residual production (`groupr.f90:684-699`):
+residual ZA 92235, level 0 (ground) and 1 (the 235m isomer). GROUPR writes
+them as two extra `MF=3/MT=4` sections with `izam = 922350` / `922351` in
+the HEAD `C2` (`:875`), so the tape holds three `MF=3/MT=4` sections. 146
+lines. RECONR rewrites MF=10 onto its union grid (675 points from 88), so
+the strict comparison needs that PENDF (`OUTRAM_PARK_NJOY_U235_PENDF`).
+Consumed by `crates/njoy-outram-park-fork/tests/groupr_u235_mf10_golden.rs`.
 
 Data policy: GENDF is a *derived* product of open ENDF/B-VIII.0 data processed
 with the BSD-licensed NJOY2016; it carries no proprietary content.
