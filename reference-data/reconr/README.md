@@ -45,3 +45,25 @@ against NJOY's unionised 7,284.
 
 Data policy: derived products of open ENDF/B-VIII.0 data processed with the
 BSD-licensed NJOY2016; no proprietary content.
+
+## Ar-37 (TENDL-2023, MLBW) — added 2026-09-10 (bead `op-cral`)
+
+| Tape | Material | Deck | Points |
+|---|---|---|---|
+| `ar37-tendl2023-0K.pendf` (632 KB) | Ar-37, MAT 1828, `LRP=1`, RRR 1e-5 eV – 4268.035 eV `LRU=1/LRF=2` (MLBW, 7 levels incl. three bound levels), URR 4268–5548 eV `LRF=2` | `reconr 20 21 / 1828 0 / 0.001 / 0 /` (err = 0.001, 0 K) from `../endf/n-018_Ar_37-tendl2023.endf` | 1,405 resonance points |
+
+`tape21` is byte-identical whether NJOY reads the original tape or the
+`-mf2-L1-last` variant `../errorr/` uses (RECONR sums over L).
+
+Oracle for `tests/reconr_ar37_mlbw_njoy_golden.rs`. Before the fix the
+crate evaluated every `LRF=2` range with the SLBW elastic formula
+(`csslbw`), which for Ar-37's large bound-level neutron widths put the
+elastic +6.33 % high from 1e-5 eV to 1 eV, +6.23 % at 100 eV, −8.23 % at
+1 keV, −5.53 % at 4 keV against this tape while capture matched to 1e-7.
+After porting `csmlbw`'s per-`J` interference assembly
+(`reconr::slbw::eval_mlbw_lstate`): elastic within 4.1e-7 below 100 eV,
+worst 4.5e-4 at 1400 eV (a resonance wing, grid interpolation); capture
+unchanged (worst 3.0e-4 at 1400 eV). MT=1 still differs by 1.45 % at
+4 keV and 0.34 % at 4268 eV where MT=2/MT=102 agree — the MF=3 total
+background near the RRR/URR boundary, not the resonance kernel (recorded,
+not chased).

@@ -183,9 +183,14 @@ impl SlbwSigmas {
 /// Evaluate SLBW cross sections at energy `e` \[eV\] for one l-state.
 ///
 /// Implements the inner loop of `csslbw` (zero-temperature) in NJOY2016.
-/// Both SLBW (LRF=1) and MLBW (LRF=2) use this evaluation; true MLBW adds
-/// interference between levels in the elastic channel, which is negligible for
-/// widely-spaced resonances.
+/// This is the `LRF=1` formula. `LRF=2` evaluations go through
+/// [`eval_mlbw_lstate`] (`csmlbw`), whose elastic channel carries the
+/// level–level and level–potential interference: until 2026-09-10 both
+/// formalisms used this routine on the assumption that the interference is
+/// "negligible for widely-spaced resonances", and the ERRORR MF=32 oracle
+/// on TENDL-2023 Ar-37 measured the cost of that assumption at +6.3 % in
+/// elastic from 1e-5 eV to 100 eV and −8.2 % at 1 keV against NJOY's own
+/// RECONR (capture unaffected, bead `op-cral`).
 ///
 /// # Parameters
 /// - `e`          — neutron kinetic energy \[eV\], must be > 0.
@@ -252,6 +257,99 @@ pub fn eval_slbw_lstate(
         elastic: sig_el,
         capture: sig_cap,
         fission: sig_fis,
+    }
+}
+
+/// Evaluate MLBW cross sections at energy `e` \[eV\] for one l-state.
+///
+/// Port of the per-l-state body of `csmlbw` (zero temperature) in NJOY2016
+/// `reconr.f90` (the `mode.eq.2.and.tempr.eq.zero` branch of `sigma`).
+/// Capture and fission are the same sums as SLBW; the elastic channel is
+/// assembled per total spin `J` from the accumulated
+/// `sigj(J,1) = Σ 2Γn(E)/Γ/(1+x²)` and `sigj(J,2) = Σ 2Γn(E)/Γ·x/(1+x²)`
+/// over every level of that `J` (`x = 2(E−E'_r)/Γ`):
+///
+/// ```text
+/// σ_el = (π/k²) [ Σ_J g_J ((1 − cos 2φ − sigj(J,1))² + (sin 2φ + sigj(J,2))²)
+///                 + 2 (2l+1 − Σ_J g_J)(1 − cos 2φ) ]
+/// ```
+///
+/// where `J` runs from `|‖I − l| − ½|` to `I + l + ½` (upstream's
+/// `ajmin`/`ajmax`, up to ten values), and the last term is the potential
+/// scattering of the `J` values the spin sequence does not reach.
+///
+/// Same parameters as [`eval_slbw_lstate`]. As there, a competitive width
+/// (`LRX ≠ 0`, `QX`) is not carried by [`super::mf2::LState`] and is not
+/// included (upstream adds `Γc·P(E+QX)/P_x` to `Γ`).
+pub fn eval_mlbw_lstate(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra: f64,
+) -> SlbwSigmas {
+    if e <= 0.0 {
+        return SlbwSigmas::default();
+    }
+    let arat = awri / (awri + 1.0);
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+    let rho = k * ra;
+    let rhoc = k * ap;
+    let (se, pe) = shift_and_penetrability(l, rho);
+    let phi = phase_shift(l, rhoc);
+    let cos2p = 1.0 - (2.0 * phi).cos();
+    let sin2p = (2.0 * phi).sin();
+
+    // the J sequence of this l-state and its statistical weights
+    let den = 4.0 * spi + 2.0;
+    let fl = l as f64;
+    let ajmin = ((spi - fl).abs() - 0.5).abs();
+    let ajmax = spi + fl + 0.5;
+    let nj = ((ajmax - ajmin + 1.0).round() as usize).min(10);
+    let mut gj = [0.0f64; 10];
+    let mut sum = 0.0;
+    let mut aj = ajmin;
+    for g in gj.iter_mut().take(nj) {
+        *g = (2.0 * aj + 1.0) / den;
+        aj += 1.0;
+        sum += *g;
+    }
+    let diff = 2.0 * fl + 1.0 - sum;
+    let mut sigj = [[0.0f64; 10]; 2];
+
+    let mut sig_cap = 0.0;
+    let mut sig_fis = 0.0;
+    for &(er, aj, _gt, gn, gg, gf) in resonances {
+        let j = ((aj - ajmin + 1.0).round() as usize).clamp(1, nj) - 1;
+        let k_r = WAVE_K * arat * er.abs().sqrt();
+        let (ser, per) = shift_and_penetrability(l, k_r * ra);
+        let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
+        let erp = er + gn * (ser - se) * rper / 2.0;
+        let edelt = e - erp;
+        let gne = gn * pe * rper;
+        let gx = gg + gf;
+        let gtt = gne + gx;
+        let x = 2.0 * edelt / gtt;
+        let mut comfac = 2.0 * gne / gtt / (1.0 + x * x);
+        sigj[0][j] += comfac;
+        sigj[1][j] += comfac * x;
+        comfac = comfac * gj[j] / gtt;
+        sig_fis += comfac * gf;
+        sig_cap += comfac * gg;
+    }
+    let mut sig_el = 0.0;
+    for j in 0..nj {
+        sig_el += gj[j] * ((cos2p - sigj[0][j]).powi(2) + (sin2p + sigj[1][j]).powi(2));
+    }
+    sig_el += 2.0 * diff * cos2p;
+
+    SlbwSigmas {
+        elastic: sig_el * pifac,
+        capture: sig_cap * 2.0 * pifac,
+        fission: sig_fis * 2.0 * pifac,
     }
 }
 

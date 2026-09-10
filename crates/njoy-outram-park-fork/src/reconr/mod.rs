@@ -51,7 +51,7 @@ use crate::{
     NjoyError,
 };
 use rm::RmSigmas;
-use slbw::{channel_radius, eval_slbw_lstate};
+use slbw::{channel_radius, eval_mlbw_lstate, eval_slbw_lstate};
 
 // ── Public configuration and result types ─────────────────────────────────────
 
@@ -440,10 +440,16 @@ fn add_slbw_range(sections: &mut Vec<ReconrSection>, range: &EnergyRange, eps: f
     let mut halo = Vec::new();
     add_resonance_halo_energies(&mut halo, &range.l_states, range.el, range.eh);
 
+    // LRF=1 -> csslbw, LRF=2 -> csmlbw (upstream `sigma`, reconr.f90:2610-2616)
+    let mlbw = matches!(range.formalism, Some(ResonanceFormalism::Mlbw));
     rebuild_range(sections, range.el, range.eh, halo, eps, |e| {
         let mut d = RangeDelta::default();
         for (l, awri, ra, tuples) in &prepared {
-            let s = eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra);
+            let s = if mlbw {
+                eval_mlbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
+            } else {
+                eval_slbw_lstate(e, tuples, *l, range.spi, range.ap, *awri, *ra)
+            };
             d.elastic += s.elastic;
             d.capture += s.capture;
             d.fission += s.fission;

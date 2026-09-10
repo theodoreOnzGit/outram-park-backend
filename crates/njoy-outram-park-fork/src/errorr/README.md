@@ -136,12 +136,15 @@ committed evaluation with MF=32), 2026-09-10:
   4.3e-4; the unresolved contribution is non-zero only in group 12
   (3350–9120 eV, where the URR 4268–5548 eV sits): `4.479e-6` (tt),
   `7.788e-6` (ee), `1.563e-4` (gg).
-- **Tier 2 (crate RECONR + BROADR in):** reported only. The crate's Ar-37
-  **elastic** is +6.3 % from 1e-5 eV to 100 eV and −8.2 % at 1 keV at 0 K
-  while capture matches to 1e-7 — the crate's RECONR evaluates `LRF=2`
-  evaluations with the SLBW elastic formula (`reconr/slbw.rs`,
-  "true MLBW adds interference ... negligible"), which Ar-37's bound levels
-  contradict. A RECONR finding from this oracle, tracked on its own bead.
+- **Tier 2 (crate RECONR + BROADR in):** reported only. Its first run
+  found the crate's Ar-37 **elastic** +6.3 % from 1e-5 eV to 100 eV and
+  −8.2 % at 1 keV at 0 K while capture matched to 1e-7: the crate's RECONR
+  evaluated `LRF=2` ranges with the SLBW elastic formula. Fixed the same
+  day (`reconr::slbw::eval_mlbw_lstate`, bead `op-cral`,
+  `tests/reconr_ar37_mlbw_njoy_golden.rs`); afterwards the crate PENDF is
+  within 1.3e-4 of NJOY's at the sampled energies and the tier-2 `σ_g`
+  worst is 3.7e-3 (`MT=3`, group 12), resonance-pair covariances worst
+  2.3e-2 on a 6e-6 element of the `(1,1)` block.
 
 ## Caveats
 

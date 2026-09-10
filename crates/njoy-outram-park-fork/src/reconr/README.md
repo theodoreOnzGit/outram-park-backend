@@ -120,6 +120,17 @@ in `docs/porting-plan.md`.
 tests and the workspace Godiva/Jezebel k-eff V&V (`docs/development-history.md`).
 Reconstructed 0 K pointwise σ(E) feeds BROADR and ACER.
 
+**MLBW (`LRF=2`) uses `csmlbw`'s elastic assembly since 2026-09-10** —
+`slbw::eval_mlbw_lstate`, the per-`J` `sigj` accumulation over every level
+of an l-state plus the `2(2l+1−Σg_J)(1−cos 2φ)` remainder. Until then
+`LRF=2` went through the SLBW formula on the assumption that level
+interference is negligible; on TENDL-2023 Ar-37 (three bound levels) that
+was +6.3 % in elastic at thermal and −8.2 % at 1 keV against NJOY's own
+`tape21` (bead `op-cral`, found by the ERRORR MF=32 oracle). Pinned by
+`tests/reconr_ar37_mlbw_njoy_golden.rs` against
+`reference-data/reconr/ar37-tendl2023-0K.pendf`: elastic and capture
+within 1e-5 below 100 eV and 1e-3 on the resonance wings.
+
 **LRF=7 (R-Matrix-Limited) wiring is untested** — `add_rml_range` compiles and
 type-checks (workspace build + full test suite pass as a regression check,
 zero regressions) but has never been run against a real LRF=7 evaluation.
