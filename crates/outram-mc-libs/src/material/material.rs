@@ -34,6 +34,16 @@ pub struct MacroXs {
     pub fission: f64,
     /// Fission production ν̄·Σ_f \[cm⁻¹\] — the k-eigenvalue source term.
     pub nu_fission: f64,
+    /// Absorption Σ_a \[cm⁻¹\] — **radiative capture + fission** (i.e. every
+    /// reaction with no neutron in the exit channel, plus fission), aggregated
+    /// from each nuclide's [`crate::material::nuclide::MicroXS::absorption`].
+    ///
+    /// This is the real absorption, **not** `Σ_t − Σ_elastic` — it excludes
+    /// inelastic scatter, (n,2n) and (n,3n), which keep or multiply the neutron.
+    /// Mirrors OpenMC's `Nuclide::create_derived` (`src/nuclide.cpp:409-417`):
+    /// the energy-dependent sum of the non-redundant *disappearance* reactions
+    /// (MT 101–117, 600–849, …) and fission.
+    pub absorption: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +69,7 @@ impl Material {
             m.elastic += c.atom_density * x.elastic;
             m.fission += c.atom_density * x.fission;
             m.nu_fission += c.atom_density * x.nu_fission;
+            m.absorption += c.atom_density * x.absorption;
         }
         m
     }

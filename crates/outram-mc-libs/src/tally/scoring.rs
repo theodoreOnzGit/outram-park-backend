@@ -90,10 +90,12 @@ fn track_length_value(score: &ScoreType, d: f64, macro_xs: Option<&MacroXs>, w: 
         // per fission `Q` [J] (`src/tallies/tally_scoring.cpp:1480`). Guarded like
         // the fission arm against E→0 non-finite Σ_f (see `score_track_length`).
         (ScoreType::KappaFission, Some(x)) => wd * x.fission * Q_FISSION_J,
-        // Σ_a is not carried on MacroXs (only Σ_t, Σ_s, Σ_f, ν-Σ_f). Approximate
-        // the absorption rate as the non-scatter fraction (Σ_t − Σ_s), matching
-        // the collision-estimator convention above. Documented gap op-6tz.9.
-        (ScoreType::Absorption, Some(x)) => wd * (x.total - x.elastic).max(0.0),
+        // Real absorption Σ_a = capture + fission (`MacroXs::absorption`,
+        // aggregated from each nuclide's `MicroXS::absorption`). This is the
+        // OpenMC MT=27 quantity — the sum of the non-redundant disappearance
+        // reactions plus fission (`src/nuclide.cpp:409-417`), **not**
+        // `Σ_t − Σ_elastic`, which would wrongly count inelastic + (n,2n).
+        (ScoreType::Absorption, Some(x)) => wd * x.absorption.max(0.0),
         (ScoreType::ScatterN, Some(x)) => wd * x.elastic,
         // Void segment (no material): only the flux score is defined; reaction
         // rates require Σ_x, so they contribute nothing.
@@ -303,10 +305,10 @@ pub fn score_collision(
             // reaction-rate estimate scaled by the recoverable energy per fission
             // `Q` [J] (`src/tallies/tally_scoring.cpp:1480`, SCORE_KAPPA_FISSION).
             ScoreType::KappaFission => weight * macro_xs.fission / sigma_t * Q_FISSION_J,
-            // Absorption Σ_a is not carried on MacroXs yet (only Σ_t, Σ_s, Σ_f,
-            // ν-Σ_f). Approximate the collision-estimator absorption rate as the
-            // non-scatter fraction Σ_t − Σ_s over Σ_t. Documented gap op-6tz.9.
-            ScoreType::Absorption => weight * (sigma_t - macro_xs.elastic).max(0.0) / sigma_t,
+            // Real absorption rate: `w·(Σ_a/Σ_t)` with Σ_a = capture + fission
+            // (`MacroXs::absorption`) — the OpenMC MT=27 quantity
+            // (`src/nuclide.cpp:409-417`), not `Σ_t − Σ_elastic`.
+            ScoreType::Absorption => weight * macro_xs.absorption.max(0.0) / sigma_t,
             ScoreType::ScatterN => weight * macro_xs.elastic / sigma_t,
             ScoreType::Current | ScoreType::Events => weight,
         };
@@ -344,6 +346,7 @@ mod tests {
             elastic: 0.4,
             fission: 0.05,
             nu_fission: 0.12,
+            absorption: 0.08,
         };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
         score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);

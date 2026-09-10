@@ -41,14 +41,12 @@
 //!
 //! # Caveats (see [`ReactorPhysicsReport`])
 //!
-//! - **Absorption is approximated.** [`crate::material::material::MacroXs`] has
-//!   no absorption column, so [`ScoreType::Absorption`] is scored as
-//!   `Σ_t − Σ_elastic` (bead op-6tz.9) — it over-counts by the inelastic and
-//!   (n,2n) macroscopic cross sections, biasing every absorption-derived
-//!   quantity, and hence [`ReactorPhysicsReport::consistency_gap`], **positive**.
-//!   The accepted band is widened to compensate; the raw gap is always exposed.
-//!   The Python/OpenMC counterpart uses a real `absorption` score, so a
-//!   code-to-code comparison sees this bias directly.
+//! - **Absorption is `Σ_a` = capture + fission** ([`ScoreType::Absorption`] via
+//!   [`crate::material::material::MacroXs::absorption`]) — the OpenMC MT=27
+//!   quantity, the sum of the non-redundant disappearance reactions plus
+//!   fission. It excludes inelastic scatter and (n,2n)/(n,3n). The remaining
+//!   `consistency_gap` against `k_eff` is the small `(n,2n)` multiplication that
+//!   ν-fission does not count.
 //! - **Void-gap flux is not scored.** The combined tally's [`MaterialFilter`]
 //!   rejects segments in a void (`material_idx == usize::MAX`), so the spectrum
 //!   and its lethargy normalisation cover the material domain only.
@@ -68,13 +66,15 @@ use crate::tally::tally::{ScoreType, Tally, TallyBin};
 /// Accepted band for [`ReactorPhysicsReport::consistency_gap`]
 /// `(k_eff − k_from_factors) / k_eff`.
 ///
-/// Wider than the reference pipeline's `(−0.005, 0.03)`: the `Σ_t − Σ_elastic`
-/// absorption approximation (op-6tz.9) over-counts absorption by inelastic +
-/// (n,2n), which pushes `k_from_factors` down and the gap up — by up to a few
-/// percent in a fast, U-238-bearing system. `k_from_factors` itself is exact by
-/// construction (it telescopes); the gap is a physics-fidelity check on the
-/// scored rates, not an arithmetic one.
-pub const CONSISTENCY_BAND: (f64, f64) = (-0.02, 0.08);
+/// Matches the reference pipeline. The four factors telescope to
+/// `P_total / (A_total + L_total)` exactly; the residual gap against the
+/// power-iteration `k_eff` is the physics that ν-fission and MT=27 absorption
+/// together do not capture — chiefly `(n,2n)`/`(n,3n)`, which add a neutron
+/// without a fission and are not a disappearance. That runs the product a
+/// little **below** `k_eff` (positive gap), by up to a percent or two in a
+/// graphite/heavy system. A gap outside this band, or a large negative one,
+/// means a mis-specified tally.
+pub const CONSISTENCY_BAND: (f64, f64) = (-0.01, 0.05);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estimate + delta-method propagation
@@ -283,8 +283,7 @@ pub struct ReactorPhysicsReport {
     /// Per-fine-bin leakage spectrum, same grid as `spectrum.energy_edges_ev`.
     pub leakage_spectrum: Vec<Estimate>,
     /// `(k_eff − k_from_factors) / k_eff`. Positive ⇒ the factors under-predict
-    /// (expected: ν-fission does not count (n,2n), and the op-6tz.9 absorption
-    /// approximation over-counts absorption).
+    /// (expected: ν-fission does not count the extra neutron from (n,2n)).
     pub consistency_gap: f64,
     /// Whether `consistency_gap` lies inside [`CONSISTENCY_BAND`].
     pub consistent: bool,
@@ -471,9 +470,8 @@ fn bin_estimate(bin: &TallyBin, n: u64, per_source: f64) -> Estimate {
 /// - [`ReactorPhysicsError::BadEnergyGrid`] — the energy grid is ill-posed.
 ///
 /// # Caveats
-/// See the module docs: the `Σ_t − Σ_elastic` absorption approximation
-/// (op-6tz.9), unscored void-gap flux, and conservative delta-method ratio
-/// uncertainties.
+/// See the module docs: unscored void-gap flux, and conservative delta-method
+/// ratio uncertainties.
 pub fn run_keff_reactor_physics(
     geom: &Geometry,
     materials: &[Material],
@@ -817,8 +815,7 @@ mod tests {
     /// - the lethargy spectrum is non-negative and integrates to 1;
     /// - the **direct** eigenvalue `P_total / (A_total + L_total)` — which the
     ///   factors telescope to when no group is degenerate — matches `k_mean`
-    ///   within the op-6tz.9-widened band (the absorption over-count deflates
-    ///   it; leakage does not);
+    ///   within a small band of `k_mean` (the residual is (n,2n));
     /// - leakage has the right sign and the non-leakage factors respond.
     #[test]
     fn machinery_invariants_fast_pincell() {
@@ -842,7 +839,7 @@ mod tests {
             let p_tot: f64 = sf.production_by_group.iter().map(|e| e.mean).sum();
             let l_tot: f64 = sf.leakage_by_group.iter().map(|e| e.mean).sum();
             // Rates are per source neutron: every history dies once, so
-            // A_total + L_total ≈ 1 (plus the op-6tz.9 absorption over-count).
+            // A_total + L_total ≈ 1 (Σ_a = capture + fission; scatter conserves).
             assert!(
                 a_tot + l_tot > 0.8,
                 "A+L = {} per source neutron, expected ~1 ({bc:?})",
@@ -850,13 +847,13 @@ mod tests {
             );
             let direct_k = p_tot / (a_tot + l_tot);
             let gap = (report.keff.k_mean - direct_k) / report.keff.k_mean;
-            // op-6tz.9: the Σ_t−Σ_elastic absorption approximation over-counts on
-            // a hard spectrum (inelastic on U-238) and under-counts on a soft one
-            // (inflated free-gas elastic), so the gap is bounded loosely on both
-            // sides. A tight gate lives in the ENDF+S(α,β) Phase-C V&V.
+            // With real Σ_a the gap is small; the margin here absorbs the
+            // 250-history statistical noise and the LOW-tier free-gas treatment
+            // on this hard spectrum. A tight gate lives in the ENDF+S(α,β)
+            // Phase-C V&V.
             assert!(
-                gap > -0.15 && gap < 0.35,
-                "direct-k gap {gap:+.3} outside the op-6tz.9-widened band ({bc:?})"
+                gap > -0.10 && gap < 0.10,
+                "direct-k gap {gap:+.3} unexpectedly large with real Σ_a ({bc:?})"
             );
 
             let sp = &report.spectrum;
