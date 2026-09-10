@@ -239,13 +239,15 @@ impl RigorousColumn {
     ///
     /// # Which solver
     ///
-    /// Use [`NaphtaliSandholmSolver`] (without warm start). The Wang-Henke
-    /// bubble-point family assumes a condenser at stage `0` when it steps the
-    /// vapour flows and has **not** been shown to converge on an absorber in
-    /// this port; sum-rates, upstream's absorber method, has not been shown to
-    /// converge on anything (see [`crate::columns`]'s test module). The
-    /// regression test `absorption_column_solves_through_the_public_api`
-    /// records the measured behaviour of all three.
+    /// Use [`NaphtaliSandholmSolver`] (with or without warm start). Measured
+    /// 2026-09-10 on a 6-stage benzene/toluene absorber (regression test
+    /// `absorption_column_solves_through_the_public_api`): Naphtali-Sandholm
+    /// converged in 7 iterations to `Σf² = 6.75e-7` with every energy balance
+    /// closed; Wang-Henke and Modified Wang-Henke did **not** converge in 100
+    /// iterations — the bubble-point family steps the vapour profile from a
+    /// condenser-shaped stage `0` that this column does not have; sum-rates,
+    /// upstream's own absorber method, failed with `InvalidProfile`, as it does
+    /// on every column in this port (see [`crate::columns`]'s test module).
     ///
     /// # Example
     ///
@@ -488,16 +490,34 @@ impl RigorousColumn {
     ///   `NewtonRaphson.vb:457-498`) sees the same number as the stage. Leave it
     ///   alone.
     ///
-    /// # Which solver
+    /// # Which solver — read this before trusting the answer
     ///
-    /// Use [`NaphtaliSandholmSolver`]. In the Wang-Henke bubble-point family the
-    /// bottoms rate `B = L_ns` is closed by the *mass* balance alone, which
-    /// leaves the distillate rate pinned at its initial estimate
-    /// ([`Self::with_distillate_estimate`]) — the bottom-stage energy balance
-    /// is never enforced. Naphtali-Sandholm keeps every energy balance as an
-    /// equation. The regression test
-    /// `refluxed_absorber_solves_through_the_public_api` records the measured
-    /// behaviour of both.
+    /// Measured 2026-09-10 on an 8-stage benzene/toluene case (regression test
+    /// `refluxed_absorber_solves_through_the_public_api`, which records the
+    /// full numbers):
+    ///
+    /// - **Wang-Henke / Modified Wang-Henke converge** (15 / 13 iterations),
+    ///   close the mass balance, meet the condenser spec and back-calculate
+    ///   `Q_0` — **but the distillate rate comes out exactly equal to
+    ///   [`Self::with_distillate_estimate`]** (default: half the feed). For this
+    ///   column type upstream closes the bottom with `B = L_ns` from the mass
+    ///   balance and never uses the bottom-stage energy balance, so that
+    ///   estimate is a *de-facto second specification*: change it and `D`
+    ///   changes with it, while the feed enthalpy has no effect at all. What
+    ///   you get is a mass-consistent rectifying section for the `D` you
+    ///   asked for, with an unstated heat exchange on the bottom stage
+    ///   (`−15 kW` on the test case at the default estimate) — not the
+    ///   adiabatic column's own `D`.
+    /// - **Naphtali-Sandholm does not converge** on this variant
+    ///   (`NotConverged`, tried from 30+ starting profiles): its stage-0
+    ///   distillate variables are only initialised for
+    ///   [`ColumnType::DistillationColumn`], so a refluxed absorber starts
+    ///   from `LSS_0 ≈ 1e-10`. Solver-side, faithful to upstream as far as this
+    ///   port can tell, and out of scope for an API-exposure change.
+    ///
+    /// A physically complete refluxed absorber therefore needs solver work
+    /// that this constructor does not provide; until then, treat
+    /// [`Self::with_distillate_estimate`] as the second spec it effectively is.
     ///
     /// # Example
     ///
@@ -778,6 +798,14 @@ impl RigorousColumn {
     /// `L_i = V_{i+1} + Σ_{m<=i}(F − U − W) − V_0`. Partial condensers add the
     /// overhead vapour rate to `D`; full reflux drives everything off `V_0`.
     /// An absorber simply propagates the end feeds.
+    ///
+    /// **Refluxed absorber (this port, 2026-09-10):** the distillate estimate
+    /// is counted in the running sum as the stage-0 liquid draw it becomes, so
+    /// `L_ns = ΣF − D`. Upstream leaves `D` out for every type; that is
+    /// harmless where a spec re-imposes the end flows on the first pass, but a
+    /// refluxed absorber reads `B = L_ns` from this estimate and the
+    /// inconsistency pinned the bubble-point solvers to the all-liquid `D = 0`
+    /// solution — see [`Self::refluxed_absorber`].
     #[must_use]
     pub fn estimate_flows(
         &self,
