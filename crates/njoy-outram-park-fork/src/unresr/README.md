@@ -60,14 +60,23 @@ translation Rust's lack of `GOTO` requires, not an algorithmic change.
 
 ## Testing
 
-**TODO** (Opus verification pass — no tests were written as part of this
-translation, per the crate's model-division-of-labour rule in `CLAUDE.md`).
-Gate: reproduce upstream UNRESR effective cross sections for a nuclide with a
-URR (e.g. U-238, unresolved 20–149 keV) versus dilution σ₀ and temperature,
-within tolerance against the Fortran oracle. The 62×62 `w(z)` table and the
-`ajk` quadrature are cross-checkable independently of ENDF parsing (pure
-numerics — build a `WTable` and compare `ajk` against known asymptotic limits
-before validating the full per-energy cross section).
+**Verified against NJOY2016 on U-235 (2026-09-10)** — `tests/purr_u235_urr.rs`.
+NJOY (built in-session, gfortran 13.3.0) run as `reconr 0.001 / broadr 300 K /
+unresr` with `sigz = 1e10 1e4 1e3 100 10 1`; `unresolved_cross_sections` at
+2.25, 5.5 and 10 keV reproduces all 24 printed numbers (total/elastic/fission/
+capture at σ₀ = 10¹⁰ and σ₀ = 1 b) to the 4 figures NJOY prints, e.g. 2.25 keV,
+σ₀ = 1 b: 19.157/12.007/5.267/1.883 vs 19.16/12.01/5.270/1.884.
+
+Two defects were fixed on the way and are pinned by unit tests in `wfun.rs`:
+`uw`'s last break-line arm was inverted (a false `aimz-brk9.ge.zero` falls
+through to the *Taylor* series upstream; the port sent those points to the
+asymptotic series, which does not converge there — `w(2.13+0.001i)` came out
+37× low, and the 62×62 `WTable` inherited it), and `reconr::slbw::WAVE_K` was
+the `cwaven` formula rounded up in its 4th figure (all `1/k²` resonance terms
+0.081 % low — see `../reconr/README.md`).
+
+Gate still open for **U-238**: its URR range is `NRO=1`, which this module
+rejects (see the NRO=1 bead, `op-as32`).
 
 ## Caveats
 

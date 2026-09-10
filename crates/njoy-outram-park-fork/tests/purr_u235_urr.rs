@@ -59,10 +59,16 @@ const UNRESR_ORACLE: [(f64, [f64; 4], [f64; 4]); 3] = [
 ];
 
 /// NJOY PURR's `unresx` reference at the same energies:
-/// `(E, spot, dbar, [total, elastic(+spot), fission, capture])`.
-const UNRESX_ORACLE: [(f64, f64, f64, [f64; 4]); 2] = [
-    (2.25e3, 11.700, 0.16137, [19.778, 12.105, 5.6364, 2.0363]),
-    (5.5e3, 11.646, 0.16032, [16.969, 11.917, 3.7254, 1.3273]),
+/// `(E, spot, dbar, [total, elastic(+spot), fission, capture])`. `spot` and
+/// `dbar` are the listing's 5 figures; the four cross sections are the
+/// 7-figure values PURR wrote to the PENDF `MF=2/MT=152` σ₀ = 10¹⁰ column
+/// (which is its `infd` row renormalised to itself, i.e. exactly `unresx`).
+/// NJOY's first grid energy is `sigfig(EL,7,+1)` = 2250.001 eV, a 5e-7
+/// relative shift that is invisible at this precision.
+const UNRESX_ORACLE: [(f64, f64, f64, [f64; 4]); 3] = [
+    (2.25e3, 11.700, 0.16137, [19.77818, 12.10549, 5.636382, 2.036314]),
+    (5.5e3, 11.646, 0.16032, [16.96934, 11.91663, 3.725428, 1.327288]),
+    (1.0e4, 0.0, 0.0, [15.68594, 11.73279, 2.920641, 1.032492]),
 ];
 
 #[test]
@@ -95,12 +101,16 @@ fn unresr_and_infinite_dilution_reference_match_njoy() {
             println!("   seq: D {:.5} gn {:.4e} gf {:.4e} gg {:.4e} gx {:.4e} ndf n/f/x {}/{}/{} csz {:.4e}",
                 s.dbar, s.gn_mean, s.gf_mean, s.gg_mean, s.gx_mean, s.ndf_n, s.ndf_f, s.ndf_x, s.csz);
         }
-        check(rel(inf.potential_scattering, spot) < 2e-4, format!("spot at {e}"));
-        check(rel(1.0 / inf.mean_inverse_spacing, dbar) < 2e-4, format!("dbar at {e}"));
-        check(rel(tot, infd[0]) < 2e-4, format!("infd total at {e}: {tot} vs {}", infd[0]));
-        check(rel(el, infd[1]) < 2e-4, format!("infd elastic at {e}: {el} vs {}", infd[1]));
-        check(rel(inf.sigma_fission_inf, infd[2]) < 2e-4, format!("infd fission at {e}: {} vs {}", inf.sigma_fission_inf, infd[2]));
-        check(rel(inf.sigma_capture_inf, infd[3]) < 2e-4, format!("infd capture at {e}: {} vs {}", inf.sigma_capture_inf, infd[3]));
+        if spot > 0.0 {
+            check(rel(inf.potential_scattering, spot) < 1e-4, format!("spot at {e}"));
+            check(rel(1.0 / inf.mean_inverse_spacing, dbar) < 1e-4, format!("dbar at {e}"));
+        }
+        // 7-figure oracle; 2e-5 leaves room for the 2250.001 grid shift and
+        // summation order.
+        check(rel(tot, infd[0]) < 2e-5, format!("infd total at {e}: {tot} vs {}", infd[0]));
+        check(rel(el, infd[1]) < 2e-5, format!("infd elastic at {e}: {el} vs {}", infd[1]));
+        check(rel(inf.sigma_fission_inf, infd[2]) < 2e-5, format!("infd fission at {e}: {} vs {}", inf.sigma_fission_inf, infd[2]));
+        check(rel(inf.sigma_capture_inf, infd[3]) < 2e-5, format!("infd capture at {e}: {} vs {}", inf.sigma_capture_inf, infd[3]));
     }
 
     for &(e, dilute, shielded) in &UNRESR_ORACLE {
