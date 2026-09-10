@@ -78,84 +78,62 @@ clamps to $[-1, 1]$ (`covr.f90:1371-1372`), reproduced by
 | Plot-stage clamp to [-1,1] | `covr.f90:1371-1372` | `CorrelationMatrix::clamped` |
 | Plottability test (`ismall`) | `covr.f90:683` | `CorrelationMatrix::has_plottable_correlation` |
 | Shade-level index (`level`) | `covr.f90:1601-1619` | `shade_level` |
-| Driver skeleton (documents pipeline) | `covr.f90:49-506` | `run_with_deck` (returns `NotPorted`) |
+| **Library-option driver** (`nout > 0`: tape classification, case loop, `corr`, the `press` call sequence) | `covr.f90:314-474, 578-718` | `library::run_library`; `run_with_deck` reads `tape<nin>` / writes `tape<nout>` |
+| **ERRORR-tape reader** (the `finds`/`contio`/`listio` half of `covard`: group structure, MF=3 vectors, MF=33/34/35/40 subsection search) | `covr.f90:740-886` | `tape::{ErrorrTapeKind, read_group_structure, read_vector, read_covariance_rows, read_covariance_section}` |
+| **`expndo` tape scan** (MTs present in `MF=mf35`) | `covr.f90:526-556` | `tape::present_mts` |
 | **`covard` covariance transform** (scatter + zero-xsec zeroing + abs→rel) | `covr.f90:815-935` | `covard::ErrorrCovarianceSection::to_dense` |
 | **`expndo` MT-pair enumeration** | `covr.f90:546-569` | `covard::expand_mt_pairs` |
 | Auto/cross rsd sourcing (`subroutine corr` data flow) | `covr.f90:597-711` | `covard::correlation_from_auto_and_cross` |
 | **BOXER `press` RLE** (encode + decode) | `covr.f90:2085-2196` | `boxer::compress` / `boxer::decompress` |
 | **BOXER `setfor`** format selection | `covr.f90:2220-2247` | `boxer::setfor` |
-| **BOXER `press` text layout** | `covr.f90:2199-2207` | `boxer::press_text` |
+| **BOXER `press` text layout** (byte-exact `1pEw.d`/`Fw.d`/`Iw` records) | `covr.f90:2199-2207` | `boxer_text::press_text` (+ `parse_boxer_text`, a reader for V&V) |
 
-### NOT ported (honest gap list)
+### NOT ported (out of scope)
 
 | Piece | Upstream | Reason |
 |---|---|---|
-| **ERRORR *tape I/O*** (the `contio`/`listio`/`moreio`/`finds` half of `covard`) | `covr.f90:740-886` | No ERRORR covariance *tape* exists in this crate yet (`covout`/`colaps` unported), so there is no byte-stream to decode. `covard`'s numeric transform is ported instead, over an in-memory `ErrorrCovarianceSection`. |
-| **`expndo` tape scan** (collect present MTs off unit `nin`) | `covr.f90:526-556` | Depends on ENDF tape I/O; callers supply the scanned MT list. Only the pure filter+expand logic is ported. |
-| **`press_text` byte-exact numeric formatting** | `covr.f90:2206-2207` | The value text uses Rust's formatter in the correct field structure, not a byte-exact Fortran `1P Ew.d` emulation; no golden-file comparison run. |
-| **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`, `truncg`, `copyst`) | `covr.f90:939-1599,1649-1910` | VIEWR figure generation — graphics for a target OUTRAM PARK does not support. Only the self-contained numeric pieces used *by* the plot path (`level`, the shade array) are ported. |
+| **All PostScript plotting** (`plotit`, `matshd`, `patlev`, `smilab`, `matmes`, `elem`, `mtno`, `truncg`, `copyst`) and the plot-option `epmin` reset in `corr` | `covr.f90:628-643, 939-1599, 1649-1910` | VIEWR figure generation — graphics for a target OUTRAM PARK does not support. Only the self-contained numeric pieces used *by* the plot path (`level`, the shade array) are ported. `run_with_deck` returns `NotPorted("covr::plot")` for `nout <= 0`. |
+| Binary (`nin < 0`) input tapes | `covr.f90:307` | The crate's ENDF reader is ASCII-only. |
 
-The registry entry point `covr::run()` (no-arg) returns `NotPorted("covr")`;
-the deck-driven skeleton `run_with_deck(&CovrInput)` validates the deck and
-returns `NotPorted("covr::run")`.
+Two upstream quirks are deliberately not reproduced: `covard` returns from
+a lumped-component placeholder (`nmt = 0`, `covr.f90:820`) without updating
+`izero`, and the library path takes `sqrt` of a diagonal without a sign guard
+(`covr.f90:645-648`). The port treats a placeholder as a null matrix and a
+negative diagonal as `rsd = 0`; neither case occurs on an ERRORR tape.
 
 ## Testing — status and results
 
-Inline `#[cfg(test)]` unit tests (no `tests/` dir), run via
-`crates/njoy-outram-park-fork/scripts/test.sh covr` (12 GB cap).
+- Unit tests: 42 in the modules' `#[cfg(test)]` blocks (`scripts/test.sh
+  covr`) — the card deck, `covard`'s scatter/zeroing/abs→rel, the auto/cross
+  rsd sourcing, `expndo` stripping, the BOXER codec round-trip and paging,
+  the tape reader on a hand-built two-group tape, the Fortran field layout.
+- **Oracle: `tests/covr_boxer_golden.rs`** against NJOY2016 `ac5adf5`
+  `covr` run in the library option (`matype = 3` and `4`) on the nine
+  ERRORR tapes of `reference-data/errorr/`; decks and outputs in
+  `reference-data/covr/`.
 
-**Result (2026-07-15): 35 passed, 0 failed** (17 original + 18 for
-`covard`/`expndo`/BOXER). `cargo build -p njoy-outram-park-fork --release` is
-clean (0 warnings).
+**Measured (2026-09-10).** Tier 1 (NJOY's ERRORR tape in): the BOXER
+library is **byte-identical** to NJOY's for all 18 runs — 9 materials
+(H-2 relative and absolute, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238)
+× 2 matrix types, 101 to 3818 lines each, including U-238's 66 pairs with
+lumped `MT=851/852` and multi-page records, and Si-30's 122 suppressed null
+pairs. Tier 2 (the crate's ERRORR on NJOY's PENDF → `to_tape` →
+`Tape::write` → `Tape::read` → COVR): also **byte-identical** for all 18
+(U-234/U-238 need `OUTRAM_PARK_NJOY_U23{4,8}_PENDF`). Tier 2 first came out
+at 805/3818 identical lines for U-238: the crate's ERRORR `covout` zeroed
+every output element below `eps = 1e-20`, whereas `errorr.f90:7563-7568`
+uses `eps` only to bracket a row and writes interior sub-`eps` elements
+verbatim (NJOY's U-238 tape carries `e-49`…`e-69` values), and `press`
+encodes each such value as a distinct run. Removing the zeroing made the
+tapes identical — an ERRORR-writer defect that only a downstream consumer
+exposed.
 
-Key V&V checks (methodology + numbers):
+## What a human must verify
 
-- **`covard` scatter/convert** — sparse row-blocks land at `(row-1,
-  first_col-1+k)`; absolute→relative `cf/(xx*xy)`; zero-xsec rows/cols zeroed
-  with the `ipflag` count; `izero` null flag.
-- **auto/cross rsd sourcing** — `correlation_from_auto_and_cross` takes `rsd_x`
-  from the row auto-covariance diagonal and `rsd_y` from the column
-  auto-covariance diagonal (a zero-cross-diagonal case traps any code that
-  wrongly normalises by the cross matrix's own diagonal).
-- **BOXER round-trip** — `decompress(compress(m)) == sigfig(m)` for rectangular,
-  symmetric (upper-triangle store + mirror), constant (single run), and a 40×40
-  matrix that forces >1 page; cov→BOXER→decode→corr equals the direct
-  correlation transform (diagonal 1, `|corr| ≤ 1`).
-- **`setfor`** — `nvf=12 → "(1p6e12.5)"` (6/line), `ncf=4 → "(20i4)"` (20/line);
-  out-of-range `nvf`/`ncf` rejected.
-
-- **cov → corr, 2×2 SPD** — `cov = [[4, 2], [2, 9]]` (det 32 > 0), `rsd = [2, 3]`.
-  Hand result `corr = [[1, 1/3], [1/3, 1]]`; test confirms unit diagonal,
-  off-diagonal = 1/3, symmetry, `|corr| ≤ 1` (tol 1e-12).
-- **cov → corr, 3×3 SPD** — `cov = [[4,2,0],[2,9,-3],[0,-3,16]]` (leading minors
-  4, 32, det 476 all > 0), `rsd = [2,3,4]`. Hand results `corr(0,1)=1/3`,
-  `corr(1,2)=-0.25`, `corr(0,2)=0`; unit diagonal, symmetry, `|corr| ≤ 1`.
-- **rsd = sqrt(diag)** — `diag(4,9,16,-1,0) → rsd = [2,3,4,0,0]` (non-positive
-  diagonal → 0).
-- **zero-variance group** — `cov = [[4,1],[1,0]]` gives `corr = [[1,0],[0,0]]`
-  with no NaN (guards the `rsd*rsd ≠ 0` branch).
-- **cross-reaction** — `cov_xy = [[6,0],[0,12]]`, `rsd_x = [2,3]`, `rsd_y=[3,4]`
-  → unit diagonal; length mismatch errors ("group structures do not agree").
-- **shade-level expansion** — default `tlev` with ndiv=1 → `[0.001, 0.1, 0.2,
-  0.3, 0.6, 1.001]`; ndiv=2 subdivides each interval; non-increasing `tlev`
-  rejected.
-- **MT-strip** — worked examples `-4`, `-62`, `-102` from `covr.f90:137-143`.
-- **`level` indexing** — signed 1-based level against the default shade array.
-
-## What a human must verify (untrusted AI draft)
-
-1. **Correlation transform semantics vs upstream** — confirm the auto- vs
-   cross-covariance split (`rsd_x`, `rsd_y` sourcing in `subroutine corr`,
-   `covr.f90:597-670`) matches how a real ERRORR tape feeds `covard`; the port
-   models the *math* of `corr` but not its tape-fed data flow.
-2. **The unported tape reader** (`covard`) — the record layout, the
-   absolute→relative conversion (`covr.f90:929`), and the zero-xsec spurious
-   covariance zeroing (`covr.f90:915-926`) are **not** implemented; a full COVR
-   run needs them and an ENDF I/O layer.
-3. **Card defaults / coercions** — spot-check `matype≠4→3`, `irelco≠1→relative`,
-   `ndiv≤0→1`, and the `ncase` limits against `covr.f90:229,247,929`.
-4. **End-to-end** — no golden-file comparison against upstream NJOY has been
-   run; the tests are analytic hand checks only.
+1. **Scope** — the plot option is intentionally absent; confirm no OUTRAM
+   PARK workflow needs the VIEWR figures.
+2. **Multi-material cases** (`mat1 != mat`) — the oracle runs use one
+   material per tape; the `mat1` path is exercised only by the unit tests.
 
 ## References
 
