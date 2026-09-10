@@ -18,6 +18,7 @@ and the oracle build it came from. Regenerate with
 |---|---|---|---|---|---|
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | NJOY2016 upstream `ac5adf5` (2016.79), gfortran, built 2026-09-10 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.njoy-input` | 2026-09-10 |
 | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.njoy-input` | 2026-09-10 |
+| `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf` (35 KB, 427 lines) | U-238, MAT 9237 | `../endf/n-092_U_238.endf` (ENDF/B-VIII.0) | same build | `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.njoy-input` | 2026-09-10 |
 
 ### `u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf`
 
@@ -41,6 +42,18 @@ Identical to the above except that `UNRESR` (`9237 1 6 1 / 293.6 / 1e10 1e4
 carries an MF=2/MT=152 self-shielded URR table and the tape's unresolved-range
 groups (20–149 keV) are Bondarenko-shielded through `stounr`/`getunr`.
 Consumed by the same test (tier 3).
+
+### `u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf`
+
+The first deck with `iwt = -3` (the GROUPR **flux calculator**) and card 8a
+`fehi = 1e4 eV, sigpot = 11.29 b, nflmax = 300000` (no `ninwt`, `jsigz = 0`,
+no heterogeneity terms): `genflx` solves the integral slowing-down equation
+from `egn(1)` to `fehi` on the total-cross-section grid, extends it with the
+weight shape below 0.1 eV and with the narrow-resonance flux above `fehi`.
+NJOY's listing for this run: "flux calculator used weight function from 1e-5
+to 9.9740E-02 ev, 926 points; computed flux from 1.0000E-01 to 1.0000E+04 ev,
+99934 points; finished with narrow-resonance flux to 3.0000E+07 ev, 55488
+points". Consumed by the same test (tier 4).
 
 Data policy: GENDF is a *derived* product of open ENDF/B-VIII.0 data processed
 with the BSD-licensed NJOY2016; it carries no proprietary content.

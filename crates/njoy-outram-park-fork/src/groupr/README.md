@@ -150,9 +150,20 @@ validated against a real NJOY2016 GENDF tape:
   (`unresolved::genflx_bondarenko_urr` is the fix; `sigma_g` had only moved
   1.5e-3, so a cross-section-only check would have missed it).
 
+- the **flux calculator** (`iwt = -3`, `fehi = 1e4 eV`, `sigpot = 11.29 b`;
+  `slowing_down::genflx_slowing_down`, homogeneous branch) fed NJOY's PENDF:
+  `sigma_g` within **2.87e-6**, flux within **3.89e-7**, and the flux table
+  reproduces NJOY's point counts (926 tail / 99,934 solved / 55,488 NR). This
+  measurement found three port defects, all read out of `groupr.f90` before
+  being confirmed: the weight-shape tail below `felo` must sit on `getwtf`'s
+  1 % ladder (`:5563-5577`), the NR extension above `fehi` also steps by 1 %
+  (`:5626-5631`), and the NR in-scatter source uses the weight at `fehi`,
+  not at `e` (`:5460`).
+
 Still **not** golden-validated: the matrix path (`mfd=6` scatter matrices,
-File-6 feeds), GAMINR, `lord > 0`, `LSSF = 0` materials, and more than one
-temperature.
+File-6 feeds), GAMINR, `lord > 0`, `LSSF = 0` materials, more than one
+temperature, and the flux calculator's heterogeneity / multi-moderator terms
+(still `NotPorted`).
 
 ## Caveats
 

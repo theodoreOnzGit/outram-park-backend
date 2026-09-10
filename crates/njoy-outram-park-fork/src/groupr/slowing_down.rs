@@ -211,6 +211,13 @@ impl Default for SlowingDownParams {
 ///   documented as not ported (see the module scope note).
 /// - [`NjoyError::EndfParse`] for invalid inputs: no dilutions, a non-finite or
 ///   negative dilution, `fehi <= max(felo, 0.1)`, or `absorber_awr <= 0`.
+/// `getwtf`'s own step between weight-function samples, `s101 = 1.01`
+/// (`groupr.f90:5140`): the analytic weights (`iwt = 2, 3, 4, 6, 7, 10`)
+/// return `enext = 1.01*e`, and a tabulated weight's next break is capped at
+/// it (`:5175-5178`). `genflx` uses it for the tail below `felo` and for the
+/// narrow-resonance extension above `fehi`.
+const GETWTF_STEP: f64 = 1.01;
+
 pub fn genflx_slowing_down(
     sigma_t: &PointwiseXs,
     sigma_el: &PointwiseXs,
@@ -323,7 +330,11 @@ pub fn genflx_slowing_down(
     for p in 0..(ne - 1) {
         let e = energies[p];
         if e >= alpha1 * fehi {
-            let f1 = (1.0 - alpha1 * fehi / e) * wtf[p] / one_minus_alpha;
+            // Upstream uses the loop's last `wtf` here -- the weight at fehi, not
+            // at e (groupr.f90:5460: `wtf` is not re-evaluated inside this
+            // loop). Measured 2026-09-10: with wtf(e) the 5-10 keV group flux
+            // was 7.4e-4 off NJOY at sigma_0 = 1 b; with wtf(fehi) it is not.
+            let f1 = (1.0 - alpha1 * fehi / e) * wtf[ne - 1] / one_minus_alpha;
             for iz in 0..nsigz {
                 flux[p][iz] += f1 * sigpot;
             }
@@ -424,9 +435,23 @@ pub fn genflx_slowing_down(
     for iz in 0..nsigz {
         let mut tab: Vec<(f64, f64)> = Vec::with_capacity(ne + 4);
 
-        // Low-energy tail below the clamped felo (groupr.f90:5563-5577).
+        // Low-energy tail below the clamped felo (groupr.f90:5563-5577): NJOY
+        // walks `getwtf`'s own ladder from ebot -- `enxt = 1.01*e` for the
+        // analytic weights, the table breaks capped at 1.01*e for tabulated
+        // ones -- storing factor*wtf at every step while enxt < felo. A single
+        // point at ebot would make the lin-lin flux between 1e-5 eV and felo
+        // grossly wrong for a 1/E-shaped weight (measured 2026-09-10 against
+        // NJOY's flux-calculator GENDF: see tests/groupr_u238_gendf_golden.rs).
         if ebot < felo {
-            tab.push((ebot, factor[iz] * weight.value(ebot)));
+            let mut e = ebot;
+            while e < felo {
+                tab.push((e, factor[iz] * weight.value(e)));
+                let nxt = weight.next_break(e).min(GETWTF_STEP * e);
+                if !(nxt > e) {
+                    break;
+                }
+                e = nxt;
+            }
         }
 
         // Solved region felo..fehi (groupr.f90:5596-5615, P0 only).
@@ -434,7 +459,11 @@ pub fn genflx_slowing_down(
             tab.push((energies[p], flux[p][iz]));
         }
 
-        // Narrow-resonance extension above fehi (groupr.f90:5623-5665).
+        // Narrow-resonance extension above fehi (groupr.f90:5623-5665). Unlike
+        // the solved region (driven by gety1's enext alone, :5434-5447), this
+        // loop steps by min(getwtf's enext = 1.01*e, gety1's en) (:5626-5631),
+        // so the 1/E weight is re-sampled every 1 % wherever the PENDF grid is
+        // coarser than that, and it stops at the top of the total-xs table.
         {
             let mut e = sigma_t.next_break(fehi);
             let mut guard = 0usize;
@@ -442,7 +471,11 @@ pub fn genflx_slowing_down(
                 let st = sigma_t.value(e);
                 let c = weight.value(e);
                 tab.push((e, bondarenko_flux_value(st, c, sigpot, dilutions[iz])));
-                let nxt = sigma_t.next_break(e);
+                let sig_next = sigma_t.next_break(e);
+                if sig_next >= NO_NEXT_BREAK_EV {
+                    break; // e is the last total-xs point (etop)
+                }
+                let nxt = sig_next.min(weight.next_break(e)).min(GETWTF_STEP * e);
                 if !(nxt > e) {
                     break;
                 }

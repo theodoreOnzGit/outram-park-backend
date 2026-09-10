@@ -83,6 +83,17 @@
 //!    input is that run's PENDF (`OUTRAM_PARK_NJOY_U238_UNRESR_PENDF`, *not*
 //!    committed); [`read_urr_from_tape`] on the same tape feeds the engine its
 //!    table. Skips when the variable is unset.
+//! 4. **Flux calculator (`iwt = -3`, strict)** —
+//!    `njoy_flux_calculator_slowing_down`: a third oracle run, the tier-1 deck
+//!    with `iwt = -3` and card 8a `fehi = 1e4 eV, sigpot = 11.29 b,
+//!    nflmax = 300000` (deck `…-iwt-3-fehi1e4-6sigz.njoy-input`, golden
+//!    `…-iwt-3-fehi1e4-6sigz.gendf`), so `genflx` solves the integral
+//!    slowing-down equation from `egn(1)` to `fehi` (`groupr.f90:5396-5620`) —
+//!    the homogeneous single-moderator branch [`genflx_slowing_down`] ports.
+//!    Pointwise input is the tier-1 PENDF (same variable). NJOY's listing
+//!    gives the grid to reproduce: 926 tail points (1e-5 → 0.0997 eV on the
+//!    1 % ladder), 99,934 solved points (0.1 eV → 1e4), 55,488 NR points to
+//!    3e7 eV.
 //!
 //! # Results (2026-09-10, all tiers run on this machine)
 //!
@@ -139,6 +150,24 @@
 //! (`stounr`/`getunr`) + the URR flux are thereby validated for `LSSF = 1`
 //! U-238 at one temperature.
 //!
+//! **Tier 4 — slowing-down flux calculator, engine isolated on NJOY's PENDF.**
+//! Three port defects surfaced, each predicted from `groupr.f90` before the
+//! measurement that confirmed it: (a) the tail below `felo` was a single point
+//! at 1e-5 eV where NJOY tabulates `factor*wtf` on `getwtf`'s 1 % ladder
+//! (`:5563-5577`; 926 points) — a lin-lin 1/E across four decades; (b) the NR
+//! extension above `fehi` marched only the total-xs grid where NJOY also takes
+//! the 1 % step (`:5626-5631`); (c) the NR in-scatter source below `fehi`
+//! uses the loop's last `wtf`, i.e. the weight *at `fehi`*, not `wtf(e)`
+//! (`:5460`) — with `wtf(e)` the 5–10 keV group flux was 7.4e-4 off at
+//! σ0 = 1 b, the rest already ≤ 8e-6. After (a)–(c): the port's table is
+//! 926 / 99,934 / 55,489 points (NJOY reports 55,488 for the NR part — one
+//! point at the 3e7 eV top, outside every group), `sigma_g` within
+//! **2.87e-6** (MT=102, group 9, σ0 = 1e3 b) / 1.95e-6 (MT=18), group flux
+//! within **3.89e-7** (MT=1, group 21, σ0 = 1 b). The homogeneous
+//! slowing-down solve, the weight-shape tail and the NR matching are thereby
+//! validated for U-238 at one temperature (op-eqa's "needs a golden NJOY
+//! genflx flux" half; its heterogeneity / multi-moderator terms stay unported).
+//!
 //! Side findings filed as follow-ups rather than fixed here: the crate's
 //! RECONR does not implement the `errint`/`errmax` resonance-integral
 //! relaxation, and the crate's BROADR does not thin (NJOY: 448,168 → 155,207).
@@ -153,7 +182,10 @@ use njoy_outram_park_fork::groupr::gendf::GendfSection;
 use njoy_outram_park_fork::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
 use njoy_outram_park_fork::groupr::pendf_feed::read_pendf_cross_section;
 use njoy_outram_park_fork::groupr::self_shielded::self_shielded_group_xs;
-use njoy_outram_park_fork::groupr::unresolved::{genflx_bondarenko_urr, UnresolvedTable, UrrReaction};
+use njoy_outram_park_fork::groupr::slowing_down::{genflx_slowing_down, SlowingDownParams};
+use njoy_outram_park_fork::groupr::unresolved::{
+    genflx_bondarenko_urr, SelfShieldedFluxSet, UnresolvedTable, UrrReaction,
+};
 use njoy_outram_park_fork::groupr::urr_pendf::read_urr_from_tape;
 use njoy_outram_park_fork::groupr::weights::AnalyticWeight;
 use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
@@ -165,6 +197,11 @@ const GOLDEN_GENDF: &str = "u238-ENDF8.0-293.6K-29g-iwt3-6sigz.gendf";
 const NJOY_PENDF_ENV: &str = "OUTRAM_PARK_NJOY_U238_PENDF";
 const GOLDEN_GENDF_URR: &str = "u238-ENDF8.0-293.6K-29g-iwt3-6sigz-unresr.gendf";
 const NJOY_PENDF_URR_ENV: &str = "OUTRAM_PARK_NJOY_U238_UNRESR_PENDF";
+const GOLDEN_GENDF_SD: &str = "u238-ENDF8.0-293.6K-29g-iwt-3-fehi1e4-6sigz.gendf";
+/// Card 8a of the flux-calculator deck: `fehi sigpot nflmax`.
+const SD_FEHI: f64 = 1e4;
+const SD_SIGPOT: f64 = 11.29;
+const SD_NFLMAX: usize = 300_000;
 
 /// The 30 group breaks of the deck (card 6b), eV, ascending.
 const BOUNDS: [f64; 30] = [
@@ -339,6 +376,7 @@ fn compare(
     pointwise: &BTreeMap<i32, Vec<(f64, f64)>>,
     golden: &BTreeMap<i32, GoldenReaction>,
     urr: Option<&UnresolvedTable>,
+    flux_override: Option<&SelfShieldedFluxSet>,
 ) -> Deviations {
     let sigt_pairs = &pointwise[&1];
     let grid = njoy_flux_grid(sigt_pairs);
@@ -350,7 +388,14 @@ fn compare(
     let sig_t = PointwiseXs::LinLin(Arc::new(sigt_pairs.clone()));
     let weight = GroupFlux::analytic(AnalyticWeight::OneOverE, TEMP_K);
     // sigpot = 0: NJOY reads sigpot only for iwt < 0 (groupr.f90:4978).
-    let flux_set = genflx_bondarenko_urr(&sig_t, urr, &weight, 0.0, &SIGZ, &grid).unwrap();
+    let bondarenko;
+    let flux_set = match flux_override {
+        Some(f) => f,
+        None => {
+            bondarenko = genflx_bondarenko_urr(&sig_t, urr, &weight, 0.0, &SIGZ, &grid).unwrap();
+            &bondarenko
+        }
+    };
 
     let mut dev = Deviations {
         sigma: MaxDev::default(),
@@ -360,10 +405,28 @@ fn compare(
     for (mt, reaction) in MTS {
         let pairs = &pointwise[&mt];
         let sig_rx = PointwiseXs::LinLin(Arc::new(pairs.clone()));
-        let mgxs = self_shielded_group_xs(
-            &sig_t, &sig_rx, urr, reaction, &weight, 0.0, &SIGZ, &BOUNDS, &grid,
-        )
-        .unwrap();
+        // With a precomputed (flux-calculator) flux set there is no URR table
+        // in play, so sigma_g is the plain flux-weighted average with that flux;
+        // otherwise it is the engine's assembled path.
+        let sigma_g: Vec<Vec<f64>> = match flux_override {
+            Some(f) => (0..N_SIGZ)
+                .map(|iz| {
+                    let phi = f.flux(iz).unwrap();
+                    (0..N_GROUPS)
+                        .map(|g| group_integral(&sig_rx, phi, BOUNDS[g], BOUNDS[g + 1]).average())
+                        .collect()
+                })
+                .collect(),
+            None => {
+                let m = self_shielded_group_xs(
+                    &sig_t, &sig_rx, urr, reaction, &weight, 0.0, &SIGZ, &BOUNDS, &grid,
+                )
+                .unwrap();
+                (0..N_SIGZ)
+                    .map(|iz| (0..N_GROUPS).map(|g| m.get(iz, g)).collect())
+                    .collect()
+            }
+        };
         let gold = &golden[&mt];
         let dev_sigma = if mt == 18 {
             &mut dev.sigma_mt18
@@ -380,13 +443,13 @@ fn compare(
                 // must be the same number (with one, the engine shields sigma_rx).
                 if urr.is_none() {
                     assert!(
-                        (mgxs.get(iz, g) - integ.average()).abs() <= 1e-12 * integ.average().abs(),
+                        (sigma_g[iz][g] - integ.average()).abs() <= 1e-12 * integ.average().abs(),
                         "self_shielded_group_xs and group_integral disagree"
                     );
                 }
-                dev_sigma.update(mt, g + 1, iz, mgxs.get(iz, g), gold.sigma[g][iz]);
+                dev_sigma.update(mt, g + 1, iz, sigma_g[iz][g], gold.sigma[g][iz]);
                 dev.flux.update(mt, g + 1, iz, integ.flux, gold.flux[g][iz]);
-                let r = ((mgxs.get(iz, g) - gold.sigma[g][iz]) / gold.sigma[g][iz]).abs();
+                let r = ((sigma_g[iz][g] - gold.sigma[g][iz]) / gold.sigma[g][iz]).abs();
                 if iz == 0 {
                     worst_inf = worst_inf.max(r);
                 }
@@ -439,7 +502,7 @@ fn njoy_pendf_isolates_the_group_averaging_engine() {
         };
         pointwise.insert(mt, (*pairs).clone());
     }
-    let dev = compare("tier1 njoy-pendf", &pointwise, &golden, None);
+    let dev = compare("tier1 njoy-pendf", &pointwise, &golden, None, None);
     assert!(
         dev.sigma.rel < TIER1_TOL,
         "sigma_g deviates from NJOY: {}",
@@ -501,7 +564,7 @@ fn crate_reconr_broadr_vs_njoy_gendf() {
             .unwrap_or_else(|| panic!("MT={mt} reconstructed"));
         pointwise.insert(mt, sec.pairs.clone());
     }
-    let dev = compare("tier2 crate-pendf", &pointwise, &golden, None);
+    let dev = compare("tier2 crate-pendf", &pointwise, &golden, None, None);
     assert!(
         dev.sigma.rel < TIER2_TOL,
         "sigma_g deviates from NJOY: {}",
@@ -562,7 +625,105 @@ fn njoy_unresr_pendf_urr_self_shielding() {
         };
         pointwise.insert(mt, (*pairs).clone());
     }
-    let dev = compare("tier3 njoy-unresr-pendf", &pointwise, &golden, Some(&urr));
+    let dev = compare(
+        "tier3 njoy-unresr-pendf",
+        &pointwise,
+        &golden,
+        Some(&urr),
+        None,
+    );
+    assert!(
+        dev.sigma.rel < TIER1_TOL,
+        "sigma_g deviates from NJOY: {}",
+        dev.sigma
+    );
+    assert!(
+        dev.sigma_mt18.rel < TIER1_TOL,
+        "sigma_g (MT=18) deviates from NJOY: {}",
+        dev.sigma_mt18
+    );
+    assert!(
+        dev.flux.rel < TIER1_TOL,
+        "group flux deviates from NJOY: {}",
+        dev.flux
+    );
+}
+
+/// **Tier 4 — the flux calculator (`iwt = -3`).** Pointwise input = NJOY's
+/// own PENDF (the tier-1 tape), golden = the GENDF from the same deck with
+/// `iwt = -3` and card 8a `fehi = 1e4 eV, sigpot = 11.29 b, nflmax = 300000`
+/// (deck `…-iwt-3-fehi1e4-6sigz.njoy-input`): `genflx` solves the integral
+/// slowing-down equation from `felo = egn(1)` to `fehi` on the total-xs grid,
+/// extends it with the weight shape below `felo` on `getwtf`'s 1 % ladder and
+/// with the narrow-resonance flux above `fehi` (`groupr.f90:5396-5665`).
+///
+/// Methodology: [`genflx_slowing_down`] with the same parameters (the absorber
+/// `awr` is the PENDF's own, 236.0058), then the plain flux-weighted group
+/// average with that flux. Pass criterion: every group flux and `sigma_g`
+/// within **1e-5** relative of the GENDF.
+///
+/// Result (2026-09-10): after the three `genflx_slowing_down` fixes the
+/// module doc describes, worst `sigma_g` 2.87e-6 and worst flux 3.89e-7; the
+/// flux table reproduces NJOY's 926 / 99,934 / 55,488(+1) point counts.
+#[test]
+fn njoy_flux_calculator_slowing_down() {
+    let Some(golden_path) =
+        reference_file_or_skip("gendf", GOLDEN_GENDF_SD, "groupr-u238-golden-sd")
+    else {
+        return;
+    };
+    let Ok(pendf_path) = std::env::var(NJOY_PENDF_ENV) else {
+        println!(
+            "[groupr-u238-golden-sd] SKIP tier 4: set {NJOY_PENDF_ENV} to the NJOY 293.6 K PENDF \
+             (regenerate with the committed deck)"
+        );
+        return;
+    };
+    let golden = load_golden(&golden_path);
+    let tape = Tape::read_file(std::path::Path::new(&pendf_path)).expect("NJOY PENDF parses");
+    let mut pointwise = BTreeMap::new();
+    let mut awr = 0.0;
+    for (mt, _) in MTS {
+        let xs = read_pendf_cross_section(&tape, MAT, mt).expect("PENDF MF=3 section");
+        awr = xs.awr;
+        let PointwiseXs::LinLin(pairs) = xs.xs else {
+            panic!("PENDF feeder returned a non-tabulated cross section");
+        };
+        pointwise.insert(mt, (*pairs).clone());
+    }
+    let sig_t = PointwiseXs::LinLin(Arc::new(pointwise[&1].clone()));
+    let sig_el = PointwiseXs::LinLin(Arc::new(pointwise[&2].clone()));
+    let weight = GroupFlux::analytic(AnalyticWeight::OneOverE, TEMP_K);
+    let params = SlowingDownParams {
+        felo: BOUNDS[0],
+        fehi: SD_FEHI,
+        nflmax: SD_NFLMAX,
+        sigpot: SD_SIGPOT,
+        absorber_awr: awr,
+        alpha2: 0.0,
+        alpha3: 0.0,
+        beta: 0.0,
+        sam: 0.0,
+        gamma: 0.0,
+    };
+    let flux_set = genflx_slowing_down(&sig_t, &sig_el, &weight, &SIGZ, &params).unwrap();
+    if let GroupFlux::Tabulated(t) = flux_set.flux(0).unwrap() {
+        let n_tail = t.iter().take_while(|p| p.0 < 0.1).count();
+        let n_solved = t.iter().filter(|p| p.0 >= 0.1 && p.0 <= SD_FEHI).count();
+        println!(
+            "[tier4 flux-calc] flux table {} points: {n_tail} tail (< 0.1 eV), {n_solved} solved \
+             (0.1 eV..fehi), {} narrow-resonance above fehi",
+            t.len(),
+            t.len() - n_tail - n_solved
+        );
+    }
+    let dev = compare(
+        "tier4 flux-calc",
+        &pointwise,
+        &golden,
+        None,
+        Some(&flux_set),
+    );
     assert!(
         dev.sigma.rel < TIER1_TOL,
         "sigma_g deviates from NJOY: {}",
