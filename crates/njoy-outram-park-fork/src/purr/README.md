@@ -142,7 +142,7 @@ than U-235 (D = 2.4 eV vs 0.16 eV). The verification ladder, easiest first:
    argument above.
 6. Only then, the full `probability_table` Monte Carlo pipeline end to end.
 
-Steps 1–3 and 5 are unit tests in `mod.rs`/`wfun.rs` (`Rng` against a
+Steps 1–3 and 5 are unit tests in `tests.rs`/`wfun.rs` (`Rng` against a
 verbatim-`rann` gfortran oracle for `idum=-101`; `uw2` against a
 verbatim-`uw2` oracle at 16 points; Wigner spacing mean/width; all four
 `line_shape` tiers against `uw2` across every boundary, and tier *selection*

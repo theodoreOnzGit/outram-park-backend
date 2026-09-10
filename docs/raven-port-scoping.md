@@ -293,7 +293,7 @@ truncation bounds — becomes Rust constructor arguments and a `Result`.
 NumPy's default bit generator is **PCG64**. The workspace has **no `rand`
 crate at all** — `Cargo.toml` contains no `rand`, `rand_distr`, `rand_pcg`, or
 `statrs`. What exists today is hand-rolled: `crates/boon-lay/.../oorandom_rng.rs`
-(`OoRng64`, a PCG-family generator) and `crates/njoy-outram-park-fork/src/purr/mod.rs`
+(`OoRng64`, a PCG-family generator) and `crates/njoy-outram-park-fork/src/purr/ladder.rs`
 (`Rng`).
 
 This is a real decision the maintainer must make, not something a port agent

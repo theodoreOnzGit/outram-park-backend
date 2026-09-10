@@ -397,7 +397,7 @@ first):
 |---|---|---|
 | `src/heatr/mod.rs` | ~~1363~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `heatr/{spectra,kerma,damage,tests}.rs` (200/154/222/826 lines) + a 97-line `mod.rs` |
 | `src/wmp.rs` | ~~1276~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `wmp/{types,evaluate,h5,blob,tests}.rs` (147/252/171/470/324 lines) + a 94-line `mod.rs` — parsing (`h5`/`blob`) vs. Doppler-broadening evaluation (`evaluate`) as planned |
-| `src/purr/mod.rs` | 1414 | ⬜ TODO: split by function (ladder generation vs. `unrest`'s Monte Carlo core is a natural boundary). Not split on 2026-09-10 because the URR/PURR track (`op-cjw.6`, `op-cjw.20`) was being actively edited by a concurrent session; do it when that track is quiet |
+| `src/purr/mod.rs` | ~~1414~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `purr/{ladder,unrest,tests}.rs` (540/578/293 lines) + an 81-line `mod.rs` — ladder generation (`rann`/`ladr2`/`unresx`/`rdheat` in `ladder`) vs. `unrest`'s Monte Carlo core + `line_shape` (`unrest`) at the plan-named boundary; public paths unchanged via re-exports |
 
 ---
 
@@ -618,7 +618,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 > `dispatch.rs`, `api.rs`), per a new mandatory crate convention — see §5
 > above and this crate's `CLAUDE.md`. Pure reorganization, no logic
 > changes. Applies to all NJOY ports from this date forward; three
-> existing over-length files (`purr/mod.rs`; `heatr/mod.rs` and `wmp.rs` were split 2026-09-10)
+> existing over-length files (`heatr/mod.rs`, `wmp.rs` and `purr/mod.rs` were all split 2026-09-10)
 > tracked as TODOs to split opportunistically.
 >
 > **Update (2026-07-07, Phase 5 — cross-section formula):** **Phase 5 is
