@@ -107,7 +107,11 @@ pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Resul
     let mut hmatn = Vec::with_capacity(nmat);
     let mut ntemp = Vec::with_capacity(nmat);
     let mut locm = Vec::with_capacity(nmat);
-    let mut irec = 4i32; // records 1..4 precede the first material (resxsr.f90:443-467).
+    // `irec` counts the material records written so far — upstream starts it
+    // at 0 (resxsr.f90:234) and stores `locm(im) = irec` before each material
+    // (:253); the four file-header records are not counted (NJOY writes
+    // locm = 0 for the first material, `reference-data/resxsr/`).
+    let mut irec = 0i32;
 
     for (im, spec) in input.materials.iter().enumerate() {
         let tape = tapes.get(im).ok_or(NjoyError::EndfParse(
@@ -128,8 +132,8 @@ pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Resul
             .collect();
         let nener = points.len() as i32;
 
-        locm.push(irec + 1);
-        irec += 1; // material control record
+        locm.push(irec);
+        irec += 1; // material control record (resxsr.f90:402)
         let nn = 1 + nreac; // single temperature: nn = 1 + nreac*1
         let cap_pts = (NBLOK / nn).max(1);
         irec += ((nener + cap_pts - 1) / cap_pts).max(1); // cross-section block records

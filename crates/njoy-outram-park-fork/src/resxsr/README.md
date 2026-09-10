@@ -95,3 +95,16 @@ notes):
 
 - NJOY2016 manual §RESXSR (LA-UR-17-20093)
 - `resxsr.f90` (NJOY2016, commit ac5adf5); TRANSX; intermediate-resonance theory
+
+## NJOY2016 parity (2026-09-10)
+
+`tests/resxsr_h2_njoy_golden.rs` drives `run_resxs` with the cards of an
+upstream `resxsr` run on the committed H-2 293.6 K PENDF
+(`reference-data/resxsr/`) and finds the output **byte-identical** (2,124
+bytes): 165-point union grid after thinning, MT=2/102 columns, temperature,
+`amass`, and every header record. Two defects were fixed to get there: the
+record framing (`[nwds][payload]` → gfortran's `[nbytes][payload][nbytes]`)
+and `locm` (upstream's `irec` starts at 0 before the first material and
+does not count the four file-header records). NJOY's binary-unit path
+(`nout < 0`) aborts under gfortran 13 ("unit number is negative", `:445`);
+the positive-unit stream it writes is the same unformatted record sequence.

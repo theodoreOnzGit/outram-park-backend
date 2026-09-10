@@ -63,11 +63,9 @@ fn njoy_nn_table(text: &str, ng: usize) -> (usize, Vec<Vec<f64>>) {
 #[test]
 fn dtfr_u238_claw_nn_table_matches_njoy() {
     let tag = "dtfr-u238-claw";
-    let Some(gendf) = reference_file_or_skip(
-        "dtfr",
-        "u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mf6.gendf",
-        tag,
-    ) else {
+    let Some(gendf) =
+        reference_file_or_skip("dtfr", "u238-ENDF8.0-293.6K-29g-iwt3-6sigz-mf6.gendf", tag)
+    else {
         return;
     };
     let Some(dtf) = reference_file_or_skip("dtfr", "u238-29g-claw.dtf", tag) else {
@@ -107,7 +105,10 @@ fn dtfr_u238_claw_nn_table_matches_njoy() {
         "[{tag}] {}x{} n-n table, {nonzero} non-zero entries, worst {:.3e} at group {} position {} (crate {:.6e}, njoy {:.6e})",
         itabl_njoy, NG, worst.0, worst.1, worst.2, worst.3, worst.4
     );
-    assert!(nonzero > 100, "oracle table carries data ({nonzero} non-zero)");
+    assert!(
+        nonzero > 100,
+        "oracle table carries data ({nonzero} non-zero)"
+    );
     assert!(
         worst.0 < TOL,
         "{tag}: worst {:.3e} at group {} position {} (crate {:.6e}, njoy {:.6e})",

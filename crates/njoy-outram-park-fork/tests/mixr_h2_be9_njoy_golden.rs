@@ -78,7 +78,11 @@ fn mixr_h2_be9_matches_njoy() {
     let ours_head = SectionCursor::new(&ours.section(OUT_MAT, 1, 451).unwrap().rows)
         .read_cont()
         .unwrap();
-    assert_eq!((head.c1, head.c2), (ours_head.c1, ours_head.c2), "MF=1/451 ZA, AWR");
+    assert_eq!(
+        (head.c1, head.c2),
+        (ours_head.c1, ours_head.c2),
+        "MF=1/451 ZA, AWR"
+    );
 
     let mut worst_all = (0.0f64, 0, 0.0, 0.0, 0.0);
     for mt in [1, 2, 102] {
