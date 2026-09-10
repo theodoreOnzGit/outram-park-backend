@@ -243,6 +243,50 @@ pub struct ResonanceInfo {
 }
 
 impl ResonanceInfo {
+    /// Upper energy limit \[eV\] that upstream RECONR writes into the PENDF
+    /// MF=2/MT=151 range record, and that BROADR then reads back as its
+    /// default `thnmax` (the top energy for Doppler broadening).
+    ///
+    /// Ported from `rdfil2` in `reconr.f90` (the `eresl`/`eresh`/`eresr`
+    /// bookkeeping at lines ~697-846) and the PENDF MF=2 writer at
+    /// `reconr.f90:5193-5197`:
+    ///
+    /// - `eresh` = highest upper bound over *all* ranges;
+    /// - `eresr` = highest upper bound over the `LRU <= 1` ranges, clamped to
+    ///   `[eresl, eresh]` where `eresl` is the lowest lower bound of any range
+    ///   (`if (eresr.lt.eresl) eresr=eresl; if (eresr.gt.eresh) eresr=eresh`);
+    /// - the record's `EH` is `eresh`, replaced by `eresr` when that is lower
+    ///   (`scr(2)=eresh; if (eresr.lt.eresh) scr(2)=eresr`).
+    ///
+    /// So for a material with a resolved range below an unresolved one
+    /// (U-238: 1e-5..2e4 eV resolved, 2e4..1.49e5 eV unresolved) this is the
+    /// **top of the resolved range**, 2e4 eV; for an unresolved-only material
+    /// it is the *bottom* of the unresolved range (`eresr` clamps up to
+    /// `eresl`); for an `LRU=0` material it is that range's own upper bound.
+    /// Returns `None` when there are no ranges at all (no MF=2), in which case
+    /// BROADR falls back to its 6.5 MeV default.
+    #[must_use]
+    pub fn pendf_resonance_upper_limit(&self) -> Option<f64> {
+        if self.ranges.is_empty() {
+            return None;
+        }
+        let eresl = self.ranges.iter().map(|r| r.el).fold(f64::INFINITY, f64::min);
+        let eresh = self.ranges.iter().map(|r| r.eh).fold(0.0_f64, f64::max);
+        let mut eresr = self
+            .ranges
+            .iter()
+            .filter(|r| r.lru <= 1)
+            .map(|r| r.eh)
+            .fold(0.0_f64, f64::max);
+        if eresr < eresl {
+            eresr = eresl;
+        }
+        if eresr > eresh {
+            eresr = eresh;
+        }
+        Some(if eresr < eresh { eresr } else { eresh })
+    }
+
     /// Returns `true` if every range has LRU=0 (potential scattering only).
     ///
     /// Materials like H-2 have no resonance parameters; RECONR skips the

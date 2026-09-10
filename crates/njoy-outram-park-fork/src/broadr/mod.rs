@@ -36,7 +36,10 @@
 //!   (it is < 10⁻⁷ above that) and matters mainly near thermal energies, where
 //!   it pulls the broadened value back down toward the physical result.
 
-use crate::{common::phys::BK_EV_PER_K, reconr::ReconrSection};
+use crate::{
+    common::phys::BK_EV_PER_K,
+    reconr::{ReconrResult, ReconrSection},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 #[cfg(target_arch = "wasm32")]
@@ -266,7 +269,217 @@ fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/// Doppler-broaden a set of RECONR cross-section sections using the SIGMA1 method.
+/// Upstream's `e6pt5` (`broadr.f90:166`): the default ceiling for broadening
+/// when nothing in the evaluation bounds it lower \[eV\].
+const E6PT5: f64 = 6.5e6;
+
+/// Upstream's `fact` (`broadr.f90:164`): the factor by which the lower of two
+/// points sharing one energy is nudged down so the grid stays strictly
+/// increasing (`broadr.f90:483`), and by which a threshold is shaded to pick
+/// `thnmax` just below it (`broadr.f90:524`).
+const FACT: f64 = 0.99999;
+
+/// Upstream's default `emin` (`broadr.f90:356`) \[eV\]: a reaction whose grid
+/// starts at or below this is always broadened, never treated as a threshold.
+const EMIN_DEFAULT: f64 = 1.0;
+
+/// The default upper energy for Doppler broadening, `thnmax` in `broadr.f90`.
+///
+/// Ported from the `thnmax` determination in `broadr` (`broadr.f90:354-441`
+/// and `:522-524`, `:562`), for the default card input `thnmax = 0`. The
+/// manual's own summary (`broadr.f90:107-124`):
+///
+/// - (i) a resolved resonance region exists: broaden to the top of it;
+/// - (ii) no resolved region but an unresolved one: broaden to the *start* of
+///   the unresolved region;
+/// - (iii) no resonance parameters at all: broaden to the lesser of 6.5 MeV
+///   and the first reaction threshold.
+///
+/// Concretely: start from the PENDF MF=2 upper limit
+/// ([`ReconrResult::resonance_upper_limit`], which is `eresr`/`eresh` as
+/// RECONR wrote it), cap it at 6.5 MeV (`if (eresh.gt.e6pt5) eresh=e6pt5`),
+/// never exceed the evaluation's own `EMAX` (`if (c2h.lt.thnmax) thnmax=c2h`),
+/// and for a non-resonance material (`LRP = 0`) lower it to
+/// `0.99999 × ` the lowest threshold among the reactions that are not
+/// broadened (`if (fact*enext.lt.thnmax) thnmax=fact*enext`). If nothing set
+/// it, fall back to 6.5 MeV (`if (thnmax.eq.zero.and.thnmx.eq.0) thnmax=e6pt5`).
+///
+/// **Why an upper limit at all.** Above the resolved region the evaluation
+/// tabulates energy-*averaged* cross sections (the unresolved region under
+/// `LSSF=1`, and the smooth region above it). SIGMA1 assumes a pointwise
+/// σ(E); running it there is meaningless, and running it *across* the
+/// resolved/unresolved boundary drags resolved resonance structure into the
+/// unresolved side of the seam. That destroyed U-238's 20 keV seam in this
+/// port (`op-sdbk`: MT=102 45 % low at the seam) until this limit was added.
+#[must_use]
+pub fn broadening_limit(result: &ReconrResult) -> f64 {
+    let mut thnmax = result.resonance_upper_limit.unwrap_or(0.0).min(E6PT5);
+    // broadr.f90:441 — never above the input file's own emax.
+    let emax = result.material.emax;
+    if emax > 0.0 && emax < thnmax {
+        thnmax = emax;
+    }
+    // broadr.f90:522-524 — non-resonance nuclide: stop below the first
+    // threshold among the reactions the reaction loop would *not* broaden.
+    if result.material.lrp == 0 {
+        for sec in &result.sections {
+            let mt = i32::from(sec.mt);
+            if !threshold_candidate(mt) {
+                continue;
+            }
+            let Some(&(first_e, _)) = sec.pairs.first() else {
+                continue;
+            };
+            if first_e <= EMIN_DEFAULT {
+                continue; // `if (enext.le.emin) go to 170` — broadened instead
+            }
+            if FACT * first_e < thnmax {
+                thnmax = FACT * first_e;
+            }
+        }
+    }
+    if thnmax <= 0.0 {
+        thnmax = E6PT5;
+    }
+    thnmax
+}
+
+/// Reactions upstream's reaction loop (`broadr.f90:465-530`) considers when
+/// choosing `thnmax` for a non-resonance nuclide — i.e. everything it does
+/// not skip outright (`go to 165`) or always broaden (MT=18, `go to 170`).
+/// MT=1 is the union grid itself and is handled before the loop.
+fn threshold_candidate(mt: i32) -> bool {
+    !matches!(mt, 1 | 3 | 4 | 18 | 19 | 46..=49)
+        && !(201..=599).contains(&mt)
+        && mt <= 850
+}
+
+/// Doppler-broaden RECONR output up to `thnmax` \[eV\], copying everything
+/// above it through untouched — upstream BROADR's actual behaviour.
+///
+/// This is the entry point the RECONR → BROADR pipeline should use; see
+/// [`broaden_result`] for the one-call form that also derives `thnmax` with
+/// [`broadening_limit`]. [`doppler_broaden`] is the same kernel with no bound
+/// and exists for kernel-level tests.
+///
+/// Per section: points with `E <= thnmax` are broadened (upstream broadens the
+/// node *at* `thnmax` too — `if (et.ge.thnmax) go to 130` makes it a node,
+/// and only `es(1).gt.thnmax` sends the walk to the copy-through at label
+/// 190, `broadr.f90:1348-1353` and `:1467`), and every point with
+/// `E > thnmax` keeps its input value exactly. The SIGMA1 integral for a
+/// broadened point still runs over the *whole* grid — as upstream's does over
+/// all three loaded pages — so a point just below `thnmax` does see the
+/// structure above it, exactly as in `broadr.f90`.
+///
+/// Two consecutive points at one energy (a discontinuity that RECONR did not
+/// shade) are separated as upstream separates them on the union grid
+/// (`broadr.f90:483`): the lower point's energy becomes `0.99999 × E`.
+///
+/// # Parameters
+/// - `sections` — pointwise (energy \[eV\], σ \[b\]) sections from RECONR.
+/// - `awr`      — atomic weight ratio: target mass / neutron mass.
+/// - `temp_k`   — effective temperature \[K\] for broadening.
+/// - `thnmax`   — upper energy for broadening \[eV\]; see [`broadening_limit`].
+#[must_use]
+pub fn doppler_broaden_below(
+    sections: &[ReconrSection],
+    awr: f64,
+    temp_k: f64,
+    thnmax: f64,
+) -> Vec<ReconrSection> {
+    if sections.is_empty() || temp_k <= 0.0 {
+        return sections.to_vec();
+    }
+    let alpha = awr / (BK_EV_PER_K * temp_k);
+
+    sections
+        .iter()
+        .map(|sec| {
+            if sec.pairs.len() < 2 {
+                return sec.clone();
+            }
+            let mut pairs = sec.pairs.clone();
+            nudge_duplicate_energies(&mut pairs);
+
+            let n_broaden = pairs.partition_point(|&(e, _)| e <= thnmax);
+            if n_broaden == 0 {
+                return ReconrSection {
+                    mt: sec.mt,
+                    qi: sec.qi,
+                    pairs,
+                };
+            }
+
+            let eu: Vec<f64> = pairs
+                .iter()
+                .map(|&(e, _)| if e > 0.0 { (alpha * e).sqrt() } else { 0.0 })
+                .collect();
+            let sigma: Vec<f64> = pairs.iter().map(|&(_, s)| s.max(0.0)).collect();
+
+            let broadened: Vec<(f64, f64)> = pairs[..n_broaden]
+                .par_iter()
+                .enumerate()
+                .map(|(j, &(e, _))| {
+                    if e <= 0.0 {
+                        return (e, 0.0);
+                    }
+                    (e, bsigma_scalar(eu[j], &eu, &sigma))
+                })
+                .collect();
+
+            let mut out = broadened;
+            out.extend_from_slice(&pairs[n_broaden..]);
+            ReconrSection {
+                mt: sec.mt,
+                qi: sec.qi,
+                pairs: out,
+            }
+        })
+        .collect()
+}
+
+/// Broaden a whole [`ReconrResult`] to `temp_k` \[K\] with the upstream default
+/// upper limit ([`broadening_limit`]). The result carries the same material
+/// header and limit, so it can be broadened again (bootstrap style) if wanted.
+#[must_use]
+pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
+    let thnmax = broadening_limit(result);
+    ReconrResult {
+        material: result.material.clone(),
+        sections: doppler_broaden_below(&result.sections, result.material.awr, temp_k, thnmax),
+        resonance_upper_limit: result.resonance_upper_limit,
+    }
+}
+
+/// Separate consecutive points that share one energy, as upstream does when it
+/// builds the union grid (`broadr.f90:483`,
+/// `if (idnx.gt.0.and.enext*fact.gt.enow) enext=enext*fact`): the lower of
+/// the pair moves to `0.99999 × E`, provided that still lies above the
+/// preceding point.
+fn nudge_duplicate_energies(pairs: &mut [(f64, f64)]) {
+    for i in 0..pairs.len().saturating_sub(1) {
+        let e = pairs[i].0;
+        if pairs[i + 1].0 == e {
+            let nudged = e * FACT;
+            let prev = if i == 0 { f64::NEG_INFINITY } else { pairs[i - 1].0 };
+            if nudged > prev {
+                pairs[i].0 = nudged;
+            }
+        }
+    }
+}
+
+/// Doppler-broaden a set of RECONR cross-section sections using the SIGMA1 method,
+/// **with no upper energy bound**.
+///
+/// This is the bare kernel: every point of every section is broadened. That is
+/// *not* what upstream BROADR does — it stops at `thnmax` (the top of the
+/// resolved region by default) and copies everything above through unchanged,
+/// because the evaluation above that energy holds energy-averaged values that
+/// the SIGMA1 kernel must not be run over. Pipelines must use
+/// [`doppler_broaden_below`] / [`broaden_result`]; this unbounded form is kept
+/// for kernel-level tests and for callers that have already restricted the
+/// grid themselves.
 ///
 /// All sections must share the same energy grid (as produced by RECONR). The
 /// output has the same energy grid and the same MT numbers as the input, with
@@ -481,6 +694,126 @@ mod tests {
         };
         let out = doppler_broaden(&[sec.clone()], 35.0, 0.0);
         assert_eq!(out[0].pairs, sec.pairs);
+    }
+
+    fn material(lrp: i32, emax: f64) -> crate::reconr::MaterialInfo {
+        crate::reconr::MaterialInfo {
+            za: 92238.0,
+            awr: 236.0058,
+            lrp,
+            lfi: 1,
+            nlib: 0,
+            elis: 0.0,
+            nfor: 6,
+            emax,
+        }
+    }
+
+    fn section(mt: MtReaction, pairs: Vec<(f64, f64)>) -> ReconrSection {
+        ReconrSection { mt, qi: 0.0, pairs }
+    }
+
+    #[test]
+    fn broadening_limit_is_top_of_resolved_range_capped_at_emax_and_6p5mev() {
+        // (i) resolved range present: thnmax = its top (U-238: 2e4 eV).
+        let r = ReconrResult {
+            material: material(1, 3.0e7),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e4),
+        };
+        assert_eq!(broadening_limit(&r), 2.0e4);
+        // Cap at e6pt5 (broadr.f90:423-425).
+        let r = ReconrResult {
+            material: material(1, 3.0e7),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e7),
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+        // Never above the evaluation's emax (broadr.f90:441).
+        let r = ReconrResult {
+            material: material(1, 1.5e6),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e7),
+        };
+        assert_eq!(broadening_limit(&r), 1.5e6);
+        // No MF=2 at all: eresh = thnmax = 0 → e6pt5 fallback (broadr.f90:562).
+        let r = ReconrResult {
+            material: material(0, 2.0e7),
+            sections: vec![],
+            resonance_upper_limit: None,
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+    }
+
+    #[test]
+    fn broadening_limit_stops_below_first_threshold_for_non_resonance_nuclide() {
+        // (iii) lrp = 0 with an LRU=0 range: lowest threshold × 0.99999
+        // (broadr.f90:524), ignoring MT=18 and the sum/derived MTs.
+        let secs = vec![
+            section(MtReaction::from_any(2), vec![(1e-5, 20.0), (2e7, 20.0)]),
+            section(MtReaction::from_any(18), vec![(5e5, 0.0), (2e7, 1.0)]), // always broadened
+            section(MtReaction::from_any(4), vec![(4e4, 0.0), (2e7, 1.0)]), // skipped (sum)
+            section(MtReaction::from_any(51), vec![(4.5e4, 0.0), (2e7, 1.0)]),
+            section(MtReaction::from_any(16), vec![(6.2e6, 0.0), (2e7, 1.0)]),
+        ];
+        let r = ReconrResult {
+            material: material(0, 2.0e7),
+            sections: secs.clone(),
+            resonance_upper_limit: Some(2.0e7),
+        };
+        assert_eq!(broadening_limit(&r), 0.99999 * 4.5e4);
+        // Same sections but lrp = 1: thresholds are not consulted at all.
+        let r = ReconrResult {
+            material: material(1, 2.0e7),
+            sections: secs,
+            resonance_upper_limit: Some(2.0e7),
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+    }
+
+    #[test]
+    fn bounded_broadening_copies_points_above_thnmax_verbatim() {
+        // A step at E = 100 eV, shaded RECONR-style into two distinct energies
+        // straddling thnmax = 100. Below: broadened. At and above the upper
+        // side of the step: bit-identical to the input.
+        let kb = BK_EV_PER_K;
+        let mut pairs: Vec<(f64, f64)> = (1..=200).map(|i| (i as f64 * 0.5, 10.0)).collect();
+        // last point below 100 is 99.5; insert the shaded pair and a tail
+        pairs.push((99.99999, 10.0));
+        pairs.push((100.00001, 30.0));
+        pairs.push((150.0, 31.0));
+        pairs.push((200.0, 32.0));
+        let sec = section(MtReaction::Mt102Capture, pairs.clone());
+        let awr = 10.0;
+        let temp = 3000.0;
+        let out = doppler_broaden_below(&[sec.clone()], awr, temp, 100.0);
+        let o = &out[0].pairs;
+        assert_eq!(o.len(), pairs.len());
+        let split = pairs.partition_point(|&(e, _)| e <= 100.0);
+        for j in split..pairs.len() {
+            assert_eq!(o[j], pairs[j], "point {j} above thnmax must be untouched");
+        }
+        // The unbounded kernel would smear the step into the upper side.
+        let unb = doppler_broaden(&[sec], awr, temp);
+        assert!(unb[0].pairs[split].1 < 29.0, "unbounded: {}", unb[0].pairs[split].1);
+        // And the lower side of the seam IS broadened (sees the step above it,
+        // as upstream's does): strictly between the two plateau values.
+        let lo = o[split - 1].1;
+        assert!(lo > 10.0 && lo < 30.0, "lower side of the seam: {lo}");
+        // Sanity that the temperature is high enough for the step to matter:
+        // Doppler width at 100 eV should exceed the 0.5 eV grid spacing.
+        let width = (4.0 * 100.0 * kb * temp / awr).sqrt();
+        assert!(width > 0.5, "width {width}");
+    }
+
+    #[test]
+    fn duplicate_energies_are_nudged_like_upstream() {
+        let mut p = vec![(1.0, 1.0), (2.0, 1.0), (2.0, 5.0), (3.0, 5.0)];
+        nudge_duplicate_energies(&mut p);
+        assert_eq!(p[1].0, 2.0 * 0.99999);
+        assert_eq!(p[2].0, 2.0);
+        // Grid stays strictly increasing.
+        assert!(p.windows(2).all(|w| w[0].0 < w[1].0));
     }
 }
 

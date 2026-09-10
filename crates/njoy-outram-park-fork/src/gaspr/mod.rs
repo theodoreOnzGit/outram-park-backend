@@ -356,7 +356,11 @@ mod tests {
             nfor: 6,
             emax: 2.0e7,
         };
-        ReconrResult { material, sections }
+        ReconrResult {
+            material,
+            sections,
+            resonance_upper_limit: None,
+        }
     }
 
     /// A single `(n,α)` (MT=107) section reconstructs directly into MT=207

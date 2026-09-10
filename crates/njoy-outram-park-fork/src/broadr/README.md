@@ -73,6 +73,64 @@ independent kernel oracle cross-checked against the WMP analytic-broadening path
 the full RECONR→BROADR pipeline now reproduces OpenMC's Doppler-broadened U-238
 capture across the whole resolved region to **<0.1% L1** at 900 K and 1200 K.
 
+## The upper limit `thnmax` and the resolved/unresolved seam (fixed 2026-09-10)
+
+Upstream BROADR never broadens the whole grid. It stops at `thnmax`
+(`broadr.f90:107-124`, `:354-441`): by default the top of the resolved
+resonance region as RECONR recorded it on the PENDF MF=2 range record (or the
+start of the unresolved region if there is no resolved one, or the lesser of
+6.5 MeV and the first threshold for a non-resonance nuclide), never above the
+evaluation's `EMAX`. Points above `thnmax` are copied through verbatim
+(label 190). The reason is physical: above the resolved region the
+evaluation holds energy-*averaged* values, not the pointwise σ(E) the SIGMA1
+kernel assumes.
+
+Until 2026-09-10 this port had no such bound (`op-sdbk`). On U-238 that
+destroyed the 20 keV seam: MF=3/MT=102 steps from 0.0 b (resolved side; the
+resonances carry it) to 0.52987 b (the evaluator's infinitely-dilute
+unresolved value), and the unbounded kernel smeared the step into the
+unresolved side — 46.7 % low at the seam and, because the next MF=3 point is
+24 keV, 41 % low at 20.5 keV and 25 % low at 22 keV
+(`examples/seam_stage_probe.rs`, 600 K).
+
+Two things had to change, and both are what upstream does:
+
+1. **RECONR shades discontinuities** (`reconr.f90` `rdfil2` "shade nodes to
+   prevent discontinuities", `lunion` "check ahead for discontinuity"): a
+   step at `E` is written as `sigfig(E,7,-1)` / `sigfig(E,7,+1)`
+   (1.999999e4 / 2.000001e4 for U-238), never as two points at one energy.
+   This is what makes a bound at `E` meaningful — an index-based grid walk
+   cannot put a limit *between* two identical energies. See
+   [`crate::reconr::shade_discontinuities`] and `rebuild_range`.
+2. **BROADR bounds broadening at `thnmax`** — [`crate::broadr::broadening_limit`]
+   and [`crate::broadr::doppler_broaden_below`] / [`crate::broadr::broaden_result`],
+   which the pipeline ([`crate::interface`], `outram-mc-libs`) now uses. The
+   unbounded [`crate::broadr::doppler_broaden`] remains as the bare kernel.
+
+After the fix the unresolved side is bit-identical to the tape from
+2.000001e4 eV up; the resolved-side point at 1.999999e4 is broadened and
+sees the step above it, exactly as upstream's does (`bsigma` integrates over
+all three loaded pages). Regression test:
+`tests/broadr_u238_urr_seam.rs`.
+
+**Checked against NJOY2016 itself (2026-09-10).** Upstream (commit
+`ac5adf5`, gfortran 13.3.0) run on the same tape with `reconr 0.001` and
+`broadr 600 K` writes `1.999999e4 → 0.2809805 b` and `2.000001e4 →
+0.5298699 b` for MT=102, with lin-lin values 0.52262 / 0.51536 / 0.50086 /
+0.48635 b at 20.5 / 21 / 22 / 23 keV and "final maximum energy for
+broadening/thinning = 2.00000E+04 eV" in its listing. This port gives
+0.2809594 and 0.529870 at the two shaded points and the same four
+interpolants to every printed digit. (Before the fix: 0.306 at the seam,
+0.30593 at 20.5 keV.)
+
+**A negative result worth keeping (2026-09-10).** The same probe checked the
+hypothesis that the unbounded kernel also smeared fast-neutron thresholds
+(U-238 MT=18 rise near 1 MeV, MT=16 onset at 6.179 MeV) and so depressed
+fast fission. It does not: even unbounded, MT=18 moves by ≤ 0.04 % over
+0.8–2 MeV and MT=16 by ≤ 0.07 % at 6.3 MeV (1e-6 b at the onset), as the
+~30 eV Doppler width at 1 MeV predicts. A fast-fission discrepancy is not a
+BROADR effect.
+
 ## Caveats
 
 - Only free-gas broadening — bound/crystalline effects at very low energy are

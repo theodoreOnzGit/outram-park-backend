@@ -47,6 +47,7 @@ pub use mf2::{
 
 use crate::{
     endf::{records::SectionCursor, tape::Tape, MtReaction},
+    mixr::mix::sigfig,
     NjoyError,
 };
 use rm::RmSigmas;
@@ -120,6 +121,18 @@ pub struct ReconrResult {
     pub material: MaterialInfo,
     /// Reconstructed MF=3 sections, sorted by MT.
     pub sections: Vec<ReconrSection>,
+    /// Upper limit \[eV\] of the resonance region as upstream RECONR records it
+    /// on the PENDF MF=2/MT=151 range record — the value BROADR reads back as
+    /// its default `thnmax` (top energy for Doppler broadening). See
+    /// [`ResonanceInfo::pendf_resonance_upper_limit`]. `None` when the
+    /// material has no MF=2 at all (BROADR then defaults to 6.5 MeV).
+    ///
+    /// For U-238 this is 2e4 eV: the top of the resolved range. Broadening
+    /// above it would run SIGMA1 over the unresolved region's energy-*averaged*
+    /// MF=3 values, which is not what the kernel assumes — upstream never does
+    /// (`broadr.f90:107-124`), and neither does
+    /// [`crate::broadr::doppler_broaden_below`].
+    pub resonance_upper_limit: Option<f64>,
 }
 
 impl ReconrResult {
@@ -205,7 +218,8 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             let mut cur = SectionCursor::new(&sec.rows);
             let _head = cur.read_cont()?; // MF=3 HEAD: ZA, AWR, 0, 0, 0, 0
             let tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
-            let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
+            let mut pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
+            shade_discontinuities(&mut pairs);
             Ok(ReconrSection {
                 mt: MtReaction::from_any(sec.key.mt),
                 qi: tab1.head.c2,
@@ -219,7 +233,73 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps);
 
-    Ok(ReconrResult { material, sections })
+    Ok(ReconrResult {
+        material,
+        sections,
+        resonance_upper_limit: res_info.pendf_resonance_upper_limit(),
+    })
+}
+
+/// Relative energy tolerance below which two grid energies count as *the same*
+/// energy — upstream's `small` in `lunion` (`reconr.f90`), used to detect a
+/// tabulated discontinuity (two consecutive points at one energy).
+const SAME_ENERGY_REL: f64 = 1.0e-10;
+
+/// Lowest energy of any ENDF grid, `elow` in `rdfil2` (`reconr.f90`). A range
+/// boundary sitting *at* `elow` is not shaded (there is nothing below it).
+const ELOW: f64 = 1.0e-5;
+
+/// Represent every tabulated discontinuity as two *distinct* energies.
+///
+/// ENDF writes a step in σ(E) as two consecutive points at the same energy.
+/// Upstream RECONR never lets that reach the PENDF: `lunion` ("check ahead for
+/// discontinuity", `reconr.f90`) rewrites the pair as
+/// `sigfig(E,7,-1)` / `sigfig(E,7,+1)` — the energy shaded down and up by one
+/// unit in the seventh significant figure (2.0e4 → 1.999999e4 / 2.000001e4) —
+/// and simply drops the second point when the two σ values are identical
+/// (`if (abs(srnext-sr).lt.small*sr) go to 260`).
+///
+/// This matters downstream: BROADR's grid walk is index-based, and a genuinely
+/// duplicated energy is degenerate in it (a zero-width panel). With the two
+/// sides at distinct energies a bound such as `thnmax` can fall *between* them,
+/// so the lower side is broadened and the upper side copied through untouched
+/// — which is exactly how upstream preserves the resolved/unresolved seam
+/// (U-238, 20 keV: `op-sdbk`).
+///
+/// The lower point is left where it is if shading it down would cross the
+/// preceding grid point (only possible for a grid finer than 1 part in 10⁷).
+pub fn shade_discontinuities(pairs: &mut Vec<(f64, f64)>) {
+    if pairs.len() < 2 {
+        return;
+    }
+    let mut out: Vec<(f64, f64)> = Vec::with_capacity(pairs.len());
+    let mut i = 0;
+    while i < pairs.len() {
+        let (e, s) = pairs[i];
+        if i + 1 < pairs.len() {
+            let (e2, s2) = pairs[i + 1];
+            if (e2 - e).abs() <= SAME_ENERGY_REL * e.abs() {
+                if (s2 - s).abs() <= SAME_ENERGY_REL * s.abs() {
+                    // Identical values: not a discontinuity, drop the duplicate.
+                    out.push((e, s));
+                } else {
+                    let mut lo = sigfig(e, 7, -1);
+                    if let Some(&(prev, _)) = out.last() {
+                        if lo <= prev {
+                            lo = e;
+                        }
+                    }
+                    out.push((lo, s));
+                    out.push((sigfig(e2, 7, 1), s2));
+                }
+                i += 2;
+                continue;
+            }
+        }
+        out.push((e, s));
+        i += 1;
+    }
+    *pairs = out;
 }
 
 /// Reconstruct **only the MF=3 background** — no MF=2 resonance contributions.
@@ -252,7 +332,8 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
             let mut cur = SectionCursor::new(&sec.rows);
             let _head = cur.read_cont()?; // MF=3 HEAD
             let tab1 = cur.read_tab1()?; // TAB1 header carries QM (c1), QI (c2)
-            let pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, tolerance);
+            let mut pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, tolerance);
+            shade_discontinuities(&mut pairs);
             Ok(ReconrSection {
                 mt: MtReaction::from_any(sec.key.mt),
                 qi: tab1.head.c2,
@@ -261,7 +342,18 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
         })
         .collect::<Result<Vec<_>, NjoyError>>()?;
     sections.sort_by_key(|s| i32::from(s.mt));
-    Ok(ReconrResult { material, sections })
+    // The broadening limit only needs the MF=2 range bounds, which are cheap
+    // to parse even for formalisms whose reconstruction is expensive.
+    let resonance_upper_limit = tape
+        .section(mat, 2, 151)
+        .map(mf2::parse_resonance_info)
+        .transpose()?
+        .and_then(|info| info.pendf_resonance_upper_limit());
+    Ok(ReconrResult {
+        material,
+        sections,
+        resonance_upper_limit,
+    })
 }
 
 // ── Phase 2b: resonance contribution ─────────────────────────────────────────
@@ -460,8 +552,38 @@ fn rebuild_range(
     eps: f64,
     delta_at: impl Fn(f64) -> RangeDelta + Sync,
 ) {
+    // Range-boundary nodes, shaded as upstream `rdfil2` does ("shade nodes to
+    // prevent discontinuities", `reconr.f90:745-777`): the resonance
+    // contribution stops abruptly at `eh`, so the top of the range is carried
+    // at `sigfig(eh,7,-1)` (with resonances) and the first point beyond it at
+    // `sigfig(eh,7,+1)` (background only). Likewise at `el`, unless `el` is the
+    // grid floor `elow` (`if (abs(el-elow).le.small)` — nothing below it).
+    let eh_lo = sigfig(eh, 7, -1);
+    let eh_hi = sigfig(eh, 7, 1);
+    let shade_el = (el - ELOW).abs() > SAME_ENERGY_REL * ELOW;
+    let el_lo = sigfig(el, 7, -1);
+    let el_hi = sigfig(el, 7, 1);
+    let same = |a: f64, b: f64| (a - b).abs() <= SAME_ENERGY_REL * b.abs();
+
     // Union energy grid inside [el, eh]: background energies + resonance halo.
-    let mut egrid = collect_background_energies(sections, el, eh);
+    // A background point sitting exactly on a shaded boundary moves onto the
+    // in-range shaded node.
+    let mut egrid: Vec<f64> = collect_background_energies(sections, el, eh)
+        .into_iter()
+        .map(|e| {
+            if same(e, eh) {
+                eh_lo
+            } else if shade_el && same(e, el) {
+                el_hi
+            } else {
+                e
+            }
+        })
+        .collect();
+    egrid.push(eh_lo);
+    if shade_el {
+        egrid.push(el_hi);
+    }
     egrid.extend(halo.into_iter().filter(|&e| e > el && e < eh && e > 0.0));
     egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
     egrid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
@@ -494,6 +616,18 @@ fn rebuild_range(
             .copied()
             .filter(|&(e, _)| e < el || e > eh)
             .collect();
+
+        // Background-only shaded nodes just outside the range (`eh_hi`, and
+        // `el_lo` when `el` is shaded), unless the background already carries
+        // a point there — as it does when an MF=3 discontinuity at the
+        // boundary was itself shaded by `shade_discontinuities`.
+        let has_point_near = |e: f64| bg.iter().any(|&(x, _)| same(x, e));
+        if !has_point_near(eh_hi) {
+            new_pairs.push((eh_hi, eval_lin_lin(&bg, eh_hi)));
+        }
+        if shade_el && !has_point_near(el_lo) {
+            new_pairs.push((el_lo, eval_lin_lin(&bg, el_lo)));
+        }
 
         // Add background + resonance for every in-range grid energy.
         for (i, &e) in egrid.iter().enumerate() {

@@ -126,6 +126,19 @@ as-coded oddities ported literally rather than "fixed" (a background term
 scaled by the same energy factor twice, and an `LI==6` special case that
 redefines total rather than using the just-computed sum).
 
+## Discontinuities are shaded, never duplicated (2026-09-10)
+
+A PENDF grid from this port, like upstream's, never holds two points at one
+energy. `reconr.f90`'s `lunion` rewrites a tabulated step at `E` as
+`sigfig(E,7,-1)` / `sigfig(E,7,+1)` (and drops the second point when the two
+σ values are equal), and `rdfil2` places the resonance-range boundary nodes
+at the same shaded energies ("shade nodes to prevent discontinuities"), so
+the abrupt end of the resonance contribution at `EH` is also a two-point
+ramp. `shade_discontinuities` and `rebuild_range` do the same here. Before
+this, the port collapsed U-238's 20 keV MF=3 step into a single point (the
+unresolved value *plus* the resonance tail) and BROADR then smeared it —
+see `../broadr/README.md` and `op-sdbk`.
+
 ## Caveats
 
 - Near the critical point of the resolved/unresolved boundary, grid density is

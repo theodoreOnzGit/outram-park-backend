@@ -638,6 +638,7 @@ mod tests {
         ReconrResult {
             material: material(awr),
             sections,
+            resonance_upper_limit: None,
         }
     }
 
