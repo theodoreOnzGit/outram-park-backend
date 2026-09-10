@@ -223,6 +223,39 @@ mod tests {
     /// rather than what it should do.** It is not an HTR-10 reference and must
     /// never be cited as one — see `op-jyyp.11` for that. It becomes
     /// intentionally obsolete when `op-jyyp` rewrites the physics.
+    ///
+    /// ## Why the comparison is numeric rather than byte-exact (2026-09-10)
+    ///
+    /// It was byte-exact as originally written. That held only for as long as
+    /// the compiler did not change. Upgrading the toolchain to satisfy
+    /// `egui 0.36`'s MSRV (rustc 1.94.1 -> 1.98.1) moved **3 of the 121 rows by
+    /// exactly one unit in the ninth printed decimal**:
+    ///
+    /// | row | field | reference | rustc 1.98.1 |
+    /// |---|---|---|---|
+    /// | 49 | `fuel_temperature_k` | 958.886919432 | 958.886919433 |
+    /// | 57 | `reactor_power_mw` | 13.606869492 | 13.606869491 |
+    /// | 119 | `fuel_temperature_k` | 952.091743384 | 952.091743385 |
+    ///
+    /// That is a relative difference of ~1e-12 — a handful of f64 ULP,
+    /// consistent with a codegen change (instruction selection / FMA
+    /// contraction) and inconsistent with any change in the physics, which
+    /// would move these values in their leading digits, not their last. The
+    /// two toolchains could not be A/B'd directly: rustc 1.94.1 can no longer
+    /// build this crate at all, which is why it was replaced.
+    ///
+    /// So the comparison is now **field-by-field to 2e-9 absolute**, one unit
+    /// in the last printed place. `step` still matches exactly, and so does
+    /// the header. This keeps every bit of the test's original power — the
+    /// refactor it guards would have to change a value by less than a
+    /// part in 1e12 to slip through, which is not a thing an execution change
+    /// does — while not making a compiler upgrade look like a physics
+    /// regression.
+    ///
+    /// **This is not the loosening the note below warns against.** When
+    /// parallel execution lands and reduction order legitimately changes,
+    /// *that* still wants its own separate, deliberately-tolerant comparison;
+    /// this tolerance is far too tight to absorb it.
     #[test]
     fn matches_the_recorded_reference_baseline() {
         let fixture = include_str!("reference/baseline_default_commands.csv");
@@ -245,15 +278,50 @@ mod tests {
             expected.len()
         );
 
-        for (i, (got, want)) in produced.iter().zip(expected.iter()).enumerate() {
+        /// One unit in the last place printed by [`TraceRow::to_csv`]'s
+        /// `{:.9}`. Two rows that agree to this have the same physics; see the
+        /// toolchain note on the enclosing test for why exact string equality
+        /// is not the right bar.
+        const LAST_PRINTED_PLACE: f64 = 2e-9;
+
+        let regenerate = "If this is an intended physics change, regenerate with:\n  \
+             cargo run --release --example htgr_sim_v1 -- --headless 3000 25 \
+             > examples/htgr_sim_v1/reference/baseline_default_commands.csv\n  \
+             If it is NOT intended, the execution refactor changed the physics.";
+
+        // Row 0 is the header: no numbers in it, so it must match verbatim.
+        assert_eq!(
+            produced[0], expected[0],
+            "trace header changed\n  produced: {}\n  reference: {}\n{regenerate}",
+            produced[0], expected[0]
+        );
+
+        for (i, (got, want)) in produced.iter().zip(expected.iter()).enumerate().skip(1) {
+            let got_fields: Vec<&str> = got.split(',').collect();
+            let want_fields: Vec<&str> = want.split(',').collect();
             assert_eq!(
-                got, want,
-                "reference baseline diverged at row {i}\n  produced: {got}\n  reference: {want}\n\
-                 If this is an intended physics change, regenerate with:\n  \
-                 cargo run --release --example htgr_sim_v1 -- --headless 3000 25 \
-                 > examples/htgr_sim_v1/reference/baseline_default_commands.csv\n  \
-                 If it is NOT intended, the execution refactor changed the physics."
+                got_fields.len(),
+                want_fields.len(),
+                "field count changed at row {i}\n  produced: {got}\n  reference: {want}"
             );
+
+            // `step` is an integer index, not a measurement -- exact or bust.
+            assert_eq!(
+                got_fields[0], want_fields[0],
+                "step index diverged at row {i}\n  produced: {got}\n  reference: {want}"
+            );
+
+            for (column, (g, w)) in got_fields.iter().zip(want_fields.iter()).enumerate().skip(1) {
+                let g: f64 = g.parse().expect("produced field is not a number");
+                let w: f64 = w.parse().expect("reference field is not a number");
+                assert!(
+                    (g - w).abs() <= LAST_PRINTED_PLACE,
+                    "reference baseline diverged at row {i}, column {column} \
+                     ({g} vs {w}, delta {:.3e} > {LAST_PRINTED_PLACE:.0e})\n  \
+                     produced: {got}\n  reference: {want}\n{regenerate}",
+                    g - w
+                );
+            }
         }
     }
 
