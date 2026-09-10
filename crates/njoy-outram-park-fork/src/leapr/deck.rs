@@ -1086,7 +1086,11 @@ stop
 
     /// Methodology: `unsupported_features` must flag deck options the ported
     /// kernels do not implement, so a caller cannot mistake "parsed" for
-    /// "computed". Result (2026-08-13): an `nsk = 2` deck reports the Sköld gap.
+    /// "computed". Result (2026-08-13): an `nsk = 2` deck reported the Sköld
+    /// gap. Result (2026-09-10): `skold` is ported and NJOY-verified, so the
+    /// same deck parses its cards 17-19 and reports nothing (an `nsk` outside
+    /// `0..=2` is refused by `unsupported_features`; the parser itself only
+    /// sees whether cards 17-19 are present).
     #[test]
     fn unsupported_features_are_reported() {
         // nsk = 2 turns on cards 17-19, which follow card 16.
@@ -1106,7 +1110,6 @@ stop
         assert_eq!(pc.skappa, vec![0.1, 0.2, 0.3]);
         assert_eq!(pc.cfrac, 0.7);
         let f = d.unsupported_features();
-        assert_eq!(f.len(), 1, "features = {f:?}");
-        assert!(f[0].contains("Skold"), "features = {f:?}");
+        assert!(f.is_empty(), "features = {f:?}");
     }
 }
