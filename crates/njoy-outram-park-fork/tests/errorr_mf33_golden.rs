@@ -422,6 +422,7 @@ fn config(case: &Case) -> Mf33Config {
         weight: ErrorrWeight::from_iwt(case.iwt, None, None).unwrap(),
         tempin: TEMP_K,
         irelco: case.irelco,
+        dap: 0.0,
     }
 }
 

@@ -1,6 +1,7 @@
 // Ported from NJOY2016 `src/errorr.f90` (git commit ac5adf5f33d893e42f2eed7fb286b0d51c7580da):
 //   - `subroutine sigc`, l.7789-8007 (`sigc`) — coarse-group cross sections + MF=1/MF=3 output.
-//   - `subroutine covout`, l.7018-7787 (`covout`, `ErrorrResult::to_tape`) — mfcov=33, mf32=0 path.
+//   - `subroutine covout`, l.7018-7787 (`covout`, `ErrorrResult::to_tape`) — mfcov=33 path,
+//     with the `rescon` call (l.7464-7466) that adds the MF=32 contribution.
 // NJOY2016 is under a modified BSD 3-Clause (LANL/DOE) licence, GPL-compatible;
 // this derivative file is distributed under GPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
@@ -27,9 +28,11 @@
 //! LIST per non-empty row), with the lumped-component placeholder sections
 //! interleaved where upstream puts them. That tape is what COVR reads.
 //!
-//! **Scope:** `mfcov = 33`, no MF=32 (`resprx`/`rescon` and the
-//! resonance-parameter diagonal listing are not ported), `nin = 0` (no
-//! input covariance tape to copy), `nout != 0`.
+//! **Scope:** `mfcov = 33`, with the MF=32 contribution added by
+//! [`ResonanceCovariance::rescon`] when the caller passes one (the
+//! resonance-parameter diagonal *listing* is not reproduced; the
+//! `diagonal` accessor carries the same numbers), `nin = 0` (no input
+//! covariance tape to copy), `nout != 0`.
 
 use crate::endf::tape::{Section, Tape};
 use crate::endf::EndfKey;
@@ -38,6 +41,7 @@ use crate::mixr::mix::sigfig;
 use super::covcal::{lumped_sigma, FineCovariance};
 use super::gridd::{CovarianceReactions, DerivedCoefficients, LumpedReaction, NDIG};
 use super::grpav::UnionGroupXs;
+use super::resprx::ResonanceCovariance;
 
 /// `eps` — `covout`'s zero threshold on output elements (`errorr.f90:7071`).
 const EPS: f64 = 1.0e-20;
@@ -159,6 +163,10 @@ pub struct ErrorrResult {
     /// Informational messages upstream would print (`grpav` thresholds,
     /// the MT=3 note).
     pub messages: Vec<String>,
+    /// The MF=32 accumulators when the material carries MF=32 (`resprx`),
+    /// already folded into `blocks`; kept for the "resolved / unresolved"
+    /// diagonal the listing prints.
+    pub resonance: Option<ResonanceCovariance>,
 }
 
 impl ErrorrResult {
@@ -381,9 +389,11 @@ fn accumulate(
 
 /// Compute the output covariances for every reaction pair in the user
 /// group structure (`subroutine covout`, `errorr.f90:7018-7787`,
-/// `mfcov = 33`, `mf32 = 0`).
+/// `mfcov = 33`; `resonance` is the `resprx` result `rescon` adds at
+/// `errorr.f90:7464-7466`, `None` when the material has no MF=32).
 ///
 /// Returns the matrices in output order (`ix` outer, `ixp >= ix` inner).
+#[allow(clippy::too_many_arguments)]
 pub fn covout(
     fine: &FineCovariance,
     un: &[f64],
@@ -392,6 +402,7 @@ pub fn covout(
     derived: &DerivedCoefficients,
     coarse: &CoarseGroupXs,
     irelco: i32,
+    resonance: Option<&ResonanceCovariance>,
 ) -> Vec<CoarseCovariance> {
     let ngn = egn.len() - 1;
     let nmt = reactions.mts.len();
@@ -436,6 +447,17 @@ pub fn covout(
                     if accumulate(&b.rows, un, egn, derived, iy, iyp, ix, ixp, &mut cova) {
                         izero = true;
                     }
+                }
+            }
+            // contribution from resonance-parameter uncertainty (errorr.f90:7464-7466)
+            if let Some(rc) = resonance {
+                if rc.rescon(
+                    reactions.mts[ix],
+                    reactions.mats[ixp],
+                    reactions.mts[ixp],
+                    &mut cova,
+                ) {
+                    izero = true;
                 }
             }
             // relative / absolute output elements (errorr.f90:7458-7486)

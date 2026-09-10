@@ -341,6 +341,7 @@ fn tier2(case: &Case) {
         weight: ErrorrWeight::from_iwt(case.iwt, None, None).unwrap(),
         tempin: TEMP_K,
         irelco: case.irelco,
+        dap: 0.0,
     };
     let result = run_mf33(&endf, &pendf, &cfg).expect("run_mf33");
     // The real tape byte path: write the ERRORR tape, read it back.

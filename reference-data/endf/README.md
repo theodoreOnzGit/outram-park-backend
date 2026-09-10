@@ -64,6 +64,26 @@ Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
 `tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
 `tsl-SiinSiC.endf` are already present (rows above).
 
+#### Ar-37 MF=2 L-block-order variant (added 2026-09-10, `op-cjw.1`)
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-018_Ar_37-tendl2023-mf2-L1-last.endf` | Ar-37 | TENDL-2023 (neutron), **modified** | 1828 | 3.7 MB | derived from `n-018_Ar_37-tendl2023.endf` (row above) | 2026-09-10 |
+
+**This is not an evaluation — it is `n-018_Ar_37-tendl2023.endf` with one
+edit:** in MF=2/MT=151 the resolved range's `L=1` LIST head (which carries
+zero resonances) is moved after the `L=2` block, and the line sequence
+numbers of MF=2 are renumbered. Nothing else differs (`diff` shows those 96
+lines only). It exists because NJOY2016 `ac5adf5`'s ERRORR aborts on the
+original tape (`***error in rpxlc12***problem`): its MF=32 resonance search,
+`errorr.f90:4363-4380`, only advances the MF=2 pointer inside
+`if (ipara.ne.0)`, so an empty L-block leaves it stale and the `L=2`
+resonances are never found. MLBW sums over L, so the reorder is
+physics-identical; NJOY's own RECONR+BROADR PENDF from the two tapes is
+byte-identical. Used only as the ERRORR MF=32 oracle input
+(`../errorr/ar37-tendl2023-L1last-*`); every other Ar-37 test reads the
+unmodified tape.
+
 ### Still wanted
 
 | File | Nuclide | Library | MAT | Source | Date accessed |

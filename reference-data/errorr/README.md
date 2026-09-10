@@ -40,10 +40,23 @@ errorr  20 22 0 23 0 0 /        nendf npend ngout nout nin nstan
 | `si30-ENDF8.0-293.6K-ign3-iwt6-rel` (1635 lines) | Si-30, MAT 1431 | `n-014_Si_030-ENDF8.0.endf` | 6 | 1 | `si30-ENDF8.0-293.6K.pendf` (committed) |
 | `u234-ENDF8.0-293.6K-ign3-iwt6-rel` (501 lines) | U-234, MAT 9225 | `n-092_U_234-ENDF8.0.endf` | 6 | 1 | 6 MB, **not committed** — set `OUTRAM_PARK_NJOY_U234_PENDF` |
 | `u238-ENDF8.0-293.6K-ign3-iwt6-rel` (5999 lines) | U-238, MAT 9237 | `n-092_U_238.endf` | 6 | 1 | 40 MB, **not committed** — set `OUTRAM_PARK_NJOY_U238_PENDF` (the same PENDF the GROUPR golden test uses) |
+| `ar37-tendl2023-L1last-293.6K-ign3-iwt6-rel` (5355 lines) | Ar-37, MAT 1828 | `n-018_Ar_37-tendl2023-mf2-L1-last.endf` (TENDL-2023, see `../endf/README.md`) | 6 | 1 | `ar37-tendl2023-L1last-293.6K.pendf` (committed) |
 
-None of these evaluations carries **MF=32** (resonance-parameter
-covariances), so every run takes ERRORR's pure MF=33 path
-(`covcal` → `covout`, no `resprx`); that is the path the crate ports.
+None of the ENDF/B-VIII.0 evaluations carries **MF=32** (resonance-
+parameter covariances), so those runs take ERRORR's pure MF=33 path
+(`covcal` → `covout`, no `resprx`). **Ar-37 (TENDL-2023) does carry MF=32**
+— a resolved MLBW range (`LRU=1/LRF=2`, `LCOMP=2`, 7 resonances × 3
+parameters, `ISR=1`, `DAP=2.032674e-2`) and an unresolved range (`LRU=2`,
+22 parameters with a relative covariance LIST) — and is the oracle for the
+`resprx` chain (`tests/errorr_mf32_ar37_golden.rs`). NJOY2016 `ac5adf5`
+aborts on the unmodified TENDL-2023 tape (`***error in rpxlc12***problem`
+at the `L=2` resonance `-2100.016 eV`: `errorr.f90:4363-4380` never advances
+its MF=2 pointer past the empty `L=1` block), so the deck ran on the
+physics-identical variant with the empty block moved last in MF=2; NJOY's
+RECONR+BROADR PENDF from the two tapes is byte-identical (checked
+2026-09-10). Its listing prints the `c**`/`u**` diagonals ("resolved" /
+"unresolve") for the total, elastic and capture blocks; those 4-figure
+tables are pinned in the test.
 U-238 exercises lumped reactions (`MT=851/852` with 39 + 2 components) and
 the NC-type `LTY=0` derivation of `MT=1` and `MT=4`; H-2 derives `MT=16`
 over a second energy range (`3.339 MeV – 150 MeV`). U-234 also carries MF=31
@@ -76,5 +89,14 @@ deviate by 32 % (H-2) and 1.2 % (Be-9) because the crate's BROADR does not
 insert grid points across the free-gas 1/v rise of a light nuclide — a
 BROADR finding tracked on its own bead, not an ERRORR one.
 
-Data policy: derived products of open ENDF/B-VIII.0 data processed with the
-BSD-licensed NJOY2016; no proprietary content.
+MF=32 (2026-09-10, `tests/errorr_mf32_ar37_golden.rs`, Ar-37): tier 1 —
+all 465 blocks / 14 048 non-zero elements within 4.97e-7 of `tape23`, the
+four resonance pairs included; the unmodified tape through the crate
+matches the variant-tape oracle to the same 4.97e-7; the listing's
+resolved/unresolved diagonals match to 4.3e-4 (4 printed figures). Tier 2
+exposed a RECONR defect (Ar-37 elastic +6.3 % at low energy, −8.2 % at
+1 keV: `LRF=2` evaluated with the SLBW elastic formula), recorded on its
+own bead.
+
+Data policy: derived products of open ENDF/B-VIII.0 and TENDL-2023 data
+processed with the BSD-licensed NJOY2016; no proprietary content.

@@ -22,15 +22,19 @@
 //! ```
 //!
 //! **What this covers (verified against the NJOY2016 binary — see
-//! `tests/errorr_mf33_golden.rs`):** `mfcov = 33`, `iread = 0`, `ngout = 0`
-//! (group cross sections computed from the PENDF at infinite dilution),
-//! `nstan = nin = 0`, no MF=32, any built-in `ign`, `iwt` 2–12 (1 with a
-//! caller-supplied TAB1), `irelco` 0/1, lumped reactions (`MT` 851–870).
+//! `tests/errorr_mf33_golden.rs` and `tests/errorr_mf32_ar37_golden.rs`):**
+//! `mfcov = 33`, `iread = 0`, `ngout = 0` (group cross sections computed
+//! from the PENDF at infinite dilution), `nstan = nin = 0`, any built-in
+//! `ign`, `iwt` 2–12 (1 with a caller-supplied TAB1), `irelco` 0/1, lumped
+//! reactions (`MT` 851–870), and MF=32 through the `resprx` chain
+//! (`irespr = 1`: MLBW `LCOMP=1/2` resolved ranges with the scattering-
+//! radius uncertainty, `LRU=2` unresolved ranges).
 //!
-//! **What it refuses (`NotPorted`) rather than approximating:** a material
-//! with MF=32 (the `resprx`/`rescon` resonance-parameter chain, ERRORJ),
-//! ENDF/B-IV tapes, ratio-to-standard NC-type records (`LTY` 1–3), MF=31/
-//! 34/35/40, `iread` 1/2, GENDF input (`colaps`).
+//! **What it refuses (`NotPorted`) rather than approximating:** the MF=32
+//! branches [`super::resprx`] lists (`LRF=7` SAMM, `LCOMP=0`, `LRF=1/3`
+//! sensitivities, INTG correlations), ENDF/B-IV tapes, ratio-to-standard
+//! NC-type records (`LTY` 1–3), MF=31/34/35/40, `iread` 1/2, GENDF input
+//! (`colaps`).
 
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -42,6 +46,7 @@ use super::covout::{covout, sigc, ErrorrResult};
 use super::gridd::{gridd, lumpmt, scan_reactions, uniong, NDIG};
 use super::groups::neutron_group_structure;
 use super::grpav::grpav;
+use super::resprx::resprx;
 use super::weight::{ErrorrWeight, WeightSampler};
 
 /// `elo`/`eps` — `egn(1)` is snapped to exactly `1e-5` eV when within
@@ -65,6 +70,10 @@ pub struct Mf33Config {
     pub tempin: f64,
     /// `irelco` — `1` relative (default), `0` absolute.
     pub irelco: i32,
+    /// `dap` (card 7) — user override of the scattering-radius uncertainty
+    /// as a fraction of `AP` for every MF=32 range (`isru`); `0` takes
+    /// `DAP` from the file. Ignored without MF=32.
+    pub dap: f64,
 }
 
 /// `iverf` of a material from its MF=1/MT=451 header
@@ -130,7 +139,8 @@ fn user_group_bounds(cfg: &Mf33Config) -> Result<Vec<f64>, NjoyError> {
 /// See the module docs for the exact deck this reproduces and its scope.
 ///
 /// # Errors
-/// - [`NjoyError::NotPorted`] for MF=32 present, ENDF/B-IV, `LTY` 1–3.
+/// - [`NjoyError::NotPorted`] for ENDF/B-IV, `LTY` 1–3, and the MF=32
+///   branches [`super::resprx`] does not cover.
 /// - [`NjoyError::EndfParse`] for no MF=33 on file, a PENDF temperature
 ///   that does not match `tempin` (`grpav`'s "unable to find temp"), nubar
 ///   in the reaction list, or malformed records.
@@ -153,11 +163,6 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
 
     // dictionary + covariance energies + derivation coefficients
     let mut reactions = scan_reactions(endf, matd)?;
-    if reactions.mf32_present {
-        return Err(NjoyError::NotPorted(
-            "errorr: MF=32 resonance-parameter covariances (resprx/rescon, ERRORJ method)",
-        ));
-    }
     let g = gridd(endf, matd, &mut reactions)?;
     lumpmt(endf, matd, &mut reactions)?;
 
@@ -190,10 +195,30 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
         })
         .unwrap_or((0.0, 0.0));
 
-    // sigc + covout
+    // sigc, then resprx when MF=32 is on file (covout, errorr.f90:7174-7178)
     let coarse = sigc(&egn, &groups, &flx, &reactions);
+    let resonance = if reactions.mf32_present {
+        Some(resprx(
+            endf,
+            matd,
+            &egn,
+            &coarse.cflx,
+            &cfg.weight,
+            cfg.tempin,
+            cfg.dap,
+        )?)
+    } else {
+        None
+    };
     let blocks = covout(
-        &fine, &un, &egn, &reactions, &g.derived, &coarse, cfg.irelco,
+        &fine,
+        &un,
+        &egn,
+        &reactions,
+        &g.derived,
+        &coarse,
+        cfg.irelco,
+        resonance.as_ref(),
     );
 
     Ok(ErrorrResult {
@@ -210,5 +235,6 @@ pub fn run_mf33(endf: &Tape, pendf: &Tape, cfg: &Mf33Config) -> Result<ErrorrRes
         coarse,
         blocks,
         messages: groups.messages,
+        resonance,
     })
 }

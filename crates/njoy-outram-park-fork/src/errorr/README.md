@@ -46,6 +46,22 @@ errorr / nendf npend 0 nout 0 0 / matd ign iwt iprint irelco / mprint tempin / 0
 | `grpav` / `epanel` / `egtsig` + `endf.f90` `gety1` | `grpav::{grpav, PanelState, XsSampler}` | union-group `σ_g` and flux from the PENDF at infinite dilution (threshold shading `0.999999`, discontinuity step `0.999995`) |
 | `covcal` / `lumpxs` (l.1770-2417) | `covcal::covcal` | absolute union-group covariances, `LB` 0–6 and 8 decoded with the Fortran's own index arithmetic |
 | `sigc` / `covout` (l.7018-7898) | `covout::{sigc, covout, ErrorrResult::to_tape}` | coarse-group `csig`/`cflx`, the `akxy`-weighted collapse with the `isd`/`iabort` fast path, relative/absolute output, and the `nout` tape layout COVR reads |
+| `resprx` (l.3011-3250) + `rescon` (l.8513-8819) | `resprx::{resprx, ResonanceCovariance::rescon}` | MF=32 driver (`irespr=1`, ERRORJ method): group window per range, `ISR`/`DAP` scattering-radius uncertainty, the `c**`/`u**` accumulators and their fold into each `(MT, MT1)` block |
+| `rdumrd2` / `rskiprp` (l.5091-5225, 5369-5409) | `resprx::mf2::{Mf2Resonances, build_work_array}` | MF=2 scan (`nlspepi`, URR `amur` from an `LRF=2` URR), the resolved-range work array with `S_l`/`P_l` at each `ER` |
+| `rpxlc2` / `rpxlc12` / `rpendf` (l.4108-4783, 5015-5089) | `resprx::resolved::{rpxlc2, rpxlc12, rpendf}` | `LCOMP=2` compact covariance (and `LCOMP=1`), central-difference MLBW sensitivities (`ER` ±0.01 %, widths ±1 %), the `eskip` pointwise grid |
+| `ggmlbw` (l.6527-6650) | `resprx::mlbw::ggmlbw` | zero-temperature MLBW on the work array |
+| `rpxgrp` (l.5227-5367) | `resprx::group::rpxgrp` | "simplistic" trapezoid group average with the `egtwtf` weight |
+| `rpxunr` / `ggunr1` (l.4785-5013, 6800-6905) | `resprx::unresolved::{rpxunr, ggunr1}` | `LRU=2` one-sided 1 % sensitivities of the URR SLBW averages (`egnrl` fluctuation integrals) |
+
+The MF=32 chain keeps several upstream idioms verbatim because the oracle
+carries them: `gwidth = ER·1e-4` keeps the sign of a bound level; the
+scattering-radius pass writes `AP+DAP` into each BW L-block's `QX` slot
+and "restores" it as `(AP+DAP)/(1+DAP)`; `arat` is re-read from the MF=2
+`AWRI` by every `ggmlbw` call; `rpxgrp`'s whole-group-skip branch divides
+only its second term by `sumde`. One **deliberate divergence**: upstream's
+resonance search (`rpxlc12`, l.4363-4380) never advances past an L-block
+with zero resonances and NJOY2016 aborts on the unmodified TENDL-2023
+Ar-37 tape; the port advances the pointer (see Testing).
 
 Two upstream idioms were kept on purpose because the oracle depends on
 them: every energy *and* every covariance datum is rounded to 6 significant
@@ -59,10 +75,14 @@ is still available; `covcal` reads the records directly through
 
 ### Not ported (returns `NotPorted`, never approximates)
 
-- **MF=32** resonance-parameter covariances (`resprx`/`rpxsamm`/`rescon`,
-  the ERRORJ method and the SAMM derivative path). None of the ENDF/B-VIII.0
-  tapes in `reference-data/endf/` carries MF=32, so no oracle exists here yet;
-  a material with MF=32 is refused rather than run without it.
+- **MF=32 branches outside the validated slice:** `LRF=7` (`rpxsamm`, the
+  SAMM derivative path — what `op-cjw.4` waits on), `LCOMP=0` (`rpxlc0`),
+  `LRF=1` resolved sensitivities (upstream's `rpendf` has no SLBW branch and
+  returns a stale `sig1`), `LRF=3` (`ggrmat`), `NRO ≠ 0`, `NLRS > 0`, INTG
+  correlation records (`NM > 0`; the tape reader stores six floats per
+  line), `irespr = 0` (`resprp`, the older method), and an MF=2 URR that is
+  not `LRF=2` (upstream reads uninitialised `amur`). `LCOMP=1` is ported in
+  the same routine as `LCOMP=2` but has no oracle tape yet.
 - **MF=31/34/35/40**, `iread = 1/2` (user reaction lists, extra `MAT1/MT1`
   pairs), `nstan` (ratio-to-standard, `LTY` 1–3, `grist`/`stand`), `nin`
   (input covariance tape merge), `ngout != 0` (`colaps` from a GENDF),
@@ -97,6 +117,31 @@ NJOY2016 runs, decks committed — see that README for provenance):
   same (2026-09-10).
 - 46 unit tests (`merge`/`uniong`, `terpa`, `gety1` idioms, every `LB`
   kernel, the weight stops) in the modules' `#[cfg(test)]` blocks.
+
+`tests/errorr_mf32_ar37_golden.rs` — the MF=32 chain on TENDL-2023 Ar-37
+(MAT 1828; MLBW `LCOMP=2` with `DAP`, plus an `LRU=2` block; the only
+committed evaluation with MF=32), 2026-09-10:
+
+- NJOY2016 **aborts** on the unmodified tape (`rpxlc12 ... problem`,
+  the empty-`L=1`-block pointer defect above), so the oracle deck ran on
+  `n-018_Ar_37-tendl2023-mf2-L1-last.endf` (the empty block moved last in
+  MF=2; NJOY's PENDF from the two tapes is byte-identical).
+- **Tier 1 (NJOY PENDF in):** all 465 blocks / 14 048 non-zero elements
+  agree with `tape23` to the printing precision — worst 4.97e-7 on the four
+  resonance pairs `(1,1) (2,2) (2,102) (102,102)`, 4.97e-7 elsewhere;
+  `σ_g` worst 3.4e-6. The unmodified tape through the port gives the same
+  numbers (worst 4.97e-7 against the variant-tape oracle).
+- **Listing diagonals:** the "resolved / unresolve" columns NJOY prints
+  for the total, elastic and capture blocks (relative, 4 figures) match to
+  4.3e-4; the unresolved contribution is non-zero only in group 12
+  (3350–9120 eV, where the URR 4268–5548 eV sits): `4.479e-6` (tt),
+  `7.788e-6` (ee), `1.563e-4` (gg).
+- **Tier 2 (crate RECONR + BROADR in):** reported only. The crate's Ar-37
+  **elastic** is +6.3 % from 1e-5 eV to 100 eV and −8.2 % at 1 keV at 0 K
+  while capture matches to 1e-7 — the crate's RECONR evaluates `LRF=2`
+  evaluations with the SLBW elastic formula (`reconr/slbw.rs`,
+  "true MLBW adds interference ... negligible"), which Ar-37's bound levels
+  contradict. A RECONR finding from this oracle, tracked on its own bead.
 
 ## Caveats
 
