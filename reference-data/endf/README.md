@@ -190,6 +190,23 @@ is generated on demand from the locally-built `vendor/njoy2016` oracle (which is
 gitignored), never committed as a large tape; only extracted reference values
 (CSV) are committed, per the existing `u238_doppler` pattern.
 
+## Maintainer-supplied evaluations (2026-09-10)
+
+Both public data hosts (`www-nds.iaea.org`, `www.nndc.bnl.gov`) refuse downloads
+from the build environment, so these were supplied directly by the maintainer.
+
+| File | Material | Why it was needed |
+|---|---|---|
+| `tsl-HinH2O.endf` (17.4 MB) | MAT 1, H in H2O; MF=7/MT=4 only (no MT=2) | The canonical THERMR case (`op-cjw.23`), and the **first tsl tape in this folder with a secondary scatterer**: `NS=1`, where all seven pre-existing tsl tapes have `NS=0`. Header: `LAT=1`, `LASYM=0`, `LLN=0`, `NI=12`, `NS=1`, `B(1..12) = 40.8722, 395.26, 0.999167, 10.0001, 0, 2, 1, 3.7939, 15.8575, 0, 0, 1`. |
+| `photoat-092_U_000-ENDF8.0.endf` (1.3 MB) | MAT 9200, U (Z=92) | A **real photoatomic evaluation** for GAMINR (`op-iq7`), replacing the synthetic Z=6 tape below as the verification input. MF=23 MT=501/502/504/515/516/517/522 plus 37 discrete photoelectric subshell reactions (MT=534-570); MF=27 MT=502/504/505/506 — i.e. form factors **and** the real/imaginary anomalous-scattering functions, which the synthetic tape does not carry. |
+
+**Caveat on `op-cjw.20` — read before assuming this unblocks it.** That bead wants
+the secondary-scatterer **SCT** term for `B(7)=0` evaluations (`teff2`).
+`tsl-HinH2O.endf` has `B(7)=1`, i.e. the secondary scatterer (oxygen) is treated
+as a **free gas**, not by the short-collision-time approximation. So this tape
+exercises the `NS>0` machinery for the first time, but it does **not** reach the
+`B(7)=0` SCT path. A `B(7)=0` evaluation is still needed for `op-cjw.20`.
+
 ## Synthetic test tape (not an evaluation)
 
 | File | Material | Contents | Provenance |
