@@ -13,11 +13,12 @@
 
 use std::io::Write;
 
+use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
-use crate::resxsr::assemble::{assemble_union_grid, thin_linear};
+use crate::resxsr::assemble::{assemble_union_grid, thin_linear, PointwiseReaction};
 use crate::resxsr::format::{FileControl, FileData, FileIdentification, MaterialControl, NBLOK};
 use crate::resxsr::input::ResxsrInput;
-use crate::resxsr::resxs::{read_pendf_reactions, ResxsFile, ResxsMaterial, ResxsPoint};
+use crate::resxsr::resxs::{ResxsFile, ResxsMaterial, ResxsPoint};
 use crate::NjoyError;
 
 /// Run the RESXSR pipeline for a full input deck (`resxsr.f90:10-502`).
@@ -62,17 +63,66 @@ pub fn run(input: &ResxsrInput) -> Result<(), NjoyError> {
 /// Read `(amass, temp)` for material `mat` from a PENDF [`Tape`]: `amass` is the
 /// MF=3 HEAD `AWR` (`resxsr.f90:274`); `temp` is the MF=1/451 header temperature
 /// where present, else `0` (bare tapes carry no header, `resxsr.f90:288-291`).
-fn material_amass_temp(tape: &Tape, mat: i32) -> (f64, f64) {
-    let amass = [2i32, 18, 102]
-        .iter()
-        .find_map(|&mt| tape.section(mat, 3, mt))
-        .map(|sec| sec.rows[0][1])
-        .unwrap_or(0.0);
-    let temp = tape
-        .section(mat, 1, 451)
-        .and_then(|sec| sec.rows.get(3).map(|r| r[0]))
-        .unwrap_or(0.0);
-    (amass, temp)
+/// One temperature's worth of a material on a PENDF: its `MF=1/451`
+/// temperature, the `AWR` of its first resonance reaction, and the
+/// resonance reactions (MT 2, 18, 102 in tape order).
+struct TemperatureBlock {
+    temp: f64,
+    amass: f64,
+    reactions: Vec<PointwiseReaction>,
+}
+
+/// Split the PENDF's repeated material into its temperature blocks
+/// (`resxsr.f90:267-352`): every `MF=1/451` of `mat` starts a block (its
+/// `hdatio` record carries the temperature), and the block's `MF=3` sections
+/// with MT 2, 18 or 102 are its reactions. At most `maxt` blocks are taken
+/// (`if (itemp.eq.maxt) go to 250`).
+fn read_pendf_temperature_blocks(
+    tape: &Tape,
+    mat: i32,
+    maxt: usize,
+) -> Result<Vec<TemperatureBlock>, NjoyError> {
+    let mut blocks: Vec<TemperatureBlock> = Vec::new();
+    // A tape without MF=1/451 for the material (a bare set of MF=3 sections,
+    // as the unit tests build) is one block at temperature 0 — what the
+    // single-temperature driver did before the temperature loop existed.
+    if tape.section(mat, 1, 451).is_none() {
+        blocks.push(TemperatureBlock {
+            temp: 0.0,
+            amass: 0.0,
+            reactions: Vec::new(),
+        });
+    }
+    for sec in tape.sections().iter().filter(|s| s.key.mat == mat) {
+        if sec.key.mf == 1 && sec.key.mt == 451 {
+            if blocks.len() == maxt {
+                break;
+            }
+            let temp = sec.rows.get(3).map(|r| r[0]).unwrap_or(0.0);
+            blocks.push(TemperatureBlock {
+                temp,
+                amass: 0.0,
+                reactions: Vec::new(),
+            });
+            continue;
+        }
+        let Some(block) = blocks.last_mut() else {
+            continue;
+        };
+        if sec.key.mf == 3 && crate::resxsr::resxs::RESONANCE_MTS.contains(&sec.key.mt) {
+            let mut cur = SectionCursor::new(&sec.rows);
+            let head = cur.read_cont()?;
+            if block.reactions.is_empty() {
+                block.amass = head.c2;
+            }
+            let tab1 = cur.read_tab1()?;
+            block.reactions.push(PointwiseReaction {
+                mt: sec.key.mt,
+                points: tab1.pairs,
+            });
+        }
+    }
+    Ok(blocks)
 }
 
 /// Functional RESXSR driver: read each material's PENDF tape, assemble + thin the
@@ -80,7 +130,8 @@ fn material_amass_temp(tape: &Tape, mat: i32) -> (f64, f64) {
 /// (`resxsr.f90:250-501`).
 ///
 /// This is the file-level pipeline wired end to end using the ported kernels:
-/// [`read_pendf_reactions`] (the `gety1` feeder), [`assemble_union_grid`] +
+/// [`crate::resxsr::resxs::read_pendf_reactions`] (the `gety1` feeder, applied per
+/// temperature block here), [`assemble_union_grid`] +
 /// [`thin_linear`] (the union grid + thinning), and [`ResxsFile::write`] (the
 /// RESXS record writer).
 ///
@@ -90,14 +141,13 @@ fn material_amass_temp(tape: &Tape, mat: i32) -> (f64, f64) {
 ///   `input.materials`.
 /// * `out` — the [`Write`] sink for the RESXS file.
 ///
-/// **Minimal-port scope (honest).** This handles the **single-temperature** case
-/// (`ntemp == 1`, the temperature taken from each material's MF=1/451 header where
-/// present, else 0). The multi-temperature loop (`resxsr.f90:267-352`, which grows
-/// `jx = nreac*ntemp` reaction columns across temperatures) is **not** ported; a
-/// tape offering several temperatures contributes only its first here. Reaction
-/// self-shielding and the `maxt` cap are likewise out of scope for this minimal
-/// driver. The record layout, word counts, and round-trip are the parts under
-/// test (see [`crate::resxsr::resxs`]).
+/// **Temperatures.** The PENDF's repeated material blocks (one per
+/// temperature) are read in order up to `input.maxt`, each contributing its
+/// resonance reactions as further columns temperature-major, exactly as
+/// upstream's `jx` loop (`resxsr.f90:267-352`); the union grid and the
+/// thinning then run over every column. Verified byte-for-byte against
+/// NJOY2016 for one and two temperatures (`tests/resxsr_h2_njoy_golden.rs`).
+/// Reaction self-shielding is outside this driver.
 ///
 /// # Errors
 /// Propagates [`NjoyError`] from tape parsing or the RESXS write.
@@ -117,9 +167,31 @@ pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Resul
         let tape = tapes.get(im).ok_or(NjoyError::EndfParse(
             "resxsr::run_resxs: missing input tape".into(),
         ))?;
-        let reactions = read_pendf_reactions(tape, spec.mat)?;
-        let (amass, temp) = material_amass_temp(tape, spec.mat);
-        let nreac = reactions.len() as i32;
+        // Temperature loop (resxsr.f90:267-352): the PENDF repeats the
+        // material once per temperature; each pass appends its resonance
+        // reactions as further columns (`jx` runs temperature-major), up to
+        // `maxt` temperatures. The union grid and thinning then run over
+        // every column, as upstream's incremental merge does.
+        let blocks = read_pendf_temperature_blocks(tape, spec.mat, input.maxt.max(1) as usize)?;
+        if blocks.is_empty() {
+            return Err(NjoyError::SectionNotFound {
+                mat: spec.mat,
+                mf: 1,
+                mt: 451,
+            });
+        }
+        let amass = blocks[0].amass;
+        let temps: Vec<f64> = blocks.iter().map(|b| b.temp).collect();
+        let ntemp_m = blocks.len() as i32;
+        let reactions: Vec<PointwiseReaction> =
+            blocks.into_iter().flat_map(|b| b.reactions).collect();
+        if reactions.len() as i32 % ntemp_m != 0 {
+            return Err(NjoyError::EndfParse(format!(
+                "resxsr: material {} has an uneven reaction count across its {} temperatures",
+                spec.mat, ntemp_m
+            )));
+        }
+        let nreac = reactions.len() as i32 / ntemp_m;
 
         let rows = assemble_union_grid(&reactions, input.efirst, input.elast);
         let thinned = thin_linear(&rows, input.eps);
@@ -134,7 +206,7 @@ pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Resul
 
         locm.push(irec);
         irec += 1; // material control record (resxsr.f90:402)
-        let nn = 1 + nreac; // single temperature: nn = 1 + nreac*1
+        let nn = 1 + nreac * ntemp_m; // words per point (resxsr.f90:404)
         let cap_pts = (NBLOK / nn).max(1);
         irec += ((nener + cap_pts - 1) / cap_pts).max(1); // cross-section block records
 
@@ -142,14 +214,14 @@ pub fn run_resxs<W: Write>(input: &ResxsrInput, tapes: &[Tape], out: W) -> Resul
             control: MaterialControl {
                 hmat: spec.hmat.clone(),
                 amass,
-                temps: vec![temp],
+                temps,
                 nreac,
                 nener,
             },
             points,
         });
         hmatn.push(spec.hmat.clone());
-        ntemp.push(1);
+        ntemp.push(ntemp_m);
     }
 
     let (huse1, huse2) = split_user_id(&input.user_id);

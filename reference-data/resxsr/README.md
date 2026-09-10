@@ -33,7 +33,23 @@ Note: the documented binary unit (`nout = -25`) aborts under this gfortran
 OPEN(NEWUNIT=...)", `resxsr.f90:445`); the module writes the same
 unformatted records to a positive unit, which is what is committed.
 
+## Two temperatures (`h2-293.6K-600K-*`)
+
+`h2-293.6K-600K.pendf` is NJOY's own RECONR + BROADR of the same H-2 ENDF at
+293.6 K **and** 600 K (deck in `h2-293.6K-600K-eps0.001.njoy-input`), and
+`h2-293.6K-600K-eps0.001.resxs` (3,508 bytes) the `resxsr` output with
+`maxt = 2`: NJOY's listing reports 314 + 314 points at 293.6 K, 329 + 329 at
+600 K, 168 after thinning; the material control record carries both
+temperatures and each point holds `1 + 2 x 2` words (`resxsr.f90:267-352`,
+columns temperature-major).
+
 ## Measured agreement (2026-09-10)
+
+Two temperatures: `run_resxs` with `maxt = 2` is **byte-identical** to the
+3,508-byte oracle (168 points, `nreac = 2`, temperatures 293.6 and 600 K)
+on the first run of the ported temperature loop.
+
+One temperature:
 
 The crate's `run_resxs` output is **byte-identical** (no differing byte in
 2,124) once its record framing matched gfortran's and `locm` matched

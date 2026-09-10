@@ -123,3 +123,73 @@ fn resxsr_h2_matches_njoy() {
         }
     }
 }
+
+/// The multi-temperature loop (`resxsr.f90:267-352`): the same H-2 tape
+/// broadened to 293.6 K **and** 600 K (`reference-data/resxsr/
+/// h2-293.6K-600K.pendf`, the deck alongside), `maxt = 2`. NJOY's listing:
+/// 314 + 314 points at 293.6 K, 329 + 329 at 600 K, 168 after thinning;
+/// `tape25` is 3,508 bytes. Upstream appends each temperature's reactions as
+/// further columns (`jx` temperature-major) and thins over all of them.
+///
+/// **Prediction** (stated before measuring): byte-identical, with the
+/// material control record carrying two temperatures, `nreac = 2`, 168
+/// points of `1 + 2*2` words.
+#[test]
+fn resxsr_h2_two_temperatures_matches_njoy() {
+    let tag = "resxsr-h2-2T";
+    let Some(pendf) = reference_file_or_skip("resxsr", "h2-293.6K-600K.pendf", tag) else {
+        return;
+    };
+    let Some(golden) = reference_file_or_skip("resxsr", "h2-293.6K-600K-eps0.001.resxs", tag)
+    else {
+        return;
+    };
+    let njoy_bytes = std::fs::read(&golden).unwrap();
+    let tape = Tape::read_file(&pendf).expect("PENDF parses");
+    let input = ResxsrInput {
+        nout: 25,
+        maxt: 2,
+        efirst: 1e-5,
+        elast: 1e3,
+        eps: 0.001,
+        user_id: "w4 test".into(),
+        ivers: 1,
+        comments: vec!["resxsr oracle: h2 293.6 + 600 K pendf, eps 0.001".into()],
+        materials: vec![MaterialSpec {
+            hmat: "h2".into(),
+            mat: 128,
+            nin: 22,
+        }],
+    };
+    let mut ours = Vec::new();
+    run_resxs(&input, std::slice::from_ref(&tape), &mut ours).expect("run_resxs");
+    let first_diff = ours
+        .iter()
+        .zip(&njoy_bytes)
+        .position(|(a, b)| a != b)
+        .or_else(|| (ours.len() != njoy_bytes.len()).then_some(ours.len().min(njoy_bytes.len())));
+    let njoy = ResxsFile::read(njoy_bytes.as_slice()).expect("NJOY RESXS parses");
+    let ours_f = ResxsFile::read(ours.as_slice()).expect("our RESXS re-reads");
+    let (m, o) = (&njoy.materials[0], &ours_f.materials[0]);
+    println!(
+        "[{tag}] bytes: ours {} njoy {}; first differing byte {:?}; njoy nener {} nreac {} temps {:?}; ours nener {} nreac {} temps {:?}",
+        ours.len(),
+        njoy_bytes.len(),
+        first_diff,
+        m.control.nener,
+        m.control.nreac,
+        m.control.temps,
+        o.control.nener,
+        o.control.nreac,
+        o.control.temps
+    );
+    assert_eq!(
+        m.control.temps.len(),
+        2,
+        "{tag}: oracle has two temperatures"
+    );
+    assert_eq!(
+        first_diff, None,
+        "{tag}: RESXS stream byte-identical to NJOY"
+    );
+}
