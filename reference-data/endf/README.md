@@ -108,9 +108,29 @@ unmodified tape.
 
 ### Still wanted
 
-| File | Nuclide | Library | MAT | Source | Date accessed |
-|---|---|---|---|---|---|
-| `tsl-HinH2O.endf` | H in H₂O | ENDF/B-VIII.0 (thermal) | 1 | _(fill in)_ | _(fill in)_ |
+`tsl-HinH2O.endf` was the only entry here; it landed 2026-09-10 (see
+"Maintainer-supplied evaluations" below). What is still missing is tracked in
+GitHub Issues, one issue per tape, each carrying the screening already done so
+nobody repeats it:
+
+| Need | Unblocks | Issue |
+|---|---|---|
+| MF=32/MT=151 with `LCOMP=1` (and one with `LCOMP=0`), ideally on an `LRF=1` or `LRF=3` range | `op-cjw.1` / `op-cjw.4` — the `errorr/resprx` chain: `LCOMP=1` is ported with **zero** oracle coverage, `LCOMP=0` is `NotPorted` | [#171](https://github.com/theodoreOnzGit/outram-park-backend/issues/171) |
+| Adler-Adler resolved range (`LRU=1`, `LRF=4`) | `op-cjw.5` — `reconr::aa` is ported from Fortran alone and has never been run on a real tape | [#172](https://github.com/theodoreOnzGit/outram-park-backend/issues/172) |
+| tsl with `NS>=1` **and** `B(7)=0` (SCT secondary, not free gas) | `op-cjw.20` — the secondary-scatterer SCT term (`teff2`) | [#173](https://github.com/theodoreOnzGit/outram-park-backend/issues/173) |
+| ENDF-102 (ENDF-6 Formats Manual) PDF — a document, not a tape | `op-z1hk` — the section numbers cited in `interp.rs` / `mf7.rs` point at nothing in the kovan archive | [#174](https://github.com/theodoreOnzGit/outram-park-backend/issues/174) |
+
+Screening results behind those issues, so they are not re-derived: **only
+`n-017_Cl_035-ENDF7.1.endf` and `n-018_Ar_37-tendl2023.endf` carry MF=32 at
+all, and both are `LCOMP=2`**; **no tape here has `LRF=4`**; and every tsl tape
+predating `tsl-HinH2O.endf` has `NI=6` (`NS=0`), while `tsl-HinH2O.endf` itself
+has `B(7)=1`.
+
+**Not** a data need, despite an earlier claim to the contrary: the
+charged-particle-elastic `sig=1` branch in GROUPR `getsig` (`op-urh`) needs an
+incident-charged-particle evaluation with MF=3/MT=2, and
+`a-002_He_004-ENDF8.0.endf` (MAT 228, incident alpha) already has one. That gap
+is porting work, not a missing tape.
 
 ## The two SiC tapes share one coherent-elastic section — do not double-count
 
