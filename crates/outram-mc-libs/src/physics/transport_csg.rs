@@ -64,8 +64,8 @@ use crate::physics::scatter::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
-use crate::tally::scoring::{flush_batch, score_track_length};
-use crate::tally::tally::Tally;
+use crate::tally::scoring::{flush_batch, flush_bins, score_track_length};
+use crate::tally::tally::{Tally, TallyBin};
 
 /// How the initial fission source is seeded spatially — a box the sampler
 /// rejects into the fissile region of the geometry.
@@ -156,12 +156,12 @@ pub fn run_keff_csg(
     tally: Option<&mut Tally>,
 ) -> KeffResult {
     match settings.compute {
-        ComputeType::CpuSingleThread => {
-            run_keff_csg_seq(geom, materials, nuclides, source_box, settings, tally)
-        }
-        ComputeType::CpuMultiThread(tc) => {
-            run_keff_csg_par(geom, materials, nuclides, source_box, settings, tally, tc)
-        }
+        ComputeType::CpuSingleThread => run_keff_csg_seq(
+            geom, materials, nuclides, source_box, settings, tally, &[], None,
+        ),
+        ComputeType::CpuMultiThread(tc) => run_keff_csg_par(
+            geom, materials, nuclides, source_box, settings, tally, &[], None, tc,
+        ),
         ComputeType::Gpu => {
             log::debug!(
                 "ComputeType::Gpu requested for run_keff_csg, but no GPU kernel exists for \
@@ -175,6 +175,80 @@ pub fn run_keff_csg(
                 source_box,
                 settings,
                 tally,
+                &[],
+                None,
+                ThreadCount::Auto,
+            )
+        }
+    }
+}
+
+/// Like [`run_keff_csg`], but also accumulates a **leakage spectrum** on the
+/// energy grid `leak_edges` into `leak_bins` — one [`TallyBin`] per energy bin,
+/// one Monte-Carlo realization per active generation, exactly like the track-
+/// length `tally`. This is the extra bookkeeping
+/// [`crate::physics::reactor_physics`] needs to build the fast / thermal
+/// non-leakage factors from tallied leakage rather than an assumption.
+///
+/// # Parameters
+/// - `tally` — the combined track-length tally (scored on active generations).
+/// - `leak_edges` — ascending energy bin edges \[eV\], `n + 1` edges ⇒ `n` bins;
+///   a leaked neutron whose escape energy is off-grid is dropped (same tail
+///   convention as [`crate::tally::filter::EnergyFilter`]).
+/// - `leak_bins` — persistent per-bin leakage accumulators, length
+///   `leak_edges.len() - 1`, filled in place (`count` == number of active
+///   generations on return).
+///
+/// `run_keff_csg` itself is unchanged and its callers are unaffected — the
+/// leakage path is opt-in through this entry point only. Compute-backend
+/// dispatch mirrors [`run_keff_csg`] (`Gpu` ⇒ multi-threaded CPU).
+#[allow(clippy::too_many_arguments)]
+pub fn run_keff_csg_reactor_physics(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: &mut Tally,
+    leak_edges: &[f64],
+    leak_bins: &mut Vec<TallyBin>,
+) -> KeffResult {
+    match settings.compute {
+        ComputeType::CpuSingleThread => run_keff_csg_seq(
+            geom,
+            materials,
+            nuclides,
+            source_box,
+            settings,
+            Some(tally),
+            leak_edges,
+            Some(leak_bins),
+        ),
+        ComputeType::CpuMultiThread(tc) => run_keff_csg_par(
+            geom,
+            materials,
+            nuclides,
+            source_box,
+            settings,
+            Some(tally),
+            leak_edges,
+            Some(leak_bins),
+            tc,
+        ),
+        ComputeType::Gpu => {
+            log::debug!(
+                "ComputeType::Gpu requested for run_keff_csg_reactor_physics, but no GPU kernel \
+                 exists for general CSG geometry — running the multi-threaded CPU path instead"
+            );
+            run_keff_csg_par(
+                geom,
+                materials,
+                nuclides,
+                source_box,
+                settings,
+                Some(tally),
+                leak_edges,
+                Some(leak_bins),
                 ThreadCount::Auto,
             )
         }
@@ -189,6 +263,14 @@ pub fn run_keff_csg(
 /// fixed [`KeffSettings::seed`] yields the same eigenvalue — and the same tally
 /// realizations — bit-for-bit on every machine. [`run_keff_csg_par`] is
 /// acceleration only and is validated against this reference.
+///
+/// `leak_edges` / `leak_bins`: optional per-energy leakage spectrum. When
+/// `leak_bins` is `Some`, every history that escapes the geometry on an active
+/// generation deposits its weight into the bin of `leak_edges` matching its
+/// escape energy, flushed once per active generation exactly like the tally
+/// (one realization per bin). Pass `&[]` / `None` to disable it — the path
+/// [`run_keff_csg`] takes.
+#[allow(clippy::too_many_arguments)]
 pub fn run_keff_csg_seq(
     geom: &Geometry,
     materials: &[Material],
@@ -196,6 +278,8 @@ pub fn run_keff_csg_seq(
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    mut leak_bins: Option<&mut Vec<TallyBin>>,
 ) -> KeffResult {
     let mut seed = settings.seed;
     let temp = settings.temperature_k;
@@ -238,6 +322,14 @@ pub fn run_keff_csg_seq(
         Some(t) => vec![0.0; t.n_bins()],
         None => Vec::new(),
     };
+    // Per-generation leakage accumulator, one slot per `leak_edges` bin — same
+    // batch/flush contract as `batch` above. Empty when leakage is disabled.
+    let n_leak = leak_edges.len().saturating_sub(1);
+    let mut leak_batch: Vec<f64> = if leak_bins.is_some() {
+        vec![0.0; n_leak]
+    } else {
+        Vec::new()
+    };
 
     for gen in 0..n_gen {
         let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
@@ -247,8 +339,14 @@ pub fn run_keff_csg_seq(
         // Only score the tally on active generations. `tally_def` is an immutable
         // view of the filter/score definitions used to route each streamed segment
         // into `batch`; the persistent bins are only touched at the flush below.
+        // Leakage is scored on the same active-only basis (empty `edges` ⇒ off).
         {
             let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
+            let leak_edges_gen: &[f64] = if active && leak_bins.is_some() {
+                leak_edges
+            } else {
+                &[]
+            };
             for site in &source {
                 production += transport_history(
                     *site,
@@ -261,6 +359,8 @@ pub fn run_keff_csg_seq(
                     &mut seed,
                     tally_def,
                     &mut batch,
+                    leak_edges_gen,
+                    &mut leak_batch,
                 );
             }
         }
@@ -269,6 +369,9 @@ pub fn run_keff_csg_seq(
         if active {
             if let Some(t) = tally.as_deref_mut() {
                 flush_batch(t, &mut batch);
+            }
+            if let Some(lb) = leak_bins.as_deref_mut() {
+                flush_bins(lb, &mut leak_batch);
             }
         }
 
@@ -322,6 +425,13 @@ pub fn run_keff_csg_seq(
 /// order into the generation batch (a deterministic reduction) and flushed as one
 /// realization per active generation — the same batch/flush contract as
 /// [`run_keff_csg_seq`], just reduced in parallel.
+///
+/// `leak_edges` / `leak_bins`: the per-energy leakage spectrum, identical
+/// contract to [`run_keff_csg_seq`] — each history's escape (if any) accumulates
+/// into a private `local_leak`, the per-history vectors are summed in
+/// history-index order (a deterministic reduction) into the generation leak
+/// batch, and flushed once per active generation. `&[]` / `None` disables it.
+#[allow(clippy::too_many_arguments)]
 pub fn run_keff_csg_par(
     geom: &Geometry,
     materials: &[Material],
@@ -329,6 +439,8 @@ pub fn run_keff_csg_par(
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
+    leak_edges: &[f64],
+    mut leak_bins: Option<&mut Vec<TallyBin>>,
     thread_count: ThreadCount,
 ) -> KeffResult {
     #[cfg(not(target_arch = "wasm32"))]
@@ -340,6 +452,8 @@ pub fn run_keff_csg_par(
 
     let temp = settings.temperature_k;
     let n_bins = tally.as_deref().map(|t| t.n_bins()).unwrap_or(0);
+    let leak_enabled = leak_bins.is_some() && leak_edges.len() >= 2;
+    let n_leak = leak_edges.len().saturating_sub(1);
 
     // Dedicated, explicitly sized rayon pool. `resolve()` maps the ThreadCount to
     // a concrete worker count (>= 1); the per-history seeding below is
@@ -398,8 +512,10 @@ pub fn run_keff_csg_par(
             // is deterministic regardless of thread count. `tally_def` is an
             // immutable view scoped to this block so the mutable flush below is free
             // to borrow `tally` again.
-            let results: Vec<(f64, Vec<Site>, Vec<f64>)> = {
+            let leak_this_gen = active && leak_enabled;
+            let results: Vec<(f64, Vec<Site>, Vec<f64>, Vec<f64>)> = {
                 let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
+                let leak_edges_gen: &[f64] = if leak_this_gen { leak_edges } else { &[] };
                 (0..source.len())
                     .into_par_iter()
                     .map(|hist_idx| {
@@ -410,6 +526,11 @@ pub fn run_keff_csg_par(
                         let mut local_bank: Vec<Site> = Vec::new();
                         let mut local_batch: Vec<f64> = if tally_def.is_some() {
                             vec![0.0; n_bins]
+                        } else {
+                            Vec::new()
+                        };
+                        let mut local_leak: Vec<f64> = if leak_this_gen {
+                            vec![0.0; n_leak]
                         } else {
                             Vec::new()
                         };
@@ -424,14 +545,17 @@ pub fn run_keff_csg_par(
                             &mut seed,
                             tally_def,
                             &mut local_batch,
+                            leak_edges_gen,
+                            &mut local_leak,
                         );
-                        (production, local_bank, local_batch)
+                        (production, local_bank, local_batch, local_leak)
                     })
                     .collect()
             };
 
             // Deterministic sequential reduction: sum productions, concatenate
-            // banks and sum per-history tally batches in history-index order.
+            // banks and sum per-history tally / leakage batches in history-index
+            // order.
             let mut production = 0.0_f64;
             let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
             let mut batch: Vec<f64> = if active && n_bins > 0 {
@@ -439,11 +563,21 @@ pub fn run_keff_csg_par(
             } else {
                 Vec::new()
             };
-            for (prod, bank, local_batch) in results {
+            let mut leak_batch: Vec<f64> = if leak_this_gen {
+                vec![0.0; n_leak]
+            } else {
+                Vec::new()
+            };
+            for (prod, bank, local_batch, local_leak) in results {
                 production += prod;
                 next_bank.extend(bank);
                 if !local_batch.is_empty() {
                     for (b, v) in batch.iter_mut().zip(local_batch) {
+                        *b += v;
+                    }
+                }
+                if !local_leak.is_empty() {
+                    for (b, v) in leak_batch.iter_mut().zip(local_leak) {
                         *b += v;
                     }
                 }
@@ -454,6 +588,11 @@ pub fn run_keff_csg_par(
             if active {
                 if let Some(t) = tally.as_deref_mut() {
                     flush_batch(t, &mut batch);
+                }
+                if leak_this_gen {
+                    if let Some(lb) = leak_bins.as_deref_mut() {
+                        flush_bins(lb, &mut leak_batch);
+                    }
                 }
             }
 
@@ -479,6 +618,32 @@ pub fn run_keff_csg_par(
     }
 }
 
+/// Bin one leaked neutron of weight `w` into the per-generation leakage
+/// spectrum `leak` at energy `e` \[eV\], on the ascending fine energy grid
+/// `edges` (`edges.len() - 1 == leak.len()`).
+///
+/// A **leaked** neutron is one whose history ends by escaping the geometry —
+/// crossing a vacuum surface, streaming to infinity, or (rarely) a lost/stuck
+/// history. This is the analog of a surface-current tally on the outer
+/// boundary, resolved by energy; the CSG eigenvalue driver accumulates it so
+/// [`crate::physics::reactor_physics`] can build the fast / thermal
+/// non-leakage factors from real tallied leakage rather than an assumption.
+///
+/// No-op when leakage accounting is disabled (`edges` empty) or the escape
+/// energy is off-grid (`e < edges[0]` or `e >= edges[last]`) — the same
+/// tail-drop convention as [`crate::tally::filter::EnergyFilter`].
+#[inline]
+fn score_leak(leak: &mut [f64], edges: &[f64], e: f64, w: f64) {
+    if edges.len() < 2 {
+        return;
+    }
+    if e < edges[0] || e >= edges[edges.len() - 1] {
+        return;
+    }
+    let i = edges.partition_point(|&x| x <= e).saturating_sub(1);
+    leak[i] += w;
+}
+
 /// Transport one source neutron (plus its same-generation `(n,2n)` secondaries)
 /// to death over the CSG geometry, banking fission neutrons and scoring the
 /// optional **track-length** flux/reaction-rate tally. Returns the fission
@@ -488,6 +653,12 @@ pub fn run_keff_csg_par(
 /// track-length contribution (`w·d` flux, `w·d·Σ_x` reaction rates) into `batch`
 /// (the caller's per-generation accumulator); `batch` is flushed into the tally's
 /// persistent bins once per active generation.
+///
+/// If `leak_edges` is non-empty, every history that ends by **escaping** the
+/// geometry deposits its weight into `leak_batch` at its escape energy (see
+/// [`score_leak`]); `leak_batch` has length `leak_edges.len() - 1` and is
+/// flushed once per active generation by the caller. Pass an empty `leak_edges`
+/// (and any `leak_batch`, e.g. `&mut []`) to disable leakage accounting.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn transport_history(
     site: Site,
@@ -500,6 +671,8 @@ pub(crate) fn transport_history(
     seed: &mut u64,
     tally: Option<&Tally>,
     batch: &mut [f64],
+    leak_edges: &[f64],
+    leak_batch: &mut [f64],
 ) -> f64 {
     const NUDGE: f64 = 1.0e-9;
     let mut production = 0.0;
@@ -520,11 +693,18 @@ pub(crate) fn transport_history(
         'history: loop {
             events += 1;
             if events > MAX_EVENTS {
-                break 'history; // give up on a stuck history (leak it)
+                // Stuck history (should be vanishingly rare) — count it as a
+                // leak at its last-known energy so the neutron balance still
+                // closes. A small mis-binned population if it ever fires.
+                score_leak(leak_batch, leak_edges, e, 1.0);
+                break 'history;
             }
             // Locate: which cell/material are we in?
             let Some(path) = geom.locate(r, u, on_surface) else {
-                break 'history; // lost/leaked
+                // Lost the particle (numerical edge case) — treat as a leak at
+                // last-known energy, same reasoning as the MAX_EVENTS arm.
+                score_leak(leak_batch, leak_edges, e, 1.0);
+                break 'history;
             };
             let leaf = *path.leaf();
             let cell_idx = leaf.cell;
@@ -638,7 +818,10 @@ pub(crate) fn transport_history(
                     Crossing::Surface(i_surf) => {
                         let (r2, u2, alive) = geom.cross_surface(i_surf, r, u);
                         if !alive {
-                            break 'history; // vacuum leak
+                            // Vacuum leak — `e` is the true escape energy
+                            // (unchanged since the last collision).
+                            score_leak(leak_batch, leak_edges, e, 1.0);
+                            break 'history;
                         }
                         r = r2;
                         u = u2;
@@ -648,7 +831,11 @@ pub(crate) fn transport_history(
                         r = stream(r, u, NUDGE); // step into the next tile, re-locate
                         on_surface = usize::MAX;
                     }
-                    Crossing::None => break 'history, // streamed to infinity
+                    Crossing::None => {
+                        // Streamed to infinity — a leak at the true escape energy.
+                        score_leak(leak_batch, leak_edges, e, 1.0);
+                        break 'history;
+                    }
                 }
             }
         }
@@ -680,4 +867,169 @@ fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
     }
     let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
     (mean, (var / n as f64).sqrt())
+}
+
+#[cfg(test)]
+mod leakage_tests {
+    use super::*;
+    use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
+    use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
+    use crate::geometry::universe::Universe;
+    use crate::material::material::{Material, NuclideComponent};
+    use crate::material::nuclide::Nuclide;
+    use crate::physics::keff::KeffSettings;
+    use crate::tally::filter::{EnergyFilter, MaterialFilter};
+    use crate::tally::tally::{ScoreType, Tally, TallyBin};
+
+    /// Godiva (HEU-MET-FAST-001) LOW-tier material + nuclide array, embedded data.
+    fn godiva() -> (Vec<Material>, Vec<Nuclide>) {
+        let nuclides = vec![
+            Nuclide::from_core("U234").unwrap(),
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let m = Material {
+            id: 1,
+            name: "Godiva".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
+                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
+                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+            ],
+        };
+        (vec![m], nuclides)
+    }
+
+    /// Single HEU sphere of radius `r_cm` with boundary condition `bc`.
+    fn heu_sphere(r_cm: f64, bc: BoundaryType) -> Geometry {
+        Geometry {
+            surfaces: vec![SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: r_cm,
+                bc,
+            })],
+            cells: vec![Cell::material(
+                1,
+                vec![RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Inside,
+                }],
+                0,
+                293.6,
+            )],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0],
+            }],
+            lattices: vec![],
+            root_universe: 0,
+        }
+    }
+
+    /// A 2-group (thermal/fast) energy × 1-material flux tally + a matching
+    /// coarse leak grid, as the reactor-physics helper will build them.
+    fn tally_and_leak_grid() -> (Tally, Vec<f64>) {
+        let edges = vec![0.0, 0.625, 2.0e7];
+        let tally = Tally {
+            id: 0,
+            name: "rp".into(),
+            filters: vec![
+                Box::new(EnergyFilter { bins: edges.clone() }),
+                Box::new(MaterialFilter {
+                    material_indices: vec![0],
+                }),
+            ],
+            scores: vec![ScoreType::Flux, ScoreType::Absorption, ScoreType::NuFission],
+            bins: vec![TallyBin::default(); 2 * 1 * 3],
+        };
+        (tally, edges)
+    }
+
+    fn settings() -> KeffSettings {
+        KeffSettings {
+            n_particles: 400,
+            n_inactive: 10,
+            n_active: 20,
+            ..KeffSettings::default()
+        }
+    }
+
+    fn src() -> SourceBox {
+        SourceBox {
+            lower: Position::new(-3.0, -3.0, -3.0),
+            upper: Position::new(3.0, 3.0, 3.0),
+        }
+    }
+
+    /// Total leakage rate = mean over active generations of the summed leak
+    /// spectrum, per source neutron.
+    fn total_leak(bins: &[TallyBin], n_active: u64) -> f64 {
+        bins.iter().map(|b| b.mean(n_active)).sum::<f64>() / 400.0
+    }
+
+    /// A **reflective** HEU sphere has no escape path, so the tallied leakage
+    /// spectrum is ~0 (only pathological stuck histories could contribute, and
+    /// HEU absorbs, so there are none).
+    #[test]
+    fn reflective_sphere_has_no_leakage() {
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.0, BoundaryType::Reflective);
+        let (mut tally, edges) = tally_and_leak_grid();
+        let mut leak = vec![TallyBin::default(); edges.len() - 1];
+        let s = settings();
+        let res = run_keff_csg_reactor_physics(
+            &geom, &mats, &nucs, src(), &s, &mut tally, &edges, &mut leak,
+        );
+        assert!(res.k_mean > 0.5, "reflective HEU sphere should be supercritical-ish, k={}", res.k_mean);
+        let leaked = total_leak(&leak, s.n_active as u64);
+        assert!(
+            leaked < 1.0e-6,
+            "reflective sphere leaked {leaked} per source neutron (expected ~0)"
+        );
+        // Each active generation recorded one realization per leak bin.
+        assert_eq!(leak[0].count, s.n_active as u64);
+    }
+
+    /// A **vacuum** HEU sphere below critical size leaks a substantial fraction
+    /// of its neutrons; the tallied leakage spectrum must be strictly positive
+    /// and populate the fast group (fission-source energy).
+    #[test]
+    fn vacuum_sphere_leaks() {
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(6.0, BoundaryType::Vacuum); // < Godiva critical radius
+        let (mut tally, edges) = tally_and_leak_grid();
+        let mut leak = vec![TallyBin::default(); edges.len() - 1];
+        let s = settings();
+        let _res = run_keff_csg_reactor_physics(
+            &geom, &mats, &nucs, src(), &s, &mut tally, &edges, &mut leak,
+        );
+        let leaked = total_leak(&leak, s.n_active as u64);
+        assert!(
+            leaked > 0.05,
+            "sub-critical vacuum HEU sphere should leak appreciably, got {leaked} per source neutron"
+        );
+        // Fast group (bin 1) carries leakage — neutrons escape near birth energy.
+        assert!(
+            leak[1].mean(s.n_active as u64) > 0.0,
+            "fast-group leakage must be positive"
+        );
+    }
+
+    /// `run_keff_csg` (no leakage sink) is byte-identical to before — the new
+    /// path is opt-in only. Cross-check the single-thread eigenvalue is stable.
+    #[test]
+    fn plain_run_keff_csg_unchanged() {
+        let (mats, nucs) = godiva();
+        let geom = heu_sphere(8.0, BoundaryType::Vacuum);
+        let s = settings();
+        let a = run_keff_csg(&geom, &mats, &nucs, src(), &s, None);
+        let b = run_keff_csg(&geom, &mats, &nucs, src(), &s, None);
+        assert_eq!(
+            a.k_by_generation, b.k_by_generation,
+            "single-thread run_keff_csg must be bit-reproducible"
+        );
+    }
 }

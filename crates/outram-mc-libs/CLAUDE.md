@@ -68,6 +68,38 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
   committed. The interpretation/write-up still goes in the committed V&V docs +
   the relevant bead.
 
+### Code-to-code verification: commit the OpenMC input scripts (MANDATORY)
+
+**Whenever a V&V case runs OpenMC itself** to produce the reference — as
+distinct from reading a notebook's stored cell output — **the exact Python
+scripts that generated the OpenMC output must be captured in the V&V record**,
+not merely cited. A cited-but-absent deck is a reference a reader cannot
+reproduce or check.
+
+- **Snapshot the scripts** used for that run into
+  `verification_and_validation/<topic>/openmc_inputs/` (verbatim copies, as
+  they were when the run was made — do not point at a mutable working tree).
+  Carry the upstream `LICENSE`/notice with them; the maintainer's decks
+  (`~/Documents/research/openmc_fuel_perf_project`, GitLab
+  `theodore_ong/openmc_fuel_perf_project`) are BSD-3-Clause © 2024
+  theodoreOnzGit — own work, GPL-3-compatible, so the copy is fine with the
+  notice preserved.
+- **Embed the driver script inline** in the `.md` (the top-level script that
+  builds the model and calls `openmc.run()`) as a fenced ` ```python ` block,
+  so the reader sees the geometry/materials/settings without opening another
+  file. Larger factory/helper modules may stay as the committed snapshot and
+  be linked by relative path.
+- **State the provenance block** in the `.md`: the deck's source URL + commit
+  hash, the OpenMC version and commit, the cross-section library + version, the
+  chain file (if depletion), particle/batch/inactive counts, the Shannon-entropy
+  convergence check, and the statistical uncertainty on every reported number.
+- **`openmc_inputs/` is committed** (unlike the gitignored CSV outputs) — the
+  scripts are small, and they are the reproducibility artefact for the
+  reference side of the comparison.
+
+The `.venv-openmc` + `openmcbin` setup for actually running these lives in the
+workspace-root `CLAUDE.md` reference notes / session memory.
+
 ---
 
 ## Porting rule (mandatory) — mirror the canonical source, do not reinvent

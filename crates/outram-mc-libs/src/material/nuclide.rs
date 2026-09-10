@@ -251,7 +251,12 @@ impl Nuclide {
     /// # Errors
     /// [`NjoyError`] if `name` is not in the built-in MAT table, the download or
     /// unzip fails, or the evaluation uses a resonance format RECONR does not yet
-    /// reconstruct (e.g. ENDF/B-VIII.0 U's LRF=7 — use ENDF/B-VII.1 for U/Pu).
+    /// reconstruct. Reich-Moore (LRF=3) — the format ENDF/B-VIII.0 uses for
+    /// U-235 and U-238 — reconstructs and reproduces the Godiva benchmark (see
+    /// `examples/endf_to_keff.rs`). The general R-matrix-limited format (LRF=7,
+    /// used by some Pu evaluations) goes through the `samm` port, which is wired
+    /// but not yet verified against a real evaluation
+    /// (`njoy-outram-park-fork/src/reconr/mod.rs`).
     #[cfg(feature = "net-fetch")]
     pub fn from_endf(
         library: njoy_outram_park_fork::acquire::EndfLibrary,

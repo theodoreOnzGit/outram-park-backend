@@ -402,6 +402,31 @@ impl PackedSpheres {
             .unwrap_or(false)
     }
 
+    /// Centre \[cm\] of the packed sphere that contains `p`, or `None` if `p` is
+    /// in the matrix between spheres or outside the domain.
+    ///
+    /// Same O(1) grid lookup as [`is_inside_kernel`](Self::is_inside_kernel); the
+    /// packed spheres do not overlap, so at most one contains `p`. Used to
+    /// resolve *which* particle a point falls in when the packed body has
+    /// internal structure — e.g. the concentric layers of a TRISO particle
+    /// (see [`crate::pebble_beds::fhr_pebble`]).
+    pub fn containing_center(&self, p: Position) -> Option<Position> {
+        let cell_of = |x: f64| ((x + self.half_width) / self.cell_length).floor() as i64;
+        let key = (cell_of(p.x), cell_of(p.y), cell_of(p.z));
+        let r2 = self.radius * self.radius;
+        self.grid.get(&key).and_then(|idxs| {
+            idxs.iter().find_map(|&q| {
+                let c = self.spheres[q as usize].center;
+                let (dx, dy, dz) = (p.x - c.x, p.y - c.y, p.z - c.z);
+                if dx * dx + dy * dy + dz * dz < r2 {
+                    Some(c)
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
     /// The packed kernels.
     pub fn spheres(&self) -> &[Sphere] {
         &self.spheres
