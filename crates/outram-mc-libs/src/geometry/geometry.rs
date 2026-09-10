@@ -270,8 +270,23 @@ impl Geometry {
     /// A **reflective** surface reflects `u` about its outward normal; a
     /// **vacuum** surface kills the particle (leak); transmissive/lattice
     /// crossings pass through unchanged. The returned position is nudged a hair
-    /// past the surface along the outgoing direction so the next `locate` lands
-    /// unambiguously on the far side.
+    /// **across the surface, along its normal**, so the next `locate` lands
+    /// unambiguously on the correct side.
+    ///
+    /// # Why the nudge is along the normal, not the direction of travel
+    ///
+    /// A fixed nudge `stream(r, u_out, NUDGE)` fails at **grazing incidence on a
+    /// curved surface**: when `u_out` is nearly tangent to the surface the step
+    /// barely changes which side of the surface the particle is on, so
+    /// floating-point rounding can leave it on the *departing* side.
+    /// `locate`/`find_cell` (a pure membership test) then re-selects the cell it
+    /// was leaving, the next `distance_to_boundary` sees no forward surface, and
+    /// the history streams to infinity and leaks — catastrophically on
+    /// all-concentric-sphere geometries (GitHub #168). Nudging along the surface
+    /// normal in the crossing direction guarantees `Surface::evaluate` changes
+    /// sign regardless of how tangent `u` is; a second nudge along `u_out`
+    /// preserves the tangential progress a grazing particle needs so it does not
+    /// re-hit the same point.
     ///
     /// Mirrors the boundary-condition dispatch in `cross_surface`
     /// (`src/surface.cpp` / `src/geometry.cpp`), reduced to the vacuum/reflective/
@@ -282,7 +297,6 @@ impl Geometry {
         r: Position,
         u: Direction,
     ) -> (Position, Direction, bool) {
-        const NUDGE: f64 = 1.0e-9; // cm; << feature size (~1 cm), >> f64 round-off
         let surf = &self.surfaces[i_surf];
         match surf.bc() {
             BoundaryType::Vacuum => (r, u, false),
@@ -293,9 +307,15 @@ impl Geometry {
                 // [`Geometry::compose_corner_reflection`]); for a lone wall this
                 // reduces exactly to `surf.reflect(r, u)`.
                 let u_new = self.compose_corner_reflection(i_surf, r, u);
-                (stream(r, u_new, NUDGE), u_new, true)
+                // The particle bounces back to the side it came from.
+                let p = nudge_across(surf, r, u, u_new, false);
+                (p, u_new, true)
             }
-            BoundaryType::Transmissive => (stream(r, u, NUDGE), u, true),
+            BoundaryType::Transmissive => {
+                // The particle passes through to the far side.
+                let p = nudge_across(surf, r, u, u, true);
+                (p, u, true)
+            }
         }
     }
 
@@ -390,6 +410,43 @@ impl Geometry {
         }
         u_new
     }
+}
+
+/// Move a particle sitting on surface `surf` (at `r`) decisively onto the
+/// correct side of it, then along its outgoing direction.
+///
+/// - `u_in` is the **incoming** direction (used only for its sign relative to
+///   the surface normal — which way the particle was crossing).
+/// - `u_out` is the direction the particle leaves with (`= u_in` for a
+///   transmissive crossing, the reflected direction for a reflective one).
+/// - `through`: `true` for a transmissive crossing (end up on the *far* side),
+///   `false` for a reflective one (bounce back to the *incoming* side).
+///
+/// The normal-direction step is what makes this robust at grazing incidence on
+/// a curved surface — see [`Geometry::cross_surface`]. `Surface::evaluate`
+/// increases along `+normal`, so stepping `±normal·NUDGE` flips its sign in the
+/// intended direction no matter how tangent `u_out` is; the extra `u_out` step
+/// keeps a grazing particle from re-hitting the same point.
+fn nudge_across(
+    surf: &SurfaceKind,
+    r: Position,
+    u_in: Direction,
+    u_out: Direction,
+    through: bool,
+) -> Position {
+    const NUDGE: f64 = 1.0e-9;
+    let n = surf.normal(r);
+    let dot = u_in.u * n.u + u_in.v * n.v + u_in.w * n.w;
+    // Preserve prior behaviour for the (non-physical) exactly-tangent case.
+    if dot == 0.0 {
+        return stream(r, u_out, NUDGE);
+    }
+    // `+normal` raises `evaluate`. Transmissive: end up where evaluate has the
+    // sign of the crossing direction (`dot`). Reflective: the opposite sign.
+    let side = if through { dot.signum() } else { -dot.signum() };
+    let across = Direction::new(n.u * side, n.v * side, n.w * side);
+    let p = stream(r, u_out, NUDGE);
+    stream(p, across, NUDGE)
 }
 
 #[cfg(test)]
