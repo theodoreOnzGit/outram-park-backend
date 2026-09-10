@@ -24,7 +24,7 @@
 //! follow-up) would additionally score along free-flight segments.
 
 use super::filter::FilterEvent;
-use super::tally::{ScoreType, Tally};
+use super::tally::{ScoreType, Tally, TallyBin};
 use crate::geometry::position::Position;
 use crate::material::material::MacroXs;
 
@@ -227,7 +227,21 @@ pub fn score_track_length(
 /// standard deviation (the standard tally uncertainty). `batch` must have length
 /// `tally.bins.len()`.
 pub fn flush_batch(tally: &mut Tally, batch: &mut [f64]) {
-    for (dst, src) in tally.bins.iter_mut().zip(batch.iter_mut()) {
+    flush_bins(&mut tally.bins, batch);
+}
+
+/// Flush a per-batch flat accumulator into a bare slice of persistent
+/// [`super::tally::TallyBin`]s as one Monte-Carlo realization, then zero the
+/// accumulator.
+///
+/// This is the estimator-agnostic core of [`flush_batch`], split out so the same
+/// one-realization-per-batch statistics apply to accumulators that are not part
+/// of a [`Tally`] — e.g. the per-energy-group leakage spectrum the CSG
+/// eigenvalue driver accumulates alongside its tally
+/// ([`crate::physics::transport_csg::run_keff_csg_reactor_physics`]). `batch`
+/// and `bins` must be the same length.
+pub fn flush_bins(bins: &mut [TallyBin], batch: &mut [f64]) {
+    for (dst, src) in bins.iter_mut().zip(batch.iter_mut()) {
         dst.score(*src);
         *src = 0.0;
     }
