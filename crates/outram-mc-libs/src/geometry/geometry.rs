@@ -14,7 +14,7 @@
 //! `cells`, `universes`, `lattices`, plus the `root_universe`. It is read-only
 //! after construction, so transport threads share it as `Arc<Geometry>`.
 
-use super::cell::CellFill;
+use super::cell::{CellFill, HalfSpaceSense, SurfaceToken};
 use super::lattice::Lattice;
 use super::position::{stream, Direction, Position};
 use super::surface::{BoundaryType, SurfaceKind};
@@ -50,9 +50,10 @@ pub struct GeometryPath {
     pub levels: Vec<Coord>,
     /// Leaf material index, or `None` for a void cell.
     pub material: Option<usize>,
-    /// Global surface index the particle currently sits on (`usize::MAX` if none),
-    /// used for coincident-distance handling.
-    pub on_surface: usize,
+    /// The surface the particle currently sits on and which side of it it is on
+    /// ([`SurfaceToken::NONE`] if it is on none). Used for coincident-distance
+    /// handling and for unambiguous cell membership after a crossing.
+    pub on_surface: SurfaceToken,
 }
 
 impl GeometryPath {
@@ -87,6 +88,48 @@ pub struct BoundaryHit {
     pub coord_level: usize,
 }
 
+/// Post-crossing state returned by [`Geometry::cross_surface`].
+///
+/// Feed `r`, `u` and `on_surface` straight back into the transport loop's next
+/// [`Geometry::locate`] call; `alive` is `false` only for a vacuum (leak)
+/// crossing, where the other fields are the escape state.
+#[derive(Debug, Clone, Copy)]
+pub struct SurfaceCrossing {
+    /// Position \[cm\] just across the surface (nudged off it — see
+    /// [`Geometry::cross_surface`]).
+    pub r: Position,
+    /// Outgoing unit direction — reflected for a reflective surface, unchanged
+    /// for a transmissive one.
+    pub u: Direction,
+    /// `false` if the crossing killed the particle (vacuum boundary = leak).
+    pub alive: bool,
+    /// The surface just crossed and **which side of it the particle is now on**.
+    /// [`SurfaceToken::NONE`] for a vacuum crossing (the history is over).
+    pub on_surface: SurfaceToken,
+}
+
+/// Which side of `surf` a particle leaving along `u_out` from the crossing point
+/// `r` ends up on.
+///
+/// Purely geometric, and independent of any cell's region definition: the
+/// outward normal points in the direction `evaluate` increases, so a particle
+/// travelling with `u_out · n > 0` is heading into the positive (outside)
+/// half-space. This is how OpenMC signs its surface token when the region is not
+/// a simple intersection (`Region::distance_complex`, `src/cell.cpp:1013`), and
+/// it is used here for every crossing because it needs no assumption about how
+/// the region was written.
+#[inline]
+fn outgoing_side(surf: &SurfaceKind, r: Position, u_out: Direction, i_surf: usize) -> SurfaceToken {
+    let n = surf.normal(r);
+    let dot = u_out.u * n.u + u_out.v * n.v + u_out.w * n.w;
+    let sense = if dot > 0.0 {
+        HalfSpaceSense::Outside
+    } else {
+        HalfSpaceSense::Inside
+    };
+    SurfaceToken::on(i_surf, sense)
+}
+
 /// The whole CSG model — the flat arrays every geometry index refers to.
 ///
 /// Read-only after construction; share across threads as `Arc<Geometry>`.
@@ -116,11 +159,20 @@ impl Geometry {
     /// universe (recentring the position to the tile). Ported from
     /// `find_cell_inner` (`src/geometry.cpp:102`).
     ///
-    /// `on_surface` is the global surface index the particle sits on
-    /// (`usize::MAX` if none); it is carried through into the returned path for
-    /// coincident-distance handling. Returns `None` if the particle is in no cell
-    /// at some level (a "lost" particle — outside the geometry).
-    pub fn locate(&self, r: Position, u: Direction, on_surface: usize) -> Option<GeometryPath> {
+    /// `on_surface` records which surface the particle sits on and on which side
+    /// (see [`SurfaceToken`]); pass [`SurfaceToken::NONE`] for a standalone
+    /// point query. It is used to resolve cell membership on that surface
+    /// exactly — without it a particle sitting on a boundary it has just crossed
+    /// can be re-located in the cell it was leaving — and is carried through into
+    /// the returned path for coincident-distance handling. Returns `None` if the
+    /// particle is in no cell at some level (a "lost" particle — outside the
+    /// geometry).
+    pub fn locate(
+        &self,
+        r: Position,
+        u: Direction,
+        on_surface: SurfaceToken,
+    ) -> Option<GeometryPath> {
         let mut levels: Vec<Coord> = Vec::new();
         let mut level = Coord {
             universe: self.root_universe,
@@ -132,8 +184,13 @@ impl Geometry {
         };
 
         loop {
-            let i_cell =
-                self.universes[level.universe].find_cell(level.r, &self.surfaces, &self.cells)?;
+            let i_cell = self.universes[level.universe].find_cell(
+                level.r,
+                level.u,
+                &self.surfaces,
+                &self.cells,
+                on_surface,
+            )?;
             level.cell = i_cell;
             let cell = &self.cells[i_cell];
 
@@ -258,48 +315,56 @@ impl Geometry {
         materials: &[crate::material::material::Material],
         nuclides: &[crate::material::nuclide::Nuclide],
     ) -> Option<f64> {
-        let path = self.locate(r, u, usize::MAX)?;
+        let path = self.locate(r, u, SurfaceToken::NONE)?;
         let m = path.material?;
         Some(materials[m].macro_xs_total(e, nuclides))
     }
 
     /// Apply a surface crossing to a global position/direction and return the
-    /// post-crossing state plus whether the particle survives.
+    /// post-crossing state.
     ///
     /// The particle is assumed already streamed to the surface at global `r`.
     /// A **reflective** surface reflects `u` about its outward normal; a
-    /// **vacuum** surface kills the particle (leak); transmissive/lattice
-    /// crossings pass through unchanged. The returned position is nudged a hair
-    /// **across the surface, along its normal**, so the next `locate` lands
-    /// unambiguously on the correct side.
+    /// **vacuum** surface kills the particle (leak); a transmissive crossing
+    /// passes through unchanged. The returned position is nudged a hair
+    /// **across the surface, along its normal**, and the returned
+    /// [`SurfaceCrossing::on_surface`] records which side the particle ended up
+    /// on, so the next [`Geometry::locate`] is unambiguous.
     ///
-    /// # Why the nudge is along the normal, not the direction of travel
+    /// # Why the outgoing side must be recorded, not re-derived
     ///
-    /// A fixed nudge `stream(r, u_out, NUDGE)` fails at **grazing incidence on a
-    /// curved surface**: when `u_out` is nearly tangent to the surface the step
-    /// barely changes which side of the surface the particle is on, so
-    /// floating-point rounding can leave it on the *departing* side.
-    /// `locate`/`find_cell` (a pure membership test) then re-selects the cell it
-    /// was leaving, the next `distance_to_boundary` sees no forward surface, and
-    /// the history streams to infinity and leaks — catastrophically on
-    /// all-concentric-sphere geometries (GitHub #168). Nudging along the surface
-    /// normal in the crossing direction guarantees `Surface::evaluate` changes
-    /// sign regardless of how tangent `u` is; a second nudge along `u_out`
-    /// preserves the tangential progress a grazing particle needs so it does not
-    /// re-hit the same point.
+    /// After the crossing the particle sits (to within round-off) *on* the
+    /// surface, where the sign of `Surface::evaluate` is decided by rounding
+    /// rather than by geometry — worst at **grazing incidence on a curved
+    /// surface**, where the tangential step dominates. A membership test that
+    /// re-evaluates that sign can put the particle back in the cell it was
+    /// leaving; the next `distance_to_boundary` then finds no forward surface
+    /// (the one it sits on is suppressed as coincident), so the particle streams
+    /// to infinity and the history leaks. On a concentric-shell pebble that lost
+    /// 85 % of source neutrons (GitHub #168). The outgoing side is known exactly
+    /// here — it is the sign of `u_out · n` — so it is recorded and carried,
+    /// exactly as OpenMC carries its signed surface token
+    /// (`src/particle.cpp:344`, and `surface() = -surface()` on reflection at
+    /// `:795`).
     ///
-    /// Mirrors the boundary-condition dispatch in `cross_surface`
-    /// (`src/surface.cpp` / `src/geometry.cpp`), reduced to the vacuum/reflective/
-    /// transmissive cases this crate implements.
-    pub fn cross_surface(
-        &self,
-        i_surf: usize,
-        r: Position,
-        u: Direction,
-    ) -> (Position, Direction, bool) {
+    /// The nudge is a second, independent guard belonging to *this* crate's
+    /// tracker (OpenMC does not nudge): it is taken along the surface **normal**
+    /// so `evaluate` changes sign no matter how tangent `u_out` is, plus a step
+    /// along `u_out` so a grazing particle makes tangential progress and does not
+    /// re-hit the same point. See [`nudge_across`].
+    ///
+    /// Mirrors the boundary-condition dispatch in `Particle::cross_surface`
+    /// (`src/particle.cpp:659`), reduced to the vacuum/reflective/transmissive
+    /// cases this crate implements.
+    pub fn cross_surface(&self, i_surf: usize, r: Position, u: Direction) -> SurfaceCrossing {
         let surf = &self.surfaces[i_surf];
         match surf.bc() {
-            BoundaryType::Vacuum => (r, u, false),
+            BoundaryType::Vacuum => SurfaceCrossing {
+                r,
+                u,
+                alive: false,
+                on_surface: SurfaceToken::NONE,
+            },
             BoundaryType::Reflective | BoundaryType::White | BoundaryType::Periodic => {
                 // White/Periodic are approximated as reflective (documented gap).
                 // Compose the reflection off EVERY reflective surface coincident
@@ -309,12 +374,22 @@ impl Geometry {
                 let u_new = self.compose_corner_reflection(i_surf, r, u);
                 // The particle bounces back to the side it came from.
                 let p = nudge_across(surf, r, u, u_new, false);
-                (p, u_new, true)
+                SurfaceCrossing {
+                    r: p,
+                    u: u_new,
+                    alive: true,
+                    on_surface: outgoing_side(surf, r, u_new, i_surf),
+                }
             }
             BoundaryType::Transmissive => {
                 // The particle passes through to the far side.
                 let p = nudge_across(surf, r, u, u, true);
-                (p, u, true)
+                SurfaceCrossing {
+                    r: p,
+                    u,
+                    alive: true,
+                    on_surface: outgoing_side(surf, r, u, i_surf),
+                }
             }
         }
     }
@@ -543,7 +618,7 @@ mod tests {
             .locate(
                 Position::new(0.0, 0.0, 0.0),
                 Direction::new(1.0, 0.0, 0.0),
-                usize::MAX,
+                SurfaceToken::NONE,
             )
             .unwrap();
         assert_eq!(p.material, Some(0), "origin is fuel");
@@ -560,7 +635,7 @@ mod tests {
             .locate(
                 Position::new(0.5, 0.0, 0.0),
                 Direction::new(1.0, 0.0, 0.0),
-                usize::MAX,
+                SurfaceToken::NONE,
             )
             .unwrap();
         assert_eq!(p2.material, Some(1), "0.5 cm out is moderator");
@@ -570,7 +645,7 @@ mod tests {
             .locate(
                 Position::new(1.0, 0.0, 0.0),
                 Direction::new(1.0, 0.0, 0.0),
-                usize::MAX
+                SurfaceToken::NONE
             )
             .is_none());
     }
@@ -602,13 +677,22 @@ mod tests {
             lattices: vec![],
             root_universe: 0,
         };
-        let (_r, u, alive) = geom.cross_surface(
+        let crossed = geom.cross_surface(
             0,
             Position::new(1.0, 0.0, 0.0),
             Direction::new(1.0, 0.0, 0.0),
         );
-        assert!(alive);
-        assert!((u.u + 1.0).abs() < 1e-12, "reflected u.u = {}", u.u);
+        assert!(crossed.alive);
+        assert!(
+            (crossed.u.u + 1.0).abs() < 1e-12,
+            "reflected u.u = {}",
+            crossed.u.u
+        );
+        // The particle bounced back to the inside (negative) half-space.
+        assert_eq!(
+            crossed.on_surface,
+            SurfaceToken::on(0, HalfSpaceSense::Inside)
+        );
     }
 
     /// A sphere with a vacuum BC must kill the particle on crossing.
@@ -641,11 +725,280 @@ mod tests {
             lattices: vec![],
             root_universe: 0,
         };
-        let (_r, _u, alive) = geom.cross_surface(
+        let crossed = geom.cross_surface(
             0,
             Position::new(5.0, 0.0, 0.0),
             Direction::new(1.0, 0.0, 0.0),
         );
-        assert!(!alive, "vacuum crossing should kill the particle");
+        assert!(!crossed.alive, "vacuum crossing should kill the particle");
+    }
+
+    // ── GitHub #168 / op-mzvp.2.11 regression ─────────────────────────────
+    //
+    // A concentric-shell geometry — the shape that exposed the surface-tracking
+    // defect. Four spherical regions, the outermost reflective, so nothing can
+    // legitimately escape:
+    //
+    //   surface 0: r = 1  (transmissive)   cell 0: inside(0)               ball
+    //   surface 1: r = 2  (transmissive)   cell 1: outside(0) & inside(1)  shell
+    //   surface 2: r = 3  (transmissive)   cell 2: outside(1) & inside(2)  shell
+    //   surface 3: r = 4  (reflective)     cell 3: outside(2) & inside(3)  shell
+    //
+    // The failure mode this guards against: a particle that has just crossed an
+    // internal sphere sits exactly on it, `locate` re-derives the sign of
+    // `evaluate` there, picks the cell it was LEAVING, and the next
+    // `distance_to_boundary` finds no forward surface (the coincident one is
+    // suppressed, the other bounds the cell behind it) — so the particle streams
+    // to infinity and the history leaks.
+    fn concentric_shells() -> Geometry {
+        let tr = BoundaryType::Transmissive;
+        let sphere = |r: f64, bc| {
+            SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r,
+                bc,
+            })
+        };
+        let inside = |i| RegionToken::HalfSpace {
+            surface_idx: i,
+            sense: HalfSpaceSense::Inside,
+        };
+        let outside = |i| RegionToken::HalfSpace {
+            surface_idx: i,
+            sense: HalfSpaceSense::Outside,
+        };
+        let shell = |id, i_in, i_out, mat| {
+            Cell::material(
+                id,
+                vec![outside(i_in), inside(i_out), RegionToken::Intersection],
+                mat,
+                293.6,
+            )
+        };
+        Geometry {
+            surfaces: vec![
+                sphere(1.0, tr),
+                sphere(2.0, tr),
+                sphere(3.0, tr),
+                sphere(4.0, BoundaryType::Reflective),
+            ],
+            cells: vec![
+                Cell::material(1, vec![inside(0)], 0, 293.6),
+                shell(2, 0, 1, 1),
+                shell(3, 1, 2, 2),
+                shell(4, 2, 3, 3),
+            ],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0, 1, 2, 3],
+            }],
+            lattices: vec![],
+            root_universe: 0,
+        }
+    }
+
+    /// **GitHub #168 regression.** Crossing every internal transmissive boundary
+    /// of a concentric-shell geometry, in **both** directions, must land the
+    /// particle in the adjacent cell — never back in the one it left — and must
+    /// leave a finite forward boundary distance.
+    ///
+    /// Swept over near-radial *and* strongly grazing incidence: the grazing rays
+    /// are the ones that broke, because there the tangential motion dominates and
+    /// the sign of `evaluate` at the crossing point is pure round-off.
+    #[test]
+    fn crossing_a_shell_boundary_lands_in_the_adjacent_cell() {
+        let geom = concentric_shells();
+        // (surface index, radius, cell inside it, cell outside it)
+        let boundaries = [
+            (0usize, 1.0, 0usize, 1usize),
+            (1, 2.0, 1, 2),
+            (2, 3.0, 2, 3),
+        ];
+        // Radial through near-tangent. `tan` is the tangential component per unit
+        // radial component: 1e6 is ~1e-6 rad off tangent.
+        let tangential = [0.0, 1.0, 1.0e3, 1.0e6];
+
+        for (i_surf, radius, cell_in, cell_out) in boundaries {
+            for tan in tangential {
+                for outward in [true, false] {
+                    let radial = if outward { 1.0 } else { -1.0 };
+                    // Hit point on the +x axis; radial along x, tangential along y.
+                    let r_hit = Position::new(radius, 0.0, 0.0);
+                    let u = Direction::from_unnormalised(radial, tan, 0.0);
+
+                    let crossed = geom.cross_surface(i_surf, r_hit, u);
+                    assert!(crossed.alive, "internal boundary must be transmissive");
+
+                    let expect_cell = if outward { cell_out } else { cell_in };
+                    let path = geom
+                        .locate(crossed.r, crossed.u, crossed.on_surface)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "lost after crossing surface {i_surf} (r={radius}, tan={tan}, \
+                                 outward={outward}) — GH #168 regressed"
+                            )
+                        });
+                    assert_eq!(
+                        path.leaf().cell,
+                        expect_cell,
+                        "crossing surface {i_surf} (r={radius}, tan={tan}, outward={outward}) \
+                         landed in cell {} not {expect_cell} — GH #168 regressed",
+                        path.leaf().cell
+                    );
+
+                    // And the new cell must present a finite forward boundary:
+                    // an INFINITY here is exactly how the leak started.
+                    let hit = geom.distance_to_boundary(&path);
+                    assert!(
+                        hit.distance.is_finite(),
+                        "no forward boundary from cell {expect_cell} after crossing surface \
+                         {i_surf} (tan={tan}, outward={outward}) — GH #168 regressed"
+                    );
+                    assert!(
+                        matches!(hit.crossing, Crossing::Surface(_)),
+                        "expected a surface crossing ahead, got {:?}",
+                        hit.crossing
+                    );
+                }
+            }
+        }
+    }
+
+    /// **GitHub #168 regression.** The outermost reflective sphere must send the
+    /// particle back into the outer shell with its side recorded as `Inside`,
+    /// at grazing incidence as well as head-on.
+    #[test]
+    fn reflecting_off_the_outer_sphere_stays_in_the_outer_shell() {
+        let geom = concentric_shells();
+        for tan in [0.0, 1.0, 1.0e3, 1.0e6] {
+            let r_hit = Position::new(4.0, 0.0, 0.0);
+            let u = Direction::from_unnormalised(1.0, tan, 0.0);
+            let crossed = geom.cross_surface(3, r_hit, u);
+            assert!(
+                crossed.alive,
+                "reflective sphere must not kill the particle"
+            );
+            assert_eq!(
+                crossed.on_surface,
+                SurfaceToken::on(3, HalfSpaceSense::Inside),
+                "reflection must record the inward side (tan={tan})"
+            );
+            let path = geom
+                .locate(crossed.r, crossed.u, crossed.on_surface)
+                .unwrap_or_else(|| panic!("lost after reflecting (tan={tan}) — GH #168 regressed"));
+            assert_eq!(
+                path.leaf().cell,
+                3,
+                "must stay in the outer shell (tan={tan})"
+            );
+            assert!(
+                geom.distance_to_boundary(&path).distance.is_finite(),
+                "no forward boundary after reflecting (tan={tan}) — GH #168 regressed"
+            );
+        }
+    }
+
+    /// **GitHub #168 regression, end to end.** A full `run_keff_csg` power
+    /// iteration over an all-reflective concentric-shell geometry must lose
+    /// essentially no neutrons.
+    ///
+    /// # Methodology
+    ///
+    /// The [`concentric_shells`] model with fissile Godiva-like HEU in every
+    /// region (so a lost history is not masked by absorption), transported
+    /// through [`crate::physics::transport_csg::run_keff_csg_reactor_physics`]
+    /// with the leakage spectrum enabled — 400 particles, 5 inactive + 10 active
+    /// generations. Every surface but the outermost is transmissive and the
+    /// outermost is reflective, so the *only* way to score leakage is a tracking
+    /// failure. Pass criterion: total leakage < 1e-3 per source neutron.
+    ///
+    /// This is a **harness conservation check, not physics V&V** — it constrains
+    /// the tracker, not the eigenvalue.
+    ///
+    /// # Results
+    ///
+    /// Measured 2026-09-10. With the two fixes below disabled — the
+    /// [`SurfaceToken`] membership override and the direction-aware
+    /// [`SurfaceKind::sense`] fallback — this geometry leaks **0.0860** per
+    /// source neutron (k_eff 2.03432 ± 0.01644). With both in place it leaks
+    /// **exactly 0.0** (k_eff 2.22599 ± 0.01072).
+    ///
+    /// The same disabled-mechanism run reproduces the reported 0.8463
+    /// leakage on the four-region pebble
+    /// ([`crate::pebble_beds::fhr_pebble`]'s
+    /// `reflective_pebble_transport_does_not_leak`), so it is a faithful
+    /// emulation of the pre-fix tracker rather than an approximation of it.
+    /// The pebble is the more sensitive gate of the two; this test is here
+    /// because it is minimal and needs no fissile-shell tuning to reproduce.
+    #[test]
+    fn reflective_concentric_shells_do_not_leak() {
+        use crate::material::material::{Material, NuclideComponent};
+        use crate::material::nuclide::Nuclide;
+        use crate::physics::keff::KeffSettings;
+        use crate::physics::transport_csg::{run_keff_csg_reactor_physics, SourceBox};
+        use crate::tally::filter::EnergyFilter;
+        use crate::tally::tally::{ScoreType, Tally, TallyBin};
+
+        let nuclides = vec![
+            Nuclide::from_core("U235").unwrap(),
+            Nuclide::from_core("U238").unwrap(),
+        ];
+        let heu = |id| Material {
+            id,
+            name: "HEU".into(),
+            temperature: 293.6,
+            components: vec![
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 2.4984e-3,
+                },
+            ],
+        };
+        let materials = vec![heu(1), heu(2), heu(3), heu(4)];
+
+        let geom = concentric_shells();
+        let edges = vec![0.0, 0.625, 2.0e7];
+        let mut tally = Tally {
+            id: 0,
+            name: "shells".into(),
+            filters: vec![Box::new(EnergyFilter {
+                bins: edges.clone(),
+            })],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let mut leak = vec![TallyBin::default(); edges.len() - 1];
+        let settings = KeffSettings {
+            n_particles: 400,
+            n_inactive: 5,
+            n_active: 10,
+            ..KeffSettings::default()
+        };
+        let source = SourceBox {
+            lower: Position::new(-3.5, -3.5, -3.5),
+            upper: Position::new(3.5, 3.5, 3.5),
+        };
+        let res = run_keff_csg_reactor_physics(
+            &geom, &materials, &nuclides, source, &settings, &mut tally, &edges, &mut leak,
+        );
+        let leaked = leak
+            .iter()
+            .map(|b| b.mean(settings.n_active as u64))
+            .sum::<f64>()
+            / settings.n_particles as f64;
+        eprintln!(
+            "[GH #168] concentric shells: k_eff = {:.5} +/- {:.5}, leakage = {leaked:.3e}",
+            res.k_mean, res.k_std
+        );
+        assert!(
+            leaked < 1.0e-3,
+            "all-reflective concentric shells leaked {leaked} per source neutron — GH #168 regressed"
+        );
     }
 }

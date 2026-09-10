@@ -362,8 +362,18 @@ mod desktop {
         // ── 3. Ring-RPT shell fuel-zone k∞ (delta tracking, radius-classified) ──
         // The homogenised fuel occupies a spherical shell r ∈ (r_inner, r_shell)
         // sized so its volume = the total particle volume, graphite elsewhere.
-        // Same reflective cube domain as (1) and (2). Solved with delta tracking
-        // to avoid `op-mzvp.2.11` (run_keff_csg leaks on concentric spheres).
+        // Same reflective cube domain as (1) and (2), so the three k∞ numbers are
+        // a like-for-like comparison; solved with delta tracking because the
+        // domain is a cube with a radius-classified fuel shell, not a CSG pebble.
+        //
+        // NOTE (2026-09-10): this is no longer a workaround. `op-mzvp.2.11` /
+        // GitHub #168 — `run_keff_csg` leaking on concentric spheres — is FIXED,
+        // and `fhr_pebble_geometry` now transports with zero leakage (see its
+        // `reflective_pebble_transport_does_not_leak` regression test). Running
+        // the *full* graphite + FLiBe pebble through `run_keff_csg` is therefore
+        // unblocked; what it still needs is the OpenMC deck's own pebble radii
+        // (fuel-zone / graphite-shell / coolant-cell), which this example does
+        // not carry, so the comparison stays a fuel-zone k∞ until those land.
         let r_inner_fz = 0.20_f64; // fits inside the h = 0.35 cube
         let r_shell_fz = (r_inner_fz.powi(3) + spec.packing_fraction * (0.85_f64).powi(3)).cbrt();
         let rpt_mats = vec![mats[mi::HOMOG].clone(), mats[mi::GRAPHITE].clone()];
@@ -409,7 +419,9 @@ mod desktop {
         eprintln!(
             "\nCAVEATS:\n  • free-gas carbon (no c_Graphite S(α,β)) — op-mzvp.2.8; absolute k not \
              comparable to OpenMC.\n  • fuel-zone k∞ in a 0.7 cm reflective cube, NOT the full \
-             graphite+FLiBe pebble — op-mzvp.2.11 blocks the CSG pebble geometry.\n  • Li-6(n,t) \
+             graphite+FLiBe pebble. op-mzvp.2.11 / GH #168 (CSG surface tracking leaked on \
+             concentric spheres) is FIXED, so the CSG pebble path is unblocked; wiring the full \
+             pebble now needs only the OpenMC deck's own pebble radii.\n  • Li-6(n,t) \
              absorption under-counted — op-mzvp.2.10 (tiny at 99.995 % Li-7).\n  • AI-assisted \
              code-to-code check, not a validated result."
         );

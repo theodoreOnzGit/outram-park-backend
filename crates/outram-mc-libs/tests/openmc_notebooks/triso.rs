@@ -118,7 +118,7 @@
 //! benchmark. Full write-up:
 //! `docs/ai-fleet-review/op-6tz-triso-finish/REVIEW_MANIFEST.md`.
 
-use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::{Crossing, Geometry};
 use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
 use outram_mc_libs::geometry::position::{stream, Direction, Position};
@@ -390,7 +390,7 @@ fn triso_nested_lattice_geometry_navigation() {
     let u = Direction::new(1.0, 0.0, 0.0);
 
     let at_kernel = geom
-        .locate(Position::new(0.0, 0.0, 0.0), u, usize::MAX)
+        .locate(Position::new(0.0, 0.0, 0.0), u, SurfaceToken::NONE)
         .expect("origin located");
     assert_eq!(at_kernel.material, Some(0), "kernel centre should be fuel");
     assert_eq!(
@@ -411,7 +411,7 @@ fn triso_nested_lattice_geometry_navigation() {
     );
 
     let at_matrix = geom
-        .locate(Position::new(0.15, 0.15, 0.0), u, usize::MAX)
+        .locate(Position::new(0.15, 0.15, 0.0), u, SurfaceToken::NONE)
         .expect("matrix point located");
     assert_eq!(
         at_matrix.material,
@@ -420,7 +420,7 @@ fn triso_nested_lattice_geometry_navigation() {
     );
 
     let neighbour = geom
-        .locate(Position::new(PITCH, 0.0, 0.0), u, usize::MAX)
+        .locate(Position::new(PITCH, 0.0, 0.0), u, SurfaceToken::NONE)
         .expect("neighbour tile located");
     assert_eq!(
         neighbour.material,
@@ -429,7 +429,7 @@ fn triso_nested_lattice_geometry_navigation() {
     );
 
     assert!(
-        geom.locate(Position::new(HALF + 0.1, 0.0, 0.0), u, usize::MAX)
+        geom.locate(Position::new(HALF + 0.1, 0.0, 0.0), u, SurfaceToken::NONE)
             .is_none(),
         "outside the box is lost"
     );
@@ -816,7 +816,8 @@ fn corner_reflection_composes_at_exact_corner() {
     // (a) True 3-surface corner (+x,+y,+z): a ray heading into it retroreflects —
     // all three components negated.
     let u = Direction::from_unnormalised(1.0, 1.0, 1.0);
-    let (_r, u3, alive) = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u);
+    let c3 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u);
+    let (u3, alive) = (c3.u, c3.alive);
     assert!(alive, "reflective corner keeps the particle alive");
     assert!(
         (u3.u + u.u).abs() < 1e-12,
@@ -840,7 +841,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (b) Min-side corner (-x,-y): with the plane normals all pointing +axis, the
     // sign-agnostic crossing test must still negate both crossed components.
     let um = Direction::from_unnormalised(-1.0, -1.0, 0.3);
-    let (_r, u2, _a) = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um);
+    let u2 = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um).u;
     assert!((u2.u + um.u).abs() < 1e-12, "min-corner: u.x not negated");
     assert!((u2.v + um.v).abs() < 1e-12, "min-corner: u.y not negated");
     assert!(
@@ -851,7 +852,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (c) Edge (2 surfaces, +x & +y): only the two crossed components flip; the
     // free (z) component is preserved.
     let ue = Direction::from_unnormalised(1.0, 1.0, 0.5);
-    let (_r, ue2, _a) = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue);
+    let ue2 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue).u;
     assert!((ue2.u + ue.u).abs() < 1e-12, "edge: u.x not negated");
     assert!((ue2.v + ue.v).abs() < 1e-12, "edge: u.y not negated");
     assert!(
@@ -862,7 +863,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (d) Lone wall (no other coincident surface): unchanged single reflection —
     // only the normal component flips.
     let ul = Direction::from_unnormalised(1.0, 0.2, 0.0);
-    let (_r, ul2, _a) = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul);
+    let ul2 = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul).u;
     assert!((ul2.u + ul.u).abs() < 1e-12, "lone wall: u.x not negated");
     assert!(
         (ul2.v - ul.v).abs() < 1e-12,
@@ -921,7 +922,7 @@ fn corner_grazing_history_terminates_without_pingpong() {
         for (du, dv, dw) in dirs {
             let mut r = r0;
             let mut u = Direction::from_unnormalised(du, dv, dw);
-            let mut on_surface = usize::MAX;
+            let mut on_surface = SurfaceToken::NONE;
             let mut events = 0u32;
             let mut path_len = 0.0_f64;
             loop {
@@ -944,11 +945,11 @@ fn corner_grazing_history_terminates_without_pingpong() {
                 r = stream(r, u, d.distance);
                 match d.crossing {
                     Crossing::Surface(i) => {
-                        let (r2, u2, alive) = geom.cross_surface(i, r, u);
-                        assert!(alive, "reflective wall must not kill the particle");
-                        r = r2;
-                        u = u2;
-                        on_surface = i;
+                        let crossed = geom.cross_surface(i, r, u);
+                        assert!(crossed.alive, "reflective wall must not kill the particle");
+                        r = crossed.r;
+                        u = crossed.u;
+                        on_surface = crossed.on_surface;
                     }
                     _ => break,
                 }

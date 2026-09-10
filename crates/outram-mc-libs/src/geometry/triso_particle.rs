@@ -377,8 +377,12 @@ mod tests {
 
         // Locate at radius `r` on the +x axis and return the leaf material.
         let mat_at = |r: f64| -> Option<usize> {
-            geom.locate(Position::new(r, 0.0, 0.0), u, usize::MAX)
-                .and_then(|p| p.material)
+            geom.locate(
+                Position::new(r, 0.0, 0.0),
+                u,
+                crate::geometry::cell::SurfaceToken::NONE,
+            )
+            .and_then(|p| p.material)
         };
 
         let rs = radii.as_array(); // [kernel, buffer, ipyc, sic, opyc] outer radii
