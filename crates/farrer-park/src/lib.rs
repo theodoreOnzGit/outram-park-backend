@@ -107,6 +107,7 @@
 
 pub mod assembly;
 pub mod bc;
+pub mod crystal;
 pub mod dof;
 pub mod element;
 pub mod error;

@@ -416,11 +416,35 @@ pub struct MaterialState {
     pub plastic_strain: Voigt6,
     /// Accumulated equivalent plastic strain `alpha` \[-\], `>= 0`, never
     /// decreasing.
+    ///
+    /// For [`Material::CrystalPlasticity`] this is the von Mises equivalent of
+    /// the plastic strain *increments* summed over the history, which is the
+    /// usual scalar summary of how much a crystal point has flowed. It is not
+    /// an internal variable of the crystal law — that is
+    /// [`crate::crystal::CrystalState::slip_resistance`].
     pub equivalent_plastic_strain: f64,
+    /// The crystal-plasticity history: orientation, per-system slip
+    /// resistances and slips, and the previous converged stress.
+    ///
+    /// Present at every quadrature point whatever the material is, because
+    /// [`MaterialState`] is one `Copy` type shared by every law. For
+    /// [`Material::Elastic`] and [`Material::J2`] it stays at
+    /// [`crate::crystal::CrystalState::default`] and is never read. That costs
+    /// about 320 bytes per quadrature point on a non-crystal analysis; the
+    /// alternative — making `MaterialState` an enum — would change the public
+    /// field access every existing caller uses, for a saving that no mesh this
+    /// crate is verified on notices.
+    pub crystal: crate::crystal::CrystalState,
 }
 
 impl MaterialState {
-    /// The virgin state: no plastic strain, no history.
+    /// The virgin state for a law with **no** crystal history: no plastic
+    /// strain, no equivalent plastic strain, and a crystal sub-state left at
+    /// its default (zero slip resistances, which is not a usable crystal).
+    ///
+    /// Use [`Material::initial_state`] instead when the law may be
+    /// [`Material::CrystalPlasticity`] — it returns the right virgin state for
+    /// whichever law it is asked about.
     #[must_use]
     pub fn pristine() -> Self {
         Self::default()
@@ -515,6 +539,14 @@ pub enum Material {
     Elastic(LinearElastic),
     /// J2 plasticity with linear isotropic hardening and radial return.
     J2(J2LinearHardening),
+    /// Rate-dependent **crystal plasticity**: slip on the twelve systems of a
+    /// cubic slip family, with a power-law flow rule and saturating
+    /// self-and-latent hardening.
+    ///
+    /// The per-point orientation and slip resistances live in
+    /// [`MaterialState::crystal`], not here, because they vary from grain to
+    /// grain while these constants do not. See [`crate::crystal`].
+    CrystalPlasticity(crate::crystal::CrystalPlasticity),
 }
 
 impl Material {
@@ -565,6 +597,7 @@ impl Material {
         match self {
             Material::Elastic(e) => *e,
             Material::J2(p) => p.elastic,
+            Material::CrystalPlasticity(cp) => cp.isotropic_equivalent(),
         }
     }
 
@@ -572,6 +605,12 @@ impl Material {
     ///
     /// Used as the predictor tangent on the first iteration of a load step, and
     /// as the fallback tangent for a modified-Newton run.
+    ///
+    /// For [`Material::CrystalPlasticity`] this is the stiffness of the
+    /// **isotropic Voigt equivalent** (see
+    /// [`crate::crystal::CrystalPlasticity::isotropic_equivalent`]), not the
+    /// rotated single-crystal tensor, because it has no orientation to rotate
+    /// by. Use it as a scale, never as the law.
     #[must_use]
     pub fn elastic_stiffness(&self) -> Tensor4 {
         self.elastic_constants().stiffness()
@@ -581,7 +620,29 @@ impl Material {
     /// committed at the end of a converged step).
     #[must_use]
     pub fn is_history_dependent(&self) -> bool {
-        matches!(self, Material::J2(_))
+        matches!(self, Material::J2(_) | Material::CrystalPlasticity(_))
+    }
+
+    /// The virgin per-quadrature-point state this law starts from.
+    ///
+    /// [`MaterialState::pristine`] for the history-free and J2 laws;
+    /// [`crate::crystal::CrystalPlasticity::pristine_state`] wrapped in a
+    /// `MaterialState` for crystal plasticity, so that every slip resistance
+    /// starts at `s_0` rather than at zero. [`crate::assembly::System`] calls
+    /// this when it allocates its quadrature state; a caller assembling state
+    /// by hand must do the same.
+    ///
+    /// The orientation is the cube orientation; assign real ones with
+    /// [`crate::assembly::System::set_crystal_orientations`].
+    #[must_use]
+    pub fn initial_state(&self) -> MaterialState {
+        match self {
+            Material::Elastic(_) | Material::J2(_) => MaterialState::pristine(),
+            Material::CrystalPlasticity(cp) => MaterialState {
+                crystal: cp.pristine_state(),
+                ..MaterialState::pristine()
+            },
+        }
     }
 
     /// Integrate the law over one step: total strain in, stress and consistent
@@ -714,6 +775,7 @@ impl Material {
                 let new_state = MaterialState {
                     plastic_strain: state.plastic_strain.plus(&Voigt6(dep)),
                     equivalent_plastic_strain: state.equivalent_plastic_strain + d_alpha,
+                    crystal: state.crystal,
                 };
 
                 // 6. Consistent tangent.
@@ -730,6 +792,7 @@ impl Material {
                     yielding: true,
                 })
             }
+            Material::CrystalPlasticity(cp) => cp.update(total_strain, state),
         }
     }
 

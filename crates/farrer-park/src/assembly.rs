@@ -625,17 +625,62 @@ impl System {
         let rule = default_rule(mesh.element_type());
         let n_pts = mesh.n_elements() * rule.len();
         let pattern = SparsityPattern::from_mesh(&mesh, &dofs);
+        // The virgin state is the material's, not a blanket zero: a crystal
+        // point must start at its initial slip resistance, and a zero
+        // resistance would divide by zero in the flow rule.
+        let virgin = material.initial_state();
         Self {
             mesh,
             dofs,
             material,
             body_force,
             rule,
-            state: vec![MaterialState::pristine(); n_pts],
+            state: vec![virgin; n_pts],
             stress: vec![Voigt6::ZERO; n_pts],
-            trial_state: vec![MaterialState::pristine(); n_pts],
+            trial_state: vec![virgin; n_pts],
             pattern,
             options,
+        }
+    }
+
+    /// Assign a crystal orientation to every quadrature point from its
+    /// **physical position**.
+    ///
+    /// This is how a polycrystal is set up: the closure receives the sample
+    /// coordinates of the quadrature point in metres (the `z` component is
+    /// zero on a two-dimensional mesh) and returns that point's grain
+    /// orientation. A grain map is expressed by making the closure look up
+    /// which grain contains the point.
+    ///
+    /// Applies to both the committed and the trial state, so it is safe to
+    /// call before the first solve; calling it **mid-analysis would discard
+    /// nothing but would reorient a hardened point**, which is not physical —
+    /// call it once, immediately after [`System::new`].
+    ///
+    /// Does nothing useful unless the material is
+    /// [`crate::material::Material::CrystalPlasticity`]; no other law reads the
+    /// orientation.
+    ///
+    /// # Units
+    ///
+    /// Position in metres; the orientation is dimensionless.
+    pub fn set_crystal_orientations<F>(&mut self, mut orientation_at: F)
+    where
+        F: FnMut([f64; 3]) -> crate::crystal::Orientation,
+    {
+        let et = self.mesh.element_type();
+        let nn = et.n_nodes();
+        let mut ec = vec![[0.0_f64; 3]; nn];
+        let nq = self.rule.len();
+        for e in 0..self.mesh.n_elements() {
+            self.mesh.element_coords(ElemId(e), &mut ec);
+            for (qi, q) in self.rule.iter().enumerate() {
+                let x = map_point(et, &ec, q.xi);
+                let o = orientation_at(x);
+                let gp = e * nq + qi;
+                self.state[gp].crystal.orientation = o;
+                self.trial_state[gp].crystal.orientation = o;
+            }
         }
     }
 
