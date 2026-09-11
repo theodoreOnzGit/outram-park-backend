@@ -201,6 +201,7 @@ fn main() {
     }
 
     thermalization_demo(&cases);
+    scattering_cross_sections(&cases);
 
     println!(
         "\nHow to read this.\n\
@@ -219,6 +220,50 @@ fn main() {
         std::process::exit(1);
     }
     println!("\nNo kinematic-floor violations outside the bound regime.");
+}
+
+/// The other half of `ξ·Σ_s`: the elastic cross section itself, against published
+/// free-atom values.
+///
+/// `ξ` is verified exactly against two-body kinematics above, and the U-238
+/// capture resonance integral is verified against NJOY — so if the epithermal
+/// flux per unit lethargy (`≈ S/(ξΣ_s)`) is wrong, `Σ_s` is the only term left.
+/// Between about 1 eV and 10 keV a light nuclide's elastic cross section is flat
+/// at its potential-scattering value, which is tabulated:
+///
+/// | nuclide | free-atom σ_s \[b\] |
+/// |---|---|
+/// | C-12 | 4.746 |
+/// | Be-9 | 6.151 |
+/// | F-19 | 3.641 |
+/// | Li-7 | 0.97 |
+/// | O-16 | 3.761 |
+/// | Si-28 | 2.04 |
+///
+/// These are round numbers from neutron-scattering tables, good to a few percent,
+/// not an oracle at NJOY's 0.1 % — they are here to catch a *gross* error, which
+/// is what the ring-RPT residual would need (a ~20 % shift in `ξΣ_s`). A real
+/// check against NJOY's own PENDF for these nuclides has never been run; only
+/// U-235, U-238 and graphite's thermal law have.
+fn scattering_cross_sections(cases: &[(String, Nuclide)]) {
+    println!("\n\n=== Elastic cross section vs published free-atom values ===");
+    println!("(flat potential scattering is expected between ~1 eV and ~10 keV)\n");
+    print!("{:<28}", "nuclide");
+    for e in [1.0, 10.0, 100.0, 1.0e3, 1.0e4, 1.0e5] {
+        print!("{:>12}", format!("{e:.0e} eV"));
+    }
+    println!();
+    for (label, nuc) in cases {
+        print!("{label:<28}");
+        for e in [1.0, 10.0, 100.0, 1.0e3, 1.0e4, 1.0e5] {
+            print!("{:>12.4}", nuc.xs_at_energy(e, TEMP).elastic);
+        }
+        println!();
+    }
+    println!(
+        "\nA ~20 % error in one of these would be enough to explain the ring-RPT\n\
+         residual on its own; a 0.1 % one would not, and is NJOY's job to find."
+    );
 }
 
 /// Where does a neutron end up after many scatters in a single-nuclide medium at

@@ -416,27 +416,44 @@ mod desktop {
         let cube = DeltaDomain::Cube { half };
         let seed = 20_260_910;
 
-        // TRISO packed into a cube that fully covers the r < 1.9 fuel sphere.
+        // TRISO packed into a cube that fully covers the r < 1.9 fuel sphere, then
+        // clipped to that sphere by `ExplicitTrisoPebble::material_at`.
+        //
+        // The packing fraction has to be corrected for the clip, and the size of
+        // the correction is not negligible. `pack_spheres_crp` targets `pf` over
+        // the *cube*, but centres are confined to `half − r_particle`, so the
+        // interior is denser than nominal and the inscribed fuel sphere inherits
+        // that: at face value the r < 1.9 sphere comes out at **pf 0.3072, +2.4 %
+        // over the deck's 0.30** — 2.4 % more heavy metal than the model being
+        // compared against, which specifies its packing fraction over the fuel
+        // *region* (`openmc.model.pack_spheres(..., region=-fuel_sph, pf=0.30)`).
+        //
+        // The realised in-sphere fraction is linear in the particle count and so
+        // in the requested cube `pf`, so one measured rescale lands on target.
         let pack_half = R_FUEL_ZONE + spec.opyc;
-        let spheres = pack_spheres_crp(spec.opyc, pack_half, spec.packing_fraction, seed)
-            .expect("TRISO CRP packing");
-        let packed = PackedSpheres::from_spheres(spheres, pack_half, spec.opyc);
-        // Both numbers describe the PACKING CUBE (half-width `pack_half`), not the
-        // fuel sphere: the cube is packed uniformly and `ExplicitTrisoPebble` then
-        // clips at r < R_FUEL_ZONE, so the sphere inherits the same volume
-        // fraction but holds only the ~49 % of the particles whose centres fall
-        // inside it. Labelling the cube count as the sphere count read as a 2x
-        // over-packing that was never there.
-        let n_in_sphere = (packed.len() as f64
-            * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.powi(3))
-            / (2.0 * pack_half).powi(3))
-        .round() as usize;
+        let pack_at = |pf: f64| {
+            let spheres =
+                pack_spheres_crp(spec.opyc, pack_half, pf, seed).expect("TRISO CRP packing");
+            PackedSpheres::from_spheres(spheres, pack_half, spec.opyc)
+        };
+        let trial = pack_at(spec.packing_fraction);
+        let realised = trial.volume_fraction_in_ball(R_FUEL_ZONE, 400_000, 0xC0FFEE);
+        let corrected_pf = spec.packing_fraction * spec.packing_fraction / realised;
+        let packed = pack_at(corrected_pf);
+        let achieved = packed.volume_fraction_in_ball(R_FUEL_ZONE, 400_000, 0xC0FFEE);
         eprintln!(
-            "Explicit fuel zone: {} TRISO particles packed in the r < {pack_half} cm cube at pf \
-             {:.4}; ~{n_in_sphere} of them lie in the r < {R_FUEL_ZONE} cm fuel sphere, which \
-             carries the same pf",
+            "TRISO packing: cube pf {:.5} would give {realised:.5} in r < {R_FUEL_ZONE}; \
+             requested {corrected_pf:.5} instead, achieved {achieved:.5} (deck: {:.5})",
+            spec.packing_fraction, spec.packing_fraction
+        );
+        eprintln!(
+            "Explicit fuel zone: {} TRISO particles packed in the r < {pack_half} cm cube; \
+             ~{} of them lie in the r < {R_FUEL_ZONE} cm fuel sphere, which carries \
+             pf {achieved:.4}",
             packed.len(),
-            packed.packing_fraction()
+            (packed.len() as f64 * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.powi(3))
+                / (2.0 * pack_half).powi(3))
+            .round() as usize
         );
 
         let r_rpt_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
