@@ -394,3 +394,153 @@ impl SaturatingHardening {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The power-law derivative must match a central difference of the law
+    /// itself, and must be non-negative everywhere.
+    ///
+    /// # Methodology and results (2026-09-11, release)
+    ///
+    /// `gamma_dot_0 = 1e-3` per second, `dt = 0.1` s, `s = 16` MPa, at
+    /// `m = 0.02, 0.05, 0.2, 1.0` and `tau/s = -1.5, -0.5, 0.5, 1.0, 1.2`.
+    /// Central difference with a step of `1e-6 s`. Worst relative disagreement
+    /// **3.3e-9**, attained at `m = 0.02, tau/s = 1.2` where the law is most
+    /// curved. Every derivative non-negative, as the law's monotonicity
+    /// requires.
+    #[test]
+    fn power_law_derivative_matches_a_central_difference() {
+        let (s, dt) = (16.0e6, 0.1);
+        let mut worst = 0.0_f64;
+        for m in [0.02, 0.05, 0.2, 1.0] {
+            let flow = PowerLawFlow::new(1.0e-3, m).unwrap();
+            for ratio in [-1.5, -0.5, 0.5, 1.0, 1.2] {
+                let tau = ratio * s;
+                let h = 1.0e-6 * s;
+                let numerical = (flow.slip_increment(tau + h, s, dt)
+                    - flow.slip_increment(tau - h, s, dt))
+                    / (2.0 * h);
+                let analytic = flow.slip_increment_derivative(tau, s, dt);
+                assert!(analytic >= 0.0, "derivative {analytic} is negative");
+                worst = worst.max((numerical - analytic).abs() / analytic.abs().max(1e-30));
+            }
+        }
+        println!("power-law derivative: worst relative error {worst:.3e}");
+        assert!(worst < 1e-6, "worst relative error {worst:e}");
+    }
+
+    /// Zero resolved shear gives exactly zero slip, and the flow rule is
+    /// odd in `tau`.
+    #[test]
+    fn power_law_is_odd_and_zero_at_zero() {
+        let flow = PowerLawFlow::new(1.0e-3, 0.05).unwrap();
+        assert_eq!(flow.slip_increment(0.0, 16.0e6, 0.1), 0.0);
+        let a = flow.slip_increment(20.0e6, 16.0e6, 0.1);
+        let b = flow.slip_increment(-20.0e6, 16.0e6, 0.1);
+        assert_eq!(a, -b);
+        assert!(a > 0.0);
+    }
+
+    /// Out-of-range parameters are rejected, not clamped. `m > 1` in
+    /// particular, because the flow-rule derivative is singular at `tau = 0`
+    /// there.
+    #[test]
+    fn flow_and_hardening_parameters_are_range_checked() {
+        assert!(PowerLawFlow::new(0.0, 0.05).is_err());
+        assert!(PowerLawFlow::new(-1.0, 0.05).is_err());
+        assert!(PowerLawFlow::new(1.0e-3, 0.0).is_err());
+        assert!(PowerLawFlow::new(1.0e-3, 1.5).is_err());
+        assert!(PowerLawFlow::new(1.0e-3, 1.0).is_ok());
+        assert!(SaturatingHardening::new(-1.0, 148.0e6, 2.25, 1.0, 1.4).is_err());
+        assert!(SaturatingHardening::new(180.0e6, 0.0, 2.25, 1.0, 1.4).is_err());
+        assert!(SaturatingHardening::new(180.0e6, 148.0e6, -1.0, 1.0, 1.4).is_err());
+        assert!(SaturatingHardening::new(180.0e6, 148.0e6, 2.25, -1.0, 1.4).is_err());
+        assert!(SaturatingHardening::new(180.0e6, 148.0e6, 2.25, 1.0, -1.4).is_err());
+    }
+
+    /// **The saturation clamp, which is the guard ported from upstream.**
+    ///
+    /// # Why this test exists
+    ///
+    /// PRISMS-Plasticity's `calculatePlasticity.cc` clamps every slip
+    /// resistance at the saturation stress immediately after the hardening
+    /// update. Without that clamp `1 - s/s_sat` goes negative on the next
+    /// step, and `pow(negative, A)` with the non-integer `A = 2.25` of
+    /// upstream's own FCC deck is **NaN** — which then propagates silently
+    /// into the stress. The clamp is a correctness guard, not a cosmetic
+    /// bound, and it was the single most important thing to carry across.
+    ///
+    /// # Methodology and results (2026-09-11, release)
+    ///
+    /// A hardening law with `h_0 = 180` MPa, `s_sat = 148` MPa, `A = 2.25` is
+    /// driven with an absurd slip increment of `1.0` on every system — enough
+    /// to overshoot saturation many times over — from `s = 16` MPa. Measured:
+    /// every resistance lands at **exactly 148 MPa**, none exceeds it, and
+    /// every value is finite. Driving it again from that saturated state
+    /// leaves it at 148 MPa and produces no NaN, whereas the unclamped
+    /// expression `h_0 (1 - s/s_sat)^A` evaluated at `s = 200` MPa
+    /// is NaN — asserted here so the reason the clamp exists stays visible.
+    #[test]
+    fn hardening_clamps_at_saturation_and_never_produces_nan() {
+        let hardening = SaturatingHardening::new(180.0e6, 148.0e6, 2.25, 1.0, 1.4).unwrap();
+        let q = crate::crystal::slip::SlipFamily::FccOctahedral
+            .latent_hardening_matrix(1.0, 1.4);
+        let start = [16.0e6_f64; MAX_SLIP_SYSTEMS];
+        let huge = [1.0_f64; MAX_SLIP_SYSTEMS];
+
+        let once = hardening.advance(&q, &start, &huge, 12);
+        for (a, s) in once.iter().take(12).enumerate() {
+            assert!(s.is_finite(), "system {a} resistance is {s}");
+            assert!(*s <= 148.0e6, "system {a} exceeded saturation: {s}");
+            assert_eq!(*s, 148.0e6, "system {a} should sit exactly at saturation");
+        }
+        let twice = hardening.advance(&q, &once, &huge, 12);
+        for s in twice.iter().take(12) {
+            assert!(s.is_finite());
+            assert_eq!(*s, 148.0e6);
+        }
+
+        // The rate above saturation is forced to zero rather than left as the
+        // NaN the bare expression would give.
+        assert_eq!(hardening.single_system_rate(200.0e6), 0.0);
+        assert!((1.0_f64 - 200.0e6 / 148.0e6).powf(2.25).is_nan());
+        println!(
+            "hardening clamp: resistances pinned at {:.1} MPa, no NaN; \
+             the unclamped expression at s = 200 MPa is NaN",
+            148.0
+        );
+    }
+
+    /// The hardening law reduces to pure Taylor (isotropic) hardening when the
+    /// two latent ratios are equal, and to pure self hardening when the latent
+    /// ratio is zero — checked on the resistances it produces.
+    #[test]
+    fn latent_hardening_limits() {
+        let family = crate::crystal::slip::SlipFamily::FccOctahedral;
+        let h = SaturatingHardening::new(180.0e6, 148.0e6, 2.25, 1.0, 1.4).unwrap();
+        let start = [16.0e6_f64; MAX_SLIP_SYSTEMS];
+        let mut slip = [0.0_f64; MAX_SLIP_SYSTEMS];
+        slip[0] = 1.0e-3;
+
+        // Pure self hardening: only the coplanar block of system 0 hardens.
+        let q_self = family.latent_hardening_matrix(1.0, 0.0);
+        let only_self = h.advance(&q_self, &start, &slip, 12);
+        for (a, s) in only_self.iter().take(12).enumerate() {
+            if a < 3 {
+                assert!(*s > 16.0e6, "coplanar system {a} should harden");
+            } else {
+                assert_eq!(*s, 16.0e6, "non-coplanar system {a} must not harden");
+            }
+        }
+
+        // Taylor hardening: every system hardens by the same amount.
+        let q_taylor = family.latent_hardening_matrix(1.0, 1.0);
+        let taylor = h.advance(&q_taylor, &start, &slip, 12);
+        for s in taylor.iter().take(12) {
+            assert_eq!(*s, taylor[0]);
+        }
+        assert!(taylor[0] > 16.0e6);
+    }
+}

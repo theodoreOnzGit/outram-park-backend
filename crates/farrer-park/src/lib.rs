@@ -111,6 +111,7 @@ pub mod crystal;
 pub mod dof;
 pub mod element;
 pub mod error;
+pub mod fatigue;
 pub mod material;
 pub mod mesh;
 pub mod operator;

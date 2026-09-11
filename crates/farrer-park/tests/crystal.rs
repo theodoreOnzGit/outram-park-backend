@@ -448,14 +448,19 @@ fn uniaxial_stress_point(
     let mut up = material
         .update(eps, state, PlaneCondition::PlaneStrain)
         .unwrap();
+    let mut previous = f64::INFINITY;
     for _ in 0..80 {
         let mut worst = 0.0f64;
         for &c in FREE.iter() {
             worst = worst.max(up.stress.0[c].abs());
         }
-        if worst < 1e-6 * up.stress.abs_max().max(1.0) {
+        // Drive the off-axis stresses to round-off, not merely to a loose
+        // tolerance: the analytic identities this helper feeds (cases 14 and
+        // 20) are only as sharp as the uniaxiality of the state it produces.
+        if worst < 1e-14 * up.stress.abs_max().max(1.0) || worst >= previous {
             break;
         }
+        previous = worst;
         let mut a = SquareMatrix::new(5);
         for (i, &ci) in FREE.iter().enumerate() {
             for (j, &cj) in FREE.iter().enumerate() {
@@ -505,7 +510,7 @@ fn uniaxial_stress_point(
 /// axis leaves eleven of the twelve Schmid factors at zero.
 ///
 /// The point is driven in **exact uniaxial stress** (five stress components
-/// held at zero, see `uniaxial_stress_point`), and `eps_xx` is bisected 200
+/// held at zero to round-off, see `uniaxial_stress_point`), and `eps_xx` is bisected 200
 /// times until the primary slip increment equals `gamma_dot_0 dt = 1e-4`.
 /// Isotropic elasticity, so that the only anisotropy is the slip geometry;
 /// `m = 0.02`.
@@ -519,7 +524,7 @@ fn uniaxial_stress_point(
 ///
 /// | Quantity | Analytic | Measured | Relative error |
 /// |---|---|---|---|
-/// | axial stress at reference slip rate | 35.082500 MPa | 35.082506 MPa | **1.862e-7** |
+/// | axial stress at reference slip rate | 35.0825001 MPa | 35.0825001 MPa | **1.487e-15** |
 /// | primary resolved shear `tau_7` | 16.000000 MPa (`= s_0`) | 16.000000 MPa | < 1e-12 |
 /// | primary slip increment | 1.000000e-4 (`= gamma_dot_0 dt`) | 1.000000e-4 | bisected |
 /// | primary slip as a fraction of all slip | — | **0.99999971** | — |
@@ -530,12 +535,16 @@ fn uniaxial_stress_point(
 ///
 /// # Interpretation
 ///
-/// The measured axial stress reproduces `s_0 / mu_1` to seven digits, which is
-/// the strongest analytic statement available about the model: it ties the
+/// The measured axial stress reproduces `s_0 / mu_1` to fifteen digits, which
+/// is the strongest analytic statement available about the model: it ties the
 /// slip-system geometry, the orientation rotation, the flow rule and the
 /// stress-controlled response into one number that can be computed by hand.
-/// The residual `1.9e-7` is the stress-control Newton's own tolerance
-/// (`1e-6` relative), not a modelling error.
+/// It reached machine precision only once the stress-control driver was taken
+/// to round-off; at its first, looser setting (`1e-6` relative on the
+/// off-axis stresses) the agreement was `1.862e-7`, which was the driver's
+/// tolerance and not the model's error. That is worth recording: an analytic
+/// comparison is only ever as sharp as the state the driver actually
+/// produces, and it is easy to attribute the driver's slack to the physics.
 ///
 /// The slip fraction is a *rate-law* consequence rather than a geometric one:
 /// at `m = 0.02` a Schmid ratio of 1.376 raises the slip-rate ratio to
@@ -1330,4 +1339,241 @@ fn polycrystal_aggregate_approaches_isotropy() {
     );
     assert!(spreads[0] < 1.0e-2, "spread at N = 50 is {}", spreads[0]);
     assert!(spreads[2] < 5.0e-3, "spread at N = 800 is {}", spreads[2]);
+}
+
+// ── Case 20: the Fatemi-Socie fatigue indicator parameter ────────────────────
+
+/// **Verification case 20 — the Fatemi-Socie fatigue indicator parameter.**
+///
+/// # Methodology
+///
+/// Three layers, each checkable by hand.
+///
+/// **(a) The parameter itself.** `FIP = (delta gamma / 2) (1 + k sigma_n /
+/// sigma_ref)` evaluated at `delta gamma / 2 = 2e-3`, `k = 10`,
+/// `sigma_ref = 250 MPa` for three normal stresses, against arithmetic done
+/// by hand:
+///
+/// | `sigma_n` | hand value |
+/// |---|---|
+/// | `0` | `2e-3 x 1 = 2.0e-3` |
+/// | `+125 MPa` | `2e-3 x (1 + 10 x 0.5) = 1.2e-2` |
+/// | `-125 MPa` | clipped to zero, so `2.0e-3` again |
+///
+/// The third is the one worth writing down: a compressive plane-normal stress
+/// must leave the parameter at its plain shear value, not reduce it below,
+/// which is what upstream's `clip(lower = 0)` does.
+///
+/// **(b) The plane-normal stress, analytically.** A crystal at the **cube
+/// orientation** under uniaxial stress `sigma` along sample `x` has every
+/// `{111}` plane normal making the same angle with the load axis, so
+///
+/// `sigma_n = n . sigma . n = sigma n_x^2 = sigma / 3`
+///
+/// on all twelve systems, exactly. Checked against the stress the crystal
+/// update actually returns.
+///
+/// **(c) End to end.** The same crystal (isotropic elasticity, `m = 0.05`,
+/// `s_0 = 16` MPa) is taken through one full reversal in **exact uniaxial
+/// stress**, off-axis components driven to round-off — `eps_xx` ramped
+/// `0 -> +4e-4 -> -4e-4 -> 0` in 40 steps — with
+/// `CycleExtremes` sampled at every step using `eps_xx` as the load
+/// indicator. The resulting per-system parameters are compared with the same
+/// expression evaluated by hand from the recorded slips and the analytic
+/// `sigma / 3`.
+///
+/// **(d) Volume averaging.** Two synthetic points with known parameter arrays
+/// and weights `1.0` and `3.0` are averaged; the answer is checked against the
+/// weighted mean computed by hand, and the reported maximising system against
+/// the one that array makes obvious.
+///
+/// Pass criterion: (a) and (d) to `1e-15` relative; (b) and (c) to `1e-12`
+/// relative.
+///
+/// # Results (2026-09-11, release)
+///
+/// | Check | Measured |
+/// |---|---|
+/// | (a) three hand values | exact to `0`, `0`, `0` |
+/// | (b) worst `\|sigma_n - sigma_xx/3\|` over 12 systems | 1.099e-7 Pa on 35.455 MPa, relative **3.100e-15** |
+/// | (c) samples recorded over the reversal | 40 |
+/// | (c) slip systems with a non-zero amplitude | **8 of 12** |
+/// | (c) shear strain amplitude on active system 1 | 6.7864e-5 |
+/// | (c) `sigma_n` at the tension peak | 11.8185 MPa (hand: 35.4555/3 = 11.8185 MPa) |
+/// | (c) FIP on active system 1 | 9.9945e-5 |
+/// | (c) FIP on inactive system 0 | 6e-323 (subnormal) |
+/// | (c) worst FIP vs hand value | **1.355e-19** |
+/// | (d) averaged parameter, maximising system | 4.2500e-3 on system 2, exact |
+///
+/// # Interpretation
+///
+/// The eight active systems are exactly the eight with a non-zero Schmid
+/// factor for `[100]` loading (case 13); the four with `mu = 0` come out at
+/// `6e-323`, which is a **subnormal**, not a literal zero. That is the rate
+/// law showing through and it is worth knowing about: a viscoplastic flow rule
+/// gives *every* system a non-zero slip rate wherever its resolved shear is
+/// non-zero, and here that shear is pure round-off of the uniaxial state,
+/// raised to the power `1/m = 20`. A rate-independent model would return
+/// exactly zero. The parameter still inherits the slip geometry — 18 orders of
+/// magnitude of separation is as good as exact — but a caller comparing FIPs
+/// to `0.0` rather than to a threshold would be surprised.
+///
+/// The `sigma / 3` identity holds to one unit in the last place. It is a
+/// different route through the orientation machinery from case 13's — that
+/// one rotates a *tensor* and contracts it with the stress, this one rotates a
+/// *vector* and contracts it twice — so the two together pin the convention
+/// from both sides.
+///
+/// **What this case does not establish.** It verifies the *arithmetic* of the
+/// parameter and its plumbing to the crystal state. It says nothing about
+/// whether the parameter ranks real initiation sites correctly, which is a
+/// validation question needing experiments, and nothing about cyclic
+/// saturation, which the underlying crystal law cannot represent without a
+/// backstress. See the [`farrer_park::fatigue`] module documentation.
+#[test]
+fn fatemi_socie_fatigue_indicator_parameter() {
+    use farrer_park::fatigue::{rank_regions, region_fip, CycleExtremes, FatemiSocie, RegionFip};
+
+    // (a) The parameter itself, against hand arithmetic.
+    let fs = FatemiSocie::new(10.0, 250.0e6).unwrap();
+    assert_eq!(fs.fip(2.0e-3, 0.0), 2.0e-3);
+    assert_eq!(fs.fip(2.0e-3, 125.0e6), 2.0e-3 * (1.0 + 10.0 * 0.5));
+    assert_eq!(
+        fs.fip(2.0e-3, -125.0e6),
+        2.0e-3,
+        "a compressive plane-normal stress must be clipped to zero, not subtracted"
+    );
+    // The sign of the shear amplitude must not matter.
+    assert_eq!(fs.fip(-2.0e-3, 125.0e6), fs.fip(2.0e-3, 125.0e6));
+    println!("(a) Fatemi-Socie arithmetic matches the hand values exactly");
+
+    // (b) and (c): a cube-oriented crystal through one uniaxial reversal.
+    let material = Material::CrystalPlasticity(isotropic_crystal(0.05));
+    let mut state = material.initial_state();
+    state.crystal = state.crystal.with_orientation(Orientation::identity());
+
+    let mut cycle = CycleExtremes::new(SlipFamily::FccOctahedral);
+    let amplitude = 4.0e-4;
+    let mut path: Vec<f64> = Vec::new();
+    for k in 1..=10 {
+        path.push(amplitude * k as f64 / 10.0);
+    }
+    for k in 1..=20 {
+        path.push(amplitude - 2.0 * amplitude * k as f64 / 20.0);
+    }
+    for k in 1..=10 {
+        path.push(-amplitude + amplitude * k as f64 / 10.0);
+    }
+
+    let mut worst_normal = 0.0f64;
+    let mut tension_stress = 0.0f64;
+    for e in path {
+        let (up, _) = uniaxial_stress_point(&material, &state, e);
+        state = up.state;
+        cycle.sample(e, &state.crystal, &up.stress);
+        // (b) sigma_n = sigma_xx / 3 on every {111} plane at the cube orientation.
+        let normals = state
+            .crystal
+            .plane_normal_stresses(SlipFamily::FccOctahedral, &up.stress);
+        let expected = up.stress.0[0] / 3.0;
+        for n in normals.iter() {
+            worst_normal = worst_normal.max((n - expected).abs());
+        }
+        if (e - amplitude).abs() < 1e-15 {
+            tension_stress = up.stress.0[0];
+        }
+    }
+    println!(
+        "(b) worst |sigma_n - sigma_xx/3| = {worst_normal:.3e} Pa on a peak axial \
+         stress of {:.3} MPa (relative {:.3e})",
+        tension_stress / 1e6,
+        worst_normal / tension_stress.abs()
+    );
+    assert!(worst_normal / tension_stress.abs() < 1e-12);
+
+    // (c) The parameter end to end, against the same expression by hand.
+    let fips = cycle.fips(&fs).unwrap();
+    let amplitudes = cycle.shear_strain_amplitudes();
+    let normals = cycle.plane_normal_stresses();
+    let hand_normal = tension_stress / 3.0;
+    let mut worst_fip = 0.0f64;
+    let mut active = 0usize;
+    for a in 0..12 {
+        let hand = amplitudes[a].abs() * (1.0 + 10.0 * hand_normal.max(0.0) / 250.0e6);
+        worst_fip = worst_fip.max((fips[a] - hand).abs());
+        if amplitudes[a] > 1e-12 {
+            active += 1;
+        }
+    }
+    let first_active = (0..12).find(|a| amplitudes[*a] > 1e-12).unwrap();
+    let first_inactive = (0..12).find(|a| amplitudes[*a] <= 1e-12);
+    println!(
+        "(c) samples {}, peak indicators recorded; {active} of 12 systems active; \
+         amplitude on system {first_active} = {:.4e}, FIP = {:.4e}",
+        cycle.samples(),
+        amplitudes[first_active],
+        fips[first_active]
+    );
+    println!(
+        "    sigma_n at the tension peak = {:.4} MPa (hand {:.4} MPa), \
+         worst FIP difference {worst_fip:.3e}",
+        normals[first_active] / 1e6,
+        hand_normal / 1e6
+    );
+    assert_eq!(active, 8, "[100] loading activates exactly eight FCC systems");
+    if let Some(i) = first_inactive {
+        // NOT exactly zero, and that is worth stating: a rate-dependent flow
+        // rule gives every system a non-zero slip rate wherever its resolved
+        // shear stress is non-zero, and on these four systems the resolved
+        // shear is pure round-off of the uniaxial state. Raised to the power
+        // 1/m = 20 it lands in the subnormal range — 6e-323 here, which is
+        // numerically zero but is not the literal 0.0 a rate-independent law
+        // would give.
+        assert!(
+            fips[i] < 1e-300,
+            "an inactive system's parameter should be numerically zero, got {}",
+            fips[i]
+        );
+        println!("    inactive system {i}: parameter {:e} (subnormal)", fips[i]);
+    }
+    assert!(
+        worst_fip <= 1e-12 * fips[first_active],
+        "end-to-end FIP differs from the hand expression by {worst_fip:e}"
+    );
+
+    // A cycle with fewer than two samples must be refused, not silently zero.
+    assert!(CycleExtremes::new(SlipFamily::FccOctahedral)
+        .fips(&fs)
+        .is_err());
+
+    // (d) Volume averaging over a region, by hand.
+    let mut p0 = [0.0f64; 12];
+    let mut p1 = [0.0f64; 12];
+    p0[2] = 2.0e-3;
+    p0[5] = 8.0e-3;
+    p1[2] = 5.0e-3;
+    p1[5] = 1.0e-3;
+    let region = region_fip(&[p0, p1], &[1.0, 3.0], 12).unwrap();
+    // system 2: (1 x 2e-3 + 3 x 5e-3) / 4 = 4.25e-3
+    // system 5: (1 x 8e-3 + 3 x 1e-3) / 4 = 2.75e-3
+    assert_eq!(region.system, 2);
+    assert_eq!(region.fip, 4.25e-3);
+    assert_eq!(region.volume, 4.0);
+    println!(
+        "(d) region average: system {} at {:.4e} over volume {:.1} — hand value 4.2500e-3",
+        region.system, region.fip, region.volume
+    );
+
+    // Ranking is by descending parameter and is deterministic.
+    let ranked = rank_regions(&[
+        RegionFip { system: 0, fip: 1.0e-3, volume: 1.0 },
+        RegionFip { system: 1, fip: 5.0e-3, volume: 1.0 },
+        RegionFip { system: 2, fip: 3.0e-3, volume: 1.0 },
+    ]);
+    assert_eq!(ranked, vec![1, 2, 0]);
+
+    // Mismatched inputs are refused.
+    assert!(region_fip(&[p0], &[1.0, 2.0], 12).is_err());
+    assert!(region_fip(&[], &[], 12).is_err());
+    assert!(region_fip(&[p0], &[0.0], 12).is_err());
 }
