@@ -28,12 +28,27 @@
 //! 1. **Match within the NJOY tolerance** `T/1000 + 5` K (upstream
 //!    `thermr.f90::rdelas`) → that tabulated table is used as-is.
 //! 2. **Strictly between two tabulated temperatures** (beyond the tolerance) →
-//!    interpolate `S` point-by-point between the bracketing tables using the
-//!    `LI` interpolation law the evaluation specifies (ENDF-102 §7.2/§7.4;
-//!    lin-lin for the VIII.0 graphite elastic, log-lin for its inelastic).
-//!    Upstream NJOY would refuse here ("desired temperature not on tape");
-//!    interpolating with the file's own `LI` law is the ENDF-sanctioned
-//!    generalisation.
+//!    interpolate between the bracketing tables using the `LI` interpolation
+//!    law the evaluation specifies (ENDF-102 §7.2/§7.4; lin-lin for the
+//!    VIII.0 graphite elastic, log-lin for its inelastic). For the
+//!    incoherent-inelastic channel this is done on the **evaluated**
+//!    quantities — the kernel `d²σ/dE'dμ` and `σ_inel(E)` are each computed
+//!    fully consistently at the two tabulated temperatures (that temperature's
+//!    own `S(α,β)`, kinematics and `T_eff`) and then interpolated in `T`
+//!    ([`IncoherentInelastic::temperature_bracket`]) — so `σ_inel(E,T)` is
+//!    bracketed by `σ_inel(E,T_lo)` and `σ_inel(E,T_hi)` by construction.
+//!    The point-by-point `S(α,β)` interpolant at fixed `(α,β)` is still
+//!    stored in [`IncoherentInelastic::s_tables`] for table-level consumers,
+//!    but it is **not** what the cross section integrates: integrating it
+//!    with the *target* temperature's kinematics (`LAT=1` scales `α,β` with
+//!    `1/kT`) left the bracket by 4 % at 3.9 eV on graphite (`op-55lj`).
+//!    **Upstream NJOY never interpolates in temperature at all**: the main
+//!    loop requires the PENDF to carry the requested temperature
+//!    (`thermr.f90:347-349`, "desired temperature not on tape") and `calcem`
+//!    walks the MF=7 temperature blocks with `abs(t-temp) > temp/500` →
+//!    "desired temperature not found" (`thermr.f90:1720-1741`), so NJOY
+//!    users LEAPR the exact temperature instead. Interpolating with the
+//!    file's own `LI` law is this port's ENDF-sanctioned generalisation.
 //! 3. **Outside the tabulated range** (beyond the tolerance) →
 //!    [`NjoyError::TemperatureOutOfRange`]. Never a silent nearest-temperature
 //!    snap.
@@ -143,6 +158,31 @@ pub struct IncoherentInelastic {
     /// atom (zero-point motion), so the SCT limit reproduces the free-gas kernel
     /// with the correct second energy moment. Empty if the evaluation omits it.
     pub teff_table: Vec<(f64, f64)>,
+    /// Present when the requested temperature fell strictly between two
+    /// tabulated temperatures: the two bracketing tabulated `S(α,β)` tables
+    /// and the `LI` law between them. [`super::inelastic`] evaluates the
+    /// kernel and `σ_inel` at each of the two temperatures (each with its own
+    /// table, kinematics and `T_eff`) and interpolates the *results* in `T`
+    /// — see the [module docs](self), policy step 2. `None` when the request
+    /// matched a tabulated temperature.
+    pub temperature_bracket: Option<TemperatureBracket>,
+}
+
+/// The two tabulated `S(α,β)` tables bracketing an interpolated temperature
+/// request (see [`IncoherentInelastic::temperature_bracket`]).
+#[derive(Debug, Clone)]
+pub struct TemperatureBracket {
+    /// The tabulated temperature \[K\] below the request.
+    pub t_lo_k: f64,
+    /// The tabulated temperature \[K\] above the request.
+    pub t_hi_k: f64,
+    /// ENDF `LI` temperature-interpolation code for this interval.
+    pub li: u32,
+    /// `S(α)` per `β` at `t_lo_k` (same `β`/`α` grids as
+    /// [`IncoherentInelastic::s_tables`]).
+    pub s_lo: Vec<AlphaTable>,
+    /// `S(α)` per `β` at `t_hi_k`.
+    pub s_hi: Vec<AlphaTable>,
 }
 
 /// One `S(α)` slice at a fixed `β` (and base temperature).
@@ -504,6 +544,10 @@ fn parse_inelastic(
     let mut all_li: Vec<u32> = Vec::new();
     let mut beta = Vec::with_capacity(nb as usize);
     let mut s_tables = Vec::with_capacity(nb as usize);
+    // The two bracketing tabulated tables, kept whole when interpolating so
+    // the kernel can be evaluated consistently at each (policy step 2).
+    let mut bracket_lo: Vec<AlphaTable> = Vec::new();
+    let mut bracket_hi: Vec<AlphaTable> = Vec::new();
 
     for j in 0..nb {
         let tab1 = cur.read_tab1()?; // C1 = T0, C2 = β, L1 = LT
@@ -549,13 +593,32 @@ fn parse_inelastic(
                 hi,
                 li,
                 target_k,
-            } => cand_s[lo]
-                .iter()
-                .zip(cand_s[hi].iter())
-                .map(|(&s_lo, &s_hi)| {
-                    interp_s_temperature(cand_temps[lo], s_lo, cand_temps[hi], s_hi, target_k, li)
-                })
-                .collect(),
+            } => {
+                bracket_lo.push(AlphaTable {
+                    beta: bval,
+                    alpha: alpha.clone(),
+                    s: cand_s[lo].clone(),
+                });
+                bracket_hi.push(AlphaTable {
+                    beta: bval,
+                    alpha: alpha.clone(),
+                    s: cand_s[hi].clone(),
+                });
+                cand_s[lo]
+                    .iter()
+                    .zip(cand_s[hi].iter())
+                    .map(|(&s_lo, &s_hi)| {
+                        interp_s_temperature(
+                            cand_temps[lo],
+                            s_lo,
+                            cand_temps[hi],
+                            s_hi,
+                            target_k,
+                            li,
+                        )
+                    })
+                    .collect()
+            }
         };
         beta.push(bval);
         s_tables.push(AlphaTable {
@@ -566,6 +629,16 @@ fn parse_inelastic(
     }
 
     let temperature_k = selection.resolved_temperature_k(&all_temps);
+    let temperature_bracket = match selection {
+        TemperatureSelection::Interpolated { lo, hi, li, .. } => Some(TemperatureBracket {
+            t_lo_k: all_temps[lo],
+            t_hi_k: all_temps[hi],
+            li,
+            s_lo: bracket_lo,
+            s_hi: bracket_hi,
+        }),
+        TemperatureSelection::Tabulated(_) => None,
+    };
     let tabulated_temperatures_k = all_temps;
 
     // Trailing principal-scatterer effective-temperature TAB1 (ENDF-6). Optional:
@@ -583,6 +656,7 @@ fn parse_inelastic(
         tabulated_temperatures_k,
         temp_interp: all_li,
         teff_table,
+        temperature_bracket,
     })
 }
 

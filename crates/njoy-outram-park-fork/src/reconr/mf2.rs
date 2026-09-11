@@ -270,7 +270,11 @@ impl ResonanceInfo {
         if self.ranges.is_empty() {
             return None;
         }
-        let eresl = self.ranges.iter().map(|r| r.el).fold(f64::INFINITY, f64::min);
+        let eresl = self
+            .ranges
+            .iter()
+            .map(|r| r.el)
+            .fold(f64::INFINITY, f64::min);
         let eresh = self.ranges.iter().map(|r| r.eh).fold(0.0_f64, f64::max);
         let mut eresr = self
             .ranges

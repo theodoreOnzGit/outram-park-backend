@@ -169,7 +169,7 @@ fn w_taylor2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
 /// (`y ∈ [-0.02, 0.5]`, step `0.02`) for `y < 0.5`, where `w(z)` varies much
 /// faster with `y`. Both share the same *x*-grid (`x ∈ [-0.1, 3.9]`, step
 /// `0.1`, 41 points — sized exactly to the `|x| ≤ 3.9` classification range
-/// this table is used for, see [`crate::purr::line_shape`]).
+/// this table is used for, see [`crate::purr::unrest::line_shape`]).
 pub struct DopplerTable {
     /// `tr_coarse[i][j]` / `ti_coarse[i][j]` — Re/Im `w(x,y)` on the coarse
     /// grid, 0-indexed. `x[i] = -0.1 + i·0.1` (`i = 0..41`);
@@ -409,7 +409,10 @@ mod tests {
         // expectation, 1e-12 the tolerance.
         for &(x, y, re, im) in &UW2_ORACLE {
             let (r, i) = uw2(x, y);
-            assert!(close(r, re, 1e-12), "Re w({x},{y}): got {r:e}, oracle {re:e}");
+            assert!(
+                close(r, re, 1e-12),
+                "Re w({x},{y}): got {r:e}, oracle {re:e}"
+            );
             assert!(
                 (i - im).abs() <= 1e-12 * im.abs().max(1e-12),
                 "Im w({x},{y}): got {i:e}, oracle {im:e}"
@@ -455,22 +458,51 @@ mod tests {
         // Fortran `ii+2`/`jj-3`/`jj+2` (1-based) applied to 0-based rows
         // returned the neighbouring node (x+0.1, y+0.1) instead.
         let t = DopplerTable::new();
-        for &(x, y) in &[(0.0, 0.5), (0.3, 0.7), (1.0, 1.0), (2.5, 2.9), (3.8, 0.5), (0.1, 2.0)] {
+        for &(x, y) in &[
+            (0.0, 0.5),
+            (0.3, 0.7),
+            (1.0, 1.0),
+            (2.5, 2.9),
+            (3.8, 0.5),
+            (0.1, 2.0),
+        ] {
             let (r, i) = t.lookup_coarse(x, y);
             let (re, im) = uw2(x, y);
-            assert!(close(r, re, 1e-9), "coarse Re at node ({x},{y}): {r:e} vs {re:e}");
-            assert!(close(i, im, 1e-9), "coarse Im at node ({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                close(r, re, 1e-9),
+                "coarse Re at node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                close(i, im, 1e-9),
+                "coarse Im at node ({x},{y}): {i:e} vs {im:e}"
+            );
         }
-        for &(x, y) in &[(0.0, 0.0), (0.3, 0.02), (1.0, 0.1), (2.5, 0.48), (3.8, 0.2), (0.1, 0.3)] {
+        for &(x, y) in &[
+            (0.0, 0.0),
+            (0.3, 0.02),
+            (1.0, 0.1),
+            (2.5, 0.48),
+            (3.8, 0.2),
+            (0.1, 0.3),
+        ] {
             let (r, i) = t.lookup_fine(x, y);
             let (re, im) = uw2(x, y);
-            assert!(close(r, re, 1e-9), "fine Re at node ({x},{y}): {r:e} vs {re:e}");
-            assert!(close(i, im, 1e-9), "fine Im at node ({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                close(r, re, 1e-9),
+                "fine Re at node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                close(i, im, 1e-9),
+                "fine Im at node ({x},{y}): {i:e} vs {im:e}"
+            );
         }
         // Negative x: interpolate on |x|, flip the imaginary part.
         let (r, i) = t.lookup_coarse(-0.3, 0.7);
         let (re, im) = uw2(-0.3, 0.7);
-        assert!(close(r, re, 1e-9) && close(i, im, 1e-9), "({r},{i}) vs ({re},{im})");
+        assert!(
+            close(r, re, 1e-9) && close(i, im, 1e-9),
+            "({r},{i}) vs ({re},{im})"
+        );
     }
 
     #[test]
@@ -508,10 +540,16 @@ mod tests {
         // its arrays; this port clamps and must neither panic nor return junk.
         let t = DopplerTable::new();
         for &(x, y) in &[(3.9, 3.0), (3.9, 0.49), (0.5, 3.0), (3.9, 0.0), (3.9, 2.95)] {
-            let (r, i) = if y >= 0.5 { t.lookup_coarse(x, y) } else { t.lookup_fine(x, y) };
+            let (r, i) = if y >= 0.5 {
+                t.lookup_coarse(x, y)
+            } else {
+                t.lookup_fine(x, y)
+            };
             let (re, im) = uw2(x, y);
-            assert!(close(r, re, 5e-3) && (i - im).abs() <= 5e-3 * im.abs().max(1e-3),
-                "edge ({x},{y}): ({r:e},{i:e}) vs ({re:e},{im:e})");
+            assert!(
+                close(r, re, 5e-3) && (i - im).abs() <= 5e-3 * im.abs().max(1e-3),
+                "edge ({x},{y}): ({r:e},{i:e}) vs ({re:e},{im:e})"
+            );
         }
     }
 }

@@ -75,14 +75,24 @@ asymptotic series, which does not converge there — `w(2.13+0.001i)` came out
 the `cwaven` formula rounded up in its 4th figure (all `1/k²` resonance terms
 0.081 % low — see `../reconr/README.md`).
 
-Gate still open for **U-238**: its URR range is `NRO=1`, which this module
-rejects (see the NRO=1 bead, `op-as32`).
+**Verified against NJOY2016 on U-238 (2026-09-10)** — `tests/purr_u238_urr.rs`,
+the `NRO=1` path (`op-as32`). U-238's URR (20–149.0087 keV, `LRF=2`, `NRO=1`,
+`NAPS=0`, `LSSF=1`) tabulates `AP(E)` as an 83-point log-log `TAB1` and writes
+`AP=0.0` in its header, so the whole band depends on reading that table:
+`mf2.rs` now reads it where `rdunf2:515-528` does (right after the range CONT)
+and `range_sequences` interpolates it per energy with `terpa`'s conventions
+(`unresl:966-971`). Same NJOY deck as U-235; `unresolved_cross_sections` at
+20, 60, 100 and 149.0086 keV reproduces every printed total/elastic/capture
+figure at σ₀ = 10¹⁰ and 1 b (e.g. 20 keV, σ₀ = 1 b: 12.911/12.471/0.43939 vs
+12.91/12.47/0.4394), and PURR's 7-figure `unresx` values at 20 and 40 keV
+(14.36093/13.84857/0.512367 vs 14.36093/13.84856/0.5123672).
 
 ## Caveats
 
-- **`NRO=1`** (energy-dependent scattering radius, `NAPS=2`) is explicitly
-  **rejected** (`NjoyError::EndfParse`), not silently mis-parsed — no ranges
-  in common evaluations were available to verify this path against.
+- **`NRO=1`** (energy-dependent scattering radius) is ported and verified on
+  U-238 with `NAPS=0`; the `NAPS=2` arm (channel radius from the header
+  scalar, `unresl:977/1001`) and `NAPS=1` with a table are ported from the
+  same lines but no evaluation in `reference-data/endf/` exercises them.
 - **PENDF MT=152 output-tape bookkeeping is not ported.** This crate has no
   established "write an unresolved-region PENDF section" concept yet (unlike
   ACE); `unresolved_cross_sections` returns the computed cross sections

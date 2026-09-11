@@ -133,16 +133,27 @@ pub(crate) fn interp_case_c(
 }
 
 /// Channel radius `a` \[10⁻¹² cm\] per the `NAPS` convention — ported from
-/// `unresl:995-1005`. Reuses [`crate::reconr::slbw::channel_radius`] for the
-/// `NAPS=0`/`NAPS=1` cases (the identical formula); `NAPS=2` (energy-dependent
-/// scattering radius via `NRO=1`) is rejected earlier, in
-/// [`mf2::parse_lru2_ranges`], so it never reaches here.
-pub(crate) fn channel_radius_urr(awri: f64, naps: i32, ap: f64) -> Result<f64, NjoyError> {
+/// `unresl:976-977, 995-1005` (`unresx:1353, 1373-1381` is identical).
+/// `ap` is `ay`, the scattering radius at the working energy (the `NRO=1`
+/// table value, else the header scalar); `ap_cont` is `aaa`, the header
+/// scalar itself. Reuses [`crate::reconr::slbw::channel_radius`] for
+/// `NAPS=0` (mass-derived) and `NAPS=1` (`a = ay`); `NAPS=2` is legal only
+/// with `NRO=1` and then takes the header scalar (`aa=aaa`), any other
+/// combination being upstream's `'illegal naps'` fatal error.
+pub(crate) fn channel_radius_urr(
+    awri: f64,
+    naps: i32,
+    nro: i32,
+    ap: f64,
+    ap_cont: f64,
+) -> Result<f64, NjoyError> {
     if naps == 0 || naps == 1 {
         Ok(channel_radius(awri, naps, ap))
+    } else if naps == 2 && nro == 1 {
+        Ok(ap_cont)
     } else {
         Err(NjoyError::EndfParse(format!(
-            "unresr: unsupported naps={naps}"
+            "unresr: illegal naps={naps} (nro={nro})"
         )))
     }
 }
@@ -164,8 +175,14 @@ pub(crate) struct SequenceParams {
     pub(crate) gx: f64,
     pub(crate) amux: f64,
     pub(crate) awri: f64,
+    /// `ay` — the scattering radius at the working energy: `AP(E)` from the
+    /// `NRO=1` table, else the header scalar (`unresl:966-975`).
     pub(crate) ap: f64,
+    /// `aaa` — the header scalar `AP`, the channel radius when `NAPS=2`
+    /// (`unresl:977`).
+    pub(crate) ap_cont: f64,
     pub(crate) naps: i32,
+    pub(crate) nro: i32,
     pub(crate) spi: f64,
 }
 
@@ -176,7 +193,15 @@ pub(crate) struct SequenceParams {
 /// (`unresl:954-1149`); walking the tree once here (rather than twice, as
 /// two separate closures previously attempted) keeps the accumulation code
 /// below a plain, borrow-checker-friendly loop over an owned `Vec`.
-pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<SequenceParams> {
+///
+/// The scattering radius `ay` is evaluated once per range here
+/// ([`mf2::UnresolvedRange::scattering_radius`] — the `NRO=1` `terpa` call of
+/// `unresl:966-971`), which is the only fallible step.
+pub(crate) fn range_sequences(
+    range: &mf2::UnresolvedRange,
+    e: f64,
+) -> Result<Vec<SequenceParams>, NjoyError> {
+    let ay = range.scattering_radius(e)?;
     let mut out = Vec::new();
     match &range.case_ {
         UnresolvedCase::CaseA {
@@ -200,8 +225,10 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                         gx: 0.0,
                         amux: 0.0,
                         awri: *awri,
-                        ap: *ap,
+                        ap: ay,
+                        ap_cont: *ap,
                         naps: range.naps,
+                        nro: range.nro,
                         spi: *spi,
                     });
                 }
@@ -230,8 +257,10 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                         gx: 0.0,
                         amux: 0.0,
                         awri: *awri,
-                        ap: *ap,
+                        ap: ay,
+                        ap_cont: *ap,
                         naps: range.naps,
+                        nro: range.nro,
                         spi: *spi,
                     });
                 }
@@ -259,8 +288,10 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                             gx,
                             amux: j.amux,
                             awri: *awri,
-                            ap: *ap,
+                            ap: ay,
+                            ap_cont: *ap,
                             naps: range.naps,
+                            nro: range.nro,
                             spi: *spi,
                         });
                     }
@@ -268,7 +299,7 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
             }
         }
     }
-    out
+    Ok(out)
 }
 
 /// Number of quadrature points for a width distribution with `mu` degrees of
@@ -323,7 +354,7 @@ pub fn unresolved_cross_sections(
         if e < range.el || e > range.eh {
             continue;
         }
-        sequences.extend(range_sequences(range, e));
+        sequences.extend(range_sequences(range, e)?);
     }
 
     // --- Pass 1: potential scattering + interference correction ------------
@@ -335,7 +366,7 @@ pub fn unresolved_cross_sections(
     {
         let mut last_l: Option<i32> = None;
         for seq in &sequences {
-            let aa = channel_radius_urr(seq.awri, seq.naps, seq.ap)?;
+            let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = WAVE_K * rat * e2;
             let ab = 4.0 * PI / (k * k);
@@ -377,7 +408,7 @@ pub fn unresolved_cross_sections(
     let mut tk = vec![vec![0.0f64; nsig0]; ns];
 
     for (ks, seq) in sequences.iter().enumerate() {
-        let aa = channel_radius_urr(seq.awri, seq.naps, seq.ap)?;
+        let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
         let rat = seq.awri / (seq.awri + 1.0);
         let k = WAVE_K * rat * e2;
         let ab = 4.0 * PI / (k * k);

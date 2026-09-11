@@ -64,7 +64,9 @@
 //! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
 //! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
 //! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
-//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated** — but *checked*. Regeneration at 293.6 K agrees with the published evaluation to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff` (1195.35 K vs 1194.3 K). That is an agreement band against this repository's own recorded measurements, not a tape diff, so [`SabRequest::validation`] still reports it unvalidated. See `tests/leapr_h2o_secondary_scatterer.rs`. |
+//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`, so [`SabRequest::validation`] still reports it unvalidated (`tests/leapr_h2o_secondary_scatterer.rs`). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
+//! | `DInD2O` MF=7/**MT=4** (Sköld, `nsk = 2`) | **Validated like-for-like against NJOY2016** (2026-09-10): 60,322 points at 293.6 K identical to 1e-13, `T_eff` exact (`tests/leapr_d2o_skold_njoy_oracle.rs`). Not compared with the published tape. |
+//! | `SiO2Alpha` MF=7/**MT=4** (mixed moderator, `b7 = 0`) | **Validated like-for-like against NJOY2016** (2026-09-10): 43,449 points over 5 temperatures identical to 1e-13, both `T_eff` tables exact (`tests/leapr_sio2_mixed_moderator_oracle.rs`). Not compared with the published tape. |
 //!
 //! MT=2 matters out of proportion to its size: it is roughly 90 % of graphite's
 //! thermal cross section (4.55 b coherent-elastic against 0.49 b inelastic at
@@ -148,7 +150,10 @@ use crate::leapr::continuous::phonon_expansion;
 use crate::leapr::discrete::add_discrete_oscillators;
 use crate::leapr::translation::add_translation;
 use crate::leapr::deck::LeaprDeck;
+use crate::leapr::SabMatrix;
+use crate::leapr::input::ColdOption;
 use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
+use crate::leapr::skold::apply_skold;
 use crate::leapr::endout::{endout, ElasticOutput, LeaprOutput};
 use crate::leapr::frequency::FrequencyModel;
 use crate::leapr::input::ElasticOption;
@@ -612,6 +617,149 @@ fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize
     ))
 }
 
+/// One temperature's completed scattering law — the `ssm` slab plus the
+/// per-temperature globals the Fortran temperature loop leaves behind
+/// (`leapr.f90:332-397`), with the `dwpix` conversions `endout` expects
+/// already applied (`:3035-3038`).
+#[derive(Debug, Clone)]
+pub struct TemperatureLaw {
+    /// The (merged, for a mixed moderator) negative-beta asymmetric law.
+    pub ssm: SabMatrix,
+    /// Principal Debye-Waller integral `W'(T)` \[1/eV\], divided by `awr T k_B`.
+    pub dwpix: f64,
+    /// Principal effective temperature \[K\].
+    pub tempf: f64,
+    /// Mixed moderator only: the secondary's `T_eff` \[K\].
+    pub tempf_secondary: Option<f64>,
+    /// Mixed moderator only: the secondary's `W'(T)` \[1/eV\], divided by `aws T k_B`.
+    pub dwpix_secondary: Option<f64>,
+    /// The constant set the law was built with.
+    pub constants: PhysicalConstants,
+}
+
+/// Run the Fortran temperature loop for one temperature block —
+/// `contin` -> `trans` -> `discre` -> `skold`, then the second pass and the
+/// `S` merge for a mixed moderator — and return what `endout` needs for that
+/// temperature. `block` indexes `deck.temperatures`; `temperature_k` is the
+/// temperature to evaluate at (normally that block's own).
+///
+/// This is the per-temperature body shared by [`generate_tape`] (one
+/// temperature) and [`crate::leapr::run::run_deck`] (every temperature of
+/// the deck, as `subroutine leapr` does).
+///
+/// # Errors
+/// Those of [`LeaprDeck::input_at_temperature`] / `input_at_secondary`.
+pub fn build_law_at_temperature(
+    deck: &LeaprDeck,
+    block: usize,
+    temperature_k: f64,
+) -> Result<TemperatureLaw, NjoyError> {
+    let input = deck.input_at_temperature(block, temperature_k)?;
+
+    let freq = FrequencyModel::start(
+        &input.continuous.rho,
+        input.continuous.delta_ev,
+        input.tev(),
+        input.continuous.tbeta,
+    );
+    // The scattering law is built in the same three stages, in the same order,
+    // as the Fortran temperature loop (leapr.f90:376-384):
+    //
+    //     call contin  ->  call trans (if twt > 0)  ->  call discre (if nd > 0)
+    //
+    // Each stage convolves its term into `ssm` AND advances the Debye-Waller
+    // integral / effective temperature. Running only `contin` is correct for a
+    // pure solid-type moderator (graphite: twt = 0, nd = 0) and badly wrong for
+    // a molecular liquid — light water carries both a translational term and two
+    // discrete oscillators (the H2O bend and stretch), which between them supply
+    // most of its bound-atom zero-point motion. Omitting them left T_eff at
+    // 482 K against the evaluation's 1194 K, and sigma_inel at +73 % (1 eV) to
+    // +48 % (8 eV) above the published values, rising rather than relaxing onto
+    // the free-atom limit. Bead op-ziux.
+    let mut ssm = phonon_expansion(&input, &freq);
+
+    // `dwpix`/`tempf` start as `contin` leaves them (leapr.f90:715-716) and are
+    // then advanced in place by the later stages, exactly as the Fortran globals
+    // are. `dwpix` is kept in raw LEAPR units until after the last stage.
+    let mut dwpix = freq.f0;
+    let mut tempf = freq.tbar * temperature_k;
+
+    // `trans` (leapr.f90:844-1007, guard at 379). Updates `tempf` only.
+    if input.continuous.twt > 0.0 {
+        add_translation(&mut ssm, &input, &freq, &mut tempf);
+    }
+
+    // `discre` (leapr.f90:1320-1661, guard at 382). Updates both `dwpix` and
+    // `tempf`; a no-op when the deck declares no oscillators.
+    add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
+
+    // `skold` (leapr.f90:389-390, 2816-2862): Sköld intermolecular coherence
+    // when nsk = 2 and no cold-hydrogen treatment; T_eff is untouched.
+    if deck.nsk == 2 && deck.ncold == ColdOption::None {
+        if let Some(pc) = &deck.temperatures[block].pair_correlation {
+            apply_skold(&mut ssm, &input, pc, deck.awr);
+        }
+    }
+
+    // Mixed moderator (nss != 0, b7 <= 0): LEAPR runs the whole temperature
+    // loop a second time for the secondary scatterer with alpha scaled by
+    // arat = aws/awr (leapr.f90:323-330, 399-408), keeps the principal's law
+    // on a scratch file (`copys`) and its tempf/dwpix in tempf1/dwp1, then
+    // merges in endout (:3013-3025):
+    //     sb  = spr*((1+awr)/awr)^2,  sbs = sps*((1+aws)/aws)^2
+    //     ssm = (sbs/sb) * ssm_secondary + ssm_principal
+    let bk = input.constants.bk_ev_per_k();
+    let mut tempf_secondary = None;
+    let mut dwpix_secondary = None;
+    if deck.is_mixed_moderator() {
+        let input2 = deck.input_at_secondary(block, temperature_k)?;
+        let freq2 = FrequencyModel::start(
+            &input2.continuous.rho,
+            input2.continuous.delta_ev,
+            input2.tev(),
+            input2.continuous.tbeta,
+        );
+        let mut ssm2 = phonon_expansion(&input2, &freq2);
+        let mut dwpix2 = freq2.f0;
+        let mut tempf2 = freq2.tbar * temperature_k;
+        if input2.continuous.twt > 0.0 {
+            add_translation(&mut ssm2, &input2, &freq2, &mut tempf2);
+        }
+        add_discrete_oscillators(&mut ssm2, &input2, &mut dwpix2, &mut tempf2);
+        if deck.nsk == 2 && deck.ncold == ColdOption::None {
+            if let Some(pc) = &deck.secondary_temperatures[block].pair_correlation {
+                apply_skold(&mut ssm2, &input2, pc, deck.awr);
+            }
+        }
+
+        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).powi(2);
+        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).powi(2);
+        let srat = sbs / sb;
+        for ib in 0..ssm.nbeta {
+            for ia in 0..ssm.nalpha {
+                let merged = srat * ssm2.get(ib, ia) + ssm.get(ib, ia);
+                ssm.set(ib, ia, merged);
+            }
+        }
+        // leapr.f90:3038: the secondary's integral is divided by aws, the
+        // principal's (dwp1) by awr.
+        dwpix_secondary = Some(dwpix2 / (deck.aws * temperature_k * bk));
+        tempf_secondary = Some(tempf2);
+    }
+
+    // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
+    // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
+    let dwpix = dwpix / (deck.awr * temperature_k * bk);
+    Ok(TemperatureLaw {
+        ssm,
+        dwpix,
+        tempf,
+        tempf_secondary,
+        dwpix_secondary,
+        constants: input.constants,
+    })
+}
+
 /// Build the LEAPR output for one temperature and write it as an ENDF MF=7
 /// tape, with no caching.
 ///
@@ -656,49 +804,16 @@ pub fn generate_tape(
 
     let temperature_k = temperature.get::<kelvin>();
     let block = temperature_block_index(deck, temperature_k)?;
-    let input = deck.input_at_temperature(block, temperature_k)?;
-
-    let freq = FrequencyModel::start(
-        &input.continuous.rho,
-        input.continuous.delta_ev,
-        input.tev(),
-        input.continuous.tbeta,
-    );
-    // The scattering law is built in the same three stages, in the same order,
-    // as the Fortran temperature loop (leapr.f90:376-384):
-    //
-    //     call contin  ->  call trans (if twt > 0)  ->  call discre (if nd > 0)
-    //
-    // Each stage convolves its term into `ssm` AND advances the Debye-Waller
-    // integral / effective temperature. Running only `contin` is correct for a
-    // pure solid-type moderator (graphite: twt = 0, nd = 0) and badly wrong for
-    // a molecular liquid — light water carries both a translational term and two
-    // discrete oscillators (the H2O bend and stretch), which between them supply
-    // most of its bound-atom zero-point motion. Omitting them left T_eff at
-    // 482 K against the evaluation's 1194 K, and sigma_inel at +73 % (1 eV) to
-    // +48 % (8 eV) above the published values, rising rather than relaxing onto
-    // the free-atom limit. Bead op-ziux.
-    let mut ssm = phonon_expansion(&input, &freq);
-
-    // `dwpix`/`tempf` start as `contin` leaves them (leapr.f90:715-716) and are
-    // then advanced in place by the later stages, exactly as the Fortran globals
-    // are. `dwpix` is kept in raw LEAPR units until after the last stage.
-    let mut dwpix = freq.f0;
-    let mut tempf = freq.tbar * temperature_k;
-
-    // `trans` (leapr.f90:844-1007, guard at 379). Updates `tempf` only.
-    if input.continuous.twt > 0.0 {
-        add_translation(&mut ssm, &input, &freq, &mut tempf);
-    }
-
-    // `discre` (leapr.f90:1320-1661, guard at 382). Updates both `dwpix` and
-    // `tempf`; a no-op when the deck declares no oscillators.
-    add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
-
-    // `endout` wants the Debye-Waller integral already divided by awr*T*k_B
-    // (leapr.f90:3035) and the effective temperature in kelvin, not as a ratio.
-    let bk = input.constants.bk_ev_per_k();
-    let dwpix = dwpix / (deck.awr * temperature_k * bk);
+    let TemperatureLaw {
+        ssm,
+        dwpix,
+        tempf,
+        tempf_secondary,
+        dwpix_secondary,
+        constants,
+    } = build_law_at_temperature(deck, block, temperature_k)?;
+    let tempf_secondary = tempf_secondary.map(|v| vec![v]);
+    let dwpix_secondary = dwpix_secondary.map(|v| vec![v]);
 
     // The Debye-Waller coefficient MF=7/MT=2 is written with. Normally the
     // deck's own (the principal scatterer's), but a compound Bragg channel
@@ -720,7 +835,7 @@ pub fn generate_tape(
                         &crystal.structure(),
                         deck.npr as usize,
                         COHERENT_ELASTIC_EMAX_EV,
-                        input.constants,
+                        constants,
                     ))
                 }
                 None => ElasticOutput::None,
@@ -741,7 +856,7 @@ pub fn generate_tape(
                         &structure,
                         deck.npr as usize,
                         COHERENT_ELASTIC_EMAX_EV,
-                        input.constants,
+                        constants,
                         &per_atom,
                     ))
                 }
@@ -775,7 +890,7 @@ pub fn generate_tape(
                 lattice,
                 deck.npr as usize,
                 COHERENT_ELASTIC_EMAX_EV,
-                input.constants,
+                constants,
             ))
         }
     };
@@ -793,13 +908,15 @@ pub fn generate_tape(
         temperatures_k: vec![temperature_k],
         dwpix: vec![dwpix_elastic],
         tempf: vec![tempf],
+        tempf_secondary,
+        dwpix_secondary,
         ssm: vec![ssm],
         ssp: None,
         npr: deck.npr,
         spr: deck.spr,
         elastic: elastic_output,
         secondary: deck.secondary_scatterer(),
-        constants: input.constants,
+        constants: constants,
     };
 
     Ok(endout(&out))

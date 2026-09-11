@@ -71,7 +71,15 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
     let urr_value = tape_mt102[i + 1].1; // 0.52987
     assert!(urr_value > 0.5);
 
-    let r = reconr(&tape, &ReconrConfig { mat, tolerance: 1e-3, temperature: 0.0 }).unwrap();
+    let r = reconr(
+        &tape,
+        &ReconrConfig {
+            mat,
+            tolerance: 1e-3,
+            temperature: 0.0,
+        },
+    )
+    .unwrap();
 
     // thnmax = top of the resolved range (broadr.f90 rule (i)).
     assert_eq!(r.resonance_upper_limit, Some(seam));
@@ -109,14 +117,26 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
     for mt in [1, 2, 18, 102] {
         let before = &find(&r.sections, mt).pairs;
         let after = &find(&b.sections, mt).pairs;
-        assert_eq!(before.len(), after.len(), "MT={mt}: grid length changed");
+        // Below thnmax the grid is BROADR's own (`broadn`, broadr.f90:1256-1508:
+        // skipped points dropped, midpoints inserted — NJOY thins U-238 from
+        // 448k to 155k points here); above it every point is copied through
+        // bit-for-bit (label 190).
         let split = before.partition_point(|&(e, _)| e <= seam);
+        let asplit = after.partition_point(|&(e, _)| e <= seam);
         assert_eq!(
             &before[split..],
-            &after[split..],
+            &after[asplit..],
             "MT={mt}: every point above thnmax must be copied through bit-for-bit"
         );
-        assert!(split > 0 && split < before.len());
+        assert!(split > 0 && split < before.len() && asplit > 0);
+        assert!(
+            after.windows(2).all(|w| w[1].0 > w[0].0),
+            "MT={mt}: grid ascending"
+        );
+        println!(
+            "[seam] MT={mt}: {} points below thnmax in, {} out",
+            split, asplit
+        );
     }
     let capb = &find(&b.sections, 102).pairs;
     // Unresolved side of the seam: untouched.
@@ -134,7 +154,10 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
     // Resolved side of the seam IS broadened, and — as in upstream, whose
     // SIGMA1 integral also spans all loaded pages — it sees the step above
     // it: strictly between the 0 K resolved value and the unresolved value.
-    let res_side_b = at(capb, lo);
+    // Interpolated, not looked up: the shaded resolved-side point is an
+    // input grid point that BROADR's `broadn` walk may thin (it keeps only
+    // nodes and inserted midpoints); NJOY's value is compared at the energy.
+    let res_side_b = eval_lin_lin(capb, lo);
     assert!(
         res_side_b > res_side_0k && res_side_b < urr_value,
         "resolved side at 600 K: {res_side_b} (0 K {res_side_0k}, URR {urr_value})"
@@ -142,8 +165,16 @@ fn u238_urr_seam_survives_reconr_and_bounded_broadr() {
     // NJOY2016 oracle values (see the module docs). The resolved-side point
     // depends on the reconstruction grid below it, hence 1e-3; the seam
     // interpolants are grid-independent and match to print precision.
-    assert!(rel(res_side_b, 0.280_980_5) < 1e-3, "NJOY 0.2809805 vs {res_side_b}");
-    for (e, njoy) in [(2.05e4, 0.52262), (2.1e4, 0.51536), (2.2e4, 0.50086), (2.3e4, 0.48635)] {
+    assert!(
+        rel(res_side_b, 0.280_980_5) < 1e-3,
+        "NJOY 0.2809805 vs {res_side_b}"
+    );
+    for (e, njoy) in [
+        (2.05e4, 0.52262),
+        (2.1e4, 0.51536),
+        (2.2e4, 0.50086),
+        (2.3e4, 0.48635),
+    ] {
         let got = eval_lin_lin(capb, e);
         assert!(rel(got, njoy) < 2e-5, "E={e}: {got} vs NJOY {njoy}");
     }

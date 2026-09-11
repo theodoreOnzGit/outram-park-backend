@@ -63,17 +63,15 @@
 //! - `copys` (2468-2487): the scratch-tape plumbing for the mixed-moderator
 //!   merge (not needed for the single-scatterer in-memory path).
 //! - `skold` (2816-2922): the Sköld pair-correlation correction.
-//! - the NJOY `run` driver — [`run`] still returns `NotPorted`, but only its
-//!   Fortran unit/file plumbing is now missing. Card reading is ported
-//!   ([`deck::LeaprDeck::parse`]) and so is the **orchestration**:
-//!   [`generate::generate_tape`] composes the kernels, performs the `dwpix` and
-//!   `tempf` conversions [`endout`] expects (`leapr.f90:717, 3035`), and emits
-//!   the MF=7 tape for one temperature. Use that rather than [`run`].
-//!   Since 2026-08-14 it runs all three law-building stages in the Fortran's
-//!   order — `contin`, then `trans` when `twt > 0`, then `discre` when the deck
-//!   declares oscillators (`leapr.f90:376-384`) — so molecular moderators are
-//!   built correctly, not just solid-type ones. Incoherent-elastic (`iel < 0`)
-//!   output is refused rather than approximated.
+//! - the NJOY `run` driver is now [`run::run_deck`] (2026-09-10): the whole
+//!   deck — every temperature block, the mixed-moderator second pass, the
+//!   elastic channel as `endout` decides it (incoherent elastic for `iel < 0`
+//!   and for a solid with `twt = 0`, `leapr.f90:3043`), the multi-temperature
+//!   MF=7 and the MF=1/MT=451 header with the card-20 Hollerith comments and
+//!   the dictionary. Only the Fortran unit plumbing and the listing are not
+//!   reproduced. [`generate::generate_tape`] remains the one-temperature,
+//!   cache-aware surface (it also knows the crystal catalogue for `iel = 0`
+//!   compounds, which NJOY does not).
 //! - the **mixed-moderator `S(alpha, beta)` merge** for a short-collision-time
 //!   secondary scatterer (`b7 = 0`; 3018-3030). A secondary scatterer of the
 //!   *analytic* kinds — `b7 = 1` free gas, `b7 = 2` diffusion — **is** supported:
@@ -141,7 +139,9 @@ pub mod endout;
 pub mod frequency;
 pub mod generate;
 pub mod input;
+pub mod run;
 pub mod sct;
+pub mod skold;
 pub mod translation;
 pub mod vintage;
 
@@ -150,6 +150,7 @@ pub use deck::{CardCursor, LeaprDeck, LeaprTemperature, PairCorrelation};
 pub use coldh::add_cold_hydrogen;
 pub use endout::{endout, ElasticOutput, LeaprOutput, SecondaryScatterer};
 pub use frequency::FrequencyModel;
+pub use run::{run_deck, run_deck_text, LeaprRun, Mf1Header};
 pub use vintage::{EvaluationDate, PhysicalConstants};
 pub use input::{
     ColdOption, ContinuousDist, DiscreteOscillator, ElasticOption, LeaprInput,
@@ -198,24 +199,20 @@ impl SabMatrix {
     }
 }
 
-/// Run the LEAPR driver (NJOY module entry point).
+/// The no-argument module-registry entry point.
 ///
-/// **Status: still `NotPorted`, but for a narrower reason than before.** The
-/// physics kernels are ported (see the module map above), the MF=7 tape writer
-/// is ported ([`endout::endout`]), and the free-format card deck can now be read
-/// with [`deck::LeaprDeck::parse`]. What this function would still need is
-/// NJOY's Fortran unit plumbing (`nsysi`/`nout`, `openz`/`closz`) plus the
-/// orchestration that composes [`frequency::FrequencyModel::start`],
-/// [`continuous::phonon_expansion`], [`coher::coher`] and
-/// [`endout::endout`] into a [`endout::LeaprOutput`] — including the `dwpix`
-/// and `tempf` conversions `endout` expects (`leapr.f90:717, 3035`), which no
-/// code path performs yet.
-///
-/// Until then, drive it explicitly: [`deck::LeaprDeck::parse`] the deck,
-/// [`deck::LeaprDeck::input_at`] a temperature, then call the kernels.
+/// LEAPR needs a card deck to run, so this form exists only so
+/// [`crate::NjoyModule`] can name the module. The driver itself is
+/// [`run::run_deck`] / [`run::run_deck_text`]: every temperature of a deck
+/// through the Fortran temperature loop, the elastic channel as `endout`
+/// decides it, the multi-temperature MF=7 and the MF=1/MT=451 header with
+/// the card-20 Hollerith comments (`subroutine leapr`, `leapr.f90:218-453`;
+/// validated against three NJOY2016 runs in
+/// `tests/leapr_run_driver_njoy_oracle.rs`). What this crate does not
+/// reproduce is the Fortran unit plumbing (`nsysi`/`nout`) and the listing.
 pub fn run() -> Result<(), NjoyError> {
     Err(NjoyError::NotPorted(
-        "leapr unit plumbing + kernel orchestration (cards, kernels and endout are ported — \
-         read a deck with LeaprDeck::parse and drive the module API)",
+        "leapr needs a deck: use leapr::run::run_deck_text(deck) (the module registry's \
+         no-argument form cannot carry one)",
     ))
 }

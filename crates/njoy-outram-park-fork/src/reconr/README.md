@@ -81,7 +81,18 @@ verification traced it to the reconstruction grid (see
 The fix ([`refine_resonance_grid`]) adaptively bisects each grid interval until
 linear interpolation of the resonance contribution reproduces the
 directly-evaluated value to within the reconstruction tolerance `eps` — exactly
-the criterion NJOY's own RECONR reconstructs to. Result: the U-238 900 K/1200 K
+the criterion NJOY's own RECONR reconstructs to. Since 2026-09-10 the test is
+upstream `resxs`'s verbatim (`reconr.f90:2361-2470`): per-reaction relative
+error on elastic/fission/capture at the 7-figure-rounded midpoint, the
+resonance-integral relaxation (`errmax = 10 err` when a panel contributes less
+than `errint = err/20000` b), `err/5` below 0.4999 eV, significant-figure
+termination, and the `estp = 4.1` step-increase rule. It replaced a 0.1 b
+error floor the port had added against over-refinement of µb-level valleys —
+that floor left Si-30 capture between the 2.2 and 4.9 keV resonances on 8
+points where NJOY has 47, 13 % high at 3.3 keV (bead `op-yr43`); with the
+upstream test the value and the 47 points match NJOY exactly
+(`tests/reconr_si30_inter_resonance_capture.rs`, oracle in
+`reference-data/reconr/`). Result: the U-238 900 K/1200 K
 capture RRR magnitude-weighted L1 vs OpenMC dropped from **≈0.30 → ≈0.0007**
 (a ~400× accuracy gain), matching reference NJOY to <0.1% across the resolved
 region.
@@ -108,6 +119,17 @@ in `docs/porting-plan.md`.
 **Ported and verified for SLBW/MLBW/Reich-Moore** — see `crate::reconr` unit
 tests and the workspace Godiva/Jezebel k-eff V&V (`docs/development-history.md`).
 Reconstructed 0 K pointwise σ(E) feeds BROADR and ACER.
+
+**MLBW (`LRF=2`) uses `csmlbw`'s elastic assembly since 2026-09-10** —
+`slbw::eval_mlbw_lstate`, the per-`J` `sigj` accumulation over every level
+of an l-state plus the `2(2l+1−Σg_J)(1−cos 2φ)` remainder. Until then
+`LRF=2` went through the SLBW formula on the assumption that level
+interference is negligible; on TENDL-2023 Ar-37 (three bound levels) that
+was +6.3 % in elastic at thermal and −8.2 % at 1 keV against NJOY's own
+`tape21` (bead `op-cral`, found by the ERRORR MF=32 oracle). Pinned by
+`tests/reconr_ar37_mlbw_njoy_golden.rs` against
+`reference-data/reconr/ar37-tendl2023-0K.pendf`: elastic and capture
+within 1e-5 below 100 eV and 1e-3 on the resonance wings.
 
 **LRF=7 (R-Matrix-Limited) wiring is untested** — `add_rml_range` compiles and
 type-checks (workspace build + full test suite pass as a regression check,

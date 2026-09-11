@@ -427,6 +427,8 @@ fn regenerate_mt2(deck: &LeaprDeck, edges: &BraggEdges, dwpix: &[f64]) -> Cohere
         temperatures_k: temps.clone(),
         dwpix: dwpix.to_vec(),
         tempf: temps,
+        tempf_secondary: None,
+        dwpix_secondary: None,
         ssm,
         ssp: None,
         npr: deck.npr,

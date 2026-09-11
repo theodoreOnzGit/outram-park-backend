@@ -154,8 +154,110 @@ pub struct LeaprDeck {
     pub beta: Vec<f64>,
     /// Cards 10-19, one resolved block per temperature, in deck order.
     pub temperatures: Vec<LeaprTemperature>,
+    /// The secondary scatterer's own temperature blocks (cards 10-19 read a
+    /// second time, `leapr.f90:401-408`) — non-empty only for a mixed
+    /// moderator (`nss != 0`, `b7 <= 0`), one block per principal block.
+    pub secondary_temperatures: Vec<LeaprTemperature>,
+    /// A physical-constant set that overrides the vintage inferred from the
+    /// deck's `EVAL` date ([`Self::with_constants`]); `None` keeps the
+    /// inference.
+    pub constants_override: Option<PhysicalConstants>,
     /// Card 20 — the MF=1/451 descriptive comment lines, quotes stripped.
     pub comments: Vec<String>,
+}
+
+/// Cards 10-19 for `ntempr` temperature blocks (`leapr.f90:332-374`), as
+/// read once for the principal scatterer and — for a mixed moderator
+/// (`nss != 0`, `b7 <= 0`) — a second time for the secondary (`leapr.f90:401-
+/// 408`: the temperature loop restarts and re-reads every card).
+///
+/// Cards 17-19 are present when `nsk > 0 || ncold != 0`
+/// (`needs_pair_correlation`); card 19 (`cfrac`) only when `nsk > 0`.
+fn parse_temperature_blocks(
+    cur: &mut CardCursor,
+    ntempr: usize,
+    nsk: i32,
+    needs_pair_correlation: bool,
+) -> Result<Vec<LeaprTemperature>, NjoyError> {
+    let mut temperatures: Vec<LeaprTemperature> = Vec::with_capacity(ntempr);
+    for itemp in 0..ntempr {
+        let temp = cur.read_reals(1)?[0].ok_or_else(|| card_err("card 10: temperature"))?;
+        // A negative temperature reuses the previous block's cards 11-19.
+        // NJOY also reads the block for itemp == 1 regardless of sign.
+        let reuse = temp < 0.0 && itemp > 0;
+        if reuse {
+            let prev = temperatures[itemp - 1].clone();
+            temperatures.push(LeaprTemperature {
+                temperature_k: temp.abs(),
+                inherited: true,
+                ..prev
+            });
+            continue;
+        }
+
+        // --- card 11: delta, ni ---
+        let c11 = cur.read_reals(2)?;
+        let delta_ev = c11[0].ok_or_else(|| card_err("card 11: delta"))?;
+        let ni = positive_count(c11[1], "card 11: ni")?;
+        if ni < 2 {
+            return Err(card_err("card 11: ni must be >= 2"));
+        }
+
+        // --- card 12: rho(E) ---
+        let rho = cur.read_reals_required(ni, "card 12 (rho)")?;
+
+        // --- card 13: twt, c, tbeta ---
+        let c13 = cur.read_reals(3)?;
+        let twt = c13[0].ok_or_else(|| card_err("card 13: twt"))?;
+        let c = c13[1].ok_or_else(|| card_err("card 13: c"))?;
+        let tbeta = c13[2].ok_or_else(|| card_err("card 13: tbeta"))?;
+
+        // --- cards 14-16: discrete oscillators ---
+        let nd = cur.read_reals(1)?[0].ok_or_else(|| card_err("card 14: nd"))? as i32;
+        if nd < 0 {
+            return Err(card_err("card 14: nd must be >= 0"));
+        }
+        let nd = nd as usize;
+        let mut oscillators = Vec::with_capacity(nd);
+        if nd > 0 {
+            let bdel = cur.read_reals_required(nd, "card 15 (oscillator energies)")?;
+            let adel = cur.read_reals_required(nd, "card 16 (oscillator weights)")?;
+            for (energy_ev, weight) in bdel.into_iter().zip(adel) {
+                oscillators.push(DiscreteOscillator { energy_ev, weight });
+            }
+        }
+
+        // --- cards 17-19: pair correlation ---
+        let pair_correlation = if needs_pair_correlation {
+            let c17 = cur.read_reals(2)?;
+            let nka = positive_count(c17[0], "card 17: nka")?;
+            let dka = c17[1].ok_or_else(|| card_err("card 17: dka"))?;
+            let skappa = cur.read_reals_required(nka, "card 18 (s(kappa))")?;
+            let cfrac = if nsk > 0 {
+                cur.read_reals(1)?[0].ok_or_else(|| card_err("card 19: cfrac"))?
+            } else {
+                0.0
+            };
+            Some(PairCorrelation { dka, skappa, cfrac })
+        } else {
+            None
+        };
+
+        temperatures.push(LeaprTemperature {
+            temperature_k: temp.abs(),
+            inherited: false,
+            continuous: ContinuousDist {
+                delta_ev,
+                rho,
+                twt,
+                c,
+                tbeta,
+            },
+            oscillators,
+            pair_correlation,
+        });
+    }
+    Ok(temperatures)
 }
 
 impl LeaprDeck {
@@ -231,84 +333,16 @@ impl LeaprDeck {
         let beta = cur.read_reals_required(nbeta, "card 9 (beta grid)")?;
 
         // --- cards 10-19, once per temperature ---
-        let mut temperatures: Vec<LeaprTemperature> = Vec::with_capacity(ntempr);
-        for itemp in 0..ntempr {
-            let temp = cur.read_reals(1)?[0].ok_or_else(|| card_err("card 10: temperature"))?;
-            // A negative temperature reuses the previous block's cards 11-19.
-            // NJOY also reads the block for itemp == 1 regardless of sign.
-            let reuse = temp < 0.0 && itemp > 0;
-            if reuse {
-                let prev = temperatures[itemp - 1].clone();
-                temperatures.push(LeaprTemperature {
-                    temperature_k: temp.abs(),
-                    inherited: true,
-                    ..prev
-                });
-                continue;
-            }
+        let needs_pair_correlation = nsk > 0 || ncold != ColdOption::None;
+        let temperatures = parse_temperature_blocks(&mut cur, ntempr, nsk, needs_pair_correlation)?;
 
-            // --- card 11: delta, ni ---
-            let c11 = cur.read_reals(2)?;
-            let delta_ev = c11[0].ok_or_else(|| card_err("card 11: delta"))?;
-            let ni = positive_count(c11[1], "card 11: ni")?;
-            if ni < 2 {
-                return Err(card_err("card 11: ni must be >= 2"));
-            }
-
-            // --- card 12: rho(E) ---
-            let rho = cur.read_reals_required(ni, "card 12 (rho)")?;
-
-            // --- card 13: twt, c, tbeta ---
-            let c13 = cur.read_reals(3)?;
-            let twt = c13[0].ok_or_else(|| card_err("card 13: twt"))?;
-            let c = c13[1].ok_or_else(|| card_err("card 13: c"))?;
-            let tbeta = c13[2].ok_or_else(|| card_err("card 13: tbeta"))?;
-
-            // --- cards 14-16: discrete oscillators ---
-            let nd = cur.read_reals(1)?[0].ok_or_else(|| card_err("card 14: nd"))? as i32;
-            if nd < 0 {
-                return Err(card_err("card 14: nd must be >= 0"));
-            }
-            let nd = nd as usize;
-            let mut oscillators = Vec::with_capacity(nd);
-            if nd > 0 {
-                let bdel = cur.read_reals_required(nd, "card 15 (oscillator energies)")?;
-                let adel = cur.read_reals_required(nd, "card 16 (oscillator weights)")?;
-                for (energy_ev, weight) in bdel.into_iter().zip(adel) {
-                    oscillators.push(DiscreteOscillator { energy_ev, weight });
-                }
-            }
-
-            // --- cards 17-19: pair correlation ---
-            let pair_correlation = if nsk > 0 || ncold != ColdOption::None {
-                let c17 = cur.read_reals(2)?;
-                let nka = positive_count(c17[0], "card 17: nka")?;
-                let dka = c17[1].ok_or_else(|| card_err("card 17: dka"))?;
-                let skappa = cur.read_reals_required(nka, "card 18 (s(kappa))")?;
-                let cfrac = if nsk > 0 {
-                    cur.read_reals(1)?[0].ok_or_else(|| card_err("card 19: cfrac"))?
-                } else {
-                    0.0
-                };
-                Some(PairCorrelation { dka, skappa, cfrac })
-            } else {
-                None
-            };
-
-            temperatures.push(LeaprTemperature {
-                temperature_k: temp.abs(),
-                inherited: false,
-                continuous: ContinuousDist {
-                    delta_ev,
-                    rho,
-                    twt,
-                    c,
-                    tbeta,
-                },
-                oscillators,
-                pair_correlation,
-            });
-        }
+        // A mixed moderator (nss != 0, b7 <= 0) re-reads cards 10-19 for the
+        // secondary scatterer before the comment cards (leapr.f90:401-408).
+        let secondary_temperatures = if nss != 0 && b7 <= 0.0 {
+            parse_temperature_blocks(&mut cur, ntempr, nsk, needs_pair_correlation)?
+        } else {
+            Vec::new()
+        };
 
         // --- card 20: comments, until a record that supplies no text ---
         let mut comments = Vec::new();
@@ -341,6 +375,8 @@ impl LeaprDeck {
             alpha,
             beta,
             temperatures,
+            secondary_temperatures,
+            constants_override: None,
             comments,
         })
     }
@@ -381,17 +417,32 @@ impl LeaprDeck {
     /// constant instead is a ~100x parity error; see [`crate::leapr::vintage`]
     /// for the measured table and the reasoning.
     pub fn constants(&self) -> PhysicalConstants {
+        if let Some(c) = self.constants_override {
+            return c;
+        }
         self.evaluation_date()
             .map(PhysicalConstants::for_evaluation_date)
             .unwrap_or_default()
+    }
+
+    /// Regenerate with an explicit constant set instead of the one inferred
+    /// from the deck's `EVAL` date — e.g. [`PhysicalConstants::Codata2018`]
+    /// to reproduce what a current NJOY2016 build writes for a deck whose
+    /// evaluation predates the CODATA change (the inferred vintage
+    /// reproduces the *published* tape, not the *rerun*; the two differ by
+    /// `bk`, ~6e-6, which is a ~4e-6 shift in `T_eff` and ~1e-5 in the
+    /// Debye-Waller lambda — measured on `tsl-SiO2-alpha`, 2026-09-10).
+    pub fn with_constants(mut self, constants: PhysicalConstants) -> Self {
+        self.constants_override = Some(constants);
+        self
     }
 
     /// Build the [`LeaprInput`] for temperature block `index`, ready to hand to
     /// [`crate::leapr::continuous::phonon_expansion`].
     ///
     /// `arat` is set to 1 (the principal scatterer). LEAPR's secondary-scatterer
-    /// pass re-runs the same grids with `arat = aws/awr`; that pass is not
-    /// driven from here.
+    /// pass re-runs the same grids with `arat = aws/awr`; see
+    /// [`Self::input_at_secondary`].
     ///
     /// The job's [`LeaprInput::constants`] is taken from [`Self::constants`], so
     /// a deck that declares its vintage is regenerated with the constants its
@@ -448,6 +499,54 @@ impl LeaprDeck {
         Ok(input)
     }
 
+    /// True for a mixed moderator: a secondary scatterer whose law is merged
+    /// into S(alpha, beta) by a second LEAPR pass (`nss != 0`, `b7 <= 0`,
+    /// `leapr.f90:399`).
+    pub fn is_mixed_moderator(&self) -> bool {
+        self.nss != 0 && self.b7 <= 0.0
+    }
+
+    /// Build the [`LeaprInput`] of the **secondary** scatterer's pass for
+    /// temperature block `index` at `temperature_k`: the secondary's own
+    /// cards 10-19 with `arat = aws/awr` (`leapr.f90:328`), which every
+    /// kernel applies as `alpha / arat` (`:500, :891, :1409`).
+    ///
+    /// # Errors
+    /// [`NjoyError::EndfParse`] if the deck is not a mixed moderator, `index`
+    /// is out of range, or the temperature is not positive and finite.
+    pub fn input_at_secondary(
+        &self,
+        index: usize,
+        temperature_k: f64,
+    ) -> Result<LeaprInput, NjoyError> {
+        if !self.is_mixed_moderator() {
+            return Err(card_err("deck has no secondary scatterer with b7 <= 0"));
+        }
+        if temperature_k <= 0.0 || !temperature_k.is_finite() {
+            return Err(card_err("temperature must be positive and finite"));
+        }
+        if self.awr <= 0.0 {
+            return Err(card_err(
+                "card 5: awr must be positive for a secondary pass",
+            ));
+        }
+        let t = self
+            .secondary_temperatures
+            .get(index)
+            .ok_or_else(|| card_err("secondary temperature index out of range"))?;
+        Ok(LeaprInput {
+            alpha: self.alpha.clone(),
+            beta: self.beta.clone(),
+            lat: self.lat,
+            arat: self.aws / self.awr,
+            nphon: self.nphon,
+            temperature_k,
+            continuous: t.continuous.clone(),
+            oscillators: t.oscillators.clone(),
+            constants: self.constants(),
+        })
+    }
+
     /// The deck's secondary scatterer (card 6), or `None` when `nss == 0` or
     /// the card-6 fields do not describe a usable one.
     ///
@@ -487,24 +586,29 @@ impl LeaprDeck {
                 self.ncold.code()
             ));
         }
-        if self.nsk != 0 {
+        // nsk = 2 (Sköld) is applied by `generate_tape` (`skold.rs`). nsk = 1
+        // (Vineyard) only reads the S(kappa) table upstream — `ska` is used by
+        // `coldh` and `skold` alone (`leapr.f90:359-372, 2463`) — so outside a
+        // cold-hydrogen run it is a no-op there and here.
+        if !(0..=2).contains(&self.nsk) {
             out.push(format!(
-                "nsk = {} (Vineyard/Skold pair-correlation correction is not ported)",
+                "nsk = {} is not a valid S(kappa) option (0, 1, 2)",
                 self.nsk
             ));
         }
-        // A secondary scatterer is only a blocker when its law has to be merged
-        // into S(alpha, beta) (b7 = 0). The analytic kinds (free gas, diffusion)
-        // are carried entirely by the B(7)..B(12) constants the writer emits, so
-        // they need no second LEAPR pass and are fully supported.
-        match self.secondary_scatterer() {
-            None => {}
-            Some(s) if !s.kind.merges_into_sab() => {}
-            Some(_) => out.push(format!(
-                "nss = {} with b7 = {} (short-collision-time secondary: the \
-                 mixed-moderator S(alpha,beta) merge is not ported)",
-                self.nss, self.b7
-            )),
+        // A short-collision-time secondary (b7 <= 0) is merged into
+        // S(alpha, beta) by a second pass over its own temperature blocks
+        // (`generate_tape`); the analytic kinds (free gas, diffusion) are
+        // carried entirely by the B(7)..B(12) constants. Both are supported.
+        if self.is_mixed_moderator() && self.secondary_temperatures.len() != self.temperatures.len()
+        {
+            out.push(format!(
+                "nss = {} with b7 = {}: {} secondary temperature blocks for {} principal ones",
+                self.nss,
+                self.b7,
+                self.secondary_temperatures.len(),
+                self.temperatures.len()
+            ));
         }
         if self.nss != 0 && SecondaryScattererKind::from_code(self.b7).is_none() {
             out.push(format!(
@@ -673,17 +777,23 @@ impl CardCursor {
 
     /// Read one card-20 comment record.
     ///
-    /// Returns `Ok(None)` at the terminator — a record that supplies no text, in
-    /// practice a bare `/` or a blank line, which leaves NJOY's sentinel `'$'`
-    /// in place and ends the comment loop. Also returns `Ok(None)` at end of
-    /// deck, so a deck that simply stops is not an error.
+    /// Returns `Ok(None)` at the terminator — a record that supplies no text,
+    /// which leaves NJOY's sentinel `'$'` in place and ends the comment loop
+    /// (`leapr.f90:3096-3110`). In Fortran list-directed input that is any
+    /// record whose first item is the slash — a bare `/` or `/ end leapr`
+    /// alike (the D-in-D2O deck ends its comments that way; until 2026-09-10
+    /// the trailing words were taken as a 67th comment card, which the NJOY
+    /// oracle's 66-card header exposed). A blank record also ends the loop
+    /// here (Fortran would skip it and read on; every deck in the tree
+    /// follows a blank with a slash, so the two agree). Also returns
+    /// `Ok(None)` at end of deck, so a deck that simply stops is not an error.
     pub fn read_comment(&mut self) -> Result<Option<String>, NjoyError> {
         if self.pos >= self.lines.len() {
             return Ok(None);
         }
         let line = self.next_record()?.to_string();
         let t = line.trim();
-        if t.is_empty() || t == "/" {
+        if t.is_empty() || t.starts_with('/') {
             return Ok(None);
         }
         Ok(Some(strip_text_card(&line)))
@@ -982,7 +1092,11 @@ stop
 
     /// Methodology: `unsupported_features` must flag deck options the ported
     /// kernels do not implement, so a caller cannot mistake "parsed" for
-    /// "computed". Result (2026-08-13): an `nsk = 2` deck reports the Sköld gap.
+    /// "computed". Result (2026-08-13): an `nsk = 2` deck reported the Sköld
+    /// gap. Result (2026-09-10): `skold` is ported and NJOY-verified, so the
+    /// same deck parses its cards 17-19 and reports nothing (an `nsk` outside
+    /// `0..=2` is refused by `unsupported_features`; the parser itself only
+    /// sees whether cards 17-19 are present).
     #[test]
     fn unsupported_features_are_reported() {
         // nsk = 2 turns on cards 17-19, which follow card 16.
@@ -1002,7 +1116,6 @@ stop
         assert_eq!(pc.skappa, vec![0.1, 0.2, 0.3]);
         assert_eq!(pc.cfrac, 0.7);
         let f = d.unsupported_features();
-        assert_eq!(f.len(), 1, "features = {f:?}");
-        assert!(f[0].contains("Skold"), "features = {f:?}");
+        assert!(f.is_empty(), "features = {f:?}");
     }
 }

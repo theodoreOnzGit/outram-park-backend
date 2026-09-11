@@ -66,32 +66,39 @@ Plottable output is written to
 `results/compare_capture_{900,1200}K.csv` (columns
 `energy_eV, sigma_openmc_b, sigma_rust_b, rel_diff, region`).
 
-## Results (measured 2026-07-06; RECONR tol 0.1%, SIGMA1)
+## Results (re-baselined 2026-09-10 after `WAVE_K`; RECONR tol 0.1%, SIGMA1)
 
 Sanity (`capture_pipeline_is_physical`): reconstructed 0 K thermal capture
-2.680 b (expected ~2.7 b), 6.67 eV peak 22,181 b; Doppler broadening at 900 K
-lowers that peak to 4,892 b and raises the 6.5 eV wing — all correct in
-direction.
+~2.7 b, 6.67 eV peak ~22,000 b; Doppler broadening at 900 K lowers that peak
+to ~4,900 b and raises the 6.5 eV wing — all correct in direction.
 
-Magnitude-weighted L1 relative error $\sum|\sigma_{rust}-\sigma_{omc}| / \sum|\sigma_{omc}|$:
+Magnitude-weighted L1 relative error $\sum|\sigma_{rust}-\sigma_{omc}| / \sum|\sigma_{omc}|$,
+and the worst single point:
 
-| Temperature | RRR L1 (E ≤ 20 keV) | Above-RRR L1 (MF=3) |
-|-------------|---------------------|---------------------|
-| 900 K       | 0.302               | **0.0155**          |
-| 1200 K      | 0.315               | **0.0144**          |
+| Temperature | RRR L1 (E ≤ 20 keV) | worst RRR point | Above-RRR L1 (MF=3) |
+|-------------|---------------------|-----------------|---------------------|
+| 900 K       | **0.0002**          | 0.74 % at 80.06 eV | 0.0000 |
+| 1200 K      | **0.0002**          | 0.72 % at 516.4 eV | 0.0000 |
 
 (75,612 RRR points / 24,388 above-RRR points of the 100,000-point grid.)
 
-Resonance-peak spot checks (peaks broaden correctly):
+Resonance-peak spot checks at the nearest grid point to each peak:
 
-| Resonance | T | OpenMC peak [b] | Rust peak [b] | Δ |
-|-----------|---|-----------------|---------------|---|
-| 6.67 eV | 900 K | 4102 | 4457 | +8.6% |
-| 6.67 eV | 1200 K | 3993 | 4327 | +8.4% |
-| 20.9 eV | 900 K | 4102 | 4457 | +8.6% |
+| Resonance | T | OpenMC [b] | Rust [b] | Δ |
+|-----------|---|------------|----------|---|
+| 6.673 eV | 900 K | 4530.8 | 4532.5 | +0.04 % |
+| 6.673 eV | 1200 K | 3995.9 | 3997.1 | +0.03 % |
+| 20.87 eV | 900 K | 4214.6 | 4218.6 | +0.09 % |
+| 20.87 eV | 1200 K | 3702.9 | 3705.5 | +0.07 % |
 
-(Values at the true resonance energy from a fine scan; a log grid does not land
-exactly on a peak.)
+**Gates (hard, both temperatures, `op-cjw.10`):** RRR L1 < 0.1 %, worst RRR
+point < 3 %, peaks within 0.5 %, above-RRR L1 < 0.1 %, all values finite and
+non-negative — each 3–5× above the measurement, tight enough that a regression
+of the wing bug below, or of `WAVE_K` (every resonance σ moves 0.08 %), trips
+the L1 gate. Runtime 270–280 s (the test reconstructs U-238 twice; unchanged).
+
+Original 2026-07-06 numbers, for the record: RRR L1 0.302 / 0.315, above-RRR
+L1 0.0155 / 0.0144, peaks +8.5 % — the wing pedestal resolved below.
 
 ## ✅ RESOLVED (2026-07-07) — it was the RECONR grid, not SIGMA1
 
@@ -107,9 +114,9 @@ the SIGMA1 kernel**. Point checks: 105 eV, 900 K now 1.845 b (OpenMC 1.8 b) vs
 the old 211 b; 106 eV now 0.927 b (OpenMC 0.93 b) vs old 177 b. See
 `src/reconr/README.md` and `src/broadr/README.md`.
 
-The gate below has not yet been tightened into a hard RRR-L1 assertion — that
-is a small follow-up (mind the CI timeout, since the test reconstructs U-238
-twice). The original finding is preserved verbatim below for the record.
+The RRR L1 became a hard gate on 2026-09-10 (`op-cjw.10`, see the Results
+section) once the `WAVE_K` correction took the residual from ≈0.0007 to
+0.0002. The original finding is preserved verbatim below for the record.
 
 ## ⚠ Finding (now resolved — see above) — the port over-predicts resonance wings (BROADR/SIGMA1)
 

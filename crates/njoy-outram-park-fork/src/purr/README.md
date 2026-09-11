@@ -116,9 +116,17 @@ run `reconr 0.001 / broadr 300 K / unresr / purr` (`sigz 1e10 … 1`, `nbin 20`,
   NJOY's own mean sits 2σ above its analytic reference. The two random
   streams are **not** bit-identical despite the same seed — not chased.
 
-Gate for **U-238** still open: its URR range is `NRO=1` (energy-dependent
-scattering radius), which `unresr::mf2::parse_lru2_ranges` rejects — see the
-NRO=1 bead, `op-as32`. The verification ladder, easiest first:
+**U-238 (2026-09-10, `tests/purr_u238_urr.rs`)** — the `NRO=1` gate is closed
+(`op-as32`; see `../unresr/README.md`). Same deck on ENDF/B-VIII.0 U-238
+(URR 20–149.0087 keV, `LSSF=1`, no fission, competition from 45.1 keV):
+`infinite_dilution_reference` reproduces NJOY's `spot`/`dbar` and the
+7-figure `unresx` cross sections at 20 and 40 keV (below the competition
+threshold — PURR's `infd` *total* above it adds the PENDF `sigx`, which this
+port does not read); `probability_table` at 20 keV with seed −101 gives
+32-ladder means 14.3509/13.8394/0.51146 vs NJOY 14.352/13.841/0.51136
+(pcsd 1.85/1.87/2.99 vs 1.81/1.83/2.99) and σ₀ = 1 b self-shielding ratios
+0.8758/0.8759/0.8719 vs 0.8764/0.8766/0.8707 — a far stronger shielding case
+than U-235 (D = 2.4 eV vs 0.16 eV). The verification ladder, easiest first:
 1. `Rng` against a known `rann` output sequence (fully deterministic, exact
    match expected).
 2. `wfun::uw2` against `crate::unresr::wfun::uw` (should agree everywhere
@@ -134,7 +142,7 @@ NRO=1 bead, `op-as32`. The verification ladder, easiest first:
    argument above.
 6. Only then, the full `probability_table` Monte Carlo pipeline end to end.
 
-Steps 1–3 and 5 are unit tests in `mod.rs`/`wfun.rs` (`Rng` against a
+Steps 1–3 and 5 are unit tests in `tests.rs`/`wfun.rs` (`Rng` against a
 verbatim-`rann` gfortran oracle for `idum=-101`; `uw2` against a
 verbatim-`uw2` oracle at 16 points; Wigner spacing mean/width; all four
 `line_shape` tiers against `uw2` across every boundary, and tier *selection*
@@ -142,11 +150,23 @@ pinned bit-for-bit against the closed-form tier formulas).
 
 ## Caveats
 
-- **Runtime-tested on U-235 only** — see Testing above. The bin-edge
-  construction (`purr.f90:2283-2319`'s dynamic non-uniform schedule) is
-  exercised by the U-235 test (edges ascending, last edge `1e6`,
+- **Runtime-tested on U-235 and U-238 only** — see Testing above. The
+  bin-edge construction (`purr.f90:2283-2319`'s dynamic non-uniform
+  schedule) is exercised by both tests (edges ascending, last edge `1e6`,
   probabilities summing to one) but its values have not been compared
   bin-by-bin against NJOY's `MT=153` output.
+- **Competition `sigx` is the caller's to supply.** Under `LSSF=1`,
+  `rdf3un`'s "sanity check" (`purr.f90:1195-1215`) rewrites the File-3
+  background as `bkg = [σ_total − σ_el − σ_f − σ_γ, 0, 0, 0]` — i.e. the
+  competing-reaction cross section at the working energy — and `unrest`
+  adds `bkg(1)` to its infinite-dilution and sampled *totals*
+  (`purr.f90:2378`). This port's [`infinite_dilution_reference`] takes only
+  the File-2 parameters, so its total is elastic + fission + capture; pass
+  `bkg = [sigx, 0, 0, 0]` (derived from the PENDF as `rdf3un` does) to
+  [`probability_table`] to reproduce NJOY's totals above a competition
+  threshold. U-238 above 45.1 keV is the case in point (`sigx` = 0.17 b at
+  60 keV, 0.52 b at 100 keV); the ENDF `GX` width enters the ladders
+  regardless.
 - At the closed edges of the table tier (`|x| = 3.9`, `y = 3.0` exactly)
   upstream reads one row/column past its `tr`/`ti` arrays (an unchecked
   out-of-bounds read); [`wfun::DopplerTable`] clamps the cell and
