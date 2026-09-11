@@ -817,5 +817,15 @@ mod desktop {
             r.consistency_gap * 100.0,
             r.consistent
         );
+        // The OpenMC deck reports a TWO-group decomposition at the same 0.625 eV
+        // cadmium cutoff this crate uses, so k, eta and f are already
+        // like-for-like -- but p and epsilon are not: the three-group form
+        // carries fast absorption in epsilon. Print the converted pair too, so
+        // the V&V record can quote a comparison that means something.
+        let (eta2, f2, p2, eps2) = s.two_group_openmc_convention();
+        eprintln!(
+            "  [{tag}] two-group (OpenMC convention, 0.625 eV): η {eta2:.4} f {f2:.4} \
+             p {p2:.4} ε {eps2:.4}"
+        );
     }
 }

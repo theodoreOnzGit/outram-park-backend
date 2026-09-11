@@ -185,6 +185,23 @@ corner-FLiBe over-count:**
 P_FNL 1.0000, P_TNL 1.0000; product (k_4f) 1.38678, consistency gap +1.48 % (in
 band; OpenMC's own gap on the same decomposition is +1.3 %). Leakage 3.1e-6.
 
+**Like-for-like against the reference.** This crate's thermal cutoff is 0.625 eV,
+the same cadmium cutoff the deck uses, so `k`, `η` and `f` are already directly
+comparable — but `p` and `ε` are not, because the three-group form carries fast
+absorption in `ε`. `SixFactors::two_group_openmc_convention()` re-attributes it:
+
+| | ours (3-group) | ours (2-group, like-for-like) | OpenMC | Δ |
+|---|---|---|---|---|
+| η | 2.0096 | 2.0096 | 2.0073 | **+0.11 %** |
+| f | 0.9199 | 0.9199 | 0.9216 | **−0.18 %** |
+| p | 0.5368 | **0.5253** | 0.4842 | **+8.5 %** |
+| ε | 1.3976 | **1.4280** | 1.5043 | **−5.1 %** |
+| p·ε | 0.7502 | 0.7501 | 0.7284 | **+3.0 %** |
+
+The conversion preserves the product, as it must — `p·ε = k/(η·f)` up to the
+decomposition's own consistency gap — so it changes the split between `p` and `ε`
+without touching the size of the disagreement.
+
 **Two independent transport methods agree on the same geometry.** The
 delta-tracked sphere gives 1.40739 ± 0.00241 and the surface-tracked CSG driver
 gives 1.40757 ± 0.00224 — **18 pcm apart, 0.05σ**, from different initial
@@ -521,13 +538,13 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    simple slowing-down picture does not have room for a 3 % effect either.
    `op-mzvp.2.12` owns what is left.
 
-   Note `p` and `ε` are also compared across **different conventions** — this
-   crate's three-group decomposition against the deck's two-group one split at
-   0.625 eV. `SixFactors::two_group_openmc_convention()` makes it like-for-like
-   and removes roughly a third of each gap. It cannot be the whole story, and it
-   does not touch the *product*: `k` is convention-free and is +4004 pcm on its
-   own, and `p·ε = k/(η·f)` up to the decomposition's own 1.3–1.5 % consistency
-   gap, which both codes show.
+   Measured like-for-like (both at 0.625 eV, this crate's three-group form
+   converted by `SixFactors::two_group_openmc_convention()`), the split is
+   **p +8.5 %** (0.5253 vs 0.4842) and **ε −5.1 %** (1.4280 vs 1.5043). The
+   conversion moves the split between them and, as it must, leaves the product
+   alone. So the honest single statement is: *this code puts about 8 % too few
+   neutrons above 0.625 eV, relative to the reference, and every term in the
+   slowing-down balance that could do that has been measured and is right.*
 
 9. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
