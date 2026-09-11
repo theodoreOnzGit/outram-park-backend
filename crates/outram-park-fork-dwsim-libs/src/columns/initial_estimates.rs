@@ -475,19 +475,34 @@ impl RigorousColumn {
     /// # Duty convention
     ///
     /// - **Condenser duty `Q_0` is back-calculated** from the top-stage energy
-    ///   balance (the `RefluxedAbsorber` case of `BubblePoint.vb:1645-1673`) unless `condenser_spec` is a
-    ///   `HeatDuty`, in which case it is imposed. Any `heat_duty` the caller set
-    ///   on stage `0` is **discarded** by [`Self::solver_input`].
-    /// - **Bottom-stage duty `Q_ns` is user input**, read from stage `n - 1`'s
-    ///   `heat_duty` ([`Stage::with_heat_duty`]; default `0 W`, adiabatic) and
-    ///   passed through unchanged. There is no reboiler to back-calculate.
+    ///   balance unless `condenser_spec` is a `HeatDuty`, in which case it is
+    ///   imposed. Any `heat_duty` the caller set on stage `0` is **discarded**
+    ///   by [`Self::solver_input`].
+    /// - **Bottom-stage duty `Q_ns` is also back-calculated** by the
+    ///   bubble-point solvers, from the *overall* column energy balance.
+    ///   Whatever `heat_duty` the caller put on stage `n - 1` is passed to the
+    ///   solver but overwritten in the result. **Corrected 2026-09-11**: this
+    ///   used to be passed through unchanged, which follows upstream's dead
+    ///   `Case ColType.RefluxedAbsorber` arm rather than its live one — see
+    ///   `back_calculate_duties` in [`crate::columns::bubble_point`] for the
+    ///   two-mechanism upstream reading behind that.
+    ///
+    ///   A returned `Q_ns` is **not** a reboiler. It is the heat the bottom
+    ///   stage would have to exchange for the returned profile to conserve
+    ///   energy, in DWSIM's heat-*removed* sign — so a negative value means
+    ///   heat would have to be **added**. On a genuinely adiabatic refluxed
+    ///   absorber it should be zero; that it is not is the measure of how far
+    ///   the bubble-point answer is from a solved column (see "Which solver"
+    ///   below). Naphtali-Sandholm is different: it *imposes* `Q_ns` from the
+    ///   reboiler spec (`NewtonRaphson.vb:480-481`) and keeps the bottom-stage
+    ///   energy balance as an equation, which is why the spec below stays a
+    ///   `HeatDuty`.
     /// - **There is no reboiler-end specification.** The solvers force the
     ///   reboiler-end spec to "directly imposable" and ignore it — the bottoms
     ///   rate is simply `B = L_ns` from the mass balance (`BubblePoint.vb:127`,
     ///   `:1020`). This constructor sets [`Self::reboiler_spec`] to a `HeatDuty`
-    ///   mirror of stage `n - 1`'s `heat_duty`, so the one solver that still
-    ///   *reads* it (Naphtali-Sandholm writes `Q_ns = spec`,
-    ///   `NewtonRaphson.vb:457-498`) sees the same number as the stage. Leave it
+    ///   mirror of stage `n - 1`'s `heat_duty` so that Naphtali-Sandholm, the
+    ///   one solver that reads it, is told the bottom is adiabatic. Leave it
     ///   alone.
     ///
     /// # Which solver — read this before trusting the answer
@@ -498,26 +513,64 @@ impl RigorousColumn {
     ///
     /// - **Wang-Henke / Modified Wang-Henke converge** (15 / 13 iterations),
     ///   close the mass balance, meet the condenser spec and back-calculate
-    ///   `Q_0` — **but the distillate rate comes out exactly equal to
-    ///   [`Self::with_distillate_estimate`]** (default: half the feed). For this
-    ///   column type upstream closes the bottom with `B = L_ns` from the mass
-    ///   balance and never uses the bottom-stage energy balance, so that
-    ///   estimate is a *de-facto second specification*: change it and `D`
-    ///   changes with it, while the feed enthalpy has no effect at all. What
-    ///   you get is a mass-consistent rectifying section for the `D` you
-    ///   asked for, with an unstated heat exchange on the bottom stage
-    ///   (`−15 kW` on the test case at the default estimate) — not the
-    ///   adiabatic column's own `D`.
-    /// - **Naphtali-Sandholm does not converge** on this variant
-    ///   (`NotConverged`, tried from 30+ starting profiles): its stage-0
-    ///   distillate variables are only initialised for
-    ///   [`ColumnType::DistillationColumn`], so a refluxed absorber starts
-    ///   from `LSS_0 ≈ 1e-10`. Solver-side, faithful to upstream as far as this
-    ///   port can tell, and out of scope for an API-exposure change.
+    ///   both end duties — **but the distillate rate comes out exactly equal
+    ///   to [`Self::with_distillate_estimate`]** (default: half the feed), and
+    ///   the stage profile does not respond to the feed enthalpy at all.
     ///
-    /// A physically complete refluxed absorber therefore needs solver work
-    /// that this constructor does not provide; until then, treat
-    /// [`Self::with_distillate_estimate`] as the second spec it effectively is.
+    ///   This is **upstream's own limitation, not a porting slip**, and it is
+    ///   structural. Upstream closes the bottom with `B = L_ns`
+    ///   (`BubblePoint.vb:1020`) and `L_ns` with the total mass balance
+    ///   (`:1625`), then re-derives `LSS_0` from the same balance (`:1553`);
+    ///   composing the two returns `LSS_0` unchanged, so `D` is a fixed point
+    ///   at its estimate. The bottom-stage energy balance — the equation that
+    ///   would size the vapour the feed can raise — is not in Wang-Henke's
+    ///   equation set: `Q_ns` enters `γ_ns`, which the vapour recursion never
+    ///   reads (`:1596-1600`). And upstream deliberately removes the only
+    ///   other handle, forcing `specR_OK = True` for a refluxed absorber
+    ///   (`:127`) so the outer two-variable Broyden solve on
+    ///   `(reflux ratio, bottoms rate)` never runs.
+    ///
+    ///   So what you get is a **mass-consistent rectifying section for the
+    ///   `D` you asked for**, with the energy imbalance now reported honestly
+    ///   as `Q_ns` (`−15 084 W` on the test case at the default estimate) —
+    ///   not the adiabatic column's own `D`. Treat
+    ///   [`Self::with_distillate_estimate`] as the second specification it
+    ///   effectively is, and read a large `|Q_ns|` as "this `D` is wrong for
+    ///   this feed".
+    /// - **Naphtali-Sandholm solves it — use this one.** Converges in **3**
+    ///   iterations on the test case and returns `D = 0.348081 mol/s` (not
+    ///   the `0.5` estimate), `Q_ns = 0` genuinely enforced, and a distillate
+    ///   that responds to the feed: half-vaporising the feed drops `D` to
+    ///   `0.182524 mol/s` and cools every stage. This is the solver whose
+    ///   equation set actually contains the bottom-stage energy balance —
+    ///   upstream remaps the column type at `NewtonRaphson.vb:837-840` and
+    ///   then replaces **only** `H(0)` with the condenser-spec residual
+    ///   (`:546-556`), leaving stage `ns`'s true energy balance with
+    ///   `Q_ns = spec` in the system (`:480-481`).
+    ///
+    ///   **Fixed 2026-09-11.** It previously returned `NotConverged` from any
+    ///   starting profile. Two upstream gates keyed on `ColumnType` — the
+    ///   stage-0 initial-estimate seeding (`NewtonRaphson.vb:969`) and the
+    ///   stage-0 output mapping (`:1224`, `:1242`) — excluded the variant,
+    ///   leaving `v_0` at `1e-10` and forcing `LSS_0 = 0`. Neither is part of
+    ///   the residual system, so widening them changes the starting point and
+    ///   the reporting, not the physics; see
+    ///   [`has_condenser_distillate`](crate::columns::newton_raphson) in
+    ///   `newton_raphson` for the full argument, the measurements, and the
+    ///   cross-check against Wang-Henke.
+    ///
+    /// **How to read a bubble-point answer against this.** Wang-Henke's
+    /// back-calculated `Q_ns` is the bottom-stage energy deficit at the `D`
+    /// you chose, and it passes through zero at exactly the `D`
+    /// Naphtali-Sandholm returns (`−15 083.87 W` at `D = 0.5`, `−0.02 W` at
+    /// `D = 0.348081`, with the two temperature profiles then agreeing to
+    /// `0.001 K`). So a large `|Q_ns|` from a bubble-point run means "this
+    /// `D` is wrong for this feed", and the bubble-point family can be used
+    /// as a check on, or a search over, `D` — but not as a solver for it.
+    ///
+    /// **None of this is validated against DWSIM or a published case.** It is
+    /// verification only: two independent algorithms in this port agreeing on
+    /// the same MESH solution.
     ///
     /// # Example
     ///
