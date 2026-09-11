@@ -36,18 +36,9 @@
 //!   dense matrix. This is the inverse a BOXER *reader* performs; it is provided
 //!   here so the encoder can be verified by round-trip.
 //! - [`setfor`] — the format-descriptor selection (`covr.f90:2220-2247`).
-//! - [`press_text`] — the full text layout: the header line plus the formatted
-//!   `xval`/`icon` blocks (`covr.f90:2199-2207`).
-//!
-//! # Fidelity note (honest)
-//!
-//! The **compression logic** ([`compress`]/[`decompress`]) is a faithful,
-//! exactly-invertible port. The **numeric text** emitted by [`press_text`] uses
-//! Rust's float formatter within the correct field structure (right count per
-//! line, per [`setfor`]); it is **not** a byte-exact emulation of Fortran's
-//! `1P Ew.d` edit descriptor, and no golden-file comparison against upstream
-//! NJOY has been run. The header counts, the value/control arrays, and the
-//! round-trip are what the tests verify.
+//! - the text layout (`covr.f90:2199-2207`) lives in
+//!   [`crate::covr::boxer_text`] (`press_text`, byte-exact with NJOY2016, and
+//!   the matching reader `parse_boxer_text`).
 
 use crate::covr::correlation::CovarianceMatrix;
 use crate::NjoyError;
@@ -461,107 +452,6 @@ pub fn setfor(nvf: i32, ncf: i32) -> Result<(BoxerFormat, BoxerFormat), NjoyErro
 }
 
 // ---------------------------------------------------------------------------
-// press_text — full text layout (covr.f90:2199-2207)
-// ---------------------------------------------------------------------------
-
-/// Fixed-width left/right helpers (Fortran field truncation semantics).
-fn fixed(s: &str, width: usize) -> String {
-    let mut t: String = s.chars().take(width).collect();
-    while t.len() < width {
-        t.push(' ');
-    }
-    t
-}
-
-/// Write the BOXER text layout for a compressed matrix (`covr.f90:2199-2207`).
-///
-/// Emits, per page: a header record (data type, library id + description on the
-/// first page, `mat/mt/mat1/mt1`, the array counts `nval/nvf/ncon/ncf`, and the
-/// row counts `nrowm/nrow/ncol`), then the `xval` block and the `icon` block,
-/// each wrapped to the per-line counts from [`setfor`].
-///
-/// See the module "Fidelity note": the number *formatting* is Rust's, not a
-/// byte-exact Fortran `1P` emulation; the record structure and counts are
-/// faithful.
-///
-/// # Errors
-/// Propagates [`setfor`]'s range check.
-pub fn press_text(
-    header: &BoxerHeader,
-    data: &BoxerData,
-    nvf: i32,
-    ncf: i32,
-) -> Result<String, NjoyError> {
-    let (vfmt, cfmt) = setfor(nvf, ncf)?;
-    let ndig = ndig_for(nvf).max(1) as usize;
-    // ncol in the header is 0 for a symmetric matrix (covr.f90:2196).
-    let ncol_hdr = match data.shape {
-        BoxerShape::SymmetricUpperTriangle => 0,
-        BoxerShape::Rectangular => data.ncol,
-    };
-
-    let mut out = String::new();
-    for (p, page) in data.pages.iter().enumerate() {
-        let nval = page.xval.len();
-        let ncon = page.icon.len();
-        let nrowm = data.nrow - page.last_row;
-
-        if p == 0 {
-            // First page: full header with library id + description.
-            out.push_str(&format!(
-                "{}{} {} {:5}{:4}{:5}{:4}{:4}{:3}{:4}{:3}{:4}{:4}{:4}\n",
-                header.itype.code(),
-                " ",
-                fixed(&header.hlibid, 12) + " " + &fixed(&header.hdescr, 21),
-                header.mat,
-                header.mt,
-                header.mat1,
-                header.mt1,
-                nval,
-                nvf,
-                ncon,
-                ncf,
-                nrowm,
-                data.nrow,
-                ncol_hdr,
-            ));
-        } else {
-            // Continuation page: 34 dashes instead of id + description.
-            out.push_str(&format!(
-                "{} {} {:5}{:4}{:5}{:4}{:4}{:3}{:4}{:3}{:4}{:4}{:4}\n",
-                header.itype.code(),
-                "-".repeat(34),
-                header.mat,
-                header.mt,
-                header.mat1,
-                header.mt1,
-                nval,
-                nvf,
-                ncon,
-                ncf,
-                nrowm,
-                data.nrow,
-                ncol_hdr,
-            ));
-        }
-
-        // xval block.
-        for chunk in page.xval.chunks(vfmt.per_line.max(1)) {
-            let line: Vec<String> = chunk.iter().map(|&x| format!("{:.*e}", ndig, x)).collect();
-            out.push_str(&line.join(" "));
-            out.push('\n');
-        }
-        // icon block.
-        for chunk in page.icon.chunks(cfmt.per_line.max(1)) {
-            let line: Vec<String> = chunk.iter().map(|c| c.to_string()).collect();
-            out.push_str(&line.join(" "));
-            out.push('\n');
-        }
-    }
-    Ok(out)
-}
-
-// ---------------------------------------------------------------------------
 // Convenience: compress a CovarianceMatrix / CorrelationMatrix
 // ---------------------------------------------------------------------------
 
@@ -688,33 +578,6 @@ mod tests {
         assert!((corr_back.get(0, 0) - 1.0).abs() < 1e-12);
         assert!((corr_back.get(1, 1) - 1.0).abs() < 1e-12);
         assert!(corr_back.max_abs() <= 1.0 + 1e-12);
-    }
-
-    /// Methodology: the text header (`covr.f90:2199-2205`) must carry the right
-    /// counts. For the 2x2 symmetric covariance, the header line must start with
-    /// the itype code (3 for RelativeCovariance) and record nrow=2, ncol=0
-    /// (symmetric). Check the first line contains the mat/mt fields and the
-    /// counts. Result (2026-07-15): header well-formed; counts present.
-    #[test]
-    fn press_text_header_counts() {
-        let cov = CovarianceMatrix::from_row_major(2, vec![4.0, 2.0, 2.0, 9.0]).unwrap();
-        let data = cov.to_boxer(12, 4).unwrap();
-        let header = BoxerHeader {
-            itype: BoxerDataType::RelativeCovariance,
-            hlibid: "ENDF/B-VIII.0".into(),
-            hdescr: "test covariance".into(),
-            mat: 9228,
-            mt: 102,
-            mat1: 9228,
-            mt1: 102,
-        };
-        let text = press_text(&header, &data, 12, 4).unwrap();
-        let first = text.lines().next().unwrap();
-        assert!(first.starts_with('3'), "itype code 3 in column 1: {first}");
-        assert!(first.contains("9228"), "mat present: {first}");
-        assert!(first.contains("102"), "mt present: {first}");
-        // Non-empty xval and icon blocks follow the header.
-        assert!(text.lines().count() >= 3);
     }
 
     /// Methodology: `setfor` range checks (`covr.f90:2236-2241`). Valid indices

@@ -43,6 +43,14 @@ prioritised porting scope, C# source map, and porting order.
   module's doc comment for what was deliberately excluded from its source
   file).
 
+## Where to start
+
+`use outram_park_fork_dwsim_libs::prelude::*;` — the [`prelude`] is the
+curated map of entry points (crude characterisation, the rigorous column,
+property packages, the struct-based unit operations, and the `uom` unit
+markers the API takes). Every module path below is still reachable for the
+long tail; the prelude's own docs say what it leaves out and why.
+
 ## Modules
 
 ## Module `clean_energies`
@@ -392,7 +400,7 @@ pub struct HydroelectricTurbine {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -708,7 +716,7 @@ pub struct AmphlettParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -813,7 +821,7 @@ pub struct PemOperatingConditions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -937,7 +945,7 @@ pub struct ChamberlinKimParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1074,7 +1082,7 @@ pub struct LarminieDicksParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1234,7 +1242,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1349,7 +1357,7 @@ pub struct PemOperatingPoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1466,7 +1474,7 @@ pub struct PolarizationCurve {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1617,7 +1625,7 @@ pub struct PemFuelCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2372,7 +2380,7 @@ Thin-film (a-Si, CdTe, CIGS, …).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2506,7 +2514,7 @@ pub struct SolarPanel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2782,7 +2790,7 @@ Solid-oxide (high-temperature steam) electrolysis.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2924,7 +2932,7 @@ pub enum ElectrolysisChemistry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3059,7 +3067,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3177,7 +3185,7 @@ pub struct ElectrolyzerResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3296,7 +3304,7 @@ pub struct OutletEnthalpyBump {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3434,7 +3442,7 @@ pub struct WaterElectrolyzer {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3961,7 +3969,7 @@ Sea-based installation.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4108,7 +4116,7 @@ pub struct WindTurbine {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4348,7 +4356,7 @@ unit's own user-entered fields.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4514,7 +4522,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4706,7 +4714,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5242,7 +5250,7 @@ mixture where the bubble-point calculation is ill-conditioned.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5375,7 +5383,7 @@ pub struct WangHenkeSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5590,7 +5598,7 @@ pub struct ModifiedWangHenkeSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5847,7 +5855,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5951,7 +5959,7 @@ pub struct DynamicColumnOperating {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6064,7 +6072,7 @@ pub struct DynamicColumnState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6174,7 +6182,7 @@ pub struct DynamicColumnProfiles {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6280,7 +6288,7 @@ pub struct DynamicColumn {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6410,6 +6418,21 @@ pub struct RigorousColumn {
   A distillation column with `stages` stages, a total condenser, and the
 
 - ```rust
+  pub fn absorption(components: Vec<Component>, package: PropertyPackageModel, stages: Vec<Stage>) -> Self { /* ... */ }
+  ```
+  An absorption column ([`ColumnType::AbsorptionColumn`]): **no condenser,
+
+- ```rust
+  pub fn reboiled_absorber(components: Vec<Component>, package: PropertyPackageModel, stages: Vec<Stage>, reboiler_spec: ColumnSpec) -> Self { /* ... */ }
+  ```
+  A reboiled absorber ([`ColumnType::ReboiledAbsorber`]) — a **stripper**:
+
+- ```rust
+  pub fn refluxed_absorber(components: Vec<Component>, package: PropertyPackageModel, stages: Vec<Stage>, condenser_spec: ColumnSpec) -> Self { /* ... */ }
+  ```
+  A refluxed absorber ([`ColumnType::RefluxedAbsorber`]): total condenser
+
+- ```rust
   pub fn with_distillate_estimate(self: Self, rate: MolarFlowRate) -> Self { /* ... */ }
   ```
   Set the distillate molar-rate estimate \[mol/s\].
@@ -6520,7 +6543,7 @@ pub struct RigorousColumn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6714,7 +6737,7 @@ pub struct RootFindOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6817,7 +6840,7 @@ pub struct RootFindResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7311,7 +7334,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7442,7 +7465,7 @@ overhead product is the vapour `V_0`; `LSS_0 = 0`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7573,7 +7596,7 @@ Condenser only (no reboiler); only `Q(0)` is back-calculated.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7715,7 +7738,7 @@ the only variant this port actually implements.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7827,7 +7850,7 @@ An energy stream (duty only).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7978,7 +8001,7 @@ An inter-stage heat exchanger (pumparound duty).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8095,7 +8118,7 @@ Both (mixed).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8274,7 +8297,7 @@ flow. Directly imposable.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8394,7 +8417,7 @@ Mass basis (upstream `"W"` / `"Mass"`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8549,7 +8572,7 @@ pub struct ColumnSpec {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8725,7 +8748,7 @@ pub struct Stage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8879,7 +8902,7 @@ pub struct InitialEstimates {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9072,7 +9095,7 @@ pub struct ColumnSolverInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9227,7 +9250,7 @@ pub struct ColumnSolverOutput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9480,7 +9503,7 @@ pub struct NaphtaliSandholmSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9653,7 +9676,7 @@ pub struct StageProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9946,7 +9969,7 @@ saturated vapour at its dew point (upstream `PartialCond = 1`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10063,7 +10086,7 @@ One or more non-keys distribute (the `Dr` criterion of `:294` lies in
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10269,7 +10292,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10383,7 +10406,7 @@ pub struct ShortcutFeed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10546,7 +10569,7 @@ pub struct ShortcutColumn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10684,7 +10707,7 @@ pub struct ShortcutColumnResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10893,7 +10916,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11044,7 +11067,7 @@ pub struct SpecEvaluation {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11338,7 +11361,7 @@ pub struct SumRatesSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11586,7 +11609,7 @@ departure is identically zero. `ΔH_vap` comes from
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11794,7 +11817,7 @@ pub struct ColumnThermo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12207,7 +12230,7 @@ pub struct PolytropicResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12859,7 +12882,7 @@ Very high (upstream `3`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13022,7 +13045,7 @@ pub struct IndicatorState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13156,7 +13179,7 @@ pub struct CauseAndEffectItem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13278,7 +13301,7 @@ pub struct CauseAndEffectMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13639,7 +13662,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13790,7 +13813,7 @@ pub struct StepFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13958,7 +13981,7 @@ see the module header.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14114,7 +14137,7 @@ A uniformly random value between the reference and the target (upstream
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14247,7 +14270,7 @@ Manager.vb:265-277).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14395,7 +14418,7 @@ pub struct DynamicEvent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14559,7 +14582,7 @@ pub struct EventSet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14738,7 +14761,7 @@ pub struct FlowsheetSnapshot {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14891,7 +14914,7 @@ pub struct Historian {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15107,7 +15130,7 @@ pub struct Integrator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15273,7 +15296,7 @@ pub struct EventPropertyValue {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15403,7 +15426,7 @@ pub struct RandomStream {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15606,7 +15629,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15848,7 +15871,7 @@ pub struct MonitoredVariable {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16135,7 +16158,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16273,7 +16296,7 @@ pub struct PropertyRef {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16639,7 +16662,7 @@ historian state at `CurrentTime - 2·interval` before starting
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16757,7 +16780,7 @@ The one-off controller reset before a fresh run (:352-359,
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -16875,7 +16898,7 @@ pub struct StepContext {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17002,7 +17025,7 @@ pub struct PacingRecord {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17133,7 +17156,7 @@ pub struct PacingSummary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17266,7 +17289,7 @@ The `step_controllers` hook reported a failure (:525-527).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17396,7 +17419,7 @@ pub struct RunReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17527,7 +17550,7 @@ pub struct IntegratorRunOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17635,7 +17658,7 @@ pub struct IntegratorRunSetup {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17853,7 +17876,7 @@ pub struct Schedule {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18096,7 +18119,7 @@ pub struct SimInstant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18646,7 +18669,7 @@ round-tripping; never produced by this port — see the module's
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18784,7 +18807,7 @@ The single dedicated energy connector (`EnergyConnector`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18896,7 +18919,7 @@ pub struct Attachment {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19023,7 +19046,7 @@ pub struct ConnectionPoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19142,7 +19165,7 @@ pub struct ConnectorLayout {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19555,7 +19578,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19708,7 +19731,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19822,7 +19845,7 @@ pub struct Connection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19956,7 +19979,7 @@ pub struct FlowsheetResults {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20214,7 +20237,7 @@ pub struct Flowsheet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20746,7 +20769,7 @@ pub struct XmlNode {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20926,7 +20949,7 @@ The document contained no element at all.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21150,7 +21173,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21452,7 +21475,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21614,7 +21637,7 @@ Missing compound data.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21735,7 +21758,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21840,7 +21863,7 @@ pub struct ImportedCompound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21941,7 +21964,7 @@ pub struct ImportedPropertyPackage {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22069,7 +22092,7 @@ pub struct ImportSummary {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22205,7 +22228,7 @@ pub struct ImportedFlowsheet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22507,7 +22530,7 @@ pub struct ObjectId(pub String);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22713,7 +22736,7 @@ Water electrolyzers and fuel cells.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23251,7 +23274,7 @@ Generic solids-handling operation (upstream `SolidOps`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23413,7 +23436,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23563,7 +23586,7 @@ pub struct FlowsheetObject {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23794,7 +23817,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23926,7 +23949,7 @@ pub struct CalculationArgs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24100,7 +24123,7 @@ pub struct CalculationQueue {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24295,7 +24318,7 @@ pub struct ReportRow {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24402,7 +24425,7 @@ pub struct ReportOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24818,7 +24841,7 @@ Slot 7 — the solid phase.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24985,7 +25008,7 @@ Volume \[m³\] and mass entropy \[kJ/(kg·K)\] given.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25117,7 +25140,7 @@ Volumetric flow \[m³/s\] is the fixed quantity.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25262,7 +25285,7 @@ Whatever the flowsheet's global default basis is.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25404,7 +25427,7 @@ Use the flowsheet-level global setting. DWSIM's default.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25552,7 +25575,7 @@ Solid.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25679,7 +25702,7 @@ Solid.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25826,7 +25849,7 @@ pub struct StreamCompound {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26060,7 +26083,7 @@ pub struct PhaseProperties {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26173,7 +26196,7 @@ pub struct PhaseData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26289,7 +26312,7 @@ pub struct MaterialStreamInputData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26422,7 +26445,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26735,7 +26758,7 @@ pub struct MaterialStreamData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26868,7 +26891,7 @@ pub struct EnergyStreamData {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27549,7 +27572,7 @@ pub struct AdjustBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27659,7 +27682,7 @@ pub struct AdjustSolveReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28103,7 +28126,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28241,7 +28264,7 @@ pub struct AbortFlag {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28403,7 +28426,7 @@ port does and does not reproduce.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28617,7 +28640,7 @@ pub struct DefaultEvaluator;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28998,7 +29021,7 @@ pub struct SolvingList {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29344,7 +29367,7 @@ pub struct QueueOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29452,7 +29475,7 @@ pub struct QueueReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29791,7 +29814,7 @@ driven by the solver ([`broydn`], FlowsheetSolver.vb:1537-1567).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29902,7 +29925,7 @@ pub struct WegsteinParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30040,7 +30063,7 @@ pub struct RecycleConvergenceParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30197,7 +30220,7 @@ pub struct RecycleConvergenceHistory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30324,7 +30347,7 @@ pub struct RecycleVariables {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30504,7 +30527,7 @@ pub struct RecycleBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30613,7 +30636,7 @@ pub struct EnergyConvergenceParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30721,7 +30744,7 @@ pub struct EnergyConvergenceHistory {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30847,7 +30870,7 @@ Upstream's **"Yes"** branch (:276): zero the counter and keep going.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31000,7 +31023,7 @@ pub struct EnergyRecycleBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31316,7 +31339,7 @@ pub struct SolveOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31434,7 +31457,7 @@ pub struct SolveOutcome {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31605,7 +31628,7 @@ pub struct FlowsheetSolver {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31821,7 +31844,7 @@ pub enum SpecVarType {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -31958,7 +31981,7 @@ outer iteration; see the real-time note in
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32107,7 +32130,7 @@ whichever object that is (FlowsheetSolver.vb:115-120).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32274,7 +32297,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32401,7 +32424,7 @@ pub struct SpecBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32666,7 +32689,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -32797,7 +32820,7 @@ pub struct VariableRef {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33256,7 +33279,7 @@ pub struct PolytropicResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33504,7 +33527,7 @@ and always more effective than co-current for the same `U`, `A`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33671,7 +33694,7 @@ pub struct NtuResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33840,7 +33863,7 @@ pub struct FoulingFactor(pub f64);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -33961,7 +33984,7 @@ Square, rotated 45 degrees.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34090,7 +34113,7 @@ pub struct ShellAndTubeGeometry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34208,7 +34231,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34310,7 +34333,7 @@ pub struct TubeSideResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34410,7 +34433,7 @@ pub struct ShellSideResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -34903,7 +34926,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35018,7 +35041,7 @@ pub struct FloaterHormannInterpolant {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35191,7 +35214,7 @@ Outlet pressure = arithmetic mean of the inlet pressures
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35307,7 +35330,7 @@ pub struct InletStream {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35411,7 +35434,7 @@ pub struct MixerOutlet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -35539,7 +35562,7 @@ The total mass flow is zero, so the mixed specific enthalpy
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36002,7 +36025,7 @@ chromatography. Converted by
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36126,7 +36149,7 @@ Specific gravity referenced to **15.6 °C / 60 °F** (upstream's
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36256,7 +36279,7 @@ via each cut's molecular weight.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36365,7 +36388,7 @@ pub struct AssayCurvePoint {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36485,7 +36508,7 @@ pub struct BulkAssay {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36640,7 +36663,7 @@ pub struct CurveAssay {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -36756,7 +36779,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37134,7 +37157,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37241,7 +37264,7 @@ pub struct CurveCut {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37340,7 +37363,7 @@ pub struct CurveCharacterizationOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37607,7 +37630,7 @@ pub struct TbpCurveFit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37735,7 +37758,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -37929,6 +37952,1528 @@ under-determined system).
 pub fn fit_tbp_curve(volume_fractions: &[uom::si::f64::Ratio], temperatures: &[uom::si::f64::ThermodynamicTemperature], initial_boiling_point: uom::si::f64::ThermodynamicTemperature) -> Result<TbpCurveFit, super::lm::LmError> { /* ... */ }
 ```
 
+## Module `crude_distillation`
+
+Crude (atmospheric) distillation driven by a black-oil characterisation —
+the petroleum counterpart of the benzene/toluene column. See the module
+docs for what "based on black oil" can and cannot mean.
+**Crude (atmospheric) distillation from a black-oil characterisation** —
+epic `op-190j`.
+
+The petroleum counterpart of the benzene/toluene column that
+`distillation_sim_v1` drives: same rigorous MESH solver, but the feed is a
+*crude oil* described the way production engineering describes one — by API
+gravity and gas gravity — rather than by a component list.
+
+# Read this before using it: what "based on black oil" can and cannot mean
+
+A **black-oil model has exactly two pseudo-components**, stock-tank oil and
+solution gas. It carries no composition, so it *cannot by itself* produce a
+naphtha / kerosene / diesel / gas-oil slate — there is nothing in it to
+fractionate. Anyone who tells you they ran a crude unit on a black-oil model
+and got cuts has done something else.
+
+What this module does instead, and why it is still honestly "black-oil
+based": the black-oil correlations supply the **bulk characterisation**, and
+that characterisation is cut into pseudo-components. The fit is exact rather
+than contrived — [`crate::thermo::black_oil`] produces precisely the three
+quantities [`BulkAssay`] asks for:
+
+| black_oil function | BulkAssay field |
+|---|---|
+| [`oil_specific_gravity_from_api`] | `specific_gravity_60f` |
+| [`liquid_molecular_weight`] | `molar_mass` |
+| [`liquid_normal_boiling_point`] | `average_boiling_point` |
+
+[`generate_compounds`] then distributes those bulk properties into a
+[`PseudoComponent`] slate, and the column runs on that. This is how a
+refinery specifies a crude when a full TBP assay is not to hand: two
+numbers off the certificate of analysis.
+
+**The cost of that convenience is real and must not be forgotten.** A slate
+generated from bulk properties is a *distribution assumption*, not a
+measurement. Two crudes with identical API gravity and identical mean
+boiling point can have quite different TBP curves and therefore quite
+different yields. If you have an actual assay, use
+[`crate::petroleum::assay::CurveAssay`] and do not come through here.
+
+# Scope
+
+Atmospheric column only — no vacuum tower, no pre-flash, no crude furnace,
+no pump-arounds, and (see [`CrudeColumnConfig`]) no steam stripping. It is a
+teaching and scoping model in the same spirit as the benzene column, not a
+refinery simulator.
+
+**This module is headless, and stays that way.** The workspace split is that
+the plant model lives here with the physics, and any egui rendering lives in
+`outram-park-digital-twin-engine`'s *library* under `src/components/` —
+`components::distillation_column` is the existing precedent, a scalar-backed
+widget whose caller feeds it real per-stage state. Nothing in this file
+should grow a drawing dependency.
+
+No human V&V is claimed. See the test module for what is and is not checked.
+
+```rust
+pub mod crude_distillation { /* ... */ }
+```
+
+### Types
+
+#### Struct `BlackOilCrude`
+
+A crude oil described the black-oil way: gravities and a gas-oil ratio.
+
+These are the numbers on a crude certificate of analysis, and the inputs a
+production engineer already has. [`Self::pseudo_components`] turns them into
+something a distillation column can run on.
+
+```rust
+pub struct BlackOilCrude {
+    pub api_gravity: f64,
+    pub gas_specific_gravity: f64,
+    pub bsw_percent: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `api_gravity` | `f64` | Stock-tank oil API gravity, °API. Light crudes are ~35-45, medium<br>~25-35, heavy below ~25. |
+| `gas_specific_gravity` | `f64` | Solution-gas specific gravity (air = 1), dimensionless. Typically<br>0.6-0.9; the black-oil correlations are stated for roughly 0.55-1.5. |
+| `bsw_percent` | `f64` | Basic sediment and water, percent by volume. Affects the apparent<br>liquid molecular weight via [`liquid_molecular_weight`]. A desalted<br>crude entering a CDU is essentially dry, so `0.0` is the usual value<br>here. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn light_sweet() -> Self { /* ... */ }
+  ```
+  A light sweet crude, 38 °API — in the band Brent and WTI occupy.
+
+- ```rust
+  pub fn heavy() -> Self { /* ... */ }
+  ```
+  A heavy crude, 22 °API — near the lower edge of the correlations'
+
+- ```rust
+  pub fn oil_specific_gravity(self: &Self) -> f64 { /* ... */ }
+  ```
+  Stock-tank oil specific gravity (water = 1) from the API gravity.
+
+- ```rust
+  pub fn liquid_molar_mass_g_per_mol(self: &Self) -> f64 { /* ... */ }
+  ```
+  Apparent liquid molecular weight, g/mol, from the black-oil correlation.
+
+- ```rust
+  pub fn mean_normal_boiling_point_k(self: &Self) -> f64 { /* ... */ }
+  ```
+  Mean normal boiling point, K, from the black-oil correlation.
+
+- ```rust
+  pub fn bulk_assay(self: &Self) -> BulkAssay { /* ... */ }
+  ```
+  The bulk assay this crude implies — the bridge from black-oil
+
+- ```rust
+  pub fn pseudo_components(self: &Self, cut_count: usize) -> Result<Vec<PseudoComponent>, CharacterizationError> { /* ... */ }
+  ```
+  Cut this crude into `cut_count` pseudo-components.
+
+- ```rust
+  pub fn round_trip_api(self: &Self) -> f64 { /* ... */ }
+  ```
+  Round-trip check: the API gravity implied by this crude's own specific
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BlackOilCrude { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BlackOilCrude) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CrudeCut`
+
+The conventional atmospheric-crude cut slate, by normal boiling range.
+
+Boundaries are the customary refinery bands rather than anything this
+module derives — they exist so a caller can *label* a pseudo-component or a
+side draw, and so the tests can assert that a draw came out somewhere
+sensible. They are not specifications and no yield is fitted to them.
+
+```rust
+pub enum CrudeCut {
+    Gas,
+    Naphtha,
+    Kerosene,
+    Diesel,
+    AtmosphericGasOil,
+    Residue,
+}
+```
+
+##### Variants
+
+###### `Gas`
+
+Overhead gas and LPG, below ~305 K.
+
+###### `Naphtha`
+
+Light + heavy naphtha, ~305-450 K.
+
+###### `Kerosene`
+
+Kerosene / jet, ~450-530 K.
+
+###### `Diesel`
+
+Light gas oil / diesel, ~530-620 K.
+
+###### `AtmosphericGasOil`
+
+Atmospheric gas oil, ~620-700 K.
+
+###### `Residue`
+
+Atmospheric residue, above ~700 K — the vacuum tower's feed.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_normal_boiling_point_k(tb_k: f64) -> Self { /* ... */ }
+  ```
+  Which cut a normal boiling point falls in.
+
+- ```rust
+  pub fn boiling_band_k(self: Self) -> (f64, f64) { /* ... */ }
+  ```
+  The cut's conventional boiling band, K, as `(lower, upper)`.
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short label for a schematic or a table.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeCut { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeCut) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CrudeColumnConfig`
+
+Configuration for an atmospheric crude column.
+
+# What is modelled, and what is not
+
+This is a **reboiled** column with liquid side draws: a condenser at the
+top, a reboiler at the bottom, and product draws at the cut stages. Side
+draws are what make it a crude unit rather than a binary column — without
+them there is only an overhead and a bottoms, and no cut slate at all.
+
+**A real CDU is not reboiled.** It is a refluxed absorber stripped with
+open steam at the bottom, with pump-around circuits removing heat down the
+column. [`crate::columns::ColumnType::RefluxedAbsorber`] is reachable since
+2026-09-10 through [`RigorousColumn::refluxed_absorber`](crate::columns::initial_estimates::RigorousColumn::refluxed_absorber) (GitHub #103), but
+this module deliberately still builds a reboiled
+[`RigorousColumn::distillation`](crate::columns::initial_estimates::RigorousColumn::distillation) column, because the refluxed-absorber
+variant is **not yet physically solvable** in this port: the bubble-point
+solvers pin its distillate rate to the initial estimate and never enforce
+the bottom-stage energy balance, and Naphtali-Sandholm does not converge on
+it (both measured and recorded in that constructor's docs and in
+`columns::column_type_tests`). Switching the CDU over is solver work, not a
+builder change. The consequence is stated rather than hidden: this model has
+no stripping steam, no pump-arounds and no crude furnace, so its energy
+balance is not a refinery's. It resolves *where the cuts land*, which is
+what a teaching or scoping model is for.
+
+# Units
+
+Pressures Pa, flows mol/s, temperatures K — the crate's documented base
+units.
+
+```rust
+pub struct CrudeColumnConfig {
+    pub n_stages: usize,
+    pub feed_stage: usize,
+    pub pressure_pa: f64,
+    pub feed_flow_mol_s: f64,
+    pub reflux_ratio: f64,
+    pub bottoms_fraction: f64,
+    pub side_draws: Vec<(usize, f64)>,
+    pub residue_cut_point_k: f64,
+    pub package: crate::thermo::property_package::PropertyPackageModel,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_stages` | `usize` | Total stage count, including condenser (index 0) and reboiler (last). |
+| `feed_stage` | `usize` | Stage the crude enters on, counted from the condenser. |
+| `pressure_pa` | `f64` | Column pressure \[Pa\], uniform on every stage. An atmospheric unit runs<br>slightly above ambient; the default is 1.2 bar absolute. |
+| `feed_flow_mol_s` | `f64` | Crude feed rate \[mol/s\]. |
+| `reflux_ratio` | `f64` | External reflux ratio \[-\]. |
+| `bottoms_fraction` | `f64` | Column bottoms rate as a **fraction of the column feed** — the residue<br>that reaches the bottom having actually entered the column. The reported<br>residue product is this plus the bypassed heavy end. |
+| `side_draws` | `Vec<(usize, f64)>` | Liquid side draws as `(stage, fraction of column feed)`, ordered top to<br>bottom. These are the product cuts.<br><br>**A fraction, not an absolute rate, and that matters.** The column's<br>feed is the crude *minus* whatever bypasses above<br>[`Self::residue_cut_point_k`], so it is not known until the crude has<br>been characterised. Fixed absolute draws silently become oversized when<br>the bypass is large — which produced a non-physical profile the first<br>time this was built: draws of 0.15 mol/s against an internal reflux of<br>0.10 mol/s drain the column above the feed, and the temperature dips.<br><br>Keep the total comfortably below `reflux_ratio / (1 + reflux_ratio)` of<br>the feed, or there is not enough internal liquid to draw from. |
+| `residue_cut_point_k` | `f64` | Normal-boiling cut point \[K\] above which a pseudo-component bypasses<br>the column entirely and reports straight to the residue.<br><br># Why this exists, and why it is physics rather than a solver dodge<br><br>An atmospheric column **cannot distil its own heavy end**. The<br>pseudo-components a real crude generates run past 800 K normal boiling<br>point, and at ~1.2 bar those simply never vaporise — which is precisely<br>why a refinery sends atmospheric residue to a *vacuum* tower rather than<br>trying harder in the CDU. Feeding that material to the fractionator asks<br>the solver to separate something that has no vapour phase to separate<br>into.<br><br>Measured on this crate's own solver, 38 °API reference crude, 10<br>pseudo-components, Wang-Henke. Re-measured on `PengRobinson1978` after<br>the cubic path was fixed in `44a2001339`; the original ideal-K figures<br>are kept beside them because the *change in failure mode* is the<br>interesting part.<br><br>| cut point | `PengRobinson1978` | ideal K (superseded) |<br>|---|---|---|<br>| 560 K | monotonic, 28 it, 8.8e-7 | monotonic, 28 it |<br>| 650 K | monotonic, 37 it, 6.6e-7 | monotonic, 31 it |<br>| 700 K | monotonic, 37 it, 6.6e-7 | monotonic, 32 it |<br>| none | **`NotConverged`** after 100 it, error 5.9e-3 | **converged but non-monotonic**, 79 it |<br><br>So the heavy bypass is still required — it was never merely a numerical<br>workaround — but the failure without it is now *honest*. On ideal<br>K-values the solver returned a converged-looking answer with a<br>physically impossible profile; on PR78 it reports `NotConverged` and<br>refuses. Failing loudly is the better behaviour, and it is worth knowing<br>that the cubic path gives it.<br><br>The heavy bypass is what makes the column solvable *and* what makes<br>it right. The bypassed fraction is not discarded — it is added to the<br>bottoms product, so the overall material balance still closes on the<br>whole crude. |
+| `package` | `crate::thermo::property_package::PropertyPackageModel` | Thermodynamic package the column solve runs on.<br><br>Defaults to [`PropertyPackageModel::PengRobinson1978`]: a cubic EOS is<br>the right model for a hydrocarbon mixture, and the 1978 α-slope<br>correlation is the one that stays valid past `ω = 0.49`, which a<br>crude's heavier pseudo-components routinely exceed.<br><br>[`PropertyPackageModel::Ideal`] remains available and is much faster;<br>it is adequate for scoping and teaching and not for quantitative work. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn atmospheric_default() -> Self { /* ... */ }
+  ```
+  A 12-stage atmospheric column with three side draws, sized for the
+
+- ```rust
+  pub fn total_side_draw_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total side-draw fraction of the column feed \[-\].
+
+- ```rust
+  pub fn distillate_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  Fraction of the column feed leaving as overhead distillate \[-\]:
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), CrudeColumnError> { /* ... */ }
+  ```
+  Whether the configuration is self-consistent enough to solve: at least
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeColumnConfig { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeColumnConfig) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CrudeColumnError`
+
+Why a crude-column configuration could not be built or solved.
+
+```rust
+pub enum CrudeColumnError {
+    TooFewStages(usize),
+    FeedStageOutOfRange {
+        stage: usize,
+        n_stages: usize,
+    },
+    DrawStageOutOfRange {
+        stage: usize,
+        n_stages: usize,
+    },
+    NonPhysicalDrawRate {
+        stage: usize,
+        rate: f64,
+    },
+    OverdrawnFeed {
+        feed: f64,
+        withdrawn: f64,
+    },
+    Characterisation(String),
+    Solve(String),
+}
+```
+
+##### Variants
+
+###### `TooFewStages`
+
+Fewer than three stages — there is no interior to draw from.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `FeedStageOutOfRange`
+
+Feed stage is the condenser or past the reboiler.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stage` | `usize` | The offending stage index. |
+| `n_stages` | `usize` | Total stages configured. |
+
+###### `DrawStageOutOfRange`
+
+A side draw was placed on the condenser or the reboiler.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stage` | `usize` | The offending stage index. |
+| `n_stages` | `usize` | Total stages configured. |
+
+###### `NonPhysicalDrawRate`
+
+A draw rate was negative or non-finite.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stage` | `usize` | The offending stage index. |
+| `rate` | `f64` | The offending rate. |
+
+###### `OverdrawnFeed`
+
+Draws plus bottoms exceed the feed, leaving no distillate.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `feed` | `f64` | Feed rate. |
+| `withdrawn` | `f64` | Total withdrawn below the condenser. |
+
+###### `Characterisation`
+
+The crude could not be characterised into pseudo-components.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Solve`
+
+The MESH solver did not converge, or the estimates could not be built.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeColumnError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeColumnError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CutResult`
+
+One converged product cut.
+
+```rust
+pub struct CutResult {
+    pub stage: usize,
+    pub flow_mol_s: f64,
+    pub temperature_k: f64,
+    pub cut: CrudeCut,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `stage` | `usize` | Stage the product leaves from (`0` = overhead distillate). |
+| `flow_mol_s` | `f64` | Draw rate \[mol/s\]. |
+| `temperature_k` | `f64` | Converged stage temperature \[K\]. |
+| `cut` | `CrudeCut` | Which conventional cut this draw's temperature places it in. A<br>*label*, assigned after the fact from [`CrudeCut::from_normal_boiling_point_k`];<br>nothing in the solve is constrained to hit it. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CutResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CutResult) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CrudeColumnResult`
+
+A converged atmospheric crude column.
+
+```rust
+pub struct CrudeColumnResult {
+    pub cuts: Vec<CutResult>,
+    pub stage_temperatures_k: Vec<f64>,
+    pub iterations: usize,
+    pub final_error: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `cuts` | `Vec<CutResult>` | Products, ordered top to bottom: distillate, then the side draws, then<br>the bottoms residue. |
+| `stage_temperatures_k` | `Vec<f64>` | Converged stage temperatures \[K\], condenser first. |
+| `iterations` | `usize` | Inner iterations the solver took. |
+| `final_error` | `f64` | Final solver error. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_product_mol_s(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total product rate \[mol/s\] — should equal the feed.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeColumnResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeColumnResult) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CrudeColumnSetup`
+
+Everything a crude column run needs, assembled from a black-oil
+characterisation: the solver input plus the flows the caller has to add
+back to close the balance on the whole crude.
+
+Shared by [`solve_crude_column`] (a steady solve) and
+[`CrudePlant`](crate::petroleum::crude_plant::CrudePlant) (a transient
+one), so the two cannot drift apart in how they set a column up.
+
+```rust
+pub struct CrudeColumnSetup {
+    pub input: crate::columns::model::ColumnSolverInput,
+    pub draw_rates: Vec<(usize, f64)>,
+    pub column_distillate_mol_s: f64,
+    pub bottoms_mol_s: f64,
+    pub bypass_mol_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `input` | `crate::columns::model::ColumnSolverInput` | The assembled column, ready for any solver or the dynamic model. |
+| `draw_rates` | `Vec<(usize, f64)>` | `(stage, rate)` \[mol/s\] for each side draw, in config order. |
+| `column_distillate_mol_s` | `f64` | Overhead distillate leaving the column \[mol/s\]. |
+| `bottoms_mol_s` | `f64` | Bottoms leaving the column \[mol/s\], excluding the bypass. |
+| `bypass_mol_s` | `f64` | Heavy end that never entered the column and reports straight to<br>residue \[mol/s\]. See [`CrudeColumnConfig::residue_cut_point_k`]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeColumnSetup { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `crude_column_setup`
+
+Assemble a crude column from a black-oil characterisation without solving
+it.
+
+`cut_count` is how finely the crude is cut into pseudo-components.
+
+# Errors
+
+[`CrudeColumnError`] on an invalid configuration, a characterisation
+failure, or a light end too small to fractionate.
+
+```rust
+pub fn crude_column_setup(crude: &BlackOilCrude, config: &CrudeColumnConfig, cut_count: usize) -> Result<CrudeColumnSetup, CrudeColumnError> { /* ... */ }
+```
+
+#### Function `solve_crude_column`
+
+Solve an atmospheric crude column for `crude` under `config`.
+
+# What happens
+
+1. The black-oil spec is characterised into `cut_count` pseudo-components
+   ([`BlackOilCrude::pseudo_components`]).
+2. Those become the column's component list, with the crude entering as a
+   saturated liquid on `config.feed_stage`.
+3. Liquid side draws are placed per `config.side_draws`.
+4. The rigorous MESH solver runs with a reflux-ratio spec at the top and a
+   bottoms-rate spec at the bottom.
+
+# Arguments
+
+- `crude` — the black-oil characterisation of the feed.
+- `config` — column geometry, pressure and draw rates.
+- `cut_count` — pseudo-components to characterise into. More resolves the
+  cuts better and costs solve time; 8-12 is the usual range.
+
+# Returns
+
+A [`CrudeColumnResult`], or [`CrudeColumnError`] if the configuration is
+inconsistent, the crude cannot be characterised, or the MESH solve fails to
+converge.
+
+# This is not a validated yield prediction
+
+The cut labels are assigned from converged draw *temperatures* after the
+fact; nothing constrains a draw to land in a given band. The pseudo-component
+slate is a distribution assumption from bulk properties, not a measured
+assay. Treat the output as a scoping calculation.
+
+```rust
+pub fn solve_crude_column(crude: &BlackOilCrude, config: &CrudeColumnConfig, cut_count: usize) -> Result<CrudeColumnResult, CrudeColumnError> { /* ... */ }
+```
+
+## Module `crude_plant`
+
+**Headless crude-distillation plant** — the transient CDU model, with no
+GUI attached.
+
+[`crate::petroleum::crude_distillation`] gives a *steady* crude column:
+characterise a black oil, cut it into pseudo-components, solve the MESH
+system once, read the cuts. This module is the same column run forward in
+time — [`CrudePlant`] wraps
+[`DynamicColumn`](crate::columns::dynamic::DynamicColumn) so an operator (or
+a GUI, or a test) can move the reflux ratio and reboiler duty and watch the
+cuts respond.
+
+The plant lives here, with the physics, rather than inside a simulator
+example: a model that only exists in an example is reachable from nothing
+else. The GUI counterpart is
+`outram-park-digital-twin-engine`'s `components::DistillationColumnVisual`,
+which draws a [`CrudeSnapshot`] and computes nothing itself.
+
+```no_run
+use outram_park_fork_dwsim_libs::petroleum::crude_distillation::{
+    BlackOilCrude, CrudeColumnConfig,
+};
+use outram_park_fork_dwsim_libs::petroleum::crude_plant::{CrudePlant, CrudeCommands};
+
+let mut plant = CrudePlant::new(
+    &BlackOilCrude::light_sweet(),
+    &CrudeColumnConfig::atmospheric_default(),
+    8,
+)?;
+for _ in 0..100 {
+    plant.step(CrudeCommands::from_plant(&plant))?;
+}
+let snap = plant.snapshot()?;
+println!("{:.1} K at the top", snap.stage_temperature_k[0]);
+# Ok::<(), outram_park_fork_dwsim_libs::petroleum::crude_distillation::CrudeColumnError>(())
+```
+
+> **⚠️ Untrusted AI-assisted draft — no human V&V.** The transient model is
+> the one validated for a benzene/toluene column under bead `op-6rhz`; it
+> has *not* been validated against dynamic crude-unit data, and neither the
+> cut yields nor their response to a control move should be read as
+> quantitative. Not for operational, licensing, or safety use.
+
+```rust
+pub mod crude_plant { /* ... */ }
+```
+
+### Types
+
+#### Struct `CrudeCommands`
+
+Operator-manipulated inputs to the crude column.
+
+```rust
+pub struct CrudeCommands {
+    pub reflux_ratio: f64,
+    pub reboiler_duty_watts: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `reflux_ratio` | `f64` | Reflux ratio `R = L_0 / D` \[-\], `> 0`. |
+| `reboiler_duty_watts` | `f64` | Reboiler heat duty \[W\], `> 0`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_plant(plant: &CrudePlant) -> Self { /* ... */ }
+  ```
+  The operating point the plant was built at — the configured reflux
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeCommands { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeCommands) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CrudeSnapshot`
+
+A GUI-facing readout of the plant. Plain data: everything here is read off
+the model, nothing is computed by the consumer.
+
+```rust
+pub struct CrudeSnapshot {
+    pub n_stages: usize,
+    pub stage_temperature_k: Vec<f64>,
+    pub stage_holdup_mol: Vec<f64>,
+    pub liquid_flow_mol_s: Vec<f64>,
+    pub vapor_flow_mol_s: Vec<f64>,
+    pub lightest_liquid_fraction: Vec<f64>,
+    pub distillate_mol_s: f64,
+    pub bottoms_mol_s: f64,
+    pub cuts: Vec<(usize, f64, crate::petroleum::crude_distillation::CrudeCut)>,
+    pub sim_time_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_stages` | `usize` | Number of stages, stage 0 = condenser. |
+| `stage_temperature_k` | `Vec<f64>` | Per-stage temperature \[K\], top first. |
+| `stage_holdup_mol` | `Vec<f64>` | Per-stage liquid molar holdup \[mol\]. |
+| `liquid_flow_mol_s` | `Vec<f64>` | Per-stage liquid flow \[mol/s\]. |
+| `vapor_flow_mol_s` | `Vec<f64>` | Per-stage vapour flow \[mol/s\]. |
+| `lightest_liquid_fraction` | `Vec<f64>` | Mole fraction of the lightest pseudo-component in each stage's liquid<br>\[-\] — the crude analogue of a light-key profile. |
+| `distillate_mol_s` | `f64` | Overhead distillate \[mol/s\]. |
+| `bottoms_mol_s` | `f64` | Column bottoms \[mol/s\], excluding the bypassed heavy end. |
+| `cuts` | `Vec<(usize, f64, crate::petroleum::crude_distillation::CrudeCut)>` | `(stage, rate [mol/s], cut)` for every side draw, plus the overhead and<br>the residue, in top-to-bottom order. The cut label comes from the<br>*current* draw temperature, so it moves as the column does. |
+| `sim_time_s` | `f64` | Accumulated simulation time \[s\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CrudeSnapshot { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> CrudeSnapshot { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CrudeSnapshot) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `CrudePlant`
+
+The crude-distillation plant: a dynamic column, its differential state, and
+the operating point it was last built with.
+
+```rust
+pub struct CrudePlant {
+    pub sim_time_s: f64,
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sim_time_s` | `f64` | Accumulated simulation time \[s\]. |
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(crude: &BlackOilCrude, config: &CrudeColumnConfig, cut_count: usize) -> Result<Self, CrudeColumnError> { /* ... */ }
+  ```
+  Build the plant from a black-oil crude and a column configuration,
+
+- ```rust
+  pub fn with_inventory(crude: &BlackOilCrude, config: &CrudeColumnConfig, cut_count: usize, tray_tau_s: f64, vessel_holdup_mol: f64) -> Result<Self, CrudeColumnError> { /* ... */ }
+  ```
+  As [`Self::new`], with the tray residence time \[s\] and end-vessel
+
+- ```rust
+  pub fn step(self: &mut Self, commands: CrudeCommands) -> Result<(), CrudeColumnError> { /* ... */ }
+  ```
+  Advance the plant by [`SUBSTEPS_PER_STEP`] RK4 steps under `commands`.
+
+- ```rust
+  pub fn snapshot(self: &Self) -> Result<CrudeSnapshot, CrudeColumnError> { /* ... */ }
+  ```
+  Read the current state out as plain data.
+
+- ```rust
+  pub fn operating(self: &Self) -> DynamicColumnOperating { /* ... */ }
+  ```
+  The operating point currently in force.
+
+- ```rust
+  pub fn side_draw_stages(self: &Self) -> Vec<(usize, f64)> { /* ... */ }
+  ```
+  Stages the column draws side products from, with a label for each —
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `steady_reboiler_duty_watts`
+
+The reboiler duty this column runs at in **steady** state \[W\].
+
+Derived, not chosen: solve the same column steady and read the duty its own
+energy balance requires. Starting the transient anywhere else means the
+plant's first act is to drift away from the configuration that was solved,
+and an invented duty is exactly what left the startup state with a negative
+energy-balance denominator when this module was first written.
+
+# Errors
+
+[`CrudeColumnError`] if the steady column does not solve.
+
+```rust
+pub fn steady_reboiler_duty_watts(crude: &crate::petroleum::crude_distillation::BlackOilCrude, config: &crate::petroleum::crude_distillation::CrudeColumnConfig, cut_count: usize) -> Result<f64, crate::petroleum::crude_distillation::CrudeColumnError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `RK4_DT_S`
+
+RK4 step \[s\]. Matches the benzene plant's step: the same integrator on the
+same model, so the two behave comparably per tick.
+
+```rust
+pub const RK4_DT_S: f64 = 0.25;
+```
+
+#### Constant `SUBSTEPS_PER_STEP`
+
+RK4 sub-steps per [`CrudePlant::step`]. At a ~100 ms GUI cadence this runs
+the plant at roughly 20x real time.
+
+```rust
+pub const SUBSTEPS_PER_STEP: usize = 20;
+```
+
+#### Constant `TRAY_TAU_S`
+
+Hydraulic residence time of an interior tray \[s\].
+
+A crude unit's trays hold more than a laboratory splitter's; 90 s is a
+plausible large-column value and is **not** fitted to anything.
+
+```rust
+pub const TRAY_TAU_S: f64 = 90.0;
+```
+
+#### Constant `VESSEL_HOLDUP_MOL`
+
+Condenser-drum and reboiler-sump molar holdups \[mol\].
+
+```rust
+pub const VESSEL_HOLDUP_MOL: f64 = 400.0;
+```
+
 ## Module `fitting`
 
 Post-characterization **parameter fitting**: nudge each pseudo-component's
@@ -38114,7 +39659,7 @@ pub struct ParameterFitOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38533,7 +40078,7 @@ pub struct BulkCharacterizationOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38673,7 +40218,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -38772,7 +40317,7 @@ pub struct PropertyDistribution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39103,7 +40648,7 @@ pub struct FormationProperties {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39397,7 +40942,7 @@ pub enum LmModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39528,7 +41073,7 @@ model produced non-finite residuals (upstream's `iflag = -1` guard,
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39629,7 +41174,7 @@ pub struct LmResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39738,7 +41283,7 @@ pub struct LmOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -39895,7 +41440,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -40927,7 +42472,7 @@ Farah (2006) API A/B four-parameter form —
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41057,7 +42602,7 @@ Farah (2006) API A/B four-parameter form —
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41175,7 +42720,7 @@ Korsten (2000) — [`property_methods::acentric_factor_korsten`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41300,7 +42845,7 @@ Lee-Kesler (1974) — [`property_methods::mw_lee_kesler`], for `Tb` below
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41418,7 +42963,7 @@ pub struct CorrelationSet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41562,7 +43107,7 @@ pub struct PseudoComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41688,7 +43233,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -41977,7 +43522,7 @@ density DWSIM reports. See the module warning.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42082,7 +43627,7 @@ pub struct QualityCheckEntry {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42202,7 +43747,7 @@ pub struct QualityCheckReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42471,7 +44016,7 @@ pub struct RiaziDistributionCut {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -42603,7 +44148,7 @@ so there is nothing to distribute.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43182,7 +44727,7 @@ Blended between [`Self::Segregated`] and [`Self::Intermittent`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43293,7 +44838,7 @@ pub struct BeggsBrillResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43491,7 +45036,7 @@ pub struct LockhartMartinelliResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43734,7 +45279,7 @@ pub struct PipeCell {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43875,7 +45420,7 @@ pub struct PipeFlowInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -43997,7 +45542,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44125,7 +45670,7 @@ Lockhart-Martinelli (1949) -- separated-flow two-phase multiplier.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44136,6 +45681,840 @@ Lockhart-Martinelli (1949) -- separated-flow two-phase multiplier.
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `prelude`
+
+The one import a new user needs: `use outram_park_fork_dwsim_libs::prelude::*;`
+
+This crate has 21 top-level modules and, until 2026-09-10, no re-exports at
+the root, so every call site had to know a full module path
+(`columns::initial_estimates::RigorousColumn`,
+`petroleum::crude_distillation::solve_crude_column`, …). The prelude is the
+curated answer to that — added for GitHub issues #70 and #75, after the #58
+dogfooding round found a missing prelude to be the single most predictive
+API defect across the seven crates tried.
+
+**This is a map, not an index.** It carries the *entry points* — the types
+you construct and the functions you call first — and deliberately leaves
+the long tail where it is, with a pointer. A prelude that re-exports
+everything is as unhelpful as none.
+
+# What is in it
+
+| Group | Names | Start here |
+|---|---|---|
+| **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::heavy(), &CrudeColumnConfig::atmospheric_default(), 12)` |
+| **Assay characterisation** | [`Assay`], [`BulkAssay`], [`CurveAssay`], [`characterize`], [`PseudoComponent`], [`CharacterizationError`] | `characterize(&Assay::Bulk(..), cut_count)` |
+| **Thermodynamics** | [`Component`], [`ComponentError`], [`mod@reference`] (preset compounds), [`PropertyPackageModel`], [`PropertyPackage`], [`FlashResult`], [`FlashError`], [`bubble_temperature`], [`dew_temperature`], [`SaturationState`], [`SaturationError`] | `PropertyPackageModel::PengRobinson1978.flash_pt(&components, &z, t, p)` |
+| **Rigorous MESH column** | [`RigorousColumn`] (four constructors: `distillation`, `absorption`, `reboiled_absorber`, `refluxed_absorber`), [`Stage`], [`ColumnSpec`], [`SpecType`], [`SpecBasis`], [`ColumnType`], [`CondenserType`], [`InitialEstimates`], [`ColumnSolverInput`], [`ColumnSolverOutput`], [`ColumnError`], [`ColumnSolverMethod`], [`WangHenkeSolver`], [`ModifiedWangHenkeSolver`], [`SumRatesSolver`], [`NaphtaliSandholmSolver`], [`ColumnThermo`], and the `uom` aliases [`StagePressure`], [`StageTemperature`], [`MolarFlowRate`], [`MolarEnthalpy`], [`StageHeatDuty`], [`StageEfficiency`] | `RigorousColumn::distillation(..).solver_input()?` then `ColumnSolverMethod::default().solve(&input)?` |
+| **Shortcut column (FUG)** | [`ShortcutColumn`], [`ShortcutFeed`], [`ShortcutCondenserType`], [`ShortcutColumnResult`], [`ShortcutColumnError`], [`UnderwoodMode`], [`ShortcutHeatDuty`] | `ShortcutColumn::new(..)` |
+| **Unit operations with a struct entry point** | [`Separator`], [`SeparatorFeed`], [`SeparatorMode`], [`SeparatorResult`], [`SeparatorError`], [`PhaseOutlet`]; [`InletStream`], [`PressureBehavior`], [`MixerOutlet`], [`MixerError`]; [`SplitSpec`], [`SplitResult`], [`SplitError`], [`OutletStream`], [`IntensiveState`]; [`PumpInlet`], [`PumpSpecification`], [`PumpResult`]; [`PipeFlowInputs`], [`PipeFlowCorrelation`], [`PipeFlowResult`] | the struct's own docs |
+| **Reactions & reactors** | [`Reaction`], [`ReactionComponent`], [`ReactionKind`], [`ReactionBasis`], [`ReactorModel`], [`ReactorFeed`], [`ReactorOutcome`], [`ReactorError`], [`ConversionReactor`], [`Cstr`], [`EquilibriumReactor`], [`GibbsReactor`], [`Pfr`] | `ReactorModel` |
+| **Clean energies** | [`CleanEnergyUnit`], [`CleanEnergyError`], [`WaterElectrolyzer`], [`PemFuelCell`], [`SolarPanel`], [`WindTurbine`], [`HydroelectricTurbine`] | `CleanEnergyUnit` |
+| **Units** | [`units`] — the `uom` unit markers this crate's public API takes (`katal` = mol/s, `pascal`, `kelvin`, `joule_per_mole`, `watt`, `ratio`, `gram_per_mole`, …), and [`uom`] itself | `MolarFlowRate::new::<units::katal>(1.0)` |
+
+# Units, spelled out
+
+Every public quantity is `uom`-typed at the boundary. The one that trips
+everybody: **molar flow is `MolarFlowRate::new::<katal>(mol_per_second)`** —
+`uom` 0.38 has no molar-flow-rate quantity, and the katal (catalytic
+activity) is dimensionally exactly mol/s. Pressure is `pascal`, temperature
+`kelvin`, molar enthalpy `joule_per_mole`, heat duty `watt` (see
+[`StageHeatDuty`] for the sign convention), efficiency and mole fraction
+`ratio`. The markers live in [`units`] so you do not need `uom` in your own
+`Cargo.toml`; [`uom`] is re-exported for anything else.
+
+# What is deliberately NOT in it, and where it is
+
+- **The flowsheet, solver and dynamics layers** ([`crate::flowsheet`],
+  [`crate::flowsheet_solver`], [`crate::dynamics`]). Each is a subsystem with
+  fifty-plus public names and its own `pub use` map at its module root;
+  importing it here would drown the physics entry points. Start from
+  [`crate::flowsheet::Flowsheet`] and
+  [`crate::flowsheet_solver::FlowsheetSolver`].
+- **Function-only unit-op modules** — [`crate::heater`], [`crate::cooler`],
+  [`crate::compressor`], [`crate::expander`], [`crate::valve`],
+  [`crate::heat_exchanger`]. They expose correlations as free functions with
+  generic names (`outlet_pressure`, `duty_constant_cp`, `consumed_power`),
+  which would collide with each other and with your own code under a glob
+  import. Call them by module path. For the same reason the mixer, splitter
+  and pump *functions* (`mixer::mix`, `splitter::split`,
+  `pump::modes::evaluate`) stay out while their *types* are in.
+- **The thermo kernel's internals** — cubic EOS roots, activity models
+  (UNIFAC, NRTL…), the electrolyte tier, the individual flash algorithms
+  (`flash_vlle`, `flash_sle`, inside-out…), stability analysis, transport
+  properties. [`PropertyPackageModel`] is the door to all of them; go to
+  [`crate::thermo`] when you need to open a specific one.
+- **Petroleum characterisation internals** — the individual property
+  correlations ([`crate::petroleum::riazi`], `property_methods`, `gl`,
+  `fitting`, `quality_check`). [`characterize`] and [`BlackOilCrude`] call
+  them; reach for [`crate::petroleum`]'s own re-exports to tune them.
+- **Solver-internal types** — [`crate::columns::StageProfile`], the
+  tridiagonal and root-finding kernels, [`crate::interpolation`]. Not user
+  entry points.
+- **Every `MolarFlowRate` but one.** [`crate::columns`], [`crate::separator`],
+  [`crate::splitter`] and [`crate::flowsheet::streams`] each alias the same
+  `uom` type under that name; re-exporting all four would be a name clash.
+  The prelude's [`MolarFlowRate`] is the columns one, and it is the same
+  type as the others.
+
+# Example — the whole crude workflow from this one import
+
+```
+use outram_park_fork_dwsim_libs::prelude::*;
+
+let crude = BlackOilCrude::heavy(); // 22 °API
+let config = CrudeColumnConfig::atmospheric_default(); // PengRobinson1978
+let result = solve_crude_column(&crude, &config, 12).expect("column converges");
+for cut in &result.cuts {
+    println!("{:>8}  {:.5} mol/s at {:.1} K", cut.cut.label(), cut.flow_mol_s, cut.temperature_k);
+}
+assert!((result.total_product_mol_s() - config.feed_flow_mol_s).abs() < 1e-9);
+```
+
+`examples/crude_column_from_prelude.rs` is the long form of that, readable
+top to bottom, and `tests/prelude_workflow.rs` proves it needs no other
+import.
+
+```rust
+pub mod prelude { /* ... */ }
+```
+
+### Modules
+
+## Module `units`
+
+The `uom` unit markers this crate's public API takes, in one place.
+
+Use as `MolarFlowRate::new::<units::katal>(1.0)` (1 mol/s),
+`StagePressure::new::<units::pascal>(101_325.0)`,
+`StageTemperature::new::<units::kelvin>(353.15)`,
+`MolarEnthalpy::new::<units::joule_per_mole>(-25_000.0)`,
+`StageHeatDuty::new::<units::watt>(0.0)`,
+`StageEfficiency::new::<units::ratio>(1.0)`.
+
+| Marker | Quantity | SI unit |
+|---|---|---|
+| [`katal`](units::katal) | [`MolarFlowRate`] (molar flow — the katal *is* mol/s) | mol/s |
+| [`pascal`](units::pascal), [`bar`](units::bar) | [`StagePressure`], `uom::si::f64::Pressure` | Pa |
+| [`kelvin`](units::kelvin), [`degree_celsius`](units::degree_celsius) | [`StageTemperature`], `uom::si::f64::ThermodynamicTemperature` | K |
+| [`joule_per_mole`](units::joule_per_mole) | [`MolarEnthalpy`], `uom::si::f64::MolarEnergy` | J/mol |
+| [`watt`](units::watt) | [`StageHeatDuty`], `uom::si::f64::Power` | W |
+| [`ratio`](units::ratio) | [`StageEfficiency`], mole fractions, specific gravity — `uom::si::f64::Ratio` | - |
+| [`gram_per_mole`](units::gram_per_mole), [`kilogram_per_mole`](units::kilogram_per_mole) | [`BulkAssay::molar_mass`], `uom::si::f64::MolarMass` | kg/mol |
+| [`kilogram_per_second`](units::kilogram_per_second) | `uom::si::f64::MassRate` (mixer, splitter, pump) | kg/s |
+| [`joule_per_kilogram`](units::joule_per_kilogram) | `uom::si::f64::AvailableEnergy` (specific enthalpy) | J/kg |
+| [`kilogram_per_cubic_meter`](units::kilogram_per_cubic_meter) | `uom::si::f64::MassDensity` | kg/m³ |
+| [`meter`](units::meter) | `uom::si::f64::Length` | m |
+| [`second`](units::second) | `uom::si::f64::Time` | s |
+
+```rust
+pub mod units { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `joule_per_kilogram`
+
+```rust
+pub use uom::si::available_energy::joule_per_kilogram;
+```
+
+#### Re-export `katal`
+
+```rust
+pub use uom::si::catalytic_activity::katal;
+```
+
+#### Re-export `meter`
+
+```rust
+pub use uom::si::length::meter;
+```
+
+#### Re-export `kilogram_per_cubic_meter`
+
+```rust
+pub use uom::si::mass_density::kilogram_per_cubic_meter;
+```
+
+#### Re-export `kilogram_per_second`
+
+```rust
+pub use uom::si::mass_rate::kilogram_per_second;
+```
+
+#### Re-export `joule_per_mole`
+
+```rust
+pub use uom::si::molar_energy::joule_per_mole;
+```
+
+#### Re-export `gram_per_mole`
+
+```rust
+pub use uom::si::molar_mass::gram_per_mole;
+```
+
+#### Re-export `kilogram_per_mole`
+
+```rust
+pub use uom::si::molar_mass::kilogram_per_mole;
+```
+
+#### Re-export `watt`
+
+```rust
+pub use uom::si::power::watt;
+```
+
+#### Re-export `bar`
+
+```rust
+pub use uom::si::pressure::bar;
+```
+
+#### Re-export `pascal`
+
+```rust
+pub use uom::si::pressure::pascal;
+```
+
+#### Re-export `ratio`
+
+```rust
+pub use uom::si::ratio::ratio;
+```
+
+#### Re-export `degree_celsius`
+
+```rust
+pub use uom::si::thermodynamic_temperature::degree_celsius;
+```
+
+#### Re-export `kelvin`
+
+```rust
+pub use uom::si::thermodynamic_temperature::kelvin;
+```
+
+#### Re-export `second`
+
+```rust
+pub use uom::si::time::second;
+```
+
+### Re-exports
+
+#### Re-export `crude_column_setup`
+
+```rust
+pub use crate::petroleum::crude_distillation::crude_column_setup;
+```
+
+#### Re-export `solve_crude_column`
+
+```rust
+pub use crate::petroleum::crude_distillation::solve_crude_column;
+```
+
+#### Re-export `BlackOilCrude`
+
+```rust
+pub use crate::petroleum::crude_distillation::BlackOilCrude;
+```
+
+#### Re-export `CrudeColumnConfig`
+
+```rust
+pub use crate::petroleum::crude_distillation::CrudeColumnConfig;
+```
+
+#### Re-export `CrudeColumnError`
+
+```rust
+pub use crate::petroleum::crude_distillation::CrudeColumnError;
+```
+
+#### Re-export `CrudeColumnResult`
+
+```rust
+pub use crate::petroleum::crude_distillation::CrudeColumnResult;
+```
+
+#### Re-export `CrudeColumnSetup`
+
+```rust
+pub use crate::petroleum::crude_distillation::CrudeColumnSetup;
+```
+
+#### Re-export `CrudeCut`
+
+```rust
+pub use crate::petroleum::crude_distillation::CrudeCut;
+```
+
+#### Re-export `CutResult`
+
+```rust
+pub use crate::petroleum::crude_distillation::CutResult;
+```
+
+#### Re-export `CrudeCommands`
+
+```rust
+pub use crate::petroleum::crude_plant::CrudeCommands;
+```
+
+#### Re-export `CrudePlant`
+
+```rust
+pub use crate::petroleum::crude_plant::CrudePlant;
+```
+
+#### Re-export `CrudeSnapshot`
+
+```rust
+pub use crate::petroleum::crude_plant::CrudeSnapshot;
+```
+
+#### Re-export `characterize`
+
+```rust
+pub use crate::petroleum::characterize;
+```
+
+#### Re-export `Assay`
+
+```rust
+pub use crate::petroleum::Assay;
+```
+
+#### Re-export `BulkAssay`
+
+```rust
+pub use crate::petroleum::BulkAssay;
+```
+
+#### Re-export `CharacterizationError`
+
+```rust
+pub use crate::petroleum::CharacterizationError;
+```
+
+#### Re-export `CurveAssay`
+
+```rust
+pub use crate::petroleum::CurveAssay;
+```
+
+#### Re-export `PseudoComponent`
+
+```rust
+pub use crate::petroleum::PseudoComponent;
+```
+
+#### Re-export `reference`
+
+```rust
+pub use crate::thermo::component::reference;
+```
+
+#### Re-export `Component`
+
+```rust
+pub use crate::thermo::component::Component;
+```
+
+#### Re-export `ComponentError`
+
+```rust
+pub use crate::thermo::component::ComponentError;
+```
+
+#### Re-export `FlashError`
+
+```rust
+pub use crate::thermo::flash::FlashError;
+```
+
+#### Re-export `FlashResult`
+
+```rust
+pub use crate::thermo::flash::FlashResult;
+```
+
+#### Re-export `PropertyPackage`
+
+```rust
+pub use crate::thermo::property_package::PropertyPackage;
+```
+
+#### Re-export `PropertyPackageModel`
+
+```rust
+pub use crate::thermo::property_package::PropertyPackageModel;
+```
+
+#### Re-export `bubble_temperature`
+
+```rust
+pub use crate::thermo::saturation::bubble_temperature;
+```
+
+#### Re-export `dew_temperature`
+
+```rust
+pub use crate::thermo::saturation::dew_temperature;
+```
+
+#### Re-export `SaturationError`
+
+```rust
+pub use crate::thermo::saturation::SaturationError;
+```
+
+#### Re-export `SaturationState`
+
+```rust
+pub use crate::thermo::saturation::SaturationState;
+```
+
+#### Re-export `WangHenkeSolver`
+
+```rust
+pub use crate::columns::bubble_point::WangHenkeSolver;
+```
+
+#### Re-export `ModifiedWangHenkeSolver`
+
+```rust
+pub use crate::columns::bubble_point2::ModifiedWangHenkeSolver;
+```
+
+#### Re-export `RigorousColumn`
+
+```rust
+pub use crate::columns::initial_estimates::RigorousColumn;
+```
+
+#### Re-export `NaphtaliSandholmSolver`
+
+```rust
+pub use crate::columns::newton_raphson::NaphtaliSandholmSolver;
+```
+
+#### Re-export `SumRatesSolver`
+
+```rust
+pub use crate::columns::sum_rates::SumRatesSolver;
+```
+
+#### Re-export `ColumnThermo`
+
+```rust
+pub use crate::columns::thermo_bridge::ColumnThermo;
+```
+
+#### Re-export `ColumnError`
+
+```rust
+pub use crate::columns::ColumnError;
+```
+
+#### Re-export `ColumnSolverInput`
+
+```rust
+pub use crate::columns::ColumnSolverInput;
+```
+
+#### Re-export `ColumnSolverMethod`
+
+```rust
+pub use crate::columns::ColumnSolverMethod;
+```
+
+#### Re-export `ColumnSolverOutput`
+
+```rust
+pub use crate::columns::ColumnSolverOutput;
+```
+
+#### Re-export `ColumnSpec`
+
+```rust
+pub use crate::columns::ColumnSpec;
+```
+
+#### Re-export `ColumnType`
+
+```rust
+pub use crate::columns::ColumnType;
+```
+
+#### Re-export `CondenserType`
+
+```rust
+pub use crate::columns::CondenserType;
+```
+
+#### Re-export `InitialEstimates`
+
+```rust
+pub use crate::columns::InitialEstimates;
+```
+
+#### Re-export `MolarEnthalpy`
+
+```rust
+pub use crate::columns::MolarEnthalpy;
+```
+
+#### Re-export `MolarFlowRate`
+
+```rust
+pub use crate::columns::MolarFlowRate;
+```
+
+#### Re-export `SpecBasis`
+
+```rust
+pub use crate::columns::SpecBasis;
+```
+
+#### Re-export `SpecType`
+
+```rust
+pub use crate::columns::SpecType;
+```
+
+#### Re-export `Stage`
+
+```rust
+pub use crate::columns::Stage;
+```
+
+#### Re-export `StageEfficiency`
+
+```rust
+pub use crate::columns::StageEfficiency;
+```
+
+#### Re-export `StageHeatDuty`
+
+```rust
+pub use crate::columns::StageHeatDuty;
+```
+
+#### Re-export `StagePressure`
+
+```rust
+pub use crate::columns::StagePressure;
+```
+
+#### Re-export `StageTemperature`
+
+```rust
+pub use crate::columns::StageTemperature;
+```
+
+#### Re-export `ShortcutColumn`
+
+```rust
+pub use crate::columns::ShortcutColumn;
+```
+
+#### Re-export `ShortcutColumnError`
+
+```rust
+pub use crate::columns::ShortcutColumnError;
+```
+
+#### Re-export `ShortcutColumnResult`
+
+```rust
+pub use crate::columns::ShortcutColumnResult;
+```
+
+#### Re-export `ShortcutCondenserType`
+
+```rust
+pub use crate::columns::ShortcutCondenserType;
+```
+
+#### Re-export `ShortcutFeed`
+
+```rust
+pub use crate::columns::ShortcutFeed;
+```
+
+#### Re-export `ShortcutHeatDuty`
+
+```rust
+pub use crate::columns::ShortcutHeatDuty;
+```
+
+#### Re-export `UnderwoodMode`
+
+```rust
+pub use crate::columns::UnderwoodMode;
+```
+
+#### Re-export `InletStream`
+
+```rust
+pub use crate::mixer::InletStream;
+```
+
+#### Re-export `MixerError`
+
+```rust
+pub use crate::mixer::MixerError;
+```
+
+#### Re-export `MixerOutlet`
+
+```rust
+pub use crate::mixer::MixerOutlet;
+```
+
+#### Re-export `PressureBehavior`
+
+```rust
+pub use crate::mixer::PressureBehavior;
+```
+
+#### Re-export `PipeFlowCorrelation`
+
+```rust
+pub use crate::pipe::PipeFlowCorrelation;
+```
+
+#### Re-export `PipeFlowInputs`
+
+```rust
+pub use crate::pipe::PipeFlowInputs;
+```
+
+#### Re-export `PipeFlowResult`
+
+```rust
+pub use crate::pipe::PipeFlowResult;
+```
+
+#### Re-export `PumpInlet`
+
+```rust
+pub use crate::pump::modes::PumpInlet;
+```
+
+#### Re-export `PumpResult`
+
+```rust
+pub use crate::pump::modes::PumpResult;
+```
+
+#### Re-export `PumpSpecification`
+
+```rust
+pub use crate::pump::modes::PumpSpecification;
+```
+
+#### Re-export `PhaseOutlet`
+
+```rust
+pub use crate::separator::PhaseOutlet;
+```
+
+#### Re-export `Separator`
+
+```rust
+pub use crate::separator::Separator;
+```
+
+#### Re-export `SeparatorError`
+
+```rust
+pub use crate::separator::SeparatorError;
+```
+
+#### Re-export `SeparatorFeed`
+
+```rust
+pub use crate::separator::SeparatorFeed;
+```
+
+#### Re-export `SeparatorMode`
+
+```rust
+pub use crate::separator::SeparatorMode;
+```
+
+#### Re-export `SeparatorResult`
+
+```rust
+pub use crate::separator::SeparatorResult;
+```
+
+#### Re-export `IntensiveState`
+
+```rust
+pub use crate::splitter::IntensiveState;
+```
+
+#### Re-export `OutletStream`
+
+```rust
+pub use crate::splitter::OutletStream;
+```
+
+#### Re-export `SplitError`
+
+```rust
+pub use crate::splitter::SplitError;
+```
+
+#### Re-export `SplitResult`
+
+```rust
+pub use crate::splitter::SplitResult;
+```
+
+#### Re-export `SplitSpec`
+
+```rust
+pub use crate::splitter::SplitSpec;
+```
+
+#### Re-export `Reaction`
+
+```rust
+pub use crate::reactions::Reaction;
+```
+
+#### Re-export `ReactionBasis`
+
+```rust
+pub use crate::reactions::ReactionBasis;
+```
+
+#### Re-export `ReactionComponent`
+
+```rust
+pub use crate::reactions::ReactionComponent;
+```
+
+#### Re-export `ReactionKind`
+
+```rust
+pub use crate::reactions::ReactionKind;
+```
+
+#### Re-export `ConversionReactor`
+
+```rust
+pub use crate::reactors::ConversionReactor;
+```
+
+#### Re-export `Cstr`
+
+```rust
+pub use crate::reactors::Cstr;
+```
+
+#### Re-export `EquilibriumReactor`
+
+```rust
+pub use crate::reactors::EquilibriumReactor;
+```
+
+#### Re-export `GibbsReactor`
+
+```rust
+pub use crate::reactors::GibbsReactor;
+```
+
+#### Re-export `Pfr`
+
+```rust
+pub use crate::reactors::Pfr;
+```
+
+#### Re-export `ReactorError`
+
+```rust
+pub use crate::reactors::ReactorError;
+```
+
+#### Re-export `ReactorFeed`
+
+```rust
+pub use crate::reactors::ReactorFeed;
+```
+
+#### Re-export `ReactorModel`
+
+```rust
+pub use crate::reactors::ReactorModel;
+```
+
+#### Re-export `ReactorOutcome`
+
+```rust
+pub use crate::reactors::ReactorOutcome;
+```
+
+#### Re-export `CleanEnergyError`
+
+```rust
+pub use crate::clean_energies::CleanEnergyError;
+```
+
+#### Re-export `CleanEnergyUnit`
+
+```rust
+pub use crate::clean_energies::CleanEnergyUnit;
+```
+
+#### Re-export `HydroelectricTurbine`
+
+```rust
+pub use crate::clean_energies::HydroelectricTurbine;
+```
+
+#### Re-export `PemFuelCell`
+
+```rust
+pub use crate::clean_energies::PemFuelCell;
+```
+
+#### Re-export `SolarPanel`
+
+```rust
+pub use crate::clean_energies::SolarPanel;
+```
+
+#### Re-export `WaterElectrolyzer`
+
+```rust
+pub use crate::clean_energies::WaterElectrolyzer;
+```
+
+#### Re-export `WindTurbine`
+
+```rust
+pub use crate::clean_energies::WindTurbine;
+```
+
+#### Re-export `uom`
+
+The `uom` crate this library is built against, re-exported so a caller does
+not have to add it (at exactly the same version) to their own `Cargo.toml`
+to construct the quantities the public API takes.
+
+```rust
+pub use uom;
+```
+
 ## Module `pump`
 
 Pump duty/pressure-rise calculation, and net positive suction head (NPSH).
@@ -44261,7 +46640,7 @@ pub struct PumpInlet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44402,7 +46781,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44504,7 +46883,7 @@ pub struct PumpResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44767,7 +47146,7 @@ placeholder here — see the type-level note).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -44919,7 +47298,7 @@ Partial pressure `pᵢ = yᵢ P` [Pa].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45037,7 +47416,7 @@ pub struct ReactionComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45197,7 +47576,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45339,7 +47718,7 @@ pub struct AdsorptionTerm {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45472,7 +47851,7 @@ pub struct LangmuirHinshelwood {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45669,7 +48048,7 @@ pub struct Reaction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -45882,7 +48261,7 @@ pub struct ConversionReactor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46034,7 +48413,7 @@ pub struct Cstr {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46186,7 +48565,7 @@ pub struct EquilibriumReactor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46408,7 +48787,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46542,7 +48921,7 @@ pub struct GibbsReactor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46689,7 +49068,7 @@ pub struct Pfr {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46809,7 +49188,7 @@ pub struct ReactorFeed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -46915,7 +49294,7 @@ pub struct ReactorOutcome {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47043,7 +49422,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47200,7 +49579,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47488,7 +49867,7 @@ pub struct SeparatorFeed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47608,7 +49987,7 @@ the feed enthalpy (DWSIM `Adiabatic`, Vessel.vb:793-818).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47711,7 +50090,7 @@ pub struct PhaseOutlet {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47822,7 +50201,7 @@ pub struct SeparatorResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -47968,7 +50347,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48099,7 +50478,7 @@ where
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48308,7 +50687,7 @@ pub struct IntensiveState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48450,7 +50829,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48643,7 +51022,7 @@ outlet.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48747,7 +51126,7 @@ pub struct SplitResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -48852,7 +51231,7 @@ pub struct OutletStream {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49311,7 +51690,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49452,7 +51831,7 @@ pub struct NrtlParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49593,7 +51972,7 @@ pub struct UniquacParams {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -49984,7 +52363,7 @@ forms (`Bos`, `muos`).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50094,7 +52473,7 @@ pub struct StreamSplit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -50888,7 +53267,7 @@ and hydrogen-rich systems.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51016,7 +53395,7 @@ pub struct HydrocarbonSpecies {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51154,7 +53533,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51578,7 +53957,7 @@ pub struct Component {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51696,7 +54075,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51886,7 +54265,7 @@ Liquid phase — smallest positive real `Z` root.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -51909,6 +54288,7 @@ generalised `(u, w)` cubic form and the van der Waals one-fluid mixing rule.
 ```rust
 pub enum CubicEos {
     PengRobinson,
+    PengRobinson1978,
     Srk,
 }
 ```
@@ -51919,6 +54299,20 @@ pub enum CubicEos {
 
 Peng-Robinson (1976): `Ωa = 0.45724`, `Ωb = 0.07780`,
 `κ(ω) = 0.37464 + 1.54226 ω − 0.26992 ω²`, `(u, w) = (2, −1)`.
+
+###### `PengRobinson1978`
+
+Peng-Robinson **1978** — identical to [`Self::PengRobinson`] in every
+respect except the α-slope `κ(ω)`, which switches to a cubic refit above
+`ω = 0.491`.
+
+Use this rather than [`Self::PengRobinson`] for **heavy** components.
+The 1976 κ correlation is stated only for `ω < 0.49`; petroleum
+pseudo-components routinely exceed it (a crude's heaviest cut reaches
+`ω ≈ 1.16`), and beyond the limit the 1976 α-function misbehaves — in
+this workspace it produced non-finite K-values and a failed bubble-point
+solve. See [`crate::thermo::pr1978`] for the standalone implementation
+this variant reproduces.
 
 ###### `Srk`
 
@@ -52101,7 +54495,7 @@ Soave-Redlich-Kwong (1972): `Ωa = 0.42748`, `Ωb = 0.08664`,
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52229,7 +54623,7 @@ pub struct BinaryInteraction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52551,7 +54945,7 @@ pub struct AqueousSpecies {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52688,7 +55082,7 @@ pub struct AqueousSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52812,7 +55206,7 @@ pub struct DebyeHuckel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -52937,7 +55331,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53047,7 +55441,7 @@ pub struct IdealElectrolyte {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53189,7 +55583,7 @@ pub struct LiquacModel {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53747,7 +56141,7 @@ excluded from the liquid mole-fraction and solvent-mass sums.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53878,7 +56272,7 @@ pub struct SvleSpecies {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -53993,7 +56387,7 @@ pub struct EquilibriumReaction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54109,7 +56503,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54221,7 +56615,7 @@ pub struct SvleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54338,7 +56732,7 @@ pub struct SvleResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54494,7 +56888,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54622,7 +57016,7 @@ pub struct SvleSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54756,7 +57150,7 @@ pub struct SaltSolubility {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -54964,7 +57358,7 @@ pub struct EnergyFlashOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55069,7 +57463,7 @@ pub struct EnergyFlashResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -55250,7 +57644,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56006,7 +58400,7 @@ pub struct FlashResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56159,7 +58553,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56270,7 +58664,7 @@ pub struct NestedLoopsOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56645,7 +59039,7 @@ pub struct ImmiscibleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56761,7 +59155,7 @@ pub struct ImmiscibleResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -56936,7 +59330,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57222,7 +59616,7 @@ pub struct InsideOutOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57324,7 +59718,7 @@ pub struct InnerSplit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -57685,7 +60079,7 @@ pub struct InsideOut3POptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58050,7 +60444,7 @@ pub struct LleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58173,7 +60567,7 @@ pub struct LleResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58444,7 +60838,7 @@ Two coexisting phases (`0 <= V <= 1`) on the saturation curve
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58553,7 +60947,7 @@ pub struct SingleCompResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58664,7 +61058,7 @@ pub struct SingleCompOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -58870,7 +61264,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59262,7 +61656,7 @@ pub struct SleComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59369,7 +61763,7 @@ pub struct SleFlashResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59472,7 +61866,7 @@ pub struct SleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59628,7 +62022,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -59956,7 +62350,7 @@ pub struct SvlleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60084,7 +62478,7 @@ pub struct SvlleResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60241,7 +62635,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60512,7 +62906,7 @@ pub struct VlleOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60633,7 +63027,7 @@ pub struct VlleResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -60740,7 +63134,7 @@ pub struct ThreePhaseSplit {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61114,7 +63508,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61225,7 +63619,7 @@ pub struct GibbsOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61335,7 +63729,7 @@ pub struct GibbsResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61495,7 +63889,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61635,7 +64029,7 @@ pub struct GibbsSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -61961,7 +64355,7 @@ phase molar volume neglected). A single-species `IdealSolution` phase has
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62067,7 +64461,7 @@ pub struct PhaseInput {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62181,7 +64575,7 @@ pub struct MultiPhaseOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62298,7 +64692,7 @@ pub struct MultiPhaseResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62460,7 +64854,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -62603,7 +64997,7 @@ pub struct MultiPhaseGibbsSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63142,7 +65536,7 @@ Liquid — the smallest strictly-positive reduced-volume root.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63264,7 +65658,7 @@ The heavy reference fluid (`ω_ref = 0.3978`), n-octane.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -63412,7 +65806,7 @@ pub struct LkConstants {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -64177,7 +66571,7 @@ pub struct PengRobinsonLeeKesler;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -64295,6 +66689,7 @@ thermo kernel. `Copy` so it can be captured by value into the flash driver's
 pub enum PropertyPackageModel {
     Ideal,
     PengRobinson,
+    PengRobinson1978,
     Srk,
 }
 ```
@@ -64309,6 +66704,15 @@ Wilson ideal estimate `K_i = (Pc_i/P)·exp[5.373(1+ω_i)(1−Tc_i/T)]`.
 ###### `PengRobinson`
 
 Peng-Robinson cubic-EOS package.
+
+###### `PengRobinson1978`
+
+Peng-Robinson **1978** cubic-EOS package.
+
+Prefer this over [`Self::PengRobinson`] for petroleum and other heavy
+mixtures: the 1976 α-slope correlation is stated only for `ω < 0.49`,
+and pseudo-components from a crude assay routinely exceed it. Identical
+to [`Self::PengRobinson`] below that threshold.
 
 ###### `Srk`
 
@@ -64414,7 +66818,7 @@ Soave-Redlich-Kwong cubic-EOS package.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -64980,7 +67384,7 @@ pub struct SaturationState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65010,6 +67414,10 @@ pub enum SaturationError {
     NoBracket {
         var: &'static str,
         residual: f64,
+    },
+    TrivialSolution {
+        var: &'static str,
+        at: f64,
     },
     NotConverged {
         var: &'static str,
@@ -65064,6 +67472,24 @@ Fields:
 |------|------|---------------|
 | `var` | `&'static str` | The variable being solved for (`"pressure"` or `"temperature"`). |
 | `residual` | `f64` | Smallest `|residual|` seen while trying to bracket. |
+
+###### `TrivialSolution`
+
+The residual was driven to zero by the *trivial* solution `K_i ≡ 1`
+rather than by a real phase split.
+
+Above the mixture's critical region a cubic EOS returns the same
+compressibility root for both phases, so every K-value collapses to 1
+and `Σ K_i z_i − 1` vanishes identically. That satisfies the residual
+without describing a saturation point at all, and accepting it would
+report a confident temperature hundreds of kelvin above the real one.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `var` | `&'static str` | The variable being solved for. |
+| `at` | `f64` | Where the trivial solution was found. |
 
 ###### `NotConverged`
 
@@ -65160,7 +67586,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65281,7 +67707,7 @@ pub struct SaturationOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65647,7 +68073,7 @@ pub struct SeawaterState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65798,7 +68224,7 @@ Surface tension `σ` — SI base unit N/m.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -65906,7 +68332,7 @@ pub struct SeawaterProperties {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66483,7 +68909,7 @@ Discriminant value: `12`
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66604,7 +69030,7 @@ pub struct SourWaterFeed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66732,7 +69158,7 @@ pub struct SourWaterResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66870,7 +69296,7 @@ pub struct SourWaterSystem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -66997,7 +69423,7 @@ The pH bracket could not be established (residual same sign at both ends).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67419,7 +69845,7 @@ pub struct StabilityResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67700,7 +70126,7 @@ pub enum LiquidViscosityMixingRule {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -67828,7 +70254,7 @@ Other (e.g. water) — DWSIM's `"X"` branch.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68326,7 +70752,7 @@ pub struct UnifacSubgroup {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68433,7 +70859,7 @@ pub struct UnifacComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68574,7 +71000,7 @@ pub struct UnifacParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -68689,7 +71115,7 @@ Original (VLE) UNIFAC, public-literature subset
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69001,7 +71427,7 @@ pub struct ModfacSubgroup {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69108,7 +71534,7 @@ pub struct ModfacComponent {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69213,7 +71639,7 @@ pub struct ModfacInteraction {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69355,7 +71781,7 @@ pub struct ModfacParameters {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69470,7 +71896,7 @@ Dortmund (VLE) subset ([`ModfacParameters::dortmund_vle_subset`]).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -69844,7 +72270,7 @@ UNIFAC-LLE, Magnussen et al. (1981) public-literature subset
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -70216,7 +72642,7 @@ pub struct ValveFlowCoefficient(pub f64);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -70341,7 +72767,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

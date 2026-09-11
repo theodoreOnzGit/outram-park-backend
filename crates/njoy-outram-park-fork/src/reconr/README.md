@@ -81,7 +81,18 @@ verification traced it to the reconstruction grid (see
 The fix ([`refine_resonance_grid`]) adaptively bisects each grid interval until
 linear interpolation of the resonance contribution reproduces the
 directly-evaluated value to within the reconstruction tolerance `eps` — exactly
-the criterion NJOY's own RECONR reconstructs to. Result: the U-238 900 K/1200 K
+the criterion NJOY's own RECONR reconstructs to. Since 2026-09-10 the test is
+upstream `resxs`'s verbatim (`reconr.f90:2361-2470`): per-reaction relative
+error on elastic/fission/capture at the 7-figure-rounded midpoint, the
+resonance-integral relaxation (`errmax = 10 err` when a panel contributes less
+than `errint = err/20000` b), `err/5` below 0.4999 eV, significant-figure
+termination, and the `estp = 4.1` step-increase rule. It replaced a 0.1 b
+error floor the port had added against over-refinement of µb-level valleys —
+that floor left Si-30 capture between the 2.2 and 4.9 keV resonances on 8
+points where NJOY has 47, 13 % high at 3.3 keV (bead `op-yr43`); with the
+upstream test the value and the 47 points match NJOY exactly
+(`tests/reconr_si30_inter_resonance_capture.rs`, oracle in
+`reference-data/reconr/`). Result: the U-238 900 K/1200 K
 capture RRR magnitude-weighted L1 vs OpenMC dropped from **≈0.30 → ≈0.0007**
 (a ~400× accuracy gain), matching reference NJOY to <0.1% across the resolved
 region.
@@ -109,6 +120,17 @@ in `docs/porting-plan.md`.
 tests and the workspace Godiva/Jezebel k-eff V&V (`docs/development-history.md`).
 Reconstructed 0 K pointwise σ(E) feeds BROADR and ACER.
 
+**MLBW (`LRF=2`) uses `csmlbw`'s elastic assembly since 2026-09-10** —
+`slbw::eval_mlbw_lstate`, the per-`J` `sigj` accumulation over every level
+of an l-state plus the `2(2l+1−Σg_J)(1−cos 2φ)` remainder. Until then
+`LRF=2` went through the SLBW formula on the assumption that level
+interference is negligible; on TENDL-2023 Ar-37 (three bound levels) that
+was +6.3 % in elastic at thermal and −8.2 % at 1 keV against NJOY's own
+`tape21` (bead `op-cral`, found by the ERRORR MF=32 oracle). Pinned by
+`tests/reconr_ar37_mlbw_njoy_golden.rs` against
+`reference-data/reconr/ar37-tendl2023-0K.pendf`: elastic and capture
+within 1e-5 below 100 eV and 1e-3 on the resonance wings.
+
 **LRF=7 (R-Matrix-Limited) wiring is untested** — `add_rml_range` compiles and
 type-checks (workspace build + full test suite pass as a regression check,
 zero regressions) but has never been run against a real LRF=7 evaluation.
@@ -125,6 +147,32 @@ was available locally) — see `aa.rs`'s doc comment for two specific
 as-coded oddities ported literally rather than "fixed" (a background term
 scaled by the same energy factor twice, and an `LI==6` special case that
 redefines total rather than using the just-computed sum).
+
+## Discontinuities are shaded, never duplicated (2026-09-10)
+
+A PENDF grid from this port, like upstream's, never holds two points at one
+energy. `reconr.f90`'s `lunion` rewrites a tabulated step at `E` as
+`sigfig(E,7,-1)` / `sigfig(E,7,+1)` (and drops the second point when the two
+σ values are equal), and `rdfil2` places the resonance-range boundary nodes
+at the same shaded energies ("shade nodes to prevent discontinuities"), so
+the abrupt end of the resonance contribution at `EH` is also a two-point
+ramp. `shade_discontinuities` and `rebuild_range` do the same here. Before
+this, the port collapsed U-238's 20 keV MF=3 step into a single point (the
+unresolved value *plus* the resonance tail) and BROADR then smeared it —
+see `../broadr/README.md` and `op-sdbk`.
+
+## The wave-number constant (fixed 2026-09-10)
+
+`slbw::WAVE_K` — NJOY's `cwaven = sqrt(2*amassn*amu*ev)*1e-12/hbar`
+(`reconr.f90:903`) — was hard-coded as `2.1977e-3`, the formula rounded *up*
+in its fourth figure; the exact value from the same CODATA-2018 constants is
+`2.196807689e-3`. Every resonance cross section is proportional to `4π/k²`,
+so all of them (SLBW, MLBW, Reich-Moore, Adler-Adler, RML, and UNRESR/PURR,
+which share the constant) were 0.081 % low. Potential scattering
+(`∝ sin²(k·AP)/k² ≈ AP²`) is insensitive to it, which is why it hid until
+the U-235 URR oracle comparison matched potential scattering to five figures
+while fission and capture were a steady 0.077 % low. Locked by
+`wave_k_is_the_upstream_cwaven`.
 
 ## Caveats
 

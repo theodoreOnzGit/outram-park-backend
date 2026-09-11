@@ -102,6 +102,16 @@ wgpu = { workspace = true }
 # regeneration path (`leapr::generate`, on by default) caches through it.
 net-fetch = ["dep:ureq", "dep:zip"]
 
+# Diagnostic examples that reconstruct a full evaluation from `reference-data/`
+# (repo-only, multi-MB) and take minutes — gated out of the default build and
+# `cargo test --examples`, like `outram-mc-libs`' `endf-pebble-cases`.
+urr-diagnostics = []
+
+# ── Diagnostic: which stage loses the resolved/unresolved seam (op-sdbk) ──────
+[[example]]
+name = "seam_stage_probe"
+required-features = ["urr-diagnostics"]
+
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
 # Own folder + README under tests/u238_doppler_verification/. Uses the always-on
 # hdf5-pure reader to parse the committed OpenMC U238.h5.

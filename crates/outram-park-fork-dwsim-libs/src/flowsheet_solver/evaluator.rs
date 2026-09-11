@@ -54,6 +54,17 @@
 //!   evaluated this way carries whatever phase split it already had.** Supply a
 //!   hook that calls [`crate::thermo`] if you need a real flash.
 //!
+//!   The write-back half of upstream's `MaterialStream.Calculate` *is* ported:
+//!   [`crate::flowsheet::MaterialStreamData::apply_vle_flash`] takes a
+//!   converged `(β, x, y)` and fills the stream's phase slots, so a hook is
+//!   three lines — flash, apply, done. See
+//!   `tests::a_solved_material_stream_carries_a_flashed_state` for the whole
+//!   pattern. What the built-in evaluator still cannot do is *choose* the
+//!   package: a [`Flowsheet`] carries no property package and its
+//!   [`crate::flowsheet::StreamCompound`]s carry only a name and a molar mass,
+//!   not the critical constants a
+//!   [`crate::thermo::component::Component`] needs.
+//!
 //! # Attribution
 //!
 //! Pure-Rust port of parts of **DWSIM** (<https://dwsim.org>), upstream commit
@@ -704,6 +715,145 @@ mod tests {
         assert_eq!(
             DefaultEvaluator.evaluate(&mut fs, &p_args),
             Err(SolverError::NoModel(ObjectType::Pump))
+        );
+    }
+
+    /// # V&V — a "solved" material stream carries a consumable flashed state
+    ///
+    /// **Methodology.** This is the end-to-end demonstration that the
+    /// material-stream flashing gap is closed *as a wiring problem*: the flash
+    /// kernels and property packages already exist, and
+    /// [`crate::flowsheet::MaterialStreamData::apply_vle_flash`] is the bridge
+    /// that lets their answer live on a flowsheet stream.
+    ///
+    /// A one-stream flowsheet carries an equimolar methane/ethane feed at
+    /// `T = 200 K`, `P = 2·10⁶ Pa`, `n = 10 mol/s` — inside the two-phase
+    /// envelope. It is solved through [`UnitOpEvaluator`] with a closure that
+    /// does exactly what upstream's `MaterialStream.Calculate` does for
+    /// `SpecType = Temperature_and_Pressure` (MaterialStream.vb:661-662):
+    /// choose the TP flash, run it
+    /// ([`PropertyPackageModel::flash_pt`](crate::thermo::property_package::PropertyPackageModel::flash_pt)),
+    /// and write the answer back onto the phase slots. Critical constants are
+    /// the public-literature presets in [`crate::thermo::component::reference`]
+    /// (Poling, Prausnitz & O'Connell, 5th ed., 2001, Appendix A).
+    ///
+    /// The pass criterion is what a *downstream unit* needs, read back through
+    /// the flowsheet only: a two-phase split (`0 < β < 1`), a vapour and a
+    /// liquid composition that each normalise, phase molar flows that sum to
+    /// the feed, phase mass flows that sum to the feed mass flow, and the
+    /// equilibrium flag set. Before this change the same solve left every one
+    /// of those `None`.
+    ///
+    /// **Results (2026-09-11, release, this port).** `β = 0.2502840`;
+    /// `y = [0.8871881, 0.1128119]`, `x = [0.3707417, 0.6292583]` — each sums
+    /// to 1 within 1e-12, and methane concentrates in the vapour as expected.
+    /// Phase molar flows `2.5028405 + 7.4971595 = 10 mol/s` (closes to
+    /// 1e-12); phase mass flows `0.0441136 + 0.1864514 = 0.2305650 kg/s`,
+    /// against a feed mass flow of `n·MW/1000 = 10 · 23.056500 / 1000 =
+    /// 0.2305650 kg/s` (closes to 1e-12).
+    /// `at_equilibrium` is `true`. Interpretation: a stream marked solved now
+    /// carries a complete, self-consistent two-phase state, so its phases can
+    /// be read as the feed of the next unit operation.
+    ///
+    /// **Scope (honesty).** Verification of the *wiring and bookkeeping*, not
+    /// validation of the VLE against measured data — the underlying
+    /// Peng-Robinson flash is verified separately in
+    /// [`crate::thermo::property_package`] and uses `k_ij = 0`.
+    #[test]
+    fn a_solved_material_stream_carries_a_flashed_state() {
+        use crate::flowsheet::PhaseIndex;
+        use crate::thermo::component::reference;
+        use crate::thermo::property_package::PropertyPackageModel;
+
+        let comps = [reference::methane(), reference::ethane()];
+        let package = PropertyPackageModel::PengRobinson;
+
+        let mut fs = Flowsheet::new();
+        let stream = fs.add_object(ObjectType::MaterialStream, Some("FEED"));
+        {
+            let ms = fs
+                .object_mut(&stream)
+                .unwrap()
+                .data
+                .as_material_mut()
+                .unwrap();
+            for c in &comps {
+                // Component molar masses are kg/mol; the stream stores kg/kmol.
+                ms.add_compound(c.name.clone(), c.molar_mass * 1000.0);
+            }
+            ms.set_overall_molar_composition(&[0.5, 0.5]).unwrap();
+            let mix = ms.phase_mut(PhaseIndex::Mixture);
+            mix.properties.temperature = Some(200.0);
+            mix.properties.pressure = Some(2.0e6);
+            mix.properties.molarflow = Some(10.0);
+        }
+
+        // The hook upstream's `MaterialStream.Calculate` is: pick the flash from
+        // the spec pair, run it, write the phases back.
+        let mut hook = |fs: &mut Flowsheet, a: &CalculationArgs| -> Result<(), SolverError> {
+            let ms = fs
+                .object_mut(&ObjectId(a.name.clone()))
+                .unwrap()
+                .data
+                .as_material_mut()
+                .unwrap();
+            let z = ms.overall_composition();
+            let t = ms
+                .phase(PhaseIndex::Mixture)
+                .properties
+                .temperature
+                .unwrap();
+            let p = ms.phase(PhaseIndex::Mixture).properties.pressure.unwrap();
+            let fr = package
+                .flash_pt(&comps, &z, t, p)
+                .map_err(|e| SolverError::Other(format!("{e:?}")))?;
+            ms.apply_vle_flash(fr.beta, &fr.x, &fr.y)
+                .map_err(|e| SolverError::Other(format!("{e:?}")))?;
+            Ok(())
+        };
+        let s_args = args(&fs, &stream);
+        hook.evaluate(&mut fs, &s_args).unwrap();
+
+        // Everything below reads the stream back through the flowsheet, as a
+        // downstream unit operation would.
+        let ms = fs.object(&stream).unwrap().data.as_material().unwrap();
+        assert!(ms.at_equilibrium, "solved stream must report equilibrium");
+
+        let beta = ms
+            .phase(PhaseIndex::Vapor)
+            .properties
+            .molarfraction
+            .unwrap();
+        assert!(
+            beta > 0.0 && beta < 1.0,
+            "expected a two-phase split, got {beta}"
+        );
+
+        let y = ms.phase_composition(PhaseIndex::Vapor);
+        let x = ms.phase_composition(PhaseIndex::Liquid1);
+        assert!((y.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        assert!((x.iter().sum::<f64>() - 1.0).abs() < 1e-12);
+        assert!(y[0] > x[0], "methane must concentrate in the vapour");
+
+        let nv = ms.phase(PhaseIndex::Vapor).properties.molarflow.unwrap();
+        let nl = ms.phase(PhaseIndex::Liquid1).properties.molarflow.unwrap();
+        assert!(
+            (nv + nl - 10.0).abs() < 1e-12,
+            "phase molar flows must close"
+        );
+
+        let wv = ms.phase(PhaseIndex::Vapor).properties.massflow.unwrap();
+        let wl = ms.phase(PhaseIndex::Liquid1).properties.massflow.unwrap();
+        let w_feed = 10.0 * ms.calc_overall_molecular_weight() / 1000.0;
+        assert!(
+            (wv + wl - w_feed).abs() < 1e-12,
+            "phase mass flows must close"
+        );
+
+        // The overall-liquid roll-up must agree with the single liquid phase.
+        assert_eq!(
+            ms.phase(PhaseIndex::OverallLiquid).properties.molarflow,
+            ms.phase(PhaseIndex::Liquid1).properties.molarflow
         );
     }
 

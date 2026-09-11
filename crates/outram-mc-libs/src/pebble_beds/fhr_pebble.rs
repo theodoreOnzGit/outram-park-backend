@@ -33,9 +33,19 @@
 
 use crate::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use crate::geometry::geometry::Geometry;
+use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use crate::geometry::universe::Universe;
 use crate::material::material::{Material, NuclideComponent};
+// Re-exported, not merely imported: `ExplicitTrisoPebble::new` takes a
+// `TrisoMaterials`, so a caller who can name the constructor must be able to
+// name its argument from the same module. A docs-only dogfood run wrote
+// `use outram_mc_libs::pebble_beds::fhr_pebble::{ExplicitTrisoPebble,
+// TrisoMaterials, ...}` -- the obvious import -- and hit E0603 because this was
+// a private `use`. An API that cannot be called from the module it is
+// documented in is not callable.
+pub use crate::geometry::triso_particle::TrisoMaterials;
+use crate::pebble_beds::sphere_packing::PackedSpheres;
 
 /// The five cumulative outer radii \[cm\] of a TRISO particle (kernel first,
 /// OPyC last) plus the volume packing fraction of whole particles in the fuel
@@ -128,6 +138,142 @@ pub fn triso_layer_at(r: f64, spec: &TrisoSpec) -> Option<TrisoLayer> {
         Some(TrisoLayer::Opyc)
     } else {
         None
+    }
+}
+
+/// The explicit-TRISO pebble's point-membership lookup for delta (Woodcock)
+/// tracking: randomly-packed, five-layer TRISO particles in a graphite
+/// matrix, itself wrapped in a graphite shell and a coolant exterior.
+///
+/// # Why this exists
+///
+/// The ring-RPT pebble gets a one-call builder, [`fhr_pebble_geometry`] — CSG
+/// surfaces and cells, done. The explicit pebble has no equivalent: "what
+/// material is at this point" for a packed TRISO fuel zone means combining
+/// [`PackedSpheres::containing_center`] (which particle, if any, contains
+/// `p`) with [`triso_layer_at`] (which coating layer, by radius from that
+/// particle's centre), falling back to the matrix when no particle contains
+/// `p` — plus the two shells outside the fuel zone entirely. Every caller was
+/// hand-assembling that as a closure; `examples/fhr_ring_rpt_endf.rs` carried
+/// one (`explicit_at`) before this type existed. A **Haiku dogfood run**
+/// (`docs/dogfood-2026-09-11-ring-rpt.md`, `op-mzvp.3`) — given only the API
+/// docs, no source, no compiler — reproduced the same gap independently: it
+/// assembled the ring-RPT pebble in one call and got stuck on the explicit
+/// one, because there was nothing to call.
+///
+/// [`ExplicitTrisoPebble`] packages that lookup once: build it from a
+/// [`PackedSpheres`] packing, a [`TrisoSpec`], the per-layer-plus-matrix
+/// material indices ([`TrisoMaterials`]), the shell/coolant material indices,
+/// and the two zone radii, then call [`ExplicitTrisoPebble::material_at`]
+/// wherever the closure used to be. It reproduces that closure's logic
+/// exactly — see "Domain" below — nothing more, nothing smarter.
+///
+/// # Domain
+///
+/// - `r < r_fuel_zone`: inside a packed particle, the layer at that radius
+///   from its centre ([`triso_layer_at`]); otherwise the surrounding
+///   graphite matrix (`mats.matrix`).
+/// - `r_fuel_zone <= r < r_pebble`: the graphite shell (`shell_mat`).
+/// - `r >= r_pebble`: the coolant (`coolant_mat`).
+///
+/// There is no outer bound here — a delta-tracking domain
+/// ([`crate::pebble_beds::keff_delta::DeltaDomain`]) supplies that — so
+/// [`ExplicitTrisoPebble::material_at`] never actually returns `None`; the
+/// `Option` in its signature is there because that is what
+/// [`crate::pebble_beds::keff_delta::run_keff_delta_in`]'s `material_at`
+/// parameter requires.
+#[derive(Debug, Clone)]
+pub struct ExplicitTrisoPebble {
+    packed: PackedSpheres,
+    spec: TrisoSpec,
+    /// Material index per coating layer **and** the surrounding matrix, by
+    /// name. Reuses [`TrisoMaterials`] rather than a positional `[usize; 5]`
+    /// plus a separate matrix index: the caller cannot then transpose IPyC and
+    /// SiC, which is a silent wrong-material bug rather than a compile error,
+    /// and a reader of the API meets one existing concept instead of two new
+    /// positional ones.
+    mats: TrisoMaterials,
+    /// Graphite shell, `r_fuel_zone..r_pebble`.
+    shell_mat: usize,
+    /// Coolant, `r >= r_pebble`.
+    coolant_mat: usize,
+    /// Outer radius of the packed-TRISO fuel zone \[cm\].
+    r_fuel_zone: f64,
+    /// Outer radius of the graphite shell / whole pebble \[cm\].
+    r_pebble: f64,
+}
+
+impl ExplicitTrisoPebble {
+    /// Assemble a pebble from an already-packed TRISO fuel zone.
+    ///
+    /// `packed` should be a packing of `spec.opyc`-radius spheres (whole
+    /// TRISO particles) confined to `r_fuel_zone` (see
+    /// `crate::pebble_beds::crp_packing::pack_spheres_crp` /
+    /// [`PackedSpheres::from_spheres`] in the caller). `mats` names every
+    /// material by its layer, including the matrix.
+    ///
+    /// # Panics
+    /// If `r_fuel_zone >= r_pebble`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        packed: PackedSpheres,
+        spec: TrisoSpec,
+        mats: TrisoMaterials,
+        shell_mat: usize,
+        coolant_mat: usize,
+        r_fuel_zone: f64,
+        r_pebble: f64,
+    ) -> Self {
+        assert!(
+            r_fuel_zone < r_pebble,
+            "ExplicitTrisoPebble::new: r_fuel_zone {r_fuel_zone} must be < r_pebble {r_pebble}"
+        );
+        Self {
+            packed,
+            spec,
+            mats,
+            shell_mat,
+            coolant_mat,
+            r_fuel_zone,
+            r_pebble,
+        }
+    }
+
+    /// Material index at `p`, or `None` outside the domain — see the type's
+    /// docs for why that never actually happens here.
+    ///
+    /// This is exactly the `explicit_at` closure `examples/fhr_ring_rpt_endf.rs`
+    /// used to hand-write: inside the fuel zone, find the packed particle (if
+    /// any) containing `p` via [`PackedSpheres::containing_center`], resolve
+    /// its coating layer by radius from that centre via [`triso_layer_at`]
+    /// (falling back to OPyC — the outermost layer — if the radius lookup
+    /// itself returns `None`, which should not happen given `p` is already
+    /// established to be within the particle radius, but the fallback is
+    /// part of the logic being reproduced exactly), or the surrounding
+    /// matrix if no packed particle contains `p`; outside the fuel zone, the
+    /// graphite shell then the coolant.
+    pub fn material_at(&self, p: Position) -> Option<usize> {
+        let r = p.norm();
+        if r < self.r_fuel_zone {
+            Some(match self.packed.containing_center(p) {
+                Some(c) => {
+                    let layer =
+                        triso_layer_at((p - c).norm(), &self.spec).unwrap_or(TrisoLayer::Opyc);
+                    match layer {
+                        TrisoLayer::Kernel => self.mats.kernel,
+                        TrisoLayer::Buffer => self.mats.buffer,
+                        TrisoLayer::Ipyc => self.mats.ipyc,
+                        TrisoLayer::Sic => self.mats.sic,
+                        TrisoLayer::Opyc => self.mats.opyc,
+                    }
+                }
+                None => self.mats.matrix,
+            })
+        } else if r < self.r_pebble {
+            Some(self.shell_mat)
+        } else {
+            Some(self.coolant_mat)
+        }
     }
 }
 
@@ -429,6 +575,116 @@ mod tests {
         let v: f64 = s.layer_volumes().iter().sum();
         let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.powi(3);
         assert!((v - ball).abs() < 1e-15 * ball, "{v} vs {ball}");
+    }
+
+    /// Tiny hand-built packing for [`ExplicitTrisoPebble::material_at`]
+    /// tests: one TRISO particle centred at the origin, using the reference
+    /// [`TrisoSpec::FHR_HALEU_UCO`] radii, in a fuel zone of radius 1.0 cm
+    /// wrapped in a graphite shell out to 2.0 cm.
+    fn one_particle_pebble() -> (ExplicitTrisoPebble, TrisoSpec) {
+        use crate::pebble_beds::sphere_packing::Sphere;
+        use crate::geometry::position::Position;
+
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let r_fuel_zone = 1.0;
+        let r_pebble = 2.0;
+        let sphere = Sphere {
+            center: Position::new(0.0, 0.0, 0.0),
+            radius: spec.opyc,
+        };
+        let packed = PackedSpheres::from_spheres(vec![sphere], r_fuel_zone, spec.opyc);
+
+        const KERNEL_MAT: usize = 0;
+        const BUFFER_MAT: usize = 1;
+        const IPYC_MAT: usize = 2;
+        const SIC_MAT: usize = 3;
+        const OPYC_MAT: usize = 4;
+        const GRAPHITE_MAT: usize = 5; // matrix AND shell, as in the real pebble
+        const COOLANT_MAT: usize = 6;
+
+        let pebble = ExplicitTrisoPebble::new(
+            packed,
+            spec,
+            TrisoMaterials {
+                kernel: KERNEL_MAT,
+                buffer: BUFFER_MAT,
+                ipyc: IPYC_MAT,
+                sic: SIC_MAT,
+                opyc: OPYC_MAT,
+                matrix: GRAPHITE_MAT,
+            },
+            GRAPHITE_MAT,
+            COOLANT_MAT,
+            r_fuel_zone,
+            r_pebble,
+        );
+        (pebble, spec)
+    }
+
+    #[test]
+    fn material_at_kernel_returns_fuel_index() {
+        use crate::geometry::position::Position;
+        let (pebble, _) = one_particle_pebble();
+        // r = 0.02 cm < spec.kernel (0.0215) — inside the kernel.
+        assert_eq!(
+            pebble.material_at(Position::new(0.02, 0.0, 0.0)),
+            Some(0),
+            "point inside the TRISO kernel must resolve to the fuel material index"
+        );
+    }
+
+    #[test]
+    fn material_at_coating_layers_return_layer_indices() {
+        use crate::geometry::position::Position;
+        let (pebble, _) = one_particle_pebble();
+        // Same radii as `triso_layer_classification` above, one per layer.
+        assert_eq!(
+            pebble.material_at(Position::new(0.03, 0.0, 0.0)),
+            Some(1),
+            "buffer layer"
+        );
+        assert_eq!(
+            pebble.material_at(Position::new(0.034, 0.0, 0.0)),
+            Some(2),
+            "IPyC layer"
+        );
+        assert_eq!(
+            pebble.material_at(Position::new(0.037, 0.0, 0.0)),
+            Some(3),
+            "SiC layer"
+        );
+        assert_eq!(
+            pebble.material_at(Position::new(0.041, 0.0, 0.0)),
+            Some(4),
+            "OPyC layer"
+        );
+    }
+
+    #[test]
+    fn material_at_matrix_returns_graphite() {
+        use crate::geometry::position::Position;
+        let (pebble, spec) = one_particle_pebble();
+        // r = 0.5 cm: well outside the one particle (opyc = spec.opyc) but
+        // still inside the 1.0 cm fuel zone — the surrounding matrix.
+        assert!(0.5 > spec.opyc);
+        assert_eq!(
+            pebble.material_at(Position::new(0.5, 0.0, 0.0)),
+            Some(5),
+            "point in the matrix between packed particles must resolve to graphite"
+        );
+    }
+
+    #[test]
+    fn material_at_past_shell_returns_coolant() {
+        use crate::geometry::position::Position;
+        let (pebble, _) = one_particle_pebble();
+        // r = 2.5 cm > r_pebble (2.0 cm) — past the graphite shell, in the
+        // coolant.
+        assert_eq!(
+            pebble.material_at(Position::new(2.5, 0.0, 0.0)),
+            Some(6),
+            "point past the graphite shell must resolve to coolant"
+        );
     }
 
     #[test]

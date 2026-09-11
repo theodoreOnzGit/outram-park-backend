@@ -47,9 +47,11 @@
 //! `DATA_POLICY.md`), `tsl-crystalline-graphite.endf`, MAT 30, ZA 130, LEIP
 //! Lab / A. I. Hawari, Y. Zhu, J. L. Wormald, NDS 148, 1 (2018). Tabulated at
 //! 296, 400, 500, 600, 700, 800, 1000, 1200, 1600, 2000 K. Read from
-//! `GRAPHITE_TSL_DIR` (env override) or the default path below; the tape is
-//! **not** checked in and every test here **skips** (prints a note, passes)
-//! when it is absent.
+//! `GRAPHITE_TSL_DIR` (env override) or, by default, this repository's own
+//! `reference-data/endf/` — the tape **is** checked in, so these tests run on a
+//! plain `cargo test` with no environment set up. The skip branch survives only
+//! for a checkout where the file has been removed; if you see its note, the
+//! tests asserted nothing.
 //!
 //! # Measured results — 2026-08-13, ENDF/B-VIII.0, MAT 30
 //!
@@ -207,7 +209,18 @@ use njoy_outram_park_fork::thermr::temperature_thinning::{
     ThinnedTemperatureGrid,
 };
 
-const DEFAULT_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
+/// Where the graphite tape lives **in this repository**, resolved from the
+/// crate's own manifest directory so it works on any checkout.
+///
+/// This used to be an absolute path on one developer's machine
+/// (`/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt`). Everywhere
+/// else that path does not exist, so all eight tests here took the skip branch
+/// and **passed in 0.00 s having asserted nothing** — while the tape they need
+/// was sitting in this repo the whole time, committed at
+/// `reference-data/endf/tsl-crystalline-graphite.endf`. A test that passes
+/// without running is worse than one that fails, because it is counted as
+/// evidence; this file contributed 8 such passes to the suite totals.
+const DEFAULT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../reference-data/endf");
 const FILE: &str = "tsl-crystalline-graphite.endf";
 const MAT: i32 = 30;
 const E_THERMAL: f64 = 0.0253;
@@ -229,9 +242,13 @@ fn tape_path() -> Option<std::path::PathBuf> {
     if p.exists() {
         Some(p)
     } else {
+        // cargo swallows a passing test's output, so this note is invisible in
+        // a normal run — which is exactly how eight vacuous passes went
+        // unnoticed. Keep it, but do not rely on it being read.
         eprintln!(
             "SKIP thermal_temperature_thinning: {FILE} not found under {dir} \
-             (set GRAPHITE_TSL_DIR)"
+             (it should be committed at reference-data/endf/; set GRAPHITE_TSL_DIR \
+             to override)"
         );
         None
     }
@@ -563,14 +580,23 @@ fn combined_thermal_cross_section_error_decides_the_trade() {
     );
 }
 
-/// (7) **Pre-existing defect, not a thinning result.** `σ_inel(E, T)` is
-/// monotone in `T` across the tabulated grid, yet the *production*
-/// interpolation at a non-tabulated temperature leaves the tabulated bracket
-/// above ~0.5 eV — 4.4175 b at 393.15 K / 3.9 eV against a bracket of
-/// [4.6097, 4.6367]. Correctly bracketed at and below 0.1 eV. Measured
-/// 2026-08-13; reported, not fixed.
+/// (7) **The production interpolation stays inside its tabulated bracket**
+/// (`op-55lj`, fixed 2026-09-10). `σ_inel(E, T)` is monotone in `T` across
+/// the tabulated grid, so an interpolated value must lie between the two
+/// bracketing tabulated cross sections. Until 2026-09-10 the production path
+/// interpolated `S(α,β)` at fixed `(α,β)` and integrated it with the *target*
+/// temperature's kinematics, which left the bracket above ~0.5 eV — 4.4175 b
+/// at 393.15 K / 3.9 eV against [4.6097, 4.6367] (measured 2026-08-13). It now
+/// integrates at each bracketing tabulated temperature and interpolates the
+/// two integrals with the evaluation's `LI` law (log-lin for MAT 30), which
+/// is bracketed by construction: 4.6349 b, exactly the log-lin combination
+/// of the two ends at 393.15 K.
+///
+/// (Upstream NJOY never interpolates in temperature — `calcem` refuses
+/// anything farther than `T/500` from a tabulated block; this path is the
+/// port's extension, so the evaluation itself is the only oracle.)
 #[test]
-fn production_interpolation_leaves_the_bracket_above_half_an_ev() {
+fn production_interpolation_stays_inside_its_bracket() {
     let Some(tape) = load_tape() else { return };
     let stack = SabTemperatureStack::from_tape(&tape, MAT).unwrap();
     let natom = 1.0;
@@ -579,38 +605,62 @@ fn production_interpolation_leaves_the_bracket_above_half_an_ev() {
         .unwrap()
         .incoherent_inelastic
         .unwrap();
+    let br = interp
+        .temperature_bracket
+        .as_ref()
+        .expect("393.15 K is strictly between 296 K and 400 K");
+    assert_eq!((br.t_lo_k, br.t_hi_k, br.li), (296.0, 400.0, 4));
 
-    // In bracket at and below 0.1 eV.
-    for e in [1.0e-3, 5.0e-3, E_THERMAL, 0.1] {
+    // Log-lin (LI=4) combination of the two ends at 393.15 K.
+    let w = (393.15 - 296.0) / (400.0 - 296.0);
+    let loglin = |lo: f64, hi: f64| (lo.ln() * (1.0 - w) + hi.ln() * w).exp();
+
+    // Inside the bracket at every energy, thermal through the epithermal
+    // tail where the old path failed, and equal to the LI-law combination.
+    for e in [1.0e-3, 5.0e-3, E_THERMAL, 0.1, 0.5, 1.0, 3.9] {
         let lo = stack.kernels[0].cross_section(e, 296.0, natom);
         let hi = stack.kernels[1].cross_section(e, 400.0, natom);
         let x = interp.cross_section(e, 393.15, natom);
+        eprintln!("393.15 K, {e} eV: {x:.4} b vs bracket [{lo:.4}, {hi:.4}]");
         assert!(
-            x >= lo - 1e-9 && x <= hi + 1e-9,
+            x >= lo.min(hi) - 1e-9 && x <= lo.max(hi) + 1e-9,
             "E = {e} eV: {x} should be inside [{lo}, {hi}]"
         );
+        near(x, loglin(lo, hi), 1e-9, "LI=4 combination of the two ends");
     }
 
-    // Out of bracket at 3.9 eV — the defect.
+    // The 3.9 eV point that exposed the defect, pinned.
     let lo = stack.kernels[0].cross_section(3.9, 296.0, natom);
     let hi = stack.kernels[1].cross_section(3.9, 400.0, natom);
     let x = interp.cross_section(3.9, 393.15, natom);
-    eprintln!("393.15 K, 3.9 eV: {x:.4} b vs bracket [{lo:.4}, {hi:.4}]");
     near(lo, 4.60966, 1e-3, "sigma_inel(3.9 eV, 296 K)");
     near(hi, 4.63671, 1e-3, "sigma_inel(3.9 eV, 400 K)");
+    near(x, 4.6349, 1e-3, "sigma_inel(3.9 eV, 393.15 K), production path");
+
+    // The kernel itself is the same interpolation, pointwise: the emission
+    // profile at the interpolated temperature lies between the two ends.
+    let (e, ep) = (0.5, 0.45);
+    for mu in [-0.9, 0.0, 0.9] {
+        let klo = stack.kernels[0].double_differential(e, ep, mu, 296.0, natom);
+        let khi = stack.kernels[1].double_differential(e, ep, mu, 400.0, natom);
+        let k = interp.double_differential(e, ep, mu, 393.15, natom);
+        assert!(
+            k >= klo.min(khi) - 1e-12 && k <= klo.max(khi) + 1e-12,
+            "kernel at mu={mu}: {k} outside [{klo}, {khi}]"
+        );
+    }
+
+    // A tabulated request carries no bracket and is unchanged.
+    let tab = parse_mf7_at_temperature(&tape, MAT, Some(400.0))
+        .unwrap()
+        .incoherent_inelastic
+        .unwrap();
+    assert!(tab.temperature_bracket.is_none());
     near(
-        x,
-        4.4175,
-        0.01,
-        "sigma_inel(3.9 eV, 393.15 K), production path",
-    );
-    assert!(
-        x < lo,
-        "the defect: the interpolated value falls BELOW its bracket"
-    );
-    assert!(
-        (lo - x) / lo > 0.03,
-        "the shortfall was 4.2 % on 2026-08-13, not a rounding artefact"
+        tab.cross_section(3.9, 400.0, natom),
+        hi,
+        1e-12,
+        "tabulated 400 K path",
     );
 }
 

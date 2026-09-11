@@ -392,6 +392,7 @@ mod tests {
                 qi: 0.0,
                 pairs: vec![(1.0e6, 10.0)],
             }],
+            resonance_upper_limit: None,
         };
         let pp = PhotonProduction::default();
         assert!(pp.is_empty());

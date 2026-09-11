@@ -50,10 +50,17 @@
 //!   vector ([`GendfSection`], [`GendfTape`]), mirroring the GROUPR output LIST
 //!   layout (`groupr.f90:882-946`).
 //!
-//! The **matrix** and self-shielding kernels remain **not** ported (they need a
-//! PENDF tape, a self-shielding flux, and secondary MF4/5/6 distributions):
+//! The **two-body matrix** path is ported and golden-validated (2026-09-10):
+//! [`file4`] (`getfle`/`getco`), [`two_body`] (`getdis`) and [`matrix_panel`]
+//! (the full `panel`/`displa` with feed-function re-evaluation) reproduce
+//! NJOY's U-238 MF=6/MT=2 section (`lord = 0` and `lord = 3`) to the
+//! seven-figure floor
+//! (`tests/groupr_u238_elastic_matrix_golden.rs`).
 //!
-//! - `getmf6`/`getff`/`getyld`/`getdis` — reaction feed functions and yields
+//! The remaining matrix and self-shielding kernels are **not** ported (they
+//! need a PENDF tape, a self-shielding flux, and secondary MF5/6 distributions):
+//!
+//! - `getmf6`/`getff`/`getyld` — File-6 feed functions and yields
 //!   (the `ff(il,ig)` the vector path fixes to 1);
 //! - `genflx`/`getunr`/`stounr` — the infinite-medium flux calculator and
 //!   unresolved-resonance self-shielding;
@@ -67,18 +74,21 @@
 //! [`crate::NjoyError::NotPorted`] rather than fabricating a GENDF result. See
 //! `README.md` in this directory for the full theory summary and gap list.
 
+pub mod file4;
 pub mod fission_matrix;
 pub mod gaminr_matrix;
 pub mod gendf;
 pub mod input;
 pub mod kinematics;
 pub mod matrix;
+pub mod matrix_panel;
 pub mod overlap;
 pub mod panel;
 pub mod pendf_feed;
 pub mod photon_groups;
 pub mod self_shielded;
 pub mod slowing_down;
+pub mod two_body;
 pub mod unresolved;
 pub mod urr_pendf;
 pub mod weights;
@@ -92,7 +102,7 @@ pub use input::{
 };
 pub use panel::{
     group_average_vector, group_integral, GroupFlux, GroupIntegral, PointwiseXs, DEFAULT_FLUX_STEP,
-    NO_NEXT_BREAK_EV,
+    GETWTF_STEP, NO_NEXT_BREAK_EV,
 };
 pub use photon_groups::{photon_group_structure, PhotonGroupStructure};
 pub use weights::{AnalyticWeight, ThermalFissionParams, BOLTZMANN_EV_PER_K};
@@ -108,7 +118,10 @@ pub use unresolved::{
     genflx_bondarenko, LssfFlag, OverlapContext, SelfShieldedFluxSet, UnresolvedTable, UnrShielded,
     UrrEnergyPoint, UrrReaction,
 };
-pub use pendf_feed::{classify_mtd, read_pendf_cross_section, MtdClass, PendfCrossSection};
+pub use pendf_feed::{
+    classify_mtd, decode_extended_mfd, gety1_first_energy, read_pendf_cross_section,
+    read_pendf_mf10_cross_section, ExtendedMfd, MtdClass, PendfCrossSection,
+};
 pub use urr_pendf::{lssf_from_flag, read_urr_from_tape, read_urr_table};
 
 // Re-export the shared neutron group structures (owned by ERRORR's `gengpn`

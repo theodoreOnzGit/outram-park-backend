@@ -54,7 +54,9 @@ pub fn uw2(rez: f64, aim1: f64) -> (f64, f64) {
     const BRK9: f64 = 1.5;
 
     // purr.f90:2648-2652 — region selection (kw=1 asymptotic, kw=2 taylor),
-    // identical to uw's.
+    // identical to uw's. The final arm is the FALL-THROUGH into label 340
+    // (Taylor) when `aimz-brk9.ge.zero` is false — see the annotated listing
+    // in [`crate::unresr::wfun::uw`]; this arm was inverted until 2026-09-10.
     let use_taylor = if abrez + BRK1 * aimz - BRK2 > 0.0 {
         false
     } else if abrez + BRK3 * aimz - BRK4 > 0.0 {
@@ -64,7 +66,7 @@ pub fn uw2(rez: f64, aim1: f64) -> (f64, f64) {
     } else if r2 + BRK7 * ai2 - BRK8 >= 0.0 {
         true
     } else {
-        aimz - BRK9 >= 0.0
+        aimz - BRK9 < 0.0
     };
 
     if use_taylor {
@@ -167,7 +169,7 @@ fn w_taylor2(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
 /// (`y ∈ [-0.02, 0.5]`, step `0.02`) for `y < 0.5`, where `w(z)` varies much
 /// faster with `y`. Both share the same *x*-grid (`x ∈ [-0.1, 3.9]`, step
 /// `0.1`, 41 points — sized exactly to the `|x| ≤ 3.9` classification range
-/// this table is used for, see [`crate::purr::line_shape`]).
+/// this table is used for, see [`crate::purr::unrest::line_shape`]).
 pub struct DopplerTable {
     /// `tr_coarse[i][j]` / `ti_coarse[i][j]` — Re/Im `w(x,y)` on the coarse
     /// grid, 0-indexed. `x[i] = -0.1 + i·0.1` (`i = 0..41`);
@@ -295,21 +297,18 @@ impl DopplerTable {
         let ax = x.abs();
         let aki = if x < 0.0 { -1.0 } else { 1.0 };
 
-        // purr.f90:2052-2060 — y-side grid coordinate (j = jj-3 for the
-        // coarse grid's y0=0.4 offset).
+        // purr.f90:2052-2060 — y-side grid coordinate. Upstream: `j=jj-3`
+        // into a 1-based array whose entry 1 is y=0.4 (so y=0.5 → jj=5 →
+        // j=2). This port's rows are 0-based with the same origin (row 0 is
+        // y=0.4), i.e. Fortran index k <-> our k-1, hence `jj-4`. (Found by
+        // the `doppler_table_is_exact_at_its_own_nodes` test, 2026-09-10:
+        // the literal `jj-3`/`ii+2` were one grid cell off in both axes.)
         let tempor_y = 10.0 * y;
         let jj = tempor_y as i64;
-        let j = (jj - 3) as usize;
+        let (j, q) = Self::clamp_row((jj - 4) as usize, tempor_y - jj as f64);
         let n = j - 1;
-        let q = tempor_y - jj as f64;
 
-        // purr.f90:2066-2069 — x-side grid coordinate (i = ii+2, shared by
-        // both grids).
-        let tempor_x = 10.0 * ax;
-        let ii = tempor_x as i64;
-        let i = (ii + 2) as usize;
-        let p = tempor_x - ii as f64;
-
+        let (i, p) = Self::x_coordinate(ax);
         Self::biquad(&self.tr_coarse, &self.ti_coarse, i, j, n, p, q, aki)
     }
 
@@ -319,25 +318,238 @@ impl DopplerTable {
         let ax = x.abs();
         let aki = if x < 0.0 { -1.0 } else { 1.0 };
 
-        // purr.f90:2093-2096 — y-side grid coordinate (j = jj+2, scale 50,
-        // for the fine grid's y0=-0.02, step 0.02).
+        // purr.f90:2093-2096 — y-side grid coordinate: upstream `j=jj+2`
+        // (1-based, entry 2 is y=0), so `jj+1` here (see `lookup_coarse`).
         let tempor_y = 50.0 * y;
         let jj = tempor_y as i64;
-        let j = (jj + 2) as usize;
+        let (j, q) = Self::clamp_row((jj + 1) as usize, tempor_y - jj as f64);
         let n = j - 1;
-        let q = tempor_y - jj as f64;
 
+        let (i, p) = Self::x_coordinate(ax);
+        Self::biquad(&self.tr_fine, &self.ti_fine, i, j, n, p, q, aki)
+    }
+
+    /// x-side grid coordinate shared by both grids (`purr.f90:2066-2069`):
+    /// upstream `i=ii+2` into a 1-based array whose entry 2 is x=0, so `ii+1`
+    /// against this port's 0-based rows (row 1 is x=0).
+    fn x_coordinate(ax: f64) -> (usize, f64) {
         let tempor_x = 10.0 * ax;
         let ii = tempor_x as i64;
-        let i = (ii + 2) as usize;
-        let p = tempor_x - ii as f64;
+        // The stencil reads column i+1. For |x| = 3.9 exactly (the table
+        // tier's closed edge — `line_shape` sends |x| > 3.9 elsewhere)
+        // upstream reads `tr(42,·)`, one past its 41 columns: an out-of-bounds
+        // read Fortran does not check. Clamp to the last valid cell instead
+        // (the quadratic then extrapolates by one step; the point is a set of
+        // measure zero in the Monte Carlo).
+        let mut i = (ii + 1) as usize;
+        let mut p = tempor_x - ii as f64;
+        if i > Self::NX - 2 {
+            p += (i - (Self::NX - 2)) as f64; // keep the same physical x
+            i = Self::NX - 2;
+        }
+        (i, p)
+    }
 
-        Self::biquad(&self.tr_fine, &self.ti_fine, i, j, n, p, q, aki)
+    /// Clamp a y-row so the stencil's `j+1` stays inside the 27 rows. Only
+    /// `y = 3.0` exactly on the coarse grid reaches this (upstream reads
+    /// `tr(·,28)` there — the same out-of-bounds read as `x_coordinate`).
+    fn clamp_row(j: usize, q: f64) -> (usize, f64) {
+        if j > Self::NY - 2 {
+            (Self::NY - 2, q + (j - (Self::NY - 2)) as f64)
+        } else {
+            (j.max(1), q)
+        }
     }
 }
 
 impl Default for DopplerTable {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::unresr::wfun::uw;
+
+    /// `w(z)` at 16 points from a verbatim-`uw2` Fortran oracle: `uw2`
+    /// (`purr.f90:2606-2781`) compiled unchanged with gfortran 13.3.0 on
+    /// 2026-09-10 (`kr = selected_real_kind(12,300)`), driven by a 20-line
+    /// program printing `(x, y, Re w, Im w)` to 17 significant figures. The
+    /// points span every branch: the `Re(z)=0` shortcut, the Taylor region,
+    /// the asymptotic region, the `brk*` break lines, a negative `x`, and
+    /// `y = 0` (the pure Dawson-function edge).
+    const UW2_ORACLE: [(f64, f64, f64, f64); 16] = [
+        (0.0, 0.5, 6.1569034419458668e-01, 0.0),
+        (0.3, 0.2, 7.5289479013687721e-01, 2.2965315234907427e-01),
+        (1.0, 0.05, 3.7130529153152053e-01, 5.7164252979125396e-01),
+        (2.0, 1.0, 1.4023958109725965e-01, 2.2221344043570285e-01),
+        (0.0, 3.0, 1.7900115352231821e-01, 0.0),
+        (1.5, 1.6, 1.9780568184586350e-01, 1.5377336487430945e-01),
+        (3.0, 0.4, 3.0278754967723216e-02, 1.9573208858501706e-01),
+        (4.0, 0.01, 3.9260791968046796e-04, 1.4595242271466977e-01),
+        (6.0, 6.5, 4.7110591742681465e-02, 4.2935866991866405e-02),
+        (10.0, 0.3, 1.7170131121579046e-03, 5.6653084897948486e-02),
+        (50.0, 2.0, 4.5090031061670332e-04, 1.1268003276178750e-02),
+        (150.0, 0.7, 1.7553353301890323e-05, 3.7612656681067507e-03),
+        (0.5, 0.0, 7.7880078307140488e-01, 4.7892517290006542e-01),
+        (-2.0, 1.2, 1.4654080316187895e-01, -1.9990385817383455e-01),
+        (2.5, 2.9, 1.1381640052038888e-01, 9.1838041401174464e-02),
+        (0.1, 120.0, 4.7014135033928116e-03, 3.9175725610314760e-06),
+    ];
+
+    fn close(a: f64, b: f64, tol: f64) -> bool {
+        (a - b).abs() <= tol * b.abs().max(1e-300) || (a - b).abs() <= 1e-300
+    }
+
+    #[test]
+    fn uw2_matches_gfortran_oracle() {
+        // Same arithmetic in the same order: agreement to a few ulps is the
+        // expectation, 1e-12 the tolerance.
+        for &(x, y, re, im) in &UW2_ORACLE {
+            let (r, i) = uw2(x, y);
+            assert!(
+                close(r, re, 1e-12),
+                "Re w({x},{y}): got {r:e}, oracle {re:e}"
+            );
+            assert!(
+                (i - im).abs() <= 1e-12 * im.abs().max(1e-12),
+                "Im w({x},{y}): got {i:e}, oracle {im:e}"
+            );
+        }
+        // Closed-form anchors independent of any NJOY code:
+        // w(iy) = exp(y²)·erfc(y) → w(0.5i) = 0.6156903441945867.
+        let (r, _) = uw2(0.0, 0.5);
+        assert!(close(r, 0.615_690_344_194_586_7, 1e-9));
+        // Re w(x) = exp(-x²) on the real axis.
+        let (r, _) = uw2(0.5, 0.0);
+        assert!(close(r, (-0.25f64).exp(), 1e-9));
+    }
+
+    #[test]
+    fn uw2_agrees_with_unresr_uw_off_the_imaginary_axis() {
+        // The two evaluators share their series; only the Re(z)=0 shortcut
+        // differs (uw2 zeroes Im w exactly there). Everywhere else: identical
+        // to round-off.
+        let mut n = 0;
+        for ix in 1..=40 {
+            for iy in 0..=30 {
+                let x = 0.1 * ix as f64;
+                let y = 0.1 * iy as f64;
+                let (r2, i2) = uw2(x, y);
+                let (r1, i1) = uw(x, y);
+                assert!(close(r2, r1, 1e-10), "Re at ({x},{y}): {r2:e} vs {r1:e}");
+                assert!(close(i2, i1, 1e-10), "Im at ({x},{y}): {i2:e} vs {i1:e}");
+                n += 1;
+            }
+        }
+        assert!(n > 1000);
+        // On the imaginary axis uw2 forces Im w = 0 (purr.f90:2693/2736).
+        let (_, i2) = uw2(0.0, 1.3);
+        assert_eq!(i2, 0.0);
+    }
+
+    #[test]
+    fn doppler_table_is_exact_at_its_own_nodes() {
+        // At a grid node p = q = 0, so the 6-point stencil collapses to the
+        // node value itself: the lookup must return uw2 at that node to
+        // round-off. This pins the index-base translation — the literal
+        // Fortran `ii+2`/`jj-3`/`jj+2` (1-based) applied to 0-based rows
+        // returned the neighbouring node (x+0.1, y+0.1) instead.
+        let t = DopplerTable::new();
+        for &(x, y) in &[
+            (0.0, 0.5),
+            (0.3, 0.7),
+            (1.0, 1.0),
+            (2.5, 2.9),
+            (3.8, 0.5),
+            (0.1, 2.0),
+        ] {
+            let (r, i) = t.lookup_coarse(x, y);
+            let (re, im) = uw2(x, y);
+            assert!(
+                close(r, re, 1e-9),
+                "coarse Re at node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                close(i, im, 1e-9),
+                "coarse Im at node ({x},{y}): {i:e} vs {im:e}"
+            );
+        }
+        for &(x, y) in &[
+            (0.0, 0.0),
+            (0.3, 0.02),
+            (1.0, 0.1),
+            (2.5, 0.48),
+            (3.8, 0.2),
+            (0.1, 0.3),
+        ] {
+            let (r, i) = t.lookup_fine(x, y);
+            let (re, im) = uw2(x, y);
+            assert!(
+                close(r, re, 1e-9),
+                "fine Re at node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                close(i, im, 1e-9),
+                "fine Im at node ({x},{y}): {i:e} vs {im:e}"
+            );
+        }
+        // Negative x: interpolate on |x|, flip the imaginary part.
+        let (r, i) = t.lookup_coarse(-0.3, 0.7);
+        let (re, im) = uw2(-0.3, 0.7);
+        assert!(
+            close(r, re, 1e-9) && close(i, im, 1e-9),
+            "({r},{i}) vs ({re},{im})"
+        );
+    }
+
+    #[test]
+    fn doppler_table_reproduces_uw2_to_biquadratic_interpolation_error() {
+        // Off-node points across both grids, in the exact (|x| ≤ 3.9, y ≤ 3.0)
+        // region `line_shape` routes to the table. Measured 2026-09-10 after
+        // the index-base and break-line fixes: worst relative error 5.5e-3,
+        // on the fine grid near y→0 where Im w is small and w varies fastest
+        // in y; the bounds below carry margin over the measured values.
+        let t = DopplerTable::new();
+        let mut worst_c: f64 = 0.0;
+        let mut worst_f: f64 = 0.0;
+        for ix in 0..39 {
+            for iy in 0..25 {
+                let x = 0.1 * ix as f64 + 0.037;
+                let yc = 0.5 + 0.1 * iy as f64 + 0.041;
+                let (r, i) = t.lookup_coarse(x, yc);
+                let (re, im) = uw2(x, yc);
+                let e = ((r - re).abs() / re.abs()).max((i - im).abs() / im.abs().max(1e-3));
+                worst_c = worst_c.max(e);
+                let yf = 0.02 * iy as f64 + 0.007;
+                let (r, i) = t.lookup_fine(x, yf);
+                let (re, im) = uw2(x, yf);
+                let e = ((r - re).abs() / re.abs()).max((i - im).abs() / im.abs().max(1e-3));
+                worst_f = worst_f.max(e);
+            }
+        }
+        assert!(worst_c < 1e-3, "coarse worst rel err {worst_c:e}");
+        assert!(worst_f < 1e-2, "fine worst rel err {worst_f:e}");
+    }
+
+    #[test]
+    fn doppler_table_tolerates_the_closed_tier_edges() {
+        // |x| = 3.9 and y = 3.0 exactly: upstream reads one row/column past
+        // its arrays; this port clamps and must neither panic nor return junk.
+        let t = DopplerTable::new();
+        for &(x, y) in &[(3.9, 3.0), (3.9, 0.49), (0.5, 3.0), (3.9, 0.0), (3.9, 2.95)] {
+            let (r, i) = if y >= 0.5 {
+                t.lookup_coarse(x, y)
+            } else {
+                t.lookup_fine(x, y)
+            };
+            let (re, im) = uw2(x, y);
+            assert!(
+                close(r, re, 5e-3) && (i - im).abs() <= 5e-3 * im.abs().max(1e-3),
+                "edge ({x},{y}): ({r:e},{i:e}) vs ({re:e},{im:e})"
+            );
+        }
     }
 }

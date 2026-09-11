@@ -2471,6 +2471,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "farrer-park"
+version = "0.0.0"
+dependencies = [
+ "outram-foam-basic-lib",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "faster-hex"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

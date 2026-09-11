@@ -42,11 +42,12 @@ marked `NjoyError::NotPorted` rather than fabricated.
 | Read-in group grid (`igg=1`) | `genggp` 675–679 | `input::GroupGrid` (capture only) | **Partial** (captured/validated; boundary read from deck) |
 | Weight: constant (`iwt=2`), 1/E+rolloffs (`iwt=3`) | `gnwtf` 778–823; `gtflx` 825–872 | `weights.rs` (`WeightOption`, `PhotonWeight`) | **Ported** (in-range TAB1 eval) |
 | Weight: read-in TAB1 (`iwt=1`) | `gnwtf` 803–805 | — | **NotPorted** |
-| Cross-section retrieval | `gtsig` 1133–1160 | — | **NotPorted** (needs ENDF `gety1`/`findf`) |
-| Feed functions (coherent/incoherent/pair) | `gtff` 1162–1514 | — | **NotPorted** |
-| Panel quadrature (group-constant integrals) | `gpanel` 874–1011 | — | **NotPorted** |
-| Group-constant display / averaging | `dspla` 1013–1131 | — | **NotPorted** |
-| ENDF tape control flow + GENDF writer | `gaminr` 133–536 | `run_with_input` skeleton | **NotPorted** (documented) |
+| Cross-section retrieval | `gtsig` 1133–1160 | `matrix.rs` (`gety1` on a lin-lin MF=23 section) | **Ported** |
+| Feed functions (coherent/incoherent/pair, MF=23 responses) | `gtff` 1162–1514 | `gtff.rs` (`gtff_coherent`, `gtff_incoherent`, `gtff_pair`, `gtff_vector`, `PhotonTab1::terpa`) | **Ported, golden-validated** |
+| Panel quadrature (group-constant integrals) | `gpanel` 874–1011 | `matrix.rs` | **Ported, golden-validated** |
+| Group-constant normalisation / total heating | `dspla` 1013–1131, `toth` 353–359, 400–419 | `matrix.rs` (`dspla`, `TotalHeating`) | **Ported, golden-validated** |
+| Per-reaction driver | `gaminr` 294–395 | `matrix::gaminr_reaction` | **Ported** |
+| ENDF tape control flow + GAM-out header/merge, `akn` cache | `gaminr` 133–292, 319–350, 420–536 | `run_with_input` skeleton | **NotPorted** (documented) |
 
 ### `igg` photon group-structure map (`gaminr.f90:73–86, 585–602`)
 
@@ -106,15 +107,29 @@ and real numbers are in each test's doc comment. Verified 2026-07-15 against the
   `run_with_input` reaches the numeric-engine `NotPorted` for a valid deck and
   fails validation for an `igg=1` deck lacking a grid.
 
-Test status at authoring: see the porting sub-agent hand-off for the exact
-`scripts/test.sh gaminr` pass/fail counts. These unit tests exercise the ported
-front end only — they are **not** a physics V&V against the Fortran numeric
-oracle (that gate awaits the `gtff`/`gpanel` engine).
+**Oracle (2026-09-10), `tests/gaminr_synthetic_photoat_golden.rs`.** No
+photoatomic evaluation is available offline, so the material is the
+committed **synthetic Z = 6 tape** `reference-data/endf/photoat-synthetic-Z6.endf`
+(analytic MF=23 shapes, MF=27 form factor `6/(1+(x/0.6)^2)^2` and
+scattering function `6(1-1/(1+(x/0.5)^2))`; generator next to it). NJOY2016
+`ac5adf5` with `igg = 3` (LANL 12 groups), `iwt = 3`, `lord = 3` produced
+`reference-data/gendf/photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf`; the
+port reproduces every record of `23/501 502 504 516 522`, `26/502` (P0–P3,
+96 words), `26/504` (320 words), `26/516` and the `23/525` total-heating
+edit with identical structure and every word within **4.4e-7** (NJOY's
+seven-figure storage) on the first run.
+
+Upstream quirk kept: `gtff`'s coherent branch integrates the first
+form-factor panel `[0, x_1]` before capping it at `sqrt2 c1 e`
+(`gaminr.f90:1290-1296`), so below `x_1/(sqrt2 c1)` the clamped `mu = -1`
+integrand is over-weighted (see `gtff::tests::coherent_low_energy_is_rayleigh`).
 
 ## Caveats
 
-- **Untrusted AI draft.** Front-end only; the numeric group-averaging engine is
-  absent. Do not treat any group-averaged cross section as produced.
+- **Untrusted AI draft.** The engine is validated on one synthetic material
+  only; a real photoatomic evaluation (MF=23 with log-log regions, MF=27
+  with hundreds of points, RECONR-linearised PENDF) has not been run through
+  it, and the tape control flow is not ported.
 - **Not required by OpenMC CE neutron transport** — Phase 5.
 - Needs photoatomic evaluations (a different sublibrary from neutron ENDF).
 - The 1/E weight evaluation reproduces in-range ENDF log-log TAB1 interpolation;

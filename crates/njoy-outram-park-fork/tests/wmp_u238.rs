@@ -20,6 +20,15 @@ fn u238_path() -> PathBuf {
 fn u238_loads_and_has_expected_metadata() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }
@@ -40,6 +49,15 @@ fn u238_loads_and_has_expected_metadata() {
 fn u238_capture_resonance_and_doppler_broadening() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }
@@ -91,6 +109,15 @@ fn u238_capture_resonance_and_doppler_broadening() {
 fn u238_cross_sections_are_physical_across_the_range() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }

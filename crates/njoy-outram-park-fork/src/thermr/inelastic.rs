@@ -30,7 +30,7 @@
 //! adaptively to a tolerance; that refinement (and the liquid `cliq` small-α
 //! correction) are future accuracy work, noted where they apply.
 
-use super::mf7::{AlphaTable, IncoherentInelastic};
+use super::mf7::{interp_s_temperature, AlphaTable, IncoherentInelastic};
 use crate::common::phys::BK_EV_PER_K;
 
 /// Reference temperature kT₀ = 0.0253 eV (`therm`/`tevz` in `thermr.f90`).
@@ -110,7 +110,40 @@ impl IncoherentInelastic {
     /// short-collision-time (SCT) analytic kernel — this is what carries `σ(E)`
     /// back to the free-gas limit at high `E` instead of falling to zero at the
     /// edge of the table (thermr.f90 `sig`, tabulated branch + label 170).
+    ///
+    /// At an interpolated temperature ([`temperature_bracket`] present) the
+    /// kernel is evaluated at each bracketing tabulated temperature — that
+    /// temperature's own `S(α,β)`, kinematics and `T_eff` — and the two
+    /// results are interpolated in `T` with the evaluation's `LI` law (see
+    /// the `mf7` module docs, policy step 2). `temp_k` is then the
+    /// interpolation abscissa; passing the struct's own
+    /// [`temperature_k`](super::mf7::IncoherentInelastic::temperature_k) is
+    /// the intended use.
+    ///
+    /// [`temperature_bracket`]: super::mf7::IncoherentInelastic::temperature_bracket
     pub fn double_differential(&self, e: f64, ep: f64, mu: f64, temp_k: f64, natom: f64) -> f64 {
+        match &self.temperature_bracket {
+            None => self.double_differential_with(&self.s_tables, e, ep, mu, temp_k, natom),
+            Some(br) => {
+                let k_lo = self.double_differential_with(&br.s_lo, e, ep, mu, br.t_lo_k, natom);
+                let k_hi = self.double_differential_with(&br.s_hi, e, ep, mu, br.t_hi_k, natom);
+                interp_s_temperature(br.t_lo_k, k_lo, br.t_hi_k, k_hi, temp_k, br.li).max(0.0)
+            }
+        }
+    }
+
+    /// [`double_differential`](Self::double_differential) against an explicit
+    /// set of `S(α)` tables at their own temperature `temp_k` — the single-
+    /// temperature worker the public method dispatches to.
+    fn double_differential_with(
+        &self,
+        tables: &[AlphaTable],
+        e: f64,
+        ep: f64,
+        mu: f64,
+        temp_k: f64,
+        natom: f64,
+    ) -> f64 {
         if e <= 0.0 || ep <= 0.0 {
             return 0.0;
         }
@@ -128,8 +161,7 @@ impl IncoherentInelastic {
         };
 
         // Outside the tabulated grid → SCT (the free-gas-limit tail).
-        let alpha_max = self
-            .s_tables
+        let alpha_max = tables
             .first()
             .and_then(|t| t.alpha.last())
             .copied()
@@ -139,7 +171,7 @@ impl IncoherentInelastic {
             return self.sct_double_differential(e, ep, mu, temp_k, natom);
         }
 
-        let ln_s = self.interp_ln_s(a_tab, b_tab);
+        let ln_s = self.interp_ln_s(tables, a_tab, b_tab);
         // Tabulated S̃ floored (S ≈ 0) in this corner: use the SCT kernel rather
         // than returning zero — matches thermr.f90's fall-through to label 170.
         if ln_s <= SABFLG + 1.0 {
@@ -227,23 +259,83 @@ impl IncoherentInelastic {
     /// The incoherent-inelastic cross section `σ_inel(E)` \[barn\] at incident
     /// energy `e` \[eV\] and temperature `temp_k` \[K\]: `σ(E→E')` integrated over
     /// the kinematically-allowed outgoing energies `E'`.
+    ///
+    /// At an interpolated temperature ([`temperature_bracket`] present) the
+    /// integral is formed at each bracketing tabulated temperature — its own
+    /// `S(α,β)`, kinematics and `T_eff` — and the two values are interpolated
+    /// in `T` with the evaluation's `LI` law, so the result lies between
+    /// `σ_inel(E,T_lo)` and `σ_inel(E,T_hi)` by construction (`op-55lj`: the
+    /// fixed-`(α,β)` interpolant integrated with the target temperature's
+    /// kinematics fell 4 % below its bracket at 3.9 eV on graphite).
+    ///
+    /// [`temperature_bracket`]: super::mf7::IncoherentInelastic::temperature_bracket
     pub fn cross_section(&self, e: f64, temp_k: f64, natom: f64) -> f64 {
-        let (eps, sig) = self.sigma_ep_profile(e, temp_k, natom);
-        let mut sum = 0.0;
-        for k in 1..eps.len() {
-            sum += 0.5 * (sig[k] + sig[k - 1]) * (eps[k] - eps[k - 1]);
+        let integrate = |tables: &[AlphaTable], t: f64| {
+            let (eps, sig) = self.sigma_ep_profile_with(tables, e, t, natom);
+            let mut sum = 0.0;
+            for k in 1..eps.len() {
+                sum += 0.5 * (sig[k] + sig[k - 1]) * (eps[k] - eps[k - 1]);
+            }
+            sum
+        };
+        match &self.temperature_bracket {
+            None => integrate(&self.s_tables, temp_k),
+            Some(br) => {
+                let s_lo = integrate(&br.s_lo, br.t_lo_k);
+                let s_hi = integrate(&br.s_hi, br.t_hi_k);
+                interp_s_temperature(br.t_lo_k, s_lo, br.t_hi_k, s_hi, temp_k, br.li).max(0.0)
+            }
         }
-        sum
     }
 
-    /// The outgoing-energy profile `(E'[], σ(E→E')[])` used to integrate the
-    /// cross section and to build the equiprobable emission bins.
+    /// The outgoing-energy profile `(E'[], σ(E→E')[])` used to build the
+    /// equiprobable emission bins — through the (bracket-aware)
+    /// [`double_differential`](Self::double_differential), so the emission
+    /// distribution at an interpolated temperature is the same `LI`
+    /// interpolation of the two bracketing kernels, pointwise.
+    fn sigma_ep_profile(&self, e: f64, temp_k: f64, natom: f64) -> (Vec<f64>, Vec<f64>) {
+        self.ep_profile(e, temp_k, |ep| self.sigma_e_to_ep(e, ep, temp_k, natom))
+    }
+
+    /// [`sigma_ep_profile`](Self::sigma_ep_profile) against one explicit set
+    /// of `S(α)` tables at their own temperature — the single-temperature
+    /// worker [`cross_section`](Self::cross_section) integrates at each end
+    /// of a temperature bracket.
+    fn sigma_ep_profile_with(
+        &self,
+        tables: &[AlphaTable],
+        e: f64,
+        temp_k: f64,
+        natom: f64,
+    ) -> (Vec<f64>, Vec<f64>) {
+        const NMU: usize = 200;
+        self.ep_profile(e, temp_k, |ep| {
+            // Same dense μ trapezoid as `sigma_e_to_ep`, on these tables.
+            let mut sum = 0.0;
+            let mut prev = self.double_differential_with(tables, e, ep, -1.0, temp_k, natom);
+            for k in 1..=NMU {
+                let mu = -1.0 + 2.0 * k as f64 / NMU as f64;
+                let cur = self.double_differential_with(tables, e, ep, mu, temp_k, natom);
+                sum += 0.5 * (cur + prev) * (2.0 / NMU as f64);
+                prev = cur;
+            }
+            sum
+        })
+    }
+
+    /// The outgoing-energy grid for incident energy `e` with `sigma(E')`
+    /// evaluated on it.
     ///
     /// The E' grid is the table's own β grid mapped to both scatter directions
     /// (`|E'−E| = β·D`, `D = kT₀` for LAT=1 else kT) — the points where S(α,β) has
     /// structure. A naive uniform dE' grid wastes all its resolution on the empty
     /// high-energy tail.
-    fn sigma_ep_profile(&self, e: f64, temp_k: f64, natom: f64) -> (Vec<f64>, Vec<f64>) {
+    fn ep_profile(
+        &self,
+        e: f64,
+        temp_k: f64,
+        sigma: impl Fn(f64) -> f64,
+    ) -> (Vec<f64>, Vec<f64>) {
         if e <= 0.0 || self.beta.is_empty() {
             return (Vec::new(), Vec::new());
         }
@@ -260,10 +352,7 @@ impl IncoherentInelastic {
         }
         eps.sort_by(|a, b| a.partial_cmp(b).unwrap());
         eps.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
-        let sig = eps
-            .iter()
-            .map(|&ep| self.sigma_e_to_ep(e, ep, temp_k, natom))
-            .collect();
+        let sig = eps.iter().map(|&ep| sigma(ep)).collect();
         (eps, sig)
     }
 
@@ -350,7 +439,7 @@ impl IncoherentInelastic {
     /// Interpolate `ln S̃(α, β)` at table coordinates `(a, b)` (both ≥ 0). Bilinear
     /// in `ln S` over the `(α, β)` grid; returns [`SABFLG`] (⇒ `S ≈ 0`) outside the
     /// tabulated range.
-    fn interp_ln_s(&self, a: f64, b: f64) -> f64 {
+    fn interp_ln_s(&self, tables: &[AlphaTable], a: f64, b: f64) -> f64 {
         let beta = &self.beta;
         if beta.is_empty() || b > *beta.last().unwrap() {
             return SABFLG;
@@ -363,11 +452,11 @@ impl IncoherentInelastic {
         };
         let jb1 = (jb + 1).min(beta.len() - 1);
 
-        let s_lo = interp_alpha_ln_s(&self.s_tables[jb], a);
+        let s_lo = interp_alpha_ln_s(&tables[jb], a);
         if jb1 == jb {
             return s_lo;
         }
-        let s_hi = interp_alpha_ln_s(&self.s_tables[jb1], a);
+        let s_hi = interp_alpha_ln_s(&tables[jb1], a);
         // Linear-in-ln S interpolation across β.
         let (b0, b1) = (beta[jb], beta[jb1]);
         if (b1 - b0).abs() < 1e-30 {

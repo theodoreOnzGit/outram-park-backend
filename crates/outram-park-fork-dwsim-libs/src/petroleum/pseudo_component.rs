@@ -242,18 +242,27 @@ pub struct PseudoComponent {
 /// Errors assembling a pseudo-component from non-physical correlation output.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum PseudoComponentError {
-    /// A correlation produced a non-finite or non-positive constant. Upstream
-    /// detects this only after stringifying everything
-    /// (`GenerateCompounds.vb:475-483`) and throws "Invalid characterization,
-    /// please try different parameters/settings"; this port reports which
-    /// property failed.
-    #[error("pseudo-component `{name}`: {property} came out non-physical ({value}) — try a different correlation set or a narrower cut")]
+    /// A correlation produced a non-finite or physically inadmissible constant.
+    /// Upstream detects only NaN, only for `Tc`/`Pc`/`ω`/`M`, and only after
+    /// stringifying everything (`GenerateCompounds.vb:475-483`), then throws
+    /// "Invalid characterization, please try different parameters/settings";
+    /// this port also rejects a non-positive `Vc` (which upstream never
+    /// inspects — `:333`) and reports **which cut** and **which property**
+    /// failed, so a caller can tell a bad heavy-end extrapolation from a bad
+    /// assay.
+    #[error("pseudo-component `{name}` (cut {index}): {property} came out non-physical ({value}) — try a different correlation set or a narrower cut")]
     NonPhysical {
-        /// Name of the offending cut.
+        /// Name of the offending cut (`"<prefix>_NBP_<Tb in °C>"`).
         name: String,
-        /// Which property failed.
+        /// 1-based position of the offending cut in the slate, ascending
+        /// boiling point — the `index` passed to [`build_pseudo_component`].
+        index: usize,
+        /// Which property failed: one of `"molar_mass"`,
+        /// `"critical_temperature"`, `"critical_pressure"`,
+        /// `"acentric_factor"`, `"critical_volume"`.
         property: &'static str,
-        /// The offending value.
+        /// The offending value, in the property's SI unit (g/mol for
+        /// `molar_mass`, K, Pa, dimensionless, m³/mol respectively).
         value: f64,
     },
 }
@@ -296,10 +305,23 @@ pub enum PseudoComponentError {
 /// function returns [`PseudoComponentError::NonPhysical`] rather than emitting
 /// a broken [`Component`].
 ///
+/// The heavy end is where this bites in practice. The Lee-Kesler acentric
+/// factor is the `Tbr < 0.8` vapour-pressure form, and its denominator vanishes
+/// as `Tbr = Tb/Tc → 1`, so `ω` grows without bound for a cut whose boiling
+/// point approaches its own critical temperature. `Zc = 0.291 − 0.08·ω` then
+/// turns negative above `ω = 3.6375` and `Vc = R·Zc·Tc/Pc` with it. Upstream
+/// floors only the Rackett `Z_RA` (`GenerateCompounds.vb:335`) and emits the
+/// negative `Vc` unchecked; this port refuses the cut instead (GitHub #170).
+///
 /// # Errors
 ///
-/// [`PseudoComponentError::NonPhysical`] when `Tc`, `Pc` or `M` comes out
-/// non-finite or non-positive.
+/// [`PseudoComponentError::NonPhysical`] when `M`, `Tc`, `Pc` or `Vc` comes
+/// out non-finite or non-positive, or `ω` comes out non-finite. The variant
+/// names the cut and the property. There is deliberately **no** numeric bound
+/// on `ω` itself: any cap (1.5? 2? 3.6?) would be a heuristic, and where the
+/// correlations' validity envelope lies is a maintainer decision — the checks
+/// here are the sign and finiteness conditions a critical constant must
+/// satisfy to be a critical constant at all.
 #[allow(clippy::too_many_arguments)]
 pub fn build_pseudo_component(
     prefix: &str,
@@ -380,26 +402,48 @@ pub fn build_pseudo_component(
     };
 
     // --- validation (replaces the stringified NaN sweep at `:475-483`) -----
-    let check = |property: &'static str, value: f64| -> Result<(), PseudoComponentError> {
+    let reject = |property: &'static str, value: f64| PseudoComponentError::NonPhysical {
+        name: name.clone(),
+        index,
+        property,
+        value,
+    };
+    let check_positive = |property: &'static str, value: f64| -> Result<(), PseudoComponentError> {
         if !value.is_finite() || value <= 0.0 {
-            Err(PseudoComponentError::NonPhysical {
-                name: name.clone(),
-                property,
-                value,
-            })
+            Err(reject(property, value))
         } else {
             Ok(())
         }
     };
-    check("molar_mass", molar_mass.get::<gram_per_mole>())?;
-    check("critical_temperature", tc.get::<kelvin>())?;
-    check("critical_pressure", pc.get::<pascal>())?;
+    check_positive("molar_mass", molar_mass.get::<gram_per_mole>())?;
+    check_positive("critical_temperature", tc.get::<kelvin>())?;
+    check_positive("critical_pressure", pc.get::<pascal>())?;
+    // `ω` is checked for finiteness only. It is legitimately negative for
+    // quantum gases and its physical upper bound for heavy hydrocarbons is a
+    // matter of judgement, not definition, so no sign or magnitude rule is
+    // imposed here — see the `# Errors` note. Checking it before `Vc` means a
+    // NaN `ω` is reported as `ω`, not as the `Vc` it would poison next.
+    let omega_value = omega.get::<ratio>();
+    if !omega_value.is_finite() {
+        return Err(reject("acentric_factor", omega_value));
+    }
 
     // --- derived constants (`:331-335`, `:349-354`) ------------------------
     let watson_k = property_methods::watson_k(tb, sg);
     let zc = critical_compressibility_zc1(omega);
     let vc = critical_volume(tc, pc, zc);
     let rackett_z = if zc < 0.0 { 0.2 } else { zc };
+    // A critical volume is only physical when positive: it is the molar volume
+    // of the fluid at its critical point, and `Vc = R·Zc·Tc/Pc` with `Tc, Pc >
+    // 0` already established means `Vc <= 0` is exactly `Zc <= 0`, i.e. the
+    // Lee-Kesler `ω` has run past 3.6375 on a cut whose `Tb/Tc` is near 1.
+    // Upstream floors `Z_RA` to 0.2 at this point (`:335`) -- proof it knew
+    // `Zc` goes negative -- yet still stores the negative `Vc` (`:333`), and
+    // its NaN sweep never looks at `Vc` at all. A finite negative `Vc` then
+    // flows into every EOS that consumes it and nothing downstream can tell.
+    // Rejecting here is what lets the `Err` mean "this cut is not a compound"
+    // the way the `Tc`/`Pc`/`M` checks above already do (GitHub #170).
+    check_positive("critical_volume", vc.get::<cubic_meter_per_mole>())?;
 
     // --- formation properties (`:337-343`) ---------------------------------
     let formation = calculate_formation_properties(sg, molar_mass, tb);
@@ -621,13 +665,16 @@ mod tests {
     /// such as `Tb = 1200 K` with `SG = 0.3` do **not** fail this check: the
     /// Riazi-Daubert correlations still return positive finite numbers there
     /// (`Tc = 548.5 K`, `Pc = 522.6 Pa` — physically absurd but numerically
-    /// valid). The guard catches only non-finite or non-positive constants,
-    /// exactly as upstream's own NaN sweep does; it is **not** a validity-range
-    /// check. Callers are responsible for staying inside the correlation ranges
-    /// documented on [`build_pseudo_component`].
+    /// valid). The guard catches only non-finite or non-positive constants
+    /// (and, since GitHub #170, a non-positive `Vc` — see
+    /// [`heavy_cut_with_negative_critical_volume_is_rejected_by_name`]); it is
+    /// **not** a validity-range check. Callers are responsible for staying
+    /// inside the correlation ranges documented on [`build_pseudo_component`].
     ///
-    /// **Results (2026-08-11, this port).** Zero molecular weight returns
-    /// `NonPhysical { property: "molar_mass", value: 0.0 }`. Test passes.
+    /// **Results (2026-08-11, this port; re-run 2026-09-10 after the `index`
+    /// field was added).** Zero molecular weight returns
+    /// `NonPhysical { index: 1, property: "molar_mass", value: 0.0 }`. Test
+    /// passes.
     #[test]
     fn non_physical_inputs_are_rejected_by_name() {
         let tb = tk(450.0);
@@ -648,10 +695,79 @@ mod tests {
         .expect_err("a cut with zero molecular weight is not a compound");
         match err {
             PseudoComponentError::NonPhysical {
-                property, value, ..
+                index,
+                property,
+                value,
+                ..
             } => {
+                assert_eq!(index, 1);
                 assert_eq!(property, "molar_mass");
                 assert_eq!(value, 0.0);
+            }
+        }
+    }
+
+    /// **Methodology (GitHub #170 regression, unit level).** Drive a single
+    /// cut into the heavy-end regime where the Lee-Kesler acentric factor
+    /// diverges: `Tb = 1462.78 K`, `SG = 1.110221`, `M = 1431.21 g/mol` — the
+    /// tenth cut of `BlackOilCrude::heavy()` at 10 cuts as the gamma
+    /// distribution produces it (measured before the guard; see the
+    /// integration-level regression in `crude_distillation.rs`). Before this
+    /// guard the call
+    /// returned `Ok` with a **negative** critical volume, an ordinary finite
+    /// `f64` nothing downstream could detect. It must now return
+    /// [`PseudoComponentError::NonPhysical`] naming `critical_volume`, the cut
+    /// index and a negative value, with `Tc` and `Pc` (which are positive and
+    /// pass) not blamed.
+    ///
+    /// **Results (2026-09-10, `cargo test --release`, this port).**
+    /// `Err(NonPhysical { name: "Bad_NBP_1190", index: 10, property:
+    /// "critical_volume", value: -3.2680562e-2 })` (m³/mol). The same inputs,
+    /// read off the pre-guard slate, give `Tc = 1485.4128 K`,
+    /// `Pc = 3.115385e5 Pa`, `Tbr = 0.9848`, `ω = 13.942646`,
+    /// `Zc = 0.291 − 0.08·ω = −0.824412`, confirming the mechanism described
+    /// on [`build_pseudo_component`]. Test passes.
+    #[test]
+    fn heavy_cut_with_negative_critical_volume_is_rejected_by_name() {
+        let tb = tk(1462.7833);
+        let sg = Ratio::new::<ratio>(1.110221);
+        let (t1, t2, v1, v2) = default_viscosity_points(tb, sg);
+        let err = build_pseudo_component(
+            "Bad",
+            10,
+            tb,
+            sg,
+            MolarMass::new::<gram_per_mole>(1431.2142),
+            t1,
+            t2,
+            v1,
+            v2,
+            CorrelationSet::default(),
+        )
+        .expect_err("a cut whose Zc = 0.291 - 0.08*omega is negative has no critical volume");
+        match err {
+            PseudoComponentError::NonPhysical {
+                name,
+                index,
+                property,
+                value,
+            } => {
+                assert_eq!(name, "Bad_NBP_1190");
+                assert_eq!(index, 10);
+                assert_eq!(
+                    property, "critical_volume",
+                    "Tc and Pc are positive here; only Vc is inadmissible"
+                );
+                assert!(
+                    value.is_finite() && value < 0.0,
+                    "the rejected Vc must be the finite negative number the correlation \
+                     produced, not a NaN: got {value}"
+                );
+                let reference = -3.2680562e-2;
+                assert!(
+                    ((value - reference) / reference).abs() < 1e-5,
+                    "Vc = {value} m^3/mol vs the pre-guard figure {reference}"
+                );
             }
         }
     }

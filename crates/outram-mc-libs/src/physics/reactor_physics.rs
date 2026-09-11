@@ -250,6 +250,65 @@ pub struct SixFactors {
     pub group_bounds_ev: (f64, f64),
 }
 
+impl SixFactors {
+    /// The same run re-expressed in the **two-group** convention the OpenMC
+    /// reference deck uses, for like-for-like comparison.
+    ///
+    /// # Why this exists
+    ///
+    /// `p` and `epsilon` are *not* convention-free. This module computes a
+    /// three-group, leakage-corrected decomposition (see "Three groups, not
+    /// two" in the module docs); the OpenMC deck in
+    /// `verification_and_validation/ring_rpt/openmc_inputs/pipeline_triso_to_rpt.py`
+    /// computes a two-group one, split at the 0.625 eV cadmium cutoff:
+    ///
+    /// ```text
+    /// eta     = thermal production / thermal absorption in fuel
+    /// f       = thermal absorption in fuel / thermal absorption
+    /// p       = thermal absorption / absorption at ALL energies
+    /// epsilon = production at ALL energies / thermal production
+    /// ```
+    ///
+    /// Comparing this module's `p` against that `p` is comparing two different
+    /// quantities that happen to share a name. On the FHR pebble it makes them
+    /// look **8.8 % and −6.1 % apart** while their *product* differs by only
+    /// 2.2 % — the two errors are largely the same error with opposite signs,
+    /// which is the fingerprint of a definitional mismatch rather than a
+    /// physics one. An earlier revision of the ring-RPT V&V record read that
+    /// split as evidence about U-238 epithermal cross sections; it was not.
+    ///
+    /// No new tallies are needed — the two-group factors are exact sums of the
+    /// three-group ones, so this is a re-expression of the same run, not a
+    /// second measurement.
+    ///
+    /// Returns `(eta, f, p, epsilon)`. Statistical uncertainties are not
+    /// propagated through the sums: these are means only, for comparison
+    /// against a reference that quotes means.
+    pub fn two_group_openmc_convention(&self) -> (f64, f64, f64, f64) {
+        let a: [f64; 3] = [
+            self.absorption_by_group[0].mean,
+            self.absorption_by_group[1].mean,
+            self.absorption_by_group[2].mean,
+        ];
+        let prod: [f64; 3] = [
+            self.production_by_group[0].mean,
+            self.production_by_group[1].mean,
+            self.production_by_group[2].mean,
+        ];
+        let a_thermal = a[0];
+        let a_total = a[0] + a[1] + a[2];
+        let p_thermal = prod[0];
+        let p_total = prod[0] + prod[1] + prod[2];
+        let a_fuel_thermal = self.thermal_absorption_fuel.mean;
+
+        let eta = if a_fuel_thermal > 0.0 { p_thermal / a_fuel_thermal } else { 0.0 };
+        let f = if a_thermal > 0.0 { a_fuel_thermal / a_thermal } else { 0.0 };
+        let p = if a_total > 0.0 { a_thermal / a_total } else { 0.0 };
+        let epsilon = if p_thermal > 0.0 { p_total / p_thermal } else { 0.0 };
+        (eta, f, p, epsilon)
+    }
+}
+
 /// Lethargy-normalised neutron flux spectrum over the material domain.
 #[derive(Debug, Clone)]
 pub struct LethargySpectrum {

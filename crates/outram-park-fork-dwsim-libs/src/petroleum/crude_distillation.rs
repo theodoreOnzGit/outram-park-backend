@@ -113,6 +113,16 @@ impl BlackOilCrude {
 
     /// A heavy crude, 22 °API — near the lower edge of the correlations'
     /// comfortable range, kept as a contrast case for the tests.
+    ///
+    /// **Characterisation fails for `cut_count >= 5` (measured 2026-09-10).**
+    /// The gamma distribution puts this crude's heaviest cut at `Tb` ≈ 1300 K
+    /// and above (`M` > 1100 g/mol), far outside the `Tb` ≈ 300-850 K band the
+    /// cut correlations are regressed for; there the Lee-Kesler acentric factor
+    /// diverges and `Vc` turns negative, and [`Self::pseudo_components`]
+    /// returns [`CharacterizationError::PseudoComponent`] naming that cut
+    /// rather than emitting it (GitHub #170). It still fills a physically
+    /// sensible [`BulkAssay`], which is what the tests use it for. Use
+    /// [`Self::light_sweet`] for a slate that characterises at 8-12 cuts.
     #[must_use]
     pub fn heavy() -> Self {
         Self {
@@ -174,6 +184,30 @@ impl BlackOilCrude {
     /// The slate in ascending boiling-point order, mole fractions summing to
     /// one, or a [`CharacterizationError`] if the bulk properties are not
     /// self-consistent enough to characterise.
+    ///
+    /// # Validity envelope — heavy crudes and many cuts
+    ///
+    /// The cut correlations are regressed for `Tb` ≈ 300-850 K and
+    /// `M` ≈ 70-500 g/mol. The heaviest cut of a heavy crude leaves that band
+    /// quickly as `cut_count` grows, and there the Lee-Kesler acentric factor
+    /// diverges (its denominator vanishes as `Tb/Tc → 1`), driving
+    /// `Zc = 0.291 − 0.08·ω` and with it `Vc = R·Zc·Tc/Pc` **negative**. Such a
+    /// cut is refused, not emitted: the call returns
+    /// [`CharacterizationError::PseudoComponent`] wrapping
+    /// [`crate::petroleum::pseudo_component::PseudoComponentError::NonPhysical`]
+    /// with `property == "critical_volume"` and the offending cut's name and
+    /// 1-based index (GitHub #170; before that fix the negative `Vc` was
+    /// returned as an ordinary finite `f64`).
+    ///
+    /// Measured 2026-09-10 with the default correlation set: the 22 °API
+    /// [`Self::heavy`] characterises at 2-4 cuts (at 4 the top cut is already
+    /// at `ω = 3.60`, `Zc = 0.0027`) and fails at 5 and above (at 5 the fifth
+    /// cut has `Vc = −2.20e-3 m³/mol`; at 10 the tenth has `Tb = 1463 K`,
+    /// `ω = 13.94`, `Vc = −3.27e-2 m³/mol`; at 12 the twelfth has `ω = 25.3`,
+    /// `Vc = −7.33e-2 m³/mol`). The 38 °API [`Self::light_sweet`] is clean
+    /// through at least 20 cuts. No bound is placed on `ω` itself — cuts with
+    /// `ω` of 1.5-3.6 still pass, and whether they *should* is a validity
+    /// question the correlations' authors, not this guard, have to answer.
     ///
     /// # Units
     ///
@@ -410,6 +444,81 @@ mod tests {
         }
     }
 
+    /// # Methodology — GitHub #170 regression
+    ///
+    /// Before 2026-09-10, `BlackOilCrude::heavy().pseudo_components(10)`
+    /// returned `Ok` with a slate whose tenth cut carried a **negative critical
+    /// volume** and an acentric factor of 13.9 — ordinary finite `f64`s that
+    /// nothing downstream could detect; the crude column converged on that
+    /// slate and its material balance closed to machine precision. The guard
+    /// in `build_pseudo_component` (same pattern as `select_root`'s `Z > B`
+    /// filter in `thermo/cubic_eos.rs`, which also shipped without a
+    /// regression test) must now refuse the cut. This test pins three things:
+    /// the call is an `Err`, not an `Ok` hiding a negative `Vc`; the error
+    /// names the offending cut and property; and the rejected value is the
+    /// finite negative number the correlation actually produced, so the
+    /// failure is legible. It also pins that the 38 °API crude is unaffected.
+    ///
+    /// Reference: the numbers recorded in GitHub #170 from the Python
+    /// bindings, reproduced here in Rust before the fix (see below).
+    ///
+    /// # Results, measured 2026-09-10 (`cargo test --release`, default
+    /// correlation set)
+    ///
+    /// Before the guard, `heavy()` at 10 cuts gave, for cuts 7-10 (1-based):
+    /// `ω = 1.6081, 2.4373, 13.9426` and `Vc = 2.339660e-3, 2.002933e-3,
+    /// −3.268056e-2 m³/mol` for cuts 8, 9, 10 — cut 9 already non-monotonic,
+    /// cut 10 negative; `Tb/Tc` for cut 10 is 0.9848, `Zc = −0.8244`. All
+    /// cuts have positive `Tc` and `Pc`, so `critical_volume` is the first
+    /// property to fail. After the guard the same call returns
+    /// `Err(PseudoComponent(NonPhysical { name: "Crude22API_NBP_1190",
+    /// index: 10, property: "critical_volume", value: -3.268056e-2 }))`.
+    /// `light_sweet()` at 10 cuts still characterises (top cut `ω = 1.232`,
+    /// `Vc = 2.0506e-3 m³/mol`). Test passes.
+    #[test]
+    fn heavy_crude_top_cut_is_refused_rather_than_emitted_with_negative_vc() {
+        use crate::petroleum::pseudo_component::PseudoComponentError;
+
+        let err = BlackOilCrude::heavy()
+            .pseudo_components(10)
+            .expect_err("the 22 API crude's tenth cut has Zc < 0 and must be refused");
+
+        match err {
+            CharacterizationError::PseudoComponent(PseudoComponentError::NonPhysical {
+                name,
+                index,
+                property,
+                value,
+            }) => {
+                assert_eq!(
+                    name, "Crude22API_NBP_1190",
+                    "the heaviest cut is the offender"
+                );
+                assert_eq!(index, 10, "1-based position in a 10-cut slate");
+                assert_eq!(
+                    property, "critical_volume",
+                    "Tc and Pc are positive for every cut; Vc is what goes negative"
+                );
+                assert!(
+                    value.is_finite() && value < 0.0,
+                    "the rejected Vc must be the finite negative number the correlation \
+                     produced ({value}), not a NaN sentinel"
+                );
+                let reference = -3.268056e-2;
+                assert!(
+                    ((value - reference) / reference).abs() < 1e-4,
+                    "Vc = {value} m^3/mol vs the #170 figure {reference}"
+                );
+            }
+            other => panic!("expected a NonPhysical critical_volume rejection, got {other:?}"),
+        }
+
+        // The guard must not reach the crude the module's worked example uses.
+        BlackOilCrude::light_sweet()
+            .pseudo_components(10)
+            .expect("38 API crude still characterises at 10 cuts");
+    }
+
     /// # Methodology
     ///
     /// `CrudeCut` is a labelling aid, so the only thing worth pinning is that
@@ -462,14 +571,19 @@ mod tests {
 ///
 /// **A real CDU is not reboiled.** It is a refluxed absorber stripped with
 /// open steam at the bottom, with pump-around circuits removing heat down the
-/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] exists in the
-/// solver's enum, but [`RigorousColumn::distillation`] is the only constructor
-/// and fixes the type to a reboiled distillation column; reaching the other
-/// variant would mean extending that builder. That is deliberately **not** done
-/// here, and the consequence is stated rather than hidden: this model has no
-/// stripping steam, no pump-arounds and no crude furnace, so its energy balance
-/// is not a refinery's. It resolves *where the cuts land*, which is what a
-/// teaching or scoping model is for.
+/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] is reachable since
+/// 2026-09-10 through [`RigorousColumn::refluxed_absorber`](crate::columns::initial_estimates::RigorousColumn::refluxed_absorber) (GitHub #103), but
+/// this module deliberately still builds a reboiled
+/// [`RigorousColumn::distillation`](crate::columns::initial_estimates::RigorousColumn::distillation) column, because the refluxed-absorber
+/// variant is **not yet physically solvable** in this port: the bubble-point
+/// solvers pin its distillate rate to the initial estimate and never enforce
+/// the bottom-stage energy balance, and Naphtali-Sandholm does not converge on
+/// it (both measured and recorded in that constructor's docs and in
+/// `columns::column_type_tests`). Switching the CDU over is solver work, not a
+/// builder change. The consequence is stated rather than hidden: this model has
+/// no stripping steam, no pump-arounds and no crude furnace, so its energy
+/// balance is not a refinery's. It resolves *where the cuts land*, which is
+/// what a teaching or scoping model is for.
 ///
 /// # Units
 ///

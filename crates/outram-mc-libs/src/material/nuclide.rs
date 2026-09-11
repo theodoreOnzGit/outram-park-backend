@@ -350,7 +350,7 @@ impl Nuclide {
         temp_k: f64,
         tolerance: f64,
     ) -> Result<Self, NjoyError> {
-        use njoy_outram_park_fork::broadr::doppler_broaden;
+        use njoy_outram_park_fork::broadr::broaden_result;
         use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
 
         // 2. RECONR at 0 K.
@@ -364,12 +364,11 @@ impl Nuclide {
         )?;
         let awr = recon0.material.awr;
 
-        // 3. BROADR to the material temperature (in place of the 0 K grid).
-        let sections = doppler_broaden(&recon0.sections, awr, temp_k);
-        let recon = ReconrResult {
-            material: recon0.material,
-            sections,
-        };
+        // 3. BROADR to the material temperature (in place of the 0 K grid),
+        //    bounded at upstream's `thnmax` (top of the resolved region) so
+        //    SIGMA1 never runs across the resolved/unresolved seam or over the
+        //    energy-averaged data above it (njoy `op-sdbk`).
+        let recon = broaden_result(&recon0, temp_k);
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).

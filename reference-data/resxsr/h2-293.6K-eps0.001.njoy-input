@@ -1,0 +1,7 @@
+resxsr
+  25/
+ 1 1 1 1e-5 1e3 0.001/
+ 'w4 test' 1/
+ 'resxsr oracle: h2 293.6 K pendf, eps 0.001'/
+ 'h2' 128 20/
+stop

@@ -120,9 +120,37 @@ naga = { workspace = true, features = ["wgsl-in"] }
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
 
+# Ungated companion to `fhr_ring_rpt_endf` below: the same five-submodule
+# pipeline (crp_packing -> sphere_packing -> fhr_pebble -> delta_tracking ->
+# keff_delta) end to end, on embedded CORE data with no feature flag and no
+# external files, so `cargo run --example fhr_pebble_quickstart` just works.
+[[example]]
+name = "fhr_pebble_quickstart"
+
 # Gated V&V example — see the `endf-pebble-cases` feature above.
 [[example]]
 name = "fhr_ring_rpt_endf"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: U-238 URR band vs the evaluation's own MF=3 (op-mzvp.2.12).
+[[example]]
+name = "u238_urr_probe"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: reconstruction fingerprint, for comparing two checkouts without
+# running transport (op-mzvp.2.8 baseline drift).
+[[example]]
+name = "u238_recon_fingerprint"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our U-238 reconstruction vs NJOY2016's own PENDF (op-mzvp.2.12).
+[[example]]
+name = "u238_vs_njoy_pendf"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our graphite S(a,b) vs NJOY2016's own THERMR (op-mzvp.2.12).
+[[example]]
+name = "graphite_vs_njoy_thermr"
 required-features = ["endf-pebble-cases"]
 
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────

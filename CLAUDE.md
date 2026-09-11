@@ -324,6 +324,54 @@ not acceptable is not looking.
 Related: the recurring-failure-mode list in
 [`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
 
+## Debugging a port: read upstream first (HARD RULE)
+
+**When a ported module misbehaves, find out how the upstream code handles that
+exact situation BEFORE proposing, writing, or testing a fix.** Most of this
+workspace is a translation — NJOY2016, PFLOTRAN, CoolProp, GeN-Foam, OFFBEAT,
+`code_aster`, DWSIM — and in a translation the overwhelmingly likely cause of a
+discrepancy is that upstream does something the port does not. Upstream is the
+specification. Reasoning about the physics from first principles, or from what
+the port's own comments claim, is not a substitute for reading it.
+
+**What "read upstream first" means, concretely:**
+
+1. **Find the upstream routine** that owns the behaviour and read it — the
+   Fortran/C++/VB source, not just the manual. Vendored sources live in the
+   gitignored `vendor/` folders (workspace rule); the manuals are in `kovan`'s
+   literature store.
+2. **Ask what upstream does that we do not.** Bounds and guards are the usual
+   answer: an upper energy limit, a card default, a branch on a format flag, a
+   range check, a special case for a boundary. A missing *limit* is a far more
+   common port defect than a wrong *formula*, because formulas get reviewed
+   line-by-line during translation and control flow does not.
+3. **Check the data's own format flags before blaming the code.** ENDF-6 (and
+   equivalents elsewhere) change the meaning of a section based on flags —
+   `LSSF`, `LRU`/`LRF`, `LI`, `INT`. A file where `LSSF=1` means something
+   categorically different from `LSSF=0`, and a "missing physics" hypothesis
+   that ignores the flag will send you porting a module you did not need.
+4. **Only then form a hypothesis, and state its predicted sign and magnitude
+   before you measure.** If the fix would move the answer the wrong way, you
+   have the wrong hypothesis — stop and go back to step 1.
+
+**Record what you find in the bead**, including when upstream turns out to
+handle it the same way we do (that result is worth as much as a defect, and
+saves the next session repeating the search).
+
+**Why this exists.** A worked example, 2026-09-10: the U-238 ring-RPT
+discrepancy (`op-mzvp.2.12`) was recorded with "URR self-shielding not
+reconstructed" as the leading hypothesis and "expect ours low + structureless"
+as the predicted signature. Reading the evaluation first would have shown
+`LSSF=1` in U-238's `LRU=2` range — MF=3 already carries the infinitely-dilute
+unresolved cross sections, so the reconstruction is *not* low (it reproduces
+MF=3 to 0.08 % from 24 keV up), and adding PURR self-shielding would have
+*raised* k, moving the case further from the reference rather than closer. The
+real defect was one upstream guard we had not ported: NJOY bounds BROADR at
+`thnmax` and never runs SIGMA1 across the resolved/unresolved boundary, while
+this port broadens the whole grid unconditionally (`op-sdbk`). Hours went into
+a first-principles argument and two speculative patches that reading
+`broadr.f90` and the ENDF flag would have pre-empted.
+
 ## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
 **KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
@@ -1448,6 +1496,7 @@ built, tested, and published from this single repository.
 | `tampines` | Central thermal-hydraulic framework — composes `tuas`, `outram-park-fork-coolprop`, `tampines-steam-tables`, `outram-foam-basic-lib`, `chem-eng…` | GPL-3.0 |
 | `outram-park-fork-coolprop` | Pure-Rust fork of **CoolProp** — Helmholtz-EOS thermophysical properties (137 fluids, incompressibles, humid air, mixtures). Independent fork, not official CoolProp. | GPL-3.0 |
 | `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** (foam-for-nuclear) — nuclear fuel performance: solid mechanics with eigenstrain, rheology (plasticity/creep), fuel-cladding gap and contact, ~70 material property correlations, burnup/fast-flux/FGR, cladding corrosion. Independent fork, not official OFFBEAT. | GPL-3.0 |
+| `farrer-park` | **FEM structural mechanics** — Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk. Small-strain linear elasticity and J2 plasticity with a consistent tangent, on Lagrange Tri3/Tri6/Quad4/Tet4/Hex8. Ported from **MOOSE**, **PRISMS-Plasticity** and **PRISMS-Fatigue** (all LGPL-2.1; GPL-3.0 via LGPL-2.1 §3, one-way). Depends on `outram-foam-basic-lib` for the shared Krylov/preconditioner backend **only, never for its discretisation** — it is genuinely FEM and must not be reformulated as finite volume (GitHub issue #175, epic `op-vrtt`). Verified against analytical/manufactured solutions (MMS orders match theory; patch test at machine precision; Lamé; Newton order 2.004) — **verification only, no human V&V, not a validated RPV or piping life-assessment tool**. Known gaps: no locking treatment, plane strain only, no curved elements (`op-vrtt.1`, `op-vrtt.2`). Crystal plasticity and fatigue not started. Independent fork, not affiliated with INL/MOOSE or the PRISMS Center. | GPL-3.0 |
 | `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. Independent fork. | GPL-3.0 |
 | `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; k-ε / k-ω / Spalart-Allmaras / Smagorinsky scaffolded) on `outram-foam-basic-lib` | GPL-3.0 |
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress **GeN-Foam** deterministic-neutronics + TH port | GPL-3.0 |
@@ -1530,6 +1579,13 @@ optional reactivity-input driver reuses `chem-eng`'s `TransferFnFirstOrder`);
 wraps `NordheimFuchsExactTimestepper`);
 `tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
 the `tampines` **library** itself is TUAS-free).
+`farrer-park → outram-foam-basic-lib` (real -- for the **shared numerical backend only**:
+`farrer-park`'s FEM `CsrMatrix` implements `outram_foam_basic_lib::linear_operator::LinearOperator`
+and drives that crate's `cg_op`/`gmres_op`/`bicgstab_op`. It does **not** take the FV
+discretisation; `LduMatrix` stays FVM-optimised and FEM stays FEM. `linear_operator` was added
+to `outram-foam-basic-lib` for this and is **purely additive** — no existing solver signature
+changed. Note GAMG and Gauss-Seidel are *not* on the contract, since coarsening needs face
+addressing, so `farrer-park` carries its own CSR ILU(0)).
 `outram-foam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
 `njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
 Neutronics edges (target): `outram-mc-libs → njoy-outram-park-fork` (cross sections; declared in

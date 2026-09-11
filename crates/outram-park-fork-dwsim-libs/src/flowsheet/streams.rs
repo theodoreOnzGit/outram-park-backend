@@ -971,6 +971,156 @@ impl MaterialStreamData {
         Ok(())
     }
 
+    /// Write a converged two-phase (vapour / liquid) flash onto the stream's
+    /// phase slots, taking the stream from *specified* to *fully defined*.
+    ///
+    /// This is the port of DWSIM's post-flash phase fill — the half of
+    /// `MaterialStream.Calculate` that the flowsheet data model previously had
+    /// no way to express. Given the flash answer (`beta`, `x`, `y`) it writes,
+    /// for the [`PhaseIndex::Vapor`], [`PhaseIndex::Liquid1`] and
+    /// [`PhaseIndex::OverallLiquid`] slots:
+    ///
+    /// - the per-compound mole fractions (`Vy`/`Vx`,
+    ///   `PropertyPackage.vb:2802-2830`) and the mass fractions derived from
+    ///   them (`AUX_CONVERT_MOL_TO_MASS`, `:2808`, `:2820`);
+    /// - the phase molar fraction (`:2774-2777`) and the phase mass fraction
+    ///   `w_p = x_p·MW_p / sum_q x_q·MW_q` (`:2842-2845`, with the absent
+    ///   second-liquid and solid terms dropped);
+    /// - the phase mean molecular weight `MW_p = sum_i x_i M_i` \[kg/kmol\]
+    ///   (`AUX_MMM`);
+    /// - the phase flows apportioned from the mixture slot, exactly as
+    ///   `DW_CalcPhaseProps` does (`PropertyPackage.vb:1294-1300`):
+    ///   `molarflow_p = molarflow_0·x_p` \[mol/s\] and
+    ///   `massflow_p = molarflow_p·MW_p/1000` \[kg/s\]. When the mixture slot
+    ///   carries only a mass flow, `massflow_p = massflow_0·w_p` is used
+    ///   instead and the phase molar flow is left `None`.
+    ///
+    /// The four slots this two-phase result cannot populate
+    /// ([`PhaseIndex::Liquid2`], [`PhaseIndex::Liquid3`],
+    /// [`PhaseIndex::Aqueous`], [`PhaseIndex::Solid`]) are zeroed rather than
+    /// left stale, matching upstream's `DW_ZerarPhaseProps`
+    /// (`PropertyPackage.vb:5427-5428`). [`Self::at_equilibrium`] is set, so
+    /// the stream reports itself as carrying a converged split.
+    ///
+    /// # What this does NOT do
+    ///
+    /// It performs no flash and consults no property package: the caller runs
+    /// the flash (e.g. [`crate::thermo::property_package::PropertyPackageModel::flash_pt`])
+    /// and passes the answer in. It also does not fill the *physical*
+    /// properties of each phase (density, viscosity, enthalpy, ...) — that is
+    /// upstream's separate `DW_CalcPhaseProps` pass, which needs the property
+    /// package this data model does not carry.
+    ///
+    /// # Units / ranges
+    ///
+    /// `beta` is the vapour molar fraction \[-\] and must be finite and in
+    /// `[0, 1]`; `x` and `y` are liquid and vapour mole fractions \[-\], each
+    /// of length [`Self::compound_count`]. Compound molar masses are read from
+    /// the mixture slot in \[kg/kmol\], DWSIM's internal unit.
+    ///
+    /// # Errors
+    ///
+    /// [`StreamValidationError::CompositionLengthMismatch`] if `x` or `y` does
+    /// not match the stream's compound count, or
+    /// [`StreamValidationError::InvalidSpecValue`] with `property =
+    /// "vapor_fraction"` if `beta` is not a finite number in `[0, 1]`.
+    pub fn apply_vle_flash(
+        &mut self,
+        beta: f64,
+        x: &[f64],
+        y: &[f64],
+    ) -> Result<(), StreamValidationError> {
+        let n = self.compound_count();
+        for given in [x.len(), y.len()] {
+            if given != n {
+                return Err(StreamValidationError::CompositionLengthMismatch {
+                    given,
+                    expected: n,
+                });
+            }
+        }
+        if !beta.is_finite() || !(0.0..=1.0).contains(&beta) {
+            return Err(StreamValidationError::InvalidSpecValue {
+                tag: String::new(),
+                property: "vapor_fraction",
+            });
+        }
+
+        // AUX_MMM(phase): the phase mean molecular weight [kg/kmol].
+        let molar_masses: Vec<f64> = self
+            .phase(PhaseIndex::Mixture)
+            .compounds
+            .iter()
+            .map(|c| c.molar_mass)
+            .collect();
+        let mean_mw = |frac: &[f64]| -> f64 {
+            frac.iter()
+                .zip(molar_masses.iter())
+                .map(|(f, m)| f * m)
+                .sum()
+        };
+        let mw_v = mean_mw(y);
+        let mw_l = mean_mw(x);
+
+        // Phase mass fractions (PropertyPackage.vb:2842-2845).
+        let denom = beta * mw_v + (1.0 - beta) * mw_l;
+        let (wf_v, wf_l) = if denom > 0.0 {
+            (beta * mw_v / denom, (1.0 - beta) * mw_l / denom)
+        } else {
+            (0.0, 0.0)
+        };
+
+        let n_total = self.phase(PhaseIndex::Mixture).properties.molarflow;
+        let w_total = self.phase(PhaseIndex::Mixture).properties.massflow;
+
+        // The liquid answer is written to both Liquid1 and the OverallLiquid
+        // roll-up slot, which for a single liquid phase are the same thing
+        // (PropertyPackage.vb:2256-2291).
+        for &(slot, frac, comp, mw, wf) in &[
+            (PhaseIndex::Vapor, beta, y, mw_v, wf_v),
+            (PhaseIndex::Liquid1, 1.0 - beta, x, mw_l, wf_l),
+            (PhaseIndex::OverallLiquid, 1.0 - beta, x, mw_l, wf_l),
+        ] {
+            self.set_phase_composition(slot, comp)?;
+            let molarflow = n_total.map(|n0| n0 * frac);
+            let massflow = match (n_total, w_total) {
+                (Some(n0), _) => Some(n0 * frac * mw / 1000.0),
+                (None, Some(w0)) => Some(w0 * wf),
+                (None, None) => None,
+            };
+            let ph = self.phase_mut(slot);
+            for (c, &xi) in ph.compounds.iter_mut().zip(comp.iter()) {
+                c.mass_fraction = Some(if mw > 0.0 {
+                    xi * c.molar_mass / mw
+                } else {
+                    0.0
+                });
+            }
+            ph.properties.molarfraction = Some(frac);
+            ph.properties.massfraction = Some(wf);
+            ph.properties.molecular_weight = Some(mw);
+            ph.properties.molarflow = molarflow;
+            ph.properties.massflow = massflow;
+        }
+
+        // Slots a two-phase VLE result cannot populate: zeroed, not left stale.
+        for slot in [
+            PhaseIndex::Liquid2,
+            PhaseIndex::Liquid3,
+            PhaseIndex::Aqueous,
+            PhaseIndex::Solid,
+        ] {
+            let ph = self.phase_mut(slot);
+            ph.properties.molarfraction = Some(0.0);
+            ph.properties.massfraction = Some(0.0);
+            ph.properties.molarflow = Some(0.0);
+            ph.properties.massflow = Some(0.0);
+        }
+
+        self.at_equilibrium = true;
+        Ok(())
+    }
+
     /// Mole fractions of one phase slot \[-\] — DWSIM's `GetPhaseComposition`
     /// (MaterialStream.vb:1313-1321). Unset fractions read as `0.0`.
     #[must_use]
@@ -1797,6 +1947,102 @@ mod tests {
             s.vapor_fraction().unwrap().get::<ratio>(),
             0.25,
             epsilon = 1e-15
+        );
+    }
+
+    /// **Methodology.** Bookkeeping-only verification of
+    /// [`MaterialStreamData::apply_vle_flash`] on a hand-computable case, so
+    /// the arithmetic is checkable without a flash. Two compounds of molar
+    /// mass 10 and 30 kg/kmol, overall `z = [0.5, 0.5]`, overall molar flow
+    /// 100 mol/s, and an *assumed* split `β = 0.4`, `y = [0.8, 0.2]`,
+    /// `x = [0.3, 0.7]`. Expected by hand: `MW_v = 0.8·10 + 0.2·30 = 14`,
+    /// `MW_l = 0.3·10 + 0.7·30 = 24` kg/kmol; phase mass fractions
+    /// `w_v = 0.4·14 / (0.4·14 + 0.6·24) = 5.6/20 = 0.28`, `w_l = 0.72`;
+    /// phase molar flows `40` and `60` mol/s; phase mass flows
+    /// `40·14/1000 = 0.56` and `60·24/1000 = 1.44` kg/s. The degenerate and
+    /// rejection cases are checked in the same test: `β = 0` must leave the
+    /// vapour slot at zero flow, a bad composition length and a `β` outside
+    /// `[0, 1]` must be refused rather than written.
+    ///
+    /// **Results (2026-09-11, release, this port).** Every expected value
+    /// above reproduced to 1e-12; the unused Liquid2/Liquid3/Aqueous/Solid
+    /// slots are zeroed, not left `None`; `at_equilibrium` is set. `β = 0`
+    /// gives vapour molar flow `0` and liquid molar flow `100` mol/s.
+    /// `apply_vle_flash(0.4, &[1.0], &[0.8, 0.2])` returns
+    /// `CompositionLengthMismatch { given: 1, expected: 2 }` and
+    /// `apply_vle_flash(1.5, ...)` returns `InvalidSpecValue { property:
+    /// "vapor_fraction", .. }`, both leaving the stream untouched.
+    ///
+    /// **Scope (honesty).** Verification of the phase-fill bookkeeping only.
+    /// No thermodynamics is evaluated — the split is an input, not a computed
+    /// equilibrium.
+    #[test]
+    fn apply_vle_flash_fills_the_phase_slots() {
+        let mut ms = MaterialStreamData::new();
+        ms.add_compound("Light", 10.0);
+        ms.add_compound("Heavy", 30.0);
+        ms.set_overall_molar_composition(&[0.5, 0.5]).unwrap();
+        ms.phase_mut(PhaseIndex::Mixture).properties.molarflow = Some(100.0);
+
+        ms.apply_vle_flash(0.4, &[0.3, 0.7], &[0.8, 0.2]).unwrap();
+
+        assert!(ms.at_equilibrium);
+        let v = &ms.phase(PhaseIndex::Vapor).properties;
+        let l = &ms.phase(PhaseIndex::Liquid1).properties;
+        assert_relative_eq!(v.molecular_weight.unwrap(), 14.0, epsilon = 1e-12);
+        assert_relative_eq!(l.molecular_weight.unwrap(), 24.0, epsilon = 1e-12);
+        assert_relative_eq!(v.molarfraction.unwrap(), 0.4, epsilon = 1e-12);
+        assert_relative_eq!(v.massfraction.unwrap(), 0.28, epsilon = 1e-12);
+        assert_relative_eq!(l.massfraction.unwrap(), 0.72, epsilon = 1e-12);
+        assert_relative_eq!(v.molarflow.unwrap(), 40.0, epsilon = 1e-12);
+        assert_relative_eq!(l.molarflow.unwrap(), 60.0, epsilon = 1e-12);
+        assert_relative_eq!(v.massflow.unwrap(), 0.56, epsilon = 1e-12);
+        assert_relative_eq!(l.massflow.unwrap(), 1.44, epsilon = 1e-12);
+        // Per-compound mass fractions: AUX_CONVERT_MOL_TO_MASS.
+        assert_relative_eq!(
+            ms.phase(PhaseIndex::Vapor).compounds[0]
+                .mass_fraction
+                .unwrap(),
+            0.8 * 10.0 / 14.0,
+            epsilon = 1e-12
+        );
+        for slot in [
+            PhaseIndex::Liquid2,
+            PhaseIndex::Liquid3,
+            PhaseIndex::Aqueous,
+            PhaseIndex::Solid,
+        ] {
+            assert_eq!(ms.phase(slot).properties.molarflow, Some(0.0));
+            assert_eq!(ms.phase(slot).properties.molarfraction, Some(0.0));
+        }
+
+        // Degenerate all-liquid limit.
+        ms.apply_vle_flash(0.0, &[0.5, 0.5], &[0.5, 0.5]).unwrap();
+        assert_relative_eq!(
+            ms.phase(PhaseIndex::Vapor).properties.molarflow.unwrap(),
+            0.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            ms.phase(PhaseIndex::Liquid1).properties.molarflow.unwrap(),
+            100.0,
+            epsilon = 1e-12
+        );
+
+        // Rejections.
+        assert_eq!(
+            ms.apply_vle_flash(0.4, &[1.0], &[0.8, 0.2]),
+            Err(StreamValidationError::CompositionLengthMismatch {
+                given: 1,
+                expected: 2
+            })
+        );
+        assert_eq!(
+            ms.apply_vle_flash(1.5, &[0.3, 0.7], &[0.8, 0.2]),
+            Err(StreamValidationError::InvalidSpecValue {
+                tag: String::new(),
+                property: "vapor_fraction"
+            })
         );
     }
 }

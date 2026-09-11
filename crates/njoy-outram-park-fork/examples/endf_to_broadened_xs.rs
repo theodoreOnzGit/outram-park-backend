@@ -175,10 +175,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let temp1_k = 293.6; // Room temperature
     let temp2_k = 900.0; // Elevated temperature (hotter reactor)
 
-    let broadened_293k =
-        doppler_broaden(&reconr_result.sections, reconr_result.material.awr, temp1_k);
-    let broadened_900k =
-        doppler_broaden(&reconr_result.sections, reconr_result.material.awr, temp2_k);
+    let thnmax = broadening_limit(&reconr_result);
+    let broadened_293k = doppler_broaden_below(
+        &reconr_result.sections,
+        reconr_result.material.awr,
+        temp1_k,
+        thnmax,
+    );
+    let broadened_900k = doppler_broaden_below(
+        &reconr_result.sections,
+        reconr_result.material.awr,
+        temp2_k,
+        thnmax,
+    );
 
     println!(
         "✓ Broadened cross sections to {} K and {} K",
@@ -210,18 +219,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .find(|s| s.mt.number() == 1)
         .ok_or("MT=1 (total) not found in broadened result")?;
 
-    // Collect energy-vs-sigma triples for display
+    // Collect energy-vs-sigma triples for display. BROADR inserts grid
+    // points adaptively per temperature (`broadn`), so the two grids differ;
+    // sample the 900 K result on the 293.6 K grid by lin-lin interpolation.
+    let interp_900 = [(total_xs_900k.pairs.len() as u32, 2u32)];
     let mut comparison: Vec<(f64, f64, f64)> = total_xs_293k
         .pairs
         .iter()
-        .zip(total_xs_900k.pairs.iter())
-        .map(|((e1, s1), (e2, s2))| {
-            // Sanity check: both grids should have the same energy points
-            assert!(
-                (e1 - e2).abs() < 1e-9 * e1.max(1.0),
-                "Energy mismatch in broadened grids"
-            );
-            (*e1, *s1, *s2)
+        .map(|&(e1, s1)| {
+            let s2 = njoy_outram_park_fork::endf::interp::eval_tab1(
+                e1,
+                &interp_900,
+                &total_xs_900k.pairs,
+            )
+            .unwrap_or(f64::NAN);
+            (e1, s1, s2)
         })
         .collect();
 

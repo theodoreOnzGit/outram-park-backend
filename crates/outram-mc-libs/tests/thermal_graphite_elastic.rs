@@ -122,9 +122,16 @@
 //!    | Requested T \[K\] | Resolved T \[K\] | σ_el | σ_inel |
 //!    |---|---|---|---|
 //!    | 293.15 (20 °C, B1) | 296.00 (tolerance snap) | 4.5514 | 0.4863 |
-//!    | 393.15 (120 °C, B2/B3) | 393.15 (interpolated) | 4.3849 | 0.6779 |
-//!    | 523.15 (250 °C, B4) | 523.15 (interpolated) | 4.1672 | 0.9445 |
-//!    | 1073.15 (hot operation) | 1073.15 (interpolated) | 3.3592 | 2.0373 |
+//!    | 393.15 (120 °C, B2/B3) | 393.15 (interpolated) | 4.3849 | 0.6797 |
+//!    | 523.15 (250 °C, B4) | 523.15 (interpolated) | 4.1672 | 0.9471 |
+//!    | 1073.15 (hot operation) | 1073.15 (interpolated) | 3.3592 | 2.0444 |
+//!
+//!    The three interpolated σ_inel were **corrected on 2026-09-11** (from
+//!    0.6779 / 0.9445 / 2.0373). The earlier figures were produced by an
+//!    interpolation that could leave the physical bracket — at 393.15 K it fell
+//!    **4.17 % below** σ_inel(296 K) at 3.9 eV, which no temperature between two
+//!    tabulated points can do. σ_el and every tabulated temperature are
+//!    unchanged. Item 11 is the invariant that now pins this.
 //!
 //!    σ_el falls monotonically with T (Debye-Waller) while σ_inel rises, and
 //!    every non-tabulated request is interpolated rather than snapped — the
@@ -166,6 +173,14 @@
 //!   consistency* gates, not an independent oracle. The njoy port's own
 //!   graphite numbers were oracle-checked separately (`op-1y4y`).
 //! - **AI-assisted draft, not human-reviewed** (RESPONSIBLE_USE.md).
+//!
+//! 11. **Interpolated σ_inel stays inside its tabulated bracket.** A request
+//!     strictly between two tabulated temperatures must give a cross section
+//!     between the two tabulated cross sections — a physical bound, not a
+//!     tolerance. Checked over three brackets (296/400, 400/500, 500/600) at
+//!     five energies. This is the invariant that catches what a pinned number
+//!     cannot: the pre-`op-55lj` interpolation passed item 8 at 0.0253 eV while
+//!     sitting 4.17 % outside the bracket at 3.9 eV.
 
 use outram_mc_libs::material::thermal::{ThermalElastic, ThermalScattering};
 use outram_mc_libs::prelude::Nuclide;
@@ -439,11 +454,18 @@ fn graphite_htr10_temperature_points() {
         return;
     };
     // (requested K, expected resolved K, expected σ_el, expected σ_inel) at 0.0253 eV.
+    //
+    // The three σ_inel values at *interpolated* temperatures were updated on
+    // 2026-09-11 (0.6779 → 0.6797, 0.9445 → 0.9471, 2.0373 → 2.0444). That was
+    // not drift: the old numbers came from an interpolation that could leave the
+    // physical bracket — see `interpolated_sigma_inel_stays_inside_its_bracket`
+    // below, which is the invariant that pins this and which a magic number
+    // cannot. σ_el and every *tabulated* temperature are unchanged.
     let cases = [
         (293.15, 296.00, 4.5514, 0.4863),
-        (393.15, 393.15, 4.3849, 0.6779),
-        (523.15, 523.15, 4.1672, 0.9445),
-        (1073.15, 1073.15, 3.3592, 2.0373),
+        (393.15, 393.15, 4.3849, 0.6797),
+        (523.15, 523.15, 4.1672, 0.9471),
+        (1073.15, 1073.15, 3.3592, 2.0444),
     ];
     let mut last_el = f64::INFINITY;
     let mut last_inel = 0.0f64;
@@ -606,4 +628,77 @@ fn zrh_incoherent_elastic_channel_is_forward_peaked() {
         "sampled mean cosine {mean_mu:.5} is more than 5σ from the njoy \
          equiprobable-cosine mean {reference_mu:.5}"
     );
+}
+
+/// The invariant the pinned numbers above cannot express, and the one that
+/// actually distinguishes a correct temperature interpolation from a broken one.
+///
+/// # Why this exists
+///
+/// `σ_inel(E, T)` rises monotonically with temperature in this range, so for a
+/// request strictly between two tabulated temperatures the answer **must** lie
+/// between the two tabulated answers. That is a physical bound, not a
+/// tolerance — no interpolation scheme, and no amount of legitimate data
+/// improvement, can put the result outside it.
+///
+/// Before the `op-55lj` fix this code interpolated `S(α,β)` point-by-point at
+/// fixed `(α, β)` and then integrated it with the **target** temperature's
+/// kinematics. Because `LAT=1` scales `α` and `β` with `1/kT`, that mixes a
+/// scattering law from one temperature with the kinematics of another, and the
+/// result left the bracket. Measured on this tape at 393.15 K, bracketed by
+/// 296 K and 400 K:
+///
+/// | E \[eV\] | σ(296) | σ(393.15), old | σ(400) | outside by |
+/// |---|---|---|---|---|
+/// | 1.0 | 4.262049 | 4.296979 | 4.366657 | — |
+/// | 2.0 | 4.497721 | **4.429965** | 4.550130 | −1.51 % |
+/// | 3.9 | 4.609533 | **4.417445** | 4.636609 | **−4.17 %** |
+///
+/// The current code computes the kernel and `σ_inel` fully consistently at each
+/// bracketing temperature — each with its own `S(α,β)`, kinematics and
+/// `T_eff` — and interpolates the *results*, so bracketing holds by
+/// construction.
+///
+/// **The point of this test is that the old bug was invisible to a pinned
+/// number.** `graphite_htr10_temperature_points` only samples 0.0253 eV, where
+/// the violation does not appear; it happily passed on a σ_inel that was 4 %
+/// outside a physical bound at 3.9 eV. A pin detects change; an invariant
+/// detects wrongness.
+#[test]
+fn interpolated_sigma_inel_stays_inside_its_bracket() {
+    let Some(path) = tape_or_skip("tsl-crystalline-graphite.endf", "graphite bracket") else {
+        return;
+    };
+    // (T_lo tabulated, T_requested strictly between, T_hi tabulated)
+    let brackets = [(296.0, 393.15, 400.0), (400.0, 450.0, 500.0), (500.0, 523.15, 600.0)];
+    let energies = [0.0253, 0.1, 1.0, 2.0, 3.9];
+
+    for (t_lo, t_mid, t_hi) in brackets {
+        let lo = ThermalScattering::from_endf_file(&path, 30, t_lo, "C in graphite").unwrap();
+        let mid = ThermalScattering::from_endf_file(&path, 30, t_mid, "C in graphite").unwrap();
+        let hi = ThermalScattering::from_endf_file(&path, 30, t_hi, "C in graphite").unwrap();
+        // The bracketing requests must not have been snapped away from where we
+        // asked, or the test is comparing the wrong things.
+        assert!((lo.selected_temperature_k() - t_lo).abs() < 1.0e-6);
+        assert!((hi.selected_temperature_k() - t_hi).abs() < 1.0e-6);
+        assert!(
+            (mid.selected_temperature_k() - t_mid).abs() < 1.0e-6,
+            "{t_mid} K snapped to {} K — it must interpolate, not snap",
+            mid.selected_temperature_k()
+        );
+
+        for e in energies {
+            let (a, m, b) = (lo.inelastic_xs(e), mid.inelastic_xs(e), hi.inelastic_xs(e));
+            let (min, max) = (a.min(b), a.max(b));
+            // Allow only floating-point slack, not a physics tolerance.
+            let slack = 1.0e-9 * max.max(1.0);
+            assert!(
+                m >= min - slack && m <= max + slack,
+                "σ_inel({t_mid} K, {e} eV) = {m:.6} is outside its bracket \
+                 [{min:.6}, {max:.6}] from {t_lo} K and {t_hi} K — a temperature \
+                 between two tabulated points cannot give a cross section outside \
+                 the two tabulated cross sections"
+            );
+        }
+    }
 }

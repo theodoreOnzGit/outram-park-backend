@@ -1,0 +1,70 @@
+# Golden NJOY2016 LEAPR tapes for V&V (repo-tracked, NOT crate-packaged)
+
+MF=7 thermal-scattering-law tapes produced by the upstream Fortran NJOY2016
+`LEAPR` module from the crate's **own embedded decks**
+(`crates/njoy-outram-park-fork/src/leapr/decks/`), used as like-for-like
+oracles by the LEAPR tests. Like `../endf/`, `../errorr/` and `../covr/`,
+they live at the repository root, outside `crates/`, so they are
+git-tracked but never part of a published crate tarball. Read them through
+`njoy_outram_park_fork::reference_data::reference_file("leapr", …)`.
+
+These differ from the *published* evaluations in `../endf/` (which the
+same decks produced, but with the LEAPR build and physical constants of
+their day): here the generator is a known NJOY2016 commit, so every
+difference is a port difference. Regenerate with `njoy < <deck>`; `tape24`
+is the MF=7 tape.
+
+## Provenance
+
+All tapes: NJOY2016 upstream `ac5adf5` (2016.79), gfortran 13.3.0, built
+2026-09-10; generated 2026-09-10. NJOY2016 at that commit uses
+`bk = 8.617333262e-5 eV/K` (`phys.f90:22`, CODATA 2018); the crate's tests
+regenerate with `LeaprDeck::with_constants(PhysicalConstants::Codata2018)`
+because both decks carry pre-2017-10 `EVAL` dates and would otherwise be
+regenerated with the legacy `bk` their published tapes used.
+
+| Tape | Deck | What it exercises | Run |
+|---|---|---|---|
+| `tsl-SiO2-alpha-njoy2016-leapr.endf` (9,777 lines) | `tsl-SiO2-alpha.leapr`, unmodified: Si in α-quartz, MAT 47, 5 temperatures (293.6/350/400/500/800 K), `nphon` default | **Mixed moderator**: card 6 `1 0 15.862 7.4975 1` — oxygen as a short-collision-time secondary (`b7 = 0`), so LEAPR runs a second temperature loop over the oxygen's own spectrum with `alpha / (aws/awr)`, merges `S = S_Si + (sbs/sb) S_O`, and writes two `T_eff` TAB1s (`leapr.f90:399-408, 3013-3025, 3578-3617`). `twt = 0`, no oscillators, `iel = 0`. | 9.6 s |
+| `tsl-DinD2O-293.6K-njoy2016-leapr.endf` (4.3 MB) | `tsl-DinD2O.leapr` (CAB model, MAT 11, `EVAL-JUN17`) cut to its 293.6 K block (`ntempr = 1`; the full deck has 17), 396 α x 396 β, `nphon = 200` | **Sköld correction** (`nsk = 2`, cards 17-19: `S(kappa)` table and `cfrac`) on top of `contin` + `trans` + `discre`; no secondary. NJOY's listing: `T_eff` 394.719 → 391.784 → 865.561 K, lambda 3.322120. | 40 s |
+| `tsl-HinH2O-293.6K-njoy2016-leapr.endf` (24,168 lines) | `tsl-HinH2O.leapr` (CAB model, MAT 1, `EVAL-JUN17`) cut to its 293.6 K block only (`ntempr = 1`; the full 18-temperature tape is 18.5 MB), `nphon = 200`, 222 α x 317 β | **`contin` + `trans` + `discre`** with a free-gas oxygen secondary (`b7 = 1`): translational weight and two discrete oscillators. NJOY's listing: `T_eff` 480.905 K after `contin`, 478.107 K after `trans`, 1194.341 K after `discre`; lambda 1.724930. | 6.3 s |
+
+## Measured agreement (2026-09-10)
+
+`tests/leapr_sio2_mixed_moderator_oracle.rs` — 43,449 tabulated
+`S(alpha, beta)` points above the `smin` floor over the 5 temperatures
+agree with the NJOY tape to **1.0e-13** relative (identical after the
+tape's 7-figure rounding); both effective-temperature tables (principal
+508.3411 K, secondary 486.4483 K at 293.6 K, … 896.2843 / 889.3055 K at
+800 K) and the `contin` lambdas (1.893760 / 2.063704) match to every
+printed figure. Regenerated with the deck's inferred (legacy-`bk`) vintage
+instead, `T_eff` came out 4e-6 low, lambda 1.1e-5 high and the SCT tail
+3e-4 off — the constants, not the merge.
+
+`tests/leapr_h2o_njoy_oracle.rs` — 44,961 points at 293.6 K agree to
+**1.0e-13**; `T_eff` 1194.341 K exactly; the `B(1..12)` list (free-gas
+oxygen, `B(8) = mss·sps`, `B(9) = aws`) identical. Before this tape the
+H-in-H2O chain had only been compared with the published evaluation
+(σ_inel ~0.6 %, `T_eff` +0.09 %), which a different LEAPR build produced.
+
+`tests/leapr_d2o_skold_njoy_oracle.rs` — 60,322 points at 293.6 K agree
+to **1.0e-13**; `T_eff` 865.561 K exactly. Porting `skold`
+(`leapr.f90:2816-2862`) also surfaced that `sbfill`'s `bet += delta` loop
+can stop one entry short of the `2·nbt-1` that `trans` reads (31,628 for
+`nbt = 15,815` here); upstream silently reads a stale array slot weighted by
+the kernel's truncated tail, the port zero-pads.
+
+`tests/leapr_run_driver_njoy_oracle.rs` (2026-09-10) — the whole-deck
+driver `leapr::run::run_deck` on the three `.njoy-input` decks above
+against the three tapes: MF=1/MT=451 **byte-identical** in columns 1-75
+(60 lines H-in-H2O, 78 SiO2-alpha, 72 D-in-D2O — HEAD/CONTs, the
+Hollerith comment cards, the dictionary with NJOY's card-count estimates
+`24097` / `9677`+`5` / `53069`), and every MF=7 data row identical (worst
+1.3e-16 relative; 24,101 / 9,686+5 / 53,072 rows), which pins the
+five-temperature `LT = 4` layout, the two `T_eff` TAB1s and SiO2's
+incoherent-elastic TAB1 (`LTHR = 2`, `SB = 2.16877`, from `iel = 0` with
+`twt = 0`, `leapr.f90:3043`). The D2O run caught the card reader taking
+`/ end leapr` as a comment card.
+
+Data policy: derived products of open ENDF/B-VIII.0 evaluation inputs
+processed with the BSD-licensed NJOY2016; no proprietary content.
