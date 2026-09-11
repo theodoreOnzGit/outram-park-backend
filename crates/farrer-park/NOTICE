@@ -15,17 +15,24 @@ Upstream projects
   MOOSE                https://github.com/idaholab/moose
                        Multiphysics Object-Oriented Simulation Environment.
                        Idaho National Laboratory / Battelle Energy Alliance.
-                       Licence: LGPL-2.1 (repository LICENSE file).
+                       Licence: LGPL-2.1, NOT "or later". The LICENSE file is
+                       the verbatim LGPL-2.1 text and every source file carries
+                       "Licensed under LGPL 2.1"; no later-version grant appears.
 
   PRISMS-Plasticity    https://github.com/prisms-center/plasticity
                        Crystal-plasticity finite-element code, PRISMS Center,
                        University of Michigan.
-                       Licence: LGPL-2.1 (repository LICENSE file).
+                       (c) 2016 The Regents of the University of Michigan.
+                       Licence: LGPL-2.1-OR-LATER. Its LICENSE file opens with a
+                       custom preamble granting "either version 2.1 of the
+                       License, or (at your option) any later version" before
+                       quoting the LGPL text — more permissive than the other two.
 
   PRISMS-Fatigue       https://github.com/prisms-center/Fatigue
                        Microstructure-sensitive fatigue framework, PRISMS
                        Center, University of Michigan.
-                       Licence: LGPL-2.1 (repository LICENSE file).
+                       Licence: LGPL-2.1 (verbatim LICENSE text; the README
+                       refers to it without an "or later" grant).
 
 Each project's COPYRIGHT/licence notice also carries U.S. Government rights
 language arising from DOE and NSF contracts; those notices are reproduced in
