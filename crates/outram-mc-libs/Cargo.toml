@@ -160,6 +160,11 @@ required-features = ["endf-pebble-cases"]
 name = "lct008_keff"
 required-features = ["endf-pebble-cases"]
 
+# Exploratory driver for the infinite-medium slowing-down oracle (gh:#178).
+[[example]]
+name = "slowing_down_oracle"
+required-features = ["endf-pebble-cases"]
+
 # External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
 # of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
 [[example]]

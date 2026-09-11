@@ -1052,7 +1052,50 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
       critical experiment, with no OpenMC deck involved at all. Re-running the
       pebble deck would now only confirm a number that is no longer load-bearing.
 
-   e. **THE NEXT MEASUREMENT — a spectrum, not another eigenvalue.** Everything
+   e. ~~**THE NEXT MEASUREMENT — a spectrum, not another eigenvalue.**~~
+      **Done 2026-09-11, and it narrows the search again: the energy treatment
+      is sound, so the defect is SPATIAL.**
+
+      `src/physics/slowing_down.rs` solves the infinite-medium slowing-down
+      equation directly, on this crate's own reconstructed cross sections, and
+      `tests/ring_rpt_hunt_lessons.rs` runs this crate's own collision kernel on
+      the same medium. U-238 + C-12 at 293.6 K, a 10 keV source scored down to
+      1 eV, background cross section `σ_b = N_C σ_p,C / N_8` over three decades:
+
+      | `σ_b` \[b\] | deterministic `p_esc` | Monte Carlo | diff | z |
+      |---|---|---|---|---|
+      | 30 | 0.02940 | 0.02880 ± 0.00037 | −2.05 % | −1.61 |
+      | 100 | 0.17579 | 0.17730 ± 0.00085 | +0.86 % | +1.77 |
+      | 300 | 0.38763 | 0.38904 ± 0.00109 | +0.36 % | +1.29 |
+      | 1000 | 0.60543 | 0.60582 ± 0.00109 | +0.06 % | +0.35 |
+      | 10000 | 0.88390 | 0.88402 ± 0.00072 | +0.01 % | +0.17 |
+
+      **Agreement at every dilution, worst 1.8σ**, with the deterministic side
+      converged to 0.014 % under a bisected lethargy grid, and the solver itself
+      checked against the closed-form hydrogen solution `p = c·e^{−(1−c)U}` to
+      better than 1e-5. And this is agreement in the *shielded* regime, not the
+      dilute one: read as effective resonance integrals through
+      `p = exp(−I_eff/(ξ σ_b))`, the same solve gives 194.9 / 79.2 / 44.9 / 27.5
+      / 16.7 b across that scan — an **11.7× collapse** — so the self-shielding
+      being reproduced is as strong as the FHR kernel's. A 400 000-history run of
+      `examples/slowing_down_oracle` adds the other two kernels: elastic
+      anisotropy and the full production branch (S(α,β) and free-gas target
+      motion, i.e. literally `transport_history`'s own code) also land within
+      0.5 % for `σ_b ≥ 100 b`.
+
+      **So the remaining candidate is spatial**: what this code does to the flux
+      *inside* an optically thick lump. That is consistent with everything else
+      in this record — HEU-SOL-THERM-009 is the one **homogeneous** thermal case
+      and the one that comes out right, while both failing systems are lumps —
+      and it is now the whole of the search space. Two things it is NOT, both
+      already measured: the tracking method (delta and surface tracking agree to
+      18 pcm, and the two failing systems use one each), and the geometry
+      description (LEU-COMP-THERM-008's core is verified pin for pin against the
+      **original MCNP deck** — 4961 fuel pins each side, 0 mismatches in 11 025
+      positions).
+
+      f. **Superseded plan, kept for the trail — a spectrum, not another
+      eigenvalue.** Everything
       k-shaped that this environment can reach has now been measured, and the
       answer is consistent: correct `σ_γ`, correct tracking, 11 % too little
       absorption once the fuel is optically thick. The remaining question is
@@ -1095,5 +1138,8 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
 | Human / user interface — human-reviewed | ❌ Not yet manually checked |
 
 **Status: INCOMPLETE** — no longer blocked. The absolute-k residual is located
-(Interpretation 17) but not yet explained at the mechanism level; the next
-measurement is named in Remaining work 3e. Pending maintainer review.
+(Interpretation 17: self-shielded U-238 resonance absorption, reproduced on a
+measured critical experiment) and narrowed once more on 2026-09-11 (Remaining
+work 3e: the **energy** treatment reproduces the exact slowing-down solution at
+every dilution, so what is left is **spatial**). Not yet explained at the
+mechanism level. Pending maintainer review.

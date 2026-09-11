@@ -42,3 +42,4 @@ pub mod keff;
 pub mod search;
 pub mod physics_mg;
 pub mod reactor_physics;
+pub mod slowing_down;

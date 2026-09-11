@@ -23,8 +23,26 @@ and a transcription error cannot be introduced by the example.
 
 The files in `leu-comp-therm-008/` are taken verbatim from
 [`mit-crpg/benchmarks`](https://github.com/mit-crpg/benchmarks), the OpenMC
-developers' collection of ICSBEP models (`icsbep/leu-comp-therm-008/openmc/`),
-retrieved 2026-09-11 through `raw.githubusercontent.com`.
+developers' collection of ICSBEP models, retrieved 2026-09-11:
+
+| File | Source in that repo | Role |
+|---|---|---|
+| `materials.xml`, `geometry.xml`, `settings.xml` | `icsbep/leu-comp-therm-008/openmc/case-1/` | the model `examples/lct008_keff.rs` parses and runs |
+| `mcnp_case-1.input` | `icsbep/leu-comp-therm-008/mcnp/case-1/input` | the **original MCNP deck** for the same case — a second, independent source |
+
+The MCNP deck is committed because it writes the same geometry a completely
+different way: not as lattice maps at all, but as an inner core plus six
+explicit `px`/`py` rectangles, an "axially uniform quadrant" with reflective
+faces on `x = 0` and `y = 0`. That makes the two check each other, and
+`tests/ring_rpt_hunt_lessons.rs::the_lct008_core_matches_the_original_mcnp_deck_pin_for_pin`
+does exactly that: **4961 fuel pins on each side, 0 mismatches in 11 025
+lattice positions**. Parsing the XML removes transcription error; the second
+source is what rules out running a plausible *wrong core*.
+
+It also carries the full Al-6061 composition (`m2`), which is where the list of
+trace alloying elements this environment has no tape for comes from;
+`examples/lct008_keff.rs --clad-omission-bound` bounds their worth by
+measurement.
 
 That repository carries the **MIT licence, © 2011-2024 Paul Romano and other
 contributors** — the notice as written in its own `LICENSE`, copied verbatim to
