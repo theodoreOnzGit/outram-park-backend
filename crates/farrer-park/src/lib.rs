@@ -45,12 +45,29 @@
 //!
 //! ## Units
 //!
-//! The public API boundary is `uom`-typed. Internally, assembly and the linear
-//! solve work in bare `f64` **SI base units** for speed — metres, pascals,
-//! newtons, kelvin. Every conversion happens at the boundary, and each public
-//! item's doc comment states its units in words even where `uom` already
-//! enforces them, because a human reading the signature should not have to
-//! infer them.
+//! **Every public item's doc comment states its units in words**, without
+//! exception, because a human reading a signature should not have to infer
+//! them. Internally, assembly, the constitutive integration and the linear
+//! solve all work in bare `f64` **SI base units** — metres, pascals, newtons —
+//! since a Krylov vector and a fourth-order tangent have no single `uom` type
+//! between them.
+//!
+//! `uom` typing is offered at the **material boundary**, which is where a user
+//! actually types a physical number and where a factor of `1e6` is most easily
+//! lost: [`material::LinearElastic::from_quantities`] and
+//! [`material::J2LinearHardening::from_quantities`] take unit-checked
+//! quantities, and the named aliases [`material::YoungsModulus`],
+//! [`material::ShearModulus`], [`material::BulkModulus`],
+//! [`material::YieldStress`], [`material::HardeningModulus`] and
+//! [`material::PoissonRatio`] keep a hover showing a name rather than a raw
+//! `Quantity<ISQ<...>, SI<f64>, f64>`.
+//!
+//! Mesh coordinates, displacements and nodal forces are **not** `uom`-typed.
+//! They live in long `Vec<f64>` buffers that are indexed by degree of freedom
+//! and handed straight to the linear solver; wrapping each entry would cost the
+//! flat layout the solver needs and buy nothing a doc comment does not already
+//! give. That is a deliberate line, stated here rather than left to be
+//! discovered.
 //!
 //! ## Status
 //!

@@ -85,8 +85,37 @@
 //! ratio, every strain and the equivalent plastic strain are dimensionless
 //! (metre per metre). The tangent is in pascals.
 
+use uom::si::f64::{Pressure, Ratio};
+use uom::si::pressure::pascal;
+use uom::si::ratio::ratio;
+
 use crate::error::{FemError, Result};
 use crate::tensor::{Tensor4, Voigt6};
+
+/// Young's modulus `E`, a pressure in pascals.
+///
+/// A named alias so that a reader hovering over a signature sees
+/// `YoungsModulus`, not a raw `Quantity<ISQ<...>, SI<f64>, f64>` — the
+/// workspace's human-interface rule. Structural steel is about 200 GPa,
+/// aluminium 70 GPa, Zircaloy-4 about 96 GPa at room temperature.
+pub type YoungsModulus = Pressure;
+
+/// Shear modulus `mu = E / (2 (1 + nu))`, a pressure in pascals.
+pub type ShearModulus = Pressure;
+
+/// Bulk modulus `K = E / (3 (1 - 2 nu))`, a pressure in pascals.
+pub type BulkModulus = Pressure;
+
+/// Yield stress `sigma_y`, a pressure in pascals. Mild steel is about 250 MPa.
+pub type YieldStress = Pressure;
+
+/// Linear isotropic hardening modulus `H = d sigma_y / d alpha`, a pressure in
+/// pascals. Zero is perfect plasticity.
+pub type HardeningModulus = Pressure;
+
+/// Poisson's ratio `nu`, dimensionless. Must satisfy `-1 < nu < 0.5`; most
+/// metals are near 0.3, and rubber approaches 0.5 where these elements lock.
+pub type PoissonRatio = Ratio;
 
 /// Isotropic linear elasticity, stored as the two independent constants a user
 /// actually has to hand.
@@ -168,6 +197,66 @@ impl LinearElastic {
         self.bulk_modulus() - 2.0 * self.shear_modulus() / 3.0
     }
 
+    /// Construct from `uom`-typed quantities — the unit-checked entry point.
+    ///
+    /// This is the boundary the crate documentation refers to: a caller holding
+    /// physical quantities passes them in without ever writing a bare number,
+    /// and a megapascal cannot silently be read as a pascal. Everything inside
+    /// the assembly and solver layers then works in bare `f64` SI base units
+    /// for speed.
+    ///
+    /// # Errors
+    ///
+    /// As [`LinearElastic::new`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use farrer_park::material::LinearElastic;
+    /// use uom::si::f64::{Pressure, Ratio};
+    /// use uom::si::pressure::gigapascal;
+    /// use uom::si::ratio::ratio;
+    ///
+    /// let steel = LinearElastic::from_quantities(
+    ///     Pressure::new::<gigapascal>(200.0),
+    ///     Ratio::new::<ratio>(0.3),
+    /// ).unwrap();
+    /// assert!((steel.youngs_modulus() - 200.0e9).abs() < 1.0);
+    /// ```
+    pub fn from_quantities(
+        youngs_modulus: YoungsModulus,
+        poissons_ratio: PoissonRatio,
+    ) -> Result<Self> {
+        Self::new(
+            youngs_modulus.get::<pascal>(),
+            poissons_ratio.get::<ratio>(),
+        )
+    }
+
+    /// Young's modulus `E` as a `uom` quantity.
+    #[must_use]
+    pub fn youngs_modulus_quantity(&self) -> YoungsModulus {
+        Pressure::new::<pascal>(self.youngs_modulus)
+    }
+
+    /// Poisson's ratio `nu` as a `uom` quantity (dimensionless).
+    #[must_use]
+    pub fn poissons_ratio_quantity(&self) -> PoissonRatio {
+        Ratio::new::<ratio>(self.poissons_ratio)
+    }
+
+    /// Shear modulus `mu` as a `uom` quantity.
+    #[must_use]
+    pub fn shear_modulus_quantity(&self) -> ShearModulus {
+        Pressure::new::<pascal>(self.shear_modulus())
+    }
+
+    /// Bulk modulus `K` as a `uom` quantity.
+    #[must_use]
+    pub fn bulk_modulus_quantity(&self) -> BulkModulus {
+        Pressure::new::<pascal>(self.bulk_modulus())
+    }
+
     /// The isotropic elastic stiffness `C_e` \[Pa\] in Voigt form.
     ///
     /// `sigma_V = C_e eps_V` with `eps_V` in engineering shear — see
@@ -208,6 +297,43 @@ pub struct J2LinearHardening {
 }
 
 impl J2LinearHardening {
+    /// Construct from `uom`-typed quantities — the unit-checked entry point.
+    ///
+    /// # Errors
+    ///
+    /// As [`J2LinearHardening::new`].
+    pub fn from_quantities(
+        elastic: LinearElastic,
+        initial_yield_stress: YieldStress,
+        hardening_modulus: HardeningModulus,
+    ) -> Result<Self> {
+        Self::new(
+            elastic,
+            initial_yield_stress.get::<pascal>(),
+            hardening_modulus.get::<pascal>(),
+        )
+    }
+
+    /// Initial yield stress `sigma_y0` as a `uom` quantity.
+    #[must_use]
+    pub fn initial_yield_stress_quantity(&self) -> YieldStress {
+        Pressure::new::<pascal>(self.initial_yield_stress)
+    }
+
+    /// Hardening modulus `H` as a `uom` quantity.
+    #[must_use]
+    pub fn hardening_modulus_quantity(&self) -> HardeningModulus {
+        Pressure::new::<pascal>(self.hardening_modulus)
+    }
+
+    /// Current yield stress `sigma_y(alpha)` as a `uom` quantity.
+    ///
+    /// `equivalent_plastic_strain` is `alpha`, dimensionless.
+    #[must_use]
+    pub fn yield_stress_quantity(&self, equivalent_plastic_strain: PoissonRatio) -> YieldStress {
+        Pressure::new::<pascal>(self.yield_stress(equivalent_plastic_strain.get::<ratio>()))
+    }
+
     /// Construct and validate.
     ///
     /// # Errors
@@ -534,6 +660,38 @@ mod tests {
         // E recovered from mu and lambda.
         let e_back = mu * (3.0 * lam + 2.0 * mu) / (lam + mu);
         assert!((e_back - 200.0e9).abs() / 200.0e9 < 1e-12);
+    }
+
+    /// The `uom` entry point must agree exactly with the bare-`f64` one, and
+    /// must round-trip.
+    #[test]
+    fn uom_boundary_round_trips() {
+        use uom::si::pressure::{gigapascal, megapascal};
+
+        let a = LinearElastic::from_quantities(
+            Pressure::new::<gigapascal>(200.0),
+            Ratio::new::<ratio>(0.3),
+        )
+        .unwrap();
+        let b = LinearElastic::new(200.0e9, 0.3).unwrap();
+        assert_eq!(a, b);
+        assert!((a.youngs_modulus_quantity().get::<gigapascal>() - 200.0).abs() < 1e-9);
+        assert!((a.poissons_ratio_quantity().get::<ratio>() - 0.3).abs() < 1e-15);
+        assert!((a.shear_modulus_quantity().get::<pascal>() - b.shear_modulus()).abs() < 1e-6);
+        assert!((a.bulk_modulus_quantity().get::<pascal>() - b.bulk_modulus()).abs() < 1e-6);
+
+        let p = J2LinearHardening::from_quantities(
+            a,
+            Pressure::new::<megapascal>(250.0),
+            Pressure::new::<gigapascal>(2.0),
+        )
+        .unwrap();
+        assert_eq!(p, J2LinearHardening::new(b, 250.0e6, 2.0e9).unwrap());
+        assert!(
+            (p.yield_stress_quantity(Ratio::new::<ratio>(1.0e-3)).get::<megapascal>() - 252.0)
+                .abs()
+                < 1e-9
+        );
     }
 
     /// Out-of-range parameters must be rejected, not clamped.

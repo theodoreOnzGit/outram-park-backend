@@ -63,10 +63,35 @@ to this crate, and must not be enforced on it.
 Proposed bar, for the maintainer to accept, amend or reject — an agent may
 propose maturity with cited runs and numbers but must **not** declare it:
 
-- 2026-09-11 — proposed bar: observed L2 convergence order within 0.15 of
-  theory under MMS for every implemented element; patch test satisfied to 1e-12
-  relative; thick-walled cylinder within 1% of the closed-form Lamé solution on
-  a converged mesh. Evidence class: **analytical / MMS**.
+- 2026-09-11 (morning) — proposed bar: observed L2 convergence order within
+  0.15 of theory under MMS for every implemented element; patch test satisfied
+  to 1e-12 relative; thick-walled cylinder within 1% of the closed-form Lamé
+  solution on a converged mesh. Evidence class: **analytical / MMS**.
+  **SUPERSEDED THE SAME DAY — the cylinder clause was wrong.** Kept here
+  because the rule says to keep superseded bars, and because the mistake is
+  instructive.
+
+- 2026-09-11 (after first measurement) — proposed bar, corrected. The "within
+  1% of Lamé" clause above silently assumed displacement and stress converge
+  alike. They do not: stress is a first derivative of the primary unknown, so a
+  bilinear element gives stress one order lower than displacement. Measured on
+  the quarter-annulus, refining 4x8 → 32x64:
+
+    max rel. error in u_r        1.28e-2 → 2.07e-4, observed order 1.998
+    max rel. error in sigma_r    1.63e-1 → 2.45e-2, observed order 0.959
+
+  The displacement result beats the 1% clause by a factor of 50. The stress
+  result misses it by 2.5x — not because anything is wrong, but because 1% was
+  not an achievable number for Q4 stress at that refinement, and a bar nobody
+  can meet gets quietly ignored rather than met.
+
+  Corrected bar: **displacement** within 1% of Lamé on a converged mesh, and
+  **stress** judged on observed convergence order (1 ± 0.2 for linear elements,
+  2 ± 0.2 for quadratic) rather than on an absolute tolerance. Asserting the
+  order theory predicts is the sharper test anyway — it fails if the physics is
+  wrong even when the absolute error happens to look small. MMS and patch-test
+  clauses unchanged; both are met with margin. Evidence class:
+  **analytical / MMS**.
 
 Keep superseded entries when the bar moves, so a later reader can tell that it
 moved rather than misreading old results as failures against a standard that

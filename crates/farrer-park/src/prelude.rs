@@ -67,7 +67,8 @@ pub use crate::dof::{DofId, DofMap};
 pub use crate::element::{ElementType, FacetType};
 pub use crate::error::{FemError, Result};
 pub use crate::material::{
-    J2LinearHardening, LinearElastic, Material, MaterialState, StressUpdate,
+    BulkModulus, HardeningModulus, J2LinearHardening, LinearElastic, Material, MaterialState,
+    PoissonRatio, ShearModulus, StressUpdate, YieldStress, YoungsModulus,
 };
 pub use crate::mesh::{
     box_hex8, box_tet4, quarter_annulus_inner_facets, quarter_annulus_quad4, rectangle_quad4,
