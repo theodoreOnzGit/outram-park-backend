@@ -45,7 +45,9 @@
 //!     &mut system, &bcs, &forces, LinearSolverSettings::default(),
 //! )?;
 //!
-//! assert_eq!(report.steps[0].iterations, 1);   // linear problem, one Newton step
+//! // Two solves: one lands on the answer, one confirms both convergence
+//! // criteria. See `solver::NewtonSettings` for why.
+//! assert_eq!(report.steps[0].iterations, 2);
 //! assert!((u[2 * (mesh.n_nodes() - 1)] - 1.0e-4).abs() < 1e-12);
 //! # Ok(())
 //! # }

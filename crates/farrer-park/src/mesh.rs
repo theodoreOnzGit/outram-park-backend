@@ -242,6 +242,31 @@ impl Mesh {
             .collect()
     }
 
+    /// A copy of this mesh with every node coordinate passed through `f`.
+    ///
+    /// `f(node_index, coordinate_in_metres) -> new_coordinate_in_metres`. The
+    /// connectivity is unchanged, so the caller is responsible for not turning
+    /// an element inside out; the result is re-validated for node indices but
+    /// **not** for positive Jacobians, which only [`crate::assembly`] can check
+    /// at the quadrature points it actually uses.
+    ///
+    /// This exists for the patch test, which needs an *irregular* mesh: a patch
+    /// test on a uniform grid is much weaker, because a uniform grid passes it
+    /// for reasons that have nothing to do with the element being correct.
+    ///
+    /// # Errors
+    ///
+    /// As [`Mesh::new`].
+    pub fn map_coords<F: Fn(usize, [f64; 3]) -> [f64; 3]>(&self, f: F) -> Result<Mesh> {
+        let coords: Vec<[f64; 3]> = self
+            .coords
+            .iter()
+            .enumerate()
+            .map(|(i, c)| f(i, *c))
+            .collect();
+        Mesh::new(self.element_type, coords, self.connectivity.clone())
+    }
+
     /// Share this mesh immutably across the assembly and solver layers.
     ///
     /// The mesh is read-only after construction, so it is shared with `Arc<T>`

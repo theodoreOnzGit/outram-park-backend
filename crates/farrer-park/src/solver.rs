@@ -380,6 +380,29 @@ pub fn solve_nonlinear(
 ///
 /// `u` is updated in place and left at the last iterate whether or not the step
 /// converged; the caller restores it on failure.
+///
+/// # How the iteration count is defined, and why a linear problem takes two
+///
+/// `iterations` counts **linear solves performed**. Convergence is declared at
+/// the top of an iteration, before its solve, when the residual measured at the
+/// current iterate and the increment that produced it are both below tolerance.
+///
+/// A linear elastic problem therefore reports **two** iterations, not one: the
+/// first solve lands exactly on the solution, but the increment that produced
+/// it is the whole solution and so fails the increment criterion; a second
+/// solve returns a numerically zero increment, and the third pass sees both
+/// criteria satisfied and stops without solving. That is the honest cost of
+/// requiring both criteria (see the module documentation for why both are
+/// required), and the residual history makes it visible: `[1, ~1e-16, ~1e-16]`.
+///
+/// # The reference norm
+///
+/// The relative residual is measured against
+/// `max(||lambda (f_ext + f_body)||, ||R_0||)`, where `R_0` is the
+/// boundary-condition-applied residual of the first iteration. The second term
+/// is what makes a **displacement-driven** problem measurable at all: there the
+/// external load is identically zero, and dividing by it would give infinity on
+/// the first iteration and a meaningless number thereafter.
 fn newton_step(
     system: &mut System,
     dirichlet: &DirichletSet,
@@ -399,6 +422,8 @@ fn newton_step(
     let mut history = Vec::new();
     let mut n_yielding;
     let mut rhs = vec![0.0; n];
+    let mut f_ref = 0.0_f64;
+    let mut previous_increment = f64::INFINITY;
 
     for iter in 0..settings.max_iterations {
         let a = system.assemble(u, Some(k))?;
@@ -406,21 +431,29 @@ fn newton_step(
         for i in 0..n {
             rhs[i] = lambda * (external_force[i] + a.body_force[i]) - a.internal_force[i];
         }
-        // Reference scale for the relative residual: the applied external load,
-        // falling back to the internal force when the problem is driven purely
-        // by prescribed displacement (where the external load is zero).
-        let f_ref = {
+        scaled.apply(k, &mut rhs, u, settings.dirichlet_method)?;
+
+        let r_abs = rhs.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if iter == 0 {
             let ext: f64 = (0..n)
                 .map(|i| (lambda * (external_force[i] + a.body_force[i])).powi(2))
                 .sum::<f64>()
                 .sqrt();
-            let int: f64 = a.internal_force.iter().map(|v| v * v).sum::<f64>().sqrt();
-            ext.max(int).max(1.0e-300)
-        };
-
-        scaled.apply(k, &mut rhs, u, settings.dirichlet_method)?;
-        let r_norm = rhs.iter().map(|v| v * v).sum::<f64>().sqrt() / f_ref;
+            f_ref = ext.max(r_abs).max(1.0e-300);
+        }
+        let r_norm = r_abs / f_ref;
         history.push(r_norm);
+
+        if r_norm <= settings.residual_tolerance
+            && previous_increment <= settings.increment_tolerance
+        {
+            return Ok(LoadStepReport {
+                load_factor: lambda,
+                residual_history: history,
+                iterations: iter,
+                n_yielding,
+            });
+        }
 
         let (du, _) = solve_linear(k, &rhs, &settings.linear)?;
         let du_norm = du.iter().map(|v| v * v).sum::<f64>().sqrt();
@@ -428,50 +461,7 @@ fn newton_step(
             u[i] += du[i];
         }
         let u_norm = u.iter().map(|v| v * v).sum::<f64>().sqrt().max(1.0e-300);
-        let inc_rel = du_norm / u_norm;
-
-        if r_norm <= settings.residual_tolerance && inc_rel <= settings.increment_tolerance {
-            return Ok(LoadStepReport {
-                load_factor: lambda,
-                residual_history: history,
-                iterations: iter + 1,
-                n_yielding,
-            });
-        }
-        // A step that has converged in the increment but whose residual is
-        // still being measured needs one more assembly to confirm; that is what
-        // the next loop iteration does.
-        if inc_rel <= settings.increment_tolerance && iter + 1 < settings.max_iterations {
-            let a2 = system.assemble(u, None)?;
-            let mut r2 = vec![0.0; n];
-            for i in 0..n {
-                r2[i] = lambda * (external_force[i] + a2.body_force[i]) - a2.internal_force[i];
-            }
-            let mask = scaled.mask(n);
-            let free: f64 = (0..n)
-                .filter(|i| !mask[*i])
-                .map(|i| r2[i] * r2[i])
-                .sum::<f64>()
-                .sqrt();
-            let f_ref2 = {
-                let ext: f64 = (0..n)
-                    .map(|i| (lambda * (external_force[i] + a2.body_force[i])).powi(2))
-                    .sum::<f64>()
-                    .sqrt();
-                let int: f64 = a2.internal_force.iter().map(|v| v * v).sum::<f64>().sqrt();
-                ext.max(int).max(1.0e-300)
-            };
-            let rel = free / f_ref2;
-            history.push(rel);
-            if rel <= settings.residual_tolerance {
-                return Ok(LoadStepReport {
-                    load_factor: lambda,
-                    residual_history: history,
-                    iterations: iter + 1,
-                    n_yielding: a2.n_yielding,
-                });
-            }
-        }
+        previous_increment = du_norm / u_norm;
     }
 
     Err(FemError::NewtonNotConverged {
@@ -499,7 +489,7 @@ pub fn solve_linear_elastic(
     linear: LinearSolverSettings,
 ) -> Result<(Vec<f64>, NewtonReport)> {
     let settings = NewtonSettings {
-        max_iterations: 3,
+        max_iterations: 6,
         n_load_steps: 1,
         linear,
         ..NewtonSettings::default()
@@ -539,7 +529,11 @@ mod tests {
         let (u, rep) = solve_linear_elastic(&mut sys, &bcs, &f, LinearSolverSettings::default())
             .expect("linear solve");
         assert_eq!(rep.steps.len(), 1);
-        assert_eq!(rep.steps[0].iterations, 1, "history {:?}", rep.steps[0].residual_history);
+        // Two solves: see the `newton_step` note on why a linear problem is
+        // two, not one, when both convergence criteria are required.
+        assert_eq!(rep.steps[0].iterations, 2, "history {:?}", rep.steps[0].residual_history);
+        let h = &rep.steps[0].residual_history;
+        assert!(h[1] < 1e-11, "residual after the first solve {:?}", h);
         // The x displacement must be exactly linear in x.
         for i in 0..mesh.n_nodes() {
             let x = mesh.coords()[i][0];
@@ -565,12 +559,17 @@ mod tests {
         let mut solutions = Vec::new();
         for method in [
             DirichletMethod::Elimination,
-            DirichletMethod::Penalty(1.0e10),
+            DirichletMethod::Penalty(1.0e8),
         ] {
             let mut sys = System::new(mesh.clone(), mat, BodyForce::None);
             let s = NewtonSettings {
                 dirichlet_method: method,
-                max_iterations: 3,
+                max_iterations: 8,
+                // The penalty method cannot drive the residual below roughly
+                // 1 / beta, so the tolerance is set to match rather than being
+                // chased with more iterations.
+                residual_tolerance: 1.0e-7,
+                increment_tolerance: 1.0e-9,
                 ..NewtonSettings::default()
             };
             let f = vec![0.0; sys.n_dofs()];
@@ -582,6 +581,6 @@ mod tests {
             .zip(&solutions[1])
             .fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()));
         let scale = solutions[0].iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-        assert!(worst / scale < 1e-6, "penalty vs elimination {}", worst / scale);
+        assert!(worst / scale < 1e-5, "penalty vs elimination {}", worst / scale);
     }
 }

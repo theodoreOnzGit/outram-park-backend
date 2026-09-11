@@ -294,10 +294,10 @@ pub fn facet_rule(facet: FacetType) -> Vec<QuadraturePoint> {
 ///
 /// | Element | Rule | Points | Why |
 /// |---|---|---|---|
-/// | [`ElementType::Tri3`] | 1-point | 1 | the integrand `B^T D B det J` is constant |
+/// | [`ElementType::Tri3`] | 3-point | 3 | the stiffness integrand `B^T D B det J` is constant, so one point would do for it — but one point integrates the body-force term `N^T b det J` only to degree 1, and that consistency error would show up in the manufactured-solution study as a spurious loss of order. Two extra evaluations remove it as a suspect. |
 /// | [`ElementType::Tri6`] | 6-point | 6 | degree 2 integrand on a straight-sided element; degree 4 exactness gives headroom for the body-force term and mild distortion |
 /// | [`ElementType::Quad4`] | 2x2 | 4 | full integration; degree 3 per direction |
-/// | [`ElementType::Tet4`] | 1-point | 1 | constant integrand |
+/// | [`ElementType::Tet4`] | 4-point | 4 | as Tri3: the stiffness integrand is constant, the body-force integrand is not |
 /// | [`ElementType::Hex8`] | 2x2x2 | 8 | full integration; degree 3 per direction |
 ///
 /// These are **full** integration rules throughout — see the module note on why
@@ -305,10 +305,10 @@ pub fn facet_rule(facet: FacetType) -> Vec<QuadraturePoint> {
 #[must_use]
 pub fn default_rule(element: ElementType) -> Vec<QuadraturePoint> {
     match element {
-        ElementType::Tri3 => triangle_rule(1),
+        ElementType::Tri3 => triangle_rule(3),
         ElementType::Tri6 => triangle_rule(6),
         ElementType::Quad4 => quad_rule(2),
-        ElementType::Tet4 => tetrahedron_rule(1),
+        ElementType::Tet4 => tetrahedron_rule(4),
         ElementType::Hex8 => hex_rule(2),
     }
 }
@@ -512,10 +512,10 @@ mod tests {
     /// The default rules must be the ones the module table documents.
     #[test]
     fn default_rules_match_documented_point_counts() {
-        assert_eq!(default_rule(ElementType::Tri3).len(), 1);
+        assert_eq!(default_rule(ElementType::Tri3).len(), 3);
         assert_eq!(default_rule(ElementType::Tri6).len(), 6);
         assert_eq!(default_rule(ElementType::Quad4).len(), 4);
-        assert_eq!(default_rule(ElementType::Tet4).len(), 1);
+        assert_eq!(default_rule(ElementType::Tet4).len(), 4);
         assert_eq!(default_rule(ElementType::Hex8).len(), 8);
     }
 }
