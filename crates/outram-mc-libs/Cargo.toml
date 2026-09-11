@@ -120,6 +120,13 @@ naga = { workspace = true, features = ["wgsl-in"] }
 name = "outram-mc-tui"
 path = "src/bin/outram-mc-tui/main.rs"
 
+# Ungated companion to `fhr_ring_rpt_endf` below: the same five-submodule
+# pipeline (crp_packing -> sphere_packing -> fhr_pebble -> delta_tracking ->
+# keff_delta) end to end, on embedded CORE data with no feature flag and no
+# external files, so `cargo run --example fhr_pebble_quickstart` just works.
+[[example]]
+name = "fhr_pebble_quickstart"
+
 # Gated V&V example — see the `endf-pebble-cases` feature above.
 [[example]]
 name = "fhr_ring_rpt_endf"
