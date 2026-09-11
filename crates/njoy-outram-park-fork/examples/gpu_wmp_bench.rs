@@ -167,6 +167,61 @@ fn main() {
         );
     }
 
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // The timings are machine-specific and are NOT asserted — they belong in the
+    // per-machine CSV, not in a gate. What IS asserted is the only correctness
+    // claim this program makes: the GPU `f32` path agrees with the trusted CPU
+    // `f64` reference.
+    //
+    // `f32` has ~7 decimal digits, and the Faddeeva evaluation sums a few dozen
+    // poles, so ~1e-5 relative is the floor a correct implementation can reach.
+    // 1e-3 leaves two orders of magnitude of headroom over that floor while
+    // still catching a wrong pole, a wrong window, or a wrong index — the
+    // failure modes that produce percent-level or larger errors, not
+    // round-off-level ones.
+    //
+    // V&V is judged on the CPU path. This gate says the GPU path is a faithful
+    // single-precision copy of it, which is what makes the speedup meaningful
+    // rather than just fast.
+    println!("\n=== V&V gate: GPU f32 WMP against the trusted CPU f64 reference ===");
+    assert!(
+        !rows.is_empty(),
+        "the benchmark produced no rows, so nothing was compared"
+    );
+    let worst = rows
+        .iter()
+        .max_by(|a, b| {
+            a.max_rel_err_total
+                .partial_cmp(&b.max_rel_err_total)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .expect("non-empty");
+    println!(
+        "  worst max_rel_err_total across {} grid sizes: {:.3e} (at n = {})",
+        rows.len(),
+        worst.max_rel_err_total,
+        worst.n
+    );
+    assert!(
+        worst.max_rel_err_total.is_finite(),
+        "the GPU/CPU comparison produced a non-finite relative error at n = {}. \
+         A NaN here means the GPU path returned garbage, not that it disagreed.",
+        worst.n
+    );
+    assert!(
+        worst.max_rel_err_total < 1.0e-3,
+        "the GPU f32 WMP path disagrees with the CPU f64 reference by {:.3e} at \
+         n = {} energies. f32 round-off through a few dozen Faddeeva poles floors \
+         out around 1e-5, so an error three orders of magnitude above that is a \
+         wrong pole, a wrong window or a wrong index — not precision.\n\
+         The CPU path is the trusted reference and V&V is judged on it; this \
+         assertion is what says the GPU path is the same physics.",
+        worst.max_rel_err_total,
+        worst.n,
+    );
+    println!("  [PASS] GPU agrees with the CPU reference to better than 1e-3");
+
     // Verdict: first N where GPU overtakes CPU, and the peak speedup.
     let crossover = rows.iter().find(|r| r.speedup > 1.0).map(|r| r.n);
     let peak = rows.iter().max_by(|a, b| {
