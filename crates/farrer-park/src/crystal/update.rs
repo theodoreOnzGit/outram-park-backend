@@ -87,6 +87,12 @@ const MAX_LINE_SEARCH_STEPS: usize = 60;
 /// Dimensionless.
 const YIELDING_SLIP_THRESHOLD: f64 = 1.0e-10;
 
+/// Largest slip increment the local Newton's **starting guess** is allowed to
+/// imply, dimensionless. One per cent of shear on the worst-loaded system.
+/// See the initial-guess discussion in [`CrystalPlasticity::update`]; this
+/// bounds only where the iteration starts, never where it ends.
+const GUESS_SLIP_CAP: f64 = 1.0e-2;
+
 /// Rate-dependent crystal plasticity for one phase: elasticity, slip family,
 /// flow rule, hardening law and the time increment they are integrated over.
 ///
@@ -388,29 +394,44 @@ impl CrystalPlasticity {
         // --- Initial guess. ------------------------------------------------
         // Upstream starts the local Newton from the previously converged
         // stress ("The guess stress to start the Newton-Raphson iteration is
-        // the previously converged stress" — RateDependentModel header). On
-        // the very first step there is none, so the elastic predictor is used,
-        // with its DEVIATOR scaled back so that no system starts more than 5 %
-        // above its resistance. Without that, |tau/s|^(1/m) at 1/m = 50 is
-        // astronomically large and the first residual is infinite. The scaling
-        // affects only where the iteration starts, never where it converges to;
-        // the Schmid tensors are deviatoric, so the mean stress is untouched
-        // and the guess stays a valid stress state.
+        // the previously converged stress" — RateDependentModel header). On the
+        // very first step there is none, so the elastic predictor is used.
+        //
+        // Either way the guess's DEVIATOR is then scaled back until no system
+        // is stressed hard enough to imply a slip increment above
+        // `GUESS_SLIP_CAP`. Without that, a predictor only 30 % above the slip
+        // resistance implies `1.3^50 = 5e5` times the reference slip — an
+        // initial residual of `1e26 Pa` that no line search recovers from. The
+        // cap affects only where the iteration starts, never where it
+        // converges to; the Schmid tensors are deviatoric, so the mean stress
+        // is untouched and the guess stays a valid stress state. Newton then
+        // climbs towards the answer from the well-conditioned side, since the
+        // local Jacobian grows with `|tau/s|`.
+        //
+        // This is the small-strain counterpart of upstream's deformation-
+        // increment sub-stepping (`numberOfCuts`), which is not ported: this
+        // module cannot sub-step, because its total-strain interface does not
+        // carry the start-of-step strain. See bead `op-q75c`.
+        let guess_ratio_cap = (GUESS_SLIP_CAP
+            / (self.flow.reference_slip_rate() * self.time_increment))
+            .powf(self.flow.rate_sensitivity_exponent())
+            .max(1.0);
         let mut sigma = if cs.stress == Voigt6::ZERO && cs.total_slip == 0.0 {
-            let mut worst = 0.0_f64;
-            for a in 0..n {
-                worst = worst.max(sigma_trial.work_with_strain(&e[a]).abs() / resistance[a]);
-            }
-            if worst > 1.05 {
-                let mean = sigma_trial.mean_stress();
-                let dev = sigma_trial.stress_deviator().scaled(1.05 / worst);
-                dev.plus(&Voigt6::IDENTITY.scaled(mean))
-            } else {
-                sigma_trial
-            }
+            sigma_trial
         } else {
             cs.stress
         };
+        {
+            let mut worst = 0.0_f64;
+            for a in 0..n {
+                worst = worst.max(sigma.work_with_strain(&e[a]).abs() / resistance[a]);
+            }
+            if worst > guess_ratio_cap {
+                let mean = sigma.mean_stress();
+                let dev = sigma.stress_deviator().scaled(guess_ratio_cap / worst);
+                sigma = dev.plus(&Voigt6::IDENTITY.scaled(mean));
+            }
+        }
 
         // --- Local Newton with backtracking line search. -------------------
         let mut d_gamma = [0.0_f64; MAX_SLIP_SYSTEMS];
@@ -663,6 +684,40 @@ impl CrystalState {
     pub fn with_orientation(mut self, orientation: Orientation) -> Self {
         self.orientation = orientation;
         self
+    }
+
+    /// The **stress normal to each slip plane**, `sigma_n_a = n_a . sigma .
+    /// n_a` \[Pa\], for the stress `sigma` \[Pa\] given in **sample** axes.
+    ///
+    /// Tension positive. This is the quantity the Fatemi-Socie fatigue
+    /// indicator parameter multiplies the plastic shear strain range by: a
+    /// slip band under tension normal to its own plane opens more readily than
+    /// the same band under compression, and it is the *plane* normal that
+    /// matters, not the principal stress direction.
+    ///
+    /// Entries beyond `family.n_systems()` are zero. Note that the twelve
+    /// entries are **not** twelve distinct numbers for either implemented
+    /// family: FCC has four distinct `{111}` planes, so its twelve entries
+    /// take only four values, in coplanar groups of three.
+    #[must_use]
+    pub fn plane_normal_stresses(
+        &self,
+        family: SlipFamily,
+        sigma: &Voigt6,
+    ) -> [f64; MAX_SLIP_SYSTEMS] {
+        let mut out = [0.0_f64; MAX_SLIP_SYSTEMS];
+        let full = crate::crystal::orient::symmetric_to_full(sigma);
+        for (a, sys) in family.systems().iter().enumerate().take(family.n_systems()) {
+            let n = self.orientation.rotate_vector(sys.normal);
+            let mut s = 0.0;
+            for i in 0..3 {
+                for j in 0..3 {
+                    s += n[i] * full[i][j] * n[j];
+                }
+            }
+            out[a] = s;
+        }
+        out
     }
 
     /// The resolved shear stress `tau_a = sigma : P_a` \[Pa\] on every system

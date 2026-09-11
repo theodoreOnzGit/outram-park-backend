@@ -239,6 +239,82 @@ impl Orientation {
         Orientation::from_bunge_euler_radians(phi1 * d, cap_phi * d, phi2 * d)
     }
 
+    /// Build from a **unit quaternion** `(w, x, y, z)` representing the
+    /// crystal-to-sample rotation.
+    ///
+    /// The quaternion is normalised internally, so an unnormalised one is
+    /// accepted; a zero quaternion returns the identity. `(1, 0, 0, 0)` is the
+    /// cube orientation.
+    ///
+    /// Quaternions matter here for two reasons: EBSD and texture data are
+    /// commonly distributed in that form, and — unlike Euler angles — they
+    /// admit a *uniform* random sampling of `SO(3)`, which is what
+    /// [`Orientation::uniform_from_unit_cube`] uses.
+    ///
+    /// # Units
+    ///
+    /// Dimensionless.
+    #[must_use]
+    pub fn from_quaternion(w: f64, x: f64, y: f64, z: f64) -> Self {
+        let n = (w * w + x * x + y * y + z * z).sqrt();
+        if n == 0.0 {
+            return Orientation::identity();
+        }
+        let (w, x, y, z) = (w / n, x / n, y / n, z / n);
+        Self {
+            r: [
+                [
+                    1.0 - 2.0 * (y * y + z * z),
+                    2.0 * (x * y - z * w),
+                    2.0 * (x * z + y * w),
+                ],
+                [
+                    2.0 * (x * y + z * w),
+                    1.0 - 2.0 * (x * x + z * z),
+                    2.0 * (y * z - x * w),
+                ],
+                [
+                    2.0 * (x * z - y * w),
+                    2.0 * (y * z + x * w),
+                    1.0 - 2.0 * (x * x + y * y),
+                ],
+            ],
+        }
+    }
+
+    /// Map three numbers in `[0, 1)` to an orientation **uniformly distributed
+    /// over all rotations**, by Shoemake's algorithm (K. Shoemake, "Uniform
+    /// random rotations", *Graphics Gems III*, 1992):
+    ///
+    /// `q = (sqrt(1-u1) sin 2 pi u2, sqrt(1-u1) cos 2 pi u2,
+    ///       sqrt(u1) sin 2 pi u3, sqrt(u1) cos 2 pi u3)`.
+    ///
+    /// This is the right way to build an untextured polycrystal, and it is
+    /// **not** what sampling three Euler angles uniformly gives: that
+    /// over-samples orientations near `Phi = 0`, because the Bunge measure
+    /// carries a `sin Phi` factor. A texture built the naive way is not random
+    /// and will not reduce to isotropic behaviour however many grains it has.
+    ///
+    /// The caller supplies the three numbers, so a sequence built this way is
+    /// deterministic and reproducible — this crate has no random number
+    /// generator and does not want one.
+    ///
+    /// # Units
+    ///
+    /// `u` dimensionless in `[0, 1)`; result dimensionless. Values outside
+    /// `[0, 1)` are not rejected but no longer give a uniform distribution.
+    #[must_use]
+    pub fn uniform_from_unit_cube(u: [f64; 3]) -> Self {
+        let two_pi = 2.0 * std::f64::consts::PI;
+        let (a, b) = ((1.0 - u[0]).max(0.0).sqrt(), u[0].max(0.0).sqrt());
+        Orientation::from_quaternion(
+            a * (two_pi * u[1]).sin(),
+            a * (two_pi * u[1]).cos(),
+            b * (two_pi * u[2]).sin(),
+            b * (two_pi * u[2]).cos(),
+        )
+    }
+
     /// The stored **crystal-to-sample** rotation matrix `R[i][j]`,
     /// dimensionless.
     #[must_use]

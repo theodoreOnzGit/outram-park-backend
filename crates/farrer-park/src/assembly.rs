@@ -761,6 +761,39 @@ impl System {
         out
     }
 
+    /// The **integration weight** `w = weight * det J` \[m^3 in three
+    /// dimensions, m^2 per unit thickness in two\] of every quadrature point,
+    /// in the same order as [`quadrature_stress`](Self::quadrature_stress).
+    ///
+    /// These are the weights that turn a per-quadrature-point field into a
+    /// volume average: `sum(w_i f_i) / sum(w_i)`. They are computed on the
+    /// **undeformed** mesh, which is correct for a small-strain formulation.
+    ///
+    /// # Errors
+    ///
+    /// [`FemError::DegenerateElement`] if any element has a non-positive
+    /// Jacobian determinant at a quadrature point.
+    pub fn quadrature_weights(&self) -> Result<Vec<f64>> {
+        let et = self.mesh.element_type();
+        let mut ec = [[0.0; 3]; MAX_ELEM_NODES];
+        let mut out = Vec::with_capacity(self.stress.len());
+        for e in 0..self.mesh.n_elements() {
+            self.mesh.element_coords(ElemId(e), &mut ec);
+            for (qi, q) in self.rule.iter().enumerate() {
+                let mapped = map_gradients(et, &ec, q.xi).map_err(|err| match err {
+                    FemError::DegenerateElement { det_j, .. } => FemError::DegenerateElement {
+                        element: e,
+                        point: qi,
+                        det_j,
+                    },
+                    other => other,
+                })?;
+                out.push(q.weight * mapped.det_j);
+            }
+        }
+        Ok(out)
+    }
+
     /// A fresh matrix on this system's sparsity pattern.
     #[must_use]
     pub fn new_matrix(&self) -> CsrMatrix {
