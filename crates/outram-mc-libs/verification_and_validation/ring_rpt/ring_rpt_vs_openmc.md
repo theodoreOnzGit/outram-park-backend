@@ -688,11 +688,12 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
 12. **This code reproduces a measured criticality benchmark at *each* end of the
    spectrum, and the pebble is the only thing that disagrees.**
 
-   | benchmark | character | result |
-   |---|---|---|
-   | ICSBEP **HEU-MET-FAST-001** (Godiva) | bare HEU metal sphere, fast | **+57 ± 173 pcm** |
-   | ICSBEP **HEU-SOL-THERM-009 case 1** | water-reflected HEU solution sphere, thermal | **−18 ± 171 pcm** |
-   | this study's FHR pebble | graphite/FLiBe TRISO pebble, thermal | **+4004 pcm** |
+   | benchmark | character | U-238 share of heavy metal | result |
+   |---|---|---|---|
+   | ICSBEP **HEU-MET-FAST-001** (Godiva) | bare HEU metal sphere, fast | 5 % | **+57 ± 173 pcm** |
+   | ICSBEP **HEU-SOL-THERM-009 case 1** | water-reflected HEU solution sphere, thermal | 5 % | **−18 ± 171 pcm** |
+   | ICSBEP **IEU-MET-FAST-002** (Jemima) | natural-U-reflected 16 % U metal, fast | **83 % core, 99.3 % reflector** | **+6 ± 173 pcm** |
+   | this study's FHR pebble | graphite/FLiBe TRISO pebble, thermal | 80 % | **+4004 pcm** |
 
    Both benchmarks run on the same `Nuclide::from_endf_file` reconstruction and
    the same eigenvalue drivers as the pebble. The thermal one
@@ -723,12 +724,26 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    traversal). None is in the fuel; together they are two orders of magnitude
    below the effect under test.
 
-   **What this leaves.** HST-009 is HEU: U-238 is 5 % of its heavy metal and its
-   resonance escape is ~0.95, so it does *not* exercise the one quantity the
-   pebble residual has been narrowed to. Nor does it use graphite. So after two
-   experiments the surviving candidates are exactly two — U-238 resonance escape
-   at strong self-shielding, and the reference deck — and the thermal machinery,
-   which was the larger suspect class, is no longer among them.
+   **Jemima adds the nuclide under suspicion.** Godiva and HST-009 are both
+   highly enriched — U-238 is 5 % of each — so neither really tests U-238.
+   IEU-MET-FAST-002 is 16 % enriched with a **natural-uranium** reflector top,
+   bottom and sides: U-238 is 83 % of the core and 99.3 % of the reflector, a
+   larger share than the FHR pebble's own 80 %. It lands at **+6 ± 173 pcm**.
+   (`examples/jemima_keff.rs`; its geometry is the first in this crate built from
+   raw three-half-space `RegionToken`s, so the example asserts the CSG lookup
+   against a hand-written predicate at 200 000 points *before* transporting —
+   a mis-built geometry produces a wrong k that looks like a physics result,
+   which is the failure this study has spent itself chasing.)
+
+   **What this leaves.** All three benchmarks are *metal or solution* — none has
+   a resolved-resonance-escape problem. Jemima is fast (100 keV – 2 MeV), so it
+   reaches U-238 fast fission and keV capture; HST-009 is thermal but HEU, with
+   `p ≈ 0.95`. The pebble's residual is resonance escape in **6 eV – 20 keV**,
+   and no reachable benchmark exercises that. Nor does any of the three use
+   graphite. So after three experiments the surviving candidates are still
+   exactly two — U-238 resolved-resonance escape at strong self-shielding, and
+   the reference deck — but the machinery, the thermal half, and U-238 in bulk
+   are all now excluded against measured criticality.
 
    A low-enriched thermal benchmark would separate those two directly. The
    nearest ones need nuclides this workspace does not have: the LEU and Pu
@@ -852,6 +867,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | tracking method | delta vs surface-tracked CSG, same geometry | 18 pcm, 0.05σ |
    | ν̄, χ, fast σ, inelastic, (n,2n), the driver | **ICSBEP HEU-MET-FAST-001** (measured, fast) | **+57 ± 173 pcm** |
    | thermal machinery: `c_H_in_H2O`, thermal fission/capture, moderated CSG transport, leakage | **ICSBEP HEU-SOL-THERM-009 case 1** (measured, thermal) | **−18 ± 171 pcm** |
+   | U-238 in bulk: fast fission, keV capture, reflected transport | **ICSBEP IEU-MET-FAST-002** "Jemima" (measured; 83 % / 99.3 % U-238) | **+6 ± 173 pcm** |
    | pebble composition, radii, densities, temperatures, S(α,β) assignment | the deck, term by term | identical |
    | explicit pebble layer volumes | exact geometry | 0.5 % |
    | packing fraction | the deck's own definition | fixed (`op-8l2e`) |

@@ -148,6 +148,12 @@ required-features = ["endf-pebble-cases"]
 name = "u238_vs_njoy_pendf"
 required-features = ["endf-pebble-cases"]
 
+# External benchmark, U-238-DOMINATED: ICSBEP IEU-MET-FAST-002 "Jemima"
+# (op-mzvp.2.12).
+[[example]]
+name = "jemima_keff"
+required-features = ["endf-pebble-cases"]
+
 # External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
 # of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
 [[example]]
