@@ -71,6 +71,7 @@
 //! individually exact.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::vv::assert_reproduces_keff;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
 
@@ -124,4 +125,49 @@ fn main() {
     println!("  ICSBEP benchmark = 1.0000 ± 0.0010");
     let pcm = (result.k_mean - 1.0) * 1.0e5;
     println!("  Δk from benchmark = {pcm:+.0} pcm");
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // This is a CHARACTERISATION gate on the LOW tier, not an agreement claim.
+    // See LOW_TIER_BAND.
+    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 on the embedded LOW tier ===");
+    assert_reproduces_keff(
+        "HEU-MET-FAST-001 (Godiva), LOW tier (WMP + 10-group fast MGXS)",
+        result.k_mean,
+        result.k_std,
+        1.0000,
+        LOW_TIER_BAND,
+        Some(LOW_TIER_RECORDED_PCM),
+    );
 }
+
+/// The envelope this example is judged inside — **not** the ICSBEP band.
+///
+/// ICSBEP states 0.0010 on HEU-MET-FAST-001, and the HIGH tier is held to it
+/// (`examples/godiva_keff_endf_local.rs`). The LOW tier cannot be: it is
+/// infinite-dilution 10-group fast data with no self-shielding, one mean cosine
+/// instead of the full MF=4 angular shape, and Weisskopf evaporation standing in
+/// for resolved inelastic levels. It lands about +1000 pcm high **by
+/// construction**, and asserting the ICSBEP band here would be asserting that
+/// those approximations are not approximations.
+///
+/// 0.015 is therefore the LOW tier's own accepted envelope. The claim that
+/// actually has teeth on this example is the reproduction one below.
+const LOW_TIER_BAND: f64 = 0.015;
+
+/// The offset this example last produced, in pcm.
+///
+/// **+1042 pcm** (`k_eff = 1.01042 ± 0.00174`), re-measured 2026-08-06 on
+/// ENDF/B-VIII.0 group data, as recorded in this file's V&V note.
+///
+/// This is the claim worth having here: within a 1500 pcm band the central value
+/// could wander freely and nothing would notice, and the LOW tier's two scatter
+/// mechanisms (inelastic evaporation, forward-peaked elastic from a per-group
+/// mean cosine) between them move k by ~11 800 pcm. A regression in either
+/// would be invisible to the band and obvious to this.
+///
+/// It supersedes a 2026-07 figure of +1022 pcm, measured before `op-jis`
+/// replaced the RNG output function with OpenMC's PCG-RXS-M-XS permutation. That
+/// change redraws every uniform in the run and moved the central value by 0.11
+/// of one sigma — a re-seeding-scale fluctuation, not a physics change.
+const LOW_TIER_RECORDED_PCM: f64 = 1042.0;

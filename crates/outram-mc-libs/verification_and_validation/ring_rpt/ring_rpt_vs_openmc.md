@@ -1066,6 +1066,69 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    port and re-running cases 1/2/8 is the direct test: the three `Δk` values must
    collapse together and toward zero.
 
+## Every oracle comparison in this hunt is now an executable gate (2026-09-11)
+
+Each comparison recorded in this document was originally an ad-hoc run of a
+program under `examples/` that **printed** its numbers and exited 0 whatever
+they were. Run that way they are anecdotes: the figures get quoted in documents
+like this one and then drift from what the code does. Sixteen of those programs
+now assert their comparison, with the oracle values, the measured result, its
+uncertainty and the date recorded in the doc comment beside the assertion.
+
+The machinery is `outram_mc_libs::vv` (the gate helpers) and
+`outram_mc_libs::vv::njoy_golden` (the committed NJOY2016 2016.79 oracle
+tables). The tables live in the library rather than in a test file so that the
+examples which *regenerate* them from a live NJOY tape assert against the same
+recorded numbers the golden tests do — two copies of an oracle drift, and the
+copy nothing checks drifts first.
+
+**Turning the comparisons into assertions immediately falsified five claims this
+workspace had been repeating**, three of them in this document's own lineage:
+
+| claim | what the measurement says |
+|---|---|
+| "graphite σ vs THERMR: ±0.05 %" (quoted in this doc and in four examples) | **−0.14 %** inelastic, −0.09 % coherent elastic. There was no committed graphite σ test at all; only the kernel was covered. |
+| "binomial noise at 200 000 samples is well under 0.2 %" | `⟨E′⟩/E` is the mean of a *wide* distribution, not a proportion. Measured **0.28 %** at 1.5 meV. The −5.5 % H₂O kernel finding is ~18σ, not the margin the old note implied. |
+| `u238_urr_probe`: "VERDICT: reconstruction departs from MF=3 — investigate the URR seam" | There is no seam defect. The evaluation is genuinely **discontinuous** at 20 keV; NJOY's own PENDF carries grid points at 1.9999999e4 and 2.0000001e4 to represent the jump; evaluating at exactly the boundary lands mid-jump in **both** codes, agreeing to **+0.02 %**. The probe's first energy sat on the boundary. |
+| `graphite_energy_decrement`: "ξ sits *above* ξ_fg at thermal energies because the moderator up-scatters" | Backwards. `ξ = ⟨ln(E/E′)⟩`, so an energy *gain* is a negative term: ξ is **−0.089** at 0.0253 eV (−0.56 ξ_fg) and approaches ξ_fg from **below**, reaching 1.002 at 3.9 eV. |
+| `epithermal_slowing_down`: "above 10 keV forward scattering lowers ξ and raises ⟨E′/E⟩" | Not universal — Li-7 is *backward*-peaked at 1 MeV. The weaker fallback ("then at least they move opposite ways") is also false: `ln` is concave, so extra spread raises ξ at fixed ⟨E′/E⟩, and O-16 at 1 MeV moves both up. Above the anisotropy onset the durable claims are per-sample (`αE ≤ E′ ≤ E`). |
+
+Two structural lessons came out of writing the envelopes:
+
+- **A relative envelope on ξ is wrong by construction.** `ξ ≈ −ln⟨E′/E⟩`, so an
+  error in `⟨E′/E⟩` propagates into `ξ` amplified by `1/ξ₀` — about 6× for
+  carbon, **118× for U-238**. U-238's `ξ/ξ₀ = 0.9904` at 10 keV is a 1e-4
+  departure in `⟨E′/E⟩` and nothing more. The gate is absolute.
+- **A magnitude envelope cannot see a shape defect**, which is exactly how the
+  H-in-H₂O kernel (#188) survived an entire analytic test file: a too-narrow
+  kernel satisfies detailed balance *exactly* (a symmetry, not a width),
+  reproduces the free-atom limit (absence of binding), has nearly the right area
+  (+1 %) and the right effective temperature (a scalar). Every gate that can
+  carry a shape or sign claim now does — monotonicity, sign structure across the
+  0.1116 eV crossover, the exact zero below graphite's first Bragg edge, and the
+  requirement that a finding exceed its own sampling noise.
+
+Three gates deliberately assert **disagreement**, because the counter-example is
+the finding:
+
+- `lump_self_shielding_scan` asserts the specular and white cell boundaries
+  differ. Specular reflection off a concentric sphere conserves the impact
+  parameter `b = r sin θ`, trapping near-tangential neutrons on their chords so
+  they can never re-enter the lump. That produced a flat **+39–42 %** offset
+  indistinguishable at a glance from the self-shielding defect being hunted.
+- `fhr_ring_rpt_endf` asserts `naive − explicit` is large and negative
+  (recorded −3191 pcm, 10.7σ). Without it, a code that had stopped modelling the
+  TRISO structure entirely would pass the `RPT − explicit` agreement trivially.
+- `h2o_kernel_vs_njoy_thermr` asserts the deviation **exceeds its own sampling
+  σ** (18σ), so a gate that quietly lost sample count could not keep reporting
+  the defect from pure scatter — or stop reporting it — unnoticed.
+
+The `fhr_ring_rpt_endf` gate on the absolute offset against OpenMC is a
+**characterisation** pin on an open defect, not a physics pass. If that offset
+*falls*, #188 may be fixed or partly fixed: record the new value, tighten the
+gate, and update the Results tables above. It is a finding either way, never a
+tolerance to widen.
+
 ## Remaining work
 
 

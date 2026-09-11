@@ -212,4 +212,28 @@ fn main() {
     println!("  ICSBEP benchmark = 1.0000 ± 0.0010");
     let pcm = (result.k_mean - 1.0) * 1.0e5;
     println!("  Δk from benchmark = {pcm:+.0} pcm");
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // Unlike `examples/godiva_keff.rs` (the embedded LOW tier, held to its own
+    // 1500 pcm envelope), this is continuous-energy data reconstructed on
+    // device, so it is held to the ICSBEP band itself plus 4 sigma of this run's
+    // statistics.
+    //
+    // No recorded value is pinned here. This example fetches ENDF/B-VII.1 from
+    // www-nds.iaea.org, which many environments cannot reach — this workspace's
+    // remote sandbox among them, where the egress proxy returns 403 — and a
+    // recorded number cannot be kept honest anywhere the program cannot run.
+    // The twin that reads `reference-data/endf/` instead,
+    // `examples/godiva_keff_endf_local.rs`, does carry one: +57 +/- 173 pcm on
+    // ENDF/B-VIII.0.
+    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 (HIGH tier, fetched ENDF) ===");
+    outram_mc_libs::vv::assert_reproduces_keff(
+        "HEU-MET-FAST-001 (Godiva), HIGH tier, ENDF/B-VII.1 from the IAEA",
+        result.k_mean,
+        result.k_std,
+        1.0000,
+        0.0010,
+        None,
+    );
 }

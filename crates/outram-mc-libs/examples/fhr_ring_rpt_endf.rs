@@ -719,6 +719,15 @@ mod desktop {
             rpt_csg.keff.k_mean, rpt_csg.keff.k_std
         );
 
+        vv_gate(
+            (explicit.k_mean, explicit.k_std),
+            (rpt.k_mean, rpt.k_std),
+            (naive.k_mean, naive.k_std),
+            (rpt_csg.keff.k_mean, rpt_csg.keff.k_std),
+            OMC_EXPLICIT,
+            OMC_RPT,
+        );
+
         // ── This code's OWN RPT inner radius (opt-in: --search-rpt-radius) ──
         //
         // R_RPT_INNER = 1.4934 cm is a *fitted* parameter, and it was fitted by
@@ -972,6 +981,178 @@ mod desktop {
             if du > 0.0 {
                 eprintln!("      {label:<34} ψ̄ = {:.5}   (Δu = {du:.3})", num / du);
             }
+        }
+    }
+
+    /// V&V gate for the FHR ring-RPT pebble against the OpenMC reference.
+    ///
+    /// # This case DISAGREES with its reference, and the gate is built around that
+    ///
+    /// Everything here is a **characterisation** gate, not a pass/fail on physics
+    /// this crate has got right. The pebble sits about **+4000 pcm** above OpenMC
+    /// and the cause is an open defect (GitHub #188 — the H-in-H2O scattering
+    /// kernel is too narrow; see `examples/h2o_kernel_vs_njoy_thermr.rs`). Pinning
+    /// the disagreement is the whole point: it is the one number the whole
+    /// investigation moves, and if it drifts silently nobody can tell a fix from a
+    /// regression.
+    ///
+    /// **Do not widen these envelopes.** When #188 lands, the explicit-TRISO offset
+    /// must *fall*, and the right response is to record the new value and tighten.
+    ///
+    /// # The claims, in order of how much they are worth
+    ///
+    /// 1. **`RPT - explicit` is small.** This is the only claim here that is a
+    ///    statement about a method working, and it is independent of the absolute
+    ///    offset: both sides carry the same data defect, so it cancels. Recorded
+    ///    `+226 +/- 316 pcm (0.71 sigma)` against the reference's own
+    ///    `-31 +/- 92 pcm`.
+    /// 2. **`naive - explicit` is large and negative.** Naive homogenisation throws
+    ///    away the double heterogeneity, so it MUST be badly wrong. Recorded
+    ///    `-3191 pcm (10.7 sigma)`. Without this claim, a code that had quietly
+    ///    stopped modelling the TRISO structure at all would pass claim 1 trivially
+    ///    — RPT and explicit would agree because both had become the naive case.
+    /// 3. **The CSG and delta-tracking ring-RPT results agree.** Two different
+    ///    transport methods, different initial source distributions, same answer:
+    ///    recorded 18 pcm apart (0.05 sigma). This separates a tracking bug from a
+    ///    data one.
+    /// 4. **The absolute offset against OpenMC is where it was.** The loosest claim,
+    ///    and the one that will change when #188 is fixed.
+    ///
+    /// # Results (recorded in `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`)
+    ///
+    /// Reflective sphere r = R_ROOT, the domain OpenMC used, so the absolute k is
+    /// comparable and not only the method delta:
+    ///
+    /// ```text
+    ///   method                        this crate            vs explicit       vs OpenMC
+    ///   explicit TRISO          1.40514 +/- 0.00204              —             +4004 pcm
+    ///   ring-RPT                1.40739 +/- 0.00241   +226 +/- 316 (0.71 s)    +4260 pcm
+    ///   naive homogenised       1.37323 +/- 0.00219   -3191      (10.7 s)          —
+    ///   ring-RPT (CSG)          1.40757 +/- 0.00224    +18        (0.05 s)     +4278 pcm
+    ///
+    ///   OpenMC reference:  explicit 1.36510 +/- 0.00063,  ring-RPT 1.36479 +/- 0.00067
+    /// ```
+    ///
+    /// # What was REFUTED, and is recorded here so it is not re-derived
+    ///
+    /// This residual was attributed to self-shielded U-238 resonance absorption, and
+    /// a quantitative prediction (+3200 pcm predicted against +2950 measured) even
+    /// appeared to confirm it. **That was a coincidence and the reading is refuted.**
+    /// ICSBEP LEU-COMP-THERM-008 ships several independently critical cases sharing
+    /// one lattice; running three gives `dk` of +2950, +2271 and +1713 pcm — a
+    /// spread of 1237 +/- 86 pcm, **14 sigma**. An error in resonance escape `p` is
+    /// a property of the lattice, so it would give the *same* offset in all three.
+    /// It does not. See `examples/lct008_keff.rs`.
+    fn vv_gate(
+        explicit: (f64, f64),
+        rpt: (f64, f64),
+        naive: (f64, f64),
+        rpt_csg: (f64, f64),
+        omc_explicit: (f64, f64),
+        omc_rpt: (f64, f64),
+    ) {
+        /// Recorded `explicit TRISO - OpenMC explicit`, pcm.
+        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = 4004.0;
+        /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm.
+        const RECORDED_RPT_VS_OMC_PCM: f64 = 4260.0;
+        /// How far the recorded absolute offsets may move before this gate fires.
+        ///
+        /// Wide, and deliberately: the run carries ~200 pcm of statistics per side
+        /// and the history count is configurable, so a tight pin would fire on the
+        /// harness rather than on the physics. It is sized to catch a *change of
+        /// character* — the defect being fixed, or doubling — not a fluctuation.
+        const ABSOLUTE_DRIFT_GATE_PCM: f64 = 1500.0;
+
+        let pcm = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0) * 1.0e5;
+        let sigma =
+            |a: (f64, f64), b: (f64, f64)| ((a.1 * a.1 + b.1 * b.1).sqrt() * 1.0e5).max(1.0);
+
+        eprintln!("\n=== V&V gate: ring-RPT pebble vs the OpenMC reference ===");
+
+        // 1. The method delta. The only claim here about something working.
+        let d_rp = pcm(rpt, explicit);
+        let s_rp = sigma(rpt, explicit);
+        eprintln!(
+            "  RPT - explicit  = {d_rp:+.0} +/- {s_rp:.0} pcm ({:.2} sigma)  \
+             [recorded +226 +/- 316, reference -31 +/- 92]",
+            d_rp.abs() / s_rp
+        );
+        assert!(
+            d_rp.abs() <= 4.0 * s_rp,
+            "ring-RPT and explicit TRISO now differ by {d_rp:+.0} pcm, {:.1} sigma of \
+             this run's own statistics ({s_rp:.0} pcm). Both carry the same data, so \
+             the ~+4000 pcm offset against OpenMC cancels in this difference and what \
+             is left is the RPT approximation itself. Recorded: +226 +/- 316 pcm \
+             (0.71 sigma), against the reference deck's own -31 +/- 92 pcm.",
+            d_rp.abs() / s_rp,
+        );
+
+        // 2. Naive homogenisation MUST be badly wrong. Without this, a code that had
+        //    stopped modelling the TRISO structure at all would pass claim 1.
+        let d_nv = pcm(naive, explicit);
+        let s_nv = sigma(naive, explicit);
+        eprintln!(
+            "  naive - explicit = {d_nv:+.0} +/- {s_nv:.0} pcm ({:.1} sigma)  [recorded -3191, 10.7 sigma]",
+            d_nv.abs() / s_nv
+        );
+        assert!(
+            d_nv < -1000.0 && d_nv.abs() > 5.0 * s_nv,
+            "naive homogenisation is only {d_nv:+.0} pcm from explicit TRISO \
+             ({:.1} sigma). It must be badly and NEGATIVELY wrong — smearing the fuel \
+             through the matrix destroys the resonance self-shielding the TRISO \
+             kernels provide, which is the entire double-heterogeneity effect \
+             (recorded -3191 pcm, 10.7 sigma).\n\
+             If naive now agrees with explicit, the TRISO structure is not being \
+             modelled at all — and the RPT-vs-explicit agreement asserted above \
+             becomes trivially true and meaningless.",
+            d_nv.abs() / s_nv,
+        );
+
+        // 3. Two transport methods, one answer: separates tracking from data.
+        let d_csg = pcm(rpt_csg, rpt);
+        let s_csg = sigma(rpt_csg, rpt);
+        eprintln!(
+            "  ring-RPT CSG - ring-RPT delta-tracked = {d_csg:+.0} +/- {s_csg:.0} pcm \
+             ({:.2} sigma)  [recorded +18, 0.05 sigma]",
+            d_csg.abs() / s_csg
+        );
+        assert!(
+            d_csg.abs() <= 4.0 * s_csg,
+            "surface-tracked CSG and delta-tracked ring-RPT now differ by {d_csg:+.0} \
+             pcm ({:.1} sigma). They are the same geometry and the same data through \
+             two different transport methods and two different initial source \
+             distributions; recorded 18 pcm apart (0.05 sigma). A departure here is a \
+             TRACKING defect, which is a different search from the data one (#188).",
+            d_csg.abs() / s_csg,
+        );
+
+        // 4. The open offset itself. Characterisation only — see the doc comment.
+        for (label, ours, omc, recorded) in [
+            (
+                "explicit TRISO",
+                explicit,
+                omc_explicit,
+                RECORDED_EXPLICIT_VS_OMC_PCM,
+            ),
+            ("ring-RPT", rpt, omc_rpt, RECORDED_RPT_VS_OMC_PCM),
+        ] {
+            let d = pcm(ours, omc);
+            eprintln!(
+                "  {label:<15} vs OpenMC = {d:+.0} pcm  [recorded {recorded:+.0}, \
+                 drift gate +/-{ABSOLUTE_DRIFT_GATE_PCM:.0}]"
+            );
+            assert!(
+                (d - recorded).abs() <= ABSOLUTE_DRIFT_GATE_PCM,
+                "{label} is now {d:+.0} pcm from OpenMC, against the {recorded:+.0} pcm \
+                 recorded in verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md \
+                 — a drift of {:+.0} pcm.\n\
+                 This is a CHARACTERISATION pin on an open defect (GitHub #188), not a \
+                 physics pass. If the offset FELL, #188 may be fixed or partly fixed: \
+                 record the new value, tighten this gate, and update the V&V document. \
+                 If it grew, something regressed. Either way it is a finding, not a \
+                 tolerance to widen.",
+                d - recorded,
+            );
         }
     }
 }
