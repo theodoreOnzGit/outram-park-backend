@@ -255,7 +255,37 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    *where the fuel sits* do not. Here it survived the differencing and was read
    as physics.
 
-5. **The absolute offset is one bias in the data, shared by both pebbles.**
+5. **The absolute offset is NOT in any cross section — measured against NJOY,
+   twice (2026-09-11).** Both cross-section sets that matter were compared
+   against NJOY2016's own output for the same tapes, temperature and tolerance.
+   The NNDC library OpenMC used is unreachable here (403), but NJOY is not, and
+   a port should be checked against what it is a port of.
+
+   | | worst relative difference |
+   |---|---|
+   | U-238 total / elastic / fission / capture | ±0.04 % (worst −0.17 %) |
+   | graphite incoherent inelastic / coherent elastic | ±0.05 % (worst −0.14 %) |
+
+   Reproduce with `examples/u238_vs_njoy_pendf.rs` and
+   `examples/graphite_vs_njoy_thermr.rs`; both carry their NJOY decks in the
+   module docs.
+
+   **This forces a conclusion.** Cross sections agreeing to ~0.1 % while the
+   *spectrum* differs by several percent means the disagreement is not in
+   `σ(E)` at all — it is in what happens *after* a collision. `σ(E)` sets how
+   often a neutron collides; the double-differential kernel sets how much
+   energy it loses. A softer spectrum with correct cross sections is precisely
+   the signature of too much energy transfer per collision. This crate
+   integrates `S(α,β)` directly; OpenMC's `c_Graphite` comes from NNDC ACE with
+   discretised secondary energies and a fixed number of equiprobable angle bins.
+   Those are different representations of the same law and need not agree to
+   0.1 %.
+
+   The measurement that would settle it is the mean log energy decrement per
+   collision, compared against NJOY's discretised ACE block — not another
+   cross-section comparison.
+
+6. **The absolute offset is one bias shared by both pebbles.**
    Within this single run, both on the sphere:
 
    | | k | vs OpenMC |
@@ -268,7 +298,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    of the pebble model — so the RPT geometry and its fitted radius are ruled out
    as causes, and `op-mzvp.2.12` (U-238 epithermal/fast σ) owns what is left.
 
-6. **This offset is roughly half what it was, and the change is not yet
+7. **This offset is roughly half what it was, and the change is not yet
    explained.** The explicit-cube case moved **−1632 pcm (≈5.4σ)** between
    commits `23cd2549` and `0cd9a22c` — same problem, same settings, same seed —
    while U-238 reconstruction wall time fell from **91.7 s to 26.8 s** across 33
@@ -282,11 +312,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    recorded before 2026-09-11 belongs to the old data and should not be compared
    against a new one.
 
-7. **The consistency check passes** (+0.89 % gap, in the `(−1 %, +5 %)` band) —
+8. **The consistency check passes** (+0.89 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-8. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+9. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -315,7 +345,25 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    reflective sphere without giving up the packing. One approximation remains —
    the five coating layers are resolved by nearest-centre + radius rather than
    exact CSG.
-3. **Residual absolute-k bias (~+1700–1900 pcm), concentrated in p and ε** —
+3. **Residual absolute-k bias (~+1700–1900 pcm)** — *substantially narrowed
+   2026-09-11; see Interpretation 5.* Not in the U-238 cross sections and not in
+   the graphite ones — both verified against NJOY2016 to ~0.1 %. Not the pebble
+   geometry either (the offset is shared by both pebbles to within 194 pcm).
+   What remains is the scattering **kernel**: the double-differential secondary
+   energy/angle distribution, and the difference between integrating `S(α,β)`
+   directly and OpenMC's discretised ACE representation of it. The next
+   measurement is the mean log energy decrement per collision, not another
+   `σ(E)` comparison.
+
+   Note also that `p` and `ε` were being compared across **different
+   conventions** — this crate's three-group decomposition against the OpenMC
+   deck's two-group one, split at 0.625 eV. `SixFactors::two_group_openmc_convention()`
+   now makes it like-for-like. Matching the convention removes 27 % of the `p`
+   gap and 34 % of the `ε` gap; the remainder (+6.4 % and −4.0 %) is real, and
+   both signs say our spectrum is *softer* — more thermally concentrated — which
+   is what too much energy transfer per collision would produce.
+
+   Superseded detail, kept so the trail is legible —
    now known to be *shared by both pebbles* (Interpretation 5), so it is a
    property of the cross sections and the pebble model is not implicated. Two
    threads, and they may be one:
