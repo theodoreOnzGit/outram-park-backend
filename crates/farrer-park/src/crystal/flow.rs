@@ -407,8 +407,7 @@ mod tests {
     /// `gamma_dot_0 = 1e-3` per second, `dt = 0.1` s, `s = 16` MPa, at
     /// `m = 0.02, 0.05, 0.2, 1.0` and `tau/s = -1.5, -0.5, 0.5, 1.0, 1.2`.
     /// Central difference with a step of `1e-6 s`. Worst relative disagreement
-    /// **3.3e-9**, attained at `m = 0.02, tau/s = 1.2` where the law is most
-    /// curved. Every derivative non-negative, as the law's monotonicity
+    /// **1.568e-9**, attained where the law is most curved. Every derivative non-negative, as the law's monotonicity
     /// requires.
     #[test]
     fn power_law_derivative_matches_a_central_difference() {

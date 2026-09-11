@@ -65,9 +65,14 @@ pub use crate::assembly::{
     interpolate, Assembled, BodyForce, Formulation, System, SystemOptions,
 };
 pub use crate::bc::{accumulate_pressure_2d, DirichletMethod, DirichletSet, Traction};
+pub use crate::crystal::{
+    CrystalElasticity, CrystalPlasticity, CrystalState, Orientation, PowerLawFlow,
+    SaturatingHardening, SlipFamily, SlipSystem, MAX_SLIP_SYSTEMS,
+};
 pub use crate::dof::{DofId, DofMap};
 pub use crate::element::{ElementType, FacetType};
 pub use crate::error::{FemError, Result};
+pub use crate::fatigue::{rank_regions, region_fip, CycleExtremes, FatemiSocie, RegionFip};
 pub use crate::material::{
     BulkModulus, HardeningModulus, J2LinearHardening, LinearElastic, Material, MaterialState,
     PlaneCondition, PoissonRatio, ShearModulus, StressUpdate, YieldStress, YoungsModulus,
