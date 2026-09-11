@@ -48,7 +48,7 @@ pub use crate::physics::fixed_source::{
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{
     fhr_pebble_geometry, homogeneous_cube, homogenise_by_volume, rpt_fuel_outer_radius,
-    triso_layer_at, TrisoLayer, TrisoSpec,
+    triso_layer_at, ExplicitTrisoPebble, TrisoLayer, TrisoSpec,
 };
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
 pub use crate::pebble_beds::sphere_packing::{
