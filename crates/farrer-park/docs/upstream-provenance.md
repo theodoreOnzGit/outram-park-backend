@@ -92,3 +92,62 @@ debugging a Farrer Park discrepancy should re-clone per the commands above if
 
 Per-file attribution headers remain mandatory on anything ported from these
 trees; see `NOTICE`.
+
+## What was actually read, and where each piece landed
+
+Added 2026-09-11 with the crystal-plasticity and fatigue work (beads `op-q75c`,
+`op-q1zn`). The workspace "Debugging a port: read upstream first" hard rule
+makes upstream the specification, so the specific routines consulted are
+recorded here rather than left implicit in the code.
+
+### PRISMS-Plasticity (`ffdf4eb6`)
+
+| Upstream file and location | What it settled | Where it landed |
+|---|---|---|
+| `applications/crystalPlasticity/fcc/*/slipNormals.txt`, `slipDirections.txt` | the twelve FCC `{111}<110>` systems **and their ordering** | `src/crystal/slip.rs`, `SlipFamily::systems` |
+| `applications/crystalPlasticity/bcc/simpleTension/slip*.txt` | the twelve BCC `{110}<111>` systems and their ordering | same |
+| `applications/.../LatentHardeningRatio.txt` | `q = 1.0` coplanar, `1.4` non-coplanar, in 3x3 (FCC) and 2x2 (BCC) diagonal blocks | `SlipFamily::latent_hardening_matrix`; verification case 12 checks the computed matrix against this file entry for entry |
+| `src/materialModels/crystalPlasticity/MaterialModels/RateDependentModel/calculatePlasticity.cc:213` | the Schmid tensor is built as `m (x) n` in the crystal frame | `SlipSystem::schmid_tensor`, symmetrised (see below) |
+| ...`:216-220` | it is carried into sample axes as `R S R^T`, so `rotmat` is **crystal-to-sample** | `Orientation`'s stored convention, `rotate_symmetric` |
+| ...`:693` | the power-law flow rule, and that `delgam_ref = gamma_dot_0 * delT` and `strexp = m` | `PowerLawFlow::slip_increment` |
+| ...`:645-657, 698` | `h_b = h0 (1 - s_b/s_sat)^A` indexed by the **slipping** system, accumulated as `s_a += q[a][b] h_b \|d gamma_b\|` | `SaturatingHardening::advance` |
+| ...`:700-708` | **the clamp `s <- min(s, s_sat)`** | `SaturatingHardening::advance`; see below |
+| ...`:594-602` | a cubic line search (`lnsrch`) on `0.5 \|R\|^2` stabilises the local Newton | replaced by backtracking in `CrystalPlasticity::update` |
+| ...`:258-301, 335` | deformation-increment sub-stepping (`numberOfCuts`) | **not ported** — bead `op-ypfy` |
+| ...header comment | the local Newton starts from the **previously converged stress** | `CrystalState::stress`, used as the initial guess |
+| `src/materialModels/crystalPlasticity/rotationOperations.cc`, `odfpoint` | Rodrigues to rotation matrix, `R = ((1-r.r) I + 2 r (x) r - 2 eps_ijk r_k)/(1+r.r)` | `Orientation::from_rodrigues` |
+| `src/materialModels/crystalPlasticity/calculatePlasticity.cc:52` | the crystal stiffness is rotated into sample axes per grain | `CrystalElasticity::stiffness_in_sample_frame`, done by full fourth-order contraction instead of a Voigt Bond matrix |
+| `applications/crystalPlasticity/fcc/FCC_Random_RateDependent/prm.prm` | the constants this crate uses as its worked example: cubic `C11/C12/C44 = 170/124/75` GPa, `s_0 = 16` MPa, `h_0 = 180` MPa, `s_sat = 148` MPa, `A = 2.25`, `gamma_dot_0 = 1e-3`/s, `m = 0.02`-`0.1`, `dt = 0.1` s | `tests/crystal.rs`, `copper()` |
+
+**The single most important thing read.** The clamp at `saturationStress`
+(`calculatePlasticity.cc:700-708`) is applied unconditionally after every
+hardening update. It is not cosmetic: without it `1 - s/s_sat` goes negative on
+the next step and `pow(negative, A)` with upstream's own non-integer
+`A = 2.25` is **NaN**, which then propagates into the stress silently. A
+first-principles reading of the hardening law would not have produced it. This
+is exactly the failure mode the "read upstream first" rule exists to catch — a
+missing *guard*, not a wrong *formula*. `crystal::flow`'s unit test asserts both
+halves: that the clamped path stays finite, and that the unclamped expression
+really is NaN.
+
+**Where this port deliberately differs.** Upstream is finite-deformation
+(`Fe`/`Fp`, exponential update of `Fp`, second Piola-Kirchhoff stress on the
+intermediate configuration, lattice reorientation from the plastic spin);
+Farrer Park is small strain, so the additive split `eps = eps_e + eps_p` is
+used with the **symmetric** Schmid tensor `sym(m (x) n)` rather than upstream's
+unsymmetrised `m (x) n`. Contracting either with a symmetric Cauchy stress
+gives the same resolved shear, so nothing is lost in `tau`; what is lost is the
+spin, and therefore texture evolution. Upstream's Ohno-Wang backstress is also
+not ported. Both are recorded as beads (`op-tau7` and the crystal-plasticity
+limitations in `crates/farrer-park/CLAUDE.md`), not left to be discovered.
+
+### PRISMS-Fatigue (`2c8fc9a2`)
+
+| Upstream file and location | What it settled | Where it landed |
+|---|---|---|
+| `src/calculate_FIPs.py:75-76` | the plastic shear strain measure is the **half**-range, `(gamma^tension - gamma^compression) / 2`, taken from the tension and compression peaks of the final cycle | `CycleExtremes::shear_strain_amplitudes` |
+| ...`:82-83` | the plane-normal stress is taken **at the point of maximum tension** and **clipped at zero** | `CycleExtremes` and `FatemiSocie::fip` |
+| ...`:94-97` | `FS_FIP = (d gamma/2) (1 + k sigma_n / sigma_y)` | `FatemiSocie::fip` |
+| ...`:210-213` | the defaults `k = 10.0` and `sigma_y` = the macroscopic yield stress | `FatemiSocie::with_default_weight` |
+| `src/volume_average_FIPs.py`, `Al7075_band_averaging` | average **within** a region, then take the maximum over slip systems and regions as the grain's value — the order is not interchangeable | `fatigue::region_fip`, `rank_regions` |
+| `src/generate_microstructures.py` (band construction) | how a grain is partitioned into slip bands | **not ported** — bead `op-9jo0` |

@@ -5,9 +5,11 @@ adds to it and never relaxes it.
 
 ## What this crate is
 
-FEM structural mechanics: small-strain linear elasticity and J2 plasticity on
-unstructured meshes. Ported from MOOSE, PRISMS-Plasticity and PRISMS-Fatigue
-(all LGPL-2.1 — see `NOTICE`). GitHub issue #175, beads epic `op-vrtt`.
+FEM structural mechanics: small-strain linear elasticity, J2 plasticity and
+rate-dependent crystal plasticity on unstructured meshes, plus a partial
+microstructure-sensitive fatigue layer. Ported from MOOSE, PRISMS-Plasticity
+and PRISMS-Fatigue (all LGPL-2.1 or LGPL-2.1-or-later — see `NOTICE` and
+`docs/upstream-provenance.md`). GitHub issue #175, beads epic `op-vrtt`.
 
 ## The one rule that defines this crate
 
@@ -142,6 +144,79 @@ Rules for anyone changing this area:
   measured in verification case 8 (11.25 % too stiff at two square elements
   through the depth, 66.7 % at element aspect ratio 4) and B-bar recovers only
   the volumetric share of it.
+
+## Crystal plasticity: what was reduced from upstream, and why (read before
+extending it)
+
+`src/crystal/` is ported from PRISMS-Plasticity's **rate-dependent** model
+(`MaterialModels/RateDependentModel/calculatePlasticity.cc`, commit
+`ffdf4eb6`). Upstream is a **finite-deformation** code; this is a **small
+strain** one, because that is this crate's scope. The reduction is deliberate
+and must not be quietly undone one piece at a time.
+
+**Taken from upstream, and where:**
+
+| Piece | Upstream location |
+|---|---|
+| slip tables and their **ordering** | `applications/crystalPlasticity/{fcc,bcc}/*/slip{Normals,Directions}.txt` |
+| latent-hardening `q` values | `.../LatentHardeningRatio.txt` (1.0 coplanar, 1.4 latent) |
+| `R S R^T` into sample axes | `RateDependentModel/calculatePlasticity.cc:216-220` |
+| Rodrigues to rotation matrix | `rotationOperations.cc`, `odfpoint` |
+| power-law slip increment | `.../calculatePlasticity.cc:693` |
+| saturating hardening, `h_b = h0 (1 - s_b/s_sat)^A`, indexed by the **slipping** system | `.../calculatePlasticity.cc:645-657, 698` |
+| **the clamp `s <- min(s, s_sat)`** | `.../calculatePlasticity.cc:700-708` |
+| previously converged stress as the local Newton's starting guess | the file's own header comment |
+| a line search on the local residual | `lnsrch`, called at `.../calculatePlasticity.cc:602` |
+
+**The clamp is the one to know about.** Without it `1 - s/s_sat` goes negative
+and `pow(negative, 2.25)` — upstream's own FCC exponent — is **NaN**, which
+then propagates into the stress silently. It is a correctness guard, not a
+cosmetic bound. `crystal::flow`'s unit test asserts both halves: that the
+clamped path stays finite, and that the unclamped expression really is NaN.
+
+**NOT taken, and the consequences:**
+
+- **Finite-deformation kinematics** (`Fe`/`Fp`, exponential update of `Fp`,
+  second Piola-Kirchhoff stress). Hence **no lattice reorientation and no
+  texture evolution** — there is no plastic spin in a small-strain
+  formulation to rotate the lattice with.
+- **Kinematic hardening / the Ohno-Wang backstress.** Hence no Bauschinger
+  effect. This is the **largest gap for the fatigue work** and it is in this
+  layer, not in `src/fatigue.rs`.
+- **Deformation-increment sub-stepping** (`numberOfCuts`). The total-strain
+  interface of `Material::update` does not carry the start-of-step strain, so
+  it cannot sub-step. Instead the local Newton's *starting guess* has its
+  deviator scaled back until it implies no more than 1 % slip
+  (`GUESS_SLIP_CAP`), which bounds the initial residual. A large enough step
+  still fails with `ConstitutiveNotConverged` rather than recovering.
+- **Implicit hardening.** Upstream iterates an outer loop until `s` stops
+  moving; here `s` is frozen through the local solve and advanced once
+  afterwards. That is what makes the algorithmic tangent the *exact*
+  derivative of the update as implemented, which verification case 17 measures
+  and case 18 depends on. Making it fully implicit means differentiating an
+  `18 x 18` system and is a real piece of work, not a tidy-up.
+
+**Rules for anyone extending it:**
+
+- **Do not add a second convention.** `Orientation` stores the
+  **crystal-to-sample** matrix, matching upstream's `rotmat`. Bunge Euler
+  angles define the *inverse*, and `from_bunge_euler_radians` transposes for
+  you. Verification cases 13 and 20 pin this from both sides — a tensor
+  rotation and a vector rotation — and either would fail instantly if the
+  convention drifted.
+- **`MAX_SLIP_SYSTEMS` is 12 and the state arrays are fixed-size** so
+  `MaterialState` stays `Copy`. Adding BCC `{112}`/`{123}` means raising it,
+  which costs memory at *every* quadrature point of *every* analysis,
+  including elastic ones. Weigh that rather than just bumping the constant.
+- **`MaterialState::crystal` is present for every material.** An elastic or J2
+  analysis leaves it at `CrystalState::default()` — zero slip resistances,
+  which is the "not a crystal" marker. `Material::initial_state` is what
+  picks the right virgin state; `System::build` calls it. A caller that
+  hand-builds a `MaterialState` for a crystal and forgets this gets a
+  divide-by-zero in the flow rule, which `update` defends against by
+  substituting `s_0`.
+- **Never describe an output of `src/fatigue.rs` as a fatigue life.** It is an
+  ordering of candidate initiation sites. See that module's own documentation.
 
 ## V&V
 

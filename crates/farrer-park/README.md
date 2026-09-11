@@ -3,9 +3,9 @@
 **F**inite-element **A**nalysis for **R**eactor **R**eliability, **E**ngineering
 **R**esponse, **P**lasticity **A**nd **R**isk.
 
-FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity and
-J2 plasticity on unstructured meshes, with the linear algebra supplied by
-`outram-foam-basic-lib`.
+FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity,
+J2 plasticity and rate-dependent **crystal plasticity** on unstructured meshes,
+with the linear algebra supplied by `outram-foam-basic-lib`.
 
 > **Not a validated life-assessment tool.** This is an evolving FEM/materials
 > research capability. It is verified against analytical and manufactured
@@ -53,8 +53,13 @@ ILU(0) on its own CSR pattern instead.
 | Plane stress, elastic and J2 (condensed `eps_zz`) | implemented |
 | Shear-locking treatment (incompatible modes / enhanced strain) | **not started** — measured at 11-67 % too stiff, see below |
 | Selective reduced integration, mixed u-p, F-bar | **not started** |
-| Crystal plasticity (PRISMS-Plasticity) | **not started** |
-| Microstructure-sensitive fatigue, FIPs (PRISMS-Fatigue) | **not started** |
+| Crystal plasticity — FCC `{111}<110>` and BCC `{110}<111>`, power-law flow, saturating self-and-latent hardening, consistent tangent | implemented (small strain; no lattice reorientation, no backstress) |
+| Single-crystal elasticity — isotropic and cubic, rotated into sample axes | implemented |
+| Crystal orientation — rotation matrix, Rodrigues, Bunge Euler, quaternion, uniform `SO(3)` sampling | implemented |
+| Fatemi-Socie fatigue indicator parameter and region averaging | implemented (partial — no band geometry, no fatigue life) |
+| Kinematic hardening / backstress (Ohno-Wang) | **not started** — the main gap for cyclic work |
+| Lattice reorientation and texture evolution | **not started** — needs finite deformation |
+| BCC `{112}`/`{123}` families, twinning, non-Schmid effects | **not started** |
 | PRISMS-Fatigue published case-study parity | **not started** |
 
 ## Verification
@@ -76,6 +81,21 @@ test. Summary of what is checked:
   cured by B-bar.
 - **Plane stress** — thin plate in tension, the exact plane-stress/plane-strain
   equivalence, and J2 in uniaxial and equibiaxial tension.
+- **Slip-system geometry** — unit, orthogonal, distinct, correct
+  multiplicities, deviatoric Schmid tensors; the latent-hardening matrix
+  reproduces PRISMS-Plasticity's own input file entry for entry.
+- **Schmid factors** — textbook FCC values for `[001]`, `[111]` and `[011]`,
+  and the resolved-shear identity `tau = sigma (m.t)(n.t)` through the whole
+  constitutive path.
+- **Single crystal, single slip** — the analytic Schmid yield stress
+  `s_0 / mu_1` reproduced to fifteen digits.
+- **Frame indifference** — rotating the crystal and the load together leaves
+  the response invariant to machine precision.
+- **Crystal consistent tangent** — against a Richardson-extrapolated numerical
+  Jacobian, with the truncation order measured rather than assumed.
+- **Polycrystal aggregate** — residual anisotropy falls with grain count;
+  Taylor factor measured.
+- **Fatemi-Socie FIP** — against a hand-computed case.
 
 Headline numbers, measured 2026-09-11:
 
@@ -88,6 +108,13 @@ Headline numbers, measured 2026-09-11:
 | Thick-walled cylinder | 2.45 % max stress error (first order), 0.021 % in u_r (second order) |
 | Cantilever, excess over Euler-Bernoulli | 3.677 / 0.928 / 0.233 % at L/H = 4 / 8 / 16, against a 3.750 / 0.938 / 0.234 % shear-deformation prediction |
 | Uniaxial J2 vs closed form | exact to round-off (1.95e-14), including elastic unloading and reverse yield |
+| Schmid resolved-shear identity, 12 systems | 1.397e-16 relative |
+| Single-crystal yield stress vs `s_0 / mu_1` | 1.487e-15 relative |
+| Crystal frame indifference | 7.636e-16 relative |
+| Crystal consistent tangent, Richardson-extrapolated | 3.638e-9 relative, difference-scheme order 2.0006 |
+| Crystal plasticity in the FEM solver | Newton order 1.60-2.03 over ten load steps, no cutbacks |
+| Polycrystal direction spread, N = 50 -> 800 | 8.38e-3 -> 3.44e-3; Taylor factor 3.02-3.06 |
+| Fatemi-Socie FIP vs the hand expression | 1.355e-19 |
 | Consistent tangent vs central difference | 1.055e-7 relative, worst entry |
 | Newton convergence order, partially plastic step | **2.004** |
 | Volumetric locking, Quad4 MMS at `nu = 0.499` | full integration order 0.69-1.24; **B-bar 2.004**; 16.96x smaller error |

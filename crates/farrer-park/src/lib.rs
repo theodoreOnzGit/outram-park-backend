@@ -3,9 +3,10 @@
 //! **F**inite-element **A**nalysis for **R**eactor **R**eliability,
 //! **E**ngineering **R**esponse, **P**lasticity **A**nd **R**isk.
 //!
-//! Small-strain solid mechanics on unstructured meshes: linear elasticity and
-//! J2 (von Mises) plasticity, solved with a Newton iteration over Krylov
-//! solves supplied by [`outram_foam_basic_lib`].
+//! Small-strain solid mechanics on unstructured meshes: linear elasticity,
+//! J2 (von Mises) plasticity and rate-dependent **crystal plasticity**, solved
+//! with a Newton iteration over Krylov solves supplied by
+//! [`outram_foam_basic_lib`].
 //!
 //! ## Two modelling choices, both explicit enums, both defaulting to the
 //! conservative option
@@ -90,10 +91,18 @@
 //!
 //! ## Status
 //!
-//! AI-assisted draft. Verified against analytical and manufactured solutions
-//! only — see `docs/verification.md` for methodology *and* measured results.
-//! There is **no human V&V sign-off**, no benchmark validation, and no crystal
-//! plasticity or fatigue layer yet. Not for RPV or piping life assessment.
+//! AI-assisted draft. Verified against analytical and manufactured solutions,
+//! geometric and frame invariants, and numerical differentiation of its own
+//! formulae — see `docs/verification.md` for methodology *and* measured
+//! results, cases 1 to 20. There is **no human V&V sign-off** and no benchmark
+//! validation. Not for RPV or piping life assessment.
+//!
+//! [`crystal`] holds the crystal-plasticity layer (cases 12 to 19) and
+//! [`fatigue`] a **partial** microstructure-sensitive fatigue layer (case 20):
+//! the Fatemi-Socie indicator parameter and region averaging, but no slip-band
+//! geometry, no fatigue life, and — because the crystal law has no backstress
+//! — no trustworthy cyclic saturation. Both modules say so in their own
+//! documentation; read those before using either.
 //!
 //! ## Design rules this crate follows
 //!

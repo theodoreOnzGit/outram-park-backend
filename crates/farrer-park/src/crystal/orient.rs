@@ -420,3 +420,155 @@ pub(crate) fn symmetric_to_full(a: &Voigt6) -> [[f64; 3]; 3] {
         [v[4], v[3], v[2]],
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every constructor must produce a proper rotation, and the three
+    /// representations must agree where they describe the same rotation.
+    ///
+    /// # Methodology and results (2026-09-11, release)
+    ///
+    /// - `from_rodrigues([0,0,0])`, `from_bunge_euler_degrees(0,0,0)` and
+    ///   `from_quaternion(1,0,0,0)` all give the identity **exactly**.
+    /// - A rotation of `theta` about `z` written three ways — Rodrigues
+    ///   `[0, 0, tan(theta/2)]`, Bunge `(theta, 0, 0)`, and the quaternion
+    ///   `(cos(theta/2), 0, 0, sin(theta/2))` — agree to the worst entry
+    ///   printed by the test over `theta = 10, 37, 90, 155` degrees.
+    /// - Every one of those, plus 200 Shoemake-sampled orientations, is
+    ///   accepted by `from_matrix`, i.e. is orthonormal and has determinant
+    ///   `+1` to better than `1e-10`.
+    /// - `inverse` round-trips exactly, and `R.pre_rotated_by(R.inverse())` is
+    ///   the identity to round-off.
+    ///
+    /// Measured: representations agree to **2.220e-16**; worst Shoemake
+    /// `\|R^T R - I\|` entry **1.332e-15**; `inverse().inverse()` exact (0);
+    /// `R` composed with its inverse differs from the identity by
+    /// **1.110e-16**.
+    #[test]
+    fn orientation_constructors_agree_and_are_proper_rotations() {
+        let worst_entry = |a: &Orientation, b: &Orientation| {
+            let (x, y) = (a.matrix(), b.matrix());
+            let mut w = 0.0f64;
+            for i in 0..3 {
+                for j in 0..3 {
+                    w = w.max((x[i][j] - y[i][j]).abs());
+                }
+            }
+            w
+        };
+        let identity = Orientation::identity();
+        assert_eq!(Orientation::from_rodrigues([0.0, 0.0, 0.0]), identity);
+        assert_eq!(Orientation::from_bunge_euler_degrees(0.0, 0.0, 0.0), identity);
+        assert_eq!(Orientation::from_quaternion(1.0, 0.0, 0.0, 0.0), identity);
+        assert_eq!(Orientation::from_quaternion(0.0, 0.0, 0.0, 0.0), identity);
+
+        let mut worst = 0.0f64;
+        for degrees in [10.0, 37.0, 90.0, 155.0] {
+            let theta: f64 = degrees * std::f64::consts::PI / 180.0;
+            let rodrigues = Orientation::from_rodrigues([0.0, 0.0, (theta / 2.0).tan()]);
+            let bunge = Orientation::from_bunge_euler_degrees(degrees, 0.0, 0.0);
+            let quaternion =
+                Orientation::from_quaternion((theta / 2.0).cos(), 0.0, 0.0, (theta / 2.0).sin());
+            worst = worst.max(worst_entry(&rodrigues, &bunge));
+            worst = worst.max(worst_entry(&rodrigues, &quaternion));
+            assert!(Orientation::from_matrix(rodrigues.matrix()).is_ok());
+            assert!(Orientation::from_matrix(bunge.matrix()).is_ok());
+        }
+        println!("rotation representations agree to {worst:.3e}");
+        assert!(worst < 1e-14);
+
+        let mut worst_ortho = 0.0f64;
+        for i in 0..200usize {
+            let u = [
+                (i as f64 * 0.6180339887) % 1.0,
+                (i as f64 * 0.3819660113) % 1.0,
+                (i as f64 * 0.7548776662) % 1.0,
+            ];
+            let o = Orientation::uniform_from_unit_cube(u);
+            let m = o.matrix();
+            Orientation::from_matrix(m).expect("Shoemake must give a proper rotation");
+            for a in 0..3 {
+                for b in 0..3 {
+                    let mut s = 0.0;
+                    for k in 0..3 {
+                        s += m[k][a] * m[k][b];
+                    }
+                    worst_ortho = worst_ortho.max((s - if a == b { 1.0 } else { 0.0 }).abs());
+                }
+            }
+        }
+        println!("Shoemake orientations: worst |R^T R - I| entry {worst_ortho:.3e}");
+        assert!(worst_ortho < 1e-14);
+
+        let o = Orientation::from_bunge_euler_degrees(31.0, 47.0, 13.0);
+        assert_eq!(worst_entry(&o.inverse().inverse(), &o), 0.0);
+        let round_trip = worst_entry(&o.pre_rotated_by(&o.inverse()), &identity);
+        println!("R composed with its inverse differs from the identity by {round_trip:.3e}");
+        assert!(round_trip < 1e-14);
+    }
+
+    /// A reflection and a non-orthonormal matrix must be rejected, not
+    /// silently accepted: a determinant of `-1` would turn a right-handed
+    /// lattice left-handed and flip the sign of every resolved shear stress.
+    #[test]
+    fn improper_matrices_are_rejected() {
+        assert!(Orientation::from_matrix([
+            [-1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+        .is_err());
+        assert!(Orientation::from_matrix([
+            [1.001, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+        .is_err());
+        assert!(Orientation::from_matrix([
+            [1.0, 0.01, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+        .is_err());
+    }
+
+    /// Rotating a symmetric tensor must preserve its invariants, and rotating
+    /// the identity must leave it unchanged.
+    ///
+    /// # Results (2026-09-11, release)
+    ///
+    /// Over four orientations and a general symmetric tensor: worst change in
+    /// the trace **1.184e-16**, in the second invariant `A : A`
+    /// **2.526e-16**, and the rotated identity differs from the identity by
+    /// **1.110e-16**; the first two relative to the tensor's largest
+    /// component and its square.
+    #[test]
+    fn rotating_a_symmetric_tensor_preserves_its_invariants() {
+        let a = Voigt6::new(120.0, -45.0, 30.0, 12.0, -8.0, 22.0);
+        let scale = a.abs_max();
+        let (mut worst_trace, mut worst_second, mut worst_identity) = (0.0f64, 0.0f64, 0.0f64);
+        for (p1, cap, p2) in [
+            (31.0, 47.0, 13.0),
+            (115.0, 62.0, 200.0),
+            (0.0, 90.0, 0.0),
+            (270.0, 17.0, 88.0),
+        ] {
+            let o = Orientation::from_bunge_euler_degrees(p1, cap, p2);
+            let r = o.rotate_symmetric(&a);
+            worst_trace = worst_trace.max((r.trace() - a.trace()).abs() / scale);
+            worst_second = worst_second
+                .max((r.stress_double_dot(&r) - a.stress_double_dot(&a)).abs() / (scale * scale));
+            let i = o.rotate_symmetric(&Voigt6::IDENTITY);
+            worst_identity = worst_identity.max(i.minus(&Voigt6::IDENTITY).abs_max());
+        }
+        println!(
+            "rotated tensor: trace {worst_trace:.3e}, second invariant \
+             {worst_second:.3e}, identity {worst_identity:.3e}"
+        );
+        assert!(worst_trace < 1e-14);
+        assert!(worst_second < 1e-14);
+        assert!(worst_identity < 1e-14);
+    }
+}
