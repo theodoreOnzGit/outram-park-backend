@@ -579,7 +579,40 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    points × 9 materials. It bounds, with the full 30 % margin never approached.
    The check now runs as a preflight on every `fhr_ring_rpt_endf` run.
 
-10. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
+10. **The moderator's energy transfer per collision is right too — the last
+   mechanism, and the one with the cleanest signature.**
+
+   `graphite_vs_njoy_thermr.rs` checks the bound **cross sections**, which fix
+   how *often* a neutron collides. How much energy it loses when it does is a
+   completely independent function, it sets where the 1/E slowing-down spectrum
+   joins the Maxwellian, and it had no oracle. Too much transfer in that joining
+   region means fewer collisions inside the U-238 resonances — `p` up, `ε` down,
+   `k` up, all three.
+
+   Two things that look like they already covered it do not. **Detailed balance
+   does not pin it:** the kernel equilibrates at the right temperature (0.97 ×
+   2kT), but detailed balance constrains the *ratio* `P(E→E′)/P(E′→E)` and leaves
+   the thermalisation *rate* free. **The free-gas asymptote does not pin it
+   either:** `ξ/ξ_fg = 1.002` at 3.9 eV says the kernel approaches free gas at
+   the top of its range and says nothing about 0.1–2 eV, where binding matters.
+
+   THERMR's MF=6/MT=229 *is* the `E → E′` matrix, built by integrating `S(α,β)`,
+   so `⟨E′⟩` follows by quadrature with no sampling and no model
+   (`graphite_kernel_vs_njoy_thermr.rs`; coherent elastic separated out by the
+   one unambiguous signature, `E′ = E` exactly). Against 400 k samples of
+   `ThermalScattering::sample` at 600 K:
+
+   | band | worst \|Δ⟨E′⟩/E\| |
+   |---|---|
+   | 0.01 – 0.1 eV (deep thermal) | 1.7 % |
+   | 0.1 – 0.3 eV | 0.5 % |
+   | **0.3 – 4 eV (the joining region)** | **0.1 %** |
+
+   Read `⟨E′⟩/E`, not `ξ`: `ξ = ⟨ln(E/E′)⟩` passes through **zero** near
+   0.082 eV, where net up-scatter becomes net down-scatter, so a relative
+   difference on it blows up there for arithmetic reasons and means nothing.
+
+11. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
@@ -626,7 +659,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    neutrons above 0.625 eV, relative to the reference, and every term in the
    slowing-down balance that could do that has been measured and is right.*
 
-11. **An earlier −1632 pcm baseline drift is still unexplained.** The
+12. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
    `0cd9a22c` — same problem, same settings, same seed — while U-238
    reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
@@ -639,11 +672,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    belongs to the old data, and everything before the free-gas fix belongs to a
    different kernel; neither should be compared against a current one.
 
-12. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
+13. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-13. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+14. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -683,6 +716,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | U-238 capture **shape** | NJOY PENDF on its own grid, 6 resonances | worst 0.12 %, rms 0.044 % |
    | U-235 fission / capture RI | NJOY PENDF | +0.00 % |
    | graphite S(α,β) σ | NJOY THERMR | ±0.05 % |
+| graphite S(α,β) **outgoing energy** | NJOY THERMR MF=6 scattering matrix | ≤0.5 % over 0.1–4 eV |
    | moderator σ_t / σ_s, **all 8 nuclides** | NJOY PENDF (NJOY2016 rebuilt in-session) | ≤0.05 % |
 | moderator thermal capture | NJOY PENDF at 0.0253 eV | ≤0.03 % |
    | slowing-down kernel `ξ` | analytic two-body kinematics, 8 nuclides | ξ/ξ₀ = 1.000 |

@@ -89,7 +89,10 @@ fn main() {
     // Defaults are U-238; override to check another nuclide against its own
     // NJOY PENDF (U-235 in particular -- it is the fissile driver, so an error
     // there moves k directly, and checking only U-238 would have missed it).
-    let mat: i32 = std::env::var("NJOY_MAT").ok().and_then(|v| v.parse().ok()).unwrap_or(9237);
+    let mat: i32 = std::env::var("NJOY_MAT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(9237);
     let tape_name = std::env::var("NJOY_TAPE").unwrap_or_else(|_| "n-092_U_238.endf".into());
     let nuc_name = std::env::var("NJOY_NUCLIDE").unwrap_or_else(|_| "U238".into());
     const TEMP: f64 = 600.0;
@@ -121,8 +124,8 @@ fn main() {
     // Energies spanning thermal, the big low-lying resonances, the
     // resolved/unresolved seam, the URR band and fast.
     const PROBE_EV: &[f64] = &[
-        0.0253, 1.0, 6.674, 20.87, 36.68, 66.03, 102.6, 1.0e3, 1.0e4, 1.9e4, 2.0e4,
-        3.0e4, 5.0e4, 1.0e5, 1.5e5, 5.0e5, 1.0e6, 2.0e6, 1.4e7,
+        0.0253, 1.0, 6.674, 20.87, 36.68, 66.03, 102.6, 1.0e3, 1.0e4, 1.9e4, 2.0e4, 3.0e4, 5.0e4,
+        1.0e5, 1.5e5, 5.0e5, 1.0e6, 2.0e6, 1.4e7,
     ];
 
     for (mt, label) in reactions {
@@ -139,7 +142,10 @@ fn main() {
         };
 
         println!("\n== MT={mt}  {label}  (NJOY grid: {} points)", pairs.len());
-        println!("{:>11}  {:>14}  {:>14}  {:>9}", "E [eV]", "NJOY [b]", "ours [b]", "rel diff");
+        println!(
+            "{:>11}  {:>14}  {:>14}  {:>9}",
+            "E [eV]", "NJOY [b]", "ours [b]", "rel diff"
+        );
         let mut worst = (0.0_f64, 0.0_f64);
         for &e in PROBE_EV {
             let n = interp_linlin(pairs, e);
@@ -157,10 +163,7 @@ fn main() {
             }
             println!("{e:>11.4e}  {n:>14.6e}  {o:>14.6e}  {:>+8.2}%", 100.0 * rel);
         }
-        println!(
-            "   worst: {:+.2}% at {:.4e} eV",
-            100.0 * worst.0, worst.1
-        );
+        println!("   worst: {:+.2}% at {:.4e} eV", 100.0 * worst.0, worst.1);
     }
 
     // nu-bar sanity check. This CANNOT be validated against the PENDF: NJOY
@@ -173,7 +176,11 @@ fn main() {
     println!("{:>11}  {:>12}", "E [eV]", "nu-bar");
     for &e in &[0.0253, 1.0e3, 1.0e6, 2.0e6, 1.4e7] {
         let x = ours.xs_at_energy(e, TEMP);
-        let nu = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+        let nu = if x.fission > 0.0 {
+            x.nu_fission / x.fission
+        } else {
+            0.0
+        };
         println!("{e:>11.4e}  {nu:>12.5}");
     }
     println!(

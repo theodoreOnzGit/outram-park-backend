@@ -154,6 +154,12 @@ required-features = ["endf-pebble-cases"]
 name = "godiva_keff_endf_local"
 required-features = ["endf-pebble-cases"]
 
+# Oracle: our graphite S(a,b) OUTGOING-ENERGY distribution vs NJOY2016's THERMR
+# scattering matrix -- the kernel, not the cross section (op-mzvp.2.12).
+[[example]]
+name = "graphite_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
 # Diagnostic: mean log energy decrement ABOVE the S(a,b) cutoff, where resonance
 # escape is decided (op-mzvp.2.12).
 [[example]]
