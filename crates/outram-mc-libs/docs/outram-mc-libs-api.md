@@ -18973,6 +18973,12 @@ impl ExplicitTrisoPebble {
 }
 ```
 
+Import both from the same module:
+
+```rust
+use outram_mc_libs::pebble_beds::fhr_pebble::{ExplicitTrisoPebble, TrisoMaterials, TrisoSpec};
+```
+
 **`new`** — assemble a pebble from an already-packed TRISO fuel zone. `packed`
 should be a packing of `spec.opyc`-radius spheres (whole TRISO particles)
 confined to `r_fuel_zone`; build it with
