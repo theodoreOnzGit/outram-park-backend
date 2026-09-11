@@ -485,6 +485,18 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    is more than twice as dense as NJOY's over the band. U-238 capture is exact in
    both value and area.
 
+   One further **deck mismatch** was found and corrected while looking, and it
+   is worth nothing: `rpt_pebble.py::get_mixed_triso_fuel_material` builds the
+   homogenised TRISO material with `add_element('C', ...)` and **no**
+   `add_s_alpha_beta` call, so the buffer / PyC1 / PyC2 carbon — which *does*
+   carry `c_Graphite` in the explicit pebble — is free-gas once homogenised.
+   That is 83 % of the mixed material's carbon and ~66 % of all its atoms, and
+   `homogenise_by_volume` had been (correctly, by its own contract) preserving
+   the bound nuclides. Matching the deck moves the ring-RPT CSG pebble by
+   **−12 ± 310 pcm**: statistically zero. The fuel shell's carbon sees little
+   thermal flux, so its treatment does not matter here — but the comparison is
+   now faithful to the model it claims to reproduce.
+
    Nor is the offset a general property of the HIGH data path or of the
    eigenvalue driver, because **that path reproduces a measured criticality
    benchmark**. Godiva (ICSBEP **HEU-MET-FAST-001**, `k = 1.0000 ± 0.0010`), run
@@ -499,7 +511,37 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    cleanly: whatever is left is specific to the non-thermal/thermal flux ratio,
    not to the shared machinery.
 
-8. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
+8. **Transport assembles the resonance absorption correctly too — checked
+   against its analytic dilute limit, which is the one piece of physics the
+   pebble exercises and Godiva does not.**
+
+   Cross sections being right does not mean the *absorption rate* is right;
+   resonance self-shielding in a continuous-energy Monte Carlo is supposed to be
+   automatic, and therefore never gets tested. `examples/u238_resonance_escape.rs`
+   tests it, with no geometry, no tracking and no majorant — the neutron is
+   followed in **energy only**, so a failure here would be in the collision
+   physics and a pass sends the search to the spatial side.
+
+   In an infinite homogeneous medium of a moderator plus a *trace* absorber the
+   flux is unperturbed and the absorption probability per source neutron is
+   exactly `N_a · RI_∞ / (ξΣ_s)` to first order. `RI_∞` is not assumed: it is the
+   274.637 b this crate's own reconstruction gives, already verified against
+   NJOY. C-12 at 0.08 /b·cm, U-238, 600 K, 10⁵ eV → 0.5 eV:
+
+   | N(U-238) | σ₀ \[b\] | P_abs(U-238) | analytic dilute | RI_eff \[b\] | RI_eff/RI_∞ |
+   |---|---|---|---|---|---|
+   | 1e-6 | 3.80e5 | 0.00449 | 0.00455 | 272.0 | **0.991 ± 0.011** |
+   | 1e-5 | 3.80e4 | 0.04103 | 0.04548 | 253.0 | 0.921 |
+   | 1e-4 | 3.80e3 | 0.23245 | — | 159.8 | 0.582 |
+   | 1e-3 | 3.80e2 | 0.60981 | — | 56.8 | 0.207 |
+
+   The dilute row lands on 1.000 within one sigma, and self-shielding then
+   develops monotonically as σ₀ falls. The moderator's own 1/v capture is tallied
+   separately and excluded — it is ~0.2 % of source neutrons, a third of the
+   signal at the top row, and reading it as absorber capture makes that row
+   over-absorb by 50 %.
+
+9. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
@@ -546,7 +588,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    neutrons above 0.625 eV, relative to the reference, and every term in the
    slowing-down balance that could do that has been measured and is right.*
 
-9. **An earlier −1632 pcm baseline drift is still unexplained.** The
+10. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
    `0cd9a22c` — same problem, same settings, same seed — while U-238
    reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
@@ -559,11 +601,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    belongs to the old data, and everything before the free-gas fix belongs to a
    different kernel; neither should be compared against a current one.
 
-10. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
+11. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-11. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+12. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 

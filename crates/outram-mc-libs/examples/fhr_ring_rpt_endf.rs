@@ -201,6 +201,33 @@ mod desktop {
 
     /// Atom-density components \[atoms/barn·cm\] for a compound of mass density
     /// `rho` \[g/cm³\] with per-nuclide `(index, atom_fraction, mass_u)`.
+    /// Move every bound-graphite carbon component onto the free-gas carbon
+    /// nuclide of the same isotope, merging with any already there.
+    ///
+    /// Needed only to match `rpt_pebble.py`, whose homogenised TRISO material is
+    /// built with no `add_s_alpha_beta` call. Nothing physical recommends it —
+    /// the buffer and PyC layers are graphite — but a code-to-code comparison
+    /// has to reproduce the model it is compared against, not improve on it.
+    fn free_gas_carbon(mut m: Material) -> Material {
+        let mut acc: Vec<NuclideComponent> = Vec::new();
+        for c in m.components.drain(..) {
+            let idx = match c.nuclide_idx {
+                nx::C12G => nx::C12,
+                nx::C13G => nx::C13,
+                other => other,
+            };
+            match acc.iter_mut().find(|a| a.nuclide_idx == idx) {
+                Some(a) => a.atom_density += c.atom_density,
+                None => acc.push(NuclideComponent {
+                    nuclide_idx: idx,
+                    atom_density: c.atom_density,
+                }),
+            }
+        }
+        m.components = acc;
+        m
+    }
+
     fn number_densities(rho: f64, fracs: &[(usize, f64, f64)]) -> Vec<NuclideComponent> {
         let m_bar: f64 = fracs.iter().map(|&(_, f, m)| f * m).sum();
         let n_tot = rho * AVOGADRO_1E24 / m_bar; // atoms/barn·cm
@@ -312,8 +339,19 @@ mod desktop {
         };
 
         // ── homogenised TRISO fuel: volume-weighted mix of the 5 layers ──
+        //
+        // Then **all** of its carbon is moved onto the free-gas nuclides, to
+        // match the deck. `rpt_pebble.py::get_mixed_triso_fuel_material` builds
+        // the mixed material with `add_element('C', ...)` and **no**
+        // `add_s_alpha_beta` call — so in the reference's ring-RPT pebble the
+        // buffer / PyC1 / PyC2 carbon, which *does* carry `c_Graphite` in the
+        // explicit pebble, is free-gas once homogenised. That is 83 % of the
+        // mixed material's carbon and ~66 % of all its atoms, so it is not a
+        // detail. `homogenise_by_volume` preserves nuclide indices, which is the
+        // right default — it is this deck that drops the bound treatment, and
+        // matching it is the point of the comparison.
         let vols = spec.layer_volumes();
-        let homog = homogenise_by_volume(
+        let homog = free_gas_carbon(homogenise_by_volume(
             &[
                 (&fuel, vols[0]),
                 (&buffer, vols[1]),
@@ -324,7 +362,7 @@ mod desktop {
             8,
             "homogenised TRISO fuel".into(),
             TEMP_K,
-        );
+        ));
 
         // ── naive-homogenisation medium: the TRISO material AND the matrix
         //    graphite it is dispersed in, smeared over the whole fuel zone ──
