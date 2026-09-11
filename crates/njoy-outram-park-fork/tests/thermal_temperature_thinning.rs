@@ -47,9 +47,11 @@
 //! `DATA_POLICY.md`), `tsl-crystalline-graphite.endf`, MAT 30, ZA 130, LEIP
 //! Lab / A. I. Hawari, Y. Zhu, J. L. Wormald, NDS 148, 1 (2018). Tabulated at
 //! 296, 400, 500, 600, 700, 800, 1000, 1200, 1600, 2000 K. Read from
-//! `GRAPHITE_TSL_DIR` (env override) or the default path below; the tape is
-//! **not** checked in and every test here **skips** (prints a note, passes)
-//! when it is absent.
+//! `GRAPHITE_TSL_DIR` (env override) or, by default, this repository's own
+//! `reference-data/endf/` — the tape **is** checked in, so these tests run on a
+//! plain `cargo test` with no environment set up. The skip branch survives only
+//! for a checkout where the file has been removed; if you see its note, the
+//! tests asserted nothing.
 //!
 //! # Measured results — 2026-08-13, ENDF/B-VIII.0, MAT 30
 //!
@@ -207,7 +209,18 @@ use njoy_outram_park_fork::thermr::temperature_thinning::{
     ThinnedTemperatureGrid,
 };
 
-const DEFAULT_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
+/// Where the graphite tape lives **in this repository**, resolved from the
+/// crate's own manifest directory so it works on any checkout.
+///
+/// This used to be an absolute path on one developer's machine
+/// (`/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt`). Everywhere
+/// else that path does not exist, so all eight tests here took the skip branch
+/// and **passed in 0.00 s having asserted nothing** — while the tape they need
+/// was sitting in this repo the whole time, committed at
+/// `reference-data/endf/tsl-crystalline-graphite.endf`. A test that passes
+/// without running is worse than one that fails, because it is counted as
+/// evidence; this file contributed 8 such passes to the suite totals.
+const DEFAULT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../reference-data/endf");
 const FILE: &str = "tsl-crystalline-graphite.endf";
 const MAT: i32 = 30;
 const E_THERMAL: f64 = 0.0253;
@@ -229,9 +242,13 @@ fn tape_path() -> Option<std::path::PathBuf> {
     if p.exists() {
         Some(p)
     } else {
+        // cargo swallows a passing test's output, so this note is invisible in
+        // a normal run — which is exactly how eight vacuous passes went
+        // unnoticed. Keep it, but do not rely on it being read.
         eprintln!(
             "SKIP thermal_temperature_thinning: {FILE} not found under {dir} \
-             (set GRAPHITE_TSL_DIR)"
+             (it should be committed at reference-data/endf/; set GRAPHITE_TSL_DIR \
+             to override)"
         );
         None
     }
