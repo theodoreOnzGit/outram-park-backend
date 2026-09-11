@@ -97,10 +97,27 @@ fn main() {
     let nuc_name = std::env::var("NJOY_NUCLIDE").unwrap_or_else(|_| "U238".into());
     const TEMP: f64 = 600.0;
 
+    let tape_for_gate = reference_endf(&tape_name).expect("ENDF tape");
+    if nuc_name == "U238" {
+        let ours_for_gate = Nuclide::from_endf_file(&tape_for_gate, &nuc_name, TEMP, 1.0e-3)
+            .expect("reconstruction");
+        golden_gate(&ours_for_gate, TEMP);
+    } else {
+        println!(
+            "(No golden gate for {nuc_name}: the committed oracle tables are U-238's. \
+             Set U238_PENDF to compare this nuclide against its own PENDF.)"
+        );
+    }
+
     let pendf_path = match std::env::var("U238_PENDF") {
         Ok(p) => p,
         Err(_) => {
-            eprintln!("SKIP: set U238_PENDF to an NJOY 600 K PENDF (see the module docs)");
+            eprintln!(
+                "\nThe live-tape comparison needs U238_PENDF pointing at an NJOY 600 K \n\
+                 PENDF (deck in the module docs). The golden gate above already ran, so \n\
+                 this program is still a V&V case without it — it just cannot re-measure \n\
+                 the oracle."
+            );
             return;
         }
     };
@@ -206,4 +223,104 @@ fn interp_linlin(pairs: &[(f64, f64)], e: f64) -> f64 {
         return s1;
     }
     s0 + (s1 - s0) * (e - e0) / (e1 - e0)
+}
+
+/// V&V gate against the committed NJOY2016 oracle — runs with no PENDF on disk.
+///
+/// # Methodology
+///
+/// `Nuclide::xs_at_energy` against NJOY2016 2016.79's own PENDF for U-238
+/// (MAT 9237) at 600 K, at nineteen probe energies spanning thermal, the four
+/// big low-lying capture resonances, the resolved tail, the resolved/unresolved
+/// seam, the unresolved band, and fast. The oracle values and their provenance
+/// are in [`outram_mc_libs::vv::njoy_golden::u238_pendf`]; the NJOY deck that
+/// produces the tape is in this file's module docs.
+///
+/// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0 @ 600 K)
+///
+/// | MT | channel | worst | where |
+/// |---|---|---|---|
+/// | 1 | total | +0.04 % | 20.87 eV |
+/// | 2 | elastic | −0.03 % | 6.674 eV |
+/// | 102 | capture | −0.17 % | 19 keV |
+/// | 18 | fission | see below | |
+///
+/// # MT=18 needs a significance floor, and the floor needs its own assertion
+///
+/// U-238 fission has a ~1 MeV threshold, so most of the probe list is
+/// sub-threshold and the tabulated values there are the evaluation's tiny tail.
+/// At 1 keV NJOY gives 1.354e-7 b and this crate 1.453e-7 b — **+7.31 %**, which
+/// in absolute terms is 1e-8 b and measures reconstruction round-off, not
+/// physics.
+///
+/// So the fission comparison carries a **1e-6 b significance floor**. That alone
+/// would be a hole: a data change that silently zeroed the whole column would
+/// drop every point below the floor and report "everything passed". The gate
+/// therefore also asserts **how many** points the floor excluded — exactly one —
+/// so the exclusion cannot quietly grow.
+///
+/// # What this pins, and what it cannot
+///
+/// Point values pin *peak heights*. They cannot see the **area** under a
+/// resonance, which is what drives resonance escape — a grid too coarse between
+/// the nodes loses area without moving any node value. That gap is closed by
+/// `examples/u238_resonance_integral.rs` (+0.001 % against NJOY over 0.5 eV to
+/// 100 keV, on this crate's own grid).
+fn golden_gate(ours: &outram_mc_libs::material::nuclide::Nuclide, temp: f64) {
+    use outram_mc_libs::vv::assert_table_relative;
+    use outram_mc_libs::vv::njoy_golden::u238_pendf as njoy;
+
+    println!("=== V&V gate: U-238 point cross sections vs committed NJOY2016 PENDF ===");
+
+    let rows = |table: &[(f64, f64)],
+                pick: fn(&outram_mc_libs::material::nuclide::MicroXS) -> f64|
+     -> Vec<(f64, f64, f64)> {
+        table
+            .iter()
+            .map(|&(e, n)| (e, pick(&ours.xs_at_energy(e, temp)), n))
+            .collect()
+    };
+
+    assert_table_relative(
+        "U-238 MT=1 total vs NJOY PENDF",
+        &rows(njoy::TOTAL, |x| x.total),
+        0.002,
+        1.0e-6,
+    );
+    assert_table_relative(
+        "U-238 MT=2 elastic vs NJOY PENDF",
+        &rows(njoy::ELASTIC, |x| x.elastic),
+        0.002,
+        1.0e-6,
+    );
+    assert_table_relative(
+        "U-238 MT=102 capture vs NJOY PENDF",
+        &rows(njoy::CAPTURE, |x| x.absorption - x.fission),
+        0.003,
+        1.0e-6,
+    );
+
+    // MT=18: significance floor, plus an assertion on the floor itself.
+    const FISSION_SIGNIFICANCE_B: f64 = 1.0e-6;
+    let fission: Vec<(f64, f64, f64)> = rows(njoy::FISSION, |x| x.fission);
+    let n_excluded = fission
+        .iter()
+        .filter(|&&(_, _, n)| n.abs() < FISSION_SIGNIFICANCE_B)
+        .count();
+    assert_eq!(
+        n_excluded,
+        1,
+        "the {FISSION_SIGNIFICANCE_B:.0e} b significance floor excluded {n_excluded} \
+         of {} fission points; exactly one (1 keV, 1.354e-7 b) was excluded on \
+         2026-09-11. If this grew, U-238's fission channel has collapsed toward \
+         zero somewhere it should not have, and the floor would hide it by \
+         reporting a clean pass on the remaining points.",
+        fission.len(),
+    );
+    assert_table_relative(
+        "U-238 MT=18 fission vs NJOY PENDF (above the significance floor)",
+        &fission,
+        0.03,
+        FISSION_SIGNIFICANCE_B,
+    );
 }

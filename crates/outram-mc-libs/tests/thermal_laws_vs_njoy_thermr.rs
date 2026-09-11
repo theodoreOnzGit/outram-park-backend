@@ -56,6 +56,16 @@
 //! and print these tables in full.
 
 use outram_mc_libs::material::thermal::ThermalScattering;
+// The oracle tables themselves live in the library, at
+// `outram_mc_libs::vv::njoy_golden`, so that the `examples/` programs which
+// regenerate them assert against the *same* recorded numbers these tests do.
+// Two copies of an oracle drift, and the copy nothing checks drifts first.
+use outram_mc_libs::vv::njoy_golden::{
+    GRAPHITE_KERNEL as GRAPHITE_KERNEL_NJOY, GRAPHITE_KERNEL_CONVERGED_ABOVE_EV,
+    GRAPHITE_KERNEL_CONVERGED_TOL, GRAPHITE_KERNEL_TOL, GRAPHITE_XS_COHERENT,
+    GRAPHITE_XS_INELASTIC, GRAPHITE_XS_TOL, H2O_KERNEL as H2O_KERNEL_NJOY, H2O_KERNEL_CROSSOVER_EV,
+    H2O_KERNEL_TOL, H2O_XS as H2O_XS_NJOY, H2O_XS_TOL,
+};
 
 /// `Some(law)` when the tape is present, else `None` after printing a skip note.
 /// Data-gated tests pass rather than fail when the repo-only
@@ -101,21 +111,6 @@ fn sampled_moments(law: &ThermalScattering, e: f64, n: usize, seed: &mut u64) ->
 // ─────────────────────────────────────────────────────────────────────────────
 // H in H₂O — cross section
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// NJOY2016 THERMR MT=222 for `tsl-HinH2O` at 293.6 K: `(E [eV], σ [b])`.
-const H2O_XS_NJOY: &[(f64, f64)] = &[
-    (1.000000e-03, 1.168588e2), // ours 1.184556e2, +1.37 %
-    (5.000000e-03, 8.185424e1), // ours 8.253468e1, +0.83 %
-    (1.000000e-02, 6.932242e1), // ours 6.992186e1, +0.86 %
-    (2.530000e-02, 5.168752e1), // ours 5.214197e1, +0.88 %
-    (5.000000e-02, 3.951121e1), // ours 3.990964e1, +1.01 %
-    (1.000000e-01, 3.255061e1), // ours 3.289730e1, +1.07 %
-    (2.000000e-01, 2.745337e1), // ours 2.776834e1, +1.15 %
-    (4.000000e-01, 2.363236e1), // ours 2.391182e1, +1.18 %
-    (6.250000e-01, 2.215801e1), // ours 2.230188e1, +0.65 %
-    (1.000000e+00, 2.150120e1), // ours 2.181613e1, +1.46 %
-    (2.000000e+00, 2.094862e1), // ours 2.125675e1, +1.47 %
-];
 
 /// **This crate's H-in-H₂O S(α,β) cross section sits a consistent ~+1 % above
 /// NJOY2016's THERMR, and its law ends near 2 eV where NJOY's runs to 10.**
@@ -178,7 +173,7 @@ fn h2o_sab_cross_section_against_njoy_thermr() {
     }
     println!("  worst {:+.2} % at {:.4e} eV", 100.0 * worst.0, worst.1);
     assert!(
-        worst.0.abs() < 0.02,
+        worst.0.abs() < H2O_XS_TOL,
         "H(H2O) cross section is {:+.2} % from NJOY at {:.4e} eV — worse than the \
          +1.5 % recorded on 2026-09-11 (GitHub #188)",
         100.0 * worst.0,
@@ -229,37 +224,6 @@ fn h2o_sab_law_ends_between_2_and_4_ev() {
 // Kernels — the outgoing-energy distribution transport actually samples
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// NJOY2016 THERMR MF=6/MT=222 for `tsl-HinH2O` at 293.6 K, reduced to its first
-/// moment: `(E [eV], ⟨E′⟩/E, ξ = ⟨ln(E/E′)⟩)`.
-const H2O_KERNEL_NJOY: &[(f64, f64, f64)] = &[
-    (1.500000e-03, 7.304950, -0.893430), // ours 6.899970 (−5.54 %)
-    (5.000000e-03, 2.510210, -0.426060), // ours 2.414360 (−3.82 %)
-    (1.000000e-02, 1.666430, -0.235610), // ours 1.618340 (−2.89 %)
-    (2.530000e-02, 1.193860, -0.055270), // ours 1.176320 (−1.47 %)
-    (5.000000e-02, 1.010440, 0.086990),  // ours 1.002250 (−0.81 %)
-    (1.115700e-01, 0.800170, 0.366900),  // ours 0.800170 (+0.00 %)
-    (2.000000e-01, 0.713830, 0.489700),  // ours 0.718120 (+0.60 %)
-    (4.170400e-01, 0.642280, 0.620940),  // ours 0.646770 (+0.70 %)
-    (6.250000e-01, 0.605110, 0.710540),  // ours 0.612900 (+1.29 %)
-    (1.050000e+00, 0.565930, 0.801740),  // ours 0.572550 (+1.17 %)
-    (1.855000e+00, 0.539260, 0.869670),  // ours 0.547230 (+1.48 %)
-];
-
-/// NJOY2016 THERMR MF=6/MT=229 for `tsl-crystalline-graphite` at 600 K:
-/// `(E [eV], ⟨E′⟩/E)`, coherent elastic excluded from the moment.
-const GRAPHITE_KERNEL_NJOY: &[(f64, f64)] = &[
-    (1.000000e-02, 4.907990), // ours 4.897740 (−0.21 %), 83 % coherent elastic
-    (2.530000e-02, 1.903930), // ours 1.874890 (−1.53 %), 78 %
-    (5.000000e-02, 1.264140), // ours 1.246550 (−1.39 %), 66 %
-    (1.115700e-01, 1.011580), // ours 1.004850 (−0.67 %), 43 %
-    (2.000000e-01, 0.936480), // ours 0.936760 (+0.03 %), 27 %
-    (4.170400e-01, 0.890410), // ours 0.890280 (−0.01 %), 13 %
-    (6.250000e-01, 0.878570), // ours 0.879470 (+0.10 %), 9 %
-    (1.050000e+00, 0.869530), // ours 0.870310 (+0.09 %), 5 %
-    (1.855000e+00, 0.863980), // ours 0.864200 (+0.03 %), 3 %
-    (3.750000e+00, 0.860400), // ours 0.860980 (+0.07 %), 2 %
-];
-
 /// **This crate's H-in-H₂O *kernel* — the outgoing-energy distribution transport
 /// samples — is too narrow: it moves neutrons 2–5.5 % less than NJOY2016's.**
 ///
@@ -267,8 +231,19 @@ const GRAPHITE_KERNEL_NJOY: &[(f64, f64)] = &[
 ///
 /// 200 000 samples of `ThermalScattering::sample` per incident energy, reduced
 /// to `⟨E′⟩/E`, against a quadrature on NJOY's MF=6/MT=222 matrix (no sampling
-/// on that side). Same tape, same temperature. Binomial noise at 200 000 samples
-/// is well under 0.2 %, so every deviation below is far outside it.
+/// on that side). Same tape, same temperature.
+///
+/// **Sampling uncertainty, measured rather than assumed.** An earlier version of
+/// this comment said "binomial noise is well under 0.2 %". That is wrong at the
+/// bottom of the range: `⟨E′⟩/E` is a mean of a *wide* distribution where
+/// up-scatter dominates, not a binomial proportion. Measured standard error at
+/// 400 000 samples (`examples/h2o_kernel_vs_njoy_thermr.rs`, which prints it per
+/// row): **0.28 % at 1.5 meV**, 0.21 % at 5 meV, and 0.06–0.09 % from 0.05 eV up.
+/// Scaled to the 200 000 samples used here, ~0.40 % at the worst point.
+///
+/// The −5.54 % finding is therefore ~14 σ at 1.5 meV and larger still in the
+/// middle of the range — real by a wide margin, but *not* by the factor the old
+/// comment implied.
 ///
 /// # Results (2026-09-11, NJOY2016 2016.79)
 ///
@@ -322,14 +297,14 @@ fn h2o_sab_kernel_against_njoy_thermr() {
             worst_e = e;
         }
         // The sign structure IS the finding — see the doc comment.
-        if e < 0.10 {
+        if e < 0.9 * H2O_KERNEL_CROSSOVER_EV {
             assert!(
                 rel < 0.005,
                 "below the ~0.11 eV crossover the kernel should under-GAIN energy \
                  (negative rel); at {e} eV it is {:+.2} %",
                 100.0 * rel
             );
-        } else if e > 0.15 {
+        } else if e > 1.3 * H2O_KERNEL_CROSSOVER_EV {
             assert!(
                 rel > -0.005,
                 "above the ~0.11 eV crossover the kernel should under-LOSE energy \
@@ -344,7 +319,7 @@ fn h2o_sab_kernel_against_njoy_thermr() {
         worst_e
     );
     assert!(
-        worst < 0.06,
+        worst < H2O_KERNEL_TOL,
         "the H(H2O) kernel is {:.2} % from NJOY at {:.4e} eV — worse than the 5.54 % \
          recorded on 2026-09-11 (GitHub #188)",
         100.0 * worst,
@@ -410,9 +385,9 @@ fn graphite_sab_kernel_against_njoy_thermr() {
             worst = rel.abs();
             worst_e = e;
         }
-        if e > 0.2 {
+        if e > GRAPHITE_KERNEL_CONVERGED_ABOVE_EV {
             assert!(
-                rel.abs() < 0.004,
+                rel.abs() < GRAPHITE_KERNEL_CONVERGED_TOL,
                 "graphite's kernel no longer converges on NJOY above 0.2 eV: {:+.2} % at \
                  {e} eV. That convergence is what distinguishes it from water (GitHub \
                  #188) and makes this test a control",
@@ -426,10 +401,136 @@ fn graphite_sab_kernel_against_njoy_thermr() {
         worst_e
     );
     assert!(
-        worst < 0.02,
+        worst < GRAPHITE_KERNEL_TOL,
         "the graphite kernel is {:.2} % from NJOY at {:.4e} eV — worse than the 1.53 % \
          recorded on 2026-09-11",
         100.0 * worst,
         worst_e
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Graphite — cross section. The control for the water cross section, and the
+// half of the graphite comparison that had no test at all until 2026-09-11.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **This crate's graphite S(α,β) cross sections reproduce NJOY2016's THERMR to
+/// 0.14 % on the inelastic channel and 0.09 % on the coherent-elastic one.**
+///
+/// # Why this exists
+///
+/// `graphite_sab_kernel_against_njoy_thermr` covers the *kernel*. The *cross
+/// section* — the magnitude, which sets how often a thermal neutron interacts
+/// with graphite at all — was compared ad hoc while chasing #186/#188 and never
+/// committed, so the figure quoted in this workspace's V&V documents ("±0.05 %")
+/// had nothing checking it. It is now measured, recorded, and asserted, and the
+/// honest number is 0.14 %, not 0.05 %.
+///
+/// It is also the control that makes the water result mean something: same
+/// code path, same THERMR comparison, a different law. Water is +1.47 %
+/// (`h2o_sab_cross_section_against_njoy_thermr`); graphite is −0.14 %. Ten times
+/// better, on the same machinery — so the water offset is water's, not the
+/// method's.
+///
+/// # Methodology
+///
+/// `ThermalScattering::inelastic_xs` against THERMR MT=229 and
+/// `elastic_xs` against MT=230, on `tsl-crystalline-graphite` (MAT 30,
+/// with C-12 MAT 625) at **600 K — a tabulated temperature on that tape**, so no
+/// temperature interpolation is involved and any difference is in the law
+/// itself. The NJOY deck is in the module docs; the oracle values and their
+/// provenance are in [`outram_mc_libs::vv::njoy_golden`].
+///
+/// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0)
+///
+/// ```text
+///   E [eV]     MT=229 NJOY     ours        rel       MT=230 NJOY   ours        rel
+///   1e-4        3.341434       3.342667   +0.04 %     0            0          exact
+///   1e-3        1.137236       1.135755   −0.13 %     0            0          exact
+///   5e-3        0.7150516      0.7149814  −0.01 %     4.616808     4.616808   −0.00 %
+///   0.0253      1.110868       1.110623   −0.02 %     4.041842     4.041842   −0.00 %
+///   0.1         2.588940       2.588316   −0.02 %     2.243431     2.243431   −0.00 %
+///   1.0         4.485358       4.483433   −0.04 %     0.2594442    0.2594442  −0.00 %
+///   3.0         4.654246       4.649273   −0.11 %     0.08655500   0.08648140 −0.09 %
+///   3.9         4.673901       4.667192   −0.14 %     0.06653488   0.06652415 −0.02 %
+/// ```
+///
+/// Worst: **−0.14 %** (inelastic, 3.9 eV) and **−0.09 %** (coherent, 3.0 eV).
+///
+/// # What is asserted
+///
+/// Both channels inside 0.5 % — about 3.5x the worst observed, which leaves room
+/// for grid noise without admitting a real regression.
+///
+/// Separately, and more sharply: the coherent-elastic cross section must be
+/// **exactly zero** below the first Bragg edge. That is a structural property,
+/// not a numerical one — a code that puts the cutoff in the wrong place, or that
+/// smears it, cannot produce an exact zero there, and no percentage envelope
+/// would notice.
+#[test]
+fn graphite_sab_cross_sections_against_njoy_thermr() {
+    let Some(law) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite") else {
+        return;
+    };
+
+    let mut worst_inel: (f64, f64) = (0.0, 0.0);
+    for &(e, njoy) in GRAPHITE_XS_INELASTIC {
+        let ours = law.inelastic_xs(e);
+        let rel = ours / njoy - 1.0;
+        println!(
+            "  MT=229  {e:>9.4e}  NJOY {njoy:>11.6}  ours {ours:>11.6}  {:>+6.2} %",
+            100.0 * rel
+        );
+        if rel.abs() > worst_inel.0.abs() {
+            worst_inel = (rel, e);
+        }
+    }
+    assert!(
+        worst_inel.0.abs() < GRAPHITE_XS_TOL,
+        "graphite's incoherent-inelastic cross section is {:+.3} % from NJOY at \
+         {:.4e} eV — worse than the −0.14 % recorded on 2026-09-11. Graphite is the \
+         control that makes the H(H2O) result (#188) attributable to water rather \
+         than to this comparison method; if graphite drifts, that argument goes with it",
+        100.0 * worst_inel.0,
+        worst_inel.1
+    );
+
+    let mut worst_coh: (f64, f64) = (0.0, 0.0);
+    for &(e, njoy) in GRAPHITE_XS_COHERENT {
+        let ours = law.elastic_xs(e);
+        if njoy == 0.0 {
+            assert_eq!(
+                ours, 0.0,
+                "graphite's coherent-elastic cross section is {ours} b at {e} eV, below \
+                 the first Bragg edge where it must be exactly zero. The Bragg cutoff \
+                 has moved or is being smeared — a structural defect no percentage \
+                 envelope would catch"
+            );
+            println!("  MT=230  {e:>9.4e}  below first Bragg edge: exactly zero, as NJOY");
+            continue;
+        }
+        let rel = ours / njoy - 1.0;
+        println!(
+            "  MT=230  {e:>9.4e}  NJOY {njoy:>11.6}  ours {ours:>11.6}  {:>+6.2} %",
+            100.0 * rel
+        );
+        if rel.abs() > worst_coh.0.abs() {
+            worst_coh = (rel, e);
+        }
+    }
+    assert!(
+        worst_coh.0.abs() < GRAPHITE_XS_TOL,
+        "graphite's coherent-elastic cross section is {:+.3} % from NJOY at {:.4e} eV \
+         — worse than the −0.09 % recorded on 2026-09-11",
+        100.0 * worst_coh.0,
+        worst_coh.1
+    );
+
+    println!(
+        "  worst: inelastic {:+.3} % at {:.4e} eV, coherent {:+.3} % at {:.4e} eV",
+        100.0 * worst_inel.0,
+        worst_inel.1,
+        100.0 * worst_coh.0,
+        worst_coh.1
     );
 }

@@ -46,6 +46,7 @@ pub mod gpu;
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
+pub mod vv;
 pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where

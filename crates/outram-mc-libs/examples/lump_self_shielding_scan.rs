@@ -1,10 +1,25 @@
-//! Exploratory driver for `physics::slowing_down::LumpCellMc` — the SPATIAL half
-//! of the self-shielding question (gh:#178, bead op-qho6).
+//! **The SPATIAL half of self-shielding, against the exact homogeneous limit**
+//! (gh:#178, bead op-qho6).
 //!
-//! Scales a Wigner-Seitz cell (fuel sphere + moderator shell, reflective) up and
-//! down at fixed composition. The thin-lump limit must reproduce the exact
-//! homogeneous slowing-down solution; the growth of the escape probability with
-//! scale is the lumping effect.
+//! Scales a Wigner-Seitz cell (fuel sphere + moderator shell) up and down at
+//! fixed cell-averaged composition. The thin-lump limit must reproduce the exact
+//! homogeneous slowing-down solution — there is no modelling freedom left there
+//! — and the growth of the escape probability with scale is the lumping effect
+//! itself.
+//!
+//! Together with `examples/slowing_down_oracle.rs`, which does the same against
+//! the same oracle in *energy* only, this excluded spatial transport from the
+//! ring-RPT residual.
+//!
+//! # Read `vv_gate`'s doc comment before changing the boundary condition
+//!
+//! This program was first written with a **specular** reflective outer sphere,
+//! which produced a flat +39–42 % offset that looked exactly like the physics
+//! defect being hunted. It was a harness bug: specular reflection off a
+//! concentric sphere conserves the impact parameter, so near-tangential neutrons
+//! are trapped on their chords and can never re-enter the lump. The correct
+//! Wigner-Seitz condition is **white**. Both are still run, and the gate asserts
+//! they disagree, so the counter-example stays executable.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -60,6 +75,8 @@ fn main() {
         },
     ];
     let det = solve_deterministic(&nuclides, &mix, band, TEMP, &grid);
+    // Rows of the lump-size scan, kept for the V&V gate at the bottom.
+    let mut scan: Vec<ScanRow> = Vec::new();
     let hom_mc = InfiniteMediumMc {
         histories: hist,
         seed: 0xABCD_0001,
@@ -237,6 +254,13 @@ fn main() {
         };
         let r = mc(&geom, CellBoundary::White);
         let sp = mc(&geom_spec, CellBoundary::Specular);
+        scan.push(ScanRow {
+            r_cell,
+            r_over_mfp: r_fuel * sigma_peak,
+            white: r.escaped,
+            white_stderr: r.stderr_of(r.escaped),
+            specular: sp.escaped,
+        });
         println!(
             "{r_cell:>12.1e}  {r_fuel:>10.3e}  {:>9.3}  {:>11.5}  {:>10.5}  {:>+8.2} %  \
              {:>11.5}  {:>+8.2} %   ({:.0} s)",
@@ -253,6 +277,145 @@ fn main() {
         "\n* R/mfp is the lump radius in mean free paths at the 6.674 eV resonance peak.\n  \
          The first row must reproduce the homogeneous answer; the rise with scale is\n  \
          the lumping effect."
+    );
+
+    vv_gate(&scan, det.escaped);
+}
+
+/// One row of the lump-size scan, kept for the V&V gate.
+struct ScanRow {
+    /// Wigner-Seitz cell radius, cm.
+    r_cell: f64,
+    /// Lump radius in mean free paths at the 6.674 eV resonance peak.
+    r_over_mfp: f64,
+    /// Escape probability with a **white** (isotropic re-entry) cell boundary.
+    white: f64,
+    /// 1 sigma on `white`.
+    white_stderr: f64,
+    /// Escape probability with a **specular** cell boundary — kept as the
+    /// counter-example, not as a result. See [`vv_gate`].
+    specular: f64,
+}
+
+/// V&V gate: the spatial half of self-shielding, against the exact homogeneous
+/// limit — and against the boundary condition that looks right and is not.
+///
+/// # The oracle
+///
+/// As the lump shrinks at fixed cell-averaged composition, the two-region
+/// problem must converge onto the **homogeneous** one, whose answer
+/// `solve_deterministic` gives exactly (a Volterra quadrature of the
+/// infinite-medium slowing-down equation on the same nuclear data). There is no
+/// modelling freedom left in that limit: the thin-lump row and the homogeneous
+/// row are the same physics, so they must agree to counting statistics.
+///
+/// # THE BOUNDARY CONDITION IS THE LESSON HERE
+///
+/// This program was written with a **specular** reflective outer sphere, which
+/// is what "reflective boundary" usually means in a CSG code. On a *sphere* it
+/// is wrong, and wrong in a way that mimics the defect being hunted.
+///
+/// Specular reflection off a concentric sphere conserves the impact parameter
+/// `b = r sin(theta)`. A neutron launched on a near-tangential path is therefore
+/// trapped on that chord forever and **can never re-enter the fuel lump**;
+/// one launched through the centre keeps hitting it. The cell stops being a
+/// stand-in for an infinite lattice and becomes a set of disconnected orbits.
+///
+/// The result was a flat **+39 % to +42 %** offset in escape probability across
+/// the whole scan — large, one-signed, present even in the thin-lump limit where
+/// the answer is known exactly, and indistinguishable at a glance from "the
+/// transport is not self-shielding properly", which is what the ring-RPT hunt
+/// was looking for at the time. Days can go into a harness bug that presents as
+/// a physics result.
+///
+/// The correct Wigner-Seitz condition is **white**: on escape, re-enter at a
+/// uniformly random point on the sphere with a cosine-distributed inward
+/// direction, which is what a neutron leaving one cell of an infinite lattice
+/// actually does.
+///
+/// Both are still run, and the gate asserts that they **disagree**. That is
+/// deliberate: it keeps the counter-example executable, so the next person to
+/// reach for a specular boundary here finds the reason in a failing assertion
+/// rather than in a comment nobody read.
+///
+/// # Results
+///
+/// Printed in full by the scan above, with the date on the run. The gate derives
+/// its tolerances from that run's own counting statistics rather than from
+/// numbers written here.
+fn vv_gate(scan: &[ScanRow], det: f64) {
+    use outram_mc_libs::vv::{assert_absolute, assert_monotone};
+
+    println!("\n=== V&V gate: lumped self-shielding against the homogeneous limit ===");
+    assert!(
+        scan.len() >= 3,
+        "the lump scan produced {} rows; the gate needs at least three to see a trend",
+        scan.len()
+    );
+
+    // 1. The thin-lump limit IS the homogeneous problem.
+    let thin = &scan[0];
+    assert!(
+        thin.r_over_mfp < 0.2,
+        "the thinnest lump in the scan is {:.3} mean free paths across at the \
+         6.674 eV peak (cell radius {:.3e} cm). That is not a thin lump, so the \
+         homogeneous limit is not being tested at all and the first assertion \
+         below would be checking nothing.",
+        thin.r_over_mfp,
+        thin.r_cell,
+    );
+    assert_absolute(
+        "thin-lump p_esc vs the exact homogeneous solution (white boundary)",
+        thin.white,
+        det,
+        (4.0 * thin.white_stderr).max(0.005 * det),
+    );
+
+    // 2. Lumping raises the escape probability. This is the effect itself; a
+    //    flat curve would pass claim 1 and mean the geometry is doing nothing.
+    let white_curve: Vec<f64> = scan.iter().map(|r| r.white).collect();
+    assert_monotone(
+        "p_esc rises with lump size (spatial self-shielding)",
+        &white_curve,
+        true,
+        0.02,
+    );
+    let (first, last) = (white_curve[0], white_curve[white_curve.len() - 1]);
+    assert!(
+        last - first > 0.01,
+        "p_esc moved only {:.4} across the whole scan ({first:.5} -> {last:.5}), \
+         from {:.3} to {:.3} mean free paths. Spatial self-shielding is barely \
+         being modelled; a flat curve passes the thin-lump agreement above.",
+        last - first,
+        scan[0].r_over_mfp,
+        scan[scan.len() - 1].r_over_mfp,
+    );
+
+    // 3. The counter-example. See this function's doc comment.
+    let worst_spec = scan
+        .iter()
+        .map(|r| (r.specular / r.white - 1.0).abs())
+        .fold(0.0_f64, f64::max);
+    println!(
+        "  specular vs white boundary: worst departure {:.1} % across the scan",
+        100.0 * worst_spec
+    );
+    assert!(
+        worst_spec > 0.10,
+        "the specular and white cell boundaries now agree to {:.1} %. They must \
+         not: specular reflection off a concentric sphere conserves the impact \
+         parameter b = r sin(theta), so a near-tangential neutron is trapped on \
+         its chord and can never re-enter the lump. That produced a flat +39 % \
+         to +42 % offset here and looked exactly like the self-shielding defect \
+         being hunted.\n\
+         If they now agree, either `CellBoundary::Specular` has stopped being \
+         specular or `White` has stopped being white — and the counter-example \
+         this gate keeps executable has been silently removed.",
+        100.0 * worst_spec,
+    );
+    println!(
+        "  [PASS] specular and white disagree, as they must — the impact-parameter \
+         trap is still reproducible"
     );
 }
 

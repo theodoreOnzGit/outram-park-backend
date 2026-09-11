@@ -106,6 +106,9 @@ fn main() {
     // (MT, label, how to read it back out of our MicroXS)
     let reactions: [(i32, &str); 2] = [(102, "capture"), (18, "fission")];
 
+    // Our RI and NJOY's over 0.5 eV - 100 keV, kept for the V&V gate below.
+    let mut ri_capture_full_band: Option<(f64, f64)> = None;
+
     for (mt, label) in reactions {
         let njoy_pairs: Option<Vec<(f64, f64)>> =
             njoy_tape
@@ -161,6 +164,9 @@ fn main() {
                 our_grid.len(),
                 n_njoy
             );
+            if mt == 102 && (lo, hi) == (0.5, 1.0e5) {
+                ri_capture_full_band = Some((ri_ours, ri_njoy));
+            }
         }
 
         if let Some(pairs) = &njoy_pairs {
@@ -257,6 +263,106 @@ fn main() {
          Doppler broadening conserves resonance area, so a 600 K reconstruction\n  \
          must still reproduce these."
     );
+
+    if nuc_name == "U238" {
+        vv_gate(ri_capture_full_band);
+    } else {
+        println!(
+            "\n(No V&V gate for {nuc_name}: the published reference points asserted \
+             below are U-238's.)"
+        );
+    }
+}
+
+/// U-238's published infinite-dilution capture resonance integral, barns.
+///
+/// `RI_inf = int sigma_gamma dE/E` from the 0.5 eV cadmium cutoff upward.
+/// **275.7 b** is the ENDF/B-VIII.0 evaluated value; the measured quantity is
+/// **277 +/- 3 b**. It is essentially temperature-independent at infinite
+/// dilution, because Doppler broadening conserves the area under a resonance to
+/// high accuracy — so a 600 K reconstruction must reproduce it.
+const U238_CAPTURE_RI_INF_B: f64 = 275.7;
+
+/// V&V gate: the resonance integral against two independent oracles.
+///
+/// # Why the integral and not the point cross section
+///
+/// `examples/u238_vs_njoy_pendf.rs` already pins sigma_gamma at 19 probe
+/// energies to 0.3 %. That pins the **peak heights**, and it structurally cannot
+/// see the thing that drives resonance escape: the **area** under each
+/// resonance. A grid too coarse between the nodes loses area without moving any
+/// node value, so it passes a point-wise comparison and still under-captures in
+/// transport. This gate closes that gap.
+///
+/// # The oracles
+///
+/// 1. **Published RI_inf = 275.7 b** (ENDF/B-VIII.0 evaluated; experiment
+///    277 +/- 3 b). Independent of NJOY entirely — it is a tabulated physical
+///    quantity, so this half of the gate runs with no oracle tape on disk.
+/// 2. **NJOY2016's own PENDF**, when `U238_PENDF` points at one. That comparison
+///    additionally separates *data* from *grid density*, via the four-way split
+///    printed above.
+///
+/// # Results (2026-09-11, ENDF/B-VIII.0 @ 600 K, tol 1e-3)
+///
+/// `RI(0.5 eV - 100 keV) = 274.637 b` on this crate's own reconstruction and its
+/// own grid — which is what transport actually integrates, since transport looks
+/// sigma up by lin-lin interpolation on that same grid.
+///
+/// Against the published 275.7 b that is **-0.39 %**, and well inside the
+/// experimental 277 +/- 3 b (1.1 %). Against NJOY's own PENDF on NJOY's own grid
+/// it was **+0.00 %**.
+///
+/// # Tolerance
+///
+/// **2 %** against the published value. That is not slack for this crate: it is
+/// the room the *comparison* needs. RI_inf depends on the cadmium-cutoff
+/// convention (0.5 eV here), on the upper limit, and on the evaluation revision,
+/// and the experimental value itself carries +/- 3 b (1.1 %). Asserting tighter
+/// than the oracle's own spread would produce failures that say nothing about
+/// the code. The NJOY comparison, which has none of those ambiguities because
+/// both sides use the same convention, is gated 40x tighter at 0.5 %.
+fn vv_gate(ri_capture_full_band: Option<(f64, f64)>) {
+    use outram_mc_libs::vv::assert_relative;
+
+    println!("\n=== V&V gate: U-238 capture resonance integral ===");
+
+    let Some((ri_ours, ri_njoy)) = ri_capture_full_band else {
+        panic!(
+            "the 0.5 eV - 100 keV capture band produced no resonance integral. \
+             That band is the last row of BANDS and the one the published RI_inf \
+             is quoted over; without it this program has measured nothing."
+        );
+    };
+
+    assert!(
+        ri_ours.is_finite() && ri_ours > 0.0,
+        "RI over 0.5 eV - 100 keV came out as {ri_ours}, which is not a cross \
+         section. A reconstruction grid coarser than the resonance widths can do \
+         this."
+    );
+
+    assert_relative(
+        "RI(0.5 eV - 100 keV) vs the published infinite-dilution value",
+        ri_ours,
+        U238_CAPTURE_RI_INF_B,
+        0.02,
+    );
+
+    if ri_njoy.is_finite() && ri_njoy > 0.0 {
+        assert_relative(
+            "RI(0.5 eV - 100 keV) vs NJOY2016's own PENDF, on NJOY's own grid",
+            ri_ours,
+            ri_njoy,
+            0.005,
+        );
+    } else {
+        println!(
+            "  [skip] no NJOY PENDF supplied (set U238_PENDF), so only the \
+             published-value half of this gate ran. The deck that produces the \
+             tape is in examples/u238_vs_njoy_pendf.rs."
+        );
+    }
 }
 
 /// `∫ σ(E) dE/E` over an ascending grid, exactly for a lin-lin σ: on each

@@ -91,8 +91,23 @@ const TEMP: f64 = 293.6;
 const N: usize = 400_000;
 
 fn main() {
+    let tsl_for_gate = njoy_outram_park_fork::reference_data::reference_endf("tsl-HinH2O.endf")
+        .expect("H(H2O) tape");
+    let law_for_gate = ThermalScattering::from_endf_file(
+        tsl_for_gate.to_str().expect("path"),
+        1,
+        TEMP,
+        "c_H_in_H2O",
+    )
+    .expect("thermal law");
+    golden_gate(&law_for_gate);
+
     let Ok(path) = std::env::var("H2O_THERMR") else {
-        eprintln!("SKIP: set H2O_THERMR to an NJOY THERMR tape (see the module docs)");
+        eprintln!(
+            "\nThe live-tape comparison needs H2O_THERMR pointing at an NJOY THERMR tape\n\
+             (deck in the module docs). The golden gate above already ran, so this program\n\
+             is still a V&V case without it — it just cannot re-measure the oracle."
+        );
         return;
     };
     let text = std::fs::read_to_string(&path).expect("THERMR tape");
@@ -162,11 +177,17 @@ fn main() {
         );
     }
     println!(
-        "\nWorst |Δ⟨E′⟩/E| = {:.2} %. This is the check graphite got (≤ 0.5 %) and\n\
-         water never did, and water's law sits under BOTH systems this code\n\
+        "\nWorst |Δ⟨E′⟩/E| = {:.2} %. Water's law sits under BOTH systems this code\n\
          disagrees with, while the one thermal benchmark it reproduces\n\
          (HEU-SOL-THERM-009) is homogeneous — where the spatial thermal flux\n\
          distribution this law controls does not matter.\n\n\
+         CORRECTION. This program used to close by saying graphite passes the same\n\
+         check at <= 0.5 % and water never did. That figure was scoped to 0.1-4 eV.\n\
+         Over water's own range graphite is -1.53 % at 0.0253 eV against water's\n\
+         -1.47 % — the same, not better. What actually separates them is the TREND:\n\
+         graphite converges to <= 0.1 % above 0.2 eV and stays there; water's\n\
+         deviation instead grows monotonically to +1.5 %. See\n\
+         outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL.\n\n\
          Read ⟨E′⟩/E, not ξ. ξ = ⟨ln(E/E′)⟩ passes through **zero** where net\n\
          up-scatter turns into net down-scatter, so a *relative* difference on it\n\
          blows up there for arithmetic reasons and means nothing. ⟨E′⟩/E has no\n\
@@ -281,4 +302,178 @@ fn endf_f(s: &str) -> f64 {
         }
     }
     0.0
+}
+
+/// V&V gate against the committed NJOY2016 oracle — runs with no tape on disk.
+///
+/// # Methodology
+///
+/// 200 000 samples of `ThermalScattering::sample` per incident energy, reduced
+/// to the first moment `⟨E′⟩/E`, at eleven energies from 1.5 meV to 1.855 eV on
+/// `tsl-HinH2O` (MAT 1) at 293.6 K. The oracle side is a *quadrature* on NJOY's
+/// THERMR MF=6/MT=222 matrix — no sampling there, so the two sides are not
+/// sharing a sampler and cannot agree by construction.
+/// Oracle values and provenance: [`outram_mc_libs::vv::njoy_golden::H2O_KERNEL`].
+///
+/// **Sampling uncertainty is measured, not assumed.** `⟨E′⟩/E` is the mean of a
+/// *wide* distribution wherever up-scatter dominates, so the sub-0.1 % figure a
+/// binomial estimate would give is wrong at the bottom of the range. The gate
+/// computes and prints the standard error of every row, and asserts that each
+/// deviation is larger than its own noise — so a finding can never be an
+/// artefact of too few samples.
+///
+/// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0)
+///
+/// **This crate's H-in-H₂O kernel is too narrow.** `⟨E′⟩/E` runs from −5.5 % at
+/// 1.5 meV, through an exact crossing at 0.1116 eV, to +1.5 % at 1.855 eV, with
+/// `ξ` 3–5 % low throughout. In plain terms, **water moderates about 4 % less
+/// per collision here than in NJOY2016**. This is the open defect GitHub #188.
+///
+/// Measured by this gate at 400 000 samples, with its own standard error:
+///
+/// ```text
+///    E [eV]     <E'>/E ours   NJOY       rel       sampling 1 sigma
+///    0.0015        6.93543   7.30495   −5.06 %       0.28 %
+///    0.005         2.40857   2.51021   −4.05 %       0.21 %
+///    0.01          1.61897   1.66643   −2.85 %       0.15 %
+///    0.0253        1.17642   1.19386   −1.46 %       0.08 %
+///    0.05          1.00304   1.01044   −0.73 %       0.06 %
+///    0.11157       0.79970   0.80017   −0.06 %       0.06 %
+///    0.2           0.71711   0.71383   +0.46 %       0.07 %
+///    0.41704       0.64737   0.64228   +0.79 %       0.07 %
+///    0.625         0.61312   0.60511   +1.32 %       0.08 %
+///    1.05          0.57303   0.56593   +1.26 %       0.08 %
+///    1.855         0.54694   0.53926   +1.42 %       0.09 %
+/// ```
+///
+/// The −5.06 % at 1.5 meV here against the −5.54 % in the golden table is ~1 σ
+/// of the combined sampling noise of the two runs (different seed, different
+/// sample count); the tables agree.
+///
+/// # What is asserted
+///
+/// The magnitude envelope is **6 %**, sized to the −5.54 % it documents: it
+/// catches the defect getting worse. **Tighten it when #188 is fixed; never
+/// widen it.**
+///
+/// The **sign structure** is asserted separately and matters more than the
+/// magnitude. Below the crossover this crate must under-*gain* energy and above
+/// it under-*lose* it. That signature is what identifies a *width* error rather
+/// than a scale error — a kernel uniformly 5 % low would produce one sign
+/// everywhere and needs a different diagnosis.
+///
+/// # Why this defect survived an entire analytic test file
+///
+/// `tests/thermal_h2o_sab.rs` checks the free-atom limit, detailed balance, the
+/// cross section and the effective temperature. A too-narrow kernel satisfies
+/// detailed balance **exactly** (it is a symmetry, not a width), reproduces the
+/// free-atom limit (that tests the absence of binding), has nearly the right
+/// area (+1 %, see `examples/h2o_vs_njoy_thermr.rs`) and the right effective
+/// temperature (a scalar). Only a direct comparison of the outgoing-energy
+/// distribution sees it — which is what this gate is.
+fn golden_gate(law: &ThermalScattering) {
+    use outram_mc_libs::vv::assert_table_relative;
+    use outram_mc_libs::vv::njoy_golden::{H2O_KERNEL, H2O_KERNEL_CROSSOVER_EV, H2O_KERNEL_TOL};
+
+    println!("=== V&V gate: H-in-H2O S(alpha,beta) kernel vs committed NJOY2016 oracle ===");
+
+    let mut seed = 20_260_911_u64;
+    let mut rows: Vec<(f64, f64, f64)> = Vec::new();
+    let mut worst_se = 0.0_f64;
+    for &(e, njoy_m1, _njoy_xi) in H2O_KERNEL {
+        let (mut sum, mut sum_sq, mut k) = (0.0_f64, 0.0_f64, 0usize);
+        for _ in 0..N {
+            let Some((ep, _mu)) = law.sample(e, &mut seed) else {
+                continue;
+            };
+            // Coherent elastic is the only channel leaving E' exactly equal to
+            // E; water has none, but the guard also drops degenerate samples.
+            if (ep - e).abs() <= 1.0e-12 * e || ep <= 0.0 {
+                continue;
+            }
+            let r = ep / e;
+            sum += r;
+            sum_sq += r * r;
+            k += 1;
+        }
+        assert!(
+            k > N / 100,
+            "the H(H2O) law produced almost no inelastic scatters at {e} eV \
+             ({k} of {N} samples). The law's range or its sampler has changed."
+        );
+        let n = k as f64;
+        let mean = sum / n;
+        // Standard error of the mean of E'/E. At the most up-scattering-dominated
+        // energies the spread of E'/E is wide, so this is NOT the sub-0.1 % figure
+        // a binomial estimate would suggest -- it is printed rather than assumed.
+        let se_rel = ((sum_sq / n - mean * mean).max(0.0) / n).sqrt() / mean;
+        println!(
+            "    {e:>10.4e}  <E'>/E ours {mean:>9.5}  NJOY {njoy_m1:>9.5}  {:>+6.2} %  \
+             (sampling 1 sigma {:.2} %)",
+            100.0 * (mean / njoy_m1 - 1.0),
+            100.0 * se_rel,
+        );
+        worst_se = worst_se.max(se_rel);
+        rows.push((e, mean, njoy_m1));
+    }
+    println!(
+        "  worst sampling 1 sigma across the table: {:.2} %",
+        100.0 * worst_se
+    );
+
+    assert_table_relative(
+        "H(H2O) MF=6/MT=222 kernel <E'>/E vs NJOY THERMR",
+        &rows,
+        H2O_KERNEL_TOL,
+        1.0e-9,
+    );
+
+    // The sign structure IS the finding. A kernel uniformly low would pass the
+    // envelope above and mean something entirely different.
+    for &(e, ours, njoy) in &rows {
+        let rel = ours / njoy - 1.0;
+        if e < 0.9 * H2O_KERNEL_CROSSOVER_EV {
+            assert!(
+                rel < 0.005,
+                "below the {H2O_KERNEL_CROSSOVER_EV} eV crossover this crate's kernel \
+                 should under-GAIN energy (negative rel); at {e} eV it is {:+.2} %. \
+                 The recorded defect (#188) is a too-NARROW kernel; one sign everywhere \
+                 would be a scale error instead, and needs a different diagnosis.",
+                rel * 100.0
+            );
+        } else if e > 1.3 * H2O_KERNEL_CROSSOVER_EV {
+            assert!(
+                rel > -0.005,
+                "above the {H2O_KERNEL_CROSSOVER_EV} eV crossover this crate's kernel \
+                 should under-LOSE energy (positive rel); at {e} eV it is {:+.2} %.",
+                rel * 100.0
+            );
+        }
+    }
+    println!(
+        "  [PASS] the sign structure is intact: under-gain below {H2O_KERNEL_CROSSOVER_EV} eV, \
+         under-loss above it (a too-narrow kernel, not a scale error)"
+    );
+
+    // The finding must be larger than the noise that produced it. Without this,
+    // a gate that quietly lost sample count would keep reporting the defect from
+    // pure scatter -- or stop reporting it -- and nothing would say so.
+    let (at, ours, njoy) = rows[0];
+    let rel = (ours / njoy - 1.0).abs();
+    assert!(
+        rel > 5.0 * worst_se,
+        "the kernel deviation at {at} eV is {:.2} % against a sampling 1 sigma of \
+         {:.2} % -- under 5 sigma, so this run cannot distinguish the recorded \
+         defect (#188) from scatter. Either the sample count has dropped or the \
+         defect has been fixed; find out which before touching this gate.",
+        rel * 100.0,
+        worst_se * 100.0,
+    );
+    println!(
+        "  [PASS] the finding exceeds its own noise: {:.2} % deviation against \
+         {:.2} % sampling 1 sigma ({:.0} sigma)",
+        rel * 100.0,
+        worst_se * 100.0,
+        rel / worst_se,
+    );
 }

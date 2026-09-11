@@ -43,6 +43,28 @@
 //! making — shows up as `RI_eff/RI_∞ < 1` while still dilute**, which is exactly
 //! the shape of the pebble residual.
 //!
+//! # V&V result (2026-09-11, ENDF/B-VIII.0 @ 600 K)
+//!
+//! ```text
+//!   sigma_0 [b]   P_abs(U8)   RI_eff [b]   RI_eff/RI_inf
+//!     3.7958e5      0.00449      272.05       0.9906 +/- 0.0105
+//!     3.7958e4      0.04103      253.04       0.9214
+//!     3.7958e3      0.23245      159.77       0.5817
+//!     3.7958e2      0.60981       56.84       0.2070
+//! ```
+//!
+//! **The transport reproduces the analytic dilute limit to 0.9 sigma**, and
+//! self-shielding then develops monotonically to 21 % of `RI_inf` at the densest
+//! loading. So resonance self-shielding *in energy* is correct here, and the
+//! failure mode this program was written to hunt — `RI_eff/RI` sitting low while
+//! still dilute — is **not** present.
+//!
+//! That is an exclusion, and it is why the ring-RPT search moved on from U-238
+//! resonance absorption. The attribution of the residual to self-shielded U-238
+//! capture was later **refuted outright** by the LEU-COMP-THERM-008 case
+//! differential (`examples/lct008_keff.rs`): three cases sharing one lattice give
+//! +2950/+2271/+1713 pcm, a 14-sigma spread that an error in `p` cannot produce.
+//!
 //! # What this deliberately leaves out
 //!
 //! No geometry, no tracking, no majorant: the neutron is followed in **energy
@@ -63,6 +85,7 @@ use outram_mc_libs::physics::scatter::{
 };
 use outram_mc_libs::material::nuclide::Inelastic;
 use outram_mc_libs::rng::lcg::prn;
+use outram_mc_libs::vv::{assert_absolute, assert_monotone};
 
 const TEMP: f64 = 600.0;
 /// Source energy — above the whole resolved range, so nothing is captured
@@ -108,6 +131,8 @@ fn main() {
     );
 
     let mut seed = 5_150_701_u64;
+    // (sigma_0, RI_eff/RI_inf, 1-sigma on that ratio) for the V&V gate below.
+    let mut shielding: Vec<(f64, f64, f64)> = Vec::new();
     for &n_a in &[1.0e-6_f64, 1.0e-5, 1.0e-4, 1.0e-3] {
         // Fewer histories are needed when absorption is likely; keep the
         // absolute uncertainty on P_abs roughly constant.
@@ -130,17 +155,95 @@ fn main() {
              {:>10.4} {p_mod:>10.5}",
             ri_eff / RI_MEASURED_B
         );
+        // Binomial 1-sigma on P_abs, propagated through RI_eff = -ln(1-P)*xi*Sigma_s/N_a.
+        // d/dP of -ln(1-P) is 1/(1-P), so sigma_RI/RI = sigma_P / ((1-P) * -ln(1-P)).
+        let sigma_p = (p_abs * (1.0 - p_abs) / n_hist as f64).sqrt();
+        let rel_sigma = sigma_p / ((1.0 - p_abs) * -(1.0 - p_abs).ln());
+        shielding.push((sigma_0, ri_eff / RI_MEASURED_B, rel_sigma));
     }
 
     println!(
         "\nHow to read this.\n\
-         - The top row is effectively infinite dilution (sigma_0 ~ 4e8 b): `RI_eff/RI`\n\
+         - The top row is effectively infinite dilution (sigma_0 ~ 4e5 b, against a\n\
+           peak resonance sigma of ~1e4 b): `RI_eff/RI`\n\
            there must be **1.000**. It is a closed loop on quantities this repo has\n\
            already verified, so a departure is a transport defect, not a data one.\n\
          - Going down the rows, sigma_0 falls and self-shielding sets in, so\n\
            `RI_eff/RI` must fall **monotonically** below 1. That is physics.\n\
          - The failure mode being hunted is `RI_eff/RI` sitting low while still\n\
            dilute: resonance absorption that transport is not making."
+    );
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // Measured 2026-09-11, ENDF/B-VIII.0 @ 600 K, seed 5_150_701, C-12 at
+    // N = 0.08 /b.cm (xi*Sigma_s = 0.060393 /cm), RI_inf = 274.637 b:
+    //
+    //   sigma_0 [b]   P_abs(U8)   RI_eff [b]   RI_eff/RI_inf
+    //     3.7958e5      0.00449      272.05        0.9906 +/- 0.0105
+    //     3.7958e4      0.04103      253.04        0.9214
+    //     3.7958e3      0.23245      159.77        0.5817
+    //     3.7958e2      0.60981       56.84        0.2070
+    //
+    // The dilute limit is 0.9 sigma from unity -- the transport reproduces the
+    // analytic first-order result. Self-shielding then develops monotonically to
+    // 21 % of the infinite-dilution integral at the densest loading.
+    //
+    // The gate derives every tolerance from THIS run's own counting statistics
+    // rather than from a number written here, so the numbers above are a record
+    // and not something that can go stale into a false pass.
+    //
+    // Three separate claims, because two of them can pass while the physics is
+    // wrong:
+    //
+    //   1. the dilute limit is unity        — the analytic oracle
+    //   2. shielding is monotone in sigma_0 — the shape
+    //   3. shielding is actually *present*  — without this, a code that returns
+    //      a flat ratio of 1.000 at every dilution passes claims 1 and 2 and has
+    //      no self-shielding at all
+    println!("\n=== V&V gate: self-shielding against the analytic dilute limit ===");
+
+    let (sigma_0_dilute, ratio_dilute, rel_sigma) = shielding[0];
+    // 4 sigma of this run's own counting statistics, plus 1 % for the fact that
+    // "infinite dilution" here is a finite sigma_0 and RI_MEASURED_B is itself a
+    // quadrature of a resonance structure.
+    let gate = 4.0 * rel_sigma + 0.01;
+    println!(
+        "  most dilute point: sigma_0 = {sigma_0_dilute:.3e} b, \
+         RI_eff/RI_inf = {ratio_dilute:.4} (1 sigma = {:.4})",
+        rel_sigma
+    );
+    assert_absolute(
+        "dilute-limit RI_eff/RI_inf (analytic oracle: exactly 1)",
+        ratio_dilute,
+        1.0,
+        gate,
+    );
+
+    let ratios: Vec<f64> = shielding.iter().map(|&(_, r, _)| r).collect();
+    // sigma_0 falls down the rows, so the ratio must not rise. 1 % of slack for
+    // the counting noise between adjacent rows.
+    assert_monotone(
+        "RI_eff/RI_inf falls as sigma_0 falls (self-shielding)",
+        &ratios,
+        false,
+        0.01,
+    );
+
+    let deepest = *ratios.last().expect("four dilutions were run");
+    assert!(
+        deepest < 0.90,
+        "self-shielding is not being modelled at all: at sigma_0 = {:.3e} b the \
+         effective resonance integral is still {:.1} % of the infinite-dilution \
+         value, where physics demands a visible depression.\n\
+         A code with no self-shielding returns a flat 1.000 at every dilution and \
+         passes both of the gates above. This is the one that catches it.",
+        shielding.last().unwrap().0,
+        deepest * 100.0,
+    );
+    println!(
+        "  [PASS] self-shielding is present: RI_eff/RI_inf = {deepest:.4} at the \
+         densest loading (must be < 0.90)"
     );
 }
 

@@ -52,6 +52,7 @@
 //! `godiva_keff_endf` examples for the methodology comparison.
 
 use std::path::PathBuf;
+use outram_mc_libs::vv::assert_reproduces_keff;
 // Everything this example needs comes from the prelude — that is the
 // intended entry point, and it is worth checking that it suffices.
 use outram_mc_libs::prelude::*;
@@ -201,12 +202,51 @@ fn main() {
     let delta_k_pcm = (result.k_mean - 1.0) * 1.0e5;
     println!("  Δk from benchmark = {delta_k_pcm:+.0} pcm");
 
-    if (result.k_mean - 1.0).abs() < 0.005 {
-        println!("\n  ✓ Result is within ~500 pcm of the benchmark. Good sanity check!");
-    } else {
-        println!(
-            "\n  ⚠ Result is {:.0} pcm away from the benchmark. Check your ENDF files.",
-            delta_k_pcm.abs()
-        );
-    }
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // THIS IS THE CRATE'S MATURITY BAR, and it used to be an if/else that
+    // printed a tick or a warning and exited 0 either way.
+    //
+    // `crates/outram-mc-libs/CLAUDE.md` declares this crate mature on the
+    // strength of exactly this run: "k-eff within 500 pcm of the ICSBEP Godiva
+    // bare-HEU-sphere benchmark, reconstructed from an ENDF evaluation rather
+    // than a pre-built ACE library", measured at declaration as
+    // k_eff = 0.99659 +/- 0.00300, i.e. -341 pcm, on 2026-09-05.
+    //
+    // A maturity claim resting on a program that cannot fail is not a claim.
+    println!("\n=== V&V gate: the declared maturity bar ===");
+    assert_reproduces_keff(
+        "ICSBEP HEU-MET-FAST-001 (Godiva), from ENDF via this crate's own reconstruction",
+        result.k_mean,
+        result.k_std,
+        GODIVA_BENCHMARK_K,
+        MATURITY_BAR_K,
+        None,
+    );
+    println!(
+        "  (The bar is {:.0} pcm because that is what this crate demonstrably \
+         achieves today,\n   not because {:.0} pcm is a good criticality \
+         tolerance — it is not. See\n   crates/outram-mc-libs/CLAUDE.md, which \
+         says so and records when the bar moves.)",
+        MATURITY_BAR_K * 1.0e5,
+        MATURITY_BAR_K * 1.0e5,
+    );
 }
+
+/// ICSBEP **HEU-MET-FAST-001** (Godiva) benchmark `k_eff`: exactly 1.0000,
+/// because the configuration is critical by construction. The evaluation's own
+/// stated uncertainty is 0.0010.
+const GODIVA_BENCHMARK_K: f64 = 1.0000;
+
+/// **This crate's declared maturity bar**, in `k`: 500 pcm against
+/// [`GODIVA_BENCHMARK_K`], via a nuclide reconstructed from an ENDF evaluation
+/// rather than a pre-built ACE library. Evidence class: cross-code comparison.
+///
+/// Recorded at declaration (2026-09-05): `k_eff = 0.99659 ± 0.00300`, −341 pcm.
+///
+/// This is **not** the ICSBEP band (0.0010) — it is five times looser, and
+/// deliberately so: it is what this crate achieves today, not what criticality
+/// work should eventually demand. `crates/outram-mc-libs/CLAUDE.md` is the
+/// authority on the bar and on its revision history; if it tightens there,
+/// tighten it here in the same change.
+const MATURITY_BAR_K: f64 = 0.005;

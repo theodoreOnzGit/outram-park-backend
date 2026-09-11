@@ -43,6 +43,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
+use outram_mc_libs::vv::assert_reproduces_keff;
 use std::time::Instant;
 
 /// Godiva material temperature \[K\] (room temperature; the benchmark is a metal
@@ -121,4 +122,56 @@ fn main() {
     let pcm = (result.k_mean - 1.0) * 1.0e5;
     let sigma = result.k_std * 1.0e5;
     println!("  Δk from benchmark = {pcm:+.0} ± {sigma:.0} pcm");
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // The benchmark's own band is 0.0010 in k; the gate adds 4 sigma of this
+    // run's statistics on top. Four, not one: a V&V gate that fires on ordinary
+    // statistical fluctuation trains people to ignore it.
+    //
+    // The recorded result is **+57 ± 173 pcm**, cited from this workspace's own
+    // run of this program in `examples/jemima_keff.rs`'s doc comment (where it
+    // is used to argue that Godiva and HST-009 bracket the pebble machinery).
+    // It is checked as a SEPARATE claim from agreement with the benchmark: a
+    // result can stay inside the ICSBEP band while drifting steadily within it,
+    // and only the reproduction claim sees that.
+    //
+    // The drift gate is 4 sigma of THIS run's statistics, so it scales with
+    // however many histories the run was given.
+    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 ===");
+    assert_reproduces_keff(
+        "HEU-MET-FAST-001 (Godiva), HIGH tier, ENDF/B-VIII.0",
+        result.k_mean,
+        result.k_std,
+        ICSBEP_HMF001_K,
+        ICSBEP_HMF001_BAND,
+        Some(RECORDED_PCM),
+    );
 }
+
+/// ICSBEP **HEU-MET-FAST-001** (Godiva) benchmark `k_eff`.
+///
+/// A bare HEU metal sphere, r = 8.7407 cm. The configuration is critical by
+/// construction, so the benchmark value is exactly 1.0000; the band is the
+/// evaluation's own stated uncertainty. This is an **experiment**, not another
+/// code's answer — which is the whole reason this case is here, since every
+/// other comparison in this crate's V&V set is against NJOY, OpenMC, or an
+/// analytic limit.
+const ICSBEP_HMF001_K: f64 = 1.0000;
+
+/// The ICSBEP-stated uncertainty on [`ICSBEP_HMF001_K`].
+const ICSBEP_HMF001_BAND: f64 = 0.0010;
+
+/// The offset from [`ICSBEP_HMF001_K`] this case last produced, in pcm.
+///
+/// **+57 ± 173 pcm**, on the HIGH tier against ENDF/B-VIII.0. Cited from this
+/// workspace's own run, as recorded in `examples/jemima_keff.rs`'s doc comment,
+/// where it and HST-009's −18 ± 171 pcm are used to argue that the fast and
+/// thermal ends of the FHR pebble machinery are both sound.
+///
+/// This is checked as a **separate claim** from agreement with the benchmark.
+/// A result can sit comfortably inside the ICSBEP band and still drift steadily
+/// within it; only the reproduction claim sees that. If this fails, either the
+/// physics moved — find out what — or this number is stale, in which case
+/// update it here with the date and the reason rather than deleting the check.
+const RECORDED_PCM: f64 = 57.0;

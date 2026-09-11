@@ -80,8 +80,22 @@ fn main() {
     const MATDP: i32 = 125; // H-1, the PENDF material THERMR wrote onto
     const TEMP: f64 = 293.6;
 
+    let tsl_for_gate = reference_endf("tsl-HinH2O.endf").expect("H(H2O) tsl tape");
+    let law_for_gate = ThermalScattering::from_endf_file(
+        tsl_for_gate.to_str().expect("path"),
+        1,
+        TEMP,
+        "c_H_in_H2O",
+    )
+    .expect("thermal law");
+    golden_gate(&law_for_gate);
+
     let Ok(thermr_path) = std::env::var("H2O_THERMR") else {
-        eprintln!("SKIP: set H2O_THERMR to an NJOY THERMR tape (see module docs)");
+        eprintln!(
+            "\nThe live-tape comparison needs H2O_THERMR pointing at an NJOY THERMR tape\n\
+             (deck in the module docs). The golden gate above already ran, so this program\n\
+             is still a V&V case without it — it just cannot re-measure the oracle."
+        );
         return;
     };
     eprintln!("reading NJOY THERMR tape {thermr_path} ...");
@@ -134,18 +148,85 @@ fn main() {
     }
 }
 
-fn interp_linlin(pairs: &[(f64, f64)], e: f64) -> f64 {
-    if pairs.is_empty() || e < pairs[0].0 || e > pairs[pairs.len() - 1].0 {
-        return 0.0;
-    }
-    let i = match pairs.binary_search_by(|p| p.0.partial_cmp(&e).expect("finite grid")) {
-        Ok(i) => return pairs[i].1,
-        Err(i) => i,
-    };
-    let (e0, s0) = pairs[i - 1];
-    let (e1, s1) = pairs[i];
-    if e1 == e0 {
-        return s1;
-    }
-    s0 + (s1 - s0) * (e - e0) / (e1 - e0)
+use outram_mc_libs::vv::njoy_golden::interp_linlin;
+
+/// V&V gate against the committed NJOY2016 oracle — runs with no tape on disk.
+///
+/// # Methodology
+///
+/// `ThermalScattering::total_xs` against THERMR MT=222 at eleven energies from
+/// 1 meV to 2 eV, on `tsl-HinH2O` (MAT 1, with H-1 MAT 125) at 293.6 K — a
+/// *tabulated* temperature on that tape. The oracle values, their provenance
+/// and the NJOY release that produced them are in
+/// [`outram_mc_libs::vv::njoy_golden`]; the deck is in this file's module docs.
+///
+/// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0)
+///
+/// This crate sits a consistent **+0.65 % to +1.47 %** above NJOY across the
+/// whole range — worst +1.47 % at 2.0 eV. The gate is **2 %**, which *permits*
+/// the observed excess: this is a **characterisation** gate for the open defect
+/// GitHub #188, pinning the current state so a further regression fails while
+/// the fix is pending. When #188 lands, tighten it to graphite's ~0.5 %.
+///
+/// Three things are asserted, not one:
+///
+/// 1. **magnitude** — every point inside 2 %;
+/// 2. **sign** — the deviation is a consistent *excess*. "Within 2 %" would
+///    pass if the error flipped sign, and a flip would mean a different bug;
+/// 3. **range** — this crate's law ends between 2 and 4 eV where NJOY's runs to
+///    10 eV. That handover is invisible to any comparison that stops at 2 eV,
+///    and it is where the thermal/epithermal seam sits.
+///
+/// # Interpretation
+///
+/// The cross section is the *area* of the scattering law. It is off by ~+1 %.
+/// The *kernel* — the outgoing-energy distribution transport actually samples —
+/// is off by up to −5.5 % in the opposite direction
+/// (`examples/h2o_kernel_vs_njoy_thermr.rs`). A magnitude oracle alone would
+/// have cleared this law, which is exactly what happened: `tests/thermal_h2o_sab.rs`
+/// checks area, detailed balance, the free-atom limit and the effective
+/// temperature, and a too-narrow kernel passes all four.
+fn golden_gate(law: &outram_mc_libs::material::thermal::ThermalScattering) {
+    use outram_mc_libs::vv::assert_table_relative;
+    use outram_mc_libs::vv::njoy_golden::{H2O_LAW_UPPER_BOUND_EV, H2O_XS, H2O_XS_TOL};
+
+    println!("=== V&V gate: H-in-H2O S(alpha,beta) cross section vs committed NJOY2016 oracle ===");
+
+    let rows: Vec<(f64, f64, f64)> = H2O_XS
+        .iter()
+        .map(|&(e, njoy)| (e, law.total_xs(e), njoy))
+        .collect();
+    let worst = assert_table_relative(
+        "H(H2O) MT=222 incoherent inelastic vs NJOY THERMR",
+        &rows,
+        H2O_XS_TOL,
+        1.0e-6,
+    );
+
+    assert!(
+        worst.rel > 0.0,
+        "the H(H2O) cross-section error has changed SIGN (now {:+.2} % at {:.4e} eV). \
+         The recorded defect is a consistent EXCESS of ~+1 % (GitHub #188); a deficit \
+         is a different bug and this gate's premise no longer holds.",
+        worst.rel * 100.0,
+        worst.at,
+    );
+    println!(
+        "  [PASS] the deviation is a consistent excess ({:+.2} % worst), as recorded",
+        worst.rel * 100.0
+    );
+
+    let (lo, hi) = H2O_LAW_UPPER_BOUND_EV;
+    assert!(
+        law.total_xs(lo) > 0.0,
+        "the H(H2O) law no longer covers {lo} eV; it did on 2026-09-11 (21.257 b)"
+    );
+    assert_eq!(
+        law.total_xs(hi),
+        0.0,
+        "the H(H2O) law now extends past {hi} eV. That may be an improvement — NJOY's \
+         own run reaches 10 eV — but the handover to free gas has moved, and the \
+         transport's thermal/epithermal seam moved with it."
+    );
+    println!("  [PASS] the law still ends between {lo} and {hi} eV (NJOY's runs to 10 eV)");
 }

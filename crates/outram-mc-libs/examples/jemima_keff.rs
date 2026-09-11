@@ -63,6 +63,7 @@
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
+use outram_mc_libs::vv::assert_reproduces_keff;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -167,7 +168,36 @@ fn main() {
          this reaches U-238 fast fission and keV capture, not the 6 eV – 20 keV\n  \
          resolved resonance escape the FHR pebble residual is."
     );
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // This program already asserted its GEOMETRY (that the CSG model matches the
+    // ICSBEP specification at sampled points) and then printed its k without
+    // asserting it — which is the wrong way round, since the geometry only
+    // exists to get the k.
+    println!("\n=== V&V gate: ICSBEP IEU-MET-FAST-002 ===");
+    assert_reproduces_keff(
+        "IEU-MET-FAST-002 (Jemima), the most U-238-dominated case reachable here",
+        result.k_mean,
+        result.k_std,
+        ICSBEP_IMF002_K,
+        ICSBEP_IMF002_BAND,
+        None,
+    );
 }
+
+/// ICSBEP **IEU-MET-FAST-002** ("Jemima") benchmark `k_eff`: exactly 1.0000,
+/// because the configuration is critical by construction.
+const ICSBEP_IMF002_K: f64 = 1.0000;
+
+/// The band used against [`ICSBEP_IMF002_K`].
+///
+/// **0.003 is pessimistic for this case and is used deliberately.** Metal
+/// assemblies carry smaller benchmark uncertainties than solutions — the
+/// geometry is machined and the composition is known — so the evaluation's own
+/// figure is tighter than this. Taking the looser band means a failure here is
+/// unambiguous rather than arguable.
+const ICSBEP_IMF002_BAND: f64 = 0.003;
 
 /// Surfaces, then four cells, exactly as the ICSBEP model's XML lists them.
 fn build_geometry() -> Geometry {

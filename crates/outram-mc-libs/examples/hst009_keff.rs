@@ -84,6 +84,7 @@ use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
 use outram_mc_libs::physics::compute::ComputeType;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::vv::assert_reproduces_keff;
 use std::time::Instant;
 
 /// Room temperature. The benchmark states the reflector at 25 °C; 293.6 K is the
@@ -243,11 +244,46 @@ fn main() {
         result.k_std * 1.0e5
     );
     println!(
-        "\n  For scale, the FHR pebble sits +4004 pcm above its reference. A result\n  \
-         near 1.0000 here puts that squarely on U-238 resonance escape or on the\n  \
-         reference deck; a result near +4000 pcm reproduces it on a benchmark."
+        "\n  For scale, the FHR pebble sits +4004 pcm above its reference.\n  \
+         (The U-238 resonance-escape reading of that residual was later REFUTED:\n  \
+         see examples/lct008_keff.rs and GitHub #188. Three LEU-COMP-THERM-008\n  \
+         cases sharing one lattice give +2950/+2271/+1713 pcm, a 14-sigma spread\n  \
+         that an error in `p` cannot produce.)"
+    );
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // `recorded_pcm` is deliberately None: see the note in
+    // examples/godiva_keff_endf_local.rs. Fill it in from a real run, with the
+    // date, and the gate starts checking drift as well as agreement.
+    println!("\n=== V&V gate: ICSBEP HEU-SOL-THERM-009 case 1 ===");
+    assert_reproduces_keff(
+        "HEU-SOL-THERM-009 case 1 (critical HEU solution)",
+        result.k_mean,
+        result.k_std,
+        ICSBEP_HST009_K,
+        ICSBEP_HST009_BAND,
+        None,
     );
 }
+
+/// ICSBEP **HEU-SOL-THERM-009 case 1** benchmark `k_eff`.
+///
+/// A critical HEU solution — so the benchmark value is exactly 1.0000 by
+/// construction. The band is the evaluation's own stated uncertainty, which is
+/// six times Godiva's because a solution assembly's composition and geometry are
+/// far harder to pin than a machined metal sphere's.
+///
+/// This is the **thermal** benchmark of this crate's ICSBEP set, and it is
+/// *homogeneous* — which matters for what it can and cannot exclude. The
+/// H-in-H2O scattering law (GitHub #188) controls the spatial distribution of
+/// the thermal flux, and in a homogeneous assembly there is no spatial
+/// distribution for it to get wrong. So reproducing this case does **not**
+/// clear the water law; it clears everything else about the thermal path.
+const ICSBEP_HST009_K: f64 = 1.0000;
+
+/// The ICSBEP-stated uncertainty on [`ICSBEP_HST009_K`].
+const ICSBEP_HST009_BAND: f64 = 0.006;
 
 fn load(name: &str, file: &str) -> Nuclide {
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
