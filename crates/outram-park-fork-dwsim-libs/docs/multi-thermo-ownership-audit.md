@@ -215,9 +215,23 @@ one level below the package.
   cloned in at construction.
 - `Separator` stores no components at all; they arrive per call.
 - **There is no `name -> Component` lookup in the crate.** The only source of
-  `Component` values is the eight hand-entered presets in
+  `Component` values is the **seven** hand-entered presets in
   `thermo::component::reference` plus whatever a caller constructs by hand or
   `petroleum` generates.
+
+  > **Correction, 2026-09-11:** this bullet originally said *eight* presets.
+  > `thermo::component::reference` has seven — water, methane, ethane,
+  > nitrogen, carbon dioxide, benzene, toluene — counted directly from the
+  > source. The count is corrected in place; the finding itself stands as
+  > written.
+  >
+  > **Addendum, 2026-09-11:** the missing lookup is now built, over those same
+  > seven presets and no new data — `thermo::registry` (`component_by_name`,
+  > `ReferenceCompound`, `ComponentLookupError`) and
+  > `flowsheet::component_basis` (`resolve_components`, order-preserving,
+  > `&[StreamCompound] -> Vec<Component>`). Coverage is unchanged at seven
+  > compounds: the mechanism exists, the data question (§ `DATA_POLICY.md` /
+  > ChemSep provenance, #78) is untouched and still open.
 
 Every one of these is indexed **positionally**. `k_values`, `flash_pt`,
 `liquid_molar_enthalpy` and the mixer's `compound_w` accumulator all assume
