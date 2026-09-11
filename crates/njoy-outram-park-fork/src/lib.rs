@@ -84,6 +84,7 @@ pub mod reference_data;
 /// [`acer::thermal`], which *writes* the thermal ACE table.
 pub mod thermr;
 pub mod units;
+pub mod vv;
 /// Windowed Multipole (WMP) cross-section import — **ported** (ACER sub-block
 /// 4g). This is independent **MIT CRPG** work (not NJOY/LANL); see [`wmp`] for
 /// provenance and the MIT attribution requirements. Provides the analytic

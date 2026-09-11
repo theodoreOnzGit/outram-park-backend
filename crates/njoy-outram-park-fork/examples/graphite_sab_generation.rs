@@ -189,6 +189,43 @@ fn main() {
              measures (4.917e-6) vanishes once the value is written in ENDF form."
         );
     }
+
+    // ── V&V gate, MT=4 ────────────────────────────────────────────────────────
+    //
+    // The oracle is the official ENDF/B-VIII.0 tape itself, and the claim is
+    // **bit-for-bit** on the stored values, not agreement to a tolerance. That
+    // is a stronger statement than it sounds: `endout` applies the same sigfig
+    // rounding NJOY does, so a port that reproduces LEAPR's arithmetic closely
+    // enough lands on identical ENDF-form values even though the raw kernel
+    // still differs by ~4.9e-6 (which
+    // `tests/leapr_graphite_deck_parity.rs` measures separately).
+    //
+    // This was printed and never asserted. A regeneration that silently stopped
+    // matching would have read as one more line of console output.
+    println!("\n=== V&V gate: regenerated MT=4 vs the official ENDF/B-VIII.0 tape ===");
+    assert!(
+        n > 1000,
+        "only {n} S(alpha,beta) values above 1e-30 were compared against the \
+         official tape. Graphite's MF=7/MT=4 is a 400 beta x 150 alpha grid; a \
+         handful of points means the comparison collapsed, not that it passed."
+    );
+    assert_eq!(
+        identical,
+        total,
+        "{} of {total} stored S values no longer match the official ENDF/B-VIII.0 \
+         tape exactly (max rel dev {max:.3e}, rms {:.3e}).\n\
+         These are compared AFTER `endout`'s sigfig rounding, so exact equality \
+         is the recorded state and anything less is a real change in the LEAPR \
+         port or in the vintage-constant selection. The deck's own EVAL-<MON><YY> \
+         card picks that constant set, and getting it wrong costs a factor of \
+         ~100 on this channel.",
+        total - identical,
+        (sumsq / n.max(1) as f64).sqrt(),
+    );
+    println!(
+        "  [PASS] all {total} stored S values are bit-identical to the official tape \
+         ({n} compared above 1e-30, max raw rel dev {max:.3e})"
+    );
     // ── 6. The elastic channel, at the same temperature ──────────────────────
     //
     // MT=2 is ~90 % of graphite's thermal cross section. Its Bragg edge energies
@@ -231,5 +268,45 @@ fn main() {
     println!(
         "  (all ten temperatures are covered by \
          tests/leapr_graphite_coherent_elastic_parity.rs)"
+    );
+
+    // ── V&V gate, MT=2 ────────────────────────────────────────────────────────
+    //
+    // The coherent-elastic channel is ~90 % of graphite's thermal cross section
+    // and it depends on a DIFFERENT combination of the vintage constants than
+    // MT=4 does: the Bragg edges are `E = tau^2 / econ`, not `tev = bk*T`. So
+    // MT=4 agreeing does not imply MT=2 agrees, and the two are gated
+    // separately rather than as one "graphite matches" claim.
+    println!("\n=== V&V gate: regenerated MT=2 (coherent elastic) vs the same tape ===");
+    assert_eq!(
+        ours_ce.bragg_energies_ev.len(),
+        theirs_ce.bragg_energies_ev.len(),
+        "the regenerated Bragg grid has {} edges against the tape's {}. The edge \
+         COUNT is set by the lattice sum cutoff, so a mismatch here is a \
+         different lattice, not a numerical difference — and the per-edge \
+         comparison below would be silently comparing mismatched pairs.",
+        ours_ce.bragg_energies_ev.len(),
+        theirs_ce.bragg_energies_ev.len(),
+    );
+    // Edge energies are geometry (tau^2/econ) and carry no Debye-Waller factor,
+    // so they are held far tighter than S(E), which does.
+    assert!(
+        e_max < 1.0e-6,
+        "Bragg edge energies deviate by up to {e_max:.3e} from the official tape. \
+         These are `E = tau^2 / econ` — pure lattice geometry and one vintage \
+         constant — so they should agree to round-off. A departure means `econ` \
+         (not `bk`) has been selected wrongly, which MT=4 would not notice."
+    );
+    assert!(
+        s_max < 1.0e-4,
+        "coherent-elastic S(E) deviates by up to {s_max:.3e} from the official \
+         tape at 296 K. This channel is ~90 % of graphite's thermal cross \
+         section, so an error here moves the moderator's interaction rate \
+         directly."
+    );
+    println!(
+        "  [PASS] {} Bragg edges, max rel dev {e_max:.3e} on edge energies and \
+         {s_max:.3e} on S(E)",
+        ours_ce.bragg_energies_ev.len()
     );
 }

@@ -179,6 +179,8 @@ fn main() {
 
     println!("### Leave-one-out on the FULL grid (accuracy of the PRODUCTION interpolation)");
     println!("      (all 221 edges | edges <= 0.0253 eV | sigma at 0.0253 eV)");
+    // Kept for the V&V gate at the bottom.
+    let mut loo: Vec<LeaveOneOut> = Vec::new();
     for j in 1..temps.len() - 1 {
         let grid = ThinnedTemperatureGrid::leave_one_out(temps.len(), j).unwrap();
         let (lo, hi) = grid.bracket(j).unwrap();
@@ -190,6 +192,12 @@ fn main() {
             coherent_elastic_thinning_error_below(&ce, &grid, j, Some(4), E_RELEVANT_MAX).unwrap();
         let (want, got) = sigma_thermal(&grid, j, None);
         let (_, got_log) = sigma_thermal(&grid, j, Some(4));
+        loo.push(LeaveOneOut {
+            temp_k: temps[j],
+            bracket_k: (temps[lo], temps[hi]),
+            stated_law_sigma_rel: (got - want).abs() / want,
+            log_law_sigma_rel: (got_log - want).abs() / want,
+        });
         println!(
             "  {:>5} K from {:>5}/{:>5} K | LI=2 all max {:>8} | thermal max {:>8} \
              | sigma_th {:>8} | LI=4 all max {:>8} | thermal max {:>8} | sigma_th {:>8}",
@@ -488,4 +496,168 @@ fn main() {
             100.0 * (full - b) as f64 / file_bytes as f64
         );
     }
+
+    vv_gate(&loo);
+}
+
+/// One leave-one-out row on the full temperature grid: a tabulated temperature
+/// withheld, then reconstructed by interpolating from its two neighbours.
+struct LeaveOneOut {
+    /// The withheld temperature, K.
+    temp_k: f64,
+    /// The two kept temperatures it was reconstructed from, K.
+    bracket_k: (f64, f64),
+    /// Relative error in the coherent-elastic sigma at 0.0253 eV under the
+    /// evaluation's own stated interpolation law (`LI = 2`, linear in T) — the
+    /// **production** path.
+    stated_law_sigma_rel: f64,
+    /// The same under `LI = 4` (`ln S` linear in T), which is a reported finding
+    /// only: the production path keeps the law the evaluation states.
+    log_law_sigma_rel: f64,
+}
+
+/// V&V gate: how accurate the **production** temperature interpolation actually
+/// is, and whether log-space would be better.
+///
+/// # The oracle: the evaluation is its own reference
+///
+/// No model, no external code, no fitted parameter. For each tabulated
+/// temperature the evaluation carries, the study withholds it, interpolates
+/// from the two neighbours *through the same kernel the production reader uses*,
+/// and compares against the row the evaluation actually tabulates there. The
+/// answer is known exactly because it is written in the file.
+///
+/// # Results (2026-09-11, `tsl-crystalline-graphite` ENDF/B-VIII.0)
+///
+/// Coherent-elastic sigma at 0.0253 eV, leave-one-out on the full grid:
+///
+/// ```text
+///   withheld   from        LI=2 (production)   LI=4 (log space)
+///     400 K     296/ 500 K      0.0375 %           0.0409 %
+///     500 K     400/ 600 K      0.0614 %           0.0161 %
+///     600 K     500/ 700 K      0.0752 %           0.0031 %
+///     700 K     600/ 800 K      0.0832 %           0.0049 %
+///     800 K     700/1000 K      0.1750 %           0.0225 %
+///    1000 K     800/1200 K      0.3658 %           0.0634 %
+///    1200 K    1000/1600 K      0.7140 %           0.1563 %
+///    1600 K    1200/2000 K      1.4200 %           0.3456 %
+/// ```
+///
+/// **The production interpolation is good to 1.42 % at worst**, and that worst
+/// case is the widest bracket on the grid (1200–2000 K, an 800 K span). Below
+/// 1000 K — which covers every reactor condition this workspace models — it is
+/// under 0.2 %.
+///
+/// **Log-space (`LI = 4`) is 4x to 24x better at every point except the coldest
+/// bracket.** That is a real finding: Debye-Waller suppression is roughly
+/// exponential in temperature, so `ln S` is closer to linear in `T` than `S` is.
+/// It is **not** acted on — the production path keeps the law the evaluation
+/// states, because the evaluation's stated `LI` is part of the data contract and
+/// silently substituting a better-fitting law would make this crate disagree
+/// with every other code reading the same file.
+///
+/// # What is asserted
+///
+/// 1. The production interpolation stays within **2 %** at 0.0253 eV. This is
+///    the number that matters: coherent elastic is ~90 % of graphite's thermal
+///    cross section, so this error propagates straight into the moderator's
+///    interaction rate.
+/// 2. The error **grows with bracket width**. A production path whose error did
+///    not scale with the interpolation span would not be interpolating.
+/// 3. Log-space beats the stated law on the upper brackets — pinning the
+///    finding, so that if it ever reverses somebody notices rather than the
+///    claim quietly rotting in a doc comment.
+fn vv_gate(loo: &[LeaveOneOut]) {
+    println!("\n## V&V gate: accuracy of the production temperature interpolation");
+    assert!(
+        loo.len() >= 5,
+        "only {} leave-one-out rows; the graphite evaluation tabulates ten \
+         temperatures, so eight interior ones should be testable",
+        loo.len()
+    );
+
+    let mut worst = (0.0_f64, 0.0_f64);
+    let mut log_better = 0usize;
+    for r in loo {
+        if r.stated_law_sigma_rel > worst.0 {
+            worst = (r.stated_law_sigma_rel, r.temp_k);
+        }
+        if r.log_law_sigma_rel < r.stated_law_sigma_rel {
+            log_better += 1;
+        }
+        assert!(
+            r.stated_law_sigma_rel < 0.02,
+            "withholding {} K and interpolating from {}/{} K under the \
+             evaluation's own stated LI=2 law misses the tabulated \
+             coherent-elastic sigma at 0.0253 eV by {:.3} %. Coherent elastic is \
+             ~90 % of graphite's thermal cross section, so this error lands \
+             directly on the moderator's interaction rate. Recorded worst: \
+             1.42 % (1600 K from the 1200/2000 K bracket, the widest on the grid).",
+            r.temp_k,
+            r.bracket_k.0,
+            r.bracket_k.1,
+            100.0 * r.stated_law_sigma_rel,
+        );
+    }
+    println!(
+        "  [PASS] production (LI=2) interpolation worst error {:.3} % at {:.0} K \
+         (envelope 2 %)",
+        100.0 * worst.0,
+        worst.1
+    );
+
+    // The error must scale with the bracket width, or it is not interpolating.
+    let narrowest = loo
+        .iter()
+        .min_by(|a, b| {
+            (a.bracket_k.1 - a.bracket_k.0)
+                .partial_cmp(&(b.bracket_k.1 - b.bracket_k.0))
+                .expect("finite")
+        })
+        .expect("non-empty");
+    let widest = loo
+        .iter()
+        .max_by(|a, b| {
+            (a.bracket_k.1 - a.bracket_k.0)
+                .partial_cmp(&(b.bracket_k.1 - b.bracket_k.0))
+                .expect("finite")
+        })
+        .expect("non-empty");
+    println!(
+        "  bracket width {:.0} K -> {:.4} %,  {:.0} K -> {:.4} %",
+        narrowest.bracket_k.1 - narrowest.bracket_k.0,
+        100.0 * narrowest.stated_law_sigma_rel,
+        widest.bracket_k.1 - widest.bracket_k.0,
+        100.0 * widest.stated_law_sigma_rel,
+    );
+    assert!(
+        widest.stated_law_sigma_rel > narrowest.stated_law_sigma_rel,
+        "the widest bracket ({:.0} K span) gives a SMALLER error than the \
+         narrowest ({:.0} K span). Interpolation error must grow with the span \
+         being interpolated across; if it does not, the kernel is not using the \
+         bracket at all — it could be returning a nearest neighbour, which would \
+         pass the 2 % envelope above on this grid and be badly wrong on a thinned \
+         one.",
+        widest.bracket_k.1 - widest.bracket_k.0,
+        narrowest.bracket_k.1 - narrowest.bracket_k.0,
+    );
+
+    // The reported finding, pinned.
+    assert!(
+        log_better >= loo.len() - 1,
+        "log-space (LI=4) now beats the evaluation's stated LI=2 law on only \
+         {log_better} of {} leave-one-out points; it beat it on all but the \
+         coldest bracket when this was measured. Debye-Waller suppression is \
+         roughly exponential in temperature, so `ln S` should be closer to linear \
+         in T than S is. This is a REPORTED finding, not a change to the \
+         production path — the evaluation's stated LI is part of the data \
+         contract — but if it reverses, the reasoning behind that note has \
+         changed and somebody should look.",
+        loo.len(),
+    );
+    println!(
+        "  [PASS] log-space beats the stated law on {log_better}/{} points \
+         (reported finding; production keeps the stated LI)",
+        loo.len()
+    );
 }

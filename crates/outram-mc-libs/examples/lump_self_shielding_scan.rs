@@ -338,11 +338,38 @@ struct ScanRow {
 /// reach for a specular boundary here finds the reason in a failing assertion
 /// rather than in a comment nobody read.
 ///
-/// # Results
+/// # Results (2026-09-11, ENDF/B-VIII.0 @ 293.6 K, sigma_b = 300 b, vfrac 0.30,
+/// HIST=4000, seed 0xABCD_0003)
 ///
-/// Printed in full by the scan above, with the date on the run. The gate derives
-/// its tolerances from that run's own counting statistics rather than from
-/// numbers written here.
+/// Exact homogeneous solution: `p_esc = 0.38763` (deterministic).
+///
+/// ```text
+///   R_cell [cm]   R/mfp*   WHITE p_esc   1 sigma   vs hom.   SPECULAR   vs hom.
+///     6.0e-3       0.103     0.38567     0.00889   -0.51 %    0.54067   +39.48 %
+///     2.0e-2       0.343     0.40425     0.00776   +4.29 %    0.55650   +43.57 %
+///     5.0e-2       0.856     0.38700     0.00770   -0.16 %    0.55200   +42.40 %
+///     1.5e-1       2.569     0.38900     0.00771   +0.35 %    0.56100   +44.73 %
+///     5.0e-1       8.564     0.42900     0.00783  +10.67 %    0.55450   +43.05 %
+///     1.5e0       25.693     0.50175     0.00791  +29.44 %    0.58000   +49.63 %
+/// ```
+///
+/// \* lump radius in mean free paths at the 6.674 eV resonance peak.
+///
+/// **The thin-lump limit reproduces the exact homogeneous answer to −0.51 %**,
+/// well inside its own counting statistics, and `p_esc` then rises to +29.4 %
+/// as the lump grows to 25.7 mean free paths — that rise *is* the spatial
+/// self-shielding effect. Spatial transport is therefore excluded from the
+/// ring-RPT residual, the same way `examples/slowing_down_oracle.rs` excludes
+/// the energy treatment.
+///
+/// **The specular boundary is wrong by +39.5 % to +49.6 % at every size**,
+/// including the thin-lump limit where the answer is known exactly. That is the
+/// signature to recognise: an offset that is large, one-signed, and present even
+/// where the physics is trivial, is a harness bug, not a physics result.
+///
+/// The gate derives its tolerances from each run's own counting statistics
+/// rather than from the numbers above, so they are a record and cannot go stale
+/// into a false pass.
 fn vv_gate(scan: &[ScanRow], det: f64) {
     use outram_mc_libs::vv::{assert_absolute, assert_monotone};
 

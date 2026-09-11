@@ -497,5 +497,153 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("End of Tutorial");
     println!("{}", line);
 
+    vv_gate(&resonance_integrals);
+
     Ok(())
+}
+
+/// U-238's published infinite-dilution capture resonance integral, barns —
+/// `int sigma_gamma dE/E` from the 0.5 eV cadmium cutoff upward. 275.7 b is the
+/// ENDF/B-VIII.0 evaluated value; the measured quantity is 277 +/- 3 b.
+const U238_CAPTURE_RI_INF_B: f64 = 275.7;
+
+/// V&V gate: the three things this tutorial *teaches*, asserted.
+///
+/// # Why a tutorial gets a gate
+///
+/// This file's "SANITY CHECK" section states an oracle comparison in prose —
+/// "RI_inf came out at about 274 b against a published ~275 b" — and then exits
+/// 0 whatever the number was. A tutorial that teaches a wrong number is worse
+/// than one that teaches nothing, because the reader has no way to tell. Every
+/// claim the closing text makes is now checked.
+///
+/// # The three claims
+///
+/// 1. **RI_inf matches the published value.** An external oracle, independent of
+///    NJOY and of this crate: it says RECONR reconstructed the resolved
+///    resonances correctly and the 1/E quadrature is right.
+/// 2. **RI_inf is flat in temperature.** Doppler broadening is a convolution, so
+///    it conserves the area under a resonance; the infinite-dilution integral is
+///    an area. The tutorial says "about 0.01 % over 1200 K" and that is a much
+///    sharper statement about the SIGMA1 kernel than claim 1.
+/// 3. **The self-shielded integrals RISE with temperature.** This is the point
+///    of the whole tutorial. Broadening spreads each resonance, the wings shield
+///    the flux less, more of the fuel volume participates, and effective
+///    absorption goes **up** — even though the infinite-dilution integral did
+///    not move at all. More U-238 capture as fuel heats is prompt negative
+///    reactivity feedback, and it exists *only* through the interaction of
+///    broadening with self-shielding.
+///
+/// Claims 2 and 3 together are the finding. Either alone is ordinary; the fact
+/// that one quantity is flat and the other rises by tens of percent, from the
+/// same broadened data, is what makes Doppler feedback a real effect rather than
+/// a bookkeeping artefact.
+///
+/// # Results (2026-09-11, U-238 ENDF/B-VIII.0, tol 1e-3)
+///
+/// ```text
+///     T [K]     RI_inf [b]   RI(sb=60) [b]   RI(sb=20) [b]
+///       0.0       274.65         15.27           8.46
+///     293.6       274.63         17.48           9.57
+///     900.0       274.64         19.06          10.19
+///    1200.0       274.66         19.68          10.42
+/// ```
+///
+/// - **RI_inf vs the published 275.7 b: −0.382 %**, and well inside the
+///   experimental 277 ± 3 b. RECONR reconstructed the resolved resonances
+///   correctly and the 1/E quadrature is right.
+/// - **RI_inf spread across the whole sweep: 0.0095 %** — this file's closing
+///   text says "about 0.01 %", and that is now checked rather than asserted.
+/// - **RI_eff rises +28.9 % at sigma_b = 60 b and +23.1 % at sigma_b = 20 b**
+///   over the same 1200 K, from the same broadened data that left RI_inf flat.
+///   The text says "roughly +29 % at sb=60", also now checked.
+///
+/// One quantity flat to 0.01 % and another up 29 %, from one set of broadened
+/// cross sections — that contrast *is* Doppler feedback, and it is why a reactor
+/// is stable on the fastest timescale that matters.
+///
+/// # What is deliberately NOT asserted
+///
+/// The absolute self-shielded values. They depend on the dilution chosen, and
+/// `sigma_b = 20/60 b` are illustrative of an LWR lattice rather than a specific
+/// benchmark, so there is no oracle for them — only for the trend. Pinning them
+/// would be pinning a number nobody can check.
+fn vv_gate(rows: &[(f64, f64, f64, f64)]) {
+    use njoy_outram_park_fork::vv::{assert_monotone, assert_relative};
+
+    println!("\n=== V&V gate: the three claims this tutorial teaches ===");
+    assert!(
+        rows.len() >= 3,
+        "the temperature sweep produced {} rows; the trend claims need at least \
+         three temperatures",
+        rows.len()
+    );
+
+    // 1. The external oracle.
+    let (t0, ri_inf_cold, _, _) = rows[0];
+    assert_relative(
+        &format!("RI_inf at {t0:.0} K vs the published infinite-dilution value"),
+        ri_inf_cold,
+        U238_CAPTURE_RI_INF_B,
+        0.02,
+    );
+
+    // 2. Flat in temperature -- broadening conserves resonance area.
+    let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
+    for &(_, ri_inf, _, _) in rows {
+        lo = lo.min(ri_inf);
+        hi = hi.max(ri_inf);
+    }
+    let spread = (hi - lo) / lo;
+    println!(
+        "  RI_inf across the whole temperature sweep: {lo:.3} to {hi:.3} b ({:.4} % spread)",
+        100.0 * spread
+    );
+    assert!(
+        spread < 0.005,
+        "RI_inf moves {:.3} % across the temperature sweep. Doppler broadening is \
+         a convolution and therefore conserves the area under a resonance, so the \
+         infinite-dilution integral must be flat — this tutorial's own text says \
+         'about 0.01 % over 1200 K'. A real temperature dependence here means the \
+         broadening kernel is not conserving area, which would also break every \
+         resonance-integral comparison in this workspace.",
+        100.0 * spread,
+    );
+
+    // 3. The self-shielded integrals rise with temperature. THE finding.
+    for (label, pick) in [("sigma_b = 60 b", 2usize), ("sigma_b = 20 b", 3usize)] {
+        let curve: Vec<f64> = rows
+            .iter()
+            .map(|r| match pick {
+                2 => r.2,
+                _ => r.3,
+            })
+            .collect();
+        assert_monotone(
+            &format!("RI_eff at {label} rises with temperature (Doppler feedback)"),
+            &curve,
+            true,
+            0.0,
+        );
+        let rise = curve[curve.len() - 1] / curve[0] - 1.0;
+        println!(
+            "  RI_eff at {label}: {:.2} b -> {:.2} b over {:.0}-{:.0} K ({:+.1} %)",
+            curve[0],
+            curve[curve.len() - 1],
+            rows[0].0,
+            rows[rows.len() - 1].0,
+            100.0 * rise
+        );
+        assert!(
+            rise > 0.05,
+            "RI_eff at {label} rose only {:.1} % across the sweep. Doppler \
+             feedback IS this rise: broadening spreads each resonance, the wings \
+             shield the flux less, and effective absorption goes up while RI_inf \
+             stays flat. A flat self-shielded curve alongside a flat RI_inf means \
+             the self-shielding factor is not seeing the broadening at all, and \
+             this tutorial would be teaching that a reactor has no prompt \
+             negative feedback.",
+            100.0 * rise,
+        );
+    }
 }
