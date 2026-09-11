@@ -53,7 +53,12 @@ fn main() {
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::nuclide::Nuclide;
 
-    const MAT: i32 = 9237;
+    // Defaults are U-238; override to check another nuclide against its own
+    // NJOY PENDF (U-235 in particular -- it is the fissile driver, so an error
+    // there moves k directly, and checking only U-238 would have missed it).
+    let mat: i32 = std::env::var("NJOY_MAT").ok().and_then(|v| v.parse().ok()).unwrap_or(9237);
+    let tape_name = std::env::var("NJOY_TAPE").unwrap_or_else(|_| "n-092_U_238.endf".into());
+    let nuc_name = std::env::var("NJOY_NUCLIDE").unwrap_or_else(|_| "U238".into());
     const TEMP: f64 = 600.0;
 
     let pendf_path = match std::env::var("U238_PENDF") {
@@ -67,9 +72,9 @@ fn main() {
     eprintln!("reading NJOY PENDF {pendf_path} ...");
     let pendf = Tape::read_file(std::path::Path::new(&pendf_path)).expect("PENDF parses");
 
-    let tape = reference_endf("n-092_U_238.endf").expect("U-238 ENDF tape");
-    eprintln!("reconstructing U-238 with this crate @ {TEMP} K, tol 1e-3 ...");
-    let ours = Nuclide::from_endf_file(&tape, "U238", TEMP, 1.0e-3).expect("reconstruction");
+    let tape = reference_endf(&tape_name).expect("ENDF tape");
+    eprintln!("reconstructing {nuc_name} (MAT {mat}) with this crate @ {TEMP} K, tol 1e-3 ...");
+    let ours = Nuclide::from_endf_file(&tape, &nuc_name, TEMP, 1.0e-3).expect("reconstruction");
     eprintln!("done.\n");
 
     // (MT, label, how to pull it out of our MicroXS)
@@ -88,7 +93,7 @@ fn main() {
     ];
 
     for (mt, label) in reactions {
-        let njoy = match read_pendf_cross_section(&pendf, MAT, mt) {
+        let njoy = match read_pendf_cross_section(&pendf, mat, mt) {
             Ok(x) => x,
             Err(e) => {
                 eprintln!("== MT={mt} ({label}): NJOY PENDF has no such section ({e:?})");
@@ -124,6 +129,25 @@ fn main() {
             100.0 * worst.0, worst.1
         );
     }
+
+    // nu-bar sanity check. This CANNOT be validated against the PENDF: NJOY
+    // copies MF=1/452 through unchanged and this crate reads the same section,
+    // so the two agree by construction and the comparison would be circular.
+    // Check it against published physics instead -- nu-bar multiplies k
+    // directly, so an error here would be invisible in every sigma comparison
+    // above and still move the eigenvalue.
+    println!("\n== nu-bar (from MF=1/452; vs published values, NOT vs the PENDF)");
+    println!("{:>11}  {:>12}", "E [eV]", "nu-bar");
+    for &e in &[0.0253, 1.0e3, 1.0e6, 2.0e6, 1.4e7] {
+        let x = ours.xs_at_energy(e, TEMP);
+        let nu = if x.fission > 0.0 { x.nu_fission / x.fission } else { 0.0 };
+        println!("{e:>11.4e}  {nu:>12.5}");
+    }
+    println!(
+        "   reference points: U-235 thermal nu-bar is 2.43-2.44, rising to ~2.6\n\
+         at 1 MeV and ~3.1 at 5 MeV; U-238 is ~2.49 at its fission threshold,\n\
+         rising to ~3.0 at 6 MeV. A value outside those bands is a real defect."
+    );
 }
 
 /// Linear interpolation on an ascending `(E, sigma)` table; zero outside it,
