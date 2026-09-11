@@ -987,11 +987,63 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    A consistent **+1 %**, against graphite's ±0.05 % — twenty times worse, on
    the law that matters most here — and the law **ends near 2 eV** where NJOY's
    runs to 10. Neither is big enough on its own to be a 3 % eigenvalue, and the
-   +1 % has the *wrong sign* for the deficit (more scattering in water would
-   hold more flux there, not less). So this is a real discrepancy and a lead,
-   not yet the answer. **What remains unchecked is the water kernel** — THERMR's
-   MF=6 outgoing-energy matrix, the check that was done for graphite (≤0.5 %)
-   and never for water. That is the next measurement.
+   +1 % has the *wrong sign* for the deficit. So the cross section is a lead,
+   not the answer. **The kernel is.**
+
+19. **ROOT CAUSE LOCALISED: this code's H-in-H₂O thermal scattering KERNEL
+   moves neutrons 2–5.5 % less than NJOY2016's, and moderates ~4 % less per
+   collision.** `examples/h2o_kernel_vs_njoy_thermr.rs` runs the check graphite
+   got and water never did — our sampled outgoing-energy distribution against
+   NJOY's THERMR **MF=6** matrix, 400 000 samples per incident energy, same tape,
+   same temperature:
+
+   | E \[eV\] | ⟨E′⟩/E NJOY | ours | rel | ξ NJOY | ξ ours |
+   |---|---|---|---|---|---|
+   | 0.0015 | 7.3050 | 6.9000 | **−5.54 %** | −0.8934 | −0.8843 |
+   | 0.005 | 2.5102 | 2.4144 | −3.82 % | −0.4261 | −0.4266 |
+   | 0.01 | 1.6664 | 1.6183 | −2.89 % | −0.2356 | −0.2378 |
+   | 0.0253 | 1.1939 | 1.1763 | −1.47 % | −0.0553 | −0.0556 |
+   | 0.1116 | 0.8002 | 0.8002 | **0.00 %** | 0.3669 | 0.3483 |
+   | 0.625 | 0.6051 | 0.6129 | +1.29 % | 0.7105 | 0.6789 |
+   | 1.86 | 0.5393 | 0.5472 | +1.48 % | 0.8697 | 0.8412 |
+
+   **Both halves err the same way.** Below the crossover at ~0.11 eV a neutron
+   should *gain* energy and ours gains too little; above it a neutron should
+   *lose* energy and ours loses too little. The outgoing-energy distribution is
+   **too narrow — clustered too close to the incident energy**. Consistently,
+   `ξ = ⟨ln(E/E′)⟩` runs **3–5 % low** above 0.05 eV: this code's water moderates
+   about 4 % less per collision than NJOY's. **Graphite, on the identical check,
+   agrees to ≤0.5 %** — so it is not the method and not the comparison.
+
+   The kernel comes from
+   `njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering`,
+   the port of NJOY2016's `thermr.f90` (`sig`/`calcem` double-differential plus
+   the short-collision-time tail).
+
+   **Why it was never caught, which is the transferable part.** That port has an
+   H-in-H₂O test, `crates/njoy-outram-park-fork/tests/thermal_h2o_sab.rs`, and it
+   passes. Its own module docs say why it cannot see this: *"The four checks are
+   analytic/limiting — no ACE oracle is required, so they are reproducible on any
+   machine."* The four are the free-atom limit at high energy, the thermal cross
+   section against bound water, detailed balance of the double-differential, and
+   a physical effective temperature. **Every one is satisfied where the binding
+   physics is switched off, or tests only a symmetry:** the free-atom limit is
+   the *absence* of binding; detailed balance is a symmetry a uniformly-too-narrow
+   kernel obeys exactly; the cross section is the law's *magnitude*, not its
+   *shape*. Reproducibility was traded for an external oracle, and a 2–5.5 %
+   shape error walked through the gap — the same lesson as Remaining work 3e,
+   one module over.
+
+   **Still to do before this can be called the whole answer.** The size is right
+   and the selectivity is right — water's law sits under both failing systems,
+   while the one thermal benchmark this code reproduces (HEU-SOL-THERM-009) is
+   *homogeneous*, where the spatial thermal flux distribution this law controls
+   does not matter, and graphite (the FHR pebble's moderator) is verified, so the
+   pebble needs its own account. What is not yet established is the **sign chain**
+   from "water moderates 4 % too little per collision" to "the dissolved boron
+   absorbs too little", and that is a calculation, not an argument. Fixing the
+   port and re-running cases 1/2/8 is the direct test: the three `Δk` values must
+   collapse together and toward zero.
 
 ## Remaining work
 

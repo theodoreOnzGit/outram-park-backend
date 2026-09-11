@@ -169,6 +169,11 @@ required-features = ["endf-pebble-cases"]
 name = "h2o_vs_njoy_thermr"
 required-features = ["endf-pebble-cases"]
 
+# Oracle: our H-in-H2O S(a,b) KERNEL vs NJOY2016's THERMR MF=6 matrix.
+[[example]]
+name = "h2o_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
 # Exploratory driver for the infinite-medium slowing-down oracle (gh:#178).
 [[example]]
 name = "slowing_down_oracle"
