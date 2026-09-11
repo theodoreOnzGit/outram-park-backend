@@ -4,10 +4,29 @@
 **Crate commit:** `develop`
 
 **Status: two defects found and fixed here; ring-RPT equivalence is reproduced;
-and the absolute-k disagreement has been LOCATED — it is this code's
-self-shielded U-238 resonance absorption, not the reference deck, and it is now
-reproduced on a *measured* critical experiment (ICSBEP LEU-COMP-THERM-008,
-+2950 ± 61 pcm; Interpretation 17).**
+the absolute-k disagreement is reproduced on a *measured* critical experiment
+and is therefore this code's, not the reference deck's (ICSBEP
+LEU-COMP-THERM-008, +2950 ± 61 pcm; Interpretation 17).**
+
+> ### ⚠ CORRECTION 2026-09-11 — the residual is NOT U-238 resonance escape
+>
+> Interpretation 17 originally attributed the residual to **self-shielded U-238
+> resonance absorption**, on an argument from benchmark coverage: LCT-008 is the
+> only reproduced case that is thermal *and* U-238-dominated *and* lumped. That
+> attribution is **refuted by measurement** (Interpretation 18).
+>
+> LEU-COMP-THERM-008 ships several **independently critical** cases sharing one
+> pin cell. Running three of them gives `Δk` of **+2950, +2271 and +1713 pcm** —
+> a spread of **1237 ± 86 pcm (14σ)**. Same pitch, same fuel, same clad, so the
+> resonance escape probability `p` is the same in all three and a `p` error must
+> give the **same** `Δk`. It does not.
+>
+> What varies with `Δk` is the **thermal poison loading**. Both later measurements
+> that closed the resonance question — the energy treatment (Remaining work 3e)
+> and the spatial treatment (3f) — stand; they were right, and the conclusion
+> drawn around them was wrong. Interpretation 17's *other* claims (that the
+> residual is this code's and not the reference deck's) are unaffected, because
+> they rest on the benchmark being measured, not on the attribution.
 
 1. The crate sampled elastic scattering off a target held **at rest** at every
    energy, for every nuclide without an S(α,β) table — so FLiBe, the kernel
@@ -903,6 +922,76 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    between a correct cross section and the absorption rate it should produce in
    a lump**, and the next measurement has to be a spectrum, not another
    eigenvalue.
+
+18. **The residual is NOT U-238 resonance escape — it tracks the thermal poison
+   loading.** Interpretation 17's attribution was an argument from coverage, not
+   a measurement. LEU-COMP-THERM-008 makes the measurement possible because it
+   ships several configurations that are each **independently critical** and
+   share one pin cell, differing only in how the poison is supplied:
+
+   | case | soluble B-10 | poison rods | fuel pins | `Δk` |
+   |---|---|---|---|---|
+   | 1 | 1511 ppm (1.6769e-5) | none | 4961 | **+2950 ± 61 pcm** |
+   | 2 | 1335.5 ppm (1.4821e-5) | none | 4808 | **+2271 ± 61 pcm** |
+   | 8 | 794 ppm (8.8117e-6) | 144 pyrex | 4808 | **+1713 ± 60 pcm** |
+
+   **A `p` error cannot do this.** The pin pitch (1.63576 cm), the pellet
+   (0.514858 cm), the clad and the fuel composition are identical in all three,
+   so resonance escape is the same in each, and an error in it would appear as
+   the same `Δk` everywhere. The spread is **1237 ± 86 pcm — 14σ**, and it is
+   monotone in the soluble boron.
+
+   Read as reactivity *differences*, which is the form that owes nothing to any
+   estimate of absorption shares: the truth is that every pairwise difference is
+   **zero**, because every case is critical. This code gets them wrong by
+   **+679 ± 86** (1→2) and **+558 ± 86 pcm** (2→8). In both steps boron is
+   *removed*, and in both this code says `k` rises **less** than it should —
+   i.e. **its boron is worth less than it should be**.
+
+   **It is not the B-10 cross section.** `examples/b10_thermal_probe.rs`:
+   3845.9 b at 0.0253 eV against the 3835 b 2200 m/s standard, and exactly 1/v
+   — `σ_a·√E` is constant at 3846 b from 1e-4 eV to 10 eV and 3826 at 100 eV.
+   So what is wrong is the **thermal flux where the absorber sits**, not the
+   absorber.
+
+   Consistent with that, the case-1 six-factor decomposition
+   (`--six-factors`) gives `η 1.7757 / f 0.6613 / p 0.7799 / ε 1.1367 /
+   P_FNL 0.9901 / P_TNL 0.9974`, product 1.02790 against `k` 1.02996 — a
+   consistency gap of only +0.20 %, so the decomposition is faithful here. `η`
+   sits 1.14 % below the one-group flat-flux value built from this run's own
+   cross sections (1.7961), which is the right size and direction. But `f` sits
+   **5.6 % above** its flat-flux value (0.6262), i.e. the implied thermal
+   disadvantage factor is **greater than one** — the thermal flux higher in the
+   strongly absorbing fuel than in the moderator. Part of that is legitimate
+   (the 0–0.625 eV group is not Maxwellian and U-235's 0.29 eV resonance
+   enhances the fuel's share), so it is a flag rather than a finding; but it
+   points the same way as the case scan.
+
+   **First check of the one law under all of this that had never been checked.**
+   Graphite's S(α,β) was verified against NJOY's THERMR to ±0.05 %; **`c_H_in_H2O`
+   never was**, and it sits under both failing systems while the one thermal
+   benchmark this code reproduces, HEU-SOL-THERM-009, is *homogeneous* — where
+   the spatial thermal flux distribution the water law controls does not matter.
+   `examples/h2o_vs_njoy_thermr.rs`, against a THERMR run of the same tape at
+   the same temperature (NJOY2016 test 68's card, `natom = 2`):
+
+   | E \[eV\] | NJOY MT=222 | ours | diff |
+   |---|---|---|---|
+   | 0.001 | 116.86 b | 118.46 b | +1.37 % |
+   | 0.0253 | 51.688 b | 52.142 b | +0.88 % |
+   | 0.1 | 32.551 b | 32.897 b | +1.07 % |
+   | 0.625 | 22.158 b | 22.302 b | +0.65 % |
+   | 2.0 | 20.949 b | 21.257 b | +1.47 % |
+   | 4.0 | 20.689 b | **0** (law ends; free gas takes over) | — |
+
+   A consistent **+1 %**, against graphite's ±0.05 % — twenty times worse, on
+   the law that matters most here — and the law **ends near 2 eV** where NJOY's
+   runs to 10. Neither is big enough on its own to be a 3 % eigenvalue, and the
+   +1 % has the *wrong sign* for the deficit (more scattering in water would
+   hold more flux there, not less). So this is a real discrepancy and a lead,
+   not yet the answer. **What remains unchecked is the water kernel** — THERMR's
+   MF=6 outgoing-energy matrix, the check that was done for graphite (≤0.5 %)
+   and never for water. That is the next measurement.
 
 ## Remaining work
 

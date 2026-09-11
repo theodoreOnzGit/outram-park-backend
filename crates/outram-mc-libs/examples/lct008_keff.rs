@@ -46,19 +46,50 @@
 //! k_eff = 1.02950 ± 0.00061      Δk = +2950 ± 61 pcm from 1.0000
 //! ```
 //!
-//! **The second branch is what happened, and it settles the question.** The FHR
-//! pebble's residual is reproduced on a *measured* critical experiment, so it is
-//! not the reference deck, and it is not anything specific to that deck's
-//! geometry, materials or author. It is this code, and it is **self-shielded
-//! U-238 resonance absorption**.
+//! **The second branch is what happened.** The FHR pebble's residual is
+//! reproduced on a *measured* critical experiment, so it is not the reference
+//! deck, and it is not anything specific to that deck's geometry, materials or
+//! author. It is this code.
 //!
-//! The magnitude agrees with the pebble quantitatively, and the prediction was
-//! written down before the run. The pebble's six factors imply an effective
-//! resonance integral 11 % low (`I_eff(ours)/I_eff(ref) = 0.888`). Carrying that
-//! same deficit onto a lattice whose resonance escape is `p ≈ 0.75` predicts
-//! `p_ours = 0.75^0.888 = 0.774`, i.e. `+3.2 %` in `k` — **+3200 pcm against the
-//! +2950 ± 61 pcm measured**. One deficit, two systems that share nothing but
-//! U-238 in a lump, consistent to better than 10 %.
+//! # CORRECTION 2026-09-11 — it is NOT U-238 resonance escape
+//!
+//! This file originally went on to attribute the residual to **self-shielded
+//! U-238 resonance absorption**, on an argument from benchmark coverage: this is
+//! the only reproduced case that is thermal *and* U-238-dominated *and* lumped.
+//! **That attribution is refuted by this benchmark's own other cases.**
+//!
+//! LEU-COMP-THERM-008 ships several **independently critical** configurations
+//! that share one pin cell and differ in how the poison is supplied. Run with
+//! `--case`:
+//!
+//! | case | soluble B-10 | poison rods | fuel pins | `Δk` |
+//! |---|---|---|---|---|
+//! | 1 | 1511 ppm | none | 4961 | **+2950 ± 61 pcm** |
+//! | 2 | 1335.5 ppm | none | 4808 | **+2271 ± 61 pcm** |
+//! | 8 | 794 ppm | 144 pyrex | 4808 | **+1713 ± 60 pcm** |
+//!
+//! The pitch, pellet, clad and fuel are identical in all three, so resonance
+//! escape `p` is the same in each and an error in it must give the **same** `Δk`.
+//! The spread is **1237 ± 86 pcm — 14σ**, monotone in the soluble boron.
+//!
+//! Stated as reactivity *differences*, which owes nothing to any estimate of
+//! absorption shares: every pairwise difference is truly **zero**, because every
+//! case is critical. This code gets them wrong by **+679 ± 86** (1→2) and
+//! **+558 ± 86 pcm** (2→8). Boron is removed in both steps, and in both this
+//! code says `k` rises *less* than it should — **its boron is worth too little**.
+//!
+//! It is not the B-10 cross section: `examples/b10_thermal_probe.rs` gives
+//! 3845.9 b at 0.0253 eV against the 3835 b standard, exactly 1/v. So it is the
+//! **thermal flux where the absorber sits**. See the ring-RPT V&V document,
+//! Interpretation 18, for the rest of the trail.
+//!
+//! The magnitude agreed with the pebble quantitatively, and the prediction was
+//! written down before the run: the pebble's six factors imply an effective
+//! resonance integral 11 % low, which carried onto `p ≈ 0.75` predicts
+//! `+3200 pcm` against the `+2950 ± 61` measured. **That agreement turned out to
+//! be a coincidence** — see the correction above. It is recorded because a
+//! successful quantitative prediction is exactly the kind of evidence that makes
+//! a wrong attribution feel settled, and the case scan is what broke it.
 //!
 //! Source convergence: the mean `k` over the four quarters of the 250 inactive
 //! generations ran 1.0233 / 1.0316 / 1.0286 / 1.0299 — settled after the first
@@ -140,6 +171,7 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::compute::ComputeType;
 use outram_mc_libs::physics::keff::KeffSettings;
+use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -149,10 +181,58 @@ use std::time::Instant;
 /// `H(H2O)` law, so no thermal interpolation is involved.
 const TEMP_K: f64 = 293.6;
 
-const MATERIALS_XML: &str =
+const MATERIALS_XML_CASE1: &str =
     include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/materials.xml");
-const GEOMETRY_XML: &str =
+const GEOMETRY_XML_CASE1: &str =
     include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/geometry.xml");
+const MATERIALS_XML_CASE2: &str =
+    include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/case-2/materials.xml");
+const GEOMETRY_XML_CASE2: &str =
+    include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/case-2/geometry.xml");
+const MATERIALS_XML_CASE8: &str =
+    include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/case-8/materials.xml");
+const GEOMETRY_XML_CASE8: &str =
+    include_str!("../verification_and_validation/icsbep/leu-comp-therm-008/case-8/geometry.xml");
+
+/// The committed case, selected by `--case`.
+///
+/// Every case of LEU-COMP-THERM-008 is **independently critical**, and they
+/// differ in how the poison is supplied: case 1 carries 1511 ppm of *soluble*
+/// boron and no poison rods; case 8 carries 794 ppm and 144 *lumped* pyrex
+/// burnable-poison rods. Same lattice, same pitch, same fuel. That makes the
+/// pair a **differential measurement needing no new reference**: an error in
+/// thermal absorption tracks the soluble-boron worth and its distribution, while
+/// an error in epithermal resonance escape does not, because `p` is set by the
+/// lattice and the lattice is unchanged.
+static ACTIVE_CASE: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+
+fn materials_xml() -> &'static str {
+    match ACTIVE_CASE.get().copied().unwrap_or(1) {
+        2 => MATERIALS_XML_CASE2,
+        8 => MATERIALS_XML_CASE8,
+        _ => MATERIALS_XML_CASE1,
+    }
+}
+fn geometry_xml() -> &'static str {
+    match ACTIVE_CASE.get().copied().unwrap_or(1) {
+        2 => GEOMETRY_XML_CASE2,
+        8 => GEOMETRY_XML_CASE8,
+        _ => GEOMETRY_XML_CASE1,
+    }
+}
+
+/// Pin universes, transcribed **by hand** off the committed `geometry.xml` — two
+/// or three cells each, which is inside the size a reviewer can check by eye
+/// (GitHub #184's rule). Each entry is `(universe id, [(outer radius, material
+/// id)], material id outside them all)`.
+const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
+    // all-water pin cell
+    (1, &[], 1),
+    // fuel rod: UO2 to 0.514858, Al-6061 clad to 0.602996, water outside
+    (2, &[(0.514_858, 2), (0.602_996, 3)], 1),
+    // pyrex burnable-poison rod (case 8): glass to 0.585, water outside
+    (3, &[(0.585_000, 4)], 1),
+];
 
 /// Nuclides this environment has an ENDF/B-VIII.0 tape for, by the OpenMC name
 /// the model uses. Anything in the model and not in this table is omitted, and
@@ -174,30 +254,41 @@ const TAPES: &[(&str, &str)] = &[
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let clad_bound = args.iter().any(|a| a == "--clad-omission-bound");
+    let six_factors = args.iter().any(|a| a == "--six-factors");
     let n_particles = arg_usize(&args, "--particles").unwrap_or(4000);
     let n_inactive = arg_usize(&args, "--inactive").unwrap_or(120);
     let n_active = arg_usize(&args, "--active").unwrap_or(250);
 
-    eprintln!("LEU-COMP-THERM-008 — B&W critical lattice, 2.459 w/o UO₂ in 1511 ppm borated water");
+    eprintln!("LEU-COMP-THERM-008 — B&W critical lattices, Core XI, 2.459 w/o UO₂");
     eprintln!("  specification: mit-crpg/benchmarks OpenMC model, parsed from XML at run time\n");
 
-    let spec = parse_materials(MATERIALS_XML);
+    let case: u32 = arg_usize(&args, "--case").unwrap_or(1) as u32;
+    assert!(
+        matches!(case, 1 | 2 | 8),
+        "only cases 1, 2 and 8 are committed"
+    );
+    let _ = ACTIVE_CASE.set(case);
+    eprintln!("  case {case}");
+
+    let spec = parse_materials(materials_xml());
     let (nuclides, slots, omitted) = load_nuclides(&spec);
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
     report_omissions(&spec, &omitted);
-    // `check_geometry`'s hand-written predicate names the material slots by
-    // position, so the model's own order is pinned here rather than assumed.
+    // `check_geometry`'s hand-written predicate resolves materials by the model's
+    // own ids through `PIN_SHELLS`, but it does assume the file lists them in id
+    // order starting at water = 1, so that is pinned rather than assumed.
+    let ids: Vec<i32> = materials.iter().map(|m| m.id).collect();
     assert_eq!(
-        materials.iter().map(|m| m.id).collect::<Vec<_>>(),
-        vec![1, 2, 3],
-        "the model's materials are no longer water/fuel/clad as ids 1/2/3"
+        ids,
+        (1..=ids.len() as i32).collect::<Vec<_>>(),
+        "the model's materials are no longer listed as ids 1..n in order"
     );
     assert_eq!(clad_idx, 2, "material 3 is the Al-6061 clad");
 
     report_self_shielding(&materials[1], &nuclides);
 
     let geom = build_geometry(&materials, true);
-    check_geometry(&geom, &materials);
+    let volume_fraction = check_geometry(&geom, &materials);
 
     let settings = KeffSettings {
         n_particles,
@@ -247,6 +338,21 @@ fn main() {
         result.k_std * 1.0e5
     );
 
+    if six_factors {
+        let src2 = SourceBox {
+            lower: Position::new(-R_CORE, -R_CORE, Z_LO),
+            upper: Position::new(R_CORE, R_CORE, Z_HI),
+        };
+        report_six_factors(
+            &geom,
+            &materials,
+            &nuclides,
+            &volume_fraction,
+            &settings,
+            src2,
+        );
+    }
+
     if clad_bound {
         eprintln!("\n  bounding the clad omission: omitted density re-added as Mn-55 …");
         let (bounded, _) = build_materials(&spec, &slots, &omitted, true);
@@ -278,7 +384,8 @@ fn main() {
          +3200 pcm predicted by carrying that pebble's 11 % resonance-integral\n  \
          deficit onto p ≈ 0.75. The residual is this code's self-shielded U-238\n  \
          resonance absorption, reproduced on a measured critical experiment; it\n  \
-         is not the pebble's reference deck."
+         is not the pebble's reference deck. NOTE: the resonance attribution is\n  \
+         REFUTED by --case 2 and --case 8; see the module docs."
     );
 }
 
@@ -624,7 +731,7 @@ struct Model {
 static MODEL: std::sync::OnceLock<Model> = std::sync::OnceLock::new();
 
 fn build_geometry(materials: &[Material], reverse_rows: bool) -> Geometry {
-    let xml = strip_comments(GEOMETRY_XML);
+    let xml = strip_comments(geometry_xml());
 
     // --- surfaces -------------------------------------------------------
     let mut surf_index: BTreeMap<i32, usize> = BTreeMap::new();
@@ -914,7 +1021,7 @@ fn parse_region(text: &str, surf_index: &BTreeMap<i32, usize>, cell_id: i32) -> 
 ///    cards — and the resulting material must equal the one
 ///    `Geometry::locate` descends to, including `None` outside the vacuum
 ///    boundary.
-fn check_geometry(geom: &Geometry, materials: &[Material]) {
+fn check_geometry(geom: &Geometry, materials: &[Material]) -> Vec<f64> {
     let model = MODEL.get().expect("model");
     let core = model.lattices.get(&99).expect("core lattice 99");
 
@@ -954,11 +1061,16 @@ fn check_geometry(geom: &Geometry, materials: &[Material]) {
     }
 
     // --- 1. point agreement ----------------------------------------------
-    // Material slots, asserted rather than assumed: the model lists water,
-    // fuel and clad as ids 1, 2, 3 and `build_materials` keeps that order.
-    const WATER: usize = 0;
-    const FUEL: usize = 1;
-    const CLAD: usize = 2;
+    // Materials are listed as ids 1..n in order (asserted in `main`), so a
+    // model id maps to a slot by subtracting one. `PIN_SHELLS` is the hand-read
+    // transcription of each pin universe.
+    let slot = |material_id: i32| -> usize { (material_id - 1) as usize };
+    let shells = |uid: i32| -> &'static (i32, &'static [(f64, i32)], i32) {
+        PIN_SHELLS
+            .iter()
+            .find(|(u, _, _)| *u == uid)
+            .unwrap_or_else(|| panic!("pin universe {uid} is not in PIN_SHELLS"))
+    };
     let expect = |p: Position| -> Option<usize> {
         if p.z <= Z_LO || p.z >= Z_HI || p.x * p.x + p.y * p.y >= R_CORE * R_CORE {
             return None;
@@ -976,7 +1088,7 @@ fn check_geometry(geom: &Geometry, materials: &[Material]) {
         // a lattice) or the all-water tile (filled by pin universe 1).
         let lid = match (model.wrapper.get(&uid), model.uni_fill.get(&uid)) {
             (Some(&l), _) => l,
-            (None, Some(&1)) => return Some(WATER),
+            (None, Some(&1)) => return Some(slot(1)), // the all-water tile
             _ => panic!("core tile {cx},{cy} is universe {uid}, which fills nothing known"),
         };
         let asm = &model.lattices[&lid];
@@ -991,22 +1103,18 @@ fn check_geometry(geom: &Geometry, materials: &[Material]) {
         );
         let (ax, ay) = (ax as usize, ay as usize);
         let pin_uid = model.uni_ids[asm.universes[asm.n[0] * ay + ax]];
-        if pin_uid == 1 {
-            return Some(WATER); // a water pin cell
-        }
-        assert_eq!(pin_uid, 2, "unexpected pin universe {pin_uid}");
+        let (_, rings, outside_mat) = shells(pin_uid);
         // pin universe 2: fuel / clad / water by radius about the pin centre
         let px = asm.lower_left.x + (ax as f64 + 0.5) * asm.pitch[0];
         let py = asm.lower_left.y + (ay as f64 + 0.5) * asm.pitch[1];
         let (dx, dy) = (lx - px, ly - py);
         let r = (dx * dx + dy * dy).sqrt();
-        Some(if r < R_FUEL {
-            FUEL
-        } else if r < R_CLAD {
-            CLAD
-        } else {
-            WATER
-        })
+        for &(r_out, mat_id) in rings.iter() {
+            if r < r_out {
+                return Some(slot(mat_id));
+            }
+        }
+        Some(slot(*outside_mat))
     };
 
     let mut seed = 20_260_911_u64;
@@ -1018,7 +1126,7 @@ fn check_geometry(geom: &Geometry, materials: &[Material]) {
     };
     const N: usize = 200_000;
     let (mut inside, mut outside) = (0usize, 0usize);
-    let mut tally = [0usize; 3];
+    let mut tally = vec![0usize; materials.len()];
     for _ in 0..N {
         let p = Position::new(
             (2.0 * prn() - 1.0) * R_CORE * 1.05,
@@ -1041,17 +1149,130 @@ fn check_geometry(geom: &Geometry, materials: &[Material]) {
             None => outside += 1,
         }
     }
+    let shares: Vec<f64> = tally.iter().map(|&t| t as f64 / inside as f64).collect();
     eprintln!(
-        "  geometry check: {N} points, {inside} inside / {outside} outside; \
-         volume shares water {:.1} % / fuel {:.1} % / clad {:.1} %",
-        100.0 * tally[0] as f64 / inside as f64,
-        100.0 * tally[1] as f64 / inside as f64,
-        100.0 * tally[2] as f64 / inside as f64,
+        "  geometry check: {N} points, {inside} inside / {outside} outside; volume shares {}",
+        materials
+            .iter()
+            .zip(&shares)
+            .map(|(m, v)| format!("{} {:.1} %", m.name, 100.0 * v))
+            .collect::<Vec<_>>()
+            .join(" / ")
     );
     assert!(
         inside > N / 10 && outside > N / 100 && tally.iter().all(|&t| t > 0),
         "degenerate sampling"
     );
+    shares
+}
+
+/// Where the 3 % actually sits, measured rather than inferred.
+///
+/// The LEU-COMP-THERM-008 residual has so far been *attributed* to U-238
+/// resonance escape by an argument from benchmark coverage — this case is the
+/// only one that is thermal AND U-238-dominated AND lumped — never by measuring
+/// this case's own decomposition. This measures it.
+///
+/// The trick that makes it self-contained: **`k` must be 1.0000**, so whichever
+/// factor is wrong is wrong by the 3 % the eigenvalue is out. `η` and `f` are
+/// then checked against a one-group calculation built from *this run's own*
+/// reconstructed cross sections at 0.0253 eV and the point-sampled volume
+/// fractions — quantities that barely depend on transport at all — which leaves
+/// `p·ε` as the residue by elimination rather than by assumption.
+///
+/// The one-group `f` is a **flat-flux** estimate and so an upper bound: it
+/// ignores the thermal disadvantage factor, which depresses the flux in the
+/// strongly absorbing fuel. `f_measured / f_flat` is therefore the disadvantage
+/// factor this code produces, and for a pin lattice of this pitch it should sit
+/// a few percent below 1.
+fn report_six_factors(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    volume_fraction: &[f64],
+    settings: &KeffSettings,
+    src: SourceBox,
+) {
+    let cfg = ReactorPhysicsConfig {
+        keff: settings.clone(),
+        source_box: src,
+        thermal_cutoff_ev: 0.625,
+        ..Default::default()
+    };
+    let t = Instant::now();
+    let rep = match run_keff_reactor_physics(geom, materials, nuclides, &cfg) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("  six-factor run failed: {e:?}");
+            return;
+        }
+    };
+    eprintln!("  six-factor transport: {:.1} s", t.elapsed().as_secs_f64());
+
+    let sf = &rep.six_factors;
+    let (eta2, f2, p2, eps2) = sf.two_group_openmc_convention();
+    println!("\n=== LEU-COMP-THERM-008 six factors ===");
+    println!("  k_eff = {:.5} ± {:.5}", rep.keff.k_mean, rep.keff.k_std);
+    println!(
+        "  3-group: eta {:.4}  f {:.4}  p {:.4}  eps {:.4}  P_FNL {:.4}  P_TNL {:.4}",
+        sf.eta.mean, sf.f.mean, sf.p.mean, sf.epsilon.mean, sf.p_fnl.mean, sf.p_tnl.mean
+    );
+    println!("  2-group: eta {eta2:.4}  f {f2:.4}  p {p2:.4}  eps {eps2:.4}");
+    println!(
+        "  product (k_4f) {:.5}, consistency gap {:+.2} %, leakage {:.4}",
+        sf.k_from_factors.mean,
+        100.0 * rep.consistency_gap,
+        rep.leakage_total.mean
+    );
+
+    // One-group η and f from this run's own cross sections, flat flux.
+    const E_TH: f64 = 0.0253;
+    let vol = volume_fraction;
+    let mut sigma_a = vec![0.0_f64; materials.len()];
+    let mut nu_sigma_f = vec![0.0_f64; materials.len()];
+    for (i, m) in materials.iter().enumerate() {
+        let x = m.macro_xs(E_TH, nuclides);
+        sigma_a[i] = x.absorption;
+        nu_sigma_f[i] = x.nu_fission;
+    }
+    // materials are ordered water(0), fuel(1), clad(2) — asserted in main.
+    let denom: f64 = (0..materials.len()).map(|i| vol[i] * sigma_a[i]).sum();
+    let eta_flat = nu_sigma_f[1] / sigma_a[1];
+    let f_flat = vol[1] * sigma_a[1] / denom;
+    println!(
+        "\n  one-group check at 0.0253 eV, from this run's own sigma and the \n           point-sampled volume fractions (water {:.3} / fuel {:.3} / clad {:.3}):",
+        vol[0], vol[1], vol[2]
+    );
+    println!(
+        "    Sigma_a  water {:.5}  fuel {:.5}  clad {:.5} cm^-1;  nu*Sigma_f fuel {:.5}",
+        sigma_a[0], sigma_a[1], sigma_a[2], nu_sigma_f[1]
+    );
+    println!(
+        "    eta_flat {eta_flat:.4} vs measured {:.4}  ({:+.2} %)",
+        sf.eta.mean,
+        100.0 * (sf.eta.mean / eta_flat - 1.0)
+    );
+    println!(
+        "    f_flat   {f_flat:.4} vs measured {:.4}  (disadvantage factor {:.4})",
+        sf.f.mean,
+        sf.f.mean / f_flat
+    );
+
+    // What p would have to be for this configuration to be critical, given the
+    // OTHER factors as measured. k must be 1.0000.
+    let others = sf.eta.mean * sf.f.mean * sf.epsilon.mean * sf.p_fnl.mean * sf.p_tnl.mean;
+    if others > 0.0 {
+        let p_required = 1.0 / others;
+        println!(
+            "\n    p measured {:.4}; p required for k = 1.0000 with the other five \n                 factors as measured: {p_required:.4}  ({:+.2} %)",
+            sf.p.mean,
+            100.0 * (sf.p.mean / p_required - 1.0)
+        );
+        println!(
+            "    (the six factors carry a {:+.2} % consistency gap against k itself, so \n                  read this as a localisation, not a balance to the last digit)",
+            100.0 * rep.consistency_gap
+        );
+    }
 }
 
 /// Pin radii [cm] — surfaces 1 and 2 in the model.

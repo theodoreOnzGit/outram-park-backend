@@ -160,6 +160,15 @@ required-features = ["endf-pebble-cases"]
 name = "lct008_keff"
 required-features = ["endf-pebble-cases"]
 
+[[example]]
+name = "b10_thermal_probe"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our H-in-H2O S(a,b) vs NJOY2016's THERMR (gh:#178, bead op-qho6).
+[[example]]
+name = "h2o_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
 # Exploratory driver for the infinite-medium slowing-down oracle (gh:#178).
 [[example]]
 name = "slowing_down_oracle"
