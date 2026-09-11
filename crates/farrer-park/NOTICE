@@ -1,0 +1,72 @@
+FARRER PARK — upstream provenance and licensing
+===============================================
+
+Finite-element Analysis for Reactor Reliability, Engineering Response,
+Plasticity And Risk. Part of the OUTRAM PARK suite.
+
+This crate is an INDEPENDENT pure-Rust fork/translation. It is NOT affiliated
+with, endorsed by, or supported by Idaho National Laboratory, Battelle Energy
+Alliance, the MOOSE project, the PRISMS Center, or the University of Michigan.
+
+
+Upstream projects
+-----------------
+
+  MOOSE                https://github.com/idaholab/moose
+                       Multiphysics Object-Oriented Simulation Environment.
+                       Idaho National Laboratory / Battelle Energy Alliance.
+                       Licence: LGPL-2.1 (repository LICENSE file).
+
+  PRISMS-Plasticity    https://github.com/prisms-center/plasticity
+                       Crystal-plasticity finite-element code, PRISMS Center,
+                       University of Michigan.
+                       Licence: LGPL-2.1 (repository LICENSE file).
+
+  PRISMS-Fatigue       https://github.com/prisms-center/Fatigue
+                       Microstructure-sensitive fatigue framework, PRISMS
+                       Center, University of Michigan.
+                       Licence: LGPL-2.1 (repository LICENSE file).
+
+Each project's COPYRIGHT/licence notice also carries U.S. Government rights
+language arising from DOE and NSF contracts; those notices are reproduced in
+the upstream repositories and are not restated here.
+
+
+Licence compatibility — verified 2026-09-11
+-------------------------------------------
+
+All three upstreams are LGPL-2.1. Section 3 of the LGPL-2.1 permits a licensee
+to "opt to apply the terms of the ordinary GNU General Public License instead
+of this License" to a given copy, choosing GPL version 2 "or any later
+version". Farrer Park exercises that option and is distributed as GPL-3.0-only,
+consistent with the rest of this workspace.
+
+THE FLOW IS ONE-WAY. Code may be taken from these LGPL-2.1 upstreams into this
+GPL-3.0-only crate; code from this crate CANNOT be contributed back to MOOSE or
+the PRISMS codes under their LGPL-2.1 terms. This mirrors the situation
+recorded for `raffles` (Apache-2.0 RAVEN into GPL-3.0) and for
+`outram-park-fork-pflotran` (LGPL-2.1 PFLOTRAN into GPL-3.0).
+
+Each licence was read from the upstream repository's own LICENSE file on
+2026-09-11, not inferred from a badge, a package index, or prior belief.
+
+
+Per-file attribution
+--------------------
+
+Any file that ports logic from one of the upstreams above MUST carry an
+attribution header block naming the upstream project, the source file, the
+version or commit it was read at, the copyright holder and the licence. Do not
+strip those headers during refactors. A module that reimplements a documented
+method from the open literature rather than from upstream source should say so
+and cite the reference instead.
+
+
+Status
+------
+
+AI-assisted draft. Verification against analytical and manufactured solutions
+only. NO human V&V sign-off, and no reproduction of the PRISMS-Fatigue
+published case studies yet. Not for reactor pressure vessel or piping life
+assessment, licensing, or any safety-related decision — see RESPONSIBLE_USE.md
+at the workspace root.

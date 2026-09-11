@@ -26,6 +26,11 @@ members = [
     # reactive transport). SCAFFOLD: units/error/flow-mode shape only; RICHARDS
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
     "crates/outram-park-fork-pflotran",
+    # farrer-park — FEM structural mechanics (elasticity + J2 plasticity) ported
+    # from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1), on the shared
+    # outram-foam-basic-lib numerical backend. Genuine FEM, NOT reformulated as
+    # finite volume (GitHub issue #175, epic op-vrtt).
+    "crates/farrer-park",
     "crates/tampines",
     # outram-park-mpi — pure-Rust translation of an MPICH subset (MPI-3 API:
     # communicators, datatypes, point-to-point, core collectives) over a
