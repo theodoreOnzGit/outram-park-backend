@@ -18939,6 +18939,66 @@ pub mod fhr_pebble { /* ... */ }
 
 ### Types
 
+#### Struct `ExplicitTrisoPebble`
+
+The explicit-TRISO pebble's point-membership lookup for delta (Woodcock)
+tracking: randomly-packed, five-layer TRISO particles in a graphite matrix,
+itself wrapped in a graphite shell and a coolant exterior.
+
+This is the explicit counterpart of [`fhr_pebble_geometry`], which builds the
+*ring-RPT* pebble as concentric CSG shells. The explicit pebble cannot be
+expressed that way — the fuel zone holds tens of thousands of randomly placed
+particles — so delta tracking asks "what material is at this point?" instead,
+and this type answers it.
+
+```rust
+pub struct ExplicitTrisoPebble { /* private fields */ }
+```
+
+##### Implementations
+
+```rust
+impl ExplicitTrisoPebble {
+    pub fn new(
+        packed: PackedSpheres,
+        spec: TrisoSpec,
+        mats: TrisoMaterials,
+        shell_mat: usize,
+        coolant_mat: usize,
+        r_fuel_zone: f64,
+        r_pebble: f64,
+    ) -> Self;
+
+    pub fn material_at(&self, p: Position) -> Option<usize>;
+}
+```
+
+**`new`** — assemble a pebble from an already-packed TRISO fuel zone. `packed`
+should be a packing of `spec.opyc`-radius spheres (whole TRISO particles)
+confined to `r_fuel_zone`; build it with
+`crate::pebble_beds::crp_packing::pack_spheres_crp` followed by
+[`PackedSpheres::from_spheres`]. `mats` names every material by its layer —
+`kernel`, `buffer`, `ipyc`, `sic`, `opyc`, `matrix` — reusing
+[`TrisoMaterials`] so the five coatings cannot be transposed positionally.
+Panics if `r_fuel_zone >= r_pebble`.
+
+**`material_at`** — the material index at `p`, or `None` outside the domain.
+Inside `r_fuel_zone`: the containing packed particle's coating layer resolved by
+radius, or `mats.matrix` where no particle contains the point. Between
+`r_fuel_zone` and `r_pebble`: `shell_mat`. Beyond: `coolant_mat`.
+
+Pass it straight to a delta-tracked eigenvalue run:
+
+```rust
+let pebble = ExplicitTrisoPebble::new(packed, spec, mats, shell, coolant, 1.9, 2.0);
+let k = run_keff_delta_in(
+    DeltaDomain::Sphere { radius: 3.0 },
+    &materials, &nuclides, &majorant,
+    |p| pebble.material_at(p),
+    &settings,
+);
+```
+
 #### Struct `TrisoSpec`
 
 The five cumulative outer radii \[cm\] of a TRISO particle (kernel first,
