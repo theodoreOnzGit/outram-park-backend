@@ -12,8 +12,16 @@ unstructured meshes. Ported from MOOSE, PRISMS-Plasticity and PRISMS-Fatigue
 ## The one rule that defines this crate
 
 **Farrer Park is a genuine finite-element code and must stay one.** It depends
-on `outram-foam-basic-lib` for *shared numerical infrastructure only* — Krylov
-solvers, preconditioners, multigrid — and never for its spatial discretisation.
+on `outram-foam-basic-lib` for *shared numerical infrastructure only* — the
+Krylov solvers and preconditioners reached through
+`outram_foam_basic_lib::linear_operator` — and never for its spatial
+discretisation.
+
+Algebraic multigrid (`gamg`) is **not** on that contract and is not shared:
+coarsening needs the face addressing of an `LduMatrix`, not just a
+matrix-vector product. This crate preconditions with ILU(0) on its own CSR
+pattern instead. Generalising GAMG would mean adding a coarsening contract,
+which is a design decision, not a mechanical port.
 
 Do not "simplify" by reusing the finite-volume discretisation:
 
@@ -37,9 +45,19 @@ happens to be shared is the specific failure mode issue #175 exists to prevent.
 - Topology is referenced by index newtypes (`NodeId`, `ElemId`, `DofId`), not
   by borrowed references — this is how the no-lifetime-parameters rule is
   satisfied here.
-- The public API is `uom`-typed; assembly and the linear solve run on bare
-  `f64` in **SI base units** for speed. Convert at the boundary, and state
-  units in words in every doc comment even where `uom` enforces them.
+- **State units in words in every public doc comment, without exception.**
+  Assembly, constitutive integration and the linear solve run on bare `f64` in
+  **SI base units**, because a Krylov vector and a fourth-order tangent share
+  no single `uom` type. `uom` typing is offered where a user actually types a
+  physical number — the material constructors
+  (`LinearElastic::from_quantities`, `J2LinearHardening::from_quantities`) and
+  the named aliases `YoungsModulus`, `ShearModulus`, `BulkModulus`,
+  `YieldStress`, `HardeningModulus`, `PoissonRatio`. Mesh coordinates,
+  displacements and nodal forces are deliberately **not** `uom`-typed: they
+  live in flat `Vec<f64>` buffers indexed by degree of freedom and handed
+  straight to the solver, and wrapping each entry would cost that layout and
+  buy nothing a doc comment does not give. If that line moves, move it
+  explicitly here rather than by drift.
 - Any file porting upstream logic carries the attribution header block
   (project, source file, version/commit, copyright, licence). Do not strip it
   in refactors. A module implementing a documented method from the literature
