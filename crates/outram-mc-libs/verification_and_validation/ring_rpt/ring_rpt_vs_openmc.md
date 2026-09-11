@@ -125,19 +125,50 @@ inactive). Reference k-eff / six factors: `openmc_inputs/` + GitHub #156.
 
 ### `outram-mc-libs` — ENDF/B-VIII.0, `c_Graphite` S(α,β) (free-gas fuel + SiC C)
 
-| run | k-eff | Δ(vs explicit) |
-|---|---|---|
-| explicit TRISO (delta, cube) | 1.33445 ± 0.00215 | — |
-| ring-RPT (delta, **same cube**) | 1.33094 ± 0.00204 | **−351 pcm (1.2σ)** |
-| naive homogenised (delta, same cube) | 1.35044 ± 0.00205 | **+1599 pcm (5.4σ)** |
-| ring-RPT (**CSG reflective sphere**) | 1.39333 ± 0.00219 | — |
+Run 2026-09-11 at `a7280ecb`, 4000 histories × [30 inactive + 80 active], 600 K.
+Every pebble is run in **both** domains; the sphere is OpenMC's boundary and
+carries all reported comparisons.
 
-**Ring-RPT CSG six factors:** η 2.0158, f 0.9140, p 0.5279, ε 1.4109,
-P_FNL 1.0000, P_TNL 0.9999; product (k_4f) 1.37209, consistency gap +1.52 % (in
-band). Leakage 1.1e-4 (reflective — was ~0.87 before the GH #168 fix).
+**Reflective sphere r = 3 — comparable to OpenMC in absolute terms:**
+
+| run | k-eff | Δ(vs explicit) | vs OpenMC |
+|---|---|---|---|
+| explicit TRISO | 1.38191 ± 0.00193 | — | **+1681 pcm** |
+| ring-RPT | 1.38354 ± 0.00204 | **+163 ± 281 pcm (0.58σ)** | **+1875 pcm** |
+| naive homogenised | 1.35656 ± 0.00243 | **−2535 pcm (8.2σ)** | — |
+| ring-RPT (CSG, surface-tracked) | 1.38279 ± 0.00270 | — | +1800 pcm |
+
+**Reflective cube half-width 3 — NOT comparable to OpenMC; kept to price the
+corner-FLiBe over-count:**
+
+| run | k-eff | Δ(vs explicit) | cube − sphere |
+|---|---|---|---|
+| explicit TRISO | 1.31813 ± 0.00210 | — | −6378 pcm |
+| ring-RPT | 1.30734 ± 0.00215 | −1079 ± 301 pcm (3.6σ) | −7620 pcm |
+| naive homogenised | 1.30625 ± 0.00245 | −1188 pcm | −5031 pcm |
+
+**Ring-RPT CSG six factors:** η 2.0155, f 0.9140, p 0.5266, ε 1.4131,
+P_FNL 1.0000, P_TNL 0.9998; product (k_4f) 1.37051, consistency gap +0.89 % (in
+band). Leakage 1.3e-4.
 
 vs OpenMC ring-RPT: η **2.0073** (+0.4 %), f **0.9216** (−0.8 %),
 p **0.4842** (**+9 %**), ε **1.5043** (**−6 %**).
+
+**Two independent transport methods agree on the same geometry.** The
+delta-tracked sphere gives 1.38354 ± 0.00204 and the surface-tracked CSG driver
+gives 1.38279 ± 0.00270 — **75 pcm apart, 0.22σ**. Together with the uniform-
+medium cube-vs-sphere check (0.14σ), the new `DeltaDomain::Sphere` arm is pinned
+twice: once against the pre-existing cube arm on a problem with an analytic
+answer, and once against a different tracking algorithm on the real pebble.
+
+**The sign convention, because it is easy to get backwards.** Self-shielding
+*reduces* absorption. The lumped (explicit) configuration has *more* of it, so
+it captures less in the U-238 resonances and sits **higher**; homogenising must
+come out **lower**. Hence `naive − explicit < 0`. Wang et al. (2014)'s +2820 pcm
+`InfHomMedium` figure is **not** this quantity and runs the other way — it is a
+multigroup cross-section *processing* bias against a continuous-energy
+reference, as `examples/htr10_fuel_zone_kinf.rs` warns at length. Do not use it
+to sanity-check the sign or magnitude here.
 
 ### Interpretation
 
@@ -172,7 +203,39 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    not the method. **The deck author's 1.493359375 cm transfers to this code
    without adjustment.** There was never a radius discrepancy to explain.
 
-2. **The account closes to the pcm, which is why this is an explanation and not
+2. **What ring-RPT is worth, quantitatively.** On the matched sphere the
+   double-heterogeneity error is **−2535 pcm** (naive − explicit), and ring-RPT
+   reduces the residual to **+163 pcm** — it removes **94 %** of that error, and
+   what remains is inside Monte Carlo noise. That is the case for the method,
+   measured on the reference's own geometry.
+
+3. **The naive-homogenised medium was mis-specified until 2026-09-11, and the
+   sphere is what exposed it.** `homogenise_by_volume` over the five TRISO
+   layers is right for the ring-RPT *shell* — `rpt_fuel_outer_radius` sizes that
+   shell to the total particle volume, so inventory is conserved — but the naive
+   case filled the **entire** r < 1.9 cm zone with it, while the particles
+   occupy only `pf = 0.30` of that zone. The naive pebble therefore carried
+   **1/pf = 3.33× the heavy metal** of the explicit pebble and **none of the
+   graphite matrix** that fills the other 70 % by volume and moderates it from
+   the inside. It was not a homogenisation of the explicit pebble; it was a
+   different reactor.
+
+   The cube hid this. An over-fuelled ball with no internal moderator depends
+   entirely on *external* moderation, so the cube's corner FLiBe propped it up
+   (1.34137) while the sphere's removal collapsed it (1.25736) — a −8401 pcm
+   response, opposite in sign to the two internally-moderated pebbles, which see
+   the same change as a removal of absorber and rise. `mi::NAIVE_HOMOG` now
+   mixes the TRISO material with matrix graphite at the packing fraction,
+   conserving both. Post-fix the naive row responds **+5031 pcm**, in the same
+   direction as the others.
+
+   Two process notes, since the value sat in this document for a week. Its old
+   cube figure was **wrong-signed** (+2324 pcm where the physics demands
+   negative) and that, not its magnitude, was the available red flag. It was
+   not caught partly because +2324 was read as corroborated by Wang's +2820 —
+   the comparison `htr10_fuel_zone_kinf.rs` explicitly warns against making.
+
+4. **The account closes to the pcm, which is why this is an explanation and not
    a coincidence.** The cube's corner FLiBe is not a common-mode offset: it is
    worth **+6378 pcm** to the explicit pebble but **+7620 pcm** to the ring-RPT
    pebble, a **+1242 pcm differential** — and `−1079 − (+163) = −1242`, exactly
@@ -192,7 +255,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    *where the fuel sits* do not. Here it survived the differencing and was read
    as physics.
 
-3. **The absolute offset is one bias in the data, shared by both pebbles.**
+5. **The absolute offset is one bias in the data, shared by both pebbles.**
    Within this single run, both on the sphere:
 
    | | k | vs OpenMC |
@@ -205,7 +268,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    of the pebble model — so the RPT geometry and its fitted radius are ruled out
    as causes, and `op-mzvp.2.12` (U-238 epithermal/fast σ) owns what is left.
 
-4. **This offset is roughly half what it was, and the change is not yet
+6. **This offset is roughly half what it was, and the change is not yet
    explained.** The explicit-cube case moved **−1632 pcm (≈5.4σ)** between
    commits `23cd2549` and `0cd9a22c` — same problem, same settings, same seed —
    while U-238 reconstruction wall time fell from **91.7 s to 26.8 s** across 33
@@ -219,11 +282,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    recorded before 2026-09-11 belongs to the old data and should not be compared
    against a new one.
 
-5. **The consistency check passes** (+1.52 % gap, in the `(−1 %, +5 %)` band) —
+7. **The consistency check passes** (+0.89 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-6. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+8. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -252,12 +315,21 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    reflective sphere without giving up the packing. One approximation remains —
    the five coating layers are resolved by nearest-centre + radius rather than
    exact CSG.
-3. **Residual absolute-k bias (~2.9 %), concentrated in p and ε** — cross-check
-   reconstructed U-238 σ_γ(E) against the NNDC HDF5 the OpenMC deck used: at the
-   6.7 eV / 20.9 eV resolved resonances (expect agreement) and across the
-   20–150 keV URR band (expect ours low and structureless if URR self-shielding
-   is absent). If confirmed, the fix is wiring UNRESR/PURR into the
-   `Nuclide::from_endf_file` reconstruction path (`njoy-outram-park-fork`).
+3. **Residual absolute-k bias (~+1700–1900 pcm), concentrated in p and ε** —
+   now known to be *shared by both pebbles* (Interpretation 5), so it is a
+   property of the cross sections and the pebble model is not implicated. Two
+   threads, and they may be one:
+   - cross-check reconstructed U-238 σ_γ(E) against the NNDC HDF5 the OpenMC
+     deck used: at the 6.7 eV / 20.9 eV resolved resonances (expect agreement)
+     and across the 20–150 keV URR band. **Note the original hypothesis here —
+     missing URR self-shielding — was refuted**: U-238 carries `LSSF=1` in
+     ENDF/B-VIII.0, so MF=3 already holds the infinitely-dilute unresolved
+     values and the missing self-shielding has the *wrong sign* to explain a
+     positive bias (`op-mzvp.2.12`).
+   - settle the −1632 pcm baseline drift (Interpretation 6) with
+     `examples/u238_recon_fingerprint.rs`, which compares the reconstruction
+     between two checkouts without running transport. If the njoy work moved
+     the cross sections, that is the same question as the bias itself.
 
 ## Bookkeeping status
 
