@@ -77,26 +77,53 @@
 //!
 //! # Results (measured 2026-08-14, this environment, release mode)
 //!
-//! **`graphite_thermal_scattering_changes_pebble_bed_keff` — PASSES.**
+//! **`bound_graphite_and_free_gas_agree_once_target_motion_is_sampled`
+//! — REPLACES `graphite_thermal_scattering_changes_pebble_bed_keff`
+//! (2026-09-11).** The old test asserted the two treatments separate by
+//! **≥ 5 sigma**, and recorded this:
 //!
 //! | Matrix treatment | k | sigma |
 //! |---|---|---|
-//! | Free-gas C-nat | 1.08838 | 0.01851 |
+//! | "Free-gas" C-nat (2026-08-14) | 1.08838 | 0.01851 |
 //! | Bound graphite S(alpha, beta) | 1.95254 | 0.01407 |
 //!
-//! Separation **37 sigma** (delta-k = 0.86416, combined sigma 0.02325); 300
-//! particles, 8 inactive + 15 active generations, ~107 s. A confirming run at
-//! 800 particles / 10 + 25 generations gave 1.07579 +/- 0.00833 vs
-//! 1.94166 +/- 0.00626 — **83 sigma**, same physics, ~410 s.
+//! Separation 37 sigma, delta-k 0.86416 — and its interpretation named the
+//! cause exactly: *"the free-gas kernel — stationary-target, no up-scatter —
+//! lets neutrons slide below thermal equilibrium into parasitic 1/v capture."*
 //!
-//! *Interpretation.* The direction and size are physically sensible and are
-//! the reason S(alpha, beta) is mandatory for graphite-moderated systems: the
-//! bound law holds a Maxwellian near 0.025 eV where U-235 fission dominates,
-//! whereas the free-gas kernel — stationary-target, no up-scatter — lets
-//! neutrons slide below thermal equilibrium into parasitic 1/v capture. Note
-//! this is the difference between a **correct** and an **incorrect** treatment
-//! of the same reactor, not a physical design change; it is a measure of how
-//! badly a free-gas graphite matrix misrepresents a thermal pebble bed.
+//! That was not the free-gas treatment. It was a **defect** (bead `op-50vu`):
+//! the crate sampled elastic scattering off a target held **at rest** at every
+//! energy, for every nuclide without an S(alpha, beta) table. A stationary
+//! target can only take energy away, so the neutron population had no
+//! Maxwellian fixed point and cooled without bound — measured at `<E>` of
+//! 1e-27 eV and below after 400 collisions, against the correct `2kT` =
+//! 0.1034 eV (`examples/epithermal_slowing_down.rs`). `k = 1.08838` was that
+//! artefact, not physics, and the 0.86 delta-k was the size of the bug.
+//!
+//! With the free-gas target velocity sampled (OpenMC's `sample_target_velocity`
+//! in the constant-cross-section approximation, gated at `400·kT`), measured
+//! 2026-09-11 at 1200 particles / 10 + 70 generations, ~3 min 48 s:
+//!
+//! | Matrix treatment | k | sigma |
+//! |---|---|---|
+//! | Free gas, target motion sampled | 1.93656 | 0.00316 |
+//! | Bound graphite S(alpha, beta) | 1.94020 | 0.00361 |
+//!
+//! **+364 +/- 479 pcm — 0.76 sigma, consistent with zero.** In *this* model
+//! (HEU kernels at pf 0.30, k ~ 1.94, a hard spectrum with a small thermal
+//! population) the crystalline law and a correct free gas simply do not differ
+//! much: graphite's bound scattering cross section at 0.0253 eV is within a few
+//! percent of the free-atom value, and what the bound law really changes is the
+//! energy- and angle-transfer detail. So a k-difference is **no longer a usable
+//! liveness probe here**, and the test asserts the new fact instead — the two
+//! agree — which catches the old defect's return hard: a regression to
+//! target-at-rest would reappear as a 37-sigma separation. Liveness moved to
+//! `graphite_thermal_law_reaches_the_transport_kernel`, which probes the
+//! collision loop's own branch and has far more signal.
+//!
+//! Note this also retires the "graphite S(alpha, beta) is worth ~1700 pcm"
+//! figure that `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`
+//! cited from here: that number was measured against the same broken arm.
 //!
 //! **`majorant_still_bounds_total_xs_with_bound_graphite` — PASSES.** Worst
 //! `Sigma_t / Sigma_maj` = **0.909091** over 200k log-spaced points from 1e-4
@@ -276,16 +303,23 @@ fn run_keff(nuclides: &[Nuclide]) -> outram_mc_libs::physics::keff::KeffResult {
     run_keff_delta(PACK_HALF, &mats, nuclides, &maj, material_at, &settings)
 }
 
-/// LIVE: the graphite matrix's bound-atom thermal scattering law measurably
-/// changes the doubly-heterogeneous eigenvalue relative to the free-gas
-/// treatment it replaces — proof the wiring from `njoy-outram-park-fork`
-/// through `Nuclide::with_thermal_scattering` into `pebble_beds::keff_delta`
-/// is live, not silently bypassed.
+/// LIVE: with the free-gas target velocity sampled, the bound-atom graphite law
+/// and a correct free gas give the **same** eigenvalue for this model — and a
+/// regression to the old target-at-rest kernel would reappear here as a 37-sigma
+/// separation.
 ///
-/// See the module doc comment for the full methodology. Results are appended
-/// there (not duplicated here) so there is exactly one place they live.
+/// This test used to assert the opposite (a >= 5 sigma difference). See the
+/// module doc: that separation was the size of bead `op-50vu`, not of the
+/// thermal-scattering law. The assertion is inverted rather than deleted because
+/// the inverted form is the stronger regression guard: the defect it now catches
+/// moved k by 0.86, while the quantity the old form watched for is genuinely only
+/// +364 +/- 479 pcm.
+///
+/// Liveness of the S(alpha, beta) wiring is proved by
+/// [`graphite_thermal_law_reaches_the_transport_kernel`], which probes the
+/// collision loop's own branch directly instead of through an eigenvalue.
 #[test]
-fn graphite_thermal_scattering_changes_pebble_bed_keff() {
+fn bound_graphite_and_free_gas_agree_once_target_motion_is_sampled() {
     let free_gas = run_keff(&nuclides(None));
     assert!(
         free_gas.k_mean.is_finite() && free_gas.k_mean > 0.0,
@@ -302,7 +336,7 @@ fn graphite_thermal_scattering_changes_pebble_bed_keff() {
     );
 
     eprintln!(
-        "[op-hc2o graphite S(a,b) wiring] free-gas k = {:.5} +/- {:.5} | bound k = {:.5} +/- {:.5}",
+        "[op-50vu free gas vs bound graphite] free-gas k = {:.5} +/- {:.5} | bound k = {:.5} +/- {:.5}",
         free_gas.k_mean, free_gas.k_std, bound.k_mean, bound.k_std
     );
 
@@ -311,12 +345,99 @@ fn graphite_thermal_scattering_changes_pebble_bed_keff() {
         .max(1e-6);
     let sigma_distance = (free_gas.k_mean - bound.k_mean).abs() / combined;
     assert!(
-        sigma_distance > 5.0,
-        "bound-graphite S(alpha,beta) made no statistically significant difference to k \
-         ({sigma_distance:.2} sigma, free-gas {:.5} vs bound {:.5}, combined sigma {combined:.5}) \
-         -- the thermal-scattering law may not be reaching transport",
+        sigma_distance < 3.0,
+        "free-gas and bound-graphite k separated by {sigma_distance:.2} sigma \
+         (free-gas {:.5} vs bound {:.5}, combined sigma {combined:.5}). Measured at \
+         18x these statistics the two agree to +364 +/- 479 pcm, so a separation \
+         this large means the free-gas kernel has regressed to a target held at \
+         rest -- the op-50vu defect, which put the free-gas arm at k = 1.08838.",
         free_gas.k_mean,
         bound.k_mean
+    );
+}
+
+/// LIVE: the S(alpha, beta) law reaches the **collision loop's own branch**, and
+/// changes what that branch returns.
+///
+/// This is the liveness proof the eigenvalue test used to carry. It calls exactly
+/// what `pebble_beds::keff_delta` calls, in the same order — `sample_thermal`
+/// first, then the free-gas elastic kernel — on the very `Nuclide` values
+/// [`nuclides`] hands to `run_keff`, so nothing about the wiring is assumed.
+///
+/// Two things must hold, and they are independent:
+///
+/// 1. **The branch is taken.** With the law attached, `sample_thermal` returns
+///    `Some` inside the table's range and `None` above its ~4 eV cutoff; without
+///    it, `None` everywhere. A silently bypassed law fails this immediately.
+/// 2. **It changes the answer.** Measured at 0.0253 eV and 293.6 K, the bound
+///    law's mean outgoing energy ratio is `1.0386 +/- 0.0006` against the free
+///    gas's `1.1386 +/- 0.0012` — the free gas sits below its own `2kT` fixed
+///    point at this energy and up-scatters harder than the lattice does. That is
+///    a **72-sigma** gap at 200k samples, where the same physics is worth under
+///    one sigma in k.
+#[test]
+fn graphite_thermal_law_reaches_the_transport_kernel() {
+    use outram_mc_libs::geometry::position::Direction;
+    use outram_mc_libs::physics::scatter::{free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K};
+
+    const E: f64 = 0.0253;
+    const N: usize = 200_000;
+
+    let plain = nuclides(None);
+    let bound = nuclides(Some(regenerated_graphite_thermal_scattering(TEMPERATURE_K)));
+    // Index 3 is the graphite matrix nuclide -- see `nuclides`.
+    let (c_plain, c_bound) = (&plain[3], &bound[3]);
+
+    // 1. The branch.
+    let mut seed = 4_242_u64;
+    assert!(
+        c_plain.sample_thermal(E, &mut seed).is_none(),
+        "a nuclide with no S(a,b) law must never take the bound branch"
+    );
+    assert!(
+        c_bound.sample_thermal(E, &mut seed).is_some(),
+        "the attached S(a,b) law is not reaching sample_thermal -- the wiring is bypassed"
+    );
+    assert!(
+        c_bound.sample_thermal(1.0e3, &mut seed).is_none(),
+        "the bound law must stop at its ~4 eV cutoff, not run over the whole range"
+    );
+
+    // 2. The answer. Both arms go through the collision loop's branch order.
+    let kt = K_BOLTZMANN_EV_PER_K * TEMPERATURE_K;
+    let u = Direction::new(0.0, 0.0, 1.0);
+    let mean_ratio = |nuc: &Nuclide, seed: &mut u64| -> (f64, f64) {
+        let (mut s, mut s2) = (0.0, 0.0);
+        for _ in 0..N {
+            let ep = if let Some((e_out, _mu)) = nuc.sample_thermal(E, seed) {
+                e_out
+            } else {
+                let mu_cm = nuc
+                    .sample_elastic_mu_cm(E, seed)
+                    .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(seed) - 1.0);
+                free_gas_elastic_scatter(E, u, nuc.awr, kt, mu_cm, seed).0
+            };
+            let r = ep / E;
+            s += r;
+            s2 += r * r;
+        }
+        let n = N as f64;
+        let mean = s / n;
+        (mean, ((s2 / n - mean * mean).max(0.0) / n).sqrt())
+    };
+
+    let (m_plain, e_plain) = mean_ratio(c_plain, &mut seed);
+    let (m_bound, e_bound) = mean_ratio(c_bound, &mut seed);
+    eprintln!(
+        "[op-hc2o S(a,b) liveness] <E'/E> at {E} eV: free gas {m_plain:.5} +/- {e_plain:.5} | \
+         bound {m_bound:.5} +/- {e_bound:.5}"
+    );
+    let sep = (m_plain - m_bound).abs() / (e_plain * e_plain + e_bound * e_bound).sqrt();
+    assert!(
+        sep > 5.0,
+        "the bound law changed <E'/E> by only {sep:.1} sigma ({m_bound:.5} vs free gas \
+         {m_plain:.5}) -- it is reaching sample_thermal but not changing the outgoing \
+         energy, so the collision loop is not using what it returns"
     );
 }
 

@@ -60,8 +60,8 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
-    two_body_scatter_with_mu,
+    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter, rotate_direction,
+    two_body_scatter,
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
@@ -817,11 +817,16 @@ pub(crate) fn transport_history(
                     let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
                         (e_out, rotate_direction(u, mu_lab, seed))
                     } else {
-                        match nuc.sample_elastic_mu_cm(e, seed) {
-                            Some(mu_cm) => {
-                                two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed)
-                            }
-                            None => elastic_scatter(e, u, nuc.awr, seed),
+                        {
+                            // Free-gas: below 400 kT the target's own thermal
+                            // motion is sampled, so the neutron can gain energy
+                            // and the population has a Maxwellian fixed point
+                            // (bead op-50vu). Above it, target-at-rest as before.
+                            let kt = K_BOLTZMANN_EV_PER_K * temp;
+                            let mu_cm = nuc
+                                .sample_elastic_mu_cm(e, seed)
+                                .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                            free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
                         }
                     };
                     e = e2;

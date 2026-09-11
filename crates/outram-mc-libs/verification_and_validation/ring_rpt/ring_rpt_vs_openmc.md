@@ -1,14 +1,28 @@
 # Ring-RPT FHR pebble — `outram-mc-libs` vs OpenMC
 
-**Generated:** 2026-09-10 (UTC)
-**Crate commit:** branch `op-mzvp2-pebble-wiring` (off `develop`)
-**Status: first full-pebble comparison.** The two P1 transport bugs that blocked
-this (GH #168 concentric-sphere leak, GH #169 charged-particle absorption) are
-fixed, and graphite S(α,β) is wired. Absolute k is ~2.9 % above OpenMC, and the
-discrepancy is concentrated in the resonance-escape (p, +9 %) and fast-fission
-(ε, −6 %) factors — pointing at U-238 epithermal/fast cross sections
-(leading suspect: URR self-shielding not reconstructed). η and f match within
-1 %. Not a validated result — an AI-assisted code-to-code check, no human V&V.
+**Generated:** 2026-09-11 (UTC), superseding the 2026-09-10 revision
+**Crate commit:** `develop`
+
+**Status: one P0 defect found and fixed here; the absolute-k disagreement is
+now larger and better localised.** The crate sampled elastic scattering off a
+target held **at rest** at every energy, for every nuclide without an S(α,β)
+table — so FLiBe, the kernel oxygen and carbon, and the SiC coating had no
+thermal equilibrium at all (bead `op-50vu`, Interpretation 5). Fixing it moved
+η and f onto the OpenMC reference (errors 0.41 % → 0.11 % and 0.83 % → 0.18 %)
+and moved **k further away**: the explicit-TRISO pebble is now **+3100 pcm**
+above OpenMC, where before the fix it was +1681 pcm. The previous agreement was
+partly cancellation.
+
+What is left is **entirely `p·ε`** — the ratio of non-thermal to thermal flux
+(+3.00 %, against a k ratio of +3.13 %). It is not the U-238 cross sections
+(±0.04 % vs NJOY) nor its **resonance integral** (+0.00 % vs NJOY and the
+published `RI_∞`), not graphite's thermal law (±0.05 % vs THERMR), not the
+slowing-down kernel (ξ/ξ₀ = 1.000 from 4 eV to 10 keV on eight nuclides), and
+not the HIGH data path or the eigenvalue driver in general — those reproduce a
+**measured** criticality benchmark, Godiva/ICSBEP HEU-MET-FAST-001, to
+**+57 ± 173 pcm**.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
 ## Methodology
 
@@ -125,41 +139,66 @@ inactive). Reference k-eff / six factors: `openmc_inputs/` + GitHub #156.
 
 ### `outram-mc-libs` — ENDF/B-VIII.0, `c_Graphite` S(α,β) (free-gas fuel + SiC C)
 
-Run 2026-09-11 at `a7280ecb`, 4000 histories × [30 inactive + 80 active], 600 K.
-Every pebble is run in **both** domains; the sphere is OpenMC's boundary and
-carries all reported comparisons.
+Run 2026-09-11 **after** the free-gas target-motion fix (`op-50vu`, see
+Interpretation 5), 4000 histories × [30 inactive + 80 active], 600 K. Every
+pebble is run in **both** domains; the sphere is OpenMC's boundary and carries
+all reported comparisons.
 
 **Reflective sphere r = 3 — comparable to OpenMC in absolute terms:**
 
 | run | k-eff | Δ(vs explicit) | vs OpenMC |
 |---|---|---|---|
-| explicit TRISO | 1.38191 ± 0.00193 | — | **+1681 pcm** |
-| ring-RPT | 1.38354 ± 0.00204 | **+163 ± 281 pcm (0.58σ)** | **+1875 pcm** |
-| naive homogenised | 1.35656 ± 0.00243 | **−2535 pcm (8.2σ)** | — |
-| ring-RPT (CSG, surface-tracked) | 1.38279 ± 0.00270 | — | +1800 pcm |
+| explicit TRISO | 1.39610 ± 0.00209 | — | **+3100 pcm** |
+| ring-RPT | 1.40739 ± 0.00241 | **+1130 ± 319 pcm (3.5σ)** | **+4260 pcm** |
+| naive homogenised | 1.37323 ± 0.00219 | **−2287 pcm (7.6σ)** | — |
+| ring-RPT (CSG, surface-tracked) | 1.40757 ± 0.00224 | — | +4278 pcm |
 
 **Reflective cube half-width 3 — NOT comparable to OpenMC; kept to price the
 corner-FLiBe over-count:**
 
 | run | k-eff | Δ(vs explicit) | cube − sphere |
 |---|---|---|---|
-| explicit TRISO | 1.31813 ± 0.00210 | — | −6378 pcm |
-| ring-RPT | 1.30734 ± 0.00215 | −1079 ± 301 pcm (3.6σ) | −7620 pcm |
-| naive homogenised | 1.30625 ± 0.00245 | −1188 pcm | −5031 pcm |
+| explicit TRISO | 1.43503 ± 0.00192 | — | +3893 pcm |
+| ring-RPT | 1.42781 ± 0.00213 | −722 ± 286 pcm (2.5σ) | +2042 pcm |
+| naive homogenised | 1.40941 ± 0.00221 | −2562 pcm | +3618 pcm |
 
-**Ring-RPT CSG six factors:** η 2.0155, f 0.9140, p 0.5266, ε 1.4131,
-P_FNL 1.0000, P_TNL 0.9998; product (k_4f) 1.37051, consistency gap +0.89 % (in
-band). Leakage 1.3e-4.
-
-vs OpenMC ring-RPT: η **2.0073** (+0.4 %), f **0.9216** (−0.8 %),
-p **0.4842** (**+9 %**), ε **1.5043** (**−6 %**).
+**Ring-RPT CSG six factors:** η 2.0096, f 0.9199, p 0.5368, ε 1.3976,
+P_FNL 1.0000, P_TNL 1.0000; product (k_4f) 1.38678, consistency gap +1.48 % (in
+band). Leakage 3.1e-6.
 
 **Two independent transport methods agree on the same geometry.** The
-delta-tracked sphere gives 1.38354 ± 0.00204 and the surface-tracked CSG driver
-gives 1.38279 ± 0.00270 — **75 pcm apart, 0.22σ**. Together with the uniform-
-medium cube-vs-sphere check (0.14σ), the new `DeltaDomain::Sphere` arm is pinned
+delta-tracked sphere gives 1.40739 ± 0.00241 and the surface-tracked CSG driver
+gives 1.40757 ± 0.00224 — **18 pcm apart, 0.05σ**. Together with the uniform-
+medium cube-vs-sphere check (0.14σ), the `DeltaDomain::Sphere` arm is pinned
 twice: once against the pre-existing cube arm on a problem with an analytic
 answer, and once against a different tracking algorithm on the real pebble.
+
+#### What the free-gas fix moved
+
+The same deck, same seeds, same settings, immediately before the fix:
+
+| run (sphere) | before `op-50vu` | after | Δ |
+|---|---|---|---|
+| explicit TRISO | 1.38191 ± 0.00193 | 1.39610 ± 0.00209 | **+1419 pcm** |
+| ring-RPT | 1.38354 ± 0.00204 | 1.40739 ± 0.00241 | **+2385 pcm** |
+| naive homogenised | 1.35656 ± 0.00243 | 1.37323 ± 0.00219 | +1667 pcm |
+| ring-RPT (CSG) | 1.38279 ± 0.00270 | 1.40757 ± 0.00224 | +2478 pcm |
+
+and what it did to the six factors, against OpenMC's ring-RPT reference:
+
+| | before | after | OpenMC | error before → after |
+|---|---|---|---|---|
+| η | 2.0155 | 2.0096 | 2.0073 | +0.41 % → **+0.11 %** |
+| f | 0.9140 | 0.9199 | 0.9216 | −0.83 % → **−0.18 %** |
+| p | 0.5266 | 0.5368 | 0.4842 | +8.8 % → **+10.9 %** |
+| ε | 1.4131 | 1.3976 | 1.5043 | −6.1 % → **−7.1 %** |
+
+**The thermal factors snapped onto the reference and the non-thermal ones did
+not.** η and f are now within 0.11 % and 0.18 % of OpenMC — they were the two
+factors a thermal-kernel defect should own, and fixing it fixed them. The whole
+residual now lives in `p·ε`: ours 0.7502, OpenMC 0.7284, **+3.00 %**, against a
+k ratio of **+3.13 %**. Those are the same number. Whatever is left is entirely
+the ratio of non-thermal to thermal flux, and nothing else.
 
 **The sign convention, because it is easy to get backwards.** Self-shielding
 *reduces* absorption. The lumped (explicit) configuration has *more* of it, so
@@ -177,37 +216,55 @@ the error was a geometry mismatch, not physics.** That revision ran the
 delta-tracked pebbles in a reflective *cube* and compared them to an OpenMC deck
 bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
 
-1. **Ring-RPT reproduces explicit TRISO, and the earlier "method error" was an
-   artefact.**
+1. **Ring-RPT reproduces explicit TRISO — measured before the free-gas fix, and
+   no longer measured after it.**
 
    | domain | Δ(ring-RPT − explicit) | |
    |---|---|---|
-   | reflective **sphere** (OpenMC's boundary) | **+163 ± 281 pcm** | **0.58σ** |
-   | reflective cube (the old comparison) | −1079 ± 301 pcm | 3.59σ |
+   | reflective **sphere**, pre-`op-50vu` | **+163 ± 281 pcm** | **0.58σ** |
+   | reflective sphere, post-`op-50vu` | **+1130 ± 319 pcm** | **3.54σ** |
+   | reflective cube (the 2026-09-10 comparison) | −1079 ± 301 pcm | 3.59σ |
    | OpenMC reference | −31 pcm | 0.34σ |
 
-   On the reference's own geometry the two pebbles are statistically
-   indistinguishable, and agree with OpenMC.
+   The 2026-09-10 conclusion — that the recorded "method error" was a
+   **cube-vs-sphere domain mismatch, not physics** — stands, and Interpretation 4
+   still closes that account to the pcm. But the pre-fix +163 pcm agreement that
+   replaced it does **not** survive the free-gas fix: on the same sphere the two
+   pebbles now separate by +1130 ± 319 pcm.
 
-   **State the precision honestly: this is consistency at *our* uncertainty, not
-   agreement at OpenMC's.** Our ±281 pcm on the difference is about 3× OpenMC's
-   ±92 pcm, so the result rules out a method error of ~600 pcm or larger and
-   does not resolve one of ~100 pcm. It is enough to overturn the −1079 pcm
-   claim, which is what it is used for here; it is *not* enough to assert the
-   two codes agree to OpenMC's −31 ± 92 pcm. Tightening that needs roughly an
-   order of magnitude more histories, and nothing in this study currently
-   requires it. The previously recorded −351 pcm
-   and −736 pcm residuals, and the reasoning built on them — that RPT was "the
-   correct direction" but could not reach OpenMC's −31 pcm "because the inner
-   radius was fitted by the deck author against OpenMC" — described the cube,
-   not the method. **The deck author's 1.493359375 cm transfers to this code
-   without adjustment.** There was never a radius discrepancy to explain.
+   **State this honestly rather than picking the flattering row.** The free-gas
+   fix is not optional and not in doubt (Interpretation 5), so +1130 pcm is the
+   current measurement and +163 pcm is superseded. The two pebbles responded to
+   the fix differently — +1419 pcm for the explicit, +2385 pcm for the ring-RPT —
+   which is itself informative: the fix is a *thermal* one, and the ring-RPT
+   pebble's fuel sits as a shell at 1.4934–1.7531 cm, further out and nearer the
+   FLiBe (the largest un-tabulated scatterer in the model, 70 % of the volume by
+   itself), so it feels a change in thermal transport harder. That is the same
+   asymmetry Interpretation 4 identifies for the cube's corner coolant, acting
+   through a different lever.
+
+   It does not follow that ring-RPT has a method error of +1130 pcm. The
+   equivalence radius 1.493359375 cm was **fitted by the deck author against
+   OpenMC**, and this code no longer reproduces OpenMC's non-thermal flux ratio
+   (`p·ε` is +3.0 % out). A radius fitted against a different spectrum is not
+   expected to transfer. `--search-rpt-radius` solves for this code's own radius
+   and would separate "RPT is code-dependent" from "RPT is wrong"; it has not
+   been run since the fix. **Until it is, the honest statement is that this study
+   no longer measures ring-RPT's method error at all** — it measures the method
+   error plus a spectrum mismatch it cannot currently separate.
+
+   The previously recorded −351 pcm and −736 pcm residuals, and the reasoning
+   built on them — that RPT was "the correct direction" but could not reach
+   OpenMC's −31 pcm "because the inner radius was fitted by the deck author
+   against OpenMC" — described the cube, not the method.
 
 2. **What ring-RPT is worth, quantitatively.** On the matched sphere the
-   double-heterogeneity error is **−2535 pcm** (naive − explicit), and ring-RPT
-   reduces the residual to **+163 pcm** — it removes **94 %** of that error, and
-   what remains is inside Monte Carlo noise. That is the case for the method,
-   measured on the reference's own geometry.
+   double-heterogeneity error is **−2287 pcm** (naive − explicit) and ring-RPT
+   brings the residual to **+1130 pcm** — it removes **51 %** of that error.
+   Pre-`op-50vu` the same two rows read −2535 pcm and +163 pcm, i.e. **94 %**.
+   Both numbers are recorded because the difference between them is not a change
+   in the method: it is the spectrum mismatch of Interpretation 1, and 51 % is a
+   floor on ring-RPT's worth here, not a measurement of it.
 
 3. **The naive-homogenised medium was mis-specified until 2026-09-11, and the
    sphere is what exposed it.** `homogenise_by_volume` over the five TRISO
@@ -255,82 +312,179 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    *where the fuel sits* do not. Here it survived the differencing and was read
    as physics.
 
-5. **The absolute offset is NOT in any cross section — measured against NJOY,
-   twice (2026-09-11).** Both cross-section sets that matter were compared
-   against NJOY2016's own output for the same tapes, temperature and tolerance.
-   The NNDC library OpenMC used is unreachable here (403), but NJOY is not, and
-   a port should be checked against what it is a port of.
+5. **A P0 defect was found and fixed here: the crate had no free-gas target
+   motion at all (`op-50vu`). It is the reason η and f were out, and fixing it
+   moved k *away* from OpenMC.**
+
+   The collision kernel had exactly two scattering branches: the S(α,β) law where
+   a nuclide carried one, and otherwise `two_body_scatter_with_mu` /
+   `elastic_scatter`, both of which hold the target **at rest** at every energy.
+   No free-gas target velocity was sampled anywhere in the crate. A stationary
+   target confines the outgoing energy to `[α·E, E]`: it can only take energy
+   away. So for every nuclide without a thermal table — in this pebble that is
+   Li-7, Be-9 and F-19 (the whole FLiBe coolant, **70 % of the model by volume**),
+   O-16 and the free-gas C of the UCO kernel, and the Si and C of the SiC
+   coating — there was **no thermal equilibrium at all**. Measured, 20 000
+   walkers × 400 collisions from 1 eV at 600 K, against the correct `2kT`
+   = 0.1034 eV fixed point (`examples/epithermal_slowing_down.rs`):
+
+   | medium | ⟨E⟩ after 400 collisions | ⟨E⟩ / 2kT |
+   |---|---|---|
+   | C-12 with graphite S(α,β) | 1.004e-1 eV | 0.97 ✓ |
+   | C-12 free gas (kernel C) | 1.481e-27 eV | 1.9e-26 |
+   | Be-9 (FLiBe) | 1.787e-35 eV | 2.3e-34 |
+   | F-19 (FLiBe) | 3.270e-18 eV | 4.2e-17 |
+   | Li-7 (FLiBe) | 7.225e-44 eV | 9.3e-43 |
+   | O-16 (UCO kernel) | 2.822e-21 eV | 3.6e-20 |
+   | Si-28 (SiC coating) | 8.299e-13 eV | 1.1e-11 |
+
+   Only the one nuclide with a thermal table escaped. OpenMC samples the target
+   velocity below `FREE_GAS_THRESHOLD = 400·kT` (`sample_target_velocity`,
+   `src/physics.cpp`), which at 600 K is `E < 20.7 eV` — the entire thermal range
+   **and** the 6.674 eV and 20.87 eV U-238 resonances.
+
+   **Why no earlier check could see it.** Every per-collision quantity was
+   correct: `ξ/ξ₀ = 1.000` from 4 eV to 10 keV for every nuclide, no violations
+   of the `α·E` kinematic floor, no spurious up-scatter
+   (`examples/epithermal_slowing_down.rs`, section 1). The defect was not in any
+   collision — it was the **absence of a fixed point** across a sequence of them,
+   which only an equilibrium test can detect. The earlier `ξ` measurement
+   (Interpretation 5 of the previous revision) ran from 0.0253 eV to 3.9 eV on
+   **graphite only**, i.e. on the single nuclide that had a thermal table and was
+   therefore the only one not affected.
+
+   **The fix** is OpenMC's own algorithm: `free_gas_elastic_scatter` /
+   `sample_target_velocity` in the constant-cross-section (CXS) approximation,
+   which is the consistent partner of a Doppler-**broadened** σ for the collision
+   rate. It is pinned against an oracle that is analytic and needs no library:
+   the equilibrium neutron **density** must be Maxwellian, so weighting the
+   chain's own samples by `1/v̄_rel(E)` must return `⟨E⟩ = 1.5 kT` and
+   `⟨E²⟩ = 3.75 (kT)²`. It does, for `A` from 2 to 238
+   (`physics::scatter::tests::free_gas_equilibrium_density_is_maxwellian`).
+   Two weaker oracles were tried first and **both were wrong** — the `(2kT − E)`
+   first moment and a plain Gamma(2, kT) stationary law; each gets the limits
+   right and misses the collision-rate `|v_rel|` weighting in between, by 4–5 % at
+   `A ≈ 2`. Their failure is recorded in the test file so nobody re-derives them.
+
+   **What it moved, and the part that is uncomfortable.** η and f snapped onto
+   OpenMC (errors 0.41 % → 0.11 % and 0.83 % → 0.18 %) — exactly the two factors
+   a thermal-kernel defect owns. But k rose by +1419 pcm (explicit) and +2385 pcm
+   (ring-RPT), so the disagreement with OpenMC **grew, from +1681 to +3100 pcm**.
+   A correct fix moving the answer away from the reference means the previous
+   agreement was partly cancellation, and the remaining error is larger than it
+   looked. That is worth more than a smaller number would have been, and it is
+   recorded as the result rather than reverted.
+
+   This also retires a figure quoted in earlier revisions. "Graphite S(α,β) is
+   worth ~1700 pcm, measured in
+   `tests/htr10_graphite_thermal_scattering_pebble_bed.rs`" came from comparing
+   the bound law against that broken arm — the test recorded free-gas k = 1.08838
+   vs bound 1.95254, and its own interpretation named the cause
+   (*"stationary-target, no up-scatter"*) without recognising it as a bug.
+   Re-measured against a **correct** free gas at 18× the statistics, the two
+   treatments differ by **+364 ± 479 pcm (0.76σ)** — consistent with zero. The
+   test now asserts that agreement, which catches the defect's return at 37σ.
+
+6. **The remaining offset is NOT in any cross section, NOT in the resonance
+   integral, and NOT in the slowing-down kernel — measured against NJOY, against
+   published data, and against analytic kinematics.**
 
    | | worst relative difference |
    |---|---|
-   | U-238 total / elastic / fission / capture | ±0.04 % (worst −0.17 %) |
-   | graphite incoherent inelastic / coherent elastic | ±0.05 % (worst −0.14 %) |
+   | U-238 total / elastic / fission / capture, point values vs NJOY PENDF | ±0.04 % (worst −0.17 %) |
+   | U-235 total / elastic / fission / capture, point values vs NJOY PENDF | ±0.06 % |
+   | graphite incoherent inelastic / coherent elastic vs THERMR | ±0.05 % (worst −0.14 %) |
+   | **U-238 capture resonance integral, 0.5 eV – 100 keV** | **+0.00 %** vs NJOY (274.637 b vs 274.634 b) |
+   | ξ above the S(α,β) cutoff, 4 eV – 10 keV, 8 nuclides | ±0.5 % vs analytic `ξ₀` |
 
-   Reproduce with `examples/u238_vs_njoy_pendf.rs` and
-   `examples/graphite_vs_njoy_thermr.rs`; both carry their NJOY decks in the
-   module docs.
+   The **resonance integral** is the one that closes the biggest remaining hole,
+   and it needed its own oracle. `u238_vs_njoy_pendf.rs` samples **19 discrete
+   probe energies** — resonance peak centres and smooth regions. It pins peak
+   *heights*. It cannot see the quantity resonance escape actually depends on:
+   the **area** under each resonance. A grid too coarse between nodes loses area
+   without moving any node value, so it would pass that oracle and still
+   under-capture in transport — and transport interpolates on *our* grid, so
+   `∫σ_γ dE/E` on our own grid **is** the resonance integral the Monte Carlo
+   sees. Measured exactly (segment-wise closed form) in
+   `examples/u238_resonance_integral.rs`: **274.637 b on our grid (291 322
+   points) against 274.634 b on NJOY's (130 444 points) — +0.00 %**, and against
+   the published infinite-dilution `RI_∞ = 275.7 b` for ENDF/B-VIII.0. Our grid
+   is more than twice as dense as NJOY's over the band. U-238 capture is exact in
+   both value and area.
 
-   That suggested the disagreement was in what happens *after* a collision —
-   `σ(E)` sets how often a neutron collides, the kernel sets how much energy it
-   loses — so **the kernel was measured too, and it is also clean.**
+   Nor is the offset a general property of the HIGH data path or of the
+   eigenvalue driver, because **that path reproduces a measured criticality
+   benchmark**. Godiva (ICSBEP **HEU-MET-FAST-001**, `k = 1.0000 ± 0.0010`), run
+   on the repo's own ENDF/B-VIII.0 tapes through `Nuclide::from_endf_file` and
+   `run_keff` — the same reconstruction and the same driver as this study —
+   gives **k = 1.00057 ± 0.00173, i.e. +57 ± 173 pcm**
+   (`examples/godiva_keff_endf_local.rs`). Every comparison in this document
+   before that one was against another code; this one is against an experiment.
+   It exercises ν̄(E), the ENDF MF=5 fission spectrum, U-235 fast fission,
+   inelastic levels and (n,2n) — and **no** thermal scattering and **no**
+   resonance escape. It is the complement of the pebble, and it splits the search
+   cleanly: whatever is left is specific to the non-thermal/thermal flux ratio,
+   not to the shared machinery.
 
-   The mean log energy decrement `ξ = <ln(E/E')>` needs no external oracle:
-   above the bound regime it must approach the free-gas carbon value, fixed by
-   kinematics alone at `ξ_fg = 1 + α ln α/(1−α) = 0.157769` for
-   `α = ((A−1)/(A+1))² = 0.715976`. Measured at 600 K, 200 k samples per point
-   (`examples/graphite_energy_decrement.rs`):
-
-   | E \[eV\] | ⟨E′⟩/E | ξ | ξ/ξ_fg |
-   |---|---|---|---|
-   | 0.0253 | 1.1908 | −0.0886 | −0.56 (net up-scatter, correct at 600 K) |
-   | 1.0 | 0.8778 | 0.1458 | 0.924 |
-   | 2.0 | 0.8676 | 0.1605 | 1.017 |
-   | **3.9** | 0.8627 | 0.1580 | **1.002** |
-
-   Our kernel lands on the analytic asymptote to 0.2 %, with a monotone trend
-   from correct thermal up-scatter through the phonon regime. It does not
-   transfer too much energy per collision.
-
-   **A claim in an earlier revision of this document was also simply wrong:**
-   it said this crate "integrates `S(α,β)` directly" while OpenMC uses
-   discretised ACE. It does not — `ThermalScattering::sample` states that its
-   inelastic path *mirrors* the ACE law (`IFENG=0`: bracket on the emission
-   grid, statistical interpolation, one equiprobable outgoing energy and
-   cosine). Both codes use the same kind of representation, so that was never
-   available as an explanation.
-
-6. **The absolute offset is one bias shared by both pebbles.**
+7. **The remaining offset is shared by both pebbles, and it is now entirely
+   `p·ε` — the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
    | | k | vs OpenMC |
    |---|---|---|
-   | explicit TRISO | 1.38191 ± 0.00193 | **+1681 pcm** |
-   | ring-RPT | 1.38354 ± 0.00204 | **+1875 pcm** |
+   | explicit TRISO | 1.39610 ± 0.00209 | **+3100 pcm** |
+   | ring-RPT | 1.40739 ± 0.00241 | **+4260 pcm** |
 
-   The two offsets differ by 194 pcm, inside the combined uncertainty. A bias
-   that tracks both geometries equally is a property of the cross sections, not
-   of the pebble model — so the RPT geometry and its fitted radius are ruled out
-   as causes, and `op-mzvp.2.12` (U-238 epithermal/fast σ) owns what is left.
+   The two offsets differ by 1160 pcm, which post-`op-50vu` is outside the
+   combined uncertainty (they differed by 194 pcm, inside it, before the fix) —
+   see Interpretation 1 for why the ring-RPT pebble responds harder to a thermal
+   change. Take the **explicit** pebble as the clean statement of the bias: it
+   has no homogenisation and no fitted radius, and it sits +3100 pcm high.
 
-7. **This offset is roughly half what it was, and the change is not yet
-   explained.** The explicit-cube case moved **−1632 pcm (≈5.4σ)** between
-   commits `23cd2549` and `0cd9a22c` — same problem, same settings, same seed —
-   while U-238 reconstruction wall time fell from **91.7 s to 26.8 s** across 33
-   njoy commits (BROADR `thnmax`, the `sigfig` discontinuity shading, RECONR
-   changes). If the sphere moved with the cube, the old explicit-sphere case sat
-   near +3300 pcm, consistent with the +2854 pcm the old ring-RPT CSG row
-   showed. On that reading the njoy work *halved* the disagreement with OpenMC
-   and the stale numbers are stale in the good direction — but that is a
-   hypothesis with a pre-registered test (`examples/u238_recon_fingerprint.rs`,
-   run in both checkouts), **not a conclusion**. Every `outram-mc` number
-   recorded before 2026-09-11 belongs to the old data and should not be compared
-   against a new one.
+   The decomposition says what kind of bias it is, with η and f now matching:
 
-8. **The consistency check passes** (+0.89 % gap, in the `(−1 %, +5 %)` band) —
+   ```text
+   p·ε  ours 0.5368 × 1.3976 = 0.7502
+        OpenMC 0.4842 × 1.5043 = 0.7284     → +3.00 %
+   k    1.40757 / 1.36479                   → +3.13 %
+   ```
+
+   Those are the same number, so **the entire residual is the ratio of
+   non-thermal to thermal flux**, and nothing else. `p` too high means too little
+   epithermal absorption (U-238 resonance capture); `ε` too low means too little
+   non-thermal production (fast and epithermal fission). Both say the same thing:
+   relative to OpenMC, too few neutrons are at non-thermal energies. With the
+   U-238 resonance integral exact (Interpretation 6) and ξ exact, the flux itself
+   is what differs — `φ_epi/φ_th ≈ Σ_a,th / (ξΣ_s)` — so the surviving candidates
+   are the epithermal scattering cross sections of the *moderators*, which have
+   never been checked against NJOY (only U-235, U-238 and graphite's thermal law
+   have), or something in the reference deck this workspace has not reproduced.
+   `op-mzvp.2.12` owns that.
+
+   Note `p` and `ε` are also compared across **different conventions** — this
+   crate's three-group decomposition against the deck's two-group one split at
+   0.625 eV. `SixFactors::two_group_openmc_convention()` makes it like-for-like
+   and removes roughly a third of each gap. It cannot be the whole story: `k` is
+   convention-free and is +3100 pcm on its own.
+
+8. **An earlier −1632 pcm baseline drift is still unexplained.** The
+   explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
+   `0cd9a22c` — same problem, same settings, same seed — while U-238
+   reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
+   (BROADR `thnmax`, the `sigfig` discontinuity shading, RECONR changes). The
+   pre-registered test is `examples/u238_recon_fingerprint.rs`, run in both
+   checkouts; it has not been run. Note this question is now partly answered from
+   the other side: whatever those commits did, they did **not** change the U-238
+   capture resonance integral, which matches NJOY's own PENDF to +0.00 %
+   (Interpretation 6). Every `outram-mc` number recorded before 2026-09-11
+   belongs to the old data, and everything before the free-gas fix belongs to a
+   different kernel; neither should be compared against a current one.
+
+9. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-9. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+10. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -359,48 +513,45 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    reflective sphere without giving up the packing. One approximation remains —
    the five coating layers are resolved by nearest-centre + radius rather than
    exact CSG.
-3. **Residual absolute-k bias (~+1700–1900 pcm)** — *substantially narrowed
-   2026-09-11; see Interpretation 5.* Not in the U-238 cross sections and not in
-   the graphite ones — both verified against NJOY2016 to ~0.1 %. Not the pebble
-   geometry either (the offset is shared by both pebbles to within 194 pcm).
-   Nor is it the scattering kernel: `ξ` matches the analytic free-gas asymptote
-   to 0.2 % (Interpretation 5).
+3. **Residual absolute-k bias — now +3100 pcm (explicit pebble), and entirely
+   `p·ε`.** *Substantially re-localised 2026-09-11; see Interpretations 5–7.*
+   Excluded by measurement: the U-238 and U-235 point cross sections (±0.04 % /
+   ±0.06 % vs NJOY's own PENDF), the U-238 capture **resonance integral**
+   (+0.00 % vs NJOY, and against the published `RI_∞ = 275.7 b`), graphite's
+   thermal law (±0.05 % vs THERMR), the slowing-down kernel above the S(α,β)
+   cutoff (ξ/ξ₀ = 1.000 across eight nuclides), and — newly — the HIGH data path
+   and eigenvalue driver as a whole, which reproduce ICSBEP HEU-MET-FAST-001 to
+   +57 ± 173 pcm. The one named mechanism that *was* real, the missing free-gas
+   target motion, is fixed, and fixing it made the disagreement larger.
 
-   **Every named mechanism is now excluded by measurement**, and the ~+1.7 %
-   remains. This record does not offer a seventh hypothesis to close the
-   narrative. What is left is either an accumulation of sub-percent differences
-   across the remaining materials (FLiBe, SiC, the kernel composition), or
-   something in the reference itself — a single run from another party's deck
-   that this workspace has never independently reproduced. The cheapest
-   remaining discriminator is therefore not another hypothesis about our code:
-   it is a second, independent OpenMC run. That could not be done here (the
-   deck needs a library host that answers 403). Until then, "+1.7 % on an
-   AI-assisted code-to-code comparison with every named mechanism excluded" is
-   the correct thing to report — not a bug with an owner.
+   **The next measurement, in order of what it would settle:**
 
-   Note also that `p` and `ε` were being compared across **different
-   conventions** — this crate's three-group decomposition against the OpenMC
-   deck's two-group one, split at 0.625 eV. `SixFactors::two_group_openmc_convention()`
-   now makes it like-for-like. Matching the convention removes 27 % of the `p`
-   gap and 34 % of the `ε` gap; the remainder (+6.4 % and −4.0 %) is real, and
-   both signs say our spectrum is *softer* — more thermally concentrated — which
-   is what too much energy transfer per collision would produce.
+   a. **The moderator cross sections have never been checked against NJOY.**
+      Only U-235, U-238 (PENDF) and graphite's thermal law (THERMR) have. With
+      `ξ` exact and the U-238 resonance integral exact, `φ_epi/φ_th ≈
+      Σ_a,th/(ξΣ_s)` leaves `Σ_s` as the arithmetic candidate, and C-12, C-13,
+      Be-9, F-19, Li-7, O-16 and Si-28/29/30 are all unverified in the
+      epithermal range. `examples/u238_vs_njoy_pendf.rs` is already generalised
+      (`NJOY_MAT` / `NJOY_TAPE` / `NJOY_NUCLIDE`) and
+      `examples/u238_resonance_integral.rs` takes the same overrides, so this is
+      an NJOY deck per nuclide and nothing else. **NJOY2016 is not currently
+      built in this environment** (the source tree was reclaimed for disk), so
+      this needs a rebuild first.
 
-   Superseded detail, kept so the trail is legible —
-   now known to be *shared by both pebbles* (Interpretation 5), so it is a
-   property of the cross sections and the pebble model is not implicated. Two
-   threads, and they may be one:
-   - cross-check reconstructed U-238 σ_γ(E) against the NNDC HDF5 the OpenMC
-     deck used: at the 6.7 eV / 20.9 eV resolved resonances (expect agreement)
-     and across the 20–150 keV URR band. **Note the original hypothesis here —
-     missing URR self-shielding — was refuted**: U-238 carries `LSSF=1` in
-     ENDF/B-VIII.0, so MF=3 already holds the infinitely-dilute unresolved
-     values and the missing self-shielding has the *wrong sign* to explain a
-     positive bias (`op-mzvp.2.12`).
-   - settle the −1632 pcm baseline drift (Interpretation 6) with
-     `examples/u238_recon_fingerprint.rs`, which compares the reconstruction
-     between two checkouts without running transport. If the njoy work moved
-     the cross sections, that is the same question as the bias itself.
+   b. **Run `--search-rpt-radius`.** The equivalence radius was fitted against
+      OpenMC's spectrum, and this code's spectrum no longer matches it, so the
+      +1130 pcm ring-RPT residual cannot presently be attributed. See
+      Interpretation 1.
+
+   c. **A second, independent OpenMC run.** The reference is a single run from
+      another party's deck that this workspace has never reproduced. It could
+      not be done here — the deck needs a library host that answers 403.
+
+   Superseded detail, kept so the trail is legible: the original hypothesis here
+   was missing **URR self-shielding**, and it was **refuted** — U-238 carries
+   `LSSF=1` in ENDF/B-VIII.0, so MF=3 already holds the infinitely-dilute
+   unresolved values, and the missing self-shielding has the *wrong sign* to
+   explain a positive bias (`op-mzvp.2.12`).
 
 ## Bookkeeping status
 

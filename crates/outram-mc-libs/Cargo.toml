@@ -148,6 +148,24 @@ required-features = ["endf-pebble-cases"]
 name = "u238_vs_njoy_pendf"
 required-features = ["endf-pebble-cases"]
 
+# External benchmark on the HIGH data path: Godiva (ICSBEP HEU-MET-FAST-001)
+# from the repo's own ENDF/B-VIII.0 tapes, no network (op-mzvp.2.12).
+[[example]]
+name = "godiva_keff_endf_local"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: mean log energy decrement ABOVE the S(a,b) cutoff, where resonance
+# escape is decided (op-mzvp.2.12).
+[[example]]
+name = "epithermal_slowing_down"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: resonance integral (area under the resonances, not point values) vs
+# NJOY2016's PENDF and vs the published RI_inf (op-mzvp.2.12).
+[[example]]
+name = "u238_resonance_integral"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: our graphite S(a,b) vs NJOY2016's own THERMR (op-mzvp.2.12).
 [[example]]
 name = "graphite_vs_njoy_thermr"

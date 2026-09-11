@@ -74,9 +74,7 @@ mod desktop {
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::compute::ComputeType;
     use outram_mc_libs::physics::keff::KeffSettings;
-    use outram_mc_libs::physics::reactor_physics::{
-        run_keff_reactor_physics, ReactorPhysicsConfig,
-    };
+    use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
     use outram_mc_libs::physics::transport_csg::SourceBox;
     use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
     use outram_mc_libs::pebble_beds::fhr_pebble::{
@@ -216,10 +214,7 @@ mod desktop {
     }
 
     fn carbon(idx12: usize, idx13: usize, frac: f64) -> [(usize, f64, f64); 2] {
-        [
-            (idx12, frac * C12_AB, M_C12),
-            (idx13, frac * C13_AB, M_C13),
-        ]
+        [(idx12, frac * C12_AB, M_C12), (idx13, frac * C13_AB, M_C13)]
     }
 
     fn build_materials() -> (Vec<Material>, TrisoSpec) {
@@ -248,9 +243,24 @@ mod desktop {
             let c = carbon(nx::C12G, nx::C13G, 1.0);
             number_densities(rho, &c)
         };
-        let buffer = Material { id: 2, name: "buffer".into(), temperature: TEMP_K, components: graphite_carbon(1.0) };
-        let pyc1 = Material { id: 3, name: "PyC1".into(), temperature: TEMP_K, components: graphite_carbon(1.9) };
-        let pyc2 = Material { id: 4, name: "PyC2".into(), temperature: TEMP_K, components: graphite_carbon(1.87) };
+        let buffer = Material {
+            id: 2,
+            name: "buffer".into(),
+            temperature: TEMP_K,
+            components: graphite_carbon(1.0),
+        };
+        let pyc1 = Material {
+            id: 3,
+            name: "PyC1".into(),
+            temperature: TEMP_K,
+            components: graphite_carbon(1.9),
+        };
+        let pyc2 = Material {
+            id: 4,
+            name: "PyC2".into(),
+            temperature: TEMP_K,
+            components: graphite_carbon(1.87),
+        };
 
         // ── SiC: ρ = 3.2, C 0.5 + Si-nat 0.5. Free-gas C (nx::C12/C13), NOT
         // the bound-graphite law: the OpenMC deck treats SiC as free-gas
@@ -274,7 +284,12 @@ mod desktop {
             ),
         };
 
-        let graphite = Material { id: 6, name: "graphite matrix/shell".into(), temperature: TEMP_K, components: graphite_carbon(1.1995) };
+        let graphite = Material {
+            id: 6,
+            name: "graphite matrix/shell".into(),
+            temperature: TEMP_K,
+            components: graphite_carbon(1.1995),
+        };
 
         // ── FLiBe: 2LiF·BeF2, ρ(T) = (2416 − 0.49072·T)/1000 ──
         let flibe_rho = (2416.0 - 0.49072 * TEMP_K) / 1000.0;
@@ -329,14 +344,27 @@ mod desktop {
         // is linear in atom density, so mixing the already-mixed `homog` with
         // graphite is identical to mixing all six constituents at once.
         let naive_homog = homogenise_by_volume(
-            &[(&homog, spec.packing_fraction), (&graphite, 1.0 - spec.packing_fraction)],
+            &[
+                (&homog, spec.packing_fraction),
+                (&graphite, 1.0 - spec.packing_fraction),
+            ],
             9,
             "naive-homogenised fuel zone (TRISO + matrix)".into(),
             TEMP_K,
         );
 
         (
-            vec![fuel, buffer, pyc1, pyc2, sic, graphite, flibe, homog, naive_homog],
+            vec![
+                fuel,
+                buffer,
+                pyc1,
+                pyc2,
+                sic,
+                graphite,
+                flibe,
+                homog,
+                naive_homog,
+            ],
             spec,
         )
     }
@@ -355,7 +383,6 @@ mod desktop {
         /// the explicit pebble's inventory instead of tripling it.
         pub const NAIVE_HOMOG: usize = 8;
     }
-
 
     pub fn run() {
         let search_radius = std::env::args().any(|a| a == "--search-rpt-radius");
@@ -394,8 +421,20 @@ mod desktop {
         let spheres = pack_spheres_crp(spec.opyc, pack_half, spec.packing_fraction, seed)
             .expect("TRISO CRP packing");
         let packed = PackedSpheres::from_spheres(spheres, pack_half, spec.opyc);
+        // Both numbers describe the PACKING CUBE (half-width `pack_half`), not the
+        // fuel sphere: the cube is packed uniformly and `ExplicitTrisoPebble` then
+        // clips at r < R_FUEL_ZONE, so the sphere inherits the same volume
+        // fraction but holds only the ~49 % of the particles whose centres fall
+        // inside it. Labelling the cube count as the sphere count read as a 2x
+        // over-packing that was never there.
+        let n_in_sphere = (packed.len() as f64
+            * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.powi(3))
+            / (2.0 * pack_half).powi(3))
+        .round() as usize;
         eprintln!(
-            "Explicit fuel zone: {} TRISO particles in r < {R_FUEL_ZONE} cm, realized pf {:.4}",
+            "Explicit fuel zone: {} TRISO particles packed in the r < {pack_half} cm cube at pf \
+             {:.4}; ~{n_in_sphere} of them lie in the r < {R_FUEL_ZONE} cm fuel sphere, which \
+             carries the same pf",
             packed.len(),
             packed.packing_fraction()
         );
@@ -419,8 +458,15 @@ mod desktop {
             let r_rpt_fuel_csg =
                 rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
             let pebble_csg = fhr_pebble_geometry(
-                R_RPT_INNER, r_rpt_fuel_csg, R_PEBBLE, R_ROOT,
-                mi::HOMOG, mi::GRAPHITE, mi::FLIBE, BoundaryType::Reflective, TEMP_K,
+                R_RPT_INNER,
+                r_rpt_fuel_csg,
+                R_PEBBLE,
+                R_ROOT,
+                mi::HOMOG,
+                mi::GRAPHITE,
+                mi::FLIBE,
+                BoundaryType::Reflective,
+                TEMP_K,
             );
             let cfg = ReactorPhysicsConfig {
                 keff: keff.clone(),
@@ -432,20 +478,31 @@ mod desktop {
             };
             let r = run_keff_reactor_physics(&pebble_csg, &mats, &nucs, &cfg)
                 .expect("CSG reactor physics");
-            eprintln!("  k_eff (ring-RPT, CSG sphere) = {:.5} ± {:.5}", r.keff.k_mean, r.keff.k_std);
+            eprintln!(
+                "  k_eff (ring-RPT, CSG sphere) = {:.5} ± {:.5}",
+                r.keff.k_mean, r.keff.k_std
+            );
             print_six_factors("ring-RPT CSG pebble", &r);
             let s3 = &r.six_factors;
             let (e2, f2, p2, eps2) = s3.two_group_openmc_convention();
             eprintln!("\n  ── the SAME run in both conventions ──");
-            eprintln!("    3-group (this crate): η {:.4} f {:.4} p {:.4} ε {:.4}",
-                      s3.eta.mean, s3.f.mean, s3.p.mean, s3.epsilon.mean);
+            eprintln!(
+                "    3-group (this crate): η {:.4} f {:.4} p {:.4} ε {:.4}",
+                s3.eta.mean, s3.f.mean, s3.p.mean, s3.epsilon.mean
+            );
             eprintln!("    2-group (OpenMC deck): η {e2:.4} f {f2:.4} p {p2:.4} ε {eps2:.4}");
             eprintln!("    OpenMC reference     : η 2.0073 f 0.9216 p 0.4842 ε 1.5043");
             eprintln!("\n    vs OpenMC, 2-group like-for-like:");
             for (name, ours, theirs) in [
-                ("η", e2, 2.0073_f64), ("f", f2, 0.9216), ("p", p2, 0.4842), ("ε", eps2, 1.5043),
+                ("η", e2, 2.0073_f64),
+                ("f", f2, 0.9216),
+                ("p", p2, 0.4842),
+                ("ε", eps2, 1.5043),
             ] {
-                eprintln!("      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%", 100.0 * (ours / theirs - 1.0));
+                eprintln!(
+                    "      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%",
+                    100.0 * (ours / theirs - 1.0)
+                );
             }
             return;
         }
@@ -509,7 +566,11 @@ mod desktop {
         // 3. Naive homogenisation — homog fuel fills the whole r < 1.9 zone.
         let naive_at = |p: Position| -> Option<usize> {
             let r = p.norm();
-            Some(if r < R_FUEL_ZONE { mi::NAIVE_HOMOG } else { zone_outside_fuel(r) })
+            Some(if r < R_FUEL_ZONE {
+                mi::NAIVE_HOMOG
+            } else {
+                zone_outside_fuel(r)
+            })
         };
         let naive_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &naive_at, &keff);
         let naive = run_keff_delta_in(ball, &mats, &nucs, &majorant, &naive_at, &keff);
@@ -522,8 +583,15 @@ mod desktop {
         //    directly comparable to the OpenMC RPT number (reflective sphere
         //    r = 3, no cube-corner coolant), and yields the six factors + spectrum.
         let pebble = fhr_pebble_geometry(
-            R_RPT_INNER, r_rpt_fuel, R_PEBBLE, R_ROOT,
-            mi::HOMOG, mi::GRAPHITE, mi::FLIBE, BoundaryType::Reflective, TEMP_K,
+            R_RPT_INNER,
+            r_rpt_fuel,
+            R_PEBBLE,
+            R_ROOT,
+            mi::HOMOG,
+            mi::GRAPHITE,
+            mi::FLIBE,
+            BoundaryType::Reflective,
+            TEMP_K,
         );
         let rp_cfg = ReactorPhysicsConfig {
             keff: keff.clone(),
@@ -550,16 +618,27 @@ mod desktop {
         let (d_rp, z_rp) = d(rpt.k_mean, rpt.k_std, explicit.k_mean, explicit.k_std);
         let (d_nv, z_nv) = d(naive.k_mean, naive.k_std, explicit.k_mean, explicit.k_std);
         let (d_rpc, z_rpc) = d(
-            rpt_cube.k_mean, rpt_cube.k_std, explicit_cube.k_mean, explicit_cube.k_std,
+            rpt_cube.k_mean,
+            rpt_cube.k_std,
+            explicit_cube.k_mean,
+            explicit_cube.k_std,
         );
         let (d_nvc, z_nvc) = d(
-            naive_cube.k_mean, naive_cube.k_std, explicit_cube.k_mean, explicit_cube.k_std,
+            naive_cube.k_mean,
+            naive_cube.k_std,
+            explicit_cube.k_mean,
+            explicit_cube.k_std,
         );
         // Absolute comparisons against OpenMC — only legitimate on the sphere,
         // which is the boundary the OpenMC deck actually used.
         const OMC_EXPLICIT: (f64, f64) = (1.36510, 0.00063);
         const OMC_RPT: (f64, f64) = (1.36479, 0.00067);
-        let (d_ex_omc, z_ex_omc) = d(explicit.k_mean, explicit.k_std, OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+        let (d_ex_omc, z_ex_omc) = d(
+            explicit.k_mean,
+            explicit.k_std,
+            OMC_EXPLICIT.0,
+            OMC_EXPLICIT.1,
+        );
         let (d_rp_omc, z_rp_omc) = d(rpt.k_mean, rpt.k_std, OMC_RPT.0, OMC_RPT.1);
 
         eprintln!("\n── outram-mc-libs FHR pebble (ENDF/B-VIII.0, c_Graphite S(α,β)) ──");
@@ -570,11 +649,19 @@ mod desktop {
         eprintln!("    naive homogenised: {:.5} ± {:.5}   Δ(naive−explicit) = {d_nv:+.0} pcm  ({z_nv:.1}σ)", naive.k_mean, naive.k_std);
         eprintln!("  reflective CUBE half-width {half} (corners carry extra FLiBe — NOT");
         eprintln!("  comparable to OpenMC in absolute terms; shown to price that over-count):");
-        eprintln!("    explicit TRISO   : {:.5} ± {:.5}   cube−sphere = {:+.0} pcm", explicit_cube.k_mean, explicit_cube.k_std, (explicit_cube.k_mean - explicit.k_mean) * 1e5);
+        eprintln!(
+            "    explicit TRISO   : {:.5} ± {:.5}   cube−sphere = {:+.0} pcm",
+            explicit_cube.k_mean,
+            explicit_cube.k_std,
+            (explicit_cube.k_mean - explicit.k_mean) * 1e5
+        );
         eprintln!("    ring-RPT         : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rpc:+.0} pcm  ({z_rpc:.1}σ)", rpt_cube.k_mean, rpt_cube.k_std);
         eprintln!("    naive homogenised: {:.5} ± {:.5}   Δ(naive−explicit) = {d_nvc:+.0} pcm  ({z_nvc:.1}σ)", naive_cube.k_mean, naive_cube.k_std);
         eprintln!("  reflective-sphere CSG (surface-tracked, six factors + spectrum):");
-        eprintln!("    ring-RPT         : {:.5} ± {:.5}", rpt_csg.keff.k_mean, rpt_csg.keff.k_std);
+        eprintln!(
+            "    ring-RPT         : {:.5} ± {:.5}",
+            rpt_csg.keff.k_mean, rpt_csg.keff.k_std
+        );
 
         // ── This code's OWN RPT inner radius (opt-in: --search-rpt-radius) ──
         //
@@ -590,22 +677,17 @@ mod desktop {
         // r_outer³ = r_inner³ + pf·1.9³, so r_inner ≤ (1.9³ − pf·1.9³)^(1/3),
         // which is ≈ 1.687 cm at pf = 0.30. The bracket stays well inside that.
         if search_radius {
-            use outram_mc_libs::physics::search::{
-                search_for_keff, SearchMethod, SearchSettings,
-            };
+            use outram_mc_libs::physics::search::{search_for_keff, SearchMethod, SearchSettings};
 
             let r_inner_max = (R_FUEL_ZONE.powi(3) * (1.0 - spec.packing_fraction)).cbrt();
-            eprintln!(
-                "\n── RPT inner-radius search (target = this code's explicit-TRISO k) ──"
-            );
+            eprintln!("\n── RPT inner-radius search (target = this code's explicit-TRISO k) ──");
             eprintln!(
                 "  target k = {:.5} ± {:.5}   geometric ceiling on r_inner = {r_inner_max:.4} cm",
                 explicit.k_mean, explicit.k_std
             );
 
             let k_of_r = |r_inner: f64| {
-                let r_outer =
-                    rpt_fuel_outer_radius(r_inner, R_FUEL_ZONE, spec.packing_fraction);
+                let r_outer = rpt_fuel_outer_radius(r_inner, R_FUEL_ZONE, spec.packing_fraction);
                 let at = move |p: Position| -> Option<usize> {
                     let r = p.norm();
                     Some(if r < r_inner {
@@ -680,7 +762,9 @@ mod desktop {
         // ── OpenMC reference (op-mzvp.1, GH #156) ──
         eprintln!("\n── OpenMC full-pebble reference (op-mzvp.1, ENDF/B-VIII.0, c_Graphite) ──");
         eprintln!("  explicit TRISO pebble : k = 1.36510 ± 0.00063");
-        eprintln!("  ring-RPT pebble       : k = 1.36479 ± 0.00067   Δ(RPT−explicit) = −31 pcm (0.34σ)");
+        eprintln!(
+            "  ring-RPT pebble       : k = 1.36479 ± 0.00067   Δ(RPT−explicit) = −31 pcm (0.34σ)"
+        );
         eprintln!("  η/f/p/ε (explicit)    : 2.0158 / 0.9172 / 0.4837 / 1.5064");
         eprintln!("  η/f/p/ε (ring-RPT)    : 2.0073 / 0.9216 / 0.4842 / 1.5043");
         eprintln!(
