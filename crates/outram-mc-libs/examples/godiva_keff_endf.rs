@@ -25,7 +25,18 @@
 //! is used (not VIII.0) because its U resonances are Reich-Moore (LRF=3), which
 //! the RECONR port reconstructs; VIII.0 U is LRF=7 (not yet ported).
 //!
-//! Run with (needs the `net-fetch` feature and a network connection):
+//! **It no longer requires a network.** When the IAEA fetch is unavailable —
+//! offline, or behind a proxy the HTTP client will not trust (this workspace's
+//! own remote sandbox fails with `invalid peer certificate: UnknownIssuer`,
+//! because the agent proxy's CA is not in the client's trust store) — it falls
+//! back to the repo's own ENDF/B-VIII.0
+//! tapes in `reference-data/endf/` and says so. That changes the evaluation
+//! (VII.1's U resonances are Reich-Moore LRF=3; VIII.0's are LRF=7), so the
+//! fallback is announced loudly and the V&V gate is told which library it is
+//! judging.
+//!
+//! Run with (needs the `net-fetch` feature; a network connection is preferred
+//! but no longer required):
 //! ```text
 //! cargo run --release -p outram-mc-libs --features net-fetch --example godiva_keff_endf
 //! ```
@@ -133,9 +144,31 @@ fn main() {
     );
     let t0 = Instant::now();
     let mut nuclides: Vec<Nuclide> = Vec::with_capacity(3);
-    for name in ["U234", "U235", "U238"] {
+    // Set to true the first time the fetch fails and the local tapes take over,
+    // so the run reports which library actually produced the answer.
+    let mut used_local = false;
+
+    // The repo's own ENDF/B-VIII.0 tapes, used when the fetch cannot reach the
+    // IAEA. Same three isotopes, same names `examples/godiva_keff_endf_local.rs`
+    // reads.
+    const LOCAL_TAPES: [(&str, &str); 3] = [
+        ("U234", "n-092_U_234-ENDF8.0.endf"),
+        ("U235", "n-092_U_235-ENDF8.0.endf"),
+        ("U238", "n-092_U_238.endf"),
+    ];
+
+    for (name, local_file) in LOCAL_TAPES {
         let t = Instant::now();
-        match Nuclide::from_endf(lib, name, temp_k, 1.0e-3) {
+        let fetched = if used_local {
+            // Already fell back once; don't re-attempt a network call per isotope.
+            Err(njoy_outram_park_fork::NjoyError::Download(
+                "skipped: an earlier fetch already failed".into(),
+            ))
+        } else {
+            Nuclide::from_endf(lib, name, temp_k, 1.0e-3)
+        };
+
+        match fetched {
             Ok(n) => {
                 println!(
                     "  {name}: reconstructed in {:.1} s",
@@ -143,22 +176,49 @@ fn main() {
                 );
                 nuclides.push(n);
             }
-            // Fail gracefully rather than panicking with a backtrace: the usual
-            // cause is no outbound network (offline / restrictive proxy). Print
-            // an honest explanation and point at the offline LOW-tier twin, then
-            // exit non-zero cleanly.
+            // DEGRADE, don't die. The usual cause is no outbound network — this
+            // workspace's own remote sandbox is such a case, its egress proxy
+            // answering www-nds.iaea.org with 403 — and the repo already carries
+            // ENDF/B-VIII.0 tapes for all three isotopes. Falling back to them
+            // keeps this a live V&V case everywhere instead of one that only
+            // runs on a networked machine.
+            //
+            // The library changes when that happens (VII.1 -> VIII.0), which
+            // matters: this example prefers VII.1 because its U resonances are
+            // Reich-Moore (LRF=3), while VIII.0's are LRF=7. The fallback is
+            // announced loudly for exactly that reason, and the V&V gate below
+            // is told which library it is judging.
             Err(e) => {
-                eprintln!(
-                    "\ncould not obtain ENDF data for {name}: {e}\n\n\
-                     This HIGH-fidelity example downloads the ENDF/B-VII.1 neutron tapes\n\
-                     (~150 MB for U-234/235/238) from the IAEA Nuclear Data Services and\n\
-                     reconstructs them on device (RECONR + BROADR), so it needs outbound\n\
-                     network access to https://www-nds.iaea.org. If you are offline or\n\
-                     behind a restrictive proxy, run the offline LOW-tier twin instead\n\
-                     (embedded WMP data, no network):\n  \
-                     cargo run --release -p outram-mc-libs --example godiva_keff"
+                if !used_local {
+                    eprintln!(
+                        "\ncould not fetch {} for {name}: {e}\n\
+                         Falling back to the repo's own ENDF/B-VIII.0 tapes in \
+                         reference-data/endf/.\n\
+                         NOTE: this is a DIFFERENT evaluation from the one this \
+                         example prefers. VII.1's U resonances are Reich-Moore \
+                         (LRF=3); VIII.0's are LRF=7. The result below is a \
+                         VIII.0 result and is reported as such.\n",
+                        lib.label()
+                    );
+                    used_local = true;
+                }
+                let Some(path) = njoy_outram_park_fork::reference_data::reference_endf(local_file)
+                else {
+                    eprintln!(
+                        "could not fetch {name} and {local_file} is not in \
+                         reference-data/endf/ either, so there is no data to run on.\n\
+                         For the fully offline twin (embedded WMP, no tapes needed):\n  \
+                         cargo run --release -p outram-mc-libs --example godiva_keff"
+                    );
+                    std::process::exit(1);
+                };
+                let n = Nuclide::from_endf_file(&path, name, temp_k, 1.0e-3)
+                    .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
+                println!(
+                    "  {name}: reconstructed from {local_file} in {:.1} s",
+                    t.elapsed().as_secs_f64()
                 );
-                std::process::exit(1);
+                nuclides.push(n);
             }
         }
     }
@@ -227,9 +287,15 @@ fn main() {
     // The twin that reads `reference-data/endf/` instead,
     // `examples/godiva_keff_endf_local.rs`, does carry one: +57 +/- 173 pcm on
     // ENDF/B-VIII.0.
-    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 (HIGH tier, fetched ENDF) ===");
+    let library = if used_local {
+        "ENDF/B-VIII.0 from reference-data/endf/ (the IAEA fetch was unavailable)"
+    } else {
+        "ENDF/B-VII.1 fetched from the IAEA"
+    };
+    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 (HIGH tier) ===");
+    println!("  data: {library}");
     outram_mc_libs::vv::assert_reproduces_keff(
-        "HEU-MET-FAST-001 (Godiva), HIGH tier, ENDF/B-VII.1 from the IAEA",
+        &format!("HEU-MET-FAST-001 (Godiva), HIGH tier, {library}"),
         result.k_mean,
         result.k_std,
         1.0000,
