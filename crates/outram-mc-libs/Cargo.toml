@@ -153,6 +153,11 @@ required-features = ["endf-pebble-cases"]
 name = "graphite_vs_njoy_thermr"
 required-features = ["endf-pebble-cases"]
 
+# Diagnostic: mean log energy decrement from the graphite kernel (op-mzvp.2.12).
+[[example]]
+name = "graphite_energy_decrement"
+required-features = ["endf-pebble-cases"]
+
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
 # fails with "cannot find module or crate sys". crossterm, which ratatui

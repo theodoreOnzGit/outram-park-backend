@@ -270,20 +270,34 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    `examples/graphite_vs_njoy_thermr.rs`; both carry their NJOY decks in the
    module docs.
 
-   **This forces a conclusion.** Cross sections agreeing to ~0.1 % while the
-   *spectrum* differs by several percent means the disagreement is not in
-   `σ(E)` at all — it is in what happens *after* a collision. `σ(E)` sets how
-   often a neutron collides; the double-differential kernel sets how much
-   energy it loses. A softer spectrum with correct cross sections is precisely
-   the signature of too much energy transfer per collision. This crate
-   integrates `S(α,β)` directly; OpenMC's `c_Graphite` comes from NNDC ACE with
-   discretised secondary energies and a fixed number of equiprobable angle bins.
-   Those are different representations of the same law and need not agree to
-   0.1 %.
+   That suggested the disagreement was in what happens *after* a collision —
+   `σ(E)` sets how often a neutron collides, the kernel sets how much energy it
+   loses — so **the kernel was measured too, and it is also clean.**
 
-   The measurement that would settle it is the mean log energy decrement per
-   collision, compared against NJOY's discretised ACE block — not another
-   cross-section comparison.
+   The mean log energy decrement `ξ = <ln(E/E')>` needs no external oracle:
+   above the bound regime it must approach the free-gas carbon value, fixed by
+   kinematics alone at `ξ_fg = 1 + α ln α/(1−α) = 0.157769` for
+   `α = ((A−1)/(A+1))² = 0.715976`. Measured at 600 K, 200 k samples per point
+   (`examples/graphite_energy_decrement.rs`):
+
+   | E \[eV\] | ⟨E′⟩/E | ξ | ξ/ξ_fg |
+   |---|---|---|---|
+   | 0.0253 | 1.1908 | −0.0886 | −0.56 (net up-scatter, correct at 600 K) |
+   | 1.0 | 0.8778 | 0.1458 | 0.924 |
+   | 2.0 | 0.8676 | 0.1605 | 1.017 |
+   | **3.9** | 0.8627 | 0.1580 | **1.002** |
+
+   Our kernel lands on the analytic asymptote to 0.2 %, with a monotone trend
+   from correct thermal up-scatter through the phonon regime. It does not
+   transfer too much energy per collision.
+
+   **A claim in an earlier revision of this document was also simply wrong:**
+   it said this crate "integrates `S(α,β)` directly" while OpenMC uses
+   discretised ACE. It does not — `ThermalScattering::sample` states that its
+   inelastic path *mirrors* the ACE law (`IFENG=0`: bracket on the emission
+   grid, statistical interpolation, one equiprobable outgoing energy and
+   cosine). Both codes use the same kind of representation, so that was never
+   available as an explanation.
 
 6. **The absolute offset is one bias shared by both pebbles.**
    Within this single run, both on the sphere:
@@ -349,11 +363,20 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    2026-09-11; see Interpretation 5.* Not in the U-238 cross sections and not in
    the graphite ones — both verified against NJOY2016 to ~0.1 %. Not the pebble
    geometry either (the offset is shared by both pebbles to within 194 pcm).
-   What remains is the scattering **kernel**: the double-differential secondary
-   energy/angle distribution, and the difference between integrating `S(α,β)`
-   directly and OpenMC's discretised ACE representation of it. The next
-   measurement is the mean log energy decrement per collision, not another
-   `σ(E)` comparison.
+   Nor is it the scattering kernel: `ξ` matches the analytic free-gas asymptote
+   to 0.2 % (Interpretation 5).
+
+   **Every named mechanism is now excluded by measurement**, and the ~+1.7 %
+   remains. This record does not offer a seventh hypothesis to close the
+   narrative. What is left is either an accumulation of sub-percent differences
+   across the remaining materials (FLiBe, SiC, the kernel composition), or
+   something in the reference itself — a single run from another party's deck
+   that this workspace has never independently reproduced. The cheapest
+   remaining discriminator is therefore not another hypothesis about our code:
+   it is a second, independent OpenMC run. That could not be done here (the
+   deck needs a library host that answers 403). Until then, "+1.7 % on an
+   AI-assisted code-to-code comparison with every named mechanism excluded" is
+   the correct thing to report — not a bug with an owner.
 
    Note also that `p` and `ε` were being compared across **different
    conventions** — this crate's three-group decomposition against the OpenMC
