@@ -1165,3 +1165,184 @@ fn xml_attr<'a>(head: &'a str, name: &str) -> Option<&'a str> {
     }
     None
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The spatial half: lumped fuel, and the boundary condition that looks like a
+// physics defect
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **A transparent lump must give the homogeneous answer — and with a
+/// specularly reflective sphere it does not, by 40 %.**
+///
+/// # The trap this guards (GitHub #178, bead op-qho6)
+///
+/// Once the *energy* treatment of self-shielding had been verified exactly
+/// (`monte_carlo_matches_the_deterministic_slowing_down_solution`), the FHR
+/// ring-RPT residual was narrowed to the **spatial** half: what the flux does
+/// inside an optically thick lump. The obvious test is a Wigner-Seitz cell — a
+/// fuel lump in a moderator shell — scaled down until the lump is optically
+/// transparent, at which point the cell *is* the homogeneous mixture and the
+/// exact answer is already known.
+///
+/// Built with a **specularly reflective** outer sphere, that test reported a
+/// resonance escape probability **39 % above** the exact homogeneous value for a
+/// lump **0.034 mean free paths** across, and the same 39–43 % at 0.10, 0.34,
+/// 0.86 and 2.57 mean free paths. It looked exactly like the defect being
+/// hunted, and in the right direction.
+///
+/// It was the boundary condition. **Specular reflection off a sphere concentric
+/// with the lump conserves the impact parameter `b = r·sin θ`** — the neutron
+/// leaves at the same angle to the radius it arrived at, so its closest approach
+/// to the centre never changes, and a neutron with `b > R_lump` can never enter
+/// the lump at all, for its whole life. The lump is starved of precisely the
+/// neutrons that should sample it, and because it is geometry rather than
+/// optics, **the error does not weaken as the lump shrinks**.
+///
+/// That flatness is the fingerprint, and it is the generalisable lesson: a bias
+/// that is constant across two decades of optical thickness cannot be
+/// self-shielding. Reading the magnitude alone would have "confirmed" a physics
+/// defect that does not exist — which is the same failure mode as
+/// `a_grid_coarser_than_the_scatter_window_is_rejected_not_silently_wrong`, one
+/// level up.
+///
+/// # Methodology
+///
+/// One cell, one composition, two closures. The cell's volume-averaged
+/// composition is identical to the homogeneous mixture, so
+/// [`solve_deterministic`] supplies the reference. [`CellBoundary::White`]
+/// re-enters at a random point with a cosine-distributed inward direction — the
+/// standard Wigner-Seitz closure, which destroys the invariant;
+/// [`CellBoundary::Specular`] leaves the geometry's reflective sphere to do it.
+///
+/// The lump here is 2.6 mean free paths across at the 6.67 eV resonance peak,
+/// where real self-shielding is still small — a couple of percent — so the two
+/// closures cannot be confused with each other.
+///
+/// # Results (2026-09-11, 30 000 histories, the full scan)
+///
+/// ```text
+/// R_lump/mfp    white p_esc   vs exact      specular   vs exact
+///      0.103        0.38567    −0.51 %       0.54067   +39.48 %
+///      0.343        0.39080    +0.82 %       0.55390   +42.89 %
+///      0.856        0.38870    +0.28 %       0.55073   +42.08 %
+///      2.569        0.39377    +1.58 %       0.55210   +42.43 %
+///      8.564        0.43197   +11.44 %       0.55863   +44.12 %
+///     25.693        0.50013   +29.02 %       0.57363   +47.99 %
+/// ```
+///
+/// With the correct closure the curve is textbook: transparent lumps reproduce
+/// the exact homogeneous answer, and self-shielding turns on smoothly from a few
+/// mean free paths. **So the crate's spatial transport is right too**, and the
+/// ring-RPT residual is not lumping either.
+///
+/// # The part that is not just a test-harness lesson
+///
+/// The FHR ring-RPT pebble is run on a **specularly reflective sphere of
+/// r = 3 cm**, by this crate *and* by its OpenMC reference. Its fuel zone is
+/// `r < 1.9 cm`, so by the argument above a neutron with `b > 1.9 cm` never
+/// reaches the fuel. The artefact is in the shared model, so that code-to-code
+/// comparison stays like-for-like — but it makes the case a weak benchmark in
+/// absolute terms, and it is a live hypothesis for the residual that the two
+/// codes' specular reflections do not preserve the invariant equally (see
+/// op-qho6). ICSBEP LEU-COMP-THERM-008, which is vacuum-bounded throughout, has
+/// no reflective surface at all and so cannot be explained this way.
+#[test]
+fn a_transparent_lump_gives_the_homogeneous_answer_only_under_a_white_boundary() {
+    use outram_mc_libs::geometry::surface::BoundaryType;
+    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::pebble_beds::fhr_pebble::fhr_pebble_geometry;
+    use outram_mc_libs::physics::slowing_down::{
+        solve_deterministic, CellBoundary, LumpCellMc, ScatterKernel,
+    };
+
+    let Some((nuclides, grid)) = u238_c12_medium() else {
+        return;
+    };
+    let (band, temp) = (BAND, MEDIUM_TEMP_K);
+
+    const SIGMA_B: f64 = 300.0;
+    const VFRAC: f64 = 0.30;
+    const R_CELL: f64 = 0.15;
+    let n_u8_avg = 1.0e-3;
+    let n_c_avg = SIGMA_B / SIGMA_P_C12 * n_u8_avg;
+
+    // The exact reference: the same composition, homogenised.
+    let exact = solve_deterministic(nuclides, &mixture_at(SIGMA_B), band, temp, grid).escaped;
+
+    let comp = |v: &[(usize, f64)]| -> Vec<NuclideComponent> {
+        v.iter()
+            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
+                nuclide_idx,
+                atom_density,
+            })
+            .collect()
+    };
+    // Volume-weighted back to exactly the homogeneous composition.
+    let materials = vec![
+        Material {
+            id: 1,
+            name: "U-238 lump".into(),
+            temperature: temp,
+            components: comp(&[(1, n_u8_avg / VFRAC)]),
+        },
+        Material {
+            id: 2,
+            name: "graphite".into(),
+            temperature: temp,
+            components: comp(&[(0, n_c_avg / (1.0 - VFRAC))]),
+        },
+    ];
+    let r_fuel = R_CELL * VFRAC.cbrt();
+
+    let run = |bc: CellBoundary, outer: BoundaryType| {
+        let geom = fhr_pebble_geometry(
+            0.0,
+            r_fuel,
+            0.5 * (r_fuel + R_CELL),
+            R_CELL,
+            0,
+            1,
+            1,
+            outer,
+            temp,
+        );
+        LumpCellMc {
+            histories: 12_000,
+            seed: 0xABCD_0003,
+            kernel: ScatterKernel::IsotropicCmAtRest,
+            boundary: bc,
+            max_events: 40_000_000,
+        }
+        .run(&geom, &materials, nuclides, band, temp, R_CELL)
+    };
+
+    let white = run(CellBoundary::White, BoundaryType::Vacuum);
+    let specular = run(CellBoundary::Specular, BoundaryType::Reflective);
+    let (dw, ds) = (white.escaped / exact - 1.0, specular.escaped / exact - 1.0);
+    println!(
+        "lump {:.3} mfp-equivalent (r = {r_fuel:.4} cm): exact {exact:.5}; \
+         white {:.5} ± {:.5} ({:+.2} %); specular {:.5} ({:+.2} %)",
+        r_fuel,
+        white.escaped,
+        white.stderr_of(white.escaped),
+        100.0 * dw,
+        specular.escaped,
+        100.0 * ds
+    );
+    assert_eq!(white.lost, 0.0, "the white closure lost neutrons");
+
+    assert!(
+        dw.abs() < 0.06,
+        "a nearly-transparent lump under a WHITE boundary gave {:+.2} % against the \
+         exact homogeneous answer. That limit is not an approximation — at this size \
+         the cell IS the homogeneous mixture — so the spatial transport is biased.",
+        100.0 * dw
+    );
+    assert!(
+        ds > 0.25,
+        "the SPECULAR sphere gave only {:+.2} %, so this test no longer demonstrates \
+         the impact-parameter trap it exists to document. Either the closure changed \
+         or the cell no longer starves its lump — check before relaxing this.",
+        100.0 * ds
+    );
+}

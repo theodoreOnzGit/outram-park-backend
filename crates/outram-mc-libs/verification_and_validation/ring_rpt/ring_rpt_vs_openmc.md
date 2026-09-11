@@ -1094,7 +1094,64 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
       **original MCNP deck** — 4961 fuel pins each side, 0 mismatches in 11 025
       positions).
 
-      f. **Superseded plan, kept for the trail — a spectrum, not another
+   f. **And the SPATIAL half is now measured too — also sound.** Same day.
+      `physics::slowing_down::LumpCellMc` runs a Wigner-Seitz cell (fuel lump in
+      a moderator shell) through the crate's **real CSG transport** —
+      `Geometry::locate`, `distance_to_boundary`, `cross_surface`, the same calls
+      `transport_history` makes — with the cell's volume-averaged composition
+      identical to the homogeneous mixture above. Scaling the lump down makes it
+      optically transparent, at which point the cell **is** that mixture and the
+      exact answer is already known:
+
+      | lump radius / mfp at 6.67 eV | `p_esc` | vs exact |
+      |---|---|---|
+      | 0.103 | 0.38567 | −0.51 % |
+      | 0.343 | 0.39080 | +0.82 % |
+      | 0.856 | 0.38870 | +0.28 % |
+      | 2.569 | 0.39377 | +1.58 % |
+      | 8.564 | 0.43197 | +11.44 % |
+      | 25.693 | 0.50013 | +29.02 % |
+
+      Textbook: transparent lumps reproduce the exact homogeneous answer, and
+      self-shielding turns on smoothly from a few mean free paths. A separate
+      control — the same walker on a cell whose two regions carry the
+      *homogenised* material, at five cell radii from 0.03 to 3 cm, i.e. from
+      ~1 to several hundred reflective boundary crossings per collision — agrees
+      with the exact answer to <= 1.1 % everywhere with **zero** lost neutrons, so
+      the crossing machinery does not bias the solution however often it is
+      exercised. **The spatial transport is not the defect either.**
+
+   g. **A boundary condition that looks exactly like the defect being hunted,
+      and a live hypothesis it raises about this very study.** The first build of
+      (f) used a **specularly reflective** outer sphere and reported +39 % on a
+      lump 0.034 mfp across — transparent — and the same 39-43 % at 0.10, 0.34,
+      0.86 and 2.57 mfp. It looked like the residual, in the right direction.
+
+      It is the boundary. **Specular reflection off a sphere concentric with the
+      lump conserves the impact parameter `b = r sin(theta)`**: the neutron
+      leaves at the same angle to the radius it arrived at, so its closest
+      approach to the centre never changes and a neutron with `b > R_lump` can
+      never enter the lump *at all*. The lump is starved of the neutrons that
+      should sample it, and because it is geometry rather than optics the error
+      does not weaken as the lump shrinks. **That flatness across two decades of
+      optical thickness is the fingerprint** — self-shielding cannot do it. A
+      white closure (random re-entry point, cosine inward) removes it entirely.
+
+      **This study's own pebble is run on a specularly reflective sphere of
+      r = 3 cm**, by this crate *and* by its OpenMC reference, with the fuel zone
+      at `r < 1.9 cm`. So a neutron with `b > 1.9 cm` never reaches the fuel.
+      Being shared, the artefact cancels in the code-to-code comparison — but it
+      makes the case a weak benchmark in absolute terms, and it raises a
+      hypothesis with the **right sign**: if the two codes' specular reflections
+      do not preserve the invariant equally (floating-point drift over hundreds
+      of reflections is enough to randomise it), the code that preserves it more
+      strongly under-samples its fuel, absorbs less in the U-238 resonances, and
+      reports `p` and `k` too high — which is this crate. Cheap to test: rerun
+      the pebble with a white boundary and see how far `k` moves. Recorded as
+      bead `op-qho6`. Note it cannot explain **LEU-COMP-THERM-008**, which is
+      vacuum-bounded throughout and has no reflective surface at all.
+
+   h. **Superseded plan, kept for the trail — a spectrum, not another
       eigenvalue.** Everything
       k-shaped that this environment can reach has now been measured, and the
       answer is consistent: correct `σ_γ`, correct tracking, 11 % too little

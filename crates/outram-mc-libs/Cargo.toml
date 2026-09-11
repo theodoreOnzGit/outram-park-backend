@@ -165,6 +165,12 @@ required-features = ["endf-pebble-cases"]
 name = "slowing_down_oracle"
 required-features = ["endf-pebble-cases"]
 
+# Exploratory driver for the SPATIAL half: a Wigner-Seitz cell scaled up and down
+# at fixed composition (gh:#178, bead op-qho6).
+[[example]]
+name = "lump_self_shielding_scan"
+required-features = ["endf-pebble-cases"]
+
 # External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
 # of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
 [[example]]

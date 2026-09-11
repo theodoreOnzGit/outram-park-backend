@@ -107,7 +107,10 @@
 //! measurement, with the assertions, is
 //! `tests/ring_rpt_hunt_lessons.rs::monte_carlo_matches_the_deterministic_slowing_down_solution`.
 
-use crate::geometry::position::Direction;
+use crate::geometry::cell::SurfaceToken;
+use crate::geometry::geometry::{Crossing, Geometry};
+use crate::geometry::position::{Direction, Position};
+use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::physics::scatter::{
     free_gas_elastic_scatter, two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
@@ -657,4 +660,340 @@ impl InfiniteMediumMc {
     pub fn stderr_of(&self, p: f64) -> f64 {
         (p * (1.0 - p) / self.histories as f64).sqrt().max(1.0e-12)
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Two-region: the same slowing down, but with the fuel LUMPED
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Monte-Carlo slowing down through a **Wigner-Seitz cell** — a fuel lump inside
+/// a moderator shell with a reflective outer boundary — using the crate's real
+/// CSG transport.
+///
+/// # Why this exists
+///
+/// [`InfiniteMediumMc`] against [`solve_on_grid`] established that this crate's
+/// *energy* treatment of self-shielded resonance absorption is right (agreement
+/// at every dilution from `σ_b = 30 b` to 10 000 b, an 11.7× collapse of the
+/// effective resonance integral). That leaves the **spatial** half: what happens
+/// to the flux inside an optically thick lump, which is the one mechanism the
+/// FHR pebble and ICSBEP LEU-COMP-THERM-008 share and the three reproduced
+/// benchmarks do not.
+///
+/// This walker is deliberately *not* a re-implementation. Its flights, boundary
+/// crossings and collisions go through [`Geometry::locate`],
+/// [`Geometry::distance_to_boundary`] and [`Geometry::cross_surface`] — the same
+/// calls `transport_csg::transport_history` makes — so what is under test is the
+/// real spatial machinery. Only fission banking and the tally plumbing are left
+/// out, because a resonance-escape measurement is a per-history outcome rather
+/// than a track-length score.
+///
+/// # The oracle: the thin-lump limit is exact
+///
+/// Scale the lump and the cell down together at fixed composition and the
+/// optical thickness of both regions goes to zero, so the cell becomes
+/// **exactly** the homogeneous medium [`solve_on_grid`] solves. That gives a
+/// reference that owes nothing to equivalence theory, rational approximations or
+/// any remembered correlation:
+///
+/// - at small scale the answer **must** converge on the homogeneous solution, and
+///   if it does not, the spatial machinery is broken and the scan says by how
+///   much;
+/// - as the scale grows the absorption must fall monotonically, because that is
+///   what lumping *is*;
+/// - and the size of the fall at a realistic scale is the lumping reactivity,
+///   the quantity the ring-RPT residual is now narrowed to.
+///
+/// # The outer boundary must be WHITE, and that is not a detail
+///
+/// A **specularly** reflective sphere is not a valid Wigner-Seitz boundary, and
+/// the way it fails is silent. Specular reflection off a sphere concentric with
+/// the lump conserves the impact parameter `b = r·sin θ` exactly: a neutron
+/// leaves at the same angle to the radius it arrived at, so its closest approach
+/// to the centre never changes. **A neutron with `b > R_lump` can therefore
+/// never enter the lump, at any energy, for the whole of its life.** The lump is
+/// starved of exactly the neutrons that should be sampling it, and the effect is
+/// *scale-invariant* — it does not weaken as the lump shrinks, because it is
+/// geometry, not optics.
+///
+/// Measured here before the fix: a lump **0.034 mean free paths** across at the
+/// 6.67 eV resonance peak — optically transparent, so the cell is provably the
+/// homogeneous mixture — returned a resonance escape probability **39 % above**
+/// the exact homogeneous answer, and the same 39 % at 0.10, 0.86 and 2.57 mean
+/// free paths. A flat offset across two decades of optical thickness is the
+/// fingerprint: self-shielding cannot do that, and geometry can.
+///
+/// [`CellBoundary::White`] is therefore the default: a neutron reaching the
+/// outer surface re-enters at a **random** point on it with a cosine-distributed
+/// inward direction, which is the standard Wigner-Seitz closure and destroys the
+/// invariant. [`CellBoundary::Specular`] is kept only so the defect can be
+/// demonstrated rather than described.
+///
+/// (The FHR ring-RPT pebble is run on a specularly reflective sphere by *both*
+/// this crate and its OpenMC reference, so that comparison stays like-for-like;
+/// the artefact is in the shared model, not in one side of it.)
+///
+/// # Source
+///
+/// Uniform in the cell volume at `band.e_top`, matching [`InfiniteMediumMc`]'s
+/// unit source so the thin-lump limit is a like-for-like comparison. At 10 keV —
+/// well above the resolved resonances that matter — the real slowing-down source
+/// is close to spatially flat, so this is also the physically right choice, not
+/// only the convenient one.
+#[derive(Debug, Clone, Copy)]
+pub struct LumpCellMc {
+    /// Source neutrons to follow.
+    pub histories: usize,
+    /// Master RNG seed.
+    pub seed: u64,
+    /// Which elastic kernel to use — see [`ScatterKernel`].
+    pub kernel: ScatterKernel,
+    /// How the outer surface returns a neutron to the cell. **Leave this
+    /// [`CellBoundary::White`]** unless you are demonstrating the specular
+    /// defect — see the type docs.
+    pub boundary: CellBoundary,
+    /// Guard against a history that will not terminate (flights *and*
+    /// collisions, so a neutron trapped on a surface trips it).
+    pub max_events: u32,
+}
+
+/// How a neutron reaching the cell's outer surface is returned to it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellBoundary {
+    /// Re-enter at a **random** point on the outer sphere with a
+    /// cosine-distributed inward direction — the standard Wigner-Seitz closure.
+    /// Build the geometry with a **vacuum** outer surface and this variant
+    /// intercepts the escape.
+    White,
+    /// Let the geometry's own reflective boundary handle it. **For a sphere this
+    /// is wrong**, in the specific and silent way described on [`LumpCellMc`]:
+    /// it conserves the impact parameter and can starve the lump entirely.
+    /// Retained so the defect stays reproducible.
+    Specular,
+}
+
+impl Default for LumpCellMc {
+    fn default() -> Self {
+        Self {
+            histories: 100_000,
+            seed: 0x5EED_1234_ABCD_0002,
+            kernel: ScatterKernel::IsotropicCmAtRest,
+            boundary: CellBoundary::White,
+            max_events: 1_000_000,
+        }
+    }
+}
+
+impl LumpCellMc {
+    /// Follow `histories` neutrons from `band.e_top`, born uniformly in the ball
+    /// of radius `cell_radius`, until each is absorbed or falls below
+    /// `band.e_bot`.
+    ///
+    /// `absorbed_by` is indexed by **material**, not by nuclide, so the fuel and
+    /// moderator shares are separable; `escaped` is the resonance escape
+    /// probability over the band. A neutron that leaves the geometry is a defect
+    /// here (the outer boundary is meant to be reflective) and is counted into
+    /// `lost` rather than silently folded into either.
+    pub fn run(
+        &self,
+        geom: &Geometry,
+        materials: &[Material],
+        nuclides: &[Nuclide],
+        band: SlowingDownBand,
+        temp_k: f64,
+        cell_radius: f64,
+    ) -> LumpCellResult {
+        let mut absorbed_by = vec![0.0_f64; materials.len()];
+        let (mut escaped, mut lost) = (0.0_f64, 0.0_f64);
+        let mut seed = self.seed;
+        let kt = K_BOLTZMANN_EV_PER_K * temp_k;
+        const NUDGE: f64 = 1.0e-9;
+
+        for _ in 0..self.histories {
+            // Uniform in the ball: r ∝ ξ^{1/3}, isotropic direction.
+            let rr = cell_radius * prn(&mut seed).cbrt();
+            let (sx, sy, sz) = isotropic(&mut seed);
+            let mut pos = Position::new(rr * sx, rr * sy, rr * sz);
+            let (dx, dy, dz) = isotropic(&mut seed);
+            let mut dir = Direction::new(dx, dy, dz);
+            let mut e = band.e_top;
+            let mut on_surface = SurfaceToken::NONE;
+            let mut events = 0u32;
+
+            'history: loop {
+                events += 1;
+                assert!(
+                    events <= self.max_events,
+                    "history exceeded {} events at {e} eV, r = {:?} — the walk is not \
+                     terminating",
+                    self.max_events,
+                    pos
+                );
+
+                let Some(path) = geom.locate(pos, dir, on_surface) else {
+                    lost += 1.0;
+                    break 'history;
+                };
+                let Some(m) = path.material else {
+                    // Void: stream to the next boundary. The cells here are all
+                    // filled, so this is a modelling error rather than physics.
+                    lost += 1.0;
+                    break 'history;
+                };
+                let sigma_t = materials[m].macro_xs_total(e, nuclides);
+                assert!(sigma_t > 0.0, "transparent material {m} at {e} eV");
+
+                let d_bound = geom.distance_to_boundary(&path);
+                let d_col = -prn(&mut seed).max(f64::MIN_POSITIVE).ln() / sigma_t;
+
+                if d_col < d_bound.distance {
+                    pos = advance(pos, dir, d_col);
+                    on_surface = SurfaceToken::NONE;
+
+                    let material = &materials[m];
+                    let ci = material.sample_nuclide(e, &mut seed, nuclides);
+                    let nuc = &nuclides[material.components[ci].nuclide_idx];
+                    let x = nuc.xs_at_energy(e, temp_k);
+                    let xi = prn(&mut seed) * x.total;
+                    if xi < x.absorption {
+                        absorbed_by[m] += 1.0;
+                        break 'history;
+                    }
+                    assert!(
+                        xi >= x.absorption + x.inelastic + x.n2n,
+                        "an inelastic or (n,2n) channel opened at {e} eV — the band \
+                         reaches a threshold and the comparison is not valid there"
+                    );
+                    let (e2, d2) = self.scatter(nuc, e, dir, kt, &mut seed);
+                    e = e2;
+                    dir = d2;
+                    if e < band.e_bot {
+                        escaped += 1.0;
+                        break 'history;
+                    }
+                } else {
+                    pos = advance(pos, dir, d_bound.distance);
+                    match d_bound.crossing {
+                        Crossing::Surface(i_surf) => {
+                            let crossed = geom.cross_surface(i_surf, pos, dir);
+                            if !crossed.alive {
+                                if self.boundary == CellBoundary::White {
+                                    // Re-enter at a RANDOM point with a cosine
+                                    // inward direction. Randomising the point as
+                                    // well as the direction is what breaks the
+                                    // impact-parameter invariant; see the type
+                                    // docs for what happens when it is not
+                                    // broken.
+                                    let (nx, ny, nz) = isotropic(&mut seed);
+                                    let shrink = cell_radius * (1.0 - 1.0e-12);
+                                    pos = Position::new(shrink * nx, shrink * ny, shrink * nz);
+                                    let inward = Direction::new(-nx, -ny, -nz);
+                                    let mu = prn(&mut seed).sqrt(); // cosine law
+                                    dir = crate::physics::scatter::rotate_direction(
+                                        inward, mu, &mut seed,
+                                    );
+                                    on_surface = SurfaceToken::NONE;
+                                    continue;
+                                }
+                                lost += 1.0;
+                                break 'history;
+                            }
+                            pos = crossed.r;
+                            dir = crossed.u;
+                            on_surface = crossed.on_surface;
+                        }
+                        Crossing::Lattice => {
+                            pos = advance(pos, dir, NUDGE);
+                            on_surface = SurfaceToken::NONE;
+                        }
+                        Crossing::None => {
+                            lost += 1.0;
+                            break 'history;
+                        }
+                    }
+                }
+            }
+        }
+
+        let inv = 1.0 / self.histories as f64;
+        LumpCellResult {
+            absorbed_by: absorbed_by.iter().map(|x| x * inv).collect(),
+            escaped: escaped * inv,
+            lost: lost * inv,
+            histories: self.histories,
+        }
+    }
+
+    fn scatter(
+        &self,
+        nuc: &Nuclide,
+        e: f64,
+        dir: Direction,
+        kt: f64,
+        seed: &mut u64,
+    ) -> (f64, Direction) {
+        match self.kernel {
+            ScatterKernel::IsotropicCmAtRest => {
+                let mu = 2.0 * prn(seed) - 1.0;
+                two_body_scatter_with_mu(e, dir, nuc.awr, 0.0, mu, seed)
+            }
+            ScatterKernel::AnisotropicCmAtRest => {
+                let mu = nuc
+                    .sample_elastic_mu_cm(e, seed)
+                    .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                two_body_scatter_with_mu(e, dir, nuc.awr, 0.0, mu, seed)
+            }
+            ScatterKernel::Production => {
+                if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
+                    (
+                        e_out,
+                        crate::physics::scatter::rotate_direction(dir, mu_lab, seed),
+                    )
+                } else {
+                    let mu_cm = nuc
+                        .sample_elastic_mu_cm(e, seed)
+                        .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                    free_gas_elastic_scatter(e, dir, nuc.awr, kt, mu_cm, seed)
+                }
+            }
+        }
+    }
+}
+
+/// Outcome of a [`LumpCellMc`] run, as fractions of one source neutron.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LumpCellResult {
+    /// Fraction absorbed in each **material**, in the geometry's own order.
+    pub absorbed_by: Vec<f64>,
+    /// Fraction that reached `band.e_bot` still alive — the resonance escape
+    /// probability over the band.
+    pub escaped: f64,
+    /// Fraction that left the geometry or was lost in it. Should be zero for a
+    /// reflective cell; anything else is a geometry defect, not physics.
+    pub lost: f64,
+    /// Histories run, for the binomial standard error.
+    pub histories: usize,
+}
+
+impl LumpCellResult {
+    /// 1σ on a scored fraction `p`.
+    pub fn stderr_of(&self, p: f64) -> f64 {
+        (p * (1.0 - p) / self.histories as f64).sqrt().max(1.0e-12)
+    }
+}
+
+/// A point advanced `d` along `u`. (`transport_csg`'s `stream`, which is private
+/// to that module.)
+#[inline]
+fn advance(r: Position, u: Direction, d: f64) -> Position {
+    Position::new(r.x + d * u.u, r.y + d * u.v, r.z + d * u.w)
+}
+
+/// A direction sampled uniformly on the unit sphere.
+#[inline]
+fn isotropic(seed: &mut u64) -> (f64, f64, f64) {
+    let mu = 2.0 * prn(seed) - 1.0;
+    let phi = std::f64::consts::TAU * prn(seed);
+    let s = (1.0 - mu * mu).max(0.0).sqrt();
+    (s * phi.cos(), s * phi.sin(), mu)
 }
