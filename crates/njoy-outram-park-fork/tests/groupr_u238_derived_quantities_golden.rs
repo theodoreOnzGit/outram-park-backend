@@ -74,6 +74,14 @@ fn njoy_pendf_derived_quantities_match_gendf() {
         return;
     };
     let Ok(pendf_path) = std::env::var(NJOY_PENDF_ENV) else {
+        // This gate is on data reference_data does not own (an NJOY PENDF named
+        // by its own variable), so it honours the shared "a skip is a failure"
+        // flag explicitly rather than going through reference_file_or_skip.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[{LABEL}] {NJOY_PENDF_ENV} is unset, so this test asserts nothing, \
+             and OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
         println!("[{LABEL}] SKIP: set {NJOY_PENDF_ENV} to the NJOY 293.6 K PENDF");
         return;
     };

@@ -107,6 +107,71 @@ pub fn reference_endf(file: &str) -> Option<PathBuf> {
     alternate.exists().then_some(alternate)
 }
 
+/// Environment variable that turns a data-gated **skip into a hard failure**.
+///
+/// # Why this exists
+///
+/// A data-gated test must pass when its reference data is absent — a crates.io
+/// consumer has no repository around the crate. But `cargo` swallows a passing
+/// test's stdout, so the skip note below is invisible in a normal run, and
+/// nothing anywhere fails when a test skips. A skipped test is therefore
+/// counted in the "N passed" totals that get quoted as evidence.
+///
+/// That is not hypothetical. On 2026-09-11 an audit of those totals found **19
+/// tests across 4 binaries passing in 0.00 s having asserted nothing**, three of
+/// the binaries looking for tapes this repository already had — one of them
+/// because the tapes moved directory on 2026-08-17 and *nothing failed*, so six
+/// tests asserted nothing for three and a half weeks.
+///
+/// Set this to `1` in CI, where the reference data *is* present and a skip means
+/// something is wrong. Leave it unset for a developer who legitimately lacks the
+/// data.
+pub const REQUIRE_REFERENCE_DATA_ENV: &str = "OUTRAM_PARK_REQUIRE_REFERENCE_DATA";
+
+/// Is the "a skip is a failure" flag set ([`REQUIRE_REFERENCE_DATA_ENV`])?
+///
+/// Public so that a test which gates on data this module does not own — an NJOY
+/// PENDF named by its own environment variable, a git-lfs library outside the
+/// repository — can honour the same flag instead of silently passing:
+///
+/// ```no_run
+/// # use njoy_outram_park_fork::reference_data::reference_data_required;
+/// # let have_it = false;
+/// # let label = "my-test";
+/// if !have_it {
+///     assert!(!reference_data_required(), "[{label}] reference data absent");
+///     println!("[{label}] SKIP");
+///     return;
+/// }
+/// ```
+pub fn reference_data_required() -> bool {
+    matches!(
+        std::env::var(REQUIRE_REFERENCE_DATA_ENV).as_deref(),
+        Ok("1") | Ok("true") | Ok("TRUE") | Ok("yes")
+    )
+}
+
+/// Decide what a missing reference file means: `None` (skip, printing a note),
+/// or a panic when `required`.
+///
+/// Split out as a **pure** function taking `required` as an argument rather than
+/// reading the environment itself, so its two branches can be unit-tested
+/// directly. Testing it through the environment would mean mutating a
+/// process-global from inside a test binary whose tests run concurrently on
+/// threads — which is racy, and would leave this guard in the same
+/// never-actually-executed state as the tests it exists to catch.
+fn missing_reference(required: bool, label: &str, file: &str, dir: &Path, hint: &str) -> Option<PathBuf> {
+    assert!(
+        !required,
+        "[{label}] reference file {file} not found in {}, and \
+         {REQUIRE_REFERENCE_DATA_ENV} is set — this test would have silently \
+         passed without asserting anything",
+        dir.display()
+    );
+    println!("[{label}] SKIP: reference file {file} not found in {} ({hint})", dir.display());
+    None
+}
+
 /// [`reference_endf`], but prints a skip note naming `label` and the directory
 /// tried when the tape is absent.
 ///
@@ -127,14 +192,13 @@ pub fn reference_endf(file: &str) -> Option<PathBuf> {
 pub fn reference_endf_or_skip(file: &str, label: &str) -> Option<PathBuf> {
     match reference_endf(file) {
         Some(p) => Some(p),
-        None => {
-            println!(
-                "[{label}] SKIP: reference tape {file} not found in {} \
-                 (set {ENDF_DIR_ENV} to a directory holding it)",
-                reference_endf_dir().display()
-            );
-            None
-        }
+        None => missing_reference(
+            reference_data_required(),
+            label,
+            file,
+            &reference_endf_dir(),
+            &format!("set {ENDF_DIR_ENV} to a directory holding it"),
+        ),
     }
 }
 
@@ -195,6 +259,40 @@ mod tests {
         assert!(!is_endf_tape(Path::new("tsl-CinSiC.leapr")));
         assert!(!is_endf_tape(Path::new("README.md")));
     }
+
+    /// Without the flag, a missing reference file is a skip — the contract a
+    /// crates.io consumer depends on, since they have no repository around the
+    /// crate.
+    #[test]
+    fn missing_reference_skips_by_default() {
+        let got = missing_reference(
+            false,
+            "unit-test",
+            "no-such-tape.endf",
+            Path::new("/nonexistent"),
+            "hint",
+        );
+        assert!(got.is_none());
+    }
+
+    /// With the flag, the same situation is a hard failure naming the file —
+    /// so CI cannot accumulate tests that pass without asserting anything.
+    ///
+    /// This is the branch that matters, and it is asserted here rather than
+    /// through an environment variable on purpose: `cargo` runs a binary's
+    /// tests concurrently on threads of one process, so setting the variable
+    /// inside a test would race every other test reading it.
+    #[test]
+    #[should_panic(expected = "silently passed without asserting anything")]
+    fn missing_reference_panics_when_required() {
+        missing_reference(
+            true,
+            "unit-test",
+            "no-such-tape.endf",
+            Path::new("/nonexistent"),
+            "hint",
+        );
+    }
 }
 
 // ── Other reference-data subdirectories (golden tapes that are not ENDF) ─────
@@ -238,13 +336,12 @@ pub fn reference_file(subdir: &str, file: &str) -> Option<PathBuf> {
 pub fn reference_file_or_skip(subdir: &str, file: &str, label: &str) -> Option<PathBuf> {
     match reference_file(subdir, file) {
         Some(p) => Some(p),
-        None => {
-            println!(
-                "[{label}] SKIP: reference file {file} not found in {} \
-                 (set {REFERENCE_DATA_ROOT_ENV} to the reference-data root holding it)",
-                reference_data_dir(subdir).display()
-            );
-            None
-        }
+        None => missing_reference(
+            reference_data_required(),
+            label,
+            file,
+            &reference_data_dir(subdir),
+            &format!("set {REFERENCE_DATA_ROOT_ENV} to the reference-data root holding it"),
+        ),
     }
 }
