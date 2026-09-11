@@ -4,7 +4,8 @@
 **Crate commit:** `develop`
 
 **Status: two defects found and fixed here; ring-RPT equivalence is reproduced;
-the absolute-k disagreement is larger than before and better localised.**
+the absolute-k disagreement is larger than before, and now bracketed by two
+measured criticality benchmarks that this code reproduces.**
 
 1. The crate sampled elastic scattering off a target held **at rest** at every
    energy, for every nuclide without an S(α,β) table — so FLiBe, the kernel
@@ -684,7 +685,60 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    0.0523 just above it), a slowing-down plateau of ψ̄ ≈ 0.070 at 1–20 keV, and
    nothing at 1e-4–1e-2 eV (ψ̄ 0.0005), where `op-50vu` used to pile neutrons up.
 
-12. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
+12. **This code reproduces a measured criticality benchmark at *each* end of the
+   spectrum, and the pebble is the only thing that disagrees.**
+
+   | benchmark | character | result |
+   |---|---|---|
+   | ICSBEP **HEU-MET-FAST-001** (Godiva) | bare HEU metal sphere, fast | **+57 ± 173 pcm** |
+   | ICSBEP **HEU-SOL-THERM-009 case 1** | water-reflected HEU solution sphere, thermal | **−18 ± 171 pcm** |
+   | this study's FHR pebble | graphite/FLiBe TRISO pebble, thermal | **+4004 pcm** |
+
+   Both benchmarks run on the same `Nuclide::from_endf_file` reconstruction and
+   the same eigenvalue drivers as the pebble. The thermal one
+   (`examples/hst009_keff.rs`) is the deliberate complement of Godiva: water
+   rather than metal, `c_H_in_H2O` rather than no thermal law at all, a
+   homogeneous solution rather than a bare sphere, and a three-region CSG
+   geometry with a real vacuum boundary and leakage. It exercises the S(α,β)
+   path, the free-gas kernel, thermal fission and capture, and the CSG driver on
+   a moderated system — the last large untested class on this side — and it
+   lands on the experiment.
+
+   **The reference value is `k_eff = 1.0000`, and that is not a remembered
+   number.** ICSBEP benchmark models are configurations measured *at delayed
+   critical*, corrected to a benchmark model whose `k_eff` is 1.0000 within the
+   evaluated experimental uncertainty — typically 0.1–0.6 % for a solution
+   system. The case-specific uncertainty is not in the model repository and the
+   handbook is not reachable here, so the comparison is made against
+   `1.0000 ± 0.006`, the pessimistic end of that band. Against a **4 %**
+   question that is six times more accuracy than is needed.
+
+   The specification is sourced, not reconstructed from memory: the ICSBEP model
+   in `mit-crpg/benchmarks` (`icsbep/heu-sol-therm-009/openmc/case-1`, Paul
+   Romano, 2013-07-09), reachable through `raw.githubusercontent.com` when the
+   nuclear-data hosts are not. Three things are approximated and each is stated
+   in the example: U-236 omitted (0.5 % of the uranium, no tape here), O-17
+   folded into O-16 (0.038 % of the oxygen), and Cu/Zn omitted from the
+   **1.6 mm** 1100-aluminium tank (an absorption probability of 3.5e-5 per
+   traversal). None is in the fuel; together they are two orders of magnitude
+   below the effect under test.
+
+   **What this leaves.** HST-009 is HEU: U-238 is 5 % of its heavy metal and its
+   resonance escape is ~0.95, so it does *not* exercise the one quantity the
+   pebble residual has been narrowed to. Nor does it use graphite. So after two
+   experiments the surviving candidates are exactly two — U-238 resonance escape
+   at strong self-shielding, and the reference deck — and the thermal machinery,
+   which was the larger suspect class, is no longer among them.
+
+   A low-enriched thermal benchmark would separate those two directly. The
+   nearest ones need nuclides this workspace does not have: the LEU and Pu
+   *solution* cases are uranyl/plutonium **nitrate** and need N-14 (the only
+   reachable GitHub copy, `IAEA-NDS/FENDL-ENDF`, stores its files in git-annex,
+   so `raw.githubusercontent.com` returns the symlink and not the evaluation),
+   and `leu-comp-therm-008` needs B, Cr, Cu, Fe, Mg, Ti and Zn besides. **One
+   N-14 tape closes this.**
+
+13. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
@@ -731,7 +785,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    neutrons above 0.625 eV, relative to the reference, and every term in the
    slowing-down balance that could do that has been measured and is right.*
 
-13. **An earlier −1632 pcm baseline drift is still unexplained.** The
+14. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
    `0cd9a22c` — same problem, same settings, same seed — while U-238
    reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
@@ -744,11 +798,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    belongs to the old data, and everything before the free-gas fix belongs to a
    different kernel; neither should be compared against a current one.
 
-14. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
+15. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-15. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+16. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -796,7 +850,8 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | resonance **self-shielding** | analytic infinite-dilution limit | 0.991 ± 0.011 |
    | delta-tracking majorant | nuclides' own grids, 468 k points × 9 materials | worst 0.890, bounds |
    | tracking method | delta vs surface-tracked CSG, same geometry | 18 pcm, 0.05σ |
-   | ν̄, χ, fast σ, inelastic, (n,2n), the driver | **ICSBEP HEU-MET-FAST-001** | **+57 ± 173 pcm** |
+   | ν̄, χ, fast σ, inelastic, (n,2n), the driver | **ICSBEP HEU-MET-FAST-001** (measured, fast) | **+57 ± 173 pcm** |
+   | thermal machinery: `c_H_in_H2O`, thermal fission/capture, moderated CSG transport, leakage | **ICSBEP HEU-SOL-THERM-009 case 1** (measured, thermal) | **−18 ± 171 pcm** |
    | pebble composition, radii, densities, temperatures, S(α,β) assignment | the deck, term by term | identical |
    | explicit pebble layer volumes | exact geometry | 0.5 % |
    | packing fraction | the deck's own definition | fixed (`op-8l2e`) |
@@ -810,29 +865,38 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
 
    **The next measurement, in order of what it would settle:**
 
-   a. **A second thermal system with an external answer.** Godiva settled the
-      shared machinery — ν̄, χ, fast σ, inelastic levels, (n,2n), the eigenvalue
-      driver — against an *experiment*. Nothing has settled the thermal half,
-      and the pebble reference is a single deck. **This is the measurement that
-      would settle the question**, because it is the only one that does not
-      depend on the reference deck.
+   a. ~~A second thermal system with an external answer.~~ **Done 2026-09-11.**
+      `examples/hst009_keff.rs` runs ICSBEP **HEU-SOL-THERM-009 case 1** — a
+      water-reflected sphere of uranium oxyfluoride solution — on this same
+      reconstruction path and CSG driver: **k = 0.99982 ± 0.00171, i.e.
+      −18 ± 171 pcm** from a measured critical experiment. Together with
+      Godiva's +57 ± 173 pcm that is a benchmark at each end of the spectrum,
+      and the thermal machinery is no longer a candidate (Interpretation 12).
 
-      The blocker is **not** nuclear data, as an earlier note here said.
-      `/home/user/njoy-cand/n-001_H_001-ENDF8.0-Beta6.endf` exists locally, and
-      `reference-data/endf/` already carries `tsl-HinH2O.endf`, U-234/235/238,
-      O-16 and F-19 — enough for a water-moderated or solution benchmark, and a
-      homogeneous solution sphere needs nothing beyond the `run_keff` driver
-      Godiva already uses. What is missing is the **benchmark specification**:
-      ICSBEP atom densities and their evaluated `k_eff ± σ`. The handbook is not
-      freely reachable from here, `www-nds.iaea.org` is refused by the egress
-      proxy (403), and GitHub access is scoped to this workspace's own two
-      repositories, so `openmc-dev/benchmarks` cannot be read either.
+      **What is still needed is the *low-enriched* version**, which would test
+      U-238 resonance escape at strong self-shielding — the one quantity the
+      residual has been narrowed to, and the one HST-009 (HEU, `p ≈ 0.95`) does
+      not touch. The blocker is one tape: the LEU and Pu solution cases are
+      uranyl/plutonium **nitrate** and need **N-14**, and the only reachable
+      GitHub copy (`IAEA-NDS/FENDL-ENDF`) stores its files in git-annex, so
+      `raw.githubusercontent.com` returns the symlink rather than the
+      evaluation. `leu-comp-therm-008` avoids nitrogen but needs B, Cr, Cu, Fe,
+      Mg, Ti and Zn instead, and a 35-surface lattice. **One N-14 tape closes
+      this.**
 
-      **Do not substitute remembered or web-summarised atom densities.** A
-      criticality benchmark built on an unsourced specification produces a number
-      that looks like validation and is not, which is worse than the gap it would
-      fill. What is needed is one sourced specification — an ICSBEP evaluation,
-      or a case file from a benchmark suite — and the rest is an afternoon.
+      **Where the specification came from, since an earlier note here said it
+      was unreachable.** It is not: `mit-crpg/benchmarks` (Paul Romano's ICSBEP
+      model collection) is readable through `raw.githubusercontent.com` even
+      though `www-nds.iaea.org`, `nndc.bnl.gov` and `api.github.com` are all
+      refused by the egress proxy. It carries atom densities and geometry for
+      dozens of ICSBEP cases. The evaluated `k_eff` is *not* in it — but it does
+      not need to be for a 4 % question: an ICSBEP **critical** configuration has
+      benchmark `k_eff = 1.0000` within its evaluated uncertainty by
+      construction, typically 0.1–0.6 %, so `1.0000 ± 0.006` is a sound and
+      pessimistic reference. That is reasoning from what the benchmark *is*, not
+      from a remembered number, and it is the distinction that matters: **do not
+      substitute remembered or web-summarised atom densities**, which would
+      produce something that looks like validation and is not.
 
    b. ~~The moderator cross sections against NJOY.~~ **Done 2026-09-11 — found
       nothing.** NJOY2016 was rebuilt in-session (its worktree had been reclaimed

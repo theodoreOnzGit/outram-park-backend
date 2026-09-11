@@ -148,6 +148,12 @@ required-features = ["endf-pebble-cases"]
 name = "u238_vs_njoy_pendf"
 required-features = ["endf-pebble-cases"]
 
+# External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
+# of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
+[[example]]
+name = "hst009_keff"
+required-features = ["endf-pebble-cases"]
+
 # External benchmark on the HIGH data path: Godiva (ICSBEP HEU-MET-FAST-001)
 # from the repo's own ENDF/B-VIII.0 tapes, no network (op-mzvp.2.12).
 [[example]]

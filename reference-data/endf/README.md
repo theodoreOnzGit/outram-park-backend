@@ -291,3 +291,21 @@ exercises the `NS>0` machinery for the first time, but it does **not** reach the
 | File | Material | Contents | Provenance |
 |---|---|---|---|
 | `photoat-synthetic-Z6.endf` (8 KB, 149 lines) | "MAT 600", ZA 6000, Z = 6 | MF=1/451; MF=23 MT=501/502/504/516/522 (lin-lin, 53 energies 1 keV–100 GeV); MF=27 MT=502 form factor, MT=504 scattering function (24 momentum transfers 0–1e9 /Å) | **Synthetic**, generated 2026-09-10 by `photoat-synthetic-Z6.generator.py` (committed next to it) from analytic shapes — coherent `2.4/(1+(E/3e4)^2)`, incoherent `3.99 (1+E/511 keV)^-0.9 (1-0.3 e^{-E/1e4})`, photoelectric `4e3 (E/1 keV)^-3`, pair `0.2 ln(E/1.022 MeV)`, `F(x) = 6/(1+(x/0.6)^2)^2`, `S(x) = 6(1-1/(1+(x/0.5)^2))`. Not evaluated data; exists only so NJOY2016 GAMINR and this crate can be run on the same photoatomic input (both public photoatomic data hosts refuse downloads from the build environment). |
+
+### Added 2026-09-11 — for the thermal criticality benchmark (`op-mzvp.2.12`)
+
+Needed to build **ICSBEP HEU-SOL-THERM-009 case 1** (`examples/hst009_keff.rs`),
+the thermal complement of the Godiva case: a water-reflected sphere of uranium
+oxyfluoride solution. Both tapes were already present in this workspace's own
+NJOY2016 upstream test-suite copy (`tests/resources/`) — the NNDC and IAEA hosts
+answer 403 from this environment, as the Cl-35 row above also records.
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-001_H_001-ENDF8.0-Beta6.endf` | H-1 | ENDF/B-VIII.0 **Beta6** (neutron), LANL (G. M. Hale, EVAL-JUL16, `$Rev:: 1347`) | 125 | 656 KB | NJOY2016 upstream test suite, `tests/resources/` (https://github.com/njoy/NJOY2016) | 2026-09-11 |
+| `n-013_Al_027-ENDF8.0.endf` | Al-27 | ENDF/B-VIII.0 (neutron) | 1325 | 2.2 MB | NJOY2016 upstream test suite, `tests/resources/` | 2026-09-11 |
+
+**The H-1 tape is a Beta6 release, not final ENDF/B-VIII.0**, and that is stated
+wherever it is used. H-1 is a standards evaluation and the two differ
+negligibly, but "negligibly" is an assertion and the file name carries the fact
+so nobody has to take it on trust.
