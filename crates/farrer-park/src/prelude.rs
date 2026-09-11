@@ -61,14 +61,16 @@
 //! modules; keeping them out of the prelude is what stops it from becoming a
 //! second, undocumented copy of the crate's API.
 
-pub use crate::assembly::{interpolate, Assembled, BodyForce, System};
+pub use crate::assembly::{
+    interpolate, Assembled, BodyForce, Formulation, System, SystemOptions,
+};
 pub use crate::bc::{accumulate_pressure_2d, DirichletMethod, DirichletSet, Traction};
 pub use crate::dof::{DofId, DofMap};
 pub use crate::element::{ElementType, FacetType};
 pub use crate::error::{FemError, Result};
 pub use crate::material::{
     BulkModulus, HardeningModulus, J2LinearHardening, LinearElastic, Material, MaterialState,
-    PoissonRatio, ShearModulus, StressUpdate, YieldStress, YoungsModulus,
+    PlaneCondition, PoissonRatio, ShearModulus, StressUpdate, YieldStress, YoungsModulus,
 };
 pub use crate::mesh::{
     box_hex8, box_tet4, quarter_annulus_inner_facets, quarter_annulus_quad4, rectangle_quad4,

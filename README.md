@@ -27,6 +27,7 @@ The workspace has 31 member crates, grouped by domain below.
 | [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
 | [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
 | [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
+| [`farrer-park`](crates/farrer-park) | FEM structural mechanics — small-strain elasticity and J2 plasticity on Lagrange elements, from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1, one-way into GPL-3.0). Uses `outram-foam-basic-lib` for the shared Krylov backend only, never for its discretisation. Verification only, no human V&V — not a life-assessment tool (independent fork, not affiliated with INL/MOOSE or the PRISMS Center) | GPL-3.0 |
 | [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
 
 **CFD (OpenFOAM translations)**
