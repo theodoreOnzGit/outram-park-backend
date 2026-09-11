@@ -304,6 +304,13 @@ answer 403 from this environment, as the Cl-35 row above also records.
 |---|---|---|---|---|---|---|
 | `n-001_H_001-ENDF8.0-Beta6.endf` | H-1 | ENDF/B-VIII.0 **Beta6** (neutron), LANL (G. M. Hale, EVAL-JUL16, `$Rev:: 1347`) | 125 | 656 KB | NJOY2016 upstream test suite, `tests/resources/` (https://github.com/njoy/NJOY2016) | 2026-09-11 |
 | `n-013_Al_027-ENDF8.0.endf` | Al-27 | ENDF/B-VIII.0 (neutron) | 1325 | 2.2 MB | NJOY2016 upstream test suite, `tests/resources/` | 2026-09-11 |
+| `n-005_B_010-ENDF8.0.endf` | B-10 | ENDF/B-VIII.0 (neutron) | 525 | 909 KB | NJOY2016 upstream test suite, `tests/resources/` | 2026-09-11 |
+
+B-10 carries the whole worth of the 1511 ppm soluble boron in ICSBEP
+LEU-COMP-THERM-008 (`crates/outram-mc-libs/examples/lct008_keff.rs`) — B-11's
+5 mb capture is three orders of magnitude below B-10's 3840 b, so B-11 is the
+one nuclide of that model deliberately left out of the poison rather than for
+want of a tape.
 
 **The H-1 tape is a Beta6 release, not final ENDF/B-VIII.0**, and that is stated
 wherever it is used. H-1 is a standards evaluation and the two differ

@@ -154,6 +154,12 @@ required-features = ["endf-pebble-cases"]
 name = "jemima_keff"
 required-features = ["endf-pebble-cases"]
 
+# External benchmark, THERMAL *and* U-238-DOMINATED: ICSBEP LEU-COMP-THERM-008,
+# the discriminator for self-shielded U-238 resonance escape (op-mzvp.2.12).
+[[example]]
+name = "lct008_keff"
+required-features = ["endf-pebble-cases"]
+
 # External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
 # of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
 [[example]]

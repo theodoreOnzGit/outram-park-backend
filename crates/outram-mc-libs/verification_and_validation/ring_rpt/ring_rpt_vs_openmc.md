@@ -4,8 +4,10 @@
 **Crate commit:** `develop`
 
 **Status: two defects found and fixed here; ring-RPT equivalence is reproduced;
-the absolute-k disagreement is larger than before, and now bracketed by two
-measured criticality benchmarks that this code reproduces.**
+and the absolute-k disagreement has been LOCATED — it is this code's
+self-shielded U-238 resonance absorption, not the reference deck, and it is now
+reproduced on a *measured* critical experiment (ICSBEP LEU-COMP-THERM-008,
++2950 ± 61 pcm; Interpretation 17).**
 
 1. The crate sampled elastic scattering off a target held **at rest** at every
    energy, for every nuclide without an S(α,β) table — so FLiBe, the kernel
@@ -37,6 +39,17 @@ by the same 8.5 %, and no ratio moves at all. So nothing that changes a
 reaction-rate ratio can be the cause; the entire disagreement is the fraction of
 neutrons that cross 0.625 eV, an effective resonance integral 11 % lower here
 (Interpretation 11).
+**And as of 2026-09-11 that scalar has an external witness.** ICSBEP
+**LEU-COMP-THERM-008** — a 2.459 w/o UO₂ rod lattice in borated water, the one
+reachable benchmark that is *thermal* and *strongly self-shielded in U-238* at
+once — comes out at **k = 1.02950 ± 0.00061, i.e. +2950 ± 61 pcm** above a
+configuration that was measured critical. That is the same defect, on hardware
+instead of on a deck, and its size was **predicted before the run** from the
+pebble's own six factors (+3200 pcm). The reference deck is therefore no longer
+a candidate, and neither is anything peculiar to the FHR geometry: what is wrong
+is what this code does with a correct `σ_γ` in an optically thick lump
+(Interpretation 17).
+
 It is not the U-238 or U-235 cross sections (±0.04 % / ±0.06 % vs NJOY) nor
 their **resonance integrals** (+0.00 % vs NJOY and the published `RI_∞`), not
 graphite's thermal law (±0.05 % vs THERMR), not the moderator scattering cross
@@ -821,6 +834,76 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
+17. **The residual is reproduced on a MEASURED critical experiment, which
+   closes the "is it the reference deck?" branch and names the mechanism.**
+   Until 2026-09-11 exactly two candidates survived: this code's U-238 resolved
+   resonance escape under strong self-shielding, and the reference deck itself.
+   They are separated by a benchmark that is thermal *and* U-238-dominated *and*
+   lumped — the combination none of the three already-reproduced benchmarks has.
+
+   | benchmark | spectrum | U-238 | fuel | result |
+   |---|---|---|---|---|
+   | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | bare metal | +57 ± 173 pcm |
+   | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | bare metal | +6 ± 173 pcm |
+   | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | **homogeneous** solution | −18 ± 171 pcm |
+   | **LEU-COMP-THERM-008** | **thermal** | **97.5 % of HM** | **1.03 cm UO₂ pellets** | **+2950 ± 61 pcm** |
+
+   `examples/lct008_keff.rs`, 10 000 histories × [250 inactive + 400 active],
+   ENDF/B-VIII.0 at 293.6 K, `c_H_in_H2O` on the moderator. The specification is
+   the OpenMC model from `mit-crpg/benchmarks` (MIT licence), committed under
+   `verification_and_validation/icsbep/leu-comp-therm-008/` and **parsed at run
+   time** rather than transcribed — 22 distinct 15 × 15 pin lattices inside a
+   7 × 7 core lattice is far past the size at which a hand transcription can be
+   trusted, and a transcription error is the exact failure mode this study has
+   spent two days chasing. The reference is `1.0000 ± ~0.006`: an ICSBEP
+   *critical* configuration is 1.0000 by construction to within its evaluated
+   uncertainty, which is reasoning from what the benchmark is rather than from a
+   remembered number.
+
+   **How self-shielded it is, measured rather than asserted:** the run reports
+   the fuel's own `Σ_t` peaking at **171.1 cm⁻¹ at 6.674 eV**, 434× its
+   0.39 cm⁻¹ at 5 eV, so the pellet is **176 mean free paths across** at the
+   6.67 eV resonance. That is the regime Godiva, Jemima and HST-009 never enter:
+   the first two have no moderator to slow neutrons through the resonances, and
+   the third's U-238 is 5 % of a homogeneous solution.
+
+   **The size was predicted first.** The pebble's inverted six factors give
+   `I_eff(ours)/I_eff(ref) = ln(0.5253)/ln(0.4842) = 0.888`. Carrying that same
+   11 % deficit onto a lattice whose resonance escape is `p ≈ 0.75` gives
+   `p_ours = 0.75^0.888 = 0.774`, i.e. **+3.2 % in k**. Measured: **+2.95 %**.
+   Two systems sharing nothing but U-238 in a lump, agreeing on the size of the
+   deficit to better than 10 %.
+
+   **Source convergence** was checked rather than assumed: mean `k` over the four
+   quarters of the 250 inactive generations ran 1.0233 / 1.0316 / 1.0286 /
+   1.0299, settled after the first quarter, and the two halves of the active
+   block gave 1.02874 and 1.03025 — a 151 pcm difference against a 122 pcm 1σ,
+   so 1.2σ. **Geometry** was checked rather than assumed: 200 000 sampled points
+   must agree with a hand-written nested-lattice predicate, and the one
+   convention that could silently mirror the core (OpenMC writes lattice rows
+   top-down; this crate indexes bottom-up) is shown to be a **global mirror about
+   `y = 0`** — every lattice in the model is centred on its own frame, so the two
+   orders give congruent geometries, demonstrated at 50 000 points by building
+   the model both ways. **Approximations**: only the Al-6061 clad's trace
+   alloying elements are omitted (1.03e-3 of 5.54e-2 /b·cm, 1.86 % of the clad's
+   atoms — Mg, Ti, Cr, Fe, Cu, Zn, for want of tapes) plus B-11, whose 5 mb
+   capture is 3 orders below B-10's. Nothing is omitted from the fuel, the
+   moderator, or the boron poison. `--clad-omission-bound` re-adds the omitted
+   density as Mn-55 — a stronger thermal absorber than any of them — to bound
+   the omission by measurement.
+
+   **What this rules in and out.** Out: the reference deck, the FHR geometry,
+   the ring-RPT construction, anything specific to graphite or FLiBe, and the
+   delta-tracking method (this case is **surface-tracked** and the pebble is
+   delta-tracked; both are high by the same mechanism). In: what transport does
+   with a correct `σ_γ` in an optically thick lump. The cross sections
+   themselves stay excluded — `σ_γ(E)` matches NJOY's PENDF pointwise to
+   ±0.04 %, in resonance *shape* to 0.12 % worst over six resonances, and in
+   infinitely-dilute resonance integral to +0.00 %. **The defect is therefore
+   between a correct cross section and the absorption rate it should produce in
+   a lump**, and the next measurement has to be a spectrum, not another
+   eigenvalue.
+
 ## Remaining work
 
 
@@ -847,8 +930,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    the five coating layers are resolved by nearest-centre + radius rather than
    exact CSG.
 3. **Residual absolute-k bias — +4004 pcm on the explicit pebble, entirely
-   `p·ε`, and now with no untested mechanism left that this environment can
-   reach.** Excluded by measurement, each with its own oracle:
+   `p·ε`. LOCATED 2026-09-11: it is this code's self-shielded U-238 resonance
+   absorption, reproduced on a measured critical experiment (Interpretation 17),
+   and it is NOT the reference deck.** The table below is still the record of
+   what has been excluded, each with its own oracle; the last row is the one
+   that stopped excluding and started confirming.
 
    | mechanism | oracle | result |
    |---|---|---|
@@ -873,6 +959,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | packing fraction | the deck's own definition | fixed (`op-8l2e`) |
    | **the reference's own particle count** | its reported 34 224 cells, inverted through an exact lattice-overlap calculation | implies pf **0.2991**; ours is 0.2993 |
    | production per absorption, **each group** | the reference's own six factors, inverted | **0.07 % / 0.02 %** |
+   | **U-238 resonance escape at strong self-shielding** | **ICSBEP LEU-COMP-THERM-008** (measured; thermal, 97.5 % U-238, 176 mfp pellets) | **+2950 ± 61 pcm — NOT excluded; this is the defect** |
 
    The two mechanisms that *were* real — the missing free-gas target motion and
    the packing-fraction over-count — are both fixed, and fixing them made the
@@ -889,16 +976,28 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
       Godiva's +57 ± 173 pcm that is a benchmark at each end of the spectrum,
       and the thermal machinery is no longer a candidate (Interpretation 12).
 
-      **What is still needed is the *low-enriched* version**, which would test
-      U-238 resonance escape at strong self-shielding — the one quantity the
-      residual has been narrowed to, and the one HST-009 (HEU, `p ≈ 0.95`) does
-      not touch. The blocker is one tape: the LEU and Pu solution cases are
-      uranyl/plutonium **nitrate** and need **N-14**, and the only reachable
-      GitHub copy (`IAEA-NDS/FENDL-ENDF`) stores its files in git-annex, so
-      `raw.githubusercontent.com` returns the symlink rather than the
-      evaluation. `leu-comp-therm-008` avoids nitrogen but needs B, Cr, Cu, Fe,
-      Mg, Ti and Zn instead, and a 35-surface lattice. **One N-14 tape closes
-      this.**
+      ~~**What is still needed is the *low-enriched* version.**~~ **Done
+      2026-09-11, and it is the result this whole study was missing.**
+      `examples/lct008_keff.rs` runs ICSBEP **LEU-COMP-THERM-008**:
+      **k = 1.02950 ± 0.00061, i.e. +2950 ± 61 pcm** from a measured critical
+      lattice, against the +3200 pcm predicted beforehand from the pebble's own
+      six factors. See Interpretation 17.
+
+      The earlier note here said this case was blocked on B, Cr, Cu, Fe, Mg, Ti
+      and Zn tapes and a 35-surface lattice. Both blockers were smaller than they
+      looked. **B-10** — which carries the entire worth of the 1511 ppm soluble
+      boron, and is the only one of those that matters — is in NJOY2016's own
+      `tests/resources/`, the same route that supplied H-1 and Al-27. The rest
+      are Al-6061 trace alloying elements: **1.86 % of the clad's atoms**, in a
+      0.9 mm annulus, all of them weak structural absorbers, and the example
+      bounds their worth by measurement (`--clad-omission-bound`, which re-adds
+      the omitted density as Mn-55) rather than by assertion. And the lattice is
+      **not** transcribed — the committed `mit-crpg/benchmarks` XML is parsed at
+      run time, so its size stopped being a risk and became an argument for
+      doing it that way.
+
+      The N-14 route to the LEU *solution* cases is therefore no longer needed,
+      though it would still be a second, independent low-enriched thermal check.
 
       **Where the specification came from, since an earlier note here said it
       was unreachable.** It is not: `mit-crpg/benchmarks` (Paul Romano's ICSBEP
@@ -946,14 +1045,41 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
       spectrum this code is still 3 % away from, so the search remains the way
       to measure how code-dependent the equivalence radius actually is.
 
-   d. **A second, independent OpenMC run of the pebble itself.** The reference
-      is one run of another party's deck that this workspace has never
-      reproduced. It is not unsupported — the deck author's own ENDF/B-VII.1 run
-      gave 1.36864 / 1.36863 and the VIII.0 run here gave 1.36510 / 1.36479, two
-      runs and two libraries agreeing to a −354 pcm library shift that moved both
-      models together — but it has never been checked by a third party, and
-      "+4 % with every mechanism on our side excluded" is the kind of result that
-      should not rest on one unreproduced number.
+   d. ~~**A second, independent OpenMC run of the pebble itself.**~~
+      **Demoted 2026-09-11.** It was filed because "+4 % with every mechanism on
+      our side excluded" should not rest on one unreproduced number. It no longer
+      does: LEU-COMP-THERM-008 reproduces the same defect against a *measured*
+      critical experiment, with no OpenMC deck involved at all. Re-running the
+      pebble deck would now only confirm a number that is no longer load-bearing.
+
+   e. **THE NEXT MEASUREMENT — a spectrum, not another eigenvalue.** Everything
+      k-shaped that this environment can reach has now been measured, and the
+      answer is consistent: correct `σ_γ`, correct tracking, 11 % too little
+      absorption once the fuel is optically thick. The remaining question is
+      *where in energy* the flux is wrong, and eigenvalues cannot answer it.
+
+      The oracle to build is an **exact deterministic slowing-down solution for
+      an infinite homogeneous U-238 + moderator mixture**, marched down a fine
+      energy grid using **this crate's own reconstructed cross sections**, and
+      compared against this crate's Monte Carlo on the same mixture. It needs no
+      external data, no geometry and no library: for a hydrogenous moderator the
+      slowing-down equation is a first-order integral equation solvable by
+      quadrature, so the reference is exact rather than approximate.
+
+      It splits the remaining space cleanly:
+
+      - **MC agrees with the deterministic flux** ⇒ the collision physics and the
+        cross-section lookup are right in a homogeneous medium, and the defect is
+        *spatial* — how the lump's interior flux is built up. The FHR pebble and
+        LEU-COMP-THERM-008 are both lumps; HST-009, which is homogeneous, is the
+        one thermal case that came out right, and that is exactly the pattern a
+        spatial defect would make.
+      - **MC disagrees** ⇒ the defect is in the energy treatment, and because the
+        deterministic solution gives `φ(E)` bin by bin, the disagreement names
+        the energies where it happens.
+
+      `examples/epithermal_slowing_down.rs` and `examples/u238_resonance_integral.rs`
+      already carry most of the harness.
 
    Superseded detail, kept so the trail is legible: the original hypothesis here
    was missing **URR self-shielding**, and it was **refuted** — U-238 carries
@@ -968,4 +1094,6 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
 | Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
 | Human / user interface — human-reviewed | ❌ Not yet manually checked |
 
-**Status: INCOMPLETE** — blocked, and pending maintainer review.
+**Status: INCOMPLETE** — no longer blocked. The absolute-k residual is located
+(Interpretation 17) but not yet explained at the mechanism level; the next
+measurement is named in Remaining work 3e. Pending maintainer review.
