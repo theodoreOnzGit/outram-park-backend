@@ -19408,7 +19408,70 @@ pub mod keff_delta { /* ... */ }
 
 ### Functions
 
+#### Enum `DeltaDomain`
+
+The reflective tracking domain a delta-tracked run fills.
+
+A reflective boundary makes the eigenvalue an **infinite-medium** `k∞` — no
+leakage — so for a *uniform* medium the shape is physically irrelevant and both
+arms must return the same `k∞`. The shape stops being irrelevant the moment the
+medium is not uniform, which is exactly the pebble case: a reflective cube of
+half-width 3 cm circumscribes a 3 cm sphere, so its corners (3 < r < 3√3) hold
+extra coolant that a reflective sphere of the same radius does not. That
+over-count is worth thousands of pcm on an FHR pebble and makes a cube run
+non-comparable to a sphere run of "the same" radius.
+
+Use [`DeltaDomain::Sphere`] whenever the reference being compared against used a
+spherical reflective boundary — OpenMC pebble decks typically do.
+
+```rust
+pub enum DeltaDomain {
+    Cube { half: f64 },
+    Sphere { radius: f64 },
+}
+```
+
+##### Variants
+
+- `Cube { half: f64 }` — reflective cube of half-width `half` [cm], centred on the origin.
+- `Sphere { radius: f64 }` — reflective sphere of radius `radius` [cm], centred on the origin.
+
+##### Implementations
+
+```rust
+pub fn contains(&self, p: crate::geometry::position::Position) -> bool { /* ... */ }
+pub fn bounding_half(&self) -> f64 { /* ... */ }
+pub fn sample_point(&self, seed: &mut u64) -> crate::geometry::position::Position { /* ... */ }
+pub fn advance_reflective(&self, r: crate::geometry::position::Position, u: crate::geometry::position::Direction, distance: f64) -> (crate::geometry::position::Position, crate::geometry::position::Direction) { /* ... */ }
+```
+
+`contains` — is `p` inside the closed domain?
+`bounding_half` — a half-extent that bounds the domain on every axis [cm].
+`sample_point` — draw a point uniformly over the domain's volume.
+`advance_reflective` — advance a ray by `distance` [cm], reflecting specularly
+off the boundary as many times as the flight requires, returning the landing
+position and the (possibly reflected) direction.
+
+#### Function `run_keff_delta_in`
+
+Run fission-source power iteration over a reflective [`DeltaDomain`] filled with
+a two-(or-more-)material dispersion medium, transporting each history by delta
+(Woodcock) tracking.
+
+This is the general entry point. [`run_keff_delta`] is a cube shorthand for it.
+
+```rust
+pub fn run_keff_delta_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
+where
+    F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
+```
+
 #### Function `run_keff_delta`
+
+Cube shorthand for [`run_keff_delta_in`] — a reflective cube of half-width
+`half_width` [cm]. When the medium is **not** uniform out to the boundary — a
+pebble in coolant, say — prefer [`run_keff_delta_in`] with
+[`DeltaDomain::Sphere`] and match whatever boundary the reference used.
 
 Run fission-source power iteration over a **reflective cube** filled with a
 two-(or-more-)material dispersion medium, transporting each history by delta
@@ -19437,10 +19500,10 @@ mirroring [`crate::physics::keff::run_keff`] and
 [`crate::physics::transport_csg::run_keff_csg`]. The physics is identical
 across backends; only the execution strategy differs:
 
-- [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq`], the scalar,
+- [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq_in`], the scalar,
   single-RNG-stream **reference** — deterministic and bit-reproducible for a
   fixed seed.
-- [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par`], [`rayon`]-parallel
+- [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par_in`], [`rayon`]-parallel
   histories per generation, each with an independent jump-ahead RNG stream so
   the result is reproducible independent of thread count. It does **not**
   bit-match the single-thread reference but agrees within combined statistical
@@ -19458,7 +19521,7 @@ where
     F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
 ```
 
-#### Function `run_keff_delta_seq`
+#### Function `run_keff_delta_seq_in`
 
 Scalar, single-thread delta-tracked power iteration — the **trusted,
 deterministic, bit-reproducible reference** backend
@@ -19467,20 +19530,20 @@ deterministic, bit-reproducible reference** backend
 One `f64` RNG stream is threaded sequentially through the whole run (initial
 source rejection-sampling, every history's delta flight, every resample), so a
 fixed [`KeffSettings::seed`] yields the same eigenvalue bit-for-bit on every
-machine. [`run_keff_delta_par`] is acceleration only and is validated against
+machine. [`run_keff_delta_par_in`] is acceleration only and is validated against
 this reference.
 
 ```rust
-pub fn run_keff_delta_seq<F>(half_width: f64, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
+pub fn run_keff_delta_seq_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
 where
     F: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
 ```
 
-#### Function `run_keff_delta_par`
+#### Function `run_keff_delta_par_in`
 
 Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
 
-Same physics and power-iteration structure as [`run_keff_delta_seq`], but the
+Same physics and power-iteration structure as [`run_keff_delta_seq_in`], but the
 histories **within each generation** are delta-tracked in parallel with
 [`rayon`] in a dedicated pool sized to `thread_count` (never the implicit
 global pool). The generation loop stays sequential — generation `g+1`'s source
@@ -19497,14 +19560,14 @@ docs for the `HIST_STRIDE` / `GEN_STRIDE` non-overlap argument. The initial
 source sampling and each resample run on a separate sequential `src_seed`
 stream, kept off the parallel path. Because the per-history stream structure
 differs from the single sequential stream, this backend does **not** bit-match
-[`run_keff_delta_seq`] — it is a statistically independent estimate of the same
+[`run_keff_delta_seq_in`] — it is a statistically independent estimate of the same
 eigenvalue, agreeing within combined uncertainty.
 
 The `material_at` geometry lookup is shared across threads by reference, so it
 must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
 
 ```rust
-pub fn run_keff_delta_par<F>(half_width: f64, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult
+pub fn run_keff_delta_par_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult
 where
     F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
 ```
