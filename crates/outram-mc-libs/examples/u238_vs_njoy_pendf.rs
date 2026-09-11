@@ -45,6 +45,39 @@
 //! code we are a port of, and the OpenMC offset lives somewhere else — either in
 //! transport, or in the difference between RECONR-on-device and the NNDC
 //! processing chain that produced OpenMC's library.
+//!
+//! # Results, 2026-09-11 — every nuclide in the FHR pebble
+//!
+//! NJOY2016 was rebuilt in-session (`ac5adf5`, cmake + gfortran, ~5 min) and the
+//! same RECONR + BROADR deck run for each nuclide at 600 K, tolerance 1e-3.
+//! Worst relative difference over the 19 probe energies:
+//!
+//! | nuclide | MAT | total | elastic |
+//! |---|---|---|---|
+//! | U-238 | 9237 | ±0.04 % | ±0.04 % |
+//! | U-235 | 9228 | ±0.06 % | ±0.06 % |
+//! | C-12 | 625 | +0.00 % | +0.01 % |
+//! | C-13 | 628 | +0.00 % | +0.01 % |
+//! | O-16 | 825 | +0.00 % | +0.01 % |
+//! | F-19 | 925 | −0.02 % | +0.02 % |
+//! | Be-9 | 425 | +0.02 % | +0.01 % |
+//! | Li-7 | 328 | +0.02 % | −0.01 % |
+//! | Li-6 | 325 | +0.17 % | −0.01 % |
+//! | Si-28 | 1425 | −0.05 % | −0.05 % |
+//!
+//! Thermal capture at 0.0253 eV likewise agrees to ≤0.03 % for C-12, O-16, F-19,
+//! Be-9 and Li-7.
+//!
+//! **Read the `MT=102` column with care: it compares two different quantities
+//! for a light nuclide, and the mismatch is not a defect.** This crate's
+//! `absorption` is the OpenMC MT=27 quantity — fission plus *all* of MT=101, the
+//! disappearance reactions — so `absorption − fission` includes `(n,α)`, `(n,p)`,
+//! `(n,t)` and the rest, while NJOY's MT=102 is radiative capture alone. For
+//! **Li-6** that is the whole story: `(n,t)α` (MT=105) is 938 b at 0.0253 eV
+//! against MT=102's 0.0385 b, a factor of 24 000. Counting only MT=102 there is
+//! exactly the defect GH #169 fixed (Li-6 absorption 0.04 → 938 b). The same
+//! applies above threshold for C-12, O-16, Be-9 and Si-28, where `(n,α)`/`(n,p)`
+//! open and MT=102 collapses.
 
 fn main() {
     use njoy_outram_park_fork::endf::tape::Tape;

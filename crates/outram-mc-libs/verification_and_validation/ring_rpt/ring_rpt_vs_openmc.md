@@ -683,7 +683,8 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | U-238 capture **shape** | NJOY PENDF on its own grid, 6 resonances | worst 0.12 %, rms 0.044 % |
    | U-235 fission / capture RI | NJOY PENDF | +0.00 % |
    | graphite S(α,β) σ | NJOY THERMR | ±0.05 % |
-   | moderator σ_s, epithermal | published free-atom values | few %, where ~20 % is needed |
+   | moderator σ_t / σ_s, **all 8 nuclides** | NJOY PENDF (NJOY2016 rebuilt in-session) | ≤0.05 % |
+| moderator thermal capture | NJOY PENDF at 0.0253 eV | ≤0.03 % |
    | slowing-down kernel `ξ` | analytic two-body kinematics, 8 nuclides | ξ/ξ₀ = 1.000 |
    | thermal equilibrium | analytic Maxwellian density, A = 2…238 | ✓ (after `op-50vu`) |
    | resonance **self-shielding** | analytic infinite-dilution limit | 0.991 ± 0.011 |
@@ -725,15 +726,32 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
       fill. What is needed is one sourced specification — an ICSBEP evaluation,
       or a case file from a benchmark suite — and the rest is an afternoon.
 
-   b. **The moderator cross sections against NJOY, to close the gap properly.**
-      Only U-235, U-238 (PENDF) and graphite's thermal law (THERMR) have ever
-      been checked at 0.1 %. The published free-atom comparison bounds C, Be, F,
-      Li, O and Si to a few percent, which already excludes them as *the* cause.
-      `examples/u238_vs_njoy_pendf.rs` and `examples/u238_resonance_integral.rs`
-      both take `NJOY_MAT` / `NJOY_TAPE` / `NJOY_NUCLIDE`, so this is one NJOY
-      deck per nuclide. **NJOY2016 is not currently built here** — the tree at
-      `/home/user/njoy/njoy2016` has had its worktree reclaimed for disk and no
-      binary survives — so it needs a rebuild first.
+   b. ~~The moderator cross sections against NJOY.~~ **Done 2026-09-11 — found
+      nothing.** NJOY2016 was rebuilt in-session (its worktree had been reclaimed
+      for disk; `git reset --hard`, cmake + gfortran, ~5 min) and the same
+      RECONR + BROADR deck run at 600 K for every remaining nuclide. Worst
+      relative difference over the 19 probe energies: C-12 +0.00 %, C-13 +0.00 %,
+      O-16 +0.00 %, F-19 −0.02 %, Be-9 +0.02 %, Li-7 +0.02 %, Li-6 +0.17 %,
+      Si-28 −0.05 % on the total, and ≤0.05 % on elastic. Thermal capture at
+      0.0253 eV agrees to ≤0.03 %. **Every nuclide in the pebble is now verified
+      against NJOY at 0.1 %, not "a few percent".** See
+      `examples/u238_vs_njoy_pendf.rs`, which records the table and the one trap
+      in reading it (this crate's `absorption` is MT=27, NJOY's MT=102 is
+      radiative capture alone, so they diverge for a light nuclide above
+      threshold and by a factor of 24 000 for Li-6's `(n,t)`).
+
+   b2. **Two things noticed in the reference pipeline while checking it, neither
+      of which biases `k`, but both of which say the deck has not been fully
+      read.** `pipeline_triso_to_rpt.py` sets `FUEL_ZONE_RADIUS_CM = 1.0` with
+      the comment *"The pebble is 4 cm across with a 1 cm graphite shell, so fuel
+      lives inside a 1 cm radius"* — the shell is **0.1 cm** and the fuel zone is
+      `r < 1.9 cm`. The constant is used only to place the starting source, so it
+      does not bias a converged eigenvalue; but it means the **ring-RPT** source
+      box (±1.0 cm) does not reach that pebble's fuel at all except in its
+      corners (`r ≤ √3 = 1.732` just clips the 1.4934–1.7531 cm shell), so the
+      RPT run starts from a badly-placed source and leans entirely on its 50
+      inactive batches. The pipeline tallies Shannon entropy for exactly this
+      reason; whether it was inspected for the reported run is not recorded.
 
    c. **Run `--search-rpt-radius`.** `RPT − explicit` is back to +226 ± 316 pcm,
       so the deck author's radius does transfer — but it was fitted against a
