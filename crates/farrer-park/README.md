@@ -16,8 +16,8 @@ J2 plasticity on unstructured meshes, with the linear algebra supplied by
 ## Why this is FEM and not finite volume
 
 Farrer Park depends on `outram-foam-basic-lib` for **shared numerical
-infrastructure only** — Krylov solvers, preconditioners, multigrid. It does
-**not** borrow its spatial discretisation. Structural mechanics stays a genuine
+infrastructure only** — Krylov solvers and preconditioners. It does **not**
+borrow its spatial discretisation. Structural mechanics stays a genuine
 finite-element formulation: nodal degrees of freedom, shape functions,
 quadrature and weak-form assembly.
 
@@ -28,7 +28,15 @@ The two discretisations meet at one contract, `LinearOperator`:
 - `CsrMatrix` (here) is the FEM-appropriate sparse representation.
 
 Both implement `LinearOperator`, so both reuse the same Krylov layer without
-either being forced into the other's matrix layout.
+either being forced into the other's matrix layout. The generic drivers are
+`cg_op`, `gmres_op` and `bicgstab_op` in
+`outram_foam_basic_lib::linear_operator`; they are **new** functions and the
+existing finite-volume entry points are untouched.
+
+Algebraic multigrid (`gamg`) is **not** part of the shared contract: it needs
+the coarsening structure of an `LduMatrix` rather than only a matrix-vector
+product, so it remains finite-volume specific. Farrer Park preconditions with
+ILU(0) on its own CSR pattern instead.
 
 ## What is implemented
 
@@ -57,9 +65,32 @@ test. Summary of what is checked:
 - **Cantilever beam** — tip deflection against Euler-Bernoulli/Timoshenko.
 - **Uniaxial J2 plasticity** — against the closed-form elastic-plastic response.
 
+Headline numbers, measured 2026-09-11:
+
+| Check | Result |
+|---|---|
+| Patch test, all five elements | machine precision (worst 1.3e-14 relative in stress) |
+| MMS observed order, Quad4 / Tri3 | L2 1.998 / 1.997, H1 1.000 / 0.998 (theory 2, 1) |
+| MMS observed order, Tri6 | L2 2.978, H1 1.989 (theory 3, 2) |
+| MMS observed order, Hex8 / Tet4 | L2 1.983 / 1.957, H1 1.008 / 0.969 (theory 2, 1) |
+| Thick-walled cylinder | 2.45 % max stress error (first order), 0.021 % in u_r (second order) |
+| Cantilever, excess over Euler-Bernoulli | 3.677 / 0.928 / 0.233 % at L/H = 4 / 8 / 16, against a 3.750 / 0.938 / 0.234 % shear-deformation prediction |
+| Uniaxial J2 vs closed form | exact to round-off (1.95e-14), including elastic unloading and reverse yield |
+| Consistent tangent vs central difference | 1.055e-7 relative, worst entry |
+| Newton convergence order, partially plastic step | **2.004** |
+
 These are **verification** ("is it implemented correctly?"), not validation
 ("does it represent physical reality well enough?"). No benchmark validation is
 claimed.
+
+## Portability
+
+Pure Rust with no BLAS, no C or Fortran toolchain and no GUI. The library
+compiles for `wasm32-unknown-unknown` and for `aarch64-linux-android`
+(`cargo check -p farrer-park --all-targets --target aarch64-linux-android`, and
+`scripts/check-wasm.sh`). As the workspace `CLAUDE.md` warns, **compiling is not
+running**: neither target has been executed, and no claim is made that it works
+in a browser or on a device.
 
 ## Licensing
 
