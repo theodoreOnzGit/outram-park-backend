@@ -704,10 +704,26 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    a. **A second thermal system with an external answer.** Godiva settled the
       shared machinery — ν̄, χ, fast σ, inelastic levels, (n,2n), the eigenvalue
       driver — against an *experiment*. Nothing has settled the thermal half,
-      and the pebble reference is a single deck. The blocker is data:
-      `reference-data/endf/` has **no H-1 tape**, so every water-moderated
-      ICSBEP benchmark is out of reach, and `--features net-fetch` cannot reach
-      a library host (403). One H-1 tape would open LEU-COMP-THERM.
+      and the pebble reference is a single deck. **This is the measurement that
+      would settle the question**, because it is the only one that does not
+      depend on the reference deck.
+
+      The blocker is **not** nuclear data, as an earlier note here said.
+      `/home/user/njoy-cand/n-001_H_001-ENDF8.0-Beta6.endf` exists locally, and
+      `reference-data/endf/` already carries `tsl-HinH2O.endf`, U-234/235/238,
+      O-16 and F-19 — enough for a water-moderated or solution benchmark, and a
+      homogeneous solution sphere needs nothing beyond the `run_keff` driver
+      Godiva already uses. What is missing is the **benchmark specification**:
+      ICSBEP atom densities and their evaluated `k_eff ± σ`. The handbook is not
+      freely reachable from here, `www-nds.iaea.org` is refused by the egress
+      proxy (403), and GitHub access is scoped to this workspace's own two
+      repositories, so `openmc-dev/benchmarks` cannot be read either.
+
+      **Do not substitute remembered or web-summarised atom densities.** A
+      criticality benchmark built on an unsourced specification produces a number
+      that looks like validation and is not, which is worse than the gap it would
+      fill. What is needed is one sourced specification — an ICSBEP evaluation,
+      or a case file from a benchmark suite — and the rest is an afternoon.
 
    b. **The moderator cross sections against NJOY, to close the gap properly.**
       Only U-235, U-238 (PENDF) and graphite's thermal law (THERMR) have ever
