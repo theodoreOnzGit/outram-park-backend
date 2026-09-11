@@ -115,6 +115,34 @@ Keep superseded entries when the bar moves, so a later reader can tell that it
 moved rather than misreading old results as failures against a standard that
 did not exist when they were produced.
 
+## Element formulation and the two-dimensional idealisation
+
+Both are **explicit enums carried on `System` through `SystemOptions`**, never a
+bool and never a hidden global, and both default to the conservative option:
+
+- `assembly::Formulation` — `FullIntegration` (default) or `BBar`.
+- `material::PlaneCondition` — `PlaneStrain` (default) or `PlaneStress`.
+
+Rules for anyone changing this area:
+
+- **Do not change either default.** Full integration and plane strain are what
+  every verification case before 2026-09-11 was run with, and a silently changed
+  default is worse than the defect it fixes.
+- **Do not add plain reduced integration.** It needs hourglass stabilisation,
+  which must be verified in its own right; `quadrature.rs` documents that
+  refusal deliberately and it stays.
+- **B-bar with plane stress is rejected at construction, on purpose.** Plane
+  stress has no volumetric constraint to relax — the out-of-plane strain is free
+  — so B-bar has nothing to cure there, and the combination is unverified. Do
+  not "enable" it without a verification case.
+- **B-bar is a no-op on Tri3 and Tet4** (constant gradients), asserted by a
+  test. It does not help them; the fix for a locking simplex is a different
+  element.
+- **Shear locking is NOT cured and must not be described as cured.** It is
+  measured in verification case 8 (11.25 % too stiff at two square elements
+  through the depth, 66.7 % at element aspect ratio 4) and B-bar recovers only
+  the volumetric share of it.
+
 ## V&V
 
 Verification results live in `docs/verification.md` and in each test's `///`

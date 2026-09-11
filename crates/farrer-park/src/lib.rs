@@ -7,6 +7,25 @@
 //! J2 (von Mises) plasticity, solved with a Newton iteration over Krylov
 //! solves supplied by [`outram_foam_basic_lib`].
 //!
+//! ## Two modelling choices, both explicit enums, both defaulting to the
+//! conservative option
+//!
+//! Carried on [`assembly::System`] through [`assembly::SystemOptions`]:
+//!
+//! - [`assembly::Formulation`] — `FullIntegration` (default) or `BBar`. B-bar
+//!   (mean dilatation) is the cure for **volumetric locking**, the over-stiff
+//!   response of a low-order element whose material is nearly incompressible,
+//!   elastically as `nu -> 0.5` or plastically because J2 flow preserves
+//!   volume. It does nothing for **shear locking**, which is a different
+//!   mechanism and is still an open defect here — both are measured in
+//!   `docs/verification.md`, cases 6 to 8.
+//! - [`material::PlaneCondition`] — `PlaneStrain` (default, and the only valid
+//!   setting on a three-dimensional mesh, where it is a no-op) or
+//!   `PlaneStress`, which condenses `eps_zz` out of the constitutive law.
+//!
+//! Neither default changes behaviour that existed before they were added, which
+//! is deliberate: a silently changed default is worse than the defect it fixes.
+//!
 //! ## What belongs in this crate
 //!
 //! Everything specific to the **finite-element method**: reference elements and

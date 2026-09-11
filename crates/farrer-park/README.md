@@ -49,6 +49,10 @@ ILU(0) on its own CSR pattern instead.
 | Dirichlet (strong + penalty) and Neumann/traction BCs | implemented |
 | J2 plasticity, radial return, consistent tangent | implemented |
 | Newton solution control with load stepping | implemented |
+| B-bar (mean dilatation) for volumetric locking, Quad4/Hex8 | implemented (opt-in; full integration stays the default) |
+| Plane stress, elastic and J2 (condensed `eps_zz`) | implemented |
+| Shear-locking treatment (incompatible modes / enhanced strain) | **not started** — measured at 11-67 % too stiff, see below |
+| Selective reduced integration, mixed u-p, F-bar | **not started** |
 | Crystal plasticity (PRISMS-Plasticity) | **not started** |
 | Microstructure-sensitive fatigue, FIPs (PRISMS-Fatigue) | **not started** |
 | PRISMS-Fatigue published case-study parity | **not started** |
@@ -64,6 +68,14 @@ test. Summary of what is checked:
 - **Thick-walled cylinder** — against the closed-form Lamé solution.
 - **Cantilever beam** — tip deflection against Euler-Bernoulli/Timoshenko.
 - **Uniaxial J2 plasticity** — against the closed-form elastic-plastic response.
+- **Volumetric locking** — nearly incompressible MMS at `nu = 0.499` on Quad4
+  and Hex8, full integration against B-bar.
+- **Fully plastic limit load** — thick cylinder collapse against
+  `p_L = (2/sqrt(3)) sigma_y ln(b/a)`.
+- **Shear locking** — Quad4 cantilever, quantified, and shown **not** to be
+  cured by B-bar.
+- **Plane stress** — thin plate in tension, the exact plane-stress/plane-strain
+  equivalence, and J2 in uniaxial and equibiaxial tension.
 
 Headline numbers, measured 2026-09-11:
 
@@ -78,6 +90,12 @@ Headline numbers, measured 2026-09-11:
 | Uniaxial J2 vs closed form | exact to round-off (1.95e-14), including elastic unloading and reverse yield |
 | Consistent tangent vs central difference | 1.055e-7 relative, worst entry |
 | Newton convergence order, partially plastic step | **2.004** |
+| Volumetric locking, Quad4 MMS at `nu = 0.499` | full integration order 0.69-1.24; **B-bar 2.004**; 16.96x smaller error |
+| Volumetric locking, Hex8 MMS at `nu = 0.499` | full integration order **0.634**; **B-bar 2.050**; 6.36x smaller error |
+| Plastic collapse vs closed-form limit load | full integration +23.9 % to +0.42 %; **B-bar +1.06 % to +0.017 %** |
+| Shear locking, Quad4 cantilever | 11.25 % too stiff at 2 elements through the depth, 66.7 % at aspect ratio 4; **B-bar does not cure it** |
+| Plane stress, thin plate and the exact plane-strain equivalence | round-off (4.3e-16 and 2.9e-16) |
+| Plane-stress J2, uniaxial / equibiaxial vs closed form | exact to round-off (3.58e-16 / 6.77e-16) |
 
 These are **verification** ("is it implemented correctly?"), not validation
 ("does it represent physical reality well enough?"). No benchmark validation is

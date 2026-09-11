@@ -1049,6 +1049,144 @@ mod tests {
         assert!(back.tangent.max_abs_diff(&p.elastic.stiffness()) < 1e-3);
     }
 
+    /// Plane-stress elasticity must reproduce the textbook condensed matrix:
+    /// `D[0][0] = D[1][1] = E / (1 - nu^2)`, `D[0][1] = E nu / (1 - nu^2)`,
+    /// `D[5][5] = mu`, and the whole `zz` row and column identically zero.
+    ///
+    /// Measured 2026-09-11 at `E = 200 GPa`, `nu = 0.3`: worst relative
+    /// deviation from the closed form **exactly zero** — the condensation
+    /// `D[0][0] - D[0][2]^2 / D[2][2]` happens to be bit-exact here. The pass
+    /// band is 1e-12, which is where it should stay: a later change that made
+    /// it 1e-15 would be fine, and one that made it 1e-3 would not.
+    #[test]
+    fn plane_stress_elastic_matrix_is_the_textbook_one() {
+        let (e, nu) = (200.0e9, 0.3);
+        let m = Material::elastic(e, nu).unwrap();
+        // Any in-plane strain drives out the whole matrix column by column.
+        let mut worst = 0.0_f64;
+        let want = [
+            e / (1.0 - nu * nu),
+            e * nu / (1.0 - nu * nu),
+            e / (2.0 * (1.0 + nu)),
+        ];
+        let up = m
+            .update(
+                Voigt6::new(1.0e-4, 0.0, 9.9e9, 0.0, 0.0, 0.0),
+                &MaterialState::pristine(),
+                PlaneCondition::PlaneStress,
+            )
+            .unwrap();
+        let d = up.tangent;
+        for (got, w) in [(d.get(0, 0), want[0]), (d.get(0, 1), want[1]), (d.get(5, 5), want[2])] {
+            worst = worst.max((got - w).abs() / w);
+        }
+        for i in 0..6 {
+            worst = worst.max(d.get(i, 2).abs() / want[0]);
+            worst = worst.max(d.get(2, i).abs() / want[0]);
+        }
+        // The absurd `zz` strain passed in above must be ignored, so the stress
+        // is the plane-stress answer for a pure `eps_xx = 1e-4`.
+        worst = worst.max((up.stress.0[0] - want[0] * 1.0e-4).abs() / (want[0] * 1.0e-4));
+        worst = worst.max(up.stress.0[2].abs() / (want[0] * 1.0e-4));
+        println!("plane-stress elastic matrix: worst relative deviation {worst:.3e}");
+        assert!(worst < 1e-12, "plane-stress elastic matrix is wrong by {worst:e}");
+    }
+
+    /// Plane-stress J2 must drive `sigma_zz` to zero and hand back a tangent
+    /// that is the exact derivative of the **condensed** stress map. Checked by
+    /// central differences through `outram-foam-basic-lib`'s `jacobian`, exactly
+    /// as the three-dimensional tangent is.
+    ///
+    /// Measured 2026-09-11 at a plastic point with prior history: `sigma_zz`
+    /// driven to **exactly zero** (the local Newton reaches the floating-point
+    /// root, not merely the `1e-13`-relative tolerance it is asked for), and
+    /// worst relative tangent entry error **7.857e-7** against a `1e-5` band —
+    /// which is the central difference's own accuracy, the same figure the
+    /// three-dimensional tangent check reports.
+    #[test]
+    fn plane_stress_j2_tangent_matches_numerical_jacobian() {
+        let m = Material::J2(steel());
+        let state = m
+            .update(
+                Voigt6::new(3.0e-3, -5.0e-4, 0.0, 0.0, 0.0, 1.0e-3),
+                &MaterialState::pristine(),
+                PlaneCondition::PlaneStress,
+            )
+            .unwrap()
+            .state;
+        let eps = Voigt6::new(6.0e-3, -1.0e-3, 0.0, 0.0, 0.0, 2.0e-3);
+        let analytic = m.update(eps, &state, PlaneCondition::PlaneStress).unwrap();
+        assert!(analytic.yielding, "the check point must be plastic");
+        assert!(
+            analytic.stress.0[2].abs() < 1e-3,
+            "sigma_zz = {} Pa is not zero",
+            analytic.stress.0[2]
+        );
+        // Plastic flow is volume preserving, so the plate must thin.
+        assert!(
+            analytic.state.plastic_strain.0[2] < 0.0,
+            "a plate stretched in plane must thin out of plane, got eps_p_zz = {}",
+            analytic.state.plastic_strain.0[2]
+        );
+        assert!(
+            analytic.state.plastic_strain.trace().abs() < 1e-15,
+            "plastic strain must stay deviatoric, trace {}",
+            analytic.state.plastic_strain.trace()
+        );
+
+        let sol = jacobian(
+            &eps.as_array(),
+            DiffSettings::central(),
+            ComputeBackend::Serial,
+            |_, v: &[f64], out: &mut Vec<f64>| {
+                let e = Voigt6([v[0], v[1], v[2], v[3], v[4], v[5]]);
+                let s = m.update(e, &state, PlaneCondition::PlaneStress).unwrap().stress;
+                out.extend_from_slice(&s.as_array());
+            },
+        );
+        let num = sol.matrix().expect("smooth in the plastic regime");
+        let scale = analytic.tangent.abs_max();
+        let mut worst = 0.0_f64;
+        for i in 0..6 {
+            for j in 0..6 {
+                worst = worst.max((num.get(i, j) - analytic.tangent.get(i, j)).abs() / scale);
+            }
+        }
+        println!(
+            "plane-stress J2: sigma_zz = {:.3e} Pa, tangent error {worst:.3e} relative",
+            analytic.stress.0[2]
+        );
+        assert!(worst < 1e-5, "condensed tangent entry error {worst:e}");
+    }
+
+    /// Plane stress and plane strain must genuinely differ — the control that
+    /// stops the previous two tests from passing against an accidental
+    /// no-op.
+    ///
+    /// Measured 2026-09-11 at `E = 200 GPa`, `nu = 0.3`, `eps_xx = 1e-4`:
+    /// plane strain gives `sigma_xx = 2.6923e7 Pa` and `sigma_zz = 1.1538e7 Pa`;
+    /// plane stress gives `sigma_xx = 2.1978e7 Pa` and `sigma_zz` exactly zero.
+    /// The in-plane stress differs by **18.37 %**, which is exactly the ratio
+    /// of the two uniaxial-strain moduli: `E / (1 - nu^2) = 1.0989 E` for plane
+    /// stress against `E (1 - nu) / ((1 + nu)(1 - 2 nu)) = 1.3462 E` for plane
+    /// strain.
+    #[test]
+    fn plane_stress_and_plane_strain_differ() {
+        let m = Material::elastic(200.0e9, 0.3).unwrap();
+        let eps = Voigt6::new(1.0e-4, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let pe = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
+        let ps = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStress).unwrap();
+        println!(
+            "plane strain: sigma_xx = {:.4e}, sigma_zz = {:.4e}; \
+             plane stress: sigma_xx = {:.4e}, sigma_zz = {:.4e}",
+            pe.stress.0[0], pe.stress.0[2], ps.stress.0[0], ps.stress.0[2]
+        );
+        assert!(pe.stress.0[2].abs() > 1.0e7, "plane strain must carry sigma_zz");
+        assert!(ps.stress.0[2].abs() < 1.0e-3, "plane stress must not");
+        let gap = (pe.stress.0[0] - ps.stress.0[0]).abs() / pe.stress.0[0];
+        assert!(gap > 0.1, "the two idealisations should differ materially, got {gap:e}");
+    }
+
     /// Perfect plasticity (`H = 0`) must cap the von Mises stress at the yield
     /// stress no matter how far the strain is pushed.
     #[test]
