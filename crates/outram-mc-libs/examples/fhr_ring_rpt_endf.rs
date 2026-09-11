@@ -1033,6 +1033,22 @@ mod desktop {
     ///   OpenMC reference:  explicit 1.36510 +/- 0.00063,  ring-RPT 1.36479 +/- 0.00067
     /// ```
     ///
+    /// Re-measured 2026-09-11, first run with this gate in place:
+    ///
+    /// ```text
+    ///   explicit TRISO          1.40514 +/- 0.00204              —             +4004 pcm
+    ///   ring-RPT                1.40527 +/- 0.00213    +14 +/- 295 (0.05 s)    +4048 pcm
+    ///   naive homogenised       1.37187 +/- 0.00232   -3327      (10.8 s)          —
+    ///   ring-RPT (CSG)          1.40745 +/- 0.00214   +218 +/- 302 (0.72 s)        —
+    /// ```
+    ///
+    /// The explicit-TRISO case reproduces **exactly** (same seed, deterministic
+    /// packing). The three method deltas move by a fraction of their own sigma
+    /// between runs — `RPT - explicit` from +226 to +14, `CSG - delta` from +18
+    /// to +218 — which is what a ~300 pcm statistical error looks like and is why
+    /// those claims are gated at 4 sigma rather than pinned to a value. The
+    /// `naive - explicit` claim, being a real ~3300 pcm effect, barely moves.
+    ///
     /// # What was REFUTED, and is recorded here so it is not re-derived
     ///
     /// This residual was attributed to self-shielded U-238 resonance absorption, and
