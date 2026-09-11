@@ -29,7 +29,13 @@ pebble is now **+4004 pcm** above OpenMC, from +1681 pcm before this session's
 work. Each fix is verified independently and none is in doubt, so the earlier,
 smaller disagreement was partly cancellation.
 
-What is left is **entirely `p·ε`** — the ratio of non-thermal to thermal flux.
+What is left is **one scalar**. Inverting both codes' six factors into
+group-wise rates shows that **production per absorption agrees to 0.07 % in the
+thermal group and 0.02 % in the fast group** — every rate inside a group moves
+by the same 8.5 %, and no ratio moves at all. So nothing that changes a
+reaction-rate ratio can be the cause; the entire disagreement is the fraction of
+neutrons that cross 0.625 eV, an effective resonance integral 11 % lower here
+(Interpretation 11).
 It is not the U-238 or U-235 cross sections (±0.04 % / ±0.06 % vs NJOY) nor
 their **resonance integrals** (+0.00 % vs NJOY and the published `RI_∞`), not
 graphite's thermal law (±0.05 % vs THERMR), not the moderator scattering cross
@@ -612,7 +618,46 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    0.082 eV, where net up-scatter becomes net down-scatter, so a relative
    difference on it blows up there for arithmetic reasons and means nothing.
 
-11. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
+11. **Both codes agree on the physics *inside* each group to 0.1 %. The entire
+   disagreement is the population split across 0.625 eV — one scalar.**
+
+   The six factors can be inverted into group-wise rates, which is sharper than
+   `p` and `ε` separately because it separates *how many neutrons are in a group*
+   from *what they do there*. Normalising both codes to one total absorption, at
+   the same 0.625 eV cutoff, with zero leakage:
+
+   | | A_thermal | A_fast | P_thermal | P_fast | **P/A thermal** | **P/A fast** |
+   |---|---|---|---|---|---|---|
+   | OpenMC | 0.4842 | 0.5158 | 0.8957 | 0.4517 | **1.8499** | **0.8758** |
+   | ours | 0.5253 | 0.4747 | 0.9711 | 0.4156 | **1.8486** | **0.8756** |
+   | ours/ref | 1.085 | 0.920 | 1.084 | 0.920 | **0.9993** | **0.9998** |
+
+   **Production per absorption matches to 0.07 % in the thermal group and 0.02 %
+   in the fast group.** Every rate moves by the same 8.5 % / 8.0 % within its
+   group, and the ratios do not move at all.
+
+   That is a strong constraint, and it retires a whole class of explanations in
+   one line: *nothing that changes a reaction-rate ratio can be the cause.* Not a
+   capture-to-fission ratio, not a fuel-to-moderator absorption split, not ν̄, not
+   χ's effect on which nuclide fissions — any of those would show up in `P/A` for
+   one group or the other, and neither moves.
+
+   What is left is a single scalar: the fraction of neutrons that cross 0.625 eV.
+   Written as an effective resonance integral, `p = exp(−N₈·I_eff/(ξΣ_s))` gives
+
+   ```text
+   I_eff(ours) / I_eff(ref) = ln(0.5253) / ln(0.4842) = 0.888
+   ```
+
+   — **11 % less resonance absorption**, or equivalently ~12 % too much
+   moderating power `ξΣ_s`, or some combination. Every term in that expression
+   has been measured: `σ_γ(E)` in value, shape and area against NJOY; `ξ` against
+   analytic kinematics for all eight nuclides; `Σ_s` against NJOY at 0.05 %; `N₈`
+   against the deck and against the reference's own reported cell count; and
+   `I_eff` itself against its analytic infinite-dilution limit. The arithmetic
+   does not have room for it, and neither does the measurement.
+
+12. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
@@ -659,7 +704,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    neutrons above 0.625 eV, relative to the reference, and every term in the
    slowing-down balance that could do that has been measured and is right.*
 
-12. **An earlier −1632 pcm baseline drift is still unexplained.** The
+13. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
    `0cd9a22c` — same problem, same settings, same seed — while U-238
    reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
@@ -672,11 +717,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    belongs to the old data, and everything before the free-gas fix belongs to a
    different kernel; neither should be compared against a current one.
 
-13. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
+14. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-14. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+15. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -718,7 +763,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | graphite S(α,β) σ | NJOY THERMR | ±0.05 % |
 | graphite S(α,β) **outgoing energy** | NJOY THERMR MF=6 scattering matrix | ≤0.5 % over 0.1–4 eV |
    | moderator σ_t / σ_s, **all 8 nuclides** | NJOY PENDF (NJOY2016 rebuilt in-session) | ≤0.05 % |
-| moderator thermal capture | NJOY PENDF at 0.0253 eV | ≤0.03 % |
+   | moderator thermal capture | NJOY PENDF at 0.0253 eV | ≤0.03 % |
    | slowing-down kernel `ξ` | analytic two-body kinematics, 8 nuclides | ξ/ξ₀ = 1.000 |
    | thermal equilibrium | analytic Maxwellian density, A = 2…238 | ✓ (after `op-50vu`) |
    | resonance **self-shielding** | analytic infinite-dilution limit | 0.991 ± 0.011 |
@@ -728,6 +773,8 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | pebble composition, radii, densities, temperatures, S(α,β) assignment | the deck, term by term | identical |
    | explicit pebble layer volumes | exact geometry | 0.5 % |
    | packing fraction | the deck's own definition | fixed (`op-8l2e`) |
+   | **the reference's own particle count** | its reported 34 224 cells, inverted through an exact lattice-overlap calculation | implies pf **0.2991**; ours is 0.2993 |
+   | production per absorption, **each group** | the reference's own six factors, inverted | **0.07 % / 0.02 %** |
 
    The two mechanisms that *were* real — the missing free-gas target motion and
    the packing-fraction over-count — are both fixed, and fixing them made the
