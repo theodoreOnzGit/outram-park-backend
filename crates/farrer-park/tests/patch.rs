@@ -20,7 +20,6 @@
 //!
 //! Results are also collected in `docs/verification.md`.
 
-#[path = "common.rs"]
 mod common;
 
 use common::{elastic_newton, jitter};

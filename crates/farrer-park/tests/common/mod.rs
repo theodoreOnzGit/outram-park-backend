@@ -42,29 +42,56 @@ pub fn jitter(i: usize, k: usize) -> f64 {
     ((h >> 33) as f64) / 2_147_483_648.0 * 2.0 - 1.0
 }
 
-/// Linear-solver settings tight enough that the linear solve is never the
-/// limiting error in a verification case.
-pub fn tight_linear() -> LinearSolverSettings {
+/// Conjugate gradients with ILU(0) at a chosen relative-residual tolerance.
+///
+/// How tight this can usefully be set depends on the conditioning of the
+/// system, which grows like `1 / h^2`: on the small patch-test meshes `1e-13`
+/// is reached comfortably, and on the finest manufactured-solution mesh
+/// (2178 degrees of freedom) the attainable floor is nearer `1e-12`. Asking
+/// for more than the arithmetic can deliver makes the solver report a genuine
+/// non-convergence, which is the right behaviour and not something to suppress.
+pub fn linear_settings(tolerance: f64) -> LinearSolverSettings {
     LinearSolverSettings {
         method: KrylovMethod::ConjugateGradient,
         preconditioner: PreconditionerChoice::Ilu0,
-        tolerance: 1.0e-14,
+        tolerance,
         max_iter: 20_000,
         restart: 50,
     }
 }
 
-/// Newton settings for a linear-elastic verification case.
-pub fn elastic_newton() -> NewtonSettings {
+/// Newton settings for a linear-elastic verification case, with explicit
+/// tolerances.
+pub fn elastic_newton_with(
+    linear_tolerance: f64,
+    residual_tolerance: f64,
+    increment_tolerance: f64,
+) -> NewtonSettings {
     NewtonSettings {
         max_iterations: 8,
-        residual_tolerance: 1.0e-11,
-        increment_tolerance: 1.0e-11,
+        residual_tolerance,
+        increment_tolerance,
         n_load_steps: 1,
         max_cutbacks: 0,
         dirichlet_method: DirichletMethod::Elimination,
-        linear: tight_linear(),
+        linear: linear_settings(linear_tolerance),
     }
+}
+
+/// Newton settings for the small, well-conditioned patch-test systems: linear
+/// solves to `1e-13`, Newton residual to `1e-11`.
+pub fn elastic_newton() -> NewtonSettings {
+    elastic_newton_with(1.0e-13, 1.0e-11, 1.0e-8)
+}
+
+/// Newton settings for the manufactured-solution meshes, whose conditioning
+/// grows with refinement: linear solves to `1e-11`, Newton residual to `1e-9`.
+///
+/// Both are six or more orders of magnitude below the discretisation errors
+/// being measured (`1e-4` to `1e-1`), so the linear solve cannot contaminate
+/// the observed convergence order.
+pub fn mms_newton() -> NewtonSettings {
+    elastic_newton_with(1.0e-11, 1.0e-9, 1.0e-6)
 }
 
 /// Observed convergence order between two mesh levels:

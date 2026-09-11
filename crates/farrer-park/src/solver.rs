@@ -216,7 +216,7 @@ impl Default for NewtonSettings {
         Self {
             max_iterations: 25,
             residual_tolerance: 1.0e-10,
-            increment_tolerance: 1.0e-12,
+            increment_tolerance: 1.0e-8,
             n_load_steps: 1,
             max_cutbacks: 4,
             dirichlet_method: DirichletMethod::Elimination,
@@ -255,6 +255,44 @@ impl LoadStepReport {
     #[must_use]
     pub fn observed_order(&self) -> Option<f64> {
         let h = &self.residual_history;
+        if h.len() < 3 {
+            return None;
+        }
+        let (a, b, c) = (h[h.len() - 3], h[h.len() - 2], h[h.len() - 1]);
+        if !(a > 0.0 && b > 0.0 && c > 0.0) {
+            return None;
+        }
+        let d = (b / a).ln();
+        if d.abs() < 1e-12 {
+            return None;
+        }
+        Some((c / b).ln() / d)
+    }
+
+    /// Observed convergence order estimated from the last three residuals
+    /// **above `floor`**, plus the first one that fell below it.
+    ///
+    /// [`observed_order`](Self::observed_order) is contaminated by the trailing
+    /// entries of a converged history, which sit at the round-off floor of the
+    /// residual evaluation (around `1e-14` relative) and carry no information
+    /// about the iteration at all: the ratio between two numbers that are both
+    /// pure round-off is meaningless. This variant truncates the history at the
+    /// first entry to reach `floor` and estimates the order from the genuine
+    /// part of the descent.
+    ///
+    /// `floor` should be a little above the residual round-off level and below
+    /// the solver's own tolerance; `1e-10` is a reasonable choice when the
+    /// linear solves are taken to `1e-13`.
+    ///
+    /// Returns `None` if fewer than three usable residuals remain.
+    #[must_use]
+    pub fn observed_order_above(&self, floor: f64) -> Option<f64> {
+        let cut = self
+            .residual_history
+            .iter()
+            .position(|r| *r <= floor)
+            .map_or(self.residual_history.len(), |i| i + 1);
+        let h = &self.residual_history[..cut];
         if h.len() < 3 {
             return None;
         }
