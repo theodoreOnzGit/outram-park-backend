@@ -98,7 +98,11 @@ use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
 use crate::material::nuclide::{Inelastic, Nuclide};
-use crate::physics::compute::{ComputeType, ThreadCount};
+// `KeffSettings` has a `compute: ComputeType` field, so the same re-export
+// argument applies here as in pebble_beds::fhr_pebble: the same dogfood run
+// wrote `use outram_mc_libs::physics::keff::{KeffSettings, ComputeType}` and
+// hit E0603.
+pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
     continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,

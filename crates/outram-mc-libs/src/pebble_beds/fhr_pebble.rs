@@ -37,7 +37,14 @@ use crate::geometry::position::Position;
 use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
 use crate::geometry::universe::Universe;
 use crate::material::material::{Material, NuclideComponent};
-use crate::geometry::triso_particle::TrisoMaterials;
+// Re-exported, not merely imported: `ExplicitTrisoPebble::new` takes a
+// `TrisoMaterials`, so a caller who can name the constructor must be able to
+// name its argument from the same module. A docs-only dogfood run wrote
+// `use outram_mc_libs::pebble_beds::fhr_pebble::{ExplicitTrisoPebble,
+// TrisoMaterials, ...}` -- the obvious import -- and hit E0603 because this was
+// a private `use`. An API that cannot be called from the module it is
+// documented in is not callable.
+pub use crate::geometry::triso_particle::TrisoMaterials;
 use crate::pebble_beds::sphere_packing::PackedSpheres;
 
 /// The five cumulative outer radii \[cm\] of a TRISO particle (kernel first,
