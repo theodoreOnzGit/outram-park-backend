@@ -68,7 +68,7 @@ mod desktop {
         TrisoLayer, TrisoSpec,
     };
     use outram_mc_libs::pebble_beds::crp_packing::pack_spheres_crp;
-    use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
+    use outram_mc_libs::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain};
     use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
@@ -337,11 +337,18 @@ mod desktop {
             compute,
             ..KeffSettings::default()
         };
-        // Full-pebble delta domain: a reflective cube whose half-width reaches
-        // the pebble's reflective radius. The OpenMC deck clips the coolant at a
-        // reflective SPHERE r = 3; here the cube corners (3 < r < 5.2) carry
-        // FLiBe too — a documented over-count of coolant (see the V&V record).
+        // Full-pebble delta domains. The OpenMC deck clips the coolant at a
+        // reflective SPHERE r = 3, so `ball` is the matched domain and every
+        // absolute comparison against OpenMC uses it.
+        //
+        // `cube` is kept alongside it deliberately, not as a leftover: its
+        // corners (3 < r < 3√3 ≈ 5.196) carry FLiBe that the sphere does not, so
+        // the cube-vs-sphere difference on the *same* pebble measures what that
+        // extra coolant is worth. Reporting both is what lets a reader separate
+        // "our physics differs from OpenMC" from "our domain differed".
         let half = R_ROOT;
+        let ball = DeltaDomain::Sphere { radius: R_ROOT };
+        let cube = DeltaDomain::Cube { half };
         let seed = 20_260_910;
 
         // TRISO packed into a cube that fully covers the r < 1.9 fuel sphere.
@@ -381,8 +388,12 @@ mod desktop {
                 Some(zone_outside_fuel(r))
             }
         };
-        let explicit = run_keff_delta(half, &mats, &nucs, &majorant, explicit_at, &keff);
-        eprintln!("  k_eff (explicit TRISO pebble) = {:.5} ± {:.5}", explicit.k_mean, explicit.k_std);
+        let explicit_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &explicit_at, &keff);
+        let explicit = run_keff_delta_in(ball, &mats, &nucs, &majorant, &explicit_at, &keff);
+        eprintln!(
+            "  k_eff (explicit TRISO pebble, sphere) = {:.5} ± {:.5}   [cube {:.5} ± {:.5}]",
+            explicit.k_mean, explicit.k_std, explicit_cube.k_mean, explicit_cube.k_std
+        );
 
         // 2. Ring-RPT pebble — SAME reflective cube, homogenised fuel as a shell.
         let rpt_at = |p: Position| -> Option<usize> {
@@ -395,10 +406,11 @@ mod desktop {
                 zone_outside_fuel(r)
             })
         };
-        let rpt = run_keff_delta(half, &mats, &nucs, &majorant, rpt_at, &keff);
+        let rpt_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &rpt_at, &keff);
+        let rpt = run_keff_delta_in(ball, &mats, &nucs, &majorant, &rpt_at, &keff);
         eprintln!(
-            "  k_eff (ring-RPT pebble)       = {:.5} ± {:.5}   (fuel shell {R_RPT_INNER:.4}–{r_rpt_fuel:.4} cm)",
-            rpt.k_mean, rpt.k_std
+            "  k_eff (ring-RPT pebble, sphere)       = {:.5} ± {:.5}   [cube {:.5} ± {:.5}]   (fuel shell {R_RPT_INNER:.4}–{r_rpt_fuel:.4} cm)",
+            rpt.k_mean, rpt.k_std, rpt_cube.k_mean, rpt_cube.k_std
         );
 
         // 3. Naive homogenisation — homog fuel fills the whole r < 1.9 zone.
@@ -406,8 +418,12 @@ mod desktop {
             let r = p.norm();
             Some(if r < R_FUEL_ZONE { mi::HOMOG } else { zone_outside_fuel(r) })
         };
-        let naive = run_keff_delta(half, &mats, &nucs, &majorant, naive_at, &keff);
-        eprintln!("  k_eff (naive homogenised)     = {:.5} ± {:.5}", naive.k_mean, naive.k_std);
+        let naive_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &naive_at, &keff);
+        let naive = run_keff_delta_in(ball, &mats, &nucs, &majorant, &naive_at, &keff);
+        eprintln!(
+            "  k_eff (naive homogenised, sphere)     = {:.5} ± {:.5}   [cube {:.5} ± {:.5}]",
+            naive.k_mean, naive.k_std, naive_cube.k_mean, naive_cube.k_std
+        );
 
         // 4. Ring-RPT pebble through the real CSG sphere geometry — this is
         //    directly comparable to the OpenMC RPT number (reflective sphere
@@ -440,12 +456,31 @@ mod desktop {
         };
         let (d_rp, z_rp) = d(rpt.k_mean, rpt.k_std, explicit.k_mean, explicit.k_std);
         let (d_nv, z_nv) = d(naive.k_mean, naive.k_std, explicit.k_mean, explicit.k_std);
+        let (d_rpc, z_rpc) = d(
+            rpt_cube.k_mean, rpt_cube.k_std, explicit_cube.k_mean, explicit_cube.k_std,
+        );
+        let (d_nvc, z_nvc) = d(
+            naive_cube.k_mean, naive_cube.k_std, explicit_cube.k_mean, explicit_cube.k_std,
+        );
+        // Absolute comparisons against OpenMC — only legitimate on the sphere,
+        // which is the boundary the OpenMC deck actually used.
+        const OMC_EXPLICIT: (f64, f64) = (1.36510, 0.00063);
+        const OMC_RPT: (f64, f64) = (1.36479, 0.00067);
+        let (d_ex_omc, z_ex_omc) = d(explicit.k_mean, explicit.k_std, OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+        let (d_rp_omc, z_rp_omc) = d(rpt.k_mean, rpt.k_std, OMC_RPT.0, OMC_RPT.1);
+
         eprintln!("\n── outram-mc-libs FHR pebble (ENDF/B-VIII.0, c_Graphite S(α,β)) ──");
-        eprintln!("  reflective-cube domain (matched boundary for the RPT − explicit delta):");
-        eprintln!("    explicit TRISO   : {:.5} ± {:.5}", explicit.k_mean, explicit.k_std);
-        eprintln!("    ring-RPT         : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rp:+.0} pcm  ({z_rp:.1}σ)", rpt.k_mean, rpt.k_std);
+        eprintln!("  reflective SPHERE r = {R_ROOT} — the domain OpenMC used, so both the");
+        eprintln!("  method delta AND the absolute k are comparable to the reference:");
+        eprintln!("    explicit TRISO   : {:.5} ± {:.5}   vs OpenMC = {d_ex_omc:+.0} pcm ({z_ex_omc:.1}σ)", explicit.k_mean, explicit.k_std);
+        eprintln!("    ring-RPT         : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rp:+.0} pcm  ({z_rp:.1}σ)   vs OpenMC = {d_rp_omc:+.0} pcm ({z_rp_omc:.1}σ)", rpt.k_mean, rpt.k_std);
         eprintln!("    naive homogenised: {:.5} ± {:.5}   Δ(naive−explicit) = {d_nv:+.0} pcm  ({z_nv:.1}σ)", naive.k_mean, naive.k_std);
-        eprintln!("  reflective-sphere CSG (matched to OpenMC):");
+        eprintln!("  reflective CUBE half-width {half} (corners carry extra FLiBe — NOT");
+        eprintln!("  comparable to OpenMC in absolute terms; shown to price that over-count):");
+        eprintln!("    explicit TRISO   : {:.5} ± {:.5}   cube−sphere = {:+.0} pcm", explicit_cube.k_mean, explicit_cube.k_std, (explicit_cube.k_mean - explicit.k_mean) * 1e5);
+        eprintln!("    ring-RPT         : {:.5} ± {:.5}   Δ(RPT−explicit)   = {d_rpc:+.0} pcm  ({z_rpc:.1}σ)", rpt_cube.k_mean, rpt_cube.k_std);
+        eprintln!("    naive homogenised: {:.5} ± {:.5}   Δ(naive−explicit) = {d_nvc:+.0} pcm  ({z_nvc:.1}σ)", naive_cube.k_mean, naive_cube.k_std);
+        eprintln!("  reflective-sphere CSG (surface-tracked, six factors + spectrum):");
         eprintln!("    ring-RPT         : {:.5} ± {:.5}", rpt_csg.keff.k_mean, rpt_csg.keff.k_std);
 
         // ── OpenMC reference (op-mzvp.1, GH #156) ──
@@ -456,8 +491,9 @@ mod desktop {
         eprintln!("  η/f/p/ε (ring-RPT)    : 2.0073 / 0.9216 / 0.4842 / 1.5043");
         eprintln!(
             "\nCAVEATS (see verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md):\n\
-             - delta-cube corners carry FLiBe past r = 3 (over-counts coolant vs\n\
-               the OpenMC reflective sphere); the CSG-sphere row removes this.\n\
+             - the delta domain is now the same reflective SPHERE r = 3 the OpenMC\n\
+               deck used, so the cube-corner FLiBe over-count no longer affects the\n\
+               reported comparison; the cube rows are kept only to price it.\n\
              - explicit-TRISO delta resolves the 5 coating layers by nearest-centre\n\
                + radius, not exact CSG.\n\
              - the RPT inner radius (1.4934 cm) was tuned by the deck author for\n\
