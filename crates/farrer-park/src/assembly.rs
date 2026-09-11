@@ -1294,6 +1294,82 @@ mod tests {
         assert!(worst < 1e-5, "B-bar tangent is not consistent: {worst:e}");
     }
 
+    /// The two rejected option combinations must be rejected, with an error
+    /// that says why — not silently accepted and not silently ignored.
+    ///
+    /// Both refusals are deliberate, not gaps: plane stress has no meaning on a
+    /// three-dimensional mesh, and B-bar has nothing to relax under plane
+    /// stress because the out-of-plane strain is already free. An unverified
+    /// combination that runs is worse than one that refuses.
+    #[test]
+    fn invalid_option_combinations_are_rejected() {
+        let mat = Material::elastic(200.0e9, 0.3).unwrap();
+        let cube = unit_cube_hex8(2).unwrap().shared();
+        let square = unit_square_quad4(2).unwrap().shared();
+
+        let e = System::with_options(
+            Arc::clone(&cube),
+            mat,
+            BodyForce::None,
+            SystemOptions {
+                plane_condition: PlaneCondition::PlaneStress,
+                ..SystemOptions::default()
+            },
+        )
+        .expect_err("plane stress on a 3-D mesh must be rejected");
+        assert!(format!("{e}").contains("three-dimensional"), "{e}");
+
+        let e = System::with_options(
+            Arc::clone(&square),
+            mat,
+            BodyForce::None,
+            SystemOptions {
+                formulation: Formulation::BBar,
+                plane_condition: PlaneCondition::PlaneStress,
+            },
+        )
+        .expect_err("B-bar with plane stress must be rejected");
+        assert!(format!("{e}").contains("volumetric constraint"), "{e}");
+
+        // And the four valid combinations must all build.
+        for (mesh, options) in [
+            (Arc::clone(&square), SystemOptions::default()),
+            (
+                Arc::clone(&square),
+                SystemOptions {
+                    formulation: Formulation::BBar,
+                    plane_condition: PlaneCondition::PlaneStrain,
+                },
+            ),
+            (
+                Arc::clone(&square),
+                SystemOptions {
+                    formulation: Formulation::FullIntegration,
+                    plane_condition: PlaneCondition::PlaneStress,
+                },
+            ),
+            (
+                Arc::clone(&cube),
+                SystemOptions {
+                    formulation: Formulation::BBar,
+                    plane_condition: PlaneCondition::PlaneStrain,
+                },
+            ),
+        ] {
+            let sys = System::with_options(mesh, mat, BodyForce::None, options)
+                .unwrap_or_else(|e| panic!("{options:?} should be valid: {e}"));
+            assert_eq!(sys.options(), options);
+            assert_eq!(sys.formulation(), options.formulation);
+            assert_eq!(sys.plane_condition(), options.plane_condition);
+        }
+
+        // `System::new` must be exactly the default options.
+        let sys = System::new(square, mat, BodyForce::None);
+        assert_eq!(sys.options(), SystemOptions::default());
+        assert_eq!(sys.formulation(), Formulation::FullIntegration);
+        assert_eq!(sys.plane_condition(), PlaneCondition::PlaneStrain);
+    }
+
     /// The body-force integral of a uniform load must equal load times volume,
     /// component by component — a check on the `N^T b` quadrature.
     #[test]

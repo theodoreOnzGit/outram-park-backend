@@ -52,7 +52,7 @@
 //! is shared (GitHub issue #175).
 //!
 //! The two discretisations meet at exactly one contract,
-//! [`operator::LinearOperator`]:
+//! [`operator::FemLinearOperator`]:
 //!
 //! - `LduMatrix` in `outram-foam-basic-lib` remains the face-addressed,
 //!   FVM-optimised representation.

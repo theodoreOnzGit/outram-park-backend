@@ -27,6 +27,7 @@ of truth: if the two ever disagree, the test is right and this file is stale.
 | # | Case | Test | Headline result |
 |---|---|---|---|
 | 1 | Patch test, all element types | `tests/patch.rs` | machine precision: displacement 9.0e-17, stress 1.3e-14 worst |
+| 1b | Patch test under B-bar | `tests/patch.rs` | machine precision: displacement 9.0e-17, stress 2.9e-15 worst |
 | 2 | Manufactured-solution convergence | `tests/mms.rs` | orders 1.998 / 1.000 (linear), 2.978 / 1.989 (quadratic) |
 | 3 | Thick-walled cylinder vs Lame | `tests/analytical.rs` | 2.45 % max stress error, first order; 0.021 % displacement, second order |
 | 4 | Cantilever vs beam theory | `tests/analytical.rs` | excess over Euler-Bernoulli 3.677 / 0.928 / 0.233 % at L/H = 4 / 8 / 16 |
@@ -117,6 +118,35 @@ elimination — exactly as its theory says. That is why elimination is the
 default, and the test asserts the penalty error is **greater** than `1e-14` so
 that a change which silently routed the penalty path to elimination would fail
 rather than quietly pass.
+
+### 1b. The patch test under B-bar
+
+Added 2026-09-11. An element modification that fails the patch test cannot
+converge at all — that is the whole content of the patch test — so the B-bar
+formulation of case 6 has to be shown not to have broken what the original
+element got right.
+
+Same jittered meshes, same imposed linear field, same `1e-9` pass band, with
+`Formulation::BBar` selected:
+
+| Element | max rel. displacement error | max rel. stress error |
+|---|---|---|
+| Tri3 | 9.035e-17 | 2.690e-15 |
+| Quad4 | 9.035e-17 | 2.906e-15 |
+| Tet4 | 9.035e-17 | 1.978e-15 |
+| Hex8 | 9.035e-17 | 2.638e-15 |
+
+Against full integration on the same meshes: 2.690e-15, 2.475e-15, 1.978e-15,
+1.649e-15. So B-bar passes at the same precision, to within a unit or two in the
+last place of the stress.
+
+The reason it survives is also the reason B-bar is useless on Tri3 and Tet4:
+under a **constant** strain field the element mean of the dilatation equals its
+pointwise value, so the modification vanishes identically. The patch test imposes
+exactly such a field, so on *this* problem B-bar is a no-op for every element —
+including the distorted Quad4 where it is emphatically not a no-op in general
+(measured at 12.0 % of the largest stiffness entry by
+`assembly::tests::bbar_genuinely_changes_a_bilinear_quadrilateral`).
 
 ---
 
