@@ -80,12 +80,13 @@ mod desktop {
     use outram_mc_libs::physics::transport_csg::SourceBox;
     use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
     use outram_mc_libs::pebble_beds::fhr_pebble::{
-        fhr_pebble_geometry, homogenise_by_volume, rpt_fuel_outer_radius, triso_layer_at,
-        TrisoLayer, TrisoSpec,
+        fhr_pebble_geometry, homogenise_by_volume, rpt_fuel_outer_radius, ExplicitTrisoPebble,
+        TrisoSpec,
     };
     use outram_mc_libs::pebble_beds::crp_packing::pack_spheres_crp;
     use outram_mc_libs::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain};
     use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
+    use outram_mc_libs::geometry::triso_particle::TrisoMaterials;
     use outram_mc_libs::geometry::position::Position;
     use outram_mc_libs::geometry::surface::BoundaryType;
     use outram_mc_libs::material::thermal::ThermalScattering;
@@ -355,15 +356,6 @@ mod desktop {
         pub const NAIVE_HOMOG: usize = 8;
     }
 
-    fn layer_material(layer: TrisoLayer) -> usize {
-        match layer {
-            TrisoLayer::Kernel => mi::FUEL,
-            TrisoLayer::Buffer => mi::BUFFER,
-            TrisoLayer::Ipyc => mi::PYC1,
-            TrisoLayer::Sic => mi::SIC,
-            TrisoLayer::Opyc => mi::PYC2,
-        }
-    }
 
     pub fn run() {
         let search_radius = std::env::args().any(|a| a == "--search-rpt-radius");
@@ -419,20 +411,26 @@ mod desktop {
             }
         };
 
-        // 1. Explicit-TRISO pebble.
-        let explicit_at = |p: Position| -> Option<usize> {
-            let r = p.norm();
-            if r < R_FUEL_ZONE {
-                Some(match packed.containing_center(p) {
-                    Some(c) => layer_material(
-                        triso_layer_at((p - c).norm(), &spec).unwrap_or(TrisoLayer::Opyc),
-                    ),
-                    None => mi::GRAPHITE, // matrix
-                })
-            } else {
-                Some(zone_outside_fuel(r))
-            }
-        };
+        // 1. Explicit-TRISO pebble. `ExplicitTrisoPebble` packages exactly the
+        // packed-particle / layer-resolution / matrix-fallback lookup this
+        // closure used to hand-assemble (see its rustdoc for why it exists).
+        let explicit_pebble = ExplicitTrisoPebble::new(
+            packed,
+            spec,
+            TrisoMaterials {
+                kernel: mi::FUEL,
+                buffer: mi::BUFFER,
+                ipyc: mi::PYC1,
+                sic: mi::SIC,
+                opyc: mi::PYC2,
+                matrix: mi::GRAPHITE,
+            },
+            mi::GRAPHITE, // shell
+            mi::FLIBE,    // coolant (+ cube corners)
+            R_FUEL_ZONE,
+            R_PEBBLE,
+        );
+        let explicit_at = |p: Position| -> Option<usize> { explicit_pebble.material_at(p) };
         // Single-case escape hatch for bisecting a change against one number:
         // OUTRAM_RINGRPT_ONLY=explicit-cube runs just the explicit-TRISO cube
         // case and exits. The full deck is seven eigenvalue solves and ~40 min,
