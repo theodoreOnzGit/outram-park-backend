@@ -851,11 +851,36 @@ mod column_type_tests {
 
     /// Energy residual of the **bottom** stage, `in − out` \[W\], evaluated at
     /// the returned profile with the enthalpy model the solver used:
-    /// `L_{ns-1} h_L,ns-1 + F_ns h_F,ns + Q_ns,into − L_ns h_L,ns − V_ns h_V,ns`.
+    /// `L_{ns-1} h_L,ns-1 + F_ns h_F,ns − Q_ns − L_ns h_L,ns − V_ns h_V,ns`.
     ///
     /// Zero (to round-off in the enthalpy model) when the solver enforced that
-    /// stage's energy balance. `Q_ns` is read from the *input* (the given
-    /// duty), with `Stage::heat_duty`'s documented positive-into sign.
+    /// stage's energy balance.
+    ///
+    /// # Sign of `Q`, and which `Q`
+    ///
+    /// `Q_ns` is read from the **returned** profile, not the input, so that a
+    /// back-calculated end duty is included — that is the whole point of the
+    /// check. It is **subtracted**, because DWSIM's internal stage duty is
+    /// heat *removed*, not heat added. Upstream states this three ways: a
+    /// user-entered reboiler duty is stored negated (`Q(ns) = -spval2`,
+    /// `BubblePoint.vb:1005`), an attached energy stream is negated on the way
+    /// in (`Q(i) = -EnergyStream.EnergyFlow`, `RigorousColumn.vb:2898`), and
+    /// the Wang-Henke energy-balance coefficient carries `+Q_j` on the
+    /// *outflow* side of `α_j V_j + β_j V_{j+1} = γ_j`
+    /// (`BubblePoint.vb:1574-1576`). Measured here on 2026-09-11: a `+50 kW`
+    /// duty on stage 5 of the 8-stage distillation case *cools* that stage
+    /// (370.295 K → 369.453 K) and raises the reboiler's own duty from
+    /// `−47 298 W` to `−97 237 W`.
+    ///
+    /// Note this contradicts [`Stage::heat_duty`]'s own doc comment, which
+    /// says "positive **into** the stage"; the doc is wrong, the code is
+    /// upstream-faithful. Recorded, not fixed here — flipping a crate-wide
+    /// documented sign convention is a separate decision.
+    ///
+    /// Before 2026-09-11 this helper *added* `input.stage_heats[ns]`. Every
+    /// case it was then used on had `Q_ns = 0`, so the error was invisible;
+    /// it became visible as soon as `Q_ns` started being back-calculated for
+    /// a refluxed absorber.
     fn bottom_stage_energy_residual(out: &ColumnSolverOutput, input: &ColumnSolverInput) -> f64 {
         let thermo = ColumnThermo::new(input.components.clone(), input.package);
         let ns = input.number_of_stages - 1;
@@ -873,9 +898,8 @@ mod column_type_tests {
                 input.stage_pressures[i],
             )
         };
-        out.liquid_flows[ns - 1] * hl(ns - 1)
-            + input.feed_flows[ns] * input.feed_enthalpies[ns]
-            + input.stage_heats[ns]
+        out.liquid_flows[ns - 1] * hl(ns - 1) + input.feed_flows[ns] * input.feed_enthalpies[ns]
+            - out.stage_heats[ns]
             - out.liquid_flows[ns] * hl(ns)
             - out.vapor_flows[ns] * hv(ns)
     }
@@ -1212,77 +1236,92 @@ mod column_type_tests {
     /// [`RigorousColumn::refluxed_absorber`], solved by [`WangHenkeSolver`]
     /// from the generated estimates. Must converge and satisfy
     /// [`assert_balances`], a monotone temperature profile, the reflux-ratio
-    /// spec `L_0 / LSS_0 = 2` to `< 1e-6`, and the duty convention: `Q_7`
-    /// returned exactly as given (`0 W`, user input), `Q_0 ≠ 0`
-    /// (back-calculated condenser duty). Benzene must be enriched in the
-    /// distillate `x_0` and depleted in the bottoms `x_7`. Then two
-    /// **characterisation** checks that pin what this solver family actually
-    /// does with the variant, so that a later solver fix is visible:
+    /// spec `L_0 / LSS_0 = 2` to `< 1e-6`, and the duty convention: **both**
+    /// end duties back-calculated (`Q_0 ≠ 0` and `Q_7 ≠ 0`), which is
+    /// upstream's live `Case DistillationColumn` arm — see
+    /// [`back_calculate_duties`](super::bubble_point::back_calculate_duties)
+    /// for why a `ColType.RefluxedAbsorber` takes it. Benzene must be enriched
+    /// in the distillate `x_0` and depleted in the bottoms `x_7`. The
+    /// bottom-stage energy balance ([`bottom_stage_energy_residual`]) must now
+    /// **close to `< 1 W`**, because the imbalance is carried by the
+    /// back-calculated `Q_7`. One **characterisation** check remains, pinning
+    /// what this solver family does with the variant so a later solver change
+    /// is visible: the distillate rate equals `distillate_rate_estimate`
+    /// exactly (run twice, with the default `0.5 mol/s` and with
+    /// `0.33 mol/s`). [`NaphtaliSandholmSolver`] (with and without warm start)
+    /// is run and its outcome recorded; it is asserted consistent only if it
+    /// converges.
     ///
-    /// 1. The distillate rate equals `distillate_rate_estimate` exactly (run
-    ///    twice, with the default `0.5 mol/s` and with `0.33 mol/s`).
-    /// 2. The bottom-stage energy residual ([`bottom_stage_energy_residual`])
-    ///    is **not** zero.
+    /// **Results (2026-09-11, `cargo test --release`)** — unchanged from the
+    /// 2026-09-10 run except for `Q_7`, which was previously returned as the
+    /// given `0 W`:
     ///
-    /// [`NaphtaliSandholmSolver`] (both with and without warm start) is run and
-    /// its outcome recorded; it is asserted consistent only if it converges.
+    /// Wang-Henke, `D_est = 0.5` (default): converged in **15** iterations;
+    /// `T = [357.2607, 362.2434, 366.6732, 369.7186, 371.4725, 372.3834,
+    /// 372.8317, 373.0464] K`; `LSS_0 = D = 0.500000`, `B = 0.500000`,
+    /// `L_0/D = 2.000000`; `x_0,benzene = 0.7649`, `x_7,benzene = 0.2351`;
+    /// `Q_0 = +47 771.4 W`, **`Q_7 = −15 083.9 W`**; molar residual `0`;
+    /// bottom-stage energy residual `0.0 W`. Modified Wang-Henke: 13
+    /// iterations, same profile to `< 0.01 K`.
     ///
-    /// **Results (2026-09-10, `cargo test --release`):**
+    /// Wang-Henke, `D_est = 0.33`: converged in **15** iterations;
+    /// `LSS_0 = D = 0.330000`, `B = 0.670000`; `Q_0 = +30 937.3 W`,
+    /// **`Q_7 = +1 766.2 W`**; bottom-stage energy residual `0.0 W`.
     ///
-    /// Wang-Henke, `D_est = 0.5` (default): converged in **15** iterations to
-    /// `4.7127e-7`; `T = [357.3, 362.2, 366.7, 369.7, 371.5, 372.4, 372.8,
-    /// 373.1] K`; `LSS_0 = D = 0.500000`, `B = 0.500000`, `L_0/D = 2.000000`;
-    /// `x_0,benzene = 0.7649`, `x_7,benzene = 0.2351`; `Q_0 = +47 771 W`
-    /// (back-calculated), `Q_7 = 0 W` (as given); molar residual `0`. Modified
-    /// Wang-Henke: 13 iterations, `7.4514e-6`, same profile to `< 0.01 K`.
+    /// Naphtali-Sandholm: **did not converge** (`NotConverged`, final error
+    /// `3.00` after 100 iterations; warm start the same). Unchanged by this
+    /// work — see the interpretation below.
     ///
-    /// Wang-Henke, `D_est = 0.33`: converged in **15** iterations to
-    /// `4.2323e-7`; `LSS_0 = D = 0.330000`, `B = 0.670000`; `x_0 = 0.8797`,
-    /// `x_7 = 0.3130`; `Q_0 = +30 937 W`.
+    /// **Interpretation — what changed, and what did not.**
     ///
-    /// Bottom-stage energy residual (`in − out`, `Q_7 = 0`): **−15 084 W** for
-    /// `D_est = 0.5`, **+1 766 W** for `D_est = 0.33` — against a latent-heat
-    /// scale of ~32 kW for the 1 mol/s feed. Re-running with the feed
-    /// enthalpy changed from saturated vapour to a 50 % vaporised feed gave a
-    /// **bit-identical** profile (residual `−30 970 W` / `−14 120 W`): the
-    /// feed enthalpy has no influence on the answer.
+    /// *What changed.* `Q_7` is now back-calculated from the overall column
+    /// energy balance, so the returned profile is energy-consistent and the
+    /// bottom-stage imbalance is **named** instead of silent. Sign: DWSIM's
+    /// internal stage duty is heat *removed*, so `Q_7 = −15 084 W` means
+    /// 15 084 W must be **added** at the bottom stage — see
+    /// [`bottom_stage_energy_residual`] for the three upstream citations and
+    /// the measured probe behind that convention.
     ///
-    /// Naphtali-Sandholm: **did not converge** from any of 30+ starting
-    /// estimates tried (`NotConverged`, final error `0.11-3.9` after 18-100
-    /// iterations; with warm start the same or worse). Sum-rates: not
-    /// converged in 100 iterations.
+    /// *What did not change, and cannot within Wang-Henke.* The stage profile
+    /// is **bit-identical** to the pre-fix one, and still bit-identical when
+    /// the feed is changed from saturated vapour to 50 % vaporised — only
+    /// `Q_7` moves (`−15 083.871 W → −30 969.899 W`). That is not a port defect;
+    /// it is the structure of the algorithm, in upstream too. `Q_ns` enters
+    /// nothing downstream: `γ_ns` is formed but the vapour recursion stops at
+    /// `γ_{ns-1}` (`BubblePoint.vb:1596-1600`), and the overall-balance sum
+    /// runs `i = 0 To ns − 1` (`:1657`). The bottom-stage energy balance is
+    /// therefore **not in Wang-Henke's equation set**, and with a feed on the
+    /// bottom stage its enthalpy reaches nothing but `Q_ns`.
     ///
-    /// **Interpretation — two solver-side limitations, recorded not fixed.**
-    ///
-    /// *(a) The bubble-point family treats `distillate_rate_estimate` as a
-    /// second specification.* For a refluxed absorber upstream closes the
+    /// *Why `D` stays pinned.* For a refluxed absorber upstream closes the
     /// bottom with `B = L_ns` (`BubblePoint.vb:1020`) and `L_ns` with the
-    /// total mass balance `ΣF − LSS_0 − V_0`, then re-derives `LSS_0 = ΣF − B −
-    /// V_0` — a circular pair that returns whatever `LSS_0` started at. The
-    /// bottom-stage energy balance is never used to size the vapour that the
-    /// feed can generate, which is exactly the degree of freedom a refluxed
-    /// absorber has; the non-zero residual and the feed-enthalpy insensitivity
-    /// above are that missing equation. So the result is a **mass-consistent
-    /// rectifying section for a user-chosen `D`**, not a solution of the
-    /// column's MESH set. (Before the estimate fix in
-    /// [`RigorousColumn::estimate_flows`] the generated `L_ns` ignored `D_est`,
-    /// and the same circularity pinned `LSS_0` at `ΣF − L_ns,est = 0`: the
-    /// solver "converged" in 16 iterations to `V = 0` on every stage, all feed
-    /// to bottoms, and returned it as `Ok` — measured 2026-09-10, and the
-    /// reason that fix exists.)
+    /// total mass balance `ΣF − ΣLSS − ΣVSS − V_0` (`:1625`), then re-derives
+    /// `LSS_0 = ΣF − B − ΣLSS − ΣVSS − V_0` (`:1553`). Substituting one into
+    /// the other gives `LSS_0 ← LSS_0` **identically**, so `D` is a fixed
+    /// point of the iteration at whatever it started from. Upstream removes
+    /// the only other handle deliberately: `BubblePoint.vb:127` forces
+    /// `specR_OK = True` for a refluxed absorber, which disables the outer
+    /// two-variable Broyden solve on `(reflux ratio, bottoms rate)`. So
+    /// upstream's Wang-Henke refluxed absorber is a **mass-consistent
+    /// rectifying section for a user-chosen `D`**, with the residual heat
+    /// reported at the bottom — not a solution of the column's MESH set.
+    /// Treat [`RigorousColumn::with_distillate_estimate`] as the second
+    /// specification it effectively is.
     ///
-    /// *(b) Naphtali-Sandholm's total-condenser initialisation is gated on
-    /// `DistillationColumn`.* Its stage-0 "vapour" variables stand for the
-    /// distillate under a total condenser, but they are seeded from the
-    /// distillate estimate only `If input.ColumnType = ColType.DistillationColumn`
-    /// (`NewtonRaphson.vb:969`, ported at `newton_raphson.rs`); for a
-    /// `RefluxedAbsorber` they start at `V_0,est · y_0 ≈ 1e-10` and the reflux
-    /// row `l_0 − (L_0/LSS_0) v_0` is ill-conditioned from the first residual.
-    /// The post-solve output mapping has the same gate, so even a converged
-    /// refluxed absorber would report its distillate in `vapor_flows[0]`
-    /// rather than `liquid_side_draws[0]`. Both are faithful to upstream as
-    /// far as this port can tell and both are outside an API-exposure task —
-    /// they are the follow-up work for a physically complete refluxed absorber.
+    /// *Where upstream does solve it.* `NewtonRaphson.vb:837-840` remaps the
+    /// `RefluxedAbsorber` boolean onto `coltype`, and the residual assembly
+    /// then replaces **only** `H(0)` with the condenser-spec residual
+    /// (`:546-556`), leaving stage `ns`'s true energy balance with
+    /// `Q_ns = spec` in the system (`:480-481`). That is the formulation with
+    /// the right degrees of freedom, and it is Naphtali-Sandholm, not
+    /// Wang-Henke. This port's NS does not converge on the variant; see
+    /// [`RigorousColumn::refluxed_absorber`] for what it needs.
+    ///
+    /// (Before the estimate fix in [`RigorousColumn::estimate_flows`] the
+    /// generated `L_ns` ignored `D_est`, and the same circularity pinned
+    /// `LSS_0` at `ΣF − L_ns,est = 0`: the solver "converged" in 16 iterations
+    /// to `V = 0` on every stage, all feed to bottoms, and returned it as
+    /// `Ok` — measured 2026-09-10, and the reason that fix exists.)
     #[test]
     fn refluxed_absorber_solves_through_the_public_api() {
         let base = refluxed_absorber();
@@ -1307,15 +1346,18 @@ mod column_type_tests {
                 (out.condenser_spec.calculated_value - 2.0).abs() < 1e-6,
                 "{label}: calculated_value must echo the achieved ratio"
             );
-            // Duty convention: Q_0 back-calculated, Q_7 user input (0).
+            // Duty convention: both ends back-calculated, upstream's live
+            // `Case DistillationColumn` path (see `back_calculate_duties`).
             assert!(
                 out.stage_heats[0].abs() > 1.0e3,
                 "{label}: condenser duty must be back-calculated, got {} W",
                 out.stage_heats[0]
             );
-            assert_eq!(
-                out.stage_heats[7], 0.0,
-                "{label}: Q_7 must be the given 0 W"
+            assert!(
+                out.stage_heats[7] != 0.0 && out.stage_heats[7].is_finite(),
+                "{label}: Q_7 must be back-calculated, not passed through as the \
+                 given 0 W; got {} W",
+                out.stage_heats[7]
             );
             // Separation direction.
             let x_top = out.liquid_compositions[0][0];
@@ -1345,16 +1387,21 @@ mod column_type_tests {
             .with_reflux_ratio_estimate(2.0);
         let (input_tuned, out_tuned) = solve_bp(&tuned, "refluxed absorber, D_est = 0.33");
 
-        // Characterisation (b): the bottom-stage energy balance is not enforced.
+        // (b) With `Q_7` back-calculated the bottom-stage balance now closes:
+        // the imbalance is *reported* as a bottom-stage duty rather than left
+        // silent. What it does NOT do is drive that duty to zero — see
+        // `refluxed_absorber_bottom_duty_is_not_driven_to_zero`.
         let e_default = bottom_stage_energy_residual(&out_default, &input_default);
         let e_tuned = bottom_stage_energy_residual(&out_tuned, &input_tuned);
         assert!(
-            e_default.abs() > 1.0e3,
-            "characterisation — Wang-Henke does not enforce the bottom-stage energy \
-             balance on a refluxed absorber; residual = {e_default} W. If this fails \
-             the solver has changed: update the docs of `RigorousColumn::refluxed_absorber`."
+            e_default.abs() < 1.0,
+            "the returned profile must close the bottom-stage energy balance \
+             once Q_7 carries the duty; residual = {e_default} W"
         );
-        assert!(e_tuned.is_finite());
+        assert!(
+            e_tuned.abs() < 1.0,
+            "same, D_est = 0.33; residual = {e_tuned} W"
+        );
 
         // Modified Wang-Henke agrees with Wang-Henke on the default case.
         let mbp = ModifiedWangHenkeSolver::default()
@@ -1481,6 +1528,393 @@ mod column_type_tests {
         match WangHenkeSolver::default().solve_column(&input) {
             Ok(out) => check(&out, "Wang-Henke absorber"),
             Err(e) => assert!(!format!("{e}").is_empty()),
+        }
+    }
+
+    /// A copy of the [`refluxed_absorber`] fixture whose bottom-stage feed
+    /// enthalpy is that of a `beta`-vaporised mixture **at the dew
+    /// temperature** — a clean one-parameter perturbation of `h_F` alone
+    /// (`beta = 1` reproduces the fixture exactly; lower `beta` subtracts
+    /// latent heat). Nothing else about the column changes.
+    fn refluxed_absorber_with_feed_quality(beta: f64) -> RigorousColumn {
+        let comps = vec![benzene(), toluene()];
+        let thermo = ColumnThermo::new(comps.clone(), PropertyPackageModel::Ideal);
+        let z = [0.5, 0.5];
+        let t_dew = dew_temperature(thermo.components(), &z, P_ATM, PropertyPackageModel::Ideal)
+            .expect("dew point")
+            .temperature;
+        let h_feed = thermo.feed_molar_enthalpy(&z, t_dew, P_ATM, beta);
+        let mut stages = bare_stages(8, 355.0, 4.0);
+        stages[7] = stages[7].clone().with_feed(
+            MolarFlowRate::new::<katal>(1.0),
+            z.to_vec(),
+            MolarEnergy::new::<joule_per_mole>(h_feed),
+        );
+        RigorousColumn::refluxed_absorber(
+            comps,
+            PropertyPackageModel::Ideal,
+            stages,
+            ColumnSpec::reflux_ratio(2.0),
+        )
+    }
+
+    /// Energy residual of the **whole column**, `in − out` \[W\], at the
+    /// returned profile:
+    /// `Σ F_i h_F,i − V_0 h_V,0 − Σ LSS_i h_L,i − Σ VSS_i h_V,i − L_ns h_L,ns − Σ Q_i`.
+    ///
+    /// `Q` is subtracted for the reason given on
+    /// [`bottom_stage_energy_residual`]: DWSIM's stage duty is heat *removed*.
+    fn overall_energy_residual(out: &ColumnSolverOutput, input: &ColumnSolverInput) -> f64 {
+        let thermo = ColumnThermo::new(input.components.clone(), input.package);
+        let n = input.number_of_stages;
+        let ns = n - 1;
+        let hl = |i: usize| {
+            thermo.liquid_molar_enthalpy(
+                &out.liquid_compositions[i],
+                out.stage_temperatures[i],
+                input.stage_pressures[i],
+            )
+        };
+        let hv = |i: usize| {
+            thermo.vapor_molar_enthalpy(
+                &out.vapor_compositions[i],
+                out.stage_temperatures[i],
+                input.stage_pressures[i],
+            )
+        };
+        let mut r = 0.0;
+        for i in 0..n {
+            r += input.feed_flows[i] * input.feed_enthalpies[i];
+            r -= out.liquid_side_draws[i] * hl(i);
+            r -= out.vapor_side_draws[i] * hv(i);
+            r -= out.stage_heats[i];
+        }
+        r - out.vapor_flows[0] * hv(0) - out.liquid_flows[ns] * hl(ns)
+    }
+
+    /// **Methodology.** The sharpest available check that the refluxed-absorber
+    /// path is solving *something* with the feed enthalpy in it. The fixture of
+    /// [`refluxed_absorber_with_feed_quality`] is solved by [`WangHenkeSolver`]
+    /// at three bottom-stage feed qualities — saturated vapour (`beta = 1`),
+    /// 75 % and 50 % vaporised at the dew temperature — with **nothing else
+    /// changed**. The test asserts:
+    ///
+    /// 1. the **answer responds**: `Q_7` must move by more than `1 kW` between
+    ///    every pair of qualities, and monotonically (a colder feed needs more
+    ///    bottom heat, i.e. a more negative `Q_7` in DWSIM's heat-removed
+    ///    sign);
+    /// 2. `Q_7` tracks the feed-enthalpy change **quantitatively**: since
+    ///    `Q_ns` is the closure of the overall energy balance and `F_7 = 1
+    ///    mol/s` is the only feed, `ΔQ_7` must equal `F_7 · Δh_F` to `< 1 W`;
+    /// 3. the **stage profile does not move** — recorded deliberately, with
+    ///    bit-identical equality, because that is the load-bearing limitation
+    ///    of the algorithm and a future solver change must break this test
+    ///    rather than slip past it.
+    ///
+    /// **Why (3) is not a bug to fix here.** `Q_ns` feeds nothing back in
+    /// Wang-Henke: `γ_ns` is formed but the vapour recursion stops at
+    /// `γ_{ns-1}` (`BubblePoint.vb:1596-1600`) and the overall-balance sum
+    /// runs `i = 0 To ns − 1` (`:1657`). With the feed on the bottom stage,
+    /// `h_F,ns` therefore reaches `Q_ns` and nothing else. Upstream behaves
+    /// identically; the bottom-stage energy balance is simply not in
+    /// Wang-Henke's equation set for this column type. The formulation that
+    /// *does* contain it is Naphtali-Sandholm (`NewtonRaphson.vb:837-840`,
+    /// `:546-556`), which this port does not yet converge on the variant.
+    ///
+    /// **Results (2026-09-11, `cargo test --release`).** `h_F` =
+    /// `+7 536.380`, `−406.634`, `−8 349.649` J/mol for `beta` = 1.0, 0.75,
+    /// 0.5 (`Δh_F = −7 943.014 J/mol` per step, by construction half the
+    /// mixture latent heat at `T_dew = 365.0 K`).
+    /// `Q_7 = −15 083.871`, `−23 026.885`, `−30 969.899 W`: each step moves
+    /// `Q_7` by `−7 943.014 W`, agreeing with `F · Δh_F` at `F = 1 mol/s` to
+    /// **`3.6e-12 W`**. `Q_0` unchanged at `+47 771.355 W`; `T`, `V`, `L` and
+    /// `D = 0.5` bit-identical across all three (`T_0 = 357.260734 K`,
+    /// `T_7 = 373.046428 K`; 15 iterations each). Overall energy residual
+    /// `≤ 3.6e-12 W` in every case.
+    ///
+    /// **Interpretation.** Before 2026-09-11 all three cases returned
+    /// `Q_7 = 0 W` and a bit-identical everything — the column's answer was
+    /// wholly independent of its feed's enthalpy, with no indication of it in
+    /// the output. The energy content of the feed is now accounted for and
+    /// reported; what it still does not do is set the vapour rate, which is
+    /// the degree of freedom a real adiabatic refluxed absorber has. Do not
+    /// read this test as validating the variant — it validates that the
+    /// energy bookkeeping is closed and honest.
+    #[test]
+    fn refluxed_absorber_responds_to_feed_enthalpy() {
+        let cases: Vec<(f64, ColumnSolverInput, ColumnSolverOutput)> = [1.0, 0.75, 0.5]
+            .iter()
+            .map(|&beta| {
+                let column = refluxed_absorber_with_feed_quality(beta);
+                let input = column.solver_input().expect("estimate generation");
+                let out = WangHenkeSolver::default()
+                    .solve_column(&input)
+                    .unwrap_or_else(|e| panic!("beta = {beta}: Wang-Henke must converge: {e}"));
+                (beta, input, out)
+            })
+            .collect();
+
+        // (1) and (2): Q_7 responds, monotonically, and by exactly F · Δh_F.
+        for w in cases.windows(2) {
+            let (b0, i0, o0) = &w[0];
+            let (b1, i1, o1) = &w[1];
+            let dq = o1.stage_heats[7] - o0.stage_heats[7];
+            let dh = i1.feed_enthalpies[7] - i0.feed_enthalpies[7];
+            assert!(
+                dh < 0.0,
+                "fixture error: beta {b1} must have a lower feed enthalpy than {b0}"
+            );
+            assert!(
+                dq < -1.0e3,
+                "beta {b0} -> {b1}: Q_7 must fall by more than 1 kW as the feed is \
+                 de-vaporised, got {dq} W (Q_7 = {} -> {})",
+                o0.stage_heats[7],
+                o1.stage_heats[7]
+            );
+            assert!(
+                (dq - i1.feed_flows[7] * dh).abs() < 1.0,
+                "beta {b0} -> {b1}: ΔQ_7 = {dq} W must equal F·Δh_F = {} W",
+                i1.feed_flows[7] * dh
+            );
+        }
+
+        // (3) Characterisation: the stage profile is bit-identical. See the
+        // doc comment — this is Wang-Henke's structural limitation, shared
+        // with upstream, and a solver fix must break this assertion.
+        let (_, ref_input, reference) = &cases[0];
+        for (beta, input, out) in &cases[1..] {
+            assert_eq!(
+                out.stage_temperatures, reference.stage_temperatures,
+                "beta {beta}: characterisation — Wang-Henke's stage profile does not \
+                 respond to feed enthalpy. If this fails the solver has changed: \
+                 update this test and the docs of `RigorousColumn::refluxed_absorber`."
+            );
+            assert_eq!(out.vapor_flows, reference.vapor_flows, "beta {beta}: V");
+            assert_eq!(out.liquid_flows, reference.liquid_flows, "beta {beta}: L");
+            assert_eq!(
+                out.stage_heats[0], reference.stage_heats[0],
+                "beta {beta}: Q_0"
+            );
+            assert_eq!(
+                input.feed_flows, ref_input.feed_flows,
+                "fixture error: only the feed enthalpy may differ"
+            );
+        }
+    }
+
+    /// **Methodology.** The energy books of the refluxed absorber must close.
+    /// The fixture of [`refluxed_absorber_with_feed_quality`] at `beta = 1`
+    /// and `beta = 0.5` is solved by [`WangHenkeSolver`] and
+    /// [`ModifiedWangHenkeSolver`], and for each result:
+    ///
+    /// - the **overall** column energy balance ([`overall_energy_residual`])
+    ///   closes to `< 1 W` against a ~32 kW latent-heat scale for the 1 mol/s
+    ///   feed (a relative tolerance of `3e-5`);
+    /// - the **bottom-stage** balance ([`bottom_stage_energy_residual`]) closes
+    ///   to `< 1 W`;
+    /// - the bottom-stage duty `Q_7` that achieves this is **not zero** — it is
+    ///   `O(10 kW)`, so the closure is bought with a bottom-stage heat
+    ///   exchange that a real adiabatic refluxed absorber does not have.
+    ///
+    /// The third assertion is the honest part and is the point of the test:
+    /// Wang-Henke closes the books by *naming* the imbalance, not by removing
+    /// it. See `refluxed_absorber_responds_to_feed_enthalpy` for why it cannot
+    /// remove it.
+    ///
+    /// **Results (2026-09-11, `cargo test --release`).** Wang-Henke: overall
+    /// residual `1.8e-12 W` (`beta = 1`) and `3.6e-12 W` (`beta = 0.5`);
+    /// bottom-stage residual `5.5e-12 W` and `1.1e-11 W`;
+    /// `Q_7 = −15 083.871 W` and `−30 969.899 W`, against
+    /// `Q_0 = +47 771.355 W`. Modified Wang-Henke: overall residual `0.0 W`
+    /// and `1.8e-12 W`, bottom-stage `−3.6e-12 W` and `1.8e-12 W`,
+    /// `Q_7 = −15 083.770 W` and `−30 969.798 W`. All are at the round-off
+    /// floor of the enthalpy model, ~13 orders below the ~32 kW latent-heat
+    /// scale, so the `< 1 W` gate has a factor of `1e11` of margin and is a
+    /// regression guard, not a fitted tolerance. Before 2026-09-11 the
+    /// overall residual was `−15 083.9 W` / `−30 969.9 W` — the books did not
+    /// close at all, because `Q_7` was returned as the given `0 W`.
+    #[test]
+    fn refluxed_absorber_closes_the_overall_energy_balance() {
+        for beta in [1.0, 0.5] {
+            let column = refluxed_absorber_with_feed_quality(beta);
+            let input = column.solver_input().expect("estimate generation");
+            for (label, out) in [
+                (
+                    "Wang-Henke",
+                    WangHenkeSolver::default()
+                        .solve_column(&input)
+                        .expect("Wang-Henke must converge"),
+                ),
+                (
+                    "Modified Wang-Henke",
+                    ModifiedWangHenkeSolver::default()
+                        .solve_column(&input)
+                        .expect("Modified Wang-Henke must converge"),
+                ),
+            ] {
+                let overall = overall_energy_residual(&out, &input);
+                assert!(
+                    overall.abs() < 1.0,
+                    "{label}, beta = {beta}: overall energy residual = {overall} W"
+                );
+                let bottom = bottom_stage_energy_residual(&out, &input);
+                assert!(
+                    bottom.abs() < 1.0,
+                    "{label}, beta = {beta}: bottom-stage energy residual = {bottom} W"
+                );
+                assert!(
+                    out.stage_heats[7].abs() > 1.0e3,
+                    "{label}, beta = {beta}: the balance closes only because Q_7 \
+                     carries the imbalance; it must be O(10 kW), got {} W. A future \
+                     solver that genuinely solves the adiabatic bottom will drive \
+                     this to zero — update this test then.",
+                    out.stage_heats[7]
+                );
+            }
+        }
+    }
+
+    /// **Methodology.** The one test that shows a refluxed absorber actually
+    /// *solved*: the fixture of [`refluxed_absorber_with_feed_quality`] at
+    /// `beta = 1` (saturated-vapour feed) and `beta = 0.5`, given to
+    /// [`NaphtaliSandholmSolver`], which is the only solver in this port whose
+    /// equation set contains the bottom-stage energy balance for the variant
+    /// (see `newton_raphson::has_condenser_distillate` for the upstream
+    /// reading and the divergence it documents). For each
+    /// quality the test asserts:
+    ///
+    /// 1. it **converges**, and satisfies [`assert_balances`];
+    /// 2. the reflux-ratio specification `L_0 / LSS_0 = 2` holds to `< 1e-4`;
+    /// 3. the bottom is **adiabatic**: `Q_7 = 0` exactly (imposed, not
+    ///    back-calculated) *and* the bottom-stage energy balance
+    ///    ([`bottom_stage_energy_residual`]) closes to `< 5 W` — both, because
+    ///    either alone is satisfiable trivially;
+    /// 4. the distillate is **not** the estimate — `|D − 0.5| > 0.1 mol/s` —
+    ///    i.e. it was solved for, not carried through;
+    /// 5. `D` **responds to the feed enthalpy**, falling by more than
+    ///    `0.1 mol/s` when the feed is half-vaporised instead of saturated
+    ///    vapour (less vapour fed, less distillate raised), and the whole
+    ///    temperature profile moves with it.
+    ///
+    /// Then the **cross-solver check**, which is the real verification:
+    /// [`WangHenkeSolver`] is re-run with its distillate estimate set to the
+    /// `D` this solver found. Wang-Henke pins `D` to that estimate and
+    /// back-calculates `Q_7` by a completely different route (the overall
+    /// column energy balance, from a bubble-point tear-variable iteration
+    /// rather than a Newton solve of the MESH set). If the two solvers
+    /// describe the same column, that independently computed `Q_7` must
+    /// vanish. Required `< 5 W`, and the two temperature profiles must agree
+    /// to `< 0.01 K`.
+    ///
+    /// **Results (2026-09-11, `cargo test --release`).**
+    ///
+    /// `beta = 1`: converged in **3** iterations. `D = 0.348081 mol/s`,
+    /// `B = 0.651919`, `L_0/D = 2.0000`, `V_0 = 0` (total condenser),
+    /// `Q_0 = +32 697.4 W`, `Q_7 = 0 W`, bottom-stage residual `−0.004 W`.
+    /// `T = [354.868, 358.157, 361.847, 365.159, 367.604, 369.168, 370.081,
+    /// 370.585] K`. Warm-started: 8 iterations, `D = 0.348105`, same profile
+    /// to `0.013 K`.
+    ///
+    /// `beta = 0.5`: converged in **6** iterations. `D = 0.182524 mol/s`
+    /// (a **48 %** fall), `B = 0.817476`, `Q_0 = +16 898.8 W`, `Q_7 = 0 W`,
+    /// bottom-stage residual `0.000 W`. `T = [353.181, 354.701, 356.819,
+    /// 359.383, 362.025, 364.344, 366.117, 367.337] K` — every stage cooler.
+    ///
+    /// Cross-check: Wang-Henke at `D_est = 0.348081` returns `Q_7 = −0.02 W`
+    /// (against `−15 083.87 W` at the default `D_est = 0.5`) with
+    /// `T_0 = 354.869 K`, `T_7 = 370.586 K` — agreeing with this solver's
+    /// `354.868 / 370.585 K` to `0.001 K`. At `beta = 0.5`, Wang-Henke at
+    /// `D_est = 0.182524` returns `Q_7 = −0.02 W` with `T_0 = 353.181`,
+    /// `T_7 = 367.337 K`, agreeing to `< 0.001 K`.
+    ///
+    /// **Interpretation.** The distillate of this adiabatic refluxed absorber
+    /// is `0.348 mol/s` for a saturated-vapour feed, and the bubble-point
+    /// family cannot find it because `D` is a fixed point of its iteration
+    /// (see `refluxed_absorber_solves_through_the_public_api`). What the
+    /// bubble-point family *can* now do is tell you how wrong a chosen `D`
+    /// is: its back-calculated `Q_7` is precisely the bottom-stage energy
+    /// deficit, and it passes through zero at exactly the `D` this solver
+    /// returns. That the zero of one method's error signal coincides with the
+    /// other method's root, to `0.02 W` and `0.001 K`, is the strongest
+    /// statement available here without an external reference.
+    ///
+    /// **Not validated against DWSIM or any published case.** No reference
+    /// refluxed-absorber result was available to this session; this is
+    /// verification (two independent implementations of the same MESH set
+    /// agreeing), not validation. Treat the numbers as internally consistent
+    /// and unvalidated.
+    #[test]
+    fn refluxed_absorber_is_solved_by_naphtali_sandholm() {
+        let mut solved: Vec<(f64, f64, Vec<f64>)> = Vec::new();
+        for beta in [1.0, 0.5] {
+            let column = refluxed_absorber_with_feed_quality(beta);
+            let input = column.solver_input().expect("estimate generation");
+            let label = format!("refluxed absorber, beta = {beta}");
+            let out = NaphtaliSandholmSolver::default()
+                .solve_column(&input)
+                .unwrap_or_else(|e| panic!("{label}: Naphtali-Sandholm must converge: {e}"));
+            assert_balances(&out, &input, &label);
+
+            // (2) the condenser specification.
+            let d = out.liquid_side_draws[0];
+            let rr = out.liquid_flows[0] / d;
+            assert!((rr - 2.0).abs() < 1e-4, "{label}: reflux ratio = {rr}");
+
+            // (3) the bottom really is adiabatic.
+            assert_eq!(out.stage_heats[7], 0.0, "{label}: Q_7 must be 0 W");
+            let e_bot = bottom_stage_energy_residual(&out, &input);
+            assert!(
+                e_bot.abs() < 5.0,
+                "{label}: bottom-stage energy residual = {e_bot} W"
+            );
+
+            // (4) D was solved for, not carried through from the estimate.
+            assert!(
+                (d - column.distillate_rate_estimate).abs() > 0.1,
+                "{label}: D = {d} must differ from the estimate {}",
+                column.distillate_rate_estimate
+            );
+
+            // The cross-solver check: Wang-Henke's independently
+            // back-calculated bottom duty must vanish at this D.
+            let cross = column
+                .clone()
+                .with_distillate_estimate(MolarFlowRate::new::<katal>(d));
+            let cross_input = cross.solver_input().expect("estimate generation");
+            let wh = WangHenkeSolver::default()
+                .solve_column(&cross_input)
+                .unwrap_or_else(|e| panic!("{label}: cross-check Wang-Henke: {e}"));
+            assert!(
+                wh.stage_heats[7].abs() < 5.0,
+                "{label}: Wang-Henke at D = {d} must back-calculate Q_7 ≈ 0, got {} W. \
+                 The two solvers disagree about this column.",
+                wh.stage_heats[7]
+            );
+            for j in 0..8 {
+                assert!(
+                    (wh.stage_temperatures[j] - out.stage_temperatures[j]).abs() < 0.01,
+                    "{label}: stage {j}: Wang-Henke {} K vs Naphtali-Sandholm {} K",
+                    wh.stage_temperatures[j],
+                    out.stage_temperatures[j]
+                );
+            }
+            solved.push((beta, d, out.stage_temperatures.clone()));
+        }
+
+        // (5) D and the profile respond to the feed enthalpy.
+        let (_, d_vapour, t_vapour) = &solved[0];
+        let (_, d_half, t_half) = &solved[1];
+        assert!(
+            *d_vapour - *d_half > 0.1,
+            "a half-vaporised feed must raise less distillate: D = {d_vapour} -> {d_half}"
+        );
+        for j in 0..8 {
+            assert!(
+                t_vapour[j] - t_half[j] > 1.0,
+                "stage {j}: the profile must cool with a colder feed: {} -> {}",
+                t_vapour[j],
+                t_half[j]
+            );
         }
     }
 }

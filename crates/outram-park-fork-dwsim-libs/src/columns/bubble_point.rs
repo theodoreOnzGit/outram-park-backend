@@ -1217,6 +1217,45 @@ pub(crate) fn impose_reboiler_spec(
 /// Ports `BubblePoint.vb:1645-1673` — the `Select Case coltype` block. A duty
 /// that was *specified* is left alone; an absorption column keeps both user
 /// values.
+///
+/// # Why [`ColumnType::RefluxedAbsorber`] takes the distillation arm
+///
+/// Upstream carries **two independent** notions of "refluxed absorber" and
+/// this one `match` is where they part company:
+///
+/// - `Column.ColType.RefluxedAbsorber`, the enum value this port's
+///   [`ColumnType`] mirrors; and
+/// - `DistillationColumn.RefluxedAbsorber`, a plain `Boolean` property — the
+///   "No Reboiler" checkbox (`EditingForm_Column.vb:765`) — read into the
+///   local `refabs` at `BubblePoint.vb:869`.
+///
+/// In the pinned tree (`1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766`) **nothing
+/// ever assigns `ColType.RefluxedAbsorber`**: `Me.ColumnType` is only ever set
+/// to `DistillationColumn` (`RigorousColumn.vb:956`) or `AbsorptionColumn`
+/// (`:1476`), and there is no `RefluxedAbsorber` class — the enum value and
+/// the flowsheet `ObjectType` of that name are vestigial. A real refluxed
+/// absorber is therefore a `DistillationColumn` with `refabs = True`, which
+/// means:
+///
+/// - the **spec** branches take `refabs` (`B = L_ns`, the reboiler spec
+///   ignored — `BubblePoint.vb:1019-1021`), and
+/// - this **duty** `Select Case` takes `Case DistillationColumn`, so `Q_ns`
+///   **is** back-calculated from the overall column energy balance.
+///
+/// `Case ColType.RefluxedAbsorber` (upstream line 1665), which computes `Q_0`
+/// only, is dead code in the bubble-point solvers. `NewtonRaphson.vb:837-840`
+/// is the one place that *does* make the enum value live, by remapping the
+/// boolean onto `coltype` before use — which is why
+/// [`crate::columns::newton_raphson`] keeps the narrow arm and this module
+/// does not.
+///
+/// Keeping the narrow arm here made `Q_ns` silently stay at its input value,
+/// so the bottom-stage energy imbalance of an adiabatic refluxed absorber
+/// (−15 084 W on the crate's 8-stage benzene/toluene case) was never
+/// reported and the overall energy balance of the returned profile did not
+/// close. Covered by the `columns::column_type_tests` regression tests
+/// `refluxed_absorber_responds_to_feed_enthalpy` and
+/// `refluxed_absorber_closes_the_overall_energy_balance`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn back_calculate_duties(
     coltype: ColumnType,
@@ -1264,9 +1303,31 @@ pub(crate) fn back_calculate_duties(
             // Use the provided values (upstream line 1664).
         }
         ColumnType::RefluxedAbsorber => {
+            // Upstream's live path is `Case DistillationColumn` with
+            // `refabs = True` (see the doc comment above): both ends are
+            // back-calculated, and `rebabs` is False so `Q_0` is not zeroed.
             if cspec.spec_type != SpecType::HeatDuty {
                 q[0] = condenser_duty(q);
             }
+            // `Q_ns` is back-calculated unconditionally, without upstream's
+            // `If Not specs("R").SType = Heat_Duty` guard, because for a
+            // refluxed absorber the reboiler-end spec is **inert**: the
+            // `refabs` branch at `BubblePoint.vb:1019-1021` discards it and
+            // takes `B = L_ns` instead, and `BubblePoint.vb:127` marks it
+            // "already satisfied" so the outer spec loop never touches it.
+            // Upstream reaches the same place by default — a column's `R`
+            // spec is created as `Product_Molar_Flow_Rate`
+            // (`RigorousColumn.vb:2489-2495`) and the Reboiler tab is
+            // disabled when "No Reboiler" is ticked
+            // (`EditingForm_Column.vb:763`), so the guard always passes.
+            // This port lets a caller hand a refluxed absorber a `HeatDuty`
+            // reboiler spec — [`RigorousColumn::refluxed_absorber`] in fact
+            // manufactures one, because Naphtali-Sandholm *does* read it
+            // (`NewtonRaphson.vb:480-481` imposes `Q_ns = spec`, which is how
+            // the adiabatic bottom is stated to that solver). Honouring the
+            // guard here would let that placeholder suppress the
+            // back-calculation and reinstate the silent imbalance.
+            q[ns] = reboiler_duty_total(q);
         }
         ColumnType::ReboiledAbsorber => {
             if rspec.spec_type != SpecType::HeatDuty {

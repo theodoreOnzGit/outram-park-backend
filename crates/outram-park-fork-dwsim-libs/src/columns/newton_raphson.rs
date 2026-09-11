@@ -128,6 +128,91 @@ mod scaling {
     pub const ENTHALPY: f64 = 1000.0;
 }
 
+/// Does this column type take a product off stage `0` through a condenser?
+///
+/// Gates the stage-0 *initial estimate* and the stage-0 *output mapping* —
+/// **not** any residual. Upstream writes `coltype = ColType.DistillationColumn`
+/// inline at those three places (`NewtonRaphson.vb:969`, `:1224`, `:1242`);
+/// this port answers `true` for [`ColumnType::RefluxedAbsorber`] as well, and
+/// that is a **deliberate, named divergence from upstream**. The reasoning,
+/// and the measurements behind it, are here so a reviewer can overturn it in
+/// one place.
+///
+/// # What upstream does, and why it excludes a refluxed absorber
+///
+/// Upstream carries two independent notions of "refluxed absorber": the
+/// `Column.ColType.RefluxedAbsorber` enum value, and the plain `Boolean`
+/// property `DistillationColumn.RefluxedAbsorber` (the "No Reboiler"
+/// checkbox, `EditingForm_Column.vb:765`). Nothing in the pinned tree ever
+/// assigns the enum value — `Me.ColumnType` is only ever `DistillationColumn`
+/// (`RigorousColumn.vb:956`) or `AbsorptionColumn` (`:1476`) — so a real
+/// refluxed absorber reaches the solvers as a `DistillationColumn` carrying
+/// the boolean. The bubble-point solvers keep the two apart. **This** solver
+/// does not: `NewtonRaphson.vb:837-840` remaps the boolean onto `coltype`
+/// before anything else runs, precisely so the residual assembly can replace
+/// only `H(0)` with the condenser-spec residual (`:546-556`) and leave stage
+/// `ns`'s true adiabatic energy balance in the system. That remap is what
+/// makes Naphtali-Sandholm the one upstream solver with the right degrees of
+/// freedom for the variant.
+///
+/// The side effect is that the same remapped `coltype` then fails the three
+/// `= ColType.DistillationColumn` tests at `:969`, `:1224` and `:1242`, which
+/// have nothing to do with the equations:
+///
+/// - `:969` seeds the stage-0 component *vapour* variables from the
+///   distillate estimate for a total condenser. Skipped, they start at
+///   `V_0,est · y_0`, and `V_0,est` is `1e-10` for a total condenser
+///   (`RigorousColumn.vb:3354`) — a degenerate starting point for the very
+///   variables that carry the distillate.
+/// - `:1224` and `:1242` map the converged variables back onto
+///   `LSS_0` / `V_0`. Skipped, `LSS_0` is forced to `0`, so a converged
+///   refluxed absorber would report no distillate at all.
+///
+/// Both are an initial guess and a reporting convention. Neither is physics,
+/// and neither appears in `FunctionValue`: **the residual system this port
+/// solves for a refluxed absorber is upstream's own, unmodified.**
+///
+/// # Evidence that lifting them is right (measured 2026-09-11)
+///
+/// On the crate's 8-stage benzene/toluene refluxed absorber (1 mol/s
+/// equimolar feed to stage 7, reflux ratio 2, total condenser, adiabatic
+/// bottom):
+///
+/// | | before | after |
+/// |---|---|---|
+/// | outcome | `NotConverged` after 100 iterations, final error `3.0` | converged in **3** iterations |
+/// | `D` | — | `0.348081 mol/s`, **not** the `0.5` estimate |
+/// | `Q_7` | — | `0 W`, the adiabatic bottom actually enforced |
+/// | bottom-stage residual | — | `−0.004 W` |
+///
+/// and with the feed changed from saturated vapour to 50 % vaporised,
+/// `D` falls to `0.182524 mol/s` and the whole temperature profile moves —
+/// the feed-enthalpy response a refluxed absorber is supposed to have and
+/// that the bubble-point family structurally cannot produce.
+///
+/// The answer is confirmed **against a second, structurally different
+/// algorithm**: handing `D = 0.348081` back to
+/// [`WangHenkeSolver`](crate::columns::bubble_point::WangHenkeSolver) as its
+/// distillate estimate drives *its* independently back-calculated bottom duty
+/// from `−15 083.87 W` to `−0.02 W`, and its temperature profile then agrees
+/// with this solver's to `0.001 K` at both ends. A bubble-point tear-variable
+/// scheme and a full Newton solve of the MESH set landing on the same `D` and
+/// the same profile is not a self-consistency check. See
+/// `columns::column_type_tests::refluxed_absorber_is_solved_by_naphtali_sandholm`.
+///
+/// # Scope
+///
+/// Only [`ColumnType::RefluxedAbsorber`] is added.
+/// [`ColumnType::ReboiledAbsorber`] and [`ColumnType::AbsorptionColumn`] have
+/// no condenser and no stage-0 product, so `false` is right for them and
+/// matches upstream.
+const fn has_condenser_distillate(coltype: ColumnType) -> bool {
+    matches!(
+        coltype,
+        ColumnType::DistillationColumn | ColumnType::RefluxedAbsorber
+    )
+}
+
 /// Variable scale factors (`_maxT`, `_maxvc`, `_maxlc`,
 /// `NewtonRaphson.vb:914-916`).
 ///
@@ -321,7 +406,16 @@ impl NaphtaliSandholmSolver {
         }
         // Total condenser: the stage-0 vapour is the (condensed) distillate
         // (line 969).
-        if base.column_type == ColumnType::DistillationColumn
+        //
+        // `RefluxedAbsorber` is included here, and upstream does not include
+        // it — see `has_condenser_distillate` for the full argument and the
+        // measurements. In short: upstream's gate is `coltype =
+        // ColType.DistillationColumn`, and `NewtonRaphson.vb:837-840` has
+        // just remapped a refluxed absorber's `coltype` away from that value,
+        // so the seeding is skipped and `v_0` starts at `V_0,est ≈ 1e-10`
+        // instead of at the distillate estimate. This is an *initial guess*,
+        // not an equation; the residual system is untouched.
+        if has_condenser_distillate(base.column_type)
             && base.condenser_type == CondenserType::TotalCondenser
             && base.liquid_flows[0] != 0.0
         {
@@ -474,7 +568,9 @@ impl NaphtaliSandholmSolver {
         let sum_f: f64 = base.feed_flows.iter().sum();
         let sum_vss: f64 = vssj.iter().sum();
         let sum_lss: f64 = lssj.iter().skip(1).sum();
-        if base.column_type == ColumnType::DistillationColumn {
+        // `RefluxedAbsorber` is included here and in the stage-0 mapping
+        // below, and upstream is not — see `has_condenser_distillate`.
+        if has_condenser_distillate(base.column_type) {
             if base.condenser_type == CondenserType::FullReflux {
                 vj[0] = sum_f - lj[ns] - sum_lss - sum_vss;
                 lssj[0] = 0.0;
@@ -492,7 +588,7 @@ impl NaphtaliSandholmSolver {
             .collect();
         for i in 0..n {
             lj[i] = sumlkj[i];
-            if base.column_type == ColumnType::DistillationColumn && i == 0 {
+            if has_condenser_distillate(base.column_type) && i == 0 {
                 if base.condenser_type == CondenserType::TotalCondenser {
                     lssj[0] = vj[0];
                     vj[0] = 0.0;
