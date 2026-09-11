@@ -649,13 +649,40 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    I_eff(ours) / I_eff(ref) = ln(0.5253) / ln(0.4842) = 0.888
    ```
 
-   — **11 % less resonance absorption**, or equivalently ~12 % too much
-   moderating power `ξΣ_s`, or some combination. Every term in that expression
-   has been measured: `σ_γ(E)` in value, shape and area against NJOY; `ξ` against
-   analytic kinematics for all eight nuclides; `Σ_s` against NJOY at 0.05 %; `N₈`
-   against the deck and against the reference's own reported cell count; and
-   `I_eff` itself against its analytic infinite-dilution limit. The arithmetic
-   does not have room for it, and neither does the measurement.
+   — **11 % less resonance absorption, or ~12 % too much moderating power.**
+
+   **Those two branches are not equally open, and the difference matters.**
+   `ξΣ_s = Σᵢ ξᵢ Nᵢ σ_s,ᵢ` is a **composition-only** quantity: no transport, no
+   flux, no geometry enters it. Every factor is now measured —
+   `ξᵢ` against analytic two-body kinematics for all eight nuclides (≤0.5 %),
+   `σ_s,ᵢ` against NJOY's own PENDF (≤0.05 %), and `Nᵢ` against the deck term by
+   term, with the packing fraction confirmed twice, the second time from the
+   *reference's own reported cell count*. A 12 % error in `ξΣ_s` requires a 12 %
+   error in one of those, and there is no room for one.
+
+   **So the moderating-power branch is closed, and the residual is resonance
+   absorption: at the same `σ_γ(E)` and the same incident flux, this code
+   captures 11 % less in the U-238 resonances than the reference does.**
+
+   And that quantity — absorption given correct `σ` and correct flux — is
+   spatial self-shielding, which is automatic in a continuous-energy Monte Carlo
+   and which was measured against its analytic infinite-dilution limit at
+   0.991 ± 0.011, with a monotonic self-shielding curve below it
+   (Interpretation 8).
+
+   **The chain therefore terminates in a contradiction with no free parameter
+   left in it.** Every input to the one remaining scalar is verified and the
+   output differs by 11 %. That is as far as measurement inside this workspace
+   can go: it does not name a mechanism, because no mechanism survives, and the
+   honest reading is that the remaining candidate is the reference number
+   itself — which is exactly what the thermal benchmark in "Remaining work" (a)
+   would settle, and nothing else will.
+
+   The flux spectrum is recorded with each run for the same reason (the residual
+   is a moment of it). It is unremarkable, which is itself the point — a
+   Maxwellian peak at 0.01–0.1 eV, the 6.674 eV resonance dip (ψ̄ 0.0411 against
+   0.0523 just above it), a slowing-down plateau of ψ̄ ≈ 0.070 at 1–20 keV, and
+   nothing at 1e-4–1e-2 eV (ψ̄ 0.0005), where `op-50vu` used to pile neutrons up.
 
 12. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**

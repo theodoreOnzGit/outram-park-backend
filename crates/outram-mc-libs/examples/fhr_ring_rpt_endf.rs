@@ -920,5 +920,58 @@ mod desktop {
             "  [{tag}] two-group (OpenMC convention, 0.625 eV): η {eta2:.4} f {f2:.4} \
              p {p2:.4} ε {eps2:.4}"
         );
+        print_spectrum(tag, r);
+    }
+
+    /// The lethargy-normalised flux, decade by decade.
+    ///
+    /// Recorded because the residual is now known to be **one scalar** — the
+    /// fraction of neutrons crossing 0.625 eV — and the spectrum is the thing
+    /// that scalar is a moment of. Two features are worth reading off it: the
+    /// slowing-down plateau (`ψ(u)` should be roughly flat from ~1 keV to
+    /// ~100 keV, where `ψ = q/ξΣ_s` and little is absorbed), and the depth of the
+    /// resonance dips relative to it.
+    ///
+    /// `ψ` is normalised so `Σ ψ_i Δu_i = 1` over the whole range, so it is a
+    /// *shape*: comparable between runs and between codes, not an absolute flux.
+    fn print_spectrum(
+        tag: &str,
+        r: &outram_mc_libs::physics::reactor_physics::ReactorPhysicsReport,
+    ) {
+        let sp = &r.spectrum;
+        let edges = &sp.energy_edges_ev;
+        eprintln!("  [{tag}] flux per unit lethargy (Σψ·Δu = 1 over the whole range):");
+        // Decade bands, plus the bands that matter for resonance escape.
+        const BANDS: &[(f64, f64, &str)] = &[
+            (1.0e-4, 1.0e-2, "1e-4 – 1e-2 eV"),
+            (1.0e-2, 0.1, "1e-2 – 0.1  eV  (Maxwellian peak)"),
+            (0.1, 0.625, "0.1  – 0.625 eV"),
+            (0.625, 10.0, "0.625 – 10   eV  (6.674 eV)"),
+            (10.0, 1.0e2, "10   – 100  eV"),
+            (1.0e2, 1.0e3, "100  – 1e3  eV"),
+            (1.0e3, 2.0e4, "1e3  – 2e4  eV  (plateau)"),
+            (2.0e4, 1.0e5, "2e4  – 1e5  eV"),
+            (1.0e5, 1.0e6, "1e5  – 1e6  eV"),
+            (1.0e6, 2.0e7, "1e6  – 2e7  eV"),
+        ];
+        for &(lo, hi, label) in BANDS {
+            let (mut num, mut du) = (0.0_f64, 0.0_f64);
+            for i in 0..sp.flux_per_lethargy.len() {
+                let (e0, e1) = (edges[i], edges[i + 1]);
+                if e1 <= lo || e0 >= hi {
+                    continue;
+                }
+                let (a, b) = (e0.max(lo), e1.min(hi));
+                if b <= a {
+                    continue;
+                }
+                let w = (b / a).ln();
+                num += sp.flux_per_lethargy[i].mean * w;
+                du += w;
+            }
+            if du > 0.0 {
+                eprintln!("      {label:<34} ψ̄ = {:.5}   (Δu = {du:.3})", num / du);
+            }
+        }
     }
 }
