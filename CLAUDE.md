@@ -1496,6 +1496,7 @@ built, tested, and published from this single repository.
 | `tampines` | Central thermal-hydraulic framework — composes `tuas`, `outram-park-fork-coolprop`, `tampines-steam-tables`, `outram-foam-basic-lib`, `chem-eng…` | GPL-3.0 |
 | `outram-park-fork-coolprop` | Pure-Rust fork of **CoolProp** — Helmholtz-EOS thermophysical properties (137 fluids, incompressibles, humid air, mixtures). Independent fork, not official CoolProp. | GPL-3.0 |
 | `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** (foam-for-nuclear) — nuclear fuel performance: solid mechanics with eigenstrain, rheology (plasticity/creep), fuel-cladding gap and contact, ~70 material property correlations, burnup/fast-flux/FGR, cladding corrosion. Independent fork, not official OFFBEAT. | GPL-3.0 |
+| `farrer-park` | **FEM structural mechanics** — Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk. Small-strain linear elasticity and J2 plasticity with a consistent tangent, on Lagrange Tri3/Tri6/Quad4/Tet4/Hex8. Ported from **MOOSE**, **PRISMS-Plasticity** and **PRISMS-Fatigue** (all LGPL-2.1; GPL-3.0 via LGPL-2.1 §3, one-way). Depends on `outram-foam-basic-lib` for the shared Krylov/preconditioner backend **only, never for its discretisation** — it is genuinely FEM and must not be reformulated as finite volume (GitHub issue #175, epic `op-vrtt`). Verified against analytical/manufactured solutions (MMS orders match theory; patch test at machine precision; Lamé; Newton order 2.004) — **verification only, no human V&V, not a validated RPV or piping life-assessment tool**. Known gaps: no locking treatment, plane strain only, no curved elements (`op-vrtt.1`, `op-vrtt.2`). Crystal plasticity and fatigue not started. Independent fork, not affiliated with INL/MOOSE or the PRISMS Center. | GPL-3.0 |
 | `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. Independent fork. | GPL-3.0 |
 | `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; k-ε / k-ω / Spalart-Allmaras / Smagorinsky scaffolded) on `outram-foam-basic-lib` | GPL-3.0 |
 | `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress **GeN-Foam** deterministic-neutronics + TH port | GPL-3.0 |
@@ -1578,6 +1579,13 @@ optional reactivity-input driver reuses `chem-eng`'s `TransferFnFirstOrder`);
 wraps `NordheimFuchsExactTimestepper`);
 `tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
 the `tampines` **library** itself is TUAS-free).
+`farrer-park → outram-foam-basic-lib` (real -- for the **shared numerical backend only**:
+`farrer-park`'s FEM `CsrMatrix` implements `outram_foam_basic_lib::linear_operator::LinearOperator`
+and drives that crate's `cg_op`/`gmres_op`/`bicgstab_op`. It does **not** take the FV
+discretisation; `LduMatrix` stays FVM-optimised and FEM stays FEM. `linear_operator` was added
+to `outram-foam-basic-lib` for this and is **purely additive** — no existing solver signature
+changed. Note GAMG and Gauss-Seidel are *not* on the contract, since coarsening needs face
+addressing, so `farrer-park` carries its own CSR ILU(0)).
 `outram-foam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
 `njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
 Neutronics edges (target): `outram-mc-libs → njoy-outram-park-fork` (cross sections; declared in
