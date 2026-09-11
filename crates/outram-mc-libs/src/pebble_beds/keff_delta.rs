@@ -23,12 +23,20 @@
 //!
 //! # Geometry model
 //!
-//! A **reflective cube** of half-width `half_width` (an infinite-medium unit cell:
-//! neutrons reflect off the six walls, so the eigenvalue is the infinite-medium
-//! `k∞` of the packed fuel, free of leakage). Inside the cube the caller's
-//! `material_at` closure maps a point to a material index (kernel → fuel, else
-//! matrix). The delta flight reflects the ray off the walls segment by segment, so
-//! the neutron always lands at an interior point where `material_at` is defined.
+//! A reflective [`DeltaDomain`] — a **cube** of half-width `half`, or a **sphere**
+//! of radius `radius`. Either way the boundary reflects, so there is no leakage
+//! and the eigenvalue is the infinite-medium `k∞` of whatever fills the domain.
+//! Inside it the caller's `material_at` closure maps a point to a material index
+//! (kernel → fuel, else matrix). The delta flight reflects the ray off the
+//! boundary segment by segment, so the neutron always lands at an interior point
+//! where `material_at` is defined.
+//!
+//! **Pick the shape the thing you are comparing against used.** For a uniform
+//! medium the shape genuinely does not matter (see
+//! `geometry_independence_of_k_inf_for_a_uniform_medium`), but the moment the
+//! medium is *not* uniform out to the boundary — a pebble sitting in coolant —
+//! a cube of half-width `R` holds material in its corners that a sphere of
+//! radius `R` does not, and on an FHR pebble that is worth thousands of pcm.
 //!
 //! # Collision physics
 //!
@@ -39,7 +47,7 @@
 //! next generation; `(n,2n)` multiplicity is realized in-generation via a local
 //! work stack. Fidelity matches those drivers: analog, target at rest, data tier
 //! set by how the `nuclides` were built ([`Nuclide::from_core`] LOW /
-//! [`Nuclide::from_endf`] HIGH).
+//! [`Nuclide::from_endf_file`] HIGH).
 //!
 //! # Provenance
 //!
@@ -411,10 +419,10 @@ where
 /// [`crate::physics::transport_csg::run_keff_csg`]. The physics is identical
 /// across backends; only the execution strategy differs:
 ///
-/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq`], the scalar,
+/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq_in`], the scalar,
 ///   single-RNG-stream **reference** — deterministic and bit-reproducible for a
 ///   fixed seed.
-/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par`], [`rayon`]-parallel
+/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par_in`], [`rayon`]-parallel
 ///   histories per generation, each with an independent jump-ahead RNG stream so
 ///   the result is reproducible independent of thread count. It does **not**
 ///   bit-match the single-thread reference but agrees within combined statistical
@@ -510,7 +518,7 @@ where
 /// One `f64` RNG stream is threaded sequentially through the whole run (initial
 /// source rejection-sampling, every history's delta flight, every resample), so a
 /// fixed [`KeffSettings::seed`] yields the same eigenvalue bit-for-bit on every
-/// machine. [`run_keff_delta_par`] is acceleration only and is validated against
+/// machine. [`run_keff_delta_par_in`] is acceleration only and is validated against
 /// this reference.
 pub fn run_keff_delta_seq_in<F>(
     domain: DeltaDomain,
@@ -595,7 +603,7 @@ where
 
 /// Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
 ///
-/// Same physics and power-iteration structure as [`run_keff_delta_seq`], but the
+/// Same physics and power-iteration structure as [`run_keff_delta_seq_in`], but the
 /// histories **within each generation** are delta-tracked in parallel with
 /// [`rayon`] in a dedicated pool sized to `thread_count` (never the implicit
 /// global pool). The generation loop stays sequential — generation `g+1`'s source
@@ -612,7 +620,7 @@ where
 /// source sampling and each resample run on a separate sequential `src_seed`
 /// stream, kept off the parallel path. Because the per-history stream structure
 /// differs from the single sequential stream, this backend does **not** bit-match
-/// [`run_keff_delta_seq`] — it is a statistically independent estimate of the same
+/// [`run_keff_delta_seq_in`] — it is a statistically independent estimate of the same
 /// eigenvalue, agreeing within combined uncertainty.
 ///
 /// The `material_at` geometry lookup is shared across threads by reference, so it
@@ -937,8 +945,8 @@ mod tests {
     }
 
     /// V&V — **backend agreement**: the rayon multi-thread delta backend
-    /// ([`run_keff_delta_par`], `ComputeType::CpuMultiThread`) must reproduce the
-    /// single-thread reference ([`run_keff_delta_seq`]) within combined
+    /// ([`run_keff_delta_par_in`], `ComputeType::CpuMultiThread`) must reproduce the
+    /// single-thread reference ([`run_keff_delta_seq_in`]) within combined
     /// statistical uncertainty, and its result must be **independent of the
     /// thread count** (a consequence of the per-history jump-ahead seeding, which
     /// never shares a mutable seed).

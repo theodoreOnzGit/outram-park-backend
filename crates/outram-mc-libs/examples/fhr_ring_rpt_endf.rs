@@ -433,7 +433,19 @@ mod desktop {
                 Some(zone_outside_fuel(r))
             }
         };
+        // Single-case escape hatch for bisecting a change against one number:
+        // OUTRAM_RINGRPT_ONLY=explicit-cube runs just the explicit-TRISO cube
+        // case and exits. The full deck is seven eigenvalue solves and ~40 min,
+        // which is too slow a loop to test a one-line change against.
+        let only = std::env::var("OUTRAM_RINGRPT_ONLY").unwrap_or_default();
         let explicit_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &explicit_at, &keff);
+        if only == "explicit-cube" {
+            eprintln!(
+                "  k_eff (explicit TRISO pebble, CUBE ONLY) = {:.5} ± {:.5}",
+                explicit_cube.k_mean, explicit_cube.k_std
+            );
+            return;
+        }
         let explicit = run_keff_delta_in(ball, &mats, &nucs, &majorant, &explicit_at, &keff);
         eprintln!(
             "  k_eff (explicit TRISO pebble, sphere) = {:.5} ± {:.5}   [cube {:.5} ± {:.5}]",
