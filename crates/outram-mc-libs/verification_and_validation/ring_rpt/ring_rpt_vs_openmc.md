@@ -541,7 +541,45 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    signal at the top row, and reading it as absorber capture makes that row
    over-absorb by 50 %.
 
-9. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
+9. **Two more mechanisms with the right sign, both excluded: the resonance
+   *shape*, and the delta-tracking majorant.**
+
+   **Shape, because area is not enough.** A resonance integral is invariant under
+   Doppler broadening — it *is* the area, and broadening conserves it. So a
+   resonance reconstructed too narrow and too tall passes the integral check
+   exactly and still **over-self-shields** in transport: less absorption, `p`
+   higher, `k` higher. Compared against NJOY's PENDF on **NJOY's own grid
+   points** through the six resonances that carry the integral
+   (`u238_resonance_integral.rs`):
+
+   | window | points | peak NJOY \[b\] | peak ours \[b\] | worst rel | rms rel |
+   |---|---|---|---|---|---|
+   | 6.674 eV | 272 | 5.3875e3 | 5.3874e3 | −0.097 % | 0.043 % |
+   | 20.87 eV | 331 | 5.0469e3 | 5.0470e3 | +0.116 % | 0.044 % |
+   | 36.68 eV | 308 | 4.0081e3 | 4.0081e3 | +0.107 % | 0.044 % |
+   | 66.03 eV | 315 | 1.5356e3 | 1.5357e3 | +0.097 % | 0.044 % |
+   | 102.6 eV | 309 | 1.1169e3 | 1.1169e3 | +0.102 % | 0.044 % |
+   | 189/208 eV | 599 | 4.4647e2 | 4.4647e2 | +0.099 % | 0.040 % |
+
+   Shape and area are independent, so together they pin `σ_γ(E)` completely over
+   the band resonance escape depends on.
+
+   **The majorant, because an under-bound is silent.** Delta tracking is unbiased
+   only while `Σ_maj ≥ Σ_t` everywhere; an under-bound loses collisions exactly
+   where `Σ_t` spikes — the resonance peaks — and that is a bias with no error
+   raised. `Majorant::bounding` lays 4096 log bins (0.64 % wide) with 32
+   sub-samples each, a pitch of ~0.021 % in energy, while a Doppler width is
+   1.1 % of E at 6.674 eV but only ~0.02 % by 20 keV, so the high-keV resonances
+   are where a peak can slip through. The existing check in
+   `tests/htr10_graphite_thermal_scattering_pebble_bed.rs` covers 1e-4 to 4.2 eV
+   and a different material set, so it does not answer this. Checked now on the
+   **nuclides' own reconstructed grids** — where every resonance peak is a node,
+   unlike another log grid, which would miss the same peaks the majorant does and
+   agree for the wrong reason: **worst `Σ_t/Σ_maj` = 0.890** over 467 571 grid
+   points × 9 materials. It bounds, with the full 30 % margin never approached.
+   The check now runs as a preflight on every `fhr_ring_rpt_endf` run.
+
+10. **The remaining offset is shared by both pebbles, and it is entirely `p·ε` —
    the non-thermal/thermal flux ratio.**
    Within this single run, both on the sphere:
 
@@ -588,7 +626,7 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    neutrons above 0.625 eV, relative to the reference, and every term in the
    slowing-down balance that could do that has been measured and is right.*
 
-10. **An earlier −1632 pcm baseline drift is still unexplained.** The
+11. **An earlier −1632 pcm baseline drift is still unexplained.** The
    explicit-cube case moved **−1632 pcm (≈5.4σ)** between commits `23cd2549` and
    `0cd9a22c` — same problem, same settings, same seed — while U-238
    reconstruction wall time fell from **91.7 s to 26.8 s** across 33 njoy commits
@@ -601,11 +639,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    belongs to the old data, and everything before the free-gas fix belongs to a
    different kernel; neither should be compared against a current one.
 
-11. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
+12. **The consistency check passes** (+1.48 % gap, in the `(−1 %, +5 %)` band) —
    evidence that the 3-group decomposition in `run_keff_reactor_physics` is
    physically sound on a real thermal system.
 
-12. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
+13. **Both P1 transport bugs remain fixed** — GH #168 (concentric-sphere leak:
    k 0.24 → 1.39, leakage 0.87 → 1e-4) and GH #169 (Li-6(n,t) absorption
    0.04 → 938 b).
 
@@ -634,49 +672,66 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    reflective sphere without giving up the packing. One approximation remains —
    the five coating layers are resolved by nearest-centre + radius rather than
    exact CSG.
-3. **Residual absolute-k bias — now +4004 pcm (explicit pebble), and entirely
-   `p·ε`.** *Substantially re-localised 2026-09-11; see Interpretations 5–7.*
-   Excluded by measurement: the U-238 and U-235 point cross sections (±0.04 % /
-   ±0.06 % vs NJOY's own PENDF), the U-238 capture **resonance integral**
-   (+0.00 % vs NJOY, and against the published `RI_∞ = 275.7 b`), graphite's
-   thermal law (±0.05 % vs THERMR), the slowing-down kernel above the S(α,β)
-   cutoff (ξ/ξ₀ = 1.000 across eight nuclides), and — newly — the HIGH data path
-   and eigenvalue driver as a whole, which reproduce ICSBEP HEU-MET-FAST-001 to
-   +57 ± 173 pcm. The one named mechanism that *was* real, the missing free-gas
-   target motion, is fixed, and fixing it made the disagreement larger.
+3. **Residual absolute-k bias — +4004 pcm on the explicit pebble, entirely
+   `p·ε`, and now with no untested mechanism left that this environment can
+   reach.** Excluded by measurement, each with its own oracle:
+
+   | mechanism | oracle | result |
+   |---|---|---|
+   | U-238 / U-235 point σ | NJOY PENDF, 19 probe energies | ±0.04 % / ±0.06 % |
+   | U-238 capture **area** | NJOY PENDF + published `RI_∞`, exact integral | **+0.00 %** |
+   | U-238 capture **shape** | NJOY PENDF on its own grid, 6 resonances | worst 0.12 %, rms 0.044 % |
+   | U-235 fission / capture RI | NJOY PENDF | +0.00 % |
+   | graphite S(α,β) σ | NJOY THERMR | ±0.05 % |
+   | moderator σ_s, epithermal | published free-atom values | few %, where ~20 % is needed |
+   | slowing-down kernel `ξ` | analytic two-body kinematics, 8 nuclides | ξ/ξ₀ = 1.000 |
+   | thermal equilibrium | analytic Maxwellian density, A = 2…238 | ✓ (after `op-50vu`) |
+   | resonance **self-shielding** | analytic infinite-dilution limit | 0.991 ± 0.011 |
+   | delta-tracking majorant | nuclides' own grids, 468 k points × 9 materials | worst 0.890, bounds |
+   | tracking method | delta vs surface-tracked CSG, same geometry | 18 pcm, 0.05σ |
+   | ν̄, χ, fast σ, inelastic, (n,2n), the driver | **ICSBEP HEU-MET-FAST-001** | **+57 ± 173 pcm** |
+   | pebble composition, radii, densities, temperatures, S(α,β) assignment | the deck, term by term | identical |
+   | explicit pebble layer volumes | exact geometry | 0.5 % |
+   | packing fraction | the deck's own definition | fixed (`op-8l2e`) |
+
+   The two mechanisms that *were* real — the missing free-gas target motion and
+   the packing-fraction over-count — are both fixed, and fixing them made the
+   disagreement **larger**, from +1681 to +4004 pcm. That is the most important
+   fact in this record: the earlier, smaller number was cancellation.
 
    **The next measurement, in order of what it would settle:**
 
    a. **A second thermal system with an external answer.** Godiva settled the
-      shared machinery; nothing has settled the *thermal* half, and the pebble
-      reference is a single deck. The blocker is data: `reference-data/endf/`
-      has no H-1 tape, so every water-moderated ICSBEP benchmark is out of
-      reach, and `--features net-fetch` cannot reach a library host (403). A
-      graphite-moderated benchmark would need one tape and a geometry.
+      shared machinery — ν̄, χ, fast σ, inelastic levels, (n,2n), the eigenvalue
+      driver — against an *experiment*. Nothing has settled the thermal half,
+      and the pebble reference is a single deck. The blocker is data:
+      `reference-data/endf/` has **no H-1 tape**, so every water-moderated
+      ICSBEP benchmark is out of reach, and `--features net-fetch` cannot reach
+      a library host (403). One H-1 tape would open LEU-COMP-THERM.
 
    b. **The moderator cross sections against NJOY, to close the gap properly.**
       Only U-235, U-238 (PENDF) and graphite's thermal law (THERMR) have ever
-      been checked. The published free-atom comparison above bounds C, Be, F,
-      Li, O and Si to a few percent, which already excludes them as *the* cause,
-      but it is not a 0.1 % check. `examples/u238_vs_njoy_pendf.rs` and
-      `examples/u238_resonance_integral.rs` both take `NJOY_MAT` / `NJOY_TAPE` /
-      `NJOY_NUCLIDE`, so this is one NJOY deck per nuclide and nothing else.
-      **NJOY2016 is not currently built in this environment** — the source tree
-      at `/home/user/njoy/njoy2016` has had its worktree reclaimed for disk and
-      no binary survives — so this needs a rebuild first.
+      been checked at 0.1 %. The published free-atom comparison bounds C, Be, F,
+      Li, O and Si to a few percent, which already excludes them as *the* cause.
+      `examples/u238_vs_njoy_pendf.rs` and `examples/u238_resonance_integral.rs`
+      both take `NJOY_MAT` / `NJOY_TAPE` / `NJOY_NUCLIDE`, so this is one NJOY
+      deck per nuclide. **NJOY2016 is not currently built here** — the tree at
+      `/home/user/njoy/njoy2016` has had its worktree reclaimed for disk and no
+      binary survives — so it needs a rebuild first.
 
    c. **Run `--search-rpt-radius`.** `RPT − explicit` is back to +226 ± 316 pcm,
       so the deck author's radius does transfer — but it was fitted against a
       spectrum this code is still 3 % away from, so the search remains the way
-      to measure how code-dependent the equivalence radius actually is. See
-      Interpretation 1.
+      to measure how code-dependent the equivalence radius actually is.
 
    d. **A second, independent OpenMC run of the pebble itself.** The reference
       is one run of another party's deck that this workspace has never
-      reproduced. Note it is not unsupported: the deck author's own ENDF/B-VII.1
-      run gave 1.36864 / 1.36863, and the VIII.0 run here gave 1.36510 /
-      1.36479 — two runs, two libraries, agreeing to a −354 pcm library shift
-      that moved both models together. Whatever is 4 % out is on this side.
+      reproduced. It is not unsupported — the deck author's own ENDF/B-VII.1 run
+      gave 1.36864 / 1.36863 and the VIII.0 run here gave 1.36510 / 1.36479, two
+      runs and two libraries agreeing to a −354 pcm library shift that moved both
+      models together — but it has never been checked by a third party, and
+      "+4 % with every mechanism on our side excluded" is the kind of result that
+      should not rest on one unreproduced number.
 
    Superseded detail, kept so the trail is legible: the original hypothesis here
    was missing **URR self-shielding**, and it was **refuted** — U-238 carries

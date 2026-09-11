@@ -496,6 +496,7 @@ mod desktop {
 
         let r_rpt_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
         let majorant = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        check_majorant_bounds(&majorant, &mats, &nucs);
 
         // ── Zone lookups (radius from the pebble centre) ──
         let zone_outside_fuel = |r: f64| -> usize {
@@ -833,6 +834,60 @@ mod desktop {
                OpenMC, so it is not optimal here.\n\
              - Li-6(n,t) now counted (op-mzvp.2.10 fixed); tiny at 99.995 % Li-7.\n\
              - AI-assisted code-to-code check, not a validated result."
+        );
+    }
+
+    /// Delta tracking is unbiased only while `Σ_maj ≥ Σ_t` **everywhere**; an
+    /// under-bound is a silent bias, not a crash, and it loses collisions exactly
+    /// where `Σ_t` spikes — the U-238 resonance peaks. That would show up as too
+    /// little resonance absorption, `p` too high and `k` too high, which is the
+    /// shape of this study's residual, so it is measured rather than assumed.
+    ///
+    /// [`Majorant::bounding`] lays 4096 log bins over 11 decades (0.64 % wide)
+    /// and sub-samples each 32 times, so the sampling pitch is ~0.021 % in energy.
+    /// A Doppler width `Δ = √(4EkT/A)` is 1.1 % of E at the 6.674 eV resonance but
+    /// only ~0.02 % by 20 keV — comparable to the pitch — so the high-keV
+    /// resonances are where a peak can slip between sub-samples.
+    ///
+    /// The check therefore uses the **nuclides' own reconstructed grids**
+    /// ([`Nuclide::native_energy_grid`]), not another log grid: those are the
+    /// points σ(E) is actually tabulated on, so every resonance peak is a node.
+    /// A log grid would miss the same peaks the majorant does and agree with it
+    /// for the wrong reason.
+    fn check_majorant_bounds(majorant: &Majorant, mats: &[Material], nucs: &[Nuclide]) {
+        let t0 = std::time::Instant::now();
+        let mut worst = (0.0_f64, 0.0_f64, 0usize); // ratio, energy, material
+        let mut n_pts = 0usize;
+        for nuc in nucs {
+            for e in nuc.native_energy_grid(1.0e-4, 2.0e7) {
+                n_pts += 1;
+                let maj = majorant.at(e);
+                if !(maj > 0.0) {
+                    continue;
+                }
+                for (m, mat) in mats.iter().enumerate() {
+                    let ratio = mat.macro_xs_total(e, nucs) / maj;
+                    if ratio > worst.0 {
+                        worst = (ratio, e, m);
+                    }
+                }
+            }
+        }
+        let (ratio, e, m) = worst;
+        eprintln!(
+            "Majorant check: worst Σ_t/Σ_maj = {ratio:.6} at {e:.6e} eV (material {m}, \
+             {}) over {n_pts} reconstructed grid points x {} materials, {:.1?}",
+            mats[m].name,
+            mats.len(),
+            t0.elapsed()
+        );
+        assert!(
+            ratio <= 1.0,
+            "delta-tracking majorant UNDER-BOUNDS by {:.2} % at {e:.6e} eV in {} -- \
+             the flight is biased toward too few collisions exactly where Σ_t spikes, \
+             which under-counts resonance absorption silently",
+            100.0 * (ratio - 1.0),
+            mats[m].name
         );
     }
 

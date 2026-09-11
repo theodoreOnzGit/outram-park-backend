@@ -64,6 +64,17 @@ use outram_mc_libs::material::nuclide::Nuclide;
 const TEMP: f64 = 600.0;
 
 /// Bands to integrate over \[eV\]. The last is the conventional RI definition.
+/// The resolved resonances that carry the resonance integral, each with enough
+/// width either side to include the wings the self-shielding depends on.
+const WINDOWS: &[(f64, f64, &str)] = &[
+    (6.0, 7.5, "6.674 eV"),
+    (19.5, 22.5, "20.87 eV"),
+    (35.0, 38.5, "36.68 eV"),
+    (64.0, 68.0, "66.03 eV"),
+    (100.0, 105.0, "102.6 eV"),
+    (180.0, 220.0, "189/208 eV"),
+];
+
 const BANDS: &[(f64, f64, &str)] = &[
     (0.5, 10.0, "0.5 eV - 10 eV   (6.67 eV resonance)"),
     (10.0, 100.0, "10 eV  - 100 eV  (20.9/36.7/66/102 eV)"),
@@ -170,6 +181,72 @@ fn main() {
                 "\n  RI(0.5 eV - 100 keV): ours {a:.4} b   NJOY {b:.4} b   -> {:+.2} %",
                 100.0 * (a - b) / b
             );
+        }
+    }
+
+    // ── Resonance SHAPE, which the integral cannot see ────────────────────────
+    //
+    // A resonance integral is invariant under Doppler broadening: it is the
+    // AREA, and broadening conserves it. So a resonance reconstructed too narrow
+    // and too tall passes the integral check exactly, passes a probe at the peak
+    // only if the peak height happens to match, and still **over-self-shields**
+    // in transport -- less absorption, higher p, higher k. That is the shape of
+    // the ring-RPT residual, so it has to be excluded on shape and not on area.
+    //
+    // Compared on NJOY's OWN grid points inside each window, so nothing is
+    // interpolated on our side except at NJOY's nodes.
+    if let Some(t) = njoy_tape.as_ref() {
+        if let Ok(x) = read_pendf_cross_section(t, mat, 102) {
+            if let PointwiseXs::LinLin(pairs) = x.xs {
+                println!("\n======== MT=102 capture: resonance SHAPE on NJOY's own grid ========");
+                println!(
+                    "{:<22} {:>8} {:>14} {:>14} {:>11} {:>11}",
+                    "window [eV]",
+                    "points",
+                    "peak NJOY [b]",
+                    "peak ours [b]",
+                    "worst rel",
+                    "rms rel"
+                );
+                for &(lo, hi, label) in WINDOWS {
+                    let (mut worst, mut sum_sq, mut n) = (0.0_f64, 0.0_f64, 0usize);
+                    let (mut peak_n, mut peak_o) = (0.0_f64, 0.0_f64);
+                    for &(e, sn) in pairs.iter().filter(|&&(e, _)| e >= lo && e <= hi) {
+                        let so = {
+                            let v = ours.xs_at_energy(e, TEMP);
+                            v.absorption - v.fission
+                        };
+                        if sn > 1.0 {
+                            let rel = (so - sn) / sn;
+                            if rel.abs() > worst.abs() {
+                                worst = rel;
+                            }
+                            sum_sq += rel * rel;
+                            n += 1;
+                        }
+                        if sn > peak_n {
+                            peak_n = sn;
+                        }
+                        if so > peak_o {
+                            peak_o = so;
+                        }
+                    }
+                    if n == 0 {
+                        continue;
+                    }
+                    println!(
+                        "{label:<22} {n:>8} {peak_n:>14.4e} {peak_o:>14.4e} {:>10.3}% {:>10.3}%",
+                        100.0 * worst,
+                        100.0 * (sum_sq / n as f64).sqrt()
+                    );
+                }
+                println!(
+                    "\n  Shape and area are independent: broadening moves the peak and the\n  \
+                     wings while conserving the integral, so agreement HERE plus agreement\n  \
+                     on the integral together pin sigma_gamma(E) completely over the band\n  \
+                     that matters for resonance escape."
+                );
+            }
         }
     }
 
