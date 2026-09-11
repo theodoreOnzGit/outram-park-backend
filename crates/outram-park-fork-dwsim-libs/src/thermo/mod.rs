@@ -18,6 +18,12 @@
 //!   ([`Component`]): critical properties, acentric factor, molar mass,
 //!   ideal-gas heat-capacity coefficients. The shared substrate every other
 //!   thermo module consumes. **Data substrate (this file's author).**
+//! - [`registry`] — the **name → [`Component`] lookup** over those presets:
+//!   [`registry::ReferenceCompound`] (the seven compounds this crate has
+//!   constant-property data for), [`registry::component_by_name`], and
+//!   [`registry::ComponentLookupError`], whose message names the compound that
+//!   was not found. Seven compounds is the whole registry — see its module
+//!   docs before mistaking a working lookup for usable coverage.
 //!
 //! ### Equations of state
 //!
@@ -170,6 +176,7 @@ pub mod pr1978;
 pub mod pr_lee_kesler;
 pub mod property_package;
 pub mod prsv2_full;
+pub mod registry;
 pub mod saturation;
 pub mod seawater;
 pub mod sour_water;
