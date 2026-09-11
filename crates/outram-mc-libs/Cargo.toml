@@ -143,6 +143,11 @@ required-features = ["endf-pebble-cases"]
 name = "u238_recon_fingerprint"
 required-features = ["endf-pebble-cases"]
 
+# Oracle: our U-238 reconstruction vs NJOY2016's own PENDF (op-mzvp.2.12).
+[[example]]
+name = "u238_vs_njoy_pendf"
+required-features = ["endf-pebble-cases"]
+
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
 # fails with "cannot find module or crate sys". crossterm, which ratatui

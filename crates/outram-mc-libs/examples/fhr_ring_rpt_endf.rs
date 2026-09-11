@@ -359,6 +359,7 @@ mod desktop {
 
     pub fn run() {
         let search_radius = std::env::args().any(|a| a == "--search-rpt-radius");
+        let only = std::env::var("OUTRAM_RINGRPT_ONLY").unwrap_or_default();
         eprintln!("=== FHR ring-RPT vs explicit-TRISO — outram-mc-libs on ENDF/B-VIII.0 ===\n");
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K):");
         let nucs = nuclides();
@@ -411,6 +412,44 @@ mod desktop {
             }
         };
 
+        // `OUTRAM_RINGRPT_ONLY=csg` skips the three delta-tracked pebbles and
+        // runs only the surface-tracked CSG case, which is the one that yields
+        // the six-factor decomposition. ~5 min instead of ~40.
+        if only == "csg" {
+            let r_rpt_fuel_csg =
+                rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
+            let pebble_csg = fhr_pebble_geometry(
+                R_RPT_INNER, r_rpt_fuel_csg, R_PEBBLE, R_ROOT,
+                mi::HOMOG, mi::GRAPHITE, mi::FLIBE, BoundaryType::Reflective, TEMP_K,
+            );
+            let cfg = ReactorPhysicsConfig {
+                keff: keff.clone(),
+                source_box: SourceBox {
+                    lower: Position::new(-r_rpt_fuel_csg, -r_rpt_fuel_csg, -r_rpt_fuel_csg),
+                    upper: Position::new(r_rpt_fuel_csg, r_rpt_fuel_csg, r_rpt_fuel_csg),
+                },
+                ..Default::default()
+            };
+            let r = run_keff_reactor_physics(&pebble_csg, &mats, &nucs, &cfg)
+                .expect("CSG reactor physics");
+            eprintln!("  k_eff (ring-RPT, CSG sphere) = {:.5} ± {:.5}", r.keff.k_mean, r.keff.k_std);
+            print_six_factors("ring-RPT CSG pebble", &r);
+            let s3 = &r.six_factors;
+            let (e2, f2, p2, eps2) = s3.two_group_openmc_convention();
+            eprintln!("\n  ── the SAME run in both conventions ──");
+            eprintln!("    3-group (this crate): η {:.4} f {:.4} p {:.4} ε {:.4}",
+                      s3.eta.mean, s3.f.mean, s3.p.mean, s3.epsilon.mean);
+            eprintln!("    2-group (OpenMC deck): η {e2:.4} f {f2:.4} p {p2:.4} ε {eps2:.4}");
+            eprintln!("    OpenMC reference     : η 2.0073 f 0.9216 p 0.4842 ε 1.5043");
+            eprintln!("\n    vs OpenMC, 2-group like-for-like:");
+            for (name, ours, theirs) in [
+                ("η", e2, 2.0073_f64), ("f", f2, 0.9216), ("p", p2, 0.4842), ("ε", eps2, 1.5043),
+            ] {
+                eprintln!("      {name}  {ours:.4} vs {theirs:.4}   {:+.2}%", 100.0 * (ours / theirs - 1.0));
+            }
+            return;
+        }
+
         // 1. Explicit-TRISO pebble. `ExplicitTrisoPebble` packages exactly the
         // packed-particle / layer-resolution / matrix-fallback lookup this
         // closure used to hand-assemble (see its rustdoc for why it exists).
@@ -435,7 +474,6 @@ mod desktop {
         // OUTRAM_RINGRPT_ONLY=explicit-cube runs just the explicit-TRISO cube
         // case and exits. The full deck is seven eigenvalue solves and ~40 min,
         // which is too slow a loop to test a one-line change against.
-        let only = std::env::var("OUTRAM_RINGRPT_ONLY").unwrap_or_default();
         let explicit_cube = run_keff_delta_in(cube, &mats, &nucs, &majorant, &explicit_at, &keff);
         if only == "explicit-cube" {
             eprintln!(
