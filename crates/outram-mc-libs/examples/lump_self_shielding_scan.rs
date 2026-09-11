@@ -374,15 +374,30 @@ fn vv_gate(scan: &[ScanRow], det: f64) {
     // 2. Lumping raises the escape probability. This is the effect itself; a
     //    flat curve would pass claim 1 and mean the geometry is doing nothing.
     let white_curve: Vec<f64> = scan.iter().map(|r| r.white).collect();
+    // The slack is 4 sigma of the WORST row's own counting statistics, not a
+    // fixed percentage. `HIST` is configurable, so a fixed slack would make this
+    // gate's verdict depend on how many histories the harness was given rather
+    // than on the physics -- passing at HIST=50000 and failing at HIST=4000 for
+    // no reason anyone should have to know about.
+    let worst_stderr = scan
+        .iter()
+        .map(|r| r.white_stderr / r.white)
+        .fold(0.0_f64, f64::max);
+    let slack = 4.0 * worst_stderr;
+    println!(
+        "  monotonicity slack from this run's own statistics: {:.1} % \
+         (4 sigma of the noisiest row)",
+        100.0 * slack
+    );
     assert_monotone(
         "p_esc rises with lump size (spatial self-shielding)",
         &white_curve,
         true,
-        0.02,
+        slack,
     );
     let (first, last) = (white_curve[0], white_curve[white_curve.len() - 1]);
     assert!(
-        last - first > 0.01,
+        last - first > (0.01_f64).max(4.0 * worst_stderr * last),
         "p_esc moved only {:.4} across the whole scan ({first:.5} -> {last:.5}), \
          from {:.3} to {:.3} mean free paths. Spatial self-shielding is barely \
          being modelled; a flat curve passes the thin-lump agreement above.",
