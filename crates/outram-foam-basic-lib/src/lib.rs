@@ -54,6 +54,12 @@ pub mod krylov;
 /// Layer 2 — sparse LDU (lower/diagonal/upper) matrices, the assembled
 /// `FvMatrix`, and iterative linear solvers (CG, Gauss–Seidel, GAMG).
 pub mod ldu_matrix;
+/// Layer 2 — the discretisation-agnostic `LinearOperator` contract and the
+/// generic Krylov drivers (`cg_op`, `bicgstab_op`, `gmres_op`) written against
+/// it, so a finite-element crate can reuse this solver layer without adopting
+/// the finite-volume `LduMatrix` layout (GitHub issue #175). Purely additive:
+/// the existing finite-volume solvers are unchanged.
+pub mod linear_operator;
 pub mod limiters;
 /// Layer 1g — mathematical special functions (inverse error function,
 /// incomplete gamma functions and their inverse).
