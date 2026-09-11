@@ -1012,8 +1012,29 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    *lose* energy and ours loses too little. The outgoing-energy distribution is
    **too narrow — clustered too close to the incident energy**. Consistently,
    `ξ = ⟨ln(E/E′)⟩` runs **3–5 % low** above 0.05 eV: this code's water moderates
-   about 4 % less per collision than NJOY's. **Graphite, on the identical check,
-   agrees to ≤0.5 %** — so it is not the method and not the comparison.
+   about 4 % less per collision than NJOY's.
+
+   **Narrowed 2026-09-11 by running the control properly.** The first write-up
+   said "graphite, on the identical check, agrees to ≤0.5 %". That figure was
+   scoped to 0.1–4 eV. Over water's range graphite is **−1.53 % at 0.0253 eV**
+   against water's −1.47 % — the same. So the thermal-peak deviation is
+   **general to this crate's S(α,β) kernel**, not water's alone:
+
+   | E \[eV\] | graphite | water |
+   |---|---|---|
+   | 0.0015 | (below range) | **−5.0 %** |
+   | 0.01 | −0.62 % | −2.81 % |
+   | 0.0253 | **−1.21 %** | **−1.52 %** |
+   | 0.05 | −1.39 % | −0.78 % |
+   | 0.2 | −0.12 % | +0.35 % |
+   | 0.625 | +0.01 % | +1.32 % |
+   | 1.855 | +0.04 % | +1.61 % |
+
+   What is genuinely water-specific is the **two ends**: graphite converges to
+   ≤0.12 % above 0.2 eV and water does not, and water degrades to −5 % at
+   1.5 meV. Both are now golden-data regression tests
+   (`tests/thermal_laws_vs_njoy_thermr.rs`), so neither the claim nor the
+   correction can drift from the code again.
 
    The kernel comes from
    `njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering`,
@@ -1084,9 +1105,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | U-238 capture **shape** | NJOY PENDF on its own grid, 6 resonances | worst 0.12 %, rms 0.044 % |
    | U-235 fission / capture RI | NJOY PENDF | +0.00 % |
    | graphite S(α,β) σ | NJOY THERMR | ±0.05 % |
-| graphite S(α,β) **outgoing energy** | NJOY THERMR MF=6 scattering matrix | ≤0.5 % over 0.1–4 eV |
+| graphite S(α,β) **outgoing energy** | NJOY THERMR MF=6 scattering matrix | ≤0.12 % above 0.2 eV, but **−1.53 % at 0.0253 eV** — see the correction below |
    | moderator σ_t / σ_s, **all 8 nuclides** | NJOY PENDF (NJOY2016 rebuilt in-session) | ≤0.05 % |
    | moderator thermal capture | NJOY PENDF at 0.0253 eV | ≤0.03 % |
+   | **B-10 thermal absorption** | 2200 m/s standard + the analytic 1/v law | 3845.9 b; 1/v to **4e-5** |
+   | **H-1 free-gas elastic** | the analytic Doppler-broadening integral | **≤0.09 %** |
    | slowing-down kernel `ξ` | analytic two-body kinematics, 8 nuclides | ξ/ξ₀ = 1.000 |
    | thermal equilibrium | analytic Maxwellian density, A = 2…238 | ✓ (after `op-50vu`) |
    | resonance **self-shielding** | analytic infinite-dilution limit | 0.991 ± 0.011 |
@@ -1101,6 +1124,18 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    | **the reference's own particle count** | its reported 34 224 cells, inverted through an exact lattice-overlap calculation | implies pf **0.2991**; ours is 0.2993 |
    | production per absorption, **each group** | the reference's own six factors, inverted | **0.07 % / 0.02 %** |
    | **U-238 resonance escape at strong self-shielding** | **ICSBEP LEU-COMP-THERM-008** (measured; thermal, 97.5 % U-238, 176 mfp pellets) | **+2950 ± 61 pcm — NOT excluded; this is the defect** |
+
+   > **Correction 2026-09-11 to the graphite S(α,β) outgoing-energy row.** The
+   > "≤0.5 %" was real but **scoped to 0.1–4 eV**, and it was then used to argue
+   > that water's kernel was uniquely bad. Measured over the same range as water
+   > (`tests/thermal_laws_vs_njoy_thermr.rs`, now golden data rather than an
+   > ad-hoc run), graphite is **−1.53 % at 0.0253 eV** against water's −1.47 % —
+   > **the same**. So at the thermal peak this is a *general* deviation of this
+   > crate's S(α,β) kernel, not a water-specific one. What is water-specific is
+   > the two ends: graphite converges to ≤0.12 % above 0.2 eV while water stays
+   > at +0.35 to +1.6 %, and water degrades to −5.0 % at 1.5 meV where graphite's
+   > worst anywhere in 0.01–4 eV is −1.69 %. Interpretation 19 and GitHub #188
+   > are narrowed accordingly.
 
    The two mechanisms that *were* real — the missing free-gas target motion and
    the packing-fraction over-count — are both fixed, and fixing them made the
