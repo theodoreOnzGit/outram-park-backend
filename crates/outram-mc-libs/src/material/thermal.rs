@@ -188,6 +188,31 @@ const N_EMIT_GRID: usize = 384;
 /// not more equiprobable bins; this is a mitigation of a representation that is
 /// inherently truncating, and the residual −2.5 % is that representation.
 ///
+/// # Confirmed from a third direction: the kernel's own fixed point
+///
+/// `tests/thermal_kernel_stationary_distribution.rs` walks a neutron in energy
+/// under the S(α,β) law alone, from a hot start and a cold one, and reads off
+/// the **equilibrium temperature** the law settles on. That is a different
+/// question from either moment: a kernel can have the right per-collision
+/// spread and still equilibrate at the wrong temperature. Measured 2026-09-12
+/// against both tabulations, same estimator, same streams:
+///
+/// ```text
+///                        48x16               384x64            nominal
+///   graphite T_eff    614.28 K (+2.38 %)  607.21 K (+1.20 %)   600 K
+///   graphite shape     1.5652  (−6.09 %)   1.6286  (−2.29 %)   1.6667
+///   H2O T_eff         291.14 K (−0.84 %)  294.48 K (+0.30 %)   293.6 K
+///   H2O shape          1.5806  (−5.17 %)   1.6308  (−2.15 %)   1.6667
+///   free-gas C-12     601.28 K            601.28 K             600 K
+/// ```
+///
+/// The free-gas row is the control: it never touches these tables and is
+/// identical to the digit, so the only thing that moved is the tabulation. The
+/// resize halves graphite's fixed-point error and cuts water's by ~3, and takes
+/// the equilibrium spectrum from 5–6 % off a Maxwellian shape to ~2 %. What is
+/// left — graphite still +1.20 % hot — is the tail truncation this constant
+/// bounds, seen from a third direction.
+///
 /// # This is also the cure for the H-in-H₂O kernel defect (GitHub #188)
 ///
 /// #188 — `⟨E′⟩/E` −5.5 % at 1.5 meV rising to +1.5 % at 1.9 eV, `ξ` 3–5 % low —

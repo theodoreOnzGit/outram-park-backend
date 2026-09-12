@@ -93,6 +93,43 @@ are two dimensions of the same ACE equiprobable pre-tabulation, not one defect.
 (−3.24 % → −2.89 %, and only −2.79 % at 128 bins). Water still moderates ~3 %
 less per collision here than in NJOY.
 
+## 3.1 Independent confirmation: the kernel's own fixed point
+
+A second agent working in the same tree added
+`tests/thermal_kernel_stationary_distribution.rs` on the same day — a random
+walk in energy driven by the S(α,β) law alone, run from a hot start (40 kT) and
+a cold one (0.2 kT), reduced to the **effective temperature of the equilibrium
+spectrum** it settles on and to its shape `⟨E²⟩/⟨E⟩²` (5/3 for a Maxwellian).
+That is a different question from either moment measured above: a kernel can
+have the right per-collision spread and still equilibrate at the wrong
+temperature, and nothing in this crate had asked it.
+
+Measured 2026-09-12 by running that test against both tabulations, same
+estimator, same streams:
+
+| quantity | 48 × 16 | 384 × 64 | nominal |
+|---|---|---|---|
+| graphite `T_eff` | 614.28 K (**+2.38 %**) | **607.21 ± 0.89 K (+1.20 %)** | 600 K |
+| graphite shape | 1.5652 (−6.09 %) | **1.6286 (−2.29 %)** | 1.6667 |
+| H₂O `T_eff` | 291.14 K (**−0.84 %**) | **294.48 ± 0.23 K (+0.30 %)** | 293.6 K |
+| H₂O shape | 1.5806 (−5.17 %) | **1.6308 (−2.15 %)** | 1.6667 |
+| free-gas C-12 control | 601.28 ± 0.63 K | 601.28 ± 0.63 K | 600 K |
+
+**The free-gas row is the control and it is identical to the digit** — that arm
+never touches the S(α,β) tables, so the estimator and the random stream are
+demonstrably unchanged and the only thing that moved is the tabulation.
+
+The resize **halves** graphite's fixed-point error and cuts water's by a factor
+of ~3, and takes the equilibrium spectrum from 5–6 % away from a Maxwellian
+shape to ~2 %. It is a confirmation from a direction none of the oracle
+comparisons above look from.
+
+It also sizes what is left. Graphite still equilibrates **+1.20 % hot**, which
+is the same residual the ξ and width numbers report from their own angles: the
+equiprobable outgoing-energy representation truncating the tails, i.e. the open
+half of #188. A kernel whose tails are clipped cannot transport the last bit of
+up-scatter, and an over-hot fixed point is exactly what that looks like.
+
 ---
 
 ## 4. The k-effective re-baseline
@@ -109,7 +146,30 @@ holds — it is a claim that nobody has measured the new one yet.
 | FHR ring-RPT CSG pebble, 4000 × [30 + 80], `OUTRAM_RINGRPT_ONLY=csg` | `examples/fhr_ring_rpt_endf.rs` | 1.40745 ± 0.00214 | **1.40546 ± 0.00234** | **−199 ± 317 pcm (0.63σ)** | 2026-09-12 |
 | HTR-10 graphite pebble bed, bound arm, 300 × [8 + 15] | `tests/htr10_graphite_thermal_scattering_pebble_bed.rs` | not recorded at these statistics | **1.91699 ± 0.01115** | — | 2026-09-12 |
 | …its free-gas arm (unaffected — never touches S(α,β)) | same | 1.93656 ± 0.00316 (manual, 1200 × [10 + 70]) | **1.95252 ± 0.01349** at the test's own statistics | — | 2026-09-12 |
-| graphite-moderated k_inf, C/HM = 400, reflective cube | `examples/thermal_kernel_keff_worth.rs` | <!-- KINF-BEFORE --> | <!-- KINF-AFTER --> | <!-- KINF-DELTA --> | 2026-09-12 |
+| graphite-moderated k_inf, C/HM = 400, reflective cube, 720 000 active histories | `examples/thermal_kernel_keff_worth.rs` | 1.38976 ± 0.00138 | **1.38605 ± 0.00137** | **−371 ± 194 pcm (1.9σ)** | 2026-09-12 |
+
+### The k-worth, decomposed by dimension
+
+The pebble cannot resolve this; a homogeneous graphite-moderated `k_inf` medium
+at the same temperature can, and it can also say **which dimension** the k comes
+from. 4000 particles × [20 + 180] = 720 000 active histories per tabulation,
+same medium, same seeds, 2026-09-12:
+
+| tabulation | k_inf | Δ vs 48 × 16 | σ |
+|---|---|---|---|
+| 48 × 16 (superseded) | 1.38976 ± 0.00138 | — | — |
+| 384 × 16 (incident grid only) | 1.38351 ± 0.00146 | **−624 ± 201 pcm** | 3.1σ |
+| 48 × 64 (outgoing bins only) | 1.38737 ± 0.00148 | −239 ± 203 pcm | 1.2σ |
+| **384 × 64 (current)** | **1.38605 ± 0.00137** | **−371 ± 194 pcm** | 1.9σ |
+
+**The two dimensions are not additive** — −624 and −239 separately, −371
+together — which is what should be expected of two errors that pull *opposite
+ways* on the kernel width. Fixing only the incident grid over-corrects; fixing
+only the bins under-corrects; the physical answer needs both.
+
+So the repair is worth a few hundred pcm in a graphite-moderated thermal
+system, in the direction of **lowering** k, and the incident-grid half is
+resolved at 3.1σ on its own.
 
 **The pebble number is a non-measurement and is recorded as one.** −199 ± 317 pcm
 is 0.63σ; that deck's own statistics (320 000 active histories, σ ≈ 214 pcm per
@@ -149,6 +209,45 @@ that table.
 | Thermal UO₂ pin k_inf | 1.39802 ± 0.00652, `tests/openmc_notebooks/pincell.rs` | Already documented in that file as stale for an unrelated reason; this change adds a second. |
 | HTR-10 graphite pebble bed, manual 1200 × [10 + 70] bound arm | 1.94020 ± 0.00361 | That run is not what the test file executes, and re-running it was not affordable in the same pass. The free-gas arm of the same comparison, 1.93656 ± 0.00316, is unaffected. |
 | `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md` | the ring-RPT k table, incl. 1.40757 ± 0.00224 (CSG) | That document belongs to the ring-RPT residual work in flight in the same working tree. Its CSG row's new value is the first row of §4.1; updating the document itself is left to whoever owns it, rather than editing a file another agent is actively working in. |
+
+---
+
+## 4.3 What the residual fixed-point displacement is worth in k
+
+Asked by the author of `tests/thermal_kernel_stationary_distribution.rs`
+(GitHub #191, bead `op-bo02`): graphite still equilibrates **+1.20 % hot**, and
+the ring-RPT record localises its whole +4004 pcm residual to the fraction of
+neutrons crossing 0.625 eV — which is the kind of error a wrong-temperature
+fixed point is. So: what is 1.20 % of fixed point worth?
+
+**This is an extrapolation from one measured pair, not a measurement, and it is
+labelled as such.** On the same graphite-moderated medium:
+
+```text
+  48x16  ->  384x64:   T_eff  614.28 K -> 607.21 K   (-7.07 K, -1.18 points)
+                       k      1.38976  -> 1.38605    (-371 +/- 194 pcm)
+```
+
+so the local slope is **≈ 52 pcm per kelvin of fixed-point displacement**, or
+≈ 315 pcm per 1 %. Carrying that linearly onto the remaining +7.21 K puts the
+residual at roughly **−380 pcm** on this medium if it were removed, and — scaling
+by the ratio of the two systems' measured response to the same change
+(−199 pcm on the FHR ring-RPT CSG pebble against −371 here, i.e. the pebble is
+about half as sensitive) — roughly **−200 pcm on that pebble**.
+
+Three caveats, all load-bearing:
+
+1. **The slope is not clean.** That Δk bundles the fixed-point repair with the
+   *width* repair; this experiment cannot separate them, so attributing all
+   371 pcm to the fixed point is an over-attribution, i.e. −380 pcm reads as an
+   upper bound rather than a central value.
+2. **One pair is not a slope.** Nothing here establishes linearity.
+3. **Direction is right, magnitude is not.** The sign is the useful part: the
+   code's fixed point is *hot*, a hot fixed point *raises* k in this medium, and
+   the ring-RPT residual is this code reading **high** by +4004 pcm. So removing
+   the residual moves k the right way — by something of order **5 % of that
+   residual**, not by the residual. It is the right *shape* of error and the
+   wrong *size*, and both halves of that sentence need saying.
 
 ---
 
