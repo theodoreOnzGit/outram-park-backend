@@ -1,5 +1,10 @@
 # Human-in-the-loop V&V of agentically ported code
 
+> **Deferred — not in the current round** (2026-09-12). The target set is Part
+> II, Part III and the IF97 backward equations; see `../README.md`. This file
+> is kept as a written-up source map so the work does not have to be
+> re-derived when it is picked up. Bead: `op-rpb6.2`.
+
 **Source records:** `docs/human-in-the-loop-ciet-v2-case-study.md` (192 lines),
 `docs/human-corrections-to-ai-work.md`, the kopi-beans issue corpus (1,490
 issues, 623 closed), and the git history (1,559 commits, 2024-11-25 onward).
@@ -76,7 +81,7 @@ bugs, and it predicts where review effort should go.
    rich single case, not a population estimate — claiming otherwise is the
    fastest way to lose a referee.
 
-## Why this is the lowest-risk of the four to defend
+## Why it is worth returning to: lowest domain-defence risk of the four
 
 It requires no expertise the authors do not demonstrably have. The domain
 content is CIET, and the methodological content is this project's own history.
