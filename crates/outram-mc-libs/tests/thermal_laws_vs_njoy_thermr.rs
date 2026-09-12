@@ -670,10 +670,9 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
     );
 }
 
-/// **This crate's graphite S(α,β) kernel has the right MEAN outgoing energy and
-/// the wrong WIDTH: −2.7 % to −11.1 % narrow below 0.2 eV, and up to +39 % broad
-/// at 2 eV. Measured 2026-09-12; worth −63 pcm, which is not the ring-RPT
-/// residual.**
+/// **This crate's graphite S(α,β) kernel had the right MEAN outgoing energy and
+/// the wrong WIDTH — +39 % too broad at 2 eV. Fixed 2026-09-12; now one-signed
+/// narrow everywhere, worst −2.50 %.**
 ///
 /// # Why a second moment
 ///
@@ -691,38 +690,44 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
 /// the coherent-elastic channel removed by the `E′ == E` signature (it would
 /// otherwise contribute a spurious zero-width spike). `tsl-crystalline-graphite`
 /// (MAT 30) at **600 K — a tabulated temperature**. The oracle is a quadrature
-/// on THERMR's MF=6/MT=229 matrix: no sampling on that side.
+/// on THERMR's MF=6/MT=229 matrix: no sampling on that side. At 200 000 samples
+/// the statistical uncertainty on a relative width is ≈ `1/sqrt(2N)` = 0.16 %.
 ///
-/// # The defect, and what it is
+/// # The defect, what it was, and what fixed it
 ///
-/// The sign flips at 0.39 eV, which is the tell. Below it, what is measured is
-/// the 16-bin equiprobable representation's own truncation of the tails
-/// (one-signed narrow). Above it, the emission tables sit on a 48-point log grid
-/// over 1e-5 … 4 eV — **adjacent incident energies are 31.6 % apart** — and
-/// `select_table` picks between the two bracketing tables by ACE statistical
-/// interpolation. Mixing two tables whose means are 31.6 % apart adds a variance
-/// `r(1−r)(m₂−m₁)²` the true kernel has not got, and above 0.4 eV, where the
-/// intrinsic spread has fallen to `w ≈ 0.12`, that added variance dominates.
+/// As measured on 2026-09-12 the width was −2.6 % to −11.6 % narrow below
+/// 0.2 eV and up to **+39.0 % broad at 2 eV**, with the sign flipping at
+/// 0.39 eV. That sign flip was the diagnosis: two different errors, in the two
+/// different dimensions of the emission tabulation.
 ///
-/// Raising `N_EMIT_GRID` from 48 to 192 collapses +39.0 % at 2 eV to −2.3 %,
-/// which is the confirmation that the grid is the cause and not something in the
-/// S(α,β) integration.
+/// - **Above 0.39 eV — the incident-energy grid.** The tables sat on a 48-point
+///   log grid over 1e-5 … 4 eV, adjacent entries **31.6 % apart**, and
+///   `select_table` mixes the two bracketing tables by ACE statistical
+///   interpolation. That adds a variance `r(1−r)(m₂−m₁)²` the true kernel has
+///   not got, and above 0.4 eV — where the intrinsic spread has fallen to
+///   `w ≈ 0.12` — it dominated. Fixed by `N_EMIT_GRID` 48 → **384**.
+/// - **Below 0.2 eV — the equiprobable outgoing-energy bins.** A finite
+///   equiprobable set truncates both tails, one-signed narrow. Mitigated by
+///   `N_OUTGOING` 16 → **64**.
 ///
-/// # It was priced, not assumed
+/// Both sizes were set by sweeping them against this same oracle
+/// (`examples/thermal_emission_grid_convergence.rs`), not chosen: the grid
+/// stops improving at 384 (rms 1.78 % there, 1.81 % at 768, 1.85 % at 1536)
+/// and the bin count has no plateau at all, so 64 is a cost cut and the
+/// remaining −2.50 % is the representation.
 ///
-/// `examples/fhr_ring_rpt_endf.rs` with `OUTRAM_RINGRPT_ONLY=csg`, same deck,
-/// same seed, 2026-09-12: `N_EMIT_GRID = 48` gives k = 1.40745 ± 0.00214 and
-/// `N_EMIT_GRID = 192` gives k = 1.40682 ± 0.00221 — **−63 pcm**, inside its own
-/// sampling error, against the +4004 pcm residual under investigation. A real
-/// defect, and not that one.
+/// # Results (2026-09-12, after the fix)
+///
+/// One-signed narrow at all thirteen energies, **worst −2.50 % at 0.1035 eV**,
+/// rms 1.78 %. The full before/after table is in [`GRAPHITE_KERNEL_WIDTH`]'s
+/// doc comment, which keeps the superseded column.
 ///
 /// # The envelopes
 ///
-/// 50 % across the table is a **characterisation** bound on the open defect, the
-/// same contract [`H2O_KERNEL`] carries — sized to fail if it grows, not to
-/// bless it. 15 % and one-signed below 0.2 eV is the genuine quality bound on
-/// the equiprobable representation. **Tighten the first to ~15 % when the grid
-/// is refined; never widen either.**
+/// **4 % across the whole table, and one-signed narrow across the whole table**
+/// — both tightened on 2026-09-12 from the 50 % / 15 %-below-0.2 eV
+/// characterisation bounds that described the old defect. Tighten them again
+/// when `N_OUTGOING` rises; **never widen either.**
 #[test]
 fn graphite_sab_kernel_width_against_njoy_thermr() {
     use outram_mc_libs::vv::njoy_golden::{
@@ -766,7 +771,9 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
                 rel < 0.0 && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
                 "graphite's kernel width is {:+.2} % from NJOY at {e:.4e} eV — below \
                  {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it was one-signed narrow \
-                 and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12",
+                 and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12. A BROAD \
+                 point would mean the coarse-emission-grid defect of GitHub #190 had \
+                 come back",
                 100.0 * rel
             );
         }
@@ -774,9 +781,113 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
     assert!(
         worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
         "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
-         the +39.0 % recorded on 2026-09-12. This is a CHARACTERISATION bound on a known \
-         defect: do not widen it",
+         the −2.50 % recorded on 2026-09-12 after the emission tabulation was resized. \
+         Do not widen this bound: it is what stops the +39 % defect returning",
         100.0 * worst
     );
     println!("  worst {:+.2} % at {worst_e:.4e} eV", 100.0 * worst);
+}
+
+/// **This crate's H-in-H₂O kernel WIDTH is one-signed narrow across the whole
+/// thermal range, worst −4.6 % at 0.0253 eV (2026-09-12) — and that, not the
+/// incident-energy grid, is what GitHub #188 is.**
+///
+/// # Why this test exists
+///
+/// [`H2O_KERNEL`] records #188 as a defect in the *first* moment: ⟨E′⟩/E −5.5 %
+/// at 1.5 meV, ξ 3–5 % low. A first moment cannot say *why*. Graphite's #190 —
+/// a kernel too **broad** at high energy — turned out to come from the coarse
+/// incident-energy grid, and the obvious question was whether water's was the
+/// same defect seen from the other side. **It is not**, and only the second
+/// moment could show that.
+///
+/// # Methodology
+///
+/// 200 000 samples of `ThermalScattering::sample` at each of the eleven
+/// energies of [`H2O_KERNEL_WIDTH`], reduced to `sqrt(var(E′))/⟨E′⟩`. Light
+/// water has no thermal elastic channel, so no channel split is needed — every
+/// sample is inelastic. `tsl-HinH2O` (MAT 1) at 293.6 K, a tabulated
+/// temperature. The oracle is a trapezoid quadrature on THERMR's MF=6/MT=222
+/// matrix — no sampling on that side. Statistical uncertainty on a relative
+/// width at 200 000 samples ≈ `1/sqrt(2N)` = 0.16 %.
+///
+/// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0)
+///
+/// **Narrow at every energy**, −0.8 % to **−4.64 %**, worst at 0.0253 eV. The
+/// per-row values are in [`H2O_KERNEL_WIDTH`]'s comments.
+///
+/// The discriminating measurement is the sweep in
+/// `examples/thermal_emission_grid_convergence.rs`: this width does **not**
+/// move with the incident-energy grid (−12.16 % at 48 points, −12.44 % at 1536,
+/// at 16 outgoing bins) and moves with nothing but the outgoing-bin count
+/// (−13.49 % at 16, −7.99 % at 32, −4.64 % at 64, −2.53 % at 128). So #188 and
+/// #190 are two different dimensions of the same ACE equiprobable tabulation,
+/// not one defect — and #188 is **mitigated, not fixed**: the error falls as
+/// ~1/`N_OUTGOING` with no plateau, so what is left is the representation
+/// itself.
+///
+/// # What is asserted
+///
+/// **6 %, one-signed narrow, at every energy.** The sign is asserted as well as
+/// the magnitude because it is the whole finding: a tail-truncating
+/// representation can only ever be narrow, and a broad point would mean the
+/// incident-grid mechanism had come back.
+#[test]
+fn h2o_sab_kernel_width_against_njoy_thermr() {
+    use outram_mc_libs::vv::njoy_golden::{H2O_KERNEL_WIDTH, H2O_KERNEL_WIDTH_TOL};
+    const N: usize = 200_000;
+
+    let Some(law) = law_or_skip("tsl-HinH2O.endf", 1, 293.6, "c_H_in_H2O") else {
+        return;
+    };
+    let mut seed = 20_260_912_u64;
+    let (mut worst, mut worst_e) = (0.0_f64, 0.0_f64);
+    for &(e, w_njoy) in H2O_KERNEL_WIDTH {
+        let w = sampled_width(&law, e, N, &mut seed);
+        let rel = w / w_njoy - 1.0;
+        println!(
+            "  {e:>9.4e}  NJOY {w_njoy:>8.5}  ours {w:>8.5}  {:>+7.2} %",
+            100.0 * rel
+        );
+        if rel.abs() > worst.abs() {
+            worst = rel;
+            worst_e = e;
+        }
+        assert!(
+            rel < 0.0 && rel.abs() < H2O_KERNEL_WIDTH_TOL,
+            "H(H2O)'s kernel width is {:+.2} % from NJOY at {e:.4e} eV — it was \
+             one-signed NARROW and inside {H2O_KERNEL_WIDTH_TOL} at every energy on \
+             2026-09-12. A broad point would mean the incident-grid mechanism of \
+             GitHub #190 had come back; a larger narrow one means the equiprobable \
+             outgoing-energy representation got worse",
+            100.0 * rel
+        );
+    }
+    println!("  worst {:+.2} % at {worst_e:.4e} eV", 100.0 * worst);
+}
+
+/// `sqrt(var(E'))/<E'>` of the **inelastic** channel from `n` samples at `e`.
+///
+/// The coherent-elastic channel is removed by the one unambiguous signature —
+/// it is the only channel that leaves `E'` exactly equal to `E` — because MF=6
+/// describes the inelastic channel alone and a zero-width spike at `E' == E`
+/// would otherwise pull the measured width down by however much elastic
+/// scattering happens to be present. Light water has no elastic channel at all,
+/// so for it the filter is a no-op.
+fn sampled_width(law: &ThermalScattering, e: f64, n: usize, seed: &mut u64) -> f64 {
+    let (mut s1, mut s2, mut k) = (0.0, 0.0, 0usize);
+    for _ in 0..n {
+        let Some((ep, _mu)) = law.sample(e, seed) else {
+            continue;
+        };
+        if (ep - e).abs() <= 1.0e-12 * e {
+            continue;
+        }
+        s1 += ep;
+        s2 += ep * ep;
+        k += 1;
+    }
+    assert!(k > n / 100, "no inelastic scatters at {e} eV");
+    let (m1, m2) = (s1 / k as f64, s2 / k as f64);
+    (m2 - m1 * m1).max(0.0).sqrt() / m1
 }

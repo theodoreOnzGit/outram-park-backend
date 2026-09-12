@@ -70,9 +70,134 @@ pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 /// Number of incident-energy points on the pre-tabulated σ_inel(E) grid.
 const N_XS_GRID: usize = 200;
 /// Number of incident-energy points on the pre-tabulated emission grid.
-const N_EMIT_GRID: usize = 48;
+///
+/// **Sized by measurement, not by taste — and it was wrong until 2026-09-12.**
+///
+/// # Why the size matters
+///
+/// [`ThermalScattering::sample`] picks between the two bracketing tables by ACE
+/// statistical interpolation. That is unbiased in the *mean* (it reproduces a
+/// linear interpolation of ⟨E′⟩ across the interval) but it adds a variance
+///
+/// ```text
+///   var_spurious = r(1 - r)(m2 - m1)^2
+/// ```
+///
+/// the true kernel has not got, where `m1`/`m2` are the two tables' means and
+/// `r` the interpolation factor. It falls as the **square** of the grid
+/// spacing, so the grid has to be fine enough that it sits under the kernel's
+/// own spread everywhere — including above ~0.4 eV, where graphite's relative
+/// width has fallen to ~0.12 and there is very little spread to hide in.
+///
+/// # The defect this replaces
+///
+/// At the previous value of **48** points over 1e-5 … 4 eV, adjacent incident
+/// energies were **31.6 % apart**, and that term dominated the whole upper half
+/// of the thermal range. Measured against NJOY2016 THERMR MF=6/MT=229 for
+/// `tsl-crystalline-graphite` at 600 K, the sampled kernel was **−11.6 % too
+/// narrow at 0.05 eV and +39.0 % too broad at 2 eV**, sign-flipping at
+/// 0.39 eV. GitHub #190, bead `op-x77y`.
+///
+/// # Methodology of the sizing
+///
+/// `examples/thermal_emission_grid_convergence.rs` sweeps `(n_emit, n_outgoing)`
+/// over 48 … 1536 × 16 … 128 through
+/// [`ThermalScattering::from_tape_with_grids`], reduces 400 000 samples per
+/// incident energy at thirteen (graphite) / eleven (water) probe energies to
+/// `sqrt(var(E′))/⟨E′⟩`, `⟨E′⟩/E` and `ξ`, and compares each against a
+/// trapezoid quadrature on THERMR's own MF=6 matrix — no sampling on the oracle
+/// side.
+///
+/// **How precise a sampled width is.** Not `1/sqrt(2N)` = 0.11 % — that is the
+/// Gaussian estimate, and the outgoing-energy distribution has heavy tails, so
+/// the variance estimator carries the error of a fourth moment. Measured
+/// stream-to-stream scatter on an individual row, between this sweep's 400 000
+/// samples and the 200 000-sample gate in
+/// `tests/thermal_laws_vs_njoy_thermr.rs`, is up to **0.8 points**. What makes
+/// the sweep's *columns* comparable at far finer resolution than that is that
+/// every tabulation in it is sampled from the **same stream** — common random
+/// numbers — so the column-to-column differences below are precise even where
+/// the absolute values carry a few tenths of a point.
+///
+/// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0, graphite 600 K)
+///
+/// Worst relative width deviation across the thirteen probe energies, and the
+/// rms over them, at [`N_OUTGOING`] = 64:
+///
+/// ```text
+///   n_emit    worst      rms     build [s]   mem [kB]   Msample/s
+///      48    +38.98 %   16.34 %      5.2         54       11.22   (at n_out = 16)
+///      96    +12.32 %    6.76 %      6.3        108       10.99   (at n_out = 16)
+///     192     −2.45 %    1.65 %      8.7        864       10.36
+///     384     −2.50 %    1.78 %     13.3       1728       10.33
+///     768     −2.56 %    1.81 %     22.7       3456       10.29
+///    1536     −2.59 %    1.85 %     39.6       6912       10.10
+/// ```
+///
+/// **384 is where the width error stops improving.** From 384 up the aggregate
+/// is flat — 1.78 → 1.81 → 1.85 % rms, a drift of 0.07 points across two
+/// doublings — because what is left is no longer the grid but the equiprobable
+/// representation ([`N_OUTGOING`]). The
+/// grid's own residual, measured as the distance from the converged 1536-point
+/// answer, is **≤ 0.6 points at 384** against **≤ 1.5 points at 192** and
+/// ≤ 0.14 at 768; 192 still carries a one-signed *broad* bias (+0.17 % at
+/// 0.625 eV where the converged answer is −1.32 %), and 384 does not. Going on
+/// to 768 buys 0.45 points of that residual for **1.7× the reconstruction
+/// time** and no change in the worst-case or rms agreement, which is what makes
+/// 384 the cut rather than a preference.
+///
+/// Run-time cost is now near zero because [`ThermalScattering::sample`]'s
+/// bracket search is binary rather than linear: 10.33 Msample/s at 384 against
+/// 11.22 at 48, i.e. **−8 %** of the thermal sampling rate. Before that change
+/// the same step cost −33 %.
+const N_EMIT_GRID: usize = 384;
 /// Equally-probable outgoing energies per emission table (NJOY-typical).
-const N_OUTGOING: usize = 16;
+///
+/// **Raised from 16 to 64 on 2026-09-12**, by the same sweep that sized
+/// [`N_EMIT_GRID`] — see that constant for the methodology and the uncertainty.
+///
+/// # What this dimension controls
+///
+/// A finite equiprobable set can only place its bins *inside* the true
+/// outgoing-energy distribution, so it truncates both tails. That error is
+/// therefore **one-signed narrow** and, unlike the incident-grid error, it does
+/// not respond to [`N_EMIT_GRID`] at all: at 16 bins the graphite width sat at
+/// −11.6 % worst whether the incident grid held 48 points or 1536.
+///
+/// # Results (2026-09-12, same oracles)
+///
+/// Worst / rms relative width deviation at `N_EMIT_GRID` = 384:
+///
+/// ```text
+///   n_out   graphite worst   rms     H2O worst   rms    H2O <E'>/E @1.5 meV
+///      16      −11.60 %    6.44 %    −13.49 %  7.74 %      −5.51 %
+///      32       −5.96 %    3.25 %     −7.99 %  4.66 %      −3.26 %
+///      64       −2.50 %    1.78 %     −4.64 %  2.80 %      −2.10 %
+///     128       −1.65 %    1.10 %     −2.53 %  1.66 %      −1.43 %
+/// ```
+///
+/// The error falls as roughly `1/n_out` with **no plateau**, so this is a
+/// cost cut rather than a convergence point — and the cost is unusually
+/// lopsided. Reconstruction grows by 0.9 s (13.3 s against 12.4 s per scatterer)
+/// and sampling throughput does not move at all (10.33 against 10.56 Msample/s),
+/// because a bin is chosen by index; only memory scales, 432 kB → 1.7 MB per
+/// scatterer. 64 takes four fifths of the error for that, and 128 would take
+/// another fifth for twice the memory.
+///
+/// **The proper fix is a continuous outgoing-energy law** (NJOY's `iform = 1`),
+/// not more equiprobable bins; this is a mitigation of a representation that is
+/// inherently truncating, and the residual −2.5 % is that representation.
+///
+/// # This is also the cure for the H-in-H₂O kernel defect (GitHub #188)
+///
+/// #188 — `⟨E′⟩/E` −5.5 % at 1.5 meV rising to +1.5 % at 1.9 eV, `ξ` 3–5 % low —
+/// is **not** the same defect as #190 and does not share its cause: it is
+/// entirely insensitive to [`N_EMIT_GRID`] (−5.40 % at 48 points against
+/// −5.51 % at 1536) and entirely responsive to this constant (−5.51 % at 16
+/// bins → −2.10 % at 64 → −1.43 % at 128). Same *class* of error — the ACE
+/// equiprobable pre-tabulation — but a different dimension of it. Bead
+/// `op-77pu`.
+const N_OUTGOING: usize = 64;
 /// Equally-probable cosines per outgoing-energy bin (NJOY-typical).
 const N_COSINES: usize = 8;
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
@@ -456,10 +581,54 @@ impl ThermalScattering {
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
+    }
+
+    /// [`from_tape`](Self::from_tape) with the **two emission-table dimensions
+    /// chosen by the caller** instead of the crate defaults `N_EMIT_GRID` and
+    /// `N_OUTGOING`.
+    ///
+    /// This exists so both can be *measured* rather than asserted, and they
+    /// spoil different moments of the sampled kernel:
+    ///
+    /// - `n_emit` — the number of **incident** energies carrying a table.
+    ///   `select_table` mixes the two bracketing tables by ACE statistical
+    ///   interpolation, which adds a variance `r(1-r)(m2-m1)^2` the true kernel
+    ///   has not got; it falls as the square of the grid spacing, so it is the
+    ///   knob that makes the kernel too **broad** when it is too coarse.
+    /// - `n_outgoing` — the number of **equiprobable outgoing-energy bins** per
+    ///   table. A finite equiprobable set truncates the tails of the true
+    ///   distribution, so it is one-signed and makes the kernel too **narrow**.
+    ///
+    /// `examples/thermal_emission_grid_convergence.rs` sweeps both against the
+    /// NJOY THERMR oracle and is what sized the defaults. Reconstruction time
+    /// and memory scale linearly in `n_emit` and in `n_outgoing`, so neither is
+    /// a free knob.
+    ///
+    /// Transport callers should use [`from_tape`](Self::from_tape) and get the
+    /// validated defaults. A zero in either dimension is rejected as
+    /// [`NjoyError::NotPorted`] rather than silently producing a law that cannot
+    /// sample.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape), plus a zero in either dimension.
+    pub fn from_tape_with_grids(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_emit: usize,
+        n_outgoing: usize,
+    ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
         use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
+        if n_emit == 0 || n_outgoing == 0 {
+            return Err(NjoyError::NotPorted(
+                "ThermalScattering: an emission table with a zero dimension cannot sample",
+            ));
+        }
         let t = Temperature::new::<kelvin>(temperature_k);
         // One parse of the tape, shared by all three channel constructors.
         let sab = IncoherentInelasticScattering::from_tape(tape, mat, t)?;
@@ -478,12 +647,12 @@ impl ThermalScattering {
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, N_EMIT_GRID);
+        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, n_emit);
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {
                 let bins =
-                    sab.emission(NeutronEnergy::new::<electronvolt>(e), N_OUTGOING, N_COSINES);
+                    sab.emission(NeutronEnergy::new::<electronvolt>(e), n_outgoing, N_COSINES);
                 build_emission_table(&bins)
             })
             .collect();
@@ -630,10 +799,14 @@ impl ThermalScattering {
         if e >= grid[n - 1] {
             return &self.emit_tables[n - 1];
         }
-        let mut i = 0;
-        while i + 1 < n && grid[i + 1] <= e {
-            i += 1;
-        }
+        // Binary search, not a linear scan. The bracket is identical — `i` is
+        // still the last index whose grid value is `<= e` — but the cost is
+        // O(log n_emit) instead of O(n_emit), which is what makes a finer
+        // emission grid affordable in the transport loop at all: measured
+        // 2026-09-12, the linear form cost 4.09 Msample/s at 384 points against
+        // 6.06 at 48, i.e. a third of the thermal sampling rate, purely in the
+        // scan. See `examples/thermal_emission_grid_convergence.rs`.
+        let i = grid.partition_point(|&v| v <= e) - 1;
         let (e0, e1) = (grid[i], grid[i + 1]);
         let r = if e1 > e0 { (e - e0) / (e1 - e0) } else { 0.0 };
         if r > prn(seed) {
@@ -783,10 +956,11 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     if x >= xs[n - 1] {
         return ys[n - 1];
     }
-    let mut i = 0;
-    while i + 1 < n && xs[i + 1] < x {
-        i += 1;
-    }
+    // Binary search for the same bracket the linear scan found: `i` is the last
+    // index with `xs[i] < x`. O(log n) rather than O(n), which matters because
+    // this runs once per thermal cross-section lookup on a 200-point grid (and a
+    // 400-point one for incoherent elastic).
+    let i = xs.partition_point(|&v| v < x) - 1;
     let (x0, x1) = (xs[i], xs[i + 1]);
     let (y0, y1) = (ys[i], ys[i + 1]);
     if x1 > x0 {

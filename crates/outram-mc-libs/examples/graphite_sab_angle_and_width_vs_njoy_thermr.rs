@@ -30,13 +30,18 @@
 //!
 //! - **Angle: excluded.** μ̄ agrees with THERMR to ≤ 0.0085 absolute, on a μ̄ of
 //!   ~0.05, i.e. σ_tr within 0.05 %.
-//! - **Width: a real defect, and priced.** The sampled kernel is up to **+39 %
-//!   too broad at 2 eV**, from the 48-point emission grid plus ACE statistical
-//!   table interpolation (adjacent tables are 31.6 % apart in incident energy,
-//!   and mixing them adds variance the true kernel has not got). Raising
-//!   `N_EMIT_GRID` to 192 collapses it to −2.3 %, and moves the FHR ring-RPT
-//!   CSG k-eff by **−63 pcm** against a +4004 pcm residual. See
-//!   [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`].
+//! - **Width: a real defect — found here, and fixed 2026-09-12.** The sampled
+//!   kernel was up to **+39 % too broad at 2 eV**, from the 48-point emission
+//!   grid plus ACE statistical table interpolation (adjacent tables are 31.6 %
+//!   apart in incident energy, and mixing them adds a variance the true kernel
+//!   has not got), and **−11.6 % too narrow at 0.05 eV** from the 16-bin
+//!   equiprobable outgoing-energy representation. Two dimensions, two errors,
+//!   opposite signs, crossing at 0.39 eV. Sized against this oracle by
+//!   `examples/thermal_emission_grid_convergence.rs`, `N_EMIT_GRID` went 48 →
+//!   **384** and `N_OUTGOING` 16 → **64**, which leaves the width one-signed
+//!   narrow everywhere at **worst −2.50 %**. See
+//!   [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`], which keeps the
+//!   superseded column and carries the measured k-worth on the FHR pebble.
 //!
 //! # The oracle
 //!
@@ -355,18 +360,19 @@ fn golden_gate(law: &ThermalScattering) {
 ///
 /// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0)
 ///
-/// **This gate records an open defect, deliberately.** The width is −2.6 % to
-/// −11.6 % *narrow* below 0.2 eV and up to **+39.0 % broad at 2 eV**, with the
-/// sign flipping at 0.39 eV. The broad half is the 48-point emission grid plus
-/// ACE statistical table interpolation; the narrow half is the 16-bin
-/// equiprobable representation. Both halves, their cause, and the measured
-/// k-worth (**−63 pcm** on the FHR ring-RPT CSG pebble) are in the golden
-/// table's doc comment.
+/// **This gate found a real defect and now guards its repair.** As first
+/// measured the width was −2.6 % to −11.6 % *narrow* below 0.2 eV and up to
+/// **+39.0 % broad at 2 eV**, sign-flipping at 0.39 eV — two errors in the two
+/// dimensions of the emission tabulation, pulling opposite ways. With
+/// `N_EMIT_GRID` 48 → 384 and `N_OUTGOING` 16 → 64 (both sized by the sweep in
+/// `examples/thermal_emission_grid_convergence.rs`) it is **one-signed narrow
+/// at every energy, worst −2.50 % at 0.1035 eV, rms 1.78 %**. The before/after
+/// table and the measured k-worth on the FHR ring-RPT CSG pebble are in the
+/// golden table's doc comment.
 ///
-/// Two envelopes, because the two halves of the table fail for different
-/// reasons and one envelope would hide that: 50 % across the table (the
-/// characterisation bound on the known defect) and 15 % one-signed below
-/// 0.2 eV. **Tighten the first to ~15 % when the emission grid is refined;
+/// Two envelopes are kept, now both at **4 % and both covering the whole
+/// table**: one on magnitude, one on sign. They were 50 % and 15 %-below-0.2 eV
+/// while the defect was open. **Tighten them again when `N_OUTGOING` rises;
 /// never widen either.**
 fn width_golden_gate(law: &ThermalScattering) {
     use outram_mc_libs::vv::njoy_golden::{
@@ -394,7 +400,9 @@ fn width_golden_gate(law: &ThermalScattering) {
                 "graphite's kernel width is {:+.2} % from NJOY at {e:.4e} eV. Below \
                  {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it is the equiprobable \
                  representation's own narrowing that is being measured, and it was \
-                 one-signed and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12",
+                 one-signed and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12. \
+                 A BROAD point here would mean the coarse-emission-grid defect of \
+                 GitHub #190 had come back",
                 100.0 * rel
             );
         }
@@ -402,8 +410,8 @@ fn width_golden_gate(law: &ThermalScattering) {
     assert!(
         worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
         "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
-         the +39.0 % recorded on 2026-09-12. This is a CHARACTERISATION bound on a known \
-         defect: do not widen it",
+         the −2.50 % recorded on 2026-09-12 after the emission tabulation was resized. \
+         Do not widen this bound: it is what stops the +39 % defect returning",
         100.0 * worst
     );
     println!("  worst {:+.2} % at {worst_e:.4e} eV", 100.0 * worst);
