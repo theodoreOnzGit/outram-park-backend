@@ -233,6 +233,193 @@ pub const GRAPHITE_KERNEL_CONVERGED_ABOVE_EV: f64 = 0.2;
 /// deviation of +0.10 % there.
 pub const GRAPHITE_KERNEL_CONVERGED_TOL: f64 = 0.004;
 
+/// **Graphite scattering ANGLE**, 600 K:
+/// `(E [eV], mubar_inelastic, mubar_coherent_elastic, mubar_total)`.
+/// Measured 2026-09-12.
+///
+/// # Why an angular table exists at all
+///
+/// Every other thermal oracle in this workspace is an **energy-domain** oracle
+/// — [`GRAPHITE_XS_INELASTIC`] (how often), [`GRAPHITE_KERNEL`] (how much energy
+/// per collision), `graphite_energy_decrement` (ξ), `slowing_down_oracle` (the
+/// whole energy treatment). None of them constrains μ. Before this table the
+/// only assertion on a thermal cosine anywhere in the crate was
+/// `(-1.0..=1.0).contains(&mu)`.
+///
+/// The angle sets σ_tr = σ_s(1 − μ̄), hence the diffusion coefficient, hence
+/// the thermal flux shape in a heterogeneous cell — the axis the FHR ring-RPT
+/// residual hunt (`op-mzvp.2.12`) had narrowed to.
+///
+/// # The two oracles, which are independent of each other
+///
+/// - **Inelastic** — THERMR MF=6/MT=229 carries, per incident energy, `NEP`
+///   groups of `NA + 2 = 18` numbers `(E′, f(E′), μ₁…μ₁₆)` whose 16 cosines are
+///   **equally probable** in the laboratory frame.
+///   `examples/graphite_kernel_vs_njoy_thermr.rs` parses the same records and
+///   discards those cosines; `examples/graphite_mubar_vs_njoy_thermr.rs` keeps
+///   them and forms `μ̄ = Σ f(E′)·mean(μ|E′) / Σ f(E′)` by the same trapezoid
+///   used for the energy moment. So the two differ only in which column they
+///   reduce.
+/// - **Coherent elastic** — needs no MF=6 at all. `E·σ_coh(E)` from
+///   MF=3/MT=230 is a staircase whose 296 risers *are* the Bragg edges
+///   `(E_i, f_i)`; each edge scatters at exactly `μ_i = 1 − 2E_i/E`, so
+///   `μ̄_el(E) = Σ f_i(1 − 2E_i/E)/Σ f_i` is recovered from NJOY's own cross
+///   section without ever reading this crate's edge table.
+///
+/// The `total` column is the two weighted by THERMR's own MT=229 and MT=230
+/// cross sections at that energy, which is the quantity transport actually uses.
+///
+/// # Result: the thermal angle is NOT the ring-RPT residual
+///
+/// Worst deviation **+0.0085 absolute on μ̄_inelastic** (0.0253 eV, 5σ of the
+/// 400 000-sample statistics, so real but tiny) and **+0.0050 on μ̄_total**
+/// (3.75 eV). μ̄_total is ≈ 0.05 across the whole range, so a 0.005 error moves
+/// σ_tr = σ_s(1 − μ̄) by **0.05 %**. Against a +4004 pcm k-residual that is an
+/// exclusion, not a candidate.
+///
+/// The Bragg column is the tighter of the two — worst **+0.0030** at 0.2 eV,
+/// and it reproduces the sign reversal (μ̄_el runs −0.40 at 2.6 meV, just above
+/// the first edge where only backscattering is open, to +0.97 at 3.75 eV where
+/// every edge is open and forward-scattering dominates) without being given the
+/// edge table.
+///
+/// Comments carry this crate's own value on the date above.
+pub const GRAPHITE_MUBAR: &[(f64, f64, f64, f64)] = &[
+    // E [eV]      mubar_inel  mubar_el   mubar_tot
+    (1.012000e-03, -0.10126, 0.00000, -0.10126), // ours −0.10071 / n/a     / −0.10071
+    (2.600000e-03, -0.15658, -0.40179, -0.36809), // ours −0.15545 / −0.40179 / −0.36793
+    (5.000000e-03, -0.20404, -0.25734, -0.25019), // ours −0.20552 / −0.25810 / −0.25104
+    (1.000000e-02, -0.25087, 0.02533, -0.02079), // ours −0.25540 / +0.02530 / −0.02176
+    (2.530000e-02, -0.27620, 0.00568, -0.05509), // ours −0.28467 / +0.00656 / −0.05628
+    (5.000000e-02, -0.25874, 0.12636, -0.00636), // ours −0.26037 / +0.12786 / −0.00578
+    (1.035000e-01, -0.20580, 0.28889, 0.02065),  // ours −0.20676 / +0.28831 / +0.01974
+    (2.000000e-01, -0.13444, 0.53293, 0.04434),  // ours −0.13590 / +0.53588 / +0.04415
+    (3.900000e-01, -0.06204, 0.74362, 0.05075),  // ours −0.06044 / +0.74410 / +0.05201
+    (6.250000e-01, -0.02259, 0.83965, 0.05279),  // ours −0.02374 / +0.83971 / +0.05172
+    (1.050000e+00, 0.00741, 0.90455, 0.05415),   // ours +0.00874 / +0.90454 / +0.05513
+    (2.020000e+00, 0.03014, 0.95039, 0.05508),   // ours +0.03444 / +0.95048 / +0.05959
+    (3.750000e+00, 0.04196, 0.97327, 0.05555),   // ours +0.04653 / +0.97357 / +0.06054
+];
+
+/// The envelope [`GRAPHITE_MUBAR`]'s inelastic column is asserted inside:
+/// **0.02 absolute on μ̄**, against a worst measured deviation of +0.0085.
+///
+/// The bound is **absolute, not relative**, on purpose: μ̄_inelastic passes
+/// through zero near 0.9 eV, so a relative bound there is arithmetic noise —
+/// the same trap [`GRAPHITE_KERNEL`]'s doc records for ξ.
+pub const GRAPHITE_MUBAR_TOL: f64 = 0.02;
+
+/// The tighter envelope the **coherent-elastic** column holds: **0.01 absolute**,
+/// against a worst measured deviation of +0.0030. It is tighter because the
+/// Bragg law is discrete and deterministic — there is no kernel integration in
+/// it, only the edge table and `μ = 1 − 2E_i/E`.
+pub const GRAPHITE_MUBAR_ELASTIC_TOL: f64 = 0.01;
+
+/// **Graphite scattering kernel WIDTH**, 600 K: `(E [eV], sqrt(var(E'))/<E'>)`
+/// of the incoherent-inelastic outgoing-energy distribution, from THERMR
+/// MF=6/MT=229 by quadrature. Measured 2026-09-12.
+///
+/// # What this sees that [`GRAPHITE_KERNEL`] cannot
+///
+/// [`GRAPHITE_KERNEL`] is the **first** moment `<E'>/E`. A kernel can have
+/// exactly the right mean and the wrong spread, and the spread is what decides
+/// how many neutrons cross the 0.625 eV group boundary per collision — i.e. the
+/// joining region between the 1/E slowing-down spectrum and the Maxwellian.
+/// Nothing in this crate had ever compared it.
+///
+/// # Results, and the defect this table records
+///
+/// Against NJOY, this crate's sampled kernel is
+///
+/// ```text
+///    E [eV]     w NJOY    w ours   rel        w ours    rel
+///                                             (4x grid)
+///    0.00101    0.76168   0.73571  -3.41 %    0.73501   -3.50 %
+///    0.0026     0.79883   0.77356  -3.16 %    0.77334   -3.19 %
+///    0.005      0.84932   0.82747  -2.57 %    0.82683   -2.65 %
+///    0.01       0.90255   0.87859  -2.65 %    0.87975   -2.53 %
+///    0.0253     0.79241   0.71967  -9.18 %    0.72008   -9.13 %
+///    0.05       0.54768   0.48432 -11.57 %    0.48322  -11.77 %
+///    0.1035     0.35619   0.33874  -4.90 %    0.32113   -9.84 %
+///    0.2        0.27905   0.26517  -4.98 %    0.25740   -7.76 %
+///    0.39       0.22681   0.25083 +10.59 %    0.21578   -4.86 %
+///    0.625      0.19328   0.21794 +12.76 %    0.18610   -3.72 %
+///    1.05       0.16345   0.18220 +11.47 %    0.15795   -3.37 %
+///    2.02       0.13644   0.18971 +39.04 %    0.13329   -2.31 %
+///    3.75       0.11994   0.16209 +35.15 %    0.11740   -2.11 %
+/// ```
+///
+/// **The sign flips at 0.39 eV and the excess reaches +39 % at 2 eV.** The
+/// fourth column is the same measurement with `N_EMIT_GRID` raised from 48 to
+/// 192, and it identifies the cause exactly: the emission tables sit on a
+/// 48-point log grid over 1e-5 … 4 eV, i.e. **adjacent incident energies differ
+/// by 31.6 %**, and `select_table` picks between the two bracketing tables by
+/// ACE statistical interpolation. Mixing two tables whose means are 31.6 % apart
+/// adds a variance `r(1-r)(m2-m1)^2` that the true kernel does not have. Where
+/// the intrinsic spread is small — above ~0.4 eV, where `w` has fallen to 0.12 —
+/// that added variance dominates. Where the intrinsic spread is large (below
+/// 0.1 eV, `w` ~ 0.8) it is invisible, and what is left is the **−3 % to −12 %**
+/// narrowing of the 16-bin equiprobable representation itself.
+///
+/// # The k-worth of this defect was MEASURED, not assumed: −63 pcm
+///
+/// Same deck, same seed, `examples/fhr_ring_rpt_endf.rs` with
+/// `OUTRAM_RINGRPT_ONLY=csg`, 2026-09-12:
+///
+/// ```text
+///   N_EMIT_GRID = 48   k = 1.40745 +/- 0.00214   p(2-group) = 0.5254
+///   N_EMIT_GRID = 192  k = 1.40682 +/- 0.00221   p(2-group) = 0.5249
+/// ```
+///
+/// **−63 pcm**, inside its own sampling error, against a +4004 pcm residual.
+/// So this is a real defect of the thermal kernel and it is **not** the cause of
+/// the FHR ring-RPT disagreement. The grid was left at 48 deliberately: raising
+/// it shifts every recorded thermal k-eff by tens of pcm, which is a separate
+/// change with its own re-baselining, not something to fold into a measurement.
+///
+/// Tracked as [GitHub #190] and bead `op-x77y`. The angular oracle from the same
+/// session — [`GRAPHITE_MUBAR`], which excluded the angle — is bead `op-i7u9`.
+///
+/// Comments carry this crate's own value at `N_EMIT_GRID = 48`.
+///
+/// [GitHub #190]: https://github.com/theodoreOnzGit/outram-park-backend/issues/190
+pub const GRAPHITE_KERNEL_WIDTH: &[(f64, f64)] = &[
+    (1.012000e-03, 0.76168), // ours 0.73571 (−3.41 %)
+    (2.600000e-03, 0.79883), // ours 0.77356 (−3.16 %)
+    (5.000000e-03, 0.84932), // ours 0.82747 (−2.57 %)
+    (1.000000e-02, 0.90255), // ours 0.87859 (−2.65 %)
+    (2.530000e-02, 0.79241), // ours 0.71967 (−9.18 %)
+    (5.000000e-02, 0.54768), // ours 0.48432 (−11.57 %)
+    (1.035000e-01, 0.35619), // ours 0.33874 (−4.90 %)
+    (2.000000e-01, 0.27905), // ours 0.26517 (−4.98 %)
+    (3.900000e-01, 0.22681), // ours 0.25083 (+10.59 %)
+    (6.250000e-01, 0.19328), // ours 0.21794 (+12.76 %)
+    (1.050000e+00, 0.16345), // ours 0.18220 (+11.47 %)
+    (2.020000e+00, 0.13644), // ours 0.18971 (+39.04 %)
+    (3.750000e+00, 0.11994), // ours 0.16209 (+35.15 %)
+];
+
+/// The characterisation envelope [`GRAPHITE_KERNEL_WIDTH`] is asserted inside:
+/// **50 %**, against a worst measured deviation of +39.0 %.
+///
+/// This is a **characterisation** bound on a known open defect — the same
+/// contract [`H2O_KERNEL`] carries. It is sized to fail if the defect grows, not
+/// to bless it. **Tighten it to ~15 % when the emission grid is refined; never
+/// widen it.**
+pub const GRAPHITE_KERNEL_WIDTH_TOL: f64 = 0.50;
+
+/// Below this energy the table-interpolation excess is swamped by the kernel's
+/// own spread, and what remains is the equiprobable representation's own
+/// narrowing — which holds inside [`GRAPHITE_KERNEL_WIDTH_NARROW_TOL`].
+/// Asserted separately because the two halves of the table fail for different
+/// reasons and a single envelope would hide that.
+pub const GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV: f64 = 0.2;
+
+/// The envelope the width holds below
+/// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`]: **15 %**, against a worst
+/// measured deviation of −11.6 %, and it is **one-signed** (always narrow).
+pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.15;
+
 /// Linear-linear interpolation on an ascending `(E, sigma)` table, returning
 /// zero outside it — the same contract as NJOY's `gety1`, so a comparison
 /// against a PENDF or THERMR tape is made on the oracle's own terms.

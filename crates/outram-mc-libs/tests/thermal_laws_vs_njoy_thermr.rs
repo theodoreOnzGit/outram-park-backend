@@ -534,3 +534,249 @@ fn graphite_sab_cross_sections_against_njoy_thermr() {
         worst_coh.1
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Graphite — scattering ANGLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// **This crate's graphite S(α,β) scattering ANGLE matches NJOY2016's THERMR to
+/// ≤ 0.009 absolute on μ̄, which excludes the thermal angle as the cause of the
+/// FHR ring-RPT +4004 pcm residual.**
+///
+/// # Why this test exists
+///
+/// Every other thermal test in this file is an **energy-domain** test: cross
+/// section (how often a neutron collides) and `⟨E′⟩/E` (how much energy it
+/// loses). Neither constrains μ. Until 2026-09-12 the only assertion on a
+/// thermal cosine anywhere in this crate was `(-1.0..=1.0).contains(&mu)` —
+/// "is it a valid cosine". The angle sets σ_tr = σ_s(1 − μ̄), hence the
+/// diffusion coefficient, hence the thermal flux shape in a heterogeneous cell,
+/// which is the axis the residual hunt (`op-mzvp.2.12`) had narrowed to.
+///
+/// # Methodology
+///
+/// 200 000 samples of `ThermalScattering::sample` at each of the thirteen
+/// energies of [`GRAPHITE_MUBAR`], on `tsl-crystalline-graphite` (MAT 30) at
+/// **600 K — a tabulated temperature on that tape**, so no interpolation is
+/// involved. The two thermal channels are separated by the one unambiguous
+/// signature: coherent elastic is the only one that leaves `E′` exactly equal
+/// to `E`.
+///
+/// The oracle is NJOY2016 THERMR, and its two halves are independent of each
+/// other:
+///
+/// - **inelastic** — the 16 equally-probable laboratory cosines MF=6/MT=229
+///   carries per outgoing-energy bin, folded with that record's own `f(E′)`;
+/// - **coherent elastic** — the Bragg edge table `(E_i, f_i)` recovered from
+///   the risers of the `E·σ_coh(E)` staircase in MF=3/MT=230, with
+///   `μ_i = 1 − 2E_i/E`. This never reads this crate's edge table.
+///
+/// Deck and the full measured table: `examples/graphite_mubar_vs_njoy_thermr.rs`
+/// and [`GRAPHITE_MUBAR`]'s own doc comment.
+///
+/// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0)
+///
+/// Worst **+0.0085 absolute on μ̄_inelastic** at 0.0253 eV — a real 5σ
+/// deviation on the 400 000-sample run the golden table was taken from, not
+/// noise — and **+0.0030 on μ̄_elastic** at 0.2 eV.
+///
+/// # The bound is ABSOLUTE, and that is deliberate
+///
+/// μ̄_inelastic passes through zero near 0.9 eV. A *relative* envelope blows up
+/// there for arithmetic reasons and means nothing — the same trap
+/// [`GRAPHITE_KERNEL`] records for ξ. The envelopes are 0.02 (inelastic) and
+/// 0.01 (elastic) absolute, sized to catch the measured deviation roughly
+/// doubling.
+///
+/// # What a passing result here means for the residual
+///
+/// μ̄_total is ≈ 0.05 across the whole thermal range, so an error of 0.005 moves
+/// σ_tr = σ_s(1 − μ̄) by **0.05 %**. That is the number to weigh against
+/// +4004 pcm: the thermal scattering angle is excluded.
+#[test]
+fn graphite_sab_mean_cosine_against_njoy_thermr() {
+    use outram_mc_libs::vv::njoy_golden::{
+        GRAPHITE_MUBAR, GRAPHITE_MUBAR_ELASTIC_TOL, GRAPHITE_MUBAR_TOL,
+    };
+    const N: usize = 200_000;
+
+    let Some(law) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite") else {
+        return;
+    };
+    let mut seed = 20_260_912_u64;
+    let (mut worst_in, mut worst_el): ((f64, f64), (f64, f64)) = ((0.0, 0.0), (0.0, 0.0));
+    for &(e, mu_in_njoy, mu_el_njoy, _mu_tot_njoy) in GRAPHITE_MUBAR {
+        let (mut su_in, mut n_in, mut su_el, mut n_el) = (0.0, 0usize, 0.0, 0usize);
+        for _ in 0..N {
+            let Some((ep, mu)) = law.sample(e, &mut seed) else {
+                continue;
+            };
+            assert!(
+                (-1.0..=1.0).contains(&mu),
+                "graphite returned an invalid cosine {mu} at {e} eV"
+            );
+            if (ep - e).abs() <= 1.0e-12 * e {
+                su_el += mu;
+                n_el += 1;
+            } else {
+                su_in += mu;
+                n_in += 1;
+            }
+        }
+        assert!(
+            n_in > N / 100,
+            "graphite produced almost no inelastic scatters at {e} eV"
+        );
+        let mu_in = su_in / n_in as f64;
+        let d_in = mu_in - mu_in_njoy;
+        if d_in.abs() > worst_in.0.abs() {
+            worst_in = (d_in, e);
+        }
+        if n_el > N / 100 {
+            let mu_el = su_el / n_el as f64;
+            let d_el = mu_el - mu_el_njoy;
+            if d_el.abs() > worst_el.0.abs() {
+                worst_el = (d_el, e);
+            }
+            println!(
+                "  {e:>9.4e}  inel NJOY {mu_in_njoy:>+8.5} ours {mu_in:>+8.5} ({d_in:>+8.5})  \
+                 elas NJOY {mu_el_njoy:>+8.5} ours {mu_el:>+8.5} ({d_el:>+8.5})"
+            );
+        } else {
+            println!(
+                "  {e:>9.4e}  inel NJOY {mu_in_njoy:>+8.5} ours {mu_in:>+8.5} ({d_in:>+8.5})  \
+                 elas: below the first Bragg edge, no channel"
+            );
+        }
+    }
+    assert!(
+        worst_in.0.abs() < GRAPHITE_MUBAR_TOL,
+        "graphite's inelastic mean cosine is {:+.5} from NJOY at {:.4e} eV — worse than \
+         the +0.0085 recorded on 2026-09-12. Do NOT widen this envelope: it is the only \
+         oracle on a thermal scattering angle in this crate",
+        worst_in.0,
+        worst_in.1
+    );
+    assert!(
+        worst_el.0.abs() < GRAPHITE_MUBAR_ELASTIC_TOL,
+        "graphite's coherent-elastic mean cosine is {:+.5} from the Bragg staircase at \
+         {:.4e} eV — worse than the +0.0030 recorded on 2026-09-12",
+        worst_el.0,
+        worst_el.1
+    );
+    println!(
+        "  worst: inelastic {:+.5} at {:.4e} eV, coherent-elastic {:+.5} at {:.4e} eV",
+        worst_in.0, worst_in.1, worst_el.0, worst_el.1
+    );
+}
+
+/// **This crate's graphite S(α,β) kernel has the right MEAN outgoing energy and
+/// the wrong WIDTH: −2.7 % to −11.1 % narrow below 0.2 eV, and up to +39 % broad
+/// at 2 eV. Measured 2026-09-12; worth −63 pcm, which is not the ring-RPT
+/// residual.**
+///
+/// # Why a second moment
+///
+/// [`GRAPHITE_KERNEL`] is `⟨E′⟩/E`, the **first** moment, and it agrees with
+/// NJOY to 0.1 % above 0.2 eV. A kernel can have exactly the right mean and the
+/// wrong spread — and the spread is what decides how many neutrons cross the
+/// 0.625 eV group boundary per collision, i.e. where the 1/E slowing-down
+/// spectrum joins the Maxwellian. In a pebble whose `p` is 0.48, half the
+/// neutron economy turns on that crossing. Nothing here had ever measured it.
+///
+/// # Methodology
+///
+/// 200 000 samples of `ThermalScattering::sample` at each of the thirteen
+/// energies of [`GRAPHITE_KERNEL_WIDTH`], reduced to `sqrt(var(E′))/⟨E′⟩` with
+/// the coherent-elastic channel removed by the `E′ == E` signature (it would
+/// otherwise contribute a spurious zero-width spike). `tsl-crystalline-graphite`
+/// (MAT 30) at **600 K — a tabulated temperature**. The oracle is a quadrature
+/// on THERMR's MF=6/MT=229 matrix: no sampling on that side.
+///
+/// # The defect, and what it is
+///
+/// The sign flips at 0.39 eV, which is the tell. Below it, what is measured is
+/// the 16-bin equiprobable representation's own truncation of the tails
+/// (one-signed narrow). Above it, the emission tables sit on a 48-point log grid
+/// over 1e-5 … 4 eV — **adjacent incident energies are 31.6 % apart** — and
+/// `select_table` picks between the two bracketing tables by ACE statistical
+/// interpolation. Mixing two tables whose means are 31.6 % apart adds a variance
+/// `r(1−r)(m₂−m₁)²` the true kernel has not got, and above 0.4 eV, where the
+/// intrinsic spread has fallen to `w ≈ 0.12`, that added variance dominates.
+///
+/// Raising `N_EMIT_GRID` from 48 to 192 collapses +39.0 % at 2 eV to −2.3 %,
+/// which is the confirmation that the grid is the cause and not something in the
+/// S(α,β) integration.
+///
+/// # It was priced, not assumed
+///
+/// `examples/fhr_ring_rpt_endf.rs` with `OUTRAM_RINGRPT_ONLY=csg`, same deck,
+/// same seed, 2026-09-12: `N_EMIT_GRID = 48` gives k = 1.40745 ± 0.00214 and
+/// `N_EMIT_GRID = 192` gives k = 1.40682 ± 0.00221 — **−63 pcm**, inside its own
+/// sampling error, against the +4004 pcm residual under investigation. A real
+/// defect, and not that one.
+///
+/// # The envelopes
+///
+/// 50 % across the table is a **characterisation** bound on the open defect, the
+/// same contract [`H2O_KERNEL`] carries — sized to fail if it grows, not to
+/// bless it. 15 % and one-signed below 0.2 eV is the genuine quality bound on
+/// the equiprobable representation. **Tighten the first to ~15 % when the grid
+/// is refined; never widen either.**
+#[test]
+fn graphite_sab_kernel_width_against_njoy_thermr() {
+    use outram_mc_libs::vv::njoy_golden::{
+        GRAPHITE_KERNEL_WIDTH, GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV,
+        GRAPHITE_KERNEL_WIDTH_NARROW_TOL, GRAPHITE_KERNEL_WIDTH_TOL,
+    };
+    const N: usize = 200_000;
+
+    let Some(law) = law_or_skip("tsl-crystalline-graphite.endf", 30, 600.0, "c_Graphite") else {
+        return;
+    };
+    let mut seed = 20_260_912_u64;
+    let (mut worst, mut worst_e) = (0.0_f64, 0.0_f64);
+    for &(e, w_njoy) in GRAPHITE_KERNEL_WIDTH {
+        let (mut s1, mut s2, mut k) = (0.0, 0.0, 0usize);
+        for _ in 0..N {
+            let Some((ep, _mu)) = law.sample(e, &mut seed) else {
+                continue;
+            };
+            if (ep - e).abs() <= 1.0e-12 * e {
+                continue;
+            }
+            s1 += ep;
+            s2 += ep * ep;
+            k += 1;
+        }
+        assert!(k > N / 100, "no inelastic scatters at {e} eV");
+        let (m1, m2) = (s1 / k as f64, s2 / k as f64);
+        let w = (m2 - m1 * m1).max(0.0).sqrt() / m1;
+        let rel = w / w_njoy - 1.0;
+        println!(
+            "  {e:>9.4e}  NJOY {w_njoy:>8.5}  ours {w:>8.5}  {:>+7.2} %",
+            100.0 * rel
+        );
+        if rel.abs() > worst.abs() {
+            worst = rel;
+            worst_e = e;
+        }
+        if e < GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV {
+            assert!(
+                rel < 0.0 && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
+                "graphite's kernel width is {:+.2} % from NJOY at {e:.4e} eV — below \
+                 {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it was one-signed narrow \
+                 and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12",
+                100.0 * rel
+            );
+        }
+    }
+    assert!(
+        worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
+        "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
+         the +39.0 % recorded on 2026-09-12. This is a CHARACTERISATION bound on a known \
+         defect: do not widen it",
+        100.0 * worst
+    );
+    println!("  worst {:+.2} % at {worst_e:.4e} eV", 100.0 * worst);
+}

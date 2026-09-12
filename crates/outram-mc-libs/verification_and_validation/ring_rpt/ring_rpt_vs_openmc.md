@@ -1129,6 +1129,110 @@ The `fhr_ring_rpt_endf` gate on the absolute offset against OpenMC is a
 gate, and update the Results tables above. It is a finding either way, never a
 tolerance to widen.
 
+## 2026-09-12 — the two moments of the thermal kernel that had no oracle
+
+Two things were measured against NJOY2016 THERMR that had never been compared in
+this workspace. Both are now committed gates
+(`examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs`,
+`tests/thermal_laws_vs_njoy_thermr.rs`, golden data in
+`vv::njoy_golden::GRAPHITE_MUBAR` and `::GRAPHITE_KERNEL_WIDTH`). Bead
+`op-i7u9`.
+
+### 1. The scattering ANGLE — excluded
+
+The leading hypothesis going in was that **every oracle in this crate is an
+energy-domain oracle** — σ(E), ⟨E′⟩/E, ξ, the resonance integral, area
+conservation, `p_esc`, the thermal fixed point — and that not one of them
+constrains μ. The only assertion on a thermal cosine anywhere in the crate was
+`(-1.0..=1.0).contains(&mu)`. The angle sets σ_tr = σ_s(1 − μ̄), hence the
+diffusion coefficient, hence the thermal flux shape in a heterogeneous cell,
+which is the axis this hunt had narrowed to.
+
+The oracle is in two halves, independent of each other:
+
+- **inelastic** — THERMR MF=6/MT=229 writes, per incident energy, `NEP` groups
+  of `NA + 2 = 18` numbers `(E′, f(E′), μ₁…μ₁₆)` whose sixteen cosines are
+  *equally probable* in the laboratory frame.
+  `graphite_kernel_vs_njoy_thermr.rs` parses exactly these records and throws
+  the cosines away; the new program keeps them.
+- **coherent elastic** — needs no MF=6 at all. `E·σ_coh(E)` from MF=3/MT=230 is
+  a staircase whose 296 risers *are* the Bragg edges `(E_i, f_i)`, and each edge
+  scatters at exactly `μ_i = 1 − 2E_i/E`. So μ̄_el is recovered from NJOY's own
+  cross section without ever reading this crate's edge table.
+
+Result, 400 000 samples at each of thirteen energies from 1 meV to 3.75 eV,
+600 K (a tabulated temperature on the tape):
+
+| worst | value | where |
+|---|---|---|
+| μ̄ inelastic | **+0.0085** | 0.0253 eV (5σ of the sampling — real, but tiny) |
+| μ̄ coherent elastic | **+0.0030** | 0.2 eV |
+| μ̄ total (σ-weighted) | **+0.0050** | 3.75 eV |
+
+μ̄_total is ≈ 0.05 across the whole thermal range, so an error of 0.005 moves
+σ_tr = σ_s(1 − μ̄) by **0.05 %**. Against +4004 pcm that is an exclusion.
+
+The Bragg half is the tighter of the two, and it reproduces the sign reversal —
+μ̄_el runs −0.40 at 2.6 meV, just above the first edge where only backscattering
+is open, to +0.97 at 3.75 eV where every edge is open — without being handed the
+edge table.
+
+### 2. The kernel WIDTH — a real defect, priced at −63 pcm
+
+`⟨E′⟩/E` is the *first* moment. A kernel can have exactly the right mean and the
+wrong spread, and the spread is what decides how many neutrons cross the
+0.625 eV boundary per collision. With `p = 0.48` here, half the neutron economy
+turns on that crossing. The second moment of the same MF=6 matrix gives
+`w = sqrt(var(E′))/⟨E′⟩` with no sampling on the oracle side:
+
+| E [eV] | w NJOY | w ours | rel | w ours, 4× grid | rel |
+|---|---|---|---|---|---|
+| 0.0253 | 0.79241 | 0.71967 | −9.18 % | 0.72008 | −9.13 % |
+| 0.05 | 0.54768 | 0.48432 | −11.57 % | 0.48322 | −11.77 % |
+| 0.2 | 0.27905 | 0.26517 | −4.98 % | 0.25740 | −7.76 % |
+| 0.39 | 0.22681 | 0.25083 | **+10.59 %** | 0.21578 | −4.86 % |
+| 0.625 | 0.19328 | 0.21794 | **+12.76 %** | 0.18610 | −3.72 % |
+| 2.02 | 0.13644 | 0.18971 | **+39.04 %** | 0.13329 | −2.31 % |
+| 3.75 | 0.11994 | 0.16209 | **+35.15 %** | 0.11740 | −2.11 % |
+
+**The sign flips at 0.39 eV, and that is the tell.** Below it, what is being
+measured is the 16-bin equiprobable representation truncating its own tails —
+one-signed narrow, as it must be. Above it, the emission tables sit on a
+48-point log grid over 1e-5 … 4 eV, so **adjacent incident energies are 31.6 %
+apart**, and `select_table` chooses between the two bracketing tables by ACE
+statistical interpolation. Mixing two tables whose means are 31.6 % apart adds a
+variance `r(1−r)(m₂−m₁)²` that the true kernel has not got, and above 0.4 eV —
+where the intrinsic spread has fallen to `w ≈ 0.12` — that added variance
+dominates. Raising `N_EMIT_GRID` from 48 to 192 collapses +39.0 % to −2.3 %,
+which is the confirmation.
+
+**It was then priced rather than argued about.** Same deck, same seed,
+`OUTRAM_RINGRPT_ONLY=csg`:
+
+| | k-eff | p (2-group) |
+|---|---|---|
+| `N_EMIT_GRID = 48` | 1.40745 ± 0.00214 | 0.5254 |
+| `N_EMIT_GRID = 192` | 1.40682 ± 0.00221 | 0.5249 |
+
+**−63 pcm**, inside its own sampling error, against a +4004 pcm residual. So it
+is a real defect of the thermal kernel and it is **not** this one. The grid was
+left at 48: raising it shifts every recorded thermal k-eff by tens of pcm, which
+is a re-baselining exercise, not part of a measurement.
+
+### What this leaves
+
+The `+4004 pcm` is present in full in the **ring-RPT** pebble (+4048 pcm), which
+is four concentric spheres of *homogeneous* materials, surface-tracked. No
+grains, no random packing, no delta tracking. Whatever is left is not the double
+heterogeneity and not the thermal kernel's angle. The two things in that
+four-region problem that still have no oracle at their working point are (i) the
+resonance-energy flux inside a fuel lump of *realistic* optical thickness — the
+`lump_self_shielding_scan` gate validates only the transparent limit — and
+(ii) any graphite/FLiBe system at all against a *measured* critical experiment;
+both passing benchmarks (HEU-SOL-THERM-009, LEU-COMP-THERM-008) are
+water-moderated.
+
+
 ## Remaining work
 
 
@@ -1187,6 +1291,8 @@ tolerance to widen.
    | **the reference's own particle count** | its reported 34 224 cells, inverted through an exact lattice-overlap calculation | implies pf **0.2991**; ours is 0.2993 |
    | production per absorption, **each group** | the reference's own six factors, inverted | **0.07 % / 0.02 %** |
    | **U-238 resonance escape at strong self-shielding** | **ICSBEP LEU-COMP-THERM-008** (measured; thermal, 97.5 % U-238, 176 mfp pellets) | **+2950 ± 61 pcm — NOT excluded; this is the defect** |
+   | **thermal scattering ANGLE** (2026-09-12) | NJOY THERMR MF=6/MT=229 equiprobable cosines + the MF=3/MT=230 Bragg staircase | **≤ 0.0085 absolute on μ̄ — excluded** |
+   | **thermal kernel WIDTH** (2026-09-12) | NJOY THERMR MF=6/MT=229 matrix, second moment | **−11 % to +39 % — a REAL defect, measured at −63 pcm; not this one** |
 
    > **Correction 2026-09-11 to the graphite S(α,β) outgoing-energy row.** The
    > "≤0.5 %" was real but **scoped to 0.1–4 eV**, and it was then used to argue

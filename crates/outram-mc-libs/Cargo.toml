@@ -203,6 +203,13 @@ required-features = ["endf-pebble-cases"]
 name = "graphite_kernel_vs_njoy_thermr"
 required-features = ["endf-pebble-cases"]
 
+# Oracle: the two moments of our graphite S(a,b) kernel that had NO oracle -- the
+# scattering ANGLE (vs THERMR MF=6 cosines and the MF=3/MT=230 Bragg staircase)
+# and the outgoing-energy WIDTH (vs the MF=6 matrix) -- op-mzvp.2.12, bead op-i7u9.
+[[example]]
+name = "graphite_sab_angle_and_width_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
 # Diagnostic: mean log energy decrement ABOVE the S(a,b) cutoff, where resonance
 # escape is decided (op-mzvp.2.12).
 [[example]]
