@@ -42,8 +42,13 @@ against **analytic limits or NJOY2016**, not against opinion.
 |---|---|
 | `icsbep_benchmarks.csv` | the 2 x 2 — benchmark, spectrum, U-238 share, fuel form, Δk, σ |
 | `lct008_boron_series.csv` | the poison trend across LCT-008 cases 1, 2, 8 |
+| `data_prep_verification.csv` | the 10-row NJOY2016 / analytic data-prep section |
 | `mechanism_elimination.csv` | 21 mechanisms × oracle × measured bound × excluded? |
 | `ring_rpt_equivalence_history.csv` | RPT − explicit across the two-defect fix history |
+
+`data_prep_verification.csv` overlaps `mechanism_elimination.csv` by
+construction — see the scope section below. The overlap is the point, not
+duplication to resolve.
 
 ## Two findings that must not be softened in the writing
 
@@ -60,14 +65,56 @@ against **analytic limits or NJOY2016**, not against opinion.
    `+2950`. Report it as found and as insufficient; folding it into the headline
    would overstate the diagnosis.
 
-## Scope decision (2026-09-12)
+## Nuclear data preparation: verify it here, briefly (scope decision, 2026-09-12)
 
-The NJOY2016 port is **infrastructure in this paper, not a claimed
-contribution.** Cross sections are reconstructed on device; its verification
-against NJOY2016 lives in
-`crates/njoy-outram-park-fork/verification_and_validation/` (1,174 lines,
-agreement to 7 significant figures) and is reported separately, with a
-co-author carrying the nuclear-data expertise. Phrase it as a dependency.
+NJOY is used in this project for **one thing** — preparing cross sections for
+`outram-mc-libs`. The paper must therefore carry **enough verification to
+establish the data are trustworthy**, because the first question a referee asks
+a transport paper reconstructing its own cross sections is "how do you know
+those are right?" — and "see a future paper" is not an answer.
+
+It must *not* carry a full nuclear-data treatment. That is a different paper for
+different reviewers, and the authors do not claim nuclear-data-specialist
+competence.
+
+**`data_prep_verification.csv` is the section.** Ten rows, every one a numerical
+comparison against **NJOY2016 rebuilt in-session** or an analytic limit:
+
+| | |
+|---|---|
+| U-238 / U-235 point σ, 19 probe energies | ±0.04 % / ±0.06 % |
+| U-238 capture **area** (exact integral vs published `RI_∞`) | **+0.00 %** |
+| U-238 capture **shape**, 6 resonances | worst 0.12 %, rms 0.044 % |
+| U-235 fission / capture RI | **+0.00 %** |
+| graphite S(α,β) σ | ±0.05 % |
+| moderator σ_t / σ_s, all 8 nuclides | ≤0.05 % |
+| moderator thermal capture @ 0.0253 eV | ≤0.03 % |
+| B-10 thermal absorption | 3845.9 b; 1/v to 4e-5 |
+| H-1 free-gas elastic | ≤0.09 % |
+
+**Two things make this cheap to defend.**
+
+1. **It is a comparison, not a theory claim.** The argument is "we rebuilt
+   NJOY2016, ran the same tapes through both codes, and here is the agreement."
+   Defending that needs no position on R-matrix formalism or probability-table
+   methods — only that the comparison was done correctly. State the NJOY2016
+   version and that it was built in-session.
+2. **These rows are already load-bearing in the localisation.** Each one
+   simultaneously verifies the data preparation *and* excludes a mechanism in
+   `mechanism_elimination.csv`. The section is structurally required by the
+   argument, so it reads as method rather than as a defensive appendix.
+
+The oracles are committed as **golden data**
+(`tests/u238_vs_njoy_pendf_golden.rs`, `tests/thermal_laws_vs_njoy_thermr.rs`),
+so a reader can re-check the comparison without building NJOY2016. Say so — it
+is the difference between a reproducible claim and a trust-me one.
+
+**Deliberately out of scope**, and not on the Monte Carlo path at all: ERRORR /
+MF=32 covariance, GROUPR / GAMINR / COVR multigroup, WIMSR, LEAPR, SAMM LRF=7,
+and windowed multipole. Those 1,174 lines in
+`crates/njoy-outram-park-fork/verification_and_validation/` are banked for a
+separate paper with a co-author carrying nuclear-data expertise. If a referee
+asks for more, that record exists and can be cited — but do not lead with it.
 
 ## Regenerating the underlying results
 
