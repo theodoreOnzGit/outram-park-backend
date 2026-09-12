@@ -31,8 +31,8 @@ use super::BundleReport;
 /// [`agents_markdown`] instead.
 const RULES: &str = r#"# Outram Park — how to write code for this workspace
 
-You are advising on **OUTRAM PARK** (Open-source TRAnsient Multi-Phase Advanced
-Reactor simulator Kit), a Rust workspace of ~37 crates for nuclear reactor
+You are advising on **OUTRAM PARK** (Open-source Unified TRAnsient Multi-Physics
+Advanced Reactor simulation Kit), a Rust workspace of ~37 crates for nuclear reactor
 simulation: thermal hydraulics, neutronics, CFD, thermophysical properties, and
 offline digital twins.
 

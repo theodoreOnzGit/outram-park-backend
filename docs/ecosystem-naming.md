@@ -71,21 +71,55 @@ orphaned — they simply have no domain label yet.
 
 ## The name
 
-**Settled 2026-08-05.** The canonical expansion is:
+**Settled 2026-08-05. Revised 2026-09-12: "Multi-Phase" → "Multi-Physics".**
+The canonical expansion is:
 
-> **O**pen-source **U**nified **TR**Ansient **M**ulti-**P**hase **A**dvanced
+> **O**pen-source **U**nified **TR**Ansient **M**ulti-**P**hysics **A**dvanced
 > **R**eactor simulation **K**it
 
-Written out: *Open-source Unified TRAnsient Multi-Phase Advanced Reactor
+Written out: *Open-source Unified TRAnsient Multi-Physics Advanced Reactor
 simulation Kit*. **"simulation" is lower-case** — it is a connecting word that
 contributes no letter to the acronym, so it is not capitalised. Capitals mark
 the letters that spell OUTRAM PARK.
 
-This supersedes both forms currently in the repository — `README.md` and
-`CLAUDE.md` ("…Advanced Reactor **simulator** Kit", no "Unified") and
-`RESPONSIBLE_USE.md` ("Open Source Unified … **Simulation** Kit"). **A sweep is
-outstanding** across the READMEs, `CLAUDE.md`, the five compliance documents
-and any published crate metadata.
+### Why "Multi-Physics" and not "Multi-Phase" (2026-09-12, maintainer decision)
+
+**The acronym is unaffected.** "Multi-**P**hysics" supplies the same `M` and `P`
+that "Multi-**P**hase" did, so OUTRAM PARK still spells out exactly.
+
+**It is also the more accurate word.** Multiphase flow is *one* crate of ~37 —
+`outram-foam-multiphase`, itself a scaffold with no human V&V. What the
+workspace actually spans is neutronics (Monte Carlo *and* deterministic),
+nuclear data processing, thermal hydraulics, fuel performance, structural
+mechanics and plasticity, granular DEM, molten-salt thermochemistry, depletion,
+process simulation and CFD. "Multi-Phase" names a sub-capability and undersells
+the rest; "Multi-Physics" names what the thing is.
+
+That matters increasingly as the project is cited: an acronym expanded one way
+in an arXiv preprint and another way in the repository is the kind of drift that
+is expensive to undo later, because published papers cannot be edited.
+
+### Sweep: DONE (2026-09-12)
+
+The sweep flagged here as outstanding has been carried out, and it corrected two
+*separate* errors beyond the Multi-Phase → Multi-Physics change:
+
+| file | was | issue |
+|---|---|---|
+| `README.md` (parent) | "Open-source TRAnsient … **simulator** Kit" | no "Unified" — the `U` had no source |
+| `outram-park-backend/README.md` | same | same |
+| `outram-park-backend/CLAUDE.md` | same | same |
+| `crates/kovan-semantics/…/agents_md.rs` | same | same |
+| `crates/outram-foam-turbulence-lib/README.md` | same | same |
+| `outram-park/src/main.rs` (`--help` text) | same | same |
+| `RESPONSIBLE_USE.md` | "Open Source Unified … **Simulation** Kit" | over-capitalised, "Simulation" |
+
+All seven now carry the canonical form verbatim.
+
+**Published crate metadata is deliberately NOT swept.** Versions already on
+crates.io cannot be edited, so their descriptions keep whatever wording they
+shipped with; the correction applies from the next publish onward. Do not treat
+an old crates.io page as evidence the sweep was missed.
 
 ---
 

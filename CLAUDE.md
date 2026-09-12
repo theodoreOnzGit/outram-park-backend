@@ -1477,7 +1477,8 @@ regions of the same fields, then synchronise.
 ## What this is
 
 **OUTRAM PARK backend** — the Cargo **workspace** that houses the OUTRAM PARK
-(Open-source TRAnsient Multi-Phase Advanced Reactor simulator Kit) Rust suite.
+(Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit)
+Rust suite.
 Several crates that used to live as independent GitHub repositories under
 `github.com/theodoreOnzGit` are now consolidated here under `crates/` and are
 built, tested, and published from this single repository.
