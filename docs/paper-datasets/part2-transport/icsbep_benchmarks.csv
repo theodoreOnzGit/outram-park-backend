@@ -1,0 +1,5 @@
+benchmark,common_name,spectrum,u238_share_of_heavy_metal,fuel_form,delta_k_pcm,statistical_sigma_pcm,source_record
+HEU-MET-FAST-001,Godiva,fast,5%,bare metal sphere,+57,173,ring_rpt/ring_rpt_vs_openmc.md
+IEU-MET-FAST-002,Jemima,fast,83% core / 99.3% reflector,natural-U-reflected 16% U metal,+6,173,ring_rpt/ring_rpt_vs_openmc.md
+HEU-SOL-THERM-009 case 1,,thermal,5%,water-reflected homogeneous solution sphere,-18,171,ring_rpt/ring_rpt_vs_openmc.md
+LEU-COMP-THERM-008 case 1,B&W critical lattice,thermal,97.5%,1.03 cm UO2 pellets (heterogeneous),+2950,61,ring_rpt/ring_rpt_vs_openmc.md

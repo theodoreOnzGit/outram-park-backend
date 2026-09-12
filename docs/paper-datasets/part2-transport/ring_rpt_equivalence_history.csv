@@ -1,0 +1,5 @@
+configuration,delta_rpt_minus_explicit_pcm,sigma_pcm,sigma_distance,note,source_record
+reflective sphere both defects fixed,+226,316,0.71,the reproduced result,ring_rpt/ring_rpt_vs_openmc.md
+reflective sphere packing-fraction defect present,+1130,319,3.54,op-8l2e; explicit pebble packed 2.6% over the deck,ring_rpt/ring_rpt_vs_openmc.md
+reflective sphere before free-gas target motion too,+163,281,0.58,op-50vu; two defects cancelling - agreement was coincidental,ring_rpt/ring_rpt_vs_openmc.md
+OpenMC reference (deck author),-31,92,0.34,reference value from arXiv companion / GH #156,ring_rpt/ring_rpt_vs_openmc.md

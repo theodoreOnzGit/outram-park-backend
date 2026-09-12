@@ -1,0 +1,4 @@
+case,soluble_boron_ppm,boron_atom_density_per_barn_cm,solid_poison,fuel_pins,delta_k_pcm,statistical_sigma_pcm,source_record
+1,1511,1.6769e-5,none,4961,+2950,61,ring_rpt/ring_rpt_vs_openmc.md
+2,1335.5,1.4821e-5,none,4808,+2271,61,ring_rpt/ring_rpt_vs_openmc.md
+8,794,8.8117e-6,144 pyrex rods,4808,+1713,60,ring_rpt/ring_rpt_vs_openmc.md
