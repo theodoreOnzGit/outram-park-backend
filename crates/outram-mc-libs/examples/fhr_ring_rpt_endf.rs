@@ -119,7 +119,27 @@
 //!    the mechanism was there; had MF=4 silently failed to parse, this run would
 //!    have measured the same -81 pcm and meant the opposite.
 //!
-//! 6. Not a validated result — an AI-assisted code-to-code check.
+//! 6. **The pricing harness has a positive control, and it passes.** A table of
+//!    null results is only worth reading if the instrument that produced it can
+//!    produce a non-null one. `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the
+//!    transport temperature, which for a pointwise nuclide changes the kinematics
+//!    only (the cross sections were already broadened to 600 K at construction),
+//!    so what goes away is free-gas target motion -- the defect bead `op-50vu`
+//!    recorded and fixed. Same case, same seed, 2026-09-12:
+//!
+//!    ```text
+//!      target motion     k_eff (ring-RPT CSG)   p vs OpenMC   eps vs OpenMC
+//!      sampled (correct) 1.40546 +/- 0.00234    +8.54 %       -4.99 %
+//!      AT REST (broken)  1.38304 +/- 0.00223    +6.03 %       -3.69 %
+//!      difference        -2242 +/- 323 pcm      -2.51 points  +1.30 points
+//!    ```
+//!
+//!    **-2242 +/- 323 pcm at 6.9 sigma**, on the same 4000 x [30 + 80] statistics
+//!    that returned 0.38 and 0.26 sigma for the two mechanisms above. So the
+//!    harness resolves a two-thousand-pcm effect comfortably, and those two zeros
+//!    are measurements rather than failures to measure.
+//!
+//! 7. Not a validated result — an AI-assisted code-to-code check.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -541,11 +561,30 @@ mod desktop {
         eprintln!();
 
         let compute = ComputeType::CpuMultiThread(Default::default());
+        // ── Positive control: can the pricing harness SEE a big effect at all? ──
+        //
+        // `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the transport temperature, which
+        // for a HIGH-tier (pointwise) nuclide changes the *kinematics only*: the
+        // cross sections were Doppler-broadened to 600 K at construction and are
+        // temperature-independent at lookup, so the collision rate is untouched and
+        // what goes away is free-gas target motion. That is exactly the defect bead
+        // `op-50vu` recorded — a target held at rest can only take energy away, so
+        // there is no thermal equilibrium at all — and it was worth ~1700 pcm.
+        //
+        // A table of null results is only worth reading if the instrument that
+        // produced it can produce a non-null one. This row is that demonstration.
+        let target_at_rest = std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok();
+        if target_at_rest {
+            eprintln!(
+                "  !! POSITIVE CONTROL: free-gas target motion REMOVED — transport\n\
+                 \x20    temperature zeroed. Known-broken on purpose."
+            );
+        }
         let keff = KeffSettings {
             n_particles: 4000,
             n_inactive: 30,
             n_active: 80,
-            temperature_k: TEMP_K,
+            temperature_k: if target_at_rest { 0.0 } else { TEMP_K },
             compute,
             ..KeffSettings::default()
         };

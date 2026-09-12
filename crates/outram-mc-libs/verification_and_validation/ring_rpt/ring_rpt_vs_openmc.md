@@ -187,15 +187,25 @@ and it is what makes each null result readable, because a mechanism priced at
 zero and a mechanism that was never switched on measure the same.
 
 Running total of what has been **priced** on this pebble, as opposed to merely
-checked for accuracy:
+checked for accuracy. Every row is the same case at the same 4000 × [30 + 80]
+statistics, differing in one switch:
 
-| mechanism, switched off | Δk | p moves |
+| mechanism, switched off | Δk | p vs OpenMC moves |
 |---|---|---|
-| graphite S(α,β) → free gas | −127 ± 337 pcm | +8.54 % → +8.18 % |
-| MF=4 elastic angle → isotropic CM | −81 ± 317 pcm | +8.54 % → +8.49 % |
+| graphite S(α,β) → free gas | −127 ± 337 pcm (0.38σ) | +8.54 % → +8.18 % |
+| MF=4 elastic angle → isotropic CM | −81 ± 317 pcm (0.26σ) | +8.54 % → +8.49 % |
+| **free-gas target motion → at rest** (control) | **−2242 ± 323 pcm (6.9σ)** | +8.54 % → +6.03 % |
 
-Neither is within an order of magnitude of the +4000 pcm residual, and neither
-moves the resonance-escape error that carries it.
+The third row is a **positive control**, not a candidate: it reinstates the defect
+`op-50vu` recorded and fixed (a target held at rest can only take energy away, so
+there is no thermal equilibrium at all). It is there because a table of null
+results is only worth reading if the instrument that produced it can produce a
+non-null one. It resolves −2242 pcm at 6.9σ on the same statistics that returned
+0.38σ and 0.26σ above, so those two zeros are measurements, not failures to
+measure.
+
+Neither candidate is within an order of magnitude of the +4000 pcm residual, and
+neither moves the resonance-escape error that carries it.
 
 ## Methodology
 
