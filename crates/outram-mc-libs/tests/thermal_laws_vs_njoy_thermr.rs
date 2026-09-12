@@ -718,9 +718,10 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
 ///
 /// # Results (2026-09-12, after the fix)
 ///
-/// One-signed narrow at all thirteen energies, **worst −2.50 % at 0.1035 eV**,
-/// rms 1.78 %. The full before/after table is in [`GRAPHITE_KERNEL_WIDTH`]'s
-/// doc comment, which keeps the superseded column.
+/// One-signed narrow at all thirteen energies, **worst −2.33 % at 0.05 eV**
+/// here, and −2.32 % at 0.1035 eV in the 400 000-sample example. The full
+/// before/after table is in [`GRAPHITE_KERNEL_WIDTH`]'s doc comment, which keeps
+/// the superseded column.
 ///
 /// # The envelopes
 ///
@@ -781,7 +782,7 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
     assert!(
         worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
         "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
-         the −2.50 % recorded on 2026-09-12 after the emission tabulation was resized. \
+         the −2.33 % recorded on 2026-09-12 after the emission tabulation was resized. \
          Do not widen this bound: it is what stops the +39 % defect returning",
         100.0 * worst
     );

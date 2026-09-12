@@ -41,28 +41,54 @@
 //! 0. Recording the measurement is what caught it, which is the whole argument
 //! for asserting oracle comparisons rather than printing them.
 //!
-//! # V&V result (2026-09-11, ENDF/B-VIII.0 @ 600 K, 200 000 samples/energy)
+//! # V&V result (2026-09-12, ENDF/B-VIII.0 @ 600 K, 200 000 samples/energy)
 //!
 //! ```text
-//!     E [eV]      <E'>/E          xi    xi/xi_fg  up-scat %
-//!     0.0253     1.19080    -0.08859      -0.562      15.6
-//!     0.0500     1.08498    -0.04072      -0.258      19.6
-//!     0.1000     1.01497     0.01998       0.127      25.7
-//!     0.2000     0.95249     0.08005       0.507      25.3
-//!     0.5000     0.89721     0.13716       0.869      25.2
-//!     1.0000     0.87779     0.14583       0.924      22.3
-//!     2.0000     0.86760     0.16050       1.017      24.1
-//!     3.0000     0.86390     0.15595       0.988      11.6
-//!     3.9000     0.86271     0.15801       1.002      11.1
+//!     E [eV]      <E'>/E          xi    xi/xi_fg  up-scat %     was xi/xi_fg
+//!     0.0253     1.19491    -0.08662      -0.549      15.9        -0.562
+//!     0.0500     1.09029    -0.03948      -0.250      21.2        -0.258
+//!     0.1000     1.01840     0.01882       0.119      27.1         0.127
+//!     0.2000     0.95247     0.08812       0.559      29.0         0.507
+//!     0.5000     0.89705     0.13226       0.838      23.8         0.869
+//!     1.0000     0.87735     0.14590       0.925      17.5         0.924
+//!     2.0000     0.86735     0.15248       0.966       9.6         1.017
+//!     3.0000     0.86363     0.15506       0.983       8.0         0.988
+//!     3.9000     0.86228     0.15579       0.987       5.8         1.002
 //! ```
 //!
-//! **`xi/xi_fg` = 1.002 at 3.9 eV.** The graphite kernel converges onto the
-//! analytic free-gas asymptote to 0.2 % at the top of the thermal range, with no
-//! overshoot. The moderator is therefore not transferring too much energy per
-//! collision, and the ~+1.7 % k offset against OpenMC is not a graphite-kernel
-//! effect. That is an exclusion, and it is the reason the search moved to
-//! H-in-H2O (GitHub #188), whose kernel does *not* converge — its deviation
-//! grows with energy instead.
+//! **`xi/xi_fg` = 0.987 at 3.9 eV**, approaching the analytic free-gas asymptote
+//! from below with no overshoot. The moderator is therefore not transferring too
+//! much energy per collision, and the ~+1.7 % k offset against OpenMC is not a
+//! graphite-kernel effect. That is an exclusion, and it is the reason the search
+//! moved to H-in-H2O (GitHub #188), whose kernel does *not* converge — its
+//! deviation grows with energy instead.
+//!
+//! # The previous 1.002 was two errors cancelling — read this before quoting it
+//!
+//! On 2026-09-11 this table read **1.002 at 3.9 eV** and the prose above said
+//! "converges to 0.2 %". That agreement was propped up by GitHub #190: the
+//! emission tables then sat on a 48-point incident grid, which made the sampled
+//! kernel **+35 % too broad at 3.75 eV**, and a too-broad kernel inflates
+//! `xi = <ln(E/E')>`. Resizing the tabulation (`N_EMIT_GRID` 48 → 384,
+//! `N_OUTGOING` 16 → 64) removed the inflation, and what was left underneath is
+//! a real and *expected* dilution this program has always had:
+//!
+//! **`xi` here is the whole thermal channel, not the inelastic one.** Every
+//! `ThermalScattering::sample` is counted, and a **coherent-elastic** scatter
+//! leaves `E' == E`, contributing `ln(E/E') = 0`. At 3.9 eV the Bragg channel is
+//! `0.0665 / (4.6739 + 0.0665) = 1.40 %` of the cross section
+//! ([`outram_mc_libs::vv::njoy_golden::GRAPHITE_XS_INELASTIC`] and
+//! [`GRAPHITE_XS_COHERENT`](outram_mc_libs::vv::njoy_golden::GRAPHITE_XS_COHERENT)),
+//! so `xi_total ≈ (1 − 0.0140)·xi_inelastic = 0.986·xi_inelastic`. Measured:
+//! **0.987**. The inelastic-only `xi`, compared against NJOY's own MF=6/MT=229
+//! rather than against the free-atom asymptote, agrees to **−0.13 % at 3.75 eV**
+//! (`examples/thermal_emission_grid_convergence.rs`).
+//!
+//! So the free-gas asymptote is reached by the *inelastic* kernel to ~0.1 %, and
+//! the 1.4 % shortfall in this table is graphite's Bragg channel, correctly
+//! present. The number to keep is 0.987, and the lesson is that 1.002 was better
+//! than the truth — a defect and a dilution of similar size pointing opposite
+//! ways.
 //!
 //! ```text
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \

@@ -271,38 +271,50 @@ fn endf_f(s: &str) -> f64 {
 /// [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL`]. Sampling standard error
 /// is computed per row and printed rather than assumed.
 ///
-/// # Results (2026-09-11, NJOY2016 2016.79, ENDF/B-VIII.0)
+/// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0)
 ///
 /// ```text
 ///    E [eV]     <E'>/E ours   NJOY       rel       1 sigma   coh. elastic
-///    0.01          4.89774   4.90799   −0.21 %     0.34 %       83 %
-///    0.0253        1.88355   1.90393   −1.07 %     0.25 %       78 %
-///    0.05          1.24300   1.26414   −1.67 %     0.13 %       65 %
-///    0.11157       1.00418   1.01158   −0.73 %     0.07 %       43 %
-///    0.2           0.93631   0.93648   −0.02 %     0.05 %       27 %
-///    0.41704       0.89017   0.89041   −0.03 %     0.04 %       13 %
-///    0.625         0.87895   0.87857   +0.04 %     0.04 %        9 %
-///    1.05          0.86956   0.86953   +0.00 %     0.03 %        5 %
-///    1.855         0.86457   0.86398   +0.07 %     0.03 %        3 %
-///    3.75          0.86125   0.86040   +0.10 %     0.03 %        1 %
+///    0.01          4.89068   4.90799   −0.35 %     0.34 %       83 %
+///    0.0253        1.90594   1.90393   +0.11 %     0.26 %       78 %
+///    0.05          1.25800   1.26414   −0.49 %     0.14 %       65 %
+///    0.11157       1.00932   1.01158   −0.22 %     0.07 %       43 %
+///    0.2           0.93641   0.93648   −0.01 %     0.05 %       27 %
+///    0.41704       0.89010   0.89041   −0.03 %     0.04 %       13 %
+///    0.625         0.87878   0.87857   +0.02 %     0.03 %        9 %
+///    1.05          0.86925   0.86953   −0.03 %     0.03 %        5 %
+///    1.855         0.86414   0.86398   +0.02 %     0.02 %        3 %
+///    3.75          0.86076   0.86040   +0.04 %     0.02 %        1 %
 /// ```
 ///
-/// Worst **−1.67 % at 0.05 eV** on this run (seed 20 260 911, 400 000 samples),
-/// against **−1.53 % at 0.0253 eV** in the golden table, which was taken on a
-/// different seed. The two disagree by ~2 σ of the sampling noise at the points
-/// concerned, which is expected — and it is why the doc records the spread
-/// rather than a single worst-point number. Both are in the low-energy half of
-/// the table, where 65–83 % of the cross section is coherent elastic and little
-/// inelastic signal is left to measure.
+/// Worst **−0.49 % at 0.05 eV** (seed 20 260 911, 400 000 samples). Above
+/// 0.2 eV the deviation falls to ≤ 0.04 % and stays there.
 ///
-/// Above 0.2 eV the deviation falls to ≤ 0.1 % and stays there.
+/// **Superseded 2026-09-12, and the superseded column is why this matters.**
+/// The same run on 2026-09-11 read
+///
+/// ```text
+///    0.01  −0.21 %   0.0253  −1.07 %   0.05  −1.67 %   0.11157  −0.73 %
+/// ```
+///
+/// i.e. worst −1.67 %, and the prose below argued about whether −1.67 % or the
+/// golden table's −1.53 % was the "real" worst point and how much of the gap
+/// was seed noise. Both were the **16-bin equiprobable outgoing-energy
+/// representation** truncating the tails of a distribution that is very wide at
+/// those energies, and raising `N_OUTGOING` 16 → 64 removed four fifths of it.
+/// That is GitHub #190's other half; see
+/// [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`]. The low-energy
+/// rows are still the noisiest — 65–83 % of the cross section there is coherent
+/// elastic, so little inelastic signal is left to measure — but they are no
+/// longer the largest deviations.
 ///
 /// # What is asserted, and why the second gate matters more than the first
 ///
 /// Two envelopes, not one:
 ///
-/// 1. **2 %** across the whole table — the magnitude claim;
-/// 2. **0.4 % above 0.2 eV** — the *convergence* claim.
+/// 1. **1 %** across the whole table — the magnitude claim (tightened from 2 %
+///    on 2026-09-12);
+/// 2. **0.2 % above 0.2 eV** — the *convergence* claim (tightened from 0.4 %).
 ///
 /// The second is the one that carries the argument. A magnitude envelope alone
 /// would rank graphite and water as equally good, and that mistake was actually
@@ -313,8 +325,11 @@ fn endf_f(s: &str) -> f64 {
 /// This workspace repeated the claim "graphite's kernel matches THERMR to
 /// ≤ 0.5 %, water's does not" to argue that water was uniquely bad. **That
 /// figure was scoped to 0.1–4 eV.** Over the range where water is compared,
-/// graphite is −1.53 % at 0.0253 eV against water's −1.47 % — the same, not
-/// better.
+/// graphite was −1.53 % at 0.0253 eV against water's −1.47 % — the same, not
+/// better. (Both improved on 2026-09-12 when the shared cause, the equiprobable
+/// outgoing-energy representation, was resized: graphite to −0.24 % and water
+/// to −0.58 % at that energy. The lesson stands — it was one defect in a
+/// representation both laws share, and a worst-point ranking hid that.)
 ///
 /// What actually separates them is the trend. Graphite converges onto NJOY and
 /// stays there; water's deviation grows monotonically with energy, from −5.5 %

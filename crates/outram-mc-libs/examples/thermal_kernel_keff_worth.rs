@@ -172,8 +172,9 @@ fn main() {
         sets.push((label.to_string(), v));
     }
 
-    // k[config][replica]
+    // k[config][replica], and the run's own generation-spread sigma alongside.
     let mut k: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
+    let mut ks: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
     for r in 0..n_replicas {
         let settings = KeffSettings {
             n_particles,
@@ -208,6 +209,7 @@ fn main() {
             );
             eprint!(" {label} k={:.5}+/-{:.5};", res.k_mean, res.k_std);
             k[i].push(res.k_mean);
+            ks[i].push(res.k_std);
         }
         eprintln!();
     }
@@ -219,7 +221,15 @@ fn main() {
     );
     for (i, (label, _)) in sets.iter().enumerate() {
         let mean = k[i].iter().sum::<f64>() / n;
-        let sem = sem_of(&k[i]);
+        // Two independent uncertainty estimates, and the honest choice between
+        // them: the spread of the replicas when there is more than one (which
+        // assumes nothing about inter-generation correlation), else the run's
+        // own generation-spread standard error.
+        let sem = if n_replicas > 1 {
+            sem_of(&k[i])
+        } else {
+            ks[i][0]
+        };
         if i == 0 {
             println!(
                 "{label:>22} {mean:>10.5} {sem:>10.5} {:>14} {:>9} {:>8}",
@@ -236,7 +246,14 @@ fn main() {
             .map(|(a, b)| (a - b) * 1.0e5)
             .collect();
         let dm = d.iter().sum::<f64>() / n;
-        let ds = sem_of(&d);
+        let ds = if n_replicas > 1 {
+            sem_of(&d)
+        } else {
+            // Single replica: the two runs are statistically independent — they
+            // decorrelate at the first thermal collision, see the module docs —
+            // so the difference's error is the quadrature sum.
+            (ks[i][0] * ks[i][0] + ks[0][0] * ks[0][0]).sqrt() * 1.0e5
+        };
         println!(
             "{label:>22} {mean:>10.5} {sem:>10.5} {dm:>+14.1} {ds:>9.1} {:>8.1}",
             (dm / ds).abs()

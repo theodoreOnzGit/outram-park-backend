@@ -33,33 +33,53 @@
 //!     -p outram-mc-libs --features endf-pebble-cases --example h2o_kernel_vs_njoy_thermr
 //! ```
 
-//! # Results (2026-09-11, ENDF/B-VIII.0 `tsl-HinH2O`, 293.6 K, 400 000 samples)
+//! # Results (2026-09-12, ENDF/B-VIII.0 `tsl-HinH2O`, 293.6 K, 400 000 samples)
 //!
-//! **The kernel is wrong, systematically, and in one direction.**
+//! **The kernel is still too narrow, but by half what it was — and the cause is
+//! now known.**
 //!
-//! | E \[eV\] | ⟨E′⟩/E NJOY | ours | rel | ξ NJOY | ξ ours |
-//! |---|---|---|---|---|---|
-//! | 0.00101 | 11.1954 | 10.6249 | **−5.10 %** | −1.0992 | −1.0891 |
-//! | 0.0015 | 7.3050 | 6.9000 | **−5.54 %** | −0.8934 | −0.8843 |
-//! | 0.005 | 2.5102 | 2.4144 | −3.82 % | −0.4261 | −0.4266 |
-//! | 0.01 | 1.6664 | 1.6183 | −2.89 % | −0.2356 | −0.2378 |
-//! | 0.0253 | 1.1939 | 1.1763 | −1.47 % | −0.0553 | −0.0556 |
-//! | 0.05 | 1.0104 | 1.0023 | −0.81 % | 0.0870 | 0.0753 |
-//! | 0.1116 | 0.8002 | 0.8002 | **0.00 %** | 0.3669 | 0.3483 |
-//! | 0.2 | 0.7138 | 0.7181 | +0.60 % | 0.4897 | 0.4642 |
-//! | 0.625 | 0.6051 | 0.6129 | +1.29 % | 0.7105 | 0.6789 |
-//! | 1.86 | 0.5393 | 0.5472 | +1.48 % | 0.8697 | 0.8412 |
+//! | E \[eV\] | ⟨E′⟩/E NJOY | ours | rel | was (16 bins) | ξ NJOY | ξ ours |
+//! |---|---|---|---|---|---|---|
+//! | 0.0015 | 7.3050 | 7.1386 | **−2.28 %** | −5.54 % | −0.8934 | −0.8859 |
+//! | 0.005 | 2.5102 | 2.4773 | −1.31 % | −3.82 % | −0.4261 | −0.4267 |
+//! | 0.01 | 1.6664 | 1.6508 | −0.94 % | −2.89 % | −0.2356 | −0.2382 |
+//! | 0.0253 | 1.1939 | 1.1878 | −0.51 % | −1.47 % | −0.0553 | −0.0571 |
+//! | 0.05 | 1.0104 | 1.0085 | −0.19 % | −0.81 % | 0.0870 | 0.0815 |
+//! | 0.1116 | 0.8002 | 0.8028 | +0.32 % | 0.00 % | 0.3669 | 0.3562 |
+//! | 0.2 | 0.7138 | 0.7187 | +0.68 % | +0.60 % | 0.4897 | 0.4747 |
+//! | 0.625 | 0.6051 | 0.6117 | +1.09 % | +1.29 % | 0.7105 | 0.6927 |
+//! | 1.86 | 0.5393 | 0.5477 | +1.57 % | +1.48 % | 0.8697 | 0.8431 |
 //!
 //! Below the crossover at ~0.11 eV the neutron should **gain** energy and ours
 //! gains too little; above it the neutron should **lose** energy and ours loses
 //! too little. **Both halves err the same way: this kernel moves neutrons less
 //! than it should**, i.e. its outgoing-energy distribution is too narrow, sitting
-//! too close to the incident energy. Consistently, `ξ = ⟨ln(E/E′)⟩` runs **3–5 %
-//! low** across the whole range above 0.05 eV: this code's water moderates about
-//! 4 % less per collision than NJOY's.
+//! too close to the incident energy.
 //!
-//! Graphite, on the identical check, agrees to **≤ 0.5 %**. So this is not the
-//! method and not the comparison — it is water.
+//! # The cause, found 2026-09-12 — and it is NOT #190
+//!
+//! Swept against both dimensions of the emission tabulation
+//! (`examples/thermal_emission_grid_convergence.rs`), this defect is
+//! **completely insensitive to the incident-energy grid** — ⟨E′⟩/E at 1.5 meV is
+//! −5.40 % at 48 grid points and −5.51 % at 1536 — and **responds only to the
+//! equiprobable outgoing-bin count** `N_OUTGOING`: −5.51 / −3.26 / −2.10 /
+//! −1.43 % at 16 / 32 / 64 / 128 bins. Graphite's #190 was the *other*
+//! dimension, the incident grid. Same class of error, different axis of it.
+//!
+//! `N_OUTGOING` 16 → 64 landed the same day, which is the middle column above.
+//! **#188 stays open**, because this is a mitigation and not a fix: the error
+//! falls as ~1/`N_OUTGOING` with no plateau, and `ξ` — which weights the low-`E′`
+//! tail logarithmically and is therefore the most tail-sensitive moment there is
+//! — barely moved, from 3–5 % low to **2.4–3.1 % low**. This code's water still
+//! moderates about 3 % less per collision than NJOY's. The proper fix is a
+//! continuous outgoing-energy law (NJOY's `iform = 1`), not more bins.
+//!
+//! Graphite, on the identical check, now agrees to **≤ 0.6 %** everywhere — the
+//! same representation fix moved its worst point from −1.53 % to −0.56 %. What
+//! distinguishes the two laws is not the worst point but the *trend*: graphite
+//! converges onto NJOY above 0.2 eV and stays there, water's deviation grows
+//! monotonically with energy right to the top of its range, which is the
+//! signature of a kernel of the wrong width rather than the wrong scale.
 //!
 //! # Where it lives, and why it was not caught
 //!

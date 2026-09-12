@@ -109,7 +109,30 @@
 //! | Free gas, target motion sampled | 1.93656 | 0.00316 |
 //! | Bound graphite S(alpha, beta) | 1.94020 | 0.00361 |
 //!
-//! **+364 +/- 479 pcm — 0.76 sigma, consistent with zero.** In *this* model
+//! **+364 +/- 479 pcm — 0.76 sigma, consistent with zero.**
+//!
+//! **STALE for the bound arm as of 2026-09-12, and not repeated.** The S(alpha,
+//! beta) emission tabulation was resized that day (N_EMIT_GRID 48 -> 384,
+//! N_OUTGOING 16 -> 64; GitHub #190/#188), which moves every bound-graphite
+//! k-effective. That 1200-particle / [10 + 70] run is a *manual* one, not what
+//! this test file executes, and re-running it was not affordable in the same
+//! pass. The free-gas arm is unaffected -- it never touches the S(alpha, beta)
+//! tables -- so 1.93656 +/- 0.00316 still stands; the 1.94020 does not.
+//!
+//! What this test's **own** arms give, at its own 300 x [8 + 15] statistics
+//! (2026-09-12, after the resize):
+//!
+//! | Matrix treatment | k | sigma |
+//! |---|---|---|
+//! | Free gas, target motion sampled | 1.95252 | 0.01349 |
+//! | Bound graphite S(alpha, beta) | 1.91699 | 0.01115 |
+//!
+//! **-3553 +/- 1750 pcm, 2.03 sigma** -- inside the 3-sigma gate, and at 4500
+//! active histories per arm that separation is not distinguishable from noise.
+//! Do not read a physics result into it; the number that can be read is the
+//! manual 1200-particle one above, and its bound arm needs re-running. The
+//! re-baselining record is in
+//! `verification_and_validation/thermal_sab/emission_tabulation_rebaseline.md`. In *this* model
 //! (HEU kernels at pf 0.30, k ~ 1.94, a hard spectrum with a small thermal
 //! population) the crystalline law and a correct free gas simply do not differ
 //! much: graphite's bound scattering cross section at 0.0253 eV is within a few
@@ -370,8 +393,10 @@ fn bound_graphite_and_free_gas_agree_once_target_motion_is_sampled() {
 ///    `Some` inside the table's range and `None` above its ~4 eV cutoff; without
 ///    it, `None` everywhere. A silently bypassed law fails this immediately.
 /// 2. **It changes the answer.** Measured at 0.0253 eV and 293.6 K, the bound
-///    law's mean outgoing energy ratio is `1.0386 +/- 0.0006` against the free
-///    gas's `1.1386 +/- 0.0012` — the free gas sits below its own `2kT` fixed
+///    law's mean outgoing energy ratio is `1.03901 +/- 0.00065` against the free
+///    gas's `1.13863 +/- 0.00123` (re-measured 2026-09-12 after the emission
+///    tabulation was resized; it read `1.0386 +/- 0.0006` before, so the bound
+///    law's first moment barely moved here) — the free gas sits below its own `2kT` fixed
 ///    point at this energy and up-scatters harder than the lattice does. That is
 ///    a **72-sigma** gap at 200k samples, where the same physics is worth under
 ///    one sigma in k.

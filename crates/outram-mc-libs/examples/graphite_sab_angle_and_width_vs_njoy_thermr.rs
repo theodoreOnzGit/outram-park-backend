@@ -39,7 +39,7 @@
 //!   opposite signs, crossing at 0.39 eV. Sized against this oracle by
 //!   `examples/thermal_emission_grid_convergence.rs`, `N_EMIT_GRID` went 48 →
 //!   **384** and `N_OUTGOING` 16 → **64**, which leaves the width one-signed
-//!   narrow everywhere at **worst −2.50 %**. See
+//!   narrow everywhere at **worst −2.32 %**. See
 //!   [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`], which keeps the
 //!   superseded column and carries the measured k-worth on the FHR pebble.
 //!
@@ -365,10 +365,11 @@ fn golden_gate(law: &ThermalScattering) {
 /// **+39.0 % broad at 2 eV**, sign-flipping at 0.39 eV — two errors in the two
 /// dimensions of the emission tabulation, pulling opposite ways. With
 /// `N_EMIT_GRID` 48 → 384 and `N_OUTGOING` 16 → 64 (both sized by the sweep in
-/// `examples/thermal_emission_grid_convergence.rs`) it is **one-signed narrow
-/// at every energy, worst −2.50 % at 0.1035 eV, rms 1.78 %**. The before/after
-/// table and the measured k-worth on the FHR ring-RPT CSG pebble are in the
-/// golden table's doc comment.
+/// `examples/thermal_emission_grid_convergence.rs`) it is **one-signed narrow at
+/// every energy, worst −2.32 % at 0.1035 eV** here at 400 000 samples, and
+/// −2.33 % at the 200 000-sample test gate. The before/after table and the
+/// measured k-worth on the FHR ring-RPT CSG pebble are in the golden table's
+/// doc comment.
 ///
 /// Two envelopes are kept, now both at **4 % and both covering the whole
 /// table**: one on magnitude, one on sign. They were 50 % and 15 %-below-0.2 eV
@@ -410,7 +411,7 @@ fn width_golden_gate(law: &ThermalScattering) {
     assert!(
         worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
         "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
-         the −2.50 % recorded on 2026-09-12 after the emission tabulation was resized. \
+         the −2.33 % recorded on 2026-09-12 after the emission tabulation was resized. \
          Do not widen this bound: it is what stops the +39 % defect returning",
         100.0 * worst
     );
