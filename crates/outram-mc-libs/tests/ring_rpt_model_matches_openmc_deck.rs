@@ -129,6 +129,18 @@ mod deck {
         4.0 / 3.0 * std::f64::consts::PI * r.powi(3)
     }
 
+    /// The deck's FLiBe density correlation, `triso.py::flibe_density_cm3`:
+    /// `1/1000*(2416 - 0.49072*coolant_temp)`, g/cm³ with T in K.
+    pub fn flibe_density_g_per_cm3(coolant_temp_k: f64) -> f64 {
+        1.0 / 1000.0 * (2416.0 - 0.49072 * coolant_temp_k)
+    }
+
+    /// The value the deck's own docstring doctest asserts, at 720 K.
+    pub const FLIBE_DOCTEST_720K: f64 = 2.062_681_6;
+
+    /// Coolant / fuel temperature, K (`fuel_temp = coolant_temp = 600.0`).
+    pub const TEMPERATURE_K: f64 = 600.0;
+
     /// The deck's `fuel_outer_radius`, reproduced literally — through volumes,
     /// with its `0.75/np.pi` factor.
     pub fn fuel_outer_radius() -> f64 {
@@ -260,5 +272,70 @@ fn the_reflective_domain_is_the_one_the_deck_used() {
          moderator-to-fuel ratio moved with it, and that changes k far more than \
          any of the physics defects currently under investigation.",
         100.0 * flibe_share
+    );
+}
+
+/// **The FLiBe density correlation reproduces the reference deck's, including
+/// the value its own doctest asserts.**
+///
+/// # Why this one is worth an assertion when the other compositions are not
+///
+/// FLiBe is **70.4 % of the domain by volume**, so its density scales the
+/// moderator and absorber inventory of most of the problem. And unlike the other
+/// materials — whose densities are bare literals the deck sets with
+/// `set_density('g/cm3', …)` — FLiBe's is a *temperature correlation*, which is
+/// code that can be got wrong rather than a number that can be copied.
+///
+/// The deck ships its own oracle for it. `triso.py::flibe_density_cm3` carries a
+/// docstring doctest:
+///
+/// ```text
+/// >>> triso_obj.flibe_density_cm3(720)
+/// 2.0626816
+/// ```
+///
+/// so the correlation can be pinned against a value the reference itself
+/// publishes, at a temperature neither code runs at — which is a better test
+/// than agreeing at the single working point.
+///
+/// # Results (2026-09-12)
+///
+/// | T | deck doctest | this correlation |
+/// |---|---|---|
+/// | 720 K | 2.0626816 g/cm³ | 2.0626816 g/cm³ |
+/// | 600 K (working point) | — | 2.121568 g/cm³ |
+///
+/// # The rest of the composition sweep, checked by inspection
+///
+/// Every material density matches the deck exactly: fuel 10.5, buffer 1.0,
+/// PyC1 1.9, PyC2 1.87, SiC 3.2, graphite 1.1995 g/cm³. Fuel atom fractions
+/// match (`o16 = 0.5`, `carbon = 1.6667e-01` against this crate's `1/6`, uranium
+/// the remainder) — the deck's truncated `1.6667e-01` differs from `1/6` by
+/// 2e-5 relative, which is not worth chasing. FLiBe stoichiometry matches
+/// (F19 × 4, Li × 2 split by purity, Be9 × 1).
+#[test]
+fn the_flibe_density_correlation_matches_the_deck() {
+    let at_720 = deck::flibe_density_g_per_cm3(720.0);
+    let rel = (at_720 - deck::FLIBE_DOCTEST_720K).abs() / deck::FLIBE_DOCTEST_720K;
+    println!(
+        "  720 K: {at_720:.7} g/cm^3 vs the deck doctest {:.7} (rel {rel:.3e})",
+        deck::FLIBE_DOCTEST_720K
+    );
+    assert!(
+        rel < 1.0e-12,
+        "the FLiBe density correlation gives {at_720:.7} g/cm^3 at 720 K against \
+         the {:.7} its own docstring doctest asserts in triso.py ({rel:.3e} \
+         relative). FLiBe is 70.4 % of the domain by volume, so its density \
+         scales the moderator and absorber inventory of most of the problem.",
+        deck::FLIBE_DOCTEST_720K
+    );
+
+    let at_600 = deck::flibe_density_g_per_cm3(deck::TEMPERATURE_K);
+    println!("  600 K (working point): {at_600:.6} g/cm^3");
+    assert!(
+        (2.12..2.13).contains(&at_600),
+        "FLiBe density at the 600 K working point is {at_600:.6} g/cm^3; it was \
+         2.121568 when recorded. A shift here moves 70 % of the domain's \
+         inventory."
     );
 }
