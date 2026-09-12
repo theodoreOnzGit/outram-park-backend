@@ -20,6 +20,19 @@
 //!     --example fhr_ring_rpt_endf -- --search-rpt-radius
 //! ```
 //!
+//! Two environment switches cut the cost when only one number is wanted:
+//!
+//! ```text
+//! OUTRAM_RINGRPT_ONLY=csg                 one surface-tracked ring-RPT solve
+//!                                         (~5 min instead of ~40) plus the
+//!                                         six-factor decomposition
+//! OUTRAM_RINGRPT_FREE_GAS_GRAPHITE=1      run with the graphite S(α,β) law
+//!                                         REMOVED — every bound carbon moved to
+//!                                         free gas. Differencing against the
+//!                                         normal run BOUNDS what the whole
+//!                                         thermal law is worth on this pebble.
+//! ```
+//!
 //! # What it computes (full 4 cm pebble, 0.1 cm graphite shell, FLiBe, 600 K)
 //!
 //! - **Explicit-TRISO pebble** — five-layer TRISO particles randomly packed
@@ -53,7 +66,33 @@
 //!    ring-RPT pebble reproduces *this* code's explicit-TRISO pebble; the gap
 //!    between that radius and 1.4934 cm is the honest statement of how
 //!    code-dependent the fit is.
-//! 4. Not a validated result — an AI-assisted code-to-code check.
+//! 4. **The graphite S(α,β) law is priced, and it is small.** Running the
+//!    surface-tracked ring-RPT case with the law REMOVED (every bound carbon
+//!    moved to free gas, `OUTRAM_RINGRPT_FREE_GAS_GRAPHITE=1`) against the
+//!    normal run, 2026-09-12, same seed and statistics:
+//!
+//!    ```text
+//!      graphite S(a,b)   k_eff (ring-RPT CSG)   p (2-group)   vs OpenMC p
+//!      on  (the deck)    1.40546 +/- 0.00234    0.5256        +8.54 %
+//!      REMOVED           1.40419 +/- 0.00243    0.5238        +8.18 %
+//!      difference        -127 +/- 337 pcm       -0.0018       -0.36 points
+//!    ```
+//!
+//!    Deleting the entire bound thermal law -- every defect in it, known and
+//!    unknown, together -- is worth **-127 +/- 337 pcm (0.38 sigma)** here and
+//!    moves the resonance-escape error by a third of a percentage point out of
+//!    8.5. So no defect in that law can carry the +4000 pcm residual, and the
+//!    residual's signature (p too high by 8.5 %, epsilon too low by 5.0 %)
+//!    survives with no bound law present at all. The moderation in this pebble
+//!    is dominated by FLiBe, which is free-gas in both codes; the bound graphite
+//!    sits only in the inner core and the 0.1 cm shell.
+//!
+//!    This is why the mode exists: an *accuracy* statement about a mechanism
+//!    ("the law is within 0.05 % of THERMR") cannot bound a residual, because it
+//!    says nothing about how much the mechanism is worth. Turning the mechanism
+//!    off does.
+//!
+//! 5. Not a validated result — an AI-assisted code-to-code check.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -429,6 +468,28 @@ mod desktop {
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K):");
         let nucs = nuclides();
         let (mats, spec) = build_materials();
+        // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
+        //
+        // `OUTRAM_RINGRPT_FREE_GAS_GRAPHITE=1` moves every bound-graphite carbon
+        // component onto the free-gas carbon nuclide of the same isotope, so the
+        // pebble runs with no bound thermal law at all. Differencing the two runs
+        // BOUNDS everything the graphite law can be worth on this pebble — every
+        // defect in it, known and unknown, together. That bound is what says
+        // whether a few-percent error in the law can carry a 4000 pcm residual or
+        // cannot, which no accuracy statement about the law itself can settle.
+        //
+        // It is a diagnostic, not a model: the deck being compared against uses
+        // `c_Graphite`, so the free-gas run is deliberately the WRONG model.
+        let free_gas_graphite = std::env::var("OUTRAM_RINGRPT_FREE_GAS_GRAPHITE").is_ok();
+        let mats = if free_gas_graphite {
+            eprintln!(
+                "  !! SENSITIVITY MODE: graphite S(α,β) REMOVED — every bound carbon \n\
+                 \x20    moved to free gas. This is not the deck's model; it prices the law."
+            );
+            mats.into_iter().map(free_gas_carbon).collect::<Vec<_>>()
+        } else {
+            mats
+        };
         eprintln!();
 
         let compute = ComputeType::CpuMultiThread(Default::default());
@@ -1041,6 +1102,22 @@ mod desktop {
     ///   naive homogenised       1.37187 +/- 0.00232   -3327      (10.8 s)          —
     ///   ring-RPT (CSG)          1.40745 +/- 0.00214   +218 +/- 302 (0.72 s)        —
     /// ```
+    ///
+    /// Re-measured 2026-09-12, CSG case only (`OUTRAM_RINGRPT_ONLY=csg`), after
+    /// the emission-table resize (`5916b917`, `f540b6ac`, GitHub #190) made the
+    /// graphite and water thermal kernels finer in both dimensions:
+    ///
+    /// ```text
+    ///   ring-RPT (CSG)          1.40546 +/- 0.00234   (was 1.40757 +/- 0.00224)
+    /// ```
+    ///
+    /// **-211 pcm, 0.65 sigma** — consistent with the -199 +/- 317 pcm that
+    /// change's own author measured on this case, and with the -371 +/- 194 pcm
+    /// it is worth on a dedicated graphite k_inf medium. The three delta-tracked
+    /// rows above have NOT been re-run at this commit and are left as recorded;
+    /// the drift gate below is +/-1500 pcm, so a move of this size does not fire
+    /// it, and quoting a number that was not measured would be worse than
+    /// quoting a slightly stale one that was.
     ///
     /// The explicit-TRISO case reproduces **exactly** (same seed, deterministic
     /// packing). The three method deltas move by a fraction of their own sigma

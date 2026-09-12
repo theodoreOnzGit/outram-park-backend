@@ -82,6 +82,61 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-09-12 — the graphite thermal law is priced, and it is not the residual
+
+Two changes landed against the thermal scattering treatment on 2026-09-12, and
+between them they close the thermal-kernel line of inquiry for this pebble.
+
+**1. The emission tabulation was too coarse in both dimensions** (GitHub #190,
+`5916b917` / `f540b6ac`): the incident-energy grid went 48 → 384 and the
+equiprobable outgoing energies 16 → 64. On this study's surface-tracked ring-RPT
+case that moved
+
+```
+  ring-RPT (CSG)   1.40757 ± 0.00224  →  1.40546 ± 0.00234     −211 pcm (0.65σ)
+```
+
+consistent with the −199 ± 317 pcm measured for it on this case directly and the
+−371 ± 194 pcm it is worth on a dedicated graphite k∞ medium. The three
+delta-tracked rows have not been re-run at that commit and are left as recorded.
+
+**2. The bound kernels do not have the right fixed point** (GitHub #191,
+`bb94ac17`): a new oracle walks a neutron population to equilibrium on the law
+itself and compares against the Maxwellian identities `⟨E⟩ = 1.5 kT` and
+`⟨E²⟩/⟨E⟩² = 5/3`. `c_Graphite` at 600 K settles onto **607.4 ± 0.5 K (+1.24 %)**
+and both bound laws sit ~2 % narrow in the second moment, against a free-gas
+control that lands on its own temperature to +0.07 %. At the measured local slope
+of ≈52 pcm/K that displacement is worth roughly −200 pcm here.
+
+**And then the whole law was priced by deleting it.** Running the CSG case with
+every bound carbon moved to free gas (`OUTRAM_RINGRPT_FREE_GAS_GRAPHITE=1`), same
+seed and statistics:
+
+```
+  graphite S(α,β)   k_eff (ring-RPT CSG)   p (2-group)   p vs OpenMC
+  on  (the deck)    1.40546 ± 0.00234      0.5256        +8.54 %
+  REMOVED           1.40419 ± 0.00243      0.5238        +8.18 %
+  difference        −127 ± 337 pcm         −0.0018       −0.36 points
+```
+
+**Removing the entire bound thermal law — every defect in it, known and unknown,
+together — is worth −127 ± 337 pcm (0.38σ) and moves the resonance-escape error
+by a third of a percentage point out of 8.5.** The residual's whole signature (p
+too high by 8.5 %, ε too low by 5.0 %) survives with no bound law present at all.
+
+So the thermal scattering law is **bounded**, not merely accurate, and the bound
+is a few hundred pcm against a +4000 pcm residual. The reason is geometric: this
+pebble's moderation is dominated by FLiBe at 70 % of the domain by volume, which
+is free-gas in both codes, and the bound graphite sits only in the inner core and
+the 0.1 cm shell.
+
+The methodological point is worth keeping separately from the result. Every
+earlier exclusion in this study is an **accuracy** statement — "within 0.05 % of
+THERMR", "±0.04 % vs NJOY" — and an accuracy statement cannot bound a residual,
+because it says nothing about how much the mechanism is worth. Two of the three
+measurements above (#190's k impact, and this one) are **worth** statements, and
+only those can close a line of inquiry.
+
 ## Methodology
 
 **What RPT is.** A reactivity-equivalent physical transformation replaces the
