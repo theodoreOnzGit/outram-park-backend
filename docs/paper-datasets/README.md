@@ -26,8 +26,12 @@ on double heterogeneity. A method paper that must first establish its own data,
 its own kernel *and* its own geometry treatment is carrying three arguments and
 defending none of them well.
 
-**Part II must be posted before Part III** and cited by arXiv number — Part
-III's absolute-k bias is explained by Part II's LCT-008 finding.
+**The two are independent and may post in either order** (revised 2026-09-12).
+Part III's absolute-k bias was believed to be Part II's LCT-008 finding
+reappearing in a pebble; it turned out to be a sub-threshold inelastic cross
+section on F-19 (GitHub #193), and LCT-008 contains no fluorine. Part III is now
+a positive result — ring-RPT at `−85 ± 204` pcm against OpenMC — and LCT-008
+remains open as Part II's own finding (bead `op-4ic7`).
 
 ### Not in this round
 
@@ -47,9 +51,12 @@ a related-work section, figures, and co-author review. A workable shape:
 
 | | |
 |---|---|
-| **post first** | Part II — data already extracted, and it is Part III's dependency |
-| **post second** | IF97 backward equations — independent of the other two |
-| **draft, post after Part II lands** | Part III — needs Part II's arXiv identifier |
+| **post first** | Part III — data extracted and rebaselined; it is now a clean positive result, so it is the easiest to write |
+| **post second** | Part II — data extracted; carries an honest open defect (LCT-008) that needs careful framing |
+| **post third** | IF97 backward equations — independent, but its error tables still need extracting (`op-rpb6.1`) |
+
+Order changed 2026-09-12. Part III no longer depends on Part II, and closing the
+`+4000` pcm residual turned it from a discrepancy hunt into a result.
 
 They follow
 [arXiv:2608.17504](https://arxiv.org/abs/2608.17504) (Part I — Thermal

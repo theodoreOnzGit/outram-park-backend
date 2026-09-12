@@ -60,6 +60,26 @@ the methodological point.** A code-to-code comparison cannot distinguish "we are
 wrong" from "they are wrong." An ICSBEP critical configuration is `k = 1.0000`
 by construction, so there is no second opinion to argue with.
 
+### What is already excluded on LCT-008, and what method to use next
+
+Each excluded by its own oracle: σ_γ(E) pointwise vs NJOY PENDF (±0.04 %),
+resonance shape (0.12 % worst), infinitely-dilute RI (+0.00 %), the
+self-shielded **energy** treatment against an exact slowing-down solution
+(1.8σ worst), **spatial** self-shielding against a collision-probability oracle
+(`−32 ± 24` pcm, and the sign is backwards), the geometry description against
+the original MCNP deck (0 mismatches in 11,025 positions), and the tracking
+method (18 pcm, 0.05σ).
+
+**Every one of those is an accuracy statement, and Part III demonstrates that a
+wall of accuracy statements can miss a defect entirely.** The method that worked
+there — *pricing* a mechanism by switching it off and reading its reactivity
+worth, with a positive control to prove the measurement has power — is what
+should be pointed at LCT-008 next. Candidates: the B-10 thermal absorption
+treatment (the residual tracks boron), the solid-poison path case 8 adds, and
+H-in-H₂O — note that `op-77pu` records the H₂O incoherent-inelastic kernel as
+**2–5.5 % too narrow** against NJOY THERMR, a confirmed defect in the moderator
+of exactly this benchmark.
+
 ## Nuclear data preparation — brief, and framed as a comparison
 
 `data_prep_verification.csv`, every row against **NJOY2016 rebuilt in-session**
@@ -107,11 +127,26 @@ multipole. That record exists (`crates/njoy-outram-park-fork/verification_and_va
   not explain `+2950`, and folding it into the headline would overstate the
   diagnosis.
 
-## Publication order matters
+## Publication order: no longer constrained (revised 2026-09-12)
 
-Part III's absolute-k bias is explained by this paper's LCT-008 finding, so
-**Part II must be posted first, or the same day**, and Part III must cite it by
-arXiv number. Post Part II, wait for the identifier, then post Part III.
+An earlier version of this plan required Part II to post before Part III,
+because Part III's `+4004` pcm absolute-k bias was believed to be *this* paper's
+LCT-008 finding reappearing in a pebble.
+
+**That link is broken.** Part III's residual turned out to be a sub-threshold
+inelastic cross section on F-19 (GitHub #193), and the FHR pebble is 70 % FLiBe
+by volume. LCT-008 is a UO₂ / borated-water lattice with no fluorine in it, and
+every other nuclide in this repository's reference data opens its threshold
+sections at exactly 0.0 b — so LCT-008 was untouched by that fix and still reads
+`+2950 ± 61` pcm.
+
+Two consequences:
+
+1. **The two papers are independent and may post in either order.**
+2. **LCT-008 is now this paper's own open finding**, not a corroboration of
+   something happening elsewhere. Tracked as bead `op-4ic7`. Write it as an
+   unresolved defect localised by benchmark coverage — which is honest, and is a
+   stronger result than a vague "good agreement" would be.
 
 ## Regenerating
 
