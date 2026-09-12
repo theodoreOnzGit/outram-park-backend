@@ -29,6 +29,19 @@
 //! - [`search`] — reactivity search wrapping the k-eigenvalue driver (root-find
 //!   a geometry/material parameter for a target `k_eff`).
 //!
+//! # Oracles (independent solutions the drivers are measured against)
+//!
+//! - [`slowing_down`] — the epithermal slowing-down equation solved
+//!   **deterministically**, both for an infinite homogeneous medium
+//!   ([`slowing_down::solve_on_grid`], exact) and for a concentric-sphere cell
+//!   ([`slowing_down::solve_deterministic_multiregion`], exact but for the
+//!   flat-flux-per-shell discretisation). Together they are the reference the
+//!   self-shielded resonance absorption is judged against, in energy and in
+//!   space.
+//! - [`collision_probability`] — the geometric half of that: exact first-flight
+//!   collision probabilities for concentric spheres by impact-parameter track
+//!   quadrature, with a white-boundary closure.
+//!
 //! [`transport`] is a stub retained for the generic history-based loop notes;
 //! the live per-history loop is in [`transport_csg`].
 
@@ -43,3 +56,4 @@ pub mod search;
 pub mod physics_mg;
 pub mod reactor_physics;
 pub mod slowing_down;
+pub mod collision_probability;
