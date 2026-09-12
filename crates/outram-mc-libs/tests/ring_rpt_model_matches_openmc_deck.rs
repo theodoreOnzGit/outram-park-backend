@@ -69,10 +69,43 @@
 //!
 //! # What this does NOT cover
 //!
-//! Radii and the packing fraction only. It does not check material compositions,
-//! densities, or nuclide inventories against the deck. Those are worth pinning
-//! too and are not pinned here — do not read a pass as "the whole model
-//! matches".
+//! Radii and the packing fraction only, **as executable assertions**. Material
+//! compositions, densities and nuclide inventories are NOT asserted here — do
+//! not read a pass as "the whole model matches".
+//!
+//! Those were, however, checked **by inspection** on 2026-09-12, and the two
+//! levers the deck's author flagged as mattering both agree:
+//!
+//! | quantity | deck | this crate |
+//! |---|---|---|
+//! | U-235 enrichment | `build_fhr_materials(19.9, …)` atom % | `ENRICH = 0.199` |
+//! | Li-7 purity | `build_fhr_materials(…, 99.995, …)` | `LI7_PURITY = 0.99995` |
+//! | temperature | `fuel_temp = coolant_temp = 600.0` | `TEMP_K = 600.0` |
+//!
+//! Li-7 purity is worth singling out. `rpt_pebble.py`'s own docstring records
+//! that an earlier run was wrong because *"the flibe was over absorbent when i
+//! carelessly left it at 99.5 % purity rather than 99.995 % purity"* — Li-6 is a
+//! strong thermal absorber, so that one digit is worth a great deal of k. It
+//! matches.
+//!
+//! Those three live as `const`s inside `examples/fhr_ring_rpt_endf.rs` rather
+//! than in the library, so a test cannot import them; asserting them here would
+//! only compare a literal against itself. Making them assertable would mean
+//! lifting the pebble specification into `pebble_beds::fhr_pebble`, which is
+//! worth doing and is not done.
+//!
+//! # A provenance trap in the reference deck, checked and clear
+//!
+//! `rpt_pebble.py`'s docstring quotes `keff = 1.36863 ± 0.00070` at this RPT
+//! radius and then says **"Note that ENDF v 7b.1 was used"**. The V&V record's
+//! reference is `1.36479 ± 0.00067` — **384 pcm** away, which is ~4σ and looks
+//! alarming until the libraries are checked.
+//!
+//! They are different runs on different libraries, and the one being compared
+//! against is the right one: `ring_rpt_vs_openmc.md` records the reference as
+//! **OpenMC 0.15.3-dev (`09ee8308d`), ENDF/B-VIII.0 HDF5, 600 K, 20 000 × 150**,
+//! matching this crate's ENDF/B-VIII.0. The docstring's VII.1 numbers are
+//! historical and must not be quoted as the reference.
 //!
 //! One composition subtlety that IS already handled deliberately, and is
 //! documented at the point of use in `examples/fhr_ring_rpt_endf.rs` rather than
