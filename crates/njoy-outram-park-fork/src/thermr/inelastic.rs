@@ -330,12 +330,27 @@ impl IncoherentInelastic {
     /// (`|E'−E| = β·D`, `D = kT₀` for LAT=1 else kT) — the points where S(α,β) has
     /// structure. A naive uniform dE' grid wastes all its resolution on the empty
     /// high-energy tail.
-    fn ep_profile(
-        &self,
-        e: f64,
-        temp_k: f64,
-        sigma: impl Fn(f64) -> f64,
-    ) -> (Vec<f64>, Vec<f64>) {
+    ///
+    /// # This grid is NOT why the kernel is narrow (measured, GitHub #188)
+    ///
+    /// The emission kernel this feeds is one-signed **narrow** against NJOY2016 —
+    /// worst −4.02 % for H-in-H₂O and −1.96 % for graphite, in the second moment,
+    /// after the equiprobable outgoing-energy representation was replaced by a
+    /// continuous one (2026-09-12). Two numerical-resolution explanations were
+    /// the obvious suspects and both are refuted:
+    ///
+    /// ```text
+    ///   change                          graphite width   H2O width
+    ///   baseline                           -1.96 %         -4.02 %
+    ///   subdivide every E' interval 4x     -2.01 %         -3.85 %
+    ///   mu quadrature NMU 200 -> 800       -1.96 %         -3.87 %
+    /// ```
+    ///
+    /// Neither moves the deficit. It is not the quadrature grid and it is not the
+    /// μ integration; it is in the kernel evaluation itself — the S(α,β)
+    /// interpolation, its β-axis scheme, or the small-α extension. Do not spend
+    /// the resolution again without a new argument.
+    fn ep_profile(&self, e: f64, temp_k: f64, sigma: impl Fn(f64) -> f64) -> (Vec<f64>, Vec<f64>) {
         if e <= 0.0 || self.beta.is_empty() {
             return (Vec::new(), Vec::new());
         }

@@ -55,10 +55,18 @@
 //!
 //! ```text
 //!   law                     T_eff [K]          vs nominal    <E^2>/<E>^2   vs 5/3
-//!   free gas C-12, 600 K    600.44 +/- 0.31      +0.07 %     1.6660        -0.04 %
-//!   c_H_in_H2O,   293.6 K   294.31 +/- 0.12      +0.24 %     1.6315        -2.11 %
-//!   c_Graphite,   600 K     607.42 +/- 0.45      +1.24 %     1.6282        -2.31 %
+//!   free gas C-12, 600 K    601.28 +/- 0.63      +0.21 %     1.6650        -0.10 %
+//!   c_H_in_H2O,   293.6 K   294.62 +/- 0.24      +0.35 %     1.6394        -1.64 %
+//!   c_Graphite,   600 K     604.76 +/- 0.89      +0.79 %     1.6425        -1.45 %
 //! ```
+//!
+//! **Updated 2026-09-12** when `ThermalScattering::sample` stopped reading back
+//! one of N discrete equiprobable energies and started interpolating the
+//! quantile function they tabulate (see `continuous_equiprobable_energy`). That
+//! change is what the shape column measures: graphite -2.29 % -> -1.45 % and
+//! its displacement +1.20 % -> +0.79 %, water -2.15 % -> -1.64 %. The rows above
+//! are the committed test's own 1600-collision statistics; the 6400-collision
+//! confirmation of the pre-change state is kept below.
 //!
 //! The free-gas row is the **control**: the identical estimator, identical chain
 //! lengths, identical weighting, driven through a kernel that is known to satisfy
@@ -423,9 +431,9 @@ fn graphite_thermalises_onto_its_own_temperature() {
         "c_Graphite",
         TEMP_K,
         Recorded {
-            t_eff_k: 607.21,
+            t_eff_k: 604.76,
             t_tol_k: 3.0,
-            shape: 1.6286,
+            shape: 1.6425,
             shape_tol: 0.006,
         },
         hot,
@@ -493,9 +501,9 @@ fn light_water_thermalises_onto_its_own_temperature() {
         "c_H_in_H2O",
         TEMP_K,
         Recorded {
-            t_eff_k: 294.48,
+            t_eff_k: 294.62,
             t_tol_k: 1.0,
-            shape: 1.6309,
+            shape: 1.6394,
             shape_tol: 0.006,
         },
         hot,

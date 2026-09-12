@@ -212,16 +212,36 @@ pub const H2O_KERNEL_WIDTH: &[(f64, f64)] = &[
     (1.855000e+00, 0.54810), // ours −1.03 %
 ];
 
-/// The envelope [`H2O_KERNEL_WIDTH`] is asserted inside: **6 %**, against a
-/// worst measured deviation of −4.91 %, and **one-signed narrow** at every
-/// energy.
+/// The envelope [`H2O_KERNEL_WIDTH`] is asserted inside: **5 %**, against a worst
+/// measured deviation of **−4.02 % at 0.0253 eV** (2026-09-12, continuous
+/// outgoing-energy sampling), and **one-signed narrow** at every energy.
 ///
-/// This is a bound on the equiprobable outgoing-energy representation, not on a
-/// mystery. It shrinks as `1/N_OUTGOING`, so it may be tightened whenever that
-/// constant is raised — and it should be replaced outright by a ~1 % bound when
-/// the representation is replaced by a continuous outgoing-energy law. Never
-/// widen it.
-pub const H2O_KERNEL_WIDTH_TOL: f64 = 0.06;
+/// # This was expected to collapse, and it did not — which is the finding
+///
+/// The previous revision of this comment said the bound "is a bound on the
+/// equiprobable outgoing-energy representation, not on a mystery", that it
+/// "shrinks as `1/N_OUTGOING`", and that it "should be replaced outright by a
+/// ~1 % bound when the representation is replaced by a continuous
+/// outgoing-energy law".
+///
+/// The representation **was** replaced, on 2026-09-12, and the deficit did not
+/// collapse:
+///
+/// ```text
+///   representation                      graphite worst   H2O worst
+///   48 x 16 equiprobable                    +39.0 %        -5.5 %
+///   384 x 64 equiprobable                    -2.33 %       -4.91 %
+///   384 x continuous (quantile interp)       -1.96 %       -4.02 %
+/// ```
+///
+/// So roughly **80 % of the width deficit is not the discretisation at all** —
+/// it is in the THERMR kernel underneath, which is what GitHub #188 now means.
+/// The prediction in the old comment was wrong, and it is left quoted here
+/// rather than deleted because a bound whose stated cause has been refuted by
+/// measurement should say so.
+///
+/// Never widen it.
+pub const H2O_KERNEL_WIDTH_TOL: f64 = 0.05;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Graphite
@@ -537,16 +557,16 @@ pub const GRAPHITE_KERNEL_WIDTH: &[(f64, f64)] = &[
     (3.750000e+00, 0.11994), // ours −0.19 % (was +35.15 % at 48x16)
 ];
 
-/// The envelope [`GRAPHITE_KERNEL_WIDTH`] is asserted inside: **4 %**, against a
-/// worst measured deviation of −2.33 % at the gate's 200 000 samples and
-/// −2.50 % at the sweep's 400 000 (2026-09-12).
+/// The envelope [`GRAPHITE_KERNEL_WIDTH`] is asserted inside: **3 %**, against a
+/// worst measured deviation of **−1.96 % at 5 meV** (2026-09-12, 200 000
+/// samples, continuous outgoing-energy sampling).
 ///
-/// **Tightened from 50 % on 2026-09-12**, when the emission-table defect it was
-/// characterising was fixed. The 50 % figure was a characterisation bound on a
-/// +39 % excess; it no longer describes anything and keeping it would let the
-/// defect come back unnoticed. Tighten it further whenever `N_OUTGOING` rises;
-/// never widen it.
-pub const GRAPHITE_KERNEL_WIDTH_TOL: f64 = 0.04;
+/// **Tightened twice on 2026-09-12**: from 50 % when the emission-table defect it
+/// was characterising was fixed (worst then −2.33 %), and from 4 % when the
+/// equiprobable representation was replaced by a continuous one (worst −1.96 %).
+/// The 50 % figure had been a characterisation bound on a +39 % excess. Tighten
+/// further whenever the representation improves; never widen.
+pub const GRAPHITE_KERNEL_WIDTH_TOL: f64 = 0.03;
 
 /// Below this energy the width deviation is asserted to be **one-signed narrow**
 /// as well as small. As of 2026-09-12 it is the thermal cutoff itself — i.e. the
@@ -562,11 +582,29 @@ pub const GRAPHITE_KERNEL_WIDTH_TOL: f64 = 0.04;
 pub const GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV: f64 = 4.0;
 
 /// The envelope the width holds below
-/// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`]: **4 %**, against a worst
-/// measured deviation of −2.33 %, and it is **one-signed** (always narrow).
-/// Tightened from 15 % on 2026-09-12 along with
-/// [`GRAPHITE_KERNEL_WIDTH_TOL`].
-pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.04;
+/// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`]: **3 %**, against a worst
+/// measured deviation of −1.96 %. Tightened from 15 % → 4 % → 3 % over
+/// 2026-09-12 as the emission tabulation was fixed and then removed.
+pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.03;
+
+/// How far **broad** a width point may be below
+/// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`] before the gate fires: **0.5 %**.
+///
+/// # Why this replaced a strict one-signed assertion
+///
+/// Until the continuous outgoing-energy law landed (2026-09-12) the width was
+/// narrow at *every* tabulated energy, and the gate asserted that sign as well
+/// as the magnitude — a real strengthening, because #190's failure mode was a
+/// +39 % **broad** kernel and a sign test catches its return at the first point.
+///
+/// The continuous law took the top of the table to the reference: 3.75 eV now
+/// measures **+0.03 %**, which is agreement, not breadth. A strict `rel < 0`
+/// would fail on a point that is right, so the sign test becomes a small
+/// positive ceiling instead. It still catches #190's return by two orders of
+/// magnitude — that defect was +35 % at this very energy — while admitting a
+/// point that has converged onto NJOY from below and crossed by a third of a
+/// sigma of the sampling error.
+pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.005;
 
 /// Linear-linear interpolation on an ascending `(E, sigma)` table, returning
 /// zero outside it — the same contract as NJOY's `gety1`, so a comparison

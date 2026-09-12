@@ -106,6 +106,54 @@
 //! `σ_γ`, not in `σ_γ` itself. See `verification_and_validation/ring_rpt/` and
 //! bead `op-mzvp.2.12` for the live hypothesis list.
 //!
+//! # Re-measured 2026-09-12 — unchanged by this week's fixes
+//!
+//! Three defects landed against the thermal/nuclear-data path this week: the
+//! emission-table resize (GitHub #190), the bound kernels' fixed point (#191),
+//! and the one that closed the FHR pebble's +4004 pcm residual outright — #193,
+//! threshold reactions carrying a cross section *below* their threshold. This
+//! case was re-run against all three, at 4000 x [120 + 250] rather than the
+//! recorded 10 000 x [250 + 400]:
+//!
+//! | case | recorded | 2026-09-12 | move |
+//! |---|---|---|---|
+//! | 1 | +2950 ± 61 pcm | **+2693 ± 120 pcm** | −257 ± 134 (1.9σ) |
+//! | 2 | +2271 ± 61 pcm | **+2136 ± 126 pcm** | −135 ± 140 (1.0σ) |
+//! | 8 | +1713 ± 60 pcm | **+1787 ± 127 pcm** | +74 ± 140 (0.5σ) |
+//!
+//! **Nothing moved.** No case shifts by 2σ, and the pairwise differences — the
+//! statement that owes nothing to any absorption-share estimate — reproduce:
+//! **+557 ± 174 pcm** (1→2) against the recorded +679 ± 86, and **+349 ± 179**
+//! (2→8) against +558 ± 86. Boron is still worth too little here, by the same
+//! amount as before.
+//!
+//! ## Why #193 could not have touched this case, checked rather than assumed
+//!
+//! #193 fires only where an evaluation opens a threshold MF=3 section at a
+//! **non-zero** cross section, which the endpoint clamp then propagated to zero
+//! energy. Scanning every threshold section (MT=16, 51–91, 103–117) of all
+//! eleven nuclides this case loads — H-1, B-10, O-16, Al-27, Si-28/29/30, Mn-55,
+//! U-234/235/238 — finds exactly one non-zero opening: **O-16 MT=103 at
+//! (10.244 MeV, 5e-11 b)**. That is 1.3e-11 of O-16's total cross section and
+//! sits above every neutron in this spectrum anyway.
+//!
+//! So the defect that carried the entire FHR pebble residual has no counterpart
+//! here, and this benchmark's residual stays attributed to the H-in-H₂O
+//! scattering law (GitHub #188).
+//!
+//! ## One recorded inference does not survive these error bars
+//!
+//! A note on `op-rpb6` reads the three cases as tracking soluble boron at
+//! "~1.7 pcm/ppm", extrapolating to "only ~+350 pcm at zero boron". That fit
+//! mixes case 8 into a soluble-boron line, and case 8 is the one that swaps
+//! 717 ppm of *soluble* boron for **144 lumped pyrex rods** — a different poison
+//! in a different geometry. Cases 1 and 2, which differ in soluble boron alone,
+//! give **3.2 ± 1.0 pcm/ppm**; adding case 8 gives 1.3. Those are not the same
+//! quantity and should not be averaged, and at ±1.0 pcm/ppm on a two-point slope
+//! the extrapolation to zero boron carries ±1500 pcm — it is not a measurement
+//! of anything yet. Settling it needs cases 1 and 2 at the full 10 000 x
+//! [250 + 400], which would put the slope at roughly ±0.3 pcm/ppm.
+//!
 //! # The model, and where it comes from
 //!
 //! The three XML files in

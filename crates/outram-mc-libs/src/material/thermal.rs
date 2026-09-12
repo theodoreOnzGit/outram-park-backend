@@ -798,9 +798,13 @@ impl ThermalScattering {
             return None;
         }
         // One equiprobable outgoing-energy bin, then one equiprobable cosine.
+        // The ENERGY is drawn continuously within the bin (see
+        // [`continuous_equiprobable_energy`]); the COSINE still comes from the
+        // bin's own row, so the (E', mu) correlation the table carries survives.
         let n_out = table.e_out.len();
-        let i_out = ((prn(seed) * n_out as f64) as usize).min(n_out - 1);
-        let e_out = table.e_out[i_out];
+        let xi = prn(seed);
+        let i_out = ((xi * n_out as f64) as usize).min(n_out - 1);
+        let e_out = continuous_equiprobable_energy(&table.e_out, xi);
         let base = i_out * table.n_mu;
         let mu = if table.n_mu == 0 {
             2.0 * prn(seed) - 1.0
@@ -840,6 +844,113 @@ impl ThermalScattering {
             &self.emit_tables[i]
         }
     }
+}
+
+/// Draw a **continuous** outgoing energy from a table of `N` equiprobable
+/// *representative* energies, given the same uniform `xi` that chose the bin.
+///
+/// # What the table actually is
+///
+/// NJOY's `equiprobable_emission` builds the table by inverting the cumulative
+/// `∫σ(E→E′)dE′` at the bin **midpoints** `(k + ½)/N`, so
+///
+/// ```text
+///   e_out[k] = Q((k + ½)/N),      Q = the quantile function of the true law
+/// ```
+///
+/// — the quantile function sampled at `N` equally spaced points, not a histogram
+/// of bin edges.
+///
+/// # Why reading one back at random is not enough
+///
+/// Picking `e_out[i]` for a uniform `i` samples `N` **discrete atoms**. Its mean
+/// is right to the accuracy of the quantile grid, and every *first*-moment
+/// oracle this crate has (⟨E′⟩/E against THERMR's MF=6 matrix, ξ, μ̄) is
+/// therefore nearly blind to the approximation. What it throws away is all the
+/// variance *inside* a bin, and a scattering kernel that is systematically too
+/// narrow does not relax a neutron population onto the right Maxwellian:
+/// `tests/thermal_kernel_stationary_distribution.rs` measures the resulting
+/// fixed point at **−2.1 % (water) and −2.3 % (graphite)** in `⟨E²⟩/⟨E⟩²`
+/// against a free-gas control that lands within 0.04 %.
+///
+/// Raising `N` does not fix it. The deficit falls like `1/N` (GitHub #190's
+/// sweep: −5.5 % at 16 bins, −2.1 % at 64, −1.4 % at 128) and paying for the
+/// next factor of two costs build time in every table at every incident energy.
+/// The right move is to stop discretising, which is GitHub #188's recommendation
+/// in its own words: *the proper fix is a continuous outgoing-energy law.*
+///
+/// # The reconstruction
+///
+/// Linear interpolation of `Q` between the nodes it is tabulated at. With
+/// `x = ξ·N − ½` the position in node units,
+///
+/// - `x ∈ [i, i+1]` for an interior draw — interpolate `e_out[i] → e_out[i+1]`;
+/// - `x ∈ [−½, 0)`, the lower half-bin — interpolate **from zero** to
+///   `e_out[0]`, because `Q(0) = 0` is the true infimum of a down-scatter tail
+///   (a neutron may emerge with arbitrarily little energy) and extrapolating the
+///   first spacing instead can overshoot into negative energies;
+/// - `x ∈ (N−1, N−½]`, the upper half-bin — extrapolate on the last spacing,
+///   since the up-scatter tail has no such natural bound.
+///
+/// This is exact for a locally linear quantile function and unbiased in the mean
+/// to the same order the table itself is, while restoring the within-bin
+/// variance the discrete form loses.
+///
+/// # The lower half-bin was tried the other way first, and it is worse
+///
+/// `Q(0) = 0` is the true infimum for a free-gas-like down-scatter tail, so
+/// anchoring the lowest half-bin at zero instead of extrapolating the first
+/// spacing looks more principled. Measured on the fixed-point oracle, it is not:
+///
+/// ```text
+///   lowest-half-bin rule      c_H_in_H2O T_eff   shape     c_Graphite T_eff   shape
+///   discrete (before)          +0.30 %           -2.15 %    +1.20 %           -2.29 %
+///   anchored at Q(0) = 0       -0.26 %           -0.88 %    -1.82 %           +1.42 %
+///   extrapolate first spacing  +0.35 %           -1.64 %    +0.79 %           -1.45 %
+/// ```
+///
+/// The anchored rule is better for water and **overshoots graphite in both
+/// directions at once** — 1.8 % cold and 1.4 % too broad — because a bound
+/// crystal's down-scatter is phonon-limited and does not reach zero the way a
+/// gas-like tail does. Anchoring therefore injects emission at energies the law
+/// does not populate. Extrapolating the adjacent slope asserts nothing about the
+/// support, treats both ends the same way, and is the rule kept.
+///
+/// # What this fixed, and what it did not
+///
+/// It is a real improvement on both laws and on two independent oracles, and it
+/// is **not** the whole of GitHub #188:
+///
+/// ```text
+///   representation                        graphite width   H2O width   (vs THERMR)
+///   48 x 16 equiprobable                     +39.0 %          -5.5 %
+///   384 x 64 equiprobable                     -2.33 %         -4.91 %
+///   384 x continuous (this)                   -1.96 %         -4.02 %
+/// ```
+///
+/// `njoy_golden`'s own note had predicted the deficit "should be replaced
+/// outright by a ~1 % bound when the representation is replaced by a continuous
+/// outgoing-energy law". It was not: roughly **80 % of the width deficit
+/// survives the change**, so it lives in the THERMR kernel underneath rather
+/// than in how this crate samples it.
+fn continuous_equiprobable_energy(e_out: &[f64], xi: f64) -> f64 {
+    let n = e_out.len();
+    if n == 1 {
+        return e_out[0];
+    }
+    let x = xi * n as f64 - 0.5;
+    if x <= 0.0 {
+        let slope = e_out[1] - e_out[0];
+        return (e_out[0] + x * slope).max(0.0);
+    }
+    let last = (n - 1) as f64;
+    if x >= last {
+        let slope = e_out[n - 1] - e_out[n - 2];
+        return (e_out[n - 1] + (x - last) * slope).max(0.0);
+    }
+    let i = x as usize;
+    let f = x - i as f64;
+    (e_out[i] + f * (e_out[i + 1] - e_out[i])).max(0.0)
 }
 
 /// Detect and build the scatterer's thermal elastic channel from an

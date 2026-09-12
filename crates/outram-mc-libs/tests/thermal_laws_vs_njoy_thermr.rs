@@ -732,8 +732,9 @@ fn graphite_sab_mean_cosine_against_njoy_thermr() {
 #[test]
 fn graphite_sab_kernel_width_against_njoy_thermr() {
     use outram_mc_libs::vv::njoy_golden::{
-        GRAPHITE_KERNEL_WIDTH, GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV,
-        GRAPHITE_KERNEL_WIDTH_NARROW_TOL, GRAPHITE_KERNEL_WIDTH_TOL,
+        GRAPHITE_KERNEL_WIDTH, GRAPHITE_KERNEL_WIDTH_BROAD_CEILING,
+        GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV, GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
+        GRAPHITE_KERNEL_WIDTH_TOL,
     };
     const N: usize = 200_000;
 
@@ -769,12 +770,15 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
         }
         if e < GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV {
             assert!(
-                rel < 0.0 && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
+                rel < GRAPHITE_KERNEL_WIDTH_BROAD_CEILING
+                    && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
                 "graphite's kernel width is {:+.2} % from NJOY at {e:.4e} eV — below \
-                 {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it was one-signed narrow \
-                 and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12. A BROAD \
-                 point would mean the coarse-emission-grid defect of GitHub #190 had \
-                 come back",
+                 {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it is narrow or within \
+                 {GRAPHITE_KERNEL_WIDTH_BROAD_CEILING} of NJOY, and inside \
+                 {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} in magnitude (2026-09-12, worst \
+                 -1.96 %). A point BROAD by more than the ceiling would mean the \
+                 coarse-emission-grid defect of GitHub #190 had come back — that one \
+                 was +35 % at this very energy",
                 100.0 * rel
             );
         }
@@ -782,8 +786,9 @@ fn graphite_sab_kernel_width_against_njoy_thermr() {
     assert!(
         worst.abs() < GRAPHITE_KERNEL_WIDTH_TOL,
         "graphite's kernel width is {:+.2} % from NJOY at {worst_e:.4e} eV — worse than \
-         the −2.33 % recorded on 2026-09-12 after the emission tabulation was resized. \
-         Do not widen this bound: it is what stops the +39 % defect returning",
+         the −1.96 % recorded on 2026-09-12 after the equiprobable outgoing-energy \
+         tabulation was replaced by a continuous one. Do not widen this bound: it is \
+         what stops the +39 % defect returning",
         100.0 * worst
     );
     println!("  worst {:+.2} % at {worst_e:.4e} eV", 100.0 * worst);
