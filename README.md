@@ -13,6 +13,63 @@ A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, st
 > status, see the ⚠️ banner above: everything here is unverified until validated,
 > and **not** for facility operation.
 
+## Publications & citation
+
+**The project and its agentic-porting methodology** — OpenFOAM → `outram-foam-*`,
+the TAMPINES steam tables and the 1-D HEM choked-flow solver, with their
+preliminary V&V (cavity, Sod shock tube, Moody HEM charts, Edwards blowdown):
+
+> Ong, T. K. C., Wong, E. Y. H., & Xiao, S. (2026). *Agentic Porting,
+> Construction and Initial Verification and Validation of Libraries within the
+> Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit
+> (Outram Park) Part I: Thermal Hydraulics.* arXiv:2608.17504 [physics.comp-ph].
+> <https://arxiv.org/abs/2608.17504>
+
+```bibtex
+@misc{ong2026outrampark1,
+  title        = {Agentic Porting, Construction and Initial Verification and
+                  Validation of Libraries within the Open Source Unified
+                  TRAnsient Multi-Phase Advanced Reactor simulation Kit
+                  (Outram Park) Part I: Thermal Hydraulics},
+  author       = {Ong, Theodore Kay Chen and Wong, Ethan Yew Hoe and Xiao, Sicong},
+  year         = {2026},
+  eprint       = {2608.17504},
+  archivePrefix= {arXiv},
+  primaryClass = {physics.comp-ph},
+  url          = {https://arxiv.org/abs/2608.17504}
+}
+```
+
+Its central finding is the premise this repository is organised around: with
+agentic porting, **verification and validation by human expertise — not code
+generation — is the bottleneck.** That is why every crate carries a
+`## Bookkeeping status` block gated on maintainer sign-off, why
+`VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md` treat AI output as
+untrusted draft material, and why `docs/human-corrections-to-ai-work.md` exists.
+
+The paper's line-count accounting is reproducible from this repository:
+`kovan-cli kloc` regenerates it, and `docs/kloc-parity-baseline/` holds the
+frozen fixture every published figure is checked against.
+
+**The TUAS solver** (peer-reviewed; V&V against SAM, CIET forced-circulation
+experimental data, and a HITEC-salt/YD-325-oil shell-and-tube heat exchanger):
+
+> Ong, T. K. C., Xiao, S., & Peterson, P. F. (2025). *An open-source
+> Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
+> (TUAS).* International Journal of Advanced Nuclear Reactor Design and
+> Technology. <https://doi.org/10.1016/j.jandt.2025.03.006>
+
+See [`crates/tuas_boussinesq_solver/README.md`](crates/tuas_boussinesq_solver)
+for the BibTeX entry and the V&V records that reproduce it.
+
+> **Note on the acronym.** The arXiv title expands OUTRAM PARK as
+> "Multi-**Phase**"; this repository uses "Multi-**Physics**" (renamed
+> 2026-09-12 — multiphase flow is one crate of ~37, while the workspace spans
+> neutronics, nuclear data, fuel performance, structural mechanics, DEM and
+> more). Published titles cannot be edited, so the difference is permanent and
+> intentional; cite the paper's title verbatim. Rationale:
+> [`docs/ecosystem-naming.md`](docs/ecosystem-naming.md).
+
 ## Crates
 
 The workspace has 31 member crates, grouped by domain below.
