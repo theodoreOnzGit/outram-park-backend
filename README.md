@@ -62,12 +62,17 @@ experimental data, and a HITEC-salt/YD-325-oil shell-and-tube heat exchanger):
 See [`crates/tuas_boussinesq_solver/README.md`](crates/tuas_boussinesq_solver)
 for the BibTeX entry and the V&V records that reproduce it.
 
-> **Note on the acronym.** The arXiv title expands OUTRAM PARK as
-> "Multi-**Phase**"; this repository uses "Multi-**Physics**" (renamed
-> 2026-09-12 — multiphase flow is one crate of ~37, while the workspace spans
-> neutronics, nuclear data, fuel performance, structural mechanics, DEM and
-> more). Published titles cannot be edited, so the difference is permanent and
-> intentional; cite the paper's title verbatim. Rationale:
+> **Note on the acronym.** Part I's title expands OUTRAM PARK as
+> "Multi-**Phase**". **As of 2026-09-12 the project is "Multi-Physics"** —
+> multiphase flow is one crate of ~37, while the workspace spans neutronics,
+> nuclear data, fuel performance, structural mechanics, DEM and more. The
+> letters `M` and `P` are unchanged, so the acronym still spells out and no
+> citation breaks.
+>
+> Part I stands as published — **cite its title verbatim, do not modernise it.**
+> Part II onward use "Multi-Physics" and state the change where the acronym is
+> first expanded, so a reader meeting both expansions is never left guessing
+> which is a typo. Rationale and wording:
 > [`docs/ecosystem-naming.md`](docs/ecosystem-naming.md).
 
 ## Crates

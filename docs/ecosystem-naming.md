@@ -99,6 +99,30 @@ That matters increasingly as the project is cited: an acronym expanded one way
 in an arXiv preprint and another way in the repository is the kind of drift that
 is expensive to undo later, because published papers cannot be edited.
 
+### How the change reaches the literature (maintainer decision, 2026-09-12)
+
+**Part I is not corrected — later publications carry the change.** The published
+record and the repository will therefore disagree, permanently and on purpose:
+
+- **arXiv:2608.17504 (Part I: Thermal Hydraulics)** expands the acronym as
+  "Multi-**Phase**". That title stands as published. **Cite it verbatim** — do
+  not silently modernise it in a bibliography, a BibTeX entry, or a related-work
+  paragraph.
+- **Part II onward, and every publication after 2026-09-12**, use
+  "Multi-**Physics**", and should **state the change explicitly** the first time
+  the acronym is expanded — a footnote or a parenthetical is enough. Something
+  to the effect of: *the acronym was expanded as "Multi-Phase" in Part I
+  (arXiv:2608.17504); "Multi-Physics" is used here and hereafter, as multiphase
+  flow is one of many physics the kit spans.* The letters `M` and `P` are
+  unchanged, so OUTRAM PARK still spells out and no prior citation breaks.
+
+**Why announce it rather than let readers notice.** A reader meeting both
+expansions with no explanation has to decide which is a typo, and the wrong
+guess propagates into their own bibliography. One sentence in Part II closes
+that off for everyone downstream. This is the same reasoning as the provenance
+rules in `RESEARCH_INTEGRITY_AND_PROVENANCE.md`: a deliberate change that is
+recorded is history, and the same change unrecorded is drift.
+
 ### Sweep: DONE (2026-09-12)
 
 The sweep flagged here as outstanding has been carried out, and it corrected two
