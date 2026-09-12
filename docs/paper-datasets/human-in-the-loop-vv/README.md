@@ -65,7 +65,7 @@ bugs, and it predicts where review effort should go.
 3. **Use the two strongest in-repo exhibits**, both already documented:
    - the **cancelling-defects** case from the transport work — two errors of
      opposite sign produced an apparently excellent `+163 ± 316` pcm, and the
-     agreement was coincidental (see `../part2-transport/README.md`). A green
+     agreement was coincidental (see `../part3-double-heterogeneity/README.md`). A green
      number is not evidence of a correct model.
    - the **energy-equation boundary conditions** case, where every agent report
      was individually true and the diagnosis was still wrong, because the
@@ -76,9 +76,9 @@ bugs, and it predicts where review effort should go.
    rich single case, not a population estimate — claiming otherwise is the
    fastest way to lose a referee.
 
-## Why this is the lowest-risk of the three to defend
+## Why this is the lowest-risk of the four to defend
 
 It requires no expertise the authors do not demonstrably have. The domain
 content is CIET, and the methodological content is this project's own history.
-Contrast the nuclear-data material, which is deliberately deferred — see
-`../part2-transport/README.md`, "Scope decision".
+Contrast the full nuclear-data treatment, which is deliberately deferred — see
+`../part2-data-and-transport/README.md`, "Nuclear data preparation".

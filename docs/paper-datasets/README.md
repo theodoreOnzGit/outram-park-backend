@@ -9,13 +9,36 @@ named date. A figure assembled by re-running a case is a *new* measurement
 wearing an old label, and the two diverge silently. Extraction keeps the paper
 and the repository the same artifact.
 
-## The three manuscripts
+## The four manuscripts
 
 | Directory | Working title | Status of data |
 |---|---|---|
-| `part2-transport/` | Part II — Monte Carlo transport and criticality benchmarks | **complete** — tables extracted |
+| `part2-data-and-transport/` | Part II — nuclear data preparation and MC transport on singly-heterogeneous benchmarks | **complete** — tables extracted |
+| `part3-double-heterogeneity/` | Part III — explicit TRISO vs ring-RPT in an FHR pebble | **complete** — tables extracted |
 | `if97-backward/` | Backward equations where IAPWS-IF97 is silent | source map written; tables to extract |
 | `human-in-the-loop-vv/` | Human-in-the-loop V&V of agentically ported code | source map written; corpus to mine |
+
+**The neutronics work is two papers, not one** (maintainer decision,
+2026-09-12). Part II establishes the cross sections and the transport kernel
+against classical ICSBEP criticals; Part III assumes that and spends its length
+on double heterogeneity. A method paper that must first establish its own data,
+its own kernel *and* its own geometry treatment is carrying three arguments and
+defending none of them well.
+
+**Part II must be posted before Part III** and cited by arXiv number — Part
+III's absolute-k bias is explained by Part II's LCT-008 finding.
+
+### Suggested sequencing
+
+Four manuscripts in one week is not realistic; each needs an introduction, a
+related-work section, figures, and co-author review. A workable shape:
+
+| | |
+|---|---|
+| **post first** | Part II — data already extracted, and it is Part III's dependency |
+| **post second** | IF97 backward equations — independent of the others |
+| **draft, post after Part II lands** | Part III — needs Part II's arXiv identifier |
+| **defer** | human-in-the-loop V&V — needs the most corpus mining, and gains from citing Parts II and III |
 
 They follow
 [arXiv:2608.17504](https://arxiv.org/abs/2608.17504) (Part I — Thermal
