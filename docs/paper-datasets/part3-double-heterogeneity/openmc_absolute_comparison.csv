@@ -1,0 +1,5 @@
+case,tracking_method,outram_mc_keff,outram_mc_sigma,openmc_keff,openmc_sigma,delta_pcm,combined_sigma_pcm,sigma_distance,source_record
+explicit TRISO,delta (Woodcock),1.40514,0.00204,1.36510,0.00063,+4004,213,18.8,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT,delta (Woodcock),1.40739,0.00241,1.36479,0.00067,+4260,250,17.0,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT,CSG surface-tracked,1.40757,0.00224,1.36479,0.00067,+4278,234,18.3,ring_rpt/ring_rpt_vs_openmc.md
+naive homogenised,delta (Woodcock),1.37323,0.00219,,,,,,ring_rpt/ring_rpt_vs_openmc.md

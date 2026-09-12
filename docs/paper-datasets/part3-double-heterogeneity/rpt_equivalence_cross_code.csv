@@ -1,0 +1,4 @@
+code,rpt_minus_explicit_pcm,sigma_pcm,sigma_distance_from_zero,note
+outram-mc-libs,+226,316,0.71,reflective sphere r=3; both defects fixed
+OpenMC (reference deck),-31,92,0.34,reference from op-mzvp.1 / GH #156
+cross-code difference,+257,329,0.78,consistent with zero - the two codes agree on the RPT equivalence
