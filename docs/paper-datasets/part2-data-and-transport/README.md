@@ -127,11 +127,11 @@ multipole. That record exists (`crates/njoy-outram-park-fork/verification_and_va
   not explain `+2950`, and folding it into the headline would overstate the
   diagnosis.
 
-## Publication order: no longer constrained (revised 2026-09-12)
+## Publication order: this paper first, by choice (revised 2026-09-12)
 
-An earlier version of this plan required Part II to post before Part III,
-because Part III's `+4004` pcm absolute-k bias was believed to be *this* paper's
-LCT-008 finding reappearing in a pebble.
+An earlier version of this plan *required* Part II to post first, because Part
+III's `+4004` pcm absolute-k bias was believed to be this paper's LCT-008
+finding reappearing in a pebble.
 
 **That link is broken.** Part III's residual turned out to be a sub-threshold
 inelastic cross section on F-19 (GitHub #193), and the FHR pebble is 70 % FLiBe
@@ -140,13 +140,35 @@ every other nuclide in this repository's reference data opens its threshold
 sections at exactly 0.0 b — so LCT-008 was untouched by that fix and still reads
 `+2950 ± 61` pcm.
 
-Two consequences:
+**Part II still goes first** (maintainer decision) — now an editorial choice
+rather than a dependency. Two consequences:
 
-1. **The two papers are independent and may post in either order.**
-2. **LCT-008 is now this paper's own open finding**, not a corroboration of
+1. **Part III cites this paper as context, not as the explanation of its own
+   result.** Do not write the cross-reference as though LCT-008 accounted for
+   the pebble; it did not.
+2. **LCT-008 is this paper's own open finding**, not a corroboration of
    something happening elsewhere. Tracked as bead `op-4ic7`. Write it as an
-   unresolved defect localised by benchmark coverage — which is honest, and is a
-   stronger result than a vague "good agreement" would be.
+   unresolved defect localised by benchmark coverage — honest, and a stronger
+   result than a vague "good agreement" would be.
+
+## Caveats this paper must carry
+
+Beyond the workspace-wide ones in `../README.md`:
+
+- **LCT-008 is unresolved.** `+2950 ± 61` pcm against a measured critical, with
+  a 14σ trend across the boron series. Localised, not explained. State that the
+  cause is not yet known rather than implying the exclusion list amounts to a
+  diagnosis.
+- **A confirmed defect sits in this benchmark's moderator.** `op-77pu` (P0) has
+  the H-in-H₂O incoherent-inelastic kernel 2–5.5 % too narrow against NJOY
+  THERMR. It has not been priced against LCT-008, so its contribution to the
+  `+2950` is unquantified — say so.
+- **GH #188 is mitigated, not closed** — ξ moves only −3.24 % → −2.89 % and is
+  −2.79 % even at 128 bins. Every thermal result here sits on that.
+- **The `+0.00 %` data-prep entries need their true precision.** If the
+  underlying figure is `< 0.005 %`, write that; "+0.00 %" reads as
+  suspiciously perfect and invites a question you do not need.
+- **No human V&V sign-off.** Both bookkeeping axes are still ❌.
 
 ## Regenerating
 

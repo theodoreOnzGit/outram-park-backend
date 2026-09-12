@@ -145,13 +145,30 @@ cited, not re-derived.
 - **The RPT inner radius is a fitted, code-dependent parameter.** 1.493359375 cm
   was fitted against OpenMC; `--search-rpt-radius` solves for this code's own.
 
-## Publication order: no longer constrained
+## Publication order: Part II first, by choice
 
-The earlier plan required Part II to post first, because Part III's absolute-k
-bias was believed to be Part II's LCT-008 finding. **That link is broken** — the
-pebble's residual was F-19, LCT-008 contains no fluorine, and LCT-008's
-`+2950 ± 61` pcm remains open as a separate defect (bead `op-4ic7`). The two
-papers are now independent and may post in either order.
+The technical dependency is gone — Part III's residual was F-19, LCT-008
+contains no fluorine, and LCT-008's `+2950 ± 61` pcm remains open as a separate
+defect (bead `op-4ic7`). **Part II still goes first** (maintainer decision,
+2026-09-12): it is an editorial choice now rather than a constraint, keeping the
+series in the order a reader wants and matching Part I's numbering. Cite Part II
+as context, not as the explanation of this paper's result.
+
+## Caveats this paper must carry
+
+Beyond the workspace-wide ones in `../README.md`:
+
+- **`−469 ± 216` pcm on explicit TRISO is 2.2σ, not agreement.** The ring-RPT
+  row (`−85`, 0.4σ) is the clean one. Report the two distinctly.
+- **σ ≈ 200 pcm** at 4000 × [30 + 80]. Several comparisons here are "consistent
+  with zero", not "agree to X pcm". State what the statistics can resolve.
+- **Thermal-kernel defects remain open underneath this result** — GH #188 is
+  mitigated, not closed (ξ still −2.79 % at 128 bins), and `op-x77y` has the
+  graphite emission grid too coarse. The F-19 fix did not touch either.
+- **Two modelling approximations stand**: TRISO coating layers resolved by
+  nearest-centre + radius rather than exact CSG, and the RPT inner radius is a
+  fitted parameter taken from a fit against OpenMC.
+- **No human V&V sign-off.** Both bookkeeping axes are still ❌.
 
 ## Regenerating
 

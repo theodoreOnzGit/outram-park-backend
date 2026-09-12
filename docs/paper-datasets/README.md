@@ -51,12 +51,18 @@ a related-work section, figures, and co-author review. A workable shape:
 
 | | |
 |---|---|
-| **post first** | Part III — data extracted and rebaselined; it is now a clean positive result, so it is the easiest to write |
-| **post second** | Part II — data extracted; carries an honest open defect (LCT-008) that needs careful framing |
-| **post third** | IF97 backward equations — independent, but its error tables still need extracting (`op-rpb6.1`) |
+| **post first** | Part II — nuclear data preparation and MC transport on singly-heterogeneous benchmarks |
+| **post second** | Part III — double heterogeneity |
+| **post third** | IF97 backward equations — error tables still need extracting (`op-rpb6.1`) |
 
-Order changed 2026-09-12. Part III no longer depends on Part II, and closing the
-`+4000` pcm residual turned it from a discrepancy hunt into a result.
+**Maintainer decision, 2026-09-12: keep Part II → Part III.** The technical
+*dependency* is gone — Part III's residual was F-19, not Part II's LCT-008
+finding — so this is now an editorial choice rather than a constraint. It keeps
+the series in the order a reader would want it (establish the data and the
+kernel, then build the method on top), and it matches Part I's numbering.
+
+Part III may still cite Part II, but as context rather than as the explanation
+of its own result.
 
 They follow
 [arXiv:2608.17504](https://arxiv.org/abs/2608.17504) (Part I — Thermal
@@ -78,6 +84,49 @@ to characterise rather than restate.
    result here has maintainer V&V sign-off. Part I handled this correctly by
    titling itself "*Initial* Verification and Validation"; keep that framing.
    See `RESPONSIBLE_USE.md` and `VERIFICATION_AND_VALIDATION.md`.
+
+## Known gaps — caveat these in the manuscripts, do not let them pass silently
+
+This set is **preliminary V&V**, and Part I established the right framing by
+titling itself "*Initial* Verification and Validation". Keep it. Specifically,
+each of the following must appear as a stated limitation rather than be omitted:
+
+**1. No maintainer V&V sign-off exists on any of it.** Every crate in this
+workspace is still ❌ on **both** bookkeeping axes — Verification & Validation,
+and Human/user interface (`README.md`, "Bookkeeping status"). Per
+`RESPONSIBLE_USE.md` the results here are AI-assisted draft material that a
+human has not reviewed. That is a stronger caveat than most papers carry and it
+should be stated plainly, not buried.
+
+**2. Open defects that the results sit on top of.**
+
+| bead | defect | bearing |
+|---|---|---|
+| `op-4ic7` (P1) | LCT-008 reads `+2950 ± 61` pcm against a measured critical | **Part II's own open finding** — not resolved, only localised |
+| `op-77pu` (P0) | H-in-H₂O incoherent-inelastic kernel is 2–5.5 % too narrow vs NJOY THERMR | the moderator of LCT-008; a confirmed defect |
+| GH #188 | S(α,β) emission tabulation — **mitigated, not closed**; ξ moves only −3.24 % → −2.89 %, and is −2.79 % even at 128 bins | every thermal result |
+| `op-x77y` | graphite S(α,β) emission grid too coarse — kernel width +39 % at 2 eV | thermal spectra |
+
+**3. Part III's explicit-TRISO row is not agreement.** `−469 ± 216` pcm is
+**2.2σ** — better than the `+4004` it replaced, and not a null result. The
+ring-RPT row (`−85`, 0.4σ) is the clean one. Do not report the pair as though
+both agreed; say which is which.
+
+**4. Remaining approximations in the pebble model**, already recorded: the five
+TRISO coating layers are resolved by nearest-centre + radius rather than exact
+CSG, and the RPT inner radius is a **fitted, code-dependent** parameter taken
+from a fit against OpenMC.
+
+**5. Statistics are modest.** 4000 histories × [30 + 80] gives σ ≈ 200 pcm on the
+pebble rows. Several quoted comparisons are therefore "consistent with zero"
+rather than "agree to X pcm", and a `± 300` pcm band cannot resolve a 100 pcm
+claim. Say what the statistics can and cannot resolve — the same failure this
+project already found in its own Godiva maturity evidence, where a σ ≈ 330 pcm
+run had been cited for a 500 pcm bar.
+
+**6. The numbers may still move.** Active work is ongoing on the thermal kernel
+and on `op-4ic7`. Re-extract from the V&V records immediately before submission
+rather than trusting the CSVs here; each carries the date it was measured.
 
 ## Acronym
 
