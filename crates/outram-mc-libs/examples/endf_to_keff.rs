@@ -204,32 +204,43 @@ fn main() {
 
     // ── V&V gate ──────────────────────────────────────────────────────────────
     //
-    // THIS IS THE CRATE'S MATURITY BAR, and it used to be an if/else that
-    // printed a tick or a warning and exited 0 either way.
+    // THIS EXAMPLE IS NO LONGER THE CRATE'S MATURITY EVIDENCE (2026-09-12).
     //
-    // `crates/outram-mc-libs/CLAUDE.md` declares this crate mature on the
-    // strength of exactly this run: "k-eff within 500 pcm of the ICSBEP Godiva
-    // bare-HEU-sphere benchmark, reconstructed from an ENDF evaluation rather
-    // than a pre-built ACE library", measured at declaration as
-    // k_eff = 0.99659 +/- 0.00300, i.e. -341 pcm, on 2026-09-05.
+    // It used to be cited as such, and writing a gate around that citation is
+    // what showed it could not support the claim: at 3000 histories x 70 active
+    // generations this run carries sigma ~ 330 pcm, so the declared 500 pcm bar
+    // is 1.5 sigma wide. A gate at the bar would fire on noise; a gate at
+    // bar + 4 sigma is 1814 pcm, i.e. 3.6x looser than the bar it claims to
+    // enforce. Neither is a test of 500 pcm. It is also a two-nuclide model:
+    // Godiva's ICSBEP specification has three, and U-234 is absent here.
     //
-    // A maturity claim resting on a program that cannot fail is not a claim.
-    println!("\n=== V&V gate: the declared maturity bar ===");
+    // The maturity evidence moved to `examples/godiva_keff_endf_local.rs`
+    // (+57 +/- 173 pcm, all three nuclides, sigma small enough to resolve the
+    // bar at 2.9 sigma). See crates/outram-mc-libs/CLAUDE.md.
+    //
+    // So the gate below is sized to what THIS run can actually resolve, and is
+    // labelled as such. It is a smoke test on a tutorial: it catches a
+    // reconstruction or transport path that has broken badly enough to move k by
+    // more than ~2 %, and it does not pretend to certify anything finer.
+    println!("\n=== V&V gate: tutorial smoke test (NOT the maturity bar) ===");
     assert_reproduces_keff(
-        "ICSBEP HEU-MET-FAST-001 (Godiva), from ENDF via this crate's own reconstruction",
+        "ICSBEP HEU-MET-FAST-001 (Godiva), 2-nuclide tutorial model",
         result.k_mean,
         result.k_std,
         GODIVA_BENCHMARK_K,
-        MATURITY_BAR_K,
+        TUTORIAL_BAND_K,
         None,
     );
     println!(
-        "  (The bar is {:.0} pcm because that is what this crate demonstrably \
-         achieves today,\n   not because {:.0} pcm is a good criticality \
-         tolerance — it is not. See\n   crates/outram-mc-libs/CLAUDE.md, which \
-         says so and records when the bar moves.)",
-        MATURITY_BAR_K * 1.0e5,
-        MATURITY_BAR_K * 1.0e5,
+        "  That is a {:.0} pcm band plus 4 sigma of this run's own {:.0} pcm, so \
+         the effective\n  envelope is +/-{:.0} pcm. It is a SMOKE TEST, not the \
+         500 pcm maturity bar --\n  this example cannot resolve 500 pcm, which is \
+         only 1.5 sigma wide here.\n  The maturity evidence is \
+         examples/godiva_keff_endf_local.rs at +57 +/- 173 pcm;\n  see \
+         crates/outram-mc-libs/CLAUDE.md.",
+        TUTORIAL_BAND_K * 1.0e5,
+        result.k_std * 1.0e5,
+        (TUTORIAL_BAND_K + 4.0 * result.k_std) * 1.0e5,
     );
 }
 
@@ -238,15 +249,34 @@ fn main() {
 /// stated uncertainty is 0.0010.
 const GODIVA_BENCHMARK_K: f64 = 1.0000;
 
-/// **This crate's declared maturity bar**, in `k`: 500 pcm against
-/// [`GODIVA_BENCHMARK_K`], via a nuclide reconstructed from an ENDF evaluation
-/// rather than a pre-built ACE library. Evidence class: cross-code comparison.
+/// The envelope this **tutorial** is judged inside — explicitly *not* the
+/// crate's maturity bar.
 ///
-/// Recorded at declaration (2026-09-05): `k_eff = 0.99659 ± 0.00300`, −341 pcm.
+/// # Why this example stopped being the maturity evidence
 ///
-/// This is **not** the ICSBEP band (0.0010) — it is five times looser, and
-/// deliberately so: it is what this crate achieves today, not what criticality
-/// work should eventually demand. `crates/outram-mc-libs/CLAUDE.md` is the
-/// authority on the bar and on its revision history; if it tightens there,
-/// tighten it here in the same change.
-const MATURITY_BAR_K: f64 = 0.005;
+/// It was cited as such at the 2026-09-05 declaration (`k_eff = 0.99659 ±
+/// 0.00300`, −341 pcm). Writing a V&V gate around that citation showed it could
+/// not support it:
+///
+/// - **Its statistics cannot resolve the bar.** 3000 histories × 70 active
+///   generations gives σ ≈ 330 pcm, so 500 pcm is 1.5 σ. Gating at 4 σ would
+///   need σ ≤ 125 pcm — about seven times the histories.
+/// - **A re-run on 2026-09-12 gave −673 pcm**, outside the 500 pcm bar. That is
+///   0.75 σ from the recorded −341 pcm, so it is *not* a regression — but it is
+///   equally not a confirmation, which is the point.
+/// - **It is a two-nuclide model.** Godiva's ICSBEP specification carries three;
+///   U-234 at 4.9184e-4 /b·cm is absent here.
+///
+/// The maturity evidence moved to `examples/godiva_keff_endf_local.rs`:
+/// **+57 ± 173 pcm**, all three nuclides, σ small enough to resolve 500 pcm at
+/// 2.9 σ. `crates/outram-mc-libs/CLAUDE.md` records the move and remains the
+/// authority on the bar.
+///
+/// # What 0.02 is for
+///
+/// A smoke test. It catches a reconstruction or transport path broken badly
+/// enough to move k by more than ~2 % — the tutorial's actual job — and claims
+/// nothing finer. It is deliberately *not* 0.005, because labelling a
+/// 1.5 σ-wide envelope as the maturity bar is how this example came to be cited
+/// for a claim it could not carry.
+const TUTORIAL_BAND_K: f64 = 0.02;

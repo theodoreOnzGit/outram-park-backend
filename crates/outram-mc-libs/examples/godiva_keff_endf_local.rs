@@ -34,6 +34,25 @@
 //! the same library and the same tapes the pebble study runs on, which is what
 //! makes the split above valid.
 //!
+//! # This example carries the crate's maturity evidence (from 2026-09-12)
+//!
+//! `crates/outram-mc-libs/CLAUDE.md` declares this crate mature on *k* within
+//! **500 pcm** of HEU-MET-FAST-001, reconstructed from an ENDF evaluation. This
+//! run measures **+57 ± 173 pcm** on all three ICSBEP nuclides, putting the bar
+//! 2.9 sigma away — so the gate tests the bar and not the noise.
+//!
+//! It took that role over from `examples/endf_to_keff.rs`, which could not
+//! support it: sigma ~ 330 pcm there makes 500 pcm a 1.5 sigma envelope, so a
+//! gate at the bar fires on noise and a gate at bar + 4 sigma is 1814 pcm —
+//! 3.6x looser than the bar it claims to enforce. Neither tests 500 pcm. That
+//! example also models two of Godiva's three nuclides (U-234 is absent). Its
+//! `TUTORIAL_BAND_K` carries the full account.
+//!
+//! Note the gate below is **tighter than the bar**: it uses the ICSBEP band
+//! itself (0.0010) plus 4 sigma, not the 500 pcm crate-level figure. 500 pcm is
+//! the claim the crate makes overall; there is no reason to judge this
+//! particular case loosely when it can afford not to be.
+//!
 //! ```text
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example godiva_keff_endf_local

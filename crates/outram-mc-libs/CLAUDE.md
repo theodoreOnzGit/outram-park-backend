@@ -25,6 +25,39 @@ maturity gate in that file for what this means and how the bar is revised.
   not. Expect this to tighten once the scatter matrix and unstructured-mesh
   tallies land.
 
+- **2026-09-12 — evidence moved to `examples/godiva_keff_endf_local.rs`.
+  The bar itself is unchanged at 500 pcm.** Maintainer decision.
+
+  **Why.** Writing a V&V gate around the declaration exposed that
+  `endf_to_keff.rs` *cannot test the bar it was cited for*. It runs
+  3000 histories × 70 active generations, giving **σ ≈ 330 pcm**, so a 500 pcm
+  bar is 1.5 σ wide. Gating that at 4 σ needs σ ≤ 125 pcm — roughly seven times
+  the histories. On a re-run (2026-09-12) it gave **k_eff = 0.99327 ± 0.00329,
+  i.e. −673 pcm**, *outside* the 500 pcm bar. Against the −341 pcm recorded at
+  declaration that is 0.75 σ of combined statistics, so it is **not** a
+  regression — but neither run can establish compliance either way. The
+  evidence was too noisy for the claim resting on it.
+
+  It is also a **two-nuclide** model (U-235 + U-238). Godiva's ICSBEP
+  specification carries three; U-234 at 4.9184e-4 /b·cm is absent.
+
+  **New evidence: `k_eff = 1.00057 ± 0.00173, i.e. +57 ± 173 pcm** — 0.33 σ from
+  a benchmark that is an *experiment*, not another code. Via
+  `examples/godiva_keff_endf_local.rs` on ENDF/B-VIII.0 from
+  `reference-data/endf/`, all **three** ICSBEP nuclides, 5000 histories ×
+  [40 inactive + 120 active]. At σ = 173 pcm the 500 pcm bar is 2.9 σ wide, so
+  this run can actually resolve it. Suites: outram-mc-libs **350 passed / 0
+  failed** (12 binaries), njoy-outram-park-fork **773 passed / 0 failed**
+  (49 binaries).
+
+  `endf_to_keff.rs` keeps a gate, but one sized to what its statistics can
+  resolve, and its doc comment now says plainly that it is a tutorial and no
+  longer the maturity evidence.
+
+  **The bar was deliberately NOT tightened in this change**, though +57 ±
+  173 pcm would support something nearer 200–300 pcm. Moving the evidence and
+  moving the bar are separate maintainer decisions, and only the first was made.
+
 
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
