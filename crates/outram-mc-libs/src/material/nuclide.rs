@@ -686,6 +686,75 @@ impl Nuclide {
         }
     }
 
+    /// The **ENDF MF=4 mean elastic cosine** in the CM frame at incident energy
+    /// `e` \[eV\], read straight off the tabulated distribution by quadrature —
+    /// `0.0` when the nuclide has no MF=4 data (genuinely isotropic) or is on the
+    /// LOW tier.
+    ///
+    /// This is **not** [`elastic_mubar`](Self::elastic_mubar), which reports the
+    /// per-group mu-bar of the LOW-tier fast MGXS and deliberately returns `0.0`
+    /// for a pointwise nuclide because the GPU kernel treats pointwise elastic as
+    /// isotropic-CM (GitHub #189). This one answers a different question: what
+    /// does the CPU transport path's own angular data say?
+    ///
+    /// It exists so [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm) has an
+    /// independent oracle. The sampler locates an incident-energy bin, picks a
+    /// table by statistical interpolation and inverts a cosine CDF; this
+    /// integrates the same tabulated distribution directly. They must agree, and
+    /// if they do not, the sampler is wrong — a check no comparison against an
+    /// external library can make, because both sides here come from one tape.
+    ///
+    /// A second, cruder use: a non-zero value proves the MF=4 data was parsed at
+    /// all. That matters when *pricing* anisotropy by switching it off, where a
+    /// null result has to be distinguished from a switch that did nothing.
+    pub fn elastic_mubar_cm(&self, e: f64) -> f64 {
+        match &self.xs {
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular.mean_cosine(e),
+            XsSource::Core { .. } => 0.0,
+        }
+    }
+
+    /// **Diagnostic**: a copy of this nuclide whose elastic scattering is
+    /// isotropic in the centre of mass, by discarding the ENDF MF=4 angular
+    /// distribution.
+    ///
+    /// # Why this exists
+    ///
+    /// It prices anisotropic elastic scattering. A code-to-code residual can only
+    /// be attributed to a mechanism that is *worth* enough to carry it, and an
+    /// accuracy statement about a mechanism ("mu-bar is within 1 % of NJOY") says
+    /// nothing about its worth. Running a case twice, once with the mechanism
+    /// removed, does: the difference bounds everything that mechanism can be
+    /// worth, every defect in it, known and unknown, together.
+    ///
+    /// Anisotropy is the mechanism most likely to be mispriced by this crate's
+    /// existing checks, because the slowing-down verification that covers it
+    /// (`xi/xi_0 = 1.000` on eight nuclides) spans 4 eV to 10 keV, and elastic
+    /// scattering is isotropic in CM throughout that band. The anisotropy that
+    /// matters is at MeV energies, where it is not checked.
+    ///
+    /// # What it does NOT do
+    ///
+    /// Nothing to the cross sections — only the angular law changes, so the
+    /// collision *rate* is untouched and the two runs differ in exactly one
+    /// thing. On a LOW-tier (`Core`) nuclide it is a no-op, because that tier
+    /// carries only a per-group mean cosine and there is no tabulated
+    /// distribution to drop.
+    ///
+    /// This is deliberately the **wrong physics**. It is a measurement tool, not
+    /// a model option.
+    pub fn with_isotropic_elastic(mut self) -> Self {
+        if let XsSource::Pointwise {
+            elastic_angular, ..
+        } = &mut self.xs
+        {
+            *elastic_angular = Default::default();
+        }
+        self
+    }
+
     /// The upper energy \[eV\] of this nuclide's continuous-energy (WMP) range —
     /// the CE↔MG seam below which elastic is isotropic-CM and above which the
     /// fast-group forward-elastic (μ̄) law applies.

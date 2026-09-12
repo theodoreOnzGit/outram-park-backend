@@ -130,12 +130,72 @@ pebble's moderation is dominated by FLiBe at 70 % of the domain by volume, which
 is free-gas in both codes, and the bound graphite sits only in the inner core and
 the 0.1 cm shell.
 
+## 2026-09-12 — anisotropic elastic scattering is priced, and it is not the residual either
+
+The same method, on the mechanism that the coverage argument made the best
+remaining candidate. `OUTRAM_RINGRPT_ISOTROPIC_ELASTIC=1` drops every nuclide's
+ENDF MF=4 angular distribution, so elastic scattering becomes isotropic in CM at
+every energy:
+
+```
+  elastic angle     k_eff (ring-RPT CSG)   p (2-group)   ε (2-group)
+  MF=4 (the data)   1.40546 ± 0.00234      0.5256        1.4292
+  ISOTROPIC-CM      1.40465 ± 0.00213      0.5253        1.4296
+  difference        −81 ± 317 pcm          −0.0003       +0.0004
+```
+
+**−81 ± 317 pcm (0.26σ), and neither p nor ε moves.**
+
+Why it was the best candidate: the slowing-down verification that covers
+anisotropy is `ξ/ξ₀ = 1.000` on eight nuclides from 4 eV to 10 keV, and elastic
+scattering is isotropic in CM throughout that band. So that result is a statement
+about the two-body kinematics and says nothing about the angular law; the
+anisotropy that sets the slowing-down power above the resonances — and with it ε
+— had never been checked.
+
+It has been now. `tests/elastic_anisotropy_vs_endf_mf4.rs` checks
+`Nuclide::sample_elastic_mu_cm` against a direct quadrature of the same MF=4
+tables (worst `|sampled − tabulated| = 0.0073` over 24 points) and records the
+mean cosines:
+
+```
+  MF=4 mu-bar   1 keV      1 MeV      14 MeV
+  C-12          +0.0000    +0.0859    +0.6008
+  Be-9          +0.0000    +0.1836    +0.7314
+  F-19          +0.0000    +0.1255    +0.6901
+  O-16          -0.0003    +0.0096    +0.6027
+```
+
+That test is what makes the −81 pcm readable. A null result from switching a
+mechanism off means "the mechanism is worth nothing" only if the mechanism was
+there in the first place; had MF=4 silently failed to parse, the pricing run
+would have produced the same number and meant the opposite. It also produced a
+finding of its own: O-16's angular distribution is resonance-dominated to several
+MeV and swings from backward (−0.032 at 100 keV) through strongly forward
+(+0.424 at 500 keV) back to isotropic (+0.010 at 1 MeV), so a "light nuclei are
+forward-peaked at 1 MeV" gate would have been a gate on an assumption, not on the
+data.
+
 The methodological point is worth keeping separately from the result. Every
 earlier exclusion in this study is an **accuracy** statement — "within 0.05 % of
 THERMR", "±0.04 % vs NJOY" — and an accuracy statement cannot bound a residual,
-because it says nothing about how much the mechanism is worth. Two of the three
-measurements above (#190's k impact, and this one) are **worth** statements, and
-only those can close a line of inquiry.
+because it says nothing about how much the mechanism is worth. The measurements
+that closed these two lines — deleting the thermal law, and flattening the
+angular law — are **worth** statements, and only those can close a line of
+inquiry. The accuracy work is not wasted: it found two real defects (#190, #191)
+and it is what makes each null result readable, because a mechanism priced at
+zero and a mechanism that was never switched on measure the same.
+
+Running total of what has been **priced** on this pebble, as opposed to merely
+checked for accuracy:
+
+| mechanism, switched off | Δk | p moves |
+|---|---|---|
+| graphite S(α,β) → free gas | −127 ± 337 pcm | +8.54 % → +8.18 % |
+| MF=4 elastic angle → isotropic CM | −81 ± 317 pcm | +8.54 % → +8.49 % |
+
+Neither is within an order of magnitude of the +4000 pcm residual, and neither
+moves the resonance-escape error that carries it.
 
 ## Methodology
 

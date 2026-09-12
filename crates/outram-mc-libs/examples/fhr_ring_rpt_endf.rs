@@ -92,7 +92,34 @@
 //!    says nothing about how much the mechanism is worth. Turning the mechanism
 //!    off does.
 //!
-//! 5. Not a validated result — an AI-assisted code-to-code check.
+//! 5. **Anisotropic elastic scattering is priced too, and it is also small.**
+//!    `OUTRAM_RINGRPT_ISOTROPIC_ELASTIC=1` drops every nuclide's ENDF MF=4
+//!    angular distribution, so elastic scattering is isotropic in CM at every
+//!    energy. Same case, same seed, 2026-09-12:
+//!
+//!    ```text
+//!      elastic angle     k_eff (ring-RPT CSG)   p (2-group)   eps (2-group)
+//!      MF=4 (the data)   1.40546 +/- 0.00234    0.5256        1.4292
+//!      ISOTROPIC-CM      1.40465 +/- 0.00213    0.5253        1.4296
+//!      difference        -81 +/- 317 pcm        -0.0003       +0.0004
+//!    ```
+//!
+//!    **-81 +/- 317 pcm (0.26 sigma)**, and neither p nor epsilon moves. This was
+//!    the best remaining candidate on an argument from coverage: the
+//!    slowing-down verification that covers anisotropy (`xi/xi_0 = 1.000`, eight
+//!    nuclides) spans 4 eV to 10 keV, and CM scattering is isotropic throughout
+//!    that band, so the MeV anisotropy that sets the fast spectrum was unchecked.
+//!    It is checked now (`tests/elastic_anisotropy_vs_endf_mf4.rs`: the sampler
+//!    reproduces its own MF=4 mean cosine to 0.0073 worst, and the moderators run
+//!    from isotropic at 1 keV to mu-bar +0.60...+0.73 at 14 MeV), and priced now,
+//!    and it is not the residual either.
+//!
+//!    The pricing is only readable *because* of that test. A null result from
+//!    switching a mechanism off means "the mechanism is worth nothing" only if
+//!    the mechanism was there; had MF=4 silently failed to parse, this run would
+//!    have measured the same -81 pcm and meant the opposite.
+//!
+//! 6. Not a validated result — an AI-assisted code-to-code check.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -466,7 +493,28 @@ mod desktop {
         let only = std::env::var("OUTRAM_RINGRPT_ONLY").unwrap_or_default();
         eprintln!("=== FHR ring-RPT vs explicit-TRISO — outram-mc-libs on ENDF/B-VIII.0 ===\n");
         eprintln!("Reconstructing nuclides (RECONR + BROADR @ {TEMP_K} K):");
-        let nucs = nuclides();
+        // ── Sensitivity switch: how much is anisotropic elastic scattering WORTH? ──
+        //
+        // `OUTRAM_RINGRPT_ISOTROPIC_ELASTIC=1` drops every nuclide's ENDF MF=4
+        // elastic angular distribution, so elastic scattering becomes isotropic in
+        // CM at every energy. See `Nuclide::with_isotropic_elastic` for why this
+        // is the mechanism most likely to be mispriced: the slowing-down check
+        // that covers anisotropy spans 4 eV to 10 keV, where CM scattering is
+        // isotropic anyway, so the MeV anisotropy that actually sets the
+        // slowing-down power above the resonances is unverified.
+        let isotropic_elastic = std::env::var("OUTRAM_RINGRPT_ISOTROPIC_ELASTIC").is_ok();
+        let nucs = if isotropic_elastic {
+            eprintln!(
+                "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
+                 \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
+            );
+            nuclides()
+                .into_iter()
+                .map(Nuclide::with_isotropic_elastic)
+                .collect::<Vec<_>>()
+        } else {
+            nuclides()
+        };
         let (mats, spec) = build_materials();
         // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
         //
