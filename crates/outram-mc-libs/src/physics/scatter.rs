@@ -315,23 +315,47 @@ fn safe_prn(seed: &mut u64) -> f64 {
 /// from a **Weisskopf evaporation spectrum** rather than fixed by a single level.
 ///
 /// `f(E'_cm) ∝ E'_cm · exp(−E'_cm/θ)` with nuclear temperature `θ = √(E/a)` and
-/// level-density parameter `a ≈ A/11 MeV⁻¹` (a standard actinide value). The
-/// sampled CM energy is capped below the elastic CM energy `E·(A/(A+1))²` so the
-/// collision always loses energy, then transformed to the lab isotropically in CM.
+/// level-density parameter `a ≈ A/11 MeV⁻¹` (a standard actinide value), sampled
+/// then transformed to the lab isotropically in CM.
 ///
-/// This is an **approximation**: RECONR reconstructs cross sections (MF=3) but not
-/// the ENDF MF=5 secondary-energy law, so the true continuum distribution is not
-/// available here. The evaporation model captures the essential physics — a large,
-/// broadly distributed down-scatter — which is what softens the fast spectrum.
+/// `q` is the channel's ENDF Q-value \[eV\] (negative — MT=91's `QI`, i.e. minus
+/// the energy of the lowest continuum state). It **caps** the outgoing CM energy
+/// at what two-body energy balance allows for that minimum excitation,
+///
+/// `E'_cm ≤ E·(A/(A+1))² + Q·A/(A+1)`,
+///
+/// which is the same bound [`two_body_scatter`] enforces for a discrete level.
+/// Pass `q = 0` for a channel whose Q is genuinely zero or unknown; that reduces
+/// the cap to the elastic CM energy, which is the behaviour this function had
+/// before the Q-value was threaded through.
+///
+/// # Why the cap is not optional
+///
+/// Without it the sampler caps only at the *elastic* CM energy, so a neutron can
+/// leave a continuum-inelastic collision carrying energy the reaction cannot
+/// have left it — the excitation of the residual nucleus is simply not paid for.
+/// Measured on ENDF/B-VIII.0 before this was threaded through: **22 % of draws**
+/// above the kinematic bound for U-238 and U-235 at 1 MeV (just above the MT=91
+/// threshold at `|QI| = 0.434 MeV`), 2.5 % at 2 MeV, falling to zero by 14 MeV
+/// where the cap is loose. The violation is largest exactly where the channel
+/// opens, which is where it matters most.
+///
+/// This remains an **approximation** in its *shape*: RECONR reconstructs cross
+/// sections (MF=3) but not the ENDF MF=5/MF=6 secondary-energy law, so the true
+/// continuum distribution is not available here. The evaporation model captures
+/// the essential physics — a large, broadly distributed down-scatter — and the cap
+/// makes it at least kinematically admissible. See GitHub #192.
 pub fn continuum_inelastic_scatter(
     e: f64,
     u: Direction,
     awr: f64,
+    q: f64,
     seed: &mut u64,
 ) -> (f64, Direction) {
     let a = awr;
     let ap1 = a + 1.0;
-    let e_cm_elastic = e * (a / ap1).powi(2); // max neutron CM energy (no loss)
+    // Max neutron CM energy allowed by two-body energy balance for this channel.
+    let e_cm_elastic = (e * (a / ap1).powi(2) + q * a / ap1).max(0.0);
 
     // Weisskopf temperature θ = √(E/a_ld), a_ld ≈ A/11 MeV⁻¹.
     let a_ld = (a / 11.0).max(1.0); // MeV⁻¹
@@ -676,7 +700,7 @@ mod tests {
         let mut sum_out = 0.0;
         for _ in 0..10_000 {
             let (e_out, _) =
-                continuum_inelastic_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, &mut seed);
+                continuum_inelastic_scatter(e, Direction::new(0.0, 0.0, 1.0), awr, 0.0, &mut seed);
             assert!(
                 e_out > 0.0 && e_out < e * (1.0 + 1e-9),
                 "continuum E' out of (0,E]: {e_out}"

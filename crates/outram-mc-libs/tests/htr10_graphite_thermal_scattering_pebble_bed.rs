@@ -675,12 +675,14 @@ fn diagnose_thermal_spectrum_reach() {
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, &mut seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, &mut seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, &mut seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, &mut seed),
                 };
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, &mut seed);
+                // (n,2n): MT=16's Q is not carried here, so the cap stays at the
+                // elastic CM energy as before (GitHub #192).
+                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, &mut seed);
                 e = e2;
                 u = u2;
             } else {

@@ -78,8 +78,15 @@ pub enum Inelastic {
         q: f64,
     },
     /// The continuum inelastic channel (MT=91): a broad secondary-energy
-    /// distribution modelled by a Weisskopf evaporation spectrum.
-    Continuum,
+    /// distribution modelled by a Weisskopf evaporation spectrum, bounded by the
+    /// channel's own Q-value.
+    Continuum {
+        /// Reaction Q-value \[eV\] (≤ 0) — MT=91's `QI`, minus the energy of the
+        /// lowest continuum state. Caps the outgoing energy at what two-body
+        /// energy balance allows; `0.0` when the channel carries no Q (the LOW
+        /// tier, or the MT=4 lumped fallback).
+        q: f64,
+    },
 }
 
 /// One inelastic scattering channel in the HIGH-tier level structure — the
@@ -533,11 +540,11 @@ impl Nuclide {
     /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         };
         let total: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
         if !(total > 0.0) {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         }
         let xi = prn(seed) * total;
         let mut cum = 0.0;
@@ -545,13 +552,13 @@ impl Nuclide {
             cum += recon.eval_mt(l.mt, e);
             if xi < cum {
                 return if l.continuum {
-                    Inelastic::Continuum
+                    Inelastic::Continuum { q: l.q }
                 } else {
                     Inelastic::Level { q: l.q }
                 };
             }
         }
-        Inelastic::Continuum
+        Inelastic::Continuum { q: 0.0 }
     }
 
     /// Sample an elastic scattering cosine in the **centre-of-mass frame** at
@@ -714,6 +721,79 @@ impl Nuclide {
             } => elastic_angular.mean_cosine(e),
             XsSource::Core { .. } => 0.0,
         }
+    }
+
+    /// **Diagnostic**: the inelastic channel table this nuclide samples from —
+    /// `(MT number, Q-value [eV], is-continuum)` per channel, in tape order.
+    ///
+    /// Exposed so a test can reconstruct what the transport kernel does with an
+    /// inelastic collision and check it against two-body energy balance. Empty on
+    /// the LOW tier.
+    pub fn inelastic_levels_table(&self) -> Vec<(u32, f64, bool)> {
+        match &self.xs {
+            XsSource::Pointwise { inel, .. } => inel
+                .iter()
+                .map(|l| (l.mt.number() as u32, l.q, l.continuum))
+                .collect(),
+            XsSource::Core { .. } => Vec::new(),
+        }
+    }
+
+    /// **Diagnostic**: the tape's own lumped **MT=4** total-inelastic cross
+    /// section \[barn\] at incident energy `e` \[eV\], and the number of resolved
+    /// levels the transport path sums instead.
+    ///
+    /// ENDF requires `MT=4 = Σ MT=51…91` exactly — MT=4 is a *redundant* section,
+    /// the evaluator's own sum of the partials. So this pair is an oracle for the
+    /// inelastic channel that needs no second code: whatever
+    /// [`xs_at_energy`](Self::xs_at_energy) reports as `MicroXS::inelastic` (the
+    /// sum over the resolved levels) must equal the MT=4 value on the same tape at
+    /// the same energy.
+    ///
+    /// The failure mode it is aimed at is the one this crate has already hit once,
+    /// in [`absorption_mt27`]: the RECONR path linearises every MF=3 section as it
+    /// appears on the tape and does **not** mark the redundant aggregates the way
+    /// an ACE reader does, so a partial summed on top of a sum — or a section
+    /// appearing twice — is silently double counting.
+    ///
+    /// Returns `(mt4_barns, n_levels)`; `(0.0, 0)` on the LOW tier, which carries
+    /// no level structure.
+    pub fn inelastic_mt4_and_levels(&self, e: f64) -> (f64, usize) {
+        match &self.xs {
+            XsSource::Pointwise { recon, inel, .. } => {
+                (recon.eval_mt(MtReaction::Mt4Inelastic, e), inel.len())
+            }
+            XsSource::Core { .. } => (0.0, 0),
+        }
+    }
+
+    /// **Diagnostic**: a copy of this nuclide with its resolved inelastic levels
+    /// removed, so an inelastic collision scatters **elastically** instead.
+    ///
+    /// # What it actually changes
+    ///
+    /// Only the reaction *partition*, never the total. The transport kernel
+    /// splits a collision on `absorption | inelastic | (n,2n) | elastic` shares of
+    /// `MicroXS::total`; with no levels, `MicroXS::inelastic` is zero and that
+    /// share falls through to the elastic branch. So the collision rate, the
+    /// absorption and the fission are all untouched, and what is removed is the
+    /// **excitation energy loss** — the neutron keeps the energy it would have
+    /// left behind in the residual nucleus.
+    ///
+    /// That is the right knob for pricing inelastic scattering against a
+    /// slowing-down residual: inelastic scattering's entire contribution to
+    /// moderation is the energy it removes per collision, and this removes exactly
+    /// that while holding everything else fixed.
+    ///
+    /// A LOW-tier (`Core`) nuclide is unchanged — its inelastic cross section is
+    /// the group remainder rather than a level list, so there is nothing to drop.
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model option.
+    pub fn without_inelastic(mut self) -> Self {
+        if let XsSource::Pointwise { inel, .. } = &mut self.xs {
+            inel.clear();
+        }
+        self
     }
 
     /// **Diagnostic**: a copy of this nuclide whose elastic scattering is

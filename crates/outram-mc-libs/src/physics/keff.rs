@@ -1304,14 +1304,17 @@ fn collide_batched(
     } else if xi < x.absorption + x.inelastic {
         let (e2, u2) = match nuc.sample_inelastic(e, seed) {
             Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-            Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+            Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     } else if xi < x.absorption + x.inelastic + x.n2n {
         // (n,2n): the primary down-scatters and one extra neutron is emitted
         // sharing the sampled outgoing state (Weisskopf stand-in for the emission
         // law, as in transport_history).
-        let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+        // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed);
         (
             0.0,
             CollisionResult::ScatterWithSecondary {
@@ -1426,7 +1429,7 @@ fn transport_history(
                 // the dominant fast-spectrum down-scatter off heavy nuclei.
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed),
                 };
                 e = e2;
                 u = u2;
@@ -1445,7 +1448,10 @@ fn transport_history(
                 // distribution and sample both outgoing neutrons from it, instead of
                 // the Weisskopf stand-in (mirror OpenMC's UncorrelatedAngleEnergy /
                 // CorrelatedAngleEnergy in src/distribution_energy.cpp).
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+                // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed);
                 stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
                 e = e2;
                 u = u2;
@@ -1572,12 +1578,15 @@ fn transport_history_tabulated(
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed),
                 };
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+                // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed);
                 stack.push(Site { r, u: u2, e: e2 });
                 e = e2;
                 u = u2;

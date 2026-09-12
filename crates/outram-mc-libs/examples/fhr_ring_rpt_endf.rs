@@ -139,7 +139,27 @@
 //!    harness resolves a two-thousand-pcm effect comfortably, and those two zeros
 //!    are measurements rather than failures to measure.
 //!
-//! 7. Not a validated result — an AI-assisted code-to-code check.
+//! 7. **Caveats 4-6 were measured BEFORE the residual was closed.** They are
+//!    still correct as *worth* measurements — that is what they are for, and
+//!    their numbers do not depend on what else was wrong at the time — but read
+//!    them as the elimination trail that led to GitHub #193 rather than as live
+//!    statements about an open gap. The trail was: graphite S(α,β) priced at
+//!    -127 +/- 337 pcm, the MF=4 angular law at -81 +/- 317, a deliberately
+//!    broken positive control at -2242 +/- 323 to show the harness could resolve
+//!    something, the inelastic channel at -4190 +/- 335, and F-19's inelastic
+//!    **alone** at -4033 +/- 333. The last row localised it to one nuclide's
+//!    inelastic channel, and reading that channel closely found the defect.
+//!
+//!    The lesson worth keeping is the method. Every earlier exclusion in this
+//!    study was an *accuracy* statement — "within 0.05 % of THERMR", "+/-0.04 %
+//!    vs NJOY", "resonance integrals +0.00 %" — and an accuracy statement cannot
+//!    bound a residual, because it says nothing about how much the mechanism is
+//!    worth. The defect that was actually there is not visible as an accuracy
+//!    error at all: F-19's inelastic cross section is faithful to its tape to
+//!    1e-7 everywhere it exists. It was the 0.0224 b where it should not have
+//!    existed that mattered.
+//!
+//! 8. Not a validated result — an AI-assisted code-to-code check.
 
 #[cfg(target_os = "android")]
 fn main() {
@@ -522,8 +542,44 @@ mod desktop {
         // that covers anisotropy spans 4 eV to 10 keV, where CM scattering is
         // isotropic anyway, so the MeV anisotropy that actually sets the
         // slowing-down power above the resonances is unverified.
+        // ── Sensitivity switch: how much is INELASTIC energy loss worth? ──
+        //
+        // `OUTRAM_RINGRPT_NO_INELASTIC=1` drops every nuclide's resolved inelastic
+        // levels, so an inelastic collision scatters elastically instead. The
+        // collision rate, absorption and fission are untouched; what goes away is
+        // the excitation energy the neutron leaves in the residual nucleus, which
+        // is inelastic scattering's whole contribution to moderation.
+        //
+        // It is the last large un-priced energy-loss channel above ~100 keV, it
+        // is what sets how quickly neutrons fall below U-238's fast-fission
+        // threshold, and nothing in this crate verifies it: the slowing-down
+        // check that covers elastic kinematics spans 4 eV to 10 keV, far below
+        // every inelastic threshold here (F-19 110 keV, U-238 45 keV, Be-9
+        // 1.7 MeV, C-12 4.4 MeV, O-16 6.0 MeV).
+        // Accepts `all`, or a comma-separated list of nuclide names as they appear
+        // in `nuclides()` (e.g. `F19`, `U238,U235`), so the channel can be priced
+        // per nuclide rather than only wholesale. The pebble's inelastic
+        // scattering is not dominated by the same nuclide its fission is.
+        let no_inelastic = std::env::var("OUTRAM_RINGRPT_NO_INELASTIC").unwrap_or_default();
         let isotropic_elastic = std::env::var("OUTRAM_RINGRPT_ISOTROPIC_ELASTIC").is_ok();
-        let nucs = if isotropic_elastic {
+        let nucs = if !no_inelastic.is_empty() {
+            let all = no_inelastic.eq_ignore_ascii_case("all");
+            let wanted: Vec<&str> = no_inelastic.split(',').map(str::trim).collect();
+            eprintln!(
+                "  !! SENSITIVITY MODE: INELASTIC levels dropped for [{no_inelastic}] — those\n\
+                 \x20    collisions scatter elastically. Wrong physics on purpose."
+            );
+            nuclides()
+                .into_iter()
+                .map(|n| {
+                    if all || wanted.iter().any(|w| w.eq_ignore_ascii_case(&n.name)) {
+                        n.without_inelastic()
+                    } else {
+                        n
+                    }
+                })
+                .collect::<Vec<_>>()
+        } else if isotropic_elastic {
             eprintln!(
                 "  !! SENSITIVITY MODE: elastic scattering forced ISOTROPIC-CM — every\n\
                  \x20    MF=4 angular distribution dropped. Wrong physics on purpose."
@@ -1163,8 +1219,15 @@ mod desktop {
     ///    transport methods, different initial source distributions, same answer:
     ///    recorded 18 pcm apart (0.05 sigma). This separates a tracking bug from a
     ///    data one.
-    /// 4. **The absolute offset against OpenMC is where it was.** The loosest claim,
-    ///    and the one that will change when #188 is fixed.
+    /// 4. **The absolute offset against OpenMC.** Until 2026-09-12 this was the
+    ///    loosest claim here and a characterisation of an open defect: +4004 pcm
+    ///    on the explicit pebble, gated only against a +/-1500 pcm drift. GitHub
+    ///    #193 closed it to **-469 pcm (2.2 sigma)** and the ring-RPT pebble to
+    ///    **-85 pcm (0.4 sigma)**, so it is now a real absolute-k agreement and a
+    ///    drift in it is a regression rather than a change in a known-wrong
+    ///    number. The gate is tightened to +/-1000 pcm accordingly, which is 3.3x
+    ///    the ~305 pcm standard error of a run-to-run difference; going tighter
+    ///    means buying histories, not shrinking the constant.
     ///
     /// # Results (recorded in `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`)
     ///
@@ -1190,9 +1253,45 @@ mod desktop {
     ///   ring-RPT (CSG)          1.40745 +/- 0.00214   +218 +/- 302 (0.72 s)        —
     /// ```
     ///
-    /// Re-measured 2026-09-12, CSG case only (`OUTRAM_RINGRPT_ONLY=csg`), after
-    /// the emission-table resize (`5916b917`, `f540b6ac`, GitHub #190) made the
-    /// graphite and water thermal kernels finer in both dimensions:
+    /// # 2026-09-12 — THE +4000 pcm OFFSET IS CLOSED (GitHub #193)
+    ///
+    /// Threshold reactions had a non-zero cross section **below** their
+    /// threshold: `eval_mt` clamped an MF=3 section to its endpoint value outside
+    /// the tabulated grid, which is right at the top and wrong at the bottom of a
+    /// threshold section. ENDF/B-VIII.0 F-19 opens MT=51 at
+    /// `(115 840 eV, 0.018129 b)`, so F-19 carried a constant 0.0224 b of
+    /// inelastic scattering at every energy below 115 keV — and because
+    /// `two_body_scatter` clamps a negative outgoing CM energy to zero, each of
+    /// those collisions dropped the neutron to `E/(A+1)²`, a factor of 394. About
+    /// one F-19 collision in 170, through the whole resonance region, was
+    /// teleporting the neutron past the U-238 resonances six lethargy units at a
+    /// time. That is a resonance-escape error by construction, which is what this
+    /// study had localised the residual to.
+    ///
+    /// Full re-measurement, same 4000 x [30 + 80] statistics, reflective sphere:
+    ///
+    /// ```text
+    ///   method                    this crate            vs explicit         vs OpenMC
+    ///   explicit TRISO      1.36041 +/- 0.00207             —           -469 pcm (2.2 s)
+    ///   ring-RPT            1.36394 +/- 0.00204   +353 +/- 291 (1.2 s)   -85 pcm (0.4 s)
+    ///   naive homogenised   1.32759 +/- 0.00201   -3282      (11.4 s)        —
+    ///   ring-RPT (CSG)      1.36140 +/- 0.00229   -254 +/- 307 vs delta       —
+    ///
+    ///   OpenMC reference:  explicit 1.36510 +/- 0.00063,  ring-RPT 1.36479 +/- 0.00067
+    /// ```
+    ///
+    /// **+4004 -> -469 pcm** on the explicit pebble and **+4260 -> -85 pcm** on
+    /// ring-RPT. The six factors, from the CSG case, land on the reference in all
+    /// four: eta -0.00 %, f -0.01 %, p +0.04 %, epsilon -0.08 %, against
+    /// +0.11 / -0.17 / +8.54 / -4.99 % before. The `naive - explicit`
+    /// double-heterogeneity claim is unchanged in character (-3282 pcm at 11.4
+    /// sigma, against -3191 recorded), which is the check that the fix did not
+    /// simply flatten the physics.
+    ///
+    /// Superseded, kept for the record — re-measured 2026-09-12, CSG case only
+    /// (`OUTRAM_RINGRPT_ONLY=csg`), after the emission-table resize (`5916b917`,
+    /// `f540b6ac`, GitHub #190) made the graphite and water thermal kernels finer
+    /// in both dimensions:
     ///
     /// ```text
     ///   ring-RPT (CSG)          1.40546 +/- 0.00234   (was 1.40757 +/- 0.00224)
@@ -1232,16 +1331,24 @@ mod desktop {
         omc_rpt: (f64, f64),
     ) {
         /// Recorded `explicit TRISO - OpenMC explicit`, pcm.
-        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = 4004.0;
-        /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm.
-        const RECORDED_RPT_VS_OMC_PCM: f64 = 4260.0;
+        ///
+        /// **Was +4004. Re-measured 2026-09-12 after GitHub #193** — threshold
+        /// reactions had a non-zero cross section below their threshold, and
+        /// F-19's spurious sub-threshold inelastic channel was teleporting one
+        /// collision in ~170 past the U-238 resonances, six lethargy units at a
+        /// time. That was the whole residual.
+        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = -469.0;
+        /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm. Was +4260; see above.
+        const RECORDED_RPT_VS_OMC_PCM: f64 = -85.0;
         /// How far the recorded absolute offsets may move before this gate fires.
         ///
-        /// Wide, and deliberately: the run carries ~200 pcm of statistics per side
-        /// and the history count is configurable, so a tight pin would fire on the
-        /// harness rather than on the physics. It is sized to catch a *change of
-        /// character* — the defect being fixed, or doubling — not a fluctuation.
-        const ABSOLUTE_DRIFT_GATE_PCM: f64 = 1500.0;
+        /// **Tightened 5x, from 1500 pcm, when #193 closed the offset.** It cannot
+        /// go much below this and still be a gate on physics rather than on the
+        /// harness: each side carries ~215 pcm of statistics, so the difference
+        /// between the recorded run and a fresh one has a standard error near
+        /// 305 pcm and 1000 pcm is only 3.3 of those. Buying a tighter pin means
+        /// buying more histories, not a smaller number here.
+        const ABSOLUTE_DRIFT_GATE_PCM: f64 = 1000.0;
 
         let pcm = |a: (f64, f64), b: (f64, f64)| (a.0 - b.0) * 1.0e5;
         let sigma =
@@ -1306,7 +1413,8 @@ mod desktop {
             d_csg.abs() / s_csg,
         );
 
-        // 4. The open offset itself. Characterisation only — see the doc comment.
+        // 4. The absolute offset. No longer a characterisation of an open
+        //    defect — see the doc comment.
         for (label, ours, omc, recorded) in [
             (
                 "explicit TRISO",
@@ -1326,11 +1434,12 @@ mod desktop {
                 "{label} is now {d:+.0} pcm from OpenMC, against the {recorded:+.0} pcm \
                  recorded in verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md \
                  — a drift of {:+.0} pcm.\n\
-                 This is a CHARACTERISATION pin on an open defect (GitHub #188), not a \
-                 physics pass. If the offset FELL, #188 may be fixed or partly fixed: \
-                 record the new value, tighten this gate, and update the V&V document. \
-                 If it grew, something regressed. Either way it is a finding, not a \
-                 tolerance to widen.",
+                 The +4000 pcm era ended with GitHub #193; both offsets are now \
+                 within a couple of sigma of zero, so this is no longer a \
+                 characterisation pin on an open defect but a real absolute-k \
+                 agreement, and a drift here is a REGRESSION. Record the new value \
+                 and re-tighten only if something was genuinely fixed; otherwise \
+                 find what moved. Never widen the tolerance.",
                 d - recorded,
             );
         }

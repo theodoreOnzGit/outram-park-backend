@@ -296,10 +296,11 @@ fn slow_down(
                 } else if xi < x.absorption + x.inelastic {
                     e = match nuc.sample_inelastic(e, seed) {
                         Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed).0,
-                        Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed).0,
+                        Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed).0,
                     };
                 } else if xi < x.absorption + x.inelastic + x.n2n {
-                    let e2 = continuum_inelastic_scatter(e, u, nuc.awr, seed).0;
+                    // (n,2n): MT=16's Q is not carried here (GitHub #192).
+                    let e2 = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed).0;
                     stack.push(e2); // yield - 1 = 1 secondary
                     e = e2;
                 } else {

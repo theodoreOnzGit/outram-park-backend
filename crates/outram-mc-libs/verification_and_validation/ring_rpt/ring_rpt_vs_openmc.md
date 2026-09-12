@@ -82,6 +82,101 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-09-12 — THE +4000 pcm RESIDUAL IS CLOSED (GitHub #193)
+
+**Threshold reactions had a non-zero cross section below their threshold.**
+
+`ReconrResult::eval_mt` evaluated an MF=3 section with a routine that clamps to
+the endpoint value outside the tabulated grid. That is right at the top of the
+grid, right for a section spanning the whole evaluation, and wrong at the bottom
+of a **threshold** section, where it propagates the threshold value down to zero
+energy. Evaluations do not all open their threshold sections at zero —
+ENDF/B-VIII.0 F-19 starts MT=51 at `(115 840 eV, 0.018129 b)` and MT=52 at
+`(207 460 eV, 0.0042683 b)` — so F-19 carried a **constant 0.0224 b of inelastic
+scattering at every energy below 115 keV**, into the thermal range, about 0.6 %
+of its total cross section through the entire resonance region.
+
+The kinematics turned that into a transport catastrophe. `two_body_scatter`
+clamps a negative outgoing CM energy to zero, so a sub-threshold "inelastic"
+collision leaves the neutron at `E/(A+1)²` — a factor of **394** for fluorine,
+**six units of lethargy in a single collision**. Roughly one F-19 collision in
+170, at every energy from 115 keV down, was teleporting the neutron past the
+U-238 resonance region. That is a resonance-escape probability error by
+construction, and it is exactly what this study had localised the residual to:
+*"the entire disagreement is the fraction of neutrons that cross 0.625 eV."*
+
+### Re-measured 2026-09-12, same 4000 × [30 + 80] statistics, reflective sphere
+
+```
+  method                    this crate            vs explicit         vs OpenMC
+  explicit TRISO      1.36041 ± 0.00207             —           −469 pcm (2.2σ)
+  ring-RPT            1.36394 ± 0.00204   +353 ± 291 (1.2σ)     −85 pcm (0.4σ)
+  naive homogenised   1.32759 ± 0.00201   −3282      (11.4σ)        —
+  ring-RPT (CSG)      1.36140 ± 0.00229   −254 ± 307 vs delta       —
+
+  OpenMC reference:  explicit 1.36510 ± 0.00063,  ring-RPT 1.36479 ± 0.00067
+```
+
+**+4004 → −469 pcm** on the explicit pebble; **+4260 → −85 pcm** on ring-RPT. The
+six factors land on the reference in all four: η −0.00 %, f −0.01 %, p +0.04 %,
+ε −0.08 %, against +0.11 / −0.17 / +8.54 / −4.99 % before.
+
+The `naive − explicit` claim is unchanged in character (−3282 pcm at 11.4σ
+against −3191 recorded), which is the check that the fix did not simply flatten
+the physics: a code that had quietly stopped modelling the TRISO structure would
+have lost that number too.
+
+### How it was found
+
+By **pricing** mechanisms instead of checking their accuracy — running the case
+twice, once with the mechanism switched off, because an accuracy statement
+bounds nothing. Each row is the same case at the same statistics:
+
+| mechanism, switched off | Δk | p vs OpenMC |
+|---|---|---|
+| graphite S(α,β) → free gas | −127 ± 337 pcm (0.38σ) | +8.54 % → +8.18 % |
+| MF=4 elastic angle → isotropic CM | −81 ± 317 pcm (0.26σ) | +8.54 % → +8.49 % |
+| free-gas target motion → at rest (**control**) | −2242 ± 323 pcm (6.9σ) | +8.54 % → +6.03 % |
+| inelastic channel, all nuclides | −4190 ± 335 pcm | +8.54 % → −1.03 % |
+| **inelastic channel, F-19 only** | **−4033 ± 333 pcm** | **+8.54 % → −0.45 %** |
+
+The third row is a positive control, not a candidate: it reinstates the defect
+`op-50vu` recorded and fixed, and it is there because a table of null results is
+only worth reading if the instrument can produce a non-null one. The last row
+localised the residual to one nuclide's inelastic channel; reading that channel
+closely produced GitHub #192 (the MT=91 continuum ignored its Q-value and emitted
+above the kinematic bound in 22 % of draws just above threshold) and then #193.
+
+### What this says about the elimination trail
+
+Every earlier exclusion in this study is an **accuracy** statement — "within
+0.05 % of THERMR", "±0.04 % vs NJOY", "resonance integrals +0.00 %". None of them
+was wrong, and none of them could have found this, because **the defect is not an
+accuracy error**: F-19's inelastic cross section is faithful to its tape to 1e-7
+everywhere it exists. What was wrong was the 0.0224 b where it should not have
+existed at all — a region no accuracy comparison was looking at, because both
+sides of every comparison agreed there was nothing there.
+
+The two things that did find it were a *worth* measurement and an *invariant*:
+pricing the mechanism, and then asking whether a threshold reaction can occur
+below its threshold. Neither needs a reference code.
+
+### Regression gates added
+
+- `tests/inelastic_channel_vs_endf.rs::a_threshold_reaction_has_no_cross_section_below_its_threshold`
+  — derives each nuclide's own lowest threshold from its level table (U-235's
+  first excited state is at **76.5 eV**, four orders below U-238's 44.9 keV, so a
+  fixed probe energy would assert something false) and requires MT=4, the summed
+  partials and MT=16 to be exactly zero below it.
+- `…::the_inelastic_partials_sum_to_the_tapes_own_mt4` — the ENDF redundancy
+  relation, worst 1.19e-5. This is the test that surfaced #193: before the fix it
+  failed on F-19 at 200 keV with a *constant* 0.004268 b excess at every energy
+  below MT=52's threshold.
+- `…::f19_inelastic_reproduces_the_raw_endf_tape` — golden values parsed straight
+  out of the MF=3 TAB1 records, so "F-19 really does have 2.82 b of inelastic at
+  300 keV" rests on the evaluation and not on the code that reads it.
+- `…::continuum_inelastic_respects_two_body_energy_balance` — the #192 gate.
+
 ## 2026-09-12 — the graphite thermal law is priced, and it is not the residual
 
 Two changes landed against the thermal scattering treatment on 2026-09-12, and

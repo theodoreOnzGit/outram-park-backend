@@ -800,12 +800,15 @@ pub(crate) fn transport_history(
                 } else if xi < x.absorption + x.inelastic {
                     let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                         Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                        Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                        Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed),
                     };
                     e = e2;
                     u = u2;
                 } else if xi < x.absorption + x.inelastic + x.n2n {
-                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+                    // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed);
                     stack.push(Site { r, u: u2, e: e2 });
                     e = e2;
                     u = u2;
