@@ -82,6 +82,55 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-09-13 (later) — MT=91/MT=16 stop guessing and read the evaluated MF=6 law
+
+The continuum inelastic (MT=91) and (n,2n) (MT=16) outgoing energies had been
+drawn from a **Weisskopf evaporation stand-in**, because RECONR reconstructs
+MF=3 magnitudes but no secondary-energy law. The evaluation's own
+`f₀(E→E')` — ENDF **MF=6 LAW=1** — is now read and sampled instead
+(`ContinuumEmission`, commit `41abb39d8`), with the second (n,2n) neutron an
+independent draw from it rather than a copy of the primary.
+
+**Priced on Godiva first, where it can be resolved.** A paired 64-seed ensemble
+with the law switched off in one arm
+(`examples/godiva_mf6_continuum_ensemble.rs`):
+
+| arm | n | mean | sd | sem |
+|---|---|---|---|---|
+| MF=6 evaluated law | 64 | **+214 pcm** | 160 | ±20 |
+| Weisskopf stand-in | 64 | **+319 pcm** | 204 | ±25 |
+| **difference** | | **−105 pcm** | | **±32 (3.3 σ)** |
+
+**This pebble, same day, same tapes** (4000 × [30 + 80], reflective sphere):
+
+| case | vs OpenMC, was | vs OpenMC, now | drift |
+|---|---|---|---|
+| explicit TRISO | +37 pcm | **−466 pcm** | −503 |
+| ring-RPT | −116 pcm | **−236 pcm** | −120 |
+
+Both moved **down**, the same direction as Godiva. **But this pebble cannot
+resolve it.** Each arm here is a *single run* carrying ~230 pcm of statistics,
+so two runs of unchanged code differ by ~325 pcm of standard error and the
+−503 pcm drift is **1.5 σ** of ordinary noise. It is consistent with Godiva's
+measured effect in sign and plausible in size; it is not established by this
+run. Pooling these two cases over seeds the way Godiva was pooled is the honest
+fix and has not been done — gh:#196 / `bn:op-awwi` covers exactly this class of
+single-draw baseline, and `+37`/`−116` were themselves single draws.
+
+Every other gate in this program held: RPT − explicit `+199 ± 302 pcm`
+(0.66 σ), naive − explicit `−3242 ± 308 pcm` (10.5 σ, i.e. double heterogeneity
+still dominates everything), CSG − delta-tracked `+241 ± 308 pcm` (0.78 σ).
+
+**Two evaluation-format defects surfaced while writing the gate for this**, both
+on data this study already depends on: U-235/U-238 tabulate MT=91 in the
+**centre of mass** while **F-19 tabulates it in the laboratory**, and F-19
+writes MT=16 as **two** neutron subsections of yield 1 (where the actinides use
+one of yield 2), which the single-subsection reader would have read as a 50 %
+multiplicity error on a fluorine (n,2n). Both are fixed and gated in
+`njoy-outram-park-fork/tests/mf6_continuum_emission_vs_tape.rs`.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
+
 ## 2026-09-13 — the continuous thermal kernel takes the last 500 pcm
 
 `ThermalScattering::sample` stopped reading back one of N discrete equiprobable

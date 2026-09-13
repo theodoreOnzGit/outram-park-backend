@@ -1356,10 +1356,30 @@ mod desktop {
         /// reactions had a non-zero cross section below their threshold, and
         /// F-19's spurious sub-threshold inelastic channel was teleporting one
         /// collision in ~170 past the U-238 resonances, six lethargy units at a
-        /// time. That was the whole residual.
-        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = 37.0;
-        /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm. Was +4260; see above.
-        const RECORDED_RPT_VS_OMC_PCM: f64 = -116.0;
+        /// time. That was the whole residual. That run read **+37 pcm**.
+        ///
+        /// **Re-measured again 2026-09-13** after MT=91/MT=16 moved from the
+        /// Weisskopf evaporation stand-in to the evaluation's own ENDF **MF=6
+        /// LAW=1** law (gh:#192 item 1). Both arms moved **down**, the same
+        /// direction as Godiva, where the switch was priced at
+        /// **−105 ± 32 pcm (3.3 sigma)** over 64 seeds per arm
+        /// (`examples/godiva_mf6_continuum_ensemble.rs`).
+        ///
+        /// **A caution that applies to both constants below.** Each is a
+        /// **single run**, and the explicit arm alone carries ~230 pcm of
+        /// statistics, so two runs of unchanged code differ by ~325 pcm of
+        /// standard error. The −503 pcm drift recorded here is therefore
+        /// **1.5 sigma** of run-to-run noise: consistent with Godiva's measured
+        /// effect in sign and plausible in size, but **not resolved by this run**.
+        /// Pooling these two cases over seeds the way Godiva was pooled is the
+        /// honest fix and has not been done — see gh:#196 / `bn:op-awwi`, which
+        /// is about exactly this class of single-draw baseline.
+        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = -466.0;
+        /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm. Was +4260, then −116;
+        /// see [`RECORDED_EXPLICIT_VS_OMC_PCM`] for the 2026-09-13 re-measurement
+        /// and the single-draw caution that applies here too (this arm drifted
+        /// −120 pcm, well inside its own noise).
+        const RECORDED_RPT_VS_OMC_PCM: f64 = -236.0;
         /// How far the recorded absolute offsets may move before this gate fires.
         ///
         /// **Tightened 5x, from 1500 pcm, when #193 closed the offset.** It cannot
