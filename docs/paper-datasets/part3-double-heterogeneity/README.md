@@ -6,36 +6,46 @@ transport-kernel verification and the classical ICSBEP criticals are **Part II**
 **Source record:**
 `crates/outram-mc-libs/verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`.
 
-> **Rebaselined 2026-09-12.** This paper's numbers changed completely when the
-> `+4000` pcm residual was closed (GitHub #193). Everything below is the
-> post-fix state; the superseded rows are kept in the CSVs, flagged, because
-> the supersession *is* part of the story.
+> **Rebaselined twice — 2026-09-12 (#193, F-19 threshold) and 2026-09-13 (#194,
+> continuous thermal kernel).** Everything below is the post-#194 state. The
+> superseded rows are kept in the CSVs, flagged, because the supersession *is*
+> part of the story: three baselines in three days, `+4004 → −469 → +37` pcm.
+>
+> **Re-extract before submission.** The numbers have moved on every day of this
+> work so far, and `op-77pu` / #188 is still open beneath them.
 
 ## The result
 
 | case | tracking | `outram-mc-libs` | OpenMC | Δ |
 |---|---|---|---|---|
-| explicit TRISO | delta (Woodcock) | 1.36041 ± 0.00207 | 1.36510 ± 0.00063 | **−469 pcm (2.2σ)** |
-| ring-RPT | delta (Woodcock) | 1.36394 ± 0.00204 | 1.36479 ± 0.00067 | **−85 pcm (0.4σ)** |
-| ring-RPT | CSG surface-tracked | 1.36140 ± 0.00229 | 1.36479 ± 0.00067 | −339 pcm (1.4σ) |
-| naive homogenised | delta (Woodcock) | 1.32759 ± 0.00201 | — | — |
+| explicit TRISO | delta (Woodcock) | 1.36547 ± 0.00229 | 1.36510 ± 0.00063 | **+37 pcm (0.2σ)** |
+| ring-RPT | delta (Woodcock) | 1.36363 ± 0.00216 | 1.36479 ± 0.00067 | **−116 pcm (0.5σ)** |
+| ring-RPT | CSG surface-tracked | 1.36810 ± 0.00213 | 1.36479 ± 0.00067 | +331 pcm (1.5σ) |
+| naive homogenised | delta (Woodcock) | 1.32971 ± 0.00237 | — | — |
+
+**The explicit pebble is +37 pcm from a reference carrying ±63 pcm of its own.**
+That is agreement, not a residual. The trajectory across three days is
+`+4004 → −469 → +37` — the F-19 threshold fix (#193) then the continuous thermal
+kernel (#194).
 
 **The RPT equivalence, which is what the paper is about:**
 
 | code | RPT − explicit | σ from zero |
 |---|---|---|
-| `outram-mc-libs` | **+353 ± 291 pcm** | 1.2σ |
+| `outram-mc-libs` | **−184 ± 315 pcm** | 0.58σ |
 | OpenMC | −31 ± 92 pcm | 0.34σ |
-| cross-code difference | +384 ± 305 pcm | 1.26σ — consistent |
+| cross-code difference | −153 ± 328 pcm | 0.47σ — consistent |
 
-Six factors against the reference: **η −0.00 %, f −0.01 %, p +0.04 %,
-ε −0.08 %** (they were +0.11 / −0.17 / +8.54 / −4.99 % before the fix).
+Six factors landed on the reference at the F-19 fix — **η −0.00 %, f −0.01 %,
+p +0.04 %, ε −0.08 %**, against +0.11 / −0.17 / +8.54 / −4.99 % before it.
+Re-extract these at the continuous-kernel baseline before writing; the k rows
+moved and the factor rows quoted here are from 2026-09-12.
 
-`naive − explicit = −3282 pcm (11.4σ)` is the double-heterogeneity effect RPT
-exists to remove, and it is **unchanged in character** from the −3191 pcm
-recorded pre-fix. That is the check that the fix did not simply flatten the
-physics: a code that had quietly stopped modelling the TRISO structure would
-have lost that number too.
+`naive − explicit = −3575 pcm (10.9σ)` is the double-heterogeneity effect RPT
+exists to remove, and it stays **real and unchanged in character** across both
+fixes (−3191 → −3282 → −3575). That is the check that matters whenever a fix
+moves absolute k by hundreds of pcm: a code that had quietly stopped modelling
+the TRISO structure would have lost that number too.
 
 ## The defect story, which is the paper's methodological contribution
 
@@ -158,8 +168,10 @@ as context, not as the explanation of this paper's result.
 
 Beyond the workspace-wide ones in `../README.md`:
 
-- **`−469 ± 216` pcm on explicit TRISO is 2.2σ, not agreement.** The ring-RPT
-  row (`−85`, 0.4σ) is the clean one. Report the two distinctly.
+- **The CSG surface-tracked row is the loosest at `+331 ± 223` pcm (1.5σ)**,
+  against `+37` (0.2σ) delta-tracked explicit and `−116` (0.5σ) delta-tracked
+  ring-RPT. It is still consistent, but do not present the three as uniformly
+  excellent; say which is which.
 - **σ ≈ 200 pcm** at 4000 × [30 + 80]. Several comparisons here are "consistent
   with zero", not "agree to X pcm". State what the statistics can resolve.
 - **Thermal-kernel defects remain open underneath this result** — GH #188 is
