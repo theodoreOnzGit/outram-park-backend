@@ -560,19 +560,41 @@ impl ContinuumEmission {
         };
 
         const EMEV: f64 = 1.0e6;
-        let cm_frame = neutrons.first().map(|n| n.lct == 2).unwrap_or(false);
+        // `>= 2`, not `== 2`: ENDF-6 also defines **LCT = 3** (the first two
+        // particles in the centre of mass, the rest in the laboratory), and the
+        // emitted neutron is one of the first two. NJOY does exactly this
+        // collapse — `acefc.f90:7187`, `if (lct.gt.2) lct=2`. ENDF/B-VIII.0's
+        // C-12 MF=6/MT=5 carries LCT = 3, so treating it as laboratory would put
+        // a CM spectrum through no frame transform at all.
+        let cm_frame = neutrons.first().map(|n| n.lct >= 2).unwrap_or(false);
         let mut branches = Vec::with_capacity(neutrons.len());
         for neutron in neutrons {
             let mut incident = Vec::with_capacity(neutron.law4.incident.len());
             let mut tables = Vec::with_capacity(neutron.law4.incident.len());
             for t in &neutron.law4.incident {
+                // `ND > 0` means the table's leading entries are **discrete
+                // lines**, not a continuum. [`ChiTabular`] is a pure continuum
+                // pdf/cdf and cannot represent them: sampled as continuum, a
+                // zero-width discrete line is either lost or smeared. Refuse the
+                // whole emission rather than return a law that samples wrongly —
+                // the caller's documented behaviour on `None` is to keep its own
+                // fallback, which is a known approximation rather than a silent
+                // one. No evaluation in `reference-data/endf/` currently has
+                // `ND > 0` on a neutron subsection, so this is a guard, not a
+                // live path.
+                if t.nd() != 0 {
+                    return Ok(None);
+                }
                 incident.push(t.e_in_mev * EMEV);
                 tables.push(ChiEout {
                     e_out: t.e_out_mev.iter().map(|&x| x * EMEV).collect(),
                     // pdf is a density in the energy variable, so it scales inversely.
                     pdf: t.pdf.iter().map(|&y| y / EMEV).collect(),
                     cdf: t.cdf.clone(),
-                    linlin: t.intt != 1,
+                    // `lep()`, not the raw `intt`: ACE packs `INTT = LEP + 10·ND`,
+                    // so a histogram table carrying discrete lines reads `intt =
+                    // 11` and a bare `intt != 1` would call it lin-lin.
+                    linlin: t.lep() != 1,
                 });
             }
             if incident.is_empty() {
