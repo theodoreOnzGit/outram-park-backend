@@ -444,26 +444,94 @@ impl Mf6Neutron {
 /// [`NjoyError::NotPorted`] for the unhandled cases above; [`NjoyError::EndfParse`]
 /// on malformed records.
 pub fn parse_mf6_law1_neutron(section: &Section) -> Result<Mf6Neutron, NjoyError> {
+    let mut all = parse_mf6_law1_neutrons(section)?;
+    Ok(all.remove(0))
+}
+
+/// Parse **every leading neutron (ZAP=1) LAW=1 subsection** of an MF=6 section.
+///
+/// Some evaluations give (n,2n) as one neutron subsection with yield 2 (U-238,
+/// U-235 in ENDF/B-VIII.0); others split it into **two** ZAP=1 subsections of
+/// yield 1 each, carrying different spectra for the first and second emitted
+/// neutron (F-19 in the same library, MF=6/MT=16, NK=4). A reader that takes
+/// only the first subsection silently emits one neutron where the evaluation
+/// says two, so the multiplicity must come from the sum over subsections.
+///
+/// # What it stops at
+///
+/// Subsections are read in file order and reading **stops at the first one that
+/// is not a ZAP=1 LAW=1 neutron** — the photon and recoil subsections that
+/// follow use other laws whose bodies this port cannot yet skip over safely, so
+/// it stops rather than mis-seek. A neutron subsection placed *after* a
+/// non-neutron one would therefore be missed; no evaluation in
+/// `reference-data/endf/` does that (every neutron subsection observed is
+/// leading), and a future general subsection-skipper would lift the limit.
+///
+/// # Errors
+/// Same as [`parse_mf6_law1_neutron`]: the **first** subsection must be a
+/// ZAP=1 LAW=1 neutron, or [`NjoyError::NotPorted`] is returned.
+pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
     let lct = head.l2;
+    let nk = head.n1.max(0);
 
-    // First subsection: TAB1 yield; its head carries ZAP (C1) and LAW (L2).
-    let ymult = cur.read_tab1()?;
-    let zap = ymult.head.c1.round() as i32;
-    let law = ymult.head.l2;
-    if zap != 1 {
+    let mut out: Vec<Mf6Neutron> = Vec::new();
+    for k in 0..nk {
+        // Subsection: TAB1 yield; its head carries ZAP (C1) and LAW (L2).
+        let ymult = match cur.read_tab1() {
+            Ok(t) => t,
+            Err(e) => {
+                if out.is_empty() {
+                    return Err(e);
+                }
+                break; // a trailing subsection we cannot read is not fatal
+            }
+        };
+        let zap = ymult.head.c1.round() as i32;
+        let law = ymult.head.l2;
+        if zap != 1 {
+            if k == 0 {
+                return Err(NjoyError::NotPorted(
+                    "MF=6 first subsection is not the neutron (ZAP≠1) — Phase 4d follow-up",
+                ));
+            }
+            break;
+        }
+        if law != 1 {
+            if k == 0 {
+                return Err(NjoyError::NotPorted(
+                    "MF=6 LAW≠1 (two-body/phase-space/etc.) — Phase 4d follow-up",
+                ));
+            }
+            break;
+        }
+        match parse_law1_neutron_body(&mut cur, lct, ymult) {
+            Ok(n) => out.push(n),
+            Err(e) => {
+                if out.is_empty() {
+                    return Err(e);
+                }
+                break;
+            }
+        }
+    }
+    if out.is_empty() {
         return Err(NjoyError::NotPorted(
-            "MF=6 first subsection is not the neutron (ZAP≠1) — Phase 4d follow-up",
+            "MF=6 section carries no ZAP=1 LAW=1 neutron subsection",
         ));
     }
-    if law != 1 {
-        return Err(NjoyError::NotPorted(
-            "MF=6 LAW≠1 (two-body/phase-space/etc.) — Phase 4d follow-up",
-        ));
-    }
+    Ok(out)
+}
 
-    // LAW=1 body: TAB2 (LANG, LEP, NE) then one LIST per incident energy.
+/// The LAW=1 body of one neutron subsection: TAB2 (LANG, LEP, NE) then one LIST
+/// per incident energy. Split out of [`parse_mf6_law1_neutrons`] so both the
+/// single- and multi-subsection entry points share one parser.
+fn parse_law1_neutron_body(
+    cur: &mut SectionCursor<'_>,
+    lct: i32,
+    ymult: crate::endf::records::Tab1,
+) -> Result<Mf6Neutron, NjoyError> {
     let tab2 = cur.read_tab2()?;
     let lep = tab2.head.l2; // secondary-energy interpolation
     let ne = tab2.head.n2;

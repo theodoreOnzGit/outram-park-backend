@@ -62,6 +62,7 @@
 //! | [`graph`] | `DWSIM.FlowsheetBase/FlowsheetBase.vb`; `DWSIM.Drawing.SkiaSharp/GraphicsSurface/DesignSurface.vb` (`ConnectObject` / `DisconnectObject`) |
 //! | [`queue`] | `DWSIM.FlowsheetSolver/ObjectInfo.vb`; `FlowsheetBase.vb` (`CalculationQueue`, `RequestCalculation`) |
 //! | [`report`] | `DWSIM.FlowsheetBase/ReportCreator.vb` |
+//! | [`component_basis`] | `FlowsheetBase.vb` (`AddCompound` / `GetCompound` / `AvailableCompounds`) — **structure only, no property data** |
 //!
 //! Each submodule's header cites the exact line ranges it ports.
 //!
@@ -135,6 +136,7 @@
 //!   crate's own equipment modules; wiring them into the registry is the
 //!   solver workstream's decision, not this module's.
 
+pub mod component_basis;
 pub mod connectors;
 pub mod graph;
 /// Read-only importer for DWSIM's saved `.dwxml` / `.dwxmz` reference files.
@@ -144,6 +146,9 @@ pub mod queue;
 pub mod report;
 pub mod streams;
 
+pub use component_basis::{
+    molar_mass_discrepancies, resolve_components, resolve_components_checked, MolarMassDiscrepancy,
+};
 pub use connectors::{Attachment, ConType, ConnectionPoint, ConnectorLayout, ConnectorSlot};
 pub use graph::{Connection, ConnectionError, Flowsheet, FlowsheetError, FlowsheetResults};
 pub use objects::{

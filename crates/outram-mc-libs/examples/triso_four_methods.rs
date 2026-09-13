@@ -499,6 +499,8 @@ fn main() {
         "", "", "", "", "", "", "", ""
     );
 
+    // Per-packing-fraction results, kept for the V&V gate at the bottom.
+    let mut rows: Vec<MethodRow> = Vec::new();
     for &pf in &[0.05_f64, 0.10, 0.15, 0.20, 0.25] {
         let problem = FourMethodProblem {
             packing_fraction: pf,
@@ -574,6 +576,13 @@ fn main() {
                     "      |   (se {:.4}) |   (se {:.4})  z={:>+5.2} |",
                     se_surface, se_delta, z_delta
                 );
+                rows.push(MethodRow {
+                    pf,
+                    surface: surface.absorption_probability,
+                    z_delta,
+                    d_cls,
+                    d_scls,
+                });
             }
             Err(e) => println!("{pf:>5.2} | CLS/SCLS packing failed: {e}"),
         }
@@ -594,4 +603,142 @@ fn main() {
 
     println!("Done. See the module docs for methodology, the delta-tracking majorant argument,");
     println!("and a previously-recorded measured table with binomial standard errors.");
+
+    vv_gate(&rows);
+}
+
+/// One packing fraction's worth of the four-method comparison, kept for the gate.
+struct MethodRow {
+    /// Packing fraction of the RSA arrangement.
+    pf: f64,
+    /// Absorption probability from surface tracking -- the exact reference.
+    surface: f64,
+    /// Delta-vs-surface discrepancy, in combined binomial standard errors.
+    z_delta: f64,
+    /// CLS absorption probability minus the surface reference.
+    d_cls: f64,
+    /// SCLS absorption probability minus the surface reference.
+    d_scls: f64,
+}
+
+/// V&V gate: what these four methods are entitled to claim about each other.
+///
+/// # Two different kinds of comparison live in this table, and only one is exact
+///
+/// **Surface vs Delta is an identity.** Both track the *same explicit RSA
+/// packing* with the same cross sections; delta tracking only replaces
+/// distance-to-boundary with majorant rejection sampling. They are unbiased
+/// estimators of the same number, so they must agree to **counting statistics and
+/// nothing else**. A gap there is a bug in the majorant or the sampling, not
+/// different physics -- which is why the run computes a z-score for it.
+///
+/// **Surface vs CLS/SCLS is not.** Those models never see the packing: they are
+/// handed its *statistics* (particle radius, packing fraction) and reconstruct
+/// chord lengths from them. Their gaps are **model approximation error** --
+/// deterministic functions of those statistics rather than sampling noise -- so a
+/// z-score on them would be meaningless and is not computed.
+///
+/// # What is deliberately NOT asserted: that either stochastic model is better
+///
+/// `src/stochastic/benchmark.rs` states plainly that it "measures; it does not
+/// assert that SCLS beats CLS", and records why. At RSA = 0.6947, CLS came in at
+/// 0.7073 (+0.0126) and SCLS at 0.7165 (+0.0218) -- so **CLS was closer in that
+/// regime**. SCLS's retained inclusions raise the re-encounter rate on
+/// back-scatter and over-correct past the reference. Whether SCLS wins in
+/// optically thicker or higher-packing regimes is the parameter study that suite
+/// exists to run.
+///
+/// Pinning an ordering here would promote one regime's result to a general claim,
+/// and the next person to run a thicker case would read a green build as
+/// agreement. The gate bounds both models and ranks neither.
+///
+/// # Results (2026-09-11) -- and the ranking does flip
+///
+/// Absorption probability, with each model's gap against surface tracking:
+///
+/// ```text
+///    pf   surface    delta     d      CLS       d        SCLS      d
+///   0.05   0.3993   0.4040  +0.0047  0.3500  -0.0493   0.3830  -0.0163
+///   0.10   0.5703   0.5770  +0.0067  0.5527  -0.0177   0.5860  +0.0157
+///   0.15   0.6687   0.6727  +0.0040  0.6733  +0.0047   0.6850  +0.0163
+///   0.20   0.7430   0.7377  -0.0053  0.7343  -0.0087   0.7577  +0.0147
+///   0.25   0.7867   0.7953  +0.0087  0.7957  +0.0090   0.8107  +0.0240
+/// ```
+///
+/// Delta vs surface: **worst 0.83 sigma** across all five packings. The identity
+/// holds.
+///
+/// **At pf = 0.05, SCLS is three times closer than CLS** (-0.0163 against
+/// -0.0493); by pf = 0.25 that has reversed (+0.0240 against +0.0090). Both
+/// models also cross from under- to over-estimating as packing rises. So the
+/// benchmark module's refusal to rank them is not caution for its own sake --
+/// the ordering measurably depends on the regime, and either single-regime
+/// result would have been wrong as a general claim. Worst model gap overall:
+/// **0.0493**, against the 0.10 envelope.
+///
+/// # The claims
+///
+/// 1. Delta agrees with Surface within **4 sigma** -- the identity.
+/// 2. Both stochastic models land within **0.10 absolute** of the reference at
+///    every packing fraction. Loose on purpose: it bounds a modelling error that
+///    has no exact value, and sits well above the ~0.022 worst recorded so it
+///    fires on a model that has stopped tracking the physics rather than on
+///    regime-dependent drift.
+/// 3. Every arm returns a probability in (0, 1).
+fn vv_gate(rows: &[MethodRow]) {
+    println!("\n=== V&V gate: four methods, two kinds of comparison ===");
+    assert!(
+        !rows.is_empty(),
+        "no packing fraction completed all four methods, so nothing was compared"
+    );
+
+    let mut worst_z = 0.0_f64;
+    let mut worst_model = 0.0_f64;
+    for r in rows {
+        assert!(
+            r.surface > 0.0 && r.surface < 1.0,
+            "surface tracking returned an absorption probability of {} at pf = \
+             {:.2}, which is not a probability",
+            r.surface,
+            r.pf
+        );
+
+        // 1. The identity. Same geometry, same data, different tracking.
+        worst_z = worst_z.max(r.z_delta.abs());
+        assert!(
+            r.z_delta.abs() <= 4.0,
+            "at pf = {:.2}, delta tracking differs from surface tracking by {:.2} \
+             sigma. These are unbiased estimators of the SAME number on the SAME \
+             explicit packing -- delta tracking only swaps distance-to-boundary \
+             for majorant rejection -- so a real gap is a bug in the majorant or \
+             the sampling, not a modelling difference.",
+            r.pf,
+            r.z_delta,
+        );
+
+        // 2. The models are bounded. Neither is ranked; see the doc comment.
+        for (name, d) in [("CLS", r.d_cls), ("SCLS", r.d_scls)] {
+            worst_model = worst_model.max(d.abs());
+            assert!(
+                d.abs() < 0.10,
+                "at pf = {:.2}, {name} differs from the explicit reference by \
+                 {d:+.4} in absolute absorption probability. {name} never sees the \
+                 packing -- it reconstructs chord lengths from the radius and \
+                 packing fraction alone -- so some approximation error is expected, \
+                 and ~0.022 was the worst recorded. A tenth of the probability \
+                 means it has stopped tracking the same physics.",
+                r.pf,
+            );
+        }
+    }
+
+    println!(
+        "  [PASS] delta vs surface (the identity): worst {worst_z:.2} sigma across \
+         {} packing fractions",
+        rows.len()
+    );
+    println!(
+        "  [PASS] CLS and SCLS both within {worst_model:.4} absolute of the explicit \
+         reference (envelope 0.10; neither model is ranked -- see the doc comment)"
+    );
 }

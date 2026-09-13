@@ -169,7 +169,7 @@ impl Voigt6 {
     ///
     /// Zero for a purely hydrostatic state; equal to `|sigma_xx|` for uniaxial
     /// stress. This is the quantity compared against the yield stress in
-    /// [`crate::material::J2Plastic`].
+    /// [`crate::material::J2LinearHardening`].
     #[must_use]
     pub fn von_mises(&self) -> f64 {
         let s = self.stress_deviator();

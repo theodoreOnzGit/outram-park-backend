@@ -1,6 +1,6 @@
 # Responsible Use Statement
 
-Outram Park, the Open Source Unified TRAnsient Multi-Phase Advanced Reactor Simulation Kit, is an open-source nuclear engineering simulation ecosystem developed for education, research, capability building, and verification and validation.
+Outram Park, the Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit, is an open-source nuclear engineering simulation ecosystem developed for education, research, capability building, and verification and validation.
 
 Outram Park is intended to support:
 

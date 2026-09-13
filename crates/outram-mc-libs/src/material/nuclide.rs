@@ -22,7 +22,9 @@ use crate::rng::lcg::prn;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
-use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
+use njoy_outram_park_fork::nuclear_data::secondary::{
+    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar,
+};
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
@@ -78,8 +80,15 @@ pub enum Inelastic {
         q: f64,
     },
     /// The continuum inelastic channel (MT=91): a broad secondary-energy
-    /// distribution modelled by a Weisskopf evaporation spectrum.
-    Continuum,
+    /// distribution modelled by a Weisskopf evaporation spectrum, bounded by the
+    /// channel's own Q-value.
+    Continuum {
+        /// Reaction Q-value \[eV\] (≤ 0) — MT=91's `QI`, minus the energy of the
+        /// lowest continuum state. Caps the outgoing energy at what two-body
+        /// energy balance allows; `0.0` when the channel carries no Q (the LOW
+        /// tier, or the MT=4 lumped fallback).
+        q: f64,
+    },
 }
 
 /// One inelastic scattering channel in the HIGH-tier level structure — the
@@ -172,6 +181,27 @@ pub struct Nuclide {
     /// below its thermal cutoff — see [`Nuclide::xs_at_energy`] and
     /// [`Nuclide::sample_thermal`]. `None` ⇒ pure free-gas / CE, as before.
     thermal: Option<ThermalScattering>,
+    /// Evaluated continuum emission laws (ENDF MF=6 LAW=1) for the reactions
+    /// whose outgoing energy is a distribution rather than a fixed `Q`.
+    ///
+    /// HIGH tier only, and only when the evaluation carries MF=6 for that MT.
+    /// Absent ⇒ the transport layer keeps its Weisskopf evaporation stand-in,
+    /// which is what every case used before 2026-09-13.
+    continuum: ContinuumLaws,
+}
+
+/// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
+///
+/// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
+/// ((n,2n)). Both were modelled by a Weisskopf evaporation stand-in until the
+/// evaluated law was wired in; `None` here means that stand-in is still in use
+/// for that channel on that nuclide.
+#[derive(Debug, Clone, Default)]
+struct ContinuumLaws {
+    /// MT=91, continuum inelastic.
+    mt91: Option<ContinuumEmission>,
+    /// MT=16, (n,2n).
+    mt16: Option<ContinuumEmission>,
 }
 
 impl Nuclide {
@@ -203,6 +233,8 @@ impl Nuclide {
             chi,
             xs: XsSource::Core { e_max, wmp, fast },
             thermal: None,
+            // LOW tier reads no tape, so there is no MF=6 to carry.
+            continuum: ContinuumLaws::default(),
         })
     }
 
@@ -391,6 +423,18 @@ impl Nuclide {
             .transpose()?
             .unwrap_or_default();
 
+        // 7. Evaluated continuum emission laws from MF=6 LAW=1 (MT=91 and
+        //    MT=16). RECONR gives MF=3 magnitudes but no secondary-energy law,
+        //    so without these the transport layer falls back to a Weisskopf
+        //    evaporation stand-in whose mean is ~33 % too hard at 2 MeV on
+        //    U-238 (njoy `tests/mf6_continuum_emission_vs_tape.rs`). An
+        //    evaluation with no MF=6 for a reaction, or one using a law this
+        //    port does not read, yields `None` and keeps the stand-in.
+        let continuum = ContinuumLaws {
+            mt91: ContinuumEmission::from_endf_mf6(tape, mat, 91)?,
+            mt16: ContinuumEmission::from_endf_mf6(tape, mat, 16)?,
+        };
+
         Ok(Self {
             name: name.to_string(),
             awr,
@@ -402,6 +446,7 @@ impl Nuclide {
                 elastic_angular,
             },
             thermal: None,
+            continuum,
         })
     }
 
@@ -419,6 +464,29 @@ impl Nuclide {
     /// `absorption`; `elastic` is reported for completeness but the kernel treats
     /// `total − absorption` as the scattering channel (lumping inelastic and
     /// (n,xn) into elastic-like events — see the keff module fidelity note).
+    /// The evaluated ENDF **MF=6 LAW=1** emission law for reaction `mt`, if this
+    /// nuclide carries one.
+    ///
+    /// `mt` is 91 (continuum inelastic) or 16 ((n,2n)); anything else returns
+    /// `None`, as does the LOW tier and any evaluation whose MF=6 this port does
+    /// not read. A `None` here is the signal to keep the Weisskopf evaporation
+    /// stand-in — see
+    /// [`continuum_inelastic_scatter`](crate::physics::scatter::continuum_inelastic_scatter).
+    pub fn continuum_law(&self, mt: i32) -> Option<&ContinuumEmission> {
+        match mt {
+            91 => self.continuum.mt91.as_ref(),
+            16 => self.continuum.mt16.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Whether this nuclide's MT=91 continuum inelastic uses the **evaluated**
+    /// MF=6 law rather than the Weisskopf stand-in — a diagnostic for V&V
+    /// programs that price one against the other.
+    pub fn has_evaluated_continuum(&self) -> bool {
+        self.continuum.mt91.is_some()
+    }
+
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         let base = self.base_xs_at_energy(e, temp_k);
         // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
@@ -533,11 +601,11 @@ impl Nuclide {
     /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         };
         let total: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
         if !(total > 0.0) {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         }
         let xi = prn(seed) * total;
         let mut cum = 0.0;
@@ -545,13 +613,13 @@ impl Nuclide {
             cum += recon.eval_mt(l.mt, e);
             if xi < cum {
                 return if l.continuum {
-                    Inelastic::Continuum
+                    Inelastic::Continuum { q: l.q }
                 } else {
                     Inelastic::Level { q: l.q }
                 };
             }
         }
-        Inelastic::Continuum
+        Inelastic::Continuum { q: 0.0 }
     }
 
     /// Sample an elastic scattering cosine in the **centre-of-mass frame** at
@@ -684,6 +752,164 @@ impl Nuclide {
             }
             XsSource::Pointwise { .. } => 0.0, // GPU path: isotropic-CM for pointwise elastic
         }
+    }
+
+    /// The **ENDF MF=4 mean elastic cosine** in the CM frame at incident energy
+    /// `e` \[eV\], read straight off the tabulated distribution by quadrature —
+    /// `0.0` when the nuclide has no MF=4 data (genuinely isotropic) or is on the
+    /// LOW tier.
+    ///
+    /// This is **not** [`elastic_mubar`](Self::elastic_mubar), which reports the
+    /// per-group mu-bar of the LOW-tier fast MGXS and deliberately returns `0.0`
+    /// for a pointwise nuclide because the GPU kernel treats pointwise elastic as
+    /// isotropic-CM (GitHub #189). This one answers a different question: what
+    /// does the CPU transport path's own angular data say?
+    ///
+    /// It exists so [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm) has an
+    /// independent oracle. The sampler locates an incident-energy bin, picks a
+    /// table by statistical interpolation and inverts a cosine CDF; this
+    /// integrates the same tabulated distribution directly. They must agree, and
+    /// if they do not, the sampler is wrong — a check no comparison against an
+    /// external library can make, because both sides here come from one tape.
+    ///
+    /// A second, cruder use: a non-zero value proves the MF=4 data was parsed at
+    /// all. That matters when *pricing* anisotropy by switching it off, where a
+    /// null result has to be distinguished from a switch that did nothing.
+    pub fn elastic_mubar_cm(&self, e: f64) -> f64 {
+        match &self.xs {
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular.mean_cosine(e),
+            XsSource::Core { .. } => 0.0,
+        }
+    }
+
+    /// **Diagnostic**: the inelastic channel table this nuclide samples from —
+    /// `(MT number, Q-value [eV], is-continuum)` per channel, in tape order.
+    ///
+    /// Exposed so a test can reconstruct what the transport kernel does with an
+    /// inelastic collision and check it against two-body energy balance. Empty on
+    /// the LOW tier.
+    pub fn inelastic_levels_table(&self) -> Vec<(u32, f64, bool)> {
+        match &self.xs {
+            XsSource::Pointwise { inel, .. } => inel
+                .iter()
+                .map(|l| (l.mt.number() as u32, l.q, l.continuum))
+                .collect(),
+            XsSource::Core { .. } => Vec::new(),
+        }
+    }
+
+    /// **Diagnostic**: the tape's own lumped **MT=4** total-inelastic cross
+    /// section \[barn\] at incident energy `e` \[eV\], and the number of resolved
+    /// levels the transport path sums instead.
+    ///
+    /// ENDF requires `MT=4 = Σ MT=51…91` exactly — MT=4 is a *redundant* section,
+    /// the evaluator's own sum of the partials. So this pair is an oracle for the
+    /// inelastic channel that needs no second code: whatever
+    /// [`xs_at_energy`](Self::xs_at_energy) reports as `MicroXS::inelastic` (the
+    /// sum over the resolved levels) must equal the MT=4 value on the same tape at
+    /// the same energy.
+    ///
+    /// The failure mode it is aimed at is the one this crate has already hit once,
+    /// in [`absorption_mt27`]: the RECONR path linearises every MF=3 section as it
+    /// appears on the tape and does **not** mark the redundant aggregates the way
+    /// an ACE reader does, so a partial summed on top of a sum — or a section
+    /// appearing twice — is silently double counting.
+    ///
+    /// Returns `(mt4_barns, n_levels)`; `(0.0, 0)` on the LOW tier, which carries
+    /// no level structure.
+    pub fn inelastic_mt4_and_levels(&self, e: f64) -> (f64, usize) {
+        match &self.xs {
+            XsSource::Pointwise { recon, inel, .. } => {
+                (recon.eval_mt(MtReaction::Mt4Inelastic, e), inel.len())
+            }
+            XsSource::Core { .. } => (0.0, 0),
+        }
+    }
+
+    /// **Diagnostic**: a copy of this nuclide with its resolved inelastic levels
+    /// removed, so an inelastic collision scatters **elastically** instead.
+    ///
+    /// # What it actually changes
+    ///
+    /// Only the reaction *partition*, never the total. The transport kernel
+    /// splits a collision on `absorption | inelastic | (n,2n) | elastic` shares of
+    /// `MicroXS::total`; with no levels, `MicroXS::inelastic` is zero and that
+    /// share falls through to the elastic branch. So the collision rate, the
+    /// absorption and the fission are all untouched, and what is removed is the
+    /// **excitation energy loss** — the neutron keeps the energy it would have
+    /// left behind in the residual nucleus.
+    ///
+    /// That is the right knob for pricing inelastic scattering against a
+    /// slowing-down residual: inelastic scattering's entire contribution to
+    /// moderation is the energy it removes per collision, and this removes exactly
+    /// that while holding everything else fixed.
+    ///
+    /// A LOW-tier (`Core`) nuclide is unchanged — its inelastic cross section is
+    /// the group remainder rather than a level list, so there is nothing to drop.
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model option.
+    pub fn without_inelastic(mut self) -> Self {
+        if let XsSource::Pointwise { inel, .. } = &mut self.xs {
+            inel.clear();
+        }
+        self
+    }
+
+    /// **Diagnostic**: a copy of this nuclide with its evaluated MF=6 LAW=1
+    /// continuum emission laws discarded, so MT=91 and MT=16 fall back to the
+    /// Weisskopf evaporation stand-in.
+    ///
+    /// # Why this exists
+    ///
+    /// An accuracy statement about the evaluated law ("it is the evaluation's
+    /// own spectrum") bounds nothing. Running the same case twice with the law
+    /// switched off bounds what it is *worth* — which is the only way to say
+    /// whether reading MF=6 mattered. Used by
+    /// `examples/godiva_mf6_continuum_ensemble.rs`.
+    pub fn without_evaluated_continuum(mut self) -> Self {
+        self.continuum = ContinuumLaws::default();
+        self
+    }
+
+    /// **Diagnostic**: a copy of this nuclide whose elastic scattering is
+    /// isotropic in the centre of mass, by discarding the ENDF MF=4 angular
+    /// distribution.
+    ///
+    /// # Why this exists
+    ///
+    /// It prices anisotropic elastic scattering. A code-to-code residual can only
+    /// be attributed to a mechanism that is *worth* enough to carry it, and an
+    /// accuracy statement about a mechanism ("mu-bar is within 1 % of NJOY") says
+    /// nothing about its worth. Running a case twice, once with the mechanism
+    /// removed, does: the difference bounds everything that mechanism can be
+    /// worth, every defect in it, known and unknown, together.
+    ///
+    /// Anisotropy is the mechanism most likely to be mispriced by this crate's
+    /// existing checks, because the slowing-down verification that covers it
+    /// (`xi/xi_0 = 1.000` on eight nuclides) spans 4 eV to 10 keV, and elastic
+    /// scattering is isotropic in CM throughout that band. The anisotropy that
+    /// matters is at MeV energies, where it is not checked.
+    ///
+    /// # What it does NOT do
+    ///
+    /// Nothing to the cross sections — only the angular law changes, so the
+    /// collision *rate* is untouched and the two runs differ in exactly one
+    /// thing. On a LOW-tier (`Core`) nuclide it is a no-op, because that tier
+    /// carries only a per-group mean cosine and there is no tabulated
+    /// distribution to drop.
+    ///
+    /// This is deliberately the **wrong physics**. It is a measurement tool, not
+    /// a model option.
+    pub fn with_isotropic_elastic(mut self) -> Self {
+        if let XsSource::Pointwise {
+            elastic_angular, ..
+        } = &mut self.xs
+        {
+            *elastic_angular = Default::default();
+        }
+        self
     }
 
     /// The upper energy \[eV\] of this nuclide's continuous-energy (WMP) range —
@@ -979,7 +1205,7 @@ fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 /// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table`]); then
 /// 4. scale the sampled E' between the `i` and `i+1` tables' \[E₁, E_K\] envelopes so
 ///    the outgoing energy tracks the incident-energy interpolation.
-fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {

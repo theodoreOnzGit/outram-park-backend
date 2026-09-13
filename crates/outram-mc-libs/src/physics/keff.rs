@@ -105,8 +105,8 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
-    two_body_scatter_with_mu,
+    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated, rotate_direction,
+    two_body_scatter,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
@@ -1304,21 +1304,45 @@ fn collide_batched(
     } else if xi < x.absorption + x.inelastic {
         let (e2, u2) = match nuc.sample_inelastic(e, seed) {
             Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-            Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+            Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                    e,
+                    u,
+                    nuc.awr,
+                    q,
+                    nuc.continuum_law(91),
+                    seed,
+                ),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     } else if xi < x.absorption + x.inelastic + x.n2n {
         // (n,2n): the primary down-scatters and one extra neutron is emitted
         // sharing the sampled outgoing state (Weisskopf stand-in for the emission
         // law, as in transport_history).
-        let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
+        // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let law16 = nuc.continuum_law(16);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    // Second neutron: an **independent draw** from the same
+                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                    // neutron, so two independent draws is what the evaluation
+                    // means — duplicating the primary's outgoing state (what this
+                    // did before, and what it still does with no MF=6 law to
+                    // read) correlates the pair perfectly and is GitHub #192's
+                    // second open item.
+                    let (sec_e2, sec_u2) = if law16.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    } else {
+                        (e2, u2)
+                    };
         (
             0.0,
             CollisionResult::ScatterWithSecondary {
                 e: e2,
                 u: u2,
-                sec_e: e2,
-                sec_u: u2,
+                sec_e: sec_e2,
+                sec_u: sec_u2,
             },
         )
     } else {
@@ -1327,9 +1351,16 @@ fn collide_batched(
         let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
             (e_out, rotate_direction(u, mu_lab, seed))
         } else {
-            match nuc.sample_elastic_mu_cm(e, seed) {
-                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                None => elastic_scatter(e, u, nuc.awr, seed),
+            {
+                // Free-gas: below 400 kT the target's own thermal motion is
+                // sampled, so the neutron can gain energy and the population has
+                // a Maxwellian fixed point (bead op-50vu). Above it this is the
+                // old target-at-rest kinematics.
+                let kt = K_BOLTZMANN_EV_PER_K * temp;
+                let mu_cm = nuc
+                    .sample_elastic_mu_cm(e, seed)
+                    .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
             }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
@@ -1419,7 +1450,14 @@ fn transport_history(
                 // the dominant fast-spectrum down-scatter off heavy nuclei.
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                    e,
+                    u,
+                    nuc.awr,
+                    q,
+                    nuc.continuum_law(91),
+                    seed,
+                ),
                 };
                 e = e2;
                 u = u2;
@@ -1438,8 +1476,30 @@ fn transport_history(
                 // distribution and sample both outgoing neutrons from it, instead of
                 // the Weisskopf stand-in (mirror OpenMC's UncorrelatedAngleEnergy /
                 // CorrelatedAngleEnergy in src/distribution_energy.cpp).
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
-                stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
+                // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let law16 = nuc.continuum_law(16);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    // Second neutron: an **independent draw** from the same
+                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                    // neutron, so two independent draws is what the evaluation
+                    // means — duplicating the primary's outgoing state (what this
+                    // did before, and what it still does with no MF=6 law to
+                    // read) correlates the pair perfectly and is GitHub #192's
+                    // second open item.
+                    let (sec_e2, sec_u2) = if law16.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                // yield − 1 = 1 secondary
+                stack.push(Site {
+                    r,
+                    u: sec_u2,
+                    e: sec_e2,
+                });
                 e = e2;
                 u = u2;
             } else {
@@ -1454,9 +1514,16 @@ fn transport_history(
                 let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
                     (e_out, rotate_direction(u, mu_lab, seed))
                 } else {
-                    match nuc.sample_elastic_mu_cm(e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    {
+                        // Free-gas: below 400 kT the target's own thermal motion
+                        // is sampled, so the neutron can gain energy and the
+                        // population has a Maxwellian fixed point (bead op-50vu).
+                        // Above it this is the old target-at-rest kinematics.
+                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let mu_cm = nuc
+                            .sample_elastic_mu_cm(e, seed)
+                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
                     }
                 };
                 e = e2;
@@ -1558,13 +1625,41 @@ fn transport_history_tabulated(
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                    e,
+                    u,
+                    nuc.awr,
+                    q,
+                    nuc.continuum_law(91),
+                    seed,
+                ),
                 };
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
-                stack.push(Site { r, u: u2, e: e2 });
+                // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let law16 = nuc.continuum_law(16);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    // Second neutron: an **independent draw** from the same
+                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                    // neutron, so two independent draws is what the evaluation
+                    // means — duplicating the primary's outgoing state (what this
+                    // did before, and what it still does with no MF=6 law to
+                    // read) correlates the pair perfectly and is GitHub #192's
+                    // second open item.
+                    let (sec_e2, sec_u2) = if law16.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                stack.push(Site {
+                    r,
+                    u: sec_u2,
+                    e: sec_e2,
+                });
                 e = e2;
                 u = u2;
             } else {
@@ -1574,9 +1669,16 @@ fn transport_history_tabulated(
                 let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
                     (e_out, rotate_direction(u, mu_lab, seed))
                 } else {
-                    match nuc.sample_elastic_mu_cm(e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    {
+                        // Free-gas: below 400 kT the target's own thermal motion
+                        // is sampled, so the neutron can gain energy and the
+                        // population has a Maxwellian fixed point (bead op-50vu).
+                        // Above it this is the old target-at-rest kinematics.
+                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let mu_cm = nuc
+                            .sample_elastic_mu_cm(e, seed)
+                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
                     }
                 };
                 e = e2;

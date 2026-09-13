@@ -4,7 +4,7 @@
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
 
-Cargo workspace for **OUTRAM PARK** — Open-source TRAnsient Multi-Phase Advanced Reactor simulator Kit.
+Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit.
 
 A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
 
@@ -12,6 +12,68 @@ A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, st
 > — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
 > status, see the ⚠️ banner above: everything here is unverified until validated,
 > and **not** for facility operation.
+
+## Publications & citation
+
+**The project and its agentic-porting methodology** — OpenFOAM → `outram-foam-*`,
+the TAMPINES steam tables and the 1-D HEM choked-flow solver, with their
+preliminary V&V (cavity, Sod shock tube, Moody HEM charts, Edwards blowdown):
+
+> Ong, T. K. C., Wong, E. Y. H., & Xiao, S. (2026). *Agentic Porting,
+> Construction and Initial Verification and Validation of Libraries within the
+> Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit
+> (Outram Park) Part I: Thermal Hydraulics.* arXiv:2608.17504 [physics.comp-ph].
+> <https://arxiv.org/abs/2608.17504>
+
+```bibtex
+@misc{ong2026outrampark1,
+  title        = {Agentic Porting, Construction and Initial Verification and
+                  Validation of Libraries within the Open Source Unified
+                  TRAnsient Multi-Phase Advanced Reactor simulation Kit
+                  (Outram Park) Part I: Thermal Hydraulics},
+  author       = {Ong, Theodore Kay Chen and Wong, Ethan Yew Hoe and Xiao, Sicong},
+  year         = {2026},
+  eprint       = {2608.17504},
+  archivePrefix= {arXiv},
+  primaryClass = {physics.comp-ph},
+  url          = {https://arxiv.org/abs/2608.17504}
+}
+```
+
+Its central finding is the premise this repository is organised around: with
+agentic porting, **verification and validation by human expertise — not code
+generation — is the bottleneck.** That is why every crate carries a
+`## Bookkeeping status` block gated on maintainer sign-off, why
+`VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md` treat AI output as
+untrusted draft material, and why `docs/human-corrections-to-ai-work.md` exists.
+
+The paper's line-count accounting is reproducible from this repository:
+`kovan-cli kloc` regenerates it, and `docs/kloc-parity-baseline/` holds the
+frozen fixture every published figure is checked against.
+
+**The TUAS solver** (peer-reviewed; V&V against SAM, CIET forced-circulation
+experimental data, and a HITEC-salt/YD-325-oil shell-and-tube heat exchanger):
+
+> Ong, T. K. C., Xiao, S., & Peterson, P. F. (2025). *An open-source
+> Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
+> (TUAS).* International Journal of Advanced Nuclear Reactor Design and
+> Technology. <https://doi.org/10.1016/j.jandt.2025.03.006>
+
+See [`crates/tuas_boussinesq_solver/README.md`](crates/tuas_boussinesq_solver)
+for the BibTeX entry and the V&V records that reproduce it.
+
+> **Note on the acronym.** Part I's title expands OUTRAM PARK as
+> "Multi-**Phase**". **As of 2026-09-12 the project is "Multi-Physics"** —
+> multiphase flow is one crate of ~37, while the workspace spans neutronics,
+> nuclear data, fuel performance, structural mechanics, DEM and more. The
+> letters `M` and `P` are unchanged, so the acronym still spells out and no
+> citation breaks.
+>
+> Part I stands as published — **cite its title verbatim, do not modernise it.**
+> Part II onward use "Multi-Physics" and state the change where the acronym is
+> first expanded, so a reader meeting both expansions is never left guessing
+> which is a typo. Rationale and wording:
+> [`docs/ecosystem-naming.md`](docs/ecosystem-naming.md).
 
 ## Crates
 
@@ -27,6 +89,7 @@ The workspace has 31 member crates, grouped by domain below.
 | [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
 | [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
 | [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
+| [`farrer-park`](crates/farrer-park) | FEM structural mechanics — small-strain elasticity and J2 plasticity on Lagrange elements, from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1, one-way into GPL-3.0). Uses `outram-foam-basic-lib` for the shared Krylov backend only, never for its discretisation. Verification only, no human V&V — not a life-assessment tool (independent fork, not affiliated with INL/MOOSE or the PRISMS Center) | GPL-3.0 |
 | [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
 
 **CFD (OpenFOAM translations)**

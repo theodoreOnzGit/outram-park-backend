@@ -78,6 +78,18 @@
 //!   consistent elastoplastic tangent). The tangent formula implemented here
 //!   is that one, and the symbols below use its notation.
 //!
+//! # The two-dimensional idealisation lives here, not in the B-matrix
+//!
+//! [`PlaneCondition`] selects between **plane strain** and **plane stress**,
+//! and it is an argument of [`Material::update`] because that is where the
+//! difference actually is. Plane strain needs nothing from this module: the
+//! strain-displacement operator writes `eps_zz = gamma_yz = gamma_xz = 0` and
+//! the ordinary three-dimensional law then produces the correct `sigma_zz`.
+//! Plane stress is the opposite — it is a *constitutive* condition,
+//! `sigma_zz = 0`, which is enforced by condensing `eps_zz` out of the law.
+//! For J2 that condensation is a nested scalar Newton iteration inside the
+//! return map, and the tangent handed back is the condensed one.
+//!
 //! # Units
 //!
 //! Young's modulus, shear modulus, bulk modulus, yield stress, hardening
@@ -404,14 +416,96 @@ pub struct MaterialState {
     pub plastic_strain: Voigt6,
     /// Accumulated equivalent plastic strain `alpha` \[-\], `>= 0`, never
     /// decreasing.
+    ///
+    /// For [`Material::CrystalPlasticity`] this is the von Mises equivalent of
+    /// the plastic strain *increments* summed over the history, which is the
+    /// usual scalar summary of how much a crystal point has flowed. It is not
+    /// an internal variable of the crystal law — that is
+    /// [`crate::crystal::CrystalState::slip_resistance`].
     pub equivalent_plastic_strain: f64,
+    /// The crystal-plasticity history: orientation, per-system slip
+    /// resistances and slips, and the previous converged stress.
+    ///
+    /// Present at every quadrature point whatever the material is, because
+    /// [`MaterialState`] is one `Copy` type shared by every law. For
+    /// [`Material::Elastic`] and [`Material::J2`] it stays at
+    /// [`crate::crystal::CrystalState::default`] and is never read. That costs
+    /// about 320 bytes per quadrature point on a non-crystal analysis; the
+    /// alternative — making `MaterialState` an enum — would change the public
+    /// field access every existing caller uses, for a saving that no mesh this
+    /// crate is verified on notices.
+    pub crystal: crate::crystal::CrystalState,
 }
 
 impl MaterialState {
-    /// The virgin state: no plastic strain, no history.
+    /// The virgin state for a law with **no** crystal history: no plastic
+    /// strain, no equivalent plastic strain, and a crystal sub-state left at
+    /// its default (zero slip resistances, which is not a usable crystal).
+    ///
+    /// Use [`Material::initial_state`] instead when the law may be
+    /// [`Material::CrystalPlasticity`] — it returns the right virgin state for
+    /// whichever law it is asked about.
     #[must_use]
     pub fn pristine() -> Self {
         Self::default()
+    }
+}
+
+/// Which out-of-plane condition a two-dimensional analysis imposes.
+///
+/// This is a *constitutive* choice, not a mesh property, which is why it is an
+/// argument of [`Material::update`] rather than something the
+/// strain-displacement operator decides. The two cases are not symmetric and it
+/// matters that they are not:
+///
+/// - **Plane strain** constrains the *kinematics* (`eps_zz = gamma_yz =
+///   gamma_xz = 0`). The strain-displacement operator has already written those
+///   zeros, so the ordinary three-dimensional law runs unchanged and produces
+///   the correct out-of-plane stress `sigma_zz = nu (sigma_xx + sigma_yy)` on
+///   its own.
+/// - **Plane stress** constrains the *stress* (`sigma_zz = 0`). Nothing the
+///   B-matrix can write will produce that, so `eps_zz` has to be found such
+///   that the law returns zero out-of-plane stress, and then condensed out of
+///   the tangent.
+///
+/// # Units
+///
+/// Dimensionless — this is a selector, not a physical quantity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaneCondition {
+    /// **Plane strain** (the default), and the only valid setting for a
+    /// three-dimensional mesh, where it is a no-op: all six strain components
+    /// come from the strain-displacement operator and nothing is condensed.
+    ///
+    /// Physically it models a body long in `z` whose ends are restrained — a
+    /// long pipe, a dam, a thick cylinder far from its ends.
+    #[default]
+    PlaneStrain,
+    /// **Plane stress**: `sigma_zz = 0`, enforced by solving for `eps_zz`
+    /// inside the constitutive update and condensing it out of the tangent.
+    ///
+    /// Physically it models a body thin in `z` with traction-free faces — a
+    /// sheet, a thin plate, a membrane.
+    ///
+    /// **The `zz` slot of the strain passed in is ignored**, because the law
+    /// determines it. The `yz` and `xz` slots are *not* solved for and are
+    /// taken as given; that is correct for a two-dimensional analysis, where
+    /// the strain-displacement operator writes zeros there and the isotropic
+    /// law then gives `sigma_yz = sigma_xz = 0` with no condensation needed.
+    /// Passing a three-dimensional strain state with non-zero out-of-plane
+    /// shear together with this setting is not meaningful and is not checked
+    /// for.
+    PlaneStress,
+}
+
+impl PlaneCondition {
+    /// A short name for diagnostics and table headings.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            PlaneCondition::PlaneStrain => "plane strain",
+            PlaneCondition::PlaneStress => "plane stress",
+        }
     }
 }
 
@@ -445,6 +539,14 @@ pub enum Material {
     Elastic(LinearElastic),
     /// J2 plasticity with linear isotropic hardening and radial return.
     J2(J2LinearHardening),
+    /// Rate-dependent **crystal plasticity**: slip on the twelve systems of a
+    /// cubic slip family, with a power-law flow rule and saturating
+    /// self-and-latent hardening.
+    ///
+    /// The per-point orientation and slip resistances live in
+    /// [`MaterialState::crystal`], not here, because they vary from grain to
+    /// grain while these constants do not. See [`crate::crystal`].
+    CrystalPlasticity(crate::crystal::CrystalPlasticity),
 }
 
 impl Material {
@@ -495,6 +597,7 @@ impl Material {
         match self {
             Material::Elastic(e) => *e,
             Material::J2(p) => p.elastic,
+            Material::CrystalPlasticity(cp) => cp.isotropic_equivalent(),
         }
     }
 
@@ -502,6 +605,12 @@ impl Material {
     ///
     /// Used as the predictor tangent on the first iteration of a load step, and
     /// as the fallback tangent for a modified-Newton run.
+    ///
+    /// For [`Material::CrystalPlasticity`] this is the stiffness of the
+    /// **isotropic Voigt equivalent** (see
+    /// [`crate::crystal::CrystalPlasticity::isotropic_equivalent`]), not the
+    /// rotated single-crystal tensor, because it has no orientation to rotate
+    /// by. Use it as a scale, never as the law.
     #[must_use]
     pub fn elastic_stiffness(&self) -> Tensor4 {
         self.elastic_constants().stiffness()
@@ -511,7 +620,29 @@ impl Material {
     /// committed at the end of a converged step).
     #[must_use]
     pub fn is_history_dependent(&self) -> bool {
-        matches!(self, Material::J2(_))
+        matches!(self, Material::J2(_) | Material::CrystalPlasticity(_))
+    }
+
+    /// The virgin per-quadrature-point state this law starts from.
+    ///
+    /// [`MaterialState::pristine`] for the history-free and J2 laws;
+    /// [`crate::crystal::CrystalPlasticity::pristine_state`] wrapped in a
+    /// `MaterialState` for crystal plasticity, so that every slip resistance
+    /// starts at `s_0` rather than at zero. [`crate::assembly::System`] calls
+    /// this when it allocates its quadrature state; a caller assembling state
+    /// by hand must do the same.
+    ///
+    /// The orientation is the cube orientation; assign real ones with
+    /// [`crate::assembly::System::set_crystal_orientations`].
+    #[must_use]
+    pub fn initial_state(&self) -> MaterialState {
+        match self {
+            Material::Elastic(_) | Material::J2(_) => MaterialState::pristine(),
+            Material::CrystalPlasticity(cp) => MaterialState {
+                crystal: cp.pristine_state(),
+                ..MaterialState::pristine()
+            },
+        }
     }
 
     /// Integrate the law over one step: total strain in, stress and consistent
@@ -526,6 +657,11 @@ impl Material {
     ///   enters only through `state`.
     /// - `state` — the history at the **start** of the step. Not mutated; the
     ///   updated state is returned inside [`StressUpdate`].
+    /// - `plane` — the out-of-plane condition, [`PlaneCondition::PlaneStrain`]
+    ///   for a plane-strain or a three-dimensional analysis (where it is a
+    ///   no-op) and [`PlaneCondition::PlaneStress`] for a thin sheet. Under
+    ///   plane stress the `zz` slot of `total_strain` is **ignored** and solved
+    ///   for.
     ///
     /// # Returns
     ///
@@ -534,10 +670,10 @@ impl Material {
     ///
     /// # Errors
     ///
-    /// [`FemError::ConstitutiveNotConverged`] never occurs for the laws
-    /// currently implemented — linear hardening gives a closed-form return —
-    /// but the signature is fallible so a nonlinear hardening curve can be
-    /// added without changing every caller.
+    /// [`FemError::ConstitutiveNotConverged`] if the plane-stress condensation
+    /// (a scalar Newton iteration on `eps_zz`) fails to drive `sigma_zz` to
+    /// zero. It cannot occur under plane strain with the laws currently
+    /// implemented, because linear hardening gives a closed-form return.
     ///
     /// # Algorithm (J2 branch): radial return, Simo and Hughes Box 3.2
     ///
@@ -554,7 +690,32 @@ impl Material {
     ///    `C = K 1(x)1 + 2 mu theta I_dev - 2 mu theta_bar n(x)n`, with
     ///    `theta = q_new / q_tr` and
     ///    `theta_bar = 1 / (1 + H / (3 mu)) - (1 - theta)`.
-    pub fn update(&self, total_strain: Voigt6, state: &MaterialState) -> Result<StressUpdate> {
+    pub fn update(
+        &self,
+        total_strain: Voigt6,
+        state: &MaterialState,
+        plane: PlaneCondition,
+    ) -> Result<StressUpdate> {
+        match plane {
+            PlaneCondition::PlaneStrain => self.update_unconstrained(total_strain, state),
+            PlaneCondition::PlaneStress => self.update_plane_stress(total_strain, state),
+        }
+    }
+
+    /// The three-dimensional (and therefore also plane-strain) stress update:
+    /// all six strain components are taken as given and nothing is condensed.
+    ///
+    /// Units as [`Material::update`].
+    ///
+    /// # Errors
+    ///
+    /// None for the laws currently implemented; the signature is fallible so a
+    /// nonlinear hardening curve can be added without changing every caller.
+    fn update_unconstrained(
+        &self,
+        total_strain: Voigt6,
+        state: &MaterialState,
+    ) -> Result<StressUpdate> {
         match self {
             Material::Elastic(e) => {
                 let c = e.stiffness();
@@ -614,6 +775,7 @@ impl Material {
                 let new_state = MaterialState {
                     plastic_strain: state.plastic_strain.plus(&Voigt6(dep)),
                     equivalent_plastic_strain: state.equivalent_plastic_strain + d_alpha,
+                    crystal: state.crystal,
                 };
 
                 // 6. Consistent tangent.
@@ -630,8 +792,108 @@ impl Material {
                     yielding: true,
                 })
             }
+            Material::CrystalPlasticity(cp) => cp.update(total_strain, state),
         }
     }
+
+    /// The **plane-stress** stress update: `eps_zz` is solved for so that
+    /// `sigma_zz = 0`, and then condensed out of the tangent.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Start from the elastic plane-stress guess
+    ///    `eps_zz = eps_p_zz - (lambda / (lambda + 2 mu)) (eps_e_xx + eps_e_yy)`,
+    ///    which is the exact answer whenever the step turns out to be elastic.
+    /// 2. Newton on the scalar residual `g(eps_zz) = sigma_zz`, whose exact
+    ///    derivative is the `(2, 2)` entry of the three-dimensional algorithmic
+    ///    tangent at the current iterate. That entry is bounded below by the
+    ///    bulk modulus `K > 0` for J2 with `H >= 0`, so the iteration cannot
+    ///    divide by zero: `D[2][2] = K + (4/3) mu theta - 2 mu theta_bar n_zz^2`
+    ///    with `n_zz^2 <= 2/3` and `theta_bar <= theta`.
+    /// 3. Condense: `C_ps[i][j] = C[i][j] - C[i][2] C[2][j] / C[2][2]`, with row
+    ///    and column 2 set to zero. By the implicit-function theorem this is the
+    ///    **exact** derivative of the condensed stress with respect to the
+    ///    in-plane strain, so the condensation does not spoil the quadratic
+    ///    convergence of the global Newton iteration.
+    ///
+    /// The plastic strain returned carries a non-zero `zz` component, as it
+    /// must: plastic flow is volume preserving, so a plate stretched in its
+    /// plane thins out of plane.
+    ///
+    /// # Units
+    ///
+    /// As [`Material::update`]. The convergence tolerance is
+    /// `1e-13 * max(E * |eps|, 1 Pa)`, i.e. relative to the stress scale of the
+    /// point rather than absolute.
+    ///
+    /// # Errors
+    ///
+    /// [`FemError::ConstitutiveNotConverged`] if 30 Newton iterations do not
+    /// reach that tolerance. The element and point indices are filled with `0`
+    /// here; [`crate::assembly`] re-raises with the real ones.
+    fn update_plane_stress(
+        &self,
+        total_strain: Voigt6,
+        state: &MaterialState,
+    ) -> Result<StressUpdate> {
+        const MAX_LOCAL_ITERATIONS: usize = 30;
+
+        let elastic = self.elastic_constants();
+        let (lambda, mu) = (elastic.lame_lambda(), elastic.shear_modulus());
+
+        // Elastic plane-stress guess, measured about the committed plastic
+        // strain so that an elastic step is solved in a single iteration.
+        let epl = state.plastic_strain;
+        let mut eps = total_strain;
+        eps.0[2] = epl.0[2]
+            - lambda / (lambda + 2.0 * mu)
+                * ((total_strain.0[0] - epl.0[0]) + (total_strain.0[1] - epl.0[1]));
+
+        let strain_scale = total_strain.abs_max().max(epl.abs_max());
+        let tolerance = (1.0e-13 * elastic.youngs_modulus() * strain_scale).max(1.0e-13);
+
+        let mut up = self.update_unconstrained(eps, state)?;
+        let mut iterations = 0usize;
+        while up.stress.0[2].abs() > tolerance {
+            if iterations >= MAX_LOCAL_ITERATIONS {
+                return Err(FemError::ConstitutiveNotConverged {
+                    element: 0,
+                    point: 0,
+                    iterations,
+                    residual: up.stress.0[2],
+                });
+            }
+            eps.0[2] -= up.stress.0[2] / up.tangent.0[2][2];
+            up = self.update_unconstrained(eps, state)?;
+            iterations += 1;
+        }
+
+        // Static condensation of the out-of-plane row and column.
+        let c = up.tangent;
+        let c22 = c.0[2][2];
+        let mut condensed = [[0.0_f64; 6]; 6];
+        for i in 0..6 {
+            if i == 2 {
+                continue;
+            }
+            for j in 0..6 {
+                if j == 2 {
+                    continue;
+                }
+                condensed[i][j] = c.0[i][j] - c.0[i][2] * c.0[2][j] / c22;
+            }
+        }
+        let mut stress = up.stress;
+        stress.0[2] = 0.0;
+
+        Ok(StressUpdate {
+            stress,
+            tangent: Tensor4(condensed),
+            state: up.state,
+            yielding: up.yielding,
+        })
+    }
+
 }
 
 #[cfg(test)]
@@ -712,7 +974,7 @@ mod tests {
         let p = steel();
         let m = Material::J2(p);
         let eps = Voigt6::new(5.0e-4, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let up = m.update(eps, &MaterialState::pristine()).unwrap();
+        let up = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
         assert!(!up.yielding);
         let sig_e = p.elastic.stiffness().apply(&eps);
         assert!(up.stress.minus(&sig_e).abs_max() < 1e-6);
@@ -728,7 +990,7 @@ mod tests {
         for e_xx in [2.0e-3, 5.0e-3, 2.0e-2] {
             // Uniaxial *strain* drive, which certainly yields.
             let eps = Voigt6::new(e_xx, 0.0, 0.0, 0.0, 0.0, 0.0);
-            let up = m.update(eps, &MaterialState::pristine()).unwrap();
+            let up = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
             assert!(up.yielding);
             let q = up.stress.von_mises();
             let sy = p.yield_stress(up.state.equivalent_plastic_strain);
@@ -755,10 +1017,10 @@ mod tests {
         // non-trivial shear so no component of the tangent is trivially zero.
         let state = {
             let warm = Voigt6::new(3.0e-3, -5.0e-4, 0.0, 0.0, 0.0, 1.0e-3);
-            m.update(warm, &MaterialState::pristine()).unwrap().state
+            m.update(warm, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap().state
         };
         let eps = Voigt6::new(6.0e-3, -1.0e-3, 2.0e-4, 3.0e-4, -2.0e-4, 2.0e-3);
-        let analytic = m.update(eps, &state).unwrap();
+        let analytic = m.update(eps, &state, PlaneCondition::PlaneStrain).unwrap();
         assert!(analytic.yielding, "the check point must actually be plastic");
 
         let sol = jacobian(
@@ -767,7 +1029,7 @@ mod tests {
             ComputeBackend::Serial,
             |_, v: &[f64], out: &mut Vec<f64>| {
                 let e = Voigt6([v[0], v[1], v[2], v[3], v[4], v[5]]);
-                let s = m.update(e, &state).unwrap().stress;
+                let s = m.update(e, &state, PlaneCondition::PlaneStrain).unwrap().stress;
                 out.extend_from_slice(&s.as_array());
             },
         );
@@ -794,7 +1056,7 @@ mod tests {
     fn elastic_tangent_matches_numerical_jacobian() {
         let m = Material::elastic(200.0e9, 0.3).unwrap();
         let eps = Voigt6::new(1.0e-4, -2.0e-4, 3.0e-5, 1.0e-5, -4.0e-5, 6.0e-5);
-        let analytic = m.update(eps, &MaterialState::pristine()).unwrap();
+        let analytic = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
         let sol = jacobian(
             &eps.as_array(),
             DiffSettings::central(),
@@ -802,7 +1064,7 @@ mod tests {
             |_, v: &[f64], out: &mut Vec<f64>| {
                 let e = Voigt6([v[0], v[1], v[2], v[3], v[4], v[5]]);
                 out.extend_from_slice(
-                    &m.update(e, &MaterialState::pristine()).unwrap().stress.as_array(),
+                    &m.update(e, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap().stress.as_array(),
                 );
             },
         );
@@ -822,7 +1084,7 @@ mod tests {
     fn consistent_tangent_is_symmetric() {
         let m = Material::J2(steel());
         let eps = Voigt6::new(4.0e-3, -1.0e-3, 5.0e-4, 2.0e-4, 1.0e-4, 1.5e-3);
-        let up = m.update(eps, &MaterialState::pristine()).unwrap();
+        let up = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
         assert!(up.yielding);
         let s = up.tangent.abs_max();
         for i in 0..6 {
@@ -839,15 +1101,153 @@ mod tests {
         let p = steel();
         let m = Material::J2(p);
         let loaded = Voigt6::new(5.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let after = m.update(loaded, &MaterialState::pristine()).unwrap();
+        let after = m.update(loaded, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
         assert!(after.yielding);
         let alpha = after.state.equivalent_plastic_strain;
 
         let unloaded = Voigt6::new(4.0e-3, 0.0, 0.0, 0.0, 0.0, 0.0);
-        let back = m.update(unloaded, &after.state).unwrap();
+        let back = m.update(unloaded, &after.state, PlaneCondition::PlaneStrain).unwrap();
         assert!(!back.yielding);
         assert!((back.state.equivalent_plastic_strain - alpha).abs() < 1e-18);
         assert!(back.tangent.max_abs_diff(&p.elastic.stiffness()) < 1e-3);
+    }
+
+    /// Plane-stress elasticity must reproduce the textbook condensed matrix:
+    /// `D[0][0] = D[1][1] = E / (1 - nu^2)`, `D[0][1] = E nu / (1 - nu^2)`,
+    /// `D[5][5] = mu`, and the whole `zz` row and column identically zero.
+    ///
+    /// Measured 2026-09-11 at `E = 200 GPa`, `nu = 0.3`: worst relative
+    /// deviation from the closed form **exactly zero** — the condensation
+    /// `D[0][0] - D[0][2]^2 / D[2][2]` happens to be bit-exact here. The pass
+    /// band is 1e-12, which is where it should stay: a later change that made
+    /// it 1e-15 would be fine, and one that made it 1e-3 would not.
+    #[test]
+    fn plane_stress_elastic_matrix_is_the_textbook_one() {
+        let (e, nu) = (200.0e9, 0.3);
+        let m = Material::elastic(e, nu).unwrap();
+        // Any in-plane strain drives out the whole matrix column by column.
+        let mut worst = 0.0_f64;
+        let want = [
+            e / (1.0 - nu * nu),
+            e * nu / (1.0 - nu * nu),
+            e / (2.0 * (1.0 + nu)),
+        ];
+        let up = m
+            .update(
+                Voigt6::new(1.0e-4, 0.0, 9.9e9, 0.0, 0.0, 0.0),
+                &MaterialState::pristine(),
+                PlaneCondition::PlaneStress,
+            )
+            .unwrap();
+        let d = up.tangent;
+        for (got, w) in [(d.get(0, 0), want[0]), (d.get(0, 1), want[1]), (d.get(5, 5), want[2])] {
+            worst = worst.max((got - w).abs() / w);
+        }
+        for i in 0..6 {
+            worst = worst.max(d.get(i, 2).abs() / want[0]);
+            worst = worst.max(d.get(2, i).abs() / want[0]);
+        }
+        // The absurd `zz` strain passed in above must be ignored, so the stress
+        // is the plane-stress answer for a pure `eps_xx = 1e-4`.
+        worst = worst.max((up.stress.0[0] - want[0] * 1.0e-4).abs() / (want[0] * 1.0e-4));
+        worst = worst.max(up.stress.0[2].abs() / (want[0] * 1.0e-4));
+        println!("plane-stress elastic matrix: worst relative deviation {worst:.3e}");
+        assert!(worst < 1e-12, "plane-stress elastic matrix is wrong by {worst:e}");
+    }
+
+    /// Plane-stress J2 must drive `sigma_zz` to zero and hand back a tangent
+    /// that is the exact derivative of the **condensed** stress map. Checked by
+    /// central differences through `outram-foam-basic-lib`'s `jacobian`, exactly
+    /// as the three-dimensional tangent is.
+    ///
+    /// Measured 2026-09-11 at a plastic point with prior history: `sigma_zz`
+    /// driven to **exactly zero** (the local Newton reaches the floating-point
+    /// root, not merely the `1e-13`-relative tolerance it is asked for), and
+    /// worst relative tangent entry error **7.857e-7** against a `1e-5` band —
+    /// which is the central difference's own accuracy, the same figure the
+    /// three-dimensional tangent check reports.
+    #[test]
+    fn plane_stress_j2_tangent_matches_numerical_jacobian() {
+        let m = Material::J2(steel());
+        let state = m
+            .update(
+                Voigt6::new(3.0e-3, -5.0e-4, 0.0, 0.0, 0.0, 1.0e-3),
+                &MaterialState::pristine(),
+                PlaneCondition::PlaneStress,
+            )
+            .unwrap()
+            .state;
+        let eps = Voigt6::new(6.0e-3, -1.0e-3, 0.0, 0.0, 0.0, 2.0e-3);
+        let analytic = m.update(eps, &state, PlaneCondition::PlaneStress).unwrap();
+        assert!(analytic.yielding, "the check point must be plastic");
+        assert!(
+            analytic.stress.0[2].abs() < 1e-3,
+            "sigma_zz = {} Pa is not zero",
+            analytic.stress.0[2]
+        );
+        // Plastic flow is volume preserving, so the plate must thin.
+        assert!(
+            analytic.state.plastic_strain.0[2] < 0.0,
+            "a plate stretched in plane must thin out of plane, got eps_p_zz = {}",
+            analytic.state.plastic_strain.0[2]
+        );
+        assert!(
+            analytic.state.plastic_strain.trace().abs() < 1e-15,
+            "plastic strain must stay deviatoric, trace {}",
+            analytic.state.plastic_strain.trace()
+        );
+
+        let sol = jacobian(
+            &eps.as_array(),
+            DiffSettings::central(),
+            ComputeBackend::Serial,
+            |_, v: &[f64], out: &mut Vec<f64>| {
+                let e = Voigt6([v[0], v[1], v[2], v[3], v[4], v[5]]);
+                let s = m.update(e, &state, PlaneCondition::PlaneStress).unwrap().stress;
+                out.extend_from_slice(&s.as_array());
+            },
+        );
+        let num = sol.matrix().expect("smooth in the plastic regime");
+        let scale = analytic.tangent.abs_max();
+        let mut worst = 0.0_f64;
+        for i in 0..6 {
+            for j in 0..6 {
+                worst = worst.max((num.get(i, j) - analytic.tangent.get(i, j)).abs() / scale);
+            }
+        }
+        println!(
+            "plane-stress J2: sigma_zz = {:.3e} Pa, tangent error {worst:.3e} relative",
+            analytic.stress.0[2]
+        );
+        assert!(worst < 1e-5, "condensed tangent entry error {worst:e}");
+    }
+
+    /// Plane stress and plane strain must genuinely differ — the control that
+    /// stops the previous two tests from passing against an accidental
+    /// no-op.
+    ///
+    /// Measured 2026-09-11 at `E = 200 GPa`, `nu = 0.3`, `eps_xx = 1e-4`:
+    /// plane strain gives `sigma_xx = 2.6923e7 Pa` and `sigma_zz = 1.1538e7 Pa`;
+    /// plane stress gives `sigma_xx = 2.1978e7 Pa` and `sigma_zz` exactly zero.
+    /// The in-plane stress differs by **18.37 %**, which is exactly the ratio
+    /// of the two uniaxial-strain moduli: `E / (1 - nu^2) = 1.0989 E` for plane
+    /// stress against `E (1 - nu) / ((1 + nu)(1 - 2 nu)) = 1.3462 E` for plane
+    /// strain.
+    #[test]
+    fn plane_stress_and_plane_strain_differ() {
+        let m = Material::elastic(200.0e9, 0.3).unwrap();
+        let eps = Voigt6::new(1.0e-4, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let pe = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap();
+        let ps = m.update(eps, &MaterialState::pristine(), PlaneCondition::PlaneStress).unwrap();
+        println!(
+            "plane strain: sigma_xx = {:.4e}, sigma_zz = {:.4e}; \
+             plane stress: sigma_xx = {:.4e}, sigma_zz = {:.4e}",
+            pe.stress.0[0], pe.stress.0[2], ps.stress.0[0], ps.stress.0[2]
+        );
+        assert!(pe.stress.0[2].abs() > 1.0e7, "plane strain must carry sigma_zz");
+        assert!(ps.stress.0[2].abs() < 1.0e-3, "plane stress must not");
+        let gap = (pe.stress.0[0] - ps.stress.0[0]).abs() / pe.stress.0[0];
+        assert!(gap > 0.1, "the two idealisations should differ materially, got {gap:e}");
     }
 
     /// Perfect plasticity (`H = 0`) must cap the von Mises stress at the yield
@@ -858,7 +1258,7 @@ mod tests {
         let mut state = MaterialState::pristine();
         for k in 1..=20 {
             let eps = Voigt6::new(0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-3 * k as f64);
-            let up = m.update(eps, &state).unwrap();
+            let up = m.update(eps, &state, PlaneCondition::PlaneStrain).unwrap();
             state = up.state;
             assert!(up.stress.von_mises() <= 250.0e6 * (1.0 + 1e-9));
         }

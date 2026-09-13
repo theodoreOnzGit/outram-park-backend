@@ -427,6 +427,54 @@ impl PackedSpheres {
         })
     }
 
+    /// Volume fraction of packed spheres inside the ball `r < radius`, by uniform
+    /// point sampling.
+    ///
+    /// **This is not [`packing_fraction`](Self::packing_fraction), and the
+    /// difference is a modelling trap.** That one reports `N·v / (2·half_width)³`
+    /// — the fraction over the packing **cube**. But sphere *centres* are confined
+    /// to `half_width − radius`, so the density of centres is
+    /// `N / (2(half_width − radius))³`, and the volume fraction at a point well
+    /// inside the cube is higher than the nominal by `(h/(h−r))³`. Clip that cube
+    /// to a ball and you get a ball that is *denser* than the number you asked
+    /// for: for the FHR pebble (`h = 1.9425`, `r = 0.0425`, nominal 0.30) the
+    /// `r < 1.9` fuel sphere comes out at **0.3072, +2.4 %**.
+    ///
+    /// That matters because a deck specifies its packing fraction over the fuel
+    /// **region**, not over whatever cube a packer happened to use —
+    /// `openmc.model.pack_spheres(radius, region=-fuel_sph, pf=0.30)` puts
+    /// exactly 30 % into the sphere. So this is the quantity to match, and
+    /// `packing_fraction()` is the quantity to stop quoting.
+    ///
+    /// Pure: `seed` drives a local LCG, nothing global is touched.
+    pub fn volume_fraction_in_ball(&self, radius: f64, samples: usize, mut seed: u64) -> f64 {
+        if samples == 0 || !(radius > 0.0) {
+            return 0.0;
+        }
+        let mut prn = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+        let (mut inside, mut n) = (0usize, 0usize);
+        while n < samples {
+            let p = Position::new(
+                (2.0 * prn() - 1.0) * radius,
+                (2.0 * prn() - 1.0) * radius,
+                (2.0 * prn() - 1.0) * radius,
+            );
+            if p.norm() >= radius {
+                continue;
+            }
+            n += 1;
+            if self.is_inside_kernel(p) {
+                inside += 1;
+            }
+        }
+        inside as f64 / n as f64
+    }
+
     /// The packed kernels.
     pub fn spheres(&self) -> &[Sphere] {
         &self.spheres

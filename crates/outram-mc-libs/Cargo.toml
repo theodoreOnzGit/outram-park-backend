@@ -148,9 +148,94 @@ required-features = ["endf-pebble-cases"]
 name = "u238_vs_njoy_pendf"
 required-features = ["endf-pebble-cases"]
 
+# External benchmark, U-238-DOMINATED: ICSBEP IEU-MET-FAST-002 "Jemima"
+# (op-mzvp.2.12).
+[[example]]
+name = "jemima_keff"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark, THERMAL *and* U-238-DOMINATED: ICSBEP LEU-COMP-THERM-008,
+# the discriminator for self-shielded U-238 resonance escape (op-mzvp.2.12).
+[[example]]
+name = "lct008_keff"
+required-features = ["endf-pebble-cases"]
+
+[[example]]
+name = "b10_thermal_probe"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our H-in-H2O S(a,b) vs NJOY2016's THERMR (gh:#178, bead op-qho6).
+[[example]]
+name = "h2o_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our H-in-H2O S(a,b) KERNEL vs NJOY2016's THERMR MF=6 matrix.
+[[example]]
+name = "h2o_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Exploratory driver for the infinite-medium slowing-down oracle (gh:#178).
+[[example]]
+name = "slowing_down_oracle"
+required-features = ["endf-pebble-cases"]
+
+# Exploratory driver for the SPATIAL half: a Wigner-Seitz cell scaled up and down
+# at fixed composition (gh:#178, bead op-qho6).
+[[example]]
+name = "lump_self_shielding_scan"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
+# of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
+[[example]]
+name = "hst009_keff"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark on the HIGH data path: Godiva (ICSBEP HEU-MET-FAST-001)
+# from the repo's own ENDF/B-VIII.0 tapes, no network (op-mzvp.2.12).
+[[example]]
+name = "godiva_keff_endf_local"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our graphite S(a,b) OUTGOING-ENERGY distribution vs NJOY2016's THERMR
+# scattering matrix -- the kernel, not the cross section (op-mzvp.2.12).
+[[example]]
+name = "graphite_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: the two moments of our graphite S(a,b) kernel that had NO oracle -- the
+# scattering ANGLE (vs THERMR MF=6 cosines and the MF=3/MT=230 Bragg staircase)
+# and the outgoing-energy WIDTH (vs the MF=6 matrix) -- op-mzvp.2.12, bead op-i7u9.
+[[example]]
+name = "graphite_sab_angle_and_width_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: mean log energy decrement ABOVE the S(a,b) cutoff, where resonance
+# escape is decided (op-mzvp.2.12).
+[[example]]
+name = "epithermal_slowing_down"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: resonance ESCAPE in an infinite homogeneous medium vs its analytic
+# infinite-dilution limit -- tests transport, not data (op-mzvp.2.12).
+[[example]]
+name = "u238_resonance_escape"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: resonance integral (area under the resonances, not point values) vs
+# NJOY2016's PENDF and vs the published RI_inf (op-mzvp.2.12).
+[[example]]
+name = "u238_resonance_integral"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: our graphite S(a,b) vs NJOY2016's own THERMR (op-mzvp.2.12).
 [[example]]
 name = "graphite_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: mean log energy decrement from the graphite kernel (op-mzvp.2.12).
+[[example]]
+name = "graphite_energy_decrement"
 required-features = ["endf-pebble-cases"]
 
 # ── Native + Android only: no wasm32 backend ─────────────────────────────────

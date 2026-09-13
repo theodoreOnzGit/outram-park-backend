@@ -3,9 +3,29 @@
 //! **F**inite-element **A**nalysis for **R**eactor **R**eliability,
 //! **E**ngineering **R**esponse, **P**lasticity **A**nd **R**isk.
 //!
-//! Small-strain solid mechanics on unstructured meshes: linear elasticity and
-//! J2 (von Mises) plasticity, solved with a Newton iteration over Krylov
-//! solves supplied by [`outram_foam_basic_lib`].
+//! Small-strain solid mechanics on unstructured meshes: linear elasticity,
+//! J2 (von Mises) plasticity and rate-dependent **crystal plasticity**, solved
+//! with a Newton iteration over Krylov solves supplied by
+//! [`outram_foam_basic_lib`].
+//!
+//! ## Two modelling choices, both explicit enums, both defaulting to the
+//! conservative option
+//!
+//! Carried on [`assembly::System`] through [`assembly::SystemOptions`]:
+//!
+//! - [`assembly::Formulation`] — `FullIntegration` (default) or `BBar`. B-bar
+//!   (mean dilatation) is the cure for **volumetric locking**, the over-stiff
+//!   response of a low-order element whose material is nearly incompressible,
+//!   elastically as `nu -> 0.5` or plastically because J2 flow preserves
+//!   volume. It does nothing for **shear locking**, which is a different
+//!   mechanism and is still an open defect here — both are measured in
+//!   `docs/verification.md`, cases 6 to 8.
+//! - [`material::PlaneCondition`] — `PlaneStrain` (default, and the only valid
+//!   setting on a three-dimensional mesh, where it is a no-op) or
+//!   `PlaneStress`, which condenses `eps_zz` out of the constitutive law.
+//!
+//! Neither default changes behaviour that existed before they were added, which
+//! is deliberate: a silently changed default is worse than the defect it fixes.
 //!
 //! ## What belongs in this crate
 //!
@@ -33,7 +53,7 @@
 //! is shared (GitHub issue #175).
 //!
 //! The two discretisations meet at exactly one contract,
-//! [`operator::LinearOperator`]:
+//! [`operator::FemLinearOperator`]:
 //!
 //! - `LduMatrix` in `outram-foam-basic-lib` remains the face-addressed,
 //!   FVM-optimised representation.
@@ -71,10 +91,18 @@
 //!
 //! ## Status
 //!
-//! AI-assisted draft. Verified against analytical and manufactured solutions
-//! only — see `docs/verification.md` for methodology *and* measured results.
-//! There is **no human V&V sign-off**, no benchmark validation, and no crystal
-//! plasticity or fatigue layer yet. Not for RPV or piping life assessment.
+//! AI-assisted draft. Verified against analytical and manufactured solutions,
+//! geometric and frame invariants, and numerical differentiation of its own
+//! formulae — see `docs/verification.md` for methodology *and* measured
+//! results, cases 1 to 20. There is **no human V&V sign-off** and no benchmark
+//! validation. Not for RPV or piping life assessment.
+//!
+//! [`crystal`] holds the crystal-plasticity layer (cases 12 to 19) and
+//! [`fatigue`] a **partial** microstructure-sensitive fatigue layer (case 20):
+//! the Fatemi-Socie indicator parameter and region averaging, but no slip-band
+//! geometry, no fatigue life, and — because the crystal law has no backstress
+//! — no trustworthy cyclic saturation. Both modules say so in their own
+//! documentation; read those before using either.
 //!
 //! ## Design rules this crate follows
 //!
@@ -88,9 +116,11 @@
 
 pub mod assembly;
 pub mod bc;
+pub mod crystal;
 pub mod dof;
 pub mod element;
 pub mod error;
+pub mod fatigue;
 pub mod material;
 pub mod mesh;
 pub mod operator;

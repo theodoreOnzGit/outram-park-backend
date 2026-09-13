@@ -27,17 +27,42 @@ of truth: if the two ever disagree, the test is right and this file is stale.
 | # | Case | Test | Headline result |
 |---|---|---|---|
 | 1 | Patch test, all element types | `tests/patch.rs` | machine precision: displacement 9.0e-17, stress 1.3e-14 worst |
+| 1b | Patch test under B-bar | `tests/patch.rs` | machine precision: displacement 9.0e-17, stress 2.9e-15 worst |
 | 2 | Manufactured-solution convergence | `tests/mms.rs` | orders 1.998 / 1.000 (linear), 2.978 / 1.989 (quadratic) |
 | 3 | Thick-walled cylinder vs Lame | `tests/analytical.rs` | 2.45 % max stress error, first order; 0.021 % displacement, second order |
 | 4 | Cantilever vs beam theory | `tests/analytical.rs` | excess over Euler-Bernoulli 3.677 / 0.928 / 0.233 % at L/H = 4 / 8 / 16 |
 | 5 | Uniaxial J2 plasticity | `tests/plasticity.rs` | exact to round-off (1.95e-14) on loading, unloading and reverse yield |
 | 5b | Consistent tangent | `tests/plasticity.rs` | agrees with a central difference to 1.055e-7 relative |
 | 5c | Newton convergence order | `tests/plasticity.rs` | **2.004** measured on a partially plastic step |
+| 6a | Volumetric locking, Quad4, `nu = 0.499` | `tests/locking.rs` | full integration order 0.69-1.24; **B-bar 2.004**; 16.96x smaller error |
+| 6b | Volumetric locking, Hex8, `nu = 0.499` | `tests/locking.rs` | full integration order **0.634**; **B-bar 2.050**; 6.36x smaller error |
+| 7 | Fully plastic limit load vs closed form | `tests/locking.rs` | full integration +23.9 % to +0.42 %; **B-bar +1.06 % to +0.017 %** |
+| 8 | Shear locking, Quad4 cantilever | `tests/locking.rs` | 11.25 % too stiff at `ny = 2`, 66.7 % at aspect 4; **B-bar does NOT cure it** |
+| 9a | Thin plate, plane stress vs plane strain | `tests/plane_stress.rs` | both exact to round-off; contraction differs by exactly `1 + nu` |
+| 9b | Plane-stress / plane-strain equivalence | `tests/plane_stress.rs` | agree to 2.9e-16 under the exact `(E*, nu*)` transformation |
+| 10 | Plane-stress J2, uniaxial | `tests/plane_stress.rs` | exact to round-off (3.58e-16); `sigma_zz` identically zero |
+| 11 | Plane-stress J2, equibiaxial | `tests/plane_stress.rs` | exact to round-off (6.77e-16); `q = sigma_xx` to 3.5e-16 |
+| 12 | Slip-system geometry invariants | `tests/crystal.rs` | exact; latent-hardening matrix matches upstream entry for entry |
+| 13 | Schmid factors and the resolved-shear identity | `tests/crystal.rs` | textbook values to 5.55e-17; identity to **1.397e-16** relative |
+| 14 | Single crystal, single slip vs the Schmid yield stress | `tests/crystal.rs` | `s_0 / mu_1` reproduced to **1.487e-15**; 99.99997 % of slip on one system |
+| 15 | Frame indifference of the crystal law | `tests/crystal.rs` | **7.636e-16** relative |
+| 16 | Rotation of the single-crystal stiffness | `tests/crystal.rs` | invariances to 3.4e-16; control changes the tensor by 39 % |
+| 17 | Crystal consistent tangent | `tests/crystal.rs` | truncation order **2.0006**; Richardson-extrapolated **3.638e-9** |
+| 18 | Crystal plasticity in the FEM solver | `tests/crystal.rs` | Newton order 1.60-2.03, no cutbacks, full integration and B-bar |
+| 19 | Polycrystal aggregate approaches isotropy | `tests/crystal.rs` | direction spread 8.38e-3 -> 3.44e-3 for N = 50 -> 800; Taylor factor 3.02-3.06 |
+| 20 | Fatemi-Socie fatigue indicator parameter | `tests/crystal.rs` | `sigma_n = sigma/3` to 3.100e-15; FIP matches the hand expression to 1.355e-19 |
 
-Shared configuration: isotropic linear elasticity or J2 plasticity with linear
-isotropic hardening; two-dimensional cases are **plane strain** (plane stress is
-not implemented); linear systems solved by ILU(0)-preconditioned conjugate
-gradients through `outram-foam-basic-lib`'s shared Krylov layer.
+Cases 1 to 11 were run on 2026-09-11 (morning); cases 12 to 20 were added the
+same day and run in the same release configuration.
+
+Shared configuration for cases 1 to 11: isotropic linear elasticity or J2
+plasticity with linear isotropic hardening; two-dimensional cases are
+**plane strain** unless stated
+otherwise (plane stress is implemented as of 2026-09-11, cases 9-11); the
+element formulation is **full integration** unless stated otherwise (B-bar is
+implemented as of 2026-09-11, cases 6-8); linear systems solved by
+ILU(0)-preconditioned conjugate gradients through `outram-foam-basic-lib`'s
+shared Krylov layer, except the locking cases, which use Jacobi — see case 6.
 
 ---
 
@@ -106,6 +131,35 @@ elimination — exactly as its theory says. That is why elimination is the
 default, and the test asserts the penalty error is **greater** than `1e-14` so
 that a change which silently routed the penalty path to elimination would fail
 rather than quietly pass.
+
+### 1b. The patch test under B-bar
+
+Added 2026-09-11. An element modification that fails the patch test cannot
+converge at all — that is the whole content of the patch test — so the B-bar
+formulation of case 6 has to be shown not to have broken what the original
+element got right.
+
+Same jittered meshes, same imposed linear field, same `1e-9` pass band, with
+`Formulation::BBar` selected:
+
+| Element | max rel. displacement error | max rel. stress error |
+|---|---|---|
+| Tri3 | 9.035e-17 | 2.690e-15 |
+| Quad4 | 9.035e-17 | 2.906e-15 |
+| Tet4 | 9.035e-17 | 1.978e-15 |
+| Hex8 | 9.035e-17 | 2.638e-15 |
+
+Against full integration on the same meshes: 2.690e-15, 2.475e-15, 1.978e-15,
+1.649e-15. So B-bar passes at the same precision, to within a unit or two in the
+last place of the stress.
+
+The reason it survives is also the reason B-bar is useless on Tri3 and Tet4:
+under a **constant** strain field the element mean of the dilatation equals its
+pointwise value, so the modification vanishes identically. The patch test imposes
+exactly such a field, so on *this* problem B-bar is a no-op for every element —
+including the distorted Quad4 where it is emphatically not a no-op in general
+(measured at 12.0 % of the largest stiffness entry by
+`assembly::tests::bbar_genuinely_changes_a_bilinear_quadrilateral`).
 
 ---
 
@@ -527,6 +581,1117 @@ collapse pressure this mesh would predict is too high. The convergence order is
 a property of the linearisation and is unaffected, which is why it is the only
 thing measured here.
 
+**That "too high" is now a number, not an assertion:** case 7 measures it as
++1.67 % on an `8 x 16` mesh and +23.9 % on a `2 x 4` one, against the closed-form
+limit pressure. This case is still run under full integration, deliberately —
+the convergence order it measures is the property of the *linearisation*, and
+re-running it under B-bar would change nothing about that claim while losing the
+continuity of the recorded result. Case 7 is where the stress accuracy is
+measured, and `Formulation::BBar` is what a user should select for a plastic
+collapse calculation.
+
+---
+
+## 6. Volumetric locking: nearly incompressible elasticity
+
+Added 2026-09-11 with the B-bar formulation (bead `op-vrtt.1`). This is the case
+that measures whether the element library can be trusted near the incompressible
+limit, which is where *every* fully plastic zone lives.
+
+### Methodology
+
+The manufactured solution of case 2, run at **two** Poisson's ratios and **two**
+formulations so that the contrast is the evidence:
+
+- `nu = 0.3` ($\lambda/\mu = 1.5$), the control, where nothing should lock;
+- `nu = 0.499` ($\lambda/\mu = 332.7$), the nearly incompressible case.
+
+**Case 6a — Quad4** on the unit square, plane strain, exact field
+`u_x = u_y = sin(pi x) sin(pi y)`, meshes $n = 4, 8, 16, 32$ per side.
+
+**Case 6b — Hex8** on the unit cube, exact field
+`u_x = u_y = u_z = sin(pi x) sin(pi y) sin(pi z)`, meshes $n = 2, 4, 8, 16$.
+That three-dimensional body force is new, and it is checked independently
+against $-\text{div} \ \sigma$ of its own exact field by
+`assembly::tests::manufactured_body_forces_are_minus_divergence_of_their_own_stress`
+(worst relative residual 8.5e-9 in two dimensions, 1.3e-8 in three), so a lost
+order here cannot be blamed on a mis-derived forcing term.
+
+`E = 200 GPa` throughout; homogeneous Dirichlet data on the whole boundary;
+errors integrated with the richer `error_rule`.
+
+**Pass criteria** are orders and ratios, never tuned tolerances: B-bar within
+0.15 of order 2 at `nu = 0.499`; full integration demonstrably *below* order
+1.5; B-bar's error within a factor 2 of its own `nu = 0.3` error; full
+integration at least 5x (Quad4) or 4x (Hex8) worse than B-bar.
+
+### The linear solver had to change, and that is a finding
+
+ILU(0)-preconditioned conjugate gradients — the preconditioner every other case
+in this report uses — **stagnates** on these systems. At `nu = 0.499` on the
+32x32 Quad4 mesh it reached a relative residual of 1.23 (full integration) and
+0.153 (B-bar) after 20 000 iterations and stopped improving, while Jacobi-CG
+solved both to `1e-10`. The same B-bar system ILU(0) cannot solve converges
+cleanly under Jacobi, so this is a preconditioner defect, not a formulation one.
+Recorded as bead `op-ldaz`; the locking cases use Jacobi and say so.
+
+### Results, case 6a (Quad4), measured 2026-09-11
+
+L2 errors of the displacement (absolute; the study takes ratios).
+
+**`nu = 0.3`, the control:**
+
+| n | dofs | L2, full | order | L2, B-bar | order |
+|---|---|---|---|---|---|
+| 4 | 50 | 4.37275e-2 | | 3.03801e-2 | |
+| 8 | 162 | 1.11518e-2 | 1.971 | 7.61116e-3 | 1.997 |
+| 16 | 578 | 2.80446e-3 | 1.991 | 1.90510e-3 | 1.998 |
+| 32 | 2178 | 7.02209e-4 | 1.998 | 4.76440e-4 | 1.999 |
+
+**`nu = 0.499`:**
+
+| n | dofs | L2, full | order | L2, B-bar | order |
+|---|---|---|---|---|---|
+| 4 | 50 | 4.79622e-2 | | 2.49554e-2 | |
+| 8 | 162 | 2.03534e-2 | **1.237** | 5.88305e-3 | 2.085 |
+| 16 | 578 | 1.25968e-2 | **0.692** | 1.45262e-3 | 2.018 |
+| 32 | 2178 | 6.14098e-3 | **1.037** | 3.62084e-4 | **2.004** |
+
+### Results, case 6b (Hex8), measured 2026-09-11
+
+**`nu = 0.3`, the control:**
+
+| n | dofs | L2, full | order | L2, B-bar | order |
+|---|---|---|---|---|---|
+| 2 | 81 | 1.61098e-1 | | 1.27103e-1 | |
+| 4 | 375 | 4.10679e-2 | 1.972 | 2.74336e-2 | 2.212 |
+| 8 | 2187 | 1.04584e-2 | 1.973 | 6.70978e-3 | 2.032 |
+| 16 | 14739 | 2.62991e-3 | 1.992 | 1.67044e-3 | 2.006 |
+
+**`nu = 0.499`:**
+
+| n | dofs | L2, full | order | L2, B-bar | order |
+|---|---|---|---|---|---|
+| 2 | 81 | 1.61098e-1 | | 3.12185e-1 | |
+| 4 | 375 | 4.78075e-2 | **1.753** | 4.49880e-2 | 2.795 |
+| 8 | 2187 | 2.32814e-2 | **1.038** | 9.76937e-3 | 2.203 |
+| 16 | 14739 | 1.50022e-2 | **0.634** | 2.35856e-3 | **2.050** |
+
+### Interpretation
+
+**Full integration locks, and it shows in the rate, not only the constant.** On
+Quad4 the observed order at `nu = 0.3` is 1.971, 1.991, 1.998 — textbook. The
+same element at `nu = 0.499` gives 1.237, 0.692, 1.037; it is not converging at
+second order anywhere in this range of $h$, and the wobble is the signature of a
+pre-asymptotic regime whose error constant scales with $\lambda/\mu$. On Hex8
+the collapse is monotone: 1.753, 1.038, **0.634**, so the element is losing
+ground with refinement rather than gaining it.
+
+**B-bar does not lock.** Observed orders 2.085, 2.018, 2.004 (Quad4) and 2.795,
+2.203, 2.050 (Hex8) at `nu = 0.499` — the theoretical rate, approached from
+above and settling on it.
+
+**The `nu`-sensitivity numbers are the cleanest statement of all.** Comparing
+each formulation's finest-mesh error at `nu = 0.499` with its own error at
+`nu = 0.3`, for a problem whose exact solution did not change:
+
+| | Quad4 | Hex8 |
+|---|---|---|
+| full integration, `nu` sensitivity | **8.75x worse** | **5.70x worse** |
+| B-bar, `nu` sensitivity | 0.76x | 1.41x |
+| full / B-bar error, `nu = 0.499` | **16.96x** | **6.36x** |
+
+B-bar's error is essentially independent of Poisson's ratio, which is what
+"locking-free" means. (It is not a contradiction that the Quad4 figure is
+slightly *below* 1: the exact solution is fixed while the material changes, so
+the two errors need not be ordered.)
+
+Two honest notes. B-bar is also mildly better than full integration at
+`nu = 0.3`; that is not a general guarantee and full integration remains the
+default for compressible materials. And on the coarsest Hex8 mesh at
+`nu = 0.499`, B-bar's error (3.12e-1) is *worse* than full integration's
+(1.61e-1) — a 2x2x2 mesh has two elements across a full sine wave and resolves
+nothing, so both numbers are pre-asymptotic and neither is evidence. That row is
+left in the table rather than trimmed.
+
+---
+
+## 7. Volumetric locking: fully plastic limit load
+
+### Methodology
+
+Thick-walled cylinder, `a = 0.05 m`, `b = 0.10 m`, quarter model with symmetry
+on both cut faces. **Elastic-perfectly-plastic** J2: `E = 200 GPa`, `nu = 0.3`,
+`sigma_y = 250 MPa`, `H = 0` exactly, because the closed form assumes perfect
+plasticity.
+
+**Reference:** the von Mises plane-strain limit pressure
+
+$$p_L = \frac{2}{\sqrt{3}} \sigma_y \ln\frac{b}{a} = 200.0944 \ \text{MPa}$$
+
+obtained by integrating $d\sigma_r/dr = (\sigma_\theta - \sigma_r)/r$ with
+$\sigma_\theta - \sigma_r = 2\sigma_y/\sqrt{3}$ from $\sigma_r(b) = 0$.
+
+**Loading is displacement controlled**, not force controlled. Under force
+control the problem has a limit point, the tangent of a perfectly plastic
+structure loses definiteness at $p_L$ and Newton diverges, so the "collapse
+load" measured would depend on the solver tolerance as much as on the mechanics.
+Under displacement control the path stays single-valued and the pressure simply
+plateaus. The bore radial displacement is ramped in 32 increments of `2.5e-5 m`
+to `8.0e-4 m` (16x the first-yield displacement), and the pressure is recovered
+from the support reaction — the internal force at the constrained degrees of
+freedom — divided by the **polygon** perimeter of the discrete bore, not the arc
+length, since straight-sided elements make the polygon the boundary the load
+actually acts on.
+
+Meshes `n_r = 2, 4, 8, 16` by `n_theta = 2 n_r` Quad4, each run with both
+formulations.
+
+**Pass criteria:** both formulations must *over*-predict at every level (the
+upper-bound theorem of limit analysis: a displacement-based element admits only
+kinematically admissible fields, so it cannot collapse below the exact load);
+B-bar's over-prediction at least 5x smaller at every level; B-bar within 0.5 %
+of $p_L$ on the finest mesh.
+
+### Results, measured 2026-09-11
+
+Collapse pressure at `u_r = 8.0e-4 m`, in megapascals, against
+`p_L = 200.0944 MPa`:
+
+| n_r x n_theta | dofs | full integration | p/p_L | B-bar | p/p_L | excess ratio |
+|---|---|---|---|---|---|---|
+| 2 x 4 | 30 | 247.8937 | **1.23888** | 202.2194 | 1.01062 | 22.5x |
+| 4 x 8 | 90 | 213.1640 | 1.06532 | 200.6581 | 1.00282 | 23.2x |
+| 8 x 16 | 306 | 203.4431 | 1.01674 | 200.2354 | 1.00070 | 23.7x |
+| 16 x 32 | 1122 | 200.9348 | 1.00420 | 200.1275 | **1.00017** | 25.4x |
+
+The excess ratio is $(p_{\text{full}} - p_L)/(p_{\text{B-bar}} - p_L)$.
+
+Pressure-displacement path on a `10 x 20` mesh, showing the plateau the
+measurement relies on (MPa):
+
+| u_r (m) | full | B-bar | yielding points |
+|---|---|---|---|
+| 5.0e-5 | 105.036 | 104.929 | 0 (still elastic) |
+| 1.0e-4 | 166.946 | 166.696 | 192 / 205 |
+| 2.0e-4 | 198.706 | 198.198 | 414 / 420 |
+| 4.0e-4 | 201.070 | 200.046 | 447 / 445 |
+| 6.0e-4 | 201.708 | 200.167 | 456 / 420 |
+
+### Interpretation
+
+Full-integration Quad4 over-predicts the collapse load by **23.9 %** on a coarse
+mesh, falling to 6.5 %, 1.7 % and 0.42 % with refinement. That is volumetric
+locking measured plastically: J2 flow is volume preserving, and a
+full-integration bilinear element imposes that constraint at four points per
+element, over-constraining the displacement field so the structure carries load
+it should not.
+
+B-bar over-predicts by **1.06 %, 0.28 %, 0.07 % and 0.017 %** on the same four
+meshes — between 22 and 25 times closer at every level, and on the finest mesh
+reproducing the closed-form limit pressure to 170 parts per million.
+
+Read across, the practical statement is that B-bar on the **2 x 4** mesh (30
+degrees of freedom, 1.1 % error) beats full integration on the **8 x 16** mesh
+(306 degrees of freedom, 1.7 % error): ten times the unknowns for a worse
+answer.
+
+The plateau is real and not an artefact of stopping: between `u_r = 4e-4` and
+`6e-4 m` the B-bar pressure moves by 0.06 %, having risen 90 % over the path.
+Both curves still creep upward, which is expected as the plastic zone finishes
+spreading through the outermost element, and is why the numbers are quoted at a
+stated displacement rather than as "the" collapse load.
+
+**Limitations, stated rather than buried.** Small strain with no geometry
+update, at `u_r/a = 1.6 %`. Straight-sided elements bias the pressure by about
+0.05 % at `n_theta = 16`, which is comparable to the B-bar error on the finest
+mesh only — so `1.00017` should be read as "indistinguishable from $p_L$ at this
+mesh's geometric fidelity", not as five-digit agreement. And the reference
+assumes a perfectly plastic von Mises material in plane strain with no
+hardening, which is what was run but is not steel.
+
+---
+
+## 8. Shear locking, which B-bar does **not** cure
+
+### Why this case exists
+
+Bead `op-vrtt.1` asserted that "a Quad4 mesh of the same coarseness would give a
+visibly too-stiff beam" — an unmeasured claim used to justify case 4's choice of
+quadratic triangles. This measures it, and measures whether the B-bar work of
+cases 6 and 7 fixes it. **It does not.**
+
+### Methodology
+
+The cantilever of case 4 re-meshed with bilinear quadrilaterals: `H = 0.1 m`,
+unit thickness, `E = 200 GPa`, `nu = 0` (so plane strain, plane stress and beam
+theory share the same `E`), clamped at `x = 0`, uniform shear traction on
+`x = L` totalling `P = 1000 N`, deflection read at the mid-height node of the
+loaded edge.
+
+Slendernesses `L/H = 4` and `8`; elements through the depth `ny = 2, 4, 8, 16`
+with **square** elements; plus one deliberately span-coarse mesh at `ny = 2` with
+element aspect ratio 4. Both formulations on every mesh.
+
+**Reference:** Timoshenko, `delta = P L^3 / (3 E I) + P L / (k G A)` with
+`I = H^3/12`, `A = H`, `k = 5/6`, `G = E/2`. Timoshenko rather than
+Euler-Bernoulli, because the question is how much stiffer than the *correct*
+answer the element is.
+
+### Results, measured 2026-09-11
+
+$\delta / \delta_{\text{Timoshenko}}$; below 1 means too stiff.
+
+**`L/H = 4`, $\delta_{\text{Timo}} = 1.328000 \times 10^{-6}$ m:**
+
+| ny | nx | aspect | dofs | full integration | B-bar |
+|---|---|---|---|---|---|
+| 2 | 2 | 4 | 18 | **0.3313** | 0.3399 |
+| 2 | 8 | 1 | 54 | 0.8835 | 0.9518 |
+| 4 | 16 | 1 | 170 | 0.9673 | 0.9867 |
+| 8 | 32 | 1 | 594 | 0.9911 | 0.9962 |
+| 16 | 64 | 1 | 2210 | 0.9973 | 0.9986 |
+
+**`L/H = 8`, $\delta_{\text{Timo}} = 1.033600 \times 10^{-5}$ m:**
+
+| ny | nx | aspect | dofs | full integration | B-bar |
+|---|---|---|---|---|---|
+| 2 | 4 | 4 | 30 | **0.3328** | 0.3421 |
+| 2 | 16 | 1 | 102 | 0.8875 | 0.9579 |
+| 4 | 32 | 1 | 330 | 0.9692 | 0.9890 |
+| 8 | 64 | 1 | 1170 | 0.9920 | 0.9972 |
+
+For comparison, the **Tri6** mesh of case 4 reaches 0.99930 at `L/H = 4` on 1170
+degrees of freedom — better than Quad4 with B-bar manages on 2210.
+
+### Interpretation
+
+**The bead's claim is confirmed and quantified.** With two square elements
+through the depth a full-integration Quad4 cantilever is **11.25 % too stiff**
+(`L/H = 8`); with elements of aspect ratio 4 it is **66.7 % too stiff** — two
+thirds of the deflection simply missing. The aspect-ratio sensitivity is the
+tell: shear locking comes from the bilinear element's inability to represent
+pure bending without a parasitic shear strain whose magnitude grows with the
+element's length-to-depth ratio.
+
+**B-bar helps, but it does not cure this, and it cannot.** It lifts `ny = 2` from
+0.8875 to 0.9579 — recovering about 63 % of the deficit — and leaves **4.2 %
+still missing**. The share it recovers is the *volumetric* part of the parasitic
+constraint: even at `nu = 0` the bulk modulus is `E/3`, not zero, so bending
+excites a spurious dilatational stiffness that the mean-dilatation modification
+relaxes. The share it does not recover is the parasitic *shear* strain itself, a
+deviatoric mode that B-bar leaves untouched by construction, since it only ever
+substitutes the volumetric part of `B`. On the aspect-ratio-4 mesh, where the
+shear share dominates, B-bar moves 0.3328 only to 0.3421 and 65.8 % of the
+deflection is still missing.
+
+**Shear locking therefore remains an open defect in this crate**, tracked as bead
+`op-uqqg`. The fixes are a different family from B-bar — incompatible modes
+(Wilson), enhanced assumed strain (Simo-Rifai), assumed natural strain, or
+reduced integration with hourglass control — and each needs verifying in its own
+right. Nothing in cases 6 and 7 bears on it, and the B-bar work must not be
+described as having addressed it.
+
+The practical advice this case supports, and the reason case 4 uses Tri6: **do
+not bend a low-order quadrilateral.** If the mesh must be quadrilateral, four or
+more elements through the depth at an aspect ratio near 1 keeps the error near
+1 %; two long elements through the depth loses a third of the deflection.
+
+---
+
+## 9. Plane stress
+
+Added 2026-09-11 (bead `op-vrtt.2`). Before this, two-dimensional analysis in
+Farrer Park was plane strain only.
+
+Plane strain is a *kinematic* condition — `eps_zz = gamma_yz = gamma_xz = 0` —
+which the strain-displacement operator imposes by writing zeros into three Voigt
+slots, after which the ordinary three-dimensional law gives the correct
+`sigma_zz` with no special case. Plane stress is a *constitutive* condition,
+`sigma_zz = 0`, so it is not a matter of zeroing different slots: `eps_zz` has to
+be solved for and condensed out. For linear elasticity that is a static
+condensation of the constitutive matrix; for J2 it is a nested scalar Newton
+inside the return map, plus a condensed algorithmic tangent. Both are
+implemented in `material.rs` and selected by the explicit
+`PlaneCondition { PlaneStrain, PlaneStress }` enum carried on `System`.
+
+### 9a. Thin plate in uniaxial tension
+
+#### Methodology
+
+A square plate `[0,1]^2` m of unit thickness, Quad4, 4x4, `E = 200 GPa`,
+`nu = 0.3`. Symmetry on `x = 0` and `y = 0`; uniform traction
+`T = 100 MPa` on `x = 1`; everything else traction free. Solved twice, once in
+each idealisation.
+
+Exact, plane stress: `sigma_xx = T`, `sigma_yy = sigma_zz = 0`,
+`u_x = T x / E`, `u_y = -nu T y / E`.
+Exact, plane strain: the same in-plane stresses, `sigma_zz = nu T`, and
+`u_y = -nu (1 + nu) T y / E`.
+
+The exact field is linear, so a bilinear element reproduces it *exactly*; this is
+a patch test with a physical reference attached.
+
+#### Results
+
+| Quantity | Plane stress | Plane strain |
+|---|---|---|
+| max relative error in `u_x` | 4.337e-16 | 3.574e-16 |
+| max relative error in `u_y` | 5.421e-16 | 2.780e-16 |
+| max relative error in `sigma_xx` | 8.941e-16 | 1.043e-15 |
+| max `abs(sigma_yy)` / T | 3.353e-16 | 8.196e-16 |
+| `sigma_zz` / T | **0.000e0 exactly** | **3.000e-1** |
+| `u_y` at `y = 1` (m) | -1.500000e-4 | -1.950000e-4 |
+
+#### Interpretation
+
+Both idealisations reproduce their own exact solution to round-off, and they
+differ where they must and only there. The in-plane stress is identical
+(`sigma_xx = T` in both, as it must be for a statically determinate bar); the
+through-thickness stress is 0 under plane stress and `nu T` under plane strain;
+and the lateral contraction differs by exactly `1 + nu = 1.3`.
+
+That last number is the one worth keeping. It is a **30 % difference in a
+quantity an engineer would measure**, and before this work the crate could only
+produce the plane-strain one.
+
+### 9b. The exact plane-stress / plane-strain equivalence
+
+#### Why this is the sharper test
+
+A single problem with a known answer verifies one point of the constitutive map.
+The equivalence below is an **algebraic identity** that must hold for every
+geometry, load and mesh, so checking it on a non-trivial problem exercises the
+whole condensed matrix rather than one entry.
+
+For an isotropic material the plane-stress matrix at $(E^*, \nu^*)$ equals the
+plane-strain matrix at $(E, \nu)$ when
+
+$$E^* = \frac{E}{1 - \nu^2}, \quad \nu^* = \frac{\nu}{1 - \nu}$$
+
+verified by hand entry by entry:
+$D_{00} = E^*/(1-\nu^{*2}) = E(1-\nu)/((1+\nu)(1-2\nu)) = \lambda + 2\mu$,
+$D_{01} = \lambda$, and $\mu^* = \mu$. Note $\nu^* < 1/2$ requires $\nu < 1/3$.
+
+#### Methodology
+
+The quarter thick-walled cylinder of case 3 — `a = 0.05 m`, `b = 0.10 m`,
+`p = 100 MPa`, `6 x 12` Quad4 — chosen because its solution is neither uniform
+nor a linear field, so every entry of the constitutive matrix is exercised at
+every quadrature point. Run at `nu = 0.3` and `nu = 0.25`, each time comparing
+the transformed pair against a **control**: the same two idealisations at the
+*untransformed* `(E, nu)`, which must differ.
+
+#### Results
+
+| nu | nu* | E* (GPa) | max relative difference | control: untransformed pair |
+|---|---|---|---|---|
+| 0.30 | 0.428571 | 219.780 | **2.860e-16** | 6.372e-2 |
+| 0.25 | 0.333333 | 213.333 | **7.265e-16** | 4.488e-2 |
+
+#### Interpretation
+
+The transformed pair agrees to round-off — below the `1e-13` linear-solve
+tolerance, because the two runs assemble numerically identical matrices and the
+conjugate-gradient iterations then track each other exactly.
+
+The control column shows what "different" looks like here: 6.4 % and 4.5 %. That
+is modest, because the in-plane solution of a pressurised cylinder depends on
+Poisson's ratio only weakly — which is all the more reason to have the control
+rather than assume a match at `1e-16` must be meaningful.
+
+---
+
+## 10. Plane-stress J2, uniaxial tension
+
+### Methodology
+
+A unit square plate, 2x2 Quad4, plane stress, J2 with linear isotropic
+hardening: `E = 200 GPa`, `nu = 0.3`, `sigma_y0 = 250 MPa`, `H = 2 GPa`, yield
+strain `1.25e-3`, plastic tangent modulus `E_t = 1.980198 GPa`.
+
+Symmetry on `x = 0` and `y = 0`, prescribed `u_x = eps` on `x = 1`, `y = 1`
+traction free. With `sigma_yy = 0` from the free edge and `sigma_zz = 0` from the
+condensation, the state is genuinely uniaxial **stress**, and the reference is
+the same closed form case 5 checks in three dimensions — now reached through the
+condensed path. Strain stepped to `2.5e-4, ..., 5.0e-3` (20 steps).
+
+### Results
+
+| eps | sigma_xx (Pa) | closed form (Pa) | rel err | sigma_zz (Pa) | alpha |
+|---|---|---|---|---|---|
+| 1.0000e-3 | 2.0000000e8 | 2.0000000e8 | 0 | 0 | 0 |
+| 1.2500e-3 | 2.5000000e8 | 2.5000000e8 | 3.576e-16 | 0 | 0 |
+| 2.5000e-3 | 2.5247525e8 | 2.5247525e8 | 3.541e-16 | 0 | 1.2376238e-3 |
+| 5.0000e-3 | 2.5742574e8 | 2.5742574e8 | 0 | 0 | 3.7128713e-3 |
+
+| Quantity | Value |
+|---|---|
+| worst relative error in `sigma_xx`, all 20 steps | **3.576e-16** |
+| worst `abs(sigma_yy)` | 8.941e-8 Pa |
+| worst `abs(sigma_zz)` | **0.000e0 Pa** |
+| worst relative error in `alpha` | 1.752e-15 |
+
+### Interpretation
+
+Round-off agreement, which is the correct outcome and not merely a close one:
+linear hardening makes the return map a closed-form root, and the nested
+`eps_zz` Newton is solving a scalar equation whose root the elastic predictor
+already lands on within one iteration.
+
+`sigma_zz` is **identically zero**, not small — the local Newton runs to the
+floating-point root. `sigma_yy` reaches 8.9e-8 Pa, the residual of the global
+equilibrium solve on a traction-free edge (3.5e-16 relative to `sigma_xx`).
+
+The measurement that matters most is `alpha`, because it is the history the
+condensation writes: at `eps = 5e-3` it is `3.7128713e-3`, **identical to the
+three-dimensional uniaxial cell of case 5 to every digit printed**. The condensed
+path and the unconstrained path reach the same physical state by different
+routes, which is the strongest statement this case can make.
+
+---
+
+## 11. Plane-stress J2, equibiaxial tension
+
+### Why a second plastic case
+
+Uniaxial tension is the state the return map is easiest to get right in: the
+deviator has one dominant component and `eps_zz` stays near its elastic value.
+Equibiaxial tension is the opposite corner of the von Mises ellipse — the
+through-thickness plastic strain is **twice** either in-plane component and
+carries the whole plastic volume change — so it is where a wrong condensation
+shows up largest. Verifying only uniaxial would leave the nested solve barely
+exercised.
+
+### Methodology
+
+The same plate, with `u_x = eps` on `x = 1` **and** `u_y = eps` on `y = 1`.
+
+Reference, with the biaxial modulus $E_b = E/(1-\nu) = 285.714$ GPa. By symmetry
+$\sigma_{xx} = \sigma_{yy} = \sigma$ and $\sigma_{zz} = 0$, so the deviator is
+$(\sigma/3, \sigma/3, -2\sigma/3)$ and $q = \sigma$: the equibiaxial point of the
+von Mises ellipse sits at the uniaxial yield stress. The plastic strain is
+$(e_p, e_p, -2e_p)$, so $\alpha = 2 e_p$, and the two conditions
+$\sigma = E_b(\epsilon - e_p)$ and $\sigma = \sigma_{y0} + 2 H e_p$ give
+
+$$e_p = \frac{E_b \epsilon - \sigma_{y0}}{E_b + 2H}, \quad
+\sigma = \sigma_{y0} + 2 H e_p$$
+
+with yield at $\epsilon_y = \sigma_{y0}/E_b = 8.750 \times 10^{-4}$.
+
+### Results
+
+| eps | sigma_xx (Pa) | closed form (Pa) | rel err | alpha | closed form |
+|---|---|---|---|---|---|
+| 7.5000e-4 | 2.1428571e8 | 2.1428571e8 | 0 | 0 | 0 |
+| 1.0000e-3 | 2.5049310e8 | 2.5049310e8 | 0 | 2.4654832e-4 | 2.4654832e-4 |
+| 2.5000e-3 | 2.5641026e8 | 2.5641026e8 | 1.162e-16 | 3.2051282e-3 | 3.2051282e-3 |
+| 5.0000e-3 | 2.6627219e8 | 2.6627219e8 | 1.119e-16 | 8.1360947e-3 | 8.1360947e-3 |
+
+| Quantity | Value |
+|---|---|
+| worst relative error in `sigma_xx` | **6.766e-16** |
+| worst relative error in `alpha` | 1.099e-15 |
+| worst `abs(sigma_xx - sigma_yy)` / `sigma_xx` | 6.974e-16 |
+| worst `abs(sigma_zz)` | **0.000e0 Pa** |
+| worst `abs(q - sigma_xx)` / `sigma_xx` | 3.487e-16 |
+
+### Interpretation
+
+Round-off agreement on the state that stresses the condensation hardest. Three
+separate facts are confirmed, each of which would fail differently if the nested
+solve were wrong:
+
+1. **The stress magnitude** matches to `6.8e-16`. A condensation converging to
+   the wrong `eps_zz` would show up here first and largest, because $\sigma$
+   depends on `eps_zz` through the whole deviator at this point.
+2. **The equivalent plastic strain** matches to `1.1e-15`, and at `eps = 5e-3`
+   it is `8.1360947e-3` — **2.19 times** the uniaxial value at the same strain
+   (`3.7128713e-3`), because equibiaxial stretching reaches yield at a smaller
+   strain (`8.75e-4` against `1.25e-3`) and then accumulates plastic strain
+   faster.
+3. **`q = sigma_xx` to `3.5e-16`**, the statement that the computed state sits
+   at the equibiaxial corner of the von Mises ellipse rather than elsewhere on
+   it. This is what would catch a sign error in the out-of-plane deviatoric
+   component, which the uniaxial case is far less sensitive to.
+
+---
+
+# Crystal plasticity — cases 12 to 20
+
+Everything from here on exercises `src/crystal/` and `src/fatigue.rs`, ported
+from PRISMS-Plasticity (commit `ffdf4eb6`) and PRISMS-Fatigue (commit
+`2c8fc9a2`); see `docs/upstream-provenance.md`. All nine cases are in
+`tests/crystal.rs` and each test's `///` doc comment carries the same
+methodology and numbers as the section below.
+
+**Shared configuration.** Two materials recur:
+
+- **Copper**, exactly PRISMS-Plasticity's own `FCC_Random_RateDependent` deck:
+  cubic elasticity `C11 = 170`, `C12 = 124`, `C44 = 75` GPa (Zener ratio
+  3.2609); FCC `{111}<110>`; `s_0 = 16` MPa, `h_0 = 180` MPa,
+  `s_sat = 148` MPa, `A = 2.25`; `q = 1.0` coplanar and `1.4` latent;
+  `gamma_dot_0 = 1e-3` per second; `dt = 0.1` s.
+- **The same crystal with isotropic elasticity** (`E = 200` GPa, `nu = 0.3`),
+  used wherever the case needs the only remaining anisotropy to be the slip
+  geometry.
+
+The rate-sensitivity exponent `m` is stated per case; upstream's decks use
+0.02 to 0.1.
+
+**What the port deliberately is not.** Upstream is a finite-deformation code
+(elastic and plastic deformation gradients, exponential update of `Fp`,
+lattice reorientation from the plastic spin, deformation-increment
+sub-stepping). Farrer Park is small strain, so this is the additive split
+`eps = eps_e + eps_p` with `eps_p` driven by the **symmetric** Schmid tensors.
+The consequences — no texture evolution, no backstress, no sub-stepping — are
+listed under "Cross-cutting limitations" below and repeated on
+`CrystalPlasticity`'s own documentation.
+
+---
+
+## 12. Slip-system geometry invariants
+
+### Methodology
+
+Every invariant the crystal-frame geometry must satisfy, for both implemented
+families, checked directly rather than assumed: unit normals and directions;
+`m . n = 0`; twelve distinct systems; the right multiplicities (FCC four
+`{111}` planes with three directions each, BCC six `{110}` planes with two);
+deviatoric Schmid tensors with `P : P = 1/2`; and the computed
+latent-hardening matrix against PRISMS-Plasticity's own
+`LatentHardeningRatio.txt`.
+
+**Pass criterion:** the continuous invariants to `1e-15` absolute; the counts
+and the `q`-matrix exactly.
+
+### Results
+
+| Quantity | FCC `{111}<110>` | BCC `{110}<111>` |
+|---|---|---|
+| worst `\|\|n\|\| - 1` | 0 | 1.110e-16 |
+| worst `\|\|m\|\| - 1` | 1.110e-16 | 0 |
+| worst `\|m . n\|` | 0 | 0 |
+| distinct systems | 12 | 12 |
+| distinct planes x directions each | 4 x 3 | 6 x 2 |
+| worst `\|tr P\|` | 0 | 0 |
+| worst `\|P : P - 1/2\|` | 0 | 0 |
+| `q`-matrix vs upstream file | exact | exact |
+
+### Interpretation
+
+The geometry is exact rather than merely accurate: the FCC normals and
+directions are `1/sqrt(3)` and `1/sqrt(2)` combinations of `+/-1`, which are
+exactly representable after normalisation, so most invariants come out
+identically zero. BCC's worst departure is one unit in the last place.
+
+The `q`-matrix agreement is the load-bearing part. It means a slip-system
+**index** in this crate names the same physical system it does in
+PRISMS-Plasticity, so upstream's per-system input tables can be compared with
+ours without a permutation — and it confirms that the coplanarity test used
+here (`|n_a . n_b| > 1 - 1e-9`, which treats `n` and `-n` as one plane)
+reproduces upstream's hand-written blocks.
+
+---
+
+## 13. Schmid factors and the resolved-shear identity
+
+### Methodology
+
+**(a) Textbook Schmid factors for FCC**, `mu = |(m . t)(n . t)|`, checked
+against `sqrt(6)/6` and `sqrt(6)/9` computed in the test rather than against a
+transcribed decimal.
+
+**(b) The resolved-shear identity through the whole constitutive path.** A
+crystal at Bunge `31, 47, 13` degrees is loaded in uniaxial stress at 20 MPa,
+well below yield. The resolved shear on each of the twelve systems, taken from
+the *returned* stress through `CrystalState::resolved_shear_stresses` (which
+rotates the Schmid **tensors** into sample axes), is compared with
+`sigma_xx (m . t)(n . t)` evaluated with the load axis rotated into **crystal**
+axes. The two routes share no code: one rotates a tensor, the other a vector.
+
+**Pass criterion:** (a) `1e-15` absolute; (b) `1e-14` relative to the applied
+stress.
+
+### Results
+
+| Check | Measured |
+|---|---|
+| `[001]`: count at `sqrt(6)/6 = 0.4082483`, worst error | 8 systems, 5.551e-17 |
+| `[001]`: count at exactly zero | 4 systems |
+| `[111]`: counts at `sqrt(6)/9 = 0.2721655` and at zero | 6 and 6, worst 5.551e-17 |
+| `[011]`: maximum Schmid factor error against `sqrt(6)/6` | 5.551e-17 |
+| (b) worst `\|tau_a - sigma (m.t)(n.t)\|` | 2.794e-9 Pa on 2.000e7 Pa |
+| (b) relative | **1.397e-16** |
+
+### Interpretation
+
+The identity holds to one unit in the last place of the applied stress across
+all twelve systems at a general orientation. That verifies the
+crystal-to-sample convention, the Schmid tensor construction and the Voigt
+double contraction together, and it is the sharpest available test of the
+orientation convention specifically: transposing `R` anywhere would break it
+immediately while leaving every norm-based check in case 12 untouched.
+
+The `[111]` line is worth a note because the first draft of this case asserted
+`sqrt(6)/18` and **failed**. The correct non-zero value is `sqrt(6)/9`, and the
+partition is six systems at that value and six at zero — the three lying in
+the `(111)` plane itself (whose normal is the load axis, so `m . t = 0`) plus
+one in each of the other three planes. The wrong constant was caught by the
+test rather than by review, which is the argument for computing the reference
+value in the test instead of writing it down.
+
+---
+
+## 14. Single crystal, single slip, against the analytic Schmid yield stress
+
+### Methodology
+
+A rate-dependent crystal has no sharp yield point, so "yield" is given the only
+sharp definition the flow rule admits: the stress at which the primary system
+slips at **exactly the reference rate**. Since
+`d gamma = gamma_dot_0 dt |tau/s|^(1/m) sign(tau)`, that happens if and only if
+`tau = s`, which makes the critical resolved shear stress exactly `s_0` on a
+virgin crystal with no reference to `m` at all. Schmid's law then predicts the
+axial stress:
+
+$$\sigma_y = \frac{s_0}{\mu_1}$$
+
+The crystal is oriented so the load axis is the crystal direction maximising
+`mu_1 / mu_2` over a `121 x 121` sweep — `[0.38333, 0.61667, 1]`, giving
+`mu_1 = 0.4560678` on system 7 and `mu_2 = 0.3313212`, a ratio of `1.37651`.
+That is the most nearly single-slip orientation FCC admits under uniaxial
+tension; exact single slip does not exist, because no uniaxial axis leaves
+eleven of the twelve Schmid factors at zero.
+
+The point is driven in **exact uniaxial stress** — the five other stress
+components driven to round-off by a damped Newton on the `5 x 5` sub-block of
+the consistent tangent — and `eps_xx` is bisected 200 times until the primary
+slip increment equals `gamma_dot_0 dt = 1e-4`. Isotropic elasticity,
+`m = 0.02`.
+
+**Pass criterion:** axial stress within `1e-5` relative of `s_0 / mu_1`;
+primary resolved shear within `1e-9` relative of `s_0`; primary slip fraction
+above 0.95.
+
+### Results
+
+| Quantity | Analytic | Measured | Relative error |
+|---|---|---|---|
+| axial stress at the reference slip rate | 35.0825001 MPa | 35.0825001 MPa | **1.487e-15** |
+| primary resolved shear `tau_7` | 16.000000000 MPa (`= s_0`) | 16.000000000 MPa | < 1e-12 |
+| primary slip increment | 1.000000e-4 (`= gamma_dot_0 dt`) | 1.000000e-4 | bisected |
+| primary slip as a fraction of all slip | — | **0.99999971** | — |
+
+Ramping the same orientation on to `eps_xx = 3.0e-4` in thirty
+uniaxial-stress steps gives a total slip of `2.8385e-4` with the primary system
+carrying more than `0.99999` of it and every other system below `1e-5`.
+
+### Interpretation
+
+The measured axial stress reproduces `s_0 / mu_1` to fifteen digits. That is
+the strongest analytic statement available about this model: it ties the
+slip-system geometry, the orientation rotation, the flow rule and the
+stress-controlled response into a single number computable by hand.
+
+**It reached machine precision only once the stress-control driver was taken
+to round-off.** At the driver's first setting — off-axis stresses converged to
+`1e-6` relative — the agreement was `1.862e-7`, which was the *driver's*
+tolerance, not the model's error. Recorded because it is an easy mistake to
+make in the other direction: an analytic comparison is only ever as sharp as
+the state the driver actually produces, and attributing the driver's slack to
+the physics would have understated the result by eight orders of magnitude.
+
+The slip fraction is a **rate-law** consequence, not a geometric one. At
+`m = 0.02` a Schmid ratio of 1.376 raises the slip-rate ratio to
+`1.376^50 = 8.7e6`, which is exactly the `3e-7` residual measured. The
+deformation is single slip for every practical purpose here, but it is single
+slip *because the rate exponent is small*, not because the geometry forbids the
+other systems.
+
+---
+
+## 15. Frame indifference of the crystal law
+
+### Methodology
+
+Rotate the crystal and the applied strain by the **same** rotation `Q`; the
+stress must follow. If `sigma = f(eps, R)` then
+
+$$f(Q \varepsilon Q^T, Q R) = Q f(\varepsilon, R) Q^T$$
+
+exactly, for every `Q`. Two states are built from copper (cubic elasticity,
+`m = 0.02`): one at `R` = Bunge `31, 47, 13` degrees, one at `Q R` with `Q` =
+Bunge `115, 62, 200` degrees. A general six-component strain with three
+non-zero shears is applied to the first and its `Q`-rotation to the second. The
+per-system slips are compared too: they are scalars and must be identical,
+since `Q` relabels nothing.
+
+**Pass criterion:** `1e-14` relative on both.
+
+### Results
+
+| Quantity | Measured |
+|---|---|
+| `\|Q sigma Q^T - sigma'\|_max` | 8.941e-8 Pa on a 1.171e8 Pa stress |
+| relative | **7.636e-16** |
+| worst per-system slip difference | 1.518e-17 absolute, 9.885e-15 relative |
+
+### Interpretation
+
+Machine precision, which is what an exact symmetry should give. This is the
+case that catches frame errors nothing else does: a transposed rotation, a
+rotation applied to the Schmid tensors but not to the stiffness, or a rotation
+applied in the wrong order would all leave cases 12 and 13 passing and break
+this one. Cubic elasticity is used deliberately — with isotropic elasticity the
+stiffness rotation is a no-op and half the machinery under test would not be
+exercised.
+
+---
+
+## 16. Rotation of the single-crystal stiffness
+
+### Methodology
+
+Four independent checks on `C'_ijkl = R_ip R_jq R_kr R_ls C_pqrs`, each of
+which fails for a different mistake:
+
+1. an isotropic tensor is invariant under every rotation;
+2. a cubic tensor with Zener ratio `A = 2 c44 / (c11 - c12) = 1` equals the
+   isotropic tensor built from the same constants, before and after rotation;
+3. a real cubic tensor is invariant under a **cube symmetry operation** (90
+   degrees about `z`) but **not** under a general rotation — the second half
+   matters as much as the first, since a routine that silently returned its
+   input would pass the other three;
+4. major symmetry `C'_IJ = C'_JI` survives rotation.
+
+Copper and isotropic steel; the general rotation is Bunge `31, 47, 13`
+degrees.
+
+**Pass criterion:** `1e-14` relative on 1, 2, 4 and the symmetry half of 3;
+the general rotation in check 3 must change the tensor by more than `1e-3`
+relative.
+
+### Results
+
+| Check | Measured | Relative |
+|---|---|---|
+| isotropic under a general rotation | 9.155e-5 Pa on 2.692e11 Pa | **3.401e-16** |
+| cubic with `A = 1` vs isotropic, unrotated | 0 Pa | **exactly 0** |
+| cubic with `A = 1` vs isotropic, rotated | 9.155e-5 Pa | 3.401e-16 |
+| copper under a 90 degree `z` rotation | 6.368e-6 Pa on 1.700e11 Pa | **3.746e-17** |
+| copper under a general rotation (the control) | 6.680e10 Pa | **0.3929** |
+| major symmetry of the rotated copper tensor | 1.526e-5 Pa | 8.976e-17 |
+
+### Interpretation
+
+Every invariance holds at machine precision and the control changes the tensor
+by 39 %, so the invariances are not passing trivially. The cube-symmetry check
+is the sharpest of the four because it tests the *cubic structure* of the
+tensor as well as the rotation: a stiffness with `c44` in the wrong Voigt slot
+is still symmetric and still isotropic-invariant, but is no longer invariant
+under a 90 degree rotation about a cube axis.
+
+---
+
+## 17. The crystal consistent tangent
+
+### Methodology
+
+The tangent returned by the crystal update claims to be the exact derivative of
+the *discrete* stress update at fixed history. It is compared against
+`outram-foam-basic-lib`'s `math::differentiate::jacobian` (Code_Aster's
+`NEWTON_PERT`, central-difference form) at a point warmed through ten plastic
+steps.
+
+A single comparison at the scheme's default step is **not conclusive** here,
+because the power-law flow rule is extremely nonlinear: at `1/m = 50` the
+third derivative is large and the central difference's `O(h^2)` truncation
+dominates. So the Jacobian is taken at `h`, `h/2` and `h/4`, and two things are
+measured: the **observed order** of the disagreement, which must be 2 if it is
+truncation and not a tangent defect; and the **Richardson extrapolation**
+`(4 J(h/2) - J(h)) / 3`, whose truncation is `O(h^4)`.
+
+**Pass criterion:** observed order within 0.1 of 2, and the extrapolated
+disagreement below `1e-7` relative to the largest tangent entry.
+
+### Results
+
+| Elasticity | `e(h)` | `e(h/2)` | `e(h/4)` | observed order | Richardson |
+|---|---|---|---|---|---|
+| cubic, `m = 0.02` | 3.691e-4 | 9.224e-5 | 2.306e-5 | **2.0006 / 2.0002** | **3.638e-9** |
+| isotropic, `m = 0.05` | 8.693e-5 | 2.172e-5 | 5.428e-6 | **2.0011 / 2.0003** | **1.321e-9** |
+
+All errors relative to the largest tangent entry.
+
+### Interpretation
+
+The disagreement falls four-fold for every halving of the step, to four
+significant figures, over two decades of step size. That is the signature of a
+central difference converging on an exact derivative: had the tangent been
+wrong by any fixed amount the sequence would have flattened onto that amount
+instead. Extrapolating to zero step leaves `3.6e-9` and `1.3e-9`, which is the
+round-off floor of the local Newton solve.
+
+For contrast, the J2 tangent (case 5b) matches its numerical Jacobian to
+`1.055e-7` at the default step with no extrapolation, because its return map is
+closed-form and mildly nonlinear. The crystal law needs the extrapolation not
+because its tangent is worse but because its stress is a far more curved
+function of strain. **A reader comparing case 5b's number with a single-step
+crystal number would draw the wrong conclusion**, which is why this case
+reports the sequence rather than one figure.
+
+---
+
+## 18. Crystal plasticity in the finite-element solver
+
+### Methodology
+
+Case 17 verifies the tangent in isolation; this case checks that it delivers
+**quadratic global Newton convergence** once assembled, and that the crystal
+law composes with the element formulation without special-casing.
+
+A `4 x 4` Quad4 unit square of the isotropic-elasticity crystal (`m = 0.05`),
+plane strain, stretched 0.2 % in `x` by prescribed displacement over ten load
+steps, left and bottom edges on rollers. **Each quadrature point gets a
+different orientation from its physical position** — a deterministic stand-in
+for a grain map — so neighbouring points carry different stiffnesses and
+different active systems and the tangent is genuinely non-uniform.
+Jacobi-preconditioned CG to `1e-13`; ILU(0) avoided for the reason in bead
+`op-ldaz`. Run with `Formulation::FullIntegration` and `Formulation::BBar`.
+
+**Pass criterion:** convergence with no cutbacks and an observed Newton order
+above 1.5 on every load step, via `LoadStepReport::observed_order_above(1e-10)`.
+
+### Results
+
+| Formulation | load steps | Newton iterations | cutbacks | observed order, worst / best |
+|---|---|---|---|---|
+| full integration | 10 | 50 | **0** | **1.827 / 2.030** |
+| B-bar | 10 | 58 | **0** | **1.603 / 1.986** |
+
+Per-step observed orders, steps 1 to 10:
+
+- full integration: 1.947, 1.894, 1.827, 1.880, 1.855, 1.943, 1.967, 1.998,
+  2.020, 2.030
+- B-bar: 1.903, 1.603, 1.966, 1.986, 1.980, 1.976, 1.977, 1.973, 1.970, 1.974
+
+Residual histories of the final step (relative):
+
+- full integration: `1.00e0, 2.48e-2, 2.05e-4, 2.23e-7, 2.16e-13, 1.26e-15`
+- B-bar: `1.00e0, 2.86e-2, 3.89e-3, 1.23e-4, 3.17e-7, 2.46e-12, 1.59e-15`
+
+### Interpretation
+
+The residual falls `1e0 -> 1e-2 -> 1e-4 -> 1e-7 -> 1e-13` in four iterations,
+each exponent roughly doubling the last. That is quadratic convergence, and it
+is obtainable only with a tangent consistent with the discrete update.
+
+B-bar costs eight extra iterations across ten steps and converges equally well.
+That it works at all is worth stating: B-bar replaces the dilatational part of
+the strain-displacement operator with an element mean, and a constitutive law
+responding non-smoothly to volumetric strain would degrade the iteration.
+Crystal slip is deviatoric, so it does not — but the composition was not
+obvious in advance and is now measured rather than assumed.
+
+**The criterion is 1.5, not 1.8, and it was loosened after measurement.** The
+one outlier (B-bar, step 2, order 1.603) comes from a step whose history has an
+extra early iteration, not from a degraded tangent — its residual still falls
+`3.89e-3 -> 1.23e-4 -> 3.17e-7 -> 2.46e-12`. Nine of the ten B-bar steps and
+all ten full-integration steps sit above 1.82. A three-point order estimate
+drawn from a sequence that the linear solver's own `1e-13` tolerance is also
+truncating is noisy, and this is recorded rather than hidden because loosening
+a criterion after seeing the data is exactly the move that needs to be visible.
+
+This case does **not** verify the accuracy of the solution field. There is no
+analytical polycrystal solution to compare against; what is verified is the
+iteration, which is what the tangent is responsible for.
+
+---
+
+## 19. The polycrystal aggregate approaches isotropy
+
+### Methodology
+
+A single crystal is strongly anisotropic; an aggregate of many randomly
+oriented grains must not be. The check is made quantitative rather than
+rhetorical.
+
+A Taylor (uniform-strain) aggregate of `N` grains is built from a Halton
+sequence through **Shoemake's uniform rotation map** — the construction that
+samples `SO(3)` evenly, which uniformly sampled Euler angles do *not*, because
+the Bunge measure carries a `sin Phi` factor. Isotropic elasticity and **no
+hardening** (`h_0 = 0`), so the only anisotropy left is the slip geometry and
+the resistance stays at `s_0 = 16` MPa; `m = 0.02`. Each aggregate is taken to
+1 % deviatoric uniaxial strain in 40 steps along **four different loading
+directions**, and two numbers are recorded:
+
+1. the **direction spread** of the aggregate von Mises stress — the largest
+   departure from the four-direction mean divided by that mean — which is the
+   residual anisotropy and must fall with `N`;
+2. the **Taylor factor** `M = sum_a |gamma_a| / eps_p_eq`, with the *plastic*
+   equivalent strain as the denominator so the elastic part does not
+   contaminate it.
+
+**Pass criterion:** the direction spread falls monotonically with `N`, is below
+1 % at `N = 50` and below 0.5 % at `N = 800`; `M` between 2.9 and 3.2 as a
+regression guard.
+
+### Results
+
+| `N` | aggregate `sigma_eq` | `sigma_eq / s_0` | direction spread | Taylor factor, four directions |
+|---|---|---|---|---|
+| 50 | 49.611 MPa | 3.1007 | **8.378e-3** | 3.0142, 3.0294, 3.0426, 3.0624 |
+| 200 | 49.543 MPa | 3.0964 | **4.816e-3** | 3.0249, 3.0318, 3.0411, 3.0534 |
+| 800 | 49.443 MPa | 3.0902 | **3.439e-3** | 3.0349, 3.0202, 3.0336, 3.0365 |
+
+### Interpretation
+
+The residual anisotropy falls by a factor 2.4 as the grain count grows
+16-fold — close to the `1/sqrt(N)` a sample mean of independent draws would
+give (`1/4`), and the discrepancy is unsurprising with only four probe
+directions, itself a small sample. The aggregate is approaching isotropy at
+about the rate the statistics demand. It does not *reach* isotropy at any
+finite `N`, and nothing here claims it does.
+
+The Taylor factor lands at 3.02 to 3.06. The classical full-constraint Taylor
+value for a randomly textured FCC aggregate is widely quoted as 3.06, so the
+agreement is reassuring — **but that is context, not this case's pass
+criterion**, which is the isotropy trend. Treating a quoted literature constant
+as a verification target would require the source catalogued in
+`kovan-literature` with its provenance, per the workspace rule; it is not, so
+it is not asserted against. Bead `op-q75c` records the option.
+
+`sigma_eq / s_0 = 3.09` sits slightly above `M` because the flow rule is rate
+dependent: the aggregate is deforming somewhat faster than the reference slip
+rate, so the systems carry `tau` a little above `s`. At `m = 0.02` the excess
+is `(gamma_dot / gamma_dot_0)^m`, a fraction of a per cent per decade of rate,
+which is the size of the gap seen.
+
+This is a **Taylor** aggregate, not a finite-element polycrystal: every grain
+is given the same strain, so compatibility holds by construction and
+equilibrium between grains does not. It verifies the constitutive routine's
+collective behaviour, not the solver's.
+
+---
+
+## 20. The Fatemi-Socie fatigue indicator parameter
+
+### Methodology
+
+Four layers, each checkable by hand.
+
+**(a) The parameter itself**, `FIP = (d gamma / 2)(1 + k sigma_n / sigma_ref)`,
+at `d gamma / 2 = 2e-3`, `k = 10`, `sigma_ref = 250` MPa, for
+`sigma_n = 0`, `+125` MPa and `-125` MPa. The third is the one worth writing
+down: a compressive plane-normal stress must leave the parameter at its plain
+shear value, not reduce it below, which is what upstream's `clip(lower = 0)`
+does.
+
+**(b) The plane-normal stress, analytically.** A crystal at the **cube
+orientation** under uniaxial stress `sigma` along sample `x` has every `{111}`
+normal making the same angle with the load axis, so
+`sigma_n = sigma n_x^2 = sigma / 3` on all twelve systems, exactly.
+
+**(c) End to end.** The same crystal (isotropic elasticity, `m = 0.05`) taken
+through one full reversal in exact uniaxial stress — `eps_xx` ramped
+`0 -> +4e-4 -> -4e-4 -> 0` in 40 steps — with `CycleExtremes` sampled at every
+step using `eps_xx` as the load indicator, and the resulting per-system
+parameters compared with the same expression evaluated by hand.
+
+**(d) Volume averaging.** Two synthetic points with known parameter arrays and
+weights 1.0 and 3.0, checked against the weighted mean by hand, together with
+the maximising system, the ranking order, and the rejection of mismatched
+inputs.
+
+**Pass criterion:** (a) and (d) exact; (b) and (c) to `1e-12` relative.
+
+### Results
+
+| Check | Measured |
+|---|---|
+| (a) three hand values, including the compressive clip | exact |
+| (b) worst `\|sigma_n - sigma_xx/3\|` over 12 systems | 1.099e-7 Pa on 35.455 MPa, relative **3.100e-15** |
+| (c) samples recorded over the reversal | 40 |
+| (c) slip systems with a non-zero amplitude | **8 of 12** |
+| (c) shear strain amplitude on active system 1 | 6.7864e-5 |
+| (c) `sigma_n` at the tension peak | 11.8185 MPa (hand: 35.4555/3 = 11.8185 MPa) |
+| (c) FIP on active system 1 | 9.9945e-5 |
+| (c) FIP on inactive system 0 | 6e-323 (subnormal) |
+| (c) worst FIP vs the hand expression | **1.355e-19** |
+| (d) averaged parameter, maximising system | 4.2500e-3 on system 2, exact |
+
+### Interpretation
+
+The eight active systems are exactly the eight with a non-zero Schmid factor
+for `[100]` loading (case 13). The four with `mu = 0` come out at `6e-323`,
+which is a **subnormal**, not a literal zero — and that is worth knowing. A
+viscoplastic flow rule gives every system a non-zero slip rate wherever its
+resolved shear is non-zero, and here that shear is pure round-off of the
+uniaxial state raised to the power `1/m = 20`. A rate-independent model would
+return exactly zero. Eighteen orders of magnitude of separation is as good as
+exact for ranking purposes, but a caller comparing FIPs against `0.0` rather
+than against a threshold would be surprised.
+
+The `sigma / 3` identity is a different route through the orientation
+machinery from case 13's — that one rotates a tensor and contracts it with the
+stress, this one rotates a vector and contracts it twice — so the two together
+pin the convention from both sides.
+
+**What this case does not establish.** It verifies the arithmetic of the
+parameter and its plumbing to the crystal state. It says nothing about whether
+the parameter ranks real initiation sites correctly, which is a validation
+question needing experiments, and nothing about cyclic saturation, which the
+underlying crystal law cannot represent without a backstress.
+
+---
+
+## Cross-cutting limitations of the crystal-plasticity and fatigue layers
+
+In addition to the list below, which applies to the whole crate:
+
+1. **Small strain, so no lattice reorientation and no texture evolution.**
+   Upstream carries an elastic and a plastic deformation gradient and rotates
+   the lattice by the plastic spin; this port has no spin to rotate by.
+   Results are meaningful at strains of a few per cent, not for rolling or
+   drawing. Case 19's 1 % aggregate strain is at the edge of that.
+2. **No backstress, so no Bauschinger effect.** Upstream's Ohno-Wang kinematic
+   hardening is not ported. This is **the largest gap for the fatigue work**:
+   a simulated cyclic history will not settle into a stable hysteresis loop for
+   the right physical reason, which is why case 20 is built on a single
+   prescribed reversal rather than on a converged cyclic response.
+3. **Hardening is semi-implicit.** The slip resistances are held at their
+   start-of-step values through the local solve and advanced once afterwards,
+   where upstream wraps an outer fixed-point loop around the whole thing. The
+   consequence is a first-order-in-`ds` error over a step, which vanishes as
+   the step is refined; the benefit is that the tangent is the **exact**
+   derivative of the update as implemented, which is what case 17 measures and
+   case 18 depends on. Nothing in this report quantifies the step-size error,
+   and that is a gap.
+4. **No deformation-increment sub-stepping.** Upstream cuts a large increment
+   into pieces (`numberOfCuts`); this module's total-strain interface does not
+   carry the start-of-step strain, so it cannot. Instead the local Newton's
+   **starting guess** has its deviator scaled back until it implies no more
+   than 1 % slip, which bounds the initial residual. That is enough for every
+   case here, but a large enough load step still fails with
+   `ConstitutiveNotConverged` rather than sub-stepping out of trouble.
+5. **The time increment is a material constant.** If the global Newton cuts a
+   load step back, the load increment halves and the time increment does not,
+   so a rate-dependent result from a cut-back run is inconsistent. Case 18
+   asserts zero cutbacks partly for this reason.
+6. **Twelve slip systems maximum, one phase.** BCC `{112}` and `{123}`
+   families, twinning, non-Schmid effects and multiphase microstructures are
+   all absent.
+7. **No band or sub-band geometry for the fatigue parameter.**
+   PRISMS-Fatigue averages FIPs within slip bands — layers of voxels parallel
+   to each `{111}` plane — because the band is the length scale a crack
+   nucleates over. `fatigue::region_fip` averages over whatever set of points
+   the caller supplies; it reproduces upstream's reduction *given* a
+   partition, but does not build one.
+8. **No fatigue life, and no reproduction of PRISMS-Fatigue's published case
+   studies.** A FIP is an ordering of sites, not a number of cycles. The case
+   studies are bead `op-9smz` and are deliberately not started.
+
 ---
 
 ## Cross-cutting limitations
@@ -543,22 +1708,40 @@ half a report.
    rotation of a stressed body would generate spurious stress. Outside a percent
    of strain and a few degrees of rotation the model is wrong, not merely
    inaccurate.
-4. **Plane strain only in two dimensions.** Plane stress is not implemented; it
-   needs `sigma_zz = 0` enforced by condensing `eps_zz` out of the constitutive
-   law, which for J2 means a nested local solve.
-5. **Volumetric locking is not addressed.** Full integration only; no
-   B-bar, no selective reduced integration, no mixed formulation. Fully plastic
-   zones and nearly incompressible elasticity (`nu -> 0.5`) will be too stiff.
-   Case 5c is run in the presence of locking and says so.
-6. **Shear locking is present** in the low-order elements; case 4 avoids it by
-   using quadratic triangles rather than by curing it.
-7. **One constitutive law.** J2 with *linear* isotropic hardening. No kinematic
-   hardening, no rate dependence, no creep, no damage. Crystal plasticity
-   (`op-q75c`) and microstructure-sensitive fatigue (`op-q1zn`) are separate
-   work items and nothing here bears on them.
-8. **Straight-sided elements throughout.** No curved isoparametric mapping is
+4. **Plane stress is implemented but the combination with B-bar is refused.**
+   Both two-dimensional idealisations now exist (cases 9-11) and are selected by
+   an explicit enum. `Formulation::BBar` together with
+   `PlaneCondition::PlaneStress` is rejected at construction: plane stress has no
+   volumetric constraint to relax, because the out-of-plane strain is free to
+   accommodate any volume change, so a nearly incompressible material does not
+   lock there in the first place — and the interaction between the
+   mean-dilatation modification and the `eps_zz` condensation is not something
+   this report has verified. Refusing it is deliberate.
+5. **Volumetric locking is addressed, not eliminated.** B-bar exists and is
+   measured (cases 6 and 7), but **full integration remains the default**, so a
+   user who does not select `Formulation::BBar` still gets a locking element.
+   Case 5c was run before B-bar existed and is still run under full integration;
+   its convergence-order claim is unaffected, but its stresses remain untrusted.
+6. **Shear locking is present, measured, and NOT cured.** Case 8 puts a number
+   on it — 11.25 % too stiff at two square elements through the depth, 66.7 % at
+   element aspect ratio 4 — and shows that B-bar recovers only the volumetric
+   share (63 % of the deficit at `ny = 2`, almost none at aspect ratio 4). Case 4
+   avoids it by using quadratic triangles rather than by curing it. Tracked as
+   bead `op-uqqg`; the fixes are incompatible modes, enhanced assumed strain,
+   assumed natural strain, or reduced integration with hourglass control, and
+   each needs verifying in its own right.
+7. **ILU(0) stagnates on nearly incompressible systems.** The locking cases had
+   to use Jacobi preconditioning because ILU(0)-CG — the default everywhere else
+   in this report — stalled at relative residuals of 1.23 and 0.153 after 20 000
+   iterations on the 32x32 `nu = 0.499` meshes, while Jacobi solved the same
+   systems to `1e-10`. Tracked as bead `op-ldaz`.
+8. **Two constitutive laws.** J2 with *linear* isotropic hardening (cases 1
+   to 11) and rate-dependent crystal plasticity (cases 12 to 20). Neither has
+   kinematic hardening; there is no creep and no damage. The crystal layer's
+   own limitations are listed in its section above.
+9. **Straight-sided elements throughout.** No curved isoparametric mapping is
    exercised anywhere, including by Tri6.
-9. **No parallelism, no performance claim.** The largest system solved here is
-   4626 degrees of freedom.
-10. **Serial determinism is not tested.** The suite is deterministic in practice
+10. **No parallelism, no performance claim.** The largest system solved here is
+   4626 degrees of freedom; the crystal cases are smaller still.
+11. **Serial determinism is not tested.** The suite is deterministic in practice
     but there is no test asserting byte-identical output across runs.

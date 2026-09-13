@@ -70,9 +70,197 @@ pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 /// Number of incident-energy points on the pre-tabulated σ_inel(E) grid.
 const N_XS_GRID: usize = 200;
 /// Number of incident-energy points on the pre-tabulated emission grid.
-const N_EMIT_GRID: usize = 48;
+///
+/// **Sized by measurement, not by taste — and it was wrong until 2026-09-12.**
+///
+/// # Why the size matters
+///
+/// [`ThermalScattering::sample`] picks between the two bracketing tables by ACE
+/// statistical interpolation. That is unbiased in the *mean* (it reproduces a
+/// linear interpolation of ⟨E′⟩ across the interval) but it adds a variance
+///
+/// ```text
+///   var_spurious = r(1 - r)(m2 - m1)^2
+/// ```
+///
+/// the true kernel has not got, where `m1`/`m2` are the two tables' means and
+/// `r` the interpolation factor. It falls as the **square** of the grid
+/// spacing, so the grid has to be fine enough that it sits under the kernel's
+/// own spread everywhere — including above ~0.4 eV, where graphite's relative
+/// width has fallen to ~0.12 and there is very little spread to hide in.
+///
+/// # The defect this replaces
+///
+/// At the previous value of **48** points over 1e-5 … 4 eV, adjacent incident
+/// energies were **31.6 % apart**, and that term dominated the whole upper half
+/// of the thermal range. Measured against NJOY2016 THERMR MF=6/MT=229 for
+/// `tsl-crystalline-graphite` at 600 K, the sampled kernel was **−11.6 % too
+/// narrow at 0.05 eV and +39.0 % too broad at 2 eV**, sign-flipping at
+/// 0.39 eV. GitHub #190, bead `op-x77y`.
+///
+/// # Methodology of the sizing
+///
+/// `examples/thermal_emission_grid_convergence.rs` sweeps `(n_emit, n_outgoing)`
+/// over 48 … 1536 × 16 … 128 through
+/// [`ThermalScattering::from_tape_with_grids`], reduces 400 000 samples per
+/// incident energy at thirteen (graphite) / eleven (water) probe energies to
+/// `sqrt(var(E′))/⟨E′⟩`, `⟨E′⟩/E` and `ξ`, and compares each against a
+/// trapezoid quadrature on THERMR's own MF=6 matrix — no sampling on the oracle
+/// side.
+///
+/// **How precise a sampled width is.** Not `1/sqrt(2N)` = 0.11 % — that is the
+/// Gaussian estimate, and the outgoing-energy distribution has heavy tails, so
+/// the variance estimator carries the error of a fourth moment. Measured
+/// stream-to-stream scatter on an individual row, between this sweep's 400 000
+/// samples and the 200 000-sample gate in
+/// `tests/thermal_laws_vs_njoy_thermr.rs`, is up to **0.8 points**. What makes
+/// the sweep's *columns* comparable at far finer resolution than that is that
+/// every tabulation in it is sampled from the **same stream** — common random
+/// numbers — so the column-to-column differences below are precise even where
+/// the absolute values carry a few tenths of a point.
+///
+/// # Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0, graphite 600 K)
+///
+/// Worst relative width deviation across the thirteen probe energies, and the
+/// rms over them, at [`N_OUTGOING`] = 64:
+///
+/// ```text
+///   n_emit    worst      rms     build [s]   mem [kB]   Msample/s
+///      48    +38.98 %   16.34 %      5.2         54       11.22   (at n_out = 16)
+///      96    +12.32 %    6.76 %      6.3        108       10.99   (at n_out = 16)
+///     192     −2.45 %    1.65 %      8.7        864       10.36
+///     384     −2.50 %    1.78 %     13.3       1728       10.33
+///     768     −2.56 %    1.81 %     22.7       3456       10.29
+///    1536     −2.59 %    1.85 %     39.6       6912       10.10
+/// ```
+///
+/// **384 is where the width error stops improving.** From 384 up the aggregate
+/// is flat — 1.78 → 1.81 → 1.85 % rms, a drift of 0.07 points across two
+/// doublings — because what is left is no longer the grid but the equiprobable
+/// representation ([`N_OUTGOING`]). The
+/// grid's own residual, measured as the distance from the converged 1536-point
+/// answer, is **≤ 0.6 points at 384** against **≤ 1.5 points at 192** and
+/// ≤ 0.14 at 768; 192 still carries a one-signed *broad* bias (+0.17 % at
+/// 0.625 eV where the converged answer is −1.32 %), and 384 does not. Going on
+/// to 768 buys 0.45 points of that residual for **1.7× the reconstruction
+/// time** and no change in the worst-case or rms agreement, which is what makes
+/// 384 the cut rather than a preference.
+///
+/// Run-time cost is now near zero because [`ThermalScattering::sample`]'s
+/// bracket search is binary rather than linear: 10.33 Msample/s at 384 against
+/// 11.22 at 48, i.e. **−8 %** of the thermal sampling rate. Before that change
+/// the same step cost −33 %.
+const N_EMIT_GRID: usize = 384;
 /// Equally-probable outgoing energies per emission table (NJOY-typical).
-const N_OUTGOING: usize = 16;
+///
+/// **Raised from 16 to 64 on 2026-09-12**, by the same sweep that sized
+/// [`N_EMIT_GRID`] — see that constant for the methodology and the uncertainty.
+///
+/// # What this dimension controls
+///
+/// A finite equiprobable set can only place its bins *inside* the true
+/// outgoing-energy distribution, so it truncates both tails. That error is
+/// therefore **one-signed narrow** and, unlike the incident-grid error, it does
+/// not respond to [`N_EMIT_GRID`] at all: at 16 bins the graphite width sat at
+/// −11.6 % worst whether the incident grid held 48 points or 1536.
+///
+/// # Results (2026-09-12, same oracles)
+///
+/// Worst / rms relative width deviation at `N_EMIT_GRID` = 384:
+///
+/// ```text
+///   n_out   graphite worst   rms     H2O worst   rms    H2O <E'>/E @1.5 meV
+///      16      −11.60 %    6.44 %    −13.49 %  7.74 %      −5.51 %
+///      32       −5.96 %    3.25 %     −7.99 %  4.66 %      −3.26 %
+///      64       −2.50 %    1.78 %     −4.64 %  2.80 %      −2.10 %
+///     128       −1.65 %    1.10 %     −2.53 %  1.66 %      −1.43 %
+/// ```
+///
+/// The error falls as roughly `1/n_out` with **no plateau**, so this is a
+/// cost cut rather than a convergence point — and the cost is unusually
+/// lopsided. Reconstruction grows by 0.9 s (13.3 s against 12.4 s per scatterer)
+/// and sampling throughput does not move at all (10.33 against 10.56 Msample/s),
+/// because a bin is chosen by index; only memory scales, 432 kB → 1.7 MB per
+/// scatterer. 64 takes four fifths of the error for that, and 128 would take
+/// another fifth for twice the memory.
+///
+/// **The proper fix is a continuous outgoing-energy law** (NJOY's `iform = 1`),
+/// not more equiprobable bins; this is a mitigation of a representation that is
+/// inherently truncating, and the residual −2.5 % is that representation.
+///
+/// # Confirmed from a third direction: the kernel's own fixed point
+///
+/// `tests/thermal_kernel_stationary_distribution.rs` walks a neutron in energy
+/// under the S(α,β) law alone, from a hot start and a cold one, and reads off
+/// the **equilibrium temperature** the law settles on. That is a different
+/// question from either moment: a kernel can have the right per-collision
+/// spread and still equilibrate at the wrong temperature. Measured 2026-09-12
+/// against both tabulations, same estimator, same streams:
+///
+/// ```text
+///                        48x16               384x64            nominal
+///   graphite T_eff    614.28 K (+2.38 %)  607.21 K (+1.20 %)   600 K
+///   graphite shape     1.5652  (−6.09 %)   1.6286  (−2.29 %)   1.6667
+///   H2O T_eff         291.14 K (−0.84 %)  294.48 K (+0.30 %)   293.6 K
+///   H2O shape          1.5806  (−5.17 %)   1.6308  (−2.15 %)   1.6667
+///   free-gas C-12     601.28 K            601.28 K             600 K
+/// ```
+///
+/// The free-gas row is the control: it never touches these tables and is
+/// identical to the digit, so the only thing that moved is the tabulation. The
+/// resize halves graphite's fixed-point error and cuts water's by ~3, and takes
+/// the equilibrium spectrum from 5–6 % off a Maxwellian shape to ~2 %. What is
+/// left — graphite still +1.20 % hot — is the tail truncation this constant
+/// bounds, seen from a third direction.
+///
+/// # This is also the cure for the H-in-H₂O kernel defect (GitHub #188)
+///
+/// #188 — `⟨E′⟩/E` −5.5 % at 1.5 meV rising to +1.5 % at 1.9 eV, `ξ` 3–5 % low —
+/// is **not** the same defect as #190 and does not share its cause: it is
+/// entirely insensitive to [`N_EMIT_GRID`] (−5.40 % at 48 points against
+/// −5.51 % at 1536) and entirely responsive to this constant (−5.51 % at 16
+/// bins → −2.10 % at 64 → −1.43 % at 128). Same *class* of error — the ACE
+/// equiprobable pre-tabulation — but a different dimension of it. Bead
+/// `op-77pu`.
+///
+/// # Measured 2026-09-13: this constant is most of GitHub #188's width half
+///
+/// The paragraph above says #188 is "entirely responsive to this constant". It
+/// is. Measured on the **fixed point** — the detailed-balance oracle, the
+/// sharpest of the three directions, because a kernel obeying detailed balance
+/// relaxes onto the *exact* Maxwellian whatever its per-collision accuracy, so
+/// any departure is a statement about the representation rather than about
+/// precision:
+///
+/// ```text
+///   n_out    graphite T_eff      shape      H2O T_eff          shape
+///     16     614.28 K (+2.38%)   1.5652     -                  -
+///     64     604.76 K (+0.79%)   1.6425     294.62 K (+0.35%)  1.6394
+///    128     601.90 K (+0.32%)   1.6550     294.81 K (+0.41%)  1.6502
+///    256     600.51 K (+0.08%)   1.6604     294.95 K (+0.46%)  1.6559
+///   free-gas control (no tables at all)     601.28 K (+0.21%)  1.6650
+/// ```
+///
+/// The deficit **halves on every doubling**, exactly as the tail-truncation
+/// argument above predicts it must, and at 256 graphite's equilibrium
+/// temperature is +0.08 % against +0.79 % at 64.
+///
+/// # The constant was deliberately left at 64
+///
+/// Raising it is a **mitigation of a representation NJOY does not use here**,
+/// and it costs memory without end: the series has no plateau, so every halving
+/// of the error doubles the table (432 kB per scatterer at 16, 1.7 MB at 64,
+/// 6.9 MB at 256). The measurement above is kept because it *identifies the
+/// cause* — #188's width half is the equiprobable pre-tabulation, not the
+/// S(α,β) evaluation — and the cure is the one already named above: port NJOY's
+/// **continuous outgoing-energy law** (`iform = 1`, THERMR's `calcem`), rather
+/// than buying fractions of it with bins.
+///
+/// **One thing did not improve and is left recorded rather than smoothed:**
+/// water's equilibrium *temperature* drifts the wrong way across the series
+/// (+0.35 % → +0.41 % → +0.46 %) while its *shape* improves (−1.62 % → −0.65 %).
+/// Graphite shows no such split. That is unexplained.
+const N_OUTGOING: usize = 64;
 /// Equally-probable cosines per outgoing-energy bin (NJOY-typical).
 const N_COSINES: usize = 8;
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
@@ -456,10 +644,54 @@ impl ThermalScattering {
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
+        Self::from_tape_with_grids(tape, mat, temperature_k, name, N_EMIT_GRID, N_OUTGOING)
+    }
+
+    /// [`from_tape`](Self::from_tape) with the **two emission-table dimensions
+    /// chosen by the caller** instead of the crate defaults `N_EMIT_GRID` and
+    /// `N_OUTGOING`.
+    ///
+    /// This exists so both can be *measured* rather than asserted, and they
+    /// spoil different moments of the sampled kernel:
+    ///
+    /// - `n_emit` — the number of **incident** energies carrying a table.
+    ///   `select_table` mixes the two bracketing tables by ACE statistical
+    ///   interpolation, which adds a variance `r(1-r)(m2-m1)^2` the true kernel
+    ///   has not got; it falls as the square of the grid spacing, so it is the
+    ///   knob that makes the kernel too **broad** when it is too coarse.
+    /// - `n_outgoing` — the number of **equiprobable outgoing-energy bins** per
+    ///   table. A finite equiprobable set truncates the tails of the true
+    ///   distribution, so it is one-signed and makes the kernel too **narrow**.
+    ///
+    /// `examples/thermal_emission_grid_convergence.rs` sweeps both against the
+    /// NJOY THERMR oracle and is what sized the defaults. Reconstruction time
+    /// and memory scale linearly in `n_emit` and in `n_outgoing`, so neither is
+    /// a free knob.
+    ///
+    /// Transport callers should use [`from_tape`](Self::from_tape) and get the
+    /// validated defaults. A zero in either dimension is rejected as
+    /// [`NjoyError::NotPorted`] rather than silently producing a law that cannot
+    /// sample.
+    ///
+    /// # Errors
+    /// As [`from_tape`](Self::from_tape), plus a zero in either dimension.
+    pub fn from_tape_with_grids(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        temperature_k: f64,
+        name: &str,
+        n_emit: usize,
+        n_outgoing: usize,
+    ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
         use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
+        if n_emit == 0 || n_outgoing == 0 {
+            return Err(NjoyError::NotPorted(
+                "ThermalScattering: an emission table with a zero dimension cannot sample",
+            ));
+        }
         let t = Temperature::new::<kelvin>(temperature_k);
         // One parse of the tape, shared by all three channel constructors.
         let sab = IncoherentInelasticScattering::from_tape(tape, mat, t)?;
@@ -478,12 +710,12 @@ impl ThermalScattering {
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, N_EMIT_GRID);
+        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, n_emit);
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {
                 let bins =
-                    sab.emission(NeutronEnergy::new::<electronvolt>(e), N_OUTGOING, N_COSINES);
+                    sab.emission(NeutronEnergy::new::<electronvolt>(e), n_outgoing, N_COSINES);
                 build_emission_table(&bins)
             })
             .collect();
@@ -604,9 +836,13 @@ impl ThermalScattering {
             return None;
         }
         // One equiprobable outgoing-energy bin, then one equiprobable cosine.
+        // The ENERGY is drawn continuously within the bin (see
+        // [`continuous_equiprobable_energy`]); the COSINE still comes from the
+        // bin's own row, so the (E', mu) correlation the table carries survives.
         let n_out = table.e_out.len();
-        let i_out = ((prn(seed) * n_out as f64) as usize).min(n_out - 1);
-        let e_out = table.e_out[i_out];
+        let xi = prn(seed);
+        let i_out = ((xi * n_out as f64) as usize).min(n_out - 1);
+        let e_out = continuous_equiprobable_energy(&table.e_out, xi);
         let base = i_out * table.n_mu;
         let mu = if table.n_mu == 0 {
             2.0 * prn(seed) - 1.0
@@ -630,10 +866,14 @@ impl ThermalScattering {
         if e >= grid[n - 1] {
             return &self.emit_tables[n - 1];
         }
-        let mut i = 0;
-        while i + 1 < n && grid[i + 1] <= e {
-            i += 1;
-        }
+        // Binary search, not a linear scan. The bracket is identical — `i` is
+        // still the last index whose grid value is `<= e` — but the cost is
+        // O(log n_emit) instead of O(n_emit), which is what makes a finer
+        // emission grid affordable in the transport loop at all: measured
+        // 2026-09-12, the linear form cost 4.09 Msample/s at 384 points against
+        // 6.06 at 48, i.e. a third of the thermal sampling rate, purely in the
+        // scan. See `examples/thermal_emission_grid_convergence.rs`.
+        let i = grid.partition_point(|&v| v <= e) - 1;
         let (e0, e1) = (grid[i], grid[i + 1]);
         let r = if e1 > e0 { (e - e0) / (e1 - e0) } else { 0.0 };
         if r > prn(seed) {
@@ -642,6 +882,113 @@ impl ThermalScattering {
             &self.emit_tables[i]
         }
     }
+}
+
+/// Draw a **continuous** outgoing energy from a table of `N` equiprobable
+/// *representative* energies, given the same uniform `xi` that chose the bin.
+///
+/// # What the table actually is
+///
+/// NJOY's `equiprobable_emission` builds the table by inverting the cumulative
+/// `∫σ(E→E′)dE′` at the bin **midpoints** `(k + ½)/N`, so
+///
+/// ```text
+///   e_out[k] = Q((k + ½)/N),      Q = the quantile function of the true law
+/// ```
+///
+/// — the quantile function sampled at `N` equally spaced points, not a histogram
+/// of bin edges.
+///
+/// # Why reading one back at random is not enough
+///
+/// Picking `e_out[i]` for a uniform `i` samples `N` **discrete atoms**. Its mean
+/// is right to the accuracy of the quantile grid, and every *first*-moment
+/// oracle this crate has (⟨E′⟩/E against THERMR's MF=6 matrix, ξ, μ̄) is
+/// therefore nearly blind to the approximation. What it throws away is all the
+/// variance *inside* a bin, and a scattering kernel that is systematically too
+/// narrow does not relax a neutron population onto the right Maxwellian:
+/// `tests/thermal_kernel_stationary_distribution.rs` measures the resulting
+/// fixed point at **−2.1 % (water) and −2.3 % (graphite)** in `⟨E²⟩/⟨E⟩²`
+/// against a free-gas control that lands within 0.04 %.
+///
+/// Raising `N` does not fix it. The deficit falls like `1/N` (GitHub #190's
+/// sweep: −5.5 % at 16 bins, −2.1 % at 64, −1.4 % at 128) and paying for the
+/// next factor of two costs build time in every table at every incident energy.
+/// The right move is to stop discretising, which is GitHub #188's recommendation
+/// in its own words: *the proper fix is a continuous outgoing-energy law.*
+///
+/// # The reconstruction
+///
+/// Linear interpolation of `Q` between the nodes it is tabulated at. With
+/// `x = ξ·N − ½` the position in node units,
+///
+/// - `x ∈ [i, i+1]` for an interior draw — interpolate `e_out[i] → e_out[i+1]`;
+/// - `x ∈ [−½, 0)`, the lower half-bin — interpolate **from zero** to
+///   `e_out[0]`, because `Q(0) = 0` is the true infimum of a down-scatter tail
+///   (a neutron may emerge with arbitrarily little energy) and extrapolating the
+///   first spacing instead can overshoot into negative energies;
+/// - `x ∈ (N−1, N−½]`, the upper half-bin — extrapolate on the last spacing,
+///   since the up-scatter tail has no such natural bound.
+///
+/// This is exact for a locally linear quantile function and unbiased in the mean
+/// to the same order the table itself is, while restoring the within-bin
+/// variance the discrete form loses.
+///
+/// # The lower half-bin was tried the other way first, and it is worse
+///
+/// `Q(0) = 0` is the true infimum for a free-gas-like down-scatter tail, so
+/// anchoring the lowest half-bin at zero instead of extrapolating the first
+/// spacing looks more principled. Measured on the fixed-point oracle, it is not:
+///
+/// ```text
+///   lowest-half-bin rule      c_H_in_H2O T_eff   shape     c_Graphite T_eff   shape
+///   discrete (before)          +0.30 %           -2.15 %    +1.20 %           -2.29 %
+///   anchored at Q(0) = 0       -0.26 %           -0.88 %    -1.82 %           +1.42 %
+///   extrapolate first spacing  +0.35 %           -1.64 %    +0.79 %           -1.45 %
+/// ```
+///
+/// The anchored rule is better for water and **overshoots graphite in both
+/// directions at once** — 1.8 % cold and 1.4 % too broad — because a bound
+/// crystal's down-scatter is phonon-limited and does not reach zero the way a
+/// gas-like tail does. Anchoring therefore injects emission at energies the law
+/// does not populate. Extrapolating the adjacent slope asserts nothing about the
+/// support, treats both ends the same way, and is the rule kept.
+///
+/// # What this fixed, and what it did not
+///
+/// It is a real improvement on both laws and on two independent oracles, and it
+/// is **not** the whole of GitHub #188:
+///
+/// ```text
+///   representation                        graphite width   H2O width   (vs THERMR)
+///   48 x 16 equiprobable                     +39.0 %          -5.5 %
+///   384 x 64 equiprobable                     -2.33 %         -4.91 %
+///   384 x continuous (this)                   -1.96 %         -4.02 %
+/// ```
+///
+/// `njoy_golden`'s own note had predicted the deficit "should be replaced
+/// outright by a ~1 % bound when the representation is replaced by a continuous
+/// outgoing-energy law". It was not: roughly **80 % of the width deficit
+/// survives the change**, so it lives in the THERMR kernel underneath rather
+/// than in how this crate samples it.
+fn continuous_equiprobable_energy(e_out: &[f64], xi: f64) -> f64 {
+    let n = e_out.len();
+    if n == 1 {
+        return e_out[0];
+    }
+    let x = xi * n as f64 - 0.5;
+    if x <= 0.0 {
+        let slope = e_out[1] - e_out[0];
+        return (e_out[0] + x * slope).max(0.0);
+    }
+    let last = (n - 1) as f64;
+    if x >= last {
+        let slope = e_out[n - 1] - e_out[n - 2];
+        return (e_out[n - 1] + (x - last) * slope).max(0.0);
+    }
+    let i = x as usize;
+    let f = x - i as f64;
+    (e_out[i] + f * (e_out[i + 1] - e_out[i])).max(0.0)
 }
 
 /// Detect and build the scatterer's thermal elastic channel from an
@@ -783,10 +1130,11 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     if x >= xs[n - 1] {
         return ys[n - 1];
     }
-    let mut i = 0;
-    while i + 1 < n && xs[i + 1] < x {
-        i += 1;
-    }
+    // Binary search for the same bracket the linear scan found: `i` is the last
+    // index with `xs[i] < x`. O(log n) rather than O(n), which matters because
+    // this runs once per thermal cross-section lookup on a 200-point grid (and a
+    // 400-point one for incoherent elastic).
+    let i = xs.partition_point(|&v| v < x) - 1;
     let (x0, x1) = (xs[i], xs[i + 1]);
     let (y0, y1) = (ys[i], ys[i + 1]);
     if x1 > x0 {

@@ -550,6 +550,138 @@ mod tests {
     use super::*;
     use crate::material::material::Material;
 
+    /// The explicit pebble's five coating layers hold the volume shares the
+    /// [`TrisoSpec`] says they do — measured through
+    /// [`ExplicitTrisoPebble::material_at`], the function transport actually
+    /// calls — and the fuel sphere's packing fraction is **not** the packer's
+    /// nominal one.
+    ///
+    /// This closes the approximation the ring-RPT study carries and never
+    /// checked: the explicit pebble resolves layers by **nearest centre +
+    /// radius** rather than exact CSG, and the packing is generated in a cube
+    /// that is then clipped to the fuel sphere. A few percent of misplaced fuel
+    /// is worth hundreds of pcm, which is the scale of the disagreement being
+    /// chased (`op-mzvp.2.12`).
+    ///
+    /// Two separate claims, because they failed differently when measured:
+    ///
+    /// 1. **Layer resolution is exact.** Each layer's share *of the TRISO
+    ///    material* must be `(r_i³ − r_{i−1}³)/r_opyc³` — pure geometry, no
+    ///    packing statistics in it at all. Measured to better than 0.5 %.
+    /// 2. **The clip inflates the packing fraction, and by a knowable amount.**
+    ///    Every layer came out `+2.0 … +2.7 %` — uniformly, which is the
+    ///    signature of a density offset rather than a layer bug. Sphere *centres*
+    ///    are confined to `half − r_particle` while `pf` is quoted over the full
+    ///    cube, so the cube's interior is denser than nominal and the inscribed
+    ///    ball inherits that: **0.3072 against a nominal 0.300, +2.4 %**. A deck
+    ///    specifies `pf` over the fuel *region*, so that is 2.4 % more heavy
+    ///    metal than the model being compared against.
+    ///    [`PackedSpheres::volume_fraction_in_ball`] is the quantity to use, and
+    ///    this test pins that it and `material_at` agree on it.
+    #[test]
+    fn explicit_pebble_layer_shares_are_exact_and_the_ball_pf_is_not_the_cube_pf() {
+        use crate::geometry::position::Position;
+        use crate::pebble_beds::crp_packing::pack_spheres_crp;
+        use crate::pebble_beds::sphere_packing::PackedSpheres;
+
+        const R_FUEL_ZONE: f64 = 1.9;
+        const R_PEBBLE: f64 = 2.0;
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+
+        let pack_half = R_FUEL_ZONE + spec.opyc;
+        let spheres = pack_spheres_crp(spec.opyc, pack_half, spec.packing_fraction, 20_260_910)
+            .expect("TRISO CRP packing");
+        let packed = PackedSpheres::from_spheres(spheres, pack_half, spec.opyc);
+        let ball_pf = packed.volume_fraction_in_ball(R_FUEL_ZONE, 400_000, 0xC0FFEE);
+        let mats = TrisoMaterials {
+            kernel: 0,
+            buffer: 1,
+            ipyc: 2,
+            sic: 3,
+            opyc: 4,
+            matrix: 5,
+        };
+        let pebble = ExplicitTrisoPebble::new(packed, spec, mats, 6, 7, R_FUEL_ZONE, R_PEBBLE);
+
+        // Uniform-by-volume sampling of the fuel sphere: rejection in its
+        // bounding cube, which needs no RNG library and no inverse transform.
+        let mut seed = 99_887_766_u64;
+        let mut prn = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+        const N: usize = 1_000_000;
+        let mut hits = [0usize; 6];
+        let mut n = 0usize;
+        while n < N {
+            let p = Position::new(
+                (2.0 * prn() - 1.0) * R_FUEL_ZONE,
+                (2.0 * prn() - 1.0) * R_FUEL_ZONE,
+                (2.0 * prn() - 1.0) * R_FUEL_ZONE,
+            );
+            if p.norm() >= R_FUEL_ZONE {
+                continue;
+            }
+            n += 1;
+            let m = pebble.material_at(p).expect("inside the fuel zone");
+            assert!(
+                m < 6,
+                "a point inside the fuel zone resolved to material {m}, not a layer"
+            );
+            hits[m] += 1;
+        }
+
+        let triso: f64 = hits[..5].iter().sum::<usize>() as f64 / N as f64;
+        let names = ["kernel", "buffer", "IPyC", "SiC", "OPyC"];
+        let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
+        let o3 = spec.opyc.powi(3);
+
+        // 1. Layer shares OF THE TRISO MATERIAL -- pure geometry.
+        for i in 0..5 {
+            let lo = if i == 0 { 0.0 } else { r[i - 1].powi(3) };
+            let expect = (r[i].powi(3) - lo) / o3;
+            let got = hits[i] as f64 / N as f64 / triso;
+            let rel = (got - expect) / expect;
+            eprintln!(
+                "[explicit pebble] {:<7} share of TRISO {got:.6}  geometry {expect:.6}  {:+.2} %",
+                names[i],
+                100.0 * rel
+            );
+            assert!(
+                rel.abs() < 0.01,
+                "{}: holds {got:.6} of the TRISO material, geometry says {expect:.6} ({:+.2} %) \
+                 -- material_at is mis-resolving a coating layer",
+                names[i],
+                100.0 * rel
+            );
+        }
+
+        // 2. Two independent estimators of the ball's packing fraction agree ...
+        eprintln!(
+            "[explicit pebble] ball pf: material_at {triso:.5}, volume_fraction_in_ball \
+             {ball_pf:.5}, packer nominal {:.5}",
+            spec.packing_fraction
+        );
+        assert!(
+            (triso - ball_pf).abs() < 0.003,
+            "material_at says the fuel sphere is {triso:.5} TRISO but \
+             volume_fraction_in_ball says {ball_pf:.5}"
+        );
+        // ... and both say the clip inflates it well past the packer's nominal pf.
+        let inflation = triso / spec.packing_fraction - 1.0;
+        assert!(
+            (0.01..0.05).contains(&inflation),
+            "the ball's packing fraction is {triso:.5} against a nominal {:.5} \
+             ({:+.2} %). The clip is expected to inflate it by ~2.4 %: if this has \
+             gone to zero the packer changed its centre confinement, and \
+             examples/fhr_ring_rpt_endf.rs is now over-correcting for it.",
+            spec.packing_fraction,
+            100.0 * inflation
+        );
+    }
+
     fn mat_comp(id: i32, comps: &[(usize, f64)]) -> Material {
         mat(id, comps)
     }

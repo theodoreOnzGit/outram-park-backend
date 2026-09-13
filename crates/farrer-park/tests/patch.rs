@@ -90,7 +90,12 @@ fn exact_strain(dim: usize) -> Voigt6 {
 /// The threshold asserted is `1e-9` relative, which is several orders looser
 /// than what is measured and is there to catch a regression rather than to
 /// certify the precision — the measured numbers are printed and recorded.
-fn run_patch(mesh: Mesh, jitter_fraction: f64, label: &str) -> (f64, f64) {
+fn run_patch(
+    mesh: Mesh,
+    jitter_fraction: f64,
+    label: &str,
+    formulation: Formulation,
+) -> (f64, f64) {
     let dim = mesh.dim();
     let h = 1.0 / 3.0; // every generator below uses three divisions per side
     let jittered = mesh
@@ -111,7 +116,16 @@ fn run_patch(mesh: Mesh, jitter_fraction: f64, label: &str) -> (f64, f64) {
     let shared = jittered.clone().shared();
     let dofs = DofMap::displacement(&shared);
     let material = Material::elastic(E_PA, NU).expect("steel");
-    let mut system = System::new(shared.clone(), material, BodyForce::None);
+    let mut system = System::with_options(
+        shared.clone(),
+        material,
+        BodyForce::None,
+        SystemOptions {
+            formulation,
+            ..SystemOptions::default()
+        },
+    )
+    .expect("full integration and B-bar are both valid with plane strain");
 
     let boundary = shared.bounding_box_boundary_nodes(1e-10);
     let mut bcs = DirichletSet::new();
@@ -146,9 +160,10 @@ fn run_patch(mesh: Mesh, jitter_fraction: f64, label: &str) -> (f64, f64) {
     }
 
     println!(
-        "PATCH TEST {label:>6}: nodes {:5}, elements {:5}, \
+        "PATCH TEST {label:>6} ({:>16}): nodes {:5}, elements {:5}, \
          max relative displacement error {max_u_err:.3e}, \
          max relative stress error {max_s_err:.3e}",
+        formulation.name(),
         shared.n_nodes(),
         shared.n_elements()
     );
@@ -214,7 +229,7 @@ fn patch_test_all_element_types() {
         ("Hex8", unit_cube_hex8(3).unwrap(), 0.12),
     ];
     for (label, mesh, frac) in cases {
-        let (ue, se) = run_patch(mesh, frac, label);
+        let (ue, se) = run_patch(mesh, frac, label, Formulation::FullIntegration);
         assert!(ue < 1e-9, "{label}: displacement error {ue:e}");
         assert!(se < 1e-9, "{label}: stress error {se:e}");
     }
@@ -243,7 +258,7 @@ fn patch_test_all_element_types() {
         })
         .unwrap();
     let tri6 = tri3_to_tri6(&jittered_base).unwrap();
-    let (ue, se) = run_patch(tri6, 0.0, "Tri6");
+    let (ue, se) = run_patch(tri6, 0.0, "Tri6", Formulation::FullIntegration);
     assert!(ue < 1e-9, "Tri6: displacement error {ue:e}");
     assert!(se < 1e-9, "Tri6: stress error {se:e}");
 }
@@ -337,4 +352,66 @@ fn patch_test_penalty_is_limited_by_the_penalty_factor() {
         max_u_err > 1e-14,
         "penalty should be measurably WORSE than elimination; got {max_u_err:e}"
     );
+}
+
+/// # Patch test under the B-bar formulation
+///
+/// ## Why this must be checked separately
+///
+/// B-bar replaces the volumetric part of the strain-displacement operator with
+/// its element average, which changes the element. An element modification that
+/// *fails* the patch test cannot converge at all — that is the whole content of
+/// the patch test — so a formulation added to cure locking has to be shown not
+/// to have broken the thing the original element got right.
+///
+/// The reason it survives is worth stating, because it is also the reason B-bar
+/// is useless on Tri3 and Tet4: under a **constant** strain field the element
+/// mean of the dilatation equals its pointwise value, so
+/// `B_v_bar - B_v = 0` and the modification vanishes identically. The patch test
+/// imposes exactly such a field, so B-bar is a no-op *on this problem* for every
+/// element type — including the distorted Quad4 and Hex8 where it is emphatically
+/// not a no-op in general (measured at 12.0 % of the largest stiffness entry by
+/// `assembly::tests::bbar_genuinely_changes_a_bilinear_quadrilateral`).
+///
+/// ## Methodology and pass criterion
+///
+/// Identical to [`patch_test_all_element_types`] — the same jittered meshes, the
+/// same imposed linear field, the same `1e-9` relative pass band — with
+/// [`Formulation::BBar`] selected. Tri6 is excluded only because it is built by
+/// promoting an unjittered Tri3 mesh in the other test and reusing that
+/// machinery here would add nothing.
+///
+/// ## Results, measured 2026-09-11 (release build, this machine)
+///
+/// | Element | max rel. displacement error | max rel. stress error |
+/// |---|---|---|
+/// | Tri3 | 9.035e-17 | 2.690e-15 |
+/// | Quad4 | 9.035e-17 | 2.906e-15 |
+/// | Tet4 | 9.035e-17 | 1.978e-15 |
+/// | Hex8 | 9.035e-17 | 2.638e-15 |
+///
+/// Against full integration on the same meshes (2.690e-15, 2.475e-15,
+/// 1.978e-15, 1.649e-15).
+///
+/// ## Interpretation
+///
+/// Every element passes at machine precision, and at the *same* precision as
+/// full integration to within a unit or two in the last place of the stress —
+/// which is the expected outcome, since on this problem the two formulations
+/// assemble the same matrix up to the round-off of forming the element mean.
+/// B-bar therefore does not cost consistency, and the accuracy gains measured in
+/// `tests/locking.rs` are not being bought with it.
+#[test]
+fn patch_test_holds_under_bbar() {
+    println!();
+    for (mesh, frac, label) in [
+        (unit_square_tri3(3).unwrap(), 0.12, "Tri3"),
+        (unit_square_quad4(3).unwrap(), 0.12, "Quad4"),
+        (unit_cube_tet4(3).unwrap(), 0.12, "Tet4"),
+        (unit_cube_hex8(3).unwrap(), 0.12, "Hex8"),
+    ] {
+        let (ue, se) = run_patch(mesh, frac, label, Formulation::BBar);
+        assert!(ue < 1e-9, "{label} B-bar displacement error {ue:e}");
+        assert!(se < 1e-9, "{label} B-bar stress error {se:e}");
+    }
 }

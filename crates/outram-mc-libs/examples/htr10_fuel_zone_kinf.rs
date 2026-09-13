@@ -333,4 +333,109 @@ fn main() {
          end to end and measures one self-comparison; it does not validate anything.\n\
          See docs/reactor-scoping/htr10-neutronics.md sections 4.1 and 7.2."
     );
+
+    vv_gate(
+        het.k_mean,
+        het.k_std,
+        hom.k_mean,
+        hom.k_std,
+        dk_pcm,
+        dk_sigma_pcm,
+    );
+}
+
+/// V&V gate: the **one** claim this program is entitled to make.
+///
+/// # What is deliberately NOT asserted: either absolute k_inf
+///
+/// There is no oracle for them. This is a fuel-zone infinite medium — no
+/// graphite shell, no dummy ball, no reflector, no leakage — and **no published
+/// HTR-10 value corresponds to that problem**. The thermal scattering is free
+/// gas rather than graphite S(alpha,beta), and the data is the LOW tier. Pinning
+/// an absolute k_inf here would manufacture a reference that does not exist, and
+/// the number would then get quoted as an HTR-10 result, which is exactly what
+/// this file's closing text spends a paragraph forbidding.
+///
+/// So the gate asserts the **difference** and nothing else. That is a
+/// self-comparison: same nuclide inventory, same transport stack, same settings,
+/// the TRISO kernels resolved in one case and smeared in the other.
+///
+/// # The claim
+///
+/// Resolving the kernels must give a **higher** k_inf than homogenising them.
+/// Lumping the fuel shields the resonance absorber from the thermal flux — fewer
+/// U-238 captures per fission — so the heterogeneous case is more reactive. This
+/// is the double-heterogeneity effect, and it is the same physics
+/// `examples/fhr_ring_rpt_endf.rs` asserts through its own `naive - explicit`
+/// claim, on a different geometry and a different data tier.
+///
+/// A code that had quietly stopped resolving the TRISO kernels would return the
+/// two cases equal. That is the failure this catches, and it is invisible to any
+/// check on an absolute k.
+///
+/// # Results (2026-09-11, LOW tier, free-gas thermal, reflective cube)
+///
+/// ```text
+///   heterogeneous (kernels explicit)   k_inf = 1.59671 +/- 0.00897
+///   homogenised   (same atoms)         k_inf = 1.45028 +/- 0.00747
+///   delta k (hom - het)                      -14643 +/- 1167 pcm  (12.5 sigma)
+/// ```
+///
+/// Resolving the TRISO kernels is worth **14 643 pcm** here, correctly signed
+/// and at 12.5 sigma. Neither absolute number is an HTR-10 result and neither is
+/// asserted; only the difference is.
+///
+/// # Tolerance
+///
+/// The effect must be present at **> 3 sigma** of the run's own combined
+/// counting statistics, and in the right direction. No magnitude is pinned: it
+/// depends on packing fraction, kernel radii and the data tier, none of which
+/// have an external reference here either. The 12.5 sigma measured leaves a
+/// factor of four over the bar, so the gate fires on the effect disappearing
+/// rather than on ordinary fluctuation.
+fn vv_gate(k_het: f64, s_het: f64, k_hom: f64, s_hom: f64, dk_pcm: f64, dk_sigma_pcm: f64) {
+    println!("\n=== V&V gate: the double-heterogeneity difference (self-comparison) ===");
+
+    assert!(
+        k_het.is_finite() && k_hom.is_finite() && k_het > 0.0 && k_hom > 0.0,
+        "k_inf came out as het = {k_het}, hom = {k_hom}; at least one is not a \
+         multiplication factor"
+    );
+    assert!(
+        s_het > 0.0 && s_hom > 0.0,
+        "one of the runs reported zero statistical uncertainty (het {s_het}, hom \
+         {s_hom}), so the significance test below would be meaningless"
+    );
+
+    println!("  heterogeneous {k_het:.5} +/- {s_het:.5}   homogenised {k_hom:.5} +/- {s_hom:.5}");
+    println!(
+        "  delta k (hom - het) = {dk_pcm:+.0} +/- {dk_sigma_pcm:.0} pcm ({:.1} sigma)",
+        dk_pcm.abs() / dk_sigma_pcm
+    );
+
+    assert!(
+        dk_pcm < 0.0,
+        "homogenising the TRISO kernels RAISED k_inf by {dk_pcm:+.0} pcm. Smearing \
+         the fuel through the matrix removes the resonance self-shielding the \
+         kernels provide, so it must LOWER k, not raise it. Sign reversed means \
+         the two cases are not the inventory-matched pair this comparison assumes."
+    );
+    assert!(
+        dk_pcm.abs() > 3.0 * dk_sigma_pcm,
+        "the double-heterogeneity difference is {dk_pcm:+.0} +/- {dk_sigma_pcm:.0} \
+         pcm, only {:.1} sigma. The two cases carry the same nuclide inventory and \
+         differ ONLY in whether the TRISO kernels are resolved, so an \
+         indistinguishable result means the kernels are not being resolved at all \
+         — the geometry is being built but not tracked through.\n\
+         No absolute k is asserted here and none should be: there is no published \
+         HTR-10 value for a fuel-zone infinite medium. This difference is the only \
+         claim this program is entitled to make, so it is the only one gated.",
+        dk_pcm.abs() / dk_sigma_pcm,
+    );
+    println!(
+        "  [PASS] resolving the kernels is worth {:.0} pcm ({:.1} sigma) — the \
+         double-heterogeneity effect is present and correctly signed",
+        dk_pcm.abs(),
+        dk_pcm.abs() / dk_sigma_pcm
+    );
 }

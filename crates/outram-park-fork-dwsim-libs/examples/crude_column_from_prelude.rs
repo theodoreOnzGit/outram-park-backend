@@ -69,6 +69,7 @@
 //! `cargo run -p outram-park-fork-dwsim-libs --release --example crude_column_from_prelude`
 
 use outram_park_fork_dwsim_libs::prelude::*;
+use uom::si::ratio::ratio;
 
 fn main() {
     println!("======================================================================");
@@ -183,6 +184,53 @@ fn main() {
             cut.cut.label()
         );
     }
+    println!();
+
+    // ── 4b. What each cut is MADE OF ─────────────────────────────────────────
+    //
+    // `CutResult::composition` is indexed by `CrudeColumnResult::components`:
+    // the column's own light-end pseudo-components first, then the heavy cuts
+    // that bypassed the fractionator straight to residue. Every cut but the
+    // residue is therefore zero in those heavy entries.
+    println!(" Composition of each cut — three largest mole fractions:");
+    for cut in &result.cuts {
+        let mut ranked: Vec<(usize, f64)> = cut
+            .composition
+            .iter()
+            .copied()
+            .enumerate()
+            .filter(|(_, x)| *x > 0.0)
+            .collect();
+        ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let top: Vec<String> = ranked
+            .iter()
+            .take(3)
+            .map(|(i, x)| format!("{} {:.3}", result.components[*i].component.name.as_str(), x))
+            .collect();
+        println!(
+            "   stage {:<3} {:<10}  {}",
+            cut.stage,
+            cut.cut.label(),
+            top.join("   ")
+        );
+    }
+
+    // The compositions are on a basis that closes the balance component by
+    // component, not merely in total — that is what makes them usable as a
+    // stream rather than a display value.
+    let rates = result.component_molar_rates();
+    let worst = result
+        .components
+        .iter()
+        .enumerate()
+        .map(|(i, pc)| {
+            let fed = config.feed_flow_mol_s * pc.mole_fraction.get::<ratio>();
+            (rates[i] - fed).abs() / fed.max(1e-30)
+        })
+        .fold(0.0_f64, f64::max);
+    println!();
+    println!("   worst per-component relative imbalance: {worst:.2e}");
+
     println!();
     println!(" Stage temperatures, condenser -> reboiler [K]:");
     println!(

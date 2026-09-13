@@ -27,8 +27,8 @@
 > `upstream_source/README.md` for the full provenance record.
 
 Pure-Rust port of the OpenFOAM turbulence model library, part of the
-**OUTRAM PARK** (Open-source TRAnsient Multi-Phase Advanced Reactor simulator
-Kit) suite.
+**OUTRAM PARK** (Open-source Unified TRAnsient Multi-Physics Advanced Reactor
+simulation Kit) suite.
 
 Provides RAS (Reynolds-Averaged Simulation) and LES (Large Eddy Simulation)
 turbulence closures for use with `outram-foam-appbuilder-lib` solver loops.

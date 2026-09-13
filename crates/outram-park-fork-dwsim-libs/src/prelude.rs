@@ -25,6 +25,7 @@
 //! | **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::light_sweet(), &CrudeColumnConfig::atmospheric_default(), 12)` |
 //! | **Assay characterisation** | [`Assay`], [`BulkAssay`], [`CurveAssay`], [`characterize`], [`PseudoComponent`], [`CharacterizationError`] | `characterize(&Assay::Bulk(..), cut_count)` |
 //! | **Thermodynamics** | [`Component`], [`ComponentError`], [`mod@reference`] (preset compounds), [`PropertyPackageModel`], [`PropertyPackage`], [`FlashResult`], [`FlashError`], [`bubble_temperature`], [`dew_temperature`], [`SaturationState`], [`SaturationError`] | `PropertyPackageModel::PengRobinson1978.flash_pt(&components, &z, t, p)` |
+//! | **Name → component lookup** | [`component_by_name`], [`ReferenceCompound`], [`known_component_names`], [`ComponentLookupError`]; and for a whole stream slate [`StreamCompound`], [`resolve_components`], [`resolve_components_checked`], [`molar_mass_discrepancies`], [`MolarMassDiscrepancy`] | `component_by_name("benzene")?` — but note **only seven compounds have data**; see [`crate::thermo::registry`] |
 //! | **Rigorous MESH column** | [`RigorousColumn`] (four constructors: `distillation`, `absorption`, `reboiled_absorber`, `refluxed_absorber`), [`Stage`], [`ColumnSpec`], [`SpecType`], [`SpecBasis`], [`ColumnType`], [`CondenserType`], [`InitialEstimates`], [`ColumnSolverInput`], [`ColumnSolverOutput`], [`ColumnError`], [`ColumnSolverMethod`], [`WangHenkeSolver`], [`ModifiedWangHenkeSolver`], [`SumRatesSolver`], [`NaphtaliSandholmSolver`], [`ColumnThermo`], and the `uom` aliases [`StagePressure`], [`StageTemperature`], [`MolarFlowRate`], [`MolarEnthalpy`], [`StageHeatDuty`], [`StageEfficiency`] | `RigorousColumn::distillation(..).solver_input()?` then `ColumnSolverMethod::default().solve(&input)?` |
 //! | **Shortcut column (FUG)** | [`ShortcutColumn`], [`ShortcutFeed`], [`ShortcutCondenserType`], [`ShortcutColumnResult`], [`ShortcutColumnError`], [`UnderwoodMode`], [`ShortcutHeatDuty`] | `ShortcutColumn::new(..)` |
 //! | **Unit operations with a struct entry point** | [`Separator`], [`SeparatorFeed`], [`SeparatorMode`], [`SeparatorResult`], [`SeparatorError`], [`PhaseOutlet`]; [`InletStream`], [`PressureBehavior`], [`MixerOutlet`], [`MixerError`]; [`SplitSpec`], [`SplitResult`], [`SplitError`], [`OutletStream`], [`IntensiveState`]; [`PumpInlet`], [`PumpSpecification`], [`PumpResult`]; [`PipeFlowInputs`], [`PipeFlowCorrelation`], [`PipeFlowResult`] | the struct's own docs |
@@ -50,7 +51,13 @@
 //!   fifty-plus public names and its own `pub use` map at its module root;
 //!   importing it here would drown the physics entry points. Start from
 //!   [`crate::flowsheet::Flowsheet`] and
-//!   [`crate::flowsheet_solver::FlowsheetSolver`].
+//!   [`crate::flowsheet_solver::FlowsheetSolver`]. **One deliberate
+//!   exception**, added 2026-09-11: [`crate::flowsheet::component_basis`]'s
+//!   name → component resolution and the [`StreamCompound`] it takes. That
+//!   function is a thermodynamics entry point that merely lives in `flowsheet`
+//!   (it is the only way to get from a stream's names to the `&[Component]`
+//!   every flash needs), and its argument type has to come with it to be
+//!   callable.
 //! - **Function-only unit-op modules** — [`crate::heater`], [`crate::cooler`],
 //!   [`crate::compressor`], [`crate::expander`], [`crate::valve`],
 //!   [`crate::heat_exchanger`]. They expose correlations as free functions with
@@ -112,6 +119,20 @@ pub use crate::petroleum::{
 
 // ── Thermodynamics ───────────────────────────────────────────────────────────
 pub use crate::thermo::component::{reference, Component, ComponentError};
+pub use crate::thermo::registry::{
+    component_by_name, known_component_names, ComponentLookupError, ReferenceCompound,
+};
+
+// ── Stream slate → component slate ───────────────────────────────────────────
+// The one deliberate exception to "the flowsheet layer stays out of the
+// prelude": resolving a stream's compound names into the `Component` slate the
+// thermo kernel takes is a *thermodynamics* entry point that happens to live in
+// `flowsheet`, and `StreamCompound` comes with it because it is the argument
+// type. See the module docs above.
+pub use crate::flowsheet::component_basis::{
+    molar_mass_discrepancies, resolve_components, resolve_components_checked, MolarMassDiscrepancy,
+};
+pub use crate::flowsheet::streams::StreamCompound;
 pub use crate::thermo::flash::{FlashError, FlashResult};
 pub use crate::thermo::property_package::{PropertyPackage, PropertyPackageModel};
 pub use crate::thermo::saturation::{

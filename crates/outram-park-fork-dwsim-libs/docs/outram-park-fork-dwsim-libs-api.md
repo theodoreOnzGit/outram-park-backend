@@ -18400,6 +18400,7 @@ Primary sources, by submodule:
 | [`graph`] | `DWSIM.FlowsheetBase/FlowsheetBase.vb`; `DWSIM.Drawing.SkiaSharp/GraphicsSurface/DesignSurface.vb` (`ConnectObject` / `DisconnectObject`) |
 | [`queue`] | `DWSIM.FlowsheetSolver/ObjectInfo.vb`; `FlowsheetBase.vb` (`CalculationQueue`, `RequestCalculation`) |
 | [`report`] | `DWSIM.FlowsheetBase/ReportCreator.vb` |
+| [`component_basis`] | `FlowsheetBase.vb` (`AddCompound` / `GetCompound` / `AvailableCompounds`) — **structure only, no property data** |
 
 Each submodule's header cites the exact line ranges it ports.
 
@@ -18478,6 +18479,371 @@ pub mod flowsheet { /* ... */ }
 ```
 
 ### Modules
+
+## Module `component_basis`
+
+**Stream slate → thermodynamic component slate** — the bridge from a
+flowsheet's `&[StreamCompound]` (names) to a thermo kernel's
+`Vec<Component>` (critical constants).
+
+# What this represents physically
+
+A material stream identifies its species by **name and molar mass only**
+([`StreamCompound`]) — that is all DWSIM's composition algebra needs, since
+it only ever forms ratios `x_i / M_i`. Every *thermodynamic* routine, by
+contrast, needs the pure-compound constants: critical temperature `Tc` \[K\],
+critical pressure `Pc` \[Pa\], acentric factor `ω` \[-\], ideal-gas Cp
+coefficients. This module walks the first list and produces the second,
+entry by entry, through
+[`crate::thermo::registry`].
+
+# Ordering is load-bearing — it is preserved exactly
+
+Everything downstream of here indexes **positionally**: `k_values`,
+`flash_pt`, `liquid_molar_enthalpy` and the mixer's mass accumulator all
+assume `components[i]` and `z[i]` describe the same species, enforced only by
+a length check. [`resolve_components`] therefore emits components in exactly
+the order the compounds arrived, one per input, with no filtering, no
+deduplication and no reordering; the returned `Vec` has the same length as
+the input slice or the call fails outright. A test in this module asserts
+that against a deliberately non-alphabetical slate.
+
+# ⚠️ Seven compounds
+
+The registry behind this bridge holds constant-property data for seven
+compounds (water, methane, ethane, nitrogen, carbon dioxide, benzene,
+toluene). Any other species fails with
+[`ComponentLookupError::UnknownStreamCompound`] naming the compound and its
+position. That is the intended behaviour, not a gap to route around: see
+[`crate::thermo::registry`] for why the data is not simply added.
+
+# Units — the kilo trap
+
+| Side | Field | Unit |
+|---|---|---|
+| Stream | [`StreamCompound::molar_mass`] | **kg/kmol** (= g/mol), DWSIM's internal convention |
+| Thermo | [`Component::molar_mass`] | **kg/mol** |
+
+A factor of 1000 separates them. This module never copies one into the other
+— it *resolves* a component from the registry and, on the opt-in checked
+path, compares the two after converting, reporting both numbers in kg/kmol.
+
+# Attribution
+
+Structural reference only: **DWSIM** (<https://dwsim.org>), upstream commit
+`1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` (branch `windows`), GPL-3.0;
+upstream copyright 2008-2024 Daniel Wagner O. de Medeiros and the DWSIM
+contributors. Upstream's equivalent is `FlowsheetBase.vb:4319`
+(`AddCompound`) looking each name up in `AvailableCompounds`. This port is
+GPL-3.0-only, an independent OUTRAM PARK fork, not the official DWSIM
+software. **No compound property data was taken from upstream.**
+
+```rust
+pub mod component_basis { /* ... */ }
+```
+
+### Types
+
+#### Struct `MolarMassDiscrepancy`
+
+One position where a stream's own molar mass disagrees with the molar mass of
+the [`Component`] its name resolved to.
+
+A disagreement means the stream and the thermo model **do not agree about
+what the compound is** — the stream says its species weighs one thing and the
+registry entry that the name matched weighs another. Typical causes: a name
+collision (a user's "C2" meaning something other than ethane), a unit slip
+(kg/mol written into a kg/kmol field, a factor of 1000), or a pseudo-component
+borrowing a real compound's name.
+
+Both molar masses are reported in **kg/kmol** (the stream's unit), the
+component's having been converted from kg/mol, so the two numbers are
+directly comparable.
+
+```rust
+pub struct MolarMassDiscrepancy {
+    pub position: usize,
+    pub stream_name: String,
+    pub component_name: String,
+    pub stream_molar_mass_kg_per_kmol: f64,
+    pub component_molar_mass_kg_per_kmol: f64,
+    pub relative_difference: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `usize` | Zero-based position in the caller's slate. |
+| `stream_name` | `String` | The stream compound's name, verbatim. |
+| `component_name` | `String` | The canonical name of the registry entry it matched (may be spelled<br>differently — itself a clue). |
+| `stream_molar_mass_kg_per_kmol` | `f64` | The stream's stored molar mass `M` \[kg/kmol\]. |
+| `component_molar_mass_kg_per_kmol` | `f64` | The resolved component's molar mass `M` \[kg/kmol\], i.e.<br>[`Component::molar_mass`] × 1000. |
+| `relative_difference` | `f64` | `|M_stream - M_component| / M_component` \[-\]. Always finite and<br>non-negative: `Component::new` guarantees a finite, strictly positive<br>molar mass, and `StreamCompound::new` the same. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn into_error(self: Self, tolerance: f64) -> ComponentLookupError { /* ... */ }
+  ```
+  Turn this advisory report into the corresponding hard error, tagged with
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MolarMassDiscrepancy { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MolarMassDiscrepancy) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `resolve_components`
+
+Resolve a stream's compound slate into the thermodynamic component slate the
+[`crate::thermo`] kernel takes, **preserving order and length exactly**.
+
+Element `i` of the result is the [`Component`] for `compounds[i]`, so the
+result can be handed straight to any routine that also takes the stream's
+composition vector (`z`, `x`, `y`) — the positional correspondence the whole
+crate relies on is maintained by construction.
+
+Matching of each name follows [`ReferenceCompound::from_name`]:
+ASCII-case-insensitive, insensitive to spaces/hyphens/underscores, accepting
+either the canonical name or the molecular formula. Nothing is fuzzy-matched.
+
+An empty slice resolves to an empty `Vec` (not an error) — a stream with no
+compounds is a data-model state, not a lookup failure.
+
+Duplicate names are **not** rejected: if a caller lists water twice, two
+identical components come back, because positional correspondence with the
+caller's composition vector matters more here than species uniqueness. The
+mixer's existing compound-list guard
+(`flowsheet_solver::evaluator`) is where species-identity agreement between
+streams is checked.
+
+This performs **no molar-mass cross-check** — see
+[`resolve_components_checked`] for that, and for why it is opt-in.
+
+# Errors
+
+[`ComponentLookupError::UnknownStreamCompound`] for the **first** compound
+with no registry data, naming it and giving its zero-based position and the
+slate length. Resolution stops there; later unknown compounds are not
+reported in the same call. Only seven compounds resolve at all — see the
+module header.
+
+# Examples
+
+```
+use outram_park_fork_dwsim_libs::prelude::*;
+
+let slate = vec![
+    StreamCompound::new("Benzene", 78.114),
+    StreamCompound::new("toluene", 92.141),
+];
+let components = resolve_components(&slate).expect("both are presets");
+assert_eq!(components.len(), 2);
+assert_eq!(components[0].name, "Benzene");
+assert_eq!(components[1].name, "Toluene");
+
+let missing = vec![StreamCompound::new("n-Heptane", 100.204)];
+let err = resolve_components(&missing).unwrap_err();
+assert!(err.to_string().contains("no component data for `n-Heptane`"));
+```
+
+```rust
+pub fn resolve_components(compounds: &[crate::flowsheet::streams::StreamCompound]) -> Result<Vec<crate::thermo::component::Component>, crate::thermo::registry::ComponentLookupError> { /* ... */ }
+```
+
+#### Function `molar_mass_discrepancies`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+**Advisory** cross-check: report every position where a stream compound's
+molar mass differs from its resolved component's by more than
+`relative_tolerance` \[-\].
+
+Returns an empty `Vec` when the two slates agree. Never fails and never
+panics — it is a diagnostic, and it is the caller's decision what a
+disagreement means.
+
+# Why advisory, and not a hard failure
+
+Three reasons, and they are the reason [`resolve_components`] does not do
+this by default:
+
+1. **A mismatch is not always an error.** DWSIM's molar masses come from
+   whichever database a case was built against; this crate's come from
+   Poling, Prausnitz & O'Connell (2001). Agreement to the digit is not
+   guaranteed even when both are right about the species, and the composition
+   algebra only uses *ratios* of molar masses, so a small difference changes
+   nothing it touches.
+2. **Failing hard would break existing callers** that resolve components for
+   a stream whose molar masses were rounded, or written in a different
+   number of significant figures, at import.
+3. **The interesting case is gross, not marginal.** A factor of 1000 (a
+   kg/mol value in a kg/kmol field) or a wrong species shows up as a relative
+   difference of order 1, which any sane tolerance catches. Marginal
+   disagreements are noise; making them fatal would train callers to widen
+   the tolerance until the check stops meaning anything.
+
+So: run it, log it, decide. [`resolve_components_checked`] is the
+ready-made "treat it as fatal" wrapper for callers who want that.
+
+# Arguments
+
+- `compounds` — the stream slate.
+- `components` — the resolved components, positionally aligned with
+  `compounds` (i.e. what [`resolve_components`] returned for that slate).
+  If the two slices differ in length, only the first `min(len)` positions are
+  compared; that cannot happen with a slate straight from
+  [`resolve_components`], which preserves length.
+- `relative_tolerance` — the fractional difference tolerated \[-\], e.g.
+  `1e-3` for "agree to about 0.1 %". A non-positive tolerance reports every
+  position whose molar masses are not bit-equal.
+
+# Examples
+
+```
+use outram_park_fork_dwsim_libs::prelude::*;
+
+// 18.015 kg/kmol matches the water preset's 0.018015 kg/mol exactly.
+let ok = vec![StreamCompound::new("Water", 18.015)];
+let components = resolve_components(&ok).expect("water is a preset");
+assert!(molar_mass_discrepancies(&ok, &components, 1e-6).is_empty());
+
+// A kg/mol value left in a kg/kmol field: out by a factor of 1000.
+let slipped = vec![StreamCompound::new("Water", 0.018015)];
+let components = resolve_components(&slipped).expect("water is a preset");
+let found = molar_mass_discrepancies(&slipped, &components, 1e-6);
+assert_eq!(found.len(), 1);
+assert!((found[0].relative_difference - 0.999).abs() < 1e-3);
+```
+
+```rust
+pub fn molar_mass_discrepancies(compounds: &[crate::flowsheet::streams::StreamCompound], components: &[crate::thermo::component::Component], relative_tolerance: f64) -> Vec<MolarMassDiscrepancy> { /* ... */ }
+```
+
+#### Function `resolve_components_checked`
+
+[`resolve_components`] plus an **opt-in** hard molar-mass cross-check.
+
+Resolves the slate exactly as [`resolve_components`] does (same order, same
+length, same unknown-compound error), then runs
+[`molar_mass_discrepancies`] and escalates the **first** discrepancy to
+[`ComponentLookupError::MolarMassMismatch`].
+
+Use this when the stream slate comes from outside the crate — an imported
+case, a user-typed flowsheet — and a silent species mix-up would be worse
+than a refused run. Use plain [`resolve_components`] otherwise; see
+[`molar_mass_discrepancies`] for why the check is not the default.
+
+# Arguments
+
+- `compounds` — the stream slate.
+- `relative_tolerance` — fractional molar-mass agreement required \[-\]. A
+  sensible starting point is `1e-2` (1 %), which passes rounded database
+  values and catches wrong species and unit slips alike.
+
+# Errors
+
+- [`ComponentLookupError::UnknownStreamCompound`] — a compound has no
+  registry data (checked first, for the whole slate, before any molar mass).
+- [`ComponentLookupError::MolarMassMismatch`] — the first position exceeding
+  `relative_tolerance`, naming the compound, both molar masses in kg/kmol,
+  the relative difference and the tolerance.
+
+# Examples
+
+```
+use outram_park_fork_dwsim_libs::prelude::*;
+
+let slate = vec![StreamCompound::new("Water", 18.015)];
+assert!(resolve_components_checked(&slate, 1e-2).is_ok());
+
+let wrong = vec![StreamCompound::new("Water", 44.01)];
+let err = resolve_components_checked(&wrong, 1e-2).unwrap_err();
+assert!(err.to_string().contains("molar mass"));
+```
+
+```rust
+pub fn resolve_components_checked(compounds: &[crate::flowsheet::streams::StreamCompound], relative_tolerance: f64) -> Result<Vec<crate::thermo::component::Component>, crate::thermo::registry::ComponentLookupError> { /* ... */ }
+```
 
 ## Module `connectors`
 
@@ -26563,6 +26929,11 @@ pub struct MaterialStreamData {
   Set the **mole** fractions of one phase slot — DWSIM's
 
 - ```rust
+  pub fn apply_vle_flash(self: &mut Self, beta: f64, x: &[f64], y: &[f64]) -> Result<(), StreamValidationError> { /* ... */ }
+  ```
+  Write a converged two-phase (vapour / liquid) flash onto the stream's
+
+- ```rust
   pub fn phase_composition(self: &Self, p: PhaseIndex) -> Vec<f64> { /* ... */ }
   ```
   Mole fractions of one phase slot \[-\] — DWSIM's `GetPhaseComposition`
@@ -26945,6 +27316,30 @@ pub fn power_from_kw(p_kw: f64) -> uom::si::f64::Power { /* ... */ }
 ```
 
 ### Re-exports
+
+#### Re-export `molar_mass_discrepancies`
+
+```rust
+pub use component_basis::molar_mass_discrepancies;
+```
+
+#### Re-export `resolve_components`
+
+```rust
+pub use component_basis::resolve_components;
+```
+
+#### Re-export `resolve_components_checked`
+
+```rust
+pub use component_basis::resolve_components_checked;
+```
+
+#### Re-export `MolarMassDiscrepancy`
+
+```rust
+pub use component_basis::MolarMassDiscrepancy;
+```
 
 #### Re-export `Attachment`
 
@@ -28494,6 +28889,17 @@ data model alone** — no property package, no flash, no equipment parameters:
   (`LastSolutionInputData`) and marks the stream calculated. **A stream
   evaluated this way carries whatever phase split it already had.** Supply a
   hook that calls [`crate::thermo`] if you need a real flash.
+
+  The write-back half of upstream's `MaterialStream.Calculate` *is* ported:
+  [`crate::flowsheet::MaterialStreamData::apply_vle_flash`] takes a
+  converged `(β, x, y)` and fills the stream's phase slots, so a hook is
+  three lines — flash, apply, done. See
+  `tests::a_solved_material_stream_carries_a_flashed_state` for the whole
+  pattern. What the built-in evaluator still cannot do is *choose* the
+  package: a [`Flowsheet`] carries no property package and its
+  [`crate::flowsheet::StreamCompound`]s carry only a name and a molar mass,
+  not the critical constants a
+  [`crate::thermo::component::Component`] needs.
 
 # Attribution
 
@@ -38683,6 +39089,7 @@ pub struct CutResult {
     pub flow_mol_s: f64,
     pub temperature_k: f64,
     pub cut: CrudeCut,
+    pub composition: Vec<f64>,
 }
 ```
 
@@ -38694,6 +39101,7 @@ pub struct CutResult {
 | `flow_mol_s` | `f64` | Draw rate \[mol/s\]. |
 | `temperature_k` | `f64` | Converged stage temperature \[K\]. |
 | `cut` | `CrudeCut` | Which conventional cut this draw's temperature places it in. A<br>*label*, assigned after the fact from [`CrudeCut::from_normal_boiling_point_k`];<br>nothing in the solve is constrained to hit it. |
+| `composition` | `Vec<f64>` | Converged mole fractions of this product \[-\], indexed by<br>[`CrudeColumnResult::components`] — **not** by the column's own<br>component list, which is shorter (see below).<br><br># Where each row comes from<br><br>| Cut | Source |<br>|---|---|<br>| distillate (`stage == 0`) | the converged liquid leaving the total condenser, `ColumnSolverOutput::liquid_compositions[0]` |<br>| side draw | the converged liquid on that stage, `liquid_compositions[stage]` |<br>| residue (last stage) | the column bottoms **mixed with the bypassed heavy end** — see [`CrudeColumnConfig::residue_cut_point_k`] |<br><br># Basis<br><br>The basis is the **whole** pseudo-component slate: the column's own<br>light-end components first, in solver order, then the heavy cuts that<br>never entered the column. Every cut but the residue is therefore zero<br>in the heavy entries. Mixing the bypass back into the residue here is<br>what makes `flow_mol_s * composition[i]`, summed over the cuts, close<br>the per-component balance on the whole crude — asserted by<br>[`CrudeColumnResult::component_molar_rates`]'s test.<br><br># This is a mole fraction, not an assay<br><br>The components are pseudo-components generated from bulk properties,<br>so a composition here inherits every assumption of the<br>characterisation. It is a scoping number, exactly as the cut labels<br>are. |
 
 ##### Implementations
 
@@ -38781,6 +39189,7 @@ A converged atmospheric crude column.
 ```rust
 pub struct CrudeColumnResult {
     pub cuts: Vec<CutResult>,
+    pub components: Vec<crate::petroleum::pseudo_component::PseudoComponent>,
     pub stage_temperatures_k: Vec<f64>,
     pub iterations: usize,
     pub final_error: f64,
@@ -38792,6 +39201,7 @@ pub struct CrudeColumnResult {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `cuts` | `Vec<CutResult>` | Products, ordered top to bottom: distillate, then the side draws, then<br>the bottoms residue. |
+| `components` | `Vec<crate::petroleum::pseudo_component::PseudoComponent>` | The composition basis every [`CutResult::composition`] is indexed by:<br>the column's own light-end pseudo-components first, in the order the<br>MESH solver indexes them, followed by the heavy cuts that bypassed the<br>column. Length equals the full slate generated for `cut_count`. |
 | `stage_temperatures_k` | `Vec<f64>` | Converged stage temperatures \[K\], condenser first. |
 | `iterations` | `usize` | Inner iterations the solver took. |
 | `final_error` | `f64` | Final solver error. |
@@ -38804,6 +39214,11 @@ pub struct CrudeColumnResult {
   pub fn total_product_mol_s(self: &Self) -> f64 { /* ... */ }
   ```
   Total product rate \[mol/s\] — should equal the feed.
+
+- ```rust
+  pub fn component_molar_rates(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Per-component molar rates leaving the whole unit \[mol/s\], indexed by
 
 ###### Trait Implementations
 
@@ -38899,6 +39314,8 @@ pub struct CrudeColumnSetup {
     pub column_distillate_mol_s: f64,
     pub bottoms_mol_s: f64,
     pub bypass_mol_s: f64,
+    pub column_components: Vec<crate::petroleum::pseudo_component::PseudoComponent>,
+    pub bypass_components: Vec<crate::petroleum::pseudo_component::PseudoComponent>,
 }
 ```
 
@@ -38911,6 +39328,8 @@ pub struct CrudeColumnSetup {
 | `column_distillate_mol_s` | `f64` | Overhead distillate leaving the column \[mol/s\]. |
 | `bottoms_mol_s` | `f64` | Bottoms leaving the column \[mol/s\], excluding the bypass. |
 | `bypass_mol_s` | `f64` | Heavy end that never entered the column and reports straight to<br>residue \[mol/s\]. See [`CrudeColumnConfig::residue_cut_point_k`]. |
+| `column_components` | `Vec<crate::petroleum::pseudo_component::PseudoComponent>` | The column's own components — the light end of the slate, in exactly<br>the order the MESH solver indexes compositions and K-values by, so<br>`column_components[i]` names `ColumnSolverOutput::liquid_compositions[s][i]`.<br><br>`mole_fraction` on each entry is still on the **whole-crude** basis<br>(they sum to `1 - bypass_fraction`), not the renormalised column feed. |
+| `bypass_components` | `Vec<crate::petroleum::pseudo_component::PseudoComponent>` | The heavy cuts that boil above [`CrudeColumnConfig::residue_cut_point_k`]<br>and bypass the fractionator to the residue. `mole_fraction` is on the<br>whole-crude basis, so this cut's molar rate is<br>`feed_flow_mol_s * mole_fraction` and the sum is [`Self::bypass_mol_s`]. |
 
 ##### Implementations
 
@@ -43126,6 +43545,7 @@ Errors assembling a pseudo-component from non-physical correlation output.
 pub enum PseudoComponentError {
     NonPhysical {
         name: String,
+        index: usize,
         property: &'static str,
         value: f64,
     },
@@ -43136,19 +43556,23 @@ pub enum PseudoComponentError {
 
 ###### `NonPhysical`
 
-A correlation produced a non-finite or non-positive constant. Upstream
-detects this only after stringifying everything
-(`GenerateCompounds.vb:475-483`) and throws "Invalid characterization,
-please try different parameters/settings"; this port reports which
-property failed.
+A correlation produced a non-finite or physically inadmissible constant.
+Upstream detects only NaN, only for `Tc`/`Pc`/`ω`/`M`, and only after
+stringifying everything (`GenerateCompounds.vb:475-483`), then throws
+"Invalid characterization, please try different parameters/settings";
+this port also rejects a non-positive `Vc` (which upstream never
+inspects — `:333`) and reports **which cut** and **which property**
+failed, so a caller can tell a bad heavy-end extrapolation from a bad
+assay.
 
 Fields:
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `name` | `String` | Name of the offending cut. |
-| `property` | `&'static str` | Which property failed. |
-| `value` | `f64` | The offending value. |
+| `name` | `String` | Name of the offending cut (`"<prefix>_NBP_<Tb in °C>"`). |
+| `index` | `usize` | 1-based position of the offending cut in the slate, ascending<br>boiling point — the `index` passed to [`build_pseudo_component`]. |
+| `property` | `&'static str` | Which property failed: one of `"molar_mass"`,<br>`"critical_temperature"`, `"critical_pressure"`,<br>`"acentric_factor"`, `"critical_volume"`. |
+| `value` | `f64` | The offending value, in the property's SI unit (g/mol for<br>`molar_mass`, K, Pa, dimensionless, m³/mol respectively). |
 
 ##### Implementations
 
@@ -43290,10 +43714,23 @@ the estimates degrade and may become non-physical, in which case this
 function returns [`PseudoComponentError::NonPhysical`] rather than emitting
 a broken [`Component`].
 
+The heavy end is where this bites in practice. The Lee-Kesler acentric
+factor is the `Tbr < 0.8` vapour-pressure form, and its denominator vanishes
+as `Tbr = Tb/Tc → 1`, so `ω` grows without bound for a cut whose boiling
+point approaches its own critical temperature. `Zc = 0.291 − 0.08·ω` then
+turns negative above `ω = 3.6375` and `Vc = R·Zc·Tc/Pc` with it. Upstream
+floors only the Rackett `Z_RA` (`GenerateCompounds.vb:335`) and emits the
+negative `Vc` unchecked; this port refuses the cut instead (GitHub #170).
+
 # Errors
 
-[`PseudoComponentError::NonPhysical`] when `Tc`, `Pc` or `M` comes out
-non-finite or non-positive.
+[`PseudoComponentError::NonPhysical`] when `M`, `Tc`, `Pc` or `Vc` comes
+out non-finite or non-positive, or `ω` comes out non-finite. The variant
+names the cut and the property. There is deliberately **no** numeric bound
+on `ω` itself: any cap (1.5? 2? 3.6?) would be a heuristic, and where the
+correlations' validity envelope lies is a maintainer decision — the checks
+here are the sign and finiteness conditions a critical constant must
+satisfy to be a critical constant at all.
 
 ```rust
 pub fn build_pseudo_component(prefix: &str, index: usize, boiling_point: uom::si::f64::ThermodynamicTemperature, specific_gravity: super::property_methods::SpecificGravity, molar_mass: uom::si::f64::MolarMass, viscosity_temperature_1: uom::si::f64::ThermodynamicTemperature, viscosity_temperature_2: uom::si::f64::ThermodynamicTemperature, kinematic_viscosity_1: uom::si::f64::KinematicViscosity, kinematic_viscosity_2: uom::si::f64::KinematicViscosity, correlations: CorrelationSet) -> Result<PseudoComponent, PseudoComponentError> { /* ... */ }
@@ -45702,9 +46139,10 @@ everything is as unhelpful as none.
 
 | Group | Names | Start here |
 |---|---|---|
-| **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::heavy(), &CrudeColumnConfig::atmospheric_default(), 12)` |
+| **Crude oil → cut slate** | [`BlackOilCrude`], [`CrudeColumnConfig`], [`solve_crude_column`], [`CrudeColumnResult`], [`CutResult`], [`CrudeCut`], [`CrudeColumnError`], [`crude_column_setup`], [`CrudeColumnSetup`], [`CrudePlant`], [`CrudeCommands`], [`CrudeSnapshot`] | `solve_crude_column(&BlackOilCrude::light_sweet(), &CrudeColumnConfig::atmospheric_default(), 12)` |
 | **Assay characterisation** | [`Assay`], [`BulkAssay`], [`CurveAssay`], [`characterize`], [`PseudoComponent`], [`CharacterizationError`] | `characterize(&Assay::Bulk(..), cut_count)` |
 | **Thermodynamics** | [`Component`], [`ComponentError`], [`mod@reference`] (preset compounds), [`PropertyPackageModel`], [`PropertyPackage`], [`FlashResult`], [`FlashError`], [`bubble_temperature`], [`dew_temperature`], [`SaturationState`], [`SaturationError`] | `PropertyPackageModel::PengRobinson1978.flash_pt(&components, &z, t, p)` |
+| **Name → component lookup** | [`component_by_name`], [`ReferenceCompound`], [`known_component_names`], [`ComponentLookupError`]; and for a whole stream slate [`StreamCompound`], [`resolve_components`], [`resolve_components_checked`], [`molar_mass_discrepancies`], [`MolarMassDiscrepancy`] | `component_by_name("benzene")?` — but note **only seven compounds have data**; see [`crate::thermo::registry`] |
 | **Rigorous MESH column** | [`RigorousColumn`] (four constructors: `distillation`, `absorption`, `reboiled_absorber`, `refluxed_absorber`), [`Stage`], [`ColumnSpec`], [`SpecType`], [`SpecBasis`], [`ColumnType`], [`CondenserType`], [`InitialEstimates`], [`ColumnSolverInput`], [`ColumnSolverOutput`], [`ColumnError`], [`ColumnSolverMethod`], [`WangHenkeSolver`], [`ModifiedWangHenkeSolver`], [`SumRatesSolver`], [`NaphtaliSandholmSolver`], [`ColumnThermo`], and the `uom` aliases [`StagePressure`], [`StageTemperature`], [`MolarFlowRate`], [`MolarEnthalpy`], [`StageHeatDuty`], [`StageEfficiency`] | `RigorousColumn::distillation(..).solver_input()?` then `ColumnSolverMethod::default().solve(&input)?` |
 | **Shortcut column (FUG)** | [`ShortcutColumn`], [`ShortcutFeed`], [`ShortcutCondenserType`], [`ShortcutColumnResult`], [`ShortcutColumnError`], [`UnderwoodMode`], [`ShortcutHeatDuty`] | `ShortcutColumn::new(..)` |
 | **Unit operations with a struct entry point** | [`Separator`], [`SeparatorFeed`], [`SeparatorMode`], [`SeparatorResult`], [`SeparatorError`], [`PhaseOutlet`]; [`InletStream`], [`PressureBehavior`], [`MixerOutlet`], [`MixerError`]; [`SplitSpec`], [`SplitResult`], [`SplitError`], [`OutletStream`], [`IntensiveState`]; [`PumpInlet`], [`PumpSpecification`], [`PumpResult`]; [`PipeFlowInputs`], [`PipeFlowCorrelation`], [`PipeFlowResult`] | the struct's own docs |
@@ -45730,7 +46168,13 @@ activity) is dimensionally exactly mol/s. Pressure is `pascal`, temperature
   fifty-plus public names and its own `pub use` map at its module root;
   importing it here would drown the physics entry points. Start from
   [`crate::flowsheet::Flowsheet`] and
-  [`crate::flowsheet_solver::FlowsheetSolver`].
+  [`crate::flowsheet_solver::FlowsheetSolver`]. **One deliberate
+  exception**, added 2026-09-11: [`crate::flowsheet::component_basis`]'s
+  name → component resolution and the [`StreamCompound`] it takes. That
+  function is a thermodynamics entry point that merely lives in `flowsheet`
+  (it is the only way to get from a stream's names to the `&[Component]`
+  every flash needs), and its argument type has to come with it to be
+  callable.
 - **Function-only unit-op modules** — [`crate::heater`], [`crate::cooler`],
   [`crate::compressor`], [`crate::expander`], [`crate::valve`],
   [`crate::heat_exchanger`]. They expose correlations as free functions with
@@ -45762,7 +46206,10 @@ activity) is dimensionally exactly mol/s. Pressure is `pascal`, temperature
 ```
 use outram_park_fork_dwsim_libs::prelude::*;
 
-let crude = BlackOilCrude::heavy(); // 22 °API
+// 38 °API. The 22 °API `BlackOilCrude::heavy()` no longer characterises at
+// 12 cuts: its heaviest cut has a negative critical volume, which the
+// characterisation refuses instead of emitting (GitHub #170).
+let crude = BlackOilCrude::light_sweet();
 let config = CrudeColumnConfig::atmospheric_default(); // PengRobinson1978
 let result = solve_crude_column(&crude, &config, 12).expect("column converges");
 for cut in &result.cuts {
@@ -46029,6 +46476,60 @@ pub use crate::thermo::component::Component;
 
 ```rust
 pub use crate::thermo::component::ComponentError;
+```
+
+#### Re-export `component_by_name`
+
+```rust
+pub use crate::thermo::registry::component_by_name;
+```
+
+#### Re-export `known_component_names`
+
+```rust
+pub use crate::thermo::registry::known_component_names;
+```
+
+#### Re-export `ComponentLookupError`
+
+```rust
+pub use crate::thermo::registry::ComponentLookupError;
+```
+
+#### Re-export `ReferenceCompound`
+
+```rust
+pub use crate::thermo::registry::ReferenceCompound;
+```
+
+#### Re-export `molar_mass_discrepancies`
+
+```rust
+pub use crate::flowsheet::component_basis::molar_mass_discrepancies;
+```
+
+#### Re-export `resolve_components`
+
+```rust
+pub use crate::flowsheet::component_basis::resolve_components;
+```
+
+#### Re-export `resolve_components_checked`
+
+```rust
+pub use crate::flowsheet::component_basis::resolve_components_checked;
+```
+
+#### Re-export `MolarMassDiscrepancy`
+
+```rust
+pub use crate::flowsheet::component_basis::MolarMassDiscrepancy;
+```
+
+#### Re-export `StreamCompound`
+
+```rust
+pub use crate::flowsheet::streams::StreamCompound;
 ```
 
 #### Re-export `FlashError`
@@ -51350,6 +51851,12 @@ that every equipment model ultimately needs.
   ([`Component`]): critical properties, acentric factor, molar mass,
   ideal-gas heat-capacity coefficients. The shared substrate every other
   thermo module consumes. **Data substrate (this file's author).**
+- [`registry`] — the **name → [`Component`] lookup** over those presets:
+  [`registry::ReferenceCompound`] (the seven compounds this crate has
+  constant-property data for), [`registry::component_by_name`], and
+  [`registry::ComponentLookupError`], whose message names the compound that
+  was not found. Seven compounds is the whole registry — see its module
+  docs before mistaking a working lookup for usable coverage.
 
 ### Equations of state
 
@@ -67150,6 +67657,569 @@ cubic's liquid root can be tiny and the successive substitution slow.
 
 ```rust
 pub fn vapor_pressure(comp: &crate::thermo::Component, kappa1: f64, kappa2: f64, kappa3: f64, t: f64) -> Option<f64> { /* ... */ }
+```
+
+## Module `registry`
+
+**Name → [`Component`] lookup** over the crate's reference-compound presets.
+
+# What this is for
+
+Every thermodynamic routine in this crate — the cubic EOS, the flash family,
+the column energy balance — takes a `&[Component]` slate: critical
+temperature `Tc` \[K\], critical pressure `Pc` \[Pa\], acentric factor `ω`
+\[-\], molar mass `M` \[kg/mol\], ideal-gas Cp coefficients. A flowsheet, by
+contrast, identifies a compound only by a **name string**
+([`crate::flowsheet::streams::StreamCompound::name`]). Until this module
+there was no way to get from one to the other: the only source of
+`Component` values was the hand-written presets in
+[`crate::thermo::component::reference`], reached by calling a Rust function
+by name at compile time.
+
+This module closes that gap for the compounds that **already have data in
+this repository**, and turns every other compound into a *named, explicit
+error* rather than a silent gap discovered three layers down.
+
+# ⚠️ Coverage: seven compounds, and that is the whole registry
+
+[`ReferenceCompound`] has exactly **seven** variants — water, methane,
+ethane, nitrogen, carbon dioxide, benzene, toluene — because those are the
+only seven presets in [`crate::thermo::component::reference`]. Asking for
+anything else (propane, n-butane, ammonia, oxygen, …) returns
+[`ComponentLookupError::UnknownCompound`]. **A working mechanism is not
+working coverage.** Do not read "the lookup resolves" as "this crate can
+model your mixture".
+
+Expanding the registry is deliberately *not* done here. Compound
+constant-property data is a `DATA_POLICY.md` provenance question (the
+obvious upstream source, ChemSep's database as bundled with DWSIM, has
+licence terms that have not been put to the maintainer) **before** it is a
+porting question. Inventing plausible-looking `Tc`/`Pc`/`ω` values would be
+silently wrong and unfalsifiable. When that question is settled, the single
+place to add data is [`crate::thermo::component::reference`] plus one
+variant here — the compiler then forces every `match` in this module to
+account for it, which is exactly why the registry is an enum and not a map.
+
+# Matching rule — normalised, case-insensitive, formula-aware
+
+See [`ReferenceCompound::from_name`] for the rule, the normalisation it
+applies, and why it departs from upstream DWSIM's exact-match dictionary.
+
+# Units
+
+This module moves whole [`Component`] records around and computes no
+physical quantity of its own. The one unit it must be careful about is molar
+mass, because the two sides disagree on the prefix:
+
+| Source | Field | Unit |
+|---|---|---|
+| [`Component::molar_mass`] | `M` | **kg/mol** |
+| [`crate::flowsheet::streams::StreamCompound::molar_mass`] | `M` | **kg/kmol** (= g/mol), DWSIM's internal convention |
+
+The factor of 1000 between them is the reason
+[`crate::flowsheet::component_basis`] exists as a separate, explicitly
+converting bridge rather than a naive field copy.
+
+# Attribution
+
+Structural reference (not data): **DWSIM**
+(<https://dwsim.org>), upstream commit
+`1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` (branch `windows`), GPL-3.0.
+Upstream copyright 2008-2024 Daniel Wagner O. de Medeiros and the DWSIM
+contributors. This port is GPL-3.0-only. Independent OUTRAM PARK fork, not
+the official DWSIM software (see `TRADEMARKS.md`).
+
+Upstream shape consulted: `DWSIM.FlowsheetBase/FlowsheetBase.vb:3098`
+(`AvailableCompounds As New Dictionary(Of String, ICompoundConstantProperties)`),
+`:3954` (`GetCompound(name) → AvailableCompounds(name)`) and `:4319`
+(`AddCompound`). That is a plain `Dictionary` with the default ordinal
+comparer, keyed by the compound's `Name`, which raises
+`KeyNotFoundException` on a miss. **No property data was copied from
+upstream**; only the observation that upstream resolves a compound by an
+exact name key, which this module deliberately relaxes (see
+[`ReferenceCompound::from_name`]).
+
+```rust
+pub mod registry { /* ... */ }
+```
+
+### Types
+
+#### Enum `ReferenceCompound`
+
+The compounds this crate has constant-property data for — the complete
+contents of [`crate::thermo::component::reference`], as a closed enum.
+
+An enum rather than a map because the set is closed and known at compile
+time (workspace `CLAUDE.md`, "No trait objects — use enums for dispatch"):
+adding a preset forces every `match` here to be updated, so the alias table,
+the canonical-name table and [`ReferenceCompound::ALL`] cannot silently fall
+out of step with the data.
+
+Each variant carries no payload — it *names* a compound; call
+[`ReferenceCompound::component`] to get the [`Component`] record with its
+critical constants (`Tc` \[K\], `Pc` \[Pa\], `Vc` \[m³/mol\]), acentric
+factor `ω` \[-\], molar mass `M` \[kg/mol\], normal boiling point `Tb` \[K\]
+and ideal-gas Cp coefficients.
+
+**Only benzene and toluene carry real ideal-gas Cp coefficients**; the other
+five have `0.0` placeholders (documented in
+[`crate::thermo::component::reference`]). A resolved component is therefore
+usable for EOS `a(T)`/`b` and K-values, but its ideal-gas enthalpy is zero
+unless it is one of those two — that is a property of the underlying data,
+not of this lookup, and this module does not paper over it.
+
+```rust
+pub enum ReferenceCompound {
+    Water,
+    Methane,
+    Ethane,
+    Nitrogen,
+    CarbonDioxide,
+    Benzene,
+    Toluene,
+}
+```
+
+##### Variants
+
+###### `Water`
+
+Water (H₂O), `Tc` = 647.14 K, `Pc` = 22.064 MPa, `ω` = 0.344.
+
+###### `Methane`
+
+Methane (CH₄), `Tc` = 190.56 K, `Pc` = 4.599 MPa, `ω` = 0.011.
+
+###### `Ethane`
+
+Ethane (C₂H₆), `Tc` = 305.32 K, `Pc` = 4.872 MPa, `ω` = 0.099.
+
+###### `Nitrogen`
+
+Nitrogen (N₂), `Tc` = 126.20 K, `Pc` = 3.398 MPa, `ω` = 0.037.
+
+###### `CarbonDioxide`
+
+Carbon dioxide (CO₂), `Tc` = 304.12 K, `Pc` = 7.374 MPa, `ω` = 0.225.
+
+###### `Benzene`
+
+Benzene (C₆H₆), `Tc` = 562.05 K, `Pc` = 48.95 bar, `ω` = 0.210. Carries
+real ideal-gas Cp coefficients.
+
+###### `Toluene`
+
+Toluene (C₇H₈), `Tc` = 591.75 K, `Pc` = 41.08 bar, `ω` = 0.264. Carries
+real ideal-gas Cp coefficients.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub const fn canonical_name(self: Self) -> &'static str { /* ... */ }
+  ```
+  The canonical spelling of this compound's name — byte-identical to the
+
+- ```rust
+  pub const fn aliases(self: Self) -> &'static [&'static str] { /* ... */ }
+  ```
+  Every spelling that resolves to this compound, **already normalised**
+
+- ```rust
+  pub fn component(self: Self) -> Component { /* ... */ }
+  ```
+  The full constant-property record for this compound: a freshly
+
+- ```rust
+  pub fn from_name(name: &str) -> Option<ReferenceCompound> { /* ... */ }
+  ```
+  Resolve a compound **name** to a registry entry, or `None` if the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ReferenceCompound { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &ReferenceCompound) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ReferenceCompound) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &ReferenceCompound) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ComponentLookupError`
+
+Why a name could not be turned into a [`Component`].
+
+Follows the crate's error idiom: a `thiserror`-derived enum whose message
+**names the offending compound** (and, where the caller supplied a slate, its
+position in that slate), so a missing compound surfaces at the lookup rather
+than as a length mismatch or a nonsense flash result further down.
+
+`PartialEq` but not `Eq`: the molar-mass variant carries `f64` fields.
+
+```rust
+pub enum ComponentLookupError {
+    UnknownCompound {
+        name: String,
+        known_count: usize,
+        known: String,
+    },
+    UnknownStreamCompound {
+        position: usize,
+        total: usize,
+        name: String,
+        known_count: usize,
+        known: String,
+    },
+    MolarMassMismatch {
+        position: usize,
+        name: String,
+        component_name: String,
+        stream_molar_mass_kg_per_kmol: f64,
+        component_molar_mass_kg_per_kmol: f64,
+        relative_difference: f64,
+        tolerance: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `UnknownCompound`
+
+No preset matched the requested name under the
+[`ReferenceCompound::from_name`] rule.
+
+This is the expected outcome for nearly every real compound: the registry
+holds seven. It is **not** a bug to be worked around by fabricating
+constants — see the module docs on the provenance question.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | The name that was requested, verbatim as the caller supplied it. |
+| `known_count` | `usize` | How many compounds the registry holds (currently 7). |
+| `known` | `String` | Comma-separated canonical names of every compound that *would* have<br>resolved. |
+
+###### `UnknownStreamCompound`
+
+Same as [`ComponentLookupError::UnknownCompound`], but raised while
+resolving a whole slate, so it can say **which position** failed.
+
+Position matters because every consumer in this crate indexes components
+and mole fractions positionally (`components[i]` describes `z[i]`), so
+"the third compound" is the actionable part of the report.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `usize` | Zero-based index of the offending compound in the caller's slice. |
+| `total` | `usize` | How many compounds were in the slice. |
+| `name` | `String` | The name that was requested, verbatim. |
+| `known_count` | `usize` | How many compounds the registry holds (currently 7). |
+| `known` | `String` | Comma-separated canonical names of every compound that *would* have<br>resolved. |
+
+###### `MolarMassMismatch`
+
+The stream's own molar mass disagrees with the resolved component's, by
+more than the caller's tolerance.
+
+**Only ever produced by the opt-in checked path**
+([`crate::flowsheet::component_basis::resolve_components_checked`]); the
+default resolution never raises it. See that function for why the check
+is advisory rather than mandatory.
+
+Units are reported in **kg/kmol on both sides** (the stream's own unit),
+having converted the component's kg/mol by ×1000, so the two numbers in
+the message are directly comparable.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `usize` | Zero-based index of the compound in the caller's slice. |
+| `name` | `String` | The stream's compound name, verbatim. |
+| `component_name` | `String` | The registry entry's canonical name (may differ in spelling from<br>`name` — that is allowed, and is itself a useful clue). |
+| `stream_molar_mass_kg_per_kmol` | `f64` | The stream's molar mass \[kg/kmol\], as stored. |
+| `component_molar_mass_kg_per_kmol` | `f64` | The registry component's molar mass \[kg/kmol\], i.e.<br>[`Component::molar_mass`] (kg/mol) × 1000. |
+| `relative_difference` | `f64` | `|M_stream - M_component| / M_component` \[-\]. |
+| `tolerance` | `f64` | The tolerance the caller passed \[-\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ComponentLookupError { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ComponentLookupError) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `normalized_compound_name`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Normalise a compound name for registry matching: ASCII-lowercase it and drop
+ASCII spaces, tabs, hyphens and underscores.
+
+Exposed because the rule is part of the registry's contract — a caller
+building its own name index against
+[`ReferenceCompound::aliases`] needs the same function, and a second,
+slightly-different copy of it is how a lookup starts disagreeing with
+itself.
+
+Non-ASCII characters are passed through unchanged (`char::to_ascii_lowercase`
+is a no-op on them), so a name containing e.g. a subscript digit will simply
+fail to match rather than matching something unintended.
+
+# Examples
+
+```
+use outram_park_fork_dwsim_libs::thermo::registry::normalized_compound_name;
+
+assert_eq!(normalized_compound_name("  Carbon Dioxide "), "carbondioxide");
+assert_eq!(normalized_compound_name("n-Butane"), "nbutane");
+```
+
+```rust
+pub fn normalized_compound_name(name: &str) -> String { /* ... */ }
+```
+
+#### Function `known_component_names`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The canonical names of every compound the registry can resolve, in
+[`ReferenceCompound::ALL`] order — seven of them.
+
+Useful for an error message, a CLI `--list-compounds`, or a test that asserts
+coverage has not silently changed.
+
+```rust
+pub fn known_component_names() -> Vec<&'static str> { /* ... */ }
+```
+
+#### Function `component_by_name`
+
+Resolve a compound **name** to its full [`Component`] constant-property
+record, or fail with an error that names the compound.
+
+This is the single-compound door into the registry; for a whole stream slate
+use [`crate::flowsheet::component_basis::resolve_components`], which
+preserves ordering and reports the failing position.
+
+Matching follows [`ReferenceCompound::from_name`] (normalised,
+case-insensitive, canonical name or molecular formula).
+
+# Errors
+
+[`ComponentLookupError::UnknownCompound`] if no preset matches — which is the
+case for every compound outside the seven listed in
+[`ReferenceCompound::ALL`]. The message names the requested compound and
+lists what *is* available.
+
+# Examples
+
+```
+use outram_park_fork_dwsim_libs::prelude::*;
+
+let benzene = component_by_name("benzene").expect("benzene is a preset");
+assert_eq!(benzene.name, "Benzene");
+assert!((benzene.critical_temperature - 562.05).abs() < 1e-12); // K
+
+let err = component_by_name("propane").unwrap_err();
+assert!(err.to_string().contains("no component data for `propane`"));
+```
+
+```rust
+pub fn component_by_name(name: &str) -> Result<crate::thermo::component::Component, ComponentLookupError> { /* ... */ }
 ```
 
 ## Module `saturation`
