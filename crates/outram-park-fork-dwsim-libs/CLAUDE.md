@@ -36,10 +36,24 @@ cargo test  -p outram-park-fork-dwsim-libs --lib --release
   DWSIM at the pinned commit `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` on the
   same input, to 4 significant figures. **Evidence class:** cross-code
   comparison.
-  **NOT YET MEASURED.** No run has been performed against this bar. `dotnet`
-  and `mono` are absent from the development container, so upstream DWSIM
-  cannot be *executed* — only read. This is recorded as the standard the crate
-  is held to, not as a result it has met.
+  **MEASURED 2026-09-13 — BAR NOT MET.** Upstream DWSIM 9.0.5.0 was built
+  from the pinned source and run headless on Linux (see "Running upstream
+  DWSIM headless" below). Peng-Robinson vapour density, same inputs:
+
+  | case | upstream DWSIM | this port | deviation |
+  |---|---|---|---|
+  | CO2 400 K, 5 MPa | 73.2995 | 73.554 | +0.35 % |
+  | CO2 400 K, 10 MPa | 161.9046 | 163.148 | +0.77 % |
+  | N2 300 K, 10 MPa | 111.5136 | 113.603 | +1.87 % |
+  | N2 200 K, 5 MPa | 94.0138 | 95.494 | +1.57 % |
+
+  Agreement is 2-3 significant figures, not the 4 the bar demands, so the
+  crate **does not currently meet its own bar**. The deviation is systematic
+  and one-signed (this port always reads high), which points at a definite
+  cause — a differing alpha-function, kij default, or root-selection
+  convention — rather than noise. That is a tractable investigation, not a
+  rewrite. The declaration stands as the maintainer's decision; this entry
+  records that the evidence does not yet support it.
 
 **What was actually measured at declaration time** (2026-09-11, release), and
 what a reader should treat as the real current evidence:
@@ -52,6 +66,51 @@ what a reader should treat as the real current evidence:
 | Refluxed-absorber bottom-stage energy residual | −2.87e-9 W (β = 1), +2.68e-11 W (β = 0.5) |
 | Wang-Henke ⟷ Naphtali-Sandholm cross-check at NS's D | Q₇ −0.018785 W, profiles agree to 0.001 K |
 | Test suite | 705 lib, 18 doc, 11 integration, 0 failing |
+
+## Running upstream DWSIM headless (for code-to-code verification)
+
+Established 2026-09-13. Upstream DWSIM **can** be built and run on Linux from
+the pinned commit, which makes the cross-code bar above measurable. The
+pinned clone at `/home/user/dwsim-upstream` stays **read-only**; build from a
+copy.
+
+```bash
+apt-get install -y dotnet-sdk-8.0 mono-complete   # MS CDN is proxy-blocked; Ubuntu's archive works
+dotnet msbuild DWSIM.Thermodynamics/DWSIM.Thermodynamics.vbproj \
+  /p:Configuration=Release /p:FrameworkPathOverride=/usr/lib/mono/4.8-api \
+  /p:GenerateSerializationAssemblies=Off /p:GenerateSatelliteAssemblies=false
+```
+
+Six things are required, and none of them touches thermodynamic code:
+
+1. **`packages/` is ~80 % incomplete** (102 of 128 absent). `dist.nuget.org` is
+   proxy-blocked, so fetch each `.nupkg` from `api.nuget.org`'s
+   `v3-flatcontainer` endpoint at the exact version in `packages.config` and
+   unzip to `packages/<Id>.<Version>/`.
+2. **`System.Resources.Extensions`** must be referenced by every project that
+   embeds resources (49 of them) — .NET Core MSBuild needs it, Windows MSBuild
+   does not.
+3. **Culture-qualified `.resx` must be dropped** (38 in the thermo project, 3
+   in SharedClasses) because the `AL` task does not exist on .NET Core MSBuild.
+   All of them are under `EditingForms/` — GUI dialog translations.
+4. **Filename case must be fixed** — upstream's Windows branch is not
+   case-consistent, so symlink `Steam67.vb`→`STEAM67.vb`,
+   `Elements.txt`→`elements.txt`, `JobackGroups.txt`→`jobackgroups.txt`, and
+   `System.configuration.dll`→`System.Configuration.dll` in Mono's 4.8-api dir.
+5. **Mono's real VB runtime is needed.** Ubuntu 24.04 has no
+   `libmono-microsoft-visualbasic10.0-cil`; the `-api` assemblies are
+   reference-only and fail at runtime. Fetch the `.deb` from the `mono-basic`
+   pool and drop `Microsoft.VisualBasic.dll` into `/usr/lib/mono/4.5/`.
+6. Drive it through `DWSIM.Thermodynamics.CalculatorInterface.Calculator` —
+   `Initialize()`, then `CalcProp(package, prop, basis, phase, comps, T, P, z)`.
+   Compile the driver with `mcs` against the built DLLs and run it **in the
+   output directory** (Mono probes the assembly's own folder). Reference
+   `CapeOpen.dll`, since `CalcProp`'s signature exposes CAPE-OPEN types.
+
+**Two upstream portability defects found doing this, worth reporting upstream:**
+the filename case mismatches above, and `DWSIM.Thermodynamics` holding a direct
+project reference to `DWSIM.Controls.DockPanel` (a WinForms docking library), so
+the thermodynamics layer is not separable from the GUI.
 
 **Known gaps at declaration, recorded so a later reader is not misled:**
 
