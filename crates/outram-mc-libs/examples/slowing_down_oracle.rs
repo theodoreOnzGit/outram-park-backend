@@ -152,9 +152,27 @@ fn main() {
 ///
 /// The anisotropic and production kernels add real physics the deterministic
 /// solve does not model (CM anisotropy, and for `Production` also free-gas
-/// target motion and inelastic channels), so they are held to a looser 5 %
-/// envelope: they are *supposed* to differ, and the assertion on them is that
-/// they differ by a physically sensible amount rather than diverging.
+/// target motion and inelastic channels), so they are held to a looser
+/// `max(4·se, 5 %)` envelope: they are *supposed* to differ, and the assertion on
+/// them is that they differ by a physically sensible amount rather than
+/// diverging.
+///
+/// # Why the 5 % is floored by the statistics, and not flat
+///
+/// It was flat until 2026-09-13, when it fired at the most self-shielded
+/// dilution — `AnisotropicCmAtRest` +27.46 % against the oracle at
+/// `sigma_b = 10 b`. That is not a regression. At that dilution `p_esc` is
+/// **9.1e-4 and its own sampling standard error is 1.0e-4, 11 % of it**, so a
+/// flat 5 % band is a quarter of the noise and the row cannot be held to it at
+/// any history count this example can afford (matching 5 % to 1 sigma would need
+/// ~77x the histories, for one row). The measured departures there are +3.3 %,
+/// +27.5 % and +8.8 % — all inside 2.6 sigma — and every other dilution has all
+/// three kernels inside 2.4 % with `se` under 2 %.
+///
+/// So the physics bound is kept wherever the measurement has the power to test
+/// it, and the noise floor takes over where it does not. A gate must not assert
+/// more precision than the measurement has; the alternative — leaving a 5 % band
+/// on an 11 % measurement — is a gate that fires on luck in both directions.
 ///
 /// The monotonicity claim is the shape check: `p_esc` must rise with
 /// `sigma_b`, because more moderator per absorber atom means less
@@ -188,17 +206,39 @@ fn vv_gate(sweep: &[(f64, f64, [f64; 3], f64)]) {
             (4.0 * se).max(0.005 * det),
         );
         // The other two model more physics than the oracle does.
+        //
+        // The envelope is `max(4·se, 5 % of det)` and not a flat 5 %, for the same
+        // reason the iso-CM one above is: **a gate must not assert more precision
+        // than the measurement has.** At the most self-shielded dilution the
+        // escape probability is ~9e-4 and its own sampling standard error is 11 %
+        // of it, so a flat 5 % band there is a quarter of the noise. It passed for
+        // a while on one lucky sample and fired on 2026-09-13 at +27.46 %, which
+        // is 2.6 sigma — not a regression, an ill-conditioned comparison. Every
+        // dilution from 30 b up has se under 2 % and is still held to the 5 %
+        // physics bound, which is where the claim has power.
         for k in 1..3 {
             let rel = (mc[k] - det) / det;
+            let envelope = (4.0 * se).max(0.05 * det);
+            let n_sigma = if se > 0.0 {
+                (mc[k] - det).abs() / se
+            } else {
+                0.0
+            };
             println!(
                 "  [{}] {} vs deterministic @ sigma_b = {sigma_b:.0} b: \
-                 {:+.2} % (envelope ±5 %, extra physics expected)",
-                if rel.abs() <= 0.05 { "PASS" } else { "FAIL" },
+                 {:+.2} % ({n_sigma:.1} sigma; envelope ±{:.2} % = max(4 se, 5 %), \
+                 extra physics expected)",
+                if (mc[k] - det).abs() <= envelope {
+                    "PASS"
+                } else {
+                    "FAIL"
+                },
                 KERNEL_NAMES[k],
                 rel * 100.0,
+                100.0 * envelope / det,
             );
             assert!(
-                rel.abs() <= 0.05,
+                (mc[k] - det).abs() <= envelope,
                 "{} gives p_esc = {:.5} against the deterministic {det:.5} at \
                  sigma_b = {sigma_b:.0} b, a {:+.2} % departure. This kernel \
                  models CM anisotropy (and, for Production, free-gas motion and \

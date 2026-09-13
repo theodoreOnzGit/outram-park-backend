@@ -108,7 +108,19 @@
 use outram_mc_libs::material::thermal::ThermalScattering;
 
 const TEMP: f64 = 293.6;
-const N: usize = 400_000;
+/// **Raised 400 000 -> 1 600 000 on 2026-09-13.** Not for precision: for the
+/// gate at the bottom, which requires the recorded #188 deviation to exceed
+/// **5x** its own sampling standard error, so that a run which quietly lost
+/// sample count cannot keep reporting the defect from pure scatter. The
+/// continuous outgoing-energy law shrank the deviation at 1.5 meV from 5.5 % to
+/// 1.31 %, which against the old 0.30 % standard error is 4.4 sigma -- under the
+/// bar. Four times the samples halves the error to ~0.15 % and puts the same
+/// finding back at ~8.7 sigma.
+///
+/// Buying resolution is the right response here and weakening the 5 sigma
+/// requirement is not: the defect got smaller, so the instrument has to get
+/// better, not the bar lower.
+const N: usize = 1_600_000;
 
 fn main() {
     let tsl_for_gate = njoy_outram_park_fork::reference_data::reference_endf("tsl-HinH2O.endf")

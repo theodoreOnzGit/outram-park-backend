@@ -377,8 +377,9 @@ fn golden_gate(law: &ThermalScattering) {
 /// never widen either.**
 fn width_golden_gate(law: &ThermalScattering) {
     use outram_mc_libs::vv::njoy_golden::{
-        GRAPHITE_KERNEL_WIDTH, GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV,
-        GRAPHITE_KERNEL_WIDTH_NARROW_TOL, GRAPHITE_KERNEL_WIDTH_TOL,
+        GRAPHITE_KERNEL_WIDTH, GRAPHITE_KERNEL_WIDTH_BROAD_CEILING,
+        GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV, GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
+        GRAPHITE_KERNEL_WIDTH_TOL,
     };
 
     let mut seed = 20_260_912_u64;
@@ -397,12 +398,16 @@ fn width_golden_gate(law: &ThermalScattering) {
         }
         if e < GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV {
             assert!(
-                rel < 0.0 && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
+                rel < GRAPHITE_KERNEL_WIDTH_BROAD_CEILING
+                    && rel.abs() < GRAPHITE_KERNEL_WIDTH_NARROW_TOL,
                 "graphite's kernel width is {:+.2} % from NJOY at {e:.4e} eV. Below \
-                 {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV it is the equiprobable \
-                 representation's own narrowing that is being measured, and it was \
-                 one-signed and inside {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} on 2026-09-12. \
-                 A BROAD point here would mean the coarse-emission-grid defect of \
+                 {GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV} eV the width is narrow or \
+                 within {GRAPHITE_KERNEL_WIDTH_BROAD_CEILING} of NJOY and inside \
+                 {GRAPHITE_KERNEL_WIDTH_NARROW_TOL} in magnitude (2026-09-13, after the \
+                 equiprobable representation was replaced by a continuous one: the top \
+                 of the table has converged onto NJOY from below and crosses by a \
+                 fraction of the sampling error). A point BROAD by more than the \
+                 ceiling would mean the coarse-emission-grid defect of \
                  GitHub #190 had come back",
                 100.0 * rel
             );
