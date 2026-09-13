@@ -48,6 +48,8 @@ fn hzrh_thermal() -> AceTable {
         n_outgoing: 16,
         n_cosines: NANG,
         natom: 1.0,
+        // THERMR card-4 emax; bounds the calcem grid the bins come from.
+        emax_ev: 4.0,
     };
     AceTable::thermal_from_mf7(&mf7, temp, "hzrh", 0, &grid, opts).unwrap()
 }
