@@ -56,14 +56,37 @@ cargo test  -p outram-park-fork-dwsim-libs --lib --release
   `R = 8.314` (`PengRobinson.vb`) against this port's CODATA 8.314462618; that
   is worth about 0.01 % and drives nothing below.
 
-  **Open: upstream's own property-dispatch layer disagrees with its own EOS.**
-  `CalcProp(..., "compressibilityfactor", "Vapor", ...)` returns values 0.36 %
-  to 1.88 % away from `Z_PR` for identical inputs — N2 300 K/10 MPa gives
-  `CalcProp` 1.007179 against `Z_PR` 0.988619. The discrepancy is therefore
-  **inside upstream**, between its EOS and its property path, not between
-  upstream and this port. What `CalcProp` adds — a flash, a phase-identification
-  step, or a volume translation — is not yet traced, so no claim is made about
-  flash-level agreement, which is the half of the bar that matters for columns.
+  **TRACED: upstream applies a Peneloux volume translation; this port does
+  not.** `CalcProp(..., "compressibilityfactor", "Vapor", ...)` returns values
+  0.36 % to 1.88 % away from upstream's own `Z_PR` for identical inputs. The
+  cause is `PengRobinson.vb:210-215`, which shifts the root after solving:
+
+  ```vb
+  result = m_pr.Z_PR(T, P, ...)
+  If LiquidDensity_UsePenelouxVolumeTranslation Then
+      result -= Me.AUX_CM(phase) / 8.314 / T * P
+  End If
+  ```
+
+  Confirmed numerically rather than by reading alone: backing the constant out
+  of the measured pairs, `c = -(Z_CalcProp - Z_PR) * R * T / P`, gives the same
+  value per compound at different T and P — CO2 -2.177724e-6 and -2.177376e-6,
+  N2 -4.629188e-6 and -4.629075e-6 m^3/mol (4-5 s.f.). A constant independent
+  of state is a volume translation by definition.
+
+  **Consequence for this port.** The EOS is right and needs no change. Matching
+  upstream's *reported* densities additionally requires implementing the
+  Peneloux shift, which this port does not have. Whether to add it is a
+  maintainer decision, not an obvious fix: the translation improves liquid
+  density and perturbs vapour density, and adopting it means adopting
+  upstream's `AUX_CM` constants and their provenance too. Until that is
+  decided, expect this port to agree with upstream's `Z_PR` exactly and with
+  its `CalcProp` to about 2 %.
+
+  Note a toggle test of `LiquidDensity_UsePenelouxVolumeTranslation` on a
+  caller-constructed package has no effect, because `CalcProp` builds its own
+  package internally via `CAPEOPENManager.GetPropertyPackage`. Do not conclude
+  from that null result that translation is absent.
 
   Ruled out, recorded so they are not re-tried: compound constants (N2's
   Tc/Pc/omega are identical in both codes yet showed the largest gap); the gas
