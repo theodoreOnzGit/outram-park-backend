@@ -1090,7 +1090,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-06** (9 of 36 crates). The bar and its
+**Declared mature as of 2026-09-13** (10 of 36 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1105,15 +1105,21 @@ the authority:
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
 | `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
+| `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **NOT YET MEASURED** — no dotnet/mono, upstream cannot be run | cross-code (aspirational) |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
-to it. Three honest notes on this roster: `teh-o-prke` is the thinnest of the
-eight and lacks analytical transient validation (its own file says so, and
-says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
-today rather than at what criticality work should eventually demand; and the
-Scilab half of the process-control crate's evidence lives in the maintainer's
-dissertation rather than in this repository, so its recorded bar is written
-against the analytical tests that *are* reproducible here.
+to it. Four honest notes on this roster: `teh-o-prke` is thin and lacks
+analytical transient validation (its own file says so, and says what would fix
+it); `outram-mc-libs`' 500 pcm is set at what it achieves today rather than at
+what criticality work should eventually demand; the Scilab half of the
+process-control crate's evidence lives in the maintainer's dissertation rather
+than in this repository, so its recorded bar is written against the analytical
+tests that *are* reproducible here; and **`outram-park-fork-dwsim-libs` is
+declared against a bar nothing has yet been measured against** — upstream DWSIM
+cannot be executed on the development container (no `dotnet`/`mono`), and 0 of
+the 107 rows in its own port-coverage matrix are `PORTED + VALIDATED`. Its
+crate `CLAUDE.md` records what *was* measured at declaration time and the gaps
+that remain; read that before citing it as validated.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**

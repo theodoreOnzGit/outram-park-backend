@@ -28,6 +28,49 @@ cargo check -p outram-park-fork-dwsim-libs --lib
 cargo test  -p outram-park-fork-dwsim-libs --lib --release
 ```
 
+## Maturity
+
+**Declared mature by the maintainer on 2026-09-13.**
+
+- 2026-09-13 — mature. **Bar:** flash and column results agree with upstream
+  DWSIM at the pinned commit `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` on the
+  same input, to 4 significant figures. **Evidence class:** cross-code
+  comparison.
+  **NOT YET MEASURED.** No run has been performed against this bar. `dotnet`
+  and `mono` are absent from the development container, so upstream DWSIM
+  cannot be *executed* — only read. This is recorded as the standard the crate
+  is held to, not as a result it has met.
+
+**What was actually measured at declaration time** (2026-09-11, release), and
+what a reader should treat as the real current evidence:
+
+| check | result |
+|---|---|
+| PR-EOS density vs `outram-park-fork-coolprop` Helmholtz EOS | CO₂ 400 K/5 MPa +1.03 %, 400 K/10 MPa +1.00 %; N₂ 300 K/10 MPa +1.68 %, 200 K/5 MPa +2.28 % |
+| dwsim-libs PR vs `tampines-steam-tables` PR | agree to 4 significant figures at all four points |
+| MESH column per-component material balance | worst relative imbalance 5.55e-6; bypassed components 1.7e-16 |
+| Refluxed-absorber bottom-stage energy residual | −2.87e-9 W (β = 1), +2.68e-11 W (β = 0.5) |
+| Wang-Henke ⟷ Naphtali-Sandholm cross-check at NS's D | Q₇ −0.018785 W, profiles agree to 0.001 K |
+| Test suite | 705 lib, 18 doc, 11 integration, 0 failing |
+
+**Known gaps at declaration, recorded so a later reader is not misled:**
+
+- **0 of 107 rows in `docs/upstream-port-coverage.md` are `PORTED + VALIDATED`.**
+  Nothing in the crate is backed by agreement with an analytical result, a
+  published value, or an external code. The three closest are single
+  pure-component spot checks.
+- Compound coverage is **seven** presets, only two of which
+  (benzene, toluene) carry real ideal-gas Cp coefficients.
+- Six `MISSING + REQUIRED` items remain, including material-stream property
+  calculation (#176) and unit-op registry wiring; unit outputs are not
+  composable streams.
+- `Stage::heat_duty`'s documented sign convention contradicts its use.
+
+**Consequence of this declaration:** the workspace `CLAUDE.md` "dogfood the API
+on a small model" rule is now a **hard rule** for this crate. GitHub #72's
+Haiku run must be repeated against the current API and its friction log acted
+on; it is no longer optional.
+
 ## Port scope & order (read on demand)
 
 The prioritised list of which DWSIM C# modules to port (flash algorithms,
