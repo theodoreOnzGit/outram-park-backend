@@ -1,5 +1,9 @@
-benchmark,common_name,spectrum,u238_share_of_heavy_metal,fuel_form,delta_k_pcm,statistical_sigma_pcm,source_record
-HEU-MET-FAST-001,Godiva,fast,5%,bare metal sphere,+57,173,ring_rpt/ring_rpt_vs_openmc.md
-IEU-MET-FAST-002,Jemima,fast,83% core / 99.3% reflector,natural-U-reflected 16% U metal,+6,173,ring_rpt/ring_rpt_vs_openmc.md
-HEU-SOL-THERM-009 case 1,,thermal,5%,water-reflected homogeneous solution sphere,-18,171,ring_rpt/ring_rpt_vs_openmc.md
-LEU-COMP-THERM-008 case 1,B&W critical lattice,thermal,97.5%,1.03 cm UO2 pellets (heterogeneous),+2950,61,ring_rpt/ring_rpt_vs_openmc.md
+benchmark,common_name,spectrum,u238_share_of_heavy_metal,fuel_form,delta_k_pcm,statistical_sigma_pcm,gate_pcm,measured,tree,source_record
+HEU-MET-FAST-001,Godiva,fast,5%,bare metal sphere,+420,162,749,2026-09-13,9abfe85472,ring_rpt/ring_rpt_vs_openmc.md
+IEU-MET-FAST-002,Jemima,fast,83% core / 99.3% reflector,natural-U-reflected 16% U metal,-128,168,971,2026-09-13,9abfe85472,ring_rpt/ring_rpt_vs_openmc.md
+HEU-SOL-THERM-009 case 1,,thermal,5%,water-reflected homogeneous solution sphere,+158,158,1232,2026-09-13,9abfe85472,ring_rpt/ring_rpt_vs_openmc.md
+LEU-COMP-THERM-008 case 1,B&W critical lattice,thermal,97.5%,1.03 cm UO2 pellets (heterogeneous),+2552,129,,2026-09-13,9abfe85472,ring_rpt/ring_rpt_vs_openmc.md
+HEU-MET-FAST-001 (SUPERSEDED),Godiva,fast,5%,bare metal sphere,+57,173,,2026-09-12,pre-continuous-kernel,ring_rpt/ring_rpt_vs_openmc.md
+IEU-MET-FAST-002 (SUPERSEDED),Jemima,fast,83% core / 99.3% reflector,natural-U-reflected 16% U metal,+6,173,,2026-09-12,pre-continuous-kernel,ring_rpt/ring_rpt_vs_openmc.md
+HEU-SOL-THERM-009 case 1 (SUPERSEDED),,thermal,5%,water-reflected homogeneous solution sphere,-18,171,,2026-09-12,pre-continuous-kernel,ring_rpt/ring_rpt_vs_openmc.md
+LEU-COMP-THERM-008 case 1 (SUPERSEDED),B&W critical lattice,thermal,97.5%,1.03 cm UO2 pellets (heterogeneous),+2950,61,,2026-09-11,as-recorded 10000x[250+400],ring_rpt/ring_rpt_vs_openmc.md

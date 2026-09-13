@@ -1,4 +1,4 @@
-case,soluble_boron_ppm,boron_atom_density_per_barn_cm,solid_poison,fuel_pins,delta_k_pcm,statistical_sigma_pcm,source_record
-1,1511,1.6769e-5,none,4961,+2950,61,ring_rpt/ring_rpt_vs_openmc.md
-2,1335.5,1.4821e-5,none,4808,+2271,61,ring_rpt/ring_rpt_vs_openmc.md
-8,794,8.8117e-6,144 pyrex rods,4808,+1713,60,ring_rpt/ring_rpt_vs_openmc.md
+case,soluble_boron_ppm,boron_atom_density_per_barn_cm,solid_poison,fuel_pins,delta_k_recorded_pcm,sigma_recorded_pcm,delta_k_after_190_193_pcm,sigma_after_190_193_pcm,delta_k_continuous_kernel_pcm,sigma_continuous_kernel_pcm,source_record
+1,1511,1.6769e-5,none,4961,+2950,61,+2693,120,+2552,129,ring_rpt/ring_rpt_vs_openmc.md
+2,1335.5,1.4821e-5,none,4808,+2271,61,+2136,126,+2122,121,ring_rpt/ring_rpt_vs_openmc.md
+8,794,8.8117e-6,144 pyrex rods,4808,+1713,60,+1787,127,+1658,117,ring_rpt/ring_rpt_vs_openmc.md
