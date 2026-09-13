@@ -115,18 +115,38 @@
 //! case was re-run against all three, at 4000 x [120 + 250] rather than the
 //! recorded 10 000 x [250 + 400]:
 //!
-//! | case | recorded | after #190/#193 | + continuous kernel |
-//! |---|---|---|---|
-//! | 1 | +2950 ± 61 pcm | +2693 ± 120 pcm | **+2552 ± 129 pcm** |
-//! | 2 | +2271 ± 61 pcm | +2136 ± 126 pcm | **+2122 ± 121 pcm** |
-//! | 8 | +1713 ± 60 pcm | +1787 ± 127 pcm | **+1658 ± 117 pcm** |
+//! | case | recorded | after #190/#193 | + continuous kernel | **+ MF=6 + E' linearisation** |
+//! |---|---|---|---|---|
+//! | 1 | +2950 ± 61 pcm | +2693 ± 120 pcm | +2552 ± 129 pcm | **+2665 ± 128 pcm** |
+//! | 2 | +2271 ± 61 pcm | +2136 ± 126 pcm | +2122 ± 121 pcm | **+2086 ± 118 pcm** |
+//! | 8 | +1713 ± 60 pcm | +1787 ± 127 pcm | +1658 ± 117 pcm | **+1605 ± 114 pcm** |
 //!
 //! **Nothing moved.** No single step shifts a case by 2σ, and the whole of this
-//! week's thermal and nuclear-data work is worth roughly **−400 pcm out of
+//! week's thermal and nuclear-data work is worth roughly **−300 pcm out of
 //! +2950**. The pairwise differences — the statement that owes nothing to any
-//! absorption-share estimate — survive: **+430 ± 177 pcm** (1→2) against the
-//! recorded +679 ± 86, and **+464 ± 168** (2→8) against +558 ± 86. Boron is still
+//! absorption-share estimate — survive: **+579 ± 174 pcm** (1→2) against the
+//! recorded +679 ± 86, and **+481 ± 164** (2→8) against +558 ± 86. Boron is still
 //! worth too little here, by about the same amount.
+//!
+//! # Re-run 2026-09-13 against the last two changes, and why it was worth doing
+//!
+//! The fourth column is this case re-measured after the MT=91/MT=16 continuum
+//! law moved to the evaluation's own ENDF MF=6 (gh:#192) and after THERMR's E'
+//! grid gained the adaptive linearisation `calcem`/`sigl` uses. **The second of
+//! those changes H-in-H₂O's thermal cross section by about −1 %** (it removed a
+//! quadrature excess; see `vv::njoy_golden::H2O_XS`), and this benchmark is a
+//! light-water lattice, so its recorded numbers could not be assumed to still
+//! hold — they had been measured before both changes.
+//!
+//! They do hold. Case 1 moves **+113 ± 181 pcm** against the third column
+//! (0.6 σ), case 2 **−36 ± 169**, case 8 **−53 ± 163** — nothing resolved. The
+//! signs are consistent with less H moderation giving slightly less
+//! thermalisation, but at 0.6 σ that reading is not established by these runs.
+//!
+//! So the conclusion is unchanged and now rests on current code: **LCT-008's
+//! residual is not #193's, not the continuum emission law's, and not the E'
+//! quadrature's.** It remains the thermal-kernel family's — gh:#188 — which is
+//! still open.
 //!
 //! The continuous outgoing-energy law is the interesting one of the three,
 //! because it is the only one that touches the H-in-H₂O kernel this benchmark's
