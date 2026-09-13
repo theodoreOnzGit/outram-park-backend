@@ -2,7 +2,7 @@
 //!
 //! # Why this is a separate claim from any physics claim
 //!
-//! `examples/fhr_ring_rpt_endf.rs` sits **+4004 pcm** above its OpenMC
+//! `examples/fhr_ring_rpt_endf.rs` sat **+4004 pcm** above its OpenMC
 //! reference, and essentially every *physics* mechanism has now been excluded by
 //! measurement — point cross sections, resonance integral, URR reconstruction,
 //! graphite S(α,β) cross section / first moment / mean cosine, two-body
@@ -61,7 +61,8 @@
 //!
 //! # Interpretation
 //!
-//! **The model match is not the cause of the +4004 pcm.** That is a negative
+//! **The model match is not the cause of the +4004 pcm.** (Closed 2026-09-13 by
+//! GitHub #193; the pebble is now +37 pcm from its reference.) That is a negative
 //! result and it is worth having: it removes the "the two codes are modelling
 //! different pebbles" explanation, which is otherwise the natural next guess
 //! once the physics candidates are exhausted, and it does so by arithmetic
@@ -177,9 +178,7 @@ fn ring_rpt_fuel_annulus_matches_the_openmc_deck() {
     );
 
     let rel = (ours - theirs).abs() / theirs;
-    println!(
-        "  deck {theirs:.12} cm   ours {ours:.12} cm   rel {rel:.3e}"
-    );
+    println!("  deck {theirs:.12} cm   ours {ours:.12} cm   rel {rel:.3e}");
     assert!(
         rel < 1.0e-12,
         "the ring-RPT fuel annulus outer radius is {ours:.12} cm against the \

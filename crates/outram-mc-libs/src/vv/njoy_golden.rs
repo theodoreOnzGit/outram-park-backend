@@ -396,7 +396,8 @@ pub const GRAPHITE_KERNEL_CONVERGED_TOL: f64 = 0.002;
 ///
 /// Worst deviation **−0.0084 absolute on μ̄_inelastic** (0.01 eV) and **−0.0017
 /// on μ̄_total** (5 meV). μ̄_total is ≈ 0.05 across the whole range, so a 0.005
-/// error moves σ_tr = σ_s(1 − μ̄) by **0.05 %**. Against a +4004 pcm k-residual
+/// error moves σ_tr = σ_s(1 − μ̄) by **0.05 %**. Against the +4004 pcm k-residual
+/// this was measured against (closed 2026-09-13, GitHub #193; now +37 pcm)
 /// that is an exclusion, not a candidate.
 ///
 /// **Re-measured 2026-09-12** after the emission tabulation was resized

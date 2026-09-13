@@ -106,7 +106,7 @@
 //! `σ_γ`, not in `σ_γ` itself. See `verification_and_validation/ring_rpt/` and
 //! bead `op-mzvp.2.12` for the live hypothesis list.
 //!
-//! # Re-measured 2026-09-12 — unchanged by this week's fixes
+//! # Re-measured 2026-09-12 and 2026-09-13 — unchanged by this week's fixes
 //!
 //! Three defects landed against the thermal/nuclear-data path this week: the
 //! emission-table resize (GitHub #190), the bound kernels' fixed point (#191),
@@ -115,17 +115,26 @@
 //! case was re-run against all three, at 4000 x [120 + 250] rather than the
 //! recorded 10 000 x [250 + 400]:
 //!
-//! | case | recorded | 2026-09-12 | move |
+//! | case | recorded | after #190/#193 | + continuous kernel |
 //! |---|---|---|---|
-//! | 1 | +2950 ± 61 pcm | **+2693 ± 120 pcm** | −257 ± 134 (1.9σ) |
-//! | 2 | +2271 ± 61 pcm | **+2136 ± 126 pcm** | −135 ± 140 (1.0σ) |
-//! | 8 | +1713 ± 60 pcm | **+1787 ± 127 pcm** | +74 ± 140 (0.5σ) |
+//! | 1 | +2950 ± 61 pcm | +2693 ± 120 pcm | **+2552 ± 129 pcm** |
+//! | 2 | +2271 ± 61 pcm | +2136 ± 126 pcm | **+2122 ± 121 pcm** |
+//! | 8 | +1713 ± 60 pcm | +1787 ± 127 pcm | **+1658 ± 117 pcm** |
 //!
-//! **Nothing moved.** No case shifts by 2σ, and the pairwise differences — the
-//! statement that owes nothing to any absorption-share estimate — reproduce:
-//! **+557 ± 174 pcm** (1→2) against the recorded +679 ± 86, and **+349 ± 179**
-//! (2→8) against +558 ± 86. Boron is still worth too little here, by the same
-//! amount as before.
+//! **Nothing moved.** No single step shifts a case by 2σ, and the whole of this
+//! week's thermal and nuclear-data work is worth roughly **−400 pcm out of
+//! +2950**. The pairwise differences — the statement that owes nothing to any
+//! absorption-share estimate — survive: **+430 ± 177 pcm** (1→2) against the
+//! recorded +679 ± 86, and **+464 ± 168** (2→8) against +558 ± 86. Boron is still
+//! worth too little here, by about the same amount.
+//!
+//! The continuous outgoing-energy law is the interesting one of the three,
+//! because it is the only one that touches the H-in-H₂O kernel this benchmark's
+//! residual is attributed to. It moved case 1 by −141 ± 177 pcm, case 2 by
+//! −14 ± 175 and case 8 by −129 ± 173 — all under 1σ. That is consistent with
+//! what it did to the kernel itself: it removed only about **20 %** of the width
+//! deficit against NJOY2016 (−4.91 % → −4.02 %), and the rest lives in the
+//! THERMR kernel underneath rather than in how the crate samples it.
 //!
 //! ## Why #193 could not have touched this case, checked rather than assumed
 //!

@@ -541,7 +541,8 @@ fn graphite_sab_cross_sections_against_njoy_thermr() {
 
 /// **This crate's graphite S(α,β) scattering ANGLE matches NJOY2016's THERMR to
 /// ≤ 0.009 absolute on μ̄, which excludes the thermal angle as the cause of the
-/// FHR ring-RPT +4004 pcm residual.**
+/// FHR ring-RPT +4004 pcm residual.** (That residual was closed on 2026-09-13
+/// by GitHub #193 and is now +37 pcm; this exclusion is what narrowed the search.)
 ///
 /// # Why this test exists
 ///
@@ -592,7 +593,8 @@ fn graphite_sab_cross_sections_against_njoy_thermr() {
 ///
 /// μ̄_total is ≈ 0.05 across the whole thermal range, so an error of 0.005 moves
 /// σ_tr = σ_s(1 − μ̄) by **0.05 %**. That is the number to weigh against
-/// +4004 pcm: the thermal scattering angle is excluded.
+/// +4004 pcm (since closed by GitHub #193): the thermal scattering angle is
+/// excluded, and that exclusion is part of what pointed the search elsewhere.
 #[test]
 fn graphite_sab_mean_cosine_against_njoy_thermr() {
     use outram_mc_libs::vv::njoy_golden::{

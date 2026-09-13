@@ -113,7 +113,11 @@
 //! These are recorded, not fixed, and are gated against drift below. The
 //! tracking beads are named in the tests.
 //!
-//! # Why it is worth running against the +4004 pcm FHR residual
+//! # Why it was worth running against the +4004 pcm FHR residual
+//!
+//! (That residual was closed on 2026-09-13 by GitHub #193 -- a threshold reaction
+//! carrying a cross section below its threshold -- and is now +37 pcm. This
+//! oracle found two real defects on the way and keeps its own value.)
 //!
 //! The ring-RPT record localises the whole residual to "the fraction of neutrons
 //! that cross 0.625 eV" — production per absorption agrees to 0.07 % inside the

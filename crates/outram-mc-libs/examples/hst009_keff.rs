@@ -8,12 +8,20 @@
 //! an experiment: ν̄, χ, fast σ, inelastic levels, (n,2n) and the eigenvalue
 //! driver reproduce ICSBEP **HEU-MET-FAST-001** to +57 ± 173 pcm. Nothing had
 //! settled the *thermal* half, and the FHR pebble study's residual
-//! (`op-mzvp.2.12`, +4004 pcm, entirely the fraction of neutrons crossing
-//! 0.625 eV) lives there. Every mechanism on this side has been excluded against
-//! its own oracle, so the remaining question is no longer "which of our
+//! (`op-mzvp.2.12`, +4004 pcm at the time, entirely the fraction of neutrons
+//! crossing 0.625 eV) lived there. Every mechanism on this side had been excluded
+//! against its own oracle, so the remaining question was no longer "which of our
 //! components is wrong" but **"is this code right on a thermal system at all?"**
 //! — and that needs a thermal case whose answer does not come from the deck
 //! under test.
+//!
+//! **Closed 2026-09-12 (GitHub #193).** The pebble residual was a threshold
+//! reaction carrying a cross section below its threshold, which gave F-19 a
+//! spurious sub-threshold inelastic channel; the pebble now sits **+37 pcm**
+//! from its reference. This case keeps its value all the same, and arguably
+//! gains it: it is the measurement that said the thermal half of the machinery
+//! was sound while the pebble was still 4000 pcm out, which is what kept the
+//! search pointed at the data rather than at the transport.
 //!
 //! This is that case, and it is deliberately the *complement* of the pebble:
 //!
@@ -244,7 +252,8 @@ fn main() {
         result.k_std * 1.0e5
     );
     println!(
-        "\n  For scale, the FHR pebble sits +4004 pcm above its reference.\n  \
+        "\n  For scale, the FHR pebble sat +4004 pcm above its reference when this\n  \
+  was written; GitHub #193 has since closed that to +37 pcm.\n  \
          (The U-238 resonance-escape reading of that residual was later REFUTED:\n  \
          see examples/lct008_keff.rs and GitHub #188. Three LEU-COMP-THERM-008\n  \
          cases sharing one lattice give +2950/+2271/+1713 pcm, a 14-sigma spread\n  \

@@ -297,7 +297,8 @@ fn main() {
 /// # What this rules out
 ///
 /// \u{3bc}\u{304}_total is \u{2248} 0.05 over the whole thermal range, so an error of 0.005 moves
-/// \u{3c3}_tr = \u{3c3}_s(1 \u{2212} \u{3bc}\u{304}) by **0.05 %**. The FHR ring-RPT residual is +4004 pcm.
+/// \u{3c3}_tr = \u{3c3}_s(1 \u{2212} \u{3bc}\u{304}) by **0.05 %**. The FHR ring-RPT residual was
+/// +4004 pcm when this was measured; GitHub #193 closed it to +37 pcm on 2026-09-13.
 /// The thermal scattering angle is therefore **excluded** as its cause \u{2014} which
 /// is the point of running it: it was the leading hypothesis precisely because
 /// it was the one moment of the thermal kernel with no oracle on it.

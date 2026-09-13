@@ -454,7 +454,8 @@ fn a_homogeneous_shell_cell_reproduces_the_infinite_medium_solution() {
 ///
 /// # The candidate this rules on (gh:#178, beads `op-qho6`, `op-t9cr`)
 ///
-/// The FHR ring-RPT pebble sits +4004 pcm above its OpenMC reference, and the
+/// The FHR ring-RPT pebble sat +4004 pcm above its OpenMC reference when this was
+/// written (closed 2026-09-13, GitHub #193; now +37 pcm), and the
 /// residual survives in the **ring-RPT** model — four concentric spheres of
 /// homogeneous materials, surface-tracked — so double heterogeneity and the
 /// tracking method are both excluded. What was left was what this code does to
