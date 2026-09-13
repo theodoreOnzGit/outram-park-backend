@@ -52,7 +52,12 @@
 //! commit `ac5adf5f`) `thermr.f90`; see [`super`] and the crate `NOTICE`.
 
 use std::fs::File;
+use crate::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
+use crate::thermr::calcem::iform0::compute_iform0;
+use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
@@ -100,7 +105,24 @@ pub struct IncoherentInelasticScattering {
     inelastic: IncoherentInelastic,
     requested_temperature: Temperature,
     natom: f64,
+    /// Lazily-built `calcem` `iform = 0` tables, keyed by the cosine-bin count.
+    ///
+    /// Building one walks the whole `EGRID` incident-energy grid, so it is done
+    /// once and shared: [`emission`](Self::emission) is called per point of a
+    /// consumer's own grid, and recomputing the table each time would cost
+    /// seconds per call. This mirrors how the data is actually used downstream
+    /// — THERMR computes the table once and ACE stores it on that grid.
+    calcem: RwLock<HashMap<usize, Arc<Iform0Table>>>,
 }
+
+/// `emax` for the `calcem` table \[eV\] — the upper limit of the thermal
+/// treatment, NJOY's THERMR card-4 `emax`. 4.0 eV is the value the standard
+/// thermal decks use and matches `outram-mc-libs`'
+/// `DEFAULT_THERMAL_CUTOFF_EV`.
+const CALCEM_EMAX_EV: f64 = 4.0;
+/// `tol` for the `calcem` table — THERMR card-4 `tol`, 0.05 in the standard
+/// decks.
+const CALCEM_TOL: f64 = 0.05;
 
 impl IncoherentInelasticScattering {
     /// Load the incoherent-inelastic S(α,β) for material `mat` from the ENDF
@@ -153,6 +175,7 @@ impl IncoherentInelasticScattering {
             inelastic,
             requested_temperature: temperature,
             natom,
+            calcem: RwLock::new(HashMap::new()),
         })
     }
 
@@ -228,20 +251,48 @@ impl IncoherentInelasticScattering {
         n_outgoing: usize,
         n_cosines: usize,
     ) -> Vec<ThermalEmissionBin> {
-        self.inelastic
-            .equiprobable_emission(
-                e.get::<electronvolt>(),
-                self.inelastic.temperature_k,
-                self.natom,
-                n_outgoing,
-                n_cosines,
-            )
+        let Ok(table) = self.calcem_table(n_cosines) else {
+            return Vec::new();
+        };
+        let ev = e.get::<electronvolt>();
+        let Some(record) = nearest_record(&table, ev) else {
+            return Vec::new();
+        };
+        // `acesix` consumes a normalized ENDF MF=6 law; `calcem` produces
+        // `σ(E→E')` in barns. See `normalized_rows`.
+        let rows = normalized_rows(&record.rows);
+        acesix_equiprobable(&rows, n_outgoing, BinWeights::Constant)
             .into_iter()
-            .map(|OutgoingBin { e_out_ev, cosines }| ThermalEmissionBin {
-                outgoing_energy: NeutronEnergy::new::<electronvolt>(e_out_ev),
-                cosines,
+            .map(|b| ThermalEmissionBin {
+                outgoing_energy: NeutronEnergy::new::<electronvolt>(b.e_out_ev),
+                cosines: b.cosines,
             })
             .collect()
+    }
+
+    /// The `calcem` `iform = 0` table for `n_cosines` angular bins, built once
+    /// and cached (see the [`calcem`](Self::calcem) field).
+    fn calcem_table(&self, n_cosines: usize) -> Result<Arc<Iform0Table>, NjoyError> {
+        if let Some(t) = self
+            .calcem
+            .read()
+            .expect("calcem cache poisoned")
+            .get(&n_cosines)
+        {
+            return Ok(Arc::clone(t));
+        }
+        let built = Arc::new(compute_iform0(
+            &self.inelastic,
+            self.natom,
+            n_cosines,
+            CALCEM_EMAX_EV,
+            CALCEM_TOL,
+        )?);
+        self.calcem
+            .write()
+            .expect("calcem cache poisoned")
+            .insert(n_cosines, Arc::clone(&built));
+        Ok(built)
     }
 
     /// The raw kernel, for callers that need the double-differential directly or
@@ -621,4 +672,34 @@ impl IncoherentElasticScattering {
             nbin,
         )
     }
+}
+
+/// The tabulated incident-energy record covering `ev`.
+///
+/// `calcem` tabulates on its own `EGRID`, and both NJOY and the ACE consumers
+/// use that grid directly rather than re-deriving the kernel at an arbitrary
+/// energy: ACE stores one emission block per tabulated incident energy, and the
+/// sampler picks among them. This returns the record whose energy is nearest
+/// `ev`, clamped to the ends of the grid.
+fn nearest_record(table: &Iform0Table, ev: f64) -> Option<&IncidentEnergyRecord> {
+    let recs = &table.records;
+    if recs.is_empty() {
+        return None;
+    }
+    let i = match recs
+        .binary_search_by(|r| r.e_in_ev.partial_cmp(&ev).expect("finite grid energies"))
+    {
+        Ok(i) => i,
+        Err(0) => 0,
+        Err(i) if i >= recs.len() => recs.len() - 1,
+        Err(i) => {
+            // Bracketed by i-1 and i; take the nearer.
+            if (ev - recs[i - 1].e_in_ev).abs() <= (recs[i].e_in_ev - ev).abs() {
+                i - 1
+            } else {
+                i
+            }
+        }
+    };
+    Some(&recs[i])
 }

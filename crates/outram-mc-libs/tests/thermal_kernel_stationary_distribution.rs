@@ -56,8 +56,20 @@
 //! ```text
 //!   law                     T_eff [K]          vs nominal    <E^2>/<E>^2   vs 5/3
 //!   free gas C-12, 600 K    601.28 +/- 0.63      +0.21 %     1.6650        -0.10 %
+//!   c_H_in_H2O,   293.6 K   293.38 +/- 0.24      -0.08 %     1.6766        +0.60 %
+//!   c_Graphite,   600 K     600.84 +/- 0.91      +0.14 %     1.6648        -0.11 %
+//!
+//! Those are the numbers AFTER GitHub #188 was fixed by replacing the
+//! home-grown emission tabulation with the ported `aceth.f90::acesix`
+//! (`njoy-outram-park-fork::acer::acesix`). Before that change they read
+//!
 //!   c_H_in_H2O,   293.6 K   294.62 +/- 0.24      +0.35 %     1.6394        -1.64 %
 //!   c_Graphite,   600 K     604.76 +/- 0.89      +0.79 %     1.6425        -1.45 %
+//!
+//! i.e. graphite's shape deficit fell from -1.45 % to -0.11 %, which is the
+//! free-gas control's own -0.10 % — the residual is now the estimator's bias,
+//! not the kernel's. Water's moved from -1.64 % to +0.60 %, a real but much
+//! smaller residual of opposite sign.
 //! ```
 //!
 //! **Updated 2026-09-12** when `ThermalScattering::sample` stopped reading back
@@ -435,10 +447,10 @@ fn graphite_thermalises_onto_its_own_temperature() {
         "c_Graphite",
         TEMP_K,
         Recorded {
-            t_eff_k: 604.76,
-            t_tol_k: 3.0,
-            shape: 1.6425,
-            shape_tol: 0.006,
+            t_eff_k: 600.84,
+            t_tol_k: 2.0,
+            shape: 1.6648,
+            shape_tol: 0.005,
         },
         hot,
         cold,
@@ -505,10 +517,10 @@ fn light_water_thermalises_onto_its_own_temperature() {
         "c_H_in_H2O",
         TEMP_K,
         Recorded {
-            t_eff_k: 294.62,
+            t_eff_k: 293.38,
             t_tol_k: 1.0,
-            shape: 1.6394,
-            shape_tol: 0.006,
+            shape: 1.6766,
+            shape_tol: 0.005,
         },
         hot,
         cold,

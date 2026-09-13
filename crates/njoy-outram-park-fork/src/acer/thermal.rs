@@ -40,6 +40,10 @@
 //! - **LEAPR** (`leapr.f90`) — *generates* MF=7 when an evaluation lacks it;
 //!   optional, since the ENDF/B thermal sublibrary ships MF=7.
 
+use crate::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
+use crate::thermr::calcem::iform0::compute_iform0;
+use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
+use crate::thermr::inelastic::OutgoingBin;
 use crate::thermr::mf7::Mf7;
 use crate::NjoyError;
 
@@ -60,6 +64,36 @@ pub struct ThermalAceOptions {
     /// Number of principal scattering atoms in the material (`B(6)` records it;
     /// `1` for a monatomic scatterer). Used for `σ_b` and the elastic mixing.
     pub natom: f64,
+    /// Upper limit of the thermal treatment \[eV\] — THERMR card-4 `emax`,
+    /// which bounds the `calcem` incident-energy grid the bins are built from.
+    pub emax_ev: f64,
+}
+
+/// THERMR card-4 `tol`, 0.05 in the standard thermal decks.
+const CALCEM_TOL: f64 = 0.05;
+
+/// The tabulated `calcem` record covering `ev` — the ACE block stores one
+/// emission entry per tabulated incident energy, so the grid is used directly.
+fn nearest_calcem_record(table: &Iform0Table, ev: f64) -> Option<&IncidentEnergyRecord> {
+    let recs = &table.records;
+    if recs.is_empty() {
+        return None;
+    }
+    let i = match recs
+        .binary_search_by(|r| r.e_in_ev.partial_cmp(&ev).expect("finite grid energies"))
+    {
+        Ok(i) => i,
+        Err(0) => 0,
+        Err(i) if i >= recs.len() => recs.len() - 1,
+        Err(i) => {
+            if (ev - recs[i - 1].e_in_ev).abs() <= (recs[i].e_in_ev - ev).abs() {
+                i - 1
+            } else {
+                i
+            }
+        }
+    };
+    Some(&recs[i])
 }
 
 impl Default for ThermalAceOptions {
@@ -68,6 +102,7 @@ impl Default for ThermalAceOptions {
         ThermalAceOptions {
             n_outgoing: 16,
             n_cosines: 8,
+            emax_ev: 4.0,
             natom: 1.0,
         }
     }
@@ -171,16 +206,34 @@ impl AceTable {
         let natom = opts.natom;
 
         // Per incident energy: cross section + equiprobable emission bins.
-        // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced —
-        // `equiprobable_emission` below. The skewed (IFENG=1) and
-        // continuous-tabular (IFENG=2) secondary-energy forms are not ported.
+        // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced.
+        // The skewed (IFENG=1) and continuous-tabular (IFENG=2) secondary-energy
+        // forms are not ported (`iwt > 1` in `aceth.f90`).
         let xs: Vec<f64> = energy_grid
             .iter()
             .map(|&e| ii.cross_section(e, temp_k, natom))
             .collect();
-        let emission: Vec<_> = energy_grid
+        // The bins come from `calcem` through the ported `acesix`, which is what
+        // NJOY does: THERMR writes the MF=6 emission matrix and ACER bins it.
+        // `BinWeights::Constant` (`iwt = 1`) is required, not chosen — the ACE
+        // `IFENG = 0` block's bins are sampled uniformly, and the variable
+        // `1 4 10 ... 10 4 1` pattern deliberately makes them *un*equally
+        // probable ("outlying bins with smaller probabilities", `acer.f90:131`).
+        let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, CALCEM_TOL)?;
+        let emission: Vec<Vec<OutgoingBin>> = energy_grid
             .iter()
-            .map(|&e| ii.equiprobable_emission(e, temp_k, natom, nieb, nang))
+            .map(|&e| {
+                let Some(rec) = nearest_calcem_record(&calcem, e) else {
+                    return Vec::new();
+                };
+                acesix_equiprobable(&normalized_rows(&rec.rows), nieb, BinWeights::Constant)
+                    .into_iter()
+                    .map(|b| OutgoingBin {
+                        e_out_ev: b.e_out_ev,
+                        cosines: b.cosines,
+                    })
+                    .collect()
+            })
             .collect();
 
         let mut xss: Vec<f64> = Vec::new();
