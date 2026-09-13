@@ -58,6 +58,38 @@ maturity gate in that file for what this means and how the bar is revised.
   173 pcm would support something nearer 200–300 pcm. Moving the evidence and
   moving the bar are separate maintainer decisions, and only the first was made.
 
+- **2026-09-13 — the +57 ± 173 pcm evidence above is superseded. The bar itself
+  is still unchanged at 500 pcm, and still holds.**
+
+  **Why.** `+57 ± 173 pcm` was a **single seed's draw**, not the code's answer.
+  A paired 96-seed study at that example's own settings (5000 histories ×
+  [40 inactive + 120 active], all three ICSBEP nuclides, ENDF/B-VIII.0 from
+  `reference-data/endf/`, single-threaded CPU; 57.6 M active histories per arm)
+  measured the then-current code's true mean at **+228 ± 18 pcm**, seed-to-seed
+  **sd 178 pcm**. That puts the recorded +57 at **−0.97 sigma**. Two single runs
+  of that program differ by ~√2 × 180 ≈ 250 pcm from re-randomisation alone.
+
+  **Current evidence: `+314 pcm, sem ±21, sd 205 pcm` over 96 seeds** — the same
+  study run on HEAD, i.e. after the MT=91 continuum Q-value cap (gh:#192). The
+  cap itself is worth **+85 ± 26 pcm (3.2 sigma)**: a physically correct fix
+  that moves this case *further* from a measured criticality experiment. It is
+  the honest statement of the tension, and it is stated rather than smoothed.
+
+  **Against the 500 pcm bar:** +314 ± 21 pcm is **8.9 sigma inside** it on the
+  pooled number, so the declaration stands with more margin than a single run
+  suggests. It is outside the ICSBEP ±100 pcm band, and was before the cap too.
+  The likeliest home for the remaining +314 pcm is the *shape* of the MT=91
+  continuum law — a Weisskopf evaporation stand-in covering 10–25 % of Godiva's
+  collisions — not its bound.
+
+  `examples/godiva_keff_endf_local.rs` now records `RECORDED_PCM = 314.0` with
+  the full method in its doc comment. **The bar was again deliberately NOT
+  moved**; the remaining single-seed baselines elsewhere in the repo (Jemima,
+  `godiva_keff_endf`, `endf_to_keff`) have not been re-measured, and the
+  citation sweep plus the `assert_reproduces_keff` gate-sizing defect (it uses
+  4 sigma of *one* run where independent arms need √2 sigma) are tracked in
+  gh:#196 / `bn:op-awwi`.
+
 
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
