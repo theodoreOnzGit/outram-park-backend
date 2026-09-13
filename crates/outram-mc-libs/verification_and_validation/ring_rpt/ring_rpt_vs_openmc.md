@@ -82,6 +82,35 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-09-13 — the continuous thermal kernel takes the last 500 pcm
+
+`ThermalScattering::sample` stopped reading back one of N discrete equiprobable
+outgoing energies and started interpolating the quantile function they tabulate
+(commit `81c6a14c`). Same 4000 × [30 + 80] statistics, reflective sphere:
+
+```
+  method                    this crate            vs explicit          vs OpenMC
+  explicit TRISO      1.36547 ± 0.00229             —             +37 pcm (0.2σ)
+  ring-RPT            1.36363 ± 0.00216   −184 ± 315 (0.58σ)     −116 pcm (0.5σ)
+  naive homogenised   1.32971 ± 0.00237   −3575      (10.9σ)         —
+  ring-RPT (CSG)      1.36810 ± 0.00213                           +331 pcm (1.5σ)
+
+  OpenMC reference:  explicit 1.36510 ± 0.00063,  ring-RPT 1.36479 ± 0.00067
+```
+
+**The explicit pebble is +37 pcm from a reference carrying ±63 pcm of its own.**
+That is 0.2σ: agreement, not a residual. The trajectory over two days is
++4004 → −469 (#193) → +37 (continuous kernel).
+
+`naive − explicit` stays a real −3575 pcm at 10.9σ, so the double-heterogeneity
+physics is still there rather than flattened — the check that matters whenever a
+fix moves absolute k by hundreds of pcm.
+
+What the kernel change did *not* do is fix the thermal law: it removed only about
+20 % of the kernel's width deficit against NJOY2016 (graphite −2.33 % → −1.96 %,
+H₂O −4.91 % → −4.02 %), and the rest lives in the THERMR kernel underneath. See
+GitHub #188.
+
 ## 2026-09-12 — THE +4000 pcm RESIDUAL IS CLOSED (GitHub #193)
 
 **Threshold reactions had a non-zero cross section below their threshold.**

@@ -1293,7 +1293,8 @@ mod desktop {
     ///   method                    this crate            vs explicit          vs OpenMC
     ///   explicit TRISO      1.36547 +/- 0.00229             —            +37 pcm (0.2 s)
     ///   ring-RPT            1.36363 +/- 0.00216  -184 +/- 315 (0.58 s)  -116 pcm (0.5 s)
-    ///   naive homogenised   1.32338 +/- 0.00236  -3575      (10.9 s)         —
+    ///   naive homogenised   1.32971 +/- 0.00237  -3575      (10.9 s)         —
+    ///   ring-RPT (CSG)      1.36810 +/- 0.00213  +331 vs OpenMC  (1.5 s)
     /// ```
     ///
     /// The explicit pebble is now **+37 pcm** from a reference carrying
