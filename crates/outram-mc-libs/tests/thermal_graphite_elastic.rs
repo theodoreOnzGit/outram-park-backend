@@ -124,7 +124,7 @@
 //!    | 293.15 (20 °C, B1) | 296.00 (tolerance snap) | 4.5514 | 0.4863 |
 //!    | 393.15 (120 °C, B2/B3) | 393.15 (interpolated) | 4.3849 | 0.6797 |
 //!    | 523.15 (250 °C, B4) | 523.15 (interpolated) | 4.1672 | 0.9471 |
-//!    | 1073.15 (hot operation) | 1073.15 (interpolated) | 3.3592 | 2.0444 |
+//!    | 1073.15 (hot operation) | 1073.15 (interpolated) | 3.3592 | 2.0451 |
 //!
 //!    The three interpolated σ_inel were **corrected on 2026-09-11** (from
 //!    0.6779 / 0.9445 / 2.0373). The earlier figures were produced by an
@@ -461,11 +461,17 @@ fn graphite_htr10_temperature_points() {
     // physical bracket — see `interpolated_sigma_inel_stays_inside_its_bracket`
     // below, which is the invariant that pins this and which a magic number
     // cannot. σ_el and every *tabulated* temperature are unchanged.
+    //
+    // The 1073.15 K row moved again on **2026-09-13**, 2.0444 → 2.0451 (+0.03 %),
+    // when `sig`'s S(α,β) evaluation was brought onto NJOY2016's own (three-point
+    // `terpq` on both axes, the liquid small-α branch, the `test2`-gated floor
+    // test). The other three rows held inside 5e-4. These are self-pins on this
+    // port's output, so a deliberate change to the evaluation has to move them.
     let cases = [
         (293.15, 296.00, 4.5514, 0.4863),
         (393.15, 393.15, 4.3849, 0.6797),
         (523.15, 523.15, 4.1672, 0.9471),
-        (1073.15, 1073.15, 3.3592, 2.0444),
+        (1073.15, 1073.15, 3.3592, 2.0451),
     ];
     let mut last_el = f64::INFINITY;
     let mut last_inel = 0.0f64;
@@ -528,8 +534,8 @@ fn light_water_has_no_elastic_channel_and_is_unchanged() {
     }
     let anchor = w.inelastic_xs(0.0253);
     assert!(
-        (anchor - 52.1420).abs() < 5.0e-4,
-        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 52.1420"
+        (anchor - 52.1405).abs() < 5.0e-4,
+        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 52.1405"
     );
 
     // Sampling must never return E_out == E_in from a channel that does not
@@ -564,8 +570,8 @@ fn zrh_incoherent_elastic_channel_is_forward_peaked() {
         "σ_inc_el(0.0253 eV, 296 K) = {el:.4} b, expected 55.0151"
     );
     assert!(
-        (inel - 2.8804).abs() < 5.0e-3,
-        "σ_inel(0.0253 eV, 296 K) = {inel:.4} b, expected 2.8804"
+        (inel - 2.8499).abs() < 5.0e-3,
+        "σ_inel(0.0253 eV, 296 K) = {inel:.4} b, expected 2.8499"
     );
     assert!(
         el > inel,

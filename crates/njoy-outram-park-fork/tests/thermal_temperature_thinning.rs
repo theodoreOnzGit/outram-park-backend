@@ -440,8 +440,17 @@ fn coherent_elastic_thinning_is_cheap_at_thermal_energies() {
 
 /// (5) The inelastic channel: much larger errors than the elastic one, and
 /// they are concentrated at high incident energy. Grid A at 400 K —
-/// `σ_inel(0.0253 eV)` 0.6960 → 0.6107 b (12.26 %), `σ_inel(3.9 eV)`
-/// 4.6367 → 2.0459 b (55.88 %). Measured 2026-08-13.
+/// `σ_inel(0.0253 eV)` 0.6962 → 0.6109 b (12.25 %), `σ_inel(3.9 eV)`
+/// 4.6436 → 2.0478 b (55.90 %).
+///
+/// **Re-recorded 2026-09-13**, +0.15 % at 3.9 eV, when `sig`'s `S(α,β)`
+/// evaluation was brought onto NJOY2016's own: three-point `terpq`
+/// interpolation on both axes instead of two-point linear, NJOY's liquid
+/// small-α branch, and its `test2`-gated floored-corner test. These are
+/// **self-pins** — they record what this port produces, not what NJOY does — so
+/// a deliberate change to the evaluation has to move them. The 0.1 % tolerance
+/// is unchanged; only the recorded values are. Originally measured 2026-08-13 at
+/// 0.6960 / 4.6367 / 2.0459.
 #[test]
 fn inelastic_thinning_error_is_large_and_worst_at_high_energy() {
     let Some(tape) = load_tape() else { return };
@@ -453,7 +462,7 @@ fn inelastic_thinning_error_is_large_and_worst_at_high_energy() {
     let approx = stack.thinned_kernel(&grid, 1, None).unwrap();
     let natom = 1.0; // graphite B(6) = 1
 
-    for (e, want, got_measured) in [(E_THERMAL, 0.69597, 0.6107), (3.9, 4.63671, 2.0459)] {
+    for (e, want, got_measured) in [(E_THERMAL, 0.69618, 0.6109), (3.9, 4.643566, 2.0478)] {
         let reference = stack.kernels[1].cross_section(e, 400.0, natom);
         let got = approx.cross_section(e, 400.0, natom);
         eprintln!("E = {e} eV, 400 K: sigma_inel {reference:.5} -> {got:.5} b");
@@ -633,9 +642,9 @@ fn production_interpolation_stays_inside_its_bracket() {
     let lo = stack.kernels[0].cross_section(3.9, 296.0, natom);
     let hi = stack.kernels[1].cross_section(3.9, 400.0, natom);
     let x = interp.cross_section(3.9, 393.15, natom);
-    near(lo, 4.60966, 1e-3, "sigma_inel(3.9 eV, 296 K)");
-    near(hi, 4.63671, 1e-3, "sigma_inel(3.9 eV, 400 K)");
-    near(x, 4.6349, 1e-3, "sigma_inel(3.9 eV, 393.15 K), production path");
+    near(lo, 4.617008, 1e-3, "sigma_inel(3.9 eV, 296 K)");
+    near(hi, 4.643566, 1e-3, "sigma_inel(3.9 eV, 400 K)");
+    near(x, 4.6418, 1e-3, "sigma_inel(3.9 eV, 393.15 K), production path");
 
     // The kernel itself is the same interpolation, pointwise: the emission
     // profile at the interpolated temperature lies between the two ends.
