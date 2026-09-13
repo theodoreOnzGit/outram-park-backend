@@ -1281,7 +1281,26 @@ mod desktop {
     /// ```
     ///
     /// **+4004 -> -469 pcm** on the explicit pebble and **+4260 -> -85 pcm** on
-    /// ring-RPT. The six factors, from the CSG case, land on the reference in all
+    /// ring-RPT.
+    ///
+    /// # 2026-09-13 — the continuous thermal kernel took the last 500 pcm
+    ///
+    /// `ThermalScattering::sample` stopped reading back one of N discrete
+    /// equiprobable outgoing energies and started interpolating the quantile
+    /// function they tabulate. Re-measured on the same statistics:
+    ///
+    /// ```text
+    ///   method                    this crate            vs explicit          vs OpenMC
+    ///   explicit TRISO      1.36547 +/- 0.00229             —            +37 pcm (0.2 s)
+    ///   ring-RPT            1.36363 +/- 0.00216  -184 +/- 315 (0.58 s)  -116 pcm (0.5 s)
+    ///   naive homogenised   1.32338 +/- 0.00236  -3575      (10.9 s)         —
+    /// ```
+    ///
+    /// The explicit pebble is now **+37 pcm** from a reference carrying
+    /// +/-63 pcm of its own — 0.2 sigma, which is agreement rather than a
+    /// residual. `RPT - explicit` is -184 +/- 315 pcm against the reference's
+    /// own -31 +/- 92, and `naive - explicit` stays a real -3575 pcm at
+    /// 10.9 sigma. The six factors, from the CSG case, land on the reference in all
     /// four: eta -0.00 %, f -0.01 %, p +0.04 %, epsilon -0.08 %, against
     /// +0.11 / -0.17 / +8.54 / -4.99 % before. The `naive - explicit`
     /// double-heterogeneity claim is unchanged in character (-3282 pcm at 11.4
@@ -1337,9 +1356,9 @@ mod desktop {
         /// F-19's spurious sub-threshold inelastic channel was teleporting one
         /// collision in ~170 past the U-238 resonances, six lethargy units at a
         /// time. That was the whole residual.
-        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = -469.0;
+        const RECORDED_EXPLICIT_VS_OMC_PCM: f64 = 37.0;
         /// Recorded `ring-RPT - OpenMC ring-RPT`, pcm. Was +4260; see above.
-        const RECORDED_RPT_VS_OMC_PCM: f64 = -85.0;
+        const RECORDED_RPT_VS_OMC_PCM: f64 = -116.0;
         /// How far the recorded absolute offsets may move before this gate fires.
         ///
         /// **Tightened 5x, from 1500 pcm, when #193 closed the offset.** It cannot
