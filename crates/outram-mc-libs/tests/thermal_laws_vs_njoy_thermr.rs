@@ -64,7 +64,7 @@ use outram_mc_libs::vv::njoy_golden::{
     GRAPHITE_KERNEL as GRAPHITE_KERNEL_NJOY, GRAPHITE_KERNEL_CONVERGED_ABOVE_EV,
     GRAPHITE_KERNEL_CONVERGED_TOL, GRAPHITE_KERNEL_TOL, GRAPHITE_XS_COHERENT,
     GRAPHITE_XS_INELASTIC, GRAPHITE_XS_TOL, H2O_KERNEL as H2O_KERNEL_NJOY, H2O_KERNEL_CROSSOVER_EV,
-    H2O_KERNEL_TOL, H2O_XS as H2O_XS_NJOY, H2O_XS_TOL,
+    H2O_KERNEL_TOL, H2O_XS as H2O_XS_NJOY, H2O_XS_EXPECTED_SIGN, H2O_XS_TOL,
 };
 
 /// `Some(law)` when the tape is present, else `None` after printing a skip note.
@@ -175,16 +175,28 @@ fn h2o_sab_cross_section_against_njoy_thermr() {
     assert!(
         worst.0.abs() < H2O_XS_TOL,
         "H(H2O) cross section is {:+.2} % from NJOY at {:.4e} eV — worse than the \
-         +1.5 % recorded on 2026-09-11 (GitHub #188)",
+         -1.39 % recorded on 2026-09-13 (GitHub #188)",
         100.0 * worst.0,
         worst.1
     );
+    // The error is one-signed, and which sign it carries is evidence about which
+    // defect is present — so it is asserted, separately from the magnitude.
+    //
+    // It was `+1` (a consistent +0.65…+1.47 % EXCESS) from 2026-09-11 until
+    // 2026-09-13, when porting `calcem`/`sigl`'s adaptive E' linearisation into
+    // THERMR's `ep_profile` removed the excess: the mean |error| more than halved,
+    // 1.10 % → 0.47 %, and what is left is a DEFICIT at all eleven points. Most of
+    // the recorded "magnitude offset" was this crate's own quadrature, not its
+    // scattering law. This assertion is what announced that, firing exactly as its
+    // old message said it would — see `H2O_XS` for the full before/after table.
     assert!(
-        worst.0 > 0.0,
-        "the H(H2O) cross-section error has changed SIGN (now {:+.2} %). The recorded \
-         defect is a consistent EXCESS of ~+1 %; a deficit is a different bug and this \
-         test's premise no longer holds",
-        100.0 * worst.0
+        worst.0 * H2O_XS_EXPECTED_SIGN > 0.0,
+        "the H(H2O) cross-section error has changed SIGN (now {:+.2} %, expected sign \
+         {:+.0}). The recorded defect since 2026-09-13 is a one-signed DEFICIT of up \
+         to -1.39 %; the opposite sign is a different bug and this test's premise no \
+         longer holds",
+        100.0 * worst.0,
+        H2O_XS_EXPECTED_SIGN
     );
 }
 

@@ -42,16 +42,44 @@ pub type KernelPoint = (f64, f64);
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// **H-in-H₂O incoherent-inelastic cross section**, THERMR MT=222 for
-/// `tsl-HinH2O` at 293.6 K. Measured 2026-09-11.
+/// `tsl-HinH2O` at 293.6 K.
 ///
-/// This crate sits a consistent **+0.65 % to +1.47 %** above NJOY across the
-/// whole tabulated range — a small, one-signed magnitude offset. The comment on
-/// each row is this crate's own value on the date above.
+/// # The `// ours` row comments are the **2026-09-11** values and are superseded
+///
+/// On 2026-09-11 this crate sat a consistent **+0.65 % to +1.47 %** above NJOY
+/// across the whole range — the "one-signed magnitude offset" the rows record.
+/// **Most of that was this crate's own E' quadrature, not its scattering law.**
+/// THERMR's `ep_profile` integrated σ(E→E') on the raw β-mapped grid with no
+/// adaptive refinement; porting `calcem`/`sigl`'s linearisation (2026-09-13)
+/// gives:
+///
+/// ```text
+///   E [eV]      NJOY        2026-09-11    2026-09-13
+///   1.000e-3    116.85880    +1.37 %       -0.24 %
+///   5.000e-3     81.85424    +0.83 %       -0.17 %
+///   1.000e-2     69.32242    +0.86 %       -0.04 %
+///   2.530e-2     51.68752    +0.88 %       -0.18 %
+///   5.000e-2     39.51121    +1.01 %       -0.35 %
+///   1.000e-1     32.55061    +1.07 %       -0.53 %
+///   2.000e-1     27.45337    +1.15 %       -0.70 %
+///   4.000e-1     23.63236    +1.18 %       -0.85 %
+///   6.250e-1     22.15801    +0.65 %       -1.39 %
+///   1.000e0      21.50120    +1.46 %       -0.45 %
+///   2.000e0      20.94862    +1.47 %       -0.31 %
+///   mean |error|              1.10 %        0.47 %
+///   worst                    +1.47 %       -1.39 %
+/// ```
+///
+/// So the mean error more than halves and the **sign flips**: the excess is
+/// gone and a smaller deficit is left, worst at 0.625 eV, which was the one
+/// point the old excess was *smallest* at. The residual is the scattering law's
+/// own, and is what GitHub #188 is now about.
 ///
 /// Note what this table does *not* see: the cross section is the *area* of the
 /// scattering law, and [`H2O_KERNEL`] shows the *shape* is wrong by up to
-/// 5.5 % in the opposite direction. A magnitude oracle alone would have cleared
-/// a defective law.
+/// 5.5 %. A magnitude oracle alone would have cleared a defective law — and the
+/// kernel width did **not** move when the quadrature was fixed, so the two
+/// defects are genuinely separate.
 pub const H2O_XS: &[XsPoint] = &[
     (1.000000e-03, 1.168588e2), // ours 1.184556e2, +1.37 %
     (5.000000e-03, 8.185424e1), // ours 8.253468e1, +0.83 %
@@ -66,9 +94,24 @@ pub const H2O_XS: &[XsPoint] = &[
     (2.000000e+00, 2.094862e1), // ours 2.125675e1, +1.47 %
 ];
 
-/// The envelope [`H2O_XS`] is asserted inside: **2 %**, against a worst measured
-/// deviation of +1.47 %.
-pub const H2O_XS_TOL: f64 = 0.02;
+/// The envelope [`H2O_XS`] is asserted inside.
+///
+/// **Tightened 2026-09-13 from 2 % to 1.5 %**, against a worst measured
+/// deviation of −1.39 % (was +1.47 % before the E' quadrature fix; see
+/// [`H2O_XS`] for the full before/after). The comparison is fully deterministic
+/// — no RNG anywhere in it — so a gate 0.11 % above the worst measured point is
+/// a gate, not a flake.
+pub const H2O_XS_TOL: f64 = 0.015;
+
+/// The **sign** [`H2O_XS`]'s error is expected to carry: `-1` for a deficit.
+///
+/// Recorded as `+1` (a consistent excess) until 2026-09-13, when fixing this
+/// crate's E' quadrature removed the excess and left a smaller deficit at all
+/// eleven points. The sign is asserted separately from the magnitude because a
+/// one-signed error is evidence about *which* defect is present, and a flip is
+/// worth stopping for — which is exactly how the quadrature fix announced
+/// itself.
+pub const H2O_XS_EXPECTED_SIGN: f64 = -1.0;
 
 /// NJOY's H-in-H₂O law runs to **10 eV**; this crate's ends between 2 and 4 eV.
 ///

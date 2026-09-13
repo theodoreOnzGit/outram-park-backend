@@ -232,6 +232,18 @@ impl IncoherentInelastic {
         }
     }
 
+    /// Convergence tolerance for the adaptive `E'` linearisation in
+    /// [`Self::ep_profile`] — thermr.f90 `sigl`'s `tol`, which is half the user's
+    /// `tolin` (THERMR's default reconstruction tolerance is 0.5 %, so 0.25 %;
+    /// 1e-3 here is tighter and costs ~4 % more grid points).
+    const EP_REFINE_TOL: f64 = 1.0e-3;
+
+    /// Bisection depth cap for the same loop. Upstream bounds its stack at
+    /// `imax = 20` points per interval rather than by depth; 8 levels is 256
+    /// subdivisions of one β interval, well past where the tolerance stops it on
+    /// every case measured, and it guarantees termination if σ is pathological.
+    const EP_REFINE_MAX_DEPTH: u32 = 8;
+
     /// Short-collision-time (SCT) double-differential kernel `d²σ/dE'dμ` \[barn\]
     /// for `(α,β)` beyond the tabulated grid — a faithful port of thermr.f90
     /// `sig` label 170. The principal scatterer's bound cross section `σ_b` and
@@ -369,25 +381,68 @@ impl IncoherentInelastic {
     /// structure. A naive uniform dE' grid wastes all its resolution on the empty
     /// high-energy tail.
     ///
-    /// # This grid is NOT why the kernel is narrow (measured, GitHub #188)
+    /// # The raw β map is not accurate enough at thermal energies — it is refined
     ///
-    /// The emission kernel this feeds is one-signed **narrow** against NJOY2016 —
-    /// worst −4.02 % for H-in-H₂O and −1.96 % for graphite, in the second moment,
-    /// after the equiprobable outgoing-energy representation was replaced by a
-    /// continuous one (2026-09-12). Two numerical-resolution explanations were
-    /// the obvious suspects and both are refuted:
+    /// The β grid maps to an E' grid that is far too coarse where the kernel is
+    /// narrow, i.e. at thermal incident energies. Measured against a kernel whose
+    /// answer is known in closed form (the **analytic free gas**, so the
+    /// S(α,β) evaluation plays no part), using graphite's own 400-point β grid at
+    /// 600 K:
     ///
     /// ```text
-    ///   change                          graphite width   H2O width
-    ///   baseline                           -1.96 %         -4.02 %
-    ///   subdivide every E' interval 4x     -2.01 %         -3.85 %
-    ///   mu quadrature NMU 200 -> 800       -1.96 %         -3.87 %
+    ///   E [eV]     <E'> vs exact   shape <E'2>/<E'>2 vs exact   grid points
+    ///   0.0253       +1.047 %              -0.369 %                 425
+    ///   0.1          +0.365 %              -0.041 %                 499
+    ///   0.5          +0.090 %              -0.001 %                 656
+    ///   1.0          +0.047 %              +0.000 %                 699
     /// ```
     ///
-    /// Neither moves the deficit. It is not the quadrature grid and it is not the
-    /// μ integration; it is in the kernel evaluation itself — the S(α,β)
-    /// interpolation, its β-axis scheme, or the small-α extension. Do not spend
-    /// the resolution again without a new argument.
+    /// Both signs are the ones GitHub #188 complains of — mean too **high**,
+    /// width too **narrow** — and because this is a property of the *grid* it is
+    /// present on every evaluation, which is the other thing #188 observes.
+    ///
+    /// So the grid is now **adaptively refined**, the way `calcem`/`sigl` linearise
+    /// (thermr.f90 label 110: bisect while
+    /// `|σ(x_m) − chord| > tol·|σ(x_m)| + tol·σ_max/50`). On the same oracle that
+    /// removes the error entirely, for 4 % more points:
+    ///
+    /// ```text
+    ///   E [eV]     <E'> vs exact   shape vs exact   grid points
+    ///   0.0253       -0.003 %         +0.006 %          442
+    ///   0.1          -0.006 %         +0.002 %          510
+    ///   0.5          +0.000 %         +0.000 %          700
+    ///   1.0          +0.000 %         +0.000 %          854
+    /// ```
+    ///
+    /// # This fixes a real grid error and does NOT fix GitHub #188 — measured
+    ///
+    /// The refinement above is correct and it changes the #188 symptom by
+    /// **nothing**. Graphite's stationary-distribution fixed point
+    /// (`outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs`, the
+    /// detailed-balance oracle) reads **604.83 K / shape 1.6424** with the
+    /// refinement against **604.76 K / 1.6425** without it — 0.06 sigma on a
+    /// shape whose standard error is 0.0016, while the deficit being chased is
+    /// 1.46 %. Water likewise: 294.62 K / 1.6397 against 294.62 K / 1.6394.
+    ///
+    /// The refinement is verified to fire, so this is a null result and not an
+    /// inert change: graphite's grid at 600 K goes from **400 raw points to 742**
+    /// refined. A 0.37 % per-energy trapezoid bias simply does not survive into
+    /// the relaxed distribution, which is worth knowing — it means the two are
+    /// not the same measurement and a per-energy oracle cannot stand in for the
+    /// fixed point.
+    ///
+    /// It is kept because it is right, not because it helped: the grid was
+    /// provably losing width against a closed-form kernel, and leaving a known
+    /// bias in place because its downstream effect is small is how the next
+    /// search gets confounded.
+    ///
+    /// So the earlier refutations stand and this joins them. Uniformly
+    /// subdividing every E' interval 4× moved graphite's width from −1.96 % to
+    /// −2.01 % and H₂O's from −4.02 % to −3.85 %; `NMU` 200 → 800 moved graphite
+    /// not at all; adaptive refinement moves the fixed point by 0.06 sigma. **It
+    /// is not the E' grid, it is not the μ quadrature, and it is not the E'
+    /// linearisation.** The remainder is in the kernel evaluation itself — the
+    /// S(α,β) interpolation, its β-axis scheme, or the small-α extension.
     fn ep_profile(&self, e: f64, temp_k: f64, sigma: impl Fn(f64) -> f64) -> (Vec<f64>, Vec<f64>) {
         if e <= 0.0 || self.beta.is_empty() {
             return (Vec::new(), Vec::new());
@@ -405,7 +460,49 @@ impl IncoherentInelastic {
         }
         eps.sort_by(|a, b| a.partial_cmp(b).unwrap());
         eps.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
-        let sig = eps.iter().map(|&ep| sigma(ep)).collect();
+
+        // Adaptive linearisation, ported from thermr.f90's `sigl` label 110: an
+        // interval is bisected while the midpoint's true value differs from the
+        // chord by more than `tol·|σ(x_m)| + tol·σ_max/50`. The absolute term is
+        // what stops the test from chasing relative accuracy far out in a tail
+        // where σ is already negligible; it is upstream's, not an invention here.
+        let mut sig: Vec<f64> = eps.iter().map(|&ep| sigma(ep)).collect();
+        let smax = sig.iter().copied().fold(0.0_f64, f64::max);
+        if smax > 0.0 {
+            let mut ref_eps: Vec<f64> = Vec::with_capacity(eps.len() * 2);
+            let mut ref_sig: Vec<f64> = Vec::with_capacity(eps.len() * 2);
+            for k in 1..eps.len() {
+                ref_eps.push(eps[k - 1]);
+                ref_sig.push(sig[k - 1]);
+                let mut add: Vec<(f64, f64)> = Vec::new();
+                let mut stack = vec![(eps[k - 1], sig[k - 1], eps[k], sig[k], 0u32)];
+                while let Some((x0, y0, x1, y1, depth)) = stack.pop() {
+                    if depth >= Self::EP_REFINE_MAX_DEPTH {
+                        continue;
+                    }
+                    let xm = 0.5 * (x0 + x1);
+                    if xm <= x0 || xm >= x1 {
+                        continue; // exhausted f64 resolution
+                    }
+                    let ym = sigma(xm);
+                    let chord = 0.5 * (y0 + y1);
+                    if (ym - chord).abs() > Self::EP_REFINE_TOL * (ym.abs() + smax / 50.0) {
+                        add.push((xm, ym));
+                        stack.push((x0, y0, xm, ym, depth + 1));
+                        stack.push((xm, ym, x1, y1, depth + 1));
+                    }
+                }
+                add.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                for (x, y) in add {
+                    ref_eps.push(x);
+                    ref_sig.push(y);
+                }
+            }
+            ref_eps.push(eps[eps.len() - 1]);
+            ref_sig.push(sig[eps.len() - 1]);
+            eps = ref_eps;
+            sig = ref_sig;
+        }
         (eps, sig)
     }
 

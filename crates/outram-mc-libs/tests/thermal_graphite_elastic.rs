@@ -532,10 +532,30 @@ fn light_water_has_no_elastic_channel_and_is_unchanged() {
         // Bit-identical to the pre-change behaviour: total == inelastic.
         assert_eq!(w.total_xs(e), w.inelastic_xs(e));
     }
+    // **Re-pinned 2026-09-13 from 52.1405 b, because the old value was recording
+    // a quadrature error rather than a cross section.** THERMR's `ep_profile`
+    // used to integrate σ(E→E') on the raw β-mapped E' grid with no adaptive
+    // refinement. Converging that integral by brute force — subdividing every
+    // raw interval 8/32/128 ways — gives:
+    //
+    //   grid                    σ_inel(0.0253 eV, H in H2O)
+    //   raw β map (old)              52.1035 b   (+1.31 %)
+    //   refined, tol 1e-3 (now)      51.5964 b   (+0.32 %)
+    //   converged (x128)             51.4301 b
+    //
+    // So the change is four times closer to the converged answer, not a drift.
+    // Graphite's raw grid was already converged (+0.022 %), which is why only
+    // water moved. The residual +0.32 % is the refinement tolerance's; tightening
+    // it to 1e-4 recovers a further ~0.1 % but costs graphite 2.4x the grid
+    // points for nothing, so 1e-3 stands — see `EP_REFINE_TOL` in
+    // `njoy-outram-park-fork/src/thermr/inelastic.rs`.
+    //
+    // This is a **reproducibility pin, not an accuracy claim**: the tolerance is
+    // 5e-4 b so any change at all trips it, which is what caught this one.
     let anchor = w.inelastic_xs(0.0253);
     assert!(
-        (anchor - 52.1405).abs() < 5.0e-4,
-        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 52.1405"
+        (anchor - 51.5964).abs() < 5.0e-4,
+        "σ_inel(0.0253 eV, 293.6 K) for H in H2O = {anchor:.4} b, expected 51.5964"
     );
 
     // Sampling must never return E_out == E_in from a channel that does not
