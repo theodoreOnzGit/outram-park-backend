@@ -122,6 +122,24 @@ pub struct IncoherentInelastic {
     pub lat: i32,
     /// `LASYM`: `1` if `S(α,β)` is asymmetric in `β` (both signs stored).
     pub lasym: i32,
+    /// `LLN`: `0` if `S` is stored directly, `1` if it is stored as `ln S`.
+    ///
+    /// **Recorded, never acted on.** [`s_tables`] always holds the numbers
+    /// exactly as the file stores them, so when `lln == 1` they are logarithms
+    /// and every consumer in this crate would be reading them wrongly. That is
+    /// deliberate fidelity, not an oversight: NJOY does not undo `LLN` either —
+    /// the identifier appears in just `plotr.f90` and `samm.f90`, neither on
+    /// the thermal path — and LEAPR warns when it writes such a tape that it
+    /// "CANNOT be processed" downstream (`leapr.f90:262-265`). Teaching this
+    /// parser to exponentiate would be an improvement beyond upstream, which
+    /// the crate's translation policy defers until the translation is done.
+    ///
+    /// All eight `tsl-*` evaluations in `reference-data/endf/` carry
+    /// `LLN = 0`, so nothing we hold is affected. Check this field before
+    /// trusting [`s_tables`] from an unfamiliar evaluation.
+    ///
+    /// [`s_tables`]: IncoherentInelastic::s_tables
+    pub lln: i32,
     /// The `B(1..NI)` constants: `B(1)` bound cross section factor (`0` ⇒ the
     /// principal scatterer uses the free/short-collision-time model, no table),
     /// `B(3)` the mass ratio `A`, `B(6)` the number of principal atoms, etc.
@@ -519,6 +537,8 @@ fn parse_inelastic(
 
     // B-constants LIST: B(1..NI); NS = number of non-principal atom types.
     let bl = cur.read_list()?;
+    // `LLN` is L1 of the B-constant LIST record. Recorded only — see the field.
+    let lln = bl.head.l1;
     let b = bl.data.clone();
     if b.first().copied().unwrap_or(0.0) == 0.0 {
         // B(1)=0 ⇒ principal scatterer has no tabulated S (pure analytic /
@@ -649,6 +669,7 @@ fn parse_inelastic(
     Ok(IncoherentInelastic {
         lat,
         lasym,
+        lln,
         b,
         temperature_k,
         beta,

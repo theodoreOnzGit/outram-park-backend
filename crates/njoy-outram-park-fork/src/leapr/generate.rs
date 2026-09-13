@@ -895,12 +895,27 @@ pub fn generate_tape(
         }
     };
 
+    // `isym` is NOT `isabt`: upstream builds it from two independent inputs
+    // (`leapr.f90:423-425`) --
+    //
+    // ```text
+    //   isym = 0
+    //   if (ncold.ne.0) isym = 1
+    //   if (isabt.eq.1) isym = isym + 2
+    // ```
+    //
+    // so the cold-moderator flag contributes the low bit (the +/-beta grid) and
+    // the asymmetric-output flag contributes +2, giving all four values
+    // `endout` switches on. Assigning `isabt` straight into `isym` would both
+    // drop `ncold`'s contribution and give `isabt` the weight of the wrong bit.
+    let isym = i32::from(deck.ncold != ColdOption::None) + 2 * i32::from(deck.isabt == 1);
+
     let out = LeaprOutput {
         mat: deck.mat,
         za: deck.za,
         awr: deck.awr,
         lat: if deck.lat { 1 } else { 0 },
-        isym: deck.isabt,
+        isym,
         ilog: deck.ilog != 0,
         smin: deck.smin,
         alpha: deck.alpha.clone(),

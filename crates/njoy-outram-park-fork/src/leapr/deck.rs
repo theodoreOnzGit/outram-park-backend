@@ -622,11 +622,19 @@ impl LeaprDeck {
                 self.nss
             ));
         }
-        if self.isabt != 0 {
-            out.push("isabt = 1 (asymmetric S output) is not implemented".to_string());
+        // `isabt` and `ilog` are NOT unsupported: `endout` implements every
+        // `isym` value 0-3 and both the linear and log storage paths
+        // (`endout::s_value_for`, `leapr.f90:3354-3451`), and `generate_tape`
+        // wires the deck's flags through to them. They were listed here as
+        // "not implemented" long after that ceased to be true, which made the
+        // refusal in `generate_tape` block a capability the crate already had.
+        // Both are exercised against an exp/log round-trip and a
+        // detailed-balance-factor oracle in `leapr_isym_ilog.rs`.
+        if !(0..=1).contains(&self.isabt) {
+            out.push(format!("isabt = {} is not a valid S type (0, 1)", self.isabt));
         }
-        if self.ilog != 0 {
-            out.push("ilog = 1 (log10 S output) is not implemented".to_string());
+        if !(0..=1).contains(&self.ilog) {
+            out.push(format!("ilog = {} is not a valid log flag (0, 1)", self.ilog));
         }
         out
     }
