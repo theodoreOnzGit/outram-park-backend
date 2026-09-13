@@ -1105,7 +1105,7 @@ the authority:
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
 | `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
-| `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **MEASURED 2026-09-13, NOT MET** — agrees to 2-3 sig figs (PR density +0.35 to +1.87 %) | cross-code |
+| `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **PR EOS matches to 6 s.f. (measured 2026-09-13)**; flash-layer comparison still open | cross-code |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
 to it. Four honest notes on this roster: `teh-o-prke` is thin and lacks
@@ -1114,11 +1114,11 @@ it); `outram-mc-libs`' 500 pcm is set at what it achieves today rather than at
 what criticality work should eventually demand; the Scilab half of the
 process-control crate's evidence lives in the maintainer's dissertation rather
 than in this repository, so its recorded bar is written against the analytical
-tests that *are* reproducible here; and **`outram-park-fork-dwsim-libs` does not meet its
-own recorded bar** — upstream DWSIM has since been built and run headless
-(procedure in that crate's `CLAUDE.md`), and Peng-Robinson density agrees to
-2-3 significant figures rather than the 4 the bar demands, with a systematic
-one-signed high bias. 0 of the 107 rows in its port-coverage matrix are
+tests that *are* reproducible here; and **`outram-park-fork-dwsim-libs` has met its bar
+at the EOS layer only** — upstream DWSIM has since been built and run headless
+(procedure in that crate's `CLAUDE.md`), and its `Z_PR` agrees with this port
+to 6 significant figures. The flash-layer comparison the bar also names is
+still open, and 0 of the 107 rows in its port-coverage matrix are
 `PORTED + VALIDATED`. Read that crate's file before citing it as validated.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
