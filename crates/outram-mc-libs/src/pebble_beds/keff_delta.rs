@@ -66,7 +66,7 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter, rotate_direction,
+    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated, rotate_direction,
     two_body_scatter,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
@@ -834,7 +834,14 @@ where
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                    e,
+                    u,
+                    nuc.awr,
+                    q,
+                    nuc.continuum_law(91),
+                    seed,
+                ),
                 };
                 e = e2;
                 u = u2;
@@ -842,8 +849,27 @@ where
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                     // elastic CM energy as before. Sharing the available energy between
                     // the two emitted neutrons is a separate gap (GitHub #192).
-                    let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed);
-                stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
+                    let law16 = nuc.continuum_law(16);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    // Second neutron: an **independent draw** from the same
+                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                    // neutron, so two independent draws is what the evaluation
+                    // means — duplicating the primary's outgoing state (what this
+                    // did before, and what it still does with no MF=6 law to
+                    // read) correlates the pair perfectly and is GitHub #192's
+                    // second open item.
+                    let (sec_e2, sec_u2) = if law16.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                // yield − 1 = 1 secondary
+                stack.push(Site {
+                    r,
+                    u: sec_u2,
+                    e: sec_e2,
+                });
                 e = e2;
                 u = u2;
             } else {

@@ -47,11 +47,17 @@
 //! sd 178 pcm), which makes +57 a −0.97 sigma draw. The MT=91 Q-value cap of
 //! gh:#192 then moved the case to a true mean of **+314 ± 21 pcm** (sd 205 pcm),
 //! a real but small **+85 ± 26 pcm (3.2 sigma)** shift; the rest of the +363 pcm
-//! seen between two single runs was re-randomisation. See [`RECORDED_PCM`].
+//! seen between two single runs was re-randomisation.
+//!
+//! Reading the **evaluated MF=6 LAW=1 continuum law** for MT=91/MT=16, in place
+//! of the Weisskopf evaporation stand-in, then moved it again — **−105 ± 32 pcm
+//! (3.3 sigma)**, this time *toward* the benchmark, leaving
+//! **+214 ± 20 pcm** (64 seeds per arm,
+//! `examples/godiva_mf6_continuum_ensemble.rs`). See [`RECORDED_PCM`].
 //!
 //! The 500 pcm bar still holds, with more margin than a single run suggests
-//! (+314 ± 21 pcm is 8.9 sigma inside 500 pcm) and less than the ICSBEP band
-//! would want (±100 pcm, which this case missed before the cap too).
+//! (+214 ± 20 pcm is 14 sigma inside 500 pcm) and less than the ICSBEP band
+//! would want (±100 pcm, which this case has missed throughout).
 //!
 //! It took that role over from `examples/endf_to_keff.rs`, which could not
 //! support it: sigma ~ 330 pcm there makes 500 pcm a 1.5 sigma envelope, so a
@@ -160,12 +166,12 @@ fn main() {
     // run's statistics on top. Four, not one: a V&V gate that fires on ordinary
     // statistical fluctuation trains people to ignore it.
     //
-    // The recorded result is **+314 ± 21 pcm**, the pooled mean of a 96-seed
-    // study of this program at these settings (2026-09-13); it replaced a
-    // single-seed +57 that turned out to be a −0.97 sigma draw. It is checked as
-    // a SEPARATE claim from agreement with the benchmark: a result can stay
-    // inside the ICSBEP band while drifting steadily within it, and only the
-    // reproduction claim sees that.
+    // The recorded result is **+214 ± 20 pcm**, the pooled mean of a 64-seed
+    // ensemble of this program at these settings (2026-09-13); the single-seed
+    // +57 it ultimately replaced turned out to be a −0.97 sigma draw. It is
+    // checked as a SEPARATE claim from agreement with the benchmark: a result
+    // can stay inside the ICSBEP band while drifting steadily within it, and
+    // only the reproduction claim sees that.
     //
     // The drift gate is 4 sigma of THIS run's statistics, so it scales with
     // however many histories the run was given.
@@ -195,26 +201,30 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 
 /// The offset from [`ICSBEP_HMF001_K`] this case produces, in pcm.
 ///
-/// **+314 pcm, sem ±21, seed-to-seed sd 205 pcm** on the HIGH tier against
-/// ENDF/B-VIII.0 — the pooled mean of **96 independent seeds** at this
+/// **+214 pcm, sem ±20, seed-to-seed sd 160 pcm** on the HIGH tier against
+/// ENDF/B-VIII.0 — the pooled mean of **64 independent seeds** at this
 /// program's own settings (5000 histories × [40 inactive + 120 active], all
-/// three ICSBEP nuclides, single-threaded CPU; 57.6 M active histories).
-/// Measured 2026-09-13.
+/// three ICSBEP nuclides, single-threaded CPU). Measured 2026-09-13 by
+/// `examples/godiva_mf6_continuum_ensemble.rs`, which carries the method.
 ///
-/// # Why this replaced +57 ± 173 (2026-09-13, gh:#196)
+/// # How this number got here (2026-09-13)
 ///
-/// The previous value was **one seed's draw**, not the code's answer. The same
-/// 96-seed study run against the pre-gh:#192 code measured its true mean at
-/// **+228 ± 18 pcm** with sd 178 pcm, which puts the recorded +57 at
-/// **−0.97 sigma**. Two single runs of this program therefore differ by ~√2 ×
-/// 180 ≈ 250 pcm from re-randomisation alone, whatever the physics does.
+/// | recorded | what it was | how it moved |
+/// |---|---|---|
+/// | `+57 ± 173` | **one seed's draw**, −0.97 sigma of a `+228 ± 18 pcm` distribution | superseded, gh:#196 |
+/// | `+228 ± 18` | the pre-gh:#192 code's true mean, 96 seeds | MT=91 Q-value cap: **+85 ± 26 pcm** |
+/// | `+314 ± 21` | after the cap, 96 seeds | evaluated MF=6 law: **−105 ± 32 pcm** |
+/// | `+214 ± 20` | **now**, 64 seeds | — |
 ///
-/// The physics did also move, by much less than it looked: capping the MT=91
-/// continuum outgoing energy at the two-body bound (gh:#192) is worth
-/// **+85 ± 26 pcm, 3.2 sigma** — a correct fix that moves this case *further*
-/// from a measured criticality experiment. The remaining +314 pcm most likely
-/// sits in the *shape* of the continuum law (a Weisskopf stand-in covering
-/// 10–25 % of Godiva's collisions), not its bound.
+/// Two single runs of this program differ by ~√2 × 180 ≈ 250 pcm from
+/// re-randomisation alone, whatever the physics does, which is why every entry
+/// above is a pooled mean and none is a single run.
+///
+/// The two physics changes pull opposite ways, and both are right. Capping the
+/// MT=91 outgoing energy at the two-body bound (gh:#192) moved this case 85 pcm
+/// **further** from a measured criticality experiment. Replacing the Weisskopf
+/// evaporation stand-in with the evaluation's own `f₀(E→E')` (ENDF MF=6 LAW=1)
+/// moved it 105 pcm **back toward** it. Neither was chosen for its direction.
 ///
 /// This is checked as a **separate claim** from agreement with the benchmark.
 /// A result can sit comfortably inside the ICSBEP band and still drift steadily
@@ -228,4 +238,4 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 /// paper dataset). Sweeping them is tracked in gh:#196 / `bn:op-awwi`, and
 /// wants a pooled re-measurement of each of those cases rather than a
 /// find-and-replace of this number.
-const RECORDED_PCM: f64 = 314.0;
+const RECORDED_PCM: f64 = 214.0;

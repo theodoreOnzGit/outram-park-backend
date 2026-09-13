@@ -90,6 +90,45 @@ maturity gate in that file for what this means and how the bar is revised.
   4 sigma of *one* run where independent arms need √2 sigma) are tracked in
   gh:#196 / `bn:op-awwi`.
 
+- **2026-09-13 (same day, later) — evidence updated again to `+214 ± 20 pcm`.
+  The bar is still 500 pcm and still not moved.**
+
+  **What changed.** MT=91 (continuum inelastic) and MT=16 ((n,2n)) had been
+  modelled with a **Weisskopf evaporation stand-in**, because RECONR gives MF=3
+  magnitudes but no secondary-energy law. The evaluation's own
+  `f₀(E→E')` — ENDF **MF=6 LAW=1** — is now read and sampled instead
+  (`ContinuumEmission` in `njoy-outram-park-fork`), and the second (n,2n)
+  neutron is an independent draw from it rather than a copy of the primary.
+
+  **Worth, measured rather than asserted:** a paired 64-seed ensemble with the
+  law switched off in one arm (`examples/godiva_mf6_continuum_ensemble.rs`,
+  same settings as above) gives
+
+  | arm | n | mean | sd | sem |
+  |---|---|---|---|---|
+  | MF=6 evaluated law | 64 | **+214 pcm** | 160 | ±20 |
+  | Weisskopf stand-in | 64 | **+319 pcm** | 204 | ±25 |
+  | **difference** | | **−105 pcm** | | **±32 (3.3 sigma)** |
+
+  The stand-in arm's `+319 ± 25` reproduces the independently measured
+  `+314 ± 21` above to 0.15 sigma, which is a check on the harness rather than a
+  restatement of it.
+
+  **Two corrections worth keeping on the record.** First, the predicted *sign*
+  was wrong: the evaluated law is softer where MT=91 opens (`⟨E'/E⟩` 0.2095 vs
+  0.2787 at 2 MeV on U-238), and the stated expectation was that this would cut
+  leakage and push *k* up. It went down. In a bare fast metal sphere the
+  spectrum-hardness terms — `ν̄(E)` and U-238 threshold fission — evidently
+  outweigh the leakage term; that decomposition is a hypothesis, not a measured
+  result. Second, the two physics fixes of this day pull opposite ways and both
+  are correct: gh:#192's two-body cap moved Godiva **+85 pcm away** from the
+  experiment, reading MF=6 moved it **−105 pcm back toward** it. Neither was
+  chosen for its direction.
+
+  **Against the 500 pcm bar:** +214 ± 20 pcm is **14 sigma inside** it. Still
+  outside the ICSBEP ±100 pcm band, as it has been throughout.
+  `examples/godiva_keff_endf_local.rs` records `RECORDED_PCM = 214.0`.
+
 
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.

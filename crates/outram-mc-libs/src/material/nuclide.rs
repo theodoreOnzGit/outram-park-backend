@@ -22,7 +22,9 @@ use crate::rng::lcg::prn;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
-use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
+use njoy_outram_park_fork::nuclear_data::secondary::{
+    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar,
+};
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
@@ -179,6 +181,27 @@ pub struct Nuclide {
     /// below its thermal cutoff — see [`Nuclide::xs_at_energy`] and
     /// [`Nuclide::sample_thermal`]. `None` ⇒ pure free-gas / CE, as before.
     thermal: Option<ThermalScattering>,
+    /// Evaluated continuum emission laws (ENDF MF=6 LAW=1) for the reactions
+    /// whose outgoing energy is a distribution rather than a fixed `Q`.
+    ///
+    /// HIGH tier only, and only when the evaluation carries MF=6 for that MT.
+    /// Absent ⇒ the transport layer keeps its Weisskopf evaporation stand-in,
+    /// which is what every case used before 2026-09-13.
+    continuum: ContinuumLaws,
+}
+
+/// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
+///
+/// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
+/// ((n,2n)). Both were modelled by a Weisskopf evaporation stand-in until the
+/// evaluated law was wired in; `None` here means that stand-in is still in use
+/// for that channel on that nuclide.
+#[derive(Debug, Clone, Default)]
+struct ContinuumLaws {
+    /// MT=91, continuum inelastic.
+    mt91: Option<ContinuumEmission>,
+    /// MT=16, (n,2n).
+    mt16: Option<ContinuumEmission>,
 }
 
 impl Nuclide {
@@ -210,6 +233,8 @@ impl Nuclide {
             chi,
             xs: XsSource::Core { e_max, wmp, fast },
             thermal: None,
+            // LOW tier reads no tape, so there is no MF=6 to carry.
+            continuum: ContinuumLaws::default(),
         })
     }
 
@@ -398,6 +423,18 @@ impl Nuclide {
             .transpose()?
             .unwrap_or_default();
 
+        // 7. Evaluated continuum emission laws from MF=6 LAW=1 (MT=91 and
+        //    MT=16). RECONR gives MF=3 magnitudes but no secondary-energy law,
+        //    so without these the transport layer falls back to a Weisskopf
+        //    evaporation stand-in whose mean is ~33 % too hard at 2 MeV on
+        //    U-238 (njoy `tests/mf6_continuum_emission_vs_tape.rs`). An
+        //    evaluation with no MF=6 for a reaction, or one using a law this
+        //    port does not read, yields `None` and keeps the stand-in.
+        let continuum = ContinuumLaws {
+            mt91: ContinuumEmission::from_endf_mf6(tape, mat, 91)?,
+            mt16: ContinuumEmission::from_endf_mf6(tape, mat, 16)?,
+        };
+
         Ok(Self {
             name: name.to_string(),
             awr,
@@ -409,6 +446,7 @@ impl Nuclide {
                 elastic_angular,
             },
             thermal: None,
+            continuum,
         })
     }
 
@@ -426,6 +464,29 @@ impl Nuclide {
     /// `absorption`; `elastic` is reported for completeness but the kernel treats
     /// `total − absorption` as the scattering channel (lumping inelastic and
     /// (n,xn) into elastic-like events — see the keff module fidelity note).
+    /// The evaluated ENDF **MF=6 LAW=1** emission law for reaction `mt`, if this
+    /// nuclide carries one.
+    ///
+    /// `mt` is 91 (continuum inelastic) or 16 ((n,2n)); anything else returns
+    /// `None`, as does the LOW tier and any evaluation whose MF=6 this port does
+    /// not read. A `None` here is the signal to keep the Weisskopf evaporation
+    /// stand-in — see
+    /// [`continuum_inelastic_scatter`](crate::physics::scatter::continuum_inelastic_scatter).
+    pub fn continuum_law(&self, mt: i32) -> Option<&ContinuumEmission> {
+        match mt {
+            91 => self.continuum.mt91.as_ref(),
+            16 => self.continuum.mt16.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Whether this nuclide's MT=91 continuum inelastic uses the **evaluated**
+    /// MF=6 law rather than the Weisskopf stand-in — a diagnostic for V&V
+    /// programs that price one against the other.
+    pub fn has_evaluated_continuum(&self) -> bool {
+        self.continuum.mt91.is_some()
+    }
+
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         let base = self.base_xs_at_energy(e, temp_k);
         // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
@@ -796,6 +857,22 @@ impl Nuclide {
         self
     }
 
+    /// **Diagnostic**: a copy of this nuclide with its evaluated MF=6 LAW=1
+    /// continuum emission laws discarded, so MT=91 and MT=16 fall back to the
+    /// Weisskopf evaporation stand-in.
+    ///
+    /// # Why this exists
+    ///
+    /// An accuracy statement about the evaluated law ("it is the evaluation's
+    /// own spectrum") bounds nothing. Running the same case twice with the law
+    /// switched off bounds what it is *worth* — which is the only way to say
+    /// whether reading MF=6 mattered. Used by
+    /// `examples/godiva_mf6_continuum_ensemble.rs`.
+    pub fn without_evaluated_continuum(mut self) -> Self {
+        self.continuum = ContinuumLaws::default();
+        self
+    }
+
     /// **Diagnostic**: a copy of this nuclide whose elastic scattering is
     /// isotropic in the centre of mass, by discarding the ENDF MF=4 angular
     /// distribution.
@@ -1128,7 +1205,7 @@ fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 /// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table`]); then
 /// 4. scale the sampled E' between the `i` and `i+1` tables' \[E₁, E_K\] envelopes so
 ///    the outgoing energy tracks the incident-energy interpolation.
-fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {

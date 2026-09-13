@@ -38,7 +38,9 @@
 //! to the MF=5/MF=6 energy distributions) remain future work.
 
 use crate::geometry::position::Direction;
+use crate::material::nuclide::sample_continuous_tabular;
 use crate::rng::lcg::prn;
+use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
 
 /// Rotate the unit direction `u` by scattering cosine `mu` and a uniformly
@@ -340,11 +342,14 @@ fn safe_prn(seed: &mut u64) -> f64 {
 /// where the cap is loose. The violation is largest exactly where the channel
 /// opens, which is where it matters most.
 ///
-/// This remains an **approximation** in its *shape*: RECONR reconstructs cross
-/// sections (MF=3) but not the ENDF MF=5/MF=6 secondary-energy law, so the true
-/// continuum distribution is not available here. The evaporation model captures
-/// the essential physics — a large, broadly distributed down-scatter — and the cap
-/// makes it at least kinematically admissible. See GitHub #192.
+/// This remains an **approximation** in its *shape*: it is the fallback for a
+/// nuclide whose evaluation carries no MF=6 LAW=1 law this port can read. Where
+/// one is available, call
+/// [`continuum_inelastic_scatter_evaluated`] instead and pass it — the evaluated
+/// law is the evaluation's own spectrum and this evaporation model is measurably
+/// too hard (U-238 at 2 MeV: `⟨E'/E⟩ = 0.2787` here against the evaluation's
+/// **0.2095**, i.e. 33 % harder, at the energy where MT=91 is opening). See
+/// GitHub #192.
 pub fn continuum_inelastic_scatter(
     e: f64,
     u: Direction,
@@ -376,6 +381,80 @@ pub fn continuum_inelastic_scatter(
     let mu_cm = 2.0 * prn(seed) - 1.0; // isotropic in CM
     let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, a);
     (e_out, rotate_direction(u, mu_lab, seed))
+}
+
+/// Continuum inelastic (MT=91) or (n,2n) (MT=16) scatter using the
+/// **evaluated** ENDF MF=6 LAW=1 emission law when the nuclide carries one,
+/// falling back to [`continuum_inelastic_scatter`]'s Weisskopf evaporation
+/// stand-in when it does not.
+///
+/// # Arguments
+///
+/// `e` incident lab energy \[eV\], `u` incident direction, `awr` the target's
+/// atomic weight ratio, `q` the channel `QI` \[eV\] (used only by the fallback
+/// and by the kinematic cap), `law` the evaluated emission law
+/// ([`Nuclide::continuum_law`](crate::material::nuclide::Nuclide::continuum_law)),
+/// and `seed` the particle's RNG stream.
+///
+/// # What the evaluated path does
+///
+/// 1. Picks an emission **branch** in proportion to the branches' yields. Most
+///    evaluations have one; F-19's MF=6/MT=16 has two, of yield 1 each, carrying
+///    different spectra for the first and second emitted neutron.
+/// 2. Samples `E'` from that branch's tabulated `f₀(E→E')` with the same
+///    `ContinuousTabular` sampler the MF=5 fission spectrum uses (locate the
+///    incident bin, statistically pick a table, invert its CDF, scale between the
+///    neighbouring tables' envelopes) — ported from OpenMC
+///    `src/distribution_energy.cpp`.
+/// 3. Transforms to the laboratory frame **only if the evaluation says to**:
+///    ENDF `LCT = 2` (both uranium isotopes' MT=91) means the law is tabulated in
+///    the centre of mass, so the sampled `E'` is a CM energy and goes through
+///    [`cm_to_lab`] with an isotropic CM cosine. `LCT = 1` (F-19's MT=91 and
+///    MT=16) means it is already a laboratory energy, and the emission is taken
+///    isotropic in the lab. Assuming one frame for both is wrong by the full
+///    CM-motion term, which is why the flag is carried rather than inferred.
+///
+/// # What it still approximates
+///
+/// The **angular correlation** in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1,
+/// Kalbach `r`/`a` for LANG=2) is not used: emission is isotropic in the frame
+/// the evaluation names. That is the same reduction ACE Law 4 makes, and it is a
+/// smaller approximation than the energy *shape* this replaces — U-238's MT=91
+/// anisotropy is `f₁/f₀ ~ 1e-8` near threshold, though it grows with energy
+/// (`NA` runs 0 at threshold to 26 at 30 MeV). Correlated emission is the
+/// follow-up.
+pub fn continuum_inelastic_scatter_evaluated(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    seed: &mut u64,
+) -> (f64, Direction) {
+    let Some(law) = law else {
+        return continuum_inelastic_scatter(e, u, awr, q, seed);
+    };
+
+    let branch = law.branch_for(e, prn(seed));
+    let sampled = sample_continuous_tabular(&branch.spectrum, e, seed);
+
+    if law.cm_frame {
+        // The evaluation's grids already stop at the two-body bound, but the
+        // envelope scaling between neighbouring incident tables can land a
+        // fraction above it; clamp so no draw can exceed what energy balance
+        // allows, exactly as the stand-in path does.
+        let ap1 = awr + 1.0;
+        let cap = (e * (awr / ap1).powi(2) + q * awr / ap1).max(0.0);
+        let e_cm_out = sampled.min(cap);
+        let mu_cm = 2.0 * prn(seed) - 1.0;
+        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, awr);
+        (e_out, rotate_direction(u, mu_lab, seed))
+    } else {
+        // Laboratory-frame law: the sampled energy is the outgoing lab energy
+        // and the emission is isotropic in the lab.
+        let mu_lab = 2.0 * prn(seed) - 1.0;
+        (sampled, rotate_direction(u, mu_lab, seed))
+    }
 }
 
 #[cfg(test)]
