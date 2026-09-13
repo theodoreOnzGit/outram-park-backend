@@ -77,11 +77,57 @@ do exactly what we do.
 
 ## Maturity
 
-**NOT DECLARED MATURE.** The dogfooding/API-usability rule does not yet apply
-to this crate, and must not be enforced on it.
+**DECLARED MATURE 2026-09-13 by the maintainer.** The dogfooding/API-usability
+rule now applies to this crate — see "What maturity turns on" below, because it
+is not a formality.
 
-Proposed bar, for the maintainer to accept, amend or reject — an agent may
-propose maturity with cited runs and numbers but must **not** declare it:
+- 2026-09-13 — **mature.** Bar, as corrected on 2026-09-11 and met with margin:
+  observed L2 convergence order within 0.15 of theory under MMS for every
+  implemented element; patch test to 1e-12 relative; thick-walled cylinder
+  **displacement** within 1% of the closed-form Lamé solution on a converged
+  mesh, with **stress** judged on observed convergence order (1 ± 0.2 linear,
+  2 ± 0.2 quadratic) rather than an absolute tolerance. Evidence class:
+  **analytical / MMS**.
+
+  Measured at declaration, on rustc 1.98.1, release, 101 tests green:
+
+    MMS L2 / H1 order   Tri3 1.997/0.998, Quad4 1.998/1.000, Tri6 2.978/1.989,
+                        Tet4 1.957/0.969, Hex8 1.983/1.008 (theory p+1 / p)
+    patch test          9.0e-17 displacement, 1.3e-14 stress, every element
+    Lamé                u_r 2.07e-4 at order 1.998; sigma_r order 0.959
+    uniaxial J2         exact to 1.95e-14 through load, unload and reverse yield
+    Newton order        2.004, preserved under B-bar
+    crystal plasticity  analytic Schmid 1.5e-15, frame indifference 7.6e-16,
+                        Richardson-extrapolated tangent 3.6e-9
+
+  **What this bar does NOT claim.** It is verification against analytical and
+  manufactured solutions only. No published benchmark, no physical measurement,
+  and no human V&V sign-off — the `README.md` bookkeeping axes remain ❌ and are
+  the maintainer's to clear separately. Maturity here means the numerics are
+  demonstrably right, not that the physics has been shown to represent reality.
+  Do not cite this entry as validation.
+
+  Known gaps live alongside it and are not waived by the declaration: shear
+  locking is measured and uncured (`op-uqqg`), ILU(0) stagnates on nearly
+  incompressible systems (`op-ldaz`), no curved elements, small strain only so
+  no lattice reorientation or backstress (`op-tau7`), and fatigue is partial
+  (`op-q1zn`).
+
+### What maturity turns on
+
+Declaring maturity is not cosmetic. Two workspace rules begin to bind here:
+
+- **The small-model API dogfood** ("if it is too complex for Haiku, it is a bad
+  API"). Farrer Park has no Python wheel, so the literal wheel-only form does
+  not apply as written; the Rust-caller half does. Its traits should carry
+  `#[diagnostic::on_unimplemented]` naming the concrete types that implement
+  them (workspace audit `op-wiep`), and a fresh-context reader should be able to
+  assemble a case from the public API and its doc comments alone.
+- **The bar is now a standing commitment**, not an aspiration. A change that
+  degrades any number above is a regression to be reported, not a new baseline.
+
+Superseded proposals, kept because the rule says to keep them and because the
+mistake below is instructive:
 
 - 2026-09-11 (morning) — proposed bar: observed L2 convergence order within
   0.15 of theory under MMS for every implemented element; patch test satisfied

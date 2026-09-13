@@ -1090,7 +1090,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-06** (9 of 36 crates). The bar and its
+**Declared mature as of 2026-09-13** (10 of 37 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1105,15 +1105,22 @@ the authority:
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
 | `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
+| `farrer-park` | MMS L2 order within 0.15 of theory per element; patch test 1e-12; Lamé **displacement** within 1%, **stress** on observed order (1 ± 0.2 linear, 2 ± 0.2 quadratic); **shear locking uncured, no benchmark validation** | analytical / MMS |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
-to it. Three honest notes on this roster: `teh-o-prke` is the thinnest of the
-eight and lacks analytical transient validation (its own file says so, and
+to it. Four honest notes on this roster: `teh-o-prke` is the thinnest of the
+ten and lacks analytical transient validation (its own file says so, and
 says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
-today rather than at what criticality work should eventually demand; and the
+today rather than at what criticality work should eventually demand; the
 Scilab half of the process-control crate's evidence lives in the maintainer's
 dissertation rather than in this repository, so its recorded bar is written
-against the analytical tests that *are* reproducible here.
+against the analytical tests that *are* reproducible here; and `farrer-park`
+carries a **known uncured defect** — shear locking, measured at 66.7 % too
+stiff on Quad4 at element aspect ratio 4 (`op-uqqg`) — so its maturity says
+the numerics it *does* implement converge at the theoretical rate, not that
+every element is fit for bending. It is also the only entry on this roster
+declared within days of the crate first existing; its bar is analytical/MMS
+with no cross-code or benchmark leg at all.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**
