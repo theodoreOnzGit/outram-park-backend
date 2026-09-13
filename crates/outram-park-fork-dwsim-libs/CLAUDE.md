@@ -36,24 +36,40 @@ cargo test  -p outram-park-fork-dwsim-libs --lib --release
   DWSIM at the pinned commit `1abf72d1b6b41d3e9a8cc770d3cc4e8fc76e5766` on the
   same input, to 4 significant figures. **Evidence class:** cross-code
   comparison.
-  **MEASURED 2026-09-13 — BAR NOT MET.** Upstream DWSIM 9.0.5.0 was built
-  from the pinned source and run headless on Linux (see "Running upstream
-  DWSIM headless" below). Peng-Robinson vapour density, same inputs:
+  **MEASURED 2026-09-13 — EOS LAYER MET, FLASH LAYER OPEN.** Upstream DWSIM
+  9.0.5.0 was built from the pinned source and run headless on Linux (see
+  "Running upstream DWSIM headless" below).
 
-  | case | upstream DWSIM | this port | deviation |
+  **Peng-Robinson EOS: exact agreement.** Calling upstream's `Z_PR` directly
+  with identical Tc/Pc/omega:
+
+  | case | upstream `Z_PR` | this port | agreement |
   |---|---|---|---|
-  | CO2 400 K, 5 MPa | 73.2995 | 73.554 | +0.35 % |
-  | CO2 400 K, 10 MPa | 161.9046 | 163.148 | +0.77 % |
-  | N2 300 K, 10 MPa | 111.5136 | 113.603 | +1.87 % |
-  | N2 200 K, 5 MPa | 94.0138 | 95.494 | +1.57 % |
+  | CO2 400 K, 5 MPa | 0.899430 | 0.899430 | 6 s.f. |
+  | CO2 400 K, 10 MPa | 0.810820 | 0.810820 | 6 s.f. |
+  | N2 300 K, 10 MPa | 0.988619 | 0.988619 | 6 s.f. |
+  | N2 200 K, 5 MPa | 0.882072 | 0.882072 | 6 s.f. |
 
-  Agreement is 2-3 significant figures, not the 4 the bar demands, so the
-  crate **does not currently meet its own bar**. The deviation is systematic
-  and one-signed (this port always reads high), which points at a definite
-  cause — a differing alpha-function, kij default, or root-selection
-  convention — rather than noise. That is a tractable investigation, not a
-  rewrite. The declaration stands as the maintainer's decision; this entry
-  records that the evidence does not yet support it.
+  Both also reproduce textbook Peng-Robinson to 0.000 %, computed
+  independently from the published correlation. The bar's 4 significant
+  figures is **exceeded** at the EOS layer. Note upstream hardcodes
+  `R = 8.314` (`PengRobinson.vb`) against this port's CODATA 8.314462618; that
+  is worth about 0.01 % and drives nothing below.
+
+  **Open: upstream's own property-dispatch layer disagrees with its own EOS.**
+  `CalcProp(..., "compressibilityfactor", "Vapor", ...)` returns values 0.36 %
+  to 1.88 % away from `Z_PR` for identical inputs — N2 300 K/10 MPa gives
+  `CalcProp` 1.007179 against `Z_PR` 0.988619. The discrepancy is therefore
+  **inside upstream**, between its EOS and its property path, not between
+  upstream and this port. What `CalcProp` adds — a flash, a phase-identification
+  step, or a volume translation — is not yet traced, so no claim is made about
+  flash-level agreement, which is the half of the bar that matters for columns.
+
+  Ruled out, recorded so they are not re-tried: compound constants (N2's
+  Tc/Pc/omega are identical in both codes yet showed the largest gap); the gas
+  constant (~0.01 %); and the cubic itself (upstream's coefficients are
+  algebraically identical to standard PR, with matching alpha function and
+  0.45724/0.0778 constants).
 
 **What was actually measured at declaration time** (2026-09-11, release), and
 what a reader should treat as the real current evidence:
