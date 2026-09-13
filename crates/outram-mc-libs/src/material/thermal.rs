@@ -222,6 +222,44 @@ const N_EMIT_GRID: usize = 384;
 /// bins → −2.10 % at 64 → −1.43 % at 128). Same *class* of error — the ACE
 /// equiprobable pre-tabulation — but a different dimension of it. Bead
 /// `op-77pu`.
+///
+/// # Measured 2026-09-13: this constant is most of GitHub #188's width half
+///
+/// The paragraph above says #188 is "entirely responsive to this constant". It
+/// is. Measured on the **fixed point** — the detailed-balance oracle, the
+/// sharpest of the three directions, because a kernel obeying detailed balance
+/// relaxes onto the *exact* Maxwellian whatever its per-collision accuracy, so
+/// any departure is a statement about the representation rather than about
+/// precision:
+///
+/// ```text
+///   n_out    graphite T_eff      shape      H2O T_eff          shape
+///     16     614.28 K (+2.38%)   1.5652     -                  -
+///     64     604.76 K (+0.79%)   1.6425     294.62 K (+0.35%)  1.6394
+///    128     601.90 K (+0.32%)   1.6550     294.81 K (+0.41%)  1.6502
+///    256     600.51 K (+0.08%)   1.6604     294.95 K (+0.46%)  1.6559
+///   free-gas control (no tables at all)     601.28 K (+0.21%)  1.6650
+/// ```
+///
+/// The deficit **halves on every doubling**, exactly as the tail-truncation
+/// argument above predicts it must, and at 256 graphite's equilibrium
+/// temperature is +0.08 % against +0.79 % at 64.
+///
+/// # The constant was deliberately left at 64
+///
+/// Raising it is a **mitigation of a representation NJOY does not use here**,
+/// and it costs memory without end: the series has no plateau, so every halving
+/// of the error doubles the table (432 kB per scatterer at 16, 1.7 MB at 64,
+/// 6.9 MB at 256). The measurement above is kept because it *identifies the
+/// cause* — #188's width half is the equiprobable pre-tabulation, not the
+/// S(α,β) evaluation — and the cure is the one already named above: port NJOY's
+/// **continuous outgoing-energy law** (`iform = 1`, THERMR's `calcem`), rather
+/// than buying fractions of it with bins.
+///
+/// **One thing did not improve and is left recorded rather than smoothed:**
+/// water's equilibrium *temperature* drifts the wrong way across the series
+/// (+0.35 % → +0.41 % → +0.46 %) while its *shape* improves (−1.62 % → −0.65 %).
+/// Graphite shows no such split. That is unexplained.
 const N_OUTGOING: usize = 64;
 /// Equally-probable cosines per outgoing-energy bin (NJOY-typical).
 const N_COSINES: usize = 8;
