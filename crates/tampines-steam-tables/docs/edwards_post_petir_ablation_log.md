@@ -120,6 +120,8 @@ Every run, in order. `t_end` is the simulated window, not wall clock.
 | A0c | `09787761`, default build, `edwards_obrien_pipe_blowdown_600ms` | **PASS** 346.17 s | full transient; golden reference captured |
 | A0d | `892c3898` + `--features platform-libm`, same 600 ms test | **PASS** 346.06 s | reproduces A0c byte-for-byte in all three CSVs |
 | A1 | `892c3898`, default build, same 600 ms test | **FAIL** 62.59 s | pure PIMPLE; dies at t ~ 0.117-0.120 s |
+| A2 | A1 + instrumentation at the energy solve | **FAIL** (by design) | `rc_unclamped = -1.643`: mass over-drain, not a small density |
+| A3 | A1 + drained-cell enthalpy hold | **FAIL** 70.75 s | original failure cleared, flashing reached (alpha -> 0.519); NEW failure at cell 19 with no clamp involved |
 
 Entries from A1 onward are this campaign's own and are appended below as they
 are run.
@@ -262,3 +264,106 @@ A fix for D2 alone will stop the panic and leave mass being created by the
 clamp. That is worth knowing rather than assuming, so it is run next, on its
 own, as A3 — which is also the "full rhoPimpleFoam baseline with only the energy
 drain fix" this campaign was asked for.
+
+---
+
+## A3 — energy-drain fix alone (the requested rhoPimpleFoam baseline)
+
+**Configuration.** A1 plus the drained-cell enthalpy hold: a cell whose
+continuity density hits the floor gets an identity row (`diag = 1`,
+`source = he_old`) instead of a solve. Nothing else changed — no flux limiter,
+no floor change, pure PIMPLE.
+
+**Result: FAIL at 70.75 s wall — but it is a DIFFERENT failure, later, and the
+solver does real physics in between.**
+
+### What A3 bought
+
+The original failure at `t ≈ 0.117 s` is gone. The run now passes through it and
+**flashing begins**, which the pre-A3 run never reached:
+
+```
+step  3900 t=0.1170 | break: p=2656kPa T=499.5K a=0.000 | mdot=58.49 u=16.80
+step  4000 t=0.1200 | break: p=2513kPa T=497.4K a=0.428 | mdot=43.11 u=21.33
+step  4100 t=0.1230 | break: p=2434kPa T=495.7K a=0.519 | mdot=40.90 u=23.89
+```
+
+Void fraction goes 0.000 → 0.428 → 0.519, temperature turns over (499.5 → 495.7 K)
+and the break mass flow drops (58.5 → 40.9 kg/s) as vapour appears. That is the
+onset of the flashing plateau, and it is the behaviour the case exists to
+reproduce.
+
+**So D2 was real and the fix is correct as far as it goes.** It is not
+sufficient.
+
+### The new failure — and it is NOT the clamp
+
+Cell 19, at `t ≈ 0.123–0.126 s`:
+
+```
+cell            he        he_old          rho      rho_old   rc_unclamped  clamp       div_phi            p         diag
+  18     9.94660e5     9.94670e5    3.50217e2    3.50937e2      3.50077e2  false     2.86799e4    2.44604e6    8.33540e3
+  19     3.43649e7     9.96917e5    1.42655e-2   1.21352e-2     1.46167e-2  false    -8.27167e1    7.17020e2   3.48030e-1
+  20     3.47772e5     3.48667e5    9.69984e2    9.72376e2      9.69161e2  false     1.07182e5    5.62939e4    2.30759e4
+  21     9.33174e5     9.41299e5    1.79767e2    1.81145e2      1.84081e2  false    -9.78537e4    1.57472e6    4.38300e3
+clamped cells this step: []
+```
+
+Read that carefully, because it rules out the obvious follow-up:
+
+- **`clamped cells this step: []`.** No clamp fired anywhere. The A3 hold never
+  engaged. Whatever this is, it is not the floor.
+- **Cell 19 is not draining — it is GAINING mass.** `div_phi = −8.27e1`, so
+  `rho_cont` *rises* from 1.21e-2 to 1.46e-2. The over-drain story (D1) does not
+  apply to this cell either.
+- **`he` blows up anyway**, to `+3.44e7` J/kg — about nine times the physical
+  maximum for water, and positive this time rather than negative.
+
+The mechanism is the same arithmetic with a different cause. `diag = ρ_cont·V/Δt
+= 3.48e-1` because the cell is nearly empty (1.4e-2 kg/m³ — roughly 1/70 000 of
+liquid water). Against a diagonal that small, *any* residual in the source
+dominates, and the equation for **specific** enthalpy is simply ill-conditioned.
+No clamp is needed to produce it.
+
+### The actual anomaly, which is upstream of the energy equation
+
+Look at the pressure across four adjacent cells:
+
+| cell | p (Pa) | ρ (kg/m³) |
+|---|---|---|
+| 18 | 2.446e6 | 350.2 |
+| 19 | **7.170e2** | **1.43e-2** |
+| 20 | 5.629e4 | 970.0 |
+| 21 | 1.575e6 | 179.8 |
+
+That is **four orders of magnitude of pressure variation between neighbouring
+cells**, with an isolated near-vacuum cell sandwiched between two dense ones.
+That is not a thermodynamic problem and not a floor problem — it is a **local
+breakdown of the pressure–velocity coupling**, and the energy blow-up is
+downstream of it.
+
+It is not a CFL violation either, which is worth stating because it is the
+natural next guess. With `dx = 4.096/24 = 0.171 m`, `u ≈ 21 m/s` and
+`dt = 30 µs`, the convective Courant number is `0.0037`; at `c ≈ 400 m/s` the
+acoustic one is `0.07`. Both are tiny. The timestep is not the problem.
+
+**Timing is the clue.** The breakdown lands immediately after flashing onset
+(`a: 0.000 → 0.428` in the 100 steps before it), which is exactly where `ψ =
+∂ρ/∂p|_h` changes by about two orders of magnitude as the flashing compliance
+term switches on. The module's own `ψ` comment says so directly. That makes the
+pressure equation's diagonal the first place to look, not the energy equation's.
+
+### Ledger entry
+
+| # | Configuration | Result | Notes |
+|---|---|---|---|
+| A2 | A1 + instrumentation at the energy solve | FAIL (by design) | `rho_cont = −1.643`; over-drain identified |
+| A3 | A1 + drained-cell enthalpy hold | **FAIL** 70.75 s | original failure cleared; flashing reached (α → 0.519); new failure at cell 19, no clamp involved |
+
+**A3 is kept.** It fixes a defect that is real, independently of what comes
+next, and without it the run cannot even reach the regime where the remaining
+problem lives.
+
+**Next (A4): stop looking at the energy equation.** Instrument `ψ`, `p` and the
+pressure-equation diagonal across cells 17–21 through flashing onset, and find
+out how cell 19 arrives at 717 Pa while its neighbour sits at 2.45 MPa.
