@@ -130,6 +130,7 @@ use outram_mc_libs::pebble_beds::delta_tracking::{track_to_collision, Majorant};
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
+use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 
 // ── Regular-lattice geometry (for the nested-navigation test) ──────────────────
@@ -452,63 +453,69 @@ fn triso_nested_lattice_geometry_navigation() {
 /// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
 /// which they cannot if the surface tracker is systematically leaking histories.
 ///
-/// # Results (re-measured 2026-09-14) — THE SIGN HAS FLIPPED, AND IT IS NOT RESOLVED
+/// # Results (2026-09-14, after the nested-frame crossing fix) — RESOLVED
 ///
-/// Surface **k = 1.87620 ± 0.00499** vs delta **k = 1.93067 ± 0.00538**:
-/// Δk = **−5447 pcm, combined σ = 734 pcm, −7.4 σ**, 2.8 % relative.
+/// Surface **k = 1.93181 ± 0.00502** vs delta **k = 1.93067 ± 0.00538**:
+/// Δk = **+114 pcm, +0.15 σ**. A statistical tie, which is what two
+/// independently implemented exact trackers on one geometry should give.
 ///
-/// **Both arms moved since the previous entry, and the disagreement reversed.**
-/// Against the 2026-08-06 values below, the surface arm moved **−8364 pcm** and
-/// the delta arm **+867 pcm**, turning a +3784 pcm (surface high) gap into a
-/// −5447 pcm (surface low) one. The intervening physics changes — the MT=91
-/// continuum Q-value cap (gh:#192), reading the evaluated MF=6 law, the
-/// continuous thermal kernel — are the obvious candidates and neither arm was
-/// re-measured when they landed.
+/// ## The bug this test was chasing, and how it was found
 ///
-/// **What localises the problem:** the two trackers *agree* on homogeneous
-/// media on the same day, and disagree only when kernels are resolved.
+/// Before the fix: surface **1.87620** vs delta **1.93067**, −5447 pcm at
+/// **−7.4 σ**. Four discriminators narrowed it, each ruling something out:
 ///
-/// | case | surface | delta | Δ |
-/// |---|---|---|---|
-/// | homogeneous cube (`..._unbiased_vs_surface_tracking`) | 2.22574 ± 0.00342 | 2.22983 ± 0.00340 | −409 pcm, **−0.85 σ** |
-/// | homogeneous cube, corner stress (`corner_reflective_cube_...`) | 2.22420 ± 0.00356 | 2.22983 ± 0.00340 | −563 pcm, **−1.14 σ** |
-/// | **this test: 3×3×3 resolved lattice** | 1.87620 ± 0.00499 | 1.93067 ± 0.00538 | **−5447 pcm, −7.4 σ** |
+/// | test | result | rules out |
+/// |---|---|---|
+/// | `..._csg_and_closure_agree_pointwise` | 0 / 400 000 mismatches | the two arms modelling different geometry |
+/// | `..._reflective_box_leaks_nothing` | leakage exactly 0 | histories escaping |
+/// | `..._uniform_material_surface_vs_delta` | +7 pcm, 0.0 σ | navigation, and **nuclear data** |
+/// | `..._incremental_tracking_matches_fresh_lookup` | **17.2 % of segments mis-assigned** | — this is it |
 ///
-/// So this is not a general tracker bias; it appears with resolved geometry.
-/// Which side is wrong is **not established**. The surface arm is the more
-/// suspicious of the two on history — it previously read ~50 % low here until
-/// the coincident-surface tie-break fix, and it is the arm that moved by
-/// −8364 pcm — but that is a prior, not evidence.
+/// Combined with `fhr_ring_rpt_endf`'s concentric-sphere case (CSG − delta =
+/// +241 ± 308 pcm, 0.78 σ — contrast but no lattice, agrees), the signature was
+/// that the disagreement needed **a nested universe AND a material contrast**.
 ///
-/// **This matters beyond this test.** Delta tracking is the "exact by
-/// construction" reference every bias in `examples/dh_keff_vv.rs` is quoted
-/// against, and this is the only heterogeneous cross-check of that claim the
-/// crate has. Tracked as a bead.
+/// **The defect:** [`Geometry::cross_surface`] evaluates `surf.normal(r)` at the
+/// position handed to it, and all three surface-tracking drivers handed it the
+/// **global** position. A surface declared inside a lattice tile is defined
+/// about *that tile's* origin, so the normal was computed about the wrong
+/// centre. `nudge_across` then pushed the particle 1e-9 along that wrong normal,
+/// landing it back on the side it came from; the next `locate` returned the cell
+/// it was leaving, and the whole following flight segment was attributed to the
+/// wrong material.
 ///
-/// **An under-bound majorant was ruled out as the cause**, not assumed away:
-/// `Majorant::at` clamped flat below its grid floor where `Σ_t` keeps rising as
-/// 1/v, under-bounding the HEU kernel by 9.09× at 1e-6 eV
-/// (`examples/majorant_bound_audit.rs`). That was a real defect and is fixed
-/// (1/v extrapolation, gated by
-/// `majorant_bounds_sigma_t_below_its_grid_floor`) — but an A/B on this very
-/// test gave **bit-identical** eigenvalues with and without the fix, so it
-/// contributes nothing here. Predicted beforehand as "well under 10 pcm",
-/// because a 293.6 K Maxwellian puts ~1e-5 of its flux below 1e-4 eV.
+/// The separation by frame was total and is what identified it: **37.4 % of
+/// kernel-sphere crossings** (translated tile universe) mis-assigned the next
+/// segment, against **0.0 % of box-plane crossings** (root universe, where local
+/// and global coincide). Planes were never affected at all, because a plane's
+/// normal is constant — which is why root-universe geometries never showed this.
 ///
-/// The pass criterion remains "the under-count is gone" (5 % relative), which
-/// this satisfies at 2.8 %. It is deliberately **not** a statistical tie, and
-/// should not be read as one.
+/// Fixed by [`Geometry::cross_surface_in_frame`], which converts to the
+/// crossing's coordinate level and back. Nested frames here are pure
+/// translations, so the conversion is exact and a direction needs none.
+/// After it: 0 / 1 600 000 segments mis-assigned.
+///
+/// **It was NOT the nuclear data**, and that was established rather than
+/// assumed: with one material written into both slots the trackers agreed to
+/// 0.0 σ while the lattice geometry was fully retained. Both arms read the same
+/// evaluations through the same functions throughout.
+///
+/// Delta tracking is **bit-unchanged** by the fix (1.93067 before and after) —
+/// it never calls `cross_surface` — so it served as the control, and the entire
+/// +5561 pcm move is in the surface tracker.
 ///
 /// **Supersedes (measured 2026-08-06):** surface **k = 1.95984 ± 0.00484** vs
-/// delta **1.92200 ± 0.00522** (+3784 pcm, +5.3 σ, 2.0 % relative).
+/// delta **1.92200 ± 0.00522** (+3784 pcm). Those predate several physics
+/// changes (the MT=91 continuum Q-value cap gh:#192, the evaluated MF=6 law, the
+/// continuous thermal kernel) and were never re-measured when those landed; by
+/// 2026-09-14 the same code read −5447 pcm, i.e. the disagreement had also
+/// flipped sign.
 ///
 /// **Supersedes (pre-`op-jis`, measured 2026-07-24):** surface **k = 1.96481 ±
-/// 0.00473** vs delta **1.92644 ± 0.00511** (2.0 % relative). Those were taken
-/// with the old `prn` output function (raw top-52 state bits); bead `op-jis`
-/// added the PCG-RXS-M-XS output permutation, which left the LCG state
-/// recurrence unchanged but moved every sampled uniform, and hence both
-/// eigenvalues. The ~50 %-low pre-fix surface value (≈0.90) is a historical
-/// pre-tie-break-fix fact and is not a superseded measurement.
+/// 0.00473** vs delta **1.92644 ± 0.00511**. Taken with the old `prn` output
+/// function; `op-jis` added the PCG-RXS-M-XS permutation, which moved every
+/// sampled uniform. The ~50 %-low pre-tie-break-fix surface value (≈0.90) is a
+/// historical fact, not a superseded measurement.
 #[test]
 fn triso_nested_lattice_surface_vs_delta_keff() {
     let nuclides = triso_nuclides();
@@ -555,22 +562,27 @@ fn triso_nested_lattice_surface_vs_delta_keff() {
         "both eigenvalues finite"
     );
 
-    // The op-6tz.34 symptom was a ~50%-low surface k (≈0.90 vs ≈1.9). The pass
-    // criterion is that the under-count is gone: surface agrees with delta to
-    // within 5% relative (measured ~2% on 2026-07-24). Both must also be in the
-    // physical infinite-medium band for this fissile HEU dispersion.
-    let rel = (ks.k_mean - kd.k_mean).abs() / kd.k_mean;
     assert!(
         ks.k_mean > 1.5 && kd.k_mean > 1.5,
         "both eigenvalues should be well above 1 for this HEU dispersion (surface {:.5}, delta {:.5})",
         ks.k_mean, kd.k_mean
     );
+
+    // A STATISTICAL TIE, not "within 5 % relative". The old criterion was sized
+    // to catch a ~50 %-low under-count and duly passed a −7.4 sigma, 2.8 %
+    // disagreement for weeks. Two independently implemented exact trackers on
+    // one geometry must agree to statistics; anything else is a defect in one
+    // of them, and this is the test that has to say so.
+    let dk = (ks.k_mean - kd.k_mean) * 1.0e5;
+    let sigma = (ks.k_std * ks.k_std + kd.k_std * kd.k_std).sqrt() * 1.0e5;
     assert!(
-        rel < 0.05,
-        "surface vs delta over the nested reflective lattice differ by {:.1}% \
-         (surface {:.5}, delta {:.5}) — the surface tracker is leaking histories at the \
-         lattice/reflective boundary (op-6tz.34 regressed)",
-        rel * 100.0,
+        dk.abs() / sigma.max(1.0) < 4.0,
+        "surface vs delta over the nested reflective lattice differ by {dk:+.0} pcm \
+         ({:.1} sigma; surface {:.5}, delta {:.5}). These are two exact methods on one \
+         geometry and must agree to statistics. Check cross_surface_in_frame is still used \
+         by transport_csg -- passing a GLOBAL position to cross_surface for a surface inside \
+         a lattice tile computes its normal about the wrong centre.",
+        dk / sigma.max(1.0),
         ks.k_mean,
         kd.k_mean
     );

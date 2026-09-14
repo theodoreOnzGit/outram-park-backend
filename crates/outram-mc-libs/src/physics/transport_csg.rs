@@ -866,7 +866,8 @@ pub(crate) fn transport_history(
                 r = stream(r, u, d_bound.distance);
                 match d_bound.crossing {
                     Crossing::Surface(i_surf) => {
-                        let crossed = geom.cross_surface(i_surf, r, u);
+                        let crossed =
+                            geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u);
                         if !crossed.alive {
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).

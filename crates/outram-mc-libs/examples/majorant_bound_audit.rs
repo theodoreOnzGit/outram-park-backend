@@ -75,6 +75,50 @@ fn audit(name: &str, materials: &[Material], nuclides: &[Nuclide], margin: f64, 
     }
 }
 
+/// Fine scan across the resolved-resonance region, where a binned majorant is
+/// most likely to miss a narrow peak between its subsamples.
+///
+/// The log-uniform scan in `audit` spreads its points over 13 decades; U-238's
+/// low-lying resonances are ~25 meV wide at 6.67 eV, so they occupy a vanishing
+/// fraction of that range and can be stepped straight over. This walks
+/// 0.1 eV - 10 keV at a resolution far finer than any resonance width.
+fn resonance_scan(materials: &[Material], nuclides: &[Nuclide], margin: f64) {
+    let maj = Majorant::bounding(materials, nuclides, 1.0e-4, 2.0e7, 4096, 32, margin);
+    let (lo, hi): (f64, f64) = (1.0e-1, 1.0e4);
+    let n = 3_000_000; // ~1.5e-5 relative spacing: ~1e-4 eV at the 6.67 eV peak
+    let mut worst = 0.0_f64;
+    let mut worst_e = 0.0;
+    let mut breaches = 0usize;
+
+    for i in 0..=n {
+        let e = lo * (hi / lo).powf(i as f64 / n as f64);
+        let m = maj.at(e);
+        if !(m > 0.0) {
+            continue;
+        }
+        for mat in materials {
+            let ratio = mat.macro_xs_total(e, nuclides) / m;
+            if ratio > 1.0 {
+                breaches += 1;
+            }
+            if ratio > worst {
+                worst = ratio;
+                worst_e = e;
+            }
+        }
+    }
+    println!("\nResolved-resonance fine scan, margin {:.0} %", margin * 100.0);
+    println!("  {lo:.1e} - {hi:.1e} eV at {n} points (~1e-4 eV resolution at 6.67 eV)");
+    println!("  worst Sigma_t / Sigma_maj = {worst:.4} at E = {worst_e:.5} eV");
+    if worst > 1.0 {
+        println!("  *** UNDER-BOUND at {breaches} points — delta tracking loses collisions");
+        println!("      in the FUEL, which loses absorption and biases k HIGH.");
+    } else {
+        println!("  bounded (headroom {:.1} %) — the majorant is not missing resonance peaks",
+                 100.0 * (1.0 / worst - 1.0));
+    }
+}
+
 fn main() {
     // ---- the openmc-notebook TRISO lattice case (tests/openmc_notebooks/triso.rs) ----
     let nuclides: Vec<Nuclide> = ["U234", "U235", "U238", "H1"]
@@ -111,4 +155,5 @@ fn main() {
         "same materials, floor dropped to 1e-6 eV",
         &materials, &nuclides, 0.1, 1.0e-6, 2.0e7,
     );
+    resonance_scan(&materials, &nuclides, 0.1);
 }

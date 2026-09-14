@@ -394,6 +394,61 @@ impl Geometry {
         }
     }
 
+    /// Apply a boundary condition **in the coordinate frame the surface actually
+    /// lives in** — the only correct way to cross a surface inside a lattice or
+    /// a filled universe.
+    ///
+    /// # Why [`Self::cross_surface`] alone is not enough
+    ///
+    /// `cross_surface` evaluates `surf.normal(r)` at the position it is handed.
+    /// A surface declared inside a nested universe is defined about **that
+    /// universe's origin**, so handing it a *global* position computes the
+    /// normal about the wrong centre. For a plane the normal is constant and
+    /// nothing goes wrong, which is why root-universe geometries never showed
+    /// it; for a sphere the normal is radial and the error is total.
+    ///
+    /// The consequence is not a crash. `nudge_across` pushes the particle
+    /// `1e-9` along that wrong normal, so it can land back on the side it came
+    /// from, and the following `locate` then reports the cell it was leaving.
+    /// The whole next flight segment is attributed to the wrong material.
+    ///
+    /// **Measured on the 3x3x3 TRISO lattice (2026-09-14): 37.4 % of kernel
+    /// sphere crossings mis-assigned the next segment; 0.0 % of the
+    /// root-universe box-plane crossings.** That perfect separation by frame is
+    /// what identified this. It is invisible without a material contrast — the
+    /// wrong cell holds the same material — and invisible to a static point
+    /// check, because that never crosses anything.
+    ///
+    /// # How the conversion is exact
+    ///
+    /// Nested frames in this crate are **pure translations** (no rotation), as
+    /// [`Self::distance_to_boundary`] already relies on. So the offset between
+    /// the global frame and level `coord_level` is the constant
+    /// `levels[0].r - levels[coord_level].r`, taken from the located path, and
+    /// a direction needs no transformation at all.
+    ///
+    /// `r_global` is the crossing point in global coordinates — i.e. after
+    /// streaming to the boundary, not the position the path was located at.
+    pub fn cross_surface_in_frame(
+        &self,
+        i_surf: usize,
+        path: &GeometryPath,
+        coord_level: usize,
+        r_global: Position,
+        u: Direction,
+    ) -> SurfaceCrossing {
+        // Root level, or a malformed level index: global IS the local frame.
+        if coord_level == 0 || coord_level >= path.levels.len() {
+            return self.cross_surface(i_surf, r_global, u);
+        }
+        let offset = path.levels[0].r - path.levels[coord_level].r;
+        let crossed = self.cross_surface(i_surf, r_global - offset, u);
+        SurfaceCrossing {
+            r: crossed.r + offset,
+            ..crossed
+        }
+    }
+
     /// Compose the specular reflections of every reflective-type surface
     /// coincident with the crossing point `r`, returning the outgoing direction.
     ///
