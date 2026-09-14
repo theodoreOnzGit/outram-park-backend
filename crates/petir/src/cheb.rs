@@ -149,6 +149,36 @@ impl ChebSeries {
         Ok(ChebSeries { c, a, b })
     }
 
+    /// Build from coefficients in the **plain** convention, where the
+    /// constant term is `c[0] * T_0` rather than `c[0]/2 * T_0`.
+    ///
+    /// # Why this exists — two conventions, and mixing them is silent
+    ///
+    /// GSL's `gsl_cheb_init` produces a coefficient set whose zeroth entry is
+    /// **doubled**, which `gsl_cheb_eval` undoes with its closing
+    /// `0.5 * c[0]` (`cheb/eval.c:46`). Much published Chebyshev data — and
+    /// `tampines-steam-tables`' backward correlations, whose evaluator closes
+    /// with `c[0] + x*b1 - b2` — uses the other convention, where `c[0]` is
+    /// the plain coefficient of `T_0`.
+    ///
+    /// Feeding one convention's table to the other evaluator is wrong by
+    /// exactly `c[0]/2`, silently and everywhere. Measured on
+    /// `[3, 2, 1]` at `x = -0.7`: plain gives 1.58 (the closed form), GSL's
+    /// evaluator on the same bytes gives 0.08.
+    ///
+    /// The conversion is exact and is the whole of this constructor:
+    /// `c[0] *= 2`. No numerics are invented — GSL's evaluator still does the
+    /// arithmetic.
+    ///
+    /// # Errors
+    /// As [`from_coefficients`](Self::from_coefficients).
+    pub fn from_plain_coefficients(mut c: Vec<f64>, a: f64, b: f64) -> Result<Self> {
+        if let Some(c0) = c.first_mut() {
+            *c0 *= 2.0;
+        }
+        Self::from_coefficients(c, a, b)
+    }
+
     /// The series order (`gsl_cheb_order`, `cheb/init.c:98`) — one less than
     /// the number of coefficients.
     pub fn order(&self) -> usize {
