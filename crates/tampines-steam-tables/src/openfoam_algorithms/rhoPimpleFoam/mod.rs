@@ -1007,6 +1007,9 @@ pub struct TampinesSteamArray {
     /// TEMPORARY (bn:op-bgg0, log A4): one-shot latch so the pressure-bound
     /// diagnostic reports the FIRST occurrence rather than every step.
     p_bound_reported: bool,
+    /// One-shot latch so the drained-cell hold warns on its FIRST engagement
+    /// rather than on every step.
+    hold_reported: bool,
     /// Number of cell-updates on which the pressure solve produced a value
     /// outside `[p_min, p_max]` and was clamped by the bounding step.
     ///
@@ -1234,6 +1237,7 @@ impl TampinesSteamArray {
             psi_refresh: PsiRefresh::EveryCorrector,
             psi_rebuilt_this_outer: false,
             p_bound_reported: false,
+            hold_reported: false,
             p_bound_events: 0,
             p_bound_worst_undershoot: 0.0,
             p_bound_worst_overshoot: 0.0,
@@ -1975,41 +1979,47 @@ impl TampinesSteamArray {
                 let p_min_pa = self.p_min.get::<uom::si::pressure::pascal>();
                 let p_max_pa = self.p_max.get::<uom::si::pressure::pascal>();
 
-                // TEMPORARY INSTRUMENTATION (bn:op-bgg0, log A4) -- remove
-                // before merge. Report the FIRST step at which the pressure
-                // solve wants to put a cell below the EOS floor, with the
-                // pressure-equation state that produced it. The bounding just
-                // below hides exactly this, which is why the energy blow-up
-                // looks like it comes from nowhere.
-                if std::env::var("EDW_INSTR_P").is_ok() && !self.p_bound_reported {
-                    if let Some(b) = (0..n).find(|&c| p_new.internal[c] < p_min_pa) {
+                // ── LOUD band-aid: the pressure bound ──────────────────────
+                //
+                // The clamp below keeps a run alive when the pressure equation
+                // asks for a state the equation of state cannot represent. It
+                // is deliberately KEPT: a solver that panics mid-transient is
+                // useless to a user, and a bounded result is a usable one so
+                // long as nobody mistakes it for a correct one. So it must
+                // never be silent.
+                //
+                // A cell clamped UP from a negative absolute pressure is
+                // otherwise indistinguishable downstream from a cell that
+                // legitimately reached the floor, and that is exactly how the
+                // Edwards defect went undiagnosed (bn:op-bgg0, log A4: cell 21
+                // solved to -27.2 kPa and was clamped to 611.8 Pa -- a 6000x
+                // jump -- with nothing said).
+                //
+                // Warned ONCE per array, with the numbers a reader needs to
+                // start debugging. Running totals are on
+                // `pressure_bound_events` / `pressure_bound_worst_undershoot`.
+                if !self.p_bound_reported {
+                    if let Some(b) = (0..n)
+                        .find(|&c| p_new.internal[c] < p_min_pa || p_new.internal[c] > p_max_pa)
+                    {
                         self.p_bound_reported = true;
-                        eprintln!("\n==== pEqn wants p < p_min at cell {b} (p_min = {p_min_pa:.4e} Pa) ====");
                         eprintln!(
-                            "{:>4} {:>13} {:>13} {:>12} {:>13} {:>13} {:>12} {:>12}",
-                            "cell", "p_raw", "p_old", "psi", "diag", "source", "rho", "he"
-                        );
-                        let lo = b.saturating_sub(3);
-                        let hi = (b + 4).min(n);
-                        for c in lo..hi {
-                            eprintln!(
-                                "{:>4} {:>13.5e} {:>13.5e} {:>12.5e} {:>13.5e} {:>13.5e} {:>12.5e} {:>12.5e}",
-                                c,
-                                p_new.internal[c],
-                                p_old.internal[c],
-                                self.psi.internal[c],
-                                p_eqn.ldu.diag[c],
-                                p_eqn.source[c],
-                                self.rho.internal[c],
-                                self.he.internal[c],
-                            );
-                        }
-                        eprintln!(
-                            "cells below p_min: {:?}",
-                            (0..n).filter(|&c| p_new.internal[c] < p_min_pa).collect::<Vec<_>>()
+                            "WARNING [TampinesSteamArray]: pressure bounding engaged -- \
+                             the pressure solve left the EOS range and the value was CLAMPED. \
+                             Results from here on are NOT trustworthy. First occurrence: \
+                             cell {b}, solved p = {:.6e} Pa, clamped into [{:.6e}, {:.6e}] Pa \
+                             (psi = {:.6e}, rho = {:.6e} kg/m3). This is a defect signal, not \
+                             a safety net -- see pressure_bound_events() for the running count, \
+                             and bn:op-bgg0.",
+                            p_new.internal[b],
+                            p_min_pa,
+                            p_max_pa,
+                            self.psi.internal[b],
+                            self.rho.internal[b],
                         );
                     }
                 }
+
 
                 // Record every bounding event BEFORE clamping. The clamp is
                 // a band-aid, not a safety net: a cell clamped UP from a
@@ -2208,6 +2218,26 @@ impl TampinesSteamArray {
             for c in 0..n {
                 if drained[c] {
                     self.drained_hold_events += 1;
+                    // Loud on first engagement. The hold is KEPT because a
+                    // solver that panics on a drained cell is useless to a
+                    // user -- but it masks a mass over-drain, so a run that
+                    // engages it has a mass-conservation error in it and the
+                    // user must be told rather than handed a plausible-looking
+                    // answer. Running total: `drained_hold_events()`.
+                    if !self.hold_reported {
+                        self.hold_reported = true;
+                        eprintln!(
+                            "WARNING [TampinesSteamArray]: drained-cell enthalpy hold engaged -- \
+                             cell {c}'s continuity density reached its floor, so its specific \
+                             enthalpy was HELD rather than solved. MASS IS NOT CONSERVED in that \
+                             cell: the flux asked to remove more mass than it contained \
+                             (rho_old = {:.6e} kg/m3, unclamped rho_old - dt*div(phi) = {:.6e}). \
+                             The run continues and its results are NOT trustworthy. See \
+                             drained_hold_events() for the running count, and bn:op-bgg0.",
+                            rho_old.internal[c],
+                            rc_unclamped[c],
+                        );
+                    }
                     e_eqn.ldu.diag[c] = 1.0;
                     e_eqn.source[c] = he_old.internal[c];
                     for f in 0..e_eqn.ldu.n_internal_faces {
@@ -2224,45 +2254,6 @@ impl TampinesSteamArray {
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
 
-            // TEMPORARY INSTRUMENTATION (bn:op-bgg0) -- remove before merge.
-            // Catch the energy blow-up AT THE SOLVE, where rho_cont, rho_old
-            // and the source terms are still in scope, rather than one call
-            // later inside the (p,h) flash where all of that is gone.
-            if std::env::var("EDW_INSTR").is_ok() {
-                let bad = (0..n).find(|&c| {
-                    let h = self.he.internal[c];
-                    !h.is_finite() || !(-1.0e5..=6.0e6).contains(&h)
-                });
-                if let Some(b) = bad {
-                    eprintln!("\n==== EEqn BLOW-UP at cell {b} (n = {n}) ====");
-                    let lo = b.saturating_sub(3);
-                    let hi = (b + 4).min(n);
-                    eprintln!(
-                        "{:>4} {:>13} {:>13} {:>12} {:>12} {:>14} {:>6} {:>13} {:>12} {:>12}",
-                        "cell", "he", "he_old", "rho", "rho_old", "rc_unclamped",
-                        "clamp", "div_phi", "p", "diag"
-                    );
-                    for c in lo..hi {
-                        eprintln!(
-                            "{:>4} {:>13.5e} {:>13.5e} {:>12.5e} {:>12.5e} {:>14.5e} {:>6} {:>13.5e} {:>12.5e} {:>12.5e}",
-                            c,
-                            self.he.internal[c],
-                            he_old.internal[c],
-                            self.rho.internal[c],
-                            rho_old.internal[c],
-                            rc_unclamped[c],
-                            drained[c],
-                            div_phi_final.internal[c],
-                            self.p.internal[c],
-                            e_eqn.ldu.diag[c],
-                        );
-                    }
-                    eprintln!("clamped cells this step: {:?}",
-                        (0..n).filter(|&c| drained[c]).collect::<Vec<_>>());
-                    eprintln!("dt = {dt:e}");
-                    panic!("instrumented stop at cell {b}");
-                }
-            }
             // Rebuild the enthalpy terminals by the UPWIND ADVECTION convention
             // (TUAS), from the mass flux that this corrector just settled on.
             //
