@@ -342,11 +342,33 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // flashing plateau (~17 -> ~36 psia); the plateau is recovered instead by
     // the two solver-physics fixes documented in the module header (conservative
     // energy ddt + fixed-enthalpy compressibility), not by the relaxation knob.
+    // Ablation knobs (bn:op-bgg0). Defaults are unchanged -- 4 outer, 4 inner,
+    // alpha_p = alpha_u = 1.0 -- so an unset environment reproduces the
+    // documented configuration exactly. They exist so the corrector count and
+    // the under-relaxation can be swept without editing and rebuilding the test
+    // body, which keeps each ablation point recorded as a command rather than
+    // as a diff. See docs/edwards_post_petir_ablation_log.md.
+    let n_outer: usize = std::env::var("EDW_NOUTER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let n_inner: usize = std::env::var("EDW_NINNER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let alpha_p: f64 = std::env::var("EDW_ALPHA_P")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+    let alpha_u: f64 = std::env::var("EDW_ALPHA_U")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
     array.set_pimple_algorithm(
-        4,
-        4,
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
+        n_outer,
+        n_inner,
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_p),
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_u),
     );
 
     // Opt-in all-Mach hybrid mode for figure regeneration (EDW_HYBRID=1). The

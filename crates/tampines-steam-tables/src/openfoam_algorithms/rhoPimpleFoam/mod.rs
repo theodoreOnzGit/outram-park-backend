@@ -1004,6 +1004,9 @@ pub struct TampinesSteamArray {
     /// been rebuilt within it. Only consulted under
     /// [`PsiRefresh::OncePerOuterCorrector`].
     psi_rebuilt_this_outer: bool,
+    /// TEMPORARY (bn:op-bgg0, log A4): one-shot latch so the pressure-bound
+    /// diagnostic reports the FIRST occurrence rather than every step.
+    p_bound_reported: bool,
     /// How the KNP face state gets its pressure and sound speed (default
     /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
     /// consulted in [`SolverMode::HybridAllMach`].
@@ -1214,6 +1217,7 @@ impl TampinesSteamArray {
             // so every existing constructor/test runs the unchanged code path.
             psi_refresh: PsiRefresh::EveryCorrector,
             psi_rebuilt_this_outer: false,
+            p_bound_reported: false,
             knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
@@ -1909,6 +1913,43 @@ impl TampinesSteamArray {
                 // the flash rather than being silently pinned to a bound.
                 let p_min_pa = self.p_min.get::<uom::si::pressure::pascal>();
                 let p_max_pa = self.p_max.get::<uom::si::pressure::pascal>();
+
+                // TEMPORARY INSTRUMENTATION (bn:op-bgg0, log A4) -- remove
+                // before merge. Report the FIRST step at which the pressure
+                // solve wants to put a cell below the EOS floor, with the
+                // pressure-equation state that produced it. The bounding just
+                // below hides exactly this, which is why the energy blow-up
+                // looks like it comes from nowhere.
+                if std::env::var("EDW_INSTR_P").is_ok() && !self.p_bound_reported {
+                    if let Some(b) = (0..n).find(|&c| p_new.internal[c] < p_min_pa) {
+                        self.p_bound_reported = true;
+                        eprintln!("\n==== pEqn wants p < p_min at cell {b} (p_min = {p_min_pa:.4e} Pa) ====");
+                        eprintln!(
+                            "{:>4} {:>13} {:>13} {:>12} {:>13} {:>13} {:>12} {:>12}",
+                            "cell", "p_raw", "p_old", "psi", "diag", "source", "rho", "he"
+                        );
+                        let lo = b.saturating_sub(3);
+                        let hi = (b + 4).min(n);
+                        for c in lo..hi {
+                            eprintln!(
+                                "{:>4} {:>13.5e} {:>13.5e} {:>12.5e} {:>13.5e} {:>13.5e} {:>12.5e} {:>12.5e}",
+                                c,
+                                p_new.internal[c],
+                                p_old.internal[c],
+                                self.psi.internal[c],
+                                p_eqn.ldu.diag[c],
+                                p_eqn.source[c],
+                                self.rho.internal[c],
+                                self.he.internal[c],
+                            );
+                        }
+                        eprintln!(
+                            "cells below p_min: {:?}",
+                            (0..n).filter(|&c| p_new.internal[c] < p_min_pa).collect::<Vec<_>>()
+                        );
+                    }
+                }
+
                 for pv in p_new.internal.iter_mut() {
                     *pv = pv.clamp(p_min_pa, p_max_pa);
                 }

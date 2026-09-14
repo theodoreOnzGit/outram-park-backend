@@ -367,3 +367,111 @@ problem lives.
 **Next (A4): stop looking at the energy equation.** Instrument `ψ`, `p` and the
 pressure-equation diagonal across cells 17–21 through flashing onset, and find
 out how cell 19 arrives at 717 Pa while its neighbour sits at 2.45 MPa.
+
+---
+
+## A4 — the pressure equation, and what the bounding was hiding
+
+**Configuration.** A3 plus a one-shot dump (`EDW_INSTR_P=1`) fired the **first**
+time the pressure solve wants to put a cell below `p_min`, printed *before*
+`pressureControl::limit` clamps it. Latched to report once, so it reports the
+earliest occurrence rather than drowning the log after the field has already
+broken down.
+
+**Result.** First excursion at **t ≈ 0.114–0.117 s** — not a slow accumulation,
+but the very first time it happens, coinciding with the original A1 failure.
+
+```
+==== pEqn wants p < p_min at cell 21 (p_min = 6.1182e2 Pa) ====
+cell         p_raw         p_old          psi          diag        source          rho           he
+  18     2.09919e6     2.09623e6   2.99816e-4    7.14093e-3     1.49838e4    2.06487e2    9.93277e5
+  19     2.86414e6     2.86408e6   2.21828e-3    5.28198e-2     1.51279e5    8.08952e2    9.96973e5
+  20     2.49454e6     2.49942e6   6.11914e-4    1.45715e-2     3.63468e4    3.57143e2    9.99064e5
+  21    -2.72348e4     3.73547e6   1.02327e-6    4.26336e-5    -1.08840e1    8.26681e2    9.96292e5
+  22     4.34045e5     3.23217e5   3.33061e-5    8.27930e-4     3.21136e2    8.28404e0    1.00333e6
+  23     2.21069e6     2.66017e6   9.99921e-7    4.13129e-5     8.37324e1    8.31795e2    9.72922e5
+cells below p_min: [21]
+```
+
+### `psi` is not the bug — it is correct
+
+Cell 21 is dense subcooled liquid (826.7 kg/m³) at 3.735 MPa, and
+`psi = 1.02e-6`. For subcooled liquid `psi = ∂ρ/∂p|_h ≈ ρ·κ_T = 826.7 ×
+4.5\times10^{-10} ≈ 3.7\times10^{-7}` — same order. The value is right.
+
+That is what makes it dangerous. With `V/Δt ≈ 23.81`, the anchor term
+`psi·V/Δt·p_old = 2.436e-5 × 3.735e6 = +91.0`, while the total source is
+**−10.88**, so the mass-flux part is ≈ **−101.9** and more than cancels the
+anchor. The residual is negative, and dividing it by a diagonal of `4.26e-5`
+gives a negative absolute pressure.
+
+Compare **cell 23**: `psi = 9.99921e-7`, `diag = 4.13129e-5` — essentially
+identical — but a *positive* source, and it lands healthily at 2.21 MPa. So a
+tiny `psi` is **not sufficient** to cause this. Tiny `psi` *plus* a negative
+mass-flux residual is.
+
+This is the same stiff-liquid amplification $A \approx 1/(p\,\kappa_T)$ that the
+`p(rho,h)` conditioning work measured from the other direction — about 600 at
+3.7 MPa. A sub-percent mass imbalance becomes a multi-MPa pressure swing.
+
+### The real signal: the pressure field is CHECKERBOARDED
+
+Read `p_old` across the row rather than one cell at a time:
+
+| cell | 18 | 19 | 20 | **21** | **22** | 23 |
+|---|---|---|---|---|---|---|
+| p_old (MPa) | 2.10 | 2.86 | 2.49 | **3.74** | **0.32** | 2.66 |
+
+A 3.74 MPa spike immediately beside a 0.32 MPa dip, with everything else near
+2.5. That is textbook **odd–even (checkerboard) decoupling** of a collocated
+pressure–velocity arrangement. The stiff-liquid cell goes negative first
+because it has the least diagonal to damp the oscillation — but the oscillation
+is the disease, and the negative pressure is a symptom.
+
+**Bounding is therefore not a safety net, it is a mask.** A cell clamped up from
+−27 kPa to 611 Pa is indistinguishable downstream from one that legitimately
+landed there, which is precisely why cell 19's 717 Pa in A3 looked like it came
+from nowhere. **If the bound triggers, something is already wrong.**
+
+### Root cause: a ported operator that was never wired in
+
+The flux correction *is* the standard Rhie–Chow arrangement —
+`phi = phi_HbyA − rho_rauf·snGrad(p)·|Sf|`, with the same `rho_rauf` in the
+pressure Laplacian. What is missing is the **transient** half. Upstream
+`rhoPimpleFoam` builds
+
+```cpp
+phiHbyA = fvc::interpolate(rho)*fvc::flux(HbyA)
+        + rhorAUf*fvc::ddtCorr(rho, U, phi);   // <-- absent in this port
+```
+
+and this port has only the first term:
+
+```rust
+let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
+```
+
+**`fvc::ddt_corr` is already in this workspace**, fully implemented, with
+OpenFOAM's `fvcDdtPhiCoeff` limiter, a faithful port of
+`EulerDdtScheme::fvcDdtPhiCorr`. Its own doc comment states its purpose:
+
+> Re-injecting it into `phiHbyA` before the pressure solve (as
+> `interpolate(rAU)·ddtCorr`) keeps the face flux coupled to its own history,
+> which is what suppresses pressure–velocity (checkerboard) decoupling
+
+It has **zero call sites**. It was ported and never connected.
+
+This is the "search the workspace before building" and "read upstream first"
+rules landing on the same line of code: the fix already exists in-tree, and
+upstream says where it goes.
+
+### Falsifiable prediction, recorded BEFORE running A5
+
+The Rhie–Chow damping scales with `rAU ~ Δt`. Without `ddtCorr`, a **smaller**
+timestep gives **weaker** damping and therefore **more** checkerboarding — the
+classic small-Δt collocated-solver failure.
+
+So `EDW_DT_US=10` must fail at an **earlier or equal simulated time** than the
+30 µs baseline's `t ≈ 0.117 s`, despite costing 3× the wall clock to get there.
+If it instead runs further and cleaner, this hypothesis is **wrong** and the
+`ddtCorr` lead should be dropped rather than defended.
