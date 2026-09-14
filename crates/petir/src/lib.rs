@@ -113,6 +113,7 @@
 //!
 //! | Module | Lineage | Covers |
 //! |---|---|---|
+//! | [`cheb`] | ported | Chebyshev series fitting at Chebyshev nodes, evaluation with error estimate, exact derivative and integral |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS |
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
 //! | [`specfunc`] | ported + lifted + delegated | Error-function family incl. the scaled `erfcx`, gamma family with GSL's Padé branches, incomplete gamma and its inverse |
@@ -121,10 +122,15 @@
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
 //! Quadrature, one-dimensional root finding, minimisation, numerical
-//! differentiation, ODE integration, interpolation and Chebyshev fitting are
-//! the epic's remaining scope and are **not** here yet. They are tracked as
-//! beads rather than stubbed, because an empty module that looks like an API is
-//! worse than an absent one.
+//! differentiation, ODE integration and interpolation are the epic's remaining
+//! scope and are **not** here yet. They are tracked as beads rather than
+//! stubbed, because an empty module that looks like an API is worse than an
+//! absent one.
+//!
+//! Chebyshev **least-squares regression at arbitrary points** (as opposed to
+//! interpolation at the Chebyshev nodes, which [`cheb`] does) and **adaptive
+//! degree selection by tail-chopping** are likewise not done -- `bn:op-bcy5`
+//! and `bn:op-0sl9`. The first needs a QR solve this crate does not yet carry.
 //!
 //! # Example
 //!
@@ -147,6 +153,7 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+pub mod cheb;
 pub mod error;
 pub mod linalg;
 pub mod poly;
@@ -156,5 +163,6 @@ pub mod specfunc;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
 
+pub use cheb::ChebSeries;
 pub use error::{PetirError, Result};
 pub use real::Real;
