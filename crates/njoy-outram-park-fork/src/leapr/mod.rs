@@ -58,11 +58,13 @@
 //!   coherent-elastic (Bragg) calculation — see [`coher`].
 //! - the `coldh` convolution orchestrator (1936-2183) — see
 //!   [`coldh::add_cold_hydrogen`].
+//! - `skold` (2816-2922): the Sköld pair-correlation correction — see
+//!   [`skold::apply_skold`], validated against NJOY2016 on D-in-D2O to 1e-13
+//!   over 60,322 points (`tests/leapr_d2o_skold_njoy_oracle.rs`, 2026-09-10).
 //!
 //! **Still not ported** (return [`crate::NjoyError::NotPorted`] or are absent):
 //! - `copys` (2468-2487): the scratch-tape plumbing for the mixed-moderator
 //!   merge (not needed for the single-scatterer in-memory path).
-//! - `skold` (2816-2922): the Sköld pair-correlation correction.
 //! - the NJOY `run` driver is now [`run::run_deck`] (2026-09-10): the whole
 //!   deck — every temperature block, the mixed-moderator second pass, the
 //!   elastic channel as `endout` decides it (incoherent elastic for `iel < 0`

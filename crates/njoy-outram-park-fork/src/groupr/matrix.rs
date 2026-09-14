@@ -207,10 +207,14 @@ pub enum FeedFunction {
         awr: f64,
     },
 
-    /// Anisotropic-CM elastic / discrete-inelastic feed — **not ported in
-    /// this module**; the exact `getdis` lives in
-    /// [`crate::groupr::two_body::TwoBodyFeed`] and is driven by
-    /// [`crate::groupr::matrix_panel::two_body_matrix`].
+    /// Anisotropic-CM elastic / discrete-inelastic feed — a **superseded
+    /// placeholder**, not an outstanding gap. The exact `getdis` *is* ported:
+    /// it lives in [`crate::groupr::two_body::TwoBodyFeed`], takes its File-4
+    /// Legendre coefficients from [`crate::groupr::file4`] (`getfle`/`getco`),
+    /// and is driven by [`crate::groupr::matrix_panel::two_body_matrix`]. Use
+    /// that path; this variant exists only so the older isotropic-only
+    /// [`FeedFunction`] surface stays exhaustive, and it still returns
+    /// [`NjoyError::NotPorted`] rather than silently doing the wrong thing.
     ///
     /// Would replace the isotropic `fle = [1, 0, …]` with the File-4 Legendre
     /// expansion of the CM angular distribution (`getfle`, and `getdis:9522-9526`
@@ -218,8 +222,13 @@ pub enum FeedFunction {
     /// returns [`NjoyError::NotPorted`] for this variant.
     AnisotropicElastic,
 
-    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) —
-    /// **not ported**. [`FeedFunction::deposit`] returns [`NjoyError::NotPorted`].
+    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) — a
+    /// **superseded placeholder**, not an outstanding gap. That feed *is*
+    /// ported: [`crate::groupr::mf6_feed::Mf6Feed`] behind
+    /// [`crate::groupr::matrix_panel::Continuum6Feed`], driven by
+    /// [`crate::groupr::matrix_panel::feed_matrix`]. Use that path; this
+    /// variant still returns [`NjoyError::NotPorted`] rather than silently
+    /// doing the wrong thing.
     Continuum6,
 }
 

@@ -39,9 +39,23 @@ pub enum ResonanceFormalism {
     /// (zero-temperature only, matching this crate's SLBW/Reich-Moore
     /// reconstruction — Doppler broadening is BROADR's job).
     AdlerAdler,
-    /// LRF=7: R-Matrix Limited. Parsed and reconstructed via
-    /// `crate::samm` (Reich-Moore-limited, `KRM=3`/`IFG=0` only, matching
-    /// what `samm.f90` itself supports — see `crate::samm`'s module doc).
+    /// LRF=7: R-Matrix Limited. **Parsed** via
+    /// `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited, `KRM=3`/
+    /// `IFG=0` only, matching what `samm.f90` itself supports — see
+    /// `crate::samm`'s module doc).
+    ///
+    /// **Reconstruction is DEFECTIVE and this doc used to claim otherwise.**
+    /// Measured 2026-09-14 on Sr-88 (MAT 3837, the only LRF=7 evaluation in
+    /// `reference-data/endf/`) against NJOY2016 2016.79 on NJOY's own
+    /// 44,441-point grid: the elastic cross section comes back as the bare
+    /// potential term `4 pi a^2 = 4.969 b` — constant across the bottom of the
+    /// resolved range where NJOY varies (8.843 b at 1e-5 eV) — so the R-matrix
+    /// resonance contribution is absent, not merely inaccurate. Worst relative
+    /// error MT=1 1.03e1 and MT=2 1.04e1 (both at 7.4368e5 eV), MT=102 1.38e0.
+    /// Consistent with `crate::samm::run` still returning
+    /// [`crate::NjoyError::NotPorted`]. Tracked as gh:#202 / `bn:op-hb9l`; no
+    /// fix attempted, and the comparison above is the gate a fix is measured
+    /// against. **Do not cite an LRF=7 reconstruction as verified.**
     RMatrixLimited,
 }
 

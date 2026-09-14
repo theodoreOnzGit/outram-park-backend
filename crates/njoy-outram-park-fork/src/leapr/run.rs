@@ -24,9 +24,13 @@
 //! MF=7.
 //!
 //! **Not reproduced:** the `nsyso` listing, and the Fortran unit numbers —
-//! card 1's `nout` is recorded on the deck and otherwise ignored. The
-//! cold-hydrogen (`ncold`) path is refused by [`LeaprDeck::unsupported_features`]
-//! as before.
+//! card 1's `nout` is recorded on the deck and otherwise ignored.
+//!
+//! The cold-hydrogen (`ncold`) path is **no longer refused** (2026-09-14): the
+//! Young-Koppel orchestrator is wired through
+//! [`crate::leapr::coldh::add_cold_hydrogen`] and reproduces NJOY2016's own
+//! reference tape for its test 22 (para-hydrogen at 20 K, `ncold = 2`) to
+//! 1e-13.
 //!
 //! Validated against three NJOY2016 runs (`tests/leapr_run_driver_njoy_oracle.rs`).
 
