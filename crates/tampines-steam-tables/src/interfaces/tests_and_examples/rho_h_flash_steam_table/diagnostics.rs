@@ -273,3 +273,90 @@ fn diagnose_the_conditioning_measure_across_regimes() {
          vapour: {worst_liquid:.3e} vs {vapour:.3e}"
     );
 }
+
+/// Measures what `p_rho_h_eqm` costs relative to the `(p,h)` flash it inverts.
+///
+/// This is the number that decides whether the `(rho,h)` dispatcher belongs in
+/// a solver's inner loop, and it is worth stating plainly: **`p(rho,h)` is
+/// strictly more expensive than `v(p,h)`, because it is built out of repeated
+/// `v(p,h)` evaluations.** A bracketed root find cannot cost less than the
+/// function it brackets.
+///
+/// The consequence for a *pressure-based* algorithm — one that already carries
+/// `p` as a primary variable and derives density from it, which is what
+/// `TampinesSteamArray`'s `correct_thermo` does — is that there is nothing for
+/// this function to speed up. It pays off only where the alternative is a
+/// two-dimensional iterative solve over the forward equations, i.e. where
+/// density and enthalpy are the conserved variables and pressure genuinely has
+/// to be recovered.
+///
+/// Diagnostic only: it asserts the ordering (the inversion costs more), not a
+/// wall-clock figure, since timings are machine-dependent.
+#[test]
+fn diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash() {
+    use crate::interfaces::functional_programming::rho_h_flash_eqm::p_rho_h_eqm;
+    use std::time::Instant;
+
+    // A spread of states, so the figure is not one region's special case.
+    let probes = [
+        (10.0_f64, 3000.0_f64),
+        (1.0, 2000.0),
+        (40.0, 2902.88),
+        (100.0, 1400.0),
+        (150.0, 2000.0),
+    ];
+
+    let mut prepared = Vec::new();
+    for (p_bar_val, h_kj) in probes {
+        let p = Pressure::new::<bar>(p_bar_val);
+        let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
+        let v = v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>();
+        prepared.push((p, h, MassDensity::new::<kilogram_per_cubic_meter>(1.0 / v)));
+    }
+
+    const REPEATS: usize = 2000;
+
+    // Forward direction: one explicit (p,h) flash.
+    let start = Instant::now();
+    let mut sink = 0.0_f64;
+    for _ in 0..REPEATS {
+        for (p, h, _) in &prepared {
+            sink += v_ph_eqm(*p, *h).get::<cubic_meter_per_kilogram>();
+        }
+    }
+    let forward = start.elapsed();
+
+    // Inverse direction: the bracketed root find over that same flash.
+    let start = Instant::now();
+    for _ in 0..REPEATS {
+        for (_, h, rho) in &prepared {
+            sink += p_rho_h_eqm(*rho, *h).get::<pascal>();
+        }
+    }
+    let inverse = start.elapsed();
+
+    let calls = (REPEATS * prepared.len()) as f64;
+    let forward_ns = forward.as_secs_f64() * 1.0e9 / calls;
+    let inverse_ns = inverse.as_secs_f64() * 1.0e9 / calls;
+
+    println!("v_ph_eqm   (forward (p,h) flash): {forward_ns:>9.1} ns/call");
+    println!("p_rho_h_eqm (inverse, (rho,h))  : {inverse_ns:>9.1} ns/call");
+    println!(
+        "ratio                            : {:>9.1}x",
+        inverse_ns / forward_ns
+    );
+    println!(
+        "\nThe inversion is a bracketed root find over the forward flash, so it \
+         cannot be cheaper than it. A pressure-based solver that already holds \
+         p has nothing to gain here; the gain is against a 2-D solve over the \
+         forward equations, not against a 1-D (p,h) flash."
+    );
+
+    // Keeps the optimiser from discarding the loops.
+    assert!(sink.is_finite());
+    assert!(
+        inverse_ns > forward_ns,
+        "the inversion cannot be cheaper than the flash it brackets: \
+         {inverse_ns:.1} ns vs {forward_ns:.1} ns"
+    );
+}

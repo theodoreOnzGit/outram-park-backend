@@ -77,6 +77,30 @@
 //! vapour regions — where a depressurisation transient actually spends its time
 //! — the amplification is order 1 and the answer is trustworthy.
 //!
+//! # Cost, and where this belongs
+//!
+//! Measured 2026-09-14 over a spread of states
+//! (`diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash`):
+//! `v_ph_eqm` 3.45 us/call, `p_rho_h_eqm` 205 us/call â a factor of **59.5**.
+//!
+//! That ordering is structural, not a tuning failure: this is a bracketed root
+//! find built out of repeated `v(p,h)` evaluations, plus a region scan, so it
+//! cannot be cheaper than the flash it inverts.
+//!
+//! The practical consequence is worth stating plainly, because it is easy to
+//! reach for this function in the wrong place. **A pressure-based solver has
+//! nothing to gain here.** If the algorithm already carries `p` as a primary
+//! variable and derives density from it â which is what
+//! `TampinesSteamArray::correct_thermo` does â then pressure never has to be
+//! recovered, and routing through this module would only add cost. The payoff
+//! is against a *two-dimensional* iterative solve over the forward equations,
+//! i.e. in a density-based algorithm where `rho` and `h` are the conserved
+//! variables and `p` genuinely must be inverted for.
+//!
+//! Most of the cost is the region scan rather than the root find; narrowing it
+//! is tracked as a follow-up rather than done here, since correctness across
+//! the seams was the point.
+//!
 //! # Contents
 //!
 //! - [`p_rho_h_eqm`] / [`p_rho_h_eqm_explicit`] — pressure from `(rho,h)`.
