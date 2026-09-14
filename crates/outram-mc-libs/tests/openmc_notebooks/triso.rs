@@ -452,26 +452,62 @@ fn triso_nested_lattice_geometry_navigation() {
 /// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
 /// which they cannot if the surface tracker is systematically leaking histories.
 ///
-/// # Results (measured 2026-08-06)
-/// After the `distance_to_boundary` coincident-surface tie-break fix, surface
-/// tracking reads **k = 1.95984 ± 0.00484** vs delta **1.92200 ± 0.00522** — a
-/// 2.0% relative difference (Δk = +3784 pcm, combined σ = 712 pcm), where the
-/// surface value was previously ~0.90 (≈50%
-/// low). The catastrophic under-count is resolved. A small residual (~2%, and of
-/// the *opposite* sign to a leak — surface reads slightly high, not low) remains
-/// between the two independent drivers; it is far below a statistical tie because
-/// they use different geometry representations (exact CSG kernel spheres vs an
-/// analytic `material_at`) and tracking (surface vs Woodcock on a majorant), and
-/// is plausibly compounded by the still-open reflective-corner navigation effect
-/// (op-6tz.23). The pass criterion below therefore checks the *under-count is
-/// gone* (relative agreement within 5%), not a full statistical tie.
+/// # Results (re-measured 2026-09-14) — THE SIGN HAS FLIPPED, AND IT IS NOT RESOLVED
+///
+/// Surface **k = 1.87620 ± 0.00499** vs delta **k = 1.93067 ± 0.00538**:
+/// Δk = **−5447 pcm, combined σ = 734 pcm, −7.4 σ**, 2.8 % relative.
+///
+/// **Both arms moved since the previous entry, and the disagreement reversed.**
+/// Against the 2026-08-06 values below, the surface arm moved **−8364 pcm** and
+/// the delta arm **+867 pcm**, turning a +3784 pcm (surface high) gap into a
+/// −5447 pcm (surface low) one. The intervening physics changes — the MT=91
+/// continuum Q-value cap (gh:#192), reading the evaluated MF=6 law, the
+/// continuous thermal kernel — are the obvious candidates and neither arm was
+/// re-measured when they landed.
+///
+/// **What localises the problem:** the two trackers *agree* on homogeneous
+/// media on the same day, and disagree only when kernels are resolved.
+///
+/// | case | surface | delta | Δ |
+/// |---|---|---|---|
+/// | homogeneous cube (`..._unbiased_vs_surface_tracking`) | 2.22574 ± 0.00342 | 2.22983 ± 0.00340 | −409 pcm, **−0.85 σ** |
+/// | homogeneous cube, corner stress (`corner_reflective_cube_...`) | 2.22420 ± 0.00356 | 2.22983 ± 0.00340 | −563 pcm, **−1.14 σ** |
+/// | **this test: 3×3×3 resolved lattice** | 1.87620 ± 0.00499 | 1.93067 ± 0.00538 | **−5447 pcm, −7.4 σ** |
+///
+/// So this is not a general tracker bias; it appears with resolved geometry.
+/// Which side is wrong is **not established**. The surface arm is the more
+/// suspicious of the two on history — it previously read ~50 % low here until
+/// the coincident-surface tie-break fix, and it is the arm that moved by
+/// −8364 pcm — but that is a prior, not evidence.
+///
+/// **This matters beyond this test.** Delta tracking is the "exact by
+/// construction" reference every bias in `examples/dh_keff_vv.rs` is quoted
+/// against, and this is the only heterogeneous cross-check of that claim the
+/// crate has. Tracked as a bead.
+///
+/// **An under-bound majorant was ruled out as the cause**, not assumed away:
+/// `Majorant::at` clamped flat below its grid floor where `Σ_t` keeps rising as
+/// 1/v, under-bounding the HEU kernel by 9.09× at 1e-6 eV
+/// (`examples/majorant_bound_audit.rs`). That was a real defect and is fixed
+/// (1/v extrapolation, gated by
+/// `majorant_bounds_sigma_t_below_its_grid_floor`) — but an A/B on this very
+/// test gave **bit-identical** eigenvalues with and without the fix, so it
+/// contributes nothing here. Predicted beforehand as "well under 10 pcm",
+/// because a 293.6 K Maxwellian puts ~1e-5 of its flux below 1e-4 eV.
+///
+/// The pass criterion remains "the under-count is gone" (5 % relative), which
+/// this satisfies at 2.8 %. It is deliberately **not** a statistical tie, and
+/// should not be read as one.
+///
+/// **Supersedes (measured 2026-08-06):** surface **k = 1.95984 ± 0.00484** vs
+/// delta **1.92200 ± 0.00522** (+3784 pcm, +5.3 σ, 2.0 % relative).
 ///
 /// **Supersedes (pre-`op-jis`, measured 2026-07-24):** surface **k = 1.96481 ±
-/// 0.00473** vs delta **1.92644 ± 0.00511** (2.0% relative). Those were taken
+/// 0.00473** vs delta **1.92644 ± 0.00511** (2.0 % relative). Those were taken
 /// with the old `prn` output function (raw top-52 state bits); bead `op-jis`
 /// added the PCG-RXS-M-XS output permutation, which left the LCG state
 /// recurrence unchanged but moved every sampled uniform, and hence both
-/// eigenvalues. The ~50%-low pre-fix surface value (≈0.90) is a historical
+/// eigenvalues. The ~50 %-low pre-fix surface value (≈0.90) is a historical
 /// pre-tie-break-fix fact and is not a superseded measurement.
 #[test]
 fn triso_nested_lattice_surface_vs_delta_keff() {

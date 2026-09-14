@@ -173,6 +173,29 @@ impl Majorant {
 
     /// The majorant Σ_maj \[cm⁻¹\] at energy `e` \[eV\] — conservative (takes the
     /// larger bracketing grid value so it never under-bounds between points).
+    ///
+    /// # Below the grid floor
+    ///
+    /// A neutron is not confined to the range the majorant was built over, and
+    /// **a flat clamp at the floor under-bounds**. Below thermal, `Σ_t` is
+    /// dominated by 1/v absorption and keeps rising as `E` falls, so the value
+    /// at the lowest grid point stops being a bound almost immediately.
+    ///
+    /// That is a *silent* bias, not an error: delta tracking accepts a collision
+    /// with probability `Σ_t/Σ_maj`, so where `Σ_t > Σ_maj` the excess
+    /// collisions are simply never sampled. They are lost exactly where the
+    /// cross section is largest, which preferentially removes absorption and
+    /// fission.
+    ///
+    /// Audited 2026-09-14 (`examples/majorant_bound_audit.rs`): on the
+    /// openmc-notebook TRISO lattice materials, a majorant floored at 1e-4 eV
+    /// under-bounded the HEU kernel by **9.1x at 1e-6 eV** with the flat clamp.
+    ///
+    /// Below the floor this therefore extrapolates as **1/v**,
+    /// `Σ_maj(E) = Σ_maj(E_floor) · sqrt(E_floor / E)`, which is exact for 1/v
+    /// behaviour and conservative for anything rising no faster than it. It
+    /// cannot bound a resonance below the floor — build the grid low enough for
+    /// that — but no evaluation this crate reads has one there.
     pub fn at(&self, e: f64) -> f64 {
         match self.sigma.len() {
             0 => 0.0,
@@ -181,7 +204,12 @@ impl Majorant {
                 // First grid point strictly above e; the bracket is [i-1, i].
                 let i = self.energy.partition_point(|&g| g <= e);
                 if i == 0 {
-                    self.sigma[0]
+                    let e_floor = self.energy[0];
+                    if e > 0.0 && e < e_floor {
+                        self.sigma[0] * (e_floor / e).r_powf(0.5)
+                    } else {
+                        self.sigma[0]
+                    }
                 } else if i >= self.sigma.len() {
                     *self.sigma.last().unwrap()
                 } else {
@@ -332,6 +360,64 @@ where
 
 #[cfg(test)]
 mod tests {
+
+    /// **The majorant must bound `Sigma_t` below its own grid floor**, because a
+    /// neutron is not confined to the range it was built over.
+    ///
+    /// A flat clamp under-bounds: `Sigma_t` is 1/v-dominated below thermal and
+    /// keeps rising. Delta tracking then silently loses collisions wherever
+    /// `Sigma_t > Sigma_maj` — no error, just missing absorption and fission.
+    ///
+    /// Measured before the 1/v extrapolation was added (2026-09-14), on the
+    /// openmc-notebook TRISO lattice materials with a floor of 1e-4 eV: the HEU
+    /// kernel was under-bounded by **9.09x at 1e-6 eV**.
+    #[test]
+    fn majorant_bounds_sigma_t_below_its_grid_floor() {
+        let nuclides: Vec<Nuclide> = ["U235", "U238", "H1"]
+            .iter()
+            .map(|n| Nuclide::from_core(n).expect("embedded evaluation"))
+            .collect();
+        let fuel = Material {
+            id: 1,
+            name: "HEU kernel".into(),
+            temperature: 293.6,
+            components: vec![
+                crate::material::material::NuclideComponent { nuclide_idx: 0, atom_density: 4.4994e-2 },
+                crate::material::material::NuclideComponent { nuclide_idx: 1, atom_density: 2.4984e-3 },
+            ],
+        };
+        let matrix = Material {
+            id: 2,
+            name: "H matrix".into(),
+            temperature: 293.6,
+            components: vec![
+                crate::material::material::NuclideComponent { nuclide_idx: 2, atom_density: 4.0e-2 },
+            ],
+        };
+        let materials = [fuel, matrix];
+        let floor = 1.0e-4;
+        let maj = Majorant::bounding(&materials, &nuclides, floor, 2.0e7, 2048, 16, 0.1);
+
+        // Scan two decades BELOW the floor -- the region a flat clamp gets wrong.
+        let mut worst = 0.0_f64;
+        let mut worst_e = 0.0;
+        for i in 0..=400 {
+            let e = 1.0e-6 * (floor / 1.0e-6).r_powf(i as f64 / 400.0);
+            let m = maj.at(e);
+            for mat in &materials {
+                let ratio = mat.macro_xs_total(e, &nuclides) / m;
+                if ratio > worst {
+                    worst = ratio;
+                    worst_e = e;
+                }
+            }
+        }
+        assert!(
+            worst <= 1.0,
+            "majorant UNDER-BOUNDS by {worst:.3}x at E = {worst_e:.3e} eV, below its {floor:.0e} eV \
+             floor. Delta tracking loses collisions there and the bias is silent."
+        );
+    }
     use super::*;
 
     /// The majorant must bound every material's Σ_t at every tabulated energy —
