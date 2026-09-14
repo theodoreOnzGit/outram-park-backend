@@ -8365,6 +8365,7 @@ dependencies = [
  "image",
  "local-ip-address",
  "ndarray",
+ "petir",
  "roots",
  "serde",
  "teh-o-prke",

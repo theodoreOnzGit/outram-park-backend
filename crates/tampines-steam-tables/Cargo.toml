@@ -31,6 +31,9 @@ exclude = [
 
 [dependencies]
 approx.workspace = true
+# PETIR supplies the Chebyshev evaluation these backward correlations use.
+# It is no_std with only `libm`, so it adds no std/BLAS/toolchain weight.
+petir.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
 uom.workspace = true

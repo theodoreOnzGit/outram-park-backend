@@ -53,7 +53,9 @@
 extern crate alloc;
 
 pub mod cheb;
+pub mod cheb_slice;
 pub mod error;
 
 pub use cheb::ChebSeries;
+pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale};
 pub use error::{PetirError, Result};
