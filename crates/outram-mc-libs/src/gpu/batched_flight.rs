@@ -615,6 +615,9 @@ pub fn advance_flight_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
     use crate::rng::lcg::future_seed;
 
     // A small, dependency-free splitmix64-style hash to synthesise varied,
@@ -755,12 +758,12 @@ mod tests {
 
         // 4096 log-spaced grid points, smooth positive Sigma_t.
         let n_grid = 4096usize;
-        let log_lo = (1e-3f64).log10();
-        let log_hi = (2e7f64).log10();
+        let log_lo = (1e-3f64).r_log10();
+        let log_hi = (2e7f64).r_log10();
         let grid: Vec<f32> = (0..n_grid)
             .map(|i| {
                 let t = i as f64 / (n_grid - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo)) as f32
+                10f64.r_powf(log_lo + t * (log_hi - log_lo)) as f32
             })
             .collect();
         let sigma: Vec<f32> = grid
@@ -811,7 +814,7 @@ mod tests {
             dir.push(vz / len);
             // energy: log-uniform across the grid.
             let t = unit(&mut h) as f64;
-            energy.push(10f64.powf(log_lo + t * (log_hi - log_lo)) as f32);
+            energy.push(10f64.r_powf(log_lo + t * (log_hi - log_lo)) as f32);
             // seed
             let seed = splitmix64(&mut h);
             rng_hi.push((seed >> 32) as u32);

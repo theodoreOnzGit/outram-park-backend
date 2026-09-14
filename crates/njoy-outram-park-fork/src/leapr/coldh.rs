@@ -284,13 +284,20 @@ pub fn terpk(ska: &[f64], delta: f64, be: f64) -> f64 {
 /// should be `O(1)` for a well-normalized law.
 ///
 /// # Validation status
-/// **Untrusted AI draft, self-consistency tested only.** Ported line-for-line
-/// from `coldh`, reusing the already-ported [`bt`]/[`sumh`]/[`terpk`] helpers and
-/// the discrete-oscillator [`bfill`]/[`exts`]/[`sint`]. It has **not** been
-/// validated against a reference LEAPR cold-H2/D2 MF=7 tape — only checked for
-/// finiteness, correct array population, and a plausible normalization (see the
-/// unit test). The internal `ifree`/`nokap` switches are fixed off, matching the
-/// NJOY defaults (`ifree=0`, `nokap=0`).
+/// **Validated against NJOY2016's own reference tape, 2026-09-14.** Ported
+/// line-for-line from `coldh`, reusing the already-ported
+/// [`bt`]/[`sumh`]/[`terpk`] helpers and the discrete-oscillator
+/// [`bfill`]/[`exts`]/[`sint`]. The internal `ifree`/`nokap` switches are fixed
+/// off, matching the NJOY defaults (`ifree=0`, `nokap=0`).
+///
+/// This note previously read *"Untrusted AI draft, self-consistency tested
+/// only"*, and `LeaprDeck::unsupported_features` refused every `ncold != 0`
+/// deck on that ground. The draft was in fact correct: run on NJOY2016's test
+/// 22 (para-hydrogen at 20 K, `ncold = 2`) it reproduces upstream's own
+/// `referenceTape20` to **1.0e-13** worst relative deviation over all 9175
+/// tabulated `S(α, β)` values — machine precision. See
+/// `tests/leapr_cold_hydrogen_njoy_oracle.rs`; the reference is vendored in
+/// `reference-data/leapr/`.
 pub fn add_cold_hydrogen(
     ssm: &mut SabMatrix,
     ssp: &mut SabMatrix,

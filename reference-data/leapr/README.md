@@ -68,3 +68,24 @@ incoherent-elastic TAB1 (`LTHR = 2`, `SB = 2.16877`, from `iel = 0` with
 
 Data policy: derived products of open ENDF/B-VIII.0 evaluation inputs
 processed with the BSD-licensed NJOY2016; no proprietary content.
+
+### `tsl-para-H2-20K-njoy2016-leapr.*` — the one deck NOT from an embedded deck
+
+Added 2026-09-14. This pair is **NJOY2016's own test 22**, copied verbatim from
+`tests/22/input` and `tests/22/referenceTape20` of the upstream tree — not
+generated here, and not from a deck in `src/leapr/decks/`. It is the only
+cold-moderator reference available: para-hydrogen at 20 K with `ncold = 2`,
+which exercises the Young-Koppel `coldh` path and its signed (`isym = 1`)
+beta grid. Neither `../endf/` nor the embedded decks contain an `ncold != 0`
+case, and NJOY's test suite has no `iel < 0` (incoherent-elastic) LEAPR deck at
+all.
+
+Because it is upstream's own reference output rather than something regenerated
+here, it is a stronger oracle than the rest of this directory: it is what the
+NJOY authors assert their code produces. `coldh` reproduces it to **1.0e-13**
+worst relative deviation over all 9175 tabulated `S(alpha, beta)` values
+(`tests/leapr_cold_hydrogen_njoy_oracle.rs`).
+
+Licence: NJOY2016 is modified BSD 3-Clause (LANL/DOE); these two files are
+redistributed under that licence, unmodified. See `LICENSE.njoy` + `NOTICE` at
+the crate root.

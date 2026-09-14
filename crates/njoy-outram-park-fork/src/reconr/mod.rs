@@ -146,14 +146,56 @@ impl ReconrResult {
             Some(s) => s,
             None => return 0.0,
         };
-        eval_lin_lin(&sec.pairs, e)
+        // BELOW THE FIRST TABULATED POINT THE CROSS SECTION IS ZERO, NOT THE
+        // FIRST POINT'S VALUE.
+        //
+        // An MF=3 section that begins above the evaluation's lower bound is a
+        // THRESHOLD reaction, and a threshold reaction cannot occur below its
+        // threshold. [`eval_lin_lin`] clamps to the endpoint, which is right for
+        // the top of the grid and right for a section that spans the whole range,
+        // and wrong here — it propagates the threshold value down to zero energy.
+        //
+        // It is wrong by more than round-off because evaluations do not all start
+        // their threshold sections at zero. ENDF/B-VIII.0 F-19 opens MT=51 at
+        // `(115 840 eV, 0.018129 b)` and MT=52 at `(207 460 eV, 0.0042683 b)`, so
+        // the clamp gave F-19 a **constant 0.0224 b of inelastic scattering at
+        // every energy below 115 keV**, all the way into the thermal range.
+        //
+        // That is not a small error in a cross section, it is a channel that
+        // should not exist, and the kinematics make it worse: `two_body_scatter`
+        // clamps a negative outgoing CM energy to zero, so a sub-threshold
+        // "inelastic" collision drops the neutron to `E/(A+1)²` — a factor of 394
+        // for fluorine, nearly six units of lethargy in one collision. Roughly
+        // 0.6 % of F-19 collisions through the whole resonance region were
+        // teleporting the neutron past it. See GitHub #193.
+        // The test is `e0 > THRESHOLD_FLOOR_EV` and not simply `e < e0` so that a
+        // section spanning the whole evaluation still CLAMPS at its bottom. Every
+        // ENDF neutron sublibrary starts its full-range sections at 1e-5 eV, and
+        // nothing thresholds below a keV, so any floor between them separates the
+        // two cases; a neutron that slows below 1e-5 eV must keep seeing a finite
+        // total cross section rather than a zero one and an infinite flight.
+        match sec.pairs.first() {
+            Some(&(e0, _)) if e < e0 && e0 > THRESHOLD_FLOOR_EV => 0.0,
+            _ => eval_lin_lin(&sec.pairs, e),
+        }
     }
 }
 
+/// Lowest first-abscissa \[eV\] an MF=3 section may have and still count as
+/// spanning the whole evaluation rather than opening at a threshold.
+///
+/// ENDF neutron sublibraries start full-range sections at `1e-5 eV`, and the
+/// lowest reaction thresholds in any evaluation are tens of keV, so the two
+/// populations are separated by nine orders of magnitude. `1e-3 eV` sits in that
+/// gap with room to spare in both directions.
+pub const THRESHOLD_FLOOR_EV: f64 = 1.0e-3;
+
 /// Linear interpolation on a sorted lin-lin (x,y) grid.
 ///
-/// Returns the linearly interpolated y at `x`. Returns `0.0` if the grid is empty
-/// or `x` is outside [x_min, x_max].
+/// Returns the linearly interpolated y at `x`, **clamped to the endpoint values**
+/// outside `[x_min, x_max]`; `0.0` only if the grid is empty. Callers that need a
+/// threshold reaction to vanish below its threshold must test the first abscissa
+/// themselves — [`ReconrResult::eval_mt`] does, and says why.
 pub fn eval_lin_lin(pairs: &[(f64, f64)], x: f64) -> f64 {
     if pairs.is_empty() {
         return 0.0;

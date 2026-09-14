@@ -38,7 +38,8 @@
 
 use crate::groupr::gendf::{GendfGroupRecord, GendfSection};
 use crate::groupr::panel::{GroupFlux, PointwiseXs};
-use crate::groupr::two_body::TwoBodyFeed;
+use crate::groupr::mf6_feed::Mf6Feed;
+use crate::groupr::two_body::{FeedAt, TwoBodyFeed};
 use crate::mixr::mix::sigfig;
 use crate::NjoyError;
 
@@ -220,11 +221,11 @@ fn merge_next(en: f64, idiscf: bool, enext: &mut f64, idisc: &mut bool) {
 /// in place when a break falls inside; `ng`/`iglo` are the caller's
 /// `ng2`/`ig2lo`.
 #[allow(clippy::too_many_arguments)]
-fn panel(
+fn panel<F: GroupFeed + ?Sized>(
     st: &mut PanelState,
     pairs: &[(f64, f64)],
     fluxes: &FluxComponents,
-    feed: &mut TwoBodyFeed,
+    feed: &mut F,
     nl: usize,
     nz: usize,
     elo_in: f64,
@@ -279,7 +280,7 @@ fn panel(
             zero_panel = true;
         } else {
             merge_next(enf, idf, &mut st.enext, &mut st.idisc);
-            let at = feed.feed(elo, nl)?;
+            let at = feed.feed_at(elo, nl)?;
             st.ff = at.ff;
             st.ng1 = at.ng;
             st.ig1 = at.iglo;
@@ -359,7 +360,7 @@ fn panel(
                 if eq > ehigh {
                     eq = ehigh;
                 }
-                let at = feed.feed(eq, nl)?;
+                let at = feed.feed_at(eq, nl)?;
                 st.ff = at.ff;
                 st.ng1 = at.ng;
                 st.ig1 = at.iglo;
@@ -564,27 +565,41 @@ pub fn two_body_matrix(
     nl: usize,
     header: &MatrixHeader,
 ) -> Result<GendfSection, NjoyError> {
+    feed_matrix(sigma, fluxes, feed, nl, header)
+}
+
+/// The group-to-group matrix for any [`GroupFeed`] — the body of GROUPR's
+/// incident-energy sweep, independent of which feed routine `getff` dispatched
+/// to. [`two_body_matrix`] (`getdis`) and [`Continuum6Feed`] (`getmf6`) both
+/// run through here.
+pub fn feed_matrix<F: GroupFeed + ?Sized>(
+    sigma: &PointwiseXs,
+    fluxes: &FluxComponents,
+    feed: &mut F,
+    nl: usize,
+    header: &MatrixHeader,
+) -> Result<GendfSection, NjoyError> {
     let nz = fluxes.nz();
     if nz == 0 || nl == 0 {
         return Err(NjoyError::EndfParse(
-            "two_body_matrix: need >= 1 flux and >= 1 Legendre order".into(),
+            "feed_matrix: need >= 1 flux and >= 1 Legendre order".into(),
         ));
     }
     if nz > 1 && nl > 1 && fluxes.per_dilution.iter().any(|c| c.len() < nl) {
         return Err(NjoyError::EndfParse(format!(
-            "two_body_matrix: nz = {nz} > 1 with nl = {nl} needs {nl} flux components per \
+            "feed_matrix: nz = {nz} > 1 with nl = {nl} needs {nl} flux components per \
              dilution (genflx fout(l-1)*fac, groupr.f90:5651-5657)"
         )));
     }
     let PointwiseXs::LinLin(pairs) = sigma else {
         return Err(NjoyError::EndfParse(
-            "two_body_matrix: cross section must be tabulated (gety1 semantics)".into(),
+            "feed_matrix: cross section must be tabulated (gety1 semantics)".into(),
         ));
     };
     let pairs: &[(f64, f64)] = pairs;
     if pairs.is_empty() {
         return Err(NjoyError::EndfParse(
-            "two_body_matrix: empty cross section".into(),
+            "feed_matrix: empty cross section".into(),
         ));
     }
     let first = pairs[0].0;
@@ -696,6 +711,130 @@ mod tests {
     /// Lobatto rule on the `1/E`-shaped feed and the seven-figure rounding),
     /// group flux `ehi - elo` within 1e-5. Result (2026-09-10): down-scatter
     /// 0.008948458 vs 0.008948447 analytic (1.3e-6).
+    /// A one-section MF=6 tape with a single `ZAP = 1` LAW=1 subsection over
+    /// two incident energies, each a flat normalised spectrum — the same shape
+    /// `groupr::mf6_feed::tests` builds, rebuilt here so this module's tests do
+    /// not reach into another module's test helpers.
+    fn law1_mf6_tape(mat: i32, mt: i32, ep_top: f64) -> Tape {
+        let f0 = 1.0 / ep_top;
+        let mut rows = vec![[1001.0, 10.0, 0.0, 1.0, 1.0, 0.0]];
+        // yield TAB1: ZAP=1, AWP=1, LAW=1, constant y = 2
+        rows.push([1.0, 1.0, 0.0, 1.0, 1.0, 2.0]);
+        rows.push([2.0, 2.0, 0.0, 0.0, 0.0, 0.0]);
+        rows.push([1.0e-5, 2.0, 2.0e6, 2.0, 0.0, 0.0]);
+        // TAB2: LANG=1, LEP=2, NE=2
+        rows.push([0.0, 0.0, 1.0, 2.0, 1.0, 2.0]);
+        rows.push([2.0, 2.0, 0.0, 0.0, 0.0, 0.0]);
+        for e_in in [1.0e6, 2.0e6] {
+            rows.push([0.0, e_in, 0.0, 0.0, 4.0, 2.0]);
+            rows.push([1.0e-5, f0, ep_top, f0, 0.0, 0.0]);
+        }
+        Tape::from_sections(
+            String::new(),
+            vec![Section {
+                key: EndfKey { mat, mf: 6, mt },
+                rows,
+            }],
+        )
+    }
+
+    /// **The File-6 continuum feed driven through the same matrix machinery
+    /// as the two-body one** — i.e. `getff`'s label-800 branch reaching
+    /// `panel` exactly the way label-100's `getdis` does.
+    ///
+    /// A lab-frame (`LCT = 1`) LAW=1 subsection with a flat, normalised
+    /// secondary spectrum and a constant cross section. What is asserted is
+    /// the *wiring*, and the one property that survives the group
+    /// integration independent of the feed's internals: each incident
+    /// group's `P_0` row must sum to the group's flux-weighted cross
+    /// section, because the feed is normalised to unit integral over `E'`
+    /// (`groupr.f90:8128-8132`) and `panel` multiplies by `sigma`.
+    ///
+    /// The feed's own numbers are pinned separately, against hand-derived
+    /// trapezoid arithmetic, in `groupr::mf6_feed::tests`.
+    #[test]
+    fn continuum6_feed_runs_through_the_same_matrix_driver() {
+        use crate::groupr::mf6_feed::{Mf6Feed, Mf6FeedConfig};
+
+        let egn = vec![1.0e-5, 5.0e5, 1.0e6, 1.5e6, 2.0e6];
+        let tape = law1_mf6_tape(1301, 5, 2.0e6);
+        let cfg = Mf6FeedConfig {
+            awr: 10.0,
+            awrp: 1.0,
+            izap: 1,
+            q: -1.0e7,
+            ismooth: false,
+            nl: 1,
+        };
+        let inner = Mf6Feed::new(&tape, 1301, 6, 5, cfg).expect("mf6 feed builds");
+        let mut feed = Continuum6Feed::new(inner, egn.clone(), 5).expect("not a fission MT");
+
+        let sigma = PointwiseXs::LinLin(Arc::new(vec![(1.0e-5, 3.0), (2.0e7, 3.0)]));
+        let flux = FluxComponents::p0(vec![GroupFlux::Flat]);
+        let header = MatrixHeader {
+            mf: 6,
+            mt: 5,
+            za: 1001.0,
+            zam: 0.0,
+            lrflag: 0,
+            temperature_k: 0.0,
+            emaxx: 2.0e7,
+        };
+        let sec = feed_matrix(&sigma, &flux, &mut feed, 1, &header).expect("matrix builds");
+        assert!(!sec.records.is_empty(), "the continuum feed produced no rows");
+        // The feed's label-700 normalisation scales it to the YIELD, not to 1
+        // (`groupr.f90:8128-8132`; the hand-derived rows in
+        // `groupr::mf6_feed::tests` sum to yld = 2). That is precisely why the
+        // caller does not multiply by `yld` again for a non-fission MT — see
+        // `Continuum6Feed`'s docs. So a P0 row must come back as sigma * yld.
+        const WANT: f64 = 3.0 * 2.0;
+        let mut checked = 0usize;
+        for rec in &sec.records {
+            // data[0] is the group flux; the rest is the P0 transfer row.
+            let flux_g = rec.data[0];
+            let row: f64 = rec.data[1..].iter().sum();
+            assert!(flux_g > 0.0, "{rec:?}");
+            // Incident groups below the feed's tabulated range carry no
+            // transfer; skip them rather than assert on an empty row.
+            if row <= 0.0 {
+                continue;
+            }
+            checked += 1;
+            assert!(
+                (row - WANT).abs() < 1.0e-6 * WANT,
+                "incident group {} P0 row sums to {row}, expected sigma * yld = {WANT}",
+                rec.ig
+            );
+        }
+        assert!(checked > 0, "no incident group carried a transfer: {sec:?}");
+    }
+
+    /// The fission MTs are refused rather than silently fed without `nu-bar`:
+    /// `groupr.f90:7392-7402` multiplies the File-6 feed by `nu-bar` from
+    /// MF=1/MT=456 for MT 18-21 and 38, and `getyld` is not ported.
+    #[test]
+    fn continuum6_refuses_the_fission_mts_that_need_nubar() {
+        use crate::groupr::mf6_feed::{Mf6Feed, Mf6FeedConfig};
+        let tape = law1_mf6_tape(1301, 5, 2.0e6);
+        let cfg = Mf6FeedConfig {
+            awr: 10.0,
+            awrp: 1.0,
+            izap: 1,
+            q: -1.0e7,
+            ismooth: false,
+            nl: 1,
+        };
+        for mt in [18, 19, 20, 21, 38] {
+            let inner = Mf6Feed::new(&tape, 1301, 6, 5, cfg.clone()).expect("builds");
+            match Continuum6Feed::new(inner, vec![1.0e-5, 2.0e6], mt) {
+                Err(NjoyError::NotPorted(tag)) => {
+                    assert!(tag.contains("nu-bar"), "MT {mt}: {tag}")
+                }
+                other => panic!("MT {mt} should be refused, got {other:?}"),
+            }
+        }
+    }
+
     #[test]
     fn constant_xs_heavy_target_is_diagonal() {
         let egn = [1.0, 10.0, 100.0, 1000.0];
@@ -764,5 +903,114 @@ mod tests {
         let sum: f64 = top.data[1..].iter().sum();
         assert!(((sum - 4.0) / 4.0).abs() < 1e-5, "{top:?}");
         assert!(top.data[1..].iter().all(|&v| v > 0.0), "{top:?}");
+    }
+}
+
+/// A stateful feed routine behind the interface [`panel`] needs.
+///
+/// GROUPR's `getff` (`groupr.f90:7046-7420`) dispatches to one of several feed
+/// routines — `getdis` for two-body, `getmf6` for File-6 continuum, and the
+/// analytic branches — each of which keeps its own saved state across incident
+/// energies and answers the same question: *at energy `e`, with `nl` Legendre
+/// orders, what is the feed into each secondary group, and where is the next
+/// break?* This trait is that question.
+pub trait GroupFeed {
+    /// The secondary group boundaries \[eV\], ascending.
+    fn egn(&self) -> &[f64];
+    /// Rewind the saved state to the start of an incident-energy sweep.
+    fn reset(&mut self);
+    /// One feed evaluation — `getff`'s contract.
+    fn feed_at(&mut self, e: f64, nl: usize) -> Result<FeedAt, NjoyError>;
+}
+
+impl GroupFeed for TwoBodyFeed {
+    fn egn(&self) -> &[f64] {
+        TwoBodyFeed::egn(self)
+    }
+    fn reset(&mut self) {
+        TwoBodyFeed::reset(self)
+    }
+    fn feed_at(&mut self, e: f64, nl: usize) -> Result<FeedAt, NjoyError> {
+        self.feed(e, nl)
+    }
+}
+
+/// [`Mf6Feed`] behind [`GroupFeed`] — `getff`'s label-800 branch
+/// (`groupr.f90:7387-7409`).
+///
+/// `getmf6` takes the group structure as an argument rather than holding it, so
+/// this owns a copy.
+///
+/// # The returned `yld` is deliberately NOT applied
+///
+/// `getmf6` returns a `yld`, and it is tempting to multiply the feed by it. The
+/// caller does not. At `groupr.f90:7392-7402` the only multiplication is
+///
+/// ```text
+///   if ((mtd.ge.18.and.mtd.le.21).or.mtd.eq.38) then
+///      call getyld(e,en,idis,yld,matd,1,456,0,nend3)
+///      ff(il,ig) = ff(il,ig)*yld
+/// ```
+///
+/// i.e. **fission MTs only**, and even there the factor is `nu-bar` re-fetched
+/// from MF=1/MT=456 — *not* the `yld` `getmf6` just returned. For every other
+/// MT the feed comes back complete. So this adapter passes `ans` through
+/// untouched and refuses the fission MTs, which need a `getyld` port this
+/// module does not have.
+#[derive(Debug)]
+pub struct Continuum6Feed {
+    feed: Mf6Feed,
+    egn: Vec<f64>,
+    mtd: i32,
+}
+
+impl Continuum6Feed {
+    /// Wrap an [`Mf6Feed`] over the secondary group structure `egn` \[eV\].
+    ///
+    /// # Errors
+    /// [`NjoyError::NotPorted`] for the fission MTs (18-21, 38), which need the
+    /// `nu-bar` factor described in the struct docs; [`NjoyError::EndfParse`]
+    /// for a group structure with fewer than two boundaries.
+    pub fn new(feed: Mf6Feed, egn: Vec<f64>, mtd: i32) -> Result<Self, NjoyError> {
+        if egn.len() < 2 {
+            return Err(NjoyError::EndfParse(
+                "Continuum6Feed: egn needs >= 2 ascending boundaries".into(),
+            ));
+        }
+        if (18..=21).contains(&mtd) || mtd == 38 {
+            return Err(NjoyError::NotPorted(
+                "groupr::getff label 800 for fission (MT 18-21, 38) multiplies the File-6 \
+                 feed by nu-bar from MF=1/MT=456 (groupr.f90:7392-7402); getyld is not ported",
+            ));
+        }
+        Ok(Continuum6Feed { feed, egn, mtd })
+    }
+
+    /// The MT this feed was built for.
+    pub fn mtd(&self) -> i32 {
+        self.mtd
+    }
+}
+
+impl GroupFeed for Continuum6Feed {
+    fn egn(&self) -> &[f64] {
+        &self.egn
+    }
+    fn reset(&mut self) {
+        // `getmf6`'s saved state is rewound by re-running its `ed <= 0`
+        // initialization pass, which `Mf6Feed::new` performed at construction.
+        // There is no separate rewind entry upstream, and the panel driver only
+        // ever sweeps upward in energy, so this is a no-op.
+    }
+    fn feed_at(&mut self, e: f64, nl: usize) -> Result<FeedAt, NjoyError> {
+        let at = self.feed.feed(e, &self.egn, nl)?;
+        Ok(FeedAt {
+            ff: at.ans,
+            ng: at.ng2,
+            iglo: at.iglo,
+            nq: at.nq,
+            enext: at.enext,
+            idisc: at.idisc != 0,
+        })
     }
 }

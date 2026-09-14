@@ -34,6 +34,14 @@
 //!   high `E`; the integrated `σ(E→E')` / `σ_inel(E)`; and the `nieb`×`nang`
 //!   equiprobable emission table (`equiprobable_emission`) the ACE ITXE block
 //!   needs, via numerical CDF inversion.
+//! - [`calcem`] — **partial**: a faithful port of `thermr.f90`'s `calcem`
+//!   (both the `iform=0` equally-probable-cosine and `iform=1` continuous
+//!   `LAW=7` output paths), `sigl`, and `sigu` — the adaptive-linearisation
+//!   machinery [`inelastic`] does not have (its own `sigma_ep_profile` uses a
+//!   fixed 200-point mu trapezoid and throws angle away; see that module's
+//!   docs). Not a production consumer yet: no MF=6 tape writer exists to
+//!   receive its output, so it returns typed Rust data instead — see that
+//!   module's own docs for exactly what is and is not covered.
 //! - [`scattering`] — **done, all three channels**: the consumer surface
 //!   `outram-mc-libs` calls — [`scattering::IncoherentInelasticScattering`]
 //!   (σ_inel + emission bins), [`scattering::CoherentElasticScattering`]
@@ -54,6 +62,7 @@
 //!
 //! See `docs/porting-plan.md` (Phase 3 THERMR, Phase 4f thermal ACE).
 
+pub mod calcem;
 pub mod coherent;
 pub mod incoherent_elastic;
 pub mod inelastic;

@@ -1,0 +1,22 @@
+mechanism,oracle,result,excluded,source_record
+graphite S(alpha_beta) outgoing energy,NJOY THERMR MF=6 scattering matrix,<=0.12% above 0.2 eV but -1.53% at 0.0253 eV,partial,ring_rpt/ring_rpt_vs_openmc.md
+moderator sigma_t / sigma_s all 8 nuclides,NJOY PENDF (NJOY2016 rebuilt in-session),<=0.05%,yes,ring_rpt/ring_rpt_vs_openmc.md
+moderator thermal capture,NJOY PENDF at 0.0253 eV,<=0.03%,yes,ring_rpt/ring_rpt_vs_openmc.md
+B-10 thermal absorption,2200 m/s standard + analytic 1/v law,3845.9 b; 1/v to 4e-5,yes,ring_rpt/ring_rpt_vs_openmc.md
+H-1 free-gas elastic,analytic Doppler-broadening integral,<=0.09%,yes,ring_rpt/ring_rpt_vs_openmc.md
+slowing-down kernel xi,analytic two-body kinematics 8 nuclides,xi/xi_0 = 1.000,yes,ring_rpt/ring_rpt_vs_openmc.md
+thermal equilibrium,analytic Maxwellian density A = 2..238,pass (after op-50vu),yes,ring_rpt/ring_rpt_vs_openmc.md
+resonance self-shielding,analytic infinite-dilution limit,0.991 +- 0.011,yes,ring_rpt/ring_rpt_vs_openmc.md
+delta-tracking majorant,nuclide grids 468k points x 9 materials,worst 0.890; bounds,yes,ring_rpt/ring_rpt_vs_openmc.md
+tracking method,delta vs surface-tracked CSG same geometry,18 pcm (0.05 sigma),yes,ring_rpt/ring_rpt_vs_openmc.md
+nu-bar / chi / fast sigma / inelastic / (n2n) / driver,ICSBEP HEU-MET-FAST-001 (measured fast),+57 +- 173 pcm,yes,ring_rpt/ring_rpt_vs_openmc.md
+thermal machinery (c_H_in_H2O thermal fission+capture moderated CSG transport leakage),ICSBEP HEU-SOL-THERM-009 case 1 (measured thermal),-18 +- 171 pcm,yes,ring_rpt/ring_rpt_vs_openmc.md
+U-238 in bulk (fast fission keV capture reflected transport),ICSBEP IEU-MET-FAST-002 Jemima (measured; 83%/99.3% U-238),+6 +- 173 pcm,yes,ring_rpt/ring_rpt_vs_openmc.md
+pebble composition radii densities temperatures S(alpha_beta) assignment,the reference deck term by term,identical,yes,ring_rpt/ring_rpt_vs_openmc.md
+explicit pebble layer volumes,exact geometry,0.5%,yes,ring_rpt/ring_rpt_vs_openmc.md
+packing fraction,the deck's own definition,fixed (op-8l2e),yes,ring_rpt/ring_rpt_vs_openmc.md
+reference's own particle count,its 34224 cells inverted through exact lattice-overlap calculation,implies pf 0.2991 vs ours 0.2993,yes,ring_rpt/ring_rpt_vs_openmc.md
+production per absorption each group,the reference's own six factors inverted,0.07% / 0.02%,yes,ring_rpt/ring_rpt_vs_openmc.md
+U-238 resonance escape at strong self-shielding,ICSBEP LEU-COMP-THERM-008 (measured; thermal 97.5% U-238 heterogeneous),+2950 +- 61 pcm,NO - THIS IS THE DEFECT,ring_rpt/ring_rpt_vs_openmc.md
+thermal scattering ANGLE,NJOY THERMR MF=6/MT=229 equiprobable cosines + MF=3/MT=230 Bragg staircase,<=0.0085 absolute on mu-bar,yes,ring_rpt/ring_rpt_vs_openmc.md
+thermal kernel WIDTH (second moment),NJOY THERMR MF=6/MT=229 matrix second moment,-11% to +39% - a REAL defect measured at -63 pcm,partial - real but too small,ring_rpt/ring_rpt_vs_openmc.md

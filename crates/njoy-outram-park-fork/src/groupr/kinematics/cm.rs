@@ -3,100 +3,22 @@
 // this derivative file is distributed under GPL-3.0-only. This is a modified,
 // non-LANL version, not endorsed by LANL/DOE. See crate root LICENSE.njoy + NOTICE.
 
-//! Center-of-mass → lab kinematics for the GROUPR scatter-matrix feed functions.
+//! CM-frame File-6 LAW-1 evaluation and its CM→lab transform: `f6ddx`, `f6cm`,
+//! `f6dis`, and the public entry point `cm2lab`.
 //!
-//! The GROUPR group-to-group **matrix** path (`mfd = 6`) needs the
-//! secondary-particle emission spectrum transformed from the center-of-mass
-//! frame (where ENDF File 6 laws are given) into the lab frame, then binned into
-//! secondary groups to form the feed function the panel integrator deposits.
-//! This module ports the **continuum** core of that transform: the Kalbach-Mann
-//! and Legendre-in-CM double-differential evaluations, the Kalbach slope, and the
-//! adaptive CM→lab integrator.
-//!
-//! # Fortran routine → Rust item map (with `groupr.f90` line cites)
+//! # Fortran routine → Rust item map
 //!
 //! | Fortran routine | lines | Rust item | Status |
 //! |---|---|---|---|
-//! | `legndr`  | `mathm.f90` | [`legndr`] | **DONE** (helper) |
-//! | `bach`    | 8812–8932 | [`bach`] | **DONE** |
 //! | `f6ddx`   | 8520–8717 | [`Cm6Emission::f6ddx`] | **DONE** for `lang=1,2` continuum; `lang=0` (phase space) and `lang>=11` (tabulated) → `NotPorted` |
-//! | `f6cm`    | 8260–8518 | [`Cm6Emission::f6cm`] | **DONE** for the `ND=0` continuum; the discrete-delta branch (330, 8467–8501) is not reached (input carries no discrete lines) |
+//! | `f6dis`   | 8719–8810 | [`Cm6Emission::f6dis`] | **DONE** for `lang=1,2`; see the doc for a literal upstream indexing quirk this reproduces |
+//! | `f6cm`    | 8260–8518 | [`Cm6Emission::f6cm`] | **DONE**, including the `ND` discrete-line branches (init bounds `8324-8335`, delta-function branch `8467-8501`) |
 //! | `cm2lab`  | 8135–8258 | [`cm2lab`] | **DONE** |
-//! | `f6dis`   | 8719–8810 | [`f6dis`] | **NotPorted** stub |
-//! | `ll2lab`  | 8934–9061 | [`ll2lab`] | **NotPorted** stub |
-//! | `f6lab`   | 9063–9338 | [`f6lab`] | **NotPorted** stub |
-//!
-//! # Scope of the ported path (honest limits)
-//!
-//! [`cm2lab`] handles ENDF File 6 **LAW 1** (continuum energy-angle) in the
-//! **CM frame** with **LANG = 1** (Legendre-in-CM) or **LANG = 2** (Kalbach-Mann
-//! systematics), and **no discrete emission lines** (ND = 0). This is the
-//! tractable, hand-checkable core called out for this porting pass. The discrete
-//! delta-function path (`f6dis`), the law-7 angle-energy transform (`ll2lab`),
-//! the lab-frame LAW 1 evaluator (`f6lab`), and the phase-space law
-//! (`f6psp`, LANG = 0) are **not ported** and return
-//! [`crate::NjoyError::NotPorted`]. See the per-item docs for exact line ranges.
-//!
-//! This is untrusted AI draft material: verify against upstream NJOY golden
-//! output before trusting numerically.
 
-use crate::common::phys::{AMASSN_AMU, AMU_G, CLIGHT_CM_S, EV_ERG};
+use super::bach::bach;
+use super::shared::{legndr, remove_small_moments, LabDistribution, EMAX, SMALL, TINY};
 use crate::endf::interp::{terp1, IntLaw};
 use crate::NjoyError;
-
-/// Sentinel "no further break point" energy \[eV\] — NJOY's `emax = 1.e10`.
-const EMAX: f64 = 1.0e10;
-/// Relative smallness guard — NJOY's `small = 1.e-10`.
-const SMALL: f64 = 1.0e-10;
-/// NJOY's `tiny = 1.e-4`, used to size the `f6cm` step floor `eps = tiny/elmax`.
-const TINY: f64 = 1.0e-4;
-
-/// Legendre polynomials `P_0(x) .. P_np(x)` by upward recursion.
-///
-/// Faithful port of `legndr` (`mathm.f90`): returns a vector `p` of length
-/// `np + 1` with `p[l] = P_l(x)` for `l = 0 ..= np`. `x` is a direction cosine
-/// in `[-1, 1]` (dimensionless); the polynomials are dimensionless.
-///
-/// Uses the same three-term recurrence NJOY uses,
-/// `P_{i+1} = ((2i+1) x P_i - i P_{i-1}) / (i+1)`, written in NJOY's
-/// difference form to match its round-off behaviour bit-for-bit.
-pub fn legndr(x: f64, np: usize) -> Vec<f64> {
-    let mut p = vec![0.0_f64; np + 1];
-    p[0] = 1.0;
-    if np >= 1 {
-        p[1] = x;
-    }
-    if np < 2 {
-        return p;
-    }
-    for i in 1..=(np - 1) {
-        let g = x * p[i];
-        let h = g - p[i - 1];
-        p[i + 1] = h + g - h / ((i + 1) as f64);
-    }
-    p
-}
-
-/// Lab secondary energy for a two-body-like CM→lab emission \[eV\].
-///
-/// This is the kinematic relation the [`cm2lab`] integrator inverts: a particle
-/// emitted with center-of-mass energy `ep_cm` \[eV\] at CM cosine `mu_cm`
-/// (dimensionless, `[-1, 1]`) from a reaction at incident energy `e_in` \[eV\]
-/// appears in the lab at
-///
-/// `E_lab = ep_cm + xc * e_in + 2 * mu_cm * sqrt(xc * e_in * ep_cm)`,
-///
-/// where the CM-motion factor is `xc = A' / (A + 1)^2` — `A'` the emitted
-/// particle's atomic-weight ratio to the neutron and `A` the target's
-/// (dimensionless). At `mu_cm = +1` this gives the forward edge
-/// `(sqrt(ep_cm) + sqrt(xc*e_in))^2`; at `mu_cm = -1` the backward edge
-/// `(sqrt(ep_cm) - sqrt(xc*e_in))^2` (the `elmax`/`elmin` limits used in `f6cm`,
-/// `groupr.f90:8316,8330-8333`).
-///
-/// Valid for `ep_cm >= 0`, `e_in > 0`, `xc >= 0`.
-pub fn lab_energy_from_cm(e_in: f64, ep_cm: f64, mu_cm: f64, xc: f64) -> f64 {
-    ep_cm + xc * e_in + 2.0 * mu_cm * (xc * e_in * ep_cm).sqrt()
-}
 
 /// The CM angular representation of a File-6 LAW-1 continuum emission.
 ///
@@ -115,12 +37,15 @@ pub enum Cm6Lang {
     Kalbach,
 }
 
-/// One secondary-energy record of a File-6 LAW-1 CM continuum distribution.
+/// One secondary-energy record of a File-6 LAW-1 CM continuum distribution,
+/// **or** one discrete emission line of the same subsection.
 ///
 /// Mirrors one `(E', b_0, b_1, ...)` entry of NJOY's `cnow` list
-/// (`groupr.f90:8609-8658`). `ep` is the CM secondary energy \[eV\]; `coeffs`
-/// is the `LANG`-dependent coefficient list (see [`Cm6Lang`]). All `coeffs`
-/// entries across the points of one [`Cm6Emission`] must have the same length.
+/// (`groupr.f90:8609-8658`) — the continuum and discrete-line tables share
+/// this exact per-record layout in the raw ENDF data. `ep` is the CM
+/// secondary energy \[eV\]; `coeffs` is the `LANG`-dependent coefficient list
+/// (see [`Cm6Lang`]). All `coeffs` entries across the points *and* discrete
+/// lines of one [`Cm6Emission`] must have the same length.
 #[derive(Debug, Clone)]
 pub struct Cm6Point {
     /// CM secondary (outgoing-particle) energy `E'` \[eV\].
@@ -129,13 +54,15 @@ pub struct Cm6Point {
     pub coeffs: Vec<f64>,
 }
 
-/// An owned File-6 LAW-1 CM-frame continuum emission block (one incident energy).
+/// An owned File-6 LAW-1 CM-frame emission block (one incident energy).
 ///
 /// This is the Rust analogue of NJOY's `cnow` array for a single incident-energy
-/// subsection (`groupr.f90` `f6cm`/`f6ddx` consume `cnow(1..)`), restricted to
-/// the ported path: **LAW 1, CM frame, LANG 1 or 2, no discrete lines
-/// (ND = 0)**. [`Cm6Emission::to_lab`] / [`cm2lab`] transform it to the lab
-/// frame.
+/// subsection (`groupr.f90` `f6cm`/`f6ddx`/`f6dis` consume `cnow(1..)`),
+/// restricted to the ported path: **LAW 1, CM frame, LANG 1 or 2**. `points`
+/// holds the smooth continuum part (possibly empty, for a purely-discrete
+/// emission — ENDF `ND = NEP`); `discrete` holds the `ND` delta-function lines
+/// (possibly empty, `ND = 0`, the ordinary continuum-only case).
+/// [`Cm6Emission::to_lab`] / [`cm2lab`] transform it to the lab frame.
 ///
 /// # Fields and units
 /// - `e_in` — incident (projectile) energy \[eV\] (`cnow(2)`).
@@ -149,7 +76,10 @@ pub struct Cm6Point {
 /// - `za_projectile`, `za_target`, `za_emitted` — ENDF `ZA = 1000 Z + A`
 ///   integers for the incident particle, target, and emitted particle
 ///   (used by [`bach`] for the Kalbach slope; `za_projectile = 1` for a neutron).
-/// - `points` — the continuum records, **ascending** in `ep`.
+/// - `points` — the continuum records, **ascending** in `ep`. Empty for a
+///   purely-discrete emission.
+/// - `discrete` — the `ND` discrete emission lines (ENDF order, same record
+///   layout as `points`). Empty for `ND = 0`.
 #[derive(Debug, Clone)]
 pub struct Cm6Emission {
     /// Incident energy `E` \[eV\].
@@ -168,44 +98,37 @@ pub struct Cm6Emission {
     pub za_target: i32,
     /// Emitted-particle `ZA`.
     pub za_emitted: i32,
-    /// Continuum secondary-energy records, ascending in `ep`.
+    /// Continuum secondary-energy records, ascending in `ep`. Empty for a
+    /// purely-discrete emission (`ND = NEP`).
     pub points: Vec<Cm6Point>,
-}
-
-/// The lab-frame Legendre distribution produced by [`cm2lab`].
-///
-/// `points` are `(E'_lab \[eV\], Legendre coefficients)` pairs in **ascending**
-/// lab secondary energy, each coefficient vector of length `nl`
-/// (`coeffs[l] = ` the lab `P_l` moment of the double-differential emission at
-/// that `E'`). `p0_integral` is the integral of the lab `P_0` moment over `E'`
-/// — NJOY's `cm2lab` `sum` normalization check (`groupr.f90:8233,8244`), which
-/// should be `≈ 1` for a normalized CM emission.
-#[derive(Debug, Clone)]
-pub struct LabDistribution {
-    /// Incident energy `E` \[eV\] this distribution is for.
-    pub e_in: f64,
-    /// Number of lab Legendre coefficients per point (`P_0 .. P_{nl-1}`).
-    pub nl: usize,
-    /// `(E'_lab \[eV\], [P_0, .., P_{nl-1}])`, ascending in `E'_lab`.
-    pub points: Vec<(f64, Vec<f64>)>,
-    /// Integral of the lab `P_0` moment over `E'` (the `sum ≈ 1` check).
-    pub p0_integral: f64,
+    /// Discrete emission lines (ENDF `ND`), same record layout as `points`.
+    /// Empty for `ND = 0` (the ordinary continuum-only case).
+    pub discrete: Vec<Cm6Point>,
 }
 
 impl Cm6Emission {
     /// Number of CM angular parameters `NA` per record (`ncnow - 2` in NJOY).
     ///
     /// For `LANG = 1` this is the top Legendre order; for `LANG = 2` it is 1
-    /// (slope from [`bach`]) or 2 (slope tabulated).
+    /// (slope from [`bach`]) or 2 (slope tabulated). Falls back to the
+    /// discrete-line width when `points` is empty (a purely-discrete
+    /// emission), matching NJOY's single shared `na`/`ncnow` computed once
+    /// from the whole `cnow` table regardless of which entries are discrete.
     fn na(&self) -> usize {
-        self.points[0].coeffs.len().saturating_sub(1)
+        let width = self
+            .points
+            .first()
+            .or(self.discrete.first())
+            .map(|p| p.coeffs.len())
+            .unwrap_or(0);
+        width.saturating_sub(1)
     }
 
     /// f6ddx **initialization** (`groupr.f90:8552-8571`, `ep == 0` branch).
     ///
     /// Returns `(epnext0, epmax)`: the first CM secondary-energy break point
     /// (clamped to `0.05 * epmax`, NJOY's `step`) and the maximum CM secondary
-    /// energy \[eV\].
+    /// energy \[eV\]. Only called when `points` is non-empty (continuum present).
     fn f6ddx_init(&self) -> (f64, f64) {
         let cp = &self.points;
         let epmax = cp[cp.len() - 1].ep;
@@ -231,8 +154,7 @@ impl Cm6Emission {
     /// Returns `(t, epnext)`: the double-differential value `t`
     /// (barn / eV / steradian-equivalent, `>= 0`) and the next CM secondary
     /// energy break above `ep_cm` \[eV\] (or [`EMAX`]). Only the continuum part
-    /// is returned; discrete deltas are the caller's responsibility (and are not
-    /// present on the ported path).
+    /// is returned; discrete deltas are handled separately by [`Self::f6dis`].
     ///
     /// `LANG = 1` interpolates the Legendre `b_L` between the bracketing points
     /// then evaluates `sum_L (2L+1)/2 b_L P_L(w)`; `LANG = 2` interpolates
@@ -351,8 +273,86 @@ impl Cm6Emission {
         }
     }
 
+    /// Discrete-line double-differential value at CM cosine `w` — faithful port
+    /// of `f6dis` (`groupr.f90:8719-8810`), given the already-selected line
+    /// index `i` (0-based into `self.discrete`).
+    ///
+    /// # A literal upstream indexing quirk, reproduced on purpose
+    ///
+    /// `f6dis`'s `LANG = 1` (Legendre) branch reads `cnow(inow+1+l)` for
+    /// `l = 1..nl` (`groupr.f90:8767-8769`) — **one slot further** than the
+    /// analogous continuum read in `f6ddx` (`cnow(lnow+l)`,
+    /// `groupr.f90:8608`). Comparing against `f6dis`'s own `LANG = 2` branch
+    /// (`cnow(inow+1)`, `cnow(inow+2)`, `cnow(inow+3)` — exactly matching
+    /// `f6ddx`'s Kalbach offsets) shows this is specific to the Legendre
+    /// branch, not a discrete-vs-continuum record-layout difference. The
+    /// practical effect: for `l = 1 .. nl-1` the term uses `coeffs[l]` of
+    /// *this* line (so `coeffs[0]` is never summed — it is instead pulled out
+    /// as the separate final multiplier NJOY calls `cnow(inow+1)`), and the
+    /// **top-order term (`l = nl`) reads one slot past this line's own
+    /// `coeffs`** — which, in NJOY's flat `cnow` array, is the CM **energy**
+    /// of the *next* discrete line (`discrete[i+1].ep` here), not a Legendre
+    /// coefficient at all. This is ported faithfully (bugs and all — see the
+    /// crate's translation policy); for the *last* line, where there is no
+    /// next record to (mis)read, NJOY reads past the whole subsection into
+    /// undefined memory, which we cannot reproduce and instead report as
+    /// [`NjoyError::EndfParse`] rather than fabricate a value. See the module
+    /// hand-off notes for the V&V pass.
+    fn f6dis(&self, i: usize, w: f64) -> Result<f64, NjoyError> {
+        let lines = &self.discrete;
+        let na = self.na();
+        let nl = na + 1;
+        match self.lang {
+            Cm6Lang::LegendreInCm => {
+                let p = legndr(w, na);
+                let mut t = 0.0;
+                for l in 1..=nl {
+                    let x = if l < nl {
+                        lines[i].coeffs[l]
+                    } else {
+                        match lines.get(i + 1) {
+                            Some(next) => next.ep,
+                            None => {
+                                return Err(NjoyError::EndfParse(
+                                    "f6dis: LANG=1 top-order term of the last discrete line \
+                                     reads past the table (upstream groupr.f90:8767-8769 \
+                                     off-by-one; no data available to reproduce it faithfully)"
+                                        .into(),
+                                ))
+                            }
+                        }
+                    };
+                    t += (2.0 * l as f64 - 1.0) * x * p[l - 1] / 2.0;
+                }
+                t *= lines[i].coeffs[0];
+                Ok(t.max(0.0))
+            }
+            Cm6Lang::Kalbach => {
+                let s = lines[i].coeffs[0];
+                let r = lines[i].coeffs[1];
+                let aa = if na == 2 {
+                    lines[i].coeffs[2]
+                } else {
+                    bach(
+                        self.za_projectile,
+                        self.za_emitted,
+                        self.za_target,
+                        self.e_in,
+                        lines[i].ep,
+                    )?
+                };
+                let mut t = aa * ((aa * w).cosh() + r * (aa * w).sinh()) / (2.0 * aa.sinh());
+                t *= s;
+                Ok(t.max(0.0))
+            }
+        }
+    }
+
     /// Lab-frame Legendre coefficients at lab secondary energy `ep` \[eV\] —
-    /// faithful port of the continuum branch of `f6cm` (`groupr.f90:8343-8514`).
+    /// faithful port of `f6cm` (`groupr.f90:8260-8518`), covering both the
+    /// continuum branch (`215`, when `points` is non-empty) and the
+    /// purely-discrete delta-function branch (`330`, when `points` is empty —
+    /// NJOY's `ndnow.eq.npnow`).
     ///
     /// Returns `(term, epnext)`: `term[l] = ` lab `P_l` moment
     /// (`l = 0 .. nl_lab-1`) of the double-differential emission at `ep`, and the
@@ -365,6 +365,19 @@ impl Cm6Emission {
     /// double-differential ([`Cm6Emission::f6ddx`]) over lab cosine `u` from
     /// `umin` to `1`, weighting by `P_{l-1}(u)` and the CM→lab Jacobian
     /// `1 / sqrt(yy)`, with adaptive refinement (NJOY's `imax = 10` cosine stack).
+    /// The discrete branch instead inverts the two-body kinematics directly for
+    /// each line's fixed CM energy to find the CM cosine giving this lab `ep`.
+    ///
+    /// **A limitation this reproduces, not fixes:** for a *mixed* emission
+    /// (`points` non-empty **and** `discrete` non-empty, ENDF `0 < ND < NEP`),
+    /// upstream `f6cm` takes the continuum branch unconditionally
+    /// (`groupr.f90:8347`, `if (ndnow.eq.npnow) go to 330` — the discrete branch
+    /// is reached *only* when there is no continuum at all) and never adds the
+    /// discrete lines' own contribution inside the per-point loop; they only
+    /// widen the `elmax`/`epnext` search bounds computed once at init
+    /// (`groupr.f90:8324-8335`, ported in [`Cm6Emission::to_lab`]). This port
+    /// reproduces that: a mixed emission's discrete lines never contribute to
+    /// `term` here, exactly as upstream never does.
     #[allow(clippy::too_many_arguments)]
     fn f6cm(
         &self,
@@ -376,6 +389,10 @@ impl Cm6Emission {
         elmax: f64,
         eps: f64,
     ) -> Result<(Vec<f64>, f64), NjoyError> {
+        if self.points.is_empty() {
+            return self.f6cm_discrete_only(ep, xc, nl_lab);
+        }
+
         // Local constants (groupr.f90:8283-8296).
         const TOL: f64 = 0.005;
         const CHECK: f64 = 0.999_99;
@@ -533,6 +550,57 @@ impl Cm6Emission {
         Ok((term, epnxt))
     }
 
+    /// The purely-discrete `f6cm` branch (`330`, `groupr.f90:8467-8501`):
+    /// invert the two-body kinematics for each discrete line's fixed CM energy
+    /// to find the CM cosine `w` giving lab energy `ep`, then add
+    /// `f6dis(i, w) * P_l(u)` (`u` the corresponding **lab** cosine) into
+    /// `term`. Reached only when `self.points.is_empty()` (NJOY's
+    /// `ndnow.eq.npnow`).
+    fn f6cm_discrete_only(
+        &self,
+        ep: f64,
+        xc: f64,
+        nl_lab: usize,
+    ) -> Result<(Vec<f64>, f64), NjoyError> {
+        const CHECK: f64 = 0.999_99;
+        const RDN: f64 = 0.999_995;
+        const RUP: f64 = 1.000_005;
+        let e = self.e_in;
+        let na_lab = nl_lab - 1;
+        let mut term = vec![0.0_f64; nl_lab];
+        let mut epnxt = EMAX;
+
+        for (i, line) in self.discrete.iter().enumerate() {
+            let epp = line.ep;
+            let denom = 2.0 * (xc * e * epp).sqrt();
+            let w = (ep - epp - xc * e) / denom;
+            let u = (xc * e + ep - epp) / (2.0 * (xc * e * ep).sqrt());
+            if w < -1.0 {
+                let mut epn = e * ((epp / e).sqrt() - xc.sqrt()).powi(2);
+                epn *= if ep < CHECK * epn { RDN } else { RUP };
+                if epn < epnxt * (1.0 - SMALL) {
+                    epnxt = epn;
+                }
+            } else if w <= 1.0 {
+                let p = legndr(u, na_lab);
+                let f = self.f6dis(i, w)? / denom;
+                let mut epn = e * ((epp / e).sqrt() + xc.sqrt()).powi(2);
+                epn *= if ep < CHECK * epn { RDN } else { RUP };
+                if epn < epnxt * (1.0 - SMALL) {
+                    epnxt = epn;
+                }
+                for l in 1..=nl_lab {
+                    term[l - 1] += f * p[l - 1];
+                }
+            }
+            // w > 1: neither branch — no contribution, no epnxt update
+            // (groupr.f90:8479 `else if (w.le.wmax)`, falls through otherwise).
+        }
+
+        remove_small_moments(&mut term, nl_lab, 0.005);
+        Ok((term, epnxt))
+    }
+
     /// Transform this CM emission block into the lab frame — the public entry
     /// point, equivalent to NJOY's `cm2lab` (see [`cm2lab`], which forwards here).
     ///
@@ -542,10 +610,11 @@ impl Cm6Emission {
     /// `sum ≈ 1` normalization integral.
     ///
     /// # Errors
-    /// - [`NjoyError::EndfParse`] if `points` is empty, not ascending, `nl == 0`,
-    ///   or the coefficient lists are inconsistent / too short for `lang`.
+    /// - [`NjoyError::EndfParse`] if both `points` and `discrete` are empty,
+    ///   not ascending, `nl == 0`, or the coefficient lists are inconsistent /
+    ///   too short for `lang`.
     pub fn to_lab(&self, nl: usize) -> Result<LabDistribution, NjoyError> {
-        // Local constants (groupr.f90:8152-8156, 8286-8296).
+        // Local constants (groupr.f90:8152-8156, 8286-8296, 8324-8335).
         const TOL: f64 = 0.01;
         const EPS: f64 = 1.0e-8;
         const UP: f64 = 1.000_001;
@@ -559,20 +628,48 @@ impl Cm6Emission {
         let e = self.e_in;
         let xc = self.awp_emitted / (self.awr_target + 1.0).powi(2);
 
-        // --f6cm initialization (groupr.f90:8299-8340, npnow!=ndnow branch).
-        let (epn0, epmax) = self.f6ddx_init();
-        let epnn = EMAX.min(epn0);
-        let epmax_c = epmax.max(0.0);
-        let mut elmax = e * ((epmax_c / e).sqrt() + xc.sqrt()).powi(2);
-        elmax *= UP;
-        let mut epn = STEP * elmax;
-        if epmax_c * UP < xc * e {
-            epn = e * ((epmax_c / e).sqrt() - xc.sqrt()).powi(2);
+        // --f6cm initialization (groupr.f90:8299-8340).
+        let has_continuum = !self.points.is_empty();
+        let mut epnn = EMAX;
+        let mut epmax_c = 0.0_f64;
+        let mut elmax = 0.0_f64;
+        let mut epnext = EMAX;
+        let mut eps = TINY; // meaningless (never used) on the pure-discrete path
+
+        if has_continuum {
+            let (epn0, epmax) = self.f6ddx_init();
+            epnn = EMAX.min(epn0);
+            epmax_c = epmax.max(0.0);
+            elmax = e * ((epmax_c / e).sqrt() + xc.sqrt()).powi(2);
+            elmax *= UP;
+            let mut epn = STEP * elmax;
+            if epmax_c * UP < xc * e {
+                epn = e * ((epmax_c / e).sqrt() - xc.sqrt()).powi(2);
+            }
+            epnext = EMAX.min(epn);
+            eps = TINY / elmax;
+            epnext *= DN;
         }
-        let _ = epnn; // epnn only feeds the (skipped) discrete path in init.
-        let mut epnext = EMAX.min(epn);
-        let eps = TINY / elmax;
-        epnext *= DN;
+        if !self.discrete.is_empty() {
+            for line in &self.discrete {
+                let epn = line.ep;
+                if epn < epnn * (1.0 - SMALL) {
+                    epnn = epn;
+                }
+                if epn > epmax_c * (1.0 + SMALL) {
+                    epmax_c = epn;
+                }
+                let epx_lo = DN * e * ((epn / e).sqrt() - xc.sqrt()).powi(2);
+                if epx_lo < epnext * (1.0 - SMALL) {
+                    epnext = epx_lo;
+                }
+                let epx_hi = UP * e * ((epn / e).sqrt() + xc.sqrt()).powi(2);
+                if epx_hi > elmax * (1.0 + SMALL) {
+                    elmax = epx_hi;
+                }
+            }
+        }
+        let _ = epnn; // epnn only feeds the (already-applied) bounds above.
 
         // --cm2lab main march (groupr.f90:8158-8248).
         let mut points_out: Vec<(f64, Vec<f64>)> = Vec::new();
@@ -653,15 +750,23 @@ impl Cm6Emission {
         })
     }
 
-    /// Validate the input record shape for the ported `LANG 1 / 2`, `ND = 0` path.
+    /// Validate the input record shape for the ported `LANG 1 / 2` path.
     fn validate(&self, nl: usize) -> Result<(), NjoyError> {
         if nl == 0 {
             return Err(NjoyError::EndfParse("cm2lab: nl must be >= 1".into()));
         }
-        if self.points.is_empty() {
-            return Err(NjoyError::EndfParse("cm2lab: no CM emission points".into()));
+        if self.points.is_empty() && self.discrete.is_empty() {
+            return Err(NjoyError::EndfParse(
+                "cm2lab: no CM emission points (points and discrete both empty)".into(),
+            ));
         }
-        let width = self.points[0].coeffs.len();
+        let width = self
+            .points
+            .first()
+            .or(self.discrete.first())
+            .unwrap()
+            .coeffs
+            .len();
         let min_width = match self.lang {
             Cm6Lang::LegendreInCm => 1,
             Cm6Lang::Kalbach => 2,
@@ -673,12 +778,19 @@ impl Cm6Emission {
             )));
         }
         let mut prev = f64::NEG_INFINITY;
-        for pt in &self.points {
+        for pt in self.points.iter().chain(self.discrete.iter()) {
             if pt.coeffs.len() != width {
                 return Err(NjoyError::EndfParse(
-                    "cm2lab: inconsistent coeff-list widths across points".into(),
+                    "cm2lab: inconsistent coeff-list widths across points/discrete".into(),
                 ));
             }
+            if pt.ep < 0.0 {
+                return Err(NjoyError::EndfParse(
+                    "cm2lab: CM secondary energies must be >= 0".into(),
+                ));
+            }
+        }
+        for pt in &self.points {
             if pt.ep < prev {
                 return Err(NjoyError::EndfParse(
                     "cm2lab: CM secondary energies must be ascending".into(),
@@ -695,24 +807,11 @@ impl Cm6Emission {
     }
 }
 
-/// Zero-out lab Legendre moments that are negligible vs `P_0`
-/// (`groupr.f90:8503-8510`): for `l >= 1`, if `|term[l]| < tol*|term[0]|`, set 0.
-fn remove_small_moments(term: &mut [f64], nl: usize, tol: f64) {
-    if nl > 1 {
-        let test = tol * term[0].abs();
-        for t in term.iter_mut().take(nl).skip(1) {
-            if t.abs() < test {
-                *t = 0.0;
-            }
-        }
-    }
-}
-
-/// Transform a CM-frame File-6 LAW-1 continuum emission into the lab frame.
+/// Transform a CM-frame File-6 LAW-1 emission into the lab frame.
 ///
 /// Faithful port of NJOY2016 `cm2lab` (`groupr.f90:8135-8258`) for the ported
-/// scope (LAW 1, CM frame, LANG 1 or 2, no discrete lines). This is the public
-/// entry point of the module; it forwards to [`Cm6Emission::to_lab`].
+/// scope (LAW 1, CM frame, LANG 1 or 2). This is the public entry point of the
+/// CM-frame half of this module; it forwards to [`Cm6Emission::to_lab`].
 ///
 /// # Parameters
 /// - `emission` — the CM emission block at one incident energy ([`Cm6Emission`]).
@@ -745,197 +844,13 @@ fn remove_small_moments(term: &mut [f64], nl: usize, tol: f64) {
 ///         Cm6Point { ep: 2.5e5,   coeffs: vec![4.0e-6] },
 ///         Cm6Point { ep: 5.0e5,   coeffs: vec![0.0] },
 ///     ],
+///     discrete: vec![],
 /// };
 /// let lab = cm2lab(&emission, 1).unwrap();
 /// assert!((lab.p0_integral - 1.0).abs() < 0.01);
 /// ```
 pub fn cm2lab(emission: &Cm6Emission, nl: usize) -> Result<LabDistribution, NjoyError> {
     emission.to_lab(nl)
-}
-
-/// Kalbach-Mann `a(E, E')` slope parameter (dimensionless).
-///
-/// Faithful port of NJOY2016 `bach` (`groupr.f90:8812-8932`), the Kalbach-86
-/// systematics. Given the projectile, emitted-particle, and target `ZA` codes
-/// (`ZA = 1000 Z + A`; `iza1i = 0` is treated as an incident neutron), the
-/// incident energy `e` \[eV\], and the CM secondary energy `ep` \[eV\], returns
-/// the slope `a` of the Kalbach angular form
-/// `f(mu) ~ a (cosh(a mu) + r sinh(a mu))`.
-///
-/// Natural-element target codes (`Z000`) are mapped to their dominant isotope,
-/// as NJOY does. Separation energies use the Kalbach mass formula (constants
-/// `c1..c6`, `s2..s5`). For an incident neutron (`iza1i = 0`) the extra
-/// low-energy `d1 / sqrt(E')` enhancement factor is applied.
-///
-/// # Errors
-/// [`NjoyError::EndfParse`] if the target's dominant isotope is unknown
-/// (mirrors NJOY's `error('bach', 'dominant isotope not known ...')`).
-///
-/// Valid for `e > 0`, `ep > 0`.
-pub fn bach(iza1i: i32, iza2: i32, izat: i32, e: f64, ep: f64) -> Result<f64, NjoyError> {
-    // Kalbach-86 constants (groupr.f90:8826-8847).
-    const THIRD: f64 = 0.333_333_333;
-    const TWOTH: f64 = 0.666_666_667;
-    const FOURTH: f64 = 1.333_333_33;
-    const C1: f64 = 15.68;
-    const C2: f64 = -28.07;
-    const C3: f64 = -18.56;
-    const C4: f64 = 33.22;
-    const C5: f64 = -0.717;
-    const C6: f64 = 1.211;
-    const S2: f64 = 2.22;
-    const S3: f64 = 8.48;
-    const S4: f64 = 7.72;
-    const S5: f64 = 28.3;
-    const BRK1: f64 = 130.0;
-    const BRK2: f64 = 41.0;
-    const HALF: f64 = 0.5;
-    const B1: f64 = 0.04;
-    const B2: f64 = 1.8e-6;
-    const B3: f64 = 6.7e-7;
-    const D1: f64 = 9.3;
-    const TOMEV: f64 = 1.0e-6;
-
-    // Neutron rest-mass energy in MeV (NJOY `emc2 = tomev*amassn*amu*c^2/ev`).
-    let emc2 = TOMEV * AMASSN_AMU * AMU_G * CLIGHT_CM_S * CLIGHT_CM_S / EV_ERG;
-
-    let iza1 = if iza1i == 0 { 1 } else { iza1i };
-
-    // Map a natural-element target to its dominant isotope (groupr.f90:8853-8875).
-    let iza = match izat {
-        6000 => 6012,
-        12000 => 12024,
-        14000 => 14028,
-        16000 => 16032,
-        17000 => 17035,
-        19000 => 19039,
-        20000 => 20040,
-        22000 => 22048,
-        23000 => 23051,
-        24000 => 24052,
-        26000 => 26056,
-        28000 => 28058,
-        29000 => 29063,
-        31000 => 31069,
-        40000 => 40090,
-        42000 => 42096,
-        48000 => 48112,
-        49000 => 49115,
-        50000 => 50120,
-        63000 => 63151,
-        72000 => 72178,
-        74000 => 74184,
-        82000 => 82208,
-        other => other,
-    };
-
-    let aa = (iza.rem_euclid(1000)) as f64;
-    if aa == 0.0 {
-        return Err(NjoyError::EndfParse(format!(
-            "bach: dominant isotope not known for {iza}"
-        )));
-    }
-    let za = (iza / 1000) as f64;
-    let ac = aa + (iza1.rem_euclid(1000)) as f64;
-    let zc = za + (iza1 / 1000) as f64;
-    let ab = ac - (iza2.rem_euclid(1000)) as f64;
-    let zb = zc - (iza2 / 1000) as f64;
-    let na = (aa - za).round();
-    let nb = (ab - zb).round();
-    let nc = (ac - zc).round();
-
-    let mut sa = C1 * (ac - aa)
-        + C2 * ((nc - zc).powi(2) / ac - (na - za).powi(2) / aa)
-        + C3 * (ac.powf(TWOTH) - aa.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (na - za).powi(2) / aa.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - za.powi(2) / aa.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - za.powi(2) / aa);
-    match iza1 {
-        1002 => sa -= S2,
-        1003 => sa -= S3,
-        2003 => sa -= S4,
-        2004 => sa -= S5,
-        _ => {}
-    }
-
-    let mut sb = C1 * (ac - ab)
-        + C2 * ((nc - zc).powi(2) / ac - (nb - zb).powi(2) / ab)
-        + C3 * (ac.powf(TWOTH) - ab.powf(TWOTH))
-        + C4 * ((nc - zc).powi(2) / ac.powf(FOURTH) - (nb - zb).powi(2) / ab.powf(FOURTH))
-        + C5 * (zc.powi(2) / ac.powf(THIRD) - zb.powi(2) / ab.powf(THIRD))
-        + C6 * (zc.powi(2) / ac - zb.powi(2) / ab);
-    match iza2 {
-        1002 => sb -= S2,
-        1003 => sb -= S3,
-        2003 => sb -= S4,
-        2004 => sb -= S5,
-        _ => {}
-    }
-
-    let ecm = aa * e / ac;
-    let ea = ecm * TOMEV + sa;
-    let eb = TOMEV * ep * ac / ab + sb;
-    let mut x1 = eb;
-    if ea > BRK1 {
-        x1 = BRK1 * eb / ea;
-    }
-    let mut x3 = eb;
-    if ea > BRK2 {
-        x3 = BRK2 * eb / ea;
-    }
-    let fa = if iza1 == 2004 { 0.0 } else { 1.0 };
-    let fb = if iza2 == 1 {
-        HALF
-    } else if iza2 == 2004 {
-        2.0
-    } else {
-        1.0
-    };
-    let mut bb = B1 * x1 + B2 * x1.powi(3) + B3 * fa * fb * x3.powi(4);
-    if iza1i == 0 {
-        let mut fact = D1 / (ep * TOMEV).sqrt();
-        if fact < 1.0 {
-            fact = 1.0;
-        }
-        if fact > 4.0 {
-            fact = 4.0;
-        }
-        bb *= (TOMEV * e / (2.0 * emc2)).sqrt() * fact;
-    }
-    Ok(bb)
-}
-
-/// Discrete CM emission contribution — **not ported** (`groupr.f90:8719-8810`).
-///
-/// Ported, `f6dis` would return the double-differential cross section of a
-/// discrete emission line `i` at CM cosine `w`. The [`Cm6Emission`] input type
-/// carries no discrete lines (ND = 0), so the ported [`cm2lab`] path never needs
-/// it. Returns [`NjoyError::NotPorted`].
-pub fn f6dis() -> Result<f64, NjoyError> {
-    Err(NjoyError::NotPorted("groupr::f6dis (groupr.f90:8719-8810)"))
-}
-
-/// Law-7 angle-energy → lab Legendre transform — **not ported**
-/// (`groupr.f90:8934-9061`).
-///
-/// Ported, `ll2lab` would convert an ENDF File-6 LAW-7 (angle-energy, already in
-/// the lab frame) distribution into a lab Legendre-coefficient (LAW-1)
-/// representation. Returns [`NjoyError::NotPorted`].
-pub fn ll2lab() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted(
-        "groupr::ll2lab (groupr.f90:8934-9061)",
-    ))
-}
-
-/// Lab-frame File-6 LAW-1 double-differential evaluation — **not ported**
-/// (`groupr.f90:9063-9338`).
-///
-/// Ported, `f6lab` would return the lab-frame Legendre coefficients of a File-6
-/// LAW-1 emission that is *already* given in the lab frame (no CM→lab transform
-/// needed), interpolating between the two bracketing incident energies. Returns
-/// [`NjoyError::NotPorted`].
-pub fn f6lab() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("groupr::f6lab (groupr.f90:9063-9338)"))
 }
 
 #[cfg(test)]
@@ -975,57 +890,8 @@ mod tests {
                     coeffs: c2,
                 },
             ],
+            discrete: vec![],
         }
-    }
-
-    /// `legndr` reproduces the closed-form low-order Legendre polynomials.
-    ///
-    /// **Methodology.** Evaluate `legndr(x, 4)` at `x = 0.3` and compare to the
-    /// analytic `P_0..P_4(0.3)`. Pass if every order agrees to < 1e-12.
-    ///
-    /// **Result (2026-07-15, commit ac5adf5).** All five orders match to < 1e-13.
-    #[test]
-    fn legndr_matches_closed_form() {
-        let x = 0.3_f64;
-        let p = legndr(x, 4);
-        let p2 = 0.5 * (3.0 * x * x - 1.0);
-        let p3 = 0.5 * (5.0 * x.powi(3) - 3.0 * x);
-        let p4 = 0.125 * (35.0 * x.powi(4) - 30.0 * x * x + 3.0);
-        assert!((p[0] - 1.0).abs() < 1e-13);
-        assert!((p[1] - x).abs() < 1e-13);
-        assert!((p[2] - p2).abs() < 1e-13);
-        assert!((p[3] - p3).abs() < 1e-13);
-        assert!((p[4] - p4).abs() < 1e-13);
-    }
-
-    /// The CM→lab kinematic relation reduces to the analytic forward/backward
-    /// edges at `mu_cm = ±1`.
-    ///
-    /// **Methodology.** For `E = 2 MeV`, `E'_cm = 0.5 MeV`, `xc = 1/(51)^2`
-    /// (neutron off A=50), assert `lab_energy_from_cm` at `mu = +1` equals
-    /// `(sqrt(E'_cm) + sqrt(xc E))^2` and at `mu = -1` equals
-    /// `(sqrt(E'_cm) - sqrt(xc E))^2` — the `elmax`/`elmin` limits `f6cm` uses.
-    /// Pass if both match to < 1e-6 relative.
-    ///
-    /// **Result (2026-07-15).** Forward and backward edges match the closed form
-    /// to < 1e-9 relative.
-    #[test]
-    fn cm_to_lab_edges_are_analytic() {
-        let e = 2.0e6;
-        let ep_cm = 0.5e6;
-        let xc = 1.0 / (51.0_f64).powi(2);
-        let fwd = lab_energy_from_cm(e, ep_cm, 1.0, xc);
-        let bwd = lab_energy_from_cm(e, ep_cm, -1.0, xc);
-        let fwd_ref = (ep_cm.sqrt() + (xc * e).sqrt()).powi(2);
-        let bwd_ref = (ep_cm.sqrt() - (xc * e).sqrt()).powi(2);
-        assert!(
-            (fwd - fwd_ref).abs() < 1e-6 * fwd_ref,
-            "fwd {fwd} vs {fwd_ref}"
-        );
-        assert!(
-            (bwd - bwd_ref).abs() < 1e-6 * bwd_ref,
-            "bwd {bwd} vs {bwd_ref}"
-        );
     }
 
     /// `cm2lab` conserves normalization: the lab `P_0` distribution integrates
@@ -1085,68 +951,6 @@ mod tests {
             "lab sum = {}",
             lab.p0_integral
         );
-    }
-
-    /// `bach` Kalbach slope: positive, and monotonically increasing with both
-    /// incident energy (at fixed E') and emission energy (at fixed E).
-    ///
-    /// **Methodology.** Neutron (`iza1i=0`) on Fe-56, neutron out (`iza2=1`).
-    /// Evaluate `a` on a grid of incident energies (1, 5, 10, 20 MeV) at fixed
-    /// E' = 1 MeV, and on a grid of E' (0.5, 1, 2, 4 MeV) at fixed E = 14 MeV.
-    /// Reference: the Kalbach-86 closed form as coded in NJOY `bach`. Pass if `a`
-    /// is finite, positive, and strictly increasing along both grids.
-    ///
-    /// **Result (2026-07-15, commit ac5adf5).**
-    /// a(E=1,5,10,20 MeV; E'=1 MeV) = [0.04118, 0.09208, 0.13022, 0.18416];
-    /// a(E=14 MeV; E'=0.5,1,2,4 MeV) = [0.14665, 0.15408, 0.16910, 0.19995].
-    /// All positive, finite, strictly increasing along both grids.
-    #[test]
-    fn bach_slope_monotone_and_positive() {
-        let izat = 26056;
-        let e_grid = [1.0e6, 5.0e6, 10.0e6, 20.0e6];
-        let mut last = f64::NEG_INFINITY;
-        let mut ve = Vec::new();
-        for &e in &e_grid {
-            let a = bach(0, 1, izat, e, 1.0e6).unwrap();
-            assert!(a.is_finite() && a > 0.0, "a({e}) = {a}");
-            assert!(a > last, "not increasing in E: a={a}, last={last}");
-            last = a;
-            ve.push(a);
-        }
-        let ep_grid = [0.5e6, 1.0e6, 2.0e6, 4.0e6];
-        let mut last = f64::NEG_INFINITY;
-        let mut vp = Vec::new();
-        for &ep in &ep_grid {
-            let a = bach(0, 1, izat, 14.0e6, ep).unwrap();
-            assert!(a.is_finite() && a > 0.0, "a(ep={ep}) = {a}");
-            assert!(a > last, "not increasing in E': a={a}, last={last}");
-            last = a;
-            vp.push(a);
-        }
-        println!("bach a(E,E'=1MeV)={ve:?}  a(E=14MeV,E')={vp:?}");
-    }
-
-    /// `bach` maps a natural-element target code to its dominant isotope, giving
-    /// the same slope as the explicit isotope code.
-    ///
-    /// **Methodology.** Assert `bach(0,1, 26000, ...) == bach(0,1, 26056, ...)`
-    /// (natural Fe → Fe-56) at E = 14 MeV, E' = 1 MeV.
-    ///
-    /// **Result (2026-07-15).** Both return the identical slope (exact equality).
-    #[test]
-    fn bach_natural_element_maps_to_dominant_isotope() {
-        let a_nat = bach(0, 1, 26000, 14.0e6, 1.0e6).unwrap();
-        let a_iso = bach(0, 1, 26056, 14.0e6, 1.0e6).unwrap();
-        assert_eq!(a_nat, a_iso);
-    }
-
-    /// The unported discrete / law-7 / lab-frame routines honestly report
-    /// themselves unported (no fabricated kinematics).
-    #[test]
-    fn unported_routines_report_not_ported() {
-        assert!(matches!(f6dis(), Err(NjoyError::NotPorted(_))));
-        assert!(matches!(ll2lab(), Err(NjoyError::NotPorted(_))));
-        assert!(matches!(f6lab(), Err(NjoyError::NotPorted(_))));
     }
 
     /// Malformed input is rejected with `EndfParse`, never a panic.

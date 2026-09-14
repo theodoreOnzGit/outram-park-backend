@@ -393,9 +393,9 @@ fn consistent_tangent_by_numerical_perturbation() {
     let material = Material::j2_linear_hardening(E_PA, NU, SIGMA_Y0, H_PA).unwrap();
     // Build history by taking a prior plastic step.
     let warm = Voigt6::new(3.0e-3, -5.0e-4, 0.0, 0.0, 0.0, 1.0e-3);
-    let state = material.update(warm, &MaterialState::pristine()).unwrap().state;
+    let state = material.update(warm, &MaterialState::pristine(), PlaneCondition::PlaneStrain).unwrap().state;
     let eps = Voigt6::new(6.0e-3, -1.0e-3, 2.0e-4, 3.0e-4, -2.0e-4, 2.0e-3);
-    let analytic = material.update(eps, &state).unwrap();
+    let analytic = material.update(eps, &state, PlaneCondition::PlaneStrain).unwrap();
     assert!(analytic.yielding, "the check point must be plastic");
 
     let sol = jacobian(
@@ -404,7 +404,7 @@ fn consistent_tangent_by_numerical_perturbation() {
         ComputeBackend::Serial,
         |_, v: &[f64], out: &mut Vec<f64>| {
             let e = Voigt6([v[0], v[1], v[2], v[3], v[4], v[5]]);
-            out.extend_from_slice(&material.update(e, &state).unwrap().stress.as_array());
+            out.extend_from_slice(&material.update(e, &state, PlaneCondition::PlaneStrain).unwrap().stress.as_array());
         },
     );
     let num = sol.matrix().expect("smooth in the plastic regime");

@@ -60,7 +60,7 @@ use crate::error::{FemError, Result};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(pub usize);
 
-/// Index of an element in [`Mesh::connectivity`].
+/// Index of an element in a [`Mesh`]'s connectivity array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElemId(pub usize);
 

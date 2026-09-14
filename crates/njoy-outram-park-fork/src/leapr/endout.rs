@@ -134,7 +134,14 @@ pub struct LeaprOutput {
     /// `LASYM`/`isym`: `0` symmetric `S`; `1` symmetric `+/-beta`; `2` asymmetric
     /// `Ss` for `-beta`; `3` asymmetric `Ss` for `+/-beta`.
     pub isym: i32,
-    /// `ilog`: if `true`, store `log10 S` instead of `S`.
+    /// `ilog`: if `true`, store the **natural** log of `S` instead of `S`.
+    ///
+    /// NJOY's own card documentation calls this "log10(s)"
+    /// (`leapr.f90:138`) and `endout` prints "log10 s or ss is written"
+    /// (`leapr.f90:3011`), but the code writes `log(...)`, which in Fortran is
+    /// the natural logarithm (`leapr.f90:3365`). The code is the correct half:
+    /// ENDF's `LLN = 1` means `S` is stored as `ln S`. Ported as `ln`, i.e.
+    /// matching upstream's behaviour rather than its comment.
     pub ilog: bool,
     /// Minimum stored `S` (values below are floored to `0` when `ilog=false`).
     pub smin: f64,
@@ -643,6 +650,115 @@ mod tests {
             secondary: None,
             constants: PhysicalConstants::default(),
         }
+    }
+
+    /// `ilog = 1` must store the **natural** log of the same value the linear
+    /// path stores, and flag it as `LLN = 1` in the B-constant record.
+    ///
+    /// The oracle is exact rather than statistical: with
+    /// `S(a,b) = exp(-a) exp(-b/3)`, the linear path writes
+    /// `S exp(-b/2)` and the log path must write `ln S - b/2`, so
+    /// `exp(stored_log)` has to reproduce `stored_linear` to the 7 significant
+    /// figures both are rounded to.
+    ///
+    /// Upstream calls this option "log10(s)" on its card
+    /// (`leapr.f90:138`, and the "log10 s or ss is written" print at
+    /// `leapr.f90:3011`) but writes `log(...)` — Fortran's natural log
+    /// (`leapr.f90:3365`). The code is the correct half: ENDF `LLN = 1` means
+    /// `ln S`. This test pins the behaviour, not the comment.
+    #[test]
+    fn ilog_stores_the_natural_log_of_the_linear_value() {
+        let lin = endout(&tiny_output(ElasticOutput::None));
+        let mut o = tiny_output(ElasticOutput::None);
+        o.ilog = true;
+        let log = endout(&o);
+
+        let lin_ii = parse_mf7(&lin, MAT).unwrap().incoherent_inelastic.unwrap();
+        let log_ii = parse_mf7(&log, MAT).unwrap().incoherent_inelastic.unwrap();
+
+        // `parse_mf7` deliberately does not undo LLN (neither does NJOY's
+        // THERMR — see the `lln_is_written_but_never_read_back` note), so these
+        // are the raw stored numbers, which is exactly what we want to check.
+        assert_eq!(log_ii.lln, 1, "LLN = 1 is flagged in the B-constant record");
+        assert_eq!(lin_ii.lln, 0, "the linear tape still flags LLN = 0");
+
+        for (ib, (lt, gt)) in lin_ii.s_tables.iter().zip(&log_ii.s_tables).enumerate() {
+            for ia in 0..lt.alpha.len() {
+                let (l, g) = (lt.s[ia], gt.s[ia]);
+                assert!(l > 0.0, "linear S({ia},{ib}) is positive");
+                let rel = (g.exp() - l).abs() / l;
+                assert!(
+                    rel < 1.0e-6,
+                    "exp(log-stored) != linear-stored at (a{ia}, b{ib}): \
+                     exp({g:e}) = {:e} vs {l:e}, rel {rel:e}",
+                    g.exp()
+                );
+            }
+        }
+    }
+
+    /// `isabt = 1` (`isym = 2`) must store the **asymmetric** law — `S` itself,
+    /// with no detailed-balance factor — while still writing the same beta grid.
+    ///
+    /// Oracle: `stored_asym * exp(-beta/2) == stored_sym`, to the 7 significant
+    /// figures both are rounded to (`leapr.f90:3356-3451`, where the `isym = 0`
+    /// branch multiplies by `exp(-be/2)` and the `isym >= 2` branch does not).
+    #[test]
+    fn isabt_stores_the_asymmetric_law() {
+        let sym = endout(&tiny_output(ElasticOutput::None));
+        let mut o = tiny_output(ElasticOutput::None);
+        o.isym = 2;
+        let asym = endout(&o);
+
+        let sym_ii = parse_mf7(&sym, MAT).unwrap().incoherent_inelastic.unwrap();
+        let asym_ii = parse_mf7(&asym, MAT).unwrap().incoherent_inelastic.unwrap();
+
+        assert_eq!(asym_ii.lasym, 2, "LASYM = 2 is flagged");
+        assert_eq!(asym_ii.beta, sym_ii.beta, "the beta grid is unchanged");
+
+        for (ib, (st, at)) in sym_ii.s_tables.iter().zip(&asym_ii.s_tables).enumerate() {
+            let be = sym_ii.beta[ib];
+            for ia in 0..st.alpha.len() {
+                let (s, a) = (st.s[ia], at.s[ia]);
+                let expect = a * (-be / 2.0).exp();
+                let rel = (expect - s).abs() / s.max(1.0e-30);
+                assert!(
+                    rel < 1.0e-6,
+                    "asym*exp(-beta/2) != sym at (a{ia}, b{ib}): {expect:e} vs {s:e}, rel {rel:e}"
+                );
+            }
+        }
+    }
+
+    /// A deliberate limitation, recorded so it is not mistaken for an oversight:
+    /// **nothing in this crate reads `LLN = 1` back**, because nothing in NJOY
+    /// does either. `lln` appears in exactly two NJOY sources (`plotr.f90`,
+    /// `samm.f90`), neither of which is the thermal path, and LEAPR itself
+    /// warns on writing such a tape:
+    ///
+    /// ```text
+    ///   *** Warning.  isabt=1 pendf tapes CANNOT be processed ...
+    /// ```
+    ///
+    /// (`leapr.f90:262-265`). So `parse_mf7` reading the stored numbers
+    /// verbatim is *faithful* to upstream, not a gap; teaching it to
+    /// exponentiate would be an improvement beyond NJOY, which the crate's
+    /// translation policy defers. All eight TSL evaluations in
+    /// `reference-data/endf/` carry `LLN = 0`, so no data we hold is affected.
+    #[test]
+    fn lln_is_written_but_never_read_back() {
+        let mut o = tiny_output(ElasticOutput::None);
+        o.ilog = true;
+        let ii = parse_mf7(&endout(&o), MAT)
+            .unwrap()
+            .incoherent_inelastic
+            .unwrap();
+        assert_eq!(ii.lln, 1, "the flag is preserved for a reader that wants it");
+        // ln S is negative for this small-S law: proof the value was not undone.
+        assert!(
+            ii.s_tables[0].s.iter().any(|&s| s < 0.0),
+            "stored values are logs, returned verbatim"
+        );
     }
 
     #[test]

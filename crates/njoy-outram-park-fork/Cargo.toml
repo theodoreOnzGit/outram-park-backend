@@ -36,6 +36,11 @@ include = [
 exclude = ["verification_and_validation/*.csv"]
 
 [dependencies]
+# PETIR supplies the special functions ACER's MF=5 LF=12 (Madland-Nix) needs:
+# the exponential integral E_1 and the lower incomplete gamma, both ported from
+# GSL and verified against it. PETIR is no_std with only `libm`, so it adds no
+# std, BLAS or C-toolchain weight -- this crate stays dependency-lean.
+petir.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 # Fortran `mess(...)` (non-fatal warning, upstream continues) maps to `log`,

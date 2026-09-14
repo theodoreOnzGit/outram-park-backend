@@ -67,6 +67,7 @@ use crate::geometry::position::{Direction, Position};
 use crate::rng::lcg::prn;
 use crate::stochastic::cls::sample_chord;
 use crate::stochastic::medium::{MaterialId, MediumError};
+use crate::mathf::RealMath;
 
 /// Squared distance \[cm²\] between two points.
 fn dist_sq(a: Position, b: Position) -> f64 {
@@ -135,7 +136,7 @@ fn perpendicular(u: Direction, phi: f64) -> Position {
         ux.z * e1.x - ux.x * e1.z,
         ux.x * e1.y - ux.y * e1.x,
     );
-    e1 * phi.cos() + e2 * phi.sin()
+    e1 * phi.r_cos() + e2 * phi.r_sin()
 }
 
 /// One remembered inclusion — an inclusion the neutron has already encountered.

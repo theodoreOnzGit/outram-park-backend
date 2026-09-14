@@ -62,6 +62,7 @@ use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::transport_csg::{run_keff_csg_reactor_physics, SourceBox};
 use crate::tally::filter::{EnergyFilter, MaterialFilter};
 use crate::tally::tally::{ScoreType, Tally, TallyBin};
+use crate::mathf::RealMath;
 
 /// Accepted band for [`ReactorPhysicsReport::consistency_gap`]
 /// `(k_eff − k_from_factors) / k_eff`.
@@ -386,9 +387,9 @@ impl std::error::Error for ReactorPhysicsError {}
 
 /// `n`-bin log-spaced grid from `e_lo` to `e_hi` \[eV\] (`n + 1` ascending edges).
 fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
-    let (l0, l1) = (e_lo.ln(), e_hi.ln());
+    let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
     (0..=n)
-        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
         .collect()
 }
 
@@ -664,7 +665,7 @@ pub fn run_keff_reactor_physics(
     let total_flux: f64 = flux_raw.iter().sum();
     let flux_per_lethargy: Vec<Estimate> = (0..n_e)
         .map(|e| {
-            let du = (edges[e + 1] / edges[e]).ln();
+            let du = (edges[e + 1] / edges[e]).r_ln();
             if du <= 0.0 || total_flux <= 0.0 || flux_raw[e] == 0.0 {
                 return Estimate { mean: 0.0, std: 0.0 };
             }
@@ -920,7 +921,7 @@ mod tests {
             let mut integral = 0.0;
             for (i, psi) in sp.flux_per_lethargy.iter().enumerate() {
                 assert!(psi.mean >= 0.0 && psi.mean.is_finite(), "psi[{i}] = {}", psi.mean);
-                integral += psi.mean * (edges[i + 1] / edges[i]).ln();
+                integral += psi.mean * (edges[i + 1] / edges[i]).r_ln();
             }
             assert!((integral - 1.0).abs() < 1e-9, "lethargy integral {integral} ({bc:?})");
 

@@ -3,9 +3,9 @@
 **F**inite-element **A**nalysis for **R**eactor **R**eliability, **E**ngineering
 **R**esponse, **P**lasticity **A**nd **R**isk.
 
-FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity and
-J2 plasticity on unstructured meshes, with the linear algebra supplied by
-`outram-foam-basic-lib`.
+FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity,
+J2 plasticity and rate-dependent **crystal plasticity** on unstructured meshes,
+with the linear algebra supplied by `outram-foam-basic-lib`.
 
 > **Not a validated life-assessment tool.** This is an evolving FEM/materials
 > research capability. It is verified against analytical and manufactured
@@ -49,8 +49,17 @@ ILU(0) on its own CSR pattern instead.
 | Dirichlet (strong + penalty) and Neumann/traction BCs | implemented |
 | J2 plasticity, radial return, consistent tangent | implemented |
 | Newton solution control with load stepping | implemented |
-| Crystal plasticity (PRISMS-Plasticity) | **not started** |
-| Microstructure-sensitive fatigue, FIPs (PRISMS-Fatigue) | **not started** |
+| B-bar (mean dilatation) for volumetric locking, Quad4/Hex8 | implemented (opt-in; full integration stays the default) |
+| Plane stress, elastic and J2 (condensed `eps_zz`) | implemented |
+| Shear-locking treatment (incompatible modes / enhanced strain) | **not started** — measured at 11-67 % too stiff, see below |
+| Selective reduced integration, mixed u-p, F-bar | **not started** |
+| Crystal plasticity — FCC `{111}<110>` and BCC `{110}<111>`, power-law flow, saturating self-and-latent hardening, consistent tangent | implemented (small strain; no lattice reorientation, no backstress) |
+| Single-crystal elasticity — isotropic and cubic, rotated into sample axes | implemented |
+| Crystal orientation — rotation matrix, Rodrigues, Bunge Euler, quaternion, uniform `SO(3)` sampling | implemented |
+| Fatemi-Socie fatigue indicator parameter and region averaging | implemented (partial — no band geometry, no fatigue life) |
+| Kinematic hardening / backstress (Ohno-Wang) | **not started** — the main gap for cyclic work |
+| Lattice reorientation and texture evolution | **not started** — needs finite deformation |
+| BCC `{112}`/`{123}` families, twinning, non-Schmid effects | **not started** |
 | PRISMS-Fatigue published case-study parity | **not started** |
 
 ## Verification
@@ -64,6 +73,29 @@ test. Summary of what is checked:
 - **Thick-walled cylinder** — against the closed-form Lamé solution.
 - **Cantilever beam** — tip deflection against Euler-Bernoulli/Timoshenko.
 - **Uniaxial J2 plasticity** — against the closed-form elastic-plastic response.
+- **Volumetric locking** — nearly incompressible MMS at `nu = 0.499` on Quad4
+  and Hex8, full integration against B-bar.
+- **Fully plastic limit load** — thick cylinder collapse against
+  `p_L = (2/sqrt(3)) sigma_y ln(b/a)`.
+- **Shear locking** — Quad4 cantilever, quantified, and shown **not** to be
+  cured by B-bar.
+- **Plane stress** — thin plate in tension, the exact plane-stress/plane-strain
+  equivalence, and J2 in uniaxial and equibiaxial tension.
+- **Slip-system geometry** — unit, orthogonal, distinct, correct
+  multiplicities, deviatoric Schmid tensors; the latent-hardening matrix
+  reproduces PRISMS-Plasticity's own input file entry for entry.
+- **Schmid factors** — textbook FCC values for `[001]`, `[111]` and `[011]`,
+  and the resolved-shear identity `tau = sigma (m.t)(n.t)` through the whole
+  constitutive path.
+- **Single crystal, single slip** — the analytic Schmid yield stress
+  `s_0 / mu_1` reproduced to fifteen digits.
+- **Frame indifference** — rotating the crystal and the load together leaves
+  the response invariant to machine precision.
+- **Crystal consistent tangent** — against a Richardson-extrapolated numerical
+  Jacobian, with the truncation order measured rather than assumed.
+- **Polycrystal aggregate** — residual anisotropy falls with grain count;
+  Taylor factor measured.
+- **Fatemi-Socie FIP** — against a hand-computed case.
 
 Headline numbers, measured 2026-09-11:
 
@@ -76,8 +108,21 @@ Headline numbers, measured 2026-09-11:
 | Thick-walled cylinder | 2.45 % max stress error (first order), 0.021 % in u_r (second order) |
 | Cantilever, excess over Euler-Bernoulli | 3.677 / 0.928 / 0.233 % at L/H = 4 / 8 / 16, against a 3.750 / 0.938 / 0.234 % shear-deformation prediction |
 | Uniaxial J2 vs closed form | exact to round-off (1.95e-14), including elastic unloading and reverse yield |
+| Schmid resolved-shear identity, 12 systems | 1.397e-16 relative |
+| Single-crystal yield stress vs `s_0 / mu_1` | 1.487e-15 relative |
+| Crystal frame indifference | 7.636e-16 relative |
+| Crystal consistent tangent, Richardson-extrapolated | 3.638e-9 relative, difference-scheme order 2.0006 |
+| Crystal plasticity in the FEM solver | Newton order 1.60-2.03 over ten load steps, no cutbacks |
+| Polycrystal direction spread, N = 50 -> 800 | 8.38e-3 -> 3.44e-3; Taylor factor 3.02-3.06 |
+| Fatemi-Socie FIP vs the hand expression | 1.355e-19 |
 | Consistent tangent vs central difference | 1.055e-7 relative, worst entry |
 | Newton convergence order, partially plastic step | **2.004** |
+| Volumetric locking, Quad4 MMS at `nu = 0.499` | full integration order 0.69-1.24; **B-bar 2.004**; 16.96x smaller error |
+| Volumetric locking, Hex8 MMS at `nu = 0.499` | full integration order **0.634**; **B-bar 2.050**; 6.36x smaller error |
+| Plastic collapse vs closed-form limit load | full integration +23.9 % to +0.42 %; **B-bar +1.06 % to +0.017 %** |
+| Shear locking, Quad4 cantilever | 11.25 % too stiff at 2 elements through the depth, 66.7 % at aspect ratio 4; **B-bar does not cure it** |
+| Plane stress, thin plate and the exact plane-strain equivalence | round-off (4.3e-16 and 2.9e-16) |
+| Plane-stress J2, uniaxial / equibiaxial vs closed form | exact to round-off (3.58e-16 / 6.77e-16) |
 
 These are **verification** ("is it implemented correctly?"), not validation
 ("does it represent physical reality well enough?"). No benchmark validation is

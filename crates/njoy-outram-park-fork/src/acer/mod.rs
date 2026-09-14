@@ -56,6 +56,7 @@
 //! ace.write_type1("92235.00c.ace").unwrap();
 //! ```
 
+pub mod acesix;
 pub mod angular;
 pub mod build;
 pub mod energy;

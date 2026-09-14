@@ -45,6 +45,9 @@ pub use crate::physics::reactor_physics::{
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
+pub use crate::dh_universe::{
+    DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams,
+};
 pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{
     fhr_pebble_geometry, homogeneous_cube, homogenise_by_volume, rpt_fuel_outer_radius,

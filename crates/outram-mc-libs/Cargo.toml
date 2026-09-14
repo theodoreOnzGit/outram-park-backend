@@ -23,6 +23,10 @@ exclude = [
 ]
 
 [dependencies]
+# Routed float maths (bn:op-chyp.5); see src/mathf.rs. no_std. exp/ln/powf go
+# through it in every build (ARM optimized-routines ports); the rest is gated
+# behind the `deterministic-math` feature below.
+petir.workspace = true
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 # Nuclear data (cross sections, ν̄, χ). outram-mc-libs is data-free — it pulls all
@@ -60,6 +64,18 @@ log = { workspace = true }
 # (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
+# Route the REMAINING transcendentals -- log10, cbrt, cos, sin, tanh, atan2 --
+# through PETIR instead of std's platform libm, making them BIT-IDENTICAL
+# across platforms.
+#
+# NOTE the narrowed scope (2026-09-14): exp, ln and powf no longer depend on
+# this feature. They go to PETIR in EVERY build, because PETIR now routes them
+# to its ports of ARM optimized-routines (the implementation glibc itself
+# ships) rather than to musl-derived libm -- which made determinism free or
+# better on those three: ~1.8x faster than the old libm route on exp, ~2.1x on
+# powf, and exp is now faster than the platform. Only the six functions above
+# still carry a cost worth opting into. See src/mathf.rs.
+deterministic-math = []
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
 # `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier
@@ -146,6 +162,86 @@ required-features = ["endf-pebble-cases"]
 # Oracle: our U-238 reconstruction vs NJOY2016's own PENDF (op-mzvp.2.12).
 [[example]]
 name = "u238_vs_njoy_pendf"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark, U-238-DOMINATED: ICSBEP IEU-MET-FAST-002 "Jemima"
+# (op-mzvp.2.12).
+[[example]]
+name = "jemima_keff"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark, THERMAL *and* U-238-DOMINATED: ICSBEP LEU-COMP-THERM-008,
+# the discriminator for self-shielded U-238 resonance escape (op-mzvp.2.12).
+[[example]]
+name = "lct008_keff"
+required-features = ["endf-pebble-cases"]
+
+[[example]]
+name = "b10_thermal_probe"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our H-in-H2O S(a,b) vs NJOY2016's THERMR (gh:#178, bead op-qho6).
+[[example]]
+name = "h2o_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our H-in-H2O S(a,b) KERNEL vs NJOY2016's THERMR MF=6 matrix.
+[[example]]
+name = "h2o_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Exploratory driver for the infinite-medium slowing-down oracle (gh:#178).
+[[example]]
+name = "slowing_down_oracle"
+required-features = ["endf-pebble-cases"]
+
+# Exploratory driver for the SPATIAL half: a Wigner-Seitz cell scaled up and down
+# at fixed composition (gh:#178, bead op-qho6).
+[[example]]
+name = "lump_self_shielding_scan"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark, THERMAL: ICSBEP HEU-SOL-THERM-009 case 1, the complement
+# of Godiva (water-moderated solution sphere) -- op-mzvp.2.12.
+[[example]]
+name = "hst009_keff"
+required-features = ["endf-pebble-cases"]
+
+# External benchmark on the HIGH data path: Godiva (ICSBEP HEU-MET-FAST-001)
+# from the repo's own ENDF/B-VIII.0 tapes, no network (op-mzvp.2.12).
+[[example]]
+name = "godiva_keff_endf_local"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: our graphite S(a,b) OUTGOING-ENERGY distribution vs NJOY2016's THERMR
+# scattering matrix -- the kernel, not the cross section (op-mzvp.2.12).
+[[example]]
+name = "graphite_kernel_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: the two moments of our graphite S(a,b) kernel that had NO oracle -- the
+# scattering ANGLE (vs THERMR MF=6 cosines and the MF=3/MT=230 Bragg staircase)
+# and the outgoing-energy WIDTH (vs the MF=6 matrix) -- op-mzvp.2.12, bead op-i7u9.
+[[example]]
+name = "graphite_sab_angle_and_width_vs_njoy_thermr"
+required-features = ["endf-pebble-cases"]
+
+# Diagnostic: mean log energy decrement ABOVE the S(a,b) cutoff, where resonance
+# escape is decided (op-mzvp.2.12).
+[[example]]
+name = "epithermal_slowing_down"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: resonance ESCAPE in an infinite homogeneous medium vs its analytic
+# infinite-dilution limit -- tests transport, not data (op-mzvp.2.12).
+[[example]]
+name = "u238_resonance_escape"
+required-features = ["endf-pebble-cases"]
+
+# Oracle: resonance integral (area under the resonances, not point values) vs
+# NJOY2016's PENDF and vs the published RI_inf (op-mzvp.2.12).
+[[example]]
+name = "u238_resonance_integral"
 required-features = ["endf-pebble-cases"]
 
 # Oracle: our graphite S(a,b) vs NJOY2016's own THERMR (op-mzvp.2.12).
