@@ -60,6 +60,7 @@ pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;
 pub mod gamma_inc;
+pub mod mathf;
 pub mod real;
 
 pub use cheb::ChebSeries;
