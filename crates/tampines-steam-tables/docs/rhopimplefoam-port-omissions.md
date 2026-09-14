@@ -39,7 +39,7 @@ once that defect is fixed.
 
 | # | Upstream term / stage | Status in port | Class | Reason |
 |---|---|---|---|---|
-| 1 | `rhorAUf*fvc::ddtCorr(rho, U, phi)` added to `phiHbyA` | **ABSENT** — `fvc::ddt_corr` exists in-tree with **zero call sites** | **UNEXPLAINED** | None recorded. Identified 2026-09-14 as the likely root cause of pressure checkerboarding at small `dt`. See `bn:op-bgg0`, log entry A4. |
+| 1 | `rhorAUf*fvc::ddtCorr(rho, U, phi)` added to `phiHbyA` | **RESOLVED 2026-09-14** — wired in | — | Was absent with zero call sites, no reason recorded. Restoring it fixed the Edwards 30 µs failure outright AND improved agreement with experiment: GS-1 RMSE 58.6 → 42.8 psia, flashing plateau 392.7 → 359.0 psia (into the measured 350–367 band). See `bn:op-bgg0`, log A6. |
 | 2 | `constrainHbyA` / `adjustPhi` | **ABSENT** (0 hits) | **UNEXPLAINED** | None recorded. Upstream uses these to make `HbyA` respect velocity BCs and to render the flux globally conservative on a closed domain. This port does hand-write a boundary flux write-back for `FixedValue` velocity patches (with a regression test), which may cover part of the same ground — but that equivalence is **asserted here as a question, not a finding**. |
 | 3 | `EEqn` solved **before** the pressure-corrector loop | **REORDERED** — solved *after* the inner loop | Deliberate — documented | The module header states the ordering explicitly. The `rho_cont` construction depends on the final `self.phi` of the corrector loop, which only exists after it. Recorded as a divergence so a future reader does not "fix" it back. |
 | 4 | `pcEqn.H` (consistent / SIMPLEC path, `pimple.consistent()`) | **ABSENT** (comment only) | **UNEXPLAINED** | None recorded. The port always takes the `pEqn` branch. Probably harmless at `alpha_p = 1`, but unstated. |
@@ -50,7 +50,7 @@ once that defect is fixed.
 | 9 | `rhoEqn.H` on the first outer iteration | **PRESENT** | — | `self.rho = rho_old - dt*div(phi)` at the top of the outer loop. |
 | 10 | Rhie–Chow *static* part (`phi = phiHbyA - rhorAUf*snGrad(p)*magSf`, same `rhorAUf` in the `pEqn` Laplacian) | **PRESENT** | — | Verified 2026-09-14. It is only the **transient** half (row 1) that is missing. |
 
-**Four rows are UNEXPLAINED or flagged (1, 2, 4, 5).** Row 1 is being fixed.
+**Row 1 is RESOLVED** (2026-09-14). **Three rows remain UNEXPLAINED or flagged (2, 4, 5).**
 Rows 2, 4 and 5 need a maintainer decision or an investigation, and row 5 in
 particular should not be waved through as "1-D has no turbulence" when the
 question is really "where is wall friction?".

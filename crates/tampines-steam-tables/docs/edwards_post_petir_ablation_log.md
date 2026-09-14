@@ -1,6 +1,6 @@
 # Edwards blowdown, post-PETIR — ablation log
 
-**Status: OPEN.** This is a running log of a debugging campaign, not a
+**Status: OPEN — original failure FIXED (A6), residual defect remains.** This is a running log of a debugging campaign, not a
 write-up of a finished result. Entries are appended in the order they were
 run, and **failed attempts are recorded as prominently as successful ones** —
 a hypothesis that was measured and refuted is the main product of an ablation,
@@ -475,3 +475,147 @@ So `EDW_DT_US=10` must fail at an **earlier or equal simulated time** than the
 30 µs baseline's `t ≈ 0.117 s`, despite costing 3× the wall clock to get there.
 If it instead runs further and cleaner, this hypothesis is **wrong** and the
 `ddtCorr` lead should be dropped rather than defended.
+
+---
+
+## A5 — timestep sweep: **the prediction was WRONG**
+
+**Configuration.** A3 (enthalpy hold) with `EDW_DT_US=10` — a 3× smaller
+timestep. Nothing else changed.
+
+**Result: PASS, 1150.05 s.** The full 600 ms transient completes.
+
+### The prediction, and its refutation
+
+Recorded in A4 and committed (`e75ce9ea`) *before* this run:
+
+> The Rhie–Chow damping scales with `rAU ~ Δt`. Without `ddtCorr`, a **smaller**
+> timestep gives **weaker** damping and therefore **more** checkerboarding […]
+> So `EDW_DT_US=10` must fail at an **earlier or equal simulated time** than the
+> 30 µs baseline's `t ≈ 0.117 s` […] If it instead runs further and cleaner,
+> this hypothesis is **wrong** and the `ddtCorr` lead should be dropped rather
+> than defended.
+
+It ran further and cleaner. **The prediction is refuted and the reasoning
+behind it was wrong for this case.** Writing it down rather than reinterpreting
+it, per the standing terms of this log.
+
+What the refutation costs, precisely:
+
+- The **small-Δt collocated-decoupling argument does not apply here.** Smaller
+  `Δt` is *more* stable, not less. That is ordinary stability-limit behaviour.
+- **`ddtCorr` is no longer implicated as THE root cause** on the strength of
+  the `Δt` trend. It remains a genuine, unexplained omission from the port
+  (register row 1) and is worth wiring in on its own merits — upstream has it
+  and we do not — but that is now a *correctness* argument, not a *this-is-the-
+  bug* argument. The distinction matters and the earlier commit message
+  overstated it.
+- The **checkerboard observation itself still stands** — 2.10, 2.86, 2.49,
+  3.74, 0.32, 2.66 MPa is not a healthy pressure field however it arose. What
+  is now open is whether the oscillation is a *cause* or another *symptom* of
+  the stiffness.
+
+### What the result positively supports
+
+A genuine **stability limit exceeded at 30 µs**, and not an advective or
+acoustic one — the Courant numbers there are 0.0037 and 0.07. The limit is
+thermodynamic.
+
+The leading candidate is the **`psi` linearisation window**. The pressure
+equation linearises `ρ(p)` about `p_old` using `psi = ∂ρ/∂p|_h`, computed by a
+central difference of step `dp = max(p·10⁻³, 50)` ≈ **3.7 kPa** at cell 21's
+3.735 MPa. That secant is only trustworthy over a pressure change of about that
+size, and the `Δp` a step actually takes scales with `Δt`. At 30 µs the step's
+`Δp` evidently runs far outside the window, so the pressure equation
+extrapolates a slope well beyond where it was measured — and in stiff liquid,
+where `A ≈ 1/(p·κ_T) ≈ 600`, that overshoots hard enough to reach negative
+absolute pressure. At 10 µs the step's `Δp` falls back inside the window.
+
+This is consistent with everything measured so far, including why the failing
+cell is *dense subcooled liquid adjacent to the flashing front* rather than one
+of the rarefied cells: stiff at the boundary.
+
+**It is a hypothesis, not a finding.** The discriminating test is to vary the
+`psi` FD step at fixed `Δt = 30 µs`: if widening `dp` toward the actual
+per-step `Δp` removes the failure, the window is the mechanism.
+
+### Caveat — A5 does not isolate `Δt`
+
+A5 carries the **A3 enthalpy hold as well as** the smaller timestep, so "passes
+at 10 µs" is a property of (A3 + 10 µs), not of 10 µs alone. The clean
+separation is a 10 µs run with the hold removed. Recorded so the result is not
+over-claimed.
+
+| # | Configuration | Result | Notes |
+|---|---|---|---|
+| A4 | A3 + pressure-equation instrumentation | FAIL (by design) | cell 21 solves to −27.2 kPa, clamped to 611.8 Pa |
+| A5 | A3 + `dt = 10 µs` | **PASS** 1150.05 s | full 600 ms; **refutes** the A4 prediction |
+
+---
+
+## A6 — `fvc::ddt_corr` wired in: **PASS at 30 µs, and more accurate**
+
+**Configuration.** A3 (enthalpy hold) plus the transient Rhie–Chow term
+restored to `phiHbyA`, at the **default 30 µs** — the timestep at which every
+previous run failed. Plus the new pressure-bound counters.
+
+**Result: PASS, 390.75 s.** The full 600 ms transient completes.
+
+### It does not merely stop the crash — it improves the physics
+
+| quantity | golden (`09787761`, pre-PETIR) | **A6** | Edwards experiment |
+|---|---|---|---|
+| GS-1 RMSE vs data (16 pts, 0–0.30 s) | 58.6 psia | **42.8 psia** | — |
+| GS-1 flashing plateau (0.02–0.06 s) | 392.7 psia | **359.0 psia** | ≈ 350–367 psia |
+| peak break flow | 127.6 lbm/s | 125.3 lbm/s | — |
+| GS-1 p at `t_end` | 26.4 psia | 13.5 psia | — |
+| cold-tail artefact | absent | absent (min T 366.6 K) | — |
+
+**RMSE against the experiment falls 27 %**, and the flashing plateau moves from
+392.7 psia — *above* the measured band — to 359.0 psia, *inside* it. A term
+restored for correctness, not tuned for agreement, improved agreement. That is
+the outcome a physically-motivated fix is supposed to produce, and it is
+evidence the term belongs there independently of the stability argument.
+
+### But the run is NOT clean, and the new counter is what says so
+
+```
+pressure-bound events    : 150 (worst undershoot 1.7175e5 Pa, worst overshoot 0.0000e0 Pa)
+```
+
+150 cell-updates where the pressure solve left the EOS range, undershooting
+`p_min` by as much as **171.75 kPa**. Without the counter (fix 5, added in the
+same change) this would have been reported as an unqualified pass — which is
+precisely the failure mode that let the original defect hide.
+
+**So fix 1 is a large improvement and is not sufficient.** The pressure
+equation still produces physically impossible states; the run now survives them
+because the clamp reshapes them and nothing downstream happens to blow up.
+
+### Where this leaves the diagnosis
+
+- The **checkerboard was real and `ddtCorr` was its cure** — restoring the
+  transient Rhie–Chow coupling fixed the 30 µs failure outright.
+- The **A5 refutation still stands.** The `Δt` trend did not point at
+  `ddtCorr`, and I was wrong to predict it would. The term turned out to be the
+  fix anyway, reached by the upstream-omission audit rather than by the
+  stability argument — which is a point in favour of the register, not of the
+  prediction.
+- **A residual stiffness defect remains**, size 150 events / 171.75 kPa. The
+  `psi`-linearisation-window hypothesis from A5 is untouched by this result and
+  is the next candidate, now testable against a *passing* baseline instead of a
+  crashing one.
+
+### Still open, not to be lost
+
+- The A3 enthalpy hold is still in the build. With the checkerboard gone it may
+  never fire; if so it should be reconsidered per the band-aid register.
+- A6 has not been separated from A3. A clean `ddtCorr`-only run (hold removed,
+  30 µs) is needed before crediting either alone.
+- The golden reference is **not** reproduced by A6, and should not be: A6 is a
+  deliberately different — and better — discretisation. The golden reference
+  remains the record of the pre-PETIR platform-libm trajectory, nothing more.
+
+| # | Configuration | Result | Notes |
+|---|---|---|---|
+| A6 | A3 + `fvc::ddt_corr` at 30 µs | **PASS** 390.75 s | RMSE 58.6 → 42.8 psia; plateau into the measured band; **150 bound events remain** |
