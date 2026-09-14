@@ -79,16 +79,26 @@
 //!
 //! # Choosing a treatment
 //!
-//! | Variant | Geometry stored | Exact? | Measured speed |
-//! |---|---|---|---|
-//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | 1x (the reference) |
-//! | [`DhTreatment::ChordLength`] | none | no | ~2.5-3x faster |
-//! | [`DhTreatment::RingRpt`] | none (smeared) | no | ~8x faster |
+//! | Variant | Geometry stored | Exact? | Geometry-only speed | Real k-eff speed | k-eff bias |
+//! |---|---|---|---|---|---|
+//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | 1x (reference) | 1x (reference) | — |
+//! | [`DhTreatment::ChordLength`] | none | no | ~2.5-3x faster | **0.38x — slower** | -3999 pcm |
+//! | [`DhTreatment::RingRpt`] | none (smeared) | no | ~8x faster | **0.14x — slower** | -4342 pcm |
 //!
-//! Speed figures are from `examples/dh_tracking_speedup.rs`, relative to delta
-//! tracking on a fixed-source walk. See [`DhTreatment`] for what each one gives
-//! up, and `examples/dh_keff_vv.rs` for the eigenvalue each produces on the same
-//! problem — **a speedup is meaningless without the answer it bought.**
+//! **Read the two speed columns together; they disagree, and the second one is
+//! the one that matters.** On a geometry-only walk
+//! (`examples/dh_tracking_speedup.rs`) the approximate treatments are much
+//! faster. In a real continuous-energy eigenvalue calculation
+//! (`examples/dh_keff_vv.rs`, measured 2026-09-14) they are **slower** — because
+//! homogenisation moves cost out of geometry and into cross-section evaluation:
+//! most of the fuel zone is single-nuclide carbon explicitly, but every point in
+//! a smeared zone carries the union of all five nuclides. The geometry lookup
+//! traded away was already O(1) through the packing grid.
+//!
+//! So neither treatment is currently worth taking *on this problem for
+//! eigenvalues*. They remain the right tools where geometry genuinely dominates
+//! — many more particles, simpler materials, or a fixed-source problem. Measure
+//! on your own case rather than trusting either column.
 //!
 //! # Haiku dogfood record — 2026-09-14
 //!
