@@ -40,16 +40,80 @@
 //! residual on a *measured* configuration and hands the hunt a target that
 //! depends on nobody's deck.
 //!
-//! # Results (2026-09-11, ENDF/B-VIII.0, 10 000 × [250 + 400] generations)
+//! # Results (2026-09-14, ENDF/B-VIII.0, 3000 × [80 + 150] generations) — RESOLVED
 //!
 //! ```text
-//! k_eff = 1.02950 ± 0.00061      Δk = +2950 ± 61 pcm from 1.0000
+//! case 1   k_eff = 1.00037 ± 0.00189      Δk = +37  ± 189 pcm
+//! case 2   k_eff = 1.00080 ± 0.00169      Δk = +80  ± 169 pcm
+//! case 8   k_eff = 1.00176 ± 0.00190      Δk = +176 ± 190 pcm
 //! ```
 //!
-//! **The second branch is what happened.** The FHR pebble's residual is
-//! reproduced on a *measured* critical experiment, so it is not the reference
-//! deck, and it is not anything specific to that deck's geometry, materials or
-//! author. It is this code.
+//! All three independently critical configurations agree with the **measured**
+//! benchmark within statistics.
+//!
+//! # The residual was a geometry defect, and this file had already proved it was not the data
+//!
+//! Until 2026-09-14 the three cases read **+2950 / +2271 / +1713 pcm**
+//! (2026-09-11, 10 000 × [250 + 400]). The cause was
+//! [`Geometry::cross_surface`](outram_mc_libs::geometry::geometry::Geometry::cross_surface)
+//! being handed a **global** position for a surface that lives inside a
+//! *translated* lattice universe, so the surface normal was computed about the
+//! wrong centre. `nudge_across` then pushed the particle 1e-9 along that wrong
+//! normal, which can land it back on the side it came from; the following
+//! `locate` returned the cell it was leaving, and the whole next flight segment
+//! was attributed to the wrong material. This benchmark is 23 lattices of
+//! **cylindrical pins** — the affected class exactly.
+//!
+//! **Paired A/B at identical settings**, the only attributable measurement:
+//!
+//! | | k_eff | Δk from the benchmark |
+//! |---|---|---|
+//! | before the fix | 1.02341 ± 0.00188 | +2341 ± 188 pcm |
+//! | after the fix | 1.00037 ± 0.00189 | **+37 ± 189 pcm** |
+//! | **difference** | | **−2304 ± 267 pcm (8.6 σ)** |
+//!
+//! Fixed by `Geometry::cross_surface_in_frame`; diagnosis in
+//! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`.
+//!
+//! ## The spread across cases is what identifies it, and this file already had that argument
+//!
+//! The CORRECTION below refuted a U-238 resonance-escape explanation on exactly
+//! the right grounds: the pitch, pellet, clad and fuel are identical in all
+//! three configurations, so resonance escape `p` is the same in each and an
+//! error in it **must give the same Δk**. It did not — the three were spread
+//! over **1237 pcm**.
+//!
+//! That argument was correct and is what a geometry defect predicts, because
+//! the error scales with how much pin surface a neutron crosses, which differs
+//! between configurations. After the fix the spread is **139 pcm**, inside
+//! statistics. The refutation held; what was missing was the alternative.
+//!
+//! **It was not the nuclear data.** Established rather than assumed — see the
+//! uniform-material discriminator in `triso.rs`, where one material written
+//! into both slots makes two independent trackers agree to 0.0 σ while the
+//! lattice geometry is fully retained. Two further data hypotheses (the
+//! majorant below its grid floor, and across the resolved-resonance region)
+//! were tested and killed separately.
+//!
+//! ## Caveat on the superseded numbers
+//!
+//! The recorded +2950 pcm was taken at 10 000 × [250 + 400] (σ = 61 pcm); the
+//! A/B above ran 3000 × [80 + 150] (σ = 188 pcm). The pre-fix arms differ by
+//! ~600 pcm, roughly 3 σ of combined statistics, plausibly a mix of that and
+//! the physics changes which landed after 2026-09-11 (the MT=91 continuum
+//! Q-value cap, the evaluated MF=6 law, the continuous thermal kernel) and were
+//! never re-measured here. **The attributable claim therefore rests on the
+//! paired runs at matched settings, not on the difference from the recorded
+//! value.** A re-run at the original statistics would tighten all three and has
+//! not been done.
+//!
+//! Source convergence on the case-1 run: inactive quarters 0.9704 / 0.9988 /
+//! 1.0022 / 1.0077, active halves 0.99789 then 1.00284. The residual drift
+//! suggests more inactive generations would be worth having at these settings.
+//!
+//! **Supersedes (2026-09-11, 10 000 × [250 + 400]):** case 1
+//! `k_eff = 1.02950 ± 0.00061`, +2950 ± 61 pcm; case 2 +2271 ± 61 pcm; case 8
+//! +1713 ± 60 pcm.
 //!
 //! # CORRECTION 2026-09-11 — it is NOT U-238 resonance escape
 //!
