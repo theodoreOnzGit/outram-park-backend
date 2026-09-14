@@ -24,3 +24,12 @@ pub mod ps_flash_eqm;
 /// allows for enthalpy entropy flash;
 /// Note: this only works for part of the steam table
 pub mod hs_flash_eqm;
+
+/// allows for density-enthalpy `(rho,h)` flash: pressure, temperature and
+/// steam quality, obtained by inverting the IAPWS-IF97 `(p,h)` backward
+/// equations.
+///
+/// This is what a compressible flow solver needs, since continuity gives it
+/// density and the energy equation gives it enthalpy, but IF97 publishes no
+/// `(rho,h)` backward equation of its own.
+pub mod rho_h_flash_eqm;

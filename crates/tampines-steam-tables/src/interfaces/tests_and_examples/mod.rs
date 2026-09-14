@@ -26,3 +26,8 @@ pub mod ps_flash_steam_table;
 ///// aims to reproduce steam tables using hs flash
 #[cfg(test)]
 pub mod hs_flash_steam_table;
+
+/// aims to reproduce steam tables using the `(rho,h)` flash, and to pin the
+/// steam-quality convention that flash reports outside the two-phase dome
+#[cfg(test)]
+pub mod rho_h_flash_steam_table;
