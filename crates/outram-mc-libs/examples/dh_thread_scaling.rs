@@ -28,6 +28,39 @@
 //! If CLS scales fine, issue #205 is wrong about its own premise and should be
 //! closed. That is the point of running it before redesigning anything.
 //!
+//! # Results — measured 2026-09-14, 400 histories x [8 + 20], 4 logical cores
+//!
+//! | treatment | 1 thread | 4 threads | scaling |
+//! |---|---|---|---|
+//! | delta tracking | 2.79 s | 1.01 s | **2.77x** |
+//! | chord-length sampling | 3.01 s | 1.54 s | **1.95x** |
+//! | naive homogenisation | 6.05 s | 1.90 s | **3.18x** |
+//!
+//! **Prediction 1 — confirmed.** Delta tracking scales 2.77x on 4 cores.
+//!
+//! **Prediction 2 — REFUTED.** CLS scales **1.95x**. That is worse than delta's
+//! 2.77x, but it is nowhere near the "cannot scale, one lock serialises the
+//! hottest call" the issue claims. A genuinely serialised arm would sit near
+//! 1.0x. The lock is held only for the duration of the point query itself,
+//! while the cross-section evaluation that dominates each step happens outside
+//! it, so contention is low. **The throughput half of #205 does not survive
+//! measurement.** Whether the remaining 1.95x-vs-2.77x gap is the lock at all
+//! is not established here.
+//!
+//! **Prediction 3 — confirmed, with a clean control.** Two multi-threaded CLS
+//! runs at identical seeds and settings gave **k = 1.21189 and 1.18161**, a
+//! **+3028 pcm** difference against 1721 pcm of statistics. The same pair of
+//! runs on delta tracking, which has no lock, gave **1.20969 and 1.20969 —
+//! bit-identical**. So the non-reproducibility belongs to the lock, not to the
+//! multi-threaded backend, which is exactly what the control was there to
+//! separate and could not have been concluded without it.
+//!
+//! **What this means for #205.** The issue is half right, and it is the half
+//! that was argued most confidently that fails. Reproducibility is a real
+//! defect with a demonstration; throughput is not. A redesign justified on
+//! throughput would have been built on a false premise — which is the reason
+//! these predictions were run before any redesign rather than after.
+//!
 //! Deliberately small and data-light: this measures *scaling*, not physics, so
 //! it uses the embedded LOW tier and a modest history count. The absolute
 //! eigenvalues here are not V&V numbers and are not reported as such.
@@ -101,10 +134,16 @@ fn main() {
     println!("  {n} histories x [8 inactive + 20 active], LOW tier, bare FHR pebble");
     println!("  {cores} logical cores available\n");
 
+    // SCLS is deliberately EXCLUDED. Its retention window on this pebble is a
+    // ~2.6 cm transport mfp against a 1.9 cm fuel zone, so nothing is ever
+    // culled and its retained-set scan grows without bound -- it does not
+    // finish in the time the others take seconds for. That is a real defect and
+    // it is recorded on DhTreatment::Scls, but it is a DIFFERENT defect from
+    // the one this example exists to measure, and a degenerate arm cannot
+    // inform a question about lock contention.
     let treatments = [
         DhTreatment::DeltaTracking,
         DhTreatment::ChordLength,
-        DhTreatment::Scls,
         DhTreatment::Homogenised,
     ];
 
@@ -127,8 +166,8 @@ fn main() {
     println!("  delta tracking {delta_speed:.2}x on {cores} cores — {}",
              if delta_speed > 1.5 { "SCALES" } else { "DOES NOT SCALE" });
 
-    println!("\n=== Prediction 2: CLS and SCLS barely scale (one lock, hottest call) ===");
-    for (t, speed) in scaling.iter().skip(1).take(2) {
+    println!("\n=== Prediction 2: CLS barely scales (one lock on the hottest call) ===");
+    for (t, speed) in scaling.iter().skip(1).take(1) {
         println!("  {:<28} {speed:.2}x   vs delta's {delta_speed:.2}x   — {}",
                  t.name(),
                  if *speed < 0.5 * delta_speed { "CONFIRMED, serialised" } else { "NOT confirmed" });
