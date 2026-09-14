@@ -6630,6 +6630,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "petir"
+version = "0.0.0"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "phf"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,91 @@
+PETIR — Polynomials, Equations, Transforms, Integration, Roots
+Copyright (C) 2026 Theodore Ong and the outram-park contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 3, as published by the Free
+Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+
+================================================================================
+DERIVED WORK — GNU Scientific Library (GSL)
+================================================================================
+
+PETIR is a `no_std` Rust port of parts of the GNU Scientific Library. Porting
+GPL source creates a derivative work, so the upstream licence and copyright
+carry over, and every ported file carries a provenance header naming the
+upstream file, the commit it was read at, its copyright holder and its licence.
+
+  Project    : GNU Scientific Library (GSL) 2.8
+  Upstream   : https://git.savannah.gnu.org/git/gsl.git
+  Read from  : https://github.com/ampl/gsl (mirror — savannah is unreachable
+               from the build environment; see upstream_source/README.md)
+  Commit     : cf180cd7fbd06039a577f9c9ff0b428784765ac1 (2026-05-19)
+  Accessed   : 2026-09-14
+  Licence    : GNU General Public License, version 3 or later
+
+LICENCE VERIFICATION (per bn:op-chyp.3 — verified, not asserted)
+
+  `COPYING` in the upstream tree is the unmodified GNU GPL version 3 text of
+  29 June 2007, sha256
+  8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903 (35147
+  bytes).
+
+  COPYING alone does not establish the version GSL grants under: it is the
+  licence text, and the "either version 3 ... or (at your option) any later
+  version" wording inside it belongs to the "How to Apply These Terms" appendix
+  — boilerplate, not GSL's statement. The grant is in the per-file headers, and
+  every file in GSL's cheb/ module carries:
+
+      This program is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 3 of the License, or (at
+      your option) any later version.
+
+  GSL is therefore GPL-3.0-or-later. This workspace is GPL-3.0-only, which is
+  compatible: the "or later" option is exercised by choosing version 3.
+
+  The flow is ONE-WAY. Code here cannot go back upstream under a different
+  licence.
+
+COPYRIGHT HOLDERS
+
+  GSL's copyright is held by its individual authors and the Free Software
+  Foundation, and differs per module. Do not copy one file's holder onto
+  another; re-read the header of each file before porting it.
+
+    GSL cheb/eval.c, cheb/init.c, cheb/deriv.c, cheb/integ.c,
+    cheb/gsl_chebyshev.h   Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+
+================================================================================
+OTHER UPSTREAM SOURCES
+================================================================================
+
+  SLATEC (public domain, no derivative obligation) is a permitted source where
+  GSL lacks a routine — e.g. CSEVL/DCSEVL and INITS/INITDS.
+
+  GNU Octave (GPL-3.0-or-later) is a secondary source, but its special
+  functions are largely SLATEC-derived (liboctave/external/slatec-fn/); for
+  those, port from SLATEC directly rather than inheriting Octave's chain. Only
+  genuinely Octave-original routines should be taken from Octave. Neither is
+  vendored at present.
+
+================================================================================
+DEPENDENCY LICENCES
+================================================================================
+
+  libm  MIT OR Apache-2.0 — a pure-Rust port of musl's libm. Permissive into
+        GPL-3.0. Required, not optional: in no_std the f64 transcendentals are
+        std-only, and GSL calls them throughout.
+
+================================================================================
+NOT AFFILIATED
+================================================================================
+
+  PETIR is an independent port. It is not affiliated with, endorsed by, or
+  supported by the GSL maintainers, the Free Software Foundation, or any of the
+  copyright holders named above.

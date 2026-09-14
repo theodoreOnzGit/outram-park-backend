@@ -1,0 +1,29 @@
+[package]
+name = "petir"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only. PETIR is a no_std port of parts of the GNU Scientific Library,
+# which is GPL-3.0-OR-LATER -- verified 2026-09-14 by reading GSL's own per-file
+# headers, not its COPYING and not its documentation (see NOTICE and
+# upstream_source/README.md for why that distinction matters). Porting GPL
+# source creates a derivative work, so the obligation carries over and the flow
+# is ONE-WAY: code here cannot go back upstream under another licence.
+license.workspace = true
+description = "PETIR — Polynomials, Equations, Transforms, Integration and Roots. A no_std, dependency-lean core numerics library ported from the GNU Scientific Library. Independent port, not affiliated with or endorsed by GSL or the FSF. AI-assisted draft: unverified and untrusted except where a specific V&V case demonstrates otherwise — not for safety-critical use."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+
+[dependencies]
+# libm is REQUIRED, not a nicety: in no_std the f64 transcendentals are
+# std-only and the ported GSL routines call them throughout. See the comment in
+# the workspace manifest for the bit-identical-across-platforms consequence,
+# which is deliberate and must not be silently undone.
+libm.workspace = true
+
+[features]
+default = []
+# Opt in to std only for downstream convenience (e.g. std::error::Error).
+# The library itself must keep compiling and passing without it.
+std = []

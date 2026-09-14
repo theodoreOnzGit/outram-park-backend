@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/bedok",
+    "crates/petir",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
@@ -112,6 +113,14 @@ categories = ["science"]
 # core numerical / library deps
 approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
 csv = "1.4.0"
+# no_std f64 transcendentals for PETIR: a pure-Rust port of musl libm,
+# MIT OR Apache-2.0 (permissive into GPL-3.0). Required, not optional -- in
+# no_std, sin/cos/exp/log/sqrt/pow are std-only and GSL calls them throughout.
+# Bonus kept deliberately: ONE fixed implementation means bit-identical
+# transcendentals across platforms, where std dispatches to whatever
+# glibc/macOS/MSVC ships and those differ in the last ulp. Several things here
+# depend on that reproducibility -- do not feature-gate back to std maths.
+libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
 num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
