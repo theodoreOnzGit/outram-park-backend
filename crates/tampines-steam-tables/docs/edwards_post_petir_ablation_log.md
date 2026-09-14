@@ -190,3 +190,75 @@ failure: the cell index, `rho`, `he`, `p`, `rho_old`, the unclamped
 `rho_old - dt*div_phi`, and whether the clamp fired — and the same for its
 neighbours. Guessing at a fix before that would be building on a diagnosis the
 trace has just called into question.
+
+---
+
+## A2 — instrumentation: what is actually at the failing cell
+
+**Configuration.** A1 plus a temporary dump at the energy solve (`EDW_INSTR=1`),
+placed there deliberately rather than at the panic site: at the solve,
+`rho_cont`, `rho_old`, `div_phi` and the assembled diagonal are all still in
+scope, whereas one call later inside the `(p,h)` flash every one of them is gone.
+
+**Result: FAIL, as designed — the instrumentation panics first.** Cell 22 of 24:
+
+```
+cell            he        he_old          rho      rho_old   rc_unclamped  clamp       div_phi            p         diag
+  19     9.97035e5     9.97031e5    8.10028e2    8.09919e2      8.10126e2  false    -6.90251e3    2.86532e6    1.92893e4
+  20     9.99013e5     9.99017e5    3.31528e2    3.33286e2      3.31524e2  false     5.87315e4    2.45184e6    7.89366e3
+  21     9.96653e5     9.96630e5    8.26479e2    8.26470e2      8.26794e2  false    -1.08180e4    4.02166e6    1.96861e4
+  22   -1.71218e10     9.31365e5   1.25411e-2    1.45700e0     -1.64339e0   true     1.03346e5    6.11824e2   2.38410e-3
+  23     9.72760e5     9.72773e5    4.82649e2    5.08194e2      5.09782e2  false    -5.29530e4    2.41097e6    1.21380e4
+clamped cells this step: [22]
+dt = 3.0e-5
+```
+
+### The finding
+
+**The continuity density does not go small. It goes NEGATIVE.**
+
+$$\rho_{old} - \Delta t\,\nabla\cdot\phi = 1.457 - 3\times10^{-5}\times 1.03346\times10^{5} = -1.643$$
+
+The flux is asking to remove **3.10 kg/m³** from a cell that holds **1.457**, in
+one 30 µs step. That is not a rounding matter the floor is smoothing over — it
+is a **mass over-drain**, and the floor is hiding it.
+
+Everything else follows arithmetically. The clamp pins `rho_cont` at `1e-4`, so
+the diagonal is `1e-4·V/Δt = 2.384e-3`; the exact continuity identity that makes
+`h_old·(ρ_cont − ρ_old)/Δt` cancel the `h·∇·φ` in `∇·(φh)` is broken the moment
+the clamp fires; and the uncancelled remainder, of entirely ordinary size, is
+divided by that diagonal. `he = −1.71218e10` against `he_old = 9.31365e5` is
+what that division produces.
+
+### Resolving A1's three open readings
+
+1. **Different cell — YES, partly.** The `EDW_DBG` "break" station is not
+   cell 22. Cell 22's neighbours are at 810, 331, 826, 483 kg/m³, all healthy;
+   only cell 22 is rarefied. So the trace showing `a = 0.000` was never looking
+   at the cell that fails.
+2. **Faster than the trace interval — YES.** `clamped cells this step: [22]` —
+   one cell, one step. There is no gradual approach to watch.
+3. **`op-s2dc` incomplete — YES.** It recorded `rho_prev = 1.000000e-4` and read
+   that as "the cell drained to the floor". The floor is a *consequence*. The
+   cause is that the requested drain exceeds the available mass. That distinction
+   decides the fix: moving or lowering the floor cannot help, because the
+   quantity being floored is negative.
+
+Note `p = 611.824 Pa` — the cell has also bottomed out on the triple-point
+pressure floor. And `rho = 1.254e-2` (the EOS density from the previous
+`correct_thermo`) sits two orders below `rho_old = 1.457`, so the EOS and the
+continuity density have already diverged badly before this step.
+
+### Consequence for the fix
+
+There are **two stacked defects**, and they need separating:
+
+- **D1, the over-drain.** `Δt·∇·φ > ρ_old`. A CFL-type violation on the mass
+  equation at the break. This is the root.
+- **D2, the division.** The energy equation divides an uncancelled source by a
+  floored diagonal. This is the proximate cause of the panic.
+
+A fix for D2 alone will stop the panic and leave mass being created by the
+clamp. That is worth knowing rather than assuming, so it is run next, on its
+own, as A3 — which is also the "full rhoPimpleFoam baseline with only the energy
+drain fix" this campaign was asked for.

@@ -1992,11 +1992,24 @@ impl TampinesSteamArray {
             //     (small enthalpy change) that keeps the state on the
             //     saturation dome as p falls — the flashing plateau.
             //     See `fvm::ddt_coeff_old`.
+            let div_phi_final = fvc::div_flux(&self.phi);
+            // The UNCLAMPED continuity density, kept for the diagnostic below
+            // and for the drained-cell test: `rho_old - dt*div(phi)` is the
+            // mass the cell would hold if the flux this step were taken at
+            // face value. It can go NEGATIVE -- the flux can ask for more mass
+            // than the cell contains -- and that, not the smallness of the
+            // clamp, is the real signal. See `drained` below.
+            let mut rc_unclamped = vec![0.0_f64; n];
+            // Cells whose continuity density hit the floor: they hold no
+            // meaningful mass this step, so no specific enthalpy is solved for
+            // them. See the block after the energy matrix is assembled.
+            let mut drained = vec![false; n];
             let rho_cont = {
-                let div_phi_final = fvc::div_flux(&self.phi);
-                let mut rc = rho_old.clone() + (-dt) * div_phi_final;
+                let mut rc = rho_old.clone() + (-dt) * div_phi_final.clone();
                 for c in 0..n {
+                    rc_unclamped[c] = rc.internal[c];
                     if rc.internal[c] < 1e-4 {
+                        drained[c] = true;
                         rc.internal[c] = 1e-4;
                     }
                 }
@@ -2027,8 +2040,107 @@ impl TampinesSteamArray {
                     e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
+            // ── Drained-cell enthalpy hold (bn:op-bgg0) ─────────────────────
+            //
+            // A cell whose continuity density `rho_old - dt*div(phi)` has
+            // fallen to (or below) the floor holds no meaningful mass, and a
+            // massless cell has no meaningful SPECIFIC enthalpy. Solving for
+            // one is not merely inaccurate, it is arithmetically catastrophic,
+            // and the reason is precise:
+            //
+            // `rho_cont` exists so that discrete continuity
+            // `(rho_cont - rho_old)/dt = -div(phi)` holds EXACTLY, which is
+            // what makes `h_old*(rho_cont - rho_old)/dt` cancel the
+            // `h*div(phi)` part of `div(phi*h)` term for term (see the long
+            // comment above its construction). **The floor clamp breaks that
+            // identity.** Once it fires, an uncancelled `h*div(phi)` of
+            // perfectly ordinary size is left in the source and is divided by
+            // a diagonal pinned at `1e-4 * V/dt`.
+            //
+            // Measured on the Edwards break cell, 2026-09-14, at the step
+            // before the failure (`bn:op-bgg0`, log A2):
+            //
+            //     cell 22: rho_old = 1.45700e0,  div_phi = 1.03346e5,
+            //              rho_old - dt*div_phi = -1.64339e0   <-- NEGATIVE
+            //              diag = 2.38410e-3,  he = -1.71218e10 J/kg
+            //
+            // The flux asked to remove 3.1 kg/m3 from a cell holding 1.46 in a
+            // single 30 us step. So the clamp is not conservative rounding; it
+            // is papering over a mass over-drain, and the enthalpy that comes
+            // out is off by four orders of magnitude.
+            //
+            // Here we stop the second half of that -- the division -- by giving
+            // the cell an identity row: `he` is held at `he_old` rather than
+            // solved. The LDU convention is that `upper[f]` sits in row
+            // `owner[f]` and `lower[f]` in row `neighbour[f]` (see
+            // `gauss_seidel`), so zeroing the row means zeroing `upper` on
+            // faces this cell owns and `lower` on faces where it is the
+            // neighbour. The column is deliberately left intact: neighbours
+            // still see the held value, which is what "hold" should mean.
+            // `he` is solved by Gauss-Seidel, not CG, so the resulting
+            // asymmetry is fine.
+            //
+            // THIS DOES NOT FIX THE OVER-DRAIN, and must not be described as
+            // if it did. Mass is still being created by the clamp. What it
+            // fixes is that a massless cell can no longer emit a
+            // -1.7e10 J/kg enthalpy into the (p,h) flash.
+            for c in 0..n {
+                if drained[c] {
+                    e_eqn.ldu.diag[c] = 1.0;
+                    e_eqn.source[c] = he_old.internal[c];
+                    for f in 0..e_eqn.ldu.n_internal_faces {
+                        if e_eqn.ldu.owner[f] == c {
+                            e_eqn.ldu.upper[f] = 0.0;
+                        }
+                        if e_eqn.ldu.neighbour[f] == c {
+                            e_eqn.ldu.lower[f] = 0.0;
+                        }
+                    }
+                }
+            }
+
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
+
+            // TEMPORARY INSTRUMENTATION (bn:op-bgg0) -- remove before merge.
+            // Catch the energy blow-up AT THE SOLVE, where rho_cont, rho_old
+            // and the source terms are still in scope, rather than one call
+            // later inside the (p,h) flash where all of that is gone.
+            if std::env::var("EDW_INSTR").is_ok() {
+                let bad = (0..n).find(|&c| {
+                    let h = self.he.internal[c];
+                    !h.is_finite() || !(-1.0e5..=6.0e6).contains(&h)
+                });
+                if let Some(b) = bad {
+                    eprintln!("\n==== EEqn BLOW-UP at cell {b} (n = {n}) ====");
+                    let lo = b.saturating_sub(3);
+                    let hi = (b + 4).min(n);
+                    eprintln!(
+                        "{:>4} {:>13} {:>13} {:>12} {:>12} {:>14} {:>6} {:>13} {:>12} {:>12}",
+                        "cell", "he", "he_old", "rho", "rho_old", "rc_unclamped",
+                        "clamp", "div_phi", "p", "diag"
+                    );
+                    for c in lo..hi {
+                        eprintln!(
+                            "{:>4} {:>13.5e} {:>13.5e} {:>12.5e} {:>12.5e} {:>14.5e} {:>6} {:>13.5e} {:>12.5e} {:>12.5e}",
+                            c,
+                            self.he.internal[c],
+                            he_old.internal[c],
+                            self.rho.internal[c],
+                            rho_old.internal[c],
+                            rc_unclamped[c],
+                            drained[c],
+                            div_phi_final.internal[c],
+                            self.p.internal[c],
+                            e_eqn.ldu.diag[c],
+                        );
+                    }
+                    eprintln!("clamped cells this step: {:?}",
+                        (0..n).filter(|&c| drained[c]).collect::<Vec<_>>());
+                    eprintln!("dt = {dt:e}");
+                    panic!("instrumented stop at cell {b}");
+                }
+            }
             // Rebuild the enthalpy terminals by the UPWIND ADVECTION convention
             // (TUAS), from the mass flux that this corrector just settled on.
             //
