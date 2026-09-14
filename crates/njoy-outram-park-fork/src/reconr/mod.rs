@@ -38,6 +38,7 @@ pub mod linearize;
 pub mod mf1;
 pub mod mf2;
 pub mod rm;
+mod urr;
 pub mod rml;
 pub mod slbw;
 
@@ -275,6 +276,16 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps);
+
+    // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
+    // LSSF=0 ranges -- `genunr` (reconr.f90:1628-1735). Without this those
+    // ranges come back at ZERO cross section; see `urr`'s module doc.
+    if let Some(mf2_sec) = tape.section(mat, 2, 151) {
+        if mf2_sec.rows.len() > 1 {
+            let urr_ranges = crate::unresr::mf2::parse_lru2_ranges(&mf2_sec.rows[1..])?;
+            urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
+        }
+    }
 
     Ok(ReconrResult {
         material,
