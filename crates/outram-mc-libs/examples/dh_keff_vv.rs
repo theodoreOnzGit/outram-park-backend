@@ -74,38 +74,96 @@
 //! number, while our delta arm **is** comparable to the published explicit one.
 //! `examples/fhr_ring_rpt_endf.rs` matches the deck instead, deliberately.
 //!
-//! # Results
+//! # Results — measured 2026-09-14
 //!
-//! **PENDING — this example has not yet been re-run on the unit cell.** The
-//! geometry, the treatment set and the ring-RPT implementation all changed on
-//! 2026-09-14; every previously recorded number here was taken on the bare
-//! pebble with a `RingRpt` variant that actually did naive full-zone
-//! homogenisation, so none of them transfers. Run the example to produce the
-//! table; do not cite a number from this file until it is filled in.
+//! 800 histories x [15 inactive + 40 active], single-threaded
+//! (`ComputeType::CpuSingleThread`, the default — every arm, so the timings are
+//! thread-matched). 25 856 explicit particles in the delta arm. Cross-section
+//! reconstruction took 78.8 s and is **excluded** from the per-treatment
+//! timings: it is one-off setup and all five arms share it.
 //!
-//! For the record, superseded and **not to be cited**: on the bare pebble at
-//! 293.6 K, delta tracking gave `k = 1.23050 ± 0.00608` in 28.5 s, chord-length
-//! sampling `1.18328 ± 0.00732` in 56.0 s (-4722 pcm), and the naive smear —
-//! then mislabelled ring-RPT — `1.17899 ± 0.00615` in 133.9 s (-5151 pcm).
-//! The finding worth carrying forward from that run is the *ranking*: both
-//! approximations came out **slower** than exact delta tracking in a real
-//! continuous-energy eigenvalue calculation, inverting the 2.5-3x and 8x
-//! speedups the geometry-only benchmark reports. Whether that survives on the
-//! unit cell with a real ring-RPT arm is exactly what the re-run settles.
+//! | Treatment | k | vs delta | sigma | Speed |
+//! |---|---|---|---|---|
+//! | delta tracking (exact) | 1.37765 +/- 0.00751 | — | — | 1.00x (97.1 s) |
+//! | chord-length sampling | 1.34933 +/- 0.00625 | -2832 pcm | 2.9, not resolved | **2.14x** |
+//! | semi-implicit CLS | 1.34616 +/- 0.00694 | -3149 pcm | 3.1, resolved | **2.09x** |
+//! | naive homogenisation | 1.33747 +/- 0.00733 | **-4019 pcm** | 3.8, resolved | 1.74x |
+//! | ring-RPT (fitted annulus) | 1.38270 +/- 0.00811 | **+504 pcm** | 0.5, not resolved | **2.15x** |
 //!
-//! The likely mechanism, consistent with those numbers but **not isolated**:
-//! homogenisation moves cost out of geometry and into cross-section evaluation.
-//! Most of the fuel zone by volume is single-nuclide graphite — buffer, IPyC,
-//! OPyC, matrix — so a delta-tracking point query there sums **one** nuclide,
-//! while a smeared point carries the union of all of them. The geometry lookup
-//! traded away was already O(1) through the packing grid. Separating material
-//! cost from geometry cost needs a profile or an A/B with matched nuclide
-//! counts, and that has **not** been run.
+//! Against the published OpenMC reference on this same geometry: delta tracking
+//! sits **+1255 pcm (1.7 sigma)** from the explicit-TRISO 1.36510 +/- 0.00063 —
+//! consistent at this statistics, though 800 histories is too coarse to call it
+//! agreement.
 //!
-//! Chord-length sampling pays a second, avoidable cost: its sampler is stateful
-//! and the k-eff seam wants [`MaterialQuery`] to be [`Sync`], so every point
-//! query takes a mutex. That is an artefact of this wiring, not a property of
-//! CLS, and it is the first thing to attack if CLS is wanted for production.
+//! ## Ring-RPT and naive homogenisation are ~4500 pcm apart
+//!
+//! That is the whole reason they are separate variants. Ring-RPT lands **+504
+//! pcm** from exact, unresolved at 0.5 sigma, while filling the same zone
+//! uniformly costs a **resolved -4019 pcm**. Concentrating the smeared fuel
+//! into an annulus at a fitted radius keeps most of the radial self-shielding
+//! that uniform smearing destroys, and the measurement says so.
+//!
+//! Until 2026-09-14 a single enum variant named `RingRpt` did the naive smear,
+//! so this crate reported the second number as the first. See the correction on
+//! [`DhTreatment`].
+//!
+//! ## Correction: the "approximations are slower" finding was a bug in this crate
+//!
+//! An earlier revision of this file reported every approximate treatment as
+//! **slower** than exact delta tracking, and drew the conclusion that the
+//! geometry-only speedups do not transfer to eigenvalue calculations. **That was
+//! an artefact of [`DhUniverse::keff`] bounding its majorant over the whole
+//! material table**, including the undiluted kernel that no approximate
+//! treatment's geometry can return. Delta tracking accepts a collision with
+//! probability `sigma_t / sigma_maj`, so a majorant standing order 25x above
+//! anything the smeared geometry contains multiplied the virtual-collision
+//! count — and the runtime — by about the same factor.
+//!
+//! Bounding over reachable materials only moved the four approximate arms from
+//! 104.1 / 108.4 / 137.6 / 103.7 s to 45.3 / 46.5 / 55.9 / 45.2 s. Every one of
+//! them is now **faster** than exact delta tracking, by 1.7-2.2x.
+//!
+//! The control is clean: delta tracking did **not** move (94.9 -> 97.1 s,
+//! machine noise, and a bit-identical k = 1.37765), because its majorant was
+//! already correct — the kernel really is in its geometry. Only the arms whose
+//! majorant changed changed.
+//!
+//! No eigenvalue was biased by any of this. An over-bound majorant is wasteful;
+//! only an under-bound one is wrong, and silently so.
+//!
+//! A second hypothesis from that earlier revision — that smeared points cost
+//! more because they carry the union of all nuclides rather than the single
+//! carbon most of the explicit fuel zone holds — is **not retracted but is no
+//! longer the leading explanation**, and remains unmeasured. Separating it from
+//! the majorant effect needs a profile or an A/B with matched nuclide counts.
+//!
+//! ## Read the verdicts with care: this run is statistically marginal
+//!
+//! Combined standard error is ~1000 pcm, so this run resolves a bias of roughly
+//! 2000-3000 pcm and no better. Two consequences:
+//!
+//! - A treatment reading "not resolved" has **not** been shown unbiased. It has
+//!   been shown **unmeasured**. Ring-RPT's +504 pcm is consistent with zero and
+//!   equally consistent with 1500 pcm.
+//! - **Verdicts near the 3 sigma line are not stable between runs.** SCLS read
+//!   -1767 pcm (1.8 sigma, "not resolved") before the majorant fix and -3149 pcm
+//!   (3.1 sigma, "RESOLVED") after. The fix cannot bias an eigenvalue, so that
+//!   movement is a statistical re-draw — the virtual-collision count changed, so
+//!   the RNG stream is consumed differently — not new information about SCLS.
+//!   Do not read the flip as a finding.
+//!
+//! Raise `OUTRAM_DH_VV_HISTORIES` to tighten this. Resolving a 1000 pcm bias at
+//! 3 sigma needs roughly 9x the histories.
+//!
+//! ## CLS pays an avoidable cost on top
+//!
+//! Its sampler is stateful and the k-eff seam wants [`MaterialQuery`] to be
+//! [`Sync`], so every point query takes a mutex; SCLS additionally clones its
+//! retention window once per history. Both are artefacts of this wiring rather
+//! than properties of the methods — tracked as GitHub issue #205 / bead
+//! `op-ifl3`. Note the lock is **uncontended** on the single-threaded backend
+//! these numbers were taken on, so it is probably a small part of what is left;
+//! its real damage shows up when threads are turned on, which has not been run.
 //!
 //! # Settings
 //!
