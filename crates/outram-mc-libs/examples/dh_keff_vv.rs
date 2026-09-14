@@ -25,11 +25,45 @@
 //! Reflective boundary at the pebble surface, so this is k-infinity for a lattice
 //! of identical pebbles, not a critical system.
 //!
-//! LOW-tier embedded data (`Nuclide::from_core`), so it runs offline in seconds.
-//! That fidelity is not enough to compare against a benchmark, but it is the
-//! same data for all three arms — which is all a *relative* comparison needs.
+//! # Data — HIGH tier, ENDF/B-VIII.0
 //!
-//! # Results — measured 2026-09-14
+//! Continuous-energy cross sections reconstructed from the ENDF/B-VIII.0 tapes
+//! in `reference-data/endf/` (RECONR + BROADR on device, 1e-3 tolerance), plus
+//! the **ENDF/B-VIII.0 crystalline-graphite S(alpha,beta)** law on the moderator
+//! carbon.
+//!
+//! The bound-carbon law is not optional for this problem. A pebble is
+//! graphite-moderated and the spectrum is thermal, so below ~4 eV neutrons
+//! scatter off the bound lattice — coherent Bragg plus incoherent inelastic —
+//! not off a free carbon atom. This crate's own measurement is that omitting it
+//! puts a graphite-moderated spectrum **~1700 pcm too high**
+//! (`tests/htr10_graphite_thermal_scattering`). Running this V&V on free-gas
+//! carbon would put a known 1700 pcm error into every arm.
+//!
+//! An earlier revision of this example used the LOW embedded tier
+//! (`Nuclide::from_core`: coarse group data above the WMP range, Watt
+//! fission-birth stand-in, no S(alpha,beta)). That is fine for a *timing*
+//! comparison but is not defensible as V&V evidence, and it has been replaced.
+//!
+//! Setup cost: reconstructing six nuclides takes a few minutes before any
+//! transport starts, and it is reported separately from the per-treatment
+//! timings below.
+//!
+//! # Results — SUPERSEDED, RE-RUN IN FLIGHT
+//!
+//! **Do not cite the table below.** It was measured on the LOW embedded tier,
+//! which this example no longer uses: coarse group data above the WMP range, a
+//! Watt fission-birth stand-in in place of real MF=5 chi (worth ~500 pcm on
+//! Godiva by this crate's own measurement), and no S(alpha,beta) at all
+//! (~1700 pcm on a graphite-moderated spectrum). Those three omissions are
+//! larger than some of the biases the table reports, so it cannot support the
+//! conclusions drawn from it.
+//!
+//! Retained verbatim rather than deleted because it is the last measurement
+//! actually taken, and because the *ranking* finding below — that both
+//! approximations are slower for eigenvalues than the geometry benchmark
+//! predicts — is about cost, not data, and is expected to survive. That
+//! expectation is **not yet confirmed on HIGH tier.**
 //!
 //! 800 histories x [15 inactive + 40 active], LOW tier, single-threaded,
 //! 25 856 explicit particles in the delta arm.
@@ -70,7 +104,7 @@
 //! has not been run. The ranking above is measured; the explanation is a
 //! hypothesis consistent with it.
 //!
-//! ## The accuracy result
+//! ## The accuracy result — LOW tier, superseded
 //!
 //! Both approximations sit about **4000 pcm low**, resolved at 4.5-4.7 sigma.
 //! The sign is physically right for ring-RPT: smearing destroys the spatial
@@ -88,24 +122,40 @@ use std::time::Instant;
 
 use outram_mc_libs::prelude::*;
 use outram_mc_libs::material::material::NuclideComponent;
+use outram_mc_libs::material::thermal::ThermalScattering;
+use njoy_outram_park_fork::reference_data::reference_endf;
 
 /// Representative HALEU UCO TRISO compositions \[atoms/b-cm\], room temperature.
 ///
-/// Illustrative of the material class, **not** a benchmark specification — the
-/// point of this example is the difference between treatments, which is
-/// insensitive to the exact densities so long as all three arms share them.
+/// Illustrative of the material class, **not** a benchmark specification — this
+/// example measures the *difference between treatments*, which is insensitive to
+/// the exact densities so long as all three arms share them.
+///
+/// # Carbon bookkeeping
+///
+/// Two carbon entries, deliberately:
+///
+/// - **`C12` free gas** — the kernel's oxycarbide carbon and the SiC carbon.
+///   Neither sits in a graphite lattice.
+/// - **`C12G` graphite-bound** — buffer, IPyC, OPyC, fuel-zone matrix and the
+///   outer shell, all of which are graphite and carry the S(alpha,beta) law.
+///
+/// C-13 (1.1 % of natural carbon) is neglected. That is a stated approximation:
+/// it applies identically to all three arms, so it cannot bias the comparison
+/// this example exists to make, though it would matter for an absolute k.
 fn materials() -> Vec<Material> {
     // Nuclide indices into the vector returned by `nuclides()`.
     const U235: usize = 0;
     const U238: usize = 1;
     const O16: usize = 2;
-    const C: usize = 3;
-    const SI28: usize = 4;
+    const C_FREE: usize = 3;
+    const C_GRAPHITE: usize = 4;
+    const SI28: usize = 5;
 
     let m = |id: i32, name: &str, comps: Vec<(usize, f64)>| Material {
         id,
         name: name.into(),
-        temperature: 293.6,
+        temperature: TEMP_K,
         components: comps
             .into_iter()
             .map(|(nuclide_idx, atom_density)| NuclideComponent {
@@ -116,34 +166,73 @@ fn materials() -> Vec<Material> {
     };
 
     vec![
-        // 0 kernel — 19.9 % HALEU UCO
+        // 0 kernel — 19.9 % HALEU UCO. Kernel carbon is not graphite.
         m(0, "UCO kernel", vec![
-            (U235, 4.40e-3), (U238, 1.77e-2), (O16, 2.27e-2), (C, 9.10e-3),
+            (U235, 4.40e-3), (U238, 1.77e-2), (O16, 2.27e-2), (C_FREE, 9.10e-3),
         ]),
-        // 1 buffer — porous carbon
-        m(1, "buffer", vec![(C, 5.02e-2)]),
-        // 2 IPyC
-        m(2, "IPyC", vec![(C, 9.53e-2)]),
-        // 3 SiC
-        m(3, "SiC", vec![(SI28, 4.79e-2), (C, 4.79e-2)]),
-        // 4 OPyC
-        m(4, "OPyC", vec![(C, 9.53e-2)]),
+        // 1 buffer — porous graphite
+        m(1, "buffer", vec![(C_GRAPHITE, 5.02e-2)]),
+        // 2 IPyC — pyrolytic graphite
+        m(2, "IPyC", vec![(C_GRAPHITE, 9.53e-2)]),
+        // 3 SiC — carbon here is silicon-bound, not graphite
+        m(3, "SiC", vec![(SI28, 4.79e-2), (C_FREE, 4.79e-2)]),
+        // 4 OPyC — pyrolytic graphite
+        m(4, "OPyC", vec![(C_GRAPHITE, 9.53e-2)]),
         // 5 matrix — graphite binder in the fuel zone
-        m(5, "matrix graphite", vec![(C, 8.53e-2)]),
+        m(5, "matrix graphite", vec![(C_GRAPHITE, 8.53e-2)]),
         // 6 shell — fuel-free graphite outer shell
-        m(6, "shell graphite", vec![(C, 8.78e-2)]),
+        m(6, "shell graphite", vec![(C_GRAPHITE, 8.78e-2)]),
     ]
 }
 
+/// Material / data temperature \[K\].
+const TEMP_K: f64 = 293.6;
+
+/// Reconstruct the six nuclides from the ENDF/B-VIII.0 reference tapes.
+///
+/// Index order must match the constants in [`materials`].
 fn nuclides() -> Vec<Nuclide> {
-    ["U235", "U238", "O16", "C0", "Si28"]
-        .iter()
-        .map(|n| Nuclide::from_core(n).unwrap_or_else(|e| panic!("core nuclide {n}: {e:?}")))
-        .collect()
+    let load = |name: &str, file: &str| -> Nuclide {
+        let path = reference_endf(file)
+            .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
+        eprint!("  reconstructing {name:<6} from {file} … ");
+        let t0 = Instant::now();
+        let n = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3)
+            .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
+        eprintln!("{:.1?}", t0.elapsed());
+        n
+    };
+
+    let sab = ThermalScattering::from_endf_file(
+        reference_endf("tsl-crystalline-graphite.endf")
+            .expect("missing tsl-crystalline-graphite.endf")
+            .to_str()
+            .expect("valid UTF-8 path"),
+        30, // MAT 30 — C in crystalline graphite (ENDF/B-VIII.0)
+        TEMP_K,
+        "c_Graphite",
+    )
+    .expect("crystalline-graphite S(alpha,beta)");
+    eprintln!("  graphite S(alpha,beta): ENDF/B-VIII.0 tsl-crystalline-graphite … ok");
+
+    vec![
+        load("U235", "n-092_U_235-ENDF8.0.endf"),
+        load("U238", "n-092_U_238.endf"),
+        load("O16", "n-008_O_016-ENDF8.0.endf"),
+        // free-gas carbon: kernel oxycarbide and SiC
+        load("C12", "n-006_C_012-ENDF8.0.endf"),
+        // graphite-bound carbon: buffer, PyC, matrix, shell
+        load("C12", "n-006_C_012-ENDF8.0.endf").with_thermal_scattering(sab),
+        load("Si28", "n-014_Si_028-ENDF8.0.endf"),
+    ]
 }
 
 fn main() {
+    println!("Reconstructing ENDF/B-VIII.0 cross sections (this is setup, not transport):");
+    let t_data = Instant::now();
     let nucs = nuclides();
+    let data_secs = t_data.elapsed().as_secs_f64();
+    println!("  data ready in {data_secs:.1} s\n");
     let mats = materials();
 
     // Deliberately modest so the example finishes in a couple of minutes. The
@@ -163,7 +252,7 @@ fn main() {
         n_particles,
         n_inactive: 15,
         n_active: 40,
-        temperature_k: 293.6,
+        temperature_k: TEMP_K,
         ..KeffSettings::default()
     };
 
@@ -171,7 +260,7 @@ fn main() {
     println!("=================================================================");
     println!("  histories  : {} x [{} inactive + {} active]",
         settings.n_particles, settings.n_inactive, settings.n_active);
-    println!("  data       : LOW tier (embedded WMP + fast MGXS), offline");
+    println!("  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b)");
     println!("  boundary   : reflective at the pebble surface -> k-infinity\n");
 
     let mut rows = Vec::new();
