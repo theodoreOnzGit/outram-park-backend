@@ -118,9 +118,11 @@
 //! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
+//! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS |
 //! | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
+//! | [`ode`] | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
 //! | [`specfunc`] | ported + lifted + delegated | Error-function family incl. the scaled `erfcx`, gamma family with GSL's Padé branches, incomplete gamma and its inverse |
 //! | [`transfer_fn`] | ported | Continuous and discrete SISO transfer functions, `c2d`/`d2c` (GNU Octave control package, via `chem-eng`) |
@@ -129,9 +131,14 @@
 //! | [`real`] | — | The `no_std` float-math shim |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
-//! Quadrature and ODE integration are the epic's remaining scope and are **not** here yet. They are tracked as beads rather than
-//! stubbed, because an empty module that looks like an API is worse than an
-//! absent one.
+//! The epic's original scope is now COVERED. What remains are deliberate
+//! subsets rather than gaps, and each is named where it matters: QAGS and the
+//! infinite-range and weighted quadrature variants ([`integration`]), implicit
+//! and stiff ODE methods ([`ode`]), Akima and Steffen interpolation and the
+//! periodic spline ([`interp`]), general-degree complex polynomial roots
+//! ([`poly`]), and Chebyshev least-squares regression at arbitrary points.
+//! Each is tracked as a bead rather than stubbed, because an empty module that
+//! looks like an API is worse than an absent one.
 //!
 //! Chebyshev **least-squares regression at arbitrary points** (as opposed to
 //! interpolation at the Chebyshev nodes, which [`cheb`] does) and **adaptive
@@ -168,9 +175,11 @@ pub mod fast_exp;
 pub mod fast_log;
 pub mod fast_pow;
 pub mod gamma_inc;
+pub mod integration;
 pub mod interp;
 pub mod linalg;
 pub mod min;
+pub mod ode;
 pub mod poly;
 pub mod real;
 pub mod roots;
