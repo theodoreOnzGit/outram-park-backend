@@ -221,3 +221,55 @@ fn diagnose_the_40_bar_node_solution() {
         );
     }
 }
+
+/// Tabulates [`p_rho_h_conditioning`] across states spanning the regimes, so
+/// the numbers quoted in its doc comment can be re-measured rather than
+/// trusted.
+///
+/// Diagnostic only; asserts just the ordering the API promises — vapour and
+/// two-phase states are well conditioned, the low-pressure subcooled liquid is
+/// not.
+#[test]
+fn diagnose_the_conditioning_measure_across_regimes() {
+    use crate::interfaces::functional_programming::rho_h_flash_eqm::p_rho_h_conditioning;
+
+    let probes = [
+        (10.0_f64, 3000.0_f64, "superheated vapour, 10 bar"),
+        (1.0, 2000.0, "two-phase, 1 bar"),
+        (8.0, 721.018, "saturated liquid, 8 bar"),
+        (990.0, 500.0, "compressed liquid, 99 MPa"),
+        (0.5, 75.5, "subcooled liquid, 0.5 bar"),
+        (0.1, 75.5555, "subcooled liquid, 0.1 bar"),
+    ];
+
+    println!("{:<36} {:>14}", "state", "conditioning A");
+    let mut vapour = f64::NAN;
+    let mut worst_liquid: f64 = 0.0;
+
+    for (p_bar_val, h_kj, label) in probes {
+        let p = Pressure::new::<bar>(p_bar_val);
+        let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
+        let v = v_ph_eqm(p, h).get::<cubic_meter_per_kilogram>();
+        let rho = MassDensity::new::<kilogram_per_cubic_meter>(1.0 / v);
+
+        let a = p_rho_h_conditioning(rho, h);
+        println!("{label:<36} {a:>14.3e}");
+
+        if label.starts_with("superheated") {
+            vapour = a;
+        }
+        if label == "subcooled liquid, 0.1 bar" {
+            worst_liquid = a;
+        }
+    }
+
+    assert!(
+        vapour < 10.0,
+        "vapour should be well conditioned: {vapour:.3e}"
+    );
+    assert!(
+        worst_liquid > vapour * 100.0,
+        "the low-pressure subcooled liquid should be flagged far worse than \
+         vapour: {worst_liquid:.3e} vs {vapour:.3e}"
+    );
+}

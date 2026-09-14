@@ -694,10 +694,23 @@ fn quality_convention_single_phase(
 /// machine precision and is still badly wrong, and **no implementation can do
 /// better**: the information is not in the inputs.
 ///
-/// Measured amplification at a few states (2026-09-14): superheated vapour at
-/// 10 bar `A ~ 1.0`; two-phase at 1 bar `A ~ 1.0`; saturated liquid at 8 bar
-/// `A ~ 9.9`; compressed liquid at 99 MPa `A ~ 21`; subcooled liquid at
-/// 0.5 bar `A ~ 4.0e4`; subcooled liquid at 0.1 bar `A ~ 2.0e5`.
+/// Measured 2026-09-14 (`diagnose_the_conditioning_measure_across_regimes`):
+///
+/// | state | `A` |
+/// |---|---|
+/// | superheated vapour, 10 bar | `1.0` |
+/// | two-phase, 1 bar | `1.0` |
+/// | saturated liquid, 8 bar | `5.3e-2` |
+/// | compressed liquid, 99 MPa | `2.1e1` |
+/// | subcooled liquid, 0.5 bar | `4.0e4` |
+/// | subcooled liquid, 0.1 bar | `4.8e6` |
+///
+/// # Cost
+///
+/// Two extra flashes, because it perturbs the density and re-solves rather
+/// than differentiating locally. That is deliberate â the cheap local
+/// derivative is blind in exactly the regime this exists to detect â so treat
+/// it as a diagnostic to call when in doubt, not something for a hot loop.
 ///
 /// A solver carrying `(rho,h)` should check this where it might be in the
 /// subcooled liquid, and take its pressure from the momentum/pressure equation
@@ -709,25 +722,50 @@ fn quality_convention_single_phase(
 ///
 /// Panics under the same conditions as [`p_rho_h_eqm`].
 pub fn p_rho_h_conditioning(rho: MassDensity, h: AvailableEnergy) -> f64 {
-    let p = p_rho_h_eqm(rho, h);
-    let p_pa = p.get::<pascal>();
+    let rho_si = rho.get::<kilogram_per_cubic_meter>();
+    let h_si = h.get::<joule_per_kilogram>();
 
-    let step = 1.0e-4;
-    // Keep both probe points inside the flash domain's 100 MPa ceiling.
-    let p_hi = (p_pa * (1.0 + step)).min(P_UPPER_LIMIT_PASCAL * (1.0 - 1.0e-9));
-    let p_lo = (p_pa * (1.0 - step)).max(p_lower_limit_pascal());
-
-    if !(p_hi > p_lo) {
+    let p_at = p_rho_h_eqm_explicit(rho_si, h_si);
+    if !(p_at > 0.0) {
         return f64::INFINITY;
     }
 
-    let ln_v_hi = v_at_pressure(p_hi, h).ln();
-    let ln_v_lo = v_at_pressure(p_lo, h).ln();
-    let d_ln_v_d_ln_p = (ln_v_hi - ln_v_lo) / (p_hi.ln() - p_lo.ln());
+    // Measured as the response of the ANSWER to the INPUT, not as a local
+    // derivative of `v(p,h)`.
+    //
+    // The derivative form is what the definition suggests, and it is wrong in
+    // exactly the case that matters. It has to be evaluated somewhere, and the
+    // only pressure available is the one just returned -- which, precisely when
+    // the state is ill-conditioned, is not the state's real pressure. The
+    // derivative then describes a different state and reports it healthy:
+    // measured at 0.1 bar / 18 degC, a central difference gave `A = 1.2e-3` and
+    // a one-sided pair `A = 25`, for a state the solver cannot place to better
+    // than 79 %.
+    //
+    // Perturbing the density and re-solving has no such blind spot. It asks the
+    // question the caller is actually asking -- "if my density were slightly
+    // off, how far would this pressure move?" -- and it answers it with the
+    // same dispatch and root find that produced the pressure, so a branch that
+    // is about to flip shows up as the large excursion it is.
+    let relative_perturbation = 1.0e-6;
+    let mut worst: f64 = 0.0;
 
-    if d_ln_v_d_ln_p == 0.0 {
-        f64::INFINITY
-    } else {
-        1.0 / d_ln_v_d_ln_p.abs()
+    for sign in [1.0_f64, -1.0] {
+        let rho_probe = rho_si * (1.0 + sign * relative_perturbation);
+        if !(rho_probe > 0.0) {
+            continue;
+        }
+        if !rho_h_is_within_validity_range(
+            MassDensity::new::<kilogram_per_cubic_meter>(rho_probe),
+            h,
+        ) {
+            continue;
+        }
+
+        let p_probe = p_rho_h_eqm_explicit(rho_probe, h_si);
+        let d_ln_p = ((p_probe - p_at) / p_at).abs();
+        worst = worst.max(d_ln_p / relative_perturbation);
     }
+
+    worst
 }
