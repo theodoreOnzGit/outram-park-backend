@@ -559,20 +559,34 @@ fn main() {
         );
     }
 
-    println!("\n=== Against the published OpenMC reference ===");
-    let (dk_ex, z_ex) = delta(reference.k, reference.std, OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+    // The absolute comparison against OpenMC lives in the example that actually
+    // models the deck. Printing this example's own delta arm against the
+    // published number invites it to be quoted as a code-to-code result, which
+    // it is not: the materials here are illustrative and the realised packing
+    // fraction is 0.2894 rather than 0.30. Both offsets are stated in the doc
+    // comment; what is printed is the pointer, not the number.
+    println!("\n=== Code-to-code against OpenMC: see examples/fhr_ring_rpt_endf.rs ===");
     println!(
-        "  delta tracking vs OpenMC explicit TRISO : {:+.0} pcm ({:.1} sigma)",
-        dk_ex, z_ex
+        "  That deck builds the reference materials and geometry properly and measures\n  \
+         explicit TRISO, delta-tracked, at k = 1.36547 +/- 0.00229 against OpenMC's\n  \
+         {:.5} +/- {:.5} — {:+} pcm ({:.1} sigma). Its ring-RPT arm reads {:+} pcm\n  \
+         ({:.1} sigma) against OpenMC's {:.5} +/- {:.5}.",
+        OMC_EXPLICIT.0, OMC_EXPLICIT.1, 37, 0.2, -116, 0.5, OMC_RING_RPT.0, OMC_RING_RPT.1
     );
-    if let Some(rpt) = rows.iter().find(|r| r.treatment.needs_fitting()) {
-        let (dk_rp, z_rp) = delta(rpt.k, rpt.std, OMC_RING_RPT.0, OMC_RING_RPT.1);
-        println!(
-            "  ring-RPT       vs OpenMC ring-RPT       : {:+.0} pcm ({:.1} sigma)   \
-             [see the S(a,b) caveat]",
-            dk_rp, z_rp
-        );
-    }
+    println!(
+        "  Both are SINGLE DRAWS carrying ~230 pcm of statistics; a same-day re-run of\n  \
+         the explicit case gave -466 pcm, which is 1.5 sigma of ordinary noise rather\n  \
+         than a change. Pooling over seeds is gh:#196 / bn:op-awwi, and is not done.\n  \
+         Source: verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md"
+    );
+    println!(
+        "\n  THIS example's arms are NOT comparable to those numbers: illustrative\n  \
+         materials, and a realised packing fraction of 0.2894 against a requested\n  \
+         0.30. Its delta arm sits {:+.0} pcm from the OpenMC explicit result for those\n  \
+         reasons, not because the two codes disagree. Use it for the treatment\n  \
+         comparison above, which shares every one of those offsets across all arms.",
+        delta(reference.k, reference.std, OMC_EXPLICIT.0, OMC_EXPLICIT.1).0
+    );
 
     println!("\n=== Accuracy bought per unit speed ===");
     for row in &rows {
