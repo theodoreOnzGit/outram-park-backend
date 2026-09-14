@@ -36,6 +36,11 @@ include = [
 exclude = ["verification_and_validation/*.csv"]
 
 [dependencies]
+# PETIR supplies the special functions ACER's MF=5 LF=12 (Madland-Nix) needs:
+# the exponential integral E_1 and the lower incomplete gamma, both ported from
+# GSL and verified against it. PETIR is no_std with only `libm`, so it adds no
+# std, BLAS or C-toolchain weight -- this crate stays dependency-lean.
+petir.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 # Fortran `mess(...)` (non-fatal warning, upstream continues) maps to `log`,
@@ -101,6 +106,16 @@ wgpu = { workspace = true }
 # (`acquire::EndfCache`) is always compiled, because the offline LEAPR
 # regeneration path (`leapr::generate`, on by default) caches through it.
 net-fetch = ["dep:ureq", "dep:zip"]
+
+# Diagnostic examples that reconstruct a full evaluation from `reference-data/`
+# (repo-only, multi-MB) and take minutes — gated out of the default build and
+# `cargo test --examples`, like `outram-mc-libs`' `endf-pebble-cases`.
+urr-diagnostics = []
+
+# ── Diagnostic: which stage loses the resolved/unresolved seam (op-sdbk) ──────
+[[example]]
+name = "seam_stage_probe"
+required-features = ["urr-diagnostics"]
 
 # ── Code-to-code Doppler verification: RECONR+BROADR vs OpenMC ENDF/B-8.0 .h5 ──
 # Own folder + README under tests/u238_doppler_verification/. Uses the always-on

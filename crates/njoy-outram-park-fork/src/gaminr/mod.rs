@@ -37,25 +37,30 @@
 //!   the full pipeline; the **end-to-end tape driver returns
 //!   [`crate::NjoyError::NotPorted`]** rather than fabricating results.
 //!
+//! - [`gtff`] — the **matrix feed functions** (`gaminr.f90:1162-1514`):
+//!   coherent (`mtd = 502`), incoherent with its cross-section and heating
+//!   slots (`mtd = 504`), pair production (`mtd = 516`), and the MF=23
+//!   responses; plus `terpa` for the MF=27 tables ([`PhotonTab1`]).
+//! - [`matrix`] — the per-reaction driver [`gaminr_reaction`]: the photon
+//!   `gpanel` (`:874-1011`), `dspla`'s normalisation (`:1013-1131`), the
+//!   heating accumulation and the `MT=525` edit ([`TotalHeating`]).
+//!   Validated against NJOY2016's GAM-out tape for a synthetic Z = 6
+//!   photoatomic material (`tests/gaminr_synthetic_photoat_golden.rs`):
+//!   every word of `23/501 502 504 516 522 525` and `26/502 504 516`
+//!   within 4.4e-7.
+//!
 //! # NOT yet ported (honest gap list)
 //!
-//! The photon-interaction **matrix** engine and the tape I/O control flow:
-//!
-//! - **`gtsig` PENDF reader** (`gaminr.f90:1133-1160`) — the `findf`/`gety1`
-//!   tape retrieval of the MF=23 cross section that feeds a real `sigma(E)` grid
-//!   into [`PointwiseXs::LinLin`]. The panel average of a supplied grid is
-//!   ported; wiring it to a PENDF tape is not.
-//! - **`gtff`** (`gaminr.f90:1162-1514`) — the matrix feed-function engine: the
-//!   coherent (Rayleigh) form-factor Legendre integral (`mtd=502`), the
-//!   incoherent (Compton/Klein–Nishina × S(q,Z)) energy-angle integral
-//!   (`mtd=504`), and the pair-production matrix (`mtd=516`). See
-//!   [`gpanel::gtff_matrix`] (a documented `NotPorted` stub).
-//! - **`dspla` matrix branch** (`gaminr.f90:1083-1128`, `mfd=26`) — the
-//!   group-to-group display/division; the vector branch (`mfd=23`) is ported as
-//!   [`GroupIntegral::average`].
-//! - The **GAM-out tape control flow** of the main `gaminr` subroutine
-//!   (`gaminr.f90:133-536`) — the vector GENDF *records* round-trip, but the
-//!   full ENDF tape sequencing does not.
+//! - **Tape control flow** of the main `gaminr` subroutine
+//!   (`gaminr.f90:133-292`, `:420-535`): `ruing`, the ENDF-format probe,
+//!   the GAM-out MF=1/451 header, the old-tape merge (`ngam1`) and the
+//!   multi-material loop; the engine takes parsed sections and returns
+//!   [`GendfSection`]s.
+//! - The **Klein–Nishina cache** (`akn`, `:319-325`, `:343-350`): NJOY
+//!   reuses the incoherent matrix of the first material scaled by `Z`
+//!   above `Z * 12.4 keV` for later materials in the same run; a
+//!   single-material call never takes that branch.
+//! - `gtsig` on a non-lin-lin MF=23 section (RECONR normally linearises).
 //! - The read-in weight TAB1 (`iwt=1`) and read-in group grid (`igg=1`)
 //!   *evaluation* paths beyond deck capture.
 //!
@@ -63,18 +68,22 @@
 //! and test status.
 
 pub mod gpanel;
+pub mod gtff;
 pub mod input;
+pub mod matrix;
 pub mod photon_groups;
 pub mod weights;
 
 pub use gpanel::{
-    group_average_vector, group_integral, gtff_matrix, GendfGroupRecord, GendfSection, GendfTape,
-    GroupFlux, GroupIntegral, PointwiseXs,
+    group_average_vector, group_integral, GendfGroupRecord, GendfSection, GendfTape, GroupFlux,
+    GroupIntegral, PointwiseXs,
 };
+pub use gtff::{gtff_coherent, gtff_incoherent, gtff_pair, PhotonFeed, PhotonTab1, EPAIR};
 pub use input::{
     standard_reactions, EndfFormat, GaminrInput, GaminrReaction, GroupGrid, PrintOption,
     ReactionSelection, UnitAssignments,
 };
+pub use matrix::{gaminr_reaction, PhotonFlux, PhotonReaction, TotalHeating};
 pub use photon_groups::{photon_group_structure, PhotonGroupStructure};
 pub use weights::{PhotonWeight, WeightOption, WeightTab1};
 

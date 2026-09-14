@@ -23,7 +23,8 @@
 //!   the inelastic LISTs LI=4 (log-lin: ln S linear in T).
 //! - **Kernel:** port of NJOY2016 (release 2016.79, commit `ac5adf5f`)
 //!   `thermr.f90`; temperature matching mirrors `rdelas` (`T/1000 + 5` K).
-//! - The tapes are **not** checked in; tests read them from `GRAPHITE_TSL_DIR`
+//! - The tapes **are** checked in, at `reference-data/endf/`; tests read them
+//!   from there by default, or from `GRAPHITE_TSL_DIR`
 //!   (env override) or the default directory below, and **skip** (print a
 //!   note, pass) when absent so CI stays green.
 //!
@@ -96,8 +97,17 @@ use std::path::PathBuf;
 fn manifest() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
+/// Where the graphite tapes live: this repository's `reference-data/endf/`.
+///
+/// This pointed at `<crate>/tests/resources/` until 2026-09-11 — the location
+/// the tapes occupied **before they were moved to `reference-data/endf/` on
+/// 2026-08-17** so that no tape sits inside a crate directory. Nothing failed
+/// when the move happened, because a missing tape here takes the skip branch:
+/// all six tests in this file went on "passing" in 0.00 s without reading a
+/// tape or asserting anything, for three and a half weeks, while the tapes they
+/// wanted sat committed one directory up.
 fn endf_path() -> PathBuf {
-    manifest().join("tests/resources/")
+    manifest().join("../../reference-data/endf/")
 }
 
 /// (file, MAT) for the three graphite evaluations.

@@ -98,6 +98,17 @@ pub mod opcua_core;
 // published numbers; they do not validate a simulator.
 pub mod htr10;
 #[cfg(not(target_os = "android"))]
+/// Render 2-D schematic geometry to a character grid, so a diagram can be
+/// checked by a test or an agent instead of only by eye. See the module docs.
+/// Convenience re-exports: `use outram_park_digital_twin_engine::prelude::*;`
+pub mod prelude;
+
+pub mod ascii;
+
+/// Drive a simulator with no GUI, no window and no thread -- required of every
+/// egui simulator in this workspace. See the module docs and gh #150.
+pub mod headless;
+
 pub mod app_scaffold;
 #[cfg(not(target_os = "android"))]
 pub mod color_maps;

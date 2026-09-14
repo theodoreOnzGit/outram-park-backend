@@ -411,11 +411,122 @@ impl DigitisedDataset {
             }
         }
         let _ = writeln!(s, "# per-point uncertainty and origin (auto-traced/hand-placed/hand-corrected) are in the JSON export, not this CSV");
-        let _ = writeln!(s, "x,y");
+        s.push_str(&self.to_csv_data_only());
+        s
+    }
+
+    /// The CSV **data alone**: the `x,y` header row and one row per point,
+    /// with no `#` provenance comments at all.
+    ///
+    /// This is what goes inside a Markdown artifact's ```csv fence and what
+    /// [`Self::write_csv`] exports (maintainer direction, GH issue #35,
+    /// 2026-09-08: "when exporting csv not in markdown, should only export
+    /// csv data with headers, only the data within backticks, nothing
+    /// more"). A spreadsheet or a plotting script can read the result
+    /// directly, with no comment-stripping step.
+    ///
+    /// The provenance those comments used to carry is not lost — in
+    /// Markdown it moves up into the artifact's `[extraction]` table (see
+    /// [`Self::extraction`]), which is the metadata half of the block, and
+    /// the full per-point record stays in
+    /// [`Self::to_json_string`]. [`Self::to_csv_string`] still produces the
+    /// commented form for anyone who wants one file carrying both.
+    pub fn to_csv_data_only(&self) -> String {
+        use std::fmt::Write;
+        // The header is the axis labels themselves (maintainer's
+        // "xtitle,ytitle"), falling back to `x`/`y` when a label is blank so
+        // the header row is never empty. Quoted per RFC 4180 when a label
+        // contains a comma or a quote, which real axis labels do.
+        fn field(label: &str, fallback: &str) -> String {
+            let l = if label.trim().is_empty() {
+                fallback
+            } else {
+                label
+            };
+            if l.contains(',') || l.contains('"') || l.contains('\n') {
+                format!("\"{}\"", l.replace('"', "\"\""))
+            } else {
+                l.to_string()
+            }
+        }
+        let mut s = String::new();
+        let _ = writeln!(
+            s,
+            "{},{}",
+            field(&self.x_label, "x"),
+            field(&self.y_label, "y")
+        );
         for p in &self.points {
             let _ = writeln!(s, "{},{}", p.x, p.y);
         }
         s
+    }
+
+    /// This dataset's provenance as an [`crate::artifact::Extraction`] — the
+    /// metadata that used to sit in `#` comments inside the CSV fence.
+    ///
+    /// `method` is the extraction method (e.g. `"manual_digitisation"`) and
+    /// `engine` the tool where there was one (e.g. `"kopitiam-ocr"`).
+    pub fn extraction(
+        &self,
+        method: &str,
+        engine: Option<String>,
+    ) -> crate::artifact::Extraction {
+        let (x_axis, y_axis) = match &self.calibration {
+            PlotCalibration::AxisAligned { x: cx, y: cy } => (
+                Some(format!(
+                    "{} scale, px {} = {} , px {} = {}",
+                    cx.scale, cx.r1.pixel, cx.r1.value, cx.r2.pixel, cx.r2.value
+                )),
+                Some(format!(
+                    "{} scale, px {} = {} , px {} = {}",
+                    cy.scale, cy.r1.pixel, cy.r1.value, cy.r2.pixel, cy.r2.value
+                )),
+            ),
+            PlotCalibration::Parallelogram(p) => (
+                Some(format!(
+                    "{} scale, left = {}, right = {}",
+                    p.x_scale, p.x_value_at_left, p.x_value_at_right
+                )),
+                Some(format!(
+                    "{} scale, top = {}, bottom = {}",
+                    p.y_scale, p.y_value_at_top, p.y_value_at_bottom
+                )),
+            ),
+        };
+        // No `#` may appear anywhere in generated TOML: under the document
+        // schema a line-starting `#` is an artifact boundary, and a reader
+        // scanning for one must not be misled by a `#` that happens to sit
+        // inside a metadata value (maintainer direction, GH issue #35,
+        // 2026-09-08 — "never use single # within the toml, it will confuse
+        // the reader"). Figure captions really do contain them ("Fig #2"),
+        // so they are rewritten rather than assumed absent.
+        fn no_hash(s: String) -> String {
+            if s.contains('#') {
+                s.replace('#', "No.")
+            } else {
+                s
+            }
+        }
+        crate::artifact::Extraction {
+            method: method.to_string(),
+            engine: engine.or_else(|| self.trace.as_ref().map(|t| t.engine.clone())),
+            figure: Some(no_hash(self.source.figure.clone())).filter(|f| !f.is_empty()),
+            x_label: Some(no_hash(self.x_label.clone())).filter(|l| !l.is_empty()),
+            y_label: Some(no_hash(self.y_label.clone())).filter(|l| !l.is_empty()),
+            x_axis,
+            y_axis,
+            digitised_by: Some(no_hash(self.digitised_by.clone())).filter(|d| !d.is_empty()),
+            digitised_at: Some(no_hash(self.digitised_at.clone())).filter(|d| !d.is_empty()),
+            review: Some(match &self.review {
+                ReviewStatus::Unreviewed => {
+                    "UNREVIEWED — points not yet human-verified".to_string()
+                }
+                ReviewStatus::Reviewed { by, at, interface } => {
+                    format!("reviewed by {by} at {at} via {interface:?}")
+                }
+            }),
+        }
     }
 
     /// Write the CSV form to `path`.
@@ -424,7 +535,7 @@ impl DigitisedDataset {
     ///
     /// [`DigitiserError::Io`] on filesystem failure.
     pub fn write_csv(&self, path: &Path) -> Result<(), DigitiserError> {
-        std::fs::write(path, self.to_csv_string())
+        std::fs::write(path, self.to_csv_data_only())
             .map_err(|e| DigitiserError::Io(format!("cannot write {}: {e}", path.display())))
     }
 
@@ -655,7 +766,9 @@ mod tests {
             "# y_axis: linear scale",
             "# digitised_by: unit test",
             "reviewed by reviewer",
-            "x,y",
+            // The header row is the axis labels now, not a literal `x,y`
+            // (GH issue #35, 2026-09-08 — "xtitle,ytitle").
+            "time (s),power (%)",
         ] {
             assert!(csv.contains(needle), "csv missing {needle:?}:\n{csv}");
         }
@@ -751,7 +864,7 @@ mod tests {
         // fields (x, y) -- no calibration/reference values, uncertainty, or
         // origin leaking into the rows themselves.
         assert_eq!(data_lines.len(), 4, "{data_lines:?}");
-        assert_eq!(data_lines[0], "x,y");
+        assert_eq!(data_lines[0], "time (s),power (%)");
         for row in &data_lines[1..] {
             assert_eq!(
                 row.split(',').count(),

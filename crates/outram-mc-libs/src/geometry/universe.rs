@@ -8,8 +8,8 @@
 ///
 /// Key operation: [`Universe::find_cell`] — given a local position, return the
 /// first cell in this universe that contains it.
-use super::cell::Cell;
-use super::position::Position;
+use super::cell::{Cell, SurfaceToken};
+use super::position::{Direction, Position};
 use super::surface::SurfaceKind;
 
 #[derive(Debug, Clone)]
@@ -23,21 +23,30 @@ pub struct Universe {
 }
 
 impl Universe {
-    /// Find the first cell in this universe that contains `r` (in this universe's
-    /// local frame).
+    /// Find the first cell in this universe that contains a particle at `r`
+    /// heading along `u` (both in this universe's local frame).
     ///
     /// Ported from `Universe::find_cell` (`src/universe.cpp:40`): iterate the
     /// universe's cells in order and return the first whose region contains the
     /// point. Returns the **global cell index**, or `None` if the point is in no
     /// cell of this universe (a geometry "lost particle").
+    ///
+    /// `on_surface` is the surface the particle is sitting on, if any — it
+    /// disambiguates membership for a particle that has just crossed a boundary
+    /// and would otherwise be re-selected into the cell it was leaving. See
+    /// [`Cell::contains`] and [`SurfaceToken`]. Pass [`SurfaceToken::NONE`] for a
+    /// standalone point query. Because every nested frame in this crate is a
+    /// pure translation, the global token stays valid at every level.
     pub fn find_cell(
         &self,
         r: Position,
+        u: Direction,
         surfaces: &[SurfaceKind],
         cells: &[Cell],
+        on_surface: SurfaceToken,
     ) -> Option<usize> {
         for &i_cell in &self.cell_indices {
-            if cells[i_cell].contains(r, surfaces) {
+            if cells[i_cell].contains(r, u, surfaces, on_surface) {
                 return Some(i_cell);
             }
         }

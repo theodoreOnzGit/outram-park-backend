@@ -1,0 +1,13 @@
+# Upstream GSL clone -- present for development, never committed.
+# See upstream_source/README.md for provenance (commit, licence, digests).
+/upstream_source/GSL/
+
+# Any further upstream sources vendored for porting (Octave, SLATEC, Cephes).
+# Decide per routine; do not clone speculatively (op-chyp.3).
+/upstream_source/Octave/
+/upstream_source/SLATEC/
+/upstream_source/Cephes/
+
+# ARM optimized-routines clone (MIT OR Apache-2.0) -- the fast exp/log/pow
+# glibc itself ships. Present for development, never committed.
+/upstream_source/ARM-optimized-routines/

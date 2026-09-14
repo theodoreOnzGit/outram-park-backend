@@ -134,11 +134,11 @@ mod tests {
             .unwrap();
         let mut session = PaperSession::open(&root, citekey).unwrap();
         session.append_block(
-            "## First\n\n```toml\n[kovan]\nid = \"first\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
+            "# First\n\n```toml\n[kovan]\nid = \"first\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
              [source]\npage = 5\n```\n",
         );
         session.append_block(
-            "## Second\n\n```toml\n[kovan]\nid = \"second\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
+            "# Second\n\n```toml\n[kovan]\nid = \"second\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n\
              [source]\npage = 5\nregion = [0.1, 0.2, 0.3, 0.4]\n```\n",
         );
         (dir, session)
@@ -198,7 +198,7 @@ mod tests {
             .save_paper(&root.paper_dir("wang2018multiphysics"))
             .unwrap();
             let mut s = PaperSession::open(&root, "wang2018multiphysics").unwrap();
-            s.append_block("## Free note\n\n```toml\n[kovan]\nid = \"free\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n");
+            s.append_block("# Free note\n\n```toml\n[kovan]\nid = \"free\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n");
             (dir, s)
         };
         let index = ResearchRecordIndex::from_session(&session);

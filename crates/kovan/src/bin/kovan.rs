@@ -26,8 +26,25 @@
 //! needed there either).
 
 fn main() -> std::process::ExitCode {
-    let image_arg = std::env::args().nth(1);
-    match kovan::digitiser::gui::run(image_arg) {
+    // `kovan [image] [--root <dir>] [--paper <citekey>]`. The two flags open
+    // the window directly on a library, and on one paper's PDF — the
+    // scripted-startup path that makes this GUI reachable by a test or an
+    // agent taking a screenshot, rather than only by hand.
+    let mut image_arg = None;
+    let mut startup = kovan::digitiser::gui::Startup::default();
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--root" => startup.root = args.next(),
+            "--paper" => startup.paper = args.next(),
+            other if other.starts_with("--") => {
+                eprintln!("kovan: unknown option {other}");
+                return std::process::ExitCode::FAILURE;
+            }
+            other => image_arg = Some(other.to_string()),
+        }
+    }
+    match kovan::digitiser::gui::run(image_arg, startup) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("kovan: error: {e}");

@@ -81,6 +81,10 @@ pub struct SetrOutput {
     pub elinvi: Vec<f64>,
     pub sinsqr: Vec<f64>,
     pub sin2ph: Vec<f64>,
+    /// `psmall(i)`: `sqrt(P)` of a channel whose penetrability was folded
+    /// into `R`/`Y` instead of `L⁻¹` (`samm.f90:3430-3450`), else zero —
+    /// only [`crate::samm::derivs::energy::setqri`] reads it.
+    pub psmall: Vec<f64>,
     /// Channel count actually used (`<=` the group's full channel count).
     pub nchan: usize,
 }
@@ -310,6 +314,7 @@ pub fn setr(
         elinvi,
         sinsqr,
         sin2ph,
+        psmall,
         nchan,
     }
 }

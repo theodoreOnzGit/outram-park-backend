@@ -363,6 +363,9 @@ pub fn interp_xs_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
 
     /// V&V (CPU reference, analytical): linear interpolation on a uniform grid.
     ///
@@ -474,19 +477,19 @@ mod tests {
         let n_grid = 256usize;
         let e_lo = 1e-3f64;
         let e_hi = 2e7f64;
-        let log_lo = e_lo.log10();
-        let log_hi = e_hi.log10();
+        let log_lo = e_lo.r_log10();
+        let log_hi = e_hi.r_log10();
         let grid_f64: Vec<f64> = (0..n_grid)
             .map(|i| {
                 let t = i as f64 / (n_grid - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
 
         // Smooth synthetic sigma(E): slowing-down trend + a bump near 1 keV.
         let sigma_of = |e: f64| {
-            let l = e.log10();
-            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).powi(2)).exp()
+            let l = e.r_log10();
+            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).powi(2)).r_exp()
         };
         let sigma_f64: Vec<f64> = grid_f64.iter().map(|&e| sigma_of(e)).collect();
 
@@ -496,7 +499,7 @@ mod tests {
         let mut queries_f64: Vec<f64> = (0..n_query)
             .map(|i| {
                 let t = i as f64 / (n_query - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
         queries_f64.push(grid_f64[0]);

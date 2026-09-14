@@ -44,6 +44,33 @@ reason + a per-notebook bead), cite notebook provenance (source + commit), and
 document V&V methodology **and** measured results. Tracked under beads epic
 **op-6tz** (this crate's slice: **op-6tz.6**).
 
+## Oracle examples assert their comparison (2026-09-11)
+
+This crate's `tests/` are already dense with `*_njoy_golden.rs` /
+`*_njoy_oracle.rs` cases. Its `examples/` were not: they **printed** an oracle
+comparison and exited 0 whatever the numbers were. Five now assert it, using the
+gate helpers in [`vv`](src/vv.rs) — which live here, in the lower crate, and are
+re-exported by `outram_mc_libs::vv`, so there is one implementation rather than
+two that drift.
+
+| example | oracle | what it now asserts |
+|---|---|---|
+| `seam_stage_probe` | the tape's own MF=3 | `thnmax` is at the resolved-resonance limit; **bounded** BROADR reproduces MF=3 above the seam to +0.000 %; **unbounded** BROADR still loses 46.7 % there; the (n,2n) threshold is exactly zero under the bounded kernel and leaks 1.0e-6 b under the unbounded one |
+| `endf_to_broadened_xs` | analytic (convolution) | area under σ(E) is conserved 293.6 K → 900 K to **+0.000 %**, while the peak falls 37.1 % and the valley rises 253 % |
+| `tutorial_resonance_to_groups` | published RI_∞ + analytic | RI_∞ matches the published 275.7 b; RI_∞ is flat in temperature; the self-shielded integrals **rise** — which is Doppler feedback |
+| `temperature_thinning_study` | the evaluation itself | production (`LI=2`) interpolation is within **1.42 %** worst at 0.0253 eV; error grows with bracket width; log-space beats the stated law on 7/8 points |
+| `graphite_sab_generation` | the official ENDF/B-VIII.0 tape | every stored MT=4 `S` is **bit-identical**; MT=2 Bragg edges to 1e-6 and `S(E)` to 1e-4 |
+
+**`seam_stage_probe`'s unbounded-kernel assertions are counter-examples and are
+meant to keep failing the old way.** They are what demonstrates that bounding
+BROADR at `thnmax` fixes something. If `doppler_broaden` ever quietly acquires
+the bound, the two entry points stop being distinct and that program has nothing
+left to compare — the assertion says so in its failure message.
+
+That defect is also the worked example behind the root `CLAUDE.md`'s "read
+upstream first" rule: it was a missing **limit**, not a wrong formula. Formulas
+get reviewed line-by-line during translation; control flow does not.
+
 ## License compliance (MANDATORY — do not break)
 
 This crate is a **derivative work** of NJOY2016, which is under a *modified BSD

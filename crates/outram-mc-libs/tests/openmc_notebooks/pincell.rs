@@ -461,8 +461,19 @@ fn locate_tsl_hinh2o() -> Option<String> {
             return Some(p);
         }
     }
-    const CANDIDATES: &[&str] =
-        &["/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf"];
+    // This repository's own committed tape first — it is a *published*
+    // evaluation, and `ThermalScattering`'s own docs say to prefer one over a
+    // law regenerated from the LEAPR deck, because the two differ in validation
+    // standing even though the physics and grids are identical. The absolute
+    // path after it is one developer's machine and is kept only so their local
+    // runs keep resolving; it is not a path anyone else has.
+    const CANDIDATES: &[&str] = &[
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../reference-data/endf/tsl-HinH2O.endf"
+        ),
+        "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt/tsl-HinH2O.endf",
+    ];
     if let Some(p) = CANDIDATES
         .iter()
         .find(|p| std::path::Path::new(p).exists())

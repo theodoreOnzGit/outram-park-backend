@@ -1,0 +1,11 @@
+quantity,oracle,result,oracle_class,used_by_transport_path
+U-238 / U-235 point sigma,NJOY PENDF at 19 probe energies,+-0.04% / +-0.06%,NJOY2016 rebuilt in-session,yes
+U-238 capture AREA,NJOY PENDF + published RI_inf via exact integral,+0.00%,NJOY2016 + published standard,yes
+U-238 capture SHAPE,NJOY PENDF on its own grid across 6 resonances,worst 0.12% rms 0.044%,NJOY2016 rebuilt in-session,yes
+U-235 fission / capture resonance integral,NJOY PENDF,+0.00%,NJOY2016 rebuilt in-session,yes
+graphite S(alpha_beta) cross section,NJOY THERMR,+-0.05%,NJOY2016 rebuilt in-session,yes
+graphite S(alpha_beta) outgoing energy,NJOY THERMR MF=6 scattering matrix,<=0.12% above 0.2 eV; -1.53% at 0.0253 eV,NJOY2016 rebuilt in-session,yes
+moderator sigma_t / sigma_s all 8 nuclides,NJOY PENDF,<=0.05%,NJOY2016 rebuilt in-session,yes
+moderator thermal capture,NJOY PENDF at 0.0253 eV,<=0.03%,NJOY2016 rebuilt in-session,yes
+B-10 thermal absorption,2200 m/s standard + analytic 1/v law,3845.9 b; 1/v to 4e-5,published standard + analytic,yes
+H-1 free-gas elastic,analytic Doppler-broadening integral,<=0.09%,analytic,yes

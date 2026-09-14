@@ -78,7 +78,7 @@ precision; keep CPU for the reference/validated result. (Beads `op-0m5`,
 > six phases of the R-matrix-limited formalism, for the RECONR-reachable scope),
 > and **ACER** in full (4a cross-section core, 4c elastic angular, 4d energy
 > distributions, 4e heating column, 4f thermal S(α,β) tables, 4g Windowed
-> Multipole import). The **WMP** evaluator (`src/wmp.rs`, independent MIT CRPG
+> Multipole import). The **WMP** evaluator (`src/wmp/`, independent MIT CRPG
 > work — not NJOY) is a ~1276-line port with a 125-nuclide CORE library baked in.
 > The Phase-5 multigroup/covariance set is also ported: **GROUPR** (~9.4k lines),
 > **GAMINR**, **ERRORR**, **COVR**, and **LEAPR**; plus the Phase-6 formatters

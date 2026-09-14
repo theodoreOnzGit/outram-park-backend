@@ -93,10 +93,16 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_paper_stub_has_no_artifacts() {
+    fn a_fresh_paper_stub_has_only_its_paper_header_artifact() {
         let (_dir, session) = open_session();
         let index = ResearchRecordIndex::from_session(&session);
-        assert!(index.artifacts().is_empty());
+        // A stub opens with its `[kovan] kind = "paper"` header block and
+        // nothing else (GH issue #35, 2026-09-08).
+        assert_eq!(index.artifacts().len(), 1);
+        assert_eq!(
+            index.artifacts()[0].kind(),
+            crate::artifact::ArtifactKind::Paper
+        );
         assert!(index.problems().is_empty());
     }
 
@@ -104,13 +110,14 @@ mod tests {
     fn reflects_an_appended_artifact_without_touching_disk() {
         let (_dir, mut session) = open_session();
         session.append_block(
-            "## Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 7\n```\n",
+            "# Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 7\n```\n",
         );
 
         // Not saved to disk yet — the index must still see it, because it
         // is built from the buffer, not a re-read.
         let index = ResearchRecordIndex::from_session(&session);
-        assert_eq!(index.artifacts().len(), 1);
+        // The paper header artifact plus the appended note.
+        assert_eq!(index.artifacts().len(), 2);
         assert_eq!(index.get("note-1").unwrap().id(), "note-1");
         assert_eq!(index.anchored_to_page(7).len(), 1);
         assert!(index.anchored_to_page(8).is_empty());
@@ -126,12 +133,14 @@ mod tests {
     fn refresh_picks_up_a_later_change() {
         let (_dir, mut session) = open_session();
         let mut index = ResearchRecordIndex::from_session(&session);
-        assert!(index.artifacts().is_empty());
+        // Just the paper header artifact to begin with.
+        assert_eq!(index.artifacts().len(), 1);
 
         session.append_block(
-            "## Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
+            "# Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
         );
         index.refresh(&session);
-        assert_eq!(index.artifacts().len(), 1);
+        // The paper header artifact plus the appended note.
+        assert_eq!(index.artifacts().len(), 2);
     }
 }

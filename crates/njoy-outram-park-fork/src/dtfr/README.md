@@ -107,3 +107,48 @@ was blocked by *other* modules under concurrent edit — see the handoff notes):
 
 - NJOY2016 manual §DTFR (LA-UR-17-20093)
 - `dtfr.f90` (NJOY2016, commit ac5adf5); DTF-IV Sₙ code
+
+## NJOY2016 parity (2026-09-10)
+
+`tests/dtfr_u238_claw_njoy_golden.rs` runs `build_neutron_table` on the
+GENDF of an upstream `groupr(+6 2)/moder/dtfr` chain for U-238
+(`reference-data/dtfr/`) and matches NJOY's CLAW output: the `l=0 n-n
+table (32x29)` (absorption, nu*sigma_f, total, scatter band) at all 928
+entries and the ten printed edit columns at all 290 entries, worst 4.5e-6 =
+the `1PE12.5` printing. The edit accumulation (`dtfr.f90:365-382`,
+`mted = 300` reading the MT=1 flux word) was ported for this comparison.
+Still not assembled: nu*sigma_f (needs nubar), chi (MF=5/6 MT=18 spectra),
+thermal corrections, photon tables and P>0 orders (`op-7aq`).
+
+## Full-channel assembly, golden-validated (2026-09-10)
+
+`src/dtfr/assemble.rs` (`assemble_tables`) ports the whole per-material
+accumulation loop (`dtfr.f90:275-575`): every `il = 1..nlmax` neutron table
+and every `ip = 1..nptabl` photon table in one pass over the GENDF sections
+in tape order — totals and the P0 absorption seed, the `ffis`/`fcap`
+self-shielding factors at the requested sigma-zero, the CLAW edits, the
+thermal corrections, the reduced-band transfer matrices, the fission
+matrices into `nu*sigma_f` and `chi` (full rows, the `ig2lo = 0`
+constant-spectrum rows with `cnm` spread by the `ig = 0` spectrum record,
+delayed `MT=455` from MF=3 and MF=5 into `nu_d sigma_f`, `chid` and `chi`
+via `dnorm`), the `cnorm` normalisation, and the `ngp x ng` photon table
+scaled by the reaction's factor.
+
+**Oracle** (`tests/dtfr_u238_claw_full_golden.rs`, files under
+`reference-data/dtfr/*-full.*`): GROUPR `lord = 1` on NJOY's U-238 PENDF
+with `3/1 2 4 16 18 102 452 455 456`, `6/2`, `6/18`, `5/455`, `16/51`,
+`16/18` and the LANL 12-group photon structure, MODER, then DTFR in CLAW
+mode with two material cards (sigma-zero index 1 and 6). Measured: both
+cards, all 17 printed edit columns (493 values), the `l=0` and `l=1`
+32 x 29 n-n tables and the 12 x 29 n-p table within **4.9e-6** (the
+`1PE12.5` six-figure print).
+
+Two upstream index conventions are replicated literally because the
+oracle contains them: the `ig = 0` spectrum record is read from its first
+`ng` raw words although it carries `nz` copies (`dtfr.f90:451-456`), and
+the constant-spectrum production word is `a(lz+il+nl*(jz-1)+jz)` (`:471`).
+
+Still not ported: the `ruin` card reader and `dtfout` writer as a driver
+(`run` stays `NotPorted`; the formatter pieces in `format.rs` are the
+building blocks), plots, and an oracle for the thermal corrections
+(`ntherm > 0` needs an `iedit = 0` deck with a THERMR-processed GENDF).

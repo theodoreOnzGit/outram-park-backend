@@ -27,6 +27,7 @@
 /// `njoy-outram-park-fork`.
 pub use njoy_outram_park_fork::NjoyError;
 
+pub mod mathf;
 pub mod rng;
 pub mod geometry;
 pub mod particle;
@@ -34,6 +35,7 @@ pub mod material;
 pub mod source;
 pub mod tally;
 pub mod physics;
+pub mod dh_universe;
 pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
@@ -46,6 +48,7 @@ pub mod gpu;
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
+pub mod vv;
 pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where

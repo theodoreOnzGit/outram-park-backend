@@ -1424,7 +1424,17 @@ impl SteamGeneratorVisual {
         self.tag(painter, Pos2::new(cx, y(0.855)), "once-through: no level");
 
         // ── Nozzles ────────────────────────────────────────────────────────
-        // Superheated steam out at the top, feedwater in at the bottom.
+        //
+        // The two **primary-helium** connections face the reactor, drawn on the
+        // LEFT: hot gas in at the bottom (into the foot of the centre tube),
+        // cold gas out at the top (to the circulator). The two **water/steam**
+        // connections face the turbine hall, drawn on the RIGHT: feedwater in
+        // at the bottom, superheated steam out at the top. Keeping helium on
+        // one side and water on the other is what lets the HTR-10 schematic
+        // connect a compact reactor-to-SG duct bundle on the left without it
+        // having to cross the feedwater run.
+        //
+        // Superheated steam out at the top right.
         painter.rect_filled(
             Rect::from_min_max(
                 Pos2::new(cx + w * 0.30, y(0.10)),
@@ -1433,24 +1443,26 @@ impl SteamGeneratorVisual {
             2.0,
             steam,
         );
+        // Feedwater in at the bottom right.
         painter.rect_filled(
             Rect::from_min_max(
-                Pos2::new(cx - w * 0.68, y(0.885)),
-                Pos2::new(cx - w * 0.30, y(0.91)),
+                Pos2::new(cx + w * 0.30, y(0.885)),
+                Pos2::new(cx + w * 0.68, y(0.91)),
             ),
             2.0,
             feed,
         );
-        // Hot gas duct into the bottom of the centre tube.
+        // Hot gas duct into the bottom of the centre tube, from the reactor on
+        // the left.
         painter.rect_filled(
             Rect::from_min_max(
-                Pos2::new(cx + w * 0.02, y(0.925)),
-                Pos2::new(cx + w * 0.68, y(0.955)),
+                Pos2::new(cx - w * 0.68, y(0.925)),
+                Pos2::new(cx - w * 0.02, y(0.955)),
             ),
             2.0,
             primary_in,
         );
-        // Cold gas to the circulator at the top.
+        // Cold gas to the circulator at the top left.
         painter.rect_filled(
             Rect::from_min_max(
                 Pos2::new(cx - w * 0.68, y(0.045)),

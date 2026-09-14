@@ -543,6 +543,36 @@ impl DigitiseApp {
     /// creation) so the next frame's Wiki/Mindmap/Bibliography/Kvim-
     /// completion all see it, not just whichever view happened to trigger
     /// the mutation.
+    /// Open the Kovan root at `root_dir` and, when `citekey` is given,
+    /// activate that paper — the scripted equivalent of clicking through
+    /// Home -> Open -> Wiki -> a paper.
+    ///
+    /// Exists so the GUI can be launched **directly into a known state**
+    /// (`kovan --root <dir> --paper <citekey>`), which is what makes it
+    /// dogfoodable and screenshotable without a human driving the mouse.
+    /// The workspace rules require every egui surface to have a path a
+    /// machine can take; for a GUI whose whole job is interactive, that
+    /// path is at least being able to *start* anywhere a user can reach.
+    ///
+    /// Returns the first failure as a message suitable for the status bar;
+    /// the window still opens either way, so a bad citekey is visible
+    /// rather than fatal.
+    pub fn open_root_and_paper(
+        &mut self,
+        root_dir: &std::path::Path,
+        citekey: Option<&str>,
+    ) -> Result<(), String> {
+        self.home.open_dir(root_dir);
+        let Some(root) = self.home.root().cloned() else {
+            return Err(format!("not a Kovan root: {}", root_dir.display()));
+        };
+        self.refresh_knowledge(&root);
+        if let Some(citekey) = citekey {
+            self.activate_paper_and_navigate(citekey);
+        }
+        Ok(())
+    }
+
     fn refresh_knowledge(&mut self, root: &crate::root::KovanRoot) {
         let index = crate::index::KnowledgeIndex::rebuild(root);
         let _ = index.save_cache(root);
@@ -1180,7 +1210,7 @@ impl DigitiseApp {
             title
         }
         .to_string();
-        let csv_body = format!("```csv\n{}```\n", d.to_csv_string());
+        let csv_body = crate::artifact::render_csv_body(&d.to_csv_data_only());
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
@@ -1199,7 +1229,7 @@ impl DigitiseApp {
                 crate::artifact::ArtifactKind::DigitisedGraph,
                 &title,
                 anchor,
-                None,
+                Some(d.extraction("manual_digitisation", None)),
                 replace_id.as_deref(),
                 &csv_body,
             )
@@ -1219,6 +1249,23 @@ impl DigitiseApp {
         }
 
         // --- no active paper: the legacy plain-text section path ---
+        //
+        // GH issue #35, 2026-09-08: this path writes a plain heading plus a
+        // bare ```csv fence with no `[kovan]` block, so what it saves is NOT
+        // an artifact — it has no id, no kind and no `[source]`, and the PDF
+        // canvas therefore draws no region box for it. That is why a
+        // digitised graph looks fine while it is still on screen and is
+        // simply gone the next time the paper is opened. It used to happen
+        // silently; say so instead, and refuse outright when there is no
+        // project markdown configured either, rather than writing data the
+        // GUI cannot show.
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error(
+                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
+                 so this saves as a real artifact with a region box",
+            );
+            return;
+        }
         let mut block = format!("### {title}");
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
@@ -1234,17 +1281,17 @@ impl DigitiseApp {
         }
         block.push_str("\n\n");
         block.push_str(&csv_body);
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error("set the project root and markdown path first");
-            return;
-        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
             "graph_csvs",
             &block,
         ) {
-            Ok(_) => self.set_status("saved into project markdown (graph_csvs)"),
+            Ok(_) => self.set_status(
+                "saved as a plain section (no active paper) — this is NOT a Kovan \
+                 artifact and draws no box on the PDF; activate the paper and use \
+                 the reader's \"Upgrade to artifacts\" button to fix it",
+            ),
             Err(e) => self.set_error(e.to_string()),
         }
     }
@@ -2142,7 +2189,7 @@ impl eframe::App for DigitiseApp {
                     .min_size(260.0)
                     .show(ui, |ui| {
                         if let Some(d) = &self.dataset {
-                            draw_csv_preview(ui, &d.to_csv_string());
+                            draw_csv_preview(ui, &d.to_csv_string(), "graph_digitiser_csv");
                         } else {
                             ui.centered_and_justified(|ui| {
                                 ui.label("no dataset yet — run the auto pass or Start empty");
@@ -2879,13 +2926,17 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
+    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
         let mut app = DigitiseApp::default();
         app.dataset = Some(minimal_dataset());
 
         app.save_into_project();
 
+        // GH issue #35, 2026-09-08: this used to point at the manual
+        // project fields. It now names the real fix — activate a paper —
+        // because the manual path writes a plain section that is not a
+        // Kovan artifact and so never draws a region box on the PDF.
         assert!(app.message_is_error, "{}", app.message);
-        assert!(app.message.contains("project root"), "{}", app.message);
+        assert!(app.message.contains("no active paper"), "{}", app.message);
     }
 }

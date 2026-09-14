@@ -2471,6 +2471,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "farrer-park"
+version = "0.0.0"
+dependencies = [
+ "outram-foam-basic-lib",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "faster-hex"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5521,6 +5530,7 @@ dependencies = [
  "hdf5-pure",
  "log",
  "miniz_oxide",
+ "petir",
  "ratatui",
  "rayon",
  "sha2",
@@ -6243,6 +6253,7 @@ dependencies = [
  "approx",
  "ndarray",
  "ndarray-linalg",
+ "petir",
  "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
@@ -6305,6 +6316,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
+ "petir",
  "ratatui",
  "rayon",
  "thiserror 2.0.18",
@@ -6359,6 +6371,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.2"
 dependencies = [
  "approx",
+ "petir",
  "uom 0.38.0",
 ]
 
@@ -6618,6 +6631,13 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "petir"
+version = "0.0.0"
+dependencies = [
+ "libm",
 ]
 
 [[package]]
@@ -8336,7 +8356,7 @@ dependencies = [
 
 [[package]]
 name = "tampines-steam-tables"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "approx",
  "chem-eng-real-time-process-control-simulator",
@@ -8349,6 +8369,7 @@ dependencies = [
  "image",
  "local-ip-address",
  "ndarray",
+ "petir",
  "roots",
  "serde",
  "teh-o-prke",

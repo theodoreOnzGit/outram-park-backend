@@ -113,6 +113,16 @@ impl BlackOilCrude {
 
     /// A heavy crude, 22 °API — near the lower edge of the correlations'
     /// comfortable range, kept as a contrast case for the tests.
+    ///
+    /// **Characterisation fails for `cut_count >= 5` (measured 2026-09-10).**
+    /// The gamma distribution puts this crude's heaviest cut at `Tb` ≈ 1300 K
+    /// and above (`M` > 1100 g/mol), far outside the `Tb` ≈ 300-850 K band the
+    /// cut correlations are regressed for; there the Lee-Kesler acentric factor
+    /// diverges and `Vc` turns negative, and [`Self::pseudo_components`]
+    /// returns [`CharacterizationError::PseudoComponent`] naming that cut
+    /// rather than emitting it (GitHub #170). It still fills a physically
+    /// sensible [`BulkAssay`], which is what the tests use it for. Use
+    /// [`Self::light_sweet`] for a slate that characterises at 8-12 cuts.
     #[must_use]
     pub fn heavy() -> Self {
         Self {
@@ -174,6 +184,30 @@ impl BlackOilCrude {
     /// The slate in ascending boiling-point order, mole fractions summing to
     /// one, or a [`CharacterizationError`] if the bulk properties are not
     /// self-consistent enough to characterise.
+    ///
+    /// # Validity envelope — heavy crudes and many cuts
+    ///
+    /// The cut correlations are regressed for `Tb` ≈ 300-850 K and
+    /// `M` ≈ 70-500 g/mol. The heaviest cut of a heavy crude leaves that band
+    /// quickly as `cut_count` grows, and there the Lee-Kesler acentric factor
+    /// diverges (its denominator vanishes as `Tb/Tc → 1`), driving
+    /// `Zc = 0.291 − 0.08·ω` and with it `Vc = R·Zc·Tc/Pc` **negative**. Such a
+    /// cut is refused, not emitted: the call returns
+    /// [`CharacterizationError::PseudoComponent`] wrapping
+    /// [`crate::petroleum::pseudo_component::PseudoComponentError::NonPhysical`]
+    /// with `property == "critical_volume"` and the offending cut's name and
+    /// 1-based index (GitHub #170; before that fix the negative `Vc` was
+    /// returned as an ordinary finite `f64`).
+    ///
+    /// Measured 2026-09-10 with the default correlation set: the 22 °API
+    /// [`Self::heavy`] characterises at 2-4 cuts (at 4 the top cut is already
+    /// at `ω = 3.60`, `Zc = 0.0027`) and fails at 5 and above (at 5 the fifth
+    /// cut has `Vc = −2.20e-3 m³/mol`; at 10 the tenth has `Tb = 1463 K`,
+    /// `ω = 13.94`, `Vc = −3.27e-2 m³/mol`; at 12 the twelfth has `ω = 25.3`,
+    /// `Vc = −7.33e-2 m³/mol`). The 38 °API [`Self::light_sweet`] is clean
+    /// through at least 20 cuts. No bound is placed on `ω` itself — cuts with
+    /// `ω` of 1.5-3.6 still pass, and whether they *should* is a validity
+    /// question the correlations' authors, not this guard, have to answer.
     ///
     /// # Units
     ///
@@ -410,6 +444,81 @@ mod tests {
         }
     }
 
+    /// # Methodology — GitHub #170 regression
+    ///
+    /// Before 2026-09-10, `BlackOilCrude::heavy().pseudo_components(10)`
+    /// returned `Ok` with a slate whose tenth cut carried a **negative critical
+    /// volume** and an acentric factor of 13.9 — ordinary finite `f64`s that
+    /// nothing downstream could detect; the crude column converged on that
+    /// slate and its material balance closed to machine precision. The guard
+    /// in `build_pseudo_component` (same pattern as `select_root`'s `Z > B`
+    /// filter in `thermo/cubic_eos.rs`, which also shipped without a
+    /// regression test) must now refuse the cut. This test pins three things:
+    /// the call is an `Err`, not an `Ok` hiding a negative `Vc`; the error
+    /// names the offending cut and property; and the rejected value is the
+    /// finite negative number the correlation actually produced, so the
+    /// failure is legible. It also pins that the 38 °API crude is unaffected.
+    ///
+    /// Reference: the numbers recorded in GitHub #170 from the Python
+    /// bindings, reproduced here in Rust before the fix (see below).
+    ///
+    /// # Results, measured 2026-09-10 (`cargo test --release`, default
+    /// correlation set)
+    ///
+    /// Before the guard, `heavy()` at 10 cuts gave, for cuts 7-10 (1-based):
+    /// `ω = 1.6081, 2.4373, 13.9426` and `Vc = 2.339660e-3, 2.002933e-3,
+    /// −3.268056e-2 m³/mol` for cuts 8, 9, 10 — cut 9 already non-monotonic,
+    /// cut 10 negative; `Tb/Tc` for cut 10 is 0.9848, `Zc = −0.8244`. All
+    /// cuts have positive `Tc` and `Pc`, so `critical_volume` is the first
+    /// property to fail. After the guard the same call returns
+    /// `Err(PseudoComponent(NonPhysical { name: "Crude22API_NBP_1190",
+    /// index: 10, property: "critical_volume", value: -3.268056e-2 }))`.
+    /// `light_sweet()` at 10 cuts still characterises (top cut `ω = 1.232`,
+    /// `Vc = 2.0506e-3 m³/mol`). Test passes.
+    #[test]
+    fn heavy_crude_top_cut_is_refused_rather_than_emitted_with_negative_vc() {
+        use crate::petroleum::pseudo_component::PseudoComponentError;
+
+        let err = BlackOilCrude::heavy()
+            .pseudo_components(10)
+            .expect_err("the 22 API crude's tenth cut has Zc < 0 and must be refused");
+
+        match err {
+            CharacterizationError::PseudoComponent(PseudoComponentError::NonPhysical {
+                name,
+                index,
+                property,
+                value,
+            }) => {
+                assert_eq!(
+                    name, "Crude22API_NBP_1190",
+                    "the heaviest cut is the offender"
+                );
+                assert_eq!(index, 10, "1-based position in a 10-cut slate");
+                assert_eq!(
+                    property, "critical_volume",
+                    "Tc and Pc are positive for every cut; Vc is what goes negative"
+                );
+                assert!(
+                    value.is_finite() && value < 0.0,
+                    "the rejected Vc must be the finite negative number the correlation \
+                     produced ({value}), not a NaN sentinel"
+                );
+                let reference = -3.268056e-2;
+                assert!(
+                    ((value - reference) / reference).abs() < 1e-4,
+                    "Vc = {value} m^3/mol vs the #170 figure {reference}"
+                );
+            }
+            other => panic!("expected a NonPhysical critical_volume rejection, got {other:?}"),
+        }
+
+        // The guard must not reach the crude the module's worked example uses.
+        BlackOilCrude::light_sweet()
+            .pseudo_components(10)
+            .expect("38 API crude still characterises at 10 cuts");
+    }
+
     /// # Methodology
     ///
     /// `CrudeCut` is a labelling aid, so the only thing worth pinning is that
@@ -462,14 +571,19 @@ mod tests {
 ///
 /// **A real CDU is not reboiled.** It is a refluxed absorber stripped with
 /// open steam at the bottom, with pump-around circuits removing heat down the
-/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] exists in the
-/// solver's enum, but [`RigorousColumn::distillation`] is the only constructor
-/// and fixes the type to a reboiled distillation column; reaching the other
-/// variant would mean extending that builder. That is deliberately **not** done
-/// here, and the consequence is stated rather than hidden: this model has no
-/// stripping steam, no pump-arounds and no crude furnace, so its energy balance
-/// is not a refinery's. It resolves *where the cuts land*, which is what a
-/// teaching or scoping model is for.
+/// column. [`crate::columns::ColumnType::RefluxedAbsorber`] is reachable since
+/// 2026-09-10 through [`RigorousColumn::refluxed_absorber`](crate::columns::initial_estimates::RigorousColumn::refluxed_absorber) (GitHub #103), but
+/// this module deliberately still builds a reboiled
+/// [`RigorousColumn::distillation`](crate::columns::initial_estimates::RigorousColumn::distillation) column, because the refluxed-absorber
+/// variant is **not yet physically solvable** in this port: the bubble-point
+/// solvers pin its distillate rate to the initial estimate and never enforce
+/// the bottom-stage energy balance, and Naphtali-Sandholm does not converge on
+/// it (both measured and recorded in that constructor's docs and in
+/// `columns::column_type_tests`). Switching the CDU over is solver work, not a
+/// builder change. The consequence is stated rather than hidden: this model has
+/// no stripping steam, no pump-arounds and no crude furnace, so its energy
+/// balance is not a refinery's. It resolves *where the cuts land*, which is
+/// what a teaching or scoping model is for.
 ///
 /// # Units
 ///
@@ -710,6 +824,35 @@ pub struct CutResult {
     /// *label*, assigned after the fact from [`CrudeCut::from_normal_boiling_point_k`];
     /// nothing in the solve is constrained to hit it.
     pub cut: CrudeCut,
+    /// Converged mole fractions of this product \[-\], indexed by
+    /// [`CrudeColumnResult::components`] — **not** by the column's own
+    /// component list, which is shorter (see below).
+    ///
+    /// # Where each row comes from
+    ///
+    /// | Cut | Source |
+    /// |---|---|
+    /// | distillate (`stage == 0`) | the converged liquid leaving the total condenser, `ColumnSolverOutput::liquid_compositions[0]` |
+    /// | side draw | the converged liquid on that stage, `liquid_compositions[stage]` |
+    /// | residue (last stage) | the column bottoms **mixed with the bypassed heavy end** — see [`CrudeColumnConfig::residue_cut_point_k`] |
+    ///
+    /// # Basis
+    ///
+    /// The basis is the **whole** pseudo-component slate: the column's own
+    /// light-end components first, in solver order, then the heavy cuts that
+    /// never entered the column. Every cut but the residue is therefore zero
+    /// in the heavy entries. Mixing the bypass back into the residue here is
+    /// what makes `flow_mol_s * composition[i]`, summed over the cuts, close
+    /// the per-component balance on the whole crude — asserted by
+    /// [`CrudeColumnResult::component_molar_rates`]'s test.
+    ///
+    /// # This is a mole fraction, not an assay
+    ///
+    /// The components are pseudo-components generated from bulk properties,
+    /// so a composition here inherits every assumption of the
+    /// characterisation. It is a scoping number, exactly as the cut labels
+    /// are.
+    pub composition: Vec<f64>,
 }
 
 /// A converged atmospheric crude column.
@@ -718,6 +861,11 @@ pub struct CrudeColumnResult {
     /// Products, ordered top to bottom: distillate, then the side draws, then
     /// the bottoms residue.
     pub cuts: Vec<CutResult>,
+    /// The composition basis every [`CutResult::composition`] is indexed by:
+    /// the column's own light-end pseudo-components first, in the order the
+    /// MESH solver indexes them, followed by the heavy cuts that bypassed the
+    /// column. Length equals the full slate generated for `cut_count`.
+    pub components: Vec<PseudoComponent>,
     /// Converged stage temperatures \[K\], condenser first.
     pub stage_temperatures_k: Vec<f64>,
     /// Inner iterations the solver took.
@@ -731,6 +879,24 @@ impl CrudeColumnResult {
     #[must_use]
     pub fn total_product_mol_s(&self) -> f64 {
         self.cuts.iter().map(|c| c.flow_mol_s).sum()
+    }
+
+    /// Per-component molar rates leaving the whole unit \[mol/s\], indexed by
+    /// [`Self::components`].
+    ///
+    /// This is `sum over cuts of flow_mol_s * composition[i]`, i.e. the
+    /// component balance the cuts close. Compare it against
+    /// `feed_flow_mol_s * z_i` of the characterised slate to check the solve
+    /// conserved moles component by component.
+    #[must_use]
+    pub fn component_molar_rates(&self) -> Vec<f64> {
+        let mut rates = vec![0.0; self.components.len()];
+        for cut in &self.cuts {
+            for (r, x) in rates.iter_mut().zip(cut.composition.iter()) {
+                *r += cut.flow_mol_s * x;
+            }
+        }
+        rates
     }
 }
 
@@ -754,6 +920,18 @@ pub struct CrudeColumnSetup {
     /// Heavy end that never entered the column and reports straight to
     /// residue \[mol/s\]. See [`CrudeColumnConfig::residue_cut_point_k`].
     pub bypass_mol_s: f64,
+    /// The column's own components — the light end of the slate, in exactly
+    /// the order the MESH solver indexes compositions and K-values by, so
+    /// `column_components[i]` names `ColumnSolverOutput::liquid_compositions[s][i]`.
+    ///
+    /// `mole_fraction` on each entry is still on the **whole-crude** basis
+    /// (they sum to `1 - bypass_fraction`), not the renormalised column feed.
+    pub column_components: Vec<PseudoComponent>,
+    /// The heavy cuts that boil above [`CrudeColumnConfig::residue_cut_point_k`]
+    /// and bypass the fractionator to the residue. `mole_fraction` is on the
+    /// whole-crude basis, so this cut's molar rate is
+    /// `feed_flow_mol_s * mole_fraction` and the sum is [`Self::bypass_mol_s`].
+    pub bypass_components: Vec<PseudoComponent>,
 }
 
 /// Assemble a crude column from a black-oil characterisation without solving
@@ -919,6 +1097,8 @@ pub fn crude_column_setup(
         column_distillate_mol_s: column_distillate,
         bottoms_mol_s,
         bypass_mol_s,
+        column_components: light,
+        bypass_components: heavy,
     })
 }
 
@@ -966,6 +1146,8 @@ pub fn solve_crude_column(
         column_distillate_mol_s: column_distillate,
         bottoms_mol_s,
         bypass_mol_s,
+        column_components,
+        bypass_components,
     } = crude_column_setup(crude, config, cut_count)?;
 
     let out = ColumnSolverMethod::default()
@@ -975,12 +1157,34 @@ pub fn solve_crude_column(
     let temps = out.stage_temperatures.clone();
     let at = |s: usize| temps.get(s).copied().unwrap_or(f64::NAN);
 
+    // The composition basis: the column's own components first (so index `i`
+    // is the solver's index `i`), then the bypassed heavy end.
+    let n_light = column_components.len();
+    let n_all = n_light + bypass_components.len();
+
+    // A converged liquid composition lifted onto the full basis. The heavy
+    // entries are zero for everything that came out of the column, because
+    // those components were never in its feed.
+    let liquid_on_full_basis = |stage: usize| -> Vec<f64> {
+        let mut x = vec![0.0; n_all];
+        if let Some(row) = out.liquid_compositions.get(stage) {
+            for (slot, value) in x.iter_mut().zip(row.iter()) {
+                *slot = *value;
+            }
+        }
+        x
+    };
+
     let mut cuts = Vec::with_capacity(config.side_draws.len() + 2);
+    // A total condenser (`RigorousColumn::distillation`) makes the distillate
+    // the liquid side draw off stage 0, so its composition is the stage-0
+    // liquid.
     cuts.push(CutResult {
         stage: 0,
         flow_mol_s: column_distillate,
         temperature_k: at(0),
         cut: CrudeCut::from_normal_boiling_point_k(at(0)),
+        composition: liquid_on_full_basis(0),
     });
     for &(stage, rate) in &draw_rates {
         cuts.push(CutResult {
@@ -988,21 +1192,47 @@ pub fn solve_crude_column(
             flow_mol_s: rate,
             temperature_k: at(stage),
             cut: CrudeCut::from_normal_boiling_point_k(at(stage)),
+            composition: liquid_on_full_basis(stage),
         });
     }
     // The residue is the column bottoms PLUS the heavy end that never entered
     // the column. Adding the bypass back here is what keeps the overall balance
     // closed on the whole crude rather than only on the light end.
     let last = config.n_stages - 1;
+    let residue_mol_s = bottoms_mol_s + bypass_mol_s;
+    // Mix the two streams on a molar basis: the bottoms carry the light
+    // components, the bypass carries the heavy ones, and there is no overlap
+    // because the partition at `residue_cut_point_k` is disjoint.
+    let residue_composition = {
+        let mut rates = liquid_on_full_basis(last);
+        for r in rates.iter_mut().take(n_light) {
+            *r *= bottoms_mol_s;
+        }
+        for (slot, pc) in rates.iter_mut().skip(n_light).zip(bypass_components.iter()) {
+            *slot = config.feed_flow_mol_s * pc.mole_fraction.get::<ratio>();
+        }
+        let total: f64 = rates.iter().sum();
+        if total > 0.0 {
+            for r in rates.iter_mut() {
+                *r /= total;
+            }
+        }
+        rates
+    };
     cuts.push(CutResult {
         stage: last,
-        flow_mol_s: bottoms_mol_s + bypass_mol_s,
+        flow_mol_s: residue_mol_s,
         temperature_k: at(last),
         cut: CrudeCut::Residue,
+        composition: residue_composition,
     });
+
+    let mut components = column_components;
+    components.extend(bypass_components);
 
     Ok(CrudeColumnResult {
         cuts,
+        components,
         stage_temperatures_k: temps,
         iterations: out.iterations_taken,
         final_error: out.final_error,
@@ -1238,5 +1468,158 @@ mod column_tests {
             "expected distillate + {} side draws + bottoms",
             config.side_draws.len()
         );
+    }
+
+    /// Cut compositions come off the converged MESH profile and close the
+    /// per-component balance on the whole crude.
+    ///
+    /// # Methodology
+    ///
+    /// `solve_crude_column` discarded everything the column solver converged
+    /// except the stage temperatures, so a "cut" was a flow and a temperature
+    /// with no composition. [`CutResult::composition`] now carries the
+    /// converged liquid leaving each product stage, lifted onto the whole
+    /// pseudo-component slate, with the bypassed heavy end mixed into the
+    /// residue.
+    ///
+    /// The check is on **invariants**, not on a stored golden vector — the
+    /// reference for a composition would be a DWSIM run or an assay, and this
+    /// crate has neither for this case (see `docs/upstream-port-coverage.md`
+    /// §1: no row is `PORTED + VALIDATED`). What is asserted here:
+    ///
+    /// 1. every composition is indexed by [`CrudeColumnResult::components`]
+    ///    and normalises to 1;
+    /// 2. every cut that came *out of the column* is exactly zero in the
+    ///    bypassed heavy components, because those were never in its feed;
+    /// 3. `sum over cuts of flow * x_i` reproduces `feed_flow * z_i` of the
+    ///    characterised slate, component by component — the property that
+    ///    makes the numbers usable as a stream rather than a display value;
+    /// 4. the products are ordered in volatility: the distillate's
+    ///    composition-weighted mean normal boiling point is below every side
+    ///    draw's, which is below the residue's.
+    ///
+    /// This is a **harness check on the port, not physics validation**. It
+    /// cannot detect a wrong K-value; it detects a wrong wiring, which is what
+    /// the field's introduction can plausibly get wrong.
+    ///
+    /// # Results (measured 2026-09-11, release mode, this commit)
+    ///
+    /// `BlackOilCrude::light_sweet()` + `CrudeColumnConfig::atmospheric_default()`
+    /// at `cut_count = 12`, Wang-Henke (the default solver): converged in
+    /// **34 iterations**, final error **7.72e-7**. The slate splits 9 light /
+    /// 3 bypassed at the 700 K residue cut point.
+    ///
+    /// | cut | stage | T \[K\] | flow \[mol/s\] | leading mole fractions |
+    /// |---|---|---|---|---|
+    /// | distillate | 0 | 423.693 | 0.337644 | 0.2410, 0.2360, 0.2254, 0.1936, 0.0944 (NBP 109-218) |
+    /// | side draw | 4 | 494.322 | 0.090038 | peak 0.3646 at NBP 218, 0.3532 at NBP 245 |
+    /// | side draw | 6 | 511.174 | 0.075032 | peak 0.3955 at NBP 245, 0.2816 at NBP 273 |
+    /// | side draw | 8 | 528.982 | 0.060026 | peak 0.3974 at NBP 273, 0.1935 at NBP 305 |
+    /// | residue | 11 | 587.322 | 0.437260 | 0.1906, 0.1908, 0.1896 on the three bypassed cuts |
+    ///
+    /// Worst per-component relative imbalance: **5.55e-6**, on the same order
+    /// as the solver's own converged error — the three bypassed components
+    /// close to **1.7e-16** (machine epsilon) because they never pass through
+    /// the solve. Interpretation: the compositions are the converged profile's
+    /// own, not a re-derivation, and they conserve moles.
+    #[test]
+    fn cut_compositions_close_the_component_balance() {
+        use uom::si::ratio::ratio as ratio_u;
+
+        let crude = BlackOilCrude::light_sweet();
+        let config = CrudeColumnConfig::atmospheric_default();
+        let cut_count = 12;
+        let result = solve_crude_column(&crude, &config, cut_count).expect("column should solve");
+
+        let slate = crude
+            .pseudo_components(cut_count)
+            .expect("characterisation should succeed");
+        assert_eq!(
+            result.components.len(),
+            slate.len(),
+            "the composition basis must be the whole slate"
+        );
+
+        let n_light = result
+            .components
+            .iter()
+            .filter(|pc| pc.component.normal_boiling_point < config.residue_cut_point_k)
+            .count();
+        assert!(
+            n_light >= 2 && n_light < result.components.len(),
+            "this case is only meaningful with a genuine light/heavy split; got \
+             {n_light} light of {}",
+            result.components.len()
+        );
+
+        // (1) and (2).
+        for cut in &result.cuts {
+            assert_eq!(
+                cut.composition.len(),
+                result.components.len(),
+                "cut on stage {} is not indexed by the full basis",
+                cut.stage
+            );
+            let sum: f64 = cut.composition.iter().sum();
+            assert!(
+                (sum - 1.0).abs() < 1e-10,
+                "cut on stage {} has mole fractions summing to {sum}",
+                cut.stage
+            );
+            assert!(
+                cut.composition.iter().all(|x| x.is_finite() && *x >= 0.0),
+                "cut on stage {} has a non-physical mole fraction",
+                cut.stage
+            );
+            if cut.cut != CrudeCut::Residue {
+                for (i, x) in cut.composition.iter().enumerate().skip(n_light) {
+                    assert_eq!(
+                        *x, 0.0,
+                        "cut on stage {} carries bypassed component {i}, which never \
+                         entered the column",
+                        cut.stage
+                    );
+                }
+            }
+        }
+
+        // (3): the per-component balance on the whole crude.
+        let rates = result.component_molar_rates();
+        let mut worst = 0.0_f64;
+        for (i, pc) in result.components.iter().enumerate() {
+            let fed = slate
+                .iter()
+                .find(|s| s.component.name == pc.component.name)
+                .map(|s| config.feed_flow_mol_s * s.mole_fraction.get::<ratio_u>())
+                .expect("every basis component comes from the slate");
+            worst = worst.max((rates[i] - fed).abs() / fed.max(1e-30));
+        }
+        assert!(
+            worst < 1e-4,
+            "per-component balance does not close: worst relative error {worst:e}"
+        );
+
+        // (4): products in volatility order.
+        let mean_nbp = |x: &[f64]| -> f64 {
+            x.iter()
+                .zip(result.components.iter())
+                .map(|(xi, pc)| xi * pc.component.normal_boiling_point)
+                .sum()
+        };
+        let overhead = mean_nbp(&result.cuts[0].composition);
+        let residue = mean_nbp(&result.cuts[result.cuts.len() - 1].composition);
+        assert!(
+            overhead < residue,
+            "overhead mean NBP {overhead:.1} K is not below the residue's {residue:.1} K"
+        );
+        for cut in &result.cuts[1..result.cuts.len() - 1] {
+            let side = mean_nbp(&cut.composition);
+            assert!(
+                side > overhead && side < residue,
+                "side draw on stage {} has mean NBP {side:.1} K, outside the \
+                 overhead ({overhead:.1} K) / residue ({residue:.1} K) bracket",
+                cut.stage
+            );
+        }
     }
 }

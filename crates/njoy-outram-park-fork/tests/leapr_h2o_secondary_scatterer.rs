@@ -313,26 +313,25 @@ fn cross_section_matches_the_published_evaluation() {
     );
 }
 
-/// A short-collision-time secondary scatterer is still refused, loudly.
+/// A short-collision-time secondary (`b7 = 0`) is a **second LEAPR pass** over
+/// the secondary scatterer's own cards 10-19 (`leapr.f90:399-408`), merged
+/// into S(alpha, beta) (bead `op-bax5`, ported and verified against NJOY2016
+/// on `tsl-SiO2-alpha`, 2026-09-10). A deck that flips `b7` to 0 without
+/// supplying those blocks therefore cannot be parsed into a law at all — the
+/// parser reaches the comment cards where it expects the secondary's card 10.
+/// This pins that a `b7 = 0` card can never be silently satisfied by the
+/// principal's spectrum alone.
 ///
-/// The `b7 = 0` case needs the genuine mixed-moderator merge — a second LEAPR
-/// pass over the secondary scatterer, merged as
-/// `S = S_principal + (sbs/sb)*S_secondary` (`leapr.f90:3018-3030`) — which is
-/// **not** ported (bead `op-bax5`). No registered deck uses it. This asserts the
-/// refusal rather than the merge, so that porting `b7 > 0` cannot be mistaken
-/// for having ported all of `nss`.
+/// **Methodology.** Take the real water deck, rewrite card 6's `b7` from `1`
+/// to `0` (nothing else), and re-parse.
 ///
-/// **Methodology.** Take the real water deck, rewrite card 6's `b7` from `1` to
-/// `0`, and re-parse.
+/// **Pass criterion:** parsing fails; and a real mixed-moderator deck with both
+/// block sets (`tsl-SiO2-alpha`) parses with no unsupported feature.
 ///
-/// **Pass criterion:** `unsupported_features` names the short-collision-time
-/// secondary.
-///
-/// **Result (2026-08-14):** reported as
-/// `"nss = 1 with b7 = 0 (short-collision-time secondary: the mixed-moderator
-/// S(alpha,beta) merge is not ported)"`.
+/// **Result (2026-09-10):** the patched water deck errors on the missing
+/// secondary temperature block; `tsl-SiO2-alpha` parses with 5 + 5 blocks.
 #[test]
-fn short_collision_time_secondary_is_still_refused() {
+fn short_collision_time_secondary_needs_its_own_spectra() {
     let text = njoy_outram_park_fork::leapr::decks::embedded_deck_text(SabMaterial::HInH2O)
         .expect("tsl-HinH2O.leapr is compiled in");
     // Card 6 of the real deck; only b7 changes.
@@ -341,13 +340,19 @@ fn short_collision_time_secondary_is_still_refused() {
         "1 0 15.85751 3.7939 1  / NSS B7 AWS SPS MSS",
     );
     assert_ne!(patched, text, "card 6 must have been found and rewritten");
-
-    let deck = LeaprDeck::parse(&patched).expect("the patched deck still parses");
-    let unsupported = deck.unsupported_features();
     assert!(
-        unsupported
-            .iter()
-            .any(|f| f.contains("short-collision-time")),
-        "a b7 = 0 secondary must be refused, got {unsupported:?}"
+        LeaprDeck::parse(&patched).is_err(),
+        "a b7 = 0 deck without the secondary's temperature blocks must not parse"
+    );
+
+    let sio2 = njoy_outram_park_fork::leapr::decks::embedded_deck_text(SabMaterial::SiO2Alpha)
+        .expect("tsl-SiO2-alpha.leapr is compiled in");
+    let d = LeaprDeck::parse(sio2).expect("the mixed-moderator deck parses");
+    assert!(d.is_mixed_moderator());
+    assert_eq!(d.secondary_temperatures.len(), d.temperatures.len());
+    assert!(
+        d.unsupported_features().is_empty(),
+        "{:?}",
+        d.unsupported_features()
     );
 }

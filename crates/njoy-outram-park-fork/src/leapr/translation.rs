@@ -277,6 +277,14 @@ fn sbfill(nbt: usize, mut delta: f64, be: f64, s: &[f64], betan: &[f64]) -> (Vec
         }
         bet += delta;
     }
+    // `trans` reads `sb(nbt+i-1)` up to `sb(2*nbt-1)` (leapr.f90:920-923).
+    // The loop above is upstream's verbatim, and when the accumulated
+    // rounding of `bet += delta` over ~2*nbt steps exceeds the `delta/100`
+    // slack in `bmax` it stops one entry short (D-in-D2O at 293.6 K: 31,628
+    // entries for nbt = 15,815). Upstream then reads whatever the persistent
+    // `sb(ndmax)` array holds there, weighted by the kernel's truncated tail
+    // `sd(nbt) <= eps*sd(1)`; zero is the value that term is meant to carry.
+    sb.resize(sb.len().max(2 * nbt - 1), 0.0);
     (sb, delta)
 }
 

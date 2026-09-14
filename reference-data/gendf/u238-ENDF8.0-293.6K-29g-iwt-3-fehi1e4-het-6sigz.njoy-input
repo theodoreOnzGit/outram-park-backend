@@ -1,0 +1,17 @@
+groupr
+ 20 22 0 23/
+ 9237 1 0 -3 0 1 6 1/
+ 'u238 29-group golden, iwt=-3 flux calculator, heterogeneity/multi-moderator'/
+ 293.6/
+ 1e10 1e4 1e3 1e2 10 1/
+ 29/
+ 1e-5 0.1 0.625 1 4 6.5 8 10 15 20 25 30 40 50 100 200 500 1e3 2e3 5e3
+ 1e4 2e4 5e4 1e5 5e5 1e6 2e6 5e6 1e7 2e7/
+ 1e4 11.29 300000 0 0 0.7768 0.5 0.3 0.7143 0.4/
+ 3 1 'total'/
+ 3 2 'elastic'/
+ 3 18 'fission'/
+ 3 102 'capture'/
+ 0/
+ 0/
+stop

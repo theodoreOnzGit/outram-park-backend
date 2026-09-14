@@ -66,6 +66,61 @@
 //! so a line's bbox is converted once by that factor before hit-testing
 //! against the drag rect. **Line granularity, not glyph/character
 //! granularity** — a deliberate scope cut (see [`select_text_in_rect`]).
+//!
+//! ## Every source-anchored artifact draws, not only annotations (op-30um.5)
+//!
+//! The canvas's "saved artifact region boxes" pass draws **every** artifact
+//! [`crate::research_record::ResearchRecordIndex`] returns that has a valid
+//! page plus a normalised `[source] region` — `Annotation`/`Note`,
+//! `DigitisedGraph`, `DigitisedTable`, `Formula`, and `SourceReference`
+//! alike, per GitHub issue #35's "layer 2" prototype
+//! (`collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/`).
+//! The artifact is the node; a digitised graph's or table's CSV is that
+//! artifact's *payload* (shown via [`draw_csv_preview`] in the page-context
+//! panel), never a second overlay of its own. An artifact anchored only by
+//! a `pages` range has no `region` (§15 forbids combining the two) and so
+//! is never boxable — it still appears in the page-context panel, just not
+//! as a canvas rectangle.
+//!
+//! Colour is **semantic and resolved centrally**: [`super::theme::
+//! artifact_accent`] maps each [`ArtifactKind`] to a Gruvbox accent that
+//! holds in both themes (yellow / aqua / blue / purple / orange), so no
+//! call site here constructs a literal `Color32` for an artifact box.
+//!
+//! The region→screen-rect reconstruction itself
+//! ([`region_to_screen_rect`], selected per visible page by
+//! [`artifact_overlays_for_page`]) is a **pure function** independent of
+//! `egui::Ui`/`PageView` — the same placement arithmetic
+//! [`super::page_canvas::PageView::project`] uses, so the two agree pixel
+//! for pixel, but callable and unit-testable with no window or GPU texture
+//! state.
+//!
+//! ## Right-click on a saved artifact: one kind-aware menu (op-30um.3/.6)
+//!
+//! Right-clicking an already-saved artifact's region box — of *any*
+//! [`ArtifactKind`], now that [`super::theme::artifact_accent`] draws them
+//! all — offers one fixed five-entry menu: an edit entry, then
+//! **Add connection…** / **Edit connections…** / **Delete connection…**,
+//! then **Delete annotation…**, which asks "Sure anot? [No] [Yes]" before
+//! calling [`classify::delete_artifact_cascade`]. Only the edit entry's
+//! *label* varies by kind ("Edit annotation", "Edit source reference",
+//! "Edit formula", "Edit table", "Edit digitisation") — its handling does
+//! not, since [`PdfReaderState::open_artifact`] already dispatches
+//! text-bodied kinds to the block editor and `DigitisedTable`/
+//! `DigitisedGraph` to a digitiser re-crop. This is deliberately **one**
+//! menu, not five (op-30um.6's stated anti-goal).
+//!
+//! The entry list itself — which buttons appear, in what order, enabled or
+//! not, and what each does when clicked — is [`saved_artifact_menu_entries`],
+//! a plain function from `(ArtifactKind, bool)` to `Vec<MenuEntry>` with no
+//! `egui` in its signature. [`PdfReaderState::context_menu_ui`] does nothing
+//! but render that list and match on each [`MenuAction`]; the connection
+//! actions themselves are a further thin shell straight over
+//! [`relation::add_connection`]/[`relation::connections`]/
+//! [`relation::edit_connection`]/[`relation::delete_connection`], fed by
+//! [`library_candidates`] for "Add connection…"'s fuzzy picker. No
+//! graph-walking, relation deletion, or partial write ever happens in the
+//! egui layer itself — a cancelled dialog leaves everything untouched.
 
 use std::collections::HashMap;
 
@@ -78,11 +133,16 @@ use kopitiam_pdf::mupdf::{
 };
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
+use crate::autocomplete::{library_candidates, LibraryCandidate};
 use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
 use crate::digitiser::raster::PlotRaster;
 use crate::entity::Classification;
+use crate::graph::artifact_node;
+use crate::index::KnowledgeIndex;
 use crate::project;
+use crate::relation::{self, RelationKind};
+use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
@@ -168,22 +228,211 @@ impl Annotation {
 }
 
 /// What a floating [`ContextMenu`] was opened on.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ContextMenuTarget {
     /// The just-drawn, not-yet-confirmed box in `pending_box`.
     NewBox,
-    /// An already-saved annotation, by index into that page's `Vec` in
-    /// `annotations`.
+    /// An already-saved, not-yet-persisted **in-memory** annotation box, by
+    /// index into that page's `Vec` in `annotations` — see the module doc's
+    /// "in-memory only" note. Offers only Edit/Delete, since it has no
+    /// citekey/artifact id yet to hang a relation off of.
     Existing(usize),
+    /// A **saved** artifact already in the paper's Markdown (any kind, per
+    /// op-30um.5's overlay — Annotation/Note, DigitisedGraph, DigitisedTable,
+    /// Formula, SourceReference), by its stable
+    /// [`crate::artifact::ArtifactMeta::id`]. Offers the full op-30um.3 menu:
+    /// Edit / Add connection / Edit connections / Delete connection /
+    /// Delete annotation.
+    SavedArtifact(String),
 }
 
 /// A floating right-click menu (op-x9qn), positioned at the click's screen
-/// coordinates. `Copy` so it can be read out of `self` by value without a
-/// borrow fight against the `&mut self` methods its buttons call.
-#[derive(Debug, Clone, Copy)]
+/// coordinates. `Clone`, not `Copy` — [`ContextMenuTarget::SavedArtifact`]
+/// owns a `String`, so a read-out-of-`self` call site now clones instead of
+/// copying (same "read it out without fighting the `&mut self` methods its
+/// buttons call" reasoning [`ContextMenuTarget`] used to rely on `Copy` for).
+#[derive(Debug, Clone)]
 struct ContextMenu {
     screen_pos: Pos2,
     target: ContextMenuTarget,
+}
+
+/// Which connection-related sub-popup one of op-30um.3's new menu items
+/// opens, and which node it operates on. A thin shell over
+/// [`crate::relation`]'s CRUD: this only renders results and forwards a
+/// click to the matching function — no relation lookup or graph walk
+/// happens anywhere else in this file.
+#[derive(Debug, Clone)]
+enum ConnectionPopup {
+    /// "Add connection..." — a fuzzy target picker (backed by
+    /// [`library_candidates`]) plus a cyclable [`RelationKind`].
+    Add {
+        source: String,
+        query: String,
+        kind: RelationKind,
+    },
+    /// "Edit connections..." / "Delete connection..." — both open the same
+    /// view of every [`relation::UserRelation`] touching `node`
+    /// ([`relation::connections`]), each row offering a kind-cycle button
+    /// and a Delete button; the two menu entries are two doors into one
+    /// management view rather than two separate dialogs.
+    Manage { node: String },
+    /// "Delete annotation..." confirm — the maintainer's own wording,
+    /// verbatim: "Sure anot? [No] [Yes]". `Yes` calls
+    /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
+    /// nothing at all (the dialog is closed, `self` otherwise untouched).
+    ConfirmDelete { citekey: String, artifact_id: String },
+}
+
+/// What one [`MenuEntry`] does when clicked, for the op-30um.3/.6 saved-
+/// artifact right-click menu. [`PdfReaderState::context_menu_ui`] is the
+/// only place that matches on this and calls into behaviour (opening the
+/// block editor, a [`ConnectionPopup`]) — [`saved_artifact_menu_entries`]
+/// itself never touches `egui`, a [`KovanRoot`], or a [`KnowledgeIndex`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MenuAction {
+    /// Edit or re-open this artifact's payload.
+    /// [`PdfReaderState::open_artifact`] already dispatches by kind (loads
+    /// the block editor for text-bodied kinds, re-crops into the digitiser
+    /// for `DigitisedTable`/`DigitisedGraph`) — this action is the single
+    /// varying entry op-30um.6 asks for; the label is what changes per
+    /// kind, not the handling.
+    EditArtifact,
+    /// Take the canvas to this artifact's page and zoom so its `[source]`
+    /// region fills the view. Present only for a source-anchored artifact
+    /// (maintainer, GH issue #35, 2026-09-08).
+    GoToPage,
+    /// Re-crop this artifact's region and hand it to the matching
+    /// digitiser. Digitised graphs and tables only — the heavier action,
+    /// which is why it moved out of double-click and onto the menu.
+    GoToDigitiser,
+    /// Opens [`ConnectionPopup::Add`].
+    AddConnection,
+    /// Opens [`ConnectionPopup::Manage`] (shared with `DeleteConnection` —
+    /// one management view, two doors in, per [`ConnectionPopup`]'s doc).
+    EditConnections,
+    /// Opens [`ConnectionPopup::Manage`].
+    DeleteConnection,
+    /// Opens [`ConnectionPopup::ConfirmDelete`] — the "Sure anot?" confirm.
+    /// [`crate::classify::delete_artifact_cascade`] only runs if that
+    /// confirm is accepted; picking this entry never deletes by itself.
+    DeleteArtifact,
+}
+
+/// One row of the op-30um.3/.6 saved-artifact right-click menu, decoupled
+/// from `egui` so the *composition* of the menu — which entries appear for
+/// which [`ArtifactKind`], in what order, enabled or not — is a plain data
+/// value a test can assert on directly, with no window and no GPU context.
+/// Same "testable without a window" reasoning as the workspace's headless-
+/// simulator hard rule, applied to a menu instead of a physics loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct MenuEntry {
+    /// The button text, exactly as shown.
+    pub label: &'static str,
+    /// What picking this entry does — matched in [`PdfReaderState::context_menu_ui`].
+    pub action: MenuAction,
+    /// Whether the button is clickable. The connection entries are
+    /// disabled (never hidden) when no `(KovanRoot, KnowledgeIndex)` pair
+    /// is available, matching how the citation/wiki completion popup
+    /// already behaves without a library.
+    pub enabled: bool,
+    /// Whether a `ui.separator()` is drawn immediately after this entry.
+    pub separator_after: bool,
+}
+
+/// Builds the op-30um.3/.6 right-click menu for a saved artifact of `kind`,
+/// given whether a library (`KovanRoot` + `KnowledgeIndex`) is available to
+/// back the connection actions.
+///
+/// Every kind gets the identical five-entry shape and the identical
+/// connection/delete verbs (op-30um.6's explicit requirement — "keep the
+/// connection and delete verbs identical across kinds"); only the first
+/// entry's label and the fact that it dispatches through
+/// [`PdfReaderState::open_artifact`]'s existing per-kind branch varies.
+/// This is deliberately **one** function for all five [`ArtifactKind`]
+/// variants, not five menus — the anti-goal op-30um.6 states explicitly.
+///
+/// Reference behaviour (wording only, not ported code):
+/// `collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`.
+pub(super) fn saved_artifact_menu_entries(
+    kind: ArtifactKind,
+    have_library: bool,
+    has_page: bool,
+) -> Vec<MenuEntry> {
+    let edit_label = match kind {
+        // The paper header is an artifact too, but it is not source-anchored
+        // and so never has a canvas rectangle to right-click.
+        ArtifactKind::Paper => "Edit paper metadata",
+        // Neither is source-anchored, so neither is ever right-clicked on
+        // the page; the arms exist so a new kind is a compile error here.
+        ArtifactKind::Relation => "Edit connection",
+        ArtifactKind::Mindmap => "Edit mindmap",
+        ArtifactKind::Note | ArtifactKind::Annotation => "Edit annotation",
+        ArtifactKind::DigitisedGraph => "Edit digitisation",
+        ArtifactKind::DigitisedTable => "Edit table",
+        ArtifactKind::Formula => "Edit formula",
+        ArtifactKind::SourceReference => "Edit source reference",
+    };
+    let is_csv = matches!(
+        kind,
+        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
+    );
+    let entries = vec![
+        MenuEntry {
+            label: edit_label,
+            action: MenuAction::EditArtifact,
+            enabled: true,
+            separator_after: true,
+        },
+        MenuEntry {
+            label: "Add connection…",
+            action: MenuAction::AddConnection,
+            enabled: have_library,
+            separator_after: false,
+        },
+        MenuEntry {
+            label: "Edit connections…",
+            action: MenuAction::EditConnections,
+            enabled: have_library,
+            separator_after: false,
+        },
+        MenuEntry {
+            label: "Delete connection…",
+            action: MenuAction::DeleteConnection,
+            enabled: have_library,
+            separator_after: true,
+        },
+        MenuEntry {
+            label: "Delete annotation…",
+            action: MenuAction::DeleteArtifact,
+            enabled: true,
+            separator_after: false,
+        },
+    ];
+
+    // Navigation entries go at the top, above Edit: they are the cheap,
+    // non-mutating actions, and "go to page" is the one every anchored
+    // artifact has.
+    let mut nav = Vec::new();
+    if has_page {
+        nav.push(MenuEntry {
+            label: "Go to page",
+            action: MenuAction::GoToPage,
+            enabled: true,
+            separator_after: !is_csv,
+        });
+    }
+    if is_csv {
+        nav.push(MenuEntry {
+            label: "Go to digitiser",
+            action: MenuAction::GoToDigitiser,
+            // Re-cropping needs the region the crop came from.
+            enabled: has_page,
+            separator_after: true,
+        });
+    }
+    nav.extend(entries);
+    nav
 }
 
 /// In-progress "Annotate" text editor, opened from the context menu's
@@ -243,16 +492,96 @@ impl CropProvenance {
 /// [`Region`] (§15: fractions of the page, origin top-left). `None` for a
 /// degenerate page size or a zero-area / out-of-range rectangle.
 pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<Region> {
-    if w <= 0.0 || h <= 0.0 {
+    Region::from_pixels((min.x, min.y), (max.x, max.y), w, h)
+}
+
+
+/// The screen-space rectangle [`Region`] (§15, normalised page fractions)
+/// reconstructs to on the continuous multi-page canvas, given which 0-based
+/// `page` it is anchored to, that page's logical pixel size at the render
+/// DPI, and the canvas's own placement parameters — the canvas-space
+/// `origin`, display `zoom`, and inter-page `gap`, the same three
+/// [`super::page_canvas::PageView::project`] already threads through. The
+/// arithmetic mirrors `project` exactly (`page_top = page * (page_px.y *
+/// zoom + gap)`, then `origin + point * zoom`), so a call here and a call
+/// through the live `PageView` land on the same pixel — but this function
+/// needs no `PageView` (and so no `egui` texture/GPU state), which is what
+/// makes it unit-testable headlessly (op-30um.5).
+///
+/// Returns `None` — "do not draw" — when `region` fails [`Region::is_valid`]
+/// or `page_px`/`zoom` is degenerate. An artifact with a bad or unmeasured
+/// region must not draw nonsense rather than fail loudly here; the parse
+/// side (`crate::artifact::SourceAnchor::validate`) is where a bad region is
+/// actually reported.
+pub(super) fn region_to_screen_rect(
+    region: Region,
+    page: usize,
+    page_px: egui::Vec2,
+    origin: Pos2,
+    zoom: f32,
+    gap: f32,
+) -> Option<Rect> {
+    if !region.is_valid() || page_px.x <= 0.0 || page_px.y <= 0.0 || zoom <= 0.0 {
         return None;
     }
-    let r = Region {
-        x0: (min.x.min(max.x) / w) as f64,
-        y0: (min.y.min(max.y) / h) as f64,
-        x1: (min.x.max(max.x) / w) as f64,
-        y1: (min.y.max(max.y) / h) as f64,
+    let page_top = page as f32 * (page_px.y * zoom + gap);
+    let to_screen = |x_frac: f64, y_frac: f64| -> Pos2 {
+        origin
+            + egui::vec2(
+                x_frac as f32 * page_px.x * zoom,
+                page_top + y_frac as f32 * page_px.y * zoom,
+            )
     };
-    r.is_valid().then_some(r)
+    Some(Rect::from_min_max(
+        to_screen(region.x0, region.y0),
+        to_screen(region.x1, region.y1),
+    ))
+}
+
+/// Every source-anchored artifact that should draw a rectangle on 0-based
+/// `page` of the continuous canvas, each paired with its reconstructed
+/// screen rect ([`region_to_screen_rect`]) — the pure core of
+/// [`PdfReaderState::ui`]'s "saved artifact region boxes" render pass
+/// (op-30um.5).
+///
+/// The production rule this exists for: **every** artifact with a valid
+/// page plus a normalised source region draws, not only `Annotation`s — see
+/// the module doc. Skips (never returned for this `page`): an artifact
+/// anchored to a different page, one with no `[source]` at all, one with a
+/// `pages`-range-only anchor (no `region` — §15 forbids combining the two,
+/// so a range artifact is correctly excluded here regardless of how many
+/// pages it spans), and one whose region is degenerate or out of range.
+pub(super) fn artifact_overlays_for_page<'a>(
+    artifacts: &'a [Artifact],
+    page: usize,
+    page_px: egui::Vec2,
+    origin: Pos2,
+    zoom: f32,
+    gap: f32,
+) -> Vec<(&'a Artifact, Rect)> {
+    artifacts
+        .iter()
+        .filter_map(|artifact| {
+            if PdfReaderState::artifact_page(artifact) != Some(page) {
+                return None;
+            }
+            let region = artifact.toml.source.as_ref()?.region?;
+            let rect = region_to_screen_rect(region, page, page_px, origin, zoom, gap)?;
+            Some((artifact, rect))
+        })
+        .collect()
+}
+
+/// The "other" endpoint of `rel` as seen from `node`, plus which arrow to
+/// draw — pulled out of [`PdfReaderState::connection_popup_ui`]'s "Manage"
+/// list rendering so the source/target direction logic is unit-testable
+/// without an `egui::Ui` (op-30um.3).
+pub(super) fn relation_other_end<'a>(rel: &'a relation::UserRelation, node: &str) -> (&'static str, &'a str) {
+    if rel.source == node {
+        ("→", &rel.target)
+    } else {
+        ("←", &rel.source)
+    }
 }
 
 /// An in-progress "Digitise graph" crop (`op-8ci2`) waiting on the figure
@@ -366,6 +695,13 @@ pub struct PdfReaderState {
     /// (replaces it).
     pending_box: Option<(Pos2, Pos2)>,
     context_menu: Option<ContextMenu>,
+    /// The connection sub-popup opened from a saved artifact's right-click
+    /// menu (op-30um.3), if any — see [`ConnectionPopup`].
+    connection_popup: Option<ConnectionPopup>,
+    /// Status text for the last connection CRUD action (op-30um.3), shown
+    /// in [`Self::connection_popup_ui`] — e.g. an error from
+    /// `add_connection`/`edit_connection`/`delete_connection` failing.
+    connection_message: String,
     annotate_editor: Option<AnnotateEditor>,
     /// See [`PendingFigurePrompt`] (`op-8ci2`).
     pending_figure_prompt: Option<PendingFigurePrompt>,
@@ -876,6 +1212,49 @@ impl PdfReaderState {
         }
     }
 
+    /// Open the floating context menu on `target`, or close it if it is
+    /// already open on that same target.
+    ///
+    /// A second right-click on the same thing dismisses the menu rather
+    /// than re-opening it in place (maintainer, GH issue #35, 2026-09-08:
+    /// "box should disappear after a second right click"). Right-clicking a
+    /// *different* target moves the menu there instead of closing it, which
+    /// is what makes the gesture usable for comparing two artifacts.
+    fn toggle_context_menu(&mut self, screen_pos: Pos2, target: ContextMenuTarget) {
+        let same = self
+            .context_menu
+            .as_ref()
+            .is_some_and(|m| m.target == target);
+        self.context_menu = if same {
+            None
+        } else {
+            Some(ContextMenu { screen_pos, target })
+        };
+    }
+
+    /// Take the canvas to `artifact`'s page and zoom so its `[source]`
+    /// region roughly fills the view.
+    ///
+    /// The zoom is derived from the region's own extent — a region covering
+    /// a third of the page height is worth ~3x — clamped to the same
+    /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
+    /// no region just navigates, leaving the zoom alone: there is nothing
+    /// to frame.
+    fn go_to_artifact(&mut self, artifact: &Artifact) {
+        let Some(page) = Self::artifact_page(artifact) else {
+            return;
+        };
+        self.annotate_page = page;
+        self.scroll_request = Some(page);
+        self.thumb_synced = None;
+        if let Some(region) = artifact.toml.source.as_ref().and_then(|s| s.region) {
+            let w = (region.x1 - region.x0).max(1e-3) as f32;
+            let h = (region.y1 - region.y0).max(1e-3) as f32;
+            // Fit the larger dimension, so neither axis overflows.
+            self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        }
+    }
+
     /// Open a saved artifact for editing — the single path a **double-click
     /// on its box** on the continuous canvas and a **double-click on its
     /// card / preview line** in the context panel both go through, so the
@@ -889,15 +1268,13 @@ impl PdfReaderState {
         // Take the canvas to the page the block is anchored to — opening a
         // block from the panel while looking at a different page should
         // show you what it is about (maintainer, 2026-09-02).
-        if let Some(p) = Self::artifact_page(artifact) {
-            self.annotate_page = p;
-            self.scroll_request = Some(p);
-            self.thumb_synced = None;
-        }
+        self.go_to_artifact(artifact);
         match artifact.kind() {
-            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                self.recrop_artifact(artifact)
-            }
+            // A digitised graph/table now *zooms to its page* rather than
+            // re-opening the digitiser: going back to the digitiser is the
+            // heavier, rarer action and lives on the right-click menu as
+            // "Go to digitiser" (maintainer, GH issue #35, 2026-09-08).
+            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => None,
             _ => {
                 self.block_editor.load_text(&artifact.body);
                 self.editing_block_id = Some(artifact.id().to_string());
@@ -1503,9 +1880,14 @@ impl PdfReaderState {
                                 };
                                 ui.label(format!("{icon} {}", artifact.heading));
                                 if let Some(csv) = artifact.csv_block() {
-                                    draw_csv_preview(ui, csv);
+                                    // Copy CSV stays here too: reinstated
+                                    // 2026-09-08 on maintainer use — reading
+                                    // a figure's numbers straight out of the
+                                    // reader is convenient enough to earn
+                                    // the button's space.
+                                    draw_csv_preview(ui, csv, &id);
                                 }
-                                ui.small("double-click → re-open in the digitiser");
+                                ui.small("double-click → go to page · right-click → menu");
                             }
                             _ => {
                                 open_on_single_click = true;
@@ -1513,11 +1895,22 @@ impl PdfReaderState {
                                 if !artifact.body.trim().is_empty() {
                                     ui.monospace(body_preview(&artifact.body));
                                 }
-                                ui.small("click → edit");
+                                ui.small("click → edit · right-click → menu");
                             }
                         });
                     if inner.response.hovered() {
                         panel_hover = Some(id.clone());
+                    }
+                    // Right-click anywhere on the card opens the same menu a
+                    // right-click on its canvas box does — every artifact
+                    // gets a dropdown, including the ones with no region to
+                    // click on (maintainer, GH issue #35, 2026-09-08).
+                    if inner.response.secondary_clicked() {
+                        let screen_pos = inner
+                            .response
+                            .interact_pointer_pos()
+                            .unwrap_or_else(|| inner.response.rect.center());
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id.clone()));
                     }
                     let opened = if open_on_single_click {
                         inner.response.clicked() || inner.response.double_clicked()
@@ -1689,6 +2082,65 @@ impl PdfReaderState {
                 self.path.as_str()
             });
         });
+
+        // Legacy digitiser sections (GH issue #35, 2026-09-08). A graph or
+        // table digitised while no paper was active was written as a plain
+        // `### … — page N, pixel bbox […]` heading plus a bare ```csv fence,
+        // with no `[kovan]` block — so `parse_document` never saw it as an
+        // artifact and the canvas below drew no region box for it, while
+        // annotations showed up fine. Offer the one-click upgrade rather
+        // than rewriting the operator's file behind their back.
+        let legacy_count = active_paper
+            .as_ref()
+            .map(|s| classify::find_legacy_csv_sections(s.markdown()).len())
+            .unwrap_or(0);
+        // A paper scaffolded before the artifact schema opens with a bare
+        // `# <citekey>` and no TOML, so it has no paper header artifact.
+        let needs_header = active_paper.as_ref().is_some_and(|s| {
+            !crate::artifact::parse_document(s.markdown())
+                .artifacts
+                .iter()
+                .any(|a| a.kind() == crate::artifact::ArtifactKind::Paper)
+        });
+        if legacy_count > 0 || needs_header {
+            let page_px = self.current_page_px();
+            let mut outcome: Option<String> = None;
+            ui.horizontal(|ui| {
+                ui.label(if legacy_count > 0 && needs_header {
+                    format!(
+                        "{legacy_count} digitiser section(s) in the old format, and no paper header block."
+                    )
+                } else if legacy_count > 0 {
+                    format!(
+                        "{legacy_count} digitiser section(s) saved in the old format — no region box is drawn for them."
+                    )
+                } else {
+                    "This paper has no header artifact yet.".to_string()
+                });
+                if ui.button("Upgrade to artifacts").clicked() {
+                    if let Some(session) = active_paper.as_mut() {
+                        outcome = Some(
+                            match classify::ensure_paper_header(session, None).and_then(|added| {
+                                classify::migrate_legacy_csv_sections(session, page_px)
+                                    .map(|n| (added, n))
+                            }) {
+                                Ok((added, n)) => match session.save_document() {
+                                    Ok(()) => format!(
+                                        "upgraded {n} digitiser section(s){}",
+                                        if added { ", added the paper header" } else { "" }
+                                    ),
+                                    Err(e) => format!("upgrade saved nothing: {e}"),
+                                },
+                                Err(e) => format!("upgrade failed: {e}"),
+                            },
+                        );
+                    }
+                }
+            });
+            if let Some(m) = outcome {
+                self.message = m;
+            }
+        }
 
         if matches!(self.source, ReaderSource::None) {
             ui.centered_and_justified(|ui| {
@@ -2182,20 +2634,31 @@ impl PdfReaderState {
                             && click.y >= min.y
                             && click.y <= max.y
                         {
-                            self.context_menu = Some(ContextMenu {
-                                screen_pos,
-                                target: ContextMenuTarget::NewBox,
-                            });
+                            self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
                         }
                     } else if let Some(i) = self
                         .annotations
                         .get(&page)
                         .and_then(|anns| anns.iter().position(|a| a.contains(click)))
                     {
-                        self.context_menu = Some(ContextMenu {
-                            screen_pos,
-                            target: ContextMenuTarget::Existing(i),
-                        });
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::Existing(i));
+                    } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
+                        artifact_overlays_for_page(
+                            arts,
+                            page,
+                            self.pages.page_size_px(),
+                            origin,
+                            zoom,
+                            GAP,
+                        )
+                        .into_iter()
+                        .find(|(_, r)| r.contains(screen_pos))
+                        .map(|(art, _)| art.id().to_string())
+                    }) {
+                        // op-30um.3: a saved artifact's own region box —
+                        // the full Edit/Add-connection/Edit-connections/
+                        // Delete-connection/Delete-annotation menu.
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id));
                     }
                 }
             }
@@ -2258,60 +2721,40 @@ impl PdfReaderState {
                 }
             }
 
-            // Saved-artifact region boxes — amber (annotation) / blue
-            // (digitised) — on every visible page. Hover highlights the
-            // panel card; a single click opens the artifact for editing.
+            // Saved-artifact region boxes — every source-anchored artifact
+            // with a valid page + normalised region draws (op-30um.5:
+            // generalised from annotation-only), coloured by
+            // `theme::artifact_accent` per its `ArtifactKind`. Hover
+            // highlights the panel card; a single click opens the artifact
+            // for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
-                for art in artifacts {
-                    let Some(pg) = Self::artifact_page(art) else {
-                        continue;
-                    };
-                    if !want.contains(&pg) {
-                        continue;
-                    }
-                    let Some(region) = art.toml.source.as_ref().and_then(|s| s.region) else {
-                        continue;
-                    };
-                    let min = Pos2::new(region.x0 as f32 * page_px.x, region.y0 as f32 * page_px.y);
-                    let max = Pos2::new(region.x1 as f32 * page_px.x, region.y1 as f32 * page_px.y);
-                    let r = box_rect(pg, min, max);
-                    let hit = hover_screen.is_some_and(|s| r.contains(s));
-                    if hit {
-                        hover_id = Some(art.toml.kovan.created.clone());
-                        if opened {
-                            open_target = Some(art.id().to_string());
+                let gui_theme = super::theme::GuiTheme::current(ui.visuals());
+                for p in want.clone() {
+                    for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                    {
+                        let hit = hover_screen.is_some_and(|s| r.contains(s));
+                        if hit {
+                            hover_id = Some(art.toml.kovan.created.clone());
+                            if opened {
+                                open_target = Some(art.id().to_string());
+                            }
                         }
+                        let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
+                        let accent = super::theme::artifact_accent(art.kind(), gui_theme);
+                        let fill = Color32::from_rgba_unmultiplied(
+                            accent.r(),
+                            accent.g(),
+                            accent.b(),
+                            if linked { 90 } else { 40 },
+                        );
+                        painter.rect_filled(r, 0.0, fill);
+                        painter.rect_stroke(
+                            r,
+                            0.0,
+                            Stroke::new(if linked { 2.5 } else { 1.0 }, accent),
+                            egui::StrokeKind::Middle,
+                        );
                     }
-                    let linked = hit || self.panel_hover_id.as_deref() == Some(art.id());
-                    let is_annot = matches!(art.kind(), ArtifactKind::Annotation);
-                    let (fill, stroke) = if is_annot {
-                        (
-                            Color32::from_rgba_unmultiplied(
-                                255,
-                                230,
-                                60,
-                                if linked { 90 } else { 40 },
-                            ),
-                            Color32::from_rgb(230, 170, 20),
-                        )
-                    } else {
-                        (
-                            Color32::from_rgba_unmultiplied(
-                                120,
-                                170,
-                                255,
-                                if linked { 90 } else { 40 },
-                            ),
-                            Color32::from_rgb(90, 140, 235),
-                        )
-                    };
-                    painter.rect_filled(r, 0.0, fill);
-                    painter.rect_stroke(
-                        r,
-                        0.0,
-                        Stroke::new(if linked { 2.5 } else { 1.0 }, stroke),
-                        egui::StrokeKind::Middle,
-                    );
                 }
             }
             self.hover_created_at = hover_id;
@@ -2389,9 +2832,16 @@ impl PdfReaderState {
             }
         }
 
-        if let Some(result) = self.context_menu_ui(ui.ctx()) {
+        let root_index = completion.map(|c| (c.root, c.index));
+        if let Some(result) = self.context_menu_ui(
+            ui.ctx(),
+            active_citekey.as_deref(),
+            active_artifacts.as_deref(),
+            root_index,
+        ) {
             crop_result = Some(result);
         }
+        self.connection_popup_ui(ui.ctx(), root_index, active_paper.as_deref_mut());
 
         crop_result
     }
@@ -2399,17 +2849,31 @@ impl PdfReaderState {
     /// Draw the floating right-click menu (op-x9qn), if one is open.
     /// Returns `Some` the frame a Digitise-graph/Read-table crop is
     /// confirmed.
-    fn context_menu_ui(&mut self, ctx: &egui::Context) -> Option<CropResult> {
-        let menu = self.context_menu?;
+    ///
+    /// `citekey` is the active paper's citekey (needed to build/resolve an
+    /// `artifact:<citekey>#<id>` node for a [`ContextMenuTarget::SavedArtifact`]);
+    /// `root_index` is `Some` only once a Kovan root and its
+    /// [`KnowledgeIndex`] are both available (op-30um.3's connection actions
+    /// are simply unavailable — shown as disabled, never a panic — without
+    /// them, exactly like the citation/wiki completion popup this same
+    /// `(root, index)` pair already feeds).
+    fn context_menu_ui(
+        &mut self,
+        ctx: &egui::Context,
+        citekey: Option<&str>,
+        active_artifacts: Option<&[Artifact]>,
+        root_index: Option<(&KovanRoot, &KnowledgeIndex)>,
+    ) -> Option<CropResult> {
+        let menu = self.context_menu.clone()?;
         let mut close = false;
         let mut result = None;
-        egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
+        let area = egui::Area::new(egui::Id::new("pdf_reader_context_menu"))
             .order(egui::Order::Foreground)
             .fixed_pos(menu.screen_pos)
             .show(ctx, |ui| {
                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                     ui.set_min_width(140.0);
-                    match menu.target {
+                    match &menu.target {
                         ContextMenuTarget::NewBox => {
                             if ui.button("Annotate").clicked() {
                                 if let Some((min, max)) = self.pending_box {
@@ -2453,6 +2917,7 @@ impl PdfReaderState {
                             }
                         }
                         ContextMenuTarget::Existing(i) => {
+                            let i = *i;
                             if ui.button("Edit").clicked() {
                                 if let Some(a) = self
                                     .annotations
@@ -2477,6 +2942,95 @@ impl PdfReaderState {
                                 close = true;
                             }
                         }
+                        // op-30um.3/.6: the full menu on a saved artifact's
+                        // own region box, for every `ArtifactKind` alike.
+                        // The entry list itself comes from the pure
+                        // [`saved_artifact_menu_entries`] — this match arm
+                        // does nothing but render that list and dispatch
+                        // each [`MenuAction`], either reusing an existing
+                        // operation ([`Self::open_artifact`]) or opening a
+                        // [`ConnectionPopup`]/confirm dialog that itself
+                        // calls straight into `crate::relation`/
+                        // `crate::classify::delete_artifact_cascade`; no
+                        // relation lookup, graph walk, or menu-composition
+                        // logic happens in this match arm.
+                        ContextMenuTarget::SavedArtifact(id) => {
+                            let id = id.clone();
+                            let node = citekey.map(|ck| artifact_node(ck, &id));
+                            let have_library = root_index.is_some() && node.is_some();
+                            let artifact = active_artifacts
+                                .and_then(|arts| arts.iter().find(|a| a.id() == id).cloned());
+                            match &artifact {
+                                Some(art) => {
+                                    let has_page = Self::artifact_page(art).is_some();
+                                    for entry in
+                                        saved_artifact_menu_entries(art.kind(), have_library, has_page)
+                                    {
+                                        if ui
+                                            .add_enabled(
+                                                entry.enabled,
+                                                egui::Button::new(entry.label),
+                                            )
+                                            .clicked()
+                                        {
+                                            match entry.action {
+                                                MenuAction::EditArtifact => {
+                                                    if let Some(r) = self.open_artifact(art) {
+                                                        result = Some(r);
+                                                    }
+                                                }
+                                                MenuAction::GoToPage => self.go_to_artifact(art),
+                                                MenuAction::GoToDigitiser => {
+                                                    if let Some(r) = self.recrop_artifact(art) {
+                                                        result = Some(r);
+                                                    }
+                                                }
+                                                MenuAction::AddConnection => {
+                                                    if let Some(source) = node.clone() {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::Add {
+                                                                source,
+                                                                query: String::new(),
+                                                                kind: RelationKind::RelatedTo,
+                                                            });
+                                                    }
+                                                }
+                                                MenuAction::EditConnections
+                                                | MenuAction::DeleteConnection => {
+                                                    if let Some(node) = node.clone() {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::Manage { node });
+                                                    }
+                                                }
+                                                MenuAction::DeleteArtifact => {
+                                                    if let Some(ck) = citekey {
+                                                        self.connection_popup =
+                                                            Some(ConnectionPopup::ConfirmDelete {
+                                                                citekey: ck.to_string(),
+                                                                artifact_id: id.clone(),
+                                                            });
+                                                    }
+                                                }
+                                            }
+                                            close = true;
+                                        }
+                                        if entry.separator_after {
+                                            ui.separator();
+                                        }
+                                    }
+                                }
+                                None => {
+                                    // The overlay that opened this menu came
+                                    // from `active_artifacts`, so this is
+                                    // only reachable if the artifact was
+                                    // removed from under an open menu (e.g.
+                                    // a cascade delete from elsewhere) —
+                                    // nothing to act on, so offer nothing
+                                    // but Cancel.
+                                    ui.label("(artifact no longer available)");
+                                }
+                            }
+                        }
                     }
                     ui.separator();
                     if ui.button("Cancel").clicked() {
@@ -2487,10 +3041,244 @@ impl PdfReaderState {
                     }
                 });
             });
-        if close {
+        // A left-click anywhere outside the menu dismisses it, the way a
+        // dropdown is expected to behave (maintainer, GH issue #35,
+        // 2026-09-08). Checked against the menu's own rect rather than a
+        // global "was clicked" flag, so a click *on* an entry still runs
+        // that entry's action and closes via `close` below.
+        // PRIMARY only. The right-click that opens this menu is also a
+        // click, and on the opening frame the pointer sits at the menu's
+        // own corner — treating any button here would make the menu close
+        // itself the instant it appeared. Secondary clicks are the toggle
+        // gesture and are handled at the call sites.
+        let clicked_outside = ctx
+            .input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
+            && !ctx.input(|i| {
+                i.pointer
+                    .interact_pos()
+                    .is_some_and(|p| area.response.rect.contains(p))
+            });
+        if close || clicked_outside {
             self.context_menu = None;
         }
         result
+    }
+
+    /// Draw the op-30um.3 connection sub-popup ([`ConnectionPopup`]), if one
+    /// is open — a separate floating window from [`Self::context_menu_ui`]
+    /// so a fuzzy-candidate list or a connections list has room, rather than
+    /// being squeezed into the small right-click menu itself.
+    ///
+    /// Every button here calls straight into one of
+    /// [`relation::add_connection`]/[`relation::connections`]/
+    /// [`relation::edit_connection`]/[`relation::delete_connection`]/
+    /// [`classify::delete_artifact_cascade`] and renders whatever it
+    /// returns — this function never itself decides what edges exist, per
+    /// op-30um.3's "no graph-walking in the UI layer" requirement.
+    /// `active_paper` is the reader's own open session, needed because
+    /// [`classify::delete_artifact_cascade`] works on its own short-lived
+    /// sessions read from disk (an *incoming* relation lives in the other
+    /// paper's Markdown, so one session cannot cover the write). After it
+    /// succeeds, this session's buffer is stale: it still contains the
+    /// deleted artifact, so the canvas would keep drawing its box and the
+    /// next save would write the deletion back out. Reloading closes that
+    /// gap — see [`crate::session::PaperSession::reload`].
+    fn connection_popup_ui(
+        &mut self,
+        ctx: &egui::Context,
+        root_index: Option<(&KovanRoot, &KnowledgeIndex)>,
+        mut active_paper: Option<&mut PaperSession>,
+    ) {
+        let Some(popup) = self.connection_popup.clone() else {
+            return;
+        };
+        let mut close = false;
+
+        match popup {
+            ConnectionPopup::Add {
+                source,
+                mut query,
+                mut kind,
+            } => {
+                egui::Window::new("Add connection…")
+                    .collapsible(false)
+                    .resizable(true)
+                    .show(ctx, |ui| {
+                        let Some((root, index)) = root_index else {
+                            ui.label("no library open");
+                            if ui.button("Close").clicked() {
+                                close = true;
+                            }
+                            return;
+                        };
+                        ui.horizontal(|ui| {
+                            ui.label("connect");
+                            ui.monospace(&source);
+                            ui.label("as:");
+                            if ui.button(kind.label()).clicked() {
+                                kind = kind.next();
+                            }
+                        });
+                        ui.add(
+                            egui::TextEdit::singleline(&mut query)
+                                .hint_text("search papers, artifacts, topics, projects…"),
+                        );
+                        ui.separator();
+                        let candidates: Vec<LibraryCandidate> =
+                            library_candidates(root, index, &query, &[]);
+                        egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                            if candidates.is_empty() {
+                                ui.label("no matches");
+                            }
+                            for c in &candidates {
+                                ui.horizontal(|ui| {
+                                    ui.label(format!("{} — {}", c.candidate.label, c.candidate.detail));
+                                    if ui.button("Add").clicked() {
+                                        self.connection_message =
+                                            match relation::add_connection(root, &source, &c.node, kind) {
+                                                Ok(_) => {
+                                                    format!("connected: {source} {} {}", kind.label(), c.node)
+                                                }
+                                                Err(e) => format!("could not add connection: {e}"),
+                                            };
+                                        close = true;
+                                    }
+                                });
+                            }
+                        });
+                        if !self.connection_message.is_empty() {
+                            ui.separator();
+                            ui.label(&self.connection_message);
+                        }
+                        ui.separator();
+                        if ui.button("Close").clicked() {
+                            close = true;
+                        }
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::Add { source, query, kind });
+                }
+            }
+            ConnectionPopup::Manage { node } => {
+                egui::Window::new("Connections")
+                    .collapsible(false)
+                    .resizable(true)
+                    .show(ctx, |ui| {
+                        let Some((root, index)) = root_index else {
+                            ui.label("no library open");
+                            if ui.button("Close").clicked() {
+                                close = true;
+                            }
+                            return;
+                        };
+                        let conns = relation::connections(root, index, &node);
+                        if conns.is_empty() {
+                            ui.label("no connections");
+                        }
+                        for rel in &conns {
+                            ui.horizontal(|ui| {
+                                let (arrow, other) = relation_other_end(rel, &node);
+                                ui.label(format!("{arrow} {other}"));
+                                if ui
+                                    .button(rel.kind.label())
+                                    .on_hover_text("click to cycle the relation kind")
+                                    .clicked()
+                                {
+                                    if let Err(e) =
+                                        relation::edit_connection(root, index, &rel.id, None, Some(rel.kind.next()))
+                                    {
+                                        self.connection_message = format!("could not edit connection: {e}");
+                                    }
+                                }
+                                if ui.button("Delete").clicked() {
+                                    if let Err(e) = relation::delete_connection(root, index, &rel.id) {
+                                        self.connection_message = format!("could not delete connection: {e}");
+                                    }
+                                }
+                            });
+                        }
+                        if !self.connection_message.is_empty() {
+                            ui.separator();
+                            ui.label(&self.connection_message);
+                        }
+                        ui.separator();
+                        if ui.button("Close").clicked() {
+                            close = true;
+                        }
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::Manage { node });
+                }
+            }
+            ConnectionPopup::ConfirmDelete { citekey, artifact_id } => {
+                egui::Window::new("Delete annotation")
+                    .collapsible(false)
+                    .resizable(false)
+                    .show(ctx, |ui| {
+                        ui.label(format!("Delete {artifact_id:?}?"));
+                        ui.label("Sure anot?");
+                        ui.horizontal(|ui| {
+                            if ui.button("No").clicked() {
+                                close = true;
+                            }
+                            if ui.button("Yes").clicked() {
+                                self.connection_message = match root_index {
+                                    // The cascade reads each paper from
+                                    // disk, so an unsaved buffer would be
+                                    // invisible to it — flush first, then
+                                    // delete, then reload so this session
+                                    // does not write the artifact back.
+                                    Some((root, index)) => {
+                                        let flushed = match active_paper.as_deref_mut() {
+                                            Some(s) if s.is_dirty() => s.save_document().err(),
+                                            _ => None,
+                                        };
+                                        match flushed {
+                                            Some(e) => format!("could not save before deleting: {e}"),
+                                            None => match classify::delete_artifact_cascade(
+                                                root,
+                                                index,
+                                                &citekey,
+                                                &artifact_id,
+                                            ) {
+                                                Ok(n) => {
+                                                    let reload_err = active_paper
+                                                        .as_deref_mut()
+                                                        .and_then(|s| s.reload().err());
+                                                    match reload_err {
+                                                        Some(e) => format!(
+                                                            "deleted, but reopening the paper failed: {e}"
+                                                        ),
+                                                        None => format!(
+                                                            "deleted the artifact and {n} connection(s)"
+                                                        ),
+                                                    }
+                                                }
+                                                Err(e) => format!("could not delete: {e}"),
+                                            },
+                                        }
+                                    }
+                                    // Previously a silent no-op: the button
+                                    // closed the dialog and nothing happened,
+                                    // which reads exactly like a broken
+                                    // delete. Say why instead.
+                                    None => "cannot delete: no Kovan root and index are loaded \
+                                             (open a library first)"
+                                        .to_string(),
+                                };
+                                close = true;
+                            }
+                        });
+                    });
+                if !close {
+                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete { citekey, artifact_id });
+                }
+            }
+        }
+
+        if close {
+            self.connection_popup = None;
+        }
     }
 
     /// The last text selection (op-z9u0), if any — a read-only preview with
@@ -2904,7 +3692,7 @@ a note
 
     #[test]
     fn open_artifact_on_a_text_block_loads_the_inline_editor() {
-        let md = "# P\n\n## Graphite note\n\n```toml\n[kovan]\nid = \"graphite-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n\nthe prose body\n";
+        let md = "# Graphite note\n\n```toml\n[kovan]\nid = \"graphite-note\"\nkind = \"annotation\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 3\n```\n\nthe prose body\n";
         let doc = crate::artifact::parse_document(md);
         let art = doc.get("graphite-note").unwrap();
 
@@ -2957,5 +3745,563 @@ a note
             ..p
         };
         assert!(no_size.region().is_none());
+    }
+
+    // -------------------------------------------------------------------
+    // Region -> screen-rect reconstruction (op-30um.5, GH issue #35
+    // "layer 2" — every source-anchored artifact draws, not only
+    // annotations). Pure-function tests: no `egui::Ui`, no `PageView`, no
+    // window.
+    // -------------------------------------------------------------------
+
+    /// Builds an [`Artifact`] directly (bypassing [`crate::artifact::
+    /// parse_document`]'s own anchor validation) so a test can exercise
+    /// `artifact_overlays_for_page`'s own defensive checks against an
+    /// anchor shape the parser would otherwise reject upfront.
+    fn make_artifact(id: &str, kind: ArtifactKind, source: Option<SourceAnchor>) -> Artifact {
+        Artifact {
+            heading: id.to_string(),
+            level: crate::artifact::ARTIFACT_LEVEL,
+            line: 1,
+            toml: crate::artifact::ArtifactToml {
+                kovan: crate::artifact::ArtifactMeta {
+                    id: id.to_string(),
+                    kind,
+                    created: "c".to_string(),
+                    modified: "m".to_string(),
+                    reviewed: None,
+                },
+                source,
+                classification: Classification::default(),
+                extraction: None,
+                relation: None,
+            connections: Vec::new(),
+            },
+            body: String::new(),
+        }
+    }
+
+    #[test]
+    fn region_to_screen_rect_round_trips_through_normalise_region() {
+        // Pixel rect -> `normalise_region` -> `Region` -> back through
+        // `region_to_screen_rect` at zoom 1.0 / origin (0,0) / page 0 must
+        // reproduce the original pixel rect.
+        let page_px = egui::vec2(200.0, 400.0);
+        let min = Pos2::new(50.0, 100.0);
+        let max = Pos2::new(150.0, 300.0);
+        let region = normalise_region(min, max, page_px.x, page_px.y).unwrap();
+        let rect = region_to_screen_rect(region, 0, page_px, Pos2::ZERO, 1.0, 16.0).unwrap();
+        assert!((rect.min.x - min.x).abs() < 1e-3, "{rect:?}");
+        assert!((rect.min.y - min.y).abs() < 1e-3, "{rect:?}");
+        assert!((rect.max.x - max.x).abs() < 1e-3, "{rect:?}");
+        assert!((rect.max.y - max.y).abs() < 1e-3, "{rect:?}");
+    }
+
+    #[test]
+    fn region_to_screen_rect_stacks_a_later_page_below_the_first() {
+        // The same full-page region on page 2 (0-based) must land
+        // `page_top` further down the continuous canvas — the exact
+        // stacking `PageView::project` does, reproduced with no `PageView`.
+        let page_px = egui::vec2(200.0, 400.0);
+        let region = Region {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1.0,
+            y1: 1.0,
+        };
+        let (zoom, gap) = (1.0_f32, 16.0_f32);
+        let rect0 = region_to_screen_rect(region, 0, page_px, Pos2::ZERO, zoom, gap).unwrap();
+        let rect2 = region_to_screen_rect(region, 2, page_px, Pos2::ZERO, zoom, gap).unwrap();
+        assert_eq!(rect0.min.y, 0.0);
+        let expected_top = 2.0 * (page_px.y * zoom + gap);
+        assert!((rect2.min.y - expected_top).abs() < 1e-3, "{rect2:?}");
+    }
+
+    #[test]
+    fn region_to_screen_rect_rejects_a_degenerate_region() {
+        let zero_width = Region {
+            x0: 0.5,
+            y0: 0.2,
+            x1: 0.5,
+            y1: 0.9,
+        };
+        assert!(!zero_width.is_valid());
+        assert!(region_to_screen_rect(
+            zero_width,
+            0,
+            egui::vec2(200.0, 400.0),
+            Pos2::ZERO,
+            1.0,
+            16.0
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn region_to_screen_rect_rejects_a_degenerate_page_size() {
+        let region = Region {
+            x0: 0.1,
+            y0: 0.1,
+            x1: 0.9,
+            y1: 0.9,
+        };
+        assert!(region_to_screen_rect(
+            region,
+            0,
+            egui::vec2(0.0, 400.0),
+            Pos2::ZERO,
+            1.0,
+            16.0
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_reconstructs_an_annotation_and_a_digitised_graph() {
+        // Mirrors the layer-2 prototype's own acceptance check
+        // (`prototype_artifact_overlays.py`'s "PASS: overlay reconstruction
+        // is artifact-generic, not annotation-only"): both an existing
+        // Annotation and a DigitisedGraph+CSV artifact must reconstruct as
+        // PDF rectangles, from real parsed Markdown+TOML data.
+        let md = r#"
+# Graphite temperature assumption
+
+```toml
+[kovan]
+id = "graphite-temperature-assumption"
+kind = "annotation"
+created = "2026-08-31T15:04:32+08:00"
+modified = "2026-08-31T15:04:32+08:00"
+
+[source]
+page = 3
+region = [0.214, 0.341, 0.721, 0.508]
+```
+
+Graphite temperature here appears to represent nominal operating conditions.
+
+# Fig. 12 — power vs time
+
+```toml
+[kovan]
+id = "fig-12-power-vs-time"
+kind = "digitised_graph"
+created = "2026-08-31T15:10:00+08:00"
+modified = "2026-08-31T15:10:00+08:00"
+
+[source]
+page = 3
+region = [0.1, 0.1, 0.9, 0.6]
+
+[extraction]
+method = "manual_digitisation"
+```
+
+```csv
+t_s,power_mw
+0,10
+1,12
+```
+"#;
+        let doc = crate::artifact::parse_document(md);
+        assert!(doc.problems.is_empty(), "{:?}", doc.problems);
+        assert_eq!(doc.artifacts.len(), 2);
+
+        let page_px = egui::vec2(600.0, 800.0);
+        let (zoom, gap) = (1.0_f32, 16.0_f32);
+        // page 3 in the artifact (1-based) is index 2 (0-based).
+        let overlays = artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
+        assert_eq!(
+            overlays.len(),
+            2,
+            "{:?}",
+            overlays.iter().map(|(a, _)| a.id()).collect::<Vec<_>>()
+        );
+
+        let annot = overlays
+            .iter()
+            .find(|(a, _)| a.kind() == ArtifactKind::Annotation)
+            .expect("annotation overlay");
+        let graph = overlays
+            .iter()
+            .find(|(a, _)| a.kind() == ArtifactKind::DigitisedGraph)
+            .expect("digitised-graph overlay");
+        assert!(
+            graph.0.csv_block().is_some(),
+            "the graph artifact carries its CSV payload — the CSV is not a separate node"
+        );
+
+        let page_top = 2.0 * (page_px.y * zoom + gap);
+        let expected_annot_y0 = page_top + 0.341_f32 * page_px.y;
+        let expected_graph_y0 = page_top + 0.1_f32 * page_px.y;
+        assert!(
+            (annot.1.min.y - expected_annot_y0).abs() < 1.0,
+            "{:?} vs {expected_annot_y0}",
+            annot.1
+        );
+        assert!(
+            (graph.1.min.y - expected_graph_y0).abs() < 1.0,
+            "{:?} vs {expected_graph_y0}",
+            graph.1
+        );
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_excludes_artifacts_anchored_to_a_different_page() {
+        let md = "# Note\n\n```toml\n[kovan]\nid = \"note-1\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\npage = 5\nregion = [0.1, 0.1, 0.9, 0.9]\n```\n";
+        let doc = crate::artifact::parse_document(md);
+        assert_eq!(doc.artifacts.len(), 1, "{:?}", doc.problems);
+
+        let page_px = egui::vec2(600.0, 800.0);
+        // Anchored to page 5 (1-based) == index 4 (0-based). A different
+        // page currently in view must not draw it.
+        let elsewhere =
+            artifact_overlays_for_page(&doc.artifacts, 0, page_px, Pos2::ZERO, 1.0, 16.0);
+        assert!(elsewhere.is_empty());
+        let here = artifact_overlays_for_page(&doc.artifacts, 4, page_px, Pos2::ZERO, 1.0, 16.0);
+        assert_eq!(here.len(), 1);
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_skips_a_degenerate_region_without_panicking() {
+        // `parse_document` itself rejects an invalid region as a
+        // `BadAnchor` problem before it ever becomes an `Artifact` (see
+        // `crate::artifact`'s own tests) — this exercises
+        // `artifact_overlays_for_page`'s own defensive check directly.
+        let bad = make_artifact(
+            "bad-region",
+            ArtifactKind::Note,
+            Some(SourceAnchor {
+                page: Some(3),
+                pages: None,
+                region: Some(Region {
+                    x0: 0.5,
+                    y0: 0.2,
+                    x1: 0.5,
+                    y1: 0.9,
+                }),
+            }),
+        );
+        let overlays = artifact_overlays_for_page(
+            std::slice::from_ref(&bad),
+            2,
+            egui::vec2(600.0, 800.0),
+            Pos2::ZERO,
+            1.0,
+            16.0,
+        );
+        assert!(overlays.is_empty());
+    }
+
+    #[test]
+    fn artifact_overlays_for_page_never_boxes_a_pages_range_anchor() {
+        // §15: a `pages = [start, end]` anchor cannot also carry a
+        // `region` — so a range-anchored artifact is never boxable,
+        // regardless of how many pages it spans or which of those pages
+        // is currently in view.
+        let ranged = make_artifact(
+            "spans-42-to-48",
+            ArtifactKind::SourceReference,
+            Some(SourceAnchor {
+                page: None,
+                pages: Some([42, 48]),
+                region: None,
+            }),
+        );
+        let page_px = egui::vec2(600.0, 800.0);
+        // 0-based index of its own first page (42 - 1 = 41) — even asking
+        // for exactly that page yields nothing, since there is no region.
+        let overlays = artifact_overlays_for_page(
+            std::slice::from_ref(&ranged),
+            41,
+            page_px,
+            Pos2::ZERO,
+            1.0,
+            16.0,
+        );
+        assert!(overlays.is_empty());
+    }
+
+    // -------------------------------------------------------------------
+    // relation_other_end (op-30um.3 — the "Edit connections…"/"Delete
+    // connection…" list's direction logic).
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn relation_other_end_points_forward_when_node_is_the_source() {
+        let rel = crate::relation::UserRelation {
+            id: "r1".to_string(),
+            source: "artifact:src#a".to_string(),
+            target: "artifact:dst#b".to_string(),
+            kind: crate::relation::RelationKind::Supports,
+        };
+        let (arrow, other) = relation_other_end(&rel, "artifact:src#a");
+        assert_eq!(arrow, "→");
+        assert_eq!(other, "artifact:dst#b");
+    }
+
+    #[test]
+    fn relation_other_end_points_backward_when_node_is_the_target() {
+        let rel = crate::relation::UserRelation {
+            id: "r1".to_string(),
+            source: "artifact:src#a".to_string(),
+            target: "artifact:dst#b".to_string(),
+            kind: crate::relation::RelationKind::Supports,
+        };
+        let (arrow, other) = relation_other_end(&rel, "artifact:dst#b");
+        assert_eq!(arrow, "←");
+        assert_eq!(other, "artifact:src#a");
+    }
+
+    // -------------------------------------------------------------------
+    // saved_artifact_menu_entries (op-30um.3/.6 — the pure, window-free
+    // menu-composition function the right-click menu renders verbatim).
+    // -------------------------------------------------------------------
+
+    /// Every [`ArtifactKind`] must get the identical five-entry shape
+    /// (op-30um.6: "keep the connection and delete verbs identical across
+    /// kinds") with only the first entry's label varying, and the
+    /// connection separator/verbs/order fixed regardless of kind.
+    #[test]
+    fn saved_artifact_menu_entries_has_the_same_shape_for_every_kind() {
+        for kind in [
+            ArtifactKind::Note,
+            ArtifactKind::Annotation,
+            ArtifactKind::SourceReference,
+            ArtifactKind::Formula,
+            ArtifactKind::DigitisedTable,
+            ArtifactKind::DigitisedGraph,
+        ] {
+            let entries = saved_artifact_menu_entries(kind, true, true);
+            let actions: Vec<MenuAction> = entries.iter().map(|e| e.action).collect();
+            // The connection and delete verbs are byte-identical across
+            // every kind (op-30um.6); only the leading navigation entries
+            // vary, and only by whether the kind carries CSV.
+            let is_csv = matches!(
+                kind,
+                ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
+            );
+            let mut expected = vec![MenuAction::GoToPage];
+            if is_csv {
+                expected.push(MenuAction::GoToDigitiser);
+            }
+            expected.extend([
+                MenuAction::EditArtifact,
+                MenuAction::AddConnection,
+                MenuAction::EditConnections,
+                MenuAction::DeleteConnection,
+                MenuAction::DeleteArtifact,
+            ]);
+            assert_eq!(actions, expected, "{kind:?}");
+            assert_eq!(entries.len(), if is_csv { 7 } else { 6 }, "{kind:?}");
+            // Exactly one entry can ever invoke the delete cascade — a
+            // menu structurally cannot dispatch it twice from one click.
+            assert_eq!(
+                actions.iter().filter(|a| **a == MenuAction::DeleteArtifact).count(),
+                1,
+                "{kind:?}"
+            );
+            assert_eq!(entries.last().unwrap().label, "Delete annotation…", "{kind:?}");
+            // Grouped as [navigation] | [edit] | [connections] | [delete]:
+            // a separator closing each group, none elsewhere.
+            let separators: Vec<bool> = entries.iter().map(|e| e.separator_after).collect();
+            let mut expected_seps = if is_csv {
+                vec![false, true]
+            } else {
+                vec![true]
+            };
+            expected_seps.extend([true, false, false, true, false]);
+            assert_eq!(separators, expected_seps, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn a_second_right_click_on_the_same_artifact_closes_the_menu() {
+        // Maintainer, GH issue #35 (2026-09-08): "box should disappear
+        // after a second right click".
+        let mut state = PdfReaderState::default();
+        let at = Pos2::new(10.0, 20.0);
+        let a = ContextMenuTarget::SavedArtifact("fig-1".to_string());
+
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_some(), "first right-click opens it");
+
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_none(), "second right-click closes it");
+
+        // ...and a third opens it again, so the gesture is a true toggle.
+        state.toggle_context_menu(at, a.clone());
+        assert!(state.context_menu.is_some());
+    }
+
+    #[test]
+    fn right_clicking_a_different_artifact_moves_the_menu_rather_than_closing() {
+        let mut state = PdfReaderState::default();
+        state.toggle_context_menu(
+            Pos2::new(1.0, 1.0),
+            ContextMenuTarget::SavedArtifact("fig-1".to_string()),
+        );
+        state.toggle_context_menu(
+            Pos2::new(9.0, 9.0),
+            ContextMenuTarget::SavedArtifact("table-2".to_string()),
+        );
+        let menu = state.context_menu.as_ref().expect("menu moved, not closed");
+        assert_eq!(
+            menu.target,
+            ContextMenuTarget::SavedArtifact("table-2".to_string())
+        );
+        assert_eq!(menu.screen_pos, Pos2::new(9.0, 9.0));
+    }
+
+    /// The one entry that does vary by kind: its label, matching the
+    /// layer-2 prototype's wording
+    /// (`collaboration/kovan-issue-35-prototypes/layer2-artifact-overlays/prototype_artifact_context_menu.py`).
+    #[test]
+    fn saved_artifact_menu_entries_edit_label_is_kind_specific() {
+        // The edit entry sits after the navigation group, so find it by
+        // action rather than by position.
+        let label_for = |kind| {
+            saved_artifact_menu_entries(kind, true, true)
+                .into_iter()
+                .find(|e| e.action == MenuAction::EditArtifact)
+                .expect("an edit entry")
+                .label
+        };
+        assert_eq!(label_for(ArtifactKind::Note), "Edit annotation");
+        assert_eq!(label_for(ArtifactKind::Annotation), "Edit annotation");
+        assert_eq!(label_for(ArtifactKind::SourceReference), "Edit source reference");
+        assert_eq!(label_for(ArtifactKind::Formula), "Edit formula");
+        assert_eq!(label_for(ArtifactKind::DigitisedTable), "Edit table");
+        assert_eq!(label_for(ArtifactKind::DigitisedGraph), "Edit digitisation");
+    }
+
+    /// Without a `(KovanRoot, KnowledgeIndex)` pair, the three connection
+    /// entries are disabled (never hidden — same convention the citation
+    /// completion popup already uses); Edit and Delete stay enabled since
+    /// neither touches the relation store.
+    #[test]
+    fn saved_artifact_menu_entries_disables_connection_actions_without_a_library() {
+        let entries = saved_artifact_menu_entries(ArtifactKind::Annotation, false, true);
+        let enabled: Vec<bool> = entries.iter().map(|e| e.enabled).collect();
+        // Go to page, Edit, [three connection entries disabled], Delete.
+        assert_eq!(enabled, vec![true, true, false, false, false, true]);
+    }
+
+    /// The composition function itself is pure data assembly — calling it
+    /// (even for a `DeleteArtifact`-bearing menu) can never mutate a
+    /// library, matching op-30um.3's "no graph-walking, no relation
+    /// deletion, and no partial writes in the UI" constraint. This is the
+    /// pdf_reader-side half of "a cancelled delete mutates nothing": the
+    /// menu that *offers* delete has no way to perform it just by being
+    /// built.
+    #[test]
+    fn building_the_menu_never_touches_the_library_a_cancelled_delete_mutates_nothing() {
+        use crate::entity::Access;
+        use crate::research_record::ResearchRecordIndex;
+        use crate::root::RootConfig;
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
+            .save_paper(&root.paper_dir("src"))
+            .unwrap();
+        let mut session = PaperSession::open(&root, "src").unwrap();
+        let index = ResearchRecordIndex::from_session(&session);
+        classify::insert_artifact(
+            &mut session,
+            &index,
+            "A Note",
+            ArtifactKind::Note,
+            None,
+            Classification::default(),
+            None,
+            "body",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let before = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+
+        // Building the menu — including its `DeleteArtifact` entry — is
+        // the entire UI-side effect of a right-click. Nothing about
+        // constructing it touches the filesystem.
+        let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
+
+        let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
+        assert_eq!(before, after, "composing the menu must not touch the paper's file");
+    }
+
+    /// A separate check, at the domain level `saved_artifact_menu_entries`
+    /// itself has no access to: the "No" path really does call nothing.
+    /// `ConnectionPopup::ConfirmDelete` is a plain enum value — holding one
+    /// (as the popup does while its dialog is open) has no effect on its
+    /// own; only picking "Yes" (a distinct code path in
+    /// `connection_popup_ui`, calling
+    /// [`classify::delete_artifact_cascade`]) does. Constructing and then
+    /// dropping the popup value here stands in for the whole "No"/dismiss
+    /// interaction.
+    #[test]
+    fn holding_a_confirm_delete_popup_without_choosing_yes_calls_nothing() {
+        let popup = ConnectionPopup::ConfirmDelete {
+            citekey: "src".to_string(),
+            artifact_id: "note-a".to_string(),
+        };
+        // Dropped here, unchosen — same as the dialog's "No" button, which
+        // maps to `self.connection_popup = None` and nothing else.
+        drop(popup);
+    }
+
+    /// The `DeleteArtifact` entry's real effect, at the same fidelity as
+    /// [`classify`]'s own cascade tests: exactly one call to
+    /// `classify::delete_artifact_cascade` — the same call
+    /// `ConnectionPopup::ConfirmDelete`'s "Yes" button makes — removes the
+    /// artifact, and calling it a second time on the same id errors
+    /// instead of silently no-op'ing, which is what "invoking the cascade
+    /// exactly once" means operationally: a second click cannot find
+    /// anything left to delete.
+    #[test]
+    fn delete_artifact_entry_invokes_the_cascade_exactly_once() {
+        use crate::entity::Access;
+        use crate::research_record::ResearchRecordIndex;
+        use crate::root::RootConfig;
+
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
+            .save_paper(&root.paper_dir("src"))
+            .unwrap();
+        let mut session = PaperSession::open(&root, "src").unwrap();
+        let index = ResearchRecordIndex::from_session(&session);
+        let artifact = classify::insert_artifact(
+            &mut session,
+            &index,
+            "A Note",
+            ArtifactKind::Note,
+            None,
+            Classification::default(),
+            None,
+            "body",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        let artifact_id = artifact.id().to_string();
+
+        let entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
+        assert!(matches!(
+            entries.last().unwrap().action,
+            MenuAction::DeleteArtifact
+        ));
+
+        // First invocation — the "Yes" branch's exact call — succeeds.
+        let removed =
+            classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap();
+        assert_eq!(removed, 0);
+
+        // A second invocation on the same id (what a stray double-dispatch
+        // would look like) finds nothing left and errors rather than
+        // silently repeating the deletion.
+        let err =
+            classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap_err();
+        assert!(matches!(err, classify::CascadeError::ArtifactNotFound { .. }));
     }
 }

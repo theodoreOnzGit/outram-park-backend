@@ -159,33 +159,64 @@ each phase independently portable/verifiable:
      `orders` (generic sort+dedup for PENDF energy-grid nodes) belongs to
      whichever driver eventually builds that grid — not ported, no
      current caller.
-   - **Not yet ported (deferred, see the scope note above):** `angle`,
-     `lmaxxx`, `kclbsch`, `clbsch`, `setleg` (angular-distribution
-     coefficients), and `cssammy`'s own `Want_Partial_Derivs`/
-     `Want_Angular_Dist` branches.
-   - **What's genuinely still missing:** nothing *inside* `samm` drives
-     [`xsformula::cssammy`] over an energy grid or writes its output into
-     a PENDF-like tape — that is `RECONR`'s own resonance-reconstruction
-     loop, which doesn't call into `samm` yet (it currently handles only
-     SLBW/MLBW/Reich-Moore). Wiring `RECONR` to call `samm` for LRF=7
-     sections is the last step before this port is actually reachable
-     from a real NJOY run — tracked as a `reconr` follow-up, not a `samm`
-     phase.
+   - **Not ported — and dead in upstream as shipped:** `angle`, `lmaxxx`,
+     `kclbsch`, `clbsch`, `setleg` (angular-distribution coefficients) and
+     every `Want_Angular_Dist` block. Both callers hard-code the flag off
+     (`reconr.f90:149-150`, `errorr.f90:393`), so no NJOY2016 run ever
+     executes them; per the no-orphaned-dead-code rule they stay
+     unported until a caller exists.
+   - `RECONR` dispatches every `LRF=7` range to [`xsformula::cssammy`]
+     (`reconr::add_rml_range`), and since 2026-09-11 carries the extra
+     particle-pair channels (`MT=600` etc.) into their own MF=3 sections
+     as upstream `emerge` does.
+7. **Resonance-parameter derivatives** (`Want_Partial_Derivs`, the ERRORR
+   `LRF=7` MF=32 path) — ✅ done 2026-09-11 (`derivs/`, bead `op-cjw.4`):
+   - `derivs/mod.rs` — [`derivs::deriv_setup`]: `betset`'s u-parameter
+     block (`uuuu`/`duuu`/`iduu`, `samm.f90:2009-2041`) and `babb`
+     (`br`/`bi`/`par`, l.2817-2921); `betset.rs` now also computes the
+     `dum` term with upstream's stale `dp`/`drho` semantics
+     ([`betset::BetsetCarry`]).
+   - `derivs/energy.rs` — `abpart`'s derivative half (`upr`/`upi` →
+     `pr`/`pii`, l.2950-3006), `setqri` (l.6499-6556), `settri`'s
+     angle-integrated part (l.6558-6674), `derres` (l.6811-6850).
+   - `xsformula/crosss.rs` [`xsformula::cross_sections_with_derivs`] and
+     `xsformula/cssammy.rs` [`xsformula::cssammy_with_derivs`] — the
+     `crosss` driver with `Want_Partial_Derivs` (l.3041-3222, incl. the
+     `4π/E`/`uuuu`/`duuu` normalisation) and `cssammy`'s `sigd` slots
+     (l.152-164); `setup::setup_with_derivs` is `ppsammy` with `babb`.
+   - **Not ported:** `derext` (derivatives with respect to background
+     R-matrix parameters, `nrext > 0`) — `mf2.rs` does not carry `KBK`
+     terms, so such a section is refused upstream of it.
 
 ## Testing
 
-**TODO** (Opus verification pass — no tests were written as part of this
-translation, per the crate's model-division-of-labour rule in `CLAUDE.md`).
-Gate: reconstruct an LRF=7 (KRM=3) evaluation (e.g. ¹⁶O or ¹⁹F, whose ENDF/B
-files use RML) and reproduce upstream RECONR's pointwise σ(E) within
-tolerance. **This gate is now reachable** — `xsformula::cross_sections`
-(Phase 5) is the first function in this port able to produce an actual
-cross section end-to-end (parse → kinematics/amplitudes → R-matrix →
-invert → assemble → cross section), pending Phase 6's top-level
-orchestration (`cssammy`/`ppsammy`) to wire it into RECONR's own driver
-loop and an energy grid. For Phase 1 alone: parse a real LRF=7 section and
-manually cross-check the particle-pair/spin-group/resonance counts and a
-few resonance energies/widths against the raw ENDF file by eye.
+**Verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (MAT 1725), 2026-09-11**
+— the NJOY2016 test-suite `cl35rml` resource, the first `LRF=7`
+evaluation available to this workspace (the committed ENDF/B-VIII.0 O-16
+and F-19 tapes turned out to carry no resonance parameters at all):
+
+- `tests/reconr_cl35_rml_njoy_golden.rs` (bead `op-cjw.2`): the kernel
+  (`setup` → `cssammy`) evaluated at all 10 417 nodes of NJOY's RECONR
+  grid below 1.2 MeV, plus the ENDF MF=3 background, agrees with the
+  oracle tape to **4.9e-7** (elastic), **4.5e-7** (capture) and **4.9e-7**
+  ((n,p), the third particle pair) — the 7-figure printing floor, on the
+  first run. 8 spin groups, 1–3 explicit channels each, a charged (proton)
+  exit channel above its 615 keV threshold, so `pgh`, `pghcou`,
+  `onech`/`twoch`/`threech`, `setxqx`, `sectio` are all exercised. The
+  crate's end-to-end RECONR is within 1.3e-4 / 1.1e-3 / 4.0e-4 of the
+  tape (grid interpolation).
+- `tests/errorr_mf32_cl35_rml_golden.rs` (bead `op-cjw.4`): the
+  derivatives, integrated over 27 groups and folded with the 1088-parameter
+  MF=32 covariance by ERRORR's `rpxsamm`, reproduce every element of
+  NJOY's covariance tape to **4.83e-7** (3174 non-zero elements, six
+  blocks). See `src/errorr/README.md`.
+- Unit tests: `derivs::tests::parameter_layout_and_babb_pattern` (the
+  `ipar` layout, `iduu`, a zero width, `babb`'s triangle pattern),
+  `mf2::tests::reorder_eliminated_*`.
+
+Still open: an evaluation whose eliminated channel is not listed first
+(the `op-cjw.3` reorder; every Cl-35 group lists it first), `KRM≠3`,
+`IFG=1`, `KBK>0` (all refused, as upstream).
 
 ## Caveats
 
@@ -221,29 +252,29 @@ few resonance energies/widths against the raw ENDF file by eye.
   errors** — matching `checkqn`'s own behavior (`write` to the output
   listing, not `call error`), except for the two conditions upstream itself
   treats as fatal (invalid group spin, negative channel `l`).
-- **`betset::compute_resonance_amplitudes` inherits a stale-`drho` issue
-  from upstream** for resonances sitting exactly on a channel threshold —
-  see that function's doc comment. Only matters for the not-yet-ported
-  derivative term; the amplitude computed here is unaffected.
+- **`betset::compute_resonance_amplitudes` inherits a stale-`dp`/`drho`
+  issue from upstream** for a channel that skips the penetrability
+  branch (a resonance exactly on a threshold, or `LPENT <= 0`) — see
+  [`betset::BetsetCarry`]. Only the derivative-side `dum` term sees it
+  (ported with the same semantics, the carry starting at zero); the
+  amplitude is unaffected. Not exercised by Cl-35 (both explicit channels
+  have `LPENT = 1` and no resonance sits on a threshold).
 - **`coulomb/steed.rs`'s `coulfg` has one dead local (`paccq`) intentionally
   not ported** — write-only in the Fortran (computed, never read again
   within the subroutine); see [`coulomb::coulfg`]'s doc comment.
-- **`linpack.rs`/`rmatrix_invert.rs`/`xsformula/` are untested against a
-  real R-matrix problem** — the physics is all wired up end-to-end now
-  (Phase 5 done), but genuinely has not been run against a real LRF=7
-  evaluation even once. This is the necessary next Opus verification step.
+- **`linpack.rs`'s `yfour` (4+ channels) is still untested against a
+  real R-matrix problem** — Cl-35 has at most three explicit channels
+  per spin group, so only `onech`/`twoch`/`threech` are oracle-verified.
 - **`xsformula::sectio`'s `crss` indexing quirk** — positions 0/1 are
   hardcoded to elastic/capture regardless of particle-pair numbering;
   ported literally from upstream's own convention. See `sectio.rs`'s doc
   comment.
-- **Phase 6 (top-level orchestration, angular distributions) is not
-  ported yet** — `xsformula::cross_sections` computes cross sections at a
-  single caller-supplied energy; nothing yet drives it over an energy grid
-  or wires it into `RECONR`'s own resonance-reconstruction loop
-  (`cssammy`/`ppsammy`'s job).
-- **RECONR currently lacks RML entirely** — evaluations using LRF=7 fail
-  until this port reaches Phase 5. Per `docs/porting-plan.md`, check the
-  evaluation's LRF before relying on RECONR.
+- **Angular distributions are not ported** — dead code in NJOY2016 as
+  shipped (both callers set `Want_Angular_Dist = .false.`); see phase 6.
+- **`cross_sections_with_derivs` costs ~0.16 ms per energy on Cl-35**
+  (1088 parameters, 8 groups), about eight times NJOY's; ERRORR's
+  `rpxsamm` makes 131k such calls. Allocation churn in the per-energy
+  assembly, recorded rather than optimised further.
 - Numerically delicate — channel-matrix conditioning near thresholds needs
   care (Phase 4).
 

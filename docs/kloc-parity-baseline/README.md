@@ -4,6 +4,20 @@
 output of `scripts/kloc_accounting.py` captured on **2026-08-14**, immediately
 before that script was ported to Rust (`kovan kloc`) and deleted.
 
+## The manuscript these figures belong to
+
+> Ong, T. K. C., Wong, E. Y. H., & Xiao, S. (2026). *Agentic Porting,
+> Construction and Initial Verification and Validation of Libraries within the
+> Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit
+> (Outram Park) Part I: Thermal Hydraulics.* arXiv:2608.17504
+> [physics.comp-ph]. <https://arxiv.org/abs/2608.17504>
+
+The pre-agentic baseline and per-crate agentic line counts captured here are the
+paper's accounting. The drift-check table below is what keeps the repository and
+the published figures in agreement — a published table cannot be corrected after
+the fact, so a non-zero delta here means the *repository* has drifted from the
+record, and that is the thing to investigate.
+
 ## Why they exist
 
 The workspace's "no Python for documentation or accounting" hard rule requires a

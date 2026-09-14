@@ -78,7 +78,7 @@
 //! above: the LCG *state* recurrence is unchanged, but every sampled uniform
 //! moved. The geometry assertions are unaffected.
 
-use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
+use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
 use outram_mc_libs::geometry::position::{Direction, Position};
@@ -345,7 +345,7 @@ fn hexagonal_lattice_geometry() {
             let centre = Position::new(-c.x, -c.y, 0.0);
 
             let path = geom
-                .locate(centre, u, usize::MAX)
+                .locate(centre, u, SurfaceToken::NONE)
                 .unwrap_or_else(|| panic!("tile centre {i:?} at {centre:?} located nowhere"));
             // Descent is root (level 0, the lattice-fill cell) → the tile's pin
             // universe (level 1, carrying the lattice marker), exactly as the
@@ -399,7 +399,7 @@ fn hexagonal_lattice_geometry() {
     //     safely outside it but inside the 5 cm boundary.
     let outside_hex = Position::new(0.0, 4.8, 0.0);
     let p_out = geom
-        .locate(outside_hex, u, usize::MAX)
+        .locate(outside_hex, u, SurfaceToken::NONE)
         .expect("4.8 cm point is inside r=5");
     assert_eq!(
         p_out.material,
@@ -414,7 +414,7 @@ fn hexagonal_lattice_geometry() {
 
     // (3) A point outside the r=5 vacuum boundary is lost (in no cell of the root).
     assert!(
-        geom.locate(Position::new(5.5, 0.0, 0.0), u, usize::MAX)
+        geom.locate(Position::new(5.5, 0.0, 0.0), u, SurfaceToken::NONE)
             .is_none(),
         "beyond the vacuum boundary the particle is lost"
     );

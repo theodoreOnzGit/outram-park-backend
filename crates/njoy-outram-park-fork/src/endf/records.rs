@@ -112,6 +112,22 @@ impl<'a> SectionCursor<'a> {
         self.rows.len().saturating_sub(self.pos)
     }
 
+    /// Index of the next unread row (0-based within the section).
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
+    /// Skip `n` rows (an INTG block, whose lines are not six floats).
+    pub fn skip_rows(&mut self, n: usize) -> Result<(), NjoyError> {
+        if self.pos + n > self.rows.len() {
+            return Err(NjoyError::EndfParse(
+                "unexpected end of section data".into(),
+            ));
+        }
+        self.pos += n;
+        Ok(())
+    }
+
     fn next_row(&mut self) -> Result<&[f64; 6], NjoyError> {
         if self.pos >= self.rows.len() {
             return Err(NjoyError::EndfParse(

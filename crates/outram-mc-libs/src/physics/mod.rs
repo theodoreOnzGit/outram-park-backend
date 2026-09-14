@@ -15,6 +15,10 @@
 //!   Reuses [`transport_csg::transport_history`] for the per-history physics.
 //! - [`physics_mg`] — multigroup transport (group-averaged cross sections;
 //!   pending / partial).
+//! - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**
+//!   auto-captured 3-group six-factor decomposition (η, f, p, ε, P_FNL, P_TNL)
+//!   and lethargy-normalised flux spectrum, from one combined tally + explicit
+//!   leakage accounting. Built on [`transport_csg::run_keff_csg_reactor_physics`].
 //!
 //! # Collision-level kernels (the per-collision physics the drivers call)
 //!
@@ -24,6 +28,19 @@
 //!   drivers (single-thread / multi-thread / GPU).
 //! - [`search`] — reactivity search wrapping the k-eigenvalue driver (root-find
 //!   a geometry/material parameter for a target `k_eff`).
+//!
+//! # Oracles (independent solutions the drivers are measured against)
+//!
+//! - [`slowing_down`] — the epithermal slowing-down equation solved
+//!   **deterministically**, both for an infinite homogeneous medium
+//!   ([`slowing_down::solve_on_grid`], exact) and for a concentric-sphere cell
+//!   ([`slowing_down::solve_deterministic_multiregion`], exact but for the
+//!   flat-flux-per-shell discretisation). Together they are the reference the
+//!   self-shielded resonance absorption is judged against, in energy and in
+//!   space.
+//! - [`collision_probability`] — the geometric half of that: exact first-flight
+//!   collision probabilities for concentric spheres by impact-parameter track
+//!   quadrature, with a white-boundary closure.
 //!
 //! [`transport`] is a stub retained for the generic history-based loop notes;
 //! the live per-history loop is in [`transport_csg`].
@@ -37,3 +54,6 @@ pub mod fission;
 pub mod keff;
 pub mod search;
 pub mod physics_mg;
+pub mod reactor_physics;
+pub mod slowing_down;
+pub mod collision_probability;

@@ -28,7 +28,7 @@ use std::{fs::File, path::Path};
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
 use crate::{
-    broadr::doppler_broaden,
+    broadr::broaden_result,
     endf::{tape::Tape, MtReaction},
     reconr::{eval_lin_lin, reconr, ReconrConfig, ReconrResult},
     units::{CrossSection, NeutronEnergy, Temperature},
@@ -116,14 +116,17 @@ impl NuclearDataLibrary {
     /// Apply Doppler broadening at temperature `t` using the SIGMA1 free-gas method.
     ///
     /// Requires [`reconstruct`][Self::reconstruct] to have been called first.
-    /// Broadens all reconstructed cross sections using the effective target
-    /// temperature `t` \[K\].
+    /// Broadens the reconstructed cross sections up to upstream BROADR's
+    /// default `thnmax` — the top of the resolved resonance region (see
+    /// [`crate::broadr::broadening_limit`]) — and leaves everything above it
+    /// exactly as RECONR produced it, using the effective target temperature
+    /// `t` \[K\].
     ///
     /// # Errors
     ///
     /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first.
     pub fn broaden(mut self, t: Temperature) -> Result<Self, NjoyError> {
-        let awr = self.awr().ok_or(NjoyError::NotPorted(
+        self.awr().ok_or(NjoyError::NotPorted(
             "call .reconstruct() before .broaden()",
         ))?;
         let temp_k = t.get::<kelvin>();
@@ -131,7 +134,7 @@ impl NuclearDataLibrary {
 
         if temp_k > 0.0 {
             if let Some(r) = &mut self.reconr {
-                r.sections = doppler_broaden(&r.sections, awr, temp_k);
+                *r = broaden_result(r, temp_k);
             }
         }
         Ok(self)

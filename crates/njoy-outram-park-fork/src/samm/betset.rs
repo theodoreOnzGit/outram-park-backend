@@ -9,14 +9,12 @@
 //! building block Phase 4's R-matrix inversion needs), and the eliminated
 //! capture channel's own amplitude `gbetpr` from `Gamma_gamma`.
 //!
-//! **Scope of this pass:** only `betset`'s non-derivative core is ported
-//! here. Upstream's `Want_Partial_Derivs`/`Want_Partial_U`-gated "u
-//! parameter" conversion (`samm.f90:2009-2041`) and the "rexternal
-//! parameters" section (`samm.f90:2048-2068`) feed the not-yet-ported
-//! derivative propagation (`derres`/`derext`, Phase 5) — porting them now
-//! would itself be code with no consumer yet. They'll be added alongside
-//! `derres`/`derext` rather than staged here disconnected from what reads
-//! them.
+//! **Scope:** `betset`'s amplitude core plus the derivative-side `dum`
+//! term (`samm.f90:1983-1984`). The `Want_Partial_U`-gated "u parameter"
+//! conversion (`samm.f90:2009-2041`) lives in [`crate::samm::derivs`]
+//! (`deriv_setup`), next to `babb`; the "rexternal parameters" section
+//! (`samm.f90:2048-2068`, background R-matrix terms) is not ported —
+//! [`crate::samm::mf2`] does not parse `KBK` background data.
 
 use crate::samm::coulomb::pghcou;
 use crate::samm::context::ChannelKinematics;
@@ -41,6 +39,28 @@ pub struct ResonanceAmplitudes {
     /// (sign-preserved), `|Gamma_gamma|/2`, `(|Gamma_gamma|/2)^2]`
     /// (`samm.f90:2001-2006`).
     pub gbetpr: [f64; 3],
+    /// `dum(j, ires) = dP/dρ · dρ/dE · β_c / (2P)` per explicit channel
+    /// (`samm.f90:1983-1984`, sign flipped for a bound level) — the
+    /// energy dependence of the penetrability that
+    /// [`crate::samm::derivs`] folds into the `E_λ` derivative (`duuu`).
+    /// Zero for a zero width; carries upstream's stale-local semantics
+    /// (see [`BetsetCarry`]). Not used by the cross section itself.
+    pub dum: Vec<f64>,
+}
+
+/// The two `betset` locals `dp` and `drho` that upstream declares once per
+/// call and only *assigns* inside the `if (ex.ne.zero)` /
+/// penetrability-enabled branch (`samm.f90:1950-1980`): a channel that
+/// skips that branch (zero `ex`, or `LPENT <= 0`) computes its `dum`
+/// from whatever the previous channel or resonance left there. One
+/// carry per section reproduces that across spin groups; it starts at
+/// zero, which is what an uninitialised `real(kr)` local is in practice
+/// with the gfortran build the oracle used (only the derivative-side
+/// `dum` sees it; the amplitude `beta_c` never does).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BetsetCarry {
+    pub dp: f64,
+    pub drho: f64,
 }
 
 /// Pack a triangular `(c, c')` pair (`c'<=c`, both 0-indexed) into the flat
@@ -81,11 +101,26 @@ pub fn compute_resonance_amplitudes(
     kinematics: &[ChannelKinematics],
     pairs: &[ParticlePair],
 ) -> Result<Vec<ResonanceAmplitudes>, NjoyError> {
+    let mut carry = BetsetCarry::default();
+    compute_resonance_amplitudes_carry(group, kinematics, pairs, &mut carry)
+}
+
+/// [`compute_resonance_amplitudes`] with the `dp`/`drho` locals threaded
+/// through `carry` so that a whole section's spin groups share them as
+/// one upstream `betset(ier)` call does (only the derivative-side `dum`
+/// depends on this).
+pub fn compute_resonance_amplitudes_carry(
+    group: &SpinGroup,
+    kinematics: &[ChannelKinematics],
+    pairs: &[ParticlePair],
+    carry: &mut BetsetCarry,
+) -> Result<Vec<ResonanceAmplitudes>, NjoyError> {
     let mmaxc = group.channels.len();
 
     let mut out = Vec::with_capacity(group.resonances.len());
     for resonance in &group.resonances {
         let mut beta_pr = vec![0.0_f64; mmaxc];
+        let mut dum = vec![0.0_f64; mmaxc];
 
         for (j, ch) in group.channels.iter().enumerate() {
             let gamma_j = resonance.channel_widths[j];
@@ -114,12 +149,19 @@ pub fn compute_resonance_amplitudes(
                 if ex != 0.0 {
                     let ex_sqrt = ex.sqrt();
                     let rho = kinematics[j].zkte * ex_sqrt;
+                    // samm.f90:1953-1955 -- drho = zkte*sqrt(|E_res|)/sqrt(ex)
+                    carry.drho = kinematics[j].zkte * resonance.energy.abs().sqrt() / ex_sqrt;
                     if kinematics[j].zeta == 0.0 {
-                        p = pgh(rho, ch.l, ch.boundary, pair.shift_flag).p;
+                        let pg = pgh(rho, ch.l, ch.boundary, pair.shift_flag);
+                        p = pg.p;
+                        carry.dp = pg.dp;
                     } else {
                         let eta = kinematics[j].zeta / ex_sqrt;
                         match pghcou(rho, ch.l, ch.boundary, pair.shift_flag, eta, false) {
-                            Some(out) if out.p > 0.0 => p = out.p,
+                            Some(out) if out.p > 0.0 => {
+                                p = out.p;
+                                carry.dp = out.dp;
+                            }
                             Some(out) => {
                                 log::warn!(
                                     "samm betset: Coulomb penetrability P={} <= 0 at E_res={}, forcing P=1 (samm.f90:1965-1977)",
@@ -127,6 +169,7 @@ pub fn compute_resonance_amplitudes(
                                     resonance.energy
                                 );
                                 p = 1.0;
+                                carry.dp = 0.0;
                             }
                             None => {
                                 log::warn!(
@@ -134,6 +177,7 @@ pub fn compute_resonance_amplitudes(
                                     resonance.energy
                                 );
                                 p = 1.0;
+                                carry.dp = 0.0;
                             }
                         }
                     }
@@ -145,6 +189,12 @@ pub fn compute_resonance_amplitudes(
                 beta_c = -beta_c;
             }
             beta_pr[j] = beta_c;
+            // samm.f90:1983-1984 -- dum from the (possibly stale) dp/drho
+            let mut d = carry.dp * carry.drho * beta_c / (2.0 * p);
+            if resonance.energy < 0.0 {
+                d = -d;
+            }
+            dum[j] = d;
         }
 
         // samm.f90:1991-1998 -- triangular products.
@@ -167,6 +217,7 @@ pub fn compute_resonance_amplitudes(
             beta_pr,
             beta,
             gbetpr: [g1, g2, g3],
+            dum,
         });
     }
 

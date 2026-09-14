@@ -1,0 +1,46 @@
+reconr
+ 20 21/
+ 'u238 endf/b-viii.0 pendf, err 0.001, wimsr oracle'/
+ 9237 0/
+ 0.001/
+ 0/
+broadr
+ 20 21 22/
+ 9237 1/
+ 0.001/
+ 293.6/
+ 0/
+thermr
+ 0 22 23/
+ 0 9237 8 1 1 0 0 1 221 1/
+ 293.6/
+ 0.001 4.0/
+groupr
+ 20 23 0 24/
+ 9237 1 0 3 1 1 6 1/
+ 'u238 29-group, iwt=3, 6 sigma0, lord=1, free-gas thermal, for wimsr'/
+ 293.6/
+ 1e10 1e4 1e3 1e2 10 1/
+ 29/
+ 1e-5 0.1 0.625 1 4 6.5 8 10 15 20 25 30 40 50 100 200 500 1e3 2e3 5e3
+ 1e4 2e4 5e4 1e5 5e5 1e6 2e6 5e6 1e7 2e7/
+ 3 1 'total'/
+ 3 2 'elastic'/
+ 3 18 'fission'/
+ 3 102 'capture'/
+ 3 252 'mubar'/
+ 3 452 'nubar'/
+ 3 221 'free gas thermal'/
+ 6 2 'elastic matrix'/
+ 6 18 'fission matrix'/
+ 6 221 'free gas thermal matrix'/
+ 0/
+ 0/
+wimsr
+ 24 25/
+ 2 4 9/
+ 29 15 8 15/
+ 9237 1 9238.0 0/
+ 0 0 1e10 1 0 221 0 0 0 1 0 0/
+ 1 1 1 1 1 1 1 1/
+stop

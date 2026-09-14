@@ -10,16 +10,21 @@
 //! the port where a real number — a cross section in barns — comes out
 //! the other end.
 //!
-//! **Not ported here (deferred, see this crate's `README.md`):** the
-//! `Want_Angular_Dist`/`Want_Partial_Derivs`-gated bookkeeping
-//! (`setleg`/`setqri`/`settri`/`derres`/`derext`) — no caller until
-//! `ERRORR` is built (RECONR, the only current caller, disables both).
+//! [`cross_sections`] is `crosss` with both flags off (RECONR's case);
+//! [`cross_sections_with_derivs`] is `crosss` with `Want_Partial_Derivs`
+//! (ERRORR's case, `samm.f90:3041-3222`): the same per-group evaluation
+//! plus `setqri`/`settri`/`derres` and the u-parameter normalisation.
+//! **Not ported:** the `Want_Angular_Dist` bookkeeping (`setleg`, `cscs`)
+//! and `derext` (background R-matrix parameters).
 
 use crate::samm::betset::ResonanceAmplitudes;
 use crate::samm::context::{ChannelKinematics, GroupQuantumInfo};
 use crate::samm::mf2::RmlSection;
 use crate::samm::rmatrix_invert::{invert, zero_triangular};
 use crate::common::phys::PI;
+
+use crate::samm::derivs::energy::{abpart_derivs, derres, setqri, settri};
+use crate::samm::derivs::DerivSetup;
 
 use super::abpart::abpart;
 use super::assembly::setxqx;
@@ -111,4 +116,174 @@ pub fn cross_sections(
     }
 
     sigmas
+}
+
+/// `crosss` with `Want_Partial_Derivs` (`samm.f90:3011-3229`): every
+/// particle pair's cross section (as [`cross_sections`]) **and**
+/// `dsigma[ip][ipar]`, the partial derivative of pair `ip`'s cross section
+/// with respect to resonance parameter `ipar` of `ds` (barns per eV for
+/// `E_λ`/`Γ` parameters), normalised by `4π/E` and converted from
+/// u-parameters (`samm.f90:3193-3222`).
+///
+/// A spin group whose R-matrix is trivially zero at this energy (`lrmat`)
+/// contributes no derivative, as upstream (`needxq`, `samm.f90:3125-3127`).
+#[allow(clippy::needless_range_loop)]
+pub fn cross_sections_with_derivs(
+    section: &RmlSection,
+    kinematics: &[Vec<ChannelKinematics>],
+    amplitudes: &[Vec<ResonanceAmplitudes>],
+    quantum_info: &[GroupQuantumInfo],
+    ds: &DerivSetup,
+    energy: f64,
+) -> (Vec<f64>, Vec<Vec<f64>>) {
+    let npp = section.particle_pairs.len();
+    let npar = ds.npar;
+    let mut sigmas = vec![0.0_f64; npp];
+    let mut dsigma = vec![vec![0.0_f64; npar]; npp];
+
+    // abpart for every group first (upstream fills the module arrays for
+    // all resonances before crosss runs), then its derivative half.
+    let alpha_all: Vec<Vec<super::abpart::AlphaTerms>> = section
+        .spin_groups
+        .iter()
+        .enumerate()
+        .map(|(n, g)| abpart(&g.resonances, &amplitudes[n], energy))
+        .collect();
+    let nchan_full: Vec<usize> = section.spin_groups.iter().map(|g| g.channels.len()).collect();
+    let terms = abpart_derivs(ds, &nchan_full, &alpha_all);
+
+    for (n, group) in section.spin_groups.iter().enumerate() {
+        let out = setr(
+            group,
+            &kinematics[n],
+            &section.particle_pairs,
+            &amplitudes[n],
+            &alpha_all[n],
+            energy,
+        );
+        let npr = ds.npr[n];
+        let kstart = ds.kstart[n];
+
+        let (xqx, yinv) = if out.lrmat_trivial {
+            let z = zero_triangular(out.nchan);
+            (
+                super::assembly::XqxOutput {
+                    xxxxr: z.re,
+                    xxxxi: z.im,
+                },
+                None,
+            )
+        } else {
+            let yinv = invert(&out.ymat, out.nchan as i64);
+            let xqx = setxqx(
+                out.nchan,
+                &out.rmat,
+                &yinv,
+                &out.rootp,
+                &out.elinvr,
+                &out.elinvi,
+            );
+            (xqx, Some(yinv))
+        };
+        // samm.f90:3125-3127
+        let needxq = npr == 0 || out.lrmat_trivial;
+
+        let zke: Vec<f64> = kinematics[n][..out.nchan].iter().map(|k| k.zke).collect();
+        let particle_pair: Vec<usize> = group.channels[..out.nchan]
+            .iter()
+            .map(|c| c.particle_pair)
+            .collect();
+
+        let crss = sectio(
+            npp,
+            &quantum_info[n],
+            &zke,
+            &particle_pair,
+            &out.sinsqr,
+            &out.sin2ph,
+            &xqx.xxxxr,
+            &xqx.xxxxi,
+        );
+        for (ip, c) in crss.into_iter().enumerate() {
+            sigmas[ip] += c;
+        }
+
+        // samm.f90:3149-3176 -- derivatives for this group, accumulated
+        // straight into dsigma (see `derres`'s doc comment)
+        if !needxq {
+            let yinv = yinv.as_ref().expect("non-trivial R has an inverse");
+            let q = setqri(
+                out.nchan,
+                &out.rootp,
+                &out.elinvr,
+                &out.elinvi,
+                &out.psmall,
+                yinv,
+            );
+            let t = settri(
+                npp,
+                quantum_info[n].n_entrance,
+                out.nchan,
+                &zke,
+                &particle_pair,
+                &out.sinsqr,
+                &out.sin2ph,
+                &xqx.xxxxr,
+                &xqx.xxxxi,
+                &q,
+            );
+            derres(
+                npp,
+                out.nchan,
+                quantum_info[n].goj,
+                kstart,
+                npr,
+                &terms,
+                &t,
+                &mut dsigma,
+            );
+        }
+    }
+
+    // samm.f90:3179-3182
+    let fourpi = 4.0 * PI / 100.0;
+    for s in sigmas.iter_mut() {
+        *s *= fourpi / energy;
+    }
+
+    // samm.f90:3193-3222 -- normalise by 4pi/E, divide by uuuu (u -> Gamma,
+    // sqrt(E) -> E), and fold the penetrability's energy dependence (duuu)
+    // of the same resonance's channel widths into the E_lambda derivative.
+    for m in 0..npar {
+        let u = ds.uuuu[m];
+        if u != 0.0 {
+            let u = fourpi / energy / u;
+            if ds.iduu[m] == 1 {
+                for mx in 1..=ds.mchan {
+                    let mplus = m + mx + 1;
+                    if mplus >= npar {
+                        break;
+                    }
+                    if ds.iduu[mplus] > 0 {
+                        break;
+                    }
+                    if ds.duuu[mplus] != 0.0 {
+                        for ip in 0..npp {
+                            let sub = ds.duuu[mplus] * dsigma[ip][mplus];
+                            dsigma[ip][m] -= sub;
+                        }
+                    }
+                }
+            }
+            for ip in 0..npp {
+                dsigma[ip][m] *= u;
+            }
+        } else {
+            for ip in 0..npp {
+                dsigma[ip][m] = 0.0;
+            }
+        }
+    }
+
+    (sigmas, dsigma)
 }

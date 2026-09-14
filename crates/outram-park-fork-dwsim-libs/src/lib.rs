@@ -34,6 +34,14 @@
 //!   plumbing -- none of that is physics, and none of it is ported (see each
 //!   module's doc comment for what was deliberately excluded from its source
 //!   file).
+//!
+//! ## Where to start
+//!
+//! `use outram_park_fork_dwsim_libs::prelude::*;` — the [`prelude`] is the
+//! curated map of entry points (crude characterisation, the rigorous column,
+//! property packages, the struct-based unit operations, and the `uom` unit
+//! markers the API takes). Every module path below is still reachable for the
+//! long tail; the prelude's own docs say what it leaves out and why.
 
 #![forbid(unsafe_code)]
 
@@ -51,6 +59,7 @@ pub mod interpolation;
 pub mod mixer;
 pub mod petroleum;
 pub mod pipe;
+pub mod prelude;
 pub mod pump;
 pub mod reactions;
 pub mod reactors;

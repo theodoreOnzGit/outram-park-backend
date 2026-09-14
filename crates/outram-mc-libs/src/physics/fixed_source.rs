@@ -207,6 +207,11 @@ pub fn run_fixed_source(
                     &mut seed,
                     tally.as_deref(),
                     &mut batch,
+                    // Leakage accounting is not tracked for fixed-source runs —
+                    // the escaping-flux quantity there is a boundary-current
+                    // tally, a separate feature. Pass the disabled sink.
+                    &[],
+                    &mut [],
                 );
                 production_sum += prod;
                 for s in next {

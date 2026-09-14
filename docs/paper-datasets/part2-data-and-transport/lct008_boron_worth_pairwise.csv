@@ -1,0 +1,3 @@
+step,boron_change_ppm,worth_recorded_pcm,sigma_recorded_pcm,worth_current_pcm,sigma_current_pcm,measured,note
+case 1 -> case 2,1511 -> 1335.5,+679,86,+430,177,2026-09-13,pairwise - owes nothing to an absorption-share estimate
+case 2 -> case 8,1335.5 -> 794,+558,86,+464,168,2026-09-13,case 8 also adds 144 pyrex rods

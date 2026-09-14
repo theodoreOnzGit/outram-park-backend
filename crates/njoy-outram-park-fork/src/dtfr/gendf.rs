@@ -33,7 +33,7 @@
 //!
 //! Cross sections are in **barns**, energies in **eV**, temperature in **kelvin**.
 
-use crate::dtfr::input::NeutronTables;
+use crate::dtfr::input::{EditSpec, NeutronTables};
 use crate::dtfr::table::{dtf_group, DtfTable};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -208,6 +208,7 @@ pub fn build_neutron_table(
     tape: &Tape,
     mat: i32,
     neutron: &NeutronTables,
+    edits: &[EditSpec],
     jz: i32,
 ) -> Result<DtfTable, NjoyError> {
     let header = read_header(tape, mat)?;
@@ -231,6 +232,31 @@ pub fn build_neutron_table(
         table.set(iptotl, jg, total);
         // absorption seed: sig(iptotl-2) += total (dtfr.f90:348-349).
         table.add(iptotl - 2, jg, total);
+    }
+
+    // Edit cross sections (dtfr.f90:365-382): at il = 1, every MF=3 record
+    // adds `mult * sigma(mt)` to the edit's position, and an `mt = 300` edit
+    // takes the MT=1 record's flux word (`a(lz+il+nl*(jz-1))`, i.e. k = 1).
+    let mf3_mts: Vec<i32> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|s| s.key.mt)
+        .collect();
+    for mt in mf3_mts {
+        for rec in read_section_records(tape, mat, 3, mt)? {
+            let jg = dtf_group(rec.ig, ng);
+            if jg < 1 || jg > ng {
+                continue;
+            }
+            for e in edits {
+                if mt == 1 && e.mt == 300 {
+                    table.add(e.jpos, jg, rec.value(1, jz, 1) * f64::from(e.mult));
+                } else if mt == e.mt {
+                    table.add(e.jpos, jg, rec.cross_section(1, jz) * f64::from(e.mult));
+                }
+            }
+        }
     }
 
     // MF=6 MT=2 elastic transfer matrix (dtfr.f90:409-427).
@@ -414,7 +440,7 @@ mod tests {
             vec![header_section(9237, 293.6, ng, &[1.0e10], &egn), mf3, mf6],
         );
 
-        let table = build_neutron_table(&tape, 9237, neutron, 1).unwrap();
+        let table = build_neutron_table(&tape, 9237, neutron, &[], 1).unwrap();
         assert_eq!(table.get(neutron.iptotl, 1), 5.0);
         assert_eq!(table.get(neutron.iptotl, 2), 3.0);
         assert_eq!(table.get(neutron.iptotl, 3), 2.0);
@@ -457,7 +483,7 @@ mod tests {
             " gendf".into(),
             vec![header_section(9237, 293.6, ng, &[1.0e10], &egn), mf3],
         );
-        let table = build_neutron_table(&tape, 9237, neutron, 1).unwrap();
+        let table = build_neutron_table(&tape, 9237, neutron, &[], 1).unwrap();
         let totals = column(&table.sig, neutron.iptotl, neutron.itabl, ng);
         assert_eq!(totals, vec![5.0, 3.0, 2.0]);
         let body = format0_body(&totals);

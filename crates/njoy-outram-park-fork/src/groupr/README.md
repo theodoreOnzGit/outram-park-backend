@@ -80,10 +80,16 @@ The numeric engine and its dependencies return `NjoyError::NotPorted`:
 - reaction retrieval & feed functions: `getmf6`, `getff`, `getfwt`, `getflx`,
   `getyld`, `getsig` (MF=10 photon-production + `MT=257/258/259` derived
   quantities only — the ordinary MF=3/MF=13 case is ported, see
-  `pendf_feed.rs`), `getdis` (anisotropic-CM only — see `matrix.rs`),
-  `getgfl`, `getgyl`, `getsed`, `anased`;
-- quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector/matrix
-  `panel`/`displa` reduction is ported — see `panel.rs`/`matrix.rs`);
+  `pendf_feed.rs`), `getdis` (ported for neutron File-4 two-body channels
+  in `two_body.rs` with `getfle`/`getco` in `file4.rs`; charged-particle
+  Coulomb term, `MT=251-253` and File-6 two-body data remain), `getgfl`,
+  `getgyl`, `getsed`, `anased`;
+- quadrature / accumulation: `epanel`, `gengr`, `glmol` (the vector
+  `panel`/`displa` reduction is ported — see `panel.rs`; the full matrix
+  `panel`/`displa` with Lobatto re-evaluation of the feed function, the
+  `rndoff`/`delta` shading and the `ig1`/`iglo`/`igt` bookkeeping is ported
+  statement for statement in `matrix_panel.rs`; `matrix.rs` keeps the
+  earlier trapezoid reduction for its isotropic kernel);
 - flux calculator & URR self-shielding: `getfwt`; the slowing-down branch of
   `genflx` (`nflmax > 0`) — the Bondarenko branch and `getunr`/`stounr` are
   ported, see `unresolved.rs`/`urr_pendf.rs`;
@@ -120,10 +126,101 @@ Inline `#[cfg(test)]` tests in each file, run via
 - **`mod.rs`** — `run()` → `NotPorted("groupr")`; the neutron + photon surfaces
   both resolve (ign=17 → 176 boundaries; igg=10 → 43 boundaries).
 
-Test counts: see the porting agent's hand-off / CI. The **numeric group
-averaging is untested here by design** — its V&V gate (reproduce upstream group
-cross sections + a scattering matrix for a reference nuclide against the Fortran
-oracle) is deferred until the engine is ported.
+Test counts: see the porting agent's hand-off / CI.
+
+### Golden-file validation vs NJOY2016 (2026-09-10)
+
+The **vector path with the Bondarenko self-shielded flux** (`genflx` narrow-
+resonance branch + `panel`/`displa`, i.e. `unresolved::genflx_bondarenko`,
+`panel::group_integral`, `self_shielded::self_shielded_group_xs`) is now
+validated against a real NJOY2016 GENDF tape:
+`tests/groupr_u238_gendf_golden.rs`, golden data + the exact deck in
+`reference-data/gendf/` (U-238, ENDF/B-VIII.0, 293.6 K, 29 user groups,
+`iwt=3`, six `sigz`, MT 1/2/18/102). Measured, all 29 groups × 6 dilutions:
+
+- fed NJOY's **own PENDF** (engine isolated): `sigma_g` within **2.65e-6** and
+  the group flux within **4.93e-7** of the GENDF — the 7-significant-figure
+  storage floor;
+- fed the crate's **own RECONR + BROADR**: MT 1/2/102 within **9.24e-4**, flux
+  within 6.06e-5; MT=18 within 1.14e-2, which is NJOY's own `errmax = 10*err`
+  slack on sub-threshold fission under its `errint` floor (`reconr.f90:109-117`),
+  not an engine discrepancy.
+
+- fed NJOY's PENDF **after UNRESR** (a second deck with `unresr` and the same
+  six `sigz`), with `urr_pendf::read_urr_from_tape` supplying the MF=2/MT=152
+  table: `sigma_g` within **2.65e-6**, flux within **4.93e-7** — i.e. the URR
+  groups (20–149 keV) agree to the storage floor too. This measurement found
+  and fixed one port defect: `genflx` shields the *total* in the flux
+  denominator through `getunr(1, …)` (`groupr.f90:5636-5650`); the port used
+  the smooth total, which left the group-22 flux 6.8 % low at `sigz = 1` b
+  (`unresolved::genflx_bondarenko_urr` is the fix; `sigma_g` had only moved
+  1.5e-3, so a cross-section-only check would have missed it).
+
+- the **flux calculator** (`iwt = -3`, `fehi = 1e4 eV`, `sigpot = 11.29 b`;
+  `slowing_down::genflx_slowing_down`, homogeneous branch) fed NJOY's PENDF:
+  `sigma_g` within **2.87e-6**, flux within **3.89e-7**, and the flux table
+  reproduces NJOY's point counts (926 tail / 99,934 solved / 55,488 NR). This
+  measurement found three port defects, all read out of `groupr.f90` before
+  being confirmed: the weight-shape tail below `felo` must sit on `getwtf`'s
+  1 % ladder (`:5563-5577`), the NR extension above `fehi` also steps by 1 %
+  (`:5626-5631`), and the NR in-scatter source uses the weight at `fehi`,
+  not at `e` (`:5460`).
+
+**Elastic transfer matrix, golden-validated (2026-09-10,
+`tests/groupr_u238_elastic_matrix_golden.rs`):** the same U-238 deck with
+`6 2` added (oracle `reference-data/dtfr/*-mf6.gendf`, `NL = 1`, `NZ = 6`).
+On NJOY's own PENDF, with the File-4 `LTT = 3` distribution from the ENDF
+tape, `two_body.rs` (`getdis`) + `matrix_panel.rs` (`panel`/`displa`)
+reproduce all 29 initial-group records with identical `ig2lo`/`ng2`; the
+516 words agree to **3.42e-7** (transfer elements) and **1.44e-7** (group
+fluxes), i.e. the seven-figure GENDF floor. Prediction before the run was
+1e-5. A second oracle with **`lord = 3`** (`NL = 4`, six sigma-zero values,
+`reference-data/gendf/*-lord3-mf6.gendf`, the `genflx` `fac^(il+1)` flux
+components from `unresolved::genflx_bondarenko_components`) agrees on all
+2064 words: P0/P1 and the large P2/P3 elements to the seven-figure floor,
+the P2/P3 elements below `1e-5 sigma_g` within 0.02 units of the feed
+function's own `1e-7` rounding. That oracle exposed one port defect first:
+`getfle` writes the coefficient count back into `getdis`'s `nld`, which
+sets the Gauss order — with `nld` left at 21 the group-1 P2 feed used the
+seven-digit 20-point table and came out 2.5 % (one `1e-7` unit) low.
+
+**Derived quantities `MT=257/258/259`, golden-validated (2026-09-10,
+`tests/groupr_u238_derived_quantities_golden.rs`,
+`reference-data/gendf/*-mt257-259.gendf`):** `getsig`'s analytic branch
+(`pendf_feed.rs` → `PointwiseXs::Derived`, `1.01 E` retrieval step) through
+the vector `panel`: all 29 groups of the three quantities within
+**5.59e-7** of NJOY, fluxes within 2.97e-7.
+
+**Flux-calculator heterogeneity / multi-moderator terms, golden-validated
+(2026-09-10, `tests/groupr_u238_gendf_golden.rs` tier 5,
+`reference-data/gendf/*-iwt-3-fehi1e4-het-6sigz.gendf`):** card 8a
+`alpha2 = 0.7768, sam = 0.5, beta = 0.3, alpha3 = 0.7143, gamma = 0.4`
+(`nalph = 3`) through `slowing_down::genflx_slowing_down`: every `sigma_g`
+within **2.72e-6** and every group flux within 3.89e-7 of NJOY, on a golden
+that differs from the homogeneous one by 2x in group 1 at `sigma_0 = 1 b`.
+
+**Discrete-level inelastic vectors and P0-P3 matrices (MT=51/52/60/89),
+golden-validated (2026-09-10, `tests/groupr_u238_inelastic_matrix_golden.rs`,
+`reference-data/gendf/*-{6sigz,1sigz}-lord3-inelastic-mf3-mf6.gendf`):** the
+`q < 0` threshold path of `getdis` on two decks (`nsigz = 6` and `nsigz = 1`,
+which exercise the two `getflx` branches): vectors within 3.2e-6, every
+transfer element within 1e-5 or under one unit of `1e-7 sigma_g`. Three
+findings on the way: `GroupFlux::analytic` now steps at `getwtf`'s 1.01
+(`GETWTF_STEP`), not GAMINR's 1.05; `nz = 1` reactions in an `nsigz > 1`
+deck take the tabulated `genflx` flux (a test-construction error, not a
+port defect); and `getfle`'s label-210 slide keeps stale high-order
+coefficients, now replicated in `File4Angular` (an 8 % P3 element).
+
+**MF=10 residual production (`mfd = 4zzzaaam`), golden-validated
+(2026-09-10, `tests/groupr_u235_mf10_golden.rs`,
+`reference-data/gendf/u235-*-1sigz-mf10.gendf`):** `getsig`'s MF=10
+subsection search (`groupr.f90:6719-6746`) for U-235 `MT=4` into the ground
+state and the 235m isomer; see the test's doc comment for the measured
+agreement on NJOY's PENDF table (strict) and on the ENDF table (looser).
+
+Still **not** golden-validated: File-6 continuum feeds,
+`LSSF = 0` materials, and more than one temperature. GAMINR's engine now has
+its own oracle (`src/gaminr/README.md`).
 
 ## Caveats
 

@@ -22,11 +22,22 @@ use eframe::egui;
 /// Draw a "CSV preview" heading with a copy button, then `csv_text` in a
 /// scrollable, monospace, read-only text box below.
 ///
+/// Every caller shows the button, the PDF reader's page-context cards
+/// included: it was briefly hidden there on 2026-09-08 and reinstated the
+/// same day on use — copying a figure's numbers straight out of the reader
+/// is convenient enough to earn the space. A `CopyButton` enum for the
+/// distinction went with it, since one live variant is not a choice.
+///
+/// `id_salt` must be unique among the previews drawn in one frame —
+/// several digitised artifacts can be anchored to the same page, and egui
+/// would otherwise give their scroll areas the same id and make them share
+/// one scroll position.
+///
 /// The box is read-only in practice, not enforced — see the cited
 /// `draw_csv_panel`'s doc comment for why a `TextEdit` over a throwaway
 /// per-frame copy is used instead of a plain `Label` (native drag-select
 /// works over the whole body as one contiguous selection that way).
-pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str) {
+pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str, id_salt: &str) {
     ui.horizontal(|ui| {
         ui.heading("CSV preview");
         if ui.button("\u{1F4CB} Copy CSV").clicked() {
@@ -34,7 +45,7 @@ pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str) {
         }
     });
     egui::ScrollArea::both()
-        .id_salt("digitiser_csv_preview")
+        .id_salt(id_salt)
         .show(ui, |ui| {
             let mut scratch = csv_text.to_string();
             ui.add(

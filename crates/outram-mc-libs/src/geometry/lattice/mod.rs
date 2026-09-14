@@ -12,6 +12,7 @@
 //! descends into it exactly as it would a nested universe.
 
 use super::position::{Direction, Position};
+use crate::mathf::RealMath;
 
 /// Lattice type tag. Maps to `openmc::LatticeType`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -724,7 +725,7 @@ fn ring_slots(n_rings: usize, k: usize, orientation: HexOrientation) -> Vec<usiz
                 continue;
             }
             let (x, y) = tile_xy(a, b, orientation);
-            let mut ang = y.atan2(x);
+            let mut ang = y.r_atan2(x);
             if ang < 0.0 {
                 ang += std::f64::consts::TAU;
             }

@@ -1,0 +1,124 @@
+\begin{thebibliography}{10}
+
+\bibitem{raven}
+Andrea Alfonsi, Cristian Rabiti, Diego Mandelli, Joshua Cogliati, Robert
+  Kinoshita, and Antonio Naviglio.
+\newblock {RAVEN} and dynamic probabilistic risk assessment: Software overview.
+\newblock {\em Proceedings of ESREL}, 2014.
+
+\bibitem{coolprop}
+Ian~H. Bell, Jorrit Wronski, Sylvain Quoilin, and Vincent Lemort.
+\newblock Pure and pseudo-pure fluid thermophysical property evaluation and the
+  open-source thermophysical property library {CoolProp}.
+\newblock {\em Industrial \& Engineering Chemistry Research}, 53(6):2498--2508,
+  2014.
+
+\bibitem{slatec}
+Kirby~W. Fong, Thomas~H. Jefferson, Tokihiko Suyehiro, and Lee Walton.
+\newblock {SLATEC} common mathematical library, version 4.1.
+\newblock Technical report, Sandia National Laboratories, Los Alamos National
+  Laboratory, Air Force Weapons Laboratory, 1993.
+
+\bibitem{gsl}
+Mark Galassi, Jim Davies, James Theiler, Brian Gough, Gerard Jungman, Patrick
+  Alken, Michael Booth, and Fabrice Rossi.
+\newblock {\em {GNU} Scientific Library Reference Manual}.
+\newblock Network Theory Ltd., 3 edition, 2009.
+
+\bibitem{moose}
+Derek Gaston, Chris Newman, Glen Hansen, and Damien Lebrun-Grandi{\'e}.
+\newblock {MOOSE}: A parallel computational framework for coupled systems of
+  nonlinear equations.
+\newblock {\em Nuclear Engineering and Design}, 239(10):1768--1778, 2009.
+
+\bibitem{gnielinski}
+Volker Gnielinski.
+\newblock New equations for heat and mass transfer in turbulent pipe and
+  channel flow.
+\newblock {\em International Chemical Engineering}, 16(2):359--368, 1976.
+
+\bibitem{htr10}
+{International Atomic Energy Agency}.
+\newblock Evaluation of high temperature gas cooled reactor performance:
+  Benchmark analysis related to initial testing of the {HTTR} and {HTR-10}.
+\newblock Technical Report IAEA-TECDOC-1382, IAEA, 2003.
+
+\bibitem{liggghts}
+Christoph Kloss, Christoph Goniva, Alice Hager, Stefan Amberger, and Stefan
+  Pirker.
+\newblock Models, algorithms and validation for opensource {DEM} and {CFD-DEM}.
+\newblock {\em Progress in Computational Fluid Dynamics}, 12(2/3):140--152,
+  2012.
+
+\bibitem{moltres}
+Alexander Lindsay, Gavin Ridley, Andrei Rykhlevskii, and Kathryn Huff.
+\newblock Introduction to {Moltres}: An application for simulation of molten
+  salt reactors.
+\newblock {\em Annals of Nuclear Energy}, 114:530--540, 2018.
+
+\bibitem{luyben2013}
+William~L. Luyben.
+\newblock {\em Distillation Design and Control Using {Aspen} Simulation}.
+\newblock Wiley, 2 edition, 2013.
+
+\bibitem{njoy2016}
+R.~E. Macfarlane, D.~W. Muir, R.~M. Boicourt, A.~C. Kahler, and J.~L. Conlin.
+\newblock The {NJOY} nuclear data processing system, version 2016.
+\newblock Technical Report LA-UR-17-20093, Los Alamos National Laboratory,
+  2017.
+
+\bibitem{icsbep}
+{Nuclear Energy Agency}.
+\newblock International handbook of evaluated criticality safety benchmark
+  experiments.
+\newblock Technical Report NEA/NSC/DOC(95)03, OECD Nuclear Energy Agency, 2020.
+
+\bibitem{thermochimica}
+M.~H.~A. Piro, S.~Simunovic, T.~M. Besmann, B.~J. Lewis, and W.~T. Thompson.
+\newblock The {Thermochimica} software package for modeling multi-component
+  thermodynamic equilibria.
+\newblock {\em Journal of Nuclear Materials}, 414(3):399--407, 2011.
+
+\bibitem{pusa_cram}
+Maria Pusa.
+\newblock Rational approximations to the matrix exponential in burnup
+  calculations.
+\newblock {\em Nuclear Science and Engineering}, 169(2):155--167, 2011.
+
+\bibitem{msre}
+R.~C. Robertson.
+\newblock {MSRE} design and operations report, part {I}: Description of reactor
+  design.
+\newblock Technical Report ORNL-TM-728, Oak Ridge National Laboratory, 1965.
+
+\bibitem{openmc}
+Paul~K. Romano, Nicholas~E. Horelik, Bryan~R. Herman, Adam~G. Nelson, Benoit
+  Forget, and Kord Smith.
+\newblock {OpenMC}: A state-of-the-art {M}onte {C}arlo code for research and
+  development.
+\newblock {\em Annals of Nuclear Energy}, 82:90--97, 2015.
+
+\bibitem{sod1978}
+Gary~A. Sod.
+\newblock A survey of several finite difference methods for systems of
+  nonlinear hyperbolic conservation laws.
+\newblock {\em Journal of Computational Physics}, 27(1):1--31, 1978.
+
+\bibitem{trefethen_atap}
+Lloyd~N. Trefethen.
+\newblock {\em Approximation Theory and Approximation Practice}.
+\newblock SIAM, 2013.
+
+\bibitem{iapws97}
+Wolfgang Wagner and Hans-Joachim Kretzschmar.
+\newblock {\em International Steam Tables: Properties of Water and Steam Based
+  on the Industrial Formulation {IAPWS-IF97}}.
+\newblock Springer, 2 edition, 2008.
+
+\bibitem{openfoam}
+H.~G. Weller, G.~Tabor, H.~Jasak, and C.~Fureby.
+\newblock A tensorial approach to computational continuum mechanics using
+  object-oriented techniques.
+\newblock {\em Computers in Physics}, 12(6):620--631, 1998.
+
+\end{thebibliography}

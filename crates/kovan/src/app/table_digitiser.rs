@@ -215,7 +215,7 @@ impl TableDigitiserState {
             self.set_error("nothing to save — run OCR first");
             return;
         };
-        let csv_body = format!("```csv\n{}```\n", t.to_csv_string());
+        let csv_body = crate::artifact::render_csv_body(&t.to_csv_string());
 
         // GH issue #35 2026-09-02: save as a real `[kovan]` artifact so the
         // page-context panel can re-open it; a re-digitise replaces the
@@ -239,7 +239,10 @@ impl TableDigitiserState {
                 crate::artifact::ArtifactKind::DigitisedTable,
                 &heading,
                 anchor,
-                Some("kopitiam-ocr".to_string()),
+                Some(crate::artifact::Extraction::new(
+                    "manual_digitisation",
+                    Some("kopitiam-ocr".to_string()),
+                )),
                 replace_id.as_deref(),
                 &csv_body,
             )
@@ -258,6 +261,17 @@ impl TableDigitiserState {
         }
 
         // --- no active paper: the legacy plain-text section path ---
+        //
+        // See the same fallback in `app/mod.rs`: what this writes is not a
+        // `[kovan]` artifact, so it never draws a region box on the PDF
+        // canvas (GH issue #35, 2026-09-08).
+        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
+            self.set_error(
+                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
+                 so this saves as a real artifact with a region box",
+            );
+            return;
+        }
         let mut block = "### Digitised table".to_string();
         if let Some(prov) = &self.crop_provenance {
             block.push_str(&format!(
@@ -273,17 +287,17 @@ impl TableDigitiserState {
         }
         block.push_str("\n\n");
         block.push_str(&csv_body);
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error("set the project root and markdown path first");
-            return;
-        }
         match project::append_to_section(
             std::path::Path::new(self.project_root.trim()),
             self.project_markdown_rel.trim(),
             "table_csvs",
             &block,
         ) {
-            Ok(_) => self.set_status("saved into project markdown (table_csvs)"),
+            Ok(_) => self.set_status(
+                "saved as a plain section (no active paper) — this is NOT a Kovan \
+                 artifact and draws no box on the PDF; activate the paper and use \
+                 the reader's \"Upgrade to artifacts\" button to fix it",
+            ),
             Err(e) => self.set_error(e.to_string()),
         }
     }
@@ -460,7 +474,7 @@ impl TableDigitiserState {
 
         ui.separator();
         let csv_string = self.table.as_ref().unwrap().to_csv_string();
-        draw_csv_preview(ui, &csv_string);
+        draw_csv_preview(ui, &csv_string, "table_digitiser_csv");
         ui.label(&self.message);
         request
     }
@@ -538,18 +552,28 @@ mod tests {
         assert!(md.contains("kind = \"digitised_table\""), "{md}");
         assert!(md.contains("method = \"manual_digitisation\""), "{md}");
         let idx = crate::research_record::ResearchRecordIndex::from_session(&reopened);
-        assert_eq!(idx.artifacts().len(), 1);
-        assert!(idx.artifacts()[0].csv_block().is_some());
+        // The paper header artifact plus the saved table.
+        assert_eq!(idx.artifacts().len(), 2);
+        // Index by kind, not position: artifact 0 is now the paper header.
+        let table = idx
+            .artifacts()
+            .iter()
+            .find(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedTable)
+            .expect("the digitised table");
+        assert!(table.csv_block().is_some());
     }
 
     #[test]
-    fn save_into_project_falls_back_to_manual_project_fields_with_no_active_paper() {
+    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
         let mut state = TableDigitiserState {
             table: Some(table()),
             ..Default::default()
         };
         state.save_into_project(None);
+        // GH issue #35, 2026-09-08: names the real fix (activate a paper)
+        // rather than the manual project fields, whose path writes a plain
+        // section that is not a Kovan artifact and draws no region box.
         assert!(state.message_is_error, "{}", state.message);
-        assert!(state.message.contains("project root"), "{}", state.message);
+        assert!(state.message.contains("no active paper"), "{}", state.message);
     }
 }

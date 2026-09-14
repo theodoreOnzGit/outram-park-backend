@@ -27,16 +27,16 @@
 //!   no `S(alpha,beta)` physics and the crate's `[f64; 6]` row model cannot store
 //!   Hollerith text (same limitation MIXR documents). MF=7 is complete; MF=1 is
 //!   omitted.
-//! - **Secondary scatterers are written, but only the analytic kinds are
-//!   complete.** [`SecondaryScatterer`] emits `NS` and the `B(7)..B(12)`
-//!   constants (3307–3321), which is the *entire* secondary treatment for
-//!   `b7 = 1` (free gas) and `b7 = 2` (diffusion) — the light-water case.
-//!   The `b7 = 0` **mixed-moderator merge** (3018–3030: a second LEAPR pass
-//!   over the secondary scatterer with `alpha` scaled by `aws/awr`, merged as
-//!   `S = S_principal + (sbs/sb) * S_secondary`) is **not** ported, nor is the
-//!   secondary effective-temperature table that accompanies it (3578–3597).
-//!   [`crate::leapr::generate::generate_tape`] refuses that case rather than
-//!   emit a law with its secondary silently missing.
+//! - **Secondary scatterers.** [`SecondaryScatterer`] emits `NS` and the
+//!   `B(7)..B(12)` constants (3307–3321), which is the *entire* secondary
+//!   treatment for `b7 = 1` (free gas) and `b7 = 2` (diffusion) — the
+//!   light-water case. For `b7 = 0` (mixed moderator)
+//!   [`crate::leapr::generate::generate_tape`] runs the second LEAPR pass
+//!   (`alpha / (aws/awr)`) and the merge `S = S_principal + (sbs/sb)
+//!   S_secondary` (3018–3030); this writer then adds the secondary
+//!   effective-temperature TAB1 (3578–3597, [`LeaprOutput::tempf_secondary`])
+//!   and applies the mixed Debye-Waller rules (3182, 3208). Verified against
+//!   an NJOY2016 run of `tsl-SiO2-alpha` (`tests/leapr_sio2_mixed_moderator_oracle.rs`).
 //! - The `sigfig`-rounding and `smin` flooring of every `S` value **are** ported
 //!   (they match the Fortran bit-for-bit through [`crate::mixr::mix::sigfig`]).
 //!
@@ -134,7 +134,14 @@ pub struct LeaprOutput {
     /// `LASYM`/`isym`: `0` symmetric `S`; `1` symmetric `+/-beta`; `2` asymmetric
     /// `Ss` for `-beta`; `3` asymmetric `Ss` for `+/-beta`.
     pub isym: i32,
-    /// `ilog`: if `true`, store `log10 S` instead of `S`.
+    /// `ilog`: if `true`, store the **natural** log of `S` instead of `S`.
+    ///
+    /// NJOY's own card documentation calls this "log10(s)"
+    /// (`leapr.f90:138`) and `endout` prints "log10 s or ss is written"
+    /// (`leapr.f90:3011`), but the code writes `log(...)`, which in Fortran is
+    /// the natural logarithm (`leapr.f90:3365`). The code is the correct half:
+    /// ENDF's `LLN = 1` means `S` is stored as `ln S`. Ported as `ln`, i.e.
+    /// matching upstream's behaviour rather than its comment.
     pub ilog: bool,
     /// Minimum stored `S` (values below are floored to `0` when `ilog=false`).
     pub smin: f64,
@@ -147,8 +154,20 @@ pub struct LeaprOutput {
     /// Debye-Waller integral `W'(T)` \[1/eV\] per temperature (LEAPR `dwpix`
     /// after its `/(awr*T*bk)` conversion, 3035).
     pub dwpix: Vec<f64>,
-    /// Effective (SCT) temperature `T_eff` \[K\] per temperature (LEAPR `tempf`).
+    /// Effective (SCT) temperature `T_eff` \[K\] per temperature (LEAPR `tempf`,
+    /// or `tempf1` — the principal's — for a mixed moderator).
     pub tempf: Vec<f64>,
+    /// Mixed moderator only (`nss != 0`, `b7 <= 0`): the **secondary**
+    /// scatterer's `T_eff` \[K\] per temperature, written as a second
+    /// effective-temperature TAB1 after the principal's
+    /// (`leapr.f90:3578-3597` writes `tempf1`, then `:3598-3617` `tempf`).
+    pub tempf_secondary: Option<Vec<f64>>,
+    /// Mixed moderator only: the secondary's Debye-Waller integral `W'(T)`
+    /// \[1/eV\] (`dwpix / (aws T k_B)`, `leapr.f90:3038`). The coherent
+    /// elastic section then uses the average of the two scatterers'
+    /// coefficients (`:3208, :3234, :3268`) and the incoherent one the
+    /// secondary's (`:3182`).
+    pub dwpix_secondary: Option<Vec<f64>>,
     /// Negative-beta asymmetric law `Ss(alpha,-beta)` per temperature.
     pub ssm: Vec<SabMatrix>,
     /// Positive-beta asymmetric law `Ss(alpha,+beta)` per temperature (cold H/D;
@@ -310,7 +329,7 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
 
     // extra temperatures: one LIST of jmax S values each (3256–3286).
     for t in 1..ntempr {
-        let w = out.dwpix[t];
+        let w = w_coherent(out, t);
         let mut svals = vec![0.0_f64; jmax];
         let mut sum = 0.0;
         for j in 0..nedge {
@@ -329,6 +348,26 @@ fn build_coherent_elastic(out: &LeaprOutput, edges: &[(f64, f64)], w_base: f64) 
     rows
 }
 
+/// The Debye-Waller coefficient the coherent-elastic section applies at
+/// temperature index `t`: the principal's, or for a mixed moderator the mean
+/// of principal and secondary (`leapr.f90:3207-3208, 3233-3234, 3267-3268`).
+fn w_coherent(out: &LeaprOutput, t: usize) -> f64 {
+    match &out.dwpix_secondary {
+        Some(s) => (s[t] + out.dwpix[t]) / 2.0,
+        None => out.dwpix[t],
+    }
+}
+
+/// The Debye-Waller coefficient the incoherent-elastic section writes at
+/// temperature index `t`: `dwpix`, which after a mixed-moderator run holds
+/// the secondary's value (`leapr.f90:3182` with `:3038`).
+fn w_incoherent(out: &LeaprOutput, t: usize) -> f64 {
+    match &out.dwpix_secondary {
+        Some(s) => s[t],
+        None => out.dwpix[t],
+    }
+}
+
 /// Build the MF=7/MT=2 **incoherent** elastic section (`LTHR=2`,
 /// `leapr.f90:3158–3190`): one `W'(T)` TAB1 with `SB = sb_npr`.
 fn build_incoherent_elastic(out: &LeaprOutput, sb_npr: f64) -> Vec<[f64; 6]> {
@@ -342,7 +381,7 @@ fn build_incoherent_elastic(out: &LeaprOutput, sb_npr: f64) -> Vec<[f64; 6]> {
     let mut pairs = Vec::with_capacity(ndw);
     for i in 0..ndw {
         if i < ntempr {
-            pairs.push((out.temperatures_k[i], sigfig(out.dwpix[i], 7, 0)));
+            pairs.push((out.temperatures_k[i], sigfig(w_incoherent(out, i), 7, 0)));
         } else {
             let prev = pairs[i - 1];
             pairs.push(prev);
@@ -512,6 +551,15 @@ fn build_inelastic(out: &LeaprOutput) -> Vec<[f64; 6]> {
         .collect();
     push_tab1(&mut rows, 0.0, 0.0, 0, 0, &[(ntempr as i32, 2)], &teff);
 
+    // Mixed moderator: the secondary scatterer's T_eff as a second TAB1
+    // (leapr.f90:3578-3617 — `tempf1` (principal) first, then `tempf`).
+    if let Some(sec) = &out.tempf_secondary {
+        let teff2: Vec<(f64, f64)> = (0..ntempr)
+            .map(|i| (sigfig(out.temperatures_k[i], 7, 0), sigfig(sec[i], 7, 0)))
+            .collect();
+        push_tab1(&mut rows, 0.0, 0.0, 0, 0, &[(ntempr as i32, 2)], &teff2);
+    }
+
     rows
 }
 
@@ -526,7 +574,9 @@ pub fn endout(out: &LeaprOutput) -> Tape {
 
     let elastic_rows = match &out.elastic {
         ElasticOutput::None => None,
-        ElasticOutput::Coherent(br) => Some(build_coherent_elastic(out, &br.edges, out.dwpix[0])),
+        ElasticOutput::Coherent(br) => {
+            Some(build_coherent_elastic(out, &br.edges, w_coherent(out, 0)))
+        }
         // Debye-Waller already inside the structure factors: pass W' = 0 so the
         // `exp(-4 W' E)` weighting below is the identity, rather than squaring
         // the suppression that `coher_general_with_per_atom_debye_waller`
@@ -590,6 +640,8 @@ mod tests {
             temperatures_k: vec![296.0],
             dwpix: vec![8.0e-3],
             tempf: vec![430.0],
+            tempf_secondary: None,
+            dwpix_secondary: None,
             ssm: vec![ssm],
             ssp: None,
             npr: 1,
@@ -598,6 +650,115 @@ mod tests {
             secondary: None,
             constants: PhysicalConstants::default(),
         }
+    }
+
+    /// `ilog = 1` must store the **natural** log of the same value the linear
+    /// path stores, and flag it as `LLN = 1` in the B-constant record.
+    ///
+    /// The oracle is exact rather than statistical: with
+    /// `S(a,b) = exp(-a) exp(-b/3)`, the linear path writes
+    /// `S exp(-b/2)` and the log path must write `ln S - b/2`, so
+    /// `exp(stored_log)` has to reproduce `stored_linear` to the 7 significant
+    /// figures both are rounded to.
+    ///
+    /// Upstream calls this option "log10(s)" on its card
+    /// (`leapr.f90:138`, and the "log10 s or ss is written" print at
+    /// `leapr.f90:3011`) but writes `log(...)` — Fortran's natural log
+    /// (`leapr.f90:3365`). The code is the correct half: ENDF `LLN = 1` means
+    /// `ln S`. This test pins the behaviour, not the comment.
+    #[test]
+    fn ilog_stores_the_natural_log_of_the_linear_value() {
+        let lin = endout(&tiny_output(ElasticOutput::None));
+        let mut o = tiny_output(ElasticOutput::None);
+        o.ilog = true;
+        let log = endout(&o);
+
+        let lin_ii = parse_mf7(&lin, MAT).unwrap().incoherent_inelastic.unwrap();
+        let log_ii = parse_mf7(&log, MAT).unwrap().incoherent_inelastic.unwrap();
+
+        // `parse_mf7` deliberately does not undo LLN (neither does NJOY's
+        // THERMR — see the `lln_is_written_but_never_read_back` note), so these
+        // are the raw stored numbers, which is exactly what we want to check.
+        assert_eq!(log_ii.lln, 1, "LLN = 1 is flagged in the B-constant record");
+        assert_eq!(lin_ii.lln, 0, "the linear tape still flags LLN = 0");
+
+        for (ib, (lt, gt)) in lin_ii.s_tables.iter().zip(&log_ii.s_tables).enumerate() {
+            for ia in 0..lt.alpha.len() {
+                let (l, g) = (lt.s[ia], gt.s[ia]);
+                assert!(l > 0.0, "linear S({ia},{ib}) is positive");
+                let rel = (g.exp() - l).abs() / l;
+                assert!(
+                    rel < 1.0e-6,
+                    "exp(log-stored) != linear-stored at (a{ia}, b{ib}): \
+                     exp({g:e}) = {:e} vs {l:e}, rel {rel:e}",
+                    g.exp()
+                );
+            }
+        }
+    }
+
+    /// `isabt = 1` (`isym = 2`) must store the **asymmetric** law — `S` itself,
+    /// with no detailed-balance factor — while still writing the same beta grid.
+    ///
+    /// Oracle: `stored_asym * exp(-beta/2) == stored_sym`, to the 7 significant
+    /// figures both are rounded to (`leapr.f90:3356-3451`, where the `isym = 0`
+    /// branch multiplies by `exp(-be/2)` and the `isym >= 2` branch does not).
+    #[test]
+    fn isabt_stores_the_asymmetric_law() {
+        let sym = endout(&tiny_output(ElasticOutput::None));
+        let mut o = tiny_output(ElasticOutput::None);
+        o.isym = 2;
+        let asym = endout(&o);
+
+        let sym_ii = parse_mf7(&sym, MAT).unwrap().incoherent_inelastic.unwrap();
+        let asym_ii = parse_mf7(&asym, MAT).unwrap().incoherent_inelastic.unwrap();
+
+        assert_eq!(asym_ii.lasym, 2, "LASYM = 2 is flagged");
+        assert_eq!(asym_ii.beta, sym_ii.beta, "the beta grid is unchanged");
+
+        for (ib, (st, at)) in sym_ii.s_tables.iter().zip(&asym_ii.s_tables).enumerate() {
+            let be = sym_ii.beta[ib];
+            for ia in 0..st.alpha.len() {
+                let (s, a) = (st.s[ia], at.s[ia]);
+                let expect = a * (-be / 2.0).exp();
+                let rel = (expect - s).abs() / s.max(1.0e-30);
+                assert!(
+                    rel < 1.0e-6,
+                    "asym*exp(-beta/2) != sym at (a{ia}, b{ib}): {expect:e} vs {s:e}, rel {rel:e}"
+                );
+            }
+        }
+    }
+
+    /// A deliberate limitation, recorded so it is not mistaken for an oversight:
+    /// **nothing in this crate reads `LLN = 1` back**, because nothing in NJOY
+    /// does either. `lln` appears in exactly two NJOY sources (`plotr.f90`,
+    /// `samm.f90`), neither of which is the thermal path, and LEAPR itself
+    /// warns on writing such a tape:
+    ///
+    /// ```text
+    ///   *** Warning.  isabt=1 pendf tapes CANNOT be processed ...
+    /// ```
+    ///
+    /// (`leapr.f90:262-265`). So `parse_mf7` reading the stored numbers
+    /// verbatim is *faithful* to upstream, not a gap; teaching it to
+    /// exponentiate would be an improvement beyond NJOY, which the crate's
+    /// translation policy defers. All eight TSL evaluations in
+    /// `reference-data/endf/` carry `LLN = 0`, so no data we hold is affected.
+    #[test]
+    fn lln_is_written_but_never_read_back() {
+        let mut o = tiny_output(ElasticOutput::None);
+        o.ilog = true;
+        let ii = parse_mf7(&endout(&o), MAT)
+            .unwrap()
+            .incoherent_inelastic
+            .unwrap();
+        assert_eq!(ii.lln, 1, "the flag is preserved for a reader that wants it");
+        // ln S is negative for this small-S law: proof the value was not undone.
+        assert!(
+            ii.s_tables[0].s.iter().any(|&s| s < 0.0),
+            "stored values are logs, returned verbatim"
+        );
     }
 
     #[test]

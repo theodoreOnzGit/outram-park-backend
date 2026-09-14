@@ -23,12 +23,20 @@
 //!
 //! # Geometry model
 //!
-//! A **reflective cube** of half-width `half_width` (an infinite-medium unit cell:
-//! neutrons reflect off the six walls, so the eigenvalue is the infinite-medium
-//! `k∞` of the packed fuel, free of leakage). Inside the cube the caller's
-//! `material_at` closure maps a point to a material index (kernel → fuel, else
-//! matrix). The delta flight reflects the ray off the walls segment by segment, so
-//! the neutron always lands at an interior point where `material_at` is defined.
+//! A reflective [`DeltaDomain`] — a **cube** of half-width `half`, or a **sphere**
+//! of radius `radius`. Either way the boundary reflects, so there is no leakage
+//! and the eigenvalue is the infinite-medium `k∞` of whatever fills the domain.
+//! Inside it the caller's `material_at` closure maps a point to a material index
+//! (kernel → fuel, else matrix). The delta flight reflects the ray off the
+//! boundary segment by segment, so the neutron always lands at an interior point
+//! where `material_at` is defined.
+//!
+//! **Pick the shape the thing you are comparing against used.** For a uniform
+//! medium the shape genuinely does not matter (see
+//! `geometry_independence_of_k_inf_for_a_uniform_medium`), but the moment the
+//! medium is *not* uniform out to the boundary — a pebble sitting in coolant —
+//! a cube of half-width `R` holds material in its corners that a sphere of
+//! radius `R` does not, and on an FHR pebble that is worth thousands of pcm.
 //!
 //! # Collision physics
 //!
@@ -39,7 +47,7 @@
 //! next generation; `(n,2n)` multiplicity is realized in-generation via a local
 //! work stack. Fidelity matches those drivers: analog, target at rest, data tier
 //! set by how the `nuclides` were built ([`Nuclide::from_core`] LOW /
-//! [`Nuclide::from_endf`] HIGH).
+//! [`Nuclide::from_endf_file`] HIGH).
 //!
 //! # Provenance
 //!
@@ -58,8 +66,8 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    continuum_inelastic_scatter, elastic_scatter, rotate_direction, two_body_scatter,
-    two_body_scatter_with_mu,
+    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated, rotate_direction,
+    two_body_scatter,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
@@ -77,12 +85,247 @@ const HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
 /// generation's sub-streams overlap the next generation's.
 const GEN_STRIDE: u64 = 1 << 40;
 
+/// The geometry seam every delta-tracked driver in this module talks to: "what
+/// material is at this point?", plus a per-history boundary notification.
+///
+/// # Why this is a trait and not just a closure
+///
+/// It was a bare `Fn(Position) -> Option<usize> + Sync` until 2026-09-14, and
+/// **every such closure still works unchanged** — the blanket impl below makes
+/// one. Nothing at any existing call site had to change.
+///
+/// What a closure cannot express is a lookup with *per-history state*.
+/// Semi-implicit chord-length sampling
+/// ([`SclsMedium`](crate::stochastic::scls::SclsMedium)) remembers the
+/// inclusions a neutron has already met, inside a window that must be **thrown
+/// away when the next history starts**. Through a bare closure there is no
+/// moment at which to throw it away, so history *n+1* inherits history *n*'s
+/// remembered geometry — which is not SCLS, and biases the result by an amount
+/// nobody has measured.
+///
+/// [`Self::begin_history`] is that moment. It defaults to doing nothing, so a
+/// stateless lookup ignores it entirely.
+///
+/// # Implementing it
+///
+/// `material_at` takes `&self`, so a stateful implementor needs interior
+/// mutability — `Mutex`/`RwLock`, which is also what satisfies the [`Sync`]
+/// supertrait the multi-threaded backend requires.
+///
+/// ```
+/// use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
+/// use outram_mc_libs::geometry::position::Position;
+///
+/// // A closure is already a MaterialQuery — this is the common case.
+/// let two_zone = |p: Position| Some(if p.norm() < 1.0 { 0 } else { 1 });
+/// assert_eq!(MaterialQuery::material_at(&two_zone, Position::new(0.0, 0.0, 0.5)), Some(0));
+/// ```
+pub trait MaterialQuery: Sync {
+    /// Material index at `p`, or `None` if the point is outside the model.
+    ///
+    /// Returning `None` leaks the history, so a reflective domain should answer
+    /// everywhere inside its boundary.
+    fn material_at(&self, p: Position) -> Option<usize>;
+
+    /// Called once immediately before each source neutron is transported.
+    ///
+    /// Stateless lookups need not implement this; the default does nothing.
+    /// Implement it to reset any memory that belongs to a single history.
+    fn begin_history(&self) {}
+}
+
+impl<F> MaterialQuery for F
+where
+    F: Fn(Position) -> Option<usize> + Sync,
+{
+    #[inline]
+    fn material_at(&self, p: Position) -> Option<usize> {
+        self(p)
+    }
+}
+
 /// A fission-source neutron awaiting transport in the next generation.
 #[derive(Clone, Copy)]
 struct Site {
     r: Position,
     u: Direction,
     e: f64,
+}
+
+/// The reflective tracking domain a delta-tracked run fills.
+///
+/// A reflective boundary makes the eigenvalue an **infinite-medium** `k∞` — no
+/// leakage — so for a *uniform* medium the shape is physically irrelevant and
+/// both arms must return the same `k∞`. The shape stops being irrelevant the
+/// moment the medium is not uniform, which is exactly the pebble case: a
+/// reflective cube of half-width 3 cm circumscribes a 3 cm sphere, so its
+/// corners (3 < r < 3√3) hold extra coolant that a reflective sphere of the
+/// same radius does not. That over-count is worth thousands of pcm on an FHR
+/// pebble and makes a cube run non-comparable to a sphere run of "the same"
+/// radius.
+///
+/// Use [`DeltaDomain::Sphere`] whenever the reference being compared against
+/// used a spherical reflective boundary — OpenMC pebble decks typically do.
+///
+/// `geometry_independence_of_k_inf_for_a_uniform_medium` in this module's tests
+/// pins the equivalence the first paragraph claims.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DeltaDomain {
+    /// Reflective cube of half-width `half` \[cm\], centred on the origin.
+    Cube { half: f64 },
+    /// Reflective sphere of radius `radius` \[cm\], centred on the origin.
+    Sphere { radius: f64 },
+}
+
+impl DeltaDomain {
+    /// Is `p` inside the closed domain?
+    #[inline]
+    pub fn contains(&self, p: Position) -> bool {
+        match *self {
+            Self::Cube { half } => p.x.abs() <= half && p.y.abs() <= half && p.z.abs() <= half,
+            Self::Sphere { radius } => p.norm() <= radius,
+        }
+    }
+
+    /// A half-extent that bounds the domain on every axis \[cm\] — the cube's
+    /// own half-width, or the sphere's radius.
+    #[inline]
+    pub fn bounding_half(&self) -> f64 {
+        match *self {
+            Self::Cube { half } => half,
+            Self::Sphere { radius } => radius,
+        }
+    }
+
+    /// Draw a point uniformly over the domain's volume.
+    ///
+    /// The cube arm samples its box directly. The sphere arm rejection-samples
+    /// the bounding box, which accepts with probability `π/6 ≈ 0.524` — cheap,
+    /// and unlike the `r = R·u^{1/3}` closed form it needs no cube root and
+    /// cannot concentrate points through a direction-sampling bias.
+    #[inline]
+    pub fn sample_point(&self, seed: &mut u64) -> Position {
+        match *self {
+            Self::Cube { half } => Position::new(
+                -half + 2.0 * half * prn(seed),
+                -half + 2.0 * half * prn(seed),
+                -half + 2.0 * half * prn(seed),
+            ),
+            Self::Sphere { radius } => loop {
+                let p = Position::new(
+                    -radius + 2.0 * radius * prn(seed),
+                    -radius + 2.0 * radius * prn(seed),
+                    -radius + 2.0 * radius * prn(seed),
+                );
+                if p.norm_sqr() <= radius * radius {
+                    return p;
+                }
+            },
+        }
+    }
+
+    /// Advance a ray by `distance` \[cm\], reflecting specularly off the
+    /// boundary as many times as the flight requires, and return the landing
+    /// position and the (possibly reflected) direction.
+    ///
+    /// The landing point is guaranteed to lie inside the closed domain within
+    /// floating-point slack, so a subsequent material lookup is always defined.
+    #[inline]
+    pub fn advance_reflective(
+        &self,
+        r: Position,
+        u: Direction,
+        distance: f64,
+    ) -> (Position, Direction) {
+        match *self {
+            Self::Cube { half } => advance_reflective_cube(r, u, distance, half),
+            Self::Sphere { radius } => advance_reflective_sphere(r, u, distance, radius),
+        }
+    }
+}
+
+/// Advance a ray by `distance` \[cm\] inside a reflective **sphere** of radius
+/// `radius`, reflecting specularly off the surface, and return the landing
+/// position and the (possibly reflected) direction.
+///
+/// # Method
+///
+/// Delta-tracking flights between collisions are straight lines under the
+/// majorant, so a flight that would leave the sphere instead reflects. From an
+/// interior point `r` along `u`, the exit distance solves `|r + t u|² = R²`:
+///
+/// ```text
+/// t = -(r·u) + sqrt((r·u)² - (|r|² - R²))
+/// ```
+///
+/// The discriminant is non-negative for any interior point (`|r| ≤ R`), and the
+/// `+` root is the forward intersection because the `-` root is behind a ray
+/// that starts inside. At the surface the outward normal is `n = r/R`, so the
+/// specular reflection is `u' = u - 2(u·n)n`.
+///
+/// # Numerical care
+///
+/// Two floating-point hazards, both handled rather than hoped away:
+///
+/// - After walking to the surface, `|r|` can land a few ulps *outside* `R`,
+///   which would make the next `t` solve on a negative discriminant. The point
+///   is therefore rescaled onto the sphere exactly before reflecting.
+/// - A ray that is very nearly tangent gives `t ≈ 0`, so the loop could reflect
+///   forever without consuming `distance`. The reflection count is capped at
+///   10 000 (as the cube arm caps its own), after which the remaining distance
+///   is dropped and the point is clamped inside — the same failure posture the
+///   cube arm takes, and unreachable for any non-degenerate flight.
+fn advance_reflective_sphere(
+    mut r: Position,
+    mut u: Direction,
+    mut distance: f64,
+    radius: f64,
+) -> (Position, Direction) {
+    for _ in 0..10_000 {
+        if distance <= 0.0 {
+            break;
+        }
+        let r_dot_u = r.x * u.u + r.y * u.v + r.z * u.w;
+        let disc = (r_dot_u * r_dot_u - (r.norm_sqr() - radius * radius)).max(0.0);
+        let t_surf = -r_dot_u + disc.sqrt();
+
+        if !t_surf.is_finite() || t_surf >= distance {
+            r = Position::new(
+                r.x + u.u * distance,
+                r.y + u.v * distance,
+                r.z + u.w * distance,
+            );
+            break;
+        }
+
+        // Walk to the surface and pin the point exactly onto it, so the next
+        // iteration's discriminant cannot go negative.
+        r = Position::new(r.x + u.u * t_surf, r.y + u.v * t_surf, r.z + u.w * t_surf);
+        let n = r.norm();
+        if n > 0.0 {
+            let k = radius / n;
+            r = Position::new(r.x * k, r.y * k, r.z * k);
+            // Specular reflection about the outward normal n = r/R.
+            let nx = r.x / radius;
+            let ny = r.y / radius;
+            let nz = r.z / radius;
+            let dot = u.u * nx + u.v * ny + u.w * nz;
+            u = Direction::new(
+                u.u - 2.0 * dot * nx,
+                u.v - 2.0 * dot * ny,
+                u.w - 2.0 * dot * nz,
+            );
+        }
+        distance -= t_surf;
+    }
+
+    // Numerical safety: keep the point strictly inside the closed sphere.
+    let n = r.norm();
+    if n > radius && n > 0.0 {
+        let k = radius / n;
+        r = Position::new(r.x * k, r.y * k, r.z * k);
+    }
+    (r, u)
 }
 
 /// Advance a ray by `distance` \[cm\] inside a reflective cube of half-width
@@ -97,7 +340,7 @@ struct Site {
 ///
 /// The landing point is guaranteed to lie inside the closed cube (within
 /// floating-point slack), so a subsequent material lookup is always defined.
-fn advance_reflective(
+fn advance_reflective_cube(
     mut r: Position,
     mut u: Direction,
     mut distance: f64,
@@ -170,20 +413,20 @@ fn advance_reflective(
 /// real collision with probability `Σ_t/Σ_maj`. Returns `None` if the virtual
 /// budget is exhausted (a pathologically loose majorant) or the material lookup
 /// unexpectedly fails — both leak the history, as in the surface-tracked drivers.
-fn delta_flight<F>(
+fn delta_flight<Q>(
     start: Position,
     direction: Direction,
     energy: f64,
-    half: f64,
+    domain: DeltaDomain,
     majorant: &Majorant,
     materials: &[Material],
     nuclides: &[Nuclide],
     max_virtual: u32,
-    material_at: &F,
+    material_at: &Q,
     seed: &mut u64,
 ) -> Option<(Position, usize, Direction)>
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     let maj = majorant.at(energy);
     if !(maj > 0.0) {
@@ -193,10 +436,10 @@ where
     let mut u = direction;
     for _ in 0..max_virtual {
         let s = sample_delta_distance(maj, seed);
-        let (r_next, u_next) = advance_reflective(r, u, s, half);
+        let (r_next, u_next) = domain.advance_reflective(r, u, s);
         r = r_next;
         u = u_next;
-        let m = material_at(r)?;
+        let m = material_at.material_at(r)?;
         let sigma_t = materials[m].macro_xs_total(energy, nuclides);
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => return Some((r, m, u)),
@@ -233,10 +476,10 @@ where
 /// [`crate::physics::transport_csg::run_keff_csg`]. The physics is identical
 /// across backends; only the execution strategy differs:
 ///
-/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq`], the scalar,
+/// - [`ComputeType::CpuSingleThread`] → [`run_keff_delta_seq_in`], the scalar,
 ///   single-RNG-stream **reference** — deterministic and bit-reproducible for a
 ///   fixed seed.
-/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par`], [`rayon`]-parallel
+/// - [`ComputeType::CpuMultiThread`] → [`run_keff_delta_par_in`], [`rayon`]-parallel
 ///   histories per generation, each with an independent jump-ahead RNG stream so
 ///   the result is reproducible independent of thread count. It does **not**
 ///   bit-match the single-thread reference but agrees within combined statistical
@@ -247,28 +490,53 @@ where
 ///   multi-threaded CPU path and emits a `log::debug!` line. It never errors on
 ///   the selection. Wiring a genuine GPU path into CSG/delta transport is tracked
 ///   as follow-up work (bead op-fla).
-pub fn run_keff_delta<F>(
+/// Cube shorthand for [`run_keff_delta_in`] — a reflective cube of half-width
+/// `half_width` \[cm\].
+///
+/// Kept because a reflective cube is the right unit cell for an infinite
+/// *uniform* dispersion, which is what most callers want. When the medium is
+/// **not** uniform out to the boundary — a pebble in coolant, say — the cube's
+/// corners hold material a sphere of the same radius does not, so prefer
+/// [`run_keff_delta_in`] with [`DeltaDomain::Sphere`] and match whatever
+/// boundary the reference used.
+pub fn run_keff_delta<Q>(
     half_width: f64,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize> + Sync,
+    Q: MaterialQuery,
+{
+    run_keff_delta_in(
+        DeltaDomain::Cube { half: half_width },
+        materials,
+        nuclides,
+        majorant,
+        material_at,
+        settings,
+    )
+}
+
+pub fn run_keff_delta_in<Q>(
+    domain: DeltaDomain,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorant: &Majorant,
+    material_at: Q,
+    settings: &KeffSettings,
+) -> KeffResult
+where
+    Q: MaterialQuery,
 {
     match settings.compute {
-        ComputeType::CpuSingleThread => run_keff_delta_seq(
-            half_width,
-            materials,
-            nuclides,
-            majorant,
-            material_at,
-            settings,
-        ),
-        ComputeType::CpuMultiThread(tc) => run_keff_delta_par(
-            half_width,
+        ComputeType::CpuSingleThread => {
+            run_keff_delta_seq_in(domain, materials, nuclides, majorant, material_at, settings)
+        }
+        ComputeType::CpuMultiThread(tc) => run_keff_delta_par_in(
+            domain,
             materials,
             nuclides,
             majorant,
@@ -282,8 +550,8 @@ where
                  delta-tracked doubly-heterogeneous geometry — running the multi-threaded CPU \
                  path instead"
             );
-            run_keff_delta_par(
-                half_width,
+            run_keff_delta_par_in(
+                domain,
                 materials,
                 nuclides,
                 majorant,
@@ -302,18 +570,18 @@ where
 /// One `f64` RNG stream is threaded sequentially through the whole run (initial
 /// source rejection-sampling, every history's delta flight, every resample), so a
 /// fixed [`KeffSettings::seed`] yields the same eigenvalue bit-for-bit on every
-/// machine. [`run_keff_delta_par`] is acceleration only and is validated against
+/// machine. [`run_keff_delta_par_in`] is acceleration only and is validated against
 /// this reference.
-pub fn run_keff_delta_seq<F>(
-    half_width: f64,
+pub fn run_keff_delta_seq_in<Q>(
+    domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     let mut seed = settings.seed;
     let temp = settings.temperature_k;
@@ -326,12 +594,8 @@ where
         if guard > settings.n_particles * 10_000 {
             break; // pathological: fuel fills a vanishing fraction of the cube
         }
-        let r = Position::new(
-            -half_width + 2.0 * half_width * prn(&mut seed),
-            -half_width + 2.0 * half_width * prn(&mut seed),
-            -half_width + 2.0 * half_width * prn(&mut seed),
-        );
-        let fissile = material_at(r)
+        let r = domain.sample_point(&mut seed);
+        let fissile = material_at.material_at(r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -356,7 +620,7 @@ where
         for site in &source {
             production += transport_history(
                 *site,
-                half_width,
+                domain,
                 materials,
                 nuclides,
                 majorant,
@@ -391,7 +655,7 @@ where
 
 /// Rayon-parallel delta-tracked power iteration ([`ComputeType::CpuMultiThread`]).
 ///
-/// Same physics and power-iteration structure as [`run_keff_delta_seq`], but the
+/// Same physics and power-iteration structure as [`run_keff_delta_seq_in`], but the
 /// histories **within each generation** are delta-tracked in parallel with
 /// [`rayon`] in a dedicated pool sized to `thread_count` (never the implicit
 /// global pool). The generation loop stays sequential — generation `g+1`'s source
@@ -408,22 +672,22 @@ where
 /// source sampling and each resample run on a separate sequential `src_seed`
 /// stream, kept off the parallel path. Because the per-history stream structure
 /// differs from the single sequential stream, this backend does **not** bit-match
-/// [`run_keff_delta_seq`] — it is a statistically independent estimate of the same
+/// [`run_keff_delta_seq_in`] — it is a statistically independent estimate of the same
 /// eigenvalue, agreeing within combined uncertainty.
 ///
 /// The `material_at` geometry lookup is shared across threads by reference, so it
 /// must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
-pub fn run_keff_delta_par<F>(
-    half_width: f64,
+pub fn run_keff_delta_par_in<Q>(
+    domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
     thread_count: ThreadCount,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize> + Sync,
+    Q: MaterialQuery,
 {
     #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
@@ -456,12 +720,8 @@ where
         if guard > settings.n_particles * 10_000 {
             break; // pathological: fuel fills a vanishing fraction of the cube
         }
-        let r = Position::new(
-            -half_width + 2.0 * half_width * prn(&mut src_seed),
-            -half_width + 2.0 * half_width * prn(&mut src_seed),
-            -half_width + 2.0 * half_width * prn(&mut src_seed),
-        );
-        let fissile = material_at(r)
+        let r = domain.sample_point(&mut src_seed);
+        let fissile = material_at.material_at(r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -499,7 +759,7 @@ where
                     let mut local_bank: Vec<Site> = Vec::new();
                     let production = transport_history(
                         source[hist_idx],
-                        half_width,
+                        domain,
                         materials,
                         nuclides,
                         majorant,
@@ -552,23 +812,24 @@ where
 /// difference is that streaming is done by [`delta_flight`] (Woodcock) rather than
 /// surface tracking.
 #[allow(clippy::too_many_arguments)]
-fn transport_history<F>(
+fn transport_history<Q>(
     site: Site,
-    half: f64,
+    domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
     temp: f64,
     k_running: f64,
-    material_at: &F,
+    material_at: &Q,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
+    material_at.begin_history();
     const MAX_EVENTS: u32 = 100_000;
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
@@ -590,7 +851,7 @@ where
                 r,
                 u,
                 e,
-                half,
+                domain,
                 majorant,
                 materials,
                 nuclides,
@@ -633,13 +894,42 @@ where
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
                     Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum => continuum_inelastic_scatter(e, u, nuc.awr, seed),
+                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                    e,
+                    u,
+                    nuc.awr,
+                    q,
+                    nuc.continuum_law(91),
+                    seed,
+                ),
                 };
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
-                let (e2, u2) = continuum_inelastic_scatter(e, u, nuc.awr, seed);
-                stack.push(Site { r, u: u2, e: e2 }); // yield − 1 = 1 secondary
+                // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
+                    // elastic CM energy as before. Sharing the available energy between
+                    // the two emitted neutrons is a separate gap (GitHub #192).
+                    let law16 = nuc.continuum_law(16);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    // Second neutron: an **independent draw** from the same
+                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                    // neutron, so two independent draws is what the evaluation
+                    // means — duplicating the primary's outgoing state (what this
+                    // did before, and what it still does with no MF=6 law to
+                    // read) correlates the pair perfectly and is GitHub #192's
+                    // second open item.
+                    let (sec_e2, sec_u2) = if law16.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                // yield − 1 = 1 secondary
+                stack.push(Site {
+                    r,
+                    u: sec_u2,
+                    e: sec_e2,
+                });
                 e = e2;
                 u = u2;
             } else {
@@ -657,9 +947,16 @@ where
                 let (e2, u2) = if let Some((e_out, mu_lab)) = nuc.sample_thermal(e, seed) {
                     (e_out, rotate_direction(u, mu_lab, seed))
                 } else {
-                    match nuc.sample_elastic_mu_cm(e, seed) {
-                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, 0.0, mu_cm, seed),
-                        None => elastic_scatter(e, u, nuc.awr, seed),
+                    {
+                        // Free-gas: below 400 kT the target's own thermal motion
+                        // is sampled, so the neutron can gain energy and the
+                        // population has a Maxwellian fixed point (bead op-50vu).
+                        // Above it this is the old target-at-rest kinematics.
+                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let mu_cm = nuc
+                            .sample_elastic_mu_cm(e, seed)
+                            .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
                     }
                 };
                 e = e2;
@@ -737,8 +1034,8 @@ mod tests {
     }
 
     /// V&V — **backend agreement**: the rayon multi-thread delta backend
-    /// ([`run_keff_delta_par`], `ComputeType::CpuMultiThread`) must reproduce the
-    /// single-thread reference ([`run_keff_delta_seq`]) within combined
+    /// ([`run_keff_delta_par_in`], `ComputeType::CpuMultiThread`) must reproduce the
+    /// single-thread reference ([`run_keff_delta_seq_in`]) within combined
     /// statistical uncertainty, and its result must be **independent of the
     /// thread count** (a consequence of the per-history jump-ahead seeding, which
     /// never shares a mutable seed).
@@ -865,9 +1162,175 @@ mod tests {
         let half = 1.0;
         let start = Position::new(0.0, 0.0, 0.0);
         let dir = Direction::from_unnormalised(1.0, 0.3, -0.7);
-        let (end, _u) = advance_reflective(start, dir, 12.5, half);
+        let (end, _u) = advance_reflective_cube(start, dir, 12.5, half);
         assert!(
             end.x.abs() <= half + 1e-9 && end.y.abs() <= half + 1e-9 && end.z.abs() <= half + 1e-9
         );
+    }
+
+    /// The spherical arm of [`DeltaDomain`] must keep a ray inside the sphere for
+    /// *any* start, direction and flight length — including the two cases that
+    /// break a naive implementation: a start already on the surface, and a very
+    /// nearly tangent ray (where the surface intersection distance is ~0 and a
+    /// loop that does not cap its reflections would spin).
+    ///
+    /// It also pins the direction as a **unit** vector after reflection: specular
+    /// reflection about a unit normal is norm-preserving, so any drift here would
+    /// be a bug that silently rescales every subsequent flight length.
+    #[test]
+    fn reflective_advance_stays_in_sphere() {
+        let radius = 2.0;
+        let domain = DeltaDomain::Sphere { radius };
+        let mut seed = 20_260_910_u64;
+
+        // Random interior starts, random directions, flight lengths up to 20 R.
+        for case in 0..2_000 {
+            let start = domain.sample_point(&mut seed);
+            let (dx, dy, dz) = isotropic_direction(&mut seed);
+            let dir = Direction::new(dx, dy, dz);
+            let distance = 40.0 * prn(&mut seed);
+            let (end, u) = domain.advance_reflective(start, dir, distance);
+            assert!(
+                end.norm() <= radius + 1e-9,
+                "case {case}: landed at |r| = {} outside R = {radius}",
+                end.norm()
+            );
+            let n = (u.u * u.u + u.v * u.v + u.w * u.w).sqrt();
+            assert!(
+                (n - 1.0).abs() < 1e-9,
+                "case {case}: direction lost normalisation, |u| = {n}"
+            );
+        }
+
+        // Start exactly on the surface, heading outward: the very first step must
+        // reflect rather than escape.
+        let on_surface = Position::new(radius, 0.0, 0.0);
+        let outward = Direction::new(1.0, 0.0, 0.0);
+        let (end, u) = domain.advance_reflective(on_surface, outward, 1.0);
+        assert!(end.norm() <= radius + 1e-9, "|r| = {}", end.norm());
+        assert!(u.u < 0.0, "outward ray must have reversed, u.u = {}", u.u);
+
+        // Near-tangent ray: t_surf is ~0 every step, the reflection cap must hold.
+        let tangent_start = Position::new(radius - 1e-12, 0.0, 0.0);
+        let tangent_dir = Direction::from_unnormalised(1e-9, 1.0, 0.0);
+        let (end, _u) = domain.advance_reflective(tangent_start, tangent_dir, 50.0);
+        assert!(end.norm() <= radius + 1e-9, "|r| = {}", end.norm());
+    }
+
+    /// [`DeltaDomain::sample_point`] must fill the sphere **uniformly by volume**,
+    /// not by radius. The distinguishing statistic is `<r³>`: under a volume-
+    /// uniform fill the radial density is `3r²/R³`, so
+    /// `<r³> = ∫₀ᴿ r³·3r²/R³ dr = R³/2`, whereas the classic `r = R·u` mistake
+    /// gives `R³∫₀¹u³du = R³/4`. A factor of two apart, so this is not a
+    /// delicate test.
+    #[test]
+    fn sphere_sampling_is_uniform_by_volume() {
+        let radius = 1.5_f64;
+        let domain = DeltaDomain::Sphere { radius };
+        let mut seed = 424_242_u64;
+        let n = 200_000;
+        let mut sum_r3 = 0.0;
+        for _ in 0..n {
+            let p = domain.sample_point(&mut seed);
+            assert!(p.norm() <= radius + 1e-12);
+            sum_r3 += p.norm().powi(3);
+        }
+        let mean_r3 = sum_r3 / f64::from(n);
+        let expected = 0.5 * radius.powi(3);
+        assert!(
+            (mean_r3 / expected - 1.0).abs() < 0.02,
+            "<r³> = {mean_r3:.5}, expected {expected:.5} for a volume-uniform fill"
+        );
+    }
+
+    /// V&V — **the new spherical domain against the trusted cube.**
+    ///
+    /// A reflective boundary means no leakage, so the eigenvalue of a domain
+    /// filled with a **uniform** medium is that medium's infinite-medium `k∞` —
+    /// a material property, with no dependence on the domain's shape or size.
+    /// Cube and sphere must therefore agree, and that is the strongest available
+    /// check on the sphere arm: it is pinned against the cube arm, which is the
+    /// pre-existing, independently exercised reference.
+    ///
+    /// The check has teeth because it would fail loudly under the plausible
+    /// implementation errors — a reflection that leaks histories drops `k`, one
+    /// that double-counts path length raises it, and a source that is not
+    /// volume-uniform biases the first generation.
+    ///
+    /// **Pass criterion.** `|k_cube − k_sphere|` within `4σ_comb`, the same gate
+    /// the seq-vs-par backend-agreement test above uses.
+    ///
+    /// **Measured (2026-09-10, this environment, seed 135792468; 800 histories,
+    /// 15 inactive + 40 active):** cube `2.22440 ± 0.00536` versus sphere
+    /// `2.22334 ± 0.00524` — **0.14σ apart, −105 pcm**.
+    ///
+    /// Two sizes are run, and they return *bit-identical* results. That is
+    /// expected, not a bug and not redundancy: in a uniform medium the flight
+    /// sequence is scale-invariant under a fixed seed, because nothing in the
+    /// physics references the boundary except the reflections, which change
+    /// where a neutron is but not what happens to it. So the second size checks
+    /// that scale-invariance holds; it does not add an independent sample.
+    #[test]
+    fn geometry_independence_of_k_inf_for_a_uniform_medium() {
+        use crate::material::material::NuclideComponent;
+        let nuclides = vec![Nuclide::from_core("U235").unwrap()];
+        let materials = vec![Material {
+            id: 1,
+            name: "U235".into(),
+            temperature: 293.6,
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.8e-2,
+            }],
+        }];
+        let grid: Vec<f64> = (0..60).map(|i| 1.0e-3 * 1.5_f64.powi(i)).collect();
+        let maj = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
+        let settings = KeffSettings {
+            n_particles: 800,
+            n_inactive: 15,
+            n_active: 40,
+            seed: 13_579_246_8,
+            compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
+            ..KeffSettings::default()
+        };
+
+        for size in [2.0_f64, 4.0_f64] {
+            let cube = run_keff_delta_in(
+                DeltaDomain::Cube { half: size },
+                &materials,
+                &nuclides,
+                &maj,
+                |_p| Some(0),
+                &settings,
+            );
+            let sphere = run_keff_delta_in(
+                DeltaDomain::Sphere { radius: size },
+                &materials,
+                &nuclides,
+                &maj,
+                |_p| Some(0),
+                &settings,
+            );
+            let sigma = (cube.k_std.powi(2) + sphere.k_std.powi(2)).sqrt().max(1e-9);
+            let dist = (cube.k_mean - sphere.k_mean).abs() / sigma;
+            eprintln!(
+                "[k∞ shape independence, size {size}] cube {:.5} ± {:.5} vs sphere \
+                 {:.5} ± {:.5}  ({dist:.2}σ, {:+.0} pcm)",
+                cube.k_mean,
+                cube.k_std,
+                sphere.k_mean,
+                sphere.k_std,
+                (sphere.k_mean - cube.k_mean) * 1e5
+            );
+            assert!(
+                dist <= 4.0,
+                "size {size}: cube k = {:.5} ± {:.5}, sphere k = {:.5} ± {:.5}: {dist:.2}σ apart \
+                 (> 4σ) — a reflective domain filled with a uniform medium has no shape dependence",
+                cube.k_mean,
+                cube.k_std,
+                sphere.k_mean,
+                sphere.k_std
+            );
+        }
     }
 }

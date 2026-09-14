@@ -1,0 +1,16 @@
+gaminr
+ 20 20 0 21/
+ 600 3 3 3 1/
+ 'synthetic z=6 photoatomic, lanl 12-group, iwt=3, lord=3'/
+ 23 501 'total'/
+ 23 502 'coherent'/
+ 23 504 'incoherent'/
+ 23 516 'pair'/
+ 23 522 'photoelectric'/
+ 26 502 'coherent matrix'/
+ 26 504 'incoherent matrix'/
+ 26 516 'pair matrix'/
+ 23 525 'total heating'/
+ 0/
+ 0/
+stop

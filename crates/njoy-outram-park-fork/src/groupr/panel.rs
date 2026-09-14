@@ -73,13 +73,33 @@ use crate::nuclear_data::WeightingSpectrum;
 /// edge `E_hi` or the other feeder instead.
 pub const NO_NEXT_BREAK_EV: f64 = 1.0e10;
 
-/// Default geometric panel-refinement factor for a smooth analytic weight.
+/// Default geometric panel-refinement factor for a smooth
+/// [`GroupFlux::Spectrum`] weight (the lightweight MGXS collapse path).
 ///
-/// A smooth (non-tabulated) weight has no break points of its own, so `getflx`
-/// steps the integration grid geometrically to keep each panel narrow enough for
-/// the linear-reaction-rate assumption. `gtflx` uses `step = 1.05`
-/// (`gaminr.f90:838`); we adopt the same factor.
+/// A smooth (non-tabulated) weight has no break points of its own, so the
+/// integration grid is stepped geometrically to keep each panel narrow enough
+/// for the linear-reaction-rate assumption. GAMINR's `gtflx` uses
+/// `step = 1.05` (`gaminr.f90:838`); the spectrum path adopts that factor.
+/// GROUPR's own analytic weights use [`GETWTF_STEP`] instead.
 pub const DEFAULT_FLUX_STEP: f64 = 1.05;
+
+/// GROUPR `getwtf`'s step between analytic-weight samples, `s101 = 1.01`
+/// (`groupr.f90:5146`): every analytic weight (`iwt = 2, 3, 4, 6, 7, 10`)
+/// returns `enext = s101*e` (`:5203-5236`), and a tabulated weight's next
+/// break is capped at it (`:5195`). This is the flux grid `getflx` hands
+/// `panel` when the deck has a single sigma-zero (`nsigz = 1`,
+/// `:6512-6516`) — with `nsigz > 1` every reaction, `nz = 1` ones
+/// included, is served from the tabulated `genflx` flux instead
+/// (`:6478-6510`) — and the ladder `genflx` walks for the flux-calculator
+/// tail and narrow-resonance extension.
+///
+/// Measured 2026-09-10 (`tests/groupr_u238_inelastic_matrix_golden.rs`,
+/// the `nsigz = 1` deck): with GAMINR's 1.05 factor here the U-238
+/// MT=51/52/60/89 threshold-group vectors were 3.5e-4 / 8.5e-4 / 1.2e-3 /
+/// 5.0e-3 off NJOY and the group fluxes 2.7e-4 to 3.4e-4 (the trapezoid
+/// error of 1/E over a 5 % panel is ~4e-4 vs ~1.7e-5 over 1 %); with 1.01
+/// they are within 3.1e-6 and 1e-13.
+pub const GETWTF_STEP: f64 = 1.01;
 
 /// A pointwise cross section `sigma(E)` fed to the panel integrator — the
 /// vector (`nl = 1`, `nz = 1`) reduction of `getsig`/`gtsig`.
@@ -101,6 +121,62 @@ pub enum PointwiseXs {
     /// pairs. Zero outside `[E_first, E_last]`, matching `gety1`
     /// (`endf` `eval_tab1`). Shared read-only via [`Arc`].
     LinLin(Arc<Vec<(f64, f64)>>),
+    /// One of `getsig`'s analytic "non cross section quantities"
+    /// (`MT = 257/258/259`, `groupr.f90:6758-6772`): a function of the
+    /// incident energy computed at retrieval time, with `enext = 1.01 E`
+    /// (`step`, `:6664`) so the panel march refines it geometrically.
+    Derived(DerivedQuantity),
+}
+
+/// The three analytic quantities `getsig` serves for `MT = 257/258/259`
+/// (`groupr.f90:6758-6772`); their group averages are flux-weighted mean
+/// energy, lethargy and reciprocal velocity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivedQuantity {
+    /// `MT = 257`: `sig = E` \[eV\].
+    AverageEnergy,
+    /// `MT = 258`: `sig = ln(E0/E)` with `E0 = 1e7` eV (`ezero`, `:6666`).
+    AverageLethargy,
+    /// `MT = 259`: `sig = 1/sqrt(vc E)` with `vc = 1.919e8` (`:6665`), i.e.
+    /// the reciprocal neutron speed in s/cm for `E` in eV.
+    AverageInverseVelocity,
+}
+
+impl DerivedQuantity {
+    /// `getsig`'s `step` (`:6664`): the next retrieval point is `1.01 E`.
+    pub const STEP: f64 = 1.01;
+    /// `ezero` (`:6666`).
+    pub const EZERO_EV: f64 = 1.0e7;
+    /// `vc` (`:6665`).
+    pub const VC: f64 = 1.919e8;
+
+    /// The `MT` number of the quantity.
+    pub fn mt(self) -> i32 {
+        match self {
+            DerivedQuantity::AverageEnergy => 257,
+            DerivedQuantity::AverageLethargy => 258,
+            DerivedQuantity::AverageInverseVelocity => 259,
+        }
+    }
+
+    /// The quantity for `mt` (257/258/259), or `None`.
+    pub fn from_mt(mt: i32) -> Option<Self> {
+        match mt {
+            257 => Some(DerivedQuantity::AverageEnergy),
+            258 => Some(DerivedQuantity::AverageLethargy),
+            259 => Some(DerivedQuantity::AverageInverseVelocity),
+            _ => None,
+        }
+    }
+
+    /// `sig(1,1)` at `e` \[eV\] (`:6758-6772`).
+    pub fn value(self, e: f64) -> f64 {
+        match self {
+            DerivedQuantity::AverageEnergy => e,
+            DerivedQuantity::AverageLethargy => (Self::EZERO_EV / e).ln(),
+            DerivedQuantity::AverageInverseVelocity => 1.0 / (Self::VC * e).sqrt(),
+        }
+    }
 }
 
 impl PointwiseXs {
@@ -112,6 +188,7 @@ impl PointwiseXs {
         match self {
             PointwiseXs::Constant(c) => *c,
             PointwiseXs::LinLin(pairs) => tab_linlin(pairs, e),
+            PointwiseXs::Derived(q) => q.value(e),
         }
     }
 
@@ -124,6 +201,13 @@ impl PointwiseXs {
         match self {
             PointwiseXs::Constant(_) => NO_NEXT_BREAK_EV,
             PointwiseXs::LinLin(pairs) => next_grid_point(pairs, e),
+            PointwiseXs::Derived(_) => {
+                if e > 0.0 {
+                    DerivedQuantity::STEP * e
+                } else {
+                    NO_NEXT_BREAK_EV
+                }
+            }
         }
     }
 }
@@ -172,12 +256,13 @@ pub enum GroupFlux {
 }
 
 impl GroupFlux {
-    /// Build an [`GroupFlux::Analytic`] with the default refinement step.
+    /// Build an [`GroupFlux::Analytic`] with `getwtf`'s own refinement step
+    /// ([`GETWTF_STEP`], `s101 = 1.01`).
     pub fn analytic(weight: AnalyticWeight, temp_k: f64) -> Self {
         GroupFlux::Analytic {
             weight,
             temp_k,
-            step: DEFAULT_FLUX_STEP,
+            step: GETWTF_STEP,
         }
     }
 

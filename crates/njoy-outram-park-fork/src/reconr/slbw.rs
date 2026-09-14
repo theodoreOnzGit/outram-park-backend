@@ -37,14 +37,24 @@ use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 /// Derived as `sqrt(2·m_n·amu·eV) × 1e-12 / ℏ`, matching NJOY's
 /// `cwaven = sqrt(2*amassn*amu*ev)*1e-12/hbar` in `reconr.f90`.
 ///
-/// Numerically ≈ 2.1977 × 10⁻³ (10⁻¹² cm)⁻¹ / √eV.
+/// Numerically 2.196 807 689 × 10⁻³ (10⁻¹² cm)⁻¹ / √eV, evaluated from the
+/// same CODATA-2018 constants NJOY's `phys.f90` carries
+/// ([`crate::common::phys`]); `wave_k_is_the_upstream_cwaven` below locks
+/// the literal to the formula.
+///
+/// **History (2026-09-10).** Until this date the literal was `2.1977e-3`,
+/// the formula rounded to five figures — and rounded *up* in the fourth:
+/// `k` was 0.041 % high, so every resonance cross section (all ∝ `1/k²`,
+/// via `4π/k²`) came out 0.081 % low in RECONR, UNRESR and PURR alike.
+/// Potential scattering, `∝ sin²(k·AP)/k² ≈ AP²`, is insensitive to it, which
+/// is how it hid: the U-235 URR oracle test (`tests/purr_u235_urr.rs`)
+/// matched NJOY's potential scattering to five figures while fission and
+/// capture were a steady 0.077 % low at every energy.
 pub const WAVE_K: f64 = {
-    // sqrt(2·AMASSN·AMU·EV) × 1e-12 / HBAR — pre-evaluated to avoid
-    // calling sqrt() in a const context.
-    // Verification: sqrt(2 × 1.00866 × 1.66054e-24 g × 1.60218e-12 erg)
-    //               × 1e-12 / 1.05457e-27 erg·s  =  2.1977e-3
+    // sqrt(2·AMASSN·AMU·EV) × 1e-12 / HBAR — pre-evaluated because sqrt()
+    // is not const; the unit test below re-derives it at run time.
     let _ = (AMU_G, AMASSN_AMU, EV_ERG); // reference constants to silence lints
-    2.197_7e-3_f64
+    2.196_807_689_091_228e-3_f64
 };
 
 /// `r_a = RC1 × (m_n·AWR)^{1/3} + RC2` when `naps == 0` (ENDF formula).
@@ -173,9 +183,14 @@ impl SlbwSigmas {
 /// Evaluate SLBW cross sections at energy `e` \[eV\] for one l-state.
 ///
 /// Implements the inner loop of `csslbw` (zero-temperature) in NJOY2016.
-/// Both SLBW (LRF=1) and MLBW (LRF=2) use this evaluation; true MLBW adds
-/// interference between levels in the elastic channel, which is negligible for
-/// widely-spaced resonances.
+/// This is the `LRF=1` formula. `LRF=2` evaluations go through
+/// [`eval_mlbw_lstate`] (`csmlbw`), whose elastic channel carries the
+/// level–level and level–potential interference: until 2026-09-10 both
+/// formalisms used this routine on the assumption that the interference is
+/// "negligible for widely-spaced resonances", and the ERRORR MF=32 oracle
+/// on TENDL-2023 Ar-37 measured the cost of that assumption at +6.3 % in
+/// elastic from 1e-5 eV to 100 eV and −8.2 % at 1 keV against NJOY's own
+/// RECONR (capture unaffected, bead `op-cral`).
 ///
 /// # Parameters
 /// - `e`          — neutron kinetic energy \[eV\], must be > 0.
@@ -245,6 +260,99 @@ pub fn eval_slbw_lstate(
     }
 }
 
+/// Evaluate MLBW cross sections at energy `e` \[eV\] for one l-state.
+///
+/// Port of the per-l-state body of `csmlbw` (zero temperature) in NJOY2016
+/// `reconr.f90` (the `mode.eq.2.and.tempr.eq.zero` branch of `sigma`).
+/// Capture and fission are the same sums as SLBW; the elastic channel is
+/// assembled per total spin `J` from the accumulated
+/// `sigj(J,1) = Σ 2Γn(E)/Γ/(1+x²)` and `sigj(J,2) = Σ 2Γn(E)/Γ·x/(1+x²)`
+/// over every level of that `J` (`x = 2(E−E'_r)/Γ`):
+///
+/// ```text
+/// σ_el = (π/k²) [ Σ_J g_J ((1 − cos 2φ − sigj(J,1))² + (sin 2φ + sigj(J,2))²)
+///                 + 2 (2l+1 − Σ_J g_J)(1 − cos 2φ) ]
+/// ```
+///
+/// where `J` runs from `|‖I − l| − ½|` to `I + l + ½` (upstream's
+/// `ajmin`/`ajmax`, up to ten values), and the last term is the potential
+/// scattering of the `J` values the spin sequence does not reach.
+///
+/// Same parameters as [`eval_slbw_lstate`]. As there, a competitive width
+/// (`LRX ≠ 0`, `QX`) is not carried by [`super::mf2::LState`] and is not
+/// included (upstream adds `Γc·P(E+QX)/P_x` to `Γ`).
+pub fn eval_mlbw_lstate(
+    e: f64,
+    resonances: &[(f64, f64, f64, f64, f64, f64)],
+    l: u32,
+    spi: f64,
+    ap: f64,
+    awri: f64,
+    ra: f64,
+) -> SlbwSigmas {
+    if e <= 0.0 {
+        return SlbwSigmas::default();
+    }
+    let arat = awri / (awri + 1.0);
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+    let rho = k * ra;
+    let rhoc = k * ap;
+    let (se, pe) = shift_and_penetrability(l, rho);
+    let phi = phase_shift(l, rhoc);
+    let cos2p = 1.0 - (2.0 * phi).cos();
+    let sin2p = (2.0 * phi).sin();
+
+    // the J sequence of this l-state and its statistical weights
+    let den = 4.0 * spi + 2.0;
+    let fl = l as f64;
+    let ajmin = ((spi - fl).abs() - 0.5).abs();
+    let ajmax = spi + fl + 0.5;
+    let nj = ((ajmax - ajmin + 1.0).round() as usize).min(10);
+    let mut gj = [0.0f64; 10];
+    let mut sum = 0.0;
+    let mut aj = ajmin;
+    for g in gj.iter_mut().take(nj) {
+        *g = (2.0 * aj + 1.0) / den;
+        aj += 1.0;
+        sum += *g;
+    }
+    let diff = 2.0 * fl + 1.0 - sum;
+    let mut sigj = [[0.0f64; 10]; 2];
+
+    let mut sig_cap = 0.0;
+    let mut sig_fis = 0.0;
+    for &(er, aj, _gt, gn, gg, gf) in resonances {
+        let j = ((aj - ajmin + 1.0).round() as usize).clamp(1, nj) - 1;
+        let k_r = WAVE_K * arat * er.abs().sqrt();
+        let (ser, per) = shift_and_penetrability(l, k_r * ra);
+        let rper = if per.abs() > 1e-30 { 1.0 / per } else { 0.0 };
+        let erp = er + gn * (ser - se) * rper / 2.0;
+        let edelt = e - erp;
+        let gne = gn * pe * rper;
+        let gx = gg + gf;
+        let gtt = gne + gx;
+        let x = 2.0 * edelt / gtt;
+        let mut comfac = 2.0 * gne / gtt / (1.0 + x * x);
+        sigj[0][j] += comfac;
+        sigj[1][j] += comfac * x;
+        comfac = comfac * gj[j] / gtt;
+        sig_fis += comfac * gf;
+        sig_cap += comfac * gg;
+    }
+    let mut sig_el = 0.0;
+    for j in 0..nj {
+        sig_el += gj[j] * ((cos2p - sigj[0][j]).powi(2) + (sin2p + sigj[1][j]).powi(2));
+    }
+    sig_el += 2.0 * diff * cos2p;
+
+    SlbwSigmas {
+        elastic: sig_el * pifac,
+        capture: sig_cap * 2.0 * pifac,
+        fission: sig_fis * 2.0 * pifac,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,6 +416,17 @@ mod tests {
         assert!(
             far.elastic < at_peak.elastic / 10.0,
             "σ_el(1000 eV) should be < 10% of peak"
+        );
+    }
+
+    #[test]
+    fn wave_k_is_the_upstream_cwaven() {
+        // reconr.f90:903 — cwaven = sqrt(2*amassn*amu*ev)*1.e-12/hbar.
+        use crate::common::phys::HBAR_ERG_S;
+        let cwaven = (2.0 * AMASSN_AMU * AMU_G * EV_ERG).sqrt() * 1.0e-12 / HBAR_ERG_S;
+        assert!(
+            ((WAVE_K - cwaven) / cwaven).abs() < 1e-14,
+            "WAVE_K {WAVE_K:e} vs cwaven {cwaven:e}"
         );
     }
 }

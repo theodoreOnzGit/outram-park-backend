@@ -12,6 +12,14 @@
 /// Boundary conditions: Transmissive, Vacuum, Reflective, Periodic, White.
 use super::position::{Direction, Position};
 
+/// Tolerance \[dimensionless, in the units of `evaluate`\] within which a point
+/// counts as sitting **on** a surface rather than to one side of it.
+///
+/// `FP_COINCIDENT` in `include/openmc/constants.h:55`. Inside this band the sign
+/// of `evaluate` is decided by floating-point round-off rather than by geometry,
+/// so [`SurfaceKind::sense`] switches to the direction of travel instead.
+pub const FP_COINCIDENT: f64 = 1.0e-12;
+
 /// Surface boundary condition type.  Maps to `openmc::BoundaryType`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryType {
@@ -1227,10 +1235,31 @@ impl SurfaceKind {
     }
 
     /// Boolean sense used by cell membership: `true` = positive (outside) half-space.
-    /// Mirrors OpenMC `Surface::sense` (`src/surface.cpp`), position-only form.
+    ///
+    /// Ported from `Surface::sense` (`src/surface.cpp:117`). Normally this is
+    /// just the sign of [`SurfaceKind::evaluate`], but **within
+    /// [`FP_COINCIDENT`] of the surface the sign is round-off, not geometry**,
+    /// so the side is decided from the direction of travel relative to the
+    /// outward normal instead: a particle moving along `+n` is leaving the
+    /// negative side, i.e. it is on the positive side.
+    ///
+    /// This matters wherever a particle sits on a surface — the state
+    /// immediately after a boundary crossing, and at grazing incidence on a
+    /// curved surface, where the evaluated sign flips essentially at random.
+    /// For the surface a particle is *known* to be on, prefer the recorded
+    /// [`crate::geometry::cell::SurfaceToken`], which is exact; this is the
+    /// fallback for every other surface.
+    ///
+    /// - `r` — position \[cm\].
+    /// - `u` — unit direction of travel.
     #[inline]
-    pub fn sense(&self, r: Position) -> bool {
-        self.evaluate(r) > 0.0
+    pub fn sense(&self, r: Position, u: Direction) -> bool {
+        let f = self.evaluate(r);
+        if f.abs() < FP_COINCIDENT {
+            let n = self.normal(r);
+            return u.u * n.u + u.v * n.v + u.w * n.w > 0.0;
+        }
+        f > 0.0
     }
 
     /// Smallest positive distance along ray `(r, u)` to this surface, or
@@ -1660,7 +1689,8 @@ mod tests {
             ),
             3.0
         ));
-        assert!(sk.sense(Position::new(3.0, 0.0, 0.0))); // outside r=2 sphere
+        let ur = Direction::new(1.0, 0.0, 0.0);
+        assert!(sk.sense(Position::new(3.0, 0.0, 0.0), ur)); // outside r=2 sphere
         assert_eq!(sk.bc(), BoundaryType::Vacuum);
     }
 
@@ -1965,8 +1995,9 @@ mod tests {
             false,
         );
         assert!(close(d, 6.0), "dispatch distance {d}");
-        assert!(sk.sense(Position::new(0.0, 0.0, 0.0))); // central hole is outside
-        assert!(!sk.sense(Position::new(3.0, 0.0, 0.0))); // tube centre is inside
+        let ur = Direction::new(1.0, 0.0, 0.0);
+        assert!(sk.sense(Position::new(0.0, 0.0, 0.0), ur)); // central hole is outside
+        assert!(!sk.sense(Position::new(3.0, 0.0, 0.0), ur)); // tube centre is inside
         assert_eq!(sk.bc(), BoundaryType::Vacuum);
         let n = sk.normal(Position::new(4.0, 0.0, 0.0));
         assert!(close(n.u, 1.0) && close(n.v, 0.0) && close(n.w, 0.0));

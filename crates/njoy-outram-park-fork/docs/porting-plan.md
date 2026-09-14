@@ -72,8 +72,8 @@ Status legend: ✅ done · 🟡 partial · ⏳ scaffolded/stub · ⬜ not starte
 | Rust module | Fortran file | LOC | Phase | Status |
 |---|---|---|---|---|
 | `modules::reconr` | `reconr.f90` | 5.7k | 2 | ✅ resonance reconstruction |
-| `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) |
-| `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/mod.rs`; full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
+| `modules::broadr` | `broadr.f90` | 2.0k | 2 | ✅ Doppler broadening (SIGMA1) + `broadn` adaptive grid/thinning (2026-09-10, validated vs six NJOY PENDFs, `tests/broadr_light_nuclide_pendf_golden.rs`); kernel low-`y` residual `op-0xv5` |
+| `heatr` | `heatr.f90` | 6.3k | 3 | 🟡 kinematic-limit KERMA (H1–H5, wired into ACE ESZ) + damage energy for the two-body recoil channels (H7: elastic + discrete levels) done, `src/heatr/` (`spectra.rs`, `kerma.rs`, `damage.rs`); full photon energy-balance (H6) deferred, H7 anisotropy/continuum/capture channels remaining — see sub-phase table below |
 | `gaspr` | `gaspr.f90` | 1.15k | 3 | ✅ gas production (MT=203–207), lumped-channel case only — see `src/gaspr/mod.rs` |
 | `purr` | `purr.f90` | 2919 | 3 | ✅ fully ported — ENDF parsing (reuses `unresr::mf2`), `uw2`, `DopplerTable` (`uwtab2`), `Rng`, `generate_ladder`, `infinite_dilution_reference`, `read_heating_cross_sections`, and `probability_table`/`line_shape` (`unrest`, the Monte Carlo core) — see `src/purr/README.md`. Translation-only, **not run even once** — Opus verification pending; PENDF MT=152/153 tape writer not ported (pure plumbing, no physics) |
 | `thermr` | `thermr.f90` | 3.4k | 3 | 🟡 MF=7 reader + coherent/incoherent elastic + inelastic physics; no module driver |
@@ -90,28 +90,35 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
 | — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
 | — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
-| `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp.rs`) |
+| `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp/`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
 
 | Rust module | Fortran file | LOC | Status |
 |---|---|---|---|
-| `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level, V&V pending |
+| `modules::groupr` | `groupr.f90` | 12.7k | 🟡 multigroup neutron/photon XS — ported (~9.4k Rust lines across `src/groupr/`); translation-level; **vector path + Bondarenko self-shielding golden-validated vs an NJOY2016 GENDF on U-238, 2026-09-10** (`tests/groupr_u238_gendf_golden.rs`: 2.65e-6 on NJOY's own PENDF with and without a MT=152 URR table and for the `iwt<0` flux calculator, 9.2e-4 end-to-end; the URR-flux `getunr` total and three `genflx` slowing-down grid/source details were found and ported from it); matrix path / GAMINR / `lord>0` / heterogeneous flux calculator V&V still pending |
 | `modules::gaminr` | `gaminr.f90` | ~2k | 🟡 multigroup photon interaction — ported (`src/gaminr/`); translation-level, V&V pending |
-| `modules::errorr` | `errorr.f90` | 11.2k | 🟡 multigroup covariance matrices — ported (`src/errorr/`); it is `samm`'s `Want_Partial_Derivs`/`Want_Angular_Dist` caller; translation-level, V&V pending |
-| `modules::covr` | `covr.f90` | ~3k | 🟡 covariance output/plotting — ported (`src/covr/`); translation-level, V&V pending |
+| `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟢 `LRF=3` ERRORJ sensitivities (`ggrmat`) + `LCOMP=1` validated on JENDL-3.3 U-238 to 4.95e-7 (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, 2026-09-11). 🟡 Not ported: `LCOMP=0`, `LRF=1` ERRORJ sensitivities, `NRO≠0`, `NLRS>0`, INTG in the ERRORJ branch, `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
+| `modules::covr` | `covr.f90` | ~3k | 🟢 library option (ERRORR tape → BOXER) ported and byte-identical to NJOY on 9 materials × 2 matrix types (`tests/covr_boxer_golden.rs`); PostScript plotting out of scope |
 | `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
-| `modules::samm` | `samm.f90` | 7.2k | 🟡 Phase 1-6/6 done for the reachable (non-derivative, non-angular) core — `xsformula::cssammy` is the RECONR-facing entry point, and **RECONR now dispatches LRF=7 sections to it** (`reconr/mf2.rs`, see §8); derivatives/angular deferred to ERRORR; shared by reconr/unresr; translation-level, V&V pending |
+| `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), `derext`/`KBK` background terms, `KRM≠3`, `IFG=1`; `yfour` (4+ channels) unexercised |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
 Output formats for codes OUTRAM PARK does not target — most are still on-demand
-`NotPorted` stubs, but three have been ported (translation-level, V&V pending):
+`NotPorted` stubs, three have been ported at translation level (V&V pending)
+and one is validated:
 
+- **Ported and validated (🟢):** `wimsr.f90` (`src/wimsr/`, 2026-09-11):
+  WIMS-D library byte-identical to NJOY2016's on ENDF/B-VIII.0 U-238 (29
+  groups, six sigma-zeros, `ires=1`, `ip1opt=0`, `isof=1`) and every
+  `iprint=2` listing stage within the printed precision
+  (`tests/wimsr_u238_njoy_golden.rs`); the card-deck reader is not written
+  (`run()` stays `NotPorted`, callers build a `WimsrInput`).
 - **Ported (🟡):** `dtfr.f90` (`src/dtfr/`), `resxsr.f90` (`src/resxsr/`),
   `mixr.f90` (`src/mixr/`).
 - **Still `NotPorted` stubs (⬜):** `ccccr.f90`, `matxsr.f90`, `powr.f90`,
-  `wimsr.f90`, `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
+  `plotr.f90`, `viewr.f90`, and `graph.f90` (low-level plotting
   shared by `plotr`/`viewr`/`covr`).
 
 > Note: `samm.f90` (Reich–Moore / R-matrix-limited resonance formalism) is shared
@@ -322,7 +329,7 @@ Output formats for codes OUTRAM PARK does not target — most are still on-deman
   distribution. Until 4b/4d finish it is still not a complete CE transport
   library (fission has no NU block; continuum producers are isotropic); 4f
   (thermal S(α,β)) is a separate, now-complete table type layered on top.
-  - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp.rs`).
+  - **4g — Windowed Multipole (WMP) import.** ✅ **done** (`src/wmp/`).
     **Independent MIT CRPG work — NOT NJOY/LANL.** Reads the **MIT** `WMP_Library`
     (<https://github.com/mit-crpg/WMP_Library>, MIT-licensed) HDF5 multipole data:
     complex poles/residues + windows enabling *analytic* on-the-fly Doppler
@@ -342,7 +349,7 @@ Output formats for codes OUTRAM PARK does not target — most are still on-deman
     entry in `NOTICE`, distinct from the NJOY/BSD notice. **Remaining:** the
     **EXTENDED** set (298 more nuclides, 9.64 MB raw) is not yet packaged — planned
     as a **separate sibling crate** (not embedded here) so the njoy crate stays
-    small; no sibling crate exists yet. See the `src/wmp.rs` module docs and
+    small; no sibling crate exists yet. See the `src/wmp/mod.rs` module docs and
     [`project_wmp_embedding_plan`] in the assistant's memory for the full sizing
     rationale.
 - **Phase 5 — multigroup/covariance** (GROUPR, ERRORR, …): only if OUTRAM PARK
@@ -395,9 +402,9 @@ first):
 
 | File | Lines | Status |
 |---|---|---|
-| `src/heatr/mod.rs` | 1363 | ⬜ TODO: split by function (H1-H7 KERMA phases are a natural boundary) |
-| `src/wmp.rs` | 1276 | ⬜ TODO: split by function (parsing vs. Doppler-broadening evaluation is a natural boundary) |
-| `src/purr/mod.rs` | 1079 | ⬜ TODO: split by function (ladder generation vs. `unrest`'s Monte Carlo core is a natural boundary) |
+| `src/heatr/mod.rs` | ~~1363~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `heatr/{spectra,kerma,damage,tests}.rs` (200/154/222/826 lines) + a 97-line `mod.rs` |
+| `src/wmp.rs` | ~~1276~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `wmp/{types,evaluate,h5,blob,tests}.rs` (147/252/171/470/324 lines) + a 94-line `mod.rs` — parsing (`h5`/`blob`) vs. Doppler-broadening evaluation (`evaluate`) as planned |
+| `src/purr/mod.rs` | ~~1414~~ | ✅ split 2026-09-10 (`op-cjw.8`) into `purr/{ladder,unrest,tests}.rs` (540/578/293 lines) + an 81-line `mod.rs` — ladder generation (`rann`/`ladr2`/`unresx`/`rdheat` in `ladder`) vs. `unrest`'s Monte Carlo core + `line_shape` (`unrest`) at the plan-named boundary; public paths unchanged via re-exports |
 
 ---
 
@@ -618,7 +625,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 > `dispatch.rs`, `api.rs`), per a new mandatory crate convention — see §5
 > above and this crate's `CLAUDE.md`. Pure reorganization, no logic
 > changes. Applies to all NJOY ports from this date forward; three
-> existing over-length files (`heatr/mod.rs`, `wmp.rs`, `purr/mod.rs`)
+> existing over-length files (`heatr/mod.rs`, `wmp.rs` and `purr/mod.rs` were all split 2026-09-10)
 > tracked as TODOs to split opportunistically.
 >
 > **Update (2026-07-07, Phase 5 — cross-section formula):** **Phase 5 is
@@ -736,7 +743,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 
 - **Priority 2 — U-238 Doppler broadening of capture.** 🟡 The in-crate data is
   **WMP** with analytic broadening via the Faddeeva function — implemented **here
-  in njoy** (`src/wmp.rs`), not `outram-mc-libs`. Real U-238 broadening of the
+  in njoy** (`src/wmp/`), not `outram-mc-libs`. Real U-238 broadening of the
   6.67 eV capture resonance is confirmed (`tests/wmp_u238.rs`). njoy also holds
   the **independent oracle**: `RECONR` reconstructs the 0 K pointwise U-238
   σ(n,γ); `BROADR` SIGMA1-broadens it to T. The code-to-code gate vs the OpenMC
@@ -788,7 +795,7 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
   ACER 4b/4d NU/DLW blocks (below) remain open for the *ACE-file* path, which a
   full transport library still needs for tools other than this workspace's own
   `outram-mc-libs`.
-- **WMP import (`src/wmp.rs`, 4g).** 🟡 Done: `load_h5` reads the MIT
+- **WMP import (`src/wmp/`, 4g).** 🟡 Done: `load_h5` reads the MIT
   `WMP_Library` HDF5 (behind the `wmp-hdf5` feature). This is now the data
   ingestion path for njoy's own WMP evaluator (all nuclear data lives in njoy;
   `outram-mc-libs` pulls via `XsProvider`). Remaining: `from_blob` so a curated set

@@ -53,35 +53,42 @@ index (NJOY `ssm(nbeta,nalpha)` layout).
 
 ## What is NOT ported (honest gaps)
 
-- **`run()` — the NJOY unit plumbing and kernel orchestration.** Narrower than
-  it used to be: the free-format **card reader is now ported** (`deck.rs`) and
-  so is the `endout` MF=7 tape writer. What is absent is the Fortran
-  unit/file plumbing (`nsysi`/`nout`) and the glue that composes
-  `start` → `contin` → `coher` → `endout` into a `LeaprOutput`. That glue also
-  owes two conversions nothing currently performs: `dwpix /= awr * T * bk`
-  (`leapr.f90:3035`) and `tempf = tbar * T` (`leapr.f90:717`), both of which
-  `endout` expects pre-converted. `run()` returns `NjoyError::NotPorted`; drive
-  the module API directly.
-- `copys` (2468–2487): scratch-tape plumbing for the mixed-moderator merge.
+- **The `run` driver is ported (2026-09-10): `run::run_deck` /
+  `run_deck_text`** (`subroutine leapr`, `leapr.f90:218-453`). Every
+  temperature block goes through `generate::build_law_at_temperature` (the
+  Fortran temperature loop: `contin` → `trans` → `discre` → `skold`, plus
+  the mixed-moderator second pass and merge), the elastic channel follows
+  `endout`'s rules — a built-in lattice for `iel > 0`, **incoherent elastic
+  for `iel < 0` and for `iel = 0` with no translational term**
+  (`leapr.f90:3043`, `SB = sb·npr`, `:3169`; this lifts the old "`iel < 0`
+  refused" gap) — one multi-temperature MF=7 comes out of `endout`, and
+  `run::Mf1Header` writes MF=1/MT=451: HEAD/CONTs, `EMAX =
+  sigfig(0.0253·β_max, 7)`, the card-20 Hollerith cards, the dictionary
+  with the Fortran's card-count *estimates* (`:3128-3150`), SEND/FEND.
+  `LeaprRun::write_text` lays out TPID + MF=1 + MF=7. Validated against
+  the three NJOY2016 runs in `reference-data/leapr/`
+  (`tests/leapr_run_driver_njoy_oracle.rs`): MF=1 byte-identical
+  (columns 1-75), every MF=7 row identical. Still not reproduced: the
+  Fortran unit numbers (card-1 `nout` is recorded only) and the `nsyso`
+  listing. The no-argument `run()` of the module registry stays
+  `NotPorted` because it cannot carry a deck.
+- Porting the driver exposed a **card-reader defect**: `CardCursor::
+  read_comment` ended the card-20 loop only on a bare `/` or a blank
+  record, so `/ end leapr` (D-in-D2O) became a 67th comment card; Fortran
+  list-directed input ends on any record whose first item is the slash.
+  Fixed the same day.
+- `copys` (2468–2487) is not needed: the mixed-moderator merge (3013–3025,
+  `generate_tape`) keeps the principal law in memory instead of on a scratch
+  tape. The merge itself, the secondary pass (`arat = aws/awr`) and the second
+  `T_eff` TAB1 are ported and byte-checked against an NJOY2016 run of
+  `tsl-SiO2-alpha` (2026-09-10, `tests/leapr_sio2_mixed_moderator_oracle.rs`).
 - **`coldh` orchestrator** (1936–2183): the Young–Koppel rotational
   convolution loop is ported (`coldh::add_cold_hydrogen`) but is only
   self-consistency tested, never reference-validated.
-- **`skold`** (2816–2922): the Sköld pair-correlation correction. `deck.rs`
-  *parses* cards 17–19 into `PairCorrelation`, and
-  `LeaprDeck::unsupported_features()` flags such a deck, but nothing consumes
-  the data.
-
-## Testing — methodology and results
-
-Ran under the 12 GB cap via `scripts/test.sh leapr`. **Re-measured 2026-08-13:
-35 in-module tests, 35 passed, 0 failed**, plus the 4 integration tests of
-`tests/leapr_graphite_deck_parity.rs` (see the validation section above). All
-builds/tests in `--release`; `cargo check -p njoy-outram-park-fork
---all-targets` is clean (0 warnings).
-
-Closed-form / self-consistency V&V checks with **measured numbers**
-(2026-07-15 unless noted):
-
+- **`skold`** (2816–2922): ported (`skold.rs`, 2026-09-10) and verified
+  like-for-like against NJOY2016 on `tsl-DinD2O` at 293.6 K (60,322 points
+  to 1e-13, `tests/leapr_d2o_skold_njoy_oracle.rs`). `nsk = 1` (Vineyard)
+  only reads the table upstream; `ska` is used by `coldh` and `skold` alone.
 - **SCT / free-gas detailed balance** (`sct.rs`): `S(α,−β) = e^{−β} S(α,β)`
   exact for `tbar = 1` — relative error `< 1e-13` across sampled (α,β).
 - **`besk1`** (`translation.rs`): `K₁(0.5) = 1.656441`, `K₁(1) = 0.601907`,

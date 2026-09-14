@@ -1,0 +1,26 @@
+groupr
+ 20 22 0 23/
+ 9237 1 0 3 0 1 6 1/
+ 'u238 29-group, iwt=3, 6 sigma0, with the elastic matrix, for the dtfr oracle'/
+ 293.6/
+ 1e10 1e4 1e3 1e2 10 1/
+ 29/
+ 1e-5 0.1 0.625 1 4 6.5 8 10 15 20 25 30 40 50 100 200 500 1e3 2e3 5e3
+ 1e4 2e4 5e4 1e5 5e5 1e6 2e6 5e6 1e7 2e7/
+ 3 1 'total'/
+ 3 2 'elastic'/
+ 3 18 'fission'/
+ 3 102 'capture'/
+ 6 2 'elastic matrix'/
+ 0/
+ 0/
+moder
+ 23 -24/
+dtfr
+ -24 25 0 0/
+ 0 0 1/
+ 1 29/
+ 0 0/
+ 'u238' 9237 1 293.6/
+ /
+stop

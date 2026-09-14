@@ -44,15 +44,21 @@
 //! (`ploted`/`plotnn`/`plotnp`, `dtfr.f90:948-1507`, **permanently out of
 //! scope** — viewr/PostScript). [`driver::run`] documents the pipeline and
 //! returns [`NjoyError::NotPorted`].
+//!
+//! [`assemble::assemble_tables`] is the full accumulation loop
+//! (`dtfr.f90:275-575`) — every neutron and photon table for one material
+//! card, golden-validated against NJOY2016's CLAW output (see `README.md`).
 
 use crate::NjoyError;
 
+pub mod assemble;
 pub mod driver;
 pub mod format;
 pub mod gendf;
 pub mod input;
 pub mod table;
 
+pub use assemble::{assemble_tables, DtfrTables, PhotonTable};
 pub use driver::run as run_with_input;
 pub use format::{column, format0_body, format0_header, fortran_e, pack_dtf_block};
 pub use gendf::{build_neutron_table, read_header, read_section_records, GendfGroupRecord, GendfHeader};

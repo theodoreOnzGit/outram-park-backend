@@ -147,7 +147,11 @@ impl PlotRaster {
 }
 
 /// Lowercase hex of a byte slice (SHA-256 digests here).
-fn hex_lower(bytes: &[u8]) -> String {
+///
+/// `pub(crate)`: [`crate::relation`]'s relation-id generator hashes a
+/// timestamp+counter with the same `sha2` dependency and reuses this rather
+/// than a second hand-rolled hex formatter.
+pub(crate) fn hex_lower(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
         use std::fmt::Write;

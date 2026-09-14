@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/bedok",
+    "crates/petir",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
@@ -26,6 +27,11 @@ members = [
     # reactive transport). SCAFFOLD: units/error/flow-mode shape only; RICHARDS
     # solve, Newton-Krylov solver, grid, and I/O are planned (epic op-v6s).
     "crates/outram-park-fork-pflotran",
+    # farrer-park — FEM structural mechanics (elasticity + J2 plasticity) ported
+    # from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1), on the shared
+    # outram-foam-basic-lib numerical backend. Genuine FEM, NOT reformulated as
+    # finite volume (GitHub issue #175, epic op-vrtt).
+    "crates/farrer-park",
     "crates/tampines",
     # outram-park-mpi — pure-Rust translation of an MPICH subset (MPI-3 API:
     # communicators, datatypes, point-to-point, core collectives) over a
@@ -107,6 +113,14 @@ categories = ["science"]
 # core numerical / library deps
 approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
 csv = "1.4.0"
+# no_std f64 transcendentals for PETIR: a pure-Rust port of musl libm,
+# MIT OR Apache-2.0 (permissive into GPL-3.0). Required, not optional -- in
+# no_std, sin/cos/exp/log/sqrt/pow are std-only and GSL calls them throughout.
+# Bonus kept deliberately: ONE fixed implementation means bit-identical
+# transcendentals across platforms, where std dispatches to whatever
+# glibc/macOS/MSVC ships and those differ in the last ulp. Several things here
+# depend on that reproducibility -- do not feature-gate back to std maths.
+libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
 num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
@@ -306,6 +320,7 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.5" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.6" }
+petir = { path = "crates/petir", version = "0.0.0" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.8" }
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.3" }
 raffles                      = { path = "crates/raffles",                      version = "0.0.0" }

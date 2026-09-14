@@ -12,3 +12,8 @@ pub use converging_diverging_nozzles::*;
 #[allow(non_snake_case)]
 pub mod generator;
 pub use generator::*;
+
+/// mean-flow, stage-by-stage turbine model: one homogeneous-equilibrium
+/// control volume per stage, with a velocity triangle at each mean radius
+pub mod mean_flow_stages;
+pub use mean_flow_stages::*;

@@ -50,6 +50,7 @@
 
 pub mod crp_packing;
 pub mod delta_tracking;
+pub mod fhr_pebble;
 pub mod keff_delta;
 pub mod references;
 pub mod sphere_packing;

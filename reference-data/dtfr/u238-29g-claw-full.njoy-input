@@ -1,0 +1,36 @@
+groupr
+ 20 22 0 23/
+ 9237 1 3 3 1 1 6 1/
+ 'u238 29-group, iwt=3, 6 sigma0, lord=1, lanl 12 photon groups: dtfr full-channel oracle'/
+ 293.6/
+ 1e10 1e4 1e3 1e2 10 1/
+ 29/
+ 1e-5 0.1 0.625 1 4 6.5 8 10 15 20 25 30 40 50 100 200 500 1e3 2e3 5e3
+ 1e4 2e4 5e4 1e5 5e5 1e6 2e6 5e6 1e7 2e7/
+ 3 1 'total'/
+ 3 2 'elastic'/
+ 3 4 'inelastic'/
+ 3 16 'n2n'/
+ 3 18 'fission'/
+ 3 102 'capture'/
+ 3 452 'nubar total'/
+ 3 455 'nubar delayed'/
+ 3 456 'nubar prompt'/
+ 6 2 'elastic matrix'/
+ 6 18 'fission matrix'/
+ 5 455 'delayed chi'/
+ 16 51 'level-1 inelastic photons'/
+ 16 18 'fission photons'/
+ 0/
+ 0/
+moder
+ 23 -24/
+dtfr
+ -24 25 0 0/
+ 0 0 1/
+ 2 29/
+ 1 12/
+ 'u238' 9237 1 293.6/
+ 'u238s' 9237 6 293.6/
+ /
+stop

@@ -294,6 +294,106 @@ impl PackingWindow {
     }
 }
 
+/// Screen-space anchor points on the drawn HTR-10 vessel that an external
+/// schematic overlays primary-helium flow indicators onto.
+///
+/// A schematic that draws the primary circuit *outside* the vessel still has to
+/// line those runs up with the internal features this cut-away shows — the
+/// side-reflector coolant risers the cold helium climbs, the upper-plenum space
+/// above the bed, and the hot-gas plenum below it — or the picture reads as two
+/// unrelated drawings. Every field is derived from the *same* letterboxed
+/// rectangle and the *same* fractions [`Htr10ReactorVesselVisual::ui`] paints
+/// with, via [`flow_anchors`], so moving or re-proportioning the vessel carries
+/// the overlay with it. All values are in screen points.
+///
+/// Screen `y` grows downward, matching egui: a smaller `y` is higher up.
+#[derive(Clone, Copy, Debug)]
+pub struct Htr10FlowAnchors {
+    /// The letterboxed rectangle the vessel artwork is actually drawn in.
+    pub artwork_rect: Rect,
+    /// Screen `x` of each drawn side-reflector coolant riser — two per side,
+    /// four in all, ordered left pair then right pair. Cold helium rises
+    /// through these channels before reversing at the top of the core.
+    pub reflector_riser_x: [f32; 4],
+    /// Screen `y` where the drawn reflector channels **begin**, near the top of
+    /// the reflector — the elevation the upward cold-helium indication should
+    /// reach before it turns into the upper plenum.
+    pub reflector_channel_top_y: f32,
+    /// Screen `y` where the drawn reflector channels **end**, near the bottom
+    /// of the reflector — roughly the elevation cold helium enters the vessel
+    /// wall at, alongside the hot-gas duct.
+    pub reflector_channel_bottom_y: f32,
+    /// Screen `y` of the upper surface of the pebble bed. Explicit helium-flow
+    /// graphics must **stop here** — nothing is drawn over the bed itself — and
+    /// the geometry between this and [`Self::hot_gas_plenum`] is left to imply
+    /// the downward core flow.
+    pub bed_top_y: f32,
+    /// Screen `y` of the bottom of the drawn bed's discharge cone. Between this
+    /// and [`Self::hot_gas_plenum`] there is clear space below the pebbles
+    /// where a "hot helium collecting below the core" indicator can go without
+    /// overlapping the bed.
+    pub bed_bottom_y: f32,
+    /// Screen `x` of the vessel axis.
+    pub axis_x: f32,
+    /// The drawn hot-gas plenum rectangle, in the bottom reflector below the
+    /// core, where hot helium collects before leaving through the duct.
+    pub hot_gas_plenum: Rect,
+    /// Outboard tip of the hot-gas duct nozzle on the vessel wall — where the
+    /// horizontal duct to the steam generator starts. Its centreline elevation
+    /// is [`Self::hot_gas_plenum`]'s mid-height.
+    pub hot_gas_duct_nozzle: Pos2,
+}
+
+/// Compute the [`Htr10FlowAnchors`] for a vessel drawn in `box_rect`.
+///
+/// Mirrors the geometry [`Htr10ReactorVesselVisual::ui`] builds — the same
+/// [`fit_native_aspect`] letterbox, the same dome/shell/carbon-brick/reflector
+/// shrink chain, the same [`pebble_bed_shape`] and the same plenum fractions —
+/// so the two cannot drift. Pinned by
+/// [`tests::the_flow_anchors_track_the_drawn_artwork`].
+pub fn flow_anchors(box_rect: Rect) -> Htr10FlowAnchors {
+    let rect = fit_native_aspect(box_rect);
+    let w = rect.width();
+    let h = rect.height();
+    let cx = rect.center().x;
+
+    let dome = w * 0.5;
+    let shell = Rect::from_min_max(
+        Pos2::new(rect.left(), rect.top() + dome * 0.62),
+        Pos2::new(rect.right(), rect.bottom() - dome * 0.62),
+    );
+    let inner = shell.shrink(w * 0.06);
+    let reflector = inner.shrink(w * 0.045);
+    let channel_top = reflector.top() + h * 0.06;
+    let channel_bottom = reflector.bottom() - h * 0.10;
+    let bed = pebble_bed_shape(rect);
+    let plenum = Rect::from_min_max(
+        Pos2::new(reflector.left() + w * 0.04, rect.top() + h * 0.62),
+        Pos2::new(reflector.right() - w * 0.04, rect.top() + h * 0.70),
+    );
+
+    let mut riser_x = [0.0_f32; 4];
+    let mut i = 0;
+    for side in [-1.0_f32, 1.0] {
+        for frac in HELIUM_RISER_X_FRACS {
+            riser_x[i] = cx + side * w * 0.5 * frac;
+            i += 1;
+        }
+    }
+
+    Htr10FlowAnchors {
+        artwork_rect: rect,
+        reflector_riser_x: riser_x,
+        reflector_channel_top_y: channel_top,
+        reflector_channel_bottom_y: channel_bottom,
+        bed_top_y: bed.top,
+        bed_bottom_y: bed.cone_bottom,
+        axis_x: cx,
+        hot_gas_plenum: plenum,
+        hot_gas_duct_nozzle: Pos2::new(rect.right() + w * 0.16, rect.top() + h * 0.66),
+    }
+}
+
 /// Deterministic pseudo-random value in `[0, 1)` from two indices.
 ///
 /// **Determinism is the point.** The widget is rebuilt every repaint, so
@@ -684,7 +784,12 @@ const ROD_CHANNEL_X_FRAC: f32 = 0.71;
 /// reflector carries 20 coolant boreholes alongside its 10 rod channels, so
 /// interleaving them is the right picture. Cold helium rises through these
 /// before reversing at the top of the core.
-const HELIUM_RISER_X_FRACS: [f32; 2] = [0.645, 0.775];
+///
+/// `pub` so a schematic drawing the primary-helium routing *outside* the
+/// vessel can line its "cold helium rising in the reflector" indicators up with
+/// the channels this cut-away actually paints, rather than eyeballing them —
+/// see [`flow_anchors`].
+pub const HELIUM_RISER_X_FRACS: [f32; 2] = [0.645, 0.775];
 
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const GRAPHITE: Color32 = Color32::from_rgb(56, 56, 60);
@@ -1284,6 +1389,83 @@ mod tests {
     fn degenerate_boxes_are_returned_as_is() {
         let flat = Rect::from_min_size(Pos2::ZERO, Vec2::new(200.0, 0.0));
         assert_eq!(fit_native_aspect(flat), flat);
+    }
+
+    /// [`flow_anchors`] must land on the features the widget actually paints,
+    /// so a schematic overlaying flow indicators onto the vessel cannot drift
+    /// from the artwork.
+    ///
+    /// **Methodology.** The anchors are re-derived here from the drawing code's
+    /// own fractions — `pebble_bed_shape` for the bed top, the
+    /// shell/carbon-brick/reflector shrink chain for the channels, the 0.62 h /
+    /// 0.70 h plenum band, and `HELIUM_RISER_X_FRACS` for the risers — and
+    /// compared with what [`flow_anchors`] returns for the same box. Then the
+    /// ordering the schematic depends on is asserted: the risers sit inside the
+    /// reflector annulus, the channels run top-to-bottom, the channel top is
+    /// close to the bed top, and the hot-gas plenum sits below the bed cone.
+    ///
+    /// **Result (2026-09-09).** Numbers for the 190 x 400 pt box are printed by
+    /// the test itself (see the `println!` at its end). All four risers land in
+    /// the reflector annulus (0.60..0.79 of the half-width), the channels run
+    /// top-to-bottom, the channel top (0.217 H) sits within 0.06 H of the bed
+    /// top (0.20 H), and the hot-gas plenum sits wholly below the bed cone.
+    /// Interpretation: the overlay geometry is pinned to the cut-away and moves
+    /// with it.
+    #[test]
+    fn the_flow_anchors_track_the_drawn_artwork() {
+        let box_rect = Rect::from_center_size(Pos2::new(150.0, 340.0), Vec2::new(190.0, 400.0));
+        let a = flow_anchors(box_rect);
+        let rect = fit_native_aspect(box_rect);
+        let (w, h) = (rect.width(), rect.height());
+
+        // Bed top: pebble_bed_shape's own 0.20 h.
+        assert!((a.bed_top_y - (rect.top() + h * 0.20)).abs() < 1e-3);
+
+        // Channels run downward, and their top is close to the bed top -- the
+        // cold helium reverses into the core near the top of the bed. (The
+        // channels actually begin a hair below the bed top: 0.217 h vs 0.20 h.)
+        assert!(a.reflector_channel_bottom_y > a.reflector_channel_top_y);
+        assert!(
+            (a.bed_top_y - a.reflector_channel_top_y).abs() < 0.06 * h,
+            "channel top {:.1} and bed top {:.1} should be within 0.06 H",
+            a.reflector_channel_top_y,
+            a.bed_top_y
+        );
+
+        // Bed cone bottom is below the bed top and above the plenum, leaving
+        // clear space for a "hot helium below the core" indicator.
+        assert!(a.bed_bottom_y > a.bed_top_y);
+        assert!(a.hot_gas_plenum.top() > a.bed_bottom_y);
+
+        // Plenum below the bed.
+        assert!(a.hot_gas_plenum.top() > a.bed_top_y);
+        assert!((a.hot_gas_plenum.top() - (rect.top() + h * 0.62)).abs() < 1e-3);
+        assert!((a.hot_gas_plenum.bottom() - (rect.top() + h * 0.70)).abs() < 1e-3);
+
+        // Risers inside the reflector annulus, on both sides.
+        let cx = rect.center().x;
+        for x in a.reflector_riser_x {
+            let frac = (x - cx).abs() / (0.5 * w);
+            assert!(
+                frac > REFLECTOR_ANNULUS_INNER_FRAC && frac < REFLECTOR_ANNULUS_OUTER_FRAC,
+                "riser at fraction {frac} is outside the reflector annulus"
+            );
+        }
+        assert!(a.reflector_riser_x[0] < cx && a.reflector_riser_x[2] > cx);
+
+        // Duct nozzle tip is outboard of the shell at the plenum mid-height.
+        assert!(a.hot_gas_duct_nozzle.x > rect.right());
+        assert!((a.hot_gas_duct_nozzle.y - a.hot_gas_plenum.center().y).abs() < 1e-3);
+
+        println!(
+            "artwork {:?}; bed_top_y {:.2}; channels {:.2}..{:.2}; plenum {:?}; risers {:?}",
+            a.artwork_rect,
+            a.bed_top_y,
+            a.reflector_channel_top_y,
+            a.reflector_channel_bottom_y,
+            a.hot_gas_plenum,
+            a.reflector_riser_x,
+        );
     }
 }
 

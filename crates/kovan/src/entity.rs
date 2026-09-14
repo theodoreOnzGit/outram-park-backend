@@ -671,7 +671,14 @@ impl EntityConfig {
         self.save(dir)?;
         let markdown = dir.join(format!("{}.md", self.id));
         if !markdown.exists() {
-            let stub = format!("# {}\n\n## Summary\n\n", self.id);
+            // The paper header artifact, not a bare title: every document
+            // in a Kovan root opens with a `[kovan]` block so it parses as
+            // an artifact like everything else (GH issue #35, 2026-09-08).
+            let stub = format!(
+                "# {id}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"paper\"\ncreated = \"{now}\"\nmodified = \"{now}\"\n```\n\n## Summary\n\n",
+                id = self.id,
+                now = crate::digitiser::dataset::utc_now_iso8601(),
+            );
             std::fs::write(&markdown, stub).map_err(|source| EntityError::Io {
                 path: markdown,
                 source,
