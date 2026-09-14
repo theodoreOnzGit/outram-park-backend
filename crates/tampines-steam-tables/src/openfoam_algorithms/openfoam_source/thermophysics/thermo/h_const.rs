@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use crate::openfoam_algorithms::openfoam_source::imports::*;
 use crate::openfoam_algorithms::openfoam_source::constants::T_STD;
 use crate::openfoam_algorithms::openfoam_source::eos::EquationOfState;
@@ -127,7 +129,7 @@ impl<E: EquationOfState> ThermoModel for HConstThermo<E> {
 
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let t_val = t.get::<kelvin>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp * (t_val / T_STD).ln())
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp * (t_val / T_STD).r_ln())
             + self.eos.s_eos(p, t)
     }
 }

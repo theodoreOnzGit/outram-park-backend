@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -25,7 +27,7 @@ pub fn tsat_hs_4(h: AvailableEnergy, s: SpecificHeatCapacity) -> ThermodynamicTe
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (eta - 0.119).powf(ii) * (sigma - 1.07).powf(ji);
+        theta += ni * (eta - 0.119).r_powf(ii) * (sigma - 1.07).r_powf(ji);
     }
 
     return theta * t_ref;

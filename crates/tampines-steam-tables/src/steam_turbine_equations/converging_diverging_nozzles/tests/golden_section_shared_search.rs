@@ -138,6 +138,8 @@
 //!   cares. It is proof that the V&V gates in this crate do not, at their
 //!   current tolerances.
 
+use petir::mathf::RealMath;
+
 use std::cell::Cell;
 
 use uom::ConstZero;
@@ -173,7 +175,7 @@ fn gaussian_mass_flux(p_pa: f64) -> MassFlux {
     const WIDTH_PA: f64 = 1.5e6;
     const G_MAX: f64 = 12_000.0;
     let z = (p_pa - GAUSSIAN_P_STAR_PA) / WIDTH_PA;
-    MassFlux::new::<kilogram_per_square_meter_second>(G_MAX * (-z * z).exp())
+    MassFlux::new::<kilogram_per_square_meter_second>(G_MAX * (-z * z).r_exp())
 }
 
 /// Analytic maximum of [`gaussian_mass_flux`], in pascals.
@@ -545,7 +547,7 @@ fn probe_reuse_moves_the_choke_far_below_the_stopping_rule() {
 
     for i in 0..12 {
         let f = i as f64 / 11.0;
-        let p0_pa = 1.0e6 * (20.0_f64).powf(f); // 1 MPa .. 20 MPa, log-spaced
+        let p0_pa = 1.0e6 * (20.0_f64).r_powf(f); // 1 MPa .. 20 MPa, log-spaced
         let p0 = Pressure::new::<pascal>(p0_pa);
 
         // saturation enthalpies at p0, to place h0 by quality relative to the dome

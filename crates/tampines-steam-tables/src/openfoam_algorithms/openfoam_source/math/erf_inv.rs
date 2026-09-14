@@ -29,12 +29,14 @@
 ///
 /// Reference: S. Winitzki, "A handy approximation for the error function and
 /// its inverse", preprint 2008.
+use petir::mathf::RealMath;
+
 pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;
     let pi = std::f64::consts::PI;
 
-    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).ln();
-    let h = (1.0 - y * y).ln() / A;
+    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).r_ln();
+    let h = (1.0 - y * y).r_ln() / A;
 
     let x = (-k + (k * k - h).sqrt()).sqrt();
 

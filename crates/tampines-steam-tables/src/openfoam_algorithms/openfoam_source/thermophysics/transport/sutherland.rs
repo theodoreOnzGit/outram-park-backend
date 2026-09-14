@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use crate::openfoam_algorithms::openfoam_source::imports::*;
 use crate::openfoam_algorithms::openfoam_source::eos::EquationOfState;
 use crate::openfoam_algorithms::openfoam_source::thermo::ThermoModel;
@@ -68,7 +70,7 @@ impl<T: ThermoModel> SutherlandTransport<T> {
         // Solve for Ts:
         //   μ₁/√T₁ + μ₁·Ts/(T₁^(3/2)) = μ₂/√T₂ + μ₂·Ts/(T₂^(3/2))
         //   Ts·(μ₁/T₁^(3/2) - μ₂/T₂^(3/2)) = μ₂/√T₂ - μ₁/√T₁
-        let a = mu1 / t1.powf(1.5) - mu2 / t2.powf(1.5);
+        let a = mu1 / t1.r_powf(1.5) - mu2 / t2.r_powf(1.5);
         let b = mu2 / t2.sqrt() - mu1 / t1.sqrt();
         let ts = b / a;
         let as_ = mu1 * (1.0 + ts / t1) / t1.sqrt();

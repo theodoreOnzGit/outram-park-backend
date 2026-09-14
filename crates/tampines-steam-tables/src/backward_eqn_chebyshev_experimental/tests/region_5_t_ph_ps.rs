@@ -2,6 +2,8 @@
 //! correlations `T(p,h)` and `T(p,s)` against this crate's Region 5 forward
 //! equations.
 
+use petir::mathf::RealMath;
+
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
@@ -35,7 +37,7 @@ fn round_trip_error_statistics(n_p: usize, n_t: usize) -> ((f64, f64), (f64, f64
 
     for i in 0..n_p {
         let frac_p = i as f64 / (n_p - 1) as f64;
-        let p_mpa = 10.0_f64.powf(log_p_min + frac_p * (log_p_max - log_p_min));
+        let p_mpa = 10.0_f64.r_powf(log_p_min + frac_p * (log_p_max - log_p_min));
         let p = Pressure::new::<megapascal>(p_mpa);
 
         for j in 0..n_t {

@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 const SUBREGION_2A_BACK_COEFFS_PS: [[f64; 3]; 46] = [
     [-1.5, -24.0, -0.392_359_838_619_84e6],
     [-1.5, -23.0, 0.515_265_738_272_70e6],
@@ -66,7 +68,7 @@ pub(crate) fn t_ps_2a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * pi.powf(ii) * (sigma - 2.0).powf(ji);
+        theta += ni * pi.r_powf(ii) * (sigma - 2.0).r_powf(ji);
     }
 
     return theta * t_ref;

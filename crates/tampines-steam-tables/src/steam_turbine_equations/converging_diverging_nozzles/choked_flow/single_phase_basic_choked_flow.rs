@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
@@ -466,7 +468,7 @@ pub fn get_critical_pressure_ratio_ideal_gas_using_throat_ph(
     let exponent: f64 = (k / k_minus_one).get::<ratio>();
     let coeff: f64 = (2.0 / k_plus_one).get::<ratio>();
 
-    let ratio_value = coeff.powf(exponent);
+    let ratio_value = coeff.r_powf(exponent);
 
     Ratio::new::<ratio>(ratio_value)
 }

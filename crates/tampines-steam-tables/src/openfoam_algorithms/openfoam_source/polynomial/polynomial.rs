@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use crate::openfoam_algorithms::openfoam_source::scalar::VSMALL;
 
 /// Fixed-degree polynomial with an optional log term.
@@ -81,7 +83,7 @@ impl<const N: usize> Polynomial<N> {
             pow_x *= x;
         }
         if self.log_active {
-            val += self.log_coeff * x.ln();
+            val += self.log_coeff * x.r_ln();
         }
         val
     }
@@ -116,7 +118,7 @@ impl<const N: usize> Polynomial<N> {
             integ += self.coeffs[i] / (i as f64 + 1.0) * (pow_x2 - pow_x1);
         }
         if self.log_active {
-            integ += self.log_coeff * ((x2 * x2.ln() - x2) - (x1 * x1.ln() - x1));
+            integ += self.log_coeff * ((x2 * x2.r_ln() - x2) - (x1 * x1.r_ln() - x1));
         }
         integ
     }

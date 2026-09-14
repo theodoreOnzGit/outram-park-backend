@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -75,10 +77,10 @@ pub fn h2ab_double_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> Availab
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma_1.recip() - 0.513).powf(ii) * (sigma_2 - 0.524).powf(ji);
+        eta += ni * (sigma_1.recip() - 0.513).r_powf(ii) * (sigma_2 - 0.524).r_powf(ji);
     }
 
-    return h_ref * eta.exp();
+    return h_ref * eta.r_exp();
 }
 
 /// Saturated-vapour-line boundary enthalpy: the specific enthalpy
@@ -98,7 +100,7 @@ pub fn h2c3b_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEner
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.02).powf(ii) * (sigma - 0.726).powf(ji);
+        eta += ni * (sigma - 1.02).r_powf(ii) * (sigma - 0.726).r_powf(ji);
     }
 
     return h_ref * eta.powi(4);

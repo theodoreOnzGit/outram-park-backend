@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::{
     f64::*, pressure::megapascal, ratio::ratio,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin,
@@ -21,7 +23,7 @@ pub(crate) fn v_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        omega += ni * (pi + 0.187).powf(ii) * (sigma - 0.755).powf(ji);
+        omega += ni * (pi + 0.187).r_powf(ii) * (sigma - 0.755).r_powf(ji);
     }
 
     return omega * v_ref;
@@ -75,7 +77,7 @@ pub(crate) fn v_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> SpecificVolume {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        omega += ni * (pi + 0.298).powf(ii) * (sigma - 0.816).powf(ji);
+        omega += ni * (pi + 0.298).r_powf(ii) * (sigma - 0.816).r_powf(ji);
     }
 
     return omega * v_ref;

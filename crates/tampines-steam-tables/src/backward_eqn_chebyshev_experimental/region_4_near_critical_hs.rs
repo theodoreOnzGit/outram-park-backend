@@ -83,6 +83,8 @@
 //! `x(h,s)` is not covered by the above — only the pressure is. See
 //! [`super::tests`] for the methodology and to reproduce the numbers.
 
+use petir::mathf::RealMath;
+
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
@@ -298,7 +300,7 @@ const HG_COEFFS: [f64; 19] = [
 pub fn p_hs_4_near_critical_explicit(h_kj_kg: f64, s_kj_kg_k: f64) -> f64 {
     let x = scale(h_kj_kg, HMIN, HMAX);
     let y = scale(s_kj_kg_k, SMIN, SMAX);
-    cheb2_dense(x, y, &P_HS_LOG_COEFFS).exp()
+    cheb2_dense(x, y, &P_HS_LOG_COEFFS).r_exp()
 }
 
 /// Saturated-liquid enthalpy `h_f` on the near-critical branch, in kJ/kg, for

@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use super::{delta_3, tau_3, REGION_3_COEFFS};
 
 use uom::si::f64::*;
@@ -15,5 +17,5 @@ pub fn phi_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ni: f64 = coefficient[2];
         sum += ni * delta.powi(ii) * tau.powi(ji);
     }
-    sum + REGION_3_COEFFS[0][2] * delta_3(rho).ln()
+    sum + REGION_3_COEFFS[0][2] * delta_3(rho).r_ln()
 }

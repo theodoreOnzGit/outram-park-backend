@@ -6,6 +6,8 @@
 //! the critical-enhancement term is omitted (fast path). Public entry
 //! points flash the state from `(T, p)`, `(rho, T)`, or `(p, h)` first.
 
+use petir::mathf::RealMath;
+
 use uom::si::{dynamic_viscosity::pascal_second, f64::*, ratio::ratio};
 
 use crate::{
@@ -94,7 +96,7 @@ pub(crate) fn psi_0_viscosity(t: ThermodynamicTemperature) -> f64 {
         let i = coeffs[0];
         let ni = coeffs[1];
 
-        den += ni * theta_f64.powf(1.0 - i);
+        den += ni * theta_f64.r_powf(1.0 - i);
     }
 
     return theta_f64.sqrt() * den.recip();
@@ -116,12 +118,12 @@ pub(crate) fn psi_1_viscosity(t: ThermodynamicTemperature, rho: MassDensity) -> 
         let ji = coeffs[2];
         let ni = coeffs[3];
 
-        exponent += ni * (delta_f64 - 1.0).powf(ii) * (theta_f64.recip() - 1.0).powf(ji);
+        exponent += ni * (delta_f64 - 1.0).r_powf(ii) * (theta_f64.recip() - 1.0).r_powf(ji);
     }
 
     exponent *= delta_f64;
 
-    return exponent.exp();
+    return exponent.r_exp();
 }
 
 #[cfg(test)]

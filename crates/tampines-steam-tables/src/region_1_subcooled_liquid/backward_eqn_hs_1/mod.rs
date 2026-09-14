@@ -1,6 +1,8 @@
 //! IAPWS-IF97 Region 1 backward equation: pressure as a function of specific
 //! enthalpy and specific entropy, `p(h,s)`.
 
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
@@ -48,7 +50,7 @@ pub fn p_hs_1(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ii = coefficient[0];
         let ji = coefficient[1];
         let ni = coefficient[2];
-        pi += ni * (eta + 0.05).powf(ii) * (sigma + 0.05).powf(ji);
+        pi += ni * (eta + 0.05).r_powf(ii) * (sigma + 0.05).r_powf(ji);
     }
 
     return pi * p_ref;

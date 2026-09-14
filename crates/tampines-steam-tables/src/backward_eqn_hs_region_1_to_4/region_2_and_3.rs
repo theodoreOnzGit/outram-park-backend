@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -57,7 +59,7 @@ pub fn tb23_s_boundary_enthalpy(
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (eta - 0.727).powf(ii) * (sigma - 0.864).powf(ji);
+        theta += ni * (eta - 0.727).r_powf(ii) * (sigma - 0.864).r_powf(ji);
     }
 
     return t_ref * theta;

@@ -19,6 +19,8 @@
 //! the isentrope — so no sound speed (and no finite-difference
 //! `mass_flux_ps_eqm_throat`) is ever evaluated.
 
+use petir::mathf::RealMath;
+
 use std::sync::OnceLock;
 
 use uom::ConstZero;
@@ -387,7 +389,7 @@ fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
         (0..n)
             .map(|i| {
                 let f = i as f64 / (n - 1) as f64;
-                let p_pa = p_lo * (p_hi / p_lo).powf(f);
+                let p_pa = p_lo * (p_hi / p_lo).r_powf(f);
                 let p = Pressure::new::<pascal>(p_pa);
                 let s_f = s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0);
                 let g = mass_flux_ps_eqm_throat(p, s_f).get::<kilogram_per_square_meter_second>();
@@ -402,22 +404,22 @@ fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
 fn saturation_line_sonic_mass_flux(p_bubble: Pressure) -> MassFlux {
     let map = saturation_line_sonic_map();
     let n = map.len();
-    let lp = p_bubble.get::<pascal>().ln();
+    let lp = p_bubble.get::<pascal>().r_ln();
 
-    if lp <= map[0].0.ln() {
+    if lp <= map[0].0.r_ln() {
         return MassFlux::new::<kilogram_per_square_meter_second>(map[0].1);
     }
-    if lp >= map[n - 1].0.ln() {
+    if lp >= map[n - 1].0.r_ln() {
         return MassFlux::new::<kilogram_per_square_meter_second>(map[n - 1].1);
     }
     for w in map.windows(2) {
         let (p0, g0) = w[0];
         let (p1, g1) = w[1];
-        let (lp0, lp1) = (p0.ln(), p1.ln());
+        let (lp0, lp1) = (p0.r_ln(), p1.r_ln());
         if lp >= lp0 && lp <= lp1 {
             let t = (lp - lp0) / (lp1 - lp0);
-            let lg = g0.ln() * (1.0 - t) + g1.ln() * t;
-            return MassFlux::new::<kilogram_per_square_meter_second>(lg.exp());
+            let lg = g0.r_ln() * (1.0 - t) + g1.r_ln() * t;
+            return MassFlux::new::<kilogram_per_square_meter_second>(lg.r_exp());
         }
     }
     MassFlux::new::<kilogram_per_square_meter_second>(map[n - 1].1)

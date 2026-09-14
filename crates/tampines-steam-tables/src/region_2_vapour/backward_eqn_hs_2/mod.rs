@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::ratio::ratio;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::pressure::megapascal;
@@ -52,7 +54,7 @@ pub(crate) fn p_hs_2a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 0.5).powf(ii) * (sigma - 1.2).powf(ji);
+        pi += ni * (eta - 0.5).r_powf(ii) * (sigma - 1.2).r_powf(ji);
     }
 
     return pi.powi(4) * p_ref;
@@ -74,7 +76,7 @@ pub(crate) fn p_hs_2b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 0.6).powf(ii) * (sigma - 1.01).powf(ji);
+        pi += ni * (eta - 0.6).r_powf(ii) * (sigma - 1.01).r_powf(ji);
     }
 
     return pi.powi(4) * p_ref;
@@ -96,7 +98,7 @@ pub(crate) fn p_hs_2c(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 0.7).powf(ii) * (sigma - 1.1).powf(ji);
+        pi += ni * (eta - 0.7).r_powf(ii) * (sigma - 1.1).r_powf(ji);
     }
 
     return pi.powi(4) * p_ref;

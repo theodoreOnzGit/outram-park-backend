@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::{f64::*, temperature_interval::kelvin};
 
 // for this dummy DNB type model
@@ -66,11 +68,11 @@ pub(crate) fn pool_boiling_improvised_correlation_as_fraction_of_maximum_lib(
     let b = 6.0_f64;
     let c = 3.0_f64;
 
-    let exponent_term = (-a * x_mod * x_mod).exp();
+    let exponent_term = (-a * x_mod * x_mod).r_exp();
 
     let y = -b * x_mod * exponent_term + c;
 
-    let heat_transfer_coeff_watt_per_m2_kelvin = 10_f64.powf(y);
+    let heat_transfer_coeff_watt_per_m2_kelvin = 10_f64.r_powf(y);
 
     let fraction_of_maximum: f64 = heat_transfer_coeff_watt_per_m2_kelvin / 4.24e4;
 

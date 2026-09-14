@@ -34,6 +34,8 @@
 // The swap changes bits: measured against glibc, erf is 99.0 % bit-identical
 // and tgamma only 25.0 %, all within a few ulp. petir::real's docs carry the
 // full table.
+use petir::mathf::RealMath;
+
 use petir::real::{erf as c_erf, erfc as c_erfc, tgamma as c_gamma};
 
 fn factorial(n: i32) -> f64 {
@@ -77,7 +79,7 @@ fn calc_pe15(a: f64, x: f64, nmax: i32) -> f64 {
         prod *= a + n as f64;
         sum += x.powi(n) / prod;
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / a * (1.0 + sum)
 }
 
@@ -89,7 +91,7 @@ fn calc_qe16(a: f64, x: f64, n_terms: i32) -> f64 {
         an *= a - n as f64;
         sum += an / x.powi(n);
     }
-    let r = (-x).exp() * x.powf(a) / c_gamma(a);
+    let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
     r / x * (1.0 + sum)
 }
 
@@ -159,7 +161,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
         } else if x < 1.1 {
             // (DM:Eq. 12)
             let alpha = if x < 0.5 {
-                (0.765_f64.sqrt().ln()) / x.ln()
+                (0.765_f64.sqrt().r_ln()) / x.r_ln()
             } else {
                 x / 2.59
             };
@@ -172,23 +174,23 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
 
             if a >= alpha {
                 // (DM:Eq. 9)
-                return 1.0 - (x.powf(a) * (1.0 - j)) / c_gamma(a + 1.0);
+                return 1.0 - (x.r_powf(a) * (1.0 - j)) / c_gamma(a + 1.0);
             } else {
                 // (DM:Eq. 10)
-                let l = (a * x.ln()).exp() - 1.0;
+                let l = (a * x.r_ln()).r_exp() - 1.0;
                 let h = 1.0 / c_gamma(a + 1.0) - 1.0;
-                return (x.powf(a) * j - l) / c_gamma(a + 1.0) - h;
+                return (x.r_powf(a) * j - l) / c_gamma(a + 1.0) - h;
             }
         } else {
             // (DM:Eq. 11)
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         }
     } else if a >= BIG {
         let sigma = (1.0 - x / a).abs();
 
         let lambda = x / a;
-        let phi = lambda - 1.0 - lambda.ln();
+        let phi = lambda - 1.0 - lambda.r_ln();
         let y = a * phi;
 
         if sigma <= E0 / a.sqrt() {
@@ -204,14 +206,14 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
             // (DM:Eq. 17)
             let te = calc_te18(a, E0, x, lambda, sigma, phi);
             return if lambda <= 1.0 {
-                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).exp() / (2.0 * PI * a).sqrt() * te)
+                1.0 - (0.5 * c_erfc(y.sqrt()) - (-y).r_exp() / (2.0 * PI * a).sqrt() * te)
             } else {
-                0.5 * c_erfc(y.sqrt()) + (-y).exp() / (2.0 * PI * a).sqrt() * te
+                0.5 * c_erfc(y.sqrt()) + (-y).r_exp() / (2.0 * PI * a).sqrt() * te
             };
-        } else if x <= a.max(10.0_f64.ln()) {
+        } else if x <= a.max(10.0_f64.r_ln()) {
             return 1.0 - calc_pe15(a, x, 20);
         } else if x < X0 {
-            let r = (-x).exp() * x.powf(a) / c_gamma(a);
+            let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
             return r * calc_qe11(a, x, 30);
         } else {
             return calc_qe16(a, x, 20);
@@ -219,10 +221,10 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
     } else {
         // 1 ≤ a < BIG
         if a > x || x >= X0 {
-            if x <= a.max(10.0_f64.ln()) {
+            if x <= a.max(10.0_f64.r_ln()) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -239,7 +241,7 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                     for n in 0..=(a as i64 - 1) {
                         sum += x.powi(n as i32) / factorial(n as i32);
                     }
-                    return (-x).exp() * sum;
+                    return (-x).r_exp() * sum;
                 } else {
                     // a = k + 0.5 for some integer k
                     let i = (a - 0.5) as i32;
@@ -249,12 +251,12 @@ pub fn inc_gamma_ratio_q(a: f64, x: f64) -> f64 {
                         prod *= n as f64 - 0.5;
                         sum += x.powi(n) / prod;
                     }
-                    return c_erfc(x.sqrt()) + (-x).exp() / (PI * x).sqrt() * sum;
+                    return c_erfc(x.sqrt()) + (-x).r_exp() / (PI * x).sqrt() * sum;
                 }
-            } else if x <= a.max(10.0_f64.ln()) {
+            } else if x <= a.max(10.0_f64.r_ln()) {
                 return 1.0 - calc_pe15(a, x, 20);
             } else if x < X0 {
-                let r = (-x).exp() * x.powf(a) / c_gamma(a);
+                let r = (-x).r_exp() * x.r_powf(a) / c_gamma(a);
                 return r * calc_qe11(a, x, 30);
             } else {
                 return calc_qe16(a, x, 20);
@@ -293,7 +295,7 @@ mod tests {
     #[test]
     fn p_1_1() {
         let p = inc_gamma_ratio_p(1.0, 1.0);
-        assert!(approx_eq(p, 1.0 - (-1.0_f64).exp(), 1e-6), "P(1,1)={p}");
+        assert!(approx_eq(p, 1.0 - (-1.0_f64).r_exp(), 1e-6), "P(1,1)={p}");
     }
 
     // P + Q = 1

@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::{
     f64::*, pressure::megapascal, ratio::ratio,
     specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
@@ -20,7 +22,7 @@ pub(crate) fn t_ps_3a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (pi + 0.240).powf(ii) * (sigma - 0.703).powf(ji);
+        theta += ni * (pi + 0.240).r_powf(ii) * (sigma - 0.703).r_powf(ji);
     }
 
     return theta * t_ref;
@@ -79,7 +81,7 @@ pub(crate) fn t_ps_3b(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (pi + 0.760).powf(ii) * (sigma - 0.818).powf(ji);
+        theta += ni * (pi + 0.760).r_powf(ii) * (sigma - 0.818).r_powf(ji);
     }
 
     return theta * t_ref;

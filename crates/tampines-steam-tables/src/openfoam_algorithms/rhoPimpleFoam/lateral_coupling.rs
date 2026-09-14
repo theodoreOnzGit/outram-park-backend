@@ -470,6 +470,7 @@ impl TampinesSteamArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::area::square_meter;
     use uom::si::f64::{Area, Time};
     use uom::si::length::meter;
@@ -1585,7 +1586,7 @@ mod tests {
         let a1 = amplitude(&arr);
 
         let elapsed = STEPS as f64 * DT_S;
-        let analytical_ratio = (-diffusivity * k * k * elapsed).exp();
+        let analytical_ratio = (-diffusivity * k * k * elapsed).r_exp();
         let measured_ratio = a1 / a0;
         let relative_error = (measured_ratio - analytical_ratio) / analytical_ratio;
 

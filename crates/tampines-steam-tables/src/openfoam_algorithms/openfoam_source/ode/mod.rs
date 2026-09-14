@@ -27,6 +27,8 @@
 //! state vectors.
 
 /// Explicit first-order adaptive Euler solver.
+use petir::mathf::RealMath;
+
 pub mod euler;
 /// Adaptive embedded Runge-Kutta-Fehlberg 4(5) solver.
 pub mod rkf45;
@@ -221,7 +223,7 @@ pub(crate) fn adaptive_step(
         if err <= 1.0 {
             break err;
         }
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_dec)).max(cfg.min_scale);
+        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_dec)).max(cfg.min_scale);
         dx *= scale;
         if dx.abs() < f64::EPSILON {
             return Err(OdeError::StepSizeUnderflow);
@@ -231,9 +233,9 @@ pub(crate) fn adaptive_step(
     *x += dx;
     std::mem::swap(y, y_temp);
 
-    let threshold = (cfg.max_scale / cfg.safe_scale).powf(-1.0 / cfg.alpha_inc);
+    let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {
-        let scale = (cfg.safe_scale * err.powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
+        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
         dx * scale
     } else {
         dx * cfg.safe_scale * cfg.max_scale
@@ -467,7 +469,7 @@ mod non_finite_state_regression {
 
     #[test]
     fn well_behaved_systems_still_integrate_after_the_fix() {
-        let expected = (-1.0_f64).exp();
+        let expected = (-1.0_f64).r_exp();
 
         // Euler is 1st order — it needs loose tolerances to keep the step
         // count sane, exactly as the existing `euler_exponential_decay` test

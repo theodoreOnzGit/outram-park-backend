@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use crate::openfoam_algorithms::openfoam_source::imports::*;
 use crate::openfoam_algorithms::openfoam_source::eos::EquationOfState;
 use crate::openfoam_algorithms::openfoam_source::interpolate_xy;
@@ -162,8 +164,8 @@ mod tests {
         let cps = vec![cp, cp];
         let has = vec![cp * (200.0 - t_ref), cp * (1000.0 - t_ref)];
         let ss = vec![
-            cp * (200.0_f64 / t_ref).ln(),
-            cp * (1000.0_f64 / t_ref).ln(),
+            cp * (200.0_f64 / t_ref).r_ln(),
+            cp * (1000.0_f64 / t_ref).r_ln(),
         ];
         HTabulatedThermo::new(
             eos,

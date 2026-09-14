@@ -6,6 +6,8 @@
 //! (`lambda_1`), and a near-critical enhancement term (`lambda_2`). Public
 //! entry points flash the density from a `(T, p)` or `(T, p, x)` state.
 
+use petir::mathf::RealMath;
+
 use std::ops::Index;
 
 use uom::si::pressure::megapascal;
@@ -86,7 +88,7 @@ pub(crate) fn lambda_0(t: ThermodynamicTemperature) -> f64 {
         let i = coeffs[0];
         let ni = coeffs[1];
 
-        den += ni * theta_f64.powf(1.0 - i);
+        den += ni * theta_f64.r_powf(1.0 - i);
     }
 
     return num / den;
@@ -150,12 +152,12 @@ pub(crate) fn lambda_1(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ni5 = LAMBDA_1_COEFFS_NI5.index(i - 1)[1];
         let ni6 = LAMBDA_1_COEFFS_NI6.index(i - 1)[1];
 
-        let inner_sum: f64 = ni1 * (delta - 1.0).powf(1.0 - 1.0)
-            + ni2 * (delta - 1.0).powf(2.0 - 1.0)
-            + ni3 * (delta - 1.0).powf(3.0 - 1.0)
-            + ni4 * (delta - 1.0).powf(4.0 - 1.0)
-            + ni5 * (delta - 1.0).powf(5.0 - 1.0)
-            + ni6 * (delta - 1.0).powf(6.0 - 1.0);
+        let inner_sum: f64 = ni1 * (delta - 1.0).r_powf(1.0 - 1.0)
+            + ni2 * (delta - 1.0).r_powf(2.0 - 1.0)
+            + ni3 * (delta - 1.0).r_powf(3.0 - 1.0)
+            + ni4 * (delta - 1.0).r_powf(4.0 - 1.0)
+            + ni5 * (delta - 1.0).r_powf(5.0 - 1.0)
+            + ni6 * (delta - 1.0).r_powf(6.0 - 1.0);
 
         return inner_sum;
     }
@@ -185,7 +187,7 @@ pub(crate) fn lambda_1(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         * (theta_f64.recip() - 1.0).powi(i - 1)
         * inner_sum_over_all_j(i as usize, delta_f64);
 
-    exponent.exp()
+    exponent.r_exp()
 }
 pub(crate) fn lambda_2_crit_enhancement_term_tp_two_phase_estimate(
     t: ThermodynamicTemperature,
@@ -396,12 +398,12 @@ fn captial_c(delta: f64) -> f64 {
 
     let mut den = 0.0;
 
-    den += n1 * delta.powf(1.0 - 1.0);
-    den += n2 * delta.powf(2.0 - 1.0);
-    den += n3 * delta.powf(3.0 - 1.0);
-    den += n4 * delta.powf(4.0 - 1.0);
-    den += n5 * delta.powf(5.0 - 1.0);
-    den += n6 * delta.powf(6.0 - 1.0);
+    den += n1 * delta.r_powf(1.0 - 1.0);
+    den += n2 * delta.r_powf(2.0 - 1.0);
+    den += n3 * delta.r_powf(3.0 - 1.0);
+    den += n4 * delta.r_powf(4.0 - 1.0);
+    den += n5 * delta.r_powf(5.0 - 1.0);
+    den += n6 * delta.r_powf(6.0 - 1.0);
 
     return den.recip();
 }
@@ -409,7 +411,7 @@ fn captial_c(delta: f64) -> f64 {
 fn small_a(n3: f64, delta: f64, theta: f64, kappa_t: InversePressure, n4: f64, n5: f64) -> f64 {
     let captial_b = captial_b(delta, theta, kappa_t, n5);
 
-    let exponent = (delta * captial_b).powf(n4);
+    let exponent = (delta * captial_b).r_powf(n4);
 
     return n3 * exponent;
 }
@@ -438,7 +440,7 @@ fn captial_a(
     bracket_term += a / b - 1.0;
     bracket_term += (-(a.recip() + 3.0_f64.recip() * a.powi(2) * delta.powi(-2)))
         .recip()
-        .exp();
+        .r_exp();
 
     return n2_by_a * bracket_term;
 }

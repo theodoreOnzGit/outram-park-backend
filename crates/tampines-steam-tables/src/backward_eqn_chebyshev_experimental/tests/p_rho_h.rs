@@ -20,6 +20,8 @@
 //!   mixture properties from the crate's two-phase `(T,p,x)` flashes, with
 //!   quality running from the bubble point to the dew point inclusive.
 
+use petir::mathf::RealMath;
+
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, mass_density::kilogram_per_cubic_meter,
     pressure::megapascal, specific_volume::cubic_meter_per_kilogram,
@@ -87,7 +89,7 @@ fn generate_sample_points(n_p: usize, n_t: usize) -> Vec<SamplePoint> {
 
     for i in 0..n_p {
         let frac_p = i as f64 / (n_p - 1) as f64;
-        let p_mpa = 10.0_f64.powf(log_p_min + frac_p * (log_p_max - log_p_min));
+        let p_mpa = 10.0_f64.r_powf(log_p_min + frac_p * (log_p_max - log_p_min));
         let p = Pressure::new::<megapascal>(p_mpa);
 
         for j in 0..n_t {
