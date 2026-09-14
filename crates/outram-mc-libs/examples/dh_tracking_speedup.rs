@@ -67,17 +67,46 @@
 //! # Results — measured 2026-09-14
 //!
 //! 200 000 histories per arm, 51 193 TRISO particles packed by RSA, release
-//! build, single-threaded, one container core. **Five consecutive runs**; the
-//! speedups are quoted as the observed range, because run-to-run spread is
-//! about +/-10 % and a single figure would misrepresent the precision.
+//! build, single-threaded. **Six consecutive runs**; the speedups are quoted as
+//! the observed range, because run-to-run spread is about +/-10 % and a single
+//! figure would misrepresent the precision.
 //!
 //! | Arm | us/history | Speedup | P(absorb) | Bias vs exact |
 //! |---|---|---|---|---|
-//! | Surface tracking (exact) | 4.30-5.06 | 1.0x (baseline) | 0.8047 +/- 0.0009 | -- |
+//! | Surface tracking (exact) | 4.17-5.06 | 1.0x (baseline) | 0.8047 +/- 0.0009 | -- |
 //! | Delta (Woodcock) tracking | 0.52-0.75 | **6.3-8.1x** | 0.8034 +/- 0.0009 | -1.0 sigma, NOT resolved |
-//! | CLS (memoryless) | 0.22-0.23 | **19.8-23.2x** | 0.8062 +/- 0.0009 | +1.2 sigma, NOT resolved |
-//! | SCLS (bounded window) | 0.43-0.47 | **9.6-11.0x** | 0.8128 +/- 0.0009 | +6.5 sigma, **resolved** |
-//! | Naive homogenisation (no DH) | 0.07 | **59.4-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
+//! | CLS (memoryless) | 0.21-0.23 | **19.4-23.2x** | 0.8062 +/- 0.0009 | +1.2 sigma, NOT resolved |
+//! | SCLS (bounded window) | 0.43-0.47 | **9.5-11.0x** | 0.8128 +/- 0.0009 | +6.5 sigma, **resolved** |
+//! | Naive homogenisation (no DH) | 0.07-0.08 | **53.6-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
+//!
+//! ## Machine the timings were taken on
+//!
+//! | | |
+//! |---|---|
+//! | CPU | Intel Xeon @ 2.10 GHz, **4 cores / 4 threads** (1 thread per core, no SMT) |
+//! | Cache | L1d 192 KiB, L1i 128 KiB, L2 8 MiB (4x2 MiB), **L3 260 MiB shared** |
+//! | ISA | x86-64 with AVX-512 (F/DQ/CD/BW/VL, VNNI, BF16), AMX, SHA-NI |
+//! | RAM | **15.7 GiB** (16 461 028 kB), no swap |
+//! | Virtualisation | KVM, full virtualisation — a cloud container, not bare metal |
+//! | Kernel | Linux 6.18.44 |
+//! | Toolchain | rustc 1.94.1 (e408947bf, 2026-03-25), `--release` |
+//! | Threads | single-threaded — **one of the four cores in use**, 3 idle |
+//!
+//! **The L3 is 260 MiB, which flatters the exact arms.** The 51 193-sphere
+//! packing and its lookup grid are a few megabytes at most, so on this machine
+//! the explicit geometry is comfortably cache-resident and surface and delta
+//! tracking are close to their best case. On a host with an ordinary few-MiB
+//! L3 the two exact arms would suffer more cache pressure than the
+//! geometry-free arms, so the speedups here should be read as a **lower**
+//! bound on what a smaller-cache machine would show.
+//!
+//! It is also a virtualised, shared host, which is where the +/-10 % run-to-run
+//! spread comes from. The sixth run (added 2026-09-14, after the arm-5 rename)
+//! landed slightly below the bottom of four of the five previously quoted
+//! ranges, and those ranges have been widened to include it rather than
+//! presented as the tighter five-run spread. `P(absorb)` was **bit-identical**
+//! across all six — the seed is fixed, so only the timings move, which is what
+//! makes the ranges attributable to the machine rather than to the physics.
 //!
 //! Packing and grid construction are excluded from the timings and reported
 //! separately (~0.5 s and ~0.2 s); they are one-off setup, not per-history cost.
@@ -108,8 +137,8 @@
 //!
 //! ## Two findings worth not glossing over
 //!
-//! **SCLS is both slower AND more biased than CLS here** (9.6-11.0x vs
-//! 19.8-23.2x; +6.5 sigma vs not-resolved). That runs against its design
+//! **SCLS is both slower AND more biased than CLS here** (9.5-11.0x vs
+//! 19.4-23.2x; +6.5 sigma vs not-resolved). That runs against its design
 //! intent: SCLS retains a bounded window of inclusions precisely so it can beat
 //! memoryless CLS on accuracy, paying for it in time. It pays the time and does
 //! not obviously collect. Whether that is the model, this implementation's

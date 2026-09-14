@@ -82,6 +82,41 @@
 //! reconstruction is **excluded** from the per-treatment timings: it is one-off
 //! setup and all five arms share it.
 //!
+//! ## Machine the timings were taken on
+//!
+//! Wall-clock seconds mean nothing without it, and the *ratios* are the part
+//! that should survive a change of hardware — quote those, not the seconds.
+//!
+//! | | |
+//! |---|---|
+//! | CPU | Intel Xeon @ 2.10 GHz, **4 cores / 4 threads** (1 thread per core, no SMT) |
+//! | Cache | L1d 192 KiB, L1i 128 KiB, L2 8 MiB (4x2 MiB), **L3 260 MiB shared** |
+//! | ISA | x86-64 with AVX-512 (F/DQ/CD/BW/VL, VNNI, BF16), AMX, SHA-NI |
+//! | RAM | **15.7 GiB** (16 461 028 kB), no swap |
+//! | Virtualisation | KVM, full virtualisation — a cloud container, not bare metal |
+//! | Kernel | Linux 6.18.44 |
+//! | Toolchain | rustc 1.94.1 (e408947bf, 2026-03-25), `--release` |
+//! | Backend | `ComputeType::CpuSingleThread` — **one core in use**, 3 idle |
+//!
+//! Three things follow that are worth stating rather than leaving to be
+//! rediscovered:
+//!
+//! - **Only one of the four cores does any work.** The default backend is
+//!   single-threaded, and these runs did not change it. A multi-threaded run
+//!   would be a different measurement — and for CLS and SCLS, a badly
+//!   distorted one, because their point query serialises on a mutex (GitHub
+//!   issue #205). That is the measurement that has not been made.
+//! - **The L3 is 260 MiB and the delta arm's packing is far smaller than that.**
+//!   25 856 spheres at a few tens of bytes each is well under a megabyte, so the
+//!   explicit geometry is cache-resident here and its lookup cost is close to
+//!   best case. On a machine with an ordinary few-MiB L3 the explicit arm would
+//!   look relatively worse, which would *widen* the approximations' speedups
+//!   rather than narrow them.
+//! - **It is a virtualised, shared host.** Run-to-run timing noise of a few per
+//!   cent is expected and observed; the 800- and 7200-history runs agreed on
+//!   every speed ratio to within about 1 %, which is the reason to trust the
+//!   ratios at two significant figures and no further.
+//!
 //! | Treatment | k | vs delta | sigma | Speed |
 //! |---|---|---|---|---|
 //! | delta tracking (exact) | 1.38647 +/- 0.00211 | — | — | 1.00x (841.7 s) |
@@ -187,12 +222,12 @@
 //!
 //! After the fix the two benchmarks roughly agree, where before they
 //! contradicted each other. `examples/dh_tracking_speedup.rs` measures
-//! per-history geometry cost at delta 0.52-0.75 us and CLS 0.22-0.23 us,
-//! predicting CLS at **2.3-3.4x** delta; the eigenvalue run measures **2.16x**.
+//! per-history geometry cost at delta 0.52-0.75 us and CLS 0.21-0.23 us,
+//! predicting CLS at **2.3-3.6x** delta; the eigenvalue run measures **2.16x**.
 //! Slightly under, which is what adding real cross-section work on top of
 //! geometry should do.
 //!
-//! **Naive homogenisation is the outlier**: that benchmark predicts 7.4-10.7x
+//! **Naive homogenisation is the outlier**: that benchmark predicts 6.5-10.7x
 //! and the eigenvalue run measures 1.75x.
 //!
 //! The leading hypothesis — consistent with the pattern, **not isolated** — is

@@ -103,7 +103,7 @@
 //! approximate geometry can return, which multiplied their virtual-collision
 //! counts by roughly 25x at the U-238 resonances. Bounding over reachable
 //! materials only (2026-09-14) put all four arms at **1.7-2.2x faster** than
-//! delta tracking. The geometry-only benchmark's 20-60x still does not
+//! delta tracking. The geometry-only benchmark's 19-69x still does not
 //! transfer — the eigenvalue speedups are far smaller — but the sign was this
 //! crate's bug, not a property of the methods. Measure on your own case.
 //!
