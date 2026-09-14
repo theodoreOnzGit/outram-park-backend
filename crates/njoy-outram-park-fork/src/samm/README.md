@@ -185,8 +185,10 @@ each phase independently portable/verifiable:
      `4π/E`/`uuuu`/`duuu` normalisation) and `cssammy`'s `sigd` slots
      (l.152-164); `setup::setup_with_derivs` is `ppsammy` with `babb`.
    - **Not ported:** `derext` (derivatives with respect to background
-     R-matrix parameters, `nrext > 0`) — `mf2.rs` does not carry `KBK`
-     terms, so such a section is refused upstream of it.
+     R-matrix parameters, `nrext > 0`). Note `mf2.rs` *does* now carry the
+     `KBK` terms themselves (2026-09-14) — it is only their **derivatives**
+     that are missing, which matters for ERRORR sensitivities, not for the
+     cross sections.
 
 ## Testing
 
@@ -214,9 +216,21 @@ and F-19 tapes turned out to carry no resonance parameters at all):
   `ipar` layout, `iduu`, a zero width, `babb`'s triangle pattern),
   `mf2::tests::reorder_eliminated_*`.
 
+`KBK>0` (background R-matrix) is **covered since 2026-09-14** by Sr-88
+(ENDF/B-VIII.1, MAT 3837) — all seven of its spin groups carry
+`KBK=1`/`LCH=2`/`LBK=2` on the elastic channel. See
+`tests/reconr_sr88_lrf7_kbk_njoy_golden.rs` and
+`verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; worst
+relative deviation against NJOY2016 across 44,326 of its own grid points is
+1.00e-2 at `err=0.001` and 9.97e-4 at `err=0.0001`, so what remains is
+linearisation rather than physics.
+
 Still open: an evaluation whose eliminated channel is not listed first
 (the `op-cjw.3` reorder; every Cl-35 group lists it first), `KRM≠3`,
-`IFG=1`, `KBK>0` (all refused, as upstream).
+`IFG=1` (all refused, as upstream); the `LBK=1` (tabulated) and `LBK=3`
+(Fröhner) background forms, which are ported but which no held evaluation
+exercises; and a **multi-channel** group carrying a background (all seven
+Sr-88 groups have a single explicit channel).
 
 ## Caveats
 
@@ -244,10 +258,17 @@ Still open: an evaluation whose eliminated channel is not listed first
   compiler default for an uninitialized local) rather than "fixed" using the
   pattern `pgh`'s own `l=4` branch suggests. Only affects `l>4` channels,
   essentially never seen in real resonance-region evaluations.
-- **Background R-matrix elements (`KBK>0` per spin group) are not parsed
-  into data** — the cursor is advanced correctly past them (so subsequent
-  parsing isn't corrupted) but their content is discarded. A secondary,
-  rarer LRF=7 feature; port on demand if a target evaluation uses it.
+- **Background R-matrix elements (`KBK>0` per spin group) ARE parsed and
+  applied** as of 2026-09-14 — `mf2::BackgroundRMatrix` carries all three
+  ENDF forms (`LBK=1` tabulated, `LBK=2` SAMMY, `LBK=3` Fröhner) and
+  `xsformula::setr` adds them to the R-matrix diagonal where
+  `samm.f90:3265-3295` does. **This entry previously said they were
+  discarded as "a secondary, rarer LRF=7 feature"; that judgement was
+  wrong and it cost a real defect** (gh:#202, `bn:op-hb9l`): on Sr-88,
+  whose resonances all sit above 12.41 keV, discarding the background left
+  elastic flat at the bare potential `4πa² = 4.969327 b` against NJOY's
+  8.843210 b at 1e-5 eV — a worst relative error of 1.04e1. Only `LBK=2` is
+  verified against an evaluation; `LBK=1`/`LBK=3` are unit-tested only.
 - **`context::check_quantum_numbers`'s diagnostics are `log::warn!`, not
   errors** — matching `checkqn`'s own behavior (`write` to the output
   listing, not `call error`), except for the two conditions upstream itself

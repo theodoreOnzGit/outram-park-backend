@@ -275,6 +275,7 @@ mod tests {
                 j: 1.0,
                 parity: 1.0,
                 channels: vec![ch(1.0), ch(2.0)],
+                backgrounds: vec![None, None],
                 resonances: vec![
                     RmlResonance {
                         energy: 100.0,

@@ -94,3 +94,24 @@ particle-pair channel as upstream `emerge` does.
 
 Data policy: derived product of open ENDF/B-VII.1 data processed with the
 BSD-licensed NJOY2016; the input tape is NJOY2016's own test resource.
+
+## `sr88-ENDF8.1-0K-err0.001.pendf` — the LRF=7 background-R-matrix oracle
+
+Added 2026-09-14. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session; generated from `../endf/n-038_Sr_088-ENDF8.1.endf`
+(MAT 3837) with the deck committed beside it as
+`sr88-ENDF8.1-0K-err0.001.njoy-input`.
+
+Sr-88 is the **only LRF=7 (R-matrix limited) evaluation** held in
+`../endf/`, and it is the oracle for `KBK > 0` — a background R-matrix.
+All seven of its spin groups carry `KBK = 1` with `LCH = 2`, `LBK = 2`
+(SAMMY parametrisation) on the elastic channel, and all 443 of its
+resonances sit at or above 12.41 keV, so at thermal that background term
+carries essentially the whole elastic cross section beyond hard-sphere
+scattering.
+
+Consumed by `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`, which compares
+MF=3 MT=1/2/102 on NJOY's own 44,326-point grid across the resolved range.
+It is the regression gate for gh:#202 / `bn:op-hb9l`, where discarding this
+term left elastic flat at the potential value `4 pi a^2 = 4.969327 b`
+against NJOY's 8.843210 b at 1e-5 eV.
