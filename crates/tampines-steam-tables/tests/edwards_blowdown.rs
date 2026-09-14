@@ -661,6 +661,10 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         "pressure-bound events    : {bound_events} (worst undershoot {worst_under:.4e} Pa, \
          worst overshoot {worst_over:.4e} Pa)"
     );
+    println!(
+        "drained-cell holds       : {} (energy-hold band-aid engagements)",
+        array.drained_hold_events()
+    );
     if bound_events > 0 {
         println!(
             "  ^^ NONZERO: the pressure solve left the EOS range and was clamped. \

@@ -1019,6 +1019,10 @@ pub struct TampinesSteamArray {
     /// Largest amount \[Pa\] by which the solve overshot `p_max` (0.0 if it
     /// never did).
     p_bound_worst_overshoot: f64,
+    /// Number of cell-updates on which the drained-cell enthalpy hold engaged
+    /// (the continuity density reached its floor, so `he` was held instead of
+    /// solved). See [`Self::drained_hold_events`].
+    drained_hold_events: usize,
     /// How the KNP face state gets its pressure and sound speed (default
     /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
     /// consulted in [`SolverMode::HybridAllMach`].
@@ -1233,6 +1237,7 @@ impl TampinesSteamArray {
             p_bound_events: 0,
             p_bound_worst_undershoot: 0.0,
             p_bound_worst_overshoot: 0.0,
+            drained_hold_events: 0,
             knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
@@ -2202,6 +2207,7 @@ impl TampinesSteamArray {
             // -1.7e10 J/kg enthalpy into the (p,h) flash.
             for c in 0..n {
                 if drained[c] {
+                    self.drained_hold_events += 1;
                     e_eqn.ldu.diag[c] = 1.0;
                     e_eqn.source[c] = he_old.internal[c];
                     for f in 0..e_eqn.ldu.n_internal_faces {
@@ -2686,6 +2692,23 @@ impl TampinesSteamArray {
     /// clamping, over the life of this array (zero if it never did).
     pub fn pressure_bound_worst_overshoot(&self) -> Pressure {
         Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_overshoot)
+    }
+
+    /// How many times the drained-cell enthalpy hold engaged, counted per
+    /// cell-update over the life of this array.
+    ///
+    /// The hold is a **band-aid**: it stops a cell whose continuity density has
+    /// reached the floor from having a meaningless *specific* enthalpy solved
+    /// for it (see the block in `step` that sets the identity row). It does not
+    /// fix the mass over-drain that puts the cell there.
+    ///
+    /// **A zero count is the goal.** If a configuration runs to completion
+    /// without ever engaging the hold, the underlying defect is not occurring
+    /// in that configuration and the band-aid is inert -- which is the evidence
+    /// needed to decide whether it should be removed rather than carried
+    /// indefinitely. See `docs/rhopimplefoam-port-omissions.md`.
+    pub fn drained_hold_events(&self) -> usize {
+        self.drained_hold_events
     }
 
     /// The current flux-discretisation mode (see [`SolverMode`]).
