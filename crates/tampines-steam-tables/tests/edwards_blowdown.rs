@@ -644,6 +644,29 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         tail_end_p[0], tail_end_p[1], tail_end_p[2]
     );
     println!("GS-1 tail p rebound      : {rebound:+.1} psia (tail max − p@0.42s)");
+    // Pressure-bounding report. The clamp is a band-aid, not a safety net: a
+    // nonzero count means the pressure equation asked for a state the EOS
+    // cannot represent, and the run survived only because the clamp reshaped
+    // it. Reported rather than asserted FOR NOW -- see bn:op-bgg0. Once the
+    // stiff-at-the-boundary defect is fixed this should become a hard gate,
+    // because a converged, well-posed pressure equation should never trip it.
+    let bound_events = array.pressure_bound_events();
+    let worst_under = array
+        .pressure_bound_worst_undershoot()
+        .get::<uom::si::pressure::pascal>();
+    let worst_over = array
+        .pressure_bound_worst_overshoot()
+        .get::<uom::si::pressure::pascal>();
+    println!(
+        "pressure-bound events    : {bound_events} (worst undershoot {worst_under:.4e} Pa, \
+         worst overshoot {worst_over:.4e} Pa)"
+    );
+    if bound_events > 0 {
+        println!(
+            "  ^^ NONZERO: the pressure solve left the EOS range and was clamped. \
+             This is a DEFECT SIGNAL, not a safety net -- see bn:op-bgg0."
+        );
+    }
     println!("=============================================================================\n");
 
     // Sanity: the artificial-cooling artefact would drive T toward ~274 K

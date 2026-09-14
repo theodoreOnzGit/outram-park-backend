@@ -1007,6 +1007,18 @@ pub struct TampinesSteamArray {
     /// TEMPORARY (bn:op-bgg0, log A4): one-shot latch so the pressure-bound
     /// diagnostic reports the FIRST occurrence rather than every step.
     p_bound_reported: bool,
+    /// Number of cell-updates on which the pressure solve produced a value
+    /// outside `[p_min, p_max]` and was clamped by the bounding step.
+    ///
+    /// **A nonzero count means the solution is wrong, not that it was saved.**
+    /// See [`Self::pressure_bound_events`].
+    p_bound_events: usize,
+    /// Largest amount \[Pa\] by which the solve undershot `p_min` (0.0 if it
+    /// never did). See [`Self::pressure_bound_worst_undershoot`].
+    p_bound_worst_undershoot: f64,
+    /// Largest amount \[Pa\] by which the solve overshot `p_max` (0.0 if it
+    /// never did).
+    p_bound_worst_overshoot: f64,
     /// How the KNP face state gets its pressure and sound speed (default
     /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
     /// consulted in [`SolverMode::HybridAllMach`].
@@ -1218,6 +1230,9 @@ impl TampinesSteamArray {
             psi_refresh: PsiRefresh::EveryCorrector,
             psi_rebuilt_this_outer: false,
             p_bound_reported: false,
+            p_bound_events: 0,
+            p_bound_worst_undershoot: 0.0,
+            p_bound_worst_overshoot: 0.0,
             knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
@@ -1642,6 +1657,8 @@ impl TampinesSteamArray {
         let p_old = self.p.clone();
         let he_old = self.he.clone();
         let rho_old = self.rho.clone();
+        // Old-time face flux, for the transient Rhie-Chow correction below.
+        let phi_old = self.phi.clone();
 
         let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
@@ -1773,7 +1790,46 @@ impl TampinesSteamArray {
 
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
-                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
+                // phi_HbyA = rho_f * flux(HbyA) + rho_rAU_f * ddtCorr(U_old, phi_old)
+                //
+                // The second term is the TRANSIENT half of Rhie-Chow, and it
+                // was missing from this port. Upstream rhoPimpleFoam:
+                //
+                // ```cpp
+                // surfaceScalarField phiHbyA
+                // (
+                //     "phiHbyA",
+                //     fvc::interpolate(rho)*fvc::flux(HbyA)
+                //   + rhorAUf*fvc::ddtCorr(rho, U, phi)
+                // );
+                // ```
+                //
+                // `fvc::ddt_corr` was ported in full -- with OpenFOAM's
+                // `fvcDdtPhiCoeff` limiter -- and then never called from
+                // anywhere (see docs/rhopimplefoam-port-omissions.md row 1,
+                // bn:op-e1zz). Its own doc comment states that re-injecting it
+                // here "is what suppresses pressure-velocity (checkerboard)
+                // decoupling".
+                //
+                // WHY IT MATTERS HERE, measured 2026-09-14 (bn:op-bgg0, log
+                // A4). Without it the Edwards pressure field develops an
+                // odd-even oscillation -- 2.10, 2.86, 2.49, 3.74, 0.32,
+                // 2.66 MPa across six adjacent cells -- and the cell that
+                // fails first is the DENSE SUBCOOLED LIQUID one next to the
+                // flashing front. That is the stiff-at-the-boundary case: its
+                // `psi = drho/dp|_h` is legitimately tiny (1.02e-6, matching
+                // rho*kappa_T for liquid), so its pressure-equation diagonal
+                // is ~4e-5 and there is almost nothing to damp the
+                // oscillation. It solved to -27.2 kPa -- negative absolute
+                // pressure -- and was silently clamped to 611.8 Pa.
+                //
+                // The flux carries the pressure-driven part of the velocity;
+                // interpolating the cell velocity alone throws that away, and
+                // `phiCorr = phi_old - interpolate(U_old).Sf` is exactly the
+                // discrepancy. Re-injecting it keeps the face flux coupled to
+                // its own history.
+                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya)
+                    + rho_rauf.clone() * fvc::ddt_corr(&u_old, &phi_old, dt);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
                 let psi_sl = self.psi.internal.as_slice();
@@ -1950,6 +2006,25 @@ impl TampinesSteamArray {
                     }
                 }
 
+                // Record every bounding event BEFORE clamping. The clamp is
+                // a band-aid, not a safety net: a cell clamped UP from a
+                // negative absolute pressure is indistinguishable downstream
+                // from one that legitimately landed on the floor, which is
+                // exactly how the Edwards defect stayed hidden (bn:op-bgg0,
+                // log A4 -- cell 21 solved to -27.2 kPa and was silently
+                // clamped to 611.8 Pa, a 6000x jump). Counting it makes the
+                // band-aid honest; see [`Self::pressure_bound_events`].
+                for pv in p_new.internal.iter() {
+                    if *pv < p_min_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_undershoot =
+                            self.p_bound_worst_undershoot.max(p_min_pa - *pv);
+                    } else if *pv > p_max_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_overshoot =
+                            self.p_bound_worst_overshoot.max(*pv - p_max_pa);
+                    }
+                }
                 for pv in p_new.internal.iter_mut() {
                     *pv = pv.clamp(p_min_pa, p_max_pa);
                 }
@@ -2573,6 +2648,44 @@ impl TampinesSteamArray {
         );
         self.p_min = p_min;
         self.p_max = p_max;
+    }
+
+    /// How many times the pressure solve produced a value outside
+    /// `[p_min, p_max]` and had to be clamped, counted per cell-update over
+    /// the life of this array.
+    ///
+    /// **Treat a nonzero value as a defect signal.** The bounding step
+    /// (OpenFOAM's `pressureControl::limit`) reshapes a pressure the equation
+    /// of state could not have evaluated, so it keeps the run alive -- but a
+    /// converged, well-posed pressure equation should never ask for a pressure
+    /// outside the EOS range in the first place. Upstream carries the same
+    /// limiter for robust start-up, not as something to rely on every step.
+    ///
+    /// This counter exists because the clamp is otherwise **silent**: a cell
+    /// clamped up from -27.2 kPa to 611.8 Pa looks, to everything downstream,
+    /// exactly like a cell that legitimately reached the floor. That is how
+    /// the Edwards blowdown defect went undiagnosed (`bn:op-bgg0`).
+    ///
+    /// Pair it with [`Self::pressure_bound_worst_undershoot`] to see how far
+    /// out the solve actually went.
+    pub fn pressure_bound_events(&self) -> usize {
+        self.p_bound_events
+    }
+
+    /// The largest amount by which the pressure solve undershot `p_min` before
+    /// clamping, over the life of this array (zero if it never did).
+    ///
+    /// A large undershoot means the pressure equation is not merely grazing
+    /// the EOS floor but producing a physically impossible state -- negative
+    /// absolute pressure, in the Edwards case.
+    pub fn pressure_bound_worst_undershoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_undershoot)
+    }
+
+    /// The largest amount by which the pressure solve overshot `p_max` before
+    /// clamping, over the life of this array (zero if it never did).
+    pub fn pressure_bound_worst_overshoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_overshoot)
     }
 
     /// The current flux-discretisation mode (see [`SolverMode`]).
