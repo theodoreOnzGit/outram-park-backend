@@ -26,15 +26,17 @@
 //! See [Building the material table](#building-the-material-table) below for
 //! what goes in `materials` — it is the one thing a caller must supply.
 //!
-//! Swap `DhTreatment::DeltaTracking` for [`DhTreatment::ChordLength`] or
-//! [`DhTreatment::RingRpt`] and nothing else changes.
+//! Swap `DhTreatment::DeltaTracking` for any other [`DhTreatment`] variant and
+//! nothing else changes.
 //!
 //! # Building the material table
 //!
 //! A pebble needs **seven** materials, in this order — the five TRISO layers
 //! outward from the centre, then the fuel-zone matrix, then the fuel-free outer
-//! shell. The count and order are **checked**: a short or misordered table is a
-//! [`DhError::Materials`], not a silent wrong answer.
+//! shell — or **eight** with a coolant shell ([`PebbleParams::with_coolant`],
+//! [`PebbleParams::fhr_unit_cell`]). The count and order are **checked**: a
+//! short or misordered table is a [`DhError::Materials`], not a silent wrong
+//! answer.
 //!
 //! ```no_run
 //! use outram_mc_libs::prelude::*;
@@ -79,33 +81,44 @@
 //!
 //! # Choosing a treatment
 //!
-//! | Variant | Geometry stored | Exact? | Geometry-only speed | Real k-eff speed | k-eff bias |
-//! |---|---|---|---|---|---|
-//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | 1x (reference) | 1x (reference) | — |
-//! | [`DhTreatment::ChordLength`] | none | no | ~2.5-3x faster | **0.38x — slower** | -3999 pcm |
-//! | [`DhTreatment::RingRpt`] | none (smeared) | no | ~8x faster | **0.14x — slower** | -4342 pcm |
+//! | Variant | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
+//! |---|---|---|---|---|
+//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | no | 1x (reference) |
+//! | [`DhTreatment::ChordLength`] | none | no | no | ~2.5-3x faster |
+//! | [`DhTreatment::Scls`] | a retention window | no | no | ~1.5-2x faster |
+//! | [`DhTreatment::Homogenised`] | none (smeared) | no | no | ~8x faster |
+//! | [`DhTreatment::RingRpt`] | none (fitted annulus) | no | **yes** | ~8x faster |
 //!
-//! **Read the two speed columns together; they disagree, and the second one is
-//! the one that matters.** On a geometry-only walk
+//! Measured eigenvalues and their biases live in `examples/dh_keff_vv.rs`,
+//! which runs every arm on one pebble and prints the table. They are **not**
+//! duplicated here, because a number copied into two places drifts — an earlier
+//! revision of this file advertised biases from a superseded run for exactly
+//! that reason.
+//!
+//! **Read a geometry-only speedup with suspicion.** On a bare geometry walk
 //! (`examples/dh_tracking_speedup.rs`) the approximate treatments are much
-//! faster. In a real continuous-energy eigenvalue calculation
-//! (`examples/dh_keff_vv.rs`, measured 2026-09-14) they are **slower** — because
-//! homogenisation moves cost out of geometry and into cross-section evaluation:
-//! most of the fuel zone is single-nuclide carbon explicitly, but every point in
-//! a smeared zone carries the union of all five nuclides. The geometry lookup
-//! traded away was already O(1) through the packing grid.
+//! faster; in a real continuous-energy eigenvalue calculation they have
+//! measured *slower*, because homogenisation moves cost out of geometry and
+//! into cross-section evaluation — most of the fuel zone is single-nuclide
+//! graphite explicitly, but every point in a smeared zone carries the union of
+//! all the nuclides. The geometry lookup traded away was already O(1) through
+//! the packing grid. Measure on your own case rather than trusting a column.
 //!
-//! So neither treatment is currently worth taking *on this problem for
-//! eigenvalues*. They remain the right tools where geometry genuinely dominates
-//! — many more particles, simpler materials, or a fixed-source problem. Measure
-//! on your own case rather than trusting either column.
+//! # Ring-RPT needs a fitted radius, and there is an API for that
+//!
+//! [`DhTreatment::RingRpt`] carries an `inner_radius` that is a fitted
+//! equivalence, not a dimension you can look up. Published values are fitted
+//! against one fuel, one library and one code and do not transfer.
+//! [`fit_ring_rpt_inner_radius`] runs the fit for your own pebble — it solves
+//! the explicit pebble once for a target, then bisects the radius until
+//! ring-RPT matches — so the parameter is measured rather than borrowed.
 //!
 //! # Haiku dogfood record — 2026-09-14
 //!
 //! Per the workspace "dogfood the API on a small model" hard rule: a Haiku agent
 //! with **documentation only** — no repository access, no source, no compiler —
-//! was asked to build this pebble and solve its eigenvalue under all three
-//! treatments.
+//! was asked to build this pebble and solve its eigenvalue under every
+//! treatment.
 //!
 //! **It wrote correct code on the first attempt**, with zero wrong method names
 //! and zero wrong argument orders. It found `DhTreatment::ALL`, `is_exact()`,
@@ -130,6 +143,15 @@
 //! [`crate::pebble_beds::fhr_pebble`] — an API that cannot be called from the
 //! module documenting it is not callable. Both examples are now compile-tested.
 //!
+//! **What the dogfood did NOT catch, and could not have.** The agent had only
+//! the documentation, and the documentation was *wrong*: the variant then named
+//! `RingRpt` did naive full-zone homogenisation while its rustdoc described the
+//! fitted-annulus method. Haiku wrote code that called it correctly and got a
+//! number that was not ring-RPT. A usability dogfood tests whether an API can be
+//! found and called; it cannot test whether the API does what it says. That
+//! needed a V&V run against a published reference, which is what eventually
+//! caught it — see the correction on [`DhTreatment`].
+//!
 //! Still open, deliberately: the agent could not find the field lists for
 //! `KeffResult`, `KeffSettings`, `Material` or `Nuclide`. Those are other
 //! modules' documentation debt, not this one's, and are not papered over here.
@@ -138,8 +160,8 @@
 //!
 //! Mono-material-per-region: each treatment answers "which material index is at
 //! this point?", and the caller supplies the material table. That is the seam
-//! every k-eff driver in this crate already consumes, which is why all three
-//! treatments can share one transport path rather than each needing its own.
+//! every k-eff driver in this crate already consumes, which is why every
+//! treatment shares one transport path rather than each needing its own.
 
 use std::sync::Mutex;
 
@@ -150,17 +172,33 @@ use crate::pebble_beds::delta_tracking::Majorant;
 use crate::pebble_beds::fhr_pebble::{
     homogenise_by_volume, ExplicitTrisoPebble, TrisoMaterials, TrisoSpec,
 };
-use crate::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain};
+use crate::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain, MaterialQuery};
 use crate::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod};
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::stochastic::cls::ClsMedium;
+use crate::stochastic::scls::SclsMedium;
 use crate::stochastic::medium::MaterialId;
 
 /// How the double heterogeneity is resolved.
 ///
-/// The three variants sit on one axis — how much particle geometry survives —
+/// The four variants sit on one axis — how much particle geometry survives —
 /// and each gives something up in exchange for time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// # A correction, 2026-09-14
+///
+/// Until this revision there were three variants and the one named `RingRpt`
+/// did **naive full-fuel-zone homogenisation**: one smeared material filling
+/// `r < fuel_zone_radius`, with no inner ball and no fitted shell. Its own
+/// rustdoc described the fitted-shell method, so the name and the prose both
+/// promised something the code did not do, and a k-eff V&V run against it
+/// reported ring-RPT as costing **-5151 pcm** when the method it was named
+/// after costs about **-30 pcm**.
+///
+/// The naive smear is still here and still useful — it is the "all double
+/// heterogeneity removed" upper bound on speedup — but it is now called
+/// [`Self::Homogenised`], which is what it is. [`Self::RingRpt`] is the real
+/// method and carries the fitted radius it cannot work without.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DhTreatment {
     /// **Exact.** Every particle is stored; flights are sampled at a majorant
     /// and collisions accepted by rejection (Woodcock).
@@ -184,35 +222,141 @@ pub enum DhTreatment {
     /// least reliable in scattering-dominated, optically thick problems.
     ChordLength,
 
-    /// **Ring-RPT.** The particles are dissolved into an equivalent shell of
-    /// homogenised material; there is no double heterogeneity left at all.
+    /// **Semi-implicit chord-length sampling (SCLS).** CLS, but with bounded
+    /// geometric memory: inclusions the neutron has already met are remembered
+    /// inside a moving sphere of radius `transport_mfp + inclusion_radius`, so a
+    /// back-scattered neutron re-meets the particle it just left instead of a
+    /// freshly sampled one.
     ///
-    /// Gives up *self-shielding*: a neutron sees absorber smeared everywhere at
-    /// reduced density instead of concentrated in kernels it could have missed,
-    /// so reactivity is systematically affected. The shell's inner radius is a
-    /// fitted parameter for exactly this reason.
-    RingRpt,
+    /// This attacks exactly the weakness named on [`Self::ChordLength`], at the
+    /// cost of carrying a retention window. Whether it is *closer* to exact is
+    /// regime-dependent and this crate has measured it going the wrong way:
+    /// `src/stochastic/benchmark.rs` finds CLS nearer an RSA reference than
+    /// SCLS at pf 0.2, with SCLS over-correcting past it. Measure on your own
+    /// problem; do not assume the more elaborate method wins.
+    ///
+    /// # Known wiring limitation — read before quoting an SCLS eigenvalue
+    ///
+    /// SCLS memory is meant to be **reset at every history boundary**
+    /// ([`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)).
+    /// The point-query seam the k-eff drivers expose is a bare
+    /// `Fn(Position) -> Option<usize>` with no history-boundary notification, so
+    /// through [`DhUniverse::keff`] the retention window is **not** reset and
+    /// one history inherits the previous history's remembered inclusions.
+    ///
+    /// That is not SCLS. The direction and size of the resulting bias have not
+    /// been measured, so an SCLS eigenvalue from this path is a measurement of
+    /// *this wiring*, not of the method. Fixing it needs a per-history hook on
+    /// the delta driver, tracked as a bead. The geometry-only timing in
+    /// `examples/dh_tracking_speedup.rs` is unaffected — it drives the medium
+    /// directly and does reset per flight.
+    Scls,
+
+    /// **Naive homogenisation.** One smeared material — TRISO particles and
+    /// the matrix they sit in, mixed at the packing fraction — fills the whole
+    /// fuel zone. No double heterogeneity is left at all.
+    ///
+    /// Gives up *self-shielding entirely*: a neutron sees absorber spread
+    /// everywhere at reduced density instead of concentrated in kernels it
+    /// could have missed, so U-238's resonances lose the spatial shielding that
+    /// protected them and reactivity drops hard. Measured at **-5151 pcm** on
+    /// the bare reference pebble.
+    ///
+    /// Worth keeping despite that, because it is the **upper bound on what any
+    /// DH treatment can save**: with the geometry gone completely, nothing
+    /// cheaper is possible. Read its speed as a ceiling and its eigenvalue as a
+    /// warning.
+    ///
+    /// The mixing conserves inventory. Filling the zone with pure particle
+    /// material instead would give `1/pf` times the heavy metal and delete the
+    /// matrix graphite that moderates the explicit pebble from the inside —
+    /// that is a different reactor, not a homogenisation of this one.
+    Homogenised,
+
+    /// **Ring-RPT.** The particles are dissolved into an equivalent *annulus*
+    /// of homogenised material, wrapped around an inner ball of matrix
+    /// graphite.
+    ///
+    /// This is the method [`Self::Homogenised`] is often confused with, and the
+    /// difference is the whole point. Concentrating the smeared fuel into a
+    /// shell at the right radius keeps much of the *radial* self-shielding that
+    /// full homogenisation throws away, which is why it lands within tens of
+    /// pcm of explicit TRISO where the naive smear is thousands out.
+    ///
+    /// `inner_radius` \[cm\] is the single fitted knob; the outer radius follows
+    /// from conserving particle volume,
+    /// `r_outer^3 = inner_radius^3 + pf * fuel_zone_radius^3`
+    /// ([`rpt_fuel_outer_radius`]). It is **fuel- and code-specific** — the
+    /// reference value [`Self::FHR_REFERENCE_RPT_INNER`] was fitted against
+    /// OpenMC for this crate's FHR pebble, and refitting it for another fuel,
+    /// another data library, or another code is part of using the method, not
+    /// an optional refinement. Passing a radius fitted elsewhere is the usual
+    /// way to get a bad ring-RPT answer.
+    ///
+    /// # Errors
+    ///
+    /// [`DhUniverse::pebble`] returns [`DhError::Geometry`] if the conserved
+    /// outer radius would fall outside the fuel zone, which happens when
+    /// `inner_radius` is too large for the packing fraction.
+    RingRpt {
+        /// Inner radius of the homogenised fuel annulus \[cm\]; the fitted knob.
+        inner_radius: f64,
+    },
 }
 
 impl DhTreatment {
-    /// Every variant, for sweeping all three in a comparison.
-    pub const ALL: [Self; 3] = [Self::DeltaTracking, Self::ChordLength, Self::RingRpt];
+    /// Ring-RPT inner radius \[cm\] fitted against OpenMC for this crate's FHR
+    /// reference pebble (19.9 % HALEU UCO TRISO, 30 % packing, 1.9 cm fuel
+    /// zone).
+    ///
+    /// **This number does not transfer.** It is a fitted equivalence, and what
+    /// it was fitted against — that fuel, that geometry, that code, that data
+    /// library — is part of its definition. `examples/fhr_ring_rpt_endf.rs`
+    /// measures how far this crate's own best-fit radius sits from it; the
+    /// answer is not zero.
+    pub const FHR_REFERENCE_RPT_INNER: f64 = 1.493_359_375;
+
+    /// Every variant, for sweeping all five in a comparison.
+    ///
+    /// [`Self::RingRpt`] appears at [`Self::FHR_REFERENCE_RPT_INNER`], which is
+    /// only meaningful on the FHR reference pebble. Sweeping `ALL` on some
+    /// other fuel will build a ring-RPT arm at a radius fitted for something
+    /// else — construct that variant yourself with your own fitted radius
+    /// rather than reading a number out of this array.
+    pub const ALL: [Self; 5] = [
+        Self::DeltaTracking,
+        Self::ChordLength,
+        Self::Scls,
+        Self::Homogenised,
+        Self::RingRpt { inner_radius: Self::FHR_REFERENCE_RPT_INNER },
+    ];
 
     /// Short human-readable name, e.g. for table rows.
     pub fn name(self) -> &'static str {
         match self {
             Self::DeltaTracking => "delta tracking",
-            Self::ChordLength => "chord-length sampling",
-            Self::RingRpt => "ring-RPT (homogenised)",
+            Self::ChordLength => "chord-length sampling (CLS)",
+            Self::Scls => "semi-implicit CLS (SCLS)",
+            Self::Homogenised => "naive homogenisation",
+            Self::RingRpt { .. } => "ring-RPT (fitted annulus)",
         }
     }
 
     /// Whether this treatment resolves the particle geometry exactly.
     ///
-    /// Only [`Self::DeltaTracking`] does. The other two are approximations and
-    /// their eigenvalues must be read as such.
+    /// Only [`Self::DeltaTracking`] does. The other three are approximations
+    /// and their eigenvalues must be read as such.
     pub fn is_exact(self) -> bool {
         matches!(self, Self::DeltaTracking)
+    }
+
+    /// Whether this treatment needs a parameter fitted against a reference
+    /// calculation before it means anything.
+    ///
+    /// Only [`Self::RingRpt`] does — see [`fit_ring_rpt_inner_radius`], which
+    /// finds that parameter for you rather than leaving you to guess it.
+    pub fn needs_fitting(self) -> bool {
+        matches!(self, Self::RingRpt { .. })
     }
 }
 
@@ -250,6 +394,10 @@ pub struct PebbleParams {
     pub fuel_zone_radius: f64,
     /// Outer radius of the whole pebble, including the fuel-free shell \[cm\].
     pub pebble_radius: f64,
+    /// Outer radius of a coolant shell around the pebble \[cm\], which becomes
+    /// the reflective boundary. `None` puts the boundary at the pebble surface
+    /// and models the pebble alone. Set it with [`Self::with_coolant`].
+    pub coolant_radius: Option<f64>,
     /// Material table. Indices are the convention documented on
     /// [`DhUniverse::material_at`].
     pub materials: Vec<Material>,
@@ -259,9 +407,15 @@ pub struct PebbleParams {
 }
 
 impl PebbleParams {
-    /// The FHR reference pebble used by this crate's ring-RPT V&V decks:
-    /// 19.9 % HALEU UCO TRISO at 30 % packing, 1.9 cm fuel zone inside a 2.0 cm
-    /// pebble.
+    /// The FHR reference pebble **on its own**: 19.9 % HALEU UCO TRISO at 30 %
+    /// packing, 1.9 cm fuel zone inside a 2.0 cm pebble, reflective at the
+    /// pebble surface. No coolant.
+    ///
+    /// This is a bare pebble's own k-infinity and is **not** the system the
+    /// published OpenMC numbers were computed on — strip the coolant off an FHR
+    /// pebble and k falls by over 10 000 pcm. Use [`Self::fhr_unit_cell`] when
+    /// you want a number comparable to those, and this one when you want the
+    /// pebble isolated.
     ///
     /// `materials` is left empty and **must be filled in** before use — the
     /// geometry is reference data, the material composition is yours.
@@ -270,14 +424,41 @@ impl PebbleParams {
             spec: TrisoSpec::FHR_HALEU_UCO,
             fuel_zone_radius: 1.9,
             pebble_radius: 2.0,
+            coolant_radius: None,
             materials: Vec::new(),
             seed: 0x0DDF_1234_5678_9ABC,
         }
     }
 
+    /// The FHR reference **unit cell**: [`Self::fhr_reference`]'s pebble with a
+    /// 1 cm coolant shell around it, reflective at r = 3.0 cm.
+    ///
+    /// This is the geometry `examples/fhr_ring_rpt_endf.rs` and the OpenMC deck
+    /// it is checked against both use, so eigenvalues computed here are
+    /// comparable to the published `k = 1.36510 ± 0.00063` (explicit TRISO) and
+    /// `k = 1.36479 ± 0.00067` (ring-RPT).
+    ///
+    /// Needs **eight** materials — the seven of [`DhUniverse::pebble`] plus the
+    /// coolant at index 7. Supply FLiBe at the temperature the rest of the
+    /// table uses; the deck it matches runs at 600 K.
+    pub fn fhr_unit_cell() -> Self {
+        Self { coolant_radius: Some(3.0), ..Self::fhr_reference() }
+    }
+
     /// Replace the material table, returning `self` so constructors can chain.
     pub fn with_materials(mut self, materials: Vec<Material>) -> Self {
         self.materials = materials;
+        self
+    }
+
+    /// Wrap the pebble in a coolant shell out to `outer_radius` \[cm\], which
+    /// becomes the reflective boundary.
+    ///
+    /// Requires an eighth material (index 7) for the coolant. Pass a radius
+    /// greater than `pebble_radius`, or [`DhUniverse::pebble`] returns
+    /// [`DhError::Geometry`].
+    pub fn with_coolant(mut self, outer_radius: f64) -> Self {
+        self.coolant_radius = Some(outer_radius);
         self
     }
 }
@@ -300,7 +481,7 @@ pub struct DispersedParams {
 
 /// The geometry backing a universe, once a treatment has been chosen.
 enum DhGeometry {
-    /// Explicit particles in a pebble (fuel zone + shell).
+    /// Explicit particles in a pebble (fuel zone + shell + optional coolant).
     Pebble(ExplicitTrisoPebble),
     /// Explicit particles in a cube.
     Dispersed {
@@ -309,21 +490,81 @@ enum DhGeometry {
         matrix_material: usize,
     },
     /// Chord-length sampling — no stored particles. The `Mutex` is what lets a
-    /// stateful sampler satisfy the `Fn + Sync` point-query seam the k-eff
-    /// drivers expect; on the single-threaded reference path it is uncontended.
+    /// stateful sampler satisfy the `Sync` point-query seam the k-eff drivers
+    /// expect; on the single-threaded reference path it is uncontended.
     Cls {
         medium: Mutex<(ClsMedium, u64)>,
         particle_material: usize,
         matrix_material: usize,
-        shell_material: Option<usize>,
-        fuel_zone_radius: f64,
+        outer: OuterShells,
     },
-    /// Homogenised — one smeared material inside the fuel zone.
+    /// Semi-implicit chord-length sampling — CLS plus a retention window, reset
+    /// at each history boundary through
+    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
+    /// `template` is the pristine medium a new history is rebuilt from.
+    Scls {
+        medium: Mutex<(SclsMedium, u64)>,
+        template: SclsMedium,
+        particle_material: usize,
+        matrix_material: usize,
+        outer: OuterShells,
+    },
+    /// Naive homogenisation — one smeared material filling the whole fuel zone.
+    Homogenised { homogenised: usize, outer: OuterShells },
+    /// Ring-RPT — matrix ball inside `inner_radius`, homogenised particle
+    /// material in the annulus out to `fuel_outer_radius`, matrix again from
+    /// there to the fuel-zone boundary.
     RingRpt {
+        inner_radius: f64,
+        fuel_outer_radius: f64,
         homogenised: usize,
-        shell_material: Option<usize>,
-        fuel_zone_radius: f64,
+        matrix_material: usize,
+        outer: OuterShells,
     },
+}
+
+/// The fuel-free regions every pebble treatment shares: graphite shell, then an
+/// optional coolant shell out to the reflective boundary.
+///
+/// Factored out because getting it wrong is silent and expensive — the crate's
+/// own ring-RPT deck records a cube-corner coolant over-count worth thousands
+/// of pcm — and because four treatments must answer it identically or their
+/// eigenvalues are not comparable.
+#[derive(Debug, Clone, Copy)]
+struct OuterShells {
+    fuel_zone_radius: f64,
+    pebble_radius: f64,
+    shell_material: usize,
+    coolant_material: Option<usize>,
+}
+
+impl OuterShells {
+    /// No shells at all — dispersed fuel in a cube, where the medium fills the
+    /// whole domain and every point is the treatment's own business.
+    #[inline]
+    fn none() -> Self {
+        Self {
+            fuel_zone_radius: f64::INFINITY,
+            pebble_radius: f64::INFINITY,
+            shell_material: 0,
+            coolant_material: None,
+        }
+    }
+
+    /// Material at radius `r`, or `None` while `r` is still inside the fuel
+    /// zone and the treatment must answer for itself.
+    #[inline]
+    fn at(&self, r: f64) -> Option<usize> {
+        if r < self.fuel_zone_radius {
+            None
+        } else if r < self.pebble_radius {
+            Some(self.shell_material)
+        } else {
+            // With no coolant the domain stops at the pebble surface, so this
+            // arm is only reached by rounding at the boundary itself.
+            Some(self.coolant_material.unwrap_or(self.shell_material))
+        }
+    }
 }
 
 /// A doubly heterogeneous universe with a chosen [`DhTreatment`].
@@ -362,17 +603,45 @@ impl DhUniverse {
                 params.fuel_zone_radius, params.pebble_radius
             )));
         }
-        if params.materials.len() < 7 {
+        const MATRIX_IDX: usize = 5;
+        const SHELL_IDX: usize = 6;
+        const COOLANT_IDX: usize = 7;
+
+        // The coolant shell, if any, moves the reflective boundary outward and
+        // costs an eighth material. Both are checked here rather than surfacing
+        // later as a wrong eigenvalue.
+        let coolant_material = match params.coolant_radius {
+            None => None,
+            Some(r_cool) => {
+                if r_cool <= params.pebble_radius {
+                    return Err(DhError::Geometry(format!(
+                        "coolant_radius {r_cool} must be > pebble_radius {}",
+                        params.pebble_radius
+                    )));
+                }
+                Some(COOLANT_IDX)
+            }
+        };
+        let needed = if coolant_material.is_some() { 8 } else { 7 };
+        if params.materials.len() < needed {
             return Err(DhError::Materials(format!(
-                "pebble needs 7 materials [kernel, buffer, ipyc, sic, opyc, matrix, shell], got {}",
+                "pebble needs {needed} materials [kernel, buffer, ipyc, sic, opyc, matrix, \
+                 shell{}], got {}",
+                if needed == 8 { ", coolant" } else { "" },
                 params.materials.len()
             )));
         }
+
         let pf = params.spec.packing_fraction;
         let r_particle = params.spec.opyc;
-        let domain = DeltaDomain::Sphere { radius: params.pebble_radius };
-        const MATRIX_IDX: usize = 5;
-        const SHELL_IDX: usize = 6;
+        let r_boundary = params.coolant_radius.unwrap_or(params.pebble_radius);
+        let domain = DeltaDomain::Sphere { radius: r_boundary };
+        let outer = OuterShells {
+            fuel_zone_radius: params.fuel_zone_radius,
+            pebble_radius: params.pebble_radius,
+            shell_material: SHELL_IDX,
+            coolant_material,
+        };
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
@@ -390,11 +659,10 @@ impl DhUniverse {
                         matrix: MATRIX_IDX,
                     },
                     SHELL_IDX,
-                    // Coolant: the domain is reflective at the pebble surface,
-                    // so no history ever reaches a coolant region. Naming the
-                    // shell here keeps the index in range without inventing a
-                    // material the caller did not supply.
-                    SHELL_IDX,
+                    // With no coolant the domain stops at the pebble surface, so
+                    // no history reaches a coolant region; naming the shell keeps
+                    // the index in range without inventing a material.
+                    coolant_material.unwrap_or(SHELL_IDX),
                     params.fuel_zone_radius,
                     params.pebble_radius,
                 );
@@ -408,34 +676,60 @@ impl DhUniverse {
                 let mut materials = params.materials.clone();
                 materials.push(particle);
                 let particle_idx = materials.len() - 1;
-                let medium = ClsMedium::new(
-                    r_particle,
-                    pf,
-                    MaterialId(particle_idx),
-                    MaterialId(MATRIX_IDX),
-                );
+                let medium =
+                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Cls {
                         medium: Mutex::new((medium, params.seed | 1)),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
-                        shell_material: Some(SHELL_IDX),
-                        fuel_zone_radius: params.fuel_zone_radius,
+                        outer,
                     },
                     materials,
                     domain,
                     particles: 0,
                 });
             }
-            DhTreatment::RingRpt => {
-                // Smear particles and matrix together across the fuel zone.
+            DhTreatment::Scls => {
+                let particle = homogenise_particle(&params.materials, params.spec)?;
+                let mut materials = params.materials.clone();
+                materials.push(particle);
+                let particle_idx = materials.len() - 1;
+                let cls =
+                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
+                // Retention window radius. SCLS remembers inclusions within one
+                // transport mean free path; the matrix mean chord is the length
+                // scale the sampler itself works in, so it is the natural stand-in
+                // for a spectrum-averaged mfp we do not have at construction time.
+                let window = cls.mean_chord_matrix();
+                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                return Ok(Self {
+                    treatment,
+                    geometry: DhGeometry::Scls {
+                        medium: Mutex::new((template.clone(), params.seed | 1)),
+                        template,
+                        particle_material: particle_idx,
+                        matrix_material: MATRIX_IDX,
+                        outer,
+                    },
+                    materials,
+                    domain,
+                    particles: 0,
+                });
+            }
+            DhTreatment::Homogenised => {
+                // Particles AND the matrix they sit in, smeared over the whole
+                // fuel zone. Mixing at the packing fraction is what conserves
+                // inventory: filling the zone with pure particle material would
+                // give 1/pf times the heavy metal and delete the matrix graphite
+                // that moderates the explicit pebble from the inside.
                 let particle = homogenise_particle(&params.materials, params.spec)?;
                 let matrix = params.materials[MATRIX_IDX].clone();
                 let smeared = homogenise_by_volume(
                     &[(&particle, pf), (&matrix, 1.0 - pf)],
                     900,
-                    "ring-RPT homogenised fuel zone",
+                    "naive-homogenised fuel zone (TRISO + matrix)",
                     matrix.temperature,
                 );
                 let mut materials = params.materials.clone();
@@ -443,10 +737,47 @@ impl DhUniverse {
                 let idx = materials.len() - 1;
                 return Ok(Self {
                     treatment,
+                    geometry: DhGeometry::Homogenised { homogenised: idx, outer },
+                    materials,
+                    domain,
+                    particles: 0,
+                });
+            }
+            DhTreatment::RingRpt { inner_radius } => {
+                // Unlike the naive case, the annulus is sized to the particle
+                // volume alone, so the material that fills it is the homogenised
+                // PARTICLE with no matrix mixed in. Mixing matrix in here would
+                // double-count it — the matrix is already represented by the
+                // inner ball and the outer remainder of the fuel zone.
+                if !(inner_radius >= 0.0) || inner_radius >= params.fuel_zone_radius {
+                    return Err(DhError::Geometry(format!(
+                        "ring-RPT inner_radius {inner_radius} must be in [0, fuel_zone_radius {})",
+                        params.fuel_zone_radius
+                    )));
+                }
+                let r_outer3 =
+                    inner_radius.powi(3) + pf * params.fuel_zone_radius.powi(3);
+                let fuel_outer_radius = r_outer3.cbrt();
+                if fuel_outer_radius > params.fuel_zone_radius {
+                    return Err(DhError::Geometry(format!(
+                        "ring-RPT annulus outer radius {fuel_outer_radius:.4} exceeds the fuel \
+                         zone {:.4} — inner_radius {inner_radius} is too large for packing \
+                         fraction {pf}",
+                        params.fuel_zone_radius
+                    )));
+                }
+                let particle = homogenise_particle(&params.materials, params.spec)?;
+                let mut materials = params.materials.clone();
+                materials.push(particle);
+                let idx = materials.len() - 1;
+                return Ok(Self {
+                    treatment,
                     geometry: DhGeometry::RingRpt {
+                        inner_radius,
+                        fuel_outer_radius,
                         homogenised: idx,
-                        shell_material: Some(SHELL_IDX),
-                        fuel_zone_radius: params.fuel_zone_radius,
+                        matrix_material: MATRIX_IDX,
+                        outer,
                     },
                     materials,
                     domain,
@@ -463,7 +794,6 @@ impl DhUniverse {
             particles,
         })
     }
-
     /// Build a cube of fuel particles dispersed through a matrix.
     ///
     /// # Material index convention
@@ -521,13 +851,32 @@ impl DhUniverse {
                         medium: Mutex::new((medium, params.seed | 1)),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
-                        shell_material: None,
-                        fuel_zone_radius: f64::INFINITY,
+                        outer: OuterShells::none(),
                     },
                     0,
                 )
             }
-            DhTreatment::RingRpt => {
+            DhTreatment::Scls => {
+                let cls = ClsMedium::new(
+                    params.particle_radius,
+                    params.packing_fraction,
+                    MaterialId(PARTICLE),
+                    MaterialId(MATRIX),
+                );
+                let window = cls.mean_chord_matrix();
+                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                (
+                    DhGeometry::Scls {
+                        medium: Mutex::new((template.clone(), params.seed | 1)),
+                        template,
+                        particle_material: PARTICLE,
+                        matrix_material: MATRIX,
+                        outer: OuterShells::none(),
+                    },
+                    0,
+                )
+            }
+            DhTreatment::Homogenised => {
                 let smeared = homogenise_by_volume(
                     &[
                         (&params.materials[PARTICLE], params.packing_fraction),
@@ -542,15 +891,29 @@ impl DhUniverse {
                 let idx = materials.len() - 1;
                 return Ok(Self {
                     treatment,
-                    geometry: DhGeometry::RingRpt {
+                    geometry: DhGeometry::Homogenised {
                         homogenised: idx,
-                        shell_material: None,
-                        fuel_zone_radius: f64::INFINITY,
+                        outer: OuterShells::none(),
                     },
                     materials,
                     domain,
                     particles: 0,
                 });
+            }
+            DhTreatment::RingRpt { .. } => {
+                // Ring-RPT concentrates the smeared fuel into a spherical
+                // annulus at a fitted radius. A cube of uniformly dispersed
+                // particles has no radial structure for that annulus to sit in,
+                // so there is nothing to fit and no shell to place. Refusing is
+                // the honest answer; silently falling back to Homogenised would
+                // report a ring-RPT number that was never computed.
+                return Err(DhError::Geometry(
+                    "ring-RPT is a spherical construction and does not apply to dispersed fuel \
+                     in a cube — there is no radial structure to fit an annulus to. Use \
+                     DhTreatment::Homogenised for the smeared case, or DhUniverse::pebble if \
+                     the geometry really is a pebble."
+                        .into(),
+                ));
             }
         };
 
@@ -609,33 +972,62 @@ impl DhUniverse {
                 medium,
                 particle_material,
                 matrix_material,
-                shell_material,
-                fuel_zone_radius,
+                outer,
             } => {
-                if let (Some(shell), true) = (shell_material, p.norm() >= *fuel_zone_radius) {
-                    return Some(*shell);
+                if let Some(m) = outer.at(p.norm()) {
+                    return Some(m);
                 }
                 let mut guard = medium.lock().ok()?;
                 let (cls, seed) = &mut *guard;
                 match cls.material_at(p, seed) {
-                    Ok(id) if id.index() == particle_material.to_owned() => Some(*particle_material),
-                    Ok(_) => Some(*matrix_material),
-                    Err(_) => Some(*matrix_material),
+                    Ok(id) if id.index() == *particle_material => Some(*particle_material),
+                    _ => Some(*matrix_material),
                 }
             }
-            DhGeometry::RingRpt {
-                homogenised,
-                shell_material,
-                fuel_zone_radius,
+            DhGeometry::Scls {
+                medium,
+                particle_material,
+                matrix_material,
+                outer,
+                ..
             } => {
-                if let (Some(shell), true) = (shell_material, p.norm() >= *fuel_zone_radius) {
-                    return Some(*shell);
+                if let Some(m) = outer.at(p.norm()) {
+                    return Some(m);
                 }
-                Some(*homogenised)
+                let mut guard = medium.lock().ok()?;
+                let (scls, seed) = &mut *guard;
+                match scls.material_at(p, seed) {
+                    Ok(id) if id.index() == *particle_material => Some(*particle_material),
+                    _ => Some(*matrix_material),
+                }
+            }
+            DhGeometry::Homogenised { homogenised, outer } => {
+                outer.at(p.norm()).or(Some(*homogenised))
+            }
+            DhGeometry::RingRpt {
+                inner_radius,
+                fuel_outer_radius,
+                homogenised,
+                matrix_material,
+                outer,
+            } => {
+                let r = p.norm();
+                if let Some(m) = outer.at(r) {
+                    return Some(m);
+                }
+                // Inside the fuel zone: matrix ball, then the homogenised
+                // annulus that carries all the particle material, then matrix
+                // again out to the fuel-zone boundary.
+                Some(if r < *inner_radius {
+                    *matrix_material
+                } else if r < *fuel_outer_radius {
+                    *homogenised
+                } else {
+                    *matrix_material
+                })
             }
         }
     }
-
     /// Solve the eigenvalue for this universe.
     ///
     /// All three treatments run through the same delta-tracked power iteration,
@@ -675,9 +1067,197 @@ impl DhUniverse {
             &self.materials,
             nuclides,
             &majorant,
-            |p| self.material_at(p),
+            self,
             settings,
         )
+    }
+}
+
+/// A summary rather than a dump: the treatment, how many particles are stored,
+/// how many materials the table ended up with, and the reflective boundary.
+/// Printing the packing itself would be tens of thousands of spheres.
+impl core::fmt::Debug for DhUniverse {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DhUniverse")
+            .field("treatment", &self.treatment)
+            .field("particles", &self.particles)
+            .field("materials", &self.materials.len())
+            .field("domain", &self.domain)
+            .finish()
+    }
+}
+
+/// Lets a [`DhUniverse`] be handed straight to the delta-tracked k-eff drivers,
+/// and — the reason this is a trait impl rather than a closure — lets
+/// [`DhTreatment::Scls`] throw away its retention window at each history
+/// boundary, which is what makes it SCLS rather than CLS with a leak.
+impl MaterialQuery for &DhUniverse {
+    #[inline]
+    fn material_at(&self, p: Position) -> Option<usize> {
+        DhUniverse::material_at(self, p)
+    }
+
+    fn begin_history(&self) {
+        // Only SCLS carries per-history state. Restoring the pristine template
+        // resets the remembered inclusions and the flight phase together; the
+        // RNG stream deliberately carries on, so histories stay independent.
+        if let DhGeometry::Scls { medium, template, .. } = &self.geometry {
+            if let Ok(mut guard) = medium.lock() {
+                guard.0 = template.clone();
+            }
+        }
+    }
+}
+
+/// Find the ring-RPT inner radius that reproduces the explicit-TRISO
+/// eigenvalue for a given pebble — the fit the method cannot be used without.
+///
+/// [`DhTreatment::RingRpt`] takes an `inner_radius` that is a **fitted
+/// equivalence**, not a physical dimension. Published values are fitted for one
+/// fuel, one data library and one code, and do not transfer. This runs the fit
+/// for *your* pebble with *your* data, so you do not have to guess or borrow a
+/// number: it solves the explicit delta-tracked pebble once for a target, then
+/// bisects on the radius until ring-RPT matches it.
+///
+/// ```no_run
+/// use outram_mc_libs::prelude::*;
+/// # let materials: Vec<Material> = Vec::new();
+/// # let nuclides: Vec<Nuclide> = Vec::new();
+/// let params = PebbleParams::fhr_unit_cell().with_materials(materials);
+/// let settings = KeffSettings::default();
+///
+/// let fit = fit_ring_rpt_inner_radius(&params, &nuclides, &settings, None)?;
+/// println!("fitted inner radius = {:.4} cm (target k = {:.5})", fit.inner_radius, fit.target_k);
+///
+/// // Then use it.
+/// let universe = DhUniverse::pebble(params, fit.treatment())?;
+/// # Ok::<(), DhError>(())
+/// ```
+///
+/// # Cost
+///
+/// One explicit eigenvalue solve for the target, then one ring-RPT solve per
+/// bisection step (up to `max_iterations`, default 12). Budget roughly a dozen
+/// times a single `keff()` call. Raise `settings.n_particles` before trusting a
+/// tight fit — bisecting on a noisy residual converges to noise, and the
+/// returned `target_std` tells you how noisy the target itself was.
+///
+/// # What the fit does and does not mean
+///
+/// A fitted radius makes ring-RPT reproduce the explicit **eigenvalue**. It
+/// does not make the smeared pebble a good model of anything else about the
+/// explicit one — the flux shape inside the fuel zone is not the same, and a
+/// tally that resolves radius will not agree. Fit for the quantity you care
+/// about, and say which one it was.
+///
+/// # Errors
+///
+/// [`DhError::Geometry`] if the bracket does not straddle the target (widen it,
+/// or check that ring-RPT can reach the explicit k at all for this fuel), and
+/// whatever [`DhUniverse::pebble`] returns if the pebble will not build.
+pub fn fit_ring_rpt_inner_radius(
+    params: &PebbleParams,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+    bracket: Option<(f64, f64)>,
+) -> Result<RingRptFit, DhError> {
+    let explicit = DhUniverse::pebble(params.clone(), DhTreatment::DeltaTracking)?;
+    let target = explicit.keff(nuclides, settings);
+
+    // Default bracket: from a solid smear (inner radius 0, i.e. all the
+    // particle material in a central ball) out to most of the fuel zone. The
+    // upper end is capped by conservation — the annulus cannot leave the zone.
+    let max_inner = (params.fuel_zone_radius.powi(3)
+        * (1.0 - params.spec.packing_fraction))
+        .cbrt();
+    let (lo, hi) = bracket.unwrap_or((0.05 * params.fuel_zone_radius, 0.985 * max_inner));
+
+    let k_at = |r: f64| -> Result<KeffResult, DhError> {
+        let u = DhUniverse::pebble(params.clone(), DhTreatment::RingRpt { inner_radius: r })?;
+        Ok(u.keff(nuclides, settings))
+    };
+
+    let (mut lo, mut hi) = (lo.min(hi), lo.max(hi));
+    let mut k_lo = k_at(lo)?.k_mean;
+    let mut k_hi = k_at(hi)?.k_mean;
+    let (g_lo, g_hi) = (k_lo - target.k_mean, k_hi - target.k_mean);
+    if g_lo * g_hi > 0.0 {
+        return Err(DhError::Geometry(format!(
+            "ring-RPT fit bracket [{lo:.4}, {hi:.4}] cm does not straddle the explicit k \
+             {:.5}: k(lo) = {k_lo:.5}, k(hi) = {k_hi:.5}. Both residuals have the same sign, \
+             so either widen the bracket or accept that ring-RPT cannot reach the explicit \
+             eigenvalue for this fuel.",
+            target.k_mean
+        )));
+    }
+
+    let max_iterations = 12;
+    let mut evaluations = 2;
+    let mut mid = 0.5 * (lo + hi);
+    let mut k_mid = target.k_mean;
+    for _ in 0..max_iterations {
+        mid = 0.5 * (lo + hi);
+        let r = k_at(mid)?;
+        evaluations += 1;
+        k_mid = r.k_mean;
+        let g_mid = k_mid - target.k_mean;
+        // Stop once the residual is inside the target's own statistics: past
+        // that point bisection is chasing Monte Carlo noise, not the radius.
+        if g_mid.abs() <= target.k_std {
+            break;
+        }
+        if (k_lo - target.k_mean) * g_mid < 0.0 {
+            hi = mid;
+            k_hi = k_mid;
+        } else {
+            lo = mid;
+            k_lo = k_mid;
+        }
+    }
+    let _ = (k_hi, k_lo);
+
+    Ok(RingRptFit {
+        inner_radius: mid,
+        fitted_k: k_mid,
+        target_k: target.k_mean,
+        target_std: target.k_std,
+        residual_pcm: (k_mid - target.k_mean) * 1.0e5,
+        evaluations,
+    })
+}
+
+/// What [`fit_ring_rpt_inner_radius`] found.
+#[derive(Debug, Clone, Copy)]
+pub struct RingRptFit {
+    /// The fitted ring-RPT inner radius \[cm\]. Feed it to [`Self::treatment`].
+    pub inner_radius: f64,
+    /// Eigenvalue ring-RPT gives at that radius.
+    pub fitted_k: f64,
+    /// Eigenvalue of the explicit delta-tracked pebble — what was fitted to.
+    pub target_k: f64,
+    /// Statistical standard deviation on `target_k`. **The fit is meaningless
+    /// below this**; bisection stops once the residual is inside it.
+    pub target_std: f64,
+    /// `fitted_k - target_k` in pcm. Compare against `target_std * 1e5`.
+    pub residual_pcm: f64,
+    /// Eigenvalue solves spent, target included.
+    pub evaluations: usize,
+}
+
+impl RingRptFit {
+    /// The treatment this fit produced, ready to pass to
+    /// [`DhUniverse::pebble`].
+    pub fn treatment(&self) -> DhTreatment {
+        DhTreatment::RingRpt { inner_radius: self.inner_radius }
+    }
+
+    /// Whether the fit converged to inside the target's own statistics.
+    ///
+    /// `false` means the bisection ran out of iterations while the residual was
+    /// still resolvable — the radius returned is the best bracket midpoint, not
+    /// a converged answer.
+    pub fn converged(&self) -> bool {
+        self.residual_pcm.abs() <= self.target_std * 1.0e5
     }
 }
 
@@ -779,7 +1359,7 @@ mod tests {
             "expected a real packing, got {}",
             delta.particle_count()
         );
-        for t in [DhTreatment::ChordLength, DhTreatment::RingRpt] {
+        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
             let u = DhUniverse::pebble(params(), t).unwrap();
             assert_eq!(u.particle_count(), 0, "{} should store no particles", t.name());
         }
@@ -791,7 +1371,7 @@ mod tests {
     fn approximate_treatments_extend_the_material_table() {
         let delta = DhUniverse::pebble(params(), DhTreatment::DeltaTracking).unwrap();
         assert_eq!(delta.materials().len(), 7);
-        for t in [DhTreatment::ChordLength, DhTreatment::RingRpt] {
+        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
             let u = DhUniverse::pebble(params(), t).unwrap();
             assert!(
                 u.materials().len() > 7,
@@ -851,18 +1431,110 @@ mod tests {
     /// Dispersed fuel takes the same three treatments as a pebble.
     #[test]
     fn dispersed_fuel_supports_every_treatment() {
-        for t in DhTreatment::ALL {
-            let p = DispersedParams {
-                particle_radius: 0.04,
-                packing_fraction: 0.25,
-                half_width: 1.0,
-                materials: dummy_materials(2),
-                seed: 42,
-            };
-            let u = DhUniverse::dispersed(p, t)
+        let p = || DispersedParams {
+            particle_radius: 0.04,
+            packing_fraction: 0.25,
+            half_width: 1.0,
+            materials: dummy_materials(2),
+            seed: 42,
+        };
+        for t in [
+            DhTreatment::DeltaTracking,
+            DhTreatment::ChordLength,
+            DhTreatment::Scls,
+            DhTreatment::Homogenised,
+        ] {
+            let u = DhUniverse::dispersed(p(), t)
                 .unwrap_or_else(|e| panic!("dispersed {} failed: {e}", t.name()));
             assert_eq!(u.treatment(), t);
             assert!(u.material_at(Position { x: 0.0, y: 0.0, z: 0.0 }).is_some());
         }
+    }
+
+    /// Ring-RPT is a spherical construction, so a cube of dispersed fuel must
+    /// **refuse** it rather than quietly fall back to the naive smear. A silent
+    /// fallback would report a ring-RPT number that was never computed — which
+    /// is the exact failure mode this variant was split out to end.
+    #[test]
+    fn dispersed_fuel_refuses_ring_rpt_rather_than_falling_back() {
+        let p = DispersedParams {
+            particle_radius: 0.04,
+            packing_fraction: 0.25,
+            half_width: 1.0,
+            materials: dummy_materials(2),
+            seed: 42,
+        };
+        let e = DhUniverse::dispersed(
+            p,
+            DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER },
+        )
+        .expect_err("ring-RPT on a cube should be refused");
+        assert!(matches!(e, DhError::Geometry(_)), "wrong error kind: {e}");
+        // The message must point at the treatment that IS right for a cube,
+        // rather than only saying no.
+        assert!(format!("{e}").contains("Homogenised"), "unhelpful message: {e}");
+    }
+
+    /// The two smearing treatments must be distinguishable through the API, or
+    /// the rename accomplished nothing: ring-RPT puts the particle material in
+    /// an annulus with matrix inside it, naive homogenisation fills the whole
+    /// zone with one material.
+    #[test]
+    fn ring_rpt_is_radially_structured_and_naive_homogenisation_is_not() {
+        let at = |t: DhTreatment, r: f64| {
+            DhUniverse::pebble(params(), t)
+                .unwrap()
+                .material_at(Position { x: 0.0, y: 0.0, z: r })
+        };
+        let rpt = DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER };
+
+        // Naive: same material at the centre and near the fuel-zone edge.
+        assert_eq!(at(DhTreatment::Homogenised, 0.0), at(DhTreatment::Homogenised, 1.8));
+
+        // Ring-RPT: matrix in the middle, homogenised fuel in the annulus.
+        // r_outer^3 = 1.493359375^3 + 0.30 * 1.9^3 -> r_outer ~ 1.746 cm.
+        let centre = at(rpt, 0.0).expect("centre");
+        let annulus = at(rpt, 1.6).expect("annulus");
+        assert_ne!(centre, annulus, "ring-RPT annulus is not distinct from its inner ball");
+        assert_eq!(centre, 5, "ring-RPT inner ball should be the matrix (index 5)");
+        assert_eq!(at(rpt, 1.8), Some(5), "outside the annulus should be matrix again");
+    }
+
+    /// A ring-RPT radius too large for the packing fraction cannot conserve
+    /// particle volume inside the fuel zone; that is reported, not panicked.
+    #[test]
+    fn ring_rpt_rejects_an_inner_radius_that_cannot_conserve_volume() {
+        let e = DhUniverse::pebble(params(), DhTreatment::RingRpt { inner_radius: 1.88 })
+            .expect_err("an annulus outside the fuel zone should be refused");
+        assert!(matches!(e, DhError::Geometry(_)), "wrong error kind: {e}");
+    }
+
+    /// A coolant shell moves the reflective boundary and costs an eighth
+    /// material. Both halves of that contract are checked.
+    #[test]
+    fn coolant_shell_requires_an_eighth_material() {
+        let seven = PebbleParams::fhr_unit_cell().with_materials(dummy_materials(7));
+        assert!(matches!(
+            DhUniverse::pebble(seven, DhTreatment::DeltaTracking),
+            Err(DhError::Materials(_))
+        ));
+
+        let eight = PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8));
+        let u = DhUniverse::pebble(eight, DhTreatment::Homogenised).expect("unit cell builds");
+        // Coolant fills 2.0 < r < 3.0 for every treatment.
+        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 2.5 }), Some(7));
+        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }), Some(6));
+    }
+
+    /// A coolant radius inside the pebble is a contradiction, not a clamp.
+    #[test]
+    fn coolant_radius_inside_the_pebble_is_rejected() {
+        let bad = PebbleParams::fhr_reference()
+            .with_coolant(1.5)
+            .with_materials(dummy_materials(8));
+        assert!(matches!(
+            DhUniverse::pebble(bad, DhTreatment::DeltaTracking),
+            Err(DhError::Geometry(_))
+        ));
     }
 }

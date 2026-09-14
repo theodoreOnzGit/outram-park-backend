@@ -23,11 +23,19 @@
 //! | **Delta tracking** | all N spheres + grid | majorant flight, rejection at the collision point |
 //! | **CLS** | none | chord crossings resampled from closed-form statistics |
 //! | **SCLS** | bounded local window | CLS plus retained inclusions |
-//! | **Ring-RPT** | none (homogenised) | analytic flight in one smeared material |
+//! | **Naive homogenisation** | none (smeared) | analytic flight in one smeared material |
 //!
-//! Ring-RPT is the **upper limit**: the double heterogeneity is gone, so its
+//! Naive homogenisation is the **upper limit**: the double heterogeneity is gone, so its
 //! cost is the floor any DH treatment is trying to approach. Surface tracking
 //! is the **baseline**: exact, and the thing being escaped.
+//!
+//! **There is deliberately no ring-RPT arm here.** Ring-RPT places the smeared
+//! fuel in a spherical annulus at a fitted radius, which is a property of a
+//! *pebble*; this benchmark walks a cube of the fuel zone and has no radial
+//! structure for an annulus to sit in. Its cost would in any case be the naive
+//! arm's — one extra radius comparison per query — so the ceiling above covers
+//! it. Ring-RPT's eigenvalue, which is where it differs from the naive arm
+//! entirely, is measured in `examples/dh_keff_vv.rs`.
 //!
 //! # Why absorption probability is printed next to every timing
 //!
@@ -69,7 +77,7 @@
 //! | Delta (Woodcock) tracking | 0.52-0.75 | **6.3-8.1x** | 0.8034 +/- 0.0009 | -1.0 sigma, NOT resolved |
 //! | CLS (memoryless) | 0.22-0.23 | **19.8-23.2x** | 0.8062 +/- 0.0009 | +1.2 sigma, NOT resolved |
 //! | SCLS (bounded window) | 0.43-0.47 | **9.6-11.0x** | 0.8128 +/- 0.0009 | +6.5 sigma, **resolved** |
-//! | Ring-RPT (no DH) | 0.07 | **59.4-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
+//! | Naive homogenisation (no DH) | 0.07 | **59.4-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
 //!
 //! Packing and grid construction are excluded from the timings and reported
 //! separately (~0.5 s and ~0.2 s); they are one-off setup, not per-history cost.
@@ -91,11 +99,12 @@
 //!   On this problem it captures roughly an eighth of the available ceiling.
 //! - **CLS is the fastest approximation at ~20x**, and its bias is **not
 //!   resolved** at 200 000 histories. See the caveat below before generalising.
-//! - **Ring-RPT costs -7.1 % in absorption.** That is the self-shielding thrown
+//! - **Naive homogenisation costs -7.1 % in absorption.** That is the self-shielding thrown
 //!   away when the particles are smeared: a neutron in the homogenised mixture
 //!   sees the absorber everywhere at reduced density instead of concentrated in
-//!   kernels it can miss entirely. Expected, large, and exactly why ring-RPT
-//!   needs its fitted inner radius.
+//!   kernels it can miss entirely. Expected, large, and exactly the loss that
+//!   ring-RPT exists to claw back by concentrating the smear into a fitted
+//!   annulus instead of spreading it over the whole zone.
 //!
 //! ## Two findings worth not glossing over
 //!
@@ -508,13 +517,13 @@ fn run_cls_family(name: &'static str, mut medium: StochasticMedium, mut seed: u6
 
 // ────────────────────────────────────────────────── arm 5: ring-RPT
 
-/// **Ring-RPT / homogenised — the upper limit.** The double heterogeneity is
+/// **Naive homogenisation — the upper limit.** The double heterogeneity is
 /// gone: one smeared material, one cross section, analytic flights.
 ///
 /// Nothing here queries geometry at all, so this is the floor that any DH
 /// treatment is working towards. It is not an approximation *of* tracking —
 /// it is what is left when there is no longer anything to track.
-fn run_ring_rpt(mut seed: u64) -> ArmResult {
+fn run_homogenised(mut seed: u64) -> ArmResult {
     // Volume-weighted smearing, the same mixing rule `homogenise_by_volume`
     // applies to the real TRISO material.
     let sigma_h = PACKING_FRACTION * SIGMA_INCLUSION + (1.0 - PACKING_FRACTION) * SIGMA_MATRIX;
@@ -544,7 +553,7 @@ fn run_ring_rpt(mut seed: u64) -> ArmResult {
         }
     }
     ArmResult {
-        name: "ring-RPT / homogenised (no DH)",
+        name: "naive homogenisation (no DH)",
         secs: t0.elapsed().as_secs_f64(),
         absorbed: absorbed as f64 / HISTORIES as f64,
         exact: false,
@@ -600,7 +609,7 @@ fn main() {
             StochasticMedium::Scls(SclsMedium::new(cls_medium, Position::ZERO, transport_mfp)),
             SEED ^ 0x4444_4444_4444_4444,
         ),
-        run_ring_rpt(SEED ^ 0x5555_5555_5555_5555),
+        run_homogenised(SEED ^ 0x5555_5555_5555_5555),
     ];
 
     let baseline = results[0].secs;
@@ -634,6 +643,6 @@ fn main() {
         );
     }
     println!();
-    println!("  Ring-RPT is the upper limit on speedup: {:.1}x. Any DH treatment lands between", baseline / results[4].secs);
+    println!("  Naive homogenisation is the upper limit on speedup: {:.1}x. Any DH treatment lands between", baseline / results[4].secs);
     println!("  1.0x (surface tracking) and that.");
 }

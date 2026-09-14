@@ -85,6 +85,65 @@ const HIST_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
 /// generation's sub-streams overlap the next generation's.
 const GEN_STRIDE: u64 = 1 << 40;
 
+/// The geometry seam every delta-tracked driver in this module talks to: "what
+/// material is at this point?", plus a per-history boundary notification.
+///
+/// # Why this is a trait and not just a closure
+///
+/// It was a bare `Fn(Position) -> Option<usize> + Sync` until 2026-09-14, and
+/// **every such closure still works unchanged** — the blanket impl below makes
+/// one. Nothing at any existing call site had to change.
+///
+/// What a closure cannot express is a lookup with *per-history state*.
+/// Semi-implicit chord-length sampling
+/// ([`SclsMedium`](crate::stochastic::scls::SclsMedium)) remembers the
+/// inclusions a neutron has already met, inside a window that must be **thrown
+/// away when the next history starts**. Through a bare closure there is no
+/// moment at which to throw it away, so history *n+1* inherits history *n*'s
+/// remembered geometry — which is not SCLS, and biases the result by an amount
+/// nobody has measured.
+///
+/// [`Self::begin_history`] is that moment. It defaults to doing nothing, so a
+/// stateless lookup ignores it entirely.
+///
+/// # Implementing it
+///
+/// `material_at` takes `&self`, so a stateful implementor needs interior
+/// mutability — `Mutex`/`RwLock`, which is also what satisfies the [`Sync`]
+/// supertrait the multi-threaded backend requires.
+///
+/// ```
+/// use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
+/// use outram_mc_libs::geometry::position::Position;
+///
+/// // A closure is already a MaterialQuery — this is the common case.
+/// let two_zone = |p: Position| Some(if p.norm() < 1.0 { 0 } else { 1 });
+/// assert_eq!(MaterialQuery::material_at(&two_zone, Position::new(0.0, 0.0, 0.5)), Some(0));
+/// ```
+pub trait MaterialQuery: Sync {
+    /// Material index at `p`, or `None` if the point is outside the model.
+    ///
+    /// Returning `None` leaks the history, so a reflective domain should answer
+    /// everywhere inside its boundary.
+    fn material_at(&self, p: Position) -> Option<usize>;
+
+    /// Called once immediately before each source neutron is transported.
+    ///
+    /// Stateless lookups need not implement this; the default does nothing.
+    /// Implement it to reset any memory that belongs to a single history.
+    fn begin_history(&self) {}
+}
+
+impl<F> MaterialQuery for F
+where
+    F: Fn(Position) -> Option<usize> + Sync,
+{
+    #[inline]
+    fn material_at(&self, p: Position) -> Option<usize> {
+        self(p)
+    }
+}
+
 /// A fission-source neutron awaiting transport in the next generation.
 #[derive(Clone, Copy)]
 struct Site {
@@ -354,7 +413,7 @@ fn advance_reflective_cube(
 /// real collision with probability `Σ_t/Σ_maj`. Returns `None` if the virtual
 /// budget is exhausted (a pathologically loose majorant) or the material lookup
 /// unexpectedly fails — both leak the history, as in the surface-tracked drivers.
-fn delta_flight<F>(
+fn delta_flight<Q>(
     start: Position,
     direction: Direction,
     energy: f64,
@@ -363,11 +422,11 @@ fn delta_flight<F>(
     materials: &[Material],
     nuclides: &[Nuclide],
     max_virtual: u32,
-    material_at: &F,
+    material_at: &Q,
     seed: &mut u64,
 ) -> Option<(Position, usize, Direction)>
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     let maj = majorant.at(energy);
     if !(maj > 0.0) {
@@ -380,7 +439,7 @@ where
         let (r_next, u_next) = domain.advance_reflective(r, u, s);
         r = r_next;
         u = u_next;
-        let m = material_at(r)?;
+        let m = material_at.material_at(r)?;
         let sigma_t = materials[m].macro_xs_total(energy, nuclides);
         match classify_collision(sigma_t, maj, seed) {
             DeltaEvent::Real => return Some((r, m, u)),
@@ -440,16 +499,16 @@ where
 /// corners hold material a sphere of the same radius does not, so prefer
 /// [`run_keff_delta_in`] with [`DeltaDomain::Sphere`] and match whatever
 /// boundary the reference used.
-pub fn run_keff_delta<F>(
+pub fn run_keff_delta<Q>(
     half_width: f64,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize> + Sync,
+    Q: MaterialQuery,
 {
     run_keff_delta_in(
         DeltaDomain::Cube { half: half_width },
@@ -461,16 +520,16 @@ where
     )
 }
 
-pub fn run_keff_delta_in<F>(
+pub fn run_keff_delta_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize> + Sync,
+    Q: MaterialQuery,
 {
     match settings.compute {
         ComputeType::CpuSingleThread => {
@@ -513,16 +572,16 @@ where
 /// fixed [`KeffSettings::seed`] yields the same eigenvalue bit-for-bit on every
 /// machine. [`run_keff_delta_par_in`] is acceleration only and is validated against
 /// this reference.
-pub fn run_keff_delta_seq_in<F>(
+pub fn run_keff_delta_seq_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     let mut seed = settings.seed;
     let temp = settings.temperature_k;
@@ -536,7 +595,7 @@ where
             break; // pathological: fuel fills a vanishing fraction of the cube
         }
         let r = domain.sample_point(&mut seed);
-        let fissile = material_at(r)
+        let fissile = material_at.material_at(r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -618,17 +677,17 @@ where
 ///
 /// The `material_at` geometry lookup is shared across threads by reference, so it
 /// must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
-pub fn run_keff_delta_par_in<F>(
+pub fn run_keff_delta_par_in<Q>(
     domain: DeltaDomain,
     materials: &[Material],
     nuclides: &[Nuclide],
     majorant: &Majorant,
-    material_at: F,
+    material_at: Q,
     settings: &KeffSettings,
     thread_count: ThreadCount,
 ) -> KeffResult
 where
-    F: Fn(Position) -> Option<usize> + Sync,
+    Q: MaterialQuery,
 {
     #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
@@ -662,7 +721,7 @@ where
             break; // pathological: fuel fills a vanishing fraction of the cube
         }
         let r = domain.sample_point(&mut src_seed);
-        let fissile = material_at(r)
+        let fissile = material_at.material_at(r)
             .map(|m| materials[m].macro_xs(1.0e6, nuclides).nu_fission > 0.0)
             .unwrap_or(false);
         if fissile {
@@ -753,7 +812,7 @@ where
 /// difference is that streaming is done by [`delta_flight`] (Woodcock) rather than
 /// surface tracking.
 #[allow(clippy::too_many_arguments)]
-fn transport_history<F>(
+fn transport_history<Q>(
     site: Site,
     domain: DeltaDomain,
     materials: &[Material],
@@ -761,15 +820,16 @@ fn transport_history<F>(
     majorant: &Majorant,
     temp: f64,
     k_running: f64,
-    material_at: &F,
+    material_at: &Q,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64
 where
-    F: Fn(Position) -> Option<usize>,
+    Q: MaterialQuery,
 {
     // Safety cap on events per history — a purely-scattering reflective medium with
     // vanishing absorption could otherwise bounce forever (mirrors keff drivers).
+    material_at.begin_history();
     const MAX_EVENTS: u32 = 100_000;
     const MAX_VIRTUAL: u32 = 100_000;
     let mut production = 0.0;
