@@ -1,0 +1,375 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{amsmath}
+
+% ---------------------------------------------------------------- theme
+\usetheme{default}
+\usecolortheme{default}
+\useinnertheme{rectangles}
+
+\definecolor{opdark}{RGB}{22,42,64}
+\definecolor{opaccent}{RGB}{198,90,40}
+\definecolor{opmuted}{RGB}{110,120,132}
+\definecolor{opgreen}{RGB}{40,110,80}
+
+\setbeamercolor{structure}{fg=opdark}
+\setbeamercolor{frametitle}{fg=opdark}
+\setbeamercolor{title}{fg=opdark}
+\setbeamercolor{alerted text}{fg=opaccent}
+\setbeamerfont{frametitle}{series=\bfseries,size=\large}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[square]
+\setbeamercolor{itemize item}{fg=opaccent}
+\setbeamercolor{itemize subitem}{fg=opmuted}
+
+\setbeamertemplate{footline}{%
+  \hfill\scriptsize\color{opmuted}%
+  OUTRAM PARK\quad\insertframenumber/\inserttotalframenumber\hspace{2ex}\vspace{1ex}}
+
+\newcommand{\caveat}[1]{{\footnotesize\color{opmuted}\textit{#1}}}
+\newcommand{\yes}{{\color{opgreen}$\checkmark$}}
+\newcommand{\no}{{\color{opaccent}$\times$}}
+
+% ---------------------------------------------------------------- title
+\title{\textbf{OUTRAM PARK}}
+\subtitle{Current capabilities, and where we are going}
+\author{Theodore Ong}
+\institute{\small National University of Singapore}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+  \begin{center}
+  \caveat{Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit}
+  \end{center}
+\end{frame}
+
+% ================================================================ 1
+\section{What it is}
+
+\begin{frame}{What OUTRAM PARK is}
+  A single Cargo workspace housing a pure-Rust reactor simulation suite.
+  \vspace{1em}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Scale (measured 14 Sep 2026)}
+      \begin{itemize}
+        \item \textbf{37} member crates
+        \item \textbf{1.06 M} lines under \texttt{src/}
+        \item \textbf{3{,}104} Rust source files
+        \item \textbf{8{,}367} test functions
+        \item GPL-3.0 throughout \\ \caveat{(one AGPL-3.0 exception: KOVAN)}
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Design constraints}
+      \begin{itemize}
+        \item Enums for dispatch --- no \texttt{dyn}, no \texttt{Box}
+        \item No lifetime parameters; \texttt{Arc<RwLock<T>>} for shared state
+        \item \texttt{uom}-typed physical quantities
+        \item Android/Termux \emph{and} \texttt{wasm32} are supported targets
+        \item Release-mode builds and tests only
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{1em}
+  \caveat{Not a wrapper. Every upstream code listed later is an independent Rust
+  translation, not an FFI binding.}
+\end{frame}
+
+% ================================================================ 2
+\section{Verification posture}
+
+\begin{frame}{The honest frame: verification is not validation}
+  \begin{itemize}
+    \item \textbf{Verification} --- is it implemented correctly?
+    \item \textbf{Validation} --- does it represent physical reality well enough for its purpose?
+  \end{itemize}
+  \vspace{0.8em}
+  Every crate carries a two-axis maintainer sign-off tracker. \alert{Today, both
+  axes read ``not yet manually checked'' on every crate} --- AI-assisted output is
+  treated as untrusted draft material until a human reviews it.
+  \vspace{0.8em}
+  \begin{center}
+  \small
+  Prototype $\rightarrow$ Unit Tested $\rightarrow$ Integrated $\rightarrow$
+  \textbf{Verified} $\rightarrow$ Validated $\rightarrow$ Published
+  \end{center}
+  \vspace{0.8em}
+  \caveat{Intended for education, research, capability building and V\&V only.
+  Explicitly not for facility operation, reactor control, licensing decisions,
+  safety-critical analysis or emergency response.}
+\end{frame}
+
+\begin{frame}{Nine of 37 crates are declared mature}
+  \scriptsize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{0.29\textwidth}p{0.44\textwidth}p{0.20\textwidth}@{}}
+    \toprule
+    \textbf{Crate} & \textbf{Bar it is held to} & \textbf{Evidence} \\
+    \midrule
+    \texttt{tampines-steam-tables} & IF97 region eqns to $10^{-8}$ vs IAPWS \cite{iapws97} & reference standard \\
+    \texttt{tuas\_boussinesq\_solver} & CIET outlet temp within 0.2\,\textdegree C; Gnielinski 2\% \cite{gnielinski} & experimental + cross-code \\
+    \texttt{outram-foam-appbuilder-lib} & Sod Table II vs exact Riemann; $L_2$ within 5\% of peak \cite{sod1978} & analytical / MMS \\
+    \texttt{chem-eng-\ldots-simulator} & discretisations exact at samples vs closed form & analytical \\
+    \texttt{outram-foam-basic-lib} & conservation to $10^{-12}$; convergence order matches theory & analytical / MMS \\
+    \texttt{njoy-outram-park-fork} & agrees with NJOY2016 to 7 significant figures \cite{njoy2016} & cross-code \\
+    \texttt{outram-mc-libs} & $k_{\text{eff}}$ within 500 pcm of ICSBEP Godiva \cite{icsbep} & cross-code \\
+    \texttt{teh-o-prke} & published $\beta$ reproduced; PRKE limiting cases exact & unit + consistency \\
+    \texttt{outram-park-fork-liggghts} & integrator + contact laws vs closed form \cite{liggghts} & analytical / MMS \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.5em}
+
+  \caveat{Published-benchmark agreement is deliberately \emph{not} an entry
+  requirement --- the validation pipeline runs \emph{through} these APIs, so
+  demanding it first would deadlock the work.}
+\end{frame}
+
+% ================================================================ 3
+\section{Current capabilities}
+
+\begin{frame}{Neutronics and nuclear data}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{\texttt{njoy-outram-park-fork}} --- 94k lines \\
+      \caveat{all nuclear data lives here; transport crates are data-free}
+      \begin{itemize}
+        \item RECONR / BROADR / THERMR / ACER ported from NJOY2016 \cite{njoy2016}
+        \item Faddeeva kernel, windowed multipole
+        \item Lean-ACE and WMP data blobs, $\bar\nu$ / $\chi$
+        \item LEAPR regenerates graphite $S(\alpha,\beta)$ from a 12\,kB deck
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{\texttt{outram-mc-libs}} --- 41k lines
+      \begin{itemize}
+        \item CSG geometry, particle tracking
+        \item $k$-eigenvalue; delta (Woodcock) tracking for doubly heterogeneous media
+        \item Depletion via CRAM \cite{pusa_cram}
+        \item Optional \texttt{wgpu} compute, CPU fallback mandatory
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.8em}
+  \textbf{Code-to-code against OpenMC} \cite{openmc} is live --- $k$-eff,
+  six-factor, ring RPT --- at \textbf{70\%} of its tracked scope.
+\end{frame}
+
+\begin{frame}{Thermal-hydraulics, CFD and process}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{0.30\textwidth}p{0.10\textwidth}p{0.53\textwidth}@{}}
+    \toprule
+    \textbf{Crate} & \textbf{Lines} & \textbf{Capability} \\
+    \midrule
+    \texttt{tuas\_boussinesq} & 157k & Boussinesq single-phase TH; CIET coupled-DRACS natural circulation \\
+    \texttt{tampines-steam-tables} & 138k & IAPWS-IF97 \cite{iapws97} + steam-turbine equations + choked flow \\
+    \texttt{\ldots fork-dwsim-libs} & 91k & Process-simulation blocks; rigorous + dynamic distillation \cite{luyben2013} \\
+    \texttt{\ldots fork-coolprop} & 67k & Helmholtz-EOS properties, 137 fluids \cite{coolprop} \\
+    \texttt{outram-foam-basic-lib} & 58k & OpenFOAM primitive + FV layer, Layers 1--4 \cite{openfoam} \\
+    \texttt{outram-foam-appbuilder} & 41k & Solver-application layer; hosts the GeN-Foam port \\
+    \texttt{\ldots fork-offbeat} & 60k & Fuel performance: eigenstrain, creep, gap/contact, $\sim$70 correlations \\
+    \texttt{tampines} & --- & Framework composing TUAS, CoolProp, steam tables, FV layer \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.8em}
+
+  \caveat{\ldots{} abbreviates the \texttt{outram-park-} prefix.}
+  \vspace{0.4em}
+
+  Plus mesh generation --- blockMesh, snappyHexMesh and a cfMesh port --- a
+  Blender-derived surface-authoring frontend at \textbf{94\%}, and turbulence
+  closures with $k$--$\omega$ SST implemented.
+\end{frame}
+
+\begin{frame}{Structural mechanics --- \texttt{farrer-park}}
+  Finite-element Analysis for Reactor Reliability, Engineering Response,
+  Plasticity And Risk. Ported from MOOSE \cite{moose} and PRISMS.
+  \vspace{0.6em}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \textbf{Verified against analytical solutions}
+      \begin{itemize}
+        \item MMS convergence orders match theory
+        \item Patch test at machine precision
+        \item Newton convergence order \textbf{2.004}
+        \item Crystal plasticity vs analytic Schmid yield: \textbf{1.5e-15} relative
+        \item Frame indifference \textbf{7.6e-16}
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \textbf{Volumetric locking: measured and cured}
+      \begin{itemize}
+        \item Full integration: MMS order 0.63--1.24
+        \item B-bar: \textbf{2.00--2.05}
+        \item Plastic collapse vs closed-form limit load: $+23.9\%$ $\rightarrow$ $\mathbf{+1.06\%}$
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.8em}
+  \caveat{Shear locking is measured and \alert{not} cured --- 11.25\% too stiff at two
+  Quad4 through the depth, 66.7\% at aspect ratio 4. Small strain only: no lattice
+  reorientation, no backstress. Verification only; no human V\&V.}
+\end{frame}
+
+\begin{frame}{Supporting layers}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{KOVAN} --- deterministic knowledge layer
+      \begin{itemize}
+        \item Literature archive with access tiers and provenance
+        \item rust-analyzer-backed symbol queries
+        \item Graph digitiser --- calibration and uncertainty are structurally mandatory
+        \item Offline, no cloud, no vector store
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{RAFFLES} --- UQ and risk \cite{raven}
+      \begin{itemize}
+        \item Distributions, samplers, Sobol sensitivity
+        \item Surrogates: not yet implemented
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Digital twin engine} --- 57k lines
+      \begin{itemize}
+        \item egui simulators: HTR-10, FHR
+        \item OPC-UA server and client
+        \item Offline demonstrations only --- never connected to plant systems
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{MSRE trio} \cite{msre} --- depletion \cite{thermochimica}, salt
+      thermochemistry, circulating-fuel neutronics \cite{moltres}
+      \vspace{0.3em}
+      \caveat{All three are AI-assisted drafts with no human V\&V, and none is
+      wired into a simulator yet.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ================================================================ 4
+\section{Known gaps}
+
+\begin{frame}{What is \emph{not} working --- stated deliberately}
+  \begin{itemize}
+    \item \textbf{916 open issues}, 674 closed. Four P0 defects are
+      \texttt{todo!()} panics or arithmetic underflow in live solver paths.
+    \item \textbf{No crate has human V\&V sign-off.} Every bookkeeping tracker
+      reads INCOMPLETE.
+    \item \textbf{The first headless run of \texttt{htgr\_sim\_v1}} (6 Sep 2026)
+      showed power overshooting to \textbf{27.8\,MW}, $\sim$2.8$\times$ nominal,
+      against a docstring claiming it started near steady state. The docstring had
+      been wrong, unnoticed, because a GUI-only simulator cannot be tested.
+    \item \textbf{IF97 flash panics above 1073.15\,K} --- too low for an HTGR.
+    \item \textbf{\texttt{wasm32} gate proves compilation, not execution.}
+      \texttt{thread::spawn} and \texttt{Instant::now} compile and panic at runtime.
+    \item \textbf{Six \texttt{extern "C"} calls} to the system libm remain, duplicated
+      across three crates.
+  \end{itemize}
+  \vspace{0.5em}
+  \caveat{These are tracked, not hidden. A simulator whose behaviour cannot be
+  falsified is not a capability.}
+\end{frame}
+
+% ================================================================ 5
+\section{Where we are going}
+
+\begin{frame}{Near-term: consolidation}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{PETIR} --- core maths crate \\
+      \caveat{Polynomials, Equations, Transforms, Integration, Roots}
+      \begin{itemize}
+        \item \texttt{no\_std} port of GSL \cite{gsl}, Octave and SLATEC \cite{slatec}
+        \item \alert{Ported, never AI-generated} --- traceable to a library with a real test suite
+        \item Removes the last C from the workspace
+        \item Bit-identical transcendentals across platforms
+        \item Unblocks NJOY and RAFFLES, neither of which can take the CFD crate
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Why it matters} \cite{trefethen_atap}
+      \begin{itemize}
+        \item Chebyshev fitting for cross-section representation
+        \item Orthogonal-basis regression for surrogate models
+        \item $\sim$27k lines of general numerics currently sit inside an OpenFOAM-branded crate
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{Also near-term}
+      \begin{itemize}
+        \item Android/Termux build sweep
+        \item API dogfooding: \emph{if it is too complex for a small model, it is a bad API}
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Medium-term: reactor targets}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{0.30\textwidth}p{0.08\textwidth}p{0.55\textwidth}@{}}
+    \toprule
+    \textbf{Programme} & \textbf{Done} & \textbf{Scope} \\
+    \midrule
+    OpenMC code-to-code & 70\% & $k$-eff, six-factor, ring RPT \cite{openmc} \\
+    \texttt{boon-lay} TRISO release & 73\% & Lagrangian decay / fission-product transport \\
+    NJOY module coverage & 22\% & ERRORR, GROUPR, URR, covariance \\
+    HTR-10 pebble bed & 0\% & Retarget the simulator from prismatic to pebble \cite{htr10} \\
+    HTGR roadmap (HTTR + HTR-10) & 0\% & Real-time capable prismatic and pebble branches \\
+    CIET educational simulator v3 & 0\% & TAMPINES library + digital-twin GUI \\
+    Nuclear oil refinery & 0\% & HTR-10 process heat into a refinery flowsheet \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.8em}
+
+  \textbf{Longer term --- \texttt{BISHAN}}, Building Internal Source-term and
+  Hazard Analysis Network: Level 2 PSA. Severe-accident progression, containment
+  response, in-building aerosol transport and pool scrubbing, release categories.
+  Depends on RAFFLES for the probabilistic machinery.
+\end{frame}
+
+\begin{frame}{The through-line}
+  \begin{columns}[T]
+    \begin{column}{0.47\textwidth}
+      \textbf{What is genuinely built}
+      \begin{itemize}
+        \item Nuclear data agreeing with NJOY2016 to 7 figures
+        \item MC within 500 pcm of Godiva
+        \item TH validated against CIET to 0.2\,\textdegree C
+        \item FEM with MMS orders matching theory
+        \item A million lines under one licence, one dependency policy, one workspace
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{What makes it trustworthy}
+      \begin{itemize}
+        \item Every port names its upstream, commit and licence
+        \item Every benchmark states methodology \emph{and} measured result
+        \item Every gap is a tracked issue, not a silence
+        \item AI-written code is untrusted until a human signs it off
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{1.2em}
+  \begin{center}
+    \alert{\textbf{The hard part is not writing the physics.}} \\
+    \vspace{0.3em}
+    It is being able to prove, later, that it was right.
+  \end{center}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+  \footnotesize
+  \bibliographystyle{plain}
+  \bibliography{outram-park}
+\end{frame}
+
+\end{document}
