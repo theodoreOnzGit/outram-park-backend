@@ -21,15 +21,26 @@
 //!
 //! It turns out the cost is avoidable, because **the fast implementation glibc
 //! itself ships is open source and permissively licensed**. glibc's
-//! `exp`/`log`/`pow` are ARM's optimized-routines, contributed upstream. Built
-//! from source and benchmarked side by side on this machine:
+//! `exp`/`log`/`pow` are ARM's optimized-routines, contributed upstream.
+//!
+//! Measured **from Rust**, which is the only measurement that says anything
+//! about this crate — 2 000 000 calls per route, `--release`, this host, via
+//! `tests/fast_math_speed.rs`:
 //!
 //! ```text
-//!                glibc      ARM optimized-routines     Rust libm
-//!   exp          118 ms            119 ms               255 ms
-//!   log          162 ms            158 ms               216 ms
-//!   pow          507 ms            507 ms              1544 ms
+//!                platform (glibc)   petir::real (libm)   petir::fast_*
+//!   exp                11.9 ms            16.6 ms            9.7 ms
+//!   ln                  9.7 ms            13.7 ms           12.2 ms
+//!   powf               35.0 ms            94.9 ms           44.3 ms
 //! ```
+//!
+//! Against the `libm` route the fast path is **1.7x** on `exp` and **2.1x** on
+//! `powf` — and only about **1.05x** on `ln`, which is worth saying plainly
+//! rather than rounding up: the `libm` crate's `log` is already good, and the
+//! portable (non-FMA) branch this port must take costs `log` and `pow` real
+//! work that glibc's FMA build avoids. That is why `exp` here actually beats
+//! the platform (it inlines, with no call through a dynamic symbol) while
+//! `ln` and `powf` sit about 1.25-1.5x behind it.
 //!
 //! and they are close enough to glibc that the whole remaining difference is a
 //! single rounding. Over 40 001 points spanning `[-700, 700]`, ARM's C built
@@ -94,21 +105,21 @@
 use crate::error::{PetirError, Result};
 
 /// `__exp_data.invln2N` — `1/ln2 * N`.
-const INV_LN2N: f64 = 184.66496523378731;
+pub(crate) const INV_LN2N: f64 = 184.66496523378731;
 /// `__exp_data.shift` — the round-to-int shift constant (`0x1.8p52`).
-const SHIFT: f64 = 6755399441055744.0;
+pub(crate) const SHIFT: f64 = 6755399441055744.0;
 /// `__exp_data.negln2hiN` / `negln2loN` — `-ln2/N` split for accuracy.
-const NEG_LN2_HI_N: f64 = -0.0054152123481117087;
-const NEG_LN2_LO_N: f64 = -1.2864023111638346e-14;
+pub(crate) const NEG_LN2_HI_N: f64 = -0.0054152123481117087;
+pub(crate) const NEG_LN2_LO_N: f64 = -1.2864023111638346e-14;
 /// `__exp_data.poly[0..4]` — C2..C5 for `EXP_POLY_ORDER == 5`.
-const POLY: [f64; 4] = [
+pub(crate) const POLY: [f64; 4] = [
     0.49999999999996786,
     0.16666666666665886,
     0.041666680841067401,
     0.0083333358530595491,
 ];
 /// `__exp_data.tab` — 2*N entries: `(tail_bits, scale_bits)` per index.
-const TAB: [u64; 256] = [
+pub(crate) const TAB: [u64; 256] = [
     0x0000000000000000,
     0x3ff0000000000000,
     0x3c9b3b4f1a88bf6e,
@@ -367,13 +378,13 @@ const TAB: [u64; 256] = [
     0x3feff3c22b8f71f1,
 ];
 /// `EXP_TABLE_BITS`.
-const TABLE_BITS: u32 = 7;
+pub(crate) const TABLE_BITS: u32 = 7;
 /// `N = 1 << EXP_TABLE_BITS`.
-const N: u64 = 1 << TABLE_BITS;
+pub(crate) const N: u64 = 1 << TABLE_BITS;
 
 /// `top12(x)` (`math_config.h`) — the top 12 bits of the double's encoding.
 #[inline]
-fn top12(x: f64) -> u32 {
+pub(crate) fn top12(x: f64) -> u32 {
     (x.to_bits() >> 52) as u32
 }
 

@@ -65,11 +65,13 @@ COPYRIGHT HOLDERS
 DERIVED WORK — ARM optimized-routines
 ================================================================================
 
-`src/fast_exp.rs` is a Rust transcription of ARM optimized-routines'
-`math/exp.c` + `math/exp_data.c`. This is the implementation **glibc itself
-ships** for `exp` (ARM contributed it upstream), which is why the port is both
-fast and, modulo one compiler contraction, bit-compatible with the platform
-libm on Linux.
+`src/fast_exp.rs`, `src/fast_log.rs` and `src/fast_pow.rs` are Rust
+transcriptions of ARM optimized-routines' `math/exp.c` + `math/exp_data.c`,
+`math/log.c` + `math/log_data.c`, and `math/pow.c` + `math/pow_common.h` +
+`math/pow_log_data.c` respectively. This is the implementation **glibc itself
+ships** for these three functions (ARM contributed it upstream), which is why
+the ports are both fast and, modulo one compiler contraction, bit-compatible
+with the platform libm on Linux.
 
   Project    : ARM optimized-routines
   Upstream   : https://github.com/ARM-software/optimized-routines
@@ -108,6 +110,11 @@ COPYRIGHT HOLDERS
 
     math/exp.c            Copyright (c) 2018-2025, Arm Limited
     math/exp_data.c       Copyright (c) 2018-2023, Arm Limited
+    math/log.c            Copyright (c) 2018-2025, Arm Limited
+    math/log_data.c       Copyright (c) 2018, Arm Limited
+    math/pow.c            Copyright (c) 2018-2026, Arm Limited
+    math/pow_common.h     Copyright (c) 2026, Arm Limited
+    math/pow_log_data.c   Copyright (c) 2018, Arm Limited
     math/math_config.h    Copyright (c) 2017-2025, Arm Limited
     math/math_err.c       Copyright (c) 2018, Arm Limited
 

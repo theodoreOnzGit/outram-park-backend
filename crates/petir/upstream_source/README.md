@@ -201,7 +201,10 @@ of any further file before porting it:
 | `math/exp.c` | Arm Limited, 2018–2025 |
 | `math/exp_data.c` | Arm Limited, 2018–2023 |
 | `math/log.c` | Arm Limited, 2018–2025 |
+| `math/log_data.c` | Arm Limited, 2018 |
 | `math/pow.c` | Arm Limited, 2018–2026 |
+| `math/pow_common.h` | Arm Limited, 2026 |
+| `math/pow_log_data.c` | Arm Limited, 2018 |
 | `math/math_config.h` | Arm Limited, 2017–2025 |
 | `math/math_err.c` | Arm Limited, 2018 |
 
@@ -218,24 +221,59 @@ Digests recorded at sync so a reviewer can diff the exact bytes that were read:
 | `4497df6d64e0043c` | `math/pow.c` | 373 |
 | `d28818bd95355e68` | `math/pow_log_data.c` | 184 |
 | `9a3ee029ba2b5844` | `math/math_config.h` | 770 |
+| `367906e9face47b4` | `math/pow_common.h` | 45 |
 | `202a5f0b4983da16` | `math/math_err.c` | 80 |
 
 ## The tables were extracted mechanically, not retyped
 
 `exp_data.c` selects between `N == 64` and `N == 128` variants with
-preprocessor conditionals, so resolving them by eye is exactly how a
-transcription error gets in. The 256 table entries and 4 polynomial
-coefficients in `src/fast_exp.rs` were instead produced by **linking the
-compiled `exp_data.o` into a dumper** that printed the resolved `__exp_data`
-fields as hex bit patterns, and generating the Rust table from that output.
-Same reasoning as the mechanical extraction of `expint`'s 150 coefficients.
+preprocessor conditionals; `log_data.c` compiles its second table (`tab2`)
+only when `HAVE_FAST_FMA == 0`. Resolving conditionals like these by eye is
+exactly how a transcription error gets in. So every table in
+`src/fast_{exp,log,pow}.rs` — 256 `exp` entries, 256 + 256 `log` entries, 384
+`pow` entries, and 27 polynomial coefficients between them — was produced by
+**linking the compiled `*_data.o` into a dumper** that printed the resolved
+`__exp_data` / `__log_data` / `__pow_log_data` fields as hex bit patterns, and
+generating the Rust from that output. Same reasoning as the mechanical
+extraction of `expint`'s 150 coefficients.
+
+The dumper also printed the resolved configuration, which is how the ports
+know which branches to take rather than guessing: `HAVE_FAST_FMA=0`,
+`LOG_TABLE_BITS=7`, `LOG_POLY_ORDER=6`, `LOG_POLY1_ORDER=12`,
+`POW_LOG_TABLE_BITS=7`, `POW_LOG_POLY_ORDER=8`, `EXP_TABLE_BITS=7`,
+`EXP_POLY_ORDER=5`, `EXP_USE_TOINT_NARROW=0`, `TOINT_INTRINSICS=0`.
 
 ## V&V oracle
 
 `reference-data/arm-optimized-routines/` (repository root, outside `crates/`)
-holds ARM's own compiled output over a fixed probe grid, plus the committed
-driver that regenerates it. `crates/petir/tests/fast_exp_vs_arm_optimized_routines.rs`
-checks the port against it **bit for bit**, and passes at 100.000 %.
+holds ARM's own compiled output over fixed probe grids, plus the committed
+drivers that regenerate them. Each port is checked against its oracle **bit for
+bit**, and all three pass at **100.000 %**:
+
+| port | test | probes compared | bit-identical |
+|---|---|---|---|
+| `fast_exp::exp` | `tests/fast_exp_vs_arm_optimized_routines.rs` | 8 290 | 8 290 |
+| `fast_log::ln` | `tests/fast_log_vs_arm_optimized_routines.rs` | 16 748 | 16 748 |
+| `fast_pow::powf` | `tests/fast_pow_vs_arm_optimized_routines.rs` | 42 176 | 42 176 |
+
+The remaining probes in each file are refusals — overflow, underflow,
+divide-by-zero or invalid-operand — and each is checked against upstream's
+returned infinity, zero or NaN rather than skipped.
+
+Speed, measured **from Rust** over 2 000 000 calls per route
+(`crates/petir/tests/fast_math_speed.rs`, `--release`, this host), because a
+figure measured in C says nothing about this crate:
+
+| | platform (glibc) | `petir::real` (libm) | `petir::fast_*` |
+|---|---|---|---|
+| `exp` | 11.9 ms | 16.6 ms | 9.7 ms |
+| `ln` | 9.7 ms | 13.7 ms | 12.2 ms |
+| `powf` | 35.0 ms | 94.9 ms | 44.3 ms |
+
+So against the `libm` route: 1.7x on `exp`, 2.1x on `powf`, and only ~1.05x on
+`ln`. The `ln` figure is small and is reported as such — `HAVE_FAST_FMA == 0`
+costs `log` a second table and a longer near-1 branch, and the `libm` crate's
+`log` is already good.
 
 That directory's README also records the FMA finding: glibc's ifunc dispatch
 picks an FMA-compiled build of this source, which differs from the portable
