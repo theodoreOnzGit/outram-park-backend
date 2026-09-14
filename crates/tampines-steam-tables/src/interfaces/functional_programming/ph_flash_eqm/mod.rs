@@ -26,16 +26,6 @@ use super::pt_flash_eqm::FwdEqnRegion;
 /// know the temperature should use the Region 5 forward `(T,p)` equations
 /// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...) directly.
 ///
-/// In practice a `(p,h)` point in Region 5 is rejected earlier, by
-/// `check_if_within_ph_validity_region` (it lies above the 1073.15 K isotherm);
-/// this message documents the same limitation at the region-dispatch arms so
-/// the intent is explicit wherever a reader lands.
-pub(crate) const REGION_5_PH_UNSUPPORTED: &str =
-    "(p,h) flash into IAPWS-IF97 Region 5 (T > 1073.15 K) is unsupported: \
-     IAPWS-IF97 provides no backward (p,h) correlation for Region 5 (Wagner & \
-     Kretzschmar, International Steam Tables). Use the Region 5 forward (T,p) \
-     equations (h_tp_5, v_tp_5, s_tp_5, ...) instead.";
-
 /// obtains temperature given pressure and enthalpy
 pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
     let region = ph_flash_region(p, h);
