@@ -553,6 +553,15 @@ impl OuterShells {
 
     /// Material at radius `r`, or `None` while `r` is still inside the fuel
     /// zone and the treatment must answer for itself.
+    /// Every material index this shell set can return, for the majorant bound.
+    fn reachable(&self) -> Vec<usize> {
+        let mut v = vec![self.shell_material];
+        if let Some(c) = self.coolant_material {
+            v.push(c);
+        }
+        v
+    }
+
     #[inline]
     fn at(&self, r: f64) -> Option<usize> {
         if r < self.fuel_zone_radius {
@@ -1060,8 +1069,11 @@ impl DhUniverse {
     pub fn keff(&self, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult {
         // Same bounding grid the ring-RPT V&V deck uses: 4096 log bins over
         // 1e-4 eV .. 20 MeV with refinement, 30 % margin. An under-bound
-        // majorant is a SILENT bias in delta tracking, not a crash.
-        let majorant = Majorant::bounding(&self.materials, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        // majorant is a SILENT bias in delta tracking, not a crash — which is
+        // why `reachable_materials` must return every index `material_at` can
+        // produce, and is derived from the geometry rather than guessed.
+        let reachable = self.reachable_materials();
+        let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
         run_keff_delta_in(
             self.domain,
             &self.materials,
@@ -1070,6 +1082,69 @@ impl DhUniverse {
             self,
             settings,
         )
+    }
+}
+
+impl DhUniverse {
+    /// The materials [`Self::material_at`] can actually return — which for every
+    /// approximate treatment is a **strict subset** of [`Self::materials`].
+    ///
+    /// # Why this exists, and why getting it wrong is expensive in both directions
+    ///
+    /// An approximate treatment synthesises a smeared material and stops
+    /// returning the ones it was smeared from, but those originals stay in the
+    /// table so that indices do not shift. Bounding the delta-tracking majorant
+    /// over the whole table therefore bounds materials **no history can ever
+    /// reach** — and on a TRISO pebble the unreachable one is the undiluted
+    /// kernel, whose U-238 resonance peaks tower over everything the smeared
+    /// geometry actually contains.
+    ///
+    /// That costs time quadratically in a sense that matters: delta tracking
+    /// accepts a collision with probability `sigma_t / sigma_maj`, so inflating
+    /// the majorant by a factor N multiplies the virtual-collision count — and
+    /// hence the point queries, and hence the whole run — by roughly N.
+    ///
+    /// It does **not** bias the eigenvalue. An over-bound majorant is wasteful;
+    /// only an *under*-bound one is wrong, and silently so. That asymmetry is
+    /// why this function is derived from the geometry arm by arm rather than
+    /// filtered by a heuristic: a missed index would trade a performance bug for
+    /// a correctness bug.
+    fn reachable_materials(&self) -> Vec<Material> {
+        self.reachable_material_indices()
+            .into_iter()
+            .map(|i| self.materials[i].clone())
+            .collect()
+    }
+
+    /// The index set behind [`Self::reachable_materials`], separated so a test
+    /// can check it against what [`Self::material_at`] actually returns.
+    fn reachable_material_indices(&self) -> Vec<usize> {
+        let mut idx: Vec<usize> = match &self.geometry {
+            // Explicit geometry reaches every material the caller supplied.
+            DhGeometry::Pebble(_) => (0..self.materials.len()).collect(),
+            DhGeometry::Dispersed { particle_material, matrix_material, .. } => {
+                vec![*particle_material, *matrix_material]
+            }
+            DhGeometry::Cls { particle_material, matrix_material, outer, .. }
+            | DhGeometry::Scls { particle_material, matrix_material, outer, .. } => {
+                let mut v = vec![*particle_material, *matrix_material];
+                v.extend(outer.reachable());
+                v
+            }
+            DhGeometry::Homogenised { homogenised, outer } => {
+                let mut v = vec![*homogenised];
+                v.extend(outer.reachable());
+                v
+            }
+            DhGeometry::RingRpt { homogenised, matrix_material, outer, .. } => {
+                let mut v = vec![*homogenised, *matrix_material];
+                v.extend(outer.reachable());
+                v
+            }
+        };
+        idx.sort_unstable();
+        idx.dedup();
+        idx
     }
 }
 
@@ -1524,6 +1599,93 @@ mod tests {
         // Coolant fills 2.0 < r < 3.0 for every treatment.
         assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 2.5 }), Some(7));
         assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }), Some(6));
+    }
+
+    /// **The safety property behind the majorant.** `reachable_materials` bounds
+    /// the delta-tracking majorant, and an under-bound majorant is a *silent*
+    /// bias — the run completes and the answer is wrong. So the set it returns
+    /// must contain every index `material_at` can produce, for every treatment.
+    ///
+    /// This samples the domain densely and checks exactly that. It is a
+    /// necessary condition rather than a proof, but it is the condition that
+    /// fails first if a future treatment forgets to declare one of its
+    /// materials.
+    #[test]
+    fn every_material_the_geometry_returns_is_declared_reachable() {
+        let mut seed = 0x5EED_1234_u64;
+        let mut next = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+
+        for t in DhTreatment::ALL {
+            let u = DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                t,
+            )
+            .unwrap_or_else(|e| panic!("{} failed to build: {e}", t.name()));
+
+            let declared = u.reachable_material_indices();
+            let r_max = 3.0;
+            for _ in 0..200_000 {
+                // Uniform in the ball by rejection — cheap and unbiased.
+                let p = loop {
+                    let c = Position {
+                        x: r_max * (2.0 * next() - 1.0),
+                        y: r_max * (2.0 * next() - 1.0),
+                        z: r_max * (2.0 * next() - 1.0),
+                    };
+                    if c.norm() <= r_max {
+                        break c;
+                    }
+                };
+                if let Some(m) = u.material_at(p) {
+                    assert!(
+                        declared.contains(&m),
+                        "{}: material_at returned index {m} at r = {:.4}, which is NOT in the \
+                         declared reachable set {declared:?}. The majorant would not bound it, \
+                         and an under-bound majorant is a silent bias.",
+                        t.name(),
+                        p.norm()
+                    );
+                }
+            }
+        }
+    }
+
+    /// The point of declaring reachability: every approximate treatment must
+    /// bound a *strictly smaller* set than the explicit one, or the fix bought
+    /// nothing. On a TRISO pebble the material dropped is the undiluted kernel,
+    /// whose resonance peaks set the majorant for everyone else.
+    #[test]
+    fn approximate_treatments_bound_fewer_materials_than_delta_tracking() {
+        let build = |t| {
+            DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                t,
+            )
+            .unwrap()
+        };
+        let delta = build(DhTreatment::DeltaTracking);
+        let n_delta = delta.reachable_material_indices().len();
+
+        for t in DhTreatment::ALL.into_iter().filter(|t| !t.is_exact()) {
+            let u = build(t);
+            let idx = u.reachable_material_indices();
+            assert!(
+                idx.len() < n_delta,
+                "{} bounds {} materials against delta tracking's {} — no saving",
+                t.name(),
+                idx.len(),
+                n_delta
+            );
+            assert!(
+                !idx.contains(&0),
+                "{} declares the undiluted kernel (index 0) reachable, but no point in its \
+                 geometry returns it — that is the inflated-majorant bug this guards",
+                t.name()
+            );
+        }
     }
 
     /// A coolant radius inside the pebble is a contradiction, not a clamp.
