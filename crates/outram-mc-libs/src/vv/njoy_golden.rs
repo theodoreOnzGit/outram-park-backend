@@ -197,7 +197,10 @@ pub const H2O_KERNEL: &[(f64, f64, f64)] = &[
 /// worst deviation from −5.54 % to −2.10 %. The 6 % figure was sized to the old
 /// defect and would now pass a full regression of it. Tighten this again when
 /// #188 is closed; never widen it.
-pub const H2O_KERNEL_TOL: f64 = 0.03;
+///
+/// **Updated 2026-09-13, GitHub #188 fixed.** Worst is now `+0.88 %` (was
+/// `5.54 %`, one-signed), so the bound tightens from 3 % to 1.5 %.
+pub const H2O_KERNEL_TOL: f64 = 0.015;
 
 /// Incident energy at which this crate's H-in-H₂O kernel crosses NJOY's, in eV.
 /// Below it this crate's `<E'>/E` is low, above it high — the sign structure
@@ -629,7 +632,13 @@ pub const GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV: f64 = 4.0;
 /// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`]: **3 %**, against a worst
 /// measured deviation of −1.96 %. Tightened from 15 % → 4 % → 3 % over
 /// 2026-09-12 as the emission tabulation was fixed and then removed.
-pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.03;
+///
+/// **Updated 2026-09-13, GitHub #188 fixed.** The home-grown emission
+/// tabulation was replaced by the ported `aceth.f90::acesix`, and the width
+/// residual stopped being one-signed: it is now two-sided and smaller, worst
+/// `+0.60 %` (was `-1.96 %`). The tolerance is tightened from 3 % to 1.2 %
+/// accordingly.
+pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.012;
 
 /// How far **broad** a width point may be below
 /// [`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`] before the gate fires: **0.5 %**.
@@ -648,7 +657,16 @@ pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.03;
 /// magnitude — that defect was +35 % at this very energy — while admitting a
 /// point that has converged onto NJOY from below and crossed by a third of a
 /// sigma of the sampling error.
-pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.005;
+///
+/// **Updated 2026-09-13, GitHub #188 fixed.** With `acesix` bins the kernel is
+/// no longer narrow everywhere below 4 eV — at 1.0e-2 eV it now measures
+/// `+0.60 %`, i.e. slightly **broad**. That is the residual of the
+/// 64-equally-probable-bin representation plus this crate's within-bin
+/// reconstruction, not a return of #190: measured against NJOY's own ACE file
+/// the bins agree to `2.6e-5`, so the discretisation is NJOY's too. The ceiling
+/// rises to 1.2 % to admit it, which still catches #190's `+35 %` at this
+/// energy by a factor of 29.
+pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.012;
 
 /// Linear-linear interpolation on an ascending `(E, sigma)` table, returning
 /// zero outside it — the same contract as NJOY's `gety1`, so a comparison

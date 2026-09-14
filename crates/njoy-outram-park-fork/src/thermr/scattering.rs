@@ -62,7 +62,6 @@ use std::sync::{Arc, RwLock};
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
 use crate::endf::tape::Tape;
-use crate::thermr::inelastic::OutgoingBin;
 use crate::thermr::mf7::{parse_mf7_at_temperature, IncoherentInelastic};
 use crate::units::{CrossSection, NeutronEnergy, Temperature};
 use crate::NjoyError;

@@ -87,21 +87,43 @@ pub struct Law1LabTable {
 /// - [`NjoyError::EndfParse`] for any other `lang != 1`, malformed input
 ///   (`nl == 0`, empty tables, `elo >= ehi`), or a bad interpolation law.
 ///
-/// # A literal upstream inconsistency, not reproduced
-/// The unit-base (`INT` 11-15) branch's coefficient loop guards the **low**
-/// table's contribution with `if (llo.ne.ihi.and.llo.le.mlo)`
-/// (`groupr.f90:9236`) — comparing the low table's own running pointer `llo`
-/// against the *high* table's initial pointer `ihi`, where every sibling
-/// check in this routine (including the `chi`-side check two lines later,
-/// `lhi.ne.ihi`) compares a table's pointer against *its own* initial
-/// pointer. This reads as a copy-paste slip, and is numerically inert in the
-/// overwhelmingly common case `ilo == ihi` (both tables have no discrete
-/// lines, `ND = 0`, so both initial pointers sit at the same offset `7`).
-/// This module's [`Law1LabTable`] does not carry a discrete-line offset at
-/// all (discrete lines live in a separate structure entirely — see the
-/// module docs), so there is no `ihi`-analogue to (mis)compare against here;
-/// this port therefore always uses the self-consistent `lo_ptr != lo_first`
-/// check. Flagged for the record, not silently fixed elsewhere.
+/// # Two things about the "does a predecessor record exist" guards
+///
+/// **1. The base they compare against (fixed 2026-09-13).** Upstream sets
+/// (`groupr.f90:9119-9121`)
+///
+/// ```text
+///   ilo = 7 + nclo*ndlo          ! the first CONTINUUM point
+///   llo = ilo
+///   if (clo(llo).le.zero) llo = llo + nclo   ! skip a leading E' <= 0 point
+/// ```
+///
+/// and then guards the coefficient interpolation with `llo.ne.ilo`
+/// (`groupr.f90:9214`). That asks **"does this panel have a predecessor
+/// record?"**, and `ilo` is the *unskipped* first point — so when a leading
+/// zero-energy point is present, `llo` already differs from `ilo` at the very
+/// first panel and upstream interpolates there, using that zero point as the
+/// left end.
+///
+/// This port previously compared against `lo_first`, the *post-skip* index
+/// (upstream's initial `llo`, not its `ilo`), which is equal to `lo_ptr` on the
+/// first panel and therefore **silently dropped that panel's contribution**.
+/// Since [`super::cm::cm2lab`] and [`super::lab7::ll2lab`] both always emit a
+/// leading `E' = 0` point, every CM-frame and LAW=7 feed lost its first
+/// secondary-energy panel. The guards now compare against index `0`, which is
+/// this module's `ilo`: [`Law1LabTable`] holds continuum points only (discrete
+/// lines live in a separate structure), so `ndlo = 0` and upstream's
+/// `ilo = 7` is our index `0`.
+///
+/// **2. A genuine upstream slip, still not reproduced.** The unit-base
+/// (`INT` 11-15) branch guards the **low** table's contribution with
+/// `if (llo.ne.ihi.and.llo.le.mlo)` (`groupr.f90:9236`) — the low table's
+/// running pointer against the *high* table's initial pointer, where every
+/// sibling check compares a table's pointer against its own base. That reads
+/// as a copy-paste slip and is numerically inert whenever `ilo == ihi` (both
+/// tables `ND = 0`, so both bases sit at offset 7), which is the overwhelmingly
+/// common case. This port uses the self-consistent own-base check in that
+/// branch too. Flagged for the record.
 #[allow(clippy::too_many_arguments)]
 pub fn f6lab(
     lo: &Law1LabTable,
@@ -285,7 +307,7 @@ pub fn f6lab(
         }
         lo_ptr = p;
         hi_ptr = q;
-        if lo_ptr != lo_first && lo_ptr <= lo_last {
+        if lo_ptr != 0 && lo_ptr <= lo_last {
             let eplast = terp1(
                 elo,
                 lo.points[lo_ptr - 1].ep,
@@ -305,7 +327,7 @@ pub fn f6lab(
         let mut term1 = 0.0_f64;
         let mut term2 = 0.0_f64;
         if !unit_base {
-            if lo_ptr != lo_first && lo_ptr <= lo_last && l <= lo.points[lo_ptr].coeffs.len() {
+            if lo_ptr != 0 && lo_ptr <= lo_last && l <= lo.points[lo_ptr].coeffs.len() {
                 term1 = terp1(
                     lo.points[lo_ptr - 1].ep,
                     lo.points[lo_ptr - 1].coeffs[l - 1],
@@ -316,7 +338,7 @@ pub fn f6lab(
                 )?;
                 term1 *= xlo;
             }
-            if hi_ptr != hi_first && hi_ptr <= hi_last && l <= hi.points[hi_ptr].coeffs.len() {
+            if hi_ptr != 0 && hi_ptr <= hi_last && l <= hi.points[hi_ptr].coeffs.len() {
                 term2 = terp1(
                     hi.points[hi_ptr - 1].ep,
                     hi.points[hi_ptr - 1].coeffs[l - 1],
@@ -331,7 +353,7 @@ pub fn f6lab(
             tl /= xend;
             term[l - 1] = tl;
         } else {
-            if lo_ptr != lo_first && lo_ptr <= lo_last && l <= lo.points[lo_ptr].coeffs.len() {
+            if lo_ptr != 0 && lo_ptr <= lo_last && l <= lo.points[lo_ptr].coeffs.len() {
                 let epp = f1 * lo.points[lo_ptr].ep + f2 * lo.points[lo_ptr - 1].ep;
                 term1 = terp1(
                     lo.points[lo_ptr - 1].ep,
@@ -342,7 +364,7 @@ pub fn f6lab(
                     lep,
                 )?;
             }
-            if hi_ptr != hi_first && hi_ptr <= hi_last && l <= hi.points[hi_ptr].coeffs.len() {
+            if hi_ptr != 0 && hi_ptr <= hi_last && l <= hi.points[hi_ptr].coeffs.len() {
                 let epp = f1 * hi.points[hi_ptr].ep + f2 * hi.points[hi_ptr - 1].ep;
                 term2 = terp1(
                     hi.points[hi_ptr - 1].ep,

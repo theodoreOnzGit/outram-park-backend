@@ -82,6 +82,7 @@ pub mod input;
 pub mod kinematics;
 pub mod matrix;
 pub mod matrix_panel;
+pub mod mf6_feed;
 pub mod overlap;
 pub mod panel;
 pub mod pendf_feed;

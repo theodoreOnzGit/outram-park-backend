@@ -291,6 +291,9 @@ fn h2o_sab_law_ends_between_2_and_4_ev() {
 /// assertions.
 #[test]
 fn h2o_sab_kernel_against_njoy_thermr() {
+    /// Per-point bound on |Δ⟨E′⟩/E| for H(H₂O), replacing the pre-#188 sign
+    /// test. Worst measured 2026-09-13: +0.88 % at 1.5e-3 eV.
+    const H2O_KERNEL_POINT_TOL: f64 = 0.015;
     let Some(law) = law_or_skip("tsl-HinH2O.endf", 1, 293.6, "c_H_in_H2O") else {
         return;
     };
@@ -308,22 +311,22 @@ fn h2o_sab_kernel_against_njoy_thermr() {
             worst = rel.abs();
             worst_e = e;
         }
-        // The sign structure IS the finding — see the doc comment.
-        if e < 0.9 * H2O_KERNEL_CROSSOVER_EV {
-            assert!(
-                rel < 0.005,
-                "below the ~0.11 eV crossover the kernel should under-GAIN energy \
-                 (negative rel); at {e} eV it is {:+.2} %",
-                100.0 * rel
-            );
-        } else if e > 1.3 * H2O_KERNEL_CROSSOVER_EV {
-            assert!(
-                rel > -0.005,
-                "above the ~0.11 eV crossover the kernel should under-LOSE energy \
-                 (positive rel); at {e} eV it is {:+.2} %",
-                100.0 * rel
-            );
-        }
+        // The sign structure WAS the finding, and it is gone. Until 2026-09-13
+        // this asserted that the kernel under-GAINS below the ~0.11 eV
+        // crossover and under-LOSES above it — one-signed on each side, which
+        // is what a systematically energy-starved kernel looks like. GitHub
+        // #188's fix (the home-grown emission tabulation replaced by the ported
+        // `aceth.f90::acesix`) removed exactly that: the residual is now
+        // two-sided and an order of magnitude smaller, so a sign test fails on
+        // points that are *right*. What replaces it is a per-point magnitude
+        // bound; the collapse in size is the evidence, not the sign.
+        assert!(
+            rel.abs() < H2O_KERNEL_POINT_TOL,
+            "the H(H2O) kernel is {:+.2} % from NJOY at {e} eV, outside the \
+             per-point bound recorded on 2026-09-13 (worst +0.88 %, was one-signed \
+             and up to 5.54 % before GitHub #188 was fixed)",
+            100.0 * rel
+        );
     }
     println!(
         "  worst |Δ⟨E′⟩/E| = {:.2} % at {:.4e} eV",
@@ -332,8 +335,8 @@ fn h2o_sab_kernel_against_njoy_thermr() {
     );
     assert!(
         worst < H2O_KERNEL_TOL,
-        "the H(H2O) kernel is {:.2} % from NJOY at {:.4e} eV — worse than the 5.54 % \
-         recorded on 2026-09-11 (GitHub #188)",
+        "the H(H2O) kernel is {:.2} % from NJOY at {:.4e} eV — worse than the 0.88 % \
+         recorded on 2026-09-13 after GitHub #188 was fixed (it was 5.54 % before)",
         100.0 * worst,
         worst_e
     );
