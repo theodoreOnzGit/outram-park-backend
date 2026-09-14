@@ -24,6 +24,14 @@ Cargo.lock
 /verification_and_validation/*.csv
 /verification_and_validation/**/*.csv
 
+# EXCEPTION -- golden references ARE committed. A golden reference is not
+# regenerable raw data: it is a trajectory recorded under a build configuration
+# that is no longer the default, kept so the current code can be diffed against
+# it. `golden/<case>/` therefore holds data that must survive, and each such
+# directory is documented by a sibling .md giving the commit, the machine, the
+# exact command and the acceptance criterion. Keep these small and few.
+!/verification_and_validation/golden/**/*.csv
+
 # Generated output of the `steam_table_plotter` example (GitHub issue #26).
 # Regenerate the whole directory in a few seconds with:
 #
