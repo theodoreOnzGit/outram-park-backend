@@ -363,7 +363,15 @@ fn c2d_zoh(
     let a_mat = [[0.0, 1.0], [-a0, -a1]];
 
     // Eigenvalues: roots of s^2 + a1 s + a0.
-    let roots = polynomial::roots_deg_le_2(&[a0, a1, 1.0]).expect("degree 2 by construction");
+    // `roots_deg_le_2` returns None above degree 2, and its own doc says the
+    // CALLER turns that into UnsupportedOrder. This site used to `.expect()`
+    // instead, which made a documented error path a panic. The polynomial here
+    // is degree 2 by construction, so the branch is unreachable in practice --
+    // but "unreachable in practice" is exactly the reasoning that puts a panic
+    // into a library, and PETIR lifts this file for bare-metal use where a
+    // panic is fatal. See petir/tests/no_panic_gate.rs.
+    let roots = polynomial::roots_deg_le_2(&[a0, a1, 1.0])
+        .ok_or(ZDomainError::UnsupportedOrder { order: 2 })?;
     let (l1, l2) = (roots[0], roots[1]);
 
     // Distinct vs (near-)repeated eigenvalues. Near-repeated pairs are
@@ -504,8 +512,10 @@ fn c2d_matched(
     let den = sys.denominator_ascending_s();
 
     // zpk data: roots and the ratio of leading coefficients.
-    let z_c = polynomial::roots_deg_le_2(num).expect("order checked");
-    let p_c = polynomial::roots_deg_le_2(den).expect("order checked");
+    let z_c = polynomial::roots_deg_le_2(num)
+        .ok_or(ZDomainError::UnsupportedOrder { order: num.len().saturating_sub(1) })?;
+    let p_c = polynomial::roots_deg_le_2(den)
+        .ok_or(ZDomainError::UnsupportedOrder { order: den.len().saturating_sub(1) })?;
     let k_c = num.last().copied().unwrap_or(0.0) / den.last().copied().unwrap_or(1.0);
 
     // z = exp(s T) on poles and finite zeros (upstream: p_d = exp(p_c*tsam))
@@ -586,8 +596,10 @@ fn d2c_matched(sys: &DiscreteTransferFn) -> Result<ContinuousTransferFn, ZDomain
         return Err(ZDomainError::UnsupportedOrder { order });
     }
 
-    let z_d_orig = polynomial::roots_deg_le_2(&num_asc_z).expect("order checked");
-    let p_d = polynomial::roots_deg_le_2(&den_asc_z).expect("order checked");
+    let z_d_orig = polynomial::roots_deg_le_2(&num_asc_z)
+        .ok_or(ZDomainError::UnsupportedOrder { order })?;
+    let p_d = polynomial::roots_deg_le_2(&den_asc_z)
+        .ok_or(ZDomainError::UnsupportedOrder { order })?;
     let k_d = num_asc_z.last().copied().unwrap_or(0.0) / den_asc_z.last().copied().unwrap_or(1.0);
 
     // upstream: poles/zeros at z = 0 are rejected because log(0) = -Inf

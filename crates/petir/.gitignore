@@ -7,3 +7,7 @@
 /upstream_source/Octave/
 /upstream_source/SLATEC/
 /upstream_source/Cephes/
+
+# ARM optimized-routines clone (MIT OR Apache-2.0) -- the fast exp/log/pow
+# glibc itself ships. Present for development, never committed.
+/upstream_source/ARM-optimized-routines/

@@ -78,6 +78,7 @@ use crate::physics::keff::KeffResult;
 use crate::physics::transport_csg::SourceBox;
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// Multigroup macroscopic cross sections for **one material**, over `G` groups.
 ///
@@ -458,7 +459,7 @@ fn transport_history(
 
         let d_bound = geom.distance_to_boundary(&path);
         let d_col = if sigma_t > 0.0 {
-            -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_t
+            -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t
         } else {
             f64::INFINITY
         };

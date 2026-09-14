@@ -28,6 +28,7 @@ use crate::app::{current_spectrum, App, Screen, UiAction};
 use crate::presets::{GeometryPreset, ALL_PRESETS};
 use crate::settings::RunSettings;
 use crate::transport::RunPhase;
+use outram_mc_libs::mathf::RealMath;
 
 const ACCENT: Color = Color::Cyan;
 const GOOD: Color = Color::Green;
@@ -576,7 +577,7 @@ fn draw_spectrum(frame: &mut Frame, app: &mut App, area: Rect) {
 
 fn draw_overlay_chart(frame: &mut Frame, area: Rect, overlay: &crate::spectrum::SpectrumOverlay) {
     let mids = overlay.mid_energies();
-    let log_e: Vec<f64> = mids.iter().map(|e| e.max(1.0e-10).log10()).collect();
+    let log_e: Vec<f64> = mids.iter().map(|e| e.max(1.0e-10).r_log10()).collect();
 
     let flux_max = overlay
         .flux_mean

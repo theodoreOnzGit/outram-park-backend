@@ -54,6 +54,7 @@
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 use crate::stochastic::medium::{MaterialId, MediumError};
+use crate::mathf::RealMath;
 
 /// Mean chord length \[cm\] through a sphere of radius `radius` \[cm\].
 ///
@@ -127,7 +128,7 @@ pub fn sample_chord(mean_chord: f64, seed: &mut u64) -> f64 {
     }
     // prn() returns [0, 1); shift off zero so ln() stays finite.
     let xi = 1.0 - prn(seed);
-    -mean_chord * xi.ln()
+    -mean_chord * xi.r_ln()
 }
 
 /// Transient per-history flight state used to reconstruct phase occupancy along a

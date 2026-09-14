@@ -29,19 +29,10 @@
 // Euler–Mascheroni constant γ ≈ 0.5772156649015328…
 const EU: f64 = 0.577_215_664_901_532_8;
 
-extern "C" {
-    fn tgamma(x: f64) -> f64;
-    fn lgamma(x: f64) -> f64;
-}
-
-#[inline]
-fn c_gamma(x: f64) -> f64 {
-    unsafe { tgamma(x) }
-}
-#[inline]
-fn c_lgamma(x: f64) -> f64 {
-    unsafe { lgamma(x) }
-}
+// tgamma / lgamma are not in stable Rust std; formerly reached through an
+// `extern "C"` block. `petir::real` supplies both in pure Rust -- see the note
+// in this module's sibling `inc_gamma.rs` and bn:op-chyp.6.
+use petir::real::{lgamma as c_lgamma, tgamma as c_gamma};
 
 /// (DM:Eq. 32) — minimax rational approximation for the normal deviate.
 fn minimaxs(p: f64) -> f64 {

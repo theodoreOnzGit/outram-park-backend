@@ -60,6 +60,12 @@ uom = { version = "0.38.0", default-features = false, features = ["autoconvert",
 
 [dev-dependencies]
 approx.workspace = true
+# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
+# it DIRECTLY. `petir::real::{exp, ln, powf}` route to the ARM
+# optimized-routines ports, so comparing a fast port against `petir::real`
+# would compare it with itself; the cross-check has to reach the musl-derived
+# implementation by name to stay an independent second opinion.
+libm.workspace = true
 
 [features]
 default = ["transfer-fn"]

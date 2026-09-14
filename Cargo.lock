@@ -5521,6 +5521,7 @@ dependencies = [
  "hdf5-pure",
  "log",
  "miniz_oxide",
+ "petir",
  "ratatui",
  "rayon",
  "sha2",
@@ -6243,6 +6244,7 @@ dependencies = [
  "approx",
  "ndarray",
  "ndarray-linalg",
+ "petir",
  "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
@@ -6305,6 +6307,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
+ "petir",
  "ratatui",
  "rayon",
  "thiserror 2.0.18",
@@ -6359,6 +6362,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.2"
 dependencies = [
  "approx",
+ "petir",
  "uom 0.38.0",
 ]
 
@@ -8358,6 +8362,7 @@ dependencies = [
  "image",
  "local-ip-address",
  "ndarray",
+ "petir",
  "roots",
  "serde",
  "teh-o-prke",

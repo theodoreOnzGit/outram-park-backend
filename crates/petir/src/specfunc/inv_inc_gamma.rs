@@ -34,19 +34,13 @@ use crate::real::Real;
 // Euler–Mascheroni constant γ ≈ 0.5772156649015328…
 const EU: f64 = 0.577_215_664_901_532_8;
 
-// DEVIATION FROM THE SOURCE FILE (the one substantive one in this lift): the
-// source declares `tgamma` and `lgamma` as C FFI and calls the platform libm
-// through `unsafe`. PETIR routes both through the pure-Rust `libm` crate
-// instead, for the reasons set out at the same point in `inc_gamma.rs`.
-// Everything below this block is byte-identical to the source file.
-#[inline]
-fn c_gamma(x: f64) -> f64 {
-    libm::tgamma(x)
-}
-#[inline]
-fn c_lgamma(x: f64) -> f64 {
-    libm::lgamma(x)
-}
+// NO DEVIATION. This file is byte-identical to its source.
+//
+// As with `inc_gamma.rs`, the source used to declare `tgamma` and `lgamma` as C
+// FFI. That was fixed upstream (bn:op-chyp.6) rather than worked around here,
+// so both sides now import the same two functions under the same local names
+// and the bodies are unchanged. See the fuller note in `inc_gamma.rs`.
+use crate::real::{lgamma as c_lgamma, tgamma as c_gamma};
 
 /// (DM:Eq. 32) — minimax rational approximation for the normal deviate.
 fn minimaxs(p: f64) -> f64 {

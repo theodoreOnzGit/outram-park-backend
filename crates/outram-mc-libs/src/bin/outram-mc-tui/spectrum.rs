@@ -12,6 +12,7 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::tally::filter::EnergyFilter;
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
+use outram_mc_libs::mathf::RealMath;
 
 /// Number of log-spaced energy bins the spectrum/XS overlay tallies and plots.
 /// Matches the 50-bin grid `flux_spectrum.rs` uses for the same 1e-3 eV .. 20 MeV
@@ -23,9 +24,9 @@ const E_HI: f64 = 2.0e7;
 /// `n`-bin log-spaced energy grid from `e_lo` to `e_hi` \[eV\] (`n+1` ascending
 /// edges) — the same construction `flux_spectrum.rs` uses.
 fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
-    let (l0, l1) = (e_lo.ln(), e_hi.ln());
+    let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
     (0..=n)
-        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
         .collect()
 }
 

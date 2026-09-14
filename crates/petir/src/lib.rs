@@ -121,12 +121,13 @@
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
 //! | [`specfunc`] | ported + lifted + delegated | Error-function family incl. the scaled `erfcx`, gamma family with GSL's Padé branches, incomplete gamma and its inverse |
 //! | [`transfer_fn`] | ported | Continuous and discrete SISO transfer functions, `c2d`/`d2c` (GNU Octave control package, via `chem-eng`) |
+//! | [`roots`] | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) one-dimensional root finders, with GSL's three convergence tests |
+//! | [`fast_exp`], [`fast_log`], [`fast_pow`] | ported | ARM optimized-routines `exp`, `log`, `pow` — bit-identical to upstream |
 //! | [`real`] | — | The `no_std` float-math shim |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
-//! Quadrature, one-dimensional root finding, minimisation, numerical
-//! differentiation, ODE integration and interpolation are the epic's remaining
-//! scope and are **not** here yet. They are tracked as beads rather than
+//! Quadrature, minimisation, numerical differentiation, ODE integration and
+//! interpolation are the epic's remaining scope and are **not** here yet. They are tracked as beads rather than
 //! stubbed, because an empty module that looks like an API is worse than an
 //! absent one.
 //!
@@ -160,10 +161,15 @@ pub mod cheb;
 pub mod cheb_slice;
 pub mod error;
 pub mod expint;
+pub mod fast_exp;
+pub mod fast_log;
+pub mod fast_pow;
 pub mod gamma_inc;
 pub mod linalg;
+pub mod min;
 pub mod poly;
 pub mod real;
+pub mod roots;
 pub mod scalar;
 pub mod specfunc;
 #[cfg(feature = "transfer-fn")]

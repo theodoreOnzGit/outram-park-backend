@@ -40,6 +40,40 @@
 //! rather than left to be discovered.
 //!
 //! The comparison is reproduced as a test in `tests/libm_vs_platform.rs`.
+//!
+//! # Three functions take the fast route, by default
+//!
+//! [`exp`], [`ln`] and [`powf`] do **not** go to `libm`. They are routed to
+//! [`crate::fast_exp`], [`crate::fast_log`] and [`crate::fast_pow`] — ports of
+//! ARM optimized-routines, which is the implementation glibc itself ships.
+//! This is the default, not an opt-in.
+//!
+//! Why those three and not the rest: they are the hot ones (68 of
+//! `outram-mc-libs`' 126 transcendental sites are `exp` and `ln`, in Monte
+//! Carlo inner loops), they are the ones where `libm` costs the most, and they
+//! are the three ARM publishes as scalar `f64`. Measured from Rust over
+//! 2 000 000 calls each (`tests/fast_math_speed.rs`):
+//!
+//! ```text
+//!            old libm route / ARM route      ARM route / platform
+//!   exp            1.75 - 1.86x                   0.70 - 0.75x
+//!   ln             1.09 - 1.18x                   1.04 - 1.25x
+//!   powf           2.09 - 2.18x                   1.41 - 1.57x
+//! ```
+//!
+//! So the default got **faster** as well as staying deterministic — and `exp`
+//! is now faster than the *platform*, because it inlines instead of calling
+//! through a dynamic symbol. `ln` gains only ~1.1x and that is reported as
+//! such: the `libm` crate's `log` was already good. Determinism is unchanged
+//! in kind —
+//! one fixed implementation on every platform — but the bits **moved**,
+//! because ARM's `exp` and musl's are different implementations. Anything
+//! pinned to `petir::real::{exp, ln, powf}` output at full `f64` precision
+//! needs re-baselining once, in the same way the `libm` swap itself did.
+//!
+//! Everything else here stays on `libm`: ARM publishes no scalar double
+//! `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
+//! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
 
 /// The error function `erf(x)`. Not in Rust's `std`.
 #[inline]
@@ -87,15 +121,21 @@ pub fn lgamma(x: f64) -> f64 {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm. (`std`: `f64::ln`.)
+///
+/// **Routed through [`crate::fast_log`]**, the ARM optimized-routines port —
+/// see the "Three functions take the fast route" note above.
 #[inline]
 pub fn ln(x: f64) -> f64 {
-    libm::log(x)
+    crate::fast_log::ln_ieee(x)
 }
 
 /// `e^x`. (`std`: `f64::exp`.)
+///
+/// **Routed through [`crate::fast_exp`]**, the ARM optimized-routines port —
+/// see the "Three functions take the fast route" note above.
 #[inline]
 pub fn exp(x: f64) -> f64 {
-    libm::exp(x)
+    crate::fast_exp::exp_ieee(x)
 }
 
 /// Base-10 logarithm. (`std`: `f64::log10`.)
@@ -111,9 +151,12 @@ pub fn cbrt(x: f64) -> f64 {
 }
 
 /// `x^y` for real `y`. (`std`: `f64::powf`.)
+///
+/// **Routed through [`crate::fast_pow`]**, the ARM optimized-routines port —
+/// see the "Three functions take the fast route" note above.
 #[inline]
 pub fn powf(x: f64, y: f64) -> f64 {
-    libm::pow(x, y)
+    crate::fast_pow::powf_ieee(x, y)
 }
 
 /// Cosine. (`std`: `f64::cos`.)
@@ -145,18 +188,28 @@ pub fn atan2(y: f64, x: f64) -> f64 {
 // The method-syntax half: everything `core` omits, as a trait.
 // ---------------------------------------------------------------------------
 //
-// The free functions above exist because `std` does not HAVE erf/erfc/tgamma/
-// lgamma at all, on any target. The trait below exists for a different reason:
-// `core` withholds them-as-methods. `sqrt`, `exp`, `ln`, `powf` and the trig
-// and rounding families are defined on `f64` by `std`, not by `core`, so a
-// `no_std` crate cannot call `x.sqrt()`.
+// The free functions above exist for two reasons: `std` does not HAVE
+// erf/erfc/tgamma/lgamma at all, and exp/ln/powf are routed deliberately
+// through the ARM optimized-routines ports rather than through libm.
 //
-// That distinction governs which to reach for. Use the free functions when you
-// want a special function. Import the trait when you need ordinary method
-// syntax to keep compiling -- which is what lets PETIR carry kernels LIFTED
+// The trait below exists for a third: `core` withholds the elementary
+// operations as METHODS. `sqrt`, `exp`, `ln`, `powf` and the trig and rounding
+// families are defined on `f64` by `std`, not by `core`, so a `no_std` crate
+// cannot write `x.sqrt()`.
+//
+// WHICH TO REACH FOR. Prefer the FREE FUNCTIONS in new code: they are the
+// routed, verified path, and for exp/ln/powf they are the ARM ports that are
+// bit-identical to upstream. The trait is what lets PETIR carry kernels LIFTED
 // VERBATIM from elsewhere in this workspace without rewriting every call site,
 // and that byte-for-byte property is the whole value of a lift (see
 // `tests/verbatim_provenance.rs`).
+//
+// NOTE the deliberate asymmetry: `Real::exp`, `Real::ln` and `Real::powf` go to
+// `libm`, NOT to the ARM ports, because a verbatim lift must behave exactly as
+// it did in the crate it came from. Changing the method path would silently
+// change the numerics of lifted code. Routing a consumer onto the ARM port is
+// an explicit, per-call-site decision (bn:op-j57z), not something a lift should
+// inherit by accident.
 
 /// The float operations `core` lacks, provided for `no_std` builds.
 ///

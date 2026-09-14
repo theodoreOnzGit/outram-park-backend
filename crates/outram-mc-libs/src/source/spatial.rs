@@ -3,6 +3,7 @@
 /// C++ source: `src/distribution_spatial.cpp`, `include/openmc/distribution_spatial.h`.
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// Trait for spatial distributions.
 pub trait SpatialDist: Send + Sync {
@@ -48,7 +49,7 @@ impl SpatialDist for SphericalSource {
         // A degenerate shell (r_inner == r_outer) yields that exact radius.
         let ri3 = self.r_inner.powi(3);
         let ro3 = self.r_outer.powi(3);
-        let r = (ri3 + prn(seed) * (ro3 - ri3)).cbrt();
+        let r = (ri3 + prn(seed) * (ro3 - ri3)).r_cbrt();
         // Isotropic point on the sphere of that radius.
         let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);
         Position::new(

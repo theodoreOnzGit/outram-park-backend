@@ -101,14 +101,14 @@ const LIFTS: &[Lift] = &[
     Lift {
         lifted: "specfunc/inc_gamma.rs",
         source: "outram-foam-basic-lib/src/math/inc_gamma.rs",
-        allowed_deviations: 7,
+        allowed_deviations: 0,
         reason: "extern \"C\" erf/erfc/tgamma FFI replaced by the pure-Rust libm crate \
                  the 7 lines being the `extern \"C\" {` opener, 3 `fn` declarations and 3 `unsafe` bodies; see the file DEVIATION note",
     },
     Lift {
         lifted: "specfunc/inv_inc_gamma.rs",
         source: "outram-foam-basic-lib/src/math/inv_inc_gamma.rs",
-        allowed_deviations: 5,
+        allowed_deviations: 0,
         reason: "extern \"C\" tgamma/lgamma FFI replaced by the pure-Rust libm crate \
                  the 5 lines being the `extern \"C\" {` opener, 2 `fn` declarations and 2 `unsafe` bodies; see the file DEVIATION note",
     },

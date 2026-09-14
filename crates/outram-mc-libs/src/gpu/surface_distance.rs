@@ -1234,6 +1234,9 @@ pub fn surface_distance_hybrid(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
     use crate::geometry::surface::{
         BoundaryType, Plane, Quadric, Sphere, XCone, XCylinder, XPlane, XTorus, YCone, YCylinder,
         YPlane, YTorus, ZCone, ZCylinder, ZPlane, ZTorus,
@@ -1350,7 +1353,7 @@ mod tests {
         let z = 1.0 - 2.0 * (i as f64 + 0.5) / n as f64;
         let rho = (1.0 - z * z).max(0.0).sqrt();
         let phi = golden * i as f64;
-        Direction::new(rho * phi.cos(), rho * phi.sin(), z)
+        Direction::new(rho * phi.r_cos(), rho * phi.r_sin(), z)
     }
 
     /// V&V (CPU mirror vs trusted f64 reference): for every [`SurfaceKind`], the

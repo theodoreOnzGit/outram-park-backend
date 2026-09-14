@@ -23,6 +23,10 @@ exclude = [
 ]
 
 [dependencies]
+# Routed float maths (bn:op-chyp.5); see src/mathf.rs. no_std. exp/ln/powf go
+# through it in every build (ARM optimized-routines ports); the rest is gated
+# behind the `deterministic-math` feature below.
+petir.workspace = true
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 # Nuclear data (cross sections, ν̄, χ). outram-mc-libs is data-free — it pulls all
@@ -60,6 +64,18 @@ log = { workspace = true }
 # (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
+# Route the REMAINING transcendentals -- log10, cbrt, cos, sin, tanh, atan2 --
+# through PETIR instead of std's platform libm, making them BIT-IDENTICAL
+# across platforms.
+#
+# NOTE the narrowed scope (2026-09-14): exp, ln and powf no longer depend on
+# this feature. They go to PETIR in EVERY build, because PETIR now routes them
+# to its ports of ARM optimized-routines (the implementation glibc itself
+# ships) rather than to musl-derived libm -- which made determinism free or
+# better on those three: ~1.8x faster than the old libm route on exp, ~2.1x on
+# powf, and exp is now faster than the platform. Only the six functions above
+# still carry a cost worth opting into. See src/mathf.rs.
+deterministic-math = []
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
 # `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier

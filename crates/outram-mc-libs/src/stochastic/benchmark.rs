@@ -77,6 +77,7 @@ use crate::rng::lcg::prn;
 use crate::stochastic::cls::ClsMedium;
 use crate::stochastic::medium::{MaterialId, RsaMedium, StochasticMedium};
 use crate::stochastic::scls::SclsMedium;
+use crate::mathf::RealMath;
 
 /// Material id of the absorbing inclusion phase used by the benchmark.
 const INCLUSION: MaterialId = MaterialId(1);
@@ -156,7 +157,7 @@ impl AbsorptionBenchmark {
 
         for _ in 0..self.max_collisions {
             // Distance to the next matrix scatter (exponential, mean = scatter_mfp).
-            let d_scatter = -self.scatter_mfp * (1.0 - prn(seed)).ln();
+            let d_scatter = -self.scatter_mfp * (1.0 - prn(seed)).r_ln();
             let mut travelled = 0.0;
             while travelled < d_scatter {
                 let ds = step.min(d_scatter - travelled);

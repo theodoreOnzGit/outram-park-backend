@@ -30,32 +30,23 @@
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]
 use crate::real::Real;
-// DEVIATION FROM THE SOURCE FILE (the one substantive one in this lift).
+// NO DEVIATION. This file is byte-identical to its source.
 //
-// outram-foam-basic-lib reaches these three through a C FFI declaration:
+// It did not start that way. outram-foam-basic-lib used to reach erf/erfc/
+// tgamma through an `extern "C"` block -- linking the platform libm and calling
+// it through `unsafe` -- which PETIR cannot do: a `no_std` target has no libm to
+// link, and `wasm32-unknown-unknown` has no libm symbols at all. This lift
+// therefore carried a declared deviation for those three calls.
 //
-//     extern "C" { fn erf(x: f64) -> f64; fn erfc(..); fn tgamma(..); }
+// That deviation is GONE, because the problem was fixed UPSTREAM instead of
+// worked around here (bn:op-chyp.6): outram-foam-basic-lib now imports the same
+// three functions from `petir::real`, aliased to the same local names, so its
+// function bodies never changed. PETIR mirrors that with the import below,
+// pointing at its own `crate::real`. Both sides now read identically and
+// `tests/verbatim_provenance.rs` asserts zero deviation.
 //
-// i.e. it links the platform libm and calls it through `unsafe`. PETIR cannot:
-// a `no_std` target has no libm to link, `wasm32-unknown-unknown` has no libm
-// symbols at all, and the workspace rule is pure Rust with no C toolchain. The
-// three calls are therefore routed through the `libm` crate -- a pure-Rust
-// translation of the same fdlibm/msun sources the platform libm descends from,
-// so the values are from the same lineage, and the `unsafe` disappears.
-//
-// Everything below this block is byte-identical to the source file.
-#[inline]
-fn c_erf(x: f64) -> f64 {
-    libm::erf(x)
-}
-#[inline]
-fn c_erfc(x: f64) -> f64 {
-    libm::erfc(x)
-}
-#[inline]
-fn c_gamma(x: f64) -> f64 {
-    libm::tgamma(x)
-}
+// This is what the workspace rule means by "fix it upstream and re-lift".
+use crate::real::{erf as c_erf, erfc as c_erfc, tgamma as c_gamma};
 
 fn factorial(n: i32) -> f64 {
     (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
