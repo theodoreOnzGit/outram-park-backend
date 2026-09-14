@@ -259,6 +259,30 @@ pub enum DhTreatment {
     /// and the V&V duly measured the two within statistics of each other. Any
     /// SCLS number recorded before 2026-09-14 is a measurement of that wiring,
     /// not of the method.
+    ///
+    /// # SCLS is the WRONG METHOD for a graphite pebble, and fixing the wiring is what showed it
+    ///
+    /// The retention window is `lambda_transport-mfp + R_largest`. In a
+    /// graphite-moderated pebble at thermal energy that is about **2.68 cm**,
+    /// against a fuel zone of radius **1.9 cm** — the window is larger than the
+    /// region it is supposed to be a *local* view of.
+    ///
+    /// When the window exceeds the domain nothing is ever culled, so the
+    /// retained set grows to every inclusion the neutron has ever met, and
+    /// [`SclsMedium::material_at`](crate::stochastic::scls::SclsMedium::material_at)
+    /// scans it **linearly on every query**. Bounded memory — the entire premise
+    /// of the method — does not hold, and the result is slower than explicit
+    /// delta tracking, which answers the same question from an O(1) grid.
+    ///
+    /// So SCLS pays off only where `lambda_tr` is genuinely *small* against the
+    /// domain: optically thick media, strong absorbers, larger geometries. On
+    /// this problem it is dominated by delta tracking on both accuracy and cost,
+    /// and the honest recommendation is not to use it here. The window is capped
+    /// at the domain (beyond it there is no geometry to retain) and a warning is
+    /// logged, but a cap cannot rescue the premise.
+    ///
+    /// This was invisible while the window was 15x too small: the wiring bug was
+    /// hiding a methodological mismatch behind an accidental speed-up.
     Scls,
 
     /// **Naive homogenisation.** One smeared material — TRISO particles and
@@ -660,7 +684,12 @@ impl DhUniverse {
         // approximate treatments do not pack, so they smear at the requested
         // `pf`; `pack_in_ball` is responsible for making that the same number.
         // Kept as a field so a caller can check rather than assume.
-        let mut achieved_pf = pf;
+        //
+        // Only the delta-tracking arm falls through to the final constructor;
+        // every approximate arm returns early with `pf`, which is exactly the
+        // fraction it smears at. So this is assigned on the one path that reads
+        // it, and the compiler checks that rather than a default hiding a gap.
+        let achieved_pf: f64;
         let r_boundary = params.coolant_radius.unwrap_or(params.pebble_radius);
         let domain = DeltaDomain::Sphere { radius: r_boundary };
         let outer = OuterShells {
@@ -1261,10 +1290,22 @@ impl DhUniverse {
         if !(sigma_t > 0.0) {
             return; // a void matrix has no transport length to speak of
         }
-        if let Ok(mut guard) = medium.lock() {
-            let r_largest = guard.0.cls().inclusion_radius();
-            guard.0.set_sphere_radius(1.0 / sigma_t + r_largest);
+        let Ok(mut guard) = medium.lock() else { return };
+        let r_largest = guard.0.cls().inclusion_radius();
+        let window = 1.0 / sigma_t + r_largest;
+
+        // Beyond the domain there is no geometry to retain, so a larger window
+        // buys nothing and only slows the retained-inclusion scan.
+        let cap = self.domain.bounding_half();
+        if window >= cap {
+            log::warn!(
+                "SCLS retention window {window:.2} cm reaches or exceeds the domain \
+                 ({cap:.2} cm): nothing will ever be culled, so SCLS degenerates to \
+                 remember-everything with a linear scan and will be SLOWER than explicit \
+                 delta tracking, which has an O(1) grid. See DhTreatment::Scls."
+            );
         }
+        guard.0.set_sphere_radius(window.min(cap));
     }
 }
 
@@ -1488,7 +1529,22 @@ impl RingRptFit {
 /// The kept count is very nearly linear in the requested fraction, so a
 /// secant-style rescale `request *= target / realised` converges in two or
 /// three steps. The loop is capped and returns the best attempt rather than
-/// spinning; `tolerance` is relative.
+/// spinning.
+///
+/// # Cost
+///
+/// **This packs more than once**, where the previous version packed exactly
+/// once — typically twice, since the first attempt is off by ~3.7 % and the
+/// tolerance is 0.2 %. RSA-packing ~26 000 spheres is not free, so
+/// constructing a [`DhTreatment::DeltaTracking`] universe now costs roughly
+/// double what it did.
+///
+/// That is a deliberate trade: the alternative is an explicit arm modelling a
+/// different fuel loading from every arm it is compared against, which is a
+/// wrong answer rather than a slow one. Only the explicit arm pays it; the
+/// approximate treatments never pack. If it ever matters, the correction
+/// factor is deterministic in `(particle_radius, radius, packing_fraction,
+/// seed)` and could be cached rather than re-derived.
 fn pack_in_ball(
     particle_radius: f64,
     radius: f64,
@@ -2024,10 +2080,23 @@ mod tests {
         let after = radius();
 
         let sigma_t = u.materials[5].macro_xs_total(0.0253, &nucs);
-        let expected = 1.0 / sigma_t + TrisoSpec::FHR_HALEU_UCO.opyc;
+        let uncapped = 1.0 / sigma_t + TrisoSpec::FHR_HALEU_UCO.opyc;
+        // Capped at the domain: beyond it there is no geometry to retain.
+        let expected = uncapped.min(2.0);
         assert!(
             (after - expected).abs() < 1.0e-9,
-            "window {after:.4} cm, expected 1/Sigma_t + r = {expected:.4} cm"
+            "window {after:.4} cm, expected min(1/Sigma_t + r, domain) = {expected:.4} cm \
+             (uncapped would be {uncapped:.4})"
+        );
+        // On THIS problem the cap binds, and that is the finding rather than an
+        // implementation detail: a retention window larger than the region it is
+        // meant to be a local view of means nothing is ever culled, so SCLS's
+        // bounded-memory premise does not hold here at all.
+        assert!(
+            uncapped > 2.0,
+            "expected the graphite transport mfp ({uncapped:.2} cm) to exceed the 2.0 cm \
+             domain on this pebble -- if it no longer does, the degeneracy recorded on \
+             DhTreatment::Scls needs re-checking"
         );
         assert!(
             after > 5.0 * before,
