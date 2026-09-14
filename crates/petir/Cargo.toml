@@ -27,3 +27,6 @@ default = []
 # Opt in to std only for downstream convenience (e.g. std::error::Error).
 # The library itself must keep compiling and passing without it.
 std = []
+
+[dev-dependencies]
+# The GSL cross-check example needs std (file IO). The library stays no_std.

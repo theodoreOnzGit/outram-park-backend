@@ -52,6 +52,8 @@
 
 extern crate alloc;
 
+pub mod cheb;
 pub mod error;
 
+pub use cheb::ChebSeries;
 pub use error::{PetirError, Result};
