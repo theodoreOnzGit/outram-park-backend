@@ -297,12 +297,15 @@ pub fn region_4_test_4() {
     assert_eq!(reference_region, test_region);
 }
 
-/// region 5
+/// Region 5 is now dispatched rather than refused.
 ///
-/// should panic
+/// This asserted a panic until Region 5 was wired into the `(p,h)` dispatcher.
+/// IAPWS-IF97 still publishes no backward `(p,h)` equation there; the route is
+/// this crate's own correlation, and `t_ph_eqm`'s Region 5 arm documents that
+/// provenance. `p = 23 MPa` is inside Region 5's own 50 MPa limit, so this is a
+/// genuine Region 5 state.
 #[test]
-#[should_panic]
-pub fn region_5_test_1_should_panic() {
+pub fn region_5_is_now_dispatched() {
     let reference_region = FwdEqnRegion::Region5;
     let p = Pressure::new::<megapascal>(23.0);
     let h = AvailableEnergy::new::<kilojoule_per_kilogram>(4300.0);

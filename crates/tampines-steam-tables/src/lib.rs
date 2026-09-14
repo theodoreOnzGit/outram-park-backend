@@ -136,6 +136,7 @@ pub mod tabulated_data;
 /// IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
 pub use openfoam_algorithms::rhoPimpleFoam::{
     AdvectionTerminalState, SolverMode, TampinesSteamArray, TampinesSteamArrayError,
+    ThermoClosure,
 };
 
 // pool boiling code for use within the fhr sim v1

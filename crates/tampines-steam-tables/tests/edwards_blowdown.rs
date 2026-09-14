@@ -127,7 +127,7 @@
 //! break/GS-1 trace to stderr). Smaller `EDW_DT_US` (e.g. 10) reduces the
 //! acoustic-CFL overshoot at the initial rarefaction.
 
-use tampines_steam_tables::{SolverMode, TampinesSteamArray};
+use tampines_steam_tables::{SolverMode, TampinesSteamArray, ThermoClosure};
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, x_ph_flash,
@@ -355,6 +355,23 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // dedicated `edwards_hybrid_damps_ringing_vs_pimple` test below.
     if std::env::var("EDW_HYBRID").is_ok() {
         array.set_solver_mode(SolverMode::HybridAllMach);
+    }
+
+    // `EDW_RHOH=1` swaps the thermodynamic closure from the validated
+    // pressure-based path to the density-based one, which recovers pressure by
+    // inverting the IF97 backward equations instead of taking it from the
+    // pressure equation. Present so the two can be TIMED against each other on
+    // the same case; the default remains the validated path.
+    match std::env::var("EDW_RHOH").as_deref() {
+        // `EDW_RHOH=all` is the naive baseline: recover pressure from (rho,h)
+        // in every cell. Kept only to show what the selective policy is worth.
+        Ok("all") => array.thermo_closure = ThermoClosure::DensityEnthalpyEverywhere,
+        // `EDW_RHOH=inflow` restricts it further, to cells taking IN mass.
+        Ok("inflow") => array.thermo_closure = ThermoClosure::DensityEnthalpyOnMassInflow,
+        // `EDW_RHOH=1` (or anything else) is the policy that makes physical
+        // sense: (rho,h) only where mass is flowing into the cell.
+        Ok(_) => array.thermo_closure = ThermoClosure::DensityEnthalpyOnMassFlow,
+        Err(_) => {}
     }
 
     let n = array.mesh.n_cells;

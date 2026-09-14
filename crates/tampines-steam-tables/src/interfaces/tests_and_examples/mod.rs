@@ -31,3 +31,9 @@ pub mod hs_flash_steam_table;
 /// steam-quality convention that flash reports outside the two-phase dome
 #[cfg(test)]
 pub mod rho_h_flash_steam_table;
+
+/// aims to reproduce Region 5 `(p,h)`, `(p,s)` and `(h,s)` flashing by round
+/// trip against the Region 5 forward equations — IAPWS publishes no backward
+/// equations there, so there is no table to compare against
+#[cfg(test)]
+pub mod region_5_flash_steam_table;

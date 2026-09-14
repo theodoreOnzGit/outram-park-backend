@@ -533,3 +533,222 @@ pub fn t_ps_5(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature 
     let s_kj_kg_k = s.get::<kilojoule_per_kilogram_kelvin>();
     ThermodynamicTemperature::new::<kelvin>(t_ps_5_explicit(p_mpa, s_kj_kg_k))
 }
+
+/// How closely the two Region 5 correlations must agree, in kelvin, for a
+/// bracket endpoint to be accepted as the answer outright.
+///
+/// Sized to the correlations' own mutual agreement, measured, rather than to
+/// machine precision: they are independent fits and never agree exactly, so the
+/// tolerance has to admit that without admitting a genuinely wrong state.
+///
+/// At the 50 MPa ceiling -- the one place a Region 5 root sits exactly on a
+/// bracket endpoint -- the residual `t_ph_5 - t_ps_5` was measured at 0.0091,
+/// 0.0110, 0.0149, 0.0149 and 0.0106 K across 1073-1473 K (2026-09-14,
+/// `diagnose_the_hs_bracket_at_low_pressure`). 0.05 K is about three times the
+/// worst of those.
+///
+/// It cannot admit a wrong state: 0.05 K on a 1073 K state is 4.7e-5 relative,
+/// two orders inside the round-trip gate the `(h,s)` flash is held to.
+const ENDPOINT_TEMPERATURE_TOLERANCE_KELVIN: f64 = 5.0e-2;
+
+/// Finds the lowest bracketing sub-interval of `g(p) = t_ph_5(p,h) - t_ps_5(p,s)`.
+///
+/// Returns `(a, b, g(a), g(b))` in MPa, or `None` when no sign change exists in
+/// the fit domain.
+///
+/// # Why a scan and not the domain endpoints
+///
+/// `g` is **not monotone over the whole fit domain**, and taking the two
+/// endpoints as a bracket silently fails because of it. At a high pressure, a
+/// state carrying the entropy of a low-pressure one would sit far above
+/// 2273.15 K — outside the `T(p,s)` fit — so the correlation stops tracking the
+/// physics and `g` swings back to the sign it had at the bottom. Measured at
+/// `T = 1673.15 K, p = 6.12e-4 MPa`: `g` is `+464 K` at 1e-4 MPa, crosses zero
+/// at the true pressure, and is `+6988 K` again at 50 MPa. An endpoint bracket
+/// sees two positives and reports "no solution" for an ordinary Region 5 state.
+///
+/// Scanning from the low-pressure end and taking the **first** sign change
+/// picks the physical root and leaves the fit's far-field behaviour
+/// unreachable.
+fn bracket_hs_pressure(h_kj: f64, s_kj: f64) -> Option<(f64, f64, f64, f64)> {
+    const SCAN_POINTS: usize = 48;
+
+    let residual = |p_mpa: f64| t_ph_5_explicit(p_mpa, h_kj) - t_ps_5_explicit(p_mpa, s_kj);
+
+    let ln_lo = REGION_5_BACK_P_MIN_MPA.ln();
+    let ln_hi = REGION_5_BACK_P_MAX_MPA.ln();
+    let d_ln = (ln_hi - ln_lo) / ((SCAN_POINTS - 1) as f64);
+
+    let mut prev_p = REGION_5_BACK_P_MIN_MPA;
+    let mut prev_g = residual(prev_p);
+
+    if !prev_g.is_finite() {
+        return None;
+    }
+    if prev_g.abs() <= ENDPOINT_TEMPERATURE_TOLERANCE_KELVIN {
+        return Some((prev_p, prev_p, prev_g, prev_g));
+    }
+
+    for i in 1..SCAN_POINTS {
+        let p = if i == SCAN_POINTS - 1 {
+            REGION_5_BACK_P_MAX_MPA
+        } else {
+            (ln_lo + d_ln * (i as f64)).exp()
+        };
+        let g = residual(p);
+        if !g.is_finite() {
+            return None;
+        }
+
+        if g.abs() <= ENDPOINT_TEMPERATURE_TOLERANCE_KELVIN && i == SCAN_POINTS - 1 {
+            return Some((p, p, g, g));
+        }
+
+        if prev_g * g <= 0.0 {
+            return Some((prev_p, p, prev_g, g));
+        }
+
+        prev_p = p;
+        prev_g = g;
+    }
+
+    None
+}
+
+/// Region 5 `(h,s)` flash: the pressure at which the two backward correlations
+/// above agree on temperature.
+///
+/// # Why this composition, rather than a new fit
+///
+/// IAPWS-IF97 publishes no `(h,s)` backward equation for Region 5 — as it
+/// publishes none for `(p,h)` or `(p,s)` there. But a third correlation is not
+/// needed, because the two that already exist over-determine the state: a
+/// Region 5 point has one temperature, so the physical pressure is the one
+/// where `T(p,h)` and `T(p,s)` return the same value.
+///
+/// ```text
+/// g(p) = t_ph_5(p, h) - t_ps_5(p, s) = 0
+/// ```
+///
+/// That is a **one-dimensional** root find whose residual costs two explicit
+/// polynomial evaluations and no iteration of its own — far cheaper than the
+/// two-dimensional solve over the forward Gibbs equations that the absence of a
+/// backward equation would otherwise force, and it introduces no fit error
+/// beyond what the two correlations already carry.
+///
+/// # Why it is well posed
+///
+/// Region 5 steam is nearly ideal, so at fixed enthalpy the temperature barely
+/// moves with pressure (`h` is almost a function of `T` alone) while at fixed
+/// entropy it rises with pressure roughly as `T ~ p^(R/c_p)` (since
+/// `s ~ c_p ln T - R ln p`). The difference is therefore monotone decreasing in
+/// `p`, and a bracketed search over the fit domain cannot land on a spurious
+/// root.
+///
+/// # Valid range
+///
+/// The `T(p,h)` / `T(p,s)` fit domain: `1e-4 MPa <= p <= 50 MPa` and
+/// `1073.15 K <= T <= 2273.15 K`. Inputs that do not intersect it have no
+/// Region 5 solution.
+///
+/// # Status
+///
+/// **Not an IAPWS value.** This inherits the provenance of the two
+/// correlations it composes: an in-house fit to this crate's own Region 5
+/// forward equations, reviewed by no human. See the module documentation.
+///
+/// # Panics
+///
+/// Panics when no pressure in the fit domain makes the two correlations agree,
+/// which means the `(h,s)` pair is not a Region 5 state.
+pub fn p_hs_5(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
+    use uom::si::available_energy::kilojoule_per_kilogram;
+    use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
+
+    let h_kj = h.get::<kilojoule_per_kilogram>();
+    let s_kj = s.get::<kilojoule_per_kilogram_kelvin>();
+
+    let residual = |p_mpa: f64| t_ph_5_explicit(p_mpa, h_kj) - t_ps_5_explicit(p_mpa, s_kj);
+
+    let (mut a, mut b, mut fa, mut fb) = bracket_hs_pressure(h_kj, s_kj).unwrap_or_else(|| {
+        panic!(
+            "p_hs_5: no Region 5 pressure makes T(p,h) and T(p,s) agree for \
+                 h = {h_kj} kJ/kg, s = {s_kj} kJ/(kg K); the point is not a \
+                 Region 5 state"
+        )
+    });
+
+    // A degenerate bracket means the scan landed on the root itself.
+    if a == b {
+        return Pressure::new::<megapascal>(a);
+    }
+    if fa == 0.0 {
+        return Pressure::new::<megapascal>(a);
+    }
+    if fb == 0.0 {
+        return Pressure::new::<megapascal>(b);
+    }
+
+    // Safeguarded false position (Illinois), the same scheme the (rho,h) flash
+    // uses: it keeps the root bracketed unconditionally while recovering the
+    // superlinear convergence plain regula falsi loses on a convex residual.
+    let mut side_low = 0_u8;
+    let mut side_high = 0_u8;
+
+    for _ in 0..200 {
+        if (b - a) <= 1.0e-13 * b {
+            break;
+        }
+
+        let mut p = b - fb * (b - a) / (fb - fa);
+        if !p.is_finite() || p <= a || p >= b {
+            p = 0.5 * (a + b);
+        }
+
+        let f = residual(p);
+        if f == 0.0 {
+            return Pressure::new::<megapascal>(p);
+        }
+
+        if f * fa < 0.0 {
+            b = p;
+            fb = f;
+            side_high = 0;
+            side_low += 1;
+            if side_low >= 2 {
+                fa *= 0.5;
+                side_low = 0;
+            }
+        } else {
+            a = p;
+            fa = f;
+            side_low = 0;
+            side_high += 1;
+            if side_high >= 2 {
+                fb *= 0.5;
+                side_high = 0;
+            }
+        }
+    }
+
+    Pressure::new::<megapascal>(0.5 * (a + b))
+}
+
+/// Returns `true` when an `(h,s)` pair has a Region 5 solution, without
+/// panicking.
+///
+/// The non-panicking counterpart to [`p_hs_5`], for a dispatcher that must
+/// decide whether Region 5 is the right arm before committing to it.
+pub fn is_region_5_hs(h: AvailableEnergy, s: SpecificHeatCapacity) -> bool {
+    use uom::si::available_energy::kilojoule_per_kilogram;
+    use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
+
+    let h_kj = h.get::<kilojoule_per_kilogram>();
+    let s_kj = s.get::<kilojoule_per_kilogram_kelvin>();
+
+    if !h_kj.is_finite() || !s_kj.is_finite() {
+        return false;
+    }
+
+    bracket_hs_pressure(h_kj, s_kj).is_some()
+}

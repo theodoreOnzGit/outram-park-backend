@@ -7,6 +7,7 @@ use crate::region_2_vapour::*;
 use crate::region_3_single_phase_plus_supercritical_steam::*;
 use crate::region_4_vap_liq_equilibrium::*;
 use crate::region_5_steam_at_800_plus_degc::*;
+use crate::backward_eqn_chebyshev_experimental::region_5_t_ph_ps::t_ph_5;
 use crate::thermal_conductivity::lambda_0;
 use crate::thermal_conductivity::lambda_1;
 use crate::thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate;
@@ -48,7 +49,12 @@ pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
             // determine sat liq/vap temperature
             sat_temp_4(p)
         }
-        FwdEqnRegion::Region5 => panic!("temperature: {}", REGION_5_PH_UNSUPPORTED),
+        // NOT an IAPWS value. IAPWS-IF97 publishes no backward (p,h) equation
+        // for Region 5; this is this crate's own Chebyshev fit to its own
+        // Region 5 forward Gibbs formulation, so it is an accelerator for the
+        // iteration IAPWS would otherwise require. Accurate to the fit, not to
+        // a standard -- see `region_5_t_ph_ps` for the measured residuals.
+        FwdEqnRegion::Region5 => t_ph_5(p, h),
     }
 }
 
@@ -138,7 +144,12 @@ pub fn v_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificVolume {
                 v
             }
         }
-        FwdEqnRegion::Region5 => panic!("specific volume: {}", REGION_5_PH_UNSUPPORTED),
+        // Region 5 volume via the in-house T(p,h) correlation and the IAPWS
+        // Region 5 FORWARD equation -- so only the temperature step is a fit.
+        FwdEqnRegion::Region5 => {
+            let t = t_ph_5(p, h);
+            v_tp_5(t, p)
+        }
     }
 }
 /// returns the internal energy given temperature and pressure
@@ -779,6 +790,15 @@ pub fn x_ph_flash(p: Pressure, h: AvailableEnergy) -> f64 {
 pub fn ph_flash_region(p: Pressure, h: AvailableEnergy) -> FwdEqnRegion {
     check_if_within_ph_validity_region(p, h);
 
+    // Region 5 first: it is the band above the 1073.15 K isotherm, and the
+    // validity check above has already refused everything above it or beyond
+    // its 50 MPa pressure limit. Testing it here keeps the Region 1/2/3/4
+    // partitioning below unchanged -- those branches only ever see the states
+    // they saw before.
+    if is_above_isotherm_t_1073_15(p, h) {
+        return FwdEqnRegion::Region5;
+    }
+
     // if inside validity range, then we will start partitioning
     // first, we check if pressure is smaller or greater than 16.529 MPa
     // this is saturation pressure at 623.15K
@@ -865,16 +885,34 @@ fn check_if_within_ph_validity_region(p: Pressure, h: AvailableEnergy) {
         panic!("p,h point below 273.15K");
     };
     if is_above_isotherm_t_1073_15(p, h) {
-        // A (p,h) point above the 1073.15 K isotherm is either IAPWS-IF97
-        // Region 5 (T = 1073.15 - 2273.15 K, p <= 50 MPa) or beyond the
-        // formulation's temperature range. Either way the (p,h) flash is
-        // unsupported here: IAPWS-IF97 has no backward (p,h) correlation for
-        // Region 5 (see REGION_5_PH_UNSUPPORTED). This is a deliberate,
-        // documented physics/standards limitation, not an unfinished path.
-        panic!(
-            "(p,h) point lies above the 1073.15 K isotherm. {}",
-            REGION_5_PH_UNSUPPORTED
-        );
+        // Above the 1073.15 K isotherm the point is IAPWS-IF97 Region 5
+        // (1073.15 - 2273.15 K, p <= 50 MPa), or else outside the formulation.
+        //
+        // Region 5 used to be refused outright here, because IAPWS-IF97
+        // publishes no backward (p,h) correlation for it. That is still true of
+        // IAPWS; what changed is that this crate now carries its own Region 5
+        // `T(p,h)` correlation, so the flash has a route. The dispatch arm in
+        // `t_ph_eqm` documents what that route is and is NOT -- it is an
+        // in-house accelerator fitted to this crate's own Region 5 forward
+        // equations, not an IAPWS value.
+        //
+        // The two genuine out-of-range cases are still refused:
+        if !is_within_region_5_pressure_range(p) {
+            panic!(
+                "(p,h) point lies above the 1073.15 K isotherm at p > {} MPa. \
+                 IAPWS-IF97 Region 5 is defined only to {} MPa, so this point \
+                 is outside the formulation entirely.",
+                REGION_5_MAX_PRESSURE_MPA, REGION_5_MAX_PRESSURE_MPA
+            );
+        }
+        if is_above_isotherm_t_2273_15(p, h) {
+            panic!(
+                "(p,h) point lies above the {} K isotherm, the upper temperature \
+                 bound of IAPWS-IF97 Region 5. Beyond it there is no IF97 \
+                 formulation to flash into.",
+                REGION_5_MAX_TEMP_KELVIN
+            );
+        }
     };
 }
 

@@ -594,6 +594,72 @@ pub enum SolverMode {
     HybridAllMach,
 }
 
+/// Which thermodynamic closure `correct_thermo` uses to obtain the cell state.
+///
+/// Exists so the two can be **measured against each other** on the same case;
+/// [`ThermoClosure::PressureEnthalpy`] is the validated default and the one the
+/// Edwards V&V numbers were produced with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThermoClosure {
+    /// Pressure-based: take `p` from the pressure equation and `h` from the
+    /// energy equation, and derive density as `rho = 1/v(p,h)`.
+    ///
+    /// This is what a segregated PIMPLE algorithm naturally wants, since `p` is
+    /// already a primary variable. One explicit `(p,h)` flash per property.
+    #[default]
+    PressureEnthalpy,
+    /// Density-based **in cells whose mass is changing**, either way.
+    ///
+    /// This is the closure that makes physical sense. Mass crossing a control
+    /// volume boundary carries enthalpy with it, and it changes the cell's
+    /// density -- so density and enthalpy are both genuinely new information
+    /// and the pressure that goes with them is what has to be recovered. That
+    /// argument does not care about the sign: a draining cell has just as
+    /// surely had its density changed as a filling one.
+    ///
+    /// A cell with no net mass flux has neither, and its pressure is already
+    /// the pressure equation's answer -- re-deriving it there buys nothing and
+    /// costs a root find.
+    ///
+    /// The test is the cell's own mass balance, `div(phi) != 0`, taken from the
+    /// same face flux the continuity density is built from, so the criterion
+    /// and the physics cannot drift apart. "Non-zero" is judged against the
+    /// field's own scale rather than against zero, so floating-point dust in a
+    /// quiescent cell does not trigger the expensive path.
+    DensityEnthalpyOnMassFlow,
+    /// Density-based **only in cells that are gaining mass** (`div(phi) < 0`).
+    ///
+    /// The narrower half of the criterion above, and on the Edwards blowdown it
+    /// is the better trade. Measured over the 0-50 ms window (24 cells,
+    /// dt = 30 us, 2026-09-14):
+    ///
+    /// | closure | wall | flashing plateau | GS-1 RMSE vs data |
+    /// |---|---|---|---|
+    /// | `PressureEnthalpy` | 23.9 s | 392.4 psia | 109.0 psia |
+    /// | `DensityEnthalpyOnMassInflow` | 67.7 s | 376.7 psia | 96.2 psia |
+    /// | `DensityEnthalpyOnMassFlow` | 149.3 s | 368.6 psia | 93.2 psia |
+    /// | `DensityEnthalpyEverywhere` | 156.0 s | 367.4 psia | 93.2 psia |
+    ///
+    /// The experimental plateau is roughly 350-367 psia, so every density-based
+    /// variant moves toward the data and the pressure-based one is the outlier.
+    /// But in a blowdown almost every cell is flowing, so
+    /// `DensityEnthalpyOnMassFlow` selects nearly all of them and lands within
+    /// noise of doing it everywhere -- 2.2x the cost of inflow-only to buy a
+    /// further 3 psia of RMSE. Restricting it to cells actually **taking in**
+    /// mass keeps about nine tenths of the accuracy gain for under half the
+    /// cost, which is why both variants are kept rather than one.
+    DensityEnthalpyOnMassInflow,
+    /// Density-based in **every** cell, every corrector iteration.
+    ///
+    /// Kept only as the measurement baseline that shows why the selective
+    /// variant above exists. Recovering a pressure the algorithm already holds
+    /// cannot be cheaper than not recovering it -- the inversion is a bracketed
+    /// root find built out of the same `(p,h)` flashes it replaces -- so this
+    /// is expected to be slower everywhere it is not needed. Do not reach for
+    /// it in a solver.
+    DensityEnthalpyEverywhere,
+}
+
 /// The thermodynamic state available at one **advection terminal** (one end
 /// patch) of the pipe, used to pick the upwind state for the energy equation.
 ///
@@ -795,6 +861,9 @@ pub struct TampinesSteamArray {
     pub p_max: Pressure,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
+    /// Thermodynamic closure used by `correct_thermo` (default
+    /// [`ThermoClosure::PressureEnthalpy`], the validated path).
+    pub thermo_closure: ThermoClosure,
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
     /// to the historical path). See [`Self::set_solver_mode`].
     pub mode: SolverMode,
@@ -996,6 +1065,7 @@ impl TampinesSteamArray {
             p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
+            thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
             ma_blend_lo: Ratio::new::<ratio>(0.3),
             ma_blend_hi: Ratio::new::<ratio>(1.0),
@@ -1066,9 +1136,75 @@ impl TampinesSteamArray {
         use uom::si::specific_volume::cubic_meter_per_kilogram;
         use uom::si::thermodynamic_temperature::kelvin;
 
+        // Per-cell mass balance, evaluated once. Negative divergence means the
+        // cell is gaining mass this step, which is the only circumstance in
+        // which recovering pressure from (rho,h) is worth its cost -- see
+        // [`ThermoClosure::DensityEnthalpyOnMassInflow`].
+        let div_phi = match self.thermo_closure {
+            ThermoClosure::PressureEnthalpy => None,
+            _ => Some(fvc::div_flux(&self.phi)),
+        };
+
+        // Scale the "is there mass flow" test against the largest imbalance on
+        // the mesh, so it means the same thing at 70 bar and at 1 bar. Testing
+        // against literal zero would fire on rounding dust in a cell that is
+        // not actually flowing.
+        let mass_flow_threshold = div_phi
+            .as_ref()
+            .map(|d| {
+                let peak = d.internal.iter().fold(0.0_f64, |acc, v| acc.max(v.abs()));
+                peak * 1.0e-10
+            })
+            .unwrap_or(0.0);
+
         for c in 0..self.mesh.n_cells {
-            let p_c = Pressure::new::<pascal>(self.p.internal[c]);
             let h_c = uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
+
+            let recover_pressure_from_density = match self.thermo_closure {
+                ThermoClosure::PressureEnthalpy => false,
+                ThermoClosure::DensityEnthalpyEverywhere => true,
+                ThermoClosure::DensityEnthalpyOnMassFlow => div_phi
+                    .as_ref()
+                    .map(|d| d.internal[c].abs() > mass_flow_threshold)
+                    .unwrap_or(false),
+                ThermoClosure::DensityEnthalpyOnMassInflow => div_phi
+                    .as_ref()
+                    .map(|d| d.internal[c] < -mass_flow_threshold)
+                    .unwrap_or(false),
+            };
+
+            // The closure decides where the pressure comes from. In the default
+            // pressure-based path it is already a primary variable and is used
+            // as-is; in the density-based path it is recovered from the state
+            // the array carries, by inverting the same backward equations the
+            // flashes below use.
+            let p_c = if !recover_pressure_from_density {
+                Pressure::new::<pascal>(self.p.internal[c])
+            } else {
+                {
+                    use crate::interfaces::functional_programming::rho_h_flash_eqm::{
+                        p_rho_h_eqm, rho_h_is_within_validity_range,
+                    };
+                    use uom::si::mass_density::kilogram_per_cubic_meter;
+
+                    let rho_c = uom::si::f64::MassDensity::new::<kilogram_per_cubic_meter>(
+                        self.rho.internal[c],
+                    );
+                    // Fall back to the carried pressure when the (rho,h) pair
+                    // is not a state IF97 can represent. That happens in this
+                    // case once a cell drains to the density floor (bead
+                    // op-s2dc), and it is not something the inversion can
+                    // repair -- it would be handed a density and an enthalpy
+                    // that are both outside the domain.
+                    if rho_h_is_within_validity_range(rho_c, h_c) {
+                        let p_new = p_rho_h_eqm(rho_c, h_c);
+                        self.p.internal[c] = p_new.get::<pascal>();
+                        p_new
+                    } else {
+                        Pressure::new::<pascal>(self.p.internal[c])
+                    }
+                }
+            };
 
             let t = t_ph_eqm(p_c, h_c);
             let v = v_ph_eqm(p_c, h_c);
