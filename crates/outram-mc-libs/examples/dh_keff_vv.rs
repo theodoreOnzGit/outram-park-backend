@@ -49,70 +49,63 @@
 //! transport starts, and it is reported separately from the per-treatment
 //! timings below.
 //!
-//! # Results — SUPERSEDED, RE-RUN IN FLIGHT
+//! # Results — measured 2026-09-14, ENDF/B-VIII.0
 //!
-//! **Do not cite the table below.** It was measured on the LOW embedded tier,
-//! which this example no longer uses: coarse group data above the WMP range, a
-//! Watt fission-birth stand-in in place of real MF=5 chi (worth ~500 pcm on
-//! Godiva by this crate's own measurement), and no S(alpha,beta) at all
-//! (~1700 pcm on a graphite-moderated spectrum). Those three omissions are
-//! larger than some of the biases the table reports, so it cannot support the
-//! conclusions drawn from it.
-//!
-//! Retained verbatim rather than deleted because it is the last measurement
-//! actually taken, and because the *ranking* finding below — that both
-//! approximations are slower for eigenvalues than the geometry benchmark
-//! predicts — is about cost, not data, and is expected to survive. That
-//! expectation is **not yet confirmed on HIGH tier.**
-//!
-//! 800 histories x [15 inactive + 40 active], LOW tier, single-threaded,
-//! 25 856 explicit particles in the delta arm.
+//! 800 histories x [15 inactive + 40 active], single-threaded, 25 856 explicit
+//! particles in the delta arm. Cross-section reconstruction took 74.7 s and is
+//! **excluded** from the per-treatment timings — it is one-off setup, and all
+//! three arms share it.
 //!
 //! | Treatment | k-infinity | Time | vs delta | Bias |
 //! |---|---|---|---|---|
-//! | delta tracking (exact) | 1.22645 +/- 0.00691 | 10.0 s | 1.00x | — |
-//! | chord-length sampling | 1.18646 +/- 0.00573 | 26.3 s | **0.38x** | **-3999 pcm (-4.5 sigma)** |
-//! | ring-RPT (homogenised) | 1.18303 +/- 0.00614 | 71.0 s | **0.14x** | **-4342 pcm (-4.7 sigma)** |
+//! | delta tracking (exact) | 1.23050 +/- 0.00608 | 28.5 s | 1.00x | — |
+//! | chord-length sampling | 1.18328 +/- 0.00732 | 56.0 s | **0.51x** | **-4722 pcm (-5.0 sigma)** |
+//! | ring-RPT (homogenised) | 1.17899 +/- 0.00615 | 133.9 s | **0.21x** | **-5151 pcm (-6.0 sigma)** |
 //!
-//! ## Both approximations are SLOWER here, and that is the headline
+//! ## Both approximations are SLOWER, and that is the headline
 //!
-//! `examples/dh_tracking_speedup.rs` measures the same three treatments as
+//! `examples/dh_tracking_speedup.rs` measures these same three treatments as
 //! *geometry* and finds chord-length ~2.5-3x and ring-RPT ~8x **faster** than
-//! delta tracking. In a real eigenvalue calculation the ranking **inverts**.
-//! The speedup measured on a geometry-only benchmark does not transfer, and
-//! anyone choosing a treatment on the strength of that benchmark alone would
-//! choose wrongly.
+//! delta tracking. In a real continuous-energy eigenvalue calculation the
+//! ranking **inverts**: they are 2.0x and 4.8x *slower*. The speedup measured on
+//! a geometry-only benchmark does not transfer, and anyone choosing a treatment
+//! on the strength of that benchmark alone would choose wrongly.
 //!
-//! The likely mechanism, which the numbers are consistent with but which this
-//! example does **not** isolate: homogenisation moves cost out of geometry and
-//! into cross-section evaluation. Explicitly, most of the fuel zone by volume is
-//! single-nuclide carbon — buffer, IPyC, OPyC, matrix — so a delta-tracking
+//! The likely mechanism, consistent with the numbers but **not isolated** by
+//! this example: homogenisation moves cost out of geometry and into
+//! cross-section evaluation. Explicitly, most of the fuel zone by volume is
+//! single-nuclide graphite — buffer, IPyC, OPyC, matrix — so a delta-tracking
 //! point query there sums **one** nuclide. Smear the particles and every point
-//! in the zone carries the union of all five (C, O16, Si28, U235, U238), so
-//! every query sums **five**. The geometry lookup that was traded away was
-//! already O(1) through the packing grid, so the trade is roughly 5x the
-//! cross-section work for nearly nothing.
+//! carries the union of all six, so every query sums **six**. The geometry
+//! lookup traded away was already O(1) through the packing grid, so the trade is
+//! roughly 6x the cross-section work for nearly nothing.
 //!
 //! Chord-length sampling pays a second, avoidable cost: its sampler is stateful
-//! and the k-eff seam wants `Fn + Sync`, so every point query takes a mutex (see
-//! [`DhUniverse::keff`](outram_mc_libs::dh_universe::DhUniverse::keff)). That is
-//! an implementation artefact of this wiring, not a property of CLS, and it is
-//! the first thing to attack if CLS is wanted for production.
+//! and the k-eff seam wants `Fn + Sync`, so every point query takes a mutex.
+//! That is an artefact of this wiring, not a property of CLS, and it is the
+//! first thing to attack if CLS is wanted for production.
 //!
-//! **Neither of these is established here.** Separating material cost from
-//! geometry cost needs a profile or an A/B with matched nuclide counts, and that
-//! has not been run. The ranking above is measured; the explanation is a
-//! hypothesis consistent with it.
+//! Separating material cost from geometry cost needs a profile or an A/B with
+//! matched nuclide counts, and that has **not** been run. The ranking is
+//! measured; the explanation is a hypothesis stated as one.
 //!
-//! ## The accuracy result — LOW tier, superseded
+//! ## The LOW tier flattered both approximations — by ~700 pcm
 //!
-//! Both approximations sit about **4000 pcm low**, resolved at 4.5-4.7 sigma.
-//! The sign is physically right for ring-RPT: smearing destroys the spatial
-//! self-shielding that shields U-238's resonances inside the kernels, so the
-//! resonance absorber sees more flux, absorbs more, and k falls. A ~4000 pcm
-//! penalty is why the ring-RPT inner radius is a *fitted* parameter rather than
-//! a geometric one — the fit is what buys that back.
+//! An earlier revision ran this on the LOW embedded tier and measured
+//! **-3999 pcm** (CLS) and **-4342 pcm** (ring-RPT). On ENDF/B-VIII.0 the same
+//! comparison gives **-4722** and **-5151** — both penalties are ~700-800 pcm
+//! *worse*.
 //!
+//! That direction is exactly what the physics predicts, which is the useful
+//! part. What homogenisation destroys is the spatial self-shielding that
+//! protects U-238's resonances inside the kernels. The LOW tier's coarse group
+//! data has already smeared those resonances, so there was less self-shielding
+//! left to lose and the penalty came out too small. **Testing an approximation
+//! on data that has already made the same approximation understates its cost.**
+//!
+//! ## The accuracy result
+//!
+//! Both approximations sit **~4700-5200 pcm low**, resolved at 5-6 sigma.
 //! At these settings the combined standard error is ~900 pcm, so this run can
 //! resolve a bias of roughly 2000 pcm and no better. A treatment reading "not
 //! resolved" has not been shown to be unbiased; it has been shown to be
