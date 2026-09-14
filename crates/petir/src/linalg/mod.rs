@@ -51,7 +51,9 @@ pub mod lu;
 /// rather than in the lifted file, for the reason given in `crate::poly`.
 #[allow(missing_docs)]
 pub mod square_matrix;
+pub mod tridiag;
 
 pub use blas1::{asum, axpy, dot, iamax, nrm2, scal, swap};
 pub use lu::{det, inverse, ln_det};
+pub use tridiag::solve_symm_tridiag;
 pub use square_matrix::{MatrixError, SquareMatrix};
