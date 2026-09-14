@@ -1,4 +1,4 @@
-# Upstream source
+# Upstream source — GNU Scientific Library
 
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
@@ -116,3 +116,134 @@ directly (public domain) rather than inheriting Octave's chain.
 
 `/upstream_source/GSL/` is gitignored (see the crate `.gitignore`, written
 *before* cloning per `bn:op-chyp.3` step 1). Only this README is tracked.
+
+---
+
+# Upstream source — ARM optimized-routines
+
+- **Project:** ARM optimized-routines
+- **Upstream repository:** <https://github.com/ARM-software/optimized-routines>
+- **Commit at last sync:** `f2e4faf58c6c671154f472a76eaaa977bb36c870`
+- **Commit date:** 2026-09-09 (`string: Add a macro for SVE load`)
+- **Accessed:** 2026-09-14
+- **Clone command:** `git clone --depth 1 https://github.com/ARM-software/optimized-routines.git upstream_source/ARM-optimized-routines`
+
+## Why a second upstream at all
+
+GSL does not provide `exp`/`log`/`pow` — it calls the platform libm for them,
+and in `no_std` PETIR routes them through the `libm` crate (a port of musl's)
+instead. That is correct and portable but **slower than the platform**: 1.58x
+on `exp`, 1.41x on `log`, 3.51x on `powf` as measured for `bn:op-chyp.5`. That
+cost is the whole reason `outram-mc-libs` gates its transcendentals behind an
+opt-in feature rather than switching unconditionally.
+
+The cost turns out to be avoidable, because **the fast implementation glibc
+ships is itself open source and permissively licensed**: glibc's `exp`, `log`
+and `pow` *are* ARM optimized-routines, contributed upstream by Arm. Built from
+source and benchmarked side by side on this machine:
+
+| | glibc | ARM optimized-routines | Rust `libm` |
+|---|---|---|---|
+| `exp` | 118 ms | 119 ms | 255 ms |
+| `log` | 162 ms | 158 ms | 216 ms |
+| `pow` | 507 ms | 507 ms | 1544 ms |
+
+## Licence — VERIFIED, not asserted
+
+Same standard as the GSL section above: read from the upstream tree, not from
+documentation.
+
+**`LICENSE` is a dual-licence file**, not a single licence text:
+
+```
+MIT OR Apache-2.0 WITH LLVM-exception
+=====================================
+
+
+MIT License
+-----------
+
+Copyright (c) 1999-2022, Arm Limited.
+```
+
+- `sha256(LICENSE)` = `650afbf29f214451e02241adc42534e82c9d6ae2b38e2444b92b5a1ffcaf9346`
+- size = 13491 bytes
+- it contains, in order: the MIT licence text, the full Apache License 2.0
+  (from line 32), its "How to apply" appendix (line 209), and the **LLVM
+  Exceptions** (line 235).
+
+Unlike GSL, here the top-level file *does* state the grant rather than merely
+containing boilerplate — but the per-file headers are checked anyway, because
+a repository-level file does not bind a file that says something different.
+Every file ported or linked here carries the identical SPDX line:
+
+```c
+/*
+ * Double-precision e^x function.
+ *
+ * Copyright (c) 2018-2025, Arm Limited.
+ * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
+ */
+```
+
+**Conclusion: MIT OR Apache-2.0 WITH LLVM-exception.** Both options are
+permissive and GPL-3.0-compatible, so the transcription in `src/fast_exp.rs` is
+GPL-3.0-only like the rest of this workspace. The flow is **one-way**: code
+here cannot go back upstream under the original licence.
+
+### Copyright holders
+
+Arm Limited throughout, but the year ranges differ per file — read the header
+of any further file before porting it:
+
+| file | copyright |
+|---|---|
+| `math/exp.c` | Arm Limited, 2018–2025 |
+| `math/exp_data.c` | Arm Limited, 2018–2023 |
+| `math/log.c` | Arm Limited, 2018–2025 |
+| `math/pow.c` | Arm Limited, 2018–2026 |
+| `math/math_config.h` | Arm Limited, 2017–2025 |
+| `math/math_err.c` | Arm Limited, 2018 |
+
+## Files vendored for porting
+
+Digests recorded at sync so a reviewer can diff the exact bytes that were read:
+
+| sha256 (first 16) | file | lines |
+|---|---|---|
+| `219b5f666c84864e` | `math/exp.c` | 176 |
+| `a5e84677e7693c7d` | `math/exp_data.c` | 1141 |
+| `10e3774a72279c75` | `math/log.c` | 170 |
+| `327cf18198709304` | `math/log_data.c` | 511 |
+| `4497df6d64e0043c` | `math/pow.c` | 373 |
+| `d28818bd95355e68` | `math/pow_log_data.c` | 184 |
+| `9a3ee029ba2b5844` | `math/math_config.h` | 770 |
+| `202a5f0b4983da16` | `math/math_err.c` | 80 |
+
+## The tables were extracted mechanically, not retyped
+
+`exp_data.c` selects between `N == 64` and `N == 128` variants with
+preprocessor conditionals, so resolving them by eye is exactly how a
+transcription error gets in. The 256 table entries and 4 polynomial
+coefficients in `src/fast_exp.rs` were instead produced by **linking the
+compiled `exp_data.o` into a dumper** that printed the resolved `__exp_data`
+fields as hex bit patterns, and generating the Rust table from that output.
+Same reasoning as the mechanical extraction of `expint`'s 150 coefficients.
+
+## V&V oracle
+
+`reference-data/arm-optimized-routines/` (repository root, outside `crates/`)
+holds ARM's own compiled output over a fixed probe grid, plus the committed
+driver that regenerates it. `crates/petir/tests/fast_exp_vs_arm_optimized_routines.rs`
+checks the port against it **bit for bit**, and passes at 100.000 %.
+
+That directory's README also records the FMA finding: glibc's ifunc dispatch
+picks an FMA-compiled build of this source, which differs from the portable
+build on 0.055 % of inputs by exactly 1 ulp. The oracle is deliberately built
+**without** FMA, because Rust never contracts floating-point expressions and
+the portable form is the one a Rust transcription can hold on every target.
+
+## The clone is not committed
+
+`/upstream_source/ARM-optimized-routines/` is gitignored (see the crate
+`.gitignore`, written before cloning). Only this README is tracked.

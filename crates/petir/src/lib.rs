@@ -56,6 +56,7 @@ pub mod cheb;
 pub mod cheb_slice;
 pub mod error;
 pub mod expint;
+pub mod fast_exp;
 pub mod gamma_inc;
 pub mod real;
 
