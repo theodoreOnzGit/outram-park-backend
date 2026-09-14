@@ -44,7 +44,6 @@
 
 use crate::geometry::position::{Direction, Position};
 use crate::geometry::surface::SurfaceKind;
-use crate::mathf::RealMath;
 
 /// Number of `f32` coefficients stored per surface in the flat encoding.
 ///
@@ -1235,6 +1234,9 @@ pub fn surface_distance_hybrid(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
     use crate::geometry::surface::{
         BoundaryType, Plane, Quadric, Sphere, XCone, XCylinder, XPlane, XTorus, YCone, YCylinder,
         YPlane, YTorus, ZCone, ZCylinder, ZPlane, ZTorus,

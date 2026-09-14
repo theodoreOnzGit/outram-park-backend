@@ -12,7 +12,7 @@ use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::tally::filter::EnergyFilter;
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
-use crate::mathf::RealMath;
+use outram_mc_libs::mathf::RealMath;
 
 /// Number of log-spaced energy bins the spectrum/XS overlay tallies and plots.
 /// Matches the 50-bin grid `flux_spectrum.rs` uses for the same 1e-3 eV .. 20 MeV

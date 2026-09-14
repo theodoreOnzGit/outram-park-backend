@@ -17,15 +17,19 @@
 //! tracks upstream's *portable* (non-FMA) form rather than glibc's contracted
 //! one.
 //!
-//! **`ln` is the weakest of the three, and that is worth stating up front.**
-//! Measured from Rust over 2 000 000 calls (`tests/fast_math_speed.rs`):
-//! 9.7 ms platform / 13.7 ms [`crate::real::ln`] / 12.2 ms here — so this
-//! buys only about **1.05x** over the `libm` route, against 1.7x for `exp`
-//! and 2.1x for `powf`. Two reasons, both structural: the `libm` crate's
-//! `log` is already close to optimal, and `HAVE_FAST_FMA == 0` costs this
-//! function more than it costs `exp` — it forces a second table (`tab2`,
-//! doubling the cache footprint) and a longer near-1 branch. Adopt it for the
-//! **determinism**, which is unconditional; the speed is a small bonus here.
+//! **`ln` is the weakest of the three on speed, and that is worth stating up
+//! front.** Measured from Rust over 2 000 000 calls
+//! (`tests/fast_math_speed.rs`, five runs), this buys **1.09-1.18x** over the
+//! musl-derived `libm` route, against ~1.8x for `exp` and ~2.1x for `powf`.
+//! Two structural reasons: the `libm` crate's `log` is already close to
+//! optimal, and `HAVE_FAST_FMA == 0` costs this function more than it costs
+//! `exp` — it forces a second table (`tab2`, doubling the cache footprint) and
+//! a longer near-1 branch. Adopt it for the **determinism**, which is
+//! unconditional; the speed is a modest bonus here.
+//!
+//! It is nonetheless [`crate::real::ln`]'s default route, for consistency: one
+//! deterministic implementation across all three functions is worth more than
+//! a per-function speed optimum.
 //!
 //! # Fidelity
 //!
@@ -627,18 +631,12 @@ fn top16(x: f64) -> u32 {
     (x.to_bits() >> 48) as u32
 }
 
-/// Fast `ln x` — a bit-for-bit transcription of ARM optimized-routines.
+/// The transcription itself — `log` (`math/log.c:31`).
 ///
-/// Ports `log` (`math/log.c:31`).
-///
-/// # Errors
-///
-/// [`PetirError::ZeroDivide`] at `x == ±0`, where upstream returns
-/// `__math_divzero(1)` (i.e. `-inf` with a divide-by-zero flag), and
-/// [`PetirError::Domain`] for `x < 0` or NaN, where it returns
-/// `__math_invalid(x)` (a NaN with the invalid flag). `+inf` returns `+inf`,
-/// as upstream does. PETIR returns these as errors rather than as flagged
-/// special values, consistently with the rest of the crate.
+/// Returns `Err((error, ieee_value))` for the two special cases, carrying both
+/// PETIR's error and the value upstream's C returns, so that [`ln`] and
+/// [`ln_ieee`] are two views of one implementation rather than two
+/// implementations.
 ///
 /// # Verification
 ///
@@ -648,7 +646,7 @@ fn top16(x: f64) -> u32 {
 /// subnormal renormalisation path: **16 748 compared, 16 748 bit-identical
 /// (100.000 %)**, 3 refused at `±0` and `-1.0` with upstream returning `-inf`
 /// / NaN (`tests/fast_log_vs_arm_optimized_routines.rs`, 2026-09-14).
-pub fn ln(x: f64) -> Result<f64> {
+fn ln_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let mut ix = x.to_bits();
     let top = top16(x);
 
@@ -688,13 +686,26 @@ pub fn ln(x: f64) -> Result<f64> {
     if top.wrapping_sub(0x0010) >= 0x7ff0u32.wrapping_sub(0x0010) {
         // x < 0x1p-1022, or inf, or nan.
         if ix.wrapping_mul(2) == 0 {
-            return Err(PetirError::ZeroDivide); // __math_divzero(1)
+            // `__math_divzero(1)` returns -inf and raises divide-by-zero.
+            return Err((PetirError::ZeroDivide, f64::NEG_INFINITY));
         }
         if ix == f64::INFINITY.to_bits() {
             return Ok(x); // log(inf) == inf
         }
         if top & 0x8000 != 0 || top & 0x7ff0 == 0x7ff0 {
-            return Err(PetirError::Domain); // __math_invalid(x)
+            // `__math_invalid(x)` (`math_err.c`) returns `(x - x) / (x - x)`
+            // and raises invalid-operand. That expression is `0.0 / 0.0`,
+            // whose NaN *payload and sign are architecture-dependent*: x86-64
+            // SSE produces the "indefinite" QNaN with the sign bit set
+            // (0xfff8…), aarch64 the positive default QNaN (0x7ff8…).
+            //
+            // This port returns the positive quiet NaN on every target
+            // instead. That is a deliberate divergence in payload only: the
+            // value is a NaN either way, NaN payloads carry no numerical
+            // meaning, and a platform-dependent one would defeat exactly the
+            // determinism this module exists for. The V&V test therefore
+            // checks NaN-ness here rather than the bit pattern, and says so.
+            return Err((PetirError::Domain, f64::NAN));
         }
         // x is subnormal: normalise it.
         ix = (x * f64::from_bits(0x4330000000000000)).to_bits(); // 0x1p52
@@ -727,4 +738,31 @@ pub fn ln(x: f64) -> Result<f64> {
     // log(x) = lo + (log1p(r) - r) + hi. LOG_POLY_ORDER == 6 (`log.c:146`).
     let r2 = r * r;
     Ok(lo + r2 * POLY[0] + r * r2 * (POLY[1] + r * POLY[2] + r2 * (POLY[3] + r * POLY[4])) + hi)
+}
+
+/// Fast `ln x`, refusing the inputs that have no finite real logarithm.
+///
+/// This is [`ln_ieee`] with upstream's two special returns turned into errors,
+/// which is PETIR's convention elsewhere.
+///
+/// # Errors
+///
+/// [`PetirError::ZeroDivide`] at `x == ±0`, where upstream returns
+/// `__math_divzero(1)` (`-inf`, with a divide-by-zero flag), and
+/// [`PetirError::Domain`] for `x < 0` or NaN, where it returns
+/// `__math_invalid(x)` (a NaN, with the invalid flag). `ln(+inf) == +inf` is
+/// returned as `Ok`, as upstream returns it.
+#[inline]
+pub fn ln(x: f64) -> Result<f64> {
+    ln_inner(x).map_err(|(e, _)| e)
+}
+
+/// Fast `ln x`, returning exactly what upstream's C returns — `-inf` at zero
+/// and a NaN for a negative argument — rather than an error.
+///
+/// The faithful surface, and the one to prefer; see [`crate::fast_exp::exp_ieee`]
+/// for why both exist.
+#[inline]
+pub fn ln_ieee(x: f64) -> f64 {
+    ln_inner(x).unwrap_or_else(|(_, v)| v)
 }

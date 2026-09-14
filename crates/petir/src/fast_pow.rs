@@ -13,10 +13,10 @@
 //! implementation glibc itself ships.
 //!
 //! The third of the trio with [`crate::fast_exp`] and [`crate::fast_log`], and
-//! the one with the most to gain: `pow` is where the `libm` route is slowest.
-//! Measured from Rust over 2 000 000 calls (`tests/fast_math_speed.rs`):
-//! 35.0 ms platform / 94.9 ms [`crate::real::powf`] / 44.3 ms here — a
-//! **2.1x** speed-up over the `libm` route, the largest of the three.
+//! the one with the most to gain: `pow` is where the musl-derived `libm` route
+//! is slowest by a wide margin. Measured from Rust over 2 000 000 calls
+//! (`tests/fast_math_speed.rs`, five runs): a **2.09-2.18x** speed-up, the
+//! largest of the three. It is [`crate::real::powf`]'s default route.
 //!
 //! It still sits about 1.5x behind the platform, and the reason is the
 //! deliberate one: `HAVE_FAST_FMA == 0` replaces three fused multiply-adds
@@ -555,7 +555,7 @@ fn log_inline(ix: u64) -> (f64, f64) {
 ///
 /// This is *not* [`crate::fast_exp`]'s `specialcase`: see the module docs for
 /// the three differences, all of which are sign handling.
-fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
+fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (PetirError, f64)> {
     /// `0x1p1009` — 2^1009, the counterpart to the `1009 << 52` bias removal.
     const P1009: f64 = f64::from_bits(0x7F00000000000000);
     /// `0x1p-1022` — the smallest positive normal.
@@ -574,7 +574,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
         // deliberately not transcribed.
         let y = y * P1009;
         return if y.is_infinite() {
-            Err(PetirError::ZeroDivide) // check_oflow
+            Err((PetirError::ZeroDivide, y)) // check_oflow
         } else {
             Ok(y)
         };
@@ -600,7 +600,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
     }
     let y = P_M1022 * y;
     if y == 0.0 {
-        Err(PetirError::Tolerance) // check_uflow
+        Err((PetirError::Tolerance, y)) // check_uflow
     } else {
         Ok(y)
     }
@@ -613,7 +613,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
 /// See the module docs for why this is not [`crate::fast_exp::exp`]: infinity
 /// and NaN are already excluded by the caller, so the large-|x| branch here
 /// goes straight to overflow/underflow.
-fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> Result<f64> {
+fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> core::result::Result<f64, (PetirError, f64)> {
     let mut abstop = top12(x) & 0x7ff;
 
     // The unsigned-wraparound trick catching both tiny and huge |x| in one
@@ -627,10 +627,20 @@ fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> Result<f64> {
         }
         if abstop >= top12(1024.0) {
             // Note: inf and nan are already handled by `powf`'s prologue.
+            // `__math_uflow(sign)` returns ±0 and `__math_oflow(sign)` ±inf,
+            // the sign taken from `sign_bias` being non-zero.
+            let neg = sign_bias != 0;
             return if x.to_bits() >> 63 != 0 {
-                Err(PetirError::Tolerance) // __math_uflow(sign_bias)
+                Err((PetirError::Tolerance, if neg { -0.0 } else { 0.0 }))
             } else {
-                Err(PetirError::ZeroDivide) // __math_oflow(sign_bias)
+                Err((
+                    PetirError::ZeroDivide,
+                    if neg {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    },
+                ))
             };
         }
         // Large x is special-cased below.
@@ -707,21 +717,13 @@ fn zeroinfnan(i: u64) -> bool {
     i.wrapping_mul(2).wrapping_sub(1) >= f64::INFINITY.to_bits().wrapping_mul(2).wrapping_sub(1)
 }
 
-/// Fast `x^y` — a bit-for-bit transcription of ARM optimized-routines.
+/// The transcription itself — `pow` (`math/pow.c:246`). Worst-case error
+/// upstream states as 0.54 ulp.
 ///
-/// Ports `pow` (`math/pow.c:246`). Worst-case error upstream states as 0.54
-/// ulp.
-///
-/// # Errors
-///
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
-/// result exceeds the double range) or `__math_divzero` (`0^negative`), and
-/// [`PetirError::Tolerance`] where it returns `__math_uflow`.
-/// [`PetirError::Domain`] for a negative base raised to a non-integer
-/// exponent, where upstream returns `__math_invalid` (a NaN with the invalid
-/// flag). The IEEE special cases that have a finite or infinite answer —
-/// `x^0 == 1`, `1^y == 1`, `(±0)^y`, `(±inf)^y`, NaN propagation — return that
-/// answer exactly as upstream does, rather than an error.
+/// Returns `Err((error, ieee_value))` for the special cases, carrying both
+/// PETIR's error and the value upstream's C returns, so that [`powf`] and
+/// [`powf_ieee`] are two views of one implementation rather than two
+/// implementations.
 ///
 /// # Verification
 ///
@@ -733,7 +735,7 @@ fn zeroinfnan(i: u64) -> bool {
 /// **42 176 compared, 42 176 bit-identical (100.000 %)**, 1 259 refused with
 /// upstream returning a NaN, infinity or zero at each
 /// (`tests/fast_pow_vs_arm_optimized_routines.rs`, 2026-09-14).
-pub fn powf(x: f64, y: f64) -> Result<f64> {
+fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let mut sign_bias = 0u32;
     let mut ix = x.to_bits();
     let iy = y.to_bits();
@@ -783,8 +785,14 @@ pub fn powf(x: f64, y: f64) -> Result<f64> {
                 // as `fast_exp` and `fast_log` do, so the divergence is in the
                 // reporting convention, not the value. `sign_bias` is set to 1
                 // just above only to choose the sign of that infinity.
-                let _ = sign_bias;
-                return Err(PetirError::ZeroDivide); // __math_divzero(sign_bias)
+                return Err((
+                    PetirError::ZeroDivide, // __math_divzero(sign_bias)
+                    if sign_bias != 0 {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    },
+                ));
             }
             return Ok(if iy >> 63 != 0 { 1.0 / x2 } else { x2 });
         }
@@ -794,7 +802,13 @@ pub fn powf(x: f64, y: f64) -> Result<f64> {
             // Finite x < 0.
             let yint = checkint(iy);
             if yint == 0 {
-                return Err(PetirError::Domain); // __math_invalid(x)
+                // `__math_invalid(x)` returns `(x - x) / (x - x)`, raising
+                // invalid-operand. The NaN's payload and sign are
+                // architecture-dependent (0xfff8… on x86-64 SSE, 0x7ff8… on
+                // aarch64); this port returns the positive quiet NaN on every
+                // target. A deliberate divergence in payload only — see
+                // `crate::fast_log`'s corresponding comment for the reasoning.
+                return Err((PetirError::Domain, f64::NAN));
             }
             if yint == 1 {
                 sign_bias = SIGN_BIAS;
@@ -816,9 +830,9 @@ pub fn powf(x: f64, y: f64) -> Result<f64> {
                 });
             }
             return if (ix > 1.0f64.to_bits()) == (topy < 0x800) {
-                Err(PetirError::ZeroDivide) // __math_oflow(0)
+                Err((PetirError::ZeroDivide, f64::INFINITY)) // __math_oflow(0)
             } else {
-                Err(PetirError::Tolerance) // __math_uflow(0)
+                Err((PetirError::Tolerance, 0.0)) // __math_uflow(0)
             };
         }
         if topx == 0 {
@@ -838,4 +852,40 @@ pub fn powf(x: f64, y: f64) -> Result<f64> {
     let ehi = yhi * lhi;
     let elo = ylo * lhi + y * llo; // |elo| < |ehi| * 2^-25
     exp_inline(ehi, elo, sign_bias)
+}
+
+/// Fast `x^y`, refusing the cases with no finite real answer.
+///
+/// This is [`powf_ieee`] with upstream's special returns turned into errors,
+/// which is PETIR's convention elsewhere.
+///
+/// # Errors
+///
+/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
+/// result exceeds the double range) or `__math_divzero` (`0^negative`), and
+/// [`PetirError::Tolerance`] where it returns `__math_uflow`.
+/// [`PetirError::Domain`] for a negative base raised to a non-integer
+/// exponent, where upstream returns `__math_invalid` (a NaN, with the invalid
+/// flag). The IEEE special cases that have a finite or infinite answer —
+/// `x^0 == 1`, `1^y == 1`, `(±0)^y`, `(±inf)^y`, NaN propagation — come back
+/// as `Ok`, exactly as upstream returns them.
+#[inline]
+pub fn powf(x: f64, y: f64) -> Result<f64> {
+    powf_inner(x, y).map_err(|(e, _)| e)
+}
+
+/// Fast `x^y`, returning exactly what upstream's C returns — `±inf`, `±0` or a
+/// NaN — rather than an error.
+///
+/// The faithful surface, and the one to prefer; see
+/// [`crate::fast_exp::exp_ieee`] for why both exist.
+///
+/// One case deliberately does not round-trip: for `0^negative` upstream guards
+/// its `__math_divzero` branch with `WANT_ERRNO`, which is 0 in the baseline
+/// build, so its compiled code falls through to `1/x2` and returns `±inf`
+/// without setting `errno`. This returns the same `±inf`; only [`powf`]'s
+/// error report differs, and the module docs say so.
+#[inline]
+pub fn powf_ieee(x: f64, y: f64) -> f64 {
+    powf_inner(x, y).unwrap_or_else(|(_, v)| v)
 }

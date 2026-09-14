@@ -15,17 +15,30 @@
 //! # Results (2026-09-14, this host, `--release`)
 //!
 //! ```text
-//!                platform (glibc)   petir::real (libm)   petir::fast_*
-//!   exp                11.9 ms            16.6 ms            9.7 ms
-//!   ln                  9.7 ms            13.7 ms           12.2 ms
-//!   powf               35.0 ms            94.9 ms           44.3 ms
+//!                platform (glibc)   libm crate (old)   petir::real (ARM, now)
+//!   exp                12.0 ms            16.2 ms              8.9 ms
+//!   ln                 10.0 ms            12.9 ms             13.7 ms
+//!   powf               28.4 ms            93.8 ms             43.4 ms
 //! ```
 //!
-//! Ratios over four runs, so the spread is visible rather than hidden behind a
-//! single figure: `libm/fast` = 1.67-1.80x (`exp`), 1.04-1.06x (`ln`),
-//! 2.12-2.14x (`powf`); `fast/platform` = 0.71-0.82x (`exp`, i.e. faster than
-//! the platform, because it inlines instead of calling through a dynamic
-//! symbol), 1.24-1.32x (`ln`), 1.27-1.50x (`powf`).
+//! Ratios over five runs, so the spread is visible rather than hidden behind a
+//! single figure:
+//!
+//! ```text
+//!            old libm route / ARM route      ARM route / platform
+//!   exp            1.75 - 1.85x                   0.71 - 0.75x
+//!   ln             1.09 - 1.18x                   1.20 - 1.25x
+//!   powf           2.10 - 2.18x                   1.51 - 1.57x
+//! ```
+//!
+//! Two things worth reading off that honestly. `exp` is **faster than the
+//! platform** (0.7x), because it inlines instead of calling through a dynamic
+//! symbol. And `ln` gains only ~1.1x, not the 1.7-2.2x the other two do — the
+//! `libm` crate's `log` was already good, and the portable non-FMA branch this
+//! port must take costs `log` a second table and a longer near-1 branch. A
+//! single run early in this work showed `ln` at 0.94x; five further runs put
+//! it at 1.09-1.18x, so that figure was noise, but it is the right order of
+//! magnitude to expect: `ln` is close to a wash.
 //!
 //! Re-run rather than trusting these on different hardware.
 //!
@@ -56,25 +69,21 @@ fn exp_log_pow_are_faster_than_the_libm_route() {
         .map(|i| (i as f64 / N as f64) * 1400.0 - 700.0)
         .collect();
     let std_exp = timed("std (platform libm)", || xs.iter().map(|&x| x.exp()).sum());
-    let petir_exp = timed("petir::real::exp (libm crate)", || {
-        xs.iter().map(|&x| petir::real::exp(x)).sum()
+    let petir_exp = timed("libm crate (the old default)", || {
+        xs.iter().map(|&x| libm::exp(x)).sum()
     });
-    let fast_exp = timed("petir::fast_exp::exp", || {
-        xs.iter()
-            .map(|&x| petir::fast_exp::exp(x).unwrap_or(0.0))
-            .sum()
+    let fast_exp = timed("petir::real::exp (ARM port, default)", || {
+        xs.iter().map(|&x| petir::real::exp(x)).sum()
     });
 
     println!("\n  ln, {N} calls over (0, 1e6]:");
     let xs: Vec<f64> = (1..=N).map(|i| i as f64 * 0.5).collect();
     let std_ln = timed("std (platform libm)", || xs.iter().map(|&x| x.ln()).sum());
-    let petir_ln = timed("petir::real::ln (libm crate)", || {
-        xs.iter().map(|&x| petir::real::ln(x)).sum()
+    let petir_ln = timed("libm crate (the old default)", || {
+        xs.iter().map(|&x| libm::log(x)).sum()
     });
-    let fast_ln = timed("petir::fast_log::ln", || {
-        xs.iter()
-            .map(|&x| petir::fast_log::ln(x).unwrap_or(0.0))
-            .sum()
+    let fast_ln = timed("petir::real::ln (ARM port, default)", || {
+        xs.iter().map(|&x| petir::real::ln(x)).sum()
     });
 
     println!("\n  powf, {N} calls, base in (0, 4], exponent in [-3, 3]:");
@@ -87,13 +96,11 @@ fn exp_log_pow_are_faster_than_the_libm_route() {
     let std_pow = timed("std (platform libm)", || {
         xy.iter().map(|&(x, y)| x.powf(y)).sum()
     });
-    let petir_pow = timed("petir::real::powf (libm crate)", || {
-        xy.iter().map(|&(x, y)| petir::real::powf(x, y)).sum()
+    let petir_pow = timed("libm crate (the old default)", || {
+        xy.iter().map(|&(x, y)| libm::pow(x, y)).sum()
     });
-    let fast_pow = timed("petir::fast_pow::powf", || {
-        xy.iter()
-            .map(|&(x, y)| petir::fast_pow::powf(x, y).unwrap_or(0.0))
-            .sum()
+    let fast_pow = timed("petir::real::powf (ARM port, default)", || {
+        xy.iter().map(|&(x, y)| petir::real::powf(x, y)).sum()
     });
 
     println!("\n  Speed-up of the fast route over the libm route:");

@@ -37,7 +37,6 @@
 // human review before it is promoted past the "Unit Tested" V&V stage.
 
 use crate::rng::lcg::{INC, MULT};
-use crate::mathf::RealMath;
 
 /// Structure-of-Arrays batch of live neutrons resident for the GPU flight kernel.
 ///
@@ -616,6 +615,9 @@ pub fn advance_flight_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
     use crate::rng::lcg::future_seed;
 
     // A small, dependency-free splitmix64-style hash to synthesise varied,

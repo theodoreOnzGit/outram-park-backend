@@ -100,13 +100,33 @@ fn fast_log_is_bit_identical_to_arm_optimized_routines() {
             }
             Err(_) => {
                 // Upstream returns -inf (divide-by-zero) at x == 0 and a NaN
-                // (invalid) for x < 0 or NaN. Check the refusal is justified
-                // rather than skipping it.
+                // (invalid) for x < 0. `ln` reports those as errors; `ln_ieee`
+                // must reproduce the values bit for bit, so the refusals are
+                // held to the same standard as the ordinary results.
                 refused += 1;
-                assert!(
-                    theirs.is_nan() || theirs == f64::NEG_INFINITY,
-                    "refused at x = {x} but upstream returned a finite {theirs:e}"
-                );
+                let ours = petir::fast_log::ln_ieee(x);
+                if theirs.is_nan() {
+                    // The one deliberate divergence: upstream's
+                    // `__math_invalid` is `(x - x) / (x - x)`, whose NaN sign
+                    // and payload are architecture-dependent (0xfff8… on
+                    // x86-64 SSE, 0x7ff8… on aarch64). This port returns the
+                    // positive quiet NaN everywhere, on purpose, because a
+                    // platform-dependent NaN would defeat the determinism the
+                    // module exists for -- and a NaN payload carries no
+                    // numerical meaning. So NaN-ness is checked, not the bits.
+                    assert!(
+                        ours.is_nan(),
+                        "ln_ieee({x:e}) = {ours:e}, upstream gives NaN"
+                    );
+                } else {
+                    assert_eq!(
+                        ours.to_bits(),
+                        theirs.to_bits(),
+                        "ln_ieee({x:e}) = {:016x}, upstream gives {:016x}",
+                        ours.to_bits(),
+                        theirs.to_bits()
+                    );
+                }
             }
         }
     }
@@ -169,9 +189,12 @@ fn fast_log_is_close_to_the_platform_ln() {
     );
 }
 
-/// The fast path and the `libm` path are independent implementations of the
-/// same function, so a large disagreement means one of them has a
-/// transcription error.
+/// The fast path and the musl-derived `libm` path are independent
+/// implementations of the same function, so a large disagreement means one of
+/// them has a transcription error.
+///
+/// It calls `libm::log` **by name**: `petir::real::ln` now routes here, so
+/// going through it would compare this port with itself.
 #[test]
 fn the_two_backends_agree() {
     let mut worst = (0.0f64, 0.0f64);
@@ -180,7 +203,7 @@ fn the_two_backends_agree() {
         let Ok(fast) = petir::fast_log::ln(x) else {
             continue;
         };
-        let slow = petir::real::ln(x);
+        let slow = libm::log(x);
         if slow == 0.0 || !slow.is_finite() {
             continue;
         }
@@ -190,7 +213,7 @@ fn the_two_backends_agree() {
         }
     }
     println!(
-        "  fast_log vs petir::real::ln: worst rel {:.3e} at x = {}",
+        "  fast_log vs libm::log: worst rel {:.3e} at x = {}",
         worst.0, worst.1
     );
     assert!(

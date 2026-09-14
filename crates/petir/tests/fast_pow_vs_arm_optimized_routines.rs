@@ -115,11 +115,31 @@ fn fast_pow_is_bit_identical_to_arm_optimized_routines() {
                 }
             }
             Err(_) => {
+                // `powf` reports upstream's overflow / underflow / invalid /
+                // divide-by-zero returns as errors; `powf_ieee` must reproduce
+                // the values bit for bit -- including the sign of an infinity
+                // or a zero, which is what `SIGN_BIAS` exists to get right.
+                // So the refusals are checked as strictly as the results.
                 refused += 1;
-                assert!(
-                    theirs == 0.0 || !theirs.is_finite(),
-                    "refused at ({x:e}, {y:e}) but upstream returned a finite {theirs:e}"
-                );
+                let ours = petir::fast_pow::powf_ieee(x, y);
+                if theirs.is_nan() {
+                    // See `fast_log`'s test: upstream's `__math_invalid` NaN
+                    // is architecture-dependent in sign and payload, and this
+                    // port deliberately returns the positive quiet NaN on
+                    // every target. NaN-ness is checked, not the bits.
+                    assert!(
+                        ours.is_nan(),
+                        "powf_ieee({x:e}, {y:e}) = {ours:e}, upstream gives NaN"
+                    );
+                } else {
+                    assert_eq!(
+                        ours.to_bits(),
+                        theirs.to_bits(),
+                        "powf_ieee({x:e}, {y:e}) = {:016x}, upstream gives {:016x}",
+                        ours.to_bits(),
+                        theirs.to_bits()
+                    );
+                }
             }
         }
     }

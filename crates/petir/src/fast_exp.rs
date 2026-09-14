@@ -28,19 +28,23 @@
 //! `tests/fast_math_speed.rs`:
 //!
 //! ```text
-//!                platform (glibc)   petir::real (libm)   petir::fast_*
-//!   exp                11.9 ms            16.6 ms            9.7 ms
-//!   ln                  9.7 ms            13.7 ms           12.2 ms
-//!   powf               35.0 ms            94.9 ms           44.3 ms
+//!            old libm route / ARM route      ARM route / platform
+//!   exp            1.75 - 1.86x                   0.70 - 0.75x
+//!   ln             1.09 - 1.18x                   1.04 - 1.25x
+//!   powf           2.09 - 2.18x                   1.41 - 1.57x
 //! ```
 //!
-//! Against the `libm` route the fast path is **1.7x** on `exp` and **2.1x** on
-//! `powf` — and only about **1.05x** on `ln`, which is worth saying plainly
-//! rather than rounding up: the `libm` crate's `log` is already good, and the
-//! portable (non-FMA) branch this port must take costs `log` and `pow` real
-//! work that glibc's FMA build avoids. That is why `exp` here actually beats
-//! the platform (it inlines, with no call through a dynamic symbol) while
-//! `ln` and `powf` sit about 1.25-1.5x behind it.
+//! Against the old `libm` route the fast path is **~1.8x** on `exp` and
+//! **~2.1x** on `powf` — and only about **1.1x** on `ln`, which is worth
+//! saying plainly rather than rounding up: the `libm` crate's `log` is already
+//! good, and the portable (non-FMA) branch this port must take costs `log` and
+//! `pow` real work that glibc's FMA build avoids. That is why `exp` here
+//! actually beats the platform (it inlines, with no call through a dynamic
+//! symbol) while `powf` sits about 1.5x behind it.
+//!
+//! **These three are `petir::real`'s default route**, not an opt-in:
+//! [`crate::real::exp`], [`crate::real::ln`] and [`crate::real::powf`] call
+//! straight into them.
 //!
 //! and they are close enough to glibc that the whole remaining difference is a
 //! single rounding. Over 40 001 points spanning `[-700, 700]`, ARM's C built
@@ -388,9 +392,13 @@ pub(crate) fn top12(x: f64) -> u32 {
     (x.to_bits() >> 52) as u32
 }
 
-/// Fast `e^x` — a bit-for-bit transcription of ARM optimized-routines.
+/// The transcription itself — `exp_inline(x, 0)` (`math/exp.c:60`), which is
+/// what upstream's `exp()` calls.
 ///
-/// Ports `exp_inline(x, 0)` (`math/exp.c:60`), which is what `exp()` calls.
+/// Returns `Err((error, ieee_value))` on overflow or underflow, carrying both
+/// PETIR's error and the value upstream's C returns, so that [`exp`] and
+/// [`exp_ieee`] are two views of one implementation rather than two
+/// implementations.
 ///
 /// # Verification
 ///
@@ -410,7 +418,7 @@ pub(crate) fn top12(x: f64) -> u32 {
 /// `__math_uflow` (the result is below the smallest normal). Upstream signals
 /// these through errno and a returned infinity/zero; this port returns them,
 /// consistent with the rest of PETIR.
-pub fn exp(x: f64) -> Result<f64> {
+fn exp_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let mut abstop = top12(x) & 0x7ff;
 
     // `abstop - top12(0x1p-54) >= top12(512.0) - top12(0x1p-54)` -- the
@@ -430,10 +438,13 @@ pub fn exp(x: f64) -> Result<f64> {
             if abstop >= top12(f64::INFINITY) {
                 return Ok(1.0 + x);
             }
+            // `__math_uflow(0)` returns +0.0 and `__math_oflow(0)` returns
+            // +inf; both also raise the corresponding IEEE flag, which Rust
+            // has no portable way to do.
             return if x.to_bits() >> 63 != 0 {
-                Err(PetirError::Tolerance) // __math_uflow
+                Err((PetirError::Tolerance, 0.0))
             } else {
-                Err(PetirError::ZeroDivide) // __math_oflow
+                Err((PetirError::ZeroDivide, f64::INFINITY))
             };
         }
         // Large x is special-cased below.
@@ -477,7 +488,7 @@ pub fn exp(x: f64) -> Result<f64> {
 /// `y < 1.0`, not `|y| < 1.0`; and the rounding step uses the literal `1.0`
 /// rather than a signed `±1.0`. The test against glibc caught it at 72.8 %
 /// bit-identical with an infinite relative error at `x = -700`.
-fn specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
+fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (PetirError, f64)> {
     // `0x1p1009` — 2^1009, the counterpart to the `1009 << 52` bias removal.
     const P1009: f64 = f64::from_bits(0x7F00000000000000);
 
@@ -488,7 +499,7 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
         let y = P1009 * (scale + scale * tmp);
         // check_oflow
         return if y.is_infinite() {
-            Err(PetirError::ZeroDivide)
+            Err((PetirError::ZeroDivide, y))
         } else {
             Ok(y)
         };
@@ -513,8 +524,39 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> Result<f64> {
     let y = f64::MIN_POSITIVE * y; // 0x1p-1022
                                    // check_uflow
     if y == 0.0 {
-        Err(PetirError::Tolerance)
+        Err((PetirError::Tolerance, y))
     } else {
         Ok(y)
     }
+}
+
+/// Fast `e^x`, refusing results outside the double range.
+///
+/// This is [`exp_ieee`] with upstream's overflow and underflow returns turned
+/// into errors, which is PETIR's convention elsewhere.
+///
+/// # Errors
+///
+/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
+/// result exceeds the double range; upstream returns `+inf`), and
+/// [`PetirError::Tolerance`] where it returns `__math_uflow` (the result is
+/// below the smallest subnormal; upstream returns `+0.0`).
+#[inline]
+pub fn exp(x: f64) -> Result<f64> {
+    exp_inner(x).map_err(|(e, _)| e)
+}
+
+/// Fast `e^x`, returning exactly what upstream's C returns — `+inf` on
+/// overflow, `+0.0` on underflow — rather than an error.
+///
+/// This is the faithful surface, and the one to prefer. ARM's `exp` is an
+/// `f64 -> f64` function that signals overflow and underflow through the IEEE
+/// flags, not through its return value; Rust has no portable access to those
+/// flags, so [`exp`] reports them as errors instead. A caller that just wants
+/// the IEEE-754 answer — [`crate::real::exp`], or `outram-mc-libs`'
+/// `RealMath`, whose methods return `f64` — should use this and skip the
+/// round-trip through `Result`.
+#[inline]
+pub fn exp_ieee(x: f64) -> f64 {
+    exp_inner(x).unwrap_or_else(|(_, v)| v)
 }

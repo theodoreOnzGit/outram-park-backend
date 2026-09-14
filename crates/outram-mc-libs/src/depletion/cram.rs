@@ -59,7 +59,6 @@
 //!   atoms/(barn·cm), …); the map is linear so the unit carries through.
 
 use super::matrix::DepletionMatrix;
-use crate::mathf::RealMath;
 
 /// A minimal complex-number value type for the CRAM linear solves.
 ///
@@ -605,6 +604,9 @@ const CRAM48_ALPHA0: f64 = 2.258038182743983e-47;
 mod tests {
     use super::*;
     use crate::depletion::matrix::DepletionMatrix;
+    // Only the analytic reference solutions below use the routed maths; the
+    // CRAM solver itself is rational-arithmetic and calls no transcendental.
+    use crate::mathf::RealMath;
 
     /// Build a `DepletionMatrix` from a row-major `n x n` slice of `1/s` values.
     fn matrix_from(n: usize, entries: &[f64]) -> DepletionMatrix {

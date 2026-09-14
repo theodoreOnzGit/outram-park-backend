@@ -21,9 +21,9 @@
 //! # Results (2026-09-14)
 //!
 //! 8 345 probes, **8 345 bit-identical (100.000 %)**, 0 disagreements.
-//! Against `petir::real::exp` (the independent `libm` route) the worst
-//! relative difference is 2.129e-16 — about 1 ulp — which is the expected
-//! spread between two correctly-implemented `exp`s, and confirms neither has a
+//! Against `libm::exp` (the independent musl-derived route) the worst relative
+//! difference is 2.129e-16 — about 1 ulp — which is the expected spread
+//! between two correctly-implemented `exp`s, and confirms neither has a
 //! transcription error large enough to matter.
 //!
 //! # The platform `exp` is a 1-ulp check, not a bit-identity check
@@ -112,13 +112,19 @@ fn fast_exp_is_bit_identical_to_arm_optimized_routines() {
                 }
             }
             Err(_) => {
-                // Upstream signals overflow/underflow through errno and returns
-                // an infinity or a zero; this port returns an error instead.
-                // Check the refusal is justified rather than skipping it.
+                // Upstream signals overflow/underflow through the IEEE flags
+                // and still returns a value (`+inf` or `+0.0`). `exp` reports
+                // that as an error; `exp_ieee` must reproduce the value
+                // itself, bit for bit -- so the refusals are checked just as
+                // strictly as the ordinary results, not merely sanity-checked.
                 refused += 1;
-                assert!(
-                    theirs == 0.0 || theirs.is_infinite(),
-                    "refused at x = {x} but upstream returned a finite {theirs:e}"
+                let ours = petir::fast_exp::exp_ieee(x);
+                assert_eq!(
+                    ours.to_bits(),
+                    theirs.to_bits(),
+                    "exp_ieee({x}) = {:016x}, upstream gives {:016x}",
+                    ours.to_bits(),
+                    theirs.to_bits()
                 );
             }
         }
@@ -184,9 +190,13 @@ fn fast_exp_is_within_one_ulp_of_the_platform_exp() {
     );
 }
 
-/// The fast path and the `libm` path must agree to within a couple of ulp —
-/// they are independent implementations of the same function, so this catches
-/// a transcription error in either.
+/// The fast path and the musl-derived `libm` path must agree to within a
+/// couple of ulp — they are independent implementations of the same function,
+/// so this catches a transcription error in either.
+///
+/// Note it calls `libm::exp` **by name**, not `petir::real::exp`:
+/// `petir::real::exp` now routes here, so going through it would compare this
+/// port with itself.
 #[test]
 fn the_two_backends_agree() {
     let mut worst = (0.0f64, 0.0f64);
@@ -195,7 +205,7 @@ fn the_two_backends_agree() {
         let Ok(fast) = petir::fast_exp::exp(x) else {
             continue;
         };
-        let slow = petir::real::exp(x);
+        let slow = libm::exp(x);
         if slow == 0.0 || !slow.is_finite() {
             continue;
         }
@@ -205,7 +215,7 @@ fn the_two_backends_agree() {
         }
     }
     println!(
-        "  fast_exp vs petir::real::exp: worst rel {:.3e} at x = {}",
+        "  fast_exp vs libm::exp: worst rel {:.3e} at x = {}",
         worst.0, worst.1
     );
     assert!(

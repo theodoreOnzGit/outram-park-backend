@@ -47,7 +47,6 @@
 
 use crate::gpu::collision_grid::CollisionTables;
 use crate::rng::lcg::{INC, MULT};
-use crate::mathf::RealMath;
 
 /// Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
 pub const FISS_NONE: u32 = 0xFFFF_FFFF;
@@ -910,6 +909,9 @@ pub fn advance_generation_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
     use crate::material::material::{Material, NuclideComponent};
     use crate::material::nuclide::Nuclide;
 

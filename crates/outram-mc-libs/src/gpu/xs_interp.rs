@@ -46,7 +46,6 @@
 /// # Preconditions
 /// `grid` must be sorted ascending and `grid.len() == sigma.len()`. Violating
 /// these is not checked (hot path); results are then unspecified.
-use crate::mathf::RealMath;
 pub fn interp_xs_cpu(grid: &[f64], sigma: &[f64], queries: &[f64]) -> Vec<f64> {
     let n = grid.len();
 
@@ -364,6 +363,9 @@ pub fn interp_xs_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
 
     /// V&V (CPU reference, analytical): linear interpolation on a uniform grid.
     ///

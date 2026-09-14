@@ -30,3 +30,10 @@ std = []
 
 [dev-dependencies]
 # The GSL cross-check example needs std (file IO). The library stays no_std.
+#
+# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
+# it DIRECTLY. `petir::real::{exp, ln, powf}` now route to the ARM
+# optimized-routines ports, so comparing a fast port against `petir::real`
+# would compare it with itself; the cross-check has to reach the musl-derived
+# implementation by name to stay an independent second opinion.
+libm.workspace = true

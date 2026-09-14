@@ -28,7 +28,7 @@ use crate::app::{current_spectrum, App, Screen, UiAction};
 use crate::presets::{GeometryPreset, ALL_PRESETS};
 use crate::settings::RunSettings;
 use crate::transport::RunPhase;
-use crate::mathf::RealMath;
+use outram_mc_libs::mathf::RealMath;
 
 const ACCENT: Color = Color::Cyan;
 const GOOD: Color = Color::Green;
