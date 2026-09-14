@@ -117,7 +117,9 @@
 //! | [`cheb_slice`] | ported | Adapter between GSL's and `tampines`' Chebyshev coefficient conventions, plus 2-D tensor-product evaluators |
 //! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
+//! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS |
+//! | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
 //! | [`specfunc`] | ported + lifted + delegated | Error-function family incl. the scaled `erfcx`, gamma family with GSL's Padé branches, incomplete gamma and its inverse |
 //! | [`transfer_fn`] | ported | Continuous and discrete SISO transfer functions, `c2d`/`d2c` (GNU Octave control package, via `chem-eng`) |
@@ -126,8 +128,7 @@
 //! | [`real`] | — | The `no_std` float-math shim |
 //! | [`scalar`] | lifted | Guard constants and machine epsilons |
 //!
-//! Quadrature, minimisation, numerical differentiation, ODE integration and
-//! interpolation are the epic's remaining scope and are **not** here yet. They are tracked as beads rather than
+//! Quadrature, ODE integration and interpolation are the epic's remaining scope and are **not** here yet. They are tracked as beads rather than
 //! stubbed, because an empty module that looks like an API is worse than an
 //! absent one.
 //!
@@ -159,6 +160,7 @@ extern crate std;
 
 pub mod cheb;
 pub mod cheb_slice;
+pub mod deriv;
 pub mod error;
 pub mod expint;
 pub mod fast_exp;
