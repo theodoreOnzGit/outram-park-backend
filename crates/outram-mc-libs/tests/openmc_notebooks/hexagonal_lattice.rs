@@ -45,11 +45,30 @@
 //! (Lower-level index/round-trip/distance checks live in the `hex_tests` unit
 //! module of `src/geometry/lattice.rs`.)
 //!
-//! **Results (measured 2026-08-06, this harness).** All geometry properties pass
-//! — see [`hexagonal_lattice_geometry`]; they are exact index/material identities
-//! that draw no random numbers, so they are RNG-independent. The k-eigenvalue
-//! smoke run measured **k = 0.25347 ± 0.00714** (300 particles, 15 inactive + 25
-//! active); it is printed at run time (`--nocapture`) and written up, together
+//! **Results (re-measured 2026-09-14, this harness): k = 0.29942 ± 0.00791.**
+//! All geometry properties pass — see [`hexagonal_lattice_geometry`]; they are
+//! exact index/material identities that draw no random numbers, so they are
+//! RNG-independent.
+//!
+//! **This case was affected by the nested-frame surface-crossing defect** fixed
+//! in `Geometry::cross_surface_in_frame`. A hex lattice puts cylindrical pins
+//! inside *translated* tile universes, and the surface-tracking drivers were
+//! evaluating those cylinders' normals at the **global** position, i.e. about
+//! the wrong centre — so a particle crossing a pin surface could be nudged back
+//! to the side it came from and the next flight segment attributed to the wrong
+//! material. A paired A/B across the fix on this harness measured
+//! **0.28173 ± 0.00773 → 0.29942 ± 0.00791, +1769 pcm**, while root-universe
+//! cases (`pincell`, `flux_spectrum`, `capi`) were bit-unchanged. See
+//! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`
+//! for the full diagnosis.
+//!
+//! **Supersedes k = 0.25347 ± 0.00714** (2026-08-06, same settings), which is
+//! the pre-fix value and also predates several physics changes. The
+//! superseded-value discussion below is kept because its *methodological* point
+//! stands, but note it was reasoning about a number this defect was corrupting.
+//!
+//! The smoke run is 300 particles, 15 inactive + 25
+//! active; it is printed at run time (`--nocapture`) and written up, together
 //! with the "no notebook reference" caveat, in
 //! `docs/ai-fleet-review/op-6tz-hexlattice/REVIEW_MANIFEST.md` and the gitignored
 //! `verification_and_validation/openmc_notebook_comparisons/hexagonal_lattice.csv`.
