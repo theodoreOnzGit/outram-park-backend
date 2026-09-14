@@ -9,8 +9,6 @@ using DWSIM.UnitOperations.UnitOperations.Auxiliary.SepOps;
 using DWSIM.UnitOperations.UnitOperations.Auxiliary.SepOps.SolvingMethods;
 using DWSIM.Interfaces;
 
-/// Minimal headless flowsheet: the 12 abstract members of FlowsheetBase are all
-/// UI-facing, so they are no-ops here. Nothing numerical lives in them.
 class HeadlessFlowsheet : DWSIM.FlowsheetBase.FlowsheetBase {
     public override void DisplayForm(object form) {}
     public override IFlowsheet GetNewInstance() { return new HeadlessFlowsheet(); }
@@ -26,15 +24,12 @@ class HeadlessFlowsheet : DWSIM.FlowsheetBase.FlowsheetBase {
     public override bool SupressMessages { get; set; }
 }
 
-class Col {
+class Col2 {
     static void Main() {
         var calc = new Calculator(); calc.Initialize();
-        int nc = 2, ns = 5;                       // 5 stages, condenser..reboiler
+        int nc = 2, nstages = 10, ns = nstages - 1;   // ns = last index
         var pp = new PengRobinsonPropertyPackage(true);
         calc.TransferCompounds(pp);
-
-        // Upstream's package is stateful: it needs a CurrentMaterialStream
-        // with the compound slate attached before any enthalpy/K call works.
         var ms = new MaterialStream("", "");
         foreach (var phase in ms.Phases.Values)
             foreach (var cn in new[]{"Methane","Ethane"}) {
@@ -42,9 +37,7 @@ class Col {
                 phase.Compounds[cn].ConstantProperties = pp._availablecomps[cn];
             }
         var fs = new HeadlessFlowsheet();
-        ms.SetFlowsheet(fs);
-        pp.CurrentMaterialStream = ms;
-        pp.Flowsheet = fs;
+        ms.SetFlowsheet(fs); pp.CurrentMaterialStream = ms; pp.Flowsheet = fs;
 
         var col = new DistillationColumn();
         col.PropertyPackage = pp;
@@ -53,10 +46,17 @@ class Col {
         col.Specs["R"] = new ColumnSpec { SType = ColumnSpec.SpecType.Product_Molar_Flow_Rate,
                                           SpecValue = 0.5, SpecUnit = "mol/s", StageNumber = ns };
 
+        // EXACTLY this port's initial estimates, so the comparison is solver-to-solver.
+        double[] V = {1e-10,3,3,3,3,3,3,3,3,3};
+        double[] L = {2.5,3,3,3,3,4,4,4,4,1};
+        double[] K = {3.2639145771, 0.0539472228};
+        double[] X = {0.2947234887, 0.7052765113};
+        double[] Y = {0.9619522909, 0.0380477091};
+
         var input = new ColumnSolverInputData {
-            ColumnObject = col, NumberOfCompounds = nc, NumberOfStages = ns,   // DWSIM: ns is the LAST stage index; arrays are ns+1 long
+            ColumnObject = col, NumberOfCompounds = nc, NumberOfStages = ns,
             MaximumIterations = 500,
-            Tolerances = new List<double>{1e-6, 1e-6, 1e-6},
+            Tolerances = new List<double>{1e-6,1e-6,1e-6},
             ColumnType = col.ColumnType, CondenserType = Column.condtype.Total_Condenser,
             StageTemperatures = new List<double>(), StagePressures = new List<double>(),
             StageHeats = new List<double>(), StageEfficiencies = new List<double>(),
@@ -67,46 +67,32 @@ class Col {
             VaporSideDraws = new List<double>(), LiquidSideDraws = new List<double>(),
             Kvalues = new List<double[]>(), OverallCompositions = new List<double[]>(),
         };
-        // Feed enthalpy from the package itself, not a hardcoded zero.
-        double Tf = 210.0, Pf = 2e6;
-        double[] zf = {0.5, 0.5};
-        double hf = 0.0;
-        try { hf = pp.DW_CalcEnthalpy(zf, Tf, Pf, DWSIM.Thermodynamics.PropertyPackages.State.Liquid); }
-        catch (Exception ex) { Console.WriteLine("enthalpy err: " + ex.Message); }
-        Console.WriteLine($"feed molar enthalpy = {hf:F4}");
-        // Wilson K estimates at each stage temperature.
-        double[] Tc = {190.56, 305.32}, Pc = {4.599e6, 4.872e6}, w = {0.011, 0.099};
-
         for (int j = 0; j <= ns; j++) {
-            double Tj = 200.0 + 8.0*j;
-            input.StageTemperatures.Add(Tj);
-            input.StagePressures.Add(2e6);
+            input.StageTemperatures.Add(160.0);
+            input.StagePressures.Add(5e5);
             input.StageHeats.Add(0.0);
             input.StageEfficiencies.Add(1.0);
-            input.FeedFlows.Add(j == 2 ? 1.0 : 0.0);
-            input.FeedCompositions.Add(j == 2 ? new double[]{0.5,0.5} : new double[]{0.0,0.0});
-            input.FeedEnthalpies.Add(j == 2 ? hf : 0.0);
-            input.VaporFlows.Add(0.5);
-            input.LiquidFlows.Add(0.5);
-            input.VaporCompositions.Add(new double[]{0.7,0.3});
-            input.LiquidCompositions.Add(new double[]{0.3,0.7});
+            input.FeedFlows.Add(j == 5 ? 1.0 : 0.0);
+            input.FeedCompositions.Add(j == 5 ? new double[]{0.5,0.5} : new double[]{0.0,0.0});
+            input.FeedEnthalpies.Add(0.0);
+            input.VaporFlows.Add(V[j]);
+            input.LiquidFlows.Add(L[j]);
+            input.VaporCompositions.Add(new double[]{Y[0],Y[1]});
+            input.LiquidCompositions.Add(new double[]{X[0],X[1]});
             input.OverallCompositions.Add(new double[]{0.5,0.5});
-            var kj = new double[2];
-            for (int i = 0; i < 2; i++)
-                kj[i] = Pc[i]/2e6 * Math.Exp(5.373*(1.0+w[i])*(1.0 - Tc[i]/Tj));
-            input.Kvalues.Add(kj);
+            input.Kvalues.Add(new double[]{K[0],K[1]});
             input.VaporSideDraws.Add(0.0);
             input.LiquidSideDraws.Add(j == 0 ? 0.5 : 0.0);
         }
         try {
-            var solver = new WangHenkeMethod();
-            var outp = solver.SolveColumn(input);
-            Console.WriteLine($"iterations = {outp.IterationsTaken}, final error = {outp.FinalError:E6}");
-            Console.WriteLine("stage temperatures:");
-            foreach (var t in outp.StageTemperatures) Console.Write($" {t:F4}");
-            Console.WriteLine();
-        } catch (Exception e) {
-            Console.WriteLine(e.ToString());
-        }
+            var outp = new WangHenkeMethod().SolveColumn(input);
+            Console.WriteLine($"DWSIM it={outp.IterationsTaken} err={outp.FinalError:E6}");
+            Console.Write("DWSIM_T="); foreach (var v in outp.StageTemperatures) Console.Write($"{v:F4},"); Console.WriteLine();
+            Console.Write("DWSIM_V="); foreach (var v in outp.VaporFlows) Console.Write($"{v:F6},"); Console.WriteLine();
+            Console.Write("DWSIM_L="); foreach (var v in outp.LiquidFlows) Console.Write($"{v:F6},"); Console.WriteLine();
+            var x = outp.LiquidCompositions;
+            Console.WriteLine($"DWSIM_X0={x[0][0]:F6},{x[0][1]:F6}");
+            Console.WriteLine($"DWSIM_X9={x[ns][0]:F6},{x[ns][1]:F6}");
+        } catch (Exception e) { Console.WriteLine("ERR " + e.Message); }
     }
 }

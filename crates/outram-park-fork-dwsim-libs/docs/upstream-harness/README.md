@@ -26,20 +26,16 @@ LD_LIBRARY_PATH=. mono d.exe
 | `zpr_driver.cs` | `PengRobinson.Z_PR` directly | **verified** — matches this port to 6 s.f. |
 | `eos_driver.cs` | `Calculator.CalcProp` density/Z | **verified** — differs from `Z_PR` by a Peneloux volume translation |
 | `flash_driver.cs` | `Calculator.CalcEquilibrium` PT flash | **verified** — differs from this port by the `k_ij` this port cannot apply |
-| `column_driver.cs` | `WangHenkeMethod.SolveColumn` | **harness works, case not yet meaningful** — see below |
+| `column_driver.cs` | `WangHenkeMethod.SolveColumn` | **verified** — converges on a separating case from this port's own initial estimates |
 
-## Column driver: what works and what does not
+## Column driver
 
-It runs. A 6-stage methane/ethane column with a reflux-ratio spec on the
-condenser and a bottoms-rate spec on the reboiler converges in **18 iterations
-to a final error of 4.569e-8**.
+Runs a 10-stage equimolar methane/ethane column at 500 kPa (feed on stage 5,
+total condenser, reflux ratio 2.0, bottoms 0.5 mol/s, Peng-Robinson), seeded
+with **this port's own initial estimates** so the comparison is solver-to-solver
+rather than guess-to-guess. Converges in 69 iterations to 8.927e-8.
 
-**The converged case is degenerate and must not be used as a reference yet.**
-Every stage comes out at ~217.4 K — a flat profile, i.e. essentially no
-separation. Before this is a real comparison against this crate's MESH solver
-it needs a genuinely separating case, which means feeding *both* solvers the
-same initial estimates rather than the ad-hoc Wilson-K and linear-temperature
-guesses used here.
+The head-to-head result is recorded in `tests/upstream_column_parity.rs`.
 
 Three things had to be true before the solver would run at all, each worth
 knowing:
@@ -57,3 +53,12 @@ knowing:
    dependency of running a *column calculation* headlessly.
 
 `ns` is the **last stage index**, not a count: arrays are `ns + 1` long.
+
+### Choosing an operating point
+
+Not every methane/ethane case converges in this port. 500 kPa / 160 K does;
+most points between 1 and 4 MPa fail with a non-finite K-value, and above
+methane's critical temperature (190.56 K) there is often no liquid root at all.
+The crate's own module-level example — 101 325 Pa, 200 K — puts **both**
+components fully in the vapour (K = 58.7 and 2.15), so no distillation is
+possible; it is marked `no_run`, which is why that was never noticed.
