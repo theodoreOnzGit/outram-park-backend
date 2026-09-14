@@ -13,6 +13,7 @@
 
 use crate::endf::{records::SectionCursor, tape::Section};
 use crate::NjoyError;
+use super::madland_nix;
 
 use super::core::{build_outgoing, collapse_interp, collapse_intt, Law4, EMEV};
 
@@ -148,6 +149,10 @@ pub struct Mf5Subsection {
     pub law: Mf5Law,
 }
 
+/// Convergence tolerance for the Madland-Nix adaptive linearisation
+/// (`acefc.f90`'s `tol` for the `lf = 12` branch).
+const MADLAND_NIX_TOL: f64 = 0.01;
+
 fn read_tab_fn(cur: &mut SectionCursor<'_>) -> Result<TabFn, NjoyError> {
     let t = cur.read_tab1()?;
     Ok(TabFn {
@@ -244,30 +249,47 @@ pub fn parse_mf5_section(section: &Section) -> Result<Vec<Mf5Subsection>, NjoyEr
                 }
             }
             12 => {
-                // The blocker is NOT the branch itself. `acefc.f90:7037-7126`
-                // is ~90 lines of adaptive linearization onto ACE LAW=4, which
-                // is a routine port. What it calls is the problem: `fmn`
-                // (`acefc.f90:9155-9176`) evaluates the Madland-Nix shape in
-                // terms of `e1`, the exponential integral, and `gami`, the
-                // incomplete gamma — both taken by NJOY from SLATEC
-                // (`mathm.f90:37-422` and `:424-445`, ~400 lines dominated by
-                // Chebyshev coefficient tables). Those are SLATEC's numerics
-                // rather than NJOY's own, they are absent from this crate, and
-                // transcribing the coefficient tables needs verifying against
-                // SLATEC itself, not against NJOY. That is its own task with
-                // its own oracle.
-                //
-                // Reachability, measured 2026-09-14: every MF=5 subsection in
-                // all nine evaluations under `reference-data/endf/` declares
-                // `LF = 1` (tabulated). No data held here takes this branch.
-                return Err(NjoyError::NotPorted(
-                    "MF=5 LF=12 (Madland-Nix fission spectrum) — the branch itself is a \
-                     routine port of acefc.f90:7037-7126, but it needs `fmn` \
-                     (acefc.f90:9155), which needs the exponential integral `e1` and \
-                     incomplete gamma `gami` that NJOY takes from SLATEC \
-                     (mathm.f90:37-445); neither is ported here. No evaluation in \
-                     reference-data/endf/ uses LF=12",
-                ));
+                // `acefc.f90:7039-7056`: the TAB1 carries EFL and EFH in its
+                // C1/C2, then `(E, T_m)` pairs over incident energy.
+                let t = cur.read_tab1()?;
+                let (efl_ev, efh_ev) = (t.head.c1, t.head.c2);
+                if !(efl_ev > 0.0 && efh_ev > 0.0) {
+                    return Err(NjoyError::EndfParse(format!(
+                        "MF=5 LF=12: EFL and EFH must be positive, got {efl_ev} and {efh_ev}"
+                    )));
+                }
+                // `emin`/`emax` are the ends of the tabulated incident grid
+                // (`:7050-7051`); the outgoing grid spans the same range.
+                let emin = t.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
+                let emax = t.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
+
+                let mut incident = Vec::with_capacity(t.pairs.len());
+                for &(e_in_ev, tm) in &t.pairs {
+                    let sp = madland_nix::linearise(
+                        e_in_ev,
+                        efl_ev,
+                        efh_ev,
+                        tm,
+                        emin.max(1.0e-5),
+                        emax,
+                        MADLAND_NIX_TOL,
+                    )?;
+                    let pairs: Vec<(f64, f64)> = sp
+                        .e_out_ev
+                        .iter()
+                        .zip(&sp.pdf)
+                        .map(|(&x, &y)| (x, y))
+                        .collect();
+                    // `jnt = 2` (`:7107`): lin-lin in the outgoing energy.
+                    incident.push(build_outgoing(e_in_ev, 2, &pairs));
+                }
+                // Upstream converts Madland-Nix to ACE LAW=4 rather than
+                // giving it a law of its own (`:7057` "convert madland-nix to
+                // ace law=4 using the given e grid").
+                Mf5Law::Tabulated(Law4 {
+                    e_in_interp: collapse_interp(&t.interp),
+                    incident,
+                })
             }
             _ => {
                 return Err(NjoyError::EndfParse(format!(

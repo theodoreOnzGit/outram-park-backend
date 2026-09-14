@@ -5530,6 +5530,7 @@ dependencies = [
  "hdf5-pure",
  "log",
  "miniz_oxide",
+ "petir",
  "ratatui",
  "rayon",
  "sha2",

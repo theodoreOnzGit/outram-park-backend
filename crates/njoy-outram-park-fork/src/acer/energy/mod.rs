@@ -76,6 +76,7 @@
 //! `INTT` is the outgoing interpolation (1 histogram, 2 lin-lin); the pdf is per
 //! MeV and the cdf runs 0 → 1.
 
+pub mod madland_nix;
 mod core;
 mod mf5;
 mod mf6;
