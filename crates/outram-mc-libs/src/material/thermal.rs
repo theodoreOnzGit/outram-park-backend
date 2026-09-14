@@ -56,6 +56,7 @@
 use njoy_outram_park_fork::NjoyError;
 
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// Default upper energy \[eV\] of the S(α,β) treatment — the "thermal cutoff".
 ///
@@ -1114,9 +1115,9 @@ fn log_grid(lo: f64, hi: f64, n: usize) -> Vec<f64> {
     if n <= 1 {
         return vec![lo];
     }
-    let (llo, lhi) = (lo.ln(), hi.ln());
+    let (llo, lhi) = (lo.r_ln(), hi.r_ln());
     (0..n)
-        .map(|k| (llo + (lhi - llo) * k as f64 / (n as f64 - 1.0)).exp())
+        .map(|k| (llo + (lhi - llo) * k as f64 / (n as f64 - 1.0)).r_exp())
         .collect()
 }
 

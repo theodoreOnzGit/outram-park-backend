@@ -44,6 +44,7 @@
 
 use crate::geometry::position::{Direction, Position};
 use crate::geometry::surface::SurfaceKind;
+use crate::mathf::RealMath;
 
 /// Number of `f32` coefficients stored per surface in the flat encoding.
 ///
@@ -1350,7 +1351,7 @@ mod tests {
         let z = 1.0 - 2.0 * (i as f64 + 0.5) / n as f64;
         let rho = (1.0 - z * z).max(0.0).sqrt();
         let phi = golden * i as f64;
-        Direction::new(rho * phi.cos(), rho * phi.sin(), z)
+        Direction::new(rho * phi.r_cos(), rho * phi.r_sin(), z)
     }
 
     /// V&V (CPU mirror vs trusted f64 reference): for every [`SurfaceKind`], the

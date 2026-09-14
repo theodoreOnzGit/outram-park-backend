@@ -59,6 +59,7 @@
 //!   atoms/(barn·cm), …); the map is linear so the unit carries through.
 
 use super::matrix::DepletionMatrix;
+use crate::mathf::RealMath;
 
 /// A minimal complex-number value type for the CRAM linear solves.
 ///
@@ -629,7 +630,7 @@ mod tests {
     #[test]
     fn single_nuclide_decay_half_life() {
         let t_half = 2.36520e4_f64; // I-135 half-life, s
-        let lambda = 2.0_f64.ln() / t_half;
+        let lambda = 2.0_f64.r_ln() / t_half;
         let a = matrix_from(1, &[-lambda]);
         let n0 = [1.0e24_f64];
 
@@ -663,8 +664,8 @@ mod tests {
         let t = 5000.0_f64;
 
         let n = cram16(&a, &n0, t);
-        let na = (-la * t).exp();
-        let nb = la / (lb - la) * ((-la * t).exp() - (-lb * t).exp());
+        let na = (-la * t).r_exp();
+        let nb = la / (lb - la) * ((-la * t).r_exp() - (-lb * t).r_exp());
 
         let rel_a = (n[0] - na).abs() / na;
         let rel_b = (n[1] - nb).abs() / nb;
@@ -697,7 +698,7 @@ mod tests {
         let t = 4000.0_f64;
 
         let n = cram16(&a, &n0, t);
-        let nc = 1.0 + (la * (-lb * t).exp() - lb * (-la * t).exp()) / (lb - la);
+        let nc = 1.0 + (la * (-lb * t).r_exp() - lb * (-la * t).r_exp()) / (lb - la);
         let rel_c = (n[2] - nc).abs() / nc;
         assert!(rel_c < 1e-8, "cram16 N_C rel err {rel_c:e}");
 
@@ -727,8 +728,8 @@ mod tests {
         let t = 100.0_f64;
 
         let n = cram16(&a, &n0, t);
-        let na = (-la * t).exp();
-        let nb = la / (lb - la) * ((-la * t).exp() - (-lb * t).exp());
+        let na = (-la * t).r_exp();
+        let nb = la / (lb - la) * ((-la * t).r_exp() - (-lb * t).r_exp());
         let rel_a = (n[0] - na).abs() / na;
         let rel_b = (n[1] - nb).abs() / nb;
         assert!(rel_a < 1e-5, "cram16 stiff N_A rel err {rel_a:e}");

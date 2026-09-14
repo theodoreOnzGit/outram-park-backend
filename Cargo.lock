@@ -6316,6 +6316,7 @@ dependencies = [
  "njoy-outram-park-fork",
  "openmc-endf-8-depletion-lib-a",
  "openmc-endf-8-depletion-lib-b",
+ "petir",
  "ratatui",
  "rayon",
  "thiserror 2.0.18",

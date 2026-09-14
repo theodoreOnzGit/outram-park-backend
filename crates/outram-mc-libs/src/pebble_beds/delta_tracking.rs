@@ -32,6 +32,7 @@ use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// An energy-dependent majorant cross section `Σ_maj(E) ≥ Σ_t(E)` over a set of
 /// materials — the sampling bound for delta tracking.
@@ -140,9 +141,9 @@ impl Majorant {
         let n_bins = n_bins.max(1);
         let subsamples = subsamples.max(2);
         let scale = 1.0 + margin.max(0.0);
-        let ln_lo = e_min.max(f64::MIN_POSITIVE).ln();
-        let ln_hi = e_max.max(e_min * 1.0001).ln();
-        let edge = |i: usize| (ln_lo + (ln_hi - ln_lo) * i as f64 / n_bins as f64).exp();
+        let ln_lo = e_min.max(f64::MIN_POSITIVE).r_ln();
+        let ln_hi = e_max.max(e_min * 1.0001).r_ln();
+        let edge = |i: usize| (ln_lo + (ln_hi - ln_lo) * i as f64 / n_bins as f64).r_exp();
 
         let energy: Vec<f64> = (0..=n_bins).map(edge).collect();
         let sigma_t_max = |e: f64| {
@@ -154,10 +155,10 @@ impl Majorant {
 
         let mut sigma = vec![0.0_f64; n_bins + 1];
         for b in 0..n_bins {
-            let (lo, hi) = (energy[b].ln(), energy[b + 1].ln());
+            let (lo, hi) = (energy[b].r_ln(), energy[b + 1].r_ln());
             let mut bin_max = 0.0_f64;
             for s in 0..subsamples {
-                let e = (lo + (hi - lo) * s as f64 / (subsamples - 1) as f64).exp();
+                let e = (lo + (hi - lo) * s as f64 / (subsamples - 1) as f64).r_exp();
                 bin_max = bin_max.max(sigma_t_max(e));
             }
             // Write the bin peak to both edges so `at`'s bracket-max bounds the bin.
@@ -211,7 +212,7 @@ pub fn sample_delta_distance(majorant: f64, seed: &mut u64) -> f64 {
     if majorant <= 0.0 {
         return f64::INFINITY;
     }
-    -prn(seed).max(f64::MIN_POSITIVE).ln() / majorant
+    -prn(seed).max(f64::MIN_POSITIVE).r_ln() / majorant
 }
 
 /// Decide whether a delta-tracking collision is real or virtual by rejection on

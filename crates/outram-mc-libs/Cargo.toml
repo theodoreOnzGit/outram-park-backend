@@ -23,6 +23,8 @@ exclude = [
 ]
 
 [dependencies]
+# Routed float maths (bn:op-chyp.5); see src/mathf.rs. no_std, only `libm`.
+petir.workspace = true
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 # Nuclear data (cross sections, ν̄, χ). outram-mc-libs is data-free — it pulls all
@@ -60,6 +62,10 @@ log = { workspace = true }
 # (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
+# Route this crate's transcendentals through PETIR (musl-derived libm) instead
+# of std's platform libm, making results BIT-IDENTICAL across platforms. Costs
+# ~1.74x on exp and ~1.43x on ln, which is why it is opt-in. See src/mathf.rs.
+deterministic-math = []
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
 # `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier

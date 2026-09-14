@@ -123,6 +123,7 @@
 
 /// First-flight collision probabilities of a concentric-sphere cell, already
 /// closed with a white outer boundary.
+use crate::mathf::RealMath;
 #[derive(Debug, Clone, PartialEq)]
 pub struct CollisionProbabilities {
     /// Number of shells (= number of flux regions).
@@ -217,7 +218,7 @@ pub fn sphere_escape_probability(x: f64) -> f64 {
     }
     let inv = 1.0 / x;
     let inv2 = 0.5 * inv * inv;
-    0.75 * inv * (1.0 - inv2 + (inv + inv2) * (-2.0 * x).exp())
+    0.75 * inv * (1.0 - inv2 + (inv + inv2) * (-2.0 * x).r_exp())
 }
 
 /// Compute the first-flight collision probabilities of a concentric-sphere cell.
@@ -322,7 +323,7 @@ pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionPr
 
             for s_idx in 0..nseg {
                 let t = tau[s_idx];
-                let e = (-t).exp();
+                let e = (-t).r_exp();
                 em[s_idx] = e;
                 a_of[s_idx] = 1.0 - e;
             }
@@ -403,7 +404,7 @@ pub fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) {
     let m = n.div_ceil(2);
     for i in 0..m {
         // Tricomi's asymptotic guess for the i-th root (1-based).
-        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).cos();
+        let mut z = (std::f64::consts::PI * (i as f64 + 0.75) / (n as f64 + 0.5)).r_cos();
         for _ in 0..100 {
             // Legendre P_n(z) and its derivative by the recurrence.
             let (mut p0, mut p1) = (1.0_f64, 0.0_f64);

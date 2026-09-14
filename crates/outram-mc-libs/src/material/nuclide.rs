@@ -30,6 +30,7 @@ use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
 use njoy_outram_park_fork::NjoyError;
+use crate::mathf::RealMath;
 
 /// Microscopic cross sections at a given energy (barn = 1e-24 cm²).
 ///
@@ -1166,10 +1167,10 @@ fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
         return 0.0;
     }
     let y = (e_in - u) / t;
-    let v = 1.0 - (-y).exp();
+    let v = 1.0 - (-y).r_exp();
     let mut x;
     loop {
-        x = -((1.0 - v * prn(seed)) * (1.0 - v * prn(seed))).ln();
+        x = -((1.0 - v * prn(seed)) * (1.0 - v * prn(seed))).r_ln();
         if x <= y {
             break;
         }
@@ -1420,7 +1421,7 @@ fn sample_exponential_mu(mubar: f64, xi: f64) -> f64 {
     if lambda.abs() < 1.0e-6 {
         return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
     }
-    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).r_exp()).r_ln() / lambda;
     mu.clamp(-1.0, 1.0)
 }
 
@@ -1442,7 +1443,7 @@ fn langevin_inverse(mu_bar: f64) -> f64 {
     };
     for _ in 0..30 {
         // coth λ − 1/λ − x, with a stable coth via 1/tanh.
-        let coth = 1.0 / lambda.tanh();
+        let coth = 1.0 / lambda.r_tanh();
         let f = coth - 1.0 / lambda - x;
         // L'(λ) = 1/λ² − csch²λ = 1/λ² − (coth²λ − 1).
         let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);
@@ -1873,7 +1874,7 @@ mod tests {
     fn langevin_inverse_round_trips() {
         for &mu in &[-0.85_f64, -0.3, 0.05, 0.333, 0.6, 0.9] {
             let lambda = langevin_inverse(mu);
-            let l = 1.0 / lambda.tanh() - 1.0 / lambda;
+            let l = 1.0 / lambda.r_tanh() - 1.0 / lambda;
             assert!((l - mu).abs() < 1.0e-6, "L(L⁻¹({mu})) = {l}");
         }
     }

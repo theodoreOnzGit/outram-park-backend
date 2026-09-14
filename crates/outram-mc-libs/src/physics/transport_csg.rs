@@ -67,6 +67,7 @@ use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{flush_batch, flush_bins, score_track_length};
 use crate::tally::tally::{Tally, TallyBin};
+use crate::mathf::RealMath;
 
 /// How the initial fission source is seeded spatially — a box the sampler
 /// rejects into the fissile region of the geometry.
@@ -732,7 +733,7 @@ pub(crate) fn transport_history(
 
             let d_bound = geom.distance_to_boundary(&path);
             let d_col = if sigma_t > 0.0 {
-                -prn(seed).max(f64::MIN_POSITIVE).ln() / sigma_t
+                -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t
             } else {
                 f64::INFINITY
             };

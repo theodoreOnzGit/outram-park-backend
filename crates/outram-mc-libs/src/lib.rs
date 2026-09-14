@@ -27,6 +27,7 @@
 /// `njoy-outram-park-fork`.
 pub use njoy_outram_park_fork::NjoyError;
 
+pub mod mathf;
 pub mod rng;
 pub mod geometry;
 pub mod particle;

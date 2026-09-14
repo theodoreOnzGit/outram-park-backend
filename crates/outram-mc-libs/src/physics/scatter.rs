@@ -42,6 +42,7 @@ use crate::material::nuclide::sample_continuous_tabular;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
+use crate::mathf::RealMath;
 
 /// Rotate the unit direction `u` by scattering cosine `mu` and a uniformly
 /// sampled azimuth φ ∈ [0, 2π), returning the new unit direction.
@@ -274,11 +275,11 @@ fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut
     for _ in 0..1024 {
         beta_vt_sq = if prn(seed) < alpha {
             // p(y) ∝ y·e^{−y²}: y² = −ln(r₁r₂).
-            -(safe_prn(seed) * safe_prn(seed)).ln()
+            -(safe_prn(seed) * safe_prn(seed)).r_ln()
         } else {
             // p(y) ∝ y²·e^{−y²}.
-            let c = (PI / 2.0 * prn(seed)).cos();
-            -safe_prn(seed).ln() - safe_prn(seed).ln() * c * c
+            let c = (PI / 2.0 * prn(seed)).r_cos();
+            -safe_prn(seed).r_ln() - safe_prn(seed).r_ln() * c * c
         };
         let beta_vt = beta_vt_sq.sqrt();
         mu = 2.0 * prn(seed) - 1.0;
@@ -371,7 +372,7 @@ pub fn continuum_inelastic_scatter(
     // (rare) rejection loop is exhausted.
     let mut e_cm_out = e_cm_elastic * prn(seed);
     for _ in 0..64 {
-        let cand = -theta * (prn(seed) * prn(seed)).ln();
+        let cand = -theta * (prn(seed) * prn(seed)).r_ln();
         if cand <= e_cm_elastic {
             e_cm_out = cand;
             break;
@@ -639,7 +640,7 @@ mod tests {
             // Burn-in scales with 1/xi: a heavy target needs many more collisions
             // to forget where it started.
             let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
-            let xi = 1.0 + alpha * alpha.ln() / (1.0 - alpha);
+            let xi = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
             let burn = (40.0 / xi) as usize;
             let samples = 400_000;
 
@@ -683,7 +684,7 @@ mod tests {
     /// in units of the target's most probable one (the sampler's `beta_vn`).
     fn mean_relative_speed(e: f64, awr: f64, kt: f64) -> f64 {
         let a = (awr * e / kt).sqrt();
-        e.sqrt() * ((1.0 + 1.0 / (2.0 * a * a)) * erf(a) + (-a * a).exp() / (a * PI.sqrt()))
+        e.sqrt() * ((1.0 + 1.0 / (2.0 * a * a)) * erf(a) + (-a * a).r_exp() / (a * PI.sqrt()))
     }
 
     /// Abramowitz & Stegun 7.1.26 — `|error| < 1.5e-7`, ample for a 2 % assertion.
@@ -700,7 +701,7 @@ mod tests {
         let x = x.abs();
         let t = 1.0 / (1.0 + P * x);
         let poly = A.iter().rev().fold(0.0, |acc, &c| (acc + c) * t);
-        sign * (1.0 - poly * (-x * x).exp())
+        sign * (1.0 - poly * (-x * x).r_exp())
     }
 
     use super::*;

@@ -46,6 +46,7 @@ use crate::material::material::{Material, NuclideComponent};
 // documented in is not callable.
 pub use crate::geometry::triso_particle::TrisoMaterials;
 use crate::pebble_beds::sphere_packing::PackedSpheres;
+use crate::mathf::RealMath;
 
 /// The five cumulative outer radii \[cm\] of a TRISO particle (kernel first,
 /// OPyC last) plus the volume packing fraction of whole particles in the fuel
@@ -355,7 +356,7 @@ pub fn rpt_fuel_outer_radius(
     packing_fraction: f64,
 ) -> f64 {
     let r3 = inner_radius.powi(3) + packing_fraction * fuel_zone_radius.powi(3);
-    let r_outer = r3.cbrt();
+    let r_outer = r3.r_cbrt();
     assert!(
         r_outer <= fuel_zone_radius,
         "rpt_fuel_outer_radius: shell outer radius {r_outer} exceeds the fuel zone \

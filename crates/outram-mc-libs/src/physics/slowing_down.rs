@@ -142,6 +142,7 @@ use crate::physics::scatter::{
     free_gas_elastic_scatter, two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
 };
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// One nuclide of an infinite homogeneous mixture: which nuclide, and how much.
 #[derive(Debug, Clone, Copy)]
@@ -278,7 +279,7 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult {
     assert_eq!(g.absorb_frac.len(), n_mix);
 
     let u = &g.lethargy;
-    let eps: Vec<f64> = g.alpha.iter().map(|a| -a.ln()).collect();
+    let eps: Vec<f64> = g.alpha.iter().map(|a| -a.r_ln()).collect();
     let inv_1ma: Vec<f64> = g.alpha.iter().map(|a| 1.0 / (1.0 - a)).collect();
     let du_limit = eps.iter().cloned().fold(f64::INFINITY, f64::min);
 
@@ -316,8 +317,8 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult {
              represented — build the grid with `slowing_down_grid`, which caps this",
             u[j]
         );
-        let e_uj = u[j].exp();
-        let e_ujm = u[j - 1].exp();
+        let e_uj = u[j].r_exp();
+        let e_ujm = u[j - 1].r_exp();
 
         let mut rhs = 0.0;
         let mut diag = 0.0;
@@ -395,7 +396,7 @@ pub fn slowing_down_grid(
     let du_max = alpha
         .iter()
         .filter(|a| **a > 0.0)
-        .map(|a| -a.ln())
+        .map(|a| -a.r_ln())
         .fold(f64::INFINITY, f64::min)
         / steps_per_window as f64;
     let du_max = if du_max.is_finite() { du_max } else { 0.01 };
@@ -807,7 +808,7 @@ impl LumpCellMc {
 
         for _ in 0..self.histories {
             // Uniform in the ball: r ∝ ξ^{1/3}, isotropic direction.
-            let rr = cell_radius * prn(&mut seed).cbrt();
+            let rr = cell_radius * prn(&mut seed).r_cbrt();
             let (sx, sy, sz) = isotropic(&mut seed);
             let mut pos = Position::new(rr * sx, rr * sy, rr * sz);
             let (dx, dy, dz) = isotropic(&mut seed);
@@ -840,7 +841,7 @@ impl LumpCellMc {
                 assert!(sigma_t > 0.0, "transparent material {m} at {e} eV");
 
                 let d_bound = geom.distance_to_boundary(&path);
-                let d_col = -prn(&mut seed).max(f64::MIN_POSITIVE).ln() / sigma_t;
+                let d_col = -prn(&mut seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t;
 
                 if d_col < d_bound.distance {
                     pos = advance(pos, dir, d_col);
@@ -991,7 +992,7 @@ fn isotropic(seed: &mut u64) -> (f64, f64, f64) {
     let mu = 2.0 * prn(seed) - 1.0;
     let phi = std::f64::consts::TAU * prn(seed);
     let s = (1.0 - mu * mu).max(0.0).sqrt();
-    (s * phi.cos(), s * phi.sin(), mu)
+    (s * phi.r_cos(), s * phi.r_sin(), mu)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1026,7 +1027,7 @@ impl ShellCell {
             let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
             for m in 1..=k {
                 let v = v_in + (v_out - v_in) * m as f64 / k as f64;
-                radii.push(v.cbrt());
+                radii.push(v.r_cbrt());
                 material.push(self.material[s]);
             }
         }
@@ -1061,7 +1062,7 @@ impl ShellCell {
             let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
             for m in 1..=k[s] {
                 let v = v_in + (v_out - v_in) * m as f64 / k[s] as f64;
-                radii.push(v.cbrt());
+                radii.push(v.r_cbrt());
                 material.push(self.material[s]);
             }
             // Pin the original shell boundary back exactly: the cube-root round
@@ -1214,7 +1215,7 @@ pub fn solve_deterministic_multiregion(
         for c in &materials[m].components {
             let a = alpha[c.nuclide_idx];
             if a > 0.0 {
-                eps_min = eps_min.min(-a.ln());
+                eps_min = eps_min.min(-a.r_ln());
             }
         }
     }
@@ -1338,7 +1339,7 @@ pub fn solve_deterministic_multiregion(
     // ── The lethargy march ───────────────────────────────────────────────────
     let eps: Vec<f64> = alpha
         .iter()
-        .map(|a| if *a > 0.0 { -a.ln() } else { f64::INFINITY })
+        .map(|a| if *a > 0.0 { -a.r_ln() } else { f64::INFINITY })
         .collect();
     for jx in 1..n {
         let du = u[jx] - u[jx - 1];
@@ -1360,8 +1361,8 @@ pub fn solve_deterministic_multiregion(
         );
         worst_conservation = worst_conservation.max(cp.conservation_defect());
 
-        let e_uj = u[jx].exp();
-        let e_ujm = u[jx - 1].exp();
+        let e_uj = u[jx].r_exp();
+        let e_ujm = u[jx - 1].r_exp();
         for i in 0..n_shell {
             let m = cell.material[i];
             let mut rhs = 0.0;
@@ -1458,7 +1459,7 @@ fn build_lethargy_grid(
     let mut e: Vec<f64> = vec![band.e_top];
     for &ee in grid_ev.iter().rev() {
         if ee < band.e_top && ee >= band.e_bot {
-            let uu = (band.e_top / ee).ln();
+            let uu = (band.e_top / ee).r_ln();
             if uu > u[u.len() - 1] + 1.0e-13 {
                 u.push(uu);
                 e.push(ee);
@@ -1480,7 +1481,7 @@ fn build_lethargy_grid(
         for m in 1..steps {
             let uq = u[k] + span * m as f64 / steps as f64;
             uu.push(uq);
-            ee.push(band.e_top * (-uq).exp());
+            ee.push(band.e_top * (-uq).r_exp());
         }
     }
     uu.push(u[u.len() - 1]);

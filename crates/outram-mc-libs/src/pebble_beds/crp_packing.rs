@@ -72,6 +72,7 @@ use super::sphere_packing::Sphere;
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 use std::collections::HashMap;
+use crate::mathf::RealMath;
 
 /// Errors from the Jodrey–Tory concurrent-rearrangement packer.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -248,7 +249,7 @@ pub fn pack_spheres_crp(
     let mut last_min = 0.0_f64;
 
     for _sweep in 0..max_sweeps {
-        let d_out = d_target * (pf_nom / pf_target).cbrt();
+        let d_out = d_target * (pf_nom / pf_target).r_cbrt();
 
         // Spatial hash keyed on the current nominal diameter so every pair closer
         // than d_out is found by scanning a centre's own cell + 26 neighbours.
@@ -340,7 +341,7 @@ pub fn pack_spheres_crp(
         let d_in = min_dist.min(d_out);
         let pf_in = std::f64::consts::PI / 6.0 * n as f64 * d_in.powi(3) / v_cube;
         let gap = (pf_nom - pf_in).max(1e-12);
-        let j_exp = (-gap.log10()).floor().max(0.0) as i32;
+        let j_exp = (-gap.r_log10()).floor().max(0.0) as i32;
         let dpf = base_rate * 0.5_f64.powi(j_exp);
         pf_nom = (pf_nom - dpf).max(pf_target);
     }

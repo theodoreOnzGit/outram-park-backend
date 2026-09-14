@@ -47,6 +47,7 @@
 
 use crate::gpu::collision_grid::CollisionTables;
 use crate::rng::lcg::{INC, MULT};
+use crate::mathf::RealMath;
 
 /// Sentinel in [`EventBatch::fiss_nuc`] meaning "this neutron did not fission".
 pub const FISS_NONE: u32 = 0xFFFF_FFFF;
@@ -960,7 +961,7 @@ mod tests {
         let mut energy = Vec::with_capacity(n);
         let mut seed_lo = Vec::with_capacity(n);
         let mut seed_hi = Vec::with_capacity(n);
-        let (log_lo, log_hi) = (1e-3f64.log10(), 2e7f64.log10());
+        let (log_lo, log_hi) = (1e-3f64.r_log10(), 2e7f64.r_log10());
         for _ in 0..n {
             let span = 0.9 * radius;
             pos.push((2.0 * unit(&mut h) - 1.0) * span);
@@ -980,7 +981,7 @@ mod tests {
             dir.push(vy / len);
             dir.push(vz / len);
             let t = unit(&mut h) as f64;
-            energy.push(10f64.powf(log_lo + t * (log_hi - log_lo)) as f32);
+            energy.push(10f64.r_powf(log_lo + t * (log_hi - log_lo)) as f32);
             let seed = splitmix64(&mut h);
             seed_lo.push(seed as u32);
             seed_hi.push((seed >> 32) as u32);

@@ -112,6 +112,7 @@ use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NO
 use crate::gpu::collision_grid::CollisionTables;
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
+use crate::mathf::RealMath;
 
 /// Settings for a [`run_keff`] power iteration.
 #[derive(Debug, Clone, Copy)]
@@ -280,7 +281,7 @@ pub fn run_keff_cpu_single(
     let mut source: Vec<Site> = (0..settings.n_particles)
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut seed);
-            let rr = radius_cm * prn(&mut seed).cbrt(); // uniform-in-volume radius
+            let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
                 u: Direction::new(dx, dy, dz),
@@ -443,7 +444,7 @@ pub fn run_keff_cpu_multi(
     let mut source: Vec<Site> = (0..settings.n_particles)
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
-            let rr = radius_cm * prn(&mut src_seed).cbrt(); // uniform-in-volume radius
+            let rr = radius_cm * prn(&mut src_seed).r_cbrt(); // uniform-in-volume radius
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
                 u: Direction::new(dx, dy, dz),
@@ -626,7 +627,7 @@ pub fn run_keff_gpu_inner(
     let mut source: Vec<Site> = (0..settings.n_particles)
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut seed);
-            let rr = radius_cm * prn(&mut seed).cbrt();
+            let rr = radius_cm * prn(&mut seed).r_cbrt();
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
                 u: Direction::new(dx, dy, dz),
@@ -804,7 +805,7 @@ pub fn run_keff_gpu_batched(
     let mut source: Vec<Site> = (0..settings.n_particles)
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
-            let rr = radius_cm * prn(&mut src_seed).cbrt();
+            let rr = radius_cm * prn(&mut src_seed).r_cbrt();
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
                 u: Direction::new(dx, dy, dz),
@@ -1157,7 +1158,7 @@ fn run_event_power_iteration(
     let mut source: Vec<Site> = (0..settings.n_particles)
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
-            let rr = radius_cm * prn(&mut src_seed).cbrt();
+            let rr = radius_cm * prn(&mut src_seed).r_cbrt();
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
                 u: Direction::new(dx, dy, dz),
@@ -1401,7 +1402,7 @@ fn transport_history(
             if !(sigma_t > 0.0) {
                 break; // no interaction possible; treat as escape
             }
-            let d_col = -prn(seed).ln() / sigma_t;
+            let d_col = -prn(seed).r_ln() / sigma_t;
             let d_bound = sphere.distance(r, u, false);
 
             if d_col >= d_bound {
@@ -1588,7 +1589,7 @@ fn transport_history_tabulated(
             if !(sigma_t > 0.0) {
                 break;
             }
-            let d_col = -prn(seed).ln() / sigma_t;
+            let d_col = -prn(seed).r_ln() / sigma_t;
             let d_bound = sphere.distance(r, u, false);
 
             if d_col >= d_bound {
