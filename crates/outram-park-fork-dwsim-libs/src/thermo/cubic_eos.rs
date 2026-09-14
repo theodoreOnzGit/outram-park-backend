@@ -616,13 +616,57 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
             roots.push(t - shift);
         }
     }
-    roots.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // `total_cmp` rather than `partial_cmp(..).unwrap()`: the trigonometric and
+    // Cardano branches can both emit a NaN root for a degenerate cubic (a zero
+    // or positive `p` reaching `(-p/3).sqrt()`, or a zero `p * m` divisor), and
+    // unwrapping a `None` comparison turns that into a library panic. A panic is
+    // never the right answer here — `select_root` already requires `r.is_finite()`,
+    // so a NaN that survives sorting is rejected there and the caller sees
+    // `None`, which every call site already handles. Found 2026-09-13 by driving
+    // a 6-stage methane/ethane column: the solver panicked at this line rather
+    // than reporting a failed stage flash.
+    roots.sort_by(f64::total_cmp);
     roots
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **Regression — the cubic root solver must never panic.**
+    ///
+    /// **Methodology.** `real_cubic_roots` sorts its roots before returning.
+    /// Until 2026-09-13 that sort used `partial_cmp(..).unwrap()`, which panics
+    /// the moment any root is NaN — and both the Cardano and the trigonometric
+    /// branch can produce one for a degenerate cubic. This drives the solver
+    /// with coefficients that are themselves non-finite, the cheapest way to
+    /// guarantee a NaN reaches the sort, and asserts only that the call
+    /// *returns*.
+    ///
+    /// **Result (2026-09-13).** Returns without panicking. Any NaN that
+    /// survives is rejected downstream by `select_root`'s `is_finite()` guard,
+    /// so callers see `None` rather than a poisoned root.
+    ///
+    /// **Why this matters.** Found by driving a 6-stage methane/ethane column:
+    /// the column solver panicked here instead of reporting a failed stage
+    /// flash. A library must not abort the process on a physically reachable
+    /// input; it now returns `BubblePointFailed { .. }` naming the stage.
+    #[test]
+    fn cubic_root_sort_never_panics_on_non_finite_input() {
+        for (c2, c1, c0) in [
+            (f64::NAN, 0.0, 0.0),
+            (0.0, f64::NAN, 0.0),
+            (0.0, 0.0, f64::NAN),
+            (f64::INFINITY, f64::NEG_INFINITY, 0.0),
+            (0.0, 0.0, 0.0),
+        ] {
+            let roots = real_cubic_roots(c2, c1, c0);
+            // No assertion on the values: the contract is only that sorting a
+            // NaN-bearing vector must not abort.
+            assert!(roots.len() <= 3, "at most three real roots");
+        }
+    }
+
     use crate::thermo::component::reference;
     use approx::assert_relative_eq;
 
