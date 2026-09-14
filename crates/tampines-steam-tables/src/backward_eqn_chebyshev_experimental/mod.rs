@@ -71,4 +71,4 @@ pub mod region_5_t_ph_ps;
 pub use region_5_t_ph_ps::*;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
