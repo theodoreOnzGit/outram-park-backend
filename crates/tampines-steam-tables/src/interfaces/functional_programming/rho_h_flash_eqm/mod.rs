@@ -61,21 +61,51 @@
 //! | Region 4 (two-phase) | `3.7e-13` | the blowdown regime; excellent |
 //! | Region 2 (vapour) | `3.0e-5` | well conditioned |
 //! | Region 3 | `4.8e-5` | well conditioned |
-//! | Region 1 (compressed liquid) | `7.9e-1` | **not recoverable — see below** |
+//! | Region 1 (compressed liquid) | `7.9e-1` | **input-error sensitive — see below** |
 //!
-//! **The compressed liquid is the honest limitation.** Liquid water is nearly
-//! incompressible, so its density carries almost no information about its
-//! pressure. At 0.1 bar and 18 degC the amplification `\|d ln p / d ln v\|_h`
-//! reaches `2.0e5`, which is larger than the pressure signal across the whole
-//! range of interest — IF97's own `T(p,h)` backward equation, accurate to about
-//! 25 mK, already moves the specific volume by more than the pressure does.
-//! `p_rho_h_eqm` there returns a pressure that reproduces the requested density
-//! to machine precision and is still badly wrong, and **no implementation can
-//! do better**, because the information is not in the inputs.
+//! **What Region 1 does and does not mean — an earlier version of this file
+//! got this wrong, so it is stated carefully.** The `7.9e-1` above is measured
+//! against *table-rounded* density: the published `v` carries six significant
+//! figures, and in nearly-incompressible liquid that rounding is amplified.
+//! The amplification
 //!
-//! Call [`p_rho_h_conditioning`] to detect that regime. In the two-phase and
-//! vapour regions — where a depressurisation transient actually spends its time
-//! — the amplification is order 1 and the answer is trustworthy.
+//! ```text
+//! A = |d ln p / d ln v|_h  ~  1 / (p * kappa_T)
+//! ```
+//!
+//! multiplies whatever error is already in the **input**. It does not mean the
+//! inversion is inaccurate.
+//!
+//! Given an *exact* density the inversion is exact throughout the compressed
+//! liquid. Measured 2026-09-14 on subcooled liquid at 18 degC, feeding density
+//! straight from this crate's own `v(p,h)`
+//! (`diagnose_saturation_fallback_against_the_root_find`):
+//!
+//! | true p | recovered p | `A` |
+//! |---|---|---|
+//! | 0.5 bar | 0.50000 bar | `4.0e4` |
+//! | 1 bar | 1.00000 bar | `2.0e4` |
+//! | 10 bar | 10.00000 bar | `2.0e3` |
+//! | 70 bar | 70.00000 bar | `2.9e2` |
+//! | 99 MPa | 990.00000 bar | `2.3e1` |
+//!
+//! Exact at every one, including where `A = 4.0e4`, because a large `A` acting
+//! on a machine-precision input error is still a machine-precision output
+//! error. **So "the compressed liquid is not recoverable" is false as a
+//! blanket claim** — it is recoverable whenever the caller's density is better
+//! known than the printed tables.
+//!
+//! The one state in that sweep that genuinely fails is **0.1 bar**, which
+//! returns `0.02065 bar` against a true `0.1 bar`. That value is exactly
+//! `p_sat(T(h))`, the bubble point — i.e. the search converged to the bottom
+//! edge of its own bracket, not to the root. **That is a branch-selection
+//! defect in this module, not a physical limit**, and it is filed rather than
+//! papered over.
+//!
+//! [`p_rho_h_conditioning`] reports `A` for a state, which is what a caller
+//! needs to turn its own density uncertainty into a pressure uncertainty. In
+//! the two-phase and vapour regions — where a depressurisation transient
+//! actually spends its time — `A` is order 1.
 //!
 //! # Cost, and where this belongs
 //!

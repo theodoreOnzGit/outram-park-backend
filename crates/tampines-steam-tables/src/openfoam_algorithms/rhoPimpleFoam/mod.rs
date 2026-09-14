@@ -579,6 +579,142 @@ use central_upwind::{
 /// the rarefied-tail density taper on the KNP dissipation — see
 /// [`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
 /// [`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
+/// How often `psi = d(rho)/dp|_h` is rebuilt inside the PIMPLE loop.
+///
+/// `psi` is the compressibility that forms the pressure equation's diagonal.
+/// It is a **linearisation coefficient**, not a state variable: PIMPLE iterates
+/// to a fixed point, so `psi` affects the path taken to convergence, not the
+/// converged answer -- provided it still converges.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PsiRefresh {
+    /// Rebuild `psi` on every corrector, inner and outer. The historical path,
+    /// bit-identical to what this solver did before the option existed.
+    #[default]
+    EveryCorrector,
+    /// Rebuild `psi` once per **outer** corrector and hold it across the inner
+    /// PISO correctors.
+    ///
+    /// # Why this is defensible
+    ///
+    /// Within a pressure-correction inner iteration `he` is **frozen** -- it is
+    /// only updated by the energy equation after the inner loop, which this
+    /// module documents at [`TampinesSteamArray::correct_thermo`]. So across
+    /// the inner correctors `psi = d(rho)/dp|_h` moves only through `p`, and it
+    /// is being rebuilt from scratch each time to track a second-order effect
+    /// on a coefficient that is already an approximation.
+    ///
+    /// # Why it is worth doing
+    ///
+    /// `psi` is the single most expensive quantity in `correct_thermo`. It is
+    /// computed by a central finite difference, so it costs **two full `(p,h)`
+    /// flashes per cell**, against five for everything else combined
+    /// (`t`, `v`, `mu`, `lambda`, `cp`). At the Edwards settings of 4 outer and
+    /// 4 inner correctors, holding it across the inner loop removes 6 of every
+    /// 8 psi flashes -- about 21 % of all thermodynamic work in the solver.
+    ///
+    /// # What is NOT claimed
+    ///
+    /// # MEASURED: no wall-clock saving, but a real accuracy gain
+    ///
+    /// Edwards blowdown, 0-50 ms, 24 cells, dt = 30 us (2026-09-14):
+    ///
+    /// | refresh | wall | flashing plateau | GS-1 RMSE | break peak |
+    /// |---|---|---|---|---|
+    /// | `EveryCorrector` | 24.0 s | 392.4 psia | 109.0 psia | 125.5 lbm/s |
+    /// | `OncePerOuterCorrector` | 29.3 s | 360.7 psia | 80.6 psia | 98.5 lbm/s |
+    ///
+    /// **Slower, despite doing ~21 %% fewer flashes.** Holding `psi` changes the
+    /// path the PIMPLE loop takes, so the pressure solves converge differently
+    /// and the saved thermodynamic work is more than repaid in linear-solver
+    /// iterations. The two runs are not the same trajectory, so the timings are
+    /// not a like-for-like comparison of the same work.
+    ///
+    /// **But markedly more accurate.** The flashing plateau moves from 392.4 to
+    /// 360.7 psia, squarely into the experimental 350-367 psia band, and GS-1
+    /// RMSE falls 26 %%. That is a larger effect than a linearisation
+    /// coefficient has any business having if the loop were fully converged,
+    /// which suggests it is **not** converged at 4 outer x 4 inner correctors,
+    /// and that rebuilding `psi` against a just-updated `p` while `he` is held
+    /// fixed is inconsistent with the PISO splitting rather than merely
+    /// wasteful. Not chased here; recorded so the next person starts from the
+    /// measurement.
+    ///
+    /// Left default-off regardless: it changes the validated trajectory, and
+    /// that is the maintainer's call, not an agent's.
+    ///
+    /// OpenFOAM's own `rhoPimpleFoam` updates `psi` through `thermo.correct()`,
+    /// and whether that sits in its outer or inner loop was **not verified** --
+    /// the OpenFOAM sources are not vendored in this workspace, and this
+    /// workspace's rule is to read upstream rather than recall it. The
+    /// justification above rests on this module's own frozen-`he` invariant and
+    /// on measurement, not on an upstream claim.
+    OncePerOuterCorrector,
+}
+
+/// How the KNP face state gets its pressure and sound speed.
+///
+/// The MUSCL reconstruction limits `rho`, `he` and `p` to the face
+/// **independently**, each with its own limiter action, so the resulting
+/// triple is not in general a thermodynamic state -- and KNP builds its wave
+/// speeds `a = u +/- c` out of exactly that `p` and `c`. This enum selects
+/// whether to accept that or to close the face state through the equation of
+/// state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum KnpFaceClosure {
+    /// Take the face pressure and sound speed from their own MUSCL
+    /// reconstructions. The historical, validated path.
+    #[default]
+    ReconstructedPressure,
+    /// Recover the face pressure from the reconstructed `(rho, he)` with
+    /// `p_rho_h_eqm`, and the sound speed from that pressure.
+    ///
+    /// This is where a `(rho,h)` inversion genuinely earns its cost. At a face
+    /// the reconstructed quantities are the **conserved** ones -- density and
+    /// enthalpy -- and the pressure that belongs with them is not an
+    /// independently-limited interpolation of the cell-centre pressures. Here
+    /// there is no pressure equation to borrow an answer from: the consistent
+    /// pressure has to be computed, which is the one situation the inversion is
+    /// the right tool for.
+    ///
+    /// It is also cheap to evaluate, because it runs only on faces that survive
+    /// the Mach blend and the rarefied-tail taper -- the dense near-sonic
+    /// flashing front -- rather than on every face or every cell.
+    ///
+    /// # MEASURED AND REFUTED -- do not enable this expecting an improvement
+    ///
+    /// The reasoning above is sound and the result is still worse. Edwards
+    /// blowdown, HybridAllMach, 0-50 ms, 24 cells, dt = 30 us (2026-09-14):
+    ///
+    /// | closure | wall | ringing gate |
+    /// |---|---|---|
+    /// | `ReconstructedPressure` | 46.2 s | passes; hybrid damps ringing |
+    /// | `EosConsistentPressure` | 50.9 s | **fails**: `sum_h` 1367.58 vs `sum_p` 1330.25 |
+    ///
+    /// Slower, and the hybrid stopped damping ringing and began adding it.
+    ///
+    /// The cause is a property the EOS closure destroys. The reconstructed `p`
+    /// is **limited**, hence TVD by construction. Recovering `p` from two
+    /// independently limited quantities passes it through a nonlinear map, and
+    /// the result is no longer TVD -- it can overshoot where neither input
+    /// did. For a shock-capturing scheme the monotonicity of the face pressure
+    /// turns out to be worth more than its thermodynamic consistency.
+    ///
+    /// Kept, default-off, because the negative result is worth more than the
+    /// absence of the code: the hypothesis is an obvious one to have again.
+    ///
+    /// # Prior art NOT searched
+    ///
+    /// The underlying question -- which variables a high-resolution scheme
+    /// should reconstruct, and what is lost when others are derived from them
+    /// through a nonlinear equation of state -- is a standard topic in the
+    /// shock-capturing literature, and it is likely someone has measured this
+    /// exact trade for a two-phase KNP scheme. **No literature search was
+    /// done**, and no citation is given here rather than give one that has not
+    /// been read and catalogued. Filed as a follow-up: if a prior result
+    /// exists it belongs in `kovan-literature` next to this finding.
+    EosConsistentPressure,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum SolverMode {
     /// Pressure-based compressible **HEM-closed PIMPLE** — the historical,
@@ -861,6 +997,17 @@ pub struct TampinesSteamArray {
     pub p_max: Pressure,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
+    /// How often `psi` is rebuilt inside the PIMPLE loop (default
+    /// [`PsiRefresh::EveryCorrector`], the historical path).
+    pub psi_refresh: PsiRefresh,
+    /// Set false at the top of each outer corrector; set true once `psi` has
+    /// been rebuilt within it. Only consulted under
+    /// [`PsiRefresh::OncePerOuterCorrector`].
+    psi_rebuilt_this_outer: bool,
+    /// How the KNP face state gets its pressure and sound speed (default
+    /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
+    /// consulted in [`SolverMode::HybridAllMach`].
+    pub knp_face_closure: KnpFaceClosure,
     /// Thermodynamic closure used by `correct_thermo` (default
     /// [`ThermoClosure::PressureEnthalpy`], the validated path).
     pub thermo_closure: ThermoClosure,
@@ -1065,6 +1212,9 @@ impl TampinesSteamArray {
             p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
+            psi_refresh: PsiRefresh::EveryCorrector,
+            psi_rebuilt_this_outer: false,
+            knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
             ma_blend_lo: Ratio::new::<ratio>(0.3),
@@ -1135,6 +1285,14 @@ impl TampinesSteamArray {
         use uom::si::pressure::pascal;
         use uom::si::specific_volume::cubic_meter_per_kilogram;
         use uom::si::thermodynamic_temperature::kelvin;
+
+        // Whether psi is rebuilt on this call. See [`PsiRefresh`]: it is a
+        // linearisation coefficient, and `he` is frozen across the inner
+        // correctors, so rebuilding it on every one of them is optional work.
+        let rebuild_psi = match self.psi_refresh {
+            PsiRefresh::EveryCorrector => true,
+            PsiRefresh::OncePerOuterCorrector => !self.psi_rebuilt_this_outer,
+        };
 
         // Per-cell mass balance, evaluated once. Negative divergence means the
         // cell is gaining mass this step, which is the only circumstance in
@@ -1240,25 +1398,51 @@ impl TampinesSteamArray {
             let dp = (p_pa * 1.0e-3).max(50.0);
             let p_hi = (p_pa + dp).min(p_max_pa);
             let p_lo = (p_pa - dp).max(p_min_pa);
-            let psi_fd = if p_hi > p_lo {
-                let rho_hi = 1.0
-                    / v_ph_eqm(Pressure::new::<pascal>(p_hi), h_c)
-                        .get::<cubic_meter_per_kilogram>();
-                let rho_lo = 1.0
-                    / v_ph_eqm(Pressure::new::<pascal>(p_lo), h_c)
-                        .get::<cubic_meter_per_kilogram>();
-                (rho_hi - rho_lo) / (p_hi - p_lo)
-            } else {
-                // Degenerate (both bounds clamped together): fall back to the
-                // isothermal value so ψ stays defined at the EOS-range edges.
-                rho * kappa_t_ph_eqm(p_c, h_c).value
-            };
+            // These two flashes are the single most expensive thing in this
+            // function: t/v/mu/lambda/cp cost five between them, and this one
+            // central difference costs two on its own. Under
+            // `PsiRefresh::OncePerOuterCorrector` they are skipped on the inner
+            // correctors, which is the whole of the saving.
+            //
+            // The original unconditional form, kept here for reference because
+            // `EveryCorrector` must stay bit-identical to it:
+            //
+            // ```ignore
+            // let psi_fd = if p_hi > p_lo {
+            //     let rho_hi = 1.0 / v_ph_eqm(p_hi, h_c);
+            //     let rho_lo = 1.0 / v_ph_eqm(p_lo, h_c);
+            //     (rho_hi - rho_lo) / (p_hi - p_lo)
+            // } else {
+            //     rho * kappa_t_ph_eqm(p_c, h_c).value
+            // };
+            // self.psi.internal[c] = psi_fd.max(1e-12);
+            // ```
+            if rebuild_psi {
+                let psi_fd = if p_hi > p_lo {
+                    let rho_hi = 1.0
+                        / v_ph_eqm(Pressure::new::<pascal>(p_hi), h_c)
+                            .get::<cubic_meter_per_kilogram>();
+                    let rho_lo = 1.0
+                        / v_ph_eqm(Pressure::new::<pascal>(p_lo), h_c)
+                            .get::<cubic_meter_per_kilogram>();
+                    (rho_hi - rho_lo) / (p_hi - p_lo)
+                } else {
+                    // Degenerate (both bounds clamped together): fall back to
+                    // the isothermal value so psi stays defined at the
+                    // EOS-range edges.
+                    rho * kappa_t_ph_eqm(p_c, h_c).value
+                };
+                self.psi.internal[c] = psi_fd.max(1e-12);
+            }
 
             self.rho.internal[c] = rho.max(1e-4);
             self.t.internal[c] = t.get::<kelvin>();
-            self.psi.internal[c] = psi_fd.max(1e-12);
             self.mu.internal[c] = mu.value;
             self.alpha_h.internal[c] = lambda.value / cp.value;
+        }
+
+        if rebuild_psi {
+            self.psi_rebuilt_this_outer = true;
         }
     }
 
@@ -1473,6 +1657,10 @@ impl TampinesSteamArray {
         let mut hybrid_mom_src = vec![Vector3::ZERO; n];
 
         for _ in 0..n_outer {
+            // A fresh outer corrector re-linearises, so psi is due a rebuild
+            // regardless of the refresh policy.
+            self.psi_rebuilt_this_outer = false;
+
             // ── rhoEqn: explicit continuity ρ = ρ_old − dt·∇·φ ──────────────
             let div_phi = fvc::div_flux(&self.phi);
             self.rho = rho_old.clone() + (-dt) * div_phi;
@@ -2288,6 +2476,57 @@ impl TampinesSteamArray {
     /// per-cell source. There is no separate energy source — the enthalpy
     /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
     /// (see [`HybridDissipation`]).
+    /// Pressure and sound speed for one side of a KNP face.
+    ///
+    /// Returns the reconstructed pair unchanged under
+    /// [`KnpFaceClosure::ReconstructedPressure`]. Under
+    /// [`KnpFaceClosure::EosConsistentPressure`] it recovers the pressure from
+    /// the reconstructed `(rho, he)` instead, and takes the sound speed at that
+    /// pressure, so the face state KNP builds its wave speeds from is an
+    /// actual thermodynamic state.
+    ///
+    /// **Falls back to the reconstructed pair whenever the `(rho, he)` face
+    /// state is not one IF97 can represent.** MUSCL limiting is not
+    /// EOS-aware, so a steep front can reconstruct a `(rho, he)` combination
+    /// that lies outside the flash domain even though both neighbouring cells
+    /// are inside it. That is a reconstruction artefact, not a physical state,
+    /// and the right response is to use the interpolated pressure rather than
+    /// to panic or to invent one.
+    fn close_knp_face(
+        &self,
+        rho_si: f64,
+        he_si: f64,
+        p_reconstructed: f64,
+        c_reconstructed: f64,
+    ) -> (f64, f64) {
+        let c_fallback = c_reconstructed.max(C_MIN_MPS);
+        match self.knp_face_closure {
+            KnpFaceClosure::ReconstructedPressure => (p_reconstructed, c_fallback),
+            KnpFaceClosure::EosConsistentPressure => {
+                use crate::interfaces::functional_programming::rho_h_flash_eqm::{
+                    p_rho_h_eqm, rho_h_is_within_validity_range,
+                };
+                use uom::si::available_energy::joule_per_kilogram;
+                use uom::si::mass_density::kilogram_per_cubic_meter;
+
+                let rho_q = uom::si::f64::MassDensity::new::<kilogram_per_cubic_meter>(rho_si);
+                let h_q = uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(he_si);
+
+                if !rho_h_is_within_validity_range(rho_q, h_q) {
+                    return (p_reconstructed, c_fallback);
+                }
+
+                let p_eos = p_rho_h_eqm(rho_q, h_q).get::<uom::si::pressure::pascal>();
+                if !p_eos.is_finite() || p_eos <= 0.0 {
+                    return (p_reconstructed, c_fallback);
+                }
+
+                let c_eos = hem_sound_speed_ph(p_eos, he_si, C_MIN_MPS);
+                (p_eos, c_eos.max(C_MIN_MPS))
+            }
+        }
+    }
+
     fn assemble_hybrid_dissipation(&self) -> HybridDissipation {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
@@ -2424,19 +2663,39 @@ impl TampinesSteamArray {
             let sf = mesh.face_area_vectors[f];
             let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
 
+            // Close the face state's pressure and sound speed.
+            //
+            // Reached only past the Mach blend and the rarefied-tail taper, so
+            // this runs on the dense near-sonic flashing faces and nowhere
+            // else -- which is what makes the EOS-consistent option affordable.
+            let rho_l = rho_pos.internal[f].max(1e-10);
+            let rho_r = rho_neg.internal[f].max(1e-10);
+            let (p_l, c_l) = self.close_knp_face(
+                rho_l,
+                he_pos.internal[f],
+                p_pos.internal[f],
+                c_pos.internal[f],
+            );
+            let (p_r, c_r) = self.close_knp_face(
+                rho_r,
+                he_neg.internal[f],
+                p_neg.internal[f],
+                c_neg.internal[f],
+            );
+
             let l = FaceState {
-                rho: rho_pos.internal[f].max(1e-10),
+                rho: rho_l,
                 u: Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
                 he: he_pos.internal[f],
-                p: p_pos.internal[f],
-                c: c_pos.internal[f].max(C_MIN_MPS),
+                p: p_l,
+                c: c_l,
             };
             let r = FaceState {
-                rho: rho_neg.internal[f].max(1e-10),
+                rho: rho_r,
                 u: Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
                 he: he_neg.internal[f],
-                p: p_neg.internal[f],
-                c: c_neg.internal[f].max(C_MIN_MPS),
+                p: p_r,
+                c: c_r,
             };
 
             let knp = knp_face_flux(&l, &r, n_f);

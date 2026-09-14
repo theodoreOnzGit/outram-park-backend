@@ -235,7 +235,8 @@ pub(crate) fn adaptive_step(
 
     let threshold = (cfg.max_scale / cfg.safe_scale).r_powf(-1.0 / cfg.alpha_inc);
     *dx_try = if err > threshold {
-        let scale = (cfg.safe_scale * err.r_powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
+        let scale =
+            (cfg.safe_scale * err.r_powf(-cfg.alpha_inc)).clamp(cfg.min_scale, cfg.max_scale);
         dx * scale
     } else {
         dx * cfg.safe_scale * cfg.max_scale

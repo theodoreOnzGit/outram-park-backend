@@ -360,3 +360,54 @@ fn diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash() {
          {inverse_ns:.1} ns vs {forward_ns:.1} ns"
     );
 }
+
+/// Compares the three candidate answers in the ill-conditioned liquid: what
+/// the root find returns, the saturation pressure at the temperature implied
+/// by the enthalpy, and the true pressure.
+///
+/// The question this settles is whether `p_sat(T(h))` is a *new* answer or
+/// simply the one the bracketed solve already lands on. Diagnostic only.
+#[test]
+fn diagnose_saturation_fallback_against_the_root_find() {
+    use crate::interfaces::functional_programming::ph_flash_eqm::t_ph_eqm;
+    use crate::interfaces::functional_programming::rho_h_flash_eqm::{
+        p_rho_h_conditioning, p_rho_h_eqm,
+    };
+    use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
+    use uom::si::pressure::bar as bar_unit;
+    use uom::si::thermodynamic_temperature::kelvin;
+
+    println!(
+        "{:>28} {:>11} {:>11} {:>11} {:>11} {:>10}",
+        "state", "p_true bar", "p_solve bar", "p_sat bar", "T(h) K", "A"
+    );
+
+    for (p_bar_val, t_label) in [
+        (0.1_f64, "0.1 bar, 18 C"),
+        (0.5, "0.5 bar, 18 C"),
+        (1.0, "1 bar, 18 C"),
+        (10.0, "10 bar, 18 C"),
+        (70.0, "70 bar, 18 C"),
+        (990.0, "99 MPa, 18 C"),
+    ] {
+        // Build a subcooled-liquid state at ~18 degC and this pressure.
+        let p_true = Pressure::new::<bar_unit>(p_bar_val);
+        let t_target = ThermodynamicTemperature::new::<kelvin>(291.15);
+        let h = crate::region_1_subcooled_liquid::h_tp_1(t_target, p_true);
+        let v = v_ph_eqm(p_true, h).get::<cubic_meter_per_kilogram>();
+        let rho = MassDensity::new::<kilogram_per_cubic_meter>(1.0 / v);
+
+        let p_solve = p_rho_h_eqm(rho, h);
+        let t_from_h = t_ph_eqm(p_solve, h);
+        let p_sat = sat_pressure_4(t_from_h);
+        let a = p_rho_h_conditioning(rho, h);
+
+        println!(
+            "{t_label:>28} {:>11.5} {:>11.5} {:>11.5} {:>11.3} {a:>10.2e}",
+            p_true.get::<bar_unit>(),
+            p_solve.get::<bar_unit>(),
+            p_sat.get::<bar_unit>(),
+            t_from_h.get::<kelvin>(),
+        );
+    }
+}

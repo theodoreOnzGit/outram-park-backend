@@ -127,7 +127,7 @@
 //! break/GS-1 trace to stderr). Smaller `EDW_DT_US` (e.g. 10) reduces the
 //! acoustic-CFL overshoot at the initial rarefaction.
 
-use tampines_steam_tables::{SolverMode, TampinesSteamArray, ThermoClosure};
+use tampines_steam_tables::{KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray, ThermoClosure};
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, x_ph_flash,
@@ -355,6 +355,18 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // dedicated `edwards_hybrid_damps_ringing_vs_pimple` test below.
     if std::env::var("EDW_HYBRID").is_ok() {
         array.set_solver_mode(SolverMode::HybridAllMach);
+    }
+
+    // See `run_gauge_pressures` for what this selects.
+    if std::env::var("EDW_KNP_EOS").is_ok() {
+        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
+    }
+
+    // `EDW_PSI_OUTER=1` holds psi across the inner PISO correctors instead of
+    // rebuilding it on each, saving two (p,h) flashes per cell per inner
+    // corrector. See `PsiRefresh`.
+    if std::env::var("EDW_PSI_OUTER").is_ok() {
+        array.psi_refresh = PsiRefresh::OncePerOuterCorrector;
     }
 
     // `EDW_RHOH=1` swaps the thermodynamic closure from the validated
@@ -719,6 +731,13 @@ fn run_gauge_pressures(mode: SolverMode, t_end_s: f64, dt_us: f64) -> (Vec<f64>,
         uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
     );
     array.set_solver_mode(mode);
+
+    // `EDW_KNP_EOS=1` closes the KNP face state through the equation of state
+    // -- pressure from the reconstructed (rho, he) rather than from its own
+    // MUSCL reconstruction. Only has any effect in HybridAllMach.
+    if std::env::var("EDW_KNP_EOS").is_ok() {
+        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
+    }
 
     let n = array.mesh.n_cells;
     for c in 0..n {
