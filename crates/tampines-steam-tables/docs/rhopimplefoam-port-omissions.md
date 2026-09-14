@@ -65,10 +65,10 @@ silent, until then.
 
 | Band-aid | Where | Masks | Status |
 |---|---|---|---|
-| `pressureControl::limit` — clamp `p` into `[p_min, p_max]` | after the `pEqn` solve | Negative absolute pressure produced by checkerboarding (row 1). Measured: cell 21 solved to **−27.2 kPa** and was clamped to 611.8 Pa — a 6000× jump — **silently**. | **Faithful to upstream**, which also limits pressure. But upstream is not relying on it to survive; here it fires and hides the defect. Should report, not just clamp. |
+| `pressureControl::limit` — clamp `p` into `[p_min, p_max]` | after the `pEqn` solve | Pressure outside the EOS range. Was: cell 21 solving to **−27.2 kPa**, clamped to 611.8 Pa **silently**. | **KEPT and now LOUD** — one-shot warning naming the cell and the numbers, plus `pressure_bound_events()` / `pressure_bound_worst_undershoot()`. Still fires **150 times** after row 1 was fixed (worst undershoot 171.75 kPa), so a real defect remains; leading candidate is the `psi` linearisation window. Should become a hard gate once that is closed. |
 | Density floor `rho.max(1e-4)` | `correct_thermo` | A cell being drained of more mass than it holds. Measured: `rho_old - dt*div(phi) = -1.643`, i.e. **negative**, not merely small. | Masks the over-drain. Cannot be fixed by moving the floor: the quantity being floored is negative. |
 | `rho_cont` clamp `rc.max(1e-4)` | energy equation | Same over-drain, and it **breaks the exact discrete-continuity identity** that makes `h_old·(rho_cont − rho_old)/dt` cancel `h·div(phi)`. | This is the one that produced `he = -1.7e10 J/kg`. |
-| Drained-cell enthalpy hold (identity row) | energy equation | The division above. | Added 2026-09-14 (log A3). **Physically defensible** — a massless cell has no meaningful *specific* enthalpy — but it is still downstream of the disease. Re-evaluate once row 1 is fixed: if the checkerboard is gone, the hold may never fire, and should then be judged on whether it earns its keep. |
+| Drained-cell enthalpy hold (identity row) | energy equation | The division above. | Added 2026-09-14 (log A3). **KEPT and now INERT.** With row 1 fixed it engages **0 times** across the full 600 ms transient (log A7) — the over-drain it masks does not occur any more. Retained per maintainer direction as a guard against recurrence, now loud + counted (`drained_hold_events()`). Its zero count is the evidence it is not currently papering over anything. |
 
 ---
 

@@ -619,3 +619,97 @@ because the clamp reshapes them and nothing downstream happens to blow up.
 | # | Configuration | Result | Notes |
 |---|---|---|---|
 | A6 | A3 + `fvc::ddt_corr` at 30 µs | **PASS** 390.75 s | RMSE 58.6 → 42.8 psia; plateau into the measured band; **150 bound events remain** |
+
+---
+
+## A7 — does the enthalpy hold still fire? **No. Not once.**
+
+**Configuration.** A6, plus a counter on the drained-cell hold.
+
+**Result: PASS, 406.98 s.**
+
+```
+pressure-bound events    : 150 (worst undershoot 1.7175e5 Pa, worst overshoot 0.0000e0 Pa)
+drained-cell holds       : 0 (energy-hold band-aid engagements)
+```
+
+### Three things this settles
+
+**1. A6's pass is entirely attributable to `ddt_corr`.** The separate
+"`ddtCorr`-only, hold removed" run that A5 and A6 both said was needed is
+unnecessary: the hold never engaged, so it contributed nothing to the result.
+Counting the band-aid answered the isolation question more cheaply *and* more
+directly than toggling it would have.
+
+**2. The mass over-drain (D1) was itself a symptom, not the root.** A2 found
+`rho_old - dt*div(phi) = -1.643` and read it as the root cause, with the density
+floor as its consequence. That was one level too shallow. With the checkerboard
+removed the over-drain **does not occur at all** — zero engagements over 20 000
+timesteps. The chain is:
+
+> missing transient Rhie–Chow term → pressure checkerboard → negative pressure
+> at the stiff-liquid cell → clamp → over-drain at its neighbour → floored
+> continuity density → energy equation divides by the floor → `he = -1.7e10`
+
+Every stage below the first is downstream. Recorded because A2's conclusion is
+committed and should not be read as still standing.
+
+**3. The two band-aids now separate cleanly.** The pressure bound fires 150
+times; the hold fires zero. So the residual defect produces out-of-range
+*pressures* without draining any cell to the floor — a materially smaller
+problem than the one this campaign started with, and a more precisely located
+one.
+
+### Regression check
+
+`cargo test --release -p tampines-steam-tables --lib` → **1038 passed, 0 failed,
+14 ignored**. The solver change breaks nothing else in the crate.
+
+### Disposition of the band-aids
+
+Both are **kept**, per maintainer direction (2026-09-14): a solver that panics
+mid-transient is useless to a user, and a bounded result is usable so long as
+nobody mistakes it for a correct one. Both are now **loud** — a one-shot warning
+on first engagement naming the cell and the numbers, plus running counters — so
+neither can hide a defect the way the silent clamp hid this one.
+
+The enthalpy hold is now inert on this case. It stays as a guard against
+recurrence, and its zero count is the evidence that it is not papering over
+anything today.
+
+| # | Configuration | Result | Notes |
+|---|---|---|---|
+| A7 | A6 + hold counter | **PASS** 406.98 s | **holds = 0**; bound events 150; lib suite 1038 passed / 0 failed |
+
+---
+
+## Where this campaign ended
+
+**The post-PETIR failure is FIXED**, by restoring a term upstream has and this
+port had dropped — not by a workaround, and not by reverting the PETIR sweep
+that exposed it.
+
+| | golden (pre-PETIR) | now | Edwards experiment |
+|---|---|---|---|
+| 600 ms at `dt = 30 µs` | passed *(on the platform libm only)* | **passes** | — |
+| GS-1 RMSE vs data | 58.6 psia | **42.8 psia** | — |
+| flashing plateau | 392.7 psia | **359.0 psia** | ≈ 350–367 psia |
+
+**Still open** — `bn:op-bgg0` stays open on the strength of this:
+
+- **150 pressure-bound events, worst undershoot 171.75 kPa.** The pressure
+  equation still leaves the EOS range. Leading candidate is the `psi`
+  linearisation window (A5); now testable against a passing baseline.
+- The bound report should become a **hard gate** once that is fixed. It is
+  reported, not asserted, today because asserting it would fail a configuration
+  that is otherwise a genuine improvement.
+- Register rows 2, 4 and 5 (`bn:op-e1zz`) — especially **row 5**: there is no
+  wall-friction closure anywhere in the solver, and Edwards is a
+  pressure-history benchmark.
+
+**Two things I got wrong, kept here deliberately.** The A4 prediction that a
+smaller `Δt` would fail *earlier* — refuted by A5. And A2's reading of the
+over-drain as the root cause — refuted by A7. The fix was found by the
+upstream-omission audit, not by either hypothesis, which is the strongest
+argument in this log for keeping
+[`rhopimplefoam-port-omissions.md`](./rhopimplefoam-port-omissions.md) current.
