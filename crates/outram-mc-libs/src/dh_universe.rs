@@ -238,21 +238,27 @@ pub enum DhTreatment {
     /// SCLS at pf 0.2, with SCLS over-correcting past it. Measure on your own
     /// problem; do not assume the more elaborate method wins.
     ///
-    /// # Known wiring limitation — read before quoting an SCLS eigenvalue
+    /// # Wiring, and a correction — 2026-09-14
     ///
-    /// SCLS memory is meant to be **reset at every history boundary**
-    /// ([`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)).
-    /// The point-query seam the k-eff drivers expose is a bare
-    /// `Fn(Position) -> Option<usize>` with no history-boundary notification, so
-    /// through [`DhUniverse::keff`] the retention window is **not** reset and
-    /// one history inherits the previous history's remembered inclusions.
+    /// SCLS has two kinds of state and they are reset differently. The
+    /// in-progress **flight** is per-history and is discarded at each history
+    /// boundary through
+    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
+    /// The **retained inclusions** are not per-history at all — they are a
+    /// progressively reconstructed model of the packing, and
+    /// [`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)
+    /// deliberately keeps them so a later history in the same neighbourhood
+    /// still benefits.
     ///
-    /// That is not SCLS. The direction and size of the resulting bias have not
-    /// been measured, so an SCLS eigenvalue from this path is a measurement of
-    /// *this wiring*, not of the method. Fixing it needs a per-history hook on
-    /// the delta driver, tracked as a bead. The geometry-only timing in
-    /// `examples/dh_tracking_speedup.rs` is unaffected — it drives the medium
-    /// directly and does reset per flight.
+    /// **Two defects here made this arm CLS in all but name, and both are
+    /// fixed.** `begin_history` restored a pristine medium, wiping the retained
+    /// geometry every history; and the retention window was seeded from
+    /// `mean_chord_matrix()`, a *geometric* inter-inclusion distance, where the
+    /// rule calls for a *transport mean free path* — 0.132 cm against ~2.6 cm
+    /// on the FHR pebble, about **15x too small**. Both pushed SCLS towards CLS,
+    /// and the V&V duly measured the two within statistics of each other. Any
+    /// SCLS number recorded before 2026-09-14 is a measurement of that wiring,
+    /// not of the method.
     Scls,
 
     /// **Naive homogenisation.** One smeared material — TRISO particles and
@@ -501,13 +507,16 @@ enum DhGeometry {
         matrix_material: usize,
         outer: OuterShells,
     },
-    /// Semi-implicit chord-length sampling — CLS plus a retention window, reset
-    /// at each history boundary through
-    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
-    /// `template` is the pristine medium a new history is rebuilt from.
+    /// Semi-implicit chord-length sampling — CLS plus a retention window whose
+    /// *flight* is reset at each history boundary through
+    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history),
+    /// while the retained inclusions persist as reconstructed geometry.
+    ///
+    /// `window_set` guards the one-time sizing of the retention radius, which
+    /// needs cross sections and so cannot happen at construction.
     Scls {
         medium: Mutex<(SclsMedium, u64)>,
-        template: SclsMedium,
+        window_set: std::sync::atomic::AtomicBool,
         particle_material: usize,
         matrix_material: usize,
         outer: OuterShells,
@@ -590,6 +599,7 @@ pub struct DhUniverse {
     materials: Vec<Material>,
     domain: DeltaDomain,
     particles: usize,
+    packing_fraction: f64,
 }
 
 impl DhUniverse {
@@ -646,6 +656,11 @@ impl DhUniverse {
 
         let pf = params.spec.packing_fraction;
         let r_particle = params.spec.opyc;
+        // What the explicit packing actually realises inside the fuel zone. The
+        // approximate treatments do not pack, so they smear at the requested
+        // `pf`; `pack_in_ball` is responsible for making that the same number.
+        // Kept as a field so a caller can check rather than assume.
+        let mut achieved_pf = pf;
         let r_boundary = params.coolant_radius.unwrap_or(params.pebble_radius);
         let domain = DeltaDomain::Sphere { radius: r_boundary };
         let outer = OuterShells {
@@ -657,7 +672,9 @@ impl DhUniverse {
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
-                let packing = pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
+                let (packing, realised) =
+                    pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
+                achieved_pf = realised;
                 let n = packing.len();
                 let pebble = ExplicitTrisoPebble::new(
                     packing,
@@ -701,6 +718,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
             DhTreatment::Scls => {
@@ -715,12 +733,12 @@ impl DhUniverse {
                 // scale the sampler itself works in, so it is the natural stand-in
                 // for a spectrum-averaged mfp we do not have at construction time.
                 let window = cls.mean_chord_matrix();
-                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Scls {
-                        medium: Mutex::new((template.clone(), params.seed | 1)),
-                        template,
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
                         outer,
@@ -728,6 +746,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
             DhTreatment::Homogenised => {
@@ -753,6 +772,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
             DhTreatment::RingRpt { inner_radius } => {
@@ -794,6 +814,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
         };
@@ -804,6 +825,7 @@ impl DhUniverse {
             materials: params.materials,
             domain,
             particles,
+            packing_fraction: achieved_pf,
         })
     }
     /// Build a cube of fuel particles dispersed through a matrix.
@@ -876,11 +898,11 @@ impl DhUniverse {
                     MaterialId(MATRIX),
                 );
                 let window = cls.mean_chord_matrix();
-                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
                 (
                     DhGeometry::Scls {
-                        medium: Mutex::new((template.clone(), params.seed | 1)),
-                        template,
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
                         outer: OuterShells::none(),
@@ -910,6 +932,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: params.packing_fraction,
                 });
             }
             DhTreatment::RingRpt { .. } => {
@@ -935,7 +958,27 @@ impl DhUniverse {
             materials: params.materials,
             domain,
             particles,
+            packing_fraction: params.packing_fraction,
         })
+    }
+
+    /// The particle volume fraction this universe **actually** models.
+    ///
+    /// For [`DhTreatment::DeltaTracking`] this is measured from the packing that
+    /// was generated, not the number that was requested — those differ, because
+    /// the packer targets a cube while the fuel zone is the inscribed ball. For
+    /// every approximate treatment it is the requested fraction, since they
+    /// smear rather than pack.
+    ///
+    /// **Check it against what you asked for.** Until 2026-09-14 the explicit
+    /// arm silently realised 0.2894 against a requested 0.30 while the smeared
+    /// arms mixed at 0.30 exactly, so a comparison of *treatments* was also a
+    /// comparison of two fuel loadings 3.7 % apart — and the extra fuel
+    /// flattered every smeared arm. `pack_in_ball` now iterates onto the
+    /// requested fraction, and this accessor exists so the assumption is
+    /// checkable rather than implicit.
+    pub fn packing_fraction(&self) -> f64 {
+        self.packing_fraction
     }
 
     /// Which treatment this universe was built with.
@@ -1077,6 +1120,7 @@ impl DhUniverse {
         // produce, and is derived from the geometry rather than guessed.
         let reachable = self.reachable_materials();
         let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        self.size_scls_window(nuclides);
         run_keff_delta_in(
             self.domain,
             &self.materials,
@@ -1165,6 +1209,65 @@ impl core::fmt::Debug for DhUniverse {
     }
 }
 
+impl DhUniverse {
+    /// Size the SCLS retention window from real cross sections, once.
+    ///
+    /// SCLS's rule is `R = lambda_transport-mfp + R_largest`. The justification
+    /// is physical: one transport mean free path is the distance over which the
+    /// neutron's direction decorrelates, so geometry further away is unlikely to
+    /// be revisited before it would have been forgotten anyway. `R_largest`
+    /// guarantees an inclusion whose *body* still overlaps the neighbourhood is
+    /// retained even when its centre has just left.
+    ///
+    /// `lambda_transport-mfp` is a property of the **material and energy**, not
+    /// of the geometry, so it cannot be known when [`Self::pebble`] runs — there
+    /// are no nuclides yet. It is therefore set here, on the first
+    /// [`Self::keff`], and guarded so repeated calls do not re-cull.
+    ///
+    /// # The bug this replaces
+    ///
+    /// Construction seeded the window with `ClsMedium::mean_chord_matrix()`,
+    /// which is a **geometric** length — the mean distance *between* inclusions
+    /// — and not a transport mean free path, which is an *interaction* length.
+    /// On the FHR pebble that is 0.132 cm against roughly 2.6 cm: the window was
+    /// about **15x too small**, so nearly every remembered inclusion was culled
+    /// almost immediately and SCLS behaved like CLS. Combined with a
+    /// `begin_history` that also wiped the memory outright, that is why the two
+    /// measured within statistics of each other.
+    ///
+    /// # Approximations, stated
+    ///
+    /// - **One fixed radius for all energies.** The transport mfp varies by
+    ///   orders of magnitude across the spectrum; this evaluates it at thermal
+    ///   (0.0253 eV), which is where a graphite-moderated pebble does most of
+    ///   its scattering. A variable-radius SCLS is the design's own answer to
+    ///   this ([`SclsMedium::adapt_radius`], bead `op-eby.6`) and is not wired
+    ///   up here.
+    /// - **`lambda_tr` approximated by `1 / Sigma_t`**, i.e. the anisotropy
+    ///   correction `1 / (1 - mu_bar)` is dropped. For carbon `mu_bar = 2/(3A)`
+    ///   is 0.056, so this understates the window by ~6 % — three orders of
+    ///   magnitude less wrong than what it replaces, and in the conservative
+    ///   direction (a slightly smaller window retains slightly less).
+    fn size_scls_window(&self, nuclides: &[Nuclide]) {
+        use std::sync::atomic::Ordering;
+        let DhGeometry::Scls { medium, window_set, matrix_material, .. } = &self.geometry else {
+            return;
+        };
+        if window_set.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        const THERMAL_EV: f64 = 0.0253;
+        let sigma_t = self.materials[*matrix_material].macro_xs_total(THERMAL_EV, nuclides);
+        if !(sigma_t > 0.0) {
+            return; // a void matrix has no transport length to speak of
+        }
+        if let Ok(mut guard) = medium.lock() {
+            let r_largest = guard.0.cls().inclusion_radius();
+            guard.0.set_sphere_radius(1.0 / sigma_t + r_largest);
+        }
+    }
+}
+
 /// Lets a [`DhUniverse`] be handed straight to the delta-tracked k-eff drivers,
 /// and — the reason this is a trait impl rather than a closure — lets
 /// [`DhTreatment::Scls`] throw away its retention window at each history
@@ -1176,12 +1279,24 @@ impl MaterialQuery for &DhUniverse {
     }
 
     fn begin_history(&self) {
-        // Only SCLS carries per-history state. Restoring the pristine template
-        // resets the remembered inclusions and the flight phase together; the
-        // RNG stream deliberately carries on, so histories stay independent.
-        if let DhGeometry::Scls { medium, template, .. } = &self.geometry {
+        // Only SCLS carries per-history state, and the distinction between the
+        // two kinds of state is the whole method.
+        //
+        // `begin_flight` discards the in-progress FLIGHT — the phase the
+        // reconstruction is currently in — and deliberately KEEPS the retained
+        // inclusions, because those are *geometry*: a progressively
+        // reconstructed model of the packing that a later history in the same
+        // neighbourhood should still benefit from. Throwing them away every
+        // history is what degrades SCLS back into CLS, since each history would
+        // then start with no memory at all and could only accumulate within its
+        // own flight.
+        //
+        // This function did exactly that until 2026-09-14 (it restored a
+        // pristine clone), which is why SCLS and CLS measured within statistics
+        // of each other -- see the correction on [`DhTreatment::Scls`].
+        if let DhGeometry::Scls { medium, .. } = &self.geometry {
             if let Ok(mut guard) = medium.lock() {
-                guard.0 = template.clone();
+                guard.0.begin_flight();
             }
         }
     }
@@ -1339,32 +1454,98 @@ impl RingRptFit {
     }
 }
 
-/// RSA-pack whole particles into a ball of `radius`, via a cube clip.
+/// RSA-pack whole particles into a ball of `radius`, **hitting the requested
+/// packing fraction inside that ball** rather than inside the cube it was
+/// generated in.
+///
+/// Returns the packing and the fraction it actually realised.
+///
+/// # Why this needs an iteration at all
+///
+/// [`PackingConfig`] targets its packing fraction over a **cube** of half-width
+/// `radius + particle_radius`, and this function then keeps only the spheres
+/// lying *wholly* inside the inscribed ball. Both steps move the fraction, in
+/// opposite directions and by different amounts, so the in-ball result is not
+/// the number that was asked for: on the FHR reference pebble a request of 0.30
+/// realised **0.2894**, i.e. 3.7 % less heavy metal than specified.
+///
+/// That mattered because the approximate treatments do not pack — they smear at
+/// `spec.packing_fraction` directly. An explicit arm at 0.2894 compared against
+/// smeared arms at 0.3000 is not a comparison of *treatments*, it is a
+/// comparison of two different fuel loadings, and the extra fuel flatters every
+/// smeared arm. `examples/fhr_ring_rpt_endf.rs` already corrected for this with
+/// a one-step rescale; this constructor did not.
+///
+/// # The measurement is exact, not sampled
+///
+/// Every kept sphere lies wholly inside the ball, so the realised fraction is
+/// `n * (r / R)^3` in closed form — no Monte Carlo estimate and no sampling
+/// error. (`PackedSpheres::volume_fraction_in_ball` samples, which is the right
+/// tool when spheres may straddle the boundary; here none do.)
+///
+/// # Convergence
+///
+/// The kept count is very nearly linear in the requested fraction, so a
+/// secant-style rescale `request *= target / realised` converges in two or
+/// three steps. The loop is capped and returns the best attempt rather than
+/// spinning; `tolerance` is relative.
 fn pack_in_ball(
     particle_radius: f64,
     radius: f64,
     packing_fraction: f64,
     seed: u64,
-) -> Result<PackedSpheres, DhError> {
+) -> Result<(PackedSpheres, f64), DhError> {
+    const TOLERANCE: f64 = 2.0e-3; // 0.2 % of the requested fraction
+    const MAX_STEPS: usize = 6;
+
     let half = radius + particle_radius;
-    let cfg = PackingConfig {
-        particle_radius,
-        packing_fraction,
-        domain_half_width: half,
-        method: PackingMethod::Rsa,
-        seed,
+    let unit = (particle_radius / radius).powi(3); // one sphere's share of the ball
+
+    let attempt = |request: f64| -> Result<(PackedSpheres, f64), DhError> {
+        let cfg = PackingConfig {
+            particle_radius,
+            packing_fraction: request,
+            domain_half_width: half,
+            method: PackingMethod::Rsa,
+            seed,
+        };
+        let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
+        let kept: Vec<_> = spheres
+            .into_iter()
+            .filter(|s| s.center.norm() + particle_radius <= radius)
+            .collect();
+        if kept.is_empty() {
+            return Err(DhError::Packing(
+                "no particles fell inside the fuel zone".into(),
+            ));
+        }
+        let realised = kept.len() as f64 * unit;
+        Ok((PackedSpheres::from_spheres(kept, half, particle_radius), realised))
     };
-    let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
-    let kept: Vec<_> = spheres
-        .into_iter()
-        .filter(|s| s.center.norm() + particle_radius <= radius)
-        .collect();
-    if kept.is_empty() {
-        return Err(DhError::Packing(
-            "no particles fell inside the fuel zone".into(),
-        ));
+
+    let mut request = packing_fraction;
+    let (mut packing, mut realised) = attempt(request)?;
+    let mut best = (packing, realised);
+    let mut best_err = (realised / packing_fraction - 1.0).abs();
+
+    for _ in 0..MAX_STEPS {
+        if best_err <= TOLERANCE {
+            break;
+        }
+        // Secant rescale. Clamped below random close packing so a bad step
+        // cannot ask the generator for something it must refuse.
+        request = (request * packing_fraction / realised).clamp(1.0e-4, 0.63);
+        let (p, r) = attempt(request)?;
+        packing = p;
+        realised = r;
+        let err = (realised / packing_fraction - 1.0).abs();
+        if err < best_err {
+            best_err = err;
+            best = (packing, realised);
+        }
     }
-    Ok(PackedSpheres::from_spheres(kept, half, particle_radius))
+
+    Ok(best)
 }
 
 /// Volume-homogenise the five TRISO layers into one particle material.
@@ -1689,6 +1870,170 @@ mod tests {
                 t.name()
             );
         }
+    }
+
+    /// **Every arm must model the same fuel inventory**, or a treatment
+    /// comparison is also a comparison of two different reactors.
+    ///
+    /// The explicit arm packs; the approximate arms smear at
+    /// `spec.packing_fraction`. Those agree only if the packing actually hits
+    /// the fraction it was asked for, and before 2026-09-14 it did not — it
+    /// realised 0.2894 against a requested 0.30, handing every smeared arm
+    /// 3.7 % more heavy metal than the reference it was judged against.
+    #[test]
+    fn every_treatment_models_the_same_packing_fraction() {
+        let target = TrisoSpec::FHR_HALEU_UCO.packing_fraction;
+        let mut fractions = Vec::new();
+        for t in DhTreatment::ALL {
+            let u = DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                t,
+            )
+            .unwrap_or_else(|e| panic!("{} failed to build: {e}", t.name()));
+            let pf = u.packing_fraction();
+            assert!(
+                (pf / target - 1.0).abs() <= 5.0e-3,
+                "{} models pf {pf:.5} against a requested {target:.5} ({:+.2} %) — the arms \
+                 are not comparable",
+                t.name(),
+                100.0 * (pf / target - 1.0)
+            );
+            fractions.push(pf);
+        }
+        let (lo, hi) = (
+            fractions.iter().cloned().fold(f64::INFINITY, f64::min),
+            fractions.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        );
+        assert!(
+            (hi / lo - 1.0).abs() <= 5.0e-3,
+            "arms span pf {lo:.5}..{hi:.5}, a {:+.2} % inventory difference between \
+             treatments that are supposed to differ only in how geometry is resolved",
+            100.0 * (hi / lo - 1.0)
+        );
+    }
+
+    /// The realised fraction is exact, not sampled: every kept sphere lies
+    /// wholly inside the ball, so it is `n * (r/R)^3` in closed form. Pinning
+    /// that keeps the accessor honest if the clip convention ever changes.
+    #[test]
+    fn reported_packing_fraction_matches_the_stored_particles() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::DeltaTracking,
+        )
+        .unwrap();
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let expected = u.particle_count() as f64 * (spec.opyc / 1.9_f64).powi(3);
+        assert!(
+            (u.packing_fraction() - expected).abs() < 1.0e-12,
+            "reported {:.6} but {} particles imply {expected:.6}",
+            u.packing_fraction(),
+            u.particle_count()
+        );
+    }
+
+    /// **SCLS must remember geometry across history boundaries.** That is the
+    /// entire difference between it and CLS.
+    ///
+    /// `begin_history` resets the in-progress *flight* but must keep the
+    /// retained inclusions, which are a reconstructed model of the packing
+    /// rather than per-history state. Until 2026-09-14 it restored a pristine
+    /// medium instead, so every history began with no memory and SCLS decayed
+    /// into CLS — measured, and indistinguishable from it.
+    #[test]
+    fn scls_retains_inclusions_across_history_boundaries() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::Scls,
+        )
+        .expect("SCLS pebble builds");
+
+        let retained = || match &u.geometry {
+            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.histories().len(),
+            _ => unreachable!("built as SCLS"),
+        };
+
+        // Size the retention window exactly as `keff` does. Without this the
+        // window is still the construction-time placeholder, and a walk longer
+        // than it culls everything — which is precisely the second defect, and
+        // is worth noting as the reason this line is not optional.
+        let nucs = vec![Nuclide::from_core("C0").expect("embedded carbon")];
+        u.size_scls_window(&nucs);
+
+        // Walk a line through the fuel zone so the sampler meets inclusions.
+        let walk = |z0: f64| {
+            for i in 0..400 {
+                let z = z0 + 0.002 * i as f64;
+                let _ = u.material_at(Position { x: 0.0, y: 0.0, z });
+            }
+        };
+
+        MaterialQuery::begin_history(&&u);
+        walk(-1.0);
+        let after_first = retained();
+        assert!(
+            after_first > 0,
+            "SCLS remembered nothing at all during a history — the sampler is not \
+             retaining inclusions"
+        );
+
+        // The boundary that used to wipe everything.
+        MaterialQuery::begin_history(&&u);
+        let after_boundary = retained();
+        assert_eq!(
+            after_boundary, after_first,
+            "begin_history dropped {} of {after_first} retained inclusions; it must reset the \
+             flight only, not the reconstructed geometry",
+            after_first - after_boundary
+        );
+
+        // And a second history keeps accumulating rather than starting over.
+        walk(-1.0);
+        assert!(
+            retained() >= after_first,
+            "memory shrank across a second pass: {} < {after_first}",
+            retained()
+        );
+    }
+
+    /// The retention window must be a **transport** mean free path, not the
+    /// geometric distance between inclusions. Seeding it from
+    /// `mean_chord_matrix()` made it ~15x too small on the FHR pebble, so
+    /// almost everything was culled immediately.
+    ///
+    /// This checks the sizing actually happens and lands on the right order of
+    /// magnitude, using a matrix whose total cross section is known.
+    #[test]
+    fn scls_window_is_a_transport_mfp_not_a_chord_length() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::Scls,
+        )
+        .unwrap();
+
+        let radius = || match &u.geometry {
+            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.sphere().radius,
+            _ => unreachable!(),
+        };
+        let before = radius();
+
+        // dummy_materials uses 8.0e-2 atoms/b-cm of nuclide 0; from_core("C0")
+        // gives a real carbon evaluation, so 1/Sigma_t is a genuine mfp.
+        let nucs = vec![Nuclide::from_core("C0").expect("embedded carbon")];
+        u.size_scls_window(&nucs);
+        let after = radius();
+
+        let sigma_t = u.materials[5].macro_xs_total(0.0253, &nucs);
+        let expected = 1.0 / sigma_t + TrisoSpec::FHR_HALEU_UCO.opyc;
+        assert!(
+            (after - expected).abs() < 1.0e-9,
+            "window {after:.4} cm, expected 1/Sigma_t + r = {expected:.4} cm"
+        );
+        assert!(
+            after > 5.0 * before,
+            "window barely moved ({before:.4} -> {after:.4} cm); the chord-length seed was \
+             ~15x too small, so a correct sizing must be much larger"
+        );
     }
 
     /// A coolant radius inside the pebble is a contradiction, not a clamp.
