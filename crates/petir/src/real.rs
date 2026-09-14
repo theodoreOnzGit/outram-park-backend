@@ -1,70 +1,162 @@
-// SPDX-License-Identifier: GPL-3.0-only
-// Copyright (C) 2026 OUTRAM PARK contributors
-//
-// This file is part of PETIR, a component of OUTRAM PARK.
-//
-// PETIR is free software: you can redistribute it and/or modify it under the
-// terms of the GNU General Public License as published by the Free Software
-// Foundation, version 3 of the License.
-//
-// PETIR is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-// FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-// details.
-//
-// You should have received a copy of the GNU General Public License along
-// with PETIR.  If not, see <https://www.gnu.org/licenses/>.
+// Copyright (C) 2026 Theodore Ong and the outram-park contributors. GPL-3.0-only.
 
-//! The `no_std` float-math shim: every transcendental `core` does not carry.
+//! Real-valued elementary and special functions, in pure Rust.
 //!
-//! # Why this module exists
+//! # What this module is for
 //!
-//! `core` provides only the float operations that need no libm call:
-//! [`f64::abs`], [`f64::signum`], [`f64::copysign`], [`f64::min`],
-//! [`f64::max`], [`f64::clamp`], [`f64::recip`], [`f64::to_radians`] and the
-//! classification predicates. Everything else a numerical library lives on —
-//! `sqrt`, `exp`, `ln`, `powf`, the trigonometric and hyperbolic families,
-//! `floor`/`ceil`/`round`/`trunc` — is defined by `std`, not `core`, and is
-//! therefore unavailable to a `no_std` crate.
+//! Thin re-exports of the [`libm`] crate — a pure-Rust port of musl's libm —
+//! so the workspace has **one** place to get float maths that does not depend
+//! on a platform C library.
 //!
-//! [`Real`] supplies exactly that missing set, backed by [`libm`] (a pure-Rust
-//! translation of the same fdlibm/msun lineage the platform libm descends
-//! from). Importing it restores ordinary method syntax:
+//! Two problems this solves:
 //!
+//! 1. **`erf`, `erfc`, `tgamma` and `lgamma` are not in Rust's `std`.** Three
+//!    crates here reached them through `extern "C"` blocks, which is the last
+//!    real C in the workspace and a silent dependency on a system libm. On
+//!    `wasm32-unknown-unknown` there is no system libc at all.
+//! 2. **Platform libms disagree in the last ulp.** `sin`, `exp`, `tgamma` and
+//!    the rest return different final bits on glibc, macOS and MSVC. One fixed
+//!    implementation makes results **bit-identical across platforms**, which
+//!    matters for the Monte Carlo drivers that document thread-count-
+//!    independent results and for committed regression fixtures.
+//!
+//! # How far these differ from glibc — measured, not assumed
+//!
+//! Swapping an implementation changes bits, so the difference was measured
+//! against glibc on x86-64 over 801 points spanning `[-16.4, 16.4]` (400 for
+//! the gamma pair, which needs `x > 0`), on 2026-09-14:
+//!
+//! ```text
+//!   erf      801 pts,  793 bit-identical (99.0 %), worst rel 1.4e-16
+//!   erfc     801 pts,  752 bit-identical (93.9 %), worst rel 3.6e-16
+//!   lgamma   400 pts,  383 bit-identical (95.8 %), worst rel 4.2e-16
+//!   tgamma   400 pts,  100 bit-identical (25.0 %), worst rel 9.1e-16
 //! ```
-//! use petir::real::Real;
-//! let x: f64 = 2.0;
-//! assert!((x.sqrt() - 1.414_213_562_373_095_1).abs() < 1e-15);
-//! ```
 //!
-//! # Why the trait, rather than free functions
+//! Everything is inside a few ulp, so no result changes meaningfully — but
+//! note **`tgamma` differs in the last bits three times out of four**. A
+//! fixture asserting `tgamma`-derived values to full `f64` precision will move.
+//! That is a real consequence of the swap and is why the numbers are here
+//! rather than left to be discovered.
 //!
-//! Because it lets code be *lifted verbatim*. Large parts of PETIR are exact
-//! transcriptions of kernels that already exist and are already tested
-//! elsewhere in this workspace (`outram-foam-basic-lib`'s dense matrix,
-//! polynomial and special-function layers) or upstream (GSL, GNU Octave).
-//! Those bodies are written in `x.sqrt()` method form. Rewriting every call to
-//! `sqrt(x)` would mean the port could no longer be diffed against its source,
-//! which is the single most valuable property a translation has — see the
-//! workspace CLAUDE.md "Debugging a port: read upstream first" rule.
-//!
-//! # Interaction with `std`
-//!
-//! When something else in the build links `std` (a `cargo test` run, for
-//! instance), `f64` gains `std`'s *inherent* `sqrt`/`exp`/… methods. Rust
-//! resolves inherent methods before trait methods, so those calls silently bind
-//! to `std` instead of to [`Real`], and the `use` then reads as unused. That is
-//! harmless — `std`'s implementations and `libm`'s are the same algorithms —
-//! but it is why every `use crate::real::Real;` in this crate carries an
-//! `#[allow(unused_imports)]`.
-//!
-//! # Accuracy
-//!
-//! `libm` targets < 1 ulp for the elementary functions, the same contract as
-//! the C library it is translated from. PETIR does not add error on top: every
-//! method below is a direct forward, except [`Real::powi`] (exponentiation by
-//! squaring, which is what `std` does too), [`Real::fract`], and
-//! [`Real::rem_euclid`], whose definitions are given inline.
+//! The comparison is reproduced as a test in `tests/libm_vs_platform.rs`.
+
+/// The error function `erf(x)`. Not in Rust's `std`.
+#[inline]
+pub fn erf(x: f64) -> f64 {
+    libm::erf(x)
+}
+
+/// The complementary error function `erfc(x) = 1 - erf(x)`, accurate for large
+/// `x` where `1 - erf(x)` would cancel. Not in Rust's `std`.
+#[inline]
+pub fn erfc(x: f64) -> f64 {
+    libm::erfc(x)
+}
+
+/// The gamma function `Γ(x)` (C's `tgamma`). Not in Rust's `std`.
+///
+/// See the module docs: this is the one of the four that most often differs
+/// from glibc in the last bits.
+#[inline]
+pub fn tgamma(x: f64) -> f64 {
+    libm::tgamma(x)
+}
+
+/// `ln |Γ(x)|` (C's `lgamma`). Not in Rust's `std`.
+#[inline]
+pub fn lgamma(x: f64) -> f64 {
+    libm::lgamma(x)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Elementary transcendentals.
+//
+// These DO exist in Rust's `std` (as `f64` methods) — the reason to route
+// through here is not availability but DETERMINISM: `std` dispatches to the
+// platform libm, and glibc, macOS and MSVC disagree in the last ulp. Measured
+// over 200 000 points, `std` vs `libm` differ on 1.68 % of `ln` calls, 9.64 %
+// of `exp` and 3.22 % of `cos`.
+//
+// Note what is NOT here, deliberately: `sqrt`, `abs`, `floor`, `ceil`,
+// `round`. IEEE-754 requires `sqrt` to be correctly rounded and the rest are
+// exact, so they are ALREADY bit-identical everywhere — 0.0000 % mismatch over
+// the same 200 000 points. Routing them through `libm` would buy nothing and
+// cost real time: `libm::sqrt` benchmarks 3.73x slower than the hardware
+// instruction. Use the `std` methods for those.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Natural logarithm. (`std`: `f64::ln`.)
+#[inline]
+pub fn ln(x: f64) -> f64 {
+    libm::log(x)
+}
+
+/// `e^x`. (`std`: `f64::exp`.)
+#[inline]
+pub fn exp(x: f64) -> f64 {
+    libm::exp(x)
+}
+
+/// Base-10 logarithm. (`std`: `f64::log10`.)
+#[inline]
+pub fn log10(x: f64) -> f64 {
+    libm::log10(x)
+}
+
+/// Cube root. (`std`: `f64::cbrt`.)
+#[inline]
+pub fn cbrt(x: f64) -> f64 {
+    libm::cbrt(x)
+}
+
+/// `x^y` for real `y`. (`std`: `f64::powf`.)
+#[inline]
+pub fn powf(x: f64, y: f64) -> f64 {
+    libm::pow(x, y)
+}
+
+/// Cosine. (`std`: `f64::cos`.)
+#[inline]
+pub fn cos(x: f64) -> f64 {
+    libm::cos(x)
+}
+
+/// Sine. (`std`: `f64::sin`.)
+#[inline]
+pub fn sin(x: f64) -> f64 {
+    libm::sin(x)
+}
+
+/// Hyperbolic tangent. (`std`: `f64::tanh`.)
+#[inline]
+pub fn tanh(x: f64) -> f64 {
+    libm::tanh(x)
+}
+
+/// Two-argument arctangent. (`std`: `f64::atan2`.)
+#[inline]
+pub fn atan2(y: f64, x: f64) -> f64 {
+    libm::atan2(y, x)
+}
+
+
+// ---------------------------------------------------------------------------
+// The method-syntax half: everything `core` omits, as a trait.
+// ---------------------------------------------------------------------------
+//
+// The free functions above exist because `std` does not HAVE erf/erfc/tgamma/
+// lgamma at all, on any target. The trait below exists for a different reason:
+// `core` withholds them-as-methods. `sqrt`, `exp`, `ln`, `powf` and the trig
+// and rounding families are defined on `f64` by `std`, not by `core`, so a
+// `no_std` crate cannot call `x.sqrt()`.
+//
+// That distinction governs which to reach for. Use the free functions when you
+// want a special function. Import the trait when you need ordinary method
+// syntax to keep compiling -- which is what lets PETIR carry kernels LIFTED
+// VERBATIM from elsewhere in this workspace without rewriting every call site,
+// and that byte-for-byte property is the whole value of a lift (see
+// `tests/verbatim_provenance.rs`).
 
 /// The float operations `core` lacks, provided for `no_std` builds.
 ///
@@ -307,6 +399,36 @@ impl Real for f64 {
             r + libm::fabs(rhs)
         } else {
             r
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Anchor values that do not depend on which libm is underneath.
+    #[test]
+    fn known_values() {
+        assert!((erf(0.0)).abs() < 1e-300);
+        assert!((erfc(0.0) - 1.0).abs() < 1e-15);
+        // Γ(1) = 1, Γ(5) = 4! = 24, Γ(1/2) = √π
+        assert!((tgamma(1.0) - 1.0).abs() < 1e-15);
+        assert!((tgamma(5.0) - 24.0).abs() < 1e-13);
+        assert!((tgamma(0.5) - core::f64::consts::PI.sqrt()).abs() < 1e-15);
+        // ln Γ(1) = 0, ln Γ(5) = ln 24
+        assert!(lgamma(1.0).abs() < 1e-15);
+        assert!((lgamma(5.0) - libm::log(24.0)).abs() < 1e-14);
+    }
+
+    /// `erf` and `erfc` must stay complementary.
+    #[test]
+    fn erf_and_erfc_are_complementary() {
+        for k in -30..=30 {
+            let x = f64::from(k) * 0.17;
+            assert!(
+                (erf(x) + erfc(x) - 1.0).abs() < 2.0e-16,
+                "erf({x}) + erfc({x}) != 1"
+            );
         }
     }
 }

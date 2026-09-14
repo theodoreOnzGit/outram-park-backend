@@ -114,6 +114,9 @@
 //! | Module | Lineage | Covers |
 //! |---|---|---|
 //! | [`cheb`] | ported | Chebyshev series fitting at Chebyshev nodes, evaluation with error estimate, exact derivative and integral |
+//! | [`cheb_slice`] | ported | Adapter between GSL's and `tampines`' Chebyshev coefficient conventions, plus 2-D tensor-product evaluators |
+//! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
+//! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
 //! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS |
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
 //! | [`specfunc`] | ported + lifted + delegated | Error-function family incl. the scaled `erfcx`, gamma family with GSL's Padé branches, incomplete gamma and its inverse |
@@ -154,7 +157,10 @@ extern crate alloc;
 extern crate std;
 
 pub mod cheb;
+pub mod cheb_slice;
 pub mod error;
+pub mod expint;
+pub mod gamma_inc;
 pub mod linalg;
 pub mod poly;
 pub mod real;
@@ -164,5 +170,8 @@ pub mod specfunc;
 pub mod transfer_fn;
 
 pub use cheb::ChebSeries;
+pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale};
+pub use expint::{expint_e1, expint_e1_scaled};
+pub use gamma_inc::{gamma_inc_lower, gamma_inc_p};
 pub use error::{PetirError, Result};
-pub use real::Real;
+pub use real::{erf, erfc, lgamma, tgamma, Real};
