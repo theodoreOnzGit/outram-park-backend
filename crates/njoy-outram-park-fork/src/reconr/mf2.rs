@@ -718,9 +718,45 @@ fn parse_reich_moore(
 
 /// LRU=2: unresolved resonance region — header parse only.
 ///
-/// RECONR does not use unresolved parameters (that is PURR's job). We read the
-/// SPI/AP header CONT so the cursor advances past the range header, then return
-/// a placeholder.
+/// We read the SPI/AP header CONT so the cursor advances past the range
+/// header, then return a placeholder.
+///
+/// # This is a KNOWN GAP, not a design decision
+///
+/// **This doc comment used to say "RECONR does not use unresolved parameters
+/// (that is PURR's job)". That is wrong about upstream** and the correction is
+/// kept here because the mistaken version made a real hole look intended.
+/// `reconr.f90`'s own header (`:81-87`) says the opposite: *"If unresolved
+/// parameters are present, the infinitely dilute cross sections are computed
+/// on a special energy grid … and the table is also used to compute the
+/// unresolved contributions in MF3."* PURR's job is the *self-shielded*
+/// treatment; the *infinitely dilute* one belongs here.
+///
+/// # What it costs, and why it is invisible on the usual materials
+///
+/// Whether it matters is decided by the range's **`LSSF` flag**, not by
+/// anything in this port:
+///
+/// - **`LSSF = 1`** — MF=3 already carries the infinitely-dilute unresolved
+///   cross sections, so RECONR adds nothing and skipping them is correct.
+///   ENDF/B-VIII.0 **U-235** and **U-238** are both `LSSF = 1`, which is why
+///   every case built on them looks healthy.
+/// - **`LSSF = 0`** — MF=3 does **not** carry them, and RECONR is expected to
+///   reconstruct them from the unresolved parameters. Skipping them leaves the
+///   whole unresolved window at **zero cross section**.
+///
+/// Measured 2026-09-14 on **U-234** (ENDF/B-VIII.0, MAT 9225, `LSSF = 0`,
+/// URR `1.5e3 .. 1.0e5 eV`): 7 of 10 log-spaced samples of MT=1 across that
+/// window come back `0.0`, against NJOY2016's `2.032567e1 b` at 1700 eV. MT=2,
+/// MT=18 and MT=102 are zero there too, and the MF=3 background is itself zero
+/// — so nothing fills the gap. **A zero total cross section is an infinite
+/// flight in transport**, and U-234 is one of Godiva's three ICSBEP nuclides.
+///
+/// # The machinery already exists — this is wiring, not porting
+///
+/// [`crate::unresr::unresolved_cross_sections`] computes exactly what is
+/// needed; pass `sig0 = [1e10]` for infinite dilution. It is currently
+/// consumed only by PURR. Tracked as `bn:op-12lu`.
 fn parse_lru2_header(
     cur: &mut SectionCursor<'_>,
     el: f64,
